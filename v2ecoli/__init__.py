@@ -1,1 +1,1 @@
-from v2ecoli.composite import generate_document, load_composite
+from v2ecoli.composite import generate_document, load_simulation

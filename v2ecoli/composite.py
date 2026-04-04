@@ -192,8 +192,8 @@ def apply_step_update(cell_state, edge, instance, delta, unique_updaters=None):
     """Apply a step's delta update to cell_state by following output wire paths."""
     try:
         ports = instance.ports_schema()
-    except Exception:
-        return
+    except (Exception, AttributeError):
+        ports = {}
 
     output_wires = edge.get('outputs', {})
 
@@ -552,9 +552,13 @@ class EcoliSimulation:
                     view = _build_view(cell_state, edge, instance)
                     view = fill_missing_state(view, instance)
 
+                    params = getattr(instance, 'parameters', {})
+                    ts = params.get('timestep', timestep) if isinstance(params, dict) else timestep
+
                     if hasattr(instance, 'next_update'):
-                        ts = instance.parameters.get('timestep', timestep)
                         delta = instance.next_update(ts, view)
+                    elif hasattr(instance, 'update'):
+                        delta = instance.update(view)
                     else:
                         delta = {}
 

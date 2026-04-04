@@ -204,8 +204,23 @@ def listener_schema(elements: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
 
 
 def numpy_schema(name, emit=True):
-    """Schema for bulk/unique molecule arrays."""
-    return {"_default": [], "_emit": emit}
+    """Schema for bulk/unique molecule arrays with proper updaters."""
+    schema = {"_default": [], "_emit": emit}
+    if name == "bulk":
+        schema["_updater"] = bulk_numpy_updater
+    else:
+        schema["_updater"] = UniqueNumpyUpdater().updater
+    return schema
+
+
+def bulk_numpy_updater(current, update):
+    """Updater for bulk molecule structured arrays.
+    Updates are lists of (idx, value) tuples added to the count field."""
+    result = current
+    result.flags.writeable = True
+    for idx, value in update:
+        result["count"][idx] += value
+    return result
 
 
 def zero_listener(listener):

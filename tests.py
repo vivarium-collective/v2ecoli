@@ -12,7 +12,8 @@ from wholecell.utils.filepath import ROOT_PATH
 from ecoli.experiments.ecoli_master_sim import EcoliSim
 from ecoli.library.schema import not_a_process
 
-from v2ecoli import generate_document, load_simulation
+from v2ecoli.generate import generate_document
+from v2ecoli.composite import load_simulation
 
 
 DOCUMENT_PATH = 'out/ecoli.pickle'

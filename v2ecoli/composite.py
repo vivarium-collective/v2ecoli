@@ -1,27 +1,20 @@
 """
-Document generation and simulation engine for v2ecoli.
+Self-contained simulation engine for v2ecoli.
 
-Uses EcoliSim from vEcoli to generate initial state and process configs,
-then runs the simulation using v2ecoli processes with in-place state mutation.
+No dependencies on vEcoli, genEcoli, vivarium, or wholecell at runtime.
+Loads a pre-generated pickle document and runs the simulation using
+in-place state mutation with v1-compatible updaters.
 """
 
-import os
 import copy
 import functools
-import time
 
 import dill
 import numpy as np
 
-from contextlib import chdir
+from bigraph_schema import get_path
 
-from bigraph_schema import deep_merge, get_path
-
-from wholecell.utils.filepath import ROOT_PATH
-from ecoli.experiments.ecoli_master_sim import EcoliSim, CONFIG_DIR_PATH
-
-import ecoli.library.schema as ecoli_schema_mod
-from ecoli.library.schema import UniqueNumpyUpdater, bulk_numpy_updater
+from v2ecoli.library.schema import UniqueNumpyUpdater
 
 
 # ---------------------------------------------------------------------------
@@ -45,20 +38,55 @@ def _make_arrays_writeable(state):
                 _make_arrays_writeable(value)
 
 
-def _disable_readonly_arrays():
-    """Monkey-patch bulk_numpy_updater to not set arrays read-only."""
-    if hasattr(ecoli_schema_mod.bulk_numpy_updater, '_patched'):
-        return
+def _is_unique_numpy_updater(updater):
+    """Check if an updater is a UniqueNumpyUpdater bound method (duck-typed)."""
+    if not hasattr(updater, '__self__'):
+        return False
+    obj = updater.__self__
+    return (hasattr(obj, 'add_updates')
+            and hasattr(obj, 'set_updates')
+            and hasattr(obj, 'delete_updates'))
 
-    @functools.wraps(bulk_numpy_updater)
-    def writeable_updater(current, update):
-        current.flags.writeable = True
-        for idx, value in update:
-            current["count"][idx] += value
-        return current
 
-    writeable_updater._patched = True
-    ecoli_schema_mod.bulk_numpy_updater = writeable_updater
+def _is_bulk_numpy_updater(updater):
+    """Check if an updater is a bulk_numpy_updater function (duck-typed)."""
+    name = getattr(updater, '__name__', '')
+    wrapped = getattr(updater, '__wrapped__', None)
+    wrapped_name = getattr(wrapped, '__name__', '') if wrapped else ''
+    return name in ('bulk_numpy_updater', 'writeable_updater') or \
+           wrapped_name == 'bulk_numpy_updater'
+
+
+def _disable_readonly_updaters(cell_state):
+    """Patch bulk_numpy_updater instances on process ports to not set read-only.
+
+    Finds all callable updaters on process instances that look like
+    bulk_numpy_updater and replaces them with a writeable version.
+    """
+    for name, edge in list(cell_state.items()):
+        if not isinstance(edge, dict) or 'instance' not in edge:
+            continue
+        instance = edge['instance']
+        if not hasattr(instance, 'ports_schema'):
+            continue
+        try:
+            ports = instance.ports_schema()
+        except Exception:
+            continue
+        for port_name, port in ports.items():
+            if not isinstance(port, dict):
+                continue
+            updater = port.get('_updater')
+            if callable(updater) and _is_bulk_numpy_updater(updater) \
+                    and not getattr(updater, '_patched', False):
+                @functools.wraps(updater)
+                def writeable_updater(current, update, _orig=updater):
+                    current.flags.writeable = True
+                    for idx, value in update:
+                        current["count"][idx] += value
+                    return current
+                writeable_updater._patched = True
+                port['_updater'] = writeable_updater
 
 
 def _deep_update(target, source):
@@ -71,7 +99,7 @@ def _deep_update(target, source):
 
 
 # ---------------------------------------------------------------------------
-# View / update helpers (for in-place execution)
+# View / update helpers
 # ---------------------------------------------------------------------------
 
 def _resolve_wire(cell_state, wire_path):
@@ -116,7 +144,8 @@ def _build_view(cell_state, edge, instance):
         resolved = _resolve_wire(cell_state, wire_path)
         if resolved is not None:
             view[port_name] = resolved
-        elif port_name in ports and isinstance(ports[port_name], dict) and '_default' in ports[port_name]:
+        elif port_name in ports and isinstance(ports[port_name], dict) \
+                and '_default' in ports[port_name]:
             view[port_name] = ports[port_name]['_default']
     return view
 
@@ -215,8 +244,7 @@ def apply_step_update(cell_state, edge, instance, delta, unique_updaters=None):
                         target[key] = current
                 wire_key = tuple(wire_path) if isinstance(wire_path, list) else None
                 if (unique_updaters and wire_key and wire_key in unique_updaters
-                        and hasattr(updater, '__self__')
-                        and isinstance(updater.__self__, UniqueNumpyUpdater)):
+                        and _is_unique_numpy_updater(updater)):
                     shared_updater = unique_updaters[wire_key]
                     result = shared_updater.updater(current, update_value)
                     if result is not current:
@@ -286,9 +314,9 @@ def _share_unique_updaters(cell_state, step_order):
             if not isinstance(port, dict):
                 continue
             updater = port.get('_updater')
-            if updater is None or not hasattr(updater, '__self__'):
+            if updater is None:
                 continue
-            if not isinstance(updater.__self__, UniqueNumpyUpdater):
+            if not _is_unique_numpy_updater(updater):
                 continue
             wire_path = output_wires.get(port_name)
             if not isinstance(wire_path, list):
@@ -300,7 +328,7 @@ def _share_unique_updaters(cell_state, step_order):
 
 
 # ---------------------------------------------------------------------------
-# Seed listeners
+# State initialization
 # ---------------------------------------------------------------------------
 
 LISTENERS_TO_SEED = ['post-division-mass-listener', 'ecoli-mass-listener']
@@ -350,7 +378,6 @@ def _populate_port_defaults(cell_state, edge, instance):
 
 
 def _inject_nested_defaults(state, wire_path, port_schema):
-    """Inject nested port defaults into state at the given wire path."""
     target = state
     for segment in wire_path:
         if isinstance(target, dict):
@@ -373,7 +400,6 @@ def _inject_nested_defaults(state, wire_path, port_schema):
 
 
 def _apply_dict_updates(cell_state, output_wires, update):
-    """Apply only dict-valued updates from a step back into the state."""
     if not update:
         return
     for port_name, value in update.items():
@@ -417,106 +443,7 @@ def _seed_listeners(cell_state):
             continue
 
 
-# ---------------------------------------------------------------------------
-# Flow ordering
-# ---------------------------------------------------------------------------
-
-def extract_flow_priorities(flow):
-    order = list(flow.keys())
-    n = len(order)
-    return {step_name: float(n - i) for i, step_name in enumerate(order)}
-
-
-def inject_flow_dependencies(cell_state, flow):
-    order = list(flow.keys())
-    for i, step_name in enumerate(order):
-        edge = cell_state.get(step_name)
-        if not isinstance(edge, dict):
-            continue
-        if i == 0:
-            edge.setdefault('inputs', {}).setdefault('global_time', ['global_time'])
-        if i > 0:
-            edge.setdefault('inputs', {})[f'_flow_in_{i}'] = [f'_flow_token_{i-1}']
-        if i < len(order) - 1:
-            edge.setdefault('outputs', {})[f'_flow_out_{i}'] = [f'_flow_token_{i}']
-
-
-def list_paths(path):
-    if isinstance(path, tuple):
-        return list(path)
-    elif isinstance(path, dict):
-        return {key: list_paths(subpath) for key, subpath in path.items()}
-
-
-# ---------------------------------------------------------------------------
-# Migration from EcoliSim
-# ---------------------------------------------------------------------------
-
-def translate_processes(tree, topology=None, edge_type=None):
-    """Translate v1 process/step instances into edge dicts."""
-    from vivarium.core.process import Process as VivariumProcess, Step as VivariumStep
-    from bigraph_schema import Edge as BigraphEdge
-
-    if isinstance(tree, (VivariumProcess, VivariumStep, BigraphEdge)):
-        # Prefer the instance's own topology over the composite-level one
-        instance_topology = getattr(tree, 'topology', None)
-        if instance_topology:
-            topology = instance_topology
-        elif topology is None:
-            topology = {}
-        wires = list_paths(topology)
-
-        if edge_type == 'process':
-            state = {'interval': 1.0}
-        else:
-            state = {'priority': 1.0}
-
-        state.update({
-            '_type': 'step' if edge_type != 'process' else 'process',
-            'instance': tree,
-            'inputs': copy.deepcopy(wires),
-            'outputs': copy.deepcopy(wires),
-        })
-        return state
-    elif isinstance(tree, dict):
-        return {key: translate_processes(subtree,
-                    topology[key] if topology else None,
-                    edge_type=edge_type)
-                for key, subtree in tree.items()}
-    else:
-        return tree
-
-
-def migrate_composite(sim):
-    """Build the composite state from EcoliSim."""
-    processes = translate_processes(sim.ecoli.processes, sim.ecoli.topology, edge_type='process')
-    steps = translate_processes(sim.ecoli.steps, sim.ecoli.topology, edge_type='step')
-
-    state = deep_merge(processes, steps)
-    state = deep_merge(state, sim.generated_initial_state)
-
-    flow = sim.ecoli.flow
-    for path_key, substates in state.items():
-        if isinstance(substates, dict):
-            subflow = flow.get(path_key, {})
-            for subkey, subsubstates in substates.items():
-                if isinstance(subsubstates, dict):
-                    inner_flow = subflow.get(subkey, {})
-                    if inner_flow:
-                        priorities = extract_flow_priorities(inner_flow)
-                        for step_name, priority in priorities.items():
-                            if isinstance(subsubstates.get(step_name), dict):
-                                subsubstates[step_name]['priority'] = priority
-                        inject_flow_dependencies(subsubstates, inner_flow)
-    return state
-
-
-# ---------------------------------------------------------------------------
-# Simulation engine
-# ---------------------------------------------------------------------------
-
 def _populate_all_defaults(cell_state):
-    """Run _populate_port_defaults for every step to ensure nested defaults exist."""
     for name, edge in list(cell_state.items()):
         if not isinstance(edge, dict) or 'instance' not in edge:
             continue
@@ -526,11 +453,6 @@ def _populate_all_defaults(cell_state):
 
 
 def _initialize_virtual_stores(cell_state):
-    """Pre-create stores that steps will write to but don't exist initially.
-
-    Scans all step edges for input/output wires and ensures the target
-    paths exist as empty dicts in cell_state.
-    """
     for name, edge in list(cell_state.items()):
         if not isinstance(edge, dict):
             continue
@@ -553,16 +475,20 @@ def _initialize_virtual_stores(cell_state):
                             cell_state[key] = {}
 
 
+# ---------------------------------------------------------------------------
+# Simulation engine
+# ---------------------------------------------------------------------------
+
 class EcoliSimulation:
     """Runs the E. coli simulation using in-place state mutation.
 
-    Steps execute in flow order, applying updates directly to the shared
-    cell state via v1-compatible updaters.
+    Self-contained — requires no vEcoli imports at runtime.
+    Loads from a pickle document produced by generate.py.
     """
 
     def __init__(self, state, flow_order):
         self.state = state
-        self.flow_order = flow_order  # list of step names in execution order
+        self.flow_order = flow_order
         self._cell_path = None
         self._unique_updaters = None
 
@@ -579,7 +505,7 @@ class EcoliSimulation:
         if self._cell_path:
             cell_state = get_path(state, self._cell_path)
             _make_arrays_writeable(cell_state)
-            _disable_readonly_arrays()
+            _disable_readonly_updaters(cell_state)
             _initialize_virtual_stores(cell_state)
             _populate_all_defaults(cell_state)
             _seed_listeners(cell_state)
@@ -630,48 +556,11 @@ class EcoliSimulation:
 # Public API
 # ---------------------------------------------------------------------------
 
-def generate_document(outpath='out/ecoli.pickle'):
-    """Build the E. coli composite from EcoliSim and save as a document.
-
-    Args:
-        outpath: Path for the output file.
-
-    Returns:
-        The path to the saved file.
-    """
-    with chdir(ROOT_PATH):
-        sim = EcoliSim.from_file(CONFIG_DIR_PATH + "default.json")
-        sim.build_ecoli()
-
-    state = migrate_composite(sim)
-
-    # Extract flow order
-    flow = sim.ecoli.flow
-    flow_order = []
-    for path_key in state:
-        if isinstance(state[path_key], dict):
-            subflow = flow.get(path_key, {})
-            for subkey in state[path_key]:
-                inner_flow = subflow.get(subkey, {})
-                if inner_flow:
-                    flow_order = list(inner_flow.keys())
-                    break
-
-    document = {'state': state, 'flow_order': flow_order}
-
-    os.makedirs(os.path.dirname(outpath) or '.', exist_ok=True)
-    with open(outpath, 'wb') as f:
-        dill.dump(document, f)
-
-    print(f"Saved document to {outpath}")
-    return outpath
-
-
 def load_simulation(path='out/ecoli.pickle'):
     """Load a saved document and return an EcoliSimulation ready to run.
 
     Args:
-        path: Path to the document produced by generate_document.
+        path: Path to the document produced by generate.py.
 
     Returns:
         An EcoliSimulation ready for .run(interval).

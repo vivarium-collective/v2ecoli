@@ -16,6 +16,13 @@ class RnaSynthProb(Step):
 
     name = "rna_synth_prob_listener"
     config_schema = {}
+    topology = {
+        "rna_synth_prob": ("listeners", "rna_synth_prob"),
+        "promoters": ("unique", "promoter"),
+        "genes": ("unique", "gene"),
+        "global_time": ("global_time",),
+        "timestep": ("timestep",),
+    }
 
     defaults = {
         "time_step": 1,

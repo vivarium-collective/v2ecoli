@@ -16,6 +16,13 @@ class MonomerCounts(Step):
 
     name = "monomer_counts_listener"
     config_schema = {}
+    topology = {
+        "listeners": ("listeners",),
+        "bulk": ("bulk",),
+        "unique": ("unique",),
+        "global_time": ("global_time",),
+        "timestep": ("timestep",),
+    }
 
     defaults = {
         "bulk_molecule_ids": [],

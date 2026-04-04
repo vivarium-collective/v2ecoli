@@ -20,7 +20,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.sparse import csr_matrix
 from unum import Unum
-from v2ecoli.library.units import units as vivunits
+from vivarium.library.units import units as vivunits
 
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
 from v2ecoli.steps.partition import PartitionedProcess

@@ -17,6 +17,12 @@ class RNACounts(Step):
 
     name = "RNA_counts_listener"
     config_schema = {}
+    topology = {
+        "listeners": ("listeners",),
+        "RNAs": ("unique", "RNA"),
+        "global_time": ("global_time",),
+        "timestep": ("timestep",),
+    }
 
     defaults = {
         "rna_ids": [],

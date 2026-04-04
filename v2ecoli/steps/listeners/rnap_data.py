@@ -42,6 +42,15 @@ class RnapData(Step):
 
     name = "rnap_data_listener"
     config_schema = {}
+    topology = {
+        "listeners": ("listeners",),
+        "active_RNAPs": ("unique", "active_RNAP"),
+        "RNAs": ("unique", "RNA"),
+        "active_ribosomes": ("unique", "active_ribosome"),
+        "global_time": ("global_time",),
+        "timestep": ("timestep",),
+        "next_update_time": ("next_update_time", "rnap_data_listener"),
+    }
 
     defaults = {
         "stable_RNA_indexes": [],

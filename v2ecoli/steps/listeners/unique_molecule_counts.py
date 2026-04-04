@@ -15,6 +15,12 @@ class UniqueMoleculeCounts(Step):
 
     name = "unique_molecule_counts"
     config_schema = {}
+    topology = {
+        "unique": ("unique",),
+        "listeners": ("listeners",),
+        "global_time": ("global_time",),
+        "timestep": ("timestep",),
+    }
 
     defaults = {
         "time_step": 1,

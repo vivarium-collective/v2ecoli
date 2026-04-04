@@ -16,6 +16,14 @@ class ReplicationData(Step):
 
     name = "replication_data_listener"
     config_schema = {}
+    topology = {
+        "listeners": ("listeners",),
+        "oriCs": ("unique", "oriC"),
+        "DnaA_boxes": ("unique", "DnaA_box"),
+        "active_replisomes": ("unique", "active_replisome"),
+        "global_time": ("global_time",),
+        "timestep": ("timestep",),
+    }
 
     defaults = {"time_step": 1, "emit_unique": False}
 

@@ -7,7 +7,7 @@ from numpy import typing as npt
 from scipy import stats
 import unum  # Imported here to be used in getCountsFromMassAndExpression assertions
 
-from v2ecoli.library.units import units
+from wholecell.utils import units
 
 
 FUNCTIONS = {

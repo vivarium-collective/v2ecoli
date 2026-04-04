@@ -1,7 +1,7 @@
 from typing import Any
 
 from process_bigraph import Step
-from v2ecoli.library.units import units
+from vivarium.library.units import units
 
 
 class ExchangeData(Step):
@@ -11,6 +11,10 @@ class ExchangeData(Step):
 
     name = "exchange_data"
     config_schema = {}
+    topology = {
+        "boundary": ("boundary",),
+        "environment": ("environment",),
+    }
 
     defaults: dict[str, Any] = {
         "external_state": None,

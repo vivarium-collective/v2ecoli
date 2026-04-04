@@ -19,6 +19,13 @@ class MassListener(Step):
 
     name = "ecoli-mass-listener"
     config_schema = {}
+    topology = {
+        "bulk": ("bulk",),
+        "unique": ("unique",),
+        "listeners": ("listeners",),
+        "global_time": ("global_time",),
+        "timestep": ("timestep",),
+    }
 
     defaults = {
         "cellDensity": 1100.0,

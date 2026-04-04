@@ -17,6 +17,14 @@ class RibosomeData(Step):
 
     name = "ribosome_data_listener"
     config_schema = {}
+    topology = {
+        "listeners": ("listeners",),
+        "active_ribosomes": ("unique", "active_ribosome"),
+        "RNAs": ("unique", "RNA"),
+        "global_time": ("global_time",),
+        "timestep": ("timestep",),
+        "next_update_time": ("next_update_time", "ribosome_data_listener"),
+    }
 
     defaults = {
         "n_monomers": [],

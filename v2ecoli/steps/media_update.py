@@ -1,6 +1,6 @@
 import numpy as np
 from process_bigraph import Step
-from v2ecoli.library.units import units
+from vivarium.library.units import units
 
 
 class MediaUpdate(Step):
@@ -10,6 +10,10 @@ class MediaUpdate(Step):
 
     name = "media_update"
     config_schema = {}
+    topology = {
+        "boundary": ("boundary",),
+        "environment": ("environment",),
+    }
 
     defaults = {"saved_media": {}, "time_step": 1, "media_id": "minimal"}
 

@@ -9,32 +9,32 @@ from typing import Any
 from unum import Unum
 import warnings
 
-from v2ecoli.library.schema import (
+from ecoli.library.schema import (
     attrs,
     bulk_name_to_idx,
     counts,
     MetadataArray,
 )
-from v2ecoli.processes.polypeptide_elongation import (
+from ecoli.processes.polypeptide_elongation import (
     calculate_trna_charging,
     REMOVED_FROM_CHARGING,
     MICROMOLAR_UNITS,
 )
-from v2ecoli.library.units import units
-from v2ecoli.library.fitting import (
+from wholecell.utils import units
+from wholecell.utils.fitting import (
     countsFromMassAndExpression,
     masses_and_counts_for_homeostatic_target,
     normalize,
 )
 
 try:
-    from v2ecoli.library.mc_complexation import mccFormComplexesWithPrebuiltMatrices
+    from wholecell.utils.mc_complexation import mccFormComplexesWithPrebuiltMatrices
 except ImportError as exc:
     raise RuntimeError(
         "Failed to import Cython module. Try running 'make clean compile'."
     ) from exc
-from v2ecoli.library.polymerize import computeMassIncrease
-from v2ecoli.library.random import stochasticRound
+from wholecell.utils.polymerize import computeMassIncrease
+from wholecell.utils.random import stochasticRound
 
 RAND_MAX = 2**31
 RNAP_COLLISION_RESOLUTION_MAX_ATTEMPTS = 100
@@ -997,6 +997,7 @@ def initialize_transcription(
             sim_data.process.transcription.attenuation_basal_prob_adjustments
         )
     n_TUs = len(basal_prob)
+
     delta_prob_matrix = sim_data.process.transcription_regulation.get_delta_prob_matrix(
         dense=True, ppgpp=ppgpp_regulation
     )

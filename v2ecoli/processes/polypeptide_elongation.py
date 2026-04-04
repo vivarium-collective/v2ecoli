@@ -26,7 +26,7 @@ from v2ecoli.library.units import units
 
 # vivarium imports
 from v2ecoli.steps.partition import deep_merge
-from v2ecoli.library.units import units as vivunits
+from vivarium.library.units import units as vivunits
 # vivarium-ecoli imports
 from v2ecoli.library.schema import (
     listener_schema,

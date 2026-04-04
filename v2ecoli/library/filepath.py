@@ -11,13 +11,13 @@ import os
 import subprocess
 from typing import Any, Optional, Generator
 
-import v2ecoli
+import wholecell
 
 
 TIMEOUT = 60  # seconds
 
-# The v2ecoli project root path.
-ROOT_PATH = os.path.dirname(os.path.dirname(os.path.realpath(v2ecoli.__file__)))
+# The wcEcoli/ project root path which contains wholecell/.
+ROOT_PATH = os.path.dirname(os.path.dirname(os.path.realpath(wholecell.__file__)))
 OUT_DIR = os.path.join(ROOT_PATH, "out")
 DEBUG_OUT_DIR = os.path.join(OUT_DIR, "debug")
 

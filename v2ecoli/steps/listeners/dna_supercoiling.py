@@ -16,6 +16,12 @@ class DnaSupercoiling(Step):
 
     name = "dna_supercoiling_listener"
     config_schema = {}
+    topology = {
+        "listeners": ("listeners",),
+        "chromosomal_segments": ("unique", "chromosomal_segment"),
+        "global_time": ("global_time",),
+        "timestep": ("timestep",),
+    }
 
     defaults = {
         "relaxed_DNA_base_pairs_per_turn": 0,

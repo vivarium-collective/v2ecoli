@@ -232,7 +232,7 @@ def apply_step_update(cell_state, edge, instance, delta, unique_updaters=None):
 
         if updater == 'set' or port_name in ('next_update_time', 'process'):
             target[key] = update_value
-        elif callable(updater):
+        elif callable(updater) or _is_bulk_numpy_updater(updater):
             current = target.get(key)
             if current is not None:
                 if isinstance(current, np.ndarray):
@@ -263,7 +263,23 @@ def apply_step_update(cell_state, edge, instance, delta, unique_updaters=None):
                 target[key] = current + update_value
             else:
                 target[key] = update_value
+        elif isinstance(update_value, list) and len(update_value) > 0:
+            # Check if this is a bulk numpy update (list of (idx, val) tuples)
+            current = target.get(key)
+            if hasattr(current, 'dtype') and 'count' in getattr(current, 'dtype', {}).names or []:
+                try:
+                    current.flags.writeable = True
+                except ValueError:
+                    current = current.copy()
+                    current.flags.writeable = True
+                    target[key] = current
+                for idx, value in update_value:
+                    current["count"][idx] += value
+            else:
+                target[key] = update_value
         elif update_value is not None:
+            if isinstance(update_value, list) and len(update_value) == 0:
+                continue
             target[key] = update_value
 
 

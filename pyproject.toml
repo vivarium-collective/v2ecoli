@@ -16,14 +16,10 @@ dependencies = [
 ]
 
 [tool.setuptools]
-packages = [
-    "v2ecoli",
-    "v2ecoli.types",
-    "v2ecoli.library",
-    "v2ecoli.steps",
-    "v2ecoli.steps.listeners",
-    "v2ecoli.processes",
-]
+packages = { find = { where = ["."] } }
+
+[tool.setuptools.package-data]
+"v2ecoli.reconstruction.ecoli.flat" = ["**/*.tsv"]
 
 [tool.uv.sources]
 vecoli = { path = "../vEcoli", editable = true }

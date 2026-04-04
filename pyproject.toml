@@ -1,0 +1,29 @@
+[project]
+name = "v2ecoli"
+version = "0.0.1"
+description = "Whole-cell E. coli model on process-bigraph"
+readme = "README.md"
+requires-python = "==3.12.9"
+dependencies = [
+    "bigraph-schema>=0.0.60",
+    "process-bigraph>=0.0.38",
+    "vEcoli[dev]>=1.1.0",
+    "vivarium-core>=1.6.5",
+    "plum-dispatch>=2.5",
+    "dill>=0.3",
+    "numpy",
+    "scipy",
+]
+
+[tool.setuptools]
+packages = [
+    "v2ecoli",
+    "v2ecoli.types",
+    "v2ecoli.steps",
+    "v2ecoli.processes",
+]
+
+[tool.uv.sources]
+vecoli = { path = "../vEcoli", editable = true }
+process-bigraph = { path = "../process-bigraph", editable = true }
+bigraph-schema = { path = "../bigraph-schema", editable = true }

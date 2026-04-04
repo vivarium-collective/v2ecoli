@@ -19,7 +19,9 @@ dependencies = [
 packages = [
     "v2ecoli",
     "v2ecoli.types",
+    "v2ecoli.library",
     "v2ecoli.steps",
+    "v2ecoli.steps.listeners",
     "v2ecoli.processes",
 ]
 

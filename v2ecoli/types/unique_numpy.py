@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from bigraph_schema.schema import Node
 from bigraph_schema.methods.apply import apply
 
-from ecoli.library.schema import UniqueNumpyUpdater
+from v2ecoli.library.schema import UniqueNumpyUpdater
 
 
 # Module-level registry: maps state path (tuple) -> shared UniqueNumpyUpdater

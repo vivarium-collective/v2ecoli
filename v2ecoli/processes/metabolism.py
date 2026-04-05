@@ -22,11 +22,17 @@ from scipy.sparse import csr_matrix
 from unum import Unum
 from vivarium.library.units import units as vivunits
 
+from process_bigraph import Step
+from process_bigraph.composite import SyncUpdate
+from bigraph_schema.schema import Float, Overwrite, Node
+
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
-from v2ecoli.steps.partition import PartitionedProcess
+from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
+from v2ecoli.types.stores import InPlaceDict, ListenerStore
 from v2ecoli.library.units import units
 from v2ecoli.library.random import stochasticRound
 from v2ecoli.library.fba import FluxBalanceAnalysis
+
 REVERSE_TAG = " (reverse)"
 COUNTS_UNITS = units.mmol
 VOLUME_UNITS = units.L
@@ -39,8 +45,24 @@ GDCW_BASIS = units.mmol / units.g / units.h
 USE_KINETICS = True
 
 
-class Metabolism(PartitionedProcess):
-    """Metabolism Process"""
+def _protect_standalone_state(state):
+    """Protect state for standalone processes."""
+    import numpy as np
+    protected = dict(state)
+    if 'bulk' in protected and hasattr(protected['bulk'], 'copy'):
+        protected['bulk'] = protected['bulk'].copy()
+        protected['bulk'].flags.writeable = True
+    for key, val in protected.items():
+        if key == 'bulk':
+            continue
+        if hasattr(val, 'dtype') and hasattr(val, 'copy'):
+            protected[key] = val.copy()
+            protected[key].flags.writeable = True
+    return protected
+
+
+class Metabolism(Step):
+    """Metabolism Step — standalone (no request/allocate partition)."""
 
     name = "ecoli-metabolism"
     topology = {
@@ -92,8 +114,11 @@ class Metabolism(PartitionedProcess):
         "time_step": 1,
     }
 
-    def __init__(self, parameters=None, **kwargs):
-        super().__init__(parameters, **kwargs)
+    config_schema = {}
+
+    def __init__(self, config=None, core=None):
+        super().__init__(config=config or {}, core=core)
+        self.parameters = {**self.defaults, **(config or {})}
 
         # Use information from the environment and sim
         self.get_import_constraints = self.parameters["get_import_constraints"]
@@ -202,185 +227,54 @@ class Metabolism(PartitionedProcess):
         return self.parameters
 
     def __setstate__(self, state):
-        self.__init__(state)
+        self.__init__(config=state)
 
-    def ports_schema(self):
-        ports = {
-            "bulk": numpy_schema("bulk"),
-            "bulk_total": numpy_schema("bulk"),
-            "environment": {
-                "media_id": {"_default": "", "_updater": "set"},
-                "exchange_data": {
-                    "unconstrained": {"_default": {}},
-                    "constrained": {"_default": set()},
-                },
-            },
-            "exchange": {
-                str(element): {"_default": 0}
-                for element in self.environment_molecules
-            },
-            "boundary": {"external": {"*": {"_default": 0 * vivunits.mM}}},
-            "listeners": {
-                "mass": listener_schema(
-                    {
-                        "cell_mass": 0.0,
-                        "dry_mass": 0.0,
-                        "rna_mass": 0.0,
-                        "protein_mass": 0.0,
-                    }
-                ),
-                "fba_results": listener_schema(
-                    {
-                        "media_id": "",
-                        "conc_updates": (
-                            [0.0] * len(self.conc_update_molecules),
-                            self.conc_update_molecules,
-                        ),
-                        "catalyst_counts": (
-                            [0] * len(self.model.catalyst_ids),
-                            self.model.catalyst_ids,
-                        ),
-                        "translation_gtp": 0.0,
-                        "coefficient": 0.0,
-                        "unconstrained_molecules": (
-                            [False] * len(self.exchange_molecules),
-                            self.exchange_molecules,
-                        ),
-                        "constrained_molecules": (
-                            [False] * len(self.exchange_molecules),
-                            self.exchange_molecules,
-                        ),
-                        "uptake_constraints": (
-                            [-1.0] * len(self.exchange_molecules),
-                            self.exchange_molecules,
-                        ),
-                        "delta_metabolites": (
-                            [0] * len(self.model.metaboliteNamesFromNutrients),
-                            self.model.metaboliteNamesFromNutrients,
-                        ),
-                        "reaction_fluxes": (
-                            [0.0] * len(self.fba_reaction_ids),
-                            self.fba_reaction_ids,
-                        ),
-                        "external_exchange_fluxes": (
-                            [0.0] * len(self.externalMoleculeIDs),
-                            self.externalMoleculeIDs,
-                        ),
-                        "objective_value": 0.0,
-                        "shadow_prices": (
-                            [0.0] * len(self.outputMoleculeIDs),
-                            self.outputMoleculeIDs,
-                        ),
-                        "reduced_costs": (
-                            [0.0] * len(self.fba_reaction_ids),
-                            self.fba_reaction_ids,
-                        ),
-                        "target_concentrations": (
-                            [0.0] * len(self.homeostaticTargetMolecules),
-                            self.homeostaticTargetMolecules,
-                        ),
-                        "homeostatic_objective_values": (
-                            [0.0] * len(self.homeostaticTargetMolecules),
-                            self.homeostaticTargetMolecules,
-                        ),
-                        "kinetic_objective_values": (
-                            [0.0] * len(self.kineticTargetFluxNames),
-                            self.kineticTargetFluxNames,
-                        ),
-                        "base_reaction_fluxes": (
-                            [0.0] * len(self.base_reaction_ids),
-                            self.base_reaction_ids,
-                        ),
-                        # 'estimated_fluxes': {},
-                        # 'estimated_homeostatic_dmdt': {},
-                        # 'target_homeostatic_dmdt': {},
-                        # 'estimated_exchange_dmdt': {},
-                        # 'target_kinetic_fluxes': {},
-                        # 'target_kinetic_bounds': {},
-                        # 'target_maintenance_flux': 0
-                    }
-                ),
-                "enzyme_kinetics": listener_schema(
-                    {
-                        "metabolite_counts_init": (
-                            [0] * len(self.model.metaboliteNamesFromNutrients),
-                            self.model.metaboliteNamesFromNutrients,
-                        ),
-                        "metabolite_counts_final": (
-                            [0] * len(self.model.metaboliteNamesFromNutrients),
-                            self.model.metaboliteNamesFromNutrients,
-                        ),
-                        "enzyme_counts_init": (
-                            [0] * len(self.model.kinetic_constraint_enzymes),
-                            self.model.kinetic_constraint_enzymes,
-                        ),
-                        "counts_to_molar": 1.0,
-                        "actual_fluxes": (
-                            [0.0] * len(self.model.kinetics_constrained_reactions),
-                            self.model.kinetics_constrained_reactions,
-                        ),
-                        "target_fluxes": (
-                            [0.0] * len(self.model.kinetics_constrained_reactions),
-                            self.model.kinetics_constrained_reactions,
-                        ),
-                        "target_fluxes_upper": (
-                            [0.0] * len(self.model.kinetics_constrained_reactions),
-                            self.model.kinetics_constrained_reactions,
-                        ),
-                        "target_fluxes_lower": (
-                            [0.0] * len(self.model.kinetics_constrained_reactions),
-                            self.model.kinetics_constrained_reactions,
-                        ),
-                        "target_aa_conc": ([0.0] * len(self.aa_names), self.aa_names),
-                    }
-                ),
-            },
-            "polypeptide_elongation": {
-                "aa_count_diff": {
-                    "_default": [0.0] * len(self.aa_names),
-                    "_emit": True,
-                    "_updater": "set",
-                    "_divider": "empty_dict",
-                },
-                "gtp_to_hydrolyze": {
-                    "_default": 0.0,
-                    "_emit": True,
-                    "_updater": "set",
-                    "_divider": "zero",
-                },
-                "aa_exchange_rates": {
-                    "_default": np.zeros(len(self.aa_exchange_names)),
-                    "_emit": True,
-                    "_updater": "set",
-                    "_divider": "set",
-                },
-            },
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-            "next_update_time": {
-                "_default": self.parameters["time_step"],
-                "_updater": "set",
-                "_divider": "set",
-            },
+    def inputs(self):
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'bulk_total': BulkNumpyUpdate(),
+            'listeners': ListenerStore(),
+            'environment': InPlaceDict(),
+            'exchange': InPlaceDict(),
+            'boundary': InPlaceDict(),
+            'polypeptide_elongation': InPlaceDict(),
+            'global_time': Float(_default=0.0),
+            'timestep': Float(_default=self.parameters.get('time_step', 1.0)),
+            'next_update_time': Float(_default=self.parameters.get('time_step', 1.0)),
         }
 
-        return ports
+    def outputs(self):
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'listeners': ListenerStore(),
+            'exchange': InPlaceDict(),
+            'next_update_time': Overwrite(_value=Float()),
+        }
 
-    def update_condition(self, timestep, states):
-        """
-        See :py:meth:`~ecoli.processes.partition.Requester.update_condition`.
-        """
-        if states["next_update_time"] <= states["global_time"]:
-            if states["next_update_time"] < states["global_time"]:
-                warnings.warn(
-                    f"{self.name} updated at t="
-                    f"{states['global_time']} instead of t="
-                    f"{states['next_update_time']}. Decrease the "
-                    "timestep for the global clock process for more "
-                    "accurate timekeeping."
-                )
-            return True
-        return False
+    def invoke(self, state, interval=None):
+        try:
+            update = self.update(state)
+        except Exception:
+            update = {}
+        return SyncUpdate(update)
+
+    def update(self, state, interval=None):
+        # Timing guard (replaces update_condition)
+        next_t = state.get('next_update_time', 0)
+        global_t = state.get('global_time', 0)
+        if next_t > global_t:
+            return {}
+        if next_t < global_t:
+            warnings.warn(
+                f"{self.name} updated at t="
+                f"{global_t} instead of t="
+                f"{next_t}. Decrease the "
+                "timestep for the global clock process for more "
+                "accurate timekeeping."
+            )
+
+        state = _protect_standalone_state(state)
+        return self.next_update(state.get('timestep', 1.0), state)
 
     def next_update(self, timestep, states):
         # At t=0, convert all strings to indices
@@ -546,39 +440,6 @@ class Metabolism(PartitionedProcess):
             unconstrained, constrained, GDCW_BASIS
         )
 
-        # below is used for comparing target and estimate between GD-FBA
-        # and LP-FBA, no effect on model
-        # maintenance_ngam = ((self.ngam * coefficient) /
-        #     (counts_to_molar*timestep)).asNumber()
-        # # TODO (Cyrus) Add change in mass when implementing,
-        # # currently counts/mass.
-        # maintenance_gam = (self.gam).asNumber()
-        # maintenance_gam_active = translation_gtp/timestep
-        # maintenance_target = maintenance_ngam + maintenance_gam \
-        #     + maintenance_gam_active
-
-        # objective_counts = {str(key): int((self.model.homeostatic_objective[
-        #     key] / counts_to_molar).asNumber()) - int(states['bulk']['count'][
-        #         states['bulk']['id'] == key])
-        #     for key in fba.getHomeostaticTargetMolecules()}
-
-        # denom = counts_to_molar*timestep
-        # kinetic_targets = {str(self.model.kinetics_constrained_reactions[i]):
-        #     int((targets[i] / denom).asNumber())
-        #     for i in range(len(targets))}
-
-        # target_kinetic_bounds = {
-        #     str(self.model.kinetics_constrained_reactions[i]):
-        #         (int((lower_targets[i] / denom).asNumber()),
-        #         int((upper_targets[i] / denom).asNumber()))
-        #     for i in range(len(targets))}
-
-        # fluxes = fba.getReactionFluxes() / timestep
-        # names = fba.getReactionIDs()
-
-        # flux_dict = {str(names[i]): int((fluxes[i] / denom).asNumber())
-        #     for i in range(len(names))}
-
         reaction_fluxes = fba.getReactionFluxes() / timestep
         update = {
             "bulk": [(self.metabolite_idx, delta_metabolites_final)],
@@ -615,20 +476,6 @@ class Metabolism(PartitionedProcess):
                     "base_reaction_fluxes": self.reaction_mapping_matrix.dot(
                         reaction_fluxes
                     ),
-                    # Quite large, comment out to reduce emit size
-                    # 'estimated_fluxes': flux_dict ,
-                    # 'estimated_homeostatic_dmdt': {
-                    #     metabolite: delta_metabolites_final[index]
-                    #     for index, metabolite in enumerate(
-                    #         self.model.metaboliteNamesFromNutrients)},
-                    # 'target_homeostatic_dmdt': objective_counts,
-                    # 'estimated_exchange_dmdt': {
-                    #     molecule: delta_nutrients[index]
-                    #     for index, molecule in enumerate(
-                    #         fba.getExternalMoleculeIDs())},
-                    # 'target_kinetic_fluxes': kinetic_targets,
-                    # 'target_kinetic_bounds': target_kinetic_bounds,
-                    # 'target_maintenance_flux': maintenance_target,
                 },
                 "enzyme_kinetics": {
                     "metabolite_counts_init": metabolite_counts_init,

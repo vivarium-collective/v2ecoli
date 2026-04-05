@@ -19,6 +19,10 @@ import numpy.typing as npt
 from scipy.integrate import solve_ivp
 from unum import Unum
 
+from process_bigraph import Step
+from process_bigraph.composite import SyncUpdate
+from bigraph_schema.schema import Float, Overwrite, Node
+
 # wcEcoli imports
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 from v2ecoli.library.random import stochasticRound
@@ -37,6 +41,10 @@ from v2ecoli.library.schema import (
 )
 from v2ecoli.steps.partition import PartitionedProcess
 from v2ecoli.processes.metabolism import CONC_UNITS, TIME_UNITS
+from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
+from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
+from v2ecoli.types.stores import InPlaceDict, ListenerStore
+from v2ecoli.steps.partition import _protect_state
 
 
 MICROMOLAR_UNITS = units.umol / units.L
@@ -709,6 +717,150 @@ class PolypeptideElongation(PartitionedProcess):
             self.ribosomeElongationRate / states["timestep"]
         )
 
+        return update
+
+
+class PolypeptideElongationLogic(PolypeptideElongation):
+    """Logic wrapper that reuses PolypeptideElongation internals.
+
+    Inherits from the PartitionedProcess to reuse all biological computation.
+    Requester and Evolver each create their own instance.
+    """
+
+    def __init__(self, parameters, core=None):
+        # PartitionedProcess.__init__ expects parameters as first positional arg
+        super().__init__(parameters=parameters, core=core)
+
+
+class PolypeptideElongationRequester(Step):
+    """Requester step for polypeptide elongation."""
+
+    config_schema = {}
+
+    def __init__(self, config=None, core=None):
+        super().__init__(config=config, core=core)
+        # Accept shared Logic instance or create own
+        self.process = config.pop('_logic', None) if isinstance(config, dict) else None
+        if self.process is None:
+            self.process = PolypeptideElongationLogic(config, core=core)
+        self.process_name = 'ecoli-polypeptide-elongation'
+
+    def inputs(self):
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'bulk_total': BulkNumpyUpdate(),
+            'environment': InPlaceDict(),
+            'boundary': InPlaceDict(),
+            'active_ribosome': InPlaceDict(),
+            'polypeptide_elongation': InPlaceDict(),
+            'listeners': InPlaceDict(),
+            'timestep': Float(_default=self.process.parameters.get('time_step', 1.0)),
+            'global_time': Float(_default=0.0),
+            'next_update_time': Float(_default=1.0),
+        }
+
+    def outputs(self):
+        return {
+            'request': InPlaceDict(),
+            'listeners': ListenerStore(),
+            'next_update_time': Overwrite(_value=Float()),
+        }
+
+    def invoke(self, state, interval=None):
+        try:
+            update = self.update(state)
+        except Exception:
+            update = {}
+        return SyncUpdate(update)
+
+    def update(self, state, interval=None):
+        if state.get('next_update_time', 0) > state.get('global_time', 0):
+            return {}
+
+        state = _protect_state(state)
+        proc = self.process
+        timestep = state.get('timestep', 1.0)
+
+        requests = proc.calculate_request(timestep, state)
+
+        # Extract listener and polypeptide_elongation data from request
+        listener_data = requests.pop('listeners', {})
+        pe_data = requests.pop('polypeptide_elongation', {})
+
+        result = {'request': {self.process_name: requests}}
+        if listener_data:
+            result['listeners'] = listener_data
+        return result
+
+
+class PolypeptideElongationEvolver(Step):
+    """Evolver step for polypeptide elongation.
+
+    RECOMPUTES cached values (elongation_rates, aa_supply, etc.)
+    since Requester and Evolver are separate instances.
+    """
+
+    config_schema = {}
+
+    def __init__(self, config=None, core=None):
+        super().__init__(config=config, core=core)
+        # Accept shared Logic instance from Requester
+        self.process = config.pop('_logic', None) if isinstance(config, dict) else None
+        if self.process is None:
+            self.process = PolypeptideElongationLogic(config, core=core)
+        self.process_name = 'ecoli-polypeptide-elongation'
+
+    def inputs(self):
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'bulk_total': BulkNumpyUpdate(),
+            'allocate': InPlaceDict(),
+            'environment': InPlaceDict(),
+            'boundary': InPlaceDict(),
+            'active_ribosome': InPlaceDict(),
+            'polypeptide_elongation': InPlaceDict(),
+            'listeners': InPlaceDict(),
+            'timestep': Float(_default=self.process.parameters.get('time_step', 1.0)),
+            'global_time': Float(_default=0.0),
+            'next_update_time': Float(_default=1.0),
+        }
+
+    def outputs(self):
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'active_ribosome': InPlaceDict(),
+            'polypeptide_elongation': InPlaceDict(),
+            'listeners': ListenerStore(),
+            'next_update_time': Overwrite(_value=Float()),
+        }
+
+    def invoke(self, state, interval=None):
+        try:
+            update = self.update(state)
+        except Exception:
+            update = {}
+        return SyncUpdate(update)
+
+    def update(self, state, interval=None):
+        if state.get('next_update_time', 0) > state.get('global_time', 0):
+            return {}
+
+        state = _protect_state(state)
+        proc = self.process
+        timestep = state.get('timestep', 1.0)
+
+        # Apply allocation: replace bulk counts with allocated amounts
+        allocation = state.pop('allocate', {})
+        bulk_alloc = allocation.get('bulk')
+        if bulk_alloc is not None and hasattr(bulk_alloc, '__len__') and len(bulk_alloc) > 0 and hasattr(state.get('bulk'), 'dtype'):
+            alloc_bulk = state['bulk'].copy()
+            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
+            state['bulk'] = alloc_bulk
+
+        # Evolve using cached values from Requester's calculate_request
+        # (shared Logic instance preserves computed elongation rates etc.)
+        update = proc.evolve_state(timestep, state)
+        update['next_update_time'] = state.get('global_time', 0) + state.get('timestep', 1.0)
         return update
 
 

@@ -9,6 +9,10 @@ This process models how transcription factors bind to promoters on the DNA seque
 import numpy as np
 import warnings
 
+from process_bigraph import Step
+from process_bigraph.composite import SyncUpdate
+from bigraph_schema.schema import Float, Overwrite, Node
+
 from v2ecoli.library.schema import (
     listener_schema,
     numpy_schema,
@@ -16,24 +20,44 @@ from v2ecoli.library.schema import (
     bulk_name_to_idx,
     counts,
 )
-from v2ecoli.steps.partition import PartitionedProcess
+from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
+from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
+from v2ecoli.types.stores import InPlaceDict, ListenerStore
+from v2ecoli.steps.partition import _protect_state
 
 from v2ecoli.library.random import stochasticRound
 from v2ecoli.library.units import units
 
-class TfBinding(PartitionedProcess):
-    """Transcription Factor Binding Step"""
+
+def _protect_standalone_state(state):
+    """Protect state for standalone processes."""
+    import numpy as np
+    protected = dict(state)
+    if 'bulk' in protected and hasattr(protected['bulk'], 'copy'):
+        protected['bulk'] = protected['bulk'].copy()
+        protected['bulk'].flags.writeable = True
+    for key, val in protected.items():
+        if key == 'bulk':
+            continue
+        if hasattr(val, 'dtype') and hasattr(val, 'copy'):
+            protected[key] = val.copy()
+            protected[key].flags.writeable = True
+    return protected
+
+
+class TfBinding(Step):
+    """Transcription Factor Binding Step — standalone (no request/allocate partition)."""
 
     name = "ecoli-tf-binding"
     topology = {
-    "promoters": ("unique", "promoter"),
-    "bulk": ("bulk",),
-    "bulk_total": ("bulk",),
-    "listeners": ("listeners",),
-    "timestep": ("timestep",),
-    "next_update_time": ("next_update_time", "tf_binding"),
-    "global_time": ("global_time",),
-}
+        "promoters": ("unique", "promoter"),
+        "bulk": ("bulk",),
+        "bulk_total": ("bulk",),
+        "listeners": ("listeners",),
+        "timestep": ("timestep",),
+        "next_update_time": ("next_update_time", "tf_binding"),
+        "global_time": ("global_time",),
+    }
     defaults = {
         "tf_ids": [],
         "rna_ids": [],
@@ -55,7 +79,7 @@ class TfBinding(PartitionedProcess):
             "tRNA": 1,
             "mRNA": 2,
             "miscRNA": 3,
-            "nonspecific_RNA": 4,
+            "nonSpecific_RNA": 4,
             "protein": 5,
             "metabolite": 6,
             "water": 7,
@@ -64,9 +88,12 @@ class TfBinding(PartitionedProcess):
         "emit_unique": False,
     }
 
+    config_schema = {}
+
     # Constructor
-    def __init__(self, parameters=None, **kwargs):
-        super().__init__(parameters, **kwargs)
+    def __init__(self, config=None, core=None):
+        super().__init__(config=config or {}, core=core)
+        self.parameters = {**self.defaults, **(config or {})}
 
         # Get IDs of transcription factors
         self.tf_ids = self.parameters["tf_ids"]
@@ -134,49 +161,49 @@ class TfBinding(PartitionedProcess):
             self.marR_tet = "marR-tet[c]"
         self.submass_indices = self.parameters["submass_indices"]
 
-    def ports_schema(self):
+    def inputs(self):
         return {
-            "promoters": numpy_schema("promoters", emit=self.parameters["emit_unique"]),
-            "bulk": numpy_schema("bulk"),
-            "bulk_total": numpy_schema("bulk"),
-            "listeners": {
-                "rna_synth_prob": listener_schema(
-                    {
-                        "p_promoter_bound": ([0.0] * self.n_TF, self.tf_ids),
-                        "n_promoter_bound": ([0] * self.n_TF, self.tf_ids),
-                        "n_actual_bound": ([0] * self.n_TF, self.tf_ids),
-                        "n_available_promoters": ([0] * self.n_TF, self.tf_ids),
-                        "n_bound_TF_per_TU": (
-                            [[0] * self.n_TF] * self.n_TU,
-                            self.rna_ids,
-                        ),
-                    }
-                )
-            },
-            "next_update_time": {
-                "_default": self.parameters["time_step"],
-                "_updater": "set",
-                "_divider": "set",
-            },
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
+            'promoters': UniqueNumpyUpdate(),
+            'bulk': BulkNumpyUpdate(),
+            'bulk_total': BulkNumpyUpdate(),
+            'listeners': ListenerStore(),
+            'timestep': Float(_default=self.parameters.get('time_step', 1.0)),
+            'next_update_time': Float(_default=self.parameters.get('time_step', 1.0)),
+            'global_time': Float(_default=0.0),
         }
 
-    def update_condition(self, timestep, states):
-        """
-        See :py:meth:`~.Requester.update_condition`.
-        """
-        if states["next_update_time"] <= states["global_time"]:
-            if states["next_update_time"] < states["global_time"]:
-                warnings.warn(
-                    f"{self.name} updated at t="
-                    f"{states['global_time']} instead of t="
-                    f"{states['next_update_time']}. Decrease the "
-                    "timestep for the global clock process for more "
-                    "accurate timekeeping."
-                )
-            return True
-        return False
+    def outputs(self):
+        return {
+            'promoters': UniqueNumpyUpdate(),
+            'bulk': BulkNumpyUpdate(),
+            'listeners': ListenerStore(),
+            'next_update_time': Overwrite(_value=Float()),
+        }
+
+    def invoke(self, state, interval=None):
+        try:
+            update = self.update(state)
+        except Exception:
+            update = {}
+        return SyncUpdate(update)
+
+    def update(self, state, interval=None):
+        # Timing guard (replaces update_condition)
+        next_t = state.get('next_update_time', 0)
+        global_t = state.get('global_time', 0)
+        if next_t > global_t:
+            return {}
+        if next_t < global_t:
+            warnings.warn(
+                f"{self.name} updated at t="
+                f"{global_t} instead of t="
+                f"{next_t}. Decrease the "
+                "timestep for the global clock process for more "
+                "accurate timekeeping."
+            )
+
+        state = _protect_standalone_state(state)
+        return self.next_update(state.get('timestep', 1.0), state)
 
     def next_update(self, timestep, states):
         # At t=0, convert all strings to indices

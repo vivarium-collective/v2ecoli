@@ -30,6 +30,16 @@ from v2ecoli.library.filepath import ROOT_PATH
 # are split into requester → allocator → evolver layers. UniqueUpdate steps
 # are inserted between layers to flush accumulated unique molecule updates.
 
+# All partitioned process names (used for request/allocate store pre-creation)
+ALL_PARTITIONED = [
+    'ecoli-chromosome-replication', 'ecoli-complexation',
+    'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
+    'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
+    'ecoli-rna-degradation', 'ecoli-rna-maturation',
+    'ecoli-transcript-elongation', 'ecoli-transcript-initiation',
+    'ecoli-two-component-system',
+]
+
 DEFAULT_FLOW = [
     # Layer 0: post-division mass
     'post-division-mass-listener',
@@ -188,33 +198,146 @@ def list_paths(path):
     return path
 
 
-def inject_flow_dependencies(cell_state, flow_order):
-    """Add flow token wiring and priorities to enforce execution order.
+# Stores that should ONLY be in outputs (not inputs) to avoid R/W dependency cycles
+# Stores removed from requester INPUTS to avoid R/W dependency cycles.
+# Requesters only WRITE to request stores (not bulk/unique).
+# listeners IS in requester inputs because many requesters read mass/volume.
+_REQUESTER_OUTPUT_ONLY = {'request'}
 
-    Each step produces a flow token that the next step consumes.
-    Priority (highest first) breaks cycles when multiple steps are ready.
-    Only the first step depends on global_time directly.
+
+def _make_requester_topos(read_topo):
+    """Build separate input/output topologies for a Requester step.
+
+    Input: read stores (bulk, unique, etc.) + flow tokens (added later)
+    Output: request, listeners, next_update_time only
     """
-    n = len(flow_order)
-    for i, step_name in enumerate(flow_order):
-        edge = cell_state.get(step_name)
-        if not isinstance(edge, dict):
-            continue
-        edge['priority'] = float(n - i)
-        if i == 0:
-            edge.setdefault('inputs', {})['global_time'] = ['global_time']
-        if i > 0:
-            edge.setdefault('inputs', {})[f'_flow_in_{i}'] = [f'_flow_token_{i-1}']
-        if i < n - 1:
-            edge.setdefault('outputs', {})[f'_flow_out_{i}'] = [f'_flow_token_{i}']
+    # Input: read stores minus request (output-only) and listeners (cross-layer dep)
+    # Requesters access listener data through _cell_state reference if needed
+    in_topo = {k: v for k, v in read_topo.items()
+               if k not in ('request', 'listeners', 'next_update_time')}
+    # Outputs: only request and next_update_time
+    out_topo = {k: v for k, v in read_topo.items()
+                if k in ('request', 'next_update_time')}
+    return in_topo, out_topo
 
 
-def make_edge(instance, topology, edge_type='step'):
+def _make_evolver_topos(full_topo):
+    """Build separate input/output topologies for an Evolver step.
+
+    Input: allocate + timing ports only (bulk/unique read via core.view from output wiring)
+    Output: bulk, unique, listeners, next_update_time, process_state
+    """
+    # Evolvers read allocate (input only) and write to bulk/unique/listeners (output)
+    # allocate is NOT in outputs (no one should depend on allocate writes)
+    in_topo = dict(full_topo)  # everything including allocate
+    out_topo = {k: v for k, v in full_topo.items()
+                if k != 'allocate'}
+    return in_topo, out_topo
+
+
+def set_cell_state_refs(cell_state):
+    """Give each step instance a reference to the cell state.
+
+    Steps use this to read bulk/unique/listeners directly,
+    instead of through core.view's input wiring. This allows
+    the dependency graph to only use flow tokens, enabling
+    layer-parallel execution matching v1.
+    """
+    for name, edge in cell_state.items():
+        if isinstance(edge, dict) and 'instance' in edge:
+            edge['instance']._cell_state = cell_state
+
+
+def inject_flow_dependencies(cell_state, flow_order):
+    """Add layer-based flow tokens for parallel execution within layers.
+
+    Steps within the same layer run in parallel on the same state snapshot.
+    Between layers, updates are applied atomically. This matches v1's
+    execution model.
+
+    Layers are defined by comment blocks in DEFAULT_FLOW. Within a layer,
+    all steps depend on the previous layer's token and produce the current
+    layer's token. The Composite's determine_steps sees all steps in a
+    layer as ready simultaneously.
+    """
+    # Define execution layers: steps that should run in parallel
+    LAYERS = [
+        # Layer 0: post-division mass
+        ['post-division-mass-listener', 'unique_update_1'],
+        # Layer 1: media/environment
+        ['media_update', 'unique_update_2', 'ecoli-tf-unbinding', 'exchange_data', 'unique_update_3'],
+        # Layer 2: partition layer 1 — requesters
+        ['ecoli-equilibrium_requester', 'ecoli-rna-maturation_requester',
+         'ecoli-two-component-system_requester'],
+        # Layer 3: allocator 1
+        ['allocator_1'],
+        # Layer 4: partition layer 1 — evolvers
+        ['ecoli-equilibrium_evolver', 'ecoli-rna-maturation_evolver',
+         'ecoli-two-component-system_evolver', 'unique_update_4'],
+        # Layer 5: TF binding
+        ['ecoli-tf-binding', 'unique_update_5'],
+        # Layer 6: partition layer 2 — requesters
+        ['ecoli-chromosome-replication_requester', 'ecoli-complexation_requester',
+         'ecoli-polypeptide-initiation_requester', 'ecoli-protein-degradation_requester',
+         'ecoli-rna-degradation_requester', 'ecoli-transcript-initiation_requester'],
+        # Layer 7: allocator 2
+        ['allocator_2'],
+        # Layer 8: partition layer 2 — evolvers
+        ['ecoli-chromosome-replication_evolver', 'ecoli-complexation_evolver',
+         'ecoli-polypeptide-initiation_evolver', 'ecoli-protein-degradation_evolver',
+         'ecoli-rna-degradation_evolver', 'ecoli-transcript-initiation_evolver',
+         'unique_update_6'],
+        # Layer 9: partition layer 3 — requesters
+        ['ecoli-polypeptide-elongation_requester', 'ecoli-transcript-elongation_requester'],
+        # Layer 10: allocator 3
+        ['allocator_3'],
+        # Layer 11: partition layer 3 — evolvers
+        ['ecoli-polypeptide-elongation_evolver', 'ecoli-transcript-elongation_evolver',
+         'unique_update_7'],
+        # Layer 12: chromosome structure + metabolism
+        ['ecoli-chromosome-structure', 'unique_update_8', 'ecoli-metabolism', 'unique_update_9'],
+        # Layer 13: listeners
+        ['RNA_counts_listener', 'dna_supercoiling_listener', 'ecoli-mass-listener',
+         'monomer_counts_listener', 'replication_data_listener', 'ribosome_data_listener',
+         'rna_synth_prob_listener', 'rnap_data_listener', 'unique_molecule_counts',
+         'unique_update_10'],
+        # Layer 14: emitter + clock
+        ['emitter', 'global_clock'],
+        # Layer 15: division
+        ['mark_d_period', 'unique_update_11', 'division'],
+    ]
+
+    n_layers = len(LAYERS)
+    for layer_idx, layer_steps in enumerate(LAYERS):
+        for step_name in layer_steps:
+            edge = cell_state.get(step_name)
+            if not isinstance(edge, dict):
+                continue
+            # Priority: higher layers run first (for cycle breaking)
+            edge['priority'] = float(n_layers - layer_idx)
+            # Depend on previous layer's token
+            if layer_idx == 0:
+                edge.setdefault('inputs', {})['global_time'] = ['global_time']
+            else:
+                edge.setdefault('inputs', {})[f'_layer_in'] = [f'_layer_token_{layer_idx - 1}']
+            # Produce current layer's token
+            if layer_idx < n_layers - 1:
+                edge.setdefault('outputs', {})[f'_layer_out'] = [f'_layer_token_{layer_idx}']
+
+
+def make_edge(instance, topology, edge_type='step',
+              input_topology=None, output_topology=None):
     """Create an edge dict for a process/step instance.
 
-    Includes the instance directly and its input/output schemas.
+    Args:
+        instance: The step/process instance.
+        topology: Default topology (used for both inputs/outputs if specific ones not given).
+        edge_type: 'step' or 'process'.
+        input_topology: If given, overrides topology for inputs wiring.
+        output_topology: If given, overrides topology for outputs wiring.
     """
-    wires = list_paths(topology)
+    in_wires = list_paths(input_topology or topology)
+    out_wires = list_paths(output_topology or topology)
     state = {'priority': 1.0} if edge_type == 'step' else {'interval': 1.0}
 
     # Get port schemas from instance
@@ -231,13 +354,17 @@ def make_edge(instance, topology, edge_type='step'):
         except Exception:
             pass
 
+    # For steps, use separate input/output wiring to control dependencies.
+    # Inputs determine what triggers this step (dependency graph).
+    # Outputs determine how updates are projected back to state.
+    # Both are used by core.view/core.project respectively.
     state.update({
         '_type': edge_type,
         'instance': instance,
         '_inputs': inputs_schema,
         '_outputs': outputs_schema,
-        'inputs': copy.deepcopy(wires),
-        'outputs': copy.deepcopy(wires),
+        'inputs': copy.deepcopy(in_wires),
+        'outputs': copy.deepcopy(out_wires),
     })
     return state
 
@@ -319,12 +446,14 @@ def build_document(sim_data_path=None, seed=0):
     cell_state = {}
     cell_state.update(initial_state)
 
-    # Pre-create virtual stores that steps will read/write
-    for store in ['listeners', 'request', 'allocate', 'process',
+    # Pre-create virtual stores
+    for store in ['listeners', 'request', 'process',
                   'allocator_rng', 'process_state', 'exchange',
                   'next_update_time']:
         if store not in cell_state:
             cell_state[store] = {}
+    # Per-process allocation stores are flat: allocate_{proc_name}
+    # Created by Allocator's dynamic topology with SetStore type
     cell_state.setdefault('global_time', 0.0)
     cell_state.setdefault('timestep', 1.0)
     cell_state.setdefault('divide', False)
@@ -337,6 +466,14 @@ def build_document(sim_data_path=None, seed=0):
     # Seed random state for allocator
     import numpy as np
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
+
+    # Pre-create request sub-dicts for each partitioned process.
+    # Allocate store is NOT pre-created — the Allocator declares it as
+    # SetStore which does full replacement, avoiding dict apply issues.
+    for proc_name in ALL_PARTITIONED:
+        cell_state.setdefault('request', {})[proc_name] = {'bulk': []}
+        # Pre-create flat allocation store so core.view can find it
+        cell_state[f'allocate_{proc_name}'] = {'bulk': {}}
 
     # Pre-populate process_state with defaults that metabolism needs
     from v2ecoli.library.units import units
@@ -352,13 +489,22 @@ def build_document(sim_data_path=None, seed=0):
 
     # Add all process/step edges with their configs and topologies
     for step_name in DEFAULT_FLOW:
-        config = _get_step_config(loader, step_name, core, _process_cache)
-        if config is not None:
-            instance, topology, edge_type = config
-            cell_state[step_name] = make_edge(instance, topology, edge_type)
+        result = _get_step_config(loader, step_name, core, _process_cache)
+        if result is not None:
+            if len(result) == 4:
+                instance, in_topo, out_topo, edge_type = result
+                cell_state[step_name] = make_edge(
+                    instance, in_topo, edge_type,
+                    input_topology=in_topo, output_topology=out_topo)
+            else:
+                instance, topology, edge_type = result
+                cell_state[step_name] = make_edge(instance, topology, edge_type)
 
     # Seed mass listener after edges are created
     _seed_mass_listener(cell_state, core)
+
+    # Give step instances direct access to cell state
+    set_cell_state_refs(cell_state)
 
     # Add flow dependencies (synthetic wiring for execution order)
     inject_flow_dependencies(cell_state, DEFAULT_FLOW)
@@ -372,9 +518,119 @@ def build_document(sim_data_path=None, seed=0):
     return {
         'state': state,
         'skip_initial_steps': True,
-        'sequential_steps': True,
+        'sequential_steps': False,
         'flow_order': DEFAULT_FLOW,
     }
+
+
+class CachedLoader:
+    """Mock loader that returns configs from cache instead of simData."""
+
+    def __init__(self, configs, unique_names, dry_mass_inc_dict=None):
+        self._configs = configs
+        self.unique_names = unique_names
+
+        class _SimData:
+            class _InternalState:
+                class _UniqueMolecule:
+                    def __init__(self, names):
+                        self.unique_molecule_definitions = {n: {} for n in names}
+                unique_molecule = None
+                def __init__(self, names):
+                    self.unique_molecule = self._UniqueMolecule(names)
+            internal_state = None
+            expectedDryMassIncreaseDict = {}
+
+        self.sim_data = _SimData()
+        self.sim_data.internal_state = _SimData._InternalState(unique_names)
+        self.sim_data.expectedDryMassIncreaseDict = dry_mass_inc_dict or {}
+
+    def get_config_by_name(self, name):
+        if name in self._configs:
+            return self._configs[name]
+        raise KeyError(f'Unknown: {name}')
+
+
+def build_cell_state(initial_state, configs, unique_names,
+                     dry_mass_inc_dict=None, core=None, seed=0):
+    """Build a complete cell_state dict with data stores + step edges.
+
+    Used by both initial document creation and division.
+
+    Args:
+        initial_state: Dict with bulk, unique, environment, boundary, etc.
+        configs: Dict mapping step names to config dicts.
+        unique_names: List of unique molecule names.
+        dry_mass_inc_dict: Division mass increment dict.
+        core: bigraph-schema core. If None, creates one.
+        seed: Random seed.
+
+    Returns:
+        Complete cell_state dict ready to be placed in agents Map.
+    """
+    from bigraph_schema import allocate_core
+    from v2ecoli.types import ECOLI_TYPES
+    import numpy as np
+
+    if core is None:
+        core = allocate_core()
+        core.register_types(ECOLI_TYPES)
+
+    cell_state = {}
+    cell_state.update(initial_state)
+
+    # Pre-create virtual stores
+    for store in ['listeners', 'request', 'process',
+                  'allocator_rng', 'process_state', 'exchange',
+                  'next_update_time']:
+        if store not in cell_state:
+            cell_state[store] = {}
+    # Per-process allocation stores are flat: allocate_{proc_name}
+    # Created by Allocator's dynamic topology with SetStore type
+    cell_state.setdefault('global_time', 0.0)
+    cell_state.setdefault('timestep', 1.0)
+    cell_state.setdefault('divide', False)
+    cell_state.setdefault('division_threshold', 'mass_distribution')
+    cell_state.setdefault('listeners', {})
+    cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
+    cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
+
+    # Pre-create request/allocate sub-dicts for each partitioned process.
+    # This ensures core.apply can route updates through known dict keys,
+    # since the generic dict apply only processes keys present in the schema.
+    for proc_name in ALL_PARTITIONED:
+        cell_state.setdefault('request', {})[proc_name] = {'bulk': []}
+        # Pre-create flat allocation store so core.view can find it
+        cell_state[f'allocate_{proc_name}'] = {'bulk': {}}
+
+    from v2ecoli.library.units import units
+    cell_state.setdefault('process_state', {})
+    cell_state['process_state'].setdefault('polypeptide_elongation', {
+        'aa_exchange_rates': np.zeros(21) * units.mmol / units.L / units.s,
+        'gtp_to_hydrolyze': 0,
+        'aa_count_diff': np.zeros(21),
+    })
+
+    loader = CachedLoader(configs, unique_names, dry_mass_inc_dict)
+
+    _process_cache = {}
+    for step_name in DEFAULT_FLOW:
+        result = _get_step_config(loader, step_name, core, _process_cache)
+        if result is not None:
+            if len(result) == 4:
+                instance, in_topo, out_topo, edge_type = result
+                cell_state[step_name] = make_edge(
+                    instance, in_topo, edge_type,
+                    input_topology=in_topo, output_topology=out_topo)
+            else:
+                instance, topology, edge_type = result
+                cell_state[step_name] = make_edge(instance, topology, edge_type)
+
+    _seed_mass_listener(cell_state, core)
+    set_cell_state_refs(cell_state)
+    inject_flow_dependencies(cell_state, DEFAULT_FLOW)
+
+    return cell_state
 
 
 def build_document_from_configs(initial_state, configs, unique_names,
@@ -391,76 +647,9 @@ def build_document_from_configs(initial_state, configs, unique_names,
     Returns:
         Document dict for Composite.
     """
-    from bigraph_schema import allocate_core
-    from v2ecoli.types import ECOLI_TYPES
-    import numpy as np
-
-    if core is None:
-        core = allocate_core()
-        core.register_types(ECOLI_TYPES)
-
-    cell_state = {}
-    cell_state.update(initial_state)
-
-    # Pre-create virtual stores
-    for store in ['listeners', 'request', 'allocate', 'process',
-                  'allocator_rng', 'process_state', 'exchange',
-                  'next_update_time']:
-        if store not in cell_state:
-            cell_state[store] = {}
-    cell_state.setdefault('global_time', 0.0)
-    cell_state.setdefault('timestep', 1.0)
-    cell_state.setdefault('divide', False)
-    cell_state.setdefault('division_threshold', 'mass_distribution')
-    cell_state.setdefault('listeners', {})
-    cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
-    cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
-
-    from v2ecoli.library.units import units
-    cell_state.setdefault('process_state', {})
-    cell_state['process_state'].setdefault('polypeptide_elongation', {
-        'aa_exchange_rates': np.zeros(21) * units.mmol / units.L / units.s,
-        'gtp_to_hydrolyze': 0,
-        'aa_count_diff': np.zeros(21),
-    })
-
-    # Create a mock loader that returns configs from the cache
-    class _CachedLoader:
-        def __init__(self, configs, unique_names, dry_mass_inc_dict):
-            self._configs = configs
-            self.unique_names = unique_names
-
-            class _SimData:
-                class _InternalState:
-                    class _UniqueMolecule:
-                        def __init__(self, names):
-                            self.unique_molecule_definitions = {n: {} for n in names}
-                    unique_molecule = None
-                    def __init__(self, names):
-                        self.unique_molecule = self._UniqueMolecule(names)
-                internal_state = None
-                expectedDryMassIncreaseDict = {}
-
-            self.sim_data = _SimData()
-            self.sim_data.internal_state = _SimData._InternalState(unique_names)
-            self.sim_data.expectedDryMassIncreaseDict = dry_mass_inc_dict or {}
-
-        def get_config_by_name(self, name):
-            if name in self._configs:
-                return self._configs[name]
-            raise KeyError(f'Unknown: {name}')
-
-    loader = _CachedLoader(configs, unique_names, dry_mass_inc_dict)
-
-    _process_cache = {}
-    for step_name in DEFAULT_FLOW:
-        config = _get_step_config(loader, step_name, core, _process_cache)
-        if config is not None:
-            instance, topology, edge_type = config
-            cell_state[step_name] = make_edge(instance, topology, edge_type)
-
-    _seed_mass_listener(cell_state, core)
-    inject_flow_dependencies(cell_state, DEFAULT_FLOW)
+    cell_state = build_cell_state(
+        initial_state, configs, unique_names,
+        dry_mass_inc_dict=dry_mass_inc_dict, core=core, seed=seed)
 
     state = {
         'agents': {'0': cell_state},
@@ -470,7 +659,7 @@ def build_document_from_configs(initial_state, configs, unique_names,
     return {
         'state': state,
         'skip_initial_steps': True,
-        'sequential_steps': True,
+        'sequential_steps': False,
         'flow_order': DEFAULT_FLOW,
     }
 
@@ -491,10 +680,10 @@ def _get_step_config(loader, step_name, core, process_cache=None):
         try:
             config = loader.get_config_by_name(step_name)
         except (KeyError, AttributeError):
-            return _get_special_step(loader, step_name, core)
+            return _get_special_step(loader, step_name, core, process_cache)
 
     if config is None:
-        return _get_special_step(loader, step_name, core)
+        return _get_special_step(loader, step_name, core, process_cache)
 
     return _instantiate_step(step_name, config, loader, core, process_cache)
 
@@ -539,7 +728,6 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'ecoli-equilibrium': Equilibrium,
         'ecoli-two-component-system': TwoComponentSystem,
         'ecoli-rna-maturation': RnaMaturation,
-        'ecoli-tf-binding': TfBinding,
         'ecoli-transcript-initiation': TranscriptInitiation,
         'ecoli-polypeptide-initiation': PolypeptideInitiation,
         'ecoli-chromosome-replication': ChromosomeReplication,
@@ -552,6 +740,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
 
     # PartitionedProcesses that run as single steps (no requester/evolver split)
     STANDALONE_PARTITIONED = {
+        'ecoli-tf-binding': TfBinding,
         'ecoli-tf-unbinding': TfUnbinding,
         'ecoli-chromosome-structure': ChromosomeStructure,
         'ecoli-metabolism': Metabolism,
@@ -572,8 +761,317 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'exchange_data': ExchangeData,
     }
 
+    # --- Migrated processes: explicit Requester/Evolver Steps ---
+    if base_name == 'ecoli-protein-degradation':
+        from v2ecoli.processes.protein_degradation import (
+            ProteinDegradationRequester, ProteinDegradationEvolver, ProteinDegradationLogic)
+        topo_base = {'bulk': ('bulk',), 'timestep': ('timestep',)}
+        if base_name not in process_cache:
+            process_cache[base_name] = ProteinDegradationLogic(config)
+        logic = process_cache[base_name]
+        if step_name.endswith('_requester'):
+            instance = ProteinDegradationRequester(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['request'] = ('request',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_requester_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+        elif step_name.endswith('_evolver'):
+            instance = ProteinDegradationEvolver(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['allocate'] = (f'allocate_{base_name}',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_evolver_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+
+    if base_name == 'ecoli-equilibrium':
+        from v2ecoli.processes.equilibrium import (
+            EquilibriumRequester, EquilibriumEvolver, EquilibriumLogic)
+        topo_base = {'bulk': ('bulk',), 'listeners': ('listeners',),
+                     'timestep': ('timestep',)}
+        if base_name not in process_cache:
+            process_cache[base_name] = EquilibriumLogic(config)
+        logic = process_cache[base_name]
+        if step_name.endswith('_requester'):
+            instance = EquilibriumRequester(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['request'] = ('request',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_requester_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+        elif step_name.endswith('_evolver'):
+            instance = EquilibriumEvolver(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['allocate'] = (f'allocate_{base_name}',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_evolver_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+
+    if base_name == 'ecoli-two-component-system':
+        from v2ecoli.processes.two_component_system import (
+            TwoComponentSystemRequester, TwoComponentSystemEvolver, TwoComponentSystemLogic)
+        topo_base = {'bulk': ('bulk',), 'listeners': ('listeners',),
+                     'timestep': ('timestep',)}
+        if base_name not in process_cache:
+            process_cache[base_name] = TwoComponentSystemLogic(config)
+        logic = process_cache[base_name]
+        if step_name.endswith('_requester'):
+            instance = TwoComponentSystemRequester(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['request'] = ('request',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_requester_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+        elif step_name.endswith('_evolver'):
+            instance = TwoComponentSystemEvolver(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['allocate'] = (f'allocate_{base_name}',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_evolver_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+
+    if base_name == 'ecoli-rna-maturation':
+        from v2ecoli.processes.rna_maturation import (
+            RnaMaturationRequester, RnaMaturationEvolver, RnaMaturationLogic)
+        topo_base = {'bulk': ('bulk',), 'bulk_total': ('bulk',),
+                     'listeners': ('listeners',)}
+        if base_name not in process_cache:
+            process_cache[base_name] = RnaMaturationLogic(config)
+        logic = process_cache[base_name]
+        if step_name.endswith('_requester'):
+            instance = RnaMaturationRequester(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['request'] = ('request',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_requester_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+        elif step_name.endswith('_evolver'):
+            instance = RnaMaturationEvolver(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['allocate'] = (f'allocate_{base_name}',)
+            topo['global_time'] = ('global_time',)
+            topo['timestep'] = ('timestep',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_evolver_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+
+    if base_name == 'ecoli-complexation':
+        from v2ecoli.processes.complexation import (
+            ComplexationRequester, ComplexationEvolver, ComplexationLogic)
+        topo_base = {'bulk': ('bulk',), 'listeners': ('listeners',),
+                     'timestep': ('timestep',)}
+        if base_name not in process_cache:
+            process_cache[base_name] = ComplexationLogic(config)
+        logic = process_cache[base_name]
+        if step_name.endswith('_requester'):
+            instance = ComplexationRequester(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['request'] = ('request',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_requester_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+        elif step_name.endswith('_evolver'):
+            instance = ComplexationEvolver(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['allocate'] = (f'allocate_{base_name}',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_evolver_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+
+    if base_name == 'ecoli-polypeptide-initiation':
+        from v2ecoli.processes.polypeptide_initiation import (
+            PolypeptideInitiationRequester, PolypeptideInitiationEvolver, PolypeptideInitiationLogic)
+        topo_base = {
+            'bulk': ('bulk',),
+            'environment': ('environment',),
+            'listeners': ('listeners',),
+            'active_ribosome': ('unique', 'active_ribosome'),
+            'RNA': ('unique', 'RNA'),
+            'timestep': ('timestep',),
+        }
+        if base_name not in process_cache:
+            process_cache[base_name] = PolypeptideInitiationLogic(config)
+        logic = process_cache[base_name]
+        if step_name.endswith('_requester'):
+            instance = PolypeptideInitiationRequester(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['request'] = ('request',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_requester_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+        elif step_name.endswith('_evolver'):
+            instance = PolypeptideInitiationEvolver(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['allocate'] = (f'allocate_{base_name}',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_evolver_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+
+    if base_name == 'ecoli-transcript-initiation':
+        from v2ecoli.processes.transcript_initiation import (
+            TranscriptInitiationRequester, TranscriptInitiationEvolver, TranscriptInitiationLogic)
+        topo_base = {
+            'bulk': ('bulk',), 'environment': ('environment',),
+            'listeners': ('listeners',), 'timestep': ('timestep',),
+            'full_chromosomes': ('unique', 'full_chromosome'),
+            'RNAs': ('unique', 'RNA'),
+            'active_RNAPs': ('unique', 'active_RNAP'),
+            'promoters': ('unique', 'promoter'),
+        }
+        if base_name not in process_cache:
+            process_cache[base_name] = TranscriptInitiationLogic(config)
+        logic = process_cache[base_name]
+        if step_name.endswith('_requester'):
+            instance = TranscriptInitiationRequester(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['request'] = ('request',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_requester_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+        elif step_name.endswith('_evolver'):
+            instance = TranscriptInitiationEvolver(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['allocate'] = (f'allocate_{base_name}',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_evolver_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+
+    if base_name == 'ecoli-rna-degradation':
+        from v2ecoli.processes.rna_degradation import (
+            RnaDegradationRequester, RnaDegradationEvolver, RnaDegradationLogic)
+        topo_base = {
+            'bulk': ('bulk',), 'listeners': ('listeners',),
+            'timestep': ('timestep',),
+            'RNAs': ('unique', 'RNA'),
+            'active_ribosome': ('unique', 'active_ribosome'),
+        }
+        if base_name not in process_cache:
+            process_cache[base_name] = RnaDegradationLogic(config)
+        logic = process_cache[base_name]
+        if step_name.endswith('_requester'):
+            instance = RnaDegradationRequester(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['request'] = ('request',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_requester_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+        elif step_name.endswith('_evolver'):
+            instance = RnaDegradationEvolver(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['allocate'] = (f'allocate_{base_name}',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_evolver_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+
+    if base_name == 'ecoli-polypeptide-elongation':
+        from v2ecoli.processes.polypeptide_elongation import (
+            PolypeptideElongationRequester, PolypeptideElongationEvolver, PolypeptideElongationLogic)
+        topo_base = {
+            'bulk': ('bulk',), 'bulk_total': ('bulk',),
+            'environment': ('environment',), 'boundary': ('boundary',),
+            'listeners': ('listeners',), 'timestep': ('timestep',),
+            'active_ribosome': ('unique', 'active_ribosome'),
+            'polypeptide_elongation': ('process_state', 'polypeptide_elongation'),
+        }
+        # Shared Logic instance between Requester and Evolver
+        if base_name not in process_cache:
+            process_cache[base_name] = PolypeptideElongationLogic(config, core=core)
+        logic = process_cache[base_name]
+        if step_name.endswith('_requester'):
+            instance = PolypeptideElongationRequester(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['request'] = ('request',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_requester_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+        elif step_name.endswith('_evolver'):
+            instance = PolypeptideElongationEvolver(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['allocate'] = (f'allocate_{base_name}',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_evolver_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+
+    if base_name == 'ecoli-transcript-elongation':
+        from v2ecoli.processes.transcript_elongation import (
+            TranscriptElongationRequester, TranscriptElongationEvolver, TranscriptElongationLogic)
+        topo_base = {
+            'bulk': ('bulk',), 'bulk_total': ('bulk',),
+            'environment': ('environment',),
+            'listeners': ('listeners',), 'timestep': ('timestep',),
+            'RNAs': ('unique', 'RNA'),
+            'active_RNAPs': ('unique', 'active_RNAP'),
+        }
+        if base_name not in process_cache:
+            process_cache[base_name] = TranscriptElongationLogic(config)
+        logic = process_cache[base_name]
+        if step_name.endswith('_requester'):
+            instance = TranscriptElongationRequester(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['request'] = ('request',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_requester_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+        elif step_name.endswith('_evolver'):
+            instance = TranscriptElongationEvolver(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['allocate'] = (f'allocate_{base_name}',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_evolver_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+
+    if base_name == 'ecoli-chromosome-replication':
+        from v2ecoli.processes.chromosome_replication import (
+            ChromosomeReplicationRequester, ChromosomeReplicationEvolver, ChromosomeReplicationLogic)
+        topo_base = {
+            'bulk': ('bulk',), 'environment': ('environment',),
+            'listeners': ('listeners',), 'timestep': ('timestep',),
+            'active_replisomes': ('unique', 'active_replisome'),
+            'oriCs': ('unique', 'oriC'),
+            'chromosome_domains': ('unique', 'chromosome_domain'),
+            'full_chromosomes': ('unique', 'full_chromosome'),
+        }
+        if base_name not in process_cache:
+            process_cache[base_name] = ChromosomeReplicationLogic(config)
+        logic = process_cache[base_name]
+        if step_name.endswith('_requester'):
+            instance = ChromosomeReplicationRequester(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['request'] = ('request',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_requester_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+        elif step_name.endswith('_evolver'):
+            instance = ChromosomeReplicationEvolver(config={**config, '_logic': logic}, core=core)
+            topo = dict(topo_base)
+            topo['allocate'] = (f'allocate_{base_name}',)
+            topo['global_time'] = ('global_time',)
+            topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo, out_topo = _make_evolver_topos(topo)
+            return instance, in_topo, out_topo, 'step'
+
     if base_name in PARTITIONED:
-        # Share the same PartitionedProcess between requester and evolver
+        # Legacy fallback — share the same PartitionedProcess between requester and evolver
         if base_name in process_cache:
             process = process_cache[base_name]
         else:
@@ -583,11 +1081,14 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         topology = process.topology
 
         if step_name.endswith('_requester'):
-            req_config = {'process': process, 'name': step_name}
+            req_config = {
+                'process': process,
+                'name': step_name,
+                'process_name': base_name,
+            }
             instance = Requester(config=req_config, core=core)
-            # Requester topology extends process topology
             req_topo = dict(topology)
-            req_topo['request'] = ('request', base_name)
+            req_topo['request'] = ('request',)
             req_topo['process'] = ('process', base_name)
             req_topo['global_time'] = ('global_time',)
             req_topo['timestep'] = ('timestep',)
@@ -595,10 +1096,14 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             return instance, req_topo, 'step'
 
         elif step_name.endswith('_evolver'):
-            ev_config = {'process': process, 'name': step_name}
+            ev_config = {
+                'process': process,
+                'name': step_name,
+                'process_name': base_name,
+            }
             instance = Evolver(config=ev_config, core=core)
             ev_topo = dict(topology)
-            ev_topo['allocate'] = ('allocate', base_name)
+            ev_topo['allocate'] = (f'allocate_{base_name}',)
             ev_topo['process'] = ('process', base_name)
             ev_topo['global_time'] = ('global_time',)
             ev_topo['timestep'] = ('timestep',)
@@ -612,7 +1117,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
 
     elif step_name in STANDALONE_PARTITIONED:
         cls = STANDALONE_PARTITIONED[step_name]
-        instance = cls(parameters=config, core=core)
+        instance = cls(config=config, core=core)
         topology = instance.topology
         return instance, topology, 'step'
 
@@ -620,12 +1125,16 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         cls = SIMPLE_STEPS[step_name]
         instance = cls(config=config, core=core)
         topology = getattr(instance, 'topology', {})
-        return instance, topology, 'step'
+        # Listeners: read bulk/unique but only write listeners
+        out_topo = {k: v for k, v in topology.items()
+                    if k in ('listeners', 'exchange', 'environment',
+                             'boundary', 'next_update_time')}
+        return instance, topology, out_topo, 'step'
 
     return None
 
 
-def _get_special_step(loader, step_name, core):
+def _get_special_step(loader, step_name, core, process_cache=None):
     """Handle steps that aren't in LoadSimData's config map."""
     from v2ecoli.steps.unique_update import UniqueUpdate
     from v2ecoli.steps.allocator import Allocator
@@ -663,16 +1172,8 @@ def _get_special_step(loader, step_name, core):
             config = loader.get_config_by_name('allocator')
         except Exception:
             config = {}
-        all_partitioned = [
-            'ecoli-chromosome-replication', 'ecoli-complexation',
-            'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
-            'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
-            'ecoli-rna-degradation', 'ecoli-rna-maturation',
-            'ecoli-transcript-elongation', 'ecoli-transcript-initiation',
-            'ecoli-two-component-system',
-        ]
         if not config.get('process_names'):
-            config['process_names'] = all_partitioned
+            config['process_names'] = list(ALL_PARTITIONED)
         if config:
             instance = Allocator(config=config, core=core)
             topo = instance.topology
@@ -738,16 +1239,24 @@ def _get_special_step(loader, step_name, core):
             div_config = {}
         div_config.setdefault('agent_id', '0')
         div_config.setdefault('division_threshold', 'mass_distribution')
-        div_config.setdefault('dry_mass_inc_dict',
-                              getattr(getattr(loader, 'sim_data', None),
-                                      'expectedDryMassIncreaseDict', {}))
+        dry_mass_inc = getattr(getattr(loader, 'sim_data', None),
+                               'expectedDryMassIncreaseDict', {})
+        div_config.setdefault('dry_mass_inc_dict', dry_mass_inc)
+        # Pass configs needed for building daughter cell states
+        if hasattr(loader, '_configs'):
+            div_config['configs'] = loader._configs
+        div_config.setdefault('unique_names', getattr(loader, 'unique_names', []))
         instance = Division(config=div_config, core=core)
         topo = {
-            'division_variable': ('listeners', 'mass', 'dry_mass'),
-            'full_chromosome': ('unique', 'full_chromosome'),
-            'media_id': ('environment', 'media_id'),
-            'division_threshold': ('division_threshold',),
+            'bulk': ('bulk',),
+            'unique': ('unique',),
+            'listeners': ('listeners',),
+            'environment': ('environment',),
+            'boundary': ('boundary',),
             'global_time': ('global_time',),
+            'division_threshold': ('division_threshold',),
+            'media_id': ('environment', 'media_id'),
+            'agents': ('..',),
         }
         return instance, topo, 'step'
 

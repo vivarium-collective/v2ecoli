@@ -29,7 +29,7 @@ jobs:
       run: sudo apt-get update && sudo apt-get install -y graphviz glpk-utils libglpk-dev
 
     - name: Install v2ecoli
-      run: USE_CYTHON=1 uv sync
+      run: USE_CYTHON=1 uv sync --no-sources
 
     - name: Cache ParCa simulation data
       id: cache-parca

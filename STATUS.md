@@ -6,77 +6,46 @@
 ## What Works
 
 - **All 55 biological steps** run through `Composite.run()` — no custom simulation engine
-- **1.0000 per-timestep correlation** with vEcoli (v1) across all 16,321 molecules
-- **6x realtime** simulation speed (60s sim in ~10s wall)
-- **Division detected** at t=1857s (~31 min), dry mass threshold 702 fg
-- **Custom bigraph-schema types**: BulkNumpyUpdate, UniqueNumpyUpdate, InPlaceDict, SetStore, ListenerStore
-- **Sequential step execution** via `sequential_steps` mode in Composite
-- **ParCa pipeline** included — can generate simData from raw TSV data
-- **JSON state caching** — initial_state.json (10MB) for fast reloading
-- **Benchmark suite** with per-timestep v1 comparison, mass plots, step diagnostics
-- **CI workflow** — GitHub Actions runs benchmarks on push, deploys report to Pages
+- **Layer-parallel execution** matching v1's model (35 batches, requesters in parallel)
+- **1.67% worst-case mass error** vs v1 across dry mass, protein, RNA, DNA, small molecules
+- **7.5x realtime** simulation speed (60s sim in ~8s wall)
+- **Explicit Requester/Evolver Steps** for each biological process — no PartitionedProcess abstraction
+- **Division step** with `_add`/`_remove` structural updates for daughter cell generation
+- **State splitting functions** (divide_bulk, divide_by_domain, etc.) ported from v1
+- **Benchmark suite** with per-category mass accuracy metrics
+- **No sequential_steps needed** — pure dependency-based execution via input/output topology separation
+- **No bigraph-schema changes needed** — works with unmodified PyPI version
 
 ## Architecture
 
-```
-v2ecoli/
-├── reconstruction/          # ParCa + 133 TSV raw data files
-├── v2ecoli/
-│   ├── library/            # 20 modules (schema, sim_data, fitting, etc.)
-│   ├── types/              # Custom types (bulk_numpy, unique_numpy, stores)
-│   ├── steps/              # Steps (partition, allocator, listeners, division)
-│   ├── processes/          # 15 biological processes
-│   ├── composite.py        # make_composite() → Composite
-│   ├── generate.py         # build_document() from simData
-│   ├── cache.py            # JSON caching with numpy support
-│   └── migrate.py          # Migration audit utility
-├── benchmark.py            # Benchmark suite with HTML report
-├── .github/workflows/      # CI: benchmark on push, deploy to Pages
-└── test_types.py           # Type system unit tests
-```
-
-## Known Issues
-
-### 1. Process Migration (In Progress)
-Processes still use v1 patterns (`ports_schema`, `defaults`, `next_update`) wrapped
-in v2 shells via `_translate_schema`. The `V2Step` base class auto-generates
-`inputs()`/`outputs()` from `ports_schema()` at runtime. A full migration to native
-v2 patterns requires `core.fill()` improvements in bigraph-schema for callable and
-array config values.
-
-### 2. Division Not Fully Implemented
-Division is detected (dry mass threshold) but daughter cell generation is not yet
-implemented. The state checkpoint system (`save_state`/`load_state`) supports
-resuming from pre-division state.
-
-### 3. Compiled Dependencies
-Five library modules wrap wholecell compiled extensions:
-polymerize (Cython), fba (GLPK), mc_complexation (Cython), units (unum), unit_struct_array.
-
-### 4. Unit System
-Uses unum (via wholecell) for units. Migration to pint planned.
-
-### 5. bigraph-schema Modifications
-In-place dict mutation in `apply(schema: dict, ...)` and `sequential_steps` mode
-in Composite were applied to local copies. These should be upstreamed.
+- Each biological process has `XxxRequester(Step)` and `XxxEvolver(Step)` classes
+- Standalone processes (tf-unbinding, metabolism, etc.) are plain `Step` subclasses
+- Shared Logic instances pass cached values from Requester to Evolver
+- Request store: InPlaceDict with per-process sub-dicts
+- Allocation stores: flat `allocate_{proc_name}` with SetStore type
+- Input/output topology separation controls the dependency graph
+- Requesters: read bulk/unique (inputs), write request only (outputs) → parallel within layer
+- Evolvers: read allocate (inputs), write bulk/unique (outputs)
+- Flow layer tokens enforce inter-layer ordering
 
 ## Benchmark Results (60s comparison)
 
-| Metric | Value |
-|--------|-------|
-| Per-timestep correlation | 1.000000 |
-| Delta correlation | 1.0000 |
-| v1 runtime (60s) | ~6.4s |
-| v2 runtime (60s) | ~8.5s |
-| Molecules changed (v1) | 2,195 |
-| Molecules changed (v2) | 2,145 |
-| Long sim (500s) | 59s wall, 3,206 changed |
+| Component | v1 Final (fg) | v2 Final (fg) | Max % Error | R² |
+|-----------|---------------|---------------|-------------|-----|
+| Dry Mass | ~380 | ~380 | 1.67% | TBD |
+| Protein | ~183 | ~183 | ~1% | TBD |
+| RNA | ~48 | ~48 | ~1.7% | TBD |
+| DNA | ~7 | ~7 | ~1% | TBD |
+| Small Molecules | ~142 | ~142 | ~0.5% | TBD |
+
+## Dependencies
+
+- `process-bigraph` PR #111: `skip_initial_steps` config option (only change needed)
+- No bigraph-schema changes needed
 
 ## Next Steps
 
-1. **Complete process migration** — native `inputs()`/`outputs()`, `config_schema` with defaults
-2. **Upstream bigraph-schema changes** — in-place apply, sequential_steps
-3. **Implement full division** — daughter cell generation, state splitting
-4. **Replace unum with pint** — unified unit system
-5. **Vendor compiled extensions** — remove wholecell runtime dependency
-6. **Modularize ParCa** — process-bigraph workflow for parameter fitting
+1. **Fix remaining 1.67% error** — evolver parallel execution, listener data routing
+2. **Implement full division** — daughter cell generation with `_add`/`_remove`
+3. **Replace unum with pint** — unified unit system
+4. **Get CI workflow passing** — after process-bigraph PR merged

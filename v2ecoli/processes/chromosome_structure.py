@@ -11,6 +11,11 @@ Chromosome Structure
 import numpy as np
 import numpy.typing as npt
 import warnings
+
+from process_bigraph import Step
+from process_bigraph.composite import SyncUpdate
+from bigraph_schema.schema import Float, Overwrite, Node
+
 from v2ecoli.library.schema import (
     listener_schema,
     numpy_schema,
@@ -19,42 +24,61 @@ from v2ecoli.library.schema import (
     get_free_indices,
 )
 from v2ecoli.library.polymerize import buildSequences
-from v2ecoli.steps.partition import PartitionedProcess
+from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
+from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
+from v2ecoli.types.stores import InPlaceDict, ListenerStore
 
-class ChromosomeStructure(PartitionedProcess):
-    """Chromosome Structure Process"""
+
+def _protect_standalone_state(state):
+    """Protect state for standalone processes."""
+    import numpy as np
+    protected = dict(state)
+    if 'bulk' in protected and hasattr(protected['bulk'], 'copy'):
+        protected['bulk'] = protected['bulk'].copy()
+        protected['bulk'].flags.writeable = True
+    for key, val in protected.items():
+        if key == 'bulk':
+            continue
+        if hasattr(val, 'dtype') and hasattr(val, 'copy'):
+            protected[key] = val.copy()
+            protected[key].flags.writeable = True
+    return protected
+
+
+class ChromosomeStructure(Step):
+    """Chromosome Structure Step — standalone (no request/allocate partition)."""
 
     name = "ecoli-chromosome-structure"
     topology = {
-    "bulk": ("bulk",),
-    "listeners": ("listeners",),
-    "active_replisomes": (
-        "unique",
-        "active_replisome",
-    ),
-    "oriCs": (
-        "unique",
-        "oriC",
-    ),
-    "chromosome_domains": (
-        "unique",
-        "chromosome_domain",
-    ),
-    "active_RNAPs": ("unique", "active_RNAP"),
-    "RNAs": ("unique", "RNA"),
-    "active_ribosome": ("unique", "active_ribosome"),
-    "full_chromosomes": (
-        "unique",
-        "full_chromosome",
-    ),
-    "promoters": ("unique", "promoter"),
-    "DnaA_boxes": ("unique", "DnaA_box"),
-    "genes": ("unique", "gene"),
-    "chromosomal_segments": ("unique", "chromosomal_segment"),
-    "global_time": ("global_time",),
-    "timestep": ("timestep",),
-    "next_update_time": ("next_update_time", "chromosome_structure"),
-}
+        "bulk": ("bulk",),
+        "listeners": ("listeners",),
+        "active_replisomes": (
+            "unique",
+            "active_replisome",
+        ),
+        "oriCs": (
+            "unique",
+            "oriC",
+        ),
+        "chromosome_domains": (
+            "unique",
+            "chromosome_domain",
+        ),
+        "active_RNAPs": ("unique", "active_RNAP"),
+        "RNAs": ("unique", "RNA"),
+        "active_ribosome": ("unique", "active_ribosome"),
+        "full_chromosomes": (
+            "unique",
+            "full_chromosome",
+        ),
+        "promoters": ("unique", "promoter"),
+        "DnaA_boxes": ("unique", "DnaA_box"),
+        "genes": ("unique", "gene"),
+        "chromosomal_segments": ("unique", "chromosomal_segment"),
+        "global_time": ("global_time",),
+        "timestep": ("timestep",),
+        "next_update_time": ("next_update_time", "chromosome_structure"),
+    }
     defaults = {
         # Load parameters
         "rna_sequences": [],
@@ -89,9 +113,12 @@ class ChromosomeStructure(PartitionedProcess):
         "time_step": 1.0,
     }
 
+    config_schema = {}
+
     # Constructor
-    def __init__(self, parameters=None, **kwargs):
-        super().__init__(parameters, **kwargs)
+    def __init__(self, config=None, core=None):
+        super().__init__(config=config or {}, core=core)
+        self.parameters = {**self.defaults, **(config or {})}
         self.rna_sequences = self.parameters["rna_sequences"]
         self.protein_sequences = self.parameters["protein_sequences"]
         self.n_TUs = self.parameters["n_TUs"]
@@ -136,79 +163,68 @@ class ChromosomeStructure(PartitionedProcess):
 
         self.emit_unique = self.parameters.get("emit_unique", True)
 
-    def ports_schema(self):
-        ports = {
-            "listeners": {
-                "rnap_data": listener_schema(
-                    {
-                        "n_total_collisions": 0,
-                        "n_headon_collisions": 0,
-                        "n_codirectional_collisions": 0,
-                        "headon_collision_coordinates": [],
-                        "codirectional_collision_coordinates": [],
-                        "n_removed_ribosomes": 0,
-                        "incomplete_transcription_events": (
-                            np.zeros(self.n_TUs, np.int64),
-                            self.rna_ids,
-                        ),
-                        "n_empty_fork_collisions": 0,
-                        "empty_fork_collision_coordinates": [],
-                    }
-                )
-            },
-            "bulk": numpy_schema("bulk"),
-            # Unique molecules
-            "active_replisomes": numpy_schema(
-                "active_replisomes", emit=self.parameters["emit_unique"]
-            ),
-            "oriCs": numpy_schema("oriCs", emit=self.parameters["emit_unique"]),
-            "chromosome_domains": numpy_schema(
-                "chromosome_domains", emit=self.parameters["emit_unique"]
-            ),
-            "active_RNAPs": numpy_schema(
-                "active_RNAPs", emit=self.parameters["emit_unique"]
-            ),
-            "RNAs": numpy_schema("RNAs", emit=self.parameters["emit_unique"]),
-            "active_ribosome": numpy_schema(
-                "active_ribosome", emit=self.parameters["emit_unique"]
-            ),
-            "full_chromosomes": numpy_schema(
-                "full_chromosomes", emit=self.parameters["emit_unique"]
-            ),
-            "promoters": numpy_schema("promoters", emit=self.parameters["emit_unique"]),
-            "DnaA_boxes": numpy_schema(
-                "DnaA_boxes", emit=self.parameters["emit_unique"]
-            ),
-            "chromosomal_segments": numpy_schema(
-                "chromosomal_segments", emit=self.parameters["emit_unique"]
-            ),
-            "genes": numpy_schema("genes", emit=self.parameters["emit_unique"]),
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-            "next_update_time": {
-                "_default": self.parameters["time_step"],
-                "_updater": "set",
-                "_divider": "set",
-            },
+    def inputs(self):
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'listeners': ListenerStore(),
+            'active_replisomes': UniqueNumpyUpdate(),
+            'oriCs': UniqueNumpyUpdate(),
+            'chromosome_domains': UniqueNumpyUpdate(),
+            'active_RNAPs': UniqueNumpyUpdate(),
+            'RNAs': UniqueNumpyUpdate(),
+            'active_ribosome': UniqueNumpyUpdate(),
+            'full_chromosomes': UniqueNumpyUpdate(),
+            'promoters': UniqueNumpyUpdate(),
+            'DnaA_boxes': UniqueNumpyUpdate(),
+            'genes': UniqueNumpyUpdate(),
+            'chromosomal_segments': UniqueNumpyUpdate(),
+            'global_time': Float(_default=0.0),
+            'timestep': Float(_default=self.parameters.get('time_step', 1.0)),
+            'next_update_time': Float(_default=self.parameters.get('time_step', 1.0)),
         }
 
-        return ports
+    def outputs(self):
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'listeners': ListenerStore(),
+            'active_replisomes': UniqueNumpyUpdate(),
+            'oriCs': UniqueNumpyUpdate(),
+            'chromosome_domains': UniqueNumpyUpdate(),
+            'active_RNAPs': UniqueNumpyUpdate(),
+            'RNAs': UniqueNumpyUpdate(),
+            'active_ribosome': UniqueNumpyUpdate(),
+            'full_chromosomes': UniqueNumpyUpdate(),
+            'promoters': UniqueNumpyUpdate(),
+            'DnaA_boxes': UniqueNumpyUpdate(),
+            'genes': UniqueNumpyUpdate(),
+            'chromosomal_segments': UniqueNumpyUpdate(),
+            'next_update_time': Overwrite(_value=Float()),
+        }
 
-    def update_condition(self, timestep, states):
-        """
-        See :py:meth:`~ecoli.processes.partition.Requester.update_condition`.
-        """
-        if states["next_update_time"] <= states["global_time"]:
-            if states["next_update_time"] < states["global_time"]:
-                warnings.warn(
-                    f"{self.name} updated at t="
-                    f"{states['global_time']} instead of t="
-                    f"{states['next_update_time']}. Decrease the "
-                    "timestep for the global clock process for more "
-                    "accurate timekeeping."
-                )
-            return True
-        return False
+    def invoke(self, state, interval=None):
+        try:
+            update = self.update(state)
+        except Exception:
+            update = {}
+        return SyncUpdate(update)
+
+    def update(self, state, interval=None):
+        # Timing guard (replaces update_condition)
+        next_t = state.get('next_update_time', 0)
+        global_t = state.get('global_time', 0)
+        if next_t > global_t:
+            return {}
+        if next_t < global_t:
+            warnings.warn(
+                f"{self.name} updated at t="
+                f"{global_t} instead of t="
+                f"{next_t}. Decrease the "
+                "timestep for the global clock process for more "
+                "accurate timekeeping."
+            )
+
+        state = _protect_standalone_state(state)
+        return self.next_update(state.get('timestep', 1.0), state)
 
     def next_update(self, timestep, states):
         # At t=0, convert all strings to indices

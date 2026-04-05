@@ -25,19 +25,22 @@ class Allocator(Step):
     """Allocator — arbitrates bulk molecule allocation."""
 
     name = "allocator"
-    topology = {
-        'request': ('request',),
-        'allocate': ('allocate',),
-        'bulk': ('bulk',),
-        'listeners': ('listeners',),
-        'allocator_rng': ('allocator_rng',),
-    }
     config_schema = {}
 
     def __init__(self, config=None, core=None):
         super().__init__(config=config, core=core)
         params = config or {}
         self.parameters = params
+
+        # Build dynamic topology with per-process allocation stores
+        self.topology = {
+            'request': ('request',),
+            'bulk': ('bulk',),
+            'listeners': ('listeners',),
+            'allocator_rng': ('allocator_rng',),
+        }
+        for proc_name in params.get('process_names', []):
+            self.topology[f'allocate_{proc_name}'] = (f'allocate_{proc_name}',)
         self.moleculeNames = params.get("molecule_names", [])
         self.n_molecules = len(self.moleculeNames)
         self.mol_name_to_idx = {
@@ -66,11 +69,14 @@ class Allocator(Step):
         }
 
     def outputs(self):
-        return {
+        ports = {
             'request': SetStore(),
-            'allocate': SetStore(),
             'listeners': ListenerStore(),
         }
+        # One allocation port per process
+        for proc_name in self.processNames:
+            ports[f'allocate_{proc_name}'] = SetStore()
+        return ports
 
     def initial_state(self, config=None):
         return {}
@@ -85,23 +91,30 @@ class Allocator(Step):
         original_totals = total_counts.copy()
         counts_requested = np.zeros((self.n_molecules, self.n_processes), dtype=int)
 
-        proc_idx_in_layer = []
-        for process in state.get("request", {}):
-            if process not in self.proc_name_to_idx:
+        # Read requests from the request store
+        processes_with_requests = []
+        for process_name in self.processNames:
+            store_req = state.get("request", {}).get(process_name, {})
+            if not isinstance(store_req, dict):
                 continue
-            proc_idx = self.proc_name_to_idx[process]
-            req_bulk = state["request"][process].get("bulk", [])
-            if len(req_bulk) > 0:
-                proc_idx_in_layer.append(proc_idx)
+            req_bulk = store_req.get("bulk", [])
+            if not req_bulk:
+                continue
+
+            proc_idx = self.proc_name_to_idx[process_name]
+            processes_with_requests.append(process_name)
             for req_idx, req in req_bulk:
                 counts_requested[req_idx, proc_idx] += req
 
         if ASSERT_POSITIVE_COUNTS and np.any(counts_requested < 0):
             raise NegativeCountsError("Negative counts_requested")
 
+        rng = state.get("allocator_rng", np.random.RandomState(self.seed))
+        if not hasattr(rng, 'choice'):
+            rng = np.random.RandomState(self.seed)
         partitioned_counts = calculate_partition(
             self.processPriorities, counts_requested,
-            total_counts, state.get("allocator_rng", np.random.RandomState(self.seed)))
+            total_counts, rng)
         partitioned_counts.astype(int, copy=False)
 
         # ATP listener
@@ -115,16 +128,19 @@ class Allocator(Step):
         curr_atp_req[non_zero_mask] = counts_requested[self.atp_idx, non_zero_mask]
         curr_atp_alloc[non_zero_mask] = partitioned_counts[self.atp_idx, non_zero_mask]
 
-        return {
-            "request": {process: {"bulk": []} for process in state.get("request", {})},
-            "allocate": {
-                process: {"bulk": partitioned_counts[:, self.proc_name_to_idx[process]]}
-                for process in state.get("request", {})
-                if process in self.proc_name_to_idx},
+        result = {
+            "request": {process: {"bulk": []} for process in processes_with_requests},
             "listeners": {"atp": {
                 "atp_requested": curr_atp_req,
                 "atp_allocated_initial": curr_atp_alloc}},
         }
+        # Write each allocation to its own flat store
+        for process in processes_with_requests:
+            if process in self.proc_name_to_idx:
+                result[f"allocate_{process}"] = {
+                    "bulk": partitioned_counts[:, self.proc_name_to_idx[process]]
+                }
+        return result
 
 
 def calculate_partition(process_priorities, counts_requested, total_counts, random_state):

@@ -33,9 +33,6 @@ class RAMEmitter:
         for key in self.emit_keys:
             val = states.get(key)
             if val is not None:
-                if isinstance(val, dict):
-                    snapshot[key] = copy.copy(val)
-                else:
-                    snapshot[key] = val
+                snapshot[key] = copy.deepcopy(val)
         self.history.append(snapshot)
         return {}

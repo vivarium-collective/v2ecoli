@@ -9,7 +9,7 @@ Represents the total cellular mass.
 import numpy as np
 from numpy.lib import recfunctions as rfn
 
-from process_bigraph import Step
+from v2ecoli.steps.base import V2Step as Step
 from v2ecoli.library.schema import numpy_schema, counts, attrs, bulk_name_to_idx
 from v2ecoli.library.units import units
 

@@ -100,6 +100,8 @@ DEFAULT_FLOW = [
 
     # Emitter: collect data after all listeners
     'emitter',
+    # Clock process: drives time and triggers step cascades
+    'global_clock',
 
     # Layer 8: division check
     'mark_d_period',
@@ -147,14 +149,30 @@ def inject_flow_dependencies(cell_state, flow_order):
 def make_edge(instance, topology, edge_type='step'):
     """Create an edge dict for a process/step instance.
 
-    Includes the instance directly — the document is not pickled,
-    but passed in-memory to the Composite.
+    Includes the instance directly and its input/output schemas.
     """
     wires = list_paths(topology)
     state = {'priority': 1.0} if edge_type == 'step' else {'interval': 1.0}
+
+    # Get port schemas from instance
+    inputs_schema = {}
+    outputs_schema = {}
+    if hasattr(instance, 'inputs'):
+        try:
+            inputs_schema = instance.inputs()
+        except Exception:
+            pass
+    if hasattr(instance, 'outputs'):
+        try:
+            outputs_schema = instance.outputs()
+        except Exception:
+            pass
+
     state.update({
         '_type': edge_type,
         'instance': instance,
+        '_inputs': inputs_schema,
+        '_outputs': outputs_schema,
         'inputs': copy.deepcopy(wires),
         'outputs': copy.deepcopy(wires),
     })
@@ -227,6 +245,37 @@ def build_document(sim_data_path=None, seed=0):
     # Build cell state: initial state + process edges
     cell_state = {}
     cell_state.update(initial_state)
+
+    # Pre-create virtual stores that steps will read/write
+    for store in ['listeners', 'request', 'allocate', 'process',
+                  'allocator_rng', 'process_state', 'exchange',
+                  'next_update_time']:
+        if store not in cell_state:
+            cell_state[store] = {}
+    cell_state.setdefault('global_time', 0.0)
+    cell_state.setdefault('timestep', 1.0)
+
+    # Pre-populate listeners.mass with zeros so mass_listener doesn't crash
+    cell_state.setdefault('listeners', {})
+    cell_state['listeners'].setdefault('mass', {
+        'cell_mass': 0.0, 'water_mass': 0.0, 'dry_mass': 0.0,
+        'protein_mass': 0.0, 'rna_mass': 0.0, 'rRna_mass': 0.0,
+        'tRna_mass': 0.0, 'mRna_mass': 0.0, 'dna_mass': 0.0,
+        'smallMolecule_mass': 0.0, 'volume': 0.0,
+        'protein_mass_fraction': 0.0, 'rna_mass_fraction': 0.0,
+        'growth': 0.0, 'instantaneous_growth_rate': 0.0,
+        'dry_mass_fold_change': 0.0, 'protein_mass_fold_change': 0.0,
+        'rna_mass_fold_change': 0.0, 'small_molecule_fold_change': 0.0,
+        'projection_mass': 0.0, 'cytosol_mass': 0.0,
+        'extracellular_mass': 0.0, 'flagellum_mass': 0.0,
+        'membrane_mass': 0.0, 'outer_membrane_mass': 0.0,
+        'periplasm_mass': 0.0, 'pilus_mass': 0.0,
+        'inner_membrane_mass': 0.0, 'expected_mass_fold_change': 0.0,
+    })
+
+    # Seed random state for allocator
+    import numpy as np
+    cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
 
     # Cache for shared PartitionedProcess instances (requester + evolver share one)
     _process_cache = {}
@@ -456,6 +505,15 @@ def _get_special_step(loader, step_name, core):
             instance = Allocator(config=config, core=core)
             topo = instance.topology
             return instance, topo, 'step'
+
+    if step_name == 'global_clock':
+        from v2ecoli.steps.global_clock import GlobalClock
+        instance = GlobalClock(config={}, core=core)
+        topo = {
+            'global_time': ('global_time',),
+            'next_update_time': ('next_update_time',),
+        }
+        return instance, topo, 'process'  # NOTE: process, not step
 
     if step_name == 'emitter':
         from process_bigraph.emitter import RAMEmitter

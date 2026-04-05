@@ -1,4 +1,5 @@
 from process_bigraph import Process
+from v2ecoli.steps.base import _translate_schema
 from v2ecoli.library.schema import bulk_name_to_idx, numpy_schema, counts
 
 
@@ -28,6 +29,12 @@ class BulkTimelineProcess(Process):
         }
         other_ports = {port: {} for port in self.timeline_ports}
         return {**schema, **other_ports}
+
+    def inputs(self):
+        return _translate_schema(self.ports_schema())
+
+    def outputs(self):
+        return _translate_schema(self.ports_schema())
 
     def next_update(self, timestep, states):
         time = states["global"]["time"]

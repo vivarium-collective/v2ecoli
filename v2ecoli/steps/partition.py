@@ -12,8 +12,7 @@ import warnings
 from process_bigraph import Step
 from bigraph_schema.schema import Node, Float, Overwrite
 
-from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
-from v2ecoli.library.schema import numpy_schema
+from v2ecoli.steps.base import _translate_schema
 
 
 def deep_merge(base, override):
@@ -53,45 +52,10 @@ class PartitionedProcess(Step):
         return {}
 
     def inputs(self):
-        return self._translate_schema(self.ports_schema())
+        return _translate_schema(self.ports_schema())
 
     def outputs(self):
-        return self._translate_schema(self.ports_schema())
-
-    def _translate_schema(self, ports):
-        """Convert v1 ports_schema to bigraph-schema types."""
-        result = {}
-        for key, port in ports.items():
-            if isinstance(port, dict):
-                updater = port.get('_updater')
-                if callable(updater):
-                    name = getattr(updater, '__name__', '')
-                    if 'bulk_numpy' in name or name == 'writeable_updater':
-                        result[key] = BulkNumpyUpdate()
-                        continue
-                    # Check for UniqueNumpyUpdater bound method
-                    if hasattr(updater, '__self__') and hasattr(updater.__self__, 'add_updates'):
-                        from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
-                        result[key] = UniqueNumpyUpdate()
-                        continue
-                if updater == 'set':
-                    result[key] = Overwrite(_value=Node())
-                    continue
-                # Nested dict — recurse
-                sub = {}
-                for k, v in port.items():
-                    if not k.startswith('_'):
-                        if isinstance(v, dict):
-                            sub[k] = self._translate_schema({k: v})[k]
-                        else:
-                            sub[k] = Node()
-                if sub:
-                    result[key] = sub
-                else:
-                    result[key] = Node()
-            else:
-                result[key] = Node()
-        return result
+        return _translate_schema(self.ports_schema())
 
     def initial_state(self, config=None):
         return {}
@@ -134,7 +98,7 @@ class Requester(Step):
         self.name = f"{self.process.name}_requester"
 
     def inputs(self):
-        ports = self.process._translate_schema(self.process.ports_schema())
+        ports = _translate_schema(self.process.ports_schema())
         ports['global_time'] = Float(_default=0.0)
         ports['timestep'] = Float(_default=self.process.parameters.get('timestep', 1.0))
         ports['next_update_time'] = Float(
@@ -185,7 +149,7 @@ class Evolver(Step):
         self.name = f"{self.process.name}_evolver"
 
     def inputs(self):
-        ports = self.process._translate_schema(self.process.ports_schema())
+        ports = _translate_schema(self.process.ports_schema())
         ports['allocate'] = Node()
         ports['global_time'] = Float(_default=0.0)
         ports['timestep'] = Float(_default=self.process.parameters.get('timestep', 1.0))
@@ -194,7 +158,7 @@ class Evolver(Step):
         return ports
 
     def outputs(self):
-        ports = self.process._translate_schema(self.process.ports_schema())
+        ports = _translate_schema(self.process.ports_schema())
         ports['next_update_time'] = Overwrite(_value=Float())
         return ports
 

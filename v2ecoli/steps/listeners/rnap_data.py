@@ -6,7 +6,7 @@ RNAP Data Listener
 
 import numpy as np
 import warnings
-from process_bigraph import Step
+from v2ecoli.steps.base import V2Step as Step
 from v2ecoli.library.schema import numpy_schema, listener_schema, attrs
 
 

@@ -6,7 +6,7 @@ Unique Molecule Counts Listener
 Counts unique molecules
 """
 
-from process_bigraph import Step
+from v2ecoli.steps.base import V2Step as Step
 from v2ecoli.library.schema import numpy_schema, listener_schema
 
 

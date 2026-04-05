@@ -272,7 +272,11 @@ def run_parca(outdir='out/kb', cpus=1):
     )
 
     print(f"{time.ctime()}: Running ParCa (fitSimData_1)...")
-    sim_data = fitSimData_1(raw_data=raw_data, cpus=cpus)
+    sim_data = fitSimData_1(
+        raw_data=raw_data,
+        cpus=cpus,
+        basal_expression_condition="M9 Glucose minus AAs",
+    )
 
     print(f"{time.ctime()}: Saving simData to {sim_data_path}")
     with open(sim_data_path, 'wb') as f:

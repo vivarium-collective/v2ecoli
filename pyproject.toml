@@ -23,7 +23,3 @@ packages = { find = { where = ["."] } }
 [tool.setuptools.package-data]
 "v2ecoli.reconstruction.ecoli.flat" = ["**/*.tsv"]
 
-[tool.uv.sources]
-vecoli = { path = "../vEcoli", editable = true }
-process-bigraph = { path = "../process-bigraph", editable = true }
-bigraph-schema = { path = "../bigraph-schema", editable = true }

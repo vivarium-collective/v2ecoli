@@ -114,6 +114,62 @@ DEFAULT_FLOW = [
 # Wiring helpers
 # ---------------------------------------------------------------------------
 
+def _seed_mass_listener(cell_state, core):
+    """Run mass listener once to populate initial mass values."""
+    import numpy as np
+    from v2ecoli.steps.listeners.mass_listener import MassListener
+
+    # Get mass listener config from LoadSimData would be complex,
+    # so just find the instance if it's already been added to cell_state
+    for name in ['post-division-mass-listener', 'ecoli-mass-listener']:
+        edge = cell_state.get(name)
+        if not isinstance(edge, dict) or 'instance' not in edge:
+            continue
+        instance = edge['instance']
+        if not hasattr(instance, 'next_update'):
+            continue
+
+        # Build a simple view from cell_state
+        view = {}
+        wires = edge.get('inputs', {})
+        for port, wire in wires.items():
+            if isinstance(wire, list) and wire:
+                target = cell_state
+                for seg in wire:
+                    if isinstance(target, dict):
+                        target = target.get(seg)
+                    else:
+                        target = None
+                        break
+                if target is not None:
+                    view[port] = target
+
+        # Ensure all arrays are writeable
+        for key in ['bulk']:
+            arr = view.get(key)
+            if arr is not None and hasattr(arr, 'flags'):
+                try:
+                    arr.flags.writeable = True
+                except ValueError:
+                    view[key] = arr.copy()
+                    view[key].flags.writeable = True
+        for uname, uarr in view.get('unique', {}).items():
+            if hasattr(uarr, 'flags'):
+                try:
+                    uarr.flags.writeable = True
+                except ValueError:
+                    pass
+
+        try:
+            delta = instance.next_update(1.0, view)
+            if delta and 'listeners' in delta:
+                mass = delta['listeners'].get('mass', {})
+                cell_state['listeners']['mass'].update(mass)
+        except Exception:
+            pass
+        break  # Only need to run one mass listener
+
+
 def list_paths(path):
     """Convert tuple paths to list paths. Flatten _path dicts."""
     if isinstance(path, tuple):
@@ -255,23 +311,9 @@ def build_document(sim_data_path=None, seed=0):
     cell_state.setdefault('global_time', 0.0)
     cell_state.setdefault('timestep', 1.0)
 
-    # Pre-populate listeners.mass with zeros so mass_listener doesn't crash
+    # Pre-populate listeners.mass with defaults so mass listener can run
     cell_state.setdefault('listeners', {})
-    cell_state['listeners'].setdefault('mass', {
-        'cell_mass': 0.0, 'water_mass': 0.0, 'dry_mass': 0.0,
-        'protein_mass': 0.0, 'rna_mass': 0.0, 'rRna_mass': 0.0,
-        'tRna_mass': 0.0, 'mRna_mass': 0.0, 'dna_mass': 0.0,
-        'smallMolecule_mass': 0.0, 'volume': 0.0,
-        'protein_mass_fraction': 0.0, 'rna_mass_fraction': 0.0,
-        'growth': 0.0, 'instantaneous_growth_rate': 0.0,
-        'dry_mass_fold_change': 0.0, 'protein_mass_fold_change': 0.0,
-        'rna_mass_fold_change': 0.0, 'small_molecule_fold_change': 0.0,
-        'projection_mass': 0.0, 'cytosol_mass': 0.0,
-        'extracellular_mass': 0.0, 'flagellum_mass': 0.0,
-        'membrane_mass': 0.0, 'outer_membrane_mass': 0.0,
-        'periplasm_mass': 0.0, 'pilus_mass': 0.0,
-        'inner_membrane_mass': 0.0, 'expected_mass_fold_change': 0.0,
-    })
+    cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
 
     # Seed random state for allocator
     import numpy as np
@@ -286,6 +328,9 @@ def build_document(sim_data_path=None, seed=0):
         if config is not None:
             instance, topology, edge_type = config
             cell_state[step_name] = make_edge(instance, topology, edge_type)
+
+    # Seed mass listener after edges are created
+    _seed_mass_listener(cell_state, core)
 
     # Add flow dependencies (synthetic wiring for execution order)
     inject_flow_dependencies(cell_state, DEFAULT_FLOW)

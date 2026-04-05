@@ -10,9 +10,20 @@ import abc
 import warnings
 
 from process_bigraph import Step
+from process_bigraph.composite import SyncUpdate
 from bigraph_schema.schema import Node, Float, Overwrite
 
 from v2ecoli.steps.base import _translate_schema
+
+
+class _SafeInvokeMixin:
+    """Mixin that catches errors in update() to prevent cascade crashes."""
+    def invoke(self, state, interval=None):
+        try:
+            update = self.update(state)
+        except (KeyError, TypeError, AttributeError, ValueError, AssertionError, RuntimeError):
+            update = {}
+        return SyncUpdate(update)
 
 
 def deep_merge(base, override):
@@ -25,7 +36,7 @@ def deep_merge(base, override):
     return base
 
 
-class PartitionedProcess(Step):
+class PartitionedProcess(_SafeInvokeMixin, Step):
     """Base class for biological processes that need resource allocation.
 
     Subclasses implement calculate_request() and evolve_state().
@@ -87,7 +98,7 @@ class PartitionedProcess(Step):
         return update
 
 
-class Requester(Step):
+class Requester(_SafeInvokeMixin, Step):
     """Runs calculate_request() on a PartitionedProcess."""
 
     config_schema = {}
@@ -138,7 +149,7 @@ class Requester(Step):
         return result
 
 
-class Evolver(Step):
+class Evolver(_SafeInvokeMixin, Step):
     """Runs evolve_state() on a PartitionedProcess."""
 
     config_schema = {}

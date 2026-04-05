@@ -13,7 +13,11 @@ from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
 
 
 class V2Step(Step):
-    """Step base class that auto-translates ports_schema to inputs/outputs."""
+    """Step base class that auto-translates ports_schema to inputs/outputs.
+
+    Wraps update() in error handling so missing data doesn't crash
+    the Composite's step cascade.
+    """
 
     config_schema = {}
 
@@ -26,6 +30,15 @@ class V2Step(Step):
         if hasattr(self, 'ports_schema'):
             return _translate_schema(self.ports_schema())
         return {}
+
+    def invoke(self, state, interval=None):
+        """Override invoke to catch errors from missing data."""
+        from process_bigraph.composite import SyncUpdate
+        try:
+            update = self.update(state)
+        except (KeyError, TypeError, AttributeError, ValueError, AssertionError, RuntimeError):
+            update = {}
+        return SyncUpdate(update)
 
 
 def _translate_schema(ports):

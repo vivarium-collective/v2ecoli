@@ -571,6 +571,16 @@ class EcoliSimulation:
             self.state['global_time'] += timestep
             cell_state['global_time'] = self.state['global_time']
 
+    @property
+    def emitter(self):
+        """Get the RAMEmitter instance if one is wired."""
+        if self._cell_path:
+            cell = get_path(self.state, self._cell_path)
+            edge = cell.get('emitter')
+            if isinstance(edge, dict) and 'instance' in edge:
+                return edge['instance']
+        return None
+
 
 # ---------------------------------------------------------------------------
 # Public API

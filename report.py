@@ -81,6 +81,7 @@ def run_v2():
         'final': bulk,
         'runtime': runtime,
         'state': ecoli.state,
+        'emitter': ecoli.emitter,
     }
 
 
@@ -130,17 +131,19 @@ def v1_query_to_mass_timeseries(timeseries):
     return result
 
 
-def v2_state_to_mass_timeseries(state):
-    """Extract mass data from v2 cell state after simulation."""
-    cell = state['agents']['0']
-    listeners = cell.get('listeners', {})
-    mass = listeners.get('mass', {})
-
-    # v2 doesn't have a timeseries emitter yet — just use final values
-    result = {'time': np.array([0.0, state.get('global_time', DURATION)])}
+def v2_emitter_to_mass_timeseries(emitter):
+    """Convert RAMEmitter history to mass timeseries."""
+    history = emitter.history if emitter else []
+    if not history:
+        return {'time': np.array([0.0])}
+    result = {'time': np.array([s.get('global_time', 0.0) for s in history])}
     for label, key in MASS_COMPONENTS.items():
-        val = mass.get(key, 0.0)
-        result[label] = np.array([val, val])  # flat line (single snapshot)
+        values = []
+        for s in history:
+            listeners = s.get('listeners', {})
+            mass = listeners.get('mass', {}) if isinstance(listeners, dict) else {}
+            values.append(mass.get(key, 0.0))
+        result[label] = np.array(values)
     return result
 
 
@@ -424,7 +427,7 @@ def generate_report():
     # Mass fraction timeseries
     print("Generating mass fraction plots...")
     v1_mass = v1_query_to_mass_timeseries(v1['timeseries'])
-    v2_mass = v2_state_to_mass_timeseries(v2['state'])
+    v2_mass = v2_emitter_to_mass_timeseries(v2.get('emitter'))
     mass_b64 = plot_mass_fractions(v1_mass, v2_mass)
 
     # Other plots

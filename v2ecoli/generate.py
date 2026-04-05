@@ -98,6 +98,9 @@ DEFAULT_FLOW = [
     'unique_molecule_counts',
     'unique_update_10',
 
+    # Emitter: collect data after all listeners
+    'emitter',
+
     # Layer 8: division check
     'mark_d_period',
     'unique_update_11',
@@ -437,6 +440,19 @@ def _get_special_step(loader, step_name, core):
             instance = Allocator(config=config)
             topo = instance.topology
             return instance, topo, 'step'
+
+    if step_name == 'emitter':
+        from v2ecoli.steps.emitter import RAMEmitter
+        emit_keys = {
+            'global_time': {'_default': 0.0},
+            'listeners': {},
+        }
+        instance = RAMEmitter(config={'emit_keys': emit_keys})
+        topo = {
+            'global_time': ('global_time',),
+            'listeners': ('listeners',),
+        }
+        return instance, topo, 'step'
 
     if step_name == 'replication_data_listener':
         from v2ecoli.steps.listeners.replication_data import ReplicationData

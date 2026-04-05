@@ -211,11 +211,11 @@ def _make_requester_topos(read_topo):
     Input: read stores (bulk, unique, etc.) + flow tokens (added later)
     Output: request, listeners, next_update_time only
     """
-    # Input: read stores minus request (output-only) and listeners (cross-layer dep)
-    # Requesters access listener data through _cell_state reference if needed
+    # Input: all read stores EXCEPT request (output-only)
+    # listeners stays in inputs so requesters can read mass/volume data
     in_topo = {k: v for k, v in read_topo.items()
-               if k not in ('request', 'listeners', 'next_update_time')}
-    # Outputs: only request and next_update_time
+               if k not in ('request',)}
+    # Outputs: only request and next_update_time (NOT bulk, unique, listeners)
     out_topo = {k: v for k, v in read_topo.items()
                 if k in ('request', 'next_update_time')}
     return in_topo, out_topo

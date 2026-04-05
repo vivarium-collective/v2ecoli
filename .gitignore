@@ -6,3 +6,4 @@ out/
 .DS_Store
 .idea/
 *.pickle
+out/sim_data_cache.pickle

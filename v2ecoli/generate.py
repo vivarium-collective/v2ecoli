@@ -189,11 +189,14 @@ def list_paths(path):
 
 
 def inject_flow_dependencies(cell_state, flow_order):
-    """Add synthetic wiring to enforce execution order."""
+    """Add synthetic wiring and priorities to enforce execution order."""
+    n = len(flow_order)
     for i, step_name in enumerate(flow_order):
         edge = cell_state.get(step_name)
         if not isinstance(edge, dict):
             continue
+        # Set priority: earlier steps get higher priority
+        edge['priority'] = float(n - i)
         if i == 0:
             edge.setdefault('inputs', {}).setdefault('global_time', ['global_time'])
         if i > 0:

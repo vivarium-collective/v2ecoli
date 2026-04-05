@@ -326,6 +326,15 @@ def build_document(sim_data_path=None, seed=0):
     import numpy as np
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
 
+    # Pre-populate process_state with defaults that metabolism needs
+    from v2ecoli.library.units import units
+    cell_state.setdefault('process_state', {})
+    cell_state['process_state'].setdefault('polypeptide_elongation', {
+        'aa_exchange_rates': np.zeros(21) * units.mmol / units.L / units.s,
+        'gtp_to_hydrolyze': 0,
+        'aa_count_diff': np.zeros(21),
+    })
+
     # Cache for shared PartitionedProcess instances (requester + evolver share one)
     _process_cache = {}
 

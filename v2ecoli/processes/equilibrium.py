@@ -108,7 +108,7 @@ class EquilibriumRequester(Step):
         if state.get('next_update_time', 0) > state.get('global_time', 0):
             return {}
 
-        state = _protect_state(state)
+        state = _protect_state(state, cell_state=getattr(self, "_cell_state", None))
         proc = self.process
         proc._init_indices(state['bulk']['id'])
 
@@ -186,7 +186,7 @@ class EquilibriumEvolver(Step):
         if state.get('next_update_time', 0) > state.get('global_time', 0):
             return {}
 
-        state = _protect_state(state)
+        state = _protect_state(state, cell_state=getattr(self, "_cell_state", None))
         proc = self.process
         proc._init_indices(state['bulk']['id'])
 

@@ -41,16 +41,27 @@ def set_timestep_snapshot(cell_state):
         }
 
 
-def _protect_state(state, use_snapshot=False):
+def _protect_state(state, use_snapshot=False, cell_state=None):
     """Return state with bulk/unique copied to prevent mutation.
 
-    If use_snapshot=True AND a snapshot exists, returns the snapshot
-    bulk/unique instead of the live state. This is used by Requesters
-    so they all compute from the same state, matching v1's behavior.
-    Evolvers use use_snapshot=False to see the live state with allocations.
+    If cell_state is provided and 'listeners' is missing from state,
+    injects listeners from cell_state. This allows steps to access
+    listener data without declaring it as a dependency (which would
+    create cross-layer cycles with listener steps).
     """
     import numpy as np
     protected = dict(state)
+
+    # Inject stores from cell_state if not in core.view.
+    # This provides bulk/unique/listeners to steps that don't declare
+    # them as input dependencies (to avoid R/W cycles).
+    if cell_state is not None:
+        for store in ('listeners', 'bulk', 'unique', 'environment', 'boundary',
+                      'process_state'):
+            if store not in protected:
+                val = cell_state.get(store)
+                if val is not None:
+                    protected[store] = val
 
     # Auto-take snapshot on first use_snapshot call of each timestep
     if use_snapshot:

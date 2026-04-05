@@ -37,7 +37,7 @@ class V2Step(Step):
         """Override invoke to catch errors from missing data."""
         from v2ecoli.steps.partition import _protect_state
         try:
-            update = self.update(_protect_state(state))
+            update = self.update(_protect_state(state, cell_state=getattr(self, '_cell_state', None)))
         except Exception:
             update = {}
         return SyncUpdate(update)

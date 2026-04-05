@@ -211,10 +211,11 @@ def _make_requester_topos(read_topo):
     Input: read stores (bulk, unique, etc.) + flow tokens (added later)
     Output: request, listeners, next_update_time only
     """
-    # Input: all read stores EXCEPT request (output-only)
-    # listeners stays in inputs so requesters can read mass/volume data
+    # Input: all read stores EXCEPT request and listeners.
+    # Listeners removed from input deps to avoid cross-layer cycles with
+    # listener steps. Listener data injected via _cell_state in _protect_state.
     in_topo = {k: v for k, v in read_topo.items()
-               if k not in ('request',)}
+               if k not in ('request', 'listeners')}
     # Outputs: only request and next_update_time (NOT bulk, unique, listeners)
     out_topo = {k: v for k, v in read_topo.items()
                 if k in ('request', 'next_update_time')}
@@ -224,12 +225,16 @@ def _make_requester_topos(read_topo):
 def _make_evolver_topos(full_topo):
     """Build separate input/output topologies for an Evolver step.
 
-    Input: allocate + timing ports only (bulk/unique read via core.view from output wiring)
+    Input: only allocate and timing ports. Bulk/unique/listeners read via
+           _cell_state injection in _protect_state to avoid R/W dependency
+           cycles with other evolvers in the same layer.
     Output: bulk, unique, listeners, next_update_time, process_state
     """
-    # Evolvers read allocate (input only) and write to bulk/unique/listeners (output)
-    # allocate is NOT in outputs (no one should depend on allocate writes)
-    in_topo = dict(full_topo)  # everything including allocate
+    # Inputs: only allocate + ports that don't create R/W cycles
+    _EVOLVER_INPUT_ONLY = {'allocate', 'global_time', 'timestep', 'next_update_time'}
+    in_topo = {k: v for k, v in full_topo.items()
+               if k in _EVOLVER_INPUT_ONLY or k.startswith('_')}
+    # Outputs: everything EXCEPT allocate
     out_topo = {k: v for k, v in full_topo.items()
                 if k != 'allocate'}
     return in_topo, out_topo

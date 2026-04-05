@@ -343,7 +343,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
 
         if step_name.endswith('_requester'):
             req_config = {'process': process, 'name': step_name}
-            instance = Requester(config=req_config, core=core)
+            instance = Requester(config=req_config)
             # Requester topology extends process topology
             req_topo = dict(topology)
             req_topo['request'] = ('request', base_name)
@@ -355,7 +355,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
 
         elif step_name.endswith('_evolver'):
             ev_config = {'process': process, 'name': step_name}
-            instance = Evolver(config=ev_config, core=core)
+            instance = Evolver(config=ev_config)
             ev_topo = dict(topology)
             ev_topo['allocate'] = ('allocate', base_name)
             ev_topo['process'] = ('process', base_name)
@@ -414,21 +414,28 @@ def _get_special_step(loader, step_name, core):
             unique_topo_v1[plural] = ('unique', name)
             unique_names_v1.append(plural)
         config = {'unique_names': unique_names_v1, 'unique_topo': unique_topo_v1}
-        instance = UniqueUpdate(config=config, core=core)
+        instance = UniqueUpdate(config=config)
         return instance, unique_topo_v1, 'step'
 
     if step_name.startswith('allocator'):
         try:
             config = loader.get_config_by_name('allocator')
         except Exception:
-            config = None
+            config = {}
+        # Ensure process_names includes all partitioned processes
+        all_partitioned = [
+            'ecoli-chromosome-replication', 'ecoli-complexation',
+            'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
+            'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
+            'ecoli-rna-degradation', 'ecoli-rna-maturation',
+            'ecoli-transcript-elongation', 'ecoli-transcript-initiation',
+            'ecoli-two-component-system',
+        ]
+        if not config.get('process_names'):
+            config['process_names'] = all_partitioned
         if config:
-            instance = Allocator(config=config, core=core)
-            topo = getattr(instance, 'topology', {
-                'request': ('request',), 'allocate': ('allocate',),
-                'bulk': ('bulk',), 'listeners': ('listeners',),
-                'allocator_rng': ('allocator_rng',),
-            })
+            instance = Allocator(config=config)
+            topo = instance.topology
             return instance, topo, 'step'
 
     if step_name == 'replication_data_listener':

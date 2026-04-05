@@ -6,7 +6,6 @@ according to process priorities.
 """
 
 import numpy as np
-from process_bigraph import Step
 
 from v2ecoli.library.schema import counts, bulk_name_to_idx, listener_schema, numpy_schema
 
@@ -18,85 +17,80 @@ class NegativeCountsError(Exception):
     pass
 
 
-class Allocator(Step):
-    """Allocator Step — arbitrates bulk molecule allocation."""
+class Allocator:
+    """Allocator — arbitrates bulk molecule allocation."""
 
     name = "allocator"
-    config_schema = {}
+    topology = {
+        'request': ('request',),
+        'allocate': ('allocate',),
+        'bulk': ('bulk',),
+        'listeners': ('listeners',),
+        'allocator_rng': ('allocator_rng',),
+    }
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
-        self.moleculeNames = config["molecule_names"]
+    def __init__(self, parameters=None, config=None, **kwargs):
+        params = parameters or config or {}
+        self.parameters = params
+        self.moleculeNames = params["molecule_names"]
         self.n_molecules = len(self.moleculeNames)
         self.mol_name_to_idx = {
             name: idx for idx, name in enumerate(self.moleculeNames)}
         self.mol_idx_to_name = {
             idx: name for idx, name in enumerate(self.moleculeNames)}
-        self.processNames = config["process_names"]
+        self.processNames = params["process_names"]
         self.n_processes = len(self.processNames)
         self.proc_name_to_idx = {
             name: idx for idx, name in enumerate(self.processNames)}
         self.proc_idx_to_name = {
             idx: name for idx, name in enumerate(self.processNames)}
         self.processPriorities = np.zeros(len(self.processNames))
-        for process, custom_priority in config.get("custom_priorities", {}).items():
+        for process, custom_priority in params.get("custom_priorities", {}).items():
             if process in self.proc_name_to_idx:
                 self.processPriorities[self.proc_name_to_idx[process]] = custom_priority
-        self.seed = config.get("seed", 0)
+        self.seed = params.get("seed", 0)
         self.molecule_idx = None
 
-    def inputs(self):
-        from bigraph_schema.schema import Node
-        from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
-        return {
-            'bulk': BulkNumpyUpdate(),
-            'request': Node(),
-            'listeners': Node(),
-            'allocator_rng': Node(),
-        }
-
-    def outputs(self):
-        from bigraph_schema.schema import Node
-        return {
-            'request': Node(),
-            'allocate': Node(),
-            'listeners': Node(),
-        }
-
     def ports_schema(self):
-        """Port schema with proper updaters for apply_step_update."""
         return {
             'bulk': numpy_schema('bulk'),
-            'request': {p: {'bulk': {'_updater': 'set'}} for p in self.processNames},
-            'allocate': {p: {'bulk': {'_updater': 'set'}} for p in self.processNames},
-            'listeners': {'atp': listener_schema({
-                'atp_requested': [0] * self.n_processes,
-                'atp_allocated_initial': [0] * self.n_processes,
-            })},
-            'allocator_rng': {},
+            'request': {
+                process: {
+                    'bulk': {'_default': [], '_updater': 'set', '_emit': False}
+                } for process in self.processNames
+            },
+            'allocate': {
+                process: {
+                    'bulk': {'_default': [], '_updater': 'set', '_emit': False}
+                } for process in self.processNames
+            },
+            'listeners': {
+                'atp': listener_schema({
+                    'atp_requested': ([0] * self.n_processes, self.processNames),
+                    'atp_allocated_initial': ([0] * self.n_processes, self.processNames),
+                })
+            },
+            'allocator_rng': {'_default': np.random.RandomState(seed=self.seed)},
         }
 
-    def initial_state(self, config=None):
-        return {}
-
-    def update(self, state, interval=None):
+    def next_update(self, timestep, states):
         if self.molecule_idx is None:
             self.molecule_idx = bulk_name_to_idx(
-                self.moleculeNames, state["bulk"]["id"])
-            self.atp_idx = bulk_name_to_idx("ATP[c]", state["bulk"]["id"])
+                self.moleculeNames, states["bulk"]["id"])
+            self.atp_idx = bulk_name_to_idx("ATP[c]", states["bulk"]["id"])
 
-        total_counts = counts(state["bulk"], self.molecule_idx)
+        total_counts = counts(states["bulk"], self.molecule_idx)
         original_totals = total_counts.copy()
         counts_requested = np.zeros((self.n_molecules, self.n_processes), dtype=int)
 
         proc_idx_in_layer = []
-        for process in state["request"]:
+        for process in states["request"]:
             if process not in self.proc_name_to_idx:
                 continue
             proc_idx = self.proc_name_to_idx[process]
-            if len(state["request"][process]["bulk"]) > 0:
+            if len(states["request"][process]["bulk"]) > 0:
                 proc_idx_in_layer.append(proc_idx)
-            for req_idx, req in state["request"][process]["bulk"]:
+            for req_idx, req in states["request"][process]["bulk"]:
                 counts_requested[req_idx, proc_idx] += req
 
         if ASSERT_POSITIVE_COUNTS and np.any(counts_requested < 0):
@@ -108,7 +102,7 @@ class Allocator(Step):
 
         partitioned_counts = calculate_partition(
             self.processPriorities, counts_requested,
-            total_counts, state["allocator_rng"])
+            total_counts, states["allocator_rng"])
         partitioned_counts.astype(int, copy=False)
 
         if ASSERT_POSITIVE_COUNTS and np.any(partitioned_counts < 0):
@@ -118,20 +112,20 @@ class Allocator(Step):
         if ASSERT_POSITIVE_COUNTS and np.any(counts_unallocated < 0):
             raise NegativeCountsError("Negative value(s) in counts_unallocated")
 
-        # Update ATP listener
         non_zero_mask = counts_requested[self.atp_idx, :] != 0
         curr_atp_req = np.array(
-            state.get("listeners", {}).get("atp", {}).get("atp_requested", [0] * self.n_processes)).copy()
+            states.get("listeners", {}).get("atp", {}).get("atp_requested", [0] * self.n_processes)).copy()
         curr_atp_alloc = np.array(
-            state.get("listeners", {}).get("atp", {}).get("atp_allocated_initial", [0] * self.n_processes)).copy()
+            states.get("listeners", {}).get("atp", {}).get("atp_allocated_initial", [0] * self.n_processes)).copy()
         curr_atp_req[non_zero_mask] = counts_requested[self.atp_idx, non_zero_mask]
         curr_atp_alloc[non_zero_mask] = partitioned_counts[self.atp_idx, non_zero_mask]
 
         return {
-            "request": {process: {"bulk": []} for process in state["request"]},
+            "request": {process: {"bulk": []} for process in states["request"]},
             "allocate": {
                 process: {"bulk": partitioned_counts[:, self.proc_name_to_idx[process]]}
-                for process in state["request"]},
+                for process in states["request"]
+                if process in self.proc_name_to_idx},
             "listeners": {"atp": {
                 "atp_requested": curr_atp_req,
                 "atp_allocated_initial": curr_atp_alloc}},

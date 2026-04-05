@@ -56,12 +56,19 @@ def _protect_state(state, use_snapshot=False, cell_state=None):
     # This provides bulk/unique/listeners to steps that don't declare
     # them as input dependencies (to avoid R/W cycles).
     if cell_state is not None:
+        # Top-level stores
         for store in ('listeners', 'bulk', 'unique', 'environment', 'boundary',
-                      'process_state'):
+                      'process_state', 'bulk_total'):
             if store not in protected:
                 val = cell_state.get(store)
                 if val is not None:
                     protected[store] = val
+        # Unique molecule sub-stores (e.g., active_ribosome → unique/active_ribosome)
+        unique = cell_state.get('unique', {})
+        if isinstance(unique, dict):
+            for name, arr in unique.items():
+                if name not in protected:
+                    protected[name] = arr
 
     # Auto-take snapshot on first use_snapshot call of each timestep
     if use_snapshot:

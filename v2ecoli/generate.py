@@ -230,10 +230,12 @@ def _make_evolver_topos(full_topo):
            cycles with other evolvers in the same layer.
     Output: bulk, unique, listeners, next_update_time, process_state
     """
-    # Inputs: only allocate + ports that don't create R/W cycles
-    _EVOLVER_INPUT_ONLY = {'allocate', 'global_time', 'timestep', 'next_update_time'}
+    # Inputs: everything EXCEPT bulk and listeners (which create R/W cycles).
+    # Unique molecules, process_state, environment, etc. stay in inputs
+    # because they don't cycle with other evolvers in the same layer.
+    _EVOLVER_EXCLUDE_INPUTS = {'bulk', 'bulk_total', 'listeners'}
     in_topo = {k: v for k, v in full_topo.items()
-               if k in _EVOLVER_INPUT_ONLY or k.startswith('_')}
+               if k not in _EVOLVER_EXCLUDE_INPUTS}
     # Outputs: everything EXCEPT allocate
     out_topo = {k: v for k, v in full_topo.items()
                 if k != 'allocate'}

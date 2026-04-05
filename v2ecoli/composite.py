@@ -77,6 +77,7 @@ def _build_from_cache(cache_dir, core, seed=0):
         initial_state=initial_state,
         configs=cache['configs'],
         unique_names=cache['unique_names'],
+        dry_mass_inc_dict=cache.get('dry_mass_inc_dict', {}),
         core=core,
         seed=seed,
     )
@@ -125,10 +126,62 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
     unique_names = list(
         loader.sim_data.internal_state.unique_molecule.unique_molecule_definitions.keys())
 
-    cache = {'configs': configs, 'unique_names': unique_names}
+    # Also save division parameters
+    dry_mass_inc = getattr(loader.sim_data, 'expectedDryMassIncreaseDict', {})
+
+    cache = {
+        'configs': configs,
+        'unique_names': unique_names,
+        'dry_mass_inc_dict': dry_mass_inc,
+    }
     cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
     with open(cache_path, 'wb') as f:
         dill.dump(cache, f)
 
     save_json({'unique_names': unique_names}, os.path.join(cache_dir, 'metadata.json'))
     print(f"Cache saved to {cache_dir}")
+
+
+def save_state(composite, path='out/checkpoint.dill'):
+    """Save the full simulation state for later resumption."""
+    import dill
+    os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+
+    # Extract just the cell state (no instances)
+    state = composite.state
+    flow_order = composite.config.get('flow_order', [])
+
+    with open(path, 'wb') as f:
+        dill.dump({
+            'state': state,
+            'flow_order': flow_order,
+            'global_time': state.get('global_time', 0.0),
+        }, f)
+    print(f"State saved to {path} (t={state.get('global_time', 0)})")
+
+
+def load_state(path='out/checkpoint.dill', core=None):
+    """Load a saved state and create a new Composite from it.
+
+    This rebuilds the Composite with fresh process instances
+    but restores the saved state values.
+    """
+    import dill
+
+    with open(path, 'rb') as f:
+        checkpoint = dill.load(f)
+
+    # The checkpoint has the full state including process instances
+    # Just wrap it in a Composite
+    if core is None:
+        core = _build_core()
+
+    document = {
+        'state': checkpoint['state'],
+        'skip_initial_steps': True,
+        'sequential_steps': True,
+    }
+
+    composite = Composite(document, core=core)
+    print(f"Loaded state from {path} (t={checkpoint['global_time']})")
+    return composite

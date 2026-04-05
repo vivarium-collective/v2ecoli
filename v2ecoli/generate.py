@@ -317,6 +317,8 @@ def build_document(sim_data_path=None, seed=0):
             cell_state[store] = {}
     cell_state.setdefault('global_time', 0.0)
     cell_state.setdefault('timestep', 1.0)
+    cell_state.setdefault('divide', False)
+    cell_state.setdefault('division_threshold', 'mass_distribution')
 
     # Pre-populate listeners.mass with defaults so mass listener can run
     cell_state.setdefault('listeners', {})
@@ -365,7 +367,8 @@ def build_document(sim_data_path=None, seed=0):
     }
 
 
-def build_document_from_configs(initial_state, configs, unique_names, core=None, seed=0):
+def build_document_from_configs(initial_state, configs, unique_names,
+                                dry_mass_inc_dict=None, core=None, seed=0):
     """Build document from pre-loaded configs and initial state (from cache).
 
     Args:
@@ -397,6 +400,8 @@ def build_document_from_configs(initial_state, configs, unique_names, core=None,
             cell_state[store] = {}
     cell_state.setdefault('global_time', 0.0)
     cell_state.setdefault('timestep', 1.0)
+    cell_state.setdefault('divide', False)
+    cell_state.setdefault('division_threshold', 'mass_distribution')
     cell_state.setdefault('listeners', {})
     cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
@@ -411,7 +416,7 @@ def build_document_from_configs(initial_state, configs, unique_names, core=None,
 
     # Create a mock loader that returns configs from the cache
     class _CachedLoader:
-        def __init__(self, configs, unique_names):
+        def __init__(self, configs, unique_names, dry_mass_inc_dict):
             self._configs = configs
             self.unique_names = unique_names
 
@@ -424,16 +429,18 @@ def build_document_from_configs(initial_state, configs, unique_names, core=None,
                     def __init__(self, names):
                         self.unique_molecule = self._UniqueMolecule(names)
                 internal_state = None
+                expectedDryMassIncreaseDict = {}
 
             self.sim_data = _SimData()
             self.sim_data.internal_state = _SimData._InternalState(unique_names)
+            self.sim_data.expectedDryMassIncreaseDict = dry_mass_inc_dict or {}
 
         def get_config_by_name(self, name):
             if name in self._configs:
                 return self._configs[name]
             raise KeyError(f'Unknown: {name}')
 
-    loader = _CachedLoader(configs, unique_names)
+    loader = _CachedLoader(configs, unique_names, dry_mass_inc_dict)
 
     _process_cache = {}
     for step_name in DEFAULT_FLOW:
@@ -701,16 +708,36 @@ def _get_special_step(loader, step_name, core):
         topology = getattr(instance, 'topology', {})
         return instance, topology, 'step'
 
-    # mark_d_period, division — no-op stubs to complete the flow chain
-    if step_name in ('mark_d_period', 'division'):
-        from v2ecoli.steps.base import V2Step
-        class NoOpStep(V2Step):
-            name = step_name
-            config_schema = {}
-            def update(self, state, interval=None):
-                return {}
-        instance = NoOpStep(config={}, core=core)
-        return instance, {}, 'step'
+    if step_name == 'mark_d_period':
+        from v2ecoli.steps.division import MarkDPeriod
+        instance = MarkDPeriod(config={}, core=core)
+        topo = {
+            'full_chromosome': ('unique', 'full_chromosome'),
+            'global_time': ('global_time',),
+            'divide': ('divide',),
+        }
+        return instance, topo, 'step'
+
+    if step_name == 'division':
+        from v2ecoli.steps.division import Division
+        try:
+            div_config = loader.get_config_by_name('division')
+        except Exception:
+            div_config = {}
+        div_config.setdefault('agent_id', '0')
+        div_config.setdefault('division_threshold', 'mass_distribution')
+        div_config.setdefault('dry_mass_inc_dict',
+                              getattr(getattr(loader, 'sim_data', None),
+                                      'expectedDryMassIncreaseDict', {}))
+        instance = Division(config=div_config, core=core)
+        topo = {
+            'division_variable': ('listeners', 'mass', 'dry_mass'),
+            'full_chromosome': ('unique', 'full_chromosome'),
+            'media_id': ('environment', 'media_id'),
+            'division_threshold': ('division_threshold',),
+            'global_time': ('global_time',),
+        }
+        return instance, topo, 'step'
 
     return None
 

@@ -8,7 +8,7 @@ according to process priorities.
 import numpy as np
 from process_bigraph import Step
 
-from v2ecoli.library.schema import counts, bulk_name_to_idx, listener_schema
+from v2ecoli.library.schema import counts, bulk_name_to_idx, listener_schema, numpy_schema
 
 
 ASSERT_POSITIVE_COUNTS = True
@@ -63,6 +63,19 @@ class Allocator(Step):
             'listeners': Node(),
         }
 
+    def ports_schema(self):
+        """Port schema with proper updaters for apply_step_update."""
+        return {
+            'bulk': numpy_schema('bulk'),
+            'request': {p: {'bulk': {'_updater': 'set'}} for p in self.processNames},
+            'allocate': {p: {'bulk': {'_updater': 'set'}} for p in self.processNames},
+            'listeners': {'atp': listener_schema({
+                'atp_requested': [0] * self.n_processes,
+                'atp_allocated_initial': [0] * self.n_processes,
+            })},
+            'allocator_rng': {},
+        }
+
     def initial_state(self, config=None):
         return {}
 
@@ -78,6 +91,8 @@ class Allocator(Step):
 
         proc_idx_in_layer = []
         for process in state["request"]:
+            if process not in self.proc_name_to_idx:
+                continue
             proc_idx = self.proc_name_to_idx[process]
             if len(state["request"][process]["bulk"]) > 0:
                 proc_idx_in_layer.append(proc_idx)

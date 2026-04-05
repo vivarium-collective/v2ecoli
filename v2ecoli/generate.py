@@ -347,7 +347,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             # Requester topology extends process topology
             req_topo = dict(topology)
             req_topo['request'] = ('request', base_name)
-            req_topo['process'] = ('process',)
+            req_topo['process'] = ('process', base_name)
             req_topo['global_time'] = ('global_time',)
             req_topo['timestep'] = ('timestep',)
             req_topo['next_update_time'] = ('next_update_time', base_name)
@@ -358,7 +358,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             instance = Evolver(config=ev_config, core=core)
             ev_topo = dict(topology)
             ev_topo['allocate'] = ('allocate', base_name)
-            ev_topo['process'] = ('process',)
+            ev_topo['process'] = ('process', base_name)
             ev_topo['global_time'] = ('global_time',)
             ev_topo['timestep'] = ('timestep',)
             ev_topo['next_update_time'] = ('next_update_time', base_name)
@@ -393,9 +393,29 @@ def _get_special_step(loader, step_name, core):
     unique_topo = {name: (name,) for name in unique_names}
 
     if step_name.startswith('unique_update'):
-        config = {'unique_names': unique_names, 'unique_topo': unique_topo}
+        # v1 uses plural names mapping to ('unique', singular_name)
+        UNIQUE_PLURAL = {
+            'full_chromosome': 'full_chromosomes',
+            'chromosome_domain': 'chromosome_domains',
+            'active_replisome': 'active_replisomes',
+            'oriC': 'oriCs',
+            'promoter': 'promoters',
+            'chromosomal_segment': 'chromosomal_segments',
+            'DnaA_box': 'DnaA_boxes',
+            'active_RNAP': 'active_RNAPs',
+            'RNA': 'RNAs',
+            'gene': 'genes',
+            'active_ribosome': 'active_ribosome',  # no plural change
+        }
+        unique_topo_v1 = {}
+        unique_names_v1 = []
+        for name in unique_names:
+            plural = UNIQUE_PLURAL.get(name, name)
+            unique_topo_v1[plural] = ('unique', name)
+            unique_names_v1.append(plural)
+        config = {'unique_names': unique_names_v1, 'unique_topo': unique_topo_v1}
         instance = UniqueUpdate(config=config, core=core)
-        return instance, unique_topo, 'step'
+        return instance, unique_topo_v1, 'step'
 
     if step_name.startswith('allocator'):
         try:

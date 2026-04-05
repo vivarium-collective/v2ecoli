@@ -681,6 +681,7 @@ def _get_special_step(loader, step_name, core):
         from process_bigraph.emitter import RAMEmitter
         emit_schema = {
             'global_time': 'float',
+            'bulk': 'array',
             'listeners': {'mass': {
                 'cell_mass': 'float',
                 'water_mass': 'float',
@@ -697,6 +698,7 @@ def _get_special_step(loader, step_name, core):
         instance = RAMEmitter({'emit': emit_schema}, core)
         topo = {
             'global_time': ('global_time',),
+            'bulk': ('bulk',),
             'listeners': ('listeners',),
         }
         return instance, topo, 'step'

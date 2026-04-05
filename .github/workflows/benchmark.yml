@@ -1,0 +1,67 @@
+name: Benchmark
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        enable-cache: true
+
+    - name: Install system dependencies
+      run: sudo apt-get update && sudo apt-get install -y graphviz glpk-utils libglpk-dev
+
+    - name: Install v2ecoli
+      run: USE_CYTHON=1 uv sync --frozen
+
+    - name: Cache ParCa simulation data
+      id: cache-parca
+      uses: actions/cache@v4
+      with:
+        path: out/cache
+        key: parca-cache-${{ hashFiles('v2ecoli/reconstruction/ecoli/**/*.py', 'v2ecoli/reconstruction/ecoli/**/*.tsv') }}
+
+    - name: Generate ParCa cache
+      if: steps.cache-parca.outputs.cache-hit != 'true'
+      run: |
+        uv run python -c "
+        from v2ecoli.composite import save_cache
+        import os
+        # Find simData - either from vEcoli install or generate from v2ecoli ParCa
+        vecoli_path = os.path.join(os.path.dirname(__import__('wholecell').__file__), '..', 'out', 'kb', 'simData.cPickle')
+        if not os.path.exists(vecoli_path):
+            # Run v2ecoli's own ParCa
+            from v2ecoli.generate import run_parca
+            sim_data_path = run_parca('out/kb')
+        else:
+            sim_data_path = vecoli_path
+        save_cache(sim_data_path, 'out/cache')
+        "
+
+    - name: Run benchmark
+      run: uv run python benchmark.py
+
+    - name: Deploy report to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: out/benchmark
+        destination_dir: benchmark
+        keep_files: true

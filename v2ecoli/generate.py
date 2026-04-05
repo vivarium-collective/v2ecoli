@@ -442,12 +442,23 @@ def _get_special_step(loader, step_name, core):
             return instance, topo, 'step'
 
     if step_name == 'emitter':
-        from v2ecoli.steps.emitter import RAMEmitter
-        emit_keys = {
-            'global_time': {'_default': 0.0},
-            'listeners': {},
+        from process_bigraph.emitter import RAMEmitter
+        emit_schema = {
+            'global_time': 'float',
+            'listeners': {'mass': {
+                'cell_mass': 'float',
+                'water_mass': 'float',
+                'dry_mass': 'float',
+                'protein_mass': 'float',
+                'rna_mass': 'float',
+                'rRna_mass': 'float',
+                'tRna_mass': 'float',
+                'mRna_mass': 'float',
+                'dna_mass': 'float',
+                'smallMolecule_mass': 'float',
+            }},
         }
-        instance = RAMEmitter(config={'emit_keys': emit_keys})
+        instance = RAMEmitter({'emit': emit_schema}, core)
         topo = {
             'global_time': ('global_time',),
             'listeners': ('listeners',),

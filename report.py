@@ -118,8 +118,8 @@ MASS_COLORS = [
 
 
 def v1_query_to_mass_timeseries(timeseries):
-    """Convert v1 sim.query() output to mass timeseries."""
-    times = sorted(t for t in timeseries.keys() if isinstance(t, (int, float)) and t > 0)
+    """Convert v1 sim.query() output to mass timeseries (skip t=0 and t=1)."""
+    times = sorted(t for t in timeseries.keys() if isinstance(t, (int, float)) and t > 1)
     result = {'time': np.array(times)}
     for label, key in MASS_COMPONENTS.items():
         values = []
@@ -132,8 +132,11 @@ def v1_query_to_mass_timeseries(timeseries):
 
 
 def v2_emitter_to_mass_timeseries(emitter):
-    """Convert RAMEmitter history to mass timeseries."""
+    """Convert process-bigraph RAMEmitter history to mass timeseries."""
     history = emitter.history if emitter else []
+    # Skip first timestep (initial state before equilibration)
+    if len(history) > 1:
+        history = history[1:]
     if not history:
         return {'time': np.array([0.0])}
     result = {'time': np.array([s.get('global_time', 0.0) for s in history])}

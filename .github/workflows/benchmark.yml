@@ -42,16 +42,9 @@ jobs:
       if: steps.cache-parca.outputs.cache-hit != 'true'
       run: |
         uv run python -c "
+        from v2ecoli.generate import run_parca
         from v2ecoli.composite import save_cache
-        import os
-        # Find simData - either from vEcoli install or generate from v2ecoli ParCa
-        vecoli_path = os.path.join(os.path.dirname(__import__('wholecell').__file__), '..', 'out', 'kb', 'simData.cPickle')
-        if not os.path.exists(vecoli_path):
-            # Run v2ecoli's own ParCa
-            from v2ecoli.generate import run_parca
-            sim_data_path = run_parca('out/kb')
-        else:
-            sim_data_path = vecoli_path
+        sim_data_path = run_parca('out/kb')
         save_cache(sim_data_path, 'out/cache')
         "
 

@@ -264,7 +264,12 @@ def run_parca(outdir='out/kb', cpus=1):
         return sim_data_path
 
     print(f"{time.ctime()}: Loading raw data...")
-    raw_data = KnowledgeBaseEcoli()
+    raw_data = KnowledgeBaseEcoli(
+        operons_on=True,
+        remove_rrna_operons=False,
+        remove_rrff=False,
+        stable_rrna=False,
+    )
 
     print(f"{time.ctime()}: Running ParCa (fitSimData_1)...")
     sim_data = fitSimData_1(raw_data=raw_data, cpus=cpus)

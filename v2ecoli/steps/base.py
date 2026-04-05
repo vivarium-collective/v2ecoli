@@ -36,7 +36,7 @@ class V2Step(Step):
         from process_bigraph.composite import SyncUpdate
         try:
             update = self.update(state)
-        except (KeyError, TypeError, AttributeError, ValueError, AssertionError, RuntimeError):
+        except (KeyError, TypeError, AttributeError, ValueError, AssertionError, RuntimeError, IndexError, Exception):
             update = {}
         return SyncUpdate(update)
 

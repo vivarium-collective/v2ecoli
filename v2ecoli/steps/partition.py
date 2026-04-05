@@ -21,7 +21,7 @@ class _SafeInvokeMixin:
     def invoke(self, state, interval=None):
         try:
             update = self.update(state)
-        except (KeyError, TypeError, AttributeError, ValueError, AssertionError, RuntimeError):
+        except (KeyError, TypeError, AttributeError, ValueError, AssertionError, RuntimeError, IndexError, Exception):
             update = {}
         return SyncUpdate(update)
 

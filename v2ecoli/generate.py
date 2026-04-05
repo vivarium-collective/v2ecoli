@@ -211,11 +211,13 @@ def _make_requester_topos(read_topo):
     Input: read stores (bulk, unique, etc.) + flow tokens (added later)
     Output: request, listeners, next_update_time only
     """
-    # Input: all read stores EXCEPT request and listeners.
-    # Listeners removed from input deps to avoid cross-layer cycles with
-    # listener steps. Listener data injected via _cell_state in _protect_state.
+    # Input: exclude stores that create R/W cycles with later layers.
+    # request: output-only for requesters
+    # listeners: cross-layer dep with listener steps
+    # bulk_total: alias for bulk, creates dep on bulk writers
+    # All excluded stores injected via _cell_state in _protect_state.
     in_topo = {k: v for k, v in read_topo.items()
-               if k not in ('request', 'listeners')}
+               if k not in ('request', 'listeners', 'bulk_total')}
     # Outputs: only request and next_update_time (NOT bulk, unique, listeners)
     out_topo = {k: v for k, v in read_topo.items()
                 if k in ('request', 'next_update_time')}
@@ -233,6 +235,8 @@ def _make_evolver_topos(full_topo):
     # Inputs: everything EXCEPT bulk and listeners (which create R/W cycles).
     # Unique molecules, process_state, environment, etc. stay in inputs
     # because they don't cycle with other evolvers in the same layer.
+    # Exclude bulk, bulk_total, and listeners from evolver inputs to avoid
+    # R/W cycles. bulk_total is an alias for bulk. All injected via _cell_state.
     _EVOLVER_EXCLUDE_INPUTS = {'bulk', 'bulk_total', 'listeners'}
     in_topo = {k: v for k, v in full_topo.items()
                if k not in _EVOLVER_EXCLUDE_INPUTS}

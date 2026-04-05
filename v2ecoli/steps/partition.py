@@ -58,11 +58,14 @@ def _protect_state(state, use_snapshot=False, cell_state=None):
     if cell_state is not None:
         # Top-level stores
         for store in ('listeners', 'bulk', 'unique', 'environment', 'boundary',
-                      'process_state', 'bulk_total'):
+                      'process_state'):
             if store not in protected:
                 val = cell_state.get(store)
                 if val is not None:
                     protected[store] = val
+        # bulk_total is an alias for bulk
+        if 'bulk_total' not in protected and 'bulk' in protected:
+            protected['bulk_total'] = protected['bulk']
         # Unique molecule sub-stores (e.g., active_ribosome → unique/active_ribosome)
         unique = cell_state.get('unique', {})
         if isinstance(unique, dict):

@@ -276,6 +276,7 @@ def run_parca(outdir='out/kb', cpus=1):
         raw_data=raw_data,
         cpus=cpus,
         basal_expression_condition="M9 Glucose minus AAs",
+        cache_dir=outdir,
     )
 
     print(f"{time.ctime()}: Saving simData to {sim_data_path}")

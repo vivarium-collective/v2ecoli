@@ -189,19 +189,23 @@ def list_paths(path):
 
 
 def inject_flow_dependencies(cell_state, flow_order):
-    """Add synthetic wiring and priorities to enforce execution order."""
+    """Add flow token wiring and priorities to enforce execution order.
+
+    Each step produces a flow token that the next step consumes.
+    Priority (highest first) breaks cycles when multiple steps are ready.
+    Only the first step depends on global_time directly.
+    """
     n = len(flow_order)
     for i, step_name in enumerate(flow_order):
         edge = cell_state.get(step_name)
         if not isinstance(edge, dict):
             continue
-        # Set priority: earlier steps get higher priority
         edge['priority'] = float(n - i)
         if i == 0:
-            edge.setdefault('inputs', {}).setdefault('global_time', ['global_time'])
+            edge.setdefault('inputs', {})['global_time'] = ['global_time']
         if i > 0:
             edge.setdefault('inputs', {})[f'_flow_in_{i}'] = [f'_flow_token_{i-1}']
-        if i < len(flow_order) - 1:
+        if i < n - 1:
             edge.setdefault('outputs', {})[f'_flow_out_{i}'] = [f'_flow_token_{i}']
 
 
@@ -594,7 +598,17 @@ def _get_special_step(loader, step_name, core):
         topology = getattr(instance, 'topology', {})
         return instance, topology, 'step'
 
-    # mark_d_period, division — optional, skip for now
+    # mark_d_period, division — no-op stubs to complete the flow chain
+    if step_name in ('mark_d_period', 'division'):
+        from v2ecoli.steps.base import V2Step
+        class NoOpStep(V2Step):
+            name = step_name
+            config_schema = {}
+            def update(self, state, interval=None):
+                return {}
+        instance = NoOpStep(config={}, core=core)
+        return instance, {}, 'step'
+
     return None
 
 

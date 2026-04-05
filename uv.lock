@@ -271,6 +271,20 @@ requires-dist = [
 ]
 
 [[package]]
+name = "bigraph-viz"
+version = "1.0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "graphviz" },
+    { name = "process-bigraph" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3f/45/b291196b8929cbe602b716145bc38215bb9038be890756c5ec4430fb76f9/bigraph_viz-1.0.3.tar.gz", hash = "sha256:4cbed2f64ad196cf9c0bffb1b041a5cda1c9cd71e0a725297e26fb28b1f01d44", size = 33702, upload-time = "2026-03-15T17:11:24.956Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/05/a7/269d2154e69a4698e2249948ae22e13d0a82847d1f19f4138ee56af0c566/bigraph_viz-1.0.3-py3-none-any.whl", hash = "sha256:d48054096715c52501e5f6723cba8897208e845a1f856660aa3a90cf3163bf51", size = 32891, upload-time = "2026-03-15T17:11:23.79Z" },
+]
+
+[[package]]
 name = "biopython"
 version = "1.87"
 source = { registry = "https://pypi.org/simple" }
@@ -954,6 +968,15 @@ wheels = [
 [package.optional-dependencies]
 grpc = [
     { name = "grpcio" },
+]
+
+[[package]]
+name = "graphviz"
+version = "0.21"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f8/b3/3ac91e9be6b761a4b30d66ff165e54439dcd48b83f4e20d644867215f6ca/graphviz-0.21.tar.gz", hash = "sha256:20743e7183be82aaaa8ad6c93f8893c923bd6658a04c32ee115edb3c8a835f78", size = 200434, upload-time = "2025-06-15T09:35:05.824Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/91/4c/e0ce1ef95d4000ebc1c11801f9b944fa5910ecc15b5e351865763d8657f8/graphviz-0.21-py3-none-any.whl", hash = "sha256:54f33de9f4f911d7e84e4191749cac8cc5653f815b06738c54db9a15ab8b1e42", size = 47300, upload-time = "2025-06-15T09:35:04.433Z" },
 ]
 
 [[package]]
@@ -3639,7 +3662,9 @@ version = "0.0.1"
 source = { virtual = "." }
 dependencies = [
     { name = "bigraph-schema" },
+    { name = "bigraph-viz" },
     { name = "dill" },
+    { name = "matplotlib" },
     { name = "numpy" },
     { name = "plum-dispatch" },
     { name = "process-bigraph" },
@@ -3651,7 +3676,9 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "bigraph-schema", editable = "../bigraph-schema" },
+    { name = "bigraph-viz", specifier = ">=1.0.3" },
     { name = "dill", specifier = ">=0.3" },
+    { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "numpy" },
     { name = "plum-dispatch", specifier = ">=2.5" },
     { name = "process-bigraph", editable = "../process-bigraph" },

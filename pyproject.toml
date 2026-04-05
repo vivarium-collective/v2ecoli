@@ -13,6 +13,8 @@ dependencies = [
     "dill>=0.3",
     "numpy",
     "scipy",
+    "bigraph-viz>=1.0.3",
+    "matplotlib>=3.10.8",
 ]
 
 [tool.setuptools]

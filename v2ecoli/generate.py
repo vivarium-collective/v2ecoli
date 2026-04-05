@@ -351,6 +351,7 @@ def build_document(sim_data_path=None, seed=0):
     return {
         'state': state,
         'skip_initial_steps': True,
+        'sequential_steps': True,
         'flow_order': DEFAULT_FLOW,
     }
 

@@ -6,10 +6,12 @@ to bigraph-schema types for Composite compatibility.
 """
 
 from process_bigraph import Step
+from process_bigraph.composite import SyncUpdate
 from bigraph_schema.schema import Node, Float, Overwrite
 
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
+from v2ecoli.types.stores import InPlaceDict, SetStore, ListenerStore, AccumulateFloat
 
 
 class V2Step(Step):
@@ -33,10 +35,9 @@ class V2Step(Step):
 
     def invoke(self, state, interval=None):
         """Override invoke to catch errors from missing data."""
-        from process_bigraph.composite import SyncUpdate
         try:
             update = self.update(state)
-        except (KeyError, TypeError, AttributeError, ValueError, AssertionError, RuntimeError, IndexError, Exception):
+        except Exception:
             update = {}
         return SyncUpdate(update)
 
@@ -58,7 +59,18 @@ def _translate_schema(ports):
             if updater == 'set':
                 result[key] = Overwrite(_value=Node())
                 continue
-            # Nested dict — recurse for non-underscore keys
+            if updater == 'accumulate':
+                result[key] = AccumulateFloat()
+                continue
+            # Nested dict — check if it's a listener-like structure
+            has_set_children = any(
+                isinstance(v, dict) and v.get('_updater') == 'set'
+                for k, v in port.items() if not k.startswith('_')
+            )
+            if has_set_children:
+                result[key] = ListenerStore()
+                continue
+            # General nested dict
             sub = {}
             for k, v in port.items():
                 if not k.startswith('_'):
@@ -69,7 +81,7 @@ def _translate_schema(ports):
             if sub:
                 result[key] = sub
             else:
-                result[key] = Node()
+                result[key] = InPlaceDict()
         else:
             result[key] = Node()
     return result

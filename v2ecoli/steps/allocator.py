@@ -11,6 +11,7 @@ from bigraph_schema.schema import Node, Overwrite
 
 from v2ecoli.library.schema import counts, bulk_name_to_idx, listener_schema
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
+from v2ecoli.types.stores import InPlaceDict, SetStore, ListenerStore
 
 
 ASSERT_POSITIVE_COUNTS = True
@@ -59,16 +60,16 @@ class Allocator(Step):
     def inputs(self):
         return {
             'bulk': BulkNumpyUpdate(),
-            'request': Node(),
-            'listeners': Node(),
+            'request': InPlaceDict(),
+            'listeners': ListenerStore(),
             'allocator_rng': Node(),
         }
 
     def outputs(self):
         return {
-            'request': Overwrite(_value=Node()),
-            'allocate': Overwrite(_value=Node()),
-            'listeners': Node(),
+            'request': SetStore(),
+            'allocate': SetStore(),
+            'listeners': ListenerStore(),
         }
 
     def initial_state(self, config=None):

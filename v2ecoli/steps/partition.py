@@ -14,6 +14,7 @@ from process_bigraph.composite import SyncUpdate
 from bigraph_schema.schema import Node, Float, Overwrite
 
 from v2ecoli.steps.base import _translate_schema
+from v2ecoli.types.stores import SetStore, InPlaceDict, ListenerStore
 
 
 class _SafeInvokeMixin:
@@ -21,7 +22,7 @@ class _SafeInvokeMixin:
     def invoke(self, state, interval=None):
         try:
             update = self.update(state)
-        except (KeyError, TypeError, AttributeError, ValueError, AssertionError, RuntimeError, IndexError, Exception):
+        except Exception:
             update = {}
         return SyncUpdate(update)
 
@@ -79,23 +80,26 @@ class PartitionedProcess(_SafeInvokeMixin, Step):
     def evolve_state(self, timestep, states):
         return {}
 
-    def update(self, state, interval=None):
-        """Run both request and evolve (standalone execution)."""
-        timestep = state.get('timestep', self.parameters.get('timestep', 1.0))
-
-        requests = self.calculate_request(timestep, state)
+    def next_update(self, timestep, states):
+        """Default: run calculate_request then evolve_state."""
+        requests = self.calculate_request(timestep, states)
         bulk_requests = requests.pop("bulk", [])
         if bulk_requests:
-            bulk_copy = state["bulk"].copy()
+            bulk_copy = states["bulk"].copy()
             for bulk_idx, request in bulk_requests:
                 bulk_copy[bulk_idx] = request
-            state["bulk"] = bulk_copy
-        state = deep_merge(state, requests)
-        update = self.evolve_state(timestep, state)
+            states["bulk"] = bulk_copy
+        states = deep_merge(states, requests)
+        update = self.evolve_state(timestep, states)
         if "listeners" in requests:
             update["listeners"] = deep_merge(
                 update.get("listeners", {}), requests["listeners"])
         return update
+
+    def update(self, state, interval=None):
+        """Run standalone via next_update."""
+        timestep = state.get('timestep', self.parameters.get('timestep', 1.0))
+        return self.next_update(timestep, state)
 
 
 class Requester(_SafeInvokeMixin, Step):
@@ -118,8 +122,8 @@ class Requester(_SafeInvokeMixin, Step):
 
     def outputs(self):
         return {
-            'request': Node(),
-            'listeners': Node(),
+            'request': InPlaceDict(),
+            'listeners': ListenerStore(),
             'next_update_time': Overwrite(_value=Float()),
         }
 
@@ -161,7 +165,7 @@ class Evolver(_SafeInvokeMixin, Step):
 
     def inputs(self):
         ports = _translate_schema(self.process.ports_schema())
-        ports['allocate'] = Node()
+        ports['allocate'] = InPlaceDict()
         ports['global_time'] = Float(_default=0.0)
         ports['timestep'] = Float(_default=self.process.parameters.get('timestep', 1.0))
         ports['next_update_time'] = Float(

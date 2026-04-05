@@ -90,8 +90,8 @@ class ChromosomeStructure(PartitionedProcess):
     }
 
     # Constructor
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def __init__(self, parameters=None, **kwargs):
+        super().__init__(parameters, **kwargs)
         self.rna_sequences = self.parameters["rna_sequences"]
         self.protein_sequences = self.parameters["protein_sequences"]
         self.n_TUs = self.parameters["n_TUs"]

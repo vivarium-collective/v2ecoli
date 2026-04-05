@@ -70,8 +70,8 @@ class ChromosomeReplication(PartitionedProcess):
         "emit_unique": False,
     }
 
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def __init__(self, parameters=None, **kwargs):
+        super().__init__(parameters, **kwargs)
 
         # Load parameters
         self.get_dna_critical_mass = self.parameters["get_dna_critical_mass"]

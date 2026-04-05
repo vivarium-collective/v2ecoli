@@ -47,10 +47,8 @@ class Metabolism(PartitionedProcess):
         "bulk": ("bulk",),
         "bulk_total": ("bulk",),
         "listeners": ("listeners",),
-        "environment": {
-            "_path": ("environment",),
-            "exchange": ("exchange",),
-        },
+        "environment": ("environment",),
+        "exchange": ("exchange",),
         "boundary": ("boundary",),
         "polypeptide_elongation": ("process_state", "polypeptide_elongation"),
         "global_time": ("global_time",),
@@ -94,8 +92,8 @@ class Metabolism(PartitionedProcess):
         "time_step": 1,
     }
 
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def __init__(self, parameters=None, **kwargs):
+        super().__init__(parameters, **kwargs)
 
         # Use information from the environment and sim
         self.get_import_constraints = self.parameters["get_import_constraints"]
@@ -212,14 +210,14 @@ class Metabolism(PartitionedProcess):
             "bulk_total": numpy_schema("bulk"),
             "environment": {
                 "media_id": {"_default": "", "_updater": "set"},
-                "exchange": {
-                    str(element): {"_default": 0}
-                    for element in self.environment_molecules
-                },
                 "exchange_data": {
                     "unconstrained": {"_default": {}},
                     "constrained": {"_default": set()},
                 },
+            },
+            "exchange": {
+                str(element): {"_default": 0}
+                for element in self.environment_molecules
             },
             "boundary": {"external": {"*": {"_default": 0 * vivunits.mM}}},
             "listeners": {
@@ -584,11 +582,9 @@ class Metabolism(PartitionedProcess):
         reaction_fluxes = fba.getReactionFluxes() / timestep
         update = {
             "bulk": [(self.metabolite_idx, delta_metabolites_final)],
-            "environment": {
-                "exchange": {
-                    str(molecule[:-3]): delta_nutrients[index]
-                    for index, molecule in enumerate(self.externalMoleculeIDs)
-                }
+            "exchange": {
+                str(molecule[:-3]): delta_nutrients[index]
+                for index, molecule in enumerate(self.externalMoleculeIDs)
             },
             "listeners": {
                 "fba_results": {

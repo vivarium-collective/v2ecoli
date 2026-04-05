@@ -170,8 +170,8 @@ class PolypeptideElongation(PartitionedProcess):
         "emit_unique": False,
     }
 
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def __init__(self, parameters=None, **kwargs):
+        super().__init__(parameters, **kwargs)
 
         # Simulation options
         self.aa_supply_in_charging = self.parameters["aa_supply_in_charging"]

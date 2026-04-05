@@ -2,6 +2,7 @@
 Global clock process for v2ecoli.
 
 Tracks global_time for steps that use variable timestepping.
+Proper process-bigraph Process.
 """
 
 from process_bigraph import Process

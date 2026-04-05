@@ -113,10 +113,19 @@ DEFAULT_FLOW = [
 # ---------------------------------------------------------------------------
 
 def list_paths(path):
-    """Convert tuple paths to list paths."""
+    """Convert tuple paths to list paths. Flatten _path dicts."""
     if isinstance(path, tuple):
         return list(path)
     elif isinstance(path, dict):
+        if '_path' in path:
+            # Flatten: _path is the base, other keys are overrides
+            # For Composite compatibility, split into separate ports
+            result = {}
+            for key, subpath in path.items():
+                if key == '_path':
+                    continue
+                result[key] = list_paths(subpath)
+            return result
         return {key: list_paths(subpath) for key, subpath in path.items()}
     return path
 
@@ -136,7 +145,11 @@ def inject_flow_dependencies(cell_state, flow_order):
 
 
 def make_edge(instance, topology, edge_type='step'):
-    """Create an edge dict for a process/step instance."""
+    """Create an edge dict for a process/step instance.
+
+    Includes the instance directly — the document is not pickled,
+    but passed in-memory to the Composite.
+    """
     wires = list_paths(topology)
     state = {'priority': 1.0} if edge_type == 'step' else {'interval': 1.0}
     state.update({
@@ -228,13 +241,17 @@ def build_document(sim_data_path=None, seed=0):
     # Add flow dependencies (synthetic wiring for execution order)
     inject_flow_dependencies(cell_state, DEFAULT_FLOW)
 
-    # Wrap in agent container (matches v1 structure)
+    # Wrap in agent container
     state = {
         'agents': {'0': cell_state},
         'global_time': 0.0,
     }
 
-    return {'state': state, 'flow_order': DEFAULT_FLOW}
+    return {
+        'state': state,
+        'skip_initial_steps': True,
+        'flow_order': DEFAULT_FLOW,
+    }
 
 
 def _get_step_config(loader, step_name, core, process_cache=None):
@@ -340,13 +357,13 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             process = process_cache[base_name]
         else:
             proc_cls = PARTITIONED[base_name]
-            process = proc_cls(parameters=config)
+            process = proc_cls(parameters=config, core=core)
             process_cache[base_name] = process
         topology = process.topology
 
         if step_name.endswith('_requester'):
             req_config = {'process': process, 'name': step_name}
-            instance = Requester(config=req_config)
+            instance = Requester(config=req_config, core=core)
             # Requester topology extends process topology
             req_topo = dict(topology)
             req_topo['request'] = ('request', base_name)
@@ -358,7 +375,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
 
         elif step_name.endswith('_evolver'):
             ev_config = {'process': process, 'name': step_name}
-            instance = Evolver(config=ev_config)
+            instance = Evolver(config=ev_config, core=core)
             ev_topo = dict(topology)
             ev_topo['allocate'] = ('allocate', base_name)
             ev_topo['process'] = ('process', base_name)
@@ -368,13 +385,13 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             return instance, ev_topo, 'step'
 
         else:
-            # Non-partitioned use of a PartitionedProcess (e.g. tf-binding)
-            process = proc_cls(parameters=config)
+            # Standalone use of a PartitionedProcess (e.g. tf-binding)
+            process = proc_cls(parameters=config, core=core)
             return process, topology, 'step'
 
     elif step_name in STANDALONE_PARTITIONED:
         cls = STANDALONE_PARTITIONED[step_name]
-        instance = cls(parameters=config)
+        instance = cls(parameters=config, core=core)
         topology = instance.topology
         return instance, topology, 'step'
 
@@ -417,7 +434,7 @@ def _get_special_step(loader, step_name, core):
             unique_topo_v1[plural] = ('unique', name)
             unique_names_v1.append(plural)
         config = {'unique_names': unique_names_v1, 'unique_topo': unique_topo_v1}
-        instance = UniqueUpdate(config=config)
+        instance = UniqueUpdate(config=config, core=core)
         return instance, unique_topo_v1, 'step'
 
     if step_name.startswith('allocator'):
@@ -425,7 +442,6 @@ def _get_special_step(loader, step_name, core):
             config = loader.get_config_by_name('allocator')
         except Exception:
             config = {}
-        # Ensure process_names includes all partitioned processes
         all_partitioned = [
             'ecoli-chromosome-replication', 'ecoli-complexation',
             'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
@@ -437,7 +453,7 @@ def _get_special_step(loader, step_name, core):
         if not config.get('process_names'):
             config['process_names'] = all_partitioned
         if config:
-            instance = Allocator(config=config)
+            instance = Allocator(config=config, core=core)
             topo = instance.topology
             return instance, topo, 'step'
 

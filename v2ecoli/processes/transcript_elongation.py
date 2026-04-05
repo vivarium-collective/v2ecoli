@@ -107,8 +107,8 @@ class TranscriptElongation(PartitionedProcess):
         "time_step": 1,
     }
 
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def __init__(self, parameters=None, **kwargs):
+        super().__init__(parameters, **kwargs)
 
         # Load parameters
         self.rnaPolymeraseElongationRateDict = self.parameters[

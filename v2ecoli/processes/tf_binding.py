@@ -65,8 +65,8 @@ class TfBinding(PartitionedProcess):
     }
 
     # Constructor
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def __init__(self, parameters=None, **kwargs):
+        super().__init__(parameters, **kwargs)
 
         # Get IDs of transcription factors
         self.tf_ids = self.parameters["tf_ids"]

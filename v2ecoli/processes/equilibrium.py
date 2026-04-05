@@ -39,8 +39,8 @@ class Equilibrium(PartitionedProcess):
     }
 
     # Constructor
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def __init__(self, parameters=None, **kwargs):
+        super().__init__(parameters, **kwargs)
 
         # Simulation options
         # utilized in the fluxes and molecules function

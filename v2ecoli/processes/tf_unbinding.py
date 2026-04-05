@@ -28,8 +28,8 @@ class TfUnbinding(PartitionedProcess):
     defaults = {"time_step": 1, "emit_unique": False}
 
     # Constructor
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def __init__(self, parameters=None, **kwargs):
+        super().__init__(parameters, **kwargs)
         self.tf_ids = self.parameters["tf_ids"]
         self.submass_indices = self.parameters["submass_indices"]
         self.active_tf_masses = self.parameters["active_tf_masses"]

@@ -18,8 +18,8 @@ class RnaMaturation(PartitionedProcess):
     topology = {"bulk": ("bulk",), "bulk_total": ("bulk",), "listeners": ("listeners",)}
 
     # Constructor
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def __init__(self, parameters=None, **kwargs):
+        super().__init__(parameters, **kwargs)
         # Get matrices and vectors that describe maturation reactions
         self.stoich_matrix = self.parameters["stoich_matrix"]
         self.enzyme_matrix = self.parameters["enzyme_matrix"]

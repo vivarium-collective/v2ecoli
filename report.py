@@ -25,7 +25,7 @@ from ecoli.experiments.ecoli_master_sim import EcoliSim
 from ecoli.library.schema import not_a_process
 
 from v2ecoli.generate import generate_document
-from v2ecoli.composite import load_simulation, EcoliSimulation
+from v2ecoli.composite import make_composite
 
 from bigraph_viz import plot_bigraph
 
@@ -65,23 +65,27 @@ def run_v1():
 
 
 def run_v2():
-    """Run the v2ecoli simulation."""
-    doc_path = os.path.join(OUT_DIR, 'v2_ecoli.pickle')
-    generate_document(doc_path, sim_data_path=SIM_DATA_PATH)
-
-    ecoli = load_simulation(doc_path)
-    initial = np.array(ecoli.state['agents']['0']['bulk']['count'], copy=True)
+    """Run the v2ecoli simulation via Composite.run()."""
+    composite = make_composite(sim_data_path=SIM_DATA_PATH)
+    initial = np.array(composite.state['agents']['0']['bulk']['count'], copy=True)
     t0 = time.time()
-    ecoli.run(DURATION)
+    composite.run(DURATION)
     runtime = time.time() - t0
-    bulk = ecoli.state['agents']['0']['bulk']['count'].copy()
+    bulk = composite.state['agents']['0']['bulk']['count'].copy()
+
+    # Get emitter if available
+    emitter = None
+    cell = composite.state.get('agents', {}).get('0', {})
+    edge = cell.get('emitter')
+    if isinstance(edge, dict) and 'instance' in edge:
+        emitter = edge['instance']
 
     return {
         'initial': initial,
         'final': bulk,
         'runtime': runtime,
-        'state': ecoli.state,
-        'emitter': ecoli.emitter,
+        'state': composite.state,
+        'emitter': emitter,
     }
 
 

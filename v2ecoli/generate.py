@@ -365,6 +365,99 @@ def build_document(sim_data_path=None, seed=0):
     }
 
 
+def build_document_from_configs(initial_state, configs, unique_names, core=None, seed=0):
+    """Build document from pre-loaded configs and initial state (from cache).
+
+    Args:
+        initial_state: Dict with bulk, unique, environment, boundary.
+        configs: Dict mapping step names to config dicts.
+        unique_names: List of unique molecule names.
+        core: bigraph-schema core. If None, creates one.
+        seed: Random seed.
+
+    Returns:
+        Document dict for Composite.
+    """
+    from bigraph_schema import allocate_core
+    from v2ecoli.types import ECOLI_TYPES
+    import numpy as np
+
+    if core is None:
+        core = allocate_core()
+        core.register_types(ECOLI_TYPES)
+
+    cell_state = {}
+    cell_state.update(initial_state)
+
+    # Pre-create virtual stores
+    for store in ['listeners', 'request', 'allocate', 'process',
+                  'allocator_rng', 'process_state', 'exchange',
+                  'next_update_time']:
+        if store not in cell_state:
+            cell_state[store] = {}
+    cell_state.setdefault('global_time', 0.0)
+    cell_state.setdefault('timestep', 1.0)
+    cell_state.setdefault('listeners', {})
+    cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
+    cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
+
+    from v2ecoli.library.units import units
+    cell_state.setdefault('process_state', {})
+    cell_state['process_state'].setdefault('polypeptide_elongation', {
+        'aa_exchange_rates': np.zeros(21) * units.mmol / units.L / units.s,
+        'gtp_to_hydrolyze': 0,
+        'aa_count_diff': np.zeros(21),
+    })
+
+    # Create a mock loader that returns configs from the cache
+    class _CachedLoader:
+        def __init__(self, configs, unique_names):
+            self._configs = configs
+            self.unique_names = unique_names
+
+            class _SimData:
+                class _InternalState:
+                    class _UniqueMolecule:
+                        def __init__(self, names):
+                            self.unique_molecule_definitions = {n: {} for n in names}
+                    unique_molecule = None
+                    def __init__(self, names):
+                        self.unique_molecule = self._UniqueMolecule(names)
+                internal_state = None
+
+            self.sim_data = _SimData()
+            self.sim_data.internal_state = _SimData._InternalState(unique_names)
+
+        def get_config_by_name(self, name):
+            if name in self._configs:
+                return self._configs[name]
+            raise KeyError(f'Unknown: {name}')
+
+    loader = _CachedLoader(configs, unique_names)
+
+    _process_cache = {}
+    for step_name in DEFAULT_FLOW:
+        config = _get_step_config(loader, step_name, core, _process_cache)
+        if config is not None:
+            instance, topology, edge_type = config
+            cell_state[step_name] = make_edge(instance, topology, edge_type)
+
+    _seed_mass_listener(cell_state, core)
+    inject_flow_dependencies(cell_state, DEFAULT_FLOW)
+
+    state = {
+        'agents': {'0': cell_state},
+        'global_time': 0.0,
+    }
+
+    return {
+        'state': state,
+        'skip_initial_steps': True,
+        'sequential_steps': True,
+        'flow_order': DEFAULT_FLOW,
+    }
+
+
 def _get_step_config(loader, step_name, core, process_cache=None):
     """Get (instance, topology, edge_type) for a step from LoadSimData.
 

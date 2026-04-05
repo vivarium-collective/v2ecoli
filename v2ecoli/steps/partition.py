@@ -58,6 +58,13 @@ class PartitionedProcess(_SafeInvokeMixin, Step):
         self.request_set = False
         super().__init__(config=config or {}, core=core)
 
+        # Infer config_schema from actual parameters (like genEcoli)
+        if core is not None and self.parameters:
+            try:
+                self._inferred_config_schema = core.infer(self.parameters)
+            except Exception:
+                self._inferred_config_schema = None
+
     @abc.abstractmethod
     def ports_schema(self):
         """Return the v1-style ports schema dict."""

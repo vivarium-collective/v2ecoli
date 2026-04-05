@@ -272,16 +272,16 @@ requires-dist = [
 
 [[package]]
 name = "bigraph-viz"
-version = "1.0.3"
+version = "1.0.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "graphviz" },
     { name = "process-bigraph" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3f/45/b291196b8929cbe602b716145bc38215bb9038be890756c5ec4430fb76f9/bigraph_viz-1.0.3.tar.gz", hash = "sha256:4cbed2f64ad196cf9c0bffb1b041a5cda1c9cd71e0a725297e26fb28b1f01d44", size = 33702, upload-time = "2026-03-15T17:11:24.956Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2a/84/f1782efe9a169f1060f081c7b11f4bf31d4e5c26fdf3f135253a288b1ae9/bigraph_viz-1.0.4.tar.gz", hash = "sha256:ae44aba20258daa89b4447d1b7039908c67cf776a36e614e281e75a20bac279e", size = 34434, upload-time = "2026-04-05T04:28:38.625Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/05/a7/269d2154e69a4698e2249948ae22e13d0a82847d1f19f4138ee56af0c566/bigraph_viz-1.0.3-py3-none-any.whl", hash = "sha256:d48054096715c52501e5f6723cba8897208e845a1f856660aa3a90cf3163bf51", size = 32891, upload-time = "2026-03-15T17:11:23.79Z" },
+    { url = "https://files.pythonhosted.org/packages/40/e2/d3e13afaa5863279d458e7255be17b3f2c81da6b000c21453b78216f7915/bigraph_viz-1.0.4-py3-none-any.whl", hash = "sha256:26aeafbbb8a52919a04e094cc11bacb8a7018e91b1a52d84b8430eeb20ad2092", size = 33825, upload-time = "2026-04-05T04:28:37.455Z" },
 ]
 
 [[package]]
@@ -3676,7 +3676,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "bigraph-schema", editable = "../bigraph-schema" },
-    { name = "bigraph-viz", specifier = ">=1.0.3" },
+    { name = "bigraph-viz", specifier = ">=1.0.4" },
     { name = "dill", specifier = ">=0.3" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "numpy" },

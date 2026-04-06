@@ -493,41 +493,62 @@ def _coord_to_angle(coord):
 
 
 def plot_chromosome_map(snapshot, ax, title=''):
-    """Draw circular chromosome with RNAP and replisome positions."""
+    """Draw circular chromosomes with RNAP and replisome positions.
+
+    When n_chromosomes > 1, draws concentric circles for each chromosome
+    and distributes forks across them.
+    """
     theta = np.linspace(0, 2 * np.pi, 200)
-    R = 1.0  # chromosome radius
+    n_chrom = max(1, snapshot.get('n_chromosomes', 1))
 
-    # Draw chromosome circle
-    ax.plot(R * np.cos(theta), R * np.sin(theta), color='#cbd5e1', lw=3, zorder=1)
+    # Radii for concentric chromosomes (outermost = 1.0, inner shrinks)
+    radii = [1.0 - i * 0.25 for i in range(n_chrom)]
+    chrom_colors = ['#cbd5e1', '#a3b8cc', '#8ba3b8', '#748fa5']
 
-    # Mark OriC (top) and Ter (bottom)
-    ax.plot(0, R, 'o', color='#10b981', ms=10, zorder=5, label='OriC')
-    ax.plot(0, -R, 's', color='#ef4444', ms=8, zorder=5, label='Ter')
+    for ci, R in enumerate(radii):
+        ax.plot(R * np.cos(theta), R * np.sin(theta),
+                color=chrom_colors[ci % len(chrom_colors)], lw=3, zorder=1)
+        # OriC and Ter markers on each chromosome
+        ax.plot(0, R, 'o', color='#10b981', ms=max(6, 10 - ci * 2), zorder=5)
+        ax.plot(0, -R, 's', color='#ef4444', ms=max(5, 8 - ci * 2), zorder=5)
 
-    # Plot RNAP positions as small dots on the chromosome
+    # Legend entries for landmarks (once)
+    ax.plot([], [], 'o', color='#10b981', ms=8, label='OriC')
+    ax.plot([], [], 's', color='#ef4444', ms=7, label='Ter')
+
+    # Plot RNAP on the outermost chromosome
+    R_outer = radii[0]
     rnap_coords = snapshot.get('rnap_coords', [])
     if rnap_coords:
         angles = [_coord_to_angle(c) for c in rnap_coords]
-        rx = [R * np.cos(a) for a in angles]
-        ry = [R * np.sin(a) for a in angles]
-        ax.scatter(rx, ry, c='#3b82f6', s=4, alpha=0.3, zorder=3, label=f'RNAP ({len(rnap_coords)})')
+        rx = [R_outer * np.cos(a) for a in angles]
+        ry = [R_outer * np.sin(a) for a in angles]
+        ax.scatter(rx, ry, c='#3b82f6', s=4, alpha=0.3, zorder=3,
+                   label=f'RNAP ({len(rnap_coords)})')
 
-    # Plot replisome positions as large triangles
+    # Distribute forks across chromosomes
+    # With 2 forks per chromosome (one right, one left replichore)
     fork_coords = snapshot.get('fork_coords', [])
-    for coord in fork_coords:
+    forks_per_chrom = 2  # each chromosome has 2 replichores
+    for fi, coord in enumerate(fork_coords):
+        ci = min(fi // forks_per_chrom, n_chrom - 1)
+        R = radii[ci]
         angle = _coord_to_angle(coord)
-        fx = 1.15 * R * np.cos(angle)
-        fy = 1.15 * R * np.sin(angle)
-        ax.plot(fx, fy, '^', color='#f59e0b', ms=12, zorder=6,
+        fx = (R + 0.12) * np.cos(angle)
+        fy = (R + 0.12) * np.sin(angle)
+        ax.plot(fx, fy, '^', color='#f59e0b', ms=max(8, 12 - ci * 2), zorder=6,
                 markeredgecolor='black', markeredgewidth=0.5)
     if fork_coords:
-        ax.plot([], [], '^', color='#f59e0b', ms=10, label=f'Replisome ({len(fork_coords)})')
+        ax.plot([], [], '^', color='#f59e0b', ms=10,
+                label=f'Replisome ({len(fork_coords)})')
 
     ax.set_xlim(-1.5, 1.5)
     ax.set_ylim(-1.5, 1.5)
     ax.set_aspect('equal')
-    ax.legend(loc='upper right', fontsize=7, framealpha=0.9)
-    ax.set_title(title or f"t={snapshot.get('time', 0):.0f}s", fontsize=10)
+    ax.legend(loc='upper right', fontsize=6, framealpha=0.9)
+    t = snapshot.get('time', 0)
+    chrom_label = f'{n_chrom} chr' if n_chrom > 1 else '1 chr'
+    ax.set_title(title or f"t={t:.0f}s ({chrom_label})", fontsize=9)
     ax.axis('off')
 
 

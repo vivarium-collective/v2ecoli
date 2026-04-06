@@ -58,9 +58,118 @@ _sim_data_candidates = [
 ]
 SIM_DATA_PATH = next((p for p in _sim_data_candidates if os.path.exists(p)), None)
 OUT_DIR = 'out/benchmark'
+WORKFLOW_DIR = 'out/workflow'
 CACHE_DIR = 'out/cache'
 COMPARISON_DURATION = 60.0
 LONG_DURATION = 500.0  # Longer run showing growth (not full division)
+
+
+# ---------------------------------------------------------------------------
+# Workflow caching
+# ---------------------------------------------------------------------------
+
+def load_meta(step_name):
+    """Load cached metadata for a workflow step, or None if not cached."""
+    path = os.path.join(WORKFLOW_DIR, f'{step_name}_meta.json')
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
+    return None
+
+
+def save_meta(step_name, meta):
+    """Save metadata for a workflow step."""
+    os.makedirs(WORKFLOW_DIR, exist_ok=True)
+    meta['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S')
+    path = os.path.join(WORKFLOW_DIR, f'{step_name}_meta.json')
+    with open(path, 'w') as f:
+        json.dump(meta, f, indent=2, cls=NumpyJSONEncoder)
+
+
+def save_step_state(step_name, data):
+    """Save state data for a workflow step."""
+    os.makedirs(WORKFLOW_DIR, exist_ok=True)
+    path = os.path.join(WORKFLOW_DIR, f'{step_name}.dill')
+    with open(path, 'wb') as f:
+        dill.dump(data, f)
+
+
+def load_step_state(step_name):
+    """Load state data for a workflow step."""
+    path = os.path.join(WORKFLOW_DIR, f'{step_name}.dill')
+    if os.path.exists(path):
+        with open(path, 'rb') as f:
+            return dill.load(f)
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Workflow Step 1: Raw Data
+# ---------------------------------------------------------------------------
+
+def step_raw_data():
+    """Load and catalog raw data files from reconstruction/ecoli/flat/."""
+    meta = load_meta('raw_data')
+    if meta:
+        print("  Step 1: Raw Data (cached)")
+        return meta
+
+    print("  Step 1: Raw Data")
+    flat_dir = os.path.join(
+        os.path.dirname(__file__), 'v2ecoli', 'reconstruction', 'ecoli', 'flat')
+
+    # Catalog all files
+    files = []
+    categories = {}
+    total_size = 0
+    for root, dirs, fnames in os.walk(flat_dir):
+        rel = os.path.relpath(root, flat_dir)
+        cat = rel if rel != '.' else 'core'
+        for fname in sorted(fnames):
+            fpath = os.path.join(root, fname)
+            fsize = os.path.getsize(fpath)
+            files.append({'name': os.path.join(rel, fname) if rel != '.' else fname,
+                          'size': fsize, 'category': cat})
+            total_size += fsize
+            categories[cat] = categories.get(cat, 0) + 1
+
+    # Load knowledge base for stats
+    from v2ecoli.reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
+    t0 = time.time()
+    raw_data = KnowledgeBaseEcoli(
+        operons_on=True, remove_rrna_operons=False,
+        remove_rrff=False, stable_rrna=False)
+    load_time = time.time() - t0
+
+    meta = {
+        'n_files': len(files),
+        'total_size_mb': round(total_size / 1e6, 1),
+        'categories': categories,
+        'files': [f['name'] for f in files],
+        'load_time': round(load_time, 2),
+        'n_genes': len(raw_data.genes) if hasattr(raw_data, 'genes') else 0,
+        'n_rnas': len(raw_data.rnas) if hasattr(raw_data, 'rnas') else 0,
+        'n_proteins': len(raw_data.proteins) if hasattr(raw_data, 'proteins') else 0,
+        'n_metabolites': len(raw_data.metabolites) if hasattr(raw_data, 'metabolites') else 0,
+        'genome_length': len(raw_data.genome_sequence) if hasattr(raw_data, 'genome_sequence') else 0,
+    }
+    print(f"    {meta['n_files']} files, {meta['total_size_mb']} MB")
+    print(f"    {meta['n_genes']} genes, {meta['n_rnas']} RNAs, "
+          f"{meta['n_proteins']} proteins, {meta['n_metabolites']} metabolites")
+    print(f"    Genome: {meta['genome_length']:,} bp, loaded in {load_time:.1f}s")
+    save_meta('raw_data', meta)
+    return meta
+
+
+# ---------------------------------------------------------------------------
+# BioCyc file IDs (from update_biocyc_files.py)
+# ---------------------------------------------------------------------------
+
+BIOCYC_FILE_IDS = [
+    "complexation_reactions", "dna_sites", "equilibrium_reactions",
+    "genes", "metabolic_reactions", "metabolites", "proteins",
+    "rnas", "transcription_units", "trna_charging_reactions",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -951,7 +1060,14 @@ def make_bigraph_svg(state):
 
 def run_benchmarks():
     os.makedirs(OUT_DIR, exist_ok=True)
+    os.makedirs(WORKFLOW_DIR, exist_ok=True)
     results = {}
+
+    # 0. Raw data catalog
+    print("=" * 50)
+    print("Workflow Step 1: Raw Data")
+    raw = step_raw_data()
+    results['raw_data'] = raw
 
     # 1. Cache + build
     print("=" * 50)
@@ -1016,6 +1132,11 @@ def run_benchmarks():
     unique_comp_plot = plot_unique_comparison(comp)
 
     # Build HTML
+    raw = results['raw_data']
+    raw_cat_rows = ''.join(
+        f"<tr><td>{cat}</td><td>{count}</td></tr>"
+        for cat, count in sorted(raw.get('categories', {}).items()))
+    raw_biocyc_list = ''.join(f"<li>{fid}.tsv</li>" for fid in BIOCYC_FILE_IDS)
     b = results['build']
     s = results['short']
     c = results['comparison']
@@ -1141,6 +1262,7 @@ def run_benchmarks():
             box-shadow: 0 1px 2px rgba(0,0,0,0.08);">
   <strong style="font-size: 0.9em; color: #475569;">Contents</strong>
   <ol style="margin: 6px 0 0 0; padding-left: 20px; font-size: 0.88em; columns: 2; column-gap: 30px;">
+    <li><a href="#sec-raw">Raw Data</a></li>
     <li><a href="#sec-build">Document Build</a></li>
     <li><a href="#sec-sim">Simulation ({COMPARISON_DURATION:.0f}s)</a></li>
     <li><a href="#sec-compare">v1 Comparison</a></li>
@@ -1151,6 +1273,40 @@ def run_benchmarks():
     <li><a href="#sec-timing">Timing Summary</a></li>
   </ol>
 </nav>
+
+<!-- ===== Step 1: Raw Data ===== -->
+<h2 id="sec-raw">0. Raw Data ({raw['n_files']} files, {raw['total_size_mb']} MB)</h2>
+<div class="section">
+  <p>Knowledge base loaded from <code>reconstruction/ecoli/flat/</code> — {raw['n_files']} TSV files
+  ({raw['total_size_mb']} MB) containing the E. coli genome, metabolic network, and regulatory data.
+  {'Loaded in ' + str(raw['load_time']) + 's.' if raw.get('load_time') else ''}
+  {' <span class="timing">cached ' + raw['timestamp'] + '</span>' if raw.get('timestamp') else ''}</p>
+</div>
+<div class="metrics">
+  <div class="metric"><div class="label">Genes</div><div class="value">{raw.get('n_genes', '?'):,}</div></div>
+  <div class="metric"><div class="label">RNAs</div><div class="value">{raw.get('n_rnas', '?'):,}</div></div>
+  <div class="metric"><div class="label">Proteins</div><div class="value">{raw.get('n_proteins', '?'):,}</div></div>
+  <div class="metric"><div class="label">Metabolites</div><div class="value">{raw.get('n_metabolites', '?'):,}</div></div>
+  <div class="metric"><div class="label">Genome</div><div class="value">{raw.get('genome_length', 0):,} bp</div></div>
+</div>
+<details>
+<summary>File Categories</summary>
+<div class="section" style="overflow-x: auto;">
+  <table>
+    <thead><tr><th>Category</th><th>Files</th></tr></thead>
+    <tbody>{raw_cat_rows}</tbody>
+  </table>
+</div>
+</details>
+<details>
+<summary>BioCyc Files (fetched from EcoCyc API)</summary>
+<div class="section">
+  <p>These {len(BIOCYC_FILE_IDS)} files are sourced from the
+  <a href="https://biocyc.org">BioCyc</a> database via their web API.
+  Update with: <code>python -m v2ecoli.reconstruction.ecoli.scripts.update_biocyc_files</code></p>
+  <ul style="font-size: 0.85em; columns: 2;">{raw_biocyc_list}</ul>
+</div>
+</details>
 
 <!-- ===== Benchmark 1: Build ===== -->
 <h2 id="sec-build">1. Document Build</h2>

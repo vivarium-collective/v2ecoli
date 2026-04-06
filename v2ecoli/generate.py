@@ -15,11 +15,14 @@ import time
 
 import dill
 import numpy as np
+from bigraph_schema import allocate_core
 
 from v2ecoli.reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
 from v2ecoli.reconstruction.ecoli.fit_sim_data_1 import fitSimData_1
 from v2ecoli.library.sim_data import LoadSimData
 from v2ecoli.library.filepath import ROOT_PATH
+from v2ecoli.library.units import units
+from v2ecoli.types import ECOLI_TYPES
 
 
 # ---------------------------------------------------------------------------
@@ -107,8 +110,6 @@ DEFAULT_FLOW = [step for layer in EXECUTION_LAYERS for step in layer]
 
 def _seed_mass_listener(cell_state, core):
     """Run mass listener once to populate initial mass values."""
-    import numpy as np
-    from v2ecoli.steps.listeners.mass_listener import MassListener
 
     # Get mass listener config from LoadSimData would be complex,
     # so just find the instance if it's already been added to cell_state
@@ -327,9 +328,6 @@ def build_document(sim_data_path=None, seed=0):
     Returns:
         Document dict with 'state', 'flow_order' keys.
     """
-    from bigraph_schema import allocate_core
-    from v2ecoli.types import ECOLI_TYPES
-
     if sim_data_path is None:
         sim_data_path = run_parca()
 
@@ -360,7 +358,6 @@ def build_document(sim_data_path=None, seed=0):
     cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
 
     # Seed random state for allocator
-    import numpy as np
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
 
     # Pre-create flat per-process request/allocate stores
@@ -377,7 +374,6 @@ def build_document(sim_data_path=None, seed=0):
         cell_state[f'allocate_{proc_name}'] = {'bulk': {}}
 
     # Pre-populate process_state with defaults that metabolism needs
-    from v2ecoli.library.units import units
     cell_state.setdefault('process_state', {})
     cell_state['process_state'].setdefault('polypeptide_elongation', {
         'aa_exchange_rates': np.zeros(21) * units.mmol / units.L / units.s,
@@ -435,10 +431,6 @@ def build_document_from_configs(initial_state, configs, unique_names,
     Returns:
         Document dict for Composite.
     """
-    from bigraph_schema import allocate_core
-    from v2ecoli.types import ECOLI_TYPES
-    import numpy as np
-
     if core is None:
         core = allocate_core()
         core.register_types(ECOLI_TYPES)
@@ -473,7 +465,6 @@ def build_document_from_configs(initial_state, configs, unique_names,
         cell_state[f'request_{proc_name}'] = {'bulk': []}
         cell_state[f'allocate_{proc_name}'] = {'bulk': {}}
 
-    from v2ecoli.library.units import units
     cell_state.setdefault('process_state', {})
     cell_state['process_state'].setdefault('polypeptide_elongation', {
         'aa_exchange_rates': np.zeros(21) * units.mmol / units.L / units.s,

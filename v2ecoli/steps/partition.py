@@ -9,6 +9,7 @@ Requester and Evolver wrap a PartitionedProcess for the partition cycle.
 import abc
 import warnings
 
+import numpy as np
 from process_bigraph import Step
 from process_bigraph.composite import SyncUpdate
 from bigraph_schema.schema import Node, Float, Overwrite
@@ -24,7 +25,6 @@ def _protect_state(state):
     returns the live state object, we must copy arrays that processes
     might modify to prevent corruption of the simulation state.
     """
-    import numpy as np
     protected = dict(state)
     if 'bulk' in protected and hasattr(protected['bulk'], 'copy'):
         protected['bulk'] = protected['bulk'].copy()
@@ -250,7 +250,6 @@ class ExplicitEvolver(_SafeInvokeMixin, Step):
 
         state = _protect_state(state)
 
-        import numpy as np
         allocations = state.pop('allocate', {})
         bulk_alloc = allocations.get('bulk')
         if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):

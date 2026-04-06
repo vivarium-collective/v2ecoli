@@ -10,12 +10,14 @@ Supports three loading modes:
 """
 
 import os
-import dill
+import time
 
+import dill
 from bigraph_schema import allocate_core
 from process_bigraph import Composite
 
 from v2ecoli.types import ECOLI_TYPES
+from v2ecoli.cache import load_initial_state, save_initial_state, save_json
 
 
 def _build_core():
@@ -60,10 +62,7 @@ def make_composite(document=None, sim_data_path=None, cache_dir=None,
 
 def _build_from_cache(cache_dir, core, seed=0):
     """Build a document from cached initial state and process configs."""
-    from v2ecoli.cache import load_initial_state
-    from v2ecoli.generate import (
-        build_document_from_configs, DEFAULT_FLOW
-    )
+    from v2ecoli.generate import build_document_from_configs  # deferred: circular
 
     # Load cached data
     initial_state = load_initial_state(
@@ -91,8 +90,7 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
     - cache_dir/sim_data_cache.dill — process configs (190MB pickle)
     - cache_dir/metadata.json — unique molecule names etc.
     """
-    from v2ecoli.library.sim_data import LoadSimData
-    from v2ecoli.cache import save_initial_state, save_json
+    from v2ecoli.library.sim_data import LoadSimData  # deferred: heavy import
 
     os.makedirs(cache_dir, exist_ok=True)
 
@@ -144,7 +142,6 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
 
 def save_state(composite, path='out/checkpoint.dill'):
     """Save the full simulation state for later resumption."""
-    import dill
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
 
     # Extract just the cell state (no instances)
@@ -166,8 +163,6 @@ def load_state(path='out/checkpoint.dill', core=None):
     This rebuilds the Composite with fresh process instances
     but restores the saved state values.
     """
-    import dill
-
     with open(path, 'rb') as f:
         checkpoint = dill.load(f)
 
@@ -200,7 +195,6 @@ def run_and_cache(cache_dir='out/cache', checkpoint_dir='out/checkpoints',
     Returns:
         Final composite.
     """
-    import time
 
     if intervals is None:
         intervals = [100, 500, 1000, 1500, 1800, 2000, 2500, 3000]

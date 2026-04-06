@@ -14,12 +14,15 @@ Benchmarks:
 
 import os
 import io
+import re
+import sys
 import json
 import time
 import base64
 import html as html_lib
 import copy
 
+import dill
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -37,6 +40,8 @@ except ImportError:
     V1_AVAILABLE = False
 
 from v2ecoli.composite import make_composite, _build_core, save_cache, save_state
+from v2ecoli.library.division import divide_cell, divide_bulk
+from v2ecoli.library.schema import attrs as ecoli_attrs
 from process_bigraph import Composite
 from v2ecoli.generate import build_document, DEFAULT_FLOW
 from v2ecoli.cache import NumpyJSONEncoder, load_initial_state
@@ -85,16 +90,14 @@ def generate_predivision_state(duration=1800, cache_dir=CACHE_DIR,
     Returns:
         Path to saved checkpoint.
     """
-    import time as time_mod
-    import dill
     if outpath is None:
         outpath = os.path.join(OUT_DIR, '..', 'predivision.dill')
 
     print(f"Generating pre-division state ({duration}s)...")
     composite = make_composite(cache_dir=cache_dir)
-    t0 = time_mod.time()
+    t0 = time.time()
     composite.run(duration)
-    elapsed = time_mod.time() - t0
+    elapsed = time.time() - t0
 
     cell = composite.state['agents']['0']
     mass = cell.get('listeners', {}).get('mass', {})
@@ -246,7 +249,6 @@ def _collect_v2_timeseries(composite, duration):
 
 def _collect_v1_timeseries(duration):
     """Run v1, collect per-timestep bulk, mass, and unique data."""
-    import sys
     try:
         # Monkey-patch np.in1d for numpy compat
         if not hasattr(np, 'in1d'):
@@ -475,10 +477,6 @@ def bench_division():
     Uses a cached pre-division state (t~1800s, 2+ chromosomes) if available,
     otherwise falls back to the initial state (t=0).
     """
-    import time as time_mod
-    import dill
-    from v2ecoli.library.division import divide_cell, divide_bulk
-
     prediv_state = None
     prediv_time = 0.0
     if os.path.exists(PREDIVISION_PATH):
@@ -508,9 +506,9 @@ def bench_division():
     conserved = (d1_count + d2_count == mother_count)
 
     # Test full cell division
-    t0 = time_mod.time()
+    t0 = time.time()
     d1_state, d2_state = divide_cell(cell)
-    split_time = time_mod.time() - t0
+    split_time = time.time() - t0
 
     # Unique molecule counts
     unique_conservation = {}
@@ -551,19 +549,19 @@ def bench_division():
 
     if can_build_daughters:
         from v2ecoli.generate import build_document_from_configs
-        t0 = time_mod.time()
+        t0 = time.time()
         try:
             d1_doc = build_document_from_configs(
                 d1_state, configs, unique_names,
                 dry_mass_inc_dict=dry_mass_inc,
                 seed=1)
-            daughter_build_time = time_mod.time() - t0
+            daughter_build_time = time.time() - t0
             # Quick viability check: can we create a composite?
             d1_composite = Composite(d1_doc, core=_build_core())
             d1_composite.run(1.0)
             daughter_viable = True
         except Exception as e:
-            daughter_build_time = time_mod.time() - t0
+            daughter_build_time = time.time() - t0
             print(f"  Daughter build error: {e}")
 
     # Check division-ready state (2+ chromosomes, sufficient mass)
@@ -933,14 +931,13 @@ def make_bigraph_svg(state):
     try:
         plot_bigraph(viz_state, remove_process_place_edges=True,
                      node_groups=[g for g in groups.values() if g],
-                     node_fill_colors=colors, rankdir='TB',
+                     node_fill_colors=colors, rankdir='LR',
                      dpi='72', port_labels=False, node_label_size='16pt',
                      label_margin='0.05', out_dir=OUT_DIR,
                      filename='bigraph', file_format='svg')
         with open(os.path.join(OUT_DIR, 'bigraph.svg')) as f:
             svg = f.read()
         # Remove fixed width/height from SVG root so CSS can control sizing
-        import re
         svg = re.sub(r'width="[^"]*pt"', '', svg, count=1)
         svg = re.sub(r'height="[^"]*pt"', '', svg, count=1)
         return svg

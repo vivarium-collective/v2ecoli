@@ -1,32 +1,32 @@
 # v2ecoli Status
 
-**Date**: 2026-04-05
+**Date**: 2026-04-06
 **Repo**: https://github.com/vivarium-collective/v2ecoli
 
 ## Current State
 
-All 55 biological steps run through process-bigraph's `Composite.run()` with **0.62% worst-case mass error** vs v1 (vEcoli). Native flow execution (`sequential_steps=False`) with layer-based flow tokens — no custom simulation engine.
+All 55 biological steps run through process-bigraph's `Composite.run()` with **0.04% worst-case mass error** vs v1 (vEcoli). Native flow execution (`sequential_steps=False`) with layer-based flow tokens — no custom simulation engine.
 
 ### Accuracy (60s comparison with v1)
 
 | Component | Mean % Error | Max % Error | R² |
 |-----------|-------------|-------------|-----|
-| Dry Mass | 0.02% | 0.22% | 0.99 |
-| Protein | 0.02% | 0.03% | 1.00 |
-| RNA | 0.03% | 0.06% | 1.00 |
-| DNA | 0.03% | 0.03% | 1.00 |
-| Small Molecules | 0.02% | 0.62% | 0.78 |
+| Dry Mass | 0.00% | 0.01% | 1.0000 |
+| Protein | 0.00% | 0.01% | 0.9999 |
+| RNA | 0.01% | 0.04% | 0.9993 |
+| DNA | 0.00% | 0.00% | 1.0000 |
+| Small Molecules | 0.01% | 0.01% | 0.9988 |
 
 ### Architecture
 
+- **No PartitionedProcess**: all 15 processes use plain Logic classes with per-process Steps
 - **Native flow execution**: `sequential_steps=False` with 31 execution layers
-- **Explicit Requester/Evolver Steps**: input/output topology separation for all 11 partitioned processes
+- **Per-process Requester/Evolver Steps**: explicit `inputs()`/`outputs()`, `initialize()` pattern
 - **Flat per-process stores**: `request_{proc}` and `allocate_{proc}` (no shared nested dicts)
 - **Layer-based flow tokens**: requesters/evolvers/listeners grouped by execution layer
 - **Custom types**: BulkNumpyUpdate, UniqueNumpyUpdate, InPlaceDict, SetStore, ListenerStore
-- **Division**: `_add`/`_remove` structural updates, tested on pre-division state (t=1800, 2 chromosomes)
-- **ParCa pipeline**: raw TSV data → simData → initial state → document
-- **Benchmark**: interactive process-bigraph network visualization, per-category mass accuracy, division test
+- **Division**: verified at t=2687s (2 chromosomes, dry mass 702 fg, daughter viability confirmed)
+- **Workflow testing**: 8-step cached pipeline (EcoCyc API → ParCa → simulation → division)
 
 ### Dependencies
 
@@ -37,8 +37,7 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 ## Known Issues
 
 1. **Within-layer parallelism blocked** — layer token W/W conflicts serialize steps in the same layer. Flat stores are ready; needs process-bigraph barrier token support.
-2. **Small molecule R² = 0.78** — metabolism sensitivity to upstream state. All other components > 0.99.
-3. **Compiled dependencies** — polymerize (Cython), fba (GLPK), mc_complexation (Cython) from wholecell.
+2. **Compiled dependencies** — polymerize (Cython), fba (GLPK), mc_complexation (Cython) from wholecell.
 
 ## Next Steps
 

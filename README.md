@@ -14,23 +14,23 @@ v2ecoli runs the [vEcoli](https://github.com/CovertLab/vEcoli) whole-cell *E. co
 
 | Metric | Value |
 |--------|-------|
-| Worst mass % error vs v1 | **0.62%** |
-| Mass component R² | **> 0.99** (all except small molecules) |
+| Worst mass % error vs v1 | **0.04%** |
+| Mass component R² | **> 0.999** (all components) |
 | Simulation speed | **~6x realtime** (60s sim in ~10s wall) |
 | Execution mode | **Native flow** (`sequential_steps=False`) |
 | Execution layers | **31** (layer-based flow tokens) |
 | Biological processes | **55 steps + 1 process** |
-| Division | **Verified at t=1800** (2 chromosomes, daughter viability) |
+| Division | **Verified at t=2687s** (2 chromosomes, daughter viability) |
 
 ### v1 Comparison (60s)
 
 | Component | Mean % Error | Max % Error | R² |
 |-----------|-------------|-------------|-----|
-| Dry Mass | 0.02% | 0.22% | 0.99 |
-| Protein | 0.02% | 0.03% | 1.00 |
-| RNA | 0.03% | 0.06% | 1.00 |
-| DNA | 0.03% | 0.03% | 1.00 |
-| Small Molecules | 0.02% | 0.62% | 0.78 |
+| Dry Mass | 0.00% | 0.01% | 1.0000 |
+| Protein | 0.00% | 0.01% | 0.9999 |
+| RNA | 0.01% | 0.04% | 0.9993 |
+| DNA | 0.00% | 0.00% | 1.0000 |
+| Small Molecules | 0.01% | 0.01% | 0.9988 |
 
 ## Quick Start
 

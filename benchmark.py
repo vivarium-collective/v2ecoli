@@ -14,12 +14,15 @@ Benchmarks:
 
 import os
 import io
+import re
+import sys
 import json
 import time
 import base64
 import html as html_lib
 import copy
 
+import dill
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -36,7 +39,9 @@ except ImportError:
     ROOT_PATH = os.getcwd()
     V1_AVAILABLE = False
 
-from v2ecoli.composite import make_composite, _build_core, save_cache
+from v2ecoli.composite import make_composite, _build_core, save_cache, save_state
+from v2ecoli.library.division import divide_cell, divide_bulk
+from v2ecoli.library.schema import attrs as ecoli_attrs
 from process_bigraph import Composite
 from v2ecoli.generate import build_document, DEFAULT_FLOW
 from v2ecoli.cache import NumpyJSONEncoder, load_initial_state
@@ -68,6 +73,60 @@ def fig_to_b64(fig):
     plt.close(fig)
     buf.seek(0)
     return base64.b64encode(buf.read()).decode('utf-8')
+
+
+def generate_predivision_state(duration=1800, cache_dir=CACHE_DIR,
+                                outpath=None):
+    """Run simulation to near-division and save cell state data.
+
+    Saves only the data stores (bulk, unique, listeners, environment, etc.)
+    without process instances, so it loads without needing a core.
+
+    Args:
+        duration: Simulation time in seconds (~1800s reaches 2+ chromosomes).
+        cache_dir: Cache directory for initial state.
+        outpath: Output path. Defaults to out/predivision.dill.
+
+    Returns:
+        Path to saved checkpoint.
+    """
+    if outpath is None:
+        outpath = os.path.join(OUT_DIR, '..', 'predivision.dill')
+
+    print(f"Generating pre-division state ({duration}s)...")
+    composite = make_composite(cache_dir=cache_dir)
+    t0 = time.time()
+    composite.run(duration)
+    elapsed = time.time() - t0
+
+    cell = composite.state['agents']['0']
+    mass = cell.get('listeners', {}).get('mass', {})
+    fc = cell.get('unique', {}).get('full_chromosome')
+    n_chrom = fc['_entryState'].view(np.bool_).sum() if fc is not None else 0
+    dm = float(mass.get('dry_mass', 0))
+
+    # Save only data stores (no process instances)
+    data_keys = {'bulk', 'unique', 'listeners', 'environment', 'boundary',
+                 'global_time', 'timestep', 'divide', 'division_threshold',
+                 'process_state', 'allocator_rng'}
+    cell_data = {}
+    for k, v in cell.items():
+        if k in data_keys:
+            cell_data[k] = v
+        elif k.startswith('request_') or k.startswith('allocate_'):
+            cell_data[k] = v
+
+    os.makedirs(os.path.dirname(outpath) or '.', exist_ok=True)
+    with open(outpath, 'wb') as f:
+        dill.dump({
+            'cell_state': cell_data,
+            'global_time': cell.get('global_time', 0.0),
+        }, f)
+
+    print(f"  {duration}s sim in {elapsed:.0f}s wall | "
+          f"dry_mass={dm:.0f} fg, chromosomes={n_chrom}")
+    print(f"  Saved to {outpath}")
+    return outpath
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +249,6 @@ def _collect_v2_timeseries(composite, duration):
 
 def _collect_v1_timeseries(duration):
     """Run v1, collect per-timestep bulk, mass, and unique data."""
-    import sys
     try:
         # Monkey-patch np.in1d for numpy compat
         if not hasattr(np, 'in1d'):
@@ -410,17 +468,35 @@ def bench_v1_comparison(duration=60.0):
     }
 
 
+PREDIVISION_PATH = os.path.join(OUT_DIR, '..', 'predivision.dill')
+
+
 def bench_division():
     """Benchmark: division state splitting and daughter generation.
 
-    Tests divide_cell() on the initial state (not at actual division time)
-    to verify conservation and daughter viability.
+    Uses a cached pre-division state (t~1800s, 2+ chromosomes) if available,
+    otherwise falls back to the initial state (t=0).
     """
-    import time as time_mod
-    from v2ecoli.library.division import divide_cell, divide_bulk
+    prediv_state = None
+    prediv_time = 0.0
+    if os.path.exists(PREDIVISION_PATH):
+        try:
+            with open(PREDIVISION_PATH, 'rb') as f:
+                checkpoint = dill.load(f)
+            cell_data = checkpoint.get('cell_state', {})
+            if cell_data.get('unique', {}).get('full_chromosome') is not None:
+                prediv_state = cell_data
+                prediv_time = checkpoint.get('global_time', 0.0)
+                print(f"  Using pre-division state (t={prediv_time:.0f})")
+        except Exception as e:
+            print(f"  Could not load pre-division state: {e}")
 
-    composite = make_composite(cache_dir=CACHE_DIR)
-    cell = composite.state['agents']['0']
+    if prediv_state is not None:
+        cell = prediv_state
+    else:
+        print("  No pre-division checkpoint — using initial state (t=0)")
+        composite = make_composite(cache_dir=CACHE_DIR)
+        cell = composite.state['agents']['0']
 
     # Test bulk conservation
     d1_bulk, d2_bulk = divide_bulk(cell['bulk'])
@@ -430,9 +506,9 @@ def bench_division():
     conserved = (d1_count + d2_count == mother_count)
 
     # Test full cell division
-    t0 = time_mod.time()
+    t0 = time.time()
     d1_state, d2_state = divide_cell(cell)
-    split_time = time_mod.time() - t0
+    split_time = time.time() - t0
 
     # Unique molecule counts
     unique_conservation = {}
@@ -450,30 +526,56 @@ def bench_division():
                     'conserved': d1 + d2 == m
                 }
 
-    # Test daughter document build (if configs available)
+    # Test daughter document build
+    # Get configs from division step instance or cache
     div_step = cell.get('division', {}).get('instance')
-    can_build_daughters = div_step is not None and bool(getattr(div_step, '_configs', {}))
+    configs = getattr(div_step, '_configs', None)
+    unique_names = getattr(div_step, '_unique_names', None)
+    dry_mass_inc = getattr(div_step, 'dry_mass_inc_dict', None)
+
+    if configs is None and os.path.isdir(CACHE_DIR):
+        # Load configs from cache (for pre-division state without instances)
+        cache_path = os.path.join(CACHE_DIR, 'sim_data_cache.dill')
+        if os.path.exists(cache_path):
+            with open(cache_path, 'rb') as f:
+                cache = dill.load(f)
+            configs = cache.get('configs', {})
+            unique_names = cache.get('unique_names', [])
+            dry_mass_inc = cache.get('dry_mass_inc_dict', {})
+
+    can_build_daughters = configs is not None and bool(configs)
     daughter_build_time = 0
     daughter_viable = False
 
     if can_build_daughters:
         from v2ecoli.generate import build_document_from_configs
-        t0 = time_mod.time()
+        t0 = time.time()
         try:
             d1_doc = build_document_from_configs(
-                d1_state, div_step._configs, div_step._unique_names,
-                dry_mass_inc_dict=div_step.dry_mass_inc_dict,
+                d1_state, configs, unique_names,
+                dry_mass_inc_dict=dry_mass_inc,
                 seed=1)
-            daughter_build_time = time_mod.time() - t0
+            daughter_build_time = time.time() - t0
             # Quick viability check: can we create a composite?
             d1_composite = Composite(d1_doc, core=_build_core())
             d1_composite.run(1.0)
             daughter_viable = True
         except Exception as e:
-            daughter_build_time = time_mod.time() - t0
+            daughter_build_time = time.time() - t0
             print(f"  Daughter build error: {e}")
 
+    # Check division-ready state (2+ chromosomes, sufficient mass)
+    fc = cell.get('unique', {}).get('full_chromosome')
+    n_chromosomes = 0
+    if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
+        n_chromosomes = int(fc['_entryState'].view(np.bool_).sum())
+    mass = cell.get('listeners', {}).get('mass', {})
+    dry_mass = float(mass.get('dry_mass', 0))
+
     return {
+        'prediv_time': prediv_time,
+        'dry_mass': dry_mass,
+        'n_chromosomes': n_chromosomes,
         'mother_bulk_count': mother_count,
         'd1_bulk_count': d1_count,
         'd2_bulk_count': d2_count,
@@ -786,10 +888,14 @@ SKIP_STEPS = {'unique_update', 'global_clock', 'mark_d_period', 'division',
 SKIP_PORTS = {'timestep', 'global_time', 'next_update_time', 'process'}
 BIO_COLORS = {
     'dna': ('#FFB6C1', lambda n: 'chromosome' in n),
-    'rna': ('#ADD8E6', lambda n: any(s in n for s in ('transcript', 'rna-', 'RNA', 'rnap'))),
+    'rna': ('#ADD8E6', lambda n: any(s in n for s in ('transcript', 'rna-', 'rna_', 'RNA', 'rnap'))),
     'protein': ('#90EE90', lambda n: any(s in n for s in ('polypeptide', 'protein', 'ribosome'))),
     'meta': ('#FFD700', lambda n: any(s in n for s in ('metabolism', 'equilibrium', 'complexation', 'two-component'))),
     'reg': ('#DDA0DD', lambda n: any(s in n for s in ('tf-', 'tf_'))),
+    'alloc': ('#FFA07A', lambda n: 'allocator' in n),
+    'infra': ('#E0E0E0', lambda n: any(s in n for s in ('unique_update', 'global_clock', 'emitter',
+                                                          'mark_d_period', 'division', 'exchange',
+                                                          'media_update', 'post-division'))),
     'listen': ('#D3D3D3', lambda n: 'listener' in n),
 }
 
@@ -800,16 +906,17 @@ def make_bigraph_svg(state):
     for name, edge in cell.items():
         if not isinstance(edge, dict): continue
         if '_type' in edge:
-            if any(s in name for s in SKIP_STEPS): continue
-            if '_requester' in name: continue
+            # Full visualization — all steps including requesters, evolvers, allocators
             inputs = {p: w for p, w in edge.get('inputs', {}).items()
-                      if not p.startswith('_flow') and p not in SKIP_PORTS
-                      and not (isinstance(w, list) and w and w[0] in ('request', 'allocate'))}
-            clean = name.replace('ecoli-', '').replace('_evolver', '')
-            viz[clean] = {'_type': edge['_type'], 'inputs': inputs}
+                      if not p.startswith('_layer') and not p.startswith('_flow')}
+            outputs = {p: w for p, w in edge.get('outputs', {}).items()
+                       if not p.startswith('_layer') and not p.startswith('_flow')}
+            clean = name.replace('ecoli-', '')
+            viz[clean] = {'_type': edge['_type'], 'inputs': inputs, 'outputs': outputs}
         elif name == 'unique' and isinstance(edge, dict):
             viz[name] = {k: {} for k in edge.keys()}
-        elif name in ('bulk', 'listeners', 'environment', 'boundary'):
+        elif name in ('bulk', 'listeners', 'environment', 'boundary',
+                       'request', 'allocate', 'process_state'):
             viz[name] = {}
 
     viz_state = {'agents': {'0': viz}}
@@ -824,14 +931,13 @@ def make_bigraph_svg(state):
     try:
         plot_bigraph(viz_state, remove_process_place_edges=True,
                      node_groups=[g for g in groups.values() if g],
-                     node_fill_colors=colors, rankdir='TB',
+                     node_fill_colors=colors, rankdir='LR',
                      dpi='72', port_labels=False, node_label_size='16pt',
                      label_margin='0.05', out_dir=OUT_DIR,
                      filename='bigraph', file_format='svg')
         with open(os.path.join(OUT_DIR, 'bigraph.svg')) as f:
             svg = f.read()
         # Remove fixed width/height from SVG root so CSS can control sizing
-        import re
         svg = re.sub(r'width="[^"]*pt"', '', svg, count=1)
         svg = re.sub(r'height="[^"]*pt"', '', svg, count=1)
         return svg
@@ -998,9 +1104,14 @@ def run_benchmarks():
   table {{ border-collapse: collapse; width: 100%; font-size: 0.82em; }}
   th, td {{ border: 1px solid #e2e8f0; padding: 5px 8px; text-align: left; }}
   th {{ background: #f1f5f9; font-weight: 600; }}
-  .bigraph {{ overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;
-              background: white; }}
-  .bigraph svg {{ min-width: 100%; height: auto; }}
+  .bigraph-container {{ position: relative; border: 1px solid #e2e8f0; border-radius: 8px;
+              background: #fafafa; overflow: hidden; height: 700px; cursor: grab; }}
+  .bigraph-container.grabbing {{ cursor: grabbing; }}
+  .bigraph-container svg {{ position: absolute; transform-origin: 0 0; }}
+  .bigraph-controls {{ display: flex; gap: 6px; margin: 8px 0; }}
+  .bigraph-controls button {{ padding: 4px 12px; border: 1px solid #cbd5e1; border-radius: 4px;
+              background: white; cursor: pointer; font-size: 0.85em; }}
+  .bigraph-controls button:hover {{ background: #f1f5f9; }}
   .bench-bar {{ display: flex; align-items: center; gap: 8px; margin: 3px 0; }}
   .bench-bar .bar {{ height: 20px; border-radius: 3px; min-width: 2px; }}
   .bench-bar .label {{ font-size: 0.8em; min-width: 100px; }}
@@ -1156,8 +1267,7 @@ composite = run_and_cache(intervals=[500, 1000, 1500, 1800, 2000])</pre>
 
 <h3>Division Test Results</h3>
 <div class="section">
-  <p>Tests run on initial state (t=0). At actual division time (~1857s), the cell has 2+
-  chromosomes and proper domain trees for biologically correct partitioning.</p>
+  <p>Tests run on {'pre-division state (t=' + str(int(div['prediv_time'])) + 's, ' + str(div['n_chromosomes']) + ' chromosomes, dry mass ' + f"{div['dry_mass']:.0f}" + ' fg)' if div['prediv_time'] > 0 else 'initial state (t=0). Generate a pre-division checkpoint with <code>generate_predivision_state()</code>.'}.</p>
 </div>
 <div class="metrics">
   <div class="metric"><div class="label">Bulk Conserved</div><div class="value {'green' if div['bulk_conserved'] else 'red'}">{'Yes' if div['bulk_conserved'] else 'No'}</div></div>
@@ -1206,10 +1316,66 @@ composite = run_and_cache(intervals=[500, 1000, 1500, 1800, 2000])</pre>
 <!-- ===== Bigraph ===== -->
 <h2 id="sec-bigraph">7. Process-Bigraph Network Visualization</h2>
 <div class="section">
-  <p>Visualization of the biological process network. Steps (colored) read from and write to
-  shared stores (bulk, unique, listeners). Scroll horizontally to see the full network.</p>
+  <p>Interactive visualization of the biological process network. Scroll to zoom, drag to pan.
+  Steps (colored) read from and write to shared stores (bulk, unique, listeners, request, allocate).</p>
+  <div class="bigraph-controls">
+    <button onclick="bgZoom(1.3)">Zoom In</button>
+    <button onclick="bgZoom(0.77)">Zoom Out</button>
+    <button onclick="bgReset()">Fit</button>
+    <span id="bg-zoom-level" style="font-size:0.8em;color:#64748b;padding:4px;"></span>
+  </div>
 </div>
-<div class="bigraph">{bigraph_svg}</div>
+<div class="bigraph-container" id="bigraph-container">{bigraph_svg}</div>
+<script>
+(function() {{
+  const ctr = document.getElementById('bigraph-container');
+  const svg = ctr.querySelector('svg');
+  if (!svg) return;
+  let scale = 1, tx = 0, ty = 0, dragging = false, sx, sy;
+  function apply() {{
+    svg.style.transform = `translate(${{tx}}px,${{ty}}px) scale(${{scale}})`;
+    document.getElementById('bg-zoom-level').textContent = Math.round(scale*100)+'%';
+  }}
+  // Fit on load
+  function fit() {{
+    const bb = svg.getBBox();
+    const cw = ctr.clientWidth, ch = ctr.clientHeight;
+    scale = Math.min(cw / (bb.width + 40), ch / (bb.height + 40), 2);
+    tx = (cw - bb.width * scale) / 2 - bb.x * scale;
+    ty = (ch - bb.height * scale) / 2 - bb.y * scale;
+    apply();
+  }}
+  svg.style.width = svg.getAttribute('viewBox') ? '' : (svg.getBBox().width + 'px');
+  svg.style.height = svg.getAttribute('viewBox') ? '' : (svg.getBBox().height + 'px');
+  svg.removeAttribute('width'); svg.removeAttribute('height');
+  setTimeout(fit, 50);
+  window.bgReset = fit;
+  window.bgZoom = function(f) {{
+    const cx = ctr.clientWidth/2, cy = ctr.clientHeight/2;
+    tx = cx - f * (cx - tx); ty = cy - f * (cy - ty);
+    scale *= f; apply();
+  }};
+  ctr.addEventListener('wheel', function(e) {{
+    e.preventDefault();
+    const f = e.deltaY < 0 ? 1.12 : 0.89;
+    const r = ctr.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    tx = mx - f * (mx - tx); ty = my - f * (my - ty);
+    scale *= f; apply();
+  }}, {{passive: false}});
+  ctr.addEventListener('mousedown', function(e) {{
+    dragging = true; sx = e.clientX - tx; sy = e.clientY - ty;
+    ctr.classList.add('grabbing');
+  }});
+  window.addEventListener('mousemove', function(e) {{
+    if (!dragging) return;
+    tx = e.clientX - sx; ty = e.clientY - sy; apply();
+  }});
+  window.addEventListener('mouseup', function() {{
+    dragging = false; ctr.classList.remove('grabbing');
+  }});
+}})();
+</script>
 
 <!-- ===== Timing Summary ===== -->
 <h2 id="sec-timing">8. Timing Summary</h2>

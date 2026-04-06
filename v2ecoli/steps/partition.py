@@ -9,6 +9,7 @@ Requester and Evolver wrap a PartitionedProcess for the partition cycle.
 import abc
 import warnings
 
+import numpy as np
 from process_bigraph import Step
 from process_bigraph.composite import SyncUpdate
 from bigraph_schema.schema import Node, Float, Overwrite
@@ -24,7 +25,6 @@ def _protect_state(state):
     returns the live state object, we must copy arrays that processes
     might modify to prevent corruption of the simulation state.
     """
-    import numpy as np
     protected = dict(state)
     if 'bulk' in protected and hasattr(protected['bulk'], 'copy'):
         protected['bulk'] = protected['bulk'].copy()
@@ -133,8 +133,19 @@ class PartitionedProcess(_SafeInvokeMixin, Step):
         return self.next_update(timestep, state)
 
 
-class Requester(_SafeInvokeMixin, Step):
-    """Runs calculate_request() on a PartitionedProcess."""
+# ---------------------------------------------------------------------------
+# Explicit Requester/Evolver with proper input/output separation
+# ---------------------------------------------------------------------------
+
+class ExplicitRequester(_SafeInvokeMixin, Step):
+    """Requester with proper input/output topology separation.
+
+    inputs(): all process ports + timing (reads everything)
+    outputs(): only request + next_update_time + listeners (writes only)
+
+    Request output is flat (no process_name nesting) — the topology
+    routes to the per-process request store.
+    """
 
     config_schema = {}
 
@@ -142,22 +153,25 @@ class Requester(_SafeInvokeMixin, Step):
         super().__init__(config=config, core=core)
         self.process = config['process']
         self.process_name = config.get('process_name', self.process.name)
-        self.name = f"{self.process.name}_requester"
+        self._writes_listeners = config.get('writes_listeners', False)
 
     def inputs(self):
         ports = _translate_schema(self.process.ports_schema())
         ports['global_time'] = Float(_default=0.0)
-        ports['timestep'] = Float(_default=self.process.parameters.get('timestep', 1.0))
+        ports.setdefault('timestep', Float(
+            _default=self.process.parameters.get('timestep', 1.0)))
         ports['next_update_time'] = Float(
             _default=self.process.parameters.get('timestep', 1.0))
         return ports
 
     def outputs(self):
-        return {
+        result = {
             'request': InPlaceDict(),
-            'listeners': ListenerStore(),
             'next_update_time': Overwrite(_value=Float()),
         }
+        if self._writes_listeners:
+            result['listeners'] = ListenerStore()
+        return result
 
     def initial_state(self, config=None):
         return {}
@@ -169,16 +183,14 @@ class Requester(_SafeInvokeMixin, Step):
             return {}
 
         state = _protect_state(state)
-        process = self.process
         timestep = state.get('timestep', 1.0)
-        request = process.calculate_request(timestep, state)
-        process.request_set = True
+        request = self.process.calculate_request(timestep, state)
+        self.process.request_set = True
 
-        # Write request keyed by process name into the request store
         bulk_request = request.pop('bulk', None)
-        result = {'request': {self.process_name: {}}}
+        result = {'request': {}}
         if bulk_request is not None:
-            result['request'][self.process_name]['bulk'] = bulk_request
+            result['request']['bulk'] = bulk_request
 
         listeners = request.pop('listeners', None)
         if listeners is not None:
@@ -187,26 +199,42 @@ class Requester(_SafeInvokeMixin, Step):
         return result
 
 
-class Evolver(_SafeInvokeMixin, Step):
-    """Runs evolve_state() on a PartitionedProcess."""
+class ExplicitEvolver(_SafeInvokeMixin, Step):
+    """Evolver with proper input/output topology separation.
+
+    inputs(): all process ports + allocate + timing
+    outputs(): all process ports + next_update_time (excluding allocate, timestep)
+    """
 
     config_schema = {}
 
     def __init__(self, config=None, core=None):
         super().__init__(config=config, core=core)
         self.process = config['process']
-        self.name = f"{self.process.name}_evolver"
+        # Ports that the evolver writes to (derived from evolve_state returns)
+        self._output_ports = config.get('output_ports', None)
 
     def inputs(self):
         ports = _translate_schema(self.process.ports_schema())
         ports['allocate'] = InPlaceDict()
         ports['global_time'] = Float(_default=0.0)
-        ports['timestep'] = Float(_default=self.process.parameters.get('timestep', 1.0))
+        ports.setdefault('timestep', Float(
+            _default=self.process.parameters.get('timestep', 1.0)))
         ports['next_update_time'] = Float(
             _default=self.process.parameters.get('timestep', 1.0))
         return ports
 
     def outputs(self):
+        if self._output_ports is not None:
+            # Use explicitly specified output ports
+            all_ports = _translate_schema(self.process.ports_schema())
+            result = {}
+            for port in self._output_ports:
+                if port in all_ports:
+                    result[port] = all_ports[port]
+            result['next_update_time'] = Overwrite(_value=Float())
+            return result
+        # Default: all ports except read-only ones
         ports = _translate_schema(self.process.ports_schema())
         ports['next_update_time'] = Overwrite(_value=Float())
         return ports
@@ -222,8 +250,6 @@ class Evolver(_SafeInvokeMixin, Step):
 
         state = _protect_state(state)
 
-        # Apply allocation: replace bulk counts with allocated amounts
-        import numpy as np
         allocations = state.pop('allocate', {})
         bulk_alloc = allocations.get('bulk')
         if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
@@ -232,11 +258,10 @@ class Evolver(_SafeInvokeMixin, Step):
             state['bulk'] = alloc_bulk
         state = deep_merge(state, allocations)
 
-        process = self.process
-        if not process.request_set:
+        if not self.process.request_set:
             return {}
 
         timestep = state.get('timestep', 1.0)
-        update = process.evolve_state(timestep, state)
+        update = self.process.evolve_state(timestep, state)
         update['next_update_time'] = global_time + timestep
         return update

@@ -2,7 +2,7 @@
 # Database: EcoCyc
 # Version: 29.6
 # Orthologs: true
-# Date and time generated: April 6, 2026, 11:26:29
+# Date and time generated: April 6, 2026, 15:50:03
 "id"	"common_name"	"synonyms"	"type"	"left_end_pos"	"right_end_pos"	"direction"
 "BS-7046"	null	[]	"dna-binding-site"	1825765	1825784	null
 "BS-7048"	null	[]	"dna-binding-site"	3169748	3169760	null

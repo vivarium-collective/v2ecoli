@@ -20,8 +20,8 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 ### Full Cell Cycle
 
 - **Division at t=2645s** (dry mass 702 fg, 2 chromosomes)
-- **Chromosome replication**: initiates, forks progress bidirectionally, terminate ~t=1200s
-- **Re-initiation**: second round begins ~t=2000s (4 active forks)
+- **Chromosome replication**: initiates, forks progress bidirectionally, terminate ~t=1350s
+- **Re-initiation**: second round begins ~t=1950s (4 active forks), matching v1 behavior
 - **Daughter viability**: confirmed (builds + runs 1s)
 - **Lifecycle v1/v2 comparison**: mass, chromosomes, forks, RNAP tracked over full cycle
 
@@ -33,10 +33,11 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 - **Flat per-process stores**: `request_{proc}` and `allocate_{proc}` (no shared nested dicts)
 - **Layer-based flow tokens**: requesters/evolvers/listeners grouped by execution layer
 - **Custom types**: BulkNumpyUpdate, UniqueNumpyUpdate, InPlaceDict, SetStore, ListenerStore
+- **Error logging**: `_SafeInvokeMixin` logs warnings instead of silently swallowing errors
 
 ### Workflow Testing
 
-8-step cached pipeline with comprehensive HTML report:
+9-step cached pipeline with comprehensive HTML report:
 
 0. **EcoCyc API** — fetch 10 BioCyc data files
 1. **Raw Data** — catalog 133 TSV files (4,641,652 bp genome, 4747 genes)
@@ -56,15 +57,22 @@ All steps cache metadata + state. Cached run completes in ~5s.
 - No bigraph-schema changes (unmodified PyPI version)
 - No modifications to the Composite execution engine
 
+## Recent Fixes
+
+- **Chromosome re-initiation** (2026-04-06): `np.in1d` → `np.isin` in chromosome_replication.py. The deprecated NumPy function silently crashed, preventing second-round replication. Now matches v1 (4 forks from ~t=1950).
+- **Error visibility**: `_SafeInvokeMixin` now logs warnings instead of silently swallowing exceptions.
+
 ## Known Issues
 
 1. **Within-layer parallelism blocked** — layer token W/W conflicts serialize steps in the same layer. Flat stores are ready; needs process-bigraph barrier token support.
 2. **Compiled dependencies** — polymerize (Cython), fba (GLPK), mc_complexation (Cython) from wholecell.
 3. **Unum dependency** — units still use unum via wholecell.utils. Pint compatibility layer ready but full migration requires cache regeneration under pint.
+4. **PolypeptideInitiationRequester** — minor `KeyError: 'ribosome_data'` (surfaced by error logging, non-critical).
 
 ## Next Steps
 
-1. **Upstream process-bigraph PR** — get `skip_initial_steps` merged
-2. **Barrier tokens** — process-bigraph support for W/W sync points (enables within-layer parallelism)
-3. **Replace unum with pint** — unified unit system (requires regenerating cache under pint)
-4. **CI workflow** — GitHub Actions with PyPI dependencies
+1. **Fix ribosome_data KeyError** in PolypeptideInitiationRequester
+2. **Upstream process-bigraph PR** — get `skip_initial_steps` merged
+3. **Barrier tokens** — process-bigraph support for W/W sync points (enables within-layer parallelism)
+4. **Replace unum with pint** — unified unit system
+5. **CI workflow** — GitHub Actions with PyPI dependencies

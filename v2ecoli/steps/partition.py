@@ -240,3 +240,136 @@ class Evolver(_SafeInvokeMixin, Step):
         update = process.evolve_state(timestep, state)
         update['next_update_time'] = global_time + timestep
         return update
+
+
+# ---------------------------------------------------------------------------
+# Explicit Requester/Evolver with proper input/output separation
+# ---------------------------------------------------------------------------
+
+class ExplicitRequester(_SafeInvokeMixin, Step):
+    """Requester with proper input/output topology separation.
+
+    inputs(): all process ports + timing (reads everything)
+    outputs(): only request + next_update_time + listeners (writes only)
+    """
+
+    config_schema = {}
+
+    def __init__(self, config=None, core=None):
+        super().__init__(config=config, core=core)
+        self.process = config['process']
+        self.process_name = config.get('process_name', self.process.name)
+        # Which output ports the requester writes (besides request + next_update_time)
+        self._writes_listeners = config.get('writes_listeners', False)
+
+    def inputs(self):
+        ports = _translate_schema(self.process.ports_schema())
+        ports['global_time'] = Float(_default=0.0)
+        ports.setdefault('timestep', Float(
+            _default=self.process.parameters.get('timestep', 1.0)))
+        ports['next_update_time'] = Float(
+            _default=self.process.parameters.get('timestep', 1.0))
+        return ports
+
+    def outputs(self):
+        result = {
+            'request': InPlaceDict(),
+            'next_update_time': Overwrite(_value=Float()),
+        }
+        if self._writes_listeners:
+            result['listeners'] = ListenerStore()
+        return result
+
+    def initial_state(self, config=None):
+        return {}
+
+    def update(self, state, interval=None):
+        next_time = state.get('next_update_time', 0.0)
+        global_time = state.get('global_time', 0.0)
+        if next_time > global_time:
+            return {}
+
+        state = _protect_state(state)
+        timestep = state.get('timestep', 1.0)
+        request = self.process.calculate_request(timestep, state)
+        self.process.request_set = True
+
+        bulk_request = request.pop('bulk', None)
+        result = {'request': {self.process_name: {}}}
+        if bulk_request is not None:
+            result['request'][self.process_name]['bulk'] = bulk_request
+
+        listeners = request.pop('listeners', None)
+        if listeners is not None:
+            result['listeners'] = listeners
+
+        return result
+
+
+class ExplicitEvolver(_SafeInvokeMixin, Step):
+    """Evolver with proper input/output topology separation.
+
+    inputs(): all process ports + allocate + timing
+    outputs(): all process ports + next_update_time (excluding allocate, timestep)
+    """
+
+    config_schema = {}
+
+    def __init__(self, config=None, core=None):
+        super().__init__(config=config, core=core)
+        self.process = config['process']
+        # Ports that the evolver writes to (derived from evolve_state returns)
+        self._output_ports = config.get('output_ports', None)
+
+    def inputs(self):
+        ports = _translate_schema(self.process.ports_schema())
+        ports['allocate'] = InPlaceDict()
+        ports['global_time'] = Float(_default=0.0)
+        ports.setdefault('timestep', Float(
+            _default=self.process.parameters.get('timestep', 1.0)))
+        ports['next_update_time'] = Float(
+            _default=self.process.parameters.get('timestep', 1.0))
+        return ports
+
+    def outputs(self):
+        if self._output_ports is not None:
+            # Use explicitly specified output ports
+            all_ports = _translate_schema(self.process.ports_schema())
+            result = {}
+            for port in self._output_ports:
+                if port in all_ports:
+                    result[port] = all_ports[port]
+            result['next_update_time'] = Overwrite(_value=Float())
+            return result
+        # Default: all ports except read-only ones
+        ports = _translate_schema(self.process.ports_schema())
+        ports['next_update_time'] = Overwrite(_value=Float())
+        return ports
+
+    def initial_state(self, config=None):
+        return {}
+
+    def update(self, state, interval=None):
+        next_time = state.get('next_update_time', 0.0)
+        global_time = state.get('global_time', 0.0)
+        if next_time > global_time:
+            return {}
+
+        state = _protect_state(state)
+
+        import numpy as np
+        allocations = state.pop('allocate', {})
+        bulk_alloc = allocations.get('bulk')
+        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
+            alloc_bulk = state['bulk'].copy()
+            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
+            state['bulk'] = alloc_bulk
+        state = deep_merge(state, allocations)
+
+        if not self.process.request_set:
+            return {}
+
+        timestep = state.get('timestep', 1.0)
+        update = self.process.evolve_state(timestep, state)
+        update['next_update_time'] = global_time + timestep
+        return update

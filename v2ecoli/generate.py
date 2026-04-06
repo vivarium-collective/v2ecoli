@@ -209,12 +209,17 @@ def inject_flow_dependencies(cell_state, flow_order):
             edge.setdefault('outputs', {})[f'_flow_out_{i}'] = [f'_flow_token_{i}']
 
 
-def make_edge(instance, topology, edge_type='step'):
+def make_edge(instance, topology, input_topology=None, output_topology=None,
+              edge_type='step'):
     """Create an edge dict for a process/step instance.
 
     Includes the instance directly and its input/output schemas.
+    When input_topology/output_topology are provided, they override
+    topology for the respective wiring direction.
     """
     wires = list_paths(topology)
+    in_wires = list_paths(input_topology) if input_topology is not None else wires
+    out_wires = list_paths(output_topology) if output_topology is not None else wires
     state = {'priority': 1.0} if edge_type == 'step' else {'interval': 1.0}
 
     # Get port schemas from instance
@@ -236,8 +241,8 @@ def make_edge(instance, topology, edge_type='step'):
         'instance': instance,
         '_inputs': inputs_schema,
         '_outputs': outputs_schema,
-        'inputs': copy.deepcopy(wires),
-        'outputs': copy.deepcopy(wires),
+        'inputs': copy.deepcopy(in_wires),
+        'outputs': copy.deepcopy(out_wires),
     })
     return state
 
@@ -356,8 +361,14 @@ def build_document(sim_data_path=None, seed=0):
     for step_name in DEFAULT_FLOW:
         config = _get_step_config(loader, step_name, core, _process_cache)
         if config is not None:
-            instance, topology, edge_type = config
-            cell_state[step_name] = make_edge(instance, topology, edge_type)
+            if len(config) == 5:
+                instance, topology, edge_type, in_topo, out_topo = config
+                cell_state[step_name] = make_edge(
+                    instance, topology, input_topology=in_topo,
+                    output_topology=out_topo, edge_type=edge_type)
+            else:
+                instance, topology, edge_type = config
+                cell_state[step_name] = make_edge(instance, topology, edge_type=edge_type)
 
     # Seed mass listener after edges are created
     _seed_mass_listener(cell_state, core)
@@ -470,8 +481,14 @@ def build_document_from_configs(initial_state, configs, unique_names,
     for step_name in DEFAULT_FLOW:
         config = _get_step_config(loader, step_name, core, _process_cache)
         if config is not None:
-            instance, topology, edge_type = config
-            cell_state[step_name] = make_edge(instance, topology, edge_type)
+            if len(config) == 5:
+                instance, topology, edge_type, in_topo, out_topo = config
+                cell_state[step_name] = make_edge(
+                    instance, topology, input_topology=in_topo,
+                    output_topology=out_topo, edge_type=edge_type)
+            else:
+                instance, topology, edge_type = config
+                cell_state[step_name] = make_edge(instance, topology, edge_type=edge_type)
 
     _seed_mass_listener(cell_state, core)
     inject_flow_dependencies(cell_state, DEFAULT_FLOW)
@@ -517,17 +534,22 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     """Instantiate a v2ecoli process/step from its config."""
     if process_cache is None:
         process_cache = {}
-    from v2ecoli.processes.equilibrium import Equilibrium
-    from v2ecoli.processes.two_component_system import TwoComponentSystem
-    from v2ecoli.processes.rna_maturation import RnaMaturation
+    from v2ecoli.processes.equilibrium import (
+        Equilibrium, EquilibriumRequester, EquilibriumEvolver)
+    from v2ecoli.processes.two_component_system import (
+        TwoComponentSystem, TwoComponentSystemRequester, TwoComponentSystemEvolver)
+    from v2ecoli.processes.rna_maturation import (
+        RnaMaturation, RnaMaturationRequester, RnaMaturationEvolver)
     from v2ecoli.processes.tf_binding import TfBinding
     from v2ecoli.processes.tf_unbinding import TfUnbinding
     from v2ecoli.processes.transcript_initiation import TranscriptInitiation
     from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiation
     from v2ecoli.processes.chromosome_replication import ChromosomeReplication
-    from v2ecoli.processes.protein_degradation import ProteinDegradation
+    from v2ecoli.processes.protein_degradation import (
+        ProteinDegradation, ProteinDegradationRequester, ProteinDegradationEvolver)
     from v2ecoli.processes.rna_degradation import RnaDegradation
-    from v2ecoli.processes.complexation import Complexation
+    from v2ecoli.processes.complexation import (
+        Complexation, ComplexationRequester, ComplexationEvolver)
     from v2ecoli.processes.transcript_elongation import TranscriptElongation
     from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
     from v2ecoli.processes.chromosome_structure import ChromosomeStructure
@@ -543,25 +565,14 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     from v2ecoli.steps.listeners.ribosome_data import RibosomeData
     from v2ecoli.steps.media_update import MediaUpdate
     from v2ecoli.steps.exchange_data import ExchangeData
-    from v2ecoli.steps.partition import Requester, Evolver
+    from v2ecoli.steps.partition import Requester, Evolver, ExplicitRequester, ExplicitEvolver
 
     # Map step names to classes and their topologies
     # Partitioned processes have _requester/_evolver suffixes
     base_name = step_name.replace('_requester', '').replace('_evolver', '')
 
     PARTITIONED = {
-        'ecoli-equilibrium': Equilibrium,
-        'ecoli-two-component-system': TwoComponentSystem,
-        'ecoli-rna-maturation': RnaMaturation,
         'ecoli-tf-binding': TfBinding,
-        'ecoli-transcript-initiation': TranscriptInitiation,
-        'ecoli-polypeptide-initiation': PolypeptideInitiation,
-        'ecoli-chromosome-replication': ChromosomeReplication,
-        'ecoli-protein-degradation': ProteinDegradation,
-        'ecoli-rna-degradation': RnaDegradation,
-        'ecoli-complexation': Complexation,
-        'ecoli-transcript-elongation': TranscriptElongation,
-        'ecoli-polypeptide-elongation': PolypeptideElongation,
     }
 
     # PartitionedProcesses that run as single steps (no requester/evolver split)
@@ -585,6 +596,128 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'media_update': MediaUpdate,
         'exchange_data': ExchangeData,
     }
+
+    # --- Explicit Step classes with separate input/output topologies ---
+
+    EXPLICIT_STEPS = {
+        'ecoli-protein-degradation': {
+            'class': ProteinDegradation,
+            'requester_class': ProteinDegradationRequester,
+            'evolver_class': ProteinDegradationEvolver,
+        },
+        'ecoli-equilibrium': {
+            'class': Equilibrium,
+            'requester_class': EquilibriumRequester,
+            'evolver_class': EquilibriumEvolver,
+        },
+        'ecoli-two-component-system': {
+            'class': TwoComponentSystem,
+            'requester_class': TwoComponentSystemRequester,
+            'evolver_class': TwoComponentSystemEvolver,
+        },
+        'ecoli-rna-maturation': {
+            'class': RnaMaturation,
+            'requester_class': RnaMaturationRequester,
+            'evolver_class': RnaMaturationEvolver,
+        },
+        'ecoli-complexation': {
+            'class': Complexation,
+            'requester_class': ComplexationRequester,
+            'evolver_class': ComplexationEvolver,
+        },
+        # Remaining processes use generic ExplicitRequester/ExplicitEvolver
+        'ecoli-polypeptide-initiation': {
+            'class': PolypeptideInitiation,
+            'writes_listeners': True,
+            'evolver_output_ports': ['bulk', 'listeners', 'active_ribosome', 'RNA'],
+        },
+        'ecoli-transcript-initiation': {
+            'class': TranscriptInitiation,
+            'writes_listeners': True,
+            'evolver_output_ports': ['bulk', 'listeners', 'RNAs', 'active_RNAPs'],
+        },
+        'ecoli-rna-degradation': {
+            'class': RnaDegradation,
+            'writes_listeners': True,
+            'evolver_output_ports': ['bulk', 'listeners', 'RNAs', 'active_ribosome'],
+        },
+        'ecoli-polypeptide-elongation': {
+            'class': PolypeptideElongation,
+            'writes_listeners': True,
+            'evolver_output_ports': ['bulk', 'listeners', 'active_ribosome',
+                                     'polypeptide_elongation', 'boundary'],
+        },
+        'ecoli-transcript-elongation': {
+            'class': TranscriptElongation,
+            'writes_listeners': True,
+            'evolver_output_ports': ['bulk', 'listeners', 'RNAs', 'active_RNAPs'],
+        },
+        'ecoli-chromosome-replication': {
+            'class': ChromosomeReplication,
+            'writes_listeners': True,
+            'evolver_output_ports': ['bulk', 'listeners', 'active_replisomes',
+                                     'oriCs', 'chromosome_domains', 'full_chromosomes'],
+        },
+    }
+
+    if base_name in EXPLICIT_STEPS:
+        spec = EXPLICIT_STEPS[base_name]
+        if base_name in process_cache:
+            process = process_cache[base_name]
+        else:
+            process = spec['class'](parameters=config, core=core)
+            process_cache[base_name] = process
+        topology = process.topology
+
+        if step_name.endswith('_requester'):
+            # Use per-process class if available, otherwise ExplicitRequester
+            req_config = {'process': process, 'process_name': base_name,
+                          'writes_listeners': spec.get('writes_listeners', False)}
+            if 'requester_class' in spec:
+                instance = spec['requester_class'](config=req_config, core=core)
+            else:
+                instance = ExplicitRequester(config=req_config, core=core)
+            # Input: all process stores + timing
+            in_topo = dict(topology)
+            in_topo['global_time'] = ('global_time',)
+            in_topo.setdefault('timestep', ('timestep',))
+            in_topo['next_update_time'] = ('next_update_time', base_name)
+            # Output: only stores the requester writes to
+            out_ports = set(instance.outputs().keys())
+            out_topo = {'next_update_time': ('next_update_time', base_name)}
+            if 'request' in out_ports:
+                out_topo['request'] = ('request',)
+            if 'listeners' in out_ports:
+                out_topo['listeners'] = topology.get('listeners', ('listeners',))
+            return instance, topology, 'step', in_topo, out_topo
+
+        elif step_name.endswith('_evolver'):
+            # Use per-process class if available, otherwise ExplicitEvolver
+            ev_config = {'process': process,
+                         'output_ports': spec.get('evolver_output_ports')}
+            if 'evolver_class' in spec:
+                instance = spec['evolver_class'](config=ev_config, core=core)
+            else:
+                instance = ExplicitEvolver(config=ev_config, core=core)
+            # Input: allocation + all process stores + timing
+            in_topo = dict(topology)
+            in_topo['allocate'] = ('allocate', base_name)
+            in_topo['global_time'] = ('global_time',)
+            in_topo.setdefault('timestep', ('timestep',))
+            in_topo['next_update_time'] = ('next_update_time', base_name)
+            # Output: only stores the evolver writes to
+            out_ports = set(instance.outputs().keys())
+            out_topo = {'next_update_time': ('next_update_time', base_name)}
+            for port in out_ports:
+                if port == 'next_update_time':
+                    continue
+                if port in topology:
+                    out_topo[port] = topology[port]
+                elif port == 'listeners':
+                    out_topo['listeners'] = ('listeners',)
+            return instance, topology, 'step', in_topo, out_topo
+
+    # --- Generic Requester/Evolver wrappers (other partitioned processes) ---
 
     if base_name in PARTITIONED:
         # Share the same PartitionedProcess between requester and evolver

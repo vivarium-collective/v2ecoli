@@ -11,10 +11,14 @@ and back in response to counts of ligand stimulants.
 
 import numpy as np
 
-from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts
+from process_bigraph import Step
+from bigraph_schema.schema import Float, Overwrite
 
+from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts
 from v2ecoli.library.units import units
-from v2ecoli.steps.partition import PartitionedProcess
+from v2ecoli.steps.partition import PartitionedProcess, _protect_state, deep_merge, _SafeInvokeMixin
+from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
+from v2ecoli.types.stores import InPlaceDict, ListenerStore
 class TwoComponentSystem(PartitionedProcess):
     """Two Component System PartitionedProcess"""
 
@@ -119,4 +123,94 @@ class TwoComponentSystem(PartitionedProcess):
         # Increment changes in molecule counts
         update = {"bulk": [(self.molecule_idx, self.all_molecule_changes.astype(int))]}
 
+        return update
+
+
+class TwoComponentSystemRequester(_SafeInvokeMixin, Step):
+    config_schema = {}
+
+    def __init__(self, config=None, core=None):
+        super().__init__(config=config, core=core)
+        self.process = config['process']
+        self.process_name = config.get('process_name', self.process.name)
+
+    def inputs(self):
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'listeners': ListenerStore(),
+            'timestep': Float(_default=self.process.parameters.get('timestep', 1.0)),
+            'global_time': Float(_default=0.0),
+            'next_update_time': Float(
+                _default=self.process.parameters.get('timestep', 1.0)),
+        }
+
+    def outputs(self):
+        return {
+            'request': InPlaceDict(),
+            'next_update_time': Overwrite(_value=Float()),
+        }
+
+    def initial_state(self, config=None):
+        return {}
+
+    def update(self, state, interval=None):
+        next_time = state.get('next_update_time', 0.0)
+        global_time = state.get('global_time', 0.0)
+        if next_time > global_time:
+            return {}
+        state = _protect_state(state)
+        timestep = state.get('timestep', 1.0)
+        request = self.process.calculate_request(timestep, state)
+        self.process.request_set = True
+        bulk_request = request.pop('bulk', None)
+        result = {'request': {self.process_name: {}}}
+        if bulk_request is not None:
+            result['request'][self.process_name]['bulk'] = bulk_request
+        return result
+
+
+class TwoComponentSystemEvolver(_SafeInvokeMixin, Step):
+    config_schema = {}
+
+    def __init__(self, config=None, core=None):
+        super().__init__(config=config, core=core)
+        self.process = config['process']
+
+    def inputs(self):
+        return {
+            'allocate': InPlaceDict(),
+            'bulk': BulkNumpyUpdate(),
+            'timestep': Float(_default=self.process.parameters.get('timestep', 1.0)),
+            'global_time': Float(_default=0.0),
+            'next_update_time': Float(
+                _default=self.process.parameters.get('timestep', 1.0)),
+        }
+
+    def outputs(self):
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'next_update_time': Overwrite(_value=Float()),
+        }
+
+    def initial_state(self, config=None):
+        return {}
+
+    def update(self, state, interval=None):
+        next_time = state.get('next_update_time', 0.0)
+        global_time = state.get('global_time', 0.0)
+        if next_time > global_time:
+            return {}
+        state = _protect_state(state)
+        allocations = state.pop('allocate', {})
+        bulk_alloc = allocations.get('bulk')
+        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
+            alloc_bulk = state['bulk'].copy()
+            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
+            state['bulk'] = alloc_bulk
+        state = deep_merge(state, allocations)
+        if not self.process.request_set:
+            return {}
+        timestep = state.get('timestep', 1.0)
+        update = self.process.evolve_state(timestep, state)
+        update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update

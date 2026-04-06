@@ -21,6 +21,7 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 
 - **55 biological steps** through `Composite.run()`
 - **Sequential step execution** via `sequential_steps=True` with priority ordering
+- **Explicit Requester/Evolver Steps** with input/output topology separation for all 11 partitioned processes
 - **Partition system**: Requesters → Allocators → Evolvers with proper store routing
 - **Store routing fix**: `_protect_state` copies bulk/unique, pre-created request sub-dicts
 - **Custom types**: BulkNumpyUpdate, UniqueNumpyUpdate, InPlaceDict, SetStore, ListenerStore
@@ -65,8 +66,9 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 
 ## Next Steps
 
-1. **Run to actual division** — cache pre-division state, test full division cycle
-2. **Migrate to explicit Steps** (from `explicit-steps-parallel` branch) while preserving accuracy
-3. **Upstream process-bigraph PR** — get `skip_initial_steps` merged
-4. **CI workflow** — get GitHub Actions passing with PyPI dependencies
-5. **Replace unum with pint** — unified unit system
+1. **Layer-based flow tokens** — replace per-step chain tokens with layer tokens for parallel execution
+2. **Remove `sequential_steps`** — enable native parallel execution within layers
+3. **Run to actual division** — cache pre-division state, test full division cycle
+4. **Upstream process-bigraph PR** — get `skip_initial_steps` merged
+5. **CI workflow** — get GitHub Actions passing with PyPI dependencies
+6. **Replace unum with pint** — unified unit system

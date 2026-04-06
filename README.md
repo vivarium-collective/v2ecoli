@@ -67,7 +67,7 @@ v2ecoli/
 │   │   ├── unique_numpy.py # UniqueNumpyUpdate (accumulate/flush pattern)
 │   │   └── stores.py       # InPlaceDict, SetStore, ListenerStore
 │   ├── steps/              # process-bigraph Steps
-│   │   ├── partition.py    # PartitionedProcess, Requester, Evolver, _protect_state
+│   │   ├── partition.py    # PartitionedProcess, ExplicitRequester/Evolver, _protect_state
 │   │   ├── allocator.py    # Priority-based molecule allocation
 │   │   ├── division.py     # Cell division with _add/_remove structural updates
 │   │   └── listeners/      # 9 listener steps (mass, RNA, protein, etc.)

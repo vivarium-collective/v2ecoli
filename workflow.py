@@ -846,25 +846,26 @@ def step_parca():
         cache_time = 0.0
         print("    Cache already exists")
 
-    # Extract stats from sim_data (if available)
+    # Extract stats from cache
     stats = {}
     try:
-        if sim_data_path and os.path.exists(sim_data_path):
-            with open(sim_data_path, 'rb') as f:
-                sim_data = dill.load(f)
-        else:
-            sim_data = None
-        if sim_data is not None and hasattr(sim_data, 'process'):
-            proc = sim_data.process
-            if hasattr(proc, 'metabolism'):
-                met = proc.metabolism
-                stats['n_reactions'] = len(met.reaction_stoich) if hasattr(met, 'reaction_stoich') else 0
-        if sim_data is not None and hasattr(sim_data, 'condition_label'):
-            stats['condition'] = str(sim_data.condition_label)
-        if sim_data is not None and hasattr(sim_data, 'doubling_time'):
-            stats['doubling_time'] = float(sim_data.doubling_time.asNumber()) if hasattr(sim_data.doubling_time, 'asNumber') else float(sim_data.doubling_time)
+        with open(sim_data_cache, 'rb') as f:
+            cache = dill.load(f)
+        configs = cache.get('configs', {})
+        unique_names = cache.get('unique_names', [])
+        stats['n_process_configs'] = len(configs)
+        stats['process_names'] = sorted(configs.keys())
+        stats['n_unique_types'] = len(unique_names)
+        stats['unique_types'] = unique_names
+        # Count bulk molecules from initial state
+        init_state_path = os.path.join(CACHE_DIR, 'initial_state.json')
+        if os.path.exists(init_state_path):
+            init = load_initial_state(init_state_path)
+            bulk = init.get('bulk')
+            if bulk is not None and hasattr(bulk, '__len__'):
+                stats['n_bulk_molecules'] = len(bulk)
     except Exception as e:
-        stats['note'] = f'Could not extract all stats: {e}'
+        stats['note'] = f'Could not extract stats: {e}'
 
     meta = {
         'sim_data_path': sim_data_path,
@@ -1621,14 +1622,33 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
   <div class="metric"><div class="label">Cache Dir</div><div class="value" style="font-size:0.7em">{parca.get('cache_dir', CACHE_DIR)}</div></div>
 </div>
 
+<div class="metrics">
+  <div class="metric"><div class="label">Process Configs</div><div class="value">{parca.get('stats', {}).get('n_process_configs', '?')}</div></div>
+  <div class="metric"><div class="label">Bulk Molecules</div><div class="value">{parca.get('stats', {}).get('n_bulk_molecules', '?'):,}</div></div>
+  <div class="metric"><div class="label">Unique Types</div><div class="value">{parca.get('stats', {}).get('n_unique_types', '?')}</div></div>
+</div>
+
 <details>
-<summary>SimData Statistics</summary>
-<div class="section">""")
+<summary>Process Configs ({parca.get('stats', {}).get('n_process_configs', 0)})</summary>
+<div class="section">
+  <ul style="font-size: 0.85em; columns: 3;">""")
 
-        for k, v in parca.get('stats', {}).items():
-            f.write(f"  <p><strong>{k}</strong>: {v}</p>\n")
+        for name in parca.get('stats', {}).get('process_names', []):
+            f.write(f"<li><code>{name}</code></li>")
 
-        f.write(f"""
+        f.write(f"""</ul>
+</div>
+</details>
+
+<details>
+<summary>Unique Molecule Types ({parca.get('stats', {}).get('n_unique_types', 0)})</summary>
+<div class="section">
+  <ul style="font-size: 0.85em; columns: 2;">""")
+
+        for name in parca.get('stats', {}).get('unique_types', []):
+            f.write(f"<li><code>{name}</code></li>")
+
+        f.write(f"""</ul>
 </div>
 </details>
 

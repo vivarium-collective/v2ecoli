@@ -30,84 +30,75 @@ from v2ecoli.library.filepath import ROOT_PATH
 # are split into requester → allocator → evolver layers. UniqueUpdate steps
 # are inserted between layers to flush accumulated unique molecule updates.
 
-DEFAULT_FLOW = [
+# Layer-based execution order. Steps within the same layer share a flow
+# token and can potentially execute in parallel when sequential_steps is
+# disabled. Layers execute strictly in order.
+EXECUTION_LAYERS = [
     # Layer 0: post-division mass
-    'post-division-mass-listener',
-    'unique_update_1',
+    ['post-division-mass-listener', 'unique_update_1'],
 
-    # Layer 1: media/environment
-    'media_update',
-    'unique_update_2',
-    'ecoli-tf-unbinding',
-    'exchange_data',
-    'unique_update_3',
+    # Layer 1: media/environment (sequential sub-steps)
+    ['media_update'],
+    ['unique_update_2'],
+    ['ecoli-tf-unbinding'],
+    ['exchange_data'],
+    ['unique_update_3'],
 
-    # Layer 2: partition layer 1 (requesters)
-    'ecoli-equilibrium_requester',
-    'ecoli-rna-maturation_requester',
-    'ecoli-two-component-system_requester',
-    'allocator_1',
-    'ecoli-equilibrium_evolver',
-    'ecoli-rna-maturation_evolver',
-    'ecoli-two-component-system_evolver',
-    'unique_update_4',
+    # Layer 2: partition layer 1 — requesters (parallel)
+    ['ecoli-equilibrium_requester', 'ecoli-rna-maturation_requester',
+     'ecoli-two-component-system_requester'],
+    ['allocator_1'],
+    # Layer 2: partition layer 1 — evolvers (parallel)
+    ['ecoli-equilibrium_evolver', 'ecoli-rna-maturation_evolver',
+     'ecoli-two-component-system_evolver'],
+    ['unique_update_4'],
 
     # Layer 3: TF binding
-    'ecoli-tf-binding',
-    'unique_update_5',
+    ['ecoli-tf-binding'],
+    ['unique_update_5'],
 
-    # Layer 4: partition layer 2 (requesters)
-    'ecoli-chromosome-replication_requester',
-    'ecoli-complexation_requester',
-    'ecoli-polypeptide-initiation_requester',
-    'ecoli-protein-degradation_requester',
-    'ecoli-rna-degradation_requester',
-    'ecoli-transcript-initiation_requester',
-    'allocator_2',
-    'ecoli-chromosome-replication_evolver',
-    'ecoli-complexation_evolver',
-    'ecoli-polypeptide-initiation_evolver',
-    'ecoli-protein-degradation_evolver',
-    'ecoli-rna-degradation_evolver',
-    'ecoli-transcript-initiation_evolver',
-    'unique_update_6',
+    # Layer 4: partition layer 2 — requesters (parallel)
+    ['ecoli-chromosome-replication_requester', 'ecoli-complexation_requester',
+     'ecoli-polypeptide-initiation_requester', 'ecoli-protein-degradation_requester',
+     'ecoli-rna-degradation_requester', 'ecoli-transcript-initiation_requester'],
+    ['allocator_2'],
+    # Layer 4: partition layer 2 — evolvers (parallel)
+    ['ecoli-chromosome-replication_evolver', 'ecoli-complexation_evolver',
+     'ecoli-polypeptide-initiation_evolver', 'ecoli-protein-degradation_evolver',
+     'ecoli-rna-degradation_evolver', 'ecoli-transcript-initiation_evolver'],
+    ['unique_update_6'],
 
-    # Layer 5: partition layer 3 (elongation)
-    'ecoli-polypeptide-elongation_requester',
-    'ecoli-transcript-elongation_requester',
-    'allocator_3',
-    'ecoli-polypeptide-elongation_evolver',
-    'ecoli-transcript-elongation_evolver',
-    'unique_update_7',
+    # Layer 5: partition layer 3 — elongation requesters (parallel)
+    ['ecoli-polypeptide-elongation_requester', 'ecoli-transcript-elongation_requester'],
+    ['allocator_3'],
+    # Layer 5: partition layer 3 — elongation evolvers (parallel)
+    ['ecoli-polypeptide-elongation_evolver', 'ecoli-transcript-elongation_evolver'],
+    ['unique_update_7'],
 
-    # Layer 6: chromosome structure + metabolism
-    'ecoli-chromosome-structure',
-    'unique_update_8',
-    'ecoli-metabolism',
-    'unique_update_9',
+    # Layer 6: chromosome structure + metabolism (sequential)
+    ['ecoli-chromosome-structure'],
+    ['unique_update_8'],
+    ['ecoli-metabolism'],
+    ['unique_update_9'],
 
-    # Layer 7: listeners
-    'RNA_counts_listener',
-    'dna_supercoiling_listener',
-    'ecoli-mass-listener',
-    'monomer_counts_listener',
-    'replication_data_listener',
-    'ribosome_data_listener',
-    'rna_synth_prob_listener',
-    'rnap_data_listener',
-    'unique_molecule_counts',
-    'unique_update_10',
+    # Layer 7: listeners (parallel)
+    ['RNA_counts_listener', 'dna_supercoiling_listener', 'ecoli-mass-listener',
+     'monomer_counts_listener', 'replication_data_listener', 'ribosome_data_listener',
+     'rna_synth_prob_listener', 'rnap_data_listener', 'unique_molecule_counts'],
+    ['unique_update_10'],
 
-    # Emitter: collect data after all listeners
-    'emitter',
-    # Clock process: drives time and triggers step cascades
-    'global_clock',
+    # Emitter + clock
+    ['emitter'],
+    ['global_clock'],
 
     # Layer 8: division check
-    'mark_d_period',
-    'unique_update_11',
-    'division',
+    ['mark_d_period'],
+    ['unique_update_11'],
+    ['division'],
 ]
+
+# Flat list for backward compatibility (preserves original ordering within layers)
+DEFAULT_FLOW = [step for layer in EXECUTION_LAYERS for step in layer]
 
 
 # ---------------------------------------------------------------------------
@@ -188,25 +179,62 @@ def list_paths(path):
     return path
 
 
-def inject_flow_dependencies(cell_state, flow_order):
+def inject_flow_dependencies(cell_state, flow_order, layers=None):
     """Add flow token wiring and priorities to enforce execution order.
 
-    Each step produces a flow token that the next step consumes.
-    Priority (highest first) breaks cycles when multiple steps are ready.
-    Only the first step depends on global_time directly.
+    When layers is provided, uses layer-based tokens: all steps in a layer
+    depend on the previous layer's token and produce the current layer's
+    token. Steps within a layer can potentially run in parallel.
+
+    When layers is None, falls back to per-step chain tokens.
     """
-    n = len(flow_order)
-    for i, step_name in enumerate(flow_order):
-        edge = cell_state.get(step_name)
-        if not isinstance(edge, dict):
-            continue
-        edge['priority'] = float(n - i)
-        if i == 0:
-            edge.setdefault('inputs', {})['global_time'] = ['global_time']
-        if i > 0:
-            edge.setdefault('inputs', {})[f'_flow_in_{i}'] = [f'_flow_token_{i-1}']
-        if i < n - 1:
-            edge.setdefault('outputs', {})[f'_flow_out_{i}'] = [f'_flow_token_{i}']
+    if layers is None:
+        # Legacy per-step chain
+        n = len(flow_order)
+        for i, step_name in enumerate(flow_order):
+            edge = cell_state.get(step_name)
+            if not isinstance(edge, dict):
+                continue
+            edge['priority'] = float(n - i)
+            if i == 0:
+                edge.setdefault('inputs', {})['global_time'] = ['global_time']
+            if i > 0:
+                edge.setdefault('inputs', {})[f'_flow_in_{i}'] = [f'_flow_token_{i-1}']
+            if i < n - 1:
+                edge.setdefault('outputs', {})[f'_flow_out_{i}'] = [f'_flow_token_{i}']
+        return
+
+    # Layer-based tokens
+    n_layers = len(layers)
+    # Global step index for priority (earlier steps get higher priority)
+    step_idx = 0
+    total_steps = sum(len(layer) for layer in layers)
+
+    for layer_idx, layer in enumerate(layers):
+        for j, step_name in enumerate(layer):
+            edge = cell_state.get(step_name)
+            if not isinstance(edge, dict):
+                step_idx += 1
+                continue
+
+            # Priority: earlier layers and earlier within-layer get higher
+            edge['priority'] = float(total_steps - step_idx)
+
+            # First layer depends on global_time
+            if layer_idx == 0 and j == 0:
+                edge.setdefault('inputs', {})['global_time'] = ['global_time']
+
+            # All steps in this layer depend on previous layer's token
+            if layer_idx > 0:
+                edge.setdefault('inputs', {})[f'_layer_in_{layer_idx}'] = \
+                    [f'_layer_token_{layer_idx - 1}']
+
+            # All steps in this layer produce this layer's token
+            if layer_idx < n_layers - 1:
+                edge.setdefault('outputs', {})[f'_layer_out_{layer_idx}'] = \
+                    [f'_layer_token_{layer_idx}']
+
+            step_idx += 1
 
 
 def make_edge(instance, topology, input_topology=None, output_topology=None,
@@ -374,7 +402,7 @@ def build_document(sim_data_path=None, seed=0):
     _seed_mass_listener(cell_state, core)
 
     # Add flow dependencies (synthetic wiring for execution order)
-    inject_flow_dependencies(cell_state, DEFAULT_FLOW)
+    inject_flow_dependencies(cell_state, DEFAULT_FLOW, layers=EXECUTION_LAYERS)
 
     # Wrap in agent container
     state = {
@@ -491,7 +519,7 @@ def build_document_from_configs(initial_state, configs, unique_names,
                 cell_state[step_name] = make_edge(instance, topology, edge_type=edge_type)
 
     _seed_mass_listener(cell_state, core)
-    inject_flow_dependencies(cell_state, DEFAULT_FLOW)
+    inject_flow_dependencies(cell_state, DEFAULT_FLOW, layers=EXECUTION_LAYERS)
 
     state = {
         'agents': {'0': cell_state},

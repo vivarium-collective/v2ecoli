@@ -34,11 +34,16 @@ def _protect_state(state):
 
 
 class _SafeInvokeMixin:
-    """Mixin that catches errors in update() to prevent cascade crashes."""
+    """Mixin that catches and LOGS errors in update() to prevent cascade crashes."""
     def invoke(self, state, interval=None):
         try:
             update = self.update(state)
-        except Exception:
+        except Exception as e:
+            import warnings
+            step_name = getattr(self, 'name', type(self).__name__)
+            warnings.warn(
+                f"Step {step_name} raised {type(e).__name__}: {e}",
+                RuntimeWarning, stacklevel=2)
             update = {}
         return SyncUpdate(update)
 

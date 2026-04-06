@@ -1639,13 +1639,21 @@ def step_lifecycle_comparison(v2_long_meta):
 
 
 def _collect_v1_lifecycle(duration):
-    """Run v1 simulation for the full lifecycle, collecting periodic snapshots."""
+    """Run v1 for the full lifecycle, extracting data from emitted listeners.
+
+    The v1 timeseries emitter captures:
+    - listeners.mass (dry_mass, dna_mass, etc.)
+    - listeners.replication_data (fork_coordinates, number_of_oric)
+    - listeners.unique_molecule_counts (full_chromosome, active_RNAP, etc.)
+    - listeners.rnap_data (active_rnap_coordinates)
+    """
     try:
         if not hasattr(np, 'in1d'):
             np.in1d = np.isin
 
         saved_argv = sys.argv
         sys.argv = [sys.argv[0]]
+
         with chdir(V1_ROOT_PATH):
             sim = EcoliSim.from_file()
             sim.max_duration = int(duration)
@@ -1656,45 +1664,51 @@ def _collect_v1_lifecycle(duration):
             t0 = time.time()
             sim.run()
             wall_time = time.time() - t0
-        sys.argv = saved_argv
 
+        sys.argv = saved_argv
         print(f"    v1 completed in {wall_time:.0f}s")
 
-        # Extract per-timestep data
+        # Extract snapshots from emitted timeseries (every SNAPSHOT_INTERVAL)
         v1_ts = sim.query()
         snapshots = []
         for t_key in sorted(v1_ts.keys()):
             if not isinstance(t_key, (int, float)):
                 continue
             t = int(t_key)
-            if t % 50 != 0 and t != 1:  # Sample every 50s like v2
+            if t % SNAPSHOT_INTERVAL != 0 and t != 1:
                 continue
-            snapshot = v1_ts[t_key]
-            if not isinstance(snapshot, dict):
+            snap = v1_ts[t_key]
+            if not isinstance(snap, dict):
                 continue
 
-            mass = snapshot.get('listeners', {}).get('mass', {})
+            listeners = snap.get('listeners', {})
+            mass = listeners.get('mass', {})
             dry_mass = float(mass.get('dry_mass', 0)) if isinstance(mass, dict) else 0
             dna_mass = float(mass.get('dna_mass', 0)) if isinstance(mass, dict) else 0
 
-            # Chromosome state
-            unique = snapshot.get('unique', {})
-            fc = unique.get('full_chromosome')
+            # Chromosome count from unique_molecule_counts listener
+            umc = listeners.get('unique_molecule_counts', {})
             n_chrom = 0
-            if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
-                n_chrom = int(fc['_entryState'].view(np.bool_).sum())
+            if isinstance(umc, dict):
+                fc_count = umc.get('full_chromosome', 0)
+                n_chrom = int(fc_count) if isinstance(fc_count, (int, float, np.integer)) else 0
 
-            rep = unique.get('active_replisome')
+            # Replication fork coordinates from replication_data listener
+            rd = listeners.get('replication_data', {})
             fork_coords = []
-            if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
-                active_rep = rep[rep['_entryState'].view(np.bool_)]
-                if len(active_rep) > 0 and 'coordinates' in rep.dtype.names:
-                    fork_coords = active_rep['coordinates'].tolist()
+            if isinstance(rd, dict):
+                fc = rd.get('fork_coordinates')
+                if fc is not None:
+                    if isinstance(fc, (list, np.ndarray)) and len(fc) > 0:
+                        fork_coords = [int(c) for c in fc]
 
-            rnap = unique.get('active_RNAP')
+            # Active RNAP count from rnap_data listener
+            rnap_data = listeners.get('rnap_data', {})
             n_rnap = 0
-            if rnap is not None and hasattr(rnap, 'dtype') and '_entryState' in rnap.dtype.names:
-                n_rnap = int(rnap['_entryState'].view(np.bool_).sum())
+            if isinstance(rnap_data, dict):
+                rnap_coords = rnap_data.get('active_rnap_coordinates')
+                if rnap_coords is not None and hasattr(rnap_coords, '__len__'):
+                    n_rnap = len(rnap_coords)
 
             snapshots.append({
                 'time': t,
@@ -1705,8 +1719,11 @@ def _collect_v1_lifecycle(duration):
                 'dry_mass': dry_mass,
             })
 
+        print(f"    {len(snapshots)} snapshots extracted")
         return snapshots
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"    v1 lifecycle failed: {e}")
         return []
 

@@ -238,7 +238,7 @@ wheels = [
 [[package]]
 name = "bigraph-schema"
 version = "1.0.14"
-source = { editable = "../bigraph-schema" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "fire" },
     { name = "ipdb" },
@@ -253,21 +253,9 @@ dependencies = [
     { name = "setuptools" },
     { name = "twine" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "fire" },
-    { name = "ipdb" },
-    { name = "numpy" },
-    { name = "orjson" },
-    { name = "pandas" },
-    { name = "parsimonious" },
-    { name = "pint" },
-    { name = "plum-dispatch" },
-    { name = "pytest" },
-    { name = "requests", specifier = ">=2.31.0" },
-    { name = "setuptools" },
-    { name = "twine", specifier = ">=4.0.2" },
+sdist = { url = "https://files.pythonhosted.org/packages/36/36/f014e430d1e59a7fb50db64575869cfa528e3067c5835afd7c49e9e13fd1/bigraph_schema-1.0.14.tar.gz", hash = "sha256:5fe093a9d0ba1732fc242bbe989b4481cc07be316047d319f73dbb4299da2ed4", size = 40673, upload-time = "2026-03-14T02:33:00.393Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e6/4a/1e82cd4b06e2ab73b4488fae7fec8cdfe892fed486cbe95fe86fa69d4a13/bigraph_schema-1.0.14-py3-none-any.whl", hash = "sha256:c2cc1725705ad1d451250c75991735846646fd92734dc919d26b98a492274cd7", size = 48784, upload-time = "2026-03-14T02:32:59.295Z" },
 ]
 
 [[package]]
@@ -2417,6 +2405,23 @@ wheels = [
 ]
 
 [[package]]
+name = "plum"
+version = "2.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "beartype" },
+    { name = "rich" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/0f/fe/0294ff528f147d8026eb2f27cb7c149f6aef708785d14d7c3bf6390b6b59/plum-2.8.0.tar.gz", hash = "sha256:9e0d2ac224b50a0a33a77d06fadf1c83fd5101a5a6891c616b24e1a653382dd9", size = 241249, upload-time = "2026-03-17T21:25:56.353Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/6b/df/c064b45f1c4e3c7c2f1f66671f588dd1e701fa85b6cca6b6e3f59f73b00c/plum-2.8.0-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:be888c1da70cd46b6e64aaa2d688d12e9d52cbc3510c9678c79a2949203ffac9", size = 165179, upload-time = "2026-03-17T21:25:45.975Z" },
+    { url = "https://files.pythonhosted.org/packages/73/71/52cc28f16be1fae201264f351f5d53db3aed96dcddce00e8c909228f3646/plum-2.8.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f5b5d88b2f2f8d6db5c4ceb194d454dd64a6410d184ca6927de38c1c8b0caef0", size = 194253, upload-time = "2026-03-17T21:25:47.328Z" },
+    { url = "https://files.pythonhosted.org/packages/7b/b1/c5116926ec5add2cd4f97a70b2b5091637aa2516228a3e75ec279da79b1f/plum-2.8.0-cp312-cp312-win_amd64.whl", hash = "sha256:2e723d833a68ad56e37f88be79c5dd2b7d3ef4bba5ca4669557e6531e841dc69", size = 146750, upload-time = "2026-03-17T21:25:48.643Z" },
+    { url = "https://files.pythonhosted.org/packages/40/f4/0fc422c30cab255b111665d25bcd1047206f243d77675f3b1f3da20c7c8c/plum-2.8.0-py3-none-any.whl", hash = "sha256:ce9a2f9e3eb4969dd59489886337c10529221ff81df0757d73997aff0d23f627", size = 44473, upload-time = "2026-03-17T21:25:54.751Z" },
+]
+
+[[package]]
 name = "plum-dispatch"
 version = "2.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2485,7 +2490,7 @@ wheels = [
 [[package]]
 name = "process-bigraph"
 version = "1.0.6"
-source = { editable = "../process-bigraph" }
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "ipdb" },
@@ -2498,19 +2503,9 @@ dependencies = [
     { name = "scipy" },
     { name = "sympy" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "bigraph-schema" },
-    { name = "ipdb", specifier = ">=0.13.13" },
-    { name = "ipykernel" },
-    { name = "jupyter" },
-    { name = "matplotlib" },
-    { name = "notebook" },
-    { name = "pandas" },
-    { name = "pint", specifier = ">=0.24.4" },
-    { name = "scipy", specifier = ">=1.8" },
-    { name = "sympy" },
+sdist = { url = "https://files.pythonhosted.org/packages/79/cd/6200d40105e161898e69ad470bb8a26c5199f5269dc58add9cce7cda62a4/process_bigraph-1.0.6.tar.gz", hash = "sha256:52a322a2ac68c3c2501394bccd46c60e5bce4d141c73e803a8740f22671d8501", size = 42288, upload-time = "2026-03-04T20:45:26.236Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/af/cf/09768d89f7c756b54c8c00332ae5fb1c2d8b841a3ddd8121cf910cf73287/process_bigraph-1.0.6-py3-none-any.whl", hash = "sha256:4f17d9eb9c49d44374e0e29da8b858eee8de1f785358943f9decf3b58c7ce28d", size = 46160, upload-time = "2026-03-04T20:45:25.136Z" },
 ]
 
 [[package]]
@@ -3675,25 +3670,26 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "bigraph-schema", editable = "../bigraph-schema" },
+    { name = "bigraph-schema", specifier = ">=0.0.60" },
     { name = "bigraph-viz", specifier = ">=1.0.4" },
     { name = "dill", specifier = ">=0.3" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "numpy" },
     { name = "plum-dispatch", specifier = ">=2.5" },
-    { name = "process-bigraph", editable = "../process-bigraph" },
+    { name = "process-bigraph", specifier = ">=0.0.38" },
     { name = "scipy" },
-    { name = "vecoli", extras = ["dev"], editable = "../vEcoli" },
+    { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
     { name = "vivarium-core", specifier = ">=1.6.5" },
 ]
 
 [[package]]
 name = "vecoli"
-version = "1.1.0"
-source = { editable = "../vEcoli" }
+version = "1.1.2.post3"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "altair" },
     { name = "autograd" },
+    { name = "bigraph-schema" },
     { name = "biopython" },
     { name = "cvxpy" },
     { name = "dill" },
@@ -3712,7 +3708,9 @@ dependencies = [
     { name = "ortools" },
     { name = "pandas" },
     { name = "pandera" },
+    { name = "plum" },
     { name = "polars" },
+    { name = "process-bigraph" },
     { name = "pyarrow" },
     { name = "pymunk" },
     { name = "scikit-image" },
@@ -3728,6 +3726,10 @@ dependencies = [
     { name = "vivarium-core" },
     { name = "vl-convert-python" },
     { name = "xmltodict" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3d/57/a9b1934f16572ac10d3b07f07780bdf48c79ee3a469689992d8e72a6a6eb/vecoli-1.1.2.post3.tar.gz", hash = "sha256:8fd1bcb1b3cb2c6cd5a496eb39afbeb9eaf2c125327549b98b761158899848ae", size = 32516733, upload-time = "2026-03-25T10:51:46.615Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/da/f4/e4118ce3f5176891dd0253ccd2806b5652064347db23bdbce3bb06e9db7a/vecoli-1.1.2.post3-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:5167fcc147cdbc1144c8c886380294094f631edd205b58d57f844118f080bc9b", size = 33350974, upload-time = "2026-03-25T10:51:35.289Z" },
 ]
 
 [package.optional-dependencies]
@@ -3740,58 +3742,6 @@ dev = [
     { name = "pytest-cov" },
     { name = "ruff" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "altair" },
-    { name = "autograd" },
-    { name = "biopython" },
-    { name = "cvxpy" },
-    { name = "dill" },
-    { name = "duckdb" },
-    { name = "ecos" },
-    { name = "gcsfs" },
-    { name = "imageio", extras = ["ffmpeg"] },
-    { name = "ipdb" },
-    { name = "ipython" },
-    { name = "iteround" },
-    { name = "jupyter", marker = "extra == 'dev'" },
-    { name = "line-profiler" },
-    { name = "marimo", extras = ["sql", "lsp"], marker = "extra == 'dev'" },
-    { name = "matplotlib" },
-    { name = "mypy", marker = "extra == 'dev'" },
-    { name = "nbsphinx", marker = "extra == 'docs'" },
-    { name = "numba" },
-    { name = "numpy" },
-    { name = "orjson" },
-    { name = "ortools", specifier = "<9.11" },
-    { name = "pandas" },
-    { name = "pandera" },
-    { name = "polars" },
-    { name = "pre-commit", marker = "extra == 'dev'" },
-    { name = "pre-commit", marker = "extra == 'docs'" },
-    { name = "pyarrow" },
-    { name = "pymunk" },
-    { name = "pytest", marker = "extra == 'dev'" },
-    { name = "pytest-cov", marker = "extra == 'dev'" },
-    { name = "ruff", marker = "extra == 'dev'" },
-    { name = "scikit-image" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "seaborn" },
-    { name = "sphinx", marker = "extra == 'docs'" },
-    { name = "sphinx-rtd-theme", marker = "extra == 'docs'" },
-    { name = "statsmodels" },
-    { name = "stochastic-arrow" },
-    { name = "swiglpk" },
-    { name = "sympy" },
-    { name = "tqdm" },
-    { name = "unum" },
-    { name = "vivarium-core" },
-    { name = "vl-convert-python" },
-    { name = "xmltodict" },
-]
-provides-extras = ["dev", "docs"]
 
 [[package]]
 name = "virtualenv"

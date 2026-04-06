@@ -565,16 +565,22 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         RnaMaturationLogic, RnaMaturationRequester, RnaMaturationEvolver)
     from v2ecoli.processes.tf_binding import TfBinding
     from v2ecoli.processes.tf_unbinding import TfUnbinding
-    from v2ecoli.processes.transcript_initiation import TranscriptInitiation
-    from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiation
-    from v2ecoli.processes.chromosome_replication import ChromosomeReplication
+    from v2ecoli.processes.transcript_initiation import (
+        TranscriptInitiationLogic, TranscriptInitiationRequester, TranscriptInitiationEvolver)
+    from v2ecoli.processes.polypeptide_initiation import (
+        PolypeptideInitiationLogic, PolypeptideInitiationRequester, PolypeptideInitiationEvolver)
+    from v2ecoli.processes.chromosome_replication import (
+        ChromosomeReplicationLogic, ChromosomeReplicationRequester, ChromosomeReplicationEvolver)
     from v2ecoli.processes.protein_degradation import (
         ProteinDegradationLogic, ProteinDegradationRequester, ProteinDegradationEvolver)
-    from v2ecoli.processes.rna_degradation import RnaDegradation
+    from v2ecoli.processes.rna_degradation import (
+        RnaDegradationLogic, RnaDegradationRequester, RnaDegradationEvolver)
     from v2ecoli.processes.complexation import (
         ComplexationLogic, ComplexationRequester, ComplexationEvolver)
-    from v2ecoli.processes.transcript_elongation import TranscriptElongation
-    from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
+    from v2ecoli.processes.transcript_elongation import (
+        TranscriptElongationLogic, TranscriptElongationRequester, TranscriptElongationEvolver)
+    from v2ecoli.processes.polypeptide_elongation import (
+        PolypeptideElongationLogic, PolypeptideElongationRequester, PolypeptideElongationEvolver)
     from v2ecoli.processes.chromosome_structure import ChromosomeStructure
     from v2ecoli.processes.metabolism import Metabolism
     from v2ecoli.steps.listeners.mass_listener import MassListener, PostDivisionMassListener
@@ -645,38 +651,35 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             'requester_class': ComplexationRequester,
             'evolver_class': ComplexationEvolver,
         },
-        # Remaining processes use generic ExplicitRequester/ExplicitEvolver
         'ecoli-polypeptide-initiation': {
-            'class': PolypeptideInitiation,
-            'writes_listeners': True,
-            'evolver_output_ports': ['bulk', 'listeners', 'active_ribosome', 'RNA'],
+            'class': PolypeptideInitiationLogic,
+            'requester_class': PolypeptideInitiationRequester,
+            'evolver_class': PolypeptideInitiationEvolver,
         },
         'ecoli-transcript-initiation': {
-            'class': TranscriptInitiation,
-            'writes_listeners': True,
-            'evolver_output_ports': ['bulk', 'listeners', 'RNAs', 'active_RNAPs'],
+            'class': TranscriptInitiationLogic,
+            'requester_class': TranscriptInitiationRequester,
+            'evolver_class': TranscriptInitiationEvolver,
         },
         'ecoli-rna-degradation': {
-            'class': RnaDegradation,
-            'writes_listeners': True,
-            'evolver_output_ports': ['bulk', 'listeners', 'RNAs', 'active_ribosome'],
+            'class': RnaDegradationLogic,
+            'requester_class': RnaDegradationRequester,
+            'evolver_class': RnaDegradationEvolver,
         },
         'ecoli-polypeptide-elongation': {
-            'class': PolypeptideElongation,
-            'writes_listeners': True,
-            'evolver_output_ports': ['bulk', 'listeners', 'active_ribosome',
-                                     'polypeptide_elongation', 'boundary'],
+            'class': PolypeptideElongationLogic,
+            'requester_class': PolypeptideElongationRequester,
+            'evolver_class': PolypeptideElongationEvolver,
         },
         'ecoli-transcript-elongation': {
-            'class': TranscriptElongation,
-            'writes_listeners': True,
-            'evolver_output_ports': ['bulk', 'listeners', 'RNAs', 'active_RNAPs'],
+            'class': TranscriptElongationLogic,
+            'requester_class': TranscriptElongationRequester,
+            'evolver_class': TranscriptElongationEvolver,
         },
         'ecoli-chromosome-replication': {
-            'class': ChromosomeReplication,
-            'writes_listeners': True,
-            'evolver_output_ports': ['bulk', 'listeners', 'active_replisomes',
-                                     'oriCs', 'chromosome_domains', 'full_chromosomes'],
+            'class': ChromosomeReplicationLogic,
+            'requester_class': ChromosomeReplicationRequester,
+            'evolver_class': ChromosomeReplicationEvolver,
         },
     }
 

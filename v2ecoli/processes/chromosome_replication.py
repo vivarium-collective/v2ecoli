@@ -29,9 +29,15 @@ from v2ecoli.library.schema import (
 from v2ecoli.library.units import units
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 
-from v2ecoli.steps.partition import PartitionedProcess
-class ChromosomeReplication(PartitionedProcess):
-    """Chromosome Replication PartitionedProcess"""
+from process_bigraph import Step
+from bigraph_schema.schema import Float, Overwrite
+
+from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
+from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
+from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
+from v2ecoli.types.stores import InPlaceDict, ListenerStore
+class ChromosomeReplicationLogic:
+    """Chromosome Replication logic — pure computation, no Step inheritance."""
 
     name = "ecoli-chromosome-replication"
     topology = {
@@ -68,10 +74,12 @@ class ChromosomeReplication(PartitionedProcess):
         # random seed
         "seed": 0,
         "emit_unique": False,
+        "time_step": 1,
     }
 
-    def __init__(self, parameters=None, **kwargs):
-        super().__init__(parameters, **kwargs)
+    def __init__(self, parameters=None):
+        self.parameters = {**self.defaults, **(parameters or {})}
+        self.request_set = False
 
         # Load parameters
         self.get_dna_critical_mass = self.parameters["get_dna_critical_mass"]
@@ -516,4 +524,133 @@ class ChromosomeReplication(PartitionedProcess):
                     (self.replisome_monomers_idx, replisomes_to_delete.sum())
                 )
 
+        return update
+
+    def next_update(self, timestep, states):
+        requests = self.calculate_request(timestep, states)
+        bulk_requests = requests.pop("bulk", [])
+        if bulk_requests:
+            bulk_copy = states["bulk"].copy()
+            for bulk_idx, request in bulk_requests:
+                bulk_copy[bulk_idx] = request
+            states["bulk"] = bulk_copy
+        states = deep_merge(states, requests)
+        update = self.evolve_state(timestep, states)
+        if "listeners" in requests:
+            update["listeners"] = deep_merge(
+                update.get("listeners", {}), requests["listeners"])
+        return update
+
+
+class ChromosomeReplicationRequester(_SafeInvokeMixin, Step):
+    """Reads stores to compute chromosome replication request."""
+
+    config_schema = {}
+
+    def initialize(self, config):
+        self.process = config['process']
+        self.process_name = config.get('process_name', self.process.name)
+
+    def inputs(self):
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'active_replisomes': UniqueNumpyUpdate(),
+            'oriCs': UniqueNumpyUpdate(),
+            'chromosome_domains': UniqueNumpyUpdate(),
+            'full_chromosomes': UniqueNumpyUpdate(),
+            'listeners': ListenerStore(),
+            'environment': InPlaceDict(),
+            'timestep': Float(_default=self.process.parameters.get('time_step', 1.0)),
+            'global_time': Float(_default=0.0),
+            'next_update_time': Float(
+                _default=self.process.parameters.get('time_step', 1.0)),
+        }
+
+    def outputs(self):
+        return {
+            'request': InPlaceDict(),
+            'next_update_time': Overwrite(_value=Float()),
+            'listeners': ListenerStore(),
+        }
+
+    def update(self, state, interval=None):
+        next_time = state.get('next_update_time', 0.0)
+        global_time = state.get('global_time', 0.0)
+        if next_time > global_time:
+            return {}
+
+        state = _protect_state(state)
+        timestep = state.get('timestep', 1.0)
+        request = self.process.calculate_request(timestep, state)
+        self.process.request_set = True
+
+        bulk_request = request.pop('bulk', None)
+        result = {'request': {}}
+        if bulk_request is not None:
+            result['request']['bulk'] = bulk_request
+
+        listeners = request.pop('listeners', None)
+        if listeners is not None:
+            result['listeners'] = listeners
+
+        return result
+
+
+class ChromosomeReplicationEvolver(_SafeInvokeMixin, Step):
+    """Reads allocation, writes bulk/unique/listener updates."""
+
+    config_schema = {}
+
+    def initialize(self, config):
+        self.process = config['process']
+
+    def inputs(self):
+        return {
+            'allocate': InPlaceDict(),
+            'bulk': BulkNumpyUpdate(),
+            'active_replisomes': UniqueNumpyUpdate(),
+            'oriCs': UniqueNumpyUpdate(),
+            'chromosome_domains': UniqueNumpyUpdate(),
+            'full_chromosomes': UniqueNumpyUpdate(),
+            'listeners': ListenerStore(),
+            'environment': InPlaceDict(),
+            'timestep': Float(_default=self.process.parameters.get('time_step', 1.0)),
+            'global_time': Float(_default=0.0),
+            'next_update_time': Float(
+                _default=self.process.parameters.get('time_step', 1.0)),
+        }
+
+    def outputs(self):
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'listeners': ListenerStore(),
+            'active_replisomes': UniqueNumpyUpdate(),
+            'oriCs': UniqueNumpyUpdate(),
+            'chromosome_domains': UniqueNumpyUpdate(),
+            'full_chromosomes': UniqueNumpyUpdate(),
+            'next_update_time': Overwrite(_value=Float()),
+        }
+
+    def update(self, state, interval=None):
+        next_time = state.get('next_update_time', 0.0)
+        global_time = state.get('global_time', 0.0)
+        if next_time > global_time:
+            return {}
+
+        state = _protect_state(state)
+
+        allocations = state.pop('allocate', {})
+        bulk_alloc = allocations.get('bulk')
+        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
+            alloc_bulk = state['bulk'].copy()
+            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
+            state['bulk'] = alloc_bulk
+        state = deep_merge(state, allocations)
+
+        if not self.process.request_set:
+            return {}
+
+        timestep = state.get('timestep', 1.0)
+        update = self.process.evolve_state(timestep, state)
+        update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update

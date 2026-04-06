@@ -1,100 +1,72 @@
-# v2ecoli Migration Status
+# v2ecoli Status
 
-**Date**: 2026-04-04
+**Date**: 2026-04-05
 **Repo**: https://github.com/vivarium-collective/v2ecoli
 
-## What Works
+## Current State
 
-- **101 Python files, 35,714 lines** — self-contained E. coli whole-cell model
-- **All 30+ biological processes** ported from vEcoli as process-bigraph Steps
-- **Simulation runs via `Composite.run()`** — no custom engine
-- **55 Steps + 1 Process (GlobalClock)** execute through process-bigraph's pipeline
-- **3828/16321 bulk molecules change** in 10s simulated time
-- **1.51s runtime** (2.3x faster than v1's 3.48s)
-- **ParCa pipeline** (raw data → simData) included in the repo
-- **133 TSV raw data files** in reconstruction/ecoli/flat/
-- **Custom types**: BulkNumpyUpdate, UniqueNumpyUpdate with proper apply dispatches
-- **HTML comparison report** with mass fractions, bigraph viz, scatter plots, JSON viewer
-- **RAMEmitter** from process-bigraph collects per-timestep data
+All 55 biological steps run through process-bigraph's `Composite.run()` with **0.62% worst-case mass error** vs v1 (vEcoli). No custom simulation engine — pure process-bigraph.
+
+### Accuracy (60s comparison with v1)
+
+| Component | Mean % Error | Max % Error | R² |
+|-----------|-------------|-------------|-----|
+| Dry Mass | 0.02% | 0.22% | 0.99 |
+| Protein | 0.02% | 0.03% | 1.00 |
+| RNA | 0.03% | 0.06% | 1.00 |
+| DNA | 0.03% | 0.03% | 1.00 |
+| Small Molecules | 0.02% | 0.62% | 0.78 |
+
+### What Works
+
+- **55 biological steps** through `Composite.run()`
+- **Sequential step execution** via `sequential_steps=True` with priority ordering
+- **Partition system**: Requesters → Allocators → Evolvers with proper store routing
+- **Store routing fix**: `_protect_state` copies bulk/unique, pre-created request sub-dicts
+- **Custom types**: BulkNumpyUpdate, UniqueNumpyUpdate, InPlaceDict, SetStore, ListenerStore
+- **Division**: `_add`/`_remove` structural updates with state splitting + daughter viability
+- **State splitting**: bulk (binomial), unique (domain-based), RNA (RNAP-following), ribosomes (mRNA-following)
+- **Benchmark suite**: per-category mass accuracy, division test, network visualization, TOC navigation
+- **ParCa pipeline**: raw TSV data → simData → initial state → document
+- **JSON caching**: initial_state.json (10MB) + sim_data_cache.dill (190MB)
+- **Checkpoint system**: `save_state`/`load_state`/`run_and_cache` for resumption
+
+### Division
+
+- Division step detects condition (dry mass >= threshold + 2 chromosomes)
+- `divide_cell()` splits all state stores with conservation guarantees
+- `build_document_from_configs()` constructs complete daughter cell states
+- Returns `_add`/`_remove` structural update for the Composite
+- Daughter viability verified: builds + runs 1s successfully
+- Pre-division caching via `run_and_cache()` for repeated testing
+
+### Dependencies
+
+- `process-bigraph` PR #111: `skip_initial_steps` config (only change needed)
+- No bigraph-schema changes (works with unmodified PyPI version)
+- No modifications to the Composite execution engine
+
+## Branches
+
+- **`main`**: Production — correlation 1.0000, 0.62% worst error, PartitionedProcess architecture
+- **`explicit-steps-parallel`**: Future — explicit Requester/Evolver Steps, layer-parallel execution, 2.12% worst error
 
 ## Known Issues
 
-### 1. Step Execution Order (Critical)
-**Impact**: 3828 vs 1595 bulk changes (v1). Correlation ~0.03 instead of 1.0.
+1. **`sequential_steps` still needed** — all 55 steps share bulk/unique/listeners, creating dependency cycles. The `explicit-steps-parallel` branch has input/output topology separation that enables parallel execution, but with slightly higher error (2.12%) due to execution order differences.
 
-The Composite's dependency-driven step cascade doesn't match v1's strict sequential
-execution. Steps share `bulk`, `unique`, `listeners` stores, creating a dense
-dependency graph where evolvers can run before their allocators produce partitioned
-counts.
+2. **Small molecule R² = 0.78** — small molecules have the lowest correlation due to metabolism's sensitivity to upstream state differences. All other components > 0.99.
 
-**Root cause**: `determine_steps()` in process-bigraph uses data dependencies (overlapping
-input/output paths) to order steps. With many steps sharing stores, this creates cycles
-that get broken by priority — but the cycle detection groups steps differently than our
-flow ordering expects.
+3. **Division not tested at actual division time** — the benchmark tests division on the initial state (t=0). At actual division (~1857s), the cell has 2+ chromosomes with proper domain trees. Mass isn't growing enough to reach the division threshold in v2 (same as v1 behavior for short runs).
 
-**Potential fixes**:
-- Enhance `determine_steps` in process-bigraph to respect priority ordering within
-  triggered batches (not just cycle-breaking)
-- Use separate stores per partition layer (request_1, allocate_1, etc.) to reduce
-  spurious dependencies
-- Add a "sequential mode" to Composite that runs all triggered steps strictly by
-  priority, one at a time
+4. **Compiled dependencies** — polymerize (Cython), fba (GLPK), mc_complexation (Cython) from wholecell.
 
-### 2. Silent Step Failures
-Steps that crash (KeyError, AssertionError) are caught by `_SafeInvokeMixin.invoke()`
-and return `{}`. This prevents cascade crashes but means some steps don't contribute
-their updates. Proper fix: handle missing data gracefully in each step.
-
-### 3. Compiled Dependencies
-Five library modules still wrap wholecell compiled extensions:
-- `polymerize.py` → Cython polymerization
-- `fba.py` → GLPK flux balance analysis
-- `mc_complexation.py` → Cython complexation
-- `units.py` → unum units
-- `unit_struct_array.py` → UnitStructArray
-
-These need to be vendored or reimplemented for full independence.
-
-### 4. vivarium.library.units
-Three files import `vivarium.library.units` for pint-based mM units:
-- `steps/media_update.py`
-- `steps/exchange_data.py`
-- `processes/metabolism.py`
-
-### 5. bigraph-schema Modifications
-In-place dict mutation in `apply(schema: dict, ...)` and null-handling in
-`apply(schema: Node, ...)` were applied to the local bigraph-schema copy.
-These should be upstreamed or the types need to handle this differently.
-
-## Architecture
-
-```
-v2ecoli/
-├── reconstruction/          # ParCa + 133 TSV raw data files
-│   └── ecoli/              # knowledge_base_raw, fit_sim_data_1, simulation_data
-├── v2ecoli/
-│   ├── library/            # 20 modules (schema, sim_data, fitting, etc.)
-│   ├── types/              # 10 custom bigraph-schema types
-│   ├── steps/              # 16 step files + listeners/ + base.py + partition.py
-│   │   ├── base.py         # V2Step with auto schema translation
-│   │   ├── partition.py    # PartitionedProcess, Requester, Evolver
-│   │   ├── allocator.py    # Allocator
-│   │   ├── unique_update.py
-│   │   ├── global_clock.py # Process (drives time)
-│   │   └── listeners/      # 9 listener steps
-│   ├── processes/          # 15 biological processes
-│   ├── composite.py        # make_composite() → Composite
-│   └── generate.py         # build_document() from simData
-├── report.py               # HTML comparison report generator
-└── test_types.py           # Type system unit tests
-```
+5. **unum units** — uses unum via wholecell. Migration to pint planned.
 
 ## Next Steps
 
-1. **Fix step ordering in process-bigraph** — the critical path to matching v1
-2. **Upstream bigraph-schema changes** (in-place apply, null handling)
-3. **Add proper error handling** to biological processes for missing data
-4. **Vendor compiled extensions** (polymerize, fba, mc_complexation)
-5. **Replace vivarium.library.units** with direct pint usage
-6. **Run ParCa from v2ecoli's own code** (currently uses cached simData)
-7. **Add more analysis plots** (growth rate, gene expression, etc.)
+1. **Run to actual division** — cache pre-division state, test full division cycle
+2. **Migrate to explicit Steps** (from `explicit-steps-parallel` branch) while preserving accuracy
+3. **Upstream process-bigraph PR** — get `skip_initial_steps` merged
+4. **CI workflow** — get GitHub Actions passing with PyPI dependencies
+5. **Replace unum with pint** — unified unit system

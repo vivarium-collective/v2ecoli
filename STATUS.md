@@ -17,6 +17,14 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 | DNA | 0.00% | 0.00% | 1.0000 |
 | Small Molecules | 0.01% | 0.01% | 0.9988 |
 
+### Full Cell Cycle
+
+- **Division at t=2645s** (dry mass 702 fg, 2 chromosomes)
+- **Chromosome replication**: initiates, forks progress bidirectionally, terminate ~t=1200s
+- **Re-initiation**: second round begins ~t=2000s (4 active forks)
+- **Daughter viability**: confirmed (builds + runs 1s)
+- **Lifecycle v1/v2 comparison**: mass, chromosomes, forks, RNAP tracked over full cycle
+
 ### Architecture
 
 - **No PartitionedProcess**: all 15 processes use plain Logic classes with per-process Steps
@@ -25,8 +33,22 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 - **Flat per-process stores**: `request_{proc}` and `allocate_{proc}` (no shared nested dicts)
 - **Layer-based flow tokens**: requesters/evolvers/listeners grouped by execution layer
 - **Custom types**: BulkNumpyUpdate, UniqueNumpyUpdate, InPlaceDict, SetStore, ListenerStore
-- **Division**: verified at t=2687s (2 chromosomes, dry mass 702 fg, daughter viability confirmed)
-- **Workflow testing**: 8-step cached pipeline (EcoCyc API → ParCa → simulation → division)
+
+### Workflow Testing
+
+8-step cached pipeline with comprehensive HTML report:
+
+0. **EcoCyc API** — fetch 10 BioCyc data files
+1. **Raw Data** — catalog 133 TSV files (4,641,652 bp genome, 4747 genes)
+2. **ParCa** — parameter calculator (27 process configs, 16,321 bulk molecules)
+3. **Load Model** — build composite from cache
+4. **Short Simulation** — 60s with mass/growth diagnostics
+5. **v1 Comparison** — per-category accuracy (0.04% worst error)
+6. **Long Simulation** — run to division with chromosome snapshots every 50s
+6b. **Lifecycle v1/v2** — full cell cycle comparison (mass, chromosomes, forks, RNAP)
+7. **Division** — conservation, unique molecule splits, daughter viability
+
+All steps cache metadata + state. Cached run completes in ~5s.
 
 ### Dependencies
 
@@ -38,10 +60,11 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 
 1. **Within-layer parallelism blocked** — layer token W/W conflicts serialize steps in the same layer. Flat stores are ready; needs process-bigraph barrier token support.
 2. **Compiled dependencies** — polymerize (Cython), fba (GLPK), mc_complexation (Cython) from wholecell.
+3. **Unum dependency** — units still use unum via wholecell.utils. Pint compatibility layer ready but full migration requires cache regeneration under pint.
 
 ## Next Steps
 
 1. **Upstream process-bigraph PR** — get `skip_initial_steps` merged
 2. **Barrier tokens** — process-bigraph support for W/W sync points (enables within-layer parallelism)
-3. **CI workflow** — GitHub Actions with PyPI dependencies
-4. **Replace unum with pint** — unified unit system
+3. **Replace unum with pint** — unified unit system (requires regenerating cache under pint)
+4. **CI workflow** — GitHub Actions with PyPI dependencies

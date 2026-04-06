@@ -1175,18 +1175,16 @@ def step_v1_comparison():
     d2 = v2['final_bulk'][both] - v2['initial_bulk'][both]
     delta_corr = np.corrcoef(d1.astype(float), d2.astype(float))[0, 1] if both.sum() > 0 else 0.0
 
-    # Per-timestep mass comparison
+    # Per-timestep mass comparison — aligned by common timesteps
+    # v1 often has t=0 (initial snapshot) that v2 doesn't; skip it
     mass_keys = ['dry_mass', 'protein_mass', 'rna_mass', 'dna_mass', 'smallMolecule_mass']
     mass_comparison = {k: {'v1': [], 'v2': [], 'times': []} for k in mass_keys}
-    v2_times = sorted(v2['mass_ts'].keys())
-    v1_times = sorted(v1['mass_ts'].keys())
-    for t in v2_times:
-        for k in mass_keys:
-            mass_comparison[k]['v2'].append(v2['mass_ts'][t].get(k, 0))
-            mass_comparison[k]['times'].append(t)
-    for t in v1_times:
+    common_mass_times = sorted(set(v1['mass_ts'].keys()) & set(v2['mass_ts'].keys()))
+    for t in common_mass_times:
         for k in mass_keys:
             mass_comparison[k]['v1'].append(v1['mass_ts'][t].get(k, 0))
+            mass_comparison[k]['v2'].append(v2['mass_ts'][t].get(k, 0))
+            mass_comparison[k]['times'].append(t)
 
     # Per-category mass accuracy metrics
     mass_metrics = {}

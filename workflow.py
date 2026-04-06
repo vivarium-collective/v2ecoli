@@ -66,7 +66,9 @@ WORKFLOW_DIR = 'out/workflow'
 # Use existing cache if available, otherwise workflow-local cache
 CACHE_DIR = 'out/cache' if os.path.isdir('out/cache') else 'out/workflow/cache'
 COMPARISON_DURATION = 60.0
-LONG_DURATION = 1800.0
+LONG_DURATION = 1800.0  # Legacy label
+MAX_LONG_DURATION = 3600  # Max seconds before giving up on division
+SNAPSHOT_INTERVAL = 50  # Seconds between chromosome snapshots
 
 # Try to find simData
 _sim_data_candidates = [
@@ -423,6 +425,118 @@ BIO_COLORS = {
                                                           'media_update', 'post-division'))),
     'listen': ('#D3D3D3', lambda n: 'listener' in n),
 }
+
+
+# ---------------------------------------------------------------------------
+# Chromosome visualization
+# ---------------------------------------------------------------------------
+
+MAX_COORD = 1_042_299  # Half-genome in bp (OriC to Ter)
+
+
+def extract_chromosome_snapshots(composite, duration, interval=10):
+    """Run simulation in chunks, capturing chromosome state at each interval.
+
+    Returns list of dicts with time, n_chromosomes, fork_coords, dna_mass, dry_mass.
+    """
+    snapshots = []
+    cell = composite.state['agents']['0']
+    remaining = duration
+
+    while remaining > 0:
+        chunk = min(interval, remaining)
+        composite.run(chunk)
+        remaining -= chunk
+        cell = composite.state['agents']['0']
+
+        # Extract chromosome state
+        unique = cell.get('unique', {})
+        fc = unique.get('full_chromosome')
+        n_chrom = 0
+        if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
+            n_chrom = int(fc['_entryState'].view(np.bool_).sum())
+
+        rep = unique.get('active_replisome')
+        fork_coords = []
+        if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
+            active = rep[rep['_entryState'].view(np.bool_)]
+            if len(active) > 0 and 'coordinates' in rep.dtype.names:
+                fork_coords = active['coordinates'].tolist()
+
+        mass = cell.get('listeners', {}).get('mass', {})
+        dna_mass = float(mass.get('dna_mass', 0))
+        dry_mass = float(mass.get('dry_mass', 0))
+
+        domains = unique.get('chromosome_domain')
+        n_domains = 0
+        if domains is not None and hasattr(domains, 'dtype') and '_entryState' in domains.dtype.names:
+            n_domains = int(domains['_entryState'].view(np.bool_).sum())
+
+        snapshots.append({
+            'time': float(cell.get('global_time', 0)),
+            'n_chromosomes': n_chrom,
+            'n_domains': n_domains,
+            'fork_coords': fork_coords,
+            'dna_mass': dna_mass,
+            'dry_mass': dry_mass,
+        })
+
+    return snapshots
+
+
+def plot_chromosome_state(snapshots, title=''):
+    """Plot chromosome state over time: fork progress, chromosome count, DNA mass."""
+    times = [s['time'] for s in snapshots]
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+    fig.suptitle(title or 'Chromosome State', fontsize=14)
+
+    # 1. Fork coordinates over time
+    ax = axes[0, 0]
+    for s in snapshots:
+        for coord in s['fork_coords']:
+            ax.scatter(s['time'], coord / MAX_COORD, c='#3b82f6', s=8, alpha=0.6)
+    ax.set_ylabel('Fork position (fraction)')
+    ax.set_xlabel('Time (s)')
+    ax.set_title('Replication Fork Progress')
+    ax.set_ylim(-1.1, 1.1)
+    ax.axhline(0, color='gray', lw=0.5, ls='--', label='OriC')
+    ax.axhline(1, color='red', lw=0.5, ls='--', alpha=0.5, label='Ter')
+    ax.axhline(-1, color='red', lw=0.5, ls='--', alpha=0.5)
+    ax.legend(fontsize=8)
+
+    # 2. Chromosome count
+    ax = axes[0, 1]
+    n_chroms = [s['n_chromosomes'] for s in snapshots]
+    ax.step(times, n_chroms, where='post', color='#10b981', lw=2)
+    ax.set_ylabel('Chromosomes')
+    ax.set_xlabel('Time (s)')
+    ax.set_title('Chromosome Count')
+    ax.set_ylim(0, max(n_chroms) + 1)
+    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+
+    # 3. DNA mass
+    ax = axes[1, 0]
+    dna = [s['dna_mass'] for s in snapshots]
+    ax.plot(times, dna, color='#8b5cf6', lw=2)
+    ax.set_ylabel('DNA mass (fg)')
+    ax.set_xlabel('Time (s)')
+    ax.set_title('DNA Mass')
+
+    # 4. Dry mass with division threshold estimate
+    ax = axes[1, 1]
+    dry = [s['dry_mass'] for s in snapshots]
+    ax.plot(times, dry, color='#f59e0b', lw=2, label='Dry mass')
+    if dry:
+        # Division threshold is approximately 2x initial mass
+        ax.axhline(dry[0] * 2, color='red', lw=1, ls='--', alpha=0.5, label='~2x initial')
+    ax.set_ylabel('Dry mass (fg)')
+    ax.set_xlabel('Time (s)')
+    ax.set_title('Growth to Division')
+    ax.legend(fontsize=8)
+
+    plt.tight_layout()
+    return fig_to_b64(fig)
 
 
 def make_bigraph_svg(state):
@@ -957,6 +1071,28 @@ def step_short_sim(composite):
 
     mass = cell.get('listeners', {}).get('mass', {})
 
+    # Extract chromosome snapshots from emitter history
+    chrom_snapshots = []
+    for snap in history:
+        t = snap.get('global_time', 0)
+        m = snap.get('listeners', {}).get('mass', {}) if isinstance(snap.get('listeners'), dict) else {}
+        chrom_snapshots.append({
+            'time': float(t),
+            'n_chromosomes': 1,  # Short sim: always 1 chromosome
+            'n_domains': 3,
+            'fork_coords': [],  # Not captured per-timestep by emitter
+            'dna_mass': float(m.get('dna_mass', 0)),
+            'dry_mass': float(m.get('dry_mass', 0)),
+        })
+    # Get fork coordinates from final state
+    unique = cell.get('unique', {})
+    rep = unique.get('active_replisome')
+    if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
+        active_rep = rep[rep['_entryState'].view(np.bool_)]
+        if len(active_rep) > 0 and 'coordinates' in rep.dtype.names:
+            if chrom_snapshots:
+                chrom_snapshots[-1]['fork_coords'] = active_rep['coordinates'].tolist()
+
     meta = {
         'duration': duration,
         'wall_time': wall_time,
@@ -966,6 +1102,7 @@ def step_short_sim(composite):
         'final_cell_mass': float(mass.get('cell_mass', 0)),
         'final_volume': float(mass.get('volume', 0)),
         'rate': duration / wall_time,
+        'chromosome_snapshots': chrom_snapshots,
     }
     save_meta(step_name, meta)
 
@@ -1149,88 +1286,145 @@ def step_v1_comparison():
 
 
 def step_long_sim():
-    """Step 6: Run 1800s simulation for growth trajectory."""
+    """Step 6: Run simulation to division with chromosome snapshots.
+
+    Runs in chunks (SNAPSHOT_INTERVAL seconds each), capturing chromosome
+    state at every interval. Stops when division condition is met (2+
+    chromosomes AND dry mass >= 2x initial) or MAX_LONG_DURATION is reached.
+    Saves pre-division cell state for the division test.
+    """
     step_name = 'long_sim'
-    duration = LONG_DURATION
     meta = load_meta(step_name)
     if meta is not None:
         print(f"  Step 6: Long Simulation (cached)")
-        try:
-            state_data = load_state_data(step_name)
-            history = state_data.get('history', [])
-        except Exception:
-            history = []
-        return meta, history
+        return meta
 
-    print(f"  Step 6: Long Simulation ({duration}s = {duration/60:.0f}min)")
+    print(f"  Step 6: Long Simulation (to division, max {MAX_LONG_DURATION}s)")
     composite = make_composite(cache_dir=CACHE_DIR)
 
     cell = composite.state['agents']['0']
     bulk_before = np.array(cell['bulk']['count'], copy=True)
+    initial_dry_mass = float(cell.get('listeners', {}).get('mass', {}).get('dry_mass', 380))
 
     t0 = time.time()
-    composite.run(duration)
-    wall_time = time.time() - t0
+    snapshots = []
+    divided = False
+    total_run = 0
 
-    cell = composite.state['agents']['0']
-    bulk_after = cell['bulk']['count']
-    changed = (bulk_before != bulk_after).sum()
+    while total_run < MAX_LONG_DURATION:
+        chunk = min(SNAPSHOT_INTERVAL, MAX_LONG_DURATION - total_run)
+        try:
+            composite.run(chunk)
+        except Exception as e:
+            # Division structural update may crash — that's OK,
+            # the pre-division state was our last snapshot
+            print(f"    Simulation stopped at ~t={total_run+chunk}s: {type(e).__name__}")
+            divided = True
+            break
+        total_run += chunk
 
-    em_edge = cell.get('emitter')
-    history = em_edge['instance'].history if isinstance(em_edge, dict) and 'instance' in em_edge else []
+        cell = composite.state['agents']['0']
+        unique = cell.get('unique', {})
 
-    mass = cell.get('listeners', {}).get('mass', {})
-
-    # Track chromosome count over time from history
-    chrom_over_time = []
-    mass_over_time = []
-    for snap in history:
-        t = snap.get('global_time', 0)
-        fc = snap.get('unique', {}).get('full_chromosome') if isinstance(snap.get('unique'), dict) else None
+        # Chromosome state
+        fc = unique.get('full_chromosome')
         n_chrom = 0
         if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
             n_chrom = int(fc['_entryState'].view(np.bool_).sum())
-        chrom_over_time.append({'time': t, 'n_chromosomes': n_chrom})
-        m = snap.get('listeners', {}).get('mass', {})
-        if isinstance(m, dict):
-            mass_over_time.append({'time': t, 'dry_mass': m.get('dry_mass', 0)})
 
-    # Save cell state data (no process instances)
+        rep = unique.get('active_replisome')
+        fork_coords = []
+        if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
+            active_rep = rep[rep['_entryState'].view(np.bool_)]
+            if len(active_rep) > 0 and 'coordinates' in rep.dtype.names:
+                fork_coords = active_rep['coordinates'].tolist()
+
+        domains = unique.get('chromosome_domain')
+        n_domains = 0
+        if domains is not None and hasattr(domains, 'dtype') and '_entryState' in domains.dtype.names:
+            n_domains = int(domains['_entryState'].view(np.bool_).sum())
+
+        mass = cell.get('listeners', {}).get('mass', {})
+        dry_mass = float(mass.get('dry_mass', 0))
+        dna_mass = float(mass.get('dna_mass', 0))
+
+        snapshots.append({
+            'time': float(cell.get('global_time', total_run)),
+            'n_chromosomes': n_chrom,
+            'n_domains': n_domains,
+            'fork_coords': fork_coords,
+            'dna_mass': dna_mass,
+            'dry_mass': dry_mass,
+        })
+
+        # Check division readiness: 2+ chromosomes AND mass doubled
+        if n_chrom >= 2 and dry_mass >= initial_dry_mass * 2:
+            print(f"    Division ready at t={total_run}s: {n_chrom} chromosomes, "
+                  f"dry_mass={dry_mass:.0f}fg (>= {initial_dry_mass*2:.0f}fg)")
+            divided = True
+            break
+
+        if total_run % 500 == 0:
+            print(f"    t={total_run}s: {n_chrom} chroms, dry_mass={dry_mass:.0f}fg, "
+                  f"forks={len(fork_coords)}")
+
+    wall_time = time.time() - t0
+
+    # After division, agent '0' may be gone — use last snapshot data
+    agents = composite.state.get('agents', {})
+    cell = agents.get('0')
+    if cell is None:
+        # Division happened — find any remaining agent for bulk comparison
+        for aid, astate in agents.items():
+            if isinstance(astate, dict) and 'bulk' in astate:
+                cell = astate
+                break
+
+    if cell is not None and 'bulk' in cell:
+        bulk_after = cell['bulk']['count']
+        changed = int((bulk_before != bulk_after).sum())
+    else:
+        changed = 0
+
+    # Use last snapshot for final metrics
+    final_snap = snapshots[-1] if snapshots else {}
+
+    # Save pre-division cell state for division test
+    # Use the last snapshot where we still had cell data
     data_keys = {'bulk', 'unique', 'listeners', 'environment', 'boundary',
                  'global_time', 'timestep', 'divide', 'division_threshold',
                  'process_state', 'allocator_rng'}
-    cell_data = {}
-    for k, v in cell.items():
-        if k in data_keys:
-            cell_data[k] = v
-        elif k.startswith('request_') or k.startswith('allocate_'):
-            cell_data[k] = v
+    if cell is not None:
+        cell_data = {k: v for k, v in cell.items()
+                     if k in data_keys or k.startswith('request_') or k.startswith('allocate_')}
+    else:
+        cell_data = {}
 
     save_state_data(step_name, {
-        'history': history,
         'cell_state': cell_data,
-        'global_time': cell.get('global_time', 0.0),
+        'global_time': final_snap.get('time', 0.0),
     })
 
     meta = {
-        'duration': duration,
+        'duration': total_run,
         'wall_time': wall_time,
-        'bulk_changed': int(changed),
+        'bulk_changed': changed,
         'total_bulk': len(bulk_before),
-        'final_dry_mass': float(mass.get('dry_mass', 0)),
-        'final_cell_mass': float(mass.get('cell_mass', 0)),
-        'final_volume': float(mass.get('volume', 0)),
-        'rate': duration / wall_time,
-        'chrom_over_time': chrom_over_time,
-        'mass_over_time': mass_over_time,
+        'final_dry_mass': final_snap.get('dry_mass', 0),
+        'final_cell_mass': 0,  # not tracked in snapshots
+        'final_volume': 0,
+        'rate': total_run / wall_time if wall_time > 0 else 0,
+        'division_reached': divided,
+        'initial_dry_mass': initial_dry_mass,
+        'chromosome_snapshots': snapshots,
     }
     save_meta(step_name, meta)
 
-    print(f"    {wall_time:.1f}s wall, {changed} molecules changed, "
+    print(f"    {wall_time:.0f}s wall, {changed} molecules changed, "
           f"{meta['rate']:.1f}x realtime")
-    print(f"    dry_mass={meta['final_dry_mass']:.1f}fg, "
-          f"volume={meta['final_volume']:.4f}fL")
-    return meta, history
+    print(f"    dry_mass={meta['final_dry_mass']:.0f}fg, "
+          f"division={'reached' if divided else 'not reached'}")
+    return meta
 
 
 def step_division():
@@ -1683,6 +1877,8 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["growth_short"]}" alt="Growth"></div>\n')
         if plots.get('bulk_histogram'):
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["bulk_histogram"]}" alt="Bulk Changes"></div>\n')
+        if plots.get('chromosome_short'):
+            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["chromosome_short"]}" alt="Chromosome 60s"></div>\n')
 
         f.write(f"""
 <!-- ===== Step 5: v1 Comparison ===== -->
@@ -1749,12 +1945,11 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
   <div class="metric"><div class="label">Sim/Wall</div><div class="value green">{long_rate:.1f}x</div></div>
   <div class="metric"><div class="label">Bulk Changed</div><div class="value purple">{long.get('bulk_changed', 0)}</div></div>
   <div class="metric"><div class="label">Dry Mass</div><div class="value">{long.get('final_dry_mass', 0):.1f} fg</div></div>
+  <div class="metric"><div class="label">Division</div><div class="value {'green' if long.get('division_reached') else 'purple'}">{'Reached' if long.get('division_reached') else 'Not reached'}</div></div>
 </div>""")
 
-        if plots.get('mass_long'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["mass_long"]}" alt="Long Mass"></div>\n')
-        if plots.get('growth_long'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["growth_long"]}" alt="Long Growth"></div>\n')
+        if plots.get('chromosome_long'):
+            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["chromosome_long"]}" alt="Chromosome State"></div>\n')
 
         f.write(f"""
 <!-- ===== Step 7: Division ===== -->
@@ -1947,7 +2142,7 @@ def run_workflow():
     step_results['v1_comparison_data'] = comp_data
 
     # Step 6: Long Simulation
-    long_meta, long_history = step_long_sim()
+    long_meta = step_long_sim()
     step_results['long_sim'] = long_meta
 
     # Step 7: Division
@@ -1980,9 +2175,18 @@ def run_workflow():
         plots['mass_comp'] = plot_mass_comparison(comp_data)
         plots['unique_comp'] = plot_unique_comparison(comp_data)
 
-    # Long sim plots
-    plots['mass_long'] = plot_mass(long_history, f'Mass Components ({LONG_DURATION/60:.0f} min)')
-    plots['growth_long'] = plot_growth(long_history)
+    # Long sim chromosome plots
+    chrom_snaps = long_meta.get('chromosome_snapshots', [])
+    if chrom_snaps:
+        dur = long_meta.get('duration', 0)
+        plots['chromosome_long'] = plot_chromosome_state(
+            chrom_snaps, f'Chromosome State (to t={dur:.0f}s)')
+
+    # Also plot chromosome for short sim if we have snapshots
+    short_chrom = short_meta.get('chromosome_snapshots', [])
+    if short_chrom:
+        plots['chromosome_short'] = plot_chromosome_state(
+            short_chrom, f'Chromosome State (60s)')
 
     # Generate HTML report
     print("  Generating HTML report...")

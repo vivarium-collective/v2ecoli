@@ -484,58 +484,121 @@ def extract_chromosome_snapshots(composite, duration, interval=10):
     return snapshots
 
 
+def _coord_to_angle(coord):
+    """Convert genome coordinate to angle on circular chromosome."""
+    # OriC at top (π/2), Ter at bottom (-π/2)
+    # Coordinates: 0 = OriC, ±MAX_COORD = Ter
+    frac = coord / MAX_COORD  # -1 to +1
+    return np.pi / 2 - frac * np.pi  # OriC=90°, Ter=-90°
+
+
+def plot_chromosome_map(snapshot, ax, title=''):
+    """Draw circular chromosome with RNAP and replisome positions."""
+    theta = np.linspace(0, 2 * np.pi, 200)
+    R = 1.0  # chromosome radius
+
+    # Draw chromosome circle
+    ax.plot(R * np.cos(theta), R * np.sin(theta), color='#cbd5e1', lw=3, zorder=1)
+
+    # Mark OriC (top) and Ter (bottom)
+    ax.plot(0, R, 'o', color='#10b981', ms=10, zorder=5, label='OriC')
+    ax.plot(0, -R, 's', color='#ef4444', ms=8, zorder=5, label='Ter')
+
+    # Plot RNAP positions as small dots on the chromosome
+    rnap_coords = snapshot.get('rnap_coords', [])
+    if rnap_coords:
+        angles = [_coord_to_angle(c) for c in rnap_coords]
+        rx = [R * np.cos(a) for a in angles]
+        ry = [R * np.sin(a) for a in angles]
+        ax.scatter(rx, ry, c='#3b82f6', s=4, alpha=0.3, zorder=3, label=f'RNAP ({len(rnap_coords)})')
+
+    # Plot replisome positions as large triangles
+    fork_coords = snapshot.get('fork_coords', [])
+    for coord in fork_coords:
+        angle = _coord_to_angle(coord)
+        fx = 1.15 * R * np.cos(angle)
+        fy = 1.15 * R * np.sin(angle)
+        ax.plot(fx, fy, '^', color='#f59e0b', ms=12, zorder=6,
+                markeredgecolor='black', markeredgewidth=0.5)
+    if fork_coords:
+        ax.plot([], [], '^', color='#f59e0b', ms=10, label=f'Replisome ({len(fork_coords)})')
+
+    ax.set_xlim(-1.5, 1.5)
+    ax.set_ylim(-1.5, 1.5)
+    ax.set_aspect('equal')
+    ax.legend(loc='upper right', fontsize=7, framealpha=0.9)
+    ax.set_title(title or f"t={snapshot.get('time', 0):.0f}s", fontsize=10)
+    ax.axis('off')
+
+
 def plot_chromosome_state(snapshots, title=''):
-    """Plot chromosome state over time: fork progress, chromosome count, DNA mass."""
+    """Plot chromosome state: circular maps at key times + timeseries."""
+    if not snapshots:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, 'No chromosome data', ha='center', va='center')
+        return fig_to_b64(fig)
+
     times = [s['time'] for s in snapshots]
 
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-    fig.suptitle(title or 'Chromosome State', fontsize=14)
+    # Pick 3 representative snapshots for circular maps: start, mid, end
+    indices = [0, len(snapshots) // 2, len(snapshots) - 1]
+    indices = sorted(set(indices))  # deduplicate if very few snapshots
 
-    # 1. Fork coordinates over time
-    ax = axes[0, 0]
+    fig = plt.figure(figsize=(14, 10))
+    fig.suptitle(title or 'Chromosome State', fontsize=14, y=0.98)
+
+    # Top row: circular chromosome maps at key timepoints
+    n_maps = len(indices)
+    for i, idx in enumerate(indices):
+        ax = fig.add_subplot(2, n_maps, i + 1)
+        plot_chromosome_map(snapshots[idx], ax)
+
+    # Bottom left: fork progress + RNAP count over time
+    ax = fig.add_subplot(2, 2, 3)
     for s in snapshots:
-        for coord in s['fork_coords']:
-            ax.scatter(s['time'], coord / MAX_COORD, c='#3b82f6', s=8, alpha=0.6)
-    ax.set_ylabel('Fork position (fraction)')
+        for coord in s.get('fork_coords', []):
+            ax.scatter(s['time'], coord / MAX_COORD, c='#f59e0b', s=12,
+                       alpha=0.7, zorder=3, edgecolors='black', linewidths=0.3)
+    ax2 = ax.twinx()
+    n_rnap = [s.get('n_rnap', 0) for s in snapshots]
+    ax2.plot(times, n_rnap, color='#3b82f6', lw=1.5, alpha=0.7, label='Active RNAP')
+    ax2.set_ylabel('Active RNAP', color='#3b82f6', fontsize=9)
+    ax2.tick_params(axis='y', labelcolor='#3b82f6')
+    ax.set_ylabel('Fork position (frac genome)')
     ax.set_xlabel('Time (s)')
-    ax.set_title('Replication Fork Progress')
-    ax.set_ylim(-1.1, 1.1)
-    ax.axhline(0, color='gray', lw=0.5, ls='--', label='OriC')
-    ax.axhline(1, color='red', lw=0.5, ls='--', alpha=0.5, label='Ter')
-    ax.axhline(-1, color='red', lw=0.5, ls='--', alpha=0.5)
-    ax.legend(fontsize=8)
+    ax.set_title('Replication Forks & RNAP Count')
+    ax.set_ylim(-1.15, 1.15)
+    ax.axhline(0, color='#10b981', lw=0.5, ls='--', alpha=0.5)
+    ax.axhline(1, color='#ef4444', lw=0.5, ls='--', alpha=0.3)
+    ax.axhline(-1, color='#ef4444', lw=0.5, ls='--', alpha=0.3)
 
-    # 2. Chromosome count
-    ax = axes[0, 1]
+    # Bottom right: chromosome count + DNA mass + dry mass
+    ax = fig.add_subplot(2, 2, 4)
     n_chroms = [s['n_chromosomes'] for s in snapshots]
-    ax.step(times, n_chroms, where='post', color='#10b981', lw=2)
-    ax.set_ylabel('Chromosomes')
-    ax.set_xlabel('Time (s)')
-    ax.set_title('Chromosome Count')
+    ax.step(times, n_chroms, where='post', color='#10b981', lw=2, label='Chromosomes')
+    ax.set_ylabel('Chromosomes', color='#10b981')
     ax.set_ylim(0, max(n_chroms) + 1)
     ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    ax.tick_params(axis='y', labelcolor='#10b981')
 
-    # 3. DNA mass
-    ax = axes[1, 0]
+    ax2 = ax.twinx()
     dna = [s['dna_mass'] for s in snapshots]
-    ax.plot(times, dna, color='#8b5cf6', lw=2)
-    ax.set_ylabel('DNA mass (fg)')
-    ax.set_xlabel('Time (s)')
-    ax.set_title('DNA Mass')
-
-    # 4. Dry mass with division threshold estimate
-    ax = axes[1, 1]
     dry = [s['dry_mass'] for s in snapshots]
-    ax.plot(times, dry, color='#f59e0b', lw=2, label='Dry mass')
+    ax2.plot(times, dna, color='#8b5cf6', lw=1.5, label='DNA mass')
+    ax2.plot(times, dry, color='#f59e0b', lw=1.5, ls='--', alpha=0.7, label='Dry mass')
     if dry:
-        # Division threshold is approximately 2x initial mass
-        ax.axhline(dry[0] * 2, color='red', lw=1, ls='--', alpha=0.5, label='~2x initial')
-    ax.set_ylabel('Dry mass (fg)')
+        ax2.axhline(dry[0] * 2, color='red', lw=0.5, ls=':', alpha=0.4)
+    ax2.set_ylabel('Mass (fg)')
     ax.set_xlabel('Time (s)')
-    ax.set_title('Growth to Division')
-    ax.legend(fontsize=8)
+    ax.set_title('Chromosomes & Mass')
+    lines1, labels1 = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax.legend(lines1 + lines2, labels1 + labels2, fontsize=7, loc='upper left')
 
-    plt.tight_layout()
+    try:
+        plt.tight_layout()
+    except Exception:
+        plt.subplots_adjust(hspace=0.3, wspace=0.3)
     return fig_to_b64(fig)
 
 
@@ -1342,6 +1405,16 @@ def step_long_sim():
         if domains is not None and hasattr(domains, 'dtype') and '_entryState' in domains.dtype.names:
             n_domains = int(domains['_entryState'].view(np.bool_).sum())
 
+        # RNAP positions
+        rnap = unique.get('active_RNAP')
+        rnap_coords = []
+        n_rnap = 0
+        if rnap is not None and hasattr(rnap, 'dtype') and '_entryState' in rnap.dtype.names:
+            active_rnap = rnap[rnap['_entryState'].view(np.bool_)]
+            n_rnap = len(active_rnap)
+            if n_rnap > 0 and 'coordinates' in rnap.dtype.names:
+                rnap_coords = active_rnap['coordinates'].tolist()
+
         mass = cell.get('listeners', {}).get('mass', {})
         dry_mass = float(mass.get('dry_mass', 0))
         dna_mass = float(mass.get('dna_mass', 0))
@@ -1351,6 +1424,8 @@ def step_long_sim():
             'n_chromosomes': n_chrom,
             'n_domains': n_domains,
             'fork_coords': fork_coords,
+            'rnap_coords': rnap_coords,
+            'n_rnap': n_rnap,
             'dna_mass': dna_mass,
             'dry_mass': dry_mass,
         })

@@ -825,11 +825,16 @@ def make_bigraph_svg(state):
         plot_bigraph(viz_state, remove_process_place_edges=True,
                      node_groups=[g for g in groups.values() if g],
                      node_fill_colors=colors, rankdir='TB',
-                     dpi='100', port_labels=False, node_label_size='20pt',
+                     dpi='72', port_labels=False, node_label_size='16pt',
                      label_margin='0.05', out_dir=OUT_DIR,
                      filename='bigraph', file_format='svg')
         with open(os.path.join(OUT_DIR, 'bigraph.svg')) as f:
-            return f.read()
+            svg = f.read()
+        # Remove fixed width/height from SVG root so CSS can control sizing
+        import re
+        svg = re.sub(r'width="[^"]*pt"', '', svg, count=1)
+        svg = re.sub(r'height="[^"]*pt"', '', svg, count=1)
+        return svg
     except Exception as e:
         return f'<p>Failed: {html_lib.escape(str(e))}</p>'
 
@@ -970,6 +975,7 @@ def run_benchmarks():
 <title>v2ecoli Benchmark Report</title>
 <style>
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+  html {{ scroll-behavior: smooth; }}
   body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
          max-width: 1400px; margin: 0 auto; padding: 20px; background: #f8fafc; color: #1e293b; }}
   h1 {{ font-size: 1.8em; margin: 15px 0; color: #0f172a; }}
@@ -992,8 +998,9 @@ def run_benchmarks():
   table {{ border-collapse: collapse; width: 100%; font-size: 0.82em; }}
   th, td {{ border: 1px solid #e2e8f0; padding: 5px 8px; text-align: left; }}
   th {{ background: #f1f5f9; font-weight: 600; }}
-  .bigraph {{ overflow: auto; }}
-  .bigraph svg {{ width: 100%; height: auto; }}
+  .bigraph {{ overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;
+              background: white; }}
+  .bigraph svg {{ min-width: 100%; height: auto; }}
   .bench-bar {{ display: flex; align-items: center; gap: 8px; margin: 3px 0; }}
   .bench-bar .bar {{ height: 20px; border-radius: 3px; min-width: 2px; }}
   .bench-bar .label {{ font-size: 0.8em; min-width: 100px; }}
@@ -1019,8 +1026,23 @@ def run_benchmarks():
   and biological accuracy across multiple timescales.</p>
 </div>
 
+<nav style="background: white; border-radius: 8px; padding: 12px 20px; margin: 10px 0;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.08);">
+  <strong style="font-size: 0.9em; color: #475569;">Contents</strong>
+  <ol style="margin: 6px 0 0 0; padding-left: 20px; font-size: 0.88em; columns: 2; column-gap: 30px;">
+    <li><a href="#sec-build">Document Build</a></li>
+    <li><a href="#sec-sim">Simulation ({COMPARISON_DURATION:.0f}s)</a></li>
+    <li><a href="#sec-compare">v1 Comparison</a></li>
+    <li><a href="#sec-division">Division</a></li>
+    <li><a href="#sec-long">Long Simulation</a></li>
+    <li><a href="#sec-steps">Step Diagnostics</a></li>
+    <li><a href="#sec-bigraph">Network Visualization</a></li>
+    <li><a href="#sec-timing">Timing Summary</a></li>
+  </ol>
+</nav>
+
 <!-- ===== Benchmark 1: Build ===== -->
-<h2>1. Document Build</h2>
+<h2 id="sec-build">1. Document Build</h2>
 <div class="metrics">
   <div class="metric"><div class="label">Cache Gen</div><div class="value blue">{b['cache_generation']:.1f}s</div></div>
   <div class="metric"><div class="label">Doc Build</div><div class="value blue">{b['document_build']:.2f}s</div></div>
@@ -1037,7 +1059,7 @@ def run_benchmarks():
 </details>
 
 <!-- ===== Benchmark 2: Short Sim ===== -->
-<h2>2. Simulation ({COMPARISON_DURATION:.0f}s)</h2>
+<h2 id="sec-sim">2. Simulation ({COMPARISON_DURATION:.0f}s)</h2>
 <div class="metrics">
   <div class="metric"><div class="label">Wall Time</div><div class="value blue">{s['wall_time']:.1f}s</div></div>
   <div class="metric"><div class="label">Sim/Wall</div><div class="value green">{s['rate']:.1f}x</div></div>
@@ -1049,7 +1071,7 @@ def run_benchmarks():
 <div class="plot"><img src="data:image/png;base64,{growth_short}" alt="Growth"></div>
 
 <!-- ===== Benchmark 3: v1 Comparison ===== -->
-<h2>3. v1 Comparison ({COMPARISON_DURATION:.0f}s)</h2>
+<h2 id="sec-compare">3. v1 Comparison ({COMPARISON_DURATION:.0f}s)</h2>
 
 <div class="section">
   <h3>Methodology</h3>
@@ -1102,7 +1124,7 @@ def run_benchmarks():
 </details>
 
 <!-- ===== Benchmark 4: Division ===== -->
-<h2>4. Division</h2>
+<h2 id="sec-division">4. Division</h2>
 
 <div class="section">
   <h3>How Division Works</h3>
@@ -1158,7 +1180,7 @@ composite = run_and_cache(intervals=[500, 1000, 1500, 1800, 2000])</pre>
 </details>
 
 <!-- ===== Benchmark 5: Long Sim ===== -->
-<h2>5. Long Simulation ({LONG_DURATION/60:.0f} min)</h2>
+<h2 id="sec-long">5. Long Simulation ({LONG_DURATION/60:.0f} min)</h2>
 <div class="metrics">
   <div class="metric"><div class="label">Sim Duration</div><div class="value">{l['duration']:.0f}s</div></div>
   <div class="metric"><div class="label">Wall Time</div><div class="value blue">{l['wall_time']:.1f}s</div></div>
@@ -1170,7 +1192,7 @@ composite = run_and_cache(intervals=[500, 1000, 1500, 1800, 2000])</pre>
 <div class="plot"><img src="data:image/png;base64,{growth_long}" alt="Long Growth"></div>
 
 <!-- ===== Benchmark 5: Step Diagnostics ===== -->
-<h2>5. Step Diagnostics ({len(diag)} steps)</h2>
+<h2 id="sec-steps">6. Step Diagnostics ({len(diag)} steps)</h2>
 <details open>
 <summary>Execution Flow</summary>
 <div class="section" style="overflow-x: auto;">
@@ -1182,14 +1204,15 @@ composite = run_and_cache(intervals=[500, 1000, 1500, 1800, 2000])</pre>
 </details>
 
 <!-- ===== Bigraph ===== -->
-<h2>6. Bigraph</h2>
-<details>
-<summary>Process Network Visualization</summary>
+<h2 id="sec-bigraph">7. Process-Bigraph Network Visualization</h2>
+<div class="section">
+  <p>Visualization of the biological process network. Steps (colored) read from and write to
+  shared stores (bulk, unique, listeners). Scroll horizontally to see the full network.</p>
+</div>
 <div class="bigraph">{bigraph_svg}</div>
-</details>
 
 <!-- ===== Timing Summary ===== -->
-<h2>7. Timing Summary</h2>
+<h2 id="sec-timing">8. Timing Summary</h2>
 <div class="section">
   <table>
     <tr><th>Benchmark</th><th>Wall Time</th><th>Sim Time</th><th>Sim/Wall Ratio</th></tr>

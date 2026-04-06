@@ -17,7 +17,7 @@ from numba import njit
 import numpy as np
 import numpy.typing as npt
 from scipy.integrate import solve_ivp
-import pint
+from unum import Unum
 
 # wcEcoli imports
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
@@ -29,7 +29,7 @@ from bigraph_schema.schema import Float, Overwrite
 
 # vivarium imports
 from v2ecoli.steps.partition import deep_merge, _protect_state, _SafeInvokeMixin
-from v2ecoli.library.units import units as vivunits
+from vivarium.library.units import units as vivunits
 # vivarium-ecoli imports
 from v2ecoli.library.schema import (
     listener_schema,
@@ -1533,22 +1533,22 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
 
 
 def ppgpp_metabolite_changes(
-    uncharged_trna_conc: pint.Quantity,
-    charged_trna_conc: pint.Quantity,
-    ribosome_conc: pint.Quantity,
+    uncharged_trna_conc: Unum,
+    charged_trna_conc: Unum,
+    ribosome_conc: Unum,
     f: npt.NDArray[np.float64],
-    rela_conc: pint.Quantity,
-    spot_conc: pint.Quantity,
-    ppgpp_conc: pint.Quantity,
-    counts_to_molar: pint.Quantity,
-    v_rib: pint.Quantity,
+    rela_conc: Unum,
+    spot_conc: Unum,
+    ppgpp_conc: Unum,
+    counts_to_molar: Unum,
+    v_rib: Unum,
     charging_params: dict[str, Any],
     ppgpp_params: dict[str, Any],
     time_step: float,
     request: bool = False,
     limits: Optional[npt.NDArray[np.float64]] = None,
     random_state: Optional[np.random.RandomState] = None,
-) -> tuple[npt.NDArray[np.int64], int, int, pint.Quantity, pint.Quantity, pint.Quantity, pint.Quantity]:
+) -> tuple[npt.NDArray[np.int64], int, int, Unum, Unum, Unum, Unum]:
     """
     Calculates the changes in metabolite counts based on ppGpp synthesis and
     degradation reactions.
@@ -1732,18 +1732,18 @@ def ppgpp_metabolite_changes(
 
 
 def calculate_trna_charging(
-    synthetase_conc: pint.Quantity,
-    uncharged_trna_conc: pint.Quantity,
-    charged_trna_conc: pint.Quantity,
-    aa_conc: pint.Quantity,
-    ribosome_conc: pint.Quantity,
-    f: pint.Quantity,
+    synthetase_conc: Unum,
+    uncharged_trna_conc: Unum,
+    charged_trna_conc: Unum,
+    aa_conc: Unum,
+    ribosome_conc: Unum,
+    f: Unum,
     params: dict[str, Any],
     supply: Optional[Callable] = None,
     time_limit: float = 1000,
     limit_v_rib: bool = False,
     use_disabled_aas: bool = False,
-) -> tuple[pint.Quantity, float, pint.Quantity, pint.Quantity, pint.Quantity]:
+) -> tuple[Unum, float, Unum, Unum, Unum]:
     """
     Calculates the steady state value of tRNA based on charging and
     incorporation through polypeptide elongation. The fraction of
@@ -2010,15 +2010,15 @@ def get_charging_supply_function(
     amino_acid_import: Callable,
     amino_acid_export: Callable,
     aa_supply_scaling: Callable,
-    counts_to_molar: pint.Quantity,
+    counts_to_molar: Unum,
     aa_supply: npt.NDArray[np.float64],
     fwd_enzyme_counts: npt.NDArray[np.int64],
     rev_enzyme_counts: npt.NDArray[np.int64],
-    dry_mass: pint.Quantity,
+    dry_mass: Unum,
     importer_counts: npt.NDArray[np.int64],
     exporter_counts: npt.NDArray[np.int64],
     aa_in_media: npt.NDArray[np.bool_],
-) -> Optional[Callable[[npt.NDArray[np.float64]], Tuple[pint.Quantity, pint.Quantity, pint.Quantity]]]:
+) -> Optional[Callable[[npt.NDArray[np.float64]], Tuple[Unum, Unum, Unum]]]:
     """
     Get a function mapping internal amino acid concentrations to the amount of
     amino acid supply expected.

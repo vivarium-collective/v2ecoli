@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy import interpolate, stats
 from scipy.optimize import minimize
-import pint
+import unum
 
 from v2ecoli.library import fitting
 from v2ecoli.library.units import units
@@ -169,7 +169,7 @@ class Mass(object):
         self._d_period = sim_data.constants.d_period
 
     # Set based on growth rate avgCellDryMass
-    def get_avg_cell_dry_mass(self, doubling_time: pint.Quantity) -> pint.Quantity:
+    def get_avg_cell_dry_mass(self, doubling_time: unum.Unum) -> unum.Unum:
         """
         Gets the dry mass for an average cell at the given doubling time.
 
@@ -190,7 +190,7 @@ class Mass(object):
             )
         return units.fg / inverse_mass
 
-    def get_dna_critical_mass(self, doubling_time: pint.Quantity) -> pint.Quantity:
+    def get_dna_critical_mass(self, doubling_time: unum.Unum) -> unum.Unum:
         """
         Returns the critical mass for replication initiation.  Faster growing
         cells maintain a consistent initiation mass but slower growing cells
@@ -210,7 +210,7 @@ class Mass(object):
 
     # Set mass fractions based on growth rate
     def get_mass_fractions(self, doubling_time):
-        if not isinstance(doubling_time, pint.Quantity):
+        if not isinstance(doubling_time, unum.Unum):
             raise Exception("Doubling time was not set!")
 
         D = {}
@@ -524,7 +524,7 @@ class Mass(object):
         ]
 
     def get_trna_distribution(self, doubling_time):
-        assert isinstance(doubling_time, pint.Quantity)
+        assert isinstance(doubling_time, unum.Unum)
         assert isinstance(doubling_time.asNumber(), float)
         growth_rate = 1 / doubling_time
         growth_rate = growth_rate.asNumber(1 / units.h)

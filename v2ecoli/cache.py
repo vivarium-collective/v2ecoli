@@ -88,7 +88,7 @@ def numpy_json_hook(obj):
         if obj.get('__bytes__'):
             return bytes.fromhex(obj['data'])
         if obj.get('__pint__'):
-            from v2ecoli.library.units import units
+            from vivarium.library.units import units
             return obj['magnitude'] * getattr(units, obj['units'].split()[-1], 1)
         if obj.get('__unum__'):
             from v2ecoli.library.units import units

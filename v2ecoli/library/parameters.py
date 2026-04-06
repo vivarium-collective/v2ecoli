@@ -5,7 +5,7 @@ import numpy as np
 from scipy import constants
 
 from vivarium.library.topology import get_in, assoc_path
-from v2ecoli.library.units import units
+from vivarium.library.units import units
 
 from wholecell.utils.filepath import ROOT_PATH
 from ecoli.library.cell_wall.column_sampler import fit_strand_term_p

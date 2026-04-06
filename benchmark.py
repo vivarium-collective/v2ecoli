@@ -786,10 +786,14 @@ SKIP_STEPS = {'unique_update', 'global_clock', 'mark_d_period', 'division',
 SKIP_PORTS = {'timestep', 'global_time', 'next_update_time', 'process'}
 BIO_COLORS = {
     'dna': ('#FFB6C1', lambda n: 'chromosome' in n),
-    'rna': ('#ADD8E6', lambda n: any(s in n for s in ('transcript', 'rna-', 'RNA', 'rnap'))),
+    'rna': ('#ADD8E6', lambda n: any(s in n for s in ('transcript', 'rna-', 'rna_', 'RNA', 'rnap'))),
     'protein': ('#90EE90', lambda n: any(s in n for s in ('polypeptide', 'protein', 'ribosome'))),
     'meta': ('#FFD700', lambda n: any(s in n for s in ('metabolism', 'equilibrium', 'complexation', 'two-component'))),
     'reg': ('#DDA0DD', lambda n: any(s in n for s in ('tf-', 'tf_'))),
+    'alloc': ('#FFA07A', lambda n: 'allocator' in n),
+    'infra': ('#E0E0E0', lambda n: any(s in n for s in ('unique_update', 'global_clock', 'emitter',
+                                                          'mark_d_period', 'division', 'exchange',
+                                                          'media_update', 'post-division'))),
     'listen': ('#D3D3D3', lambda n: 'listener' in n),
 }
 
@@ -800,16 +804,17 @@ def make_bigraph_svg(state):
     for name, edge in cell.items():
         if not isinstance(edge, dict): continue
         if '_type' in edge:
-            if any(s in name for s in SKIP_STEPS): continue
-            if '_requester' in name: continue
+            # Full visualization — all steps including requesters, evolvers, allocators
             inputs = {p: w for p, w in edge.get('inputs', {}).items()
-                      if not p.startswith('_flow') and p not in SKIP_PORTS
-                      and not (isinstance(w, list) and w and w[0] in ('request', 'allocate'))}
-            clean = name.replace('ecoli-', '').replace('_evolver', '')
-            viz[clean] = {'_type': edge['_type'], 'inputs': inputs}
+                      if not p.startswith('_layer') and not p.startswith('_flow')}
+            outputs = {p: w for p, w in edge.get('outputs', {}).items()
+                       if not p.startswith('_layer') and not p.startswith('_flow')}
+            clean = name.replace('ecoli-', '')
+            viz[clean] = {'_type': edge['_type'], 'inputs': inputs, 'outputs': outputs}
         elif name == 'unique' and isinstance(edge, dict):
             viz[name] = {k: {} for k in edge.keys()}
-        elif name in ('bulk', 'listeners', 'environment', 'boundary'):
+        elif name in ('bulk', 'listeners', 'environment', 'boundary',
+                       'request', 'allocate', 'process_state'):
             viz[name] = {}
 
     viz_state = {'agents': {'0': viz}}
@@ -998,9 +1003,14 @@ def run_benchmarks():
   table {{ border-collapse: collapse; width: 100%; font-size: 0.82em; }}
   th, td {{ border: 1px solid #e2e8f0; padding: 5px 8px; text-align: left; }}
   th {{ background: #f1f5f9; font-weight: 600; }}
-  .bigraph {{ overflow: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px;
-              background: white; }}
-  .bigraph svg {{ min-width: 100%; height: auto; }}
+  .bigraph-container {{ position: relative; border: 1px solid #e2e8f0; border-radius: 8px;
+              background: #fafafa; overflow: hidden; height: 700px; cursor: grab; }}
+  .bigraph-container.grabbing {{ cursor: grabbing; }}
+  .bigraph-container svg {{ position: absolute; transform-origin: 0 0; }}
+  .bigraph-controls {{ display: flex; gap: 6px; margin: 8px 0; }}
+  .bigraph-controls button {{ padding: 4px 12px; border: 1px solid #cbd5e1; border-radius: 4px;
+              background: white; cursor: pointer; font-size: 0.85em; }}
+  .bigraph-controls button:hover {{ background: #f1f5f9; }}
   .bench-bar {{ display: flex; align-items: center; gap: 8px; margin: 3px 0; }}
   .bench-bar .bar {{ height: 20px; border-radius: 3px; min-width: 2px; }}
   .bench-bar .label {{ font-size: 0.8em; min-width: 100px; }}
@@ -1206,10 +1216,66 @@ composite = run_and_cache(intervals=[500, 1000, 1500, 1800, 2000])</pre>
 <!-- ===== Bigraph ===== -->
 <h2 id="sec-bigraph">7. Process-Bigraph Network Visualization</h2>
 <div class="section">
-  <p>Visualization of the biological process network. Steps (colored) read from and write to
-  shared stores (bulk, unique, listeners). Scroll horizontally to see the full network.</p>
+  <p>Interactive visualization of the biological process network. Scroll to zoom, drag to pan.
+  Steps (colored) read from and write to shared stores (bulk, unique, listeners, request, allocate).</p>
+  <div class="bigraph-controls">
+    <button onclick="bgZoom(1.3)">Zoom In</button>
+    <button onclick="bgZoom(0.77)">Zoom Out</button>
+    <button onclick="bgReset()">Fit</button>
+    <span id="bg-zoom-level" style="font-size:0.8em;color:#64748b;padding:4px;"></span>
+  </div>
 </div>
-<div class="bigraph">{bigraph_svg}</div>
+<div class="bigraph-container" id="bigraph-container">{bigraph_svg}</div>
+<script>
+(function() {{
+  const ctr = document.getElementById('bigraph-container');
+  const svg = ctr.querySelector('svg');
+  if (!svg) return;
+  let scale = 1, tx = 0, ty = 0, dragging = false, sx, sy;
+  function apply() {{
+    svg.style.transform = `translate(${{tx}}px,${{ty}}px) scale(${{scale}})`;
+    document.getElementById('bg-zoom-level').textContent = Math.round(scale*100)+'%';
+  }}
+  // Fit on load
+  function fit() {{
+    const bb = svg.getBBox();
+    const cw = ctr.clientWidth, ch = ctr.clientHeight;
+    scale = Math.min(cw / (bb.width + 40), ch / (bb.height + 40), 2);
+    tx = (cw - bb.width * scale) / 2 - bb.x * scale;
+    ty = (ch - bb.height * scale) / 2 - bb.y * scale;
+    apply();
+  }}
+  svg.style.width = svg.getAttribute('viewBox') ? '' : (svg.getBBox().width + 'px');
+  svg.style.height = svg.getAttribute('viewBox') ? '' : (svg.getBBox().height + 'px');
+  svg.removeAttribute('width'); svg.removeAttribute('height');
+  setTimeout(fit, 50);
+  window.bgReset = fit;
+  window.bgZoom = function(f) {{
+    const cx = ctr.clientWidth/2, cy = ctr.clientHeight/2;
+    tx = cx - f * (cx - tx); ty = cy - f * (cy - ty);
+    scale *= f; apply();
+  }};
+  ctr.addEventListener('wheel', function(e) {{
+    e.preventDefault();
+    const f = e.deltaY < 0 ? 1.12 : 0.89;
+    const r = ctr.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    tx = mx - f * (mx - tx); ty = my - f * (my - ty);
+    scale *= f; apply();
+  }}, {{passive: false}});
+  ctr.addEventListener('mousedown', function(e) {{
+    dragging = true; sx = e.clientX - tx; sy = e.clientY - ty;
+    ctr.classList.add('grabbing');
+  }});
+  window.addEventListener('mousemove', function(e) {{
+    if (!dragging) return;
+    tx = e.clientX - sx; ty = e.clientY - sy; apply();
+  }});
+  window.addEventListener('mouseup', function() {{
+    dragging = false; ctr.classList.remove('grabbing');
+  }});
+}})();
+</script>
 
 <!-- ===== Timing Summary ===== -->
 <h2 id="sec-timing">8. Timing Summary</h2>

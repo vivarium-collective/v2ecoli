@@ -23,8 +23,9 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 - **Native flow execution** via `sequential_steps=False` with layer-based flow tokens
 - **Explicit Requester/Evolver Steps** with input/output topology separation for all 11 partitioned processes
 - **31 execution layers** with requesters/evolvers/listeners grouped for parallel execution
-- **Partition system**: Requesters → Allocators → Evolvers with proper store routing
-- **Store routing fix**: `_protect_state` copies bulk/unique, pre-created request sub-dicts
+- **Flat per-process stores**: `request_{proc}` and `allocate_{proc}` replace shared nested dicts
+- **Partition system**: Requesters → Allocators → Evolvers with per-process store routing
+- **Store routing fix**: `_protect_state` copies bulk/unique
 - **Custom types**: BulkNumpyUpdate, UniqueNumpyUpdate, InPlaceDict, SetStore, ListenerStore
 - **Division**: `_add`/`_remove` structural updates with state splitting + daughter viability
 - **State splitting**: bulk (binomial), unique (domain-based), RNA (RNAP-following), ribosomes (mRNA-following)

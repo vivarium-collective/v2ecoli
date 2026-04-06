@@ -148,9 +148,9 @@ class ComplexationRequester(_SafeInvokeMixin, Step):
         request = self.process.calculate_request(timestep, state)
         self.process.request_set = True
         bulk_request = request.pop('bulk', None)
-        result = {'request': {self.process_name: {}}}
+        result = {'request': {}}
         if bulk_request is not None:
-            result['request'][self.process_name]['bulk'] = bulk_request
+            result['request']['bulk'] = bulk_request
         return result
 
 

@@ -22,16 +22,14 @@ class NegativeCountsError(Exception):
 
 
 class Allocator(Step):
-    """Allocator — arbitrates bulk molecule allocation."""
+    """Allocator — arbitrates bulk molecule allocation.
+
+    Uses flat per-process stores: reads from request_{proc_name},
+    writes to allocate_{proc_name}. This enables parallel execution
+    of requesters (no shared output store).
+    """
 
     name = "allocator"
-    topology = {
-        'request': ('request',),
-        'allocate': ('allocate',),
-        'bulk': ('bulk',),
-        'listeners': ('listeners',),
-        'allocator_rng': ('allocator_rng',),
-    }
     config_schema = {}
 
     def __init__(self, config=None, core=None):
@@ -57,20 +55,37 @@ class Allocator(Step):
         self.seed = params.get("seed", 0)
         self.molecule_idx = None
 
+        # Which processes THIS allocator serves (subset of all partitioned)
+        self.layer_processes = params.get("layer_processes", self.processNames)
+
+        # Dynamic topology with flat per-process stores
+        self.topology = {
+            'bulk': ('bulk',),
+            'listeners': ('listeners',),
+            'allocator_rng': ('allocator_rng',),
+        }
+        for proc in self.layer_processes:
+            self.topology[f'request_{proc}'] = (f'request_{proc}',)
+            self.topology[f'allocate_{proc}'] = (f'allocate_{proc}',)
+
     def inputs(self):
-        return {
+        ports = {
             'bulk': BulkNumpyUpdate(),
-            'request': InPlaceDict(),
             'listeners': ListenerStore(),
             'allocator_rng': Node(),
         }
+        for proc in self.layer_processes:
+            ports[f'request_{proc}'] = InPlaceDict()
+        return ports
 
     def outputs(self):
-        return {
-            'request': SetStore(),
-            'allocate': SetStore(),
+        ports = {
             'listeners': ListenerStore(),
         }
+        for proc in self.layer_processes:
+            ports[f'request_{proc}'] = SetStore()
+            ports[f'allocate_{proc}'] = SetStore()
+        return ports
 
     def initial_state(self, config=None):
         return {}
@@ -82,17 +97,15 @@ class Allocator(Step):
             self.atp_idx = bulk_name_to_idx("ATP[c]", state["bulk"]["id"])
 
         total_counts = counts(state["bulk"], self.molecule_idx)
-        original_totals = total_counts.copy()
         counts_requested = np.zeros((self.n_molecules, self.n_processes), dtype=int)
 
-        proc_idx_in_layer = []
-        for process in state.get("request", {}):
+        # Read from flat per-process request stores
+        for process in self.layer_processes:
             if process not in self.proc_name_to_idx:
                 continue
             proc_idx = self.proc_name_to_idx[process]
-            req_bulk = state["request"][process].get("bulk", [])
-            if len(req_bulk) > 0:
-                proc_idx_in_layer.append(proc_idx)
+            req_data = state.get(f"request_{process}", {})
+            req_bulk = req_data.get("bulk", [])
             for req_idx, req in req_bulk:
                 counts_requested[req_idx, proc_idx] += req
 
@@ -115,16 +128,19 @@ class Allocator(Step):
         curr_atp_req[non_zero_mask] = counts_requested[self.atp_idx, non_zero_mask]
         curr_atp_alloc[non_zero_mask] = partitioned_counts[self.atp_idx, non_zero_mask]
 
-        return {
-            "request": {process: {"bulk": []} for process in state.get("request", {})},
-            "allocate": {
-                process: {"bulk": partitioned_counts[:, self.proc_name_to_idx[process]]}
-                for process in state.get("request", {})
-                if process in self.proc_name_to_idx},
+        # Write to flat per-process stores
+        result = {
             "listeners": {"atp": {
                 "atp_requested": curr_atp_req,
                 "atp_allocated_initial": curr_atp_alloc}},
         }
+        for process in self.layer_processes:
+            if process in self.proc_name_to_idx:
+                proc_idx = self.proc_name_to_idx[process]
+                result[f"request_{process}"] = {"bulk": []}
+                result[f"allocate_{process}"] = {
+                    "bulk": partitioned_counts[:, proc_idx]}
+        return result
 
 
 def calculate_partition(process_priorities, counts_requested, total_counts, random_state):

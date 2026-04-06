@@ -251,6 +251,9 @@ class ExplicitRequester(_SafeInvokeMixin, Step):
 
     inputs(): all process ports + timing (reads everything)
     outputs(): only request + next_update_time + listeners (writes only)
+
+    Request output is flat (no process_name nesting) — the topology
+    routes to the per-process request store.
     """
 
     config_schema = {}
@@ -259,7 +262,6 @@ class ExplicitRequester(_SafeInvokeMixin, Step):
         super().__init__(config=config, core=core)
         self.process = config['process']
         self.process_name = config.get('process_name', self.process.name)
-        # Which output ports the requester writes (besides request + next_update_time)
         self._writes_listeners = config.get('writes_listeners', False)
 
     def inputs(self):
@@ -295,9 +297,9 @@ class ExplicitRequester(_SafeInvokeMixin, Step):
         self.process.request_set = True
 
         bulk_request = request.pop('bulk', None)
-        result = {'request': {self.process_name: {}}}
+        result = {'request': {}}
         if bulk_request is not None:
-            result['request'][self.process_name]['bulk'] = bulk_request
+            result['request']['bulk'] = bulk_request
 
         listeners = request.pop('listeners', None)
         if listeners is not None:

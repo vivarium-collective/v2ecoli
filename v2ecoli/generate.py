@@ -229,7 +229,9 @@ def inject_flow_dependencies(cell_state, flow_order, layers=None):
                 edge.setdefault('inputs', {})[f'_layer_in_{layer_idx}'] = \
                     [f'_layer_token_{layer_idx - 1}']
 
-            # All steps in this layer produce this layer's token
+            # All steps in the layer produce the output token.
+            # Within-layer parallelism requires process-bigraph to
+            # support barrier tokens (W/W on same value = sync point).
             if layer_idx < n_layers - 1:
                 edge.setdefault('outputs', {})[f'_layer_out_{layer_idx}'] = \
                     [f'_layer_token_{layer_idx}']
@@ -343,7 +345,7 @@ def build_document(sim_data_path=None, seed=0):
     cell_state.update(initial_state)
 
     # Pre-create virtual stores that steps will read/write
-    for store in ['listeners', 'request', 'allocate', 'process',
+    for store in ['listeners', 'process',
                   'allocator_rng', 'process_state', 'exchange',
                   'next_update_time']:
         if store not in cell_state:
@@ -361,7 +363,7 @@ def build_document(sim_data_path=None, seed=0):
     import numpy as np
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
 
-    # Pre-create request sub-dicts so core.apply can route requester updates
+    # Pre-create flat per-process request/allocate stores
     _ALL_PARTITIONED = [
         'ecoli-chromosome-replication', 'ecoli-complexation',
         'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
@@ -371,7 +373,8 @@ def build_document(sim_data_path=None, seed=0):
         'ecoli-two-component-system',
     ]
     for proc_name in _ALL_PARTITIONED:
-        cell_state.setdefault('request', {})[proc_name] = {'bulk': []}
+        cell_state[f'request_{proc_name}'] = {'bulk': []}
+        cell_state[f'allocate_{proc_name}'] = {'bulk': {}}
 
     # Pre-populate process_state with defaults that metabolism needs
     from v2ecoli.library.units import units
@@ -444,7 +447,7 @@ def build_document_from_configs(initial_state, configs, unique_names,
     cell_state.update(initial_state)
 
     # Pre-create virtual stores
-    for store in ['listeners', 'request', 'allocate', 'process',
+    for store in ['listeners', 'process',
                   'allocator_rng', 'process_state', 'exchange',
                   'next_update_time']:
         if store not in cell_state:
@@ -457,7 +460,7 @@ def build_document_from_configs(initial_state, configs, unique_names,
     cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
 
-    # Pre-create request sub-dicts
+    # Pre-create flat per-process request/allocate stores
     _ALL_PARTITIONED = [
         'ecoli-chromosome-replication', 'ecoli-complexation',
         'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
@@ -467,7 +470,8 @@ def build_document_from_configs(initial_state, configs, unique_names,
         'ecoli-two-component-system',
     ]
     for proc_name in _ALL_PARTITIONED:
-        cell_state.setdefault('request', {})[proc_name] = {'bulk': []}
+        cell_state[f'request_{proc_name}'] = {'bulk': []}
+        cell_state[f'allocate_{proc_name}'] = {'bulk': {}}
 
     from v2ecoli.library.units import units
     cell_state.setdefault('process_state', {})
@@ -710,11 +714,11 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             in_topo['global_time'] = ('global_time',)
             in_topo.setdefault('timestep', ('timestep',))
             in_topo['next_update_time'] = ('next_update_time', base_name)
-            # Output: only stores the requester writes to
+            # Output: flat per-process request store
             out_ports = set(instance.outputs().keys())
             out_topo = {'next_update_time': ('next_update_time', base_name)}
             if 'request' in out_ports:
-                out_topo['request'] = ('request',)
+                out_topo['request'] = (f'request_{base_name}',)
             if 'listeners' in out_ports:
                 out_topo['listeners'] = topology.get('listeners', ('listeners',))
             return instance, topology, 'step', in_topo, out_topo
@@ -727,9 +731,9 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
                 instance = spec['evolver_class'](config=ev_config, core=core)
             else:
                 instance = ExplicitEvolver(config=ev_config, core=core)
-            # Input: allocation + all process stores + timing
+            # Input: flat per-process allocate store + all process stores + timing
             in_topo = dict(topology)
-            in_topo['allocate'] = ('allocate', base_name)
+            in_topo['allocate'] = (f'allocate_{base_name}',)
             in_topo['global_time'] = ('global_time',)
             in_topo.setdefault('timestep', ('timestep',))
             in_topo['next_update_time'] = ('next_update_time', base_name)
@@ -846,8 +850,20 @@ def _get_special_step(loader, step_name, core):
             'ecoli-transcript-elongation', 'ecoli-transcript-initiation',
             'ecoli-two-component-system',
         ]
+        # Each allocator serves a specific partition layer
+        ALLOCATOR_LAYERS = {
+            'allocator_1': ['ecoli-equilibrium', 'ecoli-rna-maturation',
+                            'ecoli-two-component-system'],
+            'allocator_2': ['ecoli-chromosome-replication', 'ecoli-complexation',
+                            'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
+                            'ecoli-rna-degradation', 'ecoli-transcript-initiation'],
+            'allocator_3': ['ecoli-polypeptide-elongation',
+                            'ecoli-transcript-elongation'],
+        }
+        layer_procs = ALLOCATOR_LAYERS.get(step_name, all_partitioned)
         if not config.get('process_names'):
             config['process_names'] = all_partitioned
+        config['layer_processes'] = layer_procs
         if config:
             instance = Allocator(config=config, core=core)
             topo = instance.topology

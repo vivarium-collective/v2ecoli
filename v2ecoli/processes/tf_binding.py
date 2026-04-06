@@ -9,6 +9,10 @@ This process models how transcription factors bind to promoters on the DNA seque
 import numpy as np
 import warnings
 
+from process_bigraph import Step
+from process_bigraph.composite import SyncUpdate
+from bigraph_schema.schema import Float, Overwrite
+
 from v2ecoli.library.schema import (
     listener_schema,
     numpy_schema,
@@ -16,13 +20,18 @@ from v2ecoli.library.schema import (
     bulk_name_to_idx,
     counts,
 )
-from v2ecoli.steps.partition import PartitionedProcess
+from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
+from v2ecoli.steps.base import _translate_schema
+from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
+from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
+from v2ecoli.types.stores import InPlaceDict, ListenerStore
 
 from v2ecoli.library.random import stochasticRound
 from v2ecoli.library.units import units
 
-class TfBinding(PartitionedProcess):
-    """Transcription Factor Binding Step"""
+
+class TfBindingLogic:
+    """Transcription Factor Binding logic — pure computation, no Step inheritance."""
 
     name = "ecoli-tf-binding"
     topology = {
@@ -65,8 +74,9 @@ class TfBinding(PartitionedProcess):
     }
 
     # Constructor
-    def __init__(self, parameters=None, **kwargs):
-        super().__init__(parameters, **kwargs)
+    def __init__(self, parameters=None):
+        self.parameters = {**self.defaults, **(parameters or {})}
+        self.request_set = False
 
         # Get IDs of transcription factors
         self.tf_ids = self.parameters["tf_ids"]
@@ -325,3 +335,24 @@ class TfBinding(PartitionedProcess):
 
         update["next_update_time"] = states["global_time"] + states["timestep"]
         return update
+
+
+class TfBindingStep(_SafeInvokeMixin, Step):
+    """Single Step that runs TfBindingLogic."""
+
+    config_schema = {}
+
+    def initialize(self, config):
+        self.logic = TfBindingLogic(parameters=config)
+        self.topology = self.logic.topology
+
+    def inputs(self):
+        return _translate_schema(self.logic.ports_schema())
+
+    def outputs(self):
+        return _translate_schema(self.logic.ports_schema())
+
+    def update(self, state, interval=None):
+        state = _protect_state(state)
+        timestep = state.get('timestep', self.logic.parameters.get('time_step', 1.0))
+        return self.logic.next_update(timestep, state)

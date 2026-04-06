@@ -22,8 +22,16 @@ from scipy.sparse import csr_matrix
 from unum import Unum
 from vivarium.library.units import units as vivunits
 
+from process_bigraph import Step
+from process_bigraph.composite import SyncUpdate
+from bigraph_schema.schema import Float, Overwrite
+
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
-from v2ecoli.steps.partition import PartitionedProcess
+from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
+from v2ecoli.steps.base import _translate_schema
+from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
+from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
+from v2ecoli.types.stores import InPlaceDict, ListenerStore
 from v2ecoli.library.units import units
 from v2ecoli.library.random import stochasticRound
 from v2ecoli.library.fba import FluxBalanceAnalysis
@@ -39,8 +47,8 @@ GDCW_BASIS = units.mmol / units.g / units.h
 USE_KINETICS = True
 
 
-class Metabolism(PartitionedProcess):
-    """Metabolism Process"""
+class MetabolismLogic:
+    """Metabolism logic — pure computation, no Step inheritance."""
 
     name = "ecoli-metabolism"
     topology = {
@@ -92,8 +100,9 @@ class Metabolism(PartitionedProcess):
         "time_step": 1,
     }
 
-    def __init__(self, parameters=None, **kwargs):
-        super().__init__(parameters, **kwargs)
+    def __init__(self, parameters=None):
+        self.parameters = {**self.defaults, **(parameters or {})}
+        self.request_set = False
 
         # Use information from the environment and sim
         self.get_import_constraints = self.parameters["get_import_constraints"]
@@ -703,6 +712,27 @@ class Metabolism(PartitionedProcess):
             )
 
         return conc_updates
+
+
+class MetabolismStep(_SafeInvokeMixin, Step):
+    """Single Step that runs MetabolismLogic."""
+
+    config_schema = {}
+
+    def initialize(self, config):
+        self.logic = MetabolismLogic(parameters=config)
+        self.topology = self.logic.topology
+
+    def inputs(self):
+        return _translate_schema(self.logic.ports_schema())
+
+    def outputs(self):
+        return _translate_schema(self.logic.ports_schema())
+
+    def update(self, state, interval=None):
+        state = _protect_state(state)
+        timestep = state.get('timestep', self.logic.parameters.get('time_step', 1.0))
+        return self.logic.next_update(timestep, state)
 
 
 class FluxBalanceAnalysisModel(object):

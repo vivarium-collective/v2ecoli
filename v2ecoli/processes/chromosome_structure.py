@@ -11,6 +11,11 @@ Chromosome Structure
 import numpy as np
 import numpy.typing as npt
 import warnings
+
+from process_bigraph import Step
+from process_bigraph.composite import SyncUpdate
+from bigraph_schema.schema import Float, Overwrite
+
 from v2ecoli.library.schema import (
     listener_schema,
     numpy_schema,
@@ -19,10 +24,15 @@ from v2ecoli.library.schema import (
     get_free_indices,
 )
 from v2ecoli.library.polymerize import buildSequences
-from v2ecoli.steps.partition import PartitionedProcess
+from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
+from v2ecoli.steps.base import _translate_schema
+from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
+from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
+from v2ecoli.types.stores import InPlaceDict, ListenerStore
 
-class ChromosomeStructure(PartitionedProcess):
-    """Chromosome Structure Process"""
+
+class ChromosomeStructureLogic:
+    """Chromosome Structure logic — pure computation, no Step inheritance."""
 
     name = "ecoli-chromosome-structure"
     topology = {
@@ -90,8 +100,10 @@ class ChromosomeStructure(PartitionedProcess):
     }
 
     # Constructor
-    def __init__(self, parameters=None, **kwargs):
-        super().__init__(parameters, **kwargs)
+    def __init__(self, parameters=None):
+        self.parameters = {**self.defaults, **(parameters or {})}
+        self.request_set = False
+
         self.rna_sequences = self.parameters["rna_sequences"]
         self.protein_sequences = self.parameters["protein_sequences"]
         self.n_TUs = self.parameters["n_TUs"]
@@ -1312,3 +1324,24 @@ def get_last_known_replisome_data(
         )
 
     return replisome_coordinates, replisome_molecule_indexes
+
+
+class ChromosomeStructureStep(_SafeInvokeMixin, Step):
+    """Single Step that runs ChromosomeStructureLogic."""
+
+    config_schema = {}
+
+    def initialize(self, config):
+        self.logic = ChromosomeStructureLogic(parameters=config)
+        self.topology = self.logic.topology
+
+    def inputs(self):
+        return _translate_schema(self.logic.ports_schema())
+
+    def outputs(self):
+        return _translate_schema(self.logic.ports_schema())
+
+    def update(self, state, interval=None):
+        state = _protect_state(state)
+        timestep = state.get('timestep', self.logic.parameters.get('time_step', 1.0))
+        return self.logic.next_update(timestep, state)

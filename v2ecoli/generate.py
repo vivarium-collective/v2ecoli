@@ -381,7 +381,7 @@ def build_document(sim_data_path=None, seed=0):
         'aa_count_diff': np.zeros(21),
     })
 
-    # Cache for shared PartitionedProcess instances (requester + evolver share one)
+    # Cache for shared Logic instances (requester + evolver share one)
     _process_cache = {}
 
     # Add all process/step edges with their configs and topologies
@@ -563,8 +563,8 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         TwoComponentSystemLogic, TwoComponentSystemRequester, TwoComponentSystemEvolver)
     from v2ecoli.processes.rna_maturation import (
         RnaMaturationLogic, RnaMaturationRequester, RnaMaturationEvolver)
-    from v2ecoli.processes.tf_binding import TfBinding
-    from v2ecoli.processes.tf_unbinding import TfUnbinding
+    from v2ecoli.processes.tf_binding import TfBindingLogic, TfBindingStep
+    from v2ecoli.processes.tf_unbinding import TfUnbindingLogic, TfUnbindingStep
     from v2ecoli.processes.transcript_initiation import (
         TranscriptInitiationLogic, TranscriptInitiationRequester, TranscriptInitiationEvolver)
     from v2ecoli.processes.polypeptide_initiation import (
@@ -581,8 +581,8 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         TranscriptElongationLogic, TranscriptElongationRequester, TranscriptElongationEvolver)
     from v2ecoli.processes.polypeptide_elongation import (
         PolypeptideElongationLogic, PolypeptideElongationRequester, PolypeptideElongationEvolver)
-    from v2ecoli.processes.chromosome_structure import ChromosomeStructure
-    from v2ecoli.processes.metabolism import Metabolism
+    from v2ecoli.processes.chromosome_structure import ChromosomeStructureLogic, ChromosomeStructureStep
+    from v2ecoli.processes.metabolism import MetabolismLogic, MetabolismStep
     from v2ecoli.steps.listeners.mass_listener import MassListener, PostDivisionMassListener
     from v2ecoli.steps.listeners.rna_counts import RNACounts
     from v2ecoli.steps.listeners.rna_synth_prob import RnaSynthProb
@@ -594,18 +594,16 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     from v2ecoli.steps.listeners.ribosome_data import RibosomeData
     from v2ecoli.steps.media_update import MediaUpdate
     from v2ecoli.steps.exchange_data import ExchangeData
-    from v2ecoli.steps.partition import ExplicitRequester, ExplicitEvolver, StandaloneStep
-
     # Map step names to classes and their topologies
     # Partitioned processes have _requester/_evolver suffixes
     base_name = step_name.replace('_requester', '').replace('_evolver', '')
 
-    # PartitionedProcesses that run as single steps (no requester/evolver split)
-    STANDALONE_PARTITIONED = {
-        'ecoli-tf-binding': TfBinding,
-        'ecoli-tf-unbinding': TfUnbinding,
-        'ecoli-chromosome-structure': ChromosomeStructure,
-        'ecoli-metabolism': Metabolism,
+    # Standalone steps (no requester/evolver split)
+    STANDALONE_STEPS = {
+        'ecoli-tf-binding': TfBindingStep,
+        'ecoli-tf-unbinding': TfUnbindingStep,
+        'ecoli-chromosome-structure': ChromosomeStructureStep,
+        'ecoli-metabolism': MetabolismStep,
     }
 
     SIMPLE_STEPS = {
@@ -688,25 +686,13 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         if base_name in process_cache:
             process = process_cache[base_name]
         else:
-            cls = spec['class']
-            # Logic classes (plain) take only parameters;
-            # PartitionedProcess subclasses also need core (Step/Edge requirement)
-            from v2ecoli.steps.partition import PartitionedProcess
-            if issubclass(cls, PartitionedProcess):
-                process = cls(parameters=config, core=core)
-            else:
-                process = cls(parameters=config)
+            process = spec['class'](parameters=config)
             process_cache[base_name] = process
         topology = process.topology
 
         if step_name.endswith('_requester'):
-            # Use per-process class if available, otherwise ExplicitRequester
-            req_config = {'process': process, 'process_name': base_name,
-                          'writes_listeners': spec.get('writes_listeners', False)}
-            if 'requester_class' in spec:
-                instance = spec['requester_class'](config=req_config, core=core)
-            else:
-                instance = ExplicitRequester(config=req_config, core=core)
+            req_config = {'process': process, 'process_name': base_name}
+            instance = spec['requester_class'](config=req_config, core=core)
             # Input: all process stores + timing
             in_topo = dict(topology)
             in_topo['global_time'] = ('global_time',)
@@ -722,13 +708,8 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             return instance, topology, 'step', in_topo, out_topo
 
         elif step_name.endswith('_evolver'):
-            # Use per-process class if available, otherwise ExplicitEvolver
-            ev_config = {'process': process,
-                         'output_ports': spec.get('evolver_output_ports')}
-            if 'evolver_class' in spec:
-                instance = spec['evolver_class'](config=ev_config, core=core)
-            else:
-                instance = ExplicitEvolver(config=ev_config, core=core)
+            ev_config = {'process': process}
+            instance = spec['evolver_class'](config=ev_config, core=core)
             # Input: flat per-process allocate store + all process stores + timing
             in_topo = dict(topology)
             in_topo['allocate'] = (f'allocate_{base_name}',)
@@ -747,11 +728,10 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
                     out_topo['listeners'] = ('listeners',)
             return instance, topology, 'step', in_topo, out_topo
 
-    if step_name in STANDALONE_PARTITIONED:
-        cls = STANDALONE_PARTITIONED[step_name]
-        process = cls(parameters=config, core=core)
-        topology = process.topology
-        instance = StandaloneStep(config={'process': process}, core=core)
+    if step_name in STANDALONE_STEPS:
+        step_cls = STANDALONE_STEPS[step_name]
+        instance = step_cls(config=config, core=core)
+        topology = instance.topology
         return instance, topology, 'step'
 
     elif step_name in SIMPLE_STEPS:

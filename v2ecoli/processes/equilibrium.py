@@ -14,14 +14,14 @@ from process_bigraph import Step
 from bigraph_schema.schema import Float, Overwrite
 
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
-from v2ecoli.steps.partition import PartitionedProcess, _protect_state, deep_merge, _SafeInvokeMixin
+from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
 from v2ecoli.library.units import units
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
 
 
-class Equilibrium(PartitionedProcess):
-    """Equilibrium PartitionedProcess
+class EquilibriumLogic:
+    """Equilibrium logic — pure computation, no Step inheritance.
 
     molecule_names: list of molecules that are being iterated over size:94
     """
@@ -44,8 +44,9 @@ class Equilibrium(PartitionedProcess):
     }
 
     # Constructor
-    def __init__(self, parameters=None, **kwargs):
-        super().__init__(parameters, **kwargs)
+    def __init__(self, parameters=None):
+        self.parameters = {**self.defaults, **(parameters or {})}
+        self.request_set = False
 
         # Simulation options
         # utilized in the fluxes and molecules function
@@ -179,12 +180,27 @@ class Equilibrium(PartitionedProcess):
 
         return update
 
+    def next_update(self, timestep, states):
+        from v2ecoli.steps.partition import deep_merge
+        requests = self.calculate_request(timestep, states)
+        bulk_requests = requests.pop("bulk", [])
+        if bulk_requests:
+            bulk_copy = states["bulk"].copy()
+            for bulk_idx, request in bulk_requests:
+                bulk_copy[bulk_idx] = request
+            states["bulk"] = bulk_copy
+        states = deep_merge(states, requests)
+        update = self.evolve_state(timestep, states)
+        if "listeners" in requests:
+            update["listeners"] = deep_merge(
+                update.get("listeners", {}), requests["listeners"])
+        return update
+
 
 class EquilibriumRequester(_SafeInvokeMixin, Step):
     config_schema = {}
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
+    def initialize(self, config):
         self.process = config['process']
         self.process_name = config.get('process_name', self.process.name)
 
@@ -226,8 +242,7 @@ class EquilibriumRequester(_SafeInvokeMixin, Step):
 class EquilibriumEvolver(_SafeInvokeMixin, Step):
     config_schema = {}
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
+    def initialize(self, config):
         self.process = config['process']
 
     def inputs(self):

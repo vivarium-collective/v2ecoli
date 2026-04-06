@@ -558,11 +558,11 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     if process_cache is None:
         process_cache = {}
     from v2ecoli.processes.equilibrium import (
-        Equilibrium, EquilibriumRequester, EquilibriumEvolver)
+        EquilibriumLogic, EquilibriumRequester, EquilibriumEvolver)
     from v2ecoli.processes.two_component_system import (
-        TwoComponentSystem, TwoComponentSystemRequester, TwoComponentSystemEvolver)
+        TwoComponentSystemLogic, TwoComponentSystemRequester, TwoComponentSystemEvolver)
     from v2ecoli.processes.rna_maturation import (
-        RnaMaturation, RnaMaturationRequester, RnaMaturationEvolver)
+        RnaMaturationLogic, RnaMaturationRequester, RnaMaturationEvolver)
     from v2ecoli.processes.tf_binding import TfBinding
     from v2ecoli.processes.tf_unbinding import TfUnbinding
     from v2ecoli.processes.transcript_initiation import TranscriptInitiation
@@ -572,7 +572,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         ProteinDegradationLogic, ProteinDegradationRequester, ProteinDegradationEvolver)
     from v2ecoli.processes.rna_degradation import RnaDegradation
     from v2ecoli.processes.complexation import (
-        Complexation, ComplexationRequester, ComplexationEvolver)
+        ComplexationLogic, ComplexationRequester, ComplexationEvolver)
     from v2ecoli.processes.transcript_elongation import TranscriptElongation
     from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
     from v2ecoli.processes.chromosome_structure import ChromosomeStructure
@@ -626,22 +626,22 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             'evolver_class': ProteinDegradationEvolver,
         },
         'ecoli-equilibrium': {
-            'class': Equilibrium,
+            'class': EquilibriumLogic,
             'requester_class': EquilibriumRequester,
             'evolver_class': EquilibriumEvolver,
         },
         'ecoli-two-component-system': {
-            'class': TwoComponentSystem,
+            'class': TwoComponentSystemLogic,
             'requester_class': TwoComponentSystemRequester,
             'evolver_class': TwoComponentSystemEvolver,
         },
         'ecoli-rna-maturation': {
-            'class': RnaMaturation,
+            'class': RnaMaturationLogic,
             'requester_class': RnaMaturationRequester,
             'evolver_class': RnaMaturationEvolver,
         },
         'ecoli-complexation': {
-            'class': Complexation,
+            'class': ComplexationLogic,
             'requester_class': ComplexationRequester,
             'evolver_class': ComplexationEvolver,
         },

@@ -602,6 +602,110 @@ def plot_chromosome_state(snapshots, title=''):
     return fig_to_b64(fig)
 
 
+def plot_lifecycle_comparison(lifecycle_meta):
+    """Plot v1 vs v2 lifecycle comparison: mass, chromosomes, forks, RNAP."""
+    v1_snaps = lifecycle_meta.get('v1_snapshots', [])
+    v2_snaps = lifecycle_meta.get('v2_snapshots', [])
+
+    if not v1_snaps and not v2_snaps:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, 'No lifecycle data', ha='center', va='center')
+        return fig_to_b64(fig)
+
+    fig, axes = plt.subplots(3, 2, figsize=(14, 12))
+    fig.suptitle('v1 vs v2 Lifecycle Comparison', fontsize=14, y=0.98)
+
+    def get_ts(snaps, key):
+        return [s['time'] for s in snaps], [s.get(key, 0) for s in snaps]
+
+    # 1. Dry mass
+    ax = axes[0, 0]
+    if v1_snaps:
+        t, v = get_ts(v1_snaps, 'dry_mass')
+        ax.plot(t, v, 'b-', lw=1.5, alpha=0.8, label='v1')
+    if v2_snaps:
+        t, v = get_ts(v2_snaps, 'dry_mass')
+        ax.plot(t, v, 'r--', lw=1.5, alpha=0.8, label='v2')
+    ax.set_ylabel('Dry mass (fg)')
+    ax.set_xlabel('Time (s)')
+    ax.set_title('Dry Mass')
+    ax.legend(fontsize=8)
+
+    # 2. DNA mass
+    ax = axes[0, 1]
+    if v1_snaps:
+        t, v = get_ts(v1_snaps, 'dna_mass')
+        ax.plot(t, v, 'b-', lw=1.5, alpha=0.8, label='v1')
+    if v2_snaps:
+        t, v = get_ts(v2_snaps, 'dna_mass')
+        ax.plot(t, v, 'r--', lw=1.5, alpha=0.8, label='v2')
+    ax.set_ylabel('DNA mass (fg)')
+    ax.set_xlabel('Time (s)')
+    ax.set_title('DNA Mass')
+    ax.legend(fontsize=8)
+
+    # 3. Chromosome count
+    ax = axes[1, 0]
+    if v1_snaps:
+        t, v = get_ts(v1_snaps, 'n_chromosomes')
+        ax.step(t, v, 'b-', where='post', lw=2, alpha=0.8, label='v1')
+    if v2_snaps:
+        t, v = get_ts(v2_snaps, 'n_chromosomes')
+        ax.step(t, v, 'r--', where='post', lw=2, alpha=0.8, label='v2')
+    ax.set_ylabel('Chromosomes')
+    ax.set_xlabel('Time (s)')
+    ax.set_title('Chromosome Count')
+    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    ax.legend(fontsize=8)
+
+    # 4. Replication fork coordinates
+    ax = axes[1, 1]
+    for snaps, color, label in [(v1_snaps, '#3b82f6', 'v1'), (v2_snaps, '#ef4444', 'v2')]:
+        for s in snaps:
+            for coord in s.get('fork_coords', []):
+                ax.scatter(s['time'], coord / MAX_COORD, c=color, s=6, alpha=0.4)
+        if snaps:
+            ax.scatter([], [], c=color, s=20, label=label)  # legend entry
+    ax.set_ylabel('Fork position (frac genome)')
+    ax.set_xlabel('Time (s)')
+    ax.set_title('Replication Forks')
+    ax.set_ylim(-1.15, 1.15)
+    ax.axhline(0, color='gray', lw=0.5, ls='--', alpha=0.3)
+    ax.legend(fontsize=8)
+
+    # 5. Active RNAP count
+    ax = axes[2, 0]
+    if v1_snaps:
+        t, v = get_ts(v1_snaps, 'n_rnap')
+        ax.plot(t, v, 'b-', lw=1.5, alpha=0.8, label='v1')
+    if v2_snaps:
+        t, v = get_ts(v2_snaps, 'n_rnap')
+        ax.plot(t, v, 'r--', lw=1.5, alpha=0.8, label='v2')
+    ax.set_ylabel('Active RNAP')
+    ax.set_xlabel('Time (s)')
+    ax.set_title('Active RNA Polymerases')
+    ax.legend(fontsize=8)
+
+    # 6. Number of active forks
+    ax = axes[2, 1]
+    if v1_snaps:
+        t = [s['time'] for s in v1_snaps]
+        n = [len(s.get('fork_coords', [])) for s in v1_snaps]
+        ax.step(t, n, 'b-', where='post', lw=2, alpha=0.8, label='v1')
+    if v2_snaps:
+        t = [s['time'] for s in v2_snaps]
+        n = [len(s.get('fork_coords', [])) for s in v2_snaps]
+        ax.step(t, n, 'r--', where='post', lw=2, alpha=0.8, label='v2')
+    ax.set_ylabel('Active forks')
+    ax.set_xlabel('Time (s)')
+    ax.set_title('Replication Forks (count)')
+    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    ax.legend(fontsize=8)
+
+    plt.tight_layout()
+    return fig_to_b64(fig)
+
+
 def make_bigraph_svg(state):
     cell = state.get('agents', {}).get('0', state)
     viz = {}
@@ -932,7 +1036,7 @@ def step_raw_data():
     n_rnas = len(raw_data.rnas) if hasattr(raw_data, 'rnas') else 0
     n_proteins = len(raw_data.proteins) if hasattr(raw_data, 'proteins') else 0
     n_metabolites = len(raw_data.metabolites) if hasattr(raw_data, 'metabolites') else 0
-    genome_length = raw_data.genome_length if hasattr(raw_data, 'genome_length') else 0
+    genome_length = len(raw_data.genome_sequence) if hasattr(raw_data, 'genome_sequence') else 0
 
     elapsed = time.time() - t0
 
@@ -1500,6 +1604,113 @@ def step_long_sim():
     return meta
 
 
+def step_lifecycle_comparison(v2_long_meta):
+    """Step 6b: Run v1 for the same duration as the v2 long sim, compare lifecycle."""
+    step_name = 'lifecycle_comparison'
+    meta = load_meta(step_name)
+    if meta is not None:
+        print(f"  Step 6b: Lifecycle Comparison (cached)")
+        return meta
+
+    v2_duration = v2_long_meta.get('duration', 1800)
+    print(f"  Step 6b: Lifecycle v1/v2 Comparison ({v2_duration}s)")
+
+    if not V1_AVAILABLE:
+        print("    v1 not available — skipping")
+        meta = {'v1_available': False, 'duration': v2_duration}
+        save_meta(step_name, meta)
+        return meta
+
+    # Run v1 for the full lifecycle
+    print(f"    Running v1 for {v2_duration}s...")
+    v1_snapshots = _collect_v1_lifecycle(v2_duration)
+
+    # v2 snapshots are already in the long_sim metadata
+    v2_snapshots = v2_long_meta.get('chromosome_snapshots', [])
+
+    meta = {
+        'v1_available': True,
+        'duration': v2_duration,
+        'v1_snapshots': v1_snapshots,
+        'v2_snapshots': v2_snapshots,
+    }
+    save_meta(step_name, meta)
+    return meta
+
+
+def _collect_v1_lifecycle(duration):
+    """Run v1 simulation for the full lifecycle, collecting periodic snapshots."""
+    try:
+        if not hasattr(np, 'in1d'):
+            np.in1d = np.isin
+
+        saved_argv = sys.argv
+        sys.argv = [sys.argv[0]]
+        with chdir(V1_ROOT_PATH):
+            sim = EcoliSim.from_file()
+            sim.max_duration = int(duration)
+            sim.emitter = 'timeseries'
+            sim.divide = False
+            sim.build_ecoli()
+
+            t0 = time.time()
+            sim.run()
+            wall_time = time.time() - t0
+        sys.argv = saved_argv
+
+        print(f"    v1 completed in {wall_time:.0f}s")
+
+        # Extract per-timestep data
+        v1_ts = sim.query()
+        snapshots = []
+        for t_key in sorted(v1_ts.keys()):
+            if not isinstance(t_key, (int, float)):
+                continue
+            t = int(t_key)
+            if t % 50 != 0 and t != 1:  # Sample every 50s like v2
+                continue
+            snapshot = v1_ts[t_key]
+            if not isinstance(snapshot, dict):
+                continue
+
+            mass = snapshot.get('listeners', {}).get('mass', {})
+            dry_mass = float(mass.get('dry_mass', 0)) if isinstance(mass, dict) else 0
+            dna_mass = float(mass.get('dna_mass', 0)) if isinstance(mass, dict) else 0
+
+            # Chromosome state
+            unique = snapshot.get('unique', {})
+            fc = unique.get('full_chromosome')
+            n_chrom = 0
+            if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
+                n_chrom = int(fc['_entryState'].view(np.bool_).sum())
+
+            rep = unique.get('active_replisome')
+            fork_coords = []
+            if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
+                active_rep = rep[rep['_entryState'].view(np.bool_)]
+                if len(active_rep) > 0 and 'coordinates' in rep.dtype.names:
+                    fork_coords = active_rep['coordinates'].tolist()
+
+            rnap = unique.get('active_RNAP')
+            n_rnap = 0
+            if rnap is not None and hasattr(rnap, 'dtype') and '_entryState' in rnap.dtype.names:
+                n_rnap = int(rnap['_entryState'].view(np.bool_).sum())
+
+            snapshots.append({
+                'time': t,
+                'n_chromosomes': n_chrom,
+                'fork_coords': fork_coords,
+                'n_rnap': n_rnap,
+                'dna_mass': dna_mass,
+                'dry_mass': dry_mass,
+            })
+
+        return snapshots
+    except Exception as e:
+        print(f"    v1 lifecycle failed: {e}")
+        return []
+
+
 def step_division():
     """Step 7: Test cell division, conservation, and daughter viability."""
     step_name = 'division'
@@ -1824,6 +2035,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
     <li><a href="#sec-short">Short Simulation ({short_dur:.0f}s)</a></li>
     <li><a href="#sec-compare">v1 Comparison</a></li>
     <li><a href="#sec-long">Long Simulation ({long_dur/60:.0f} min)</a></li>
+    <li><a href="#sec-lifecycle">Lifecycle v1/v2 Comparison</a></li>
     <li><a href="#sec-division">Division</a></li>
     <li><a href="#sec-steps">Step Diagnostics</a></li>
     <li><a href="#sec-bigraph">Network Visualization</a></li>
@@ -2022,6 +2234,22 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
         if plots.get('chromosome_long'):
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["chromosome_long"]}" alt="Chromosome State"></div>\n')
 
+        # Lifecycle comparison
+        lifecycle = step_results.get('lifecycle', {})
+        f.write(f"""
+<!-- ===== Step 6b: Lifecycle Comparison ===== -->
+<h2 id="sec-lifecycle">6b. Lifecycle v1/v2 Comparison {cached_badge(lifecycle)}</h2>
+<div class="section">
+  <p>Side-by-side comparison of v1 (vEcoli) and v2 (v2ecoli) over the full cell lifecycle
+  ({lifecycle.get('duration', 0):.0f}s). Compares mass growth, chromosome replication,
+  RNAP activity, and replication fork dynamics.</p>
+</div>""")
+
+        if plots.get('lifecycle'):
+            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["lifecycle"]}" alt="Lifecycle Comparison"></div>\n')
+        elif not lifecycle.get('v1_available', True):
+            f.write('<div class="section"><p>v1 not available for lifecycle comparison.</p></div>\n')
+
         f.write(f"""
 <!-- ===== Step 7: Division ===== -->
 <h2 id="sec-division">7. Division {cached_badge(div)}</h2>
@@ -2216,6 +2444,10 @@ def run_workflow():
     long_meta = step_long_sim()
     step_results['long_sim'] = long_meta
 
+    # Step 6b: Lifecycle v1/v2 Comparison
+    lifecycle_meta = step_lifecycle_comparison(long_meta)
+    step_results['lifecycle'] = lifecycle_meta
+
     # Step 7: Division
     div_meta = step_division()
     step_results['division'] = div_meta
@@ -2251,8 +2483,12 @@ def run_workflow():
     if chrom_snaps:
         dur = long_meta.get('duration', 0)
         plots['chromosome_long'] = plot_chromosome_state(
-            chrom_snaps, f'Chromosome State (to t={dur:.0f}s)')
+            chrom_snaps, f'v2 Chromosome State (to t={dur:.0f}s)')
 
+    # Lifecycle v1/v2 comparison plot
+    lifecycle = step_results.get('lifecycle', {})
+    if lifecycle.get('v1_available') or lifecycle.get('v1_snapshots'):
+        plots['lifecycle'] = plot_lifecycle_comparison(lifecycle)
 
     # Generate HTML report
     print("  Generating HTML report...")

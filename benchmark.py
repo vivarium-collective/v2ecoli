@@ -824,9 +824,9 @@ def make_bigraph_svg(state):
     try:
         plot_bigraph(viz_state, remove_process_place_edges=True,
                      node_groups=[g for g in groups.values() if g],
-                     node_fill_colors=colors, size='20,16', rankdir='TB',
-                     dpi='150', port_labels=False, node_label_size='24pt',
-                     label_margin='0.08', out_dir=OUT_DIR,
+                     node_fill_colors=colors, rankdir='TB',
+                     dpi='100', port_labels=False, node_label_size='20pt',
+                     label_margin='0.05', out_dir=OUT_DIR,
                      filename='bigraph', file_format='svg')
         with open(os.path.join(OUT_DIR, 'bigraph.svg')) as f:
             return f.read()
@@ -992,8 +992,8 @@ def run_benchmarks():
   table {{ border-collapse: collapse; width: 100%; font-size: 0.82em; }}
   th, td {{ border: 1px solid #e2e8f0; padding: 5px 8px; text-align: left; }}
   th {{ background: #f1f5f9; font-weight: 600; }}
-  .bigraph {{ overflow: auto; max-height: 700px; }}
-  .bigraph svg {{ max-width: 100%; }}
+  .bigraph {{ overflow: auto; }}
+  .bigraph svg {{ width: 100%; height: auto; }}
   .bench-bar {{ display: flex; align-items: center; gap: 8px; margin: 3px 0; }}
   .bench-bar .bar {{ height: 20px; border-radius: 3px; min-width: 2px; }}
   .bench-bar .label {{ font-size: 0.8em; min-width: 100px; }}
@@ -1103,25 +1103,55 @@ def run_benchmarks():
 
 <!-- ===== Benchmark 4: Division ===== -->
 <h2>4. Division</h2>
+
 <div class="section">
-  <p>Tests cell division state splitting on the initial state. Verifies bulk molecule
-  conservation (binomial split), unique molecule partitioning (domain-based), and
-  daughter cell viability (can build and run a new Composite from divided state).</p>
+  <h3>How Division Works</h3>
+  <p>The Division step uses process-bigraph's native <code>_add</code>/<code>_remove</code> structural
+  updates. When division is triggered (dry mass &ge; threshold with &ge; 2 chromosomes):</p>
+  <ol style="margin: 8px 0 8px 20px; font-size: 0.9em;">
+    <li><strong>State splitting</strong> — <code>divide_cell()</code> partitions the mother cell's state:
+      <ul>
+        <li>Bulk molecules: binomial distribution (p=0.5) on each molecule's count</li>
+        <li>Chromosomes: alternating assignment (even→D1, odd→D2) with descendant domain tracking</li>
+        <li>Chromosome-attached molecules: follow their domain (promoters, genes, DnaA boxes, RNAPs)</li>
+        <li>RNAs: full transcripts binomial, partial transcripts follow RNAP domain</li>
+        <li>Ribosomes: follow their mRNA, degraded-mRNA ribosomes split binomially</li>
+      </ul>
+    </li>
+    <li><strong>Daughter cell construction</strong> — <code>build_document_from_configs()</code> builds complete
+    cell states with fresh process instances from the divided initial state + cached configs</li>
+    <li><strong>Structural update</strong> — returns <code>{{'agents': {{'_remove': [mother], '_add': [(d1, state), (d2, state)]}}}}</code>
+    which the Composite processes to remove the mother and add two daughter agents</li>
+  </ol>
+
+  <h3>Pre-Division Caching</h3>
+  <p>To avoid re-running the full simulation to reach division (~30 min simulated time,
+  ~4 min wall time), use <code>run_and_cache()</code> to save periodic checkpoints:</p>
+  <pre style="background: #f1f5f9; padding: 8px; border-radius: 4px; font-size: 0.85em;">from v2ecoli.composite import run_and_cache
+composite = run_and_cache(intervals=[500, 1000, 1500, 1800, 2000])</pre>
+  <p>Resume from a checkpoint: <code>composite = load_state('out/checkpoints/t1800.dill')</code></p>
+</div>
+
+<h3>Division Test Results</h3>
+<div class="section">
+  <p>Tests run on initial state (t=0). At actual division time (~1857s), the cell has 2+
+  chromosomes and proper domain trees for biologically correct partitioning.</p>
 </div>
 <div class="metrics">
   <div class="metric"><div class="label">Bulk Conserved</div><div class="value {'green' if div['bulk_conserved'] else 'red'}">{'Yes' if div['bulk_conserved'] else 'No'}</div></div>
   <div class="metric"><div class="label">Mother Bulk</div><div class="value">{div['mother_bulk_count']:,}</div></div>
   <div class="metric"><div class="label">D1 Bulk</div><div class="value">{div['d1_bulk_count']:,}</div></div>
   <div class="metric"><div class="label">D2 Bulk</div><div class="value">{div['d2_bulk_count']:,}</div></div>
-  <div class="metric"><div class="label">Split Time</div><div class="value blue">{div['split_time']:.3f}s</div></div>
+  <div class="metric"><div class="label">State Split</div><div class="value blue">{div['split_time']*1000:.0f} ms</div></div>
   <div class="metric"><div class="label">Daughter Build</div><div class="value blue">{div['daughter_build_time']:.1f}s</div></div>
   <div class="metric"><div class="label">Daughter Viable</div><div class="value {'green' if div['daughter_viable'] else 'red'}">{'Yes' if div['daughter_viable'] else 'No'}</div></div>
 </div>
-<details>
+
+<details open>
 <summary>Unique Molecule Conservation</summary>
 <div class="section" style="overflow-x: auto;">
   <table>
-    <thead><tr><th>Molecule</th><th>Mother</th><th>D1</th><th>D2</th><th>Conserved</th></tr></thead>
+    <thead><tr><th>Molecule</th><th>Mother (active)</th><th>Daughter 1</th><th>Daughter 2</th><th>Conserved</th></tr></thead>
     <tbody>{div_unique_rows}</tbody>
   </table>
 </div>

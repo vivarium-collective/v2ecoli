@@ -220,8 +220,8 @@ def inject_flow_dependencies(cell_state, flow_order, layers=None):
             # Priority: earlier layers and earlier within-layer get higher
             edge['priority'] = float(total_steps - step_idx)
 
-            # First layer depends on global_time
-            if layer_idx == 0 and j == 0:
+            # All layer-0 steps depend on global_time (the simulation trigger)
+            if layer_idx == 0:
                 edge.setdefault('inputs', {})['global_time'] = ['global_time']
 
             # All steps in this layer depend on previous layer's token
@@ -597,18 +597,15 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     from v2ecoli.steps.listeners.ribosome_data import RibosomeData
     from v2ecoli.steps.media_update import MediaUpdate
     from v2ecoli.steps.exchange_data import ExchangeData
-    from v2ecoli.steps.partition import Requester, Evolver, ExplicitRequester, ExplicitEvolver
+    from v2ecoli.steps.partition import ExplicitRequester, ExplicitEvolver
 
     # Map step names to classes and their topologies
     # Partitioned processes have _requester/_evolver suffixes
     base_name = step_name.replace('_requester', '').replace('_evolver', '')
 
-    PARTITIONED = {
-        'ecoli-tf-binding': TfBinding,
-    }
-
     # PartitionedProcesses that run as single steps (no requester/evolver split)
     STANDALONE_PARTITIONED = {
+        'ecoli-tf-binding': TfBinding,
         'ecoli-tf-unbinding': TfUnbinding,
         'ecoli-chromosome-structure': ChromosomeStructure,
         'ecoli-metabolism': Metabolism,
@@ -749,47 +746,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
                     out_topo['listeners'] = ('listeners',)
             return instance, topology, 'step', in_topo, out_topo
 
-    # --- Generic Requester/Evolver wrappers (other partitioned processes) ---
-
-    if base_name in PARTITIONED:
-        # Share the same PartitionedProcess between requester and evolver
-        if base_name in process_cache:
-            process = process_cache[base_name]
-        else:
-            proc_cls = PARTITIONED[base_name]
-            process = proc_cls(parameters=config, core=core)
-            process_cache[base_name] = process
-        topology = process.topology
-
-        if step_name.endswith('_requester'):
-            req_config = {'process': process, 'name': step_name, 'process_name': base_name}
-            instance = Requester(config=req_config, core=core)
-            # Requester topology extends process topology
-            req_topo = dict(topology)
-            req_topo['request'] = ('request',)
-            req_topo['process'] = ('process', base_name)
-            req_topo['global_time'] = ('global_time',)
-            req_topo['timestep'] = ('timestep',)
-            req_topo['next_update_time'] = ('next_update_time', base_name)
-            return instance, req_topo, 'step'
-
-        elif step_name.endswith('_evolver'):
-            ev_config = {'process': process, 'name': step_name}
-            instance = Evolver(config=ev_config, core=core)
-            ev_topo = dict(topology)
-            ev_topo['allocate'] = ('allocate', base_name)
-            ev_topo['process'] = ('process', base_name)
-            ev_topo['global_time'] = ('global_time',)
-            ev_topo['timestep'] = ('timestep',)
-            ev_topo['next_update_time'] = ('next_update_time', base_name)
-            return instance, ev_topo, 'step'
-
-        else:
-            # Standalone use of a PartitionedProcess (e.g. tf-binding)
-            process = proc_cls(parameters=config, core=core)
-            return process, topology, 'step'
-
-    elif step_name in STANDALONE_PARTITIONED:
+    if step_name in STANDALONE_PARTITIONED:
         cls = STANDALONE_PARTITIONED[step_name]
         instance = cls(parameters=config, core=core)
         topology = instance.topology

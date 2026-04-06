@@ -45,7 +45,7 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 
 ### Dependencies
 
-- `process-bigraph` PR #111: `skip_initial_steps` config (only change needed)
+- `process-bigraph` PR #111: `skip_initial_steps` config (needed because `global_time` exists at init, making layer-0 steps ready)
 - No bigraph-schema changes (works with unmodified PyPI version)
 - No modifications to the Composite execution engine
 

@@ -807,6 +807,7 @@ def step_parca():
     sim_data_cache = os.path.join(CACHE_DIR, 'sim_data_cache.dill')
     sim_data_path = SIM_DATA_PATH
 
+    parca_ran = False
     if os.path.exists(sim_data_cache):
         # Cache already exists — skip ParCa entirely
         print(f"    Cache exists at {CACHE_DIR}")
@@ -833,6 +834,7 @@ def step_parca():
         os.makedirs(WORKFLOW_DIR, exist_ok=True)
         with open(sim_data_path, 'wb') as f:
             dill.dump(sim_data, f)
+        parca_ran = True
         print(f"    ParCa completed in {parca_time:.1f}s")
 
     # Generate cache files
@@ -869,6 +871,7 @@ def step_parca():
 
     meta = {
         'sim_data_path': sim_data_path,
+        'parca_ran': parca_ran,
         'parca_time': parca_time,
         'cache_time': cache_time,
         'cache_dir': CACHE_DIR,
@@ -1617,8 +1620,8 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 <!-- ===== Step 2: ParCa ===== -->
 <h2 id="sec-parca">2. ParCa (Parameter Calculator) {cached_badge(parca)}</h2>
 <div class="metrics">
-  <div class="metric"><div class="label">ParCa Time</div><div class="value blue">{parca.get('parca_time', 0):.1f}s</div></div>
-  <div class="metric"><div class="label">Cache Gen</div><div class="value blue">{parca.get('cache_time', 0):.1f}s</div></div>
+  <div class="metric"><div class="label">ParCa Time</div><div class="value blue">{'pre-cached' if parca.get('parca_time', 0) == 0 and not parca.get('parca_ran') else f"{parca.get('parca_time', 0):.1f}s"}</div></div>
+  <div class="metric"><div class="label">Cache Gen</div><div class="value blue">{'pre-cached' if parca.get('cache_time', 0) == 0 and not parca.get('parca_ran') else f"{parca.get('cache_time', 0):.1f}s"}</div></div>
   <div class="metric"><div class="label">Cache Dir</div><div class="value" style="font-size:0.7em">{parca.get('cache_dir', CACHE_DIR)}</div></div>
 </div>
 

@@ -4,7 +4,7 @@ Whole-cell *E. coli* model built natively on [process-bigraph](https://github.co
 
 [![Benchmark](https://github.com/vivarium-collective/v2ecoli/actions/workflows/benchmark.yml/badge.svg)](https://github.com/vivarium-collective/v2ecoli/actions/workflows/benchmark.yml)
 
-**[Latest Benchmark Report](https://vivarium-collective.github.io/v2ecoli/benchmark/benchmark_report.html)**
+**[Benchmark Report](https://htmlpreview.github.io/?https://github.com/vivarium-collective/v2ecoli/blob/main/doc/benchmark_report.html)** | **[GitHub Pages](https://vivarium-collective.github.io/v2ecoli/benchmark/benchmark_report.html)**
 
 ## Overview
 
@@ -14,11 +14,12 @@ v2ecoli migrates the [vEcoli](https://github.com/CovertLab/vEcoli) whole-cell *E
 
 | Metric | Value |
 |--------|-------|
-| Correlation with vEcoli (v1) | **1.0000** |
-| Per-timestep exact match | **~90%+** |
+| Worst mass % error vs v1 | **0.62%** |
+| Mass component R² | **> 0.99** |
 | Simulation speed | **~6x realtime** |
 | Biological processes | **55 steps + 1 process** |
-| Division detected | **~1857s (~31 min)** |
+| Division | **State splitting + daughter viability** |
+| Bulk molecule conservation | **Exact (binomial split)** |
 
 ## Quick Start
 

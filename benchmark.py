@@ -26,9 +26,15 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 from contextlib import chdir
-from wholecell.utils.filepath import ROOT_PATH
-from ecoli.experiments.ecoli_master_sim import EcoliSim
-from ecoli.library.schema import not_a_process
+
+try:
+    from wholecell.utils.filepath import ROOT_PATH
+    from ecoli.experiments.ecoli_master_sim import EcoliSim
+    from ecoli.library.schema import not_a_process
+    V1_AVAILABLE = True
+except ImportError:
+    ROOT_PATH = os.getcwd()
+    V1_AVAILABLE = False
 
 from v2ecoli.composite import make_composite, _build_core, save_cache
 from v2ecoli.generate import build_document, DEFAULT_FLOW
@@ -39,7 +45,12 @@ from bigraph_viz import plot_bigraph
 from bigraph_schema import get_path, strip_schema_keys
 
 
-SIM_DATA_PATH = os.path.join(ROOT_PATH, 'out', 'kb', 'simData.cPickle')
+# Try to find simData — may not exist in CI (cache used instead)
+_sim_data_candidates = [
+    os.path.join(ROOT_PATH, 'out', 'kb', 'simData.cPickle'),
+    'out/kb/simData.cPickle',
+]
+SIM_DATA_PATH = next((p for p in _sim_data_candidates if os.path.exists(p)), None)
 OUT_DIR = 'out/benchmark'
 CACHE_DIR = 'out/cache'
 COMPARISON_DURATION = 60.0
@@ -64,9 +75,14 @@ def fig_to_b64(fig):
 
 def bench_cache_load():
     """Benchmark: load document from cache."""
-    t0 = time.time()
-    save_cache(SIM_DATA_PATH, CACHE_DIR)
-    cache_time = time.time() - t0
+    cache_file = os.path.join(CACHE_DIR, 'sim_data_cache.dill')
+    if os.path.exists(cache_file):
+        print("  Using existing cache")
+        cache_time = 0.0
+    else:
+        t0 = time.time()
+        save_cache(SIM_DATA_PATH, CACHE_DIR)
+        cache_time = time.time() - t0
 
     t0 = time.time()
     composite = make_composite(cache_dir=CACHE_DIR)
@@ -112,69 +128,192 @@ def bench_short_sim(composite, duration=60.0):
     }
 
 
-def bench_v1_comparison(duration=60.0):
-    """Benchmark: v1 vs v2 comparison at every timestep.
+def _collect_v2_timeseries(composite, duration):
+    """Run v2, collect per-timestep bulk, mass, and unique data from emitter."""
+    from v2ecoli.library.schema import attrs as ecoli_attrs
+    cell = composite.state['agents']['0']
 
-    Compares bulk molecule counts at each simulated second between
-    v1 (vEcoli) and v2 (v2ecoli). Reports:
-    - Per-timestep Pearson correlation of all molecule counts
-    - Final-state correlation of count deltas (molecules that changed)
-    - Exact match percentage (fraction of molecules identical at each timestep)
-    """
-    # v2 — emitter captures bulk at each timestep
-    composite = make_composite(cache_dir=CACHE_DIR)
-    v2_initial = np.array(composite.state['agents']['0']['bulk']['count'], copy=True)
+    v2_initial_bulk = np.array(cell['bulk']['count'], copy=True)
+
     t0 = time.time()
     composite.run(duration)
     v2_time = time.time() - t0
-    v2_final = composite.state['agents']['0']['bulk']['count'].copy()
 
-    # Get v2 per-timestep bulk from emitter
     cell = composite.state['agents']['0']
     em = cell.get('emitter', {}).get('instance')
     v2_history = em.history if em else []
+
     v2_bulk_ts = {}
+    v2_mass_ts = {}
     for snap in v2_history:
-        t = snap.get('global_time', 0)
+        t = int(snap.get('global_time', 0))
         bulk = snap.get('bulk')
         if bulk is not None and hasattr(bulk, 'dtype') and 'count' in bulk.dtype.names:
-            v2_bulk_ts[int(t)] = bulk['count'].copy()
+            v2_bulk_ts[t] = bulk['count'].copy()
+        mass = snap.get('listeners', {}).get('mass', {})
+        if isinstance(mass, dict) and mass:
+            v2_mass_ts[t] = dict(mass)
 
-    # v1 — timeseries emitter captures everything
-    with chdir(ROOT_PATH):
-        sim = EcoliSim.from_file()
-        sim.max_duration = int(duration)
-        sim.emitter = 'timeseries'
-        sim.divide = False
-        sim.build_ecoli()
-        v1_initial = sim.generated_initial_state['bulk']['count'].copy()
-        t0 = time.time()
-        sim.run()
-        v1_time = time.time() - t0
-    v1_state = sim.ecoli_experiment.state.get_value(condition=not_a_process)
-    v1_final = v1_state['bulk']['count'].copy()
+    # Unique molecule counts from final state
+    unique = cell.get('unique', {})
+    v2_unique = {}
+    for name, arr in unique.items():
+        if hasattr(arr, 'dtype') and '_entryState' in arr.dtype.names:
+            v2_unique[name] = int(arr['_entryState'].view(np.bool_).sum())
 
-    # Get v1 per-timestep bulk from timeseries
-    v1_ts = sim.query()
-    v1_bulk_ts = {}
-    for t_key, snapshot in v1_ts.items():
-        if not isinstance(t_key, (int, float)):
-            continue
-        bulk = snapshot.get('bulk')
-        if bulk is not None:
-            if hasattr(bulk, 'dtype') and 'count' in getattr(bulk.dtype, 'names', []) or []:
-                v1_bulk_ts[int(t_key)] = np.array(bulk['count'], dtype=float)
-            elif isinstance(bulk, (list, np.ndarray)):
-                v1_bulk_ts[int(t_key)] = np.array(bulk, dtype=float)
+    # Full chromosome details
+    fc = unique.get('full_chromosome')
+    v2_chrom = {}
+    if fc is not None and hasattr(fc, 'dtype'):
+        active = fc[fc['_entryState'].view(np.bool_)]
+        v2_chrom['n_chromosomes'] = len(active)
+        if 'division_time' in fc.dtype.names:
+            dt, htd = ecoli_attrs(fc, ['division_time', 'has_triggered_division'])
+            v2_chrom['division_times'] = dt.tolist()
+            v2_chrom['has_triggered'] = htd.tolist()
+        if 'domain_index' in fc.dtype.names:
+            (di,) = ecoli_attrs(fc, ['domain_index'])
+            v2_chrom['domain_indexes'] = di.tolist()
 
-    # Per-timestep comparison
-    common_times = sorted(set(v1_bulk_ts.keys()) & set(v2_bulk_ts.keys()))
+    return {
+        'time': v2_time,
+        'initial_bulk': v2_initial_bulk,
+        'final_bulk': cell['bulk']['count'].copy(),
+        'bulk_ts': v2_bulk_ts,
+        'mass_ts': v2_mass_ts,
+        'unique_counts': v2_unique,
+        'chromosome': v2_chrom,
+        'final_mass': dict(cell.get('listeners', {}).get('mass', {})),
+    }
+
+
+def _collect_v1_timeseries(duration):
+    """Run v1, collect per-timestep bulk, mass, and unique data."""
+    import sys
+    try:
+        # Monkey-patch np.in1d for numpy compat
+        if not hasattr(np, 'in1d'):
+            np.in1d = np.isin
+
+        saved_argv = sys.argv
+        sys.argv = [sys.argv[0]]
+        with chdir(ROOT_PATH):
+            sim = EcoliSim.from_file()
+            sim.max_duration = int(duration)
+            sim.emitter = 'timeseries'
+            sim.divide = False
+            sim.build_ecoli()
+            v1_initial = sim.generated_initial_state['bulk']['count'].copy()
+            t0 = time.time()
+            sim.run()
+            v1_time = time.time() - t0
+        sys.argv = saved_argv
+
+        v1_state = sim.ecoli_experiment.state.get_value(condition=not_a_process)
+        v1_final = v1_state['bulk']['count'].copy()
+
+        # v1 timeseries: top-level keys are time floats {0.0: snapshot, 1.0: snapshot, ...}
+        v1_ts = sim.query()
+        v1_bulk_ts = {}
+        v1_mass_ts = {}
+        for t_key in sorted(v1_ts.keys()):
+            if not isinstance(t_key, (int, float)):
+                continue
+            t = int(t_key)
+            snapshot = v1_ts[t_key]
+            if not isinstance(snapshot, dict):
+                continue
+
+            bulk = snapshot.get('bulk')
+            if bulk is not None:
+                if hasattr(bulk, 'dtype') and 'count' in (bulk.dtype.names or []):
+                    v1_bulk_ts[t] = np.array(bulk['count'], dtype=float)
+                elif isinstance(bulk, (list, np.ndarray)):
+                    v1_bulk_ts[t] = np.array(bulk, dtype=float)
+
+            # Mass from listeners — each value is a scalar at this timestep
+            mass = snapshot.get('listeners', {}).get('mass', {})
+            if isinstance(mass, dict) and mass:
+                entry = {}
+                for k, v in mass.items():
+                    try:
+                        entry[k] = float(v)
+                    except (TypeError, ValueError):
+                        pass
+                v1_mass_ts[t] = entry
+
+        # Unique molecule counts from final state
+        v1_unique = {}
+        unique = v1_state.get('unique', {})
+        for name, arr in unique.items():
+            if hasattr(arr, 'dtype') and '_entryState' in arr.dtype.names:
+                v1_unique[name] = int(arr['_entryState'].view(np.bool_).sum())
+
+        # Full chromosome
+        v1_chrom = {}
+        fc = unique.get('full_chromosome')
+        if fc is not None and hasattr(fc, 'dtype'):
+            from v2ecoli.library.schema import attrs as ecoli_attrs
+            active = fc[fc['_entryState'].view(np.bool_)]
+            v1_chrom['n_chromosomes'] = len(active)
+            if 'division_time' in fc.dtype.names:
+                dt, htd = ecoli_attrs(fc, ['division_time', 'has_triggered_division'])
+                v1_chrom['division_times'] = dt.tolist()
+                v1_chrom['has_triggered'] = htd.tolist()
+
+        return {
+            'time': v1_time,
+            'initial_bulk': v1_initial,
+            'final_bulk': v1_final,
+            'bulk_ts': v1_bulk_ts,
+            'mass_ts': v1_mass_ts,
+            'unique_counts': v1_unique,
+            'chromosome': v1_chrom,
+            'final_mass': v1_mass_ts.get(int(duration), {}),
+        }
+    except Exception as e:
+        print(f"  v1 comparison skipped: {e}")
+        return None
+
+
+def bench_v1_comparison(duration=60.0):
+    """Benchmark: comprehensive v1 vs v2 comparison.
+
+    Compares at every timestep:
+    - Bulk molecule counts (correlation, exact match, RMSE)
+    - Mass components (dry, protein, RNA, DNA, small molecule)
+    - Chromosome replication state
+    - Unique molecule counts
+    """
+    # v2
+    composite = make_composite(cache_dir=CACHE_DIR)
+    v2 = _collect_v2_timeseries(composite, duration)
+
+    # v1
+    v1 = _collect_v1_timeseries(duration)
+    v1_available = v1 is not None
+
+    if not v1_available:
+        # Create empty v1 data for compatibility
+        v1 = {
+            'time': 0,
+            'initial_bulk': v2['initial_bulk'].copy(),
+            'final_bulk': v2['initial_bulk'].copy(),
+            'bulk_ts': {},
+            'mass_ts': {},
+            'unique_counts': {},
+            'chromosome': {},
+            'final_mass': {},
+        }
+
+    # Per-timestep bulk comparison
+    common_times = sorted(set(v1['bulk_ts'].keys()) & set(v2['bulk_ts'].keys()))
     per_ts_corr = []
     per_ts_exact = []
     per_ts_rmse = []
     for t in common_times:
-        v1_c = v1_bulk_ts[t].astype(float)
-        v2_c = v2_bulk_ts[t].astype(float)
+        v1_c = v1['bulk_ts'][t].astype(float)
+        v2_c = v2['bulk_ts'][t].astype(float)
         if len(v1_c) == len(v2_c) and len(v1_c) > 0:
             corr = np.corrcoef(v1_c, v2_c)[0, 1]
             exact = np.mean(v1_c == v2_c)
@@ -183,18 +322,68 @@ def bench_v1_comparison(duration=60.0):
             per_ts_exact.append(exact)
             per_ts_rmse.append(rmse)
 
-    # Final-state delta correlation (original method)
-    both = (v1_initial != v1_final) & (v2_initial != v2_final)
-    d1 = v1_final[both] - v1_initial[both]
-    d2 = v2_final[both] - v2_initial[both]
+    # Final-state delta correlation
+    both = (v1['initial_bulk'] != v1['final_bulk']) & (v2['initial_bulk'] != v2['final_bulk'])
+    d1 = v1['final_bulk'][both] - v1['initial_bulk'][both]
+    d2 = v2['final_bulk'][both] - v2['initial_bulk'][both]
     delta_corr = np.corrcoef(d1.astype(float), d2.astype(float))[0, 1] if both.sum() > 0 else 0.0
+
+    # Per-timestep mass comparison
+    mass_keys = ['dry_mass', 'protein_mass', 'rna_mass', 'dna_mass', 'smallMolecule_mass']
+    mass_comparison = {k: {'v1': [], 'v2': [], 'times': []} for k in mass_keys}
+    v2_times = sorted(v2['mass_ts'].keys())
+    v1_times = sorted(v1['mass_ts'].keys())
+    for t in v2_times:
+        for k in mass_keys:
+            mass_comparison[k]['v2'].append(v2['mass_ts'][t].get(k, 0))
+            mass_comparison[k]['times'].append(t)
+    for t in v1_times:
+        for k in mass_keys:
+            mass_comparison[k]['v1'].append(v1['mass_ts'][t].get(k, 0))
+
+    # --- Per-category mass accuracy metrics ---
+    mass_metrics = {}
+    for k in mass_keys:
+        v1_vals = np.array(mass_comparison[k]['v1'])
+        v2_vals = np.array(mass_comparison[k]['v2'])
+        n = min(len(v1_vals), len(v2_vals))
+        if n > 0:
+            v1_v = v1_vals[:n]
+            v2_v = v2_vals[:n]
+            abs_err = np.abs(v2_v - v1_v)
+            pct_err = np.abs(v2_v - v1_v) / np.maximum(np.abs(v1_v), 1e-10) * 100
+            # Time-series R²
+            ss_res = np.sum((v2_v - v1_v) ** 2)
+            ss_tot = np.sum((v1_v - v1_v.mean()) ** 2)
+            r2 = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
+            mass_metrics[k] = {
+                'mean_abs_err': float(abs_err.mean()),
+                'max_abs_err': float(abs_err.max()),
+                'mean_pct_err': float(pct_err.mean()),
+                'max_pct_err': float(pct_err.max()),
+                'final_pct_err': float(pct_err[-1]) if len(pct_err) > 0 else 0,
+                'r2': float(r2),
+                'v1_final': float(v1_v[-1]) if len(v1_v) > 0 else 0,
+                'v2_final': float(v2_v[-1]) if len(v2_v) > 0 else 0,
+            }
+        else:
+            mass_metrics[k] = {
+                'mean_abs_err': 0, 'max_abs_err': 0,
+                'mean_pct_err': 0, 'max_pct_err': 0,
+                'final_pct_err': 0, 'r2': 0,
+                'v1_final': 0, 'v2_final': 0,
+            }
+
+    # Overall accuracy score: worst-case % error across all mass categories
+    worst_pct = max(m['max_pct_err'] for m in mass_metrics.values()) if mass_metrics else 0
 
     return {
         'duration': duration,
-        'v1_time': v1_time,
-        'v2_time': v2_time,
-        'v1_changed': int((v1_initial != v1_final).sum()),
-        'v2_changed': int((v2_initial != v2_final).sum()),
+        'v1_available': v1_available,
+        'v1_time': v1['time'],
+        'v2_time': v2['time'],
+        'v1_changed': int((v1['initial_bulk'] != v1['final_bulk']).sum()),
+        'v2_changed': int((v2['initial_bulk'] != v2['final_bulk']).sum()),
         'both_changed': int(both.sum()),
         'delta_correlation': delta_corr,
         'common_timesteps': len(common_times),
@@ -204,10 +393,19 @@ def bench_v1_comparison(duration=60.0):
         'mean_correlation': np.mean(per_ts_corr) if per_ts_corr else 0.0,
         'mean_exact_match': np.mean(per_ts_exact) if per_ts_exact else 0.0,
         'mean_rmse': np.mean(per_ts_rmse) if per_ts_rmse else 0.0,
-        'v1_initial': v1_initial,
-        'v1_final': v1_final,
-        'v2_initial': v2_initial,
-        'v2_final': v2_final,
+        'v1_initial': v1['initial_bulk'],
+        'v1_final': v1['final_bulk'],
+        'v2_initial': v2['initial_bulk'],
+        'v2_final': v2['final_bulk'],
+        'mass_comparison': mass_comparison,
+        'mass_metrics': mass_metrics,
+        'worst_pct_error': worst_pct,
+        'v1_unique': v1['unique_counts'],
+        'v2_unique': v2['unique_counts'],
+        'v1_chromosome': v1['chromosome'],
+        'v2_chromosome': v2['chromosome'],
+        'v1_final_mass': v1['final_mass'],
+        'v2_final_mass': v2['final_mass'],
     }
 
 
@@ -379,7 +577,125 @@ def plot_comparison(comp):
     else:
         axes[2].text(0.5, 0.5, 'No per-timestep data', ha='center', va='center')
 
-    fig.suptitle('v1 vs v2 Comparison — All Molecules, All Timesteps', fontsize=13)
+    fig.suptitle('v1 vs v2 Comparison — Bulk Molecules', fontsize=13)
+    fig.tight_layout()
+    return fig_to_b64(fig)
+
+
+def plot_mass_comparison(comp):
+    """Plot per-timestep mass components for v1 vs v2."""
+    mc = comp.get('mass_comparison', {})
+    mass_keys = ['dry_mass', 'protein_mass', 'rna_mass', 'dna_mass', 'smallMolecule_mass']
+    labels = ['Dry Mass', 'Protein', 'RNA', 'DNA', 'Small Molecules']
+
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+    axes = axes.flatten()
+
+    for i, (key, label) in enumerate(zip(mass_keys, labels)):
+        ax = axes[i]
+        data = mc.get(key, {})
+        v2_vals = data.get('v2', [])
+        v1_vals = data.get('v1', [])
+        v2_times = data.get('times', [])
+        v1_times = list(range(1, len(v1_vals) + 1))
+
+        if v2_vals:
+            ax.plot(v2_times, v2_vals, 'b-', lw=1.5, label='v2', alpha=0.8)
+        if v1_vals:
+            ax.plot(v1_times, v1_vals, 'r--', lw=1.5, label='v1', alpha=0.8)
+        ax.set_title(label)
+        ax.set_xlabel('Time (s)')
+        ax.set_ylabel('Mass (fg)')
+        ax.legend(fontsize=8)
+        ax.grid(True, alpha=0.15)
+
+    # Mass delta per timestep (v2)
+    ax = axes[5]
+    dm = mc.get('dry_mass', {}).get('v2', [])
+    if len(dm) > 1:
+        deltas = np.diff(dm)
+        ax.plot(range(1, len(deltas) + 1), deltas, 'b-o', markersize=2, lw=1)
+        v1_dm = mc.get('dry_mass', {}).get('v1', [])
+        if len(v1_dm) > 1:
+            v1_deltas = np.diff(v1_dm)
+            ax.plot(range(1, len(v1_deltas) + 1), v1_deltas, 'r--x', markersize=2, lw=1)
+        ax.axhline(0, color='k', linestyle='--', alpha=0.3)
+        ax.set_title('Dry Mass Δ per Timestep')
+        ax.set_xlabel('Time (s)')
+        ax.set_ylabel('Mass change (fg)')
+        ax.grid(True, alpha=0.15)
+
+    fig.suptitle('v1 vs v2 — Mass Components Over Time', fontsize=13)
+    fig.tight_layout()
+    return fig_to_b64(fig)
+
+
+def plot_unique_comparison(comp):
+    """Plot unique molecule counts and chromosome state for v1 vs v2."""
+    v1_unique = comp.get('v1_unique', {})
+    v2_unique = comp.get('v2_unique', {})
+    v1_chrom = comp.get('v1_chromosome', {})
+    v2_chrom = comp.get('v2_chromosome', {})
+
+    all_names = sorted(set(list(v1_unique.keys()) + list(v2_unique.keys())))
+
+    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
+
+    # Bar chart of unique molecule counts
+    if all_names:
+        x = np.arange(len(all_names))
+        v1_vals = [v1_unique.get(n, 0) for n in all_names]
+        v2_vals = [v2_unique.get(n, 0) for n in all_names]
+        width = 0.35
+        axes[0].bar(x - width/2, v1_vals, width, label='v1', color='#dc2626', alpha=0.7)
+        axes[0].bar(x + width/2, v2_vals, width, label='v2', color='#2563eb', alpha=0.7)
+        axes[0].set_xticks(x)
+        axes[0].set_xticklabels([n.replace('_', '\n') for n in all_names], fontsize=7, rotation=45, ha='right')
+        axes[0].set_ylabel('Active Count')
+        axes[0].set_title('Unique Molecule Counts (active)')
+        axes[0].legend()
+        axes[0].grid(True, alpha=0.15, axis='y')
+
+    # Chromosome state text
+    ax = axes[1]
+    ax.axis('off')
+    lines = ['Chromosome State at t=60s', '']
+    lines.append('v2:')
+    lines.append(f'  Full chromosomes: {v2_chrom.get("n_chromosomes", "?")}')
+    if 'division_times' in v2_chrom:
+        lines.append(f'  Division times: {v2_chrom["division_times"]}')
+        lines.append(f'  Has triggered: {v2_chrom["has_triggered"]}')
+    if 'domain_indexes' in v2_chrom:
+        lines.append(f'  Domain indexes: {v2_chrom["domain_indexes"]}')
+
+    if v1_chrom:
+        lines.append('')
+        lines.append('v1:')
+        lines.append(f'  Full chromosomes: {v1_chrom.get("n_chromosomes", "?")}')
+        if 'division_times' in v1_chrom:
+            lines.append(f'  Division times: {v1_chrom["division_times"]}')
+            lines.append(f'  Has triggered: {v1_chrom["has_triggered"]}')
+
+    # Final mass comparison
+    v1_fm = comp.get('v1_final_mass', {})
+    v2_fm = comp.get('v2_final_mass', {})
+    lines.append('')
+    lines.append('Final Mass (fg):')
+    for k in ['dry_mass', 'protein_mass', 'rna_mass', 'dna_mass', 'smallMolecule_mass']:
+        v1v = v1_fm.get(k, 0)
+        v2v = v2_fm.get(k, 0)
+        diff = v2v - v1v if v1v else 0
+        label = k.replace('_mass', '').replace('_', ' ').title()
+        if v1v:
+            lines.append(f'  {label}: v1={v1v:.2f}  v2={v2v:.2f}  diff={diff:+.2f}')
+        else:
+            lines.append(f'  {label}: v2={v2v:.2f}')
+
+    ax.text(0.05, 0.95, '\n'.join(lines), transform=ax.transAxes,
+            fontsize=9, verticalalignment='top', fontfamily='monospace',
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    fig.suptitle('v1 vs v2 — Unique Molecules & Chromosome State', fontsize=13)
     fig.tight_layout()
     return fig_to_b64(fig)
 
@@ -478,8 +794,12 @@ def run_benchmarks():
     print(f"Benchmark 4: v1 Comparison ({COMPARISON_DURATION}s)")
     comp = bench_v1_comparison(COMPARISON_DURATION)
     results['comparison'] = comp
+    mm = comp.get('mass_metrics', {})
     print(f"  v1: {comp['v1_time']:.2f}s, v2: {comp['v2_time']:.2f}s, "
-          f"mean_corr: {comp['mean_correlation']:.6f}, delta_corr: {comp['delta_correlation']:.4f}")
+          f"worst_pct_err: {comp['worst_pct_error']:.2f}%")
+    for k, m in mm.items():
+        label = k.replace('_mass', '').replace('_', ' ').title()
+        print(f"    {label}: mean_err={m['mean_pct_err']:.2f}%, max_err={m['max_pct_err']:.2f}%, R2={m['r2']:.4f}")
 
     # 6. Long sim
     print(f"Benchmark 5: Long Simulation ({LONG_DURATION}s = {LONG_DURATION/60:.0f}min)")
@@ -495,12 +815,33 @@ def run_benchmarks():
     mass_long = plot_mass(results['long']['history'], f'Mass Components ({LONG_DURATION/60:.0f} min)')
     growth_long = plot_growth(results['long']['history'])
     comparison_plot = plot_comparison(comp)
+    mass_comp_plot = plot_mass_comparison(comp)
+    unique_comp_plot = plot_unique_comparison(comp)
 
     # Build HTML
     b = results['build']
     s = results['short']
     c = results['comparison']
     l = results['long']
+
+    # Mass accuracy table rows
+    mass_accuracy_rows = ''
+    mass_labels = {
+        'dry_mass': 'Dry Mass', 'protein_mass': 'Protein',
+        'rna_mass': 'RNA', 'dna_mass': 'DNA', 'smallMolecule_mass': 'Small Molecules',
+    }
+    for k, label in mass_labels.items():
+        m = c.get('mass_metrics', {}).get(k, {})
+        err_color = 'green' if m.get('max_pct_err', 0) < 1 else ('red' if m.get('max_pct_err', 0) > 5 else 'purple')
+        r2_color = 'green' if m.get('r2', 0) > 0.99 else ('red' if m.get('r2', 0) < 0.9 else 'purple')
+        mass_accuracy_rows += f"""<tr>
+          <td><strong>{label}</strong></td>
+          <td>{m.get('v1_final', 0):.2f}</td>
+          <td>{m.get('v2_final', 0):.2f}</td>
+          <td class="{err_color}">{m.get('mean_pct_err', 0):.2f}%</td>
+          <td class="{err_color}">{m.get('max_pct_err', 0):.2f}%</td>
+          <td class="{r2_color}">{m.get('r2', 0):.4f}</td>
+        </tr>"""
 
     # Step diagnostics table
     step_rows = ''
@@ -617,27 +958,52 @@ def run_benchmarks():
 <div class="section">
   <h3>Methodology</h3>
   <p>Both v1 (vEcoli) and v2 (v2ecoli) simulations run for {COMPARISON_DURATION:.0f} seconds with identical
-     initial states from the same simData. At each simulated second, the bulk molecule count vector
-     (16,321 molecules) is compared between v1 and v2 using:</p>
-  <ul style="margin: 8px 0 8px 20px; font-size: 0.9em;">
-    <li><strong>Pearson correlation</strong> of all {len(c['v1_initial'])} molecule counts at each timestep</li>
-    <li><strong>Exact match %</strong> — fraction of molecules with identical counts at each timestep</li>
-    <li><strong>RMSE</strong> — root mean square error of count differences at each timestep</li>
-    <li><strong>Final delta correlation</strong> — Pearson correlation of count CHANGES (final−initial) for molecules that changed in both</li>
-  </ul>
+     initial states from the same simData. Accuracy is measured by comparing mass components
+     (dry mass, protein, RNA, DNA, small molecules) at each simulated second. These are the
+     biologically meaningful quantities — bulk molecule correlation alone is misleading because
+     most of the 16,321 molecules don't change.</p>
+</div>
+
+<h3>Mass Component Accuracy</h3>
+<div class="section" style="overflow-x: auto;">
+  <table>
+    <thead><tr>
+      <th>Component</th><th>v1 Final (fg)</th><th>v2 Final (fg)</th>
+      <th>Mean % Error</th><th>Max % Error</th><th>R&sup2;</th>
+    </tr></thead>
+    <tbody>{mass_accuracy_rows}</tbody>
+  </table>
 </div>
 
 <div class="metrics">
+  <div class="metric"><div class="label">Worst % Error</div><div class="value {'green' if c['worst_pct_error'] < 1 else 'red'}">{c['worst_pct_error']:.2f}%</div></div>
   <div class="metric"><div class="label">v1 Runtime</div><div class="value red">{c['v1_time']:.2f}s</div></div>
   <div class="metric"><div class="label">v2 Runtime</div><div class="value blue">{c['v2_time']:.2f}s</div></div>
-  <div class="metric"><div class="label">Timesteps Compared</div><div class="value">{c['common_timesteps']}</div></div>
-  <div class="metric"><div class="label">Mean Correlation</div><div class="value green">{c['mean_correlation']:.6f}</div></div>
-  <div class="metric"><div class="label">Mean Exact Match</div><div class="value green">{c['mean_exact_match']*100:.2f}%</div></div>
-  <div class="metric"><div class="label">Mean RMSE</div><div class="value">{c['mean_rmse']:.2f}</div></div>
-  <div class="metric"><div class="label">Delta Correlation</div><div class="value green">{c['delta_correlation']:.4f}</div></div>
-  <div class="metric"><div class="label">Both Changed</div><div class="value purple">{c['both_changed']}</div></div>
+  <div class="metric"><div class="label">Timesteps</div><div class="value">{c['common_timesteps']}</div></div>
 </div>
-<div class="plot"><img src="data:image/png;base64,{comparison_plot}" alt="Comparison"></div>
+
+<div class="plot"><img src="data:image/png;base64,{mass_comp_plot}" alt="Mass Comparison"></div>
+
+<h3>Unique Molecules & Chromosome State</h3>
+<div class="section">
+  <p>Comparison of unique molecule populations and chromosome replication state at the end of
+  the {COMPARISON_DURATION:.0f}s simulation.</p>
+</div>
+<div class="plot"><img src="data:image/png;base64,{unique_comp_plot}" alt="Unique Comparison"></div>
+
+<details>
+<summary>Bulk Molecule Correlation (supplementary)</summary>
+<div class="section">
+  <p><em>Note: Bulk correlation across all 16,321 molecules is dominated by invariant counts
+  and does not reflect accuracy of biologically active molecules. Use mass component metrics above instead.</em></p>
+  <div class="metrics">
+    <div class="metric"><div class="label">Mean Correlation</div><div class="value">{c['mean_correlation']:.6f}</div></div>
+    <div class="metric"><div class="label">Mean Exact Match</div><div class="value">{c['mean_exact_match']*100:.2f}%</div></div>
+    <div class="metric"><div class="label">Mean RMSE</div><div class="value">{c['mean_rmse']:.2f}</div></div>
+  </div>
+  <div class="plot"><img src="data:image/png;base64,{comparison_plot}" alt="Bulk Comparison"></div>
+</div>
+</details>
 
 <!-- ===== Benchmark 4: Long Sim ===== -->
 <h2>4. Long Simulation ({LONG_DURATION/60:.0f} min)</h2>

@@ -17,6 +17,29 @@ from v2ecoli.steps.base import _translate_schema
 from v2ecoli.types.stores import SetStore, InPlaceDict, ListenerStore
 
 
+def _protect_state(state):
+    """Return a shallow copy of state with bulk/unique arrays copied.
+
+    Processes from v1 mutate their input arrays in place. Since core.view
+    returns the live state object, we must copy arrays that processes
+    might modify to prevent corruption of the simulation state.
+    """
+    import numpy as np
+    protected = dict(state)
+    if 'bulk' in protected and hasattr(protected['bulk'], 'copy'):
+        protected['bulk'] = protected['bulk'].copy()
+        protected['bulk'].flags.writeable = True
+    if 'unique' in protected and isinstance(protected['unique'], dict):
+        protected['unique'] = {
+            k: v.copy() if hasattr(v, 'copy') else v
+            for k, v in protected['unique'].items()
+        }
+        for arr in protected['unique'].values():
+            if hasattr(arr, 'flags'):
+                arr.flags.writeable = True
+    return protected
+
+
 class _SafeInvokeMixin:
     """Mixin that catches errors in update() to prevent cascade crashes."""
     def invoke(self, state, interval=None):
@@ -105,6 +128,7 @@ class PartitionedProcess(_SafeInvokeMixin, Step):
 
     def update(self, state, interval=None):
         """Run standalone via next_update."""
+        state = _protect_state(state)
         timestep = state.get('timestep', self.parameters.get('timestep', 1.0))
         return self.next_update(timestep, state)
 
@@ -117,6 +141,7 @@ class Requester(_SafeInvokeMixin, Step):
     def __init__(self, config=None, core=None):
         super().__init__(config=config, core=core)
         self.process = config['process']
+        self.process_name = config.get('process_name', self.process.name)
         self.name = f"{self.process.name}_requester"
 
     def inputs(self):
@@ -143,15 +168,17 @@ class Requester(_SafeInvokeMixin, Step):
         if next_time > global_time:
             return {}
 
+        state = _protect_state(state)
         process = self.process
         timestep = state.get('timestep', 1.0)
         request = process.calculate_request(timestep, state)
         process.request_set = True
 
-        result = {'request': {}}
+        # Write request keyed by process name into the request store
         bulk_request = request.pop('bulk', None)
+        result = {'request': {self.process_name: {}}}
         if bulk_request is not None:
-            result['request']['bulk'] = bulk_request
+            result['request'][self.process_name]['bulk'] = bulk_request
 
         listeners = request.pop('listeners', None)
         if listeners is not None:
@@ -193,7 +220,16 @@ class Evolver(_SafeInvokeMixin, Step):
         if next_time > global_time:
             return {}
 
+        state = _protect_state(state)
+
+        # Apply allocation: replace bulk counts with allocated amounts
+        import numpy as np
         allocations = state.pop('allocate', {})
+        bulk_alloc = allocations.get('bulk')
+        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
+            alloc_bulk = state['bulk'].copy()
+            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
+            state['bulk'] = alloc_bulk
         state = deep_merge(state, allocations)
 
         process = self.process

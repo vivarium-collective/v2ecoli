@@ -328,6 +328,18 @@ def build_document(sim_data_path=None, seed=0):
     import numpy as np
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
 
+    # Pre-create request sub-dicts so core.apply can route requester updates
+    _ALL_PARTITIONED = [
+        'ecoli-chromosome-replication', 'ecoli-complexation',
+        'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
+        'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
+        'ecoli-rna-degradation', 'ecoli-rna-maturation',
+        'ecoli-transcript-elongation', 'ecoli-transcript-initiation',
+        'ecoli-two-component-system',
+    ]
+    for proc_name in _ALL_PARTITIONED:
+        cell_state.setdefault('request', {})[proc_name] = {'bulk': []}
+
     # Pre-populate process_state with defaults that metabolism needs
     from v2ecoli.library.units import units
     cell_state.setdefault('process_state', {})
@@ -405,6 +417,18 @@ def build_document_from_configs(initial_state, configs, unique_names,
     cell_state.setdefault('listeners', {})
     cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
+
+    # Pre-create request sub-dicts
+    _ALL_PARTITIONED = [
+        'ecoli-chromosome-replication', 'ecoli-complexation',
+        'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
+        'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
+        'ecoli-rna-degradation', 'ecoli-rna-maturation',
+        'ecoli-transcript-elongation', 'ecoli-transcript-initiation',
+        'ecoli-two-component-system',
+    ]
+    for proc_name in _ALL_PARTITIONED:
+        cell_state.setdefault('request', {})[proc_name] = {'bulk': []}
 
     from v2ecoli.library.units import units
     cell_state.setdefault('process_state', {})
@@ -573,11 +597,11 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         topology = process.topology
 
         if step_name.endswith('_requester'):
-            req_config = {'process': process, 'name': step_name}
+            req_config = {'process': process, 'name': step_name, 'process_name': base_name}
             instance = Requester(config=req_config, core=core)
             # Requester topology extends process topology
             req_topo = dict(topology)
-            req_topo['request'] = ('request', base_name)
+            req_topo['request'] = ('request',)
             req_topo['process'] = ('process', base_name)
             req_topo['global_time'] = ('global_time',)
             req_topo['timestep'] = ('timestep',)

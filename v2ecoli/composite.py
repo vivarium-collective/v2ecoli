@@ -185,3 +185,52 @@ def load_state(path='out/checkpoint.dill', core=None):
     composite = Composite(document, core=core)
     print(f"Loaded state from {path} (t={checkpoint['global_time']})")
     return composite
+
+
+def run_and_cache(cache_dir='out/cache', checkpoint_dir='out/checkpoints',
+                  intervals=None, seed=0):
+    """Run simulation with periodic checkpoints.
+
+    Args:
+        cache_dir: Path to initial cache.
+        checkpoint_dir: Where to save checkpoints.
+        intervals: List of simulation times to checkpoint at.
+        seed: Random seed.
+
+    Returns:
+        Final composite.
+    """
+    import time
+
+    if intervals is None:
+        intervals = [100, 500, 1000, 1500, 1800, 2000, 2500, 3000]
+
+    os.makedirs(checkpoint_dir, exist_ok=True)
+    composite = make_composite(cache_dir=cache_dir, seed=seed)
+
+    for target in intervals:
+        cell = composite.state['agents']['0']
+        current_t = cell.get('global_time', 0.0)
+        remaining = target - current_t
+        if remaining <= 0:
+            continue
+
+        t0 = time.time()
+        composite.run(remaining)
+        elapsed = time.time() - t0
+
+        cell = composite.state['agents']['0']
+        mass = cell.get('listeners', {}).get('mass', {})
+        dm = mass.get('dry_mass', 0)
+        thresh = cell.get('division_threshold', '?')
+        n_chrom = 0
+        fc = cell.get('unique', {}).get('full_chromosome')
+        if fc is not None and hasattr(fc, 'dtype'):
+            n_chrom = fc['_entryState'].view(bool).sum()
+
+        path = os.path.join(checkpoint_dir, f't{target}.dill')
+        save_state(composite, path)
+        print(f'  t={target}: dry_mass={float(dm):.1f}, threshold={thresh}, '
+              f'chroms={n_chrom} ({elapsed:.0f}s wall)')
+
+    return composite

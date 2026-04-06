@@ -752,16 +752,24 @@ def _get_special_step(loader, step_name, core):
             div_config = {}
         div_config.setdefault('agent_id', '0')
         div_config.setdefault('division_threshold', 'mass_distribution')
-        div_config.setdefault('dry_mass_inc_dict',
-                              getattr(getattr(loader, 'sim_data', None),
-                                      'expectedDryMassIncreaseDict', {}))
+        dry_mass_inc = getattr(getattr(loader, 'sim_data', None),
+                               'expectedDryMassIncreaseDict', {})
+        div_config.setdefault('dry_mass_inc_dict', dry_mass_inc)
+        # Pass configs for building daughter cell states
+        if hasattr(loader, '_configs'):
+            div_config['configs'] = loader._configs
+        div_config.setdefault('unique_names', getattr(loader, 'unique_names', []))
         instance = Division(config=div_config, core=core)
         topo = {
-            'division_variable': ('listeners', 'mass', 'dry_mass'),
-            'full_chromosome': ('unique', 'full_chromosome'),
-            'media_id': ('environment', 'media_id'),
-            'division_threshold': ('division_threshold',),
+            'bulk': ('bulk',),
+            'unique': ('unique',),
+            'listeners': ('listeners',),
+            'environment': ('environment',),
+            'boundary': ('boundary',),
             'global_time': ('global_time',),
+            'division_threshold': ('division_threshold',),
+            'media_id': ('environment', 'media_id'),
+            'agents': ('..',),
         }
         return instance, topo, 'step'
 

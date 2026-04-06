@@ -37,6 +37,7 @@ except ImportError:
     V1_AVAILABLE = False
 
 from v2ecoli.composite import make_composite, _build_core, save_cache
+from process_bigraph import Composite
 from v2ecoli.generate import build_document, DEFAULT_FLOW
 from v2ecoli.cache import NumpyJSONEncoder, load_initial_state
 from v2ecoli.steps.base import _translate_schema
@@ -406,6 +407,82 @@ def bench_v1_comparison(duration=60.0):
         'v2_chromosome': v2['chromosome'],
         'v1_final_mass': v1['final_mass'],
         'v2_final_mass': v2['final_mass'],
+    }
+
+
+def bench_division():
+    """Benchmark: division state splitting and daughter generation.
+
+    Tests divide_cell() on the initial state (not at actual division time)
+    to verify conservation and daughter viability.
+    """
+    import time as time_mod
+    from v2ecoli.library.division import divide_cell, divide_bulk
+
+    composite = make_composite(cache_dir=CACHE_DIR)
+    cell = composite.state['agents']['0']
+
+    # Test bulk conservation
+    d1_bulk, d2_bulk = divide_bulk(cell['bulk'])
+    mother_count = int(cell['bulk']['count'].sum())
+    d1_count = int(d1_bulk['count'].sum())
+    d2_count = int(d2_bulk['count'].sum())
+    conserved = (d1_count + d2_count == mother_count)
+
+    # Test full cell division
+    t0 = time_mod.time()
+    d1_state, d2_state = divide_cell(cell)
+    split_time = time_mod.time() - t0
+
+    # Unique molecule counts
+    unique_conservation = {}
+    for name in d1_state.get('unique', {}):
+        d1_arr = d1_state['unique'][name]
+        d2_arr = d2_state['unique'][name]
+        mother_arr = cell['unique'][name]
+        if hasattr(d1_arr, 'shape') and hasattr(mother_arr, 'dtype'):
+            if '_entryState' in mother_arr.dtype.names:
+                m = int(mother_arr['_entryState'].view(np.bool_).sum())
+                d1 = d1_arr.shape[0]
+                d2 = d2_arr.shape[0]
+                unique_conservation[name] = {
+                    'mother': m, 'd1': d1, 'd2': d2,
+                    'conserved': d1 + d2 == m
+                }
+
+    # Test daughter document build (if configs available)
+    div_step = cell.get('division', {}).get('instance')
+    can_build_daughters = div_step is not None and bool(getattr(div_step, '_configs', {}))
+    daughter_build_time = 0
+    daughter_viable = False
+
+    if can_build_daughters:
+        from v2ecoli.generate import build_document_from_configs
+        t0 = time_mod.time()
+        try:
+            d1_doc = build_document_from_configs(
+                d1_state, div_step._configs, div_step._unique_names,
+                dry_mass_inc_dict=div_step.dry_mass_inc_dict,
+                seed=1)
+            daughter_build_time = time_mod.time() - t0
+            # Quick viability check: can we create a composite?
+            d1_composite = Composite(d1_doc, core=_build_core())
+            d1_composite.run(1.0)
+            daughter_viable = True
+        except Exception as e:
+            daughter_build_time = time_mod.time() - t0
+            print(f"  Daughter build error: {e}")
+
+    return {
+        'mother_bulk_count': mother_count,
+        'd1_bulk_count': d1_count,
+        'd2_bulk_count': d2_count,
+        'bulk_conserved': conserved,
+        'split_time': split_time,
+        'unique_conservation': unique_conservation,
+        'can_build_daughters': can_build_daughters,
+        'daughter_build_time': daughter_build_time,
+        'daughter_viable': daughter_viable,
     }
 
 
@@ -801,8 +878,17 @@ def run_benchmarks():
         label = k.replace('_mass', '').replace('_', ' ').title()
         print(f"    {label}: mean_err={m['mean_pct_err']:.2f}%, max_err={m['max_pct_err']:.2f}%, R2={m['r2']:.4f}")
 
-    # 6. Long sim
-    print(f"Benchmark 5: Long Simulation ({LONG_DURATION}s = {LONG_DURATION/60:.0f}min)")
+    # 6. Division
+    print("Benchmark 5: Division")
+    div = bench_division()
+    results['division'] = div
+    print(f"  Bulk conserved: {div['bulk_conserved']}, split time: {div['split_time']:.3f}s")
+    print(f"  Can build daughters: {div['can_build_daughters']}, viable: {div['daughter_viable']}")
+    if div['daughter_build_time'] > 0:
+        print(f"  Daughter build time: {div['daughter_build_time']:.1f}s")
+
+    # 7. Long sim
+    print(f"Benchmark 6: Long Simulation ({LONG_DURATION}s = {LONG_DURATION/60:.0f}min)")
     long_composite = make_composite(cache_dir=CACHE_DIR)
     long_r = bench_short_sim(long_composite, LONG_DURATION)
     results['long'] = long_r
@@ -823,6 +909,16 @@ def run_benchmarks():
     s = results['short']
     c = results['comparison']
     l = results['long']
+    div = results['division']
+
+    # Division unique molecule rows
+    div_unique_rows = ''
+    for name, info in div.get('unique_conservation', {}).items():
+        ok = 'green' if info['conserved'] else 'red'
+        div_unique_rows += f"""<tr>
+          <td>{name}</td><td>{info['mother']}</td>
+          <td>{info['d1']}</td><td>{info['d2']}</td>
+          <td class="{ok}">{'Yes' if info['conserved'] else 'No'}</td></tr>"""
 
     # Mass accuracy table rows
     mass_accuracy_rows = ''
@@ -1005,8 +1101,34 @@ def run_benchmarks():
 </div>
 </details>
 
-<!-- ===== Benchmark 4: Long Sim ===== -->
-<h2>4. Long Simulation ({LONG_DURATION/60:.0f} min)</h2>
+<!-- ===== Benchmark 4: Division ===== -->
+<h2>4. Division</h2>
+<div class="section">
+  <p>Tests cell division state splitting on the initial state. Verifies bulk molecule
+  conservation (binomial split), unique molecule partitioning (domain-based), and
+  daughter cell viability (can build and run a new Composite from divided state).</p>
+</div>
+<div class="metrics">
+  <div class="metric"><div class="label">Bulk Conserved</div><div class="value {'green' if div['bulk_conserved'] else 'red'}">{'Yes' if div['bulk_conserved'] else 'No'}</div></div>
+  <div class="metric"><div class="label">Mother Bulk</div><div class="value">{div['mother_bulk_count']:,}</div></div>
+  <div class="metric"><div class="label">D1 Bulk</div><div class="value">{div['d1_bulk_count']:,}</div></div>
+  <div class="metric"><div class="label">D2 Bulk</div><div class="value">{div['d2_bulk_count']:,}</div></div>
+  <div class="metric"><div class="label">Split Time</div><div class="value blue">{div['split_time']:.3f}s</div></div>
+  <div class="metric"><div class="label">Daughter Build</div><div class="value blue">{div['daughter_build_time']:.1f}s</div></div>
+  <div class="metric"><div class="label">Daughter Viable</div><div class="value {'green' if div['daughter_viable'] else 'red'}">{'Yes' if div['daughter_viable'] else 'No'}</div></div>
+</div>
+<details>
+<summary>Unique Molecule Conservation</summary>
+<div class="section" style="overflow-x: auto;">
+  <table>
+    <thead><tr><th>Molecule</th><th>Mother</th><th>D1</th><th>D2</th><th>Conserved</th></tr></thead>
+    <tbody>{div_unique_rows}</tbody>
+  </table>
+</div>
+</details>
+
+<!-- ===== Benchmark 5: Long Sim ===== -->
+<h2>5. Long Simulation ({LONG_DURATION/60:.0f} min)</h2>
 <div class="metrics">
   <div class="metric"><div class="label">Sim Duration</div><div class="value">{l['duration']:.0f}s</div></div>
   <div class="metric"><div class="label">Wall Time</div><div class="value blue">{l['wall_time']:.1f}s</div></div>

@@ -1875,8 +1875,6 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["growth_short"]}" alt="Growth"></div>\n')
         if plots.get('bulk_histogram'):
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["bulk_histogram"]}" alt="Bulk Changes"></div>\n')
-        if plots.get('chromosome_short'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["chromosome_short"]}" alt="Chromosome 60s"></div>\n')
 
         f.write(f"""
 <!-- ===== Step 5: v1 Comparison ===== -->
@@ -2180,11 +2178,6 @@ def run_workflow():
         plots['chromosome_long'] = plot_chromosome_state(
             chrom_snaps, f'Chromosome State (to t={dur:.0f}s)')
 
-    # Also plot chromosome for short sim if we have snapshots
-    short_chrom = short_meta.get('chromosome_snapshots', [])
-    if short_chrom:
-        plots['chromosome_short'] = plot_chromosome_state(
-            short_chrom, f'Chromosome State (60s)')
 
     # Generate HTML report
     print("  Generating HTML report...")

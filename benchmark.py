@@ -36,7 +36,7 @@ except ImportError:
     ROOT_PATH = os.getcwd()
     V1_AVAILABLE = False
 
-from v2ecoli.composite import make_composite, _build_core, save_cache
+from v2ecoli.composite import make_composite, _build_core, save_cache, save_state
 from process_bigraph import Composite
 from v2ecoli.generate import build_document, DEFAULT_FLOW
 from v2ecoli.cache import NumpyJSONEncoder, load_initial_state
@@ -68,6 +68,62 @@ def fig_to_b64(fig):
     plt.close(fig)
     buf.seek(0)
     return base64.b64encode(buf.read()).decode('utf-8')
+
+
+def generate_predivision_state(duration=1800, cache_dir=CACHE_DIR,
+                                outpath=None):
+    """Run simulation to near-division and save cell state data.
+
+    Saves only the data stores (bulk, unique, listeners, environment, etc.)
+    without process instances, so it loads without needing a core.
+
+    Args:
+        duration: Simulation time in seconds (~1800s reaches 2+ chromosomes).
+        cache_dir: Cache directory for initial state.
+        outpath: Output path. Defaults to out/predivision.dill.
+
+    Returns:
+        Path to saved checkpoint.
+    """
+    import time as time_mod
+    import dill
+    if outpath is None:
+        outpath = os.path.join(OUT_DIR, '..', 'predivision.dill')
+
+    print(f"Generating pre-division state ({duration}s)...")
+    composite = make_composite(cache_dir=cache_dir)
+    t0 = time_mod.time()
+    composite.run(duration)
+    elapsed = time_mod.time() - t0
+
+    cell = composite.state['agents']['0']
+    mass = cell.get('listeners', {}).get('mass', {})
+    fc = cell.get('unique', {}).get('full_chromosome')
+    n_chrom = fc['_entryState'].view(np.bool_).sum() if fc is not None else 0
+    dm = float(mass.get('dry_mass', 0))
+
+    # Save only data stores (no process instances)
+    data_keys = {'bulk', 'unique', 'listeners', 'environment', 'boundary',
+                 'global_time', 'timestep', 'divide', 'division_threshold',
+                 'process_state', 'allocator_rng'}
+    cell_data = {}
+    for k, v in cell.items():
+        if k in data_keys:
+            cell_data[k] = v
+        elif k.startswith('request_') or k.startswith('allocate_'):
+            cell_data[k] = v
+
+    os.makedirs(os.path.dirname(outpath) or '.', exist_ok=True)
+    with open(outpath, 'wb') as f:
+        dill.dump({
+            'cell_state': cell_data,
+            'global_time': cell.get('global_time', 0.0),
+        }, f)
+
+    print(f"  {duration}s sim in {elapsed:.0f}s wall | "
+          f"dry_mass={dm:.0f} fg, chromosomes={n_chrom}")
+    print(f"  Saved to {outpath}")
+    return outpath
 
 
 # ---------------------------------------------------------------------------
@@ -410,17 +466,39 @@ def bench_v1_comparison(duration=60.0):
     }
 
 
+PREDIVISION_PATH = os.path.join(OUT_DIR, '..', 'predivision.dill')
+
+
 def bench_division():
     """Benchmark: division state splitting and daughter generation.
 
-    Tests divide_cell() on the initial state (not at actual division time)
-    to verify conservation and daughter viability.
+    Uses a cached pre-division state (t~1800s, 2+ chromosomes) if available,
+    otherwise falls back to the initial state (t=0).
     """
     import time as time_mod
+    import dill
     from v2ecoli.library.division import divide_cell, divide_bulk
 
-    composite = make_composite(cache_dir=CACHE_DIR)
-    cell = composite.state['agents']['0']
+    prediv_state = None
+    prediv_time = 0.0
+    if os.path.exists(PREDIVISION_PATH):
+        try:
+            with open(PREDIVISION_PATH, 'rb') as f:
+                checkpoint = dill.load(f)
+            cell_data = checkpoint.get('cell_state', {})
+            if cell_data.get('unique', {}).get('full_chromosome') is not None:
+                prediv_state = cell_data
+                prediv_time = checkpoint.get('global_time', 0.0)
+                print(f"  Using pre-division state (t={prediv_time:.0f})")
+        except Exception as e:
+            print(f"  Could not load pre-division state: {e}")
+
+    if prediv_state is not None:
+        cell = prediv_state
+    else:
+        print("  No pre-division checkpoint — using initial state (t=0)")
+        composite = make_composite(cache_dir=CACHE_DIR)
+        cell = composite.state['agents']['0']
 
     # Test bulk conservation
     d1_bulk, d2_bulk = divide_bulk(cell['bulk'])
@@ -450,9 +528,24 @@ def bench_division():
                     'conserved': d1 + d2 == m
                 }
 
-    # Test daughter document build (if configs available)
+    # Test daughter document build
+    # Get configs from division step instance or cache
     div_step = cell.get('division', {}).get('instance')
-    can_build_daughters = div_step is not None and bool(getattr(div_step, '_configs', {}))
+    configs = getattr(div_step, '_configs', None)
+    unique_names = getattr(div_step, '_unique_names', None)
+    dry_mass_inc = getattr(div_step, 'dry_mass_inc_dict', None)
+
+    if configs is None and os.path.isdir(CACHE_DIR):
+        # Load configs from cache (for pre-division state without instances)
+        cache_path = os.path.join(CACHE_DIR, 'sim_data_cache.dill')
+        if os.path.exists(cache_path):
+            with open(cache_path, 'rb') as f:
+                cache = dill.load(f)
+            configs = cache.get('configs', {})
+            unique_names = cache.get('unique_names', [])
+            dry_mass_inc = cache.get('dry_mass_inc_dict', {})
+
+    can_build_daughters = configs is not None and bool(configs)
     daughter_build_time = 0
     daughter_viable = False
 
@@ -461,8 +554,8 @@ def bench_division():
         t0 = time_mod.time()
         try:
             d1_doc = build_document_from_configs(
-                d1_state, div_step._configs, div_step._unique_names,
-                dry_mass_inc_dict=div_step.dry_mass_inc_dict,
+                d1_state, configs, unique_names,
+                dry_mass_inc_dict=dry_mass_inc,
                 seed=1)
             daughter_build_time = time_mod.time() - t0
             # Quick viability check: can we create a composite?
@@ -473,7 +566,18 @@ def bench_division():
             daughter_build_time = time_mod.time() - t0
             print(f"  Daughter build error: {e}")
 
+    # Check division-ready state (2+ chromosomes, sufficient mass)
+    fc = cell.get('unique', {}).get('full_chromosome')
+    n_chromosomes = 0
+    if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
+        n_chromosomes = int(fc['_entryState'].view(np.bool_).sum())
+    mass = cell.get('listeners', {}).get('mass', {})
+    dry_mass = float(mass.get('dry_mass', 0))
+
     return {
+        'prediv_time': prediv_time,
+        'dry_mass': dry_mass,
+        'n_chromosomes': n_chromosomes,
         'mother_bulk_count': mother_count,
         'd1_bulk_count': d1_count,
         'd2_bulk_count': d2_count,
@@ -1166,8 +1270,7 @@ composite = run_and_cache(intervals=[500, 1000, 1500, 1800, 2000])</pre>
 
 <h3>Division Test Results</h3>
 <div class="section">
-  <p>Tests run on initial state (t=0). At actual division time (~1857s), the cell has 2+
-  chromosomes and proper domain trees for biologically correct partitioning.</p>
+  <p>Tests run on {'pre-division state (t=' + str(int(div['prediv_time'])) + 's, ' + str(div['n_chromosomes']) + ' chromosomes, dry mass ' + f"{div['dry_mass']:.0f}" + ' fg)' if div['prediv_time'] > 0 else 'initial state (t=0). Generate a pre-division checkpoint with <code>generate_predivision_state()</code>.'}.</p>
 </div>
 <div class="metrics">
   <div class="metric"><div class="label">Bulk Conserved</div><div class="value {'green' if div['bulk_conserved'] else 'red'}">{'Yes' if div['bulk_conserved'] else 'No'}</div></div>

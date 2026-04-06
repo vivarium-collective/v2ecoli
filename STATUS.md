@@ -20,8 +20,9 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 ### What Works
 
 - **55 biological steps** through `Composite.run()`
-- **Sequential step execution** via `sequential_steps=True` with priority ordering
+- **Native flow execution** via `sequential_steps=False` with layer-based flow tokens
 - **Explicit Requester/Evolver Steps** with input/output topology separation for all 11 partitioned processes
+- **31 execution layers** with requesters/evolvers/listeners grouped for parallel execution
 - **Partition system**: Requesters → Allocators → Evolvers with proper store routing
 - **Store routing fix**: `_protect_state` copies bulk/unique, pre-created request sub-dicts
 - **Custom types**: BulkNumpyUpdate, UniqueNumpyUpdate, InPlaceDict, SetStore, ListenerStore
@@ -54,7 +55,7 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 
 ## Known Issues
 
-1. **`sequential_steps` still needed** — all 55 steps share bulk/unique/listeners, creating dependency cycles. The `explicit-steps-parallel` branch has input/output topology separation that enables parallel execution, but with slightly higher error (2.12%) due to execution order differences.
+1. **`sequential_steps` removed** — input/output topology separation eliminates dependency cycles. Layer-based flow tokens enforce inter-layer ordering. `sequential_steps=False` produces bit-identical results to the sequential baseline.
 
 2. **Small molecule R² = 0.78** — small molecules have the lowest correlation due to metabolism's sensitivity to upstream state differences. All other components > 0.99.
 
@@ -66,9 +67,7 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 
 ## Next Steps
 
-1. **Layer-based flow tokens** — replace per-step chain tokens with layer tokens for parallel execution
-2. **Remove `sequential_steps`** — enable native parallel execution within layers
-3. **Run to actual division** — cache pre-division state, test full division cycle
+1. **Run to actual division** — cache pre-division state, test full division cycle
 4. **Upstream process-bigraph PR** — get `skip_initial_steps` merged
 5. **CI workflow** — get GitHub Actions passing with PyPI dependencies
 6. **Replace unum with pint** — unified unit system

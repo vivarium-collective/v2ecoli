@@ -413,7 +413,7 @@ def build_document(sim_data_path=None, seed=0):
     return {
         'state': state,
         'skip_initial_steps': True,
-        'sequential_steps': True,
+        'sequential_steps': False,
         'flow_order': DEFAULT_FLOW,
     }
 
@@ -529,7 +529,7 @@ def build_document_from_configs(initial_state, configs, unique_names,
     return {
         'state': state,
         'skip_initial_steps': True,
-        'sequential_steps': True,
+        'sequential_steps': False,
         'flow_order': DEFAULT_FLOW,
     }
 

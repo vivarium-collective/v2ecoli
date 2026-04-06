@@ -179,7 +179,7 @@ def load_state(path='out/checkpoint.dill', core=None):
     document = {
         'state': checkpoint['state'],
         'skip_initial_steps': True,
-        'sequential_steps': True,
+        'sequential_steps': False,
     }
 
     composite = Composite(document, core=core)

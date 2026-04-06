@@ -1,9 +1,17 @@
 """
 Partitioning system for v2ecoli.
 
-All classes are process-bigraph Steps with proper inputs()/outputs()/update().
-PartitionedProcess is the biological base class that also extends Step.
-Requester and Evolver wrap a PartitionedProcess for the partition cycle.
+ProcessLogic is the base class for biological processes — a plain class
+(not a Step) providing calculate_request() and evolve_state().
+
+ExplicitRequester and ExplicitEvolver are process-bigraph Steps that
+wrap a ProcessLogic instance for the partition cycle.
+
+StandaloneStep wraps a ProcessLogic for non-partitioned processes
+(those that run request + evolve in one step).
+
+PartitionedProcess is a backwards-compatible alias for ProcessLogic
+that also extends Step, for processes not yet migrated.
 """
 
 import abc
@@ -60,58 +68,43 @@ def deep_merge(base, override):
     return base
 
 
-class PartitionedProcess(_SafeInvokeMixin, Step):
-    """Base class for biological processes that need resource allocation.
+# ---------------------------------------------------------------------------
+# ProcessLogic — plain class, no Step inheritance
+# ---------------------------------------------------------------------------
 
-    Subclasses implement calculate_request() and evolve_state().
-    When run standalone (not through Requester/Evolver), it executes
-    both request and evolve in sequence.
+class ProcessLogic:
+    """Base class for biological process logic.
+
+    Provides the contract for the partition cycle:
+    - calculate_request(timestep, states) → request dict
+    - evolve_state(timestep, states) → update dict
+    - ports_schema() → v1-style port schema dict (legacy, being removed)
+    - topology, defaults, parameters, name
+
+    This is NOT a process-bigraph Step.
     """
 
     name = ''
     topology = {}
     defaults = {}
-    config_schema = {}
 
     def __init__(self, config=None, core=None, parameters=None):
-        # Accept both config= and parameters= for compatibility
         if parameters is not None and config is None:
             config = parameters
         self.parameters = {**self.defaults, **(config or {})}
         self.request_set = False
-        super().__init__(config=config or {}, core=core)
 
-        # Infer config_schema from actual parameters (like genEcoli)
-        if core is not None and self.parameters:
-            try:
-                self._inferred_config_schema = core.infer(self.parameters)
-            except Exception:
-                self._inferred_config_schema = None
-
-    @abc.abstractmethod
     def ports_schema(self):
-        """Return the v1-style ports schema dict."""
         return {}
 
-    def inputs(self):
-        return _translate_schema(self.ports_schema())
-
-    def outputs(self):
-        return _translate_schema(self.ports_schema())
-
-    def initial_state(self, config=None):
-        return {}
-
-    @abc.abstractmethod
     def calculate_request(self, timestep, states):
         return {}
 
-    @abc.abstractmethod
     def evolve_state(self, timestep, states):
         return {}
 
     def next_update(self, timestep, states):
-        """Default: run calculate_request then evolve_state."""
+        """Run calculate_request then evolve_state in sequence."""
         requests = self.calculate_request(timestep, states)
         bulk_requests = requests.pop("bulk", [])
         if bulk_requests:
@@ -126,11 +119,70 @@ class PartitionedProcess(_SafeInvokeMixin, Step):
                 update.get("listeners", {}), requests["listeners"])
         return update
 
+
+# Backwards-compatible alias — processes can inherit from either.
+# PartitionedProcess adds Step so it can still be used directly as a step
+# (for standalone processes not yet wrapped in StandaloneStep).
+class PartitionedProcess(_SafeInvokeMixin, Step, ProcessLogic):
+    """Backwards-compatible base class (ProcessLogic + Step).
+
+    New processes should inherit from ProcessLogic directly.
+    """
+    config_schema = {}
+
+    def __init__(self, config=None, core=None, parameters=None):
+        if parameters is not None and config is None:
+            config = parameters
+        self.parameters = {**self.defaults, **(config or {})}
+        self.request_set = False
+        Step.__init__(self, config=config or {}, core=core)
+
+    def inputs(self):
+        return _translate_schema(self.ports_schema())
+
+    def outputs(self):
+        return _translate_schema(self.ports_schema())
+
+    def initial_state(self, config=None):
+        return {}
+
     def update(self, state, interval=None):
-        """Run standalone via next_update."""
         state = _protect_state(state)
         timestep = state.get('timestep', self.parameters.get('timestep', 1.0))
         return self.next_update(timestep, state)
+
+
+# ---------------------------------------------------------------------------
+# StandaloneStep — wraps a ProcessLogic for non-partitioned execution
+# ---------------------------------------------------------------------------
+
+class StandaloneStep(_SafeInvokeMixin, Step):
+    """Wraps a ProcessLogic instance as a process-bigraph Step.
+
+    Runs calculate_request → self-allocate → evolve_state in one update().
+    Used for processes that don't go through the partition cycle
+    (TfBinding, TfUnbinding, ChromosomeStructure, Metabolism).
+    """
+
+    config_schema = {}
+
+    def __init__(self, config=None, core=None):
+        super().__init__(config=config or {}, core=core)
+        self.process = config['process']
+
+    def inputs(self):
+        return _translate_schema(self.process.ports_schema())
+
+    def outputs(self):
+        return _translate_schema(self.process.ports_schema())
+
+    def initial_state(self, config=None):
+        return {}
+
+    def update(self, state, interval=None):
+        state = _protect_state(state)
+        timestep = state.get('timestep', self.process.parameters.get('timestep', 1.0))
+        return self.process.next_update(timestep, state)
 
 
 # ---------------------------------------------------------------------------

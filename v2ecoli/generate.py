@@ -569,7 +569,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiation
     from v2ecoli.processes.chromosome_replication import ChromosomeReplication
     from v2ecoli.processes.protein_degradation import (
-        ProteinDegradation, ProteinDegradationRequester, ProteinDegradationEvolver)
+        ProteinDegradationLogic, ProteinDegradationRequester, ProteinDegradationEvolver)
     from v2ecoli.processes.rna_degradation import RnaDegradation
     from v2ecoli.processes.complexation import (
         Complexation, ComplexationRequester, ComplexationEvolver)
@@ -588,7 +588,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     from v2ecoli.steps.listeners.ribosome_data import RibosomeData
     from v2ecoli.steps.media_update import MediaUpdate
     from v2ecoli.steps.exchange_data import ExchangeData
-    from v2ecoli.steps.partition import ExplicitRequester, ExplicitEvolver
+    from v2ecoli.steps.partition import ExplicitRequester, ExplicitEvolver, StandaloneStep
 
     # Map step names to classes and their topologies
     # Partitioned processes have _requester/_evolver suffixes
@@ -621,7 +621,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
 
     EXPLICIT_STEPS = {
         'ecoli-protein-degradation': {
-            'class': ProteinDegradation,
+            'class': ProteinDegradationLogic,
             'requester_class': ProteinDegradationRequester,
             'evolver_class': ProteinDegradationEvolver,
         },
@@ -685,7 +685,14 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         if base_name in process_cache:
             process = process_cache[base_name]
         else:
-            process = spec['class'](parameters=config, core=core)
+            cls = spec['class']
+            # Logic classes (plain) take only parameters;
+            # PartitionedProcess subclasses also need core (Step/Edge requirement)
+            from v2ecoli.steps.partition import PartitionedProcess
+            if issubclass(cls, PartitionedProcess):
+                process = cls(parameters=config, core=core)
+            else:
+                process = cls(parameters=config)
             process_cache[base_name] = process
         topology = process.topology
 
@@ -739,8 +746,9 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
 
     if step_name in STANDALONE_PARTITIONED:
         cls = STANDALONE_PARTITIONED[step_name]
-        instance = cls(parameters=config, core=core)
-        topology = instance.topology
+        process = cls(parameters=config, core=core)
+        topology = process.topology
+        instance = StandaloneStep(config={'process': process}, core=core)
         return instance, topology, 'step'
 
     elif step_name in SIMPLE_STEPS:

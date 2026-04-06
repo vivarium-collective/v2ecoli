@@ -1,6 +1,6 @@
 import numpy as np
 from v2ecoli.steps.base import V2Step as Step
-from vivarium.library.units import units
+from v2ecoli.library.units import units
 
 
 class MediaUpdate(Step):

@@ -19,8 +19,8 @@ import warnings
 import numpy as np
 import numpy.typing as npt
 from scipy.sparse import csr_matrix
-from unum import Unum
-from vivarium.library.units import units as vivunits
+import pint
+from v2ecoli.library.units import units as vivunits
 
 from process_bigraph import Step
 from process_bigraph.composite import SyncUpdate
@@ -663,10 +663,10 @@ class MetabolismLogic:
 
     def update_amino_acid_targets(
         self,
-        counts_to_molar: Unum,
+        counts_to_molar: pint.Quantity,
         count_diff: dict[str, float],
         amino_acid_counts: dict[str, float],
-    ) -> dict[str, Unum]:
+    ) -> dict[str, pint.Quantity]:
         """
         Finds new amino acid concentration targets based on difference in
         supply and number of amino acids used in polypeptide_elongation.
@@ -895,8 +895,8 @@ class FluxBalanceAnalysisModel(object):
 
     def update_external_molecule_levels(
         self,
-        objective: dict[str, Unum],
-        metabolite_concentrations: Unum,
+        objective: dict[str, pint.Quantity],
+        metabolite_concentrations: pint.Quantity,
         external_molecule_levels: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
         """
@@ -943,12 +943,12 @@ class FluxBalanceAnalysisModel(object):
     def set_molecule_levels(
         self,
         metabolite_counts: npt.NDArray[np.int64],
-        counts_to_molar: Unum,
-        coefficient: Unum,
+        counts_to_molar: pint.Quantity,
+        coefficient: pint.Quantity,
         current_media_id: str,
         unconstrained: set[str],
         constrained: set[str],
-        conc_updates: dict[str, Unum],
+        conc_updates: dict[str, pint.Quantity],
         aa_uptake_package: Optional[
             tuple[npt.NDArray[np.float64], npt.NDArray[np.str_], bool]
         ] = None,
@@ -1002,8 +1002,8 @@ class FluxBalanceAnalysisModel(object):
     def set_reaction_bounds(
         self,
         catalyst_counts: npt.NDArray[np.int64],
-        counts_to_molar: Unum,
-        coefficient: Unum,
+        counts_to_molar: pint.Quantity,
+        coefficient: pint.Quantity,
         gtp_to_hydrolyze: float,
     ):
         """
@@ -1051,8 +1051,8 @@ class FluxBalanceAnalysisModel(object):
         self,
         kinetic_enzyme_counts: npt.NDArray[np.int64],
         kinetic_substrate_counts: npt.NDArray[np.int64],
-        counts_to_molar: Unum,
-        time_step: Unum,
+        counts_to_molar: pint.Quantity,
+        time_step: pint.Quantity,
     ) -> tuple[
         npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
     ]:

@@ -34,7 +34,7 @@ Example:
 
 """
 
-from wholecell.utils import units
+from v2ecoli.library.units import units
 
 INF = float("inf")
 NEG_INF = float("-inf")

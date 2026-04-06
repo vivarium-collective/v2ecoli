@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 from numpy.lib import recfunctions as rfn
 from typing import Any
-from unum import Unum
+import pint
 import warnings
 
 from ecoli.library.schema import (
@@ -20,7 +20,7 @@ from ecoli.processes.polypeptide_elongation import (
     REMOVED_FROM_CHARGING,
     MICROMOLAR_UNITS,
 )
-from wholecell.utils import units
+from v2ecoli.library.units import units
 from wholecell.utils.fitting import (
     countsFromMassAndExpression,
     masses_and_counts_for_homeostatic_target,
@@ -1837,12 +1837,12 @@ def initialize_translation(
 
 
 def determine_chromosome_state(
-    tau: Unum,
-    replichore_length: Unum,
+    tau: pint.Quantity,
+    replichore_length: pint.Quantity,
     n_max_replisomes: int,
     place_holder: int,
-    cell_mass: Unum,
-    critical_mass: Unum,
+    cell_mass: pint.Quantity,
+    critical_mass: pint.Quantity,
     replication_rate: float,
 ) -> tuple[
     dict[str, npt.NDArray[np.int32]],
@@ -1854,18 +1854,18 @@ def determine_chromosome_state(
     the chromosomes at the beginning of the cell cycle.
 
     Args:
-        tau: the doubling time of the cell (with Unum time unit)
+        tau: the doubling time of the cell (with pint.Quantity time unit)
         replichore_length: the amount of DNA to be replicated per fork, usually
-            half of the genome, in base-pairs (with Unum nucleotide unit)
+            half of the genome, in base-pairs (with pint.Quantity nucleotide unit)
         n_max_replisomes: the maximum number of replisomes that can be formed
             given the initial counts of replisome subunits
         place_holder: placeholder value for chromosome domains without child
             domains
-        cell_mass: total mass of the cell with mass units (with Unum mass unit)
+        cell_mass: total mass of the cell with mass units (with pint.Quantity mass unit)
         critical_mass: mass per oriC before replication is initiated
-            (with Unum mass unit)
+            (with pint.Quantity mass unit)
         replication_rate: rate of nucleotide elongation
-            (with Unum nucleotides per time unit)
+            (with pint.Quantity nucleotides per time unit)
 
     Returns:
         Three dictionaries, each containing updates to attributes of a unique molecule type.

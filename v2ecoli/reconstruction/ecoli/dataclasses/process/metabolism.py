@@ -24,7 +24,7 @@ from typing import (
     Union,
     TYPE_CHECKING,
 )
-from unum import Unum
+import pint
 
 from numba import njit
 import numpy as np
@@ -87,7 +87,7 @@ class Metabolism(object):
 
             concentration_updates
             conc_dict (dict):
-            nutrients_to_internal_conc (dict[str, dict[str, Unum]]):
+            nutrients_to_internal_conc (dict[str, dict[str, pint.Quantity]]):
 
             kinetic_constraint_reactions:
             kinetic_constraint_enzymes:
@@ -122,9 +122,9 @@ class Metabolism(object):
 
                             {'enzymes' (str): limiting/regulated enzyme ID in synthesis
                                     pathway with location tag,
-                            'kcat_data' (units.Unum): kcat associated with enzyme
+                            'kcat_data' (pint.Quantity): kcat associated with enzyme
                                     reaction with units of 1/time,
-                            'ki' (Tuple[units.Unum, units.Unum]]): lower and upper
+                            'ki' (Tuple[pint.Quantity, pint.Quantity]]): lower and upper
                                     limits of KI associated with enzyme reaction with units
                                     of mol/volume}
 
@@ -501,7 +501,7 @@ class Metabolism(object):
         self.nutrients_to_internal_conc["minimal"] = self.conc_dict.copy()
 
     def _build_linked_metabolites(
-        self, raw_data: KnowledgeBaseEcoli, conc_dict: dict[str, Unum]
+        self, raw_data: KnowledgeBaseEcoli, conc_dict: dict[str, pint.Quantity]
     ) -> dict[str, dict[str, Any]]:
         """
         Calculates ratio between linked metabolites to keep it constant
@@ -854,7 +854,7 @@ class Metabolism(object):
             rates["UB"] = row["Uptake, UB"]
             self.amino_acid_uptake_rates[row["Amino acid"]] = rates
 
-    def get_kinetic_constraints(self, enzymes: Unum, substrates: Unum) -> Unum:
+    def get_kinetic_constraints(self, enzymes: pint.Quantity, substrates: pint.Quantity) -> pint.Quantity:
         """
         Allows for dynamic code generation for kinetic constraint calculation
         for use in Metabolism process. Inputs should be unitless but the order
@@ -1888,7 +1888,7 @@ class Metabolism(object):
         self,
         counts_per_aa_fwd: npt.NDArray[np.int64],
         counts_per_aa_rev: npt.NDArray[np.int64],
-        aa_conc: Union[units.Unum, npt.NDArray[np.float64]],
+        aa_conc: Union[pint.Quantity, npt.NDArray[np.float64]],
     ) -> tuple[
         npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
     ]:
@@ -1937,7 +1937,7 @@ class Metabolism(object):
     def amino_acid_export(
         self,
         aa_transporters_counts: npt.NDArray[np.int64],
-        aa_conc: Union[units.Unum, npt.NDArray[np.float64]],
+        aa_conc: Union[pint.Quantity, npt.NDArray[np.float64]],
         mechanistic_uptake: bool,
     ) -> npt.NDArray[np.float64]:
         """
@@ -1967,8 +1967,8 @@ class Metabolism(object):
     def amino_acid_import(
         self,
         aa_in_media: npt.NDArray[np.bool_],
-        dry_mass: units.Unum,
-        internal_aa_conc: Union[units.Unum, npt.NDArray[np.float64]],
+        dry_mass: pint.Quantity,
+        internal_aa_conc: Union[pint.Quantity, npt.NDArray[np.float64]],
         aa_transporters_counts: npt.NDArray[np.int64],
         mechanistic_uptake: bool,
     ) -> npt.NDArray[np.float64]:
@@ -2348,7 +2348,7 @@ class Metabolism(object):
 
     @staticmethod
     def temperature_adjusted_kcat(
-        kcat: Unum, temp: Union[float, str] = ""
+        kcat: pint.Quantity, temp: Union[float, str] = ""
     ) -> npt.NDArray[np.float64]:
         """
         Args:
@@ -3169,7 +3169,7 @@ class ConcentrationUpdates(object):
         self,
         media_id: Optional[str] = None,
         imports: Optional[str] = None,
-        conversion_units: Optional[units.Unum] = None,
+        conversion_units: Optional[pint.Quantity] = None,
     ) -> dict[str, Any]:
         if conversion_units:
             conversion = self.units.asNumber(conversion_units)

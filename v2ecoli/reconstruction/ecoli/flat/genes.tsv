@@ -1,8 +1,8 @@
-# Organism: Escherichia coli K-12 substr. MG1655 (ECOLI)
+# Organism: Escherichia coli K-12 substr. MG1655
 # Database: EcoCyc
-# Version: 29.1
+# Version: 29.6
 # Orthologs: true
-# Date and time generated: March 20, 2025, 17:08:06
+# Date and time generated: April 6, 2026, 8:03:06
 "id"	"symbol"	"synonyms"	"left_end_pos"	"right_end_pos"	"direction"	"rna_ids"
 "EG10001"	"alr"	["alr", "alr5", "b4053", "ECK4045"]	4265782	4266861	"+"	["EG10001_RNA"]
 "EG10002"	"modB"	["modB", "chlJ", "tslJ", "b0764", "ECK0753"]	795862	796551	"+"	["EG10002_RNA"]
@@ -197,6 +197,7 @@
 "EG10196"	"cysS"	["cysS", "syc", "b0526", "ECK0519"]	554611	555996	"+"	["EG10196_RNA"]
 "EG10197"	"cysU"	["cysU", "cysT", "b2424", "ECK2419"]	2541679	2542512	"-"	["EG10197_RNA"]
 "EG10198"	"cysW"	["cysW", "b2423", "ECK2418"]	2540804	2541679	"-"	["EG10198_RNA"]
+"EG10199"	"cysX"	["cysX", "putative uncharacterized protein CysX", "b4747", "ECK4704"]	3781864	3782256	"+"	["EG10199_RNA"]
 "EG10200"	"cytR"	["cytR", "b3934", "ECK3926"]	4123431	4124456	"-"	["EG10200_RNA"]
 "EG10201"	"dacA"	["dacA", "pfv", "b0632", "ECK0625"]	662752	663963	"-"	["EG10201_RNA"]
 "EG10202"	"dacB"	["dacB", "b3182", "ECK3171"]	3328963	3330396	"+"	["EG10202_RNA"]
@@ -1951,7 +1952,7 @@
 "EG12032"	"psuT"	["psuT", "pscT", "yeiM", "b2164", "ECK2157"]	2256085	2257335	"-"	["EG12032_RNA"]
 "EG12033"	"psuG"	["psuG", "yeiN", "pscG", "b2165", "ECK2158"]	2257429	2258367	"-"	["EG12033_RNA"]
 "EG12034"	"setB"	["setB", "yeiO", "b2170", "ECK2163"]	2263863	2265044	"+"	["EG12034_RNA"]
-"EG12035"	"eflP"	["eflP", "yeiP", "b2171", "ECK2165"]	2265450	2266022	"+"	["EG12035_RNA"]
+"EG12035"	"efpL"	["efpL", "yeiP", "b2171", "ECK2165"]	2265450	2266022	"+"	["EG12035_RNA"]
 "EG12036"	"yeiQ"	["yeiQ", "b2172", "ECK2166"]	2266245	2267711	"+"	["EG12036_RNA"]
 "EG12037"	"yejA"	["yejA", "b2177", "ECK2171"]	2272364	2274178	"+"	["EG12037_RNA"]
 "EG12038"	"yejB"	["yejB", "b2178", "ECK2172"]	2274179	2275273	"+"	["EG12038_RNA"]
@@ -2001,7 +2002,7 @@
 "EG12094"	"sgrR"	["sgrR", "yabN", "b0069", "ECK0070"]	75644	77299	"-"	["EG12094_RNA"]
 "EG12095"	"secG"	["secG", "prlH", "b3175", "ECK3164"]	3322173	3322505	"-"	["EG12095_RNA"]
 "EG12096"	"chpB"	["chpB", "yjfE", "chpBK", "b4225", "ECK4221"]	4448692	4449042	"+"	["EG12096_RNA"]
-"EG12097"	"yfiH"	["yfiH", "pgeF", "b2593", "ECK2591"]	2734303	2735034	"-"	["EG12097_RNA"]
+"EG12097"	"pgeF"	["pgeF", "yfiH", "b2593", "ECK2591"]	2734303	2735034	"-"	["EG12097_RNA"]
 "EG12098"	"rluD"	["rluD", "yfiI", "sfhB", "b2594", "ECK2592"]	2735031	2736011	"-"	["EG12098_RNA"]
 "EG12099"	"efp"	["efp", "b4147", "ECK4141"]	4375699	4376265	"+"	["EG12099_RNA"]
 "EG12100"	"tktB"	["tktB", "b2465", "ECK2460"]	2579636	2581639	"+"	["EG12100_RNA"]
@@ -2111,7 +2112,7 @@
 "EG12225"	"yhiJ"	["yhiJ", "b3488", "ECK3473"]	3630968	3632590	"-"	["EG12225_RNA"]
 "EG12227"	"yhiL"	["yhiL", "b3490", "b3489", "ECK3474", "yhiK", "b4660", "ECK3475"]	3632852	3634458	"-"	["EG12227_RNA"]
 "EG12228"	"yhiM"	["yhiM", "b3491", "ECK3476"]	3634841	3635893	"+"	["EG12228_RNA"]
-"EG12229"	"yhiN"	["yhiN", "b3492", "ECK3477"]	3636208	3637410	"-"	["EG12229_RNA"]
+"EG12229"	"rdsA"	["rdsA", "yhiN", "b3492", "ECK3477"]	3636208	3637410	"-"	["EG12229_RNA"]
 "EG12230"	"pitA"	["pitA", "pit", "b3493", "ECK3478"]	3637642	3639141	"+"	["EG12230_RNA"]
 "EG12231"	"uspB"	["uspB", "yhiO", "b3494", "ECK3479"]	3639385	3639720	"-"	["EG12231_RNA"]
 "EG12232"	"dtpB"	["dtpB", "yhiP", "b3496", "ECK3481"]	3640862	3642331	"+"	["EG12232_RNA"]
@@ -2900,6 +2901,8 @@
 "G0-17125"	"ameF"	["ameF", "b4844", "ECK4701"]	2911051	2911450	"+"	["RNA0-440"]
 "G0-17126"	"xtpA"	["xtpA", "b4845", "ECK4702"]	345252	345434	"+"	["G0-17126_RNA"]
 "G0-17130"	"yrdG"	["yrdG", "asarfA", "b4846", "ECK4703"]	3438431	3438484	"-"	["RNA0-441"]
+"G0-17139"	"otsa"	["otsa"]	null	null	null	["G0-17139_RNA"]
+"G0-17140"	"toiL"	["toiL", "b4848", "ECK4705"]	4534166	4534192	"-"	["G0-17140_RNA"]
 "G0-41"	"ecnA"	["ecnA", "b4410", "ECK4142"]	4376317	4376442	"+"	["G0-41_RNA"]
 "G0-8601"	"glcF"	["glcF", "gox", "yghL", "b2978", "b4467", "ECK2972"]	3124236	3125459	"-"	["G0-8601_RNA"]
 "G0-8785"	"csrB"	["csrB", "b4408", "ECK2787"]	2924156	2924524	"-"	["CSRB-RNA"]

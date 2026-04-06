@@ -1,7 +1,7 @@
 from typing import Any
 
 from v2ecoli.steps.base import V2Step as Step
-from vivarium.library.units import units
+from v2ecoli.library.units import units
 
 
 class ExchangeData(Step):

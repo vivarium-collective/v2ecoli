@@ -5,9 +5,9 @@ from typing import List, Optional, Tuple
 import numpy as np
 from numpy import typing as npt
 from scipy import stats
-import unum  # Imported here to be used in getCountsFromMassAndExpression assertions
+import pint  # Imported here to be used in getCountsFromMassAndExpression assertions
 
-from wholecell.utils import units
+from v2ecoli.library.units import units
 
 
 FUNCTIONS = {
@@ -60,20 +60,20 @@ def countsFromMassAndExpression(
     """
 
     assert np.allclose(np.sum(relativeExpression), 1)
-    assert not isinstance(mass, unum.Unum)
-    assert not isinstance(mws, unum.Unum)
-    assert not isinstance(relativeExpression, unum.Unum)
-    assert not isinstance(nAvogadro, unum.Unum)
+    assert not isinstance(mass, pint.Quantity)
+    assert not isinstance(mws, pint.Quantity)
+    assert not isinstance(relativeExpression, pint.Quantity)
+    assert not isinstance(nAvogadro, pint.Quantity)
     return mass / np.dot(mws / nAvogadro, relativeExpression)
 
 
 def masses_and_counts_for_homeostatic_target(
-    dry_mass_of_non_small_molecules: unum.Unum,
-    concentrations: unum.Unum,
-    weights: unum.Unum,
-    cell_density: unum.Unum,
-    avogadros_number: unum.Unum,
-) -> tuple[unum.Unum, unum.Unum]:
+    dry_mass_of_non_small_molecules: pint.Quantity,
+    concentrations: pint.Quantity,
+    weights: pint.Quantity,
+    cell_density: pint.Quantity,
+    avogadros_number: pint.Quantity,
+) -> tuple[pint.Quantity, pint.Quantity]:
     """
     Computes the dry mass fractions and counts associated with small molecules to maintain
     concentrations consistent with targets.  (Also includes water.)

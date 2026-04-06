@@ -5,7 +5,10 @@ from dataclasses import dataclass, is_dataclass, field
 from bigraph_schema.schema import Node
 from bigraph_schema.methods import infer, set_default, default, serialize, realize, render, wrap_default, resolve
 
-from unum import Unum
+import pint
+
+# Backwards-compatible alias
+Unum = pint.Quantity
 
 
 def unum_dimension(value):
@@ -33,7 +36,7 @@ class UnumUnits(Node):
 
 
 @infer.dispatch
-def infer(core, value: Unum, path: tuple = ()):
+def infer(core, value: pint.Quantity, path: tuple = ()):
     dimension = unum_dimension(value)
     magnitude, _ = infer(
         core,
@@ -55,7 +58,7 @@ def default(schema: UnumUnits):
     if schema._default:
         return schema._default
     else:
-        return Unum(
+        return pint.Quantity(
             schema.units,
             default(schema.magnitude))
 
@@ -85,7 +88,7 @@ def resolve(schema: UnumUnits, update: UnumUnits, path=()):
 
 @realize.dispatch
 def realize(core, schema: UnumUnits, encode, path=()):
-    if isinstance(encode, Unum):
+    if isinstance(encode, pint.Quantity):
         return schema, encode, []
     else:
         _, magnitude, _ = realize(
@@ -94,7 +97,7 @@ def realize(core, schema: UnumUnits, encode, path=()):
             encode['magnitude'],
             path=path)
 
-        return schema, Unum(
+        return schema, pint.Quantity(
             encode['units'],
             magnitude), []
 

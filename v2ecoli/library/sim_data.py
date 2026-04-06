@@ -6,7 +6,7 @@ import pandas as pd
 import pickle
 import os
 from typing import Any, Optional, TYPE_CHECKING
-from vivarium.library.units import units as vivunits
+from v2ecoli.library.units import units as vivunits
 from v2ecoli.library.units import units
 from v2ecoli.library.unit_struct_array import UnitStructArray
 from v2ecoli.library.fitting import normalize

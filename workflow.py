@@ -431,7 +431,7 @@ BIO_COLORS = {
 # Chromosome visualization
 # ---------------------------------------------------------------------------
 
-MAX_COORD = 1_042_299  # Half-genome in bp (OriC to Ter)
+MAX_COORD = 2_320_826  # Half-genome in bp (OriC to Ter = 4,641,652 / 2)
 
 
 def extract_chromosome_snapshots(composite, duration, interval=10):
@@ -540,65 +540,110 @@ def plot_chromosome_state(snapshots, title=''):
 
     times = [s['time'] for s in snapshots]
 
-    # Pick 3 representative snapshots for circular maps: start, mid, end
-    indices = [0, len(snapshots) // 2, len(snapshots) - 1]
-    indices = sorted(set(indices))  # deduplicate if very few snapshots
+    # Pick 5 representative snapshots for circular maps
+    n = len(snapshots)
+    if n >= 5:
+        indices = [0, n // 4, n // 2, 3 * n // 4, n - 1]
+    elif n >= 3:
+        indices = [0, n // 2, n - 1]
+    else:
+        indices = list(range(n))
+    indices = sorted(set(indices))
 
-    fig = plt.figure(figsize=(14, 10))
+    n_maps = len(indices)
+    fig = plt.figure(figsize=(max(14, n_maps * 3.2), 12))
     fig.suptitle(title or 'Chromosome State', fontsize=14, y=0.98)
 
     # Top row: circular chromosome maps at key timepoints
-    n_maps = len(indices)
     for i, idx in enumerate(indices):
         ax = fig.add_subplot(2, n_maps, i + 1)
         plot_chromosome_map(snapshots[idx], ax)
 
-    # Bottom left: fork progress + RNAP count over time
+    # Bottom left: fork progress + chromosome count over time
     ax = fig.add_subplot(2, 2, 3)
     for s in snapshots:
         for coord in s.get('fork_coords', []):
             ax.scatter(s['time'], coord / MAX_COORD, c='#f59e0b', s=12,
                        alpha=0.7, zorder=3, edgecolors='black', linewidths=0.3)
-    ax2 = ax.twinx()
-    n_rnap = [s.get('n_rnap', 0) for s in snapshots]
-    ax2.plot(times, n_rnap, color='#3b82f6', lw=1.5, alpha=0.7, label='Active RNAP')
-    ax2.set_ylabel('Active RNAP', color='#3b82f6', fontsize=9)
-    ax2.tick_params(axis='y', labelcolor='#3b82f6')
-    ax.set_ylabel('Fork position (frac genome)')
+    ax.set_ylabel('Fork position (fraction of half-genome)')
     ax.set_xlabel('Time (s)')
-    ax.set_title('Replication Forks & RNAP Count')
+    ax.set_title('Replication Fork Progress')
     ax.set_ylim(-1.15, 1.15)
-    ax.axhline(0, color='#10b981', lw=0.5, ls='--', alpha=0.5)
-    ax.axhline(1, color='#ef4444', lw=0.5, ls='--', alpha=0.3)
-    ax.axhline(-1, color='#ef4444', lw=0.5, ls='--', alpha=0.3)
-
-    # Bottom right: chromosome count + DNA mass + dry mass
-    ax = fig.add_subplot(2, 2, 4)
-    n_chroms = [s['n_chromosomes'] for s in snapshots]
-    ax.step(times, n_chroms, where='post', color='#10b981', lw=2, label='Chromosomes')
-    ax.set_ylabel('Chromosomes', color='#10b981')
-    ax.set_ylim(0, max(n_chroms) + 1)
-    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-    ax.tick_params(axis='y', labelcolor='#10b981')
-
+    ax.axhline(0, color='#10b981', lw=0.8, ls='--', alpha=0.5, label='OriC')
+    ax.axhline(1, color='#ef4444', lw=0.8, ls='--', alpha=0.4, label='Ter')
+    ax.axhline(-1, color='#ef4444', lw=0.8, ls='--', alpha=0.4)
+    # Overlay chromosome count as step
     ax2 = ax.twinx()
+    n_chroms = [s['n_chromosomes'] for s in snapshots]
+    ax2.step(times, n_chroms, where='post', color='#10b981', lw=2, alpha=0.5, label='Chromosomes')
+    ax2.set_ylabel('Chromosomes', color='#10b981', fontsize=9)
+    ax2.set_ylim(0, max(n_chroms) + 2)
+    ax2.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    ax2.tick_params(axis='y', labelcolor='#10b981')
+    ax.legend(fontsize=7, loc='lower left')
+
+    # Bottom right: DNA mass + dry mass + division threshold
+    ax = fig.add_subplot(2, 2, 4)
     dna = [s['dna_mass'] for s in snapshots]
     dry = [s['dry_mass'] for s in snapshots]
-    ax2.plot(times, dna, color='#8b5cf6', lw=1.5, label='DNA mass')
-    ax2.plot(times, dry, color='#f59e0b', lw=1.5, ls='--', alpha=0.7, label='Dry mass')
+    ax.plot(times, dry, color='#f59e0b', lw=2, label='Dry mass')
+    ax.plot(times, dna, color='#8b5cf6', lw=1.5, label='DNA mass')
     if dry:
-        ax2.axhline(dry[0] * 2, color='red', lw=0.5, ls=':', alpha=0.4)
-    ax2.set_ylabel('Mass (fg)')
+        ax.axhline(dry[0] * 2, color='red', lw=1, ls=':', alpha=0.4, label='~2× initial (division)')
+    ax.set_ylabel('Mass (fg)')
     ax.set_xlabel('Time (s)')
-    ax.set_title('Chromosomes & Mass')
-    lines1, labels1 = ax.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax.legend(lines1 + lines2, labels1 + labels2, fontsize=7, loc='upper left')
+    ax.set_title('Mass Growth')
+    ax.legend(fontsize=7)
 
     try:
         plt.tight_layout()
     except Exception:
         plt.subplots_adjust(hspace=0.3, wspace=0.3)
+    return fig_to_b64(fig)
+
+
+def plot_long_mass_fractions(snapshots, title=''):
+    """Plot mass component fractions over the full cell cycle."""
+    if not snapshots:
+        return None
+    times = [s['time'] for s in snapshots]
+    dry = [s.get('dry_mass', 0) for s in snapshots]
+    protein = [s.get('protein_mass', 0) for s in snapshots]
+    rna = [s.get('rna_mass', 0) for s in snapshots]
+    dna = [s.get('dna_mass', 0) for s in snapshots]
+    sm = [s.get('smallMolecule_mass', 0) for s in snapshots]
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    fig.suptitle(title or 'Mass Components', fontsize=13)
+
+    # Absolute mass
+    ax = axes[0]
+    ax.plot(times, dry, 'k-', lw=2, label='Dry mass')
+    ax.plot(times, protein, '-', color='#22c55e', lw=1.5, label='Protein')
+    ax.plot(times, rna, '-', color='#3b82f6', lw=1.5, label='RNA')
+    ax.plot(times, dna, '-', color='#8b5cf6', lw=1.5, label='DNA')
+    ax.plot(times, sm, '-', color='#f59e0b', lw=1.5, label='Small molecules')
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Mass (fg)')
+    ax.set_title('Absolute Mass')
+    ax.legend(fontsize=8)
+
+    # Mass fractions (fraction of dry mass)
+    ax = axes[1]
+    for vals, label, color in [
+        (protein, 'Protein', '#22c55e'),
+        (rna, 'RNA', '#3b82f6'),
+        (dna, 'DNA', '#8b5cf6'),
+        (sm, 'Small mol', '#f59e0b'),
+    ]:
+        fracs = [v / d if d > 0 else 0 for v, d in zip(vals, dry)]
+        ax.plot(times, fracs, '-', color=color, lw=1.5, label=label)
+    ax.set_xlabel('Time (s)')
+    ax.set_ylabel('Fraction of dry mass')
+    ax.set_title('Mass Fractions')
+    ax.legend(fontsize=8)
+
+    plt.tight_layout()
     return fig_to_b64(fig)
 
 
@@ -1489,6 +1534,14 @@ def step_long_sim():
         total_run += chunk
 
         cell = composite.state['agents']['0']
+
+        # Save cell state snapshot for pre-division backup
+        _data_keys = {'bulk', 'unique', 'listeners', 'environment', 'boundary',
+                      'global_time', 'timestep', 'divide', 'division_threshold',
+                      'process_state', 'allocator_rng'}
+        last_cell_data = {k: v for k, v in cell.items()
+                          if k in _data_keys or k.startswith('request_') or k.startswith('allocate_')}
+
         unique = cell.get('unique', {})
 
         # Chromosome state
@@ -1532,6 +1585,9 @@ def step_long_sim():
             'n_rnap': n_rnap,
             'dna_mass': dna_mass,
             'dry_mass': dry_mass,
+            'protein_mass': float(mass.get('protein_mass', 0)),
+            'rna_mass': float(mass.get('rRna_mass', 0)) + float(mass.get('tRna_mass', 0)) + float(mass.get('mRna_mass', 0)),
+            'smallMolecule_mass': float(mass.get('smallMolecule_mass', 0)),
         })
 
         # Check division readiness: 2+ chromosomes AND mass doubled
@@ -1567,18 +1623,9 @@ def step_long_sim():
     final_snap = snapshots[-1] if snapshots else {}
 
     # Save pre-division cell state for division test
-    # Use the last snapshot where we still had cell data
-    data_keys = {'bulk', 'unique', 'listeners', 'environment', 'boundary',
-                 'global_time', 'timestep', 'divide', 'division_threshold',
-                 'process_state', 'allocator_rng'}
-    if cell is not None:
-        cell_data = {k: v for k, v in cell.items()
-                     if k in data_keys or k.startswith('request_') or k.startswith('allocate_')}
-    else:
-        cell_data = {}
-
+    # Save the last pre-division cell state (captured each snapshot)
     save_state_data(step_name, {
-        'cell_state': cell_data,
+        'cell_state': last_cell_data,
         'global_time': final_snap.get('time', 0.0),
     })
 
@@ -2177,8 +2224,6 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["mass_short"]}" alt="Mass"></div>\n')
         if plots.get('growth_short'):
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["growth_short"]}" alt="Growth"></div>\n')
-        if plots.get('bulk_histogram'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["bulk_histogram"]}" alt="Bulk Changes"></div>\n')
 
         f.write(f"""
 <!-- ===== Step 5: v1 Comparison ===== -->
@@ -2250,6 +2295,8 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 
         if plots.get('chromosome_long'):
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["chromosome_long"]}" alt="Chromosome State"></div>\n')
+        if plots.get('mass_fractions_long'):
+            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["mass_fractions_long"]}" alt="Mass Fractions"></div>\n')
 
         # Lifecycle comparison
         lifecycle = step_results.get('lifecycle', {})
@@ -2487,7 +2534,6 @@ def run_workflow():
     # Short sim plots
     plots['mass_short'] = plot_mass(short_history, f'Mass Components ({COMPARISON_DURATION}s)')
     plots['growth_short'] = plot_growth(short_history)
-    plots['bulk_histogram'] = plot_bulk_histogram(short_history)
 
     # v1 comparison plots
     if isinstance(comp_data, dict) and 'v1_initial' in comp_data:
@@ -2501,6 +2547,9 @@ def run_workflow():
         dur = long_meta.get('duration', 0)
         plots['chromosome_long'] = plot_chromosome_state(
             chrom_snaps, f'v2 Chromosome State (to t={dur:.0f}s)')
+        mf = plot_long_mass_fractions(chrom_snaps, f'Mass Components (to t={dur:.0f}s)')
+        if mf:
+            plots['mass_fractions_long'] = mf
 
     # Lifecycle v1/v2 comparison plot
     lifecycle = step_results.get('lifecycle', {})

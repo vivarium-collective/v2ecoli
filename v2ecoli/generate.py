@@ -599,16 +599,20 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'exchange_data': ExchangeData,
     }
 
+    # Resolve function references in config before passing to Step
+    from v2ecoli.library.config_resolver import resolve_config
+    resolved = resolve_config(config) if config else config
+
     if step_name in STANDALONE_STEPS:
         step_cls = STANDALONE_STEPS[step_name]
-        instance = step_cls(config=config, core=core)
+        instance = step_cls(config=resolved, core=core)
         instance._raw_config = config
         topology = instance.topology
         return instance, topology, 'step'
 
     elif step_name in SIMPLE_STEPS:
         cls = SIMPLE_STEPS[step_name]
-        instance = cls(config=config, core=core)
+        instance = cls(config=resolved, core=core)
         instance._raw_config = config
         topology = getattr(instance, 'topology', {})
         return instance, topology, 'step'

@@ -658,7 +658,9 @@ class LoadSimData:
             "replisome_protein_mass": replisome_mass_array.sum(),
             "no_child_place_holder": self.sim_data.process.replication.no_child_place_holder,
             "basal_elongation_rate": self.sim_data.process.replication.basal_elongation_rate,
-            "make_elongation_rates": self.sim_data.process.replication.make_elongation_rates,
+            "make_elongation_rates": {
+                "_function": "replication.make_elongation_rates",
+            },
             # sim options
             "mechanistic_replisome": self.mechanistic_replisome,
             # molecules
@@ -706,7 +708,14 @@ class LoadSimData:
             "rnaLengths": self.sim_data.process.transcription.rna_data["length"],
             "rnaPolymeraseElongationRateDict": self.sim_data.process.transcription.rnaPolymeraseElongationRateDict,
             "variable_elongation": self.variable_elongation_transcription,
-            "make_elongation_rates": self.sim_data.process.transcription.make_elongation_rates,
+            "make_elongation_rates": {
+                "_function": "transcription.make_elongation_rates",
+                "_data": {
+                    "n_TUs": self.sim_data.process.transcription.rna_data["id"].shape[0],
+                    "rRNA_indexes": self.sim_data.process.transcription.rRNA_indexes.tolist(),
+                    "stable_RNA_elongation_rate": int(self.sim_data.process.transcription.stable_RNA_elongation_rate),
+                },
+            },
             "active_rnap_footprint_size": self.sim_data.process.transcription.active_rnap_footprint_size,
             "basal_prob": self.sim_data.process.transcription_regulation.basal_prob,
             "delta_prob": self.sim_data.process.transcription_regulation.delta_prob,
@@ -775,7 +784,14 @@ class LoadSimData:
             "inactive_RNAP": "APORNAP-CPLX[c]",
             "ntp_ids": ["ATP[c]", "CTP[c]", "GTP[c]", "UTP[c]"],
             "variable_elongation": self.variable_elongation_transcription,
-            "make_elongation_rates": self.sim_data.process.transcription.make_elongation_rates,
+            "make_elongation_rates": {
+                "_function": "transcription.make_elongation_rates",
+                "_data": {
+                    "n_TUs": self.sim_data.process.transcription.rna_data["id"].shape[0],
+                    "rRNA_indexes": self.sim_data.process.transcription.rRNA_indexes.tolist(),
+                    "stable_RNA_elongation_rate": int(self.sim_data.process.transcription.stable_RNA_elongation_rate),
+                },
+            },
             "fragmentBases": self.sim_data.molecule_groups.polymerized_ntps,
             "charged_trnas": self.sim_data.process.transcription.charged_trna_names,
             # attenuation
@@ -922,7 +938,14 @@ class LoadSimData:
             "active_ribosome_fraction": self.sim_data.process.translation.ribosomeFractionActiveDict,
             "elongation_rates": self.sim_data.process.translation.ribosomeElongationRateDict,
             "variable_elongation": self.variable_elongation_translation,
-            "make_elongation_rates": self.sim_data.process.translation.make_elongation_rates,
+            "make_elongation_rates": {
+                "_function": "translation.make_elongation_rates",
+                "_data": {
+                    "n_monomers": self.sim_data.process.translation.n_monomers,
+                    "ribosomal_protein_indexes": self.sim_data.process.translation.ribosomal_protein_indexes.tolist(),
+                    "max_elongation_rate": int(self.sim_data.process.translation.max_elongation_rate),
+                },
+            },
             "rna_id_to_cistron_indexes": self.sim_data.process.transcription.rna_id_to_cistron_indexes,
             "cistron_start_end_pos_in_tu": self.sim_data.process.transcription.cistron_start_end_pos_in_tu,
             "tu_ids": self.sim_data.process.transcription.rna_data["id"],
@@ -972,7 +995,14 @@ class LoadSimData:
             "proteinSequences": translation.translation_sequences,
             "aaWeightsIncorporated": translation.translation_monomer_weights,
             "endWeight": translation.translation_end_weight,
-            "make_elongation_rates": translation.make_elongation_rates,
+            "make_elongation_rates": {
+                "_function": "translation.make_elongation_rates",
+                "_data": {
+                    "n_monomers": translation.n_monomers,
+                    "ribosomal_protein_indexes": translation.ribosomal_protein_indexes.tolist(),
+                    "max_elongation_rate": int(translation.max_elongation_rate),
+                },
+            },
             "next_aa_pad": translation.next_aa_pad,
             "ribosomeElongationRate": float(
                 self.sim_data.growth_rate_parameters.ribosomeElongationRate.asNumber(

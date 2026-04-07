@@ -22,6 +22,7 @@ Usage:
 """
 
 import numpy as np
+from v2ecoli.library.random import stochasticRound
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -52,31 +53,90 @@ def list_functions():
 
 
 # ---------------------------------------------------------------------------
+# Underlying elongation rate function (from wholecell.utils.random)
+# ---------------------------------------------------------------------------
+
+def _make_elongation_rates_core(random, size, base, amplified_indexes,
+                                ceiling, time_step, variable_elongation=False):
+    """Create elongation rate array with optional amplification.
+
+    Standalone version of wholecell.utils.random.make_elongation_rates.
+
+    Args:
+        random: numpy RandomState
+        size: number of elements
+        base: base elongation rate (per second)
+        amplified_indexes: indexes to set to ceiling rate
+        ceiling: max rate for amplified indexes
+        time_step: simulation timestep
+        variable_elongation: if True, add gaussian noise
+    """
+    rates = np.full(size, base * time_step)
+    if variable_elongation:
+        rates = stochasticRound(random, rates).astype(np.int64)
+    else:
+        rates = rates.astype(np.int64)
+
+    if len(amplified_indexes) > 0:
+        rates[amplified_indexes] = int(ceiling * time_step)
+
+    return rates
+
+
+# ---------------------------------------------------------------------------
 # Tier A: Pure stateless functions
 # ---------------------------------------------------------------------------
 
 @register("replication.make_elongation_rates")
-def replication_make_elongation_rates(random_state, n_sequences,
-                                      base_rate, time_step):
-    """Replication fork elongation rates (deterministic for now)."""
-    return np.full(n_sequences, base_rate * time_step)
+def replication_make_elongation_rates(random, replisomes, base, time_step):
+    """Replication fork elongation rates.
 
+    Pure function — no closure data needed.
+    """
+    return np.full(replisomes, stochasticRound(random, base * time_step),
+                   dtype=np.int64)
+
+
+# ---------------------------------------------------------------------------
+# Tier A+: Stateless-ish functions (need closure data extracted at config time)
+# ---------------------------------------------------------------------------
 
 @register("transcription.make_elongation_rates")
-def transcription_make_elongation_rates(random_state, base_rate,
-                                         time_step, variable_elongation):
-    """RNAP elongation rates."""
-    if variable_elongation:
-        return np.array([max(1, int(random_state.normal(
-            base_rate * time_step, base_rate * time_step * 0.1)))])
-    return np.array([int(base_rate * time_step)])
+def transcription_make_elongation_rates_factory(n_TUs, rRNA_indexes,
+                                                 stable_RNA_elongation_rate):
+    """Factory: creates transcription elongation rate function.
+
+    Closure data (extracted from sim_data.process.transcription):
+        n_TUs: number of transcription units
+        rRNA_indexes: numpy array of rRNA TU indexes
+        stable_RNA_elongation_rate: max rate for stable RNAs
+    """
+    rRNA_indexes = np.asarray(rRNA_indexes)
+
+    def make_elongation_rates(random, base, time_step, variable_elongation=False):
+        return _make_elongation_rates_core(
+            random, n_TUs, base, rRNA_indexes,
+            stable_RNA_elongation_rate, time_step, variable_elongation)
+
+    return make_elongation_rates
 
 
 @register("translation.make_elongation_rates")
-def translation_make_elongation_rates(random_state, base_rate,
-                                       time_step, variable_elongation):
-    """Ribosome elongation rates."""
-    if variable_elongation:
-        return np.array([max(1, int(random_state.normal(
-            base_rate * time_step, base_rate * time_step * 0.1)))])
-    return np.array([int(base_rate * time_step)])
+def translation_make_elongation_rates_factory(n_monomers,
+                                               ribosomal_protein_indexes,
+                                               max_elongation_rate):
+    """Factory: creates translation elongation rate function.
+
+    Closure data (extracted from sim_data.process.translation):
+        n_monomers: number of monomers
+        ribosomal_protein_indexes: numpy array of ribosomal protein indexes
+        max_elongation_rate: max rate for ribosomal proteins
+    """
+    ribosomal_protein_indexes = np.asarray(ribosomal_protein_indexes)
+
+    def make_elongation_rates(random, base, time_step, variable_elongation=False):
+        return _make_elongation_rates_core(
+            random, n_monomers, base, ribosomal_protein_indexes,
+            max_elongation_rate, time_step, variable_elongation)
+
+    return make_elongation_rates

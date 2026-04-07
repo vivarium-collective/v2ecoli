@@ -1,0 +1,205 @@
+{
+  "architecture": "departitioned",
+  "description": "All processes as standalone Steps, no allocator",
+  "n_steps": 41,
+  "n_processes": 1,
+  "step_names": [
+    "('agents', '0', 'RNA_counts_listener')",
+    "('agents', '0', 'division')",
+    "('agents', '0', 'dna_supercoiling_listener')",
+    "('agents', '0', 'ecoli-chromosome-replication')",
+    "('agents', '0', 'ecoli-chromosome-structure')",
+    "('agents', '0', 'ecoli-complexation')",
+    "('agents', '0', 'ecoli-equilibrium')",
+    "('agents', '0', 'ecoli-mass-listener')",
+    "('agents', '0', 'ecoli-metabolism')",
+    "('agents', '0', 'ecoli-polypeptide-elongation')",
+    "('agents', '0', 'ecoli-polypeptide-initiation')",
+    "('agents', '0', 'ecoli-protein-degradation')",
+    "('agents', '0', 'ecoli-rna-degradation')",
+    "('agents', '0', 'ecoli-rna-maturation')",
+    "('agents', '0', 'ecoli-tf-binding')",
+    "('agents', '0', 'ecoli-tf-unbinding')",
+    "('agents', '0', 'ecoli-transcript-elongation')",
+    "('agents', '0', 'ecoli-transcript-initiation')",
+    "('agents', '0', 'ecoli-two-component-system')",
+    "('agents', '0', 'emitter')",
+    "('agents', '0', 'exchange_data')",
+    "('agents', '0', 'mark_d_period')",
+    "('agents', '0', 'media_update')",
+    "('agents', '0', 'monomer_counts_listener')",
+    "('agents', '0', 'post-division-mass-listener')",
+    "('agents', '0', 'replication_data_listener')",
+    "('agents', '0', 'ribosome_data_listener')",
+    "('agents', '0', 'rna_synth_prob_listener')",
+    "('agents', '0', 'rnap_data_listener')",
+    "('agents', '0', 'unique_molecule_counts')",
+    "('agents', '0', 'unique_update_1')",
+    "('agents', '0', 'unique_update_10')",
+    "('agents', '0', 'unique_update_11')",
+    "('agents', '0', 'unique_update_2')",
+    "('agents', '0', 'unique_update_3')",
+    "('agents', '0', 'unique_update_4')",
+    "('agents', '0', 'unique_update_5')",
+    "('agents', '0', 'unique_update_6')",
+    "('agents', '0', 'unique_update_7')",
+    "('agents', '0', 'unique_update_8')",
+    "('agents', '0', 'unique_update_9')"
+  ],
+  "flow_order": [
+    "post-division-mass-listener",
+    "unique_update_1",
+    "media_update",
+    "unique_update_2",
+    "ecoli-tf-unbinding",
+    "exchange_data",
+    "unique_update_3",
+    "ecoli-rna-maturation",
+    "ecoli-equilibrium",
+    "ecoli-two-component-system",
+    "unique_update_4",
+    "ecoli-tf-binding",
+    "unique_update_5",
+    "ecoli-complexation",
+    "ecoli-protein-degradation",
+    "ecoli-rna-degradation",
+    "ecoli-transcript-initiation",
+    "ecoli-polypeptide-initiation",
+    "ecoli-chromosome-replication",
+    "unique_update_6",
+    "ecoli-transcript-elongation",
+    "ecoli-polypeptide-elongation",
+    "unique_update_7",
+    "ecoli-chromosome-structure",
+    "unique_update_8",
+    "ecoli-metabolism",
+    "unique_update_9",
+    "RNA_counts_listener",
+    "dna_supercoiling_listener",
+    "ecoli-mass-listener",
+    "monomer_counts_listener",
+    "replication_data_listener",
+    "ribosome_data_listener",
+    "rna_synth_prob_listener",
+    "rnap_data_listener",
+    "unique_molecule_counts",
+    "unique_update_10",
+    "emitter",
+    "global_clock",
+    "mark_d_period",
+    "unique_update_11",
+    "division"
+  ],
+  "execution_layers": [
+    [
+      "post-division-mass-listener",
+      "unique_update_1"
+    ],
+    [
+      "media_update"
+    ],
+    [
+      "unique_update_2"
+    ],
+    [
+      "ecoli-tf-unbinding"
+    ],
+    [
+      "exchange_data"
+    ],
+    [
+      "unique_update_3"
+    ],
+    [
+      "ecoli-rna-maturation"
+    ],
+    [
+      "ecoli-equilibrium"
+    ],
+    [
+      "ecoli-two-component-system"
+    ],
+    [
+      "unique_update_4"
+    ],
+    [
+      "ecoli-tf-binding"
+    ],
+    [
+      "unique_update_5"
+    ],
+    [
+      "ecoli-complexation"
+    ],
+    [
+      "ecoli-protein-degradation"
+    ],
+    [
+      "ecoli-rna-degradation"
+    ],
+    [
+      "ecoli-transcript-initiation"
+    ],
+    [
+      "ecoli-polypeptide-initiation"
+    ],
+    [
+      "ecoli-chromosome-replication"
+    ],
+    [
+      "unique_update_6"
+    ],
+    [
+      "ecoli-transcript-elongation"
+    ],
+    [
+      "ecoli-polypeptide-elongation"
+    ],
+    [
+      "unique_update_7"
+    ],
+    [
+      "ecoli-chromosome-structure"
+    ],
+    [
+      "unique_update_8"
+    ],
+    [
+      "ecoli-metabolism"
+    ],
+    [
+      "unique_update_9"
+    ],
+    [
+      "RNA_counts_listener",
+      "dna_supercoiling_listener",
+      "ecoli-mass-listener",
+      "monomer_counts_listener",
+      "replication_data_listener",
+      "ribosome_data_listener",
+      "rna_synth_prob_listener",
+      "rnap_data_listener",
+      "unique_molecule_counts"
+    ],
+    [
+      "unique_update_10"
+    ],
+    [
+      "emitter"
+    ],
+    [
+      "global_clock"
+    ],
+    [
+      "mark_d_period"
+    ],
+    [
+      "unique_update_11"
+    ],
+    [
+      "division"
+    ]
+  ],
+  "initial_dry_mass": 380.0923869601223,
+  "n_bulk_molecules": 16321
+}

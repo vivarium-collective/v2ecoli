@@ -2,7 +2,7 @@
 # Database: EcoCyc
 # Version: 29.6
 # Orthologs: true
-# Date and time generated: April 6, 2026, 15:50:08
+# Date and time generated: April 6, 2026, 22:00:36
 "id"	"symbol"	"synonyms"	"left_end_pos"	"right_end_pos"	"direction"	"rna_ids"
 "EG10001"	"alr"	["alr", "alr5", "b4053", "ECK4045"]	4265782	4266861	"+"	["EG10001_RNA"]
 "EG10002"	"modB"	["modB", "chlJ", "tslJ", "b0764", "ECK0753"]	795862	796551	"+"	["EG10002_RNA"]
@@ -2719,7 +2719,7 @@
 "G0-10703"	null	[]	3367613	3367770	"-"	["G0-10703_RNA"]
 "G0-10704"	null	[]	4001191	4001334	"+"	["G0-10704_RNA"]
 "G0-10705"	null	[]	4058171	4058242	"+"	["G0-10705_RNA"]
-"G0-10706"	null	[]	4441225	4441330	"-"	["G0-10706_RNA"]
+"G0-10706"	null	["UNCLASSIFIED"]	4441225	4441330	"-"	["G0-10706_RNA"]
 "G0-10707"	"pmrR"	["pmrR", "b4703", "ECK4515"]	4332116	4332205	"+"	["G0-10707_RNA"]
 "G0-10715"	"mntS"	["mntS", "G0-8881", "b4705", "ECK4517"]	852869	852997	"-"	["G0-10715_RNA"]
 "G0-10716"	"iroK"	["iroK", "b4706", "ECK4518"]	2668006	2668071	"-"	["G0-10716_RNA"]

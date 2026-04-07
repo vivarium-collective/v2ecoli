@@ -2,7 +2,7 @@
 # Database: EcoCyc
 # Version: 29.6
 # Orthologs: true
-# Date and time generated: April 6, 2026, 15:50:28
+# Date and time generated: April 6, 2026, 22:00:55
 "id"	"stoichiometry"	"direction"	"catalyzed_by"
 "1-ACYLGLYCEROL-3-P-ACYLTRANSFER-RXN"	{"ACYL-SN-GLYCEROL-3P[CCO-CYTOSOL]": -1, "ACYL-ACP[CCO-CYTOSOL]": -1, "L-PHOSPHATIDATE[CCO-CYTOSOL]": 1, "ACP[CCO-CYTOSOL]": 1}	"L2R"	["1-ACYLGLYCEROL-3-P-ACYLTRANSFER-MONOMER", "EG11833-MONOMER"]
 "1.1.1.127-RXN"	{"2-DEHYDRO-3-DEOXY-D-GLUCONATE[CCO-CYTOSOL]": -1, "NAD[CCO-CYTOSOL]": -1, "CPD-343[CCO-CYTOSOL]": 1, "NADH[CCO-CYTOSOL]": 1, "PROTON[CCO-CYTOSOL]": 1}	"BOTH"	["KDUD-MONOMER"]

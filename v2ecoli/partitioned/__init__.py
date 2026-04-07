@@ -1,0 +1,1 @@
+from v2ecoli.partitioned.generate_partitioned import make_partitioned_composite

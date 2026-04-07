@@ -1,0 +1,84 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, departition]
+  pull_request:
+    branches: [main]
+
+jobs:
+  fast-tests:
+    name: Fast Tests (no cache)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y graphviz glpk-utils libglpk-dev
+          USE_CYTHON=1 uv sync --no-sources
+
+      - name: Run fast tests
+        run: uv run pytest tests/test_types.py -v
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y graphviz glpk-utils libglpk-dev
+          USE_CYTHON=1 uv sync --no-sources
+
+      - name: Cache ParCa data
+        uses: actions/cache@v4
+        with:
+          path: out/cache
+          key: parca-cache-${{ hashFiles('v2ecoli/reconstruction/**') }}
+
+      - name: Generate cache if needed
+        run: |
+          if [ ! -f out/cache/sim_data_cache.dill ]; then
+            uv run python -c "from v2ecoli.composite import save_cache; save_cache(sim_data_path=None)"
+          fi
+
+      - name: Run integration tests
+        run: uv run pytest tests/test_integration.py -v
+
+  comparison-tests:
+    name: Architecture Comparison
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y graphviz glpk-utils libglpk-dev
+          USE_CYTHON=1 uv sync --no-sources
+
+      - name: Cache ParCa data
+        uses: actions/cache@v4
+        with:
+          path: out/cache
+          key: parca-cache-${{ hashFiles('v2ecoli/reconstruction/**') }}
+
+      - name: Generate cache if needed
+        run: |
+          if [ ! -f out/cache/sim_data_cache.dill ]; then
+            uv run python -c "from v2ecoli.composite import save_cache; save_cache(sim_data_path=None)"
+          fi
+
+      - name: Run slow tests
+        run: uv run pytest tests/ -m slow -v --timeout=600

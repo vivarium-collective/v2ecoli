@@ -2,9 +2,10 @@
 
 Whole-cell *E. coli* model built natively on [process-bigraph](https://github.com/vivarium-collective/process-bigraph).
 
+[![Tests](https://github.com/vivarium-collective/v2ecoli/actions/workflows/test.yml/badge.svg)](https://github.com/vivarium-collective/v2ecoli/actions/workflows/test.yml)
 [![Benchmark](https://github.com/vivarium-collective/v2ecoli/actions/workflows/benchmark.yml/badge.svg)](https://github.com/vivarium-collective/v2ecoli/actions/workflows/benchmark.yml)
 
-**[Benchmark Report](https://htmlpreview.github.io/?https://github.com/vivarium-collective/v2ecoli/blob/main/doc/benchmark_report.html)**
+**[Workflow Report](https://htmlpreview.github.io/?https://github.com/vivarium-collective/v2ecoli/blob/main/doc/benchmark_report.html)**
 
 ## Overview
 
@@ -127,18 +128,57 @@ from benchmark import generate_predivision_state
 generate_predivision_state()  # ~4 min, saves to out/predivision.dill
 ```
 
-## Benchmark
+## Models
 
-The benchmark suite (`benchmark.py`) generates an interactive HTML report:
+Two simulation architectures are maintained:
 
-1. **Document Build** — cache generation + document build timing
-2. **Simulation (60s)** — mass trajectories, growth rate
-3. **v1 Comparison** — per-category mass accuracy, R² scores
-4. **Division** — bulk conservation, unique molecule partitioning, daughter viability (pre-division state)
-5. **Long Simulation (8 min)** — extended growth dynamics
-6. **Step Diagnostics** — per-step config, ports, wiring analysis
-7. **Network Visualization** — interactive pan-zoom process-bigraph graph
-8. **Timing Summary** — wall time breakdown
+| Architecture | Steps | Description | Model File |
+|-------------|-------|-------------|------------|
+| **Departitioned** | 41 | All processes as standalone Steps, no allocator | [`models/departitioned.pbg`](models/departitioned.pbg) |
+| **Partitioned** | 55 | Requester/Allocator/Evolver pattern | [`models/partitioned.pbg`](models/partitioned.pbg) |
+
+Both produce equivalent biological results (< 0.2% mass divergence, correlation 1.0).
+
+## Testing
+
+```bash
+# Fast tests (no cache needed)
+pytest tests/test_types.py -v
+
+# Integration tests (requires cache)
+pytest tests/test_integration.py -v
+
+# Full comparison suite (slow: ~5 min)
+pytest tests/ -m slow -v
+
+# All tests
+pytest tests/ -v
+
+# Architecture comparison report (HTML)
+python compare_architectures.py --max-duration 3600
+```
+
+**Test categories:**
+
+| Test | What it validates | Speed |
+|------|------------------|-------|
+| `test_types.py` | Custom bigraph-schema types (BulkNumpy, UniqueNumpy) | Fast (~1s) |
+| `test_integration.py` | Composite loading, 10s simulation, mass growth | Medium (~15s) |
+| `test_departitioned.py` | Departitioned model vs v1 vEcoli (60s) | Slow (~2 min) |
+| `test_partitioned.py` | Partitioned model loading and growth | Slow (~2 min) |
+| `test_architecture_comparison.py` | Partitioned vs departitioned agreement | Slow (~4 min) |
+
+## Workflow
+
+The workflow pipeline (`workflow.py`) generates an interactive HTML report:
+
+1. **Raw Data** — BioCyc API data catalog
+2. **ParCa** — Parameter Calculator fitting
+3. **Load Model** — composite build timing and structure
+4. **Long Simulation** — mass trajectories to division
+5. **Division** — bulk conservation, daughter viability
+6. **Multicell** — two daughter cell simulations
+7. **Network Visualization** — interactive process-bigraph graph
 
 ## Dependencies
 

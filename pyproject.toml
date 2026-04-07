@@ -17,6 +17,13 @@ dependencies = [
     "matplotlib>=3.10.8",
 ]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "fast: runs without simulation cache (type tests, unit tests)",
+    "slow: runs full simulations for comparison (60s+)",
+]
+
 [tool.setuptools]
 packages = { find = { where = ["."] } }
 

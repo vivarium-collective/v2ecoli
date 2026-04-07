@@ -2,7 +2,7 @@
 # Database: EcoCyc
 # Version: 29.6
 # Orthologs: true
-# Date and time generated: April 6, 2026, 15:50:01
+# Date and time generated: April 6, 2026, 22:00:29
 "id"	"stoichiometry"	"common_name"	"cofactors"
 "1-PFK_RXN"	{"1-PFK": 1, "1-PFK-MONOMER": -2}	null	{"MG+2": 1}
 "2OXOGLUTARATEDEH-CPLX_RXN"	{"2OXOGLUTARATEDEH-CPLX": 1, "E1O": -1, "E2O": -1, "E3-CPLX": -1}	"2-oxoglutarate dehydrogenase complex"	{"LIPOIC-ACID": 1, "THIAMINE-PYROPHOSPHATE": 2, "FAD": 3, "MG+2": 2}

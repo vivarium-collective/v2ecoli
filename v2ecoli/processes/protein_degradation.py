@@ -20,7 +20,7 @@ from v2ecoli.types.stores import InPlaceDict
 
 
 class ProteinDegradationLogic:
-    """Protein degradation logic — pure computation, no Step inheritance."""
+    """Protein degradation — shared state container for Requester/Evolver."""
 
     name = "ecoli-protein-degradation"
     topology = {"bulk": ("bulk",), "timestep": ("timestep",)}
@@ -63,59 +63,6 @@ class ProteinDegradationLogic:
             np.sum(self.degradation_matrix[self.amino_acid_indexes, :], axis=0) - 1
         )
 
-    def calculate_request(self, timestep, states):
-        if self.metabolite_idx is None:
-            self.water_idx = bulk_name_to_idx(self.water_id, states["bulk"]["id"])
-            self.protein_idx = bulk_name_to_idx(self.protein_ids, states["bulk"]["id"])
-            self.metabolite_idx = bulk_name_to_idx(
-                self.metabolite_ids, states["bulk"]["id"]
-            )
-
-        protein_data = counts(states["bulk"], self.protein_idx)
-        nProteinsToDegrade = np.fmin(
-            self.random_state.poisson(
-                self._proteinDegRates(states["timestep"]) * protein_data
-            ),
-            protein_data,
-        )
-        nReactions = np.dot(self.protein_lengths, nProteinsToDegrade)
-
-        return {
-            "bulk": [
-                (self.protein_idx, nProteinsToDegrade),
-                (self.water_idx, nReactions - np.sum(nProteinsToDegrade)),
-            ]
-        }
-
-    def evolve_state(self, timestep, states):
-        allocated_proteins = counts(states["bulk"], self.protein_idx)
-        metabolites_delta = np.dot(self.degradation_matrix, allocated_proteins)
-
-        return {
-            "bulk": [
-                (self.metabolite_idx, metabolites_delta),
-                (self.protein_idx, -allocated_proteins),
-            ]
-        }
-
-    def next_update(self, timestep, states):
-        requests = self.calculate_request(timestep, states)
-        bulk_requests = requests.pop("bulk", [])
-        if bulk_requests:
-            bulk_copy = states["bulk"].copy()
-            for bulk_idx, request in bulk_requests:
-                bulk_copy[bulk_idx] = request
-            states["bulk"] = bulk_copy
-        states = deep_merge(states, requests)
-        update = self.evolve_state(timestep, states)
-        if "listeners" in requests:
-            update["listeners"] = deep_merge(
-                update.get("listeners", {}), requests["listeners"])
-        return update
-
-    def _proteinDegRates(self, timestep):
-        return self.raw_degradation_rate * timestep
-
 
 class ProteinDegradationRequester(_SafeInvokeMixin, Step):
     """Reads bulk to compute degradation request. Writes to request store."""
@@ -149,9 +96,34 @@ class ProteinDegradationRequester(_SafeInvokeMixin, Step):
 
         state = _protect_state(state)
         timestep = state.get('timestep', 1.0)
-        request = self.process.calculate_request(timestep, state)
-        self.process.request_set = True
+        p = self.process
 
+        # --- inlined from calculate_request ---
+        if p.metabolite_idx is None:
+            p.water_idx = bulk_name_to_idx(p.water_id, state["bulk"]["id"])
+            p.protein_idx = bulk_name_to_idx(p.protein_ids, state["bulk"]["id"])
+            p.metabolite_idx = bulk_name_to_idx(
+                p.metabolite_ids, state["bulk"]["id"]
+            )
+
+        protein_data = counts(state["bulk"], p.protein_idx)
+        nProteinsToDegrade = np.fmin(
+            p.random_state.poisson(
+                p.raw_degradation_rate * timestep * protein_data
+            ),
+            protein_data,
+        )
+        nReactions = np.dot(p.protein_lengths, nProteinsToDegrade)
+
+        request = {
+            "bulk": [
+                (p.protein_idx, nProteinsToDegrade),
+                (p.water_idx, nReactions - np.sum(nProteinsToDegrade)),
+            ]
+        }
+        # --- end inlined ---
+
+        p.request_set = True
         bulk_request = request.pop('bulk', None)
         result = {'request': {}}
         if bulk_request is not None:
@@ -202,7 +174,20 @@ class ProteinDegradationEvolver(_SafeInvokeMixin, Step):
         if not self.process.request_set:
             return {}
 
+        p = self.process
         timestep = state.get('timestep', 1.0)
-        update = self.process.evolve_state(timestep, state)
+
+        # --- inlined from evolve_state ---
+        allocated_proteins = counts(state["bulk"], p.protein_idx)
+        metabolites_delta = np.dot(p.degradation_matrix, allocated_proteins)
+
+        update = {
+            "bulk": [
+                (p.metabolite_idx, metabolites_delta),
+                (p.protein_idx, -allocated_proteins),
+            ]
+        }
+        # --- end inlined ---
+
         update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update

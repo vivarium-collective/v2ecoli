@@ -1,7 +1,7 @@
 """Integration tests for v2ecoli.
 
-Generates a document, runs the v2ecoli simulation, compares with v1 vEcoli,
-and produces a comparison report.
+Builds composite from cache, runs the v2ecoli simulation, compares with
+v1 vEcoli, and produces a comparison report.
 """
 
 import time
@@ -12,23 +12,27 @@ from wholecell.utils.filepath import ROOT_PATH
 from ecoli.experiments.ecoli_master_sim import EcoliSim
 from ecoli.library.schema import not_a_process
 
-from v2ecoli.generate import generate_document
-from v2ecoli.composite import load_simulation
+from v2ecoli.composite import make_composite, save_cache
 
 
-DOCUMENT_PATH = 'out/ecoli.pickle'
+CACHE_DIR = 'out/cache'
 DURATION = 10.0
 
 
 def test_generate():
-    """Generate an E. coli document from EcoliSim."""
-    generate_document(DOCUMENT_PATH)
+    """Ensure cache files exist (generate if missing)."""
+    import os
+    if os.path.isdir(CACHE_DIR) and os.path.exists(
+            os.path.join(CACHE_DIR, 'sim_data_cache.dill')):
+        print('  Cache already exists, skipping generation')
+    else:
+        save_cache(sim_data_path=None, cache_dir=CACHE_DIR)
     print('test_generate PASSED')
 
 
 def test_run():
-    """Load document and run simulation for 10 seconds."""
-    ecoli = load_simulation(DOCUMENT_PATH)
+    """Load composite from cache and run simulation for 10 seconds."""
+    ecoli = make_composite(cache_dir=CACHE_DIR)
     bulk_before = ecoli.state['agents']['0']['bulk']['count'].copy()
 
     ecoli.run(DURATION)
@@ -63,7 +67,7 @@ def test_compare_v1():
     v1_bulk = v1_state['bulk']['count'].copy()
 
     # --- Run v2 ---
-    ecoli = load_simulation(DOCUMENT_PATH)
+    ecoli = make_composite(cache_dir=CACHE_DIR)
     v2_initial = ecoli.state['agents']['0']['bulk']['count'].copy()
     t0 = time.time()
     ecoli.run(DURATION)

@@ -13,7 +13,7 @@ import numpy as np
 from process_bigraph import Step
 from bigraph_schema.schema import Float, Overwrite
 
-from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
+from v2ecoli.library.schema import bulk_name_to_idx, counts
 from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
 from v2ecoli.library.units import units
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
@@ -21,7 +21,7 @@ from v2ecoli.types.stores import InPlaceDict, ListenerStore
 
 
 class EquilibriumLogic:
-    """Equilibrium logic — pure computation, no Step inheritance.
+    """Equilibrium — shared state container for Requester/Evolver.
 
     molecule_names: list of molecules that are being iterated over size:94
     """
@@ -79,123 +79,6 @@ class EquilibriumLogic:
         self.complex_ids = self.parameters["complex_ids"]
         self.reaction_ids = self.parameters["reaction_ids"]
 
-    def ports_schema(self):
-        return {
-            "bulk": numpy_schema("bulk"),
-            "listeners": {
-                "mass": listener_schema({"cell_mass": 0}),
-                "equilibrium_listener": {
-                    **listener_schema(
-                        {
-                            "reaction_rates": (
-                                [0.0] * len(self.reaction_ids),
-                                self.reaction_ids,
-                            )
-                        }
-                    )
-                },
-            },
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
-    def calculate_request(self, timestep, states):
-        # At t=0, convert all strings to indices
-        if self.molecule_idx is None:
-            self.molecule_idx = bulk_name_to_idx(
-                self.moleculeNames, states["bulk"]["id"]
-            )
-
-        # Get molecule counts
-        moleculeCounts = counts(states["bulk"], self.molecule_idx)
-
-        # Get cell mass and volume
-        cellMass = (states["listeners"]["mass"]["cell_mass"] * units.fg).asNumber(
-            units.g
-        )
-        cellVolume = cellMass / self.cell_density
-
-        # Solve ODEs to steady state
-        self.rxnFluxes, self.req = self.fluxesAndMoleculesToSS(
-            moleculeCounts,
-            cellVolume,
-            self.n_avogadro,
-            self.random_state,
-            jit=self.jit,
-        )
-
-        # Request counts of molecules needed
-        requests = {"bulk": [(self.molecule_idx, self.req.astype(int))]}
-        return requests
-
-    def evolve_state(self, timestep, states):
-        # Get molecule counts
-        moleculeCounts = counts(states["bulk"], self.molecule_idx)
-
-        # Get counts of molecules allocated to this process
-        rxnFluxes = self.rxnFluxes.copy()
-
-        # If we didn't get allocated all the molecules we need, make do with
-        # what we have (decrease reaction fluxes so that they make use of what
-        # we have, but not more). Reduces at least one reaction every iteration
-        # so the max number of iterations is the number of reactions that were
-        # originally expected to occur + 1 to reach the break statement.
-        max_iterations = int(np.abs(rxnFluxes).sum()) + 1
-        for it in range(max_iterations):
-            # Check if any metabolites will have negative counts with current reactions
-            negative_metabolite_idxs = np.where(
-                np.dot(self.stoichMatrix, rxnFluxes) + moleculeCounts < 0
-            )[0]
-            if len(negative_metabolite_idxs) == 0:
-                break
-
-            # Reduce reactions that consume metabolites with negative counts
-            limited_rxn_stoich = self.stoichMatrix[negative_metabolite_idxs, :]
-            fwd_rxn_idxs = np.where(
-                np.logical_and(limited_rxn_stoich < 0, rxnFluxes > 0)
-            )[1]
-            rev_rxn_idxs = np.where(
-                np.logical_and(limited_rxn_stoich > 0, rxnFluxes < 0)
-            )[1]
-            rxnFluxes[fwd_rxn_idxs] -= 1
-            rxnFluxes[rev_rxn_idxs] += 1
-            rxnFluxes[fwd_rxn_idxs] = np.fmax(0, rxnFluxes[fwd_rxn_idxs])
-            rxnFluxes[rev_rxn_idxs] = np.fmin(0, rxnFluxes[rev_rxn_idxs])
-        else:
-            raise ValueError(
-                "Could not get positive counts in equilibrium with allocated molecules."
-            )
-
-        # Increment changes in molecule counts
-        deltaMolecules = np.dot(self.stoichMatrix, rxnFluxes).astype(int)
-
-        update = {
-            "bulk": [(self.molecule_idx, deltaMolecules)],
-            "listeners": {
-                "equilibrium_listener": {
-                    "reaction_rates": deltaMolecules[self.product_indices]
-                    / states["timestep"]
-                }
-            },
-        }
-
-        return update
-
-    def next_update(self, timestep, states):
-        from v2ecoli.steps.partition import deep_merge
-        requests = self.calculate_request(timestep, states)
-        bulk_requests = requests.pop("bulk", [])
-        if bulk_requests:
-            bulk_copy = states["bulk"].copy()
-            for bulk_idx, request in bulk_requests:
-                bulk_copy[bulk_idx] = request
-            states["bulk"] = bulk_copy
-        states = deep_merge(states, requests)
-        update = self.evolve_state(timestep, states)
-        if "listeners" in requests:
-            update["listeners"] = deep_merge(
-                update.get("listeners", {}), requests["listeners"])
-        return update
-
 
 class EquilibriumRequester(_SafeInvokeMixin, Step):
     config_schema = {}
@@ -230,8 +113,38 @@ class EquilibriumRequester(_SafeInvokeMixin, Step):
             return {}
         state = _protect_state(state)
         timestep = state.get('timestep', 1.0)
-        request = self.process.calculate_request(timestep, state)
-        self.process.request_set = True
+        p = self.process
+
+        # --- inlined from calculate_request ---
+        # At t=0, convert all strings to indices
+        if p.molecule_idx is None:
+            p.molecule_idx = bulk_name_to_idx(
+                p.moleculeNames, state["bulk"]["id"]
+            )
+
+        # Get molecule counts
+        moleculeCounts = counts(state["bulk"], p.molecule_idx)
+
+        # Get cell mass and volume
+        cellMass = (state["listeners"]["mass"]["cell_mass"] * units.fg).asNumber(
+            units.g
+        )
+        cellVolume = cellMass / p.cell_density
+
+        # Solve ODEs to steady state
+        p.rxnFluxes, p.req = p.fluxesAndMoleculesToSS(
+            moleculeCounts,
+            cellVolume,
+            p.n_avogadro,
+            p.random_state,
+            jit=p.jit,
+        )
+
+        # Request counts of molecules needed
+        request = {"bulk": [(p.molecule_idx, p.req.astype(int))]}
+        # --- end inlined ---
+
+        p.request_set = True
         bulk_request = request.pop('bulk', None)
         result = {'request': {}}
         if bulk_request is not None:
@@ -281,6 +194,59 @@ class EquilibriumEvolver(_SafeInvokeMixin, Step):
         if not self.process.request_set:
             return {}
         timestep = state.get('timestep', 1.0)
-        update = self.process.evolve_state(timestep, state)
+        p = self.process
+
+        # --- inlined from evolve_state ---
+        # Get molecule counts
+        moleculeCounts = counts(state["bulk"], p.molecule_idx)
+
+        # Get counts of molecules allocated to this process
+        rxnFluxes = p.rxnFluxes.copy()
+
+        # If we didn't get allocated all the molecules we need, make do with
+        # what we have (decrease reaction fluxes so that they make use of what
+        # we have, but not more). Reduces at least one reaction every iteration
+        # so the max number of iterations is the number of reactions that were
+        # originally expected to occur + 1 to reach the break statement.
+        max_iterations = int(np.abs(rxnFluxes).sum()) + 1
+        for it in range(max_iterations):
+            # Check if any metabolites will have negative counts with current reactions
+            negative_metabolite_idxs = np.where(
+                np.dot(p.stoichMatrix, rxnFluxes) + moleculeCounts < 0
+            )[0]
+            if len(negative_metabolite_idxs) == 0:
+                break
+
+            # Reduce reactions that consume metabolites with negative counts
+            limited_rxn_stoich = p.stoichMatrix[negative_metabolite_idxs, :]
+            fwd_rxn_idxs = np.where(
+                np.logical_and(limited_rxn_stoich < 0, rxnFluxes > 0)
+            )[1]
+            rev_rxn_idxs = np.where(
+                np.logical_and(limited_rxn_stoich > 0, rxnFluxes < 0)
+            )[1]
+            rxnFluxes[fwd_rxn_idxs] -= 1
+            rxnFluxes[rev_rxn_idxs] += 1
+            rxnFluxes[fwd_rxn_idxs] = np.fmax(0, rxnFluxes[fwd_rxn_idxs])
+            rxnFluxes[rev_rxn_idxs] = np.fmin(0, rxnFluxes[rev_rxn_idxs])
+        else:
+            raise ValueError(
+                "Could not get positive counts in equilibrium with allocated molecules."
+            )
+
+        # Increment changes in molecule counts
+        deltaMolecules = np.dot(p.stoichMatrix, rxnFluxes).astype(int)
+
+        update = {
+            "bulk": [(p.molecule_idx, deltaMolecules)],
+            "listeners": {
+                "equilibrium_listener": {
+                    "reaction_rates": deltaMolecules[p.product_indices]
+                    / state["timestep"]
+                }
+            },
+        }
+        # --- end inlined ---
+
         update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update

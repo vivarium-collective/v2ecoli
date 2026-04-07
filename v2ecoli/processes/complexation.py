@@ -23,12 +23,12 @@ from stochastic_arrow import StochasticSystem
 from process_bigraph import Step
 from bigraph_schema.schema import Float, Overwrite
 
-from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
+from v2ecoli.library.schema import bulk_name_to_idx, counts
 from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
 class ComplexationLogic:
-    """Complexation logic — pure computation, no Step inheritance."""
+    """Complexation — shared state container for Requester/Evolver."""
 
     name = "ecoli-complexation"
     topology = {"bulk": ("bulk",), "listeners": ("listeners",), "timestep": ("timestep",)}
@@ -56,77 +56,6 @@ class ComplexationLogic:
         self.randomState = np.random.RandomState(seed=self.parameters["seed"])
         self.seed = self.randomState.randint(2**31)
         self.system = StochasticSystem(self.stoichiometry, random_seed=self.seed)
-
-    def ports_schema(self):
-        return {
-            "bulk": numpy_schema("bulk"),
-            "listeners": {
-                "complexation_listener": {
-                    **listener_schema(
-                        {
-                            "complexation_events": (
-                                [0] * len(self.reaction_ids),
-                                self.reaction_ids,
-                            )
-                        }
-                    )
-                },
-            },
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
-    def calculate_request(self, timestep, states):
-        timestep = states["timestep"]
-        if self.molecule_idx is None:
-            self.molecule_idx = bulk_name_to_idx(
-                self.molecule_names, states["bulk"]["id"]
-            )
-
-        moleculeCounts = counts(states["bulk"], self.molecule_idx)
-
-        result = self.system.evolve(timestep, moleculeCounts, self.rates)
-        updatedMoleculeCounts = result["outcome"]
-        requests = {}
-        requests["bulk"] = [
-            (self.molecule_idx, np.fmax(moleculeCounts - updatedMoleculeCounts, 0))
-        ]
-        return requests
-
-    def evolve_state(self, timestep, states):
-        timestep = states["timestep"]
-        substrate = counts(states["bulk"], self.molecule_idx)
-
-        result = self.system.evolve(timestep, substrate, self.rates)
-        complexationEvents = result["occurrences"]
-        outcome = result["outcome"] - substrate
-
-        # Write outputs to listeners
-        update = {
-            "bulk": [(self.molecule_idx, outcome)],
-            "listeners": {
-                "complexation_listener": {
-                    "complexation_events": complexationEvents.astype(int)
-                }
-            },
-        }
-
-        return update
-
-    def next_update(self, timestep, states):
-        from v2ecoli.steps.partition import deep_merge
-        requests = self.calculate_request(timestep, states)
-        bulk_requests = requests.pop("bulk", [])
-        if bulk_requests:
-            bulk_copy = states["bulk"].copy()
-            for bulk_idx, request in bulk_requests:
-                bulk_copy[bulk_idx] = request
-            states["bulk"] = bulk_copy
-        states = deep_merge(states, requests)
-        update = self.evolve_state(timestep, states)
-        if "listeners" in requests:
-            update["listeners"] = deep_merge(
-                update.get("listeners", {}), requests["listeners"])
-        return update
 
 
 class ComplexationRequester(_SafeInvokeMixin, Step):
@@ -161,8 +90,26 @@ class ComplexationRequester(_SafeInvokeMixin, Step):
             return {}
         state = _protect_state(state)
         timestep = state.get('timestep', 1.0)
-        request = self.process.calculate_request(timestep, state)
-        self.process.request_set = True
+        p = self.process
+
+        # --- inlined from calculate_request ---
+        timestep = state["timestep"]
+        if p.molecule_idx is None:
+            p.molecule_idx = bulk_name_to_idx(
+                p.molecule_names, state["bulk"]["id"]
+            )
+
+        moleculeCounts = counts(state["bulk"], p.molecule_idx)
+
+        result = p.system.evolve(timestep, moleculeCounts, p.rates)
+        updatedMoleculeCounts = result["outcome"]
+        request = {}
+        request["bulk"] = [
+            (p.molecule_idx, np.fmax(moleculeCounts - updatedMoleculeCounts, 0))
+        ]
+        # --- end inlined ---
+
+        p.request_set = True
         bulk_request = request.pop('bulk', None)
         result = {'request': {}}
         if bulk_request is not None:
@@ -212,6 +159,26 @@ class ComplexationEvolver(_SafeInvokeMixin, Step):
         if not self.process.request_set:
             return {}
         timestep = state.get('timestep', 1.0)
-        update = self.process.evolve_state(timestep, state)
+        p = self.process
+
+        # --- inlined from evolve_state ---
+        timestep = state["timestep"]
+        substrate = counts(state["bulk"], p.molecule_idx)
+
+        result = p.system.evolve(timestep, substrate, p.rates)
+        complexationEvents = result["occurrences"]
+        outcome = result["outcome"] - substrate
+
+        # Write outputs to listeners
+        update = {
+            "bulk": [(p.molecule_idx, outcome)],
+            "listeners": {
+                "complexation_listener": {
+                    "complexation_events": complexationEvents.astype(int)
+                }
+            },
+        }
+        # --- end inlined ---
+
         update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update

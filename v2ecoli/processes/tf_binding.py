@@ -11,17 +11,14 @@ import warnings
 
 from process_bigraph import Step
 from process_bigraph.composite import SyncUpdate
-from bigraph_schema.schema import Float, Overwrite
+from bigraph_schema.schema import Node, Float, Overwrite
 
 from v2ecoli.library.schema import (
-    listener_schema,
-    numpy_schema,
     attrs,
     bulk_name_to_idx,
     counts,
 )
 from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
-from v2ecoli.steps.base import _translate_schema
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
@@ -143,34 +140,6 @@ class TfBindingLogic:
             self.marR_name = "CPLX0-7710[c]"
             self.marR_tet = "marR-tet[c]"
         self.submass_indices = self.parameters["submass_indices"]
-
-    def ports_schema(self):
-        return {
-            "promoters": numpy_schema("promoters", emit=self.parameters["emit_unique"]),
-            "bulk": numpy_schema("bulk"),
-            "bulk_total": numpy_schema("bulk"),
-            "listeners": {
-                "rna_synth_prob": listener_schema(
-                    {
-                        "p_promoter_bound": ([0.0] * self.n_TF, self.tf_ids),
-                        "n_promoter_bound": ([0] * self.n_TF, self.tf_ids),
-                        "n_actual_bound": ([0] * self.n_TF, self.tf_ids),
-                        "n_available_promoters": ([0] * self.n_TF, self.tf_ids),
-                        "n_bound_TF_per_TU": (
-                            [[0] * self.n_TF] * self.n_TU,
-                            self.rna_ids,
-                        ),
-                    }
-                )
-            },
-            "next_update_time": {
-                "_default": self.parameters["time_step"],
-                "_updater": "set",
-                "_divider": "set",
-            },
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
 
     def update_condition(self, timestep, states):
         """
@@ -347,10 +316,26 @@ class TfBindingStep(_SafeInvokeMixin, Step):
         self.topology = self.logic.topology
 
     def inputs(self):
-        return _translate_schema(self.logic.ports_schema())
+        return {
+            'promoters': UniqueNumpyUpdate(),
+            'bulk': BulkNumpyUpdate(),
+            'bulk_total': BulkNumpyUpdate(),
+            'listeners': {'rna_synth_prob': ListenerStore()},
+            'next_update_time': Overwrite(_value=Node()),
+            'global_time': InPlaceDict(),
+            'timestep': InPlaceDict(),
+        }
 
     def outputs(self):
-        return _translate_schema(self.logic.ports_schema())
+        return {
+            'promoters': UniqueNumpyUpdate(),
+            'bulk': BulkNumpyUpdate(),
+            'bulk_total': BulkNumpyUpdate(),
+            'listeners': {'rna_synth_prob': ListenerStore()},
+            'next_update_time': Overwrite(_value=Node()),
+            'global_time': InPlaceDict(),
+            'timestep': InPlaceDict(),
+        }
 
     def update(self, state, interval=None):
         state = _protect_state(state)

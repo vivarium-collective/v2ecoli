@@ -12,12 +12,12 @@ from process_bigraph import Step
 from bigraph_schema.schema import Float, Overwrite
 
 from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
-from v2ecoli.library.schema import listener_schema, numpy_schema, counts, bulk_name_to_idx
+from v2ecoli.library.schema import counts, bulk_name_to_idx
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
 
 class RnaMaturationLogic:
-    """RnaMaturation logic — pure computation, no Step inheritance."""
+    """RnaMaturation — shared state container for Requester/Evolver."""
 
     name = "ecoli-rna-maturation"
     topology = {"bulk": ("bulk",), "bulk_total": ("bulk",), "listeners": ("listeners",)}
@@ -61,207 +61,6 @@ class RnaMaturationLogic:
         # Numpy indices for bulk molecules
         self.ppi_idx = None
 
-    def ports_schema(self):
-        return {
-            "bulk": numpy_schema("bulk"),
-            "bulk_total": numpy_schema("bulk"),
-            "listeners": {
-                "rna_maturation_listener": listener_schema(
-                    {
-                        "total_maturation_events": 0,
-                        "total_degraded_ntps": 0,
-                        "unprocessed_rnas_consumed": (
-                            [0] * len(self.unprocessed_rna_ids),
-                            self.unprocessed_rna_ids,
-                        ),
-                        "mature_rnas_generated": (
-                            [0] * len(self.mature_rna_ids),
-                            self.mature_rna_ids,
-                        ),
-                        "maturation_enzyme_counts": (
-                            [0] * len(self.rna_maturation_enzyme_ids),
-                            self.rna_maturation_enzyme_ids,
-                        ),
-                    }
-                )
-            },
-        }
-
-    def calculate_request(self, timestep, states):
-        # Get bulk indices
-        if self.ppi_idx is None:
-            bulk_ids = states["bulk"]["id"]
-            self.unprocessed_rna_idx = bulk_name_to_idx(
-                self.unprocessed_rna_ids, bulk_ids
-            )
-            self.mature_rna_idx = bulk_name_to_idx(self.mature_rna_ids, bulk_ids)
-            self.rna_maturation_enzyme_idx = bulk_name_to_idx(
-                self.rna_maturation_enzyme_ids, bulk_ids
-            )
-            self.fragment_base_idx = bulk_name_to_idx(self.fragment_bases, bulk_ids)
-            self.ppi_idx = bulk_name_to_idx(self.ppi, bulk_ids)
-            self.water_idx = bulk_name_to_idx(self.water, bulk_ids)
-            self.nmps_idx = bulk_name_to_idx(self.nmps, bulk_ids)
-            self.proton_idx = bulk_name_to_idx(self.proton, bulk_ids)
-            self.main_23s_rRNA_idx = bulk_name_to_idx(self.main_23s_rRNA_id, bulk_ids)
-            self.main_16s_rRNA_idx = bulk_name_to_idx(self.main_16s_rRNA_id, bulk_ids)
-            self.main_5s_rRNA_idx = bulk_name_to_idx(self.main_5s_rRNA_id, bulk_ids)
-            self.variant_23s_rRNA_idx = bulk_name_to_idx(
-                self.variant_23s_rRNA_ids, bulk_ids
-            )
-            self.variant_16s_rRNA_idx = bulk_name_to_idx(
-                self.variant_16s_rRNA_ids, bulk_ids
-            )
-            self.variant_5s_rRNA_idx = bulk_name_to_idx(
-                self.variant_5s_rRNA_ids, bulk_ids
-            )
-
-        unprocessed_rna_counts = counts(states["bulk_total"], self.unprocessed_rna_idx)
-        variant_23s_rRNA_counts = counts(
-            states["bulk_total"], self.variant_23s_rRNA_idx
-        )
-        variant_16s_rRNA_counts = counts(
-            states["bulk_total"], self.variant_16s_rRNA_idx
-        )
-        variant_5s_rRNA_counts = counts(states["bulk_total"], self.variant_5s_rRNA_idx)
-        self.enzyme_availability = counts(
-            states["bulk_total"], self.rna_maturation_enzyme_idx
-        ).astype(bool)
-
-        # Determine which maturation reactions to turn off based on enzyme
-        # availability
-        reaction_is_off = (
-            self.enzyme_matrix.dot(self.enzyme_availability) < self.n_required_enzymes
-        )
-        unprocessed_rna_counts[reaction_is_off] = 0
-
-        # Calculate NMPs, water, and proton needed to balance mass
-        n_added_bases_from_maturation = np.dot(
-            self.degraded_nt_counts.T, unprocessed_rna_counts
-        )
-        n_added_bases_from_consolidation = (
-            self.delta_nt_counts_23s.T.dot(variant_23s_rRNA_counts)
-            + self.delta_nt_counts_16s.T.dot(variant_16s_rRNA_counts)
-            + self.delta_nt_counts_5s.T.dot(variant_5s_rRNA_counts)
-        )
-        n_added_bases = n_added_bases_from_maturation + n_added_bases_from_consolidation
-        n_total_added_bases = int(n_added_bases.sum())
-
-        # Request all unprocessed RNAs, ppis that need to be added to the
-        # 5'-ends of mature RNAs, all variant rRNAs, and NMPs/water/protons
-        # needed to balance mass
-        request = {
-            "bulk": [
-                (self.unprocessed_rna_idx, unprocessed_rna_counts),
-                (self.ppi_idx, self.n_ppi_added.dot(unprocessed_rna_counts)),
-                (self.variant_23s_rRNA_idx, variant_23s_rRNA_counts),
-                (self.variant_16s_rRNA_idx, variant_16s_rRNA_counts),
-                (self.variant_5s_rRNA_idx, variant_5s_rRNA_counts),
-                (self.nmps_idx, np.abs(-n_added_bases).astype(int)),
-            ]
-        }
-
-        if n_total_added_bases > 0:
-            request["bulk"].append((self.water_idx, n_total_added_bases))
-        else:
-            request["bulk"].append((self.proton_idx, -n_total_added_bases))
-
-        return request
-
-    def evolve_state(self, timestep, states):
-        # Create copy of bulk counts so can update in real-time
-        states["bulk"] = counts(states["bulk"], range(len(states["bulk"])))
-
-        # Get counts of unprocessed RNAs
-        unprocessed_rna_counts = counts(states["bulk"], self.unprocessed_rna_idx)
-
-        # Calculate numbers of mature RNAs and fragment bases that are generated
-        # upon maturation
-        n_mature_rnas = self.stoich_matrix.dot(unprocessed_rna_counts)
-        n_added_bases_from_maturation = np.dot(
-            self.degraded_nt_counts.T, unprocessed_rna_counts
-        )
-
-        states["bulk"][self.mature_rna_idx] += n_mature_rnas
-        states["bulk"][self.unprocessed_rna_idx] += -unprocessed_rna_counts
-        ppi_update = self.n_ppi_added.dot(unprocessed_rna_counts)
-        states["bulk"][self.ppi_idx] += -ppi_update
-        update = {
-            "bulk": [
-                (self.mature_rna_idx, n_mature_rnas),
-                (self.unprocessed_rna_idx, -unprocessed_rna_counts),
-                (self.ppi_idx, -ppi_update),
-            ],
-            "listeners": {
-                "rna_maturation_listener": {
-                    "total_maturation_events": unprocessed_rna_counts.sum(),
-                    "total_degraded_ntps": n_added_bases_from_maturation.sum(dtype=int),
-                    "unprocessed_rnas_consumed": unprocessed_rna_counts,
-                    "mature_rnas_generated": n_mature_rnas,
-                    "maturation_enzyme_counts": counts(
-                        states["bulk_total"], self.rna_maturation_enzyme_idx
-                    ),
-                }
-            },
-        }
-
-        # Get counts of variant rRNAs
-        variant_23s_rRNA_counts = counts(states["bulk"], self.variant_23s_rRNA_idx)
-        variant_16s_rRNA_counts = counts(states["bulk"], self.variant_16s_rRNA_idx)
-        variant_5s_rRNA_counts = counts(states["bulk"], self.variant_5s_rRNA_idx)
-
-        # Calculate number of NMPs that should be added to balance out the mass
-        # difference during the consolidation
-        n_added_bases_from_consolidation = (
-            self.delta_nt_counts_23s.T.dot(variant_23s_rRNA_counts)
-            + self.delta_nt_counts_16s.T.dot(variant_16s_rRNA_counts)
-            + self.delta_nt_counts_5s.T.dot(variant_5s_rRNA_counts)
-        )
-
-        # Evolve states
-        update["bulk"].extend(
-            [
-                (self.main_23s_rRNA_idx, variant_23s_rRNA_counts.sum()),
-                (self.main_16s_rRNA_idx, variant_16s_rRNA_counts.sum()),
-                (self.main_5s_rRNA_idx, variant_5s_rRNA_counts.sum()),
-                (self.variant_23s_rRNA_idx, -variant_23s_rRNA_counts),
-                (self.variant_16s_rRNA_idx, -variant_16s_rRNA_counts),
-                (self.variant_5s_rRNA_idx, -variant_5s_rRNA_counts),
-            ]
-        )
-
-        # Consume or add NMPs to balance out mass
-        n_added_bases = (
-            n_added_bases_from_maturation + n_added_bases_from_consolidation
-        ).astype(int)
-        n_total_added_bases = n_added_bases.sum()
-
-        update["bulk"].extend(
-            [
-                (self.nmps_idx, n_added_bases),
-                (self.water_idx, -n_total_added_bases),
-                (self.proton_idx, n_total_added_bases),
-            ]
-        )
-
-        return update
-
-    def next_update(self, timestep, states):
-        from v2ecoli.steps.partition import deep_merge
-        requests = self.calculate_request(timestep, states)
-        bulk_requests = requests.pop("bulk", [])
-        if bulk_requests:
-            bulk_copy = states["bulk"].copy()
-            for bulk_idx, request in bulk_requests:
-                bulk_copy[bulk_idx] = request
-            states["bulk"] = bulk_copy
-        states = deep_merge(states, requests)
-        update = self.evolve_state(timestep, states)
-        if "listeners" in requests:
-            update["listeners"] = deep_merge(
-                update.get("listeners", {}), requests["listeners"])
-        return update
-
 
 class RnaMaturationRequester(_SafeInvokeMixin, Step):
     config_schema = {}
@@ -295,8 +94,89 @@ class RnaMaturationRequester(_SafeInvokeMixin, Step):
             return {}
         state = _protect_state(state)
         timestep = 1.0  # RnaMaturation has no timestep in topology
-        request = self.process.calculate_request(timestep, state)
-        self.process.request_set = True
+        p = self.process
+
+        # --- inlined from calculate_request ---
+        # Get bulk indices
+        if p.ppi_idx is None:
+            bulk_ids = state["bulk"]["id"]
+            p.unprocessed_rna_idx = bulk_name_to_idx(
+                p.unprocessed_rna_ids, bulk_ids
+            )
+            p.mature_rna_idx = bulk_name_to_idx(p.mature_rna_ids, bulk_ids)
+            p.rna_maturation_enzyme_idx = bulk_name_to_idx(
+                p.rna_maturation_enzyme_ids, bulk_ids
+            )
+            p.fragment_base_idx = bulk_name_to_idx(p.fragment_bases, bulk_ids)
+            p.ppi_idx = bulk_name_to_idx(p.ppi, bulk_ids)
+            p.water_idx = bulk_name_to_idx(p.water, bulk_ids)
+            p.nmps_idx = bulk_name_to_idx(p.nmps, bulk_ids)
+            p.proton_idx = bulk_name_to_idx(p.proton, bulk_ids)
+            p.main_23s_rRNA_idx = bulk_name_to_idx(p.main_23s_rRNA_id, bulk_ids)
+            p.main_16s_rRNA_idx = bulk_name_to_idx(p.main_16s_rRNA_id, bulk_ids)
+            p.main_5s_rRNA_idx = bulk_name_to_idx(p.main_5s_rRNA_id, bulk_ids)
+            p.variant_23s_rRNA_idx = bulk_name_to_idx(
+                p.variant_23s_rRNA_ids, bulk_ids
+            )
+            p.variant_16s_rRNA_idx = bulk_name_to_idx(
+                p.variant_16s_rRNA_ids, bulk_ids
+            )
+            p.variant_5s_rRNA_idx = bulk_name_to_idx(
+                p.variant_5s_rRNA_ids, bulk_ids
+            )
+
+        unprocessed_rna_counts = counts(state["bulk_total"], p.unprocessed_rna_idx)
+        variant_23s_rRNA_counts = counts(
+            state["bulk_total"], p.variant_23s_rRNA_idx
+        )
+        variant_16s_rRNA_counts = counts(
+            state["bulk_total"], p.variant_16s_rRNA_idx
+        )
+        variant_5s_rRNA_counts = counts(state["bulk_total"], p.variant_5s_rRNA_idx)
+        p.enzyme_availability = counts(
+            state["bulk_total"], p.rna_maturation_enzyme_idx
+        ).astype(bool)
+
+        # Determine which maturation reactions to turn off based on enzyme
+        # availability
+        reaction_is_off = (
+            p.enzyme_matrix.dot(p.enzyme_availability) < p.n_required_enzymes
+        )
+        unprocessed_rna_counts[reaction_is_off] = 0
+
+        # Calculate NMPs, water, and proton needed to balance mass
+        n_added_bases_from_maturation = np.dot(
+            p.degraded_nt_counts.T, unprocessed_rna_counts
+        )
+        n_added_bases_from_consolidation = (
+            p.delta_nt_counts_23s.T.dot(variant_23s_rRNA_counts)
+            + p.delta_nt_counts_16s.T.dot(variant_16s_rRNA_counts)
+            + p.delta_nt_counts_5s.T.dot(variant_5s_rRNA_counts)
+        )
+        n_added_bases = n_added_bases_from_maturation + n_added_bases_from_consolidation
+        n_total_added_bases = int(n_added_bases.sum())
+
+        # Request all unprocessed RNAs, ppis that need to be added to the
+        # 5'-ends of mature RNAs, all variant rRNAs, and NMPs/water/protons
+        # needed to balance mass
+        request = {
+            "bulk": [
+                (p.unprocessed_rna_idx, unprocessed_rna_counts),
+                (p.ppi_idx, p.n_ppi_added.dot(unprocessed_rna_counts)),
+                (p.variant_23s_rRNA_idx, variant_23s_rRNA_counts),
+                (p.variant_16s_rRNA_idx, variant_16s_rRNA_counts),
+                (p.variant_5s_rRNA_idx, variant_5s_rRNA_counts),
+                (p.nmps_idx, np.abs(-n_added_bases).astype(int)),
+            ]
+        }
+
+        if n_total_added_bases > 0:
+            request["bulk"].append((p.water_idx, n_total_added_bases))
+        else:
+            request["bulk"].append((p.proton_idx, -n_total_added_bases))
+        # --- end inlined ---
+
+        p.request_set = True
         bulk_request = request.pop('bulk', None)
         result = {'request': {}}
         if bulk_request is not None:
@@ -346,6 +226,84 @@ class RnaMaturationEvolver(_SafeInvokeMixin, Step):
         if not self.process.request_set:
             return {}
         timestep = 1.0
-        update = self.process.evolve_state(timestep, state)
+        p = self.process
+
+        # --- inlined from evolve_state ---
+        # Create copy of bulk counts so can update in real-time
+        state["bulk"] = counts(state["bulk"], range(len(state["bulk"])))
+
+        # Get counts of unprocessed RNAs
+        unprocessed_rna_counts = counts(state["bulk"], p.unprocessed_rna_idx)
+
+        # Calculate numbers of mature RNAs and fragment bases that are generated
+        # upon maturation
+        n_mature_rnas = p.stoich_matrix.dot(unprocessed_rna_counts)
+        n_added_bases_from_maturation = np.dot(
+            p.degraded_nt_counts.T, unprocessed_rna_counts
+        )
+
+        state["bulk"][p.mature_rna_idx] += n_mature_rnas
+        state["bulk"][p.unprocessed_rna_idx] += -unprocessed_rna_counts
+        ppi_update = p.n_ppi_added.dot(unprocessed_rna_counts)
+        state["bulk"][p.ppi_idx] += -ppi_update
+        update = {
+            "bulk": [
+                (p.mature_rna_idx, n_mature_rnas),
+                (p.unprocessed_rna_idx, -unprocessed_rna_counts),
+                (p.ppi_idx, -ppi_update),
+            ],
+            "listeners": {
+                "rna_maturation_listener": {
+                    "total_maturation_events": unprocessed_rna_counts.sum(),
+                    "total_degraded_ntps": n_added_bases_from_maturation.sum(dtype=int),
+                    "unprocessed_rnas_consumed": unprocessed_rna_counts,
+                    "mature_rnas_generated": n_mature_rnas,
+                    "maturation_enzyme_counts": counts(
+                        state["bulk_total"], p.rna_maturation_enzyme_idx
+                    ),
+                }
+            },
+        }
+
+        # Get counts of variant rRNAs
+        variant_23s_rRNA_counts = counts(state["bulk"], p.variant_23s_rRNA_idx)
+        variant_16s_rRNA_counts = counts(state["bulk"], p.variant_16s_rRNA_idx)
+        variant_5s_rRNA_counts = counts(state["bulk"], p.variant_5s_rRNA_idx)
+
+        # Calculate number of NMPs that should be added to balance out the mass
+        # difference during the consolidation
+        n_added_bases_from_consolidation = (
+            p.delta_nt_counts_23s.T.dot(variant_23s_rRNA_counts)
+            + p.delta_nt_counts_16s.T.dot(variant_16s_rRNA_counts)
+            + p.delta_nt_counts_5s.T.dot(variant_5s_rRNA_counts)
+        )
+
+        # Evolve states
+        update["bulk"].extend(
+            [
+                (p.main_23s_rRNA_idx, variant_23s_rRNA_counts.sum()),
+                (p.main_16s_rRNA_idx, variant_16s_rRNA_counts.sum()),
+                (p.main_5s_rRNA_idx, variant_5s_rRNA_counts.sum()),
+                (p.variant_23s_rRNA_idx, -variant_23s_rRNA_counts),
+                (p.variant_16s_rRNA_idx, -variant_16s_rRNA_counts),
+                (p.variant_5s_rRNA_idx, -variant_5s_rRNA_counts),
+            ]
+        )
+
+        # Consume or add NMPs to balance out mass
+        n_added_bases = (
+            n_added_bases_from_maturation + n_added_bases_from_consolidation
+        ).astype(int)
+        n_total_added_bases = n_added_bases.sum()
+
+        update["bulk"].extend(
+            [
+                (p.nmps_idx, n_added_bases),
+                (p.water_idx, -n_total_added_bases),
+                (p.proton_idx, n_total_added_bases),
+            ]
+        )
+        # --- end inlined ---
+
         update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update

@@ -9,14 +9,13 @@ import warnings
 
 from process_bigraph import Step
 from process_bigraph.composite import SyncUpdate
-from bigraph_schema.schema import Float, Overwrite
+from bigraph_schema.schema import Node, Float, Overwrite
 
-from v2ecoli.library.schema import bulk_name_to_idx, attrs, numpy_schema
+from v2ecoli.library.schema import bulk_name_to_idx, attrs
 from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
-from v2ecoli.steps.base import _translate_schema
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
-from v2ecoli.types.stores import InPlaceDict, ListenerStore
+from v2ecoli.types.stores import InPlaceDict
 
 
 class TfUnbindingLogic:
@@ -47,19 +46,6 @@ class TfUnbindingLogic:
 
         # Numpy indices for bulk molecules
         self.active_tf_idx = None
-
-    def ports_schema(self):
-        return {
-            "bulk": numpy_schema("bulk"),
-            "promoters": numpy_schema("promoters", emit=self.parameters["emit_unique"]),
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-            "next_update_time": {
-                "_default": self.parameters["time_step"],
-                "_updater": "set",
-                "_divider": "set",
-            },
-        }
 
     def update_condition(self, timestep, states):
         """
@@ -123,10 +109,22 @@ class TfUnbindingStep(_SafeInvokeMixin, Step):
         self.topology = self.logic.topology
 
     def inputs(self):
-        return _translate_schema(self.logic.ports_schema())
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'promoters': UniqueNumpyUpdate(),
+            'global_time': InPlaceDict(),
+            'timestep': InPlaceDict(),
+            'next_update_time': Overwrite(_value=Node()),
+        }
 
     def outputs(self):
-        return _translate_schema(self.logic.ports_schema())
+        return {
+            'bulk': BulkNumpyUpdate(),
+            'promoters': UniqueNumpyUpdate(),
+            'global_time': InPlaceDict(),
+            'timestep': InPlaceDict(),
+            'next_update_time': Overwrite(_value=Node()),
+        }
 
     def update(self, state, interval=None):
         state = _protect_state(state)

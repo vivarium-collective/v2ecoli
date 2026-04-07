@@ -14,13 +14,13 @@ import numpy as np
 from process_bigraph import Step
 from bigraph_schema.schema import Float, Overwrite
 
-from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts
+from v2ecoli.library.schema import bulk_name_to_idx, counts
 from v2ecoli.library.units import units
 from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
 class TwoComponentSystemLogic:
-    """Two Component System logic — pure computation, no Step inheritance."""
+    """Two Component System — shared state container for Requester/Evolver."""
 
     name = "ecoli-two-component-system"
     topology = {
@@ -66,82 +66,6 @@ class TwoComponentSystemLogic:
         # Helper indices for Numpy indexing
         self.molecule_idx = None
 
-    def ports_schema(self):
-        return {
-            "bulk": numpy_schema("bulk"),
-            "listeners": {"mass": {"cell_mass": {"_default": 0}}},
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
-    def calculate_request(self, timestep, states):
-        # At t=0, convert all strings to indices
-        if self.molecule_idx is None:
-            self.molecule_idx = bulk_name_to_idx(
-                self.moleculeNames, states["bulk"]["id"]
-            )
-
-        # Get molecule counts
-        moleculeCounts = counts(states["bulk"], self.molecule_idx)
-
-        # Get cell mass and volume
-        cellMass = (states["listeners"]["mass"]["cell_mass"] * units.fg).asNumber(
-            units.g
-        )
-        self.cellVolume = cellMass / self.cell_density
-
-        # Solve ODEs to next time step using the BDF solver through solve_ivp.
-        # Note: the BDF solver has been empirically tested to be the fastest
-        # solver for this setting among the list of solvers that can be used
-        # by the scipy ODE suite.
-        self.molecules_required, self.all_molecule_changes = (
-            self.moleculesToNextTimeStep(
-                moleculeCounts,
-                self.cellVolume,
-                self.n_avogadro,
-                states["timestep"],
-                self.random_state,
-                method="BDF",
-                jit=self.jit,
-            )
-        )
-        requests = {"bulk": [(self.molecule_idx, self.molecules_required.astype(int))]}
-        return requests
-
-    def evolve_state(self, timestep, states):
-        moleculeCounts = counts(states["bulk"], self.molecule_idx)
-        # Check if any molecules were allocated fewer counts than requested
-        if (self.molecules_required > moleculeCounts).any():
-            _, self.all_molecule_changes = self.moleculesToNextTimeStep(
-                moleculeCounts,
-                self.cellVolume,
-                self.n_avogadro,
-                10000,
-                self.random_state,
-                method="BDF",
-                min_time_step=states["timestep"],
-                jit=self.jit,
-            )
-        # Increment changes in molecule counts
-        update = {"bulk": [(self.molecule_idx, self.all_molecule_changes.astype(int))]}
-
-        return update
-
-    def next_update(self, timestep, states):
-        from v2ecoli.steps.partition import deep_merge
-        requests = self.calculate_request(timestep, states)
-        bulk_requests = requests.pop("bulk", [])
-        if bulk_requests:
-            bulk_copy = states["bulk"].copy()
-            for bulk_idx, request in bulk_requests:
-                bulk_copy[bulk_idx] = request
-            states["bulk"] = bulk_copy
-        states = deep_merge(states, requests)
-        update = self.evolve_state(timestep, states)
-        if "listeners" in requests:
-            update["listeners"] = deep_merge(
-                update.get("listeners", {}), requests["listeners"])
-        return update
-
 
 class TwoComponentSystemRequester(_SafeInvokeMixin, Step):
     config_schema = {}
@@ -176,8 +100,43 @@ class TwoComponentSystemRequester(_SafeInvokeMixin, Step):
             return {}
         state = _protect_state(state)
         timestep = state.get('timestep', 1.0)
-        request = self.process.calculate_request(timestep, state)
-        self.process.request_set = True
+        p = self.process
+
+        # --- inlined from calculate_request ---
+        # At t=0, convert all strings to indices
+        if p.molecule_idx is None:
+            p.molecule_idx = bulk_name_to_idx(
+                p.moleculeNames, state["bulk"]["id"]
+            )
+
+        # Get molecule counts
+        moleculeCounts = counts(state["bulk"], p.molecule_idx)
+
+        # Get cell mass and volume
+        cellMass = (state["listeners"]["mass"]["cell_mass"] * units.fg).asNumber(
+            units.g
+        )
+        p.cellVolume = cellMass / p.cell_density
+
+        # Solve ODEs to next time step using the BDF solver through solve_ivp.
+        # Note: the BDF solver has been empirically tested to be the fastest
+        # solver for this setting among the list of solvers that can be used
+        # by the scipy ODE suite.
+        p.molecules_required, p.all_molecule_changes = (
+            p.moleculesToNextTimeStep(
+                moleculeCounts,
+                p.cellVolume,
+                p.n_avogadro,
+                state["timestep"],
+                p.random_state,
+                method="BDF",
+                jit=p.jit,
+            )
+        )
+        request = {"bulk": [(p.molecule_idx, p.molecules_required.astype(int))]}
+        # --- end inlined ---
+
+        p.request_set = True
         bulk_request = request.pop('bulk', None)
         result = {'request': {}}
         if bulk_request is not None:
@@ -226,6 +185,25 @@ class TwoComponentSystemEvolver(_SafeInvokeMixin, Step):
         if not self.process.request_set:
             return {}
         timestep = state.get('timestep', 1.0)
-        update = self.process.evolve_state(timestep, state)
+        p = self.process
+
+        # --- inlined from evolve_state ---
+        moleculeCounts = counts(state["bulk"], p.molecule_idx)
+        # Check if any molecules were allocated fewer counts than requested
+        if (p.molecules_required > moleculeCounts).any():
+            _, p.all_molecule_changes = p.moleculesToNextTimeStep(
+                moleculeCounts,
+                p.cellVolume,
+                p.n_avogadro,
+                10000,
+                p.random_state,
+                method="BDF",
+                min_time_step=state["timestep"],
+                jit=p.jit,
+            )
+        # Increment changes in molecule counts
+        update = {"bulk": [(p.molecule_idx, p.all_molecule_changes.astype(int))]}
+        # --- end inlined ---
+
         update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update

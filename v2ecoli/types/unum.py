@@ -37,7 +37,7 @@ def infer(core, value: Unum, path: tuple = ()):
     dimension = unum_dimension(value)
     magnitude, _ = infer(
         core,
-        value.asNumber(),
+        value._value,
         path+(value.strUnit(),))
 
     unum_data = {
@@ -72,7 +72,7 @@ def serialize(schema: UnumUnits, state):
         else:
             magnitude = serialize(
                 schema.magnitude,
-                state.asNumber())
+                state._value)
 
             return {
                 'units': state._unit,

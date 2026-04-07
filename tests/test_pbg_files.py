@@ -24,12 +24,12 @@ def generate_pbg(cache_dir='out/cache'):
     dep = make_composite(cache_dir=cache_dir)
     dep_serialized = dep.core.serialize(dep.schema, dep.state)
     with open(DEP_PBG, 'w') as f:
-        json.dump(dep_serialized, f, default=str)
+        json.dump(dep_serialized, f, default=str, indent=2)
 
     part = make_partitioned_composite(cache_dir=cache_dir)
     part_serialized = part.core.serialize(part.schema, part.state)
     with open(PART_PBG, 'w') as f:
-        json.dump(part_serialized, f, default=str)
+        json.dump(part_serialized, f, default=str, indent=2)
 
     return DEP_PBG, PART_PBG
 

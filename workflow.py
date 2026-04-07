@@ -2090,7 +2090,7 @@ def run_workflow():
         diag_composite.schema, diag_composite.state)
     os.makedirs('models', exist_ok=True)
     with open('models/departitioned.pbg', 'w') as f:
-        json.dump(serialized, f, default=str)
+        json.dump(serialized, f, default=str, indent=2)
     print(f"    models/departitioned.pbg updated")
 
     # Network Visualization (always run)

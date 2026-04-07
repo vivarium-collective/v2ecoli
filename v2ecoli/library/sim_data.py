@@ -686,7 +686,13 @@ class LoadSimData:
             "p_promoter_bound_tf": self.sim_data.process.transcription_regulation.p_promoter_bound_tf,
             "tf_to_tf_type": self.sim_data.process.transcription_regulation.tf_to_tf_type,
             "active_to_bound": self.sim_data.process.transcription_regulation.active_to_bound,
-            "get_unbound": self.sim_data.process.equilibrium.get_unbound,
+            # Precomputed unbound TF mapping (replaces get_unbound bound method)
+            "tf_to_unbound": {
+                tf + "[c]": self.sim_data.process.equilibrium.get_unbound(tf + "[c]")
+                for tf in self.sim_data.process.transcription_regulation.tf_ids
+                if (self.sim_data.process.transcription_regulation.tf_to_tf_type.get(tf) == "1CS"
+                    and tf == self.sim_data.process.transcription_regulation.active_to_bound.get(tf))
+            },
             "active_to_inactive_tf": self.sim_data.process.two_component_system.active_to_inactive_tf,
             "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data[
                 "id"
@@ -719,7 +725,10 @@ class LoadSimData:
             "active_rnap_footprint_size": self.sim_data.process.transcription.active_rnap_footprint_size,
             "basal_prob": self.sim_data.process.transcription_regulation.basal_prob,
             "delta_prob": self.sim_data.process.transcription_regulation.delta_prob,
-            "get_delta_prob_matrix": self.sim_data.process.transcription_regulation.get_delta_prob_matrix,
+            # Precomputed delta_prob_matrix (replaces get_delta_prob_matrix bound method)
+            "delta_prob_matrix": self.sim_data.process.transcription_regulation.get_delta_prob_matrix(
+                dense=True, ppgpp=self.ppgpp_regulation
+            ),
             "perturbations": getattr(self.sim_data, "genetic_perturbations", {}),
             "rna_data": self.sim_data.process.transcription.rna_data,
             "idx_rRNA": np.where(

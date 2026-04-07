@@ -51,7 +51,7 @@ class TfBindingLogic:
         / (float(active) + float(inactive)),
         "tf_to_tf_type": {},
         "active_to_bound": {},
-        "get_unbound": lambda tf: "",
+        "tf_to_unbound": {},
         "active_to_inactive_tf": {},
         "bulk_molecule_ids": [],
         "bulk_mass_data": np.array([[]]) * units.g / units.mol,
@@ -102,7 +102,17 @@ class TfBindingLogic:
         self.tf_to_tf_type = self.parameters["tf_to_tf_type"]
 
         self.active_to_bound = self.parameters["active_to_bound"]
-        self.get_unbound = self.parameters["get_unbound"]
+        # Support both precomputed dict (new) and bound method (old cache)
+        get_unbound = self.parameters.get("get_unbound")
+        if get_unbound is not None:
+            self.tf_to_unbound = {
+                tf + "[c]": get_unbound(tf + "[c]")
+                for tf in self.tf_ids
+                if (self.parameters["tf_to_tf_type"].get(tf) == "1CS"
+                    and tf == self.active_to_bound.get(tf))
+            }
+        else:
+            self.tf_to_unbound = self.parameters.get("tf_to_unbound", {})
         self.active_to_inactive_tf = self.parameters["active_to_inactive_tf"]
 
         self.active_tfs = {}
@@ -113,7 +123,7 @@ class TfBindingLogic:
 
             if self.tf_to_tf_type[tf] == "1CS":
                 if tf == self.active_to_bound[tf]:
-                    self.inactive_tfs[tf] = self.get_unbound(tf + "[c]")
+                    self.inactive_tfs[tf] = self.tf_to_unbound[tf + "[c]"]
                 else:
                     self.inactive_tfs[tf] = self.active_to_bound[tf] + "[c]"
             elif self.tf_to_tf_type[tf] == "2CS":

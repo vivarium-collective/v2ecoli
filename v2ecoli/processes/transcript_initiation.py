@@ -68,7 +68,7 @@ class TranscriptInitiationStep(_SafeInvokeMixin, Step):
             "active_rnap_foorprint_size": 1,
             "basal_prob": np.array([]),
             "delta_prob": {"deltaI": [], "deltaJ": [], "deltaV": [], "shape": tuple()},
-            "get_delta_prob_matrix": None,
+            "delta_prob_matrix": None,
             "perturbations": {},
             "rna_data": {},
             "active_rnap_footprint_size": 24 * units.nt,
@@ -121,10 +121,8 @@ class TranscriptInitiationStep(_SafeInvokeMixin, Step):
 
         self.n_TUs = len(self.basal_prob)
         self.delta_prob = params["delta_prob"]
-        if params["get_delta_prob_matrix"] is not None:
-            self.delta_prob_matrix = params["get_delta_prob_matrix"](
-                dense=True, ppgpp=params["ppgpp_regulation"]
-            )
+        if params["delta_prob_matrix"] is not None:
+            self.delta_prob_matrix = params["delta_prob_matrix"]
         else:
             # make delta_prob_matrix without adjustments
             self.delta_prob_matrix = scipy.sparse.csr_matrix(

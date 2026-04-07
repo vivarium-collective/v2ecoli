@@ -268,15 +268,24 @@ def get_attenuation_stop_probabilities_factory(aa_from_trna, attenuation_k):
 
     Closure data from sim_data.process.transcription:
         aa_from_trna: 2D array (n_amino_acids × n_trnas), binary mapping
-        attenuation_k: 2D array (n_amino_acids × n_attenuated_genes)
+        attenuation_k: 2D array (n_amino_acids × n_attenuated_genes), in L/umol
     """
     from v2ecoli.library.units import units
     aa_from_trna = np.asarray(aa_from_trna)
-    attenuation_k = np.asarray(attenuation_k)
+    # attenuation_k stored as plain floats in L/umol;
+    # trna_conc comes in as umol/L, so product is unitless
+    _attenuation_k = np.asarray(attenuation_k)
 
     def get_attenuation_stop_probabilities(trna_conc):
-        trna_by_aa = units.matmul(aa_from_trna, trna_conc)
-        return 1 - np.exp(units.strip_empty_units(trna_by_aa @ attenuation_k))
+        # Strip units and do plain numpy math
+        # trna_conc is in umol/L, attenuation_k is in L/umol, product is unitless
+        trna_vals = np.array([
+            float(x.asNumber(units.umol / units.L)) if hasattr(x, 'asNumber')
+            else float(x) for x in trna_conc
+        ])
+        trna_by_aa = aa_from_trna @ trna_vals
+        exponent = trna_by_aa @ _attenuation_k
+        return 1 - np.exp(exponent)
 
     return get_attenuation_stop_probabilities
 

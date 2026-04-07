@@ -735,16 +735,30 @@ def get_kinetic_constraints_factory(enzymes_expr, saturations_expr, kcats):
 
 
 @register("mass.get_biomass_as_concentrations")
-def get_biomass_as_concentrations_factory(biomass_data):
+def get_biomass_as_concentrations_factory(precomputed):
     """Factory: biomass concentrations from doubling time.
 
-    biomass_data is a precomputed dict mapping media conditions to
-    concentration dicts. Precomputed at config time to avoid needing
-    the full Mass object.
+    precomputed: dict mapping doubling_time_minutes (float) to
+    dict of {metabolite_id: concentration_mol_per_L}
     """
+    from v2ecoli.library.units import units
+
+    # Convert string keys back to floats (JSON serialization)
+    lookup = {float(k): v for k, v in precomputed.items()}
+    sorted_dts = sorted(lookup.keys())
+
     def get_biomass_as_concentrations(doubling_time):
-        # Use the default condition data
-        return biomass_data
+        try:
+            dt_min = doubling_time.asNumber(units.min)
+        except AttributeError:
+            dt_min = float(doubling_time)
+
+        # Find closest precomputed doubling time
+        closest = min(sorted_dts, key=lambda x: abs(x - dt_min))
+        conc_dict = lookup[closest]
+
+        # Return with units
+        return {k: v * units.mol / units.L for k, v in conc_dict.items()}
 
     return get_biomass_as_concentrations
 

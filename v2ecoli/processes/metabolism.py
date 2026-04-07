@@ -45,6 +45,32 @@ GDCW_BASIS = units.mmol / units.g / units.h
 USE_KINETICS = True
 
 
+def _make_exchange_constraints(conc_updates):
+    """Build exchange_constraints function from a concentration_updates object."""
+    def exchange_constraints(exchangeIDs, coefficient, targetUnits, media_id,
+                             unconstrained, constrained,
+                             concModificationsBasedOnCondition=None):
+        newObjective = conc_updates.concentrations_based_on_nutrients(
+            imports=unconstrained.union(constrained),
+            media_id=media_id,
+            conversion_units=targetUnits)
+
+        if concModificationsBasedOnCondition is not None:
+            newObjective.update(concModificationsBasedOnCondition)
+
+        externalMoleculeLevels = np.zeros(len(exchangeIDs), np.float64)
+        for index, moleculeID in enumerate(exchangeIDs):
+            if moleculeID in unconstrained:
+                externalMoleculeLevels[index] = np.inf
+            elif moleculeID in constrained:
+                externalMoleculeLevels[index] = (
+                    constrained[moleculeID].asNumber(targetUnits) * coefficient)
+
+        return newObjective, externalMoleculeLevels
+
+    return exchange_constraints
+
+
 class MetabolismLogic:
     """Metabolism logic — pure computation, no Step inheritance."""
 
@@ -635,7 +661,13 @@ class FluxBalanceAnalysisModel(object):
             # New format: read from extracted config
             self.stoichiometry = parameters["reaction_stoich"]
             self.maintenance_reaction = parameters["maintenance_reaction"]
-            self.exchange_constraints = parameters["exchange_constraints"]
+            # Build exchange_constraints from resolved concentration_updates
+            ec = parameters.get("exchange_constraints")
+            if callable(ec):
+                self.exchange_constraints = ec
+            else:
+                conc_updates = parameters["concentration_updates"]
+                self.exchange_constraints = _make_exchange_constraints(conc_updates)
 
         # Load constants
         self.ngam = parameters["ngam"]

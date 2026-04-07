@@ -573,6 +573,19 @@ class LoadSimData:
     def _seedFromName(self, name):
         return binascii.crc32(name.encode("utf-8"), self.seed) & 0xFFFFFFFF
 
+    def _precompute_biomass_concentrations(self):
+        """Precompute biomass concentrations for all unique doubling times."""
+        seen = {}
+        for dt in self.sim_data.condition_to_doubling_time.values():
+            dt_min = float(dt.asNumber(units.min))
+            if dt_min not in seen:
+                result = self.sim_data.mass.getBiomassAsConcentrations(dt)
+                seen[dt_min] = {
+                    k: float(v.asNumber(units.mol / units.L))
+                    for k, v in result.items()
+                }
+        return seen
+
     def get_config_by_name(self, name, time_step=1):
         name_config_mapping = {
             "ecoli-tf-binding": self.get_tf_config,
@@ -1357,7 +1370,12 @@ class LoadSimData:
             "doubling_time": self.sim_data.condition_to_doubling_time[
                 self.sim_data.condition
             ],
-            "get_biomass_as_concentrations": self.sim_data.mass.getBiomassAsConcentrations,
+            "get_biomass_as_concentrations": {
+                "_function": "mass.get_biomass_as_concentrations",
+                "_data": {
+                    "precomputed": self._precompute_biomass_concentrations(),
+                },
+            },
             "aa_names": self.sim_data.molecule_groups.amino_acids,
             "linked_metabolites": metabolism.concentration_updates.linked_metabolites,
             "aa_exchange_names": aa_exchange_names,
@@ -1402,7 +1420,7 @@ class LoadSimData:
                     "kcats": metabolism._kcats.tolist(),
                 },
             },
-            "exchange_constraints": metabolism.exchange_constraints,  # TODO: depends on concentration_updates resolution
+            # exchange_constraints is built at init time from resolved concentration_updates
             # ports schema
             "catalyst_ids": metabolism.catalyst_ids,
             "kinetic_constraint_enzymes": metabolism.kinetic_constraint_enzymes,
@@ -1526,7 +1544,12 @@ class LoadSimData:
             "cell_density": self.sim_data.constants.cell_density,
             "dark_atp": self.sim_data.constants.darkATP,
             "cell_dry_mass_fraction": self.sim_data.mass.cell_dry_mass_fraction,
-            "get_biomass_as_concentrations": self.sim_data.mass.getBiomassAsConcentrations,
+            "get_biomass_as_concentrations": {
+                "_function": "mass.get_biomass_as_concentrations",
+                "_data": {
+                    "precomputed": self._precompute_biomass_concentrations(),
+                },
+            },
             "ppgpp_id": self.sim_data.molecule_ids.ppGpp,
             "get_ppGpp_conc": {
                 "_function": "growth_rate.get_ppGpp_conc",
@@ -1984,12 +2007,15 @@ class LoadSimData:
         }
 
     def get_exchange_data_config(self, time_step=1):
+        es = self.sim_data.external_state
         return {
             "time_step": time_step,
-            "external_state": self.sim_data.external_state,
-            "environment_molecules": list(
-                self.sim_data.external_state.env_to_exchange_map.keys()
-            ),
+            "environment_molecules": list(es.env_to_exchange_map.keys()),
+            # Extracted from external_state instance
+            "env_to_exchange_map": dict(es.env_to_exchange_map),
+            "secretion_exchange_molecules": list(es.secretion_exchange_molecules),
+            "import_constraint_threshold": float(es.import_constraint_threshold),
+            "carbon_sources": list(es.carbon_sources),
         }
 
     def get_media_update_config(self, time_step=1):

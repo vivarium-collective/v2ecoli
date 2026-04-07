@@ -747,7 +747,7 @@ def get_biomass_as_concentrations_factory(precomputed):
     lookup = {float(k): v for k, v in precomputed.items()}
     sorted_dts = sorted(lookup.keys())
 
-    def get_biomass_as_concentrations(doubling_time):
+    def get_biomass_as_concentrations(doubling_time, **kwargs):
         try:
             dt_min = doubling_time.asNumber(units.min)
         except AttributeError:
@@ -757,7 +757,7 @@ def get_biomass_as_concentrations_factory(precomputed):
         closest = min(sorted_dts, key=lambda x: abs(x - dt_min))
         conc_dict = lookup[closest]
 
-        # Return with units
+        # Return with units (mol/L to match original)
         return {k: v * units.mol / units.L for k, v in conc_dict.items()}
 
     return get_biomass_as_concentrations

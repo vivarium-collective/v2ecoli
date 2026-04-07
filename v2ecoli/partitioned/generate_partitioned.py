@@ -240,6 +240,10 @@ def _instantiate_partitioned_step(step_name, config, loader, core,
         'exchange_data': ExchangeData,
     }
 
+    # Resolve function references in config
+    from v2ecoli.library.config_resolver import resolve_config
+    config = resolve_config(config) if config else config
+
     if base_name in EXPLICIT_STEPS:
         spec = EXPLICIT_STEPS[base_name]
         if base_name in process_cache:

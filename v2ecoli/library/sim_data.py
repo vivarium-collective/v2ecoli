@@ -1180,7 +1180,26 @@ class LoadSimData:
             "cell_density": self.sim_data.constants.cell_density.asNumber(
                 units.g / units.L
             ),
-            "moleculesToNextTimeStep": self.sim_data.process.two_component_system.molecules_to_next_time_step,
+            "moleculesToNextTimeStep": {
+                "_function": "two_component_system.ode_solver",
+                "_data": {
+                    "stoich_matrix_I": self.sim_data.process.two_component_system._stoichMatrixI.tolist(),
+                    "stoich_matrix_J": self.sim_data.process.two_component_system._stoichMatrixJ.tolist(),
+                    "stoich_matrix_V": self.sim_data.process.two_component_system._stoichMatrixV.tolist(),
+                    "rates_fwd": self.sim_data.process.two_component_system.rates_fwd.tolist(),
+                    "rates_rev": self.sim_data.process.two_component_system.rates_rev.tolist(),
+                    "independent_molecule_indexes": self.sim_data.process.two_component_system.independent_molecule_indexes.tolist(),
+                    "atp_reaction_reactant_mask": self.sim_data.process.two_component_system.atp_reaction_reactant_mask.tolist(),
+                    "independent_molecules_atp_index": int(self.sim_data.process.two_component_system.independent_molecules_atp_index),
+                    "dependency_matrix": self.sim_data.process.two_component_system.dependency_matrix.tolist(),
+                    "rates_fn_dill": __import__('base64').b64encode(
+                        __import__('dill').dumps(self.sim_data.process.two_component_system._rates)
+                    ).decode('ascii'),
+                    "rates_jac_fn_dill": __import__('base64').b64encode(
+                        __import__('dill').dumps(self.sim_data.process.two_component_system._rates_jacobian)
+                    ).decode('ascii'),
+                },
+            },
             "moleculeNames": self.sim_data.process.two_component_system.molecule_names,
             "seed": self._seedFromName("TwoComponentSystem"),
             "emit_unique": self.emit_unique,
@@ -1200,7 +1219,23 @@ class LoadSimData:
             "stoichMatrix": self.sim_data.process.equilibrium.stoich_matrix().astype(
                 np.int64
             ),
-            "fluxesAndMoleculesToSS": self.sim_data.process.equilibrium.fluxes_and_molecules_to_SS,
+            "fluxesAndMoleculesToSS": {
+                "_function": "equilibrium.ode_solver",
+                "_data": {
+                    "stoich_matrix": self.sim_data.process.equilibrium._stoichMatrix.tolist(),
+                    "rates_fwd": self.sim_data.process.equilibrium.rates_fwd.tolist(),
+                    "rates_rev": self.sim_data.process.equilibrium.rates_rev.tolist(),
+                    "mets_to_rxn_fluxes": self.sim_data.process.equilibrium.mets_to_rxn_fluxes.tolist(),
+                    "Rp": self.sim_data.process.equilibrium.Rp.tolist(),
+                    "Pp": self.sim_data.process.equilibrium.Pp.tolist(),
+                    "rates_fn_dill": __import__('base64').b64encode(
+                        __import__('dill').dumps(self.sim_data.process.equilibrium._rates)
+                    ).decode('ascii'),
+                    "rates_jac_fn_dill": __import__('base64').b64encode(
+                        __import__('dill').dumps(self.sim_data.process.equilibrium._rates_jacobian)
+                    ).decode('ascii'),
+                },
+            },
             "moleculeNames": self.sim_data.process.equilibrium.molecule_names,
             "seed": self._seedFromName("Equilibrium"),
             "complex_ids": self.sim_data.process.equilibrium.ids_complexes,

@@ -281,6 +281,207 @@ def get_attenuation_stop_probabilities_factory(aa_from_trna, attenuation_k):
     return get_attenuation_stop_probabilities
 
 
+@register("equilibrium.ode_solver")
+def equilibrium_ode_solver_factory(stoich_matrix, rates_fwd, rates_rev,
+                                    mets_to_rxn_fluxes, Rp, Pp,
+                                    rates_fn_dill, rates_jac_fn_dill):
+    """Factory: equilibrium ODE solver to steady state.
+
+    Closure data from sim_data.process.equilibrium:
+        stoich_matrix: array (n_mets × n_rxns)
+        rates_fwd, rates_rev: arrays (n_rxns,)
+        mets_to_rxn_fluxes: array (n_rxns × n_mets)
+        Rp, Pp: arrays (n_mets × n_rxns)
+        rates_fn_dill: base64-encoded dill of the (non_jit, jit) rate functions
+        rates_jac_fn_dill: base64-encoded dill of the jacobian functions
+    """
+    import base64, dill
+    from scipy import integrate
+
+    _stoichMatrix = np.asarray(stoich_matrix)
+    _rates_fwd = np.asarray(rates_fwd)
+    _rates_rev = np.asarray(rates_rev)
+    _mets_to_rxn_fluxes = np.asarray(mets_to_rxn_fluxes)
+    _Rp = np.asarray(Rp)
+    _Pp = np.asarray(Pp)
+
+    _rates = dill.loads(base64.b64decode(rates_fn_dill))
+    _rates_jac = dill.loads(base64.b64decode(rates_jac_fn_dill))
+
+    def derivatives(t, y):
+        return _stoichMatrix.dot(_rates[0](t, y, _rates_fwd, _rates_rev))
+
+    def derivatives_jit(t, y):
+        return _stoichMatrix.dot(_rates[1](t, y, _rates_fwd, _rates_rev))
+
+    def derivatives_jacobian(t, y):
+        return _stoichMatrix.dot(_rates_jac[0](t, y, _rates_fwd, _rates_rev))
+
+    def derivatives_jacobian_jit(t, y):
+        return _stoichMatrix.dot(_rates_jac[1](t, y, _rates_fwd, _rates_rev))
+
+    def fluxes_and_molecules_to_SS(moleculeCounts, cellVolume, nAvogadro,
+                                    random_state, time_limit=1e20,
+                                    max_iter=100, jit=True):
+        y_init = moleculeCounts / (cellVolume * nAvogadro)
+
+        deriv = derivatives_jit if jit else derivatives
+        jac = derivatives_jacobian_jit if jit else derivatives_jacobian
+
+        for method in ["LSODA", "BDF"]:
+            try:
+                sol = integrate.solve_ivp(
+                    deriv, [0, time_limit], y_init,
+                    method=method, t_eval=[0, time_limit], jac=jac)
+                break
+            except ValueError as e:
+                print(f"Warning: switching solver method in equilibrium, {e!r}")
+        else:
+            raise RuntimeError("Could not solve ODEs in equilibrium to SS.")
+
+        y = sol.y.T
+        if np.any(y[-1, :] * (cellVolume * nAvogadro) <= -1):
+            raise ValueError("Negative values at equilibrium steady state.")
+        if np.linalg.norm(deriv(0, y[-1, :]), np.inf) * (cellVolume * nAvogadro) > 1:
+            raise RuntimeError("Did not reach steady state for equilibrium.")
+
+        y[y < 0] = 0
+        yMolecules = y * (cellVolume * nAvogadro)
+        dYMolecules = yMolecules[-1, :] - yMolecules[0, :]
+
+        for i in range(max_iter):
+            rxnFluxes = stochasticRound(
+                random_state, np.dot(_mets_to_rxn_fluxes, dYMolecules))
+            if np.all(moleculeCounts + _stoichMatrix.dot(rxnFluxes) >= 0):
+                break
+        else:
+            raise ValueError("Negative counts in equilibrium steady state.")
+
+        rxnFluxesN = -1.0 * (rxnFluxes < 0) * rxnFluxes
+        rxnFluxesP = 1.0 * (rxnFluxes > 0) * rxnFluxes
+        moleculesNeeded = np.dot(_Rp, rxnFluxesP) + np.dot(_Pp, rxnFluxesN)
+
+        return rxnFluxes, moleculesNeeded
+
+    return fluxes_and_molecules_to_SS
+
+
+@register("two_component_system.ode_solver")
+def two_component_system_ode_solver_factory(
+        stoich_matrix_I, stoich_matrix_J, stoich_matrix_V,
+        rates_fwd, rates_rev,
+        independent_molecule_indexes, atp_reaction_reactant_mask,
+        independent_molecules_atp_index, dependency_matrix,
+        rates_fn_dill, rates_jac_fn_dill):
+    """Factory: two-component system ODE solver.
+
+    Closure data from sim_data.process.two_component_system.
+    """
+    import base64, dill
+    from scipy import integrate
+
+    _stoichMatrixI = np.asarray(stoich_matrix_I)
+    _stoichMatrixJ = np.asarray(stoich_matrix_J)
+    _stoichMatrixV = np.asarray(stoich_matrix_V)
+    _rates_fwd = np.asarray(rates_fwd)
+    _rates_rev = np.asarray(rates_rev)
+    _independent_molecule_indexes = np.asarray(independent_molecule_indexes)
+    _atp_reaction_reactant_mask = np.asarray(atp_reaction_reactant_mask)
+    _independent_molecules_atp_index = int(independent_molecules_atp_index)
+    _dependency_matrix = np.asarray(dependency_matrix)
+
+    _rates = dill.loads(base64.b64decode(rates_fn_dill))
+    _rates_jac = dill.loads(base64.b64decode(rates_jac_fn_dill))
+
+    IVP_METHODS = ["LSODA", "BDF", "Radau", "RK45", "RK23", "DOP853"]
+
+    def _build_stoich():
+        shape = (_stoichMatrixI.max() + 1, _stoichMatrixJ.max() + 1)
+        out = np.zeros(shape, np.float64)
+        out[_stoichMatrixI, _stoichMatrixJ] = _stoichMatrixV
+        return out
+
+    _stoich_full = _build_stoich()
+
+    def derivatives(t, y):
+        return _stoich_full.dot(_rates[0](t, y, _rates_fwd, _rates_rev))
+
+    def derivatives_jit(t, y):
+        return _stoich_full.dot(_rates[1](t, y, _rates_fwd, _rates_rev))
+
+    def derivatives_jacobian(t, y):
+        return _stoich_full.dot(_rates_jac[0](t, y, _rates_fwd, _rates_rev))
+
+    def derivatives_jacobian_jit(t, y):
+        return _stoich_full.dot(_rates_jac[1](t, y, _rates_fwd, _rates_rev))
+
+    def molecules_to_next_time_step(
+            moleculeCounts, cellVolume, nAvogadro, timeStepSec,
+            random_state, method="LSODA", min_time_step=None,
+            jit=True, methods_tried=None):
+
+        y_init = moleculeCounts / (cellVolume * nAvogadro)
+        deriv = derivatives_jit if jit else derivatives
+        jac = derivatives_jacobian_jit if jit else derivatives_jacobian
+
+        sol = integrate.solve_ivp(
+            deriv, [0, timeStepSec], y_init,
+            method=method, t_eval=[0, timeStepSec],
+            atol=1e-8, jac=jac)
+        y = sol.y.T
+
+        if np.any(y[-1, :] * (cellVolume * nAvogadro) <= -1e-3):
+            if min_time_step and timeStepSec > min_time_step:
+                return molecules_to_next_time_step(
+                    moleculeCounts, cellVolume, nAvogadro,
+                    timeStepSec / 2, random_state, method=method,
+                    min_time_step=min_time_step, jit=jit)
+
+            if methods_tried is None:
+                methods_tried = set()
+            methods_tried.add(method)
+            for new_method in IVP_METHODS:
+                if new_method in methods_tried:
+                    continue
+                print(f"Warning: switching to {new_method} method in TCS")
+                return molecules_to_next_time_step(
+                    moleculeCounts, cellVolume, nAvogadro,
+                    timeStepSec, random_state, method=new_method,
+                    min_time_step=min_time_step, jit=jit,
+                    methods_tried=methods_tried)
+            else:
+                raise Exception("ODE for two-component systems has negative values.")
+
+        y[y < 0] = 0
+        yMolecules = y * (cellVolume * nAvogadro)
+        dYMolecules = yMolecules[-1, :] - yMolecules[0, :]
+
+        independentMoleculesCounts = np.round(
+            dYMolecules[_independent_molecule_indexes])
+
+        max_atp_rxns = moleculeCounts[_atp_reaction_reactant_mask].min()
+        independentMoleculesCounts[_independent_molecules_atp_index] = np.fmin(
+            independentMoleculesCounts[:_independent_molecules_atp_index].sum()
+            + independentMoleculesCounts[(_independent_molecules_atp_index + 1):].sum(),
+            max_atp_rxns)
+
+        allMoleculesChanges = _dependency_matrix.dot(independentMoleculesCounts)
+
+        negative = independentMoleculesCounts.copy()
+        negative[negative > 0] = 0
+        negative[_independent_molecules_atp_index] = (
+            negative[:_independent_molecules_atp_index].sum()
+            + negative[(_independent_molecules_atp_index + 1):].sum())
+        moleculesNeeded = _dependency_matrix.dot(-negative).clip(min=0)
+        positive = independentMoleculesCounts.copy()
+        positive[positive < 0] = 0
+        moleculesNeeded += _dependency_matrix.dot(-positive).clip(min=0)
+
+        return moleculesNeeded, allMoleculesChanges
+
+    return molecules_to_next_time_step
+
+
 @register("metabolism.get_pathway_enzyme_counts_per_aa")
 def get_pathway_enzyme_counts_per_aa_factory(enzyme_to_amino_acid_fwd,
                                               enzyme_to_amino_acid_rev):

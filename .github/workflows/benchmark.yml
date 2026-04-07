@@ -44,10 +44,8 @@ jobs:
         uv run python -c "
         from v2ecoli.composite import save_cache
         import os
-        # Find simData - either from vEcoli install or generate from v2ecoli ParCa
         vecoli_path = os.path.join(os.path.dirname(__import__('wholecell').__file__), '..', 'out', 'kb', 'simData.cPickle')
         if not os.path.exists(vecoli_path):
-            # Run v2ecoli's own ParCa
             from v2ecoli.generate import run_parca
             sim_data_path = run_parca('out/kb')
         else:
@@ -55,13 +53,20 @@ jobs:
         save_cache(sim_data_path, 'out/cache')
         "
 
-    - name: Run benchmark
-      run: uv run python benchmark.py
+    - name: Run workflow report
+      run: uv run python workflow.py --duration 120
 
-    - name: Deploy report to GitHub Pages
+    - name: Run architecture comparison
+      run: uv run python compare_architectures.py --max-duration 120 --output out/reports/comparison_report.html
+
+    - name: Collect reports
+      run: |
+        mkdir -p out/reports
+        cp out/workflow/workflow_report.html out/reports/workflow_report.html
+
+    - name: Deploy reports to GitHub Pages
       uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: out/benchmark
-        destination_dir: benchmark
+        publish_dir: out/reports
         keep_files: true

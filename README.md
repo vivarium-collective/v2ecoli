@@ -13,8 +13,8 @@ Re-implement the [vEcoli](https://github.com/CovertLab/vEcoli) whole-cell *E. co
 
 | Report | Description |
 |--------|-------------|
-| **[Workflow Report](https://vivarium-collective.github.io/v2ecoli/benchmark/benchmark_report.html)** | Full pipeline: ParCa → simulation → v1 comparison → division → multicell |
-| **[Architecture Comparison](out/comparison_report.html)** | Partitioned vs departitioned: mass trajectories, bigraph viz, timing |
+| **[Workflow Report](https://vivarium-collective.github.io/v2ecoli/workflow_report.html)** | Full pipeline: ParCa → simulation → v1 comparison → division → multicell |
+| **[Architecture Comparison](https://vivarium-collective.github.io/v2ecoli/comparison_report.html)** | Partitioned vs departitioned: mass trajectories, bigraph viz, timing |
 
 ## Quick Start
 

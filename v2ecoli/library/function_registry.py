@@ -600,6 +600,140 @@ def get_mass_factory(all_total_masses, mass_units_value):
     return get_mass
 
 
+@register("metabolism.concentration_updates")
+def concentration_updates_factory(default_concentrations_dict, exchange_fluxes,
+                                   relative_changes, molecule_set_amounts,
+                                   molecule_scale_factors, linked_metabolites):
+    """Factory: concentration updates object for metabolism.
+
+    Returns an object with concentrations_based_on_nutrients() method
+    and linked_metabolites attribute.
+    """
+    from v2ecoli.library.units import units as u
+
+    mol_per_L = u.mol / u.L
+
+    # Reconstruct Unum values for molecule_set_amounts
+    _molecule_set_amounts = {
+        k: v * mol_per_L if not hasattr(v, 'asNumber') else v
+        for k, v in molecule_set_amounts.items()
+    }
+
+    class _ConcentrationUpdates:
+        def __init__(self):
+            self.default_concentrations_dict = default_concentrations_dict
+            self.exchange_fluxes = exchange_fluxes
+            self.relative_changes = relative_changes
+            self.molecule_set_amounts = _molecule_set_amounts
+            self.molecule_scale_factors = molecule_scale_factors
+            self.linked_metabolites = linked_metabolites
+            self.units = mol_per_L
+
+        def concentrations_based_on_nutrients(self, media_id=None,
+                                               imports=None,
+                                               conversion_units=None):
+            if conversion_units:
+                conversion = self.units.asNumber(conversion_units)
+            else:
+                conversion = self.units
+
+            if imports is None and media_id is not None:
+                imports = self.exchange_fluxes.get(media_id, set())
+
+            concDict = self.default_concentrations_dict.copy()
+            metaboliteTargetIds = sorted(concDict.keys())
+            concentrations = conversion * np.array(
+                [concDict[k] for k in metaboliteTargetIds])
+            concDict = dict(zip(metaboliteTargetIds, concentrations))
+
+            if imports is not None:
+                if conversion_units:
+                    conversion_to_no_units = conversion_units.asUnit(self.units)
+
+                if media_id in self.relative_changes:
+                    for mol_id, conc_change in self.relative_changes[media_id].items():
+                        if mol_id in concDict:
+                            concDict[mol_id] *= conc_change
+
+                for moleculeName, setAmount in self.molecule_set_amounts.items():
+                    if (moleculeName in imports
+                        and (moleculeName[:-3] + "[c]" not in self.molecule_scale_factors
+                             or moleculeName == "L-SELENOCYSTEINE[c]")
+                    ) or (moleculeName in self.molecule_scale_factors
+                           and moleculeName[:-3] + "[p]" in imports):
+                        if conversion_units:
+                            setAmount = (setAmount / conversion_to_no_units).asNumber()
+                        concDict[moleculeName] = setAmount
+
+            for met, linked in self.linked_metabolites.items():
+                concDict[met] = concDict[linked["lead"]] * linked["ratio"]
+
+            return concDict
+
+    return _ConcentrationUpdates()
+
+
+@register("metabolism.exchange_constraints")
+def exchange_constraints_factory(concentration_updates_obj):
+    """Factory: exchange constraints for FBA.
+
+    Takes a concentration_updates object (from the concentration_updates factory).
+    """
+    from v2ecoli.library.units import units
+
+    def exchange_constraints(exchangeIDs, coefficient, targetUnits, media_id,
+                             unconstrained, constrained,
+                             concModificationsBasedOnCondition=None):
+        newObjective = concentration_updates_obj.concentrations_based_on_nutrients(
+            imports=unconstrained.union(constrained),
+            media_id=media_id,
+            conversion_units=targetUnits)
+
+        if concModificationsBasedOnCondition is not None:
+            newObjective.update(concModificationsBasedOnCondition)
+
+        externalMoleculeLevels = np.zeros(len(exchangeIDs), np.float64)
+        for index, moleculeID in enumerate(exchangeIDs):
+            if moleculeID in unconstrained:
+                externalMoleculeLevels[index] = np.inf
+            elif moleculeID in constrained:
+                externalMoleculeLevels[index] = (
+                    constrained[moleculeID].asNumber(targetUnits) * coefficient)
+
+        return newObjective, externalMoleculeLevels
+
+    return exchange_constraints
+
+
+@register("metabolism.get_kinetic_constraints")
+def get_kinetic_constraints_factory(enzymes_expr, saturations_expr, kcats):
+    """Factory: kinetic constraints from enzyme/substrate concentrations.
+
+    Closure data from sim_data.process.metabolism:
+        enzymes_expr: string expression for enzyme indexing
+        saturations_expr: string expression for saturation calculation
+        kcats: array (n_reactions × 3) of kcat values
+    """
+    from v2ecoli.library.units import units
+    CONC_UNITS = units.umol / units.L
+
+    _kcats = np.asarray(kcats)
+    _compiled_enzymes = eval(f"lambda e: {enzymes_expr}")
+    _compiled_saturation = eval(f"lambda s: {saturations_expr}")
+
+    def get_kinetic_constraints(enzymes, substrates):
+        enzs = enzymes.asNumber(CONC_UNITS)
+        subs = substrates.asNumber(CONC_UNITS)
+
+        capacity = np.array(_compiled_enzymes(enzs))[:, None] * _kcats
+        saturation = np.array(
+            [[min(v), sum(v) / len(v), max(v)] for v in _compiled_saturation(subs)]
+        )
+        return CONC_UNITS / units.s * capacity * saturation
+
+    return get_kinetic_constraints
+
+
 @register("mass.get_biomass_as_concentrations")
 def get_biomass_as_concentrations_factory(biomass_data):
     """Factory: biomass concentrations from doubling time.

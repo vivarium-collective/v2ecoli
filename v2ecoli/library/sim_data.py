@@ -1373,7 +1373,17 @@ class LoadSimData:
             "media_id": current_timeline[0][1],
             "imports": imports,
             # methods
-            "concentration_updates": metabolism.concentration_updates,
+            "concentration_updates": {
+                "_function": "metabolism.concentration_updates",
+                "_data": {
+                    "default_concentrations_dict": {k: float(v) for k, v in metabolism.concentration_updates.default_concentrations_dict.items()},
+                    "exchange_fluxes": {k: list(v) if isinstance(v, set) else v for k, v in metabolism.concentration_updates.exchange_fluxes.items()},
+                    "relative_changes": dict(metabolism.concentration_updates.relative_changes),
+                    "molecule_set_amounts": {k: float(v.asNumber()) if hasattr(v, 'asNumber') else float(v) for k, v in metabolism.concentration_updates.molecule_set_amounts.items()},
+                    "molecule_scale_factors": dict(metabolism.concentration_updates.molecule_scale_factors),
+                    "linked_metabolites": dict(metabolism.concentration_updates.linked_metabolites),
+                },
+            },
             "exchange_data_from_media": {
                 "_function": "external_state.exchange_data_from_media",
                 "_data": {
@@ -1384,8 +1394,15 @@ class LoadSimData:
                     "carbon_sources": list(self.sim_data.external_state.carbon_sources),
                 },
             },
-            "get_kinetic_constraints": metabolism.get_kinetic_constraints,
-            "exchange_constraints": metabolism.exchange_constraints,
+            "get_kinetic_constraints": {
+                "_function": "metabolism.get_kinetic_constraints",
+                "_data": {
+                    "enzymes_expr": metabolism._enzymes,
+                    "saturations_expr": metabolism._saturations,
+                    "kcats": metabolism._kcats.tolist(),
+                },
+            },
+            "exchange_constraints": metabolism.exchange_constraints,  # TODO: depends on concentration_updates resolution
             # ports schema
             "catalyst_ids": metabolism.catalyst_ids,
             "kinetic_constraint_enzymes": metabolism.kinetic_constraint_enzymes,
@@ -1446,7 +1463,17 @@ class LoadSimData:
             # metabolism parameters
             "stoichiometry": metabolism.reaction_stoich,
             "catalyst_ids": metabolism.catalyst_ids,
-            "concentration_updates": metabolism.concentration_updates,
+            "concentration_updates": {
+                "_function": "metabolism.concentration_updates",
+                "_data": {
+                    "default_concentrations_dict": {k: float(v) for k, v in metabolism.concentration_updates.default_concentrations_dict.items()},
+                    "exchange_fluxes": {k: list(v) if isinstance(v, set) else v for k, v in metabolism.concentration_updates.exchange_fluxes.items()},
+                    "relative_changes": dict(metabolism.concentration_updates.relative_changes),
+                    "molecule_set_amounts": {k: float(v.asNumber()) if hasattr(v, 'asNumber') else float(v) for k, v in metabolism.concentration_updates.molecule_set_amounts.items()},
+                    "molecule_scale_factors": dict(metabolism.concentration_updates.molecule_scale_factors),
+                    "linked_metabolites": dict(metabolism.concentration_updates.linked_metabolites),
+                },
+            },
             "maintenance_reaction": metabolism.maintenance_reaction,
             # wcEcoli parameters
             "get_import_constraints": {

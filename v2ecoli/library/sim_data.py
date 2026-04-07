@@ -1307,9 +1307,20 @@ class LoadSimData:
             "stoich_dict": metabolism.reaction_stoich,
             "maintenance_reaction": metabolism.maintenance_reaction,
             "reaction_catalysts": metabolism.reaction_catalysts,
-            "get_mass": self.sim_data.getter.get_mass,
+            "get_mass": {
+                "_function": "getter.get_mass",
+                "_data": {
+                    "all_total_masses": {k: float(v) for k, v in self.sim_data.getter._all_total_masses.items()},
+                    "mass_units_value": 1.0,
+                },
+            },
             # wcEcoli parameters
-            "get_import_constraints": self.sim_data.external_state.get_import_constraints,
+            "get_import_constraints": {
+                "_function": "external_state.get_import_constraints",
+                "_data": {
+                    "all_external_exchange_molecules": list(self.sim_data.external_state.all_external_exchange_molecules),
+                },
+            },
             "aa_targets_not_updated": aa_targets_not_updated,
             "import_constraint_threshold": self.sim_data.external_state.import_constraint_threshold,
             "exchange_molecules": self.sim_data.external_state.all_external_exchange_molecules,
@@ -1327,8 +1338,21 @@ class LoadSimData:
             "non_growth_associated_maintenance": self.sim_data.constants.non_growth_associated_maintenance,
             "cell_dry_mass_fraction": self.sim_data.mass.cell_dry_mass_fraction,
             "ppgpp_id": self.sim_data.molecule_ids.ppGpp,
-            "get_ppGpp_conc": self.sim_data.growth_rate_parameters.get_ppGpp_conc,
-            "get_masses": self.sim_data.getter.get_masses,
+            "get_ppGpp_conc": {
+                "_function": "growth_rate.get_ppGpp_conc",
+                "_data": {
+                    "x_units_str": "min",
+                    "y_units_str": "pmol/L",
+                    "fit_params": list(self.sim_data.growth_rate_parameters._ppGpp_concentration[2]),
+                },
+            },
+            "get_masses": {
+                "_function": "getter.get_masses",
+                "_data": {
+                    "all_total_masses": {k: float(v) for k, v in self.sim_data.getter._all_total_masses.items()},
+                    "mass_units_value": 1.0,
+                },
+            },
             "kinetic_constraint_reactions": metabolism.kinetic_constraint_reactions,
             "doubling_time": self.sim_data.condition_to_doubling_time[
                 self.sim_data.condition
@@ -1350,7 +1374,16 @@ class LoadSimData:
             "imports": imports,
             # methods
             "concentration_updates": metabolism.concentration_updates,
-            "exchange_data_from_media": self.sim_data.external_state.exchange_data_from_media,
+            "exchange_data_from_media": {
+                "_function": "external_state.exchange_data_from_media",
+                "_data": {
+                    "saved_media": {k: dict(v) for k, v in self.sim_data.external_state.saved_media.items()},
+                    "env_to_exchange_map": dict(self.sim_data.external_state.env_to_exchange_map),
+                    "secretion_exchange_molecules": list(self.sim_data.external_state.secretion_exchange_molecules),
+                    "import_constraint_threshold": float(self.sim_data.external_state.import_constraint_threshold),
+                    "carbon_sources": list(self.sim_data.external_state.carbon_sources),
+                },
+            },
             "get_kinetic_constraints": metabolism.get_kinetic_constraints,
             "exchange_constraints": metabolism.exchange_constraints,
             # ports schema
@@ -1416,7 +1449,12 @@ class LoadSimData:
             "concentration_updates": metabolism.concentration_updates,
             "maintenance_reaction": metabolism.maintenance_reaction,
             # wcEcoli parameters
-            "get_import_constraints": self.sim_data.external_state.get_import_constraints,
+            "get_import_constraints": {
+                "_function": "external_state.get_import_constraints",
+                "_data": {
+                    "all_external_exchange_molecules": list(self.sim_data.external_state.all_external_exchange_molecules),
+                },
+            },
             "nutrientToDoublingTime": self.sim_data.nutrient_to_doubling_time,
             "aa_names": aa_names,
             "aa_targets_not_updated": aa_targets_not_updated,
@@ -1440,9 +1478,31 @@ class LoadSimData:
             "cell_dry_mass_fraction": self.sim_data.mass.cell_dry_mass_fraction,
             "get_biomass_as_concentrations": self.sim_data.mass.getBiomassAsConcentrations,
             "ppgpp_id": self.sim_data.molecule_ids.ppGpp,
-            "get_ppGpp_conc": self.sim_data.growth_rate_parameters.get_ppGpp_conc,
-            "exchange_data_from_media": self.sim_data.external_state.exchange_data_from_media,
-            "get_masses": self.sim_data.getter.get_masses,
+            "get_ppGpp_conc": {
+                "_function": "growth_rate.get_ppGpp_conc",
+                "_data": {
+                    "x_units_str": "min",
+                    "y_units_str": "pmol/L",
+                    "fit_params": list(self.sim_data.growth_rate_parameters._ppGpp_concentration[2]),
+                },
+            },
+            "exchange_data_from_media": {
+                "_function": "external_state.exchange_data_from_media",
+                "_data": {
+                    "saved_media": {k: dict(v) for k, v in self.sim_data.external_state.saved_media.items()},
+                    "env_to_exchange_map": dict(self.sim_data.external_state.env_to_exchange_map),
+                    "secretion_exchange_molecules": list(self.sim_data.external_state.secretion_exchange_molecules),
+                    "import_constraint_threshold": float(self.sim_data.external_state.import_constraint_threshold),
+                    "carbon_sources": list(self.sim_data.external_state.carbon_sources),
+                },
+            },
+            "get_masses": {
+                "_function": "getter.get_masses",
+                "_data": {
+                    "all_total_masses": {k: float(v) for k, v in self.sim_data.getter._all_total_masses.items()},
+                    "mass_units_value": 1.0,
+                },
+            },
             "doubling_time": self.sim_data.condition_to_doubling_time[
                 self.sim_data.condition
             ],

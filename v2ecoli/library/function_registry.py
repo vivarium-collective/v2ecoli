@@ -482,6 +482,139 @@ def two_component_system_ode_solver_factory(
     return molecules_to_next_time_step
 
 
+@register("external_state.get_import_constraints")
+def get_import_constraints_factory(all_external_exchange_molecules):
+    """Factory: import constraints from media composition."""
+    def get_import_constraints(unconstrained, constrained, constraint_units):
+        unconstrained_molecules = [
+            mol_id in unconstrained
+            for mol_id in all_external_exchange_molecules
+        ]
+        constrained_molecules = [
+            mol_id in constrained
+            for mol_id in all_external_exchange_molecules
+        ]
+        constraints = [
+            constrained.get(mol_id, np.nan * constraint_units).asNumber(constraint_units)
+            for mol_id in all_external_exchange_molecules
+        ]
+        return unconstrained_molecules, constrained_molecules, constraints
+    return get_import_constraints
+
+
+@register("external_state.exchange_data_from_media")
+def exchange_data_from_media_factory(saved_media, env_to_exchange_map,
+                                      secretion_exchange_molecules,
+                                      import_constraint_threshold,
+                                      carbon_sources):
+    """Factory: exchange data from media label."""
+    from v2ecoli.library.units import units
+    secretion_set = set(secretion_exchange_molecules)
+
+    def exchange_data_from_concentrations(molecules):
+        exchange_molecules = {
+            env_to_exchange_map[mol]: conc for mol, conc in molecules.items()
+        }
+        importUnconstrainedExchangeMolecules = {
+            mol_id for mol_id, conc in exchange_molecules.items()
+            if conc >= import_constraint_threshold
+        }
+        externalExchangeMolecules = set(importUnconstrainedExchangeMolecules)
+        importExchangeMolecules = set(importUnconstrainedExchangeMolecules)
+
+        importConstrainedExchangeMolecules = {}
+        oxygen_id = "OXYGEN-MOLECULE[p]"
+        for cs_id in carbon_sources:
+            if cs_id in importUnconstrainedExchangeMolecules:
+                if oxygen_id in importUnconstrainedExchangeMolecules:
+                    importConstrainedExchangeMolecules[cs_id] = 20.0 * (
+                        units.mmol / units.g / units.h)
+                else:
+                    importConstrainedExchangeMolecules[cs_id] = 100.0 * (
+                        units.mmol / units.g / units.h)
+                importUnconstrainedExchangeMolecules.remove(cs_id)
+
+        externalExchangeMolecules.update(secretion_set)
+        return {
+            "externalExchangeMolecules": externalExchangeMolecules,
+            "importExchangeMolecules": importExchangeMolecules,
+            "importConstrainedExchangeMolecules": importConstrainedExchangeMolecules,
+            "importUnconstrainedExchangeMolecules": importUnconstrainedExchangeMolecules,
+            "secretionExchangeMolecules": secretion_set,
+        }
+
+    def exchange_data_from_media(media_label):
+        return exchange_data_from_concentrations(saved_media[media_label])
+
+    return exchange_data_from_media
+
+
+@register("growth_rate.get_ppGpp_conc")
+def get_ppGpp_conc_factory(x_units_str, y_units_str, fit_params):
+    """Factory: ppGpp concentration from doubling time."""
+    from v2ecoli.library.units import units
+    from wholecell.utils.fitting import interpolate_linearized_fit
+
+    x_units = units.min
+    y_units = units.pmol / units.L
+
+    def get_ppGpp_conc(doubling_time):
+        try:
+            x = doubling_time.asNumber(x_units)
+        except AttributeError:
+            x = float(doubling_time)
+        return y_units * interpolate_linearized_fit(x, *fit_params)
+
+    return get_ppGpp_conc
+
+
+@register("getter.get_masses")
+def get_masses_factory(all_total_masses, mass_units_value):
+    """Factory: get molecular masses by ID."""
+    from v2ecoli.library.units import units
+    import re
+    _compartment_tag = re.compile(r'\[.*\]')
+    _mass_units = mass_units_value * units.g / units.mol
+
+    def get_masses(mol_ids):
+        masses = [
+            all_total_masses[_compartment_tag.sub("", mol_id)]
+            for mol_id in mol_ids
+        ]
+        return _mass_units * np.array(masses)
+
+    return get_masses
+
+
+@register("getter.get_mass")
+def get_mass_factory(all_total_masses, mass_units_value):
+    """Factory: get single molecular mass by ID."""
+    from v2ecoli.library.units import units
+    import re
+    _compartment_tag = re.compile(r'\[.*\]')
+    _mass_units = mass_units_value * units.g / units.mol
+
+    def get_mass(mol_id):
+        return _mass_units * all_total_masses[_compartment_tag.sub("", mol_id)]
+
+    return get_mass
+
+
+@register("mass.get_biomass_as_concentrations")
+def get_biomass_as_concentrations_factory(biomass_data):
+    """Factory: biomass concentrations from doubling time.
+
+    biomass_data is a precomputed dict mapping media conditions to
+    concentration dicts. Precomputed at config time to avoid needing
+    the full Mass object.
+    """
+    def get_biomass_as_concentrations(doubling_time):
+        # Use the default condition data
+        return biomass_data
+
+    return get_biomass_as_concentrations
+
+
 @register("metabolism.get_pathway_enzyme_counts_per_aa")
 def get_pathway_enzyme_counts_per_aa_factory(enzyme_to_amino_acid_fwd,
                                               enzyme_to_amino_acid_rev):

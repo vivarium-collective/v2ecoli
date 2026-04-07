@@ -19,7 +19,6 @@ import numpy as np
 import scipy.sparse
 from typing import cast
 
-from process_bigraph import Step
 from bigraph_schema.schema import Float, Overwrite
 
 from v2ecoli.library.schema import (
@@ -33,7 +32,7 @@ from v2ecoli.library.schema import (
 from v2ecoli.library.units import units
 from v2ecoli.library.random import stochasticRound
 
-from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
+from v2ecoli.steps.partition import RequesterBase, EvolverBase
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
@@ -339,14 +338,8 @@ class TranscriptInitiationLogic:
             self.promoter_init_probs[fixed_mask] = synth_prob / fixed_mask.sum()
 
 
-class TranscriptInitiationRequester(_SafeInvokeMixin, Step):
+class TranscriptInitiationRequester(RequesterBase):
     """Reads stores to compute transcript initiation request."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-        self.process_name = config.get('process_name', self.process.name)
 
     def inputs(self):
         return {
@@ -370,16 +363,8 @@ class TranscriptInitiationRequester(_SafeInvokeMixin, Step):
             'listeners': ListenerStore(),
         }
 
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-        timestep = state.get('timestep', 1.0)
+    def compute_request(self, state, timestep):
         p = self.process
-        # --- inlined from calculate_request ---
         # At first update, convert all strings to indices
         if p.ppgpp_idx is None:
             bulk_ids = state["bulk"]["id"]
@@ -495,28 +480,11 @@ class TranscriptInitiationRequester(_SafeInvokeMixin, Step):
             1,  # want elongation rate, not lengths adjusted for time step
             p.variable_elongation,
         )
-        # --- end inlined ---
-        p.request_set = True
-
-        bulk_request = request.pop('bulk', None)
-        result = {'request': {}}
-        if bulk_request is not None:
-            result['request']['bulk'] = bulk_request
-
-        listeners = request.pop('listeners', None)
-        if listeners is not None:
-            result['listeners'] = listeners
-
-        return result
+        return request
 
 
-class TranscriptInitiationEvolver(_SafeInvokeMixin, Step):
+class TranscriptInitiationEvolver(EvolverBase):
     """Reads allocation, writes bulk/unique/listener updates."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
 
     def inputs(self):
         return {
@@ -543,28 +511,8 @@ class TranscriptInitiationEvolver(_SafeInvokeMixin, Step):
             'next_update_time': Overwrite(_value=Float()),
         }
 
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-
-        allocations = state.pop('allocate', {})
-        bulk_alloc = allocations.get('bulk')
-        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
-            alloc_bulk = state['bulk'].copy()
-            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
-            state['bulk'] = alloc_bulk
-        state = deep_merge(state, allocations)
-
-        if not self.process.request_set:
-            return {}
-
-        timestep = state.get('timestep', 1.0)
+    def compute_evolve(self, state, timestep):
         p = self.process
-        # --- inlined from evolve_state ---
         update = {
             "listeners": {
                 "rna_synth_prob": {
@@ -713,6 +661,4 @@ class TranscriptInitiationEvolver(_SafeInvokeMixin, Step):
                 }
 
                 update["listeners"]["rna_synth_prob"]["total_rna_init"] = n_RNAPs_to_activate
-        # --- end inlined ---
-        update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update

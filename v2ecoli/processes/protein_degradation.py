@@ -10,46 +10,43 @@ Specific proteins to be degraded are selected as a Poisson process.
 import numpy as np
 
 from process_bigraph import Step
-from process_bigraph.composite import SyncUpdate
-from bigraph_schema.schema import Float, Overwrite
 
 from v2ecoli.library.schema import counts, bulk_name_to_idx
-from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
+from v2ecoli.steps.partition import _protect_state, _SafeInvokeMixin
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict
 
 
-class ProteinDegradationLogic:
-    """Protein degradation — shared state container for Requester/Evolver."""
+class ProteinDegradationStep(_SafeInvokeMixin, Step):
+    """Protein degradation — single-step Poisson sampling + degradation."""
 
-    name = "ecoli-protein-degradation"
+    config_schema = {}
+
     topology = {"bulk": ("bulk",), "timestep": ("timestep",)}
-    defaults = {
-        "raw_degradation_rate": [],
-        "water_id": "h2o",
-        "amino_acid_ids": [],
-        "amino_acid_counts": [],
-        "protein_ids": [],
-        "protein_lengths": [],
-        "seed": 0,
-        "time_step": 1,
-    }
 
-    def __init__(self, parameters=None):
-        self.parameters = {**self.defaults, **(parameters or {})}
-        self.request_set = False
+    def initialize(self, config):
+        defaults = {
+            "raw_degradation_rate": [],
+            "water_id": "h2o",
+            "amino_acid_ids": [],
+            "amino_acid_counts": [],
+            "protein_ids": [],
+            "protein_lengths": [],
+            "seed": 0,
+            "time_step": 1,
+        }
+        params = {**defaults, **config}
 
-        self.raw_degradation_rate = self.parameters["raw_degradation_rate"]
-        self.water_id = self.parameters["water_id"]
-        self.amino_acid_ids = self.parameters["amino_acid_ids"]
-        self.amino_acid_counts = self.parameters["amino_acid_counts"]
+        self.raw_degradation_rate = params["raw_degradation_rate"]
+        self.water_id = params["water_id"]
+        self.amino_acid_ids = params["amino_acid_ids"]
+        self.amino_acid_counts = params["amino_acid_counts"]
         self.metabolite_ids = self.amino_acid_ids + [self.water_id]
         self.amino_acid_indexes = np.arange(0, len(self.amino_acid_ids))
         self.water_index = self.metabolite_ids.index(self.water_id)
-        self.protein_ids = self.parameters["protein_ids"]
-        self.protein_lengths = self.parameters["protein_lengths"]
-        self.seed = self.parameters["seed"]
-        self.random_state = np.random.RandomState(seed=self.seed)
+        self.protein_ids = params["protein_ids"]
+        self.protein_lengths = params["protein_lengths"]
+        self.random_state = np.random.RandomState(seed=params["seed"])
         self.metabolite_idx = None
 
         # Build S matrix
@@ -63,29 +60,18 @@ class ProteinDegradationLogic:
             np.sum(self.degradation_matrix[self.amino_acid_indexes, :], axis=0) - 1
         )
 
-
-class ProteinDegradationRequester(_SafeInvokeMixin, Step):
-    """Reads bulk to compute degradation request. Writes to request store."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-        self.process_name = config.get('process_name', self.process.name)
-
     def inputs(self):
         return {
             'bulk': BulkNumpyUpdate(),
-            'timestep': Float(_default=self.process.parameters.get('time_step', 1.0)),
-            'global_time': Float(_default=0.0),
-            'next_update_time': Float(
-                _default=self.process.parameters.get('time_step', 1.0)),
+            'timestep': InPlaceDict(),
+            'global_time': InPlaceDict(),
+            'next_update_time': InPlaceDict(),
         }
 
     def outputs(self):
         return {
-            'request': InPlaceDict(),
-            'next_update_time': Overwrite(_value=Float()),
+            'bulk': BulkNumpyUpdate(),
+            'next_update_time': InPlaceDict(),
         }
 
     def update(self, state, interval=None):
@@ -96,98 +82,30 @@ class ProteinDegradationRequester(_SafeInvokeMixin, Step):
 
         state = _protect_state(state)
         timestep = state.get('timestep', 1.0)
-        p = self.process
 
-        # --- inlined from calculate_request ---
-        if p.metabolite_idx is None:
-            p.water_idx = bulk_name_to_idx(p.water_id, state["bulk"]["id"])
-            p.protein_idx = bulk_name_to_idx(p.protein_ids, state["bulk"]["id"])
-            p.metabolite_idx = bulk_name_to_idx(
-                p.metabolite_ids, state["bulk"]["id"]
-            )
+        # Initialize indices on first call
+        if self.metabolite_idx is None:
+            bulk_ids = state["bulk"]["id"]
+            self.water_idx = bulk_name_to_idx(self.water_id, bulk_ids)
+            self.protein_idx = bulk_name_to_idx(self.protein_ids, bulk_ids)
+            self.metabolite_idx = bulk_name_to_idx(self.metabolite_ids, bulk_ids)
 
-        protein_data = counts(state["bulk"], p.protein_idx)
+        # Poisson-sample proteins to degrade, capped at available
+        protein_data = counts(state["bulk"], self.protein_idx)
         nProteinsToDegrade = np.fmin(
-            p.random_state.poisson(
-                p.raw_degradation_rate * timestep * protein_data
+            self.random_state.poisson(
+                self.raw_degradation_rate * timestep * protein_data
             ),
             protein_data,
         )
-        nReactions = np.dot(p.protein_lengths, nProteinsToDegrade)
 
-        request = {
-            "bulk": [
-                (p.protein_idx, nProteinsToDegrade),
-                (p.water_idx, nReactions - np.sum(nProteinsToDegrade)),
-            ]
-        }
-        # --- end inlined ---
+        # Compute metabolite changes from degradation
+        metabolites_delta = np.dot(self.degradation_matrix, nProteinsToDegrade)
 
-        p.request_set = True
-        bulk_request = request.pop('bulk', None)
-        result = {'request': {}}
-        if bulk_request is not None:
-            result['request']['bulk'] = bulk_request
-        return result
-
-
-class ProteinDegradationEvolver(_SafeInvokeMixin, Step):
-    """Reads allocation, writes bulk updates."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-
-    def inputs(self):
         return {
-            'allocate': InPlaceDict(),
-            'bulk': BulkNumpyUpdate(),
-            'timestep': Float(_default=self.process.parameters.get('time_step', 1.0)),
-            'global_time': Float(_default=0.0),
-            'next_update_time': Float(
-                _default=self.process.parameters.get('time_step', 1.0)),
-        }
-
-    def outputs(self):
-        return {
-            'bulk': BulkNumpyUpdate(),
-            'next_update_time': Overwrite(_value=Float()),
-        }
-
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-
-        allocations = state.pop('allocate', {})
-        bulk_alloc = allocations.get('bulk')
-        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
-            alloc_bulk = state['bulk'].copy()
-            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
-            state['bulk'] = alloc_bulk
-        state = deep_merge(state, allocations)
-
-        if not self.process.request_set:
-            return {}
-
-        p = self.process
-        timestep = state.get('timestep', 1.0)
-
-        # --- inlined from evolve_state ---
-        allocated_proteins = counts(state["bulk"], p.protein_idx)
-        metabolites_delta = np.dot(p.degradation_matrix, allocated_proteins)
-
-        update = {
             "bulk": [
-                (p.metabolite_idx, metabolites_delta),
-                (p.protein_idx, -allocated_proteins),
-            ]
+                (self.metabolite_idx, metabolites_delta),
+                (self.protein_idx, -nProteinsToDegrade),
+            ],
+            "next_update_time": global_time + timestep,
         }
-        # --- end inlined ---
-
-        update['next_update_time'] = state.get('global_time', 0.0) + timestep
-        return update

@@ -9,7 +9,6 @@ import numpy as np
 import sys
 import copy
 import types
-from collections import defaultdict
 
 # Numpy compat
 if not hasattr(np, 'in1d'):

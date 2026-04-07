@@ -11,214 +11,106 @@ that maintains equilibrium.
 import numpy as np
 
 from process_bigraph import Step
-from bigraph_schema.schema import Float, Overwrite
 
 from v2ecoli.library.schema import bulk_name_to_idx, counts
-from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
+from v2ecoli.steps.partition import _protect_state, _SafeInvokeMixin
 from v2ecoli.library.units import units
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
 
 
-class EquilibriumLogic:
-    """Equilibrium — shared state container for Requester/Evolver.
+class EquilibriumStep(_SafeInvokeMixin, Step):
+    """Equilibrium — single-step ODE solve + flux correction."""
 
-    molecule_names: list of molecules that are being iterated over size:94
-    """
+    config_schema = {}
 
-    name = "ecoli-equilibrium"
     topology = {"listeners": ("listeners",), "bulk": ("bulk",), "timestep": ("timestep",)}
-    defaults = {
-        "jit": False,
-        "n_avogadro": 0.0,
-        "cell_density": 0.0,
-        "stoichMatrix": [[]],
-        "fluxesAndMoleculesToSS": lambda counts, volume, avogadro, random, jit: (
-            [],
-            [],
-        ),
-        "moleculeNames": [],
-        "seed": 0,
-        "complex_ids": [],
-        "reaction_ids": [],
-    }
 
-    # Constructor
-    def __init__(self, parameters=None):
-        self.parameters = {**self.defaults, **(parameters or {})}
-        self.request_set = False
+    def initialize(self, config):
+        defaults = {
+            "jit": False,
+            "n_avogadro": 0.0,
+            "cell_density": 0.0,
+            "stoichMatrix": [[]],
+            "fluxesAndMoleculesToSS": lambda counts, volume, avogadro, random, jit: ([], []),
+            "moleculeNames": [],
+            "seed": 0,
+            "complex_ids": [],
+            "reaction_ids": [],
+        }
+        params = {**defaults, **config}
 
-        # Simulation options
-        # utilized in the fluxes and molecules function
-        self.jit = self.parameters["jit"]
-
-        # Get constants
-        self.n_avogadro = self.parameters["n_avogadro"]
-        self.cell_density = self.parameters["cell_density"]
-
-        # Create matrix and method
-        # stoichMatrix: (94, 33), molecule counts are (94,).
-        self.stoichMatrix = self.parameters["stoichMatrix"]
-
-        # fluxesAndMoleculesToSS: solves ODES to get to steady state based off
-        # of cell density, volumes and molecule counts
-        self.fluxesAndMoleculesToSS = self.parameters["fluxesAndMoleculesToSS"]
-
+        self.jit = params["jit"]
+        self.n_avogadro = params["n_avogadro"]
+        self.cell_density = params["cell_density"]
+        self.stoichMatrix = params["stoichMatrix"]
+        self.fluxesAndMoleculesToSS = params["fluxesAndMoleculesToSS"]
         self.product_indices = [
             idx for idx in np.where(np.any(self.stoichMatrix > 0, axis=1))[0]
         ]
-
-        # Build views
-        # moleculeNames: list of molecules that are being iterated over size: 94
-        self.moleculeNames = self.parameters["moleculeNames"]
+        self.moleculeNames = params["moleculeNames"]
         self.molecule_idx = None
-
-        self.seed = self.parameters["seed"]
-        self.random_state = np.random.RandomState(seed=self.seed)
-
-        self.complex_ids = self.parameters["complex_ids"]
-        self.reaction_ids = self.parameters["reaction_ids"]
-
-
-class EquilibriumRequester(_SafeInvokeMixin, Step):
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-        self.process_name = config.get('process_name', self.process.name)
+        self.random_state = np.random.RandomState(seed=params["seed"])
 
     def inputs(self):
         return {
             'bulk': BulkNumpyUpdate(),
             'listeners': ListenerStore(),
-            'timestep': Float(_default=self.process.parameters.get('timestep', 1.0)),
-            'global_time': Float(_default=0.0),
-            'next_update_time': Float(
-                _default=self.process.parameters.get('timestep', 1.0)),
+            'timestep': InPlaceDict(),
+            'global_time': InPlaceDict(),
+            'next_update_time': InPlaceDict(),
         }
 
     def outputs(self):
         return {
-            'request': InPlaceDict(),
-            'next_update_time': Overwrite(_value=Float()),
+            'bulk': BulkNumpyUpdate(),
+            'listeners': ListenerStore(),
+            'next_update_time': InPlaceDict(),
         }
-
-    def initial_state(self, config=None):
-        return {}
 
     def update(self, state, interval=None):
         next_time = state.get('next_update_time', 0.0)
         global_time = state.get('global_time', 0.0)
         if next_time > global_time:
             return {}
+
         state = _protect_state(state)
         timestep = state.get('timestep', 1.0)
-        p = self.process
 
-        # --- inlined from calculate_request ---
-        # At t=0, convert all strings to indices
-        if p.molecule_idx is None:
-            p.molecule_idx = bulk_name_to_idx(
-                p.moleculeNames, state["bulk"]["id"]
+        # Initialize indices on first call
+        if self.molecule_idx is None:
+            self.molecule_idx = bulk_name_to_idx(
+                self.moleculeNames, state["bulk"]["id"]
             )
 
         # Get molecule counts
-        moleculeCounts = counts(state["bulk"], p.molecule_idx)
+        moleculeCounts = counts(state["bulk"], self.molecule_idx)
 
         # Get cell mass and volume
         cellMass = (state["listeners"]["mass"]["cell_mass"] * units.fg).asNumber(
             units.g
         )
-        cellVolume = cellMass / p.cell_density
+        cellVolume = cellMass / self.cell_density
 
         # Solve ODEs to steady state
-        p.rxnFluxes, p.req = p.fluxesAndMoleculesToSS(
+        rxnFluxes, _ = self.fluxesAndMoleculesToSS(
             moleculeCounts,
             cellVolume,
-            p.n_avogadro,
-            p.random_state,
-            jit=p.jit,
+            self.n_avogadro,
+            self.random_state,
+            jit=self.jit,
         )
 
-        # Request counts of molecules needed
-        request = {"bulk": [(p.molecule_idx, p.req.astype(int))]}
-        # --- end inlined ---
-
-        p.request_set = True
-        bulk_request = request.pop('bulk', None)
-        result = {'request': {}}
-        if bulk_request is not None:
-            result['request']['bulk'] = bulk_request
-        return result
-
-
-class EquilibriumEvolver(_SafeInvokeMixin, Step):
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-
-    def inputs(self):
-        return {
-            'allocate': InPlaceDict(),
-            'bulk': BulkNumpyUpdate(),
-            'timestep': Float(_default=self.process.parameters.get('timestep', 1.0)),
-            'global_time': Float(_default=0.0),
-            'next_update_time': Float(
-                _default=self.process.parameters.get('timestep', 1.0)),
-        }
-
-    def outputs(self):
-        return {
-            'bulk': BulkNumpyUpdate(),
-            'listeners': ListenerStore(),
-            'next_update_time': Overwrite(_value=Float()),
-        }
-
-    def initial_state(self, config=None):
-        return {}
-
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-        state = _protect_state(state)
-        allocations = state.pop('allocate', {})
-        bulk_alloc = allocations.get('bulk')
-        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
-            alloc_bulk = state['bulk'].copy()
-            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
-            state['bulk'] = alloc_bulk
-        state = deep_merge(state, allocations)
-        if not self.process.request_set:
-            return {}
-        timestep = state.get('timestep', 1.0)
-        p = self.process
-
-        # --- inlined from evolve_state ---
-        # Get molecule counts
-        moleculeCounts = counts(state["bulk"], p.molecule_idx)
-
-        # Get counts of molecules allocated to this process
-        rxnFluxes = p.rxnFluxes.copy()
-
-        # If we didn't get allocated all the molecules we need, make do with
-        # what we have (decrease reaction fluxes so that they make use of what
-        # we have, but not more). Reduces at least one reaction every iteration
-        # so the max number of iterations is the number of reactions that were
-        # originally expected to occur + 1 to reach the break statement.
+        # Correct fluxes if they would cause negative counts
         max_iterations = int(np.abs(rxnFluxes).sum()) + 1
         for it in range(max_iterations):
-            # Check if any metabolites will have negative counts with current reactions
             negative_metabolite_idxs = np.where(
-                np.dot(p.stoichMatrix, rxnFluxes) + moleculeCounts < 0
+                np.dot(self.stoichMatrix, rxnFluxes) + moleculeCounts < 0
             )[0]
             if len(negative_metabolite_idxs) == 0:
                 break
 
-            # Reduce reactions that consume metabolites with negative counts
-            limited_rxn_stoich = p.stoichMatrix[negative_metabolite_idxs, :]
+            limited_rxn_stoich = self.stoichMatrix[negative_metabolite_idxs, :]
             fwd_rxn_idxs = np.where(
                 np.logical_and(limited_rxn_stoich < 0, rxnFluxes > 0)
             )[1]
@@ -234,19 +126,15 @@ class EquilibriumEvolver(_SafeInvokeMixin, Step):
                 "Could not get positive counts in equilibrium with allocated molecules."
             )
 
-        # Increment changes in molecule counts
-        deltaMolecules = np.dot(p.stoichMatrix, rxnFluxes).astype(int)
+        deltaMolecules = np.dot(self.stoichMatrix, rxnFluxes).astype(int)
 
-        update = {
-            "bulk": [(p.molecule_idx, deltaMolecules)],
+        return {
+            "bulk": [(self.molecule_idx, deltaMolecules)],
             "listeners": {
                 "equilibrium_listener": {
-                    "reaction_rates": deltaMolecules[p.product_indices]
-                    / state["timestep"]
+                    "reaction_rates": deltaMolecules[self.product_indices]
+                    / timestep
                 }
             },
+            "next_update_time": global_time + timestep,
         }
-        # --- end inlined ---
-
-        update['next_update_time'] = state.get('global_time', 0.0) + timestep
-        return update

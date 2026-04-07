@@ -18,7 +18,6 @@ from v2ecoli.library.random import stochasticRound
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 from v2ecoli.library.units import units
 
-from process_bigraph import Step
 from bigraph_schema.schema import Float, Overwrite
 
 from v2ecoli.library.schema import (
@@ -26,7 +25,7 @@ from v2ecoli.library.schema import (
     attrs,
     bulk_name_to_idx,
 )
-from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
+from v2ecoli.steps.partition import RequesterBase, EvolverBase
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
@@ -164,14 +163,8 @@ class TranscriptElongationLogic:
 
 
 
-class TranscriptElongationRequester(_SafeInvokeMixin, Step):
+class TranscriptElongationRequester(RequesterBase):
     """Reads stores to compute transcript elongation request."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-        self.process_name = config.get('process_name', self.process.name)
 
     def inputs(self):
         return {
@@ -194,16 +187,8 @@ class TranscriptElongationRequester(_SafeInvokeMixin, Step):
             'listeners': ListenerStore(),
         }
 
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-        timestep = state.get('timestep', 1.0)
+    def compute_request(self, state, timestep):
         p = self.process
-        # --- inlined from calculate_request ---
         # At first update, convert all strings to indices
         if p.bulk_RNA_idx is None:
             bulk_ids = state["bulk"]["id"]
@@ -274,28 +259,11 @@ class TranscriptElongationRequester(_SafeInvokeMixin, Step):
                     ).astype(int),
                 }
             }
-        # --- end inlined ---
-        p.request_set = True
-
-        bulk_request = request.pop('bulk', None)
-        result = {'request': {}}
-        if bulk_request is not None:
-            result['request']['bulk'] = bulk_request
-
-        listeners = request.pop('listeners', None)
-        if listeners is not None:
-            result['listeners'] = listeners
-
-        return result
+        return request
 
 
-class TranscriptElongationEvolver(_SafeInvokeMixin, Step):
+class TranscriptElongationEvolver(EvolverBase):
     """Reads allocation, writes bulk/unique/listener updates."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
 
     def inputs(self):
         return {
@@ -321,28 +289,8 @@ class TranscriptElongationEvolver(_SafeInvokeMixin, Step):
             'next_update_time': Overwrite(_value=Float()),
         }
 
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-
-        allocations = state.pop('allocate', {})
-        bulk_alloc = allocations.get('bulk')
-        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
-            alloc_bulk = state['bulk'].copy()
-            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
-            state['bulk'] = alloc_bulk
-        state = deep_merge(state, allocations)
-
-        if not self.process.request_set:
-            return {}
-
-        timestep = state.get('timestep', 1.0)
+    def compute_evolve(self, state, timestep):
         p = self.process
-        # --- inlined from evolve_state ---
         ntpCounts = counts(state["bulk"], p.ntps_idx)
 
         # If there are no active RNA polymerases, return immediately
@@ -625,8 +573,6 @@ class TranscriptElongationEvolver(_SafeInvokeMixin, Step):
                 ].sum(),
                 "did_stall": n_total_stalled,
             }
-        # --- end inlined ---
-        update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update
 
 

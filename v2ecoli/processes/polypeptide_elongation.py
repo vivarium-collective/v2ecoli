@@ -24,11 +24,10 @@ from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIn
 from v2ecoli.library.random import stochasticRound
 from v2ecoli.library.units import units
 
-from process_bigraph import Step
 from bigraph_schema.schema import Float, Overwrite
 
 # vivarium imports
-from v2ecoli.steps.partition import deep_merge, _protect_state, _SafeInvokeMixin
+from v2ecoli.steps.partition import RequesterBase, EvolverBase, deep_merge
 from vivarium.library.units import units as vivunits
 # vivarium-ecoli imports
 from v2ecoli.library.schema import (
@@ -265,14 +264,8 @@ class PolypeptideElongationLogic:
 
 
 
-class PolypeptideElongationRequester(_SafeInvokeMixin, Step):
+class PolypeptideElongationRequester(RequesterBase):
     """Reads stores to compute polypeptide elongation request."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-        self.process_name = config.get('process_name', self.process.name)
 
     def inputs(self):
         return {
@@ -296,16 +289,8 @@ class PolypeptideElongationRequester(_SafeInvokeMixin, Step):
             'listeners': ListenerStore(),
         }
 
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-        timestep = state.get('timestep', 1.0)
+    def compute_request(self, state, timestep):
         p = self.process
-        # --- inlined from calculate_request ---
         if p.proton_idx is None:
             bulk_ids = state["bulk"]["id"]
             p.proton_idx = bulk_name_to_idx(p.proton, bulk_ids)
@@ -394,28 +379,11 @@ class PolypeptideElongationRequester(_SafeInvokeMixin, Step):
             # manually zeroed after division
             proc_data = request.setdefault("polypeptide_elongation", {})
             proc_data.setdefault("aa_exchange_rates", np.zeros(len(p.amino_acids)))
-        # --- end inlined ---
-        p.request_set = True
-
-        bulk_request = request.pop('bulk', None)
-        result = {'request': {}}
-        if bulk_request is not None:
-            result['request']['bulk'] = bulk_request
-
-        listeners = request.pop('listeners', None)
-        if listeners is not None:
-            result['listeners'] = listeners
-
-        return result
+        return request
 
 
-class PolypeptideElongationEvolver(_SafeInvokeMixin, Step):
+class PolypeptideElongationEvolver(EvolverBase):
     """Reads allocation, writes bulk/unique/listener/boundary updates."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
 
     def inputs(self):
         return {
@@ -443,28 +411,8 @@ class PolypeptideElongationEvolver(_SafeInvokeMixin, Step):
             'next_update_time': Overwrite(_value=Float()),
         }
 
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-
-        allocations = state.pop('allocate', {})
-        bulk_alloc = allocations.get('bulk')
-        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
-            alloc_bulk = state['bulk'].copy()
-            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
-            state['bulk'] = alloc_bulk
-        state = deep_merge(state, allocations)
-
-        if not self.process.request_set:
-            return {}
-
-        timestep = state.get('timestep', 1.0)
+    def compute_evolve(self, state, timestep):
         p = self.process
-        # --- inlined from evolve_state ---
         update = {
             "listeners": {"ribosome_data": {}, "growth_limits": {}},
             "polypeptide_elongation": {},
@@ -639,8 +587,6 @@ class PolypeptideElongationEvolver(_SafeInvokeMixin, Step):
                 ribosome_data_listener["process_elongation_rate"] = (
                     p.ribosomeElongationRate / state["timestep"]
                 )
-        # --- end inlined ---
-        update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update
 
 

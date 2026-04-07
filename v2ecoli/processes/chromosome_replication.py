@@ -27,10 +27,9 @@ from v2ecoli.library.schema import (
 from v2ecoli.library.units import units
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 
-from process_bigraph import Step
 from bigraph_schema.schema import Float, Overwrite
 
-from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
+from v2ecoli.steps.partition import RequesterBase, EvolverBase
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
@@ -114,14 +113,8 @@ class ChromosomeReplicationLogic:
 
 
 
-class ChromosomeReplicationRequester(_SafeInvokeMixin, Step):
+class ChromosomeReplicationRequester(RequesterBase):
     """Reads stores to compute chromosome replication request."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-        self.process_name = config.get('process_name', self.process.name)
 
     def inputs(self):
         return {
@@ -145,16 +138,8 @@ class ChromosomeReplicationRequester(_SafeInvokeMixin, Step):
             'listeners': ListenerStore(),
         }
 
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-        timestep = state.get('timestep', 1.0)
+    def compute_request(self, state, timestep):
         p = self.process
-        # --- inlined from calculate_request ---
         if p.ppi_idx is None:
             p.ppi_idx = bulk_name_to_idx(p.ppi, state["bulk"]["id"])
             p.replisome_trimers_idx = bulk_name_to_idx(
@@ -233,28 +218,11 @@ class ChromosomeReplicationRequester(_SafeInvokeMixin, Step):
                         (maxFractionalReactionLimit * sequenceComposition).astype(int),
                     )
                 )
-        # --- end inlined ---
-        p.request_set = True
-
-        bulk_request = request.pop('bulk', None)
-        result = {'request': {}}
-        if bulk_request is not None:
-            result['request']['bulk'] = bulk_request
-
-        listeners = request.pop('listeners', None)
-        if listeners is not None:
-            result['listeners'] = listeners
-
-        return result
+        return request
 
 
-class ChromosomeReplicationEvolver(_SafeInvokeMixin, Step):
+class ChromosomeReplicationEvolver(EvolverBase):
     """Reads allocation, writes bulk/unique/listener updates."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
 
     def inputs(self):
         return {
@@ -283,28 +251,8 @@ class ChromosomeReplicationEvolver(_SafeInvokeMixin, Step):
             'next_update_time': Overwrite(_value=Float()),
         }
 
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-
-        allocations = state.pop('allocate', {})
-        bulk_alloc = allocations.get('bulk')
-        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
-            alloc_bulk = state['bulk'].copy()
-            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
-            state['bulk'] = alloc_bulk
-        state = deep_merge(state, allocations)
-
-        if not self.process.request_set:
-            return {}
-
-        timestep = state.get('timestep', 1.0)
+    def compute_evolve(self, state, timestep):
         p = self.process
-        # --- inlined from evolve_state ---
         # Initialize the update dictionary
         update = {
             "bulk": [],
@@ -597,6 +545,4 @@ class ChromosomeReplicationEvolver(_SafeInvokeMixin, Step):
                         update["bulk"].append(
                             (p.replisome_monomers_idx, replisomes_to_delete.sum())
                         )
-        # --- end inlined ---
-        update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update

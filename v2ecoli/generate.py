@@ -47,27 +47,30 @@ EXECUTION_LAYERS = [
     ['exchange_data'],
     ['unique_update_3'],
 
-    # Layer 2: partition layer 1 — requesters (parallel)
-    ['ecoli-equilibrium_requester', 'ecoli-rna-maturation_requester',
-     'ecoli-two-component-system_requester'],
-    ['allocator_1'],
-    # Layer 2: partition layer 1 — evolvers (parallel)
-    ['ecoli-equilibrium_evolver', 'ecoli-rna-maturation_evolver',
-     'ecoli-two-component-system_evolver'],
+    # Layer 2: standalone processes (sequential)
+    ['ecoli-rna-maturation'],
+    ['ecoli-equilibrium'],
+    ['ecoli-two-component-system'],
     ['unique_update_4'],
 
     # Layer 3: TF binding
     ['ecoli-tf-binding'],
     ['unique_update_5'],
 
-    # Layer 4: partition layer 2 — requesters (parallel)
-    ['ecoli-chromosome-replication_requester', 'ecoli-complexation_requester',
-     'ecoli-polypeptide-initiation_requester', 'ecoli-protein-degradation_requester',
+    # Layer 4: complexation (standalone, no allocation needed)
+    ['ecoli-complexation'],
+
+    # Layer 4b: protein degradation (standalone)
+    ['ecoli-protein-degradation'],
+
+    # Layer 4c: partition layer 2 — requesters (parallel)
+    ['ecoli-chromosome-replication_requester',
+     'ecoli-polypeptide-initiation_requester',
      'ecoli-rna-degradation_requester', 'ecoli-transcript-initiation_requester'],
     ['allocator_2'],
-    # Layer 4: partition layer 2 — evolvers (parallel)
-    ['ecoli-chromosome-replication_evolver', 'ecoli-complexation_evolver',
-     'ecoli-polypeptide-initiation_evolver', 'ecoli-protein-degradation_evolver',
+    # Layer 4c: partition layer 2 — evolvers (parallel)
+    ['ecoli-chromosome-replication_evolver',
+     'ecoli-polypeptide-initiation_evolver',
      'ecoli-rna-degradation_evolver', 'ecoli-transcript-initiation_evolver'],
     ['unique_update_6'],
 
@@ -366,7 +369,7 @@ def build_document(sim_data_path=None, seed=0):
 
     # Pre-create flat per-process request/allocate stores
     _ALL_PARTITIONED = [
-        'ecoli-chromosome-replication', 'ecoli-complexation',
+        'ecoli-chromosome-replication',
         'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
         'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
         'ecoli-rna-degradation', 'ecoli-rna-maturation',
@@ -458,7 +461,7 @@ def build_document_from_configs(initial_state, configs, unique_names,
 
     # Pre-create flat per-process request/allocate stores
     _ALL_PARTITIONED = [
-        'ecoli-chromosome-replication', 'ecoli-complexation',
+        'ecoli-chromosome-replication',
         'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
         'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
         'ecoli-rna-degradation', 'ecoli-rna-maturation',
@@ -561,12 +564,9 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     """Instantiate a v2ecoli process/step from its config."""
     if process_cache is None:
         process_cache = {}
-    from v2ecoli.processes.equilibrium import (
-        EquilibriumLogic, EquilibriumRequester, EquilibriumEvolver)
-    from v2ecoli.processes.two_component_system import (
-        TwoComponentSystemLogic, TwoComponentSystemRequester, TwoComponentSystemEvolver)
-    from v2ecoli.processes.rna_maturation import (
-        RnaMaturationLogic, RnaMaturationRequester, RnaMaturationEvolver)
+    from v2ecoli.processes.equilibrium import EquilibriumStep
+    from v2ecoli.processes.two_component_system import TwoComponentSystemStep
+    from v2ecoli.processes.rna_maturation import RnaMaturationStep
     from v2ecoli.processes.tf_binding import TfBindingLogic, TfBindingStep
     from v2ecoli.processes.tf_unbinding import TfUnbindingLogic, TfUnbindingStep
     from v2ecoli.processes.transcript_initiation import (
@@ -575,12 +575,10 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         PolypeptideInitiationLogic, PolypeptideInitiationRequester, PolypeptideInitiationEvolver)
     from v2ecoli.processes.chromosome_replication import (
         ChromosomeReplicationLogic, ChromosomeReplicationRequester, ChromosomeReplicationEvolver)
-    from v2ecoli.processes.protein_degradation import (
-        ProteinDegradationLogic, ProteinDegradationRequester, ProteinDegradationEvolver)
+    from v2ecoli.processes.protein_degradation import ProteinDegradationStep
     from v2ecoli.processes.rna_degradation import (
         RnaDegradationLogic, RnaDegradationRequester, RnaDegradationEvolver)
-    from v2ecoli.processes.complexation import (
-        ComplexationLogic, ComplexationRequester, ComplexationEvolver)
+    from v2ecoli.processes.complexation import ComplexationStep
     from v2ecoli.processes.transcript_elongation import (
         TranscriptElongationLogic, TranscriptElongationRequester, TranscriptElongationEvolver)
     from v2ecoli.processes.polypeptide_elongation import (
@@ -608,6 +606,11 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'ecoli-tf-unbinding': TfUnbindingStep,
         'ecoli-chromosome-structure': ChromosomeStructureStep,
         'ecoli-metabolism': MetabolismStep,
+        'ecoli-complexation': ComplexationStep,
+        'ecoli-protein-degradation': ProteinDegradationStep,
+        'ecoli-rna-maturation': RnaMaturationStep,
+        'ecoli-equilibrium': EquilibriumStep,
+        'ecoli-two-component-system': TwoComponentSystemStep,
     }
 
     SIMPLE_STEPS = {
@@ -628,31 +631,6 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     # --- Explicit Step classes with separate input/output topologies ---
 
     EXPLICIT_STEPS = {
-        'ecoli-protein-degradation': {
-            'class': ProteinDegradationLogic,
-            'requester_class': ProteinDegradationRequester,
-            'evolver_class': ProteinDegradationEvolver,
-        },
-        'ecoli-equilibrium': {
-            'class': EquilibriumLogic,
-            'requester_class': EquilibriumRequester,
-            'evolver_class': EquilibriumEvolver,
-        },
-        'ecoli-two-component-system': {
-            'class': TwoComponentSystemLogic,
-            'requester_class': TwoComponentSystemRequester,
-            'evolver_class': TwoComponentSystemEvolver,
-        },
-        'ecoli-rna-maturation': {
-            'class': RnaMaturationLogic,
-            'requester_class': RnaMaturationRequester,
-            'evolver_class': RnaMaturationEvolver,
-        },
-        'ecoli-complexation': {
-            'class': ComplexationLogic,
-            'requester_class': ComplexationRequester,
-            'evolver_class': ComplexationEvolver,
-        },
         'ecoli-polypeptide-initiation': {
             'class': PolypeptideInitiationLogic,
             'requester_class': PolypeptideInitiationRequester,
@@ -786,19 +764,17 @@ def _get_special_step(loader, step_name, core):
         except Exception:
             config = {}
         all_partitioned = [
-            'ecoli-chromosome-replication', 'ecoli-complexation',
-            'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
-            'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
-            'ecoli-rna-degradation', 'ecoli-rna-maturation',
+            'ecoli-chromosome-replication',
+            'ecoli-polypeptide-elongation',
+            'ecoli-polypeptide-initiation',
+            'ecoli-rna-degradation',
             'ecoli-transcript-elongation', 'ecoli-transcript-initiation',
-            'ecoli-two-component-system',
         ]
         # Each allocator serves a specific partition layer
         ALLOCATOR_LAYERS = {
-            'allocator_1': ['ecoli-equilibrium', 'ecoli-rna-maturation',
-                            'ecoli-two-component-system'],
-            'allocator_2': ['ecoli-chromosome-replication', 'ecoli-complexation',
-                            'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
+            'allocator_1': [],
+            'allocator_2': ['ecoli-chromosome-replication',
+                            'ecoli-polypeptide-initiation',
                             'ecoli-rna-degradation', 'ecoli-transcript-initiation'],
             'allocator_3': ['ecoli-polypeptide-elongation',
                             'ecoli-transcript-elongation'],

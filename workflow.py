@@ -45,16 +45,13 @@ except ImportError:
     V1_ROOT_PATH = os.getcwd()
     V1_AVAILABLE = False
 
-from v2ecoli.composite import make_composite, _build_core, save_cache, save_state
+from v2ecoli.composite import make_composite, _build_core, save_cache
 from v2ecoli.library.division import divide_cell, divide_bulk
 from v2ecoli.library.schema import attrs as ecoli_attrs
 from process_bigraph import Composite
 from v2ecoli.generate import build_document, DEFAULT_FLOW
 from v2ecoli.cache import NumpyJSONEncoder, load_initial_state
-from v2ecoli.steps.base import _translate_schema
-
 from bigraph_viz import plot_bigraph
-from bigraph_schema import get_path, strip_schema_keys
 
 
 # ---------------------------------------------------------------------------
@@ -1610,6 +1607,10 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
     long_wall = long.get('wall_time', 0)
     long_dur = long.get('duration', LONG_DURATION)
     long_rate = long.get('rate', 0)
+    d1_wall = multicell.get('daughter_1', {}).get('wall_time', 0)
+    d2_wall = multicell.get('daughter_2', {}).get('wall_time', 0)
+    multicell_wall = d1_wall + d2_wall
+    multicell_dur = multicell.get('duration', MULTICELL_DURATION)
 
     report_path = os.path.join(WORKFLOW_DIR, 'workflow_report.html')
     with open(report_path, 'w') as f:
@@ -1991,7 +1992,8 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
     <tr><td>3. Document build</td><td>{build_time:.2f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
     <tr><td>4. Long simulation</td><td>{long_wall:.1f}s</td><td>{long_dur:.0f}s</td><td>{long_rate:.1f}x</td></tr>
     <tr><td>5. Division</td><td>{div.get('split_time', 0):.3f}s + {div.get('daughter_build_time', 0):.1f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td><strong>Total</strong></td><td><strong>{raw.get('elapsed', 0)+parca_time+cache_time+build_time+long_wall:.0f}s</strong></td><td>&mdash;</td><td>&mdash;</td></tr>
+    <tr><td>6. Multicell</td><td>{multicell_wall:.1f}s</td><td>{multicell_dur*2:.0f}s (2 daughters)</td><td>{multicell_dur*2/max(multicell_wall, 0.1):.1f}x</td></tr>
+    <tr><td><strong>Total</strong></td><td><strong>{raw.get('elapsed', 0)+parca_time+cache_time+build_time+long_wall+multicell_wall:.0f}s</strong></td><td>&mdash;</td><td>&mdash;</td></tr>
   </table>
 </div>
 

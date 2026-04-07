@@ -8,7 +8,11 @@ Provides shared helpers used by per-process Requester/Evolver Steps:
 """
 
 import numpy as np
+from process_bigraph import Step
 from process_bigraph.composite import SyncUpdate
+from bigraph_schema.schema import Float, Overwrite
+
+from v2ecoli.types.stores import InPlaceDict
 
 
 def _protect_state(state):
@@ -56,4 +60,93 @@ def deep_merge(base, override):
         else:
             base[key] = value
     return base
+
+
+class RequesterBase(_SafeInvokeMixin, Step):
+    """Base class for partitioned process Requesters.
+
+    Subclasses must implement:
+        inputs() -> dict
+        outputs() -> dict  (optional, default returns request + next_update_time)
+        compute_request(state, timestep) -> dict with 'bulk' and/or 'listeners'
+    """
+
+    config_schema = {}
+
+    def initialize(self, config):
+        self.process = config['process']
+        self.process_name = config.get('process_name', self.process.name)
+
+    def outputs(self):
+        return {
+            'request': InPlaceDict(),
+            'next_update_time': Overwrite(_value=Float()),
+        }
+
+    def update(self, state, interval=None):
+        next_time = state.get('next_update_time', 0.0)
+        global_time = state.get('global_time', 0.0)
+        if next_time > global_time:
+            return {}
+
+        state = _protect_state(state)
+        timestep = state.get('timestep', 1.0)
+        request = self.compute_request(state, timestep)
+        self.process.request_set = True
+
+        bulk_request = request.pop('bulk', None)
+        result = {'request': {}}
+        if bulk_request is not None:
+            result['request']['bulk'] = bulk_request
+
+        listeners = request.pop('listeners', None)
+        if listeners is not None:
+            result['listeners'] = listeners
+
+        return result
+
+    def compute_request(self, state, timestep):
+        raise NotImplementedError
+
+
+class EvolverBase(_SafeInvokeMixin, Step):
+    """Base class for partitioned process Evolvers.
+
+    Subclasses must implement:
+        inputs() -> dict
+        outputs() -> dict
+        compute_evolve(state, timestep) -> dict with updates
+    """
+
+    config_schema = {}
+
+    def initialize(self, config):
+        self.process = config['process']
+
+    def update(self, state, interval=None):
+        next_time = state.get('next_update_time', 0.0)
+        global_time = state.get('global_time', 0.0)
+        if next_time > global_time:
+            return {}
+
+        state = _protect_state(state)
+
+        allocations = state.pop('allocate', {})
+        bulk_alloc = allocations.get('bulk')
+        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
+            alloc_bulk = state['bulk'].copy()
+            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
+            state['bulk'] = alloc_bulk
+        state = deep_merge(state, allocations)
+
+        if not self.process.request_set:
+            return {}
+
+        timestep = state.get('timestep', 1.0)
+        update = self.compute_evolve(state, timestep)
+        update['next_update_time'] = state.get('global_time', 0.0) + timestep
+        return update
+
+    def compute_evolve(self, state, timestep):
+        raise NotImplementedError
 

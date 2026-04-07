@@ -13,7 +13,6 @@ efficiency, and the counts of each type of transcript.
 
 import numpy as np
 
-from process_bigraph import Step
 from bigraph_schema.schema import Float, Overwrite
 
 from v2ecoli.library.schema import (
@@ -26,7 +25,7 @@ from v2ecoli.library.schema import (
 from v2ecoli.library.units import units
 from v2ecoli.library.fitting import normalize
 
-from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
+from v2ecoli.steps.partition import RequesterBase, EvolverBase
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
@@ -186,14 +185,8 @@ class PolypeptideInitiationLogic:
         return activationProb
 
 
-class PolypeptideInitiationRequester(_SafeInvokeMixin, Step):
+class PolypeptideInitiationRequester(RequesterBase):
     """Reads stores to compute initiation request. Writes to request store."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-        self.process_name = config.get('process_name', self.process.name)
 
     def inputs(self):
         return {
@@ -215,16 +208,8 @@ class PolypeptideInitiationRequester(_SafeInvokeMixin, Step):
             'listeners': ListenerStore(),
         }
 
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-        timestep = state.get('timestep', 1.0)
+    def compute_request(self, state, timestep):
         p = self.process
-        # --- inlined from calculate_request ---
         if p.ribosome30S_idx is None:
             bulk_ids = state["bulk"]["id"]
             p.ribosome30S_idx = bulk_name_to_idx(p.ribosome30S, bulk_ids)
@@ -261,28 +246,11 @@ class PolypeptideInitiationRequester(_SafeInvokeMixin, Step):
 
         # Ensure rates are never zero
         p.elongation_rates = np.fmax(p.elongation_rates, 1)
-        # --- end inlined ---
-        p.request_set = True
-
-        bulk_request = request.pop('bulk', None)
-        result = {'request': {}}
-        if bulk_request is not None:
-            result['request']['bulk'] = bulk_request
-
-        listeners = request.pop('listeners', None)
-        if listeners is not None:
-            result['listeners'] = listeners
-
-        return result
+        return request
 
 
-class PolypeptideInitiationEvolver(_SafeInvokeMixin, Step):
+class PolypeptideInitiationEvolver(EvolverBase):
     """Reads allocation, writes bulk/unique/listener updates."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
 
     def inputs(self):
         return {
@@ -307,28 +275,8 @@ class PolypeptideInitiationEvolver(_SafeInvokeMixin, Step):
             'next_update_time': Overwrite(_value=Float()),
         }
 
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-
-        allocations = state.pop('allocate', {})
-        bulk_alloc = allocations.get('bulk')
-        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
-            alloc_bulk = state['bulk'].copy()
-            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
-            state['bulk'] = alloc_bulk
-        state = deep_merge(state, allocations)
-
-        if not self.process.request_set:
-            return {}
-
-        timestep = state.get('timestep', 1.0)
+    def compute_evolve(self, state, timestep):
         p = self.process
-        # --- inlined from evolve_state ---
         # Calculate number of ribosomes that could potentially be initialized
         # based on counts of free 30S and 50S subunits
         inactive_ribosome_count = np.min(
@@ -569,6 +517,4 @@ class PolypeptideInitiationEvolver(_SafeInvokeMixin, Step):
                     }
                 },
             }
-        # --- end inlined ---
-        update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update

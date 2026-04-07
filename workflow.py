@@ -69,6 +69,7 @@ COMPARISON_DURATION = 60.0
 LONG_DURATION = 1800.0  # Legacy label
 MAX_LONG_DURATION = 3600  # Max seconds before giving up on division
 SNAPSHOT_INTERVAL = 50  # Seconds between chromosome snapshots
+MULTICELL_DURATION = 1300  # Half a generation, for multicell simulation
 
 # Try to find simData
 _sim_data_candidates = [
@@ -492,60 +493,74 @@ def _coord_to_angle(coord):
     return np.pi / 2 - frac * np.pi  # OriC=90°, Ter=-90°
 
 
-def plot_chromosome_map(snapshot, ax, title=''):
-    """Draw circular chromosomes with RNAP and replisome positions.
-
-    When n_chromosomes > 1, draws concentric circles for each chromosome
-    and distributes forks across them.
-    """
+def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
+    """Draw one circular chromosome at (cx, cy) with RNAP and forks."""
     theta = np.linspace(0, 2 * np.pi, 200)
-    n_chrom = max(1, snapshot.get('n_chromosomes', 1))
+    ax.plot(cx + R * np.cos(theta), cy + R * np.sin(theta),
+            color='#cbd5e1', lw=3, zorder=1)
+    ax.plot(cx, cy + R, 'o', color='#10b981', ms=7, zorder=5)
+    ax.plot(cx, cy - R, 's', color='#ef4444', ms=5, zorder=5)
 
-    # Radii for concentric chromosomes (outermost = 1.0, inner shrinks)
-    radii = [1.0 - i * 0.25 for i in range(n_chrom)]
-    chrom_colors = ['#cbd5e1', '#a3b8cc', '#8ba3b8', '#748fa5']
-
-    for ci, R in enumerate(radii):
-        ax.plot(R * np.cos(theta), R * np.sin(theta),
-                color=chrom_colors[ci % len(chrom_colors)], lw=3, zorder=1)
-        # OriC and Ter markers on each chromosome
-        ax.plot(0, R, 'o', color='#10b981', ms=max(6, 10 - ci * 2), zorder=5)
-        ax.plot(0, -R, 's', color='#ef4444', ms=max(5, 8 - ci * 2), zorder=5)
-
-    # Legend entries for landmarks (once)
-    ax.plot([], [], 'o', color='#10b981', ms=8, label='OriC')
-    ax.plot([], [], 's', color='#ef4444', ms=7, label='Ter')
-
-    # Plot RNAP on the outermost chromosome
-    R_outer = radii[0]
-    rnap_coords = snapshot.get('rnap_coords', [])
     if rnap_coords:
         angles = [_coord_to_angle(c) for c in rnap_coords]
-        rx = [R_outer * np.cos(a) for a in angles]
-        ry = [R_outer * np.sin(a) for a in angles]
-        ax.scatter(rx, ry, c='#3b82f6', s=4, alpha=0.3, zorder=3,
-                   label=f'RNAP ({len(rnap_coords)})')
+        rx = [cx + R * np.cos(a) for a in angles]
+        ry = [cy + R * np.sin(a) for a in angles]
+        ax.scatter(rx, ry, c='#3b82f6', s=3, alpha=0.3, zorder=3)
 
-    # Distribute forks across chromosomes
-    # With 2 forks per chromosome (one right, one left replichore)
-    fork_coords = snapshot.get('fork_coords', [])
-    forks_per_chrom = 2  # each chromosome has 2 replichores
-    for fi, coord in enumerate(fork_coords):
-        ci = min(fi // forks_per_chrom, n_chrom - 1)
-        R = radii[ci]
+    for coord in fork_coords:
         angle = _coord_to_angle(coord)
-        fx = (R + 0.12) * np.cos(angle)
-        fy = (R + 0.12) * np.sin(angle)
-        ax.plot(fx, fy, '^', color='#f59e0b', ms=max(8, 12 - ci * 2), zorder=6,
+        fx = cx + (R + 0.08) * np.cos(angle)
+        fy = cy + (R + 0.08) * np.sin(angle)
+        ax.plot(fx, fy, '^', color='#f59e0b', ms=9, zorder=6,
                 markeredgecolor='black', markeredgewidth=0.5)
-    if fork_coords:
-        ax.plot([], [], '^', color='#f59e0b', ms=10,
-                label=f'Replisome ({len(fork_coords)})')
 
-    ax.set_xlim(-1.5, 1.5)
-    ax.set_ylim(-1.5, 1.5)
+
+def plot_chromosome_map(snapshot, ax, title=''):
+    """Draw chromosomes stacked vertically, each with RNAP and forks."""
+    n_chrom = max(1, snapshot.get('n_chromosomes', 1))
+    rnap_coords = snapshot.get('rnap_coords', [])
+    fork_coords = snapshot.get('fork_coords', [])
+
+    # RNAP split evenly across chromosomes
+    rnap_per = len(rnap_coords) // max(n_chrom, 1)
+    # Forks: 2 per chromosome (right + left replichore)
+    forks_per = 2
+
+    if n_chrom == 1:
+        R = 0.9
+        _draw_chromosome(ax, 0, 0, R, rnap_coords, fork_coords)
+        ax.set_xlim(-1.3, 1.3)
+        ax.set_ylim(-1.3, 1.3)
+    else:
+        R = 0.7
+        spacing = 2.0 * R + 0.3
+        total_h = (n_chrom - 1) * spacing
+        for ci in range(n_chrom):
+            cy = total_h / 2 - ci * spacing  # stack top to bottom
+
+            r_start = ci * rnap_per
+            r_end = r_start + rnap_per if ci < n_chrom - 1 else len(rnap_coords)
+            f_start = ci * forks_per
+            f_end = min(f_start + forks_per, len(fork_coords))
+
+            _draw_chromosome(ax, 0, cy, R,
+                             rnap_coords[r_start:r_end],
+                             fork_coords[f_start:f_end])
+
+        margin = R + 0.3
+        ax.set_xlim(-margin, margin)
+        ax.set_ylim(-total_h / 2 - margin, total_h / 2 + margin)
+
+    # Legend
+    ax.plot([], [], 'o', color='#10b981', ms=7, label='OriC')
+    ax.plot([], [], 's', color='#ef4444', ms=5, label='Ter')
+    if rnap_coords:
+        ax.scatter([], [], c='#3b82f6', s=12, label=f'RNAP ({len(rnap_coords)})')
+    if fork_coords:
+        ax.plot([], [], '^', color='#f59e0b', ms=9, label=f'Replisome ({len(fork_coords)})')
+
     ax.set_aspect('equal')
-    ax.legend(loc='upper right', fontsize=6, framealpha=0.9)
+    ax.legend(loc='upper right', fontsize=5, framealpha=0.9)
     t = snapshot.get('time', 0)
     chrom_label = f'{n_chrom} chr' if n_chrom > 1 else '1 chr'
     ax.set_title(title or f"t={t:.0f}s ({chrom_label})", fontsize=9)
@@ -620,6 +635,63 @@ def plot_chromosome_state(snapshots, title=''):
         plt.tight_layout()
     except Exception:
         plt.subplots_adjust(hspace=0.3, wspace=0.3)
+    return fig_to_b64(fig)
+
+
+def plot_long_sim_growth(snapshots, title=''):
+    """Plot growth metrics from long sim snapshots: growth rate, volume, absolute mass, fold change."""
+    if not snapshots or len(snapshots) < 2:
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.text(0.5, 0.5, 'No data', ha='center', va='center')
+        return fig_to_b64(fig)
+
+    times = np.array([s['time'] for s in snapshots]) / 60  # minutes
+
+    fig, axes = plt.subplots(2, 2, figsize=(14, 9))
+    fig.suptitle(title or 'Growth Metrics', fontsize=13)
+
+    # 1. Instantaneous growth rate
+    ax = axes[0, 0]
+    gr = np.array([s.get('instantaneous_growth_rate', 0) for s in snapshots])
+    ax.plot(times, gr * 3600, color='#2563eb', lw=1)
+    ax.set_ylabel('Growth rate (1/h)')
+    ax.set_xlabel('Time (min)')
+    ax.set_title('Instantaneous Growth Rate')
+    ax.grid(True, alpha=0.15)
+
+    # 2. Cell volume
+    ax = axes[0, 1]
+    vol = np.array([s.get('volume', 0) for s in snapshots])
+    ax.plot(times, vol, color='#16a34a', lw=1.5)
+    ax.set_ylabel('Volume (fL)')
+    ax.set_xlabel('Time (min)')
+    ax.set_title('Cell Volume')
+    ax.grid(True, alpha=0.15)
+
+    # 3. Absolute mass
+    ax = axes[1, 0]
+    for (label, key), color in zip(MASS_KEYS.items(), COLORS):
+        vals = np.array([s.get(key, 0) for s in snapshots])
+        ax.plot(times, vals, color=color, lw=1.5, label=label)
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('Mass (fg)')
+    ax.set_title('Absolute Mass')
+    ax.legend(fontsize=7)
+    ax.grid(True, alpha=0.15)
+
+    # 4. Fold change
+    ax = axes[1, 1]
+    for (label, key), color in zip(MASS_KEYS.items(), COLORS):
+        vals = np.array([s.get(key, 0) for s in snapshots])
+        if len(vals) > 0 and vals[0] > 0:
+            ax.plot(times, vals / vals[0], color=color, lw=1.5, label=label)
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('Fold change')
+    ax.set_title('Fold Change (normalized to t=0)')
+    ax.legend(fontsize=7)
+    ax.grid(True, alpha=0.15)
+
+    fig.tight_layout()
     return fig_to_b64(fig)
 
 
@@ -1537,8 +1609,11 @@ def step_long_sim():
     bulk_before = np.array(cell['bulk']['count'], copy=True)
     initial_dry_mass = float(cell.get('listeners', {}).get('mass', {}).get('dry_mass', 380))
 
+    # Keep reference to emitter instance — survives division (agent removal)
+    em_edge = cell.get('emitter', {})
+    emitter_instance = em_edge.get('instance') if isinstance(em_edge, dict) else None
+
     t0 = time.time()
-    snapshots = []
     divided = False
     total_run = 0
 
@@ -1554,7 +1629,10 @@ def step_long_sim():
             break
         total_run += chunk
 
-        cell = composite.state['agents']['0']
+        cell = composite.state.get('agents', {}).get('0')
+        if cell is None:
+            divided = True
+            break
 
         # Save cell state snapshot for pre-division backup
         _data_keys = {'bulk', 'unique', 'listeners', 'environment', 'boundary',
@@ -1565,26 +1643,63 @@ def step_long_sim():
 
         unique = cell.get('unique', {})
 
-        # Chromosome state
+        # Check division readiness from live state
         fc = unique.get('full_chromosome')
         n_chrom = 0
         if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
             n_chrom = int(fc['_entryState'].view(np.bool_).sum())
 
-        rep = unique.get('active_replisome')
+        mass = cell.get('listeners', {}).get('mass', {})
+        dry_mass = float(mass.get('dry_mass', 0))
+
+        if n_chrom >= 2 and dry_mass >= initial_dry_mass * 2:
+            rep = unique.get('active_replisome')
+            fork_count = 0
+            if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
+                fork_count = int(rep['_entryState'].view(np.bool_).sum())
+            print(f"    Division ready at t={total_run}s: {n_chrom} chromosomes, "
+                  f"dry_mass={dry_mass:.0f}fg (>= {initial_dry_mass*2:.0f}fg)")
+            divided = True
+            break
+
+        if total_run % 500 == 0:
+            rep = unique.get('active_replisome')
+            fork_count = 0
+            if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
+                fork_count = int(rep['_entryState'].view(np.bool_).sum())
+            print(f"    t={total_run}s: {n_chrom} chroms, dry_mass={dry_mass:.0f}fg, "
+                  f"forks={fork_count}")
+
+    # Extract snapshot data from emitter history (saved reference survives division)
+    emitter_history = emitter_instance.history if emitter_instance else []
+
+    snapshots = []
+    for snap in emitter_history:
+        t = snap.get('global_time', 0)
+        if int(t) % SNAPSHOT_INTERVAL != 0 and t != 1:
+            continue
+
+        mass = snap.get('listeners', {}).get('mass', {}) if isinstance(snap.get('listeners'), dict) else {}
+
+        # Chromosome state from emitter
+        fc = snap.get('full_chromosome')
+        n_chrom = 0
+        if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
+            n_chrom = int(fc['_entryState'].view(np.bool_).sum())
+
+        rep = snap.get('active_replisome')
         fork_coords = []
         if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
             active_rep = rep[rep['_entryState'].view(np.bool_)]
             if len(active_rep) > 0 and 'coordinates' in rep.dtype.names:
                 fork_coords = active_rep['coordinates'].tolist()
 
-        domains = unique.get('chromosome_domain')
+        domains = snap.get('chromosome_domain')
         n_domains = 0
         if domains is not None and hasattr(domains, 'dtype') and '_entryState' in domains.dtype.names:
             n_domains = int(domains['_entryState'].view(np.bool_).sum())
 
-        # RNAP positions
-        rnap = unique.get('active_RNAP')
+        rnap = snap.get('active_RNAP')
         rnap_coords = []
         n_rnap = 0
         if rnap is not None and hasattr(rnap, 'dtype') and '_entryState' in rnap.dtype.names:
@@ -1593,34 +1708,24 @@ def step_long_sim():
             if n_rnap > 0 and 'coordinates' in rnap.dtype.names:
                 rnap_coords = active_rnap['coordinates'].tolist()
 
-        mass = cell.get('listeners', {}).get('mass', {})
-        dry_mass = float(mass.get('dry_mass', 0))
-        dna_mass = float(mass.get('dna_mass', 0))
-
         snapshots.append({
-            'time': float(cell.get('global_time', total_run)),
+            'time': float(t),
             'n_chromosomes': n_chrom,
             'n_domains': n_domains,
             'fork_coords': fork_coords,
             'rnap_coords': rnap_coords,
             'n_rnap': n_rnap,
-            'dna_mass': dna_mass,
-            'dry_mass': dry_mass,
+            'dna_mass': float(mass.get('dna_mass', 0)),
+            'dry_mass': float(mass.get('dry_mass', 0)),
             'protein_mass': float(mass.get('protein_mass', 0)),
             'rna_mass': float(mass.get('rRna_mass', 0)) + float(mass.get('tRna_mass', 0)) + float(mass.get('mRna_mass', 0)),
+            'rRna_mass': float(mass.get('rRna_mass', 0)),
+            'tRna_mass': float(mass.get('tRna_mass', 0)),
+            'mRna_mass': float(mass.get('mRna_mass', 0)),
             'smallMolecule_mass': float(mass.get('smallMolecule_mass', 0)),
+            'instantaneous_growth_rate': float(mass.get('instantaneous_growth_rate', 0)),
+            'volume': float(mass.get('volume', 0)),
         })
-
-        # Check division readiness: 2+ chromosomes AND mass doubled
-        if n_chrom >= 2 and dry_mass >= initial_dry_mass * 2:
-            print(f"    Division ready at t={total_run}s: {n_chrom} chromosomes, "
-                  f"dry_mass={dry_mass:.0f}fg (>= {initial_dry_mass*2:.0f}fg)")
-            divided = True
-            break
-
-        if total_run % 500 == 0:
-            print(f"    t={total_run}s: {n_chrom} chroms, dry_mass={dry_mass:.0f}fg, "
-                  f"forks={len(fork_coords)}")
 
     wall_time = time.time() - t0
 
@@ -1634,8 +1739,8 @@ def step_long_sim():
                 cell = astate
                 break
 
-    if cell is not None and 'bulk' in cell:
-        bulk_after = cell['bulk']['count']
+    if last_cell_data and 'bulk' in last_cell_data:
+        bulk_after = last_cell_data['bulk']['count']
         changed = int((bulk_before != bulk_after).sum())
     else:
         changed = 0
@@ -1939,6 +2044,210 @@ def step_division():
     return meta
 
 
+def _extract_snapshots_from_emitter(composite, label=''):
+    """Extract snapshot data from a composite's emitter history."""
+    cell = composite.state['agents']['0']
+    em_edge = cell.get('emitter')
+    history = em_edge['instance'].history if isinstance(em_edge, dict) and 'instance' in em_edge else []
+
+    snapshots = []
+    for snap in history:
+        t = snap.get('global_time', 0)
+        if int(t) % SNAPSHOT_INTERVAL != 0 and t != 1:
+            continue
+
+        mass = snap.get('listeners', {}).get('mass', {}) if isinstance(snap.get('listeners'), dict) else {}
+
+        fc = snap.get('full_chromosome')
+        n_chrom = 0
+        if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
+            n_chrom = int(fc['_entryState'].view(np.bool_).sum())
+
+        rep = snap.get('active_replisome')
+        fork_coords = []
+        if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
+            active_rep = rep[rep['_entryState'].view(np.bool_)]
+            if len(active_rep) > 0 and 'coordinates' in rep.dtype.names:
+                fork_coords = active_rep['coordinates'].tolist()
+
+        domains = snap.get('chromosome_domain')
+        n_domains = 0
+        if domains is not None and hasattr(domains, 'dtype') and '_entryState' in domains.dtype.names:
+            n_domains = int(domains['_entryState'].view(np.bool_).sum())
+
+        rnap = snap.get('active_RNAP')
+        rnap_coords = []
+        n_rnap = 0
+        if rnap is not None and hasattr(rnap, 'dtype') and '_entryState' in rnap.dtype.names:
+            active_rnap = rnap[rnap['_entryState'].view(np.bool_)]
+            n_rnap = len(active_rnap)
+            if n_rnap > 0 and 'coordinates' in rnap.dtype.names:
+                rnap_coords = active_rnap['coordinates'].tolist()
+
+        snapshots.append({
+            'time': float(t),
+            'n_chromosomes': n_chrom,
+            'n_domains': n_domains,
+            'fork_coords': fork_coords,
+            'rnap_coords': rnap_coords,
+            'n_rnap': n_rnap,
+            'dna_mass': float(mass.get('dna_mass', 0)),
+            'dry_mass': float(mass.get('dry_mass', 0)),
+            'protein_mass': float(mass.get('protein_mass', 0)),
+            'rna_mass': float(mass.get('rRna_mass', 0)) + float(mass.get('tRna_mass', 0)) + float(mass.get('mRna_mass', 0)),
+            'rRna_mass': float(mass.get('rRna_mass', 0)),
+            'tRna_mass': float(mass.get('tRna_mass', 0)),
+            'mRna_mass': float(mass.get('mRna_mass', 0)),
+            'smallMolecule_mass': float(mass.get('smallMolecule_mass', 0)),
+        })
+
+    return snapshots
+
+
+def step_multicell():
+    """Step 8: Divide pre-division cell into 2 daughters, run both for half a generation.
+
+    Builds two daughter composites from the pre-division state, runs each for
+    MULTICELL_DURATION seconds, and extracts snapshot data from their emitters.
+    """
+    step_name = 'multicell'
+    meta = load_meta(step_name)
+    if meta is not None:
+        print(f"  Step 8: Multicell Simulation (cached)")
+        return meta
+
+    print(f"  Step 8: Multicell Simulation ({MULTICELL_DURATION}s per daughter)")
+
+    # Load pre-division state from long sim
+    long_state_path = os.path.join(WORKFLOW_DIR, 'long_sim.dill')
+    if not os.path.exists(long_state_path):
+        print("    No pre-division state available — skipping")
+        meta = {'skipped': True, 'reason': 'no pre-division state'}
+        save_meta(step_name, meta)
+        return meta
+
+    with open(long_state_path, 'rb') as f:
+        checkpoint = dill.load(f)
+    cell_data = checkpoint.get('cell_state', {})
+
+    # Divide the cell
+    print("    Dividing mother cell...")
+    d1_state, d2_state = divide_cell(cell_data)
+
+    # Load configs for building daughter composites
+    cache_path = os.path.join(CACHE_DIR, 'sim_data_cache.dill')
+    with open(cache_path, 'rb') as f:
+        cache = dill.load(f)
+    configs = cache.get('configs', {})
+    unique_names = cache.get('unique_names', [])
+    dry_mass_inc = cache.get('dry_mass_inc_dict', {})
+
+    from v2ecoli.generate import build_document_from_configs
+
+    daughters = {}
+    for label, dstate, seed in [('daughter_1', d1_state, 1), ('daughter_2', d2_state, 2)]:
+        print(f"    Building {label}...")
+        t0 = time.time()
+        doc = build_document_from_configs(
+            dstate, configs, unique_names,
+            dry_mass_inc_dict=dry_mass_inc, seed=seed)
+        comp = Composite(doc, core=_build_core())
+        build_time = time.time() - t0
+
+        # Get initial mass
+        d_cell = comp.state['agents']['0']
+        d_mass = d_cell.get('listeners', {}).get('mass', {})
+        initial_dry = float(d_mass.get('dry_mass', 0))
+
+        print(f"    Running {label} for {MULTICELL_DURATION}s...")
+        t0 = time.time()
+        try:
+            comp.run(MULTICELL_DURATION)
+            run_ok = True
+        except Exception as e:
+            print(f"    {label} stopped early: {type(e).__name__}: {e}")
+            run_ok = False
+        wall_time = time.time() - t0
+
+        # Extract snapshots from emitter
+        snaps = _extract_snapshots_from_emitter(comp, label)
+
+        final_snap = snaps[-1] if snaps else {}
+        final_dry = final_snap.get('dry_mass', 0)
+
+        daughters[label] = {
+            'build_time': build_time,
+            'wall_time': wall_time,
+            'run_ok': run_ok,
+            'initial_dry_mass': initial_dry,
+            'final_dry_mass': final_dry,
+            'fold_change': final_dry / initial_dry if initial_dry > 0 else 0,
+            'n_snapshots': len(snaps),
+            'snapshots': snaps,
+        }
+        print(f"    {label}: {wall_time:.0f}s wall, "
+              f"dry_mass {initial_dry:.0f} -> {final_dry:.0f}fg "
+              f"({final_dry/initial_dry:.2f}x)" if initial_dry > 0 else
+              f"    {label}: {wall_time:.0f}s wall")
+
+    meta = {
+        'duration': MULTICELL_DURATION,
+        'daughter_1': {k: v for k, v in daughters.get('daughter_1', {}).items() if k != 'snapshots'},
+        'daughter_2': {k: v for k, v in daughters.get('daughter_2', {}).items() if k != 'snapshots'},
+        'daughter_1_snapshots': daughters.get('daughter_1', {}).get('snapshots', []),
+        'daughter_2_snapshots': daughters.get('daughter_2', {}).get('snapshots', []),
+    }
+    save_meta(step_name, meta)
+    return meta
+
+
+def plot_multicell_mass(multicell_meta, title=''):
+    """Plot both daughters' mass fold change side by side (2 subplots)."""
+    d1_snaps = multicell_meta.get('daughter_1_snapshots', [])
+    d2_snaps = multicell_meta.get('daughter_2_snapshots', [])
+
+    if not d1_snaps and not d2_snaps:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, 'No multicell data', ha='center', va='center')
+        return fig_to_b64(fig)
+
+    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+    fig.suptitle(title or 'Multicell Simulation — Daughter Mass', fontsize=13)
+
+    mass_components = [
+        ('dry_mass', 'Dry Mass', 'k'),
+        ('protein_mass', 'Protein', '#22c55e'),
+        ('dna_mass', 'DNA', '#8b5cf6'),
+        ('rRna_mass', 'rRNA', '#3b82f6'),
+        ('tRna_mass', 'tRNA', '#06b6d4'),
+        ('mRna_mass', 'mRNA', '#f97316'),
+        ('smallMolecule_mass', 'Small mol', '#f59e0b'),
+    ]
+
+    for ax, snaps, label in [(axes[0], d1_snaps, 'Daughter 1'),
+                              (axes[1], d2_snaps, 'Daughter 2')]:
+        if not snaps:
+            ax.text(0.5, 0.5, f'No data for {label}', ha='center', va='center')
+            ax.set_title(label)
+            continue
+
+        times = [s['time'] for s in snaps]
+        for key, comp_label, color in mass_components:
+            vals = [s.get(key, 0) for s in snaps]
+            if vals and vals[0] > 0:
+                fold = [v / vals[0] for v in vals]
+                ax.plot(times, fold, color=color, lw=1.5, label=comp_label)
+
+        ax.set_xlabel('Time (s)')
+        ax.set_ylabel('Fold change')
+        ax.set_title(label)
+        ax.legend(fontsize=7)
+        ax.grid(True, alpha=0.15)
+
+    plt.tight_layout()
+    return fig_to_b64(fig)
+
+
 # ---------------------------------------------------------------------------
 # HTML Report Generator
 # ---------------------------------------------------------------------------
@@ -1950,11 +2259,11 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
     raw = step_results['raw_data']
     parca = step_results['parca']
     model = step_results['load_model']
-    short = step_results['short_sim']
     comp_meta = step_results.get('v1_comparison_meta', {})
     comp_data = step_results.get('v1_comparison_data', {})
     long = step_results['long_sim']
     div = step_results['division']
+    multicell = step_results.get('multicell', {})
 
     def cached_badge(meta):
         ts = meta.get('timestamp', '')
@@ -2033,9 +2342,6 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
     parca_time = parca.get('parca_time', 0)
     cache_time = parca.get('cache_time', 0)
     build_time = model.get('build_time', 0)
-    short_wall = short.get('wall_time', 0)
-    short_dur = short.get('duration', COMPARISON_DURATION)
-    short_rate = short.get('rate', 0)
     v1_time = comp_meta.get('v1_time', 0)
     v2_time = comp_meta.get('v2_time', 0)
     comp_dur = comp_meta.get('duration', COMPARISON_DURATION)
@@ -2117,11 +2423,11 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
     <li><a href="#sec-raw">Raw Data</a></li>
     <li><a href="#sec-parca">ParCa (Parameter Calculator)</a></li>
     <li><a href="#sec-model">Load Model</a></li>
-    <li><a href="#sec-short">Short Simulation ({short_dur:.0f}s)</a></li>
     <li><a href="#sec-compare">v1 Comparison</a></li>
     <li><a href="#sec-long">Long Simulation ({long_dur/60:.0f} min)</a></li>
     <li><a href="#sec-lifecycle">Lifecycle v1/v2 Comparison</a></li>
     <li><a href="#sec-division">Division</a></li>
+    <li><a href="#sec-multicell">Multicell Simulation</a></li>
     <li><a href="#sec-steps">Step Diagnostics</a></li>
     <li><a href="#sec-bigraph">Network Visualization</a></li>
     <li><a href="#sec-timing">Timing Summary</a></li>
@@ -2230,25 +2536,8 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
   <div class="metric"><div class="label">Initial Dry Mass</div><div class="value">{model.get('initial_dry_mass', 0):.1f} fg</div></div>
 </div>
 
-<!-- ===== Step 4: Short Sim ===== -->
-<h2 id="sec-short">4. Short Simulation ({short_dur:.0f}s) {cached_badge(short)}</h2>
-<div class="metrics">
-  <div class="metric"><div class="label">Wall Time</div><div class="value blue">{short_wall:.1f}s</div></div>
-  <div class="metric"><div class="label">Sim/Wall</div><div class="value green">{short_rate:.1f}x</div></div>
-  <div class="metric"><div class="label">Bulk Changed</div><div class="value purple">{short.get('bulk_changed', 0)}</div></div>
-  <div class="metric"><div class="label">Dry Mass</div><div class="value">{short.get('final_dry_mass', 0):.1f} fg</div></div>
-  <div class="metric"><div class="label">Volume</div><div class="value">{short.get('final_volume', 0):.4f} fL</div></div>
-</div>""")
-
-        # Short sim plots
-        if plots.get('mass_short'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["mass_short"]}" alt="Mass"></div>\n')
-        if plots.get('growth_short'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["growth_short"]}" alt="Growth"></div>\n')
-
-        f.write(f"""
 <!-- ===== Step 5: v1 Comparison ===== -->
-<h2 id="sec-compare">5. v1 Comparison ({comp_dur:.0f}s) {cached_badge(comp_meta)}</h2>
+<h2 id="sec-compare">4. v1 Comparison ({comp_dur:.0f}s) {cached_badge(comp_meta)}</h2>
 
 <div class="section">
   <h3>Methodology</h3>
@@ -2304,7 +2593,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 </details>
 
 <!-- ===== Step 6: Long Sim ===== -->
-<h2 id="sec-long">6. Long Simulation ({long_dur/60:.0f} min) {cached_badge(long)}</h2>
+<h2 id="sec-long">5. Long Simulation ({long_dur/60:.0f} min) {cached_badge(long)}</h2>
 <div class="metrics">
   <div class="metric"><div class="label">Sim Duration</div><div class="value">{long_dur:.0f}s</div></div>
   <div class="metric"><div class="label">Wall Time</div><div class="value blue">{long_wall:.1f}s</div></div>
@@ -2316,14 +2605,14 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 
         if plots.get('chromosome_long'):
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["chromosome_long"]}" alt="Chromosome State"></div>\n')
-        if plots.get('mass_fractions_long'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["mass_fractions_long"]}" alt="Mass Fractions"></div>\n')
+        if plots.get('growth_long'):
+            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["growth_long"]}" alt="Growth Metrics"></div>\n')
 
         # Lifecycle comparison
         lifecycle = step_results.get('lifecycle', {})
         f.write(f"""
 <!-- ===== Step 6b: Lifecycle Comparison ===== -->
-<h2 id="sec-lifecycle">6b. Lifecycle v1/v2 Comparison {cached_badge(lifecycle)}</h2>
+<h2 id="sec-lifecycle">5b. Lifecycle v1/v2 Comparison {cached_badge(lifecycle)}</h2>
 <div class="section">
   <p>Side-by-side comparison of v1 (vEcoli) and v2 (v2ecoli) over the full cell lifecycle
   ({lifecycle.get('duration', 0):.0f}s). Compares mass growth, chromosome replication,
@@ -2337,7 +2626,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 
         f.write(f"""
 <!-- ===== Step 7: Division ===== -->
-<h2 id="sec-division">7. Division {cached_badge(div)}</h2>
+<h2 id="sec-division">6. Division {cached_badge(div)}</h2>
 
 <div class="section">
   <h3>How Division Works</h3>
@@ -2382,6 +2671,39 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 </div>
 </details>
 
+<!-- ===== Step 8: Multicell Simulation ===== -->
+<h2 id="sec-multicell">7. Multicell Simulation {cached_badge(multicell)}</h2>""")
+
+        if multicell.get('skipped'):
+            f.write(f"""
+<div class="section"><p>Skipped: {multicell.get('reason', 'unknown')}</p></div>""")
+        else:
+            d1 = multicell.get('daughter_1', {})
+            d2 = multicell.get('daughter_2', {})
+            f.write(f"""
+<div class="section">
+  <p>Two daughter cells from the pre-division state, each run for {multicell.get('duration', MULTICELL_DURATION)}s
+  (approximately half a generation).</p>
+</div>
+<h3>Daughter 1</h3>
+<div class="metrics">
+  <div class="metric"><div class="label">Wall Time</div><div class="value blue">{d1.get('wall_time', 0):.0f}s</div></div>
+  <div class="metric"><div class="label">Initial Dry Mass</div><div class="value">{d1.get('initial_dry_mass', 0):.0f} fg</div></div>
+  <div class="metric"><div class="label">Final Dry Mass</div><div class="value">{d1.get('final_dry_mass', 0):.0f} fg</div></div>
+  <div class="metric"><div class="label">Fold Change</div><div class="value green">{d1.get('fold_change', 0):.2f}x</div></div>
+</div>
+<h3>Daughter 2</h3>
+<div class="metrics">
+  <div class="metric"><div class="label">Wall Time</div><div class="value blue">{d2.get('wall_time', 0):.0f}s</div></div>
+  <div class="metric"><div class="label">Initial Dry Mass</div><div class="value">{d2.get('initial_dry_mass', 0):.0f} fg</div></div>
+  <div class="metric"><div class="label">Final Dry Mass</div><div class="value">{d2.get('final_dry_mass', 0):.0f} fg</div></div>
+  <div class="metric"><div class="label">Fold Change</div><div class="value green">{d2.get('fold_change', 0):.2f}x</div></div>
+</div>""")
+
+        if plots.get('multicell_mass'):
+            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["multicell_mass"]}" alt="Multicell Mass"></div>\n')
+
+        f.write(f"""
 <!-- ===== Step Diagnostics ===== -->
 <h2 id="sec-steps">8. Step Diagnostics ({len(diagnostics)} steps)</h2>
 <details open>
@@ -2466,12 +2788,11 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
     <tr><td>2. ParCa</td><td>{parca_time:.1f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
     <tr><td>3. Cache generation</td><td>{cache_time:.1f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
     <tr><td>3. Document build</td><td>{build_time:.2f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td>4. Short simulation</td><td>{short_wall:.1f}s</td><td>{short_dur:.0f}s</td><td>{short_rate:.1f}x</td></tr>
     <tr><td>5. v1 comparison (v1)</td><td>{v1_time:.2f}s</td><td>{comp_dur:.0f}s</td><td>{comp_dur/max(v1_time, 0.01):.1f}x</td></tr>
     <tr><td>5. v1 comparison (v2)</td><td>{v2_time:.2f}s</td><td>{comp_dur:.0f}s</td><td>{comp_dur/max(v2_time, 0.01):.1f}x</td></tr>
     <tr><td>6. Long simulation</td><td>{long_wall:.1f}s</td><td>{long_dur:.0f}s</td><td>{long_rate:.1f}x</td></tr>
     <tr><td>7. Division</td><td>{div.get('split_time', 0):.3f}s + {div.get('daughter_build_time', 0):.1f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td><strong>Total</strong></td><td><strong>{raw.get('elapsed', 0)+parca_time+cache_time+build_time+short_wall+v1_time+v2_time+long_wall:.0f}s</strong></td><td>&mdash;</td><td>&mdash;</td></tr>
+    <tr><td><strong>Total</strong></td><td><strong>{raw.get('elapsed', 0)+parca_time+cache_time+build_time+v1_time+v2_time+long_wall:.0f}s</strong></td><td>&mdash;</td><td>&mdash;</td></tr>
   </table>
 </div>
 
@@ -2516,11 +2837,7 @@ def run_workflow():
     model_meta, composite = step_load_model()
     step_results['load_model'] = model_meta
 
-    # Step 4: Short Simulation
-    short_meta, short_history = step_short_sim(composite)
-    step_results['short_sim'] = short_meta
-
-    # Step 5: v1 Comparison
+    # Step 4: v1 Comparison
     comp_meta, comp_data = step_v1_comparison()
     step_results['v1_comparison_meta'] = comp_meta
     step_results['v1_comparison_data'] = comp_data
@@ -2537,6 +2854,10 @@ def run_workflow():
     div_meta = step_division()
     step_results['division'] = div_meta
 
+    # Step 8: Multicell Simulation
+    multicell_meta = step_multicell()
+    step_results['multicell'] = multicell_meta
+
     # Step Diagnostics (always run, uses the composite from step 3)
     print("  Diagnostics: Step analysis")
     # Need a fresh composite if step 4 already ran on the original
@@ -2552,30 +2873,30 @@ def run_workflow():
     print("  Generating plots...")
     plots = {}
 
-    # Short sim plots
-    plots['mass_short'] = plot_mass(short_history, f'Mass Components ({COMPARISON_DURATION}s)')
-    plots['growth_short'] = plot_growth(short_history)
-
     # v1 comparison plots
     if isinstance(comp_data, dict) and 'v1_initial' in comp_data:
         plots['comparison'] = plot_comparison(comp_data)
         plots['mass_comp'] = plot_mass_comparison(comp_data)
         plots['unique_comp'] = plot_unique_comparison(comp_data)
 
-    # Long sim chromosome plots
+    # Long sim plots
     chrom_snaps = long_meta.get('chromosome_snapshots', [])
     if chrom_snaps:
         dur = long_meta.get('duration', 0)
         plots['chromosome_long'] = plot_chromosome_state(
             chrom_snaps, f'v2 Chromosome State (to t={dur:.0f}s)')
-        mf = plot_long_mass_fractions(chrom_snaps, f'Mass Components (to t={dur:.0f}s)')
-        if mf:
-            plots['mass_fractions_long'] = mf
+        plots['growth_long'] = plot_long_sim_growth(
+            chrom_snaps, f'Growth Metrics ({dur/60:.0f} min)')
 
     # Lifecycle v1/v2 comparison plot
     lifecycle = step_results.get('lifecycle', {})
     if lifecycle.get('v1_available') or lifecycle.get('v1_snapshots'):
         plots['lifecycle'] = plot_lifecycle_comparison(lifecycle)
+
+    # Multicell plots
+    multicell = step_results.get('multicell', {})
+    if not multicell.get('skipped') and (multicell.get('daughter_1_snapshots') or multicell.get('daughter_2_snapshots')):
+        plots['multicell_mass'] = plot_multicell_mass(multicell, 'Multicell — Daughter Mass Fold Change')
 
     # Generate HTML report
     print("  Generating HTML report...")

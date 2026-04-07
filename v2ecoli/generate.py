@@ -833,13 +833,24 @@ def _get_special_step(loader, step_name, core):
                 'mRna_mass': 'float',
                 'dna_mass': 'float',
                 'smallMolecule_mass': 'float',
+                'instantaneous_growth_rate': 'float',
+                'volume': 'float',
             }},
+            # Unique molecules for chromosome state visualization
+            'full_chromosome': 'any',
+            'active_replisome': 'any',
+            'active_RNAP': 'any',
+            'chromosome_domain': 'any',
         }
         instance = RAMEmitter({'emit': emit_schema}, core)
         topo = {
             'global_time': ('global_time',),
             'bulk': ('bulk',),
             'listeners': ('listeners',),
+            'full_chromosome': ('unique', 'full_chromosome'),
+            'active_replisome': ('unique', 'active_replisome'),
+            'active_RNAP': ('unique', 'active_RNAP'),
+            'chromosome_domain': ('unique', 'chromosome_domain'),
         }
         return instance, topo, 'step'
 

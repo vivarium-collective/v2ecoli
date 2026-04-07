@@ -767,7 +767,18 @@ class LoadSimData:
             "cell_density": self.sim_data.constants.cell_density,
             "inactive_RNAP": "APORNAP-CPLX[c]",
             "ppgpp": self.sim_data.molecule_ids.ppGpp,
-            "synth_prob": self.sim_data.process.transcription.synth_prob_from_ppgpp,  # TODO: Phase 2 — complex factory
+            "synth_prob": {
+                "_function": "transcription.synth_prob_from_ppgpp",
+                "_data": {
+                    "exp_free": self.sim_data.process.transcription.exp_free.tolist(),
+                    "exp_ppgpp": self.sim_data.process.transcription.exp_ppgpp.tolist(),
+                    "ppgpp_growth_parameters": list(self.sim_data.process.transcription._ppgpp_growth_parameters),
+                    "rna_deg_rates": self.sim_data.process.transcription.rna_data["deg_rate"].asNumber(1 / units.s).tolist(),
+                    "wt_replication_coordinates": self.sim_data.process.transcription.rna_data["wt_replication_coordinate"].tolist(),
+                    "is_rRNA": self.sim_data.process.transcription.rna_data["is_rRNA"].tolist(),
+                    "ppgpp_km_squared": float(self.sim_data.process.transcription._ppgpp_km_squared),
+                },
+            },
             "copy_number": {
                 "_function": "replication.get_average_copy_number",
                 "_data": {
@@ -1130,7 +1141,13 @@ class LoadSimData:
             "amino_acid_export": metabolism.amino_acid_export,
             "aa_importers": metabolism.aa_importer_names,
             "aa_exporters": metabolism.aa_exporter_names,
-            "get_pathway_enzyme_counts_per_aa": metabolism.get_pathway_enzyme_counts_per_aa,
+            "get_pathway_enzyme_counts_per_aa": {
+                "_function": "metabolism.get_pathway_enzyme_counts_per_aa",
+                "_data": {
+                    "enzyme_to_amino_acid_fwd": metabolism.enzyme_to_amino_acid_fwd.tolist(),
+                    "enzyme_to_amino_acid_rev": metabolism.enzyme_to_amino_acid_rev.tolist(),
+                },
+            },
             "import_constraint_threshold": self.sim_data.external_state.import_constraint_threshold,
             "seed": self._seedFromName("PolypeptideElongation"),
             "emit_unique": self.emit_unique,

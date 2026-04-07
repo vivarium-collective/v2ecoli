@@ -279,3 +279,84 @@ def get_attenuation_stop_probabilities_factory(aa_from_trna, attenuation_k):
         return 1 - np.exp(units.strip_empty_units(trna_by_aa @ attenuation_k))
 
     return get_attenuation_stop_probabilities
+
+
+@register("metabolism.get_pathway_enzyme_counts_per_aa")
+def get_pathway_enzyme_counts_per_aa_factory(enzyme_to_amino_acid_fwd,
+                                              enzyme_to_amino_acid_rev):
+    """Factory: enzyme counts per amino acid for supply calculation.
+
+    Closure data from sim_data.process.metabolism:
+        enzyme_to_amino_acid_fwd: array (n_enzymes × n_amino_acids)
+        enzyme_to_amino_acid_rev: array (n_enzymes × n_amino_acids)
+    """
+    fwd = np.asarray(enzyme_to_amino_acid_fwd)
+    rev = np.asarray(enzyme_to_amino_acid_rev)
+
+    def get_pathway_enzyme_counts_per_aa(enzyme_counts):
+        return enzyme_counts @ fwd, enzyme_counts @ rev
+
+    return get_pathway_enzyme_counts_per_aa
+
+
+@register("transcription.synth_prob_from_ppgpp")
+def synth_prob_from_ppgpp_factory(exp_free, exp_ppgpp,
+                                   ppgpp_growth_parameters,
+                                   rna_deg_rates, wt_replication_coordinates,
+                                   is_rRNA, ppgpp_km_squared):
+    """Factory: synthesis probability as function of ppGpp concentration.
+
+    Closure data from sim_data.process.transcription:
+        exp_free: array (n_TUs,) — expression without ppGpp
+        exp_ppgpp: array (n_TUs,) — expression with ppGpp
+        ppgpp_growth_parameters: tuple (x_transform, y_transform, slope, intercept)
+        rna_deg_rates: array (n_TUs,) — degradation rates in 1/s
+        wt_replication_coordinates: array (n_TUs,) — WT replication coordinates
+        is_rRNA: boolean array (n_TUs,)
+        ppgpp_km_squared: float — squared KM for ppGpp binding
+    """
+    from wholecell.utils.fitting import interpolate_linearized_fit
+
+    exp_free = np.asarray(exp_free, dtype=float)
+    exp_ppgpp = np.asarray(exp_ppgpp, dtype=float)
+    rna_deg_rates = np.asarray(rna_deg_rates, dtype=float)
+    wt_replication_coordinates = np.asarray(wt_replication_coordinates)
+    is_rRNA = np.asarray(is_rRNA, dtype=bool)
+    x_transform, y_transform, slope, intercept = ppgpp_growth_parameters
+
+    def fraction_rnap_bound_ppgpp(ppgpp_val):
+        return ppgpp_val ** 2 / (ppgpp_km_squared + ppgpp_val ** 2)
+
+    def normalize(x):
+        total = x.sum()
+        if total > 0:
+            return x / total
+        return x
+
+    def synth_prob_from_ppgpp(ppgpp, copy_number, balanced_rRNA_prob=True):
+        try:
+            ppgpp_val = ppgpp.asNumber()
+        except AttributeError:
+            ppgpp_val = float(ppgpp)
+
+        f_ppgpp = fraction_rnap_bound_ppgpp(ppgpp_val)
+
+        y = interpolate_linearized_fit(
+            ppgpp_val, x_transform, y_transform, slope, intercept)
+        growth = max(float(y), 0.0)
+        tau = np.log(2) / growth / 60 if growth > 0 else 1e12
+
+        loss = growth + rna_deg_rates
+        n_avg_copy = copy_number(tau, wt_replication_coordinates)
+
+        factor = loss / n_avg_copy
+        prob = normalize(
+            (exp_free * (1 - f_ppgpp) + exp_ppgpp * f_ppgpp) * factor
+        )
+
+        if balanced_rRNA_prob:
+            prob[is_rRNA] = prob[is_rRNA].mean()
+
+        return prob, factor
+
+    return synth_prob_from_ppgpp

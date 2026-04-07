@@ -2,7 +2,7 @@
 # Database: EcoCyc
 # Version: 29.6
 # Orthologs: true
-# Date and time generated: April 6, 2026, 22:01:41
+# Date and time generated: April 7, 2026, 6:21:00
 "id"	"common_name"	"synonyms"	"type"	"modified_forms"	"gene_id"	"monomer_ids"	"anticodon"	"coding_segments"
 "EG10001_RNA"	"alr"	["alr", "alr5", "b4053", "ECK4045"]	"mRNA"	[]	"EG10001"	["ALARACEBIOSYN-MONOMER"]	null	[]
 "EG10002_RNA"	"modB"	["modB", "chlJ", "tslJ", "b0764", "ECK0753"]	"mRNA"	[]	"EG10002"	["MODB-MONOMER"]	null	[]
@@ -2719,7 +2719,7 @@
 "G0-10703_RNA"	null	[]	"phantom"	[]	"G0-10703"	[]	null	[]
 "G0-10704_RNA"	null	[]	"phantom"	[]	"G0-10704"	[]	null	[]
 "G0-10705_RNA"	null	[]	"phantom"	[]	"G0-10705"	[]	null	[]
-"G0-10706_RNA"	null	["UNCLASSIFIED"]	"mRNA"	[]	"G0-10706"	[]	null	[]
+"G0-10706_RNA"	null	[]	"mRNA"	[]	"G0-10706"	[]	null	[]
 "G0-10707_RNA"	"pmrR"	["pmrR", "b4703", "ECK4515"]	"mRNA"	[]	"G0-10707"	["MONOMER0-4214"]	null	[]
 "G0-10715_RNA"	"mntS"	["mntS", "G0-8881", "b4705", "ECK4517"]	"mRNA"	[]	"G0-10715"	["MONOMER0-4216"]	null	[]
 "G0-10716_RNA"	"iroK"	["iroK", "b4706", "ECK4518"]	"mRNA"	[]	"G0-10716"	["MONOMER0-4224"]	null	[]

@@ -2084,6 +2084,15 @@ def run_workflow():
     diagnostics = bench_step_diagnostics(diag_composite)
     print(f"    {len(diagnostics)} steps analyzed")
 
+    # Update .pbg model files
+    print("  Updating .pbg model files...")
+    serialized = diag_composite.core.serialize(
+        diag_composite.schema, diag_composite.state)
+    os.makedirs('models', exist_ok=True)
+    with open('models/departitioned.pbg', 'w') as f:
+        json.dump(serialized, f, default=str)
+    print(f"    models/departitioned.pbg updated")
+
     # Network Visualization (always run)
     print("  Generating bigraph visualization...")
     bigraph_svg = make_bigraph_svg(diag_composite.state)

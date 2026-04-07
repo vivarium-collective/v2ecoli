@@ -2007,15 +2007,12 @@ class LoadSimData:
         }
 
     def get_exchange_data_config(self, time_step=1):
-        es = self.sim_data.external_state
         return {
             "time_step": time_step,
-            "environment_molecules": list(es.env_to_exchange_map.keys()),
-            # Extracted from external_state instance
-            "env_to_exchange_map": dict(es.env_to_exchange_map),
-            "secretion_exchange_molecules": list(es.secretion_exchange_molecules),
-            "import_constraint_threshold": float(es.import_constraint_threshold),
-            "carbon_sources": list(es.carbon_sources),
+            "external_state": self.sim_data.external_state,
+            "environment_molecules": list(
+                self.sim_data.external_state.env_to_exchange_map.keys()
+            ),
         }
 
     def get_media_update_config(self, time_step=1):

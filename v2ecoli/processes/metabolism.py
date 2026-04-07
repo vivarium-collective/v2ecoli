@@ -621,16 +621,25 @@ class FluxBalanceAnalysisModel(object):
         """
         nutrients = timeline[0][1]
 
-        # Local sim_data references
-        metabolism = parameters["metabolism"]
-        self.stoichiometry = metabolism.reaction_stoich
-        self.maintenance_reaction = metabolism.maintenance_reaction
+        # Local references — support both old format (metabolism instance)
+        # and new format (extracted attributes)
+        metabolism = parameters.get("metabolism")
+        _has_metabolism = (metabolism is not None
+                          and hasattr(metabolism, 'reaction_stoich'))
+        if _has_metabolism:
+            # Old format: read from metabolism instance
+            self.stoichiometry = metabolism.reaction_stoich
+            self.maintenance_reaction = metabolism.maintenance_reaction
+            self.exchange_constraints = metabolism.exchange_constraints
+        else:
+            # New format: read from extracted config
+            self.stoichiometry = parameters["reaction_stoich"]
+            self.maintenance_reaction = parameters["maintenance_reaction"]
+            self.exchange_constraints = parameters["exchange_constraints"]
 
         # Load constants
         self.ngam = parameters["ngam"]
         gam = parameters["dark_atp"] * parameters["cell_dry_mass_fraction"]
-
-        self.exchange_constraints = metabolism.exchange_constraints
 
         self._biomass_concentrations = {}  # type: dict
         self.getBiomassAsConcentrations = parameters["get_biomass_as_concentrations"]
@@ -642,9 +651,8 @@ class FluxBalanceAnalysisModel(object):
 
         # go through all media in the timeline and add to metaboliteNames
         metaboliteNamesFromNutrients = set()
-        conc_from_nutrients = (
-            metabolism.concentration_updates.concentrations_based_on_nutrients
-        )
+        conc_updates = parameters["concentration_updates"]
+        conc_from_nutrients = conc_updates.concentrations_based_on_nutrients
         if include_ppgpp:
             metaboliteNamesFromNutrients.add(self.ppgpp_id)
         for time, media_id in timeline:
@@ -688,23 +696,32 @@ class FluxBalanceAnalysisModel(object):
 
         # Data structures to compute reaction bounds based on enzyme
         # presence/absence
-        self.catalyst_ids = metabolism.catalyst_ids
-        self.reactions_with_catalyst = metabolism.reactions_with_catalyst
-
-        i = metabolism.catalysis_matrix_I
-        j = metabolism.catalysis_matrix_J
-        v = metabolism.catalysis_matrix_V
+        if _has_metabolism:
+            self.catalyst_ids = metabolism.catalyst_ids
+            self.reactions_with_catalyst = metabolism.reactions_with_catalyst
+            i = metabolism.catalysis_matrix_I
+            j = metabolism.catalysis_matrix_J
+            v = metabolism.catalysis_matrix_V
+        else:
+            self.catalyst_ids = parameters["catalyst_ids"]
+            self.reactions_with_catalyst = parameters["reactions_with_catalyst"]
+            i = np.asarray(parameters["catalysis_matrix_I"])
+            j = np.asarray(parameters["catalysis_matrix_J"])
+            v = np.asarray(parameters["catalysis_matrix_V"])
         shape = (i.max() + 1, j.max() + 1)
         self.catalysis_matrix = csr_matrix((v, (i, j)), shape=shape)
 
         # Function to compute reaction targets based on kinetic parameters and
         # molecule concentrations
-        self.get_kinetic_constraints = metabolism.get_kinetic_constraints
+        self.get_kinetic_constraints = parameters.get("get_kinetic_constraints",
+            metabolism.get_kinetic_constraints if _has_metabolism else None)
 
         # Remove disabled reactions so they don't get included in the FBA
         # problem setup
-        kinetic_constraint_reactions = metabolism.kinetic_constraint_reactions
-        constraintsToDisable = metabolism.constraints_to_disable
+        kinetic_constraint_reactions = (parameters.get("kinetic_constraint_reactions")
+            or (metabolism.kinetic_constraint_reactions if _has_metabolism else []))
+        constraintsToDisable = (parameters.get("constraints_to_disable")
+            or (metabolism.constraints_to_disable if _has_metabolism else []))
         self.active_constraints_mask = np.array(
             [(rxn not in constraintsToDisable) for rxn in kinetic_constraint_reactions]
         )
@@ -712,13 +729,18 @@ class FluxBalanceAnalysisModel(object):
             np.array(kinetic_constraint_reactions)[self.active_constraints_mask]
         )
 
-        self.kinetic_constraint_enzymes = metabolism.kinetic_constraint_enzymes
-        self.kinetic_constraint_substrates = metabolism.kinetic_constraint_substrates
-
-        # Set solver and kinetic objective weight (lambda)
-        solver = metabolism.solver
-        kinetic_objective_weight = metabolism.kinetic_objective_weight
-        kinetic_objective_weight_in_range = metabolism.kinetic_objective_weight_in_range
+        if _has_metabolism:
+            self.kinetic_constraint_enzymes = metabolism.kinetic_constraint_enzymes
+            self.kinetic_constraint_substrates = metabolism.kinetic_constraint_substrates
+            solver = metabolism.solver
+            kinetic_objective_weight = metabolism.kinetic_objective_weight
+            kinetic_objective_weight_in_range = metabolism.kinetic_objective_weight_in_range
+        else:
+            self.kinetic_constraint_enzymes = parameters["kinetic_constraint_enzymes"]
+            self.kinetic_constraint_substrates = parameters["kinetic_constraint_substrates"]
+            solver = parameters["solver"]
+            kinetic_objective_weight = parameters["kinetic_objective_weight"]
+            kinetic_objective_weight_in_range = parameters["kinetic_objective_weight_in_range"]
 
         # Disable kinetics completely if weight is 0 or specified in file above
         if not USE_KINETICS or kinetic_objective_weight == 0:
@@ -733,7 +755,7 @@ class FluxBalanceAnalysisModel(object):
         # reactionRateTargets value is just for initialization, it gets reset
         # each timestep during evolveState
         fba_options = {
-            "reactionStoich": metabolism.reaction_stoich,
+            "reactionStoich": self.stoichiometry,
             "externalExchangedMolecules": exchange_molecules,
             "objective": self.homeostatic_objective,
             "objectiveType": objective_type,
@@ -747,10 +769,11 @@ class FluxBalanceAnalysisModel(object):
             },
             "moleculeMasses": molecule_masses,
             # The "inconvenient constant"--limit secretion (e.g., of CO2)
-            "secretionPenaltyCoeff": metabolism.secretion_penalty_coeff,
+            "secretionPenaltyCoeff": parameters.get("secretion_penalty_coeff",
+                metabolism.secretion_penalty_coeff if _has_metabolism else 0),
             "solver": solver,
             "maintenanceCostGAM": gam.asNumber(COUNTS_UNITS / MASS_UNITS),
-            "maintenanceReaction": metabolism.maintenance_reaction,
+            "maintenanceReaction": self.maintenance_reaction,
         }
         self.fba = FluxBalanceAnalysis(**fba_options)
 

@@ -18,18 +18,15 @@ def generate_pbg(cache_dir='out/cache'):
     """Generate both .pbg files from the current codebase."""
     from v2ecoli.composite import make_composite
     from v2ecoli.partitioned import make_partitioned_composite
+    from v2ecoli.pbg import save_pbg
 
     os.makedirs(PBG_DIR, exist_ok=True)
 
     dep = make_composite(cache_dir=cache_dir)
-    dep_serialized = dep.core.serialize(dep.schema, dep.state)
-    with open(DEP_PBG, 'w') as f:
-        json.dump(dep_serialized, f, default=str, indent=2)
+    save_pbg(dep, DEP_PBG)
 
     part = make_partitioned_composite(cache_dir=cache_dir)
-    part_serialized = part.core.serialize(part.schema, part.state)
-    with open(PART_PBG, 'w') as f:
-        json.dump(part_serialized, f, default=str, indent=2)
+    save_pbg(part, PART_PBG)
 
     return DEP_PBG, PART_PBG
 

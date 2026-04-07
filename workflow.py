@@ -2086,11 +2086,9 @@ def run_workflow():
 
     # Update .pbg model files
     print("  Updating .pbg model files...")
-    serialized = diag_composite.core.serialize(
-        diag_composite.schema, diag_composite.state)
+    from v2ecoli.pbg import save_pbg
     os.makedirs('models', exist_ok=True)
-    with open('models/departitioned.pbg', 'w') as f:
-        json.dump(serialized, f, default=str, indent=2)
+    save_pbg(diag_composite, 'models/departitioned.pbg')
     print(f"    models/departitioned.pbg updated")
 
     # Network Visualization (always run)

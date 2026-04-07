@@ -234,7 +234,7 @@ def inject_flow_dependencies(cell_state, flow_order, layers=None):
 
 
 def make_edge(instance, topology, input_topology=None, output_topology=None,
-              edge_type='step'):
+              edge_type='step', config=None):
     """Create an edge dict for a process/step instance.
 
     Includes the instance directly and its input/output schemas.
@@ -260,8 +260,15 @@ def make_edge(instance, topology, input_topology=None, output_topology=None,
         except Exception:
             pass
 
+    # Store address and config for .pbg serialization
+    cls = type(instance)
+    address = f'local:{cls.__module__}.{cls.__qualname__}'
+    raw_config = config or getattr(instance, '_raw_config', {})
+
     state.update({
         '_type': edge_type,
+        'address': address,
+        'config': raw_config,
         'instance': instance,
         '_inputs': inputs_schema,
         '_outputs': outputs_schema,
@@ -595,12 +602,14 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     if step_name in STANDALONE_STEPS:
         step_cls = STANDALONE_STEPS[step_name]
         instance = step_cls(config=config, core=core)
+        instance._raw_config = config
         topology = instance.topology
         return instance, topology, 'step'
 
     elif step_name in SIMPLE_STEPS:
         cls = SIMPLE_STEPS[step_name]
         instance = cls(config=config, core=core)
+        instance._raw_config = config
         topology = getattr(instance, 'topology', {})
         return instance, topology, 'step'
 

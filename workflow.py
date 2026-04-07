@@ -6,13 +6,13 @@ Each step checks for cached metadata before executing, enabling incremental
 development and fast re-runs.
 
 Pipeline Steps:
+0. biocyc — Fetch raw data files from the EcoCyc API
 1. raw_data — Catalog raw TSV files and knowledge base stats
 2. parca — Run parameter calculator (ParCa) or load cached simData
 3. load_model — Build composite from cache
-4. short_sim — 60s simulation with mass/growth diagnostics
-5. v1_comparison — Side-by-side v1 vs v2 accuracy
-6. long_sim — 1800s simulation for growth trajectory
-7. division — Cell division, conservation, daughter viability
+4. long_sim — Run v2 to division + v1 for same duration (lifecycle comparison)
+5. division — Cell division, conservation, daughter viability
+6. multicell — Divide and run both daughters
 
 Usage:
     python workflow.py              # run full pipeline
@@ -27,7 +27,6 @@ import json
 import time
 import base64
 import html as html_lib
-import copy
 
 import dill
 import numpy as np
@@ -65,7 +64,6 @@ from bigraph_schema import get_path, strip_schema_keys
 WORKFLOW_DIR = 'out/workflow'
 # Use existing cache if available, otherwise workflow-local cache
 CACHE_DIR = 'out/cache' if os.path.isdir('out/cache') else 'out/workflow/cache'
-COMPARISON_DURATION = 60.0
 LONG_DURATION = 1800.0  # Legacy label
 MAX_LONG_DURATION = 3600  # Max seconds before giving up on division
 SNAPSHOT_INTERVAL = 50  # Seconds between chromosome snapshots
@@ -203,210 +201,6 @@ def plot_growth(history):
     return fig_to_b64(fig)
 
 
-def plot_bulk_histogram(history):
-    """Plot histogram of per-molecule count changes over the simulation."""
-    if not history or len(history) < 2:
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.text(0.5, 0.5, 'No data', ha='center', va='center')
-        return fig_to_b64(fig)
-
-    first = history[0].get('bulk')
-    last = history[-1].get('bulk')
-    if first is None or last is None:
-        fig, ax = plt.subplots(figsize=(8, 4))
-        ax.text(0.5, 0.5, 'No bulk data in history', ha='center', va='center')
-        return fig_to_b64(fig)
-
-    if hasattr(first, 'dtype') and 'count' in first.dtype.names:
-        first_counts = first['count'].astype(float)
-    else:
-        first_counts = np.array(first, dtype=float)
-    if hasattr(last, 'dtype') and 'count' in last.dtype.names:
-        last_counts = last['count'].astype(float)
-    else:
-        last_counts = np.array(last, dtype=float)
-
-    delta = last_counts - first_counts
-    changed = delta[delta != 0]
-
-    fig, ax = plt.subplots(figsize=(10, 4))
-    if len(changed) > 0:
-        ax.hist(changed, bins=50, color='#2563eb', alpha=0.7, edgecolor='white')
-        ax.axvline(0, color='k', linestyle='--', alpha=0.3)
-        ax.set_xlabel('Count change')
-        ax.set_ylabel('Number of molecules')
-        ax.set_title(f'Bulk Molecule Changes ({len(changed)} molecules changed)')
-    else:
-        ax.text(0.5, 0.5, 'No molecules changed', ha='center', va='center')
-    ax.grid(True, alpha=0.15)
-    fig.tight_layout()
-    return fig_to_b64(fig)
-
-
-def plot_comparison(comp):
-    """Plot per-timestep correlation, scatter of final deltas, and RMSE."""
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-
-    # Per-timestep correlation
-    if comp['per_ts_corr']:
-        axes[0].plot(range(1, len(comp['per_ts_corr']) + 1), comp['per_ts_corr'],
-                     color='#2563eb', lw=1.5)
-        axes[0].set_xlabel('Timestep (s)')
-        axes[0].set_ylabel('Pearson correlation')
-        axes[0].set_title(f'Per-Timestep Correlation (mean={comp["mean_correlation"]:.6f})')
-        axes[0].set_ylim(min(0.999, min(comp['per_ts_corr']) - 0.0001), 1.0001)
-        axes[0].grid(True, alpha=0.15)
-    else:
-        axes[0].text(0.5, 0.5, 'No per-timestep data', ha='center', va='center')
-
-    # Scatter of final deltas
-    v1_d = comp['v1_final'].astype(float) - comp['v1_initial'].astype(float)
-    v2_d = comp['v2_final'].astype(float) - comp['v2_initial'].astype(float)
-    both = (v1_d != 0) & (v2_d != 0)
-    if both.sum() > 0:
-        axes[1].scatter(v1_d[both], v2_d[both], alpha=0.5, s=8, c='#2563eb')
-        lim = max(abs(v1_d[both]).max(), abs(v2_d[both]).max()) * 1.1
-        axes[1].plot([-lim, lim], [-lim, lim], 'k--', alpha=0.3)
-        axes[1].set_xlim(-lim, lim); axes[1].set_ylim(-lim, lim)
-    axes[1].set_xlabel('v1 count change')
-    axes[1].set_ylabel('v2 count change')
-    axes[1].set_title(f'Final Delta (r={comp["delta_correlation"]:.4f}, n={both.sum()})')
-    axes[1].set_aspect('equal'); axes[1].grid(True, alpha=0.2)
-
-    # Per-timestep RMSE
-    if comp['per_ts_rmse']:
-        axes[2].plot(range(1, len(comp['per_ts_rmse']) + 1), comp['per_ts_rmse'],
-                     color='#dc2626', lw=1.5)
-        axes[2].set_xlabel('Timestep (s)')
-        axes[2].set_ylabel('RMSE (counts)')
-        axes[2].set_title(f'Per-Timestep RMSE (mean={comp["mean_rmse"]:.2f})')
-        axes[2].grid(True, alpha=0.15)
-    else:
-        axes[2].text(0.5, 0.5, 'No per-timestep data', ha='center', va='center')
-
-    fig.suptitle('v1 vs v2 Comparison — Bulk Molecules', fontsize=13)
-    fig.tight_layout()
-    return fig_to_b64(fig)
-
-
-def plot_mass_comparison(comp):
-    """Plot per-timestep mass components for v1 vs v2."""
-    mc = comp.get('mass_comparison', {})
-    mass_keys = ['dry_mass', 'protein_mass', 'rna_mass', 'dna_mass', 'smallMolecule_mass']
-    labels = ['Dry Mass', 'Protein', 'RNA', 'DNA', 'Small Molecules']
-
-    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-    axes = axes.flatten()
-
-    for i, (key, label) in enumerate(zip(mass_keys, labels)):
-        ax = axes[i]
-        data = mc.get(key, {})
-        v2_vals = data.get('v2', [])
-        v1_vals = data.get('v1', [])
-        v2_times = data.get('times', [])
-        v1_times = list(range(1, len(v1_vals) + 1))
-
-        if v2_vals:
-            ax.plot(v2_times, v2_vals, 'b-', lw=1.5, label='v2', alpha=0.8)
-        if v1_vals:
-            ax.plot(v1_times, v1_vals, 'r--', lw=1.5, label='v1', alpha=0.8)
-        ax.set_title(label)
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Mass (fg)')
-        ax.legend(fontsize=8)
-        ax.grid(True, alpha=0.15)
-
-    # Mass delta per timestep (v2)
-    ax = axes[5]
-    dm = mc.get('dry_mass', {}).get('v2', [])
-    if len(dm) > 1:
-        deltas = np.diff(dm)
-        ax.plot(range(1, len(deltas) + 1), deltas, 'b-o', markersize=2, lw=1)
-        v1_dm = mc.get('dry_mass', {}).get('v1', [])
-        if len(v1_dm) > 1:
-            v1_deltas = np.diff(v1_dm)
-            ax.plot(range(1, len(v1_deltas) + 1), v1_deltas, 'r--x', markersize=2, lw=1)
-        ax.axhline(0, color='k', linestyle='--', alpha=0.3)
-        ax.set_title('Dry Mass per Timestep')
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Mass change (fg)')
-        ax.grid(True, alpha=0.15)
-
-    fig.suptitle('v1 vs v2 — Mass Components Over Time', fontsize=13)
-    fig.tight_layout()
-    return fig_to_b64(fig)
-
-
-def plot_unique_comparison(comp):
-    """Plot unique molecule counts and chromosome state for v1 vs v2."""
-    v1_unique = comp.get('v1_unique', {})
-    v2_unique = comp.get('v2_unique', {})
-    v1_chrom = comp.get('v1_chromosome', {})
-    v2_chrom = comp.get('v2_chromosome', {})
-
-    all_names = sorted(set(list(v1_unique.keys()) + list(v2_unique.keys())))
-
-    fig, axes = plt.subplots(1, 2, figsize=(16, 6))
-
-    # Bar chart of unique molecule counts
-    if all_names:
-        x = np.arange(len(all_names))
-        v1_vals = [v1_unique.get(n, 0) for n in all_names]
-        v2_vals = [v2_unique.get(n, 0) for n in all_names]
-        width = 0.35
-        axes[0].bar(x - width/2, v1_vals, width, label='v1', color='#dc2626', alpha=0.7)
-        axes[0].bar(x + width/2, v2_vals, width, label='v2', color='#2563eb', alpha=0.7)
-        axes[0].set_xticks(x)
-        axes[0].set_xticklabels([n.replace('_', '\n') for n in all_names], fontsize=7, rotation=45, ha='right')
-        axes[0].set_ylabel('Active Count')
-        axes[0].set_title('Unique Molecule Counts (active)')
-        axes[0].legend()
-        axes[0].grid(True, alpha=0.15, axis='y')
-
-    # Chromosome state text
-    ax = axes[1]
-    ax.axis('off')
-    lines = ['Chromosome State at t=60s', '']
-    lines.append('v2:')
-    lines.append(f'  Full chromosomes: {v2_chrom.get("n_chromosomes", "?")}')
-    if 'division_times' in v2_chrom:
-        lines.append(f'  Division times: {v2_chrom["division_times"]}')
-        lines.append(f'  Has triggered: {v2_chrom["has_triggered"]}')
-    if 'domain_indexes' in v2_chrom:
-        lines.append(f'  Domain indexes: {v2_chrom["domain_indexes"]}')
-
-    if v1_chrom:
-        lines.append('')
-        lines.append('v1:')
-        lines.append(f'  Full chromosomes: {v1_chrom.get("n_chromosomes", "?")}')
-        if 'division_times' in v1_chrom:
-            lines.append(f'  Division times: {v1_chrom["division_times"]}')
-            lines.append(f'  Has triggered: {v1_chrom["has_triggered"]}')
-
-    # Final mass comparison
-    v1_fm = comp.get('v1_final_mass', {})
-    v2_fm = comp.get('v2_final_mass', {})
-    lines.append('')
-    lines.append('Final Mass (fg):')
-    for k in ['dry_mass', 'protein_mass', 'rna_mass', 'dna_mass', 'smallMolecule_mass']:
-        v1v = v1_fm.get(k, 0)
-        v2v = v2_fm.get(k, 0)
-        diff = v2v - v1v if v1v else 0
-        label = k.replace('_mass', '').replace('_', ' ').title()
-        if v1v:
-            lines.append(f'  {label}: v1={v1v:.2f}  v2={v2v:.2f}  diff={diff:+.2f}')
-        else:
-            lines.append(f'  {label}: v2={v2v:.2f}')
-
-    ax.text(0.05, 0.95, '\n'.join(lines), transform=ax.transAxes,
-            fontsize=9, verticalalignment='top', fontfamily='monospace',
-            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-
-    fig.suptitle('v1 vs v2 — Unique Molecules & Chromosome State', fontsize=13)
-    fig.tight_layout()
-    return fig_to_b64(fig)
-
-
 # ---------------------------------------------------------------------------
 # Bigraph Visualization
 # ---------------------------------------------------------------------------
@@ -435,62 +229,10 @@ BIO_COLORS = {
 MAX_COORD = 2_320_826  # Half-genome in bp (OriC to Ter = 4,641,652 / 2)
 
 
-def extract_chromosome_snapshots(composite, duration, interval=10):
-    """Run simulation in chunks, capturing chromosome state at each interval.
-
-    Returns list of dicts with time, n_chromosomes, fork_coords, dna_mass, dry_mass.
-    """
-    snapshots = []
-    cell = composite.state['agents']['0']
-    remaining = duration
-
-    while remaining > 0:
-        chunk = min(interval, remaining)
-        composite.run(chunk)
-        remaining -= chunk
-        cell = composite.state['agents']['0']
-
-        # Extract chromosome state
-        unique = cell.get('unique', {})
-        fc = unique.get('full_chromosome')
-        n_chrom = 0
-        if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
-            n_chrom = int(fc['_entryState'].view(np.bool_).sum())
-
-        rep = unique.get('active_replisome')
-        fork_coords = []
-        if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
-            active = rep[rep['_entryState'].view(np.bool_)]
-            if len(active) > 0 and 'coordinates' in rep.dtype.names:
-                fork_coords = active['coordinates'].tolist()
-
-        mass = cell.get('listeners', {}).get('mass', {})
-        dna_mass = float(mass.get('dna_mass', 0))
-        dry_mass = float(mass.get('dry_mass', 0))
-
-        domains = unique.get('chromosome_domain')
-        n_domains = 0
-        if domains is not None and hasattr(domains, 'dtype') and '_entryState' in domains.dtype.names:
-            n_domains = int(domains['_entryState'].view(np.bool_).sum())
-
-        snapshots.append({
-            'time': float(cell.get('global_time', 0)),
-            'n_chromosomes': n_chrom,
-            'n_domains': n_domains,
-            'fork_coords': fork_coords,
-            'dna_mass': dna_mass,
-            'dry_mass': dry_mass,
-        })
-
-    return snapshots
-
-
 def _coord_to_angle(coord):
     """Convert genome coordinate to angle on circular chromosome."""
-    # OriC at top (π/2), Ter at bottom (-π/2)
-    # Coordinates: 0 = OriC, ±MAX_COORD = Ter
     frac = coord / MAX_COORD  # -1 to +1
-    return np.pi / 2 - frac * np.pi  # OriC=90°, Ter=-90°
+    return np.pi / 2 - frac * np.pi  # OriC=90deg, Ter=-90deg
 
 
 def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
@@ -521,9 +263,7 @@ def plot_chromosome_map(snapshot, ax, title=''):
     rnap_coords = snapshot.get('rnap_coords', [])
     fork_coords = snapshot.get('fork_coords', [])
 
-    # RNAP split evenly across chromosomes
     rnap_per = len(rnap_coords) // max(n_chrom, 1)
-    # Forks: 2 per chromosome (right + left replichore)
     forks_per = 2
 
     if n_chrom == 1:
@@ -536,7 +276,7 @@ def plot_chromosome_map(snapshot, ax, title=''):
         spacing = 2.0 * R + 0.3
         total_h = (n_chrom - 1) * spacing
         for ci in range(n_chrom):
-            cy = total_h / 2 - ci * spacing  # stack top to bottom
+            cy = total_h / 2 - ci * spacing
 
             r_start = ci * rnap_per
             r_end = r_start + rnap_per if ci < n_chrom - 1 else len(rnap_coords)
@@ -625,7 +365,7 @@ def plot_chromosome_state(snapshots, title=''):
     ax.plot(times, dry, color='#f59e0b', lw=2, label='Dry mass')
     ax.plot(times, dna, color='#8b5cf6', lw=1.5, label='DNA mass')
     if dry:
-        ax.axhline(dry[0] * 2, color='red', lw=1, ls=':', alpha=0.4, label='~2× initial (division)')
+        ax.axhline(dry[0] * 2, color='red', lw=1, ls=':', alpha=0.4, label='~2x initial (division)')
     ax.set_ylabel('Mass (fg)')
     ax.set_xlabel('Time (s)')
     ax.set_title('Mass Growth')
@@ -692,51 +432,6 @@ def plot_long_sim_growth(snapshots, title=''):
     ax.grid(True, alpha=0.15)
 
     fig.tight_layout()
-    return fig_to_b64(fig)
-
-
-def plot_long_mass_fractions(snapshots, title=''):
-    """Plot mass component fractions over the full cell cycle."""
-    if not snapshots:
-        return None
-    times = [s['time'] for s in snapshots]
-    dry = [s.get('dry_mass', 0) for s in snapshots]
-    protein = [s.get('protein_mass', 0) for s in snapshots]
-    rna = [s.get('rna_mass', 0) for s in snapshots]
-    dna = [s.get('dna_mass', 0) for s in snapshots]
-    sm = [s.get('smallMolecule_mass', 0) for s in snapshots]
-
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    fig.suptitle(title or 'Mass Components', fontsize=13)
-
-    # Absolute mass
-    ax = axes[0]
-    ax.plot(times, dry, 'k-', lw=2, label='Dry mass')
-    ax.plot(times, protein, '-', color='#22c55e', lw=1.5, label='Protein')
-    ax.plot(times, rna, '-', color='#3b82f6', lw=1.5, label='RNA')
-    ax.plot(times, dna, '-', color='#8b5cf6', lw=1.5, label='DNA')
-    ax.plot(times, sm, '-', color='#f59e0b', lw=1.5, label='Small molecules')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Mass (fg)')
-    ax.set_title('Absolute Mass')
-    ax.legend(fontsize=8)
-
-    # Mass fractions (fraction of dry mass)
-    ax = axes[1]
-    for vals, label, color in [
-        (protein, 'Protein', '#22c55e'),
-        (rna, 'RNA', '#3b82f6'),
-        (dna, 'DNA', '#8b5cf6'),
-        (sm, 'Small mol', '#f59e0b'),
-    ]:
-        fracs = [v / d if d > 0 else 0 for v, d in zip(vals, dry)]
-        ax.plot(times, fracs, '-', color=color, lw=1.5, label=label)
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Fraction of dry mass')
-    ax.set_title('Mass Fractions')
-    ax.legend(fontsize=8)
-
-    plt.tight_layout()
     return fig_to_b64(fig)
 
 
@@ -890,150 +585,6 @@ def make_bigraph_svg(state):
 
 
 # ---------------------------------------------------------------------------
-# Data Collection Helpers
-# ---------------------------------------------------------------------------
-
-def _collect_v2_timeseries(composite, duration):
-    """Run v2, collect per-timestep bulk, mass, and unique data from emitter."""
-    cell = composite.state['agents']['0']
-
-    v2_initial_bulk = np.array(cell['bulk']['count'], copy=True)
-
-    t0 = time.time()
-    composite.run(duration)
-    v2_time = time.time() - t0
-
-    cell = composite.state['agents']['0']
-    em = cell.get('emitter', {}).get('instance')
-    v2_history = em.history if em else []
-
-    v2_bulk_ts = {}
-    v2_mass_ts = {}
-    for snap in v2_history:
-        t = int(snap.get('global_time', 0))
-        bulk = snap.get('bulk')
-        if bulk is not None and hasattr(bulk, 'dtype') and 'count' in bulk.dtype.names:
-            v2_bulk_ts[t] = bulk['count'].copy()
-        mass = snap.get('listeners', {}).get('mass', {})
-        if isinstance(mass, dict) and mass:
-            v2_mass_ts[t] = dict(mass)
-
-    # Unique molecule counts from final state
-    unique = cell.get('unique', {})
-    v2_unique = {}
-    for name, arr in unique.items():
-        if hasattr(arr, 'dtype') and '_entryState' in arr.dtype.names:
-            v2_unique[name] = int(arr['_entryState'].view(np.bool_).sum())
-
-    # Full chromosome details
-    fc = unique.get('full_chromosome')
-    v2_chrom = {}
-    if fc is not None and hasattr(fc, 'dtype'):
-        active = fc[fc['_entryState'].view(np.bool_)]
-        v2_chrom['n_chromosomes'] = len(active)
-        if 'division_time' in fc.dtype.names:
-            dt, htd = ecoli_attrs(fc, ['division_time', 'has_triggered_division'])
-            v2_chrom['division_times'] = dt.tolist()
-            v2_chrom['has_triggered'] = htd.tolist()
-        if 'domain_index' in fc.dtype.names:
-            (di,) = ecoli_attrs(fc, ['domain_index'])
-            v2_chrom['domain_indexes'] = di.tolist()
-
-    return {
-        'time': v2_time,
-        'initial_bulk': v2_initial_bulk,
-        'final_bulk': cell['bulk']['count'].copy(),
-        'bulk_ts': v2_bulk_ts,
-        'mass_ts': v2_mass_ts,
-        'unique_counts': v2_unique,
-        'chromosome': v2_chrom,
-        'final_mass': dict(cell.get('listeners', {}).get('mass', {})),
-    }
-
-
-def _collect_v1_timeseries(duration):
-    """Run v1, collect per-timestep bulk, mass, and unique data."""
-    try:
-        if not hasattr(np, 'in1d'):
-            np.in1d = np.isin
-
-        saved_argv = sys.argv
-        sys.argv = [sys.argv[0]]
-        with chdir(V1_ROOT_PATH):
-            sim = EcoliSim.from_file()
-            sim.max_duration = int(duration)
-            sim.emitter = 'timeseries'
-            sim.divide = False
-            sim.build_ecoli()
-            v1_initial = sim.generated_initial_state['bulk']['count'].copy()
-            t0 = time.time()
-            sim.run()
-            v1_time = time.time() - t0
-        sys.argv = saved_argv
-
-        v1_state = sim.ecoli_experiment.state.get_value(condition=not_a_process)
-        v1_final = v1_state['bulk']['count'].copy()
-
-        v1_ts = sim.query()
-        v1_bulk_ts = {}
-        v1_mass_ts = {}
-        for t_key in sorted(v1_ts.keys()):
-            if not isinstance(t_key, (int, float)):
-                continue
-            t = int(t_key)
-            snapshot = v1_ts[t_key]
-            if not isinstance(snapshot, dict):
-                continue
-
-            bulk = snapshot.get('bulk')
-            if bulk is not None:
-                if hasattr(bulk, 'dtype') and 'count' in (bulk.dtype.names or []):
-                    v1_bulk_ts[t] = np.array(bulk['count'], dtype=float)
-                elif isinstance(bulk, (list, np.ndarray)):
-                    v1_bulk_ts[t] = np.array(bulk, dtype=float)
-
-            mass = snapshot.get('listeners', {}).get('mass', {})
-            if isinstance(mass, dict) and mass:
-                entry = {}
-                for k, v in mass.items():
-                    try:
-                        entry[k] = float(v)
-                    except (TypeError, ValueError):
-                        pass
-                v1_mass_ts[t] = entry
-
-        v1_unique = {}
-        unique = v1_state.get('unique', {})
-        for name, arr in unique.items():
-            if hasattr(arr, 'dtype') and '_entryState' in arr.dtype.names:
-                v1_unique[name] = int(arr['_entryState'].view(np.bool_).sum())
-
-        v1_chrom = {}
-        fc = unique.get('full_chromosome')
-        if fc is not None and hasattr(fc, 'dtype'):
-            active = fc[fc['_entryState'].view(np.bool_)]
-            v1_chrom['n_chromosomes'] = len(active)
-            if 'division_time' in fc.dtype.names:
-                dt, htd = ecoli_attrs(fc, ['division_time', 'has_triggered_division'])
-                v1_chrom['division_times'] = dt.tolist()
-                v1_chrom['has_triggered'] = htd.tolist()
-
-        return {
-            'time': v1_time,
-            'initial_bulk': v1_initial,
-            'final_bulk': v1_final,
-            'bulk_ts': v1_bulk_ts,
-            'mass_ts': v1_mass_ts,
-            'unique_counts': v1_unique,
-            'chromosome': v1_chrom,
-            'final_mass': v1_mass_ts.get(int(duration), {}),
-        }
-    except Exception as e:
-        print(f"  v1 comparison skipped: {e}")
-        return None
-
-
-# ---------------------------------------------------------------------------
 # Step Diagnostics
 # ---------------------------------------------------------------------------
 
@@ -1079,6 +630,100 @@ def bench_step_diagnostics(composite):
         diagnostics.append(info)
 
     return diagnostics
+
+
+# ---------------------------------------------------------------------------
+# v1 Lifecycle Data Collection
+# ---------------------------------------------------------------------------
+
+def _collect_v1_lifecycle(duration):
+    """Run v1 for the full lifecycle, extracting data from emitted listeners.
+
+    The v1 timeseries emitter captures:
+    - listeners.mass (dry_mass, dna_mass, etc.)
+    - listeners.replication_data (fork_coordinates, number_of_oric)
+    - listeners.unique_molecule_counts (full_chromosome, active_RNAP, etc.)
+    - listeners.rnap_data (active_rnap_coordinates)
+    """
+    try:
+        if not hasattr(np, 'in1d'):
+            np.in1d = np.isin
+
+        saved_argv = sys.argv
+        sys.argv = [sys.argv[0]]
+
+        with chdir(V1_ROOT_PATH):
+            sim = EcoliSim.from_file()
+            sim.max_duration = int(duration)
+            sim.emitter = 'timeseries'
+            sim.divide = False
+            sim.build_ecoli()
+
+            t0 = time.time()
+            sim.run()
+            wall_time = time.time() - t0
+
+        sys.argv = saved_argv
+        print(f"    v1 completed in {wall_time:.0f}s")
+
+        # Extract snapshots from emitted timeseries (every SNAPSHOT_INTERVAL)
+        v1_ts = sim.query()
+        snapshots = []
+        for t_key in sorted(v1_ts.keys()):
+            if not isinstance(t_key, (int, float)):
+                continue
+            t = int(t_key)
+            if t % SNAPSHOT_INTERVAL != 0 and t != 1:
+                continue
+            snap = v1_ts[t_key]
+            if not isinstance(snap, dict):
+                continue
+
+            listeners = snap.get('listeners', {})
+            mass = listeners.get('mass', {})
+            dry_mass = float(mass.get('dry_mass', 0)) if isinstance(mass, dict) else 0
+            dna_mass = float(mass.get('dna_mass', 0)) if isinstance(mass, dict) else 0
+
+            # Chromosome count from unique_molecule_counts listener
+            umc = listeners.get('unique_molecule_counts', {})
+            n_chrom = 0
+            if isinstance(umc, dict):
+                fc_count = umc.get('full_chromosome', 0)
+                n_chrom = int(fc_count) if isinstance(fc_count, (int, float, np.integer)) else 0
+
+            # Replication fork coordinates from replication_data listener
+            rd = listeners.get('replication_data', {})
+            fork_coords = []
+            if isinstance(rd, dict):
+                fc = rd.get('fork_coordinates')
+                if fc is not None:
+                    if isinstance(fc, (list, np.ndarray)) and len(fc) > 0:
+                        fork_coords = [int(c) for c in fc]
+
+            # Active RNAP count from rnap_data listener
+            rnap_data = listeners.get('rnap_data', {})
+            n_rnap = 0
+            if isinstance(rnap_data, dict):
+                rnap_coords = rnap_data.get('active_rnap_coordinates')
+                if rnap_coords is not None and hasattr(rnap_coords, '__len__'):
+                    n_rnap = len(rnap_coords)
+
+            snapshots.append({
+                'time': t,
+                'n_chromosomes': n_chrom,
+                'fork_coords': fork_coords,
+                'n_rnap': n_rnap,
+                'dna_mass': dna_mass,
+                'dry_mass': dry_mass,
+            })
+
+        print(f"    {len(snapshots)} snapshots extracted")
+        return snapshots
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"    v1 lifecycle failed: {e}")
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -1228,7 +873,6 @@ def step_parca():
 
     parca_ran = False
     if os.path.exists(sim_data_cache):
-        # Cache already exists — skip ParCa entirely
         print(f"    Cache exists at {CACHE_DIR}")
         parca_time = 0.0
         cache_time = 0.0
@@ -1344,265 +988,23 @@ def step_load_model():
     return meta, composite
 
 
-def step_short_sim(composite):
-    """Step 4: Run 60s simulation with comprehensive diagnostics."""
-    step_name = 'short_sim'
-    duration = COMPARISON_DURATION
-    meta = load_meta(step_name)
-    if meta is not None:
-        print(f"  Step 4: Short Simulation (cached)")
-        # Load cached history for plotting
-        try:
-            state_data = load_state_data(step_name)
-            history = state_data.get('history', [])
-        except Exception:
-            history = []
-        return meta, history
-
-    print(f"  Step 4: Short Simulation ({duration}s)")
-    cell = composite.state['agents']['0']
-    bulk_before = np.array(cell['bulk']['count'], copy=True)
-
-    t0 = time.time()
-    composite.run(duration)
-    wall_time = time.time() - t0
-
-    cell = composite.state['agents']['0']
-    bulk_after = cell['bulk']['count']
-    changed = (bulk_before != bulk_after).sum()
-
-    em_edge = cell.get('emitter')
-    history = em_edge['instance'].history if isinstance(em_edge, dict) and 'instance' in em_edge else []
-
-    mass = cell.get('listeners', {}).get('mass', {})
-
-    # Extract chromosome snapshots from emitter history
-    chrom_snapshots = []
-    for snap in history:
-        t = snap.get('global_time', 0)
-        m = snap.get('listeners', {}).get('mass', {}) if isinstance(snap.get('listeners'), dict) else {}
-        chrom_snapshots.append({
-            'time': float(t),
-            'n_chromosomes': 1,  # Short sim: always 1 chromosome
-            'n_domains': 3,
-            'fork_coords': [],  # Not captured per-timestep by emitter
-            'dna_mass': float(m.get('dna_mass', 0)),
-            'dry_mass': float(m.get('dry_mass', 0)),
-        })
-    # Get fork coordinates from final state
-    unique = cell.get('unique', {})
-    rep = unique.get('active_replisome')
-    if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
-        active_rep = rep[rep['_entryState'].view(np.bool_)]
-        if len(active_rep) > 0 and 'coordinates' in rep.dtype.names:
-            if chrom_snapshots:
-                chrom_snapshots[-1]['fork_coords'] = active_rep['coordinates'].tolist()
-
-    meta = {
-        'duration': duration,
-        'wall_time': wall_time,
-        'bulk_changed': int(changed),
-        'total_bulk': len(bulk_before),
-        'final_dry_mass': float(mass.get('dry_mass', 0)),
-        'final_cell_mass': float(mass.get('cell_mass', 0)),
-        'final_volume': float(mass.get('volume', 0)),
-        'rate': duration / wall_time,
-        'chromosome_snapshots': chrom_snapshots,
-    }
-    save_meta(step_name, meta)
-
-    # Save history and state for caching
-    save_state_data(step_name, {
-        'history': history,
-    })
-
-    print(f"    {wall_time:.1f}s wall, {changed} molecules changed, "
-          f"{meta['rate']:.1f}x realtime")
-    print(f"    dry_mass={meta['final_dry_mass']:.1f}fg, "
-          f"volume={meta['final_volume']:.4f}fL")
-    return meta, history
-
-
-def step_v1_comparison():
-    """Step 5: Run v1 and v2 for 60s, compare accuracy."""
-    step_name = 'v1_comparison'
-    duration = COMPARISON_DURATION
-    meta = load_meta(step_name)
-    if meta is not None:
-        print(f"  Step 5: v1 Comparison (cached)")
-        try:
-            state_data = load_state_data(step_name)
-            return meta, state_data
-        except Exception:
-            return meta, {}
-
-    print(f"  Step 5: v1 Comparison ({duration}s)")
-
-    # v2
-    composite = make_composite(cache_dir=CACHE_DIR)
-    v2 = _collect_v2_timeseries(composite, duration)
-
-    # v1
-    v1 = _collect_v1_timeseries(duration)
-    v1_available = v1 is not None
-
-    if not v1_available:
-        v1 = {
-            'time': 0,
-            'initial_bulk': v2['initial_bulk'].copy(),
-            'final_bulk': v2['initial_bulk'].copy(),
-            'bulk_ts': {},
-            'mass_ts': {},
-            'unique_counts': {},
-            'chromosome': {},
-            'final_mass': {},
-        }
-
-    # Per-timestep bulk comparison
-    common_times = sorted(set(v1['bulk_ts'].keys()) & set(v2['bulk_ts'].keys()))
-    per_ts_corr = []
-    per_ts_exact = []
-    per_ts_rmse = []
-    for t in common_times:
-        v1_c = v1['bulk_ts'][t].astype(float)
-        v2_c = v2['bulk_ts'][t].astype(float)
-        if len(v1_c) == len(v2_c) and len(v1_c) > 0:
-            corr = np.corrcoef(v1_c, v2_c)[0, 1]
-            exact = np.mean(v1_c == v2_c)
-            rmse = np.sqrt(np.mean((v1_c - v2_c) ** 2))
-            per_ts_corr.append(corr)
-            per_ts_exact.append(exact)
-            per_ts_rmse.append(rmse)
-
-    # Final-state delta correlation
-    both = (v1['initial_bulk'] != v1['final_bulk']) & (v2['initial_bulk'] != v2['final_bulk'])
-    d1 = v1['final_bulk'][both] - v1['initial_bulk'][both]
-    d2 = v2['final_bulk'][both] - v2['initial_bulk'][both]
-    delta_corr = np.corrcoef(d1.astype(float), d2.astype(float))[0, 1] if both.sum() > 0 else 0.0
-
-    # Per-timestep mass comparison — aligned by common timesteps
-    # v1 often has t=0 (initial snapshot) that v2 doesn't; skip it
-    mass_keys = ['dry_mass', 'protein_mass', 'rna_mass', 'dna_mass', 'smallMolecule_mass']
-    mass_comparison = {k: {'v1': [], 'v2': [], 'times': []} for k in mass_keys}
-    common_mass_times = sorted(set(v1['mass_ts'].keys()) & set(v2['mass_ts'].keys()))
-    for t in common_mass_times:
-        for k in mass_keys:
-            mass_comparison[k]['v1'].append(v1['mass_ts'][t].get(k, 0))
-            mass_comparison[k]['v2'].append(v2['mass_ts'][t].get(k, 0))
-            mass_comparison[k]['times'].append(t)
-
-    # Per-category mass accuracy metrics
-    mass_metrics = {}
-    for k in mass_keys:
-        v1_vals = np.array(mass_comparison[k]['v1'])
-        v2_vals = np.array(mass_comparison[k]['v2'])
-        n = min(len(v1_vals), len(v2_vals))
-        if n > 0:
-            v1_v = v1_vals[:n]
-            v2_v = v2_vals[:n]
-            abs_err = np.abs(v2_v - v1_v)
-            pct_err = np.abs(v2_v - v1_v) / np.maximum(np.abs(v1_v), 1e-10) * 100
-            ss_res = np.sum((v2_v - v1_v) ** 2)
-            ss_tot = np.sum((v1_v - v1_v.mean()) ** 2)
-            r2 = 1 - ss_res / ss_tot if ss_tot > 0 else 0.0
-            mass_metrics[k] = {
-                'mean_abs_err': float(abs_err.mean()),
-                'max_abs_err': float(abs_err.max()),
-                'mean_pct_err': float(pct_err.mean()),
-                'max_pct_err': float(pct_err.max()),
-                'final_pct_err': float(pct_err[-1]) if len(pct_err) > 0 else 0,
-                'r2': float(r2),
-                'v1_final': float(v1_v[-1]) if len(v1_v) > 0 else 0,
-                'v2_final': float(v2_v[-1]) if len(v2_v) > 0 else 0,
-            }
-        else:
-            mass_metrics[k] = {
-                'mean_abs_err': 0, 'max_abs_err': 0,
-                'mean_pct_err': 0, 'max_pct_err': 0,
-                'final_pct_err': 0, 'r2': 0,
-                'v1_final': 0, 'v2_final': 0,
-            }
-
-    worst_pct = max(m['max_pct_err'] for m in mass_metrics.values()) if mass_metrics else 0
-
-    comp_data = {
-        'duration': duration,
-        'v1_available': v1_available,
-        'v1_time': v1['time'],
-        'v2_time': v2['time'],
-        'v1_changed': int((v1['initial_bulk'] != v1['final_bulk']).sum()),
-        'v2_changed': int((v2['initial_bulk'] != v2['final_bulk']).sum()),
-        'both_changed': int(both.sum()),
-        'delta_correlation': delta_corr,
-        'common_timesteps': len(common_times),
-        'per_ts_corr': per_ts_corr,
-        'per_ts_exact': per_ts_exact,
-        'per_ts_rmse': per_ts_rmse,
-        'mean_correlation': float(np.mean(per_ts_corr)) if per_ts_corr else 0.0,
-        'mean_exact_match': float(np.mean(per_ts_exact)) if per_ts_exact else 0.0,
-        'mean_rmse': float(np.mean(per_ts_rmse)) if per_ts_rmse else 0.0,
-        'v1_initial': v1['initial_bulk'],
-        'v1_final': v1['final_bulk'],
-        'v2_initial': v2['initial_bulk'],
-        'v2_final': v2['final_bulk'],
-        'mass_comparison': mass_comparison,
-        'mass_metrics': mass_metrics,
-        'worst_pct_error': worst_pct,
-        'v1_unique': v1['unique_counts'],
-        'v2_unique': v2['unique_counts'],
-        'v1_chromosome': v1['chromosome'],
-        'v2_chromosome': v2['chromosome'],
-        'v1_final_mass': v1['final_mass'],
-        'v2_final_mass': v2['final_mass'],
-    }
-
-    # Save full comparison data for caching (includes numpy arrays)
-    save_state_data(step_name, comp_data)
-
-    # Metadata (JSON-safe subset)
-    meta = {
-        'duration': duration,
-        'v1_available': v1_available,
-        'v1_time': v1['time'],
-        'v2_time': v2['time'],
-        'v1_changed': comp_data['v1_changed'],
-        'v2_changed': comp_data['v2_changed'],
-        'both_changed': comp_data['both_changed'],
-        'delta_correlation': float(delta_corr),
-        'common_timesteps': len(common_times),
-        'mean_correlation': comp_data['mean_correlation'],
-        'mean_exact_match': comp_data['mean_exact_match'],
-        'mean_rmse': comp_data['mean_rmse'],
-        'mass_metrics': mass_metrics,
-        'worst_pct_error': worst_pct,
-    }
-    save_meta(step_name, meta)
-
-    print(f"    v1: {v1['time']:.2f}s, v2: {v2['time']:.2f}s, "
-          f"worst_pct_err: {worst_pct:.2f}%")
-    for k, m in mass_metrics.items():
-        label = k.replace('_mass', '').replace('_', ' ').title()
-        print(f"      {label}: mean_err={m['mean_pct_err']:.2f}%, "
-              f"max_err={m['max_pct_err']:.2f}%, R2={m['r2']:.4f}")
-
-    return meta, comp_data
-
-
 def step_long_sim():
-    """Step 6: Run simulation to division with chromosome snapshots.
+    """Step 4: Run v2 simulation to division with chromosome snapshots, then run v1 for same duration.
 
-    Runs in chunks (SNAPSHOT_INTERVAL seconds each), capturing chromosome
+    Runs v2 in chunks (SNAPSHOT_INTERVAL seconds each), capturing chromosome
     state at every interval. Stops when division condition is met (2+
     chromosomes AND dry mass >= 2x initial) or MAX_LONG_DURATION is reached.
     Saves pre-division cell state for the division test.
+
+    Then runs v1 for the same duration for lifecycle comparison.
     """
     step_name = 'long_sim'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 6: Long Simulation (cached)")
+        print(f"  Step 4: Long Simulation (cached)")
         return meta
 
-    print(f"  Step 6: Long Simulation (to division, max {MAX_LONG_DURATION}s)")
+    print(f"  Step 4: Long Simulation (to division, max {MAX_LONG_DURATION}s)")
     composite = make_composite(cache_dir=CACHE_DIR)
 
     cell = composite.state['agents']['0']
@@ -1622,8 +1024,6 @@ def step_long_sim():
         try:
             composite.run(chunk)
         except Exception as e:
-            # Division structural update may crash — that's OK,
-            # the pre-division state was our last snapshot
             print(f"    Simulation stopped at ~t={total_run+chunk}s: {type(e).__name__}")
             divided = True
             break
@@ -1733,7 +1133,6 @@ def step_long_sim():
     agents = composite.state.get('agents', {})
     cell = agents.get('0')
     if cell is None:
-        # Division happened — find any remaining agent for bulk comparison
         for aid, astate in agents.items():
             if isinstance(astate, dict) and 'bulk' in astate:
                 cell = astate
@@ -1749,11 +1148,18 @@ def step_long_sim():
     final_snap = snapshots[-1] if snapshots else {}
 
     # Save pre-division cell state for division test
-    # Save the last pre-division cell state (captured each snapshot)
     save_state_data(step_name, {
         'cell_state': last_cell_data,
         'global_time': final_snap.get('time', 0.0),
     })
+
+    # --- v1 lifecycle comparison ---
+    v1_snapshots = []
+    v1_available = False
+    if V1_AVAILABLE:
+        print(f"    Running v1 for {total_run}s (lifecycle comparison)...")
+        v1_snapshots = _collect_v1_lifecycle(total_run)
+        v1_available = len(v1_snapshots) > 0
 
     meta = {
         'duration': total_run,
@@ -1761,12 +1167,16 @@ def step_long_sim():
         'bulk_changed': changed,
         'total_bulk': len(bulk_before),
         'final_dry_mass': final_snap.get('dry_mass', 0),
-        'final_cell_mass': 0,  # not tracked in snapshots
+        'final_cell_mass': 0,
         'final_volume': 0,
         'rate': total_run / wall_time if wall_time > 0 else 0,
         'division_reached': divided,
         'initial_dry_mass': initial_dry_mass,
         'chromosome_snapshots': snapshots,
+        # Lifecycle comparison data (v1 vs v2)
+        'v1_available': v1_available,
+        'v1_snapshots': v1_snapshots,
+        'v2_snapshots': snapshots,
     }
     save_meta(step_name, meta)
 
@@ -1774,142 +1184,20 @@ def step_long_sim():
           f"{meta['rate']:.1f}x realtime")
     print(f"    dry_mass={meta['final_dry_mass']:.0f}fg, "
           f"division={'reached' if divided else 'not reached'}")
+    if v1_available:
+        print(f"    v1 lifecycle: {len(v1_snapshots)} snapshots")
     return meta
-
-
-def step_lifecycle_comparison(v2_long_meta):
-    """Step 6b: Run v1 for the same duration as the v2 long sim, compare lifecycle."""
-    step_name = 'lifecycle_comparison'
-    meta = load_meta(step_name)
-    if meta is not None:
-        print(f"  Step 6b: Lifecycle Comparison (cached)")
-        return meta
-
-    v2_duration = v2_long_meta.get('duration', 1800)
-    print(f"  Step 6b: Lifecycle v1/v2 Comparison ({v2_duration}s)")
-
-    if not V1_AVAILABLE:
-        print("    v1 not available — skipping")
-        meta = {'v1_available': False, 'duration': v2_duration}
-        save_meta(step_name, meta)
-        return meta
-
-    # Run v1 for the full lifecycle
-    print(f"    Running v1 for {v2_duration}s...")
-    v1_snapshots = _collect_v1_lifecycle(v2_duration)
-
-    # v2 snapshots are already in the long_sim metadata
-    v2_snapshots = v2_long_meta.get('chromosome_snapshots', [])
-
-    meta = {
-        'v1_available': True,
-        'duration': v2_duration,
-        'v1_snapshots': v1_snapshots,
-        'v2_snapshots': v2_snapshots,
-    }
-    save_meta(step_name, meta)
-    return meta
-
-
-def _collect_v1_lifecycle(duration):
-    """Run v1 for the full lifecycle, extracting data from emitted listeners.
-
-    The v1 timeseries emitter captures:
-    - listeners.mass (dry_mass, dna_mass, etc.)
-    - listeners.replication_data (fork_coordinates, number_of_oric)
-    - listeners.unique_molecule_counts (full_chromosome, active_RNAP, etc.)
-    - listeners.rnap_data (active_rnap_coordinates)
-    """
-    try:
-        if not hasattr(np, 'in1d'):
-            np.in1d = np.isin
-
-        saved_argv = sys.argv
-        sys.argv = [sys.argv[0]]
-
-        with chdir(V1_ROOT_PATH):
-            sim = EcoliSim.from_file()
-            sim.max_duration = int(duration)
-            sim.emitter = 'timeseries'
-            sim.divide = False
-            sim.build_ecoli()
-
-            t0 = time.time()
-            sim.run()
-            wall_time = time.time() - t0
-
-        sys.argv = saved_argv
-        print(f"    v1 completed in {wall_time:.0f}s")
-
-        # Extract snapshots from emitted timeseries (every SNAPSHOT_INTERVAL)
-        v1_ts = sim.query()
-        snapshots = []
-        for t_key in sorted(v1_ts.keys()):
-            if not isinstance(t_key, (int, float)):
-                continue
-            t = int(t_key)
-            if t % SNAPSHOT_INTERVAL != 0 and t != 1:
-                continue
-            snap = v1_ts[t_key]
-            if not isinstance(snap, dict):
-                continue
-
-            listeners = snap.get('listeners', {})
-            mass = listeners.get('mass', {})
-            dry_mass = float(mass.get('dry_mass', 0)) if isinstance(mass, dict) else 0
-            dna_mass = float(mass.get('dna_mass', 0)) if isinstance(mass, dict) else 0
-
-            # Chromosome count from unique_molecule_counts listener
-            umc = listeners.get('unique_molecule_counts', {})
-            n_chrom = 0
-            if isinstance(umc, dict):
-                fc_count = umc.get('full_chromosome', 0)
-                n_chrom = int(fc_count) if isinstance(fc_count, (int, float, np.integer)) else 0
-
-            # Replication fork coordinates from replication_data listener
-            rd = listeners.get('replication_data', {})
-            fork_coords = []
-            if isinstance(rd, dict):
-                fc = rd.get('fork_coordinates')
-                if fc is not None:
-                    if isinstance(fc, (list, np.ndarray)) and len(fc) > 0:
-                        fork_coords = [int(c) for c in fc]
-
-            # Active RNAP count from rnap_data listener
-            rnap_data = listeners.get('rnap_data', {})
-            n_rnap = 0
-            if isinstance(rnap_data, dict):
-                rnap_coords = rnap_data.get('active_rnap_coordinates')
-                if rnap_coords is not None and hasattr(rnap_coords, '__len__'):
-                    n_rnap = len(rnap_coords)
-
-            snapshots.append({
-                'time': t,
-                'n_chromosomes': n_chrom,
-                'fork_coords': fork_coords,
-                'n_rnap': n_rnap,
-                'dna_mass': dna_mass,
-                'dry_mass': dry_mass,
-            })
-
-        print(f"    {len(snapshots)} snapshots extracted")
-        return snapshots
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        print(f"    v1 lifecycle failed: {e}")
-        return []
 
 
 def step_division():
-    """Step 7: Test cell division, conservation, and daughter viability."""
+    """Step 5: Test cell division, conservation, and daughter viability."""
     step_name = 'division'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 7: Division (cached)")
+        print(f"  Step 5: Division (cached)")
         return meta
 
-    print(f"  Step 7: Division")
+    print(f"  Step 5: Division")
 
     # Try to load pre-division state from long sim
     prediv_state = None
@@ -2105,7 +1393,7 @@ def _extract_snapshots_from_emitter(composite, label=''):
 
 
 def step_multicell():
-    """Step 8: Divide pre-division cell into 2 daughters, run both for half a generation.
+    """Step 6: Divide pre-division cell into 2 daughters, run both for half a generation.
 
     Builds two daughter composites from the pre-division state, runs each for
     MULTICELL_DURATION seconds, and extracts snapshot data from their emitters.
@@ -2113,10 +1401,10 @@ def step_multicell():
     step_name = 'multicell'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 8: Multicell Simulation (cached)")
+        print(f"  Step 6: Multicell Simulation (cached)")
         return meta
 
-    print(f"  Step 8: Multicell Simulation ({MULTICELL_DURATION}s per daughter)")
+    print(f"  Step 6: Multicell Simulation ({MULTICELL_DURATION}s per daughter)")
 
     # Load pre-division state from long sim
     long_state_path = os.path.join(WORKFLOW_DIR, 'long_sim.dill')
@@ -2259,8 +1547,6 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
     raw = step_results['raw_data']
     parca = step_results['parca']
     model = step_results['load_model']
-    comp_meta = step_results.get('v1_comparison_meta', {})
-    comp_data = step_results.get('v1_comparison_data', {})
     long = step_results['long_sim']
     div = step_results['division']
     multicell = step_results.get('multicell', {})
@@ -2286,7 +1572,6 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
         sz = fi.get('size', 0)
         sz_str = f"{sz/1024:.0f} KB" if sz > 1024 else f"{sz} B"
         fname = fi['name']
-        # Data URI for download link
         file_rows += (f'<tr><td><a href="https://github.com/vivarium-collective/v2ecoli/'
                       f'blob/main/v2ecoli/reconstruction/ecoli/flat/{fname}" '
                       f'target="_blank"><code>{fname}</code></a></td>'
@@ -2302,26 +1587,6 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
           <td>{name}</td><td>{info['mother']}</td>
           <td>{info['d1']}</td><td>{info['d2']}</td>
           <td class="{ok}">{'Yes' if info['conserved'] else 'No'}</td></tr>"""
-
-    # Mass accuracy table rows
-    mass_accuracy_rows = ''
-    mass_labels = {
-        'dry_mass': 'Dry Mass', 'protein_mass': 'Protein',
-        'rna_mass': 'RNA', 'dna_mass': 'DNA', 'smallMolecule_mass': 'Small Molecules',
-    }
-    c_metrics = comp_meta.get('mass_metrics', comp_data.get('mass_metrics', {}))
-    for k, label in mass_labels.items():
-        m = c_metrics.get(k, {})
-        err_color = 'green' if m.get('max_pct_err', 0) < 1 else ('red' if m.get('max_pct_err', 0) > 5 else 'purple')
-        r2_color = 'green' if m.get('r2', 0) > 0.99 else ('red' if m.get('r2', 0) < 0.9 else 'purple')
-        mass_accuracy_rows += f"""<tr>
-          <td><strong>{label}</strong></td>
-          <td>{m.get('v1_final', 0):.2f}</td>
-          <td>{m.get('v2_final', 0):.2f}</td>
-          <td class="{err_color}">{m.get('mean_pct_err', 0):.2f}%</td>
-          <td class="{err_color}">{m.get('max_pct_err', 0):.2f}%</td>
-          <td class="{r2_color}">{m.get('r2', 0):.4f}</td>
-        </tr>"""
 
     # Step diagnostics table
     step_rows = ''
@@ -2342,13 +1607,9 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
     parca_time = parca.get('parca_time', 0)
     cache_time = parca.get('cache_time', 0)
     build_time = model.get('build_time', 0)
-    v1_time = comp_meta.get('v1_time', 0)
-    v2_time = comp_meta.get('v2_time', 0)
-    comp_dur = comp_meta.get('duration', COMPARISON_DURATION)
     long_wall = long.get('wall_time', 0)
     long_dur = long.get('duration', LONG_DURATION)
     long_rate = long.get('rate', 0)
-    worst_pct = comp_meta.get('worst_pct_error', 0)
 
     report_path = os.path.join(WORKFLOW_DIR, 'workflow_report.html')
     with open(report_path, 'w') as f:
@@ -2423,9 +1684,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
     <li><a href="#sec-raw">Raw Data</a></li>
     <li><a href="#sec-parca">ParCa (Parameter Calculator)</a></li>
     <li><a href="#sec-model">Load Model</a></li>
-    <li><a href="#sec-compare">v1 Comparison</a></li>
-    <li><a href="#sec-long">Long Simulation ({long_dur/60:.0f} min)</a></li>
-    <li><a href="#sec-lifecycle">Lifecycle v1/v2 Comparison</a></li>
+    <li><a href="#sec-long">Long Simulation + v1 Comparison ({long_dur/60:.0f} min)</a></li>
     <li><a href="#sec-division">Division</a></li>
     <li><a href="#sec-multicell">Multicell Simulation</a></li>
     <li><a href="#sec-steps">Step Diagnostics</a></li>
@@ -2536,64 +1795,8 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
   <div class="metric"><div class="label">Initial Dry Mass</div><div class="value">{model.get('initial_dry_mass', 0):.1f} fg</div></div>
 </div>
 
-<!-- ===== Step 5: v1 Comparison ===== -->
-<h2 id="sec-compare">4. v1 Comparison ({comp_dur:.0f}s) {cached_badge(comp_meta)}</h2>
-
-<div class="section">
-  <h3>Methodology</h3>
-  <p>Both v1 (vEcoli) and v2 (v2ecoli) simulations run for {comp_dur:.0f} seconds with identical
-     initial states from the same simData. Accuracy is measured by comparing mass components
-     (dry mass, protein, RNA, DNA, small molecules) at each simulated second.</p>
-</div>
-
-<h3>Mass Component Accuracy</h3>
-<div class="section" style="overflow-x: auto;">
-  <table>
-    <thead><tr>
-      <th>Component</th><th>v1 Final (fg)</th><th>v2 Final (fg)</th>
-      <th>Mean % Error</th><th>Max % Error</th><th>R&sup2;</th>
-    </tr></thead>
-    <tbody>{mass_accuracy_rows}</tbody>
-  </table>
-</div>
-
-<div class="metrics">
-  <div class="metric"><div class="label">Worst % Error</div><div class="value {'green' if worst_pct < 1 else 'red'}">{worst_pct:.2f}%</div></div>
-  <div class="metric"><div class="label">v1 Runtime</div><div class="value red">{v1_time:.2f}s</div></div>
-  <div class="metric"><div class="label">v2 Runtime</div><div class="value blue">{v2_time:.2f}s</div></div>
-  <div class="metric"><div class="label">Timesteps</div><div class="value">{comp_meta.get('common_timesteps', 0)}</div></div>
-</div>""")
-
-        if plots.get('mass_comp'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["mass_comp"]}" alt="Mass Comparison"></div>\n')
-
-        f.write(f"""
-<h3>Unique Molecules & Chromosome State</h3>""")
-
-        if plots.get('unique_comp'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["unique_comp"]}" alt="Unique Comparison"></div>\n')
-
-        f.write(f"""
-<details>
-<summary>Bulk Molecule Correlation (supplementary)</summary>
-<div class="section">
-  <p><em>Note: Bulk correlation across all molecules is dominated by invariant counts
-  and does not reflect accuracy of biologically active molecules. Use mass component metrics above instead.</em></p>
-  <div class="metrics">
-    <div class="metric"><div class="label">Mean Correlation</div><div class="value">{comp_meta.get('mean_correlation', 0):.6f}</div></div>
-    <div class="metric"><div class="label">Mean Exact Match</div><div class="value">{comp_meta.get('mean_exact_match', 0)*100:.2f}%</div></div>
-    <div class="metric"><div class="label">Mean RMSE</div><div class="value">{comp_meta.get('mean_rmse', 0):.2f}</div></div>
-  </div>""")
-
-        if plots.get('comparison'):
-            f.write(f'  <div class="plot"><img src="data:image/png;base64,{plots["comparison"]}" alt="Bulk Comparison"></div>\n')
-
-        f.write(f"""
-</div>
-</details>
-
-<!-- ===== Step 6: Long Sim ===== -->
-<h2 id="sec-long">5. Long Simulation ({long_dur/60:.0f} min) {cached_badge(long)}</h2>
+<!-- ===== Step 4: Long Sim + v1 Comparison ===== -->
+<h2 id="sec-long">4. Long Simulation + v1 Comparison ({long_dur/60:.0f} min) {cached_badge(long)}</h2>
 <div class="metrics">
   <div class="metric"><div class="label">Sim Duration</div><div class="value">{long_dur:.0f}s</div></div>
   <div class="metric"><div class="label">Wall Time</div><div class="value blue">{long_wall:.1f}s</div></div>
@@ -2608,25 +1811,23 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
         if plots.get('growth_long'):
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["growth_long"]}" alt="Growth Metrics"></div>\n')
 
-        # Lifecycle comparison
-        lifecycle = step_results.get('lifecycle', {})
+        # Lifecycle comparison section
         f.write(f"""
-<!-- ===== Step 6b: Lifecycle Comparison ===== -->
-<h2 id="sec-lifecycle">5b. Lifecycle v1/v2 Comparison {cached_badge(lifecycle)}</h2>
+<h3>v1/v2 Lifecycle Comparison</h3>
 <div class="section">
   <p>Side-by-side comparison of v1 (vEcoli) and v2 (v2ecoli) over the full cell lifecycle
-  ({lifecycle.get('duration', 0):.0f}s). Compares mass growth, chromosome replication,
+  ({long_dur:.0f}s). Compares mass growth, chromosome replication,
   RNAP activity, and replication fork dynamics.</p>
 </div>""")
 
         if plots.get('lifecycle'):
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["lifecycle"]}" alt="Lifecycle Comparison"></div>\n')
-        elif not lifecycle.get('v1_available', True):
+        elif not long.get('v1_available', True):
             f.write('<div class="section"><p>v1 not available for lifecycle comparison.</p></div>\n')
 
         f.write(f"""
-<!-- ===== Step 7: Division ===== -->
-<h2 id="sec-division">6. Division {cached_badge(div)}</h2>
+<!-- ===== Step 5: Division ===== -->
+<h2 id="sec-division">5. Division {cached_badge(div)}</h2>
 
 <div class="section">
   <h3>How Division Works</h3>
@@ -2671,8 +1872,8 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 </div>
 </details>
 
-<!-- ===== Step 8: Multicell Simulation ===== -->
-<h2 id="sec-multicell">7. Multicell Simulation {cached_badge(multicell)}</h2>""")
+<!-- ===== Step 6: Multicell Simulation ===== -->
+<h2 id="sec-multicell">6. Multicell Simulation {cached_badge(multicell)}</h2>""")
 
         if multicell.get('skipped'):
             f.write(f"""
@@ -2705,7 +1906,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 
         f.write(f"""
 <!-- ===== Step Diagnostics ===== -->
-<h2 id="sec-steps">8. Step Diagnostics ({len(diagnostics)} steps)</h2>
+<h2 id="sec-steps">7. Step Diagnostics ({len(diagnostics)} steps)</h2>
 <details open>
 <summary>Execution Flow</summary>
 <div class="section" style="overflow-x: auto;">
@@ -2717,7 +1918,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 </details>
 
 <!-- ===== Bigraph ===== -->
-<h2 id="sec-bigraph">9. Process-Bigraph Network Visualization</h2>
+<h2 id="sec-bigraph">8. Process-Bigraph Network Visualization</h2>
 <div class="section">
   <p>Interactive visualization of the biological process network. Scroll to zoom, drag to pan.
   Steps (colored) read from and write to shared stores (bulk, unique, listeners, request, allocate).</p>
@@ -2780,7 +1981,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 </script>
 
 <!-- ===== Timing Summary ===== -->
-<h2 id="sec-timing">10. Timing Summary</h2>
+<h2 id="sec-timing">9. Timing Summary</h2>
 <div class="section">
   <table>
     <tr><th>Step</th><th>Wall Time</th><th>Sim Time</th><th>Sim/Wall Ratio</th></tr>
@@ -2788,11 +1989,9 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
     <tr><td>2. ParCa</td><td>{parca_time:.1f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
     <tr><td>3. Cache generation</td><td>{cache_time:.1f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
     <tr><td>3. Document build</td><td>{build_time:.2f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td>5. v1 comparison (v1)</td><td>{v1_time:.2f}s</td><td>{comp_dur:.0f}s</td><td>{comp_dur/max(v1_time, 0.01):.1f}x</td></tr>
-    <tr><td>5. v1 comparison (v2)</td><td>{v2_time:.2f}s</td><td>{comp_dur:.0f}s</td><td>{comp_dur/max(v2_time, 0.01):.1f}x</td></tr>
-    <tr><td>6. Long simulation</td><td>{long_wall:.1f}s</td><td>{long_dur:.0f}s</td><td>{long_rate:.1f}x</td></tr>
-    <tr><td>7. Division</td><td>{div.get('split_time', 0):.3f}s + {div.get('daughter_build_time', 0):.1f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td><strong>Total</strong></td><td><strong>{raw.get('elapsed', 0)+parca_time+cache_time+build_time+v1_time+v2_time+long_wall:.0f}s</strong></td><td>&mdash;</td><td>&mdash;</td></tr>
+    <tr><td>4. Long simulation</td><td>{long_wall:.1f}s</td><td>{long_dur:.0f}s</td><td>{long_rate:.1f}x</td></tr>
+    <tr><td>5. Division</td><td>{div.get('split_time', 0):.3f}s + {div.get('daughter_build_time', 0):.1f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
+    <tr><td><strong>Total</strong></td><td><strong>{raw.get('elapsed', 0)+parca_time+cache_time+build_time+long_wall:.0f}s</strong></td><td>&mdash;</td><td>&mdash;</td></tr>
   </table>
 </div>
 
@@ -2837,30 +2036,20 @@ def run_workflow():
     model_meta, composite = step_load_model()
     step_results['load_model'] = model_meta
 
-    # Step 4: v1 Comparison
-    comp_meta, comp_data = step_v1_comparison()
-    step_results['v1_comparison_meta'] = comp_meta
-    step_results['v1_comparison_data'] = comp_data
-
-    # Step 6: Long Simulation
+    # Step 4: Long Simulation (includes v1 lifecycle comparison)
     long_meta = step_long_sim()
     step_results['long_sim'] = long_meta
 
-    # Step 6b: Lifecycle v1/v2 Comparison
-    lifecycle_meta = step_lifecycle_comparison(long_meta)
-    step_results['lifecycle'] = lifecycle_meta
-
-    # Step 7: Division
+    # Step 5: Division
     div_meta = step_division()
     step_results['division'] = div_meta
 
-    # Step 8: Multicell Simulation
+    # Step 6: Multicell Simulation
     multicell_meta = step_multicell()
     step_results['multicell'] = multicell_meta
 
     # Step Diagnostics (always run, uses the composite from step 3)
     print("  Diagnostics: Step analysis")
-    # Need a fresh composite if step 4 already ran on the original
     diag_composite = make_composite(cache_dir=CACHE_DIR)
     diagnostics = bench_step_diagnostics(diag_composite)
     print(f"    {len(diagnostics)} steps analyzed")
@@ -2873,12 +2062,6 @@ def run_workflow():
     print("  Generating plots...")
     plots = {}
 
-    # v1 comparison plots
-    if isinstance(comp_data, dict) and 'v1_initial' in comp_data:
-        plots['comparison'] = plot_comparison(comp_data)
-        plots['mass_comp'] = plot_mass_comparison(comp_data)
-        plots['unique_comp'] = plot_unique_comparison(comp_data)
-
     # Long sim plots
     chrom_snaps = long_meta.get('chromosome_snapshots', [])
     if chrom_snaps:
@@ -2888,10 +2071,9 @@ def run_workflow():
         plots['growth_long'] = plot_long_sim_growth(
             chrom_snaps, f'Growth Metrics ({dur/60:.0f} min)')
 
-    # Lifecycle v1/v2 comparison plot
-    lifecycle = step_results.get('lifecycle', {})
-    if lifecycle.get('v1_available') or lifecycle.get('v1_snapshots'):
-        plots['lifecycle'] = plot_lifecycle_comparison(lifecycle)
+    # Lifecycle v1/v2 comparison plot (data is in long_meta)
+    if long_meta.get('v1_available') or long_meta.get('v1_snapshots'):
+        plots['lifecycle'] = plot_lifecycle_comparison(long_meta)
 
     # Multicell plots
     multicell = step_results.get('multicell', {})

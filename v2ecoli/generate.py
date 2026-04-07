@@ -57,28 +57,18 @@ EXECUTION_LAYERS = [
     ['ecoli-tf-binding'],
     ['unique_update_5'],
 
-    # Layer 4: complexation (standalone, no allocation needed)
+    # Layer 4: standalone processes (sequential)
     ['ecoli-complexation'],
-
-    # Layer 4b: protein degradation (standalone)
     ['ecoli-protein-degradation'],
-
-    # Layer 4c: partition layer 2 — requesters (parallel)
-    ['ecoli-chromosome-replication_requester',
-     'ecoli-polypeptide-initiation_requester',
-     'ecoli-rna-degradation_requester', 'ecoli-transcript-initiation_requester'],
-    ['allocator_2'],
-    # Layer 4c: partition layer 2 — evolvers (parallel)
-    ['ecoli-chromosome-replication_evolver',
-     'ecoli-polypeptide-initiation_evolver',
-     'ecoli-rna-degradation_evolver', 'ecoli-transcript-initiation_evolver'],
+    ['ecoli-rna-degradation'],
+    ['ecoli-transcript-initiation'],
+    ['ecoli-polypeptide-initiation'],
+    ['ecoli-chromosome-replication'],
     ['unique_update_6'],
 
-    # Layer 5: partition layer 3 — elongation requesters (parallel)
-    ['ecoli-polypeptide-elongation_requester', 'ecoli-transcript-elongation_requester'],
-    ['allocator_3'],
-    # Layer 5: partition layer 3 — elongation evolvers (parallel)
-    ['ecoli-polypeptide-elongation_evolver', 'ecoli-transcript-elongation_evolver'],
+    # Layer 5: elongation (sequential)
+    ['ecoli-transcript-elongation'],
+    ['ecoli-polypeptide-elongation'],
     ['unique_update_7'],
 
     # Layer 6: chromosome structure + metabolism (sequential)
@@ -367,19 +357,6 @@ def build_document(sim_data_path=None, seed=0):
     # Seed random state for allocator
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
 
-    # Pre-create flat per-process request/allocate stores
-    _ALL_PARTITIONED = [
-        'ecoli-chromosome-replication',
-        'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
-        'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
-        'ecoli-rna-degradation', 'ecoli-rna-maturation',
-        'ecoli-transcript-elongation', 'ecoli-transcript-initiation',
-        'ecoli-two-component-system',
-    ]
-    for proc_name in _ALL_PARTITIONED:
-        cell_state[f'request_{proc_name}'] = {'bulk': []}
-        cell_state[f'allocate_{proc_name}'] = {'bulk': {}}
-
     # Pre-populate process_state with defaults that metabolism needs
     cell_state.setdefault('process_state', {})
     cell_state['process_state'].setdefault('polypeptide_elongation', {
@@ -458,19 +435,6 @@ def build_document_from_configs(initial_state, configs, unique_names,
     cell_state.setdefault('listeners', {})
     cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
-
-    # Pre-create flat per-process request/allocate stores
-    _ALL_PARTITIONED = [
-        'ecoli-chromosome-replication',
-        'ecoli-equilibrium', 'ecoli-polypeptide-elongation',
-        'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
-        'ecoli-rna-degradation', 'ecoli-rna-maturation',
-        'ecoli-transcript-elongation', 'ecoli-transcript-initiation',
-        'ecoli-two-component-system',
-    ]
-    for proc_name in _ALL_PARTITIONED:
-        cell_state[f'request_{proc_name}'] = {'bulk': []}
-        cell_state[f'allocate_{proc_name}'] = {'bulk': {}}
 
     cell_state.setdefault('process_state', {})
     cell_state['process_state'].setdefault('polypeptide_elongation', {
@@ -569,20 +533,14 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     from v2ecoli.processes.rna_maturation import RnaMaturationStep
     from v2ecoli.processes.tf_binding import TfBindingLogic, TfBindingStep
     from v2ecoli.processes.tf_unbinding import TfUnbindingLogic, TfUnbindingStep
-    from v2ecoli.processes.transcript_initiation import (
-        TranscriptInitiationLogic, TranscriptInitiationRequester, TranscriptInitiationEvolver)
-    from v2ecoli.processes.polypeptide_initiation import (
-        PolypeptideInitiationLogic, PolypeptideInitiationRequester, PolypeptideInitiationEvolver)
-    from v2ecoli.processes.chromosome_replication import (
-        ChromosomeReplicationLogic, ChromosomeReplicationRequester, ChromosomeReplicationEvolver)
+    from v2ecoli.processes.transcript_initiation import TranscriptInitiationStep
+    from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiationStep
+    from v2ecoli.processes.chromosome_replication import ChromosomeReplicationStep
     from v2ecoli.processes.protein_degradation import ProteinDegradationStep
-    from v2ecoli.processes.rna_degradation import (
-        RnaDegradationLogic, RnaDegradationRequester, RnaDegradationEvolver)
+    from v2ecoli.processes.rna_degradation import RnaDegradationStep
     from v2ecoli.processes.complexation import ComplexationStep
-    from v2ecoli.processes.transcript_elongation import (
-        TranscriptElongationLogic, TranscriptElongationRequester, TranscriptElongationEvolver)
-    from v2ecoli.processes.polypeptide_elongation import (
-        PolypeptideElongationLogic, PolypeptideElongationRequester, PolypeptideElongationEvolver)
+    from v2ecoli.processes.transcript_elongation import TranscriptElongationStep
+    from v2ecoli.processes.polypeptide_elongation import PolypeptideElongationStep
     from v2ecoli.processes.chromosome_structure import ChromosomeStructureLogic, ChromosomeStructureStep
     from v2ecoli.processes.metabolism import MetabolismLogic, MetabolismStep
     from v2ecoli.steps.listeners.mass_listener import MassListener, PostDivisionMassListener
@@ -611,6 +569,12 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'ecoli-rna-maturation': RnaMaturationStep,
         'ecoli-equilibrium': EquilibriumStep,
         'ecoli-two-component-system': TwoComponentSystemStep,
+        'ecoli-rna-degradation': RnaDegradationStep,
+        'ecoli-transcript-initiation': TranscriptInitiationStep,
+        'ecoli-polypeptide-initiation': PolypeptideInitiationStep,
+        'ecoli-chromosome-replication': ChromosomeReplicationStep,
+        'ecoli-transcript-elongation': TranscriptElongationStep,
+        'ecoli-polypeptide-elongation': PolypeptideElongationStep,
     }
 
     SIMPLE_STEPS = {
@@ -627,88 +591,6 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'media_update': MediaUpdate,
         'exchange_data': ExchangeData,
     }
-
-    # --- Explicit Step classes with separate input/output topologies ---
-
-    EXPLICIT_STEPS = {
-        'ecoli-polypeptide-initiation': {
-            'class': PolypeptideInitiationLogic,
-            'requester_class': PolypeptideInitiationRequester,
-            'evolver_class': PolypeptideInitiationEvolver,
-        },
-        'ecoli-transcript-initiation': {
-            'class': TranscriptInitiationLogic,
-            'requester_class': TranscriptInitiationRequester,
-            'evolver_class': TranscriptInitiationEvolver,
-        },
-        'ecoli-rna-degradation': {
-            'class': RnaDegradationLogic,
-            'requester_class': RnaDegradationRequester,
-            'evolver_class': RnaDegradationEvolver,
-        },
-        'ecoli-polypeptide-elongation': {
-            'class': PolypeptideElongationLogic,
-            'requester_class': PolypeptideElongationRequester,
-            'evolver_class': PolypeptideElongationEvolver,
-        },
-        'ecoli-transcript-elongation': {
-            'class': TranscriptElongationLogic,
-            'requester_class': TranscriptElongationRequester,
-            'evolver_class': TranscriptElongationEvolver,
-        },
-        'ecoli-chromosome-replication': {
-            'class': ChromosomeReplicationLogic,
-            'requester_class': ChromosomeReplicationRequester,
-            'evolver_class': ChromosomeReplicationEvolver,
-        },
-    }
-
-    if base_name in EXPLICIT_STEPS:
-        spec = EXPLICIT_STEPS[base_name]
-        if base_name in process_cache:
-            process = process_cache[base_name]
-        else:
-            process = spec['class'](parameters=config)
-            process_cache[base_name] = process
-        topology = process.topology
-
-        if step_name.endswith('_requester'):
-            req_config = {'process': process, 'process_name': base_name}
-            instance = spec['requester_class'](config=req_config, core=core)
-            # Input: all process stores + timing
-            in_topo = dict(topology)
-            in_topo['global_time'] = ('global_time',)
-            in_topo.setdefault('timestep', ('timestep',))
-            in_topo['next_update_time'] = ('next_update_time', base_name)
-            # Output: flat per-process request store
-            out_ports = set(instance.outputs().keys())
-            out_topo = {'next_update_time': ('next_update_time', base_name)}
-            if 'request' in out_ports:
-                out_topo['request'] = (f'request_{base_name}',)
-            if 'listeners' in out_ports:
-                out_topo['listeners'] = topology.get('listeners', ('listeners',))
-            return instance, topology, 'step', in_topo, out_topo
-
-        elif step_name.endswith('_evolver'):
-            ev_config = {'process': process}
-            instance = spec['evolver_class'](config=ev_config, core=core)
-            # Input: flat per-process allocate store + all process stores + timing
-            in_topo = dict(topology)
-            in_topo['allocate'] = (f'allocate_{base_name}',)
-            in_topo['global_time'] = ('global_time',)
-            in_topo.setdefault('timestep', ('timestep',))
-            in_topo['next_update_time'] = ('next_update_time', base_name)
-            # Output: only stores the evolver writes to
-            out_ports = set(instance.outputs().keys())
-            out_topo = {'next_update_time': ('next_update_time', base_name)}
-            for port in out_ports:
-                if port == 'next_update_time':
-                    continue
-                if port in topology:
-                    out_topo[port] = topology[port]
-                elif port == 'listeners':
-                    out_topo['listeners'] = ('listeners',)
-            return instance, topology, 'step', in_topo, out_topo
 
     if step_name in STANDALONE_STEPS:
         step_cls = STANDALONE_STEPS[step_name]
@@ -728,7 +610,6 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
 def _get_special_step(loader, step_name, core):
     """Handle steps that aren't in LoadSimData's config map."""
     from v2ecoli.steps.unique_update import UniqueUpdate
-    from v2ecoli.steps.allocator import Allocator
 
     unique_names = list(loader.sim_data.internal_state.unique_molecule.unique_molecule_definitions.keys())
     unique_topo = {name: (name,) for name in unique_names}
@@ -757,36 +638,6 @@ def _get_special_step(loader, step_name, core):
         config = {'unique_names': unique_names_v1, 'unique_topo': unique_topo_v1}
         instance = UniqueUpdate(config=config, core=core)
         return instance, unique_topo_v1, 'step'
-
-    if step_name.startswith('allocator'):
-        try:
-            config = loader.get_config_by_name('allocator')
-        except Exception:
-            config = {}
-        all_partitioned = [
-            'ecoli-chromosome-replication',
-            'ecoli-polypeptide-elongation',
-            'ecoli-polypeptide-initiation',
-            'ecoli-rna-degradation',
-            'ecoli-transcript-elongation', 'ecoli-transcript-initiation',
-        ]
-        # Each allocator serves a specific partition layer
-        ALLOCATOR_LAYERS = {
-            'allocator_1': [],
-            'allocator_2': ['ecoli-chromosome-replication',
-                            'ecoli-polypeptide-initiation',
-                            'ecoli-rna-degradation', 'ecoli-transcript-initiation'],
-            'allocator_3': ['ecoli-polypeptide-elongation',
-                            'ecoli-transcript-elongation'],
-        }
-        layer_procs = ALLOCATOR_LAYERS.get(step_name, all_partitioned)
-        if not config.get('process_names'):
-            config['process_names'] = all_partitioned
-        config['layer_processes'] = layer_procs
-        if config:
-            instance = Allocator(config=config, core=core)
-            topo = instance.topology
-            return instance, topo, 'step'
 
     if step_name == 'global_clock':
         from v2ecoli.steps.global_clock import GlobalClock

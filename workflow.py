@@ -46,6 +46,8 @@ except ImportError:
     V1_AVAILABLE = False
 
 from v2ecoli.composite import make_composite, _build_core, save_cache
+from v2ecoli.partitioned import make_partitioned_composite
+
 from v2ecoli.library.division import divide_cell, divide_bulk
 from v2ecoli.library.schema import attrs as ecoli_attrs
 from process_bigraph import Composite
@@ -64,7 +66,14 @@ CACHE_DIR = 'out/cache' if os.path.isdir('out/cache') else 'out/workflow/cache'
 LONG_DURATION = 1800.0  # Legacy label
 MAX_LONG_DURATION = 3600  # Max seconds before giving up on division
 SNAPSHOT_INTERVAL = 50  # Seconds between chromosome snapshots
-MULTICELL_DURATION = 1300  # Half a generation, for multicell simulation
+MULTICELL_DURATION = 120  # Daughter simulation duration (seconds)
+
+# Runtime options (overridden by CLI args)
+_OPTIONS = {
+    'make_composite': make_partitioned_composite,
+    'fetch_biocyc': False,
+    'max_duration': MAX_LONG_DURATION,
+}
 
 # Try to find simData
 _sim_data_candidates = [
@@ -949,7 +958,7 @@ def step_load_model():
     # Always build the composite (needed by later steps), but cache metadata
     print(f"  Step 3: Load Model", end='')
     t0 = time.time()
-    composite = make_composite(cache_dir=CACHE_DIR)
+    composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
     build_time = time.time() - t0
 
     n_steps = len(composite.step_paths)
@@ -1001,8 +1010,9 @@ def step_long_sim():
         print(f"  Step 4: Long Simulation (cached)")
         return meta
 
-    print(f"  Step 4: Long Simulation (to division, max {MAX_LONG_DURATION}s)")
-    composite = make_composite(cache_dir=CACHE_DIR)
+    max_dur = _OPTIONS['max_duration']
+    print(f"  Step 4: Long Simulation (to division, max {max_dur}s)")
+    composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
 
     cell = composite.state['agents']['0']
     bulk_before = np.array(cell['bulk']['count'], copy=True)
@@ -1016,8 +1026,8 @@ def step_long_sim():
     divided = False
     total_run = 0
 
-    while total_run < MAX_LONG_DURATION:
-        chunk = min(SNAPSHOT_INTERVAL, MAX_LONG_DURATION - total_run)
+    while total_run < max_dur:
+        chunk = min(SNAPSHOT_INTERVAL, max_dur - total_run)
         try:
             composite.run(chunk)
         except Exception as e:
@@ -1150,13 +1160,23 @@ def step_long_sim():
         'global_time': final_snap.get('time', 0.0),
     })
 
-    # --- v1 lifecycle comparison ---
+    # --- v1 lifecycle comparison (cached separately, survives --clean) ---
+    v1_cache_path = os.path.join(WORKFLOW_DIR, f'v1_lifecycle_{total_run}s.json')
     v1_snapshots = []
     v1_available = False
-    if V1_AVAILABLE:
+    if os.path.exists(v1_cache_path):
+        with open(v1_cache_path) as f:
+            v1_snapshots = json.load(f)
+        v1_available = len(v1_snapshots) > 0
+        print(f"    v1 lifecycle: loaded {len(v1_snapshots)} cached snapshots")
+    elif V1_AVAILABLE:
         print(f"    Running v1 for {total_run}s (lifecycle comparison)...")
         v1_snapshots = _collect_v1_lifecycle(total_run)
         v1_available = len(v1_snapshots) > 0
+        if v1_available:
+            with open(v1_cache_path, 'w') as f:
+                json.dump(v1_snapshots, f)
+            print(f"    v1 results cached to {v1_cache_path}")
 
     meta = {
         'duration': total_run,
@@ -1231,7 +1251,7 @@ def step_division():
         cell = prediv_state
     else:
         print("    No pre-division checkpoint -- using initial state (t=0)")
-        composite = make_composite(cache_dir=CACHE_DIR)
+        composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
         cell = composite.state['agents']['0']
 
     # Test bulk conservation
@@ -1429,9 +1449,8 @@ def step_multicell():
 
     from v2ecoli.generate import build_document_from_configs
 
-    daughters = {}
-    for label, dstate, seed in [('daughter_1', d1_state, 1), ('daughter_2', d2_state, 2)]:
-        print(f"    Building {label}...")
+    def _run_daughter(label, dstate, seed):
+        """Build and run a single daughter composite, return results dict."""
         t0 = time.time()
         doc = build_document_from_configs(
             dstate, configs, unique_names,
@@ -1439,28 +1458,23 @@ def step_multicell():
         comp = Composite(doc, core=_build_core())
         build_time = time.time() - t0
 
-        # Get initial mass
         d_cell = comp.state['agents']['0']
         d_mass = d_cell.get('listeners', {}).get('mass', {})
         initial_dry = float(d_mass.get('dry_mass', 0))
 
-        print(f"    Running {label} for {MULTICELL_DURATION}s...")
         t0 = time.time()
         try:
             comp.run(MULTICELL_DURATION)
             run_ok = True
         except Exception as e:
-            print(f"    {label} stopped early: {type(e).__name__}: {e}")
             run_ok = False
         wall_time = time.time() - t0
 
-        # Extract snapshots from emitter
         snaps = _extract_snapshots_from_emitter(comp, label)
-
         final_snap = snaps[-1] if snaps else {}
         final_dry = final_snap.get('dry_mass', 0)
 
-        daughters[label] = {
+        return {
             'build_time': build_time,
             'wall_time': wall_time,
             'run_ok': run_ok,
@@ -1470,10 +1484,16 @@ def step_multicell():
             'n_snapshots': len(snaps),
             'snapshots': snaps,
         }
-        print(f"    {label}: {wall_time:.0f}s wall, "
-              f"dry_mass {initial_dry:.0f} -> {final_dry:.0f}fg "
-              f"({final_dry/initial_dry:.2f}x)" if initial_dry > 0 else
-              f"    {label}: {wall_time:.0f}s wall")
+
+    daughters = {}
+    for label, dstate, seed in [('daughter_1', d1_state, 1), ('daughter_2', d2_state, 2)]:
+        print(f"    Building {label}...")
+        d = _run_daughter(label, dstate, seed)
+        daughters[label] = d
+        if d['initial_dry_mass'] > 0:
+            print(f"    {label}: {d['wall_time']:.0f}s wall, "
+                  f"dry_mass {d['initial_dry_mass']:.0f} -> {d['final_dry_mass']:.0f}fg "
+                  f"({d['fold_change']:.2f}x)")
 
     meta = {
         'duration': MULTICELL_DURATION,
@@ -2022,8 +2042,12 @@ def run_workflow():
 
     step_results = {}
 
-    # Step 0: EcoCyc API
-    biocyc_meta = step_biocyc()
+    # Step 0: EcoCyc API (skipped by default, use --fetch-biocyc to enable)
+    if _OPTIONS['fetch_biocyc']:
+        biocyc_meta = step_biocyc()
+    else:
+        biocyc_meta = load_meta('biocyc') or {'skipped': True, 'files': {}}
+        print(f"  Step 0: EcoCyc API (skipped, use --fetch-biocyc to refresh)")
     step_results['biocyc'] = biocyc_meta
 
     # Step 1: Raw Data
@@ -2046,13 +2070,17 @@ def run_workflow():
     div_meta = step_division()
     step_results['division'] = div_meta
 
-    # Step 6: Multicell Simulation
-    multicell_meta = step_multicell()
+    # Step 6: Multicell Simulation (skip with --no-multicell)
+    if _OPTIONS.get('skip_multicell'):
+        multicell_meta = load_meta('multicell') or {'skipped': True, 'reason': '--no-multicell'}
+        print(f"  Step 6: Multicell Simulation (skipped)")
+    else:
+        multicell_meta = step_multicell()
     step_results['multicell'] = multicell_meta
 
     # Step Diagnostics (always run, uses the composite from step 3)
     print("  Diagnostics: Step analysis")
-    diag_composite = make_composite(cache_dir=CACHE_DIR)
+    diag_composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
     diagnostics = bench_step_diagnostics(diag_composite)
     print(f"    {len(diagnostics)} steps analyzed")
 
@@ -2099,7 +2127,24 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='v2ecoli workflow pipeline')
     parser.add_argument('--clean', action='store_true',
                         help='Clear cached metadata and re-run all steps')
+    parser.add_argument('--model', choices=['partitioned', 'departitioned'],
+                        default='partitioned',
+                        help='Which model architecture to use (default: partitioned)')
+    parser.add_argument('--fetch-biocyc', action='store_true',
+                        help='Fetch fresh data from EcoCyc API (slow, skipped by default)')
+    parser.add_argument('--duration', type=int, default=None,
+                        help='Override max sim duration in seconds (default: run to division)')
+    parser.add_argument('--no-multicell', action='store_true',
+                        help='Skip the multicell simulation step')
     args = parser.parse_args()
+
+    # Apply CLI overrides
+    if args.model == 'departitioned':
+        _OPTIONS['make_composite'] = make_composite
+    _OPTIONS['fetch_biocyc'] = args.fetch_biocyc
+    if args.duration is not None:
+        _OPTIONS['max_duration'] = args.duration
+    _OPTIONS['skip_multicell'] = args.no_multicell
 
     if args.clean:
         import glob as glob_mod

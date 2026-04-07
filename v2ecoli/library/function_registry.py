@@ -404,16 +404,16 @@ def two_component_system_ode_solver_factory(
     _stoich_full = _build_stoich()
 
     def derivatives(t, y):
-        return _stoich_full.dot(_rates[0](t, y, _rates_fwd, _rates_rev))
+        return _stoich_full.dot(_rates[0](y, t))
 
     def derivatives_jit(t, y):
-        return _stoich_full.dot(_rates[1](t, y, _rates_fwd, _rates_rev))
+        return _stoich_full.dot(_rates[1](y, t))
 
     def derivatives_jacobian(t, y):
-        return _stoich_full.dot(_rates_jac[0](t, y, _rates_fwd, _rates_rev))
+        return _stoich_full.dot(_rates_jac[0](y, t))
 
     def derivatives_jacobian_jit(t, y):
-        return _stoich_full.dot(_rates_jac[1](t, y, _rates_fwd, _rates_rev))
+        return _stoich_full.dot(_rates_jac[1](y, t))
 
     def molecules_to_next_time_step(
             moleculeCounts, cellVolume, nAvogadro, timeStepSec,

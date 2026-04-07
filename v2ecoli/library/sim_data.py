@@ -645,7 +645,13 @@ class LoadSimData:
 
         chromosome_replication_config = {
             "time_step": time_step,
-            "get_dna_critical_mass": get_dna_critical_mass,
+            "get_dna_critical_mass": {
+                "_function": "mass.get_dna_critical_mass",
+                "_data": {
+                    "dry_mass_params": [float(x) for x in self.sim_data.mass._dryMassParams],
+                    "cell_dry_mass_fraction": float(self.sim_data.mass.cell_dry_mass_fraction),
+                },
+            },
             "criticalInitiationMass": get_dna_critical_mass(doubling_time),
             "nutrientToDoublingTime": self.sim_data.nutrient_to_doubling_time,
             "replichore_lengths": self.sim_data.process.replication.replichore_lengths,
@@ -761,10 +767,24 @@ class LoadSimData:
             "cell_density": self.sim_data.constants.cell_density,
             "inactive_RNAP": "APORNAP-CPLX[c]",
             "ppgpp": self.sim_data.molecule_ids.ppGpp,
-            "synth_prob": self.sim_data.process.transcription.synth_prob_from_ppgpp,
-            "copy_number": self.sim_data.process.replication.get_average_copy_number,
+            "synth_prob": self.sim_data.process.transcription.synth_prob_from_ppgpp,  # TODO: Phase 2 — complex factory
+            "copy_number": {
+                "_function": "replication.get_average_copy_number",
+                "_data": {
+                    "replichore_lengths": self.sim_data.process.replication.replichore_lengths.tolist(),
+                    "c_period_in_mins": float(self.sim_data.process.replication.c_period.asNumber(units.min)),
+                    "d_period_in_mins": float(self.sim_data.process.replication.d_period.asNumber(units.min)),
+                },
+            },
             "ppgpp_regulation": self.ppgpp_regulation,
-            "get_rnap_active_fraction_from_ppGpp": self.sim_data.process.transcription.get_rnap_active_fraction_from_ppGpp,
+            "get_rnap_active_fraction_from_ppGpp": {
+                "_function": "transcription.get_rnap_active_fraction_from_ppGpp",
+                "_data": {
+                    "fraction_active_rnap_bound": float(self.sim_data.process.transcription.fraction_active_rnap_bound),
+                    "fraction_active_rnap_free": float(self.sim_data.process.transcription.fraction_active_rnap_free),
+                    "ppgpp_km_squared": float(self.sim_data.process.transcription._ppgpp_km_squared),
+                },
+            },
             # attenuation
             "trna_attenuation": self.trna_attenuation,
             "attenuated_rna_indices": self.sim_data.process.transcription.attenuated_rna_indices,
@@ -808,7 +828,15 @@ class LoadSimData:
             "polymerized_ntps": self.sim_data.molecule_groups.polymerized_ntps,
             "cell_density": self.sim_data.constants.cell_density,
             "n_avogadro": self.sim_data.constants.n_avogadro,
-            "get_attenuation_stop_probabilities": self.sim_data.process.transcription.get_attenuation_stop_probabilities,
+            "get_attenuation_stop_probabilities": {
+                "_function": "transcription.get_attenuation_stop_probabilities",
+                "_data": {
+                    "aa_from_trna": self.sim_data.process.transcription.aa_from_trna.tolist(),
+                    "attenuation_k": self.sim_data.process.transcription.attenuation_k.asNumber().tolist()
+                        if hasattr(self.sim_data.process.transcription, 'attenuation_k')
+                        else [],
+                },
+            },
             "attenuated_rna_indices": self.sim_data.process.transcription.attenuated_rna_indices,
             "location_lookup": self.sim_data.process.transcription.attenuation_location,
             "recycle_stalled_elongation": self.recycle_stalled_elongation,
@@ -1055,7 +1083,17 @@ class LoadSimData:
             "charging_molecule_names": transcription.charging_molecules,
             "synthetase_names": transcription.synthetase_names,
             "ppgpp_reaction_metabolites": metabolism.ppgpp_reaction_metabolites,
-            "elong_rate_by_ppgpp": self.sim_data.growth_rate_parameters.get_ribosome_elongation_rate_by_ppgpp,
+            "elong_rate_by_ppgpp": {
+                "_function": "growth_rate.get_ribosome_elongation_rate_by_ppgpp",
+                "_data": {
+                    "ppgpp_units_str": "umol/L",
+                    "rate_units_str": "aa/s",
+                    "fit_vmax": float(self.sim_data.growth_rate_parameters._ribosome_elongation_rate_by_ppgpp[2]),
+                    "KI": float(self.sim_data.growth_rate_parameters._ribosome_elongation_rate_by_ppgpp[3]),
+                    "H": float(self.sim_data.growth_rate_parameters._ribosome_elongation_rate_by_ppgpp[4]),
+                    "charging_fraction_of_max_elong_rate": float(self.sim_data.growth_rate_parameters._charging_fraction_of_max_elong_rate),
+                },
+            },
             "rela": molecule_ids.RelA,
             "spot": molecule_ids.SpoT,
             "ppgpp": molecule_ids.ppGpp,

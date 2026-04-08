@@ -65,6 +65,8 @@ pytest tests/ -m slow -v               # Full comparisons only
 | `test_types.py` | BulkNumpyUpdate, UniqueNumpyUpdate, type registration | ~1s |
 | `test_integration.py` | Composite loading, 10s sim, mass growth | ~15s |
 | `test_partitioned.py` | Partitioned model loads and grows | ~15s |
+| `test_rnap_count.py` | ppGpp regulation, RNAP count correctness | ~18s |
+| `test_pbg_files.py` | .pbg model file structure and freshness | ~5s |
 | `test_departitioned.py` | Departitioned model vs v1 vEcoli (60s) | ~2 min |
 | `test_architecture_comparison.py` | Partitioned vs departitioned agreement (60s) | ~4 min |
 

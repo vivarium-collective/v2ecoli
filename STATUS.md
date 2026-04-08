@@ -1,13 +1,21 @@
 # v2ecoli Status
 
-**Date**: 2026-04-06
+**Date**: 2026-04-07
 **Repo**: https://github.com/vivarium-collective/v2ecoli
+**Branch**: `serializable-configs` (active development), `main` (stable)
 
 ## Current State
 
-All 55 biological steps run through process-bigraph's `Composite.run()` with **0.04% worst-case mass error** vs v1 (vEcoli). Native flow execution (`sequential_steps=False`) with layer-based flow tokens — no custom simulation engine.
+### Two Architectures
 
-### Accuracy (60s comparison with v1)
+| Architecture | Steps | Allocator | Division | Branch |
+|-------------|-------|-----------|----------|--------|
+| **Partitioned** | 55 | Yes (×3) | t=2644s | `main` |
+| **Departitioned** | 41 | No | t=2656s | `serializable-configs` |
+
+Both produce equivalent results (bulk correlation 1.000000 over 60s).
+
+### Accuracy (60s, partitioned model vs v1)
 
 | Component | Mean % Error | Max % Error | R² |
 |-----------|-------------|-------------|-----|
@@ -17,62 +25,93 @@ All 55 biological steps run through process-bigraph's `Composite.run()` with **0
 | DNA | 0.00% | 0.00% | 1.0000 |
 | Small Molecules | 0.01% | 0.01% | 0.9988 |
 
-### Full Cell Cycle
+### Config Serialization Progress
 
-- **Division at t=2645s** (dry mass 702 fg, 2 chromosomes)
-- **Chromosome replication**: initiates, forks progress bidirectionally, terminate ~t=1350s
-- **Re-initiation**: second round begins ~t=1950s (4 active forks), matching v1 behavior
-- **Daughter viability**: confirmed (builds + runs 1s)
-- **Lifecycle v1/v2 comparison**: mass, chromosomes, forks, RNAP tracked over full cycle
+28/30 bound methods and class instances eliminated from configs via function registry:
 
-### Architecture
+| Category | Count | Status |
+|----------|-------|--------|
+| Bound methods → function registry | 22 | ✅ Done |
+| Precomputed at config time | 3 | ✅ Done |
+| Class instances → extracted | 2 | ✅ Done |
+| Kept as dill (unit complexity) | 2 | ⏳ exchange_constraints, external_state |
+| Unum values | ~20 | ⏳ Need per-process unit refactoring |
 
-- **No PartitionedProcess**: all 15 processes use plain Logic classes with per-process Steps
-- **Native flow execution**: `sequential_steps=False` with 31 execution layers
-- **Per-process Requester/Evolver Steps**: explicit `inputs()`/`outputs()`, `initialize()` pattern
-- **Flat per-process stores**: `request_{proc}` and `allocate_{proc}` (no shared nested dicts)
-- **Layer-based flow tokens**: requesters/evolvers/listeners grouped by execution layer
-- **Custom types**: BulkNumpyUpdate, UniqueNumpyUpdate, InPlaceDict, SetStore, ListenerStore
-- **Error logging**: `_SafeInvokeMixin` logs warnings instead of silently swallowing errors
+### Performance
 
-### Workflow Testing
+| Metric | Value |
+|--------|-------|
+| 60s simulation | ~8s wall (8x realtime) |
+| Workflow to division | ~8 min (with cached v1) |
+| view/project caching | 14% speedup (process-bigraph PR #112) |
 
-9-step cached pipeline with comprehensive HTML report:
+### Testing
 
-0. **EcoCyc API** — fetch 10 BioCyc data files
-1. **Raw Data** — catalog 133 TSV files (4,641,652 bp genome, 4747 genes)
-2. **ParCa** — parameter calculator (27 process configs, 16,321 bulk molecules)
-3. **Load Model** — build composite from cache
-4. **Short Simulation** — 60s with mass/growth diagnostics
-5. **v1 Comparison** — per-category accuracy (0.04% worst error)
-6. **Long Simulation** — run to division with chromosome snapshots every 50s
-6b. **Lifecycle v1/v2** — full cell cycle comparison (mass, chromosomes, forks, RNAP)
-7. **Division** — conservation, unique molecule splits, daughter viability
+| Test | What | Speed |
+|------|------|-------|
+| `test_types.py` | Type system | ~1s |
+| `test_integration.py` | 10s simulation | ~15s |
+| `test_partitioned.py` | Partitioned model | ~15s |
+| `test_rnap_count.py` | ppGpp regulation correctness | ~18s |
+| `test_pbg_files.py` | .pbg model files | ~5s |
+| `test_departitioned.py` | vs v1 (60s) | ~2 min |
+| `test_architecture_comparison.py` | Partitioned vs departitioned | ~4 min |
 
-All steps cache metadata + state. Cached run completes in ~5s.
+### Reports
 
-### Dependencies
+- **Workflow Report**: full cell cycle to division with v1 comparison
+- **Architecture Comparison**: partitioned vs departitioned metrics
 
-- `process-bigraph`: `skip_initial_steps` config (PR #111)
-- No bigraph-schema changes (unmodified PyPI version)
-- No modifications to the Composite execution engine
+## Recent Work (2026-04-07)
 
-## Recent Fixes
+### Departitioning
+- Merged all 11 Requester+Allocator+Evolver pairs into standalone Steps
+- Removed allocator entirely from departitioned model
+- 25% speedup (9.42s → 7.05s for 60s sim)
 
-- **Chromosome re-initiation** (2026-04-06): `np.in1d` → `np.isin` in chromosome_replication.py. The deprecated NumPy function silently crashed, preventing second-round replication. Now matches v1 (4 forks from ~t=1950).
-- **Error visibility**: `_SafeInvokeMixin` now logs warnings instead of silently swallowing exceptions.
+### Config Serialization
+- Created function registry (`v2ecoli/library/function_registry.py`) with 15 registered functions
+- Created config resolver (`v2ecoli/library/config_resolver.py`)
+- Migrated ODE solvers (equilibrium, two-component system) with dill-encoded rate functions
+- Extracted metabolism dataclass into individual config attributes
+- **Fixed ppGpp unit conversion bug**: `.asNumber()` without target units returned mol/L (5e-5) instead of umol/L (50), making the Hill function return ~0 instead of ~0.81. This doubled active RNAP count (787 vs 717) and caused 80% higher growth rate. Fixed by using `.asNumber(units.umol / units.L)`.
+
+### Infrastructure
+- pytest test suite with fast/slow markers
+- GitHub Actions CI (`test.yml` + `benchmark.yml`)
+- `.pbg` model files (process-bigraph serialized documents)
+- Workflow speedups: cached v1, skip EcoCyc API, short daughter sims
 
 ## Known Issues
 
-1. **Within-layer parallelism blocked** — layer token W/W conflicts serialize steps in the same layer. Flat stores are ready; needs process-bigraph barrier token support.
-2. **Compiled dependencies** — polymerize (Cython), fba (GLPK), mc_complexation (Cython) from wholecell.
-3. **Unum dependency** — units still use unum via wholecell.utils. Pint compatibility layer ready but full migration requires cache regeneration under pint.
-4. **PolypeptideInitiationRequester** — minor `KeyError: 'ribosome_data'` (surfaced by error logging, non-critical).
+1. **exchange_constraints** and **external_state** — still dill-serialized (complex unit interactions with FBA)
+2. **~20 Unum values** in configs — need per-process arithmetic refactoring
+3. **PolypeptideInitiationStep** — `KeyError: 'ribosome_data'` on first timestep (non-critical)
+4. **Departitioned growth rate** — ~30% slower than partitioned over full cell cycle (no allocator means unfair molecule competition)
 
-## Next Steps
+## Architecture
 
-1. **Fix ribosome_data KeyError** in PolypeptideInitiationRequester
-2. **Upstream process-bigraph PR** — get `skip_initial_steps` merged
-3. **Barrier tokens** — process-bigraph support for W/W sync points (enables within-layer parallelism)
-4. **Replace unum with pint** — unified unit system
-5. **CI workflow** — GitHub Actions with PyPI dependencies
+```
+v2ecoli/
+├── v2ecoli/
+│   ├── generate.py              # build_document(): simData → document
+│   ├── composite.py             # make_composite(), save/load
+│   ├── pbg.py                   # .pbg file serialization
+│   ├── processes/               # 15 biological processes (standalone Steps)
+│   ├── partitioned/             # Frozen partitioned architecture
+│   ├── steps/
+│   │   ├── partition.py         # RequesterBase, EvolverBase
+│   │   ├── allocator.py         # Priority-based molecule allocation
+│   │   ├── division.py          # Cell division
+│   │   └── listeners/           # 9 listener steps
+│   ├── types/                   # BulkNumpyUpdate, UniqueNumpyUpdate, etc.
+│   ├── library/
+│   │   ├── function_registry.py # Serializable function references
+│   │   ├── config_resolver.py   # Resolve function refs in configs
+│   │   └── sim_data.py          # Config generation from simData
+│   └── reconstruction/          # ParCa pipeline + raw data
+├── tests/                       # pytest suite (7 test files)
+├── models/                      # .pbg model documents
+├── workflow.py                  # Pipeline with HTML report
+└── compare_architectures.py     # Architecture comparison report
+```

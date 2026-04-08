@@ -66,7 +66,7 @@ CACHE_DIR = 'out/cache' if os.path.isdir('out/cache') else 'out/workflow/cache'
 LONG_DURATION = 1800.0  # Legacy label
 MAX_LONG_DURATION = 3600  # Max seconds before giving up on division
 SNAPSHOT_INTERVAL = 50  # Seconds between chromosome snapshots
-MULTICELL_DURATION = 120  # Daughter simulation duration (seconds)
+MULTICELL_DURATION = 300  # Daughter simulation duration (seconds)
 
 # Runtime options (overridden by CLI args)
 _OPTIONS = {
@@ -1421,7 +1421,8 @@ def step_multicell():
         print(f"  Step 6: Multicell Simulation (cached)")
         return meta
 
-    print(f"  Step 6: Multicell Simulation ({MULTICELL_DURATION}s per daughter)")
+    daughter_dur = _OPTIONS.get('daughter_duration', MULTICELL_DURATION)
+    print(f"  Step 6: Multicell Simulation ({daughter_dur}s per daughter)")
 
     # Load pre-division state from long sim
     long_state_path = os.path.join(WORKFLOW_DIR, 'long_sim.dill')
@@ -1464,7 +1465,7 @@ def step_multicell():
 
         t0 = time.time()
         try:
-            comp.run(MULTICELL_DURATION)
+            comp.run(daughter_dur)
             run_ok = True
         except Exception as e:
             run_ok = False
@@ -1496,7 +1497,7 @@ def step_multicell():
                   f"({d['fold_change']:.2f}x)")
 
     meta = {
-        'duration': MULTICELL_DURATION,
+        'duration': daughter_dur,
         'daughter_1': {k: v for k, v in daughters.get('daughter_1', {}).items() if k != 'snapshots'},
         'daughter_2': {k: v for k, v in daughters.get('daughter_2', {}).items() if k != 'snapshots'},
         'daughter_1_snapshots': daughters.get('daughter_1', {}).get('snapshots', []),
@@ -2143,6 +2144,8 @@ if __name__ == '__main__':
                         help='Override max sim duration in seconds (default: run to division)')
     parser.add_argument('--no-multicell', action='store_true',
                         help='Skip the multicell simulation step')
+    parser.add_argument('--daughter-duration', type=int, default=None,
+                        help='Override daughter sim duration in seconds')
     args = parser.parse_args()
 
     # Apply CLI overrides
@@ -2152,6 +2155,8 @@ if __name__ == '__main__':
     if args.duration is not None:
         _OPTIONS['max_duration'] = args.duration
     _OPTIONS['skip_multicell'] = args.no_multicell
+    if args.daughter_duration is not None:
+        _OPTIONS['daughter_duration'] = args.daughter_duration
 
     if args.clean:
         import glob as glob_mod

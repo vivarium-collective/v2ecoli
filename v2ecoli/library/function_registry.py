@@ -182,9 +182,12 @@ def get_rnap_active_fraction_factory(fraction_active_rnap_bound,
         fraction_active_rnap_free: float
         ppgpp_km_squared: float (squared KM for ppGpp binding)
     """
+    from v2ecoli.library.units import units as _units
+    PPGPP_CONC_UNITS = _units.umol / _units.L
+
     def fraction_rnap_bound_ppgpp(ppgpp):
         try:
-            ppgpp_val = ppgpp.asNumber()
+            ppgpp_val = ppgpp.asNumber(PPGPP_CONC_UNITS)
         except AttributeError:
             ppgpp_val = float(ppgpp)
         return ppgpp_val ** 2 / (ppgpp_km_squared + ppgpp_val ** 2)
@@ -807,6 +810,7 @@ def synth_prob_from_ppgpp_factory(exp_free, exp_ppgpp,
         ppgpp_km_squared: float — squared KM for ppGpp binding
     """
     from wholecell.utils.fitting import interpolate_linearized_fit
+    from v2ecoli.library.units import units
 
     exp_free = np.asarray(exp_free, dtype=float)
     exp_ppgpp = np.asarray(exp_ppgpp, dtype=float)
@@ -824,9 +828,11 @@ def synth_prob_from_ppgpp_factory(exp_free, exp_ppgpp,
             return x / total
         return x
 
+    PPGPP_CONC_UNITS = units.umol / units.L
+
     def synth_prob_from_ppgpp(ppgpp, copy_number, balanced_rRNA_prob=True):
         try:
-            ppgpp_val = ppgpp.asNumber()
+            ppgpp_val = ppgpp.asNumber(PPGPP_CONC_UNITS)
         except AttributeError:
             ppgpp_val = float(ppgpp)
 

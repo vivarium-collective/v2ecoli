@@ -89,33 +89,34 @@ class TranscriptElongation(PartitionedProcess):
     topology = TOPOLOGY
 
     config_schema = {
-        'rnaPolymeraseElongationRateDict': 'map[float]',
-        'rnaIds': 'list[string]',
-        'rnaLengths': 'array[integer]',
-        'rnaSequences': 'array[integer]',
-        'ntWeights': 'array[float]',
-        'endWeight': 'array[float]',
-        'replichore_lengths': 'array[integer]',
-        'n_fragment_bases': 'integer',
-        'recycle_stalled_elongation': 'boolean',
-        'submass_indices': 'map[integer]',
-        'is_mRNA': 'array[boolean]',
-        'inactive_RNAP': 'string',
-        'ppi': 'string',
-        'ntp_ids': 'list[string]',
-        'variable_elongation': 'boolean',
-        'make_elongation_rates': 'method',
-        'fragmentBases': 'list[string]',
-        'polymerized_ntps': 'list[string]',
-        'charged_trnas': 'list[string]',
-        'trna_attenuation': 'boolean',
-        'cell_density': 'unum[g/L]',
-        'n_avogadro': 'unum[1/mol]',
-        'get_attenuation_stop_probabilities': 'method',
-        'attenuated_rna_indices': 'array[integer]',
-        'location_lookup': 'map[node]',
-        'seed': 'integer',
-        'emit_unique': 'boolean',
+        'attenuated_rna_indices': {'_type': 'array[integer]', '_default': np.array([], dtype=int)},
+        'cell_density': {'_type': 'unum[g/L]', '_default': 1100.0},
+        'charged_trnas': {'_type': 'list[string]', '_default': []},
+        'emit_unique': {'_type': 'boolean', '_default': False},
+        'endWeight': {'_type': 'array[float]', '_default': np.array([], dtype=float)},
+        'fragmentBases': {'_type': 'list[string]', '_default': []},
+        'get_attenuation_stop_probabilities': {'_type': 'method', '_default': None},
+        'inactive_RNAP': {'_type': 'string', '_default': ''},
+        'is_mRNA': {'_type': 'array[boolean]', '_default': np.array([], dtype=float)},
+        'location_lookup': {'_type': 'map[node]', '_default': {}},
+        'make_elongation_rates': {'_type': 'method', '_default': None},
+        'n_avogadro': {'_type': 'unum[1/mol]', '_default': 6.02214076e+23},
+        'n_fragment_bases': {'_type': 'integer', '_default': 0},
+        'ntWeights': {'_type': 'array[float]', '_default': np.array([], dtype=float)},
+        'ntp_ids': {'_type': 'list[string]', '_default': []},
+        'polymerized_ntps': {'_type': 'list[string]', '_default': []},
+        'ppi': {'_type': 'string', '_default': ''},
+        'recycle_stalled_elongation': {'_type': 'boolean', '_default': False},
+        'replichore_lengths': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
+        'rnaIds': {'_type': 'list[string]', '_default': []},
+        'rnaLengths': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
+        'rnaPolymeraseElongationRateDict': {'_type': 'map[float]', '_default': {}},
+        'rnaSequences': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
+        'seed': {'_type': 'integer', '_default': 0},
+        'submass_indices': {'_type': 'map[integer]', '_default': {}},
+        'time_step': {'_type': 'integer', '_default': 1},
+        'trna_attenuation': {'_type': 'boolean', '_default': False},
+        'variable_elongation': {'_type': 'boolean', '_default': False},
     }
 
     def inputs(self):
@@ -156,40 +157,7 @@ class TranscriptElongation(PartitionedProcess):
             },
         }
 
-    defaults = {
-        # Parameters
-        "rnaPolymeraseElongationRateDict": {},
-        "rnaIds": [],
-        "rnaLengths": np.array([]),
-        "rnaSequences": np.array([[]]),
-        "ntWeights": np.array([]),
-        "endWeight": np.array([]),
-        "replichore_lengths": np.array([]),
-        "n_fragment_bases": 0,
-        "recycle_stalled_elongation": False,
-        "submass_indices": {},
-        # mask for mRNAs
-        "is_mRNA": np.array([]),
-        # Bulk molecules
-        "inactive_RNAP": "",
-        "ppi": "",
-        "ntp_ids": [],
-        "variable_elongation": False,
-        "make_elongation_rates": make_elongation_rates,
-        "fragmentBases": [],
-        "polymerized_ntps": [],
-        "charged_trnas": [],
-        # Attenuation
-        "trna_attenuation": False,
-        "cell_density": 1100 * units.g / units.L,
-        "n_avogadro": 6.02214076e23 / units.mol,
-        "get_attenuation_stop_probabilities": (get_attenuation_stop_probabilities),
-        "attenuated_rna_indices": np.array([], dtype=int),
-        "location_lookup": {},
-        "seed": 0,
-        "emit_unique": False,
-        "time_step": 1,
-    }
+
 
     def __init__(self, parameters=None):
         super().__init__(parameters)

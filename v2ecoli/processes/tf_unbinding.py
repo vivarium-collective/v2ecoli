@@ -34,11 +34,11 @@ class TfUnbinding(Step):
     topology = TOPOLOGY
 
     config_schema = {
-        'time_step': {'_type': 'integer', '_default': 1},
+        'active_tf_masses': 'array[float]',
         'emit_unique': {'_type': 'boolean', '_default': False},
-        'tf_ids': 'list[string]',
         'submass_indices': 'map[integer]',
-        'active_tf_masses': {'_type': 'array[float]', '_default': None},
+        'tf_ids': 'list[string]',
+        'time_step': {'_type': 'integer', '_default': 1},
     }
 
 

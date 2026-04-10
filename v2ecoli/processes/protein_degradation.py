@@ -38,13 +38,14 @@ class ProteinDegradation(PartitionedProcess):
     topology = TOPOLOGY
 
     config_schema = {
-        'raw_degradation_rate': 'array[float]',
-        'water_id': 'string',
-        'amino_acid_ids': 'list[string]',
-        'amino_acid_counts': 'array[integer]',
-        'protein_ids': 'list[string]',
-        'protein_lengths': 'array[integer]',
-        'seed': 'integer',
+        'amino_acid_counts': {'_type': 'array[integer]', '_default': []},
+        'amino_acid_ids': {'_type': 'list[string]', '_default': []},
+        'protein_ids': {'_type': 'list[string]', '_default': []},
+        'protein_lengths': {'_type': 'array[integer]', '_default': []},
+        'raw_degradation_rate': {'_type': 'array[float]', '_default': []},
+        'seed': {'_type': 'integer', '_default': 0},
+        'time_step': {'_type': 'integer', '_default': 1},
+        'water_id': {'_type': 'string', '_default': 'h2o'},
     }
 
     def inputs(self):
@@ -58,16 +59,7 @@ class ProteinDegradation(PartitionedProcess):
             'bulk': 'bulk_array',
         }
 
-    defaults = {
-        "raw_degradation_rate": [],
-        "water_id": "h2o",
-        "amino_acid_ids": [],
-        "amino_acid_counts": [],
-        "protein_ids": [],
-        "protein_lengths": [],
-        "seed": 0,
-        "time_step": 1,
-    }
+
 
     # Constructor
     def __init__(self, parameters=None):

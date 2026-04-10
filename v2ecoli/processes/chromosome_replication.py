@@ -60,25 +60,25 @@ class ChromosomeReplication(PartitionedProcess):
     topology = TOPOLOGY
 
     config_schema = {
-        'get_dna_critical_mass': 'method',
-        'criticalInitiationMass': 'unum[fg]',
-        'nutrientToDoublingTime': 'map[float]',
-        'replichore_lengths': 'array[integer]',
-        'sequences': 'array[integer]',
-        'polymerized_dntp_weights': 'unum[fg]',
-        'replication_coordinate': 'array[integer]',
-        'D_period': 'unum[s]',
-        'replisome_protein_mass': 'float',
-        'no_child_place_holder': 'integer',
-        'basal_elongation_rate': 'integer',
-        'make_elongation_rates': 'method',
-        'mechanistic_replisome': 'boolean',
-        'replisome_trimers_subunits': 'list[string]',
-        'replisome_monomers_subunits': 'list[string]',
-        'dntps': 'list[string]',
-        'ppi': 'list[string]',
-        'seed': 'integer',
-        'emit_unique': 'boolean',
+        'D_period': {'_type': 'unum[s]', '_default': np.array([], dtype=float)},
+        'basal_elongation_rate': {'_type': 'integer', '_default': 967},
+        'criticalInitiationMass': {'_type': 'unum[fg]', '_default': 975.0},
+        'dntps': {'_type': 'list[string]', '_default': []},
+        'emit_unique': {'_type': 'boolean', '_default': False},
+        'get_dna_critical_mass': {'_type': 'method', '_default': None},
+        'make_elongation_rates': {'_type': 'method', '_default': None},
+        'mechanistic_replisome': {'_type': 'boolean', '_default': True},
+        'no_child_place_holder': {'_type': 'integer', '_default': -1},
+        'nutrientToDoublingTime': {'_type': 'map[float]', '_default': {}},
+        'polymerized_dntp_weights': {'_type': 'unum[fg]', '_default': []},
+        'ppi': {'_type': 'list[string]', '_default': []},
+        'replication_coordinate': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
+        'replichore_lengths': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
+        'replisome_monomers_subunits': {'_type': 'list[string]', '_default': []},
+        'replisome_protein_mass': {'_type': 'float', '_default': 0},
+        'replisome_trimers_subunits': {'_type': 'list[string]', '_default': []},
+        'seed': {'_type': 'integer', '_default': 0},
+        'sequences': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
     }
 
     def inputs(self):
@@ -110,31 +110,7 @@ class ChromosomeReplication(PartitionedProcess):
             },
         }
 
-    defaults = {
-        "get_dna_critical_mass": lambda doubling_time: units.Unum,
-        "criticalInitiationMass": 975 * units.fg,
-        "nutrientToDoublingTime": {},
-        "replichore_lengths": np.array([]),
-        "sequences": np.array([]),
-        "polymerized_dntp_weights": [],
-        "replication_coordinate": np.array([]),
-        "D_period": np.array([]),
-        "replisome_protein_mass": 0,
-        "no_child_place_holder": -1,
-        "basal_elongation_rate": 967,
-        "make_elongation_rates": (
-            lambda random, replisomes, base, time_step: units.Unum
-        ),
-        "mechanistic_replisome": True,
-        # molecules
-        "replisome_trimers_subunits": [],
-        "replisome_monomers_subunits": [],
-        "dntps": [],
-        "ppi": [],
-        # random seed
-        "seed": 0,
-        "emit_unique": False,
-    }
+
 
     def __init__(self, parameters=None):
         super().__init__(parameters)

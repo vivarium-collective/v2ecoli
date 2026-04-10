@@ -34,12 +34,12 @@ class TwoComponentSystem(PartitionedProcess):
     topology = TOPOLOGY
 
     config_schema = {
-        'jit': 'boolean',
-        'n_avogadro': 'float',
-        'cell_density': 'float',
-        'moleculesToNextTimeStep': 'method',
-        'moleculeNames': 'list[string]',
-        'seed': 'integer',
+        'cell_density': {'_type': 'float', '_default': 0.0},
+        'jit': {'_type': 'boolean', '_default': False},
+        'moleculeNames': {'_type': 'list[string]', '_default': []},
+        'moleculesToNextTimeStep': {'_type': 'method', '_default': None},
+        'n_avogadro': {'_type': 'float', '_default': 0.0},
+        'seed': {'_type': 'integer', '_default': 0},
     }
 
     def inputs(self):
@@ -54,19 +54,7 @@ class TwoComponentSystem(PartitionedProcess):
             'bulk': 'bulk_array',
         }
 
-    defaults = {
-        "jit": False,
-        "n_avogadro": 0.0,
-        "cell_density": 0.0,
-        "moleculesToNextTimeStep": (
-            lambda counts, volume, avogadro, timestep, random, method, min_step, jit: (
-                [],
-                [],
-            )
-        ),
-        "moleculeNames": [],
-        "seed": 0,
-    }
+
 
     # Constructor
     def __init__(self, parameters):

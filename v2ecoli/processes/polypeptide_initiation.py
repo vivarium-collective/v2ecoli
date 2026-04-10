@@ -49,25 +49,26 @@ class PolypeptideInitiation(PartitionedProcess):
     topology = TOPOLOGY
 
     config_schema = {
-        'protein_lengths': 'array[integer]',
-        'translation_efficiencies': 'array[float]',
-        'active_ribosome_fraction': 'map[float]',
-        'elongation_rates': 'map[float]',
-        'variable_elongation': 'boolean',
-        'make_elongation_rates': 'method',
-        'rna_id_to_cistron_indexes': 'method',
-        'cistron_start_end_pos_in_tu': 'map[node]',
-        'tu_ids': 'list[string]',
-        'active_ribosome_footprint_size': 'unum[nt]',
-        'cistron_to_monomer_mapping': 'array[integer]',
-        'cistron_tu_mapping_matrix': 'csr_matrix',
-        'monomer_index_to_cistron_index': 'map[integer]',
-        'monomer_index_to_tu_indexes': 'map[integer]',
-        'ribosome30S': 'string',
-        'ribosome50S': 'string',
-        'seed': 'integer',
-        'monomer_ids': 'list[string]',
-        'emit_unique': 'boolean',
+        'active_ribosome_footprint_size': {'_type': 'unum[nt]', '_default': 24.0},
+        'active_ribosome_fraction': {'_type': 'map[float]', '_default': {}},
+        'cistron_start_end_pos_in_tu': {'_type': 'map[node]', '_default': {}},
+        'cistron_to_monomer_mapping': {'_type': 'array[integer]', '_default': {}},
+        'cistron_tu_mapping_matrix': {'_type': 'csr_matrix', '_default': {}},
+        'elongation_rates': {'_type': 'map[float]', '_default': {}},
+        'emit_unique': {'_type': 'boolean', '_default': False},
+        'make_elongation_rates': {'_type': 'method', '_default': None},
+        'monomer_ids': {'_type': 'list[string]', '_default': []},
+        'monomer_index_to_cistron_index': {'_type': 'map[integer]', '_default': {}},
+        'monomer_index_to_tu_indexes': {'_type': 'map[integer]', '_default': {}},
+        'protein_lengths': {'_type': 'array[integer]', '_default': []},
+        'ribosome30S': {'_type': 'string', '_default': 'ribosome30S'},
+        'ribosome50S': {'_type': 'string', '_default': 'ribosome50S'},
+        'rna_id_to_cistron_indexes': {'_type': 'method', '_default': {}},
+        'seed': {'_type': 'integer', '_default': 0},
+        'time_step': {'_type': 'integer', '_default': 1},
+        'translation_efficiencies': {'_type': 'array[float]', '_default': []},
+        'tu_ids': {'_type': 'list[string]', '_default': []},
+        'variable_elongation': {'_type': 'boolean', '_default': False},
     }
 
     def inputs(self):
@@ -106,28 +107,7 @@ class PolypeptideInitiation(PartitionedProcess):
             },
         }
 
-    defaults = {
-        "protein_lengths": [],
-        "translation_efficiencies": [],
-        "active_ribosome_fraction": {},
-        "elongation_rates": {},
-        "variable_elongation": False,
-        "make_elongation_rates": lambda x: [],
-        "rna_id_to_cistron_indexes": {},
-        "cistron_start_end_pos_in_tu": {},
-        "tu_ids": [],
-        "active_ribosome_footprint_size": 24 * units.nt,
-        "cistron_to_monomer_mapping": {},
-        "cistron_tu_mapping_matrix": {},
-        "monomer_index_to_cistron_index": {},
-        "monomer_index_to_tu_indexes": {},
-        "ribosome30S": "ribosome30S",
-        "ribosome50S": "ribosome50S",
-        "seed": 0,
-        "monomer_ids": [],
-        "emit_unique": False,
-        "time_step": 1,
-    }
+
 
     def __init__(self, parameters=None):
         super().__init__(parameters)

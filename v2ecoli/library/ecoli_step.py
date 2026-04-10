@@ -36,16 +36,37 @@ def _defaults_from_schema(config_schema):
     return result
 
 
-def _build_parameters(cls, params):
-    """Build parameters dict, mimicking vivarium's defaults merge.
+def _load_config_defaults():
+    """Load pre-extracted config defaults from pickle."""
+    import os
+    import dill
+    path = os.path.join(os.path.dirname(__file__), 'config_defaults.pickle')
+    if os.path.exists(path):
+        with open(path, 'rb') as f:
+            return dill.load(f)
+    return {}
 
-    Priority: params > class.defaults > config_schema inline defaults
+_CONFIG_DEFAULTS = None
+
+def _get_config_defaults():
+    global _CONFIG_DEFAULTS
+    if _CONFIG_DEFAULTS is None:
+        _CONFIG_DEFAULTS = _load_config_defaults()
+    return _CONFIG_DEFAULTS
+
+
+def _build_parameters(cls, params):
+    """Build parameters dict from config_schema defaults and provided params.
+
+    Priority: params > extracted defaults > config_schema inline defaults
     """
     merged = {}
-    # 1. config_schema inline defaults
+    # 1. config_schema inline defaults (type{value} syntax)
     merged.update(_defaults_from_schema(getattr(cls, 'config_schema', {})))
-    # 2. class defaults dict (vEcoli convention)
-    merged.update(getattr(cls, 'defaults', {}) or {})
+    # 2. extracted defaults from vEcoli (replaces class defaults dict)
+    config_defaults = _get_config_defaults()
+    cls_defaults = config_defaults.get(cls.__name__, {})
+    merged.update(cls_defaults)
     # 3. provided params
     if params:
         merged.update(params)

@@ -32,15 +32,15 @@ class Equilibrium(PartitionedProcess):
     topology = TOPOLOGY
 
     config_schema = {
-        'jit': 'boolean',
-        'n_avogadro': 'float',
-        'cell_density': 'float',
-        'stoichMatrix': 'array[integer]',
-        'fluxesAndMoleculesToSS': 'method',
-        'moleculeNames': 'list[string]',
-        'seed': 'integer',
-        'complex_ids': 'list[string]',
-        'reaction_ids': 'list[string]',
+        'cell_density': {'_type': 'float', '_default': 0.0},
+        'complex_ids': {'_type': 'list[string]', '_default': []},
+        'fluxesAndMoleculesToSS': {'_type': 'method', '_default': None},
+        'jit': {'_type': 'boolean', '_default': False},
+        'moleculeNames': {'_type': 'list[string]', '_default': []},
+        'n_avogadro': {'_type': 'float', '_default': 0.0},
+        'reaction_ids': {'_type': 'list[string]', '_default': []},
+        'seed': {'_type': 'integer', '_default': 0},
+        'stoichMatrix': {'_type': 'array[integer]', '_default': []},
     }
 
     def inputs(self):
@@ -61,20 +61,7 @@ class Equilibrium(PartitionedProcess):
             },
         }
 
-    defaults = {
-        "jit": False,
-        "n_avogadro": 0.0,
-        "cell_density": 0.0,
-        "stoichMatrix": [[]],
-        "fluxesAndMoleculesToSS": lambda counts, volume, avogadro, random, jit: (
-            [],
-            [],
-        ),
-        "moleculeNames": [],
-        "seed": 0,
-        "complex_ids": [],
-        "reaction_ids": [],
-    }
+
 
     # Constructor
     def __init__(self, parameters=None):

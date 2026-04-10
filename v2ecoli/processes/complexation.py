@@ -38,12 +38,13 @@ class Complexation(PartitionedProcess):
     topology = TOPOLOGY
 
     config_schema = {
-        'stoichiometry': 'array[integer]',
-        'rates': 'array[float]',
-        'molecule_names': 'list[string]',
-        'seed': 'integer',
-        'reaction_ids': 'list[string]',
-        'complex_ids': 'list[string]',
+        'complex_ids': {'_type': 'list[string]', '_default': []},
+        'molecule_names': {'_type': 'list[string]', '_default': []},
+        'rates': {'_type': 'array[float]', '_default': np.array([], dtype=float)},
+        'reaction_ids': {'_type': 'list[string]', '_default': []},
+        'seed': {'_type': 'integer', '_default': 0},
+        'stoichiometry': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
+        'time_step': {'_type': 'integer', '_default': 1},
     }
 
     def inputs(self):
@@ -62,15 +63,7 @@ class Complexation(PartitionedProcess):
             },
         }
 
-    defaults = {
-        "stoichiometry": np.array([[]]),
-        "rates": np.array([]),
-        "molecule_names": [],
-        "seed": 0,
-        "reaction_ids": [],
-        "complex_ids": [],
-        "time_step": 1,
-    }
+
 
     def __init__(self, parameters=None):
         super().__init__(parameters)

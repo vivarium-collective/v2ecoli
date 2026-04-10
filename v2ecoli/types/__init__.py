@@ -25,12 +25,30 @@ from v2ecoli.types.stores import InPlaceDict, SetStore, ListenerStore, Accumulat
 
 from process_bigraph import StepLink, ProcessLink
 
+# Register align_parameters for custom array types so that string type
+# expressions like 'bulk_array[id:string|count:integer|...]' and
+# 'unique_array[domain_index:integer|...]' can be parsed by bigraph-schema.
+from bigraph_schema.methods.handle_parameters import align_parameters as _align
+
+@_align.dispatch
+def _align_bulk(schema: BulkNumpyUpdate, parameters):
+    if len(parameters) == 1 and isinstance(parameters[0], dict):
+        return {'_data': parameters[0]}
+    return {}
+
+@_align.dispatch
+def _align_unique(schema: UniqueNumpyUpdate, parameters):
+    if len(parameters) == 1 and isinstance(parameters[0], dict):
+        return {'_data': parameters[0]}
+    return {}
+
+
 # Register resolve dispatches for cross-type resolution.
 # When multiple steps wire to the same store with different schema types
 # (e.g. InPlaceDict vs Float for 'timestep'), bigraph-schema needs to know
 # how to merge them. The more specific type wins.
 from bigraph_schema.methods.resolve import resolve as _resolve
-from bigraph_schema.schema import Float as _Float, Node as _Node, Array as _Array
+from bigraph_schema.schema import Float as _Float, Node as _Node, Array as _Array, Map as _Map
 
 # Self-resolves for subtypes (needed to avoid ambiguity since
 # ListenerStore is a subclass of InPlaceDict)
@@ -182,6 +200,23 @@ def _resolve_str_listener(current: str, update: ListenerStore, path=None):
 def _resolve_listener_str(current: ListenerStore, update: str, path=None):
     return current
 
+# Map vs InPlaceDict/ListenerStore
+@_resolve.dispatch
+def _resolve_map_inplace(current: _Map, update: InPlaceDict, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_inplace_map(current: InPlaceDict, update: _Map, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_map_listener(current: _Map, update: ListenerStore, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_listener_map(current: ListenerStore, update: _Map, path=None):
+    return update
+
 
 ECOLI_TYPES = {
     'unum': UnumUnits,
@@ -191,6 +226,9 @@ ECOLI_TYPES = {
     'method': Method,
     'bulk_numpy': BulkNumpyUpdate,
     'unique_numpy': UniqueNumpyUpdate,
+    # vEcoli-compatible aliases (used in schema_types.py type expressions)
+    'bulk_array': BulkNumpyUpdate,
+    'unique_array': UniqueNumpyUpdate,
     'step_instance': StepInstance,
     'process_instance': ProcessInstance,
     'step': StepLink,

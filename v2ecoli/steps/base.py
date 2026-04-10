@@ -26,9 +26,8 @@ class V2Step(Step):
 
     def invoke(self, state, interval=None):
         """Override invoke to catch errors from missing data."""
-        from v2ecoli.steps.partition import _protect_state
         try:
-            update = self.update(_protect_state(state))
+            update = self.update(state)
         except Exception:
             update = {}
         return SyncUpdate(update)

@@ -403,7 +403,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             out_ports = set(instance.outputs().keys())
             out_topo = {'next_update_time': ('next_update_time', base_name)}
             if 'request' in out_ports:
-                out_topo['request'] = (f'request_{base_name}',)
+                out_topo['request'] = ('request',)
             if 'listeners' in out_ports:
                 out_topo['listeners'] = topology.get('listeners', ('listeners',))
             return instance, topology, 'step', in_topo, out_topo
@@ -414,7 +414,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
                 'process': process,
             })
             in_topo = dict(topology)
-            in_topo['allocate'] = (f'allocate_{base_name}',)
+            in_topo['allocate'] = ('allocate',)
             in_topo['global_time'] = ('global_time',)
             in_topo.setdefault('timestep', ('timestep',))
             in_topo['next_update_time'] = ('next_update_time', base_name)
@@ -655,10 +655,9 @@ def build_document(initial_state, configs, unique_names,
     cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
 
-    # Pre-create flat per-process request/allocate stores
-    for proc_name in ALL_PARTITIONED:
-        cell_state[f'request_{proc_name}'] = {'bulk': []}
-        cell_state[f'allocate_{proc_name}'] = {'bulk': {}}
+    # Pre-create shared request/allocate stores (vEcoli pattern)
+    cell_state.setdefault('request', {})
+    cell_state.setdefault('allocate', {})
 
     cell_state.setdefault('process_state', {})
     cell_state['process_state'].setdefault('polypeptide_elongation', {

@@ -48,7 +48,72 @@ def _align_unique(schema: UniqueNumpyUpdate, parameters):
 # (e.g. InPlaceDict vs Float for 'timestep'), bigraph-schema needs to know
 # how to merge them. The more specific type wins.
 from bigraph_schema.methods.resolve import resolve as _resolve
-from bigraph_schema.schema import Float as _Float, Node as _Node, Array as _Array, Map as _Map
+from bigraph_schema.schema import (
+    Float as _Float, Node as _Node, Array as _Array, Map as _Map,
+    Integer as _Integer, List as _List, Tuple as _Tuple, String as _String,
+    Overwrite as _Overwrite, Boolean as _Boolean, Quote as _Quote,
+)
+
+# vEcoli-style type relaxation dispatches (from bigraph_types.py)
+@_resolve.dispatch
+def _resolve_integer_array(current: _Integer, update: _Array, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_array_integer(current: _Array, update: _Integer, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_tuple_list(current: _Tuple, update: _List, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_list_tuple(current: _List, update: _Tuple, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_list_map(current: _List, update: _Map, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_map_list(current: _Map, update: _List, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_overwrite_float(current: _Overwrite, update: _Float, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_float_overwrite(current: _Float, update: _Overwrite, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_overwrite_inplace(current: _Overwrite, update: InPlaceDict, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_inplace_overwrite(current: InPlaceDict, update: _Overwrite, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_overwrite_listener(current: _Overwrite, update: ListenerStore, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_listener_overwrite(current: ListenerStore, update: _Overwrite, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_string_map(current: _String, update: _Map, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_map_string(current: _Map, update: _String, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_quote_quote(current: _Quote, update: _Quote, path=None):
+    return current
 
 # Self-resolves for subtypes (needed to avoid ambiguity since
 # ListenerStore is a subclass of InPlaceDict)

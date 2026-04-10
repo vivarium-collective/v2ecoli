@@ -283,6 +283,8 @@ def make_edge(instance, topology, input_topology=None, output_topology=None,
         '_type': edge_type,
         'address': address,
         'config': raw_config,
+        '_inputs': inputs_schema,
+        '_outputs': outputs_schema,
         'instance': instance,
         'inputs': copy.deepcopy(in_wires),
         'outputs': copy.deepcopy(out_wires),
@@ -400,10 +402,14 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             in_topo['global_time'] = ('global_time',)
             in_topo.setdefault('timestep', ('timestep',))
             in_topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo['process'] = ('process', base_name)
             out_ports = set(instance.outputs().keys())
-            out_topo = {'next_update_time': ('next_update_time', base_name)}
+            out_topo = {
+                'next_update_time': ('next_update_time', base_name),
+                'process': ('process', base_name),
+            }
             if 'request' in out_ports:
-                out_topo['request'] = ('request',)
+                out_topo['request'] = ('request', base_name)
             if 'listeners' in out_ports:
                 out_topo['listeners'] = topology.get('listeners', ('listeners',))
             return instance, topology, 'step', in_topo, out_topo
@@ -414,14 +420,19 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
                 'process': process,
             })
             in_topo = dict(topology)
-            in_topo['allocate'] = ('allocate',)
+            in_topo['allocate'] = ('allocate', base_name)
             in_topo['global_time'] = ('global_time',)
             in_topo.setdefault('timestep', ('timestep',))
             in_topo['next_update_time'] = ('next_update_time', base_name)
+            in_topo['process'] = ('process', base_name)
             out_ports = set(instance.outputs().keys())
-            out_topo = {'next_update_time': ('next_update_time', base_name)}
+            out_topo = {
+                'next_update_time': ('next_update_time', base_name),
+                'process': ('process', base_name),
+            }
             for port in out_ports:
-                if port == 'next_update_time':
+                if port in ('next_update_time', 'process', 'allocate',
+                            'global_time', 'timestep'):
                     continue
                 if port in topology:
                     out_topo[port] = topology[port]
@@ -655,9 +666,18 @@ def build_document(initial_state, configs, unique_names,
     cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
 
-    # Pre-create shared request/allocate stores (vEcoli pattern)
+    # Pre-create shared request/allocate stores with per-process sub-keys
     cell_state.setdefault('request', {})
     cell_state.setdefault('allocate', {})
+    for proc_name in ALL_PARTITIONED:
+        cell_state['request'].setdefault(proc_name, {'bulk': {}})
+        cell_state['allocate'].setdefault(proc_name, {'bulk': {}})
+    # Pre-create listener sub-stores that allocator expects
+    n_part = len(ALL_PARTITIONED)
+    cell_state['listeners'].setdefault('atp', {
+        'atp_requested': np.zeros(n_part, dtype=int),
+        'atp_allocated_initial': np.zeros(n_part, dtype=int),
+    })
 
     cell_state.setdefault('process_state', {})
     cell_state['process_state'].setdefault('polypeptide_elongation', {

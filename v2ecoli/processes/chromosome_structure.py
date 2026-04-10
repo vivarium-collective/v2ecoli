@@ -207,6 +207,39 @@ class ChromosomeStructure(Step):
 
         self.emit_unique = self.parameters.get("emit_unique", True)
 
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return {
+            'listeners': {
+                'rnap_data': {
+                    'n_total_collisions': 0,
+                    'n_headon_collisions': 0,
+                    'n_codirectional_collisions': 0,
+                    'headon_collision_coordinates': [],
+                    'codirectional_collision_coordinates': [],
+                    'n_removed_ribosomes': 0,
+                    'incomplete_transcription_events': np.zeros(3277),
+                    'n_empty_fork_collisions': 0,
+                    'empty_fork_collision_coordinates': [],
+                },
+            },
+            'bulk': [],
+            'active_replisomes': [],
+            'oriCs': [],
+            'chromosome_domains': [],
+            'active_RNAPs': [],
+            'RNAs': [],
+            'active_ribosome': [],
+            'full_chromosomes': [],
+            'promoters': [],
+            'DnaA_boxes': [],
+            'chromosomal_segments': [],
+            'genes': [],
+            'global_time': 0.0,
+            'timestep': 1.0,
+            'next_update_time': 1.0,
+        }
+
     def ports_schema(self):
         ports = {
             "listeners": {

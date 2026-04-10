@@ -123,6 +123,21 @@ class Equilibrium(PartitionedProcess):
             }
         )
 
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return {
+            'bulk': [],
+            'listeners': {
+                'mass': {
+                    'cell_mass': 0,
+                },
+                'equilibrium_listener': {
+                    'reaction_rates': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                },
+            },
+            'timestep': 1.0,
+        }
+
     def ports_schema(self):
         return {
             "bulk": numpy_schema("bulk"),

@@ -61,6 +61,26 @@ class ReplicationData(Step):
         }
 
 
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return {
+            'listeners': {
+                'replication_data': {
+                    'fork_coordinates': [],
+                    'fork_domains': [],
+                    'fork_unique_index': [],
+                    'number_of_oric': [],
+                    'free_DnaA_boxes': [],
+                    'total_DnaA_boxes': [],
+                },
+            },
+            'oriCs': [],
+            'active_replisomes': [],
+            'DnaA_boxes': [],
+            'global_time': 0.0,
+            'timestep': 1,
+        }
+
     def ports_schema(self):
         return {
             "listeners": {

@@ -52,6 +52,41 @@ class UniqueMoleculeCounts(Step):
         super().__init__(parameters)
         self.unique_ids = self.parameters["unique_ids"]
 
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return {
+            'unique': {
+                'active_RNAP': [],
+                'RNA': [],
+                'full_chromosome': [],
+                'chromosome_domain': [],
+                'active_replisome': [],
+                'oriC': [],
+                'promoter': [],
+                'gene': [],
+                'chromosomal_segment': [],
+                'active_ribosome': [],
+                'DnaA_box': [],
+            },
+            'listeners': {
+                'unique_molecule_counts': {
+                    'active_RNAP': 0,
+                    'RNA': 0,
+                    'active_ribosome': 0,
+                    'full_chromosome': 0,
+                    'chromosome_domain': 0,
+                    'active_replisome': 0,
+                    'oriC': 0,
+                    'promoter': 0,
+                    'gene': 0,
+                    'chromosomal_segment': 0,
+                    'DnaA_box': 0,
+                },
+            },
+            'global_time': 0.0,
+            'timestep': 1.0,
+        }
+
     def ports_schema(self):
         ports = {
             "unique": {

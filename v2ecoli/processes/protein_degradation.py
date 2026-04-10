@@ -111,6 +111,13 @@ class ProteinDegradation(PartitionedProcess):
             }
         )
 
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return {
+            'bulk': [],
+            'timestep': 1.0,
+        }
+
     def ports_schema(self):
         return {
             "bulk": numpy_schema("bulk"),

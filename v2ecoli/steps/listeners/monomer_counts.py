@@ -142,6 +142,22 @@ class MonomerCounts(Step):
         # Helper indices for Numpy indexing
         self.monomer_idx = None
 
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return {
+            'listeners': {
+                'monomer_counts': [],
+            },
+            'bulk': [],
+            'unique': {
+                'active_ribosome': [],
+                'active_RNAP': [],
+                'active_replisome': [],
+            },
+            'global_time': 0.0,
+            'timestep': 1.0,
+        }
+
     def ports_schema(self):
         return {
             "listeners": {

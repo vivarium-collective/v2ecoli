@@ -129,6 +129,22 @@ class RnaMaturation(PartitionedProcess):
             }
         )
 
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return {
+            'bulk': [],
+            'bulk_total': [],
+            'listeners': {
+                'rna_maturation_listener': {
+                    'total_maturation_events': 0,
+                    'total_degraded_ntps': 0,
+                    'unprocessed_rnas_consumed': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    'mature_rnas_generated': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    'maturation_enzyme_counts': [0, 0, 0],
+                },
+            },
+        }
+
     def ports_schema(self):
         return {
             "bulk": numpy_schema("bulk"),

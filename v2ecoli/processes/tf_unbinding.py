@@ -68,6 +68,16 @@ class TfUnbinding(Step):
         # Numpy indices for bulk molecules
         self.active_tf_idx = None
 
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return {
+            'bulk': [],
+            'promoters': [],
+            'global_time': 0.0,
+            'timestep': 1.0,
+            'next_update_time': 1.0,
+        }
+
     def ports_schema(self):
         return {
             "bulk": numpy_schema("bulk"),

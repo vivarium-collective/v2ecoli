@@ -185,6 +185,29 @@ class ChromosomeReplication(PartitionedProcess):
             }
         )
 
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return {
+            'bulk': [],
+            'listeners': {
+                'mass': {
+                    'cell_mass': 0.0,
+                },
+                'replication_data': {
+                    'critical_initiation_mass': 0.0,
+                    'critical_mass_per_oriC': 0.0,
+                },
+            },
+            'environment': {
+                'media_id': '',
+            },
+            'active_replisomes': [],
+            'oriCs': [],
+            'chromosome_domains': [],
+            'full_chromosomes': [],
+            'timestep': 1.0,
+        }
+
     def ports_schema(self):
         return {
             # bulk molecules

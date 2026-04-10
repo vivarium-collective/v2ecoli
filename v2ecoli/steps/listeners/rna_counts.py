@@ -99,6 +99,26 @@ class RNACounts(Step):
         self.n_mRNA_cistron = len(self.mRNA_cistron_ids)
         self.n_rRNA_cistron = len(self.rRNA_cistron_ids)
 
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return {
+            'listeners': {
+                'rna_counts': {
+                    'mRNA_counts': [],
+                    'full_mRNA_counts': [],
+                    'partial_mRNA_counts': [],
+                    'mRNA_cistron_counts': [],
+                    'full_mRNA_cistron_counts': [],
+                    'partial_mRNA_cistron_counts': [],
+                    'partial_rRNA_counts': [],
+                    'partial_rRNA_cistron_counts': [],
+                },
+            },
+            'RNAs': [],
+            'global_time': 0.0,
+            'timestep': 1.0,
+        }
+
     def ports_schema(self):
         return {
             "listeners": {

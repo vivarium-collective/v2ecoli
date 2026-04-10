@@ -62,6 +62,22 @@ class DnaSupercoiling(Step):
             "relaxed_DNA_base_pairs_per_turn"
         ]
 
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return {
+            'listeners': {
+                'dna_supercoiling': {
+                    'segment_left_boundary_coordinates': [],
+                    'segment_right_boundary_coordinates': [],
+                    'segment_domain_indexes': [],
+                    'segment_superhelical_densities': [],
+                },
+            },
+            'chromosomal_segments': [],
+            'global_time': 0.0,
+            'timestep': 1.0,
+        }
+
     def ports_schema(self):
         return {
             "listeners": {

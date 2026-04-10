@@ -11,7 +11,7 @@ from numpy.lib import recfunctions as rfn
 
 from v2ecoli.steps.base import V2Step as Step
 from v2ecoli.library.schema import counts, attrs, bulk_name_to_idx
-from v2ecoli.library.units import units
+from v2ecoli.library.unit_defs import units
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
 from bigraph_schema.schema import Float

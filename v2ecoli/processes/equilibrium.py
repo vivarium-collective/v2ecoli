@@ -23,7 +23,7 @@ from v2ecoli.library.schema import (
     MetadataArray,
     zero_listener,
 )
-from v2ecoli.library.units import units
+from v2ecoli.library.unit_defs import units
 from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.unique_numpy import UniqueNumpyUpdate

@@ -14,7 +14,7 @@ from bigraph_schema.schema import Overwrite, Float
 from v2ecoli.steps.base import V2Step
 from v2ecoli.types.stores import InPlaceDict
 from v2ecoli.library.schema import attrs
-from v2ecoli.library.units import units
+from v2ecoli.library.unit_defs import units
 
 
 def daughter_phylogeny_id(mother_id):

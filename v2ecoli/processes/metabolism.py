@@ -20,7 +20,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.sparse import csr_matrix
 from unum import Unum
-from v2ecoli.library.units import units as vivunits
+from v2ecoli.library.unit_defs import units as vivunits
 
 from process_bigraph import Step
 from process_bigraph.composite import SyncUpdate
@@ -30,7 +30,7 @@ from v2ecoli.library.schema import bulk_name_to_idx, counts
 from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
-from v2ecoli.library.units import units
+from v2ecoli.library.unit_defs import units
 from v2ecoli.library.random import stochasticRound
 from v2ecoli.library.fba import FluxBalanceAnalysis
 REVERSE_TAG = " (reverse)"

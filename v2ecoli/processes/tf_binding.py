@@ -24,7 +24,7 @@ from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
 from v2ecoli.types.stores import InPlaceDict, ListenerStore
 
 from v2ecoli.library.random import stochasticRound
-from v2ecoli.library.units import units
+from v2ecoli.library.unit_defs import units
 
 
 class TfBindingLogic:

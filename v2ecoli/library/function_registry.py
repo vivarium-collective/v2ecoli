@@ -183,7 +183,7 @@ def get_rnap_active_fraction_factory(fraction_active_rnap_bound,
         fraction_active_rnap_free: float
         ppgpp_km_squared: float (squared KM for ppGpp binding)
     """
-    from v2ecoli.library.units import units as _units
+    from v2ecoli.library.unit_defs import units as _units
     PPGPP_CONC_UNITS = _units.umol / _units.L
 
     def fraction_rnap_bound_ppgpp(ppgpp):
@@ -211,7 +211,7 @@ def get_dna_critical_mass_factory(dry_mass_params, cell_dry_mass_fraction):
         dry_mass_params: array of 2 floats (slope, intercept for 1/dryMass vs tau)
         cell_dry_mass_fraction: float
     """
-    from v2ecoli.library.units import units
+    from v2ecoli.library.unit_defs import units
     NORMAL_CRITICAL_MASS = 975 * units.fg
     SLOW_GROWTH_FACTOR = 1.2
 
@@ -246,7 +246,7 @@ def get_ribosome_elongation_rate_by_ppgpp_factory(
         H: float (Hill coefficient)
         charging_fraction_of_max_elong_rate: float (default 0.9)
     """
-    from v2ecoli.library.units import units
+    from v2ecoli.library.unit_defs import units
     # Reconstruct unit objects
     ppgpp_units = units.umol / units.L
     rate_units = units.aa / units.s
@@ -274,7 +274,7 @@ def get_attenuation_stop_probabilities_factory(aa_from_trna, attenuation_k):
         aa_from_trna: 2D array (n_amino_acids × n_trnas), binary mapping
         attenuation_k: 2D array (n_amino_acids × n_attenuated_genes), in L/umol
     """
-    from v2ecoli.library.units import units
+    from v2ecoli.library.unit_defs import units
     aa_from_trna = np.asarray(aa_from_trna)
     # attenuation_k stored as plain floats in L/umol;
     # trna_conc comes in as umol/L, so product is unitless
@@ -521,7 +521,7 @@ def exchange_data_from_media_factory(saved_media, env_to_exchange_map,
                                       import_constraint_threshold,
                                       carbon_sources):
     """Factory: exchange data from media label."""
-    from v2ecoli.library.units import units
+    from v2ecoli.library.unit_defs import units
     secretion_set = set(secretion_exchange_molecules)
 
     def exchange_data_from_concentrations(molecules):
@@ -565,7 +565,7 @@ def exchange_data_from_media_factory(saved_media, env_to_exchange_map,
 @register("growth_rate.get_ppGpp_conc")
 def get_ppGpp_conc_factory(x_units_str, y_units_str, fit_params):
     """Factory: ppGpp concentration from doubling time."""
-    from v2ecoli.library.units import units
+    from v2ecoli.library.unit_defs import units
     from wholecell.utils.fitting import interpolate_linearized_fit
 
     x_units = units.min
@@ -584,7 +584,7 @@ def get_ppGpp_conc_factory(x_units_str, y_units_str, fit_params):
 @register("getter.get_masses")
 def get_masses_factory(all_total_masses, mass_units_value):
     """Factory: get molecular masses by ID."""
-    from v2ecoli.library.units import units
+    from v2ecoli.library.unit_defs import units
     import re
     _compartment_tag = re.compile(r'\[.*\]')
     _mass_units = mass_units_value * units.g / units.mol
@@ -602,7 +602,7 @@ def get_masses_factory(all_total_masses, mass_units_value):
 @register("getter.get_mass")
 def get_mass_factory(all_total_masses, mass_units_value):
     """Factory: get single molecular mass by ID."""
-    from v2ecoli.library.units import units
+    from v2ecoli.library.unit_defs import units
     import re
     _compartment_tag = re.compile(r'\[.*\]')
     _mass_units = mass_units_value * units.g / units.mol
@@ -622,7 +622,7 @@ def concentration_updates_factory(default_concentrations_dict, exchange_fluxes,
     Returns an object with concentrations_based_on_nutrients() method
     and linked_metabolites attribute.
     """
-    from v2ecoli.library.units import units as u
+    from v2ecoli.library.unit_defs import units as u
 
     mol_per_L = u.mol / u.L
 
@@ -692,7 +692,7 @@ def exchange_constraints_factory(concentration_updates_obj):
 
     Takes a concentration_updates object (from the concentration_updates factory).
     """
-    from v2ecoli.library.units import units
+    from v2ecoli.library.unit_defs import units
 
     def exchange_constraints(exchangeIDs, coefficient, targetUnits, media_id,
                              unconstrained, constrained,
@@ -729,7 +729,7 @@ def get_kinetic_constraints_factory(enzymes_expr, saturations_expr, kcats):
         saturations_expr: string expression for saturation calculation
         kcats: array (n_reactions × 3) of kcat values
     """
-    from v2ecoli.library.units import units
+    from v2ecoli.library.unit_defs import units
     CONC_UNITS = units.umol / units.L
 
     _kcats = np.asarray(kcats)
@@ -756,7 +756,7 @@ def get_biomass_as_concentrations_factory(precomputed):
     precomputed: dict mapping doubling_time_minutes (float) to
     dict of {metabolite_id: concentration_mol_per_L}
     """
-    from v2ecoli.library.units import units
+    from v2ecoli.library.unit_defs import units
 
     # Convert string keys back to floats (JSON serialization)
     lookup = {float(k): v for k, v in precomputed.items()}
@@ -813,7 +813,7 @@ def synth_prob_from_ppgpp_factory(exp_free, exp_ppgpp,
         ppgpp_km_squared: float — squared KM for ppGpp binding
     """
     from wholecell.utils.fitting import interpolate_linearized_fit
-    from v2ecoli.library.units import units
+    from v2ecoli.library.unit_defs import units
 
     exp_free = np.asarray(exp_free, dtype=float)
     exp_ppgpp = np.asarray(exp_ppgpp, dtype=float)

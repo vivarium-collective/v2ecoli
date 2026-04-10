@@ -72,7 +72,7 @@ CACHE_DIR = 'out/cache' if os.path.isdir('out/cache') else 'out/workflow/cache'
 LONG_DURATION = 1800.0  # Legacy label
 MAX_LONG_DURATION = 3600  # Max seconds before giving up on division
 SNAPSHOT_INTERVAL = 50  # Seconds between chromosome snapshots
-MULTICELL_DURATION = 300  # Daughter simulation duration (seconds)
+DAUGHTER_DURATION = None  # Set to half the single-cell division time at runtime
 
 # Runtime options (overridden by CLI args)
 _OPTIONS = {
@@ -1663,7 +1663,7 @@ def step_daughters():
     """Step 6: Divide pre-division cell into 2 daughters, run both for half a generation.
 
     Builds two daughter composites from the pre-division state, runs each for
-    MULTICELL_DURATION seconds, and extracts snapshot data from their emitters.
+    DAUGHTER_DURATION seconds, and extracts snapshot data from their emitters.
     """
     step_name = 'daughters'
     meta = load_meta(step_name)
@@ -1671,8 +1671,13 @@ def step_daughters():
         print(f"  Step 6: Daughter Simulations (cached)")
         return meta
 
-    daughter_dur = _OPTIONS.get('daughter_duration', MULTICELL_DURATION)
-    print(f"  Step 6: Daughter Simulations ({daughter_dur}s per daughter)")
+    # Default daughter duration: half the single-cell generation time
+    single_cell_meta = load_meta('single_cell') or {}
+    generation_time = single_cell_meta.get('duration', 2500)
+    default_dur = int(generation_time / 2)
+    daughter_dur = _OPTIONS.get('daughter_duration', default_dur)
+    print(f"  Step 6: Daughter Simulations ({daughter_dur}s per daughter, "
+          f"half generation = {default_dur}s)")
 
     # Load pre-division state from long sim
     long_state_path = os.path.join(WORKFLOW_DIR, 'single_cell.dill')
@@ -1888,7 +1893,7 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
     d1_wall = daughters.get('daughter_1', {}).get('wall_time', 0)
     d2_wall = daughters.get('daughter_2', {}).get('wall_time', 0)
     daughters_wall = d1_wall + d2_wall
-    daughters_dur = daughters.get('duration', MULTICELL_DURATION)
+    daughters_dur = daughters.get('duration', 0)
 
     report_path = os.path.join(WORKFLOW_DIR, 'workflow_report.html')
     with open(report_path, 'w') as f:
@@ -2174,7 +2179,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
             d2 = daughters.get('daughter_2', {})
             f.write(f"""
 <div class="section">
-  <p>Two daughter cells from the pre-division state, each run for {daughters.get('duration', MULTICELL_DURATION)}s
+  <p>Two daughter cells from the pre-division state, each run for {daughters.get('duration', 0)}s
   (approximately half a generation).</p>
 </div>
 <h3>Daughter 1</h3>

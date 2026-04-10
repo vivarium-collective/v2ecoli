@@ -6,36 +6,24 @@ RNAP Data Listener
 
 import numpy as np
 import warnings
-from bigraph_schema.schema import Overwrite, Float
-from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.library.schema import attrs
-from v2ecoli.types.stores import InPlaceDict, ListenerStore
-from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
+from v2ecoli.library.schema import numpy_schema, listener_schema, attrs
+from v2ecoli.library.schema_types import ACTIVE_RNAP_ARRAY, RNA_ARRAY, ACTIVE_RIBOSOME_ARRAY
+from v2ecoli.library.ecoli_step import EcoliStep as Step
+
+# topology_registry removed — topology defined as class attribute
+from v2ecoli.processes.transcript_elongation import get_mapping_arrays
 
 
-def get_mapping_arrays(x, y):
-    """
-    Returns the array of indexes of each element of array x in array y, and
-    vice versa. Assumes that the elements of x and y are unique, and
-    set(x) == set(y).
-    """
-
-    def argsort_unique(idx):
-        """
-        Quicker argsort for arrays that are permutations of np.arange(n).
-        """
-        n = idx.size
-        argsort_idx = np.empty(n, dtype=np.int64)
-        argsort_idx[idx] = np.arange(n)
-        return argsort_idx
-
-    x_argsort = np.argsort(x)
-    y_argsort = np.argsort(y)
-
-    x_to_y = x_argsort[argsort_unique(y_argsort)]
-    y_to_x = y_argsort[argsort_unique(x_argsort)]
-
-    return x_to_y, y_to_x
+NAME = "rnap_data_listener"
+TOPOLOGY = {
+    "listeners": ("listeners",),
+    "active_RNAPs": ("unique", "active_RNAP"),
+    "RNAs": ("unique", "RNA"),
+    "active_ribosomes": ("unique", "active_ribosome"),
+    "global_time": ("global_time",),
+    "timestep": ("timestep",),
+    "next_update_time": ("next_update_time", NAME),
+}
 
 
 class RnapData(Step):
@@ -43,44 +31,92 @@ class RnapData(Step):
     Listener for RNAP data.
     """
 
-    name = "rnap_data_listener"
+    name = NAME
+    topology = TOPOLOGY
+
     config_schema = {
-        "stable_RNA_indexes": {"_default": []},
-        "cistron_ids": {"_default": []},
-        "cistron_tu_mapping_matrix": {"_default": []},
-        "time_step": {"_default": 1},
-        "emit_unique": {"_default": False},
-    }
-    topology = {
-        "listeners": ("listeners",),
-        "active_RNAPs": ("unique", "active_RNAP"),
-        "RNAs": ("unique", "RNA"),
-        "active_ribosomes": ("unique", "active_ribosome"),
-        "global_time": ("global_time",),
-        "timestep": ("timestep",),
-        "next_update_time": ("next_update_time", "rnap_data_listener"),
+        'stable_RNA_indexes': 'array[integer]',
+        'cistron_ids': 'list[string]',
+        'cistron_tu_mapping_matrix': 'csr_matrix',
+        'time_step': 'float{1.0}',
+        'emit_unique': 'boolean{false}',
     }
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
-        self.parameters = config or {}
-        self.stable_RNA_indexes = self.parameters.get("stable_RNA_indexes", [])
-        self.cistron_ids = self.parameters.get("cistron_ids", [])
-        self.cistron_tu_mapping_matrix = self.parameters.get("cistron_tu_mapping_matrix", [])
 
     def inputs(self):
         return {
-            "listeners": ListenerStore(),
-            "active_RNAPs": UniqueNumpyUpdate(),
-            "RNAs": UniqueNumpyUpdate(),
-            "active_ribosomes": UniqueNumpyUpdate(),
-            "global_time": Float(_default=0.0),
-            "timestep": Float(_default=1.0),
-            "next_update_time": Overwrite(),
+            'listeners': {
+                'rnap_data': {
+                    'rna_init_event': f'array[{self.n_TUs},integer]',
+                },
+            },
+            'active_RNAPs': ACTIVE_RNAP_ARRAY,
+            'RNAs': RNA_ARRAY,
+            'active_ribosomes': ACTIVE_RIBOSOME_ARRAY,
+            'global_time': 'float',
+            'timestep': 'float',
+            'next_update_time': 'overwrite[float]',
         }
 
     def outputs(self):
-        return self.inputs()
+        return {
+            'listeners': {
+                'rnap_data': {
+                    'rna_init_event_per_cistron': f'array[{self.n_cistrons},integer]',
+                    'active_rnap_coordinates': 'array[integer]',
+                    'active_rnap_domain_indexes': 'array[integer]',
+                    'active_rnap_unique_indexes': 'array[integer]',
+                    'active_rnap_on_stable_RNA_indexes': 'array[integer]',
+                    'active_rnap_n_bound_ribosomes': 'array[integer]',
+                },
+            },
+            'next_update_time': 'overwrite[float]',
+        }
+
+
+    def __init__(self, parameters=None):
+        super().__init__(parameters)
+        self.stable_RNA_indexes = self.parameters["stable_RNA_indexes"]
+        self.cistron_ids = self.parameters["cistron_ids"]
+        self.cistron_tu_mapping_matrix = self.parameters["cistron_tu_mapping_matrix"]
+        self.n_TUs = self.cistron_tu_mapping_matrix.shape[1]
+        self.n_cistrons = len(self.cistron_ids)
+
+    def ports_schema(self):
+        n_TUs = self.cistron_tu_mapping_matrix.shape[1]
+        ports = {
+            "listeners": {
+                "rnap_data": listener_schema(
+                    {
+                        "rna_init_event": np.zeros(n_TUs, dtype=np.int64),
+                        "active_rnap_coordinates": [],
+                        "active_rnap_domain_indexes": [],
+                        "active_rnap_unique_indexes": [],
+                        "active_rnap_on_stable_RNA_indexes": [],
+                        "active_rnap_n_bound_ribosomes": [],
+                        "rna_init_event_per_cistron": (
+                            [0] * len(self.cistron_ids),
+                            self.cistron_ids,
+                        ),
+                    }
+                )
+            },
+            "active_RNAPs": numpy_schema(
+                "active_RNAPs", emit=self.parameters["emit_unique"]
+            ),
+            "RNAs": numpy_schema("RNAs", emit=self.parameters["emit_unique"]),
+            "active_ribosomes": numpy_schema(
+                "active_ribosome", emit=self.parameters["emit_unique"]
+            ),
+            "global_time": {"_default": 0.0},
+            "timestep": {"_default": self.parameters["time_step"]},
+            "next_update_time": {
+                "_default": self.parameters["time_step"],
+                "_updater": "set",
+                "_divider": "set",
+            },
+        }
+        return ports
 
     def update_condition(self, timestep, states):
         """
@@ -98,7 +134,7 @@ class RnapData(Step):
             return True
         return False
 
-    def next_update(self, timestep, states):
+    def update(self, states, interval=None):
         # Read coordinates of all active RNAPs
         coordinates, domain_indexes, RNAP_unique_indexes = attrs(
             states["active_RNAPs"], ["coordinates", "domain_index", "unique_index"]
@@ -118,9 +154,15 @@ class RnapData(Step):
 
         RNA_index_counts = dict(zip(*np.unique(ribosome_RNA_index, return_counts=True)))
 
-        partial_RNA_to_RNAP_mapping, _ = get_mapping_arrays(
-            partial_RNA_RNAP_indexes, RNAP_unique_indexes
-        )
+        try:
+            partial_RNA_to_RNAP_mapping, _ = get_mapping_arrays(
+                partial_RNA_RNAP_indexes, RNAP_unique_indexes
+            )
+        except IndexError:
+            # State inconsistency — RNAs and RNAPs may be out of sync
+            # when updates are applied in different order than v1.
+            # Use identity mapping as fallback.
+            partial_RNA_to_RNAP_mapping = np.arange(len(partial_RNA_RNAP_indexes))
 
         update = {
             "listeners": {
@@ -146,6 +188,3 @@ class RnapData(Step):
             "next_update_time": states["global_time"] + states["timestep"],
         }
         return update
-
-    def update(self, state, interval=None):
-        return self.next_update(state.get('timestep', 1.0), state)

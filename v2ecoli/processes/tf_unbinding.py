@@ -7,22 +7,15 @@ binding back to DNA.
 import numpy as np
 import warnings
 
-from process_bigraph import Step
-from process_bigraph.composite import SyncUpdate
-from bigraph_schema.schema import Node, Float, Overwrite
+from v2ecoli.library.ecoli_step import EcoliStep as Step
 
-from v2ecoli.library.schema import bulk_name_to_idx, attrs
-from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
-from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
-from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
-from v2ecoli.types.stores import InPlaceDict
+# topology_registry removed — topology defined as class attribute
+from v2ecoli.library.schema import bulk_name_to_idx, attrs, numpy_schema
+from v2ecoli.library.schema_types import PROMOTER_ARRAY
 
-
-class TfUnbindingLogic:
-    """TfUnbinding logic — pure computation, no Step inheritance."""
-
-    name = "ecoli-tf-unbinding"
-    topology = {
+# Register default topology for this process, associating it with process name
+NAME = "ecoli-tf-unbinding"
+TOPOLOGY = {
     "bulk": ("bulk",),
     "promoters": (
         "unique",
@@ -33,17 +26,60 @@ class TfUnbindingLogic:
     "next_update_time": ("next_update_time", "tf_unbinding"),
 }
 
-    # Constructor
-    def __init__(self, parameters=None):
-        self.parameters = parameters or {}
-        self.request_set = False
 
+class TfUnbinding(Step):
+    """TfUnbinding"""
+
+    name = NAME
+    topology = TOPOLOGY
+
+    config_schema = {
+        'time_step': {'_type': 'integer', '_default': 1},
+        'emit_unique': {'_type': 'boolean', '_default': False},
+        'tf_ids': 'list[string]',
+        'submass_indices': 'map[integer]',
+        'active_tf_masses': {'_type': 'array[float]', '_default': None},
+    }
+
+
+    def inputs(self):
+        return {
+            'bulk': 'bulk_array',
+            'promoters': PROMOTER_ARRAY,
+            'global_time': 'float',
+            'timestep': 'integer',
+            'next_update_time': 'overwrite[float]',
+        }
+
+    def outputs(self):
+        return {
+            'bulk': 'bulk_array',
+            'promoters': PROMOTER_ARRAY,
+            'next_update_time': 'overwrite[float]',
+        }
+
+
+    def __init__(self, parameters=None):
+        super().__init__(parameters)
         self.tf_ids = self.parameters["tf_ids"]
         self.submass_indices = self.parameters["submass_indices"]
         self.active_tf_masses = self.parameters["active_tf_masses"]
 
         # Numpy indices for bulk molecules
         self.active_tf_idx = None
+
+    def ports_schema(self):
+        return {
+            "bulk": numpy_schema("bulk"),
+            "promoters": numpy_schema("promoters", emit=self.parameters["emit_unique"]),
+            "global_time": {"_default": 0.0},
+            "timestep": {"_default": self.parameters["time_step"]},
+            "next_update_time": {
+                "_default": self.parameters["time_step"],
+                "_updater": "set",
+                "_divider": "set",
+            },
+        }
 
     def update_condition(self, timestep, states):
         """
@@ -61,7 +97,7 @@ class TfUnbindingLogic:
             return True
         return False
 
-    def next_update(self, timestep, states):
+    def update(self, states, interval=None):
         # At t=0, convert all strings to indices
         if self.active_tf_idx is None:
             self.active_tf_idx = bulk_name_to_idx(
@@ -95,36 +131,3 @@ class TfUnbindingLogic:
 
         update["next_update_time"] = states["global_time"] + states["timestep"]
         return update
-
-
-class TfUnbindingStep(_SafeInvokeMixin, Step):
-    """Single Step that runs TfUnbindingLogic."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.logic = TfUnbindingLogic(parameters=config)
-        self.topology = self.logic.topology
-
-    def inputs(self):
-        return {
-            'bulk': BulkNumpyUpdate(),
-            'promoters': UniqueNumpyUpdate(),
-            'global_time': Float(_default=0.0),
-            'timestep': Float(_default=1.0),
-            'next_update_time': Overwrite(_value=Node()),
-        }
-
-    def outputs(self):
-        return {
-            'bulk': BulkNumpyUpdate(),
-            'promoters': UniqueNumpyUpdate(),
-            'global_time': Float(_default=0.0),
-            'timestep': Float(_default=1.0),
-            'next_update_time': Overwrite(_value=Node()),
-        }
-
-    def update(self, state, interval=None):
-        state = _protect_state(state)
-        timestep = state.get('timestep', self.logic.parameters.get('time_step', 1.0))
-        return self.logic.next_update(timestep, state)

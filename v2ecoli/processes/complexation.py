@@ -1,64 +1,70 @@
-"""Process-bigraph partitioned process: complexation."""
+"""
+============
+Complexation
+============
 
-from typing import Any, Callable, Optional, Tuple, cast
+This process encodes molecular simulation of macromolecular complexation,
+in which monomers are assembled into complexes. Macromolecular complexation
+is done by identifying complexation reactions that are possible (which are
+reactions that have sufﬁcient counts of all sub-components), performing one
+randomly chosen possible reaction, and re-identifying all possible complexation
+reactions. This process assumes that macromolecular complexes form spontaneously,
+and that complexation reactions are fast and complete within the time step of the
+simulation.
+"""
 
-from numba import njit
+# TODO(wcEcoli):
+# - allow for shuffling when appropriate (maybe in another process)
+# - handle protein complex dissociation
+
 import numpy as np
-import numpy.typing as npt
-import scipy.sparse
-import warnings
-from scipy.integrate import solve_ivp
-
-from process_bigraph import Step
-from bigraph_schema.schema import Float, Overwrite
-
-from v2ecoli.library.fitting import normalize
-from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
-from v2ecoli.library.random import stochasticRound
-from v2ecoli.library.schema import (
-    create_unique_indices,
-    counts,
-    attrs,
-    bulk_name_to_idx,
-    MetadataArray,
-    zero_listener,
-)
-from v2ecoli.library.unit_defs import units
-from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
-from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
-from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
-from v2ecoli.types.stores import InPlaceDict, ListenerStore, SetStore
-
 from stochastic_arrow import StochasticSystem
 
+# simulate_process removed — pure process-bigraph
 
-def _apply_config_defaults(config_schema, parameters):
-    """Merge config_schema defaults with provided parameters."""
-    merged = {}
-    for key, spec in config_schema.items():
-        if isinstance(spec, dict) and "_default" in spec:
-            merged[key] = spec["_default"]
-    merged.update(parameters or {})
-    return merged
+from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
+# topology_registry removed — topology defined as class attribute
+from v2ecoli.steps.partition import PartitionedProcess
 
-class ComplexationLogic:
-    """Complexation — shared state container for Requester/Evolver."""
+# Register default topology for this process, associating it with process name
+NAME = "ecoli-complexation"
+TOPOLOGY = {"bulk": ("bulk",), "listeners": ("listeners",), "timestep": ("timestep",)}
 
-    name = "ecoli-complexation"
-    topology = {"bulk": ("bulk",), "listeners": ("listeners",), "timestep": ("timestep",)}
+
+class Complexation(PartitionedProcess):
+    """Complexation PartitionedProcess"""
+
+    name = NAME
+    topology = TOPOLOGY
+
     config_schema = {
-        "stoichiometry": {"_default": None},
-        "rates": {"_default": None},
-        "molecule_names": {"_default": []},
-        "seed": {"_default": 0},
-        "reaction_ids": {"_default": []},
-        "complex_ids": {"_default": []},
-        "time_step": {"_default": 1},
+        'stoichiometry': 'array[integer]',
+        'rates': 'array[float]',
+        'molecule_names': 'list[string]',
+        'seed': 'integer',
+        'reaction_ids': 'list[string]',
+        'complex_ids': 'list[string]',
     }
 
+    def inputs(self):
+        return {
+            'bulk': 'bulk_array',
+            'timestep': 'integer',
+        }
+
+    def outputs(self):
+        return {
+            'bulk': 'bulk_array',
+            'listeners': {
+                'complexation_listener': {
+                    'complexation_events': 'overwrite[array[integer]]',
+                },
+            },
+        }
+
+
     def __init__(self, parameters=None):
-        self.parameters = _apply_config_defaults(self.config_schema, parameters)
-        self.request_set = False
+        super().__init__(parameters)
 
         self.stoichiometry = self.parameters["stoichiometry"]
         self.rates = self.parameters["rates"]
@@ -71,128 +77,98 @@ class ComplexationLogic:
         self.seed = self.randomState.randint(2**31)
         self.system = StochasticSystem(self.stoichiometry, random_seed=self.seed)
 
-
-class ComplexationRequester(_SafeInvokeMixin, Step):
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-        self.process_name = config.get('process_name', self.process.name)
-
-    def inputs(self):
+    def ports_schema(self):
         return {
-            'bulk': BulkNumpyUpdate(),
-            'timestep': Float(_default=self.process.parameters.get('timestep', 1.0)),
-            'global_time': Float(_default=0.0),
-            'next_update_time': Float(
-                _default=self.process.parameters.get('timestep', 1.0)),
+            "bulk": numpy_schema("bulk"),
+            "listeners": {
+                "complexation_listener": {
+                    **listener_schema(
+                        {
+                            "complexation_events": (
+                                [0] * len(self.reaction_ids),
+                                self.reaction_ids,
+                            )
+                        }
+                    )
+                },
+            },
+            "timestep": {"_default": self.parameters["time_step"]},
         }
 
-    def outputs(self):
-        return {
-            'request': InPlaceDict(),
-            'next_update_time': Overwrite(_value=Float()),
-        }
-
-    def initial_state(self, config=None):
-        return {}
-
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-        state = _protect_state(state)
-        timestep = state.get('timestep', 1.0)
-        p = self.process
-
-        # --- inlined from calculate_request ---
-        timestep = state["timestep"]
-        if p.molecule_idx is None:
-            p.molecule_idx = bulk_name_to_idx(
-                p.molecule_names, state["bulk"]["id"]
+    def calculate_request(self, timestep, states):
+        timestep = states["timestep"]
+        if self.molecule_idx is None:
+            self.molecule_idx = bulk_name_to_idx(
+                self.molecule_names, states["bulk"]["id"]
             )
 
-        moleculeCounts = counts(state["bulk"], p.molecule_idx)
+        moleculeCounts = counts(states["bulk"], self.molecule_idx)
 
-        result = p.system.evolve(timestep, moleculeCounts, p.rates)
+        result = self.system.evolve(timestep, moleculeCounts, self.rates)
         updatedMoleculeCounts = result["outcome"]
-        request = {}
-        request["bulk"] = [
-            (p.molecule_idx, np.fmax(moleculeCounts - updatedMoleculeCounts, 0))
+        requests = {}
+        requests["bulk"] = [
+            (self.molecule_idx, np.fmax(moleculeCounts - updatedMoleculeCounts, 0))
         ]
-        # --- end inlined ---
+        return requests
 
-        p.request_set = True
-        bulk_request = request.pop('bulk', None)
-        result = {'request': {}}
-        if bulk_request is not None:
-            result['request']['bulk'] = bulk_request
-        return result
+    def evolve_state(self, timestep, states):
+        timestep = states["timestep"]
+        substrate = counts(states["bulk"], self.molecule_idx)
 
-
-class ComplexationEvolver(_SafeInvokeMixin, Step):
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-
-    def inputs(self):
-        return {
-            'allocate': SetStore(),
-            'bulk': BulkNumpyUpdate(),
-            'timestep': Float(_default=self.process.parameters.get('timestep', 1.0)),
-            'global_time': Float(_default=0.0),
-            'next_update_time': Float(
-                _default=self.process.parameters.get('timestep', 1.0)),
-        }
-
-    def outputs(self):
-        return {
-            'bulk': BulkNumpyUpdate(),
-            'listeners': ListenerStore(),
-            'next_update_time': Overwrite(_value=Float()),
-        }
-
-    def initial_state(self, config=None):
-        return {}
-
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-        state = _protect_state(state)
-        allocations = state.pop('allocate', {})
-        bulk_alloc = allocations.get('bulk')
-        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
-            alloc_bulk = state['bulk'].copy()
-            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
-            state['bulk'] = alloc_bulk
-        state = deep_merge(state, allocations)
-        if not self.process.request_set:
-            return {}
-        timestep = state.get('timestep', 1.0)
-        p = self.process
-
-        # --- inlined from evolve_state ---
-        timestep = state["timestep"]
-        substrate = counts(state["bulk"], p.molecule_idx)
-
-        result = p.system.evolve(timestep, substrate, p.rates)
+        result = self.system.evolve(timestep, substrate, self.rates)
         complexationEvents = result["occurrences"]
         outcome = result["outcome"] - substrate
 
         # Write outputs to listeners
         update = {
-            "bulk": [(p.molecule_idx, outcome)],
+            "bulk": [(self.molecule_idx, outcome)],
             "listeners": {
                 "complexation_listener": {
                     "complexation_events": complexationEvents.astype(int)
                 }
             },
         }
-        # --- end inlined ---
 
-        update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update
+
+
+def test_complexation():
+    test_config = {
+        "stoichiometry": np.array(
+            [[-1, 1, 0], [0, -1, 1], [1, 0, -1], [-1, 0, 1], [1, -1, 0], [0, 1, -1]],
+            np.int64,
+        ),
+        "rates": np.array([1, 1, 1, 1, 1, 1], np.float64),
+        "molecule_names": ["A", "B", "C"],
+        "seed": 1,
+        "reaction_ids": [1, 2, 3, 4, 5, 6],
+        "complex_ids": [1, 2, 3, 4, 5, 6],
+    }
+
+    complexation = Complexation(test_config)
+
+    state = {
+        "bulk": np.array(
+            [
+                ("A", 10),
+                ("B", 20),
+                ("C", 30),
+            ],
+            dtype=[("id", "U40"), ("count", int)],
+        )
+    }
+
+    settings = {"total_time": 10, "initial_state": state}
+
+    data = simulate_process(complexation, settings)
+    complexation_events = data["listeners"]["complexation_listener"][
+        "complexation_events"
+    ]
+    assert isinstance(complexation_events[0], list)
+    assert isinstance(complexation_events[1], list)
+    print(data)
+
+
+if __name__ == "__main__":
+    test_complexation()

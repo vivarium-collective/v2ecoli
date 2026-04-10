@@ -1,4 +1,4 @@
-from process_bigraph import Process
+from v2ecoli.library.ecoli_step import EcoliProcess as Process
 from v2ecoli.library.schema import bulk_name_to_idx, counts
 
 

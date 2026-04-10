@@ -9,29 +9,27 @@ This process models how transcription factors bind to promoters on the DNA seque
 import numpy as np
 import warnings
 
-from process_bigraph import Step
-from process_bigraph.composite import SyncUpdate
-from bigraph_schema.schema import Node, Float, Overwrite
+from v2ecoli.library.ecoli_step import EcoliStep as Step
 
 from v2ecoli.library.schema import (
+    listener_schema,
+    numpy_schema,
     attrs,
     bulk_name_to_idx,
     counts,
 )
-from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
-from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
-from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
-from v2ecoli.types.stores import InPlaceDict, ListenerStore
 
-from v2ecoli.library.random import stochasticRound
-from v2ecoli.library.unit_defs import units
+from v2ecoli.library.schema_types import PROMOTER_ARRAY
+
+from wholecell.utils.random import stochasticRound
+from wholecell.utils import units
+
+# topology_registry removed — topology defined as class attribute
 
 
-class TfBindingLogic:
-    """Transcription Factor Binding logic — pure computation, no Step inheritance."""
-
-    name = "ecoli-tf-binding"
-    topology = {
+# Register default topology for this process, associating it with process name
+NAME = "ecoli-tf-binding"
+TOPOLOGY = {
     "promoters": ("unique", "promoter"),
     "bulk": ("bulk",),
     "bulk_total": ("bulk",),
@@ -40,10 +38,78 @@ class TfBindingLogic:
     "next_update_time": ("next_update_time", "tf_binding"),
     "global_time": ("global_time",),
 }
+
+
+class TfBinding(Step):
+    """Transcription Factor Binding Step"""
+
+    name = NAME
+    topology = TOPOLOGY
+
+    config_schema = {
+        'time_step': {'_type': 'integer', '_default': 1},
+        'tf_ids': 'list[string]',
+        'rna_ids': 'list[string]',
+        'delta_prob': {'_type': 'node', '_default': {"deltaI": [], "deltaJ": [], "deltaV": []}},
+        'n_avogadro': {'_type': 'unum', '_default': 6.02214076e23},
+        'cell_density': {'_type': 'unum', '_default': 1100},
+        'p_promoter_bound_tf': {'_type': 'method', '_default': None},
+        'tf_to_tf_type': 'map[string]',
+        'active_to_bound': 'map[string]',
+        'get_unbound': {'_type': 'method', '_default': None},
+        'active_to_inactive_tf': 'map[string]',
+        'bulk_molecule_ids': 'list[string]',
+        'bulk_mass_data': {'_type': 'unum', '_default': None},
+        'seed': {'_type': 'integer', '_default': 0},
+        'submass_to_idx': {'_type': 'map[integer]', '_default': {
+            "rRNA": 0,
+            "tRNA": 1,
+            "mRNA": 2,
+            "miscRNA": 3,
+            "nonSpecific_RNA": 4,
+            "protein": 5,
+            "metabolite": 6,
+            "water": 7,
+            "DNA": 8,
+        }},
+        'emit_unique': {'_type': 'boolean', '_default': False},
+        'submass_indices': 'map[integer]',
+    }
+
+
+    def inputs(self):
+        return {
+            'promoters': PROMOTER_ARRAY,
+            'bulk': 'bulk_array',
+            'bulk_total': 'bulk_array',
+            'listeners': {
+                'rna_synth_prob': 'map[float]',
+            },
+            'timestep': 'float',
+            'next_update_time': 'overwrite[float]',
+            'global_time': 'float',
+        }
+
+    def outputs(self):
+        return {
+            'bulk': 'bulk_array',
+            'promoters': PROMOTER_ARRAY,
+            'listeners': {
+                'rna_synth_prob': {
+                    'p_promoter_bound': f'array[{self.n_TF},float]',
+                    'n_promoter_bound': f'array[{self.n_TF},integer]',
+                    'n_actual_bound': f'array[{self.n_TF},integer]',
+                    'n_available_promoters': f'array[{self.n_TF},integer]',
+                    'n_bound_TF_per_TU': f'array[({self.n_TU}|{self.n_TF}),integer]',
+                },
+            },
+            'next_update_time': 'overwrite[float]',
+        }
+
+
     # Constructor
     def __init__(self, parameters=None):
-        self.parameters = parameters or {}
-        self.request_set = False
+        super().__init__(parameters)
 
         # Get IDs of transcription factors
         self.tf_ids = self.parameters["tf_ids"]
@@ -72,17 +138,7 @@ class TfBindingLogic:
         self.tf_to_tf_type = self.parameters["tf_to_tf_type"]
 
         self.active_to_bound = self.parameters["active_to_bound"]
-        # Support both precomputed dict (new) and bound method (old cache)
-        get_unbound = self.parameters.get("get_unbound")
-        if get_unbound is not None:
-            self.tf_to_unbound = {
-                tf + "[c]": get_unbound(tf + "[c]")
-                for tf in self.tf_ids
-                if (self.parameters["tf_to_tf_type"].get(tf) == "1CS"
-                    and tf == self.active_to_bound.get(tf))
-            }
-        else:
-            self.tf_to_unbound = self.parameters.get("tf_to_unbound", {})
+        self.get_unbound = self.parameters["get_unbound"]
         self.active_to_inactive_tf = self.parameters["active_to_inactive_tf"]
 
         self.active_tfs = {}
@@ -93,7 +149,7 @@ class TfBindingLogic:
 
             if self.tf_to_tf_type[tf] == "1CS":
                 if tf == self.active_to_bound[tf]:
-                    self.inactive_tfs[tf] = self.tf_to_unbound[tf + "[c]"]
+                    self.inactive_tfs[tf] = self.get_unbound(tf + "[c]")
                 else:
                     self.inactive_tfs[tf] = self.active_to_bound[tf] + "[c]"
             elif self.tf_to_tf_type[tf] == "2CS":
@@ -121,6 +177,34 @@ class TfBindingLogic:
             self.marR_tet = "marR-tet[c]"
         self.submass_indices = self.parameters["submass_indices"]
 
+    def ports_schema(self):
+        return {
+            "promoters": numpy_schema("promoters", emit=self.parameters["emit_unique"]),
+            "bulk": numpy_schema("bulk"),
+            "bulk_total": numpy_schema("bulk"),
+            "listeners": {
+                "rna_synth_prob": listener_schema(
+                    {
+                        "p_promoter_bound": ([0.0] * self.n_TF, self.tf_ids),
+                        "n_promoter_bound": ([0] * self.n_TF, self.tf_ids),
+                        "n_actual_bound": ([0] * self.n_TF, self.tf_ids),
+                        "n_available_promoters": ([0] * self.n_TF, self.tf_ids),
+                        "n_bound_TF_per_TU": (
+                            [[0] * self.n_TF] * self.n_TU,
+                            self.rna_ids,
+                        ),
+                    }
+                )
+            },
+            "next_update_time": {
+                "_default": self.parameters["time_step"],
+                "_updater": "set",
+                "_divider": "set",
+            },
+            "global_time": {"_default": 0.0},
+            "timestep": {"_default": self.parameters["time_step"]},
+        }
+
     def update_condition(self, timestep, states):
         """
         See :py:meth:`~.Requester.update_condition`.
@@ -137,7 +221,7 @@ class TfBindingLogic:
             return True
         return False
 
-    def next_update(self, timestep, states):
+    def update(self, states, interval=None):
         # At t=0, convert all strings to indices
         if self.active_tf_idx is None:
             bulk_ids = states["bulk"]["id"]
@@ -286,38 +370,17 @@ class TfBindingLogic:
         return update
 
 
-class TfBindingStep(_SafeInvokeMixin, Step):
-    """Single Step that runs TfBindingLogic."""
+def test_tf_binding_listener():
+    from ecoli.experiments.ecoli_master_sim import EcoliSim
 
-    config_schema = {}
+    sim = EcoliSim.from_file()
+    sim.max_duration = 2
+    sim.raw_output = False
+    sim.build_ecoli()
+    sim.run()
+    data = sim.query()
+    assert data is not None
 
-    def initialize(self, config):
-        self.logic = TfBindingLogic(parameters=config)
-        self.topology = self.logic.topology
 
-    def inputs(self):
-        return {
-            'promoters': UniqueNumpyUpdate(),
-            'bulk': BulkNumpyUpdate(),
-            'bulk_total': BulkNumpyUpdate(),
-            'listeners': ListenerStore(),
-            'next_update_time': Overwrite(_value=Node()),
-            'global_time': Float(_default=0.0),
-            'timestep': Float(_default=1.0),
-        }
-
-    def outputs(self):
-        return {
-            'promoters': UniqueNumpyUpdate(),
-            'bulk': BulkNumpyUpdate(),
-            'bulk_total': BulkNumpyUpdate(),
-            'listeners': ListenerStore(),
-            'next_update_time': Overwrite(_value=Node()),
-            'global_time': Float(_default=0.0),
-            'timestep': Float(_default=1.0),
-        }
-
-    def update(self, state, interval=None):
-        state = _protect_state(state)
-        timestep = state.get('timestep', self.logic.parameters.get('time_step', 1.0))
-        return self.logic.next_update(timestep, state)
+if __name__ == "__main__":
+    test_tf_binding_listener()

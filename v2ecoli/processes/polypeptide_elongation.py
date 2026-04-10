@@ -1,48 +1,48 @@
-"""Process-bigraph partitioned process: polypeptide_elongation."""
+"""
+======================
+Polypeptide Elongation
+======================
 
-from typing import Any, Callable, Optional, Tuple, cast
+This process models the polymerization of amino acids into polypeptides
+by ribosomes using an mRNA transcript as a template. Elongation terminates
+once a ribosome has reached the end of an mRNA transcript. Polymerization
+occurs across all ribosomes simultaneously and resources are allocated to
+maximize the progress of all ribosomes within the limits of the maximum ribosome
+elongation rate, available amino acids and GTP, and the length of the transcript.
+"""
+
+from typing import Any, Callable, Optional, Tuple
 
 from numba import njit
 import numpy as np
 import numpy.typing as npt
-import scipy.sparse
-import warnings
 from scipy.integrate import solve_ivp
+from unum import Unum
 
-from process_bigraph import Step
-from bigraph_schema.schema import Float, Overwrite
+# wcEcoli imports
+from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
+from wholecell.utils.random import stochasticRound
+from wholecell.utils import units
 
-from v2ecoli.library.fitting import normalize
-from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
-from v2ecoli.library.random import stochasticRound
+# vivarium imports
+# simulate_process removed — pure process-bigraph
+from bigraph_schema import deep_merge
+from v2ecoli.library.unit_defs import units as vivunits
+# plot_variables removed
+
+# vivarium-ecoli imports
 from v2ecoli.library.schema import (
-    create_unique_indices,
+    listener_schema,
+    numpy_schema,
     counts,
     attrs,
     bulk_name_to_idx,
-    MetadataArray,
-    zero_listener,
 )
-from v2ecoli.library.unit_defs import units
-from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
-from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
-from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
-from v2ecoli.types.stores import InPlaceDict, ListenerStore, SetStore
-
-from unum import Unum
+# topology_registry removed — topology defined as class attribute
+from v2ecoli.steps.partition import PartitionedProcess
 from v2ecoli.processes.metabolism import CONC_UNITS, TIME_UNITS
+from v2ecoli.library.schema_types import ACTIVE_RIBOSOME_ARRAY
 
-MICROMOLAR_UNITS = units.umol / units.L
-
-
-def _apply_config_defaults(config_schema, parameters):
-    """Merge config_schema defaults with provided parameters."""
-    merged = {}
-    for key, spec in config_schema.items():
-        if isinstance(spec, dict) and "_default" in spec:
-            merged[key] = spec["_default"]
-    merged.update(parameters or {})
-    return merged
 
 MICROMOLAR_UNITS = units.umol / units.L
 """Units used for all concentrations."""
@@ -50,6 +50,20 @@ REMOVED_FROM_CHARGING = {"L-SELENOCYSTEINE[c]"}
 """Amino acids to remove from charging when running with 
 ``steady_state_trna_charging``"""
 
+
+# Register default topology for this process, associating it with process name
+NAME = "ecoli-polypeptide-elongation"
+TOPOLOGY = {
+    "environment": ("environment",),
+    "boundary": ("boundary",),
+    "listeners": ("listeners",),
+    "active_ribosome": ("unique", "active_ribosome"),
+    "bulk": ("bulk",),
+    "polypeptide_elongation": ("process_state", "polypeptide_elongation"),
+    # Non-partitioned counts
+    "bulk_total": ("bulk",),
+    "timestep": ("timestep",),
+}
 
 DEFAULT_AA_NAMES = [
     "L-ALPHA-ALANINE[c]",
@@ -76,104 +90,186 @@ DEFAULT_AA_NAMES = [
 ]
 
 
-class PolypeptideElongationLogic:
-    """Polypeptide Elongation — shared state container for Requester/Evolver.
+class PolypeptideElongation(PartitionedProcess):
+    """Polypeptide Elongation PartitionedProcess
 
     defaults:
         proteinIds: array length n of protein names
     """
 
-    name = "ecoli-polypeptide-elongation"
-    topology = {
-    "environment": ("environment",),
-    "boundary": ("boundary",),
-    "listeners": ("listeners",),
-    "active_ribosome": ("unique", "active_ribosome"),
-    "bulk": ("bulk",),
-    "polypeptide_elongation": ("process_state", "polypeptide_elongation"),
-    # Non-partitioned counts
-    "bulk_total": ("bulk",),
-    "timestep": ("timestep",),
-}
+    name = NAME
+    topology = TOPOLOGY
+
     config_schema = {
-        "time_step": {"_default": 1},
-        "n_avogadro": {"_default": None},
-        "proteinIds": {"_default": None},
-        "proteinLengths": {"_default": None},
-        "proteinSequences": {"_default": None},
-        "aaWeightsIncorporated": {"_default": None},
-        "endWeight": {"_default": None},
-        "variable_elongation": {"_default": False},
-        "make_elongation_rates": {"_default": None},
-        "next_aa_pad": {"_default": 1},
-        "ribosomeElongationRate": {"_default": 17.388824902723737},
-        "translation_aa_supply": {"_default": None},
-        "import_threshold": {"_default": 1e-05},
-        "aa_from_trna": {"_default": None},
-        "gtpPerElongation": {"_default": 4.2},
-        "aa_supply_in_charging": {"_default": False},
-        "mechanistic_translation_supply": {"_default": False},
-        "mechanistic_aa_transport": {"_default": False},
-        "ppgpp_regulation": {"_default": False},
-        "disable_ppgpp_elongation_inhibition": {"_default": False},
-        "trna_charging": {"_default": False},
-        "translation_supply": {"_default": False},
-        "mechanistic_supply": {"_default": False},
-        "ribosome30S": {"_default": "ribosome30S"},
-        "ribosome50S": {"_default": "ribosome50S"},
-        "amino_acids": {"_default": None},
-        "aa_exchange_names": {"_default": None},
-        "basal_elongation_rate": {"_default": 22.0},
-        "ribosomeElongationRateDict": {"_default": None},
-        "uncharged_trna_names": {"_default": None},
-        "aaNames": {"_default": None},
-        "aa_enzymes": {"_default": []},
-        "proton": {"_default": "PROTON"},
-        "water": {"_default": "H2O"},
-        "cellDensity": {"_default": None},
-        "elongation_max": {"_default": None},
-        "aa_from_synthetase": {"_default": None},
-        "charging_stoich_matrix": {"_default": None},
-        "charged_trna_names": {"_default": []},
-        "charging_molecule_names": {"_default": []},
-        "synthetase_names": {"_default": []},
-        "ppgpp_reaction_names": {"_default": []},
-        "ppgpp_reaction_metabolites": {"_default": []},
-        "ppgpp_reaction_stoich": {"_default": None},
-        "ppgpp_synthesis_reaction": {"_default": "GDPPYPHOSKIN-RXN"},
-        "ppgpp_degradation_reaction": {"_default": "PPGPPSYN-RXN"},
-        "aa_importers": {"_default": []},
-        "amino_acid_export": {"_default": None},
-        "synthesis_index": {"_default": 0},
-        "aa_exporters": {"_default": []},
-        "get_pathway_enzyme_counts_per_aa": {"_default": None},
-        "import_constraint_threshold": {"_default": 0},
-        "unit_conversion": {"_default": 0},
-        "elong_rate_by_ppgpp": {"_default": 0},
-        "amino_acid_import": {"_default": None},
-        "degradation_index": {"_default": 1},
-        "amino_acid_synthesis": {"_default": None},
-        "rela": {"_default": "RELA"},
-        "spot": {"_default": "SPOT"},
-        "ppgpp": {"_default": "ppGpp"},
-        "kS": {"_default": 100.0},
-        "KMtf": {"_default": 1.0},
-        "KMaa": {"_default": 100.0},
-        "krta": {"_default": 1.0},
-        "krtf": {"_default": 500.0},
-        "KD_RelA": {"_default": 0.26},
-        "k_RelA": {"_default": 75.0},
-        "k_SpoT_syn": {"_default": 2.6},
-        "k_SpoT_deg": {"_default": 0.23},
-        "KI_SpoT": {"_default": 20.0},
-        "aa_supply_scaling": {"_default": None},
-        "seed": {"_default": 0},
-        "emit_unique": {"_default": False},
+        'n_avogadro': 'unum[1/mol]',
+        'proteinIds': 'array[string]',
+        'proteinLengths': 'array[integer]',
+        'proteinSequences': 'array[integer]',
+        'aaWeightsIncorporated': 'array[float]',
+        'endWeight': 'array[float]',
+        'variable_elongation': 'boolean',
+        'make_elongation_rates': 'method',
+        'next_aa_pad': 'integer',
+        'ribosomeElongationRate': 'float',
+        'translation_aa_supply': 'map[float]',
+        'import_threshold': 'float',
+        'aa_from_trna': 'array[float]',
+        'gtpPerElongation': 'float',
+        'aa_supply_in_charging': 'boolean',
+        'mechanistic_translation_supply': 'boolean',
+        'mechanistic_aa_transport': 'boolean',
+        'ppgpp_regulation': 'boolean',
+        'disable_ppgpp_elongation_inhibition': 'boolean',
+        'trna_charging': 'boolean',
+        'translation_supply': 'boolean',
+        'mechanistic_supply': 'boolean',
+        'ribosome30S': 'string',
+        'ribosome50S': 'string',
+        'amino_acids': 'list[string]',
+        'aa_exchange_names': 'list[string]',
+        'basal_elongation_rate': 'float',
+        'ribosomeElongationRateDict': 'map[float]',
+        'uncharged_trna_names': 'array[string]',
+        'aaNames': 'list[string]',
+        'aa_enzymes': 'list[string]',
+        'proton': 'string',
+        'water': 'string',
+        'cellDensity': 'unum[g/L]',
+        'elongation_max': 'unum[aa/s]',
+        'aa_from_synthetase': 'array[float]',
+        'charging_stoich_matrix': 'array[integer]',
+        'charged_trna_names': 'list[string]',
+        'charging_molecule_names': 'list[string]',
+        'synthetase_names': 'list[string]',
+        'ppgpp_reaction_names': 'list[string]',
+        'ppgpp_reaction_metabolites': 'list[string]',
+        'ppgpp_reaction_stoich': 'array[integer]',
+        'ppgpp_synthesis_reaction': 'string',
+        'ppgpp_degradation_reaction': 'string',
+        'aa_importers': 'list[string]',
+        'amino_acid_export': 'map[node]',
+        'synthesis_index': 'integer',
+        'aa_exporters': 'list[string]',
+        'get_pathway_enzyme_counts_per_aa': 'method',
+        'import_constraint_threshold': 'float',
+        'unit_conversion': 'float',
+        'elong_rate_by_ppgpp': 'float',
+        'amino_acid_import': 'map[node]',
+        'degradation_index': 'integer',
+        'amino_acid_synthesis': 'map[node]',
+        'rela': 'string',
+        'spot': 'string',
+        'ppgpp': 'string',
+        'kS': 'float',
+        'KMtf': 'float',
+        'KMaa': 'float',
+        'krta': 'float',
+        'krtf': 'float',
+        'KD_RelA': 'float',
+        'k_RelA': 'float',
+        'k_SpoT_syn': 'float',
+        'k_SpoT_deg': 'float',
+        'KI_SpoT': 'float',
+        'aa_supply_scaling': 'map[float]',
+        'seed': 'integer',
+        'emit_unique': 'boolean',
     }
 
+    def inputs(self):
+        return {
+            'environment': {'media_id': 'string'},
+            'boundary': 'node',
+            'listeners': {
+                'mass': {
+                    'cell_mass': 'float[fg]',
+                    'dry_mass': 'float[fg]',
+                },
+            },
+            'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
+            'bulk': 'bulk_array',
+            'bulk_total': 'bulk_array',
+            'polypeptide_elongation': {
+                'gtp_to_hydrolyze': 'float',
+                'aa_count_diff': 'array[float]',
+                'aa_exchange_rates': 'array[float]',
+            },
+            'timestep': 'integer',
+        }
+
+    def outputs(self):
+        return {
+            'bulk': 'bulk_array',
+            'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
+            'listeners': {
+                'growth_limits': {
+                    # Concentrations — micromolar (uM = umol/L)
+                    'synthetase_conc': 'overwrite[array[float[uM]]]',
+                    'uncharged_trna_conc': 'overwrite[array[float[uM]]]',
+                    'charged_trna_conc': 'overwrite[array[float[uM]]]',
+                    'aa_conc': 'overwrite[array[float[uM]]]',
+                    'ribosome_conc': 'overwrite[float[uM]]',
+                    'ppgpp_conc': 'overwrite[float[uM]]',
+                    'rela_conc': 'overwrite[float[uM]]',
+                    'spot_conc': 'overwrite[float[uM]]',
+                    # Concentration — millimolar (mM = mmol/L)
+                    'aa_supply_aa_conc': 'overwrite[array[float[mM]]]',
+                    # Count deltas and pool sizes
+                    'aa_count_diff': 'overwrite[array[float]]',
+                    'aas_used': 'overwrite[array[integer]]',
+                    'net_charged': 'overwrite[array[integer]]',
+                    'aa_allocated': 'overwrite[array[integer]]',
+                    'aa_pool_size': 'overwrite[array[integer]]',
+                    'aa_request_size': 'overwrite[array[float]]',
+                    'active_ribosome_allocated': 'overwrite[integer]',
+                    # Saturation fractions and supply
+                    'fraction_trna_charged': 'overwrite[array[float]]',
+                    'fraction_aa_to_elongate': 'overwrite[array[float]]',
+                    'aa_supply_fraction_fwd': 'overwrite[array[float]]',
+                    'aa_supply_fraction_rev': 'overwrite[array[float]]',
+                    'original_aa_supply': 'overwrite[array[float]]',
+                    'aa_in_media': 'overwrite[array[boolean]]',
+                    'aa_supply': 'overwrite[array[float]]',
+                    'aa_synthesis': 'overwrite[array[float]]',
+                    'aa_import': 'overwrite[array[float]]',
+                    'aa_export': 'overwrite[array[float]]',
+                    'aa_supply_enzymes_fwd': 'overwrite[array[integer]]',
+                    'aa_supply_enzymes_rev': 'overwrite[array[integer]]',
+                    'aa_importers': 'overwrite[array[integer]]',
+                    'aa_exporters': 'overwrite[array[integer]]',
+                    # ppGpp synthesis/degradation rates (umol/L/s)
+                    'rela_syn': 'overwrite[array[float]]',
+                    'spot_syn': 'overwrite[float]',
+                    'spot_deg': 'overwrite[float]',
+                    'spot_deg_inhibited': 'overwrite[array[float]]',
+                    # Charging
+                    'trna_charged': 'overwrite[array[integer]]',
+                    'ntp_used': 'overwrite[array[integer]]',  # written by transcript_elongation but lives here too
+                },
+                'ribosome_data': {
+                    # Read by polypeptide_initiation next timestep
+                    'effective_elongation_rate': 'overwrite[float[aa/s]]',
+                    'translation_supply': 'overwrite[array[float]]',
+                    'aa_count_in_sequence': 'overwrite[array[integer]]',
+                    'aa_counts': 'overwrite[array[float]]',
+                    'actual_elongations': 'overwrite[integer]',
+                    'actual_elongation_hist': 'overwrite[array[integer]]',
+                    'elongations_non_terminating_hist': 'overwrite[array[integer]]',
+                    'did_terminate': 'overwrite[integer]',
+                    'termination_loss': 'overwrite[integer]',
+                    'num_trpA_terminated': 'overwrite[integer]',
+                    'process_elongation_rate': 'overwrite[float[aa/s]]',
+                },
+            },
+            'polypeptide_elongation': {
+                'gtp_to_hydrolyze': 'overwrite[float]',
+                'aa_count_diff': 'overwrite[array[float]]',
+                'aa_exchange_rates': 'overwrite[array[float]]',
+            },
+        }
+
+
     def __init__(self, parameters=None):
-        self.parameters = _apply_config_defaults(self.config_schema, parameters)
-        self.request_set = False
+        super().__init__(parameters)
 
         # Simulation options
         self.aa_supply_in_charging = self.parameters["aa_supply_in_charging"]
@@ -261,208 +357,277 @@ class PolypeptideElongationLogic:
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)
 
-
-
-class PolypeptideElongationRequester(_SafeInvokeMixin, Step):
-    """Reads stores to compute polypeptide elongation request."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-        self.process_name = config.get('process_name', self.process.name)
-
-    def inputs(self):
+    def ports_schema(self):
         return {
-            'bulk': BulkNumpyUpdate(),
-            'bulk_total': BulkNumpyUpdate(),
-            'environment': InPlaceDict(),
-            'boundary': InPlaceDict(),
-            'listeners': ListenerStore(),
-            'active_ribosome': UniqueNumpyUpdate(),
-            'polypeptide_elongation': InPlaceDict(),
-            'timestep': Float(_default=self.process.parameters.get('time_step', 1.0)),
-            'global_time': Float(_default=0.0),
-            'next_update_time': Float(
-                _default=self.process.parameters.get('time_step', 1.0)),
+            "environment": {
+                "media_id": {"_default": "", "_updater": "set"},
+                "exchange": {"*": {"_default": 0}},
+            },
+            "boundary": {
+                "external": {
+                    aa: {"_default": 0} for aa in sorted(self.aa_environment_names)
+                }
+            },
+            "listeners": {
+                "mass": listener_schema({"cell_mass": 0.0, "dry_mass": 0.0}),
+                "growth_limits": listener_schema(
+                    {
+                        "fraction_trna_charged": (
+                            [0.0] * len(self.uncharged_trna_names),
+                            self.uncharged_trna_names,
+                        ),
+                        "aa_allocated": ([0] * len(self.amino_acids), self.amino_acids),
+                        "aa_pool_size": ([0] * len(self.amino_acids), self.amino_acids),
+                        "aa_request_size": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "active_ribosome_allocated": 0,
+                        "net_charged": (
+                            [0] * len(self.uncharged_trna_names),
+                            self.uncharged_trna_names,
+                        ),
+                        "aas_used": ([0] * len(self.amino_acids), self.amino_acids),
+                        "aa_count_diff": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        # Below only if trna_charging enbaled
+                        "original_aa_supply": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "aa_in_media": (
+                            [False] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "synthetase_conc": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "uncharged_trna_conc": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "charged_trna_conc": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "aa_conc": ([0.0] * len(self.amino_acids), self.amino_acids),
+                        "ribosome_conc": 0.0,
+                        "fraction_aa_to_elongate": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "aa_supply": ([0.0] * len(self.amino_acids), self.amino_acids),
+                        "aa_synthesis": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "aa_import": ([0.0] * len(self.amino_acids), self.amino_acids),
+                        "aa_export": ([0.0] * len(self.amino_acids), self.amino_acids),
+                        "aa_importers": (
+                            [0] * len(self.aa_importers),
+                            self.aa_importers,
+                        ),
+                        "aa_exporters": (
+                            [0] * len(self.aa_exporters),
+                            self.aa_exporters,
+                        ),
+                        "aa_supply_enzymes_fwd": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "aa_supply_enzymes_rev": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "aa_supply_aa_conc": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "aa_supply_fraction_fwd": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "aa_supply_fraction_rev": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "ppgpp_conc": 0.0,
+                        "rela_conc": 0.0,
+                        "spot_conc": 0.0,
+                        "rela_syn": ([0.0] * len(self.amino_acids), self.amino_acids),
+                        "spot_syn": 0.0,
+                        "spot_deg": 0.0,
+                        "spot_deg_inhibited": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "trna_charged": ([0] * len(self.amino_acids), self.amino_acids),
+                    }
+                ),
+                "ribosome_data": listener_schema(
+                    {
+                        "translation_supply": (
+                            [0.0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "effective_elongation_rate": 0.0,
+                        "aa_count_in_sequence": (
+                            [0] * len(self.amino_acids),
+                            self.amino_acids,
+                        ),
+                        "aa_counts": ([0.0] * len(self.amino_acids), self.amino_acids),
+                        "actual_elongations": 0,
+                        "actual_elongation_hist": [0] * 22,
+                        "elongations_non_terminating_hist": [0] * 22,
+                        "did_terminate": 0,
+                        "termination_loss": 0,
+                        "num_trpA_terminated": 0,
+                        "process_elongation_rate": 0.0,
+                    }
+                ),
+            },
+            "bulk": numpy_schema("bulk"),
+            "bulk_total": numpy_schema("bulk"),
+            "active_ribosome": numpy_schema(
+                "active_ribosome", emit=self.parameters["emit_unique"]
+            ),
+            "polypeptide_elongation": {
+                "aa_count_diff": {
+                    "_default": [0.0] * len(self.amino_acids),
+                    "_emit": True,
+                    "_updater": "set",
+                    "_divider": "empty_dict",
+                },
+                "gtp_to_hydrolyze": {
+                    "_default": 0.0,
+                    "_emit": True,
+                    "_updater": "set",
+                    "_divider": "zero",
+                },
+                "aa_exchange_rates": {
+                    "_default": np.zeros(len(self.amino_acids)),
+                    "_emit": True,
+                    "_updater": "set",
+                    "_divider": "set",
+                },
+            },
+            "timestep": {"_default": self.parameters["time_step"]},
         }
 
-    def outputs(self):
-        return {
-            'request': InPlaceDict(),
-            'next_update_time': Overwrite(_value=Float()),
-            'listeners': ListenerStore(),
-        }
+    def calculate_request(self, timestep, states):
+        """
+        Set ribosome elongation rate based on simulation medium environment and elongation rate factor
+        which is used to create single-cell variability in growth rate
+        The maximum number of amino acids that can be elongated in a single timestep is set to 22
+        intentionally as the minimum number of padding values on the protein sequence matrix is set to 22.
+        If timesteps longer than 1.0s are used, this feature will lead to errors in the effective ribosome
+        elongation rate.
+        """
 
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-        timestep = state.get('timestep', 1.0)
-        p = self.process
-        # --- inlined from calculate_request ---
-        if p.proton_idx is None:
-            bulk_ids = state["bulk"]["id"]
-            p.proton_idx = bulk_name_to_idx(p.proton, bulk_ids)
-            p.water_idx = bulk_name_to_idx(p.water, bulk_ids)
-            p.rela_idx = bulk_name_to_idx(p.rela, bulk_ids)
-            p.spot_idx = bulk_name_to_idx(p.spot, bulk_ids)
-            p.ppgpp_idx = bulk_name_to_idx(p.ppgpp, bulk_ids)
-            p.monomer_idx = bulk_name_to_idx(p.proteinIds, bulk_ids)
-            p.amino_acid_idx = bulk_name_to_idx(p.amino_acids, bulk_ids)
-            p.aa_enzyme_idx = bulk_name_to_idx(p.aa_enzymes, bulk_ids)
-            p.ppgpp_rxn_metabolites_idx = bulk_name_to_idx(
-                p.ppgpp_reaction_metabolites, bulk_ids
+        if self.proton_idx is None:
+            bulk_ids = states["bulk"]["id"]
+            self.proton_idx = bulk_name_to_idx(self.proton, bulk_ids)
+            self.water_idx = bulk_name_to_idx(self.water, bulk_ids)
+            self.rela_idx = bulk_name_to_idx(self.rela, bulk_ids)
+            self.spot_idx = bulk_name_to_idx(self.spot, bulk_ids)
+            self.ppgpp_idx = bulk_name_to_idx(self.ppgpp, bulk_ids)
+            self.monomer_idx = bulk_name_to_idx(self.proteinIds, bulk_ids)
+            self.amino_acid_idx = bulk_name_to_idx(self.amino_acids, bulk_ids)
+            self.aa_enzyme_idx = bulk_name_to_idx(self.aa_enzymes, bulk_ids)
+            self.ppgpp_rxn_metabolites_idx = bulk_name_to_idx(
+                self.ppgpp_reaction_metabolites, bulk_ids
             )
-            p.uncharged_trna_idx = bulk_name_to_idx(
-                p.uncharged_trna_names, bulk_ids
+            self.uncharged_trna_idx = bulk_name_to_idx(
+                self.uncharged_trna_names, bulk_ids
             )
-            p.charged_trna_idx = bulk_name_to_idx(p.charged_trna_names, bulk_ids)
-            p.charging_molecule_idx = bulk_name_to_idx(
-                p.charging_molecule_names, bulk_ids
+            self.charged_trna_idx = bulk_name_to_idx(self.charged_trna_names, bulk_ids)
+            self.charging_molecule_idx = bulk_name_to_idx(
+                self.charging_molecule_names, bulk_ids
             )
-            p.synthetase_idx = bulk_name_to_idx(p.synthetase_names, bulk_ids)
-            p.ribosome30S_idx = bulk_name_to_idx(p.ribosome30S, bulk_ids)
-            p.ribosome50S_idx = bulk_name_to_idx(p.ribosome50S, bulk_ids)
-            p.aa_importer_idx = bulk_name_to_idx(p.aa_importers, bulk_ids)
-            p.aa_exporter_idx = bulk_name_to_idx(p.aa_exporters, bulk_ids)
+            self.synthetase_idx = bulk_name_to_idx(self.synthetase_names, bulk_ids)
+            self.ribosome30S_idx = bulk_name_to_idx(self.ribosome30S, bulk_ids)
+            self.ribosome50S_idx = bulk_name_to_idx(self.ribosome50S, bulk_ids)
+            self.aa_importer_idx = bulk_name_to_idx(self.aa_importers, bulk_ids)
+            self.aa_exporter_idx = bulk_name_to_idx(self.aa_exporters, bulk_ids)
 
         # MODEL SPECIFIC: get ribosome elongation rate
-        p.ribosomeElongationRate = p.elongation_model.elongation_rate(state)
+        self.ribosomeElongationRate = self.elongation_model.elongation_rate(states)
 
         # If there are no active ribosomes, return immediately
-        if state["active_ribosome"]["_entryState"].sum() == 0:
-            request = {"listeners": {"ribosome_data": {}, "growth_limits": {}}}
-        else:
-            # Build sequences to request appropriate amount of amino acids to
-            # polymerize for next timestep
-            (
-                proteinIndexes,
-                peptideLengths,
-            ) = attrs(state["active_ribosome"], ["protein_index", "peptide_length"])
+        if states["active_ribosome"]["_entryState"].sum() == 0:
+            return {"listeners": {"ribosome_data": {}, "growth_limits": {}}}
 
-            p.elongation_rates = p.make_elongation_rates(
-                p.random_state,
-                p.ribosomeElongationRate,
-                state["timestep"],
-                p.variable_elongation,
-            )
+        # Build sequences to request appropriate amount of amino acids to
+        # polymerize for next timestep
+        (
+            proteinIndexes,
+            peptideLengths,
+        ) = attrs(states["active_ribosome"], ["protein_index", "peptide_length"])
 
-            sequences = buildSequences(
-                p.proteinSequences, proteinIndexes, peptideLengths, p.elongation_rates
-            )
+        self.elongation_rates = self.make_elongation_rates(
+            self.random_state,
+            self.ribosomeElongationRate,
+            states["timestep"],
+            self.variable_elongation,
+        )
 
-            sequenceHasAA = sequences != polymerize.PAD_VALUE
-            aasInSequences = np.bincount(sequences[sequenceHasAA], minlength=21)
+        sequences = buildSequences(
+            self.proteinSequences, proteinIndexes, peptideLengths, self.elongation_rates
+        )
 
-            # Calculate AA supply for expected doubling of protein
-            dryMass = state["listeners"]["mass"]["dry_mass"] * units.fg
-            current_media_id = state["environment"]["media_id"]
-            translation_supply_rate = (
-                p.translation_aa_supply[current_media_id] * p.elngRateFactor
-            )
-            mol_aas_supplied = (
-                translation_supply_rate * dryMass * state["timestep"] * units.s
-            )
-            p.aa_supply = units.strip_empty_units(mol_aas_supplied * p.n_avogadro)
+        sequenceHasAA = sequences != polymerize.PAD_VALUE
+        aasInSequences = np.bincount(sequences[sequenceHasAA], minlength=21)
 
-            # MODEL SPECIFIC: Calculate AA request
-            fraction_charged, aa_counts_for_translation, request = (
-                p.elongation_model.request(state, aasInSequences)
-            )
+        # Calculate AA supply for expected doubling of protein
+        dryMass = states["listeners"]["mass"]["dry_mass"] * units.fg
+        current_media_id = states["environment"]["media_id"]
+        translation_supply_rate = (
+            self.translation_aa_supply[current_media_id] * self.elngRateFactor
+        )
+        mol_aas_supplied = (
+            translation_supply_rate * dryMass * states["timestep"] * units.s
+        )
+        self.aa_supply = units.strip_empty_units(mol_aas_supplied * self.n_avogadro)
 
-            # Write to listeners
-            listeners = request.setdefault("listeners", {})
-            ribosome_data_listener = listeners.setdefault("ribosome_data", {})
-            ribosome_data_listener["translation_supply"] = (
-                translation_supply_rate.asNumber()
-            )
-            growth_limits_listener = request["listeners"].setdefault("growth_limits", {})
-            growth_limits_listener["fraction_trna_charged"] = np.dot(
-                fraction_charged, p.aa_from_trna
-            )
-            growth_limits_listener["aa_pool_size"] = counts(
-                state["bulk_total"], p.amino_acid_idx
-            )
-            growth_limits_listener["aa_request_size"] = aa_counts_for_translation
-            # Simulations without mechanistic translation supply need this to be
-            # manually zeroed after division
-            proc_data = request.setdefault("polypeptide_elongation", {})
-            proc_data.setdefault("aa_exchange_rates", np.zeros(len(p.amino_acids)))
-        # --- end inlined ---
-        p.request_set = True
+        # MODEL SPECIFIC: Calculate AA request
+        fraction_charged, aa_counts_for_translation, requests = (
+            self.elongation_model.request(states, aasInSequences)
+        )
 
-        bulk_request = request.pop('bulk', None)
-        result = {'request': {}}
-        if bulk_request is not None:
-            result['request']['bulk'] = bulk_request
+        # Write to listeners
+        listeners = requests.setdefault("listeners", {})
+        ribosome_data_listener = listeners.setdefault("ribosome_data", {})
+        ribosome_data_listener["translation_supply"] = (
+            translation_supply_rate.asNumber()
+        )
+        growth_limits_listener = requests["listeners"].setdefault("growth_limits", {})
+        growth_limits_listener["fraction_trna_charged"] = np.dot(
+            fraction_charged, self.aa_from_trna
+        )
+        growth_limits_listener["aa_pool_size"] = counts(
+            states["bulk_total"], self.amino_acid_idx
+        )
+        growth_limits_listener["aa_request_size"] = aa_counts_for_translation
+        # Simulations without mechanistic translation supply need this to be
+        # manually zeroed after division
+        proc_data = requests.setdefault("polypeptide_elongation", {})
+        proc_data.setdefault("aa_exchange_rates", np.zeros(len(self.amino_acids)))
 
-        listeners = request.pop('listeners', None)
-        if listeners is not None:
-            result['listeners'] = listeners
+        return requests
 
-        return result
+    def evolve_state(self, timestep, states):
+        """
+        Set ribosome elongation rate based on simulation medium environment and elongation rate factor
+        which is used to create single-cell variability in growth rate
+        The maximum number of amino acids that can be elongated in a single timestep is set to 22
+        intentionally as the minimum number of padding values on the protein sequence matrix is set to 22.
+        If timesteps longer than 1.0s are used, this feature will lead to errors in the effective ribosome
+        elongation rate.
+        """
 
-
-class PolypeptideElongationEvolver(_SafeInvokeMixin, Step):
-    """Reads allocation, writes bulk/unique/listener/boundary updates."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-
-    def inputs(self):
-        return {
-            'allocate': SetStore(),
-            'bulk': BulkNumpyUpdate(),
-            'bulk_total': BulkNumpyUpdate(),
-            'environment': InPlaceDict(),
-            'boundary': InPlaceDict(),
-            'listeners': ListenerStore(),
-            'active_ribosome': UniqueNumpyUpdate(),
-            'polypeptide_elongation': InPlaceDict(),
-            'timestep': Float(_default=self.process.parameters.get('time_step', 1.0)),
-            'global_time': Float(_default=0.0),
-            'next_update_time': Float(
-                _default=self.process.parameters.get('time_step', 1.0)),
-        }
-
-    def outputs(self):
-        return {
-            'bulk': BulkNumpyUpdate(),
-            'listeners': ListenerStore(),
-            'active_ribosome': UniqueNumpyUpdate(),
-            'polypeptide_elongation': InPlaceDict(),
-            'boundary': InPlaceDict(),
-            'next_update_time': Overwrite(_value=Float()),
-        }
-
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-
-        allocations = state.pop('allocate', {})
-        bulk_alloc = allocations.get('bulk')
-        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
-            alloc_bulk = state['bulk'].copy()
-            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
-            state['bulk'] = alloc_bulk
-        state = deep_merge(state, allocations)
-
-        if not self.process.request_set:
-            return {}
-
-        timestep = state.get('timestep', 1.0)
-        p = self.process
-        # --- inlined from evolve_state ---
         update = {
             "listeners": {"ribosome_data": {}, "growth_limits": {}},
             "polypeptide_elongation": {},
@@ -472,173 +637,176 @@ class PolypeptideElongationEvolver(_SafeInvokeMixin, Step):
 
         # Begin wcEcoli evolveState()
         # Set values for metabolism in case of early return
-        update["polypeptide_elongation"]["gtp_to_hydrolyze"] = 0
+        update["polypeptide_elongation"]["gtp_to_hydrolyze"] = 0.0
         update["polypeptide_elongation"]["aa_count_diff"] = np.zeros(
-            len(p.amino_acids), dtype=np.float64
+            len(self.amino_acids), dtype=np.float64
         )
 
         # Get number of active ribosomes
-        n_active_ribosomes = state["active_ribosome"]["_entryState"].sum()
+        n_active_ribosomes = states["active_ribosome"]["_entryState"].sum()
         update["listeners"]["growth_limits"]["active_ribosome_allocated"] = (
             n_active_ribosomes
         )
         update["listeners"]["growth_limits"]["aa_allocated"] = counts(
-            state["bulk"], p.amino_acid_idx
+            states["bulk"], self.amino_acid_idx
         )
 
         # If there are no active ribosomes, return immediately
-        if n_active_ribosomes != 0:
-            # Polypeptide elongation requires counts to be updated in real-time
-            # so make a writeable copy of bulk counts to do so
-            state["bulk"] = counts(state["bulk"], range(len(state["bulk"])))
+        if n_active_ribosomes == 0:
+            return update
 
-            # Build amino acids sequences for each ribosome to polymerize
-            protein_indexes, peptide_lengths, positions_on_mRNA = attrs(
-                state["active_ribosome"],
-                ["protein_index", "peptide_length", "pos_on_mRNA"],
-            )
+        # Polypeptide elongation requires counts to be updated in real-time
+        # so make a writeable copy of bulk counts to do so
+        states["bulk"] = counts(states["bulk"], range(len(states["bulk"])))
 
-            all_sequences = buildSequences(
-                p.proteinSequences,
-                protein_indexes,
-                peptide_lengths,
-                p.elongation_rates + p.next_aa_pad,
-            )
-            sequences = all_sequences[:, : -p.next_aa_pad].copy()
+        # Build amino acids sequences for each ribosome to polymerize
+        protein_indexes, peptide_lengths, positions_on_mRNA = attrs(
+            states["active_ribosome"],
+            ["protein_index", "peptide_length", "pos_on_mRNA"],
+        )
 
-            if sequences.size != 0:
-                # Calculate elongation resource capacity
-                aaCountInSequence = np.bincount(sequences[(sequences != polymerize.PAD_VALUE)])
-                total_aa_counts = counts(state["bulk"], p.amino_acid_idx)
-                charged_trna_counts = counts(state["bulk"], p.charged_trna_idx)
+        all_sequences = buildSequences(
+            self.proteinSequences,
+            protein_indexes,
+            peptide_lengths,
+            self.elongation_rates + self.next_aa_pad,
+        )
+        sequences = all_sequences[:, : -self.next_aa_pad].copy()
 
-                # MODEL SPECIFIC: Get amino acid counts
-                aa_counts_for_translation = p.elongation_model.final_amino_acids(
-                    total_aa_counts, charged_trna_counts
-                )
+        if sequences.size == 0:
+            return update
 
-                # Using polymerization algorithm elongate each ribosome up to the limits
-                # of amino acids, sequence, and GTP
-                result = polymerize(
-                    sequences,
-                    aa_counts_for_translation,
-                    10000000,  # Set to a large number, the limit is now taken care of in metabolism
-                    p.random_state,
-                    p.elongation_rates[protein_indexes],
-                    variable_elongation=p.variable_polymerize,
-                )
+        # Calculate elongation resource capacity
+        aaCountInSequence = np.bincount(sequences[(sequences != polymerize.PAD_VALUE)])
+        total_aa_counts = counts(states["bulk"], self.amino_acid_idx)
+        charged_trna_counts = counts(states["bulk"], self.charged_trna_idx)
 
-                sequence_elongations = result.sequenceElongation
-                aas_used = result.monomerUsages
-                nElongations = result.nReactions
+        # MODEL SPECIFIC: Get amino acid counts
+        aa_counts_for_translation = self.elongation_model.final_amino_acids(
+            total_aa_counts, charged_trna_counts
+        )
 
-                next_amino_acid = all_sequences[
-                    np.arange(len(sequence_elongations)), sequence_elongations
-                ]
-                next_amino_acid_count = np.bincount(
-                    next_amino_acid[next_amino_acid != polymerize.PAD_VALUE], minlength=21
-                )
+        # Using polymerization algorithm elongate each ribosome up to the limits
+        # of amino acids, sequence, and GTP
+        result = polymerize(
+            sequences,
+            aa_counts_for_translation,
+            10000000,  # Set to a large number, the limit is now taken care of in metabolism
+            self.random_state,
+            self.elongation_rates[protein_indexes],
+            variable_elongation=self.variable_polymerize,
+        )
 
-                # Update masses of ribosomes attached to polymerizing polypeptides
-                added_protein_mass = computeMassIncrease(
-                    sequences, sequence_elongations, p.aaWeightsIncorporated
-                )
+        sequence_elongations = result.sequenceElongation
+        aas_used = result.monomerUsages
+        nElongations = result.nReactions
 
-                updated_lengths = peptide_lengths + sequence_elongations
-                updated_positions_on_mRNA = positions_on_mRNA + 3 * sequence_elongations
+        next_amino_acid = all_sequences[
+            np.arange(len(sequence_elongations)), sequence_elongations
+        ]
+        next_amino_acid_count = np.bincount(
+            next_amino_acid[next_amino_acid != polymerize.PAD_VALUE], minlength=21
+        )
 
-                didInitialize = (sequence_elongations > 0) & (peptide_lengths == 0)
+        # Update masses of ribosomes attached to polymerizing polypeptides
+        added_protein_mass = computeMassIncrease(
+            sequences, sequence_elongations, self.aaWeightsIncorporated
+        )
 
-                added_protein_mass[didInitialize] += p.endWeight
+        updated_lengths = peptide_lengths + sequence_elongations
+        updated_positions_on_mRNA = positions_on_mRNA + 3 * sequence_elongations
 
-                # Write current average elongation to listener
-                currElongRate = (sequence_elongations.sum() / n_active_ribosomes) / state[
-                    "timestep"
-                ]
+        didInitialize = (sequence_elongations > 0) & (peptide_lengths == 0)
 
-                # Ribosomes that reach the end of their sequences are terminated and
-                # dissociated into 30S and 50S subunits. The polypeptide that they are
-                # polymerizing is converted into a protein in BulkMolecules
-                terminalLengths = p.protein_lengths[protein_indexes]
+        added_protein_mass[didInitialize] += self.endWeight
 
-                didTerminate = updated_lengths == terminalLengths
+        # Write current average elongation to listener
+        currElongRate = (sequence_elongations.sum() / n_active_ribosomes) / states[
+            "timestep"
+        ]
 
-                terminatedProteins = np.bincount(
-                    protein_indexes[didTerminate], minlength=p.proteinSequences.shape[0]
-                )
+        # Ribosomes that reach the end of their sequences are terminated and
+        # dissociated into 30S and 50S subunits. The polypeptide that they are
+        # polymerizing is converted into a protein in BulkMolecules
+        terminalLengths = self.protein_lengths[protein_indexes]
 
-                (protein_mass,) = attrs(state["active_ribosome"], ["massDiff_protein"])
-                update["active_ribosome"].update(
-                    {
-                        "delete": np.where(didTerminate)[0],
-                        "set": {
-                            "massDiff_protein": protein_mass + added_protein_mass,
-                            "peptide_length": updated_lengths,
-                            "pos_on_mRNA": updated_positions_on_mRNA,
-                        },
-                    }
-                )
+        didTerminate = updated_lengths == terminalLengths
 
-                update["bulk"].append((p.monomer_idx, terminatedProteins))
-                state["bulk"][p.monomer_idx] += terminatedProteins
+        terminatedProteins = np.bincount(
+            protein_indexes[didTerminate], minlength=self.proteinSequences.shape[0]
+        )
 
-                nTerminated = didTerminate.sum()
-                nInitialized = didInitialize.sum()
+        (protein_mass,) = attrs(states["active_ribosome"], ["massDiff_protein"])
+        update["active_ribosome"].update(
+            {
+                "delete": np.where(didTerminate)[0],
+                "set": {
+                    "massDiff_protein": protein_mass + added_protein_mass,
+                    "peptide_length": updated_lengths,
+                    "pos_on_mRNA": updated_positions_on_mRNA,
+                },
+            }
+        )
 
-                update["bulk"].append((p.ribosome30S_idx, nTerminated))
-                update["bulk"].append((p.ribosome50S_idx, nTerminated))
-                state["bulk"][p.ribosome30S_idx] += nTerminated
-                state["bulk"][p.ribosome50S_idx] += nTerminated
+        update["bulk"].append((self.monomer_idx, terminatedProteins))
+        states["bulk"][self.monomer_idx] += terminatedProteins
 
-                # MODEL SPECIFIC: evolve
-                net_charged, aa_count_diff, evolve_update = p.elongation_model.evolve(
-                    state,
-                    total_aa_counts,
-                    aas_used,
-                    next_amino_acid_count,
-                    nElongations,
-                    nInitialized,
-                )
+        nTerminated = didTerminate.sum()
+        nInitialized = didInitialize.sum()
 
-                evolve_bulk_update = evolve_update.pop("bulk")
-                update = deep_merge(update, evolve_update)
-                update["bulk"].extend(evolve_bulk_update)
+        update["bulk"].append((self.ribosome30S_idx, nTerminated))
+        update["bulk"].append((self.ribosome50S_idx, nTerminated))
+        states["bulk"][self.ribosome30S_idx] += nTerminated
+        states["bulk"][self.ribosome50S_idx] += nTerminated
 
-                update["polypeptide_elongation"]["aa_count_diff"] = aa_count_diff
-                # GTP hydrolysis is carried out in Metabolism process for growth
-                # associated maintenance. This is passed to metabolism.
-                update["polypeptide_elongation"]["gtp_to_hydrolyze"] = (
-                    p.gtpPerElongation * nElongations
-                )
+        # MODEL SPECIFIC: evolve
+        net_charged, aa_count_diff, evolve_update = self.elongation_model.evolve(
+            states,
+            total_aa_counts,
+            aas_used,
+            next_amino_acid_count,
+            nElongations,
+            nInitialized,
+        )
 
-                # Write data to listeners
-                update["listeners"]["growth_limits"]["net_charged"] = net_charged
-                update["listeners"]["growth_limits"]["aas_used"] = aas_used
-                update["listeners"]["growth_limits"]["aa_count_diff"] = aa_count_diff
+        evolve_bulk_update = evolve_update.pop("bulk")
+        update = deep_merge(update, evolve_update)
+        update["bulk"].extend(evolve_bulk_update)
 
-                ribosome_data_listener = update["listeners"].setdefault("ribosome_data", {})
-                ribosome_data_listener["effective_elongation_rate"] = currElongRate
-                ribosome_data_listener["aa_count_in_sequence"] = aaCountInSequence
-                ribosome_data_listener["aa_counts"] = aa_counts_for_translation
-                ribosome_data_listener["actual_elongations"] = sequence_elongations.sum()
-                ribosome_data_listener["actual_elongation_hist"] = np.histogram(
-                    sequence_elongations, bins=np.arange(0, 23)
-                )[0]
-                ribosome_data_listener["elongations_non_terminating_hist"] = np.histogram(
-                    sequence_elongations[~didTerminate], bins=np.arange(0, 23)
-                )[0]
-                ribosome_data_listener["did_terminate"] = didTerminate.sum()
-                ribosome_data_listener["termination_loss"] = (
-                    terminalLengths - peptide_lengths
-                )[didTerminate].sum()
-                ribosome_data_listener["num_trpA_terminated"] = terminatedProteins[
-                    p.trpAIndex
-                ]
-                ribosome_data_listener["process_elongation_rate"] = (
-                    p.ribosomeElongationRate / state["timestep"]
-                )
-        # --- end inlined ---
-        update['next_update_time'] = state.get('global_time', 0.0) + timestep
+        update["polypeptide_elongation"]["aa_count_diff"] = aa_count_diff
+        # GTP hydrolysis is carried out in Metabolism process for growth
+        # associated maintenance. This is passed to metabolism.
+        update["polypeptide_elongation"]["gtp_to_hydrolyze"] = (
+            self.gtpPerElongation * nElongations
+        )
+
+        # Write data to listeners
+        update["listeners"]["growth_limits"]["net_charged"] = net_charged
+        update["listeners"]["growth_limits"]["aas_used"] = aas_used
+        update["listeners"]["growth_limits"]["aa_count_diff"] = aa_count_diff
+
+        ribosome_data_listener = update["listeners"].setdefault("ribosome_data", {})
+        ribosome_data_listener["effective_elongation_rate"] = currElongRate
+        ribosome_data_listener["aa_count_in_sequence"] = aaCountInSequence
+        ribosome_data_listener["aa_counts"] = aa_counts_for_translation
+        ribosome_data_listener["actual_elongations"] = sequence_elongations.sum()
+        ribosome_data_listener["actual_elongation_hist"] = np.histogram(
+            sequence_elongations, bins=np.arange(0, 23)
+        )[0]
+        ribosome_data_listener["elongations_non_terminating_hist"] = np.histogram(
+            sequence_elongations[~didTerminate], bins=np.arange(0, 23)
+        )[0]
+        ribosome_data_listener["did_terminate"] = didTerminate.sum()
+        ribosome_data_listener["termination_loss"] = (
+            terminalLengths - peptide_lengths
+        )[didTerminate].sum()
+        ribosome_data_listener["num_trpA_terminated"] = terminatedProteins[
+            self.trpAIndex
+        ]
+        ribosome_data_listener["process_elongation_rate"] = (
+            self.ribosomeElongationRate / states["timestep"]
+        )
+
         return update
 
 
@@ -811,15 +979,11 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             "get_pathway_enzyme_counts_per_aa"
         ]
 
-        # Store threshold as plain float (mM magnitude) to avoid pint
-        # registry mismatch when comparing with deserialized state values
-        threshold = self.parameters["import_constraint_threshold"]
-        if hasattr(threshold, 'magnitude'):
-            self.import_constraint_threshold = float(threshold.magnitude)
-        elif hasattr(threshold, 'asNumber'):
-            self.import_constraint_threshold = float(threshold.asNumber())
-        else:
-            self.import_constraint_threshold = float(threshold)
+        # Comparing two values with units is faster than converting units
+        # and comparing magnitudes
+        self.import_constraint_threshold = (
+            self.parameters["import_constraint_threshold"] * vivunits.mM
+        )
 
     def elongation_rate(self, states):
         if (
@@ -881,11 +1045,9 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         ribosome_conc = self.counts_to_molar * ribosome_counts
 
         # Calculate amino acid supply
-        from v2ecoli.processes.metabolism import _to_mM
         aa_in_media = np.array(
             [
-                _to_mM(states["boundary"]["external"][aa])
-                > self.import_constraint_threshold
+                states["boundary"]["external"][aa] > self.import_constraint_threshold
                 for aa in self.process.aa_environment_names
             ]
         )
@@ -1910,3 +2072,515 @@ def get_charging_supply_function(
                 )
 
     return supply_function
+
+
+def test_polypeptide_elongation(return_data=False):
+    def make_elongation_rates(random, base, time_step, variable_elongation=False):
+        size = 1
+        lengths = time_step * np.full(size, base, dtype=np.int64)
+        lengths = stochasticRound(random, lengths) if random else np.round(lengths)
+        return lengths.astype(np.int64)
+
+    test_config = {
+        "time_step": 2,
+        "proteinIds": np.array(["TRYPSYN-APROTEIN[c]"]),
+        "ribosome30S": "CPLX0-3953[c]",
+        "ribosome50S": "CPLX0-3962[c]",
+        "make_elongation_rates": make_elongation_rates,
+        "proteinLengths": np.array(
+            [245]
+        ),  # this is the length of proteins in proteinSequences
+        "translation_aa_supply": {
+            "minimal": (units.mol / units.fg / units.min)
+            * np.array(
+                [
+                    6.73304301e-21,
+                    3.63835219e-21,
+                    2.89772671e-21,
+                    3.88086822e-21,
+                    5.04645651e-22,
+                    4.45295877e-21,
+                    2.64600664e-21,
+                    5.35711230e-21,
+                    1.26817689e-21,
+                    3.81168405e-21,
+                    5.66834531e-21,
+                    4.30576056e-21,
+                    1.70428208e-21,
+                    2.24878356e-21,
+                    2.49335033e-21,
+                    3.47019761e-21,
+                    3.83858460e-21,
+                    6.34564026e-22,
+                    1.86880523e-21,
+                    1.40959498e-27,
+                    5.20884460e-21,
+                ]
+            )
+        },
+        "proteinSequences": np.array(
+            [
+                [
+                    12,
+                    10,
+                    18,
+                    9,
+                    13,
+                    1,
+                    10,
+                    9,
+                    9,
+                    16,
+                    20,
+                    9,
+                    18,
+                    15,
+                    9,
+                    10,
+                    20,
+                    4,
+                    20,
+                    13,
+                    7,
+                    15,
+                    9,
+                    18,
+                    4,
+                    10,
+                    13,
+                    15,
+                    14,
+                    1,
+                    2,
+                    14,
+                    11,
+                    8,
+                    20,
+                    0,
+                    16,
+                    13,
+                    7,
+                    8,
+                    12,
+                    13,
+                    7,
+                    1,
+                    10,
+                    0,
+                    14,
+                    10,
+                    13,
+                    7,
+                    10,
+                    11,
+                    20,
+                    5,
+                    4,
+                    1,
+                    11,
+                    14,
+                    16,
+                    3,
+                    0,
+                    5,
+                    15,
+                    18,
+                    7,
+                    2,
+                    0,
+                    9,
+                    18,
+                    9,
+                    0,
+                    2,
+                    8,
+                    6,
+                    2,
+                    2,
+                    18,
+                    3,
+                    12,
+                    20,
+                    16,
+                    0,
+                    15,
+                    2,
+                    9,
+                    20,
+                    6,
+                    14,
+                    14,
+                    16,
+                    20,
+                    16,
+                    20,
+                    7,
+                    11,
+                    11,
+                    15,
+                    10,
+                    10,
+                    17,
+                    9,
+                    14,
+                    13,
+                    13,
+                    7,
+                    6,
+                    10,
+                    18,
+                    17,
+                    10,
+                    16,
+                    7,
+                    2,
+                    10,
+                    10,
+                    9,
+                    3,
+                    1,
+                    2,
+                    2,
+                    1,
+                    16,
+                    11,
+                    0,
+                    8,
+                    7,
+                    16,
+                    9,
+                    0,
+                    5,
+                    20,
+                    20,
+                    2,
+                    8,
+                    13,
+                    11,
+                    11,
+                    1,
+                    1,
+                    9,
+                    15,
+                    9,
+                    17,
+                    12,
+                    13,
+                    14,
+                    5,
+                    7,
+                    16,
+                    1,
+                    15,
+                    1,
+                    7,
+                    1,
+                    7,
+                    10,
+                    10,
+                    14,
+                    13,
+                    11,
+                    16,
+                    7,
+                    0,
+                    13,
+                    8,
+                    0,
+                    0,
+                    9,
+                    0,
+                    0,
+                    7,
+                    20,
+                    14,
+                    9,
+                    9,
+                    14,
+                    20,
+                    4,
+                    20,
+                    15,
+                    16,
+                    16,
+                    15,
+                    2,
+                    11,
+                    9,
+                    2,
+                    10,
+                    2,
+                    1,
+                    10,
+                    8,
+                    2,
+                    7,
+                    10,
+                    20,
+                    9,
+                    20,
+                    5,
+                    12,
+                    10,
+                    14,
+                    14,
+                    9,
+                    3,
+                    20,
+                    15,
+                    6,
+                    18,
+                    7,
+                    11,
+                    3,
+                    6,
+                    20,
+                    1,
+                    5,
+                    10,
+                    0,
+                    0,
+                    8,
+                    4,
+                    1,
+                    15,
+                    9,
+                    12,
+                    5,
+                    6,
+                    11,
+                    9,
+                    0,
+                    5,
+                    10,
+                    3,
+                    11,
+                    5,
+                    20,
+                    0,
+                    5,
+                    1,
+                    5,
+                    0,
+                    0,
+                    7,
+                    11,
+                    20,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                    -1,
+                ]
+            ]
+        ).astype(np.int8),
+    }
+
+    polypep_elong = PolypeptideElongation(test_config)
+
+    initial_state = {
+        "environment": {"media_id": "minimal"},
+        "bulk": np.array(
+            [
+                ("CPLX0-3953[c]", 100),
+                ("CPLX0-3962[c]", 100),
+                ("TRYPSYN-APROTEIN[c]", 0),
+                ("RELA", 0),
+                ("SPOT", 0),
+                ("H2O", 0),
+                ("PROTON", 0),
+                ("ppGpp", 0),
+            ]
+            + [(aa, 100) for aa in DEFAULT_AA_NAMES],
+            dtype=[("id", "U40"), ("count", int)],
+        ),
+        "unique": {
+            "active_ribosome": np.array(
+                [(1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0)],
+                dtype=[
+                    ("_entryState", np.bool_),
+                    ("unique_index", int),
+                    ("protein_index", int),
+                    ("peptide_length", int),
+                    ("pos_on_mRNA", int),
+                    ("massDiff_DNA", "<f8"),
+                    ("massDiff_mRNA", "<f8"),
+                    ("massDiff_metabolite", "<f8"),
+                    ("massDiff_miscRNA", "<f8"),
+                    ("massDiff_nonspecific_RNA", "<f8"),
+                    ("massDiff_protein", "<f8"),
+                    ("massDiff_rRNA", "<f8"),
+                    ("massDiff_tRNA", "<f8"),
+                    ("massDiff_water", "<f8"),
+                ],
+            )
+        },
+        "listeners": {"mass": {"dry_mass": 350.0}},
+    }
+
+    settings = {"total_time": 200, "initial_state": initial_state, "topology": TOPOLOGY}
+    data = simulate_process(polypep_elong, settings)
+
+    if return_data:
+        return data, test_config
+
+
+def run_plot(data, config):
+    # plot a list of variables
+    bulk_ids = [
+        "CPLX0-3953[c]",
+        "CPLX0-3962[c]",
+        "TRYPSYN-APROTEIN[c]",
+        "RELA",
+        "SPOT",
+        "H2O",
+        "PROTON",
+        "ppGpp",
+    ] + [aa for aa in DEFAULT_AA_NAMES]
+    variables = [(bulk_id,) for bulk_id in bulk_ids]
+
+    # format data
+    bulk_timeseries = np.array(data["bulk"])
+    for i, bulk_id in enumerate(bulk_ids):
+        data[bulk_id] = bulk_timeseries[:, i]
+
+    plot_variables(
+        data,
+        variables=variables,
+        out_dir="out/processes/polypeptide_elongation",
+        filename="variables",
+    )
+
+
+def main():
+    data, config = test_polypeptide_elongation(return_data=True)
+    run_plot(data, config)
+
+
+if __name__ == "__main__":
+    main()

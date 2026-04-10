@@ -1,75 +1,85 @@
-"""Process-bigraph partitioned process: protein_degradation."""
+"""
+===================
+Protein Degradation
+===================
 
-from typing import Any, Callable, Optional, Tuple, cast
+This process accounts for the degradation of protein monomers.
+Specific proteins to be degraded are selected as a Poisson process.
 
-from numba import njit
+TODO:
+ - protein complexes
+ - add protease functionality
+"""
+
 import numpy as np
-import numpy.typing as npt
-import scipy.sparse
-import warnings
-from scipy.integrate import solve_ivp
 
-from process_bigraph import Step
-from bigraph_schema.schema import Float, Overwrite
+# simulate_process removed — pure process-bigraph
 
-from v2ecoli.library.fitting import normalize
-from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
-from v2ecoli.library.random import stochasticRound
-from v2ecoli.library.schema import (
-    create_unique_indices,
-    counts,
-    attrs,
-    bulk_name_to_idx,
-    MetadataArray,
-    zero_listener,
+from v2ecoli.library.data_predicates import (
+    monotonically_increasing,
+    monotonically_decreasing,
+    all_nonnegative,
 )
-from v2ecoli.library.unit_defs import units
-from v2ecoli.steps.partition import _protect_state, deep_merge, _SafeInvokeMixin
-from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
-from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
-from v2ecoli.types.stores import InPlaceDict, ListenerStore, SetStore
+from v2ecoli.library.schema import numpy_schema, counts, bulk_name_to_idx
+
+# topology_registry removed — topology defined as class attribute
+from v2ecoli.steps.partition import PartitionedProcess
 
 
-def _apply_config_defaults(config_schema, parameters):
-    """Merge config_schema defaults with provided parameters."""
-    merged = {}
-    for key, spec in config_schema.items():
-        if isinstance(spec, dict) and "_default" in spec:
-            merged[key] = spec["_default"]
-    merged.update(parameters or {})
-    return merged
+# Register default topology for this process, associating it with process name
+NAME = "ecoli-protein-degradation"
+TOPOLOGY = {"bulk": ("bulk",), "timestep": ("timestep",)}
 
-class ProteinDegradationLogic:
-    """Protein degradation — shared state container for Requester/Evolver."""
 
-    name = "ecoli-protein-degradation"
-    topology = {"bulk": ("bulk",), "timestep": ("timestep",)}
+class ProteinDegradation(PartitionedProcess):
+    """Protein Degradation PartitionedProcess"""
+
+    name = NAME
+    topology = TOPOLOGY
+
     config_schema = {
-        "raw_degradation_rate": {"_default": []},
-        "water_id": {"_default": "h2o"},
-        "amino_acid_ids": {"_default": []},
-        "amino_acid_counts": {"_default": []},
-        "protein_ids": {"_default": []},
-        "protein_lengths": {"_default": []},
-        "seed": {"_default": 0},
-        "time_step": {"_default": 1},
+        'raw_degradation_rate': 'array[float]',
+        'water_id': 'string',
+        'amino_acid_ids': 'list[string]',
+        'amino_acid_counts': 'array[integer]',
+        'protein_ids': 'list[string]',
+        'protein_lengths': 'array[integer]',
+        'seed': 'integer',
     }
 
+    def inputs(self):
+        return {
+            'bulk': 'bulk_array',
+            'timestep': 'integer',
+        }
+
+    def outputs(self):
+        return {
+            'bulk': 'bulk_array',
+        }
+
+
+    # Constructor
     def __init__(self, parameters=None):
-        self.parameters = _apply_config_defaults(self.config_schema, parameters)
-        self.request_set = False
+        super().__init__(parameters)
 
         self.raw_degradation_rate = self.parameters["raw_degradation_rate"]
+
         self.water_id = self.parameters["water_id"]
         self.amino_acid_ids = self.parameters["amino_acid_ids"]
         self.amino_acid_counts = self.parameters["amino_acid_counts"]
+
         self.metabolite_ids = self.amino_acid_ids + [self.water_id]
         self.amino_acid_indexes = np.arange(0, len(self.amino_acid_ids))
         self.water_index = self.metabolite_ids.index(self.water_id)
+
+        # Build protein IDs for S matrix
         self.protein_ids = self.parameters["protein_ids"]
         self.protein_lengths = self.parameters["protein_lengths"]
+
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)
+
         self.metabolite_idx = None
 
         # Build S matrix
@@ -79,135 +89,161 @@ class ProteinDegradationLogic:
         self.degradation_matrix[self.amino_acid_indexes, :] = np.transpose(
             self.amino_acid_counts
         )
+        # Assuming N-1 H2O is required per peptide chain length N
         self.degradation_matrix[self.water_index, :] = -(
             np.sum(self.degradation_matrix[self.amino_acid_indexes, :], axis=0) - 1
         )
 
-
-class ProteinDegradationRequester(_SafeInvokeMixin, Step):
-    """Reads bulk to compute degradation request. Writes to request store."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-        self.process_name = config.get('process_name', self.process.name)
-
-    def inputs(self):
+    def ports_schema(self):
         return {
-            'bulk': BulkNumpyUpdate(),
-            'timestep': Float(_default=self.process.parameters.get('time_step', 1.0)),
-            'global_time': Float(_default=0.0),
-            'next_update_time': Float(
-                _default=self.process.parameters.get('time_step', 1.0)),
+            "bulk": numpy_schema("bulk"),
+            "timestep": {"_default": self.parameters["time_step"]},
         }
 
-    def outputs(self):
-        return {
-            'request': InPlaceDict(),
-            'next_update_time': Overwrite(_value=Float()),
-        }
-
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-        timestep = state.get('timestep', 1.0)
-        p = self.process
-
-        # --- inlined from calculate_request ---
-        if p.metabolite_idx is None:
-            p.water_idx = bulk_name_to_idx(p.water_id, state["bulk"]["id"])
-            p.protein_idx = bulk_name_to_idx(p.protein_ids, state["bulk"]["id"])
-            p.metabolite_idx = bulk_name_to_idx(
-                p.metabolite_ids, state["bulk"]["id"]
+    def calculate_request(self, timestep, states):
+        # In first timestep, convert all strings to indices
+        if self.metabolite_idx is None:
+            self.water_idx = bulk_name_to_idx(self.water_id, states["bulk"]["id"])
+            self.protein_idx = bulk_name_to_idx(self.protein_ids, states["bulk"]["id"])
+            self.metabolite_idx = bulk_name_to_idx(
+                self.metabolite_ids, states["bulk"]["id"]
             )
 
-        protein_data = counts(state["bulk"], p.protein_idx)
+        protein_data = counts(states["bulk"], self.protein_idx)
+        # Determine how many proteins to degrade based on the degradation rates
+        # and counts of each protein
         nProteinsToDegrade = np.fmin(
-            p.random_state.poisson(
-                p.raw_degradation_rate * timestep * protein_data
+            self.random_state.poisson(
+                self._proteinDegRates(states["timestep"]) * protein_data
             ),
             protein_data,
         )
-        nReactions = np.dot(p.protein_lengths, nProteinsToDegrade)
 
-        request = {
+        # Determine the number of hydrolysis reactions
+        # TODO(vivarium): Missing asNumber() and other unit-related things
+        nReactions = np.dot(self.protein_lengths, nProteinsToDegrade)
+
+        # Determine the amount of water required to degrade the selected proteins
+        # Assuming one N-1 H2O is required per peptide chain length N
+        requests = {
             "bulk": [
-                (p.protein_idx, nProteinsToDegrade),
-                (p.water_idx, nReactions - np.sum(nProteinsToDegrade)),
+                (self.protein_idx, nProteinsToDegrade),
+                (self.water_idx, nReactions - np.sum(nProteinsToDegrade)),
             ]
         }
-        # --- end inlined ---
+        return requests
 
-        p.request_set = True
-        bulk_request = request.pop('bulk', None)
-        result = {'request': {}}
-        if bulk_request is not None:
-            result['request']['bulk'] = bulk_request
-        return result
-
-
-class ProteinDegradationEvolver(_SafeInvokeMixin, Step):
-    """Reads allocation, writes bulk updates."""
-
-    config_schema = {}
-
-    def initialize(self, config):
-        self.process = config['process']
-
-    def inputs(self):
-        return {
-            'allocate': SetStore(),
-            'bulk': BulkNumpyUpdate(),
-            'timestep': Float(_default=self.process.parameters.get('time_step', 1.0)),
-            'global_time': Float(_default=0.0),
-            'next_update_time': Float(
-                _default=self.process.parameters.get('time_step', 1.0)),
-        }
-
-    def outputs(self):
-        return {
-            'bulk': BulkNumpyUpdate(),
-            'next_update_time': Overwrite(_value=Float()),
-        }
-
-    def update(self, state, interval=None):
-        next_time = state.get('next_update_time', 0.0)
-        global_time = state.get('global_time', 0.0)
-        if next_time > global_time:
-            return {}
-
-        state = _protect_state(state)
-
-        allocations = state.pop('allocate', {})
-        bulk_alloc = allocations.get('bulk')
-        if bulk_alloc is not None and hasattr(state.get('bulk'), 'dtype'):
-            alloc_bulk = state['bulk'].copy()
-            alloc_bulk['count'][:] = np.array(bulk_alloc, dtype=alloc_bulk['count'].dtype)
-            state['bulk'] = alloc_bulk
-        state = deep_merge(state, allocations)
-
-        if not self.process.request_set:
-            return {}
-
-        p = self.process
-        timestep = state.get('timestep', 1.0)
-
-        # --- inlined from evolve_state ---
-        allocated_proteins = counts(state["bulk"], p.protein_idx)
-        metabolites_delta = np.dot(p.degradation_matrix, allocated_proteins)
+    def evolve_state(self, timestep, states):
+        # Degrade selected proteins, release amino acids from those proteins
+        # back into the cell, and consume H_2O that is required for the
+        # degradation process
+        allocated_proteins = counts(states["bulk"], self.protein_idx)
+        metabolites_delta = np.dot(self.degradation_matrix, allocated_proteins)
 
         update = {
             "bulk": [
-                (p.metabolite_idx, metabolites_delta),
-                (p.protein_idx, -allocated_proteins),
+                (self.metabolite_idx, metabolites_delta),
+                (self.protein_idx, -allocated_proteins),
             ]
         }
-        # --- end inlined ---
 
-        update['next_update_time'] = state.get('global_time', 0.0) + timestep
         return update
+
+    def _proteinDegRates(self, timestep):
+        return self.raw_degradation_rate * timestep
+
+
+def test_protein_degradation(return_data=False):
+    test_config = {
+        "raw_degradation_rate": np.array([0.05, 0.08, 0.13, 0.21]),
+        "water_id": "H2O",
+        "amino_acid_ids": ["A", "B", "C"],
+        "amino_acid_counts": np.array([[5, 7, 13], [1, 3, 5], [4, 4, 4], [13, 11, 5]]),
+        "protein_ids": ["w", "x", "y", "z"],
+        "protein_lengths": np.array([25, 9, 12, 29]),
+    }
+
+    protein_degradation = ProteinDegradation(test_config)
+
+    state = {
+        "bulk": np.array(
+            [
+                ("A", 10),
+                ("B", 20),
+                ("C", 30),
+                ("w", 50),
+                ("x", 60),
+                ("y", 70),
+                ("z", 80),
+                ("H2O", 10000),
+            ],
+            dtype=[("id", "U40"), ("count", int)],
+        )
+    }
+
+    settings = {"total_time": 100, "initial_state": state}
+
+    data = simulate_process(protein_degradation, settings)
+
+    # Assertions =======================================================
+    bulk_timeseries = np.array(data["bulk"])
+    protein_data = bulk_timeseries[:, 3:7]
+    protein_delta = protein_data[1:] - protein_data[:-1]
+
+    aa_data = bulk_timeseries[:, :3]
+    aa_delta = aa_data[1:] - aa_data[:-1]
+
+    h2o_data = bulk_timeseries[:, 7]
+    h2o_delta = h2o_data[1:] - h2o_data[:-1]
+
+    # Proteins are monotonically decreasing, never <0:
+    for i in range(protein_data.shape[1]):
+        assert monotonically_decreasing(protein_data[:, i]), (
+            f"Protein {test_config['protein_ids'][i]} is not monotonically decreasing."
+        )
+        assert all_nonnegative(protein_data), (
+            f"Protein {test_config['protein_ids'][i]} falls below 0."
+        )
+
+    # Amino acids are monotonically increasing
+    for i in range(aa_data.shape[1]):
+        assert monotonically_increasing(aa_data[:, i]), (
+            f"Amino acid {test_config['amino_acid_ids'][i]} is not monotonically increasing."
+        )
+
+    # H2O is monotonically decreasing, never < 0
+    assert monotonically_decreasing(h2o_data), "H2O is not monotonically decreasing."
+    assert all_nonnegative(h2o_data), "H2O falls below 0."
+
+    # Amino acids are released in specified numbers whenever a protein is degraded
+    aa_delta_expected = map(
+        lambda i: [test_config["amino_acid_counts"].T @ -protein_delta[i, :]],
+        range(protein_delta.shape[0]),
+    )
+    aa_delta_expected = np.concatenate(list(aa_delta_expected))
+    np.testing.assert_array_equal(
+        aa_delta,
+        aa_delta_expected,
+        "Mismatch between expected release of amino acids, and counts actually released.",
+    )
+
+    # N-1 molecules H2O is consumed whenever a protein of length N is degraded
+    h2o_delta_expected = (protein_delta * (test_config["protein_lengths"] - 1)).T
+    h2o_delta_expected = np.sum(h2o_delta_expected, axis=0)
+    np.testing.assert_array_equal(
+        h2o_delta,
+        h2o_delta_expected,
+        (
+            "Mismatch between number of water molecules consumed\n"
+            "and expected to be consumed in degradation."
+        ),
+    )
+
+    print("Passed all tests.")
+
+    if return_data:
+        return data
+
+
+if __name__ == "__main__":
+    test_protein_degradation()

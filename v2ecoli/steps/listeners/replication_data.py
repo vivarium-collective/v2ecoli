@@ -5,11 +5,22 @@ Replication Data Listener
 """
 
 import numpy as np
-from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.library.schema import attrs
-from v2ecoli.types.stores import InPlaceDict, ListenerStore
-from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
-from bigraph_schema.schema import Float
+from v2ecoli.library.schema import numpy_schema, listener_schema, attrs
+from v2ecoli.library.schema_types import ORIC_ARRAY, DNAA_BOX_ARRAY, ACTIVE_REPLISOME_ARRAY
+from v2ecoli.library.ecoli_step import EcoliStep as Step
+
+# topology_registry removed — topology defined as class attribute
+
+
+NAME = "replication_data_listener"
+TOPOLOGY = {
+    "listeners": ("listeners",),
+    "oriCs": ("unique", "oriC"),
+    "DnaA_boxes": ("unique", "DnaA_box"),
+    "active_replisomes": ("unique", "active_replisome"),
+    "global_time": ("global_time",),
+    "timestep": ("timestep",),
+}
 
 
 class ReplicationData(Step):
@@ -17,41 +28,68 @@ class ReplicationData(Step):
     Listener for replication data.
     """
 
-    name = "replication_data_listener"
+    name = NAME
+    topology = TOPOLOGY
+
     config_schema = {
-        "time_step": {"_default": 1},
-        "emit_unique": {"_default": False},
-    }
-    topology = {
-        "listeners": ("listeners",),
-        "oriCs": ("unique", "oriC"),
-        "DnaA_boxes": ("unique", "DnaA_box"),
-        "active_replisomes": ("unique", "active_replisome"),
-        "global_time": ("global_time",),
-        "timestep": ("timestep",),
+        'time_step': 'float{1.0}',
+        'emit_unique': 'boolean{false}',
     }
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
-        self.parameters = config or {}
 
     def inputs(self):
         return {
-            "listeners": ListenerStore(),
-            "oriCs": UniqueNumpyUpdate(),
-            "active_replisomes": UniqueNumpyUpdate(),
-            "DnaA_boxes": UniqueNumpyUpdate(),
-            "global_time": Float(_default=0.0),
-            "timestep": Float(_default=1.0),
+            'oriCs': ORIC_ARRAY,
+            'DnaA_boxes': DNAA_BOX_ARRAY,
+            'active_replisomes': ACTIVE_REPLISOME_ARRAY,
+            'global_time': 'float',
+            'timestep': 'float',
         }
 
     def outputs(self):
-        return self.inputs()
+        return {
+            'listeners': {
+                'replication_data': {
+                    'fork_coordinates': 'array[integer]',
+                    'fork_domains': 'array[integer]',
+                    'fork_unique_index': 'array[integer]',
+                    'number_of_oric': 'overwrite[integer]',
+                    'free_DnaA_boxes': 'overwrite[integer]',
+                    'total_DnaA_boxes': 'overwrite[integer]',
+                },
+            },
+        }
+
+
+    def ports_schema(self):
+        return {
+            "listeners": {
+                "replication_data": listener_schema(
+                    {
+                        "fork_coordinates": [],
+                        "fork_domains": [],
+                        "fork_unique_index": [],
+                        "number_of_oric": [],
+                        "free_DnaA_boxes": [],
+                        "total_DnaA_boxes": [],
+                    }
+                )
+            },
+            "oriCs": numpy_schema("oriCs", emit=self.parameters["emit_unique"]),
+            "active_replisomes": numpy_schema(
+                "active_replisomes", emit=self.parameters["emit_unique"]
+            ),
+            "DnaA_boxes": numpy_schema(
+                "DnaA_boxes", emit=self.parameters["emit_unique"]
+            ),
+            "global_time": {"_default": 0.0},
+            "timestep": {"_default": self.parameters["time_step"]},
+        }
 
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0
 
-    def next_update(self, timestep, states):
+    def update(self, states, interval=None):
         fork_coordinates, fork_domains, fork_unique_index = attrs(
             states["active_replisomes"], ["coordinates", "domain_index", "unique_index"]
         )
@@ -71,6 +109,3 @@ class ReplicationData(Step):
             }
         }
         return update
-
-    def update(self, state, interval=None):
-        return self.next_update(state.get('timestep', 1.0), state)

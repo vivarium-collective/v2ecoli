@@ -9,25 +9,35 @@ Represents the total cellular mass.
 import numpy as np
 from numpy.lib import recfunctions as rfn
 
-from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.library.schema import counts, attrs, bulk_name_to_idx
-from v2ecoli.library.unit_defs import units
-from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
-from v2ecoli.types.stores import InPlaceDict, ListenerStore
-from bigraph_schema.schema import Float
+from v2ecoli.library.ecoli_step import EcoliStep as Step
+from v2ecoli.library.schema import numpy_schema, counts, attrs, bulk_name_to_idx
+# topology_registry removed — topology defined as class attribute
+from wholecell.utils import units
+
+# Register default topology for this process, associating it with process name
+NAME = "ecoli-mass-listener"
+TOPOLOGY = {
+    "bulk": ("bulk",),
+    "unique": ("unique",),
+    "listeners": ("listeners",),
+    "global_time": ("global_time",),
+    "timestep": ("timestep",),
+}
 
 
 class MassListener(Step):
     """MassListener"""
 
-    name = "ecoli-mass-listener"
+    name = NAME
+    topology = TOPOLOGY
+
     config_schema = {
-        "cellDensity": {"_default": 1100.0},
-        "bulk_ids": {"_default": []},
-        "bulk_masses": {"_default": None},
-        "unique_ids": {"_default": []},
-        "unique_masses": {"_default": None},
-        "submass_to_idx": {"_default": {
+        'cellDensity': {'_type': 'float', '_default': 1100.0},
+        'bulk_ids': 'list[string]',
+        'bulk_masses': {'_type': 'array[float]', '_default': None},
+        'unique_ids': 'list[string]',
+        'unique_masses': {'_type': 'array[float]', '_default': None},
+        'submass_to_idx': {'_type': 'map[integer]', '_default': {
             "rRNA": 0,
             "tRNA": 1,
             "mRNA": 2,
@@ -38,7 +48,7 @@ class MassListener(Step):
             "water": 7,
             "DNA": 8,
         }},
-        "compartment_indices": {"_default": {
+        'compartment_indices': {'_type': 'map[list[integer]]', '_default': {
             "projection": [],
             "cytosol": [],
             "extracellular": [],
@@ -49,78 +59,127 @@ class MassListener(Step):
             "pilus": [],
             "inner_membrane": [],
         }},
-        "compartment_id_to_index": {"_default": {}},
-        "compartment_abbrev_to_index": {"_default": {}},
-        "n_avogadro": {"_default": 6.0221409e23},
-        "time_step": {"_default": 1.0},
-        "emit_unique": {"_default": False},
-        "match_wcecoli": {"_default": False},
-    }
-    topology = {
-        "bulk": ("bulk",),
-        "unique": ("unique",),
-        "listeners": ("listeners",),
-        "global_time": ("global_time",),
-        "timestep": ("timestep",),
+        'compartment_id_to_index': 'map[integer]',
+        'compartment_abbrev_to_index': 'map[integer]',
+        'n_avogadro': {'_type': 'unum', '_default': 6.0221409e23},
+        'time_step': {'_type': 'float', '_default': 1.0},
+        'emit_unique': {'_type': 'boolean', '_default': False},
+        'match_wcecoli': {'_type': 'boolean', '_default': False},
+        'condition': {'_type': 'string', '_default': ''},
+        'condition_to_doubling_time': 'map[unum]',
     }
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
-        self.parameters = config or {}
+
+    def inputs(self):
+        return {
+            'bulk': 'bulk_array',
+            'unique': 'map[node]',
+            'listeners': {
+                'mass': {
+                    'dry_mass': 'float[fg]',
+                },
+            },
+            'global_time': 'float',
+            'timestep': 'float',
+        }
+
+    def outputs(self):
+        return {
+            'listeners': {
+                'mass': {
+                    # Cell + submass compartments — femtograms
+                    'cell_mass': 'overwrite[float[fg]]',
+                    'water_mass': 'overwrite[float[fg]]',
+                    'dry_mass': 'overwrite[float[fg]]',
+                    'rna_mass': 'overwrite[float[fg]]',
+                    'rRna_mass': 'overwrite[float[fg]]',
+                    'tRna_mass': 'overwrite[float[fg]]',
+                    'mRna_mass': 'overwrite[float[fg]]',
+                    'dna_mass': 'overwrite[float[fg]]',
+                    'protein_mass': 'overwrite[float[fg]]',
+                    'smallMolecule_mass': 'overwrite[float[fg]]',
+                    # Compartment masses — also femtograms
+                    'projection_mass': 'overwrite[float[fg]]',
+                    'cytosol_mass': 'overwrite[float[fg]]',
+                    'extracellular_mass': 'overwrite[float[fg]]',
+                    'flagellum_mass': 'overwrite[float[fg]]',
+                    'membrane_mass': 'overwrite[float[fg]]',
+                    'outer_membrane_mass': 'overwrite[float[fg]]',
+                    'periplasm_mass': 'overwrite[float[fg]]',
+                    'pilus_mass': 'overwrite[float[fg]]',
+                    'inner_membrane_mass': 'overwrite[float[fg]]',
+                    # Volume — femtoliters
+                    'volume': 'overwrite[float[fL]]',
+                    # Growth — fg per second
+                    'growth': 'overwrite[float[fg/s]]',
+                    'instantaneous_growth_rate': 'overwrite[float[1/s]]',
+                    # Dimensionless ratios and fractions
+                    'protein_mass_fraction': 'overwrite[float]',
+                    'rna_mass_fraction': 'overwrite[float]',
+                    'dry_mass_fold_change': 'overwrite[float]',
+                    'protein_mass_fold_change': 'overwrite[float]',
+                    'rna_mass_fold_change': 'overwrite[float]',
+                    'small_molecule_fold_change': 'overwrite[float]',
+                    'expected_mass_fold_change': 'overwrite[float]',
+                },
+            },
+        }
+
+
+    def __init__(self, parameters=None):
+        super().__init__(parameters)
 
         # molecule indexes and masses
-        self.bulk_ids = self.parameters.get("bulk_ids", [])
-        self.bulk_masses = self.parameters.get("bulk_masses", np.zeros([1, 9]))
-        self.unique_ids = self.parameters.get("unique_ids", [])
-        self.unique_masses = self.parameters.get("unique_masses", np.zeros([1, 9]))
+        self.bulk_ids = self.parameters["bulk_ids"]
+        self.bulk_masses = self.parameters["bulk_masses"]
+        if self.bulk_masses is None:
+            self.bulk_masses = np.zeros([1, 9])
+        self.unique_ids = self.parameters["unique_ids"]
+        self.unique_masses = self.parameters["unique_masses"]
+        if self.unique_masses is None:
+            self.unique_masses = np.zeros([1, 9])
 
-        _default_submass_to_idx = {
-            "rRNA": 0, "tRNA": 1, "mRNA": 2, "miscRNA": 3,
-            "nonspecific_RNA": 4, "protein": 5, "metabolite": 6,
-            "water": 7, "DNA": 8,
-        }
-        submass_to_idx = self.parameters.get("submass_to_idx", _default_submass_to_idx)
         self.submass_listener_indices = {
             "rna": np.array(
                 [
-                    submass_to_idx[name]
+                    self.parameters["submass_to_idx"][name]
                     for name in ["rRNA", "tRNA", "mRNA", "miscRNA", "nonspecific_RNA"]
                 ]
             ),
-            "rRna": submass_to_idx["rRNA"],
-            "tRna": submass_to_idx["tRNA"],
-            "mRna": submass_to_idx["mRNA"],
-            "dna": submass_to_idx["DNA"],
-            "protein": submass_to_idx["protein"],
-            "smallMolecule": submass_to_idx["metabolite"],
-            "water": submass_to_idx["water"],
+            "rRna": self.parameters["submass_to_idx"]["rRNA"],
+            "tRna": self.parameters["submass_to_idx"]["tRNA"],
+            "mRna": self.parameters["submass_to_idx"]["mRNA"],
+            "dna": self.parameters["submass_to_idx"]["DNA"],
+            "protein": self.parameters["submass_to_idx"]["protein"],
+            "smallMolecule": self.parameters["submass_to_idx"]["metabolite"],
+            "water": self.parameters["submass_to_idx"]["water"],
         }
-        self.ordered_submasses = [0] * len(submass_to_idx)
-        for submass, idx in submass_to_idx.items():
+        self.ordered_submasses = [0] * len(self.parameters["submass_to_idx"])
+        for submass, idx in self.parameters["submass_to_idx"].items():
             self.ordered_submasses[idx] = f"{submass}_submass"
 
         # compartment indexes
-        _default_compartment_indices = {
-            "projection": [], "cytosol": [], "extracellular": [],
-            "flagellum": [], "membrane": [], "outer_membrane": [],
-            "periplasm": [], "pilus": [], "inner_membrane": [],
-        }
-        compartment_indices = self.parameters.get("compartment_indices", _default_compartment_indices)
-        self.compartment_id_to_index = self.parameters.get("compartment_id_to_index", {})
-        self.projection_index = compartment_indices.get("projection", [])
-        self.cytosol_index = compartment_indices.get("cytosol", [])
-        self.extracellular_index = compartment_indices.get("extracellular", [])
-        self.flagellum_index = compartment_indices.get("flagellum", [])
-        self.membrane_index = compartment_indices.get("membrane", [])
-        self.outer_membrane_index = compartment_indices.get("outer_membrane", [])
-        self.periplasm_index = compartment_indices.get("periplasm", [])
-        self.pilus_index = compartment_indices.get("pilus", [])
-        self.inner_membrane_index = compartment_indices.get("inner_membrane", [])
+        self.compartment_id_to_index = self.parameters["compartment_id_to_index"]
+        self.projection_index = self.parameters["compartment_indices"]["projection"]
+        self.cytosol_index = self.parameters["compartment_indices"]["cytosol"]
+        self.extracellular_index = self.parameters["compartment_indices"][
+            "extracellular"
+        ]
+        self.flagellum_index = self.parameters["compartment_indices"]["flagellum"]
+        self.membrane_index = self.parameters["compartment_indices"]["membrane"]
+        self.outer_membrane_index = self.parameters["compartment_indices"][
+            "outer_membrane"
+        ]
+        self.periplasm_index = self.parameters["compartment_indices"]["periplasm"]
+        self.pilus_index = self.parameters["compartment_indices"]["pilus"]
+        self.inner_membrane_index = self.parameters["compartment_indices"][
+            "inner_membrane"
+        ]
 
         # Set up matrix for compartment mass calculation
-        self.compartment_abbrev_to_index = self.parameters.get(
-            "compartment_abbrev_to_index", {}
-        )
+        self.compartment_abbrev_to_index = self.parameters[
+            "compartment_abbrev_to_index"
+        ]
         if self.compartment_abbrev_to_index:
             self._bulk_molecule_by_compartment = np.stack(
                 [
@@ -130,14 +189,14 @@ class MassListener(Step):
             )
 
         # units and constants
-        self.cellDensity = self.parameters.get("cellDensity", 1100.0)
-        self.n_avogadro = self.parameters.get("n_avogadro", 6.0221409e23)
+        self.cellDensity = self.parameters["cellDensity"]
+        self.n_avogadro = self.parameters["n_avogadro"]
 
-        self.time_step = self.parameters.get("time_step", 1.0)
+        self.time_step = self.parameters["time_step"]
         self.first_time_step = True
 
         self.massDiff_names = [
-            "massDiff_" + submass for submass in submass_to_idx
+            "massDiff_" + submass for submass in self.parameters["submass_to_idx"]
         ]
 
         self.cell_cycle_len = self.parameters["condition_to_doubling_time"][
@@ -148,24 +207,88 @@ class MassListener(Step):
         self.bulk_idx = None
 
         # Enable flag for perfect recapitulation of wcEcoli mass calculations
-        self.match_wcecoli = self.parameters.get("match_wcecoli", False)
+        self.match_wcecoli = self.parameters["match_wcecoli"]
 
-    def inputs(self):
-        return {
-            "bulk": BulkNumpyUpdate(),
-            "unique": ListenerStore(),
-            "listeners": ListenerStore(),
-            "global_time": Float(_default=0.0),
-            "timestep": Float(_default=1.0),
+    def ports_schema(self):
+        def split_divider_schema(metadata):
+            return {
+                "_default": 0.0,
+                "_updater": "set",
+                "_emit": True,
+                "_divide": "split",
+                "_properties": {"metadata": metadata},
+            }
+
+        set_divider_schema = {
+            "_default": 0.0,
+            "_updater": "set",
+            "_emit": True,
+            "_divide": "set",
         }
 
-    def outputs(self):
-        return self.inputs()
+        # Ensure that bulk ids are emitted in config for analyses
+        bulk_schema = numpy_schema("bulk")
+        bulk_schema.setdefault("_properties", {})["metadata"] = self.bulk_ids
+
+        ports = {
+            "bulk": bulk_schema,
+            "unique": {
+                str(mol_id): numpy_schema(
+                    mol_id + "s", emit=self.parameters["emit_unique"]
+                )
+                for mol_id in self.unique_ids
+                if mol_id not in ["DnaA_box", "active_ribosome"]
+            },
+            "listeners": {
+                "mass": {
+                    "cell_mass": split_divider_schema("fg"),
+                    "water_mass": split_divider_schema("fg"),
+                    "dry_mass": split_divider_schema("fg"),
+                    **{
+                        submass + "_mass": split_divider_schema("fg")
+                        for submass in self.submass_listener_indices.keys()
+                    },
+                    "volume": split_divider_schema(""),
+                    "protein_mass_fraction": set_divider_schema,
+                    "rna_mass_fraction": set_divider_schema,
+                    "growth": set_divider_schema,
+                    "instantaneous_growth_rate": set_divider_schema,
+                    "dry_mass_fold_change": set_divider_schema,
+                    "protein_mass_fold_change": set_divider_schema,
+                    "rna_mass_fold_change": set_divider_schema,
+                    "small_molecule_fold_change": set_divider_schema,
+                    # compartment mass
+                    "projection_mass": split_divider_schema("fg"),
+                    "cytosol_mass": split_divider_schema("fg"),
+                    "extracellular_mass": split_divider_schema("fg"),
+                    "flagellum_mass": split_divider_schema("fg"),
+                    "membrane_mass": split_divider_schema("fg"),
+                    "outer_membrane_mass": split_divider_schema("fg"),
+                    "periplasm_mass": split_divider_schema("fg"),
+                    "pilus_mass": split_divider_schema("fg"),
+                    "inner_membrane_mass": split_divider_schema("fg"),
+                    "expected_mass_fold_change": split_divider_schema(""),
+                }
+            },
+            "global_time": {"_default": 0.0},
+            "timestep": {"_default": self.parameters["time_step"]},
+        }
+        ports["unique"].update(
+            {
+                "active_ribosome": numpy_schema(
+                    "active_ribosome", emit=self.parameters["emit_unique"]
+                ),
+                "DnaA_box": numpy_schema(
+                    "DnaA_boxes", emit=self.parameters["emit_unique"]
+                ),
+            }
+        )
+        return ports
 
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0
 
-    def next_update(self, timestep, states):
+    def update(self, states, interval=None):
         if self.bulk_idx is None:
             bulk_ids = states["bulk"]["id"]
             self.bulk_idx = bulk_name_to_idx(self.bulk_ids, bulk_ids)
@@ -271,6 +394,12 @@ class MassListener(Step):
             self.inner_membrane_index, :
         ].sum()
 
+        # This listener tracks the mass changes caused by each process
+        # TODO: Blame processes?
+        # mass_update['processMassDifferences'] = sum(
+        #     state.process_mass_diffs() for state in self.internal_states.values()
+        # ).sum(axis=1)
+
         if mass_update["dry_mass"] != 0:
             mass_update["protein_mass_fraction"] = (
                 mass_update["protein_mass"] / mass_update["dry_mass"]
@@ -304,8 +433,7 @@ class MassListener(Step):
         update = {"listeners": {"mass": mass_update}}
         return update
 
-    def update(self, state, interval=None):
-        return self.next_update(state.get('timestep', 1.0), state)
+
 
 
 class PostDivisionMassListener(MassListener):

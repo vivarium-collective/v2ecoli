@@ -5,11 +5,20 @@ DNA Supercoiling Listener
 """
 
 import numpy as np
-from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.library.schema import attrs
-from v2ecoli.types.stores import InPlaceDict, ListenerStore
-from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
-from bigraph_schema.schema import Float
+from v2ecoli.library.schema import numpy_schema, listener_schema, attrs
+from v2ecoli.library.schema_types import CHROMOSOMAL_SEGMENT_ARRAY
+from v2ecoli.library.ecoli_step import EcoliStep as Step
+
+# topology_registry removed — topology defined as class attribute
+
+
+NAME = "dna_supercoiling_listener"
+TOPOLOGY = {
+    "listeners": ("listeners",),
+    "chromosomal_segments": ("unique", "chromosomal_segment"),
+    "global_time": ("global_time",),
+    "timestep": ("timestep",),
+}
 
 
 class DnaSupercoiling(Step):
@@ -17,41 +26,65 @@ class DnaSupercoiling(Step):
     Listener for DNA supercoiling data.
     """
 
-    name = "dna_supercoiling_listener"
+    name = NAME
+    topology = TOPOLOGY
+
     config_schema = {
-        "relaxed_DNA_base_pairs_per_turn": {"_default": 0},
-        "emit_unique": {"_default": False},
-        "time_step": {"_default": 1},
-    }
-    topology = {
-        "listeners": ("listeners",),
-        "chromosomal_segments": ("unique", "chromosomal_segment"),
-        "global_time": ("global_time",),
-        "timestep": ("timestep",),
+        'relaxed_DNA_base_pairs_per_turn': 'float{0.0}',
+        'emit_unique': 'boolean{false}',
+        'time_step': 'float{1.0}',
     }
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
-        self.parameters = config or {}
-        self.relaxed_DNA_base_pairs_per_turn = self.parameters.get(
-            "relaxed_DNA_base_pairs_per_turn", 0
-        )
 
     def inputs(self):
         return {
-            "listeners": ListenerStore(),
-            "chromosomal_segments": UniqueNumpyUpdate(),
-            "global_time": Float(_default=0.0),
-            "timestep": Float(_default=1.0),
+            'chromosomal_segments': CHROMOSOMAL_SEGMENT_ARRAY,
+            'global_time': 'float',
+            'timestep': 'float',
         }
 
     def outputs(self):
-        return self.inputs()
+        return {
+            'listeners': {
+                'dna_supercoiling': {
+                    'segment_left_boundary_coordinates': 'array[integer]',
+                    'segment_right_boundary_coordinates': 'array[integer]',
+                    'segment_domain_indexes': 'array[integer]',
+                    'segment_superhelical_densities': 'array[float]',
+                },
+            },
+        }
+
+
+    def __init__(self, parameters=None):
+        super().__init__(parameters)
+        self.relaxed_DNA_base_pairs_per_turn = self.parameters[
+            "relaxed_DNA_base_pairs_per_turn"
+        ]
+
+    def ports_schema(self):
+        return {
+            "listeners": {
+                "dna_supercoiling": listener_schema(
+                    {
+                        "segment_left_boundary_coordinates": [],
+                        "segment_right_boundary_coordinates": [],
+                        "segment_domain_indexes": [],
+                        "segment_superhelical_densities": [],
+                    }
+                )
+            },
+            "chromosomal_segments": numpy_schema(
+                "chromosomal_segments", emit=self.parameters["emit_unique"]
+            ),
+            "global_time": {"_default": 0.0},
+            "timestep": {"_default": self.parameters["time_step"]},
+        }
 
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0
 
-    def next_update(self, timestep, states):
+    def update(self, states, interval=None):
         boundary_coordinates, domain_indexes, linking_numbers = attrs(
             states["chromosomal_segments"],
             ["boundary_coordinates", "domain_index", "linking_number"],
@@ -99,6 +132,3 @@ class DnaSupercoiling(Step):
             }
         }
         return update
-
-    def update(self, state, interval=None):
-        return self.next_update(state.get('timestep', 1.0), state)

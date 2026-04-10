@@ -6,11 +6,22 @@ Ribosome Data Listener
 
 import numpy as np
 import warnings
-from bigraph_schema.schema import Overwrite, Float
-from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.library.schema import attrs, bulk_name_to_idx
-from v2ecoli.types.stores import InPlaceDict, ListenerStore
-from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
+from v2ecoli.library.schema import numpy_schema, listener_schema, attrs, bulk_name_to_idx
+from v2ecoli.library.schema_types import ACTIVE_RIBOSOME_ARRAY, RNA_ARRAY
+from v2ecoli.library.ecoli_step import EcoliStep as Step
+
+# topology_registry removed — topology defined as class attribute
+
+
+NAME = "ribosome_data_listener"
+TOPOLOGY = {
+    "listeners": ("listeners",),
+    "active_ribosomes": ("unique", "active_ribosome"),
+    "RNAs": ("unique", "RNA"),
+    "global_time": ("global_time",),
+    "timestep": ("timestep",),
+    "next_update_time": ("next_update_time", NAME),
+}
 
 
 class RibosomeData(Step):
@@ -18,28 +29,64 @@ class RibosomeData(Step):
     Listener for ribosome data.
     """
 
-    name = "ribosome_data_listener"
+    name = NAME
+    topology = TOPOLOGY
+
     config_schema = {
-        "n_monomers": {"_default": []},
-        "rRNA_cistron_tu_mapping_matrix": {"_default": []},
-        "rRNA_is_5S": {"_default": []},
-        "rRNA_is_16S": {"_default": []},
-        "rRNA_is_23S": {"_default": []},
-        "time_step": {"_default": 1},
-        "emit_unique": {"_default": False},
-    }
-    topology = {
-        "listeners": ("listeners",),
-        "active_ribosomes": ("unique", "active_ribosome"),
-        "RNAs": ("unique", "RNA"),
-        "global_time": ("global_time",),
-        "timestep": ("timestep",),
-        "next_update_time": ("next_update_time", "ribosome_data_listener"),
+        'monomer_ids': 'list[string]',
+        'n_monomers': {'_type': 'integer', '_default': 0},
+        'rRNA_cistron_tu_mapping_matrix': 'csr_matrix',
+        'rRNA_is_5S': 'array[integer]',
+        'rRNA_is_16S': 'array[integer]',
+        'rRNA_is_23S': 'array[integer]',
+        'time_step': 'float{1.0}',
+        'emit_unique': 'boolean{false}',
     }
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
-        self.parameters = config or {}
+
+    def inputs(self):
+        return {
+            'listeners': {
+                'ribosome_data': {
+                    'rRNA_initiated_TU': f'array[{self.n_rRNA_TUs},integer]',
+                    'rRNA_init_prob_TU': f'array[{self.n_rRNA_TUs},float]',
+                },
+            },
+            'active_ribosomes': ACTIVE_RIBOSOME_ARRAY,
+            'RNAs': RNA_ARRAY,
+            'global_time': 'float',
+            'timestep': 'float',
+            'next_update_time': 'overwrite[float]',
+        }
+
+    def outputs(self):
+        return {
+            'listeners': {
+                'ribosome_data': {
+                    # Counts (dimensionless integers)
+                    'n_ribosomes_per_transcript': f'array[{self.n_monomers},integer]',
+                    'n_ribosomes_on_partial_mRNA_per_transcript': f'array[{self.n_monomers},integer]',
+                    'total_rRNA_initiated': 'overwrite[integer]',
+                    'rRNA5S_initiated': 'overwrite[integer]',
+                    'rRNA16S_initiated': 'overwrite[integer]',
+                    'rRNA23S_initiated': 'overwrite[integer]',
+                    'mRNA_TU_index': 'array[integer]',
+                    'n_ribosomes_on_each_mRNA': 'array[integer]',
+                    # Probabilities (dimensionless floats in [0,1])
+                    'total_rRNA_init_prob': 'overwrite[float]',
+                    'rRNA5S_init_prob': 'overwrite[float]',
+                    'rRNA16S_init_prob': 'overwrite[float]',
+                    'rRNA23S_init_prob': 'overwrite[float]',
+                    # Mass per polysome — femtograms
+                    'protein_mass_on_polysomes': 'array[float[fg]]',
+                },
+            },
+            'next_update_time': 'overwrite[float]',
+        }
+
+
+    def __init__(self, parameters=None):
+        super().__init__(parameters)
         self.monomer_ids = self.parameters["monomer_ids"]
         self.n_monomers = len(self.monomer_ids)
         self.rRNA_cistron_tu_mapping_matrix = self.parameters[
@@ -48,19 +95,51 @@ class RibosomeData(Step):
         self.rRNA_is_5S = self.parameters["rRNA_is_5S"]
         self.rRNA_is_16S = self.parameters["rRNA_is_16S"]
         self.rRNA_is_23S = self.parameters["rRNA_is_23S"]
+        self.n_rRNA_TUs = self.rRNA_cistron_tu_mapping_matrix.shape[1]
 
-    def inputs(self):
-        return {
-            "listeners": ListenerStore(),
-            "RNAs": UniqueNumpyUpdate(),
-            "active_ribosomes": UniqueNumpyUpdate(),
-            "global_time": Float(_default=0.0),
-            "timestep": Float(_default=1.0),
-            "next_update_time": Overwrite(),
+    def ports_schema(self):
+        n_rRNA_TUs = self.rRNA_cistron_tu_mapping_matrix.shape[1]
+        ports = {
+            "listeners": {
+                "ribosome_data": listener_schema(
+                    {
+                        "n_ribosomes_per_transcript": (
+                            [0] * len(self.monomer_ids),
+                            self.monomer_ids,
+                        ),
+                        "n_ribosomes_on_partial_mRNA_per_transcript": (
+                            [0] * len(self.monomer_ids),
+                            self.monomer_ids,
+                        ),
+                        "total_rRNA_initiated": 0,
+                        "total_rRNA_init_prob": 0.0,
+                        "rRNA5S_initiated": 0,
+                        "rRNA16S_initiated": 0,
+                        "rRNA23S_initiated": 0,
+                        "rRNA5S_init_prob": 0.0,
+                        "rRNA16S_init_prob": 0.0,
+                        "rRNA23S_init_prob": 0.0,
+                        "mRNA_TU_index": [],
+                        "n_ribosomes_on_each_mRNA": [],
+                        "protein_mass_on_polysomes": [],
+                        "rRNA_initiated_TU": [0] * n_rRNA_TUs,
+                        "rRNA_init_prob_TU": [0.0] * n_rRNA_TUs,
+                    }
+                )
+            },
+            "RNAs": numpy_schema("RNAs", emit=self.parameters["emit_unique"]),
+            "active_ribosomes": numpy_schema(
+                "active_ribosome", emit=self.parameters["emit_unique"]
+            ),
+            "global_time": {"_default": 0.0},
+            "timestep": {"_default": self.parameters["time_step"]},
+            "next_update_time": {
+                "_default": self.parameters["time_step"],
+                "_updater": "set",
+                "_divider": "set",
+            },
         }
-
-    def outputs(self):
-        return self.inputs()
+        return ports
 
     def update_condition(self, timestep, states):
         """
@@ -78,7 +157,7 @@ class RibosomeData(Step):
             return True
         return False
 
-    def next_update(self, timestep, states):
+    def update(self, states, interval=None):
         # Get attributes of RNAs and ribosomes
         (is_full_transcript_RNA, unique_index_RNA, can_translate, TU_index) = attrs(
             states["RNAs"],
@@ -138,7 +217,7 @@ class RibosomeData(Step):
         )
         # Calculate mapping from inverse indices back to mRNA_unique_indices
         reduced_to_normal_mRNA_indices = bulk_name_to_idx(
-            mRNA_unique_index, unique_mRNA_index_ribosomes
+            mRNA_unique_index, unique_mRNA_index_ribosomes, strict=False
         )
         # Many mRNAs in mRNA_unique_indices will have no bound ribosomes
         # Have them point to last zero of lengthened np.bincount output
@@ -185,6 +264,3 @@ class RibosomeData(Step):
             "next_update_time": states["global_time"] + states["timestep"],
         }
         return update
-
-    def update(self, state, interval=None):
-        return self.next_update(state.get('timestep', 1.0), state)

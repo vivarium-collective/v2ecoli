@@ -1,36 +1,34 @@
-"""
-UniqueUpdate step for v2ecoli.
-
-Placed after all steps of each execution layer to signal
-UniqueNumpyUpdaters to flush their accumulated updates.
-Proper process-bigraph Step.
-"""
-
-from process_bigraph import Step
-
-from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
+from v2ecoli.library.ecoli_step import EcoliStep as Step
+from v2ecoli.library.schema import numpy_schema
+from v2ecoli.library.schema_types import UNIQUE_TYPES
 
 
 class UniqueUpdate(Step):
-    """Signals unique molecule updaters to apply accumulated changes."""
+    """Placed after all Steps of each execution layer (see :ref:`partitioning`)
+    to ensure that unique molecules are completely up-to-date"""
 
     name = "unique-update"
-    config_schema = {}
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
-        params = config or {}
-        self.parameters = params
-        self.unique_topo = params.get('unique_topo', {})
+    config_schema = {
+        'emit_unique': 'boolean{false}',
+        'unique_topo': 'map[string]',
+    }
 
     def inputs(self):
-        return {name: UniqueNumpyUpdate() for name in self.unique_topo}
+        return {mol: UNIQUE_TYPES.get(mol, 'node') for mol in self.unique_topo}
 
     def outputs(self):
-        return {name: UniqueNumpyUpdate() for name in self.unique_topo}
+        return {mol: UNIQUE_TYPES.get(mol, 'node') for mol in self.unique_topo}
 
-    def initial_state(self, config=None):
-        return {}
+    def __init__(self, parameters=None):
+        super().__init__(parameters)
+        self.unique_topo = self.parameters["unique_topo"]
 
-    def update(self, state, interval=None):
-        return {name: {"update": True} for name in self.unique_topo}
+    def ports_schema(self):
+        return {
+            unique_mol: numpy_schema(unique_mol, emit=self.parameters["emit_unique"])
+            for unique_mol in self.unique_topo
+        }
+
+    def update(self, states, interval=None):
+        return {unique_mol: {"update": True} for unique_mol in self.unique_topo.keys()}

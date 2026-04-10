@@ -5,11 +5,20 @@ RNA Counts Listener
 """
 
 import numpy as np
-from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.library.schema import attrs
-from v2ecoli.types.stores import InPlaceDict, ListenerStore
-from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
-from bigraph_schema.schema import Float
+from v2ecoli.library.schema import numpy_schema, attrs, listener_schema
+from v2ecoli.library.schema_types import RNA_ARRAY
+from v2ecoli.library.ecoli_step import EcoliStep as Step
+
+# topology_registry removed — topology defined as class attribute
+
+
+NAME = "RNA_counts_listener"
+TOPOLOGY = {
+    "listeners": ("listeners",),
+    "RNAs": ("unique", "RNA"),
+    "global_time": ("global_time",),
+    "timestep": ("timestep",),
+}
 
 
 class RNACounts(Step):
@@ -18,23 +27,54 @@ class RNACounts(Step):
         cistrons. Includes the counts of both partial and full transcripts.
     """
 
-    name = "RNA_counts_listener"
+    name = NAME
+    topology = TOPOLOGY
+
     config_schema = {
-        "rna_ids": {"_default": []},
-        "mrna_indexes": {"_default": []},
-        "time_step": {"_default": 1},
-        "emit_unique": {"_default": False},
-    }
-    topology = {
-        "listeners": ("listeners",),
-        "RNAs": ("unique", "RNA"),
-        "global_time": ("global_time",),
-        "timestep": ("timestep",),
+        'rna_ids': 'list[string]',
+        'mrna_indexes': 'array[integer]',
+        'all_TU_ids': 'list[string]',
+        'mRNA_indexes': 'array[integer]',
+        'mRNA_TU_ids': 'list[string]',
+        'rRNA_indexes': 'array[integer]',
+        'rRNA_TU_ids': 'list[string]',
+        'all_cistron_ids': 'list[string]',
+        'cistron_is_mRNA': 'array[integer]',
+        'mRNA_cistron_ids': 'list[string]',
+        'cistron_is_rRNA': 'array[integer]',
+        'rRNA_cistron_ids': 'list[string]',
+        'cistron_tu_mapping_matrix': 'csr_matrix',
+        'time_step': 'float{1.0}',
+        'emit_unique': 'boolean{false}',
     }
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
-        self.parameters = config or {}
+
+    def inputs(self):
+        return {
+            'RNAs': RNA_ARRAY,
+            'global_time': 'float',
+            'timestep': 'float',
+        }
+
+    def outputs(self):
+        return {
+            'listeners': {
+                'rna_counts': {
+                    'mRNA_counts': f'array[{self.n_mRNA_TU},integer]',
+                    'full_mRNA_counts': f'array[{self.n_mRNA_TU},integer]',
+                    'partial_mRNA_counts': f'array[{self.n_mRNA_TU},integer]',
+                    'mRNA_cistron_counts': f'array[{self.n_mRNA_cistron},integer]',
+                    'full_mRNA_cistron_counts': f'array[{self.n_mRNA_cistron},integer]',
+                    'partial_mRNA_cistron_counts': f'array[{self.n_mRNA_cistron},integer]',
+                    'partial_rRNA_counts': f'array[{self.n_rRNA_TU},integer]',
+                    'partial_rRNA_cistron_counts': f'array[{self.n_rRNA_cistron},integer]',
+                },
+            },
+        }
+
+
+    def __init__(self, parameters=None):
+        super().__init__(parameters)
 
         # Get IDs and indexes of all mRNA and rRNA transcription units
         self.all_TU_ids = self.parameters["all_TU_ids"]
@@ -53,21 +93,37 @@ class RNACounts(Step):
         # Get mapping matrix between TUs and cistrons
         self.cistron_tu_mapping_matrix = self.parameters["cistron_tu_mapping_matrix"]
 
-    def inputs(self):
-        return {
-            "listeners": ListenerStore(),
-            "RNAs": UniqueNumpyUpdate(),
-            "global_time": Float(_default=0.0),
-            "timestep": Float(_default=1.0),
-        }
+        # Dimension variables for shaped array types
+        self.n_mRNA_TU = len(self.mRNA_TU_ids)
+        self.n_rRNA_TU = len(self.rRNA_TU_ids)
+        self.n_mRNA_cistron = len(self.mRNA_cistron_ids)
+        self.n_rRNA_cistron = len(self.rRNA_cistron_ids)
 
-    def outputs(self):
-        return self.inputs()
+    def ports_schema(self):
+        return {
+            "listeners": {
+                "rna_counts": listener_schema(
+                    {
+                        "mRNA_counts": ([], self.mRNA_TU_ids),
+                        "full_mRNA_counts": ([], self.mRNA_TU_ids),
+                        "partial_mRNA_counts": ([], self.mRNA_TU_ids),
+                        "mRNA_cistron_counts": ([], self.mRNA_cistron_ids),
+                        "full_mRNA_cistron_counts": ([], self.mRNA_cistron_ids),
+                        "partial_mRNA_cistron_counts": ([], self.mRNA_cistron_ids),
+                        "partial_rRNA_counts": ([], self.rRNA_TU_ids),
+                        "partial_rRNA_cistron_counts": ([], self.rRNA_cistron_ids),
+                    }
+                )
+            },
+            "RNAs": numpy_schema("RNAs", emit=self.parameters["emit_unique"]),
+            "global_time": {"_default": 0.0},
+            "timestep": {"_default": self.parameters["time_step"]},
+        }
 
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0
 
-    def next_update(self, timestep, states):
+    def update(self, states, interval=None):
         # Get attributes of mRNAs
         TU_indexes, can_translate, is_full_transcript = attrs(
             states["RNAs"], ["TU_index", "can_translate", "is_full_transcript"]
@@ -119,5 +175,19 @@ class RNACounts(Step):
         }
         return update
 
-    def update(self, state, interval=None):
-        return self.next_update(state.get('timestep', 1.0), state)
+
+def test_rna_counts_listener():
+    from ecoli.experiments.ecoli_master_sim import EcoliSim
+
+    sim = EcoliSim.from_file()
+    sim.max_duration = 2
+    sim.raw_output = False
+    sim.build_ecoli()
+    sim.run()
+    listeners = sim.query()["agents"]["0"]["listeners"]
+    assert isinstance(listeners["rna_counts"]["mRNA_counts"][0], list)
+    assert isinstance(listeners["rna_counts"]["mRNA_counts"][1], list)
+
+
+if __name__ == "__main__":
+    test_rna_counts_listener()

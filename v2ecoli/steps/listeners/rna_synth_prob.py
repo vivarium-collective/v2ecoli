@@ -5,11 +5,21 @@ RnaSynthProb Listener
 """
 
 import numpy as np
-from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.library.schema import attrs
-from v2ecoli.types.stores import InPlaceDict, ListenerStore
-from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
-from bigraph_schema.schema import Float
+from v2ecoli.library.schema import numpy_schema, listener_schema, attrs
+from v2ecoli.library.schema_types import PROMOTER_ARRAY, GENE_ARRAY
+from v2ecoli.library.ecoli_step import EcoliStep as Step
+
+# topology_registry removed — topology defined as class attribute
+
+
+NAME = "rna_synth_prob_listener"
+TOPOLOGY = {
+    "rna_synth_prob": ("listeners", "rna_synth_prob"),
+    "promoters": ("unique", "promoter"),
+    "genes": ("unique", "gene"),
+    "global_time": ("global_time",),
+    "timestep": ("timestep",),
+}
 
 
 class RnaSynthProb(Step):
@@ -17,22 +27,53 @@ class RnaSynthProb(Step):
     Listener for additional RNA synthesis data.
     """
 
-    name = "rna_synth_prob_listener"
+    name = NAME
+    topology = TOPOLOGY
+
     config_schema = {
-        "time_step": {"_default": 1},
-        "emit_unique": {"_default": False},
-    }
-    topology = {
-        "rna_synth_prob": ("listeners", "rna_synth_prob"),
-        "promoters": ("unique", "promoter"),
-        "genes": ("unique", "gene"),
-        "global_time": ("global_time",),
-        "timestep": ("timestep",),
+        'time_step': 'float{1.0}',
+        'emit_unique': 'boolean{false}',
+        'rna_ids': 'list[string]',
+        'gene_ids': 'list[string]',
+        'tf_ids': 'list[string]',
+        'cistron_ids': 'list[string]',
+        'cistron_tu_mapping_matrix': 'csr_matrix',
     }
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
-        self.parameters = config or {}
+
+    def inputs(self):
+        return {
+            'rna_synth_prob': {
+                'actual_rna_synth_prob': f'array[{self.n_TU},float]',
+                'target_rna_synth_prob': f'array[{self.n_TU},float]',
+                'n_bound_TF_per_TU': f'array[({self.n_TU}|{self.n_TF}),integer]',
+                'total_rna_init': 'integer',
+            },
+            'promoters': PROMOTER_ARRAY,
+            'genes': GENE_ARRAY,
+            'global_time': 'float',
+            'timestep': 'float',
+        }
+
+    def outputs(self):
+        return {
+            'rna_synth_prob': {
+                'promoter_copy_number': f'array[{self.n_TU},integer]',
+                'gene_copy_number': f'array[{self.n_cistron},integer]',
+                'bound_TF_indexes': 'array[integer]',
+                'bound_TF_coordinates': 'array[integer]',
+                'bound_TF_domains': 'array[integer]',
+                # Probabilities — dimensionless floats in [0, 1]
+                'expected_rna_init_per_cistron': f'array[{self.n_cistron},float]',
+                'actual_rna_synth_prob_per_cistron': f'array[{self.n_cistron},float]',
+                'target_rna_synth_prob_per_cistron': f'array[{self.n_cistron},float]',
+                'n_bound_TF_per_cistron': f'array[{self.n_cistron},integer]',
+            },
+        }
+
+
+    def __init__(self, parameters=None):
+        super().__init__(parameters)
         self.rna_ids = self.parameters["rna_ids"]
         self.gene_ids = self.parameters["gene_ids"]
         self.tf_ids = self.parameters["tf_ids"]
@@ -42,22 +83,44 @@ class RnaSynthProb(Step):
         self.n_cistron = len(self.cistron_ids)
         self.cistron_tu_mapping_matrix = self.parameters["cistron_tu_mapping_matrix"]
 
-    def inputs(self):
+    def ports_schema(self):
         return {
-            "rna_synth_prob": ListenerStore(),
-            "promoters": UniqueNumpyUpdate(),
-            "genes": UniqueNumpyUpdate(),
-            "global_time": Float(_default=0.0),
-            "timestep": Float(_default=1.0),
+            "rna_synth_prob": listener_schema(
+                {
+                    "promoter_copy_number": ([0] * self.n_TU, self.rna_ids),
+                    "gene_copy_number": ([0] * self.n_cistron, self.cistron_ids),
+                    "bound_TF_indexes": ([], self.tf_ids),
+                    "bound_TF_coordinates": [],
+                    "bound_TF_domains": [],
+                    "target_rna_synth_prob": ([0.0] * self.n_TU, self.rna_ids),
+                    "actual_rna_synth_prob": ([0.0] * self.n_TU, self.rna_ids),
+                    "actual_rna_synth_prob_per_cistron": (
+                        [0.0] * self.n_cistron,
+                        self.cistron_ids,
+                    ),
+                    "target_rna_synth_prob_per_cistron": (
+                        [0.0] * self.n_cistron,
+                        self.cistron_ids,
+                    ),
+                    "expected_rna_init_per_cistron": (
+                        [0.0] * self.n_cistron,
+                        self.cistron_ids,
+                    ),
+                    "n_bound_TF_per_TU": ([[0] * self.n_TF] * self.n_TU, self.rna_ids),
+                    "n_bound_TF_per_cistron": ([], self.cistron_ids),
+                    "total_rna_init": 0,
+                }
+            ),
+            "promoters": numpy_schema("promoters", emit=self.parameters["emit_unique"]),
+            "genes": numpy_schema("genes", emit=self.parameters["emit_unique"]),
+            "global_time": {"_default": 0.0},
+            "timestep": {"_default": self.parameters["time_step"]},
         }
-
-    def outputs(self):
-        return self.inputs()
 
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0
 
-    def next_update(self, timestep, states):
+    def update(self, states, interval=None):
         TU_indexes, all_coordinates, all_domains, bound_TFs = attrs(
             states["promoters"], ["TU_index", "coordinates", "domain_index", "bound_TF"]
         )
@@ -108,6 +171,3 @@ class RnaSynthProb(Step):
                 .T,
             }
         }
-
-    def update(self, state, interval=None):
-        return self.next_update(state.get('timestep', 1.0), state)

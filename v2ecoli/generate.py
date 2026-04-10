@@ -17,29 +17,21 @@ from bigraph_schema import allocate_core
 from v2ecoli.library.unit_defs import units
 from v2ecoli.types import ECOLI_TYPES
 
-# Import all partitioned process classes (now split into individual files)
-from v2ecoli.processes.equilibrium import (
-    EquilibriumLogic, EquilibriumRequester, EquilibriumEvolver)
-from v2ecoli.processes.two_component_system import (
-    TwoComponentSystemLogic, TwoComponentSystemRequester, TwoComponentSystemEvolver)
-from v2ecoli.processes.rna_maturation import (
-    RnaMaturationLogic, RnaMaturationRequester, RnaMaturationEvolver)
-from v2ecoli.processes.complexation import (
-    ComplexationLogic, ComplexationRequester, ComplexationEvolver)
-from v2ecoli.processes.protein_degradation import (
-    ProteinDegradationLogic, ProteinDegradationRequester, ProteinDegradationEvolver)
-from v2ecoli.processes.rna_degradation import (
-    RnaDegradationLogic, RnaDegradationRequester, RnaDegradationEvolver)
-from v2ecoli.processes.transcript_initiation import (
-    TranscriptInitiationLogic, TranscriptInitiationRequester, TranscriptInitiationEvolver)
-from v2ecoli.processes.transcript_elongation import (
-    TranscriptElongationLogic, TranscriptElongationRequester, TranscriptElongationEvolver)
-from v2ecoli.processes.polypeptide_initiation import (
-    PolypeptideInitiationLogic, PolypeptideInitiationRequester, PolypeptideInitiationEvolver)
-from v2ecoli.processes.polypeptide_elongation import (
-    PolypeptideElongationLogic, PolypeptideElongationRequester, PolypeptideElongationEvolver)
-from v2ecoli.processes.chromosome_replication import (
-    ChromosomeReplicationLogic, ChromosomeReplicationRequester, ChromosomeReplicationEvolver)
+# Import partitioned process classes (vEcoli-style: single class per process)
+from v2ecoli.processes.equilibrium import Equilibrium
+from v2ecoli.processes.two_component_system import TwoComponentSystem
+from v2ecoli.processes.rna_maturation import RnaMaturation
+from v2ecoli.processes.complexation import Complexation
+from v2ecoli.processes.protein_degradation import ProteinDegradation
+from v2ecoli.processes.rna_degradation import RnaDegradation
+from v2ecoli.processes.transcript_initiation import TranscriptInitiation
+from v2ecoli.processes.transcript_elongation import TranscriptElongation
+from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiation
+from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
+from v2ecoli.processes.chromosome_replication import ChromosomeReplication
+
+# Generic Requester/Evolver wrappers from partition.py
+from v2ecoli.steps.partition import Requester, Evolver, PartitionedProcess
 
 
 # ---------------------------------------------------------------------------
@@ -117,65 +109,21 @@ FLOW_ORDER = [step for layer in EXECUTION_LAYERS for step in layer]
 # Partitioned process registry
 # ---------------------------------------------------------------------------
 
-EXPLICIT_STEPS = {
-    'ecoli-protein-degradation': {
-        'class': ProteinDegradationLogic,
-        'requester_class': ProteinDegradationRequester,
-        'evolver_class': ProteinDegradationEvolver,
-    },
-    'ecoli-equilibrium': {
-        'class': EquilibriumLogic,
-        'requester_class': EquilibriumRequester,
-        'evolver_class': EquilibriumEvolver,
-    },
-    'ecoli-two-component-system': {
-        'class': TwoComponentSystemLogic,
-        'requester_class': TwoComponentSystemRequester,
-        'evolver_class': TwoComponentSystemEvolver,
-    },
-    'ecoli-rna-maturation': {
-        'class': RnaMaturationLogic,
-        'requester_class': RnaMaturationRequester,
-        'evolver_class': RnaMaturationEvolver,
-    },
-    'ecoli-complexation': {
-        'class': ComplexationLogic,
-        'requester_class': ComplexationRequester,
-        'evolver_class': ComplexationEvolver,
-    },
-    'ecoli-polypeptide-initiation': {
-        'class': PolypeptideInitiationLogic,
-        'requester_class': PolypeptideInitiationRequester,
-        'evolver_class': PolypeptideInitiationEvolver,
-    },
-    'ecoli-transcript-initiation': {
-        'class': TranscriptInitiationLogic,
-        'requester_class': TranscriptInitiationRequester,
-        'evolver_class': TranscriptInitiationEvolver,
-    },
-    'ecoli-rna-degradation': {
-        'class': RnaDegradationLogic,
-        'requester_class': RnaDegradationRequester,
-        'evolver_class': RnaDegradationEvolver,
-    },
-    'ecoli-polypeptide-elongation': {
-        'class': PolypeptideElongationLogic,
-        'requester_class': PolypeptideElongationRequester,
-        'evolver_class': PolypeptideElongationEvolver,
-    },
-    'ecoli-transcript-elongation': {
-        'class': TranscriptElongationLogic,
-        'requester_class': TranscriptElongationRequester,
-        'evolver_class': TranscriptElongationEvolver,
-    },
-    'ecoli-chromosome-replication': {
-        'class': ChromosomeReplicationLogic,
-        'requester_class': ChromosomeReplicationRequester,
-        'evolver_class': ChromosomeReplicationEvolver,
-    },
+PARTITIONED_PROCESSES = {
+    'ecoli-equilibrium': Equilibrium,
+    'ecoli-two-component-system': TwoComponentSystem,
+    'ecoli-rna-maturation': RnaMaturation,
+    'ecoli-complexation': Complexation,
+    'ecoli-protein-degradation': ProteinDegradation,
+    'ecoli-rna-degradation': RnaDegradation,
+    'ecoli-transcript-initiation': TranscriptInitiation,
+    'ecoli-transcript-elongation': TranscriptElongation,
+    'ecoli-polypeptide-initiation': PolypeptideInitiation,
+    'ecoli-polypeptide-elongation': PolypeptideElongation,
+    'ecoli-chromosome-replication': ChromosomeReplication,
 }
 
-ALL_PARTITIONED = list(EXPLICIT_STEPS.keys())
+ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 
 ALLOCATOR_LAYERS = {
     'allocator_1': ['ecoli-equilibrium', 'ecoli-rna-maturation',
@@ -357,16 +305,33 @@ def _normalize_boundary_units(cell_state):
 # Step instantiation
 # ---------------------------------------------------------------------------
 
+def _make_instance(cls, config, core):
+    """Instantiate a Step/Process class, trying multiple signatures."""
+    from v2ecoli.library.ecoli_step import set_current_core
+    set_current_core(core)
+    try:
+        # Try vEcoli-style (parameters=)
+        return cls(parameters=config)
+    except TypeError:
+        try:
+            # Try PBG-style (config=, core=)
+            return cls(config=config, core=core)
+        except TypeError:
+            # Try positional
+            return cls(config)
+    finally:
+        set_current_core(None)
+
+
 def _instantiate_step(step_name, config, loader, core, process_cache=None):
     """Instantiate a partitioned process step from its config."""
     if process_cache is None:
         process_cache = {}
 
-    from v2ecoli.processes.tf_binding import TfBindingLogic, TfBindingStep
-    from v2ecoli.processes.tf_unbinding import TfUnbindingLogic, TfUnbindingStep
-    from v2ecoli.processes.chromosome_structure import (
-        ChromosomeStructureLogic, ChromosomeStructureStep)
-    from v2ecoli.processes.metabolism import MetabolismLogic, MetabolismStep
+    from v2ecoli.processes.tf_binding import TfBinding
+    from v2ecoli.processes.tf_unbinding import TfUnbinding
+    from v2ecoli.processes.chromosome_structure import ChromosomeStructure
+    from v2ecoli.processes.metabolism import Metabolism
     from v2ecoli.steps.listeners.mass_listener import (
         MassListener, PostDivisionMassListener)
     from v2ecoli.steps.listeners.rna_counts import RNACounts
@@ -383,10 +348,10 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     base_name = step_name.replace('_requester', '').replace('_evolver', '')
 
     STANDALONE_STEPS = {
-        'ecoli-tf-binding': TfBindingStep,
-        'ecoli-tf-unbinding': TfUnbindingStep,
-        'ecoli-chromosome-structure': ChromosomeStructureStep,
-        'ecoli-metabolism': MetabolismStep,
+        'ecoli-tf-binding': TfBinding,
+        'ecoli-tf-unbinding': TfUnbinding,
+        'ecoli-chromosome-structure': ChromosomeStructure,
+        'ecoli-metabolism': Metabolism,
     }
 
     SIMPLE_STEPS = {
@@ -407,19 +372,30 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     from v2ecoli.library.config_resolver import resolve_config
     config = resolve_config(config) if config else config
 
-    # Partitioned processes: requester/evolver pattern
-    if base_name in EXPLICIT_STEPS:
-        spec = EXPLICIT_STEPS[base_name]
+    # Partitioned processes: wrap with generic Requester/Evolver
+    if base_name in PARTITIONED_PROCESSES:
+        proc_cls = PARTITIONED_PROCESSES[base_name]
         if base_name in process_cache:
             process = process_cache[base_name]
         else:
-            process = spec['class'](parameters=config)
+            from v2ecoli.library.ecoli_step import set_current_core
+            set_current_core(core)
+            process = proc_cls(config)
+            set_current_core(None)
             process_cache[base_name] = process
-        topology = process.topology
+        topology = dict(config.get('topology', {}) or {})
+        if not topology:
+            topology = getattr(process, 'topology',
+                               getattr(proc_cls, 'topology', {}))
+            if callable(topology):
+                topology = topology()
+            topology = dict(topology)
 
         if step_name.endswith('_requester'):
-            req_config = {'process': process, 'process_name': base_name}
-            instance = spec['requester_class'](config=req_config, core=core)
+            instance = Requester({
+                'time_step': config.get('time_step', 1),
+                'process': process,
+            })
             in_topo = dict(topology)
             in_topo['global_time'] = ('global_time',)
             in_topo.setdefault('timestep', ('timestep',))
@@ -433,8 +409,10 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             return instance, topology, 'step', in_topo, out_topo
 
         elif step_name.endswith('_evolver'):
-            ev_config = {'process': process}
-            instance = spec['evolver_class'](config=ev_config, core=core)
+            instance = Evolver({
+                'time_step': config.get('time_step', 1),
+                'process': process,
+            })
             in_topo = dict(topology)
             in_topo['allocate'] = (f'allocate_{base_name}',)
             in_topo['global_time'] = ('global_time',)
@@ -452,16 +430,22 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
             return instance, topology, 'step', in_topo, out_topo
 
     # Standalone steps (non-partitioned)
+    # vEcoli classes take (parameters=) but PBG Step requires (config, core=)
+    # Try the vEcoli signature first, fall back to PBG
     if step_name in STANDALONE_STEPS:
         step_cls = STANDALONE_STEPS[step_name]
-        instance = step_cls(config=config, core=core)
-        topology = instance.topology
+        instance = _make_instance(step_cls, config, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
         return instance, topology, 'step'
 
     elif step_name in SIMPLE_STEPS:
         cls = SIMPLE_STEPS[step_name]
-        instance = cls(config=config, core=core)
+        instance = _make_instance(cls, config, core)
         topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
         return instance, topology, 'step'
 
     return None
@@ -485,7 +469,7 @@ def _get_step_config(loader, step_name, core, process_cache=None):
         if not alloc_config.get('process_names'):
             alloc_config['process_names'] = ALL_PARTITIONED
         alloc_config['layer_processes'] = layer_procs
-        instance = Allocator(config=alloc_config, core=core)
+        instance = _make_instance(Allocator, alloc_config, core)
         topo = instance.topology
         return instance, topo, 'step'
 
@@ -533,7 +517,7 @@ def _get_special_step(loader, step_name, core):
             unique_topo_v1[plural] = ('unique', name)
             unique_names_v1.append(plural)
         config = {'unique_names': unique_names_v1, 'unique_topo': unique_topo_v1}
-        instance = UniqueUpdate(config=config, core=core)
+        instance = _make_instance(UniqueUpdate, config, core)
         return instance, unique_topo_v1, 'step'
 
     if step_name == 'global_clock':
@@ -612,7 +596,7 @@ def _get_special_step(loader, step_name, core):
         if hasattr(loader, '_configs'):
             div_config['configs'] = loader._configs
         div_config.setdefault('unique_names', getattr(loader, 'unique_names', []))
-        instance = Division(config=div_config, core=core)
+        instance = _make_instance(Division, div_config, core)
         topo = {
             'bulk': ('bulk',),
             'unique': ('unique',),

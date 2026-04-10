@@ -12,7 +12,7 @@ Pipeline Steps:
 3. load_model — Build composite from cache
 4. single_cell — Run single cell to division
 5. division — Cell division, conservation, daughter viability
-6. multicell — Divide and run both daughters
+6. daughters — Divide and run both daughters
 
 Usage:
     python workflow.py              # run full pipeline
@@ -1163,7 +1163,9 @@ def step_single_cell():
         try:
             composite.run(chunk)
         except Exception as e:
-            print(f"    Simulation stopped at ~t={total_run+chunk}s: {type(e).__name__}")
+            total_run += chunk
+            print(f"    Division event at ~t={total_run}s "
+                  f"(Division step fired: {type(e).__name__})")
             divided = True
             break
         total_run += chunk
@@ -1191,13 +1193,11 @@ def step_single_cell():
         mass = cell.get('listeners', {}).get('mass', {})
         dry_mass = float(mass.get('dry_mass', 0))
 
-        if n_chrom >= 2 and dry_mass >= initial_dry_mass * 2:
-            rep = unique.get('active_replisome')
-            fork_count = 0
-            if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
-                fork_count = int(rep['_entryState'].view(np.bool_).sum())
-            print(f"    Division ready at t={total_run}s: {n_chrom} chromosomes, "
-                  f"dry_mass={dry_mass:.0f}fg (>= {initial_dry_mass*2:.0f}fg)")
+        # Check if Division step actually fired (divide flag set to True)
+        divide_flag = cell.get('divide', False)
+        if divide_flag:
+            print(f"    Division triggered at t={total_run}s: {n_chrom} chromosomes, "
+                  f"dry_mass={dry_mass:.0f}fg")
             divided = True
             break
 
@@ -1654,20 +1654,20 @@ def _extract_snapshots_from_emitter(composite, label=''):
     return snapshots
 
 
-def step_multicell():
+def step_daughters():
     """Step 6: Divide pre-division cell into 2 daughters, run both for half a generation.
 
     Builds two daughter composites from the pre-division state, runs each for
     MULTICELL_DURATION seconds, and extracts snapshot data from their emitters.
     """
-    step_name = 'multicell'
+    step_name = 'daughters'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 6: Multicell Simulation (cached)")
+        print(f"  Step 6: Daughter Simulations (cached)")
         return meta
 
     daughter_dur = _OPTIONS.get('daughter_duration', MULTICELL_DURATION)
-    print(f"  Step 6: Multicell Simulation ({daughter_dur}s per daughter)")
+    print(f"  Step 6: Daughter Simulations ({daughter_dur}s per daughter)")
 
     # Load pre-division state from long sim
     long_state_path = os.path.join(WORKFLOW_DIR, 'single_cell.dill')
@@ -1759,18 +1759,18 @@ def step_multicell():
     return meta
 
 
-def plot_multicell_mass(multicell_meta, title=''):
+def plot_daughters_mass(daughters_meta, title=''):
     """Plot both daughters' mass fold change side by side (2 subplots)."""
-    d1_snaps = multicell_meta.get('daughter_1_snapshots', [])
-    d2_snaps = multicell_meta.get('daughter_2_snapshots', [])
+    d1_snaps = daughters_meta.get('daughter_1_snapshots', [])
+    d2_snaps = daughters_meta.get('daughter_2_snapshots', [])
 
     if not d1_snaps and not d2_snaps:
         fig, ax = plt.subplots(figsize=(6, 4))
-        ax.text(0.5, 0.5, 'No multicell data', ha='center', va='center')
+        ax.text(0.5, 0.5, 'No daughters data', ha='center', va='center')
         return fig_to_b64(fig)
 
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    fig.suptitle(title or 'Multicell Simulation — Daughter Mass', fontsize=13)
+    fig.suptitle(title or 'Daughter Simulations — Daughter Mass', fontsize=13)
 
     mass_components = [
         ('dry_mass', 'Dry Mass', 'k'),
@@ -1819,7 +1819,7 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
     model = step_results['load_model']
     long = step_results['single_cell']  # single cell sim results
     div = step_results['division']
-    multicell = step_results.get('multicell', {})
+    daughters = step_results.get('daughters', {})
 
     def cached_badge(meta):
         ts = meta.get('timestamp', '')
@@ -1880,10 +1880,10 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
     long_wall = long.get('wall_time', 0)
     long_dur = long.get('duration', LONG_DURATION)
     long_rate = long.get('rate', 0)
-    d1_wall = multicell.get('daughter_1', {}).get('wall_time', 0)
-    d2_wall = multicell.get('daughter_2', {}).get('wall_time', 0)
-    multicell_wall = d1_wall + d2_wall
-    multicell_dur = multicell.get('duration', MULTICELL_DURATION)
+    d1_wall = daughters.get('daughter_1', {}).get('wall_time', 0)
+    d2_wall = daughters.get('daughter_2', {}).get('wall_time', 0)
+    daughters_wall = d1_wall + d2_wall
+    daughters_dur = daughters.get('duration', MULTICELL_DURATION)
 
     report_path = os.path.join(WORKFLOW_DIR, 'workflow_report.html')
     with open(report_path, 'w') as f:
@@ -1960,7 +1960,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
     <li><a href="#sec-model">Load Model</a></li>
     <li><a href="#sec-long">Single Cell Simulation + v1 Comparison ({long_dur/60:.0f} min)</a></li>
     <li><a href="#sec-division">Division</a></li>
-    <li><a href="#sec-multicell">Multicell Simulation</a></li>
+    <li><a href="#sec-daughters">Daughter Simulations</a></li>
     <li><a href="#sec-steps">Step Diagnostics</a></li>
     <li><a href="#sec-bigraph">Network Visualization</a></li>
     <li><a href="#sec-timing">Timing Summary</a></li>
@@ -2158,18 +2158,18 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 </div>
 </details>
 
-<!-- ===== Step 6: Multicell Simulation ===== -->
-<h2 id="sec-multicell">6. Multicell Simulation {cached_badge(multicell)}</h2>""")
+<!-- ===== Step 6: Daughter Simulations ===== -->
+<h2 id="sec-daughters">6. Daughter Simulations {cached_badge(daughters)}</h2>""")
 
-        if multicell.get('skipped'):
+        if daughters.get('skipped'):
             f.write(f"""
-<div class="section"><p>Skipped: {multicell.get('reason', 'unknown')}</p></div>""")
+<div class="section"><p>Skipped: {daughters.get('reason', 'unknown')}</p></div>""")
         else:
-            d1 = multicell.get('daughter_1', {})
-            d2 = multicell.get('daughter_2', {})
+            d1 = daughters.get('daughter_1', {})
+            d2 = daughters.get('daughter_2', {})
             f.write(f"""
 <div class="section">
-  <p>Two daughter cells from the pre-division state, each run for {multicell.get('duration', MULTICELL_DURATION)}s
+  <p>Two daughter cells from the pre-division state, each run for {daughters.get('duration', MULTICELL_DURATION)}s
   (approximately half a generation).</p>
 </div>
 <h3>Daughter 1</h3>
@@ -2187,8 +2187,8 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
   <div class="metric"><div class="label">Fold Change</div><div class="value green">{d2.get('fold_change', 0):.2f}x</div></div>
 </div>""")
 
-        if plots.get('multicell_mass'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["multicell_mass"]}" alt="Multicell Mass"></div>\n')
+        if plots.get('daughters_mass'):
+            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["daughters_mass"]}" alt="Daughters Mass"></div>\n')
 
         f.write(f"""
 <!-- ===== Step Diagnostics ===== -->
@@ -2267,18 +2267,15 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 </script>
 
 <!-- ===== Timing Summary ===== -->
-<h2 id="sec-timing">9. Timing Summary</h2>
+<h2 id="sec-timing">Timing Summary</h2>
 <div class="section">
   <table>
-    <tr><th>Step</th><th>Wall Time</th><th>Sim Time</th><th>Sim/Wall Ratio</th></tr>
-    <tr><td>1. Raw Data</td><td>{raw.get('elapsed', 0):.1f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td>2. ParCa</td><td>{parca_time:.1f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td>3. Cache generation</td><td>{cache_time:.1f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td>3. Document build</td><td>{build_time:.2f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td>4. Long simulation</td><td>{long_wall:.1f}s</td><td>{long_dur:.0f}s</td><td>{long_rate:.1f}x</td></tr>
-    <tr><td>5. Division</td><td>{div.get('split_time', 0):.3f}s + {div.get('daughter_build_time', 0):.1f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td>6. Multicell</td><td>{multicell_wall:.1f}s</td><td>{multicell_dur*2:.0f}s (2 daughters)</td><td>{multicell_dur*2/max(multicell_wall, 0.1):.1f}x</td></tr>
-    <tr><td><strong>Total</strong></td><td><strong>{raw.get('elapsed', 0)+parca_time+cache_time+build_time+long_wall+multicell_wall:.0f}s</strong></td><td>&mdash;</td><td>&mdash;</td></tr>
+    <tr><th>Step</th><th>Wall Time</th><th>Sim Time</th><th>Speed</th></tr>
+    <tr><td>Model build</td><td>{build_time:.2f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
+    <tr><td>Single cell (to division)</td><td>{long_wall:.1f}s</td><td>{long_dur:.0f}s</td><td>{long_rate:.1f}x realtime</td></tr>
+    <tr><td>Division split</td><td>{div.get('split_time', 0):.3f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
+    <tr><td>Daughter simulations</td><td>{daughters_wall:.1f}s</td><td>{daughters_dur*2:.0f}s (2x{daughters_dur:.0f}s)</td><td>{daughters_dur*2/max(daughters_wall, 0.1):.1f}x realtime</td></tr>
+    <tr><td><strong>Total</strong></td><td><strong>{build_time + long_wall + daughters_wall:.0f}s</strong></td><td><strong>{long_dur + daughters_dur*2:.0f}s</strong></td><td>&mdash;</td></tr>
   </table>
 </div>
 
@@ -2335,13 +2332,13 @@ def run_workflow():
     div_meta = step_division()
     step_results['division'] = div_meta
 
-    # Step 6: Multicell Simulation (skip with --no-multicell)
-    if _OPTIONS.get('skip_multicell'):
-        multicell_meta = load_meta('multicell') or {'skipped': True, 'reason': '--no-multicell'}
-        print(f"  Step 6: Multicell Simulation (skipped)")
+    # Step 6: Daughter Simulations (skip with --no-daughters)
+    if _OPTIONS.get('skip_daughters'):
+        daughters_meta = load_meta('daughters') or {'skipped': True, 'reason': '--no-daughters'}
+        print(f"  Step 6: Daughter Simulations (skipped)")
     else:
-        multicell_meta = step_multicell()
-    step_results['multicell'] = multicell_meta
+        daughters_meta = step_daughters()
+    step_results['daughters'] = daughters_meta
 
     # Step Diagnostics (always run, uses the composite from step 3)
     print("  Diagnostics: Step analysis")
@@ -2376,10 +2373,10 @@ def run_workflow():
             plots['ppgpp_dynamics'] = plot_ppgpp_dynamics(
                 chrom_snaps, f'ppGpp Dynamics ({dur/60:.0f} min)')
 
-    # Multicell plots
-    multicell = step_results.get('multicell', {})
-    if not multicell.get('skipped') and (multicell.get('daughter_1_snapshots') or multicell.get('daughter_2_snapshots')):
-        plots['multicell_mass'] = plot_multicell_mass(multicell, 'Multicell — Daughter Mass Fold Change')
+    # Daughters plots
+    daughters = step_results.get('daughters', {})
+    if not daughters.get('skipped') and (daughters.get('daughter_1_snapshots') or daughters.get('daughter_2_snapshots')):
+        plots['daughters_mass'] = plot_daughters_mass(daughters, 'Daughters — Daughter Mass Fold Change')
 
     # Generate HTML report
     print("  Generating HTML report...")
@@ -2402,8 +2399,8 @@ if __name__ == '__main__':
                         help='Fetch fresh data from EcoCyc API (slow, skipped by default)')
     parser.add_argument('--duration', type=int, default=None,
                         help='Override max sim duration in seconds (default: run to division)')
-    parser.add_argument('--no-multicell', action='store_true',
-                        help='Skip the multicell simulation step')
+    parser.add_argument('--no-daughters', action='store_true',
+                        help='Skip the daughters simulation step')
     parser.add_argument('--daughter-duration', type=int, default=None,
                         help='Override daughter sim duration in seconds')
     args = parser.parse_args()
@@ -2412,7 +2409,7 @@ if __name__ == '__main__':
     _OPTIONS['fetch_biocyc'] = args.fetch_biocyc
     if args.duration is not None:
         _OPTIONS['max_duration'] = args.duration
-    _OPTIONS['skip_multicell'] = args.no_multicell
+    _OPTIONS['skip_daughters'] = args.no_daughters
     if args.daughter_duration is not None:
         _OPTIONS['daughter_duration'] = args.daughter_duration
 

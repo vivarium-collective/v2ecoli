@@ -1193,21 +1193,19 @@ def step_single_cell():
         mass = cell.get('listeners', {}).get('mass', {})
         dry_mass = float(mass.get('dry_mass', 0))
 
-        # Check if Division step actually fired (divide flag set to True)
-        divide_flag = cell.get('divide', False)
-        if divide_flag:
-            print(f"    Division triggered at t={total_run}s: {n_chrom} chromosomes, "
-                  f"dry_mass={dry_mass:.0f}fg")
-            divided = True
-            break
+        # Check mass threshold for division readiness reporting
+        threshold = cell.get('division_threshold', float('inf'))
+        if isinstance(threshold, str):
+            threshold = float('inf')
 
         if total_run % 500 == 0:
             rep = unique.get('active_replisome')
             fork_count = 0
             if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
                 fork_count = int(rep['_entryState'].view(np.bool_).sum())
-            print(f"    t={total_run}s: {n_chrom} chroms, dry_mass={dry_mass:.0f}fg, "
-                  f"forks={fork_count}")
+            thresh_str = f'{threshold:.0f}fg' if threshold < float('inf') else '?'
+            print(f"    t={total_run}s ({total_run/60:.0f}min): {n_chrom} chroms, "
+                  f"dry_mass={dry_mass:.0f}/{thresh_str}, forks={fork_count}")
 
     # Extract snapshot data from emitter history (saved reference survives division)
     emitter_history = emitter_instance.history if emitter_instance else []

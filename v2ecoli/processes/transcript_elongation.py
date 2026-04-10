@@ -209,6 +209,54 @@ class TranscriptElongation(PartitionedProcess):
         # Helper indices for Numpy indexing
         self.bulk_RNA_idx = None
 
+    def inputs(self):
+        return (
+            {
+                'environment':                 {
+                    'media_id': 'string',
+                },
+                'RNAs': RNA_ARRAY,
+                'active_RNAPs': ACTIVE_RNAP_ARRAY,
+                'bulk': 'bulk_array',
+                'bulk_total': 'bulk_array',
+                'listeners':                 {
+                    'mass':                     {
+                        'cell_mass': 'float[fg]',
+                    },
+                },
+                'timestep': 'integer',
+            }
+        )
+
+    def outputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'RNAs': RNA_ARRAY,
+                'active_RNAPs': ACTIVE_RNAP_ARRAY,
+                'listeners':                 {
+                    'transcript_elongation_listener':                     {
+                        'count_rna_synthesized': 'overwrite[array[integer]]',
+                        'count_NTPs_used': 'overwrite[integer]',
+                        'attenuation_probability': 'overwrite[array[float]]',
+                        'counts_attenuated': 'overwrite[array[integer]]',
+                    },
+                    'growth_limits':                     {
+                        'ntp_used': 'overwrite[array[integer]]',
+                        'ntp_pool_size': 'overwrite[array[integer]]',
+                        'ntp_request_size': 'overwrite[array[integer]]',
+                        'ntp_allocated': 'overwrite[array[integer]]',
+                    },
+                    'rnap_data':                     {
+                        'actual_elongations': 'overwrite[integer]',
+                        'did_terminate': 'overwrite[integer]',
+                        'termination_loss': 'overwrite[integer]',
+                        'did_stall': 'overwrite[integer]',
+                    },
+                },
+            }
+        )
+
     def ports_schema(self):
         return {
             "environment": {"media_id": {"_default": ""}},

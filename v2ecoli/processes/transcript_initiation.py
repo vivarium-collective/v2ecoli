@@ -317,6 +317,53 @@ class TranscriptInitiation(PartitionedProcess):
         # Helper indices for Numpy indexing
         self.ppgpp_idx = None
 
+    def inputs(self):
+        return (
+            {
+                'environment':                 {
+                    'media_id': 'string',
+                },
+                'full_chromosomes': FULL_CHROMOSOME_ARRAY,
+                'RNAs': RNA_ARRAY,
+                'active_RNAPs': ACTIVE_RNAP_ARRAY,
+                'promoters': PROMOTER_ARRAY,
+                'bulk': 'bulk_array',
+                'listeners':                 {
+                    'mass':                     {
+                        'cell_mass': 'float[fg]',
+                    },
+                },
+                'timestep': 'integer',
+            }
+        )
+
+    def outputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'RNAs': RNA_ARRAY,
+                'active_RNAPs': ACTIVE_RNAP_ARRAY,
+                'listeners':                 {
+                    'rna_synth_prob':                     {
+                        'target_rna_synth_prob': 'overwrite[array[float]]',
+                        'actual_rna_synth_prob': 'overwrite[array[float]]',
+                        'max_p': 'overwrite[float]',
+                        'tu_is_overcrowded': 'overwrite[array[boolean]]',
+                        'total_rna_init': 'overwrite[integer]',
+                    },
+                    'ribosome_data':                     {
+                        'rRNA_initiated_TU': 'overwrite[array[integer]]',
+                        'rRNA_init_prob_TU': 'overwrite[array[float]]',
+                        'total_rna_init': 'overwrite[integer]',
+                    },
+                    'rnap_data':                     {
+                        'did_initialize': 'overwrite[integer]',
+                        'rna_init_event': 'overwrite[array[integer]]',
+                    },
+                },
+            }
+        )
+
     def ports_schema(self):
         return {
             "environment": {"media_id": {"_default": "", "_updater": "set"}},

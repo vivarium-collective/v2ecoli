@@ -79,6 +79,26 @@ class TwoComponentSystem(PartitionedProcess):
         # Helper indices for Numpy indexing
         self.molecule_idx = None
 
+    def inputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'listeners':                 {
+                    'mass':                     {
+                        'cell_mass': 'float[fg]',
+                    },
+                },
+                'timestep': 'integer',
+            }
+        )
+
+    def outputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+            }
+        )
+
     def ports_schema(self):
         return {
             "bulk": numpy_schema("bulk"),

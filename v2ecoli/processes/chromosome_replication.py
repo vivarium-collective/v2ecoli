@@ -148,6 +148,43 @@ class ChromosomeReplication(PartitionedProcess):
 
         self.ppi_idx = None
 
+    def inputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'active_replisomes': ACTIVE_REPLISOME_ARRAY,
+                'oriCs': ORIC_ARRAY,
+                'chromosome_domains': CHROMOSOME_DOMAIN_ARRAY,
+                'full_chromosomes': FULL_CHROMOSOME_ARRAY,
+                'listeners':                 {
+                    'mass':                     {
+                        'cell_mass': 'float[fg]',
+                    },
+                },
+                'environment':                 {
+                    'media_id': 'string',
+                },
+                'timestep': 'integer',
+            }
+        )
+
+    def outputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'active_replisomes': ACTIVE_REPLISOME_ARRAY,
+                'oriCs': ORIC_ARRAY,
+                'chromosome_domains': CHROMOSOME_DOMAIN_ARRAY,
+                'full_chromosomes': FULL_CHROMOSOME_ARRAY,
+                'listeners':                 {
+                    'replication_data':                     {
+                        'critical_initiation_mass': 'overwrite[float[fg]]',
+                        'critical_mass_per_oriC': 'overwrite[float]',
+                    },
+                },
+            }
+        )
+
     def ports_schema(self):
         return {
             # bulk molecules

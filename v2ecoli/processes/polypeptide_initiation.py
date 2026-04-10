@@ -161,6 +161,46 @@ class PolypeptideInitiation(PartitionedProcess):
         # Helper indices for Numpy indexing
         self.ribosome30S_idx = None
 
+    def inputs(self):
+        return (
+            {
+                'environment':                 {
+                    'media_id': 'string',
+                },
+                'listeners':                 {
+                    'ribosome_data':                     {
+                        'effective_elongation_rate': 'float',
+                    },
+                },
+                'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
+                'RNA': RNA_ARRAY,
+                'bulk': 'bulk_array',
+                'timestep': 'integer',
+            }
+        )
+
+    def outputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
+                'listeners':                 {
+                    'ribosome_data':                     {
+                        'did_initialize': 'overwrite[integer]',
+                        'ribosome_init_event_per_monomer': 'overwrite[array[integer]]',
+                        'target_prob_translation_per_transcript': 'overwrite[array[float]]',
+                        'actual_prob_translation_per_transcript': 'overwrite[array[float]]',
+                        'mRNA_is_overcrowded': 'overwrite[array[boolean]]',
+                        'max_p': 'overwrite[float]',
+                        'max_p_per_protein': 'overwrite[array[float]]',
+                        'is_n_ribosomes_to_activate_reduced': 'overwrite[boolean]',
+                        'ribosomes_initialized': 'overwrite[integer]',
+                        'prob_translation_per_transcript': 'overwrite[float]',
+                    },
+                },
+            }
+        )
+
     def ports_schema(self):
         return {
             "environment": {"media_id": {"_default": "", "_updater": "set"}},

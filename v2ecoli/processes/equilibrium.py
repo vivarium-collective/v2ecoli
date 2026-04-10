@@ -98,6 +98,31 @@ class Equilibrium(PartitionedProcess):
         self.complex_ids = self.parameters["complex_ids"]
         self.reaction_ids = self.parameters["reaction_ids"]
 
+    def inputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'listeners':                 {
+                    'mass':                     {
+                        'cell_mass': 'float[fg]',
+                    },
+                },
+                'timestep': 'integer',
+            }
+        )
+
+    def outputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'listeners':                 {
+                    'equilibrium_listener':                     {
+                        'reaction_rates': 'overwrite[array[float[1/s]]]',
+                    },
+                },
+            }
+        )
+
     def ports_schema(self):
         return {
             "bulk": numpy_schema("bulk"),

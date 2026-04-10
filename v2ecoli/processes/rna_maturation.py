@@ -105,6 +105,30 @@ class RnaMaturation(PartitionedProcess):
         # Numpy indices for bulk molecules
         self.ppi_idx = None
 
+    def inputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'bulk_total': 'bulk_array',
+            }
+        )
+
+    def outputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'listeners':                 {
+                    'rna_maturation_listener':                     {
+                        'total_maturation_events': 'overwrite[integer]',
+                        'total_degraded_ntps': 'overwrite[integer]',
+                        'unprocessed_rnas_consumed': 'overwrite[array[integer]]',
+                        'mature_rnas_generated': 'overwrite[array[integer]]',
+                        'maturation_enzyme_counts': 'overwrite[array[integer]]',
+                    },
+                },
+            }
+        )
+
     def ports_schema(self):
         return {
             "bulk": numpy_schema("bulk"),

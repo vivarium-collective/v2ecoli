@@ -96,6 +96,21 @@ class ProteinDegradation(PartitionedProcess):
             np.sum(self.degradation_matrix[self.amino_acid_indexes, :], axis=0) - 1
         )
 
+    def inputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'timestep': 'integer',
+            }
+        )
+
+    def outputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+            }
+        )
+
     def ports_schema(self):
         return {
             "bulk": numpy_schema("bulk"),

@@ -79,6 +79,26 @@ class Complexation(PartitionedProcess):
         self.seed = self.randomState.randint(2**31)
         self.system = StochasticSystem(self.stoichiometry, random_seed=self.seed)
 
+    def inputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'timestep': 'integer',
+            }
+        )
+
+    def outputs(self):
+        return (
+            {
+                'bulk': 'bulk_array',
+                'listeners':                 {
+                    'complexation_listener':                     {
+                        'complexation_events': 'overwrite[array[integer]]',
+                    },
+                },
+            }
+        )
+
     def ports_schema(self):
         return {
             "bulk": numpy_schema("bulk"),

@@ -326,25 +326,14 @@ class PartitionedProcess(Process):
         assert self.topology
         
     @abc.abstractmethod
-    def ports_schema(self):
+    def inputs(self):
+        """Declare typed input ports. Subclasses must override."""
         return {}
 
-    def inputs(self):
-        """All ports are inputs (process reads from all of them)."""
-        return _typed_ports(self.ports_schema())
-
+    @abc.abstractmethod
     def outputs(self):
-        """Output ports — what evolve_state actually writes to.
-
-        Uses _output_ports if defined, otherwise derives from
-        _input_only_ports. Falls back to all ports.
-        """
-        typed = _typed_ports(self.ports_schema())
-        if self._output_ports is not None:
-            return {k: v for k, v in typed.items() if k in self._output_ports}
-        if self._input_only_ports is not None:
-            return {k: v for k, v in typed.items() if k not in self._input_only_ports}
-        return typed
+        """Declare typed output ports. Subclasses must override."""
+        return {}
 
     @abc.abstractmethod
     def calculate_request(self, timestep, states):

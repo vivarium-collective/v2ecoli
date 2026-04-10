@@ -10,7 +10,7 @@ Pipeline Steps:
 1. raw_data — Catalog raw TSV files and knowledge base stats
 2. parca — Run parameter calculator (ParCa) or load cached simData
 3. load_model — Build composite from cache
-4. long_sim — Run v2 to division + v1 for same duration (lifecycle comparison)
+4. single_cell — Run single cell to division
 5. division — Cell division, conservation, daughter viability
 6. multicell — Divide and run both daughters
 
@@ -390,7 +390,7 @@ def plot_chromosome_state(snapshots, title=''):
     return fig_to_b64(fig)
 
 
-def plot_long_sim_growth(snapshots, title=''):
+def plot_single_cell_growth(snapshots, title=''):
     """Plot growth metrics from long sim snapshots: growth rate, volume, absolute mass, fold change."""
     if not snapshots or len(snapshots) < 2:
         fig, ax = plt.subplots(figsize=(10, 4))
@@ -871,7 +871,7 @@ BIOCYC_FILE_IDS = [
 ]
 
 FLAT_DIR = os.path.join(
-    os.path.dirname(__file__), 'v2ecoli', 'reconstruction', 'ecoli', 'flat')
+    os.path.dirname(__file__), '..', 'vEcoli', 'reconstruction', 'ecoli', 'flat')
 
 
 def step_biocyc():
@@ -925,7 +925,13 @@ def step_raw_data():
     print(f"  Step 1: Raw Data")
     t0 = time.time()
 
-    from v2ecoli.reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
+    try:
+        from reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
+    except ImportError:
+        print(f"    Skipped (reconstruction module not available)")
+        meta = {'skipped': True, 'reason': 'reconstruction module not in v2ecoli'}
+        save_meta(step_name, meta)
+        return meta
     raw_data = KnowledgeBaseEcoli(
         operons_on=True, remove_rrna_operons=False,
         remove_rrff=False, stable_rrna=False)
@@ -1017,8 +1023,8 @@ def step_parca():
     else:
         # Need to run ParCa
         print("    Running fitSimData_1 (this takes a few minutes)...")
-        from v2ecoli.reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
-        from v2ecoli.reconstruction.ecoli.fit_sim_data_1 import fitSimData_1
+        from reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
+        from reconstruction.ecoli.fit_sim_data_1 import fitSimData_1
         raw_data = KnowledgeBaseEcoli(
         operons_on=True, remove_rrna_operons=False,
         remove_rrff=False, stable_rrna=False)
@@ -1122,24 +1128,22 @@ def step_load_model():
     return meta, composite
 
 
-def step_long_sim():
-    """Step 4: Run v2 simulation to division with chromosome snapshots, then run v1 for same duration.
+def step_single_cell():
+    """Step 4: Run single-cell simulation to division.
 
-    Runs v2 in chunks (SNAPSHOT_INTERVAL seconds each), capturing chromosome
+    Runs in chunks (SNAPSHOT_INTERVAL seconds each), capturing chromosome
     state at every interval. Stops when division condition is met (2+
     chromosomes AND dry mass >= 2x initial) or MAX_LONG_DURATION is reached.
-    Saves pre-division cell state for the division test.
-
-    Then runs v1 for the same duration for lifecycle comparison.
+    Saves pre-division cell state as JSON and .pbg for downstream use.
     """
-    step_name = 'long_sim'
+    step_name = 'single_cell'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 4: Long Simulation (cached)")
+        print(f"  Step 4: Single Cell Simulation (cached)")
         return meta
 
     max_dur = _OPTIONS['max_duration']
-    print(f"  Step 4: Long Simulation (to division, max {max_dur}s)")
+    print(f"  Step 4: Single Cell Simulation (to division, max {max_dur}s)")
     composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
 
     cell = composite.state['agents']['0']
@@ -1340,6 +1344,23 @@ def step_long_sim():
         'global_time': final_snap.get('time', 0.0),
     })
 
+    # Save pre-division state as JSON and .pbg
+    pre_div_dir = os.path.join(WORKFLOW_DIR, 'pre_division')
+    os.makedirs(pre_div_dir, exist_ok=True)
+    if last_cell_data and 'bulk' in last_cell_data:
+        from v2ecoli.cache import save_initial_state
+        save_initial_state(last_cell_data, os.path.join(pre_div_dir, 'pre_division_state.json'))
+        print(f"    Saved pre-division state: {pre_div_dir}/pre_division_state.json")
+
+    # Save .pbg snapshot of the full composite
+    try:
+        from v2ecoli.pbg import save_pbg
+        pbg_path = os.path.join(pre_div_dir, 'pre_division.pbg')
+        save_pbg(composite, pbg_path)
+        print(f"    Saved pre-division .pbg: {pbg_path}")
+    except Exception as e:
+        print(f"    Warning: could not save .pbg: {e}")
+
     meta = {
         'duration': total_run,
         'wall_time': wall_time,
@@ -1352,6 +1373,7 @@ def step_long_sim():
         'division_reached': divided,
         'initial_dry_mass': initial_dry_mass,
         'chromosome_snapshots': snapshots,
+        'pre_division_dir': pre_div_dir,
     }
     save_meta(step_name, meta)
 
@@ -1375,14 +1397,14 @@ def step_v1_comparison():
         print(f"  Step 4b: v1 Comparison (cached, {n} snapshots)")
         return meta
 
-    long_meta = load_meta('long_sim')
-    if long_meta is None:
+    single_cell_meta = load_meta('single_cell')
+    if single_cell_meta is None:
         print(f"  Step 4b: v1 Comparison (skipped, no long sim data)")
         meta = {'skipped': True, 'reason': 'no long sim data', 'v1_snapshots': []}
         save_meta(step_name, meta)
         return meta
 
-    duration = long_meta.get('duration', 0)
+    duration = single_cell_meta.get('duration', 0)
 
     # Check for legacy v1 cache file (list of snapshots)
     v1_cache_path = os.path.join(WORKFLOW_DIR, f'v1_lifecycle_{duration}s.json')
@@ -1441,7 +1463,7 @@ def step_division():
     # Try to load pre-division state from long sim
     prediv_state = None
     prediv_time = 0.0
-    long_state_path = os.path.join(WORKFLOW_DIR, 'long_sim.dill')
+    long_state_path = os.path.join(WORKFLOW_DIR, 'single_cell.dill')
     if os.path.exists(long_state_path):
         try:
             with open(long_state_path, 'rb') as f:
@@ -1648,7 +1670,7 @@ def step_multicell():
     print(f"  Step 6: Multicell Simulation ({daughter_dur}s per daughter)")
 
     # Load pre-division state from long sim
-    long_state_path = os.path.join(WORKFLOW_DIR, 'long_sim.dill')
+    long_state_path = os.path.join(WORKFLOW_DIR, 'single_cell.dill')
     if not os.path.exists(long_state_path):
         print("    No pre-division state available — skipping")
         meta = {'skipped': True, 'reason': 'no pre-division state'}
@@ -1795,7 +1817,7 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
     raw = step_results['raw_data']
     parca = step_results['parca']
     model = step_results['load_model']
-    long = step_results['long_sim']
+    long = step_results['single_cell']  # single cell sim results
     div = step_results['division']
     multicell = step_results.get('multicell', {})
 
@@ -1936,7 +1958,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
     <li><a href="#sec-raw">Raw Data</a></li>
     <li><a href="#sec-parca">ParCa (Parameter Calculator)</a></li>
     <li><a href="#sec-model">Load Model</a></li>
-    <li><a href="#sec-long">Long Simulation + v1 Comparison ({long_dur/60:.0f} min)</a></li>
+    <li><a href="#sec-long">Single Cell Simulation + v1 Comparison ({long_dur/60:.0f} min)</a></li>
     <li><a href="#sec-division">Division</a></li>
     <li><a href="#sec-multicell">Multicell Simulation</a></li>
     <li><a href="#sec-steps">Step Diagnostics</a></li>
@@ -2048,7 +2070,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 </div>
 
 <!-- ===== Step 4: Long Sim + v1 Comparison ===== -->
-<h2 id="sec-long">4. Long Simulation + v1 Comparison ({long_dur/60:.0f} min) {cached_badge(long)}</h2>
+<h2 id="sec-long">4. Single Cell Simulation + v1 Comparison ({long_dur/60:.0f} min) {cached_badge(long)}</h2>
 <div class="metrics">
   <div class="metric"><div class="label">Sim Duration</div><div class="value">{long_dur:.0f}s</div></div>
   <div class="metric"><div class="label">Wall Time</div><div class="value blue">{long_wall:.1f}s</div></div>
@@ -2065,60 +2087,29 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
         if plots.get('ppgpp_dynamics'):
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["ppgpp_dynamics"]}" alt="ppGpp Dynamics"></div>\n')
 
-        # Lifecycle comparison section
-        v1_info = step_results.get('v1_comparison', {})
-        v1_wall = v1_info.get('v1_wall_time', 0)
+        # Single cell simulation summary
         v2_wall = long.get('wall_time', 0)
-        v1_dur = v1_info.get('duration', long_dur)
-        v1_rate = v1_dur / v1_wall if v1_wall > 0 else 0
         v2_rate = long_dur / v2_wall if v2_wall > 0 else 0
+        v2_final_dry = long.get('final_dry_mass', 0)
 
         f.write(f"""
-<h3>v1/v2 Lifecycle Comparison</h3>
-<div class="section">
-  <p>Side-by-side comparison of v1 (vEcoli/vivarium-core) and v2 (v2ecoli/process-bigraph)
-  over the full cell lifecycle ({long_dur:.0f}s). Both use the same ParCa parameters,
-  initial state, and process logic — differences come from the simulation architecture.</p>
-</div>""")
-
-        if v1_info.get('v1_available'):
-            v1_snaps = v1_info.get('v1_snapshots', [])
-            v1_final_dry = v1_snaps[-1].get('dry_mass', 0) if v1_snaps else 0
-            v2_final_dry = long.get('final_dry_mass', 0)
-            speedup = v2_rate / v1_rate if v1_rate > 0 else 0
-
-            f.write(f"""
+<h3>Single Cell Summary</h3>
 <table style="margin: 1em auto; border-collapse: collapse; font-size: 0.9em;">
 <tr style="background: #f3f4f6;"><th style="padding: 6px 16px; text-align: left;">Metric</th>
-    <th style="padding: 6px 16px;">v1 (vEcoli)</th>
-    <th style="padding: 6px 16px;">v2 (v2ecoli)</th></tr>
+    <th style="padding: 6px 16px;">Value</th></tr>
 <tr><td style="padding: 4px 16px;">Sim duration</td>
-    <td style="padding: 4px 16px; text-align: center;">{v1_dur:.0f}s</td>
     <td style="padding: 4px 16px; text-align: center;">{long_dur:.0f}s</td></tr>
 <tr><td style="padding: 4px 16px;">Wall time</td>
-    <td style="padding: 4px 16px; text-align: center;">{v1_wall:.0f}s</td>
     <td style="padding: 4px 16px; text-align: center;">{v2_wall:.0f}s</td></tr>
 <tr><td style="padding: 4px 16px;">Speed (sim/wall)</td>
-    <td style="padding: 4px 16px; text-align: center;">{v1_rate:.1f}×</td>
-    <td style="padding: 4px 16px; text-align: center; font-weight: bold;">{v2_rate:.1f}×</td></tr>
-<tr><td style="padding: 4px 16px;">Speedup</td>
-    <td colspan="2" style="padding: 4px 16px; text-align: center; font-weight: bold; color: #16a34a;">{speedup:.1f}× faster</td></tr>
+    <td style="padding: 4px 16px; text-align: center; font-weight: bold;">{v2_rate:.1f}x</td></tr>
 <tr><td style="padding: 4px 16px;">Final dry mass</td>
-    <td style="padding: 4px 16px; text-align: center;">{v1_final_dry:.1f} fg</td>
     <td style="padding: 4px 16px; text-align: center;">{v2_final_dry:.1f} fg</td></tr>
 <tr><td style="padding: 4px 16px;">Division reached</td>
-    <td style="padding: 4px 16px; text-align: center;">{'Yes' if v1_final_dry > 650 else 'No'}</td>
     <td style="padding: 4px 16px; text-align: center;">{'Yes' if long.get('division_reached') else 'No'}</td></tr>
 <tr><td style="padding: 4px 16px;">Snapshots</td>
-    <td style="padding: 4px 16px; text-align: center;">{len(v1_snaps)}</td>
     <td style="padding: 4px 16px; text-align: center;">{len(long.get('chromosome_snapshots', []))}</td></tr>
 </table>""")
-
-        if plots.get('lifecycle'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["lifecycle"]}" alt="Lifecycle Comparison"></div>\n')
-        elif not v1_info.get('v1_available', False):
-            reason = v1_info.get('reason', 'v1 not available')
-            f.write(f'<div class="section"><p>v1 lifecycle comparison: {reason}</p></div>\n')
 
         f.write(f"""
 <!-- ===== Step 5: Division ===== -->
@@ -2336,13 +2327,9 @@ def run_workflow():
     model_meta, composite = step_load_model()
     step_results['load_model'] = model_meta
 
-    # Step 4: Long Simulation
-    long_meta = step_long_sim()
-    step_results['long_sim'] = long_meta
-
-    # Step 4b: v1 Comparison (independent, cached separately)
-    v1_meta = step_v1_comparison()
-    step_results['v1_comparison'] = v1_meta
+    # Step 4: Single Cell Simulation (to division)
+    single_cell_meta = step_single_cell()
+    step_results['single_cell'] = single_cell_meta
 
     # Step 5: Division
     div_meta = step_division()
@@ -2378,26 +2365,16 @@ def run_workflow():
     plots = {}
 
     # Long sim plots
-    chrom_snaps = long_meta.get('chromosome_snapshots', [])
+    chrom_snaps = single_cell_meta.get('chromosome_snapshots', [])
     if chrom_snaps:
-        dur = long_meta.get('duration', 0)
+        dur = single_cell_meta.get('duration', 0)
         plots['chromosome_long'] = plot_chromosome_state(
             chrom_snaps, f'v2 Chromosome State (to t={dur:.0f}s)')
-        plots['growth_long'] = plot_long_sim_growth(
+        plots['growth_long'] = plot_single_cell_growth(
             chrom_snaps, f'Growth Metrics ({dur/60:.0f} min)')
         if any(s.get('ppgpp_count', 0) > 0 for s in chrom_snaps):
             plots['ppgpp_dynamics'] = plot_ppgpp_dynamics(
                 chrom_snaps, f'ppGpp Dynamics ({dur/60:.0f} min)')
-
-    # Lifecycle v1/v2 comparison plot (v1 data from separate step)
-    v1_meta = step_results.get('v1_comparison', {})
-    if v1_meta.get('v1_available') and chrom_snaps:
-        lifecycle_data = {
-            'v1_available': True,
-            'v1_snapshots': v1_meta.get('v1_snapshots', []),
-            'v2_snapshots': chrom_snaps,
-        }
-        plots['lifecycle'] = plot_lifecycle_comparison(lifecycle_data)
 
     # Multicell plots
     multicell = step_results.get('multicell', {})
@@ -2441,10 +2418,7 @@ if __name__ == '__main__':
 
     if args.clean:
         import glob as glob_mod
-        # Preserve v1 comparison results (expensive, rarely changes)
         for f in glob_mod.glob(os.path.join(WORKFLOW_DIR, '*_meta.json')):
-            if 'v1_comparison' in f:
-                continue
             os.remove(f)
             print(f"  Removed {f}")
         for f in glob_mod.glob(os.path.join(WORKFLOW_DIR, '*.dill')):

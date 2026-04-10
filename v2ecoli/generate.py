@@ -720,12 +720,20 @@ def build_document(initial_state, configs, unique_names,
     cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
 
-    # Pre-create shared request/allocate stores with per-process sub-keys
+    # Initialize next_update_time for all partitioned processes
+    # (requesters/evolvers check this to decide whether to run)
+    nut = cell_state.setdefault('next_update_time', {})
+    for proc_name in ALL_PARTITIONED:
+        nut.setdefault(proc_name, 0.0)  # Run on first tick
+
+    # Pre-create shared request/allocate/process stores with per-process sub-keys
     cell_state.setdefault('request', {})
     cell_state.setdefault('allocate', {})
+    proc_store = cell_state.setdefault('process', {})
     for proc_name in ALL_PARTITIONED:
         cell_state['request'].setdefault(proc_name, {'bulk': {}})
         cell_state['allocate'].setdefault(proc_name, {'bulk': {}})
+        # process store starts empty — populated when requester runs
     # Pre-create listener sub-stores expected by various steps
     n_part = len(ALL_PARTITIONED)
     cell_state['listeners'].setdefault('atp', {
@@ -784,6 +792,11 @@ def build_document(initial_state, configs, unique_names,
                 instance, topology, edge_type = config
                 cell_state[step_name] = make_edge(
                     instance, topology, edge_type=edge_type)
+
+    # Place shared PartitionedProcess instances in the process store
+    # (Requester/Evolver read them from state via the 'process' port)
+    for proc_name, proc_instance in _process_cache.items():
+        cell_state['process'][proc_name] = (proc_instance,)
 
     _seed_state_from_ports(cell_state)
     _seed_mass_listener(cell_state, core)

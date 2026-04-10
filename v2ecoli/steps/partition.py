@@ -96,6 +96,8 @@ class Requester(Step):
             raise RuntimeError("PartitionedProcess objects cannot be parallelized.")
         parameters["name"] = f"{parameters['process'].name}_requester"
         super().__init__(parameters)
+        # Initialize cached_bulk_ports (normally set by ports_schema in vivarium)
+        self.cached_bulk_ports = ["bulk"]
 
     def update_condition(self, timestep, states):
         """
@@ -142,10 +144,12 @@ class Requester(Step):
             "_divider": "null",
             "_emit": False,
         }
+        ts = process.parameters.get("timestep",
+             process.parameters.get("time_step", 1))
         ports["global_time"] = {"_default": 0.0}
-        ports["timestep"] = {"_default": process.parameters["timestep"]}
+        ports["timestep"] = {"_default": ts}
         ports["next_update_time"] = {
-            "_default": process.parameters["timestep"],
+            "_default": ts,
             "_updater": "set",
             "_divider": "set",
         }
@@ -253,10 +257,12 @@ class Evolver(Step):
             "_divider": "null",
             "_emit": False,
         }
+        ts = process.parameters.get("timestep",
+             process.parameters.get("time_step", 1))
         ports["global_time"] = {"_default": 0.0}
-        ports["timestep"] = {"_default": process.parameters["timestep"]}
+        ports["timestep"] = {"_default": ts}
         ports["next_update_time"] = {
-            "_default": process.parameters["timestep"],
+            "_default": ts,
             "_updater": "set",
             "_divider": "set",
         }

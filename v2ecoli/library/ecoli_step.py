@@ -125,6 +125,10 @@ class EcoliProcess(Process):
     def interface(self):
         return {'inputs': self.inputs(), 'outputs': self.outputs()}
 
+    def get_schema(self):
+        """Vivarium-compatible: return ports_schema dict."""
+        return self.ports_schema()
+
 
 def set_current_core(core):
     """Set the core used by EcoliStep/EcoliProcess when core is not passed."""

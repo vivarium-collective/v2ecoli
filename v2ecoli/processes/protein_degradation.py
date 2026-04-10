@@ -13,7 +13,7 @@ TODO:
 
 import numpy as np
 
-# simulate_process removed — pure process-bigraph
+# simulate_process removed
 
 from v2ecoli.library.data_predicates import (
     monotonically_increasing,
@@ -22,7 +22,7 @@ from v2ecoli.library.data_predicates import (
 )
 from v2ecoli.library.schema import numpy_schema, counts, bulk_name_to_idx
 
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
 
 
@@ -58,6 +58,16 @@ class ProteinDegradation(PartitionedProcess):
             'bulk': 'bulk_array',
         }
 
+    defaults = {
+        "raw_degradation_rate": [],
+        "water_id": "h2o",
+        "amino_acid_ids": [],
+        "amino_acid_counts": [],
+        "protein_ids": [],
+        "protein_lengths": [],
+        "seed": 0,
+        "time_step": 1,
+    }
 
     # Constructor
     def __init__(self, parameters=None):

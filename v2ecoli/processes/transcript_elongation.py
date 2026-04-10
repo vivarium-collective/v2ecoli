@@ -16,7 +16,7 @@ import numpy as np
 from copy import deepcopy
 import warnings
 
-# Engine removed — pure process-bigraph
+# Engine removed
 
 from wholecell.utils.random import stochasticRound
 from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
@@ -30,9 +30,9 @@ from v2ecoli.library.schema import (
     listener_schema,
 )
 from v2ecoli.library.data_predicates import monotonically_increasing
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
-from v2ecoli.steps.unique_update import UniqueUpdate
+from ecoli.processes.unique_update import UniqueUpdate
 from v2ecoli.library.schema_types import RNA_ARRAY, ACTIVE_RNAP_ARRAY
 
 
@@ -156,6 +156,40 @@ class TranscriptElongation(PartitionedProcess):
             },
         }
 
+    defaults = {
+        # Parameters
+        "rnaPolymeraseElongationRateDict": {},
+        "rnaIds": [],
+        "rnaLengths": np.array([]),
+        "rnaSequences": np.array([[]]),
+        "ntWeights": np.array([]),
+        "endWeight": np.array([]),
+        "replichore_lengths": np.array([]),
+        "n_fragment_bases": 0,
+        "recycle_stalled_elongation": False,
+        "submass_indices": {},
+        # mask for mRNAs
+        "is_mRNA": np.array([]),
+        # Bulk molecules
+        "inactive_RNAP": "",
+        "ppi": "",
+        "ntp_ids": [],
+        "variable_elongation": False,
+        "make_elongation_rates": make_elongation_rates,
+        "fragmentBases": [],
+        "polymerized_ntps": [],
+        "charged_trnas": [],
+        # Attenuation
+        "trna_attenuation": False,
+        "cell_density": 1100 * units.g / units.L,
+        "n_avogadro": 6.02214076e23 / units.mol,
+        "get_attenuation_stop_probabilities": (get_attenuation_stop_probabilities),
+        "attenuated_rna_indices": np.array([], dtype=int),
+        "location_lookup": {},
+        "seed": 0,
+        "emit_unique": False,
+        "time_step": 1,
+    }
 
     def __init__(self, parameters=None):
         super().__init__(parameters)

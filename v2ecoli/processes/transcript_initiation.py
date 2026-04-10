@@ -20,7 +20,7 @@ import scipy.sparse
 import matplotlib.pyplot as plt
 from typing import cast
 
-# simulate_process removed — pure process-bigraph
+# simulate_process removed
 
 from v2ecoli.library.schema import (
     create_unique_indices,
@@ -39,7 +39,7 @@ from wholecell.utils.unit_struct_array import UnitStructArray
 from v2ecoli.library.data_predicates import monotonically_decreasing, all_nonnegative
 from scipy.stats import chisquare
 
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
 from v2ecoli.library.schema_types import (
     FULL_CHROMOSOME_ARRAY,
@@ -225,6 +225,47 @@ class TranscriptInitiation(PartitionedProcess):
             },
         }
 
+    defaults = {
+        "fracActiveRnapDict": {},
+        "rnaLengths": np.array([]),
+        "rnaPolymeraseElongationRateDict": {},
+        "variable_elongation": False,
+        "make_elongation_rates": (
+            lambda random, rate, timestep, variable: np.array([])
+        ),
+        "active_rnap_foorprint_size": 1,
+        "basal_prob": np.array([]),
+        "delta_prob": {"deltaI": [], "deltaJ": [], "deltaV": [], "shape": tuple()},
+        "get_delta_prob_matrix": None,
+        "perturbations": {},
+        "rna_data": {},
+        "active_rnap_footprint_size": 24 * units.nt,
+        "get_rnap_active_fraction_from_ppGpp": lambda x: 0.1,
+        "idx_rRNA": np.array([]),
+        "idx_mRNA": np.array([]),
+        "idx_tRNA": np.array([]),
+        "idx_rprotein": np.array([]),
+        "idx_rnap": np.array([]),
+        "rnaSynthProbFractions": {},
+        "rnaSynthProbRProtein": {},
+        "rnaSynthProbRnaPolymerase": {},
+        "replication_coordinate": np.array([]),
+        "transcription_direction": np.array([]),
+        "n_avogadro": 6.02214076e23 / units.mol,
+        "cell_density": 1100 * units.g / units.L,
+        "ppgpp": "ppGpp",
+        "inactive_RNAP": "APORNAP-CPLX[c]",
+        "synth_prob": lambda concentration, copy: 0.0,
+        "copy_number": lambda x: x,
+        "ppgpp_regulation": False,
+        # attenuation
+        "trna_attenuation": False,
+        "attenuated_rna_indices": np.array([]),
+        "attenuation_adjustments": np.array([]),
+        # random seed
+        "seed": 0,
+        "emit_unique": False,
+    }
 
     # Constructor
     def __init__(self, parameters=None):

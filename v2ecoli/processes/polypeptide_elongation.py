@@ -25,7 +25,7 @@ from wholecell.utils.random import stochasticRound
 from wholecell.utils import units
 
 # vivarium imports
-# simulate_process removed — pure process-bigraph
+# simulate_process removed
 from bigraph_schema import deep_merge
 from v2ecoli.library.unit_defs import units as vivunits
 # plot_variables removed
@@ -38,7 +38,7 @@ from v2ecoli.library.schema import (
     attrs,
     bulk_name_to_idx,
 )
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
 from v2ecoli.processes.metabolism import CONC_UNITS, TIME_UNITS
 from v2ecoli.library.schema_types import ACTIVE_RIBOSOME_ARRAY
@@ -267,6 +267,85 @@ class PolypeptideElongation(PartitionedProcess):
             },
         }
 
+    defaults = {
+        "time_step": 1,
+        "n_avogadro": 6.02214076e23 / units.mol,
+        "proteinIds": np.array([]),
+        "proteinLengths": np.array([]),
+        "proteinSequences": np.array([[]]),
+        "aaWeightsIncorporated": np.array([]),
+        "endWeight": np.array([2.99146113e-08]),
+        "variable_elongation": False,
+        "make_elongation_rates": (
+            lambda random, rate, timestep, variable: np.array([])
+        ),
+        "next_aa_pad": 1,
+        "ribosomeElongationRate": 17.388824902723737,
+        "translation_aa_supply": {"minimal": np.array([])},
+        "import_threshold": 1e-05,
+        "aa_from_trna": np.zeros(21),
+        "gtpPerElongation": 4.2,
+        "aa_supply_in_charging": False,
+        "mechanistic_translation_supply": False,
+        "mechanistic_aa_transport": False,
+        "ppgpp_regulation": False,
+        "disable_ppgpp_elongation_inhibition": False,
+        "trna_charging": False,
+        "translation_supply": False,
+        "mechanistic_supply": False,
+        "ribosome30S": "ribosome30S",
+        "ribosome50S": "ribosome50S",
+        "amino_acids": DEFAULT_AA_NAMES,
+        "aa_exchange_names": DEFAULT_AA_NAMES,
+        "basal_elongation_rate": 22.0,
+        "ribosomeElongationRateDict": {
+            "minimal": 17.388824902723737 * units.aa / units.s
+        },
+        "uncharged_trna_names": np.array([]),
+        "aaNames": DEFAULT_AA_NAMES,
+        "aa_enzymes": [],
+        "proton": "PROTON",
+        "water": "H2O",
+        "cellDensity": 1100 * units.g / units.L,
+        "elongation_max": 22 * units.aa / units.s,
+        "aa_from_synthetase": np.array([[]]),
+        "charging_stoich_matrix": np.array([[]]),
+        "charged_trna_names": [],
+        "charging_molecule_names": [],
+        "synthetase_names": [],
+        "ppgpp_reaction_names": [],
+        "ppgpp_reaction_metabolites": [],
+        "ppgpp_reaction_stoich": np.array([[]]),
+        "ppgpp_synthesis_reaction": "GDPPYPHOSKIN-RXN",
+        "ppgpp_degradation_reaction": "PPGPPSYN-RXN",
+        "aa_importers": [],
+        "amino_acid_export": None,
+        "synthesis_index": 0,
+        "aa_exporters": [],
+        "get_pathway_enzyme_counts_per_aa": None,
+        "import_constraint_threshold": 0,
+        "unit_conversion": 0,
+        "elong_rate_by_ppgpp": 0,
+        "amino_acid_import": None,
+        "degradation_index": 1,
+        "amino_acid_synthesis": None,
+        "rela": "RELA",
+        "spot": "SPOT",
+        "ppgpp": "ppGpp",
+        "kS": 100.0,
+        "KMtf": 1.0,
+        "KMaa": 100.0,
+        "krta": 1.0,
+        "krtf": 500.0,
+        "KD_RelA": 0.26,
+        "k_RelA": 75.0,
+        "k_SpoT_syn": 2.6,
+        "k_SpoT_deg": 0.23,
+        "KI_SpoT": 20.0,
+        "aa_supply_scaling": lambda aa_conc, aa_in_media: 0,
+        "seed": 0,
+        "emit_unique": False,
+    }
 
     def __init__(self, parameters=None):
         super().__init__(parameters)

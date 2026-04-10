@@ -20,10 +20,10 @@ simulation.
 import numpy as np
 from stochastic_arrow import StochasticSystem
 
-# simulate_process removed — pure process-bigraph
+# simulate_process removed
 
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
 
 # Register default topology for this process, associating it with process name
@@ -62,6 +62,15 @@ class Complexation(PartitionedProcess):
             },
         }
 
+    defaults = {
+        "stoichiometry": np.array([[]]),
+        "rates": np.array([]),
+        "molecule_names": [],
+        "seed": 0,
+        "reaction_ids": [],
+        "complex_ids": [],
+        "time_step": 1,
+    }
 
     def __init__(self, parameters=None):
         super().__init__(parameters)

@@ -13,33 +13,40 @@ from process_bigraph import Step, Process
 _CURRENT_CORE = None
 
 
-def _apply_defaults(cls, params):
-    """Merge config_schema defaults into params.
+def _defaults_from_schema(config_schema):
+    """Derive defaults dict from config_schema inline defaults."""
+    result = {}
+    for key, spec in (config_schema or {}).items():
+        if isinstance(spec, dict) and '_default' in spec:
+            result[key] = spec['_default']
+        elif isinstance(spec, str) and '{' in spec:
+            type_str, _, default_str = spec.partition('{')
+            default_str = default_str.rstrip('}')
+            type_str = type_str.strip()
+            if type_str == 'float':
+                result[key] = float(default_str)
+            elif type_str == 'integer':
+                result[key] = int(default_str)
+            elif type_str == 'boolean':
+                result[key] = default_str.lower() in ('true', '1', 'yes')
+            elif type_str == 'string':
+                result[key] = default_str
+            else:
+                result[key] = default_str
+    return result
 
-    config_schema entries can be:
-    - str: type expression (no default)
-    - dict with '_default': has a default value
-    - str like 'boolean{false}': inline default in braces
+
+def _build_parameters(cls, params):
+    """Build parameters dict, mimicking vivarium's defaults merge.
+
+    Priority: params > class.defaults > config_schema inline defaults
     """
     merged = {}
-    config_schema = getattr(cls, 'config_schema', {}) or {}
-    for key, spec in config_schema.items():
-        if isinstance(spec, dict) and '_default' in spec:
-            merged[key] = spec['_default']
-        elif isinstance(spec, str) and '{' in spec:
-            brace_start = spec.index('{')
-            default_str = spec[brace_start + 1:spec.rindex('}')]
-            type_name = spec[:brace_start]
-            if type_name == 'boolean':
-                merged[key] = default_str.lower() == 'true'
-            elif type_name in ('integer', 'int'):
-                merged[key] = int(default_str)
-            elif type_name in ('float',):
-                merged[key] = float(default_str)
-            elif type_name == 'string':
-                merged[key] = default_str
-            else:
-                merged[key] = default_str
+    # 1. config_schema inline defaults
+    merged.update(_defaults_from_schema(getattr(cls, 'config_schema', {})))
+    # 2. class defaults dict (vEcoli convention)
+    merged.update(getattr(cls, 'defaults', {}) or {})
+    # 3. provided params
     if params:
         merged.update(params)
     return merged
@@ -63,7 +70,7 @@ class EcoliStep(Step):
             params = {}
         if core is None:
             core = _CURRENT_CORE
-        self.parameters = _apply_defaults(self.__class__, params)
+        self.parameters = _build_parameters(self.__class__, params)
         self.core = core
 
     def next_update(self, timestep, states):
@@ -95,7 +102,7 @@ class EcoliProcess(Process):
             params = {}
         if core is None:
             core = _CURRENT_CORE
-        self.parameters = _apply_defaults(self.__class__, params)
+        self.parameters = _build_parameters(self.__class__, params)
         self.core = core
 
     def next_update(self, timestep, states):

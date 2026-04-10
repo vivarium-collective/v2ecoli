@@ -24,7 +24,7 @@ from v2ecoli.library.schema_types import PROMOTER_ARRAY
 from wholecell.utils.random import stochasticRound
 from wholecell.utils import units
 
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 
 
 # Register default topology for this process, associating it with process name

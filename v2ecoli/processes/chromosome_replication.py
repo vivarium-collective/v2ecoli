@@ -29,7 +29,7 @@ from v2ecoli.library.schema import (
 from wholecell.utils import units
 from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
 
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
 from v2ecoli.library.schema_types import (
     ACTIVE_REPLISOME_ARRAY,
@@ -110,6 +110,31 @@ class ChromosomeReplication(PartitionedProcess):
             },
         }
 
+    defaults = {
+        "get_dna_critical_mass": lambda doubling_time: units.Unum,
+        "criticalInitiationMass": 975 * units.fg,
+        "nutrientToDoublingTime": {},
+        "replichore_lengths": np.array([]),
+        "sequences": np.array([]),
+        "polymerized_dntp_weights": [],
+        "replication_coordinate": np.array([]),
+        "D_period": np.array([]),
+        "replisome_protein_mass": 0,
+        "no_child_place_holder": -1,
+        "basal_elongation_rate": 967,
+        "make_elongation_rates": (
+            lambda random, replisomes, base, time_step: units.Unum
+        ),
+        "mechanistic_replisome": True,
+        # molecules
+        "replisome_trimers_subunits": [],
+        "replisome_monomers_subunits": [],
+        "dntps": [],
+        "ppi": [],
+        # random seed
+        "seed": 0,
+        "emit_unique": False,
+    }
 
     def __init__(self, parameters=None):
         super().__init__(parameters)

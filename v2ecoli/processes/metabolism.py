@@ -23,12 +23,12 @@ from unum import Unum
 from v2ecoli.library.unit_defs import units as vivunits
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
 from wholecell.utils import units
 from wholecell.utils.random import stochasticRound
 from wholecell.utils.modular_fba import FluxBalanceAnalysis
-REVERSE_TAG = " (reverse)"  # from reconstruction.ecoli.dataclasses.process.metabolism
+REVERSE_TAG = " (reverse)"
 
 
 # Register default topology for this process, associating it with process name
@@ -163,6 +163,42 @@ class Metabolism(Step):
             'next_update_time': 'overwrite[float]',
         }
 
+    defaults = {
+        "get_import_constraints": lambda u, c, p: (u, c, []),
+        "nutrientToDoublingTime": {},
+        "use_trna_charging": False,
+        "include_ppgpp": False,
+        "mechanistic_aa_transport": False,
+        "aa_names": [],
+        "aa_targets_not_updated": set(),
+        "import_constraint_threshold": 0,
+        "exchange_molecules": [],
+        "current_timeline": None,
+        "media_id": "minimal",
+        "imports": {},
+        "metabolism": {},
+        "ngam": 8.39 * units.mmol / (units.g * units.h),
+        "avogadro": 6.02214076e23 / units.mol,
+        "cell_density": 1100 * units.g / units.L,
+        "dark_atp": 33.565052868380675 * units.mmol / units.g,
+        "cell_dry_mass_fraction": 0.3,
+        "get_biomass_as_concentrations": lambda doubling_time: {},
+        "ppgpp_id": "ppgpp",
+        "get_ppGpp_conc": lambda media: 0.0,
+        "exchange_data_from_media": lambda media: [],
+        "get_masses": lambda exchanges: [],
+        "doubling_time": 44.0 * units.min,
+        "amino_acid_ids": {},
+        "linked_metabolites": None,
+        "aa_exchange_names": [],
+        "removed_aa_uptake": [],
+        "seed": 0,
+        # TODO: For testing, remove later (perhaps after modifying sim data)
+        "reduce_murein_objective": False,
+        "base_reaction_ids": [],
+        "fba_reaction_ids_to_base_reaction_ids": [],
+        "time_step": 1,
+    }
 
     def __init__(self, parameters=None):
         super().__init__(parameters)

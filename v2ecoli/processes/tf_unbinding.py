@@ -9,7 +9,7 @@ import warnings
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 from v2ecoli.library.schema import bulk_name_to_idx, attrs, numpy_schema
 from v2ecoli.library.schema_types import PROMOTER_ARRAY
 

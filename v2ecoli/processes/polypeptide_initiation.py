@@ -13,7 +13,7 @@ efficiency, and the counts of each type of transcript.
 
 import numpy as np
 
-# simulate_process removed — pure process-bigraph
+# simulate_process removed
 from v2ecoli.library.schema import (
     numpy_schema,
     attrs,
@@ -26,7 +26,7 @@ from v2ecoli.library.schema import (
 from wholecell.utils import units
 from wholecell.utils.fitting import normalize
 
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
 from v2ecoli.library.schema_types import ACTIVE_RIBOSOME_ARRAY, RNA_ARRAY
 
@@ -106,6 +106,28 @@ class PolypeptideInitiation(PartitionedProcess):
             },
         }
 
+    defaults = {
+        "protein_lengths": [],
+        "translation_efficiencies": [],
+        "active_ribosome_fraction": {},
+        "elongation_rates": {},
+        "variable_elongation": False,
+        "make_elongation_rates": lambda x: [],
+        "rna_id_to_cistron_indexes": {},
+        "cistron_start_end_pos_in_tu": {},
+        "tu_ids": [],
+        "active_ribosome_footprint_size": 24 * units.nt,
+        "cistron_to_monomer_mapping": {},
+        "cistron_tu_mapping_matrix": {},
+        "monomer_index_to_cistron_index": {},
+        "monomer_index_to_tu_indexes": {},
+        "ribosome30S": "ribosome30S",
+        "ribosome50S": "ribosome50S",
+        "seed": 0,
+        "monomer_ids": [],
+        "emit_unique": False,
+        "time_step": 1,
+    }
 
     def __init__(self, parameters=None):
         super().__init__(parameters)

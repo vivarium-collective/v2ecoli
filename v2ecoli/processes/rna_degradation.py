@@ -44,7 +44,7 @@ from v2ecoli.library.schema import (
 
 from wholecell.utils import units
 
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
 from v2ecoli.library.schema_types import RNA_ARRAY, ACTIVE_RIBOSOME_ARRAY
 
@@ -131,6 +131,44 @@ class RnaDegradation(PartitionedProcess):
             },
         }
 
+    defaults = {
+        "rna_ids": [],
+        "mature_rna_ids": [],
+        "cistron_ids": [],
+        "cistron_tu_mapping_matrix": [],
+        "mature_rna_cistron_indexes": [],
+        "all_rna_ids": [],
+        "n_total_RNAs": 0,
+        "n_avogadro": 0.0,
+        "cell_density": 1100 * units.g / units.L,
+        "endoRNase_ids": [],
+        "exoRNase_ids": [],
+        "kcat_exoRNase": np.array([]) / units.s,
+        "Kcat_endoRNases": np.array([]) / units.s,
+        "charged_trna_names": [],
+        "uncharged_trna_indexes": [],
+        "rna_deg_rates": [],
+        "is_mRNA": np.array([]),
+        "is_rRNA": np.array([]),
+        "is_tRNA": np.array([]),
+        "is_miscRNA": np.array([]),
+        "degrade_misc": False,
+        "rna_lengths": np.array([]),
+        "nt_counts": np.array([[]]),
+        "polymerized_ntp_ids": [],
+        "water_id": "h2o",
+        "ppi_id": "ppi",
+        "proton_id": "h+",
+        "nmp_ids": [],
+        "rrfa_idx": 0,
+        "rrla_idx": 0,
+        "rrsa_idx": 0,
+        "ribosome30S": "ribosome30S",
+        "ribosome50S": "ribosome50S",
+        "Kms": np.array([]) * units.mol / units.L,
+        "seed": 0,
+        "emit_unique": False,
+    }
 
     def __init__(self, parameters=None):
         super().__init__(parameters)

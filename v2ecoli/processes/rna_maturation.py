@@ -8,7 +8,7 @@ RnaMaturation process
 
 import numpy as np
 
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
 from v2ecoli.library.schema import listener_schema, numpy_schema, counts, bulk_name_to_idx
 

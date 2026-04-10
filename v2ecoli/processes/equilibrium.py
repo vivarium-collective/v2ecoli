@@ -11,7 +11,7 @@ that maintains equilibrium.
 import numpy as np
 
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
-# topology_registry removed — topology defined as class attribute
+# topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
 
 from wholecell.utils import units
@@ -61,6 +61,20 @@ class Equilibrium(PartitionedProcess):
             },
         }
 
+    defaults = {
+        "jit": False,
+        "n_avogadro": 0.0,
+        "cell_density": 0.0,
+        "stoichMatrix": [[]],
+        "fluxesAndMoleculesToSS": lambda counts, volume, avogadro, random, jit: (
+            [],
+            [],
+        ),
+        "moleculeNames": [],
+        "seed": 0,
+        "complex_ids": [],
+        "reaction_ids": [],
+    }
 
     # Constructor
     def __init__(self, parameters=None):

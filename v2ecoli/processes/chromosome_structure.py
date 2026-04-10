@@ -12,12 +12,12 @@ import numpy as np
 import numpy.typing as npt
 import warnings
 from v2ecoli.library.ecoli_step import EcoliStep as Step
-# Composer removed — pure process-bigraph
-# Engine removed — pure process-bigraph
+# Composer removed
+# Engine removed
 
-from v2ecoli.steps.global_clock import GlobalClock
-from v2ecoli.steps.unique_update import UniqueUpdate
-# topology_registry removed — topology defined as class attribute
+from ecoli.processes.global_clock import GlobalClock
+from ecoli.processes.unique_update import UniqueUpdate
+# topology_registry removed
 from v2ecoli.library.schema import (
     listener_schema,
     numpy_schema,

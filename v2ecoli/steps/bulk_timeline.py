@@ -53,10 +53,7 @@ class BulkTimelineProcess(Process):
                         for i, subpath in enumerate(path):
                             if subpath not in curr:
                                 if i == len(path) - 1:
-                                    curr[subpath] = {
-                                        "_value": change,
-                                        "_updater": "set",
-                                    }
+                                    curr[subpath] = change
                                 else:
                                     curr[subpath] = {}
                             else:

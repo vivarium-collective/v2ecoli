@@ -732,50 +732,7 @@ def build_document(initial_state, configs, unique_names,
         'atp_requested': np.zeros(n_part, dtype=int),
         'atp_allocated_initial': np.zeros(n_part, dtype=int),
     })
-    # Pre-populate listener sub-stores with zero defaults so processes
-    # that read them on the first timestep don't KeyError.
-    # These are normally populated by seed_state_from_ports in vEcoli.
-    _listener_defaults = {
-        'ribosome_data': {
-            'rRNA_initiated_TU': np.zeros(0, dtype=int),
-            'rRNA_init_prob_TU': np.zeros(0),
-            'total_rna_init': 0,
-            'effective_elongation_rate': 0.0,
-            'translation_supply': np.zeros(0),
-            'aa_count_in_sequence': np.zeros(0, dtype=int),
-            'aa_counts': np.zeros(0),
-            'actual_elongations': 0,
-            'did_terminate': 0,
-            'did_initialize': 0,
-            'ribosomes_initialized': 0,
-        },
-        'rnap_data': {
-            'did_initialize': 0,
-            'actual_elongations': 0,
-            'did_terminate': 0,
-            'did_stall': 0,
-            'termination_loss': 0,
-            'rna_init_event': np.zeros(0, dtype=int),
-            'active_rnap_n_bound_ribosomes': np.zeros(0, dtype=int),
-        },
-        'rna_synth_prob': {
-            'target_rna_synth_prob': np.zeros(0),
-            'actual_rna_synth_prob': np.zeros(0),
-            'max_p': 0.0,
-        },
-        'growth_limits': {},
-        'fba_results': {},
-        'enzyme_kinetics': {},
-        'equilibrium_listener': {},
-        'rna_degradation_listener': {},
-        'rna_maturation_listener': {},
-        'complexation_listener': {},
-        'transcript_elongation_listener': {},
-    }
-    for key, defaults in _listener_defaults.items():
-        sub = cell_state['listeners'].setdefault(key, {})
-        for k, v in defaults.items():
-            sub.setdefault(k, v)
+    # Listener sub-stores are populated by _seed_state_from_ports below
 
     cell_state.setdefault('process_state', {})
     cell_state['process_state'].setdefault('polypeptide_elongation', {

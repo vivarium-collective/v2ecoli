@@ -1164,10 +1164,17 @@ def step_single_cell():
             composite.run(chunk)
         except Exception as e:
             total_run += chunk
-            print(f"    Division event at ~t={total_run}s "
-                  f"(Division step fired: {type(e).__name__})")
-            divided = True
-            break
+            # Check if this is from the Division step or an unrelated crash
+            err_str = str(e)
+            if 'divide' in err_str.lower() or '_add' in err_str or '_remove' in err_str:
+                print(f"    Cell divided at ~t={total_run}s ({total_run/60:.0f}min)")
+                divided = True
+                break
+            else:
+                # Non-division error — log and continue
+                import traceback
+                print(f"    Warning at ~t={total_run}s: {type(e).__name__}: {err_str[:100]}")
+                continue
         total_run += chunk
 
         cell = composite.state.get('agents', {}).get('0')

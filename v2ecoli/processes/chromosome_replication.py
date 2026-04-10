@@ -148,43 +148,6 @@ class ChromosomeReplication(PartitionedProcess):
 
         self.ppi_idx = None
 
-    def inputs(self):
-        return (
-            {
-                'bulk': 'bulk_array',
-                'active_replisomes': ACTIVE_REPLISOME_ARRAY,
-                'oriCs': ORIC_ARRAY,
-                'chromosome_domains': CHROMOSOME_DOMAIN_ARRAY,
-                'full_chromosomes': FULL_CHROMOSOME_ARRAY,
-                'listeners':                 {
-                    'mass':                     {
-                        'cell_mass': 'float[fg]',
-                    },
-                },
-                'environment':                 {
-                    'media_id': 'string',
-                },
-                'timestep': 'integer',
-            }
-        )
-
-    def outputs(self):
-        return (
-            {
-                'bulk': 'bulk_array',
-                'active_replisomes': ACTIVE_REPLISOME_ARRAY,
-                'oriCs': ORIC_ARRAY,
-                'chromosome_domains': CHROMOSOME_DOMAIN_ARRAY,
-                'full_chromosomes': FULL_CHROMOSOME_ARRAY,
-                'listeners':                 {
-                    'replication_data':                     {
-                        'critical_initiation_mass': 'overwrite[float[fg]]',
-                        'critical_mass_per_oriC': 'overwrite[float]',
-                    },
-                },
-            }
-        )
-
     def port_defaults(self):
         """Default values for ports that need pre-population."""
         return {
@@ -343,7 +306,7 @@ class ChromosomeReplication(PartitionedProcess):
             # Get indexes of the domains that would be getting child domains
             # (domains that contain an origin)
             new_parent_domains = np.where(
-                np.in1d(domain_index_existing_domain, domain_index_existing_oric)
+                np.isin(domain_index_existing_domain, domain_index_existing_oric)
             )[0]
 
             # Calculate counts of new replisomes and domains to add

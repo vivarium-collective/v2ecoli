@@ -1,0 +1,30 @@
+[project]
+name = "v2ecoli"
+version = "0.1.0"
+description = "Whole-cell E. coli model on process-bigraph (partitioned architecture)"
+readme = "README.md"
+requires-python = "==3.12.9"
+dependencies = [
+    "bigraph-schema>=0.0.60",
+    "process-bigraph>=0.0.38",
+    "vEcoli[dev]>=1.1.0",
+    "plum-dispatch>=2.5",
+    "dill>=0.3",
+    "numpy",
+    "scipy",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "fast: runs without simulation cache (type tests, unit tests)",
+    "slow: runs full simulations (60s+)",
+]
+
+[tool.setuptools]
+packages = { find = { where = ["."] } }
+
+[tool.uv.sources]
+vecoli = { path = "../vEcoli", editable = true }
+process-bigraph = { path = "../process-bigraph", editable = true }
+bigraph-schema = { path = "../bigraph-schema", editable = true }

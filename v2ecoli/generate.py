@@ -140,6 +140,57 @@ ALLOCATOR_LAYERS = {
 # Wiring helpers
 # ---------------------------------------------------------------------------
 
+def _seed_state_from_ports(cell_state):
+    """Walk each edge's ports_schema and inject _default values.
+
+    Ported from vEcoli ecoli_composite.py. Fills empty/missing slots
+    so that listeners and other steps don't KeyError on first tick.
+    """
+    for edge in list(cell_state.values()):
+        if not (isinstance(edge, dict) and 'instance' in edge):
+            continue
+        instance = edge['instance']
+        try:
+            ports = instance.ports_schema()
+        except (AttributeError, Exception):
+            continue
+        for port_name, wire_path in edge.get('inputs', {}).items():
+            port = ports.get(port_name)
+            if isinstance(port, dict) and isinstance(wire_path, list):
+                _inject_port_default(cell_state, wire_path, port)
+
+
+def _inject_port_default(state, wire_path, port_schema):
+    """Inject _default values along wire_path into state."""
+    if '_default' in port_schema:
+        default = port_schema['_default']
+        target = state
+        for segment in wire_path[:-1]:
+            if not isinstance(target, dict):
+                return
+            target = target.setdefault(segment, {})
+        if isinstance(target, dict) and wire_path:
+            key = wire_path[-1]
+            current = target.get(key)
+            if current is None or (
+                    isinstance(current, (list, dict, tuple))
+                    and len(current) == 0):
+                target[key] = default
+        return
+
+    target = state
+    for segment in wire_path:
+        if not isinstance(target, dict):
+            return
+        target = target.setdefault(segment, {})
+    if not isinstance(target, dict):
+        return
+    for key, subport in port_schema.items():
+        if key.startswith('_') or key == '*' or not isinstance(subport, dict):
+            continue
+        _inject_port_default(target, [key], subport)
+
+
 def _seed_mass_listener(cell_state, core):
     """Run mass listener once to populate initial mass values."""
     for name in ['post-division-mass-listener', 'ecoli-mass-listener']:
@@ -300,7 +351,10 @@ def _normalize_boundary_units(cell_state):
         return
     for key, val in external.items():
         if hasattr(val, 'magnitude') and hasattr(val, 'units'):
-            external[key] = float(val.magnitude) * units.mM
+            # Strip units — metabolism expects plain floats in mM
+            external[key] = float(val.magnitude)
+        elif hasattr(val, 'asNumber'):
+            external[key] = float(val.asNumber())
 
 
 # ---------------------------------------------------------------------------
@@ -672,16 +726,60 @@ def build_document(initial_state, configs, unique_names,
     for proc_name in ALL_PARTITIONED:
         cell_state['request'].setdefault(proc_name, {'bulk': {}})
         cell_state['allocate'].setdefault(proc_name, {'bulk': {}})
-    # Pre-create listener sub-stores that allocator expects
+    # Pre-create listener sub-stores expected by various steps
     n_part = len(ALL_PARTITIONED)
     cell_state['listeners'].setdefault('atp', {
         'atp_requested': np.zeros(n_part, dtype=int),
         'atp_allocated_initial': np.zeros(n_part, dtype=int),
     })
+    # Pre-populate listener sub-stores with zero defaults so processes
+    # that read them on the first timestep don't KeyError.
+    # These are normally populated by seed_state_from_ports in vEcoli.
+    _listener_defaults = {
+        'ribosome_data': {
+            'rRNA_initiated_TU': np.zeros(0, dtype=int),
+            'rRNA_init_prob_TU': np.zeros(0),
+            'total_rna_init': 0,
+            'effective_elongation_rate': 0.0,
+            'translation_supply': np.zeros(0),
+            'aa_count_in_sequence': np.zeros(0, dtype=int),
+            'aa_counts': np.zeros(0),
+            'actual_elongations': 0,
+            'did_terminate': 0,
+            'did_initialize': 0,
+            'ribosomes_initialized': 0,
+        },
+        'rnap_data': {
+            'did_initialize': 0,
+            'actual_elongations': 0,
+            'did_terminate': 0,
+            'did_stall': 0,
+            'termination_loss': 0,
+            'rna_init_event': np.zeros(0, dtype=int),
+            'active_rnap_n_bound_ribosomes': np.zeros(0, dtype=int),
+        },
+        'rna_synth_prob': {
+            'target_rna_synth_prob': np.zeros(0),
+            'actual_rna_synth_prob': np.zeros(0),
+            'max_p': 0.0,
+        },
+        'growth_limits': {},
+        'fba_results': {},
+        'enzyme_kinetics': {},
+        'equilibrium_listener': {},
+        'rna_degradation_listener': {},
+        'rna_maturation_listener': {},
+        'complexation_listener': {},
+        'transcript_elongation_listener': {},
+    }
+    for key, defaults in _listener_defaults.items():
+        sub = cell_state['listeners'].setdefault(key, {})
+        for k, v in defaults.items():
+            sub.setdefault(k, v)
 
     cell_state.setdefault('process_state', {})
     cell_state['process_state'].setdefault('polypeptide_elongation', {
-        'aa_exchange_rates': np.zeros(21) * units.mmol / units.L / units.s,
+        'aa_exchange_rates': np.zeros(21),
         'gtp_to_hydrolyze': 0,
         'aa_count_diff': np.zeros(21),
     })
@@ -730,6 +828,7 @@ def build_document(initial_state, configs, unique_names,
                 cell_state[step_name] = make_edge(
                     instance, topology, edge_type=edge_type)
 
+    _seed_state_from_ports(cell_state)
     _seed_mass_listener(cell_state, core)
 
     inject_flow_dependencies(

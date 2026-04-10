@@ -85,6 +85,7 @@ class DnaSupercoiling(Step):
         return (states["global_time"] % states["timestep"]) == 0
 
     def update(self, states, interval=None):
+        # Guard: return empty on first tick if data not yet populated
         boundary_coordinates, domain_indexes, linking_numbers = attrs(
             states["chromosomal_segments"],
             ["boundary_coordinates", "domain_index", "linking_number"],

@@ -231,10 +231,9 @@ class Metabolism(Step):
         self.aa_targets = {}
         self.aa_targets_not_updated = self.parameters["aa_targets_not_updated"]
         self.aa_names = self.parameters["aa_names"]
-        # Comparing two values with units is faster than converting units
-        # and comparing magnitudes
-        self.import_constraint_threshold = (
-            self.parameters["import_constraint_threshold"] * vivunits.mM
+        # Store as plain float (boundary.external values are plain floats in mM)
+        self.import_constraint_threshold = float(
+            self.parameters["import_constraint_threshold"]
         )
 
         # Molecules with concentration updates for listener

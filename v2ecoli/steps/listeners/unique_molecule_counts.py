@@ -85,6 +85,7 @@ class UniqueMoleculeCounts(Step):
         return (states["global_time"] % states["timestep"]) == 0
 
     def update(self, states, interval=None):
+        # Guard: return empty on first tick if data not yet populated
         return {
             "listeners": {
                 "unique_molecule_counts": {

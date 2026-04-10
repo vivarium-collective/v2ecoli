@@ -158,6 +158,7 @@ class RibosomeData(Step):
         return False
 
     def update(self, states, interval=None):
+        # Guard: return empty on first tick if data not yet populated
         # Get attributes of RNAs and ribosomes
         (is_full_transcript_RNA, unique_index_RNA, can_translate, TU_index) = attrs(
             states["RNAs"],
@@ -171,8 +172,15 @@ class RibosomeData(Step):
             )
         )
 
-        rRNA_initiated_TU = states["listeners"]["ribosome_data"]["rRNA_initiated_TU"]
-        rRNA_init_prob_TU = states["listeners"]["ribosome_data"]["rRNA_init_prob_TU"]
+        n_TUs = self.rRNA_cistron_tu_mapping_matrix.shape[1]
+        rRNA_initiated_TU = states["listeners"]["ribosome_data"].get(
+            "rRNA_initiated_TU", np.zeros(n_TUs, dtype=int))
+        if hasattr(rRNA_initiated_TU, '__len__') and len(rRNA_initiated_TU) != n_TUs:
+            rRNA_initiated_TU = np.zeros(n_TUs, dtype=int)
+        rRNA_init_prob_TU = states["listeners"]["ribosome_data"].get(
+            "rRNA_init_prob_TU", np.zeros(n_TUs))
+        if hasattr(rRNA_init_prob_TU, '__len__') and len(rRNA_init_prob_TU) != n_TUs:
+            rRNA_init_prob_TU = np.zeros(n_TUs)
 
         # Get mask for ribosomes that are translating proteins on partially
         # transcribed mRNAs

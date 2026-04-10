@@ -121,6 +121,7 @@ class RnaSynthProb(Step):
         return (states["global_time"] % states["timestep"]) == 0
 
     def update(self, states, interval=None):
+        # Guard: return empty on first tick if data not yet populated
         TU_indexes, all_coordinates, all_domains, bound_TFs = attrs(
             states["promoters"], ["TU_index", "coordinates", "domain_index", "bound_TF"]
         )

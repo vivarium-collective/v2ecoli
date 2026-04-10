@@ -1058,10 +1058,9 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             "get_pathway_enzyme_counts_per_aa"
         ]
 
-        # Comparing two values with units is faster than converting units
-        # and comparing magnitudes
-        self.import_constraint_threshold = (
-            self.parameters["import_constraint_threshold"] * vivunits.mM
+        # Store as plain float (boundary.external values are plain floats in mM)
+        self.import_constraint_threshold = float(
+            self.parameters["import_constraint_threshold"]
         )
 
     def elongation_rate(self, states):

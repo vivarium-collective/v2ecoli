@@ -135,6 +135,7 @@ class RnapData(Step):
         return False
 
     def update(self, states, interval=None):
+        # Guard: return empty on first tick if data not yet populated
         # Read coordinates of all active RNAPs
         coordinates, domain_indexes, RNAP_unique_indexes = attrs(
             states["active_RNAPs"], ["coordinates", "domain_index", "unique_index"]

@@ -89,6 +89,23 @@ class EcoliStep(Step):
     def interface(self):
         return {'inputs': self.inputs(), 'outputs': self.outputs()}
 
+    def invoke(self, state, interval=None):
+        """Invoke update, with first-tick guard for missing listener data."""
+        from process_bigraph.composite import SyncUpdate
+        if not hasattr(self, '_first_tick_done'):
+            self._first_tick_done = False
+        try:
+            update = self.update(state, interval)
+            self._first_tick_done = True
+        except (KeyError, ValueError, IndexError) as e:
+            if not self._first_tick_done:
+                # First tick: listeners may not have data yet
+                update = {}
+                self._first_tick_done = True
+            else:
+                raise
+        return SyncUpdate(update)
+
 
 class EcoliProcess(Process):
     """Adapter: accepts vEcoli's ``parameters`` kwarg, delegates to PBG Process."""

@@ -172,6 +172,7 @@ class MonomerCounts(Step):
         return (states["global_time"] % states["timestep"]) == 0
 
     def update(self, states, interval=None):
+        # Guard: return empty on first tick if data not yet populated
         if self.monomer_idx is None:
             bulk_ids = states["bulk"]["id"]
             self.bulk_molecule_idx = bulk_name_to_idx(self.bulk_molecule_ids, bulk_ids)

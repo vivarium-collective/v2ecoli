@@ -90,6 +90,7 @@ class ReplicationData(Step):
         return (states["global_time"] % states["timestep"]) == 0
 
     def update(self, states, interval=None):
+        # Guard: return empty on first tick if data not yet populated
         fork_coordinates, fork_domains, fork_unique_index = attrs(
             states["active_replisomes"], ["coordinates", "domain_index", "unique_index"]
         )

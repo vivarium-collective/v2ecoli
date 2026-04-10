@@ -140,24 +140,58 @@ ALLOCATOR_LAYERS = {
 # Wiring helpers
 # ---------------------------------------------------------------------------
 
-def _seed_state_from_ports(cell_state):
-    """Walk each edge's ports_schema and inject _default values.
+def _seed_state_from_defaults(cell_state):
+    """Walk each edge's port_defaults and inject values into cell_state.
 
-    Ported from vEcoli ecoli_composite.py. Fills empty/missing slots
-    so that listeners and other steps don't KeyError on first tick.
+    Each step instance provides port_defaults() which returns a nested dict
+    of default values for ports that need pre-population. This replaces the
+    vivarium ports_schema-based seeding.
     """
     for edge in list(cell_state.values()):
         if not (isinstance(edge, dict) and 'instance' in edge):
             continue
         instance = edge['instance']
         try:
-            ports = instance.ports_schema()
+            defaults = instance.port_defaults()
         except (AttributeError, Exception):
             continue
+        if not defaults:
+            continue
         for port_name, wire_path in edge.get('inputs', {}).items():
-            port = ports.get(port_name)
-            if isinstance(port, dict) and isinstance(wire_path, list):
-                _inject_port_default(cell_state, wire_path, port)
+            port_default = defaults.get(port_name)
+            if port_default is None or not isinstance(wire_path, list):
+                continue
+            if isinstance(port_default, dict):
+                # Nested defaults — wrap each leaf as {'_default': value}
+                _inject_nested_defaults(cell_state, wire_path, port_default)
+            else:
+                # Scalar default
+                _inject_port_default(cell_state, wire_path, {'_default': port_default})
+
+
+def _inject_nested_defaults(state, wire_path, defaults_dict):
+    """Recursively inject nested default values into state."""
+    target = state
+    for segment in wire_path:
+        if not isinstance(target, dict):
+            return
+        target = target.setdefault(segment, {})
+    if not isinstance(target, dict):
+        return
+    for key, val in defaults_dict.items():
+        if isinstance(val, dict):
+            sub = target.setdefault(key, {})
+            if isinstance(sub, dict):
+                for k2, v2 in val.items():
+                    if isinstance(v2, dict):
+                        sub2 = sub.setdefault(k2, {})
+                        if isinstance(sub2, dict):
+                            for k3, v3 in v2.items():
+                                sub2.setdefault(k3, v3)
+                    else:
+                        sub.setdefault(k2, v2)
+        else:
+            target.setdefault(key, val)
 
 
 def _inject_port_default(state, wire_path, port_schema):
@@ -798,7 +832,7 @@ def build_document(initial_state, configs, unique_names,
     for proc_name, proc_instance in _process_cache.items():
         cell_state['process'][proc_name] = (proc_instance,)
 
-    _seed_state_from_ports(cell_state)
+    _seed_state_from_defaults(cell_state)
     _seed_mass_listener(cell_state, core)
 
     inject_flow_dependencies(

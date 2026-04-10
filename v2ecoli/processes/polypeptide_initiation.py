@@ -225,46 +225,6 @@ class PolypeptideInitiation(PartitionedProcess):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            "environment": {"media_id": {"_default": "", "_updater": "set"}},
-            "listeners": {
-                "ribosome_data": listener_schema(
-                    {
-                        "did_initialize": 0,
-                        "target_prob_translation_per_transcript": (
-                            [0.0] * len(self.monomer_ids),
-                            self.monomer_ids,
-                        ),
-                        "actual_prob_translation_per_transcript": (
-                            [0.0] * len(self.monomer_ids),
-                            self.monomer_ids,
-                        ),
-                        "mRNA_is_overcrowded": (
-                            [False] * len(self.monomer_ids),
-                            self.monomer_ids,
-                        ),
-                        "ribosome_init_event_per_monomer": (
-                            [0] * len(self.monomer_ids),
-                            self.monomer_ids,
-                        ),
-                        "effective_elongation_rate": 0.0,
-                        "max_p": 0.0,
-                        "max_p_per_protein": (
-                            np.zeros(len(self.monomer_ids), np.float64),
-                            self.monomer_ids,
-                        ),
-                    }
-                ),
-            },
-            "active_ribosome": numpy_schema(
-                "active_ribosome", emit=self.parameters["emit_unique"]
-            ),
-            "RNA": numpy_schema("RNAs", emit=self.parameters["emit_unique"]),
-            "bulk": numpy_schema("bulk"),
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def calculate_request(self, timestep, states):
         if self.ribosome30S_idx is None:
             bulk_ids = states["bulk"]["id"]

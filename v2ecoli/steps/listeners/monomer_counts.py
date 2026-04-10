@@ -158,32 +158,6 @@ class MonomerCounts(Step):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            "listeners": {
-                "monomer_counts": {
-                    "_default": [],
-                    "_updater": "set",
-                    "_emit": True,
-                    "_properties": {"metadata": self.monomer_ids},
-                }
-            },
-            "bulk": numpy_schema("bulk"),
-            "unique": {
-                "active_ribosome": numpy_schema(
-                    "active_ribosome", emit=self.parameters["emit_unique"]
-                ),
-                "active_RNAP": numpy_schema(
-                    "active_RNAPs", emit=self.parameters["emit_unique"]
-                ),
-                "active_replisome": numpy_schema(
-                    "active_replisomes", emit=self.parameters["emit_unique"]
-                ),
-            },
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0
 

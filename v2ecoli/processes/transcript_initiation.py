@@ -400,46 +400,6 @@ class TranscriptInitiation(PartitionedProcess):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            "environment": {"media_id": {"_default": "", "_updater": "set"}},
-            "bulk": numpy_schema("bulk"),
-            "full_chromosomes": numpy_schema(
-                "full_chromosomes", emit=self.parameters["emit_unique"]
-            ),
-            "promoters": numpy_schema("promoters", emit=self.parameters["emit_unique"]),
-            "RNAs": numpy_schema("RNAs", emit=self.parameters["emit_unique"]),
-            "active_RNAPs": numpy_schema(
-                "active_RNAPs", emit=self.parameters["emit_unique"]
-            ),
-            "listeners": {
-                "mass": {"cell_mass": {"_default": 0.0}, "dry_mass": {"_default": 0.0}},
-                "rna_synth_prob": listener_schema(
-                    {
-                        "target_rna_synth_prob": [0.0],
-                        "actual_rna_synth_prob": [0.0],
-                        "tu_is_overcrowded": (
-                            [False] * self.n_TUs,
-                            self.rna_data["id"],
-                        ),
-                        "total_rna_init": 0,
-                        "max_p": 0.0,
-                    }
-                ),
-                "ribosome_data": listener_schema(
-                    {
-                        "rRNA_initiated_TU": [0] * len(self.idx_rRNA),
-                        "rRNA_init_prob_TU": [0.0] * len(self.idx_rRNA),
-                        "total_rna_init": 0,
-                    }
-                ),
-                "rnap_data": listener_schema(
-                    {"did_initialize": 0, "rna_init_event": (0, self.rna_data["id"])}
-                ),
-            },
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def calculate_request(self, timestep, states):
         # At first update, convert all strings to indices
         if self.ppgpp_idx is None:

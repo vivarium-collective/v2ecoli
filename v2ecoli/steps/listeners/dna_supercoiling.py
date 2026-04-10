@@ -78,25 +78,6 @@ class DnaSupercoiling(Step):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            "listeners": {
-                "dna_supercoiling": listener_schema(
-                    {
-                        "segment_left_boundary_coordinates": [],
-                        "segment_right_boundary_coordinates": [],
-                        "segment_domain_indexes": [],
-                        "segment_superhelical_densities": [],
-                    }
-                )
-            },
-            "chromosomal_segments": numpy_schema(
-                "chromosomal_segments", emit=self.parameters["emit_unique"]
-            ),
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0
 

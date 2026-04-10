@@ -187,34 +187,6 @@ class TfBinding(Step):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            "promoters": numpy_schema("promoters", emit=self.parameters["emit_unique"]),
-            "bulk": numpy_schema("bulk"),
-            "bulk_total": numpy_schema("bulk"),
-            "listeners": {
-                "rna_synth_prob": listener_schema(
-                    {
-                        "p_promoter_bound": ([0.0] * self.n_TF, self.tf_ids),
-                        "n_promoter_bound": ([0] * self.n_TF, self.tf_ids),
-                        "n_actual_bound": ([0] * self.n_TF, self.tf_ids),
-                        "n_available_promoters": ([0] * self.n_TF, self.tf_ids),
-                        "n_bound_TF_per_TU": (
-                            [[0] * self.n_TF] * self.n_TU,
-                            self.rna_ids,
-                        ),
-                    }
-                )
-            },
-            "next_update_time": {
-                "_default": self.parameters["time_step"],
-                "_updater": "set",
-                "_divider": "set",
-            },
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def update_condition(self, timestep, states):
         """
         See :py:meth:`~.Requester.update_condition`.

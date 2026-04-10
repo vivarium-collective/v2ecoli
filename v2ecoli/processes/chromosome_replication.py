@@ -208,32 +208,6 @@ class ChromosomeReplication(PartitionedProcess):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            # bulk molecules
-            "bulk": numpy_schema("bulk"),
-            "listeners": {
-                "mass": listener_schema({"cell_mass": 0.0}),
-                "replication_data": listener_schema(
-                    {"critical_initiation_mass": 0.0, "critical_mass_per_oriC": 0.0}
-                ),
-            },
-            "environment": {
-                "media_id": {"_default": "", "_updater": "set"},
-            },
-            "active_replisomes": numpy_schema(
-                "active_replisomes", emit=self.parameters["emit_unique"]
-            ),
-            "oriCs": numpy_schema("oriCs", emit=self.parameters["emit_unique"]),
-            "chromosome_domains": numpy_schema(
-                "chromosome_domains", emit=self.parameters["emit_unique"]
-            ),
-            "full_chromosomes": numpy_schema(
-                "full_chromosomes", emit=self.parameters["emit_unique"]
-            ),
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def calculate_request(self, timestep, states):
         if self.ppi_idx is None:
             self.ppi_idx = bulk_name_to_idx(self.ppi, states["bulk"]["id"])

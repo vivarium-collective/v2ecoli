@@ -96,8 +96,14 @@ class Requester(Step):
             raise RuntimeError("PartitionedProcess objects cannot be parallelized.")
         parameters["name"] = f"{parameters['process'].name}_requester"
         super().__init__(parameters)
-        # Initialize cached_bulk_ports (normally set by ports_schema in vivarium)
         self.cached_bulk_ports = ["bulk"]
+
+    def port_defaults(self):
+        """Delegate to wrapped process's port_defaults."""
+        process = self.parameters.get("process")
+        if process and hasattr(process, 'port_defaults'):
+            return process.port_defaults()
+        return {}
 
     def update_condition(self, timestep, states):
         """
@@ -127,34 +133,6 @@ class Requester(Step):
                 )
             return True
         return False
-
-    def ports_schema(self):
-        process = self.parameters.get("process")
-        ports = process.get_schema()
-        ports["request"] = {
-            "bulk": {
-                "_updater": "set",
-                "_divider": "null",
-                "_emit": False,
-            }
-        }
-        ports["process"] = {
-            "_default": tuple(),
-            "_updater": "set",
-            "_divider": "null",
-            "_emit": False,
-        }
-        ts = process.parameters.get("timestep",
-             process.parameters.get("time_step", 1))
-        ports["global_time"] = {"_default": 0.0}
-        ports["timestep"] = {"_default": ts}
-        ports["next_update_time"] = {
-            "_default": ts,
-            "_updater": "set",
-            "_divider": "set",
-        }
-        self.cached_bulk_ports = list(ports["request"].keys())
-        return ports
 
     def update(self, states, interval=None):
         proc_state = states.get("process")
@@ -225,6 +203,13 @@ class Evolver(Step):
         parameters["name"] = f"{parameters['process'].name}_evolver"
         super().__init__(parameters)
 
+    def port_defaults(self):
+        """Delegate to wrapped process's port_defaults."""
+        process = self.parameters.get("process")
+        if process and hasattr(process, 'port_defaults'):
+            return process.port_defaults()
+        return {}
+
     def update_condition(self, timestep, states):
         """
         See :py:meth:`~.Requester.update_condition`.
@@ -240,33 +225,6 @@ class Evolver(Step):
                 )
             return True
         return False
-
-    def ports_schema(self):
-        process = self.parameters.get("process")
-        ports = process.get_schema()
-        ports["allocate"] = {
-            "bulk": {
-                "_updater": "set",
-                "_divider": "null",
-                "_emit": False,
-            }
-        }
-        ports["process"] = {
-            "_default": tuple(),
-            "_updater": "set",
-            "_divider": "null",
-            "_emit": False,
-        }
-        ts = process.parameters.get("timestep",
-             process.parameters.get("time_step", 1))
-        ports["global_time"] = {"_default": 0.0}
-        ports["timestep"] = {"_default": ts}
-        ports["next_update_time"] = {
-            "_default": ts,
-            "_updater": "set",
-            "_divider": "set",
-        }
-        return ports
 
     def update(self, states, interval=None):
         allocations = states.pop("allocate")

@@ -266,36 +266,6 @@ class RnaDegradation(PartitionedProcess):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            "bulk": numpy_schema("bulk"),
-            "active_ribosome": numpy_schema(
-                "active_ribosome", emit=self.parameters["emit_unique"]
-            ),
-            "RNAs": numpy_schema("RNAs", emit=self.parameters["emit_unique"]),
-            "listeners": {
-                "mass": listener_schema({"cell_mass": 0.0, "dry_mass": 0.0}),
-                "rna_degradation_listener": listener_schema(
-                    {
-                        "fraction_active_endornases": 0.0,
-                        "diff_relative_first_order_decay": 0.0,
-                        "fract_endo_rrna_counts": 0.0,
-                        "count_rna_degraded": (
-                            [0] * len(self.all_rna_ids),
-                            self.all_rna_ids,
-                        ),
-                        "count_RNA_degraded_per_cistron": (
-                            [0] * len(self.cistron_ids),
-                            self.cistron_ids,
-                        ),
-                        "nucleotides_from_degradation": 0,
-                        "fragment_bases_digested": 0,
-                    }
-                ),
-            },
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def calculate_request(self, timestep, states):
         if self.water_idx is None:
             bulk_ids = states["bulk"]["id"]

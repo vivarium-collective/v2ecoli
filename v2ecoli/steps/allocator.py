@@ -101,49 +101,6 @@ class Allocator(Step):
         # Helper indices for Numpy indexing
         self.molecule_idx = None
 
-    def ports_schema(self):
-        ports = {
-            "bulk": numpy_schema("bulk"),
-            "request": {
-                process: {
-                    "bulk": {
-                        "_default": [],
-                        "_emit": False,
-                        "_divider": "null",
-                        "_updater": "set",
-                    }
-                }
-                for process in self.processNames
-            },
-            "allocate": {
-                process: {
-                    "bulk": {
-                        "_default": [],
-                        "_emit": False,
-                        "_divider": "null",
-                        "_updater": "set",
-                    }
-                }
-                for process in self.processNames
-            },
-            "listeners": {
-                "atp": listener_schema(
-                    {
-                        "atp_requested": ([0] * self.n_processes, self.processNames),
-                        "atp_allocated_initial": (
-                            [0] * self.n_processes,
-                            self.processNames,
-                        ),
-                        # Use blame functionality to get ATP consumed per process
-                        # 'atp_allocated_final': ([0] * self.n_processes,
-                        #     self.processNames)
-                    }
-                )
-            },
-            "allocator_rng": {"_default": np.random.RandomState(seed=self.seed)},
-        }
-        return ports
-
     def update(self, states, interval=None):
         if self.molecule_idx is None:
             self.molecule_idx = bulk_name_to_idx(

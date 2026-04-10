@@ -87,35 +87,6 @@ class UniqueMoleculeCounts(Step):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        ports = {
-            "unique": {
-                str(mol_id): numpy_schema(
-                    mol_id + "s", emit=self.parameters["emit_unique"]
-                )
-                for mol_id in self.unique_ids
-                if mol_id not in ["DnaA_box", "active_ribosome"]
-            },
-            "listeners": {
-                "unique_molecule_counts": listener_schema(
-                    {str(mol_id): 0 for mol_id in self.unique_ids}
-                )
-            },
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-        ports["unique"].update(
-            {
-                "active_ribosome": numpy_schema(
-                    "active_ribosome", emit=self.parameters["emit_unique"]
-                ),
-                "DnaA_box": numpy_schema(
-                    "DnaA_boxes", emit=self.parameters["emit_unique"]
-                ),
-            }
-        )
-        return ports
-
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0
 

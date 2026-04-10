@@ -104,42 +104,6 @@ class RnapData(Step):
             'next_update_time': 1.0,
         }
 
-    def ports_schema(self):
-        n_TUs = self.cistron_tu_mapping_matrix.shape[1]
-        ports = {
-            "listeners": {
-                "rnap_data": listener_schema(
-                    {
-                        "rna_init_event": np.zeros(n_TUs, dtype=np.int64),
-                        "active_rnap_coordinates": [],
-                        "active_rnap_domain_indexes": [],
-                        "active_rnap_unique_indexes": [],
-                        "active_rnap_on_stable_RNA_indexes": [],
-                        "active_rnap_n_bound_ribosomes": [],
-                        "rna_init_event_per_cistron": (
-                            [0] * len(self.cistron_ids),
-                            self.cistron_ids,
-                        ),
-                    }
-                )
-            },
-            "active_RNAPs": numpy_schema(
-                "active_RNAPs", emit=self.parameters["emit_unique"]
-            ),
-            "RNAs": numpy_schema("RNAs", emit=self.parameters["emit_unique"]),
-            "active_ribosomes": numpy_schema(
-                "active_ribosome", emit=self.parameters["emit_unique"]
-            ),
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-            "next_update_time": {
-                "_default": self.parameters["time_step"],
-                "_updater": "set",
-                "_divider": "set",
-            },
-        }
-        return ports
-
     def update_condition(self, timestep, states):
         """
         See :py:meth:`~ecoli.processes.partition.Requester.update_condition`.

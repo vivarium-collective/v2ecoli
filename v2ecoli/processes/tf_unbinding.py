@@ -78,19 +78,6 @@ class TfUnbinding(Step):
             'next_update_time': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            "bulk": numpy_schema("bulk"),
-            "promoters": numpy_schema("promoters", emit=self.parameters["emit_unique"]),
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-            "next_update_time": {
-                "_default": self.parameters["time_step"],
-                "_updater": "set",
-                "_divider": "set",
-            },
-        }
-
     def update_condition(self, timestep, states):
         """
         See :py:meth:`~.Requester.update_condition`.

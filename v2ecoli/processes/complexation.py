@@ -111,24 +111,6 @@ class Complexation(PartitionedProcess):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            "bulk": numpy_schema("bulk"),
-            "listeners": {
-                "complexation_listener": {
-                    **listener_schema(
-                        {
-                            "complexation_events": (
-                                [0] * len(self.reaction_ids),
-                                self.reaction_ids,
-                            )
-                        }
-                    )
-                },
-            },
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def calculate_request(self, timestep, states):
         timestep = states["timestep"]
         if self.molecule_idx is None:

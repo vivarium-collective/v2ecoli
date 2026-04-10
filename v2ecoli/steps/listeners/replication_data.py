@@ -81,31 +81,6 @@ class ReplicationData(Step):
             'timestep': 1,
         }
 
-    def ports_schema(self):
-        return {
-            "listeners": {
-                "replication_data": listener_schema(
-                    {
-                        "fork_coordinates": [],
-                        "fork_domains": [],
-                        "fork_unique_index": [],
-                        "number_of_oric": [],
-                        "free_DnaA_boxes": [],
-                        "total_DnaA_boxes": [],
-                    }
-                )
-            },
-            "oriCs": numpy_schema("oriCs", emit=self.parameters["emit_unique"]),
-            "active_replisomes": numpy_schema(
-                "active_replisomes", emit=self.parameters["emit_unique"]
-            ),
-            "DnaA_boxes": numpy_schema(
-                "DnaA_boxes", emit=self.parameters["emit_unique"]
-            ),
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0
 

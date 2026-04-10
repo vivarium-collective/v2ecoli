@@ -24,12 +24,6 @@ class GlobalClock(Process):
         }
 
 
-    def ports_schema(self):
-        return {
-            "global_time": {"_default": 0.0, "_updater": "accumulate"},
-            "next_update_time": {"*": {}},
-        }
-
     def calculate_timestep(self, interval_or_states, states=None):
         """Calculate the minimum time until a manually time-stepped process
         needs to update.

@@ -145,32 +145,6 @@ class RnaMaturation(PartitionedProcess):
             },
         }
 
-    def ports_schema(self):
-        return {
-            "bulk": numpy_schema("bulk"),
-            "bulk_total": numpy_schema("bulk"),
-            "listeners": {
-                "rna_maturation_listener": listener_schema(
-                    {
-                        "total_maturation_events": 0,
-                        "total_degraded_ntps": 0,
-                        "unprocessed_rnas_consumed": (
-                            [0] * len(self.unprocessed_rna_ids),
-                            self.unprocessed_rna_ids,
-                        ),
-                        "mature_rnas_generated": (
-                            [0] * len(self.mature_rna_ids),
-                            self.mature_rna_ids,
-                        ),
-                        "maturation_enzyme_counts": (
-                            [0] * len(self.rna_maturation_enzyme_ids),
-                            self.rna_maturation_enzyme_ids,
-                        ),
-                    }
-                )
-            },
-        }
-
     def calculate_request(self, timestep, states):
         # Get bulk indices
         if self.ppi_idx is None:

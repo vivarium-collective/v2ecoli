@@ -24,11 +24,5 @@ class UniqueUpdate(Step):
         super().__init__(parameters)
         self.unique_topo = self.parameters["unique_topo"]
 
-    def ports_schema(self):
-        return {
-            unique_mol: numpy_schema(unique_mol, emit=self.parameters["emit_unique"])
-            for unique_mol in self.unique_topo
-        }
-
     def update(self, states, interval=None):
         return {unique_mol: {"update": True} for unique_mol in self.unique_topo.keys()}

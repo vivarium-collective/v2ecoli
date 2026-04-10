@@ -36,23 +36,30 @@ def _defaults_from_schema(config_schema):
     return result
 
 
-def _load_config_defaults():
-    """Load pre-extracted config defaults from pickle."""
+def _load_pickle(name):
+    """Load a pickle from the library directory."""
     import os
     import dill
-    path = os.path.join(os.path.dirname(__file__), 'config_defaults.pickle')
+    path = os.path.join(os.path.dirname(__file__), name)
     if os.path.exists(path):
         with open(path, 'rb') as f:
             return dill.load(f)
     return {}
 
 _CONFIG_DEFAULTS = None
+_PORT_DEFAULTS = None
 
 def _get_config_defaults():
     global _CONFIG_DEFAULTS
     if _CONFIG_DEFAULTS is None:
-        _CONFIG_DEFAULTS = _load_config_defaults()
+        _CONFIG_DEFAULTS = _load_pickle('config_defaults.pickle')
     return _CONFIG_DEFAULTS
+
+def _get_port_defaults():
+    global _PORT_DEFAULTS
+    if _PORT_DEFAULTS is None:
+        _PORT_DEFAULTS = _load_pickle('port_defaults.pickle')
+    return _PORT_DEFAULTS
 
 
 def _build_parameters(cls, params):
@@ -110,6 +117,10 @@ class EcoliStep(Step):
     def interface(self):
         return {'inputs': self.inputs(), 'outputs': self.outputs()}
 
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return _get_port_defaults().get(self.__class__.__name__, {})
+
     def invoke(self, state, interval=None):
         from process_bigraph.composite import SyncUpdate
         update = self.update(state, interval)
@@ -146,9 +157,9 @@ class EcoliProcess(Process):
     def interface(self):
         return {'inputs': self.inputs(), 'outputs': self.outputs()}
 
-    def get_schema(self):
-        """Vivarium-compatible: return ports_schema dict."""
-        return self.ports_schema()
+    def port_defaults(self):
+        """Default values for ports that need pre-population."""
+        return _get_port_defaults().get(self.__class__.__name__, {})
 
 
 def set_current_core(core):

@@ -119,27 +119,6 @@ class RNACounts(Step):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            "listeners": {
-                "rna_counts": listener_schema(
-                    {
-                        "mRNA_counts": ([], self.mRNA_TU_ids),
-                        "full_mRNA_counts": ([], self.mRNA_TU_ids),
-                        "partial_mRNA_counts": ([], self.mRNA_TU_ids),
-                        "mRNA_cistron_counts": ([], self.mRNA_cistron_ids),
-                        "full_mRNA_cistron_counts": ([], self.mRNA_cistron_ids),
-                        "partial_mRNA_cistron_counts": ([], self.mRNA_cistron_ids),
-                        "partial_rRNA_counts": ([], self.rRNA_TU_ids),
-                        "partial_rRNA_cistron_counts": ([], self.rRNA_cistron_ids),
-                    }
-                )
-            },
-            "RNAs": numpy_schema("RNAs", emit=self.parameters["emit_unique"]),
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0
 

@@ -138,25 +138,6 @@ class Equilibrium(PartitionedProcess):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            "bulk": numpy_schema("bulk"),
-            "listeners": {
-                "mass": listener_schema({"cell_mass": 0}),
-                "equilibrium_listener": {
-                    **listener_schema(
-                        {
-                            "reaction_rates": (
-                                [0.0] * len(self.reaction_ids),
-                                self.reaction_ids,
-                            )
-                        }
-                    )
-                },
-            },
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def calculate_request(self, timestep, states):
         # At t=0, convert all strings to indices
         if self.molecule_idx is None:

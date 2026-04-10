@@ -240,64 +240,6 @@ class ChromosomeStructure(Step):
             'next_update_time': 1.0,
         }
 
-    def ports_schema(self):
-        ports = {
-            "listeners": {
-                "rnap_data": listener_schema(
-                    {
-                        "n_total_collisions": 0,
-                        "n_headon_collisions": 0,
-                        "n_codirectional_collisions": 0,
-                        "headon_collision_coordinates": [],
-                        "codirectional_collision_coordinates": [],
-                        "n_removed_ribosomes": 0,
-                        "incomplete_transcription_events": (
-                            np.zeros(self.n_TUs, np.int64),
-                            self.rna_ids,
-                        ),
-                        "n_empty_fork_collisions": 0,
-                        "empty_fork_collision_coordinates": [],
-                    }
-                )
-            },
-            "bulk": numpy_schema("bulk"),
-            # Unique molecules
-            "active_replisomes": numpy_schema(
-                "active_replisomes", emit=self.parameters["emit_unique"]
-            ),
-            "oriCs": numpy_schema("oriCs", emit=self.parameters["emit_unique"]),
-            "chromosome_domains": numpy_schema(
-                "chromosome_domains", emit=self.parameters["emit_unique"]
-            ),
-            "active_RNAPs": numpy_schema(
-                "active_RNAPs", emit=self.parameters["emit_unique"]
-            ),
-            "RNAs": numpy_schema("RNAs", emit=self.parameters["emit_unique"]),
-            "active_ribosome": numpy_schema(
-                "active_ribosome", emit=self.parameters["emit_unique"]
-            ),
-            "full_chromosomes": numpy_schema(
-                "full_chromosomes", emit=self.parameters["emit_unique"]
-            ),
-            "promoters": numpy_schema("promoters", emit=self.parameters["emit_unique"]),
-            "DnaA_boxes": numpy_schema(
-                "DnaA_boxes", emit=self.parameters["emit_unique"]
-            ),
-            "chromosomal_segments": numpy_schema(
-                "chromosomal_segments", emit=self.parameters["emit_unique"]
-            ),
-            "genes": numpy_schema("genes", emit=self.parameters["emit_unique"]),
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-            "next_update_time": {
-                "_default": self.parameters["time_step"],
-                "_updater": "set",
-                "_divider": "set",
-            },
-        }
-
-        return ports
-
     def update_condition(self, timestep, states):
         """
         See :py:meth:`~ecoli.processes.partition.Requester.update_condition`.

@@ -126,50 +126,6 @@ class RibosomeData(Step):
             'next_update_time': 1.0,
         }
 
-    def ports_schema(self):
-        n_rRNA_TUs = self.rRNA_cistron_tu_mapping_matrix.shape[1]
-        ports = {
-            "listeners": {
-                "ribosome_data": listener_schema(
-                    {
-                        "n_ribosomes_per_transcript": (
-                            [0] * len(self.monomer_ids),
-                            self.monomer_ids,
-                        ),
-                        "n_ribosomes_on_partial_mRNA_per_transcript": (
-                            [0] * len(self.monomer_ids),
-                            self.monomer_ids,
-                        ),
-                        "total_rRNA_initiated": 0,
-                        "total_rRNA_init_prob": 0.0,
-                        "rRNA5S_initiated": 0,
-                        "rRNA16S_initiated": 0,
-                        "rRNA23S_initiated": 0,
-                        "rRNA5S_init_prob": 0.0,
-                        "rRNA16S_init_prob": 0.0,
-                        "rRNA23S_init_prob": 0.0,
-                        "mRNA_TU_index": [],
-                        "n_ribosomes_on_each_mRNA": [],
-                        "protein_mass_on_polysomes": [],
-                        "rRNA_initiated_TU": [0] * n_rRNA_TUs,
-                        "rRNA_init_prob_TU": [0.0] * n_rRNA_TUs,
-                    }
-                )
-            },
-            "RNAs": numpy_schema("RNAs", emit=self.parameters["emit_unique"]),
-            "active_ribosomes": numpy_schema(
-                "active_ribosome", emit=self.parameters["emit_unique"]
-            ),
-            "global_time": {"_default": 0.0},
-            "timestep": {"_default": self.parameters["time_step"]},
-            "next_update_time": {
-                "_default": self.parameters["time_step"],
-                "_updater": "set",
-                "_divider": "set",
-            },
-        }
-        return ports
-
     def update_condition(self, timestep, states):
         """
         See :py:meth:`~ecoli.processes.partition.Requester.update_condition`.

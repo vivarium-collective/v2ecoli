@@ -118,12 +118,6 @@ class ProteinDegradation(PartitionedProcess):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            "bulk": numpy_schema("bulk"),
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def calculate_request(self, timestep, states):
         # In first timestep, convert all strings to indices
         if self.metabolite_idx is None:

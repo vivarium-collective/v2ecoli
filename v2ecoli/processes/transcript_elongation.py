@@ -293,51 +293,6 @@ class TranscriptElongation(PartitionedProcess):
             'timestep': 1.0,
         }
 
-    def ports_schema(self):
-        return {
-            "environment": {"media_id": {"_default": ""}},
-            "RNAs": numpy_schema("RNAs", emit=self.parameters["emit_unique"]),
-            "active_RNAPs": numpy_schema(
-                "active_RNAPs", emit=self.parameters["emit_unique"]
-            ),
-            "bulk": numpy_schema("bulk"),
-            "bulk_total": numpy_schema("bulk"),
-            "listeners": {
-                "mass": listener_schema({"cell_mass": 0.0}),
-                "transcript_elongation_listener": listener_schema(
-                    {
-                        "count_NTPs_used": 0,
-                        "count_rna_synthesized": ([0] * len(self.rnaIds), self.rnaIds),
-                        "attenuation_probability": (
-                            [0.0] * len(self.attenuated_rnas),
-                            self.attenuated_rnas,
-                        ),
-                        "counts_attenuated": (
-                            [0] * len(self.attenuated_rnas),
-                            self.attenuated_rnas,
-                        ),
-                    }
-                ),
-                "growth_limits": listener_schema(
-                    {
-                        "ntp_used": ([0] * len(self.ntp_ids), self.ntp_ids),
-                        "ntp_pool_size": ([0] * len(self.ntp_ids), self.ntp_ids),
-                        "ntp_request_size": ([0] * len(self.ntp_ids), self.ntp_ids),
-                        "ntp_allocated": ([0] * len(self.ntp_ids), self.ntp_ids),
-                    }
-                ),
-                "rnap_data": listener_schema(
-                    {
-                        "actual_elongations": 0,
-                        "did_terminate": 0,
-                        "termination_loss": 0,
-                        "did_stall": 0,
-                    }
-                ),
-            },
-            "timestep": {"_default": self.parameters["time_step"]},
-        }
-
     def calculate_request(self, timestep, states):
         # At first update, convert all strings to indices
         if self.bulk_RNA_idx is None:

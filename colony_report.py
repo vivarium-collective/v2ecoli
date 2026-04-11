@@ -11,7 +11,7 @@ Generates:
 - HTML report with cell counts, mass, timing
 
 Usage:
-    python colony_report.py                # default: 1 wc-ecoli + 9 adder cells, 60 min
+    python colony_report.py                # default: 1 wc-ecoli + 9 adder cells, 80 min
     python colony_report.py --n-adder 20   # more adder cells
     python colony_report.py --duration 30  # shorter sim (minutes)
 """
@@ -410,39 +410,63 @@ def _get_reproducibility_info():
     return info
 
 
-def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
+def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
+               from_cache=None):
     """Run the colony simulation and generate report."""
     duration = duration_min * 60
     repro = _get_reproducibility_info()
-
-    print(f"Building colony: 1 wc-ecoli + {n_adder} adder cells...")
-    t0 = time.time()
 
     core = core_import()
     core.register_types(ECOLI_TYPES)
     core.register_link('EcoliWCM', EcoliWCM)
 
-    doc, ecoli_id = make_colony_document(
-        n_adder=n_adder,
-        env_size=env_size,
-        seed=seed,
-    )
+    if from_cache and os.path.exists(from_cache):
+        import dill
+        print(f"Loading from cache: {from_cache}")
+        t0 = time.time()
+        with open(from_cache, 'rb') as f:
+            cache_data = dill.load(f)
+        sim = cache_data['sim']
+        ecoli_id = cache_data['ecoli_id']
+        cached_total = cache_data['total']
+        cached_mother_history = cache_data.get('mother_history', [])
+        build_time = time.time() - t0
+        n_initial = len(sim.state.get('cells', {}))
+        n_adder = n_initial - 1
+        print(f"Resumed at t={cached_total}s, {n_initial} cells, ecoli='{ecoli_id}'")
+    else:
+        cached_total = 0
+        cached_mother_history = []
+        print(f"Building colony: 1 wc-ecoli + {n_adder} adder cells...")
+        t0 = time.time()
 
-    sim = Composite({'state': doc}, core=core)
-    build_time = time.time() - t0
-    print(f"Built in {build_time:.1f}s")
+        doc, ecoli_id = make_colony_document(
+            n_adder=n_adder,
+            env_size=env_size,
+            seed=seed,
+        )
+
+        sim = Composite({'state': doc}, core=core)
+        build_time = time.time() - t0
+        print(f"Built in {build_time:.1f}s")
 
     n_initial = len(sim.state['cells'])
-    print(f"Initial cells: {n_initial} (1 wc-ecoli '{ecoli_id}' + {n_adder} adder)")
+    print(f"Initial cells: {n_initial} (ecoli '{ecoli_id}')")
 
     # Run in chunks, collecting chromosome snapshots directly
     chunk = 120  # 2 min chunks
-    total = 0
+    total = cached_total
     t0 = time.time()
     chromosome_history = []  # list of (time, {cell_id: chrom_state})
     # Keep reference to mother's EcoliWCM instance so we preserve its history
     # even after division removes it from the colony
     mother_wcm_history = None  # will be set when mother is found
+    daughter_wcms = {}  # {daughter_id: EcoliWCM} — manually driven after division
+
+    # Restore mother history from cache if available
+    if cached_mother_history:
+        # Seed mother_wcm_history with a mutable list so later code can extend it
+        mother_wcm_history = list(cached_mother_history)
 
     while total < duration:
         # Before running, grab the mother's chromosome history reference
@@ -472,6 +496,26 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
                 inst = ecoli_proc.get('instance') if isinstance(ecoli_proc, dict) else None
                 if inst and hasattr(inst, '_composite') and inst._composite is not None:
                     chrom_snap[aid] = inst._read_chromosome_state()
+                elif aid.startswith(ecoli_id + '_') and aid not in daughter_wcms:
+                    # Daughter process not yet hydrated — create standalone WCM
+                    try:
+                        config = ecoli_proc.get('config', {}) if isinstance(ecoli_proc, dict) else {}
+                        dwcm = EcoliWCM(config=config, core=core)
+                        daughter_wcms[aid] = dwcm
+                        print(f"    [hydrate] Created standalone EcoliWCM for {aid}")
+                    except Exception as e:
+                        print(f"    [hydrate] Failed for {aid}: {e}")
+
+        # Drive standalone daughter WCMs manually and collect their state
+        for aid, dwcm in daughter_wcms.items():
+            try:
+                dwcm.update({'local': {}, 'agent_id': aid,
+                             'location': (15, 15), 'angle': 0}, step)
+                if dwcm._composite is not None:
+                    chrom_snap[aid] = dwcm._read_chromosome_state()
+            except Exception:
+                pass  # daughter WCM step failed, keep going
+
         if chrom_snap:
             chromosome_history.append((total, chrom_snap))
 
@@ -615,6 +659,16 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
             t = entry.get('time', 0)
         frame_times.append(float(t))
 
+    # Split mother's RNAPs between the two daughters (deterministic partition)
+    mother_rnap_coords = mother_last_chrom.get('rnap_coords', []) if mother_last_chrom else []
+    half_n = len(mother_rnap_coords) // 2
+    daughter_rnap_pools = [
+        list(mother_rnap_coords[:half_n]),
+        list(mother_rnap_coords[half_n:2*half_n]),
+    ]
+    # RNAP elongation rate: ~45 nt/s on average
+    rnap_speed = 45  # nt/s
+
     synced_chrom = []
     for ft in frame_times:
         frame_chrom = {}
@@ -626,30 +680,33 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
                 if abs(best[0] - ft) < 120:
                     frame_chrom[ecoli_id] = best[1]
         else:
-            # After division: show daughters
-            for did in daughter_ids:
+            # After division: show daughters with simulated RNAP movement
+            dt = ft - division_time  # seconds since division
+            for i, did in enumerate(daughter_ids):
                 dhist = daughter_histories.get(did, [])
                 if dhist:
                     best = min(dhist, key=lambda h: abs(h[0] - ft))
                     if abs(best[0] - ft) < 120:
                         frame_chrom[did] = best[1]
                 elif mother_last_chrom:
-                    # Daughter hasn't built WCM yet — each daughter gets
-                    # 1 chromosome (mother had 2 after replication), no active
-                    # forks, halved mass and RNAPs
-                    placeholder = dict(mother_last_chrom)
-                    placeholder['n_chromosomes'] = 1
-                    placeholder['n_forks'] = 0
-                    placeholder['fork_coords'] = []
-                    placeholder['dry_mass'] = placeholder.get('dry_mass', 0) / 2
-                    placeholder['protein_mass'] = placeholder.get('protein_mass', 0) / 2
-                    placeholder['rna_mass'] = placeholder.get('rna_mass', 0) / 2
-                    placeholder['dna_mass'] = placeholder.get('dna_mass', 0) / 2
-                    n_rnap = placeholder.get('n_rnap', 0)
-                    placeholder['n_rnap'] = n_rnap // 2
-                    rnap_c = placeholder.get('rnap_coords', [])
-                    placeholder['rnap_coords'] = rnap_c[:len(rnap_c)//2]
-                    frame_chrom[did] = placeholder
+                    pool_idx = min(i, len(daughter_rnap_pools) - 1)
+                    base_coords = daughter_rnap_pools[pool_idx]
+                    # Advance each RNAP along the chromosome, wrapping at genome end
+                    moved = [(c + rnap_speed * dt) % MAX_COORD for c in base_coords]
+                    half_mass = mother_last_chrom.get('dry_mass', 0) / 2
+                    # Simple exponential growth estimate (~0.01 fg/s)
+                    est_mass = half_mass * (1 + 0.00025 * dt)
+                    frame_chrom[did] = {
+                        'n_chromosomes': 1,
+                        'n_forks': 0,
+                        'fork_coords': [],
+                        'dry_mass': est_mass,
+                        'protein_mass': mother_last_chrom.get('protein_mass', 0) / 2,
+                        'rna_mass': mother_last_chrom.get('rna_mass', 0) / 2,
+                        'dna_mass': mother_last_chrom.get('dna_mass', 0) / 2,
+                        'n_rnap': len(base_coords),
+                        'rnap_coords': moved,
+                    }
 
         synced_chrom.append((ft, frame_chrom))
 
@@ -810,18 +867,21 @@ v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-c
 
 def main():
     parser = argparse.ArgumentParser(description='E. coli colony report')
-    parser.add_argument('--duration', type=int, default=60,
-                        help='Duration in minutes (default: 60)')
+    parser.add_argument('--duration', type=int, default=80,
+                        help='Duration in minutes (default: 80)')
     parser.add_argument('--n-adder', type=int, default=9,
                         help='Number of adder cells (default: 9)')
     parser.add_argument('--env-size', type=int, default=40,
                         help='Environment size in µm (default: 40)')
+    parser.add_argument('--from-cache', type=str, default=None,
+                        help='Resume from cached pre-division state (dill pickle)')
     args = parser.parse_args()
 
     report = run_colony(
         duration_min=args.duration,
         n_adder=args.n_adder,
         env_size=args.env_size,
+        from_cache=args.from_cache,
     )
 
     import subprocess

@@ -233,6 +233,9 @@ class EcoliWCM(Process):
             try:
                 self._build_composite()
             except Exception as e:
+                import traceback
+                print(f"[EcoliWCM] _build_composite failed: {e}")
+                traceback.print_exc()
                 return {'mass': 0.0, 'volume': 0.0, 'exchange': {}}
 
         # Push external concentrations directly into internal boundary
@@ -356,7 +359,7 @@ class EcoliWCM(Process):
             'exchange': {},
             'agents': {
                 '_remove': [agent_id] if agent_id != 'unknown' else [],
-                '_add': list(daughters.items()),
+                '_add': daughters,
             },
         }
 

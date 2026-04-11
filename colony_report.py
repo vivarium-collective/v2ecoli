@@ -121,6 +121,7 @@ def make_colony_document(
         },
         'outputs': {
             'mass': ['mass'],
+            'length': ['length'],
             'volume': ['volume'],
             'exchange': ['exchange'],
             'agents': ['..', '..', 'cells'],
@@ -231,11 +232,16 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
     gif_path = os.path.join(REPORT_DIR, 'colony.gif')
     print(f"Generating GIF ({len(results)} frames)...")
     try:
-        # Color whole-cell ecoli green, adder surrogates grey
-        def ecoli_color_fn(aid, ent=None):
-            if aid == ecoli_id:
-                return (0.2, 0.75, 0.3)  # green
-            return (0.7, 0.7, 0.7)       # grey
+        # Hybrid coloring: phylogeny for ecoli lineage, grey for surrogates
+        from multi_cell.plots.multibody_plots import build_phylogeny_colors
+        phylo_colors = build_phylogeny_colors(results, agents_key='agents')
+
+        def _hybrid_color(aid, ent=None):
+            # Ecoli and its descendants get phylogeny colors
+            if aid == ecoli_id or aid.startswith(ecoli_id + '_'):
+                return phylo_colors.get(aid, (0.2, 0.75, 0.3))
+            # Adder surrogate cells: grey
+            return (0.7, 0.7, 0.7)
 
         simulation_to_gif(
             results,
@@ -245,7 +251,7 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
             out_dir=REPORT_DIR,
             skip_frames=max(1, len(results) // 100),
             show_time_title=True,
-            color_fn=ecoli_color_fn,
+            color_fn=_hybrid_color,
         )
         print(f"GIF saved: {gif_path}")
     except Exception as e:

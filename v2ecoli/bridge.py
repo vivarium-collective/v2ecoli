@@ -47,6 +47,7 @@ class EcoliWCM(Process):
         self._composite = None
         self._prev_mass = 0.0
         self._prev_volume = 0.0
+        self._prev_length = 2.0
 
     def inputs(self):
         return {
@@ -134,39 +135,43 @@ class EcoliWCM(Process):
         self._prev_volume = float(mass_data.get('volume', 0.0))
 
     def _read_outputs(self):
-        """Read mass/volume from internal composite.
-
-        Returns the delta to reach the current whole-cell mass from
-        the *physical* mass set by the colony. Since the physical mass
-        starts small (~0.04fg) and the whole-cell mass is ~380fg, we
-        compute: delta = wcm_mass * scale_factor - current_physical_mass.
-        """
+        """Read mass/volume from internal composite, compute length."""
         cell = self._composite.state
         mass_data = cell.get('listeners', {}).get('mass', {})
         cur_mass = float(mass_data.get('dry_mass', 0.0))
         cur_volume = float(mass_data.get('volume', 0.0))
         growth = float(mass_data.get('growth', 0.0))
 
-        # Compute mass delta, clamped to non-negative to prevent
-        # pymunk crashes from negative physical mass
         d_mass = cur_mass - self._prev_mass
         d_volume = cur_volume - self._prev_volume
         self._prev_mass = cur_mass
         self._prev_volume = cur_volume
 
-        # Pass whole-cell mass delta directly (in fg)
-        # Clamp to non-negative to prevent pymunk crashes
         d_mass_physical = max(0.0, d_mass)
+
+        # Compute length from volume using capsule geometry:
+        # V = (4/3)πr³ + πr²a, l = a + 2r
+        import math
+        radius = 0.5  # µm, E. coli radius
+        if cur_volume > 0:
+            vol_um3 = cur_volume  # volume in fL ≈ µm³
+            cylinder_a = (vol_um3 - (4/3) * math.pi * radius**3) / (math.pi * radius**2)
+            length = max(2 * radius, cylinder_a + 2 * radius)
+        else:
+            length = 2.0
+        d_length = length - self._prev_length
+        self._prev_length = length
 
         exchange = {}
         if growth != 0.0:
             exchange['biomass'] = growth
 
-        return d_mass_physical, d_volume, exchange
+        return d_mass_physical, d_length, d_volume, exchange
 
     def outputs(self):
         return {
             'mass': 'float',
+            'length': 'float',
             'volume': 'float',
             'exchange': 'map[float]',
             'agents': 'map[map]',  # for division: writing new cells
@@ -210,9 +215,10 @@ class EcoliWCM(Process):
             return self._handle_division(state)
 
         # Normal: read outputs and return deltas
-        d_mass, d_volume, exchange = self._read_outputs()
+        d_mass, d_length, d_volume, exchange = self._read_outputs()
         return {
             'mass': d_mass,
+            'length': d_length,
             'volume': d_volume,
             'exchange': exchange,
         }
@@ -265,11 +271,18 @@ class EcoliWCM(Process):
                     'seed': seed + i + 1,
                 },
                 'interval': self.config.get('interval', 60.0),
-                'inputs': {'local': ['local']},
+                'inputs': {
+                    'local': ['local'],
+                    'agent_id': ['id'],
+                    'location': ['location'],
+                    'angle': ['angle'],
+                },
                 'outputs': {
                     'mass': ['mass'],
+                    'length': ['length'],
                     'volume': ['volume'],
                     'exchange': ['exchange'],
+                    'agents': ['..', '..', 'cells'],
                 },
             }
             d_body['local'] = {}
@@ -280,6 +293,7 @@ class EcoliWCM(Process):
         # Return structural update: remove mother, add daughters
         return {
             'mass': 0.0,
+            'length': 0.0,
             'volume': 0.0,
             'exchange': {},
             'agents': {

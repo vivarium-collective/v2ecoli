@@ -114,8 +114,7 @@ def make_colony_document(
             'address': 'local:PymunkProcess',
             'config': {
                 'env_size': env_size,
-                'jitter_per_second': 0.5,
-                'damping_per_second': 0.3,
+                'elasticity': 0.1,
             },
             'interval': physics_interval,
             'inputs': {

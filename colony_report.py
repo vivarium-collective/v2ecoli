@@ -198,12 +198,17 @@ def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
         ax.plot(fx, fy, 'v', color='#f59e0b', ms=8, zorder=4)
 
 
-def _generate_chromosome_gif_from_history(history, out_path):
-    """Generate chromosome GIF from directly-collected history.
+def _generate_chromosome_gif_from_history(history, out_path, frame_duration_ms=100):
+    """Generate chromosome GIF from synchronized history.
+
+    Shows all ecoli cells' chromosomes in a single figure. Before division,
+    one panel shows the mother's chromosomes (1→2 during replication).
+    After division, two panels show each daughter's chromosomes.
 
     Args:
         history: list of (time, {cell_id: chrom_state_dict})
         out_path: output GIF path
+        frame_duration_ms: milliseconds per frame (matches colony GIF)
     """
     import matplotlib
     matplotlib.use('Agg')
@@ -214,26 +219,35 @@ def _generate_chromosome_gif_from_history(history, out_path):
     if not history:
         return
 
+    # Determine max panels needed across all frames
+    max_panels = max((len(cells) for _, cells in history if cells), default=1)
+    max_panels = max(1, max_panels)
+
+    # Fixed figure size for consistency across frames
+    fig_w = 4.5 * max_panels
+    fig_h = 4.5
+
     images = []
     for t, ecoli_cells in history:
-        n_panels = max(1, len(ecoli_cells))
-        fig, axes = plt.subplots(1, n_panels, figsize=(4 * n_panels, 4), squeeze=False)
-        fig.suptitle(f't = {t:.0f}s ({t/60:.1f} min)', fontsize=12, y=0.98)
+        fig, axes = plt.subplots(1, max_panels, figsize=(fig_w, fig_h), squeeze=False)
+        fig.suptitle(f't = {t:.0f}s  ({t/60:.1f} min)', fontsize=13, y=0.98,
+                     fontweight='bold')
 
-        if not ecoli_cells:
-            ax = axes[0][0]
-            ax.text(0.5, 0.5, 'No chromosome data', ha='center', va='center',
-                    transform=ax.transAxes, fontsize=10, color='#888')
-            ax.set_xlim(-1.5, 1.5); ax.set_ylim(-1.5, 1.5)
-            ax.set_aspect('equal'); ax.axis('off')
-        else:
-            for i, (aid, chrom) in enumerate(ecoli_cells.items()):
-                ax = axes[0][i]
+        # Sort cells: mother first, then daughters by name
+        sorted_cells = sorted(ecoli_cells.items(), key=lambda x: x[0])
+
+        for i in range(max_panels):
+            ax = axes[0][i]
+            if i < len(sorted_cells):
+                aid, chrom = sorted_cells[i]
                 n_chrom = chrom.get('n_chromosomes', 1)
                 forks = chrom.get('fork_coords', [])
                 rnaps = chrom.get('rnap_coords', [])
                 dm = chrom.get('dry_mass', 0)
+                rna_mass = chrom.get('rna_mass', 0)
+                protein_mass = chrom.get('protein_mass', 0)
 
+                # Draw chromosomes
                 R = 0.8
                 spacing = 2.2
                 total_w = (n_chrom - 1) * spacing
@@ -241,26 +255,55 @@ def _generate_chromosome_gif_from_history(history, out_path):
                     cx = -total_w / 2 + c * spacing
                     _draw_chromosome(ax, cx, 0, R, rnaps, forks)
 
-                # Short label
-                short = aid.split('_')[-1][:6] if '_' in aid else 'ecoli'
-                ax.set_title(f'{short}\n{dm:.0f} fg · {n_chrom} chr · '
-                             f'{len(forks)} forks · {len(rnaps)} RNAPs',
-                             fontsize=8)
-                xlim = max(2.5, 1.5 + (n_chrom - 1) * spacing)
+                # Label: determine if mother or daughter
+                if '_' in aid:
+                    parts = aid.split('_')
+                    daughter_num = parts[-1]
+                    label = f'Daughter {daughter_num}'
+                else:
+                    label = 'Mother'
+
+                ax.set_title(
+                    f'{label}\n'
+                    f'{dm:.0f} fg dry mass · {n_chrom} chromosome{"s" if n_chrom > 1 else ""}\n'
+                    f'{len(forks)} forks · {len(rnaps)} RNAPs',
+                    fontsize=9, pad=8)
+
+                xlim = max(2.0, 1.5 + (n_chrom - 1) * spacing)
                 ax.set_xlim(-xlim, xlim)
                 ax.set_ylim(-1.5, 1.5)
-                ax.set_aspect('equal'); ax.axis('off')
+            else:
+                # Empty panel placeholder
+                ax.text(0.5, 0.5, '—', ha='center', va='center',
+                        transform=ax.transAxes, fontsize=20, color='#ddd')
+                ax.set_xlim(-2, 2); ax.set_ylim(-1.5, 1.5)
 
-        plt.tight_layout(rect=[0, 0, 1, 0.95])
+            ax.set_aspect('equal')
+            ax.axis('off')
+
+        plt.tight_layout(rect=[0, 0, 1, 0.92])
         buf = io.BytesIO()
-        fig.savefig(buf, format='png', dpi=90, bbox_inches='tight')
+        fig.savefig(buf, format='png', dpi=90, bbox_inches='tight',
+                    facecolor='white')
         plt.close(fig)
         buf.seek(0)
         images.append(Image.open(buf).copy())
 
     if images:
-        images[0].save(out_path, save_all=True, append_images=images[1:],
-                       duration=300, loop=0)
+        # Ensure all frames are the same size (pad to largest)
+        max_w = max(img.width for img in images)
+        max_h = max(img.height for img in images)
+        uniform = []
+        for img in images:
+            if img.width != max_w or img.height != max_h:
+                padded = Image.new('RGB', (max_w, max_h), (255, 255, 255))
+                padded.paste(img, (0, 0))
+                uniform.append(padded)
+            else:
+                uniform.append(img)
+
+        uniform[0].save(out_path, save_all=True, append_images=uniform[1:],
+                        duration=frame_duration_ms, loop=0)
 
 
 def _generate_chromosome_gif(results, ecoli_id, out_path, skip=1):
@@ -415,10 +458,13 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
     except Exception:
         results = []
 
-    # Generate GIF
+    # Generate GIFs — use same skip factor for synchronization
     os.makedirs(REPORT_DIR, exist_ok=True)
+    gif_skip = max(1, len(results) // 100)  # shared skip factor
+    gif_duration_ms = 100  # ms per frame, shared
+
     gif_path = os.path.join(REPORT_DIR, 'colony.gif')
-    print(f"Generating GIF ({len(results)} frames)...")
+    print(f"Generating colony GIF ({len(results)} frames, skip={gif_skip})...")
     try:
         # Hybrid coloring: fixed green base for ecoli, grey for surrogates
         # Daughters get hue-shifted variants of the ecoli color
@@ -461,9 +507,10 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
             agents_key='agents',
             filename='colony.gif',
             out_dir=REPORT_DIR,
-            skip_frames=max(1, len(results) // 100),
+            skip_frames=gif_skip,
             show_time_title=True,
             color_fn=_hybrid_color,
+            frame_duration_ms=gif_duration_ms,
         )
         print(f"GIF saved: {gif_path}")
     except Exception as e:
@@ -471,11 +518,55 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
         print(f"GIF generation failed: {e}")
         gif_path = None
 
-    # Generate chromosome state GIF from collected history
+    # Build synchronized chromosome timeline from EcoliWCM instances
+    # Collect all chromosome histories keyed by cell ID
+    all_chrom_histories = {}  # {cell_id: [(time, chrom_dict), ...]}
+    colony_cells = sim.state.get('cells', {})
+    for aid, cell in colony_cells.items():
+        if aid == ecoli_id or aid.startswith(ecoli_id + '_'):
+            ecoli_proc = cell.get('ecoli', {})
+            inst = ecoli_proc.get('instance') if isinstance(ecoli_proc, dict) else None
+            if inst and hasattr(inst, 'chromosome_history'):
+                all_chrom_histories[aid] = list(inst.chromosome_history)
+
+    # Also check chromosome_history collected during the run
+    # (for the mother cell that may have been removed at division)
+    if chromosome_history:
+        for t, chrom_snap in chromosome_history:
+            for aid, chrom in chrom_snap.items():
+                if aid not in all_chrom_histories:
+                    all_chrom_histories[aid] = []
+                all_chrom_histories[aid].append((t, chrom))
+
+    # Build frame-synchronized chromosome data using emitter timestamps
+    frame_times = []
+    for entry in results:
+        if isinstance(entry, tuple):
+            t, _ = entry
+        else:
+            t = entry.get('time', 0)
+        frame_times.append(float(t))
+
+    # For each emitter frame, find the closest chromosome snapshot per cell
+    synced_chrom = []  # list of (time, {cell_id: chrom_dict})
+    for ft in frame_times:
+        frame_chrom = {}
+        for aid, hist in all_chrom_histories.items():
+            if not hist:
+                continue
+            # Find closest snapshot to this frame time
+            best = min(hist, key=lambda h: abs(h[0] - ft))
+            if abs(best[0] - ft) < 120:  # within 2 min
+                frame_chrom[aid] = best[1]
+        synced_chrom.append((ft, frame_chrom))
+
+    # Generate chromosome GIF synchronized with colony GIF (same skip)
     chrom_gif_path = os.path.join(REPORT_DIR, 'chromosome.gif')
-    print(f"Generating chromosome GIF ({len(chromosome_history)} snapshots)...")
+    print(f"Generating chromosome GIF ({len(synced_chrom)} frames, skip={gif_skip})...")
     try:
-        _generate_chromosome_gif_from_history(chromosome_history, chrom_gif_path)
+        _generate_chromosome_gif_from_history(
+            synced_chrom[::gif_skip], chrom_gif_path,
+            frame_duration_ms=gif_duration_ms)
         print(f"Chromosome GIF saved: {chrom_gif_path}")
     except Exception as e:
         import traceback; traceback.print_exc()

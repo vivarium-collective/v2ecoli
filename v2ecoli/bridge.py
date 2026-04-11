@@ -48,6 +48,7 @@ class EcoliWCM(Process):
         self._prev_mass = 0.0
         self._prev_volume = 0.0
         self._prev_length = 2.0
+        self.chromosome_history = []  # list of (time, chrom_state_dict)
 
     def inputs(self):
         return {
@@ -267,6 +268,11 @@ class EcoliWCM(Process):
         # Normal: read outputs and return deltas
         d_mass, d_length, d_volume, exchange = self._read_outputs()
         chrom = self._read_chromosome_state()
+
+        # Record chromosome state with the internal composite's time
+        internal_time = self._composite.state.get('global_time', 0)
+        self.chromosome_history.append((internal_time, chrom))
+
         return {
             'mass': d_mass,
             'length': d_length,

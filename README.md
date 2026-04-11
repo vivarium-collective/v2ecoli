@@ -16,6 +16,9 @@ and comparable performance.
 - **[Colony Report](https://vivarium-collective.github.io/v2ecoli/colony_report.html)** — 
   Mixed colony: 1 whole-cell E. coli + surrogate cells with 2D pymunk physics, 
   growth, and division
+- **[Architecture Comparison](https://vivarium-collective.github.io/v2ecoli/comparison_report.html)** — 
+  Partitioned vs departitioned: 42-min side-by-side comparison of mass trajectories, 
+  bulk counts, growth rates, and timing (55 vs 41 steps)
 
 ## Architecture
 
@@ -67,6 +70,9 @@ python3 workflow.py
 # Colony simulation (1 wc-ecoli + N surrogates)
 python3 colony_report.py --duration 45 --n-adder 5
 
+# Partitioned vs departitioned architecture comparison (42 min)
+python3 compare_report.py
+
 # Benchmark comparison
 python3 benchmark.py
 
@@ -96,6 +102,7 @@ v2ecoli/
 │   └── library/            # shared utilities
 ├── workflow.py             # single cell lifecycle report
 ├── colony_report.py        # colony simulation report
+├── compare_report.py       # partitioned vs departitioned comparison
 ├── benchmark.py            # v2ecoli vs vEcoli benchmark
 ├── compare_v1_v2.py        # three-way engine comparison
 ├── models/

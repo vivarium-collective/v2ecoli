@@ -48,29 +48,7 @@ class RnaMaturation(PartitionedProcess):
         'water': 'string',
     }
 
-    def inputs(self):
-        return {
-            'bulk': 'bulk_array',
-            'bulk_total': 'bulk_array',
-        }
-
-    def outputs(self):
-        return {
-            'bulk': 'bulk_array',
-            'listeners': {
-                'rna_maturation_listener': {
-                    'total_maturation_events': 'overwrite[integer]',
-                    'total_degraded_ntps': 'overwrite[integer]',
-                    'unprocessed_rnas_consumed': 'overwrite[array[integer]]',
-                    'mature_rnas_generated': 'overwrite[array[integer]]',
-                    'maturation_enzyme_counts': 'overwrite[array[integer]]',
-                },
-            },
-        }
-
-    # Constructor
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
         # Get matrices and vectors that describe maturation reactions
         self.stoich_matrix = self.parameters["stoich_matrix"]
         self.enzyme_matrix = self.parameters["enzyme_matrix"]
@@ -106,41 +84,21 @@ class RnaMaturation(PartitionedProcess):
         self.ppi_idx = None
 
     def inputs(self):
-        return (
-            {
-                'bulk': 'bulk_array',
-                'bulk_total': 'bulk_array',
-            }
-        )
+        return {
+            'bulk': {'_type': 'bulk_array', '_default': []},
+            'bulk_total': {'_type': 'bulk_array', '_default': []},
+        }
 
     def outputs(self):
-        return (
-            {
-                'bulk': 'bulk_array',
-                'listeners':                 {
-                    'rna_maturation_listener':                     {
-                        'total_maturation_events': 'overwrite[integer]',
-                        'total_degraded_ntps': 'overwrite[integer]',
-                        'unprocessed_rnas_consumed': 'overwrite[array[integer]]',
-                        'mature_rnas_generated': 'overwrite[array[integer]]',
-                        'maturation_enzyme_counts': 'overwrite[array[integer]]',
-                    },
-                },
-            }
-        )
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
         return {
-            'bulk': [],
-            'bulk_total': [],
+            'bulk': 'bulk_array',
             'listeners': {
                 'rna_maturation_listener': {
-                    'total_maturation_events': 0,
-                    'total_degraded_ntps': 0,
-                    'unprocessed_rnas_consumed': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    'mature_rnas_generated': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-                    'maturation_enzyme_counts': [0, 0, 0],
+                    'total_maturation_events': {'_type': 'overwrite[integer]', '_default': 0},
+                    'total_degraded_ntps': {'_type': 'overwrite[integer]', '_default': 0},
+                    'unprocessed_rnas_consumed': {'_type': 'overwrite[array[integer]]', '_default': [0] * 49},
+                    'mature_rnas_generated': {'_type': 'overwrite[array[integer]]', '_default': [0] * 99},
+                    'maturation_enzyme_counts': {'_type': 'overwrite[array[integer]]', '_default': [0, 0, 0]},
                 },
             },
         }

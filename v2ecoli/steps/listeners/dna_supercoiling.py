@@ -38,45 +38,28 @@ class DnaSupercoiling(Step):
 
     def inputs(self):
         return {
-            'chromosomal_segments': CHROMOSOMAL_SEGMENT_ARRAY,
-            'global_time': 'float',
-            'timestep': 'float',
+            'chromosomal_segments': {'_type': CHROMOSOMAL_SEGMENT_ARRAY, '_default': []},
+            'global_time': {'_type': 'float', '_default': 0.0},
+            'timestep': {'_type': 'float', '_default': 1.0},
         }
 
     def outputs(self):
         return {
             'listeners': {
                 'dna_supercoiling': {
-                    'segment_left_boundary_coordinates': 'array[integer]',
-                    'segment_right_boundary_coordinates': 'array[integer]',
-                    'segment_domain_indexes': 'array[integer]',
-                    'segment_superhelical_densities': 'array[float]',
+                    'segment_left_boundary_coordinates': {'_type': 'array[integer]', '_default': []},
+                    'segment_right_boundary_coordinates': {'_type': 'array[integer]', '_default': []},
+                    'segment_domain_indexes': {'_type': 'array[integer]', '_default': []},
+                    'segment_superhelical_densities': {'_type': 'array[float]', '_default': []},
                 },
             },
         }
 
 
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
         self.relaxed_DNA_base_pairs_per_turn = self.parameters[
             "relaxed_DNA_base_pairs_per_turn"
         ]
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
-        return {
-            'listeners': {
-                'dna_supercoiling': {
-                    'segment_left_boundary_coordinates': [],
-                    'segment_right_boundary_coordinates': [],
-                    'segment_domain_indexes': [],
-                    'segment_superhelical_densities': [],
-                },
-            },
-            'chromosomal_segments': [],
-            'global_time': 0.0,
-            'timestep': 1.0,
-        }
 
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0

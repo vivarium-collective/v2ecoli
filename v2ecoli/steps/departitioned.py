@@ -50,19 +50,12 @@ class DepartitionedStep(Step):
             ports.pop(k, None)
         return ports
 
-    def __init__(self, parameters=None):
-        assert isinstance(parameters['process'], PartitionedProcess)
-        if parameters['process'].parallel:
+    def initialize(self, config):
+        assert isinstance(self.parameters['process'], PartitionedProcess)
+        if getattr(self.parameters['process'], 'parallel', False):
             raise RuntimeError(
                 'PartitionedProcess objects cannot be parallelized.')
-        parameters['name'] = f"{parameters['process'].name}_departitioned"
-        super().__init__(parameters)
-
-    def port_defaults(self):
-        process = self.parameters.get('process')
-        if process and hasattr(process, 'port_defaults'):
-            return process.port_defaults()
-        return {}
+        self.parameters['name'] = f"{self.parameters['process'].name}_departitioned"
 
     def update_condition(self, timestep, states):
         if states['next_update_time'] <= states['global_time']:

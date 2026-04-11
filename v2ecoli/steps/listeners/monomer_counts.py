@@ -60,24 +60,23 @@ class MonomerCounts(Step):
     def inputs(self):
         return {
             'unique': {
-                'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
-                'active_RNAP': ACTIVE_RNAP_ARRAY,
-                'active_replisome': ACTIVE_REPLISOME_ARRAY,
+                'active_ribosome': {'_type': ACTIVE_RIBOSOME_ARRAY, '_default': []},
+                'active_RNAP': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
+                'active_replisome': {'_type': ACTIVE_REPLISOME_ARRAY, '_default': []},
             },
-            'global_time': 'float',
-            'timestep': 'float',
+            'global_time': {'_type': 'float', '_default': 0.0},
+            'timestep': {'_type': 'float', '_default': 1.0},
         }
 
     def outputs(self):
         return {
             'listeners': {
-                'monomer_counts': f'array[{self.n_monomers},integer]',
+                'monomer_counts': {'_type': f'array[{self.n_monomers},integer]', '_default': []},
             },
         }
 
 
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
 
         # Get IDs of all bulk molecules
         self.bulk_molecule_ids = self.parameters["bulk_molecule_ids"]
@@ -141,22 +140,6 @@ class MonomerCounts(Step):
 
         # Helper indices for Numpy indexing
         self.monomer_idx = None
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
-        return {
-            'listeners': {
-                'monomer_counts': [],
-            },
-            'bulk': [],
-            'unique': {
-                'active_ribosome': [],
-                'active_RNAP': [],
-                'active_replisome': [],
-            },
-            'global_time': 0.0,
-            'timestep': 1.0,
-        }
 
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0

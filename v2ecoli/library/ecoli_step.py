@@ -47,7 +47,6 @@ def _load_pickle(name):
     return {}
 
 _CONFIG_DEFAULTS = None
-_PORT_DEFAULTS = None
 
 def _get_config_defaults():
     global _CONFIG_DEFAULTS
@@ -55,11 +54,30 @@ def _get_config_defaults():
         _CONFIG_DEFAULTS = _load_pickle('config_defaults.pickle')
     return _CONFIG_DEFAULTS
 
-def _get_port_defaults():
-    global _PORT_DEFAULTS
-    if _PORT_DEFAULTS is None:
-        _PORT_DEFAULTS = _load_pickle('port_defaults.pickle')
-    return _PORT_DEFAULTS
+
+def _extract_defaults(schema):
+    """Extract ``_default`` values from a port schema dict.
+
+    Walks the nested dict returned by ``inputs()`` and collects every
+    ``_default`` it finds, preserving the nesting structure so that
+    ``_seed_state_from_defaults`` can inject them into the cell state.
+
+    Supports two formats:
+      - dict with ``_default`` key: ``{'_type': 'float', '_default': 0.0}``
+      - nested dicts (recurse into sub-ports)
+    """
+    result = {}
+    for key, spec in schema.items():
+        if isinstance(spec, dict):
+            if '_default' in spec:
+                result[key] = spec['_default']
+            elif '_type' not in spec:
+                # Nested port dict — recurse
+                nested = _extract_defaults(spec)
+                if nested:
+                    result[key] = nested
+        # Plain strings like 'float' or 'bulk_array' have no _default
+    return result
 
 
 def _build_parameters(cls, params):
@@ -100,6 +118,11 @@ class EcoliStep(Step):
             core = _CURRENT_CORE
         self.parameters = _build_parameters(self.__class__, params)
         self.core = core
+        self.initialize(self.parameters)
+
+    def initialize(self, config):
+        """Optional hook for subclass-specific initialization."""
+        pass
 
     def next_update(self, timestep, states):
         """vEcoli-style entry point — delegates to update()."""
@@ -118,8 +141,8 @@ class EcoliStep(Step):
         return {'inputs': self.inputs(), 'outputs': self.outputs()}
 
     def port_defaults(self):
-        """Default values for ports that need pre-population."""
-        return _get_port_defaults().get(self.__class__.__name__, {})
+        """Auto-extract ``_default`` values from ``inputs()``."""
+        return _extract_defaults(self.inputs())
 
     def invoke(self, state, interval=None):
         from process_bigraph.composite import SyncUpdate
@@ -141,6 +164,11 @@ class EcoliProcess(Process):
             core = _CURRENT_CORE
         self.parameters = _build_parameters(self.__class__, params)
         self.core = core
+        self.initialize(self.parameters)
+
+    def initialize(self, config):
+        """Optional hook for subclass-specific initialization."""
+        pass
 
     def next_update(self, timestep, states):
         return self.update(states, interval=timestep)
@@ -158,8 +186,8 @@ class EcoliProcess(Process):
         return {'inputs': self.inputs(), 'outputs': self.outputs()}
 
     def port_defaults(self):
-        """Default values for ports that need pre-population."""
-        return _get_port_defaults().get(self.__class__.__name__, {})
+        """Auto-extract ``_default`` values from ``inputs()``."""
+        return _extract_defaults(self.inputs())
 
 
 def set_current_core(core):

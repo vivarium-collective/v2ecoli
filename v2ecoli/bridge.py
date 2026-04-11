@@ -42,8 +42,7 @@ class EcoliWCM(Process):
         'molecule_map':   {'_default': {}},
     }
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
+    def initialize(self, config):
         self._composite = None
         self._prev_mass = 0.0
         self._prev_volume = 0.0

@@ -43,29 +43,7 @@ class Equilibrium(PartitionedProcess):
         'stoichMatrix': {'_type': 'array[integer]', '_default': []},
     }
 
-    def inputs(self):
-        return {
-            'bulk': 'bulk_array',
-            'listeners': {'mass': {'cell_mass': 'float[fg]'}},
-            'timestep': 'integer',
-        }
-
-    def outputs(self):
-        return {
-            'bulk': 'bulk_array',
-            'listeners': {
-                'equilibrium_listener': {
-                    # Reaction rates — counts per second
-                    'reaction_rates': 'overwrite[array[float[1/s]]]',
-                },
-            },
-        }
-
-
-
-    # Constructor
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
 
         # Simulation options
         # utilized in the fluxes and molecules function
@@ -99,43 +77,24 @@ class Equilibrium(PartitionedProcess):
         self.reaction_ids = self.parameters["reaction_ids"]
 
     def inputs(self):
-        return (
-            {
-                'bulk': 'bulk_array',
-                'listeners':                 {
-                    'mass':                     {
-                        'cell_mass': 'float[fg]',
-                    },
-                },
-                'timestep': 'integer',
-            }
-        )
-
-    def outputs(self):
-        return (
-            {
-                'bulk': 'bulk_array',
-                'listeners':                 {
-                    'equilibrium_listener':                     {
-                        'reaction_rates': 'overwrite[array[float[1/s]]]',
-                    },
-                },
-            }
-        )
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
         return {
-            'bulk': [],
+            'bulk': {'_type': 'bulk_array', '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': 0,
-                },
-                'equilibrium_listener': {
-                    'reaction_rates': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                    'cell_mass': {'_type': 'float[fg]', '_default': 0},
                 },
             },
-            'timestep': 1.0,
+            'timestep': {'_type': 'integer', '_default': 1.0},
+        }
+
+    def outputs(self):
+        return {
+            'bulk': 'bulk_array',
+            'listeners': {
+                'equilibrium_listener': {
+                    'reaction_rates': {'_type': 'overwrite[array[float[1/s]]]', '_default': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]},
+                },
+            },
         }
 
     def calculate_request(self, timestep, states):

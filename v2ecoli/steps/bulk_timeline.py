@@ -11,8 +11,7 @@ class BulkTimelineProcess(Process):
         "timeline": {"_default": []},
     }
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
+    def initialize(self, config):
         self.parameters = config or {}
         # Sort the timeline, which should be in the format:
         # {time: {(path, to, store): new_value, ...}, ...}

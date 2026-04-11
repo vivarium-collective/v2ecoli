@@ -19,8 +19,7 @@ class MediaUpdate(Step):
         "environment": ("environment",),
     }
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
+    def initialize(self, config):
         self.parameters = config or {}
         self.saved_media = {}
         for media_id, env_concs in self.parameters.get("saved_media", {}).items():

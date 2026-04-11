@@ -61,9 +61,7 @@ class ProteinDegradation(PartitionedProcess):
 
 
 
-    # Constructor
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
 
         self.raw_degradation_rate = self.parameters["raw_degradation_rate"]
 
@@ -97,25 +95,14 @@ class ProteinDegradation(PartitionedProcess):
         )
 
     def inputs(self):
-        return (
-            {
-                'bulk': 'bulk_array',
-                'timestep': 'integer',
-            }
-        )
+        return {
+            'bulk': {'_type': 'bulk_array', '_default': []},
+            'timestep': {'_type': 'integer', '_default': 1},
+        }
 
     def outputs(self):
-        return (
-            {
-                'bulk': 'bulk_array',
-            }
-        )
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
         return {
-            'bulk': [],
-            'timestep': 1.0,
+            'bulk': 'bulk_array',
         }
 
     def calculate_request(self, timestep, states):

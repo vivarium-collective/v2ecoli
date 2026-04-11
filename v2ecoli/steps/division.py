@@ -27,8 +27,7 @@ class MarkDPeriod(V2Step):
     name = "mark_d_period"
     config_schema = {}
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config or {}, core=core)
+    def initialize(self, config):
         self.parameters = config or {}
 
     def inputs(self):
@@ -85,8 +84,7 @@ class Division(V2Step):
     name = "division"
     config_schema = {}
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config or {}, core=core)
+    def initialize(self, config):
         self.parameters = config or {}
         self.agent_id = self.parameters.get('agent_id', '0')
         self.dry_mass_inc_dict = self.parameters.get('dry_mass_inc_dict', {})

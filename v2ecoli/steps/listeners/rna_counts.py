@@ -51,30 +51,29 @@ class RNACounts(Step):
 
     def inputs(self):
         return {
-            'RNAs': RNA_ARRAY,
-            'global_time': 'float',
-            'timestep': 'float',
+            'RNAs': {'_type': RNA_ARRAY, '_default': []},
+            'global_time': {'_type': 'float', '_default': 0.0},
+            'timestep': {'_type': 'float', '_default': 1.0},
         }
 
     def outputs(self):
         return {
             'listeners': {
                 'rna_counts': {
-                    'mRNA_counts': f'array[{self.n_mRNA_TU},integer]',
-                    'full_mRNA_counts': f'array[{self.n_mRNA_TU},integer]',
-                    'partial_mRNA_counts': f'array[{self.n_mRNA_TU},integer]',
-                    'mRNA_cistron_counts': f'array[{self.n_mRNA_cistron},integer]',
-                    'full_mRNA_cistron_counts': f'array[{self.n_mRNA_cistron},integer]',
-                    'partial_mRNA_cistron_counts': f'array[{self.n_mRNA_cistron},integer]',
-                    'partial_rRNA_counts': f'array[{self.n_rRNA_TU},integer]',
-                    'partial_rRNA_cistron_counts': f'array[{self.n_rRNA_cistron},integer]',
+                    'mRNA_counts': {'_type': f'array[{self.n_mRNA_TU},integer]', '_default': []},
+                    'full_mRNA_counts': {'_type': f'array[{self.n_mRNA_TU},integer]', '_default': []},
+                    'partial_mRNA_counts': {'_type': f'array[{self.n_mRNA_TU},integer]', '_default': []},
+                    'mRNA_cistron_counts': {'_type': f'array[{self.n_mRNA_cistron},integer]', '_default': []},
+                    'full_mRNA_cistron_counts': {'_type': f'array[{self.n_mRNA_cistron},integer]', '_default': []},
+                    'partial_mRNA_cistron_counts': {'_type': f'array[{self.n_mRNA_cistron},integer]', '_default': []},
+                    'partial_rRNA_counts': {'_type': f'array[{self.n_rRNA_TU},integer]', '_default': []},
+                    'partial_rRNA_cistron_counts': {'_type': f'array[{self.n_rRNA_cistron},integer]', '_default': []},
                 },
             },
         }
 
 
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
 
         # Get IDs and indexes of all mRNA and rRNA transcription units
         self.all_TU_ids = self.parameters["all_TU_ids"]
@@ -98,26 +97,6 @@ class RNACounts(Step):
         self.n_rRNA_TU = len(self.rRNA_TU_ids)
         self.n_mRNA_cistron = len(self.mRNA_cistron_ids)
         self.n_rRNA_cistron = len(self.rRNA_cistron_ids)
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
-        return {
-            'listeners': {
-                'rna_counts': {
-                    'mRNA_counts': [],
-                    'full_mRNA_counts': [],
-                    'partial_mRNA_counts': [],
-                    'mRNA_cistron_counts': [],
-                    'full_mRNA_cistron_counts': [],
-                    'partial_mRNA_cistron_counts': [],
-                    'partial_rRNA_counts': [],
-                    'partial_rRNA_cistron_counts': [],
-                },
-            },
-            'RNAs': [],
-            'global_time': 0.0,
-            'timestep': 1.0,
-        }
 
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0

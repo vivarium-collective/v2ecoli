@@ -158,6 +158,13 @@ def _instantiate_departitioned_step(step_name, config, loader, core):
     from v2ecoli.library.config_resolver import resolve_config
     config = resolve_config(config) if config else config
 
+    # Processes whose evolve_state is self-contained and can skip
+    # calculate_request entirely (avoids redundant computation)
+    EVOLVE_ONLY = {
+        'ecoli-rna-maturation',   # stoichiometry recomputed in evolve
+        'ecoli-complexation',     # stochastic system.evolve() in evolve
+    }
+
     # Departitioned: wrap PartitionedProcess in DepartitionedStep
     if step_name in PARTITIONED_PROCESSES:
         proc_cls = PARTITIONED_PROCESSES[step_name]
@@ -165,6 +172,10 @@ def _instantiate_departitioned_step(step_name, config, loader, core):
         set_current_core(core)
         process = proc_cls(config)
         set_current_core(None)
+
+        # Flag evolve-only processes to skip calculate_request in _do_update
+        if step_name in EVOLVE_ONLY:
+            process.evolve_only = True
 
         topology = dict(config.get('topology', {}) or {})
         if not topology:

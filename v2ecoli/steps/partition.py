@@ -90,20 +90,12 @@ class Requester(Step):
                     result[key] = proc_outputs[key]
         return result
 
-    def __init__(self, parameters=None):
-        assert isinstance(parameters["process"], PartitionedProcess)
-        if parameters["process"].parallel:
+    def initialize(self, config):
+        assert isinstance(self.parameters["process"], PartitionedProcess)
+        if getattr(self.parameters["process"], 'parallel', False):
             raise RuntimeError("PartitionedProcess objects cannot be parallelized.")
-        parameters["name"] = f"{parameters['process'].name}_requester"
-        super().__init__(parameters)
+        self.parameters["name"] = f"{self.parameters['process'].name}_requester"
         self.cached_bulk_ports = ["bulk"]
-
-    def port_defaults(self):
-        """Delegate to wrapped process's port_defaults."""
-        process = self.parameters.get("process")
-        if process and hasattr(process, 'port_defaults'):
-            return process.port_defaults()
-        return {}
 
     def update_condition(self, timestep, states):
         """
@@ -198,17 +190,9 @@ class Evolver(Step):
             ports.pop(k, None)
         return ports
 
-    def __init__(self, parameters=None):
-        assert isinstance(parameters["process"], PartitionedProcess)
-        parameters["name"] = f"{parameters['process'].name}_evolver"
-        super().__init__(parameters)
-
-    def port_defaults(self):
-        """Delegate to wrapped process's port_defaults."""
-        process = self.parameters.get("process")
-        if process and hasattr(process, 'port_defaults'):
-            return process.port_defaults()
-        return {}
+    def initialize(self, config):
+        assert isinstance(self.parameters["process"], PartitionedProcess)
+        self.parameters["name"] = f"{self.parameters['process'].name}_evolver"
 
     def update_condition(self, timestep, states):
         """
@@ -270,9 +254,7 @@ class PartitionedProcess(Process):
     _output_ports = None
     _input_only_ports = None
 
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
-
+    def initialize(self, config):
         # set partition mode
         self.evolve_only = self.parameters.get("evolve_only", False)
         self.request_only = self.parameters.get("request_only", False)
@@ -307,9 +289,14 @@ class PartitionedProcess(Process):
 
     def _do_update(self, timestep, states):
         """Combined request + evolve for standalone (non-partitioned) use."""
-        if self.request_only:
+        if getattr(self, 'request_only', False):
             return self.calculate_request(timestep, states)
-        if self.evolve_only:
+        if getattr(self, 'evolve_only', False):
+            if not getattr(self, '_indices_initialized', False):
+                # First call: run calculate_request to initialize cached
+                # indices (bulk_name_to_idx lookups), then discard result
+                self.calculate_request(timestep, states)
+                self._indices_initialized = True
             return self.evolve_state(timestep, states)
 
         requests = self.calculate_request(timestep, states)
@@ -317,7 +304,7 @@ class PartitionedProcess(Process):
         if bulk_requests:
             bulk_copy = states["bulk"].copy()
             for bulk_idx, request in bulk_requests:
-                bulk_copy[bulk_idx] = request
+                bulk_copy["count"][bulk_idx] = request
             states["bulk"] = bulk_copy
         states = deep_merge(states, requests)
         update = self.evolve_state(timestep, states)

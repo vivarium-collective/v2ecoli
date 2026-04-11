@@ -83,14 +83,20 @@ class ChromosomeReplication(PartitionedProcess):
 
     def inputs(self):
         return {
-            'bulk': 'bulk_array',
-            'active_replisomes': ACTIVE_REPLISOME_ARRAY,
-            'oriCs': ORIC_ARRAY,
-            'chromosome_domains': CHROMOSOME_DOMAIN_ARRAY,
-            'full_chromosomes': FULL_CHROMOSOME_ARRAY,
-            'listeners': {'mass': {'cell_mass': 'float[fg]'}},
-            'environment': {'media_id': 'string'},
-            'timestep': 'integer',
+            'bulk': {'_type': 'bulk_array', '_default': []},
+            'active_replisomes': {'_type': ACTIVE_REPLISOME_ARRAY, '_default': []},
+            'oriCs': {'_type': ORIC_ARRAY, '_default': []},
+            'chromosome_domains': {'_type': CHROMOSOME_DOMAIN_ARRAY, '_default': []},
+            'full_chromosomes': {'_type': FULL_CHROMOSOME_ARRAY, '_default': []},
+            'listeners': {
+                'mass': {
+                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
+                },
+            },
+            'environment': {
+                'media_id': {'_type': 'string', '_default': ''},
+            },
+            'timestep': {'_type': 'integer', '_default': 1.0},
         }
 
     def outputs(self):
@@ -103,17 +109,16 @@ class ChromosomeReplication(PartitionedProcess):
             'listeners': {
                 'replication_data': {
                     # Critical initiation mass — femtograms
-                    'critical_initiation_mass': 'overwrite[float[fg]]',
+                    'critical_initiation_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
                     # Cell mass / critical mass — dimensionless ratio
-                    'critical_mass_per_oriC': 'overwrite[float]',
+                    'critical_mass_per_oriC': {'_type': 'overwrite[float]', '_default': 0.0},
                 },
             },
         }
 
 
 
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
 
         # Load parameters
         self.get_dna_critical_mass = self.parameters["get_dna_critical_mass"]
@@ -147,29 +152,6 @@ class ChromosomeReplication(PartitionedProcess):
         self.ppi = self.parameters["ppi"]
 
         self.ppi_idx = None
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
-        return {
-            'bulk': [],
-            'listeners': {
-                'mass': {
-                    'cell_mass': 0.0,
-                },
-                'replication_data': {
-                    'critical_initiation_mass': 0.0,
-                    'critical_mass_per_oriC': 0.0,
-                },
-            },
-            'environment': {
-                'media_id': '',
-            },
-            'active_replisomes': [],
-            'oriCs': [],
-            'chromosome_domains': [],
-            'full_chromosomes': [],
-            'timestep': 1.0,
-        }
 
     def calculate_request(self, timestep, states):
         if self.ppi_idx is None:

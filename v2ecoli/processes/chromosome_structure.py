@@ -115,26 +115,26 @@ class ChromosomeStructure(Step):
 
     def inputs(self):
         return {
-            'bulk': 'bulk_array',
+            'bulk': {'_type': 'bulk_array', '_default': []},
             'listeners': {
                 'rnap_data': {
                     'active_rnap_n_bound_ribosomes': 'array[integer]',
                 },
             },
-            'active_replisomes': ACTIVE_REPLISOME_ARRAY,
-            'oriCs': ORIC_ARRAY,
-            'chromosome_domains': CHROMOSOME_DOMAIN_ARRAY,
-            'active_RNAPs': ACTIVE_RNAP_ARRAY,
-            'RNAs': RNA_ARRAY,
-            'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
-            'full_chromosomes': FULL_CHROMOSOME_ARRAY,
-            'promoters': PROMOTER_ARRAY,
-            'DnaA_boxes': DNAA_BOX_ARRAY,
-            'genes': GENE_ARRAY,
-            'chromosomal_segments': CHROMOSOMAL_SEGMENT_ARRAY,
-            'global_time': 'float',
-            'timestep': 'integer',
-            'next_update_time': 'overwrite[float]',
+            'active_replisomes': {'_type': ACTIVE_REPLISOME_ARRAY, '_default': []},
+            'oriCs': {'_type': ORIC_ARRAY, '_default': []},
+            'chromosome_domains': {'_type': CHROMOSOME_DOMAIN_ARRAY, '_default': []},
+            'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
+            'RNAs': {'_type': RNA_ARRAY, '_default': []},
+            'active_ribosome': {'_type': ACTIVE_RIBOSOME_ARRAY, '_default': []},
+            'full_chromosomes': {'_type': FULL_CHROMOSOME_ARRAY, '_default': []},
+            'promoters': {'_type': PROMOTER_ARRAY, '_default': []},
+            'DnaA_boxes': {'_type': DNAA_BOX_ARRAY, '_default': []},
+            'genes': {'_type': GENE_ARRAY, '_default': []},
+            'chromosomal_segments': {'_type': CHROMOSOMAL_SEGMENT_ARRAY, '_default': []},
+            'global_time': {'_type': 'float', '_default': 0.0},
+            'timestep': {'_type': 'integer', '_default': 1.0},
+            'next_update_time': {'_type': 'overwrite[float]', '_default': 1.0},
         }
 
     def outputs(self):
@@ -160,9 +160,7 @@ class ChromosomeStructure(Step):
         }
 
 
-    # Constructor
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
         self.rna_sequences = self.parameters["rna_sequences"]
         self.protein_sequences = self.parameters["protein_sequences"]
         self.n_TUs = self.parameters["n_TUs"]
@@ -206,40 +204,6 @@ class ChromosomeStructure(Step):
         self.inactive_RNAPs_idx = None
 
         self.emit_unique = self.parameters.get("emit_unique", True)
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
-        return {
-            'listeners': {
-                'rnap_data': {
-                    'n_total_collisions': 0,
-                    'n_headon_collisions': 0,
-                    'n_codirectional_collisions': 0,
-                    'headon_collision_coordinates': [],
-                    'codirectional_collision_coordinates': [],
-                    'n_removed_ribosomes': 0,
-                    'incomplete_transcription_events': np.zeros(3277),
-                    'n_empty_fork_collisions': 0,
-                    'empty_fork_collision_coordinates': [],
-                },
-            },
-            'bulk': [],
-            'active_replisomes': [],
-            'oriCs': [],
-            'chromosome_domains': [],
-            'active_RNAPs': [],
-            'RNAs': [],
-            'active_ribosome': [],
-            'full_chromosomes': [],
-            'promoters': [],
-            'DnaA_boxes': [],
-            'chromosomal_segments': [],
-            'genes': [],
-            'global_time': 0.0,
-            'timestep': 1.0,
-            'next_update_time': 1.0,
-        }
-
     def update_condition(self, timestep, states):
         """
         See :py:meth:`~ecoli.processes.partition.Requester.update_condition`.

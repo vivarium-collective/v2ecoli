@@ -188,14 +188,14 @@ class TranscriptInitiation(PartitionedProcess):
 
     def inputs(self):
         return {
-            'environment': {'media_id': 'string'},
-            'full_chromosomes': FULL_CHROMOSOME_ARRAY,
-            'RNAs': RNA_ARRAY,
-            'active_RNAPs': ACTIVE_RNAP_ARRAY,
-            'promoters': PROMOTER_ARRAY,
-            'bulk': 'bulk_array',
-            'listeners': {'mass': {'cell_mass': 'float[fg]'}},
-            'timestep': 'integer',
+            'environment': {'media_id': {'_type': 'string', '_default': ''}},
+            'full_chromosomes': {'_type': FULL_CHROMOSOME_ARRAY, '_default': []},
+            'RNAs': {'_type': RNA_ARRAY, '_default': []},
+            'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
+            'promoters': {'_type': PROMOTER_ARRAY, '_default': []},
+            'bulk': {'_type': 'bulk_array', '_default': []},
+            'listeners': {'mass': {'cell_mass': {'_type': 'float[fg]', '_default': 0.0}}},
+            'timestep': {'_type': 'integer', '_default': 1.0},
         }
 
     def outputs(self):
@@ -206,30 +206,28 @@ class TranscriptInitiation(PartitionedProcess):
             'listeners': {
                 'rna_synth_prob': {
                     # Synthesis probabilities — dimensionless
-                    'target_rna_synth_prob': 'overwrite[array[float]]',
-                    'actual_rna_synth_prob': 'overwrite[array[float]]',
-                    'max_p': 'overwrite[float]',
-                    'tu_is_overcrowded': 'overwrite[array[boolean]]',
-                    'total_rna_init': 'overwrite[integer]',
+                    'target_rna_synth_prob': {'_type': 'overwrite[array[float]]', '_default': []},
+                    'actual_rna_synth_prob': {'_type': 'overwrite[array[float]]', '_default': []},
+                    'max_p': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'tu_is_overcrowded': {'_type': 'overwrite[array[boolean]]', '_default': []},
+                    'total_rna_init': {'_type': 'overwrite[integer]', '_default': 0},
                 },
                 'ribosome_data': {
                     # rRNA initiation counts and probabilities
-                    'rRNA_initiated_TU': 'overwrite[array[integer]]',
-                    'rRNA_init_prob_TU': 'overwrite[array[float]]',
-                    'total_rna_init': 'overwrite[integer]',
+                    'rRNA_initiated_TU': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'rRNA_init_prob_TU': {'_type': 'overwrite[array[float]]', '_default': []},
+                    'total_rna_init': {'_type': 'overwrite[integer]', '_default': 0},
                 },
                 'rnap_data': {
-                    'did_initialize': 'overwrite[integer]',
-                    'rna_init_event': 'overwrite[array[integer]]',
+                    'did_initialize': {'_type': 'overwrite[integer]', '_default': 0},
+                    'rna_init_event': {'_type': 'overwrite[array[integer]]', '_default': []},
                 },
             },
         }
 
 
 
-    # Constructor
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
 
         # Load parameters
         self.fracActiveRnapDict = self.parameters["fracActiveRnapDict"]
@@ -321,19 +319,19 @@ class TranscriptInitiation(PartitionedProcess):
         return (
             {
                 'environment':                 {
-                    'media_id': 'string',
+                    'media_id': {'_type': 'string', '_default': ''},
                 },
-                'full_chromosomes': FULL_CHROMOSOME_ARRAY,
-                'RNAs': RNA_ARRAY,
-                'active_RNAPs': ACTIVE_RNAP_ARRAY,
-                'promoters': PROMOTER_ARRAY,
-                'bulk': 'bulk_array',
+                'full_chromosomes': {'_type': FULL_CHROMOSOME_ARRAY, '_default': []},
+                'RNAs': {'_type': RNA_ARRAY, '_default': []},
+                'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
+                'promoters': {'_type': PROMOTER_ARRAY, '_default': []},
+                'bulk': {'_type': 'bulk_array', '_default': []},
                 'listeners':                 {
                     'mass':                     {
-                        'cell_mass': 'float[fg]',
+                        'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
                     },
                 },
-                'timestep': 'integer',
+                'timestep': {'_type': 'integer', '_default': 1.0},
             }
         )
 
@@ -345,61 +343,24 @@ class TranscriptInitiation(PartitionedProcess):
                 'active_RNAPs': ACTIVE_RNAP_ARRAY,
                 'listeners':                 {
                     'rna_synth_prob':                     {
-                        'target_rna_synth_prob': 'overwrite[array[float]]',
-                        'actual_rna_synth_prob': 'overwrite[array[float]]',
-                        'max_p': 'overwrite[float]',
-                        'tu_is_overcrowded': 'overwrite[array[boolean]]',
-                        'total_rna_init': 'overwrite[integer]',
+                        'target_rna_synth_prob': {'_type': 'overwrite[array[float]]', '_default': []},
+                        'actual_rna_synth_prob': {'_type': 'overwrite[array[float]]', '_default': []},
+                        'max_p': {'_type': 'overwrite[float]', '_default': 0.0},
+                        'tu_is_overcrowded': {'_type': 'overwrite[array[boolean]]', '_default': []},
+                        'total_rna_init': {'_type': 'overwrite[integer]', '_default': 0},
                     },
                     'ribosome_data':                     {
-                        'rRNA_initiated_TU': 'overwrite[array[integer]]',
-                        'rRNA_init_prob_TU': 'overwrite[array[float]]',
-                        'total_rna_init': 'overwrite[integer]',
+                        'rRNA_initiated_TU': {'_type': 'overwrite[array[integer]]', '_default': []},
+                        'rRNA_init_prob_TU': {'_type': 'overwrite[array[float]]', '_default': []},
+                        'total_rna_init': {'_type': 'overwrite[integer]', '_default': 0},
                     },
                     'rnap_data':                     {
-                        'did_initialize': 'overwrite[integer]',
-                        'rna_init_event': 'overwrite[array[integer]]',
+                        'did_initialize': {'_type': 'overwrite[integer]', '_default': 0},
+                        'rna_init_event': {'_type': 'overwrite[array[integer]]', '_default': []},
                     },
                 },
             }
         )
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
-        return {
-            'environment': {
-                'media_id': '',
-            },
-            'bulk': [],
-            'full_chromosomes': [],
-            'promoters': [],
-            'RNAs': [],
-            'active_RNAPs': [],
-            'listeners': {
-                'mass': {
-                    'cell_mass': 0.0,
-                    'dry_mass': 0.0,
-                },
-                'rna_synth_prob': {
-                    'target_rna_synth_prob': [0.0],
-                    'actual_rna_synth_prob': [0.0],
-                    'tu_is_overcrowded': [False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False, False],
-                    'total_rna_init': 0,
-                    'max_p': 0.0,
-                },
-                'ribosome_data': {
-                    'rRNA_initiated_TU': [0, 0, 0, 0, 0, 0, 0],
-                    'rRNA_init_prob_TU': [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                    'total_rna_init': 0,
-                },
-                'rnap_data': {
-                    'did_initialize': 0,
-                    'rna_init_event': 0,
-                },
-            },
-            'timestep': 1.0,
-        }
-
     def calculate_request(self, timestep, states):
         # At first update, convert all strings to indices
         if self.ppgpp_idx is None:

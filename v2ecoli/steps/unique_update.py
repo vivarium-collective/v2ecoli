@@ -20,8 +20,7 @@ class UniqueUpdate(Step):
     def outputs(self):
         return {mol: UNIQUE_TYPES.get(mol, 'node') for mol in self.unique_topo}
 
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
         self.unique_topo = self.parameters["unique_topo"]
 
     def update(self, states, interval=None):

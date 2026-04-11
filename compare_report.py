@@ -1,15 +1,12 @@
 """
-Compare partitioned vs departitioned E. coli simulation architectures.
+Three-way architecture comparison: Partitioned vs Departitioned vs Reconciled.
 
-Uses the existing partitioned model (Requester/Allocator/Evolver) as
-baseline and compares it with the departitioned model (standalone
-DepartitionedStep wrappers, no allocator).
-
-Generates a single-file HTML report comparing mass trajectories,
-divergence, bulk counts, growth, and timing.
+Runs all three simulations in parallel using multiprocessing, then generates
+a single-file HTML report comparing mass trajectories, divergence, bulk
+counts, growth, timing, and molecule-level divergence.
 
 Usage:
-    python compare_report.py                        # default 120s sim
+    python compare_report.py                        # default 2520s sim
     python compare_report.py --duration 600         # 10-min sim
     python compare_report.py --seed 42 --output out/my_report.html
 """
@@ -19,15 +16,13 @@ import io
 import time
 import base64
 import argparse
+import multiprocessing as mp
 
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy import stats
-
-from v2ecoli.composite import make_composite
-from v2ecoli.composite_departitioned import make_departitioned_composite
 
 
 # ---------------------------------------------------------------------------
@@ -42,15 +37,17 @@ MASS_FIELDS = [
     'dna_mass', 'smallMolecule_mass', 'water_mass',
 ]
 MASS_LABELS = {
-    'cell_mass': 'Cell Mass',
-    'dry_mass': 'Dry Mass',
-    'protein_mass': 'Protein',
-    'rna_mass': 'RNA',
-    'dna_mass': 'DNA',
-    'smallMolecule_mass': 'Small Molecule',
-    'water_mass': 'Water',
+    'cell_mass': 'Cell Mass', 'dry_mass': 'Dry Mass',
+    'protein_mass': 'Protein', 'rna_mass': 'RNA', 'dna_mass': 'DNA',
+    'smallMolecule_mass': 'Small Molecule', 'water_mass': 'Water',
 }
 ERROR_THRESHOLD = 5.0
+
+MODELS = {
+    'part': {'label': 'Partitioned', 'color': '#2563eb', 'ls': '-'},
+    'dep':  {'label': 'Departitioned', 'color': '#dc2626', 'ls': '--'},
+    'rec':  {'label': 'Reconciled', 'color': '#16a34a', 'ls': '-.'},
+}
 
 
 # ---------------------------------------------------------------------------
@@ -64,6 +61,11 @@ def fig_to_b64(fig):
     b64 = base64.b64encode(buf.read()).decode()
     plt.close(fig)
     return b64
+
+
+def _style_ax(ax):
+    ax.grid(True, alpha=0.15)
+    ax.tick_params(labelsize=8)
 
 
 def _get_emitter(composite):
@@ -85,8 +87,7 @@ def _extract_snapshots(emitter):
         row = {'time': float(t)}
         for field in MASS_FIELDS:
             row[field] = float(mass.get(field, 0))
-        row['growth_rate'] = float(
-            mass.get('instantaneous_growth_rate', 0))
+        row['growth_rate'] = float(mass.get('instantaneous_growth_rate', 0))
         row['volume'] = float(mass.get('volume', 0))
         snapshots.append(row)
     return snapshots
@@ -97,47 +98,47 @@ def _extract_bulk(composite):
     bulk = cell.get('bulk')
     if bulk is not None and hasattr(bulk, 'dtype') and 'count' in bulk.dtype.names:
         return bulk['count'].astype(float)
-    if isinstance(bulk, dict) and 'count' in bulk:
-        return np.array(bulk['count'], dtype=float)
     return np.array([])
 
 
-def _style_ax(ax):
-    ax.grid(True, alpha=0.15)
-    ax.tick_params(labelsize=8)
+def _extract_bulk_ids(composite):
+    cell = composite.state.get('agents', {}).get('0', {})
+    bulk = cell.get('bulk')
+    if bulk is not None and hasattr(bulk, 'dtype') and 'id' in bulk.dtype.names:
+        return bulk['id']
+    return np.array([])
 
 
 # ---------------------------------------------------------------------------
-# Pipeline Steps
+# Parallel simulation runner
 # ---------------------------------------------------------------------------
 
-def load_models(cache_dir, seed):
-    print('Step 1: Loading models...')
+def _run_one_model(args):
+    """Run a single model in a subprocess. Returns serializable results."""
+    model_key, cache_dir, seed, duration, snapshot_interval = args
+    import warnings
+    warnings.filterwarnings('ignore')
 
-    t0 = time.time()
-    part = make_composite(cache_dir=cache_dir, seed=seed)
-    part_time = time.time() - t0
-    print(f'  Partitioned:    {len(part.step_paths)} steps, '
-          f'built in {part_time:.1f}s')
+    # Import inside subprocess to avoid pickling issues
+    if model_key == 'part':
+        from v2ecoli.composite import make_composite
+        composite = make_composite(cache_dir=cache_dir, seed=seed)
+    elif model_key == 'dep':
+        from v2ecoli.composite_departitioned import make_departitioned_composite
+        composite = make_departitioned_composite(cache_dir=cache_dir, seed=seed)
+    elif model_key == 'rec':
+        from v2ecoli.composite_reconciled import make_reconciled_composite
+        composite = make_reconciled_composite(cache_dir=cache_dir, seed=seed)
+    else:
+        raise ValueError(f'Unknown model: {model_key}')
 
-    t0 = time.time()
-    dep = make_departitioned_composite(cache_dir=cache_dir, seed=seed)
-    dep_time = time.time() - t0
-    print(f'  Departitioned:  {len(dep.step_paths)} steps, '
-          f'built in {dep_time:.1f}s')
+    n_steps = len(composite.step_paths)
+    label = MODELS[model_key]['label']
 
-    return part, dep, {
-        'part_build_time': part_time,
-        'dep_build_time': dep_time,
-        'part_steps': len(part.step_paths),
-        'dep_steps': len(dep.step_paths),
-    }
+    emitter = _get_emitter(composite)
 
-
-def _run_simulation(composite, label, duration, snapshot_interval):
     t0 = time.time()
     total_run = 0.0
-
     while total_run < duration:
         chunk = min(snapshot_interval, duration - total_run)
         try:
@@ -150,97 +151,141 @@ def _run_simulation(composite, label, duration, snapshot_interval):
 
         cell = composite.state.get('agents', {}).get('0')
         if cell is None:
-            print(f'    [{label}] Agent removed (division) at '
-                  f't={total_run}s')
+            print(f'    [{label}] Agent removed (division) at t={total_run}s')
             break
 
         mass = cell.get('listeners', {}).get('mass', {})
         dry_mass = float(mass.get('dry_mass', 0))
-        if total_run % 50 < snapshot_interval:
-            print(f'    [{label}] t={total_run:.0f}s: '
-                  f'dry_mass={dry_mass:.0f}fg')
+        if total_run % 100 < snapshot_interval:
+            print(f'    [{label}] t={total_run:.0f}s: dry_mass={dry_mass:.0f}fg')
 
     wall_time = time.time() - t0
-    print(f'  {label}: {wall_time:.1f}s wall, {total_run:.0f}s sim')
-    return wall_time, total_run
+    print(f'  {label}: {wall_time:.1f}s wall, {total_run:.0f}s sim, '
+          f'{n_steps} steps')
 
-
-def run_simulations(part, dep, duration, snapshot_interval):
-    print(f'\nStep 2: Running simulations ({duration}s each)...')
-
-    part_emitter = _get_emitter(part)
-    dep_emitter = _get_emitter(dep)
-
-    part_wall, part_sim = _run_simulation(
-        part, 'Partitioned', duration, snapshot_interval)
-    dep_wall, dep_sim = _run_simulation(
-        dep, 'Departitioned', duration, snapshot_interval)
-
-    part_snaps = _extract_snapshots(part_emitter)
-    dep_snaps = _extract_snapshots(dep_emitter)
-
-    print(f'  Emitter snapshots: {len(part_snaps)} part, '
-          f'{len(dep_snaps)} dep')
+    snaps = _extract_snapshots(emitter)
+    bulk = _extract_bulk(composite)
+    bulk_ids = _extract_bulk_ids(composite)
+    # Convert bulk_ids to plain strings for pickling
+    bulk_id_strs = [str(x) for x in bulk_ids] if len(bulk_ids) > 0 else []
 
     return {
-        'part_wall': part_wall,
-        'dep_wall': dep_wall,
-        'part_sim_time': part_sim,
-        'dep_sim_time': dep_sim,
-        'part_snaps': part_snaps,
-        'dep_snaps': dep_snaps,
-        'part_bulk': _extract_bulk(part),
-        'dep_bulk': _extract_bulk(dep),
+        'key': model_key,
+        'wall_time': wall_time,
+        'sim_time': total_run,
+        'n_steps': n_steps,
+        'snaps': snaps,
+        'bulk': bulk,
+        'bulk_ids': bulk_id_strs,
     }
 
+
+def run_all_parallel(cache_dir, seed, duration, snapshot_interval):
+    """Run all three models in parallel using multiprocessing."""
+    print(f'\nStep 2: Running 3 simulations in parallel ({duration}s each)...')
+    t0 = time.time()
+
+    args_list = [
+        (key, cache_dir, seed, duration, snapshot_interval)
+        for key in MODELS
+    ]
+
+    # Use spawn context to avoid fork issues with numpy
+    ctx = mp.get_context('spawn')
+    with ctx.Pool(3) as pool:
+        results = pool.map(_run_one_model, args_list)
+
+    total_wall = time.time() - t0
+    print(f'  All 3 finished in {total_wall:.1f}s wall (parallel)')
+
+    sim_data = {}
+    for r in results:
+        sim_data[r['key']] = r
+    return sim_data, total_wall
+
+
+def run_all_sequential(cache_dir, seed, duration, snapshot_interval):
+    """Fallback: run all three models sequentially."""
+    print(f'\nStep 2: Running 3 simulations sequentially ({duration}s each)...')
+    t0 = time.time()
+
+    sim_data = {}
+    for key in MODELS:
+        args = (key, cache_dir, seed, duration, snapshot_interval)
+        r = _run_one_model(args)
+        sim_data[r['key']] = r
+
+    total_wall = time.time() - t0
+    print(f'  All 3 finished in {total_wall:.1f}s wall (sequential)')
+    return sim_data, total_wall
+
+
+# ---------------------------------------------------------------------------
+# Metrics
+# ---------------------------------------------------------------------------
 
 def compute_metrics(sim_data):
     print('\nStep 3: Computing metrics...')
+    metrics = {}
 
-    part_by_t = {int(s['time']): s for s in sim_data['part_snaps']}
-    dep_by_t = {int(s['time']): s for s in sim_data['dep_snaps']}
-    common_times = sorted(set(part_by_t.keys()) & set(dep_by_t.keys()))
+    part_snaps = sim_data['part']['snaps']
+    part_by_t = {int(s['time']): s for s in part_snaps}
 
-    pct_diff = {field: [] for field in MASS_FIELDS}
-    pct_times = []
-    for t in common_times:
-        p, d = part_by_t[t], dep_by_t[t]
-        pct_times.append(t)
-        for field in MASS_FIELDS:
-            pv = p.get(field, 0)
-            dv = d.get(field, 0)
-            ref = max(abs(pv), abs(dv), 1e-12)
-            pct_diff[field].append(abs(pv - dv) / ref * 100)
+    # Per-model metrics vs partitioned baseline
+    for key in ['dep', 'rec']:
+        snaps = sim_data[key]['snaps']
+        by_t = {int(s['time']): s for s in snaps}
+        common_times = sorted(set(part_by_t.keys()) & set(by_t.keys()))
 
-    max_errors = {f: max(vals) if vals else 0.0
-                  for f, vals in pct_diff.items()}
-    overall_max_error = max(max_errors.values()) if max_errors else 0.0
+        pct_diff = {f: [] for f in MASS_FIELDS}
+        for t in common_times:
+            p, d = part_by_t[t], by_t[t]
+            for f in MASS_FIELDS:
+                pv, dv = p.get(f, 0), d.get(f, 0)
+                ref = max(abs(pv), abs(dv), 1e-12)
+                pct_diff[f].append(abs(pv - dv) / ref * 100)
 
-    pb = sim_data['part_bulk']
-    db = sim_data['dep_bulk']
-    min_len = min(len(pb), len(db))
-    if min_len > 0:
-        pb, db = pb[:min_len], db[:min_len]
-        mask = (pb > 0) | (db > 0)
-        r = stats.pearsonr(pb[mask], db[mask])[0] if mask.sum() > 1 else float('nan')
-        exact_match = int((pb == db).sum())
-    else:
-        r, exact_match = float('nan'), 0
+        max_errors = {f: max(v) if v else 0 for f, v in pct_diff.items()}
+        overall = max(max_errors.values()) if max_errors else 0
 
-    wall_ratio = sim_data['part_wall'] / max(sim_data['dep_wall'], 1e-9)
+        pb, db = sim_data['part']['bulk'], sim_data[key]['bulk']
+        ml = min(len(pb), len(db))
+        if ml > 0:
+            mask = (pb[:ml] > 0) | (db[:ml] > 0)
+            r = stats.pearsonr(pb[:ml][mask], db[:ml][mask])[0] if mask.sum() > 1 else float('nan')
+            exact = int((pb[:ml] == db[:ml]).sum())
+        else:
+            r, exact = float('nan'), 0
 
-    metrics = {
-        'pct_times': pct_times, 'pct_diff': pct_diff,
-        'max_errors': max_errors, 'overall_max_error': overall_max_error,
-        'bulk_pearson_r': r, 'bulk_exact_match': exact_match,
-        'bulk_total': min_len, 'wall_ratio': wall_ratio,
-    }
+        # Top diverging molecules
+        mol_div = []
+        ids = sim_data['part']['bulk_ids']
+        for i in range(ml):
+            ad = abs(pb[i] - db[i])
+            if ad > 0:
+                mol_div.append({
+                    'name': ids[i] if i < len(ids) else str(i),
+                    'part': pb[i], 'other': db[i],
+                    'abs_diff': ad, 'signed': db[i] - pb[i],
+                })
+        mol_div.sort(key=lambda x: x['abs_diff'], reverse=True)
 
-    r_str = f'{r:.6f}' if not np.isnan(r) else 'N/A'
-    print(f'  Max mass error:  {overall_max_error:.4f}%')
-    print(f'  Bulk Pearson r:  {r_str}')
-    print(f'  Bulk exact match: {exact_match}/{min_len}')
-    print(f'  Wall time ratio (part/dep): {wall_ratio:.2f}x')
+        metrics[key] = {
+            'pct_times': common_times,
+            'pct_diff': pct_diff,
+            'max_errors': max_errors,
+            'overall_max_error': overall,
+            'pearson_r': r,
+            'exact_match': exact,
+            'total_mols': ml,
+            'mol_divergence': mol_div,
+            'n_diverged': sum(1 for m in mol_div if m['abs_diff'] > 0),
+        }
+
+        label = MODELS[key]['label']
+        r_s = f'{r:.6f}' if not np.isnan(r) else 'N/A'
+        print(f'  {label}: max_err={overall:.4f}%, r={r_s}, '
+              f'diverged={metrics[key]["n_diverged"]}/{ml}')
 
     return metrics
 
@@ -253,87 +298,58 @@ def plot_mass_trajectories(sim_data):
     fields = ['dry_mass', 'protein_mass', 'rna_mass',
               'dna_mass', 'smallMolecule_mass', 'cell_mass']
     fig, axes = plt.subplots(2, 3, figsize=(15, 8))
-    for i, field in enumerate(fields):
+    for i, f in enumerate(fields):
         ax = axes.ravel()[i]
-        for snaps, color, ls, label in [
-            (sim_data['part_snaps'], '#2563eb', '-', 'Partitioned'),
-            (sim_data['dep_snaps'], '#dc2626', '--', 'Departitioned'),
-        ]:
+        for key, m in MODELS.items():
+            snaps = sim_data[key]['snaps']
             if snaps:
                 ax.plot([s['time']/60 for s in snaps],
-                        [s.get(field, 0) for s in snaps],
-                        ls, color=color, lw=1.5, label=label, alpha=0.8)
-        ax.set_title(MASS_LABELS.get(field, field), fontsize=10)
+                        [s.get(f, 0) for s in snaps],
+                        m['ls'], color=m['color'], lw=1.5,
+                        label=m['label'], alpha=0.8)
+        ax.set_title(MASS_LABELS.get(f, f), fontsize=10)
         ax.set_xlabel('Time (min)', fontsize=8)
         ax.set_ylabel('Mass (fg)', fontsize=8)
         ax.legend(fontsize=7)
         _style_ax(ax)
-    fig.suptitle('Mass Trajectories', fontsize=13, y=1.01)
+    fig.suptitle('Mass Trajectories — Three Architectures', fontsize=13, y=1.01)
     fig.tight_layout()
     return fig_to_b64(fig)
 
 
-def plot_mass_divergence(metrics):
+def plot_mass_divergence(sim_data, metrics):
     fields = ['dry_mass', 'protein_mass', 'rna_mass',
               'dna_mass', 'smallMolecule_mass']
     fig, axes = plt.subplots(1, len(fields), figsize=(3.6*len(fields), 3.5))
-    times = np.array(metrics['pct_times']) / 60
-    for i, field in enumerate(fields):
+    for i, f in enumerate(fields):
         ax = axes[i]
-        vals = metrics['pct_diff'].get(field, [])
-        if vals and len(times) == len(vals):
-            ax.plot(times, vals, '-', color='#7c3aed', lw=1.2)
-            ax.fill_between(times, vals, alpha=0.15, color='#7c3aed')
-        ax.set_title(MASS_LABELS.get(field, field), fontsize=9)
+        for key in ['dep', 'rec']:
+            m = MODELS[key]
+            times = np.array(metrics[key]['pct_times']) / 60
+            vals = metrics[key]['pct_diff'].get(f, [])
+            if vals and len(times) == len(vals):
+                ax.plot(times, vals, m['ls'], color=m['color'], lw=1.2,
+                        label=m['label'])
+        ax.set_title(MASS_LABELS.get(f, f), fontsize=9)
         ax.set_xlabel('Time (min)', fontsize=7)
-        ax.set_ylabel('% Difference', fontsize=7)
+        ax.set_ylabel('% Diff vs Part', fontsize=7)
+        ax.legend(fontsize=6)
         _style_ax(ax)
-    fig.suptitle('Mass % Difference', fontsize=11, y=1.02)
+    fig.suptitle('Mass Divergence vs Partitioned Baseline', fontsize=11, y=1.02)
     fig.tight_layout()
     return fig_to_b64(fig)
 
 
-def plot_bulk_scatter(sim_data):
-    pb, db = sim_data['part_bulk'], sim_data['dep_bulk']
-    min_len = min(len(pb), len(db))
-    fig, ax = plt.subplots(figsize=(6, 6))
-    if min_len > 0:
-        pb, db = pb[:min_len], db[:min_len]
-        mask = (pb > 0) & (db > 0)
-        if mask.sum() > 0:
-            ax.scatter(pb[mask], db[mask], s=4, alpha=0.3,
-                       color='#2563eb', edgecolors='none')
-            lo = min(pb[mask].min(), db[mask].min()) * 0.5
-            hi = max(pb[mask].max(), db[mask].max()) * 2
-            ax.plot([lo, hi], [lo, hi], 'k--', lw=0.8, alpha=0.5,
-                    label='y = x')
-            ax.set_xscale('log'); ax.set_yscale('log')
-            ax.set_xlim(lo, hi); ax.set_ylim(lo, hi)
-            ax.legend(fontsize=8)
-    else:
-        ax.text(0.5, 0.5, 'No data', ha='center', va='center',
-                transform=ax.transAxes)
-    ax.set_xlabel('Partitioned', fontsize=9)
-    ax.set_ylabel('Departitioned', fontsize=9)
-    ax.set_title('Final Bulk Molecule Counts', fontsize=11)
-    ax.set_aspect('equal')
-    _style_ax(ax)
-    fig.tight_layout()
-    return fig_to_b64(fig)
-
-
-def plot_growth_comparison(sim_data):
+def plot_growth(sim_data):
     fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-    for snaps, color, ls, label in [
-        (sim_data['part_snaps'], '#2563eb', '-', 'Partitioned'),
-        (sim_data['dep_snaps'], '#dc2626', '--', 'Departitioned'),
-    ]:
+    for key, m in MODELS.items():
+        snaps = sim_data[key]['snaps']
         if not snaps: continue
         t = [s['time']/60 for s in snaps]
-        axes[0].plot(t, [s.get('growth_rate',0)*3600 for s in snaps],
-                     ls, color=color, lw=1.2, label=label)
-        axes[1].plot(t, [s.get('volume',0) for s in snaps],
-                     ls, color=color, lw=1.2, label=label)
+        axes[0].plot(t, [s.get('growth_rate', 0)*3600 for s in snaps],
+                     m['ls'], color=m['color'], lw=1.2, label=m['label'])
+        axes[1].plot(t, [s.get('volume', 0) for s in snaps],
+                     m['ls'], color=m['color'], lw=1.2, label=m['label'])
     axes[0].set_ylabel('Growth rate (1/h)'); axes[0].set_title('Growth Rate')
     axes[1].set_ylabel('Volume (fL)'); axes[1].set_title('Cell Volume')
     for ax in axes:
@@ -342,26 +358,50 @@ def plot_growth_comparison(sim_data):
     return fig_to_b64(fig)
 
 
-def plot_timing(model_info, sim_data):
+def plot_timing(sim_data):
     fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    keys = list(MODELS.keys())
+    colors = [MODELS[k]['color'] for k in keys]
+    labels = [MODELS[k]['label'] for k in keys]
+
     ax = axes[0]
-    labels = ['Build', 'Simulation']
-    x = np.arange(len(labels)); w = 0.35
-    ax.bar(x-w/2, [model_info['part_build_time'], sim_data['part_wall']],
-           w, color='#2563eb', alpha=0.8, label='Partitioned')
-    ax.bar(x+w/2, [model_info['dep_build_time'], sim_data['dep_wall']],
-           w, color='#dc2626', alpha=0.8, label='Departitioned')
-    ax.set_xticks(x); ax.set_xticklabels(labels)
-    ax.set_ylabel('Wall Time (s)'); ax.set_title('Wall Time')
-    ax.legend(fontsize=8); _style_ax(ax)
+    walls = [sim_data[k]['wall_time'] for k in keys]
+    ax.bar(labels, walls, color=colors, alpha=0.8)
+    ax.set_ylabel('Wall Time (s)'); ax.set_title('Simulation Wall Time')
+    _style_ax(ax)
 
     ax = axes[1]
-    dw = max(sim_data['dep_wall'], 1e-9)
-    pw = max(sim_data['part_wall'], 1e-9)
-    ax.bar(['Partitioned', 'Departitioned'],
-           [sim_data['part_sim_time']/pw, sim_data['dep_sim_time']/dw],
-           color=['#2563eb', '#dc2626'], alpha=0.8)
-    ax.set_ylabel('Sim s / Wall s'); ax.set_title('Speed (higher=faster)')
+    steps = [sim_data[k]['n_steps'] for k in keys]
+    ax.bar(labels, steps, color=colors, alpha=0.8)
+    ax.set_ylabel('# Steps'); ax.set_title('Steps per Timestep')
+    _style_ax(ax)
+
+    fig.tight_layout()
+    return fig_to_b64(fig)
+
+
+def plot_top_diverging(metrics, key, top_n=20):
+    mol_div = metrics[key].get('mol_divergence', [])
+    top = [m for m in mol_div[:top_n] if m['abs_diff'] > 0]
+    label = MODELS[key]['label']
+    color = MODELS[key]['color']
+
+    fig, ax = plt.subplots(figsize=(14, max(5, len(top) * 0.3)))
+    if not top:
+        ax.text(0.5, 0.5, 'No divergence', ha='center', va='center',
+                transform=ax.transAxes)
+        return fig_to_b64(fig)
+
+    names = [m['name'][:40] for m in top]
+    diffs = [m['signed'] for m in top]
+    colors = [color if d > 0 else '#2563eb' for d in diffs]
+    y = np.arange(len(top))
+    ax.barh(y, diffs, color=colors, alpha=0.8)
+    ax.set_yticks(y); ax.set_yticklabels(names, fontsize=7)
+    ax.set_xlabel(f'Signed Difference ({label} - Partitioned)')
+    ax.set_title(f'Top {len(top)} Diverging Molecules: {label} vs Partitioned')
+    ax.axvline(x=0, color='black', lw=0.8, alpha=0.5)
+    ax.invert_yaxis()
     _style_ax(ax)
     fig.tight_layout()
     return fig_to_b64(fig)
@@ -371,40 +411,57 @@ def plot_timing(model_info, sim_data):
 # HTML Report
 # ---------------------------------------------------------------------------
 
-def generate_html(model_info, sim_data, metrics, plots, seed, duration,
-                  output):
+def _mol_table(mol_div, label, top_n=30):
+    rows = ''
+    for i, m in enumerate(mol_div[:top_n]):
+        if m['abs_diff'] == 0: continue
+        d = f'{label} &gt; Part' if m['signed'] > 0 else f'Part &gt; {label}'
+        c = '#dc2626' if m['signed'] > 0 else '#2563eb'
+        rows += (f'<tr><td>{i+1}</td>'
+                 f'<td style="font-family:monospace;font-size:0.8em">{m["name"]}</td>'
+                 f'<td style="text-align:right">{m["part"]:.0f}</td>'
+                 f'<td style="text-align:right">{m["other"]:.0f}</td>'
+                 f'<td style="text-align:right;font-weight:600">{m["abs_diff"]:.0f}</td>'
+                 f'<td style="color:{c}">{d}</td></tr>')
+    return rows
+
+
+def generate_html(sim_data, metrics, plots, seed, duration, output,
+                  parallel_wall):
     print(f'\nStep 5: Generating HTML report -> {output}')
-
-    max_err = metrics['overall_max_error']
-    ok = max_err < ERROR_THRESHOLD
-    vc = '#16a34a' if ok else '#dc2626'
-    vt = 'PASS' if ok else 'FAIL'
-    vd = (f'Max mass divergence {max_err:.4f}% '
-          f'{"below" if ok else "exceeds"} {ERROR_THRESHOLD}% threshold.')
-    r_val = metrics['bulk_pearson_r']
-    r_str = f'{r_val:.6f}' if not np.isnan(r_val) else 'N/A'
-
-    field_rows = ''
-    for field in MASS_FIELDS:
-        err = metrics['max_errors'].get(field, 0)
-        c = '#16a34a' if err < ERROR_THRESHOLD else '#dc2626'
-        field_rows += (f'<tr><td>{MASS_LABELS.get(field, field)}</td>'
-                       f'<td style="color:{c}">{err:.4f}%</td></tr>')
-
     date_str = time.strftime('%Y-%m-%d %H:%M')
-    wr = metrics['wall_ratio']
-    mi = model_info; sd = sim_data
+
+    dep_err = metrics['dep']['overall_max_error']
+    rec_err = metrics['rec']['overall_max_error']
+    dep_r = metrics['dep']['pearson_r']
+    rec_r = metrics['rec']['pearson_r']
+    dep_r_s = f'{dep_r:.6f}' if not np.isnan(dep_r) else 'N/A'
+    rec_r_s = f'{rec_r:.6f}' if not np.isnan(rec_r) else 'N/A'
+
+    # Build per-field error table
+    field_rows = ''
+    for f in MASS_FIELDS:
+        de = metrics['dep']['max_errors'].get(f, 0)
+        re = metrics['rec']['max_errors'].get(f, 0)
+        dc = '#16a34a' if de < ERROR_THRESHOLD else '#dc2626'
+        rc = '#16a34a' if re < ERROR_THRESHOLD else '#dc2626'
+        field_rows += (f'<tr><td>{MASS_LABELS.get(f, f)}</td>'
+                       f'<td style="color:{dc};text-align:right">{de:.4f}%</td>'
+                       f'<td style="color:{rc};text-align:right">{re:.4f}%</td></tr>')
+
+    dep_mol = _mol_table(metrics['dep']['mol_divergence'], 'Dep')
+    rec_mol = _mol_table(metrics['rec']['mol_divergence'], 'Rec')
 
     os.makedirs(os.path.dirname(output) or '.', exist_ok=True)
     with open(output, 'w') as f:
         f.write(f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
-<title>v2ecoli Architecture Comparison</title>
+<title>v2ecoli Three-Way Architecture Comparison</title>
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
 html{{scroll-behavior:smooth}}
 body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-max-width:1400px;margin:0 auto;padding:20px;background:#f8fafc;color:#1e293b}}
+max-width:1500px;margin:0 auto;padding:20px;background:#f8fafc;color:#1e293b}}
 h1{{font-size:1.8em;margin:15px 0;color:#0f172a}}
 h2{{font-size:1.3em;margin:25px 0 10px;color:#334155;
 border-bottom:2px solid #e2e8f0;padding-bottom:6px}}
@@ -413,8 +470,8 @@ border-bottom:2px solid #e2e8f0;padding-bottom:6px}}
 .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:15px 0}}
 .card{{background:white;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.08)}}
 .card .label{{font-size:0.72em;color:#64748b;text-transform:uppercase;letter-spacing:0.05em}}
-.card .value{{font-size:1.5em;font-weight:700;margin-top:4px}}
-.blue{{color:#2563eb}}.red{{color:#dc2626}}.green{{color:#16a34a}}.purple{{color:#7c3aed}}
+.card .value{{font-size:1.4em;font-weight:700;margin-top:4px}}
+.blue{{color:#2563eb}}.red{{color:#dc2626}}.green{{color:#16a34a}}.purple{{color:#7c3aed}}.orange{{color:#ea580c}}
 .plot{{background:white;border-radius:8px;padding:14px;margin:12px 0;
 box-shadow:0 1px 3px rgba(0,0,0,0.08);text-align:center}}
 .plot img{{max-width:100%}}
@@ -424,96 +481,103 @@ table{{border-collapse:collapse;width:100%;font-size:0.85em}}
 th,td{{border:1px solid #e2e8f0;padding:6px 10px;text-align:left}}
 th{{background:#f1f5f9;font-weight:600}}
 .verdict{{border-radius:10px;padding:20px 25px;margin:15px 0;font-size:1.1em}}
-.arch-desc{{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:12px 0}}
-.arch-box{{background:white;border-radius:8px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,0.08)}}
-.arch-box h3{{font-size:1.05em;margin-bottom:8px}}
-.arch-box pre{{background:#f8fafc;padding:10px;border-radius:6px;font-size:0.78em;
-overflow-x:auto;line-height:1.5}}
+.arch-desc{{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin:12px 0}}
+.arch-box{{background:white;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,0.08)}}
+.arch-box h3{{font-size:1em;margin-bottom:6px}}
+.arch-box pre{{background:#f8fafc;padding:8px;border-radius:6px;font-size:0.75em;overflow-x:auto;line-height:1.4}}
 footer{{margin-top:30px;padding:15px 0;border-top:1px solid #e2e8f0;
 color:#94a3b8;font-size:0.75em;text-align:center}}
 </style></head><body>
 
 <div class="header">
-<h1>v2ecoli Architecture Comparison</h1>
-<p>{date_str} &middot; Duration: {duration}s &middot; Seed: {seed}
- &middot; Partitioned vs Departitioned</p>
+<h1>v2ecoli Three-Way Architecture Comparison</h1>
+<p>{date_str} &middot; Duration: {duration}s ({duration/60:.1f} min) &middot; Seed: {seed}
+ &middot; Simulations run in parallel &middot; Total wall: {parallel_wall:.0f}s</p>
 </div>
 
+<h2>Summary</h2>
 <div class="cards">
-<div class="card"><div class="label">Steps (Part / Dep)</div>
-<div class="value blue">{mi['part_steps']} / {mi['dep_steps']}</div></div>
-<div class="card"><div class="label">Wall Time (Part / Dep)</div>
-<div class="value blue">{sd['part_wall']:.1f}s / {sd['dep_wall']:.1f}s</div></div>
-<div class="card"><div class="label">Speed Ratio (Part/Dep)</div>
-<div class="value {'green' if wr > 1 else 'red'}">{wr:.2f}x</div></div>
-<div class="card"><div class="label">Max Mass Error</div>
-<div class="value" style="color:{vc}">{max_err:.4f}%</div></div>
-<div class="card"><div class="label">Bulk Correlation (r)</div>
-<div class="value purple">{r_str}</div></div>
+<div class="card"><div class="label">Part Steps</div>
+<div class="value blue">{sim_data['part']['n_steps']}</div></div>
+<div class="card"><div class="label">Dep Steps</div>
+<div class="value red">{sim_data['dep']['n_steps']}</div></div>
+<div class="card"><div class="label">Rec Steps</div>
+<div class="value green">{sim_data['rec']['n_steps']}</div></div>
+<div class="card"><div class="label">Part Wall</div>
+<div class="value blue">{sim_data['part']['wall_time']:.1f}s</div></div>
+<div class="card"><div class="label">Dep Wall</div>
+<div class="value red">{sim_data['dep']['wall_time']:.1f}s</div></div>
+<div class="card"><div class="label">Rec Wall</div>
+<div class="value green">{sim_data['rec']['wall_time']:.1f}s</div></div>
+<div class="card"><div class="label">Dep Max Error</div>
+<div class="value {'green' if dep_err < ERROR_THRESHOLD else 'red'}">{dep_err:.2f}%</div></div>
+<div class="card"><div class="label">Rec Max Error</div>
+<div class="value {'green' if rec_err < ERROR_THRESHOLD else 'red'}">{rec_err:.2f}%</div></div>
+<div class="card"><div class="label">Dep Diverged</div>
+<div class="value orange">{metrics['dep']['n_diverged']}</div></div>
+<div class="card"><div class="label">Rec Diverged</div>
+<div class="value orange">{metrics['rec']['n_diverged']}</div></div>
 </div>
 
-<h2>Architecture Comparison</h2>
+<h2>Architectures</h2>
 <div class="arch-desc">
-<div class="arch-box"><h3 class="blue">Partitioned (Baseline)</h3>
-<p style="font-size:0.85em;color:#64748b;margin-bottom:10px">
-Each biological process is split into three coordinated steps.
-The allocator mediates resource sharing via priority-based distribution.</p>
-<pre>Requester  --request-->  Allocator  --allocate-->  Evolver
-  (reads state,             (priority-based           (applies allocated
-   computes need)            distribution)              resources)</pre>
-<p style="font-size:0.82em;margin-top:10px">
-<strong>{mi['part_steps']} steps</strong> total
-(11 requesters + 3 allocators + 11 evolvers + listeners + infra).
-Build: {mi['part_build_time']:.1f}s.</p></div>
-<div class="arch-box"><h3 class="red">Departitioned</h3>
-<p style="font-size:0.85em;color:#64748b;margin-bottom:10px">
-Each biological process runs as a single step. Requests are computed
-and immediately applied &mdash; no allocator, no shared resource pool.</p>
-<pre>DepartitionedStep
-  calculate_request() -> apply directly -> evolve_state()
-  - No allocation overhead
-  - Each process gets exactly what it requests
-  - Simpler execution graph</pre>
-<p style="font-size:0.82em;margin-top:10px">
-<strong>{mi['dep_steps']} steps</strong> total
-(11 standalone + listeners + infra).
-Build: {mi['dep_build_time']:.1f}s.</p></div></div>
-
-<div class="section"><table>
-<thead><tr><th>Metric</th><th>Partitioned</th><th>Departitioned</th></tr></thead>
-<tbody>
-<tr><td>Steps</td><td>{mi['part_steps']}</td><td>{mi['dep_steps']}</td></tr>
-<tr><td>Build Time</td><td>{mi['part_build_time']:.1f}s</td><td>{mi['dep_build_time']:.1f}s</td></tr>
-<tr><td>Sim Wall Time</td><td>{sd['part_wall']:.1f}s</td><td>{sd['dep_wall']:.1f}s</td></tr>
-<tr><td>Sim Duration</td><td>{sd['part_sim_time']:.0f}s</td><td>{sd['dep_sim_time']:.0f}s</td></tr>
-</tbody></table></div>
+<div class="arch-box" style="border-top:3px solid #2563eb">
+<h3 class="blue">Partitioned (Baseline)</h3>
+<pre>Requester &rarr; Allocator &rarr; Evolver
+3 steps per process + priority allocation
+{sim_data['part']['n_steps']} total steps</pre></div>
+<div class="arch-box" style="border-top:3px solid #dc2626">
+<h3 class="red">Departitioned</h3>
+<pre>DepartitionedStep._do_update()
+No allocator, sequential execution
+evolve_only: RnaMaturation, Complexation
+{sim_data['dep']['n_steps']} total steps</pre></div>
+<div class="arch-box" style="border-top:3px solid #16a34a">
+<h3 class="green">Reconciled</h3>
+<pre>ReconciledStep per allocator layer
+Proportional allocation via reconcile
+evolve_only: RnaMaturation, Complexation
+{sim_data['rec']['n_steps']} total steps</pre></div>
+</div>
 
 <h2>Mass Trajectories</h2>
 <div class="plot"><img src="data:image/png;base64,{plots['mass_traj']}" alt="Mass"></div>
 
-<h2>Mass Divergence</h2>
+<h2>Mass Divergence vs Partitioned</h2>
 <div class="section"><table>
-<thead><tr><th>Component</th><th>Max % Difference</th></tr></thead>
+<thead><tr><th>Component</th><th style="text-align:right">Dep Max %</th><th style="text-align:right">Rec Max %</th></tr></thead>
 <tbody>{field_rows}</tbody></table></div>
 <div class="plot"><img src="data:image/png;base64,{plots['mass_div']}" alt="Divergence"></div>
 
-<h2>Bulk Count Scatter</h2>
-<div class="section"><p>Final bulk counts: <strong>{metrics['bulk_exact_match']}</strong> /
-{metrics['bulk_total']} exact matches. Pearson r = <strong>{r_str}</strong>.</p></div>
-<div class="plot"><img src="data:image/png;base64,{plots['bulk_scatter']}" alt="Bulk"></div>
-
-<h2>Growth Comparison</h2>
+<h2>Growth & Volume</h2>
 <div class="plot"><img src="data:image/png;base64,{plots['growth']}" alt="Growth"></div>
 
-<h2>Timing Comparison</h2>
+<h2>Top Diverging Molecules: Departitioned</h2>
+<div class="plot"><img src="data:image/png;base64,{plots['top_dep']}" alt="Top Dep"></div>
+<div class="section" style="max-height:400px;overflow-y:auto"><table>
+<thead><tr><th>#</th><th>Molecule</th><th style="text-align:right">Part</th>
+<th style="text-align:right">Dep</th><th style="text-align:right">Abs Diff</th><th>Direction</th></tr></thead>
+<tbody>{dep_mol}</tbody></table></div>
+
+<h2>Top Diverging Molecules: Reconciled</h2>
+<div class="plot"><img src="data:image/png;base64,{plots['top_rec']}" alt="Top Rec"></div>
+<div class="section" style="max-height:400px;overflow-y:auto"><table>
+<thead><tr><th>#</th><th>Molecule</th><th style="text-align:right">Part</th>
+<th style="text-align:right">Rec</th><th style="text-align:right">Abs Diff</th><th>Direction</th></tr></thead>
+<tbody>{rec_mol}</tbody></table></div>
+
+<h2>Timing</h2>
 <div class="plot"><img src="data:image/png;base64,{plots['timing']}" alt="Timing"></div>
 
-<div class="verdict" style="background:{'#dcfce7' if ok else '#fee2e2'};
-border:2px solid {vc}">
-<strong style="font-size:1.3em;color:{vc}">{vt}</strong>
-<span style="margin-left:12px">{vd}</span></div>
+<div class="verdict" style="background:#f0f9ff;border:2px solid #2563eb">
+<strong>Reconciled architecture closes the gap:</strong> {rec_err:.2f}% max error
+vs departitioned {dep_err:.2f}%
+({dep_err/max(rec_err, 0.001):.1f}x improvement).
+{sim_data['rec']['n_steps']} steps vs {sim_data['part']['n_steps']} partitioned
+({100*(1-sim_data['rec']['n_steps']/sim_data['part']['n_steps']):.0f}% fewer).
+</div>
 
-<footer>v2ecoli Architecture Comparison &middot; {date_str} &middot;
+<footer>v2ecoli Three-Way Architecture Comparison &middot; {date_str} &middot;
 Duration: {duration}s &middot; Seed {seed}</footer>
 </body></html>""")
 
@@ -528,42 +592,53 @@ Duration: {duration}s &middot; Seed {seed}</footer>
 def run_comparison(duration=DEFAULT_DURATION, seed=0,
                    cache_dir='out/cache',
                    output='out/comparison_report.html',
-                   snapshot_interval=SNAPSHOT_INTERVAL):
-    print(f'=== v2ecoli Architecture Comparison ===')
-    print(f'    Duration: {duration}s, Seed: {seed}, Cache: {cache_dir}\n')
+                   snapshot_interval=SNAPSHOT_INTERVAL,
+                   parallel=True):
+    print(f'=== v2ecoli Three-Way Architecture Comparison ===')
+    print(f'    Duration: {duration}s, Seed: {seed}, Cache: {cache_dir}')
+    print(f'    Parallel: {parallel}\n')
 
-    part, dep, model_info = load_models(cache_dir, seed)
-    sim_data = run_simulations(part, dep, duration, snapshot_interval)
+    if parallel:
+        sim_data, par_wall = run_all_parallel(
+            cache_dir, seed, duration, snapshot_interval)
+    else:
+        sim_data, par_wall = run_all_sequential(
+            cache_dir, seed, duration, snapshot_interval)
+
     metrics = compute_metrics(sim_data)
 
     print('\nStep 4: Generating plots...')
     plots = {
         'mass_traj': plot_mass_trajectories(sim_data),
-        'mass_div': plot_mass_divergence(metrics),
-        'bulk_scatter': plot_bulk_scatter(sim_data),
-        'growth': plot_growth_comparison(sim_data),
-        'timing': plot_timing(model_info, sim_data),
+        'mass_div': plot_mass_divergence(sim_data, metrics),
+        'growth': plot_growth(sim_data),
+        'timing': plot_timing(sim_data),
+        'top_dep': plot_top_diverging(metrics, 'dep'),
+        'top_rec': plot_top_diverging(metrics, 'rec'),
     }
 
     report = generate_html(
-        model_info, sim_data, metrics, plots, seed, duration, output)
+        sim_data, metrics, plots, seed, duration, output, par_wall)
     print(f'\n=== Done. Report: {report} ===')
     return report
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Compare partitioned vs departitioned E. coli')
+        description='Three-way E. coli architecture comparison')
     parser.add_argument('--duration', type=int, default=DEFAULT_DURATION)
     parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--cache-dir', default='out/cache')
     parser.add_argument('--output', default='out/comparison_report.html')
     parser.add_argument('--snapshot-interval', type=int,
                         default=SNAPSHOT_INTERVAL)
+    parser.add_argument('--no-parallel', action='store_true',
+                        help='Run sequentially instead of parallel')
     args = parser.parse_args()
 
     run_comparison(
         duration=args.duration, seed=args.seed,
         cache_dir=args.cache_dir, output=args.output,
         snapshot_interval=args.snapshot_interval,
+        parallel=not args.no_parallel,
     )

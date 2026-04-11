@@ -39,47 +39,27 @@ class ReplicationData(Step):
 
     def inputs(self):
         return {
-            'oriCs': ORIC_ARRAY,
-            'DnaA_boxes': DNAA_BOX_ARRAY,
-            'active_replisomes': ACTIVE_REPLISOME_ARRAY,
-            'global_time': 'float',
-            'timestep': 'float',
+            'oriCs': {'_type': ORIC_ARRAY, '_default': []},
+            'DnaA_boxes': {'_type': DNAA_BOX_ARRAY, '_default': []},
+            'active_replisomes': {'_type': ACTIVE_REPLISOME_ARRAY, '_default': []},
+            'global_time': {'_type': 'float', '_default': 0.0},
+            'timestep': {'_type': 'float', '_default': 1},
         }
 
     def outputs(self):
         return {
             'listeners': {
                 'replication_data': {
-                    'fork_coordinates': 'array[integer]',
-                    'fork_domains': 'array[integer]',
-                    'fork_unique_index': 'array[integer]',
-                    'number_of_oric': 'overwrite[integer]',
-                    'free_DnaA_boxes': 'overwrite[integer]',
-                    'total_DnaA_boxes': 'overwrite[integer]',
+                    'fork_coordinates': {'_type': 'array[integer]', '_default': []},
+                    'fork_domains': {'_type': 'array[integer]', '_default': []},
+                    'fork_unique_index': {'_type': 'array[integer]', '_default': []},
+                    'number_of_oric': {'_type': 'overwrite[integer]', '_default': []},
+                    'free_DnaA_boxes': {'_type': 'overwrite[integer]', '_default': []},
+                    'total_DnaA_boxes': {'_type': 'overwrite[integer]', '_default': []},
                 },
             },
         }
 
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
-        return {
-            'listeners': {
-                'replication_data': {
-                    'fork_coordinates': [],
-                    'fork_domains': [],
-                    'fork_unique_index': [],
-                    'number_of_oric': [],
-                    'free_DnaA_boxes': [],
-                    'total_DnaA_boxes': [],
-                },
-            },
-            'oriCs': [],
-            'active_replisomes': [],
-            'DnaA_boxes': [],
-            'global_time': 0.0,
-            'timestep': 1,
-        }
 
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0

@@ -72,9 +72,7 @@ class Allocator(Step):
             },
         }
 
-    # Constructor
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
         self.moleculeNames = self.parameters["molecule_names"]
         self.n_molecules = len(self.moleculeNames)
         self.mol_name_to_idx = {

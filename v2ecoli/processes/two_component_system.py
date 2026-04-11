@@ -42,23 +42,7 @@ class TwoComponentSystem(PartitionedProcess):
         'seed': {'_type': 'integer', '_default': 0},
     }
 
-    def inputs(self):
-        return {
-            'bulk': 'bulk_array',
-            'listeners': {'mass': {'cell_mass': 'float[fg]'}},
-            'timestep': 'integer',
-        }
-
-    def outputs(self):
-        return {
-            'bulk': 'bulk_array',
-        }
-
-
-
-    # Constructor
-    def __init__(self, parameters):
-        super().__init__(parameters)
+    def initialize(self, config):
 
         # Simulation options
         self.jit = self.parameters["jit"]
@@ -80,35 +64,19 @@ class TwoComponentSystem(PartitionedProcess):
         self.molecule_idx = None
 
     def inputs(self):
-        return (
-            {
-                'bulk': 'bulk_array',
-                'listeners':                 {
-                    'mass':                     {
-                        'cell_mass': 'float[fg]',
-                    },
-                },
-                'timestep': 'integer',
-            }
-        )
-
-    def outputs(self):
-        return (
-            {
-                'bulk': 'bulk_array',
-            }
-        )
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
         return {
-            'bulk': [],
+            'bulk': {'_type': 'bulk_array', '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': 0,
+                    'cell_mass': {'_type': 'float[fg]', '_default': 0},
                 },
             },
-            'timestep': 1.0,
+            'timestep': {'_type': 'integer', '_default': 1.0},
+        }
+
+    def outputs(self):
+        return {
+            'bulk': 'bulk_array',
         }
 
     def calculate_request(self, timestep, states):

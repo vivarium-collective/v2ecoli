@@ -19,8 +19,7 @@ class ExchangeData(Step):
         "environment": ("environment",),
     }
 
-    def __init__(self, config=None, core=None):
-        super().__init__(config=config, core=core)
+    def initialize(self, config):
         self.parameters = config or {}
         self.external_state = self.parameters.get("external_state")
         self.environment_molecules = self.parameters.get("environment_molecules", [])

@@ -72,15 +72,15 @@ class MassListener(Step):
 
     def inputs(self):
         return {
-            'bulk': 'bulk_array',
+            'bulk': {'_type': 'bulk_array', '_default': []},
             'unique': 'map[node]',
             'listeners': {
                 'mass': {
-                    'dry_mass': 'float[fg]',
+                    'dry_mass': {'_type': 'float[fg]', '_default': 0.0},
                 },
             },
-            'global_time': 'float',
-            'timestep': 'float',
+            'global_time': {'_type': 'float', '_default': 0.0},
+            'timestep': {'_type': 'float', '_default': 1.0},
         }
 
     def outputs(self):
@@ -88,46 +88,45 @@ class MassListener(Step):
             'listeners': {
                 'mass': {
                     # Cell + submass compartments — femtograms
-                    'cell_mass': 'overwrite[float[fg]]',
-                    'water_mass': 'overwrite[float[fg]]',
-                    'dry_mass': 'overwrite[float[fg]]',
-                    'rna_mass': 'overwrite[float[fg]]',
-                    'rRna_mass': 'overwrite[float[fg]]',
-                    'tRna_mass': 'overwrite[float[fg]]',
-                    'mRna_mass': 'overwrite[float[fg]]',
-                    'dna_mass': 'overwrite[float[fg]]',
-                    'protein_mass': 'overwrite[float[fg]]',
-                    'smallMolecule_mass': 'overwrite[float[fg]]',
+                    'cell_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'water_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'dry_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'rna_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'rRna_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'tRna_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'mRna_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'dna_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'protein_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'smallMolecule_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
                     # Compartment masses — also femtograms
-                    'projection_mass': 'overwrite[float[fg]]',
-                    'cytosol_mass': 'overwrite[float[fg]]',
-                    'extracellular_mass': 'overwrite[float[fg]]',
-                    'flagellum_mass': 'overwrite[float[fg]]',
-                    'membrane_mass': 'overwrite[float[fg]]',
-                    'outer_membrane_mass': 'overwrite[float[fg]]',
-                    'periplasm_mass': 'overwrite[float[fg]]',
-                    'pilus_mass': 'overwrite[float[fg]]',
-                    'inner_membrane_mass': 'overwrite[float[fg]]',
+                    'projection_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'cytosol_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'extracellular_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'flagellum_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'membrane_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'outer_membrane_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'periplasm_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'pilus_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'inner_membrane_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
                     # Volume — femtoliters
-                    'volume': 'overwrite[float[fL]]',
+                    'volume': {'_type': 'overwrite[float[fL]]', '_default': 0.0},
                     # Growth — fg per second
-                    'growth': 'overwrite[float[fg/s]]',
-                    'instantaneous_growth_rate': 'overwrite[float[1/s]]',
+                    'growth': {'_type': 'overwrite[float[fg/s]]', '_default': 0.0},
+                    'instantaneous_growth_rate': {'_type': 'overwrite[float[1/s]]', '_default': 0.0},
                     # Dimensionless ratios and fractions
-                    'protein_mass_fraction': 'overwrite[float]',
-                    'rna_mass_fraction': 'overwrite[float]',
-                    'dry_mass_fold_change': 'overwrite[float]',
-                    'protein_mass_fold_change': 'overwrite[float]',
-                    'rna_mass_fold_change': 'overwrite[float]',
-                    'small_molecule_fold_change': 'overwrite[float]',
-                    'expected_mass_fold_change': 'overwrite[float]',
+                    'protein_mass_fraction': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'rna_mass_fraction': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'dry_mass_fold_change': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'protein_mass_fold_change': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'rna_mass_fold_change': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'small_molecule_fold_change': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'expected_mass_fold_change': {'_type': 'overwrite[float]', '_default': 0.0},
                 },
             },
         }
 
 
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
 
         # molecule indexes and masses
         self.bulk_ids = self.parameters["bulk_ids"]
@@ -208,60 +207,6 @@ class MassListener(Step):
 
         # Enable flag for perfect recapitulation of wcEcoli mass calculations
         self.match_wcecoli = self.parameters["match_wcecoli"]
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
-        return {
-            'bulk': [],
-            'unique': {
-                'RNA': [],
-                'active_RNAP': [],
-                'active_replisome': [],
-                'chromosomal_segment': [],
-                'chromosome_domain': [],
-                'full_chromosome': [],
-                'gene': [],
-                'oriC': [],
-                'promoter': [],
-                'active_ribosome': [],
-                'DnaA_box': [],
-            },
-            'listeners': {
-                'mass': {
-                    'cell_mass': 0.0,
-                    'water_mass': 0.0,
-                    'dry_mass': 0.0,
-                    'rna_mass': 0.0,
-                    'rRna_mass': 0.0,
-                    'tRna_mass': 0.0,
-                    'mRna_mass': 0.0,
-                    'dna_mass': 0.0,
-                    'protein_mass': 0.0,
-                    'smallMolecule_mass': 0.0,
-                    'volume': 0.0,
-                    'protein_mass_fraction': 0.0,
-                    'rna_mass_fraction': 0.0,
-                    'growth': 0.0,
-                    'instantaneous_growth_rate': 0.0,
-                    'dry_mass_fold_change': 0.0,
-                    'protein_mass_fold_change': 0.0,
-                    'rna_mass_fold_change': 0.0,
-                    'small_molecule_fold_change': 0.0,
-                    'projection_mass': 0.0,
-                    'cytosol_mass': 0.0,
-                    'extracellular_mass': 0.0,
-                    'flagellum_mass': 0.0,
-                    'membrane_mass': 0.0,
-                    'outer_membrane_mass': 0.0,
-                    'periplasm_mass': 0.0,
-                    'pilus_mass': 0.0,
-                    'inner_membrane_mass': 0.0,
-                    'expected_mass_fold_change': 0.0,
-                },
-            },
-            'global_time': 0.0,
-            'timestep': 1.0,
-        }
 
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0

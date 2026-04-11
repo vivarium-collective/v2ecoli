@@ -44,11 +44,11 @@ class TfUnbinding(Step):
 
     def inputs(self):
         return {
-            'bulk': 'bulk_array',
-            'promoters': PROMOTER_ARRAY,
-            'global_time': 'float',
-            'timestep': 'integer',
-            'next_update_time': 'overwrite[float]',
+            'bulk': {'_type': 'bulk_array', '_default': []},
+            'promoters': {'_type': PROMOTER_ARRAY, '_default': []},
+            'global_time': {'_type': 'float', '_default': 0.0},
+            'timestep': {'_type': 'integer', '_default': 1},
+            'next_update_time': {'_type': 'overwrite[float]', '_default': 1.0},
         }
 
     def outputs(self):
@@ -59,24 +59,13 @@ class TfUnbinding(Step):
         }
 
 
-    def __init__(self, parameters=None):
-        super().__init__(parameters)
+    def initialize(self, config):
         self.tf_ids = self.parameters["tf_ids"]
         self.submass_indices = self.parameters["submass_indices"]
         self.active_tf_masses = self.parameters["active_tf_masses"]
 
         # Numpy indices for bulk molecules
         self.active_tf_idx = None
-
-    def port_defaults(self):
-        """Default values for ports that need pre-population."""
-        return {
-            'bulk': [],
-            'promoters': [],
-            'global_time': 0.0,
-            'timestep': 1.0,
-            'next_update_time': 1.0,
-        }
 
     def update_condition(self, timestep, states):
         """

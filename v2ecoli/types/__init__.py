@@ -115,6 +115,30 @@ def _resolve_map_string(current: _Map, update: _String, path=None):
 def _resolve_quote_quote(current: _Quote, update: _Quote, path=None):
     return current
 
+@_resolve.dispatch
+def _resolve_list_integer(current: _List, update: _Integer, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_integer_list(current: _Integer, update: _List, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_list_float(current: _List, update: _Float, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_float_list(current: _Float, update: _List, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_list_array(current: _List, update: _Array, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_array_list(current: _Array, update: _List, path=None):
+    return current
+
 # Self-resolves for subtypes (needed to avoid ambiguity since
 # ListenerStore is a subclass of InPlaceDict)
 @_resolve.dispatch

@@ -48,7 +48,7 @@ def make_colony_document(
     n_adder=9,
     env_size=40,
     physics_interval=10.0,
-    ecoli_interval=10.0,
+    ecoli_interval=60.0,  # WCM runs every 60s (heavy — don't run too often)
     cache_dir='out/cache',
     seed=0,
 ):
@@ -65,15 +65,12 @@ def make_colony_document(
         microbe_mass_density=0.02,
     )
 
-    # Add adder growth/division to the simple cells
-    # Use a manual loop to set the interval to match physics
-    from multi_cell.processes.grow_divide import make_adder_grow_divide_process
-    for agent_id, agent in initial['cells'].items():
-        agent['grow_divide'] = make_adder_grow_divide_process(
-            config={'agents_key': 'cells'},
-            agents_key='cells',
-            interval=physics_interval,
-        )
+    # Add mass-based growth/division
+    add_adder_grow_divide_to_agents(
+        initial,
+        agents_key='cells',
+        config={'agents_key': 'cells'},
+    )
 
     cells = initial['cells']
 

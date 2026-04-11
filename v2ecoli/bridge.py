@@ -151,11 +151,9 @@ class EcoliWCM(Process):
         self._prev_mass = cur_mass
         self._prev_volume = cur_volume
 
-        # Scale whole-cell mass delta (~fg) to physical mass units
-        # Physical mass ~ density * length * 2 * radius ~ 0.04
-        # WCM mass ~ 380 fg. Scale factor = physical / wcm ~ 1e-4
-        MASS_SCALE = 1e-4
-        d_mass_physical = max(0.0, d_mass * MASS_SCALE)
+        # Pass whole-cell mass delta directly (in fg)
+        # Clamp to non-negative to prevent pymunk crashes
+        d_mass_physical = max(0.0, d_mass)
 
         exchange = {}
         if growth != 0.0:

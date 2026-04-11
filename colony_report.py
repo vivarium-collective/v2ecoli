@@ -34,7 +34,8 @@ from multi_cell import core_import
 from multi_cell.processes.multibody import (
     make_initial_state, make_rng, build_microbe)
 from multi_cell.processes.grow_divide import (
-    add_adder_grow_divide_to_agents, make_adder_grow_divide_process)
+    add_adder_grow_divide_to_agents, make_adder_grow_divide_process,
+    make_grow_divide_process)
 from multi_cell.plots.multibody_plots import simulation_to_gif
 
 from v2ecoli.bridge import EcoliWCM
@@ -54,32 +55,54 @@ def make_colony_document(
 ):
     """Build a colony with 1 wc-ecoli + n adder cells."""
     rng = make_rng(seed)
+    cx, cy = env_size / 2, env_size / 2  # center
 
-    # Create adder cells
-    initial = make_initial_state(
-        n_microbes=n_adder,
-        n_particles=0,
-        env_size=env_size,
-        microbe_length_range=(1.5, 2.5),
-        microbe_radius_range=(0.4, 0.6),
-        microbe_mass_density=0.02,
-    )
+    # Build all cells clustered at center
+    cells = {}
+    total = n_adder + 1  # adder + 1 ecoli
 
-    # Add mass-based growth/division
-    add_adder_grow_divide_to_agents(
-        initial,
-        agents_key='cells',
-        config={'agents_key': 'cells'},
-    )
+    # Place cells in a tight grid near center
+    cols = int(np.ceil(np.sqrt(total)))
+    spacing = 3.0  # µm between cell centers
 
-    cells = initial['cells']
+    positions = []
+    for i in range(total):
+        row, col = divmod(i, cols)
+        x = cx + (col - cols / 2) * spacing + rng.uniform(-0.3, 0.3)
+        y = cy + (row - cols / 2) * spacing + rng.uniform(-0.3, 0.3)
+        positions.append((x, y))
 
-    # Add 1 whole-cell E. coli
-    ecoli_id, ecoli_body = build_microbe(
-        rng, env_size=env_size,
-        x=env_size / 2, y=env_size / 2, angle=0,
-        length=2.0, radius=0.5, density=0.02,
-    )
+    # Randomly assign one position to ecoli
+    ecoli_idx = rng.randint(0, total)
+
+    for i in range(total):
+        x, y = positions[i]
+        angle = rng.uniform(0, 2 * np.pi)
+        length = 1.5 + rng.uniform(0, 1.0)
+        radius = 0.4 + rng.uniform(0, 0.2)
+
+        if i == ecoli_idx:
+            # This is the whole-cell ecoli
+            ecoli_id, ecoli_body = build_microbe(
+                rng, env_size=env_size,
+                x=x, y=y, angle=angle,
+                length=2.0, radius=0.5, density=0.02,
+            )
+            # Set initial physical mass to match WCM dry mass
+            ecoli_body['mass'] = 380.0  # fg, matches v2ecoli initial dry mass
+        else:
+            # Adder surrogate cell
+            aid, body = build_microbe(
+                rng, env_size=env_size,
+                x=x, y=y, angle=angle,
+                length=length, radius=radius, density=0.02,
+            )
+            body['grow_divide'] = make_adder_grow_divide_process(
+                config={'agents_key': 'cells'},
+                agents_key='cells',
+                interval=physics_interval,
+            )
+            cells[aid] = body
 
     # Embed EcoliWCM process inside the ecoli cell
     ecoli_body['ecoli'] = {
@@ -107,7 +130,7 @@ def make_colony_document(
 
     document = {
         'cells': cells,
-        'particles': initial.get('particles', {}),
+        'particles': {},
 
         'multibody': {
             '_type': 'process',
@@ -196,6 +219,12 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
     gif_path = os.path.join(REPORT_DIR, 'colony.gif')
     print(f"Generating GIF ({len(results)} frames)...")
     try:
+        # Color whole-cell ecoli green, adder surrogates grey
+        def ecoli_color_fn(aid, ent=None):
+            if aid == ecoli_id:
+                return (0.2, 0.75, 0.3)  # green
+            return (0.7, 0.7, 0.7)       # grey
+
         simulation_to_gif(
             results,
             config={'env_size': env_size},
@@ -203,11 +232,12 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
             filename='colony.gif',
             out_dir=REPORT_DIR,
             skip_frames=max(1, len(results) // 100),
-            color_by_phylogeny=True,
             show_time_title=True,
+            color_fn=ecoli_color_fn,
         )
         print(f"GIF saved: {gif_path}")
     except Exception as e:
+        import traceback; traceback.print_exc()
         print(f"GIF generation failed: {e}")
         gif_path = None
 

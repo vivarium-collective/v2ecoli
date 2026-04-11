@@ -51,6 +51,9 @@ class EcoliWCM(Process):
     def inputs(self):
         return {
             'local': 'map[float]',
+            'agent_id': 'string',
+            'location': 'tuple[float,float]',
+            'angle': 'float',
         }
 
     def outputs(self):
@@ -161,12 +164,19 @@ class EcoliWCM(Process):
 
         return d_mass_physical, d_volume, exchange
 
+    def outputs(self):
+        return {
+            'mass': 'float',
+            'volume': 'float',
+            'exchange': 'map[float]',
+            'agents': 'map[map]',  # for division: writing new cells
+        }
+
     def update(self, state, interval):
         if self._composite is None:
             try:
                 self._build_composite()
             except Exception as e:
-                # Build failed — return zeros
                 return {'mass': 0.0, 'volume': 0.0, 'exchange': {}}
 
         # Push external concentrations directly into internal boundary
@@ -179,18 +189,103 @@ class EcoliWCM(Process):
                 boundary[ecoli_name] = float(conc)
 
         # Run the internal composite directly
+        division_fired = False
         try:
             self._composite.run(interval)
-        except Exception:
-            # Internal sim error — return zeros for this tick
-            return {'mass': 0.0, 'volume': 0.0, 'exchange': {}}
+        except Exception as e:
+            # Check if this was a division event
+            err_str = str(e).lower()
+            if 'divide' in err_str or 'division' in err_str or 'DIVISION' in str(e):
+                division_fired = True
+            # Otherwise return zeros
+            if not division_fired:
+                return {'mass': 0.0, 'volume': 0.0, 'exchange': {}}
 
-        # Read outputs and return deltas
+        # Check for division flag in internal state
+        cell = self._composite.state
+        if cell.get('divide', False):
+            division_fired = True
+
+        if division_fired:
+            return self._handle_division(state)
+
+        # Normal: read outputs and return deltas
         d_mass, d_volume, exchange = self._read_outputs()
         return {
             'mass': d_mass,
             'volume': d_volume,
             'exchange': exchange,
+        }
+
+    def _handle_division(self, state):
+        """Handle WCM division: produce two daughter cells in the colony."""
+        cell = self._composite.state
+        mass_data = cell.get('listeners', {}).get('mass', {})
+        mother_mass = float(mass_data.get('dry_mass', 380.0))
+        half_mass = mother_mass / 2
+
+        # Get mother cell's physical state from the colony
+        agent_id = state.get('agent_id', 'unknown')
+
+        # Build two daughter EcoliWCM specs
+        cache_dir = self.config.get('cache_dir', 'out/cache')
+        seed = int(self.config.get('seed', 0))
+
+        from multi_cell.processes.multibody import make_rng, build_microbe
+        rng = make_rng(seed + hash(agent_id) % 10000)
+
+        # Place daughters near mother
+        mother_loc = state.get('location', (15, 15))
+        if isinstance(mother_loc, (list, tuple)) and len(mother_loc) >= 2:
+            mx, my = float(mother_loc[0]), float(mother_loc[1])
+        else:
+            mx, my = 15.0, 15.0
+        mother_angle = float(state.get('angle', 0))
+
+        import math
+        offset = 1.5  # µm apart
+        dx = offset * math.cos(mother_angle)
+        dy = offset * math.sin(mother_angle)
+
+        daughters = {}
+        for i, (ox, oy) in enumerate([(dx, dy), (-dx, -dy)]):
+            d_id = f'{agent_id}_{i}'
+            _, d_body = build_microbe(
+                rng, env_size=40,
+                x=mx + ox, y=my + oy, angle=mother_angle + rng.uniform(-0.3, 0.3),
+                length=2.0, radius=0.5, density=0.02,
+            )
+            d_body['mass'] = half_mass
+            # Each daughter gets its own EcoliWCM
+            d_body['ecoli'] = {
+                '_type': 'process',
+                'address': 'local:EcoliWCM',
+                'config': {
+                    'cache_dir': cache_dir,
+                    'seed': seed + i + 1,
+                },
+                'interval': self.config.get('interval', 60.0),
+                'inputs': {'local': ['local']},
+                'outputs': {
+                    'mass': ['mass'],
+                    'volume': ['volume'],
+                    'exchange': ['exchange'],
+                },
+            }
+            d_body['local'] = {}
+            d_body['volume'] = 0.0
+            d_body['exchange'] = {}
+            daughters[d_id] = d_body
+
+        # Return structural update: remove mother, add daughters
+        return {
+            'mass': 0.0,
+            'volume': 0.0,
+            'exchange': {},
+            'agents': {
+                '_remove': [agent_id] if agent_id != 'unknown' else [],
+                '_add': list(daughters.items()),
+            },
         }
 
 

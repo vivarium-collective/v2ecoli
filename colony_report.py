@@ -115,11 +115,15 @@ def make_colony_document(
         'interval': ecoli_interval,
         'inputs': {
             'local': ['local'],
+            'agent_id': ['id'],
+            'location': ['location'],
+            'angle': ['angle'],
         },
         'outputs': {
             'mass': ['mass'],
             'volume': ['volume'],
             'exchange': ['exchange'],
+            'agents': ['..', '..', 'cells'],
         },
     }
     ecoli_body.setdefault('local', {})
@@ -198,9 +202,17 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
         total += step
 
         n_cells = len(sim.state.get('cells', {}))
-        ecoli_alive = ecoli_id in sim.state.get('cells', {})
-        print(f"  t={total}s ({total/60:.0f}min): {n_cells} cells, "
-              f"ecoli={'alive' if ecoli_alive else 'gone'}")
+        colony_cells = sim.state.get('cells', {})
+        ecoli_alive = ecoli_id in colony_cells
+        # Check for daughter cells (ecoli_id_0, ecoli_id_1)
+        ecoli_daughters = [k for k in colony_cells if k.startswith(ecoli_id + '_')]
+        if ecoli_alive:
+            status = 'alive'
+        elif ecoli_daughters:
+            status = f'divided → {len(ecoli_daughters)} daughters'
+        else:
+            status = 'gone'
+        print(f"  t={total}s ({total/60:.0f}min): {n_cells} cells, ecoli={status}")
 
     wall_time = time.time() - t0
     n_final = len(sim.state.get('cells', {}))

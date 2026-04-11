@@ -1,18 +1,3 @@
-# Patch bigraph-schema's serialize to call _serialize_state on custom Node
-# subclasses that define it. This replaces the old @serialize.dispatch pattern
-# that broke when serialize became a plain function (no longer plum-dispatched).
-import importlib as _importlib
-_ser_mod = _importlib.import_module('bigraph_schema.methods.serialize')
-
-_original_serialize_leaf = _ser_mod._serialize_leaf
-
-def _patched_serialize_leaf(schema, state, path):
-    if hasattr(schema, '_serialize_state') and not isinstance(state, dict):
-        return schema._serialize_state(state)
-    return _original_serialize_leaf(schema, state, path)
-
-_ser_mod._serialize_leaf = _patched_serialize_leaf
-
 from v2ecoli.types.unum import UnumUnits
 from v2ecoli.types.quantity import Quantity
 from v2ecoli.types.csr_matrix import CSRMatrix
@@ -24,6 +9,40 @@ from v2ecoli.types.process import StepInstance, ProcessInstance
 from v2ecoli.types.stores import InPlaceDict, SetStore, ListenerStore, AccumulateFloat
 
 from process_bigraph import StepLink, ProcessLink
+
+# Register serialize dispatches for custom types that define _serialize_state.
+# serialize is now plum-dispatched in bigraph-schema api branch.
+from bigraph_schema.methods.serialize import serialize as _serialize
+
+@_serialize.dispatch
+def _serialize_unum(schema: UnumUnits, state):
+    if not isinstance(state, dict):
+        return schema._serialize_state(state)
+    return str(state)
+
+@_serialize.dispatch
+def _serialize_quantity(schema: Quantity, state):
+    if not isinstance(state, dict):
+        return schema._serialize_state(state)
+    return str(state)
+
+@_serialize.dispatch
+def _serialize_csr(schema: CSRMatrix, state):
+    if not isinstance(state, dict):
+        return schema._serialize_state(state)
+    return str(state)
+
+@_serialize.dispatch
+def _serialize_units_array(schema: UnitsArray, state):
+    if not isinstance(state, dict):
+        return schema._serialize_state(state)
+    return str(state)
+
+@_serialize.dispatch
+def _serialize_method(schema: Method, state):
+    if not isinstance(state, dict):
+        return schema._serialize_state(state)
+    return str(state)
 
 # Register align_parameters for custom array types so that string type
 # expressions like 'bulk_array[id:string|count:integer|...]' and

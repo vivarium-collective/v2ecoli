@@ -1,45 +1,100 @@
 <!DOCTYPE html>
 <html><head><meta charset="utf-8">
-<title>E. coli Colony Report</title>
+<title>E. coli Colony Simulation</title>
 <style>
-body { font-family: -apple-system, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f8fafc; }
+body { font-family: -apple-system, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f8fafc; color: #1e293b; }
 h1 { color: #0f172a; border-bottom: 3px solid #16a34a; padding-bottom: 8px; }
-h2 { color: #166534; }
+h2 { color: #166534; margin-top: 2em; }
+h3 { color: #334155; }
+p { line-height: 1.6; }
 table { border-collapse: collapse; margin: 1em 0; }
 th, td { padding: 6px 16px; border: 1px solid #e2e8f0; }
 th { background: #f1f5f9; }
-.gif { text-align: center; margin: 1em 0; }
-.gif img { max-width: 100%; border: 2px solid #e2e8f0; border-radius: 8px; }
+.media { text-align: center; margin: 1.5em 0; }
+.media img { max-width: 100%; border: 2px solid #e2e8f0; border-radius: 8px; }
+.media-label { font-size: 0.85em; color: #64748b; margin-top: 0.5em; }
+.legend { display: flex; gap: 2em; justify-content: center; margin: 1em 0; flex-wrap: wrap; }
+.legend-item { display: flex; align-items: center; gap: 0.5em; }
+.legend-swatch { width: 16px; height: 16px; border-radius: 3px; border: 1px solid #ccc; }
+.section { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5em; margin: 1em 0; }
 </style>
 </head><body>
-<h1>E. coli Colony Simulation</h1>
-<p>Mixed colony: 1 whole-cell E. coli (v2ecoli, 55 biological steps) +
-5 adder-based growth/division cells. 2D pymunk physics.</p>
 
-<h2>Configuration</h2>
+<h1>E. coli Colony Simulation</h1>
+
+<div class="section">
+<p>This simulation places a <strong>whole-cell <em>E. coli</em> model</strong> — with 55 biological
+processes including metabolism, transcription, translation, DNA replication, and chromosome
+segregation — inside a <strong>2D colony</strong> alongside simpler surrogate cells.</p>
+
+<p>Each whole-cell <em>E. coli</em> is implemented as an <code>EcoliWCM</code> process — a
+process-bigraph <code>Process</code> that holds an internal <code>Composite</code> connected
+via a bridge. The bridge maps external colony ports (mass, length, volume) to internal
+whole-cell stores. The whole-cell model (v2ecoli) runs the full mechanistic simulation of
+intracellular biology, while the colony framework (pymunk-process) handles spatial physics:
+cell body collisions, growth-driven elongation, and division mechanics.</p>
+
+<p>The <strong style="color:rgb(51,191,77);">green cell</strong> is the whole-cell
+<em>E. coli</em> — its length and mass are driven by the internal biological simulation. The
+<span style="color:#999;">grey cells</span> are surrogate cells using a simple adder growth model.
+When the whole-cell model reaches its division threshold (~702 fg dry mass, ~42 min), the bridge
+removes the mother cell and adds two daughter cells, each with a fresh copy of the whole-cell
+model. Daughters are shown with color-shifted variants of the mother&rsquo;s green.</p>
+</div>
+
+<h2>Colony Dynamics</h2>
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch" style="background:rgb(51,191,77)"></div> Whole-cell <em>E. coli</em> (v2ecoli, 55 processes)</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#b0b0b0"></div> Surrogate cell (adder growth/division)</div>
+</div>
+
+<div class="media">
+  <img src="colony.gif" alt="Colony simulation — spatial view">
+  <div class="media-label">Colony spatial view: 6 initial cells → 11 final cells over 45 min.
+  Colored cell = whole-cell <em>E. coli</em>; grey = surrogates.</div>
+</div>
+
+<h2>Chromosome State</h2>
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch" style="background:#10b981; border-radius:50%"></div> OriC (origin of replication)</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#ef4444"></div> Ter (terminus)</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#3b82f6; border-radius:50%"></div> RNA polymerase</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#f59e0b"></div> Replication fork</div>
+</div>
+<p>The circular chromosome of each whole-cell <em>E. coli</em>, synchronized with the colony
+animation above. Chromosome replication initiates around ~23 min, producing 2 chromosomes
+visible as separate circles. Each frame shows the current number of chromosomes, replication
+forks, and active RNA polymerases.</p>
+<div class="media">
+  <img src="chromosome.gif" alt="Chromosome state over time">
+  <div class="media-label">Chromosome state: replication forks traverse the circular genome,
+  RNA polymerases transcribe genes along the chromosome.</div>
+</div>
+
+<h2>Simulation Parameters</h2>
 <table>
 <tr><th>Parameter</th><th>Value</th></tr>
 <tr><td>Duration</td><td>45 min (2700s)</td></tr>
-<tr><td>WC-Ecoli cells</td><td>1 (EcoliWCM bridge)</td></tr>
-<tr><td>Adder cells</td><td>5</td></tr>
-<tr><td>Environment</td><td>40 x 40 µm</td></tr>
-<tr><td>Physics interval</td><td>30s</td></tr>
-<tr><td>WC-Ecoli interval</td><td>30s</td></tr>
+<tr><td>Whole-cell <em>E. coli</em></td><td>1 cell (EcoliWCM bridge, 55 steps)</td></tr>
+<tr><td>Surrogate cells</td><td>5 (AdderGrowDivide)</td></tr>
+<tr><td>Environment</td><td>40 × 40 µm</td></tr>
+<tr><td>Physics interval</td><td>10s</td></tr>
+<tr><td>WCM update interval</td><td>60s</td></tr>
 </table>
 
 <h2>Results</h2>
 <table>
 <tr><th>Metric</th><th>Value</th></tr>
-<tr><td>Build time</td><td>0.5s</td></tr>
-<tr><td>Wall time</td><td>1028s</td></tr>
-<tr><td>Speed</td><td>2.6x realtime</td></tr>
+<tr><td>Build time</td><td>0.7s</td></tr>
+<tr><td>Wall time</td><td>698s (11.6 min)</td></tr>
+<tr><td>Speed</td><td>3.9× realtime</td></tr>
 <tr><td>Initial cells</td><td>6</td></tr>
 <tr><td>Final cells</td><td>11</td></tr>
 <tr><td>Emitter frames</td><td>293</td></tr>
 </table>
 
-<h2>Colony Animation</h2>
-<div class="gif"><img src="colony.gif" alt="Colony simulation"></div>
 
-<footer>v2ecoli colony · pure process-bigraph</footer>
+<footer style="margin-top:3em; padding-top:1em; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:0.85em;">
+v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-collective/v2ecoli">github</a>
+</footer>
 </body></html>

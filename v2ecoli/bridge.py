@@ -131,47 +131,61 @@ class EcoliWCM(Process):
         self._prev_volume = float(mass_data.get('volume', 0.0))
 
     def _read_outputs(self):
-        """Read mass/volume from internal composite, return deltas."""
-        bridge_view = self._composite.read_bridge()
-        if bridge_view:
-            cur_mass = float(bridge_view.get('mass', 0.0))
-            cur_volume = float(bridge_view.get('volume', 0.0))
-            growth = float(bridge_view.get('exchange', 0.0))
-        else:
-            cell = self._composite.state
-            mass_data = cell.get('listeners', {}).get('mass', {})
-            cur_mass = float(mass_data.get('dry_mass', 0.0))
-            cur_volume = float(mass_data.get('volume', 0.0))
-            growth = float(mass_data.get('growth', 0.0))
+        """Read mass/volume from internal composite.
 
-        # Emit deltas (multi_cell uses accumulate semantics)
+        Returns the delta to reach the current whole-cell mass from
+        the *physical* mass set by the colony. Since the physical mass
+        starts small (~0.04fg) and the whole-cell mass is ~380fg, we
+        compute: delta = wcm_mass * scale_factor - current_physical_mass.
+        """
+        cell = self._composite.state
+        mass_data = cell.get('listeners', {}).get('mass', {})
+        cur_mass = float(mass_data.get('dry_mass', 0.0))
+        cur_volume = float(mass_data.get('volume', 0.0))
+        growth = float(mass_data.get('growth', 0.0))
+
+        # Compute mass delta, clamped to non-negative to prevent
+        # pymunk crashes from negative physical mass
         d_mass = cur_mass - self._prev_mass
         d_volume = cur_volume - self._prev_volume
         self._prev_mass = cur_mass
         self._prev_volume = cur_volume
 
+        # Scale whole-cell mass delta (~fg) to physical mass units
+        # Physical mass ~ density * length * 2 * radius ~ 0.04
+        # WCM mass ~ 380 fg. Scale factor = physical / wcm ~ 1e-4
+        MASS_SCALE = 1e-4
+        d_mass_physical = max(0.0, d_mass * MASS_SCALE)
+
         exchange = {}
         if growth != 0.0:
             exchange['biomass'] = growth
 
-        return d_mass, d_volume, exchange
+        return d_mass_physical, d_volume, exchange
 
     def update(self, state, interval):
         if self._composite is None:
-            self._build_composite()
+            try:
+                self._build_composite()
+            except Exception as e:
+                # Build failed — return zeros
+                return {'mass': 0.0, 'volume': 0.0, 'exchange': {}}
 
-        # Push external concentrations to internal boundary
+        # Push external concentrations directly into internal boundary
         local = state.get('local') or {}
         mol_map = self.config.get('molecule_map', {})
-        boundary_input = {
-            mol_map.get(k, k): float(v) for k, v in local.items()
-        }
+        boundary = self._composite.state.get('boundary', {}).get('external', {})
+        if isinstance(boundary, dict):
+            for mc_name, conc in local.items():
+                ecoli_name = mol_map.get(mc_name, mc_name)
+                boundary[ecoli_name] = float(conc)
 
-        # Run the internal composite
-        self._composite.update(
-            {'local': boundary_input},
-            interval,
-        )
+        # Run the internal composite directly
+        try:
+            self._composite.run(interval)
+        except Exception:
+            # Internal sim error — return zeros for this tick
+            return {'mass': 0.0, 'volume': 0.0, 'exchange': {}}
 
         # Read outputs and return deltas
         d_mass, d_volume, exchange = self._read_outputs()

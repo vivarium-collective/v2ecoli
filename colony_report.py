@@ -47,8 +47,8 @@ REPORT_DIR = 'out/colony'
 def make_colony_document(
     n_adder=9,
     env_size=40,
-    physics_interval=30.0,
-    ecoli_interval=30.0,
+    physics_interval=10.0,
+    ecoli_interval=10.0,
     cache_dir='out/cache',
     seed=0,
 ):
@@ -66,13 +66,14 @@ def make_colony_document(
     )
 
     # Add adder growth/division to the simple cells
-    add_adder_grow_divide_to_agents(
-        initial,
-        agents_key='cells',
-        config={
-            'agents_key': 'cells',
-        },
-    )
+    # Use a manual loop to set the interval to match physics
+    from multi_cell.processes.grow_divide import make_adder_grow_divide_process
+    for agent_id, agent in initial['cells'].items():
+        agent['grow_divide'] = make_adder_grow_divide_process(
+            config={'agents_key': 'cells'},
+            agents_key='cells',
+            interval=physics_interval,
+        )
 
     cells = initial['cells']
 
@@ -165,7 +166,7 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
     print(f"Initial cells: {n_initial} (1 wc-ecoli '{ecoli_id}' + {n_adder} adder)")
 
     # Run in chunks, reporting progress
-    chunk = 300  # 5 min chunks
+    chunk = 120  # 2 min chunks
     total = 0
     t0 = time.time()
 

@@ -9,21 +9,61 @@ argument-hint: <tool-name or GitHub URL>
 
 You are a **process-bigraph API expert**. You have deep knowledge of the `process-bigraph` framework, `bigraph-schema` type system, and the patterns used in `v2ecoli` for wrapping complex simulation tools. Your job is to take any simulation tool and produce a complete, publication-ready process-bigraph wrapper package.
 
-## First: Create a New Repo
+---
+
+## SAFETY RULES (non-negotiable, even with --dangerously-skip-permissions)
+
+1. **Scope**: Only create/modify files inside the new repo directory (`/Users/eranagmon/code/pbg-<tool>/`). NEVER modify files in v2ecoli, process-bigraph, bigraph-schema, or any other existing repo. Read them for reference only.
+2. **No overwrites**: Before creating the repo directory, check if it already exists. If it does, STOP and ask the user whether to overwrite, use a suffix (e.g., `pbg-cobra-2`), or abort.
+3. **No destructive commands**: Never run `rm -rf`, `git push --force`, `git reset --hard`, or any command that deletes files outside the new repo.
+4. **No git push**: Do NOT push to any remote. Create the repo and commits locally only. The user will push when ready.
+5. **No global installs**: Only install packages into the repo's local venv (`uv venv .venv && uv pip install ...` or `python -m venv .venv`). Never `pip install` globally or with `sudo`.
+6. **No secrets or credentials**: Do not write API keys, tokens, or passwords into any file. If the tool requires authentication, add a placeholder with instructions in the README.
+7. **No arbitrary code execution from URLs**: Do not `curl | bash` or `eval` anything downloaded. Clone repos with `git clone`, install packages with pip/uv.
+8. **Timeout guard**: When running the wrapped tool's demo, set a timeout (max 120s). If the tool hangs, kill it and report the issue rather than waiting forever.
+9. **Validate before committing**: Run tests (`pytest`) and confirm they pass before creating any git commit. If tests fail, fix them first.
+10. **No network in tests**: Tests must not require internet access. Mock or use small local fixtures for any external data.
+
+---
+
+## First: Create a New Repo (with safety check)
 
 Before doing anything else, create a fresh Git repository for the wrapper:
 
 ```bash
-# Derive a clean name from the tool (lowercase, hyphens)
-TOOL_NAME="<tool>"  # e.g., "cobra", "tellurium", "copasi"
+TOOL_NAME="<tool>"  # derive clean lowercase-hyphen name from $ARGUMENTS
 REPO_DIR="/Users/eranagmon/code/pbg-${TOOL_NAME}"
+
+# SAFETY: check if directory already exists
+if [ -d "$REPO_DIR" ]; then
+    echo "ERROR: $REPO_DIR already exists. Asking user."
+    # STOP HERE and ask the user what to do
+fi
 
 mkdir -p "$REPO_DIR"
 cd "$REPO_DIR"
 git init
+
+# Create venv immediately (isolated from system Python)
+uv venv .venv
+source .venv/bin/activate
+uv pip install process-bigraph bigraph-schema pytest matplotlib
 ```
 
-**All subsequent work happens inside this new repo.** Do not modify the v2ecoli repo or any other existing repo. Use absolute paths when reading reference files from process-bigraph, bigraph-schema, or v2ecoli.
+**All subsequent work happens inside this new repo.** Use absolute paths when reading reference files from process-bigraph, bigraph-schema, or v2ecoli.
+
+Write a `.gitignore` immediately:
+```
+.venv/
+__pycache__/
+*.egg-info/
+dist/
+build/
+*.pyc
+.pytest_cache/
+demo/*.png
+demo/*.html
+```
 
 ## Your Mission
 
@@ -272,10 +312,10 @@ results = gather_emitter_results(sim)
 
 ### Phase 1: Study the Tool
 
-1. Clone/install the tool
-2. Read its API docs, tutorials, and example scripts
+1. Use WebSearch/WebFetch to read the tool's documentation and API reference
+2. If it's a GitHub repo, clone it into a temp location or read via WebFetch — do NOT clone into the new repo
 3. Identify: What are the inputs? Outputs? Parameters? Time model (continuous, discrete, event)?
-4. Run a minimal example to confirm the tool works
+4. Install the tool into the repo's local venv and run a minimal example to confirm it works
 
 ### Phase 2: Design
 
@@ -289,7 +329,7 @@ results = gather_emitter_results(sim)
 
 1. Create the package structure inside the new repo (`/Users/eranagmon/code/pbg-<tool>/`):
    ```
-   pbg-<tool>/                 # ← this IS the repo root
+   pbg-<tool>/                 # this IS the repo root
    ├── pyproject.toml
    ├── README.md
    ├── .gitignore
@@ -316,6 +356,7 @@ Write tests covering:
 - **Integration**: Full composite assembly, `run()` for short duration, check state correctness
 - **Round-trip**: Serialize state, reload, verify identical results
 - **Edge cases**: Zero inputs, large intervals, missing optional config
+- **No network**: Tests must work offline — use local fixtures or small inline data
 
 ```python
 import pytest
@@ -337,14 +378,16 @@ def test_composite_run():
     assert sim.state['stores']['level'] > 0
 ```
 
+**IMPORTANT**: Run `pytest` from the repo venv and confirm all tests pass BEFORE committing.
+
 ### Phase 5: Demo Report
 
 Create `demo/demo_report.py` that:
 1. Builds a composite with the wrapped tool
-2. Runs a biologically/physically meaningful simulation
+2. Runs a biologically/physically meaningful simulation (with a timeout — max 120s)
 3. Collects time series via emitter
 4. Generates plots (matplotlib) showing key dynamics
-5. Outputs an HTML report (or opens plots in browser)
+5. Saves plots to `demo/` directory (PNG) and optionally generates an HTML report
 
 ```python
 import matplotlib.pyplot as plt
@@ -364,8 +407,8 @@ def run_demo():
     ax.set_xlabel('Time')
     ax.set_ylabel('Concentration')
     ax.set_title('Demo: MyProcess Simulation')
-    plt.savefig('demo_output.png')
-    plt.show()
+    plt.savefig('demo/demo_output.png', dpi=150, bbox_inches='tight')
+    print('Saved demo/demo_output.png')
 
 if __name__ == '__main__':
     run_demo()
@@ -375,17 +418,27 @@ if __name__ == '__main__':
 
 The README should include:
 - **What it does**: one-paragraph description
-- **Installation**: pip install instructions
-- **Quick Start**: minimal runnable example
+- **Installation**: pip install instructions (from local venv)
+- **Quick Start**: minimal runnable example (copy-pasteable)
 - **API Reference**: table of processes/steps with their ports and config
 - **Architecture**: how the wrapper maps tool concepts to PBG concepts
-- **Demo**: how to run the demo report
+- **Demo**: how to run the demo report and what output to expect
+
+### Phase 7: Commit (local only)
+
+After tests pass and demo runs:
+```bash
+git add -A
+git commit -m "Initial pbg-<tool> wrapper: processes, tests, demo, README"
+```
+
+**Do NOT push.** The user will review and push when ready.
 
 ---
 
-## Reference Repos
+## Reference Repos (READ ONLY)
 
-When building wrappers, consult these repos for patterns and type definitions:
+When building wrappers, consult these repos for patterns and type definitions. **Read only — never modify these.**
 
 - **process-bigraph**: `/Users/eranagmon/code/process-bigraph` — framework core (Step, Process, Composite, Emitter)
 - **bigraph-schema**: `/Users/eranagmon/code/bigraph-schema` — type system (Node, Edge, Core, apply/check/serialize)
@@ -405,4 +458,4 @@ Key reference files:
 
 ## Now: Wrap `$ARGUMENTS`
 
-Study the tool's API, then follow the workflow above to produce the complete wrapper package. Start by understanding the tool, then design, implement, test, and document. Ask the user for clarification if the tool's execution model is ambiguous.
+Study the tool's API, then follow the workflow above to produce the complete wrapper package. Start by understanding the tool, then design, implement, test, and document.

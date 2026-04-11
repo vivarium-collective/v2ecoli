@@ -511,29 +511,29 @@ th {{ background: #f1f5f9; }}
 <h1>E. coli Colony Simulation</h1>
 
 <div class="section">
-<h3>What is this?</h3>
 <p>This simulation places a <strong>whole-cell <em>E. coli</em> model</strong> — with 55 biological
 processes including metabolism, transcription, translation, DNA replication, and chromosome
-segregation — inside a <strong>2D colony</strong> alongside simpler surrogate cells. The whole-cell
-model (v2ecoli, built on process-bigraph) runs the full mechanistic simulation of intracellular
-biology, while the colony framework (pymunk-process) handles spatial physics: cell body collisions,
-growth-driven elongation, and division mechanics.</p>
+segregation — inside a <strong>2D colony</strong> alongside simpler surrogate cells.</p>
 
-<p>The <strong>colored cell</strong> is the whole-cell
+<p>Each whole-cell <em>E. coli</em> is implemented as an <code>EcoliWCM</code> process — a
+process-bigraph <code>Process</code> that holds an internal <code>Composite</code> connected
+via a bridge. The bridge maps external colony ports (mass, length, volume) to internal
+whole-cell stores. The whole-cell model (v2ecoli) runs the full mechanistic simulation of
+intracellular biology, while the colony framework (pymunk-process) handles spatial physics:
+cell body collisions, growth-driven elongation, and division mechanics.</p>
+
+<p>The <strong style="color:rgb(51,191,77);">green cell</strong> is the whole-cell
 <em>E. coli</em> — its length and mass are driven by the internal biological simulation. The
 <span style="color:#999;">grey cells</span> are surrogate cells using a simple adder growth model.
-When the whole-cell model reaches its division threshold (~702 fg dry mass, ~42 min), it divides
-into two daughter cells, each inheriting a fresh copy of the whole-cell model. Daughters are shown
-with phylogeny-mutated colors.</p>
+When the whole-cell model reaches its division threshold (~702 fg dry mass, ~42 min), the bridge
+removes the mother cell and adds two daughter cells, each with a fresh copy of the whole-cell
+model. Daughters are shown with color-shifted variants of the mother&rsquo;s green.</p>
 </div>
 
 <h2>Colony Dynamics</h2>
 <div class="legend">
   <div class="legend-item"><div class="legend-swatch" style="background:rgb(51,191,77)"></div> Whole-cell <em>E. coli</em> (v2ecoli, 55 processes)</div>
   <div class="legend-item"><div class="legend-swatch" style="background:#b0b0b0"></div> Surrogate cell (adder growth/division)</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#10b981"></div> OriC (origin of replication)</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#f59e0b"></div> Replication fork</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#3b82f6"></div> RNA polymerase</div>
 </div>
 """)
 
@@ -549,10 +549,16 @@ with phylogeny-mutated colors.</p>
         if chrom_gif_path and os.path.exists(chrom_gif_path):
             f.write(f"""
 <h2>Chromosome State</h2>
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch" style="background:#10b981; border-radius:50%"></div> OriC (origin of replication)</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#ef4444"></div> Ter (terminus)</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#3b82f6; border-radius:50%"></div> RNA polymerase</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#f59e0b"></div> Replication fork</div>
+</div>
 <p>The circular chromosome of each whole-cell <em>E. coli</em>, synchronized with the colony
-animation above. Green dot = OriC (origin), red square = Ter (terminus), blue dots = active
-RNA polymerases, orange triangles = replication forks. Chromosome replication initiates around
-~23 min, producing 2 chromosomes visible as separate circles.</p>
+animation above. Chromosome replication initiates around ~23 min, producing 2 chromosomes
+visible as separate circles. Each frame shows the current number of chromosomes, replication
+forks, and active RNA polymerases.</p>
 <div class="media">
   <img src="chromosome.gif" alt="Chromosome state over time">
   <div class="media-label">Chromosome state: replication forks traverse the circular genome,
@@ -583,15 +589,6 @@ RNA polymerases, orange triangles = replication forks. Chromosome replication in
 <tr><td>Emitter frames</td><td>{len(results)}</td></tr>
 </table>
 
-<div class="section">
-<h3>How it works</h3>
-<p>Each whole-cell <em>E. coli</em> is implemented as an <code>EcoliWCM</code> process — a
-process-bigraph <code>Process</code> that holds an internal <code>Composite</code> connected
-via a bridge. The bridge maps external colony ports (mass, length, volume) to internal
-whole-cell stores (listeners.mass.dry_mass, capsule geometry, etc.). When the internal model
-reaches the division mass threshold, the bridge removes the mother cell from the colony and
-adds two daughter cells, each with a fresh <code>EcoliWCM</code> process instance.</p>
-</div>
 
 <footer style="margin-top:3em; padding-top:1em; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:0.85em;">
 v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-collective/v2ecoli">github</a>

@@ -125,20 +125,17 @@ def make_colony_document(
             'volume': ['volume'],
             'exchange': ['exchange'],
             'agents': ['..', '..', 'cells'],
-            'chromosome_state': ['chromosome_state'],
         },
     }
     ecoli_body.setdefault('local', {})
     ecoli_body.setdefault('volume', 0.0)
     ecoli_body.setdefault('exchange', {})
-    ecoli_body.setdefault('chromosome_state', {})
 
     cells[ecoli_id] = ecoli_body
 
     document = {
         'cells': cells,
         'particles': {},
-
         'multibody': {
             '_type': 'process',
             'address': 'local:PymunkProcess',
@@ -201,6 +198,71 @@ def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
         ax.plot(fx, fy, 'v', color='#f59e0b', ms=8, zorder=4)
 
 
+def _generate_chromosome_gif_from_history(history, out_path):
+    """Generate chromosome GIF from directly-collected history.
+
+    Args:
+        history: list of (time, {cell_id: chrom_state_dict})
+        out_path: output GIF path
+    """
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from PIL import Image
+    import io
+
+    if not history:
+        return
+
+    images = []
+    for t, ecoli_cells in history:
+        n_panels = max(1, len(ecoli_cells))
+        fig, axes = plt.subplots(1, n_panels, figsize=(4 * n_panels, 4), squeeze=False)
+        fig.suptitle(f't = {t:.0f}s ({t/60:.1f} min)', fontsize=12, y=0.98)
+
+        if not ecoli_cells:
+            ax = axes[0][0]
+            ax.text(0.5, 0.5, 'No chromosome data', ha='center', va='center',
+                    transform=ax.transAxes, fontsize=10, color='#888')
+            ax.set_xlim(-1.5, 1.5); ax.set_ylim(-1.5, 1.5)
+            ax.set_aspect('equal'); ax.axis('off')
+        else:
+            for i, (aid, chrom) in enumerate(ecoli_cells.items()):
+                ax = axes[0][i]
+                n_chrom = chrom.get('n_chromosomes', 1)
+                forks = chrom.get('fork_coords', [])
+                rnaps = chrom.get('rnap_coords', [])
+                dm = chrom.get('dry_mass', 0)
+
+                R = 0.8
+                spacing = 2.2
+                total_w = (n_chrom - 1) * spacing
+                for c in range(n_chrom):
+                    cx = -total_w / 2 + c * spacing
+                    _draw_chromosome(ax, cx, 0, R, rnaps, forks)
+
+                # Short label
+                short = aid.split('_')[-1][:6] if '_' in aid else 'ecoli'
+                ax.set_title(f'{short}\n{dm:.0f} fg · {n_chrom} chr · '
+                             f'{len(forks)} forks · {len(rnaps)} RNAPs',
+                             fontsize=8)
+                xlim = max(2.5, 1.5 + (n_chrom - 1) * spacing)
+                ax.set_xlim(-xlim, xlim)
+                ax.set_ylim(-1.5, 1.5)
+                ax.set_aspect('equal'); ax.axis('off')
+
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=90, bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+        images.append(Image.open(buf).copy())
+
+    if images:
+        images[0].save(out_path, save_all=True, append_images=images[1:],
+                       duration=300, loop=0)
+
+
 def _generate_chromosome_gif(results, ecoli_id, out_path, skip=1):
     """Generate a GIF showing chromosome state over time for ecoli cells."""
     import matplotlib
@@ -213,18 +275,16 @@ def _generate_chromosome_gif(results, ecoli_id, out_path, skip=1):
     for entry in results[::skip]:
         if isinstance(entry, tuple):
             t, data = entry
-            agents = data.get('agents', {})
         else:
             t = entry.get('time', 0)
-            agents = entry.get('agents', {})
+            data = entry
 
-        # Find ecoli cells (mother or daughters)
+        # Read from top-level chromosome_states store
+        chrom_states = data.get('chromosome_states', {})
         ecoli_cells = {}
-        for aid, a in agents.items():
-            if aid == ecoli_id or aid.startswith(ecoli_id + '_'):
-                chrom = a.get('chromosome_state', {})
-                if chrom and isinstance(chrom, dict) and chrom.get('n_chromosomes', 0) > 0:
-                    ecoli_cells[aid] = chrom
+        for aid, chrom in chrom_states.items():
+            if isinstance(chrom, dict) and chrom.get('n_chromosomes', 0) > 0:
+                ecoli_cells[aid] = chrom
 
         frames_data.append((float(t), ecoli_cells))
 
@@ -305,10 +365,11 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
     n_initial = len(sim.state['cells'])
     print(f"Initial cells: {n_initial} (1 wc-ecoli '{ecoli_id}' + {n_adder} adder)")
 
-    # Run in chunks, reporting progress
+    # Run in chunks, collecting chromosome snapshots directly
     chunk = 120  # 2 min chunks
     total = 0
     t0 = time.time()
+    chromosome_history = []  # list of (time, {cell_id: chrom_state})
 
     while total < duration:
         step = min(chunk, duration - total)
@@ -318,8 +379,19 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
             print(f"  Warning at t={total+step}s: {type(e).__name__}")
         total += step
 
-        n_cells = len(sim.state.get('cells', {}))
+        # Collect chromosome state directly from EcoliWCM instances
         colony_cells = sim.state.get('cells', {})
+        chrom_snap = {}
+        for aid, cell in colony_cells.items():
+            if aid == ecoli_id or aid.startswith(ecoli_id + '_'):
+                ecoli_proc = cell.get('ecoli', {})
+                inst = ecoli_proc.get('instance') if isinstance(ecoli_proc, dict) else None
+                if inst and hasattr(inst, '_composite') and inst._composite is not None:
+                    chrom_snap[aid] = inst._read_chromosome_state()
+        if chrom_snap:
+            chromosome_history.append((total, chrom_snap))
+
+        n_cells = len(colony_cells)
         ecoli_alive = ecoli_id in colony_cells
         # Check for daughter cells (ecoli_id_0, ecoli_id_1)
         ecoli_daughters = [k for k in colony_cells if k.startswith(ecoli_id + '_')]
@@ -348,18 +420,39 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
     gif_path = os.path.join(REPORT_DIR, 'colony.gif')
     print(f"Generating GIF ({len(results)} frames)...")
     try:
-        # Hybrid coloring: phylogeny for ecoli lineage, grey for surrogates
-        from multi_cell.plots.multibody_plots import build_phylogeny_colors
-        # Larger mutations so daughters are visually distinct
-        phylo_colors = build_phylogeny_colors(
-            results, agents_key='agents',
-            dh=0.12, ds=0.08, dv=0.08)
+        # Hybrid coloring: fixed green base for ecoli, grey for surrogates
+        # Daughters get hue-shifted variants of the ecoli color
+        from colorsys import hsv_to_rgb, rgb_to_hsv
+        import random as _random
+        ecoli_base_rgb = (0.2, 0.75, 0.3)  # green
+        ecoli_base_hsv = rgb_to_hsv(*ecoli_base_rgb)
+        _color_rng = _random.Random(42)
+
+        # Build daughter color map with mutations from the ecoli base
+        _ecoli_colors = {ecoli_id: ecoli_base_rgb}
+
+        def _mutate(hsv):
+            h, s, v = hsv
+            h = (h + _color_rng.gauss(0, 0.08)) % 1.0
+            s = max(0.3, min(1.0, s + _color_rng.gauss(0, 0.05)))
+            v = max(0.4, min(1.0, v + _color_rng.gauss(0, 0.05)))
+            return (h, s, v)
+
+        def _get_ecoli_color(aid):
+            if aid in _ecoli_colors:
+                return _ecoli_colors[aid]
+            # Find parent
+            parent = '_'.join(aid.rsplit('_', 1)[:-1])
+            parent_rgb = _get_ecoli_color(parent) if parent in _ecoli_colors else ecoli_base_rgb
+            parent_hsv = rgb_to_hsv(*parent_rgb)
+            child_hsv = _mutate(parent_hsv)
+            child_rgb = hsv_to_rgb(*child_hsv)
+            _ecoli_colors[aid] = child_rgb
+            return child_rgb
 
         def _hybrid_color(aid, ent=None):
-            # Ecoli and its descendants get phylogeny colors
             if aid == ecoli_id or aid.startswith(ecoli_id + '_'):
-                return phylo_colors.get(aid, (0.2, 0.75, 0.3))
-            # Adder surrogate cells: grey
+                return _get_ecoli_color(aid)
             return (0.7, 0.7, 0.7)
 
         simulation_to_gif(
@@ -378,12 +471,11 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
         print(f"GIF generation failed: {e}")
         gif_path = None
 
-    # Generate chromosome state GIF
+    # Generate chromosome state GIF from collected history
     chrom_gif_path = os.path.join(REPORT_DIR, 'chromosome.gif')
-    print("Generating chromosome GIF...")
+    print(f"Generating chromosome GIF ({len(chromosome_history)} snapshots)...")
     try:
-        _generate_chromosome_gif(results, ecoli_id, chrom_gif_path,
-                                 skip=max(1, len(results) // 100))
+        _generate_chromosome_gif_from_history(chromosome_history, chrom_gif_path)
         print(f"Chromosome GIF saved: {chrom_gif_path}")
     except Exception as e:
         import traceback; traceback.print_exc()
@@ -427,7 +519,7 @@ model (v2ecoli, built on process-bigraph) runs the full mechanistic simulation o
 biology, while the colony framework (pymunk-process) handles spatial physics: cell body collisions,
 growth-driven elongation, and division mechanics.</p>
 
-<p>The <span style="color:#16a34a; font-weight:bold;">colored cell</span> is the whole-cell
+<p>The <strong>colored cell</strong> is the whole-cell
 <em>E. coli</em> — its length and mass are driven by the internal biological simulation. The
 <span style="color:#999;">grey cells</span> are surrogate cells using a simple adder growth model.
 When the whole-cell model reaches its division threshold (~702 fg dry mass, ~42 min), it divides
@@ -437,7 +529,7 @@ with phylogeny-mutated colors.</p>
 
 <h2>Colony Dynamics</h2>
 <div class="legend">
-  <div class="legend-item"><div class="legend-swatch" style="background:#4ade80"></div> Whole-cell <em>E. coli</em> (v2ecoli, 55 processes)</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:rgb(51,191,77)"></div> Whole-cell <em>E. coli</em> (v2ecoli, 55 processes)</div>
   <div class="legend-item"><div class="legend-swatch" style="background:#b0b0b0"></div> Surrogate cell (adder growth/division)</div>
   <div class="legend-item"><div class="legend-swatch" style="background:#10b981"></div> OriC (origin of replication)</div>
   <div class="legend-item"><div class="legend-swatch" style="background:#f59e0b"></div> Replication fork</div>

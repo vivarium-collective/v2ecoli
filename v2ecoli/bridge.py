@@ -134,6 +134,55 @@ class EcoliWCM(Process):
         self._prev_mass = float(mass_data.get('dry_mass', 0.0))
         self._prev_volume = float(mass_data.get('volume', 0.0))
 
+    def _read_chromosome_state(self):
+        """Extract chromosome state snapshot for visualization."""
+        import numpy as np
+        cell = self._composite.state
+        unique = cell.get('unique', {})
+
+        # Full chromosomes
+        fc = unique.get('full_chromosome')
+        n_chromosomes = 0
+        if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
+            n_chromosomes = int(fc['_entryState'].sum())
+
+        # Active replisomes (replication forks)
+        rep = unique.get('active_replisome')
+        fork_coords = []
+        n_forks = 0
+        if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
+            active = rep[rep['_entryState'].view(np.bool_)]
+            n_forks = len(active)
+            if n_forks > 0 and 'coordinates' in rep.dtype.names:
+                fork_coords = active['coordinates'].tolist()
+
+        # Active RNAPs
+        rnap = unique.get('active_RNAP')
+        n_rnap = 0
+        rnap_coords = []
+        if rnap is not None and hasattr(rnap, 'dtype') and '_entryState' in rnap.dtype.names:
+            active_rnap = rnap[rnap['_entryState'].view(np.bool_)]
+            n_rnap = len(active_rnap)
+            if n_rnap > 0 and 'coordinates' in rnap.dtype.names:
+                rnap_coords = active_rnap['coordinates'].tolist()
+
+        # Mass breakdown
+        mass_data = cell.get('listeners', {}).get('mass', {})
+
+        return {
+            'n_chromosomes': n_chromosomes,
+            'n_forks': n_forks,
+            'fork_coords': fork_coords,
+            'n_rnap': n_rnap,
+            'rnap_coords': rnap_coords,
+            'dry_mass': float(mass_data.get('dry_mass', 0)),
+            'protein_mass': float(mass_data.get('protein_mass', 0)),
+            'rna_mass': float(mass_data.get('rRna_mass', 0)) +
+                        float(mass_data.get('tRna_mass', 0)) +
+                        float(mass_data.get('mRna_mass', 0)),
+            'dna_mass': float(mass_data.get('dna_mass', 0)),
+        }
+
     def _read_outputs(self):
         """Read mass/volume from internal composite, compute length."""
         cell = self._composite.state
@@ -174,7 +223,8 @@ class EcoliWCM(Process):
             'length': 'float',
             'volume': 'float',
             'exchange': 'map[float]',
-            'agents': 'map[map]',  # for division: writing new cells
+            'agents': 'map[map]',
+            'chromosome_state': 'map',  # snapshot of chromosome for visualization
         }
 
     def update(self, state, interval):
@@ -216,11 +266,13 @@ class EcoliWCM(Process):
 
         # Normal: read outputs and return deltas
         d_mass, d_length, d_volume, exchange = self._read_outputs()
+        chrom = self._read_chromosome_state()
         return {
             'mass': d_mass,
             'length': d_length,
             'volume': d_volume,
             'exchange': exchange,
+            'chromosome_state': chrom,
         }
 
     def _handle_division(self, state):

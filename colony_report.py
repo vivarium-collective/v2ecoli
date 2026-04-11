@@ -125,11 +125,13 @@ def make_colony_document(
             'volume': ['volume'],
             'exchange': ['exchange'],
             'agents': ['..', '..', 'cells'],
+            'chromosome_state': ['chromosome_state'],
         },
     }
     ecoli_body.setdefault('local', {})
     ecoli_body.setdefault('volume', 0.0)
     ecoli_body.setdefault('exchange', {})
+    ecoli_body.setdefault('chromosome_state', {})
 
     cells[ecoli_id] = ecoli_body
 
@@ -163,6 +165,120 @@ def make_colony_document(
     }
 
     return document, ecoli_id
+
+
+# ---------------------------------------------------------------------------
+# Chromosome state visualization
+# ---------------------------------------------------------------------------
+
+MAX_COORD = 2_320_826  # Half-genome in bp
+
+
+def _coord_to_angle(coord):
+    frac = coord / MAX_COORD
+    return np.pi / 2 - frac * np.pi
+
+
+def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
+    """Draw one circular chromosome."""
+    theta = np.linspace(0, 2 * np.pi, 200)
+    ax.plot(cx + R * np.cos(theta), cy + R * np.sin(theta),
+            color='#cbd5e1', lw=3, zorder=1)
+    # OriC (top) and Ter (bottom)
+    ax.plot(cx, cy + R, 'o', color='#10b981', ms=7, zorder=5)
+    ax.plot(cx, cy - R, 's', color='#ef4444', ms=5, zorder=5)
+    # RNAPs
+    if rnap_coords:
+        angles = [_coord_to_angle(c) for c in rnap_coords]
+        rx = [cx + R * np.cos(a) for a in angles]
+        ry = [cy + R * np.sin(a) for a in angles]
+        ax.scatter(rx, ry, c='#3b82f6', s=3, alpha=0.3, zorder=3)
+    # Forks
+    for coord in fork_coords:
+        angle = _coord_to_angle(coord)
+        fx = cx + (R + 0.08) * np.cos(angle)
+        fy = cy + (R + 0.08) * np.sin(angle)
+        ax.plot(fx, fy, 'v', color='#f59e0b', ms=8, zorder=4)
+
+
+def _generate_chromosome_gif(results, ecoli_id, out_path, skip=1):
+    """Generate a GIF showing chromosome state over time for ecoli cells."""
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from PIL import Image
+    import io
+
+    frames_data = []
+    for entry in results[::skip]:
+        if isinstance(entry, tuple):
+            t, data = entry
+            agents = data.get('agents', {})
+        else:
+            t = entry.get('time', 0)
+            agents = entry.get('agents', {})
+
+        # Find ecoli cells (mother or daughters)
+        ecoli_cells = {}
+        for aid, a in agents.items():
+            if aid == ecoli_id or aid.startswith(ecoli_id + '_'):
+                chrom = a.get('chromosome_state', {})
+                if chrom and isinstance(chrom, dict) and chrom.get('n_chromosomes', 0) > 0:
+                    ecoli_cells[aid] = chrom
+
+        frames_data.append((float(t), ecoli_cells))
+
+    if not frames_data:
+        return
+
+    # Render frames
+    images = []
+    for t, ecoli_cells in frames_data:
+        n_panels = max(1, len(ecoli_cells))
+        fig, axes = plt.subplots(1, n_panels, figsize=(4 * n_panels, 4), squeeze=False)
+        fig.suptitle(f't = {t:.0f}s ({t/60:.1f} min)', fontsize=12, y=0.98)
+
+        if not ecoli_cells:
+            ax = axes[0][0]
+            ax.text(0.5, 0.5, 'No chromosome data', ha='center', va='center',
+                    transform=ax.transAxes, fontsize=10, color='#888')
+            ax.set_xlim(-1.5, 1.5); ax.set_ylim(-1.5, 1.5)
+            ax.set_aspect('equal'); ax.axis('off')
+        else:
+            for i, (aid, chrom) in enumerate(ecoli_cells.items()):
+                ax = axes[0][i]
+                n_chrom = chrom.get('n_chromosomes', 1)
+                forks = chrom.get('fork_coords', [])
+                rnaps = chrom.get('rnap_coords', [])
+                dm = chrom.get('dry_mass', 0)
+
+                # Draw chromosomes side by side
+                R = 0.8
+                spacing = 2.2
+                total_w = (n_chrom - 1) * spacing
+                for c in range(n_chrom):
+                    cx = -total_w / 2 + c * spacing
+                    _draw_chromosome(ax, cx, 0, R, rnaps, forks)
+
+                # Label
+                label = aid.replace(ecoli_id, 'ecoli')
+                ax.set_title(f'{label}\n{dm:.0f} fg, {n_chrom} chr, '
+                             f'{len(forks)} forks, {len(rnaps)} RNAPs',
+                             fontsize=8)
+                ax.set_xlim(-2.5, 2.5 + (n_chrom - 1) * spacing)
+                ax.set_ylim(-1.5, 1.5)
+                ax.set_aspect('equal'); ax.axis('off')
+
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=90, bbox_inches='tight')
+        plt.close(fig)
+        buf.seek(0)
+        images.append(Image.open(buf).copy())
+
+    if images:
+        images[0].save(out_path, save_all=True, append_images=images[1:],
+                       duration=200, loop=0)
 
 
 def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
@@ -262,72 +378,132 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
         print(f"GIF generation failed: {e}")
         gif_path = None
 
+    # Generate chromosome state GIF
+    chrom_gif_path = os.path.join(REPORT_DIR, 'chromosome.gif')
+    print("Generating chromosome GIF...")
+    try:
+        _generate_chromosome_gif(results, ecoli_id, chrom_gif_path,
+                                 skip=max(1, len(results) // 100))
+        print(f"Chromosome GIF saved: {chrom_gif_path}")
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        print(f"Chromosome GIF failed: {e}")
+        chrom_gif_path = None
+
     # Generate HTML report
     report_path = os.path.join(REPORT_DIR, 'colony_report.html')
-
-    # Collect cell count history
-    cell_counts = []
-    for entry in results:
-        if isinstance(entry, tuple) and len(entry) == 2:
-            t_val, data = entry
-            agents = data.get('agents', {})
-        elif isinstance(entry, dict):
-            t_val = entry.get('time', 0)
-            agents = entry.get('agents', {})
-        else:
-            continue
-        cell_counts.append((float(t_val), len(agents)))
 
     with open(report_path, 'w') as f:
         f.write(f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
-<title>E. coli Colony Report</title>
+<title>E. coli Colony Simulation</title>
 <style>
-body {{ font-family: -apple-system, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f8fafc; }}
+body {{ font-family: -apple-system, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f8fafc; color: #1e293b; }}
 h1 {{ color: #0f172a; border-bottom: 3px solid #16a34a; padding-bottom: 8px; }}
-h2 {{ color: #166534; }}
+h2 {{ color: #166534; margin-top: 2em; }}
+h3 {{ color: #334155; }}
+p {{ line-height: 1.6; }}
 table {{ border-collapse: collapse; margin: 1em 0; }}
 th, td {{ padding: 6px 16px; border: 1px solid #e2e8f0; }}
 th {{ background: #f1f5f9; }}
-.gif {{ text-align: center; margin: 1em 0; }}
-.gif img {{ max-width: 100%; border: 2px solid #e2e8f0; border-radius: 8px; }}
+.media {{ text-align: center; margin: 1.5em 0; }}
+.media img {{ max-width: 100%; border: 2px solid #e2e8f0; border-radius: 8px; }}
+.media-label {{ font-size: 0.85em; color: #64748b; margin-top: 0.5em; }}
+.legend {{ display: flex; gap: 2em; justify-content: center; margin: 1em 0; flex-wrap: wrap; }}
+.legend-item {{ display: flex; align-items: center; gap: 0.5em; }}
+.legend-swatch {{ width: 16px; height: 16px; border-radius: 3px; border: 1px solid #ccc; }}
+.section {{ background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5em; margin: 1em 0; }}
 </style>
 </head><body>
-<h1>E. coli Colony Simulation</h1>
-<p>Mixed colony: 1 whole-cell E. coli (v2ecoli, 55 biological steps) +
-{n_adder} adder-based growth/division cells. 2D pymunk physics.</p>
 
-<h2>Configuration</h2>
+<h1>E. coli Colony Simulation</h1>
+
+<div class="section">
+<h3>What is this?</h3>
+<p>This simulation places a <strong>whole-cell <em>E. coli</em> model</strong> — with 55 biological
+processes including metabolism, transcription, translation, DNA replication, and chromosome
+segregation — inside a <strong>2D colony</strong> alongside simpler surrogate cells. The whole-cell
+model (v2ecoli, built on process-bigraph) runs the full mechanistic simulation of intracellular
+biology, while the colony framework (pymunk-process) handles spatial physics: cell body collisions,
+growth-driven elongation, and division mechanics.</p>
+
+<p>The <span style="color:#16a34a; font-weight:bold;">colored cell</span> is the whole-cell
+<em>E. coli</em> — its length and mass are driven by the internal biological simulation. The
+<span style="color:#999;">grey cells</span> are surrogate cells using a simple adder growth model.
+When the whole-cell model reaches its division threshold (~702 fg dry mass, ~42 min), it divides
+into two daughter cells, each inheriting a fresh copy of the whole-cell model. Daughters are shown
+with phylogeny-mutated colors.</p>
+</div>
+
+<h2>Colony Dynamics</h2>
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch" style="background:#4ade80"></div> Whole-cell <em>E. coli</em> (v2ecoli, 55 processes)</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#b0b0b0"></div> Surrogate cell (adder growth/division)</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#10b981"></div> OriC (origin of replication)</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#f59e0b"></div> Replication fork</div>
+  <div class="legend-item"><div class="legend-swatch" style="background:#3b82f6"></div> RNA polymerase</div>
+</div>
+""")
+
+        if gif_path and os.path.exists(gif_path):
+            f.write(f"""
+<div class="media">
+  <img src="colony.gif" alt="Colony simulation — spatial view">
+  <div class="media-label">Colony spatial view: {n_initial} initial cells → {n_final} final cells over {duration_min} min.
+  Colored cell = whole-cell <em>E. coli</em>; grey = surrogates.</div>
+</div>
+""")
+
+        if chrom_gif_path and os.path.exists(chrom_gif_path):
+            f.write(f"""
+<h2>Chromosome State</h2>
+<p>The circular chromosome of each whole-cell <em>E. coli</em>, synchronized with the colony
+animation above. Green dot = OriC (origin), red square = Ter (terminus), blue dots = active
+RNA polymerases, orange triangles = replication forks. Chromosome replication initiates around
+~23 min, producing 2 chromosomes visible as separate circles.</p>
+<div class="media">
+  <img src="chromosome.gif" alt="Chromosome state over time">
+  <div class="media-label">Chromosome state: replication forks traverse the circular genome,
+  RNA polymerases transcribe genes along the chromosome.</div>
+</div>
+""")
+
+        f.write(f"""
+<h2>Simulation Parameters</h2>
 <table>
 <tr><th>Parameter</th><th>Value</th></tr>
 <tr><td>Duration</td><td>{duration_min} min ({duration}s)</td></tr>
-<tr><td>WC-Ecoli cells</td><td>1 (EcoliWCM bridge)</td></tr>
-<tr><td>Adder cells</td><td>{n_adder}</td></tr>
-<tr><td>Environment</td><td>{env_size} x {env_size} µm</td></tr>
-<tr><td>Physics interval</td><td>30s</td></tr>
-<tr><td>WC-Ecoli interval</td><td>30s</td></tr>
+<tr><td>Whole-cell <em>E. coli</em></td><td>1 cell (EcoliWCM bridge, 55 steps)</td></tr>
+<tr><td>Surrogate cells</td><td>{n_adder} (AdderGrowDivide)</td></tr>
+<tr><td>Environment</td><td>{env_size} × {env_size} µm</td></tr>
+<tr><td>Physics interval</td><td>{10}s</td></tr>
+<tr><td>WCM update interval</td><td>{60}s</td></tr>
 </table>
 
 <h2>Results</h2>
 <table>
 <tr><th>Metric</th><th>Value</th></tr>
 <tr><td>Build time</td><td>{build_time:.1f}s</td></tr>
-<tr><td>Wall time</td><td>{wall_time:.0f}s</td></tr>
-<tr><td>Speed</td><td>{duration/wall_time:.1f}x realtime</td></tr>
+<tr><td>Wall time</td><td>{wall_time:.0f}s ({wall_time/60:.1f} min)</td></tr>
+<tr><td>Speed</td><td>{duration/wall_time:.1f}× realtime</td></tr>
 <tr><td>Initial cells</td><td>{n_initial}</td></tr>
 <tr><td>Final cells</td><td>{n_final}</td></tr>
 <tr><td>Emitter frames</td><td>{len(results)}</td></tr>
 </table>
-""")
 
-        if gif_path and os.path.exists(gif_path):
-            f.write(f"""
-<h2>Colony Animation</h2>
-<div class="gif"><img src="colony.gif" alt="Colony simulation"></div>
-""")
+<div class="section">
+<h3>How it works</h3>
+<p>Each whole-cell <em>E. coli</em> is implemented as an <code>EcoliWCM</code> process — a
+process-bigraph <code>Process</code> that holds an internal <code>Composite</code> connected
+via a bridge. The bridge maps external colony ports (mass, length, volume) to internal
+whole-cell stores (listeners.mass.dry_mass, capsule geometry, etc.). When the internal model
+reaches the division mass threshold, the bridge removes the mother cell from the colony and
+adds two daughter cells, each with a fresh <code>EcoliWCM</code> process instance.</p>
+</div>
 
-        f.write("""
-<footer>v2ecoli colony · pure process-bigraph</footer>
+<footer style="margin-top:3em; padding-top:1em; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:0.85em;">
+v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-collective/v2ecoli">github</a>
+</footer>
 </body></html>""")
 
     print(f"Report: {report_path}")

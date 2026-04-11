@@ -343,30 +343,26 @@ def main():
     }
 
     t0 = time.time()
-    print(f"  Launching all engines in parallel...")
-    procs = {}
+    datasets = {}
+    empty = {'snapshots': [], 'wall_time': 0, 'sim_time': 0, 'speed': 0, 'load_time': 0}
     result_paths = {}
-    for key, (script, result_file) in runners.items():
+
+    def _launch(key):
+        script, result_file = runners[key]
         rpath = os.path.join(base, REPORT_DIR, result_file)
         spath = os.path.join(base, script)
         result_paths[key] = rpath
         if os.path.exists(spath):
-            procs[key] = sp.Popen([sys.executable, spath, str(args.duration), str(SNAPSHOT_INTERVAL), rpath])
-        else:
-            print(f"  {key}: script not found ({spath})")
+            return sp.Popen([sys.executable, spath, str(args.duration), str(SNAPSHOT_INTERVAL), rpath])
+        print(f"  {key}: script not found ({spath})")
+        return None
 
-    datasets = {}
-    empty = {'snapshots': [], 'wall_time': 0, 'sim_time': 0, 'speed': 0, 'load_time': 0}
-
-    for key in runners:
-        proc = procs.get(key)
+    def _collect(key, proc):
         rpath = result_paths[key]
         label = next(l for k, l, _, _ in ENGINES if k == key)
-
         if proc is None:
             datasets[key] = {**empty, 'engine': f'{label} (skipped)'}
-            continue
-
+            return
         proc.wait()
         if os.path.exists(rpath):
             with open(rpath) as f:
@@ -377,6 +373,18 @@ def main():
         else:
             print(f"  {label}: FAILED (rc={proc.returncode})")
             datasets[key] = {**empty, 'engine': f'{label} (FAILED)'}
+
+    # Phase 1: composite + v2ecoli in parallel (both need vEcoli on composite branch)
+    print(f"  Launching composite + v2ecoli in parallel...")
+    p_comp = _launch('vecoli_composite')
+    p_v2 = _launch('v2ecoli')
+    _collect('vecoli_composite', p_comp)
+    _collect('v2ecoli', p_v2)
+
+    # Phase 2: v1 sequentially (switches vEcoli to master branch)
+    print(f"  Launching v1 (vivarium engine)...")
+    p_v1 = _launch('vecoli_v1')
+    _collect('vecoli_v1', p_v1)
 
     total = time.time() - t0
 

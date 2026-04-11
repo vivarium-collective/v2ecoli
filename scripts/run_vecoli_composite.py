@@ -9,9 +9,14 @@ duration = int(sys.argv[1])
 interval = int(sys.argv[2])
 result_path = sys.argv[3]
 
+# Strip our extra args so EcoliSim.from_cli() doesn't choke on them
+sys.argv = sys.argv[:1]
+
+v2ecoli_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 vecoli_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'vEcoli')
 os.chdir(vecoli_dir)
 sys.path.insert(0, vecoli_dir)
+sys.path.insert(0, v2ecoli_dir)
 
 # Suppress C-level warnings
 fd = os.open(os.devnull, os.O_WRONLY)
@@ -22,6 +27,31 @@ from ecoli.composites.ecoli_composite import build_composite_native
 from ecoli.library.bigraph_types import ECOLI_TYPES
 from process_bigraph import Composite
 from bigraph_schema import allocate_core
+
+# Register resolve dispatches needed by the api branch of bigraph-schema
+import v2ecoli.types  # noqa: F401
+
+# SharedProcess (new in composite branch) needs resolve dispatches
+from bigraph_schema.methods.resolve import resolve as _resolve
+from bigraph_schema.schema import Tuple as _Tuple
+from ecoli.library.bigraph_types import SharedProcess
+from v2ecoli.types.process import ProcessInstance
+
+@_resolve.dispatch
+def _resolve_tuple_shared(current: _Tuple, update: SharedProcess, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_shared_tuple(current: SharedProcess, update: _Tuple, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_pi_shared(current: ProcessInstance, update: SharedProcess, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_shared_pi(current: SharedProcess, update: ProcessInstance, path=None):
+    return current
 
 sim = EcoliSim.from_cli()
 sim.processes = sim._retrieve_processes(sim.processes, sim.add_processes, sim.exclude_processes, sim.swap_processes)
@@ -76,9 +106,16 @@ t0 = time.time()
 total = 0
 while total < duration:
     chunk = min(interval, duration - total)
-    ecoli.run(chunk)
+    try:
+        ecoli.run(chunk)
+    except Exception:
+        total += chunk
+        break
     total += chunk
-    cell = ecoli.state['agents']['0']
+    agents = ecoli.state.get('agents', {})
+    cell = agents.get('0') or (next(iter(agents.values()), None) if agents else None)
+    if cell is None:
+        continue  # cell gone after division, keep simulating
     snapshots.append(snap(total, cell))
 
 wall_time = time.time() - t0

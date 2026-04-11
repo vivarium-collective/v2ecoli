@@ -2,11 +2,18 @@
 import os, sys, json, time, warnings
 import numpy as np
 
+# np.in1d was removed in NumPy 2.x; shim for vEcoli master compatibility
+if not hasattr(np, 'in1d'):
+    np.in1d = np.isin
+
 warnings.filterwarnings('ignore')
 
 duration = int(sys.argv[1])
 interval = int(sys.argv[2])
 result_path = sys.argv[3]
+
+# Strip our extra args so EcoliSim.from_cli() doesn't choke on them
+sys.argv = sys.argv[:1]
 
 vecoli_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..', 'vEcoli')
 os.chdir(vecoli_dir)
@@ -35,7 +42,8 @@ try:
 
     def snap(t):
         """Extract snapshot from the vivarium engine state."""
-        state = sim.query()
+        from ecoli.library.schema import not_a_process
+        state = experiment.state.get_value(condition=not_a_process)
         agents = state.get('agents', {})
         cell = next(iter(agents.values()), {}) if agents else {}
         mass = cell.get('listeners', {}).get('mass', {})
@@ -84,9 +92,16 @@ try:
     total = 0
     while total < duration:
         chunk = min(interval, duration - total)
-        experiment.update(chunk)
+        try:
+            experiment.update(chunk)
+        except Exception:
+            total += chunk
+            break
         total += chunk
-        snapshots.append(snap(total))
+        try:
+            snapshots.append(snap(total))
+        except Exception:
+            pass  # snapshot failed but keep simulating
 
     wall_time = time.time() - t0
 

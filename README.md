@@ -19,6 +19,9 @@ and comparable performance.
 - **[Architecture Comparison](https://vivarium-collective.github.io/v2ecoli/comparison_report.html)** — 
   Partitioned vs departitioned: 42-min side-by-side comparison of mass trajectories, 
   bulk counts, growth rates, and timing (55 vs 41 steps)
+- **[Engine Comparison](https://vivarium-collective.github.io/v2ecoli/v1_v2_comparison.html)** — 
+  Three-way comparison: vEcoli 1.0 (vivarium), vEcoli 2.0 (composite), v2ecoli (pure 
+  process-bigraph) — full cell lifecycle with growth, chromosome replication, and division
 
 ## Architecture
 

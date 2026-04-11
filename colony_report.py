@@ -234,7 +234,10 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
     try:
         # Hybrid coloring: phylogeny for ecoli lineage, grey for surrogates
         from multi_cell.plots.multibody_plots import build_phylogeny_colors
-        phylo_colors = build_phylogeny_colors(results, agents_key='agents')
+        # Larger mutations so daughters are visually distinct
+        phylo_colors = build_phylogeny_colors(
+            results, agents_key='agents',
+            dh=0.12, ds=0.08, dv=0.08)
 
         def _hybrid_color(aid, ent=None):
             # Ecoli and its descendants get phylogeny colors

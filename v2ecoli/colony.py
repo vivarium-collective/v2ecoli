@@ -130,6 +130,8 @@ def make_colony(n_cells=1, env_size=30, cache_dir='out/cache', seed=0):
     """
     core = core_import()
     core.register_types(ECOLI_TYPES)
+    # Register EcoliWCM so Composite can resolve 'local:EcoliWCM'
+    core.register_link('EcoliWCM', EcoliWCM)
 
     doc = make_colony_document(
         n_cells=n_cells,

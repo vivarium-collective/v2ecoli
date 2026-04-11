@@ -8,10 +8,12 @@ dependencies = [
     "bigraph-schema>=0.0.60",
     "process-bigraph>=0.0.38",
     "vEcoli[dev]>=1.1.0",
+    "multi-cell>=0.0.1",
     "plum-dispatch>=2.5",
     "dill>=0.3",
     "numpy",
     "scipy",
+    "pymunk",
 ]
 
 [tool.pytest.ini_options]
@@ -28,3 +30,4 @@ packages = { find = { where = ["."] } }
 vecoli = { path = "../vEcoli", editable = true }
 process-bigraph = { path = "../process-bigraph", editable = true }
 bigraph-schema = { path = "../bigraph-schema", editable = true }
+multi-cell = { path = "../pymunk-process", editable = true }

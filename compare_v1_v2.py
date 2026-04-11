@@ -58,85 +58,6 @@ def _extract_chromosome(cell):
     return {'n_chromosomes': n_chrom, 'n_forks': n_forks}
 
 
-def run_v2(duration, cache_dir='out/cache'):
-    """Run v2ecoli and collect snapshots."""
-    from v2ecoli.composite import make_composite
-
-    print(f"  v2: Loading composite...")
-    t0 = time.time()
-    composite = make_composite(cache_dir=cache_dir, seed=0)
-    load_time = time.time() - t0
-
-    cell = composite.state['agents']['0']
-    initial = _extract_mass(cell)
-
-    snapshots = [{'time': 0, **initial, **_extract_chromosome(cell)}]
-
-    print(f"  v2: Running {duration}s...")
-    t0 = time.time()
-    total = 0
-    while total < duration:
-        chunk = min(SNAPSHOT_INTERVAL, duration - total)
-        try:
-            composite.run(chunk)
-        except Exception:
-            total += chunk
-            break
-        total += chunk
-
-        cell = composite.state.get('agents', {}).get('0')
-        if cell is None:
-            break
-
-        snap = {'time': total}
-        snap.update(_extract_mass(cell))
-        snap.update(_extract_chromosome(cell))
-        snapshots.append(snap)
-
-    wall_time = time.time() - t0
-    print(f"  v2: {total}s sim in {wall_time:.1f}s wall ({total/wall_time:.1f}x)")
-    return {
-        'engine': 'v2ecoli (process-bigraph)',
-        'load_time': load_time,
-        'wall_time': wall_time,
-        'sim_time': total,
-        'speed': total / wall_time if wall_time > 0 else 0,
-        'snapshots': snapshots,
-    }
-
-
-def run_v1(duration):
-    """Run vEcoli composite branch and collect snapshots via standalone script."""
-    import subprocess
-
-    base = os.path.dirname(os.path.abspath(__file__))
-    os.makedirs(os.path.join(base, REPORT_DIR), exist_ok=True)
-    result_path = os.path.join(base, REPORT_DIR, '_v1_result.json')
-    script_path = os.path.join(base, 'scripts', 'run_v1.py')
-
-    print(f"  v1: Running {duration}s in subprocess...")
-    t0 = time.time()
-    proc = subprocess.run(
-        [sys.executable, script_path, str(duration), str(SNAPSHOT_INTERVAL), result_path],
-        capture_output=True, text=True, timeout=1200)
-    total_wall = time.time() - t0
-
-    if proc.returncode != 0 or not os.path.exists(result_path):
-        err = proc.stderr[-300:] if proc.stderr else 'no stderr'
-        print(f"  v1: FAILED (rc={proc.returncode}) — {err}")
-        return {'engine': 'vEcoli (FAILED)', 'snapshots': [], 'wall_time': 0, 'sim_time': 0, 'speed': 0, 'load_time': 0}
-
-    with open(result_path) as f:
-        data = json.load(f)
-    os.unlink(result_path)
-    print(f"  v1: {data['sim_time']}s sim in {data['wall_time']:.1f}s wall ({data['speed']:.1f}x)")
-    return data
-
-
-# ---------------------------------------------------------------------------
-# Plotting
-# ---------------------------------------------------------------------------
-
 def fig_to_b64(fig):
     import io
     buf = io.BytesIO()
@@ -147,16 +68,18 @@ def fig_to_b64(fig):
 
 
 def plot_comparison(v1, v2, metric, ylabel, title):
-    """Single metric comparison plot."""
+    """Single metric comparison plot. Works with either or both datasets."""
     fig, ax = plt.subplots(figsize=(10, 4))
-    s1 = v1['snapshots']
-    s2 = v2['snapshots']
-    t1 = [s['time']/60 for s in s1]
-    t2 = [s['time']/60 for s in s2]
-    y1 = [s.get(metric, 0) for s in s1]
-    y2 = [s.get(metric, 0) for s in s2]
-    ax.plot(t1, y1, 'b-', label='v1 (vEcoli)', linewidth=1.5)
-    ax.plot(t2, y2, 'r-', label='v2 (v2ecoli)', linewidth=1.5)
+    s1 = v1.get('snapshots', [])
+    s2 = v2.get('snapshots', [])
+    if s1:
+        t1 = [s['time']/60 for s in s1]
+        y1 = [s.get(metric, 0) for s in s1]
+        ax.plot(t1, y1, 'b-', label='v1 (vEcoli)', linewidth=1.5)
+    if s2:
+        t2 = [s['time']/60 for s in s2]
+        y2 = [s.get(metric, 0) for s in s2]
+        ax.plot(t2, y2, 'r-', label='v2 (v2ecoli)', linewidth=1.5)
     ax.set_xlabel('Time (min)')
     ax.set_ylabel(ylabel)
     ax.set_title(title)
@@ -171,7 +94,11 @@ def plot_side_by_side(v1, v2, metrics, ylabel, title):
     fig.suptitle(title, fontsize=13)
 
     for ax, data, label in [(axes[0], v1, 'v1 (vEcoli)'), (axes[1], v2, 'v2 (v2ecoli)')]:
-        snaps = data['snapshots']
+        snaps = data.get('snapshots', [])
+        if not snaps:
+            ax.text(0.5, 0.5, f'No data for {label}', ha='center', va='center', transform=ax.transAxes)
+            ax.set_title(label)
+            continue
         t = [s['time']/60 for s in snaps]
         for key, name, color in metrics:
             y = [s.get(key, 0) for s in snaps]
@@ -187,9 +114,6 @@ def plot_side_by_side(v1, v2, metrics, ylabel, title):
 
 def plot_mass_components(v1, v2, title='Mass Components'):
     """Side-by-side mass component plots."""
-    fig, axes = plt.subplots(1, 2, figsize=(16, 5), sharey=True)
-    fig.suptitle(title, fontsize=13)
-
     components = [
         ('protein_mass', 'Protein', '#22c55e'),
         ('dna_mass', 'DNA', '#8b5cf6'),
@@ -198,21 +122,7 @@ def plot_mass_components(v1, v2, title='Mass Components'):
         ('mRna_mass', 'mRNA', '#f97316'),
         ('smallMolecule_mass', 'Small mol', '#f59e0b'),
     ]
-
-    for ax, data, label in [(axes[0], v1, 'v1 (vEcoli)'), (axes[1], v2, 'v2 (v2ecoli)')]:
-        snaps = data['snapshots']
-        t = [s['time']/60 for s in snaps]
-        for key, name, color in components:
-            y = [s.get(key, 0) for s in snaps]
-            ax.plot(t, y, color=color, label=name, linewidth=1.2)
-        ax.set_xlabel('Time (min)')
-        ax.set_ylabel('Mass (fg)')
-        ax.set_title(label)
-        ax.legend(fontsize=8)
-        ax.grid(True, alpha=0.3)
-
-    plt.tight_layout()
-    return fig_to_b64(fig)
+    return plot_side_by_side(v1, v2, components, 'Mass (fg)', title)
 
 
 # ---------------------------------------------------------------------------
@@ -243,7 +153,8 @@ def generate_report(v1, v2, duration):
 
     # Generate plots
     plots = {}
-    if s1 and s2:
+    # Generate plots with whatever data is available
+    if s1 or s2:
         plots['dry_mass'] = plot_comparison(v1, v2, 'dry_mass', 'Dry Mass (fg)', 'Dry Mass Over Time')
         plots['cell_mass'] = plot_comparison(v1, v2, 'cell_mass', 'Cell Mass (fg)', 'Cell Mass (wet)')
         plots['growth_rate'] = plot_comparison(v1, v2, 'instantaneous_growth_rate', 'Growth Rate (1/s)', 'Instantaneous Growth Rate')
@@ -252,7 +163,6 @@ def generate_report(v1, v2, duration):
         plots['forks'] = plot_comparison(v1, v2, 'n_forks', 'Forks', 'Replication Forks')
         plots['mass_components'] = plot_mass_components(v1, v2, 'Mass Components')
 
-        # RNA breakdown side-by-side
         rna_metrics = [
             ('rRna_mass', 'rRNA', '#3b82f6'),
             ('tRna_mass', 'tRNA', '#06b6d4'),
@@ -260,7 +170,6 @@ def generate_report(v1, v2, duration):
         ]
         plots['rna_breakdown'] = plot_side_by_side(v1, v2, rna_metrics, 'Mass (fg)', 'RNA Mass Breakdown')
 
-        # Protein vs DNA side-by-side
         struct_metrics = [
             ('protein_mass', 'Protein', '#22c55e'),
             ('dna_mass', 'DNA', '#8b5cf6'),
@@ -409,9 +318,39 @@ def main():
     print(f"v1 vs v2 Comparison ({args.duration}s)")
     print("=" * 60)
 
+    # Run both in parallel as subprocesses
+    import subprocess as sp
+    base = os.path.dirname(os.path.abspath(__file__))
+    v1_result = os.path.join(base, REPORT_DIR, '_v1_result.json')
+    v2_result = os.path.join(base, REPORT_DIR, '_v2_result.json')
+    v1_script = os.path.join(base, 'scripts', 'run_v1.py')
+    v2_script = os.path.join(base, 'scripts', 'run_v2.py')
+
     t0 = time.time()
-    v2_data = run_v2(args.duration)
-    v1_data = run_v1(args.duration)
+    print(f"  Launching v1 and v2 in parallel...")
+    v1_proc = sp.Popen([sys.executable, v1_script, str(args.duration), str(SNAPSHOT_INTERVAL), v1_result])
+    v2_proc = sp.Popen([sys.executable, v2_script, str(args.duration), str(SNAPSHOT_INTERVAL), v2_result])
+
+    v2_proc.wait()
+    if os.path.exists(v2_result):
+        with open(v2_result) as f:
+            v2_data = json.load(f)
+        os.unlink(v2_result)
+        print(f"  v2: {v2_data['sim_time']}s in {v2_data['wall_time']:.1f}s ({v2_data['speed']:.1f}x)")
+    else:
+        print(f"  v2: FAILED")
+        v2_data = {'engine': 'v2ecoli (FAILED)', 'snapshots': [], 'wall_time': 0, 'sim_time': 0, 'speed': 0, 'load_time': 0}
+
+    v1_proc.wait()
+    if os.path.exists(v1_result):
+        with open(v1_result) as f:
+            v1_data = json.load(f)
+        os.unlink(v1_result)
+        print(f"  v1: {v1_data['sim_time']}s in {v1_data['wall_time']:.1f}s ({v1_data['speed']:.1f}x)")
+    else:
+        print(f"  v1: FAILED (rc={v1_proc.returncode})")
+        v1_data = {'engine': 'vEcoli (FAILED)', 'snapshots': [], 'wall_time': 0, 'sim_time': 0, 'speed': 0, 'load_time': 0}
+
     total = time.time() - t0
 
     report = generate_report(v1_data, v2_data, args.duration)

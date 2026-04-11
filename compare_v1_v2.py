@@ -1,13 +1,17 @@
 """
-v1 vs v2 Side-by-Side Comparison Report
+Three-Way E. coli Simulation Comparison
 
-Runs both vEcoli (v1, composite branch) and v2ecoli (v2, pure process-bigraph)
-through the same lifecycle, collecting snapshots at regular intervals.
-Generates an HTML report with side-by-side metrics, plots, and timing.
+Runs three engines in parallel:
+  - vEcoli 1.0 (vivarium engine, master branch)
+  - vEcoli 2.0 (composite migration, composite branch)
+  - v2ecoli   (pure process-bigraph, this repo)
+
+Generates an HTML report with overlaid plots, side-by-side mass components,
+and a detailed comparison table.
 
 Usage:
-    python compare_v1_v2.py                    # full lifecycle to division
-    python compare_v1_v2.py --duration 300     # short comparison (300s)
+    python compare_v1_v2.py                    # 2500s default
+    python compare_v1_v2.py --duration 300     # short comparison
 """
 
 import os
@@ -67,19 +71,23 @@ def fig_to_b64(fig):
     return base64.b64encode(buf.read()).decode('ascii')
 
 
-def plot_comparison(v1, v2, metric, ylabel, title):
-    """Single metric comparison plot. Works with either or both datasets."""
+ENGINES = [
+    ('vecoli_v1', 'vEcoli 1.0 (vivarium)', '#3b82f6', '--'),
+    ('vecoli_composite', 'vEcoli 2.0 (composite)', '#8b5cf6', '-.'),
+    ('v2ecoli', 'v2ecoli (pure PBG)', '#ef4444', '-'),
+]
+
+
+def plot_comparison(datasets, metric, ylabel, title):
+    """Single metric overlay plot for all available engines."""
     fig, ax = plt.subplots(figsize=(10, 4))
-    s1 = v1.get('snapshots', [])
-    s2 = v2.get('snapshots', [])
-    if s1:
-        t1 = [s['time']/60 for s in s1]
-        y1 = [s.get(metric, 0) for s in s1]
-        ax.plot(t1, y1, 'b-', label='v1 (vEcoli)', linewidth=1.5)
-    if s2:
-        t2 = [s['time']/60 for s in s2]
-        y2 = [s.get(metric, 0) for s in s2]
-        ax.plot(t2, y2, 'r-', label='v2 (v2ecoli)', linewidth=1.5)
+    for key, label, color, ls in ENGINES:
+        snaps = datasets.get(key, {}).get('snapshots', [])
+        if not snaps:
+            continue
+        t = [s['time']/60 for s in snaps]
+        y = [s.get(metric, 0) for s in snaps]
+        ax.plot(t, y, color=color, linestyle=ls, label=label, linewidth=1.5)
     ax.set_xlabel('Time (min)')
     ax.set_ylabel(ylabel)
     ax.set_title(title)
@@ -88,32 +96,36 @@ def plot_comparison(v1, v2, metric, ylabel, title):
     return fig_to_b64(fig)
 
 
-def plot_side_by_side(v1, v2, metrics, ylabel, title):
-    """Side-by-side plots of multiple metrics for v1 and v2."""
-    fig, axes = plt.subplots(1, 2, figsize=(16, 5), sharey=True)
+def plot_side_by_side(datasets, metrics, ylabel, title):
+    """Side-by-side panels for each engine showing multiple metrics."""
+    active = [(k, l, c, ls) for k, l, c, ls in ENGINES if datasets.get(k, {}).get('snapshots')]
+    n = max(len(active), 1)
+    fig, axes = plt.subplots(1, n, figsize=(7*n, 5), sharey=True, squeeze=False)
     fig.suptitle(title, fontsize=13)
 
-    for ax, data, label in [(axes[0], v1, 'v1 (vEcoli)'), (axes[1], v2, 'v2 (v2ecoli)')]:
-        snaps = data.get('snapshots', [])
-        if not snaps:
-            ax.text(0.5, 0.5, f'No data for {label}', ha='center', va='center', transform=ax.transAxes)
-            ax.set_title(label)
-            continue
+    for i, (key, label, _, _) in enumerate(active):
+        ax = axes[0][i]
+        snaps = datasets[key]['snapshots']
         t = [s['time']/60 for s in snaps]
-        for key, name, color in metrics:
-            y = [s.get(key, 0) for s in snaps]
+        for mkey, name, color in metrics:
+            y = [s.get(mkey, 0) for s in snaps]
             ax.plot(t, y, color=color, label=name, linewidth=1.2)
         ax.set_xlabel('Time (min)')
         ax.set_ylabel(ylabel)
         ax.set_title(label)
         ax.legend(fontsize=8)
         ax.grid(True, alpha=0.3)
+
+    # Fill empty panels
+    for i in range(len(active), n):
+        axes[0][i].text(0.5, 0.5, 'No data', ha='center', va='center', transform=axes[0][i].transAxes)
+
     plt.tight_layout()
     return fig_to_b64(fig)
 
 
-def plot_mass_components(v1, v2, title='Mass Components'):
-    """Side-by-side mass component plots."""
+def plot_mass_components(datasets, title='Mass Components'):
+    """Side-by-side mass component plots for each engine."""
     components = [
         ('protein_mass', 'Protein', '#22c55e'),
         ('dna_mass', 'DNA', '#8b5cf6'),
@@ -122,22 +134,16 @@ def plot_mass_components(v1, v2, title='Mass Components'):
         ('mRna_mass', 'mRNA', '#f97316'),
         ('smallMolecule_mass', 'Small mol', '#f59e0b'),
     ]
-    return plot_side_by_side(v1, v2, components, 'Mass (fg)', title)
+    return plot_side_by_side(datasets, components, 'Mass (fg)', title)
 
 
 # ---------------------------------------------------------------------------
 # HTML Report
 # ---------------------------------------------------------------------------
 
-def generate_report(v1, v2, duration):
-    """Generate side-by-side HTML comparison report."""
+def generate_report(datasets, duration):
+    """Generate three-way HTML comparison report."""
     os.makedirs(REPORT_DIR, exist_ok=True)
-
-    # Compute comparison metrics
-    s1 = v1['snapshots']
-    s2 = v2['snapshots']
-    final1 = s1[-1] if s1 else {}
-    final2 = s2[-1] if s2 else {}
 
     # Mass comparison at regular intervals
     intervals = [0, 60, 300, 600, 1200, 1800, 2400]
@@ -153,58 +159,95 @@ def generate_report(v1, v2, duration):
 
     # Generate plots
     plots = {}
-    # Generate plots with whatever data is available
-    if s1 or s2:
-        plots['dry_mass'] = plot_comparison(v1, v2, 'dry_mass', 'Dry Mass (fg)', 'Dry Mass Over Time')
-        plots['cell_mass'] = plot_comparison(v1, v2, 'cell_mass', 'Cell Mass (fg)', 'Cell Mass (wet)')
-        plots['growth_rate'] = plot_comparison(v1, v2, 'instantaneous_growth_rate', 'Growth Rate (1/s)', 'Instantaneous Growth Rate')
-        plots['volume'] = plot_comparison(v1, v2, 'volume', 'Volume (fL)', 'Cell Volume')
-        plots['chromosomes'] = plot_comparison(v1, v2, 'n_chromosomes', 'Chromosomes', 'Chromosome Count')
-        plots['forks'] = plot_comparison(v1, v2, 'n_forks', 'Forks', 'Replication Forks')
-        plots['mass_components'] = plot_mass_components(v1, v2, 'Mass Components')
+    has_data = any(datasets.get(k, {}).get('snapshots') for k, _, _, _ in ENGINES)
+    if has_data:
+        plots['dry_mass'] = plot_comparison(datasets, 'dry_mass', 'Dry Mass (fg)', 'Dry Mass Over Time')
+        plots['cell_mass'] = plot_comparison(datasets, 'cell_mass', 'Cell Mass (fg)', 'Cell Mass (wet)')
+        plots['growth_rate'] = plot_comparison(datasets, 'instantaneous_growth_rate', 'Growth Rate (1/s)', 'Instantaneous Growth Rate')
+        plots['volume'] = plot_comparison(datasets, 'volume', 'Volume (fL)', 'Cell Volume')
+        plots['chromosomes'] = plot_comparison(datasets, 'n_chromosomes', 'Chromosomes', 'Chromosome Count')
+        plots['forks'] = plot_comparison(datasets, 'n_forks', 'Forks', 'Replication Forks')
+        plots['mass_components'] = plot_mass_components(datasets, 'Mass Components')
 
         rna_metrics = [
             ('rRna_mass', 'rRNA', '#3b82f6'),
             ('tRna_mass', 'tRNA', '#06b6d4'),
             ('mRna_mass', 'mRNA', '#f97316'),
         ]
-        plots['rna_breakdown'] = plot_side_by_side(v1, v2, rna_metrics, 'Mass (fg)', 'RNA Mass Breakdown')
+        plots['rna_breakdown'] = plot_side_by_side(datasets, rna_metrics, 'Mass (fg)', 'RNA Mass Breakdown')
 
         struct_metrics = [
             ('protein_mass', 'Protein', '#22c55e'),
             ('dna_mass', 'DNA', '#8b5cf6'),
             ('smallMolecule_mass', 'Small molecules', '#f59e0b'),
         ]
-        plots['structural'] = plot_side_by_side(v1, v2, struct_metrics, 'Mass (fg)', 'Structural Components')
+        plots['structural'] = plot_side_by_side(datasets, struct_metrics, 'Mass (fg)', 'Structural Components')
 
-    # Build mass comparison table
-    mass_keys = ['dry_mass', 'protein_mass', 'rna_mass', 'dna_mass', 'smallMolecule_mass']
+    # Build mass comparison table — one row per time, columns per engine
     mass_table_rows = ''
     for t in intervals:
-        s1t = snap_at(s1, t)
-        s2t = snap_at(s2, t)
-        if not s1t and not s2t:
-            continue
         row = f'<tr><td style="font-weight:bold">{t/60:.0f} min</td>'
-        for key in mass_keys:
-            v1v = s1t.get(key, 0)
-            v2v = s2t.get(key, 0)
-            diff = abs(v2v - v1v) / v1v * 100 if v1v > 0 else 0
-            color = '#16a34a' if diff < 2 else '#f59e0b' if diff < 5 else '#ef4444'
-            row += f'<td>{v1v:.1f}</td><td>{v2v:.1f}</td><td style="color:{color}">{diff:.1f}%</td>'
+        for key, _, _, _ in ENGINES:
+            snaps = datasets.get(key, {}).get('snapshots', [])
+            st = snap_at(snaps, t) if snaps else {}
+            dm = st.get('dry_mass', 0)
+            row += f'<td>{dm:.1f}</td>' if dm > 0 else '<td>—</td>'
         row += '</tr>'
         mass_table_rows += row
 
-    # Performance comparison
-    v1_speed = v1.get('speed', 0)
-    v2_speed = v2.get('speed', 0)
-    speedup = v2_speed / v1_speed if v1_speed > 0 else 0
+    # Build performance cards for each engine
+    perf_cards = ''
+    for key, label, color, _ in ENGINES:
+        d = datasets.get(key, {})
+        speed = d.get('speed', 0)
+        wall = d.get('wall_time', 0)
+        sim = d.get('sim_time', 0)
+        if speed > 0:
+            perf_cards += f'''<div class="perf-card">
+    <div class="label">{label}</div>
+    <div class="value" style="color:{color}">{speed:.1f}x</div>
+    <div class="label">{wall:.0f}s wall for {sim:.0f}s sim</div>
+  </div>\n'''
+        else:
+            perf_cards += f'''<div class="perf-card">
+    <div class="label">{label}</div>
+    <div class="value" style="color:#ccc">N/A</div>
+    <div class="label">not available</div>
+  </div>\n'''
 
-    report_path = os.path.join(REPORT_DIR, 'v1_v2_comparison.html')
+    # Build overview table rows
+    overview_rows = ''
+    metrics_list = [
+        ('Engine', lambda d: d.get('engine', 'N/A')),
+        ('Load time', lambda d: f"{d.get('load_time',0):.2f}s" if d.get('load_time') else 'N/A'),
+        ('Sim duration', lambda d: f"{d.get('sim_time',0):.0f}s ({d.get('sim_time',0)/60:.1f} min)" if d.get('sim_time') else 'N/A'),
+        ('Wall time', lambda d: f"{d.get('wall_time',0):.1f}s" if d.get('wall_time') else 'N/A'),
+        ('Speed', lambda d: f"{d.get('speed',0):.1f}x" if d.get('speed') else 'N/A'),
+    ]
+    for name, fn in metrics_list:
+        row = f'<tr><td>{name}</td>'
+        for key, _, _, _ in ENGINES:
+            d = datasets.get(key, {})
+            row += f'<td>{fn(d)}</td>'
+        row += '</tr>'
+        overview_rows += row
+
+    # Final snapshot metrics
+    for name, metric in [('Final dry mass', 'dry_mass'), ('Chromosomes', 'n_chromosomes'), ('Forks', 'n_forks')]:
+        row = f'<tr><td>{name}</td>'
+        for key, _, _, _ in ENGINES:
+            snaps = datasets.get(key, {}).get('snapshots', [])
+            val = snaps[-1].get(metric, 0) if snaps else 0
+            fmt = f'{val:.1f} fg' if 'mass' in name.lower() else str(int(val))
+            row += f'<td>{fmt}</td>'
+        row += '</tr>'
+        overview_rows += row
+
+    report_path = os.path.join(REPORT_DIR, 'comparison.html')
     with open(report_path, 'w') as f:
         f.write(f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
-<title>v1 vs v2 E. coli Comparison</title>
+<title>E. coli Simulation Comparison</title>
 <style>
 body {{ font-family: -apple-system, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f8fafc; color: #1e293b; }}
 h1 {{ color: #0f172a; border-bottom: 3px solid #3b82f6; padding-bottom: 8px; }}
@@ -224,40 +267,19 @@ th {{ background: #f1f5f9; font-weight: 600; }}
 .red {{ color: #ef4444; }}
 </style>
 </head><body>
-<h1>v1 vs v2 E. coli Whole-Cell Comparison</h1>
-<p>Side-by-side comparison of vEcoli (v1, vivarium/composite) and v2ecoli (v2, pure process-bigraph).
-Both use the same ParCa parameters, initial state, and biological process logic.</p>
+<h1>E. coli Whole-Cell Simulation Comparison</h1>
+<p>Three-way comparison of vEcoli 1.0 (vivarium engine), vEcoli 2.0 (composite migration),
+and v2ecoli (pure process-bigraph). All use the same ParCa parameters, initial state,
+and biological process logic.</p>
 
 <h2>Performance</h2>
 <div class="perf">
-  <div class="perf-card">
-    <div class="label">v1 (vEcoli)</div>
-    <div class="value blue">{v1_speed:.1f}x</div>
-    <div class="label">{v1.get('wall_time',0):.0f}s wall for {v1.get('sim_time',0):.0f}s sim</div>
-  </div>
-  <div class="perf-card">
-    <div class="label">v2 (v2ecoli)</div>
-    <div class="value green">{v2_speed:.1f}x</div>
-    <div class="label">{v2.get('wall_time',0):.0f}s wall for {v2.get('sim_time',0):.0f}s sim</div>
-  </div>
-  <div class="perf-card">
-    <div class="label">v2 Speedup</div>
-    <div class="value {'green' if speedup >= 1 else 'red'}">{speedup:.2f}x</div>
-    <div class="label">{'faster' if speedup >= 1 else 'slower'}</div>
-  </div>
+  {perf_cards}
 </div>
 
 <table>
-<tr><th>Metric</th><th>v1 (vEcoli)</th><th>v2 (v2ecoli)</th></tr>
-<tr><td>Engine</td><td>vivarium-core + process-bigraph</td><td>pure process-bigraph</td></tr>
-<tr><td>Load time</td><td>{v1.get('load_time',0):.2f}s</td><td>{v2.get('load_time',0):.2f}s</td></tr>
-<tr><td>Sim duration</td><td>{v1.get('sim_time',0):.0f}s ({v1.get('sim_time',0)/60:.1f} min)</td><td>{v2.get('sim_time',0):.0f}s ({v2.get('sim_time',0)/60:.1f} min)</td></tr>
-<tr><td>Wall time</td><td>{v1.get('wall_time',0):.1f}s</td><td>{v2.get('wall_time',0):.1f}s</td></tr>
-<tr><td>Speed</td><td>{v1_speed:.1f}x realtime</td><td style="font-weight:bold">{v2_speed:.1f}x realtime</td></tr>
-<tr><td>Final dry mass</td><td>{final1.get('dry_mass',0):.1f} fg</td><td>{final2.get('dry_mass',0):.1f} fg</td></tr>
-<tr><td>Final chromosomes</td><td>{final1.get('n_chromosomes',0)}</td><td>{final2.get('n_chromosomes',0)}</td></tr>
-<tr><td>Final forks</td><td>{final1.get('n_forks',0)}</td><td>{final2.get('n_forks',0)}</td></tr>
-<tr><td>Snapshots</td><td>{len(s1)}</td><td>{len(s2)}</td></tr>
+<tr><th>Metric</th><th>vEcoli 1.0</th><th>vEcoli 2.0</th><th>v2ecoli</th></tr>
+{overview_rows}
 </table>
 
 <h2>Growth Comparison</h2>
@@ -282,16 +304,9 @@ Both use the same ParCa parameters, initial state, and biological process logic.
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["structural"]}" alt="Structural Components"></div>\n')
 
         f.write(f"""
-<h2>Mass Comparison Table</h2>
-<p>Values in femtograms (fg). Diff is |v2-v1|/v1.</p>
+<h2>Dry Mass Comparison Table (fg)</h2>
 <table>
-<tr><th rowspan="2">Time</th>
-    <th colspan="3">Dry Mass</th>
-    <th colspan="3">Protein</th>
-    <th colspan="3">RNA</th>
-    <th colspan="3">DNA</th>
-    <th colspan="3">Small Mol</th></tr>
-<tr>{''.join('<th>v1</th><th>v2</th><th>Diff</th>' for _ in mass_keys)}</tr>
+<tr><th>Time</th><th>vEcoli 1.0</th><th>vEcoli 2.0</th><th>v2ecoli</th></tr>
 {mass_table_rows}
 </table>
 
@@ -315,45 +330,57 @@ def main():
     os.makedirs(REPORT_DIR, exist_ok=True)
 
     print("=" * 60)
-    print(f"v1 vs v2 Comparison ({args.duration}s)")
+    print(f"Three-Way Comparison ({args.duration}s)")
     print("=" * 60)
 
-    # Run both in parallel as subprocesses
     import subprocess as sp
     base = os.path.dirname(os.path.abspath(__file__))
-    v1_result = os.path.join(base, REPORT_DIR, '_v1_result.json')
-    v2_result = os.path.join(base, REPORT_DIR, '_v2_result.json')
-    v1_script = os.path.join(base, 'scripts', 'run_v1.py')
-    v2_script = os.path.join(base, 'scripts', 'run_v2.py')
+
+    runners = {
+        'vecoli_v1': ('scripts/run_vecoli_v1.py', '_vecoli_v1_result.json'),
+        'vecoli_composite': ('scripts/run_vecoli_composite.py', '_vecoli_composite_result.json'),
+        'v2ecoli': ('scripts/run_v2.py', '_v2ecoli_result.json'),
+    }
 
     t0 = time.time()
-    print(f"  Launching v1 and v2 in parallel...")
-    v1_proc = sp.Popen([sys.executable, v1_script, str(args.duration), str(SNAPSHOT_INTERVAL), v1_result])
-    v2_proc = sp.Popen([sys.executable, v2_script, str(args.duration), str(SNAPSHOT_INTERVAL), v2_result])
+    print(f"  Launching all engines in parallel...")
+    procs = {}
+    result_paths = {}
+    for key, (script, result_file) in runners.items():
+        rpath = os.path.join(base, REPORT_DIR, result_file)
+        spath = os.path.join(base, script)
+        result_paths[key] = rpath
+        if os.path.exists(spath):
+            procs[key] = sp.Popen([sys.executable, spath, str(args.duration), str(SNAPSHOT_INTERVAL), rpath])
+        else:
+            print(f"  {key}: script not found ({spath})")
 
-    v2_proc.wait()
-    if os.path.exists(v2_result):
-        with open(v2_result) as f:
-            v2_data = json.load(f)
-        os.unlink(v2_result)
-        print(f"  v2: {v2_data['sim_time']}s in {v2_data['wall_time']:.1f}s ({v2_data['speed']:.1f}x)")
-    else:
-        print(f"  v2: FAILED")
-        v2_data = {'engine': 'v2ecoli (FAILED)', 'snapshots': [], 'wall_time': 0, 'sim_time': 0, 'speed': 0, 'load_time': 0}
+    datasets = {}
+    empty = {'snapshots': [], 'wall_time': 0, 'sim_time': 0, 'speed': 0, 'load_time': 0}
 
-    v1_proc.wait()
-    if os.path.exists(v1_result):
-        with open(v1_result) as f:
-            v1_data = json.load(f)
-        os.unlink(v1_result)
-        print(f"  v1: {v1_data['sim_time']}s in {v1_data['wall_time']:.1f}s ({v1_data['speed']:.1f}x)")
-    else:
-        print(f"  v1: FAILED (rc={v1_proc.returncode})")
-        v1_data = {'engine': 'vEcoli (FAILED)', 'snapshots': [], 'wall_time': 0, 'sim_time': 0, 'speed': 0, 'load_time': 0}
+    for key in runners:
+        proc = procs.get(key)
+        rpath = result_paths[key]
+        label = next(l for k, l, _, _ in ENGINES if k == key)
+
+        if proc is None:
+            datasets[key] = {**empty, 'engine': f'{label} (skipped)'}
+            continue
+
+        proc.wait()
+        if os.path.exists(rpath):
+            with open(rpath) as f:
+                data = json.load(f)
+            os.unlink(rpath)
+            print(f"  {label}: {data['sim_time']}s in {data['wall_time']:.1f}s ({data['speed']:.1f}x)")
+            datasets[key] = data
+        else:
+            print(f"  {label}: FAILED (rc={proc.returncode})")
+            datasets[key] = {**empty, 'engine': f'{label} (FAILED)'}
 
     total = time.time() - t0
 
-    report = generate_report(v1_data, v2_data, args.duration)
+    report = generate_report(datasets, args.duration)
     print(f"Total: {total:.0f}s")
 
     # Open in browser

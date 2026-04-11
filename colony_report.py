@@ -73,7 +73,7 @@ def make_colony_document(
         positions.append((x, y))
 
     # Randomly assign one position to ecoli
-    ecoli_idx = rng.randint(0, total)
+    ecoli_idx = int(rng.randint(0, total))
 
     for i in range(total):
         x, y = positions[i]
@@ -199,87 +199,81 @@ def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
 
 
 def _generate_chromosome_gif_from_history(history, out_path, frame_duration_ms=100):
-    """Generate chromosome GIF from synchronized history.
+    """Generate chromosome GIF with one subplot per cell, visible borders.
 
-    Shows all ecoli cells' chromosomes in a single figure. Before division,
-    one panel shows the mother's chromosomes (1→2 during replication).
-    After division, two panels show each daughter's chromosomes.
-
-    Args:
-        history: list of (time, {cell_id: chrom_state_dict})
-        out_path: output GIF path
-        frame_duration_ms: milliseconds per frame (matches colony GIF)
+    Before division: 1 subplot labeled with the mother's agent ID.
+    After division: 2 subplots, each labeled with the daughter's agent ID.
+    Subplots have visible borders and are clearly separated.
     """
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
+    from matplotlib.patches import FancyBboxPatch
     from PIL import Image
     import io
 
     if not history:
         return
 
-    # Determine max panels needed across all frames
+    # Determine max panels needed (usually 1 before division, 2 after)
     max_panels = max((len(cells) for _, cells in history if cells), default=1)
     max_panels = max(1, max_panels)
 
-    # Fixed figure size for consistency across frames
-    fig_w = 4.5 * max_panels
-    fig_h = 4.5
+    fig_w = 5.0 * max_panels
+    fig_h = 5.0
 
     images = []
     for t, ecoli_cells in history:
-        fig, axes = plt.subplots(1, max_panels, figsize=(fig_w, fig_h), squeeze=False)
-        fig.suptitle(f't = {t:.0f}s  ({t/60:.1f} min)', fontsize=13, y=0.98,
+        fig = plt.figure(figsize=(fig_w, fig_h), facecolor='white')
+        t_int = int(t)
+        hh, mm, ss = t_int // 3600, (t_int % 3600) // 60, t_int % 60
+        fig.suptitle(f't = {hh:02d}:{mm:02d}:{ss:02d}', fontsize=14, y=0.97,
                      fontweight='bold')
 
-        # Sort cells: mother first, then daughters by name
         sorted_cells = sorted(ecoli_cells.items(), key=lambda x: x[0])
 
         for i in range(max_panels):
-            ax = axes[0][i]
+            ax = fig.add_subplot(1, max_panels, i + 1)
+
             if i < len(sorted_cells):
                 aid, chrom = sorted_cells[i]
                 n_chrom = chrom.get('n_chromosomes', 1)
                 forks = chrom.get('fork_coords', [])
                 rnaps = chrom.get('rnap_coords', [])
                 dm = chrom.get('dry_mass', 0)
-                rna_mass = chrom.get('rna_mass', 0)
-                protein_mass = chrom.get('protein_mass', 0)
 
                 # Draw chromosomes
                 R = 0.8
                 spacing = 2.2
                 total_w = (n_chrom - 1) * spacing
                 for c in range(n_chrom):
-                    cx = -total_w / 2 + c * spacing
-                    _draw_chromosome(ax, cx, 0, R, rnaps, forks)
+                    cx_c = -total_w / 2 + c * spacing
+                    _draw_chromosome(ax, cx_c, 0, R, rnaps, forks)
 
-                # Label: determine if mother or daughter
-                if '_' in aid:
-                    parts = aid.split('_')
-                    daughter_num = parts[-1]
-                    label = f'Daughter {daughter_num}'
-                else:
-                    label = 'Mother'
-
+                # Title with agent ID
                 ax.set_title(
-                    f'{label}\n'
-                    f'{dm:.0f} fg dry mass · {n_chrom} chromosome{"s" if n_chrom > 1 else ""}\n'
+                    f'{aid}\n'
+                    f'{dm:.0f} fg · {n_chrom} chr · '
                     f'{len(forks)} forks · {len(rnaps)} RNAPs',
-                    fontsize=9, pad=8)
+                    fontsize=9, pad=10, fontweight='bold')
 
                 xlim = max(2.0, 1.5 + (n_chrom - 1) * spacing)
                 ax.set_xlim(-xlim, xlim)
-                ax.set_ylim(-1.5, 1.5)
+                ax.set_ylim(-1.6, 1.6)
             else:
-                # Empty panel placeholder
                 ax.text(0.5, 0.5, '—', ha='center', va='center',
                         transform=ax.transAxes, fontsize=20, color='#ddd')
-                ax.set_xlim(-2, 2); ax.set_ylim(-1.5, 1.5)
+                ax.set_xlim(-2, 2); ax.set_ylim(-1.6, 1.6)
+                ax.set_title('(empty)', fontsize=9, color='#ccc')
 
             ax.set_aspect('equal')
-            ax.axis('off')
+            # Visible border around each subplot
+            for spine in ax.spines.values():
+                spine.set_visible(True)
+                spine.set_edgecolor('#94a3b8')
+                spine.set_linewidth(1.5)
+            ax.tick_params(left=False, bottom=False,
+                           labelleft=False, labelbottom=False)
 
         plt.tight_layout(rect=[0, 0, 1, 0.92])
         buf = io.BytesIO()
@@ -290,7 +284,6 @@ def _generate_chromosome_gif_from_history(history, out_path, frame_duration_ms=1
         images.append(Image.open(buf).copy())
 
     if images:
-        # Ensure all frames are the same size (pad to largest)
         max_w = max(img.width for img in images)
         max_h = max(img.height for img in images)
         uniform = []
@@ -384,9 +377,43 @@ def _generate_chromosome_gif(results, ecoli_id, out_path, skip=1):
                        duration=200, loop=0)
 
 
+def _get_reproducibility_info():
+    """Collect git commit, date, versions for reproducibility."""
+    import subprocess, datetime, platform
+    info = {
+        'date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        'python': platform.python_version(),
+        'platform': f'{platform.system()} {platform.machine()}',
+    }
+    try:
+        info['commit'] = subprocess.run(
+            ['git', 'rev-parse', '--short', 'HEAD'],
+            capture_output=True, text=True, cwd=os.path.dirname(__file__)
+        ).stdout.strip()
+        info['branch'] = subprocess.run(
+            ['git', 'branch', '--show-current'],
+            capture_output=True, text=True, cwd=os.path.dirname(__file__)
+        ).stdout.strip()
+    except Exception:
+        info['commit'] = 'unknown'
+        info['branch'] = 'unknown'
+    try:
+        import process_bigraph
+        info['process_bigraph'] = getattr(process_bigraph, '__version__', 'dev')
+    except Exception:
+        info['process_bigraph'] = '?'
+    try:
+        import bigraph_schema
+        info['bigraph_schema'] = getattr(bigraph_schema, '__version__', 'dev')
+    except Exception:
+        info['bigraph_schema'] = '?'
+    return info
+
+
 def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
     """Run the colony simulation and generate report."""
-    duration = duration_min * 60  # convert to seconds
+    duration = duration_min * 60
+    repro = _get_reproducibility_info()
 
     print(f"Building colony: 1 wc-ecoli + {n_adder} adder cells...")
     t0 = time.time()
@@ -413,8 +440,22 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
     total = 0
     t0 = time.time()
     chromosome_history = []  # list of (time, {cell_id: chrom_state})
+    # Keep reference to mother's EcoliWCM instance so we preserve its history
+    # even after division removes it from the colony
+    mother_wcm_history = None  # will be set when mother is found
 
     while total < duration:
+        # Before running, grab the mother's chromosome history reference
+        colony_cells_pre = sim.state.get('cells', {})
+        if ecoli_id in colony_cells_pre and mother_wcm_history is None:
+            ecoli_proc = colony_cells_pre[ecoli_id].get('ecoli', {})
+            inst = ecoli_proc.get('instance') if isinstance(ecoli_proc, dict) else None
+            if inst and hasattr(inst, 'chromosome_history'):
+                mother_wcm_history = inst.chromosome_history  # live reference
+                print(f"    [debug] Got mother WCM history ref (len={len(mother_wcm_history)})")
+            else:
+                print(f"    [debug] Mother ecoli proc: inst={inst is not None}, type={type(inst).__name__ if inst else 'N/A'}")
+
         step = min(chunk, duration - total)
         try:
             sim.run(step)
@@ -518,25 +559,52 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
         print(f"GIF generation failed: {e}")
         gif_path = None
 
-    # Build synchronized chromosome timeline from EcoliWCM instances
-    # Collect all chromosome histories keyed by cell ID
-    all_chrom_histories = {}  # {cell_id: [(time, chrom_dict), ...]}
+    # Build synchronized chromosome timeline
+    # 1. Mother's history (from live reference, preserved even after removal)
+    mother_history = list(mother_wcm_history) if mother_wcm_history else []
+
+    # 2. Also merge chunk-collected history
+    for t_chunk, chrom_snap in chromosome_history:
+        for aid, chrom in chrom_snap.items():
+            if aid == ecoli_id:
+                mother_history.append((t_chunk, chrom))
+
+    # 3. Daughter histories from surviving instances
+    daughter_histories = {}  # {daughter_id: [(time, chrom), ...]}
+    daughter_ids_from_colony = []  # all daughter IDs present in colony
     colony_cells = sim.state.get('cells', {})
     for aid, cell in colony_cells.items():
-        if aid == ecoli_id or aid.startswith(ecoli_id + '_'):
+        if aid.startswith(ecoli_id + '_'):
+            daughter_ids_from_colony.append(aid)
             ecoli_proc = cell.get('ecoli', {})
             inst = ecoli_proc.get('instance') if isinstance(ecoli_proc, dict) else None
-            if inst and hasattr(inst, 'chromosome_history'):
-                all_chrom_histories[aid] = list(inst.chromosome_history)
+            if inst and hasattr(inst, 'chromosome_history') and inst.chromosome_history:
+                daughter_histories[aid] = list(inst.chromosome_history)
 
-    # Also check chromosome_history collected during the run
-    # (for the mother cell that may have been removed at division)
-    if chromosome_history:
-        for t, chrom_snap in chromosome_history:
-            for aid, chrom in chrom_snap.items():
-                if aid not in all_chrom_histories:
-                    all_chrom_histories[aid] = []
-                all_chrom_histories[aid].append((t, chrom))
+    # Also check chunk-collected chromosome_history for daughter data
+    for t_chunk, chrom_snap in chromosome_history:
+        for aid, chrom in chrom_snap.items():
+            if aid.startswith(ecoli_id + '_'):
+                if aid not in daughter_ids_from_colony:
+                    daughter_ids_from_colony.append(aid)
+                daughter_histories.setdefault(aid, []).append((t_chunk, chrom))
+
+    # Deduplicate mother_history by time
+    seen_times = set()
+    deduped = []
+    for t_h, ch in sorted(mother_history, key=lambda x: x[0]):
+        t_key = round(t_h, 1)
+        if t_key not in seen_times:
+            seen_times.add(t_key)
+            deduped.append((t_h, ch))
+    mother_history = deduped
+
+    # Find division time: last time mother has data
+    division_time = mother_history[-1][0] if mother_history else float('inf')
+    mother_last_chrom = mother_history[-1][1] if mother_history else {}
+
+    # Daughter IDs: use colony-detected IDs (includes daughters without WCM data)
+    daughter_ids = sorted(set(daughter_ids_from_colony) | set(daughter_histories.keys()))
 
     # Build frame-synchronized chromosome data using emitter timestamps
     frame_times = []
@@ -547,18 +615,55 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0):
             t = entry.get('time', 0)
         frame_times.append(float(t))
 
-    # For each emitter frame, find the closest chromosome snapshot per cell
-    synced_chrom = []  # list of (time, {cell_id: chrom_dict})
+    synced_chrom = []
     for ft in frame_times:
         frame_chrom = {}
-        for aid, hist in all_chrom_histories.items():
-            if not hist:
-                continue
-            # Find closest snapshot to this frame time
-            best = min(hist, key=lambda h: abs(h[0] - ft))
-            if abs(best[0] - ft) < 120:  # within 2 min
-                frame_chrom[aid] = best[1]
+
+        if ft <= division_time:
+            # Before/at division: show mother
+            if mother_history:
+                best = min(mother_history, key=lambda h: abs(h[0] - ft))
+                if abs(best[0] - ft) < 120:
+                    frame_chrom[ecoli_id] = best[1]
+        else:
+            # After division: show daughters
+            for did in daughter_ids:
+                dhist = daughter_histories.get(did, [])
+                if dhist:
+                    best = min(dhist, key=lambda h: abs(h[0] - ft))
+                    if abs(best[0] - ft) < 120:
+                        frame_chrom[did] = best[1]
+                elif mother_last_chrom:
+                    # Daughter hasn't built WCM yet — each daughter gets
+                    # 1 chromosome (mother had 2 after replication), no active
+                    # forks, halved mass and RNAPs
+                    placeholder = dict(mother_last_chrom)
+                    placeholder['n_chromosomes'] = 1
+                    placeholder['n_forks'] = 0
+                    placeholder['fork_coords'] = []
+                    placeholder['dry_mass'] = placeholder.get('dry_mass', 0) / 2
+                    placeholder['protein_mass'] = placeholder.get('protein_mass', 0) / 2
+                    placeholder['rna_mass'] = placeholder.get('rna_mass', 0) / 2
+                    placeholder['dna_mass'] = placeholder.get('dna_mass', 0) / 2
+                    n_rnap = placeholder.get('n_rnap', 0)
+                    placeholder['n_rnap'] = n_rnap // 2
+                    rnap_c = placeholder.get('rnap_coords', [])
+                    placeholder['rnap_coords'] = rnap_c[:len(rnap_c)//2]
+                    frame_chrom[did] = placeholder
+
         synced_chrom.append((ft, frame_chrom))
+
+    # Debug: check synced_chrom
+    n_with_data = sum(1 for _, c in synced_chrom if c)
+    n_with_daughters = sum(1 for _, c in synced_chrom if any(k != ecoli_id for k in c))
+    print(f"  [debug] synced_chrom: {len(synced_chrom)} frames, {n_with_data} with data, {n_with_daughters} with daughters")
+    print(f"  [debug] mother_history: {len(mother_history)} entries")
+    print(f"  [debug] daughter_ids (colony): {daughter_ids_from_colony}")
+    print(f"  [debug] daughter_histories: {list(daughter_histories.keys())}")
+    print(f"  [debug] division_time: {division_time}")
+    if synced_chrom:
+        last = synced_chrom[-1]
+        print(f"  [debug] last frame: t={last[0]}, cells={list(last[1].keys())}")
 
     # Generate chromosome GIF synchronized with colony GIF (same skip)
     chrom_gif_path = os.path.join(REPORT_DIR, 'chromosome.gif')
@@ -681,7 +786,20 @@ forks, and active RNA polymerases.</p>
 </table>
 
 
-<footer style="margin-top:3em; padding-top:1em; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:0.85em;">
+<h2>Reproducibility</h2>
+<table style="font-size:0.85em;">
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Date</td><td>{repro['date']}</td></tr>
+<tr><td>Git commit</td><td><code>{repro['commit']}</code> ({repro['branch']})</td></tr>
+<tr><td>Python</td><td>{repro['python']}</td></tr>
+<tr><td>Platform</td><td>{repro['platform']}</td></tr>
+<tr><td>process-bigraph</td><td>{repro['process_bigraph']}</td></tr>
+<tr><td>bigraph-schema</td><td>{repro['bigraph_schema']}</td></tr>
+<tr><td>Seed</td><td>{seed}</td></tr>
+<tr><td>Command</td><td><code>python3 colony_report.py --duration {duration_min} --n-adder {n_adder} --env-size {env_size}</code></td></tr>
+</table>
+
+<footer style="margin-top:2em; padding-top:1em; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:0.85em;">
 v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-collective/v2ecoli">github</a>
 </footer>
 </body></html>""")

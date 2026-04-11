@@ -50,7 +50,7 @@ model. Daughters are shown with color-shifted variants of the mother&rsquo;s gre
 
 <div class="media">
   <img src="colony.gif" alt="Colony simulation — spatial view">
-  <div class="media-label">Colony spatial view: 6 initial cells → 12 final cells over 45 min.
+  <div class="media-label">Colony spatial view: 6 initial cells → 11 final cells over 45 min.
   Colored cell = whole-cell <em>E. coli</em>; grey = surrogates.</div>
 </div>
 
@@ -85,16 +85,29 @@ forks, and active RNA polymerases.</p>
 <h2>Results</h2>
 <table>
 <tr><th>Metric</th><th>Value</th></tr>
-<tr><td>Build time</td><td>0.5s</td></tr>
-<tr><td>Wall time</td><td>208s (3.5 min)</td></tr>
-<tr><td>Speed</td><td>13.0× realtime</td></tr>
+<tr><td>Build time</td><td>0.6s</td></tr>
+<tr><td>Wall time</td><td>226s (3.8 min)</td></tr>
+<tr><td>Speed</td><td>11.9× realtime</td></tr>
 <tr><td>Initial cells</td><td>6</td></tr>
-<tr><td>Final cells</td><td>12</td></tr>
+<tr><td>Final cells</td><td>11</td></tr>
 <tr><td>Emitter frames</td><td>293</td></tr>
 </table>
 
 
-<footer style="margin-top:3em; padding-top:1em; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:0.85em;">
+<h2>Reproducibility</h2>
+<table style="font-size:0.85em;">
+<tr><th>Field</th><th>Value</th></tr>
+<tr><td>Date</td><td>2026-04-11 15:15:33</td></tr>
+<tr><td>Git commit</td><td><code>bfd202a</code> (main)</td></tr>
+<tr><td>Python</td><td>3.12.9</td></tr>
+<tr><td>Platform</td><td>Darwin arm64</td></tr>
+<tr><td>process-bigraph</td><td>dev</td></tr>
+<tr><td>bigraph-schema</td><td>dev</td></tr>
+<tr><td>Seed</td><td>0</td></tr>
+<tr><td>Command</td><td><code>python3 colony_report.py --duration 45 --n-adder 5 --env-size 40</code></td></tr>
+</table>
+
+<footer style="margin-top:2em; padding-top:1em; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:0.85em;">
 v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-collective/v2ecoli">github</a>
 </footer>
 </body></html>

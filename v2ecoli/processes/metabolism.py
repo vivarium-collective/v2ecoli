@@ -145,6 +145,14 @@ class Metabolism(Step):
         'seed': {'_type': 'integer', '_default': 0},
         'time_step': {'_type': 'integer', '_default': 1},
         'use_trna_charging': {'_type': 'boolean', '_default': False},
+        # Dark-matter mass balance (phase 2).
+        'mw_table': {'_type': 'map[float]', '_default': {}},
+        'enforce_dark_matter_balance': {
+            '_type': 'boolean', '_default': True},
+        'dark_matter_initial_fg': {
+            '_type': 'float', '_default': 0.0},
+        'enforce_biomass_mass_balance': {
+            '_type': 'boolean', '_default': False},
     }
 
     def inputs(self):
@@ -213,6 +221,11 @@ class Metabolism(Step):
                     'homeostatic_objective_values': {'_type': 'overwrite[array[float]]', '_default': []},
                     'kinetic_objective_values': {'_type': 'overwrite[array[float]]', '_default': []},
                     'fba_mass_exchange_out': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'dark_matter_pool_fg': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'dark_matter_withdraw_fg': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'dark_matter_deposit_fg': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'dark_matter_violation_fg': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'dark_matter_scale': {'_type': 'overwrite[float]', '_default': 1.0},
                     # Counts (dimensionless)
                     'catalyst_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
                     'delta_metabolites': {'_type': 'overwrite[array[integer]]', '_default': []},
@@ -274,6 +287,28 @@ class Metabolism(Step):
         self._mass_balance_enforced = False
         if self.parameters.get("enforce_biomass_mass_balance", False):
             self._enforce_biomass_mass_balance()
+
+        # Phase-2 dark-matter post-hoc enforcement. Looks at the LP's
+        # proposed bulk update each step, compares with boundary
+        # exchange mass, and scales down positive deltas when the LP
+        # would create mass the pool can't cover. Default on — the
+        # scaling only activates when imports can't account for growth,
+        # so in carbon-replete conditions it's inert.
+        self._dark_matter_enforced = bool(
+            self.parameters.get("enforce_dark_matter_balance", True))
+        self._dark_matter_fg = float(
+            self.parameters.get("dark_matter_initial_fg", 0.0))
+        self._dark_matter_mw_table = dict(
+            self.parameters.get("mw_table", {}) or {})
+        # Per-output-molecule MW array (aligned with
+        # fba.getOutputMoleculeIDs order) and per-external-molecule
+        # MW dict (keyed by compartment-tagged id). Built lazily on
+        # first update since we need the FBA's output-ID list.
+        self._output_molecule_ids = None
+        self._output_mw_array = None
+        self._mw_by_molecule = {}
+        # Actual MW-array build is deferred to first call of
+        # _dark_matter_scale — by then externalMoleculeIDs is set.
 
         # Fixed list of molecules reported in fba_results.conc_updates. The
         # set depends only on ParCa state, not on runtime, so we compute it
@@ -347,6 +382,121 @@ class Metabolism(Step):
         self.reaction_mapping_matrix = csr_matrix(
             (v, (base_rxn_indexes, fba_rxn_indexes)), shape=shape
         )
+
+    def _init_dark_matter_mw_arrays(self):
+        """Precompute MW lookup structures aligned with the FBA's
+        output-molecule and external-molecule orderings."""
+        table = self._dark_matter_mw_table
+        def lookup(mol_id):
+            if mol_id in table:
+                return table[mol_id]
+            bare = mol_id.split("[", 1)[0] if "[" in mol_id else mol_id
+            return table.get(bare, 0.0)
+        out_ids = list(self.model.fba.getOutputMoleculeIDs())
+        self._output_molecule_ids = out_ids
+        self._output_mw_array = np.array(
+            [lookup(m) for m in out_ids], dtype=float)
+        self._mw_by_molecule = {
+            m: lookup(m) for m in self.externalMoleculeIDs
+        }
+
+    def _dark_matter_scale(self, delta_metabolites, delta_nutrients):
+        """Apply mass-balance via a persistent dark-matter pool.
+
+        Computes ``Δ cell_mass`` (LP writes to bulk) and ``Δ boundary_mass``
+        (imports − secretions this step) using the MW table from sim_data.
+        Excess mass (Δ cell > Δ boundary) draws from the pool; shortfall
+        deposits into it. When the withdrawal required would exceed the
+        pool, positive deltas are scaled down proportionally so the
+        realised cell-mass change equals ``boundary + pool`` exactly —
+        no mass creation. Biomass targets are allowed to undershoot
+        (user-permitted).
+        """
+        if not self._dark_matter_enforced or not self._dark_matter_mw_table:
+            return {
+                "delta_scaled": delta_metabolites,
+                "pool_fg_after": self._dark_matter_fg,
+                "withdraw_fg": 0.0, "deposit_fg": 0.0,
+                "violated_fg": 0.0, "scale": 1.0,
+            }
+        if self._output_molecule_ids is None:
+            self._init_dark_matter_mw_arrays()
+        if not self._output_molecule_ids:
+            return {
+                "delta_scaled": delta_metabolites,
+                "pool_fg_after": self._dark_matter_fg,
+                "withdraw_fg": 0.0,
+                "deposit_fg": 0.0,
+                "violated_fg": 0.0,
+                "scale": 1.0,
+            }
+
+        mw_arr = self._output_mw_array
+        # Cell-mass change (fg) = Σ Δcount_i × MW_i / N_A × 1e15
+        cell_mass_delta_fg = (
+            float(np.sum(np.asarray(delta_metabolites) * mw_arr))
+            / 6.02214076e23 * 1e15)
+
+        # Boundary mass flux this step (fg). delta_nutrients is in
+        # counts; negative = cell imported. MW comes from the
+        # exchange-molecule subset of the MW table.
+        boundary_mass_delta_fg = 0.0
+        for idx, mol_with_suffix in enumerate(self.externalMoleculeIDs):
+            mw = self._mw_by_molecule.get(mol_with_suffix, 0.0)
+            if mw <= 0:
+                continue
+            n = float(delta_nutrients[idx])
+            # delta_nutrients sign: negative = import. Cell mass gain =
+            # -n × MW (per step).
+            boundary_mass_delta_fg += -n * mw / 6.02214076e23 * 1e15
+
+        # Dark-matter accounting: mass the LP produced beyond what the
+        # boundary supplied this step.
+        excess = cell_mass_delta_fg - boundary_mass_delta_fg
+        scale = 1.0
+        withdraw = 0.0
+        deposit = 0.0
+        violated = 0.0
+        if excess > 0:
+            # LP wants to produce mass beyond boundary supply → draw
+            # from the pool.
+            if excess <= self._dark_matter_fg:
+                withdraw = excess
+                self._dark_matter_fg -= withdraw
+            else:
+                # Can only draw what's in the pool. The remainder
+                # would be mass created from nothing — scale the
+                # *positive* deltas so realised mass gain = imports +
+                # pool. Downscale factor applies to the net mass
+                # added; keep negatives (consumption) intact.
+                allowed = boundary_mass_delta_fg + self._dark_matter_fg
+                if cell_mass_delta_fg > 0 and allowed < cell_mass_delta_fg:
+                    scale_needed = max(0.0, allowed) / cell_mass_delta_fg
+                    # Scale ALL deltas proportionally — preserves
+                    # stoichiometric ratios (S·v=0 stays satisfied) while
+                    # reducing the overall rate. Equivalent to running
+                    # every LP flux at `scale_needed × v*` instead of v*.
+                    delta_metabolites = (
+                        np.asarray(delta_metabolites, dtype=float)
+                        * scale_needed)
+                    scale = scale_needed
+                violated = excess - self._dark_matter_fg
+                withdraw = self._dark_matter_fg
+                self._dark_matter_fg = 0.0
+        elif excess < 0:
+            # LP produced less mass than boundary supplied → excess
+            # goes into the pool for future use.
+            deposit = -excess
+            self._dark_matter_fg += deposit
+
+        return {
+            "delta_scaled": delta_metabolites,
+            "pool_fg_after": self._dark_matter_fg,
+            "withdraw_fg": withdraw,
+            "deposit_fg": deposit,
+            "violated_fg": violated,
+            "scale": scale,
+        }
 
     def _enforce_biomass_mass_balance(self):
         """Cap the homeostatic "above unity" slack pseudofluxes at 0.
@@ -502,14 +652,7 @@ class Metabolism(Step):
         delta_metabolites = (1 / counts_to_molar) * (
             CONC_UNITS * fba.getOutputMoleculeLevelsChange()
         )
-        metabolite_counts_final = np.fmax(
-            stochasticRound(
-                self.random_state,
-                metabolite_counts_init + delta_metabolites.asNumber(),
-            ),
-            0,
-        ).astype(np.int64)
-        delta_metabolites_final = metabolite_counts_final - metabolite_counts_init
+        delta_metabolites_raw = delta_metabolites.asNumber()
 
         exchange_fluxes = CONC_UNITS * fba.getExternalExchangeFluxes()
         converted_exchange_fluxes = (exchange_fluxes / coefficient).asNumber(
@@ -518,6 +661,27 @@ class Metabolism(Step):
         delta_nutrients = (
             ((1 / counts_to_molar) * exchange_fluxes).asNumber().astype(int)
         )
+
+        # ------------------------------------------------------------------
+        # Mass-balance enforcement via dark-matter pool (phase 2).
+        # ------------------------------------------------------------------
+        # User rule: "mass can not be created". If the LP's proposed
+        # delta would raise bulk mass by more than boundary imports +
+        # current pool level, scale the positive deltas proportionally
+        # so total system mass change = boundary flux + pool withdrawal,
+        # and drive the pool toward zero.
+        dm_info = self._dark_matter_scale(
+            delta_metabolites_raw, delta_nutrients)
+        delta_metabolites_raw = dm_info["delta_scaled"]
+
+        metabolite_counts_final = np.fmax(
+            stochasticRound(
+                self.random_state,
+                metabolite_counts_init + delta_metabolites_raw,
+            ),
+            0,
+        ).astype(np.int64)
+        delta_metabolites_final = metabolite_counts_final - metabolite_counts_init
 
         unconstrained_out, constrained_out, uptake_constraints = (
             self.get_import_constraints(unconstrained, constrained, GDCW_BASIS)
@@ -581,6 +745,12 @@ class Metabolism(Step):
                     # Mismatch vs. real dry-mass growth = slack-induced
                     # "free mass" from homeostatic pseudofluxes.
                     "fba_mass_exchange_out": fba_mass_exchange_out,
+                    # Dark-matter pool state (phase 2). Values in fg.
+                    "dark_matter_pool_fg": dm_info["pool_fg_after"],
+                    "dark_matter_withdraw_fg": dm_info["withdraw_fg"],
+                    "dark_matter_deposit_fg": dm_info["deposit_fg"],
+                    "dark_matter_violation_fg": dm_info["violated_fg"],
+                    "dark_matter_scale": dm_info["scale"],
                 },
                 "enzyme_kinetics": {
                     "metabolite_counts_init": metabolite_counts_init,

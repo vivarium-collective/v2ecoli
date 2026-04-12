@@ -1432,6 +1432,12 @@ class LoadSimData:
             # in the FBA solution to the fluxes of base reactions
             "base_reaction_ids": metabolism.base_reaction_ids,
             "fba_reaction_ids_to_base_reaction_ids": metabolism.reaction_id_to_base_reaction_id,
+            # Full MW table (g/mol) for dark-matter mass balance phase 2.
+            "mw_table": {
+                k: float(v) for k, v in
+                getattr(self.sim_data.getter, "_all_total_masses", {}).items()
+            },
+            "enforce_dark_matter_balance": True,
         }
 
         # TODO Create new config-get with only necessary parts.
@@ -1597,6 +1603,14 @@ class LoadSimData:
             # in the FBA solution to the fluxes of base reactions
             "base_reaction_ids": self.sim_data.process.metabolism.base_reaction_ids,
             "fba_reaction_ids_to_base_reaction_ids": self.sim_data.process.metabolism.reaction_id_to_base_reaction_id,
+            # Full MW table (g/mol) for dark-matter mass balance
+            # enforcement in metabolism.py phase 2. 12,809 entries,
+            # 100% of bulk molecules.
+            "mw_table": {
+                k: float(v) for k, v in
+                getattr(self.sim_data.getter, "_all_total_masses", {}).items()
+            },
+            "enforce_dark_matter_balance": True,
         }
 
         return metabolism_config

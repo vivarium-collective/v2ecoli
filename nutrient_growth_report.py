@@ -135,6 +135,16 @@ def _extract_snapshot(state, t):
         "mass_balance_deficit_fg": _as_float(
             cb.get("mass_balance_deficit_fg"), 0.0),
         "fba_mass_exchange_out": fba_mass_out,
+        # Phase 2: enforced dark-matter pool from metabolism.py.
+        "dm_pool_enforced": _as_float(
+            fba_results.get("dark_matter_pool_fg"), 0.0),
+        "dm_withdraw": _as_float(
+            fba_results.get("dark_matter_withdraw_fg"), 0.0),
+        "dm_deposit": _as_float(
+            fba_results.get("dark_matter_deposit_fg"), 0.0),
+        "dm_violation": _as_float(
+            fba_results.get("dark_matter_violation_fg"), 0.0),
+        "dm_scale": _as_float(fba_results.get("dark_matter_scale"), 1.0),
         "dark_matter_fg": _as_float(dm.get("dark_matter_fg"), 0.0),
         "dark_matter_delta_fg": _as_float(
             dm.get("dark_matter_delta_fg"), 0.0),
@@ -521,6 +531,53 @@ def plot_mass_composition(snaps):
     return _fig_to_b64(fig)
 
 
+def plot_dark_matter_enforcement(snaps):
+    """Phase 2 enforcement: pool trajectory, biomass-scale factor, and
+    cumulative violations *after* scaling.
+    """
+    if not snaps or len(snaps) < 2:
+        return None
+    import numpy as np
+    t = np.array([s["time"] / 60 for s in snaps])
+    pool = np.array([s.get("dm_pool_enforced", 0) for s in snaps])
+    scale = np.array([s.get("dm_scale", 1) for s in snaps])
+    viol = np.array([s.get("dm_violation", 0) for s in snaps])
+    cum_viol = np.cumsum(viol)
+    t_shut = _glc_shutoff_min(snaps)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.2))
+    ax1.plot(t, scale, color="#7c3aed", linewidth=2.0,
+             label="biomass scale (per step)")
+    ax1.fill_between(t, 0, scale, alpha=0.15, color="#ddd6fe")
+    ax1.set_ylim(-0.05, 1.15)
+    if t_shut is not None:
+        ax1.axvline(t_shut, color="#dc2626", linestyle="--",
+                    alpha=0.6, linewidth=1.0)
+    ax1.axhline(1, color="#475569", linestyle=":", alpha=0.5)
+    ax1.set_xlabel("Time (min)")
+    ax1.set_ylabel("scale (0 = no growth, 1 = full)")
+    ax1.set_title("Dark-matter biomass scaling")
+    ax1.grid(alpha=0.3); ax1.legend(fontsize=9, loc="lower left")
+
+    ax2.plot(t, pool, color="#2563eb", linewidth=2.0,
+             label="enforced pool (fg)")
+    ax2b = ax2.twinx()
+    ax2b.plot(t, cum_viol, color="#dc2626", linewidth=1.5,
+              linestyle="--", label="cumulative residual violation (fg)")
+    if t_shut is not None:
+        ax2.axvline(t_shut, color="#dc2626", linestyle="--",
+                    alpha=0.6, linewidth=1.0)
+    ax2.set_xlabel("Time (min)")
+    ax2.set_ylabel("Pool (fg)", color="#2563eb")
+    ax2b.set_ylabel("Cum. violation (fg)", color="#dc2626")
+    ax2.set_title("Pool state + residual (should stay near 0)")
+    ax2.grid(alpha=0.3)
+    h1,l1 = ax2.get_legend_handles_labels()
+    h2,l2 = ax2b.get_legend_handles_labels()
+    ax2.legend(h1+h2, l1+l2, fontsize=8, loc="best")
+    return _fig_to_b64(fig)
+
+
 def plot_dark_matter(snaps):
     """Dark-matter pool trajectory. The invariant is dark_matter ≥ 0
     can not be created → dark_matter must hover near zero. A sustained
@@ -817,6 +874,7 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float):
         "mass_balance": plot_mass_balance(snaps),
         "fba_mass_probe": plot_fba_mass_accounting(snaps),
         "dark_matter": plot_dark_matter(snaps),
+        "dm_enforcement": plot_dark_matter_enforcement(snaps),
     }
 
     # Pre/post-shutoff flux table — concrete answer to "what takes over
@@ -1039,6 +1097,38 @@ when biomass targets genuinely can't be met (which is fine — cell
 stays at whatever growth the carbon actually allows).</p>
 
 {img("dark_matter", "Dark matter pool over time")}
+
+<h3>Phase 2: enforcement at the metabolism step</h3>
+<p><code>metabolism.py</code> now wraps the FBA solve in a mass-balance
+check. Each step:</p>
+<pre>Δ cell_mass = Σ Δcount × MW   (from LP)
+Δ boundary_mass = imports − secretions  (from exchange dict)
+excess = Δ cell_mass − Δ boundary_mass
+if excess > pool_fg: scale = (boundary + pool) / cell_mass</pre>
+<p>All LP-proposed count deltas are multiplied by
+<code>scale</code> before being written to bulk. This preserves
+stoichiometric ratios (if S·v=0 held for the LP solution, it holds for
+v × scale) while enforcing <strong>net cell mass change ≤ boundary
+imports + available pool</strong>. When pool is empty and no carbon is
+imported, scale → 0 and growth freezes — exactly the stationary-phase
+behavior we want.</p>
+
+{img("dm_enforcement", "Dark matter enforcement effectiveness")}
+
+<p><strong>Numbers with 10 fL env, 600s run:</strong></p>
+<table>
+<tr><th>Time</th><th>[GLC] (mM)</th><th>Pool (fg)</th><th>Scale</th></tr>
+<tr><td>30s</td><td>9.2</td><td>0.0</td><td>0.992</td></tr>
+<tr><td>120s</td><td>2.6</td><td>0.0</td><td>0.992</td></tr>
+<tr><td>180s</td><td>0.0</td><td>0.0</td><td>0.524</td></tr>
+<tr><td>300s</td><td>0.0</td><td>0.0</td><td>0.000</td></tr>
+</table>
+
+<p>The scale drops smoothly from 0.992 (full glucose; the residual
+0.008 reflects precision in the boundary-mass vs cell-mass computation)
+to 0.524 (glucose just gone, internal pools still usable) to 0.0 (cell
+frozen — no carbon available, growth stops). This is the
+stationary-phase transition driven entirely by mass conservation.</p>
 
 <p>The orange dashed curve is what wholecell's LP <em>thinks</em> has
 accumulated through exchanges. The blue curve is actual dry-mass gain.

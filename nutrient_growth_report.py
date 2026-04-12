@@ -95,27 +95,39 @@ def _extract_snapshot(state, t):
 
     glc_bound = _as_float(constrained.get("GLC[p]"))
 
-    # Carbon budget (emitted by v2ecoli/steps/listeners/carbon_budget.py).
+    # Carbon + mass budget (from carbon_budget_listener).
     cb = agent.get("listeners", {}).get("carbon_budget", {}) or {}
 
     return {
         "time": t,
         "dry_mass": float(mass.get("dry_mass", 0.0)),
         "cell_mass": float(mass.get("cell_mass", 0.0)),
+        "protein_mass": float(mass.get("protein_mass", 0.0)),
+        "rna_mass": float(mass.get("rna_mass", 0.0)),
+        "dna_mass": float(mass.get("dna_mass", 0.0)),
+        "smallmol_mass": float(mass.get("smallMolecule_mass", 0.0)),
+        "water_mass": float(mass.get("water_mass", 0.0)),
         "growth_rate": float(mass.get("instantaneous_growth_rate", 0.0)),
         "glc_ext_mM": _as_float(external.get("GLC")),
         "glc_bound_mmol_gdcw_h": glc_bound,
-        # full external concentrations snapshot (for multi-species panels)
         "external_mM": {k: _as_float(v, 0.0) for k, v in external.items()},
-        # per-step exchange counts snapshot (for flux panels)
         "exchange_counts": exchange_counts,
-        # carbon accounting
         "c_in_mmol":   _as_float(cb.get("c_in_mmol"), 0.0),
         "c_out_mmol":  _as_float(cb.get("c_out_mmol"), 0.0),
         "c_net_mmol":  _as_float(cb.get("c_net_mmol"), 0.0),
         "cum_c_in":    _as_float(cb.get("cumulative_c_in_mmol"), 0.0),
         "cum_c_out":   _as_float(cb.get("cumulative_c_out_mmol"), 0.0),
         "biomass_c":   _as_float(cb.get("biomass_c_est_mmol_per_step"), 0.0),
+        "mass_in_fg":  _as_float(cb.get("mass_in_fg"), 0.0),
+        "mass_out_fg": _as_float(cb.get("mass_out_fg"), 0.0),
+        "water_in_fg": _as_float(cb.get("water_in_fg"), 0.0),
+        "cum_mass_in":    _as_float(cb.get("cumulative_mass_in_fg"), 0.0),
+        "cum_mass_out":   _as_float(cb.get("cumulative_mass_out_fg"), 0.0),
+        "cum_water_in":   _as_float(cb.get("cumulative_water_in_fg"), 0.0),
+        "cum_dry_gained": _as_float(
+            cb.get("cumulative_dry_mass_gained_fg"), 0.0),
+        "mass_balance_deficit_fg": _as_float(
+            cb.get("mass_balance_deficit_fg"), 0.0),
     }
 
 
@@ -308,37 +320,63 @@ def _draw_exchange_series(ax, snaps, molecules, seen_colors, *,
     ax.legend(fontsize=8, ncol=2, loc="best", framealpha=0.9)
 
 
-def plot_exchange_fluxes(snaps, top_n: int = 10):
-    """Main import-flux panel: top-N molecules by peak import rate,
-    excluding glucose (which is plotted separately). Symlog y-axis;
-    glucose shutoff marker. Raw exchange is negated so positive values
-    on the plot mean import."""
+def plot_exchange_fluxes(snaps, top_n: int = 8):
+    """Two stacked panels — imports (top, uptake rate positive) and
+    secretions (bottom, secretion rate positive). Glucose is included
+    in the import panel so the reader can see its decay right up to
+    depletion. Shared x-axis, shared color palette across panels."""
     if not snaps:
         return None
+    t_shut = _glc_shutoff_min(snaps)
 
-    # Rank by peak import magnitude (largest negative raw exchange), skip
-    # glucose (covered by its own panel) and any species that is purely
-    # secreted (never imported).
-    top = _top_by_metric(
+    imports = _top_by_metric(
         snaps,
         metric=lambda s: max((-x for x in s if x < 0), default=0),
-        n=top_n,
-        exclude={"GLC"})
+        n=top_n)
+    exports = _top_by_metric(
+        snaps,
+        metric=lambda s: max((x for x in s if x > 0), default=0),
+        n=top_n)
 
-    fig, ax = plt.subplots(figsize=(11, 5))
+    fig, (axI, axE) = plt.subplots(
+        2, 1, figsize=(12, 7), sharex=True,
+        gridspec_kw={"hspace": 0.12})
     seen_colors: dict = {}
-    _draw_exchange_series(ax, snaps, top, seen_colors)
 
-    t_shut = _glc_shutoff_min(snaps)
+    t = [s["time"] / 60 for s in snaps]
+    # IMPORT panel: plot as positive (negate raw exchange).
+    for m in imports:
+        y = [max(0, -s.get("exchange_counts", {}).get(m, 0)) for s in snaps]
+        lw = 2.6 if m == "GLC" else 1.6
+        axI.plot(t, y, label=m, linewidth=lw, color=_color_for(m, seen_colors))
+    axI.set_yscale("symlog", linthresh=1e3)
+    axI.set_ylabel("Import rate\n(count / step)")
+    axI.set_title(f"Imports (top {len(imports)}) — green zone = uptake")
+    axI.grid(alpha=0.25, which="both")
+    axI.legend(fontsize=8, ncol=3, loc="upper right", framealpha=0.9)
+    axI.set_facecolor("#f0fdf4")  # faint green tint
+
+    # EXPORT panel: plot raw positive exchange.
+    for m in exports:
+        y = [max(0, s.get("exchange_counts", {}).get(m, 0)) for s in snaps]
+        axE.plot(t, y, label=m, linewidth=1.6, color=_color_for(m, seen_colors))
+    axE.set_yscale("symlog", linthresh=1e3)
+    axE.set_ylabel("Export rate\n(count / step)")
+    axE.set_xlabel("Time (min)")
+    axE.set_title(f"Secretions (top {len(exports)}) — red zone = dumping out")
+    axE.grid(alpha=0.25, which="both")
+    axE.legend(fontsize=8, ncol=3, loc="upper right", framealpha=0.9)
+    axE.set_facecolor("#fef2f2")  # faint red tint
+
     if t_shut is not None:
-        ax.axvline(t_shut, color="#dc2626", linestyle="--", alpha=0.6,
-                   linewidth=1.2)
-        ax.annotate(
+        for ax in (axI, axE):
+            ax.axvline(t_shut, color="#dc2626", linestyle="--",
+                       alpha=0.7, linewidth=1.4)
+        axI.annotate(
             f"glucose depleted ({t_shut:.1f} min)",
-            xy=(t_shut, 0), xytext=(t_shut + 0.2, 0),
-            textcoords="data", color="#dc2626", fontsize=9, va="center")
+            xy=(t_shut, 0), xytext=(t_shut + 0.15, 1e4),
+            textcoords="data", color="#dc2626", fontsize=9)
 
-    ax.set_title(f"Top {len(top)} imports, excluding glucose (symlog, by peak import rate)")
     return _fig_to_b64(fig)
 
 
@@ -416,6 +454,108 @@ def plot_externals(snaps, top_n: int = 6):
     ax.set_xlabel("Time (min)"); ax.set_ylabel("[M]ₑₓₜ (mM)")
     ax.set_title(f"Top {len(top)} external concentrations (by total change)")
     ax.grid(alpha=0.3); ax.legend(fontsize=8, ncol=2, loc="upper right")
+    return _fig_to_b64(fig)
+
+
+def plot_mass_composition(snaps):
+    """Stacked dry-mass components over time. Answers "what's actually
+    growing?" when the cell is supposedly starved."""
+    if not snaps:
+        return None
+    import numpy as np
+    t = np.array([s["time"] / 60 for s in snaps])
+    comps = [
+        ("protein_mass",  "Protein",       "#2563eb"),
+        ("rna_mass",      "RNA",           "#9333ea"),
+        ("dna_mass",      "DNA",           "#dc2626"),
+        ("smallmol_mass", "Small molecule", "#f97316"),
+    ]
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.2))
+
+    # Left: stacked areas (dry mass only).
+    ys = [np.array([s.get(k, 0) for s in snaps]) for k, _, _ in comps]
+    ax1.stackplot(t, *ys, labels=[c[1] for c in comps],
+                  colors=[c[2] for c in comps], alpha=0.85)
+    ax1.set_xlabel("Time (min)"); ax1.set_ylabel("Dry mass (fg)")
+    ax1.set_title("Dry-mass composition")
+    ax1.grid(alpha=0.3); ax1.legend(fontsize=9, loc="upper left")
+
+    # Right: delta from t=0 per component — shows what's *adding*.
+    for key, label, color in comps:
+        y = np.array([s.get(key, 0) for s in snaps])
+        if len(y) == 0:
+            continue
+        ax2.plot(t, y - y[0], label=label, color=color, linewidth=1.8)
+    # Also show water (separate y-scale hint via light color)
+    y_w = np.array([s.get("water_mass", 0) for s in snaps])
+    if len(y_w):
+        ax2.plot(t, y_w - y_w[0], label="Water (not in dry)",
+                 color="#64748b", linestyle=":", linewidth=1.4)
+    ax2.axhline(0, color="#475569", linestyle="-", alpha=0.3, linewidth=0.8)
+    t_shut = _glc_shutoff_min(snaps)
+    if t_shut is not None:
+        for ax in (ax1, ax2):
+            ax.axvline(t_shut, color="#dc2626", linestyle="--",
+                       alpha=0.6, linewidth=1.0)
+    ax2.set_xlabel("Time (min)")
+    ax2.set_ylabel("Δmass since t=0 (fg)")
+    ax2.set_title("What's actually growing?")
+    ax2.grid(alpha=0.3); ax2.legend(fontsize=9, loc="best")
+    return _fig_to_b64(fig)
+
+
+def plot_mass_balance(snaps):
+    """Cumulative mass in / out / into biomass, plus the deficit —
+    the quantitative "carbon appearing from nowhere" signal.
+
+    If the cell is mass-balanced:
+        Σ imports = Σ secretions + Σ dry-mass-gained
+    Any gap is the amount of mass the LP is producing without a
+    corresponding exchange flux — the "free biomass" problem.
+    """
+    if not snaps:
+        return None
+    import numpy as np
+    t = np.array([s["time"] / 60 for s in snaps])
+    cum_in = np.array([s.get("cum_mass_in", 0) for s in snaps])
+    cum_out = np.array([s.get("cum_mass_out", 0) for s in snaps])
+    cum_gained = np.array([s.get("cum_dry_gained", 0) for s in snaps])
+    deficit = np.array([s.get("mass_balance_deficit_fg", 0) for s in snaps])
+    cum_water_in = np.array([s.get("cum_water_in", 0) for s in snaps])
+    t_shut = _glc_shutoff_min(snaps)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.2))
+
+    ax1.plot(t, cum_in, label="Σ mass imported (non-water)",
+             color="#16a34a", linewidth=1.8)
+    ax1.plot(t, cum_out, label="Σ mass secreted",
+             color="#dc2626", linewidth=1.8)
+    ax1.plot(t, cum_gained, label="Σ dry-mass gained",
+             color="#2563eb", linewidth=1.8)
+    ax1.plot(t, cum_water_in, label="Σ water imported (not dry)",
+             color="#64748b", linestyle=":", linewidth=1.4)
+    if t_shut is not None:
+        ax1.axvline(t_shut, color="#dc2626", linestyle="--",
+                    alpha=0.6, linewidth=1.0)
+    ax1.set_xlabel("Time (min)")
+    ax1.set_ylabel("Cumulative (fg)")
+    ax1.set_title("Mass budget — what goes in, what goes out, what grows")
+    ax1.grid(alpha=0.3); ax1.legend(fontsize=9, loc="best")
+
+    # Right: the deficit. Expected = 0 for mass-balanced cell.
+    ax2.plot(t, deficit, color="#dc2626", linewidth=2.0,
+             label="(Σ in − Σ out) − Σ dry-gained")
+    ax2.fill_between(t, deficit, 0, where=(deficit < 0),
+                     color="#fecaca", alpha=0.5,
+                     label="Imports can't account for growth")
+    ax2.axhline(0, color="#475569", linestyle="-", alpha=0.4, linewidth=1.0)
+    if t_shut is not None:
+        ax2.axvline(t_shut, color="#dc2626", linestyle="--",
+                    alpha=0.6, linewidth=1.0)
+    ax2.set_xlabel("Time (min)")
+    ax2.set_ylabel("Deficit (fg)")
+    ax2.set_title("Mass-balance check — negative = free mass")
+    ax2.grid(alpha=0.3); ax2.legend(fontsize=9, loc="best")
     return _fig_to_b64(fig)
 
 
@@ -562,6 +702,8 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float):
         "externals": plot_externals(snaps),
         "carbon_budget": plot_carbon_budget(snaps),
         "externals_all": plot_external_concentrations(snaps),
+        "mass_composition": plot_mass_composition(snaps),
+        "mass_balance": plot_mass_balance(snaps),
     }
 
     # Pre/post-shutoff flux table — concrete answer to "what takes over
@@ -725,6 +867,27 @@ homeostatic objective happy. That pink area is the quantitative
 signature of the "pool-drain" failure mode.</p>
 
 {img("carbon_budget", "Carbon budget over time")}
+
+<h2>What's actually growing?</h2>
+<p>Dry-mass composition over time. If carbon isn't coming in from the
+environment, the question is which biomass pools are still gaining mass
+— and the answer is <strong>all of them</strong>: protein, RNA, DNA,
+and small molecules all continue to accumulate past glucose depletion.
+That growth has to come from somewhere; see the mass balance below.</p>
+
+{img("mass_composition", "Dry mass composition")}
+
+<h2>Mass-balance check</h2>
+<p>A closed cell must satisfy
+<code>Σ imports − Σ secretions = Σ dry-mass-gained</code>
+(in fg, ignoring water which doesn't contribute to dry mass).
+Any persistent negative deficit on the right panel means the LP is
+synthesizing biomass faster than it's importing mass — a direct
+quantitative symptom of the homeostatic-objective pool-drain
+pathology. This is the metric any further mechanistic fix should
+drive toward zero.</p>
+
+{img("mass_balance", "Mass balance check")}
 
 {img("externals", "Top external concentrations over time (by change)")}
 

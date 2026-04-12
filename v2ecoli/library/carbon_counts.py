@@ -110,3 +110,59 @@ def carbon_of(molecule: str) -> int:
     if "[" in molecule:
         molecule = molecule.split("[", 1)[0]
     return CARBON_COUNTS.get(molecule, 0)
+
+
+# Molecular weights (g/mol) for mass-balance accounting. Covers the
+# molecules that actually carry mass through boundary exchanges in a
+# minimal+glucose sim. Missing entries default to 0 — the balance check
+# becomes an under-estimate but never NaN.
+MOLECULAR_WEIGHTS: dict[str, float] = {
+    # Carbon sources
+    "GLC": 180.16, "GLC-D-LACTONE": 178.14, "GLYCEROL": 92.09,
+    "ACET": 60.05, "FORMATE": 46.03, "ETOH": 46.07,
+    "D-LACTATE": 90.08, "SUC": 118.09, "MAL": 134.09, "FUM": 116.07,
+    "ARABINOSE": 150.13, "BETAINE": 117.15, "BUTANAL": 72.11,
+    # One-carbon
+    "CARBON-DIOXIDE": 44.01, "CARBON-MONOXIDE": 28.01,
+    "UREA": 60.06, "METOH": 32.04,
+    # Nitrogen / phosphorus / sulfur
+    "AMMONIUM": 18.04, "NITRATE": 62.00, "NITRITE": 46.01,
+    "Pi": 95.98, "SULFATE": 96.06,
+    # Gases, water, proton
+    "OXYGEN-MOLECULE": 32.00, "HYDROGEN-MOLECULE": 2.02,
+    "WATER": 18.02, "PROTON": 1.01,
+    # Amino acids (free acid MWs)
+    "L-ALPHA-ALANINE": 89.09, "ARG": 174.20, "ASN": 132.12,
+    "L-ASPARTATE": 133.10, "CYS": 121.16, "GLN": 146.15,
+    "GLT": 147.13, "GLY": 75.07, "HIS": 155.16, "ILE": 131.17,
+    "LEU": 131.17, "LYS": 146.19, "MET": 149.21, "PHE": 165.19,
+    "PRO": 115.13, "SER": 105.09, "THR": 119.12, "TRP": 204.23,
+    "TYR": 181.19, "VAL": 117.15, "D-ALANINE": 89.09,
+    "L-SELENOCYSTEINE": 168.05,
+    # Ions
+    "K+": 39.10, "MG+2": 24.31, "NA+": 22.99, "CA+2": 40.08,
+    "CL-": 35.45, "FE+2": 55.85, "FE+3": 55.85, "MN+2": 54.94,
+    "ZN+2": 65.38, "NI+2": 58.69, "CO+2": 58.93,
+    "TUNGSTATE": 247.86, "4FE-4S": 351.65,
+    # Nucleobases
+    "CYTOSINE": 111.10, "CYTIDINE": 243.22,
+    "THYMINE": 126.11, "URACIL": 112.09,
+    "HYPOXANTHINE": 136.11, "XANTHINE": 152.11,
+    "INDOLE": 117.15, "IMIDAZOLE-PYRUVATE": 154.13,
+    # Large cofactors
+    "S-ADENOSYLMETHIONINE": 398.44,
+    "S-ADENOSYL-4-METHYLTHIO-2-OXOBUTANOATE": 384.42,
+    "CH33ADO": 297.33, "5-Deoxy-D-Ribofuranose": 134.13,
+    "GLYCOLALDEHYDE": 60.05, "GLYCOLLATE": 76.05,
+    "MI-PENTAKISPHOSPHATE": 579.98,
+    "UNDECAPRENYL-DIPHOSPHATE": 926.45,
+}
+
+
+def mw_of(molecule: str) -> float:
+    """Molecular weight (g/mol) for a boundary molecule id. Returns 0
+    for unknowns so mass-balance partial coverage is visible as an
+    under-count rather than NaN propagation."""
+    if "[" in molecule:
+        molecule = molecule.split("[", 1)[0]
+    return MOLECULAR_WEIGHTS.get(molecule, 0.0)

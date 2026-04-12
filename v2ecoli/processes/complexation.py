@@ -108,21 +108,25 @@ class Complexation(PartitionedProcess):
 
         molecule_counts = counts(states["bulk"], self.molecule_idx)
 
-        # First Gillespie run: determine maximum molecules consumed,
-        # so the allocator knows what this process needs
-        result = self.system.evolve(dt, molecule_counts, self.rates)
-        updated_counts = result["outcome"]
-        consumed = np.fmax(molecule_counts - updated_counts, 0)
+        # Single Gillespie run: cache result for use in evolve_state.
+        # This avoids running two independent stochastic simulations,
+        # which would produce inconsistent results.
+        self._cached_result = self.system.evolve(dt, molecule_counts, self.rates)
+        self._cached_initial_counts = molecule_counts.copy()
+        consumed = np.fmax(molecule_counts - self._cached_result["outcome"], 0)
         return {"bulk": [(self.molecule_idx, consumed)]}
 
     def evolve_state(self, timestep, states):
-        dt = states["timestep"]
         allocated_counts = counts(states["bulk"], self.molecule_idx)
 
-        # Second Gillespie run with actually allocated counts (may be
-        # less than requested if other processes competed for the same
-        # molecules). delta_x = x_final - x_initial.
-        result = self.system.evolve(dt, allocated_counts, self.rates)
+        # If allocation matches request, use the cached Gillespie result
+        # directly. Otherwise, re-run with the reduced allocation.
+        if np.array_equal(allocated_counts, self._cached_initial_counts):
+            result = self._cached_result
+        else:
+            dt = states["timestep"]
+            result = self.system.evolve(dt, allocated_counts, self.rates)
+
         complexation_events = result["occurrences"]
         delta_counts = result["outcome"] - allocated_counts
 

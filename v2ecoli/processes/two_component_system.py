@@ -32,6 +32,7 @@ physically consistent with the reduced allocation.
 """
 
 import numpy as np
+from scipy.integrate import solve_ivp
 
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts
 
@@ -59,31 +60,43 @@ class TwoComponentSystem(PartitionedProcess):
         'cell_density': {'_type': 'float[g/L]', '_default': 0.0},
         'jit': {'_type': 'boolean', '_default': False},
         'moleculeNames': {'_type': 'list[string]', '_default': []},
-        'moleculesToNextTimeStep': {'_type': 'method', '_default': None},
+        'moleculesToNextTimeStep': {'_type': 'method', '_default': None},  # legacy opaque callable
         'n_avogadro': {'_type': 'float[1/mol]', '_default': 0.0},
         'seed': {'_type': 'integer', '_default': 0},
+        # ODE components (for inline solver -- if provided, moleculesToNextTimeStep is ignored)
+        'rates_fn': {'_type': 'method', '_default': None},          # callable(y, t) -> rate vector
+        'rates_jac_fn': {'_type': 'method', '_default': None},      # callable(y, t) -> jacobian
+        'stoich_matrix_full': {'_type': 'array[float]', '_default': []},  # full stoichiometry (n_molecules x n_reactions)
+        'independent_molecule_indexes': {'_type': 'array[integer]', '_default': []},
+        'atp_reaction_reactant_mask': {'_type': 'array[boolean]', '_default': []},
+        'independent_molecules_atp_index': {'_type': 'integer', '_default': 0},
+        'dependency_matrix': {'_type': 'array[float]', '_default': []},  # maps independent -> all molecule changes
     }
 
+    # ODE solver methods to try, in order of preference
+    _IVP_METHODS = ["LSODA", "BDF", "Radau", "RK45", "RK23", "DOP853"]
+
     def initialize(self, config):
-
-        # Simulation options
-        self.jit = self.parameters["jit"]
-
-        # Get constants
         self.n_avogadro = self.parameters["n_avogadro"]
         self.cell_density = self.parameters["cell_density"]
-
-        # Create method
-        self.moleculesToNextTimeStep = self.parameters["moleculesToNextTimeStep"]
-
-        # Build views
         self.moleculeNames = self.parameters["moleculeNames"]
 
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)
-
-        # Helper indices for Numpy indexing
         self.molecule_idx = None
+
+        # ODE solver: use inline components if provided, else legacy callable
+        self.rates_fn = self.parameters.get("rates_fn")
+        if self.rates_fn is not None:
+            self.rates_jac_fn = self.parameters["rates_jac_fn"]
+            self.stoich_full = np.asarray(self.parameters["stoich_matrix_full"])
+            self.indep_idx = np.asarray(self.parameters["independent_molecule_indexes"])
+            self.atp_mask = np.asarray(self.parameters["atp_reaction_reactant_mask"])
+            self.atp_idx = int(self.parameters["independent_molecules_atp_index"])
+            self.dep_matrix = np.asarray(self.parameters["dependency_matrix"])
+        else:
+            self.moleculesToNextTimeStep = self.parameters["moleculesToNextTimeStep"]
+            self.jit = self.parameters.get("jit", False)
 
     def inputs(self):
         return {
@@ -106,8 +119,75 @@ class TwoComponentSystem(PartitionedProcess):
     # the current timestep (via min_time_step).
     STEADY_STATE_HORIZON_S = 10_000
 
+    def _solve_ode(self, molecule_counts, cell_volume, dt, method="LSODA",
+                   min_time_step=None, methods_tried=None):
+        """Solve phosphotransfer ODE: dx/dt = S_full @ rates(x).
+
+        Converts counts to concentrations, integrates, then maps changes
+        through the dependency matrix to get all molecule changes and
+        molecules needed for allocation.
+
+        Returns:
+            molecules_needed: molecules required for allocation (n_molecules,)
+            all_molecule_changes: net count changes (n_molecules,)
+        """
+        y_init = molecule_counts / (cell_volume * self.n_avogadro)
+
+        def deriv(t, y):
+            return self.stoich_full @ self.rates_fn(y, t)
+
+        def jac(t, y):
+            return self.stoich_full @ self.rates_jac_fn(y, t)
+
+        sol = solve_ivp(deriv, [0, dt], y_init, method=method,
+                        t_eval=[0, dt], atol=1e-8, jac=jac)
+        y = sol.y.T
+
+        # Check for negative concentrations
+        if np.any(y[-1] * (cell_volume * self.n_avogadro) <= -1e-3):
+            # Try halving the time horizon
+            if min_time_step and dt > min_time_step:
+                return self._solve_ode(molecule_counts, cell_volume, dt / 2,
+                                       method=method, min_time_step=min_time_step)
+            # Try alternative solver methods
+            if methods_tried is None:
+                methods_tried = set()
+            methods_tried.add(method)
+            for new_method in self._IVP_METHODS:
+                if new_method not in methods_tried:
+                    return self._solve_ode(molecule_counts, cell_volume, dt,
+                                           method=new_method, min_time_step=min_time_step,
+                                           methods_tried=methods_tried)
+            raise RuntimeError("TCS ODE produced negative values with all methods.")
+
+        y[y < 0] = 0
+        y_molecules = y * (cell_volume * self.n_avogadro)
+        delta = y_molecules[-1] - y_molecules[0]
+
+        # Map through independent molecules and dependency matrix
+        indep_changes = np.round(delta[self.indep_idx])
+
+        # ATP constraint: cap by available reactants
+        max_atp = molecule_counts[self.atp_mask].min()
+        non_atp = np.concatenate([indep_changes[:self.atp_idx],
+                                  indep_changes[self.atp_idx + 1:]])
+        indep_changes[self.atp_idx] = np.fmin(non_atp.sum(), max_atp)
+
+        all_changes = self.dep_matrix @ indep_changes
+
+        # Compute molecules needed from negative and positive changes
+        neg = indep_changes.copy()
+        neg[neg > 0] = 0
+        neg[self.atp_idx] = np.concatenate([neg[:self.atp_idx],
+                                             neg[self.atp_idx + 1:]]).sum()
+        pos = indep_changes.copy()
+        pos[pos < 0] = 0
+        needed = np.clip(self.dep_matrix @ (-neg), 0, None) + \
+                 np.clip(self.dep_matrix @ (-pos), 0, None)
+
+        return needed, all_changes
+
     def calculate_request(self, timestep, states):
-        # At t=0, convert molecule name strings to bulk array indices
         if self.molecule_idx is None:
             self.molecule_idx = bulk_name_to_idx(
                 self.moleculeNames, states["bulk"]["id"]
@@ -121,18 +201,17 @@ class TwoComponentSystem(PartitionedProcess):
         )
         self.cell_volume = cell_mass_g / self.cell_density
 
-        # Solve dx/dt = f(x) from t=0 to t=dt using BDF
-        self.molecules_required, self.all_molecule_changes = (
-            self.moleculesToNextTimeStep(
-                molecule_counts,
-                self.cell_volume,
-                self.n_avogadro,
-                states["timestep"],
-                self.random_state,
-                method="BDF",
-                jit=self.jit,
-            )
-        )
+        # Solve dx/dt = S @ rates(x) from t=0 to t=dt
+        if self.rates_fn is not None:
+            self.molecules_required, self.all_molecule_changes = self._solve_ode(
+                molecule_counts, self.cell_volume, states["timestep"])
+        else:
+            self.molecules_required, self.all_molecule_changes = (
+                self.moleculesToNextTimeStep(
+                    molecule_counts, self.cell_volume, self.n_avogadro,
+                    states["timestep"], self.random_state,
+                    method="BDF", jit=self.jit))
+
         requests = {"bulk": [(self.molecule_idx, self.molecules_required.astype(int))]}
         return requests
 
@@ -140,18 +219,18 @@ class TwoComponentSystem(PartitionedProcess):
         molecule_counts = counts(states["bulk"], self.molecule_idx)
 
         # If allocation was insufficient, re-solve with reduced counts
-        # toward the long-horizon steady state
         if (self.molecules_required > molecule_counts).any():
-            _, self.all_molecule_changes = self.moleculesToNextTimeStep(
-                molecule_counts,
-                self.cell_volume,
-                self.n_avogadro,
-                self.STEADY_STATE_HORIZON_S,
-                self.random_state,
-                method="BDF",
-                min_time_step=states["timestep"],
-                jit=self.jit,
-            )
+            if self.rates_fn is not None:
+                _, self.all_molecule_changes = self._solve_ode(
+                    molecule_counts, self.cell_volume,
+                    self.STEADY_STATE_HORIZON_S,
+                    min_time_step=states["timestep"])
+            else:
+                _, self.all_molecule_changes = self.moleculesToNextTimeStep(
+                    molecule_counts, self.cell_volume, self.n_avogadro,
+                    self.STEADY_STATE_HORIZON_S, self.random_state,
+                    method="BDF", min_time_step=states["timestep"],
+                    jit=self.jit)
 
         update = {"bulk": [(self.molecule_idx, self.all_molecule_changes.astype(int))]}
         return update

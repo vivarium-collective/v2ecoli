@@ -100,7 +100,7 @@ CONC_UNITS = COUNTS_UNITS / VOLUME_UNITS   # mmol/L = mM
 CONVERSION_UNITS = MASS_UNITS * TIME_UNITS / VOLUME_UNITS  # g*s/L
 GDCW_BASIS = units.mmol / units.g / units.h  # FBA flux units
 
-USE_KINETICS = True  # enable enzyme kinetic constraints on FBA
+USE_KINETICS = True
 
 
 class Metabolism(Step):
@@ -140,7 +140,6 @@ class Metabolism(Step):
         'ngam': {'_type': 'unum', '_default': 8.39},
         'nutrientToDoublingTime': {'_type': 'map[float]', '_default': {}},
         'ppgpp_id': {'_type': 'string', '_default': 'ppgpp'},
-        'reduce_murein_objective': {'_type': 'boolean', '_default': False},
         'removed_aa_uptake': {'_type': 'list[string]', '_default': []},
         'seed': {'_type': 'integer', '_default': 0},
         'time_step': {'_type': 'integer', '_default': 1},
@@ -289,9 +288,6 @@ class Metabolism(Step):
 
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)
-
-        # TODO: For testing, remove later (perhaps after modifying sim data)
-        self.reduce_murein_objective = self.parameters["reduce_murein_objective"]
 
         # Helper indices for Numpy indexing
         self.metabolite_idx = None
@@ -466,9 +462,6 @@ class Metabolism(Step):
                 True,
             )
 
-        if self.parameters["reduce_murein_objective"]:
-            conc_updates["CPD-12261[p]"] /= 2.27
-
         # Update FBA problem based on current state
         # Set molecule availability (internal and external)
         self.model.set_molecule_levels(
@@ -524,39 +517,6 @@ class Metabolism(Step):
             unconstrained, constrained, GDCW_BASIS
         )
 
-        # below is used for comparing target and estimate between GD-FBA
-        # and LP-FBA, no effect on model
-        # maintenance_ngam = ((self.ngam * coefficient) /
-        #     (counts_to_molar*timestep)).asNumber()
-        # # TODO (Cyrus) Add change in mass when implementing,
-        # # currently counts/mass.
-        # maintenance_gam = (self.gam).asNumber()
-        # maintenance_gam_active = translation_gtp/timestep
-        # maintenance_target = maintenance_ngam + maintenance_gam \
-        #     + maintenance_gam_active
-
-        # objective_counts = {str(key): int((self.model.homeostatic_objective[
-        #     key] / counts_to_molar).asNumber()) - int(states['bulk']['count'][
-        #         states['bulk']['id'] == key])
-        #     for key in fba.getHomeostaticTargetMolecules()}
-
-        # denom = counts_to_molar*timestep
-        # kinetic_targets = {str(self.model.kinetics_constrained_reactions[i]):
-        #     int((targets[i] / denom).asNumber())
-        #     for i in range(len(targets))}
-
-        # target_kinetic_bounds = {
-        #     str(self.model.kinetics_constrained_reactions[i]):
-        #         (int((lower_targets[i] / denom).asNumber()),
-        #         int((upper_targets[i] / denom).asNumber()))
-        #     for i in range(len(targets))}
-
-        # fluxes = fba.getReactionFluxes() / timestep
-        # names = fba.getReactionIDs()
-
-        # flux_dict = {str(names[i]): int((fluxes[i] / denom).asNumber())
-        #     for i in range(len(names))}
-
         reaction_fluxes = fba.getReactionFluxes() / timestep
         update = {
             "bulk": [(self.metabolite_idx, delta_metabolites_final)],
@@ -595,20 +555,6 @@ class Metabolism(Step):
                     "base_reaction_fluxes": self.reaction_mapping_matrix.dot(
                         reaction_fluxes
                     ),
-                    # Quite large, comment out to reduce emit size
-                    # 'estimated_fluxes': flux_dict ,
-                    # 'estimated_homeostatic_dmdt': {
-                    #     metabolite: delta_metabolites_final[index]
-                    #     for index, metabolite in enumerate(
-                    #         self.model.metaboliteNamesFromNutrients)},
-                    # 'target_homeostatic_dmdt': objective_counts,
-                    # 'estimated_exchange_dmdt': {
-                    #     molecule: delta_nutrients[index]
-                    #     for index, molecule in enumerate(
-                    #         fba.getExternalMoleculeIDs())},
-                    # 'target_kinetic_fluxes': kinetic_targets,
-                    # 'target_kinetic_bounds': target_kinetic_bounds,
-                    # 'target_maintenance_flux': maintenance_target,
                 },
                 "enzyme_kinetics": {
                     "metabolite_counts_init": metabolite_counts_init,
@@ -759,10 +705,6 @@ class FluxBalanceAnalysisModel(object):
         self.homeostatic_objective = dict(
             (key, conc_dict[key].asNumber(CONC_UNITS)) for key in conc_dict
         )
-
-        # TODO: For testing, remove later (perhaps after modifying sim data)
-        if parameters["reduce_murein_objective"]:
-            self.homeostatic_objective["CPD-12261[p]"] /= 2.27
 
         # Include all concentrations that will be present in a sim for constant
         # length listeners

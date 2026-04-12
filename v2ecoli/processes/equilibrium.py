@@ -38,8 +38,10 @@ The equilibrium binding/unbinding is computed in two phases:
 """
 
 import numpy as np
+from scipy.integrate import solve_ivp
 
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
+from wholecell.utils.random import stochasticRound
 # topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
 
@@ -63,39 +65,33 @@ class Equilibrium(PartitionedProcess):
     config_schema = {
         'cell_density': {'_type': 'float[g/L]', '_default': 0.0},
         'complex_ids': {'_type': 'list[string]', '_default': []},
-        'fluxesAndMoleculesToSS': {'_type': 'method', '_default': None},  # ODE solver -> steady state
+        'fluxesAndMoleculesToSS': {'_type': 'method', '_default': None},  # legacy: opaque ODE solver (used if rates_fn not provided)
         'jit': {'_type': 'boolean', '_default': False},
         'moleculeNames': {'_type': 'list[string]', '_default': []},
         'n_avogadro': {'_type': 'float[1/mol]', '_default': 0.0},
         'reaction_ids': {'_type': 'list[string]', '_default': []},
         'seed': {'_type': 'integer', '_default': 0},
         'stoichMatrix': {'_type': 'array[integer]', '_default': []},  # (molecules x reactions) stoichiometry matrix S
+        # ODE components (for inline solver -- if provided, fluxesAndMoleculesToSS is ignored)
+        'rates_fn': {'_type': 'method', '_default': None},        # callable(t, y, kf, kr) -> rate vector
+        'rates_jac_fn': {'_type': 'method', '_default': None},    # callable(t, y, kf, kr) -> jacobian
+        'rates_fwd': {'_type': 'array[float]', '_default': []},   # forward rate constants
+        'rates_rev': {'_type': 'array[float]', '_default': []},   # reverse rate constants
+        'mets_to_rxn_fluxes': {'_type': 'array[float]', '_default': []},  # maps delta_molecules -> reaction_fluxes
+        'Rp': {'_type': 'array[float]', '_default': []},          # reactant partition matrix
+        'Pp': {'_type': 'array[float]', '_default': []},          # product partition matrix
     }
 
     def initialize(self, config):
-
-        # Simulation options
-        # utilized in the fluxes and molecules function
-        self.jit = self.parameters["jit"]
-
-        # Get constants
         self.n_avogadro = self.parameters["n_avogadro"]
         self.cell_density = self.parameters["cell_density"]
 
-        # Create matrix and method
-        # stoichMatrix: (94, 33), molecule counts are (94,).
+        # Stoichiometry matrix S: (n_molecules x n_reactions)
         self.stoichMatrix = self.parameters["stoichMatrix"]
-
-        # fluxesAndMoleculesToSS: solves ODES to get to steady state based off
-        # of cell density, volumes and molecule counts
-        self.fluxesAndMoleculesToSS = self.parameters["fluxesAndMoleculesToSS"]
-
         self.product_indices = [
             idx for idx in np.where(np.any(self.stoichMatrix > 0, axis=1))[0]
         ]
 
-        # Build views
-        # moleculeNames: list of molecules that are being iterated over size: 94
         self.moleculeNames = self.parameters["moleculeNames"]
         self.molecule_idx = None
 
@@ -104,6 +100,20 @@ class Equilibrium(PartitionedProcess):
 
         self.complex_ids = self.parameters["complex_ids"]
         self.reaction_ids = self.parameters["reaction_ids"]
+
+        # ODE solver components: if rates_fn is provided, use inline solver;
+        # otherwise fall back to the legacy opaque callable
+        self.rates_fn = self.parameters.get("rates_fn")
+        if self.rates_fn is not None:
+            self.rates_jac_fn = self.parameters["rates_jac_fn"]
+            self.rates_fwd = np.asarray(self.parameters["rates_fwd"])
+            self.rates_rev = np.asarray(self.parameters["rates_rev"])
+            self.mets_to_rxn_fluxes = np.asarray(self.parameters["mets_to_rxn_fluxes"])
+            self.Rp = np.asarray(self.parameters["Rp"])
+            self.Pp = np.asarray(self.parameters["Pp"])
+        else:
+            self.fluxesAndMoleculesToSS = self.parameters["fluxesAndMoleculesToSS"]
+            self.jit = self.parameters.get("jit", False)
 
     def inputs(self):
         return {
@@ -126,6 +136,61 @@ class Equilibrium(PartitionedProcess):
             },
         }
 
+    def _solve_ode_to_steady_state(self, molecule_counts, cell_volume):
+        """Solve the reaction ODE system to steady state.
+
+        Converts molecule counts to concentrations, integrates dy/dt = S @ r(y)
+        to t=1e20 (effectively steady state), then converts back to integer
+        reaction flux counts via stochastic rounding.
+
+        Returns:
+            reaction_fluxes: integer reaction flux vector (n_reactions,)
+            molecules_needed: molecules required for these fluxes (n_molecules,)
+        """
+        y_init = molecule_counts / (cell_volume * self.n_avogadro)
+
+        # dy/dt = S @ rates(t, y, k_fwd, k_rev)
+        def deriv(t, y):
+            return self.stoichMatrix @ self.rates_fn(
+                t, y, self.rates_fwd, self.rates_rev)
+
+        def jac(t, y):
+            return self.stoichMatrix @ self.rates_jac_fn(
+                t, y, self.rates_fwd, self.rates_rev)
+
+        # Solve to steady state (t -> infinity)
+        for method in ["LSODA", "BDF"]:
+            try:
+                sol = solve_ivp(deriv, [0, 1e20], y_init, method=method,
+                                t_eval=[0, 1e20], jac=jac)
+                break
+            except ValueError:
+                continue
+        else:
+            raise RuntimeError("Could not solve equilibrium ODE to steady state.")
+
+        # Convert concentration changes back to molecule count changes
+        y = sol.y.T
+        y[y < 0] = 0
+        y_molecules = y * (cell_volume * self.n_avogadro)
+        delta_molecules = y_molecules[-1] - y_molecules[0]
+
+        # Round continuous molecule changes to integer reaction fluxes
+        for _ in range(100):
+            reaction_fluxes = stochasticRound(
+                self.random_state, self.mets_to_rxn_fluxes @ delta_molecules)
+            if np.all(molecule_counts + self.stoichMatrix @ reaction_fluxes >= 0):
+                break
+        else:
+            raise ValueError("Negative counts in equilibrium steady state.")
+
+        # Compute molecules needed: partition into reactants consumed
+        fwd_flux = np.clip(reaction_fluxes, 0, None)
+        rev_flux = np.clip(-reaction_fluxes, 0, None)
+        molecules_needed = self.Rp @ fwd_flux + self.Pp @ rev_flux
+
+        return reaction_fluxes, molecules_needed
+
     def calculate_request(self, timestep, states):
         # At t=0, convert molecule name strings to bulk array indices
         if self.molecule_idx is None:
@@ -142,13 +207,13 @@ class Equilibrium(PartitionedProcess):
         cell_volume = cell_mass_g / self.cell_density
 
         # Phase 1: Solve ODE to steady state -> reaction fluxes nu
-        self.reaction_fluxes, self.req = self.fluxesAndMoleculesToSS(
-            molecule_counts,
-            cell_volume,
-            self.n_avogadro,
-            self.random_state,
-            jit=self.jit,
-        )
+        if self.rates_fn is not None:
+            self.reaction_fluxes, self.req = self._solve_ode_to_steady_state(
+                molecule_counts, cell_volume)
+        else:
+            self.reaction_fluxes, self.req = self.fluxesAndMoleculesToSS(
+                molecule_counts, cell_volume, self.n_avogadro,
+                self.random_state, jit=self.jit)
 
         requests = {"bulk": [(self.molecule_idx, self.req.astype(int))]}
         return requests

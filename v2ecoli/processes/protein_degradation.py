@@ -43,8 +43,7 @@ from v2ecoli.library.data_predicates import (
 )
 from v2ecoli.library.schema import numpy_schema, counts, bulk_name_to_idx
 
-# topology_registry removed
-from v2ecoli.steps.partition import PartitionedProcess
+from v2ecoli.library.ecoli_step import EcoliStep as Step
 
 
 # Register default topology for this process, associating it with process name
@@ -52,8 +51,13 @@ NAME = "ecoli-protein-degradation"
 TOPOLOGY = {"bulk": ("bulk",), "timestep": ("timestep",)}
 
 
-class ProteinDegradation(PartitionedProcess):
-    """Protein Degradation PartitionedProcess"""
+class ProteinDegradation(Step):
+    """Protein Degradation Step
+
+    Single-pass process: no resource competition with other processes,
+    so the request/allocate/evolve cycle is unnecessary. Directly computes
+    Poisson degradation draws and applies stoichiometric updates.
+    """
 
     name = NAME
     topology = TOPOLOGY
@@ -113,10 +117,9 @@ class ProteinDegradation(PartitionedProcess):
             'bulk': 'bulk_array',
         }
 
-    def calculate_request(self, timestep, states):
+    def update(self, states, interval=None):
         # At t=0, convert molecule name strings to bulk array indices
         if self.metabolite_idx is None:
-            self.water_idx = bulk_name_to_idx(self.water_id, states["bulk"]["id"])
             self.protein_idx = bulk_name_to_idx(self.protein_ids, states["bulk"]["id"])
             self.metabolite_idx = bulk_name_to_idx(
                 self.metabolite_ids, states["bulk"]["id"]
@@ -134,33 +137,16 @@ class ProteinDegradation(PartitionedProcess):
             protein_counts,
         )
 
-        # Water required for hydrolysis: (L_i - 1) per protein of length L_i
-        # Total water = sum(L_i * n_degrade_i) - sum(n_degrade_i)
-        n_peptide_bonds = np.dot(self.protein_lengths, n_to_degrade)
-        water_needed = n_peptide_bonds - np.sum(n_to_degrade)
-
-        requests = {
-            "bulk": [
-                (self.protein_idx, n_to_degrade),
-                (self.water_idx, water_needed),
-            ]
-        }
-        return requests
-
-    def evolve_state(self, timestep, states):
         # Apply degradation: delta_metabolites = S @ n_degraded
         # S encodes amino acid release (+) and water consumption (-)
-        allocated_proteins = counts(states["bulk"], self.protein_idx)
-        delta_metabolites = np.dot(self.degradation_matrix, allocated_proteins)
+        delta_metabolites = np.dot(self.degradation_matrix, n_to_degrade)
 
-        update = {
+        return {
             "bulk": [
                 (self.metabolite_idx, delta_metabolites),
-                (self.protein_idx, -allocated_proteins),
+                (self.protein_idx, -n_to_degrade),
             ]
         }
-
-        return update
 
 
 def test_protein_degradation(return_data=False):

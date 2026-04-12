@@ -737,11 +737,16 @@ def _get_special_step(loader, step_name, core):
 
     if step_name == 'ppgpp-initiation':
         from v2ecoli.steps.ppgpp_initiation import PpgppInitiation
-        # Pull ppGpp-related config from transcript-initiation's config
+        from v2ecoli.library.config_resolver import resolve_config
+        # Pull ppGpp-related config from transcript-initiation's config. The
+        # ti_config may still contain unresolved {"_function": ..., "_data":
+        # ...} descriptors from the cache; resolve_config turns those into
+        # actual callables before we hand fields to PpgppInitiation.
         try:
             ti_config = loader.get_config_by_name('ecoli-transcript-initiation')
         except (KeyError, AttributeError):
             ti_config = {}
+        ti_config = resolve_config(ti_config) if ti_config else ti_config
         ppgpp_config = {
             'ppgpp': ti_config.get('ppgpp', ''),
             'synth_prob': ti_config.get('synth_prob'),

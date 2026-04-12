@@ -74,6 +74,29 @@ class MetabolicKinetics(Step):
         "kinetic_constraint_substrates": {"_type": "list[string]", "_default": []},
         "metabolite_names_from_nutrients": {"_type": "list[string]", "_default": []},
         "linked_metabolites": {"_type": "map[node]", "_default": {}},
+        # Michaelis-Menten glucose uptake parameters. Defaults: v_max matches
+        # the saturating rate the old media lookup produced on minimal+glucose
+        # (≈20 mmol/gDCW/h); K_m is the classical PTS-system value (~10 µM).
+        # At 22 mM media glucose the MM formula returns essentially v_max,
+        # so enabling this is inert at t=0; the smooth falloff only matters
+        # once environment-depletion feedback lands in a follow-up.
+        "glucose_vmax_mmol_gdcw_h": {"_type": "float", "_default": 20.0},
+        "glucose_km_mM": {"_type": "float", "_default": 0.01},
+        # Mechanistic biology constraints. These molecules are physically
+        # allowed to cross the cell boundary but E. coli cannot grow on
+        # them as a net-carbon/energy source. Left uncontrolled, the LP
+        # exploits CO2 fixation / H2 oxidation to satisfy the biomass
+        # objective after glucose runs out — a failure mode the FBA
+        # stoichiometry permits but the underlying biology does not.
+        # Override: import bound = 0 (secretion still allowed).
+        #
+        # Defaults target the known offenders in the E. coli metabolism:
+        #   CARBON-DIOXIDE[p]: no autotrophic CO2 fixation in E. coli
+        #   HYDROGEN-MOLECULE[c]: no aerobic H2 oxidation as C/energy
+        "secretion_only_molecules": {
+            "_type": "list[string]",
+            "_default": ["CARBON-DIOXIDE[p]", "HYDROGEN-MOLECULE[c]"],
+        },
     }
 
     topology = {
@@ -124,6 +147,10 @@ class MetabolicKinetics(Step):
         self.kinetic_constraint_enzymes = p["kinetic_constraint_enzymes"]
         self.kinetic_constraint_substrates = p["kinetic_constraint_substrates"]
         self.metabolite_names_from_nutrients = p["metabolite_names_from_nutrients"]
+
+        self.glucose_vmax = float(p["glucose_vmax_mmol_gdcw_h"])
+        self.glucose_km = float(p["glucose_km_mM"])
+        self.secretion_only = list(p.get("secretion_only_molecules", []))
 
         self.aa_targets: dict[str, float] = {}
 
@@ -199,10 +226,30 @@ class MetabolicKinetics(Step):
             else:
                 env_concs[mol] = float(val)
         ed = self.external_state.exchange_data_from_concentrations(env_concs)
-        return (
-            ed["importConstrainedExchangeMolecules"],
-            list(ed["importUnconstrainedExchangeMolecules"]),
-        )
+        constrained = dict(ed["importConstrainedExchangeMolecules"])
+        unconstrained = list(ed["importUnconstrainedExchangeMolecules"])
+
+        # Michaelis-Menten glucose uptake. Always set GLC[p] from [GLC_ext]
+        # so the bound decays smoothly as glucose depletes, rather than
+        # dropping off a cliff at import_constraint_threshold.
+        glc_ext = float(env_concs.get("GLC", 0.0))
+        denom = self.glucose_km + glc_ext
+        mm_rate = (self.glucose_vmax * glc_ext / denom) if denom > 0 else 0.0
+        constrained["GLC[p]"] = mm_rate * (units.mmol / units.g / units.h)
+
+        # Secretion-only enforcement: force import bound = 0 for molecules
+        # whose uptake is biologically disallowed for E. coli (no
+        # autotrophic CO2 fixation, no aerobic H2 oxidation as carbon /
+        # energy source). Remove from unconstrained list so they don't
+        # get infinity-bound downstream, and explicitly write 0 into
+        # constrained.
+        zero_bound = 0.0 * (units.mmol / units.g / units.h)
+        for mol in self.secretion_only:
+            if mol in unconstrained:
+                unconstrained.remove(mol)
+            constrained[mol] = zero_bound
+
+        return constrained, unconstrained
 
     def update_amino_acid_targets(
         self, counts_to_molar, count_diff, amino_acid_counts,

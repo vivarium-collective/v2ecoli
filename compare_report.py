@@ -56,6 +56,8 @@ MODELS = {
                       'short': 'Departitioned'},
     'reconciled': {'label': 'Reconciled', 'color': '#16a34a', 'ls': '-.',
                    'short': 'Reconciled'},
+    'biological': {'label': 'Biological (pilot)', 'color': '#9333ea', 'ls': ':',
+                   'short': 'Biological'},
 }
 
 ARCH_DESCRIPTIONS = {
@@ -151,6 +153,32 @@ ARCH_DESCRIPTIONS = {
             '(c) different stochastic remainder distribution.'
         ),
     },
+    'biological': {
+        'title': 'Biological (pilot)',
+        'strategy': (
+            'The biological architecture reorganizes layers around biological '
+            'subsystems (environment, gene regulation, biogenesis initiation, '
+            'core elongation + degradation, metabolism, listeners). It replaces '
+            'the two ceremonial reconciled layers from the reconciled architecture '
+            'with <strong>one</strong> merged <code>ReconciledStep</code> over all three '
+            'bulk-pool-competing processes (<em>rna_degradation, '
+            'transcript_elongation, polypeptide_elongation</em>). '
+            'Reconciliation still handles the one real competition (charged '
+            'tRNAs between rna_degradation and polypeptide_elongation); pools '
+            'touched by only one process are no-ops in the merged reconcile.'
+        ),
+        'layers': (
+            'Flush sentinels are emitted only at subsystem boundaries rather '
+            'than after every unique-molecule mutation, reducing the unique-update '
+            'sub-layer count. No other numerical change vs reconciled.'
+        ),
+        'tradeoffs': (
+            'Fewer layers (25 vs 28) and fewer scheduler hops per timestep. '
+            'Expected max_err vs baseline within stochastic noise (ReconciledStep '
+            'math is unchanged). This pilot exists to validate the biological '
+            'layout before folding the other three architectures into it.'
+        ),
+    },
 }
 
 
@@ -231,6 +259,10 @@ def _build_network_data(composite, model_key):
         from v2ecoli.generate_reconciled import (
             build_execution_layers, DEFAULT_FEATURES,
         )
+    elif model_key == 'biological':
+        from v2ecoli.generate_biological import (
+            build_execution_layers, DEFAULT_FEATURES,
+        )
     else:
         return None
 
@@ -258,6 +290,7 @@ def _write_network_html(network_data, model_key, output_path):
         'baseline': 'Baseline (partitioned)',
         'departitioned': 'Departitioned (no allocator)',
         'reconciled': 'Reconciled (grouped allocator)',
+        'biological': 'Biological (pilot — one merged reconciled group)',
     }
     n_proc = sum(1 for n in network_data['nodes']
                  if n['data']['kind'] == 'process')
@@ -376,6 +409,9 @@ def _run_one_model(args):
     elif model_key == 'reconciled':
         from v2ecoli.composite_reconciled import make_reconciled_composite
         composite = make_reconciled_composite(cache_dir=cache_dir, seed=seed)
+    elif model_key == 'biological':
+        from v2ecoli.composite_biological import make_biological_composite
+        composite = make_biological_composite(cache_dir=cache_dir, seed=seed)
     else:
         raise ValueError(f'Unknown model: {model_key}')
 
@@ -429,26 +465,28 @@ def _run_one_model(args):
 
 
 def run_all_parallel(cache_dir, seed, duration, snapshot_interval):
-    print(f'\nStep 2: Running 3 simulations in parallel ({duration}s each)...')
+    n = len(MODELS)
+    print(f'\nStep 2: Running {n} simulations in parallel ({duration}s each)...')
     t0 = time.time()
     args_list = [(k, cache_dir, seed, duration, snapshot_interval) for k in MODELS]
     ctx = mp.get_context('spawn')
-    with ctx.Pool(3) as pool:
+    with ctx.Pool(n) as pool:
         results = pool.map(_run_one_model, args_list)
     total_wall = time.time() - t0
-    print(f'  All 3 finished in {total_wall:.1f}s wall (parallel)')
+    print(f'  All {n} finished in {total_wall:.1f}s wall (parallel)')
     return {r['key']: r for r in results}, total_wall
 
 
 def run_all_sequential(cache_dir, seed, duration, snapshot_interval):
-    print(f'\nStep 2: Running 3 simulations sequentially ({duration}s each)...')
+    n = len(MODELS)
+    print(f'\nStep 2: Running {n} simulations sequentially ({duration}s each)...')
     t0 = time.time()
     sim_data = {}
     for key in MODELS:
         r = _run_one_model((key, cache_dir, seed, duration, snapshot_interval))
         sim_data[r['key']] = r
     total_wall = time.time() - t0
-    print(f'  All 3 finished in {total_wall:.1f}s wall (sequential)')
+    print(f'  All {n} finished in {total_wall:.1f}s wall (sequential)')
     return sim_data, total_wall
 
 
@@ -464,7 +502,7 @@ def compute_metrics(sim_data):
     base_ids = sim_data['baseline']['bulk_ids']
 
     per_model = {}
-    for key in ['departitioned', 'reconciled']:
+    for key in ['departitioned', 'reconciled', 'biological']:
         snaps = sim_data[key]['snaps']
         by_t = {int(s['time']): s for s in snaps}
         common = sorted(set(base_by_t.keys()) & set(by_t.keys()))
@@ -492,7 +530,7 @@ def compute_metrics(sim_data):
         bv = base_bulk[i]
         row = {'idx': i, 'name': name, 'baseline': bv}
         max_diff = 0
-        for key in ['departitioned', 'reconciled']:
+        for key in ['departitioned', 'reconciled', 'biological']:
             other_bulk = sim_data[key]['bulk']
             ov = other_bulk[i] if i < len(other_bulk) else 0
             diff = ov - bv
@@ -537,7 +575,7 @@ def plot_mass_divergence(metrics):
     fig, axes = plt.subplots(1, len(fields), figsize=(3.6*len(fields), 3.5))
     for i, f in enumerate(fields):
         ax = axes[i]
-        for key in ['departitioned', 'reconciled']:
+        for key in ['departitioned', 'reconciled', 'biological']:
             m = MODELS[key]; pm = metrics['per_model'][key]
             times = np.array(pm['pct_times']) / 60
             vals = pm['pct_diff'].get(f, [])

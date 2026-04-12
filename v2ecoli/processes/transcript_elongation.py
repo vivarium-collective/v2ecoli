@@ -3,12 +3,45 @@
 Transcript Elongation
 =====================
 
-This process models nucleotide polymerization into RNA molecules
-by RNA polymerases. Polymerization occurs across all polymerases
-simultaneously and resources are allocated to maximize the progress
-of all polymerases up to the limit of the expected polymerase elongation
-rate and available nucleotides. The termination of RNA elongation occurs
-once a RNA polymerase has reached the end of the annotated gene.
+This process models nucleotide polymerization into RNA molecules by RNA
+polymerases (RNAPs).
+
+Mathematical Model
+------------------
+**NTP polymerization**
+
+Each active RNAP extends its transcript by consuming NTPs (ATP, CTP,
+GTP, UTP) according to the template DNA sequence. The ``polymerize``
+algorithm allocates limited NTP pools across all active RNAPs to
+maximize total elongation:
+
+    sequences = buildSequences(rna_seqs, RNAP_positions, v_elong * dt)
+    result = polymerize(sequences, ntp_counts, rate_limit)
+
+Each polymerization step consumes one NTP and releases one PPi:
+
+    NTP  -->  NMP_incorporated + PPi
+
+Mass increase per RNAP:
+
+    delta_mass = sum(elongated_nt_i * weight_i)   [fg]
+
+**Termination**
+
+An RNAP terminates when its transcript length reaches the annotated
+TU length. Completed RNAs are marked as full transcripts.
+
+**tRNA attenuation** (optional)
+
+For attenuated tRNA operons, RNAPs can stochastically terminate early
+based on the charged/uncharged tRNA ratio. The stop probability for
+each attenuated RNA depends on the concentration of its cognate
+charged tRNA:
+
+    p_stop = f([charged_tRNA] / [total_tRNA])
+
+where f is a fitted attenuation function. RNAPs that stop early are
+recycled and their partial transcripts are discarded.
 """
 
 from os import makedirs
@@ -115,7 +148,7 @@ class TranscriptElongation(PartitionedProcess):
         'rnaSequences': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'seed': {'_type': 'integer', '_default': 0},
         'submass_indices': {'_type': 'map[integer]', '_default': {}},
-        'time_step': {'_type': 'integer', '_default': 1},
+        'time_step': {'_type': 'integer[s]', '_default': 1},
         'trna_attenuation': {'_type': 'boolean', '_default': False},
         'variable_elongation': {'_type': 'boolean', '_default': False},
     }
@@ -128,7 +161,7 @@ class TranscriptElongation(PartitionedProcess):
             'bulk': {'_type': 'bulk_array', '_default': []},
             'bulk_total': {'_type': 'bulk_array', '_default': []},
             'listeners': {'mass': {'cell_mass': {'_type': 'float[fg]', '_default': 0.0}}},
-            'timestep': {'_type': 'integer', '_default': 1.0},
+            'timestep': {'_type': 'integer[s]', '_default': 1},
         }
 
     def outputs(self):
@@ -219,7 +252,7 @@ class TranscriptElongation(PartitionedProcess):
                     'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
                 },
             },
-            'timestep': {'_type': 'integer', '_default': 1.0},
+            'timestep': {'_type': 'integer[s]', '_default': 1},
             'attenuation_config': {
                 'enabled': {'_type': 'boolean', '_default': False},
             },

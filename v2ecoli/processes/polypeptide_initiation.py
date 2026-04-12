@@ -3,12 +3,38 @@
 Polypeptide Initiation
 ======================
 
-This process models the complementation of 30S and 50S ribosomal subunits
-into 70S ribosomes on mRNA transcripts. This process is in many ways
-analogous to the TranscriptInitiation process - the number of initiation
-events per transcript is determined in a probabilistic manner and dependent
-on the number of free ribosomal subunits, each mRNA transcript’s translation
-efficiency, and the counts of each type of transcript.
+This process models the assembly of 30S and 50S ribosomal subunits into
+70S ribosomes on mRNA transcripts, analogous to TranscriptInitiation.
+
+Mathematical Model
+------------------
+1. **Ribosome activation target**: The number of ribosomes to activate
+   is determined by the media-dependent active ribosome fraction f:
+
+       n_to_activate = round(f * n_total_ribosomes) - n_currently_active
+
+   where n_total = n_active_70S + min(n_free_30S, n_free_50S).
+
+2. **Translation probability per mRNA**: Each mRNA transcript k has a
+   probability of receiving a new ribosome proportional to its
+   translation efficiency eta_k:
+
+       p_k = eta_k * n_copies_k / sum_j(eta_j * n_copies_j)
+
+3. **Footprint constraint**: A ribosome occupies ~24 nt (configurable
+   via active_ribosome_footprint_size). An mRNA is marked as
+   overcrowded if adding another ribosome would violate the minimum
+   spacing between ribosomes along the transcript:
+
+       spacing = mRNA_length / (n_ribosomes_on_mRNA + 1)
+       overcrowded = spacing < footprint_size
+
+   Overcrowded mRNAs have their initiation probability set to zero.
+
+4. **Stochastic initiation**: n_to_activate ribosomes are distributed
+   across mRNAs via multinomial sampling weighted by p_k (after
+   zeroing overcrowded mRNAs). Each initiated ribosome consumes one
+   30S and one 50S subunit and begins translating at position 0.
 """
 
 import numpy as np
@@ -60,12 +86,12 @@ class PolypeptideInitiation(PartitionedProcess):
         'monomer_ids': {'_type': 'list[string]', '_default': []},
         'monomer_index_to_cistron_index': {'_type': 'map[integer]', '_default': {}},
         'monomer_index_to_tu_indexes': {'_type': 'map[integer]', '_default': {}},
-        'protein_lengths': {'_type': 'array[integer]', '_default': []},
+        'protein_lengths': {'_type': 'array[integer[aa]]', '_default': []},
         'ribosome30S': {'_type': 'string', '_default': 'ribosome30S'},
         'ribosome50S': {'_type': 'string', '_default': 'ribosome50S'},
         'rna_id_to_cistron_indexes': {'_type': 'method', '_default': {}},
         'seed': {'_type': 'integer', '_default': 0},
-        'time_step': {'_type': 'integer', '_default': 1},
+        'time_step': {'_type': 'integer[s]', '_default': 1},
         'translation_efficiencies': {'_type': 'array[float]', '_default': []},
         'tu_ids': {'_type': 'list[string]', '_default': []},
         'variable_elongation': {'_type': 'boolean', '_default': False},
@@ -83,7 +109,7 @@ class PolypeptideInitiation(PartitionedProcess):
             'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
             'RNA': RNA_ARRAY,
             'bulk': 'bulk_array',
-            'timestep': 'integer',
+            'timestep': {'_type': 'integer[s]', '_default': 1},
         }
 
     def outputs(self):

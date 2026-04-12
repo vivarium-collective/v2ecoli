@@ -3,9 +3,47 @@
 Chromosome Structure
 ====================
 
-- Resolve collisions between molecules and replication forks on the chromosome.
-- Remove and replicate promoters and motifs that are traversed by replisomes.
-- Reset the boundaries and linking numbers of chromosomal segments.
+This step manages the structural state of the chromosome during replication,
+handling interactions between replication forks and bound molecules.
+
+Mathematical Model
+------------------
+**Collision detection and resolution**
+
+When a replication fork advances past a bound molecule (RNAP, ribosome,
+etc.), the collision must be resolved. Molecules on the template strand
+are either removed (fork wins) or stall the fork (molecule wins),
+depending on the molecule type and relative orientation.
+
+**Promoter replication**
+
+As a replisome traverses a promoter at genomic coordinate c, the
+promoter is duplicated onto the newly replicated daughter strand.
+Promoter replication occurs when:
+
+    fork_position_prev < c <= fork_position_new
+
+Both the original and replicated promoter retain their TF binding
+state and associated mass.
+
+**Chromosomal segment boundaries**
+
+Segment boundaries (for supercoiling calculations) are reset after
+replication fork passage. The linking number Lk of each segment is
+maintained:
+
+    Lk = Tw + Wr
+
+where Tw is the twist and Wr is the writhe. When a segment is split
+by a passing fork, the linking number is partitioned proportionally
+to the new segment lengths.
+
+**Molecule removal and recycling**
+
+RNAPs and ribosomes that collide with replication forks are removed.
+Their associated RNA transcripts and ribosome subunits are recycled
+back to the bulk pool, and the corresponding mass adjustments are
+applied to maintain conservation.
 """
 
 import numpy as np

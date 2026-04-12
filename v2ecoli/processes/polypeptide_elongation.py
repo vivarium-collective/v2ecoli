@@ -3,12 +3,53 @@
 Polypeptide Elongation
 ======================
 
-This process models the polymerization of amino acids into polypeptides
-by ribosomes using an mRNA transcript as a template. Elongation terminates
-once a ribosome has reached the end of an mRNA transcript. Polymerization
-occurs across all ribosomes simultaneously and resources are allocated to
-maximize the progress of all ribosomes within the limits of the maximum ribosome
-elongation rate, available amino acids and GTP, and the length of the transcript.
+This process models the polymerization of amino acids into polypeptides by
+ribosomes using an mRNA transcript as a template.
+
+Mathematical Model
+------------------
+**Amino acid polymerization**
+
+Each active ribosome extends its polypeptide by incorporating amino acids
+from the template sequence. The ``polymerize`` algorithm distributes
+limited amino acid pools across all ribosomes to maximize total elongation:
+
+    sequences = buildSequences(protein_seqs, ribosome_positions, v * dt)
+    result = polymerize(sequences, aa_counts, rate_limit)
+
+Each amino acid incorporation also consumes GTP for EF-Tu/EF-G cycling:
+
+    GTP_consumed = n_elongations * gtpPerElongation  (default 4.2 GTP/aa)
+
+**ppGpp regulation** (optional, via ``include_ppgpp``)
+
+ppGpp inhibits elongation rate through a fitted relationship:
+
+    v_elong = f_ppgpp([ppGpp])   [aa/s]
+
+ppGpp synthesis/degradation is modeled via RelA and SpoT enzymes:
+
+    d[ppGpp]/dt = k_RelA * [RelA] * [uncharged_tRNA] / (KD + [uncharged_tRNA])
+                - k_SpoT * [SpoT] * [ppGpp] / (KI + [ppGpp])
+                + k_SpoT_syn * [SpoT]
+
+**tRNA charging** (optional, via ``steady_state_trna_charging``)
+
+For each amino acid species a, the fraction of charged tRNA is tracked:
+
+    f_charged_a = [charged_tRNA_a] / ([charged_tRNA_a] + [uncharged_tRNA_a])
+
+The effective elongation rate is modulated by the minimum f_charged across
+all amino acid species, coupling translation speed to tRNA availability.
+
+Charging reactions consume amino acids, ATP, and uncharged tRNAs, producing
+charged tRNAs, AMP, and PPi, governed by aminoacyl-tRNA synthetase kinetics.
+
+**Amino acid supply** (optional, via ``mechanistic_aa_transport``)
+
+Amino acid pools are replenished by synthesis, import, and recycled from
+degradation. Export rates are also tracked. Supply rates inform the
+metabolism process via kinetic constraints.
 """
 
 from typing import Any, Callable, Optional, Tuple

@@ -6,14 +6,48 @@ Chromosome Replication
 Performs initiation, elongation, and termination of active partial chromosomes
 that replicate the chromosome.
 
-First, a round of replication is initiated at a ﬁxed cell mass per origin
-of replication and generally occurs once per cell cycle. Second, replication
-forks are elongated up to the maximal expected elongation rate, dNTP resource
-limitations, and template strand sequence but elongation does not take into
-account the action of topoisomerases or the enzymes in the replisome. Finally,
-replication forks terminate once they reach the end of their template strand
-and the chromosome immediately decatenates forming two separate chromosome
-molecules.
+Mathematical Model
+------------------
+Chromosome replication proceeds in three modules per timestep:
+
+**Module 1 -- Initiation**
+
+Replication initiates when the cell mass per origin of replication (oriC)
+exceeds a critical threshold:
+
+    M_cell / n_oriC  >=  M_critical(tau)
+
+where M_critical (fg) depends on the growth rate via the doubling time tau.
+Upon initiation, two replisomes are assembled per oriC (one per replichore),
+each consuming 3 trimer + 1 monomer subunits (if mechanistic_replisome=True).
+Two new chromosome domains are created as children of the parent domain.
+
+**Module 2 -- Elongation**
+
+Each replication fork extends along its template strand. The elongation
+rate v (nt/s) is drawn stochastically around the basal rate (default 967 nt/s).
+dNTP consumption is computed via the ``polymerize`` algorithm:
+
+    sequences = buildSequences(template, fork_position, v * dt)
+    result = polymerize(sequences, dNTP_counts, rate_limit)
+
+If one dNTP species is limiting, all four are scaled by the same ratio
+to maintain stoichiometric balance. Mass increase per fork:
+
+    delta_mass_DNA = sum(elongated_nt_i * weight_i)   [fg]
+
+Each dNTP polymerized releases one pyrophosphate (PPi).
+
+**Module 3 -- Termination**
+
+A fork terminates when its coordinate reaches the replichore length:
+
+    |coordinate| == L_replichore
+
+When both forks of a domain terminate, the domain splits: the parent
+domain's two child domains become independent chromosomes. Replisome
+subunits are released back to the bulk pool. A D-period timer is set
+on the new full chromosome for cell division scheduling.
 """
 
 import numpy as np
@@ -61,7 +95,7 @@ class ChromosomeReplication(PartitionedProcess):
 
     config_schema = {
         'D_period': {'_type': 'unum[s]', '_default': np.array([], dtype=float)},
-        'basal_elongation_rate': {'_type': 'integer', '_default': 967},
+        'basal_elongation_rate': {'_type': 'integer[nt/s]', '_default': 967},
         'criticalInitiationMass': {'_type': 'unum[fg]', '_default': 975.0},
         'dntps': {'_type': 'list[string]', '_default': []},
         'emit_unique': {'_type': 'boolean', '_default': False},
@@ -75,7 +109,7 @@ class ChromosomeReplication(PartitionedProcess):
         'replication_coordinate': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'replichore_lengths': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'replisome_monomers_subunits': {'_type': 'list[string]', '_default': []},
-        'replisome_protein_mass': {'_type': 'float', '_default': 0},
+        'replisome_protein_mass': {'_type': 'float[fg]', '_default': 0},
         'replisome_trimers_subunits': {'_type': 'list[string]', '_default': []},
         'seed': {'_type': 'integer', '_default': 0},
         'sequences': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
@@ -96,7 +130,7 @@ class ChromosomeReplication(PartitionedProcess):
             'environment': {
                 'media_id': {'_type': 'string', '_default': ''},
             },
-            'timestep': {'_type': 'integer', '_default': 1.0},
+            'timestep': {'_type': 'integer[s]', '_default': 1},
         }
 
     def outputs(self):

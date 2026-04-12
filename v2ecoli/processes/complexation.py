@@ -6,11 +6,33 @@ Complexation
 This process encodes molecular simulation of macromolecular complexation,
 in which monomers are assembled into complexes. Macromolecular complexation
 is done by identifying complexation reactions that are possible (which are
-reactions that have sufﬁcient counts of all sub-components), performing one
+reactions that have sufficient counts of all sub-components), performing one
 randomly chosen possible reaction, and re-identifying all possible complexation
 reactions. This process assumes that macromolecular complexes form spontaneously,
 and that complexation reactions are fast and complete within the time step of the
 simulation.
+
+Mathematical Model
+------------------
+Complexation is simulated as a continuous-time Markov chain (Gillespie
+algorithm) via the ``StochasticSystem`` class from ``stochastic_arrow``.
+
+Given a stoichiometry matrix S (molecules x reactions) and a rate vector k,
+the system evolves molecule counts x(t) over the timestep dt:
+
+    x(t + dt) = StochasticSystem.evolve(dt, x(t), k)
+
+Each reaction j fires stochastically with propensity:
+
+    a_j = k_j * product_i(x_i choose |S_ij|)   for all reactant species i
+
+The net molecule count change is:
+
+    delta_x = x(t + dt) - x(t) = S @ occurrences
+
+Note: ``evolve()`` is called twice -- once in ``calculate_request`` to
+determine the maximum molecules that could be consumed (for the allocator),
+and again in ``evolve_state`` with the actually allocated counts.
 """
 
 # TODO(wcEcoli):
@@ -40,11 +62,11 @@ class Complexation(PartitionedProcess):
     config_schema = {
         'complex_ids': {'_type': 'list[string]', '_default': []},
         'molecule_names': {'_type': 'list[string]', '_default': []},
-        'rates': {'_type': 'array[float]', '_default': np.array([], dtype=float)},
+        'rates': {'_type': 'array[float[1/s]]', '_default': np.array([], dtype=float)},  # reaction propensity rate constants
         'reaction_ids': {'_type': 'list[string]', '_default': []},
         'seed': {'_type': 'integer', '_default': 0},
-        'stoichiometry': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
-        'time_step': {'_type': 'integer', '_default': 1},
+        'stoichiometry': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},  # (reactions x molecules) stoichiometry matrix S
+        'time_step': {'_type': 'integer[s]', '_default': 1},
     }
 
     def initialize(self, config):
@@ -63,7 +85,7 @@ class Complexation(PartitionedProcess):
     def inputs(self):
         return {
             'bulk': {'_type': 'bulk_array', '_default': []},
-            'timestep': {'_type': 'integer', '_default': 1.0},
+            'timestep': {'_type': 'integer[s]', '_default': 1},
         }
 
     def outputs(self):
@@ -78,36 +100,37 @@ class Complexation(PartitionedProcess):
 
 
     def calculate_request(self, timestep, states):
-        timestep = states["timestep"]
+        dt = states["timestep"]
         if self.molecule_idx is None:
             self.molecule_idx = bulk_name_to_idx(
                 self.molecule_names, states["bulk"]["id"]
             )
 
-        moleculeCounts = counts(states["bulk"], self.molecule_idx)
+        molecule_counts = counts(states["bulk"], self.molecule_idx)
 
-        result = self.system.evolve(timestep, moleculeCounts, self.rates)
-        updatedMoleculeCounts = result["outcome"]
-        requests = {}
-        requests["bulk"] = [
-            (self.molecule_idx, np.fmax(moleculeCounts - updatedMoleculeCounts, 0))
-        ]
-        return requests
+        # First Gillespie run: determine maximum molecules consumed,
+        # so the allocator knows what this process needs
+        result = self.system.evolve(dt, molecule_counts, self.rates)
+        updated_counts = result["outcome"]
+        consumed = np.fmax(molecule_counts - updated_counts, 0)
+        return {"bulk": [(self.molecule_idx, consumed)]}
 
     def evolve_state(self, timestep, states):
-        timestep = states["timestep"]
-        substrate = counts(states["bulk"], self.molecule_idx)
+        dt = states["timestep"]
+        allocated_counts = counts(states["bulk"], self.molecule_idx)
 
-        result = self.system.evolve(timestep, substrate, self.rates)
-        complexationEvents = result["occurrences"]
-        outcome = result["outcome"] - substrate
+        # Second Gillespie run with actually allocated counts (may be
+        # less than requested if other processes competed for the same
+        # molecules). delta_x = x_final - x_initial.
+        result = self.system.evolve(dt, allocated_counts, self.rates)
+        complexation_events = result["occurrences"]
+        delta_counts = result["outcome"] - allocated_counts
 
-        # Write outputs to listeners
         update = {
-            "bulk": [(self.molecule_idx, outcome)],
+            "bulk": [(self.molecule_idx, delta_counts)],
             "listeners": {
                 "complexation_listener": {
-                    "complexation_events": complexationEvents.astype(int)
+                    "complexation_events": complexation_events.astype(int)
                 }
             },
         }

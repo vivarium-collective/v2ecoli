@@ -49,13 +49,11 @@ BASE_EXECUTION_LAYERS = [
     ['exchange_data'],
     ['unique_update_3'],
 
-    # Layer 2: partition layer 1 -- requesters (parallel)
-    ['ecoli-equilibrium_requester', 'ecoli-rna-maturation_requester',
-     'ecoli-two-component-system_requester'],
+    # Layer 2: standalone equilibrium + 2CS; only rna-maturation still partitioned
+    ['ecoli-equilibrium', 'ecoli-two-component-system'],
+    ['ecoli-rna-maturation_requester'],
     ['allocator_1'],
-    # Layer 2: partition layer 1 -- evolvers (parallel)
-    ['ecoli-equilibrium_evolver', 'ecoli-rna-maturation_evolver',
-     'ecoli-two-component-system_evolver'],
+    ['ecoli-rna-maturation_evolver'],
     ['unique_update_4'],
 
     # Layer 3: TF binding
@@ -65,13 +63,13 @@ BASE_EXECUTION_LAYERS = [
     # Layer 4: protein degradation (standalone — no resource competition)
     ['ecoli-protein-degradation'],
 
-    # Layer 4b: partition layer 2 -- requesters (parallel)
-    ['ecoli-chromosome-replication_requester', 'ecoli-complexation_requester',
+    # Layer 4b: partition layer 2 -- complexation is now standalone
+    ['ecoli-complexation'],
+    ['ecoli-chromosome-replication_requester',
      'ecoli-polypeptide-initiation_requester',
      'ecoli-rna-degradation_requester', 'ecoli-transcript-initiation_requester'],
     ['allocator_2'],
-    # Layer 4b: partition layer 2 -- evolvers (parallel)
-    ['ecoli-chromosome-replication_evolver', 'ecoli-complexation_evolver',
+    ['ecoli-chromosome-replication_evolver',
      'ecoli-polypeptide-initiation_evolver',
      'ecoli-rna-degradation_evolver', 'ecoli-transcript-initiation_evolver'],
     ['unique_update_6'],
@@ -172,10 +170,7 @@ FLOW_ORDER = [step for layer in EXECUTION_LAYERS for step in layer]
 # ---------------------------------------------------------------------------
 
 PARTITIONED_PROCESSES = {
-    'ecoli-equilibrium': Equilibrium,
-    'ecoli-two-component-system': TwoComponentSystem,
     'ecoli-rna-maturation': RnaMaturation,
-    'ecoli-complexation': Complexation,
     'ecoli-rna-degradation': RnaDegradation,
     'ecoli-transcript-initiation': TranscriptInitiation,
     'ecoli-transcript-elongation': TranscriptElongation,
@@ -184,14 +179,14 @@ PARTITIONED_PROCESSES = {
     'ecoli-chromosome-replication': ChromosomeReplication,
 }
 
-# ProteinDegradation was promoted to standalone (no resource competition)
+# Promoted to standalone (no resource competition):
+# - ProteinDegradation, Equilibrium, TwoComponentSystem, Complexation
 
 ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 
 ALLOCATOR_LAYERS = {
-    'allocator_1': ['ecoli-equilibrium', 'ecoli-rna-maturation',
-                    'ecoli-two-component-system'],
-    'allocator_2': ['ecoli-chromosome-replication', 'ecoli-complexation',
+    'allocator_1': ['ecoli-rna-maturation'],
+    'allocator_2': ['ecoli-chromosome-replication',
                     'ecoli-polypeptide-initiation',
                     'ecoli-rna-degradation', 'ecoli-transcript-initiation'],
     'allocator_3': ['ecoli-polypeptide-elongation',
@@ -506,6 +501,9 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'ecoli-chromosome-structure': ChromosomeStructure,
         'ecoli-metabolism': Metabolism,
         'ecoli-protein-degradation': ProteinDegradation,
+        'ecoli-equilibrium': Equilibrium,
+        'ecoli-two-component-system': TwoComponentSystem,
+        'ecoli-complexation': Complexation,
     }
 
     SIMPLE_STEPS = {

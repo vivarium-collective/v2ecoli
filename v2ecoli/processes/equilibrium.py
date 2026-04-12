@@ -41,10 +41,8 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
+from v2ecoli.library.ecoli_step import EcoliStep as Step
 from wholecell.utils.random import stochasticRound
-# topology_registry removed
-from v2ecoli.steps.partition import PartitionedProcess
-
 from wholecell.utils import units
 
 
@@ -53,10 +51,12 @@ NAME = "ecoli-equilibrium"
 TOPOLOGY = {"listeners": ("listeners",), "bulk": ("bulk",), "timestep": ("timestep",)}
 
 
-class Equilibrium(PartitionedProcess):
-    """Equilibrium PartitionedProcess
+class Equilibrium(Step):
+    """Equilibrium Step
 
-    Models ligand binding/unbinding to maintain equilibrium.
+    Models TF-ligand binding/unbinding. Ligands are TF-specific and not
+    consumed by any other process, so this process does not compete for
+    resources and runs as a plain Step (no request/allocate/evolve cycle).
     """
 
     name = NAME
@@ -191,7 +191,7 @@ class Equilibrium(PartitionedProcess):
 
         return reaction_fluxes, molecules_needed
 
-    def calculate_request(self, timestep, states):
+    def update(self, states, interval=None):
         # At t=0, convert molecule name strings to bulk array indices
         if self.molecule_idx is None:
             self.molecule_idx = bulk_name_to_idx(
@@ -206,42 +206,31 @@ class Equilibrium(PartitionedProcess):
         )
         cell_volume = cell_mass_g / self.cell_density
 
-        # Phase 1: Solve ODE to steady state -> reaction fluxes nu
+        # Solve ODE to steady state -> reaction fluxes nu
         if self.rates_fn is not None:
-            self.reaction_fluxes, self.req = self._solve_ode_to_steady_state(
+            reaction_fluxes, _ = self._solve_ode_to_steady_state(
                 molecule_counts, cell_volume)
         else:
-            self.reaction_fluxes, self.req = self.fluxesAndMoleculesToSS(
+            reaction_fluxes, _ = self.fluxesAndMoleculesToSS(
                 molecule_counts, cell_volume, self.n_avogadro,
                 self.random_state, jit=self.jit)
 
-        requests = {"bulk": [(self.molecule_idx, self.req.astype(int))]}
-        return requests
-
-    def evolve_state(self, timestep, states):
-        molecule_counts = counts(states["bulk"], self.molecule_idx)
-        reaction_fluxes = self.reaction_fluxes.copy()
-
-        # Phase 2: Greedy flux correction when allocation is insufficient.
-        # Iteratively reduce fluxes that would drive any metabolite negative.
-        # Each iteration decrements at least one flux by 1, so convergence
-        # is guaranteed in at most sum(|nu|) iterations.
+        # Greedy flux correction: the steady-state solution may exceed
+        # available counts (stochastic rounding overshoot). Reduce fluxes
+        # one at a time for reactions that drive any metabolite negative.
+        # Converges in at most sum(|nu|) iterations.
+        reaction_fluxes = reaction_fluxes.copy()
         max_iterations = int(np.abs(reaction_fluxes).sum()) + 1
         for _ in range(max_iterations):
-            # Check: S @ nu + x_allocated >= 0 for all metabolites?
             negative_idxs = np.where(
                 np.dot(self.stoichMatrix, reaction_fluxes) + molecule_counts < 0
             )[0]
             if len(negative_idxs) == 0:
                 break
-
-            # Identify reactions consuming the limiting metabolites
             limited_stoich = self.stoichMatrix[negative_idxs, :]
-            # Forward reactions (nu > 0) that consume limiting metabolites (S < 0)
             fwd_rxn_idxs = np.where(
                 np.logical_and(limited_stoich < 0, reaction_fluxes > 0)
             )[1]
-            # Reverse reactions (nu < 0) that consume in the reverse direction (S > 0)
             rev_rxn_idxs = np.where(
                 np.logical_and(limited_stoich > 0, reaction_fluxes < 0)
             )[1]
@@ -257,7 +246,7 @@ class Equilibrium(PartitionedProcess):
         # delta_x = S @ nu_corrected
         delta_molecules = np.dot(self.stoichMatrix, reaction_fluxes).astype(int)
 
-        update = {
+        return {
             "bulk": [(self.molecule_idx, delta_molecules)],
             "listeners": {
                 "equilibrium_listener": {
@@ -266,8 +255,6 @@ class Equilibrium(PartitionedProcess):
                 }
             },
         }
-
-        return update
 
 
 def test_equilibrium_listener():

@@ -120,6 +120,10 @@ class RnaDegradation(PartitionedProcess):
         'seed': {'_type': 'integer', '_default': 0},
         'uncharged_trna_indexes': {'_type': 'array[integer]', '_default': []},
         'water_id': {'_type': 'string', '_default': 'h2o'},
+        # Per-RNA degradation counts emit ~50KB/ts (mostly zeros).
+        # Off by default; aggregate stats (nucleotides_from_degradation,
+        # count_RNA_degraded_per_cistron) are always emitted.
+        'emit_per_rna_degradation_counts': {'_type': 'boolean', '_default': False},
     }
 
     def inputs(self):
@@ -220,6 +224,9 @@ class RnaDegradation(PartitionedProcess):
 
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)
+
+        self.emit_per_rna = self.parameters.get(
+            "emit_per_rna_degradation_counts", False)
 
         # Numpy indices for bulk molecules
         self.water_idx = None
@@ -487,10 +494,13 @@ class RnaDegradation(PartitionedProcess):
                 n_degraded_RNA[self.n_transcribed_rnas :]
             )
 
+        # Per-RNA count is large (~50KB); only emit when flag is on
+        per_rna_counts = (n_degraded_RNA if self.emit_per_rna
+                          else np.zeros(0, dtype=n_degraded_RNA.dtype))
         update = {
             "listeners": {
                 "rna_degradation_listener": {
-                    "count_rna_degraded": n_degraded_RNA,
+                    "count_rna_degraded": per_rna_counts,
                     "nucleotides_from_degradation": np.dot(
                         n_degraded_RNA, self.rna_lengths
                     ),

@@ -99,6 +99,10 @@ class TfBinding(Step):
         'tf_ids': 'list[string]',
         'tf_to_tf_type': 'map[string]',
         'time_step': {'_type': 'integer[s]', '_default': 1},
+        # Heavy debug listener: n_bound_TF_per_TU is an (n_TU x n_TF) matrix
+        # emitting ~900KB/timestep. Off by default; enable only for analyses
+        # that need per-TU x per-TF binding resolution.
+        'emit_n_bound_TF_per_TU': {'_type': 'boolean', '_default': False},
     }
 
 
@@ -125,6 +129,8 @@ class TfBinding(Step):
                     'n_promoter_bound': {'_type': f'array[{self.n_TF},integer]', '_default': []},
                     'n_actual_bound': {'_type': f'array[{self.n_TF},integer]', '_default': []},
                     'n_available_promoters': {'_type': f'array[{self.n_TF},integer]', '_default': []},
+                    # Heavy: only populated when emit_n_bound_TF_per_TU is True.
+                    # Otherwise emits an empty array to satisfy the schema.
                     'n_bound_TF_per_TU': {'_type': f'array[({self.n_TU}|{self.n_TF}),integer]', '_default': []},
                 },
             },
@@ -199,6 +205,8 @@ class TfBinding(Step):
             self.marR_name = "CPLX0-7710[c]"
             self.marR_tet = "marR-tet[c]"
         self.submass_indices = self.parameters["submass_indices"]
+        self.emit_n_bound_TF_per_TU = self.parameters.get(
+            "emit_n_bound_TF_per_TU", False)
     def update_condition(self, timestep, states):
         """
         See :py:meth:`~.Requester.update_condition`.
@@ -356,8 +364,11 @@ class TfBinding(Step):
                 "n_promoter_bound": nPromotersBound,
                 "n_actual_bound": nActualBound,
                 "n_available_promoters": n_promoters,
-                # 900 KB, very large, comment out to halve emit size
-                "n_bound_TF_per_TU": n_bound_TF_per_TU,
+                # Heavy (~900KB/ts); emit only when flag is on
+                "n_bound_TF_per_TU": (
+                    n_bound_TF_per_TU if self.emit_n_bound_TF_per_TU
+                    else np.zeros((0, 0), dtype=np.int16)
+                ),
             },
         }
 

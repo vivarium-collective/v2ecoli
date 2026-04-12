@@ -35,10 +35,9 @@ import numpy as np
 from scipy.integrate import solve_ivp
 
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts
+from v2ecoli.library.ecoli_step import EcoliStep as Step
 
 from wholecell.utils import units
-# topology_registry removed
-from v2ecoli.steps.partition import PartitionedProcess
 
 
 # Register default topology for this process, associating it with process name
@@ -50,8 +49,13 @@ TOPOLOGY = {
 }
 
 
-class TwoComponentSystem(PartitionedProcess):
-    """Two Component System PartitionedProcess"""
+class TwoComponentSystem(Step):
+    """Two Component System Step
+
+    Phosphotransfer metabolites are system-specific (histidine kinases,
+    response regulators, phosphate donors). No other process competes for
+    these, so runs as a plain Step.
+    """
 
     name = NAME
     topology = TOPOLOGY
@@ -187,7 +191,7 @@ class TwoComponentSystem(PartitionedProcess):
 
         return needed, all_changes
 
-    def calculate_request(self, timestep, states):
+    def update(self, states, interval=None):
         if self.molecule_idx is None:
             self.molecule_idx = bulk_name_to_idx(
                 self.moleculeNames, states["bulk"]["id"]
@@ -199,38 +203,32 @@ class TwoComponentSystem(PartitionedProcess):
         cell_mass_g = (states["listeners"]["mass"]["cell_mass"] * units.fg).asNumber(
             units.g
         )
-        self.cell_volume = cell_mass_g / self.cell_density
+        cell_volume = cell_mass_g / self.cell_density
 
         # Solve dx/dt = S @ rates(x) from t=0 to t=dt
         if self.rates_fn is not None:
-            self.molecules_required, self.all_molecule_changes = self._solve_ode(
-                molecule_counts, self.cell_volume, states["timestep"])
+            molecules_required, all_changes = self._solve_ode(
+                molecule_counts, cell_volume, states["timestep"])
         else:
-            self.molecules_required, self.all_molecule_changes = (
-                self.moleculesToNextTimeStep(
-                    molecule_counts, self.cell_volume, self.n_avogadro,
-                    states["timestep"], self.random_state,
-                    method="BDF", jit=self.jit))
+            molecules_required, all_changes = self.moleculesToNextTimeStep(
+                molecule_counts, cell_volume, self.n_avogadro,
+                states["timestep"], self.random_state,
+                method="BDF", jit=self.jit)
 
-        requests = {"bulk": [(self.molecule_idx, self.molecules_required.astype(int))]}
-        return requests
-
-    def evolve_state(self, timestep, states):
-        molecule_counts = counts(states["bulk"], self.molecule_idx)
-
-        # If allocation was insufficient, re-solve with reduced counts
-        if (self.molecules_required > molecule_counts).any():
+        # If ODE solution exceeds available counts (no allocator to protect
+        # against this now), re-solve at long-horizon steady state to find
+        # a physically consistent trajectory.
+        if (molecules_required > molecule_counts).any():
             if self.rates_fn is not None:
-                _, self.all_molecule_changes = self._solve_ode(
-                    molecule_counts, self.cell_volume,
+                _, all_changes = self._solve_ode(
+                    molecule_counts, cell_volume,
                     self.STEADY_STATE_HORIZON_S,
                     min_time_step=states["timestep"])
             else:
-                _, self.all_molecule_changes = self.moleculesToNextTimeStep(
-                    molecule_counts, self.cell_volume, self.n_avogadro,
+                _, all_changes = self.moleculesToNextTimeStep(
+                    molecule_counts, cell_volume, self.n_avogadro,
                     self.STEADY_STATE_HORIZON_S, self.random_state,
                     method="BDF", min_time_step=states["timestep"],
                     jit=self.jit)
 
-        update = {"bulk": [(self.molecule_idx, self.all_molecule_changes.astype(int))]}
-        return update
+        return {"bulk": [(self.molecule_idx, all_changes.astype(int))]}

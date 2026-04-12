@@ -2,9 +2,10 @@
 Three-way architecture comparison: Baseline vs Departitioned vs Reconciled.
 
 Runs all three simulations in parallel using multiprocessing, then generates
-a single-file HTML report with bigraph-viz composition figures, interactive
-PBG JSON state viewers, mass trajectories, divergence analysis, and an
-n-way molecule divergence table comparing all architectures to baseline.
+an HTML report with interactive Cytoscape.js composition diagrams (one per
+architecture, loaded via iframe), interactive PBG JSON state viewers, mass
+trajectories, divergence analysis, and an n-way molecule divergence table
+comparing all architectures to baseline.
 
 Usage:
     python compare_report.py                        # default 2520s sim
@@ -205,77 +206,73 @@ def _extract_bulk_ids(composite):
 
 
 # ---------------------------------------------------------------------------
-# Bigraph-viz & PBG JSON
+# Interactive network + PBG JSON
 # ---------------------------------------------------------------------------
 
-BIO_COLORS = {
-    'dna': ('#FFB6C1', lambda n: 'chromosome' in n),
-    'rna': ('#ADD8E6', lambda n: any(s in n for s in ('transcript', 'rna-', 'rna_', 'RNA', 'rnap'))),
-    'protein': ('#90EE90', lambda n: any(s in n for s in ('polypeptide', 'protein', 'ribosome'))),
-    'meta': ('#FFD700', lambda n: any(s in n for s in ('metabolism', 'equilibrium', 'complexation', 'two-component'))),
-    'reg': ('#DDA0DD', lambda n: any(s in n for s in ('tf-', 'tf_'))),
-    'alloc': ('#FFA07A', lambda n: any(s in n for s in ('allocator', 'reconciled'))),
-    'infra': ('#E0E0E0', lambda n: any(s in n for s in ('unique_update', 'global_clock', 'emitter',
-                                                          'mark_d_period', 'division', 'exchange',
-                                                          'media_update', 'post-division'))),
-    'listen': ('#D3D3D3', lambda n: 'listener' in n),
-}
+def _build_network_data(composite, model_key):
+    """Extract interactive-network graph data from a composite.
 
-
-def _make_bigraph_svg(composite):
-    """Generate a bigraph-viz SVG string from a composite."""
+    Returns a JSON-safe dict consumed by ``v2ecoli.viz.render_html`` to
+    produce the sibling ``network_<arch>.html`` viewer. Safe to return
+    across a multiprocessing boundary.
+    """
     try:
-        from bigraph_viz import plot_bigraph
+        from v2ecoli.viz import build_graph
     except ImportError:
         return None
 
-    cell = composite.state.get('agents', {}).get('0', composite.state)
-    viz = {}
-    for name, edge in cell.items():
-        if not isinstance(edge, dict):
-            continue
-        if '_type' in edge:
-            inputs = {p: w for p, w in edge.get('inputs', {}).items()
-                      if not p.startswith('_layer') and not p.startswith('_flow')}
-            outputs = {p: w for p, w in edge.get('outputs', {}).items()
-                       if not p.startswith('_layer') and not p.startswith('_flow')}
-            clean = name.replace('ecoli-', '')
-            viz[clean] = {'_type': edge['_type'], 'inputs': inputs, 'outputs': outputs}
-        elif name == 'unique' and isinstance(edge, dict):
-            viz[name] = {k: {} for k in edge.keys()}
-        elif name in ('bulk', 'listeners', 'environment', 'boundary',
-                       'request', 'allocate', 'process_state'):
-            viz[name] = {}
+    if model_key == 'baseline':
+        from v2ecoli.generate import build_execution_layers, DEFAULT_FEATURES
+    elif model_key == 'departitioned':
+        from v2ecoli.generate_departitioned import (
+            build_execution_layers, DEFAULT_FEATURES,
+        )
+    elif model_key == 'reconciled':
+        from v2ecoli.generate_reconciled import (
+            build_execution_layers, DEFAULT_FEATURES,
+        )
+    else:
+        return None
 
-    viz_state = {'agents': {'0': viz}}
-    prefix = ('agents', '0')
-    colors, groups = {}, {k: [] for k in BIO_COLORS}
-    for n in viz:
-        if '_type' not in viz.get(n, {}):
-            continue
-        p = prefix + (n,)
-        for gk, (c, m) in BIO_COLORS.items():
-            if m(n):
-                colors[p] = c
-                groups[gk].append(p)
-                break
+    layers = build_execution_layers(DEFAULT_FEATURES)
+    try:
+        return build_graph(composite, layers)
+    except Exception as e:
+        print(f'  [{model_key}] network extraction failed: {e}')
+        return None
 
-    import tempfile
-    with tempfile.TemporaryDirectory() as td:
-        try:
-            plot_bigraph(viz_state, remove_process_place_edges=True,
-                         node_groups=[g for g in groups.values() if g],
-                         node_fill_colors=colors, rankdir='LR',
-                         dpi='72', port_labels=False, node_label_size='14pt',
-                         label_margin='0.05', out_dir=td,
-                         filename='bg', file_format='svg')
-            with open(os.path.join(td, 'bg.svg')) as f:
-                svg = f.read()
-            svg = re.sub(r'width="[^"]*pt"', '', svg, count=1)
-            svg = re.sub(r'height="[^"]*pt"', '', svg, count=1)
-            return svg
-        except Exception as e:
-            return f'<p style="color:#999">bigraph-viz: {html_lib.escape(str(e))}</p>'
+
+def _write_network_html(network_data, model_key, output_path):
+    """Render ``network_<model_key>.html`` alongside the main report.
+
+    Returns the relative filename (for iframe src) or None on failure.
+    """
+    if not network_data:
+        return None
+    try:
+        from v2ecoli.viz import render_html
+    except ImportError:
+        return None
+
+    title_map = {
+        'baseline': 'Baseline (partitioned)',
+        'departitioned': 'Departitioned (no allocator)',
+        'reconciled': 'Reconciled (grouped allocator)',
+    }
+    n_proc = sum(1 for n in network_data['nodes']
+                 if n['data']['kind'] == 'process')
+    n_store = sum(1 for n in network_data['nodes']
+                  if n['data']['kind'] == 'store')
+    n_edges = len(network_data['edges'])
+    title = f'v2ecoli · {title_map.get(model_key, model_key)}'
+    subtitle = f'{n_proc} processes · {n_store} stores · {n_edges} edges'
+
+    out_dir = os.path.dirname(output_path) or '.'
+    filename = f'network_{model_key}.html'
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, filename), 'w') as f:
+        f.write(render_html(network_data, title, subtitle))
+    return filename
 
 
 def _serialize_state_json(composite):
@@ -385,8 +382,8 @@ def _run_one_model(args):
     n_steps = len(composite.step_paths)
     label = MODELS[model_key]['label']
 
-    # Generate bigraph SVG and state JSON before running
-    svg = _make_bigraph_svg(composite)
+    # Extract interactive-network graph data + serialize state JSON before running
+    network_data = _build_network_data(composite, model_key)
     state_json = _serialize_state_json(composite)
 
     emitter = _get_emitter(composite)
@@ -426,7 +423,7 @@ def _run_one_model(args):
         'snaps': snaps,
         'bulk': bulk,
         'bulk_ids': bulk_ids,
-        'svg': svg,
+        'network_data': network_data,
         'state_json': state_json,
     }
 
@@ -764,21 +761,29 @@ def generate_html(sim_data, metrics, plots, seed, duration, output, parallel_wal
                        f'<td style="color:{dc};text-align:right">{de:.4f}%</td>'
                        f'<td style="color:{rc};text-align:right">{re_:.4f}%</td></tr>')
 
-    # Architecture sections with SVG + JSON
+    # Write sibling network_<arch>.html files for the interactive viewers
+    os.makedirs(os.path.dirname(output) or '.', exist_ok=True)
+
+    # Architecture sections with interactive network iframe + JSON
     arch_sections = ''
     for key in MODELS:
         ad = ARCH_DESCRIPTIONS[key]
         m = MODELS[key]
-        svg_html = ''
-        if sim_data[key].get('svg'):
-            svg_html = (
-                f'<details open style="margin:10px 0"><summary style="cursor:pointer;font-size:0.85em;color:#2563eb">'
-                f'Composition Diagram</summary>'
-                f'<div class="viz-wrap"><div class="viz-zoom">'
-                f'<button onclick="vizZoom(this,-1)" title="Zoom out">&minus;</button>'
-                f'<button onclick="vizZoom(this,1)" title="Zoom in">+</button>'
-                f'<button onclick="vizZoom(this,0)" title="Reset">&#8634;</button>'
-                f'</div><div class="viz-box">{sim_data[key]["svg"]}</div></div></details>'
+        network_html = ''
+        net_filename = _write_network_html(
+            sim_data[key].get('network_data'), key, output)
+        if net_filename:
+            network_html = (
+                f'<details open style="margin:10px 0">'
+                f'<summary style="cursor:pointer;font-size:0.85em;color:#2563eb">'
+                f'Composition Diagram (interactive network)</summary>'
+                f'<iframe class="viz-iframe" src="{net_filename}" '
+                f'title="Composition diagram for {html_lib.escape(key)}" '
+                f'loading="lazy"></iframe>'
+                f'<p style="font-size:0.75em;color:#94a3b8;margin-top:4px">'
+                f'Standalone viewer: '
+                f'<a href="{net_filename}" target="_blank">open in new tab</a>'
+                f'</p></details>'
             )
         json_html = _json_viewer_html(sim_data[key].get('state_json'), f'state_{key}')
         arch_sections += f"""
@@ -789,7 +794,7 @@ def generate_html(sim_data, metrics, plots, seed, duration, output, parallel_wal
   <p style="font-size:0.88em;margin-bottom:10px"><strong>Strategy:</strong> {ad['strategy']}</p>
   <p style="font-size:0.85em;color:#475569;margin-bottom:8px"><strong>Layers:</strong> {ad['layers']}</p>
   <p style="font-size:0.85em;color:#64748b;margin-bottom:10px"><strong>Trade-offs:</strong> {ad['tradeoffs']}</p>
-  {svg_html}
+  {network_html}
   <details style="margin-top:8px"><summary style="cursor:pointer;font-size:0.85em;color:#2563eb">
     Initial State (interactive JSON viewer)</summary>{json_html}</details>
 </div>"""
@@ -840,13 +845,8 @@ th{{background:#f1f5f9;font-weight:600}}
 .json-path{{font-family:ui-monospace,monospace;font-size:12px;margin-bottom:8px;color:#333}}
 .json-value pre{{background:#f8f8f8;border:1px solid #eee;border-radius:8px;padding:10px;overflow:auto;font-size:12px}}
 .json-pill{{display:inline-block;padding:2px 8px;border:1px solid #ddd;border-radius:999px;font-size:12px;margin-right:6px;background:#fafafa}}
-.viz-wrap{{position:relative}}
-.viz-box{{max-height:350px;overflow:auto;border:1px solid #e2e8f0;border-radius:8px;
-padding:8px;margin:6px 0;resize:vertical;background:#fafafa;text-align:center}}
-.viz-box svg{{height:auto;transform-origin:top left;transition:transform 0.15s}}
-.viz-zoom{{position:absolute;top:8px;right:12px;display:flex;gap:4px;z-index:2}}
-.viz-zoom button{{width:28px;height:28px;border:1px solid #ccc;border-radius:6px;
-background:#fff;cursor:pointer;font-size:16px;line-height:1}}
+.viz-iframe{{width:100%;height:700px;border:1px solid #e2e8f0;border-radius:8px;
+background:#fff;display:block;margin:6px 0;resize:vertical;overflow:hidden}}
 footer{{margin-top:30px;padding:15px 0;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:0.75em;text-align:center}}
 </style></head><body>
 
@@ -922,19 +922,6 @@ departitioned {dep_err:.2f}% ({improvement:.1f}x improvement).
 <footer>v2ecoli Architecture Comparison &middot; {date_str} &middot;
 Duration: {duration}s &middot; Seed {seed}</footer>
 
-<script>
-function vizZoom(btn, dir) {{
-  const box = btn.closest('.viz-wrap').querySelector('.viz-box');
-  const svg = box.querySelector('svg');
-  if (!svg) return;
-  let scale = parseFloat(svg.dataset.scale || '1');
-  if (dir === 0) scale = 1;
-  else scale = Math.max(0.3, Math.min(4, scale + dir * 0.3));
-  svg.dataset.scale = scale;
-  svg.style.transform = 'scale(' + scale + ')';
-  svg.style.maxWidth = dir === 0 ? '100%' : 'none';
-}}
-</script>
 {_json_viewer_js()}
 </body></html>""")
 

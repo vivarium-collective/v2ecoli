@@ -72,6 +72,12 @@ _STORE_NODES = (
     'global_time', 'timestep', 'ppgpp_state', 'attenuation_config',
 )
 
+# Parent stores whose first-level children should get their own node,
+# connected to the parent by a place-graph "contains" edge. Processes
+# that wire into ``('unique', 'promoter')`` will then connect to a
+# dedicated ``unique.promoter`` node rather than the ``unique`` circle.
+_NESTABLE_PARENTS = ('unique',)
+
 # Config keys to omit from the inspection panel — callables, shared
 # registries, and ParCa-sized arrays that aren't useful at a glance.
 _CONFIG_HIDE = {
@@ -80,13 +86,34 @@ _CONFIG_HIDE = {
 }
 
 
-def _wire_to_store_id(wire: Any) -> str | None:
-    """Return a stable store-node ID from a wire path (first segment)."""
-    if isinstance(wire, (list, tuple)) and wire:
-        head = wire[0]
-        if isinstance(head, str) and head and not head.startswith('_'):
-            return head
-    return None
+def _wire_to_store_id(wire: Any) -> tuple[str | None, str | None]:
+    """Return (store_id, parent_id) for a wire path.
+
+    - Generic wires resolve to their first segment: ``('bulk', ...)``
+      -> ``('bulk', None)``.
+    - Wires whose head is in ``_NESTABLE_PARENTS`` and that carry a
+      second segment resolve to a compound id: ``('unique', 'promoter', ...)``
+      -> ``('unique.promoter', 'unique')``. Callers register both the
+      child and the parent and add a containment edge.
+    """
+    if not (isinstance(wire, (list, tuple)) and wire):
+        return None, None
+    # Skip wire-path navigation segments — ``..`` means "go up one store"
+    # and is not itself a store. Walk past leading ``..`` segments so the
+    # resolved id is the first real store name.
+    segs = list(wire)
+    while segs and segs[0] == '..':
+        segs.pop(0)
+    if not segs:
+        return None, None
+    head = segs[0]
+    if not (isinstance(head, str) and head and not head.startswith('_')):
+        return None, None
+    if head in _NESTABLE_PARENTS and len(segs) > 1:
+        child = segs[1]
+        if isinstance(child, str) and child and not child.startswith('_'):
+            return f'{head}.{child}', head
+    return head, None
 
 
 def _jsonable(value: Any, depth: int = 0) -> Any:
@@ -401,19 +428,45 @@ def build_graph(composite, layers: Sequence[Sequence[str]]) -> dict:
             for port, wire in port_dict.items():
                 if port.startswith('_layer') or port.startswith('_flow'):
                     continue
-                store_id = _wire_to_store_id(wire)
+                store_id, parent_id = _wire_to_store_id(wire)
                 if store_id is None:
                     continue
                 if store_id not in nodes:
+                    label = store_id.split('.', 1)[-1] if parent_id else store_id
                     nodes[store_id] = {
                         'data': {
                             'id': store_id,
-                            'label': store_id,
+                            'label': label,
                             'kind': 'store',
                             'subsystem': 'store',
                             'color': '#FFFFFF',
+                            'parent_store': parent_id or '',
                         },
                     }
+                if parent_id and parent_id not in nodes:
+                    nodes[parent_id] = {
+                        'data': {
+                            'id': parent_id,
+                            'label': parent_id,
+                            'kind': 'store',
+                            'subsystem': 'store',
+                            'color': '#FFFFFF',
+                            'is_container': True,
+                        },
+                    }
+                if parent_id:
+                    # Record a single place-graph edge parent -> child.
+                    ckey = (parent_id, store_id, 'contains')
+                    if ckey not in edge_index:
+                        edge_index[ckey] = {
+                            'data': {
+                                'id': f'{parent_id}__{store_id}__contains',
+                                'source': parent_id,
+                                'target': store_id,
+                                'direction': 'contains',
+                                'ports': [],
+                            },
+                        }
                 src, dst = (store_id, name) if direction == 'input' \
                     else (name, store_id)
                 key = (src, dst, direction)
@@ -658,7 +711,7 @@ _HTML_TEMPLATE = """<!doctype html>
         }} }},
         {{ selector: 'node[kind="store"]', style: {{
             'shape': 'ellipse', 'background-color': '#ffffff',
-            'border-color': '#666', 'border-width': 2, 'border-style': 'dashed',
+            'border-color': '#666', 'border-width': 2, 'border-style': 'solid',
             'font-weight': 600, 'color': '#333',
             'width': 'label', 'height': 'label',
             'padding': '14px',
@@ -667,11 +720,26 @@ _HTML_TEMPLATE = """<!doctype html>
             'curve-style': 'bezier', 'width': 1.5,
             'line-color': '#bbb', 'target-arrow-shape': 'triangle',
             'target-arrow-color': '#bbb', 'arrow-scale': 0.9, 'opacity': 0.75,
+            'line-style': 'dashed',
         }} }},
         {{ selector: 'edge[direction="input"]', style: {{
-            'line-color': '#7BA7D9', 'target-arrow-color': '#7BA7D9' }} }},
+            'line-color': '#7BA7D9', 'target-arrow-color': '#7BA7D9',
+            'line-style': 'dashed',
+        }} }},
         {{ selector: 'edge[direction="output"]', style: {{
-            'line-color': '#D88A7B', 'target-arrow-color': '#D88A7B' }} }},
+            'line-color': '#D88A7B', 'target-arrow-color': '#D88A7B',
+            'line-style': 'dashed',
+        }} }},
+        {{ selector: 'edge[direction="contains"]', style: {{
+            'line-color': '#666', 'line-style': 'solid',
+            'target-arrow-shape': 'none', 'width': 1.5, 'opacity': 0.8,
+            'curve-style': 'bezier',
+        }} }},
+        {{ selector: 'node[?is_container]', style: {{
+            'background-color': '#fafafa', 'border-style': 'solid',
+            'border-color': '#333', 'border-width': 2.5,
+            'font-weight': 700, 'font-size': '18px',
+        }} }},
         {{ selector: '.faded', style: {{ 'opacity': 0.1, 'text-opacity': 0.1 }} }},
         {{ selector: '.highlighted', style: {{ 'border-color': '#000', 'border-width': 3 }} }},
         {{ selector: 'edge.highlighted', style: {{ 'width': 3, 'opacity': 1 }} }},
@@ -687,11 +755,38 @@ _HTML_TEMPLATE = """<!doctype html>
       breadthfirst: {{ name: 'breadthfirst', directed: true, padding: 24, animate: true }},
     }};
     function bipartitePositions() {{
-      // Stores on left, processes on right. Within each column,
-      // sort stores alphabetically and processes by execution layer
-      // (then by name for a stable tie-break).
-      const stores = cy.nodes().filter(n => n.data('kind') === 'store')
-        .sort((a, b) => a.data('label').localeCompare(b.data('label')));
+      // Stores on left, processes on right. Stores are grouped by parent:
+      // a container store (e.g. ``unique``) is followed by its children
+      // (e.g. ``unique.promoter``, ``unique.active_replisome``), indented
+      // slightly so the place-graph nesting reads as a tree. Processes
+      // sort by execution layer then name for a stable tie-break.
+      const allStores = cy.nodes().filter(n => n.data('kind') === 'store');
+      const parents = allStores.filter(n =>
+        !n.data('parent_store') &&
+        allStores.some(c => c.data('parent_store') === n.id())
+      );
+      const orphans = allStores.filter(n => !n.data('parent_store')
+        && !parents.some(p => p.id() === n.id()));
+      const byParent = new Map();
+      allStores.forEach(n => {{
+        const p = n.data('parent_store');
+        if (p) {{
+          if (!byParent.has(p)) byParent.set(p, []);
+          byParent.get(p).push(n);
+        }}
+      }});
+      const alpha = (a, b) => a.data('label').localeCompare(b.data('label'));
+
+      // Ordered list: orphans (alpha), then parent + its children (alpha),
+      // keeping the place-graph cluster contiguous in the column.
+      const ordered = [];
+      orphans.sort(alpha).forEach(n => ordered.push({{node: n, depth: 0}}));
+      parents.sort(alpha).forEach(p => {{
+        ordered.push({{node: p, depth: 0}});
+        const kids = (byParent.get(p.id()) || []).slice().sort(alpha);
+        kids.forEach(k => ordered.push({{node: k, depth: 1}}));
+      }});
+
       const procs = cy.nodes().filter(n => n.data('kind') !== 'store')
         .sort((a, b) => {{
           const la = a.data('layer'); const lb = b.data('layer');
@@ -699,9 +794,13 @@ _HTML_TEMPLATE = """<!doctype html>
           return a.data('label').localeCompare(b.data('label'));
         }});
       const storeStep = 70, procStep = 60;
-      const storeX = 0, procX = 700;
+      const storeX = 0, procX = 760;
       const positions = new Map();
-      stores.forEach((n, i) => positions.set(n.id(), {{ x: storeX, y: i * storeStep }}));
+      // Sub-stores sit directly below their parent (same x). The
+      // place-graph edge provides the visible link; no indent needed.
+      ordered.forEach(({{node}}, i) => {{
+        positions.set(node.id(), {{ x: storeX, y: i * storeStep }});
+      }});
       procs.forEach((n, i) => positions.set(n.id(), {{ x: procX, y: i * procStep }}));
       return positions;
     }}

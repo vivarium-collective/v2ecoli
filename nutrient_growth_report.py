@@ -95,6 +95,9 @@ def _extract_snapshot(state, t):
 
     glc_bound = _as_float(constrained.get("GLC[p]"))
 
+    # Carbon budget (emitted by v2ecoli/steps/listeners/carbon_budget.py).
+    cb = agent.get("listeners", {}).get("carbon_budget", {}) or {}
+
     return {
         "time": t,
         "dry_mass": float(mass.get("dry_mass", 0.0)),
@@ -106,6 +109,13 @@ def _extract_snapshot(state, t):
         "external_mM": {k: _as_float(v, 0.0) for k, v in external.items()},
         # per-step exchange counts snapshot (for flux panels)
         "exchange_counts": exchange_counts,
+        # carbon accounting
+        "c_in_mmol":   _as_float(cb.get("c_in_mmol"), 0.0),
+        "c_out_mmol":  _as_float(cb.get("c_out_mmol"), 0.0),
+        "c_net_mmol":  _as_float(cb.get("c_net_mmol"), 0.0),
+        "cum_c_in":    _as_float(cb.get("cumulative_c_in_mmol"), 0.0),
+        "cum_c_out":   _as_float(cb.get("cumulative_c_out_mmol"), 0.0),
+        "biomass_c":   _as_float(cb.get("biomass_c_est_mmol_per_step"), 0.0),
     }
 
 
@@ -264,13 +274,16 @@ def _glc_shutoff_min(snaps, threshold=0.01):
     return None
 
 
-def _top_by_metric(snaps, metric, n):
+def _top_by_metric(snaps, metric, n, exclude=None):
     """Rank molecules by metric function applied to per-molecule series."""
+    exclude = set(exclude or ())
     mols: set[str] = set()
     for s in snaps:
         mols.update(s.get("exchange_counts", {}) or {})
     scored = []
     for m in mols:
+        if m in exclude:
+            continue
         series = [s.get("exchange_counts", {}).get(m, 0) for s in snaps]
         scored.append((metric(series), m))
     scored.sort(reverse=True)
@@ -279,30 +292,38 @@ def _top_by_metric(snaps, metric, n):
 
 def _draw_exchange_series(ax, snaps, molecules, seen_colors, *,
                            symlog_threshold=1e3):
+    """Draw per-molecule import rates. Sign is flipped from the raw
+    exchange convention (raw: negative = import, positive = secretion) so
+    positive values on this axis mean import."""
     t = [s["time"] / 60 for s in snaps]
     for m in molecules:
-        y = [s.get("exchange_counts", {}).get(m, 0) for s in snaps]
+        y = [-s.get("exchange_counts", {}).get(m, 0) for s in snaps]
         ax.plot(t, y, label=m, linewidth=1.6,
                 color=_color_for(m, seen_colors))
     ax.axhline(0, color="#475569", linestyle="-", alpha=0.4, linewidth=0.8)
     ax.set_xlabel("Time (min)")
-    ax.set_ylabel("Exchange (count / step)\n← import   secretion →")
+    ax.set_ylabel("Import rate (count / step)\n↑ import   secretion ↓")
     ax.grid(alpha=0.25, which="both")
     ax.set_yscale("symlog", linthresh=symlog_threshold)
     ax.legend(fontsize=8, ncol=2, loc="best", framealpha=0.9)
 
 
 def plot_exchange_fluxes(snaps, top_n: int = 10):
-    """Main exchange-flux panel: top-N by peak |flux|, symlog y-axis, glucose
-    shutoff marker. Orders of magnitude span several decades so linear was
-    useless; symlog keeps zero crossings honest while showing detail."""
+    """Main import-flux panel: top-N molecules by peak import rate,
+    excluding glucose (which is plotted separately). Symlog y-axis;
+    glucose shutoff marker. Raw exchange is negated so positive values
+    on the plot mean import."""
     if not snaps:
         return None
 
+    # Rank by peak import magnitude (largest negative raw exchange), skip
+    # glucose (covered by its own panel) and any species that is purely
+    # secreted (never imported).
     top = _top_by_metric(
         snaps,
-        metric=lambda s: max((abs(x) for x in s), default=0),
-        n=top_n)
+        metric=lambda s: max((-x for x in s if x < 0), default=0),
+        n=top_n,
+        exclude={"GLC"})
 
     fig, ax = plt.subplots(figsize=(11, 5))
     seen_colors: dict = {}
@@ -317,7 +338,7 @@ def plot_exchange_fluxes(snaps, top_n: int = 10):
             xy=(t_shut, 0), xytext=(t_shut + 0.2, 0),
             textcoords="data", color="#dc2626", fontsize=9, va="center")
 
-    ax.set_title(f"Top {len(top)} exchange fluxes (symlog, by peak |flux|)")
+    ax.set_title(f"Top {len(top)} imports, excluding glucose (symlog, by peak import rate)")
     return _fig_to_b64(fig)
 
 
@@ -337,31 +358,36 @@ def plot_exchange_diff(snaps, n: int = 8):
     if not pre or not post:
         return None
 
+    # Work in import-rate space (negated raw exchange). Positive = import.
     mols: set[str] = set()
     for s in snaps:
         mols.update(s.get("exchange_counts", {}) or {})
     scores = []
     for m in mols:
-        pre_mean = np.mean([s.get("exchange_counts", {}).get(m, 0) for s in pre])
-        post_mean = np.mean([s.get("exchange_counts", {}).get(m, 0) for s in post])
-        scores.append((m, float(pre_mean), float(post_mean),
-                       float(post_mean - pre_mean)))
+        if m == "GLC":
+            continue  # glucose has its own trajectory panel
+        pre_import = np.mean(
+            [-s.get("exchange_counts", {}).get(m, 0) for s in pre])
+        post_import = np.mean(
+            [-s.get("exchange_counts", {}).get(m, 0) for s in post])
+        scores.append((m, float(pre_import), float(post_import),
+                       float(post_import - pre_import)))
 
-    gained = sorted(scores, key=lambda r: -r[3])[:n]    # largest Δ>0
-    lost = sorted(scores, key=lambda r: r[3])[:n]       # largest Δ<0 (most negative)
+    up = sorted(scores, key=lambda r: -r[3])[:n]   # biggest import increase
+    down = sorted(scores, key=lambda r: r[3])[:n]  # biggest import decrease
 
     fig, (axL, axR) = plt.subplots(1, 2, figsize=(13, 5), sharey=True)
     seen_colors: dict = {}
-    _draw_exchange_series(axL, snaps, [m for m, *_ in gained], seen_colors)
-    _draw_exchange_series(axR, snaps, [m for m, *_ in lost], seen_colors)
+    _draw_exchange_series(axL, snaps, [m for m, *_ in up], seen_colors)
+    _draw_exchange_series(axR, snaps, [m for m, *_ in down], seen_colors)
 
     for ax in (axL, axR):
         ax.axvline(t_shut, color="#dc2626", linestyle="--",
                    alpha=0.6, linewidth=1.2)
-    axL.set_title(f"Biggest INCREASE after glucose off (top {n})")
-    axR.set_title(f"Biggest DECREASE after glucose off (top {n})")
+    axL.set_title(f"Imports that INCREASE after glucose off (top {n})")
+    axR.set_title(f"Imports that DECREASE after glucose off (top {n})")
     fig.suptitle(
-        "Which exchanges pick up the slack when glucose is cut off?",
+        "Which imports pick up the slack when glucose is cut off?",
         fontsize=12, y=1.02)
     return _fig_to_b64(fig)
 
@@ -390,6 +416,107 @@ def plot_externals(snaps, top_n: int = 6):
     ax.set_xlabel("Time (min)"); ax.set_ylabel("[M]ₑₓₜ (mM)")
     ax.set_title(f"Top {len(top)} external concentrations (by total change)")
     ax.grid(alpha=0.3); ax.legend(fontsize=8, ncol=2, loc="upper right")
+    return _fig_to_b64(fig)
+
+
+def plot_carbon_budget(snaps):
+    """Per-step carbon flux + cumulative carbon budget.
+
+    The point of this panel: a *closed* cell has C_in ≥ C_out + C_biomass
+    each step. When the cell grows without a carbon source, C_biomass is
+    positive while C_in is zero — a visual signature of the homeostatic
+    objective "creating carbon" from internal pool drain.
+    """
+    if not snaps or len(snaps) < 2:
+        return None
+    import numpy as np
+    t = np.array([s["time"] / 60 for s in snaps])
+    c_in = np.array([s.get("c_in_mmol", 0) for s in snaps])
+    c_out = np.array([s.get("c_out_mmol", 0) for s in snaps])
+    c_biomass = np.array([s.get("biomass_c", 0) for s in snaps])
+    cum_in = np.array([s.get("cum_c_in", 0) for s in snaps])
+    cum_out = np.array([s.get("cum_c_out", 0) for s in snaps])
+    t_shut = _glc_shutoff_min(snaps)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.2))
+
+    ax1.plot(t, c_in, color="#16a34a", label="C in (imports)",
+             linewidth=1.8)
+    ax1.plot(t, c_out, color="#dc2626", label="C out (secreted)",
+             linewidth=1.8)
+    ax1.plot(t, c_biomass, color="#2563eb", label="C into biomass (est.)",
+             linewidth=1.8)
+    if t_shut is not None:
+        ax1.axvline(t_shut, color="#dc2626", linestyle="--", alpha=0.6,
+                    linewidth=1.0)
+    ax1.set_xlabel("Time (min)")
+    ax1.set_ylabel("mmol C / step")
+    ax1.set_title("Carbon fluxes per step")
+    ax1.grid(alpha=0.3); ax1.legend(fontsize=9, loc="best")
+
+    ax2.plot(t, cum_in, color="#16a34a", label="Σ C in")
+    ax2.plot(t, cum_out, color="#dc2626", label="Σ C out")
+    deficit = cum_out - cum_in
+    ax2.fill_between(t, 0, deficit, where=(deficit > 0),
+                     color="#fca5a5", alpha=0.35,
+                     label="Σ out > Σ in (pool drain)")
+    if t_shut is not None:
+        ax2.axvline(t_shut, color="#dc2626", linestyle="--", alpha=0.6,
+                    linewidth=1.0)
+    ax2.set_xlabel("Time (min)")
+    ax2.set_ylabel("Cumulative mmol C")
+    ax2.set_title("Cumulative carbon budget")
+    ax2.grid(alpha=0.3); ax2.legend(fontsize=9, loc="best")
+
+    fig.suptitle(
+        "Carbon accounting — is the cell closed under mass balance?",
+        fontsize=12, y=1.02)
+    return _fig_to_b64(fig)
+
+
+def plot_external_concentrations(snaps, top_n: int = 8):
+    """Track how ALL boundary concentrations evolve, not just glucose.
+
+    The environment_update step writes back to boundary.external for
+    every species metabolism exchanges — so ammonium, phosphate, sulfate,
+    ions, etc. all drain naturally. This panel shows which run out first.
+    """
+    if not snaps:
+        return None
+    import numpy as np
+    all_mols: set[str] = set()
+    for s in snaps:
+        all_mols.update(s.get("external_mM", {}) or {})
+    # Rank by max-min span (ignore infinities — WATER / O2 are flagged inf).
+    scored = []
+    for m in all_mols:
+        series = [s.get("external_mM", {}).get(m, 0) for s in snaps]
+        series = [v for v in series if v is not None and v != float("inf")
+                  and v != float("-inf")]
+        if not series:
+            continue
+        span = max(series) - min(series)
+        scored.append((span, m))
+    scored.sort(reverse=True)
+    top = [m for _, m in scored[:top_n]]
+
+    fig, ax = plt.subplots(figsize=(11, 4.2))
+    t = [s["time"] / 60 for s in snaps]
+    seen: dict = {}
+    for m in top:
+        y = [s.get("external_mM", {}).get(m, 0) for s in snaps]
+        y = [None if (v == float("inf") or v == float("-inf")) else v
+             for v in y]
+        ax.plot(t, y, label=m, linewidth=1.6, color=_color_for(m, seen))
+    t_shut = _glc_shutoff_min(snaps)
+    if t_shut is not None:
+        ax.axvline(t_shut, color="#dc2626", linestyle="--", alpha=0.6,
+                   linewidth=1.0)
+    ax.set_xlabel("Time (min)")
+    ax.set_ylabel("[M]ₑₓₜ (mM)")
+    ax.set_title(f"External nutrient concentrations — top {len(top)} "
+                 "species by range")
+    ax.grid(alpha=0.3); ax.legend(fontsize=8, ncol=2, loc="best")
     return _fig_to_b64(fig)
 
 
@@ -433,6 +560,8 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float):
         "exchanges": plot_exchange_fluxes(snaps),
         "exchange_diff": plot_exchange_diff(snaps),
         "externals": plot_externals(snaps),
+        "carbon_budget": plot_carbon_budget(snaps),
+        "externals_all": plot_external_concentrations(snaps),
     }
 
     # Pre/post-shutoff flux table — concrete answer to "what takes over
@@ -572,7 +701,32 @@ after depletion (&lt;0.01 mM). Biggest absolute shifts first.</p>
 
 {img("exchange_diff", "Pre vs post-shutoff flux comparison")}
 
-{img("externals", "Top external concentrations over time")}
+<h2>External nutrient concentrations</h2>
+<p>Every boundary species <code>metabolism.py</code> exchanges with is
+dynamically updated by <code>environment_update.py</code>. This panel
+shows which nutrients drain first. <strong>Ammonium</strong> typically
+runs out alongside glucose in the default 10 fL environment; phosphate,
+sulfate, and trace ions decay more slowly.</p>
+
+{img("externals_all", "All external concentrations over time")}
+
+<h2>Carbon accounting</h2>
+<p>Emitted by the <code>carbon_budget_listener</code> each step (values
+in mmol C). Imports are weighted by per-molecule carbon counts from
+<code>v2ecoli/library/carbon_counts.py</code>. Biomass C is estimated
+from dry-mass delta at 48% C/g DCW.</p>
+
+<p><strong>Reading the plot:</strong> in a carbon-balanced cell, the
+green line (<em>C in</em>) should exceed the sum of red (<em>C out</em>)
+and blue (<em>C into biomass</em>). When the red-filled region on the
+right panel grows after glucose depletion, the cell is secreting more
+carbon than it imports — i.e. draining internal pools to keep the
+homeostatic objective happy. That pink area is the quantitative
+signature of the "pool-drain" failure mode.</p>
+
+{img("carbon_budget", "Carbon budget over time")}
+
+{img("externals", "Top external concentrations over time (by change)")}
 
 <div class="note">
 <strong>Why does growth continue after [GLC]ₑₓₜ hits zero?</strong>

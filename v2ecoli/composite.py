@@ -113,7 +113,7 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
     configs = {}
     for name in [
         'post-division-mass-listener', 'ecoli-mass-listener', 'media_update',
-        'environment_update',
+        'environment_update', 'carbon_budget_listener',
         'metabolic_kinetics', 'ecoli-tf-unbinding', 'ecoli-tf-binding',
         'ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation',
         'ecoli-transcript-initiation', 'ecoli-polypeptide-initiation',

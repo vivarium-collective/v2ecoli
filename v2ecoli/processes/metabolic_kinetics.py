@@ -164,6 +164,26 @@ class MetabolicKinetics(Step):
         self.all_external_ids = list(p.get("all_external_molecule_ids", []))
         self.enforce_allowlist = bool(p.get("enforce_import_allowlist", True))
 
+        # Snapshot a STATIC import allowlist from the initial media. The
+        # wholecell classifier is dynamic — as boundary concentrations
+        # change, previously-excluded molecules can reappear in its
+        # `unconstrained` list (e.g. CARBON-MONOXIDE, 5-Deoxy-D-Ribo
+        # sneak back in once nutrients drop). For mechanistic correctness
+        # we fix the allowlist from the initial state and treat anything
+        # else as disallowed regardless of runtime reclassification.
+        self._static_allowlist: set[str] = set()
+        if self.external_state is not None and self.enforce_allowlist:
+            try:
+                saved = self.external_state.saved_media
+                medium = saved.get(self.media_id) or next(iter(saved.values()))
+                ed = self.external_state.exchange_data_from_concentrations(
+                    dict(medium))
+                self._static_allowlist = (
+                    set(ed["importUnconstrainedExchangeMolecules"])
+                    | set(ed["importConstrainedExchangeMolecules"]))
+            except Exception:
+                self._static_allowlist = set()
+
         self.aa_targets: dict[str, float] = {}
 
         self.metabolite_idx = None
@@ -260,19 +280,22 @@ class MetabolicKinetics(Step):
         # update_homeostatic_targets rejects.
         return constrained, unconstrained
 
-    def compute_disallowed_imports(self, constrained, unconstrained):
+    def compute_disallowed_imports(self, constrained, unconstrained, external):
         """Molecules the LP should NOT be able to import this step.
 
-        Two sources of disallowed imports, unified here:
+        Three sources of disallowed imports, unified here:
 
-        1. The biologically secretion-only list (CO2, H2, ...) — E. coli
+        1. Biologically secretion-only molecules (CO2, H2, ...). E. coli
            cannot use these as net carbon/energy sources even though FBA
            stoichiometry permits it.
-        2. FBA's getExternalMoleculeIDs (~87) minus the wholecell's
-           curated importExchangeMolecules (~19 for minimal+glucose).
-           The ~68-molecule delta is what lets the LP sneak in obscure
-           scavenging pathways (hypoxanthine, formate, selenocysteine,
-           nucleotides, amino acids, ...) as free carbon.
+        2. FBA externals outside the STATIC initial allowlist. The
+           allowlist is locked at MK init from the starting media; the
+           wholecell classifier otherwise reclassifies molecules at
+           runtime, which lets the LP pick up obscure exchanges as
+           nutrients fall.
+        3. Allowlisted nutrients whose boundary concentration has
+           depleted to (near) zero. Stops the LP from pulling free flux
+           on e.g. AMMONIUM after its external pool has run out.
 
         metabolism.py zeroes every returned molecule's entry in
         external_molecule_levels after exchange_constraints runs — that
@@ -280,10 +303,25 @@ class MetabolicKinetics(Step):
         """
         disallowed = set(self.secretion_only)
         if self.enforce_allowlist and self.all_external_ids:
-            allowlist = set(unconstrained) | set(constrained)
             for m in self.all_external_ids:
-                if m not in allowlist:
+                if m not in self._static_allowlist:
                     disallowed.add(m)
+        # Nutrient-depletion enforcement: any allowlisted molecule whose
+        # boundary concentration is effectively zero can't be imported.
+        threshold = self.import_constraint_threshold
+        for m in list(self._static_allowlist):
+            # Drop compartment suffix to read boundary.external.
+            bkey = m.rsplit("[", 1)[0] if "[" in m else m
+            val = external.get(bkey)
+            if val is None:
+                continue
+            try:
+                v = float(val.asNumber()) if hasattr(val, "asNumber") \
+                    else float(val)
+            except (TypeError, ValueError):
+                continue
+            if v <= threshold:
+                disallowed.add(m)
         return sorted(disallowed)
 
     def update_amino_acid_targets(
@@ -333,7 +371,8 @@ class MetabolicKinetics(Step):
         constrained_bounds, unconstrained_list = self._exchange_bounds(
             states["boundary"]["external"])
         disallowed_imports = self.compute_disallowed_imports(
-            constrained_bounds, unconstrained_list)
+            constrained_bounds, unconstrained_list,
+            states["boundary"]["external"])
 
         cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
         dry_mass = states["listeners"]["mass"]["dry_mass"] * units.fg

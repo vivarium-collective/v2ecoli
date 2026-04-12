@@ -13,7 +13,7 @@ You are a **process-bigraph API expert**. You have deep knowledge of the `proces
 
 ## SAFETY RULES (non-negotiable, even with --dangerously-skip-permissions)
 
-1. **Scope**: Only create/modify files inside the new repo directory (`/Users/eranagmon/code/pbg-<tool>/`). NEVER modify files in v2ecoli, process-bigraph, bigraph-schema, or any other existing repo. Read them for reference only.
+1. **Scope**: Only create/modify files inside the new repo directory (`/Users/eranagmon/code/pbg-<tool>/`). NEVER modify files in v2ecoli, process-bigraph, bigraph-schema, bigraph-viz, or any other existing repo. Read them for reference only. **This includes your own skill file** — do NOT edit any files under `.claude/skills/`.
 2. **No overwrites**: Before creating the repo directory, check if it already exists. If it does, STOP and ask the user whether to overwrite, use a suffix (e.g., `pbg-cobra-2`), or abort.
 3. **No destructive commands**: Never run `rm -rf`, `git push --force`, `git reset --hard`, or any command that deletes files outside the new repo.
 4. **No git push**: Do NOT push to any remote. Create the repo and commits locally only. The user will push when ready.
@@ -47,7 +47,7 @@ git init
 # Create venv immediately (isolated from system Python)
 uv venv .venv
 source .venv/bin/activate
-uv pip install process-bigraph bigraph-schema pytest matplotlib
+uv pip install process-bigraph bigraph-schema bigraph-viz pytest matplotlib
 ```
 
 **All subsequent work happens inside this new repo.** Use absolute paths when reading reference files from process-bigraph, bigraph-schema, or v2ecoli.
@@ -62,8 +62,12 @@ build/
 *.pyc
 .pytest_cache/
 demo/*.png
-demo/*.html
+output/
+*.nc
+.idea/
 ```
+
+**Note**: Do NOT gitignore `demo/*.html` — the generated HTML report is a deliverable that gets committed to the repo.
 
 ## Your Mission
 
@@ -75,8 +79,9 @@ Given a simulation tool (by name, GitHub URL, or description), you will:
 4. **Register custom types** — if the tool uses specialized data structures, define and register custom bigraph-schema types
 5. **Write tests** — unit tests for the wrapper, integration tests for composite assembly and simulation
 6. **Create a README** — with installation, usage, API reference, and architecture diagram
-7. **Build a demo report** — a runnable script that produces an HTML report with time series plots and/or visualizations
+7. **Build a multi-config demo report** — an impressive, self-contained HTML report with interactive 3D viewers (if spatial), Plotly charts, colored bigraph-viz architecture diagrams, and interactive PBG document trees. Run multiple distinct simulation configurations to showcase the tool's range.
 8. **Package it** — with pyproject.toml, proper imports, and GitHub-ready structure
+9. **Open the report** — automatically open `demo/report.html` in Safari after generation
 
 ## Arguments
 
@@ -290,8 +295,14 @@ class ToolBridge(Process):
 
 ## Emitters (Data Collection)
 
+**IMPORTANT**: You must register the RAMEmitter before using it in a composite:
+
 ```python
 from process_bigraph import Emitter, gather_emitter_results, generate_emitter_state
+from process_bigraph.emitter import RAMEmitter
+
+core = allocate_core()
+core.register_link('ram-emitter', RAMEmitter)  # REQUIRED
 
 # Add emitter to document
 document['state']['emitter'] = {
@@ -303,7 +314,8 @@ document['state']['emitter'] = {
 
 # After simulation
 results = gather_emitter_results(sim)
-# results = {'concentration': [v0, v1, ...], 'time': [t0, t1, ...]}
+# results = {('emitter',): [{'concentration': v0, 'time': t0}, ...]}
+# Note: results are keyed by emitter path tuple, each entry is a dict
 ```
 
 ---
@@ -380,39 +392,177 @@ def test_composite_run():
 
 **IMPORTANT**: Run `pytest` from the repo venv and confirm all tests pass BEFORE committing.
 
-### Phase 5: Demo Report
+### Phase 5: Multi-Configuration Demo Report
 
-Create `demo/demo_report.py` that:
-1. Builds a composite with the wrapped tool
-2. Runs a biologically/physically meaningful simulation (with a timeout — max 120s)
-3. Collects time series via emitter
-4. Generates plots (matplotlib) showing key dynamics
-5. Saves plots to `demo/` directory (PNG) and optionally generates an HTML report
+Create `demo/demo_report.py` that generates an **impressive, self-contained HTML report** (`demo/report.html`). This is the primary deliverable — it should look publication-ready.
+
+**Report must include all of the following for EACH simulation configuration:**
+
+#### 5a. Multiple Simulation Configurations
+
+Define **3+ distinct configurations** that showcase the tool's range. Each should produce visually different results. Example structure:
 
 ```python
-import matplotlib.pyplot as plt
-
-def run_demo():
-    core = allocate_core()
-    core.register_link('MyProcess', MyProcess)
-
-    doc = make_document(rate=0.5)
-    sim = Composite({'state': doc}, core=core)
-    sim.run(100.0)
-
-    results = gather_emitter_results(sim)
-
-    fig, ax = plt.subplots()
-    ax.plot(results['time'], results['concentration'])
-    ax.set_xlabel('Time')
-    ax.set_ylabel('Concentration')
-    ax.set_title('Demo: MyProcess Simulation')
-    plt.savefig('demo/demo_output.png', dpi=150, bbox_inches='tight')
-    print('Saved demo/demo_output.png')
-
-if __name__ == '__main__':
-    run_demo()
+CONFIGS = [
+    {
+        'id': 'config_name',
+        'title': 'Human-Readable Title',
+        'subtitle': 'One-line description',
+        'description': 'Paragraph explaining the biophysics/biology.',
+        'config': { ... },  # Process config dict
+        'n_snapshots': 25,
+        'total_time': 500.0,
+    },
+    # ... more configs
+]
 ```
+
+For each config, instantiate the Process directly (not via Composite) to collect snapshots. **Time each simulation** with `time.perf_counter()` and include the wall-clock runtime in the report metrics:
+
+```python
+import time
+
+t0 = time.perf_counter()
+proc = MyProcess(config=cfg['config'], core=core)
+state0 = proc.initial_state()
+for i in range(n_snapshots):
+    result = proc.update({}, interval=interval)
+    snapshots.append(result)
+runtime = time.perf_counter() - t0  # seconds
+```
+
+#### 5b. Interactive 3D Viewers (for spatial tools)
+
+If the tool produces spatial data (meshes, particle positions, fields), include **Three.js** interactive 3D viewers with:
+- Orbit controls (drag to rotate, scroll to zoom)
+- Auto-rotation
+- Time slider + Play/Pause button to animate through snapshots
+- Proper sequential colormap (blue → cyan → green → yellow → red) for field data
+- Wireframe overlay at low opacity
+- Light setup for smooth Phong shading
+
+Use CDN scripts:
+```html
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+```
+
+#### 5c. Plotly Charts
+
+Use **Plotly.js** (not matplotlib) for interactive time-series charts:
+- Total energy / primary quantity
+- Component breakdown
+- 2 additional relevant quantities (area, volume, concentration, etc.)
+
+```html
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+```
+
+Use white/light background styling for all charts.
+
+#### 5d. Bigraph Architecture Diagram
+
+Generate a **colored bigraph-viz PNG** for each configuration and embed as a base64 `<img>`.
+
+**DO NOT use SVG format** for bigraph-viz in HTML reports. Graphviz SVGs have internal `scale()` transforms and `pt`-based dimensions that cause clipping in HTML containers regardless of post-processing attempts. PNG avoids this entirely.
+
+**Build a simplified document** for the diagram — show only the key ports (5-6 max), not every sub-component. Too many nodes makes the diagram unreadable.
+
+```python
+import base64
+from bigraph_viz import plot_bigraph
+
+# Simplified doc — only key ports, not all energy sub-components
+doc = {
+    'process_name': {
+        '_type': 'process',
+        'address': 'local:MyProcess',
+        'outputs': {
+            'key_output_1': ['stores', 'key_output_1'],
+            'key_output_2': ['stores', 'key_output_2'],
+        },
+    },
+    'stores': {},
+    'emitter': {
+        '_type': 'step',
+        'address': 'local:ram-emitter',
+        'inputs': {
+            'key_output_1': ['stores', 'key_output_1'],
+            'time': ['global_time'],
+        },
+    },
+}
+
+node_colors = {
+    ('process_name',): '#6366f1',  # processes: indigo
+    ('emitter',): '#8b5cf6',       # emitters: purple
+    ('stores',): '#e0e7ff',        # stores: light blue
+}
+
+plot_bigraph(
+    state=doc, out_dir=outdir, filename='bigraph',
+    file_format='png',              # PNG, not SVG
+    remove_process_place_edges=True,
+    rankdir='LR',                   # left-to-right reads best
+    node_fill_colors=node_colors,
+    node_label_size='16pt',
+    port_labels=False,              # cleaner without
+    dpi='150',
+)
+
+with open(os.path.join(outdir, 'bigraph.png'), 'rb') as f:
+    b64 = base64.b64encode(f.read()).decode()
+img_uri = f'data:image/png;base64,{b64}'
+```
+
+**HTML — simple responsive image (no zoom/pan JS needed):**
+```html
+<div class="bigraph-img-wrap">
+  <img src="{img_uri}" alt="Bigraph architecture diagram">
+</div>
+```
+```css
+.bigraph-img-wrap { background:#fafafa; border:1px solid #e2e8f0;
+                    border-radius:10px; padding:1.5rem; text-align:center; }
+.bigraph-img-wrap img { max-width:100%; height:auto; }
+```
+
+#### 5e. Interactive PBG Document Viewer
+
+Build an interactive **collapsible JSON tree** of the composite document dict:
+- Color-coded: keys (purple `#7c3aed`), strings (green `#059669`), numbers (blue `#2563eb`), booleans (orange `#d97706`), null (gray)
+- Collapsible nested objects — click triangle toggles to expand/collapse
+- Depth >= 2 collapsed by default for readability
+- Short arrays of primitives (<=5 items) rendered inline on one line
+- Monospace font (`SF Mono, Menlo, Monaco`)
+
+#### 5f. Report Styling
+
+- **White background** (`#fff` body, `#f8fafc` for cards/containers)
+- Clean typography: `-apple-system, BlinkMacSystemFont, sans-serif`
+- Color scheme per configuration section (e.g., indigo, emerald, rose) — use for section headers, borders, slider accents
+- Metrics cards row: vertex/face counts, energy values, area/volume change percentages, **wall-clock runtime** per experiment
+- Sticky navigation bar at the top with links to jump between config sections
+- Self-contained HTML (no external CSS files, only CDN JS for Three.js and Plotly)
+- Responsive grid: 2-column layout for charts and for bigraph+JSON side by side; collapses to 1-column on narrow screens
+
+#### 5g. Auto-Open
+
+After generating the report, **automatically open it in Safari**:
+
+```python
+import subprocess
+subprocess.run(['open', '-a', 'Safari', output_path])
+```
+
+#### Install bigraph-viz
+
+Make sure to install `bigraph-viz` into the repo venv:
+```bash
+uv pip install bigraph-viz
+```
+
+**Reference implementation**: See `/Users/eranagmon/code/pbg-mem3dg/demo/demo_report.py` for a complete working example of this entire pattern — SVG post-processing, zoom/pan JS, JSON tree viewer, Three.js mesh viewers, Plotly charts, and report styling.
 
 ### Phase 6: README & Package
 
@@ -424,15 +574,24 @@ The README should include:
 - **Architecture**: how the wrapper maps tool concepts to PBG concepts
 - **Demo**: how to run the demo report and what output to expect
 
-### Phase 7: Commit (local only)
+### Phase 7: Generate Report, Commit, and Open
 
-After tests pass and demo runs:
+1. **Run the demo report** to generate `demo/report.html`
+2. **Run tests** one final time to confirm everything passes
+3. **Commit** (local only — do NOT push):
+
 ```bash
 git add -A
-git commit -m "Initial pbg-<tool> wrapper: processes, tests, demo, README"
+git commit -m "Initial pbg-<tool> wrapper: processes, tests, demo report, README"
 ```
 
-**Do NOT push.** The user will review and push when ready.
+4. **Open the report** in Safari for the user to review:
+
+```bash
+open -a Safari demo/report.html
+```
+
+**Do NOT push.** The user will review the report and repo, then decide when to push. The intended destination is a PRIVATE repository under `vivarium-collective` on GitHub — but only after the user explicitly approves.
 
 ---
 
@@ -447,12 +606,17 @@ When building wrappers, consult these repos for patterns and type definitions. *
 Key reference files:
 - `process-bigraph/process_bigraph/composite.py` — Step, Process, Composite classes
 - `process-bigraph/process_bigraph/processes/examples.py` — simple Step/Process examples
+- `process-bigraph/process_bigraph/emitter.py` — RAMEmitter class (register as `ram-emitter`)
 - `bigraph-schema/bigraph_schema/schema.py` — all built-in types (BASE_TYPES)
 - `bigraph-schema/bigraph_schema/edge.py` — Edge base class
+- `bigraph-viz/bigraph_viz/visualize_types.py` — `plot_bigraph()`, `get_graphviz_fig()` with `node_fill_colors`
 - `v2ecoli/v2ecoli/bridge.py` — EcoliWCM bridge pattern
 - `v2ecoli/v2ecoli/generate.py` — composite document assembly
 - `v2ecoli/v2ecoli/types/__init__.py` — custom type registration
 - `v2ecoli/colony_report.py` — colony simulation with visualization
+
+**Exemplar wrapper** (completed, use as template):
+- **pbg-mem3dg**: `/Users/eranagmon/code/pbg-mem3dg` — Mem3DG membrane mechanics wrapper with 3-config interactive HTML report, Three.js 3D viewers, colored bigraph-viz diagrams, and JSON tree viewers. **Read `demo/demo_report.py` first** — it is the canonical template for generating the multi-config HTML report with all required components.
 
 ---
 

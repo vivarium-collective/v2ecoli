@@ -1,0 +1,2957 @@
+{
+  "agents": {
+    "0": {
+      "bulk": {
+        "_note": "16321 bulk molecules (showing first 20)",
+        "sample": {
+          "--TRANS-ACENAPHTHENE-12-DIOL[c]": 0,
+          "1-6-Galactofuran[c]": 0,
+          "1-ACYLGLYCEROL-3-P-ACYLTRANSFER-MONOMER[i]": 123,
+          "1-AMINO-PROPAN-2-OL[c]": 0,
+          "1-AMINO-PROPAN-2-ONE-3-PHOSPHATE[c]": 0,
+          "1-CHLORO-24-DINITROBENZENE[c]": 0,
+          "1-DEOXYXYLONOJIRIMYCIN[c]": 0,
+          "1-ETHYLADENINE[c]": 0,
+          "1-Hydroxy-2-oxolimonenes[c]": 0,
+          "1-KETO-2-METHYLVALERATE[c]": 0,
+          "1-PALMITOYLGLYCEROL-3-PHOSPHATE[c]": 0,
+          "1-PFK[c]": 38,
+          "1-PFK-MONOMER[c]": 1,
+          "1-deoxypentoses[c]": 0,
+          "10-FORMYL-THF[c]": 0,
+          "10-FORMYL-THF[p]": 0,
+          "10-FORMYL-THF[e]": 0,
+          "11-13-Eicosadienoates[c]": 0,
+          "11-DEOXY-CORTISOL[c]": 0,
+          "11-DEOXYCORTICOSTERONE[c]": 0
+        }
+      },
+      "unique": {
+        "full_chromosome": {
+          "n_entries": 1
+        },
+        "oriC": {
+          "n_entries": 2
+        },
+        "chromosome_domain": {
+          "n_entries": 3
+        },
+        "active_replisome": {
+          "n_entries": 2
+        },
+        "promoter": {
+          "n_entries": 4757
+        },
+        "gene": {
+          "n_entries": 6557
+        },
+        "DnaA_box": {
+          "n_entries": 458
+        },
+        "active_RNAP": {
+          "n_entries": 717
+        },
+        "RNA": {
+          "n_entries": 3078
+        },
+        "chromosomal_segment": {
+          "n_entries": 0
+        },
+        "active_ribosome": {
+          "n_entries": 12567
+        }
+      },
+      "environment": {
+        "exchange": "{'GLC': 0, 'ACET': 0, 'FUM': 0, 'MAL': 0, 'SUC': 0, 'OXYGEN-MOLECULE': 0, 'AMMONIUM': 0, 'NA+': 0, 'Pi': 0, 'K+': 0, 'SULFATE': 0, 'FE+2': 0, 'FE+3': 0, 'CA+2': 0, 'CL-': 0, 'CO+2': 0, 'MG+2': 0, 'MN+2': 0, 'NI+2': 0, 'ZN+2': 0, 'WATER': 0, 'CARBON-DIOXIDE': 0, 'CPD0-1958': 0, 'L-SELENOCYSTEINE': 0, 'GLC-D-LACTONE': 0, 'CYTOSINE': 0, 'CYTIDINE': 0, 'ARABINOSE': 0, 'CPD-183': 0, 'INDOLE': 0, 'NITRATE': 0, 'NITRITE': 0, 'S-ADENOSYLMETHIONINE': 0, 'CPD-520': 0, 'TUNGSTATE': 0, 'L-ALPHA-ALANINE': 0, 'ARG': 0, 'ASN': 0, 'L-ASPARTATE': 0, 'CYS': 0, 'GLT': 0, 'GLN': 0, 'GLY': 0, 'HIS': 0, 'ILE': 0, 'LEU': 0, 'LYS': 0, 'MET': 0, 'PHE': 0, 'PRO': 0, 'SER': 0, 'THR': 0, 'TRP': 0, 'TYR': 0, 'VAL': 0, 'MI-PENTAKISPHOSPHATE': 0, 'HYPOXANTHINE': 0, 'CARBON-MONOXIDE': 0, 'HYDROGEN-MOLECULE': 0, '5-Deoxy-D-Ribofuranose': 0, 'CPD-239': 0, 'UNDECAPRENYL-DIPHOSPHATE': 0, 'GLYCOLLATE': 0, 'CPD-10774': 0, 'BETAINE': 0, 'CH33ADO': 0, 'URACIL': 0, 'METOH': 0, 'CPD-1772': 0, '4FE-4S': 0, 'CPD-560': 0, 'CPD-108': 0, 'THYMINE': 0, 'S-ADENOSYL-4-METHYLTHIO-2-OXOBUTANOATE': 0, 'UREA': 0, 'FORMATE': 0, 'D-ALANINE': 0, 'CPD-534': 0, 'GLYCEROL': 0, 'GLYCOLALDEHYDE': 0, 'D-LACTATE': 0, 'BUTANAL': 0, 'CPD-564': 0, 'XANTHINE': 0, 'PROTON': 0, 'ETOH': 0, 'IMIDAZOLE-PYRUVATE': 0}",
+        "exchange_data": "{'unconstrained': ['AMMONIUM[c]', 'CA+2[p]', 'CARBON-DIOXIDE[p]', 'CL-[p]', 'CO+2[p]', 'FE+2[p]', 'FE+3[p]', 'K+[p]', 'L-SELENOCYSTEINE[c]', 'MG+2[p]', 'MN+2[p]', 'NA+[p]', 'NI+2[p]', 'OXYGEN-MOLECULE[p]', 'Pi[p]', 'SULFATE[p]', 'WATER[p]', 'ZN+2[p]'], 'constrained': {'GLC[p]': 20.0}}",
+        "media_id": "minimal"
+      },
+      "boundary": {
+        "external": "{'GLC': 11.101, 'ACET': 0.0, 'FUM': 0.0, 'MAL': 0.0, 'SUC': 0.0, 'OXYGEN-MOLECULE': inf, 'AMMONIUM': 30.272, 'NA+': 135.15, 'Pi': 63.851, 'K+': 21.883, 'SULFATE': 15.077, 'FE+2': inf, 'FE+3': 0.0031, 'CA+2': 0.09, 'CL-': 55.389, 'CO+2': inf, 'MG+2': 2.1, 'MN+2': inf, 'NI+2': inf, 'ZN+2': inf, 'WATER': inf, 'CARBON-DIOXIDE': inf, 'CPD0-1958': 0.0, 'L-SELENOCYSTEINE': inf, 'GLC-D-LACTONE': 0.0, 'CYTOSINE': 0.0, 'CYTIDINE': 0.0, 'ARABINOSE': 0.0, 'CPD-183': 0.0, 'INDOLE': 0.0, 'NITRATE': 0.0, 'NITRITE': 0.0, 'S-ADENOSYLMETHIONINE': 0.0, 'CPD-520': 0.0, 'TUNGSTATE': 0.0, 'L-ALPHA-ALANINE': 0.0, 'ARG': 0.0, 'ASN': 0.0, 'L-ASPARTATE': 0.0, 'CYS': 0.0, 'GLT': 0.0, 'GLN': 0.0, 'GLY': 0.0, 'HIS': 0.0, 'ILE': 0.0, 'LEU': 0.0, 'LYS': 0.0, 'MET': 0.0, 'PHE': 0.0, 'PRO': 0.0, 'SER': 0.0, 'THR': 0.0, 'TRP': 0.0, 'TYR': 0.0, 'VAL': 0.0, 'MI-PENTAKISPHOSPHATE': 0.0, 'HYPOXANTHINE': 0.0, 'CARBON-MONOXIDE': 0.0, 'HYDROGEN-MOLECULE': 0.0, '5-Deoxy-D-Ribofuranose': 0.0, 'CPD-239': 0.0, 'UNDECAPRENYL-DIPHOSPHATE': 0.0, 'GLYCOLLATE': 0.0, 'CPD-10774': 0.0, 'BETAINE': 0.0, 'CH33ADO': 0.0, 'URACIL': 0.0, 'METOH': 0.0, 'CPD-1772': 0.0, '4FE-4S': 0.0, 'CPD-560': 0.0, 'CPD-108': 0.0, 'THYMINE': 0.0, 'S-ADENOSYL-4-METHYLTHIO-2-OXOBUTANOATE': 0.0, 'UREA': 0.0, 'FORMATE': 0.0, 'D-ALANINE': 0.0, 'CPD-534': 0.0, 'GLYCEROL': 0.0, 'GLYCOLALDEHYDE': 0.0, 'D-LACTATE': 0.0, 'BUTANAL': 0.0, 'CPD-564': 0.0, 'XANTHINE': 0.0, 'PROTON': 0.0, 'ETOH': 0.0, 'IMIDAZOLE-PYRUVATE': 0.0}"
+      },
+      "listeners": {
+        "mass": {
+          "dry_mass": 380.90064678497697,
+          "cell_mass": 1269.6689313092165,
+          "rna_mass": 48.03442499478211,
+          "protein_mass": 183.313154272528,
+          "water_mass": 888.7682845242396,
+          "rRna_mass": 38.65420677013202,
+          "tRna_mass": 6.857526703085568,
+          "mRna_mass": 1.9017895606445459,
+          "dna_mass": 6.879020760013668,
+          "smallMolecule_mass": 142.67404675765334,
+          "volume": 1.1542444830083787,
+          "growth": 0.0,
+          "projection_mass": 1.2882543417334535,
+          "cytosol_mass": 1212.20825388481,
+          "extracellular_mass": 1.7828938362161426,
+          "flagellum_mass": 0.0,
+          "membrane_mass": 7.655537378692895,
+          "outer_membrane_mass": 15.270429497026562,
+          "periplasm_mass": 18.63056777047337,
+          "pilus_mass": 0.031294643393556275,
+          "inner_membrane_mass": 12.801699956870486,
+          "protein_mass_fraction": 0.48126238645115904,
+          "rna_mass_fraction": 0.1261074912847237,
+          "instantaneous_growth_rate": 0.0,
+          "dry_mass_fold_change": 1.0,
+          "protein_mass_fold_change": 1.0,
+          "rna_mass_fold_change": 1.0,
+          "small_molecule_fold_change": 1.0,
+          "expected_mass_fold_change": 1.0
+        },
+        "atp": {
+          "atp_requested": "array[11]",
+          "atp_allocated_initial": "array[11]"
+        },
+        "ribosome_data": {
+          "effective_elongation_rate": 0.0,
+          "rRNA_initiated_TU": "array[0]",
+          "rRNA_init_prob_TU": "array[0]"
+        },
+        "rna_synth_prob": {
+          "actual_rna_synth_prob": "array[0]",
+          "target_rna_synth_prob": "array[0]",
+          "n_bound_TF_per_TU": "array[0]",
+          "total_rna_init": 0.0
+        },
+        "rnap_data": {
+          "rna_init_event": "array[0]"
+        }
+      },
+      "next_update_time": {
+        "ecoli-equilibrium": 0.0,
+        "ecoli-two-component-system": 0.0,
+        "ecoli-rna-maturation": 0.0,
+        "ecoli-complexation": 0.0,
+        "ecoli-protein-degradation": 0.0,
+        "ecoli-rna-degradation": 0.0,
+        "ecoli-transcript-initiation": 0.0,
+        "ecoli-transcript-elongation": 0.0,
+        "ecoli-polypeptide-initiation": 0.0,
+        "ecoli-polypeptide-elongation": 0.0,
+        "ecoli-chromosome-replication": 0.0,
+        "tf_unbinding": 1.0,
+        "tf_binding": 1.0,
+        "chromosome_structure": 1.0,
+        "metabolism": 1.0,
+        "ribosome_data_listener": 1.0,
+        "rnap_data_listener": 1.0
+      },
+      "global_time": 0.0,
+      "timestep": 1.0,
+      "divide": false,
+      "division_threshold": "mass_distribution",
+      "post-division-mass-listener": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.listeners.mass_listener.PostDivisionMassListener",
+        "config": {},
+        "inputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "unique": [
+            "unique"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ]
+        },
+        "outputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "unique": [
+            "unique"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_out_0": [
+            "_layer_token_0"
+          ]
+        },
+        "priority": 42.0
+      },
+      "unique_update_1": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.unique_update.UniqueUpdate",
+        "config": {},
+        "inputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "global_time": [
+            "global_time"
+          ]
+        },
+        "outputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_out_0": [
+            "_layer_token_0"
+          ]
+        },
+        "priority": 41.0
+      },
+      "media_update": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.media_update.MediaUpdate",
+        "config": {},
+        "inputs": {
+          "boundary": [
+            "boundary"
+          ],
+          "environment": [
+            "environment"
+          ],
+          "_layer_in_1": [
+            "_layer_token_0"
+          ]
+        },
+        "outputs": {
+          "boundary": [
+            "boundary"
+          ],
+          "environment": [
+            "environment"
+          ],
+          "_layer_out_1": [
+            "_layer_token_1"
+          ]
+        },
+        "priority": 40.0
+      },
+      "unique_update_2": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.unique_update.UniqueUpdate",
+        "config": {},
+        "inputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_in_2": [
+            "_layer_token_1"
+          ]
+        },
+        "outputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_out_2": [
+            "_layer_token_2"
+          ]
+        },
+        "priority": 39.0
+      },
+      "ecoli-tf-unbinding": {
+        "_type": "step",
+        "address": "local:v2ecoli.processes.tf_unbinding.TfUnbinding",
+        "config": {},
+        "inputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "tf_unbinding"
+          ],
+          "_layer_in_3": [
+            "_layer_token_2"
+          ]
+        },
+        "outputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "tf_unbinding"
+          ],
+          "_layer_out_3": [
+            "_layer_token_3"
+          ]
+        },
+        "priority": 38.0
+      },
+      "exchange_data": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.exchange_data.ExchangeData",
+        "config": {},
+        "inputs": {
+          "boundary": [
+            "boundary"
+          ],
+          "environment": [
+            "environment"
+          ],
+          "_layer_in_4": [
+            "_layer_token_3"
+          ]
+        },
+        "outputs": {
+          "boundary": [
+            "boundary"
+          ],
+          "environment": [
+            "environment"
+          ],
+          "_layer_out_4": [
+            "_layer_token_4"
+          ]
+        },
+        "priority": 37.0
+      },
+      "unique_update_3": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.unique_update.UniqueUpdate",
+        "config": {},
+        "inputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_in_5": [
+            "_layer_token_4"
+          ]
+        },
+        "outputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_out_5": [
+            "_layer_token_5"
+          ]
+        },
+        "priority": 36.0
+      },
+      "ecoli-equilibrium": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.departitioned.DepartitionedStep",
+        "config": {},
+        "inputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-equilibrium"
+          ],
+          "_layer_in_6": [
+            "_layer_token_5"
+          ]
+        },
+        "outputs": {
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-equilibrium"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "_layer_out_6": [
+            "_layer_token_6"
+          ]
+        },
+        "priority": 35.0
+      },
+      "ecoli-rna-maturation": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.departitioned.DepartitionedStep",
+        "config": {},
+        "inputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "bulk_total": [
+            "bulk"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-rna-maturation"
+          ],
+          "_layer_in_7": [
+            "_layer_token_6"
+          ]
+        },
+        "outputs": {
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-rna-maturation"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "_layer_out_7": [
+            "_layer_token_7"
+          ]
+        },
+        "priority": 34.0
+      },
+      "ecoli-two-component-system": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.departitioned.DepartitionedStep",
+        "config": {},
+        "inputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-two-component-system"
+          ],
+          "_layer_in_8": [
+            "_layer_token_7"
+          ]
+        },
+        "outputs": {
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-two-component-system"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "_layer_out_8": [
+            "_layer_token_8"
+          ]
+        },
+        "priority": 33.0
+      },
+      "unique_update_4": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.unique_update.UniqueUpdate",
+        "config": {},
+        "inputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_in_9": [
+            "_layer_token_8"
+          ]
+        },
+        "outputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_out_9": [
+            "_layer_token_9"
+          ]
+        },
+        "priority": 32.0
+      },
+      "ecoli-tf-binding": {
+        "_type": "step",
+        "address": "local:v2ecoli.processes.tf_binding.TfBinding",
+        "config": {},
+        "inputs": {
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "bulk_total": [
+            "bulk"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "tf_binding"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "_layer_in_10": [
+            "_layer_token_9"
+          ]
+        },
+        "outputs": {
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "bulk_total": [
+            "bulk"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "tf_binding"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "_layer_out_10": [
+            "_layer_token_10"
+          ]
+        },
+        "priority": 31.0
+      },
+      "unique_update_5": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.unique_update.UniqueUpdate",
+        "config": {},
+        "inputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_in_11": [
+            "_layer_token_10"
+          ]
+        },
+        "outputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_out_11": [
+            "_layer_token_11"
+          ]
+        },
+        "priority": 30.0
+      },
+      "ecoli-complexation": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.departitioned.DepartitionedStep",
+        "config": {},
+        "inputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-complexation"
+          ],
+          "_layer_in_12": [
+            "_layer_token_11"
+          ]
+        },
+        "outputs": {
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-complexation"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "_layer_out_12": [
+            "_layer_token_12"
+          ]
+        },
+        "priority": 29.0
+      },
+      "ecoli-protein-degradation": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.departitioned.DepartitionedStep",
+        "config": {},
+        "inputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-protein-degradation"
+          ],
+          "_layer_in_13": [
+            "_layer_token_12"
+          ]
+        },
+        "outputs": {
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-protein-degradation"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "_layer_out_13": [
+            "_layer_token_13"
+          ]
+        },
+        "priority": 28.0
+      },
+      "ecoli-rna-degradation": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.departitioned.DepartitionedStep",
+        "config": {},
+        "inputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-rna-degradation"
+          ],
+          "_layer_in_14": [
+            "_layer_token_13"
+          ]
+        },
+        "outputs": {
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-rna-degradation"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "_layer_out_14": [
+            "_layer_token_14"
+          ]
+        },
+        "priority": 27.0
+      },
+      "ecoli-transcript-initiation": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.departitioned.DepartitionedStep",
+        "config": {},
+        "inputs": {
+          "environment": [
+            "environment"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "ppgpp_state": [
+            "ppgpp_state"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-transcript-initiation"
+          ],
+          "_layer_in_15": [
+            "_layer_token_14"
+          ]
+        },
+        "outputs": {
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-transcript-initiation"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "_layer_out_15": [
+            "_layer_token_15"
+          ]
+        },
+        "priority": 26.0
+      },
+      "ecoli-polypeptide-initiation": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.departitioned.DepartitionedStep",
+        "config": {},
+        "inputs": {
+          "environment": [
+            "environment"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "RNA": [
+            "unique",
+            "RNA"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-polypeptide-initiation"
+          ],
+          "_layer_in_16": [
+            "_layer_token_15"
+          ]
+        },
+        "outputs": {
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-polypeptide-initiation"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "_layer_out_16": [
+            "_layer_token_16"
+          ]
+        },
+        "priority": 25.0
+      },
+      "ecoli-chromosome-replication": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.departitioned.DepartitionedStep",
+        "config": {},
+        "inputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "environment": [
+            "environment"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-chromosome-replication"
+          ],
+          "_layer_in_17": [
+            "_layer_token_16"
+          ]
+        },
+        "outputs": {
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-chromosome-replication"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "_layer_out_17": [
+            "_layer_token_17"
+          ]
+        },
+        "priority": 24.0
+      },
+      "unique_update_6": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.unique_update.UniqueUpdate",
+        "config": {},
+        "inputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_in_18": [
+            "_layer_token_17"
+          ]
+        },
+        "outputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_out_18": [
+            "_layer_token_18"
+          ]
+        },
+        "priority": 23.0
+      },
+      "ecoli-transcript-elongation": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.departitioned.DepartitionedStep",
+        "config": {},
+        "inputs": {
+          "environment": [
+            "environment"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "bulk_total": [
+            "bulk"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-transcript-elongation"
+          ],
+          "_layer_in_19": [
+            "_layer_token_18"
+          ]
+        },
+        "outputs": {
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-transcript-elongation"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "_layer_out_19": [
+            "_layer_token_19"
+          ]
+        },
+        "priority": 22.0
+      },
+      "ecoli-polypeptide-elongation": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.departitioned.DepartitionedStep",
+        "config": {},
+        "inputs": {
+          "environment": [
+            "environment"
+          ],
+          "boundary": [
+            "boundary"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "polypeptide_elongation": [
+            "process_state",
+            "polypeptide_elongation"
+          ],
+          "bulk_total": [
+            "bulk"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-polypeptide-elongation"
+          ],
+          "_layer_in_20": [
+            "_layer_token_19"
+          ]
+        },
+        "outputs": {
+          "next_update_time": [
+            "next_update_time",
+            "ecoli-polypeptide-elongation"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "polypeptide_elongation": [
+            "process_state",
+            "polypeptide_elongation"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "_layer_out_20": [
+            "_layer_token_20"
+          ]
+        },
+        "priority": 21.0
+      },
+      "unique_update_7": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.unique_update.UniqueUpdate",
+        "config": {},
+        "inputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_in_21": [
+            "_layer_token_20"
+          ]
+        },
+        "outputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_out_21": [
+            "_layer_token_21"
+          ]
+        },
+        "priority": 20.0
+      },
+      "ecoli-chromosome-structure": {
+        "_type": "step",
+        "address": "local:v2ecoli.processes.chromosome_structure.ChromosomeStructure",
+        "config": {},
+        "inputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "chromosome_structure"
+          ],
+          "_layer_in_22": [
+            "_layer_token_21"
+          ]
+        },
+        "outputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "chromosome_structure"
+          ],
+          "_layer_out_22": [
+            "_layer_token_22"
+          ]
+        },
+        "priority": 19.0
+      },
+      "unique_update_8": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.unique_update.UniqueUpdate",
+        "config": {},
+        "inputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_in_23": [
+            "_layer_token_22"
+          ]
+        },
+        "outputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_out_23": [
+            "_layer_token_23"
+          ]
+        },
+        "priority": 18.0
+      },
+      "ecoli-metabolism": {
+        "_type": "step",
+        "address": "local:v2ecoli.processes.metabolism.Metabolism",
+        "config": {},
+        "inputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "bulk_total": [
+            "bulk"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "environment": [
+            "environment"
+          ],
+          "boundary": [
+            "boundary"
+          ],
+          "polypeptide_elongation": [
+            "process_state",
+            "polypeptide_elongation"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "metabolism"
+          ],
+          "_layer_in_24": [
+            "_layer_token_23"
+          ]
+        },
+        "outputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "bulk_total": [
+            "bulk"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "environment": [
+            "environment"
+          ],
+          "boundary": [
+            "boundary"
+          ],
+          "polypeptide_elongation": [
+            "process_state",
+            "polypeptide_elongation"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "metabolism"
+          ],
+          "_layer_out_24": [
+            "_layer_token_24"
+          ]
+        },
+        "priority": 17.0
+      },
+      "unique_update_9": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.unique_update.UniqueUpdate",
+        "config": {},
+        "inputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_in_25": [
+            "_layer_token_24"
+          ]
+        },
+        "outputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_out_25": [
+            "_layer_token_25"
+          ]
+        },
+        "priority": 16.0
+      },
+      "RNA_counts_listener": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.listeners.rna_counts.RNACounts",
+        "config": {},
+        "inputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_in_26": [
+            "_layer_token_25"
+          ]
+        },
+        "outputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_out_26": [
+            "_layer_token_26"
+          ]
+        },
+        "priority": 15.0
+      },
+      "dna_supercoiling_listener": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.listeners.dna_supercoiling.DnaSupercoiling",
+        "config": {},
+        "inputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_in_26": [
+            "_layer_token_25"
+          ]
+        },
+        "outputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_out_26": [
+            "_layer_token_26"
+          ]
+        },
+        "priority": 14.0
+      },
+      "ecoli-mass-listener": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.listeners.mass_listener.MassListener",
+        "config": {},
+        "inputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "unique": [
+            "unique"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_in_26": [
+            "_layer_token_25"
+          ]
+        },
+        "outputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "unique": [
+            "unique"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_out_26": [
+            "_layer_token_26"
+          ]
+        },
+        "priority": 13.0
+      },
+      "monomer_counts_listener": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.listeners.monomer_counts.MonomerCounts",
+        "config": {},
+        "inputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "unique": [
+            "unique"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_in_26": [
+            "_layer_token_25"
+          ]
+        },
+        "outputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "unique": [
+            "unique"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_out_26": [
+            "_layer_token_26"
+          ]
+        },
+        "priority": 12.0
+      },
+      "replication_data_listener": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.listeners.replication_data.ReplicationData",
+        "config": {},
+        "inputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_in_26": [
+            "_layer_token_25"
+          ]
+        },
+        "outputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_out_26": [
+            "_layer_token_26"
+          ]
+        },
+        "priority": 11.0
+      },
+      "ribosome_data_listener": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.listeners.ribosome_data.RibosomeData",
+        "config": {},
+        "inputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "active_ribosomes": [
+            "unique",
+            "active_ribosome"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ribosome_data_listener"
+          ],
+          "_layer_in_26": [
+            "_layer_token_25"
+          ]
+        },
+        "outputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "active_ribosomes": [
+            "unique",
+            "active_ribosome"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "ribosome_data_listener"
+          ],
+          "_layer_out_26": [
+            "_layer_token_26"
+          ]
+        },
+        "priority": 10.0
+      },
+      "rna_synth_prob_listener": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.listeners.rna_synth_prob.RnaSynthProb",
+        "config": {},
+        "inputs": {
+          "rna_synth_prob": [
+            "listeners",
+            "rna_synth_prob"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_in_26": [
+            "_layer_token_25"
+          ]
+        },
+        "outputs": {
+          "rna_synth_prob": [
+            "listeners",
+            "rna_synth_prob"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_out_26": [
+            "_layer_token_26"
+          ]
+        },
+        "priority": 9.0
+      },
+      "rnap_data_listener": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.listeners.rnap_data.RnapData",
+        "config": {},
+        "inputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosomes": [
+            "unique",
+            "active_ribosome"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "rnap_data_listener"
+          ],
+          "_layer_in_26": [
+            "_layer_token_25"
+          ]
+        },
+        "outputs": {
+          "listeners": [
+            "listeners"
+          ],
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosomes": [
+            "unique",
+            "active_ribosome"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "next_update_time": [
+            "next_update_time",
+            "rnap_data_listener"
+          ],
+          "_layer_out_26": [
+            "_layer_token_26"
+          ]
+        },
+        "priority": 8.0
+      },
+      "unique_molecule_counts": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.listeners.unique_molecule_counts.UniqueMoleculeCounts",
+        "config": {},
+        "inputs": {
+          "unique": [
+            "unique"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_in_26": [
+            "_layer_token_25"
+          ]
+        },
+        "outputs": {
+          "unique": [
+            "unique"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "timestep": [
+            "timestep"
+          ],
+          "_layer_out_26": [
+            "_layer_token_26"
+          ]
+        },
+        "priority": 7.0
+      },
+      "unique_update_10": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.unique_update.UniqueUpdate",
+        "config": {},
+        "inputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_in_27": [
+            "_layer_token_26"
+          ]
+        },
+        "outputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_out_27": [
+            "_layer_token_27"
+          ]
+        },
+        "priority": 6.0
+      },
+      "emitter": {
+        "_type": "step",
+        "address": "local:process_bigraph.emitter.RAMEmitter",
+        "config": {},
+        "inputs": {
+          "global_time": [
+            "global_time"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "full_chromosome": [
+            "unique",
+            "full_chromosome"
+          ],
+          "active_replisome": [
+            "unique",
+            "active_replisome"
+          ],
+          "active_RNAP": [
+            "unique",
+            "active_RNAP"
+          ],
+          "chromosome_domain": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "_layer_in_28": [
+            "_layer_token_27"
+          ]
+        },
+        "outputs": {
+          "global_time": [
+            "global_time"
+          ],
+          "bulk": [
+            "bulk"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "full_chromosome": [
+            "unique",
+            "full_chromosome"
+          ],
+          "active_replisome": [
+            "unique",
+            "active_replisome"
+          ],
+          "active_RNAP": [
+            "unique",
+            "active_RNAP"
+          ],
+          "chromosome_domain": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "_layer_out_28": [
+            "_layer_token_28"
+          ]
+        },
+        "priority": 5.0
+      },
+      "global_clock": {
+        "_type": "process",
+        "address": "local:v2ecoli.steps.global_clock.GlobalClock",
+        "config": {},
+        "inputs": {
+          "global_time": [
+            "global_time"
+          ],
+          "next_update_time": [
+            "next_update_time"
+          ],
+          "_layer_in_29": [
+            "_layer_token_28"
+          ]
+        },
+        "outputs": {
+          "global_time": [
+            "global_time"
+          ],
+          "next_update_time": [
+            "next_update_time"
+          ],
+          "_layer_out_29": [
+            "_layer_token_29"
+          ]
+        },
+        "priority": 4.0
+      },
+      "mark_d_period": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.division.MarkDPeriod",
+        "config": {},
+        "inputs": {
+          "full_chromosome": [
+            "unique",
+            "full_chromosome"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "divide": [
+            "divide"
+          ],
+          "_layer_in_30": [
+            "_layer_token_29"
+          ]
+        },
+        "outputs": {
+          "full_chromosome": [
+            "unique",
+            "full_chromosome"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "divide": [
+            "divide"
+          ],
+          "_layer_out_30": [
+            "_layer_token_30"
+          ]
+        },
+        "priority": 3.0
+      },
+      "unique_update_11": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.unique_update.UniqueUpdate",
+        "config": {},
+        "inputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_in_31": [
+            "_layer_token_30"
+          ]
+        },
+        "outputs": {
+          "active_RNAPs": [
+            "unique",
+            "active_RNAP"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
+          ],
+          "full_chromosomes": [
+            "unique",
+            "full_chromosome"
+          ],
+          "chromosome_domains": [
+            "unique",
+            "chromosome_domain"
+          ],
+          "active_replisomes": [
+            "unique",
+            "active_replisome"
+          ],
+          "oriCs": [
+            "unique",
+            "oriC"
+          ],
+          "promoters": [
+            "unique",
+            "promoter"
+          ],
+          "genes": [
+            "unique",
+            "gene"
+          ],
+          "chromosomal_segments": [
+            "unique",
+            "chromosomal_segment"
+          ],
+          "DnaA_boxes": [
+            "unique",
+            "DnaA_box"
+          ],
+          "_layer_out_31": [
+            "_layer_token_31"
+          ]
+        },
+        "priority": 2.0
+      },
+      "division": {
+        "_type": "step",
+        "address": "local:v2ecoli.steps.division.Division",
+        "config": {},
+        "inputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "unique": [
+            "unique"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "environment": [
+            "environment"
+          ],
+          "boundary": [
+            "boundary"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "division_threshold": [
+            "division_threshold"
+          ],
+          "media_id": [
+            "environment",
+            "media_id"
+          ],
+          "agents": [
+            ".."
+          ],
+          "_layer_in_32": [
+            "_layer_token_31"
+          ]
+        },
+        "outputs": {
+          "bulk": [
+            "bulk"
+          ],
+          "unique": [
+            "unique"
+          ],
+          "listeners": [
+            "listeners"
+          ],
+          "environment": [
+            "environment"
+          ],
+          "boundary": [
+            "boundary"
+          ],
+          "global_time": [
+            "global_time"
+          ],
+          "division_threshold": [
+            "division_threshold"
+          ],
+          "media_id": [
+            "environment",
+            "media_id"
+          ],
+          "agents": [
+            ".."
+          ]
+        },
+        "priority": 1.0
+      }
+    }
+  }
+}

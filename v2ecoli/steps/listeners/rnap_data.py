@@ -144,8 +144,14 @@ class RnapData(Step):
                         ]
                     ),
                     # Calculate hypothetical RNA initiation events per cistron
-                    "rna_init_event_per_cistron": self.cistron_tu_mapping_matrix.dot(
-                        states["listeners"]["rnap_data"]["rna_init_event"]
+                    "rna_init_event_per_cistron": (
+                        self.cistron_tu_mapping_matrix.dot(
+                            states["listeners"]["rnap_data"]["rna_init_event"]
+                        )
+                        if np.asarray(
+                            states["listeners"]["rnap_data"]["rna_init_event"]
+                        ).shape == (self.n_TUs,)
+                        else np.zeros(self.n_cistrons, dtype=int)
                     ),
                 }
             },

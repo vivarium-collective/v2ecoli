@@ -124,7 +124,6 @@ DEFAULT_FEATURES = ['ppgpp_regulation', 'trna_attenuation']  # match original wc
 
 def build_execution_layers(features=None):
     """Build EXECUTION_LAYERS from base + enabled feature modules."""
-    import copy
     layers = copy.deepcopy(BASE_EXECUTION_LAYERS)
     for feat_name in (features or []):
         feat = FEATURE_MODULES.get(feat_name)

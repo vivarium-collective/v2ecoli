@@ -178,33 +178,38 @@ class RibosomeData(Step):
         unique_mRNA_index_ribosomes, reduced_mRNA_index_ribosomes = np.unique(
             mRNA_index_ribosomes, return_inverse=True
         )
-        # Calculate mapping from inverse indices back to mRNA_unique_indices
-        reduced_to_normal_mRNA_indices = bulk_name_to_idx(
-            mRNA_unique_index, unique_mRNA_index_ribosomes, strict=False
-        )
-        # Many mRNAs in mRNA_unique_indices will have no bound ribosomes
-        # Have them point to last zero of lengthened np.bincount output
-        no_ribosomes_mask = (
-            unique_mRNA_index_ribosomes[reduced_to_normal_mRNA_indices]
-            != mRNA_unique_index
-        )
-        reduced_to_normal_mRNA_indices[no_ribosomes_mask] = -1
-        bincount_minlength = max(reduced_mRNA_index_ribosomes) + 2
+        if len(unique_mRNA_index_ribosomes) == 0:
+            # No ribosomes on any mRNA — every mRNA has zero bound ribosomes
+            n_ribosomes_on_each_mRNA = np.zeros(len(mRNA_unique_index), dtype=int)
+            protein_mass_on_polysomes = np.zeros(len(mRNA_unique_index))
+        else:
+            # Calculate mapping from inverse indices back to mRNA_unique_indices
+            reduced_to_normal_mRNA_indices = bulk_name_to_idx(
+                mRNA_unique_index, unique_mRNA_index_ribosomes, strict=False
+            )
+            # Many mRNAs in mRNA_unique_indices will have no bound ribosomes
+            # Have them point to last zero of lengthened np.bincount output
+            no_ribosomes_mask = (
+                unique_mRNA_index_ribosomes[reduced_to_normal_mRNA_indices]
+                != mRNA_unique_index
+            )
+            reduced_to_normal_mRNA_indices[no_ribosomes_mask] = -1
+            bincount_minlength = max(reduced_mRNA_index_ribosomes) + 2
 
-        # Get counts of ribosomes attached to the same mRNA
-        bincount_ribosome_on_mRNA = np.bincount(
-            reduced_mRNA_index_ribosomes, minlength=bincount_minlength
-        )
-        n_ribosomes_on_each_mRNA = bincount_ribosome_on_mRNA[
-            reduced_to_normal_mRNA_indices
-        ]
+            # Get counts of ribosomes attached to the same mRNA
+            bincount_ribosome_on_mRNA = np.bincount(
+                reduced_mRNA_index_ribosomes, minlength=bincount_minlength
+            )
+            n_ribosomes_on_each_mRNA = bincount_ribosome_on_mRNA[
+                reduced_to_normal_mRNA_indices
+            ]
 
-        # Get protein mass on each polysome
-        protein_mass_on_polysomes = np.bincount(
-            reduced_mRNA_index_ribosomes,
-            weights=massDiff_protein_ribosomes,
-            minlength=bincount_minlength,
-        )[reduced_to_normal_mRNA_indices]
+            # Get protein mass on each polysome
+            protein_mass_on_polysomes = np.bincount(
+                reduced_mRNA_index_ribosomes,
+                weights=massDiff_protein_ribosomes,
+                minlength=bincount_minlength,
+            )[reduced_to_normal_mRNA_indices]
 
         update = {
             "listeners": {

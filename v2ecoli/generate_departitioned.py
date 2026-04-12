@@ -133,7 +133,6 @@ BASE_EXECUTION_LAYERS = [
 
 def build_execution_layers(features=None):
     """Build EXECUTION_LAYERS from base + enabled feature modules."""
-    import copy
     layers = copy.deepcopy(BASE_EXECUTION_LAYERS)
     for feat_name in (features or []):
         feat = FEATURE_MODULES.get(feat_name)
@@ -194,6 +193,17 @@ def _instantiate_departitioned_step(step_name, config, loader, core):
         'ecoli-tf-unbinding': TfUnbinding,
         'ecoli-chromosome-structure': ChromosomeStructure,
         'ecoli-metabolism': Metabolism,
+        # Processes promoted from PartitionedProcess to plain Step in baseline
+        # (commits 1a5c0ab and 0e282f5) — must run as standalone here too,
+        # otherwise they are silently dropped and the cell stops growing.
+        'ecoli-equilibrium': Equilibrium,
+        'ecoli-two-component-system': TwoComponentSystem,
+        'ecoli-rna-maturation': RnaMaturation,
+        'ecoli-complexation': Complexation,
+        'ecoli-protein-degradation': ProteinDegradation,
+        'ecoli-transcript-initiation': TranscriptInitiation,
+        'ecoli-polypeptide-initiation': PolypeptideInitiation,
+        'ecoli-chromosome-replication': ChromosomeReplication,
     }
 
     SIMPLE_STEPS = {
@@ -395,16 +405,23 @@ def build_departitioned_document(initial_state, configs, unique_names,
 
     for step_name in FLOW_ORDER:
         config = _get_step_config(loader, step_name, core)
-        if config is not None:
-            if len(config) == 5:
-                instance, topology, edge_type, in_topo, out_topo = config
-                cell_state[step_name] = make_edge(
-                    instance, topology, input_topology=in_topo,
-                    output_topology=out_topo, edge_type=edge_type)
-            else:
-                instance, topology, edge_type = config
-                cell_state[step_name] = make_edge(
-                    instance, topology, edge_type=edge_type)
+        if config is None:
+            raise RuntimeError(
+                f"Departitioned: step {step_name!r} appears in FLOW_ORDER "
+                f"but could not be instantiated. This usually means the "
+                f"step was promoted from PartitionedProcess to Step in "
+                f"baseline generate.py and needs to be registered in "
+                f"STANDALONE_STEPS here."
+            )
+        if len(config) == 5:
+            instance, topology, edge_type, in_topo, out_topo = config
+            cell_state[step_name] = make_edge(
+                instance, topology, input_topology=in_topo,
+                output_topology=out_topo, edge_type=edge_type)
+        else:
+            instance, topology, edge_type = config
+            cell_state[step_name] = make_edge(
+                instance, topology, edge_type=edge_type)
 
     _seed_state_from_defaults(cell_state)
     _seed_mass_listener(cell_state, core)

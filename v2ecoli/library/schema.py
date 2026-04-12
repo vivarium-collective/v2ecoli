@@ -320,15 +320,31 @@ def bulk_name_to_idx(
     Raises:
         ValueError: If any name in names is not found in bulk_names and strict is True
     """
-    # Cache the argsort — bulk_names is the same array every call
-    cache_key = id(bulk_names)
-    cached = _bulk_sorter_cache.get(cache_key)
+    # Cache the argsort — bulk_names is often the same array every call.
+    # Keying by id() alone is unsafe because numpy arrays can be GC'd and
+    # a new array can reuse the same id with different contents (e.g.
+    # np.unique called each tick). Hold a weakref so the entry vanishes
+    # when the original array is collected; fall back to no cache for
+    # arrays that don't support weakrefs.
+    import weakref
+    bulk_len = len(bulk_names)
+    try:
+        weakref.ref(bulk_names)
+        cache_key = (id(bulk_names), bulk_len)
+    except TypeError:
+        cache_key = None
+    cached = _bulk_sorter_cache.get(cache_key) if cache_key is not None else None
     if cached is not None:
-        bulk_names_array, sorter = cached
+        bulk_names_array, sorter, _keepalive = cached
     else:
         bulk_names_array = np.asarray(bulk_names)
         sorter = np.argsort(bulk_names_array)
-        _bulk_sorter_cache[cache_key] = (bulk_names_array, sorter)
+        if cache_key is not None:
+            def _evict(_ref, key=cache_key):
+                _bulk_sorter_cache.pop(key, None)
+            _bulk_sorter_cache[cache_key] = (
+                bulk_names_array, sorter, weakref.ref(bulk_names, _evict),
+            )
 
     if isinstance(names, (np.ndarray, list)):
         indices = np.take(

@@ -54,9 +54,8 @@ from v2ecoli.generate import (
 
 # Map allocator layer names to their step names in the execution graph
 RECONCILED_LAYERS = {
-    'reconciled_1': ALLOCATOR_LAYERS['allocator_1'],
-    'reconciled_2': ALLOCATOR_LAYERS['allocator_2'],
-    'reconciled_3': ALLOCATOR_LAYERS['allocator_3'],
+    name.replace('allocator_', 'reconciled_'): procs
+    for name, procs in ALLOCATOR_LAYERS.items()
 }
 
 
@@ -71,7 +70,7 @@ FEATURE_MODULES = {
         'listeners': ['dna_supercoiling_listener'],
     },
     'ppgpp_regulation': {
-        'insert_before': 'reconciled_2',
+        'insert_before': 'ecoli-transcript-initiation',
         'steps': ['ppgpp-initiation'],
     },
     'trna_attenuation': {
@@ -98,19 +97,28 @@ BASE_EXECUTION_LAYERS = [
     ['exchange_data'],
     ['unique_update_3'],
 
-    # Layer 2: reconciled layer 1
-    ['reconciled_1'],
+    # Layer 2: standalone Steps (formerly in allocator_1, now non-partitioned)
+    ['ecoli-equilibrium', 'ecoli-two-component-system',
+     'ecoli-rna-maturation'],
     ['unique_update_4'],
 
     # Layer 3: TF binding
     ['ecoli-tf-binding'],
     ['unique_update_5'],
 
-    # Layer 4: reconciled layer 2
+    # Layer 4a: protein degradation (standalone)
+    ['ecoli-protein-degradation'],
+
+    # Layer 4b: standalone init/replication/complexation
+    # (formerly in allocator_2 alongside rna_degradation)
+    ['ecoli-complexation', 'ecoli-chromosome-replication',
+     'ecoli-polypeptide-initiation', 'ecoli-transcript-initiation'],
+
+    # Layer 4c: reconciled rna_degradation (still shares water with elongation)
     ['reconciled_2'],
     ['unique_update_6'],
 
-    # Layer 5: reconciled layer 3
+    # Layer 5: reconciled elongation layer
     ['reconciled_3'],
     ['unique_update_7'],
 
@@ -139,7 +147,6 @@ BASE_EXECUTION_LAYERS = [
 
 def build_execution_layers(features=None):
     """Build EXECUTION_LAYERS from base + enabled feature modules."""
-    import copy
     layers = copy.deepcopy(BASE_EXECUTION_LAYERS)
     for feat_name in (features or []):
         feat = FEATURE_MODULES.get(feat_name)
@@ -275,6 +282,17 @@ def _instantiate_standalone_step(step_name, config, loader, core):
         'ecoli-tf-unbinding': TfUnbinding,
         'ecoli-chromosome-structure': ChromosomeStructure,
         'ecoli-metabolism': Metabolism,
+        # Processes promoted from PartitionedProcess to plain Step in baseline
+        # (commits 1a5c0ab and 0e282f5) — must run as standalone here too,
+        # otherwise they are silently dropped and the cell stops growing.
+        'ecoli-equilibrium': Equilibrium,
+        'ecoli-two-component-system': TwoComponentSystem,
+        'ecoli-rna-maturation': RnaMaturation,
+        'ecoli-complexation': Complexation,
+        'ecoli-protein-degradation': ProteinDegradation,
+        'ecoli-transcript-initiation': TranscriptInitiation,
+        'ecoli-polypeptide-initiation': PolypeptideInitiation,
+        'ecoli-chromosome-replication': ChromosomeReplication,
     }
 
     SIMPLE_STEPS = {
@@ -435,16 +453,23 @@ def build_reconciled_document(initial_state, configs, unique_names,
 
     for step_name in FLOW_ORDER:
         config = _get_step_config(loader, step_name, core, seed=seed)
-        if config is not None:
-            if len(config) == 5:
-                instance, topology, edge_type, in_topo, out_topo = config
-                cell_state[step_name] = make_edge(
-                    instance, topology, input_topology=in_topo,
-                    output_topology=out_topo, edge_type=edge_type)
-            else:
-                instance, topology, edge_type = config
-                cell_state[step_name] = make_edge(
-                    instance, topology, edge_type=edge_type)
+        if config is None:
+            raise RuntimeError(
+                f"Reconciled: step {step_name!r} appears in FLOW_ORDER "
+                f"but could not be instantiated. This usually means the "
+                f"step was promoted from PartitionedProcess to Step in "
+                f"baseline generate.py and needs to be registered in "
+                f"STANDALONE_STEPS here."
+            )
+        if len(config) == 5:
+            instance, topology, edge_type, in_topo, out_topo = config
+            cell_state[step_name] = make_edge(
+                instance, topology, input_topology=in_topo,
+                output_topology=out_topo, edge_type=edge_type)
+        else:
+            instance, topology, edge_type = config
+            cell_state[step_name] = make_edge(
+                instance, topology, edge_type=edge_type)
 
     _seed_state_from_defaults(cell_state)
     _seed_mass_listener(cell_state, core)

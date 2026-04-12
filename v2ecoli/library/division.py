@@ -12,6 +12,7 @@ Division strategy:
 - Ribosomes: follow their mRNA, degraded mRNA ribosomes binomial
 """
 
+import copy
 from typing import Dict, List, Any, Tuple
 
 import numpy as np
@@ -307,12 +308,10 @@ def divide_cell(cell_state):
 
     # Copy environment (both daughters inherit the same environment)
     if 'environment' in cell_state:
-        import copy
         d1_state['environment'] = copy.deepcopy(cell_state['environment'])
         d2_state['environment'] = copy.deepcopy(cell_state['environment'])
 
     if 'boundary' in cell_state:
-        import copy
         d1_state['boundary'] = copy.deepcopy(cell_state['boundary'])
         d2_state['boundary'] = copy.deepcopy(cell_state['boundary'])
 

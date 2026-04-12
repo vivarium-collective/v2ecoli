@@ -1,3 +1,4 @@
+import importlib
 import typing
 from plum import dispatch
 from dataclasses import dataclass, is_dataclass, field
@@ -45,7 +46,6 @@ def realize(core, schema: Method, encode, path=()):
     if callable(encode):
         return schema, encode, []
     elif isinstance(encode, dict):
-        import importlib
         module_name = encode.get('module') or str(schema.module)
         instance_name = encode.get('instance') or str(schema.instance)
         attribute_name = encode.get('attribute') or str(schema.attribute)

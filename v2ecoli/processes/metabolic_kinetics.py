@@ -161,24 +161,30 @@ class MetabolicKinetics(Step):
         return {
             "environment": {
                 "exchange_data": {
-                    "constrained": "map[float]",
+                    # Values are Unum quantities (mmol/g/h) produced by
+                    # exchange_data_from_concentrations. `node` bypasses
+                    # bigraph-schema's float coercion that would fail on Unum.
+                    "constrained": {"_type": "node", "_default": {}},
                     "unconstrained": "list[string]",
                 },
             },
+            # bigraph-schema's default apply for numeric types is *add*;
+            # emit everything through overwrite[...] so each step replaces
+            # rather than accumulates.
             "metabolism_inputs": {
-                "current_media_id": {"_type": "string", "_default": ""},
-                "counts_to_molar_mM": {"_type": "float", "_default": 1.0},
-                "coefficient_gsL": {"_type": "float", "_default": 0.0},
-                "translation_gtp": {"_type": "float", "_default": 0.0},
-                "conc_updates_mM": {"_type": "map[float]", "_default": {}},
-                "aa_uptake_present": {"_type": "boolean", "_default": False},
-                "aa_uptake_rates": {"_type": "array[float]", "_default": []},
-                "aa_uptake_names": {"_type": "list[string]", "_default": []},
-                "aa_uptake_force": {"_type": "boolean", "_default": True},
-                "metabolite_counts": {"_type": "array[integer]", "_default": []},
-                "catalyst_counts": {"_type": "array[integer]", "_default": []},
-                "kinetic_enzyme_counts": {"_type": "array[integer]", "_default": []},
-                "kinetic_substrate_counts": {"_type": "array[integer]", "_default": []},
+                "current_media_id": {"_type": "overwrite[string]", "_default": ""},
+                "counts_to_molar_mM": {"_type": "overwrite[float]", "_default": 1.0},
+                "coefficient_gsL": {"_type": "overwrite[float]", "_default": 0.0},
+                "translation_gtp": {"_type": "overwrite[float]", "_default": 0.0},
+                "conc_updates_mM": {"_type": "overwrite[map[float]]", "_default": {}},
+                "aa_uptake_present": {"_type": "overwrite[boolean]", "_default": False},
+                "aa_uptake_rates": {"_type": "overwrite[array[float]]", "_default": []},
+                "aa_uptake_names": {"_type": "overwrite[list[string]]", "_default": []},
+                "aa_uptake_force": {"_type": "overwrite[boolean]", "_default": True},
+                "metabolite_counts": {"_type": "overwrite[array[integer]]", "_default": []},
+                "catalyst_counts": {"_type": "overwrite[array[integer]]", "_default": []},
+                "kinetic_enzyme_counts": {"_type": "overwrite[array[integer]]", "_default": []},
+                "kinetic_substrate_counts": {"_type": "overwrite[array[integer]]", "_default": []},
             },
         }
 

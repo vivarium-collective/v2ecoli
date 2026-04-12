@@ -41,14 +41,40 @@ warnings.filterwarnings("ignore")
 REPORT_DIR = "out/nutrient_growth"
 REPORT_NAME = "nutrient_growth_report.html"
 CACHE_DIR = "out/cache"
-SNAPSHOT_INTERVAL = 30  # seconds
+# Fast-iteration defaults: short sim, tight environment volume so
+# glucose depletes within the run.
+DEFAULT_DURATION = 600          # seconds of sim time
+DEFAULT_SNAPSHOT_INTERVAL = 10  # seconds between snapshots
+DEFAULT_ENV_VOLUME_L = 1e-14    # 10 fL — depletes ~22 mM glucose in ~2 min
 CAGLAR_DOUBLING_TIMES_CSV = (
     "data/caglar2017/41598_2017_BFsrep45303_MOESM56_ESM.csv")
+
+# Exchanges to track in the flux panel. Union of the carbon/nitrogen/
+# energy-relevant molecules; anything present in environment.exchange is
+# reported, these just get highlighted colors.
+TRACKED_EXCHANGES = [
+    "GLC", "OXYGEN-MOLECULE", "CARBON-DIOXIDE", "AMMONIUM", "WATER",
+    "Pi", "SULFATE", "K+", "MG+2", "NA+", "FE+2", "L-ALPHA-ALANINE",
+]
 
 
 # ---------------------------------------------------------------------------
 # Data collection
 # ---------------------------------------------------------------------------
+
+def _as_float(x, default=None):
+    if x is None:
+        return default
+    if hasattr(x, "asNumber"):
+        try:
+            return float(x.asNumber())
+        except Exception:
+            return default
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return default
+
 
 def _extract_snapshot(state, t):
     """Pull the metrics this report cares about out of a composite state."""
@@ -56,46 +82,52 @@ def _extract_snapshot(state, t):
     mass = agent.get("listeners", {}).get("mass", {})
     boundary = agent.get("boundary", {})
     external = boundary.get("external", {}) if isinstance(boundary, dict) else {}
-    env_exch = (agent.get("listeners", {})
-                     .get("fba_results", {})
-                     .get("external_exchange_fluxes"))
     exchange_data = (agent.get("environment", {})
                           .get("exchange_data", {}))
     constrained = exchange_data.get("constrained", {}) if isinstance(
         exchange_data, dict) else {}
 
-    # Glucose external concentration — plain float (mM) in boundary.external.
-    glc_ext = external.get("GLC", None)
-    if hasattr(glc_ext, "asNumber"):
-        glc_ext = float(glc_ext.asNumber())
-    elif glc_ext is not None:
-        glc_ext = float(glc_ext)
+    # environment.exchange = per-step count deltas from metabolism (negative
+    # for uptake). Snapshot to a plain dict so later plotting doesn't
+    # reference a live-mutating map.
+    raw_exchange = agent.get("environment", {}).get("exchange", {}) or {}
+    exchange_counts = {k: _as_float(v, 0.0) for k, v in raw_exchange.items()}
 
-    # Glucose uptake bound currently applied (mmol/gDCW/h) — Unum in the
-    # store because of the `node` schema. Strip to scalar for plotting.
-    glc_bound = constrained.get("GLC[p]", None)
-    if hasattr(glc_bound, "asNumber"):
-        glc_bound = float(glc_bound.asNumber())
-    elif glc_bound is not None:
-        try:
-            glc_bound = float(glc_bound)
-        except Exception:
-            glc_bound = None
+    glc_bound = _as_float(constrained.get("GLC[p]"))
 
     return {
         "time": t,
         "dry_mass": float(mass.get("dry_mass", 0.0)),
         "cell_mass": float(mass.get("cell_mass", 0.0)),
         "growth_rate": float(mass.get("instantaneous_growth_rate", 0.0)),
-        "glc_ext_mM": glc_ext,
+        "glc_ext_mM": _as_float(external.get("GLC")),
         "glc_bound_mmol_gdcw_h": glc_bound,
+        # full external concentrations snapshot (for multi-species panels)
+        "external_mM": {k: _as_float(v, 0.0) for k, v in external.items()},
+        # per-step exchange counts snapshot (for flux panels)
+        "exchange_counts": exchange_counts,
     }
 
 
-def run_single_cell(duration: int, snapshot_interval: int):
+def _patch_env_volume(composite, env_volume_L):
+    """Find the live EnvironmentUpdate instance and override its volume."""
+    from v2ecoli.steps.environment_update import EnvironmentUpdate, AVOGADRO
+    found = None
+    for step in composite.step_paths.values():
+        inst = step.get("instance") if isinstance(step, dict) else step
+        if isinstance(inst, EnvironmentUpdate):
+            inst.env_volume_L = float(env_volume_L)
+            inst._count_to_mM = 1000.0 / (AVOGADRO * float(env_volume_L))
+            found = inst
+    return found
+
+
+def run_single_cell(duration: int, snapshot_interval: int, env_volume_L: float):
     """Run the baseline composite for `duration` seconds, snapshotting."""
     from v2ecoli.composite import make_composite
     composite = make_composite(cache_dir=CACHE_DIR, seed=0)
+    patched = _patch_env_volume(composite, env_volume_L)
+    effective_env_vol = patched.env_volume_L if patched else None
 
     snaps = [_extract_snapshot(composite.state, 0.0)]
     total = 0.0
@@ -113,7 +145,12 @@ def run_single_cell(duration: int, snapshot_interval: int):
         print(f"  t={int(total)}s  dry={snaps[-1]['dry_mass']:.0f}fg  "
               f"glc={snaps[-1]['glc_ext_mM']}")
     wall = time.time() - t0
-    return {"snapshots": snaps, "wall_time": wall, "sim_time": total}
+    return {
+        "snapshots": snaps,
+        "wall_time": wall,
+        "sim_time": total,
+        "env_volume_L": effective_env_vol,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -184,6 +221,67 @@ def plot_glucose_trajectory(snaps):
     return _fig_to_b64(fig)
 
 
+def plot_exchange_fluxes(snaps, top_n: int = 10):
+    """Line plot of per-step exchange counts for the top-N molecules by
+    peak absolute flux. Negative = cell imports, positive = cell secretes.
+    """
+    if not snaps:
+        return None
+    all_mols: set[str] = set()
+    for s in snaps:
+        all_mols.update(s.get("exchange_counts", {}) or {})
+    # rank by peak |flux|
+    peaks = []
+    for m in all_mols:
+        peak = max((abs(s.get("exchange_counts", {}).get(m, 0)) for s in snaps),
+                   default=0)
+        peaks.append((peak, m))
+    peaks.sort(reverse=True)
+    top = [m for _, m in peaks[:top_n]]
+
+    fig, ax = plt.subplots(figsize=(11, 4.2))
+    t = [s["time"] / 60 for s in snaps]
+    for m in top:
+        y = [s.get("exchange_counts", {}).get(m, 0) for s in snaps]
+        ax.plot(t, y, label=m, linewidth=1.4,
+                color=("#dc2626" if m == "GLC"
+                       else ("#0ea5e9" if m in TRACKED_EXCHANGES else None)))
+    ax.axhline(0, color="#64748b", linestyle=":", alpha=0.6)
+    ax.set_xlabel("Time (min)")
+    ax.set_ylabel("Exchange (count / step)\nnegative = imported")
+    ax.set_title(f"Top {len(top)} exchange fluxes (by peak |flux|)")
+    ax.grid(alpha=0.3)
+    ax.legend(fontsize=8, ncol=2, loc="lower right")
+    return _fig_to_b64(fig)
+
+
+def plot_externals(snaps, top_n: int = 6):
+    """External concentration trajectories for the most-changing species."""
+    if not snaps:
+        return None
+    all_mols: set[str] = set()
+    for s in snaps:
+        all_mols.update(s.get("external_mM", {}) or {})
+    # rank by absolute change (first → last)
+    first = snaps[0].get("external_mM", {})
+    last = snaps[-1].get("external_mM", {})
+    deltas = sorted(
+        ((abs((last.get(m, 0) or 0) - (first.get(m, 0) or 0)), m)
+         for m in all_mols),
+        reverse=True)
+    top = [m for _, m in deltas[:top_n]]
+
+    fig, ax = plt.subplots(figsize=(11, 4.2))
+    t = [s["time"] / 60 for s in snaps]
+    for m in top:
+        y = [s.get("external_mM", {}).get(m, 0) for s in snaps]
+        ax.plot(t, y, label=m, linewidth=1.4)
+    ax.set_xlabel("Time (min)"); ax.set_ylabel("[M]ₑₓₜ (mM)")
+    ax.set_title(f"Top {len(top)} external concentrations (by total change)")
+    ax.grid(alpha=0.3); ax.legend(fontsize=8, ncol=2, loc="upper right")
+    return _fig_to_b64(fig)
+
+
 def plot_mm_curve(vmax: float, km: float):
     """Analytical MM curve across typical [GLC] concentrations."""
     fig, ax = plt.subplots(figsize=(7, 3.5))
@@ -221,6 +319,8 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float):
         "growth_rate": plot_growth_rate(snaps) if snaps else None,
         "glucose": plot_glucose_trajectory(snaps) if snaps else None,
         "mm": plot_mm_curve(vmax, km),
+        "exchanges": plot_exchange_fluxes(snaps),
+        "externals": plot_externals(snaps),
     }
 
     os.makedirs(REPORT_DIR, exist_ok=True)
@@ -236,6 +336,8 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float):
     final_dry = final.get("dry_mass", 0.0)
     final_glc = final.get("glc_ext_mM")
     final_bound = final.get("glc_bound_mmol_gdcw_h")
+    env_volume_L = data.get("env_volume_L") or float("nan")
+    env_volume_fL = env_volume_L * 1e15 if env_volume_L == env_volume_L else float("nan")
 
     html = f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
@@ -289,6 +391,8 @@ committed under <code>data/caglar2017/</code>.</p>
     <div class="label">final [GLC] (mM)</div></div>
   <div class="perf-card"><div class="value">{final_bound if final_bound is not None else '—':.2f}</div>
     <div class="label">final MM bound<br/>(mmol/gDCW/h)</div></div>
+  <div class="perf-card"><div class="value">{env_volume_fL:.1f} fL</div>
+    <div class="label">env volume / cell<br/>(configurable)</div></div>
 </div>
 
 <h2>Growth trajectory</h2>
@@ -305,14 +409,40 @@ Parameters: <strong>v_max = {vmax} mmol/gDCW/h</strong>,
 {img("mm", "MM curve")}
 {img("glucose", "External glucose and applied uptake bound")}
 
-<div class="wip">
-<strong>Work in progress:</strong> environment depletion feedback is not
-yet wired — <code>boundary.external.GLC</code> stays at its initial
-media value, so the left panel above is effectively flat and the uptake
-bound (right panel) stays saturated. The next commit on the
-<code>nutrient-growth</code> branch will subtract cellular uptake flux
-from the external pool so the model naturally transitions into
-stationary phase as glucose runs out.
+<h2>Exchange fluxes</h2>
+<p>Counts of molecules moving across the cell boundary per simulation
+step (negative = cell imports, positive = cell secretes). Once the MM
+bound on glucose pins to zero, the interesting question is which other
+exchanges carry the biomass objective — see the next subsection for
+why growth continues.</p>
+
+{img("exchanges", "Top exchange fluxes over time")}
+{img("externals", "Top external concentrations over time")}
+
+<div class="note">
+<strong>Why does growth continue after [GLC]ₑₓₜ hits zero?</strong>
+Three reasons stacked:
+<ol>
+  <li><strong>~17 molecules have <em>unconstrained</em> exchange bounds</strong>
+      (AMMONIUM, OXYGEN-MOLECULE, Pi, SULFATE, WATER, K⁺, MG²⁺, NA⁺, Cl⁻,
+      Fe²⁺/³⁺, Mn, Zn, Ca, Co, Ni, selenocysteine, CO₂).
+      Once MM caps glucose uptake at 0, the LP keeps pulling on the others.</li>
+  <li><strong>The homeostatic objective pins internal metabolite
+      concentrations</strong> toward fixed targets (set by
+      <code>getBiomassAsConcentrations</code>). As the cell grows, these
+      targets rescale — the LP keeps producing internal metabolites even
+      when their upstream carbon supply is off.</li>
+  <li><strong>No carbon-balance constraint on biomass.</strong> The
+      biomass reaction's coefficients assume carbon comes from somewhere;
+      with GLC blocked the LP finds carbon in the CO₂ fixation /
+      reverse-TCA routes that have catalysts present, at reduced efficiency
+      but non-zero flux.</li>
+</ol>
+A proper exp→stat transition needs at least one of: a carbon-balanced
+biomass objective (no carbon source → no biomass), a ppGpp-coupled
+biomass downscaling, or hard flux bounds on the "promiscuous" inputs
+above when their carbon-equivalent contribution would violate a mass
+balance.
 </div>
 
 <h2>Calibration targets — Caglar 2017 doubling times</h2>
@@ -328,8 +458,6 @@ place. Currently the model is tuned only for the glucose base condition.</p>
 
 <h2>What this report does <em>not</em> cover yet</h2>
 <ul>
-  <li><strong>Environment depletion:</strong> cell uptake currently does
-  not subtract from <code>boundary.external</code>. Next commit.</li>
   <li><strong>Non-glucose carbon sources:</strong> glycerol, gluconate,
   lactate. Requires media recipes + per-carbon v_max/K_m.</li>
   <li><strong>Ion stress:</strong> Na⁺, Mg²⁺ gradients from Caglar's
@@ -362,12 +490,22 @@ place. Currently the model is tuned only for the glucose base condition.</p>
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--duration", type=int, default=2520)
-    parser.add_argument("--snapshot", type=int, default=SNAPSHOT_INTERVAL)
+    parser.add_argument("--duration", type=int, default=DEFAULT_DURATION,
+                        help=f"simulated seconds (default {DEFAULT_DURATION})")
+    parser.add_argument("--snapshot", type=int,
+                        default=DEFAULT_SNAPSHOT_INTERVAL,
+                        help=f"snapshot interval, s (default "
+                             f"{DEFAULT_SNAPSHOT_INTERVAL})")
     parser.add_argument("--vmax", type=float, default=20.0,
                         help="MM v_max in mmol/gDCW/h (default 20.0)")
     parser.add_argument("--km", type=float, default=0.01,
                         help="MM K_m in mM (default 0.01 = 10 µM)")
+    parser.add_argument("--env-volume-L", type=float,
+                        default=DEFAULT_ENV_VOLUME_L, dest="env_volume_L",
+                        help=f"environment volume per cell in litres "
+                             f"(default {DEFAULT_ENV_VOLUME_L:g} = "
+                             f"{DEFAULT_ENV_VOLUME_L*1e15:.0f} fL). "
+                             f"Smaller → faster glucose depletion.")
     args = parser.parse_args()
 
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -376,10 +514,12 @@ def main():
     print("=" * 60)
     print(f"Nutrient-Growth Report ({args.duration}s)")
     print(f"  MM glucose: v_max = {args.vmax} mmol/gDCW/h, K_m = {args.km} mM")
+    print(f"  env volume: {args.env_volume_L:g} L "
+          f"({args.env_volume_L*1e15:.1f} fL)")
     print("=" * 60)
 
     t0 = time.time()
-    data = run_single_cell(args.duration, args.snapshot)
+    data = run_single_cell(args.duration, args.snapshot, args.env_volume_L)
     caglar = load_caglar_doubling_times()
     report_path = generate_report(data, caglar, args.duration,
                                   args.vmax, args.km)

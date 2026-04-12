@@ -256,6 +256,25 @@ class Metabolism(Step):
             include_ppgpp=self.parameters["include_ppgpp"],
         )
 
+        # Mechanistic biomass mass-balance: bound the homeostatic
+        # `quadFractionFromUnity` slack pseudofluxes so the LP can
+        # undershoot a target (cell produces less biomass than wanted
+        # when starved) but cannot overshoot by conjuring metabolites.
+        # See modular_fba.py:596 for where the slacks are created with
+        # [-inf, +inf] bounds by default, and the nutrient-growth
+        # report's "How is biomass being manufactured?" section for
+        # the derivation.
+        # Experimental: capping the aboveUnity homeostatic slack makes
+        # the LP INFEASIBLE at t=0 in the current wholecell model (cell's
+        # initial internal metabolite state is far enough from the
+        # biomass targets that some pseudoFlux > 1 is required to
+        # rebalance). Default off until we have a more flexible
+        # objective. See report's "How is biomass being manufactured?"
+        # section + the user-facing discussion of LP-alternative paths.
+        self._mass_balance_enforced = False
+        if self.parameters.get("enforce_biomass_mass_balance", False):
+            self._enforce_biomass_mass_balance()
+
         # Fixed list of molecules reported in fba_results.conc_updates. The
         # set depends only on ParCa state, not on runtime, so we compute it
         # once here even though conc_updates themselves arrive through a port.
@@ -328,6 +347,53 @@ class Metabolism(Step):
         self.reaction_mapping_matrix = csr_matrix(
             (v, (base_rxn_indexes, fba_rxn_indexes)), shape=shape
         )
+
+    def _enforce_biomass_mass_balance(self):
+        """Cap the homeostatic "above unity" slack pseudofluxes at 0.
+
+        In modular_fba's homeostatic formulation with a linear
+        objective (``quadratic_objective=False``):
+
+            pseudoFlux = 1 + aboveUnity − belowUnity
+
+        where ``pseudoFlux`` is the rate at which a target metabolite
+        is consumed into biomass. ``aboveUnity`` represents over-
+        shooting the target ("produce more biomass than asked");
+        ``belowUnity`` represents undershooting. Both default to
+        ``[0, +inf]`` on flux.
+
+        Over-shooting is where the "free mass" comes from — the LP
+        inflates biomass production without a mass-balanced carbon
+        source. Capping ``aboveUnity`` at 0 forces ``pseudoFlux ≤ 1``,
+        i.e. the cell can only meet or miss a target, never exceed
+        it. Biomass production naturally trails off under
+        nutrient starvation.
+
+        ``belowUnity`` is left at its default bound — the cell is
+        expected to produce less biomass than the homeostatic target
+        when starved, which is the biologically correct behaviour.
+        """
+        fba = self.model.fba
+        solver = fba._solver
+        above_prefix = type(fba)._generatedID_fractionAboveUnityOut
+        targets = fba.getHomeostaticTargetMolecules()
+        known_flows = set(solver.getFlowNames())
+        bounded = skipped = 0
+        for mol in targets:
+            flux_id = above_prefix + mol
+            if flux_id not in known_flows:
+                skipped += 1
+                continue
+            try:
+                solver.setFlowBounds(flux_id, lowerBound=0.0, upperBound=0.0)
+                bounded += 1
+            except Exception:
+                skipped += 1
+        self._mass_balance_enforced = True
+        self._mass_balance_info = {
+            "bounded_slacks": bounded, "skipped_slacks": skipped,
+            "target_molecules": len(targets),
+        }
 
     def __getstate__(self):
         return self.parameters

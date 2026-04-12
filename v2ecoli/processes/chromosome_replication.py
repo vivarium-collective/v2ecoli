@@ -64,7 +64,7 @@ from wholecell.utils import units
 from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
 
 # topology_registry removed
-from v2ecoli.steps.partition import PartitionedProcess
+from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema_types import (
     ACTIVE_REPLISOME_ARRAY,
     ORIC_ARRAY,
@@ -87,8 +87,12 @@ TOPOLOGY = {
 }
 
 
-class ChromosomeReplication(PartitionedProcess):
-    """Chromosome Replication PartitionedProcess"""
+class ChromosomeReplication(Step):
+    """Chromosome Replication Step
+
+    dNTPs are consumed only by chromosome replication; no other process
+    competes for them. Runs as a plain Step.
+    """
 
     name = NAME
     topology = TOPOLOGY
@@ -187,7 +191,12 @@ class ChromosomeReplication(PartitionedProcess):
 
         self.ppi_idx = None
 
-    def calculate_request(self, timestep, states):
+    def update(self, states, interval=None):
+        self._prepare(states)
+        return self._evolve(states)
+
+    def _prepare(self, states):
+        timestep = states["timestep"]
         if self.ppi_idx is None:
             self.ppi_idx = bulk_name_to_idx(self.ppi, states["bulk"]["id"])
             self.replisome_trimers_idx = bulk_name_to_idx(
@@ -202,7 +211,7 @@ class ChromosomeReplication(PartitionedProcess):
         n_oriC = states["oriCs"]["_entryState"].sum()
         # If there are no origins, return immediately
         if n_oriC == 0:
-            return requests
+            return
 
         # Get current cell mass
         cellMass = states["listeners"]["mass"]["cell_mass"] * units.fg
@@ -231,7 +240,7 @@ class ChromosomeReplication(PartitionedProcess):
         # If there are no active forks return
         n_active_replisomes = states["active_replisomes"]["_entryState"].sum()
         if n_active_replisomes == 0:
-            return requests
+            return
 
         # Get current locations of all replication forks
         (fork_coordinates,) = attrs(states["active_replisomes"], ["coordinates"])
@@ -271,9 +280,11 @@ class ChromosomeReplication(PartitionedProcess):
             )
         )
 
-        return requests
+        # requests no longer used in Step form; kept locally for clarity
+        _ = requests
 
-    def evolve_state(self, timestep, states):
+    def _evolve(self, states):
+        timestep = states["timestep"]
         # Initialize the update dictionary
         update = {
             "bulk": [],

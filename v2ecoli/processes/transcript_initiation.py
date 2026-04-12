@@ -67,8 +67,7 @@ from wholecell.utils.unit_struct_array import UnitStructArray
 from v2ecoli.library.data_predicates import monotonically_decreasing, all_nonnegative
 from scipy.stats import chisquare
 
-# topology_registry removed
-from v2ecoli.steps.partition import PartitionedProcess
+from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema_types import (
     FULL_CHROMOSOME_ARRAY,
     RNA_ARRAY,
@@ -92,7 +91,7 @@ TOPOLOGY = {
 }
 
 
-class TranscriptInitiation(PartitionedProcess):
+class TranscriptInitiation(Step):
     """Transcript Initiation PartitionedProcess
 
     **Defaults:**
@@ -381,19 +380,16 @@ class TranscriptInitiation(PartitionedProcess):
                 },
             }
         )
-    def calculate_request(self, timestep, states):
+    def update(self, states, interval=None):
+        self._prepare(states)
+        return self._evolve(states)
+
+    def _prepare(self, states):
         # At first update, convert all strings to indices
         if self.ppgpp_idx is None:
             bulk_ids = states["bulk"]["id"]
             self.ppgpp_idx = bulk_name_to_idx(self.ppgpp, bulk_ids)
             self.inactive_RNAP_idx = bulk_name_to_idx(self.inactive_RNAP, bulk_ids)
-
-        # Get all inactive RNA polymerases
-        requests = {
-            "bulk": [
-                (self.inactive_RNAP_idx, counts(states["bulk"], self.inactive_RNAP_idx))
-            ]
-        }
 
         # Read current environment
         current_media_id = states["environment"]["media_id"]
@@ -493,9 +489,9 @@ class TranscriptInitiation(PartitionedProcess):
             1,  # want elongation rate, not lengths adjusted for time step
             self.variable_elongation,
         )
-        return requests
 
-    def evolve_state(self, timestep, states):
+    def _evolve(self, states):
+        timestep = states["timestep"]
         update = {
             "listeners": {
                 "rna_synth_prob": {

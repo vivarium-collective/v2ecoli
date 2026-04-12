@@ -52,8 +52,7 @@ from v2ecoli.library.schema import (
 from wholecell.utils import units
 from wholecell.utils.fitting import normalize
 
-# topology_registry removed
-from v2ecoli.steps.partition import PartitionedProcess
+from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema_types import ACTIVE_RIBOSOME_ARRAY, RNA_ARRAY
 
 # Register default topology for this process, associating it with process name
@@ -68,8 +67,12 @@ TOPOLOGY = {
 }
 
 
-class PolypeptideInitiation(PartitionedProcess):
-    """Polypeptide Initiation PartitionedProcess"""
+class PolypeptideInitiation(Step):
+    """Polypeptide Initiation Step
+
+    30S/50S subunits are only consumed by translation initiation; no other
+    process competes for them. Runs as a plain Step.
+    """
 
     name = NAME
     topology = TOPOLOGY
@@ -226,47 +229,30 @@ class PolypeptideInitiation(PartitionedProcess):
             }
         )
 
-    def calculate_request(self, timestep, states):
+    def update(self, states, interval=None):
         if self.ribosome30S_idx is None:
             bulk_ids = states["bulk"]["id"]
             self.ribosome30S_idx = bulk_name_to_idx(self.ribosome30S, bulk_ids)
             self.ribosome50S_idx = bulk_name_to_idx(self.ribosome50S, bulk_ids)
 
         current_media_id = states["environment"]["media_id"]
-
-        # requests = {'subunits': states['subunits']}
-        requests = {
-            "bulk": [
-                (self.ribosome30S_idx, counts(states["bulk"], self.ribosome30S_idx)),
-                (self.ribosome50S_idx, counts(states["bulk"], self.ribosome50S_idx)),
-            ]
-        }
-
         self.fracActiveRibosome = self.active_ribosome_fraction[current_media_id]
 
-        # Read ribosome elongation rate from last timestep
+        # Use last timestep's effective elongation rate; fall back to
+        # media-dependent default on first timestep (when it reads as 0)
         self.ribosomeElongationRate = states["listeners"]["ribosome_data"][
             "effective_elongation_rate"
         ]
-        # If the ribosome elongation rate is zero (which is always the case for
-        # the first timestep), set ribosome elongation rate to the one in
-        # dictionary
         if self.ribosomeElongationRate == 0:
             self.ribosomeElongationRate = self.ribosome_elongation_rates_dict[
                 current_media_id
             ].asNumber(units.aa / units.s)
-        self.elongation_rates = self.make_elongation_rates(
+        self.elongation_rates = np.fmax(self.make_elongation_rates(
             self.random_state,
             self.ribosomeElongationRate,
             1,  # want elongation rate, not lengths adjusted for time step
             self.variable_elongation,
-        )
-
-        # Ensure rates are never zero
-        self.elongation_rates = np.fmax(self.elongation_rates, 1)
-        return requests
-
-    def evolve_state(self, timestep, states):
+        ), 1)
         # Calculate number of ribosomes that could potentially be initialized
         # based on counts of free 30S and 50S subunits
         inactive_ribosome_count = np.min(

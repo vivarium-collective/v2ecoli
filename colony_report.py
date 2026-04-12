@@ -738,6 +738,9 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
     # Generate HTML report
     report_path = os.path.join(REPORT_DIR, 'colony_report.html')
 
+    from v2ecoli.library.repro_banner import banner_html
+    repro_banner = banner_html()
+
     with open(report_path, 'w') as f:
         f.write(f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8">
@@ -760,6 +763,8 @@ th {{ background: #f1f5f9; }}
 .section {{ background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5em; margin: 1em 0; }}
 </style>
 </head><body>
+
+{repro_banner}
 
 <h1>E. coli Colony Simulation</h1>
 
@@ -860,6 +865,18 @@ forks, and active RNA polymerases.</p>
 v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-collective/v2ecoli">github</a>
 </footer>
 </body></html>""")
+
+    # Mirror to docs/ so GitHub Pages stays in sync. Also copies the GIFs
+    # so the rendered report can resolve its relative <img> paths.
+    import shutil
+    docs_dir = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), 'docs')
+    if os.path.isdir(docs_dir):
+        shutil.copy2(report_path, os.path.join(docs_dir, 'colony_report.html'))
+        for gif in ('colony.gif', 'chromosome.gif'):
+            src = os.path.join(os.path.dirname(report_path), gif)
+            if os.path.exists(src):
+                shutil.copy2(src, os.path.join(docs_dir, gif))
 
     print(f"Report: {report_path}")
     return report_path

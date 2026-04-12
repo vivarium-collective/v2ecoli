@@ -656,6 +656,7 @@ _HTML_TEMPLATE = """<!doctype html>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape-fcose@2.2.0/cytoscape-fcose.js"></script>
 </head>
 <body>
+  {repro_banner}
   <header>
     <h1>{title}</h1>
     <span class="subtitle">{subtitle}</span>
@@ -1037,10 +1038,12 @@ _HTML_TEMPLATE = """<!doctype html>
 def render_html(data: dict, title: str, subtitle: str) -> str:
     """Return the interactive HTML viewer as a string."""
     import html as _html
+    from v2ecoli.library.repro_banner import banner_html
     return _HTML_TEMPLATE.format(
         title=_html.escape(title),
         subtitle=_html.escape(subtitle),
         data_json=json.dumps(data),
+        repro_banner=banner_html(),
     )
 
 

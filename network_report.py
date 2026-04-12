@@ -87,6 +87,14 @@ def main():
     with open(output, 'w') as f:
         f.write(render_html(data, title, subtitle))
 
+    # Mirror to docs/ so GitHub Pages stays in sync.
+    import shutil
+    docs_dir = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), 'docs')
+    if os.path.isdir(docs_dir):
+        shutil.copy2(output, os.path.join(
+            docs_dir, f'network_{args.model}.html'))
+
     print(f'Wrote {output}')
     print(f'  {subtitle}')
 

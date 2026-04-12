@@ -20,6 +20,20 @@ th { background: #f1f5f9; }
 </style>
 </head><body>
 
+
+<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;
+            background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;
+            padding:10px 14px;margin:0 0 16px 0;font-size:12px;color:#475569;
+            line-height:1.6">
+  <strong style="color:#0f172a">Run provenance</strong> &nbsp;·&nbsp;
+  2026-04-12 13:14:14 EDT &nbsp;·&nbsp;
+  <code>main@43a3ab7</code> <span style="color:#dc2626;font-weight:600">[uncommitted changes]</span> &nbsp;·&nbsp;
+  <span title="Host">eranagmon@LT-0919936</span> &nbsp;·&nbsp;
+  Darwin 24.2.0 arm64 (16 cores) &nbsp;·&nbsp;
+  Python 3.12.9
+</div>
+
+
 <h1>E. coli Colony Simulation</h1>
 
 <div class="section">
@@ -50,7 +64,7 @@ model. Daughters are shown with color-shifted variants of the mother&rsquo;s gre
 
 <div class="media">
   <img src="colony.gif" alt="Colony simulation — spatial view">
-  <div class="media-label">Colony spatial view: 10 initial cells → 12 final cells over 80 min.
+  <div class="media-label">Colony spatial view: 10 initial cells → 20 final cells over 60 min.
   Colored cell = whole-cell <em>E. coli</em>; grey = surrogates.</div>
 </div>
 
@@ -74,7 +88,7 @@ forks, and active RNA polymerases.</p>
 <h2>Simulation Parameters</h2>
 <table>
 <tr><th>Parameter</th><th>Value</th></tr>
-<tr><td>Duration</td><td>80 min (4800s)</td></tr>
+<tr><td>Duration</td><td>60 min (3600s)</td></tr>
 <tr><td>Whole-cell <em>E. coli</em></td><td>1 cell (EcoliWCM bridge, 55 steps)</td></tr>
 <tr><td>Surrogate cells</td><td>9 (AdderGrowDivide)</td></tr>
 <tr><td>Environment</td><td>40 × 40 µm</td></tr>
@@ -85,26 +99,26 @@ forks, and active RNA polymerases.</p>
 <h2>Results</h2>
 <table>
 <tr><th>Metric</th><th>Value</th></tr>
-<tr><td>Build time</td><td>4.0s</td></tr>
-<tr><td>Wall time</td><td>422s (7.0 min)</td></tr>
-<tr><td>Speed</td><td>11.4× realtime</td></tr>
+<tr><td>Build time</td><td>0.1s</td></tr>
+<tr><td>Wall time</td><td>391s (6.5 min)</td></tr>
+<tr><td>Speed</td><td>9.2× realtime</td></tr>
 <tr><td>Initial cells</td><td>10</td></tr>
-<tr><td>Final cells</td><td>12</td></tr>
-<tr><td>Emitter frames</td><td>520</td></tr>
+<tr><td>Final cells</td><td>20</td></tr>
+<tr><td>Emitter frames</td><td>390</td></tr>
 </table>
 
 
 <h2>Reproducibility</h2>
 <table style="font-size:0.85em;">
 <tr><th>Field</th><th>Value</th></tr>
-<tr><td>Date</td><td>2026-04-11 16:42:39</td></tr>
-<tr><td>Git commit</td><td><code>eaf42e9</code> (main)</td></tr>
+<tr><td>Date</td><td>2026-04-12 13:07:31</td></tr>
+<tr><td>Git commit</td><td><code>43a3ab7</code> (main)</td></tr>
 <tr><td>Python</td><td>3.12.9</td></tr>
 <tr><td>Platform</td><td>Darwin arm64</td></tr>
 <tr><td>process-bigraph</td><td>dev</td></tr>
 <tr><td>bigraph-schema</td><td>dev</td></tr>
 <tr><td>Seed</td><td>0</td></tr>
-<tr><td>Command</td><td><code>python3 colony_report.py --duration 80 --n-adder 9 --env-size 40</code></td></tr>
+<tr><td>Command</td><td><code>python3 colony_report.py --duration 60 --n-adder 9 --env-size 40</code></td></tr>
 </table>
 
 <footer style="margin-top:2em; padding-top:1em; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:0.85em;">

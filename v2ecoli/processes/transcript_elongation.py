@@ -149,7 +149,6 @@ class TranscriptElongation(PartitionedProcess):
         'seed': {'_type': 'integer', '_default': 0},
         'submass_indices': {'_type': 'map[integer]', '_default': {}},
         'time_step': {'_type': 'integer[s]', '_default': 1},
-        'trna_attenuation': {'_type': 'boolean', '_default': False},
         'variable_elongation': {'_type': 'boolean', '_default': False},
     }
 

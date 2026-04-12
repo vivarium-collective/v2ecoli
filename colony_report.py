@@ -867,8 +867,8 @@ v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-c
 
 def main():
     parser = argparse.ArgumentParser(description='E. coli colony report')
-    parser.add_argument('--duration', type=int, default=80,
-                        help='Duration in minutes (default: 80)')
+    parser.add_argument('--duration', type=int, default=60,
+                        help='Duration in minutes (default: 60)')
     parser.add_argument('--n-adder', type=int, default=9,
                         help='Number of adder cells (default: 9)')
     parser.add_argument('--env-size', type=int, default=40,

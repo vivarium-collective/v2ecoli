@@ -321,8 +321,8 @@ and biological process logic.</p>
 
 def main():
     parser = argparse.ArgumentParser(description='v1 vs v2 comparison')
-    parser.add_argument('--duration', type=int, default=2500,
-                        help='Simulation duration in seconds (default: 2500)')
+    parser.add_argument('--duration', type=int, default=2520,
+                        help='Simulation duration in seconds (default: 2520 = 42 min)')
     args = parser.parse_args()
 
     # Ensure we're in the v2ecoli directory

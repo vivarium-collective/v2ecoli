@@ -255,10 +255,13 @@ class MassListener(Step):
                 unique_mass * n_molecules
             )
 
-            massDiffs = np.array(list(attrs(molecules, self.massDiff_names))).T
+            # Extract mass diffs efficiently: stack field arrays into (n_mols, n_fields)
+            mol_mask = molecules["_entryState"].view(np.bool_)
+            massDiffs = np.column_stack(
+                [molecules[name][mol_mask] for name in self.massDiff_names])
             if self.match_wcecoli:
                 massDiffs = np.core.records.fromarrays(
-                    attrs(molecules, self.massDiff_names)
+                    [molecules[name][mol_mask] for name in self.massDiff_names]
                 ).view((np.float64, len(self.massDiff_names)))
             unique_submasses += massDiffs.sum(axis=0)
             unique_compartment_masses[self.compartment_abbrev_to_index["c"], :] += (

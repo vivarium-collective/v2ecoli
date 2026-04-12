@@ -233,9 +233,11 @@ def counts(states: np.ndarray, idx: int | np.ndarray) -> np.ndarray:
         idx: Indices for the counts of interest.
 
     Returns:
-        Counts of molecules at specified indices (copy so can be safely mutated)
+        Counts of molecules at specified indices.
+        For structured arrays: returns a view (no copy).
+        For plain arrays (allocate path): returns a copy for safe mutation.
     """
-    if len(states.dtype) > 1:
+    if states.dtype.names:
         return states["count"][idx]
     # evolve_state reads from ('allocate', process_name, 'bulk')
     # which is a simple Numpy array (not structured)
@@ -298,6 +300,9 @@ def numpy_schema(name: str, emit: bool = True) -> Dict[str, Any]:
     return schema
 
 
+_bulk_sorter_cache = {}  # id(bulk_names) -> (bulk_names_array, sorter)
+
+
 def bulk_name_to_idx(
     names: str | (List | np.ndarray), bulk_names: List | np.ndarray, strict: bool = True
 ) -> int | np.ndarray:
@@ -315,24 +320,32 @@ def bulk_name_to_idx(
     Raises:
         ValueError: If any name in names is not found in bulk_names and strict is True
     """
-    # Convert from string names to indices in bulk array
-    if isinstance(names, np.ndarray) or isinstance(names, list):
-        # Big brain solution from https://stackoverflow.com/a/32191125
-        bulk_names_array = np.array(bulk_names)
+    # Cache the argsort — bulk_names is the same array every call
+    cache_key = id(bulk_names)
+    cached = _bulk_sorter_cache.get(cache_key)
+    if cached is not None:
+        bulk_names_array, sorter = cached
+    else:
+        bulk_names_array = np.asarray(bulk_names)
         sorter = np.argsort(bulk_names_array)
+        _bulk_sorter_cache[cache_key] = (bulk_names_array, sorter)
+
+    if isinstance(names, (np.ndarray, list)):
         indices = np.take(
             sorter, np.searchsorted(bulk_names_array, names, sorter=sorter), mode="clip"
         )
-        # Verify that all names were found
         if strict and not np.all(bulk_names_array[indices] == names):
             missing = np.array(names)[bulk_names_array[indices] != names]
             raise ValueError(f"Names not found in bulk_names: {missing.tolist()}")
         return indices
     else:
-        result = np.where(np.array(bulk_names) == names)[0]
-        if len(result) == 0:
+        idx = np.searchsorted(bulk_names_array, names, sorter=sorter)
+        if idx >= len(sorter):
             raise ValueError(f"Name not found in bulk_names: {names}")
-        return result[0]
+        result = sorter[idx]
+        if bulk_names_array[result] != names:
+            raise ValueError(f"Name not found in bulk_names: {names}")
+        return result
 
 
 def bulk_numpy_updater(
@@ -380,9 +393,10 @@ def attrs(states: MetadataArray, attributes: List[str]) -> List[np.ndarray]:
         corresponds to the value of that attribute for the nth active
         unique molecule in ``states``
     """
-    # _entryState has dtype int8 so this works
+    # _entryState has dtype int8 — view as bool avoids copy
     mol_mask = states["_entryState"].view(np.bool_)
-    return [np.asarray(states[attribute][mol_mask]) for attribute in attributes]
+    # Use direct field access (avoids np.asarray overhead for contiguous fields)
+    return [states[attribute][mol_mask] for attribute in attributes]
 
 
 def get_free_indices(

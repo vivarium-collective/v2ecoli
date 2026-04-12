@@ -41,6 +41,8 @@ from v2ecoli.generate import (
     _normalize_boundary_units,
     _make_instance,
     _get_special_step,
+    _expand_flushes,
+    FLUSH,
     PARTITIONED_PROCESSES,
     ALL_PARTITIONED,
 )
@@ -66,7 +68,7 @@ FEATURE_MODULES = {
     },
 }
 
-DEFAULT_FEATURES = ['ppgpp_regulation', 'trna_attenuation']
+DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation disabled to match v1 default
 
 
 # ---------------------------------------------------------------------------
@@ -75,24 +77,20 @@ DEFAULT_FEATURES = ['ppgpp_regulation', 'trna_attenuation']
 
 BASE_EXECUTION_LAYERS = [
     # Layer 0: post-division mass
-    ['post-division-mass-listener', 'unique_update_1'],
+    ['post-division-mass-listener'], FLUSH,
 
     # Layer 1: media/environment
-    ['media_update'],
-    ['unique_update_2'],
+    ['media_update'], FLUSH,
     ['ecoli-tf-unbinding'],
-    ['exchange_data'],
-    ['unique_update_3'],
+    ['exchange_data'], FLUSH,
 
     # Layer 2: partition layer 1 (sequential standalone)
     ['ecoli-equilibrium'],
     ['ecoli-rna-maturation'],
-    ['ecoli-two-component-system'],
-    ['unique_update_4'],
+    ['ecoli-two-component-system'], FLUSH,
 
     # Layer 3: TF binding
-    ['ecoli-tf-binding'],
-    ['unique_update_5'],
+    ['ecoli-tf-binding'], FLUSH,
 
     # Layer 4: partition layer 2 (sequential standalone)
     ['ecoli-complexation'],
@@ -100,33 +98,27 @@ BASE_EXECUTION_LAYERS = [
     ['ecoli-rna-degradation'],
     ['ecoli-transcript-initiation'],
     ['ecoli-polypeptide-initiation'],
-    ['ecoli-chromosome-replication'],
-    ['unique_update_6'],
+    ['ecoli-chromosome-replication'], FLUSH,
 
     # Layer 5: partition layer 3 (sequential standalone)
     ['ecoli-transcript-elongation'],
-    ['ecoli-polypeptide-elongation'],
-    ['unique_update_7'],
+    ['ecoli-polypeptide-elongation'], FLUSH,
 
     # Layer 6: chromosome structure + metabolism
-    ['ecoli-chromosome-structure'],
-    ['unique_update_8'],
-    ['ecoli-metabolism'],
-    ['unique_update_9'],
+    ['ecoli-chromosome-structure'], FLUSH,
+    ['ecoli-metabolism'], FLUSH,
 
     # Layer 7: listeners (parallel)
     ['RNA_counts_listener', 'dna_supercoiling_listener', 'ecoli-mass-listener',
      'monomer_counts_listener', 'replication_data_listener', 'ribosome_data_listener',
-     'rna_synth_prob_listener', 'rnap_data_listener', 'unique_molecule_counts'],
-    ['unique_update_10'],
+     'rna_synth_prob_listener', 'rnap_data_listener', 'unique_molecule_counts'], FLUSH,
 
     # Emitter + clock
     ['emitter'],
     ['global_clock'],
 
     # Layer 8: division check
-    ['mark_d_period'],
-    ['unique_update_11'],
+    ['mark_d_period'], FLUSH,
     ['division'],
 ]
 
@@ -141,24 +133,24 @@ def build_execution_layers(features=None):
         if 'insert_after' in feat:
             ref = feat['insert_after']
             for i, layer in enumerate(layers):
-                if ref in layer:
+                if isinstance(layer, list) and ref in layer:
                     for step_name in feat.get('steps', []):
                         layers.insert(i + 1, [step_name])
                     break
         if 'insert_before' in feat:
             ref = feat['insert_before']
             for i, layer in enumerate(layers):
-                if ref in layer:
+                if isinstance(layer, list) and ref in layer:
                     for step_name in reversed(feat.get('steps', [])):
                         layers.insert(i, [step_name])
                     break
         for listener in feat.get('listeners', []):
             for layer in layers:
-                if 'ecoli-mass-listener' in layer:
+                if isinstance(layer, list) and 'ecoli-mass-listener' in layer:
                     if listener not in layer:
                         layer.append(listener)
                     break
-    return layers
+    return _expand_flushes(layers)
 
 
 EXECUTION_LAYERS = build_execution_layers(DEFAULT_FEATURES)

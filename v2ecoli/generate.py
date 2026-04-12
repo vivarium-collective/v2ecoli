@@ -38,24 +38,26 @@ from v2ecoli.steps.partition import Requester, Evolver, PartitionedProcess
 # Execution layers (partitioned architecture)
 # ---------------------------------------------------------------------------
 
+# FLUSH marks a position where the UniqueNumpyUpdater buffer should be
+# drained before the next layer runs (see UniqueUpdate docstring). The
+# sentinel is expanded to a real step by _expand_flushes() at build time
+# so the declarations below read as biology instead of plumbing.
+FLUSH = '__unique_flush__'
+
 BASE_EXECUTION_LAYERS = [
     # Layer 0: post-division mass
-    ['post-division-mass-listener', 'unique_update_1'],
+    ['post-division-mass-listener'], FLUSH,
 
     # Layer 1: media/environment (sequential sub-steps)
-    ['media_update'],
-    ['unique_update_2'],
+    ['media_update'], FLUSH,
     ['ecoli-tf-unbinding'],
-    ['exchange_data'],
-    ['unique_update_3'],
+    ['exchange_data'], FLUSH,
 
     # Layer 2: standalone (no partitioning needed)
-    ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation'],
-    ['unique_update_4'],
+    ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation'], FLUSH,
 
     # Layer 3: TF binding
-    ['ecoli-tf-binding'],
-    ['unique_update_5'],
+    ['ecoli-tf-binding'], FLUSH,
 
     # Layer 4: protein degradation (standalone — no resource competition)
     ['ecoli-protein-degradation'],
@@ -66,37 +68,49 @@ BASE_EXECUTION_LAYERS = [
     # RNA degradation still partitioned (shares water with other processes)
     ['ecoli-rna-degradation_requester'],
     ['allocator_2'],
-    ['ecoli-rna-degradation_evolver'],
-    ['unique_update_6'],
+    ['ecoli-rna-degradation_evolver'], FLUSH,
 
     # Layer 5: partition layer 3 -- elongation requesters (parallel)
     ['ecoli-polypeptide-elongation_requester', 'ecoli-transcript-elongation_requester'],
     ['allocator_3'],
     # Layer 5: partition layer 3 -- elongation evolvers (parallel)
-    ['ecoli-polypeptide-elongation_evolver', 'ecoli-transcript-elongation_evolver'],
-    ['unique_update_7'],
+    ['ecoli-polypeptide-elongation_evolver', 'ecoli-transcript-elongation_evolver'], FLUSH,
 
     # Layer 6: chromosome structure + metabolism (sequential)
-    ['ecoli-chromosome-structure'],
-    ['unique_update_8'],
-    ['ecoli-metabolism'],
-    ['unique_update_9'],
+    ['ecoli-chromosome-structure'], FLUSH,
+    ['ecoli-metabolism'], FLUSH,
 
     # Layer 7: listeners (parallel)
     ['RNA_counts_listener', 'ecoli-mass-listener',
      'monomer_counts_listener', 'replication_data_listener', 'ribosome_data_listener',
-     'rna_synth_prob_listener', 'rnap_data_listener', 'unique_molecule_counts'],
-    ['unique_update_10'],
+     'rna_synth_prob_listener', 'rnap_data_listener', 'unique_molecule_counts'], FLUSH,
 
     # Emitter + clock
     ['emitter'],
     ['global_clock'],
 
     # Layer 8: division check
-    ['mark_d_period'],
-    ['unique_update_11'],
+    ['mark_d_period'], FLUSH,
     ['division'],
 ]
+
+
+def _expand_flushes(layers):
+    """Replace each FLUSH sentinel with a real [unique_update_N] sub-layer.
+
+    N is assigned in declaration order so state keys stay stable across
+    architecture variants (baseline, departitioned, reconciled). The
+    resulting step names are handled by _get_special_step via the
+    'unique_update' prefix.
+    """
+    out, n = [], 0
+    for layer in layers:
+        if layer == FLUSH:
+            n += 1
+            out.append([f'unique_update_{n}'])
+        else:
+            out.append(layer)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +133,7 @@ FEATURE_MODULES = {
     },
 }
 
-DEFAULT_FEATURES = ['ppgpp_regulation', 'trna_attenuation']  # match original wcEcoli behavior
+DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation disabled to match v1 default
 
 
 def build_execution_layers(features=None):
@@ -133,7 +147,7 @@ def build_execution_layers(features=None):
         if 'insert_after' in feat:
             ref = feat['insert_after']
             for i, layer in enumerate(layers):
-                if ref in layer:
+                if isinstance(layer, list) and ref in layer:
                     for step_name in feat.get('steps', []):
                         layers.insert(i + 1, [step_name])
                     break
@@ -141,18 +155,18 @@ def build_execution_layers(features=None):
         if 'insert_before' in feat:
             ref = feat['insert_before']
             for i, layer in enumerate(layers):
-                if ref in layer:
+                if isinstance(layer, list) and ref in layer:
                     for step_name in reversed(feat.get('steps', [])):
                         layers.insert(i, [step_name])
                     break
         # Add listeners to the listener layer
         for listener in feat.get('listeners', []):
             for layer in layers:
-                if 'ecoli-mass-listener' in layer:
+                if isinstance(layer, list) and 'ecoli-mass-listener' in layer:
                     if listener not in layer:
                         layer.append(listener)
                     break
-    return layers
+    return _expand_flushes(layers)
 
 
 EXECUTION_LAYERS = build_execution_layers(DEFAULT_FEATURES)

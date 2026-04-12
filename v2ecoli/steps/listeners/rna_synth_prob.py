@@ -87,6 +87,10 @@ class RnaSynthProb(Step):
 
     def update(self, states, interval=None):
         # Guard: return empty on first tick if data not yet populated
+        if (len(states["rna_synth_prob"]["actual_rna_synth_prob"]) != self.n_TU
+                or len(states["rna_synth_prob"]["n_bound_TF_per_TU"]) != self.n_TU
+                or len(states["rna_synth_prob"]["target_rna_synth_prob"]) != self.n_TU):
+            return {}
         TU_indexes, all_coordinates, all_domains, bound_TFs = attrs(
             states["promoters"], ["TU_index", "coordinates", "domain_index", "bound_TF"]
         )

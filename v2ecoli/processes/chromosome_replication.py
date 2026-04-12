@@ -84,6 +84,7 @@ TOPOLOGY = {
     "listeners": ("listeners",),
     "environment": ("environment",),
     "timestep": ("timestep",),
+    "global_time": ("global_time",),
 }
 
 
@@ -135,6 +136,7 @@ class ChromosomeReplication(Step):
                 'media_id': {'_type': 'string', '_default': ''},
             },
             'timestep': {'_type': 'integer[s]', '_default': 1},
+            'global_time': {'_type': 'float', '_default': 0.0},
         }
 
     def outputs(self):

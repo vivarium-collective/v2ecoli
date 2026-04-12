@@ -804,6 +804,9 @@ def generate_html(sim_data, metrics, plots, seed, duration, output, parallel_wal
 
     improvement = dep_err / max(rec_err, 0.001)
 
+    from v2ecoli.library.repro_banner import banner_html
+    repro_banner = banner_html()
+
     os.makedirs(os.path.dirname(output) or '.', exist_ok=True)
     with open(output, 'w') as f:
         f.write(f"""<!DOCTYPE html>
@@ -850,10 +853,12 @@ background:#fff;display:block;margin:6px 0;resize:vertical;overflow:hidden}}
 footer{{margin-top:30px;padding:15px 0;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:0.75em;text-align:center}}
 </style></head><body>
 
+{repro_banner}
+
 <div class="header">
 <h1>v2ecoli Architecture Comparison</h1>
 <p>{date_str} &middot; Duration: {duration}s ({duration/60:.1f} min) &middot; Seed: {seed}
- &middot; 3 simulations in parallel &middot; Total wall: {parallel_wall:.0f}s</p>
+ &middot; {len(sim_data)} simulations in parallel &middot; Total wall: {parallel_wall:.0f}s</p>
 </div>
 
 <h2>Summary</h2>

@@ -82,7 +82,7 @@ BASE_EXECUTION_LAYERS = [
     # Layer 1: media/environment
     ['media_update'], FLUSH,
     ['ecoli-tf-unbinding'],
-    ['exchange_data'], FLUSH,
+    ['metabolic_kinetics'], FLUSH,
 
     # Layer 2: partition layer 1 (sequential standalone)
     ['ecoli-equilibrium'],
@@ -178,7 +178,7 @@ def _instantiate_departitioned_step(step_name, config, loader, core):
     from v2ecoli.steps.listeners.unique_molecule_counts import UniqueMoleculeCounts
     from v2ecoli.steps.listeners.ribosome_data import RibosomeData
     from v2ecoli.steps.media_update import MediaUpdate
-    from v2ecoli.steps.exchange_data import ExchangeData
+    from v2ecoli.processes.metabolic_kinetics import MetabolicKinetics
 
     STANDALONE_STEPS = {
         'ecoli-tf-binding': TfBinding,
@@ -210,7 +210,7 @@ def _instantiate_departitioned_step(step_name, config, loader, core):
         'unique_molecule_counts': UniqueMoleculeCounts,
         'ribosome_data_listener': RibosomeData,
         'media_update': MediaUpdate,
-        'exchange_data': ExchangeData,
+        'metabolic_kinetics': MetabolicKinetics,
     }
 
     from v2ecoli.library.config_resolver import resolve_config

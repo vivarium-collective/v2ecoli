@@ -218,7 +218,7 @@ def plot_growth(history):
 # ---------------------------------------------------------------------------
 
 SKIP_STEPS = {'unique_update', 'global_clock', 'mark_d_period', 'division',
-              'exchange_data', 'media_update', 'post-division-mass-listener', 'emitter'}
+              'metabolic_kinetics', 'media_update', 'post-division-mass-listener', 'emitter'}
 SKIP_PORTS = {'timestep', 'global_time', 'next_update_time', 'process'}
 BIO_COLORS = {
     'dna': ('#FFB6C1', lambda n: 'chromosome' in n),

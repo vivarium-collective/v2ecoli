@@ -49,7 +49,7 @@ BIO_COLORS: list[tuple[str, str, str, Callable[[str], bool]]] = [
     ('infra',        'Infrastructure / flow',  '#E8E8E8',
         lambda n: any(s in n for s in (
             'unique_update', 'global_clock', 'emitter', 'mark_d_period',
-            'division', 'exchange_data', 'media_update', 'post-division',
+            'division', 'metabolic_kinetics', 'media_update', 'post-division',
             'reconciled_', 'allocator_'))),
 ]
 

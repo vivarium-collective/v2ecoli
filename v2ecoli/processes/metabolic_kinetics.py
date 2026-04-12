@@ -1,13 +1,21 @@
+"""
+Metabolic kinetics — computes FBA exchange constraints that metabolism.py
+consumes through the `environment.exchange_data` port.
+
+This module owns the boundary-to-bounds transform. Today it delegates to
+`external_state.exchange_data_from_concentrations`, i.e. a media-id lookup.
+It exists as a separate Step so that kinetic uptake laws (Michaelis-Menten
+on [GLC_ext], enzyme-capacity-limited import, etc.) can be added here
+without touching metabolism.
+"""
+
 from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.library.unit_defs import units
 
 
-class ExchangeData(Step):
-    """
-    Update metabolism exchange constraints according to environment concs.
-    """
+class MetabolicKinetics(Step):
+    """Compute per-exchange FBA bounds from environment concentrations."""
 
-    name = "exchange_data"
+    name = "metabolic_kinetics"
     config_schema = {
         "external_state": {"_default": None},
         "environment_molecules": {"_default": []},
@@ -39,9 +47,6 @@ class ExchangeData(Step):
         }
 
     def next_update(self, timestep, states):
-        # Set exchange constraints for metabolism
-        # Convert pint Quantities to plain float magnitudes (in mM) to avoid
-        # cross-registry comparison errors when state is deserialized from dill
         env_concs = {}
         for mol in self.environment_molecules:
             val = states["boundary"]["external"][mol]
@@ -52,7 +57,6 @@ class ExchangeData(Step):
             else:
                 env_concs[mol] = float(val)
 
-        # Ensure threshold is a plain float for comparison
         threshold = self.external_state.import_constraint_threshold
         if hasattr(threshold, 'magnitude'):
             self.external_state.import_constraint_threshold = float(threshold.magnitude)
@@ -60,8 +64,8 @@ class ExchangeData(Step):
             self.external_state.import_constraint_threshold = float(threshold.asNumber())
         else:
             self.external_state.import_constraint_threshold = float(threshold)
-        exchange_data = self.external_state.exchange_data_from_concentrations(env_concs)
 
+        exchange_data = self.external_state.exchange_data_from_concentrations(env_concs)
         unconstrained = exchange_data["importUnconstrainedExchangeMolecules"]
         constrained = exchange_data["importConstrainedExchangeMolecules"]
         return {

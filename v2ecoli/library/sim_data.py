@@ -618,7 +618,7 @@ class LoadSimData:
             "ribosome_data_listener": self.get_ribosome_data_listener_config,
             "rnap_data_listener": self.get_rnap_data_listener_config,
             "unique_molecule_counts": self.get_unique_molecule_counts_config,
-            "exchange_data": self.get_exchange_data_config,
+            "metabolic_kinetics": self.get_metabolic_kinetics_config,
             "media_update": self.get_media_update_config,
             "bulk-timeline": self.get_bulk_timeline_config,
         }
@@ -2006,7 +2006,7 @@ class LoadSimData:
             "emit_unique": self.emit_unique,
         }
 
-    def get_exchange_data_config(self, time_step=1):
+    def get_metabolic_kinetics_config(self, time_step=1):
         return {
             "time_step": time_step,
             "external_state": self.sim_data.external_state,

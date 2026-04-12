@@ -318,5 +318,50 @@ def test_port_defaults_tf_unbinding():
     assert defaults['next_update_time'] == 1.0
 
 
+# ---------------------------------------------------------------------------
+# 10. Feature module infrastructure
+# ---------------------------------------------------------------------------
+
+def test_build_execution_layers_base():
+    """Base layers exclude optional feature steps."""
+    from v2ecoli.generate import build_execution_layers
+    layers = build_execution_layers([])
+    flat = [s for layer in layers for s in layer]
+    assert 'dna_supercoiling_listener' not in flat
+    assert 'dna-supercoiling-step' not in flat
+    assert 'ecoli-chromosome-structure' in flat
+
+
+def test_build_execution_layers_supercoiling():
+    """Supercoiling feature adds step after chromosome-structure and listener."""
+    from v2ecoli.generate import build_execution_layers
+    layers = build_execution_layers(['supercoiling'])
+    flat = [s for layer in layers for s in layer]
+    assert 'dna-supercoiling-step' in flat
+    assert 'dna_supercoiling_listener' in flat
+    cs_idx = flat.index('ecoli-chromosome-structure')
+    sc_idx = flat.index('dna-supercoiling-step')
+    assert sc_idx > cs_idx
+
+
+def test_build_execution_layers_ppgpp():
+    """ppGpp feature adds step before transcript-initiation."""
+    from v2ecoli.generate import build_execution_layers
+    layers = build_execution_layers(['ppgpp_regulation'])
+    flat = [s for layer in layers for s in layer]
+    assert 'ppgpp-initiation' in flat
+    ti_idx = flat.index('ecoli-transcript-initiation_requester')
+    pp_idx = flat.index('ppgpp-initiation')
+    assert pp_idx < ti_idx
+
+
+def test_build_execution_layers_unknown_feature():
+    """Unknown feature names are silently ignored."""
+    from v2ecoli.generate import build_execution_layers
+    layers = build_execution_layers(['nonexistent_feature'])
+    flat = [s for layer in layers for s in layer]
+    assert 'ecoli-chromosome-structure' in flat  # base still works
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

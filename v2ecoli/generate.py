@@ -38,7 +38,7 @@ from v2ecoli.steps.partition import Requester, Evolver, PartitionedProcess
 # Execution layers (partitioned architecture)
 # ---------------------------------------------------------------------------
 
-EXECUTION_LAYERS = [
+BASE_EXECUTION_LAYERS = [
     # Layer 0: post-division mass
     ['post-division-mass-listener', 'unique_update_1'],
 
@@ -87,7 +87,7 @@ EXECUTION_LAYERS = [
     ['unique_update_9'],
 
     # Layer 7: listeners (parallel)
-    ['RNA_counts_listener', 'dna_supercoiling_listener', 'ecoli-mass-listener',
+    ['RNA_counts_listener', 'ecoli-mass-listener',
      'monomer_counts_listener', 'replication_data_listener', 'ribosome_data_listener',
      'rna_synth_prob_listener', 'rnap_data_listener', 'unique_molecule_counts'],
     ['unique_update_10'],
@@ -102,6 +102,61 @@ EXECUTION_LAYERS = [
     ['division'],
 ]
 
+
+# ---------------------------------------------------------------------------
+# Feature modules — optional steps added to the execution layers
+# ---------------------------------------------------------------------------
+
+FEATURE_MODULES = {
+    'supercoiling': {
+        'insert_after': 'ecoli-chromosome-structure',
+        'steps': ['dna-supercoiling-step'],
+        'listeners': ['dna_supercoiling_listener'],
+    },
+    'ppgpp_regulation': {
+        'insert_before': 'ecoli-transcript-initiation_requester',
+        'steps': ['ppgpp-initiation'],
+    },
+}
+
+DEFAULT_FEATURES = []  # baseline uses no optional features
+
+
+def build_execution_layers(features=None):
+    """Build EXECUTION_LAYERS from base + enabled feature modules."""
+    import copy
+    layers = copy.deepcopy(BASE_EXECUTION_LAYERS)
+    for feat_name in (features or []):
+        feat = FEATURE_MODULES.get(feat_name)
+        if feat is None:
+            continue
+        # Insert steps after a reference step
+        if 'insert_after' in feat:
+            ref = feat['insert_after']
+            for i, layer in enumerate(layers):
+                if ref in layer:
+                    for step_name in feat.get('steps', []):
+                        layers.insert(i + 1, [step_name])
+                    break
+        # Insert steps before a reference step
+        if 'insert_before' in feat:
+            ref = feat['insert_before']
+            for i, layer in enumerate(layers):
+                if ref in layer:
+                    for step_name in reversed(feat.get('steps', [])):
+                        layers.insert(i, [step_name])
+                    break
+        # Add listeners to the listener layer
+        for listener in feat.get('listeners', []):
+            for layer in layers:
+                if 'ecoli-mass-listener' in layer:
+                    if listener not in layer:
+                        layer.append(listener)
+                    break
+    return layers
+
+
+EXECUTION_LAYERS = build_execution_layers(DEFAULT_FEATURES)
 FLOW_ORDER = [step for layer in EXECUTION_LAYERS for step in layer]
 
 
@@ -664,6 +719,33 @@ def _get_special_step(loader, step_name, core):
         }
         return instance, topo, 'step'
 
+    if step_name == 'ppgpp-initiation':
+        from v2ecoli.steps.ppgpp_initiation import PpgppInitiation
+        # Pull ppGpp-related config from transcript-initiation's config
+        try:
+            ti_config = loader.get_config_by_name('ecoli-transcript-initiation')
+        except (KeyError, AttributeError):
+            ti_config = {}
+        ppgpp_config = {
+            'ppgpp': ti_config.get('ppgpp', ''),
+            'synth_prob': ti_config.get('synth_prob'),
+            'copy_number': ti_config.get('copy_number', 1),
+            'n_avogadro': ti_config.get('n_avogadro', 0),
+            'cell_density': ti_config.get('cell_density', 0),
+            'get_rnap_active_fraction_from_ppGpp': ti_config.get(
+                'get_rnap_active_fraction_from_ppGpp'),
+            'trna_attenuation': ti_config.get('trna_attenuation', False),
+            'attenuated_rna_indices': ti_config.get('attenuated_rna_indices', []),
+            'attenuation_adjustments': ti_config.get('attenuation_adjustments', []),
+        }
+        instance = _make_instance(PpgppInitiation, ppgpp_config, core)
+        topo = {
+            'bulk': ('bulk',),
+            'listeners': ('listeners',),
+            'ppgpp_state': ('ppgpp_state',),
+        }
+        return instance, topo, 'step'
+
     if step_name == 'replication_data_listener':
         from v2ecoli.steps.listeners.replication_data import ReplicationData
         config = {'time_step': 1}
@@ -717,7 +799,8 @@ def _get_special_step(loader, step_name, core):
 # ---------------------------------------------------------------------------
 
 def build_document(initial_state, configs, unique_names,
-                   dry_mass_inc_dict=None, core=None, seed=0):
+                   dry_mass_inc_dict=None, core=None, seed=0,
+                   features=None):
     """Build a partitioned-architecture document from pre-loaded configs.
 
     Args:
@@ -727,6 +810,7 @@ def build_document(initial_state, configs, unique_names,
         dry_mass_inc_dict: Optional dict of expected dry mass increases.
         core: bigraph-schema core. If None, creates one.
         seed: Random seed.
+        features: List of feature module names to enable (default: DEFAULT_FEATURES).
 
     Returns:
         Document dict for Composite().
@@ -753,6 +837,12 @@ def build_document(initial_state, configs, unique_names,
     cell_state.setdefault('listeners', {})
     cell_state['listeners'].setdefault('mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
     cell_state.setdefault('allocator_rng', np.random.RandomState(seed=seed))
+
+    # Pre-create feature module stores
+    cell_state.setdefault('ppgpp_state', {
+        'basal_prob': [],
+        'frac_active_rnap': 0.0,
+    })
 
     # Initialize next_update_time for all partitioned processes
     # (requesters/evolvers check this to decide whether to run)
@@ -812,8 +902,14 @@ def build_document(initial_state, configs, unique_names,
 
     loader = _CachedLoader(configs, unique_names, dry_mass_inc_dict)
 
+    # Build execution layers for the requested feature set
+    if features is None:
+        features = DEFAULT_FEATURES
+    execution_layers = build_execution_layers(features)
+    flow_order = [step for layer in execution_layers for step in layer]
+
     _process_cache = {}
-    for step_name in FLOW_ORDER:
+    for step_name in flow_order:
         config = _get_step_config(
             loader, step_name, core, _process_cache)
         if config is not None:
@@ -836,7 +932,7 @@ def build_document(initial_state, configs, unique_names,
     _seed_mass_listener(cell_state, core)
 
     inject_flow_dependencies(
-        cell_state, FLOW_ORDER, layers=EXECUTION_LAYERS)
+        cell_state, flow_order, layers=execution_layers)
 
     state = {
         'agents': {'0': cell_state},
@@ -847,5 +943,5 @@ def build_document(initial_state, configs, unique_names,
         'state': state,
         'skip_initial_steps': True,
         'sequential_steps': False,
-        'flow_order': FLOW_ORDER,
+        'flow_order': flow_order,
     }

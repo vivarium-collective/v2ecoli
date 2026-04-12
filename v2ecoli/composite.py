@@ -29,13 +29,18 @@ def _build_core():
 
 def make_composite(document=None, cache_dir=None,
                    initial_state=None, configs=None, unique_names=None,
-                   dry_mass_inc_dict=None, seed=0, core=None):
+                   dry_mass_inc_dict=None, seed=0, core=None,
+                   features=None):
     """Create a Composite from a document, cache, or configs.
 
     Loading modes (in priority order):
     1. document: Pre-built document dict
     2. cache_dir: Directory with initial_state.json + sim_data_cache.dill
     3. initial_state + configs: Direct state and config dicts
+
+    Args:
+        features: List of feature module names to enable (e.g. ['supercoiling']).
+            Defaults to generate.DEFAULT_FEATURES if None.
 
     Returns:
         A Composite ready for .run(interval).
@@ -45,7 +50,8 @@ def make_composite(document=None, cache_dir=None,
 
     if document is None:
         if cache_dir and os.path.isdir(cache_dir):
-            document = _build_from_cache(cache_dir, core, seed)
+            document = _build_from_cache(cache_dir, core, seed,
+                                         features=features)
         elif initial_state is not None and configs is not None:
             from v2ecoli.generate import build_document
             document = build_document(
@@ -55,6 +61,7 @@ def make_composite(document=None, cache_dir=None,
                 dry_mass_inc_dict=dry_mass_inc_dict,
                 core=core,
                 seed=seed,
+                features=features,
             )
         else:
             raise ValueError(
@@ -65,7 +72,7 @@ def make_composite(document=None, cache_dir=None,
     return composite
 
 
-def _build_from_cache(cache_dir, core, seed=0):
+def _build_from_cache(cache_dir, core, seed=0, features=None):
     """Build a document from cached initial state and process configs."""
     from v2ecoli.generate import build_document
 
@@ -83,6 +90,7 @@ def _build_from_cache(cache_dir, core, seed=0):
         dry_mass_inc_dict=cache.get('dry_mass_inc_dict', {}),
         core=core,
         seed=seed,
+        features=features,
     )
 
 

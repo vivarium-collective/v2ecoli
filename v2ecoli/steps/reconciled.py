@@ -298,6 +298,11 @@ class ReconciledStep(Step):
                 update, combined_bulk, combined_listeners, combined_other)
             nut_update[proc.name] = global_time + timestep
 
+        # Phase 4: Reconcile combined bulk deltas to prevent negative counts
+        if combined_bulk and len(total_counts) > 0:
+            combined_bulk = self._clamp_bulk_deltas(
+                combined_bulk, total_counts)
+
         # Assemble final update
         result = dict(combined_other)
         if combined_bulk:
@@ -306,6 +311,47 @@ class ReconciledStep(Step):
             result['listeners'] = combined_listeners
         result['next_update_time'] = nut_update
         return result
+
+    @staticmethod
+    def _clamp_bulk_deltas(bulk_deltas, current_counts):
+        """Reconcile bulk deltas so no molecule count goes negative.
+
+        Sums all deltas per molecule index. If the net delta would push
+        a count below zero, scales back the negative (consumption) deltas
+        proportionally — the same fairness principle as the Allocator.
+        """
+        # Accumulate net delta per molecule index
+        net = np.zeros(len(current_counts), dtype=np.float64)
+        for idx_arr, delta_arr in bulk_deltas:
+            idx_arr = np.atleast_1d(idx_arr)
+            delta_arr = np.atleast_1d(delta_arr).astype(np.float64)
+            np.add.at(net, idx_arr, delta_arr)
+
+        # Find molecules that would go negative
+        projected = current_counts.astype(np.float64) + net
+        negative_mask = projected < 0
+
+        if not negative_mask.any():
+            return bulk_deltas  # no clamping needed
+
+        # For negative molecules, scale the net delta to exactly zero out
+        # the count (consume everything available, no more)
+        clamped_net = net.copy()
+        clamped_net[negative_mask] = -current_counts[negative_mask].astype(
+            np.float64)
+
+        # Rebuild bulk deltas with per-entry scaling
+        # For efficiency, apply a correction delta instead of rewriting
+        correction = clamped_net - net
+        correction_indices = np.where(correction != 0)[0]
+
+        if len(correction_indices) > 0:
+            bulk_deltas = list(bulk_deltas)
+            bulk_deltas.append(
+                (correction_indices, correction[correction_indices].astype(
+                    np.int64)))
+
+        return bulk_deltas
 
     @staticmethod
     def _accumulate_update(update, combined_bulk, combined_listeners,

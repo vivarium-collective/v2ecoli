@@ -60,6 +60,7 @@ TOPOLOGY = {
     "bulk": ("bulk",),
     "listeners": ("listeners",),
     "timestep": ("timestep",),
+    "ppgpp_state": ("ppgpp_state",),
 }
 
 
@@ -241,17 +242,12 @@ class TranscriptInitiation(PartitionedProcess):
 
         # Initialize matrices used to calculate synthesis probabilities
         self.basal_prob = self.parameters["basal_prob"].copy()
-        self.trna_attenuation = self.parameters["trna_attenuation"]
-        if self.trna_attenuation:
-            self.attenuated_rna_indices = self.parameters["attenuated_rna_indices"]
-            self.attenuation_adjustments = self.parameters["attenuation_adjustments"]
-            self.basal_prob[self.attenuated_rna_indices] += self.attenuation_adjustments
 
         self.n_TUs = len(self.basal_prob)
         self.delta_prob = self.parameters["delta_prob"]
         if self.parameters["get_delta_prob_matrix"] is not None:
             self.delta_prob_matrix = self.parameters["get_delta_prob_matrix"](
-                dense=True, ppgpp=self.parameters["ppgpp_regulation"]
+                dense=True, ppgpp=self.parameters.get("ppgpp_regulation", False)
             )
         else:
             # make delta_prob_matrix without adjustments
@@ -298,16 +294,10 @@ class TranscriptInitiation(PartitionedProcess):
 
         self.inactive_RNAP = self.parameters["inactive_RNAP"]
 
-        # ppGpp control related
+        # Constants for volume calculations
         self.n_avogadro = self.parameters["n_avogadro"]
         self.cell_density = self.parameters["cell_density"]
         self.ppgpp = self.parameters["ppgpp"]
-        self.synth_prob = self.parameters["synth_prob"]
-        self.copy_number = self.parameters["copy_number"]
-        self.ppgpp_regulation = self.parameters["ppgpp_regulation"]
-        self.get_rnap_active_fraction_from_ppGpp = self.parameters[
-            "get_rnap_active_fraction_from_ppGpp"
-        ]
 
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)
@@ -316,24 +306,26 @@ class TranscriptInitiation(PartitionedProcess):
         self.ppgpp_idx = None
 
     def inputs(self):
-        return (
-            {
-                'environment':                 {
-                    'media_id': {'_type': 'string', '_default': ''},
+        return {
+            'environment': {
+                'media_id': {'_type': 'string', '_default': ''},
+            },
+            'full_chromosomes': {'_type': FULL_CHROMOSOME_ARRAY, '_default': []},
+            'RNAs': {'_type': RNA_ARRAY, '_default': []},
+            'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
+            'promoters': {'_type': PROMOTER_ARRAY, '_default': []},
+            'bulk': {'_type': 'bulk_array', '_default': []},
+            'listeners': {
+                'mass': {
+                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
                 },
-                'full_chromosomes': {'_type': FULL_CHROMOSOME_ARRAY, '_default': []},
-                'RNAs': {'_type': RNA_ARRAY, '_default': []},
-                'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
-                'promoters': {'_type': PROMOTER_ARRAY, '_default': []},
-                'bulk': {'_type': 'bulk_array', '_default': []},
-                'listeners':                 {
-                    'mass':                     {
-                        'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
-                    },
-                },
-                'timestep': {'_type': 'integer', '_default': 1.0},
-            }
-        )
+            },
+            'timestep': {'_type': 'integer', '_default': 1.0},
+            'ppgpp_state': {
+                'basal_prob': {'_type': 'array[float]', '_default': []},
+                'frac_active_rnap': {'_type': 'float', '_default': 0.0},
+            },
+        }
 
     def outputs(self):
         return (
@@ -382,21 +374,17 @@ class TranscriptInitiation(PartitionedProcess):
             # Get attributes of promoters
             TU_index, bound_TF = attrs(states["promoters"], ["TU_index", "bound_TF"])
 
-            if self.ppgpp_regulation:
-                cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
-                cell_volume = cell_mass / self.cell_density
-                counts_to_molar = 1 / (self.n_avogadro * cell_volume)
-                ppgpp_conc = counts(states["bulk"], self.ppgpp_idx) * counts_to_molar
-                basal_prob, _ = self.synth_prob(ppgpp_conc, self.copy_number)
-                if self.trna_attenuation:
-                    basal_prob[self.attenuated_rna_indices] += (
-                        self.attenuation_adjustments
-                    )
-                self.fracActiveRnap = self.get_rnap_active_fraction_from_ppGpp(
-                    ppgpp_conc
-                )
+            # Check if ppGpp regulation module has written state
+            ppgpp = states.get("ppgpp_state", {})
+            ppgpp_basal = ppgpp.get("basal_prob")
+            has_ppgpp = (ppgpp_basal is not None
+                         and hasattr(ppgpp_basal, '__len__')
+                         and len(ppgpp_basal) > 0)
+
+            if has_ppgpp:
+                basal_prob = ppgpp_basal
+                self.fracActiveRnap = ppgpp["frac_active_rnap"]
                 ppgpp_scale = basal_prob[TU_index]
-                # Use original delta prob if no ppGpp basal
                 ppgpp_scale[ppgpp_scale == 0] = 1
             else:
                 basal_prob = self.basal_prob
@@ -419,7 +407,7 @@ class TranscriptInitiation(PartitionedProcess):
             self.promoter_init_probs[self.promoter_init_probs < 0] = 0.0
             self.promoter_init_probs /= self.promoter_init_probs.sum()
 
-            if not self.ppgpp_regulation:
+            if not has_ppgpp:
                 # Adjust synthesis probabilities depending on environment
                 synthProbFractions = self.rnaSynthProbFractions[current_media_id]
 

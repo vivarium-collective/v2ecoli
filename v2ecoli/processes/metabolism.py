@@ -58,6 +58,7 @@ NOTE:
 """
 
 from typing import Any, Optional
+import os
 import warnings
 
 import numpy as np
@@ -291,11 +292,14 @@ class Metabolism(Step):
         # Phase-2 dark-matter post-hoc enforcement. Looks at the LP's
         # proposed bulk update each step, compares with boundary
         # exchange mass, and scales down positive deltas when the LP
-        # would create mass the pool can't cover. Default on — the
-        # scaling only activates when imports can't account for growth,
-        # so in carbon-replete conditions it's inert.
+        # would create mass the pool can't cover. OFF by default — the
+        # cached config value is authoritative, but the runtime env var
+        # V2ECOLI_DARK_MATTER=1 can also flip it on without a cache
+        # rebuild (important because sim_data.get_metabolism_config only
+        # sees the env var at ParCa time).
         self._dark_matter_enforced = bool(
-            self.parameters.get("enforce_dark_matter_balance", True))
+            self.parameters.get("enforce_dark_matter_balance", False)
+            or os.environ.get("V2ECOLI_DARK_MATTER", "0") == "1")
         self._dark_matter_fg = float(
             self.parameters.get("dark_matter_initial_fg", 0.0))
         self._dark_matter_mw_table = dict(

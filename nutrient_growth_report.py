@@ -174,34 +174,43 @@ def _patch_env_volume(composite, env_volume_L):
     return found
 
 
-def run_single_cell(duration: int, snapshot_interval: int, env_volume_L: float):
-    """Run the baseline composite for `duration` seconds, snapshotting."""
+def run_single_cell(duration: int, snapshot_interval: int, env_volume_L: float,
+                    label: str = ""):
+    """Run the baseline composite for `duration` seconds, snapshotting.
+    ``label`` is prepended to per-step console prints so parallel runs
+    stay visually disambiguated."""
     from v2ecoli.composite import make_composite
     composite = make_composite(cache_dir=CACHE_DIR, seed=0)
     patched = _patch_env_volume(composite, env_volume_L)
     effective_env_vol = patched.env_volume_L if patched else None
 
+    tag = f"[{label}] " if label else ""
     snaps = [_extract_snapshot(composite.state, 0.0)]
     total = 0.0
     t0 = time.time()
+    crashed_at = None
     while total < duration:
         chunk = min(snapshot_interval, duration - total)
         try:
             composite.run(chunk)
         except Exception as e:
-            print(f"  sim error at t≈{total+chunk:.0f}s: "
-                  f"{type(e).__name__}: {e}")
+            print(f"  {tag}sim error at t≈{total+chunk:.0f}s: "
+                  f"{type(e).__name__}: {str(e)[:80]}")
+            crashed_at = total + chunk
             break
         total += chunk
         snaps.append(_extract_snapshot(composite.state, total))
-        print(f"  t={int(total)}s  dry={snaps[-1]['dry_mass']:.0f}fg  "
-              f"glc={snaps[-1]['glc_ext_mM']}")
     wall = time.time() - t0
+    print(f"  {tag}{int(total)}s sim in {wall:.0f}s wall, "
+          f"{len(snaps)} snapshots"
+          + (f", crashed at t={crashed_at:.0f}s" if crashed_at else ""))
     return {
         "snapshots": snaps,
         "wall_time": wall,
         "sim_time": total,
         "env_volume_L": effective_env_vol,
+        "crashed_at": crashed_at,
+        "label": label,
     }
 
 
@@ -238,38 +247,61 @@ def _fig_to_b64(fig) -> str:
     return base64.b64encode(buf.read()).decode("ascii")
 
 
-def plot_mass(snaps):
-    fig, ax = plt.subplots(figsize=(7, 3.5))
-    t = [s["time"] / 60 for s in snaps]
-    ax.plot(t, [s["dry_mass"] for s in snaps], color="#2563eb", label="dry mass")
-    ax.set_xlabel("Time (min)"); ax.set_ylabel("Mass (fg)")
-    ax.grid(alpha=0.3); ax.legend()
-    ax.set_title("Single-cell growth")
+# Baseline vs enforced run styles for overlay plots.
+_BASELINE_STYLE = {"color": "#64748b", "linestyle": "--", "label": "baseline (DM off)"}
+_ENFORCED_STYLE = {"color": "#7c3aed", "linestyle": "-",  "label": "enforced (DM on)"}
+
+
+def _compare_snaps(snaps_a, snaps_b):
+    """Yield (label, snaps, style) for each non-empty dataset."""
+    if snaps_a:
+        yield ("baseline", snaps_a, _BASELINE_STYLE)
+    if snaps_b:
+        yield ("enforced", snaps_b, _ENFORCED_STYLE)
+
+
+def plot_mass(snaps, snaps_enforced=None):
+    fig, ax = plt.subplots(figsize=(9, 3.8))
+    for _, ss, st in _compare_snaps(snaps, snaps_enforced):
+        t = [s["time"] / 60 for s in ss]
+        ax.plot(t, [s["dry_mass"] for s in ss], linewidth=2.0, **st)
+    t_shut = _glc_shutoff_min(snaps)
+    if t_shut is not None:
+        ax.axvline(t_shut, color="#dc2626", linestyle=":", alpha=0.6,
+                   linewidth=1.0, label=f"glc depleted (baseline, t={t_shut:.1f}min)")
+    ax.set_xlabel("Time (min)"); ax.set_ylabel("Dry mass (fg)")
+    ax.grid(alpha=0.3); ax.legend(loc="best", fontsize=9)
+    ax.set_title("Single-cell dry mass — baseline vs dark-matter-enforced")
     return _fig_to_b64(fig)
 
 
-def plot_growth_rate(snaps):
-    fig, ax = plt.subplots(figsize=(7, 3.5))
-    t = [s["time"] / 60 for s in snaps]
-    gr = [s["growth_rate"] for s in snaps]
-    ax.plot(t, gr, color="#16a34a")
-    ax.set_xlabel("Time (min)"); ax.set_ylabel("1/s")
+def plot_growth_rate(snaps, snaps_enforced=None):
+    fig, ax = plt.subplots(figsize=(9, 3.8))
+    for _, ss, st in _compare_snaps(snaps, snaps_enforced):
+        t = [s["time"] / 60 for s in ss]
+        ax.plot(t, [s["growth_rate"] for s in ss], linewidth=1.8, **st)
+    t_shut = _glc_shutoff_min(snaps)
+    if t_shut is not None:
+        ax.axvline(t_shut, color="#dc2626", linestyle=":", alpha=0.6, linewidth=1.0)
+    ax.set_xlabel("Time (min)"); ax.set_ylabel("Growth rate (1/s)")
     ax.set_title("Instantaneous growth rate")
-    ax.grid(alpha=0.3)
+    ax.grid(alpha=0.3); ax.legend(loc="best", fontsize=9)
     return _fig_to_b64(fig)
 
 
-def plot_glucose_trajectory(snaps):
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 3.5))
-    t = [s["time"] / 60 for s in snaps]
-    ax1.plot(t, [s["glc_ext_mM"] for s in snaps], color="#ea580c")
+def plot_glucose_trajectory(snaps, snaps_enforced=None):
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 3.8))
+    for _, ss, st in _compare_snaps(snaps, snaps_enforced):
+        t = [s["time"] / 60 for s in ss]
+        ax1.plot(t, [s["glc_ext_mM"] for s in ss], linewidth=1.8, **st)
+        ax2.plot(t, [s["glc_bound_mmol_gdcw_h"] for s in ss], linewidth=1.8, **st)
     ax1.set_xlabel("Time (min)"); ax1.set_ylabel("[GLC]ₑₓₜ (mM)")
     ax1.set_title("External glucose"); ax1.grid(alpha=0.3)
-    ax2.plot(t, [s["glc_bound_mmol_gdcw_h"] for s in snaps], color="#9333ea")
+    ax1.legend(loc="best", fontsize=9)
     ax2.set_xlabel("Time (min)")
     ax2.set_ylabel("MM uptake bound (mmol/gDCW/h)")
     ax2.set_title("Kinetic glucose uptake bound")
-    ax2.grid(alpha=0.3)
+    ax2.grid(alpha=0.3); ax2.legend(loc="best", fontsize=9)
     return _fig_to_b64(fig)
 
 
@@ -487,50 +519,40 @@ def plot_externals(snaps, top_n: int = 6):
     return _fig_to_b64(fig)
 
 
-def plot_mass_composition(snaps):
-    """Stacked dry-mass components over time. Answers "what's actually
-    growing?" when the cell is supposedly starved."""
+def plot_mass_composition(snaps, snaps_enforced=None):
+    """Side-by-side stacked mass composition (baseline vs enforced).
+    Answers "what's still growing?" when the cell is starved — with DM on,
+    nothing should grow after scale=0."""
     if not snaps:
         return None
     import numpy as np
-    t = np.array([s["time"] / 60 for s in snaps])
     comps = [
-        ("protein_mass",  "Protein",       "#2563eb"),
-        ("rna_mass",      "RNA",           "#9333ea"),
-        ("dna_mass",      "DNA",           "#dc2626"),
+        ("protein_mass",  "Protein",        "#2563eb"),
+        ("rna_mass",      "RNA",            "#9333ea"),
+        ("dna_mass",      "DNA",            "#dc2626"),
         ("smallmol_mass", "Small molecule", "#f97316"),
     ]
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.2))
-
-    # Left: stacked areas (dry mass only).
-    ys = [np.array([s.get(k, 0) for s in snaps]) for k, _, _ in comps]
-    ax1.stackplot(t, *ys, labels=[c[1] for c in comps],
-                  colors=[c[2] for c in comps], alpha=0.85)
-    ax1.set_xlabel("Time (min)"); ax1.set_ylabel("Dry mass (fg)")
-    ax1.set_title("Dry-mass composition")
-    ax1.grid(alpha=0.3); ax1.legend(fontsize=9, loc="upper left")
-
-    # Right: delta from t=0 per component — shows what's *adding*.
-    for key, label, color in comps:
-        y = np.array([s.get(key, 0) for s in snaps])
-        if len(y) == 0:
-            continue
-        ax2.plot(t, y - y[0], label=label, color=color, linewidth=1.8)
-    # Also show water (separate y-scale hint via light color)
-    y_w = np.array([s.get("water_mass", 0) for s in snaps])
-    if len(y_w):
-        ax2.plot(t, y_w - y_w[0], label="Water (not in dry)",
-                 color="#64748b", linestyle=":", linewidth=1.4)
-    ax2.axhline(0, color="#475569", linestyle="-", alpha=0.3, linewidth=0.8)
     t_shut = _glc_shutoff_min(snaps)
-    if t_shut is not None:
-        for ax in (ax1, ax2):
+    datasets = [s for s in [("baseline (DM off)", snaps),
+                             ("enforced (DM on)", snaps_enforced)] if s[1]]
+
+    fig, axes = plt.subplots(1, len(datasets), figsize=(6.3 * len(datasets), 4.2),
+                              sharey=True)
+    if len(datasets) == 1: axes = [axes]
+    for ax, (title, ss) in zip(axes, datasets):
+        t = np.array([s["time"] / 60 for s in ss])
+        ys = [np.array([s.get(k, 0) for s in ss]) for k, _, _ in comps]
+        ax.stackplot(t, *ys, labels=[c[1] for c in comps],
+                     colors=[c[2] for c in comps], alpha=0.85)
+        if t_shut is not None:
             ax.axvline(t_shut, color="#dc2626", linestyle="--",
                        alpha=0.6, linewidth=1.0)
-    ax2.set_xlabel("Time (min)")
-    ax2.set_ylabel("Δmass since t=0 (fg)")
-    ax2.set_title("What's actually growing?")
-    ax2.grid(alpha=0.3); ax2.legend(fontsize=9, loc="best")
+        ax.set_xlabel("Time (min)")
+        ax.set_title(title)
+        ax.grid(alpha=0.3); ax.legend(fontsize=8, loc="upper left")
+    axes[0].set_ylabel("Dry mass (fg)")
+    fig.suptitle("Dry-mass composition — baseline vs dark-matter-enforced",
+                 fontsize=11, y=1.02)
     return _fig_to_b64(fig)
 
 
@@ -854,8 +876,27 @@ def plot_mm_curve(vmax: float, km: float):
 # Report assembly
 # ---------------------------------------------------------------------------
 
+def _side_by_side_plot(datasets, single_plot_fn, title_suffix=""):
+    """Render `single_plot_fn(snaps)` for each (label, snaps) in datasets
+    into a row of PNG base64s, joined via an HTML snippet."""
+    out = []
+    for label, snaps in datasets:
+        if not snaps:
+            continue
+        b = single_plot_fn(snaps)
+        if b:
+            out.append(
+                f'<div style="display:inline-block;width:49%;vertical-align:top">'
+                f'<h4 style="margin:0 0 4px 8px;color:#475569;font-size:0.9em">'
+                f'{label}{title_suffix}</h4>'
+                f'<img src="data:image/png;base64,{b}" '
+                f'style="max-width:100%;border:1px solid #e2e8f0;'
+                f'border-radius:4px"></div>')
+    return "".join(out)
+
+
 def generate_report(data, caglar, duration: int, vmax: float, km: float,
-                    dark_matter: bool = False):
+                    dark_matter: bool = False, data_enforced=None):
     from v2ecoli.library.repro_banner import banner_html
     repro = banner_html()
 
@@ -868,21 +909,30 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float,
         for k, v in sorted(caglar.items())
     )
 
+    snaps_e = data_enforced["snapshots"] if data_enforced else []
+    ds_pair = [
+        ("baseline (DM off)", snaps),
+        ("enforced (DM on)",  snaps_e),
+    ]
+
     plots = {
-        "mass": plot_mass(snaps) if snaps else None,
-        "growth_rate": plot_growth_rate(snaps) if snaps else None,
-        "glucose": plot_glucose_trajectory(snaps) if snaps else None,
+        "mass": plot_mass(snaps, snaps_e) if snaps else None,
+        "growth_rate": plot_growth_rate(snaps, snaps_e) if snaps else None,
+        "glucose": plot_glucose_trajectory(snaps, snaps_e) if snaps else None,
         "mm": plot_mm_curve(vmax, km),
-        "exchanges": plot_exchange_fluxes(snaps),
+        "exchanges": _side_by_side_plot(ds_pair, plot_exchange_fluxes),
         "exchange_diff": plot_exchange_diff(snaps),
         "externals": plot_externals(snaps),
-        "carbon_budget": plot_carbon_budget(snaps),
-        "externals_all": plot_external_concentrations(snaps),
-        "mass_composition": plot_mass_composition(snaps),
-        "mass_balance": plot_mass_balance(snaps),
-        "fba_mass_probe": plot_fba_mass_accounting(snaps),
-        "dark_matter": plot_dark_matter(snaps),
-        "dm_enforcement": plot_dark_matter_enforcement(snaps),
+        "carbon_budget": _side_by_side_plot(ds_pair, plot_carbon_budget),
+        "externals_all": _side_by_side_plot(
+            ds_pair, plot_external_concentrations),
+        "mass_composition": plot_mass_composition(snaps, snaps_e),
+        "mass_balance": _side_by_side_plot(ds_pair, plot_mass_balance),
+        "fba_mass_probe": _side_by_side_plot(
+            ds_pair, plot_fba_mass_accounting),
+        "dark_matter": _side_by_side_plot(ds_pair, plot_dark_matter),
+        "dm_enforcement": plot_dark_matter_enforcement(snaps_e) if snaps_e
+                           else None,
     }
 
     # Pre/post-shutoff flux table — concrete answer to "what takes over
@@ -921,6 +971,10 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float,
         b = plots.get(key)
         if not b:
             return ""
+        # Side-by-side plots already return full HTML; single-image
+        # plots return base64 strings that need wrapping.
+        if "<img" in b or "<div" in b:
+            return f'<div class="plot">{b}</div>'
         return (f'<div class="plot"><img src="data:image/png;base64,{b}" '
                 f'alt="{alt}"></div>')
 
@@ -989,12 +1043,10 @@ footer {{ margin-top: 3em; padding-top: 1em; border-top: 1px solid #e2e8f0;
 
 <h1 id="summary">Nutrient-Growth Report</h1>
 
-<div style="padding: 10px 14px; margin: 1em 0; background: {'#fef3c7' if dark_matter else '#e0f2fe'};
-            border-left: 4px solid {'#f59e0b' if dark_matter else '#0284c7'}; font-size: 0.95em;">
-<strong>Model variant:</strong>
-{'<code>baseline + dark-matter enforcement</code> — mass conservation is a hard constraint. LP-proposed biomass is scaled down when imports run out, so the cell enters a true stationary phase.' if dark_matter else
-'<code>baseline</code> — matches vEcoli 1.0 bit-for-bit (dark-matter enforcement OFF). Use this for architecture-comparison runs.'}
-Rerun with <code>python nutrient_growth_report.py {'(default)' if dark_matter else '--dark-matter'}</code> to switch.
+<div style="padding: 10px 14px; margin: 1em 0; background: #e0f2fe;
+            border-left: 4px solid #0284c7; font-size: 0.95em;">
+<strong>Report mode:</strong>
+{'<em>comparison</em> — two runs at identical settings, overlaid. Baseline (dashed grey) has nutrient-growth features on but dark-matter mass-balance OFF; enforced (solid purple) has dark-matter ON. Side-by-side panels where overlay would be too busy.' if dark_matter else '<em>single-mode</em> — baseline run only. Pass without <code>--single-mode</code> for the comparison view.'}
 </div>
 
 <h2 id="goals">Goals</h2>
@@ -1322,33 +1374,49 @@ def main():
                              f"(default {DEFAULT_ENV_VOLUME_L:g} = "
                              f"{DEFAULT_ENV_VOLUME_L*1e15:.0f} fL). "
                              f"Smaller → faster glucose depletion.")
-    parser.add_argument("--dark-matter", action="store_true",
-                        dest="dark_matter",
-                        help="enable dark-matter mass-balance enforcement "
-                             "(sets V2ECOLI_DARK_MATTER=1). OFF by default "
-                             "so baseline matches vEcoli 1.0.")
+    parser.add_argument("--single-mode", action="store_true",
+                        help="Run only the dark-matter-OFF baseline. "
+                             "Default is to run both baseline + enforced "
+                             "and render a side-by-side comparison report.")
     args = parser.parse_args()
-    # Export the toggle so sim_data.get_metabolism_config picks it up.
-    os.environ["V2ECOLI_DARK_MATTER"] = "1" if args.dark_matter else "0"
 
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     os.makedirs(REPORT_DIR, exist_ok=True)
 
     print("=" * 60)
-    print(f"Nutrient-Growth Report ({args.duration}s)")
+    print(f"Nutrient-Growth Report ({args.duration}s, "
+          f"{'single-mode' if args.single_mode else 'comparison mode'})")
     print(f"  MM glucose: v_max = {args.vmax} mmol/gDCW/h, K_m = {args.km} mM")
     print(f"  env volume: {args.env_volume_L:g} L "
           f"({args.env_volume_L*1e15:.1f} fL)")
-    print(f"  dark-matter enforcement: "
-          f"{'ON' if args.dark_matter else 'OFF (baseline matches vEcoli 1.0)'}")
     print("=" * 60)
 
     t0 = time.time()
-    data = run_single_cell(args.duration, args.snapshot, args.env_volume_L)
     caglar = load_caglar_doubling_times()
-    report_path = generate_report(data, caglar, args.duration,
-                                  args.vmax, args.km,
-                                  dark_matter=args.dark_matter)
+
+    # Always enable the nutrient-growth feature set for the report — the
+    # whole point is to show the MM + depletion + allowlist pipeline in
+    # action. Dark matter is what distinguishes the two runs.
+    os.environ["V2ECOLI_NUTRIENT_GROWTH"] = "1"
+    os.environ["V2ECOLI_DARK_MATTER"] = "0"
+    print("\n[1/2] Baseline run — dark matter OFF")
+    data_baseline = run_single_cell(
+        args.duration, args.snapshot, args.env_volume_L, label="baseline")
+
+    data_enforced = None
+    if not args.single_mode:
+        os.environ["V2ECOLI_DARK_MATTER"] = "1"
+        print("\n[2/2] Enforced run — dark matter ON (mass conservation)")
+        data_enforced = run_single_cell(
+            args.duration, args.snapshot, args.env_volume_L, label="enforced")
+        os.environ["V2ECOLI_DARK_MATTER"] = "0"
+
+    print("\nGenerating report HTML...")
+    report_path = generate_report(
+        data_baseline, caglar, args.duration,
+        args.vmax, args.km,
+        dark_matter=(data_enforced is not None),
+        data_enforced=data_enforced)
 
     print(f"\nReport: {report_path}")
     print(f"Wall: {time.time() - t0:.0f}s")

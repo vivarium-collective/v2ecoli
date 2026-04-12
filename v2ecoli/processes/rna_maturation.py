@@ -1,9 +1,36 @@
 """
-RnaMaturation process
-=====================
-- Converts unprocessed tRNA/rRNA molecules into mature tRNA/rRNAs
-- Consolidates the different variants of 23S, 16S, and 5S rRNAs into the single
-  variant that is used for ribosomal subunits
+===============
+RNA Maturation
+===============
+
+Converts unprocessed tRNA/rRNA molecules into mature tRNA/rRNAs, and
+consolidates the different variants of 23S, 16S, and 5S rRNAs into the
+single variant used for ribosomal subunit assembly.
+
+Mathematical Model
+------------------
+Maturation is encoded as a stoichiometric transformation. Given a sparse
+stoichiometry matrix S (mature_RNAs x unprocessed_RNAs, CSR format):
+
+    n_mature = S @ n_unprocessed
+
+Each maturation reaction also releases pyrophosphate (PPi) from the 5' end
+and may produce nucleotide fragments:
+
+    n_ppi_released = ppi_per_reaction . n_unprocessed
+    n_degraded_nts = degraded_nt_counts^T @ n_unprocessed
+
+Reactions only proceed if the required maturation enzymes are present,
+checked via an enzyme requirement matrix E (reactions x enzymes):
+
+    reaction_is_off = (E @ enzyme_present) < n_required_enzymes
+
+rRNA variant consolidation maps multiple genomic rRNA variants (e.g. 7
+copies of 23S with slightly different sequences) onto a single canonical
+species used downstream. The nucleotide difference between variant and
+canonical sequence is balanced by adding/removing NMPs and water:
+
+    delta_nts_variant = delta_nt_counts^T @ n_variant_copies
 """
 
 import numpy as np
@@ -24,23 +51,23 @@ class RnaMaturation(PartitionedProcess):
     topology = TOPOLOGY
 
     config_schema = {
-        'degraded_nt_counts': 'array[float]',
-        'delta_nt_counts_16s': 'array[float]',
-        'delta_nt_counts_23s': 'array[float]',
-        'delta_nt_counts_5s': 'array[float]',
-        'enzyme_matrix': 'array[integer]',
+        'degraded_nt_counts': 'array[float[nt]]',  # nucleotides released per unprocessed RNA
+        'delta_nt_counts_16s': 'array[float[nt]]',  # NMP difference: variant vs canonical 16S
+        'delta_nt_counts_23s': 'array[float[nt]]',  # NMP difference: variant vs canonical 23S
+        'delta_nt_counts_5s': 'array[float[nt]]',   # NMP difference: variant vs canonical 5S
+        'enzyme_matrix': 'array[integer]',           # (reactions x enzymes) enzyme requirement matrix E
         'fragment_bases': 'list[string]',
         'main_16s_rRNA_id': 'string',
         'main_23s_rRNA_id': 'string',
         'main_5s_rRNA_id': 'string',
         'mature_rna_ids': 'list[string]',
-        'n_ppi_added': 'array[integer]',
-        'n_required_enzymes': 'array[integer]',
+        'n_ppi_added': 'array[integer]',             # PPi released per maturation reaction
+        'n_required_enzymes': 'array[integer]',      # minimum enzymes needed per reaction
         'nmps': 'list[string]',
         'ppi': 'string',
         'proton': 'string',
         'rna_maturation_enzyme_ids': 'list[string]',
-        'stoich_matrix': 'csr_matrix',
+        'stoich_matrix': 'csr_matrix',               # (mature_RNAs x unprocessed_RNAs) stoichiometry S
         'unprocessed_rna_ids': 'list[string]',
         'variant_16s_rRNA_ids': 'list[string]',
         'variant_23s_rRNA_ids': 'list[string]',

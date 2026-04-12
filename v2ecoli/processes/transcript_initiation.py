@@ -3,12 +3,40 @@
 Transcript Initiation
 =====================
 
-This process models the binding of RNA polymerase to each gene.
-The number of RNA polymerases to activate in each time step is determined
-such that the average fraction of RNA polymerases that are active throughout
-the simulation matches measured fractions, which are dependent on the
-cellular growth rate. This is done by assuming a steady state concentration
-of active RNA polymerases.
+This process models the binding of RNA polymerase (RNAP) to each gene.
+
+Mathematical Model
+------------------
+The number of RNAPs to activate per timestep is determined so that the
+average active RNAP fraction matches measured values (media-dependent).
+
+1. **Active RNAP target**: Given the media-dependent fraction f_active:
+
+       n_to_activate = round(f_active * n_total_RNAP) - n_currently_active
+
+2. **Synthesis probability**: Each transcription unit (TU) i has a
+   probability of initiation p_i that combines a basal probability
+   with TF-mediated modulation via a sparse delta_prob matrix:
+
+       p_i = max(0, basal_prob_i + sum_j(delta_prob[i,j] * bound_TF_j))
+
+   The delta_prob matrix is stored in COO format as (deltaV, deltaI,
+   deltaJ, shape) and reconstructed into a CSR sparse matrix.
+
+3. **Probabilistic initiation**: The n_to_activate RNAPs are distributed
+   across TUs via multinomial sampling weighted by normalized p_i,
+   subject to physical constraints:
+
+   - **Footprint constraint**: An RNAP occupies ~24 nt at the promoter.
+     Overcrowded TUs (where new initiation would overlap existing RNAPs)
+     have their probability set to zero.
+
+   - **Promoter availability**: Only TUs with at least one promoter on
+     an existing chromosome can initiate.
+
+4. **ppGpp regulation** (optional): When enabled, ppGpp concentration
+   modulates both basal_prob and f_active via fitted functions,
+   providing growth-rate-dependent transcriptional regulation.
 
 TODO:
   - use transcription units instead of single genes

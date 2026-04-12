@@ -3,14 +3,58 @@
 Metabolism
 ==========
 
-Encodes molecular simulation of microbial metabolism using flux-balance analysis.
+Encodes molecular simulation of microbial metabolism using flux-balance
+analysis (FBA).
 
-This process demonstrates how metabolites are taken up from the environment
-and converted into other metabolites for use in other processes.
+Mathematical Model
+------------------
+**Flux Balance Analysis**
+
+The core optimization problem solved each timestep:
+
+    max  c^T v
+    s.t. S v = 0        (steady-state mass balance)
+         v_lb <= v <= v_ub   (flux bounds)
+
+where:
+    - S: stoichiometric matrix (metabolites x reactions)
+    - v: reaction flux vector (mmol/g_DCW/h)
+    - c: objective coefficients (biomass production)
+    - v_lb, v_ub: lower/upper flux bounds from:
+      * environment exchange constraints (nutrient availability)
+      * enzyme capacity constraints (kinetic limits)
+      * maintenance energy requirements (NGAM)
+
+**Unit conversion chain**
+
+Fluxes from FBA (mmol/g_DCW/h) are converted to molecule count changes:
+
+    delta_counts = stochasticRound(
+        flux * dry_mass * dt / (molecular_weight * conversion_factor)
+    )
+
+The conversion constants defined at module level:
+    - COUNTS_UNITS = mmol
+    - VOLUME_UNITS = L
+    - MASS_UNITS = g
+    - TIME_UNITS = s
+    - CONC_UNITS = mmol/L  (concentration)
+    - GDCW_BASIS = mmol/g/h  (FBA flux basis)
+
+**ppGpp regulation** (optional)
+
+When include_ppgpp=True, ppGpp concentration reduces the growth rate
+objective, coupling transcriptional regulation to metabolic capacity.
+
+**Kinetic constraints** (optional)
+
+When USE_KINETICS=True, amino acid supply rates from polypeptide
+elongation are used as additional flux constraints, coupling
+translation demand to metabolic output.
 
 NOTE:
-- In wcEcoli, metabolism only runs after all other processes have completed
-and internal states have been updated (deriver-like, no partitioning necessary)
+- Metabolism runs after all other processes have completed and internal
+  states have been updated (deriver-like, no partitioning necessary)
 """
 
 from typing import Any, Optional
@@ -45,15 +89,18 @@ TOPOLOGY = {
     "next_update_time": ("next_update_time", "metabolism"),
 }
 
-COUNTS_UNITS = units.mmol
-VOLUME_UNITS = units.L
-MASS_UNITS = units.g
-TIME_UNITS = units.s
-CONC_UNITS = COUNTS_UNITS / VOLUME_UNITS
-CONVERSION_UNITS = MASS_UNITS * TIME_UNITS / VOLUME_UNITS
-GDCW_BASIS = units.mmol / units.g / units.h
+# Unit conversion constants for FBA flux -> molecule count conversion:
+#   flux (mmol/gDCW/h) * dry_mass (g) * dt (s) / (3600 s/h) -> mmol
+#   mmol * N_A -> molecule count
+COUNTS_UNITS = units.mmol          # internal amount basis
+VOLUME_UNITS = units.L             # volume basis
+MASS_UNITS = units.g               # mass basis (for dry cell weight)
+TIME_UNITS = units.s               # simulation time basis
+CONC_UNITS = COUNTS_UNITS / VOLUME_UNITS   # mmol/L = mM
+CONVERSION_UNITS = MASS_UNITS * TIME_UNITS / VOLUME_UNITS  # g*s/L
+GDCW_BASIS = units.mmol / units.g / units.h  # FBA flux units
 
-USE_KINETICS = True
+USE_KINETICS = True  # enable enzyme kinetic constraints on FBA
 
 
 class Metabolism(Step):
@@ -121,13 +168,13 @@ class Metabolism(Step):
             },
             'boundary': 'node',
             'polypeptide_elongation': {
-                'gtp_to_hydrolyze': {'_type': 'float', '_default': 0.0},
-                'aa_count_diff': {'_type': 'array[float]', '_default': []},
-                'aa_exchange_rates': {'_type': 'array[float]', '_default': []},
+                'gtp_to_hydrolyze': {'_type': 'float', '_default': 0.0},  # count, dimensionless
+                'aa_count_diff': {'_type': 'array[float]', '_default': []},  # count change per AA species
+                'aa_exchange_rates': {'_type': 'array[float[mmol/g/h]]', '_default': []},
             },
-            'global_time': {'_type': 'float', '_default': 0.0},
-            'timestep': {'_type': 'integer', '_default': 1.0},
-            'next_update_time': {'_type': 'float', '_default': 1.0},
+            'global_time': {'_type': 'float[s]', '_default': 0.0},
+            'timestep': {'_type': 'integer[s]', '_default': 1},
+            'next_update_time': {'_type': 'float[s]', '_default': 1.0},
         }
 
     def outputs(self):

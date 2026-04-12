@@ -3,33 +3,50 @@
 RNA Degradation
 ===============
 
-Mathematical formulations
+Mathematical Model
+------------------
+RNA degradation is modeled as two sequential enzymatic steps:
 
-* ``dr/dt = Kb - kcatEndoRNase * EndoRNase * r/Km / (1 + Sum(r/Km))``
+**Step 1 -- Endonucleolytic cleavage (endoRNases)**
 
-where
+The steady-state degradation rate for each RNA species i is given by
+competitive Michaelis-Menten kinetics across all RNA substrates:
 
-* r = RNA counts
-* Kb = RNA production given a RNAP synthesis rate
-* kcatEndoRNase = enzymatic activity for EndoRNases
-* Km = Michaelis-Menten constants fitted to recapitulate first-order
-* RNA decay: ``kd * r = kcatEndoRNase * EndoRNase * r/Km / (1 + sum(r/Km))``
+    v_i = kcat_endo * [EndoRNase] * ([r_i]/Km_i) / (1 + sum_j([r_j]/Km_j))
 
-This sub-model encodes molecular simulation of RNA degradation as two main
-steps guided by RNases, "endonucleolytic cleavage" and "exonucleolytic
-digestion":
+where:
+    - kcat_endo (1/s): catalytic rate constant of endoRNases
+    - [r_i] (mol/L): concentration of RNA species i
+    - Km_i (mol/L): Michaelis-Menten constant for species i, fitted so that
+      the steady-state rate recapitulates first-order decay:
+      kd_i * r_i = kcat_endo * [EndoRNase] * [r_i]/Km_i / (1 + sum([r_j]/Km_j))
 
-1. Compute total counts of RNA to be degraded (D) and total capacity for
-   endo-cleavage (C) at each time point
-2. Evaluate C and D. If C > D, then define a fraction of active endoRNases
-3. Dissect RNA degraded into different species (mRNA, tRNA, and rRNA) by
-   accounting endoRNases specificity
-4. Update RNA fragments (assumption: fragments are represented as a pool of
-   nucleotides) created because of endonucleolytic cleavage
-5. Compute total capacity of exoRNases and determine fraction of nucleotides
-   that can be digested
-6. Update pool of metabolites (H and H2O) created because of exonucleolytic
-   digestion
+The fraction of endoRNase capacity allocated to each RNA:
+
+    f_i = ([r_i]/Km_i) / (1 + sum_j([r_j]/Km_j))
+
+Total RNAs to degrade per class (mRNA, tRNA, rRNA) are computed from the
+class-specific sum of f_i, then distributed to individual RNAs via
+multinomial sampling weighted by f_i within each class.
+
+Cleaved RNAs produce polymerized nucleotide fragments (fragment bases)
+plus pyrophosphate (PPi), modeled via a stoichiometric matrix:
+
+    delta_fragments = S_endo @ n_degraded
+
+**Step 2 -- Exonucleolytic digestion (exoRNases)**
+
+Fragment bases from step 1 are hydrolyzed into free NMPs:
+
+    FragmentBase + H2O  -->  NMP + H+
+
+The exoRNase capacity per timestep:
+
+    C_exo = sum(n_exoRNases) * kcat_exo * dt
+
+If C_exo >= total fragments, all are digested. Otherwise, fragments are
+partially digested via multinomial sampling proportional to fragment
+base composition.
 """
 
 import numpy as np
@@ -85,7 +102,7 @@ class RnaDegradation(PartitionedProcess):
         'kcat_exoRNase': {'_type': 'unum[1/s]', '_default': np.array([], dtype=float)},
         'mature_rna_cistron_indexes': {'_type': 'array[integer]', '_default': []},
         'mature_rna_ids': {'_type': 'list[string]', '_default': []},
-        'n_avogadro': {'_type': 'float', '_default': 0.0},
+        'n_avogadro': {'_type': 'float[1/mol]', '_default': 0.0},
         'n_total_RNAs': {'_type': 'integer', '_default': 0},
         'nmp_ids': {'_type': 'list[string]', '_default': []},
         'nt_counts': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
@@ -96,7 +113,7 @@ class RnaDegradation(PartitionedProcess):
         'ribosome50S': {'_type': 'string', '_default': 'ribosome50S'},
         'rna_deg_rates': {'_type': 'unum[1/s]', '_default': []},
         'rna_ids': {'_type': 'list[string]', '_default': []},
-        'rna_lengths': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
+        'rna_lengths': {'_type': 'array[integer[nt]]', '_default': np.array([], dtype=float)},
         'rrfa_idx': {'_type': 'integer', '_default': 0},
         'rrla_idx': {'_type': 'integer', '_default': 0},
         'rrsa_idx': {'_type': 'integer', '_default': 0},
@@ -218,7 +235,7 @@ class RnaDegradation(PartitionedProcess):
                         'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
                     },
                 },
-                'timestep': {'_type': 'integer', '_default': 1},
+                'timestep': {'_type': 'integer[s]', '_default': 1},
             }
         )
 
@@ -230,12 +247,12 @@ class RnaDegradation(PartitionedProcess):
                 'listeners':                 {
                     'rna_degradation_listener':                     {
                         'count_rna_degraded': {'_type': 'overwrite[array[integer]]', '_default': []},
-                        'nucleotides_from_degradation': {'_type': 'overwrite[integer]', '_default': 0},
+                        'nucleotides_from_degradation': {'_type': 'overwrite[integer[nt]]', '_default': 0},
                         'count_RNA_degraded_per_cistron': {'_type': 'overwrite[array[integer]]', '_default': []},
-                        'fraction_active_endoRNases': {'_type': 'overwrite[float]', '_default': 0.0},
+                        'fraction_active_endoRNases': {'_type': 'overwrite[float]', '_default': 0.0},  # sum(f_i), dimensionless
                         'diff_relative_first_order_decay': {'_type': 'overwrite[float]', '_default': 0.0},
                         'fract_endo_rrna_counts': {'_type': 'overwrite[array[float]]', '_default': []},
-                        'fragment_bases_digested': {'_type': 'overwrite[integer]', '_default': 0},
+                        'fragment_bases_digested': {'_type': 'overwrite[integer[nt]]', '_default': 0},
                     },
                 },
             }
@@ -258,9 +275,9 @@ class RnaDegradation(PartitionedProcess):
             self.water_idx = bulk_name_to_idx(self.water_id, bulk_ids)
             self.proton_idx = bulk_name_to_idx(self.proton_id, bulk_ids)
 
-        # Compute factor that convert counts into concentration, and vice versa
+        # counts_to_molar = 1 / (N_A * V)  [1/mol * 1/L = mol/L per count]
         cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
-        cell_volume = cell_mass / self.cell_density
+        cell_volume = cell_mass / self.cell_density  # [g / (g/L) = L]
         counts_to_molar = 1 / (self.n_avogadro * cell_volume)
 
         # Get total counts of RNAs including free rRNAs, uncharged and charged tRNAs, and
@@ -287,8 +304,8 @@ class RnaDegradation(PartitionedProcess):
         endoRNase_counts = counts(states["bulk"], self.endoRNase_idx)
         total_kcat_endoRNase = units.dot(self.Kcat_endoRNases, endoRNase_counts)
 
-        # Calculate the fraction of active endoRNases for each RNA based on
-        # Michaelis-Menten kinetics
+        # Michaelis-Menten saturation fraction per RNA:
+        # f_i = ([r_i]/Km_i) / (1 + sum_j([r_j]/Km_j))
         frac_endoRNase_saturated = (
             rna_conc_molar / self.Kms / (1 + units.sum(rna_conc_molar / self.Kms))
         ).asNumber()

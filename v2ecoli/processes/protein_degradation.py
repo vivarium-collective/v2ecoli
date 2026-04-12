@@ -6,6 +6,27 @@ Protein Degradation
 This process accounts for the degradation of protein monomers.
 Specific proteins to be degraded are selected as a Poisson process.
 
+Mathematical Model
+------------------
+First-order stochastic degradation. For each protein species i with
+count n_i and first-order degradation rate constant k_i (1/s):
+
+    n_degraded_i ~ Poisson(k_i * dt * n_i)
+
+Each degraded protein of length L_i releases its constituent amino acids
+and consumes (L_i - 1) water molecules via hydrolysis:
+
+    Protein_i + (L_i - 1) H2O  -->  sum_j(a_ij * AA_j)
+
+where a_ij is the count of amino acid j in protein i (from the sequence).
+
+The degradation stoichiometry is encoded as a matrix S (metabolites x proteins).
+Row indices correspond to amino acid species + water; columns to protein species.
+Water consumption per protein = -(sum of amino acid counts - 1), reflecting
+(N-1) peptide bond hydrolyses for a chain of length N:
+
+    delta_metabolites = S @ n_degraded
+
 TODO:
  - protein complexes
  - add protease functionality
@@ -38,28 +59,15 @@ class ProteinDegradation(PartitionedProcess):
     topology = TOPOLOGY
 
     config_schema = {
-        'amino_acid_counts': {'_type': 'array[integer]', '_default': []},
+        'amino_acid_counts': {'_type': 'array[integer]', '_default': []},  # (n_proteins x n_amino_acids) composition matrix
         'amino_acid_ids': {'_type': 'list[string]', '_default': []},
         'protein_ids': {'_type': 'list[string]', '_default': []},
-        'protein_lengths': {'_type': 'array[integer]', '_default': []},
-        'raw_degradation_rate': {'_type': 'array[float]', '_default': []},
+        'protein_lengths': {'_type': 'array[integer[aa]]', '_default': []},  # chain length per protein
+        'raw_degradation_rate': {'_type': 'array[float[1/s]]', '_default': []},  # first-order rate constants k_i
         'seed': {'_type': 'integer', '_default': 0},
-        'time_step': {'_type': 'integer', '_default': 1},
+        'time_step': {'_type': 'integer[s]', '_default': 1},
         'water_id': {'_type': 'string', '_default': 'h2o'},
     }
-
-    def inputs(self):
-        return {
-            'bulk': 'bulk_array',
-            'timestep': 'integer',
-        }
-
-    def outputs(self):
-        return {
-            'bulk': 'bulk_array',
-        }
-
-
 
     def initialize(self, config):
 
@@ -97,7 +105,7 @@ class ProteinDegradation(PartitionedProcess):
     def inputs(self):
         return {
             'bulk': {'_type': 'bulk_array', '_default': []},
-            'timestep': {'_type': 'integer', '_default': 1},
+            'timestep': {'_type': 'integer[s]', '_default': 1},
         }
 
     def outputs(self):
@@ -106,7 +114,7 @@ class ProteinDegradation(PartitionedProcess):
         }
 
     def calculate_request(self, timestep, states):
-        # In first timestep, convert all strings to indices
+        # At t=0, convert molecule name strings to bulk array indices
         if self.metabolite_idx is None:
             self.water_idx = bulk_name_to_idx(self.water_id, states["bulk"]["id"])
             self.protein_idx = bulk_name_to_idx(self.protein_ids, states["bulk"]["id"])
@@ -114,48 +122,45 @@ class ProteinDegradation(PartitionedProcess):
                 self.metabolite_ids, states["bulk"]["id"]
             )
 
-        protein_data = counts(states["bulk"], self.protein_idx)
-        # Determine how many proteins to degrade based on the degradation rates
-        # and counts of each protein
-        nProteinsToDegrade = np.fmin(
+        dt = states["timestep"]
+        protein_counts = counts(states["bulk"], self.protein_idx)
+
+        # Poisson draw: expected degradation count = k_i * dt * n_i,
+        # capped at available protein count
+        n_to_degrade = np.fmin(
             self.random_state.poisson(
-                self._proteinDegRates(states["timestep"]) * protein_data
+                self.raw_degradation_rate * dt * protein_counts
             ),
-            protein_data,
+            protein_counts,
         )
 
-        # Determine the number of hydrolysis reactions
-        # TODO(vivarium): Missing asNumber() and other unit-related things
-        nReactions = np.dot(self.protein_lengths, nProteinsToDegrade)
+        # Water required for hydrolysis: (L_i - 1) per protein of length L_i
+        # Total water = sum(L_i * n_degrade_i) - sum(n_degrade_i)
+        n_peptide_bonds = np.dot(self.protein_lengths, n_to_degrade)
+        water_needed = n_peptide_bonds - np.sum(n_to_degrade)
 
-        # Determine the amount of water required to degrade the selected proteins
-        # Assuming one N-1 H2O is required per peptide chain length N
         requests = {
             "bulk": [
-                (self.protein_idx, nProteinsToDegrade),
-                (self.water_idx, nReactions - np.sum(nProteinsToDegrade)),
+                (self.protein_idx, n_to_degrade),
+                (self.water_idx, water_needed),
             ]
         }
         return requests
 
     def evolve_state(self, timestep, states):
-        # Degrade selected proteins, release amino acids from those proteins
-        # back into the cell, and consume H_2O that is required for the
-        # degradation process
+        # Apply degradation: delta_metabolites = S @ n_degraded
+        # S encodes amino acid release (+) and water consumption (-)
         allocated_proteins = counts(states["bulk"], self.protein_idx)
-        metabolites_delta = np.dot(self.degradation_matrix, allocated_proteins)
+        delta_metabolites = np.dot(self.degradation_matrix, allocated_proteins)
 
         update = {
             "bulk": [
-                (self.metabolite_idx, metabolites_delta),
+                (self.metabolite_idx, delta_metabolites),
                 (self.protein_idx, -allocated_proteins),
             ]
         }
 
         return update
-
-    def _proteinDegRates(self, timestep):
-        return self.raw_degradation_rate * timestep
 
 
 def test_protein_degradation(return_data=False):

@@ -1,7 +1,24 @@
 """
-TfUnbinding
-Unbind transcription factors from DNA to allow signaling processes before
-binding back to DNA.
+=============
+TF Unbinding
+=============
+
+Unbind transcription factors from DNA to allow signaling processes
+before binding back to DNA.
+
+Mathematical Model
+------------------
+Deterministic release of all DNA-bound transcription factors (TFs)
+back into the free active pool. For each TF species j:
+
+    n_released_j = sum_i(bound_TF[i, j])    over all promoters i
+
+The bound_TF matrix (promoters x TF species) is reset to zeros, and
+the associated mass is transferred from the promoter submass stores:
+
+    delta_mass_i = -sum_j(bound_TF[i, j] * m_j)
+
+where m_j is the mass (fg) of one molecule of active TF species j.
 """
 
 import numpy as np
@@ -34,11 +51,11 @@ class TfUnbinding(Step):
     topology = TOPOLOGY
 
     config_schema = {
-        'active_tf_masses': 'array[float]',
+        'active_tf_masses': {'_type': 'array[float[fg]]', '_default': []},  # mass per TF molecule
         'emit_unique': {'_type': 'boolean', '_default': False},
         'submass_indices': 'map[integer]',
         'tf_ids': 'list[string]',
-        'time_step': {'_type': 'integer', '_default': 1},
+        'time_step': {'_type': 'integer[s]', '_default': 1},
     }
 
 
@@ -46,16 +63,16 @@ class TfUnbinding(Step):
         return {
             'bulk': {'_type': 'bulk_array', '_default': []},
             'promoters': {'_type': PROMOTER_ARRAY, '_default': []},
-            'global_time': {'_type': 'float', '_default': 0.0},
-            'timestep': {'_type': 'integer', '_default': 1},
-            'next_update_time': {'_type': 'overwrite[float]', '_default': 1.0},
+            'global_time': {'_type': 'float[s]', '_default': 0.0},
+            'timestep': {'_type': 'integer[s]', '_default': 1},
+            'next_update_time': {'_type': 'overwrite[float[s]]', '_default': 1.0},
         }
 
     def outputs(self):
         return {
             'bulk': 'bulk_array',
             'promoters': PROMOTER_ARRAY,
-            'next_update_time': 'overwrite[float]',
+            'next_update_time': 'overwrite[float[s]]',
         }
 
 

@@ -3,7 +3,42 @@
 Transcription Factor Binding
 ============================
 
-This process models how transcription factors bind to promoters on the DNA sequence.
+This process models how transcription factors bind to promoters on the
+DNA sequence.
+
+Mathematical Model
+------------------
+For each transcription factor (TF) species j:
+
+1. Compute binding probability from active/inactive TF concentrations:
+
+   - For 1CS (one-component system) TFs:
+       p_bound_j = f(n_active_j, n_inactive_j)
+     where f is a fitted function ``p_promoter_bound_tf`` that maps
+     TF counts to the probability that a single promoter is occupied.
+
+   - For 2CS (two-component system) TFs:
+       Same function, using phosphorylated (active) vs unphosphorylated
+       (inactive) counts.
+
+   - For 0CS (constitutive) TFs:
+       p_bound_j = 1.0  (always bound)
+
+2. For each of the N available promoter sites, draw a Bernoulli trial
+   with probability p_bound_j (implemented via stochastic rounding):
+
+       n_to_bind_j = min(sum(StochasticRound(p_bound_j, N)), n_available_TF_j)
+
+3. Randomly select n_to_bind_j promoter sites to occupy.
+
+4. Update mass accounting: each bound TF transfers its molecular mass
+   (fg) from the bulk pool to the promoter's submass fields:
+
+       delta_mass_i = sum_j(delta_TF[i,j] * m_j)
+
+Special case: MarA/MarR (PD00365) -- MarA activity is modulated by
+the fraction of MarR that is complexed with tetracycline (marR-tet),
+reflecting antibiotic-mediated de-repression of the marRAB operon.
 """
 
 import numpy as np
@@ -51,11 +86,11 @@ class TfBinding(Step):
         'active_to_inactive_tf': 'map[string]',
         'bulk_mass_data': 'unum',
         'bulk_molecule_ids': 'list[string]',
-        'cell_density': {'_type': 'unum', '_default': 1100},
+        'cell_density': {'_type': 'unum[g/L]', '_default': 1100},
         'delta_prob': {'_type': 'node', '_default': {}},
         'emit_unique': {'_type': 'boolean', '_default': False},
         'get_unbound': 'method',
-        'n_avogadro': {'_type': 'unum', '_default': 6.022141e+23},
+        'n_avogadro': {'_type': 'unum[1/mol]', '_default': 6.022141e+23},
         'p_promoter_bound_tf': 'method',
         'rna_ids': 'list[string]',
         'seed': {'_type': 'integer', '_default': 0},
@@ -63,7 +98,7 @@ class TfBinding(Step):
         'submass_to_idx': {'_type': 'map[integer]', '_default': {}},
         'tf_ids': 'list[string]',
         'tf_to_tf_type': 'map[string]',
-        'time_step': {'_type': 'integer', '_default': 1},
+        'time_step': {'_type': 'integer[s]', '_default': 1},
     }
 
 
@@ -75,9 +110,9 @@ class TfBinding(Step):
             'listeners': {
                 'rna_synth_prob': 'map[float]',
             },
-            'timestep': {'_type': 'float', '_default': 0.0},
-            'next_update_time': {'_type': 'overwrite[float]', '_default': 1.0},
-            'global_time': {'_type': 'float', '_default': 0.0},
+            'timestep': {'_type': 'float[s]', '_default': 0.0},
+            'next_update_time': {'_type': 'overwrite[float[s]]', '_default': 1.0},
+            'global_time': {'_type': 'float[s]', '_default': 0.0},
         }
 
     def outputs(self):
@@ -93,7 +128,7 @@ class TfBinding(Step):
                     'n_bound_TF_per_TU': {'_type': f'array[({self.n_TU}|{self.n_TF}),integer]', '_default': []},
                 },
             },
-            'next_update_time': 'overwrite[float]',
+            'next_update_time': 'overwrite[float[s]]',
         }
 
 
@@ -233,18 +268,19 @@ class TfBinding(Step):
             )
             n_available_active_tfs = tf_count + bound_tf_counts
 
-            # NEW to vivarium-ecoli
-            # Uncomplexed marR reduces active marA
+            # MarA/MarR special case (PD00365):
+            # MarR represses marA transcription. When tetracycline binds
+            # MarR (forming marR-tet complex), MarR is sequestered and MarA
+            # becomes active. The effective number of active MarA molecules
+            # scales with the fraction of MarR that is complexed:
+            #   n_active_marA = N_promoters * [marR-tet] / ([marR] + [marR-tet])
+            # where N_promoters = 34 (number of MarA-regulated promoter sites).
             if tf_id == "PD00365":
                 marR_count = counts(states["bulk_total"], self.marR_idx)
                 marR_tet_count = counts(states["bulk_total"], self.marR_tet_idx)
-                # marA activity ramps up as more marR is complexed off
-                # TODO: Figure out how to modify ParCa so MarA/R are included
-                # as active TFs so no need to compromise basal or tetracycline
-                # behavior when total MarR count is zero
                 ratio = marR_tet_count / max(marR_count + marR_tet_count, 1)
-                # 34 = # of promoters for genes that marA regulates
-                n_available_active_tfs = int(34 * ratio)
+                N_MARA_REGULATED_PROMOTERS = 34
+                n_available_active_tfs = int(N_MARA_REGULATED_PROMOTERS * ratio)
 
             # Determine the number of available promoter sites
             available_promoters = np.isin(TU_index, self.TF_to_TU_idx[tf_id])

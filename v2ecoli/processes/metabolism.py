@@ -176,6 +176,7 @@ class Metabolism(Step):
                 'catalyst_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
                 'kinetic_enzyme_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
                 'kinetic_substrate_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
+                'disallowed_imports': {'_type': 'overwrite[list[string]]', '_default': []},
             },
             'global_time': {'_type': 'float[s]', '_default': 0.0},
             'timestep': {'_type': 'integer[s]', '_default': 1},
@@ -292,6 +293,10 @@ class Metabolism(Step):
             "fba_reaction_ids_to_base_reaction_ids"
         ]
         self.externalMoleculeIDs = self.model.fba.getExternalMoleculeIDs()
+        # ID → index map for zeroing out disallowed imports in O(1).
+        self._ext_id_to_idx = {
+            mid: i for i, mid in enumerate(self.externalMoleculeIDs)
+        }
         self.outputMoleculeIDs = self.model.fba.getOutputMoleculeIDs()
         self.kineticTargetFluxNames = self.model.fba.getKineticTargetFluxNames()
         self.homeostaticTargetMolecules = self.model.fba.getHomeostaticTargetMolecules()
@@ -395,6 +400,22 @@ class Metabolism(Step):
             conc_updates,
             aa_uptake_package,
         )
+
+        # Mechanistic carbon-balance enforcement: after set_molecule_levels
+        # has set the import-availability array, explicitly zero out every
+        # FBA external molecule NOT on the wholecell's importExchange
+        # allowlist. This blocks the LP from using obscure boundary
+        # molecules (H2, CO2 fixation proxies, nucleotide scavenging, ...)
+        # as free carbon/energy sources — biology doesn't permit them,
+        # FBA stoichiometry alone does.
+        disallowed = mi.get("disallowed_imports", []) or []
+        if disallowed:
+            idx = [self._ext_id_to_idx[m] for m in disallowed
+                   if m in self._ext_id_to_idx]
+            if idx:
+                self.model.fba.setExternalMoleculeLevels(
+                    np.zeros(len(idx)),
+                    molecules=[self.externalMoleculeIDs[i] for i in idx])
         self.model.set_reaction_bounds(
             catalyst_counts,
             counts_to_molar,
@@ -736,6 +757,17 @@ class FluxBalanceAnalysisModel(object):
             constrained,
             conc_updates,
         )
+        # exchange_constraints occasionally emits objective entries for
+        # molecules that weren't part of the FBA's static homeostatic
+        # target registry (built at __init__ from the full media
+        # timeline). update_homeostatic_targets raises on those; filter
+        # them out here. This is defensive — only the pre-registered
+        # targets are driving biomass anyway.
+        if not hasattr(self, "_homeostatic_target_set"):
+            self._homeostatic_target_set = set(
+                self.fba.getHomeostaticTargetMolecules())
+        objective = {k: v for k, v in objective.items()
+                     if k in self._homeostatic_target_set}
         self.fba.update_homeostatic_targets(objective)
         self.homeostatic_objective = {**self.homeostatic_objective, **objective}
 

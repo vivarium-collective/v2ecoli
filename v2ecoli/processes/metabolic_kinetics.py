@@ -97,6 +97,16 @@ class MetabolicKinetics(Step):
             "_type": "list[string]",
             "_default": ["CARBON-DIOXIDE[p]", "HYDROGEN-MOLECULE[c]"],
         },
+        # Full FBA external molecule list, used to deny imports by default:
+        # any molecule the FBA has an exchange reaction for but isn't in
+        # the wholecell's curated import allowlist (importExchangeMolecules)
+        # gets a hard 0 upper bound on uptake. Without this, the LP
+        # exploits ~68 boundary molecules never meant to be imported.
+        "all_external_molecule_ids": {
+            "_type": "list[string]", "_default": []},
+        # Master switch to restrict imports to the wholecell allowlist.
+        "enforce_import_allowlist": {
+            "_type": "boolean", "_default": True},
     }
 
     topology = {
@@ -151,6 +161,8 @@ class MetabolicKinetics(Step):
         self.glucose_vmax = float(p["glucose_vmax_mmol_gdcw_h"])
         self.glucose_km = float(p["glucose_km_mM"])
         self.secretion_only = list(p.get("secretion_only_molecules", []))
+        self.all_external_ids = list(p.get("all_external_molecule_ids", []))
+        self.enforce_allowlist = bool(p.get("enforce_import_allowlist", True))
 
         self.aa_targets: dict[str, float] = {}
 
@@ -212,6 +224,7 @@ class MetabolicKinetics(Step):
                 "catalyst_counts": {"_type": "overwrite[array[integer]]", "_default": []},
                 "kinetic_enzyme_counts": {"_type": "overwrite[array[integer]]", "_default": []},
                 "kinetic_substrate_counts": {"_type": "overwrite[array[integer]]", "_default": []},
+                "disallowed_imports": {"_type": "overwrite[list[string]]", "_default": []},
             },
         }
 
@@ -237,19 +250,41 @@ class MetabolicKinetics(Step):
         mm_rate = (self.glucose_vmax * glc_ext / denom) if denom > 0 else 0.0
         constrained["GLC[p]"] = mm_rate * (units.mmol / units.g / units.h)
 
-        # Secretion-only enforcement: force import bound = 0 for molecules
-        # whose uptake is biologically disallowed for E. coli (no
-        # autotrophic CO2 fixation, no aerobic H2 oxidation as carbon /
-        # energy source). Remove from unconstrained list so they don't
-        # get infinity-bound downstream, and explicitly write 0 into
-        # constrained.
-        zero_bound = 0.0 * (units.mmol / units.g / units.h)
-        for mol in self.secretion_only:
-            if mol in unconstrained:
-                unconstrained.remove(mol)
-            constrained[mol] = zero_bound
-
+        # Secretion-only and allowlist enforcement are BOTH applied
+        # post-hoc in metabolism.py — we do not modify unconstrained /
+        # constrained here, because the wholecell exchange_constraints
+        # path uses these lists to decide which homeostatic targets to
+        # include, and that registry is static (built at FBA init). Any
+        # change here risks exchange_constraints emitting targets for
+        # molecules that were not registered at init, which
+        # update_homeostatic_targets rejects.
         return constrained, unconstrained
+
+    def compute_disallowed_imports(self, constrained, unconstrained):
+        """Molecules the LP should NOT be able to import this step.
+
+        Two sources of disallowed imports, unified here:
+
+        1. The biologically secretion-only list (CO2, H2, ...) — E. coli
+           cannot use these as net carbon/energy sources even though FBA
+           stoichiometry permits it.
+        2. FBA's getExternalMoleculeIDs (~87) minus the wholecell's
+           curated importExchangeMolecules (~19 for minimal+glucose).
+           The ~68-molecule delta is what lets the LP sneak in obscure
+           scavenging pathways (hypoxanthine, formate, selenocysteine,
+           nucleotides, amino acids, ...) as free carbon.
+
+        metabolism.py zeroes every returned molecule's entry in
+        external_molecule_levels after exchange_constraints runs — that
+        channel doesn't perturb the homeostatic-target registry.
+        """
+        disallowed = set(self.secretion_only)
+        if self.enforce_allowlist and self.all_external_ids:
+            allowlist = set(unconstrained) | set(constrained)
+            for m in self.all_external_ids:
+                if m not in allowlist:
+                    disallowed.add(m)
+        return sorted(disallowed)
 
     def update_amino_acid_targets(
         self, counts_to_molar, count_diff, amino_acid_counts,
@@ -297,6 +332,8 @@ class MetabolicKinetics(Step):
 
         constrained_bounds, unconstrained_list = self._exchange_bounds(
             states["boundary"]["external"])
+        disallowed_imports = self.compute_disallowed_imports(
+            constrained_bounds, unconstrained_list)
 
         cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
         dry_mass = states["listeners"]["mass"]["dry_mass"] * units.fg
@@ -379,6 +416,7 @@ class MetabolicKinetics(Step):
                 "catalyst_counts": catalyst_counts,
                 "kinetic_enzyme_counts": kinetic_enzyme_counts,
                 "kinetic_substrate_counts": kinetic_substrate_counts,
+                "disallowed_imports": disallowed_imports,
             },
         }
 

@@ -2103,6 +2103,11 @@ class LoadSimData:
             "kinetic_constraint_substrates": metabolism.kinetic_constraint_substrates,
             "metabolite_names_from_nutrients": metabolite_names_from_nutrients,
             "linked_metabolites": metabolism.concentration_updates.linked_metabolites,
+            # Full FBA exchange molecule list (compartment-tagged) so
+            # MetabolicKinetics can deny-by-default non-allowlisted
+            # imports.
+            "all_external_molecule_ids": list(
+                self.sim_data.external_state.all_external_exchange_molecules),
         }
 
     def get_environment_update_config(self, time_step=1):

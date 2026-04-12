@@ -1612,10 +1612,12 @@ class LoadSimData:
                 k: float(v) for k, v in
                 getattr(self.sim_data.getter, "_all_total_masses", {}).items()
             },
-            # Dark-matter mass-balance enforcement is OFF by default so
-            # this baseline reproduces vEcoli 1.0 bit-for-bit. Flip via
-            # the V2ECOLI_DARK_MATTER env var or the
-            # enforce_dark_matter_balance field on a custom config.
+            # All nutrient-growth branch features are OFF by default so
+            # this baseline reproduces vEcoli 1.0 bit-for-bit.
+            # Master toggle: V2ECOLI_NUTRIENT_GROWTH=1 turns on the
+            # env_update feedback, MM glucose, import allowlist, and
+            # secretion-only list. Dark-matter mass-balance is a further
+            # opt-in on top of that: V2ECOLI_DARK_MATTER=1.
             "enforce_dark_matter_balance": (
                 os.environ.get("V2ECOLI_DARK_MATTER", "0") == "1"
             ),

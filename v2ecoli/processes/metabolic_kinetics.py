@@ -3,6 +3,13 @@ Metabolic kinetics — computes every non-FBA input that ``metabolism.py``
 consumes each timestep, so that metabolism is reduced to "receive
 bounds + targets + counts, call the LP, emit deltas".
 
+Runtime feature-flag: ``V2ECOLI_NUTRIENT_GROWTH=1`` enables the whole
+nutrient-growth feature set (MM glucose uptake override, secretion-only
+enforcement, import-allowlist deny-by-default). With it OFF (default),
+this Step behaves as a pure drop-in replacement for the original
+ExchangeData/metabolism pre-FBA code — baseline matches vEcoli 1.0
+bit-for-bit.
+
 What lives here (was inside ``Metabolism._do_update``):
 
     * exchange-bound computation from environment concentrations
@@ -29,11 +36,18 @@ Metabolism stays the single owner of the FBA model instance; this
 step never holds one.
 """
 
+import os
+
 import numpy as np
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema import bulk_name_to_idx, counts
 from wholecell.utils import units
+
+
+def _nutrient_growth_on() -> bool:
+    """Master runtime toggle for the nutrient-growth feature set."""
+    return os.environ.get("V2ECOLI_NUTRIENT_GROWTH", "0") == "1"
 
 
 COUNTS_UNITS = units.mmol
@@ -262,22 +276,21 @@ class MetabolicKinetics(Step):
         constrained = dict(ed["importConstrainedExchangeMolecules"])
         unconstrained = list(ed["importUnconstrainedExchangeMolecules"])
 
-        # Michaelis-Menten glucose uptake. Always set GLC[p] from [GLC_ext]
-        # so the bound decays smoothly as glucose depletes, rather than
-        # dropping off a cliff at import_constraint_threshold.
+        # Everything below is nutrient-growth-branch biology. When the
+        # master toggle is OFF, MetabolicKinetics behaves as a pure port
+        # for the wholecell classifier's result — identical to vEcoli 1.0.
+        if not _nutrient_growth_on():
+            return constrained, unconstrained
+
+        # Michaelis-Menten glucose uptake override.
         glc_ext = float(env_concs.get("GLC", 0.0))
         denom = self.glucose_km + glc_ext
         mm_rate = (self.glucose_vmax * glc_ext / denom) if denom > 0 else 0.0
         constrained["GLC[p]"] = mm_rate * (units.mmol / units.g / units.h)
 
-        # Secretion-only and allowlist enforcement are BOTH applied
-        # post-hoc in metabolism.py — we do not modify unconstrained /
-        # constrained here, because the wholecell exchange_constraints
-        # path uses these lists to decide which homeostatic targets to
-        # include, and that registry is static (built at FBA init). Any
-        # change here risks exchange_constraints emitting targets for
-        # molecules that were not registered at init, which
-        # update_homeostatic_targets rejects.
+        # Secretion-only and allowlist enforcement happen post-hoc in
+        # metabolism.py — we do not touch unconstrained / constrained
+        # here.
         return constrained, unconstrained
 
     def compute_disallowed_imports(self, constrained, unconstrained, external):
@@ -301,6 +314,8 @@ class MetabolicKinetics(Step):
         external_molecule_levels after exchange_constraints runs — that
         channel doesn't perturb the homeostatic-target registry.
         """
+        if not _nutrient_growth_on():
+            return []
         disallowed = set(self.secretion_only)
         if self.enforce_allowlist and self.all_external_ids:
             for m in self.all_external_ids:

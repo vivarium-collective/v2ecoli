@@ -19,9 +19,15 @@ Placement: runs immediately after ``ecoli-metabolism`` so the boundary
 values MK reads next cycle reflect this cycle's uptake.
 """
 
+import os
+
 import numpy as np
 
 from v2ecoli.steps.base import V2Step as Step
+
+
+def _nutrient_growth_on() -> bool:
+    return os.environ.get("V2ECOLI_NUTRIENT_GROWTH", "0") == "1"
 
 
 # Avogadro's number; mmol→count conversion.
@@ -61,6 +67,11 @@ class EnvironmentUpdate(Step):
         return {"boundary": InPlaceDict(), "environment": InPlaceDict()}
 
     def next_update(self, timestep, states):
+        # When the nutrient-growth feature set is OFF, this step is a
+        # no-op and boundary.external stays at media concentrations —
+        # matches vEcoli 1.0 behaviour.
+        if not _nutrient_growth_on():
+            return {}
         exchange = states.get("environment", {}).get("exchange", {}) or {}
         if not exchange:
             return {}

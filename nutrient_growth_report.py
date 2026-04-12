@@ -221,37 +221,148 @@ def plot_glucose_trajectory(snaps):
     return _fig_to_b64(fig)
 
 
+# Stable per-molecule colors so panels are cross-comparable.
+_EXCHANGE_COLORS = {
+    "GLC":              "#dc2626",   # red
+    "HYDROGEN-MOLECULE": "#8b5cf6",  # purple
+    "CARBON-DIOXIDE":   "#0ea5e9",   # sky
+    "OXYGEN-MOLECULE":  "#14b8a6",   # teal
+    "WATER":            "#64748b",   # slate
+    "AMMONIUM":         "#f97316",   # orange
+    "PROTON":           "#eab308",   # yellow
+    "Pi":               "#ec4899",   # pink
+    "SULFATE":          "#10b981",   # emerald
+    "K+":               "#6366f1",   # indigo
+    "MG+2":             "#84cc16",   # lime
+    "FE+2":             "#a16207",   # amber-brown
+    "NA+":              "#22d3ee",   # cyan
+    "CA+2":             "#f43f5e",   # rose
+}
+_FALLBACK_PALETTE = [
+    "#6b7280", "#78716c", "#0f766e", "#4f46e5", "#be185d",
+    "#047857", "#7c3aed", "#b45309", "#db2777", "#0891b2",
+]
+
+
+def _color_for(molecule: str, seen: dict) -> str:
+    """Stable color per molecule; falls back to cycling palette."""
+    if molecule in _EXCHANGE_COLORS:
+        return _EXCHANGE_COLORS[molecule]
+    if molecule not in seen:
+        seen[molecule] = _FALLBACK_PALETTE[len(seen) % len(_FALLBACK_PALETTE)]
+    return seen[molecule]
+
+
+def _glc_shutoff_min(snaps, threshold=0.01):
+    """Return time (minutes) at which [GLC] first drops below threshold, or None."""
+    for s in snaps:
+        g = s.get("glc_ext_mM")
+        if g is None:
+            continue
+        if g <= threshold:
+            return s["time"] / 60
+    return None
+
+
+def _top_by_metric(snaps, metric, n):
+    """Rank molecules by metric function applied to per-molecule series."""
+    mols: set[str] = set()
+    for s in snaps:
+        mols.update(s.get("exchange_counts", {}) or {})
+    scored = []
+    for m in mols:
+        series = [s.get("exchange_counts", {}).get(m, 0) for s in snaps]
+        scored.append((metric(series), m))
+    scored.sort(reverse=True)
+    return [m for _, m in scored[:n]]
+
+
+def _draw_exchange_series(ax, snaps, molecules, seen_colors, *,
+                           symlog_threshold=1e3):
+    t = [s["time"] / 60 for s in snaps]
+    for m in molecules:
+        y = [s.get("exchange_counts", {}).get(m, 0) for s in snaps]
+        ax.plot(t, y, label=m, linewidth=1.6,
+                color=_color_for(m, seen_colors))
+    ax.axhline(0, color="#475569", linestyle="-", alpha=0.4, linewidth=0.8)
+    ax.set_xlabel("Time (min)")
+    ax.set_ylabel("Exchange (count / step)\n← import   secretion →")
+    ax.grid(alpha=0.25, which="both")
+    ax.set_yscale("symlog", linthresh=symlog_threshold)
+    ax.legend(fontsize=8, ncol=2, loc="best", framealpha=0.9)
+
+
 def plot_exchange_fluxes(snaps, top_n: int = 10):
-    """Line plot of per-step exchange counts for the top-N molecules by
-    peak absolute flux. Negative = cell imports, positive = cell secretes.
+    """Main exchange-flux panel: top-N by peak |flux|, symlog y-axis, glucose
+    shutoff marker. Orders of magnitude span several decades so linear was
+    useless; symlog keeps zero crossings honest while showing detail."""
+    if not snaps:
+        return None
+
+    top = _top_by_metric(
+        snaps,
+        metric=lambda s: max((abs(x) for x in s), default=0),
+        n=top_n)
+
+    fig, ax = plt.subplots(figsize=(11, 5))
+    seen_colors: dict = {}
+    _draw_exchange_series(ax, snaps, top, seen_colors)
+
+    t_shut = _glc_shutoff_min(snaps)
+    if t_shut is not None:
+        ax.axvline(t_shut, color="#dc2626", linestyle="--", alpha=0.6,
+                   linewidth=1.2)
+        ax.annotate(
+            f"glucose depleted ({t_shut:.1f} min)",
+            xy=(t_shut, 0), xytext=(t_shut + 0.2, 0),
+            textcoords="data", color="#dc2626", fontsize=9, va="center")
+
+    ax.set_title(f"Top {len(top)} exchange fluxes (symlog, by peak |flux|)")
+    return _fig_to_b64(fig)
+
+
+def plot_exchange_diff(snaps, n: int = 8):
+    """Two-panel "what changed": left = biggest gainers (more flux after
+    glucose shutoff), right = biggest losers. Shared color scheme with the
+    main exchange panel.
     """
     if not snaps:
         return None
-    all_mols: set[str] = set()
-    for s in snaps:
-        all_mols.update(s.get("exchange_counts", {}) or {})
-    # rank by peak |flux|
-    peaks = []
-    for m in all_mols:
-        peak = max((abs(s.get("exchange_counts", {}).get(m, 0)) for s in snaps),
-                   default=0)
-        peaks.append((peak, m))
-    peaks.sort(reverse=True)
-    top = [m for _, m in peaks[:top_n]]
+    t_shut = _glc_shutoff_min(snaps)
+    if t_shut is None:
+        return None  # no shutoff ⇒ nothing to diff against
 
-    fig, ax = plt.subplots(figsize=(11, 4.2))
-    t = [s["time"] / 60 for s in snaps]
-    for m in top:
-        y = [s.get("exchange_counts", {}).get(m, 0) for s in snaps]
-        ax.plot(t, y, label=m, linewidth=1.4,
-                color=("#dc2626" if m == "GLC"
-                       else ("#0ea5e9" if m in TRACKED_EXCHANGES else None)))
-    ax.axhline(0, color="#64748b", linestyle=":", alpha=0.6)
-    ax.set_xlabel("Time (min)")
-    ax.set_ylabel("Exchange (count / step)\nnegative = imported")
-    ax.set_title(f"Top {len(top)} exchange fluxes (by peak |flux|)")
-    ax.grid(alpha=0.3)
-    ax.legend(fontsize=8, ncol=2, loc="lower right")
+    pre = [s for s in snaps if (s.get("glc_ext_mM") or 0) > 1.0]
+    post = [s for s in snaps if (s.get("glc_ext_mM") or 0) <= 0.01]
+    if not pre or not post:
+        return None
+
+    mols: set[str] = set()
+    for s in snaps:
+        mols.update(s.get("exchange_counts", {}) or {})
+    scores = []
+    for m in mols:
+        pre_mean = np.mean([s.get("exchange_counts", {}).get(m, 0) for s in pre])
+        post_mean = np.mean([s.get("exchange_counts", {}).get(m, 0) for s in post])
+        scores.append((m, float(pre_mean), float(post_mean),
+                       float(post_mean - pre_mean)))
+
+    gained = sorted(scores, key=lambda r: -r[3])[:n]    # largest Δ>0
+    lost = sorted(scores, key=lambda r: r[3])[:n]       # largest Δ<0 (most negative)
+
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(13, 5), sharey=True)
+    seen_colors: dict = {}
+    _draw_exchange_series(axL, snaps, [m for m, *_ in gained], seen_colors)
+    _draw_exchange_series(axR, snaps, [m for m, *_ in lost], seen_colors)
+
+    for ax in (axL, axR):
+        ax.axvline(t_shut, color="#dc2626", linestyle="--",
+                   alpha=0.6, linewidth=1.2)
+    axL.set_title(f"Biggest INCREASE after glucose off (top {n})")
+    axR.set_title(f"Biggest DECREASE after glucose off (top {n})")
+    fig.suptitle(
+        "Which exchanges pick up the slack when glucose is cut off?",
+        fontsize=12, y=1.02)
     return _fig_to_b64(fig)
 
 
@@ -320,8 +431,38 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float):
         "glucose": plot_glucose_trajectory(snaps) if snaps else None,
         "mm": plot_mm_curve(vmax, km),
         "exchanges": plot_exchange_fluxes(snaps),
+        "exchange_diff": plot_exchange_diff(snaps),
         "externals": plot_externals(snaps),
     }
+
+    # Pre/post-shutoff flux table — concrete answer to "what takes over
+    # when glucose runs out".
+    diff_rows = ""
+    t_shut = _glc_shutoff_min(snaps) if snaps else None
+    if snaps and t_shut is not None:
+        pre = [s for s in snaps if (s.get("glc_ext_mM") or 0) > 1.0]
+        post = [s for s in snaps if (s.get("glc_ext_mM") or 0) <= 0.01]
+        if pre and post:
+            mols: set[str] = set()
+            for s in snaps:
+                mols.update(s.get("exchange_counts", {}) or {})
+            scored = []
+            for m in mols:
+                a = float(np.mean([s.get("exchange_counts", {}).get(m, 0)
+                                   for s in pre]))
+                b = float(np.mean([s.get("exchange_counts", {}).get(m, 0)
+                                   for s in post]))
+                scored.append((m, a, b, b - a))
+            scored.sort(key=lambda r: abs(r[3]), reverse=True)
+            rows_html = []
+            for m, a, b, d in scored[:12]:
+                sign = ("↑" if d > 0 else "↓")
+                rows_html.append(
+                    f"<tr><td>{m}</td>"
+                    f"<td>{a:+,.0f}</td>"
+                    f"<td>{b:+,.0f}</td>"
+                    f"<td><strong>{sign} {abs(d):+,.0f}</strong></td></tr>")
+            diff_rows = "\n".join(rows_html)
 
     os.makedirs(REPORT_DIR, exist_ok=True)
     report_path = os.path.join(REPORT_DIR, REPORT_NAME)
@@ -411,12 +552,26 @@ Parameters: <strong>v_max = {vmax} mmol/gDCW/h</strong>,
 
 <h2>Exchange fluxes</h2>
 <p>Counts of molecules moving across the cell boundary per simulation
-step (negative = cell imports, positive = cell secretes). Once the MM
-bound on glucose pins to zero, the interesting question is which other
-exchanges carry the biomass objective — see the next subsection for
-why growth continues.</p>
+step (negative = cell imports, positive = cell secretes). Y-axis is
+<em>symlog</em> so zero crossings and values spanning multiple decades
+are both visible. Red dashed line marks when [GLC]ₑₓₜ first drops
+below 0.01 mM.</p>
 
 {img("exchanges", "Top exchange fluxes over time")}
+
+<h3>What picks up the slack when glucose cuts off?</h3>
+<p>Mean flux in snapshots with plenty of glucose (&gt;1 mM) vs. snapshots
+after depletion (&lt;0.01 mM). Biggest absolute shifts first.</p>
+
+<table>
+<tr><th>Molecule</th><th>pre-shutoff<br/>(count/step)</th>
+    <th>post-shutoff<br/>(count/step)</th>
+    <th>shift</th></tr>
+{diff_rows}
+</table>
+
+{img("exchange_diff", "Pre vs post-shutoff flux comparison")}
+
 {img("externals", "Top external concentrations over time")}
 
 <div class="note">

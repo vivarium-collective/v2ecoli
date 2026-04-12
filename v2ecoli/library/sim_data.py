@@ -619,6 +619,7 @@ class LoadSimData:
             "rnap_data_listener": self.get_rnap_data_listener_config,
             "unique_molecule_counts": self.get_unique_molecule_counts_config,
             "metabolic_kinetics": self.get_metabolic_kinetics_config,
+            "environment_update": self.get_environment_update_config,
             "media_update": self.get_media_update_config,
             "bulk-timeline": self.get_bulk_timeline_config,
         }
@@ -2102,6 +2103,15 @@ class LoadSimData:
             "kinetic_constraint_substrates": metabolism.kinetic_constraint_substrates,
             "metabolite_names_from_nutrients": metabolite_names_from_nutrients,
             "linked_metabolites": metabolism.concentration_updates.linked_metabolites,
+        }
+
+    def get_environment_update_config(self, time_step=1):
+        # Environment volume per cell defaults to 100 fL (late-log density,
+        # OD ~1). Shows clean exp→stat transition in a single-cell 2520s
+        # sim. Override via variant for colony or dilute-culture setups.
+        return {
+            "time_step": time_step,
+            "env_volume_L": 1e-13,
         }
 
     def get_media_update_config(self, time_step=1):

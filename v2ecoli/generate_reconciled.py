@@ -121,6 +121,7 @@ BASE_EXECUTION_LAYERS = [
     # Layer 6: chromosome structure + metabolism
     ['ecoli-chromosome-structure'], FLUSH,
     ['ecoli-metabolism'], FLUSH,
+    ['environment_update'], FLUSH,
 
     # Layer 7: listeners (parallel)
     ['RNA_counts_listener', 'dna_supercoiling_listener', 'ecoli-mass-listener',
@@ -267,6 +268,7 @@ def _instantiate_standalone_step(step_name, config, loader, core):
     from v2ecoli.steps.listeners.unique_molecule_counts import UniqueMoleculeCounts
     from v2ecoli.steps.listeners.ribosome_data import RibosomeData
     from v2ecoli.steps.media_update import MediaUpdate
+    from v2ecoli.steps.environment_update import EnvironmentUpdate
     from v2ecoli.processes.metabolic_kinetics import MetabolicKinetics
 
     STANDALONE_STEPS = {
@@ -299,6 +301,7 @@ def _instantiate_standalone_step(step_name, config, loader, core):
         'unique_molecule_counts': UniqueMoleculeCounts,
         'ribosome_data_listener': RibosomeData,
         'media_update': MediaUpdate,
+        'environment_update': EnvironmentUpdate,
         'metabolic_kinetics': MetabolicKinetics,
     }
 

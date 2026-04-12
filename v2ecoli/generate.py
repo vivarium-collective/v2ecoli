@@ -79,6 +79,10 @@ BASE_EXECUTION_LAYERS = [
     # Layer 6: chromosome structure + metabolism (sequential)
     ['ecoli-chromosome-structure'], FLUSH,
     ['ecoli-metabolism'], FLUSH,
+    # Apply cell exchange flux back to boundary.external so [GLC_ext] and
+    # friends actually drop as the cell consumes them (accumulator-style
+    # delta into the same store media_update writes).
+    ['environment_update'], FLUSH,
 
     # Layer 7: listeners (parallel)
     ['RNA_counts_listener', 'ecoli-mass-listener',
@@ -496,6 +500,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     from v2ecoli.steps.listeners.unique_molecule_counts import UniqueMoleculeCounts
     from v2ecoli.steps.listeners.ribosome_data import RibosomeData
     from v2ecoli.steps.media_update import MediaUpdate
+    from v2ecoli.steps.environment_update import EnvironmentUpdate
     from v2ecoli.processes.metabolic_kinetics import MetabolicKinetics
 
     base_name = step_name.replace('_requester', '').replace('_evolver', '')
@@ -527,6 +532,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'unique_molecule_counts': UniqueMoleculeCounts,
         'ribosome_data_listener': RibosomeData,
         'media_update': MediaUpdate,
+        'environment_update': EnvironmentUpdate,
         'metabolic_kinetics': MetabolicKinetics,
     }
 

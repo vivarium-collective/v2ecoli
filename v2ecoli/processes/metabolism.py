@@ -185,7 +185,12 @@ class Metabolism(Step):
     def outputs(self):
         return {
             'bulk': 'bulk_array',
-            'environment': {'exchange': 'map[float]'},
+            # Overwrite semantics: environment_update reads this as a
+            # per-step snapshot of counts exchanged with the environment.
+            # The default add-merge for `map[float]` would accumulate
+            # every step's counts and cause runaway depletion.
+            'environment': {'exchange': {
+                '_type': 'overwrite[map[float]]', '_default': {}}},
             'listeners': {
                 'fba_results': {
                     # Coefficient for flux→delta conversion (g*s/L)

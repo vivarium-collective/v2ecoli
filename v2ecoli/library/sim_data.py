@@ -2007,101 +2007,12 @@ class LoadSimData:
         }
 
     def get_metabolic_kinetics_config(self, time_step=1):
-        """Config for MetabolicKinetics.
-
-        Mirrors the fields MetabolicKinetics pulls from ``self.parameters``
-        in its ``initialize()``. Values are a subset of what
-        ``get_metabolism_config`` produces, since the kinetics step covers
-        all pre-FBA work that was previously internal to Metabolism.
-        """
-        # Timeline (for metabolite_names_from_nutrients) — mirrors
-        # what FluxBalanceAnalysisModel.__init__ does.
-        if self.sim_data.external_state.current_timeline_id:
-            current_timeline = self.sim_data.external_state.saved_timelines[
-                self.sim_data.external_state.current_timeline_id
-            ]
-        else:
-            current_timeline = self.media_timeline
-
-        metabolism = self.sim_data.process.metabolism
-        conc_from_nutrients = (
-            metabolism.concentration_updates.concentrations_based_on_nutrients
-        )
-
-        include_ppgpp = (
-            (not self.ppgpp_regulation)
-            or (not self.trna_charging)
-            or getattr(metabolism, "force_constant_ppgpp", False)
-        )
-
-        # Build metabolite_names_from_nutrients exactly the way the FBA
-        # model does, so MetabolicKinetics reads the same bulk slice as
-        # Metabolism writes back to.
-        exch_from_media = self.sim_data.external_state.exchange_data_from_media
-        names_from_nutrients: set[str] = set()
-        if include_ppgpp:
-            names_from_nutrients.add(self.sim_data.molecule_ids.ppGpp)
-        for _time, media_id in current_timeline:
-            exchanges = exch_from_media(media_id)
-            names_from_nutrients.update(
-                conc_from_nutrients(imports=exchanges["importExchangeMolecules"])
-            )
-        metabolite_names_from_nutrients = sorted(names_from_nutrients)
-
-        # AA exchange bookkeeping matches get_metabolism_config.
-        aa_exchange_names = np.array(
-            [
-                self.sim_data.external_state.env_to_exchange_map[aa[:-3]]
-                for aa in self.sim_data.molecule_groups.amino_acids
-            ]
-        )
-        aa_targets_not_updated = {"L-SELENOCYSTEINE[c]"}
-        removed_aa_uptake = np.array(
-            [aa in aa_targets_not_updated for aa in aa_exchange_names]
-        )
-
         return {
             "time_step": time_step,
             "external_state": self.sim_data.external_state,
             "environment_molecules": list(
                 self.sim_data.external_state.env_to_exchange_map.keys()
             ),
-            "import_constraint_threshold": float(
-                self.sim_data.external_state.import_constraint_threshold
-            ),
-            "avogadro": self.sim_data.constants.n_avogadro,
-            "cell_density": self.sim_data.constants.cell_density,
-            "include_ppgpp": include_ppgpp,
-            "use_trna_charging": self.trna_charging,
-            "mechanistic_aa_transport": self.mechanistic_aa_transport,
-            "media_id": current_timeline[0][1],
-            "nutrientToDoublingTime": self.sim_data.nutrient_to_doubling_time,
-            "ppgpp_id": self.sim_data.molecule_ids.ppGpp,
-            "get_biomass_as_concentrations": {
-                "_function": "mass.get_biomass_as_concentrations",
-                "_data": {
-                    "precomputed": self._precompute_biomass_concentrations(),
-                },
-            },
-            "get_ppGpp_conc": {
-                "_function": "growth_rate.get_ppGpp_conc",
-                "_data": {
-                    "x_units_str": "min",
-                    "y_units_str": "pmol/L",
-                    "fit_params": list(
-                        self.sim_data.growth_rate_parameters._ppGpp_concentration[2]
-                    ),
-                },
-            },
-            "aa_names": self.sim_data.molecule_groups.amino_acids,
-            "aa_exchange_names": list(aa_exchange_names),
-            "aa_targets_not_updated": aa_targets_not_updated,
-            "removed_aa_uptake": removed_aa_uptake,
-            "catalyst_ids": metabolism.catalyst_ids,
-            "kinetic_constraint_enzymes": metabolism.kinetic_constraint_enzymes,
-            "kinetic_constraint_substrates": metabolism.kinetic_constraint_substrates,
-            "metabolite_names_from_nutrients": metabolite_names_from_nutrients,
-            "linked_metabolites": metabolism.concentration_updates.linked_metabolites,
         }
 
     def get_media_update_config(self, time_step=1):

@@ -187,8 +187,7 @@ class TranscriptInitiation(Step):
         'delta_prob': {'_type': 'map[node]', '_default': {}},
         'emit_unique': {'_type': 'boolean', '_default': False},
         'fracActiveRnapDict': {'_type': 'map[float]', '_default': {}},
-        'get_delta_prob_matrix': {'_type': 'method', '_default': None},
-        'delta_prob_matrix': {'_type': 'node', '_default': None},
+        'get_delta_prob_matrix': 'method',
         'get_rnap_active_fraction_from_ppGpp': {'_type': 'method', '_default': None},
         'idx_mRNA': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'idx_rRNA': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
@@ -273,12 +272,7 @@ class TranscriptInitiation(Step):
 
         self.n_TUs = len(self.basal_prob)
         self.delta_prob = self.parameters["delta_prob"]
-        # sim_data.py may pass a precomputed delta_prob_matrix directly, or a
-        # callable `get_delta_prob_matrix`, or neither (fall through to the
-        # sparse triplets in `delta_prob`).
-        if self.parameters.get("delta_prob_matrix") is not None:
-            self.delta_prob_matrix = self.parameters["delta_prob_matrix"]
-        elif self.parameters.get("get_delta_prob_matrix") is not None:
+        if self.parameters["get_delta_prob_matrix"] is not None:
             self.delta_prob_matrix = self.parameters["get_delta_prob_matrix"](
                 dense=True, ppgpp=self.parameters.get("ppgpp_regulation", False)
             )

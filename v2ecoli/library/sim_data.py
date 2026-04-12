@@ -705,6 +705,9 @@ class LoadSimData:
             "p_promoter_bound_tf": self.sim_data.process.transcription_regulation.p_promoter_bound_tf,
             "tf_to_tf_type": self.sim_data.process.transcription_regulation.tf_to_tf_type,
             "active_to_bound": self.sim_data.process.transcription_regulation.active_to_bound,
+            # Translation layer: vEcoli processes still expect a callable;
+            # we supply the bound method from simData alongside the precomputed dict.
+            "get_unbound": self.sim_data.process.equilibrium.get_unbound,
             # Precomputed unbound TF mapping (replaces get_unbound bound method)
             "tf_to_unbound": {
                 tf + "[c]": self.sim_data.process.equilibrium.get_unbound(tf + "[c]")
@@ -744,6 +747,8 @@ class LoadSimData:
             "active_rnap_footprint_size": self.sim_data.process.transcription.active_rnap_footprint_size,
             "basal_prob": self.sim_data.process.transcription_regulation.basal_prob,
             "delta_prob": self.sim_data.process.transcription_regulation.delta_prob,
+            # Translation layer: vEcoli processes still expect the bound method.
+            "get_delta_prob_matrix": self.sim_data.process.transcription_regulation.get_delta_prob_matrix,
             # Precomputed delta_prob_matrix (replaces get_delta_prob_matrix bound method)
             "delta_prob_matrix": self.sim_data.process.transcription_regulation.get_delta_prob_matrix(
                 dense=True, ppgpp=self.ppgpp_regulation
@@ -1515,6 +1520,12 @@ class LoadSimData:
             "current_timeline": current_timeline,
             "media_id": current_timeline[0][1],
             "imports": imports,
+            # Translation layer: vEcoli's FluxBalanceAnalysisModel.__init__ reads
+            # attributes directly off the metabolism instance (reaction_stoich,
+            # maintenance_reaction, exchange_constraints, concentration_updates...).
+            # We supply the instance as well as the extracted fields so either
+            # access pattern works.
+            "metabolism": metabolism,
             # Extracted from metabolism instance (replaces "metabolism": metabolism)
             "reaction_stoich": metabolism.reaction_stoich,
             "reactions_with_catalyst": metabolism.reactions_with_catalyst,

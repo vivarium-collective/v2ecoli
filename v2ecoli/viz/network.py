@@ -1038,12 +1038,11 @@ _HTML_TEMPLATE = """<!doctype html>
 def render_html(data: dict, title: str, subtitle: str) -> str:
     """Return the interactive HTML viewer as a string."""
     import html as _html
-    from v2ecoli.library.repro_banner import banner_html
     return _HTML_TEMPLATE.format(
         title=_html.escape(title),
         subtitle=_html.escape(subtitle),
         data_json=json.dumps(data),
-        repro_banner=banner_html(),
+        repro_banner='',
     )
 
 

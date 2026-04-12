@@ -754,6 +754,8 @@ def _get_special_step(loader, step_name, core):
             'attenuated_rna_indices': ti_config.get('attenuated_rna_indices', []),
             'attenuation_adjustments': ti_config.get('attenuation_adjustments', []),
         }
+        from v2ecoli.library.config_resolver import resolve_config
+        ppgpp_config = resolve_config(ppgpp_config)
         instance = _make_instance(PpgppInitiation, ppgpp_config, core)
         topo = {
             'bulk': ('bulk',),

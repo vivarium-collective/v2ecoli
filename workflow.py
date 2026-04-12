@@ -48,7 +48,8 @@ except ImportError:
 from v2ecoli.composite import make_composite, _build_core, save_cache
 from v2ecoli.library.schema import attrs as ecoli_attrs
 from process_bigraph import Composite
-from v2ecoli.generate import build_document, FLOW_ORDER
+from v2ecoli.generate import build_document, FLOW_ORDER, build_execution_layers, DEFAULT_FEATURES
+from v2ecoli.viz import build_graph, write_outputs
 from v2ecoli.cache import NumpyJSONEncoder, load_initial_state
 
 try:
@@ -1012,14 +1013,28 @@ def step_parca():
     sim_data_path = SIM_DATA_PATH
 
     parca_ran = False
+    simdata_source = 'unknown'
     if os.path.exists(sim_data_cache):
         print(f"    Cache exists at {CACHE_DIR}")
         parca_time = 0.0
         cache_time = 0.0
+        # Classify by the source pickle the cache was built from, not "cache".
+        if sim_data_path and os.path.normpath(sim_data_path) == os.path.normpath('out/kb/simData.cPickle'):
+            simdata_source = 'vecoli_pickle'
+        elif sim_data_path and os.path.exists(sim_data_path):
+            simdata_source = 'workflow_pickle'
+        else:
+            simdata_source = 'cache'
         sim_data_path = sim_data_path or '(from cache)'
     elif sim_data_path and os.path.exists(sim_data_path):
         print(f"    Using existing simData at {sim_data_path}")
         parca_time = 0.0
+        # out/kb/simData.cPickle is the vEcoli ParCa output location;
+        # out/workflow/simData.cPickle is a prior in-workflow run.
+        if os.path.normpath(sim_data_path) == os.path.normpath('out/kb/simData.cPickle'):
+            simdata_source = 'vecoli_pickle'
+        else:
+            simdata_source = 'workflow_pickle'
     else:
         # Need to run ParCa
         print("    Running fitSimData_1 (this takes a few minutes)...")
@@ -1038,6 +1053,7 @@ def step_parca():
         with open(sim_data_path, 'wb') as f:
             dill.dump(sim_data, f)
         parca_ran = True
+        simdata_source = 'computed'
         print(f"    ParCa completed in {parca_time:.1f}s")
 
     # Generate cache files
@@ -1075,6 +1091,7 @@ def step_parca():
     meta = {
         'sim_data_path': sim_data_path,
         'parca_ran': parca_ran,
+        'simdata_source': simdata_source,
         'parca_time': parca_time,
         'cache_time': cache_time,
         'cache_dir': CACHE_DIR,
@@ -1156,6 +1173,7 @@ def step_single_cell():
 
     t0 = time.time()
     divided = False
+    last_cell_data = None
     total_run = 0
 
     while total_run < max_dur:
@@ -1174,6 +1192,8 @@ def step_single_cell():
                 # Non-division error — log and continue
                 import traceback
                 print(f"    Warning at ~t={total_run}s: {type(e).__name__}: {err_str[:100]}")
+                if total_run <= SNAPSHOT_INTERVAL:
+                    traceback.print_exc()
                 continue
         total_run += chunk
 
@@ -1691,6 +1711,12 @@ def step_daughters():
         checkpoint = dill.load(f)
     cell_data = checkpoint.get('cell_state', {})
 
+    if not cell_data or 'bulk' not in cell_data:
+        print("    No valid cell state (mother did not divide) — skipping")
+        meta = {'skipped': True, 'reason': 'no valid pre-division cell state'}
+        save_meta(step_name, meta)
+        return meta
+
     # Divide the cell
     print("    Dividing mother cell...")
     d1_state, d2_state = divide_cell(cell_data)
@@ -1820,8 +1846,14 @@ def plot_daughters_mass(daughters_meta, title=''):
 # HTML Report Generator
 # ---------------------------------------------------------------------------
 
-def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
+def generate_html_report(step_results, plots, network_html_rel, diagnostics):
     """Generate the HTML report organized by pipeline step."""
+
+    try:
+        from v2ecoli.library.repro_banner import banner_html
+        banner = banner_html()
+    except Exception:
+        banner = ''
 
     biocyc = step_results.get('biocyc', {})
     raw = step_results['raw_data']
@@ -1946,6 +1978,7 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
 </head>
 <body>
 
+{banner}
 <h1>v2ecoli Workflow Report</h1>
 <p style="color: #64748b; font-size: 0.9em;">{time.strftime('%Y-%m-%d %H:%M')} &middot;
 Pipeline steps with intermediate caching &middot; process-bigraph <code>Composite.run()</code></p>
@@ -1971,7 +2004,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
     <li><a href="#sec-long">Single Cell Simulation + v1 Comparison ({long_dur/60:.0f} min)</a></li>
     <li><a href="#sec-division">Division</a></li>
     <li><a href="#sec-daughters">Daughter Simulations</a></li>
-    <li><a href="#sec-steps">Step Diagnostics</a></li>
+    <li><a href="#sec-network">Process-Bigraph Network</a></li>
     <li><a href="#sec-bigraph">Network Visualization</a></li>
     <li><a href="#sec-timing">Timing Summary</a></li>
   </ol>
@@ -2032,7 +2065,9 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 
 <!-- ===== Step 2: ParCa ===== -->
 <h2 id="sec-parca">2. ParCa (Parameter Calculator) {cached_badge(parca)}</h2>
+{'<div class="section" style="background:#fff7ed;border-left:4px solid #f59e0b;padding:0.5em 0.75em;margin:0.5em 0;"><strong>simData source:</strong> reused from <a href="https://github.com/CovertLab/vEcoli">vEcoli</a> (<code>' + parca.get('sim_data_path', '') + '</code>) — ParCa was not re-run in this workflow.</div>' if parca.get('simdata_source') == 'vecoli_pickle' else ''}
 <div class="metrics">
+  <div class="metric"><div class="label">simData Source</div><div class="value" style="font-size:0.8em">{ {'vecoli_pickle':'vEcoli pickle','workflow_pickle':'workflow pickle','cache':'cached','computed':'computed here'}.get(parca.get('simdata_source'), parca.get('simdata_source','?')) }</div></div>
   <div class="metric"><div class="label">ParCa Time</div><div class="value blue">{'pre-cached' if parca.get('parca_time', 0) == 0 and not parca.get('parca_ran') else f"{parca.get('parca_time', 0):.1f}s"}</div></div>
   <div class="metric"><div class="label">Cache Gen</div><div class="value blue">{'pre-cached' if parca.get('cache_time', 0) == 0 and not parca.get('parca_ran') else f"{parca.get('cache_time', 0):.1f}s"}</div></div>
   <div class="metric"><div class="label">Cache Dir</div><div class="value" style="font-size:0.7em">{parca.get('cache_dir', CACHE_DIR)}</div></div>
@@ -2201,80 +2236,14 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["daughters_mass"]}" alt="Daughters Mass"></div>\n')
 
         f.write(f"""
-<!-- ===== Step Diagnostics ===== -->
-<h2 id="sec-steps">7. Step Diagnostics ({len(diagnostics)} steps)</h2>
-<details open>
-<summary>Execution Flow</summary>
-<div class="section" style="overflow-x: auto;">
-  <table>
-    <thead><tr><th>Step</th><th>Class</th><th>Config Keys</th><th>Ports</th><th>Priority</th></tr></thead>
-    <tbody>{step_rows}</tbody>
-  </table>
-</div>
-</details>
-
-<!-- ===== Bigraph ===== -->
-<h2 id="sec-bigraph">8. Process-Bigraph Network Visualization</h2>
+<!-- ===== Process-Bigraph Network (Cytoscape.js viewer) ===== -->
+<h2 id="sec-network">7. Process-Bigraph Network</h2>
 <div class="section">
-  <p>Interactive visualization of the biological process network. Scroll to zoom, drag to pan.
-  Steps (colored) read from and write to shared stores (bulk, unique, listeners, request, allocate).</p>
-  <div class="bigraph-controls">
-    <button onclick="bgZoom(1.3)">Zoom In</button>
-    <button onclick="bgZoom(0.77)">Zoom Out</button>
-    <button onclick="bgReset()">Fit</button>
-    <span id="bg-zoom-level" style="font-size:0.8em;color:#64748b;padding:4px;"></span>
-  </div>
+  <p>Interactive Cytoscape.js viewer of the composite — stores on the left, processes on the right,
+  sorted by execution layer. Click a node for math, ports, config; switch layouts from the dropdown.
+  Full-screen viewer: <a href="{network_html_rel}" target="_blank"><code>{network_html_rel}</code></a>.</p>
 </div>
-<div class="bigraph-container" id="bigraph-container">{bigraph_svg}</div>
-<script>
-(function() {{
-  const ctr = document.getElementById('bigraph-container');
-  const svg = ctr.querySelector('svg');
-  if (!svg) return;
-  let scale = 1, tx = 0, ty = 0, dragging = false, sx, sy;
-  function apply() {{
-    svg.style.transform = `translate(${{tx}}px,${{ty}}px) scale(${{scale}})`;
-    document.getElementById('bg-zoom-level').textContent = Math.round(scale*100)+'%';
-  }}
-  function fit() {{
-    const bb = svg.getBBox();
-    const cw = ctr.clientWidth, ch = ctr.clientHeight;
-    scale = Math.min(cw / (bb.width + 40), ch / (bb.height + 40), 2);
-    tx = (cw - bb.width * scale) / 2 - bb.x * scale;
-    ty = (ch - bb.height * scale) / 2 - bb.y * scale;
-    apply();
-  }}
-  svg.style.width = svg.getAttribute('viewBox') ? '' : (svg.getBBox().width + 'px');
-  svg.style.height = svg.getAttribute('viewBox') ? '' : (svg.getBBox().height + 'px');
-  svg.removeAttribute('width'); svg.removeAttribute('height');
-  setTimeout(fit, 50);
-  window.bgReset = fit;
-  window.bgZoom = function(f) {{
-    const cx = ctr.clientWidth/2, cy = ctr.clientHeight/2;
-    tx = cx - f * (cx - tx); ty = cy - f * (cy - ty);
-    scale *= f; apply();
-  }};
-  ctr.addEventListener('wheel', function(e) {{
-    e.preventDefault();
-    const f = e.deltaY < 0 ? 1.12 : 0.89;
-    const r = ctr.getBoundingClientRect();
-    const mx = e.clientX - r.left, my = e.clientY - r.top;
-    tx = mx - f * (mx - tx); ty = my - f * (my - ty);
-    scale *= f; apply();
-  }}, {{passive: false}});
-  ctr.addEventListener('mousedown', function(e) {{
-    dragging = true; sx = e.clientX - tx; sy = e.clientY - ty;
-    ctr.classList.add('grabbing');
-  }});
-  window.addEventListener('mousemove', function(e) {{
-    if (!dragging) return;
-    tx = e.clientX - sx; ty = e.clientY - sy; apply();
-  }});
-  window.addEventListener('mouseup', function() {{
-    dragging = false; ctr.classList.remove('grabbing');
-  }});
-}})();
-</script>
+<iframe src="{network_html_rel}" style="width:100%;height:900px;border:1px solid #e2e8f0;border-radius:6px;"></iframe>
 
 <!-- ===== Timing Summary ===== -->
 <h2 id="sec-timing">Timing Summary</h2>
@@ -2363,9 +2332,17 @@ def run_workflow():
     save_pbg(diag_composite, 'models/partitioned.pbg')
     print(f"    models/partitioned.pbg updated")
 
-    # Network Visualization (always run)
-    print("  Generating bigraph visualization...")
-    bigraph_svg = make_bigraph_svg(diag_composite.state)
+    # Network Visualization (Cytoscape.js interactive viewer)
+    print("  Generating interactive network visualization...")
+    network_data = build_graph(diag_composite, build_execution_layers(DEFAULT_FEATURES))
+    _, network_html_path = write_outputs(
+        network_data,
+        out_dir=WORKFLOW_DIR,
+        name='network',
+        title='v2ecoli Baseline Composite',
+        subtitle='Interactive Cytoscape.js view (built from the workflow composite)',
+    )
+    network_html_rel = os.path.relpath(network_html_path, WORKFLOW_DIR)
 
     # Generate plots
     print("  Generating plots...")
@@ -2390,7 +2367,7 @@ def run_workflow():
 
     # Generate HTML report
     print("  Generating HTML report...")
-    report_path = generate_html_report(step_results, plots, bigraph_svg, diagnostics)
+    report_path = generate_html_report(step_results, plots, network_html_rel, diagnostics)
 
     pipeline_time = time.time() - pipeline_t0
     print("=" * 60)

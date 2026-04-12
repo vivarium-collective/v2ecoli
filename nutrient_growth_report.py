@@ -97,6 +97,10 @@ def _extract_snapshot(state, t):
 
     # Carbon + mass budget (from carbon_budget_listener).
     cb = agent.get("listeners", {}).get("carbon_budget", {}) or {}
+    # FBA internal mass accounting — emitted by metabolism.py; see
+    # analysis of modular_fba slack pseudofluxes.
+    fba_results = agent.get("listeners", {}).get("fba_results", {}) or {}
+    fba_mass_out = _as_float(fba_results.get("fba_mass_exchange_out"), 0.0)
 
     return {
         "time": t,
@@ -128,6 +132,7 @@ def _extract_snapshot(state, t):
             cb.get("cumulative_dry_mass_gained_fg"), 0.0),
         "mass_balance_deficit_fg": _as_float(
             cb.get("mass_balance_deficit_fg"), 0.0),
+        "fba_mass_exchange_out": fba_mass_out,
     }
 
 
@@ -504,6 +509,48 @@ def plot_mass_composition(snaps):
     return _fig_to_b64(fig)
 
 
+def plot_fba_mass_accounting(snaps):
+    """Overlay wholecell's built-in FBA mass accounting against our
+    observed dry-mass growth. When the two diverge, the LP is
+    producing biomass via the homeostatic quadFractionFromUnity slack
+    fluxes, which are bounded ``[-inf, +inf]`` and thus act as
+    unbounded mass sources/sinks.
+    """
+    if not snaps:
+        return None
+    import numpy as np
+    t = np.array([s["time"] / 60 for s in snaps])
+    # Cumulative FBA-reported exchange mass accumulation (pseudoflux units)
+    fba_rates = np.array([s.get("fba_mass_exchange_out", 0) for s in snaps])
+    cum_fba = np.cumsum(fba_rates)
+    # Dry mass growth relative to first snapshot
+    dry = np.array([s.get("dry_mass", 0) for s in snaps])
+    if len(dry):
+        dry = dry - dry[0]
+    t_shut = _glc_shutoff_min(snaps)
+
+    fig, ax = plt.subplots(figsize=(11, 4.2))
+    ax2 = ax.twinx()
+    ax.plot(t, dry, color="#2563eb", linewidth=2.0,
+            label="Dry mass gained (fg, left axis)")
+    ax2.plot(t, cum_fba, color="#f97316", linewidth=1.8, linestyle="--",
+             label="Σ FBA exchange mass (pseudoflux, right axis)")
+    if t_shut is not None:
+        ax.axvline(t_shut, color="#dc2626", linestyle="--", alpha=0.6,
+                   linewidth=1.0)
+    ax.set_xlabel("Time (min)")
+    ax.set_ylabel("Dry mass Δ (fg)", color="#2563eb")
+    ax2.set_ylabel("Σ FBA exchange mass (pseudoflux)", color="#f97316")
+    ax.set_title(
+        "FBA-reported exchange mass vs actual dry-mass growth")
+    ax.grid(alpha=0.3)
+    # Shared legend
+    h1, l1 = ax.get_legend_handles_labels()
+    h2, l2 = ax2.get_legend_handles_labels()
+    ax.legend(h1 + h2, l1 + l2, fontsize=9, loc="best")
+    return _fig_to_b64(fig)
+
+
 def plot_mass_balance(snaps):
     """Cumulative mass in / out / into biomass, plus the deficit —
     the quantitative "carbon appearing from nowhere" signal.
@@ -704,6 +751,7 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float):
         "externals_all": plot_external_concentrations(snaps),
         "mass_composition": plot_mass_composition(snaps),
         "mass_balance": plot_mass_balance(snaps),
+        "fba_mass_probe": plot_fba_mass_accounting(snaps),
     }
 
     # Pre/post-shutoff flux table — concrete answer to "what takes over
@@ -888,6 +936,41 @@ pathology. This is the metric any further mechanistic fix should
 drive toward zero.</p>
 
 {img("mass_balance", "Mass balance check")}
+
+<h2>How is biomass being manufactured?</h2>
+<p>wholecell's <code>modular_fba</code> implements a homeostatic
+objective using per-target <em>quadratic slack pseudofluxes</em> named
+<code>quadFractionFromUnity</code>. These slacks represent "the amount
+by which a metabolite's production missed its target"; they carry a
+quadratic penalty in the objective but are bounded
+<strong><code>[-∞, +∞]</code></strong> on flux (see
+<code>modular_fba.py</code> line 596). That means the LP can always
+"close the gap" on any homeostatic target by running these slacks —
+even when no carbon is coming in from the boundary.</p>
+
+<p>The FBA also has a built-in mass-accounting pseudometabolite
+(<code>_massExchangeID</code>) that sums net mass in/out through
+<em>exchange reactions only</em>, exposed via
+<code>setMaxMassAccumulated(bound)</code>. Experimentally setting this
+bound to ~0 (exchange-mass accumulation forbidden) has
+<strong>no effect on dry-mass growth</strong> — confirming the mass
+is entering via the quadratic slacks, not the exchanges.</p>
+
+{img("fba_mass_probe", "FBA exchange-mass vs dry mass")}
+
+<p>The orange dashed curve is what wholecell's LP <em>thinks</em> has
+accumulated through exchanges. The blue curve is actual dry-mass gain.
+They track each other pre-shutoff (cell is closed) and diverge
+post-shutoff — the gap is mass produced via the homeostatic slacks
+without a corresponding import.</p>
+
+<p><strong>To truly enforce mass balance</strong>, the slack
+pseudofluxes need tight upper bounds — e.g.
+<code>quadFractionFromUnity[m] ≤ 0</code> so the LP can only
+<em>undershoot</em> targets (physically meaningful: less biomass) and
+cannot <em>overshoot</em> by conjuring metabolites. That's a patch to
+<code>modular_fba</code> (or a monkeypatch in
+<code>metabolism.py</code> after the FBA model is built).</p>
 
 {img("externals", "Top external concentrations over time (by change)")}
 

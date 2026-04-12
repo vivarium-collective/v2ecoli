@@ -212,6 +212,7 @@ class Metabolism(Step):
                     'reduced_costs': {'_type': 'overwrite[array[float]]', '_default': []},
                     'homeostatic_objective_values': {'_type': 'overwrite[array[float]]', '_default': []},
                     'kinetic_objective_values': {'_type': 'overwrite[array[float]]', '_default': []},
+                    'fba_mass_exchange_out': {'_type': 'overwrite[float]', '_default': 0.0},
                     # Counts (dimensionless)
                     'catalyst_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
                     'delta_metabolites': {'_type': 'overwrite[array[integer]]', '_default': []},
@@ -458,6 +459,20 @@ class Metabolism(Step):
 
         reaction_fluxes = fba.getReactionFluxes() / timestep
 
+        # Probe the FBA's built-in exchange-mass accounting. massExchangeOut
+        # is wholecell's pseudoflux that tracks net mass in − out via
+        # *exchange reactions only*. It does NOT reflect mass introduced
+        # via the homeostatic quadFractionFromUnity slack fluxes, which
+        # the LP uses freely to satisfy biomass targets without carbon
+        # input. Surfacing it lets the report compare exchange-mass flow
+        # to actual dry-mass growth; the gap = slack-induced "free mass".
+        fba_mass_exchange_out = 0.0
+        try:
+            raw = fba._solver.getFlowRates(fba._massExchangeOutName)
+            fba_mass_exchange_out = float(np.asarray(raw).flatten()[0])
+        except Exception:
+            pass
+
         return {
             "bulk": [(self.metabolite_idx, delta_metabolites_final)],
             "environment": {
@@ -496,6 +511,10 @@ class Metabolism(Step):
                     "base_reaction_fluxes": self.reaction_mapping_matrix.dot(
                         reaction_fluxes
                     ),
+                    # Built-in wholecell mass accounting (exchange only).
+                    # Mismatch vs. real dry-mass growth = slack-induced
+                    # "free mass" from homeostatic pseudofluxes.
+                    "fba_mass_exchange_out": fba_mass_exchange_out,
                 },
                 "enzyme_kinetics": {
                     "metabolite_counts_init": metabolite_counts_init,

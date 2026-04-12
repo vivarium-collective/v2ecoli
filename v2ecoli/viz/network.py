@@ -72,6 +72,13 @@ _STORE_NODES = (
     'global_time', 'timestep', 'ppgpp_state', 'attenuation_config',
 )
 
+# Config keys to omit from the inspection panel — callables, shared
+# registries, and ParCa-sized arrays that aren't useful at a glance.
+_CONFIG_HIDE = {
+    'process', 'step', 'processes', 'listeners', 'sim_data', 'simData',
+    'simdata', 'core', 'topology', 'flow', 'parent',
+}
+
 
 def _wire_to_store_id(wire: Any) -> str | None:
     """Return a stable store-node ID from a wire path (first segment)."""
@@ -80,6 +87,265 @@ def _wire_to_store_id(wire: Any) -> str | None:
         if isinstance(head, str) and head and not head.startswith('_'):
             return head
     return None
+
+
+def _jsonable(value: Any, depth: int = 0) -> Any:
+    """Best-effort JSON-safe reduction of an arbitrary value for the panel."""
+    if depth > 3:
+        return f'<{type(value).__name__}>'
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, bytes):
+        try:
+            return value.decode('utf-8', errors='replace')
+        except Exception:
+            return f'<{len(value)} bytes>'
+    if callable(value):
+        return f'<callable {getattr(value, "__qualname__", type(value).__name__)}>'
+    try:
+        import numpy as _np
+        if isinstance(value, _np.ndarray):
+            shape = tuple(int(d) for d in value.shape)
+            dtype = str(value.dtype)
+            if value.size <= 8:
+                return {'_type': 'ndarray', 'shape': shape, 'dtype': dtype,
+                        'values': value.tolist()}
+            return {'_type': 'ndarray', 'shape': shape, 'dtype': dtype}
+        if isinstance(value, _np.generic):
+            return value.item()
+    except Exception:
+        pass
+    if isinstance(value, dict):
+        out: dict[str, Any] = {}
+        for k, v in list(value.items())[:40]:
+            if k in _CONFIG_HIDE:
+                continue
+            out[str(k)] = _jsonable(v, depth + 1)
+        if len(value) > 40:
+            out['…'] = f'{len(value) - 40} more entries'
+        return out
+    if isinstance(value, (list, tuple, set)):
+        seq = list(value)
+        if len(seq) <= 12:
+            return [_jsonable(x, depth + 1) for x in seq]
+        return {
+            '_type': 'sequence',
+            'len': len(seq),
+            'head': [_jsonable(x, depth + 1) for x in seq[:8]],
+        }
+    cls = type(value).__name__
+    try:
+        return f'<{cls} {value!r}>'
+    except Exception:
+        return f'<{cls}>'
+
+
+_MATH_HEADINGS = (
+    'mathematical model', 'mathematics', 'math', 'equations', 'model',
+)
+
+
+def _split_rst_sections(doc: str) -> list[tuple[str, str]]:
+    """Split a reST-style docstring into (heading, body) sections.
+
+    Recognises headings that are followed by an underline made of ``-`` or
+    ``=`` characters. Lines before the first such heading form a synthetic
+    ``''`` (empty-heading) section so the lead paragraph is preserved.
+    """
+    if not doc:
+        return []
+    # Dedent so inline headings keep their underline alignment.
+    import textwrap
+    lines = textwrap.dedent(doc).splitlines()
+    sections: list[tuple[str, list[str]]] = [('', [])]
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        nxt = lines[i + 1] if i + 1 < len(lines) else ''
+        if (line.strip()
+                and nxt.strip()
+                and set(nxt.strip()) <= set('-=~^"')
+                and len(nxt.strip()) >= max(3, len(line.strip()) - 2)):
+            sections.append((line.strip(), []))
+            i += 2
+            continue
+        sections[-1][1].append(line)
+        i += 1
+    return [(h, '\n'.join(body).strip('\n')) for h, body in sections]
+
+
+def _extract_math_and_doc(raw_doc: str) -> tuple[str, str]:
+    """Return (math, rest) extracted from a reST-style docstring.
+
+    The ``math`` string contains the joined bodies of any sections whose
+    heading (case-insensitive) matches one of ``_MATH_HEADINGS`` or begins
+    with ``math``. ``rest`` is the remaining prose with those sections
+    removed, so the general Docstring panel no longer duplicates the math.
+    """
+    if not raw_doc:
+        return '', ''
+    sections = _split_rst_sections(raw_doc)
+    math_parts: list[str] = []
+    keep_parts: list[str] = []
+    for heading, body in sections:
+        h = heading.lower().strip()
+        is_math = (
+            h in _MATH_HEADINGS
+            or h.startswith('math')
+            or h.endswith('equations')
+        )
+        if is_math:
+            math_parts.append(body.strip())
+        else:
+            if heading:
+                keep_parts.append(heading)
+                keep_parts.append('-' * len(heading))
+            if body.strip():
+                keep_parts.append(body.strip())
+            keep_parts.append('')  # blank between sections
+    math = '\n\n'.join(p for p in math_parts if p).strip()
+    rest = '\n'.join(keep_parts).strip()
+    return math, rest
+
+
+def _underlying_partitioned_process(instance) -> tuple[object | None, str]:
+    """If the edge wraps a PartitionedProcess (Requester/Evolver), return
+    (underlying_process_instance, role) where role is 'request' or 'evolve'.
+    Otherwise return (None, '')."""
+    if instance is None:
+        return None, ''
+    cls_name = type(instance).__name__
+    role = ''
+    if cls_name == 'Requester':
+        role = 'request'
+    elif cls_name == 'Evolver':
+        role = 'evolve'
+    else:
+        return None, ''
+    params = getattr(instance, 'parameters', None)
+    if not isinstance(params, dict):
+        return None, role
+    proc = params.get('process')
+    if isinstance(proc, (list, tuple)) and proc:
+        proc = proc[0]
+    return proc, role
+
+
+def _method_doc(obj, name: str) -> str:
+    """Return the dedented docstring of ``obj.<name>`` or '' if none."""
+    fn = getattr(obj, name, None)
+    if fn is None:
+        return ''
+    doc = getattr(fn, '__doc__', None) or ''
+    if not doc:
+        return ''
+    # Strip the first line's indentation, then dedent the rest together
+    # (standard Python docstring convention). textwrap.dedent alone
+    # can't handle the ``"""First line ...`` style.
+    import textwrap
+    lines = doc.expandtabs().splitlines()
+    first = lines[0].lstrip() if lines else ''
+    rest = textwrap.dedent('\n'.join(lines[1:])) if len(lines) > 1 else ''
+    result = (first + ('\n' + rest if rest else '')).strip()
+    return result
+
+
+def _extract_metadata(edge: dict) -> dict:
+    """Collect inputs/outputs schemas, config, doc + math for an edge.
+
+    For plain Step/Process edges: math is pulled from the module docstring
+    (our "Mathematical Model" reST convention) with the class docstring
+    supplying implementation notes.
+
+    For Requester/Evolver wrappers around a ``PartitionedProcess``: math is
+    additionally pulled from the underlying process — both the module
+    docstring and the specific method (``calculate_request`` for
+    requesters, ``evolve_state`` for evolvers). This surfaces the role-
+    specific math even though the viewer node is a wrapper step.
+    """
+    meta: dict[str, Any] = {
+        '_inputs': _jsonable(edge.get('_inputs') or {}),
+        '_outputs': _jsonable(edge.get('_outputs') or {}),
+        'address': edge.get('address', ''),
+    }
+
+    raw_config = edge.get('config') or {}
+    instance = edge.get('instance')
+    if instance is not None and hasattr(instance, 'parameters'):
+        params = getattr(instance, 'parameters', None)
+        if isinstance(params, dict) and params:
+            raw_config = params
+    meta['config'] = _jsonable(raw_config)
+
+    class_doc = ''
+    module_doc = ''
+    class_name = ''
+    method_doc = ''
+    method_label = ''
+
+    def _module_doc_of(cls_obj):
+        try:
+            import sys as _sys
+            mod = _sys.modules.get(cls_obj.__module__)
+            return (getattr(mod, '__doc__', '') or '').strip() if mod else ''
+        except Exception:
+            return ''
+
+    if instance is not None:
+        cls = type(instance)
+        class_name = f'{cls.__module__}.{cls.__qualname__}'
+        class_doc = (cls.__doc__ or '').strip()
+        module_doc = _module_doc_of(cls)
+
+    underlying, role = _underlying_partitioned_process(instance)
+    if underlying is not None:
+        # Replace the effective source of math with the underlying process.
+        u_cls = type(underlying)
+        class_doc = (u_cls.__doc__ or '').strip() or class_doc
+        module_doc = _module_doc_of(u_cls) or module_doc
+        class_name = (
+            f'{u_cls.__module__}.{u_cls.__qualname__} '
+            f'({"requester" if role == "request" else "evolver"} wrapper)'
+        )
+        if role == 'request':
+            method_label = 'calculate_request'
+            method_doc = _method_doc(underlying, 'calculate_request')
+        elif role == 'evolve':
+            method_label = 'evolve_state'
+            method_doc = _method_doc(underlying, 'evolve_state')
+
+    # Prefer math from module doc (our convention); fall back to class doc.
+    mod_math, mod_rest = _extract_math_and_doc(module_doc)
+    cls_math, cls_rest = _extract_math_and_doc(class_doc)
+    mth_math, mth_rest = _extract_math_and_doc(method_doc)
+
+    # For requester/evolver, prepend the role-specific method math so it
+    # reads as: "Inputs/Parameters/Calculation/Outputs of THIS half-step"
+    # followed by the full process-level math for context.
+    math_parts = []
+    if mth_math:
+        math_parts.append(mth_math)
+    elif method_doc:
+        # No tagged "Mathematical Model" in the method doc — still show
+        # whatever the method docstring says, so authors get credit.
+        math_parts.append(method_doc.strip())
+    if mod_math:
+        if math_parts:
+            math_parts.append('--- Full process math ---')
+        math_parts.append(mod_math)
+    elif cls_math:
+        math_parts.append(cls_math)
+    math = '\n\n'.join(math_parts).strip()
+
+    parts = [p for p in (cls_rest, mod_rest, mth_rest) if p]
+    doc = '\n\n'.join(parts).strip()
+
+    meta['doc'] = doc
+    meta['math'] = math
+    meta['class'] = class_name or edge.get('address', '')
+    meta['role'] = role or ''
+    meta['method'] = method_label or ''
+    return meta
 
 
 def build_graph(composite, layers: Sequence[Sequence[str]]) -> dict:
@@ -115,6 +381,7 @@ def build_graph(composite, layers: Sequence[Sequence[str]]) -> dict:
 
         name = raw_name.replace('ecoli-', '')
         subsystem, color = classify(name)
+        meta = _extract_metadata(edge)
         nodes[name] = {
             'data': {
                 'id': name,
@@ -124,6 +391,7 @@ def build_graph(composite, layers: Sequence[Sequence[str]]) -> dict:
                 'color': color,
                 'layer': layer_of.get(raw_name, layer_of.get(name, -1)),
                 'klass': edge.get('_type', 'process'),
+                'meta': meta,
             },
         }
 
@@ -256,18 +524,75 @@ _HTML_TEMPLATE = """<!doctype html>
     .toolbar button:hover, .toolbar select:hover {{ background: #f0f0f0; }}
     #details {{
       position: absolute; bottom: 10px; left: 10px; z-index: 10;
-      max-width: 420px; max-height: 40vh; overflow-y: auto;
+      width: 420px; max-height: 45vh; overflow-y: auto;
       background: rgba(255,255,255,0.98); border: 1px solid #ccc;
       border-radius: 6px; padding: 10px 12px; font-size: 12px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       display: none;
     }}
-    #details h3 {{ margin: 0 0 6px 0; font-size: 13px; }}
-    #details .meta {{ color: #666; font-size: 11px; margin-bottom: 6px; }}
+    #details.expanded {{
+      width: calc(100% - 20px); max-height: calc(100vh - 120px);
+      max-width: none;
+    }}
+    #details .toolbar-mini {{
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px;
+    }}
+    #details .toolbar-mini button {{
+      background: #fff; border: 1px solid #ccc; border-radius: 4px;
+      padding: 2px 8px; font-size: 11px; cursor: pointer;
+    }}
+    #details .toolbar-mini button:hover {{ background: #f0f0f0; }}
+    #details h3 {{ margin: 0; font-size: 13px; }}
+    #details .meta {{ color: #666; font-size: 11px; margin-bottom: 8px; }}
     #details table {{ width: 100%; border-collapse: collapse; }}
-    #details td {{ padding: 2px 6px; border-top: 1px solid #eee; font-size: 11px; }}
+    #details td {{ padding: 2px 6px; border-top: 1px solid #eee; font-size: 11px; vertical-align: top; }}
     #details td:first-child {{ color: #666; white-space: nowrap; }}
     #details code {{ font-size: 11px; background: #f0f0f0; padding: 1px 4px; border-radius: 3px; }}
+    #details details {{ margin-top: 8px; border-top: 1px solid #ddd; padding-top: 6px; }}
+    #details details > summary {{
+      cursor: pointer; font-weight: 600; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.04em; color: #444;
+      list-style: none; padding: 2px 0;
+    }}
+    #details details > summary::-webkit-details-marker {{ display: none; }}
+    #details details > summary::before {{ content: '▸ '; color: #888; }}
+    #details details[open] > summary::before {{ content: '▾ '; }}
+    #details pre {{
+      font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11px;
+      background: #f7f7f7; border: 1px solid #eee; border-radius: 4px;
+      padding: 6px 8px; white-space: pre-wrap; word-break: break-word;
+      max-height: 280px; overflow: auto; margin: 4px 0;
+    }}
+    #details.expanded pre {{ max-height: 50vh; }}
+    #details .doc {{
+      white-space: pre-wrap; font-size: 12px; line-height: 1.4;
+      color: #333; background: #fffce8; border-left: 3px solid #e9c46a;
+      padding: 6px 10px; margin: 4px 0; border-radius: 0 4px 4px 0;
+    }}
+    #details .math {{
+      font-family: 'STIX Two Math', 'Latin Modern Math', 'Cambria Math', 'SF Mono', Menlo, monospace;
+      font-size: 13px; line-height: 1.5;
+      white-space: pre-wrap; word-break: break-word;
+      color: #222; background: #f1f5ff; border-left: 3px solid #4a6cf7;
+      padding: 8px 12px; margin: 4px 0; border-radius: 0 4px 4px 0;
+    }}
+    #details.expanded .math {{ font-size: 14px; }}
+    #details .math-block {{ margin: 0 0 8px 0; }}
+    #details .math-block:last-child {{ margin-bottom: 0; }}
+    #details .math-label {{
+      display: inline-block; font-weight: 700; letter-spacing: 0.02em;
+      color: #2a3b8f; font-size: 12px; margin-bottom: 2px;
+    }}
+    #details .math-label.inputs  {{ color: #1f6f9c; }}
+    #details .math-label.outputs {{ color: #a6552f; }}
+    #details .math-label.params  {{ color: #5b4796; }}
+    #details .math-label.calc    {{ color: #2a3b8f; }}
+    #details .port-row td:first-child {{ width: 40%; }}
+    #details .schema-type {{
+      font-family: 'SF Mono', Menlo, monospace; color: #0a5;
+      font-size: 11px;
+    }}
     .hotkey {{ font-family: 'SF Mono', Menlo, monospace; background: #eee; padding: 1px 4px; border-radius: 3px; color: #444; }}
   </style>
   <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
@@ -298,7 +623,8 @@ _HTML_TEMPLATE = """<!doctype html>
       <div class="toolbar">
         <label>Layout:</label>
         <select id="layout-select">
-          <option value="dagre" selected>Dagre (hierarchy)</option>
+          <option value="bipartite" selected>Bipartite (stores ← | → processes)</option>
+          <option value="dagre">Dagre (hierarchy)</option>
           <option value="fcose">fCoSE (force)</option>
           <option value="grid">Grid</option>
           <option value="circle">Circle</option>
@@ -328,12 +654,14 @@ _HTML_TEMPLATE = """<!doctype html>
             'text-valign': 'center', 'text-halign': 'center',
             'text-wrap': 'wrap', 'text-max-width': 120,
             'width': 'label', 'height': 'label',
-            'padding': '8px', 'shape': 'round-rectangle',
+            'padding': '8px', 'shape': 'rectangle',
         }} }},
         {{ selector: 'node[kind="store"]', style: {{
             'shape': 'ellipse', 'background-color': '#ffffff',
             'border-color': '#666', 'border-width': 2, 'border-style': 'dashed',
             'font-weight': 600, 'color': '#333',
+            'width': 'label', 'height': 'label',
+            'padding': '14px',
         }} }},
         {{ selector: 'edge', style: {{
             'curve-style': 'bezier', 'width': 1.5,
@@ -358,8 +686,38 @@ _HTML_TEMPLATE = """<!doctype html>
       concentric:   {{ name: 'concentric', padding: 24, animate: true, concentric: n => (n.data('kind') === 'store' ? 1 : 10) }},
       breadthfirst: {{ name: 'breadthfirst', directed: true, padding: 24, animate: true }},
     }};
-    function applyLayout(name) {{ cy.layout(layoutOpts[name] || layoutOpts.dagre).run(); }}
-    applyLayout('dagre');
+    function bipartitePositions() {{
+      // Stores on left, processes on right. Within each column,
+      // sort stores alphabetically and processes by execution layer
+      // (then by name for a stable tie-break).
+      const stores = cy.nodes().filter(n => n.data('kind') === 'store')
+        .sort((a, b) => a.data('label').localeCompare(b.data('label')));
+      const procs = cy.nodes().filter(n => n.data('kind') !== 'store')
+        .sort((a, b) => {{
+          const la = a.data('layer'); const lb = b.data('layer');
+          if (la !== lb) return (la ?? 99) - (lb ?? 99);
+          return a.data('label').localeCompare(b.data('label'));
+        }});
+      const storeStep = 70, procStep = 60;
+      const storeX = 0, procX = 700;
+      const positions = new Map();
+      stores.forEach((n, i) => positions.set(n.id(), {{ x: storeX, y: i * storeStep }}));
+      procs.forEach((n, i) => positions.set(n.id(), {{ x: procX, y: i * procStep }}));
+      return positions;
+    }}
+    function applyLayout(name) {{
+      if (name === 'bipartite') {{
+        const pos = bipartitePositions();
+        cy.layout({{
+          name: 'preset',
+          positions: node => pos.get(node.id()) || {{ x: 0, y: 0 }},
+          animate: true, fit: true, padding: 30,
+        }}).run();
+        return;
+      }}
+      cy.layout(layoutOpts[name] || layoutOpts.dagre).run();
+    }}
+    applyLayout('bipartite');
 
     document.getElementById('layout-select').addEventListener('change', e => applyLayout(e.target.value));
     document.getElementById('btn-fit').onclick = () => cy.fit(null, 24);
@@ -383,17 +741,116 @@ _HTML_TEMPLATE = """<!doctype html>
     }});
 
     const detailsEl = document.getElementById('details');
+    let detailsExpanded = false;
+    function toggleExpanded() {{
+      detailsExpanded = !detailsExpanded;
+      detailsEl.classList.toggle('expanded', detailsExpanded);
+      const btn = document.getElementById('btn-expand');
+      if (btn) btn.textContent = detailsExpanded ? 'Collapse' : 'Expand';
+    }}
+    // Split a math section into labeled sub-blocks. Recognises headings
+    // of the form "Inputs:", "Inputs (...)", "Parameters:", "Calculation:",
+    // "Outputs:", "Notes:" at column 0 (left-trimmed). Falls back to a
+    // single unlabeled block if no such heading is found.
+    function splitMathBlocks(text) {{
+      const lines = String(text || '').split('\\n');
+      const headingRe = /^(Inputs|Parameters|Calculation|Outputs|Notes)\\b/i;
+      const blocks = [];
+      let current = {{ label: null, cls: 'calc', body: [] }};
+      for (const line of lines) {{
+        const m = headingRe.exec(line);
+        if (m) {{
+          if (current.body.length || current.label) blocks.push(current);
+          const key = m[1].toLowerCase();
+          const cls = key === 'inputs' ? 'inputs'
+                    : key === 'outputs' ? 'outputs'
+                    : key === 'parameters' ? 'params'
+                    : key === 'notes' ? 'calc'
+                    : 'calc';
+          current = {{ label: line.trim(), cls, body: [] }};
+        }} else {{
+          current.body.push(line);
+        }}
+      }}
+      if (current.body.length || current.label) blocks.push(current);
+      return blocks;
+    }}
+    function renderMath(text) {{
+      const blocks = splitMathBlocks(text);
+      if (!blocks.length) return '';
+      // If there's no labeled heading at all, just render one plain block.
+      if (blocks.length === 1 && !blocks[0].label) {{
+        return `<div class="math">${{escapeHtml(blocks[0].body.join('\\n').trim())}}</div>`;
+      }}
+      return blocks.map(b => {{
+        const body = b.body.join('\\n').replace(/^\\n+|\\n+$/g, '');
+        if (!body && !b.label) return '';
+        const label = b.label
+          ? `<div class="math-label ${{b.cls}}">${{escapeHtml(b.label)}}</div>`
+          : '';
+        return `<div class="math-block">${{label}}<div class="math">${{escapeHtml(body)}}</div></div>`;
+      }}).join('');
+    }}
+    function fmtSchemaValue(v) {{
+      // Compact one-line representation for a schema node.
+      if (v === null || v === undefined) return '<code>any</code>';
+      if (typeof v === 'string') return `<code class="schema-type">${{escapeHtml(v)}}</code>`;
+      if (typeof v !== 'object') return `<code>${{escapeHtml(String(v))}}</code>`;
+      if (Array.isArray(v)) {{
+        return `<code>[${{v.map(fmtSchemaValue).join(', ')}}]</code>`;
+      }}
+      if ('_type' in v) {{
+        const dflt = ('_default' in v) ? ` = ${{escapeHtml(JSON.stringify(v._default))}}` : '';
+        return `<code class="schema-type">${{escapeHtml(String(v._type))}}</code>${{escapeHtml(dflt)}}`;
+      }}
+      return '<code>{{…}}</code>';
+    }}
+    function renderSchemaTable(schema, dirColor, label) {{
+      if (!schema || typeof schema !== 'object' || !Object.keys(schema).length) return '';
+      let rows = `<tr><td colspan=2 style="color:${{dirColor}};font-weight:600">${{label}}</td></tr>`;
+      const walk = (obj, prefix) => {{
+        for (const [k, v] of Object.entries(obj)) {{
+          const key = prefix ? `${{prefix}}.${{k}}` : k;
+          if (v && typeof v === 'object' && !('_type' in v) && !Array.isArray(v)) {{
+            walk(v, key);
+          }} else {{
+            rows += `<tr class="port-row"><td><code>${{escapeHtml(key)}}</code></td><td>${{fmtSchemaValue(v)}}</td></tr>`;
+          }}
+        }}
+      }};
+      walk(schema, '');
+      return rows;
+    }}
     function showDetails(node) {{
       const d = node.data();
+      const m = d.meta || {{}};
       const incoming = node.incomers('edge').map(e => ({{ peer: e.source().id(), ports: e.data('ports') }}));
       const outgoing = node.outgoers('edge').map(e => ({{ peer: e.target().id(), ports: e.data('ports') }}));
-      let html = `<h3>${{escapeHtml(d.label)}}</h3>`;
+
       const meta = [];
       if (d.kind) meta.push(d.kind);
       if (d.subsystem) meta.push(d.subsystem);
       if (d.layer !== undefined && d.layer !== -1) meta.push(`layer L${{String(d.layer).padStart(2,'0')}}`);
       if (d.klass) meta.push(`<code>${{escapeHtml(d.klass)}}</code>`);
-      html += `<div class="meta">${{meta.join(' · ')}}</div><table>`;
+
+      let html = '';
+      html += `<div class="toolbar-mini"><h3>${{escapeHtml(d.label)}}</h3>`;
+      html += `<div><button id="btn-expand">${{detailsExpanded ? 'Collapse' : 'Expand'}}</button> `;
+      html += `<button id="btn-close">×</button></div></div>`;
+      html += `<div class="meta">${{meta.join(' · ')}}</div>`;
+
+      if (m.math) {{
+        html += `<details open><summary>Mathematics</summary>${{renderMath(m.math)}}</details>`;
+      }}
+      if (m.doc) {{
+        html += `<details ${{m.math ? '' : 'open'}}><summary>Docstring</summary><div class="doc">${{escapeHtml(m.doc)}}</div></details>`;
+      }}
+      if (m.class) {{
+        html += `<details><summary>Class</summary><pre>${{escapeHtml(m.class)}}</pre></details>`;
+      }}
+
+      // Neighbor wires — same compact view as before
+      html += `<details open><summary>Wires (${{incoming.length + outgoing.length}})</summary><table>`;
       if (incoming.length) {{
         html += `<tr><td colspan=2 style="color:#7BA7D9;font-weight:600">Inputs (${{incoming.length}})</td></tr>`;
         for (const e of incoming) html += `<tr><td>${{escapeHtml(e.peer)}}</td><td>${{escapeHtml(e.ports.join(', '))}}</td></tr>`;
@@ -402,9 +859,26 @@ _HTML_TEMPLATE = """<!doctype html>
         html += `<tr><td colspan=2 style="color:#D88A7B;font-weight:600">Outputs (${{outgoing.length}})</td></tr>`;
         for (const e of outgoing) html += `<tr><td>${{escapeHtml(e.peer)}}</td><td>${{escapeHtml(e.ports.join(', '))}}</td></tr>`;
       }}
-      html += `</table>`;
+      html += `</table></details>`;
+
+      // Port schemas from `_inputs` / `_outputs` collected by build_graph
+      const portRows =
+        renderSchemaTable(m._inputs, '#7BA7D9', 'Input ports (schema)') +
+        renderSchemaTable(m._outputs, '#D88A7B', 'Output ports (schema)');
+      if (portRows) {{
+        html += `<details><summary>Port schemas</summary><table>${{portRows}}</table></details>`;
+      }}
+
+      if (m.config && Object.keys(m.config).length) {{
+        html += `<details><summary>Config</summary><pre>${{escapeHtml(JSON.stringify(m.config, null, 2))}}</pre></details>`;
+      }}
+
       detailsEl.innerHTML = html;
       detailsEl.style.display = 'block';
+      const btnExp = document.getElementById('btn-expand');
+      if (btnExp) btnExp.onclick = toggleExpanded;
+      const btnCls = document.getElementById('btn-close');
+      if (btnCls) btnCls.onclick = hideDetails;
     }}
     function hideDetails() {{ detailsEl.style.display = 'none'; }}
     function escapeHtml(s) {{ return String(s ?? '').replace(/[&<>"']/g, c => ({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}})[c]); }}

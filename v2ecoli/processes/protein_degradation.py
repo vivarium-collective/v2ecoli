@@ -8,24 +8,43 @@ Specific proteins to be degraded are selected as a Poisson process.
 
 Mathematical Model
 ------------------
-First-order stochastic degradation. For each protein species i with
-count n_i and first-order degradation rate constant k_i (1/s):
+Inputs (from stores):
+    - bulk.{protein_i}                  counts (integer) of each protein species i
+    - bulk.{AA_j}                       counts of each amino acid species j (unused read)
+    - bulk.H2O                          water count (integer)
+    - timestep                          dt in seconds
 
-    n_degraded_i ~ Poisson(k_i * dt * n_i)
+Parameters (from config):
+    - k_i                               first-order degradation rate constant for
+                                        protein i, in 1/s
+    - a_ij                              amino-acid composition matrix: count of
+                                        AA j in one copy of protein i
+    - L_i = sum_j(a_ij)                 protein length (residues)
+    - S                                 stoichiometry matrix (metabolites x proteins);
+                                        rows = amino acids + water, columns = proteins
 
-Each degraded protein of length L_i releases its constituent amino acids
-and consumes (L_i - 1) water molecules via hydrolysis:
+Calculation:
+    For each protein species i, draw the number of copies that degrade this
+    timestep from a Poisson distribution:
 
-    Protein_i + (L_i - 1) H2O  -->  sum_j(a_ij * AA_j)
+        n_degraded_i ~ Poisson(k_i * dt * n_i)
 
-where a_ij is the count of amino acid j in protein i (from the sequence).
+    Each degraded protein of length L_i hydrolyses (L_i - 1) water molecules,
+    releasing its constituent amino acids:
 
-The degradation stoichiometry is encoded as a matrix S (metabolites x proteins).
-Row indices correspond to amino acid species + water; columns to protein species.
-Water consumption per protein = -(sum of amino acid counts - 1), reflecting
-(N-1) peptide bond hydrolyses for a chain of length N:
+        Protein_i + (L_i - 1) H2O  -->  sum_j(a_ij * AA_j)
 
-    delta_metabolites = S @ n_degraded
+    Stacked across all protein species, the net metabolite count change is:
+
+        delta_metabolites = S @ n_degraded
+
+    Water consumption per protein column equals -(sum of amino-acid counts - 1),
+    matching (N-1) peptide-bond hydrolyses for a chain of length N.
+
+Outputs (to stores):
+    - bulk.{protein_i}                  -= n_degraded_i
+    - bulk.{AA_j}                       += sum_i(a_ij * n_degraded_i)
+    - bulk.H2O                          -= sum_i((L_i - 1) * n_degraded_i)
 
 TODO:
  - protein complexes

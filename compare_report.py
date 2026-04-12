@@ -969,11 +969,21 @@ def run_comparison(duration=DEFAULT_DURATION, seed=0, cache_dir='out/cache',
                 json.dump(state_json, f, indent=2, default=str)
             print(f'  PBG state: {pbg_path}')
 
-    # Copy report to docs/
+    # Copy report + the per-architecture network viewers to docs/ so the
+    # iframes inside the published comparison_report.html resolve, and so
+    # the network pages are linkable from the README on their own.
     import shutil
     docs_report = os.path.join(docs_dir, 'comparison_report.html')
     shutil.copy2(output, docs_report)
     print(f'  Docs copy: {docs_report}')
+
+    out_dir = os.path.dirname(output) or '.'
+    for key in MODELS:
+        src = os.path.join(out_dir, f'network_{key}.html')
+        if os.path.exists(src):
+            dst = os.path.join(docs_dir, f'network_{key}.html')
+            shutil.copy2(src, dst)
+            print(f'  Network viewer: {dst}')
 
     print(f'\n=== Done. Report: {report} ===')
     return report

@@ -266,6 +266,41 @@ class RnaDegradation(PartitionedProcess):
         )
 
     def calculate_request(self, timestep, states):
+        """Reserve bulk counts needed for this timestep's degradation.
+
+        Mathematical Model
+        ------------------
+        Inputs (read):
+            - bulk.{RNA_i}                     RNA counts, per species (integer)
+            - bulk.{tRNA_i}                    charged tRNA counts (integer)
+            - bulk.{EndoRNase}                 active endoRNase counts (integer)
+            - bulk.{ExoRNase}, bulk.H2O        exo capacity substrates
+            - listeners.mass.cell_mass         fg (to convert counts → concentrations)
+            - timestep                         dt (s)
+
+        Calculation:
+            1. Endoribonucleolytic rate for each RNA species i (Michaelis-Menten):
+
+                f_i = ([r_i]/Km_i) / (1 + sum_j([r_j]/Km_j))
+                v_endo_i = kcat_endo * [EndoRNase] * f_i
+
+            2. Expected degradation draws over dt, per class c ∈ {mRNA, tRNA, rRNA}:
+
+                n_requested_c = StochasticDraw( sum_{i∈c}(v_endo_i * dt * V * N_A) )
+
+            3. Within each class, distribute to individual RNAs via
+               multinomial sampling weighted by f_i, then take minimum
+               with current count so the request is bounded by supply.
+
+            4. Water / fragment-base requests for the exoribonucleolytic
+               step are computed from the stoichiometric S_endo matrix
+               applied to the tentative per-RNA degradation vector.
+
+        Outputs (request port):
+            - bulk.request.{RNA_i}             copies of RNA i we want to consume
+            - bulk.request.{H2O}               water needed for (N_i - 1) hydrolyses
+            - bulk.request.{FragmentBase_k}    fragment bases the exo step may touch
+        """
         if self.water_idx is None:
             bulk_ids = states["bulk"]["id"]
             self.charged_trna_idx = bulk_name_to_idx(self.charged_trna_names, bulk_ids)
@@ -458,6 +493,49 @@ class RnaDegradation(PartitionedProcess):
         return requests
 
     def evolve_state(self, timestep, states):
+        """Apply the degradation reaction to the allocated counts.
+
+        Mathematical Model
+        ------------------
+        Inputs (read):
+            - bulk.{RNA_i}                     allocated RNA counts to degrade
+            - bulk.{H2O}                       allocated water
+            - bulk.{FragmentBase_k}            fragments available for exo digestion
+            - bulk.{ExoRNase}                  exoRNase enzyme counts
+            - unique.RNA                       active nascent / mature RNA entries
+            - timestep                         dt (s)
+
+        Calculation:
+            1. Endoribonucleolytic cleavage of the allocated n_degraded RNAs:
+
+                delta_fragments = S_endo @ n_degraded
+
+               Each cleaved RNA of length L_i consumes (L_i - 1) H2O and
+               emits its nucleotide composition as polymerized fragments + PPi.
+
+            2. Exoribonucleolytic capacity for this tick:
+
+                C_exo = sum(n_exoRNases) * kcat_exo * dt
+
+               If C_exo ≥ total fragment bases, fully digest; else
+               digest a multinomial subsample weighted by composition.
+               Each base digested yields one NMP and one H+, consuming
+               one H2O:
+
+                FragmentBase + H2O  →  NMP + H+
+
+            3. Unique RNA entries whose TU_index was scheduled for
+               degradation are deactivated and removed.
+
+        Outputs (written):
+            - bulk.{RNA_i}                     -= n_degraded_i
+            - bulk.{NMP_k}                     += n_bases_digested_k
+            - bulk.{FragmentBase_k}            += Δ from endo, -= from exo
+            - bulk.H2O                         -= hydrolysis water (endo + exo)
+            - bulk.PPi, bulk.Hplus             += reaction byproducts
+            - unique.RNA                       deactivate / remove degraded RNAs
+            - listeners.rna_degradation_listener.*  counts per class, NMP yield
+        """
         # Get vector of numbers of RNAs to degrade for each RNA species
         n_degraded_bulk_RNA = counts(states["bulk"], self.bulk_rnas_idx)
         n_degraded_unique_RNA = self.n_unique_RNAs_to_degrade

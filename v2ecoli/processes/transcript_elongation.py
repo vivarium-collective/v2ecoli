@@ -46,6 +46,7 @@ TOPOLOGY = {
     "bulk_total": ("bulk",),
     "listeners": ("listeners",),
     "timestep": ("timestep",),
+    "attenuation_config": ("attenuation_config",),
 }
 
 
@@ -189,17 +190,13 @@ class TranscriptElongation(PartitionedProcess):
         self.polymerized_ntps = self.parameters["polymerized_ntps"]
         self.charged_trna_names = self.parameters["charged_trnas"]
 
-        # Attenuation
-        self.trna_attenuation = self.parameters["trna_attenuation"]
+        # Attenuation fallback parameters (used when attenuation_config store
+        # is populated by the TrnaAttenuationConfig feature module)
         self.cell_density = self.parameters["cell_density"]
         self.n_avogadro = self.parameters["n_avogadro"]
-        self.stop_probabilities = self.parameters["get_attenuation_stop_probabilities"]
-        self.attenuated_rna_indices = self.parameters["attenuated_rna_indices"]
-        self.attenuated_rna_indices_lookup = {
-            idx: i for i, idx in enumerate(self.attenuated_rna_indices)
-        }
-        self.attenuated_rnas = self.rnaIds[self.attenuated_rna_indices]
-        self.location_lookup = self.parameters["location_lookup"]
+        self.attenuated_rna_indices = self.parameters.get(
+            "attenuated_rna_indices", np.array([], dtype=int))
+        self.location_lookup = self.parameters.get("location_lookup", {})
 
         # random seed
         self.seed = self.parameters["seed"]
@@ -209,23 +206,24 @@ class TranscriptElongation(PartitionedProcess):
         self.bulk_RNA_idx = None
 
     def inputs(self):
-        return (
-            {
-                'environment':                 {
-                    'media_id': {'_type': 'string', '_default': ''},
+        return {
+            'environment': {
+                'media_id': {'_type': 'string', '_default': ''},
+            },
+            'RNAs': {'_type': RNA_ARRAY, '_default': []},
+            'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
+            'bulk': {'_type': 'bulk_array', '_default': []},
+            'bulk_total': {'_type': 'bulk_array', '_default': []},
+            'listeners': {
+                'mass': {
+                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
                 },
-                'RNAs': {'_type': RNA_ARRAY, '_default': []},
-                'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
-                'bulk': {'_type': 'bulk_array', '_default': []},
-                'bulk_total': {'_type': 'bulk_array', '_default': []},
-                'listeners':                 {
-                    'mass':                     {
-                        'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
-                    },
-                },
-                'timestep': {'_type': 'integer', '_default': 1.0},
-            }
-        )
+            },
+            'timestep': {'_type': 'integer', '_default': 1.0},
+            'attenuation_config': {
+                'enabled': {'_type': 'boolean', '_default': False},
+            },
+        }
 
     def outputs(self):
         return (
@@ -383,23 +381,32 @@ class TranscriptElongation(PartitionedProcess):
         is_mRNA_partial_RNAs = is_mRNA_all_RNAs[is_partial_transcript]
         RNAP_index_partial_RNAs = RNAP_index_all_RNAs[is_partial_transcript]
 
-        if self.trna_attenuation:
+        # Check if tRNA attenuation module is enabled
+        att_cfg = states.get("attenuation_config", {})
+        has_attenuation = att_cfg.get("enabled", False)
+
+        if has_attenuation:
             cell_mass = states["listeners"]["mass"]["cell_mass"]
             cellVolume = cell_mass * units.fg / self.cell_density
             counts_to_molar = 1 / (self.n_avogadro * cellVolume)
-            attenuation_probability = self.stop_probabilities(
+            stop_probs_fn = att_cfg.get(
+                "stop_probabilities", self.parameters.get(
+                    "get_attenuation_stop_probabilities"))
+            att_indices = att_cfg.get(
+                "attenuated_rna_indices", self.attenuated_rna_indices)
+            loc_lookup = att_cfg.get(
+                "location_lookup", self.location_lookup)
+            attenuation_probability = stop_probs_fn(
                 counts_to_molar * counts(states["bulk_total"], self.charged_trnas_idx)
             )
             prob_lookup = {
                 tu: prob
-                for tu, prob in zip(
-                    self.attenuated_rna_indices, attenuation_probability
-                )
+                for tu, prob in zip(att_indices, attenuation_probability)
             }
             tu_stop_probability = np.array(
                 [
                     prob_lookup.get(idx, 0)
-                    * (length < self.location_lookup.get(idx, 0))
+                    * (length < loc_lookup.get(idx, 0))
                     for idx, length in zip(TU_index_partial_RNAs, length_partial_RNAs)
                 ]
             )

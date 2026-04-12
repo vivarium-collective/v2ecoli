@@ -117,6 +117,10 @@ FEATURE_MODULES = {
         'insert_before': 'ecoli-transcript-initiation_requester',
         'steps': ['ppgpp-initiation'],
     },
+    'trna_attenuation': {
+        'insert_before': 'ecoli-transcript-elongation_requester',
+        'steps': ['trna-attenuation-config'],
+    },
 }
 
 DEFAULT_FEATURES = []  # baseline uses no optional features
@@ -746,6 +750,29 @@ def _get_special_step(loader, step_name, core):
         }
         return instance, topo, 'step'
 
+    if step_name == 'trna-attenuation-config':
+        from v2ecoli.steps.trna_attenuation import TrnaAttenuationConfig
+        # Pull attenuation config from transcript-elongation's config
+        try:
+            te_config = loader.get_config_by_name('ecoli-transcript-elongation')
+        except (KeyError, AttributeError):
+            te_config = {}
+        att_config = {
+            'get_attenuation_stop_probabilities': te_config.get(
+                'get_attenuation_stop_probabilities'),
+            'attenuated_rna_indices': te_config.get(
+                'attenuated_rna_indices', []),
+            'location_lookup': te_config.get('location_lookup', {}),
+            'cell_density': te_config.get('cell_density', 0),
+            'n_avogadro': te_config.get('n_avogadro', 0),
+            'charged_trnas': te_config.get('charged_trnas', []),
+        }
+        instance = _make_instance(TrnaAttenuationConfig, att_config, core)
+        topo = {
+            'attenuation_config': ('attenuation_config',),
+        }
+        return instance, topo, 'step'
+
     if step_name == 'replication_data_listener':
         from v2ecoli.steps.listeners.replication_data import ReplicationData
         config = {'time_step': 1}
@@ -842,6 +869,9 @@ def build_document(initial_state, configs, unique_names,
     cell_state.setdefault('ppgpp_state', {
         'basal_prob': [],
         'frac_active_rnap': 0.0,
+    })
+    cell_state.setdefault('attenuation_config', {
+        'enabled': False,
     })
 
     # Initialize next_update_time for all partitioned processes

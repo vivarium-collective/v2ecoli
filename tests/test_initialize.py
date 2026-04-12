@@ -355,6 +355,29 @@ def test_build_execution_layers_ppgpp():
     assert pp_idx < ti_idx
 
 
+def test_build_execution_layers_trna_attenuation():
+    """tRNA attenuation feature adds config step before transcript-elongation."""
+    from v2ecoli.generate import build_execution_layers
+    layers = build_execution_layers(['trna_attenuation'])
+    flat = [s for layer in layers for s in layer]
+    assert 'trna-attenuation-config' in flat
+    te_idx = flat.index('ecoli-transcript-elongation_requester')
+    ta_idx = flat.index('trna-attenuation-config')
+    assert ta_idx < te_idx
+
+
+def test_build_execution_layers_combined():
+    """Multiple features can be enabled together."""
+    from v2ecoli.generate import build_execution_layers
+    layers = build_execution_layers([
+        'supercoiling', 'ppgpp_regulation', 'trna_attenuation'])
+    flat = [s for layer in layers for s in layer]
+    assert 'dna-supercoiling-step' in flat
+    assert 'ppgpp-initiation' in flat
+    assert 'trna-attenuation-config' in flat
+    assert 'dna_supercoiling_listener' in flat
+
+
 def test_build_execution_layers_unknown_feature():
     """Unknown feature names are silently ignored."""
     from v2ecoli.generate import build_execution_layers

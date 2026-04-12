@@ -10,7 +10,6 @@ Supports three loading modes:
 """
 
 import os
-import time
 
 import dill
 from bigraph_schema import allocate_core
@@ -148,69 +147,3 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
 
     save_json({'unique_names': unique_names}, os.path.join(cache_dir, 'metadata.json'))
     print(f"Cache saved to {cache_dir}")
-
-
-def save_state(composite, path='out/checkpoint.dill'):
-    """Save the full simulation state for later resumption."""
-    os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
-
-    state = composite.state
-    flow_order = composite.config.get('flow_order', [])
-
-    with open(path, 'wb') as f:
-        dill.dump({
-            'state': state,
-            'flow_order': flow_order,
-            'global_time': state.get('global_time', 0.0),
-        }, f)
-    print(f"State saved to {path} (t={state.get('global_time', 0)})")
-
-
-def load_state(path='out/checkpoint.dill', core=None):
-    """Load a saved state and create a new Composite from it."""
-    with open(path, 'rb') as f:
-        checkpoint = dill.load(f)
-
-    if core is None:
-        core = _build_core()
-
-    document = {
-        'state': checkpoint['state'],
-        'skip_initial_steps': True,
-        'sequential_steps': False,
-    }
-
-    composite = Composite(document, core=core)
-    print(f"Loaded state from {path} (t={checkpoint['global_time']})")
-    return composite
-
-
-def run_and_cache(cache_dir='out/cache', checkpoint_dir='out/checkpoints',
-                  intervals=None, seed=0):
-    """Run simulation with periodic checkpoints."""
-    if intervals is None:
-        intervals = [100, 500, 1000, 1500, 1800, 2000, 2500, 3000]
-
-    os.makedirs(checkpoint_dir, exist_ok=True)
-    composite = make_composite(cache_dir=cache_dir, seed=seed)
-
-    for target in intervals:
-        cell = composite.state['agents']['0']
-        current_t = cell.get('global_time', 0.0)
-        remaining = target - current_t
-        if remaining <= 0:
-            continue
-
-        t0 = time.time()
-        composite.run(remaining)
-        elapsed = time.time() - t0
-
-        cell = composite.state['agents']['0']
-        mass = cell.get('listeners', {}).get('mass', {})
-        dm = mass.get('dry_mass', 0)
-
-        path = os.path.join(checkpoint_dir, f't{target}.dill')
-        save_state(composite, path)
-        print(f'  t={target}: dry_mass={float(dm):.1f} ({elapsed:.0f}s wall)')
-
-    return composite

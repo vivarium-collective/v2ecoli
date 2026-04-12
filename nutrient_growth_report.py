@@ -154,7 +154,10 @@ def _extract_snapshot(state, t):
             dm.get("cumulative_exchange_mass_in_fg"), 0.0),
         "dm_cum_viol": _as_float(
             dm.get("cumulative_violations_fg"), 0.0),
-        "dm_coverage": _as_float(dm.get("mw_coverage_fraction"), 0.0),
+        "dm_cum_unaccounted": _as_float(
+            dm.get("cumulative_unaccounted_fg"), 0.0),
+        "dm_cell_in": _as_float(
+            dm.get("cumulative_cell_mass_in_fg"), 0.0),
     }
 
 
@@ -579,54 +582,58 @@ def plot_dark_matter_enforcement(snaps):
 
 
 def plot_dark_matter(snaps):
-    """Dark-matter pool trajectory. The invariant is dark_matter ≥ 0
-    can not be created → dark_matter must hover near zero. A sustained
-    upward drift is the quantitative signal of mass creation from
-    nothing."""
+    """Cell-mass based dark matter: Δ cell_mass vs Δ boundary_mass.
+    Positive pool = mass created; near-zero = balanced;
+    negative pool = mass unaccounted (likely unknown-MW secretions).
+    """
     if not snaps:
         return None
     import numpy as np
     t = np.array([s["time"] / 60 for s in snaps])
     pool = np.array([s.get("dark_matter_fg", 0) for s in snaps])
-    bulk = np.array([s.get("dm_cum_bulk_in", 0) for s in snaps])
+    cell = np.array([s.get("dm_cell_in", 0) for s in snaps])
     exch = np.array([s.get("dm_cum_exch_in", 0) for s in snaps])
     viol = np.array([s.get("dm_cum_viol", 0) for s in snaps])
-    coverage = snaps[-1].get("dm_coverage", 0) if snaps else 0
+    unacc = np.array([s.get("dm_cum_unaccounted", 0) for s in snaps])
     t_shut = _glc_shutoff_min(snaps)
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.2))
-    # Left: dark matter pool over time
+    # Left: pool state — sign matters.
     ax1.plot(t, pool, color="#7c3aed", linewidth=2.0,
-             label="Dark matter pool")
+             label="Pool state")
     ax1.fill_between(t, 0, pool, where=(pool > 0),
-                     color="#ddd6fe", alpha=0.6,
-                     label="Mass created (violation)")
+                     color="#fecaca", alpha=0.5,
+                     label="Δ > 0: mass CREATED (violation)")
+    ax1.fill_between(t, 0, pool, where=(pool < 0),
+                     color="#bfdbfe", alpha=0.5,
+                     label="Δ < 0: mass UNACCOUNTED (secretions / lag)")
     ax1.axhline(0, color="#475569", linestyle="-", alpha=0.4,
                 linewidth=1.0)
     if t_shut is not None:
         ax1.axvline(t_shut, color="#dc2626", linestyle="--",
                     alpha=0.6, linewidth=1.0)
     ax1.set_xlabel("Time (min)")
-    ax1.set_ylabel("Dark matter (fg)")
+    ax1.set_ylabel("Pool state (fg)")
     ax1.set_title(
-        f"Dark-matter pool — MW coverage {coverage:.0%}")
-    ax1.grid(alpha=0.3); ax1.legend(fontsize=9, loc="upper left")
+        "Pool state = Σ(Δ cell_mass − Δ boundary_mass)")
+    ax1.grid(alpha=0.3); ax1.legend(fontsize=8, loc="best")
 
-    # Right: cumulative bulk mass vs cumulative exchange mass
-    ax2.plot(t, bulk, color="#2563eb", linewidth=2.0,
-             label="Σ bulk mass change")
+    # Right: cumulative curves + separate counters for each direction.
+    ax2.plot(t, cell, color="#2563eb", linewidth=2.0,
+             label="Σ Δ cell_mass (incl. unique pool)")
     ax2.plot(t, exch, color="#16a34a", linewidth=2.0,
-             label="Σ exchange mass change")
-    ax2.fill_between(t, exch, bulk, where=(bulk > exch),
-                     color="#fecaca", alpha=0.4,
-                     label="Bulk > exchange (mass from nowhere)")
+             label="Σ Δ boundary (imports − secretions)")
+    ax2.plot(t, viol, color="#dc2626", linewidth=1.4, linestyle=":",
+             label="Σ violations (mass created)")
+    ax2.plot(t, -unacc, color="#0ea5e9", linewidth=1.4, linestyle=":",
+             label="-Σ unaccounted (mass missing)")
     if t_shut is not None:
         ax2.axvline(t_shut, color="#dc2626", linestyle="--",
                     alpha=0.6, linewidth=1.0)
     ax2.set_xlabel("Time (min)")
     ax2.set_ylabel("Cumulative mass (fg)")
-    ax2.set_title("Bulk vs exchange mass over time")
-    ax2.grid(alpha=0.3); ax2.legend(fontsize=9, loc="upper left")
+    ax2.set_title("Cumulative mass flow — cell vs boundary")
+    ax2.grid(alpha=0.3); ax2.legend(fontsize=8, loc="best")
     return _fig_to_b64(fig)
 
 
@@ -929,7 +936,18 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float):
 body {{ font-family: -apple-system, sans-serif; max-width: 1200px;
        margin: 0 auto; padding: 20px; background: #f8fafc; color: #1e293b; }}
 h1 {{ color: #0f172a; border-bottom: 3px solid #3b82f6; padding-bottom: 8px; }}
-h2 {{ color: #1e40af; margin-top: 2em; }}
+h2 {{ color: #1e40af; margin-top: 2em; scroll-margin-top: 4em; }}
+/* Sticky top navigation */
+nav.toc {{ position: sticky; top: 0; background: #f8fafc;
+          padding: 10px 0 6px; margin: -12px -20px 16px; z-index: 10;
+          border-bottom: 1px solid #e2e8f0; }}
+nav.toc .inner {{ max-width: 1200px; margin: 0 auto; padding: 0 20px;
+                 display: flex; gap: 6px; flex-wrap: wrap; }}
+nav.toc a {{ display: inline-block; padding: 4px 10px;
+            background: #eff6ff; color: #1e40af; border-radius: 999px;
+            font-size: 0.82em; text-decoration: none;
+            border: 1px solid #dbeafe; white-space: nowrap; }}
+nav.toc a:hover {{ background: #dbeafe; }}
 h3 {{ color: #334155; }}
 table {{ border-collapse: collapse; margin: 1em 0; }}
 th, td {{ padding: 6px 14px; border: 1px solid #e2e8f0; text-align: right; }}
@@ -952,7 +970,22 @@ footer {{ margin-top: 3em; padding-top: 1em; border-top: 1px solid #e2e8f0;
 </style></head><body>
 {repro}
 
-<h1>Nutrient-Growth Report</h1>
+<nav class="toc"><div class="inner">
+  <a href="#summary">Summary</a>
+  <a href="#growth">Growth</a>
+  <a href="#glc-kinetics">Glucose kinetics</a>
+  <a href="#exchange">Exchange fluxes</a>
+  <a href="#externals">External concentrations</a>
+  <a href="#carbon">Carbon budget</a>
+  <a href="#growing">What's growing?</a>
+  <a href="#mass-balance">Mass balance</a>
+  <a href="#manufacture">How biomass is made</a>
+  <a href="#dark-matter">Dark matter</a>
+  <a href="#caglar">Caglar targets</a>
+  <a href="#todo">Not covered yet</a>
+</div></nav>
+
+<h1 id="summary">Nutrient-Growth Report</h1>
 <p>Single-cell simulation exercising the extracted
 <code>metabolic_kinetics</code> step with Michaelis-Menten glucose uptake.
 Target: parameterize growth under varying nutrient conditions against
@@ -960,7 +993,7 @@ the Caglar et al. 2017 (<a href="https://doi.org/10.1038/srep45303"
 target="_blank">srep45303</a>) multi-condition dataset
 committed under <code>data/caglar2017/</code>.</p>
 
-<h2>Run summary</h2>
+<h2 id="summary-details">Run summary</h2>
 <div class="perf">
   <div class="perf-card"><div class="value">{duration}s</div>
     <div class="label">sim duration</div></div>
@@ -978,11 +1011,11 @@ committed under <code>data/caglar2017/</code>.</p>
     <div class="label">env volume / cell<br/>(configurable)</div></div>
 </div>
 
-<h2>Growth trajectory</h2>
+<h2 id="growth">Growth trajectory</h2>
 {img("mass", "Dry mass vs time")}
 {img("growth_rate", "Growth rate vs time")}
 
-<h2>Glucose uptake kinetics</h2>
+<h2 id="glc-kinetics">Glucose uptake kinetics</h2>
 <p>With Michaelis-Menten enabled in <code>metabolic_kinetics.py</code>,
 the glucose import bound is computed every step from
 <code>boundary.external.GLC</code> instead of being fixed by a media lookup.
@@ -992,7 +1025,7 @@ Parameters: <strong>v_max = {vmax} mmol/gDCW/h</strong>,
 {img("mm", "MM curve")}
 {img("glucose", "External glucose and applied uptake bound")}
 
-<h2>Exchange fluxes</h2>
+<h2 id="exchange">Exchange fluxes</h2>
 <p>Counts of molecules moving across the cell boundary per simulation
 step (negative = cell imports, positive = cell secretes). Y-axis is
 <em>symlog</em> so zero crossings and values spanning multiple decades
@@ -1014,7 +1047,7 @@ after depletion (&lt;0.01 mM). Biggest absolute shifts first.</p>
 
 {img("exchange_diff", "Pre vs post-shutoff flux comparison")}
 
-<h2>External nutrient concentrations</h2>
+<h2 id="externals">External nutrient concentrations</h2>
 <p>Every boundary species <code>metabolism.py</code> exchanges with is
 dynamically updated by <code>environment_update.py</code>. This panel
 shows which nutrients drain first. <strong>Ammonium</strong> typically
@@ -1023,7 +1056,7 @@ sulfate, and trace ions decay more slowly.</p>
 
 {img("externals_all", "All external concentrations over time")}
 
-<h2>Carbon accounting</h2>
+<h2 id="carbon">Carbon accounting</h2>
 <p>Emitted by the <code>carbon_budget_listener</code> each step (values
 in mmol C). Imports are weighted by per-molecule carbon counts from
 <code>v2ecoli/library/carbon_counts.py</code>. Biomass C is estimated
@@ -1039,7 +1072,7 @@ signature of the "pool-drain" failure mode.</p>
 
 {img("carbon_budget", "Carbon budget over time")}
 
-<h2>What's actually growing?</h2>
+<h2 id="growing">What's actually growing?</h2>
 <p>Dry-mass composition over time. If carbon isn't coming in from the
 environment, the question is which biomass pools are still gaining mass
 — and the answer is <strong>all of them</strong>: protein, RNA, DNA,
@@ -1048,7 +1081,7 @@ That growth has to come from somewhere; see the mass balance below.</p>
 
 {img("mass_composition", "Dry mass composition")}
 
-<h2>Mass-balance check</h2>
+<h2 id="mass-balance">Mass-balance check</h2>
 <p>A closed cell must satisfy
 <code>Σ imports − Σ secretions = Σ dry-mass-gained</code>
 (in fg, ignoring water which doesn't contribute to dry mass).
@@ -1060,7 +1093,7 @@ drive toward zero.</p>
 
 {img("mass_balance", "Mass balance check")}
 
-<h2>How is biomass being manufactured?</h2>
+<h2 id="manufacture">How is biomass being manufactured?</h2>
 <p>wholecell's <code>modular_fba</code> implements a homeostatic
 objective using per-target <em>quadratic slack pseudofluxes</em> named
 <code>quadFractionFromUnity</code>. These slacks represent "the amount
@@ -1081,7 +1114,7 @@ is entering via the quadratic slacks, not the exchanges.</p>
 
 {img("fba_mass_probe", "FBA exchange-mass vs dry mass")}
 
-<h3>Dark-matter pool (phase 1: diagnostic)</h3>
+<h3 id="dark-matter">Dark-matter pool (diagnostic)</h3>
 <p>A "biomass dark matter" accountant. Each step:</p>
 <pre>dark_matter += (Σ bulk mass change) − (Σ exchange mass change)</pre>
 <p>where bulk-mass uses molecular weights for <strong>every
@@ -1172,7 +1205,7 @@ above when their carbon-equivalent contribution would violate a mass
 balance.
 </div>
 
-<h2>Calibration targets — Caglar 2017 doubling times</h2>
+<h2 id="caglar">Calibration targets — Caglar 2017 doubling times</h2>
 <p>Per-replicate exponential doubling times reported in MOESM56. The
 simulation should hit these within the paper's 95% CI once
 nutrient-specific parameterization (carbon source, Na⁺, Mg²⁺) is in
@@ -1183,7 +1216,7 @@ place. Currently the model is tuned only for the glucose base condition.</p>
 {caglar_rows}
 </table>
 
-<h2>What this report does <em>not</em> cover yet</h2>
+<h2 id="todo">What this report does <em>not</em> cover yet</h2>
 <ul>
   <li><strong>Non-glucose carbon sources:</strong> glycerol, gluconate,
   lactate. Requires media recipes + per-carbon v_max/K_m.</li>

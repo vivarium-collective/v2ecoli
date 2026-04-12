@@ -95,6 +95,13 @@ class Allocator(Step):
                 continue
             self.processPriorities[self.proc_name_to_idx[process]] = custom_priority
         self.seed = self.parameters["seed"]
+        # Own RNG instance. The `allocator_rng` port is supposed to feed
+        # a shared np.random.RandomState through `states`, but bigraph-
+        # schema serialises the object to its __dict__ somewhere along
+        # the round-trip (see generate.py's cell_state.setdefault call),
+        # so by the time it arrives here it's a plain dict with no
+        # `.choice()` method. Fall back to a locally-seeded RNG.
+        self._rng = np.random.RandomState(seed=self.seed)
 
         # Helper indices for Numpy indexing
         self.molecule_idx = None
@@ -130,12 +137,17 @@ class Allocator(Step):
                 )
             )
 
-        # Calculate partition
+        # Calculate partition. Use our own RNG (see initialize) — the
+        # shared `allocator_rng` port can arrive as a serialized dict
+        # rather than a live np.random.RandomState object.
+        rng = states.get("allocator_rng")
+        if not hasattr(rng, "choice"):
+            rng = self._rng
         partitioned_counts = calculatePartition(
             self.processPriorities,
             counts_requested,
             total_counts,
-            states["allocator_rng"],
+            rng,
         )
 
         partitioned_counts.astype(int, copy=False)

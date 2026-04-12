@@ -62,14 +62,17 @@ BASE_EXECUTION_LAYERS = [
     ['ecoli-tf-binding'],
     ['unique_update_5'],
 
-    # Layer 4: partition layer 2 -- requesters (parallel)
+    # Layer 4: protein degradation (standalone — no resource competition)
+    ['ecoli-protein-degradation'],
+
+    # Layer 4b: partition layer 2 -- requesters (parallel)
     ['ecoli-chromosome-replication_requester', 'ecoli-complexation_requester',
-     'ecoli-polypeptide-initiation_requester', 'ecoli-protein-degradation_requester',
+     'ecoli-polypeptide-initiation_requester',
      'ecoli-rna-degradation_requester', 'ecoli-transcript-initiation_requester'],
     ['allocator_2'],
-    # Layer 4: partition layer 2 -- evolvers (parallel)
+    # Layer 4b: partition layer 2 -- evolvers (parallel)
     ['ecoli-chromosome-replication_evolver', 'ecoli-complexation_evolver',
-     'ecoli-polypeptide-initiation_evolver', 'ecoli-protein-degradation_evolver',
+     'ecoli-polypeptide-initiation_evolver',
      'ecoli-rna-degradation_evolver', 'ecoli-transcript-initiation_evolver'],
     ['unique_update_6'],
 
@@ -123,7 +126,7 @@ FEATURE_MODULES = {
     },
 }
 
-DEFAULT_FEATURES = []  # baseline uses no optional features
+DEFAULT_FEATURES = ['ppgpp_regulation', 'trna_attenuation']  # match original wcEcoli behavior
 
 
 def build_execution_layers(features=None):
@@ -173,7 +176,6 @@ PARTITIONED_PROCESSES = {
     'ecoli-two-component-system': TwoComponentSystem,
     'ecoli-rna-maturation': RnaMaturation,
     'ecoli-complexation': Complexation,
-    'ecoli-protein-degradation': ProteinDegradation,
     'ecoli-rna-degradation': RnaDegradation,
     'ecoli-transcript-initiation': TranscriptInitiation,
     'ecoli-transcript-elongation': TranscriptElongation,
@@ -182,13 +184,15 @@ PARTITIONED_PROCESSES = {
     'ecoli-chromosome-replication': ChromosomeReplication,
 }
 
+# ProteinDegradation was promoted to standalone (no resource competition)
+
 ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 
 ALLOCATOR_LAYERS = {
     'allocator_1': ['ecoli-equilibrium', 'ecoli-rna-maturation',
                     'ecoli-two-component-system'],
     'allocator_2': ['ecoli-chromosome-replication', 'ecoli-complexation',
-                    'ecoli-polypeptide-initiation', 'ecoli-protein-degradation',
+                    'ecoli-polypeptide-initiation',
                     'ecoli-rna-degradation', 'ecoli-transcript-initiation'],
     'allocator_3': ['ecoli-polypeptide-elongation',
                     'ecoli-transcript-elongation'],
@@ -501,6 +505,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'ecoli-tf-unbinding': TfUnbinding,
         'ecoli-chromosome-structure': ChromosomeStructure,
         'ecoli-metabolism': Metabolism,
+        'ecoli-protein-degradation': ProteinDegradation,
     }
 
     SIMPLE_STEPS = {

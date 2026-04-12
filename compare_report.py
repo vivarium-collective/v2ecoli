@@ -288,10 +288,25 @@ def _serialize_state_json(composite):
         for key, val in cell.items():
             if isinstance(val, dict) and '_type' in val:
                 # Process/step edge — extract config, inputs, outputs
+                # Splice actual config from live instance (serialized config
+                # is often empty because core.serialize can't handle opaque objects)
+                config = val.get('config', {})
+                instance = val.get('instance')
+                if instance and hasattr(instance, 'parameters'):
+                    params = instance.parameters
+                    if isinstance(params, dict) and params:
+                        try:
+                            config = json.loads(json.dumps(
+                                {k: v for k, v in params.items()
+                                 if not callable(v) and k not in ('process', 'step', 'processes', 'listeners')},
+                                default=lambda x: str(type(x).__name__)
+                            ))
+                        except Exception:
+                            pass
                 edge = {
                     '_type': val.get('_type'),
                     'address': val.get('address', ''),
-                    'config': val.get('config', {}),
+                    'config': config,
                     'inputs': val.get('inputs', {}),
                     'outputs': val.get('outputs', {}),
                     'priority': val.get('priority'),

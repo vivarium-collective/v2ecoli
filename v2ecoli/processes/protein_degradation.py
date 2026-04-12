@@ -108,8 +108,8 @@ class ProteinDegradation(Step):
 
     def inputs(self):
         return {
-            'bulk': {'_type': 'bulk_array', '_default': []},
-            'timestep': {'_type': 'integer[s]', '_default': 1},
+            'bulk': 'bulk_array',
+            'timestep': 'integer',
         }
 
     def outputs(self):

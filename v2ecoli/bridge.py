@@ -93,43 +93,14 @@ class EcoliWCM(Process):
             seed=seed,
         )
 
-        # Unwrap cell state from agents container
-        cell_state = document['state']['agents']['0']
-
-        # Remove edges with '..' references (division tries to access parent)
-        for key in list(cell_state.keys()):
-            val = cell_state[key]
-            if isinstance(val, dict) and 'inputs' in val:
-                wires = {**val.get('inputs', {}), **val.get('outputs', {})}
-                for port, wire in wires.items():
-                    if isinstance(wire, list) and '..' in wire:
-                        del cell_state[key]
-                        break
-
-        # Bridge: maps external ports to internal v2ecoli store paths
-        bridge = {
-            'inputs': {
-                'local': ['boundary', 'external'],
-            },
-            'outputs': {
-                'mass': ['listeners', 'mass', 'dry_mass'],
-                'volume': ['listeners', 'mass', 'volume'],
-                'exchange': ['listeners', 'mass', 'growth'],
-            },
-        }
-
-        composite_config = {
-            'state': cell_state,
-            'bridge': bridge,
-            'flow_order': document.get('flow_order', []),
-            'skip_initial_steps': document.get('skip_initial_steps', True),
-            'sequential_steps': document.get('sequential_steps', False),
-        }
-
-        self._composite = Composite(
-            config=composite_config, core=internal_core)
+        # Use the full document directly — preserves agents wrapper.
+        # The division step's '..' wire to parent agents will resolve to
+        # the empty agents dict when there's no outer container, which is
+        # safe because division won't trigger until t=~2500s.
+        self._composite = Composite(document, core=internal_core)
 
         # Seed previous values for delta computation
+        cell_state = self._composite.state.get('agents', {}).get('0', {})
         mass_data = cell_state.get('listeners', {}).get('mass', {})
         self._prev_mass = float(mass_data.get('dry_mass', 0.0))
         self._prev_volume = float(mass_data.get('volume', 0.0))
@@ -137,7 +108,7 @@ class EcoliWCM(Process):
     def _read_chromosome_state(self):
         """Extract chromosome state snapshot for visualization."""
         import numpy as np
-        cell = self._composite.state
+        cell = self._composite.state.get('agents', {}).get('0', self._composite.state)
         unique = cell.get('unique', {})
 
         # Full chromosomes
@@ -185,7 +156,7 @@ class EcoliWCM(Process):
 
     def _read_outputs(self):
         """Read mass/volume from internal composite, compute length."""
-        cell = self._composite.state
+        cell = self._composite.state.get('agents', {}).get('0', self._composite.state)
         mass_data = cell.get('listeners', {}).get('mass', {})
         cur_mass = float(mass_data.get('dry_mass', 0.0))
         cur_volume = float(mass_data.get('volume', 0.0))
@@ -240,7 +211,8 @@ class EcoliWCM(Process):
         # Push external concentrations directly into internal boundary
         local = state.get('local') or {}
         mol_map = self.config.get('molecule_map', {})
-        boundary = self._composite.state.get('boundary', {}).get('external', {})
+        cell_state = self._composite.state.get('agents', {}).get('0', self._composite.state)
+        boundary = cell_state.get('boundary', {}).get('external', {})
         if isinstance(boundary, dict):
             for mc_name, conc in local.items():
                 ecoli_name = mol_map.get(mc_name, mc_name)
@@ -260,7 +232,7 @@ class EcoliWCM(Process):
                 return {'mass': 0.0, 'volume': 0.0, 'exchange': {}}
 
         # Check for division flag in internal state
-        cell = self._composite.state
+        cell = self._composite.state.get('agents', {}).get('0', self._composite.state)
         if cell.get('divide', False):
             division_fired = True
 
@@ -285,7 +257,7 @@ class EcoliWCM(Process):
 
     def _handle_division(self, state):
         """Handle WCM division: produce two daughter cells in the colony."""
-        cell = self._composite.state
+        cell = self._composite.state.get('agents', {}).get('0', self._composite.state)
         mass_data = cell.get('listeners', {}).get('mass', {})
         mother_mass = float(mass_data.get('dry_mass', 380.0))
         half_mass = mother_mass / 2

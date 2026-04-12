@@ -64,7 +64,11 @@ while total < duration:
         composite.run(chunk)
     except Exception:
         total += chunk
-        break
+        # Non-fatal error — collect snapshot and continue
+        cell = composite.state.get('agents', {}).get('0')
+        if cell is not None:
+            snapshots.append(snap(total, cell))
+        continue
     total += chunk
 
     cell = composite.state.get('agents', {}).get('0')

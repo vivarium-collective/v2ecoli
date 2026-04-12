@@ -61,10 +61,33 @@ RECONCILED_LAYERS = {
 
 
 # ---------------------------------------------------------------------------
+# Feature modules (adapted for reconciled step names)
+# ---------------------------------------------------------------------------
+
+FEATURE_MODULES = {
+    'supercoiling': {
+        'insert_after': 'ecoli-chromosome-structure',
+        'steps': ['dna-supercoiling-step'],
+        'listeners': ['dna_supercoiling_listener'],
+    },
+    'ppgpp_regulation': {
+        'insert_before': 'reconciled_2',
+        'steps': ['ppgpp-initiation'],
+    },
+    'trna_attenuation': {
+        'insert_before': 'reconciled_3',
+        'steps': ['trna-attenuation-config'],
+    },
+}
+
+DEFAULT_FEATURES = ['ppgpp_regulation', 'trna_attenuation']
+
+
+# ---------------------------------------------------------------------------
 # Execution layers (reconciled — one step per allocator layer)
 # ---------------------------------------------------------------------------
 
-EXECUTION_LAYERS = [
+BASE_EXECUTION_LAYERS = [
     # Layer 0: post-division mass
     ['post-division-mass-listener', 'unique_update_1'],
 
@@ -75,7 +98,7 @@ EXECUTION_LAYERS = [
     ['exchange_data'],
     ['unique_update_3'],
 
-    # Layer 2: reconciled layer 1 (single step replaces 3 departitioned)
+    # Layer 2: reconciled layer 1
     ['reconciled_1'],
     ['unique_update_4'],
 
@@ -83,11 +106,11 @@ EXECUTION_LAYERS = [
     ['ecoli-tf-binding'],
     ['unique_update_5'],
 
-    # Layer 4: reconciled layer 2 (single step replaces 6 departitioned)
+    # Layer 4: reconciled layer 2
     ['reconciled_2'],
     ['unique_update_6'],
 
-    # Layer 5: reconciled layer 3 (single step replaces 2 departitioned)
+    # Layer 5: reconciled layer 3
     ['reconciled_3'],
     ['unique_update_7'],
 
@@ -113,6 +136,39 @@ EXECUTION_LAYERS = [
     ['division'],
 ]
 
+
+def build_execution_layers(features=None):
+    """Build EXECUTION_LAYERS from base + enabled feature modules."""
+    import copy
+    layers = copy.deepcopy(BASE_EXECUTION_LAYERS)
+    for feat_name in (features or []):
+        feat = FEATURE_MODULES.get(feat_name)
+        if feat is None:
+            continue
+        if 'insert_after' in feat:
+            ref = feat['insert_after']
+            for i, layer in enumerate(layers):
+                if ref in layer:
+                    for step_name in feat.get('steps', []):
+                        layers.insert(i + 1, [step_name])
+                    break
+        if 'insert_before' in feat:
+            ref = feat['insert_before']
+            for i, layer in enumerate(layers):
+                if ref in layer:
+                    for step_name in reversed(feat.get('steps', [])):
+                        layers.insert(i, [step_name])
+                    break
+        for listener in feat.get('listeners', []):
+            for layer in layers:
+                if 'ecoli-mass-listener' in layer:
+                    if listener not in layer:
+                        layer.append(listener)
+                    break
+    return layers
+
+
+EXECUTION_LAYERS = build_execution_layers(DEFAULT_FEATURES)
 FLOW_ORDER = [step for layer in EXECUTION_LAYERS for step in layer]
 
 
@@ -328,6 +384,15 @@ def build_reconciled_document(initial_state, configs, unique_names,
     cell_state['listeners'].setdefault('atp', {
         'atp_requested': np.zeros(n_part, dtype=int),
         'atp_allocated_initial': np.zeros(n_part, dtype=int),
+    })
+
+    # Feature module stores
+    cell_state.setdefault('ppgpp_state', {
+        'basal_prob': [],
+        'frac_active_rnap': 0.0,
+    })
+    cell_state.setdefault('attenuation_config', {
+        'attenuation_probability': [],
     })
 
     cell_state.setdefault('process_state', {})

@@ -74,8 +74,8 @@ class PpgppInitiation(Step):
     def outputs(self):
         return {
             'ppgpp_state': {
-                'basal_prob': 'array[float]',
-                'frac_active_rnap': 'float',
+                'basal_prob': 'overwrite[array[float]]',
+                'frac_active_rnap': 'overwrite[float]',
             },
         }
 

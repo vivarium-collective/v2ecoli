@@ -47,10 +47,33 @@ from v2ecoli.generate import (
 
 
 # ---------------------------------------------------------------------------
+# Feature modules (same as baseline, adapted for departitioned step names)
+# ---------------------------------------------------------------------------
+
+FEATURE_MODULES = {
+    'supercoiling': {
+        'insert_after': 'ecoli-chromosome-structure',
+        'steps': ['dna-supercoiling-step'],
+        'listeners': ['dna_supercoiling_listener'],
+    },
+    'ppgpp_regulation': {
+        'insert_before': 'ecoli-transcript-initiation',
+        'steps': ['ppgpp-initiation'],
+    },
+    'trna_attenuation': {
+        'insert_before': 'ecoli-transcript-elongation',
+        'steps': ['trna-attenuation-config'],
+    },
+}
+
+DEFAULT_FEATURES = ['ppgpp_regulation', 'trna_attenuation']
+
+
+# ---------------------------------------------------------------------------
 # Execution layers (departitioned — no allocators)
 # ---------------------------------------------------------------------------
 
-EXECUTION_LAYERS = [
+BASE_EXECUTION_LAYERS = [
     # Layer 0: post-division mass
     ['post-division-mass-listener', 'unique_update_1'],
 
@@ -61,7 +84,7 @@ EXECUTION_LAYERS = [
     ['exchange_data'],
     ['unique_update_3'],
 
-    # Layer 2: formerly partition layer 1 (now sequential standalone)
+    # Layer 2: partition layer 1 (sequential standalone)
     ['ecoli-equilibrium'],
     ['ecoli-rna-maturation'],
     ['ecoli-two-component-system'],
@@ -71,7 +94,7 @@ EXECUTION_LAYERS = [
     ['ecoli-tf-binding'],
     ['unique_update_5'],
 
-    # Layer 4: formerly partition layer 2 (now sequential standalone)
+    # Layer 4: partition layer 2 (sequential standalone)
     ['ecoli-complexation'],
     ['ecoli-protein-degradation'],
     ['ecoli-rna-degradation'],
@@ -80,7 +103,7 @@ EXECUTION_LAYERS = [
     ['ecoli-chromosome-replication'],
     ['unique_update_6'],
 
-    # Layer 5: formerly partition layer 3 (now sequential standalone)
+    # Layer 5: partition layer 3 (sequential standalone)
     ['ecoli-transcript-elongation'],
     ['ecoli-polypeptide-elongation'],
     ['unique_update_7'],
@@ -107,6 +130,39 @@ EXECUTION_LAYERS = [
     ['division'],
 ]
 
+
+def build_execution_layers(features=None):
+    """Build EXECUTION_LAYERS from base + enabled feature modules."""
+    import copy
+    layers = copy.deepcopy(BASE_EXECUTION_LAYERS)
+    for feat_name in (features or []):
+        feat = FEATURE_MODULES.get(feat_name)
+        if feat is None:
+            continue
+        if 'insert_after' in feat:
+            ref = feat['insert_after']
+            for i, layer in enumerate(layers):
+                if ref in layer:
+                    for step_name in feat.get('steps', []):
+                        layers.insert(i + 1, [step_name])
+                    break
+        if 'insert_before' in feat:
+            ref = feat['insert_before']
+            for i, layer in enumerate(layers):
+                if ref in layer:
+                    for step_name in reversed(feat.get('steps', [])):
+                        layers.insert(i, [step_name])
+                    break
+        for listener in feat.get('listeners', []):
+            for layer in layers:
+                if 'ecoli-mass-listener' in layer:
+                    if listener not in layer:
+                        layer.append(listener)
+                    break
+    return layers
+
+
+EXECUTION_LAYERS = build_execution_layers(DEFAULT_FEATURES)
 FLOW_ORDER = [step for layer in EXECUTION_LAYERS for step in layer]
 
 
@@ -288,6 +344,15 @@ def build_departitioned_document(initial_state, configs, unique_names,
     cell_state['listeners'].setdefault('atp', {
         'atp_requested': np.zeros(n_part, dtype=int),
         'atp_allocated_initial': np.zeros(n_part, dtype=int),
+    })
+
+    # Feature module stores
+    cell_state.setdefault('ppgpp_state', {
+        'basal_prob': [],
+        'frac_active_rnap': 0.0,
+    })
+    cell_state.setdefault('attenuation_config', {
+        'attenuation_probability': [],
     })
 
     cell_state.setdefault('process_state', {})

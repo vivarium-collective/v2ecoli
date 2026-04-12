@@ -478,8 +478,8 @@
         "_type": "step",
         "address": "local:v2ecoli.steps.media_update.MediaUpdate",
         "config": {
-          "media_id": "minimal",
           "time_step": 1,
+          "media_id": "minimal",
           "saved_media": {
             "minimal": {
               "GLC": 11.101,
@@ -2546,6 +2546,8 @@
         "_type": "step",
         "address": "local:v2ecoli.processes.metabolic_kinetics.MetabolicKinetics",
         "config": {
+          "external_state": "ExternalState",
+          "time_step": 1,
           "environment_molecules": [
             "GLC",
             "ACET",
@@ -2634,9 +2636,7 @@
             "PROTON",
             "ETOH",
             "IMIDAZOLE-PYRUVATE"
-          ],
-          "external_state": "ExternalState",
-          "time_step": 1
+          ]
         },
         "inputs": {
           "boundary": [
@@ -9452,27 +9452,27 @@
           "next_update_time": [
             "next_update_time"
           ],
-          "polypeptide_elongation": [
-            "process_state",
-            "polypeptide_elongation"
-          ],
           "listeners": [
             "listeners"
-          ],
-          "bulk": [
-            "bulk"
-          ],
-          "RNAs": [
-            "unique",
-            "RNA"
           ],
           "active_ribosome": [
             "unique",
             "active_ribosome"
           ],
+          "polypeptide_elongation": [
+            "process_state",
+            "polypeptide_elongation"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
+          ],
           "active_RNAPs": [
             "unique",
             "active_RNAP"
+          ],
+          "bulk": [
+            "bulk"
           ],
           "_layer_out_16": [
             "_layer_token_16"

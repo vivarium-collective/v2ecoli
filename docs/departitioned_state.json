@@ -2546,8 +2546,8 @@
         "_type": "step",
         "address": "local:v2ecoli.processes.metabolic_kinetics.MetabolicKinetics",
         "config": {
-          "time_step": 1,
           "external_state": "ExternalState",
+          "time_step": 1,
           "environment_molecules": [
             "GLC",
             "ACET",
@@ -8779,15 +8779,15 @@
             "next_update_time",
             "ecoli-rna-degradation"
           ],
-          "bulk": [
-            "bulk"
+          "RNAs": [
+            "unique",
+            "RNA"
           ],
           "listeners": [
             "listeners"
           ],
-          "RNAs": [
-            "unique",
-            "RNA"
+          "bulk": [
+            "bulk"
           ],
           "_layer_out_15": [
             "_layer_token_15"
@@ -9443,12 +9443,12 @@
             "next_update_time",
             "ecoli-transcript-elongation"
           ],
+          "listeners": [
+            "listeners"
+          ],
           "RNAs": [
             "unique",
             "RNA"
-          ],
-          "listeners": [
-            "listeners"
           ],
           "active_RNAPs": [
             "unique",
@@ -9513,6 +9513,9 @@
             "next_update_time",
             "ecoli-polypeptide-elongation"
           ],
+          "listeners": [
+            "listeners"
+          ],
           "active_ribosome": [
             "unique",
             "active_ribosome"
@@ -9520,9 +9523,6 @@
           "polypeptide_elongation": [
             "process_state",
             "polypeptide_elongation"
-          ],
-          "listeners": [
-            "listeners"
           ],
           "bulk": [
             "bulk"

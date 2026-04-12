@@ -2546,6 +2546,7 @@
         "_type": "step",
         "address": "local:v2ecoli.processes.metabolic_kinetics.MetabolicKinetics",
         "config": {
+          "external_state": "ExternalState",
           "time_step": 1,
           "environment_molecules": [
             "GLC",
@@ -2635,8 +2636,7 @@
             "PROTON",
             "ETOH",
             "IMIDAZOLE-PYRUVATE"
-          ],
-          "external_state": "ExternalState"
+          ]
         },
         "inputs": {
           "boundary": [
@@ -9352,15 +9352,15 @@
             "process",
             "ecoli-rna-degradation"
           ],
-          "bulk": [
-            "bulk"
-          ],
           "listeners": [
             "listeners"
           ],
           "RNAs": [
             "unique",
             "RNA"
+          ],
+          "bulk": [
+            "bulk"
           ],
           "_layer_out_16": [
             "_layer_token_16"
@@ -9804,19 +9804,19 @@
             "process",
             "ecoli-polypeptide-elongation"
           ],
+          "listeners": [
+            "listeners"
+          ],
           "active_ribosome": [
             "unique",
             "active_ribosome"
-          ],
-          "bulk": [
-            "bulk"
           ],
           "polypeptide_elongation": [
             "process_state",
             "polypeptide_elongation"
           ],
-          "listeners": [
-            "listeners"
+          "bulk": [
+            "bulk"
           ],
           "_layer_out_20": [
             "_layer_token_20"
@@ -9886,19 +9886,19 @@
             "process",
             "ecoli-transcript-elongation"
           ],
-          "bulk": [
-            "bulk"
-          ],
           "listeners": [
             "listeners"
+          ],
+          "RNAs": [
+            "unique",
+            "RNA"
           ],
           "active_RNAPs": [
             "unique",
             "active_RNAP"
           ],
-          "RNAs": [
-            "unique",
-            "RNA"
+          "bulk": [
+            "bulk"
           ],
           "_layer_out_20": [
             "_layer_token_20"

@@ -139,7 +139,7 @@
         "_type": "step",
         "address": "local:v2ecoli.steps.listeners.mass_listener.PostDivisionMassListener",
         "config": {
-          "cellDensity": 1100.0,
+          "cellDensity": 1100,
           "bulk_masses": "ndarray",
           "unique_masses": "ndarray",
           "submass_to_idx": {
@@ -2542,9 +2542,9 @@
         },
         "priority": 38.0
       },
-      "exchange_data": {
+      "metabolic_kinetics": {
         "_type": "step",
-        "address": "local:v2ecoli.steps.exchange_data.ExchangeData",
+        "address": "local:v2ecoli.processes.metabolic_kinetics.MetabolicKinetics",
         "config": {
           "environment_molecules": [
             "GLC",
@@ -2635,8 +2635,8 @@
             "ETOH",
             "IMIDAZOLE-PYRUVATE"
           ],
-          "time_step": 1,
-          "external_state": "ExternalState"
+          "external_state": "ExternalState",
+          "time_step": 1
         },
         "inputs": {
           "boundary": [
@@ -2831,7 +2831,7 @@
         "_type": "step",
         "address": "local:v2ecoli.processes.equilibrium.Equilibrium",
         "config": {
-          "cell_density": 1100.0,
+          "cell_density": 1100,
           "complex_ids": [
             "CPLX-123[c]",
             "CPLX-125[c]",
@@ -3072,7 +3072,7 @@
         "_type": "step",
         "address": "local:v2ecoli.processes.two_component_system.TwoComponentSystem",
         "config": {
-          "cell_density": 1100.0,
+          "cell_density": 1100,
           "jit": false,
           "moleculeNames": "ndarray",
           "n_avogadro": 6.02214076e+20,
@@ -8786,7 +8786,7 @@
         "_type": "step",
         "address": "local:v2ecoli.processes.chromosome_replication.ChromosomeReplication",
         "config": {
-          "D_period": 1200.0,
+          "D_period": 1200,
           "basal_elongation_rate": 967,
           "criticalInitiationMass": "Unum",
           "dntps": [
@@ -9211,15 +9211,15 @@
           "next_update_time": [
             "next_update_time"
           ],
-          "bulk": [
-            "bulk"
+          "RNAs": [
+            "unique",
+            "RNA"
           ],
           "listeners": [
             "listeners"
           ],
-          "RNAs": [
-            "unique",
-            "RNA"
+          "bulk": [
+            "bulk"
           ],
           "_layer_out_14": [
             "_layer_token_14"
@@ -9452,6 +9452,13 @@
           "next_update_time": [
             "next_update_time"
           ],
+          "polypeptide_elongation": [
+            "process_state",
+            "polypeptide_elongation"
+          ],
+          "listeners": [
+            "listeners"
+          ],
           "bulk": [
             "bulk"
           ],
@@ -9459,20 +9466,13 @@
             "unique",
             "RNA"
           ],
-          "polypeptide_elongation": [
-            "process_state",
-            "polypeptide_elongation"
+          "active_ribosome": [
+            "unique",
+            "active_ribosome"
           ],
           "active_RNAPs": [
             "unique",
             "active_RNAP"
-          ],
-          "listeners": [
-            "listeners"
-          ],
-          "active_ribosome": [
-            "unique",
-            "active_ribosome"
           ],
           "_layer_out_16": [
             "_layer_token_16"
@@ -73984,7 +73984,7 @@
         "_type": "step",
         "address": "local:v2ecoli.steps.listeners.mass_listener.MassListener",
         "config": {
-          "cellDensity": 1100.0,
+          "cellDensity": 1100,
           "bulk_masses": "ndarray",
           "unique_masses": "ndarray",
           "submass_to_idx": {

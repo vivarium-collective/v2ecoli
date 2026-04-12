@@ -620,6 +620,7 @@ class LoadSimData:
             "unique_molecule_counts": self.get_unique_molecule_counts_config,
             "metabolic_kinetics": self.get_metabolic_kinetics_config,
             "carbon_budget_listener": self.get_carbon_budget_config,
+            "dark_matter_listener": self.get_dark_matter_config,
             "environment_update": self.get_environment_update_config,
             "media_update": self.get_media_update_config,
             "bulk-timeline": self.get_bulk_timeline_config,
@@ -2113,6 +2114,22 @@ class LoadSimData:
 
     def get_carbon_budget_config(self, time_step=1):
         return {"time_step": time_step}
+
+    def get_dark_matter_config(self, time_step=1):
+        # Ship the full bulk-molecule MW table so the dark-matter
+        # listener can weigh every species, not just the 60-ish the
+        # carbon_counts.MOLECULAR_WEIGHTS table covers. Without this,
+        # coverage sits at ~1% and the bulk-mass delta is a huge
+        # underestimate. Masses are in g/mol.
+        mw_table: dict[str, float] = {}
+        masses = getattr(self.sim_data.getter, "_all_total_masses", None)
+        if masses is not None:
+            for mol_id, m in masses.items():
+                try:
+                    mw_table[mol_id] = float(m)
+                except (TypeError, ValueError):
+                    continue
+        return {"time_step": time_step, "mw_table": mw_table}
 
     def get_environment_update_config(self, time_step=1):
         # Environment volume per cell defaults to 100 fL (late-log density,

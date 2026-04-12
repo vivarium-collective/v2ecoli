@@ -88,7 +88,7 @@ BASE_EXECUTION_LAYERS = [
     ['RNA_counts_listener', 'ecoli-mass-listener',
      'monomer_counts_listener', 'replication_data_listener', 'ribosome_data_listener',
      'rna_synth_prob_listener', 'rnap_data_listener', 'unique_molecule_counts',
-     'carbon_budget_listener'], FLUSH,
+     'carbon_budget_listener', 'dark_matter_listener'], FLUSH,
 
     # Emitter + clock
     ['emitter'],
@@ -501,6 +501,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     from v2ecoli.steps.listeners.unique_molecule_counts import UniqueMoleculeCounts
     from v2ecoli.steps.listeners.ribosome_data import RibosomeData
     from v2ecoli.steps.listeners.carbon_budget import CarbonBudget
+    from v2ecoli.steps.listeners.dark_matter import DarkMatterAccountant
     from v2ecoli.steps.media_update import MediaUpdate
     from v2ecoli.steps.environment_update import EnvironmentUpdate
     from v2ecoli.processes.metabolic_kinetics import MetabolicKinetics
@@ -534,6 +535,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'unique_molecule_counts': UniqueMoleculeCounts,
         'ribosome_data_listener': RibosomeData,
         'carbon_budget_listener': CarbonBudget,
+        'dark_matter_listener': DarkMatterAccountant,
         'media_update': MediaUpdate,
         'environment_update': EnvironmentUpdate,
         'metabolic_kinetics': MetabolicKinetics,

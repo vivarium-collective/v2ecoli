@@ -101,6 +101,8 @@ def _extract_snapshot(state, t):
     # analysis of modular_fba slack pseudofluxes.
     fba_results = agent.get("listeners", {}).get("fba_results", {}) or {}
     fba_mass_out = _as_float(fba_results.get("fba_mass_exchange_out"), 0.0)
+    # Dark-matter accountant (phase 1).
+    dm = agent.get("listeners", {}).get("dark_matter", {}) or {}
 
     return {
         "time": t,
@@ -133,6 +135,16 @@ def _extract_snapshot(state, t):
         "mass_balance_deficit_fg": _as_float(
             cb.get("mass_balance_deficit_fg"), 0.0),
         "fba_mass_exchange_out": fba_mass_out,
+        "dark_matter_fg": _as_float(dm.get("dark_matter_fg"), 0.0),
+        "dark_matter_delta_fg": _as_float(
+            dm.get("dark_matter_delta_fg"), 0.0),
+        "dm_cum_bulk_in": _as_float(
+            dm.get("cumulative_bulk_mass_in_fg"), 0.0),
+        "dm_cum_exch_in": _as_float(
+            dm.get("cumulative_exchange_mass_in_fg"), 0.0),
+        "dm_cum_viol": _as_float(
+            dm.get("cumulative_violations_fg"), 0.0),
+        "dm_coverage": _as_float(dm.get("mw_coverage_fraction"), 0.0),
     }
 
 
@@ -509,6 +521,58 @@ def plot_mass_composition(snaps):
     return _fig_to_b64(fig)
 
 
+def plot_dark_matter(snaps):
+    """Dark-matter pool trajectory. The invariant is dark_matter ≥ 0
+    can not be created → dark_matter must hover near zero. A sustained
+    upward drift is the quantitative signal of mass creation from
+    nothing."""
+    if not snaps:
+        return None
+    import numpy as np
+    t = np.array([s["time"] / 60 for s in snaps])
+    pool = np.array([s.get("dark_matter_fg", 0) for s in snaps])
+    bulk = np.array([s.get("dm_cum_bulk_in", 0) for s in snaps])
+    exch = np.array([s.get("dm_cum_exch_in", 0) for s in snaps])
+    viol = np.array([s.get("dm_cum_viol", 0) for s in snaps])
+    coverage = snaps[-1].get("dm_coverage", 0) if snaps else 0
+    t_shut = _glc_shutoff_min(snaps)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.2))
+    # Left: dark matter pool over time
+    ax1.plot(t, pool, color="#7c3aed", linewidth=2.0,
+             label="Dark matter pool")
+    ax1.fill_between(t, 0, pool, where=(pool > 0),
+                     color="#ddd6fe", alpha=0.6,
+                     label="Mass created (violation)")
+    ax1.axhline(0, color="#475569", linestyle="-", alpha=0.4,
+                linewidth=1.0)
+    if t_shut is not None:
+        ax1.axvline(t_shut, color="#dc2626", linestyle="--",
+                    alpha=0.6, linewidth=1.0)
+    ax1.set_xlabel("Time (min)")
+    ax1.set_ylabel("Dark matter (fg)")
+    ax1.set_title(
+        f"Dark-matter pool — MW coverage {coverage:.0%}")
+    ax1.grid(alpha=0.3); ax1.legend(fontsize=9, loc="upper left")
+
+    # Right: cumulative bulk mass vs cumulative exchange mass
+    ax2.plot(t, bulk, color="#2563eb", linewidth=2.0,
+             label="Σ bulk mass change")
+    ax2.plot(t, exch, color="#16a34a", linewidth=2.0,
+             label="Σ exchange mass change")
+    ax2.fill_between(t, exch, bulk, where=(bulk > exch),
+                     color="#fecaca", alpha=0.4,
+                     label="Bulk > exchange (mass from nowhere)")
+    if t_shut is not None:
+        ax2.axvline(t_shut, color="#dc2626", linestyle="--",
+                    alpha=0.6, linewidth=1.0)
+    ax2.set_xlabel("Time (min)")
+    ax2.set_ylabel("Cumulative mass (fg)")
+    ax2.set_title("Bulk vs exchange mass over time")
+    ax2.grid(alpha=0.3); ax2.legend(fontsize=9, loc="upper left")
+    return _fig_to_b64(fig)
+
+
 def plot_fba_mass_accounting(snaps):
     """Overlay wholecell's built-in FBA mass accounting against our
     observed dry-mass growth. When the two diverge, the LP is
@@ -752,6 +816,7 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float):
         "mass_composition": plot_mass_composition(snaps),
         "mass_balance": plot_mass_balance(snaps),
         "fba_mass_probe": plot_fba_mass_accounting(snaps),
+        "dark_matter": plot_dark_matter(snaps),
     }
 
     # Pre/post-shutoff flux table — concrete answer to "what takes over
@@ -957,6 +1022,23 @@ bound to ~0 (exchange-mass accumulation forbidden) has
 is entering via the quadratic slacks, not the exchanges.</p>
 
 {img("fba_mass_probe", "FBA exchange-mass vs dry mass")}
+
+<h3>Dark-matter pool (phase 1: diagnostic)</h3>
+<p>A "biomass dark matter" accountant. Each step:</p>
+<pre>dark_matter += (Σ bulk mass change) − (Σ exchange mass change)</pre>
+<p>where bulk-mass uses molecular weights for <strong>every
+molecule</strong> in sim_data (100% coverage, 12,809 entries).
+<strong>Invariant:</strong> mass can't be created, so
+<code>dark_matter ≥ 0</code> should stay near zero. Sustained upward
+drift = LP manufacturing mass without a boundary source.</p>
+
+<p>Phase 1 just measures and reports. Phase 2 adds a dark-matter flux
+to the LP with one-sided bounds and an objective-minimised
+withdrawal, so the LP tries to stay at pool=0 and is infeasible only
+when biomass targets genuinely can't be met (which is fine — cell
+stays at whatever growth the carbon actually allows).</p>
+
+{img("dark_matter", "Dark matter pool over time")}
 
 <p>The orange dashed curve is what wholecell's LP <em>thinks</em> has
 accumulated through exchanges. The blue curve is actual dry-mass gain.

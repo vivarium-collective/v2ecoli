@@ -854,7 +854,8 @@ def plot_mm_curve(vmax: float, km: float):
 # Report assembly
 # ---------------------------------------------------------------------------
 
-def generate_report(data, caglar, duration: int, vmax: float, km: float):
+def generate_report(data, caglar, duration: int, vmax: float, km: float,
+                    dark_matter: bool = False):
     from v2ecoli.library.repro_banner import banner_html
     repro = banner_html()
 
@@ -972,6 +973,7 @@ footer {{ margin-top: 3em; padding-top: 1em; border-top: 1px solid #e2e8f0;
 
 <nav class="toc"><div class="inner">
   <a href="#summary">Summary</a>
+  <a href="#goals">Goals</a>
   <a href="#growth">Growth</a>
   <a href="#glc-kinetics">Glucose kinetics</a>
   <a href="#exchange">Exchange fluxes</a>
@@ -986,6 +988,60 @@ footer {{ margin-top: 3em; padding-top: 1em; border-top: 1px solid #e2e8f0;
 </div></nav>
 
 <h1 id="summary">Nutrient-Growth Report</h1>
+
+<div style="padding: 10px 14px; margin: 1em 0; background: {'#fef3c7' if dark_matter else '#e0f2fe'};
+            border-left: 4px solid {'#f59e0b' if dark_matter else '#0284c7'}; font-size: 0.95em;">
+<strong>Model variant:</strong>
+{'<code>baseline + dark-matter enforcement</code> — mass conservation is a hard constraint. LP-proposed biomass is scaled down when imports run out, so the cell enters a true stationary phase.' if dark_matter else
+'<code>baseline</code> — matches vEcoli 1.0 bit-for-bit (dark-matter enforcement OFF). Use this for architecture-comparison runs.'}
+Rerun with <code>python nutrient_growth_report.py {'(default)' if dark_matter else '--dark-matter'}</code> to switch.
+</div>
+
+<h2 id="goals">Goals</h2>
+<p>This branch (<code>nutrient-growth</code>) aims to parameterize
+v2ecoli growth against the Caglar et al. 2017
+(<a href="https://doi.org/10.1038/srep45303" target="_blank">srep45303</a>)
+multi-condition dataset — 4 carbon sources × 10 Mg²⁺ levels ×
+3 Na⁺ levels × 3 growth phases. The long-term target is a single
+continuously-parameterized model that predicts doubling times and
+mass-component trajectories across all those conditions.</p>
+
+<p>The path to that goal is laid out in three design moves, all on
+this branch:</p>
+<ol>
+  <li><strong>Continuous glucose sensitivity.</strong> Replace the
+  media-id-keyed lookup for the FBA's glucose uptake bound with
+  Michaelis-Menten kinetics on <code>boundary.external.GLC</code>.
+  The uptake rate now decays smoothly as [GLC]ₑₓₜ falls toward K<sub>m</sub>,
+  so the sim can express any point along the uptake curve rather than
+  the saturated-or-absent switch of the original.</li>
+
+  <li><strong>Closed environment-depletion loop.</strong> New
+  <code>environment_update</code> step: the per-step exchange counts
+  metabolism emits are converted to concentration deltas (via a
+  configurable per-cell environment volume) and written back to
+  <code>boundary.external</code>. Glucose actually runs out over sim
+  time, driving the MM bound to zero, driving growth rate down.</li>
+
+  <li><strong>Mass-conservation enforcement.</strong> FBA with the
+  wholecell homeostatic objective doesn't strictly conserve atomic
+  mass — it has quadratic slack pseudofluxes bounded
+  <code>[-∞, +∞]</code> that let the LP "manufacture" biomass when
+  stoichiometry can't supply it. This branch adds a
+  <em>dark-matter pool</em>: each step's LP output is mass-checked
+  against boundary imports + unique-pool changes, and the positive
+  biomass deltas are proportionally scaled so that <em>net cell mass
+  change equals net boundary flux</em>, exactly. The cell stops
+  growing when carbon runs out — not because we told it to, but
+  because mass can't be created.</li>
+</ol>
+
+<p>The wider ambition is that calibration against Caglar becomes a
+matter of tuning physically-meaningful parameters (v<sub>max</sub>,
+K<sub>m</sub>, environment volume per cell, per-carbon-source
+stoichiometry) on a model that already respects atomic conservation.
+Without mass-balance, any nutrient-condition fit would be a
+confound between "biology" and "LP slack".</p>
 <p>Single-cell simulation exercising the extracted
 <code>metabolic_kinetics</code> step with Michaelis-Menten glucose uptake.
 Target: parameterize growth under varying nutrient conditions against
@@ -1266,7 +1322,14 @@ def main():
                              f"(default {DEFAULT_ENV_VOLUME_L:g} = "
                              f"{DEFAULT_ENV_VOLUME_L*1e15:.0f} fL). "
                              f"Smaller → faster glucose depletion.")
+    parser.add_argument("--dark-matter", action="store_true",
+                        dest="dark_matter",
+                        help="enable dark-matter mass-balance enforcement "
+                             "(sets V2ECOLI_DARK_MATTER=1). OFF by default "
+                             "so baseline matches vEcoli 1.0.")
     args = parser.parse_args()
+    # Export the toggle so sim_data.get_metabolism_config picks it up.
+    os.environ["V2ECOLI_DARK_MATTER"] = "1" if args.dark_matter else "0"
 
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     os.makedirs(REPORT_DIR, exist_ok=True)
@@ -1276,13 +1339,16 @@ def main():
     print(f"  MM glucose: v_max = {args.vmax} mmol/gDCW/h, K_m = {args.km} mM")
     print(f"  env volume: {args.env_volume_L:g} L "
           f"({args.env_volume_L*1e15:.1f} fL)")
+    print(f"  dark-matter enforcement: "
+          f"{'ON' if args.dark_matter else 'OFF (baseline matches vEcoli 1.0)'}")
     print("=" * 60)
 
     t0 = time.time()
     data = run_single_cell(args.duration, args.snapshot, args.env_volume_L)
     caglar = load_caglar_doubling_times()
     report_path = generate_report(data, caglar, args.duration,
-                                  args.vmax, args.km)
+                                  args.vmax, args.km,
+                                  dark_matter=args.dark_matter)
 
     print(f"\nReport: {report_path}")
     print(f"Wall: {time.time() - t0:.0f}s")

@@ -327,8 +327,8 @@ def build_departitioned_document(initial_state, configs, unique_names,
     _normalize_boundary_units(cell_state)
 
     # Pre-create virtual stores (no request/allocate needed)
-    for store in ['listeners', 'process_state', 'exchange',
-                  'next_update_time']:
+    for store in ['listeners', 'exchange',
+                  'next_update_time', 'metabolism_inputs']:
         if store not in cell_state:
             cell_state[store] = {}
     cell_state.setdefault('global_time', 0.0)
@@ -360,12 +360,12 @@ def build_departitioned_document(initial_state, configs, unique_names,
         'attenuation_probability': [],
     })
 
-    cell_state.setdefault('process_state', {})
-    cell_state['process_state'].setdefault('polypeptide_elongation', {
+    cell_state.setdefault('polypeptide_elongation', {
         'aa_exchange_rates': np.zeros(21),
         'gtp_to_hydrolyze': 0,
         'aa_count_diff': np.zeros(21),
     })
+    cell_state.setdefault('metabolism_inputs', {})
 
     # Mock loader
     class _CachedLoader:

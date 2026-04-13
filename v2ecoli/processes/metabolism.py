@@ -85,7 +85,7 @@ TOPOLOGY = {
     # All per-step pre-FBA work (counts_to_molar, coefficient, conc_updates,
     # aa_uptake_package, bulk-count reads, aa_targets drift, ...) has moved
     # to MetabolicKinetics, which writes this store before we run.
-    "metabolism_inputs": ("process_state", "metabolism_inputs"),
+    "metabolism_inputs": ("metabolism_inputs",),
     "global_time": ("global_time",),
     "timestep": ("timestep",),
     "next_update_time": ("next_update_time", "metabolism"),

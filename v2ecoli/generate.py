@@ -883,8 +883,11 @@ def build_document(initial_state, configs, unique_names,
 
     # Pre-create virtual stores
     for store in ['listeners', 'process',
-                  'allocator_rng', 'process_state', 'exchange',
-                  'next_update_time']:
+                  'allocator_rng', 'exchange',
+                  'next_update_time',
+                  # metabolism_inputs is fine as an empty dict — its sub-keys
+                  # are populated by MetabolicKinetics on first tick.
+                  'metabolism_inputs']:
         if store not in cell_state:
             cell_state[store] = {}
     cell_state.setdefault('global_time', 0.0)
@@ -926,12 +929,12 @@ def build_document(initial_state, configs, unique_names,
     })
     # Listener sub-stores are populated by _seed_state_from_ports below
 
-    cell_state.setdefault('process_state', {})
-    cell_state['process_state'].setdefault('polypeptide_elongation', {
+    cell_state.setdefault('polypeptide_elongation', {
         'aa_exchange_rates': np.zeros(21),
         'gtp_to_hydrolyze': 0,
         'aa_count_diff': np.zeros(21),
     })
+    cell_state.setdefault('metabolism_inputs', {})
 
     # Create a mock loader that returns configs from the cache
     class _CachedLoader:

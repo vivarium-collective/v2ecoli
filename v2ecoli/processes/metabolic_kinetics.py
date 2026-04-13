@@ -28,7 +28,7 @@ What this step writes:
 
     * ``environment.exchange_data`` — the same {constrained,
       unconstrained} contract metabolism already consumed.
-    * ``process_state.metabolism_inputs`` — a flat record with
+    * ``metabolism_inputs`` — top-level cross-process record with
       scalar-valued unit-free fields plus the four count arrays;
       metabolism reconstructs Unum where ``modular_fba`` requires it.
 
@@ -129,8 +129,8 @@ class MetabolicKinetics(Step):
         "bulk": ("bulk",),
         "bulk_total": ("bulk",),
         "listeners": ("listeners",),
-        "polypeptide_elongation": ("process_state", "polypeptide_elongation"),
-        "metabolism_inputs": ("process_state", "metabolism_inputs"),
+        "polypeptide_elongation": ("polypeptide_elongation",),
+        "metabolism_inputs": ("metabolism_inputs",),
     }
 
     def initialize(self, config):

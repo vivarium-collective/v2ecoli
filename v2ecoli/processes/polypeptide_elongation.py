@@ -110,7 +110,7 @@ TOPOLOGY = {
     "listeners": ("listeners",),
     "active_ribosome": ("unique", "active_ribosome"),
     "bulk": ("bulk",),
-    "polypeptide_elongation": ("process_state", "polypeptide_elongation"),
+    "polypeptide_elongation": ("polypeptide_elongation",),
     # Non-partitioned counts
     "bulk_total": ("bulk",),
     "timestep": ("timestep",),

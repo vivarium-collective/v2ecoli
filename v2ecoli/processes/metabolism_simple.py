@@ -61,7 +61,7 @@ TOPOLOGY = {
     "bulk_total": ("bulk",),
     "listeners": ("listeners",),
     "environment": ("environment",),
-    "polypeptide_elongation": ("process_state", "polypeptide_elongation"),
+    "polypeptide_elongation": ("polypeptide_elongation",),
     "global_time": ("global_time",),
     "timestep": ("timestep",),
     "next_update_time": ("next_update_time", "metabolism"),

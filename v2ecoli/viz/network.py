@@ -68,8 +68,12 @@ def classify(name: str) -> tuple[str, str]:
 
 _STORE_NODES = (
     'bulk', 'unique', 'environment', 'boundary', 'listeners',
-    'request', 'allocate', 'process_state', 'next_update_time',
+    'request', 'allocate', 'next_update_time',
     'global_time', 'timestep', 'ppgpp_state', 'attenuation_config',
+    # Top-level cross-process communication stores (promoted out of
+    # the old ``process_state`` namespace so they show up as their own
+    # nodes in the network viewer).
+    'polypeptide_elongation', 'metabolism_inputs',
 )
 
 # Parent stores whose first-level children should get their own node,

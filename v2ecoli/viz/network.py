@@ -40,8 +40,8 @@ BIO_COLORS: list[tuple[str, str, str, Callable[[str], bool]]] = [
     ('signaling',    'Signaling / equilibrium','#FFD58C',
         lambda n: 'equilibrium' in n or 'two-component' in n
                   or 'complexation' in n),
-    ('metabolism',   'Metabolism (FBA)',       '#F7D488',
-        lambda n: 'metabolism' in n),
+    ('metabolism',   'Metabolism (FBA + kinetics)', '#F7D488',
+        lambda n: 'metabolism' in n or 'metabolic_kinetics' in n),
     ('alloc',        'Partition / allocator',  '#FFAE80',
         lambda n: 'allocator' in n),
     ('listen',       'Listeners',              '#D5D5D5',
@@ -49,7 +49,7 @@ BIO_COLORS: list[tuple[str, str, str, Callable[[str], bool]]] = [
     ('infra',        'Infrastructure / flow',  '#E8E8E8',
         lambda n: any(s in n for s in (
             'unique_update', 'global_clock', 'emitter', 'mark_d_period',
-            'division', 'metabolic_kinetics', 'media_update', 'post-division',
+            'division', 'media_update', 'post-division',
             'reconciled_', 'allocator_'))),
 ]
 

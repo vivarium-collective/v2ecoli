@@ -1,39 +1,88 @@
 """
-Metabolic kinetics — computes every non-FBA input that ``metabolism.py``
-consumes each timestep, so that metabolism is reduced to "receive
-bounds + targets + counts, call the LP, emit deltas".
+==================
+Metabolic Kinetics
+==================
 
-Runtime feature-flag: ``V2ECOLI_NUTRIENT_GROWTH=1`` enables the whole
-nutrient-growth feature set (MM glucose uptake override, secretion-only
-enforcement, import-allowlist deny-by-default). With it OFF (default),
-this Step behaves as a pure drop-in replacement for the original
-ExchangeData/metabolism pre-FBA code — baseline matches vEcoli 1.0
-bit-for-bit.
+Pre-FBA Step that prepares every non-LP input ``metabolism.py`` consumes
+each timestep — exchange bounds, homeostatic concentration targets,
+unit-conversion factors, mechanistic AA uptake, and the four bulk-count
+slices the FBA needs. Metabolism is reduced to "receive bounds + targets
++ counts, call the LP, emit deltas"; this Step owns everything else.
 
-What lives here (was inside ``Metabolism._do_update``):
+Runtime feature-flag ``V2ECOLI_NUTRIENT_GROWTH=1`` enables the
+nutrient-growth biology (MM glucose uptake override, secretion-only
+enforcement, static import-allowlist deny-by-default). With it OFF
+(default), this Step is a pure drop-in for the original
+ExchangeData/metabolism pre-FBA code — baseline is bit-identical to
+vEcoli 1.0.
 
-    * exchange-bound computation from environment concentrations
-      (the original ``ExchangeData`` responsibility — unchanged)
-    * ``counts_to_molar`` and the flux→delta ``coefficient``
-    * homeostatic concentration updates: biomass fractions via
-      ``getBiomassAsConcentrations``, optional ppGpp target, optional
-      tRNA-charging target drift
-    * mechanistic amino-acid uptake package (mask + per-AA rates)
-    * the persistent ``aa_targets`` dict and its per-step drift
-    * bulk-count reads for the four slots FBA needs: metabolites,
-      catalysts, kinetic-constraint enzymes, kinetic-constraint
-      substrates
+Mathematical Model
+------------------
+**Michaelis-Menten glucose uptake** (nutrient-growth on)
 
-What this step writes:
+The wholecell exchange-bound for glucose is overridden each step from
+the live boundary concentration:
 
-    * ``environment.exchange_data`` — the same {constrained,
-      unconstrained} contract metabolism already consumed.
-    * ``metabolism_inputs`` — top-level cross-process record with
-      scalar-valued unit-free fields plus the four count arrays;
-      metabolism reconstructs Unum where ``modular_fba`` requires it.
+    v_glc(t) = v_max · [GLC]ₑₓₜ(t) / (K_m + [GLC]ₑₓₜ(t))     [mmol/gDCW/h]
 
-Metabolism stays the single owner of the FBA model instance; this
-step never holds one.
+Defaults: ``v_max = 20 mmol/gDCW/h`` (matches the wholecell glucose
+import flux at 22 mM media), ``K_m = 0.01 mM`` (classical PTS-system
+value, ~10 µM). Tunable via ``V2ECOLI_MM_VMAX`` / ``V2ECOLI_MM_KM``.
+
+**Counts ↔ concentration**
+
+Per-step conversion factors built from current cell volume so the FBA
+sees mM internal concentrations and writes back integer counts:
+
+    counts_to_molar = 1 / (N_A · cell_volume)                [M / count]
+    coefficient     = dry_mass · dt / cell_volume            [g·s / L]
+
+``cell_volume = cell_mass / cell_density`` is recomputed each tick.
+
+**Homeostatic concentration targets**
+
+    c_target(m) = biomass_fraction(m) · μ_target                  for biomass m
+    c_target(ppGpp) = f_ppGpp(growth_rate, sim_time)              if include_ppgpp
+    c_target(aa)    = persistent dict drifted by ΔAA_uptake_rate  if mechanistic_aa_transport
+
+These are the values modular_fba's ``quadFractionFromUnity`` slacks
+quadratic-penalize. (See the report's "How is biomass being
+manufactured?" section for the slack-pseudoflux pathology this
+exposes.)
+
+**Mechanistic AA uptake package**
+
+When ``mechanistic_aa_transport`` is on, each AA gets an exchange-bound
+override built from the polypeptide-elongation step's per-AA exchange
+rate, gated by a mask of AAs whose targets are not externally driven.
+
+**Static import allowlist** (nutrient-growth on)
+
+Snapshot of the wholecell classifier output for the *initial* media,
+used as a deny-by-default for any boundary species not in the snapshot.
+This blocks late-onset compensatory imports as concentrations drift
+(CARBON-MONOXIDE, 5-Deoxy-D-Ribofuranose, etc. would otherwise sneak
+back in once nutrients fall below threshold).
+
+Inputs / Outputs
+----------------
+Reads:
+    boundary.external                — live concentrations
+    bulk / bulk_total                — count arrays for FBA slots
+    listeners.mass.{cell,dry,…}_mass — for unit conversions
+    polypeptide_elongation           — for mechanistic AA uptake
+
+Writes:
+    environment.exchange_data        — {constrained, unconstrained}
+                                       contract metabolism consumes
+    metabolism_inputs                — top-level record with unit-free
+                                       scalars, conc maps, and the four
+                                       bulk-count arrays; metabolism
+                                       reconstructs Unum where the LP
+                                       requires it.
+
+Metabolism remains the single owner of the FBA model instance; this
+Step never holds one.
 """
 
 import os

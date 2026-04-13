@@ -34,7 +34,7 @@ Example:
 
 """
 
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
 
 INF = float("inf")
 NEG_INF = float("-inf")
@@ -179,7 +179,7 @@ class Media(object):
 
         # remove concentration units, setting at CONC_UNITS
         unitless_new_media = {
-            mol: conc.asNumber(CONC_UNITS) for mol, conc in new_media.items()
+            mol: conc.to(CONC_UNITS).magnitude for mol, conc in new_media.items()
         }
 
         return unitless_new_media
@@ -205,7 +205,7 @@ class Media(object):
         for mol_id, base_conc in base_media.items():
             mix_conc = mix_media[mol_id]
 
-            if base_conc.asNumber() == INF or mix_conc.asNumber() == INF:
+            if base_conc.magnitude == INF or mix_conc.magnitude == INF:
                 new_media[mol_id] = INF * CONC_UNITS
             else:
                 base_counts = base_conc * base_media_volume
@@ -258,11 +258,11 @@ class Media(object):
                 # calculate mix_counts from weight.
                 # This will overwrite added counts if those were specified
                 if weight is not None:
-                    if weight.asNumber() == INF:
+                    if weight.magnitude == INF:
                         mix_counts = INF * COUNTS_UNITS
-                    elif weight.asNumber() == NEG_INF:
+                    elif weight.magnitude == NEG_INF:
                         mix_counts = NEG_INF * COUNTS_UNITS
-                    elif weight.asNumber() >= 0:
+                    elif weight.magnitude >= 0:
                         if self.environment_molecules_fw[mol_id] is not None:
                             fw = self.environment_molecules_fw[mol_id]
                             mix_counts = weight / fw
@@ -283,12 +283,12 @@ class Media(object):
 
                 # get new concentration
                 # make infinite concentration of ingredient if mix_counts is Infinity
-                if mix_counts.asNumber() == INF:
+                if mix_counts.magnitude == INF:
                     new_media[mol_id] = INF * CONC_UNITS
 
                 # remove ingredient from media if mix_counts is -Infinity
                 # this will override infinite concentrations in base_media
-                elif mix_counts.asNumber() == NEG_INF:
+                elif mix_counts.magnitude == NEG_INF:
                     new_media[mol_id] = 0.0 * CONC_UNITS
 
                 else:

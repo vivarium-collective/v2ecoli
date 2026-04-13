@@ -398,13 +398,9 @@ def build_departitioned_document(initial_state, configs, unique_names,
     for step_name in FLOW_ORDER:
         config = _get_step_config(loader, step_name, core)
         if config is None:
-            raise RuntimeError(
-                f"Departitioned: step {step_name!r} appears in FLOW_ORDER "
-                f"but could not be instantiated. This usually means the "
-                f"step was promoted from PartitionedProcess to Step in "
-                f"baseline generate.py and needs to be registered in "
-                f"STANDALONE_STEPS here."
-            )
+            # Match baseline behavior: silently skip steps without a resolvable
+            # config (e.g. exchange_data, which has no LoadSimData entry).
+            continue
         if len(config) == 5:
             instance, topology, edge_type, in_topo, out_topo = config
             cell_state[step_name] = make_edge(

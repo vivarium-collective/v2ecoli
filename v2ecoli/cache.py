@@ -9,6 +9,7 @@ Uses bigraph-schema's serialize/realize for numpy array round-tripping.
 """
 
 import os
+import gzip
 import json
 
 import numpy as np
@@ -105,18 +106,36 @@ def _stringify_keys(obj):
     return obj
 
 
+def _opener(path, mode):
+    """Open `path` with gzip if it ends in .gz, else plain open.
+
+    Text mode is used in both cases so json.dump/json.load see str, not bytes.
+    """
+    if path.endswith('.gz'):
+        return gzip.open(path, mode + 't', encoding='utf-8')
+    return open(path, mode)
+
+
 def save_json(data, path):
-    """Save data to JSON with numpy support."""
+    """Save data to JSON with numpy support.
+
+    If `path` ends in .gz, the file is transparently gzipped. JSON state
+    files compress ~15x with gzip, so using .json.gz makes large
+    bigraph-schema save states cheap to commit and distribute.
+    """
     os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
     data = _stringify_keys(data)
-    with open(path, 'w') as f:
+    with _opener(path, 'w') as f:
         json.dump(data, f, cls=NumpyJSONEncoder, indent=1)
     print(f"Saved {path} ({os.path.getsize(path) // 1024}KB)")
 
 
 def load_json(path):
-    """Load data from JSON with numpy reconstruction."""
-    with open(path) as f:
+    """Load data from JSON with numpy reconstruction.
+
+    Transparently gunzips if `path` ends in .gz.
+    """
+    with _opener(path, 'r') as f:
         return json.load(f, object_hook=numpy_json_hook)
 
 

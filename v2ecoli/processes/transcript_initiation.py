@@ -60,7 +60,8 @@ from v2ecoli.library.schema import (
     MetadataArray,
 )
 
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.unit_bridge import unum_to_pint
 from wholecell.utils.random import stochasticRound
 from wholecell.utils.unit_struct_array import UnitStructArray
 
@@ -259,13 +260,13 @@ class TranscriptInitiation(Step):
 
         # Load parameters
         self.fracActiveRnapDict = self.parameters["fracActiveRnapDict"]
-        self.rnaLengths = self.parameters["rnaLengths"]
+        self.rnaLengths = unum_to_pint(self.parameters["rnaLengths"])
         self.rnaPolymeraseElongationRateDict = self.parameters[
             "rnaPolymeraseElongationRateDict"
         ]
         self.variable_elongation = self.parameters["variable_elongation"]
         self.make_elongation_rates = self.parameters["make_elongation_rates"]
-        self.active_rnap_footprint_size = self.parameters["active_rnap_footprint_size"]
+        self.active_rnap_footprint_size = unum_to_pint(self.parameters["active_rnap_footprint_size"])
 
         # Initialize matrices used to calculate synthesis probabilities
         self.basal_prob = self.parameters["basal_prob"].copy()
@@ -480,12 +481,12 @@ class TranscriptInitiation(Step):
                 states["promoters"]["_entryState"].sum()
             )
 
-        self.rnaPolymeraseElongationRate = self.rnaPolymeraseElongationRateDict[
-            current_media_id
-        ]
+        self.rnaPolymeraseElongationRate = unum_to_pint(
+            self.rnaPolymeraseElongationRateDict[current_media_id]
+        )
         self.elongation_rates = self.make_elongation_rates(
             self.random_state,
-            self.rnaPolymeraseElongationRate.asNumber(units.nt / units.s),
+            self.rnaPolymeraseElongationRate.to(units.nt / units.s).magnitude,
             1,  # want elongation rate, not lengths adjusted for time step
             self.variable_elongation,
         )
@@ -563,7 +564,7 @@ class TranscriptInitiation(Step):
             * (units.s)
             * states["timestep"]
             / n_RNAPs_to_activate
-        ).asNumber()
+        ).magnitude
         update["listeners"]["rna_synth_prob"]["max_p"] = max_p
         is_overcrowded = self.promoter_init_probs > max_p
 
@@ -671,7 +672,7 @@ class TranscriptInitiation(Step):
         timestep for one transcript
         """
         allTranscriptionTimes = 1.0 / rnaPolymeraseElongationRates * rnaLengths
-        timesteps = (1.0 / (timestep * units.s) * allTranscriptionTimes).asNumber()
+        timesteps = (1.0 / (timestep * units.s) * allTranscriptionTimes).magnitude
         allTranscriptionTimestepCounts = np.ceil(timesteps)
         averageTranscriptionTimestepCounts = np.dot(
             synthProb, allTranscriptionTimestepCounts
@@ -692,7 +693,7 @@ class TranscriptInitiation(Step):
         """
         allFractionTimeInactive = (
             1
-            - (1.0 / (timestep * units.s) * allTranscriptionTimes).asNumber()
+            - (1.0 / (timestep * units.s) * allTranscriptionTimes).magnitude
             / allTranscriptionTimestepCounts
         )
         averageFractionTimeInactive = np.dot(allFractionTimeInactive, synthProb)

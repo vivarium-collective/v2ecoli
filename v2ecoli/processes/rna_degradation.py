@@ -59,7 +59,8 @@ from v2ecoli.library.schema import (
     listener_schema,
 )
 
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.unit_bridge import unum_to_pint
 
 # topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
@@ -166,14 +167,14 @@ class RnaDegradation(PartitionedProcess):
         self.n_total_RNAs = self.parameters["n_total_RNAs"]
 
         # Load constants
-        self.n_avogadro = self.parameters["n_avogadro"]
-        self.cell_density = self.parameters["cell_density"]
+        self.n_avogadro = unum_to_pint(self.parameters["n_avogadro"])
+        self.cell_density = unum_to_pint(self.parameters["cell_density"])
 
         # Load RNase kinetic data
         self.endoRNase_ids = self.parameters["endoRNase_ids"]
         self.exoRNase_ids = self.parameters["exoRNase_ids"]
-        self.kcat_exoRNase = self.parameters["kcat_exoRNase"]
-        self.Kcat_endoRNases = self.parameters["Kcat_endoRNases"]
+        self.kcat_exoRNase = unum_to_pint(self.parameters["kcat_exoRNase"])
+        self.Kcat_endoRNases = unum_to_pint(self.parameters["Kcat_endoRNases"])
 
         # Load information about uncharged/charged tRNA
         self.uncharged_trna_indexes = self.parameters["uncharged_trna_indexes"]
@@ -181,7 +182,7 @@ class RnaDegradation(PartitionedProcess):
 
         # Load first-order RNA degradation rates
         # (estimated by mRNA half-life data)
-        self.rna_deg_rates = self.parameters["rna_deg_rates"]
+        self.rna_deg_rates = unum_to_pint(self.parameters["rna_deg_rates"])
 
         self.is_mRNA = self.parameters["is_mRNA"]
         self.is_rRNA = self.parameters["is_rRNA"]
@@ -220,7 +221,7 @@ class RnaDegradation(PartitionedProcess):
 
         # Load Michaelis-Menten constants fitted to recapitulate
         # first-order RNA decay model
-        self.Kms = self.parameters["Kms"]
+        self.Kms = unum_to_pint(self.parameters["Kms"])
 
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)
@@ -344,19 +345,19 @@ class RnaDegradation(PartitionedProcess):
 
         # Get counts of endoRNases
         endoRNase_counts = counts(states["bulk"], self.endoRNase_idx)
-        total_kcat_endoRNase = units.dot(self.Kcat_endoRNases, endoRNase_counts)
+        total_kcat_endoRNase = np.dot(self.Kcat_endoRNases, endoRNase_counts)
 
         # Michaelis-Menten saturation fraction per RNA:
         # f_i = ([r_i]/Km_i) / (1 + sum_j([r_j]/Km_j))
         frac_endoRNase_saturated = (
-            rna_conc_molar / self.Kms / (1 + units.sum(rna_conc_molar / self.Kms))
-        ).asNumber()
+            rna_conc_molar / self.Kms / (1 + np.sum(rna_conc_molar / self.Kms))
+        ).magnitude
 
         # Calculate difference in degradation rates from first-order decay
         # and the number of EndoRNases per one molecule of RNA
         total_endoRNase_counts = np.sum(endoRNase_counts)
-        diff_relative_first_order_decay = units.sum(
-            units.abs(
+        diff_relative_first_order_decay = np.sum(
+            np.abs(
                 self.rna_deg_rates * total_RNA_counts
                 - total_kcat_endoRNase * frac_endoRNase_saturated
             )
@@ -369,7 +370,7 @@ class RnaDegradation(PartitionedProcess):
         ] = np.sum(frac_endoRNase_saturated)
         requests["listeners"]["rna_degradation_listener"][
             "diff_relative_first_order_decay"
-        ] = diff_relative_first_order_decay.asNumber()
+        ] = diff_relative_first_order_decay.magnitude
         requests["listeners"]["rna_degradation_listener"]["fract_endo_rrna_counts"] = (
             endoRNase_per_rna
         )
@@ -703,7 +704,7 @@ class RnaDegradation(PartitionedProcess):
             Total number of RNAs to degrade for the given class of RNAs
         """
         return np.round(
-            (specificity * total_kcat_endornase * (units.s * timestep)).asNumber()
+            (specificity * total_kcat_endornase * (units.s * timestep)).magnitude
         )
 
     def _get_rnas_to_degrade(self, n_total_rnas_to_degrade, rna_deg_probs, rna_counts):

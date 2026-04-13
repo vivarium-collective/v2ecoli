@@ -81,7 +81,10 @@ def pint_to_unum(q: Any, target: Optional[Unum] = None) -> Any:
     (an Unum unit-only object, e.g. units.mmol/units.L), the pint quantity
     is converted into that unit first; otherwise the pint unit names are
     mapped 1:1 to wholecell.utils.units. Non-pint inputs are returned
-    unchanged."""
+    unchanged. Bare pint Unit objects are promoted to a 1.0-valued Quantity
+    so the unit alone can be translated."""
+    if isinstance(q, pint.Unit):
+        q = ureg.Quantity(1.0, q)
     if not isinstance(q, pint.Quantity):
         return q
     if target is not None:

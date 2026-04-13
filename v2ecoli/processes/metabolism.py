@@ -63,15 +63,15 @@ import warnings
 import numpy as np
 import numpy.typing as npt
 from scipy.sparse import csr_matrix
-from unum import Unum
-from v2ecoli.library.unit_defs import units as vivunits
-
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 # topology_registry removed
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
 from wholecell.utils.random import stochasticRound
 from wholecell.utils.modular_fba import FluxBalanceAnalysis
+import pint
+Quantity = pint.Quantity  # type alias for annotations
 REVERSE_TAG = " (reverse)"
 
 
@@ -252,9 +252,9 @@ class Metabolism(Step):
             include_ppgpp=self.include_ppgpp,
         )
 
-        # Save constants
-        self.nAvogadro = self.parameters["avogadro"]
-        self.cellDensity = self.parameters["cell_density"]
+        # Save constants (cache values still arrive as Unum)
+        self.nAvogadro = unum_to_pint(self.parameters["avogadro"])
+        self.cellDensity = unum_to_pint(self.parameters["cell_density"])
 
         # Track updated AA concentration targets with tRNA charging
         self.aa_targets = {}
@@ -388,40 +388,41 @@ class Metabolism(Step):
 
         # Calculate state values
         cellVolume = cell_mass / self.cellDensity
-        counts_to_molar = (1 / (self.nAvogadro * cellVolume)).asUnit(CONC_UNITS)
+        counts_to_molar = (1 / (self.nAvogadro * cellVolume)).to(CONC_UNITS)
 
         # Coefficient to convert between flux (mol/g DCW/hr) basis and
         # concentration (M) basis
         coefficient = dry_mass / cell_mass * self.cellDensity * timestep * units.s
 
         # Get exchange constraints. The store schema (map[float]) strips
-        # units from the producer's Unum values, so re-attach the known
-        # mol/mass/time units before crossing back into upstream Unum-native
-        # code (exchange_constraints multiplies by a Unum coefficient).
+        # units from the producer's values, so re-attach the known
+        # mol/mass/time units (mmol/g/h) before crossing back into upstream
+        # Unum-native code (exchange_constraints multiplies by an Unum
+        # coefficient). Values arriving as plain floats become pint
+        # Quantities; anything already unit-bearing is normalized through
+        # the bridge.
         unconstrained = set(states["environment"]["exchange_data"]["unconstrained"])
         _constraint_unit = units.mmol / units.g / units.h
-        constrained = {
-            mol: (val if isinstance(val, Unum) else val * _constraint_unit)
-            for mol, val in states["environment"]["exchange_data"]["constrained"].items()
-        }
+        constrained = {}
+        for mol, val in states["environment"]["exchange_data"]["constrained"].items():
+            q = unum_to_pint(val)
+            if not hasattr(q, "magnitude"):
+                q = q * _constraint_unit
+            constrained[mol] = q
 
         # Determine updates to concentrations depending on the current state
         current_media_id = states["environment"]["media_id"]
         doubling_time = self.nutrientToDoublingTime.get(
             current_media_id, self.nutrientToDoublingTime[self.media_id]
         )
+        # getBiomassAsConcentrations / getppGppConc are upstream Unum-native;
+        # they accept and return Unum quantities.
         if self.include_ppgpp:
-            # Sim does not include ppGpp regulation so do not update biomass
-            # by RNA/protein ratio and include ppGpp concentration as a
-            # homeostatic target
             conc_updates = self.model.getBiomassAsConcentrations(doubling_time)
-            conc_updates[self.model.ppgpp_id] = self.model.getppGppConc(
-                doubling_time
-            ).asUnit(CONC_UNITS)
+            conc_updates[self.model.ppgpp_id] = unum_to_pint(
+                self.model.getppGppConc(doubling_time)
+            ).to(CONC_UNITS)
         else:
-            # Sim includes ppGpp regulation so update biomass based on
-            # RNA/protein ratio which is controlled by ppGpp and other growth
-            # regulation
             rp_ratio = (
                 states["listeners"]["mass"]["rna_mass"]
                 / states["listeners"]["mass"]["protein_mass"]
@@ -444,10 +445,12 @@ class Metabolism(Step):
                 )
             )
 
-        # Converted from units to make reproduction from listener data
-        # accurate to model results (otherwise can have floating point diffs)
+        # Convert from upstream Unum-valued conc dict to plain float magnitudes
+        # in CONC_UNITS. The per-met value can be Unum (from upstream) or pint
+        # (from the ppGpp branch above).
         conc_updates = {
-            met: conc.asNumber(CONC_UNITS) for met, conc in conc_updates.items()
+            met: unum_to_pint(conc).to(CONC_UNITS).magnitude
+            for met, conc in conc_updates.items()
         }
 
         aa_uptake_package = None
@@ -506,7 +509,7 @@ class Metabolism(Step):
         )
         metabolite_counts_final = np.fmax(
             stochasticRound(
-                self.random_state, metabolite_counts_init + delta_metabolites.asNumber()
+                self.random_state, metabolite_counts_init + delta_metabolites.magnitude
             ),
             0,
         ).astype(np.int64)
@@ -514,14 +517,16 @@ class Metabolism(Step):
 
         # Environmental changes
         exchange_fluxes = CONC_UNITS * fba.getExternalExchangeFluxes()
-        converted_exchange_fluxes = (exchange_fluxes / coefficient).asNumber(GDCW_BASIS)
+        converted_exchange_fluxes = (exchange_fluxes / coefficient).to(GDCW_BASIS).magnitude
         delta_nutrients = (
-            ((1 / counts_to_molar) * exchange_fluxes).asNumber().astype(int)
+            ((1 / counts_to_molar) * exchange_fluxes).magnitude.astype(int)
         )
 
-        # Write outputs to listeners
+        # get_import_constraints is upstream Unum-native; convert constrained
+        # values back to Unum at the boundary.
+        constrained_unum = {k: pint_to_unum(v) for k, v in constrained.items()}
         unconstrained, constrained, uptake_constraints = self.get_import_constraints(
-            unconstrained, constrained, GDCW_BASIS
+            unconstrained, constrained_unum, pint_to_unum(GDCW_BASIS)
         )
 
         reaction_fluxes = fba.getReactionFluxes() / timestep
@@ -541,7 +546,7 @@ class Metabolism(Step):
                     ],
                     "catalyst_counts": catalyst_counts,
                     "translation_gtp": translation_gtp,
-                    "coefficient": coefficient.asNumber(CONVERSION_UNITS),
+                    "coefficient": coefficient.to(CONVERSION_UNITS).magnitude,
                     "unconstrained_molecules": unconstrained,
                     "constrained_molecules": constrained,
                     "uptake_constraints": uptake_constraints,
@@ -567,7 +572,7 @@ class Metabolism(Step):
                     "metabolite_counts_init": metabolite_counts_init,
                     "metabolite_counts_final": metabolite_counts_final,
                     "enzyme_counts_init": kinetic_enzyme_counts,
-                    "counts_to_molar": counts_to_molar.asNumber(CONC_UNITS),
+                    "counts_to_molar": counts_to_molar.to(CONC_UNITS).magnitude,
                     "actual_fluxes": fba.getReactionFluxes(
                         self.model.kinetics_constrained_reactions
                     )
@@ -587,10 +592,10 @@ class Metabolism(Step):
 
     def update_amino_acid_targets(
         self,
-        counts_to_molar: Unum,
+        counts_to_molar: Quantity,
         count_diff: dict[str, float],
         amino_acid_counts: dict[str, float],
-    ) -> dict[str, Unum]:
+    ) -> dict[str, Quantity]:
         """
         Finds new amino acid concentration targets based on difference in
         supply and number of amino acids used in polypeptide_elongation.
@@ -664,8 +669,8 @@ class FluxBalanceAnalysisModel(object):
         self.maintenance_reaction = metabolism.maintenance_reaction
 
         # Load constants
-        self.ngam = parameters["ngam"]
-        gam = parameters["dark_atp"] * parameters["cell_dry_mass_fraction"]
+        self.ngam = unum_to_pint(parameters["ngam"])
+        gam = unum_to_pint(parameters["dark_atp"]) * parameters["cell_dry_mass_fraction"]
 
         self.exchange_constraints = metabolism.exchange_constraints
 
@@ -694,9 +699,9 @@ class FluxBalanceAnalysisModel(object):
         molecule_masses = dict(
             zip(
                 exchange_molecules,
-                parameters["get_masses"](exchange_molecules).asNumber(
+                unum_to_pint(parameters["get_masses"](exchange_molecules)).to(
                     MASS_UNITS / COUNTS_UNITS
-                ),
+                ).magnitude,
             )
         )
 
@@ -710,7 +715,8 @@ class FluxBalanceAnalysisModel(object):
         if include_ppgpp:
             conc_dict[self.ppgpp_id] = self.getppGppConc(doubling_time)
         self.homeostatic_objective = dict(
-            (key, conc_dict[key].asNumber(CONC_UNITS)) for key in conc_dict
+            (key, unum_to_pint(conc_dict[key]).to(CONC_UNITS).magnitude)
+            for key in conc_dict
         )
 
         # Include all concentrations that will be present in a sim for constant
@@ -782,7 +788,7 @@ class FluxBalanceAnalysisModel(object):
             # The "inconvenient constant"--limit secretion (e.g., of CO2)
             "secretionPenaltyCoeff": metabolism.secretion_penalty_coeff,
             "solver": solver,
-            "maintenanceCostGAM": gam.asNumber(COUNTS_UNITS / MASS_UNITS),
+            "maintenanceCostGAM": unum_to_pint(gam).to(COUNTS_UNITS / MASS_UNITS).magnitude,
             "maintenanceReaction": metabolism.maintenance_reaction,
         }
         self.fba = FluxBalanceAnalysis(**fba_options)
@@ -794,8 +800,8 @@ class FluxBalanceAnalysisModel(object):
 
     def update_external_molecule_levels(
         self,
-        objective: dict[str, Unum],
-        metabolite_concentrations: Unum,
+        objective: dict[str, Quantity],
+        metabolite_concentrations: Quantity,
         external_molecule_levels: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
         """
@@ -830,7 +836,7 @@ class FluxBalanceAnalysisModel(object):
 
             conc_diff = objective[aa + "[c]"] - metabolite_concentrations[
                 self.metabolite_names[aa + "[c]"]
-            ].asNumber(CONC_UNITS)
+            ].to(CONC_UNITS).magnitude
             if conc_diff < 0:
                 conc_diff = 0
 
@@ -842,12 +848,12 @@ class FluxBalanceAnalysisModel(object):
     def set_molecule_levels(
         self,
         metabolite_counts: npt.NDArray[np.int64],
-        counts_to_molar: Unum,
-        coefficient: Unum,
+        counts_to_molar: Quantity,
+        coefficient: Quantity,
         current_media_id: str,
         unconstrained: set[str],
         constrained: set[str],
-        conc_updates: dict[str, Unum],
+        conc_updates: dict[str, Quantity],
         aa_uptake_package: Optional[
             tuple[npt.NDArray[np.float64], npt.NDArray[np.str_], bool]
         ] = None,
@@ -869,14 +875,15 @@ class FluxBalanceAnalysisModel(object):
                 determines whether to set hard uptake rates
         """
 
-        # Update objective from media exchanges
+        # Update objective from media exchanges. exchange_constraints is
+        # upstream Unum-native — convert the pint args at the boundary.
         external_molecule_levels, objective = self.exchange_constraints(
             self.fba.getExternalMoleculeIDs(),
-            coefficient,
-            CONC_UNITS,
+            pint_to_unum(coefficient),
+            pint_to_unum(CONC_UNITS),
             current_media_id,
             unconstrained,
-            constrained,
+            {k: pint_to_unum(v) for k, v in constrained.items()},
             conc_updates,
         )
         self.fba.update_homeostatic_targets(objective)
@@ -884,7 +891,7 @@ class FluxBalanceAnalysisModel(object):
 
         # Internal concentrations
         metabolite_conc = counts_to_molar * metabolite_counts
-        self.fba.setInternalMoleculeLevels(metabolite_conc.asNumber(CONC_UNITS))
+        self.fba.setInternalMoleculeLevels(metabolite_conc.to(CONC_UNITS).magnitude)
 
         # External concentrations
         external_molecule_levels = self.update_external_molecule_levels(
@@ -901,8 +908,8 @@ class FluxBalanceAnalysisModel(object):
     def set_reaction_bounds(
         self,
         catalyst_counts: npt.NDArray[np.int64],
-        counts_to_molar: Unum,
-        coefficient: Unum,
+        counts_to_molar: Quantity,
+        coefficient: Quantity,
         gtp_to_hydrolyze: float,
     ):
         """
@@ -919,7 +926,7 @@ class FluxBalanceAnalysisModel(object):
 
         # Maintenance reactions
         # Calculate new NGAM
-        flux = (self.ngam * coefficient).asNumber(CONC_UNITS)
+        flux = (self.ngam * coefficient).to(CONC_UNITS).magnitude
         self.fba.setReactionFluxBounds(
             self.fba._reactionID_NGAM,
             lowerBounds=flux,
@@ -928,7 +935,7 @@ class FluxBalanceAnalysisModel(object):
 
         # Calculate GTP usage based on how much was needed in polypeptide
         # elongation in previous step.
-        flux = (counts_to_molar * gtp_to_hydrolyze).asNumber(CONC_UNITS)
+        flux = (counts_to_molar * gtp_to_hydrolyze).to(CONC_UNITS).magnitude
         self.fba.setReactionFluxBounds(
             self.fba._reactionID_polypeptideElongationEnergy,
             lowerBounds=flux,
@@ -950,8 +957,8 @@ class FluxBalanceAnalysisModel(object):
         self,
         kinetic_enzyme_counts: npt.NDArray[np.int64],
         kinetic_substrate_counts: npt.NDArray[np.int64],
-        counts_to_molar: Unum,
-        time_step: Unum,
+        counts_to_molar: Quantity,
+        time_step: Quantity,
     ) -> tuple[
         npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]
     ]:
@@ -979,10 +986,13 @@ class FluxBalanceAnalysisModel(object):
 
             # Set target fluxes for reactions based on their most relaxed
             # constraint
-            reaction_targets = self.get_kinetic_constraints(enzyme_conc, substrate_conc)
+            # get_kinetic_constraints is upstream Unum-native
+            reaction_targets = unum_to_pint(self.get_kinetic_constraints(
+                pint_to_unum(enzyme_conc), pint_to_unum(substrate_conc)
+            ))
 
             # Calculate reaction flux target for current time step
-            targets = (time_step * reaction_targets).asNumber(CONC_UNITS)[
+            targets = (time_step * reaction_targets).to(CONC_UNITS).magnitude[
                 self.active_constraints_mask, :
             ]
             lower_targets = targets[:, 0]
@@ -990,7 +1000,7 @@ class FluxBalanceAnalysisModel(object):
             upper_targets = targets[:, 2]
 
             # Set kinetic targets only if kinetics is enabled
-            self.fba.set_scaled_kinetic_objective(time_step.asNumber(units.s))
+            self.fba.set_scaled_kinetic_objective(time_step.to(units.s).magnitude)
             self.fba.setKineticTarget(
                 self.kinetics_constrained_reactions,
                 mean_targets,

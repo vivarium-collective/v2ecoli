@@ -58,12 +58,11 @@ from numba import njit
 import numpy as np
 import numpy.typing as npt
 from scipy.integrate import solve_ivp
-from unum import Unum
-
 # wcEcoli imports
 from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
 from wholecell.utils.random import stochasticRound
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.unit_bridge import unum_to_pint
 
 # vivarium imports
 # simulate_process removed
@@ -339,7 +338,7 @@ class PolypeptideElongation(PartitionedProcess):
         trna_charging = self.parameters["trna_charging"]
 
         # Load parameters
-        self.n_avogadro = self.parameters["n_avogadro"]
+        self.n_avogadro = unum_to_pint(self.parameters["n_avogadro"])
         self.proteinIds = self.parameters["proteinIds"]
         self.protein_lengths = self.parameters["proteinLengths"]
         self.proteinSequences = self.parameters["proteinSequences"]
@@ -358,7 +357,10 @@ class PolypeptideElongation(PartitionedProcess):
         self.ribosomeElongationRate = self.parameters["ribosomeElongationRate"]
 
         # Amino acid supply calculations
-        self.translation_aa_supply = self.parameters["translation_aa_supply"]
+        self.translation_aa_supply = {
+            media: unum_to_pint(rate)
+            for media, rate in self.parameters["translation_aa_supply"].items()
+        }
         self.import_threshold = self.parameters["import_threshold"]
 
         # Used for figure in publication
@@ -573,7 +575,8 @@ class PolypeptideElongation(PartitionedProcess):
         mol_aas_supplied = (
             translation_supply_rate * dryMass * states["timestep"] * units.s
         )
-        self.aa_supply = units.strip_empty_units(mol_aas_supplied * self.n_avogadro)
+        # mol_aas_supplied has units mol; * n_avogadro (1/mol) gives a count.
+        self.aa_supply = (mol_aas_supplied * self.n_avogadro).to("dimensionless").magnitude
 
         # MODEL SPECIFIC: Calculate AA request
         fraction_charged, aa_counts_for_translation, requests = (
@@ -584,7 +587,7 @@ class PolypeptideElongation(PartitionedProcess):
         listeners = requests.setdefault("listeners", {})
         ribosome_data_listener = listeners.setdefault("ribosome_data", {})
         ribosome_data_listener["translation_supply"] = (
-            translation_supply_rate.asNumber()
+            translation_supply_rate.magnitude
         )
         growth_limits_listener = requests["listeners"].setdefault("growth_limits", {})
         growth_limits_listener["fraction_trna_charged"] = np.dot(

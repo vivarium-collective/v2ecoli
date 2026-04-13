@@ -2145,6 +2145,13 @@ class LoadSimData:
             # imports.
             "all_external_molecule_ids": list(
                 self.sim_data.external_state.all_external_exchange_molecules),
+            # MM parameters are runtime-tunable via env vars so sweep
+            # scripts can hit different operating points without editing
+            # the cache.
+            "glucose_vmax_mmol_gdcw_h": float(
+                os.environ.get("V2ECOLI_MM_VMAX", 20.0)),
+            "glucose_km_mM": float(
+                os.environ.get("V2ECOLI_MM_KM", 0.01)),
         }
 
     def get_carbon_budget_config(self, time_step=1):

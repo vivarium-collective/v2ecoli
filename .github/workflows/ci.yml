@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fast-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12.9
+
+      - name: Install dependencies (PyPI only — ignore local path sources)
+        run: uv sync --no-sources --extra dev || uv sync --no-sources
+
+      - name: Run fast + behavior tests
+        # Behavior tests resume from tests/fixtures/pre_division_state.json.gz
+        # (bigraph-schema JSON, gzipped ~1.3 MB, committed to the repo).
+        run: uv run --no-sources pytest -m "not slow" -v --tb=short

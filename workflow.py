@@ -48,10 +48,9 @@ except ImportError:
 from v2ecoli.composite import make_composite, _build_core, save_cache
 from v2ecoli.library.schema import attrs as ecoli_attrs
 from process_bigraph import Composite
-from v2ecoli.generate import build_document, FLOW_ORDER
+from v2ecoli.generate import build_document, FLOW_ORDER, build_execution_layers, DEFAULT_FEATURES
+from v2ecoli.viz import build_graph, write_outputs
 from v2ecoli.cache import NumpyJSONEncoder, load_initial_state
-from v2ecoli.library.repro_banner import banner_html
-from v2ecoli.viz import build_graph, render_html
 
 try:
     from v2ecoli.library.division import divide_cell, divide_bulk
@@ -220,7 +219,7 @@ def plot_growth(history):
 # ---------------------------------------------------------------------------
 
 SKIP_STEPS = {'unique_update', 'global_clock', 'mark_d_period', 'division',
-              'metabolic_kinetics', 'media_update', 'post-division-mass-listener', 'emitter'}
+              'exchange_data', 'media_update', 'post-division-mass-listener', 'emitter'}
 SKIP_PORTS = {'timestep', 'global_time', 'next_update_time', 'process'}
 BIO_COLORS = {
     'dna': ('#FFB6C1', lambda n: 'chromosome' in n),
@@ -885,7 +884,6 @@ def step_biocyc():
         return meta
 
     print(f"  Step 0: EcoCyc API")
-    t0 = time.time()
     import requests
     base_url = "https://websvc.biocyc.org/wc-get?type="
     results = {}
@@ -911,7 +909,6 @@ def step_biocyc():
         'n_files': len(BIOCYC_FILE_IDS),
         'files': results,
         'n_fetched': sum(1 for v in results.values() if v['status'] == 'ok'),
-        'elapsed': time.time() - t0,
     }
     save_meta(step_name, meta)
     print(f"    {meta['n_fetched']}/{meta['n_files']} files fetched")
@@ -1016,14 +1013,28 @@ def step_parca():
     sim_data_path = SIM_DATA_PATH
 
     parca_ran = False
+    simdata_source = 'unknown'
     if os.path.exists(sim_data_cache):
         print(f"    Cache exists at {CACHE_DIR}")
         parca_time = 0.0
         cache_time = 0.0
+        # Classify by the source pickle the cache was built from, not "cache".
+        if sim_data_path and os.path.normpath(sim_data_path) == os.path.normpath('out/kb/simData.cPickle'):
+            simdata_source = 'vecoli_pickle'
+        elif sim_data_path and os.path.exists(sim_data_path):
+            simdata_source = 'workflow_pickle'
+        else:
+            simdata_source = 'cache'
         sim_data_path = sim_data_path or '(from cache)'
     elif sim_data_path and os.path.exists(sim_data_path):
         print(f"    Using existing simData at {sim_data_path}")
         parca_time = 0.0
+        # out/kb/simData.cPickle is the vEcoli ParCa output location;
+        # out/workflow/simData.cPickle is a prior in-workflow run.
+        if os.path.normpath(sim_data_path) == os.path.normpath('out/kb/simData.cPickle'):
+            simdata_source = 'vecoli_pickle'
+        else:
+            simdata_source = 'workflow_pickle'
     else:
         # Need to run ParCa
         print("    Running fitSimData_1 (this takes a few minutes)...")
@@ -1042,6 +1053,7 @@ def step_parca():
         with open(sim_data_path, 'wb') as f:
             dill.dump(sim_data, f)
         parca_ran = True
+        simdata_source = 'computed'
         print(f"    ParCa completed in {parca_time:.1f}s")
 
     # Generate cache files
@@ -1079,6 +1091,7 @@ def step_parca():
     meta = {
         'sim_data_path': sim_data_path,
         'parca_ran': parca_ran,
+        'simdata_source': simdata_source,
         'parca_time': parca_time,
         'cache_time': cache_time,
         'cache_dir': CACHE_DIR,
@@ -1160,6 +1173,7 @@ def step_single_cell():
 
     t0 = time.time()
     divided = False
+    last_cell_data = None
     total_run = 0
 
     while total_run < max_dur:
@@ -1178,6 +1192,8 @@ def step_single_cell():
                 # Non-division error — log and continue
                 import traceback
                 print(f"    Warning at ~t={total_run}s: {type(e).__name__}: {err_str[:100]}")
+                if total_run <= SNAPSHOT_INTERVAL:
+                    traceback.print_exc()
                 continue
         total_run += chunk
 
@@ -1695,6 +1711,12 @@ def step_daughters():
         checkpoint = dill.load(f)
     cell_data = checkpoint.get('cell_state', {})
 
+    if not cell_data or 'bulk' not in cell_data:
+        print("    No valid cell state (mother did not divide) — skipping")
+        meta = {'skipped': True, 'reason': 'no valid pre-division cell state'}
+        save_meta(step_name, meta)
+        return meta
+
     # Divide the cell
     print("    Dividing mother cell...")
     d1_state, d2_state = divide_cell(cell_data)
@@ -1824,8 +1846,14 @@ def plot_daughters_mass(daughters_meta, title=''):
 # HTML Report Generator
 # ---------------------------------------------------------------------------
 
-def generate_html_report(step_results, plots, network_iframe_src):
+def generate_html_report(step_results, plots, network_html_rel, diagnostics):
     """Generate the HTML report organized by pipeline step."""
+
+    try:
+        from v2ecoli.library.repro_banner import banner_html
+        banner = banner_html()
+    except Exception:
+        banner = ''
 
     biocyc = step_results.get('biocyc', {})
     raw = step_results['raw_data']
@@ -1872,28 +1900,32 @@ def generate_html_report(step_results, plots, network_iframe_src):
           <td>{info['d1']}</td><td>{info['d2']}</td>
           <td class="{ok}">{'Yes' if info['conserved'] else 'No'}</td></tr>"""
 
+    # Step diagnostics table
+    step_rows = ''
+    for d in diagnostics:
+        inner = f' ({d["inner_class"]})' if d['inner_class'] else ''
+        ports = ', '.join(d.get('input_ports', [])[:5])
+        if len(d.get('input_ports', [])) > 5:
+            ports += f' +{len(d["input_ports"])-5}'
+        step_rows += f"""<tr>
+          <td>{d['name']}</td>
+          <td>{d['class']}{inner}</td>
+          <td>{d['n_config_keys']}</td>
+          <td>{ports}</td>
+          <td>{d['priority']:.0f}</td>
+        </tr>"""
+
     # Collect timing data
-    biocyc_elapsed = biocyc.get('elapsed', 0)
-    raw_elapsed = raw.get('elapsed', 0)
     parca_time = parca.get('parca_time', 0)
     cache_time = parca.get('cache_time', 0)
     build_time = model.get('build_time', 0)
     long_wall = long.get('wall_time', 0)
     long_dur = long.get('duration', LONG_DURATION)
     long_rate = long.get('rate', 0)
-    v1_wall = step_results.get('v1_comparison', {}).get('v1_wall_time', 0)
-    split_time = div.get('split_time', 0)
-    daughter_build_time = div.get('daughter_build_time', 0)
     d1_wall = daughters.get('daughter_1', {}).get('wall_time', 0)
     d2_wall = daughters.get('daughter_2', {}).get('wall_time', 0)
-    d1_build = daughters.get('daughter_1', {}).get('build_time', 0)
-    d2_build = daughters.get('daughter_2', {}).get('build_time', 0)
     daughters_wall = d1_wall + d2_wall
     daughters_dur = daughters.get('duration', 0)
-    pipeline_wall = step_results.get('_pipeline_wall', 0)
-    total_wall = (biocyc_elapsed + raw_elapsed + parca_time + cache_time
-                  + build_time + long_wall + v1_wall + split_time
-                  + daughter_build_time + daughters_wall)
 
     report_path = os.path.join(WORKFLOW_DIR, 'workflow_report.html')
     with open(report_path, 'w') as f:
@@ -1946,8 +1978,7 @@ def generate_html_report(step_results, plots, network_iframe_src):
 </head>
 <body>
 
-{banner_html()}
-
+{banner}
 <h1>v2ecoli Workflow Report</h1>
 <p style="color: #64748b; font-size: 0.9em;">{time.strftime('%Y-%m-%d %H:%M')} &middot;
 Pipeline steps with intermediate caching &middot; process-bigraph <code>Composite.run()</code></p>
@@ -1973,7 +2004,8 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
     <li><a href="#sec-long">Single Cell Simulation + v1 Comparison ({long_dur/60:.0f} min)</a></li>
     <li><a href="#sec-division">Division</a></li>
     <li><a href="#sec-daughters">Daughter Simulations</a></li>
-    <li><a href="#sec-network">Step Flow + Interactive Network</a></li>
+    <li><a href="#sec-network">Process-Bigraph Network</a></li>
+    <li><a href="#sec-bigraph">Network Visualization</a></li>
     <li><a href="#sec-timing">Timing Summary</a></li>
   </ol>
 </nav>
@@ -2033,7 +2065,9 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 
 <!-- ===== Step 2: ParCa ===== -->
 <h2 id="sec-parca">2. ParCa (Parameter Calculator) {cached_badge(parca)}</h2>
+{'<div class="section" style="background:#fff7ed;border-left:4px solid #f59e0b;padding:0.5em 0.75em;margin:0.5em 0;"><strong>simData source:</strong> reused from <a href="https://github.com/CovertLab/vEcoli">vEcoli</a> (<code>' + parca.get('sim_data_path', '') + '</code>) — ParCa was not re-run in this workflow.</div>' if parca.get('simdata_source') == 'vecoli_pickle' else ''}
 <div class="metrics">
+  <div class="metric"><div class="label">simData Source</div><div class="value" style="font-size:0.8em">{ {'vecoli_pickle':'vEcoli pickle','workflow_pickle':'workflow pickle','cache':'cached','computed':'computed here'}.get(parca.get('simdata_source'), parca.get('simdata_source','?')) }</div></div>
   <div class="metric"><div class="label">ParCa Time</div><div class="value blue">{'pre-cached' if parca.get('parca_time', 0) == 0 and not parca.get('parca_ran') else f"{parca.get('parca_time', 0):.1f}s"}</div></div>
   <div class="metric"><div class="label">Cache Gen</div><div class="value blue">{'pre-cached' if parca.get('cache_time', 0) == 0 and not parca.get('parca_ran') else f"{parca.get('cache_time', 0):.1f}s"}</div></div>
   <div class="metric"><div class="label">Cache Dir</div><div class="value" style="font-size:0.7em">{parca.get('cache_dir', CACHE_DIR)}</div></div>
@@ -2202,63 +2236,25 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["daughters_mass"]}" alt="Daughters Mass"></div>\n')
 
         f.write(f"""
-<!-- ===== Combined Step Flow + Interactive Network ===== -->
-<h2 id="sec-network">7. Step Flow + Interactive Network</h2>
+<!-- ===== Process-Bigraph Network (Cytoscape.js viewer) ===== -->
+<h2 id="sec-network">7. Process-Bigraph Network</h2>
 <div class="section">
-  <p>Combined visualization: the left sidebar lists execution layers (step flow in
-  <code>Composite.run()</code> order), and the main panel is an interactive Cytoscape
-  graph showing how processes wire to shared stores. Click a layer to highlight its
-  members; click a node for details; scroll to zoom; drag to pan.</p>
+  <p>Interactive Cytoscape.js viewer of the composite — stores on the left, processes on the right,
+  sorted by execution layer. Click a node for math, ports, config; switch layouts from the dropdown.
+  Full-screen viewer: <a href="{network_html_rel}" target="_blank"><code>{network_html_rel}</code></a>.</p>
 </div>
-<iframe src="{network_iframe_src}" style="width:100%; height:820px; border:1px solid #e2e8f0;
-        border-radius:8px; background:white;"></iframe>
+<iframe src="{network_html_rel}" style="width:100%;height:900px;border:1px solid #e2e8f0;border-radius:6px;"></iframe>
 
 <!-- ===== Timing Summary ===== -->
 <h2 id="sec-timing">Timing Summary</h2>
 <div class="section">
-  <p style="color:#64748b; font-size:0.85em; margin-bottom:8px;">
-    Per-step wall-clock breakdown. "Sim time" is simulated seconds; "Speed" is
-    sim/wall ratio. Pipeline wall includes orchestration overhead beyond the sum
-    of the step wall times.
-  </p>
   <table>
-    <thead><tr><th>Step</th><th>Wall Time</th><th>Sim Time</th><th>Speed</th><th>Notes</th></tr></thead>
-    <tbody>
-      <tr><td>0. EcoCyc API fetch</td><td>{biocyc_elapsed:.1f}s</td><td>&mdash;</td><td>&mdash;</td>
-          <td>{biocyc.get('n_fetched', 0)}/{biocyc.get('n_files', 0)} files</td></tr>
-      <tr><td>1. Raw data catalog</td><td>{raw_elapsed:.1f}s</td><td>&mdash;</td><td>&mdash;</td>
-          <td>{raw.get('n_files', 0)} TSV, {raw.get('total_size_mb', 0)} MB</td></tr>
-      <tr><td>2a. ParCa</td><td>{parca_time:.1f}s</td><td>&mdash;</td><td>&mdash;</td>
-          <td>{'ran' if parca.get('parca_ran') else 'pre-cached'}</td></tr>
-      <tr><td>2b. Parca cache gen</td><td>{cache_time:.1f}s</td><td>&mdash;</td><td>&mdash;</td>
-          <td>{'ran' if parca.get('parca_ran') else 'pre-cached'}</td></tr>
-      <tr><td>3. Load model (build composite)</td><td>{build_time:.2f}s</td><td>&mdash;</td><td>&mdash;</td>
-          <td>{model.get('n_processes', 0)} processes</td></tr>
-      <tr><td>4. Single cell (to division)</td><td>{long_wall:.1f}s</td><td>{long_dur:.0f}s</td>
-          <td>{long_rate:.2f}x realtime</td><td>baseline</td></tr>
-      <tr><td>4b. v1 comparison run</td><td>{v1_wall:.1f}s</td><td>{long_dur:.0f}s</td>
-          <td>{(long_dur/max(v1_wall,0.1)):.2f}x realtime</td><td>for v1/v2 comparison</td></tr>
-      <tr><td>5a. Division split</td><td>{split_time:.3f}s</td><td>&mdash;</td><td>&mdash;</td>
-          <td>bulk + unique partition</td></tr>
-      <tr><td>5b. Daughter composite build</td><td>{daughter_build_time:.1f}s</td><td>&mdash;</td><td>&mdash;</td>
-          <td>2 composites</td></tr>
-      <tr><td>6. Daughter 1 sim</td><td>{d1_wall:.1f}s</td><td>{daughters_dur:.0f}s</td>
-          <td>{(daughters_dur/max(d1_wall,0.1)):.2f}x realtime</td>
-          <td>build {d1_build:.1f}s</td></tr>
-      <tr><td>6. Daughter 2 sim</td><td>{d2_wall:.1f}s</td><td>{daughters_dur:.0f}s</td>
-          <td>{(daughters_dur/max(d2_wall,0.1)):.2f}x realtime</td>
-          <td>build {d2_build:.1f}s</td></tr>
-      <tr style="border-top:2px solid #334155;">
-          <td><strong>Sum of steps</strong></td>
-          <td><strong>{total_wall:.1f}s</strong></td>
-          <td><strong>{long_dur + daughters_dur*2:.0f}s</strong></td>
-          <td>&mdash;</td><td>&mdash;</td></tr>
-      <tr>
-          <td><strong>Pipeline wall</strong></td>
-          <td><strong>{pipeline_wall:.1f}s</strong></td>
-          <td>&mdash;</td>
-          <td>&mdash;</td><td>includes orchestration + report gen</td></tr>
-    </tbody>
+    <tr><th>Step</th><th>Wall Time</th><th>Sim Time</th><th>Speed</th></tr>
+    <tr><td>Model build</td><td>{build_time:.2f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
+    <tr><td>Single cell (to division)</td><td>{long_wall:.1f}s</td><td>{long_dur:.0f}s</td><td>{long_rate:.1f}x realtime</td></tr>
+    <tr><td>Division split</td><td>{div.get('split_time', 0):.3f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
+    <tr><td>Daughter simulations</td><td>{daughters_wall:.1f}s</td><td>{daughters_dur*2:.0f}s (2x{daughters_dur:.0f}s)</td><td>{daughters_dur*2/max(daughters_wall, 0.1):.1f}x realtime</td></tr>
+    <tr><td><strong>Total</strong></td><td><strong>{build_time + long_wall + daughters_wall:.0f}s</strong></td><td><strong>{long_dur + daughters_dur*2:.0f}s</strong></td><td>&mdash;</td></tr>
   </table>
 </div>
 
@@ -2323,36 +2319,30 @@ def run_workflow():
         daughters_meta = step_daughters()
     step_results['daughters'] = daughters_meta
 
-    # Build a composite for .pbg export and the interactive network viz
-    print("  Building composite for network viz + .pbg export...")
-    viz_composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
+    # Step Diagnostics (always run, uses the composite from step 3)
+    print("  Diagnostics: Step analysis")
+    diag_composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
+    diagnostics = bench_step_diagnostics(diag_composite)
+    print(f"    {len(diagnostics)} steps analyzed")
 
     # Update .pbg model files
     print("  Updating .pbg model files...")
     from v2ecoli.pbg import save_pbg
     os.makedirs('models', exist_ok=True)
-    save_pbg(viz_composite, 'models/partitioned.pbg')
+    save_pbg(diag_composite, 'models/partitioned.pbg')
     print(f"    models/partitioned.pbg updated")
 
-    # Combined step-flow + interactive network visualization
-    print("  Generating combined step-flow + interactive network viz...")
-    from v2ecoli.generate import build_execution_layers, DEFAULT_FEATURES
-    layers = build_execution_layers(DEFAULT_FEATURES)
-    graph_data = build_graph(viz_composite, layers)
-    n_proc = sum(1 for n in graph_data['nodes'] if n['data']['kind'] == 'process')
-    n_store = sum(1 for n in graph_data['nodes'] if n['data']['kind'] == 'store')
-    n_edges = len(graph_data['edges'])
-    subtitle = (f'{n_proc} processes · {n_store} stores · {n_edges} edges · '
-                f'{len(layers)} execution layers')
-    network_html = render_html(
-        graph_data,
-        title='v2ecoli · Step Flow + Interactive Network',
-        subtitle=subtitle)
-    network_path = os.path.join(WORKFLOW_DIR, 'workflow_network.html')
-    with open(network_path, 'w') as f:
-        f.write(network_html)
-    network_iframe_src = 'workflow_network.html'
-    print(f"    Wrote {network_path}")
+    # Network Visualization (Cytoscape.js interactive viewer)
+    print("  Generating interactive network visualization...")
+    network_data = build_graph(diag_composite, build_execution_layers(DEFAULT_FEATURES))
+    _, network_html_path = write_outputs(
+        network_data,
+        out_dir=WORKFLOW_DIR,
+        name='network',
+        title='v2ecoli Baseline Composite',
+        subtitle='Interactive Cytoscape.js view (built from the workflow composite)',
+    )
+    network_html_rel = os.path.relpath(network_html_path, WORKFLOW_DIR)
 
     # Generate plots
     print("  Generating plots...")
@@ -2375,12 +2365,9 @@ def run_workflow():
     if not daughters.get('skipped') and (daughters.get('daughter_1_snapshots') or daughters.get('daughter_2_snapshots')):
         plots['daughters_mass'] = plot_daughters_mass(daughters, 'Daughters — Daughter Mass Fold Change')
 
-    # Record pipeline wall time before report generation
-    step_results['_pipeline_wall'] = time.time() - pipeline_t0
-
     # Generate HTML report
     print("  Generating HTML report...")
-    report_path = generate_html_report(step_results, plots, network_iframe_src)
+    report_path = generate_html_report(step_results, plots, network_html_rel, diagnostics)
 
     pipeline_time = time.time() - pipeline_t0
     print("=" * 60)

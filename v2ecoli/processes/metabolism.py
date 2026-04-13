@@ -138,7 +138,7 @@ class Metabolism(Step):
         'include_ppgpp': {'_type': 'boolean', '_default': False},
         'mechanistic_aa_transport': {'_type': 'boolean', '_default': False},
         'media_id': {'_type': 'string', '_default': 'minimal'},
-        'metabolism': {'_type': 'map[node]', '_default': {}},
+        'metabolism': {'_type': 'any', '_default': None},
         'ngam': {'_type': 'unum', '_default': 8.39},
         'nutrientToDoublingTime': {'_type': 'map[float]', '_default': {}},
         'ppgpp_id': {'_type': 'string', '_default': 'ppgpp'},

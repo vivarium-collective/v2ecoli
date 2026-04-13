@@ -14,31 +14,36 @@ from typing import Any, Callable, Optional, Tuple
 from numba import njit
 import numpy as np
 import numpy.typing as npt
+import pint
 from scipy.integrate import solve_ivp
-from unum import Unum
 
 from wholecell.utils.random import stochasticRound
 
+from v2ecoli.library.unit_bridge import unum_to_pint
 from v2ecoli.processes.polypeptide.common import MICROMOLAR_UNITS
+
+# Function bodies below normalize every unit-bearing input through
+# unum_to_pint, then convert to MICROMOLAR_UNITS for the numerical math,
+# so callers can pass Unum or pint Quantities interchangeably.
 
 
 def ppgpp_metabolite_changes(
-    uncharged_trna_conc: Unum,
-    charged_trna_conc: Unum,
-    ribosome_conc: Unum,
+    uncharged_trna_conc: pint.Quantity,
+    charged_trna_conc: pint.Quantity,
+    ribosome_conc: pint.Quantity,
     f: npt.NDArray[np.float64],
-    rela_conc: Unum,
-    spot_conc: Unum,
-    ppgpp_conc: Unum,
-    counts_to_molar: Unum,
-    v_rib: Unum,
+    rela_conc: pint.Quantity,
+    spot_conc: pint.Quantity,
+    ppgpp_conc: pint.Quantity,
+    counts_to_molar: pint.Quantity,
+    v_rib: pint.Quantity,
     charging_params: dict[str, Any],
     ppgpp_params: dict[str, Any],
     time_step: float,
     request: bool = False,
     limits: Optional[npt.NDArray[np.float64]] = None,
     random_state: Optional[np.random.RandomState] = None,
-) -> tuple[npt.NDArray[np.int64], int, int, Unum, Unum, Unum, Unum]:
+) -> tuple[npt.NDArray[np.int64], int, int, pint.Quantity, pint.Quantity, pint.Quantity, pint.Quantity]:
     """
     Calculates the changes in metabolite counts based on ppGpp synthesis and
     degradation reactions.
@@ -88,13 +93,13 @@ def ppgpp_metabolite_changes(
     if random_state is None:
         random_state = np.random.RandomState()
 
-    uncharged_trna_conc = uncharged_trna_conc.asNumber(MICROMOLAR_UNITS)
-    charged_trna_conc = charged_trna_conc.asNumber(MICROMOLAR_UNITS)
-    ribosome_conc = ribosome_conc.asNumber(MICROMOLAR_UNITS)
-    rela_conc = rela_conc.asNumber(MICROMOLAR_UNITS)
-    spot_conc = spot_conc.asNumber(MICROMOLAR_UNITS)
-    ppgpp_conc = ppgpp_conc.asNumber(MICROMOLAR_UNITS)
-    counts_to_micromolar = counts_to_molar.asNumber(MICROMOLAR_UNITS)
+    uncharged_trna_conc = unum_to_pint(uncharged_trna_conc).to(MICROMOLAR_UNITS).magnitude
+    charged_trna_conc = unum_to_pint(charged_trna_conc).to(MICROMOLAR_UNITS).magnitude
+    ribosome_conc = unum_to_pint(ribosome_conc).to(MICROMOLAR_UNITS).magnitude
+    rela_conc = unum_to_pint(rela_conc).to(MICROMOLAR_UNITS).magnitude
+    spot_conc = unum_to_pint(spot_conc).to(MICROMOLAR_UNITS).magnitude
+    ppgpp_conc = unum_to_pint(ppgpp_conc).to(MICROMOLAR_UNITS).magnitude
+    counts_to_micromolar = unum_to_pint(counts_to_molar).to(MICROMOLAR_UNITS).magnitude
 
     numerator = (
         1
@@ -222,18 +227,18 @@ def ppgpp_metabolite_changes(
 
 
 def calculate_trna_charging(
-    synthetase_conc: Unum,
-    uncharged_trna_conc: Unum,
-    charged_trna_conc: Unum,
-    aa_conc: Unum,
-    ribosome_conc: Unum,
-    f: Unum,
+    synthetase_conc: pint.Quantity,
+    uncharged_trna_conc: pint.Quantity,
+    charged_trna_conc: pint.Quantity,
+    aa_conc: pint.Quantity,
+    ribosome_conc: pint.Quantity,
+    f: pint.Quantity,
     params: dict[str, Any],
     supply: Optional[Callable] = None,
     time_limit: float = 1000,
     limit_v_rib: bool = False,
     use_disabled_aas: bool = False,
-) -> tuple[Unum, float, Unum, Unum, Unum]:
+) -> tuple[pint.Quantity, float, pint.Quantity, pint.Quantity, pint.Quantity]:
     """
     Calculates the steady state value of tRNA based on charging and
     incorporation through polypeptide elongation. The fraction of
@@ -339,11 +344,11 @@ def calculate_trna_charging(
         return np.hstack((-dtrna, dtrna, daa, v_synthesis, v_import, v_export))
 
     # Convert inputs for integration
-    synthetase_conc = synthetase_conc.asNumber(MICROMOLAR_UNITS)
-    uncharged_trna_conc = uncharged_trna_conc.asNumber(MICROMOLAR_UNITS)
-    charged_trna_conc = charged_trna_conc.asNumber(MICROMOLAR_UNITS)
-    aa_conc = aa_conc.asNumber(MICROMOLAR_UNITS)
-    ribosome_conc = ribosome_conc.asNumber(MICROMOLAR_UNITS)
+    synthetase_conc = unum_to_pint(synthetase_conc).to(MICROMOLAR_UNITS).magnitude
+    uncharged_trna_conc = unum_to_pint(uncharged_trna_conc).to(MICROMOLAR_UNITS).magnitude
+    charged_trna_conc = unum_to_pint(charged_trna_conc).to(MICROMOLAR_UNITS).magnitude
+    aa_conc = unum_to_pint(aa_conc).to(MICROMOLAR_UNITS).magnitude
+    ribosome_conc = unum_to_pint(ribosome_conc).to(MICROMOLAR_UNITS).magnitude
     unit_conversion = params["unit_conversion"]
 
     # Remove disabled amino acids from calculations
@@ -500,15 +505,15 @@ def get_charging_supply_function(
     amino_acid_import: Callable,
     amino_acid_export: Callable,
     aa_supply_scaling: Callable,
-    counts_to_molar: Unum,
+    counts_to_molar: pint.Quantity,
     aa_supply: npt.NDArray[np.float64],
     fwd_enzyme_counts: npt.NDArray[np.int64],
     rev_enzyme_counts: npt.NDArray[np.int64],
-    dry_mass: Unum,
+    dry_mass: pint.Quantity,
     importer_counts: npt.NDArray[np.int64],
     exporter_counts: npt.NDArray[np.int64],
     aa_in_media: npt.NDArray[np.bool_],
-) -> Optional[Callable[[npt.NDArray[np.float64]], Tuple[Unum, Unum, Unum]]]:
+) -> Optional[Callable[[npt.NDArray[np.float64]], Tuple[pint.Quantity, pint.Quantity, pint.Quantity]]]:
     """
     Get a function mapping internal amino acid concentrations to the amount of
     amino acid supply expected.
@@ -544,7 +549,7 @@ def get_charging_supply_function(
     # setting None will maintain constant amino acid concentrations throughout charging.
     supply_function = None
     if supply_in_charging:
-        counts_to_molar = counts_to_molar.asNumber(MICROMOLAR_UNITS)
+        counts_to_molar = unum_to_pint(counts_to_molar).to(MICROMOLAR_UNITS).magnitude
         zeros = counts_to_molar * np.zeros_like(aa_supply)
         if mechanistic_supply:
             if mechanistic_aa_transport:

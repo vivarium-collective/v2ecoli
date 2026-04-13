@@ -22,13 +22,7 @@ from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
 
 from v2ecoli.library.schema import counts, attrs, bulk_name_to_idx
 from v2ecoli.processes.metabolism import CONC_UNITS, TIME_UNITS
-from v2ecoli.processes.polypeptide.common import REMOVED_FROM_CHARGING
-
-# pint-side MICROMOLAR_UNITS (matches the Unum-side constant in
-# v2ecoli.processes.polypeptide.common). Keeping the two side-by-side
-# until polypeptide/kinetics.py is migrated to pint with its mandatory
-# regression fixture.
-MICROMOLAR_UNITS = units.umol / units.L
+from v2ecoli.processes.polypeptide.common import MICROMOLAR_UNITS, REMOVED_FROM_CHARGING
 from v2ecoli.processes.polypeptide.kinetics import (
     ppgpp_metabolite_changes,
     calculate_trna_charging,
@@ -301,8 +295,9 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         )
         exchange_rates = import_rates - export_rates
 
-        # get_charging_supply_function is Unum-native (kinetics.py pending
-        # its own migration); convert pint Quantities at the boundary.
+        # The closure produced here calls the upstream Unum-native
+        # amino_acid_synthesis/import/export with dry_mass and aa_conc, so
+        # convert dry_mass at the boundary.
         supply_function = get_charging_supply_function(
             self.process.aa_supply_in_charging,
             self.process.mechanistic_translation_supply,
@@ -311,7 +306,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             self.amino_acid_import,
             self.amino_acid_export,
             self.aa_supply_scaling,
-            pint_to_unum(self.counts_to_molar),
+            self.counts_to_molar,
             self.process.aa_supply,
             fwd_enzyme_counts,
             rev_enzyme_counts,
@@ -329,14 +324,12 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             synthesis_in_charging,
             import_in_charging,
             export_in_charging,
-        # calculate_trna_charging is Unum-native (pending its own migration);
-        # convert pint concentrations at the boundary.
         ) = calculate_trna_charging(
-            pint_to_unum(synthetase_conc),
-            pint_to_unum(uncharged_trna_conc),
-            pint_to_unum(charged_trna_conc),
-            pint_to_unum(aa_conc),
-            pint_to_unum(ribosome_conc),
+            synthetase_conc,
+            uncharged_trna_conc,
+            charged_trna_conc,
+            aa_conc,
+            ribosome_conc,
             f,
             self.charging_params,
             supply=supply_function,
@@ -430,14 +423,14 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             updated_charged_trna_conc = total_trna_conc * fraction_charged
             updated_uncharged_trna_conc = total_trna_conc - updated_charged_trna_conc
             delta_metabolites, *_ = ppgpp_metabolite_changes(
-                pint_to_unum(updated_uncharged_trna_conc),
-                pint_to_unum(updated_charged_trna_conc),
-                pint_to_unum(ribosome_conc),
+                updated_uncharged_trna_conc,
+                updated_charged_trna_conc,
+                ribosome_conc,
                 f,
-                pint_to_unum(rela_conc),
-                pint_to_unum(spot_conc),
-                pint_to_unum(ppgpp_conc),
-                pint_to_unum(self.counts_to_molar),
+                rela_conc,
+                spot_conc,
+                ppgpp_conc,
+                self.counts_to_molar,
                 v_rib,
                 self.charging_params,
                 self.ppgpp_params,
@@ -628,14 +621,14 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
                 spot_deg,
                 spot_deg_inhibited,
             ) = ppgpp_metabolite_changes(
-                pint_to_unum(uncharged_trna_conc),
-                pint_to_unum(charged_trna_conc),
-                pint_to_unum(ribosome_conc),
+                uncharged_trna_conc,
+                charged_trna_conc,
+                ribosome_conc,
                 f,
-                pint_to_unum(rela_conc),
-                pint_to_unum(spot_conc),
-                pint_to_unum(ppgpp_conc),
-                pint_to_unum(self.counts_to_molar),
+                rela_conc,
+                spot_conc,
+                ppgpp_conc,
+                self.counts_to_molar,
                 v_rib,
                 self.charging_params,
                 self.ppgpp_params,

@@ -1,6 +1,6 @@
 """Shared constants for the polypeptide elongation submodules."""
 
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
 
 
 MICROMOLAR_UNITS = units.umol / units.L

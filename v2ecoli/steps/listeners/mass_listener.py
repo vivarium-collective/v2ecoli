@@ -62,12 +62,12 @@ class MassListener(Step):
         }},
         'compartment_id_to_index': 'map[integer]',
         'compartment_abbrev_to_index': 'map[integer]',
-        'n_avogadro': {'_type': 'unum', '_default': 6.0221409e23},
+        'n_avogadro': {'_type': 'any', '_default': 6.0221409e23},
         'time_step': {'_type': 'float', '_default': 1.0},
         'emit_unique': {'_type': 'boolean', '_default': False},
         'match_wcecoli': {'_type': 'boolean', '_default': False},
         'condition': {'_type': 'string', '_default': ''},
-        'condition_to_doubling_time': 'map[unum]',
+        'condition_to_doubling_time': 'map[any]',
     }
 
 

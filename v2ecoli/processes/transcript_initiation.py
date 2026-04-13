@@ -179,11 +179,11 @@ class TranscriptInitiation(Step):
 
     config_schema = {
         'active_rnap_foorprint_size': {'_type': 'integer', '_default': 1},
-        'active_rnap_footprint_size': {'_type': 'unum[nt]', '_default': 24.0},
+        'active_rnap_footprint_size': {'_type': 'any', '_default': 24.0},
         'attenuated_rna_indices': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'attenuation_adjustments': {'_type': 'array[float]', '_default': np.array([], dtype=float)},
         'basal_prob': {'_type': 'array[float]', '_default': np.array([], dtype=float)},
-        'cell_density': {'_type': 'unum[g/L]', '_default': 1100.0},
+        'cell_density': {'_type': 'any', '_default': 1100.0},
         'copy_number': {'_type': 'array[integer]', '_default': None},
         'delta_prob': {'_type': 'map[node]', '_default': {}},
         'emit_unique': {'_type': 'boolean', '_default': False},
@@ -197,7 +197,7 @@ class TranscriptInitiation(Step):
         'idx_tRNA': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'inactive_RNAP': {'_type': 'string', '_default': 'APORNAP-CPLX[c]'},
         'make_elongation_rates': {'_type': 'method', '_default': None},
-        'n_avogadro': {'_type': 'unum[1/mol]', '_default': 6.02214076e+23},
+        'n_avogadro': {'_type': 'any', '_default': 6.02214076e+23},
         'perturbations': {'_type': 'map[node]', '_default': {}},
         'ppgpp': {'_type': 'string', '_default': 'ppGpp'},
         'ppgpp_regulation': {'_type': 'boolean', '_default': False},

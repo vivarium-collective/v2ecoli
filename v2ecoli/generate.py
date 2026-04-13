@@ -14,7 +14,7 @@ import copy
 import numpy as np
 from bigraph_schema import allocate_core
 
-from v2ecoli.library.unit_defs import units
+from v2ecoli.types.quantity import ureg as units
 from v2ecoli.types import ECOLI_TYPES
 
 # Import partitioned process classes (vEcoli-style: single class per process)

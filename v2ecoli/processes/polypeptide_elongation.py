@@ -67,7 +67,6 @@ from v2ecoli.library.unit_bridge import unum_to_pint
 # vivarium imports
 # simulate_process removed
 from bigraph_schema import deep_merge
-from v2ecoli.library.unit_defs import units as vivunits
 # plot_variables removed
 
 # vivarium-ecoli imports
@@ -170,14 +169,14 @@ class PolypeptideElongation(PartitionedProcess):
         'amino_acid_synthesis': 'map[node]',
         'amino_acids': {'_type': 'list[string]', '_default': []},
         'basal_elongation_rate': {'_type': 'float', '_default': 22.0},
-        'cellDensity': {'_type': 'unum[g/L]', '_default': 1100.0},
+        'cellDensity': {'_type': 'any', '_default': 1100.0},
         'charged_trna_names': {'_type': 'list[string]', '_default': []},
         'charging_molecule_names': {'_type': 'list[string]', '_default': []},
         'charging_stoich_matrix': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'degradation_index': {'_type': 'integer', '_default': 1},
         'disable_ppgpp_elongation_inhibition': {'_type': 'boolean', '_default': False},
         'elong_rate_by_ppgpp': {'_type': 'float', '_default': 0},
-        'elongation_max': {'_type': 'unum[aa/s]', '_default': 22.0},
+        'elongation_max': {'_type': 'any', '_default': 22.0},
         'emit_unique': {'_type': 'boolean', '_default': False},
         'endWeight': {'_type': 'array[float]', '_default': np.array([2.99146113e-08])},
         'get_pathway_enzyme_counts_per_aa': 'method',
@@ -194,7 +193,7 @@ class PolypeptideElongation(PartitionedProcess):
         'mechanistic_aa_transport': {'_type': 'boolean', '_default': False},
         'mechanistic_supply': {'_type': 'boolean', '_default': False},
         'mechanistic_translation_supply': {'_type': 'boolean', '_default': False},
-        'n_avogadro': {'_type': 'unum[1/mol]', '_default': 6.02214076e+23},
+        'n_avogadro': {'_type': 'any', '_default': 6.02214076e+23},
         'next_aa_pad': {'_type': 'integer', '_default': 1},
         'ppgpp': {'_type': 'string', '_default': 'ppGpp'},
         'ppgpp_degradation_reaction': {'_type': 'string', '_default': 'PPGPPSYN-RXN'},

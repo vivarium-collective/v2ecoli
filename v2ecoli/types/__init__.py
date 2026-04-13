@@ -1,4 +1,3 @@
-from v2ecoli.types.unum import UnumUnits
 from v2ecoli.types.quantity import Quantity
 from v2ecoli.types.csr_matrix import CSRMatrix
 from v2ecoli.types.units_array import UnitsArray
@@ -13,12 +12,6 @@ from process_bigraph import StepLink, ProcessLink
 # Register serialize dispatches for custom types that define _serialize_state.
 # serialize is now plum-dispatched in bigraph-schema api branch.
 from bigraph_schema.methods.serialize import serialize as _serialize
-
-@_serialize.dispatch
-def _serialize_unum(schema: UnumUnits, state):
-    if not isinstance(state, dict):
-        return schema._serialize_state(state)
-    return str(state)
 
 @_serialize.dispatch
 def _serialize_quantity(schema: Quantity, state):
@@ -327,7 +320,6 @@ def _resolve_listener_map(current: ListenerStore, update: _Map, path=None):
 
 
 ECOLI_TYPES = {
-    'unum': UnumUnits,
     'quantity': Quantity,
     'csr_matrix': CSRMatrix,
     'units_array': UnitsArray,

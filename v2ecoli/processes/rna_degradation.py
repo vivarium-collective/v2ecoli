@@ -85,10 +85,10 @@ class RnaDegradation(PartitionedProcess):
     topology = TOPOLOGY
 
     config_schema = {
-        'Kcat_endoRNases': {'_type': 'unum[1/s]', '_default': np.array([], dtype=float)},
-        'Kms': {'_type': 'unum[mol/L]', '_default': np.array([], dtype=float)},
+        'Kcat_endoRNases': {'_type': 'any', '_default': np.array([], dtype=float)},
+        'Kms': {'_type': 'any', '_default': np.array([], dtype=float)},
         'all_rna_ids': {'_type': 'list[string]', '_default': []},
-        'cell_density': {'_type': 'unum[g/L]', '_default': 1100.0},
+        'cell_density': {'_type': 'any', '_default': 1100.0},
         'charged_trna_names': {'_type': 'list[string]', '_default': []},
         'cistron_ids': {'_type': 'list[string]', '_default': []},
         'cistron_tu_mapping_matrix': {'_type': 'csr_matrix', '_default': []},
@@ -100,7 +100,7 @@ class RnaDegradation(PartitionedProcess):
         'is_miscRNA': {'_type': 'array[boolean]', '_default': np.array([], dtype=float)},
         'is_rRNA': {'_type': 'array[boolean]', '_default': np.array([], dtype=float)},
         'is_tRNA': {'_type': 'array[boolean]', '_default': np.array([], dtype=float)},
-        'kcat_exoRNase': {'_type': 'unum[1/s]', '_default': np.array([], dtype=float)},
+        'kcat_exoRNase': {'_type': 'any', '_default': np.array([], dtype=float)},
         'mature_rna_cistron_indexes': {'_type': 'array[integer]', '_default': []},
         'mature_rna_ids': {'_type': 'list[string]', '_default': []},
         'n_avogadro': {'_type': 'float[1/mol]', '_default': 0.0},
@@ -112,7 +112,7 @@ class RnaDegradation(PartitionedProcess):
         'proton_id': {'_type': 'string', '_default': 'h+'},
         'ribosome30S': {'_type': 'string', '_default': 'ribosome30S'},
         'ribosome50S': {'_type': 'string', '_default': 'ribosome50S'},
-        'rna_deg_rates': {'_type': 'unum[1/s]', '_default': []},
+        'rna_deg_rates': {'_type': 'any', '_default': []},
         'rna_ids': {'_type': 'list[string]', '_default': []},
         'rna_lengths': {'_type': 'array[integer[nt]]', '_default': np.array([], dtype=float)},
         'rrfa_idx': {'_type': 'integer', '_default': 0},

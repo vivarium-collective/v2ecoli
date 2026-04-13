@@ -4,7 +4,7 @@ from collections import namedtuple
 import numpy as np
 from scipy import constants
 
-from v2ecoli.library.unit_defs import units
+from v2ecoli.types.quantity import ureg as units
 
 
 def get_in(d, path, default=None):

@@ -394,9 +394,16 @@ class Metabolism(Step):
         # concentration (M) basis
         coefficient = dry_mass / cell_mass * self.cellDensity * timestep * units.s
 
-        # Get exchange constraints
+        # Get exchange constraints. The store schema (map[float]) strips
+        # units from the producer's Unum values, so re-attach the known
+        # mol/mass/time units before crossing back into upstream Unum-native
+        # code (exchange_constraints multiplies by a Unum coefficient).
         unconstrained = set(states["environment"]["exchange_data"]["unconstrained"])
-        constrained = states["environment"]["exchange_data"]["constrained"]
+        _constraint_unit = units.mmol / units.g / units.h
+        constrained = {
+            mol: (val if isinstance(val, Unum) else val * _constraint_unit)
+            for mol, val in states["environment"]["exchange_data"]["constrained"].items()
+        }
 
         # Determine updates to concentrations depending on the current state
         current_media_id = states["environment"]["media_id"]

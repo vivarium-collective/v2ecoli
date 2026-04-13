@@ -6,8 +6,8 @@ import numpy as np
 import numpy.typing as npt
 from numpy.lib import recfunctions as rfn
 from typing import Any
-from unum import Unum
 import warnings
+import pint
 
 from ecoli.library.schema import (
     attrs,
@@ -18,9 +18,13 @@ from ecoli.library.schema import (
 from ecoli.processes.polypeptide_elongation import (
     calculate_trna_charging,
     REMOVED_FROM_CHARGING,
-    MICROMOLAR_UNITS,
 )
-from wholecell.utils import units
+# Local pint-side MICROMOLAR_UNITS (the upstream constant is Unum). The
+# upstream calculate_trna_charging is wrapped at its call site below to
+# accept pint inputs.
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
+MICROMOLAR_UNITS = units.umol / units.L
 from wholecell.utils.fitting import (
     countsFromMassAndExpression,
     masses_and_counts_for_homeostatic_target,
@@ -140,9 +144,11 @@ def initialize_bulk_counts(
     if form_complexes:
         initialize_complexation(bulk_counts, sim_data, random_state)
 
-    bulk_masses = sim_data.internal_state.bulk_molecules.bulk_data["mass"].asNumber(
-        units.fg / units.mol
-    ) / sim_data.constants.n_avogadro.asNumber(1 / units.mol)
+    bulk_masses = unum_to_pint(
+        sim_data.internal_state.bulk_molecules.bulk_data["mass"]
+    ).to(units.fg / units.mol).magnitude / unum_to_pint(
+        sim_data.constants.n_avogadro
+    ).to(1 / units.mol).magnitude
     bulk_submasses = []
     bulk_submass_dtypes = []
     for submass, idx in sim_data.submass_name_to_index.items():
@@ -279,18 +285,21 @@ def initialize_protein_monomers(
         * sim_data.process.translation.translation_efficiencies_by_monomer
         / (
             np.log(2)
-            / sim_data.condition_to_doubling_time[sim_data.condition].asNumber(units.s)
-            + sim_data.process.translation.monomer_data["deg_rate"].asNumber(
-                1 / units.s
-            )
+            / unum_to_pint(
+                sim_data.condition_to_doubling_time[sim_data.condition]
+            ).to(units.s).magnitude
+            + unum_to_pint(
+                sim_data.process.translation.monomer_data["deg_rate"]
+            ).to(1 / units.s).magnitude
         )
     )
 
     n_monomers = countsFromMassAndExpression(
-        monomer_mass.asNumber(units.g),
-        sim_data.process.translation.monomer_data["mw"].asNumber(units.g / units.mol),
+        unum_to_pint(monomer_mass).to(units.g).magnitude,
+        unum_to_pint(sim_data.process.translation.monomer_data["mw"]).to(
+            units.g / units.mol).magnitude,
         monomer_expression,
-        sim_data.constants.n_avogadro.asNumber(1 / units.mol),
+        unum_to_pint(sim_data.constants.n_avogadro).to(1 / units.mol).magnitude,
     )
 
     # Get indices for monomers in bulk counts array
@@ -338,10 +347,10 @@ def initialize_rna(
         rna_expression /= rna_expression.sum()
 
     n_rnas = countsFromMassAndExpression(
-        rna_mass.asNumber(units.g),
-        transcription.rna_data["mw"].asNumber(units.g / units.mol),
+        unum_to_pint(rna_mass).to(units.g).magnitude,
+        unum_to_pint(transcription.rna_data["mw"]).to(units.g / units.mol).magnitude,
         rna_expression,
-        sim_data.constants.n_avogadro.asNumber(1 / units.mol),
+        unum_to_pint(sim_data.constants.n_avogadro).to(1 / units.mol).magnitude,
     )
 
     # Get indices for monomers in bulk counts array
@@ -421,7 +430,7 @@ def set_small_molecule_counts(
     molecule_ids = sorted(conc_dict)
     bulk_ids = sim_data.internal_state.bulk_molecules.bulk_data["id"]
     molecule_concentrations = (units.mol / units.L) * np.array(
-        [conc_dict[key].asNumber(units.mol / units.L) for key in molecule_ids]
+        [unum_to_pint(conc_dict[key]).to(units.mol / units.L).magnitude for key in molecule_ids]
     )
 
     if cell_mass is None:
@@ -513,7 +522,7 @@ def initialize_replication(
     # Determine the number and location of replication forks at the start of
     # the cell cycle
     # Get growth rate constants
-    tau = sim_data.condition_to_doubling_time[sim_data.condition].asUnit(units.min)
+    tau = unum_to_pint(sim_data.condition_to_doubling_time[sim_data.condition]).to(units.min)
     critical_mass = sim_data.mass.get_dna_critical_mass(tau)
     replication_rate = sim_data.process.replication.basal_elongation_rate
 
@@ -575,19 +584,18 @@ def initialize_replication(
     if n_replisome != 0:
         # Update mass of replisomes if the mechanistic replisome option is set
         if mechanistic_replisome:
+            _fg_per_count = units.fg / units.count
             replisome_trimer_subunit_masses = np.vstack(
                 [
-                    sim_data.getter.get_submass_array(x).asNumber(
-                        units.fg / units.count
-                    )
+                    unum_to_pint(sim_data.getter.get_submass_array(x))
+                    .to(_fg_per_count).magnitude
                     for x in sim_data.molecule_groups.replisome_trimer_subunits
                 ]
             )
             replisome_monomer_subunit_masses = np.vstack(
                 [
-                    sim_data.getter.get_submass_array(x).asNumber(
-                        units.fg / units.count
-                    )
+                    unum_to_pint(sim_data.getter.get_submass_array(x))
+                    .to(_fg_per_count).magnitude
                     for x in sim_data.molecule_groups.replisome_monomer_subunits
                 ]
             )
@@ -607,7 +615,7 @@ def initialize_replication(
         mass_increase_dna = computeMassIncrease(
             np.tile(sequences, (n_replisome // 2, 1)),
             sequence_elongations,
-            sim_data.process.replication.replication_monomer_weights.asNumber(units.fg),
+            unum_to_pint(sim_data.process.replication.replication_monomer_weights).to(units.fg).magnitude,
         )
 
         # Add active replisomes as unique molecules and set attributes
@@ -860,10 +868,10 @@ def initialize_transcription_factors(
 
     # Get masses of active transcription factors
     tf_indexes = [np.where(bulk_state["id"] == tf_id + "[c]")[0][0] for tf_id in tf_ids]
-    active_tf_masses = (
+    active_tf_masses = unum_to_pint(
         sim_data.internal_state.bulk_molecules.bulk_data["mass"][tf_indexes]
         / sim_data.constants.n_avogadro
-    ).asNumber(units.fg)
+    ).to(units.fg).magnitude
 
     # Get TU indices of promoters
     TU_index = unique_molecules["promoter"]["TU_index"]
@@ -952,10 +960,10 @@ def initialize_transcription(
     RNA polymerases placed at each gene.
     """
     # Load parameters
-    rna_lengths = sim_data.process.transcription.rna_data["length"].asNumber()
-    rna_masses = (
+    rna_lengths = unum_to_pint(sim_data.process.transcription.rna_data["length"]).magnitude
+    rna_masses = unum_to_pint(
         sim_data.process.transcription.rna_data["mw"] / sim_data.constants.n_avogadro
-    ).asNumber(units.fg)
+    ).to(units.fg).magnitude
     current_media_id = sim_data.conditions[sim_data.condition]["nutrients"]
     frac_active_rnap = sim_data.process.transcription.rnapFractionActiveDict[
         current_media_id
@@ -1625,15 +1633,15 @@ def initialize_translation(
         current_nutrients
     ]
     protein_sequences = sim_data.process.translation.translation_sequences
-    protein_lengths = sim_data.process.translation.monomer_data["length"].asNumber()
+    protein_lengths = unum_to_pint(sim_data.process.translation.monomer_data["length"]).magnitude
     translation_efficiencies = normalize(
         sim_data.process.translation.translation_efficiencies_by_monomer
     )
     aa_weights_incorporated = sim_data.process.translation.translation_monomer_weights
     end_weight = sim_data.process.translation.translation_end_weight
-    cistron_lengths = sim_data.process.transcription.cistron_data["length"].asNumber(
-        units.nt
-    )
+    cistron_lengths = unum_to_pint(
+        sim_data.process.transcription.cistron_data["length"]
+    ).to(units.nt).magnitude
     TU_ids = sim_data.process.transcription.rna_data["id"]
     monomer_index_to_tu_indexes = sim_data.relation.monomer_index_to_tu_indexes
     monomer_index_to_cistron_index = {
@@ -1837,12 +1845,12 @@ def initialize_translation(
 
 
 def determine_chromosome_state(
-    tau: Unum,
-    replichore_length: Unum,
+    tau: "pint.Quantity",
+    replichore_length: "pint.Quantity",
     n_max_replisomes: int,
     place_holder: int,
-    cell_mass: Unum,
-    critical_mass: Unum,
+    cell_mass: "pint.Quantity",
+    critical_mass: "pint.Quantity",
     replication_rate: float,
 ) -> tuple[
     dict[str, npt.NDArray[np.int32]],
@@ -1894,14 +1902,14 @@ def determine_chromosome_state(
     """
 
     # All inputs must be positive numbers
-    unitless_tau = tau.asNumber(units.s)
-    unitless_replichore_length = replichore_length.asNumber(units.nt)
+    unitless_tau = unum_to_pint(tau).to(units.s).magnitude
+    unitless_replichore_length = unum_to_pint(replichore_length).to(units.nt).magnitude
     assert unitless_tau >= 0, "tau value can't be negative."
     assert unitless_replichore_length > 0, "replichore_length must be positive."
 
     # Convert to unitless
-    unitless_cell_mass = cell_mass.asNumber(units.fg)
-    unitless_critical_mass = critical_mass.asNumber(units.fg)
+    unitless_cell_mass = unum_to_pint(cell_mass).to(units.fg).magnitude
+    unitless_critical_mass = unum_to_pint(critical_mass).to(units.fg).magnitude
 
     # Calculate the maximum number of replication rounds given the maximum
     # count of replisomes
@@ -2038,11 +2046,11 @@ def calculate_cell_mass(bulk_state, unique_molecules, sim_data):
     )
 
     if len(unique_molecules) > 0:
-        unique_masses = sim_data.internal_state.unique_molecule.unique_molecule_masses[
-            "mass"
-        ].asNumber(units.fg / units.mol) / sim_data.constants.n_avogadro.asNumber(
-            1 / units.mol
-        )
+        unique_masses = unum_to_pint(
+            sim_data.internal_state.unique_molecule.unique_molecule_masses["mass"]
+        ).to(units.fg / units.mol).magnitude / unum_to_pint(
+            sim_data.constants.n_avogadro
+        ).to(1 / units.mol).magnitude
         unique_ids = sim_data.internal_state.unique_molecule.unique_molecule_masses[
             "id"
         ]
@@ -2131,16 +2139,14 @@ def initialize_trna_charging(
         else constants.ribosome_elongation_rate_basal
     )
     charging_params = {
-        "kS": constants.synthetase_charging_rate.asNumber(1 / units.s),
-        "KMaa": transcription.aa_kms.asNumber(MICROMOLAR_UNITS),
-        "KMtf": transcription.trna_kms.asNumber(MICROMOLAR_UNITS),
-        "krta": constants.Kdissociation_charged_trna_ribosome.asNumber(
-            MICROMOLAR_UNITS
-        ),
-        "krtf": constants.Kdissociation_uncharged_trna_ribosome.asNumber(
-            MICROMOLAR_UNITS
-        ),
-        "max_elong_rate": float(elongation_max.asNumber(units.aa / units.s)),
+        "kS": unum_to_pint(constants.synthetase_charging_rate).to(1 / units.s).magnitude,
+        "KMaa": unum_to_pint(transcription.aa_kms).to(MICROMOLAR_UNITS).magnitude,
+        "KMtf": unum_to_pint(transcription.trna_kms).to(MICROMOLAR_UNITS).magnitude,
+        "krta": unum_to_pint(constants.Kdissociation_charged_trna_ribosome).to(
+            MICROMOLAR_UNITS).magnitude,
+        "krtf": unum_to_pint(constants.Kdissociation_uncharged_trna_ribosome).to(
+            MICROMOLAR_UNITS).magnitude,
+        "max_elong_rate": float(unum_to_pint(elongation_max).to(units.aa / units.s).magnitude),
         "charging_mask": np.array(
             [
                 aa not in REMOVED_FROM_CHARGING

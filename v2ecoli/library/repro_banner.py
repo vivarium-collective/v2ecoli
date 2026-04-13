@@ -72,6 +72,9 @@ def banner_html():
             padding:10px 14px;margin:0 0 16px 0;font-size:12px;color:#475569;
             line-height:1.6">
   <strong style="color:#0f172a">Run provenance</strong> &nbsp;·&nbsp;
+  <a href="https://github.com/vivarium-collective/v2ecoli"
+     style="color:#2563eb;text-decoration:none;font-weight:600"
+     target="_blank" rel="noopener">vivarium-collective/v2ecoli &#8599;</a> &nbsp;·&nbsp;
   {p['when']} &nbsp;·&nbsp;
   <code>{p['branch']}@{p['commit']}</code>{dirty_tag} &nbsp;·&nbsp;
   <span title="Host">{p['user']}@{p['host']}</span> &nbsp;·&nbsp;

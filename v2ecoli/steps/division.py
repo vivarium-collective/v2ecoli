@@ -171,58 +171,64 @@ class Division(V2Step):
               f'threshold={threshold:.1f} fg, '
               f'chromosomes={n_chromosomes})')
 
-        # Split cell state
-        cell_data = {
-            'bulk': states['bulk'],
-            'unique': states['unique'],
-            'environment': states.get('environment', {}),
-            'boundary': states.get('boundary', {}),
-        }
+        try:
+            cell_data = {
+                'bulk': states['bulk'],
+                'unique': states['unique'],
+                'environment': states.get('environment', {}),
+                'boundary': states.get('boundary', {}),
+            }
 
-        from v2ecoli.library.division import divide_cell
-        d1_data, d2_data = divide_cell(cell_data)
+            from v2ecoli.library.division import divide_cell
+            d1_data, d2_data = divide_cell(cell_data)
 
-        # Preserve global_time in daughters
-        d1_data['global_time'] = division_time
-        d2_data['global_time'] = division_time
+            d1_data['global_time'] = division_time
+            d2_data['global_time'] = division_time
 
-        # Build complete daughter cell states
-        d1_id, d2_id = daughter_phylogeny_id(self.agent_id)
+            d1_id, d2_id = daughter_phylogeny_id(self.agent_id)
 
-        if self._configs:
-            from v2ecoli.partitioned.generate_partitioned import (
-                build_partitioned_document_from_configs)
+            if not self._configs:
+                print(f'  No configs available for daughter generation')
+                return {}
+
+            # Build daughter docs via the standard partitioned builder.
+            # (The old v2ecoli.partitioned.generate_partitioned module was
+            # removed; build_document is the surviving entry point.)
+            from v2ecoli.generate import build_document
             d1_seed = (self._seed + 1) % (2**31)
             d2_seed = (self._seed + 2) % (2**31)
 
-            d1_doc = build_partitioned_document_from_configs(
+            d1_doc = build_document(
                 d1_data, self._configs, self._unique_names,
                 dry_mass_inc_dict=self.dry_mass_inc_dict,
                 core=self.core, seed=d1_seed)
-            d2_doc = build_partitioned_document_from_configs(
+            d2_doc = build_document(
                 d2_data, self._configs, self._unique_names,
                 dry_mass_inc_dict=self.dry_mass_inc_dict,
                 core=self.core, seed=d2_seed)
 
             d1_cell = d1_doc['state']['agents']['0']
             d2_cell = d2_doc['state']['agents']['0']
-        else:
-            # No configs — can't build daughters, just report
-            print(f'  No configs available for daughter generation')
-            return {}
 
-        print(f'  DAUGHTERS: {d1_id} (bulk={d1_data["bulk"]["count"].sum()}) '
-              f'+ {d2_id} (bulk={d2_data["bulk"]["count"].sum()})')
+            print(f'  DAUGHTERS: {d1_id} (bulk={d1_data["bulk"]["count"].sum()}) '
+                  f'+ {d2_id} (bulk={d2_data["bulk"]["count"].sum()})')
 
-        return {
-            'agents': {
-                '_remove': [self.agent_id],
-                '_add': [
-                    (d1_id, d1_cell),
-                    (d2_id, d2_cell),
-                ],
-            },
-        }
+            return {
+                'agents': {
+                    '_remove': [self.agent_id],
+                    '_add': [
+                        (d1_id, d1_cell),
+                        (d2_id, d2_cell),
+                    ],
+                },
+            }
+        except Exception as e:
+            # Surface failures loudly — process-bigraph otherwise swallows
+            # exceptions raised from a step's next_update.
+            import traceback
+            print(f'  DIVISION FAILED: {type(e).__name__}: {e}')
+            traceback.print_exc()
+            raise
 
     def update(self, state, interval=None):
         return self.next_update(1.0, state)

@@ -9,8 +9,8 @@ Runs a single-cell simulation with Michaelis-Menten glucose uptake in
   * External glucose [GLC_ext] over time (once environment depletion is
     wired; stays flat until then).
   * Observed glucose uptake rate vs. the analytical MM curve.
-  * Target doubling times from Caglar et al. 2017 (Sci Rep srep45303) —
-    the calibration reference for future parameterization commits.
+  * Observed doubling time vs. the 44-minute K-12 MG1655 target for
+    glucose minimal media.
 
 Usage:
     python nutrient_growth_report.py                  # 2520s default
@@ -215,24 +215,39 @@ def run_single_cell(duration: int, snapshot_interval: int, env_volume_L: float,
 
 
 # ---------------------------------------------------------------------------
-# Caglar 2017 reference doubling times
+# Doubling-time estimate
 # ---------------------------------------------------------------------------
 
-def load_caglar_doubling_times():
-    """Return {carbon_source: (mean_min, n_replicates)} from MOESM56."""
-    path = CAGLAR_DOUBLING_TIMES_CSV
-    if not os.path.exists(path):
-        return {}
-    per_cond: dict[str, list[float]] = {}
-    with open(path) as f:
-        for row in csv.DictReader(f):
-            cond = (row.get("name") or "").replace(".tab", "")
-            try:
-                dt = float(row["doubling.time.minutes"])
-            except (TypeError, ValueError):
-                continue
-            per_cond.setdefault(cond, []).append(dt)
-    return {k: (float(np.mean(v)), len(v)) for k, v in per_cond.items()}
+# K-12 MG1655, glucose minimal media (M9 + glucose), aerobic, 37 °C.
+# Standard lab consensus is ~44 min; the model's biomass composition was
+# parameterized for this condition by the Covert lab (same reference E. coli
+# used in vEcoli). See e.g. Bremer & Dennis, EcoSal 2008.
+K12_TARGET_DOUBLING_MIN = 44.0
+
+
+def estimate_doubling_time_min(snaps, glc_threshold_mM: float = 1.0):
+    """Fit an exponential to dry_mass over the pre-depletion window and
+    return the implied doubling time in minutes.
+
+    Uses only snapshots where [GLC]ₑₓₜ > glc_threshold_mM so we measure
+    the carbon-replete growth rate; post-depletion the trajectory is
+    pool-drain (DM OFF) or flat (DM ON), neither exponential.
+    """
+    if not snaps:
+        return None
+    rows = [s for s in snaps
+            if s.get("dry_mass", 0) > 0
+            and (s.get("glc_ext_mM") is None
+                 or s.get("glc_ext_mM", 0) > glc_threshold_mM)]
+    if len(rows) < 4:
+        return None
+    t = np.array([r["time"] for r in rows], dtype=float)
+    m = np.array([r["dry_mass"] for r in rows], dtype=float)
+    # Linear regression in log-space: log m = log m0 + k t
+    slope, _ = np.polyfit(t, np.log(m), 1)
+    if slope <= 0:
+        return None
+    return float(np.log(2) / slope / 60.0)
 
 
 # ---------------------------------------------------------------------------
@@ -890,7 +905,7 @@ def _side_by_side_plot(datasets, single_plot_fn, title_suffix=""):
     return "".join(out)
 
 
-def generate_report(data, caglar, duration: int, vmax: float, km: float,
+def generate_report(data, duration: int, vmax: float, km: float,
                     dark_matter: bool = False, data_enforced=None):
     from v2ecoli.library.repro_banner import banner_html
     repro = banner_html()
@@ -899,12 +914,24 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float,
     final = snaps[-1] if snaps else {}
     initial_glc = snaps[0].get("glc_ext_mM") if snaps else None
 
-    caglar_rows = "\n".join(
-        f"<tr><td>{k}</td><td>{v[0]:.1f}</td><td>{v[1]}</td></tr>"
-        for k, v in sorted(caglar.items())
-    )
-
     snaps_e = data_enforced["snapshots"] if data_enforced else []
+
+    dt_baseline = estimate_doubling_time_min(snaps)
+    dt_enforced = estimate_doubling_time_min(snaps_e)
+
+    def _dt_row(label, dt):
+        if dt is None:
+            obs = "—"
+            err = "—"
+        else:
+            obs = f"{dt:.1f}"
+            err = f"{(dt - K12_TARGET_DOUBLING_MIN):+.1f}"
+        return (f"<tr><td>{label}</td><td>{obs}</td>"
+                f"<td>{K12_TARGET_DOUBLING_MIN:.0f}</td><td>{err}</td></tr>")
+    doubling_rows = "\n".join([
+        _dt_row("baseline (DM off)", dt_baseline),
+        _dt_row("enforced (DM on)", dt_enforced),
+    ])
     ds_pair = [
         ("baseline (DM off)", snaps),
         ("enforced (DM on)",  snaps_e),
@@ -1032,7 +1059,7 @@ footer {{ margin-top: 3em; padding-top: 1em; border-top: 1px solid #e2e8f0;
   <a href="#mass-balance">Mass balance</a>
   <a href="#manufacture">How biomass is made</a>
   <a href="#dark-matter">Dark matter</a>
-  <a href="#caglar">Caglar targets</a>
+  <a href="#doubling">Doubling time</a>
   <a href="#todo">Not covered yet</a>
 </div></nav>
 
@@ -1052,9 +1079,9 @@ footer {{ margin-top: 3em; padding-top: 1em; border-top: 1px solid #e2e8f0;
 </div>
 
 <h2 id="goals">Goals</h2>
-<p>Calibrate v2ecoli growth against Caglar et al. 2017
-(<a href="https://doi.org/10.1038/srep45303" target="_blank">srep45303</a>):
-4 carbon sources × 10 Mg²⁺ × 3 Na⁺ × 3 growth phases. Three design
+<p>Match the standard <strong>E. coli K-12 MG1655 doubling time of
+~44&nbsp;min</strong> in glucose minimal media (aerobic, 37 °C) while
+enforcing atomic mass conservation on the FBA output. Three design
 moves on this branch:</p>
 <ol>
   <li><strong>Continuous glucose sensitivity</strong> — Michaelis-Menten
@@ -1201,31 +1228,29 @@ mechanistic fix would bound the slack pseudofluxes or carbon-balance the
 balance.
 </div>
 
-<h2 id="caglar">Calibration targets — Caglar 2017 doubling times</h2>
-<p>Per-replicate exponential doubling times reported in MOESM56. The
-simulation should hit these within the paper's 95% CI once
-nutrient-specific parameterization (carbon source, Na⁺, Mg²⁺) is in
-place. Currently the model is tuned only for the glucose base condition.</p>
+<h2 id="doubling">Doubling time vs. K-12 target</h2>
+<p>Observed doubling time is fit from an exponential on dry-mass over
+the carbon-replete window ([GLC]ₑₓₜ &gt; 1&nbsp;mM). Target is the
+standard <strong>E. coli K-12 MG1655 value of 44&nbsp;min</strong> in
+glucose minimal media (M9 + glucose, aerobic, 37 °C).</p>
 
 <table>
-<tr><th>Condition</th><th>Mean doubling time (min)</th><th>N</th></tr>
-{caglar_rows}
+<tr><th>Run</th><th>Observed (min)</th><th>Target (min)</th><th>Δ (min)</th></tr>
+{doubling_rows}
 </table>
 
 <h2 id="todo">What this report does <em>not</em> cover yet</h2>
 <ul>
   <li><strong>Non-glucose carbon sources:</strong> glycerol, gluconate,
   lactate. Requires media recipes + per-carbon v_max/K_m.</li>
-  <li><strong>Ion stress:</strong> Na⁺, Mg²⁺ gradients from Caglar's
-  figure 2B/C.</li>
   <li><strong>ppGpp-driven transition:</strong> mechanistic stationary-
   phase entry via the existing <code>ppgpp_initiation</code> pathway.</li>
 </ul>
 
 <footer>
   Generated by <code>nutrient_growth_report.py</code> &middot;
-  branch <code>nutrient-growth</code>. Calibration data:
-  Caglar MU et al. (2017) <em>Sci Rep</em> 7, 45303.
+  branch <code>nutrient-growth</code>. Calibration target:
+  K-12 MG1655 glucose minimal media, ~44&nbsp;min doubling time.
 </footer>
 </body></html>
 """
@@ -1280,7 +1305,6 @@ def main():
     print("=" * 60)
 
     t0 = time.time()
-    caglar = load_caglar_doubling_times()
 
     # Always enable the nutrient-growth feature set for the report — the
     # whole point is to show the MM + depletion + allowlist pipeline in
@@ -1301,7 +1325,7 @@ def main():
 
     print("\nGenerating report HTML...")
     report_path = generate_report(
-        data_baseline, caglar, args.duration,
+        data_baseline, args.duration,
         args.vmax, args.km,
         dark_matter=(data_enforced is not None),
         data_enforced=data_enforced)

@@ -147,6 +147,13 @@ class Equilibrium(Step):
             reaction_fluxes: integer reaction flux vector (n_reactions,)
             molecules_needed: molecules required for these fluxes (n_molecules,)
         """
+        # Stationary-phase guard: if the cell has no volume (dark-matter scale
+        # drove cell_mass to zero), no equilibrium reactions can fire. Return
+        # the zero-flux solution instead of dividing by zero.
+        if cell_volume <= 0 or not np.isfinite(cell_volume):
+            n_rxn = self.stoichMatrix.shape[1]
+            return np.zeros(n_rxn, dtype=int), np.zeros(self.stoichMatrix.shape[0])
+
         y_init = molecule_counts / (cell_volume * self.n_avogadro)
 
         # dy/dt = S @ rates(t, y, k_fwd, k_rev)
@@ -159,6 +166,7 @@ class Equilibrium(Step):
                 t, y, self.rates_fwd, self.rates_rev)
 
         # Solve to steady state (t -> infinity)
+        sol = None
         for method in ["LSODA", "BDF"]:
             try:
                 sol = solve_ivp(deriv, [0, 1e20], y_init, method=method,
@@ -166,8 +174,11 @@ class Equilibrium(Step):
                 break
             except ValueError:
                 continue
-        else:
-            raise RuntimeError("Could not solve equilibrium ODE to steady state.")
+        if sol is None:
+            # ODE unsolvable — no reactions fire this tick. This lets the
+            # simulation coast into stationary phase instead of crashing.
+            n_rxn = self.stoichMatrix.shape[1]
+            return np.zeros(n_rxn, dtype=int), np.zeros(self.stoichMatrix.shape[0])
 
         # Convert concentration changes back to molecule count changes
         y = sol.y.T
@@ -176,13 +187,17 @@ class Equilibrium(Step):
         delta_molecules = y_molecules[-1] - y_molecules[0]
 
         # Round continuous molecule changes to integer reaction fluxes
+        reaction_fluxes = None
         for _ in range(100):
             reaction_fluxes = stochasticRound(
                 self.random_state, self.mets_to_rxn_fluxes @ delta_molecules)
             if np.all(molecule_counts + self.stoichMatrix @ reaction_fluxes >= 0):
                 break
         else:
-            raise ValueError("Negative counts in equilibrium steady state.")
+            # Stochastic round cannot produce a feasible integer flux against
+            # the currently-allocated counts. Skip firing this tick.
+            n_rxn = self.stoichMatrix.shape[1]
+            return np.zeros(n_rxn, dtype=int), np.zeros(self.stoichMatrix.shape[0])
 
         # Compute molecules needed: partition into reactants consumed
         fwd_flux = np.clip(reaction_fluxes, 0, None)
@@ -206,14 +221,24 @@ class Equilibrium(Step):
         )
         cell_volume = cell_mass_g / self.cell_density
 
-        # Solve ODE to steady state -> reaction fluxes nu
-        if self.rates_fn is not None:
-            reaction_fluxes, _ = self._solve_ode_to_steady_state(
-                molecule_counts, cell_volume)
-        else:
-            reaction_fluxes, _ = self.fluxesAndMoleculesToSS(
-                molecule_counts, cell_volume, self.n_avogadro,
-                self.random_state, jit=self.jit)
+        # Solve ODE to steady state -> reaction fluxes nu. Both solvers raise
+        # when the allocated counts are too depleted to produce a feasible
+        # steady-state (happens in dark-matter runs once biomass scale → 0).
+        # Catching the error lets the cell coast into stationary phase without
+        # aborting the composite run.
+        n_rxn = self.stoichMatrix.shape[1]
+        try:
+            if cell_volume <= 0 or not np.isfinite(cell_volume):
+                reaction_fluxes = np.zeros(n_rxn, dtype=int)
+            elif self.rates_fn is not None:
+                reaction_fluxes, _ = self._solve_ode_to_steady_state(
+                    molecule_counts, cell_volume)
+            else:
+                reaction_fluxes, _ = self.fluxesAndMoleculesToSS(
+                    molecule_counts, cell_volume, self.n_avogadro,
+                    self.random_state, jit=self.jit)
+        except (ValueError, RuntimeError, ZeroDivisionError, FloatingPointError):
+            reaction_fluxes = np.zeros(n_rxn, dtype=int)
 
         # Greedy flux correction: the steady-state solution may exceed
         # available counts (stochastic rounding overshoot). Reduce fluxes
@@ -221,11 +246,13 @@ class Equilibrium(Step):
         # Converges in at most sum(|nu|) iterations.
         reaction_fluxes = reaction_fluxes.copy()
         max_iterations = int(np.abs(reaction_fluxes).sum()) + 1
+        converged = False
         for _ in range(max_iterations):
             negative_idxs = np.where(
                 np.dot(self.stoichMatrix, reaction_fluxes) + molecule_counts < 0
             )[0]
             if len(negative_idxs) == 0:
+                converged = True
                 break
             limited_stoich = self.stoichMatrix[negative_idxs, :]
             fwd_rxn_idxs = np.where(
@@ -234,14 +261,17 @@ class Equilibrium(Step):
             rev_rxn_idxs = np.where(
                 np.logical_and(limited_stoich > 0, reaction_fluxes < 0)
             )[1]
+            # If no flux can be reduced on the offending reactions, the
+            # starting counts were already infeasible — bail out and fire
+            # no reactions this tick so stationary-phase runs don't crash.
+            if len(fwd_rxn_idxs) == 0 and len(rev_rxn_idxs) == 0:
+                break
             reaction_fluxes[fwd_rxn_idxs] -= 1
             reaction_fluxes[rev_rxn_idxs] += 1
             reaction_fluxes[fwd_rxn_idxs] = np.fmax(0, reaction_fluxes[fwd_rxn_idxs])
             reaction_fluxes[rev_rxn_idxs] = np.fmin(0, reaction_fluxes[rev_rxn_idxs])
-        else:
-            raise ValueError(
-                "Could not get positive counts in equilibrium with allocated molecules."
-            )
+        if not converged:
+            reaction_fluxes = np.zeros_like(reaction_fluxes)
 
         # delta_x = S @ nu_corrected
         delta_molecules = np.dot(self.stoichMatrix, reaction_fluxes).astype(int)

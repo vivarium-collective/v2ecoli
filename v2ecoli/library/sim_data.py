@@ -1,3 +1,4 @@
+import os
 import re
 import binascii
 from itertools import chain
@@ -618,7 +619,10 @@ class LoadSimData:
             "ribosome_data_listener": self.get_ribosome_data_listener_config,
             "rnap_data_listener": self.get_rnap_data_listener_config,
             "unique_molecule_counts": self.get_unique_molecule_counts_config,
-            "exchange_data": self.get_exchange_data_config,
+            "metabolic_kinetics": self.get_metabolic_kinetics_config,
+            "carbon_budget_listener": self.get_carbon_budget_config,
+            "dark_matter_listener": self.get_dark_matter_config,
+            "environment_update": self.get_environment_update_config,
             "media_update": self.get_media_update_config,
             "bulk-timeline": self.get_bulk_timeline_config,
         }
@@ -1434,6 +1438,12 @@ class LoadSimData:
             # in the FBA solution to the fluxes of base reactions
             "base_reaction_ids": metabolism.base_reaction_ids,
             "fba_reaction_ids_to_base_reaction_ids": metabolism.reaction_id_to_base_reaction_id,
+            # Full MW table (g/mol) for dark-matter mass balance phase 2.
+            "mw_table": {
+                k: float(v) for k, v in
+                getattr(self.sim_data.getter, "_all_total_masses", {}).items()
+            },
+            "enforce_dark_matter_balance": True,
         }
 
         # TODO Create new config-get with only necessary parts.
@@ -1605,6 +1615,23 @@ class LoadSimData:
             # in the FBA solution to the fluxes of base reactions
             "base_reaction_ids": self.sim_data.process.metabolism.base_reaction_ids,
             "fba_reaction_ids_to_base_reaction_ids": self.sim_data.process.metabolism.reaction_id_to_base_reaction_id,
+            # Full MW table (g/mol) for dark-matter mass balance
+            # enforcement in metabolism.py. 12,809 entries,
+            # 100% of bulk molecules. Always shipped so the feature
+            # can be toggled at runtime without re-building the cache.
+            "mw_table": {
+                k: float(v) for k, v in
+                getattr(self.sim_data.getter, "_all_total_masses", {}).items()
+            },
+            # All nutrient-growth branch features are OFF by default so
+            # this baseline reproduces vEcoli 1.0 bit-for-bit.
+            # Master toggle: V2ECOLI_NUTRIENT_GROWTH=1 turns on the
+            # env_update feedback, MM glucose, import allowlist, and
+            # secretion-only list. Dark-matter mass-balance is a further
+            # opt-in on top of that: V2ECOLI_DARK_MATTER=1.
+            "enforce_dark_matter_balance": (
+                os.environ.get("V2ECOLI_DARK_MATTER", "0") == "1"
+            ),
         }
 
         return metabolism_config
@@ -2017,13 +2044,142 @@ class LoadSimData:
             "emit_unique": self.emit_unique,
         }
 
-    def get_exchange_data_config(self, time_step=1):
+    def get_metabolic_kinetics_config(self, time_step=1):
+        """Config for MetabolicKinetics.
+
+        Mirrors the fields MetabolicKinetics pulls from ``self.parameters``
+        in its ``initialize()``. Values are a subset of what
+        ``get_metabolism_config`` produces, since the kinetics step covers
+        all pre-FBA work that was previously internal to Metabolism.
+        """
+        # Timeline (for metabolite_names_from_nutrients) — mirrors
+        # what FluxBalanceAnalysisModel.__init__ does.
+        if self.sim_data.external_state.current_timeline_id:
+            current_timeline = self.sim_data.external_state.saved_timelines[
+                self.sim_data.external_state.current_timeline_id
+            ]
+        else:
+            current_timeline = self.media_timeline
+
+        metabolism = self.sim_data.process.metabolism
+        conc_from_nutrients = (
+            metabolism.concentration_updates.concentrations_based_on_nutrients
+        )
+
+        include_ppgpp = (
+            (not self.ppgpp_regulation)
+            or (not self.trna_charging)
+            or getattr(metabolism, "force_constant_ppgpp", False)
+        )
+
+        # Build metabolite_names_from_nutrients exactly the way the FBA
+        # model does, so MetabolicKinetics reads the same bulk slice as
+        # Metabolism writes back to.
+        exch_from_media = self.sim_data.external_state.exchange_data_from_media
+        names_from_nutrients: set[str] = set()
+        if include_ppgpp:
+            names_from_nutrients.add(self.sim_data.molecule_ids.ppGpp)
+        for _time, media_id in current_timeline:
+            exchanges = exch_from_media(media_id)
+            names_from_nutrients.update(
+                conc_from_nutrients(imports=exchanges["importExchangeMolecules"])
+            )
+        metabolite_names_from_nutrients = sorted(names_from_nutrients)
+
+        # AA exchange bookkeeping matches get_metabolism_config.
+        aa_exchange_names = np.array(
+            [
+                self.sim_data.external_state.env_to_exchange_map[aa[:-3]]
+                for aa in self.sim_data.molecule_groups.amino_acids
+            ]
+        )
+        aa_targets_not_updated = {"L-SELENOCYSTEINE[c]"}
+        removed_aa_uptake = np.array(
+            [aa in aa_targets_not_updated for aa in aa_exchange_names]
+        )
+
         return {
             "time_step": time_step,
             "external_state": self.sim_data.external_state,
             "environment_molecules": list(
                 self.sim_data.external_state.env_to_exchange_map.keys()
             ),
+            "import_constraint_threshold": float(
+                self.sim_data.external_state.import_constraint_threshold
+            ),
+            "avogadro": self.sim_data.constants.n_avogadro,
+            "cell_density": self.sim_data.constants.cell_density,
+            "include_ppgpp": include_ppgpp,
+            "use_trna_charging": self.trna_charging,
+            "mechanistic_aa_transport": self.mechanistic_aa_transport,
+            "media_id": current_timeline[0][1],
+            "nutrientToDoublingTime": self.sim_data.nutrient_to_doubling_time,
+            "ppgpp_id": self.sim_data.molecule_ids.ppGpp,
+            "get_biomass_as_concentrations": {
+                "_function": "mass.get_biomass_as_concentrations",
+                "_data": {
+                    "precomputed": self._precompute_biomass_concentrations(),
+                },
+            },
+            "get_ppGpp_conc": {
+                "_function": "growth_rate.get_ppGpp_conc",
+                "_data": {
+                    "x_units_str": "min",
+                    "y_units_str": "pmol/L",
+                    "fit_params": list(
+                        self.sim_data.growth_rate_parameters._ppGpp_concentration[2]
+                    ),
+                },
+            },
+            "aa_names": self.sim_data.molecule_groups.amino_acids,
+            "aa_exchange_names": list(aa_exchange_names),
+            "aa_targets_not_updated": aa_targets_not_updated,
+            "removed_aa_uptake": removed_aa_uptake,
+            "catalyst_ids": metabolism.catalyst_ids,
+            "kinetic_constraint_enzymes": metabolism.kinetic_constraint_enzymes,
+            "kinetic_constraint_substrates": metabolism.kinetic_constraint_substrates,
+            "metabolite_names_from_nutrients": metabolite_names_from_nutrients,
+            "linked_metabolites": metabolism.concentration_updates.linked_metabolites,
+            # Full FBA exchange molecule list (compartment-tagged) so
+            # MetabolicKinetics can deny-by-default non-allowlisted
+            # imports.
+            "all_external_molecule_ids": list(
+                self.sim_data.external_state.all_external_exchange_molecules),
+            # MM parameters are runtime-tunable via env vars so sweep
+            # scripts can hit different operating points without editing
+            # the cache.
+            "glucose_vmax_mmol_gdcw_h": float(
+                os.environ.get("V2ECOLI_MM_VMAX", 20.0)),
+            "glucose_km_mM": float(
+                os.environ.get("V2ECOLI_MM_KM", 0.01)),
+        }
+
+    def get_carbon_budget_config(self, time_step=1):
+        return {"time_step": time_step}
+
+    def get_dark_matter_config(self, time_step=1):
+        # Ship the full bulk-molecule MW table so the dark-matter
+        # listener can weigh every species, not just the 60-ish the
+        # carbon_counts.MOLECULAR_WEIGHTS table covers. Without this,
+        # coverage sits at ~1% and the bulk-mass delta is a huge
+        # underestimate. Masses are in g/mol.
+        mw_table: dict[str, float] = {}
+        masses = getattr(self.sim_data.getter, "_all_total_masses", None)
+        if masses is not None:
+            for mol_id, m in masses.items():
+                try:
+                    mw_table[mol_id] = float(m)
+                except (TypeError, ValueError):
+                    continue
+        return {"time_step": time_step, "mw_table": mw_table}
+
+    def get_environment_update_config(self, time_step=1):
+        # Environment volume per cell defaults to 100 fL (late-log density,
+        # OD ~1). Shows clean exp→stat transition in a single-cell 2520s
+        # sim. Override via variant for colony or dilute-culture setups.
+        return {
+            "time_step": time_step,
+            "env_volume_L": 1e-13,
         }
 
     def get_media_update_config(self, time_step=1):

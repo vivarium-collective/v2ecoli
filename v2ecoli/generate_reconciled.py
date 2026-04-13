@@ -95,7 +95,7 @@ BASE_EXECUTION_LAYERS = [
     # Layer 1: media/environment
     ['media_update'], FLUSH,
     ['ecoli-tf-unbinding'],
-    ['exchange_data'], FLUSH,
+    ['metabolic_kinetics'], FLUSH,
 
     # Layer 2: standalone Steps (formerly in allocator_1, now non-partitioned)
     ['ecoli-equilibrium', 'ecoli-two-component-system',
@@ -121,6 +121,7 @@ BASE_EXECUTION_LAYERS = [
     # Layer 6: chromosome structure + metabolism
     ['ecoli-chromosome-structure'], FLUSH,
     ['ecoli-metabolism'], FLUSH,
+    ['environment_update'], FLUSH,
 
     # Layer 7: listeners (parallel)
     ['RNA_counts_listener', 'dna_supercoiling_listener', 'ecoli-mass-listener',
@@ -267,7 +268,8 @@ def _instantiate_standalone_step(step_name, config, loader, core):
     from v2ecoli.steps.listeners.unique_molecule_counts import UniqueMoleculeCounts
     from v2ecoli.steps.listeners.ribosome_data import RibosomeData
     from v2ecoli.steps.media_update import MediaUpdate
-    from v2ecoli.steps.exchange_data import ExchangeData
+    from v2ecoli.steps.environment_update import EnvironmentUpdate
+    from v2ecoli.processes.metabolic_kinetics import MetabolicKinetics
 
     STANDALONE_STEPS = {
         'ecoli-tf-binding': TfBinding,
@@ -299,7 +301,8 @@ def _instantiate_standalone_step(step_name, config, loader, core):
         'unique_molecule_counts': UniqueMoleculeCounts,
         'ribosome_data_listener': RibosomeData,
         'media_update': MediaUpdate,
-        'exchange_data': ExchangeData,
+        'environment_update': EnvironmentUpdate,
+        'metabolic_kinetics': MetabolicKinetics,
     }
 
     from v2ecoli.library.config_resolver import resolve_config
@@ -372,8 +375,8 @@ def build_reconciled_document(initial_state, configs, unique_names,
     _normalize_boundary_units(cell_state)
 
     # Pre-create virtual stores (no request/allocate needed)
-    for store in ['listeners', 'process_state', 'exchange',
-                  'next_update_time']:
+    for store in ['listeners', 'exchange',
+                  'next_update_time', 'metabolism_inputs']:
         if store not in cell_state:
             cell_state[store] = {}
     cell_state.setdefault('global_time', 0.0)
@@ -405,12 +408,12 @@ def build_reconciled_document(initial_state, configs, unique_names,
         'attenuation_probability': [],
     })
 
-    cell_state.setdefault('process_state', {})
-    cell_state['process_state'].setdefault('polypeptide_elongation', {
+    cell_state.setdefault('polypeptide_elongation', {
         'aa_exchange_rates': np.zeros(21),
         'gtp_to_hydrolyze': 0,
         'aa_count_diff': np.zeros(21),
     })
+    cell_state.setdefault('metabolism_inputs', {})
 
     # Mock loader
     class _CachedLoader:

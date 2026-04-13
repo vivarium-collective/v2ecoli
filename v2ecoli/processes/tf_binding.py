@@ -89,7 +89,8 @@ class TfBinding(Step):
         'cell_density': {'_type': 'unum[g/L]', '_default': 1100},
         'delta_prob': {'_type': 'node', '_default': {}},
         'emit_unique': {'_type': 'boolean', '_default': False},
-        'get_unbound': 'method',
+        'get_unbound': {'_type': 'method', '_default': None},
+        'tf_to_unbound': {'_type': 'map[string]', '_default': {}},
         'n_avogadro': {'_type': 'unum[1/mol]', '_default': 6.022141e+23},
         'p_promoter_bound_tf': 'method',
         'rna_ids': 'list[string]',
@@ -167,7 +168,10 @@ class TfBinding(Step):
         self.tf_to_tf_type = self.parameters["tf_to_tf_type"]
 
         self.active_to_bound = self.parameters["active_to_bound"]
-        self.get_unbound = self.parameters["get_unbound"]
+        # sim_data.py either passes a callable `get_unbound` (legacy cache)
+        # or a precomputed `tf_to_unbound` dict. Use whichever is present.
+        self.get_unbound = self.parameters.get("get_unbound")
+        self.tf_to_unbound = self.parameters.get("tf_to_unbound") or {}
         self.active_to_inactive_tf = self.parameters["active_to_inactive_tf"]
 
         self.active_tfs = {}
@@ -178,7 +182,11 @@ class TfBinding(Step):
 
             if self.tf_to_tf_type[tf] == "1CS":
                 if tf == self.active_to_bound[tf]:
-                    self.inactive_tfs[tf] = self.get_unbound(tf + "[c]")
+                    key = tf + "[c]"
+                    if self.get_unbound is not None:
+                        self.inactive_tfs[tf] = self.get_unbound(key)
+                    else:
+                        self.inactive_tfs[tf] = self.tf_to_unbound[key]
                 else:
                     self.inactive_tfs[tf] = self.active_to_bound[tf] + "[c]"
             elif self.tf_to_tf_type[tf] == "2CS":

@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Colony composition</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #222; }
+    header { padding: 10px 16px; border-bottom: 1px solid #ddd; background: #fff; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+    header h1 { font-size: 16px; margin: 0; }
+    header .subtitle { font-size: 12px; color: #666; }
+    .app { display: flex; height: calc(100vh - 44px); }
+    aside {
+      width: 300px; flex: 0 0 300px;
+      overflow-y: auto; border-right: 1px solid #ddd; background: #fafafa;
+      padding: 12px 14px; font-size: 12px;
+    }
+    aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #555; margin: 16px 0 6px; }
+    aside h2:first-child { margin-top: 0; }
+    aside input[type=search] {
+      width: 100%; padding: 6px 8px; font-size: 13px;
+      border: 1px solid #bbb; border-radius: 4px;
+    }
+    .filter-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; cursor: pointer; user-select: none; }
+    .legend-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #888; flex: 0 0 14px; }
+    .filter-row.disabled .legend-label { color: #aaa; text-decoration: line-through; }
+    .filter-row.disabled .legend-swatch { opacity: 0.3; }
+    .layer-row { padding: 3px 0; border-top: 1px solid #eee; }
+    .layer-row:first-child { border-top: none; }
+    .layer-num { font-family: 'SF Mono', Menlo, monospace; font-size: 10px; color: #888; }
+    .chip {
+      display: inline-block; padding: 1px 6px; margin: 2px 2px 0 0;
+      border-radius: 9px; font-size: 11px; cursor: pointer;
+      border: 1px solid rgba(0,0,0,0.15); user-select: none;
+    }
+    .chip:hover { outline: 1px solid #333; }
+    main { flex: 1; position: relative; overflow: hidden; }
+    #cy { position: absolute; inset: 0; background: #fff; }
+    .toolbar {
+      position: absolute; top: 10px; right: 10px; z-index: 10;
+      background: rgba(255,255,255,0.96); border: 1px solid #ccc;
+      border-radius: 6px; padding: 6px; display: flex; gap: 6px; align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 12px;
+    }
+    .toolbar label { color: #666; }
+    .toolbar select, .toolbar button {
+      border: 1px solid #ccc; background: #fff; padding: 4px 8px;
+      font-size: 12px; border-radius: 4px; cursor: pointer;
+    }
+    .toolbar button:hover, .toolbar select:hover { background: #f0f0f0; }
+    #details {
+      position: absolute; bottom: 10px; left: 10px; z-index: 10;
+      width: 420px; max-height: 45vh; overflow-y: auto;
+      background: rgba(255,255,255,0.98); border: 1px solid #ccc;
+      border-radius: 6px; padding: 10px 12px; font-size: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: none;
+    }
+    #details.expanded {
+      width: calc(100% - 20px); max-height: calc(100vh - 120px);
+      max-width: none;
+    }
+    #details .toolbar-mini {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px;
+    }
+    #details .toolbar-mini button {
+      background: #fff; border: 1px solid #ccc; border-radius: 4px;
+      padding: 2px 8px; font-size: 11px; cursor: pointer;
+    }
+    #details .toolbar-mini button:hover { background: #f0f0f0; }
+    #details h3 { margin: 0; font-size: 13px; }
+    #details .meta { color: #666; font-size: 11px; margin-bottom: 8px; }
+    #details table { width: 100%; border-collapse: collapse; }
+    #details td { padding: 2px 6px; border-top: 1px solid #eee; font-size: 11px; vertical-align: top; }
+    #details td:first-child { color: #666; white-space: nowrap; }
+    #details code { font-size: 11px; background: #f0f0f0; padding: 1px 4px; border-radius: 3px; }
+    #details details { margin-top: 8px; border-top: 1px solid #ddd; padding-top: 6px; }
+    #details details > summary {
+      cursor: pointer; font-weight: 600; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.04em; color: #444;
+      list-style: none; padding: 2px 0;
+    }
+    #details details > summary::-webkit-details-marker { display: none; }
+    #details details > summary::before { content: '▸ '; color: #888; }
+    #details details[open] > summary::before { content: '▾ '; }
+    #details pre {
+      font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11px;
+      background: #f7f7f7; border: 1px solid #eee; border-radius: 4px;
+      padding: 6px 8px; white-space: pre-wrap; word-break: break-word;
+      max-height: 280px; overflow: auto; margin: 4px 0;
+    }
+    #details.expanded pre { max-height: 50vh; }
+    #details .doc {
+      white-space: pre-wrap; font-size: 12px; line-height: 1.4;
+      color: #333; background: #fffce8; border-left: 3px solid #e9c46a;
+      padding: 6px 10px; margin: 4px 0; border-radius: 0 4px 4px 0;
+    }
+    #details .math {
+      font-family: 'STIX Two Math', 'Latin Modern Math', 'Cambria Math', 'SF Mono', Menlo, monospace;
+      font-size: 13px; line-height: 1.5;
+      white-space: pre-wrap; word-break: break-word;
+      color: #222; background: #f1f5ff; border-left: 3px solid #4a6cf7;
+      padding: 8px 12px; margin: 4px 0; border-radius: 0 4px 4px 0;
+    }
+    #details.expanded .math { font-size: 14px; }
+    #details .math-block { margin: 0 0 8px 0; }
+    #details .math-block:last-child { margin-bottom: 0; }
+    #details .math-label {
+      display: inline-block; font-weight: 700; letter-spacing: 0.02em;
+      color: #2a3b8f; font-size: 12px; margin-bottom: 2px;
+    }
+    #details .math-label.inputs  { color: #1f6f9c; }
+    #details .math-label.outputs { color: #a6552f; }
+    #details .math-label.params  { color: #5b4796; }
+    #details .math-label.calc    { color: #2a3b8f; }
+    #details .port-row td:first-child { width: 40%; }
+    #details .schema-type {
+      font-family: 'SF Mono', Menlo, monospace; color: #0a5;
+      font-size: 11px;
+    }
+    .hotkey { font-family: 'SF Mono', Menlo, monospace; background: #eee; padding: 1px 4px; border-radius: 3px; color: #444; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/layout-base@2.0.1/layout-base.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cose-base@2.2.0/cose-base.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-fcose@2.2.0/cytoscape-fcose.js"></script>
+</head>
+<body>
+  
+<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;
+            background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;
+            padding:10px 14px;margin:0 0 16px 0;font-size:12px;color:#475569;
+            line-height:1.6">
+  <strong style="color:#0f172a">Run provenance</strong> &nbsp;·&nbsp;
+  2026-04-12 23:37:36 EDT &nbsp;·&nbsp;
+  <code>nutrient-growth@fa888a2</code> <span style="color:#dc2626;font-weight:600">[uncommitted changes]</span> &nbsp;·&nbsp;
+  <span title="Host">eranagmon@LT-0919936</span> &nbsp;·&nbsp;
+  Darwin 24.2.0 arm64 (16 cores) &nbsp;·&nbsp;
+  Python 3.12.9
+</div>
+
+  <header>
+    <h1>Colony composition</h1>
+    <span class="subtitle">9 processes · 11 stores · 33 edges</span>
+    <span class="subtitle">· <span class="hotkey">click</span> to focus  <span class="hotkey">esc</span> to clear  <span class="hotkey">drag</span> to move nodes</span>
+  </header>
+  <div class="app">
+    <aside>
+      <h2>Search</h2>
+      <input type="search" id="q" placeholder="Filter nodes by name…">
+
+      <h2>Subsystems</h2>
+      <div id="legend"></div>
+
+      <h2>Execution layers</h2>
+      <div id="layers"></div>
+    </aside>
+    <main>
+      <div class="toolbar">
+        <label>Layout:</label>
+        <select id="layout-select">
+          <option value="bipartite" selected>Bipartite (stores ← | → processes)</option>
+          <option value="dagre">Dagre (hierarchy)</option>
+          <option value="fcose">fCoSE (force)</option>
+          <option value="grid">Grid</option>
+          <option value="circle">Circle</option>
+          <option value="concentric">Concentric</option>
+          <option value="breadthfirst">Breadth-first</option>
+        </select>
+        <button id="btn-fit">Fit</button>
+        <button id="btn-reset">Reset</button>
+      </div>
+      <div id="cy"></div>
+      <div id="details"></div>
+    </main>
+  </div>
+  <script>
+    const DATA = {"nodes": [{"data": {"id": "cells.a_5c9b87.grow_divide", "label": "grow_divide (AdderGrowDivide)", "kind": "process", "subsystem": "AdderGrowDivide", "color": "#15803d", "klass": "process", "interval": 10.0}}, {"data": {"id": "id", "label": "id", "kind": "store", "subsystem": "store", "color": "#FFFFFF"}}, {"data": {"id": "cells", "label": "cells", "kind": "store", "subsystem": "store", "color": "#FFFFFF"}}, {"data": {"id": "cells.a_dc12b0.grow_divide", "label": "grow_divide (AdderGrowDivide)", "kind": "process", "subsystem": "AdderGrowDivide", "color": "#15803d", "klass": "process", "interval": 10.0}}, {"data": {"id": "cells.a_d0caa7.grow_divide", "label": "grow_divide (AdderGrowDivide)", "kind": "process", "subsystem": "AdderGrowDivide", "color": "#15803d", "klass": "process", "interval": 10.0}}, {"data": {"id": "cells.a_4b6078.grow_divide", "label": "grow_divide (AdderGrowDivide)", "kind": "process", "subsystem": "AdderGrowDivide", "color": "#15803d", "klass": "process", "interval": 10.0}}, {"data": {"id": "cells.a_27f728.grow_divide", "label": "grow_divide (AdderGrowDivide)", "kind": "process", "subsystem": "AdderGrowDivide", "color": "#15803d", "klass": "process", "interval": 10.0}}, {"data": {"id": "cells.a_084c26.ecoli", "label": "ecoli (EcoliWCM)", "kind": "process", "subsystem": "EcoliWCM", "color": "#ea580c", "klass": "process", "interval": 60.0}}, {"data": {"id": "local", "label": "local", "kind": "store", "subsystem": "store", "color": "#FFFFFF"}}, {"data": {"id": "location", "label": "location", "kind": "store", "subsystem": "store", "color": "#FFFFFF"}}, {"data": {"id": "angle", "label": "angle", "kind": "store", "subsystem": "store", "color": "#FFFFFF"}}, {"data": {"id": "mass", "label": "mass", "kind": "store", "subsystem": "store", "color": "#FFFFFF"}}, {"data": {"id": "length", "label": "length", "kind": "store", "subsystem": "store", "color": "#FFFFFF"}}, {"data": {"id": "volume", "label": "volume", "kind": "store", "subsystem": "store", "color": "#FFFFFF"}}, {"data": {"id": "exchange", "label": "exchange", "kind": "store", "subsystem": "store", "color": "#FFFFFF"}}, {"data": {"id": "multibody", "label": "PymunkProcess", "kind": "process", "subsystem": "PymunkProcess", "color": "#2563eb", "klass": "process", "interval": 10.0}}, {"data": {"id": "particles", "label": "particles", "kind": "store", "subsystem": "store", "color": "#FFFFFF"}}, {"data": {"id": "pressure", "label": "Pressure", "kind": "process", "subsystem": "Pressure", "color": "#be185d", "klass": "step", "interval": null}}, {"data": {"id": "emitter", "label": "RAMEmitter", "kind": "process", "subsystem": "RAMEmitter", "color": "#9333ea", "klass": "step", "interval": null}}, {"data": {"id": "global_time", "label": "global_time", "kind": "store", "subsystem": "store", "color": "#FFFFFF"}}], "edges": [{"data": {"id": "id__cells.a_5c9b87.grow_divide__input", "source": "id", "target": "cells.a_5c9b87.grow_divide", "direction": "input", "ports": ["agent_id"]}}, {"data": {"id": "cells__cells.a_5c9b87.grow_divide__input", "source": "cells", "target": "cells.a_5c9b87.grow_divide", "direction": "input", "ports": ["agents"]}}, {"data": {"id": "cells.a_5c9b87.grow_divide__cells__output", "source": "cells.a_5c9b87.grow_divide", "target": "cells", "direction": "output", "ports": ["agents"]}}, {"data": {"id": "id__cells.a_dc12b0.grow_divide__input", "source": "id", "target": "cells.a_dc12b0.grow_divide", "direction": "input", "ports": ["agent_id"]}}, {"data": {"id": "cells__cells.a_dc12b0.grow_divide__input", "source": "cells", "target": "cells.a_dc12b0.grow_divide", "direction": "input", "ports": ["agents"]}}, {"data": {"id": "cells.a_dc12b0.grow_divide__cells__output", "source": "cells.a_dc12b0.grow_divide", "target": "cells", "direction": "output", "ports": ["agents"]}}, {"data": {"id": "id__cells.a_d0caa7.grow_divide__input", "source": "id", "target": "cells.a_d0caa7.grow_divide", "direction": "input", "ports": ["agent_id"]}}, {"data": {"id": "cells__cells.a_d0caa7.grow_divide__input", "source": "cells", "target": "cells.a_d0caa7.grow_divide", "direction": "input", "ports": ["agents"]}}, {"data": {"id": "cells.a_d0caa7.grow_divide__cells__output", "source": "cells.a_d0caa7.grow_divide", "target": "cells", "direction": "output", "ports": ["agents"]}}, {"data": {"id": "id__cells.a_4b6078.grow_divide__input", "source": "id", "target": "cells.a_4b6078.grow_divide", "direction": "input", "ports": ["agent_id"]}}, {"data": {"id": "cells__cells.a_4b6078.grow_divide__input", "source": "cells", "target": "cells.a_4b6078.grow_divide", "direction": "input", "ports": ["agents"]}}, {"data": {"id": "cells.a_4b6078.grow_divide__cells__output", "source": "cells.a_4b6078.grow_divide", "target": "cells", "direction": "output", "ports": ["agents"]}}, {"data": {"id": "id__cells.a_27f728.grow_divide__input", "source": "id", "target": "cells.a_27f728.grow_divide", "direction": "input", "ports": ["agent_id"]}}, {"data": {"id": "cells__cells.a_27f728.grow_divide__input", "source": "cells", "target": "cells.a_27f728.grow_divide", "direction": "input", "ports": ["agents"]}}, {"data": {"id": "cells.a_27f728.grow_divide__cells__output", "source": "cells.a_27f728.grow_divide", "target": "cells", "direction": "output", "ports": ["agents"]}}, {"data": {"id": "local__cells.a_084c26.ecoli__input", "source": "local", "target": "cells.a_084c26.ecoli", "direction": "input", "ports": ["local"]}}, {"data": {"id": "id__cells.a_084c26.ecoli__input", "source": "id", "target": "cells.a_084c26.ecoli", "direction": "input", "ports": ["agent_id"]}}, {"data": {"id": "location__cells.a_084c26.ecoli__input", "source": "location", "target": "cells.a_084c26.ecoli", "direction": "input", "ports": ["location"]}}, {"data": {"id": "angle__cells.a_084c26.ecoli__input", "source": "angle", "target": "cells.a_084c26.ecoli", "direction": "input", "ports": ["angle"]}}, {"data": {"id": "cells.a_084c26.ecoli__mass__output", "source": "cells.a_084c26.ecoli", "target": "mass", "direction": "output", "ports": ["mass"]}}, {"data": {"id": "cells.a_084c26.ecoli__length__output", "source": "cells.a_084c26.ecoli", "target": "length", "direction": "output", "ports": ["length"]}}, {"data": {"id": "cells.a_084c26.ecoli__volume__output", "source": "cells.a_084c26.ecoli", "target": "volume", "direction": "output", "ports": ["volume"]}}, {"data": {"id": "cells.a_084c26.ecoli__exchange__output", "source": "cells.a_084c26.ecoli", "target": "exchange", "direction": "output", "ports": ["exchange"]}}, {"data": {"id": "cells.a_084c26.ecoli__cells__output", "source": "cells.a_084c26.ecoli", "target": "cells", "direction": "output", "ports": ["agents"]}}, {"data": {"id": "cells__multibody__input", "source": "cells", "target": "multibody", "direction": "input", "ports": ["bending_cells"]}}, {"data": {"id": "particles__multibody__input", "source": "particles", "target": "multibody", "direction": "input", "ports": ["circle_particles"]}}, {"data": {"id": "multibody__cells__output", "source": "multibody", "target": "cells", "direction": "output", "ports": ["bending_cells"]}}, {"data": {"id": "multibody__particles__output", "source": "multibody", "target": "particles", "direction": "output", "ports": ["circle_particles"]}}, {"data": {"id": "cells__pressure__input", "source": "cells", "target": "pressure", "direction": "input", "ports": ["agents"]}}, {"data": {"id": "pressure__cells__output", "source": "pressure", "target": "cells", "direction": "output", "ports": ["agents"]}}, {"data": {"id": "cells__emitter__input", "source": "cells", "target": "emitter", "direction": "input", "ports": ["agents"]}}, {"data": {"id": "particles__emitter__input", "source": "particles", "target": "emitter", "direction": "input", "ports": ["particles"]}}, {"data": {"id": "global_time__emitter__input", "source": "global_time", "target": "emitter", "direction": "input", "ports": ["time"]}}], "layers": [], "legend": {"PymunkProcess": "#2563eb", "Pressure": "#be185d", "GrowDivide": "#15803d", "AdderGrowDivide": "#15803d", "EcoliWCM": "#ea580c", "emitter": "#64748b"}};
+
+    const cy = cytoscape({
+      container: document.getElementById('cy'),
+      elements: { nodes: DATA.nodes, edges: DATA.edges },
+      minZoom: 0.1, maxZoom: 5, wheelSensitivity: 0.2,
+      style: [
+        { selector: 'node', style: {
+            'label': 'data(label)',
+            'background-color': 'data(color)',
+            'border-color': '#333', 'border-width': 1,
+            'font-size': '16px',
+            'text-valign': 'center', 'text-halign': 'center',
+            'text-wrap': 'wrap', 'text-max-width': 120,
+            'width': 'label', 'height': 'label',
+            'padding': '8px', 'shape': 'rectangle',
+        } },
+        { selector: 'node[kind="store"]', style: {
+            'shape': 'ellipse', 'background-color': '#ffffff',
+            'border-color': '#666', 'border-width': 2, 'border-style': 'solid',
+            'font-weight': 600, 'color': '#333',
+            'width': 'label', 'height': 'label',
+            'padding': '14px',
+        } },
+        { selector: 'edge', style: {
+            'curve-style': 'bezier', 'width': 1.5,
+            'line-color': '#bbb', 'target-arrow-shape': 'triangle',
+            'target-arrow-color': '#bbb', 'arrow-scale': 0.9, 'opacity': 0.75,
+            'line-style': 'dashed',
+        } },
+        { selector: 'edge[direction="input"]', style: {
+            'line-color': '#7BA7D9', 'target-arrow-color': '#7BA7D9',
+            'line-style': 'dashed',
+        } },
+        { selector: 'edge[direction="output"]', style: {
+            'line-color': '#D88A7B', 'target-arrow-color': '#D88A7B',
+            'line-style': 'dashed',
+        } },
+        { selector: 'edge[direction="contains"]', style: {
+            'line-color': '#666', 'line-style': 'solid',
+            'target-arrow-shape': 'none', 'width': 1.5, 'opacity': 0.8,
+            'curve-style': 'bezier',
+        } },
+        { selector: 'node[?is_container]', style: {
+            'background-color': '#fafafa', 'border-style': 'solid',
+            'border-color': '#333', 'border-width': 2.5,
+            'font-weight': 700, 'font-size': '18px',
+        } },
+        { selector: '.faded', style: { 'opacity': 0.1, 'text-opacity': 0.1 } },
+        { selector: '.highlighted', style: { 'border-color': '#000', 'border-width': 3 } },
+        { selector: 'edge.highlighted', style: { 'width': 3, 'opacity': 1 } },
+      ],
+    });
+
+    const layoutOpts = {
+      dagre:        { name: 'dagre', rankDir: 'LR', nodeSep: 40, rankSep: 120, edgeSep: 20, animate: true },
+      fcose:        { name: 'fcose', quality: 'proof', randomize: false, animate: true, idealEdgeLength: 90, nodeRepulsion: 4500 },
+      grid:         { name: 'grid', avoidOverlap: true, padding: 24, animate: true },
+      circle:       { name: 'circle', padding: 24, animate: true },
+      concentric:   { name: 'concentric', padding: 24, animate: true, concentric: n => (n.data('kind') === 'store' ? 1 : 10) },
+      breadthfirst: { name: 'breadthfirst', directed: true, padding: 24, animate: true },
+    };
+    function bipartitePositions() {
+      // Stores on left, processes on right. Stores are grouped by parent:
+      // a container store (e.g. ``unique``) is followed by its children
+      // (e.g. ``unique.promoter``, ``unique.active_replisome``), indented
+      // slightly so the place-graph nesting reads as a tree. Processes
+      // sort by execution layer then name for a stable tie-break.
+      const allStores = cy.nodes().filter(n => n.data('kind') === 'store');
+      const parents = allStores.filter(n =>
+        !n.data('parent_store') &&
+        allStores.some(c => c.data('parent_store') === n.id())
+      );
+      const orphans = allStores.filter(n => !n.data('parent_store')
+        && !parents.some(p => p.id() === n.id()));
+      const byParent = new Map();
+      allStores.forEach(n => {
+        const p = n.data('parent_store');
+        if (p) {
+          if (!byParent.has(p)) byParent.set(p, []);
+          byParent.get(p).push(n);
+        }
+      });
+      const alpha = (a, b) => a.data('label').localeCompare(b.data('label'));
+
+      // Ordered list: orphans (alpha), then parent + its children (alpha),
+      // keeping the place-graph cluster contiguous in the column.
+      const ordered = [];
+      orphans.sort(alpha).forEach(n => ordered.push({node: n, depth: 0}));
+      parents.sort(alpha).forEach(p => {
+        ordered.push({node: p, depth: 0});
+        const kids = (byParent.get(p.id()) || []).slice().sort(alpha);
+        kids.forEach(k => ordered.push({node: k, depth: 1}));
+      });
+
+      const procs = cy.nodes().filter(n => n.data('kind') !== 'store')
+        .sort((a, b) => {
+          const la = a.data('layer'); const lb = b.data('layer');
+          if (la !== lb) return (la ?? 99) - (lb ?? 99);
+          return a.data('label').localeCompare(b.data('label'));
+        });
+      const storeStep = 70, procStep = 60;
+      const storeX = 0, procX = 760;
+      const positions = new Map();
+      // Sub-stores sit directly below their parent (same x). The
+      // place-graph edge provides the visible link; no indent needed.
+      ordered.forEach(({node}, i) => {
+        positions.set(node.id(), { x: storeX, y: i * storeStep });
+      });
+      procs.forEach((n, i) => positions.set(n.id(), { x: procX, y: i * procStep }));
+      return positions;
+    }
+    function applyLayout(name) {
+      if (name === 'bipartite') {
+        const pos = bipartitePositions();
+        cy.layout({
+          name: 'preset',
+          positions: node => pos.get(node.id()) || { x: 0, y: 0 },
+          animate: true, fit: true, padding: 30,
+        }).run();
+        return;
+      }
+      cy.layout(layoutOpts[name] || layoutOpts.dagre).run();
+    }
+    applyLayout('bipartite');
+
+    document.getElementById('layout-select').addEventListener('change', e => applyLayout(e.target.value));
+    document.getElementById('btn-fit').onclick = () => cy.fit(null, 24);
+    document.getElementById('btn-reset').onclick = () => {
+      cy.elements().removeClass('faded highlighted'); hideDetails();
+      applyLayout(document.getElementById('layout-select').value);
+    };
+
+    function focusNode(node) {
+      cy.elements().addClass('faded').removeClass('highlighted');
+      const nh = node.closedNeighborhood();
+      nh.removeClass('faded').addClass('highlighted');
+      showDetails(node);
+    }
+    cy.on('tap', 'node', evt => focusNode(evt.target));
+    cy.on('tap', evt => {
+      if (evt.target === cy) { cy.elements().removeClass('faded highlighted'); hideDetails(); }
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { cy.elements().removeClass('faded highlighted'); hideDetails(); }
+    });
+
+    const detailsEl = document.getElementById('details');
+    let detailsExpanded = false;
+    function toggleExpanded() {
+      detailsExpanded = !detailsExpanded;
+      detailsEl.classList.toggle('expanded', detailsExpanded);
+      const btn = document.getElementById('btn-expand');
+      if (btn) btn.textContent = detailsExpanded ? 'Collapse' : 'Expand';
+    }
+    // Split a math section into labeled sub-blocks. Recognises headings
+    // of the form "Inputs:", "Inputs (...)", "Parameters:", "Calculation:",
+    // "Outputs:", "Notes:" at column 0 (left-trimmed). Falls back to a
+    // single unlabeled block if no such heading is found.
+    function splitMathBlocks(text) {
+      const lines = String(text || '').split('\n');
+      const headingRe = /^(Inputs|Parameters|Calculation|Outputs|Notes)\b/i;
+      const blocks = [];
+      let current = { label: null, cls: 'calc', body: [] };
+      for (const line of lines) {
+        const m = headingRe.exec(line);
+        if (m) {
+          if (current.body.length || current.label) blocks.push(current);
+          const key = m[1].toLowerCase();
+          const cls = key === 'inputs' ? 'inputs'
+                    : key === 'outputs' ? 'outputs'
+                    : key === 'parameters' ? 'params'
+                    : key === 'notes' ? 'calc'
+                    : 'calc';
+          current = { label: line.trim(), cls, body: [] };
+        } else {
+          current.body.push(line);
+        }
+      }
+      if (current.body.length || current.label) blocks.push(current);
+      return blocks;
+    }
+    function renderMath(text) {
+      const blocks = splitMathBlocks(text);
+      if (!blocks.length) return '';
+      // If there's no labeled heading at all, just render one plain block.
+      if (blocks.length === 1 && !blocks[0].label) {
+        return `<div class="math">${escapeHtml(blocks[0].body.join('\n').trim())}</div>`;
+      }
+      return blocks.map(b => {
+        const body = b.body.join('\n').replace(/^\n+|\n+$/g, '');
+        if (!body && !b.label) return '';
+        const label = b.label
+          ? `<div class="math-label ${b.cls}">${escapeHtml(b.label)}</div>`
+          : '';
+        return `<div class="math-block">${label}<div class="math">${escapeHtml(body)}</div></div>`;
+      }).join('');
+    }
+    function fmtSchemaValue(v) {
+      // Compact one-line representation for a schema node.
+      if (v === null || v === undefined) return '<code>any</code>';
+      if (typeof v === 'string') return `<code class="schema-type">${escapeHtml(v)}</code>`;
+      if (typeof v !== 'object') return `<code>${escapeHtml(String(v))}</code>`;
+      if (Array.isArray(v)) {
+        return `<code>[${v.map(fmtSchemaValue).join(', ')}]</code>`;
+      }
+      if ('_type' in v) {
+        const dflt = ('_default' in v) ? ` = ${escapeHtml(JSON.stringify(v._default))}` : '';
+        return `<code class="schema-type">${escapeHtml(String(v._type))}</code>${escapeHtml(dflt)}`;
+      }
+      return '<code>{…}</code>';
+    }
+    function renderSchemaTable(schema, dirColor, label) {
+      if (!schema || typeof schema !== 'object' || !Object.keys(schema).length) return '';
+      let rows = `<tr><td colspan=2 style="color:${dirColor};font-weight:600">${label}</td></tr>`;
+      const walk = (obj, prefix) => {
+        for (const [k, v] of Object.entries(obj)) {
+          const key = prefix ? `${prefix}.${k}` : k;
+          if (v && typeof v === 'object' && !('_type' in v) && !Array.isArray(v)) {
+            walk(v, key);
+          } else {
+            rows += `<tr class="port-row"><td><code>${escapeHtml(key)}</code></td><td>${fmtSchemaValue(v)}</td></tr>`;
+          }
+        }
+      };
+      walk(schema, '');
+      return rows;
+    }
+    function showDetails(node) {
+      const d = node.data();
+      const m = d.meta || {};
+      const incoming = node.incomers('edge').map(e => ({ peer: e.source().id(), ports: e.data('ports') }));
+      const outgoing = node.outgoers('edge').map(e => ({ peer: e.target().id(), ports: e.data('ports') }));
+
+      const meta = [];
+      if (d.kind) meta.push(d.kind);
+      if (d.subsystem) meta.push(d.subsystem);
+      if (d.layer !== undefined && d.layer !== -1) meta.push(`layer L${String(d.layer).padStart(2,'0')}`);
+      if (d.klass) meta.push(`<code>${escapeHtml(d.klass)}</code>`);
+
+      let html = '';
+      html += `<div class="toolbar-mini"><h3>${escapeHtml(d.label)}</h3>`;
+      html += `<div><button id="btn-expand">${detailsExpanded ? 'Collapse' : 'Expand'}</button> `;
+      html += `<button id="btn-close">×</button></div></div>`;
+      html += `<div class="meta">${meta.join(' · ')}</div>`;
+
+      if (m.math) {
+        html += `<details open><summary>Mathematics</summary>${renderMath(m.math)}</details>`;
+      }
+      if (m.doc) {
+        html += `<details ${m.math ? '' : 'open'}><summary>Docstring</summary><div class="doc">${escapeHtml(m.doc)}</div></details>`;
+      }
+      if (m.class) {
+        html += `<details><summary>Class</summary><pre>${escapeHtml(m.class)}</pre></details>`;
+      }
+
+      // Neighbor wires — same compact view as before
+      html += `<details open><summary>Wires (${incoming.length + outgoing.length})</summary><table>`;
+      if (incoming.length) {
+        html += `<tr><td colspan=2 style="color:#7BA7D9;font-weight:600">Inputs (${incoming.length})</td></tr>`;
+        for (const e of incoming) html += `<tr><td>${escapeHtml(e.peer)}</td><td>${escapeHtml(e.ports.join(', '))}</td></tr>`;
+      }
+      if (outgoing.length) {
+        html += `<tr><td colspan=2 style="color:#D88A7B;font-weight:600">Outputs (${outgoing.length})</td></tr>`;
+        for (const e of outgoing) html += `<tr><td>${escapeHtml(e.peer)}</td><td>${escapeHtml(e.ports.join(', '))}</td></tr>`;
+      }
+      html += `</table></details>`;
+
+      // Port schemas from `_inputs` / `_outputs` collected by build_graph
+      const portRows =
+        renderSchemaTable(m._inputs, '#7BA7D9', 'Input ports (schema)') +
+        renderSchemaTable(m._outputs, '#D88A7B', 'Output ports (schema)');
+      if (portRows) {
+        html += `<details><summary>Port schemas</summary><table>${portRows}</table></details>`;
+      }
+
+      if (m.config && Object.keys(m.config).length) {
+        html += `<details><summary>Config</summary><pre>${escapeHtml(JSON.stringify(m.config, null, 2))}</pre></details>`;
+      }
+
+      detailsEl.innerHTML = html;
+      detailsEl.style.display = 'block';
+      const btnExp = document.getElementById('btn-expand');
+      if (btnExp) btnExp.onclick = toggleExpanded;
+      const btnCls = document.getElementById('btn-close');
+      if (btnCls) btnCls.onclick = hideDetails;
+    }
+    function hideDetails() { detailsEl.style.display = 'none'; }
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+
+    const legendEl = document.getElementById('legend');
+    const hiddenSubs = new Set();
+    DATA.legend.forEach(({key, label, color}) => {
+      const row = document.createElement('div');
+      row.className = 'filter-row';
+      row.dataset.sub = key;
+      row.innerHTML = `<span class="legend-swatch" style="background:${color}"></span><span class="legend-label">${escapeHtml(label)}</span>`;
+      row.onclick = () => {
+        if (hiddenSubs.has(key)) { hiddenSubs.delete(key); row.classList.remove('disabled'); }
+        else { hiddenSubs.add(key); row.classList.add('disabled'); }
+        applyFilter();
+      };
+      legendEl.appendChild(row);
+    });
+    function applyFilter() {
+      const q = (document.getElementById('q').value || '').trim().toLowerCase();
+      cy.batch(() => {
+        cy.nodes().forEach(n => {
+          const d = n.data();
+          const hideSub = d.kind === 'process' && hiddenSubs.has(d.subsystem);
+          const hideSearch = q && !(d.label || '').toLowerCase().includes(q);
+          n.style('display', hideSub || hideSearch ? 'none' : 'element');
+        });
+      });
+    }
+    document.getElementById('q').addEventListener('input', applyFilter);
+
+    const layersEl = document.getElementById('layers');
+    DATA.layers.forEach((layer, idx) => {
+      const row = document.createElement('div');
+      row.className = 'layer-row';
+      const num = `L${String(idx).padStart(2,'0')}`;
+      const chips = layer.map(step => {
+        const node = cy.getElementById(step);
+        const color = node.nonempty() ? node.data('color') : '#eee';
+        return `<span class="chip" data-step="${escapeHtml(step)}" style="background:${color}">${escapeHtml(step)}</span>`;
+      }).join('');
+      row.innerHTML = `<div class="layer-num">${num}</div><div>${chips}</div>`;
+      layersEl.appendChild(row);
+    });
+    layersEl.addEventListener('click', e => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      const node = cy.getElementById(chip.dataset.step);
+      if (node.nonempty()) { focusNode(node); cy.animate({ center: { eles: node }, zoom: 1.5 }, { duration: 400 }); }
+    });
+  </script>
+</body>
+</html>

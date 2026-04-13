@@ -51,7 +51,7 @@ BASE_EXECUTION_LAYERS = [
     # Layer 1: media/environment (sequential sub-steps)
     ['media_update'], FLUSH,
     ['ecoli-tf-unbinding'],
-    ['exchange_data'], FLUSH,
+    ['metabolic_kinetics'], FLUSH,
 
     # Layer 2: standalone (no partitioning needed)
     ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation'], FLUSH,
@@ -79,11 +79,16 @@ BASE_EXECUTION_LAYERS = [
     # Layer 6: chromosome structure + metabolism (sequential)
     ['ecoli-chromosome-structure'], FLUSH,
     ['ecoli-metabolism'], FLUSH,
+    # Apply cell exchange flux back to boundary.external so [GLC_ext] and
+    # friends actually drop as the cell consumes them (accumulator-style
+    # delta into the same store media_update writes).
+    ['environment_update'], FLUSH,
 
     # Layer 7: listeners (parallel)
     ['RNA_counts_listener', 'ecoli-mass-listener',
      'monomer_counts_listener', 'replication_data_listener', 'ribosome_data_listener',
-     'rna_synth_prob_listener', 'rnap_data_listener', 'unique_molecule_counts'], FLUSH,
+     'rna_synth_prob_listener', 'rnap_data_listener', 'unique_molecule_counts',
+     'carbon_budget_listener', 'dark_matter_listener'], FLUSH,
 
     # Emitter + clock
     ['emitter'],
@@ -495,8 +500,11 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     from v2ecoli.steps.listeners.rnap_data import RnapData
     from v2ecoli.steps.listeners.unique_molecule_counts import UniqueMoleculeCounts
     from v2ecoli.steps.listeners.ribosome_data import RibosomeData
+    from v2ecoli.steps.listeners.carbon_budget import CarbonBudget
+    from v2ecoli.steps.listeners.dark_matter import DarkMatterAccountant
     from v2ecoli.steps.media_update import MediaUpdate
-    from v2ecoli.steps.exchange_data import ExchangeData
+    from v2ecoli.steps.environment_update import EnvironmentUpdate
+    from v2ecoli.processes.metabolic_kinetics import MetabolicKinetics
 
     base_name = step_name.replace('_requester', '').replace('_evolver', '')
 
@@ -526,8 +534,11 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'rnap_data_listener': RnapData,
         'unique_molecule_counts': UniqueMoleculeCounts,
         'ribosome_data_listener': RibosomeData,
+        'carbon_budget_listener': CarbonBudget,
+        'dark_matter_listener': DarkMatterAccountant,
         'media_update': MediaUpdate,
-        'exchange_data': ExchangeData,
+        'environment_update': EnvironmentUpdate,
+        'metabolic_kinetics': MetabolicKinetics,
     }
 
     from v2ecoli.library.config_resolver import resolve_config
@@ -737,11 +748,16 @@ def _get_special_step(loader, step_name, core):
 
     if step_name == 'ppgpp-initiation':
         from v2ecoli.steps.ppgpp_initiation import PpgppInitiation
-        # Pull ppGpp-related config from transcript-initiation's config
+        from v2ecoli.library.config_resolver import resolve_config
+        # Pull ppGpp-related config from transcript-initiation's config. The
+        # ti_config may still contain unresolved {"_function": ..., "_data":
+        # ...} descriptors from the cache; resolve_config turns those into
+        # actual callables before we hand fields to PpgppInitiation.
         try:
             ti_config = loader.get_config_by_name('ecoli-transcript-initiation')
         except (KeyError, AttributeError):
             ti_config = {}
+        ti_config = resolve_config(ti_config) if ti_config else ti_config
         ppgpp_config = {
             'ppgpp': ti_config.get('ppgpp', ''),
             'synth_prob': ti_config.get('synth_prob'),
@@ -867,8 +883,11 @@ def build_document(initial_state, configs, unique_names,
 
     # Pre-create virtual stores
     for store in ['listeners', 'process',
-                  'allocator_rng', 'process_state', 'exchange',
-                  'next_update_time']:
+                  'allocator_rng', 'exchange',
+                  'next_update_time',
+                  # metabolism_inputs is fine as an empty dict — its sub-keys
+                  # are populated by MetabolicKinetics on first tick.
+                  'metabolism_inputs']:
         if store not in cell_state:
             cell_state[store] = {}
     cell_state.setdefault('global_time', 0.0)
@@ -910,12 +929,12 @@ def build_document(initial_state, configs, unique_names,
     })
     # Listener sub-stores are populated by _seed_state_from_ports below
 
-    cell_state.setdefault('process_state', {})
-    cell_state['process_state'].setdefault('polypeptide_elongation', {
+    cell_state.setdefault('polypeptide_elongation', {
         'aa_exchange_rates': np.zeros(21),
         'gtp_to_hydrolyze': 0,
         'aa_count_diff': np.zeros(21),
     })
+    cell_state.setdefault('metabolism_inputs', {})
 
     # Create a mock loader that returns configs from the cache
     class _CachedLoader:

@@ -58,6 +58,7 @@ NOTE:
 """
 
 from typing import Any, Optional
+import os
 import warnings
 
 import numpy as np
@@ -79,11 +80,12 @@ REVERSE_TAG = " (reverse)"
 NAME = "ecoli-metabolism"
 TOPOLOGY = {
     "bulk": ("bulk",),
-    "bulk_total": ("bulk",),
     "listeners": ("listeners",),
     "environment": ("environment",),
-    "boundary": ("boundary",),
-    "polypeptide_elongation": ("process_state", "polypeptide_elongation"),
+    # All per-step pre-FBA work (counts_to_molar, coefficient, conc_updates,
+    # aa_uptake_package, bulk-count reads, aa_targets drift, ...) has moved
+    # to MetabolicKinetics, which writes this store before we run.
+    "metabolism_inputs": ("metabolism_inputs",),
     "global_time": ("global_time",),
     "timestep": ("timestep",),
     "next_update_time": ("next_update_time", "metabolism"),
@@ -144,32 +146,46 @@ class Metabolism(Step):
         'seed': {'_type': 'integer', '_default': 0},
         'time_step': {'_type': 'integer', '_default': 1},
         'use_trna_charging': {'_type': 'boolean', '_default': False},
+        # Dark-matter mass balance (phase 2).
+        'mw_table': {'_type': 'map[float]', '_default': {}},
+        'enforce_dark_matter_balance': {
+            '_type': 'boolean', '_default': True},
+        'dark_matter_initial_fg': {
+            '_type': 'float', '_default': 0.0},
+        'enforce_biomass_mass_balance': {
+            '_type': 'boolean', '_default': False},
     }
 
     def inputs(self):
         return {
+            # bulk is still read at t=0 to resolve the metabolite_idx used
+            # for writing back FBA deltas. Runtime counts come in via the
+            # metabolism_inputs port.
             'bulk': {'_type': 'bulk_array', '_default': []},
-            'bulk_total': {'_type': 'bulk_array', '_default': []},
-            'listeners': {
-                'mass': {
-                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
-                    'dry_mass': {'_type': 'float[fg]', '_default': 0.0},
-                    'rna_mass': {'_type': 'float[fg]', '_default': 0.0},
-                    'protein_mass': {'_type': 'float[fg]', '_default': 0.0},
-                },
-            },
             'environment': {
-                'media_id': {'_type': 'string', '_default': ''},
                 'exchange_data': {
                     'constrained': 'map[float]',
                     'unconstrained': 'list[string]',
                 },
             },
-            'boundary': 'node',
-            'polypeptide_elongation': {
-                'gtp_to_hydrolyze': {'_type': 'float', '_default': 0.0},  # count, dimensionless
-                'aa_count_diff': {'_type': 'array[float]', '_default': []},  # count change per AA species
-                'aa_exchange_rates': {'_type': 'array[float[mmol/g/h]]', '_default': []},
+            # Match MetabolicKinetics.outputs() — overwrite semantics so
+            # reads see the upstream step's fresh values, not an
+            # accumulating sum.
+            'metabolism_inputs': {
+                'current_media_id': {'_type': 'overwrite[string]', '_default': ''},
+                'counts_to_molar_mM': {'_type': 'overwrite[float]', '_default': 1.0},
+                'coefficient_gsL': {'_type': 'overwrite[float]', '_default': 0.0},
+                'translation_gtp': {'_type': 'overwrite[float]', '_default': 0.0},
+                'conc_updates_mM': {'_type': 'overwrite[map[float]]', '_default': {}},
+                'aa_uptake_present': {'_type': 'overwrite[boolean]', '_default': False},
+                'aa_uptake_rates': {'_type': 'overwrite[array[float]]', '_default': []},
+                'aa_uptake_names': {'_type': 'overwrite[list[string]]', '_default': []},
+                'aa_uptake_force': {'_type': 'overwrite[boolean]', '_default': True},
+                'metabolite_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
+                'catalyst_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
+                'kinetic_enzyme_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
+                'kinetic_substrate_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
+                'disallowed_imports': {'_type': 'overwrite[list[string]]', '_default': []},
             },
             'global_time': {'_type': 'float[s]', '_default': 0.0},
             'timestep': {'_type': 'integer[s]', '_default': 1},
@@ -179,7 +195,12 @@ class Metabolism(Step):
     def outputs(self):
         return {
             'bulk': 'bulk_array',
-            'environment': {'exchange': 'map[float]'},
+            # Overwrite semantics: environment_update reads this as a
+            # per-step snapshot of counts exchanged with the environment.
+            # The default add-merge for `map[float]` would accumulate
+            # every step's counts and cause runaway depletion.
+            'environment': {'exchange': {
+                '_type': 'overwrite[map[float]]', '_default': {}}},
             'listeners': {
                 'fba_results': {
                     # Coefficient for flux→delta conversion (g*s/L)
@@ -200,6 +221,12 @@ class Metabolism(Step):
                     'reduced_costs': {'_type': 'overwrite[array[float]]', '_default': []},
                     'homeostatic_objective_values': {'_type': 'overwrite[array[float]]', '_default': []},
                     'kinetic_objective_values': {'_type': 'overwrite[array[float]]', '_default': []},
+                    'fba_mass_exchange_out': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'dark_matter_pool_fg': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'dark_matter_withdraw_fg': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'dark_matter_deposit_fg': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'dark_matter_violation_fg': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'dark_matter_scale': {'_type': 'overwrite[float]', '_default': 1.0},
                     # Counts (dimensionless)
                     'catalyst_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
                     'delta_metabolites': {'_type': 'overwrite[array[integer]]', '_default': []},
@@ -231,65 +258,90 @@ class Metabolism(Step):
 
 
     def initialize(self, config):
-
-        # Use information from the environment and sim
+        # FBA-only state. Kinetics/pre-FBA inputs come in via the
+        # metabolism_inputs port (see MetabolicKinetics).
         self.get_import_constraints = self.parameters["get_import_constraints"]
-        self.nutrientToDoublingTime = self.parameters["nutrientToDoublingTime"]
-        self.use_trna_charging = self.parameters["use_trna_charging"]
-        self.include_ppgpp = self.parameters["include_ppgpp"]
-        self.mechanistic_aa_transport = self.parameters["mechanistic_aa_transport"]
         self.current_timeline = self.parameters["current_timeline"]
         self.media_id = self.parameters["media_id"]
-        self.exchange_molecules = self.parameters["exchange_molecules"]
-        self.environment_molecules = sorted(
-            [mol[:-3] for mol in self.exchange_molecules]
-        )
 
-        # Create model to use to solve metabolism updates
         self.model = FluxBalanceAnalysisModel(
             self.parameters,
             timeline=self.current_timeline,
-            include_ppgpp=self.include_ppgpp,
+            include_ppgpp=self.parameters["include_ppgpp"],
         )
 
-        # Save constants
-        self.nAvogadro = self.parameters["avogadro"]
-        self.cellDensity = self.parameters["cell_density"]
+        # Mechanistic biomass mass-balance: bound the homeostatic
+        # `quadFractionFromUnity` slack pseudofluxes so the LP can
+        # undershoot a target (cell produces less biomass than wanted
+        # when starved) but cannot overshoot by conjuring metabolites.
+        # See modular_fba.py:596 for where the slacks are created with
+        # [-inf, +inf] bounds by default, and the nutrient-growth
+        # report's "How is biomass being manufactured?" section for
+        # the derivation.
+        # Experimental: capping the aboveUnity homeostatic slack makes
+        # the LP INFEASIBLE at t=0 in the current wholecell model (cell's
+        # initial internal metabolite state is far enough from the
+        # biomass targets that some pseudoFlux > 1 is required to
+        # rebalance). Default off until we have a more flexible
+        # objective. See report's "How is biomass being manufactured?"
+        # section + the user-facing discussion of LP-alternative paths.
+        self._mass_balance_enforced = False
+        if self.parameters.get("enforce_biomass_mass_balance", False):
+            self._enforce_biomass_mass_balance()
 
-        # Track updated AA concentration targets with tRNA charging
-        self.aa_targets = {}
-        self.aa_targets_not_updated = self.parameters["aa_targets_not_updated"]
-        self.aa_names = self.parameters["aa_names"]
-        # Store as plain float (boundary.external values are plain floats in mM)
-        self.import_constraint_threshold = float(
-            self.parameters["import_constraint_threshold"]
-        )
+        # Phase-2 dark-matter post-hoc enforcement. Looks at the LP's
+        # proposed bulk update each step, compares with boundary
+        # exchange mass, and scales down positive deltas when the LP
+        # would create mass the pool can't cover. OFF by default — the
+        # cached config value is authoritative, but the runtime env var
+        # V2ECOLI_DARK_MATTER=1 can also flip it on without a cache
+        # rebuild (important because sim_data.get_metabolism_config only
+        # sees the env var at ParCa time).
+        self._dark_matter_enforced = bool(
+            self.parameters.get("enforce_dark_matter_balance", False)
+            or os.environ.get("V2ECOLI_DARK_MATTER", "0") == "1")
+        self._dark_matter_fg = float(
+            self.parameters.get("dark_matter_initial_fg", 0.0))
+        self._dark_matter_mw_table = dict(
+            self.parameters.get("mw_table", {}) or {})
+        # Per-output-molecule MW array (aligned with
+        # fba.getOutputMoleculeIDs order) and per-external-molecule
+        # MW dict (keyed by compartment-tagged id). Built lazily on
+        # first update since we need the FBA's output-ID list.
+        self._output_molecule_ids = None
+        self._output_mw_array = None
+        self._mw_by_molecule = {}
+        # Actual MW-array build is deferred to first call of
+        # _dark_matter_scale — by then externalMoleculeIDs is set.
 
-        # Molecules with concentration updates for listener
-        self.linked_metabolites = self.parameters["linked_metabolites"]
-        doubling_time = self.nutrientToDoublingTime.get(
-            self.media_id, self.nutrientToDoublingTime["minimal"]
+        # Fixed list of molecules reported in fba_results.conc_updates. The
+        # set depends only on ParCa state, not on runtime, so we compute it
+        # once here even though conc_updates themselves arrive through a port.
+        nutrient_to_dt = self.parameters["nutrientToDoublingTime"]
+        doubling_time = nutrient_to_dt.get(
+            self.media_id, nutrient_to_dt["minimal"]
         )
         update_molecules = list(
             self.model.getBiomassAsConcentrations(doubling_time).keys()
         )
-        if self.use_trna_charging:
+        if self.parameters["use_trna_charging"]:
+            aa_not_updated = self.parameters["aa_targets_not_updated"]
             update_molecules += [
-                aa for aa in self.aa_names if aa not in self.aa_targets_not_updated
+                aa for aa in self.parameters["aa_names"]
+                if aa not in aa_not_updated
             ]
-            update_molecules += list(self.linked_metabolites.keys())
-        if self.include_ppgpp:
+            update_molecules += list(
+                self.parameters["linked_metabolites"].keys())
+        if self.parameters["include_ppgpp"]:
             update_molecules += [self.model.ppgpp_id]
         self.conc_update_molecules = sorted(update_molecules)
 
-        self.aa_exchange_names = self.parameters["aa_exchange_names"]
-        self.removed_aa_uptake = self.parameters["removed_aa_uptake"]
-        self.aa_environment_names = [aa[:-3] for aa in self.aa_exchange_names]
+        self.aa_names = self.parameters["aa_names"]  # listener ordering only
 
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)
 
-        # Helper indices for Numpy indexing
+        # Lazy bulk index for writing back delta_metabolites.
         self.metabolite_idx = None
 
         # Get conversion matrix to compile individual fluxes in the FBA
@@ -300,6 +352,10 @@ class Metabolism(Step):
             "fba_reaction_ids_to_base_reaction_ids"
         ]
         self.externalMoleculeIDs = self.model.fba.getExternalMoleculeIDs()
+        # ID → index map for zeroing out disallowed imports in O(1).
+        self._ext_id_to_idx = {
+            mid: i for i, mid in enumerate(self.externalMoleculeIDs)
+        }
         self.outputMoleculeIDs = self.model.fba.getOutputMoleculeIDs()
         self.kineticTargetFluxNames = self.model.fba.getKineticTargetFluxNames()
         self.homeostaticTargetMolecules = self.model.fba.getHomeostaticTargetMolecules()
@@ -331,6 +387,168 @@ class Metabolism(Step):
             (v, (base_rxn_indexes, fba_rxn_indexes)), shape=shape
         )
 
+    def _init_dark_matter_mw_arrays(self):
+        """Precompute MW lookup structures aligned with the FBA's
+        output-molecule and external-molecule orderings."""
+        table = self._dark_matter_mw_table
+        def lookup(mol_id):
+            if mol_id in table:
+                return table[mol_id]
+            bare = mol_id.split("[", 1)[0] if "[" in mol_id else mol_id
+            return table.get(bare, 0.0)
+        out_ids = list(self.model.fba.getOutputMoleculeIDs())
+        self._output_molecule_ids = out_ids
+        self._output_mw_array = np.array(
+            [lookup(m) for m in out_ids], dtype=float)
+        self._mw_by_molecule = {
+            m: lookup(m) for m in self.externalMoleculeIDs
+        }
+
+    def _dark_matter_scale(self, delta_metabolites, delta_nutrients):
+        """Apply mass-balance via a persistent dark-matter pool.
+
+        Computes ``Δ cell_mass`` (LP writes to bulk) and ``Δ boundary_mass``
+        (imports − secretions this step) using the MW table from sim_data.
+        Excess mass (Δ cell > Δ boundary) draws from the pool; shortfall
+        deposits into it. When the withdrawal required would exceed the
+        pool, positive deltas are scaled down proportionally so the
+        realised cell-mass change equals ``boundary + pool`` exactly —
+        no mass creation. Biomass targets are allowed to undershoot
+        (user-permitted).
+        """
+        if not self._dark_matter_enforced or not self._dark_matter_mw_table:
+            return {
+                "delta_scaled": delta_metabolites,
+                "pool_fg_after": self._dark_matter_fg,
+                "withdraw_fg": 0.0, "deposit_fg": 0.0,
+                "violated_fg": 0.0, "scale": 1.0,
+            }
+        if self._output_molecule_ids is None:
+            self._init_dark_matter_mw_arrays()
+        if not self._output_molecule_ids:
+            return {
+                "delta_scaled": delta_metabolites,
+                "pool_fg_after": self._dark_matter_fg,
+                "withdraw_fg": 0.0,
+                "deposit_fg": 0.0,
+                "violated_fg": 0.0,
+                "scale": 1.0,
+            }
+
+        mw_arr = self._output_mw_array
+        # Cell-mass change (fg) = Σ Δcount_i × MW_i / N_A × 1e15
+        cell_mass_delta_fg = (
+            float(np.sum(np.asarray(delta_metabolites) * mw_arr))
+            / 6.02214076e23 * 1e15)
+
+        # Boundary mass flux this step (fg). delta_nutrients is in
+        # counts; negative = cell imported. MW comes from the
+        # exchange-molecule subset of the MW table.
+        boundary_mass_delta_fg = 0.0
+        for idx, mol_with_suffix in enumerate(self.externalMoleculeIDs):
+            mw = self._mw_by_molecule.get(mol_with_suffix, 0.0)
+            if mw <= 0:
+                continue
+            n = float(delta_nutrients[idx])
+            # delta_nutrients sign: negative = import. Cell mass gain =
+            # -n × MW (per step).
+            boundary_mass_delta_fg += -n * mw / 6.02214076e23 * 1e15
+
+        # Dark-matter accounting: mass the LP produced beyond what the
+        # boundary supplied this step.
+        excess = cell_mass_delta_fg - boundary_mass_delta_fg
+        scale = 1.0
+        withdraw = 0.0
+        deposit = 0.0
+        violated = 0.0
+        if excess > 0:
+            # LP wants to produce mass beyond boundary supply → draw
+            # from the pool.
+            if excess <= self._dark_matter_fg:
+                withdraw = excess
+                self._dark_matter_fg -= withdraw
+            else:
+                # Can only draw what's in the pool. The remainder
+                # would be mass created from nothing — scale the
+                # *positive* deltas so realised mass gain = imports +
+                # pool. Downscale factor applies to the net mass
+                # added; keep negatives (consumption) intact.
+                allowed = boundary_mass_delta_fg + self._dark_matter_fg
+                if cell_mass_delta_fg > 0 and allowed < cell_mass_delta_fg:
+                    scale_needed = max(0.0, allowed) / cell_mass_delta_fg
+                    # Scale ALL deltas proportionally — preserves
+                    # stoichiometric ratios (S·v=0 stays satisfied) while
+                    # reducing the overall rate. Equivalent to running
+                    # every LP flux at `scale_needed × v*` instead of v*.
+                    delta_metabolites = (
+                        np.asarray(delta_metabolites, dtype=float)
+                        * scale_needed)
+                    scale = scale_needed
+                violated = excess - self._dark_matter_fg
+                withdraw = self._dark_matter_fg
+                self._dark_matter_fg = 0.0
+        elif excess < 0:
+            # LP produced less mass than boundary supplied → excess
+            # goes into the pool for future use.
+            deposit = -excess
+            self._dark_matter_fg += deposit
+
+        return {
+            "delta_scaled": delta_metabolites,
+            "pool_fg_after": self._dark_matter_fg,
+            "withdraw_fg": withdraw,
+            "deposit_fg": deposit,
+            "violated_fg": violated,
+            "scale": scale,
+        }
+
+    def _enforce_biomass_mass_balance(self):
+        """Cap the homeostatic "above unity" slack pseudofluxes at 0.
+
+        In modular_fba's homeostatic formulation with a linear
+        objective (``quadratic_objective=False``):
+
+            pseudoFlux = 1 + aboveUnity − belowUnity
+
+        where ``pseudoFlux`` is the rate at which a target metabolite
+        is consumed into biomass. ``aboveUnity`` represents over-
+        shooting the target ("produce more biomass than asked");
+        ``belowUnity`` represents undershooting. Both default to
+        ``[0, +inf]`` on flux.
+
+        Over-shooting is where the "free mass" comes from — the LP
+        inflates biomass production without a mass-balanced carbon
+        source. Capping ``aboveUnity`` at 0 forces ``pseudoFlux ≤ 1``,
+        i.e. the cell can only meet or miss a target, never exceed
+        it. Biomass production naturally trails off under
+        nutrient starvation.
+
+        ``belowUnity`` is left at its default bound — the cell is
+        expected to produce less biomass than the homeostatic target
+        when starved, which is the biologically correct behaviour.
+        """
+        fba = self.model.fba
+        solver = fba._solver
+        above_prefix = type(fba)._generatedID_fractionAboveUnityOut
+        targets = fba.getHomeostaticTargetMolecules()
+        known_flows = set(solver.getFlowNames())
+        bounded = skipped = 0
+        for mol in targets:
+            flux_id = above_prefix + mol
+            if flux_id not in known_flows:
+                skipped += 1
+                continue
+            try:
+                solver.setFlowBounds(flux_id, lowerBound=0.0, upperBound=0.0)
+                bounded += 1
+            except Exception:
+                skipped += 1
+        self._mass_balance_enforced = True
+        self._mass_balance_info = {
+            "bounded_slacks": bounded, "skipped_slacks": skipped,
+            "target_molecules": len(targets),
+        }
+
     def __getstate__(self):
         return self.parameters
 
@@ -357,113 +575,42 @@ class Metabolism(Step):
         return self._do_update(timestep, states)
 
     def _do_update(self, timestep, states):
-        # At t=0, convert all strings to indices
+        # Lazy bulk index for writing back delta_metabolites. Everything
+        # else comes in via the metabolism_inputs port.
         if self.metabolite_idx is None:
             self.metabolite_idx = bulk_name_to_idx(
                 self.model.metaboliteNamesFromNutrients, states["bulk"]["id"]
             )
-            self.catalyst_idx = bulk_name_to_idx(
-                self.model.catalyst_ids, states["bulk"]["id"]
-            )
-            self.kinetics_enzymes_idx = bulk_name_to_idx(
-                self.model.kinetic_constraint_enzymes, states["bulk"]["id"]
-            )
-            self.kinetics_substrates_idx = bulk_name_to_idx(
-                self.model.kinetic_constraint_substrates, states["bulk"]["id"]
-            )
-            self.aa_idx = bulk_name_to_idx(self.aa_names, states["bulk"]["id"])
 
         timestep = states["timestep"]
+        mi = states["metabolism_inputs"]
 
-        # Load current state of the sim
-        # Get internal state variables
-        metabolite_counts_init = counts(states["bulk"], self.metabolite_idx)
-        catalyst_counts = counts(states["bulk"], self.catalyst_idx)
-        kinetic_enzyme_counts = counts(states["bulk"], self.kinetics_enzymes_idx)
-        kinetic_substrate_counts = counts(states["bulk"], self.kinetics_substrates_idx)
+        # Reconstruct Unum quantities at the boundary; the upstream step
+        # passes plain floats to keep the port schema simple.
+        counts_to_molar = float(mi["counts_to_molar_mM"]) * CONC_UNITS
+        coefficient = float(mi["coefficient_gsL"]) * CONVERSION_UNITS
+        current_media_id = mi["current_media_id"]
 
-        translation_gtp = states["polypeptide_elongation"]["gtp_to_hydrolyze"]
-        cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
-        dry_mass = states["listeners"]["mass"]["dry_mass"] * units.fg
-
-        # Calculate state values
-        cellVolume = cell_mass / self.cellDensity
-        counts_to_molar = (1 / (self.nAvogadro * cellVolume)).asUnit(CONC_UNITS)
-
-        # Coefficient to convert between flux (mol/g DCW/hr) basis and
-        # concentration (M) basis
-        coefficient = dry_mass / cell_mass * self.cellDensity * timestep * units.s
-
-        # Get exchange constraints
         unconstrained = set(states["environment"]["exchange_data"]["unconstrained"])
         constrained = states["environment"]["exchange_data"]["constrained"]
 
-        # Determine updates to concentrations depending on the current state
-        current_media_id = states["environment"]["media_id"]
-        doubling_time = self.nutrientToDoublingTime.get(
-            current_media_id, self.nutrientToDoublingTime[self.media_id]
-        )
-        if self.include_ppgpp:
-            # Sim does not include ppGpp regulation so do not update biomass
-            # by RNA/protein ratio and include ppGpp concentration as a
-            # homeostatic target
-            conc_updates = self.model.getBiomassAsConcentrations(doubling_time)
-            conc_updates[self.model.ppgpp_id] = self.model.getppGppConc(
-                doubling_time
-            ).asUnit(CONC_UNITS)
-        else:
-            # Sim includes ppGpp regulation so update biomass based on
-            # RNA/protein ratio which is controlled by ppGpp and other growth
-            # regulation
-            rp_ratio = (
-                states["listeners"]["mass"]["rna_mass"]
-                / states["listeners"]["mass"]["protein_mass"]
-            )
-            conc_updates = self.model.getBiomassAsConcentrations(
-                doubling_time, rp_ratio=rp_ratio
-            )
+        metabolite_counts_init = np.asarray(mi["metabolite_counts"])
+        catalyst_counts = np.asarray(mi["catalyst_counts"])
+        kinetic_enzyme_counts = np.asarray(mi["kinetic_enzyme_counts"])
+        kinetic_substrate_counts = np.asarray(mi["kinetic_substrate_counts"])
 
-        if self.use_trna_charging:
-            conc_updates.update(
-                self.update_amino_acid_targets(
-                    counts_to_molar,
-                    dict(
-                        zip(
-                            self.aa_names,
-                            states["polypeptide_elongation"]["aa_count_diff"],
-                        )
-                    ),
-                    dict(zip(self.aa_names, counts(states["bulk_total"], self.aa_idx))),
-                )
-            )
+        conc_updates = dict(mi["conc_updates_mM"])
 
-        # Converted from units to make reproduction from listener data
-        # accurate to model results (otherwise can have floating point diffs)
-        conc_updates = {
-            met: conc.asNumber(CONC_UNITS) for met, conc in conc_updates.items()
-        }
-
-        aa_uptake_package = None
-        if self.mechanistic_aa_transport:
-            aa_in_media = np.array(
-                [
-                    states["boundary"]["external"][aa_name]
-                    > self.import_constraint_threshold
-                    for aa_name in self.aa_environment_names
-                ]
-            )
-            aa_in_media[self.removed_aa_uptake] = False
-            exchange_rates = (
-                states["polypeptide_elongation"]["aa_exchange_rates"] * timestep
-            )
+        if mi.get("aa_uptake_present", False):
             aa_uptake_package = (
-                exchange_rates[aa_in_media],
-                self.aa_exchange_names[aa_in_media],
-                True,
+                np.asarray(mi["aa_uptake_rates"]),
+                np.asarray(mi["aa_uptake_names"]),
+                bool(mi.get("aa_uptake_force", True)),
             )
+        else:
+            aa_uptake_package = None
 
-        # Update FBA problem based on current state
-        # Set molecule availability (internal and external)
+        # Drive the FBA model: levels → bounds → targets → solve.
         self.model.set_molecule_levels(
             metabolite_counts_init,
             counts_to_molar,
@@ -475,12 +622,27 @@ class Metabolism(Step):
             aa_uptake_package,
         )
 
-        # Set reaction limits for maintenance and catalysts present
+        # Mechanistic carbon-balance enforcement: after set_molecule_levels
+        # has set the import-availability array, explicitly zero out every
+        # FBA external molecule NOT on the wholecell's importExchange
+        # allowlist. This blocks the LP from using obscure boundary
+        # molecules (H2, CO2 fixation proxies, nucleotide scavenging, ...)
+        # as free carbon/energy sources — biology doesn't permit them,
+        # FBA stoichiometry alone does.
+        disallowed = mi.get("disallowed_imports", []) or []
+        if disallowed:
+            idx = [self._ext_id_to_idx[m] for m in disallowed
+                   if m in self._ext_id_to_idx]
+            if idx:
+                self.model.fba.setExternalMoleculeLevels(
+                    np.zeros(len(idx)),
+                    molecules=[self.externalMoleculeIDs[i] for i in idx])
         self.model.set_reaction_bounds(
-            catalyst_counts, counts_to_molar, coefficient, translation_gtp
+            catalyst_counts,
+            counts_to_molar,
+            coefficient,
+            float(mi["translation_gtp"]),
         )
-
-        # Constrain reactions based on targets
         targets, upper_targets, lower_targets = self.model.set_reaction_targets(
             kinetic_enzyme_counts,
             kinetic_substrate_counts,
@@ -488,37 +650,64 @@ class Metabolism(Step):
             timestep * units.s,
         )
 
-        # Solve FBA problem and update states
-        n_retries = 3
         fba = self.model.fba
-        fba.solve(n_retries)
+        fba.solve(3)
 
-        # Internal molecule changes
         delta_metabolites = (1 / counts_to_molar) * (
             CONC_UNITS * fba.getOutputMoleculeLevelsChange()
         )
+        delta_metabolites_raw = delta_metabolites.asNumber()
+
+        exchange_fluxes = CONC_UNITS * fba.getExternalExchangeFluxes()
+        converted_exchange_fluxes = (exchange_fluxes / coefficient).asNumber(
+            GDCW_BASIS
+        )
+        delta_nutrients = (
+            ((1 / counts_to_molar) * exchange_fluxes).asNumber().astype(int)
+        )
+
+        # ------------------------------------------------------------------
+        # Mass-balance enforcement via dark-matter pool (phase 2).
+        # ------------------------------------------------------------------
+        # User rule: "mass can not be created". If the LP's proposed
+        # delta would raise bulk mass by more than boundary imports +
+        # current pool level, scale the positive deltas proportionally
+        # so total system mass change = boundary flux + pool withdrawal,
+        # and drive the pool toward zero.
+        dm_info = self._dark_matter_scale(
+            delta_metabolites_raw, delta_nutrients)
+        delta_metabolites_raw = dm_info["delta_scaled"]
+
         metabolite_counts_final = np.fmax(
             stochasticRound(
-                self.random_state, metabolite_counts_init + delta_metabolites.asNumber()
+                self.random_state,
+                metabolite_counts_init + delta_metabolites_raw,
             ),
             0,
         ).astype(np.int64)
         delta_metabolites_final = metabolite_counts_final - metabolite_counts_init
 
-        # Environmental changes
-        exchange_fluxes = CONC_UNITS * fba.getExternalExchangeFluxes()
-        converted_exchange_fluxes = (exchange_fluxes / coefficient).asNumber(GDCW_BASIS)
-        delta_nutrients = (
-            ((1 / counts_to_molar) * exchange_fluxes).asNumber().astype(int)
-        )
-
-        # Write outputs to listeners
-        unconstrained, constrained, uptake_constraints = self.get_import_constraints(
-            unconstrained, constrained, GDCW_BASIS
+        unconstrained_out, constrained_out, uptake_constraints = (
+            self.get_import_constraints(unconstrained, constrained, GDCW_BASIS)
         )
 
         reaction_fluxes = fba.getReactionFluxes() / timestep
-        update = {
+
+        # Probe the FBA's built-in exchange-mass accounting. massExchangeOut
+        # is wholecell's pseudoflux that tracks net mass in − out via
+        # *exchange reactions only*. It does NOT reflect mass introduced
+        # via the homeostatic quadFractionFromUnity slack fluxes, which
+        # the LP uses freely to satisfy biomass targets without carbon
+        # input. Surfacing it lets the report compare exchange-mass flow
+        # to actual dry-mass growth; the gap = slack-induced "free mass".
+        fba_mass_exchange_out = 0.0
+        try:
+            raw = fba._solver.getFlowRates(fba._massExchangeOutName)
+            fba_mass_exchange_out = float(np.asarray(raw).flatten()[0])
+        except Exception:
+            pass
+
+        return {
             "bulk": [(self.metabolite_idx, delta_metabolites_final)],
             "environment": {
                 "exchange": {
@@ -533,10 +722,10 @@ class Metabolism(Step):
                         conc_updates.get(m, 0) for m in self.conc_update_molecules
                     ],
                     "catalyst_counts": catalyst_counts,
-                    "translation_gtp": translation_gtp,
+                    "translation_gtp": float(mi["translation_gtp"]),
                     "coefficient": coefficient.asNumber(CONVERSION_UNITS),
-                    "unconstrained_molecules": unconstrained,
-                    "constrained_molecules": constrained,
+                    "unconstrained_molecules": unconstrained_out,
+                    "constrained_molecules": constrained_out,
                     "uptake_constraints": uptake_constraints,
                     "delta_metabolites": delta_metabolites_final,
                     "reaction_fluxes": reaction_fluxes,
@@ -550,11 +739,22 @@ class Metabolism(Step):
                         self.model.homeostatic_objective[mol]
                         for mol in fba.getHomeostaticTargetMolecules()
                     ],
-                    "homeostatic_objective_values": fba.getHomeostaticObjectiveValues(),
+                    "homeostatic_objective_values":
+                        fba.getHomeostaticObjectiveValues(),
                     "kinetic_objective_values": fba.getKineticObjectiveValues(),
                     "base_reaction_fluxes": self.reaction_mapping_matrix.dot(
                         reaction_fluxes
                     ),
+                    # Built-in wholecell mass accounting (exchange only).
+                    # Mismatch vs. real dry-mass growth = slack-induced
+                    # "free mass" from homeostatic pseudofluxes.
+                    "fba_mass_exchange_out": fba_mass_exchange_out,
+                    # Dark-matter pool state (phase 2). Values in fg.
+                    "dark_matter_pool_fg": dm_info["pool_fg_after"],
+                    "dark_matter_withdraw_fg": dm_info["withdraw_fg"],
+                    "dark_matter_deposit_fg": dm_info["deposit_fg"],
+                    "dark_matter_violation_fg": dm_info["violated_fg"],
+                    "dark_matter_scale": dm_info["scale"],
                 },
                 "enzyme_kinetics": {
                     "metabolite_counts_init": metabolite_counts_init,
@@ -563,73 +763,17 @@ class Metabolism(Step):
                     "counts_to_molar": counts_to_molar.asNumber(CONC_UNITS),
                     "actual_fluxes": fba.getReactionFluxes(
                         self.model.kinetics_constrained_reactions
-                    )
-                    / timestep,
+                    ) / timestep,
                     "target_fluxes": targets / timestep,
                     "target_fluxes_upper": upper_targets / timestep,
                     "target_fluxes_lower": lower_targets / timestep,
-                    "target_aa_conc": [
-                        self.aa_targets.get(id_, 0.0) for id_ in self.aa_names
-                    ],
+                    # aa_targets now live on MetabolicKinetics; report zeros
+                    # here since this listener is not the authoritative source.
+                    "target_aa_conc": [0.0] * len(self.aa_names),
                 },
             },
             "next_update_time": states["global_time"] + states["timestep"],
         }
-
-        return update
-
-    def update_amino_acid_targets(
-        self,
-        counts_to_molar: Unum,
-        count_diff: dict[str, float],
-        amino_acid_counts: dict[str, float],
-    ) -> dict[str, Unum]:
-        """
-        Finds new amino acid concentration targets based on difference in
-        supply and number of amino acids used in polypeptide_elongation.
-        Skips updates to molecules defined in self.aa_targets_not_updated:
-        - L-SELENOCYSTEINE: rare AA that led to high variability when updated
-
-        Args:
-            counts_to_molar: conversion from counts to molar
-
-        Returns:
-            ``{AA name (str): new target AA conc (float with mol/volume units)}``
-        """
-
-        if len(self.aa_targets):
-            for aa, diff in count_diff.items():
-                if aa in self.aa_targets_not_updated:
-                    continue
-                self.aa_targets[aa] += diff
-                # TODO (Santiago): Improve targets update
-                if self.aa_targets[aa] < 0:
-                    print(
-                        "Warning: updated amino acid target for "
-                        f"{aa} was negative - adjusted to be positive."
-                    )
-                    self.aa_targets[aa] = 1.0
-
-        # First time step of a simulation so set target to current counts to
-        # prevent concentration jumps between generations
-        else:
-            for aa, counts in amino_acid_counts.items():
-                if aa in self.aa_targets_not_updated:
-                    continue
-                self.aa_targets[aa] = float(counts)
-
-        conc_updates = {
-            aa: counts * counts_to_molar for aa, counts in self.aa_targets.items()
-        }
-
-        # Update linked metabolites that will follow an amino acid
-        for met, link in self.linked_metabolites.items():
-            conc_updates[met] = (
-                conc_updates.get(link["lead"], 0 * counts_to_molar) * link["ratio"]
-            )
-
-        return conc_updates
-
 
 class FluxBalanceAnalysisModel(object):
     """
@@ -872,12 +1016,27 @@ class FluxBalanceAnalysisModel(object):
             constrained,
             conc_updates,
         )
+        # exchange_constraints occasionally emits objective entries for
+        # molecules that weren't part of the FBA's static homeostatic
+        # target registry (built at __init__ from the full media
+        # timeline). update_homeostatic_targets raises on those; filter
+        # them out here. This is defensive — only the pre-registered
+        # targets are driving biomass anyway.
+        if not hasattr(self, "_homeostatic_target_set"):
+            self._homeostatic_target_set = set(
+                self.fba.getHomeostaticTargetMolecules())
+        objective = {k: v for k, v in objective.items()
+                     if k in self._homeostatic_target_set}
         self.fba.update_homeostatic_targets(objective)
         self.homeostatic_objective = {**self.homeostatic_objective, **objective}
 
-        # Internal concentrations
+        # Internal concentrations. During stationary-phase dark-matter runs
+        # the allocator clamps bulk draws, so counts can land at zero; rare
+        # round-trip races can also leave a count one below zero. FBA rejects
+        # negative levels, so floor at 0 before feeding the LP.
         metabolite_conc = counts_to_molar * metabolite_counts
-        self.fba.setInternalMoleculeLevels(metabolite_conc.asNumber(CONC_UNITS))
+        levels = np.maximum(metabolite_conc.asNumber(CONC_UNITS), 0.0)
+        self.fba.setInternalMoleculeLevels(levels)
 
         # External concentrations
         external_molecule_levels = self.update_external_molecule_levels(
@@ -967,8 +1126,14 @@ class FluxBalanceAnalysisModel(object):
         """
 
         if self.use_kinetics:
-            enzyme_conc = counts_to_molar * kinetic_enzyme_counts
-            substrate_conc = counts_to_molar * kinetic_substrate_counts
+            # Floor negative counts at 0 before concentration conversion:
+            # stationary-phase clamping in allocator can leave residual
+            # negatives that otherwise propagate into negative kinetic
+            # targets (rejected by FBA).
+            enzyme_counts = np.maximum(kinetic_enzyme_counts, 0)
+            substrate_counts = np.maximum(kinetic_substrate_counts, 0)
+            enzyme_conc = counts_to_molar * enzyme_counts
+            substrate_conc = counts_to_molar * substrate_counts
 
             # Set target fluxes for reactions based on their most relaxed
             # constraint
@@ -978,9 +1143,9 @@ class FluxBalanceAnalysisModel(object):
             targets = (time_step * reaction_targets).asNumber(CONC_UNITS)[
                 self.active_constraints_mask, :
             ]
-            lower_targets = targets[:, 0]
-            mean_targets = targets[:, 1]
-            upper_targets = targets[:, 2]
+            lower_targets = np.maximum(targets[:, 0], 0.0)
+            mean_targets = np.maximum(targets[:, 1], 0.0)
+            upper_targets = np.maximum(targets[:, 2], 0.0)
 
             # Set kinetic targets only if kinetics is enabled
             self.fba.set_scaled_kinetic_objective(time_step.asNumber(units.s))

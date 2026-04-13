@@ -40,8 +40,8 @@ BIO_COLORS: list[tuple[str, str, str, Callable[[str], bool]]] = [
     ('signaling',    'Signaling / equilibrium','#FFD58C',
         lambda n: 'equilibrium' in n or 'two-component' in n
                   or 'complexation' in n),
-    ('metabolism',   'Metabolism (FBA)',       '#F7D488',
-        lambda n: 'metabolism' in n),
+    ('metabolism',   'Metabolism (FBA + kinetics)', '#F7D488',
+        lambda n: 'metabolism' in n or 'metabolic_kinetics' in n),
     ('alloc',        'Partition / allocator',  '#FFAE80',
         lambda n: 'allocator' in n),
     ('listen',       'Listeners',              '#D5D5D5',
@@ -49,7 +49,7 @@ BIO_COLORS: list[tuple[str, str, str, Callable[[str], bool]]] = [
     ('infra',        'Infrastructure / flow',  '#E8E8E8',
         lambda n: any(s in n for s in (
             'unique_update', 'global_clock', 'emitter', 'mark_d_period',
-            'division', 'exchange_data', 'media_update', 'post-division',
+            'division', 'media_update', 'post-division',
             'reconciled_', 'allocator_'))),
 ]
 
@@ -68,8 +68,12 @@ def classify(name: str) -> tuple[str, str]:
 
 _STORE_NODES = (
     'bulk', 'unique', 'environment', 'boundary', 'listeners',
-    'request', 'allocate', 'process_state', 'next_update_time',
+    'request', 'allocate', 'next_update_time',
     'global_time', 'timestep', 'ppgpp_state', 'attenuation_config',
+    # Top-level cross-process communication stores (promoted out of
+    # the old ``process_state`` namespace so they show up as their own
+    # nodes in the network viewer).
+    'polypeptide_elongation', 'metabolism_inputs',
 )
 
 # Parent stores whose first-level children should get their own node,
@@ -1038,11 +1042,12 @@ _HTML_TEMPLATE = """<!doctype html>
 def render_html(data: dict, title: str, subtitle: str) -> str:
     """Return the interactive HTML viewer as a string."""
     import html as _html
+    from v2ecoli.library.repro_banner import banner_html
     return _HTML_TEMPLATE.format(
         title=_html.escape(title),
         subtitle=_html.escape(subtitle),
         data_json=json.dumps(data),
-        repro_banner='',
+        repro_banner=banner_html(),
     )
 
 

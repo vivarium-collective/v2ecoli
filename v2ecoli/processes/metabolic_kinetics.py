@@ -1,0 +1,527 @@
+"""
+==================
+Metabolic Kinetics
+==================
+
+Pre-FBA Step that prepares every non-LP input ``metabolism.py`` consumes
+each timestep — exchange bounds, homeostatic concentration targets,
+unit-conversion factors, mechanistic AA uptake, and the four bulk-count
+slices the FBA needs. Metabolism is reduced to "receive bounds + targets
++ counts, call the LP, emit deltas"; this Step owns everything else.
+
+Runtime feature-flag ``V2ECOLI_NUTRIENT_GROWTH=1`` enables the
+nutrient-growth biology (MM glucose uptake override, secretion-only
+enforcement, static import-allowlist deny-by-default). With it OFF
+(default), this Step is a pure drop-in for the original
+ExchangeData/metabolism pre-FBA code — baseline is bit-identical to
+vEcoli 1.0.
+
+Mathematical Model
+------------------
+**Michaelis-Menten glucose uptake** (nutrient-growth on)
+
+The wholecell exchange-bound for glucose is overridden each step from
+the live boundary concentration:
+
+    v_glc(t) = v_max · [GLC]ₑₓₜ(t) / (K_m + [GLC]ₑₓₜ(t))     [mmol/gDCW/h]
+
+Defaults: ``v_max = 20 mmol/gDCW/h`` (matches the wholecell glucose
+import flux at 22 mM media), ``K_m = 0.01 mM`` (classical PTS-system
+value, ~10 µM). Tunable via ``V2ECOLI_MM_VMAX`` / ``V2ECOLI_MM_KM``.
+
+**Counts ↔ concentration**
+
+Per-step conversion factors built from current cell volume so the FBA
+sees mM internal concentrations and writes back integer counts:
+
+    counts_to_molar = 1 / (N_A · cell_volume)                [M / count]
+    coefficient     = dry_mass · dt / cell_volume            [g·s / L]
+
+``cell_volume = cell_mass / cell_density`` is recomputed each tick.
+
+**Homeostatic concentration targets**
+
+    c_target(m) = biomass_fraction(m) · μ_target                  for biomass m
+    c_target(ppGpp) = f_ppGpp(growth_rate, sim_time)              if include_ppgpp
+    c_target(aa)    = persistent dict drifted by ΔAA_uptake_rate  if mechanistic_aa_transport
+
+These are the values modular_fba's ``quadFractionFromUnity`` slacks
+quadratic-penalize. (See the report's "How is biomass being
+manufactured?" section for the slack-pseudoflux pathology this
+exposes.)
+
+**Mechanistic AA uptake package**
+
+When ``mechanistic_aa_transport`` is on, each AA gets an exchange-bound
+override built from the polypeptide-elongation step's per-AA exchange
+rate, gated by a mask of AAs whose targets are not externally driven.
+
+**Static import allowlist** (nutrient-growth on)
+
+Snapshot of the wholecell classifier output for the *initial* media,
+used as a deny-by-default for any boundary species not in the snapshot.
+This blocks late-onset compensatory imports as concentrations drift
+(CARBON-MONOXIDE, 5-Deoxy-D-Ribofuranose, etc. would otherwise sneak
+back in once nutrients fall below threshold).
+
+Inputs / Outputs
+----------------
+Reads:
+    boundary.external                — live concentrations
+    bulk / bulk_total                — count arrays for FBA slots
+    listeners.mass.{cell,dry,…}_mass — for unit conversions
+    polypeptide_elongation           — for mechanistic AA uptake
+
+Writes:
+    environment.exchange_data        — {constrained, unconstrained}
+                                       contract metabolism consumes
+    metabolism_inputs                — top-level record with unit-free
+                                       scalars, conc maps, and the four
+                                       bulk-count arrays; metabolism
+                                       reconstructs Unum where the LP
+                                       requires it.
+
+Metabolism remains the single owner of the FBA model instance; this
+Step never holds one.
+"""
+
+import os
+
+import numpy as np
+
+from v2ecoli.library.ecoli_step import EcoliStep as Step
+from v2ecoli.library.schema import bulk_name_to_idx, counts
+from wholecell.utils import units
+
+
+def _nutrient_growth_on() -> bool:
+    """Master runtime toggle for the nutrient-growth feature set."""
+    return os.environ.get("V2ECOLI_NUTRIENT_GROWTH", "0") == "1"
+
+
+COUNTS_UNITS = units.mmol
+VOLUME_UNITS = units.L
+MASS_UNITS = units.g
+TIME_UNITS = units.s
+CONC_UNITS = COUNTS_UNITS / VOLUME_UNITS
+CONVERSION_UNITS = MASS_UNITS * TIME_UNITS / VOLUME_UNITS
+
+
+class MetabolicKinetics(Step):
+    """Compute every per-step input that metabolism's FBA call needs."""
+
+    name = "metabolic_kinetics"
+
+    config_schema = {
+        "external_state": {"_default": None},
+        "environment_molecules": {"_default": []},
+        "saved_media": {"_default": {}},
+        "import_constraint_threshold": {"_type": "float", "_default": 0.0},
+        "time_step": {"_default": 1},
+        "avogadro": {"_type": "unum", "_default": 6.02214076e23},
+        "cell_density": {"_type": "unum", "_default": 1100.0},
+        "include_ppgpp": {"_type": "boolean", "_default": False},
+        "use_trna_charging": {"_type": "boolean", "_default": False},
+        "mechanistic_aa_transport": {"_type": "boolean", "_default": False},
+        "media_id": {"_type": "string", "_default": "minimal"},
+        "nutrientToDoublingTime": {"_type": "map[float]", "_default": {}},
+        "ppgpp_id": {"_type": "string", "_default": "ppgpp"},
+        "get_biomass_as_concentrations": {"_type": "method", "_default": None},
+        "get_ppGpp_conc": {"_type": "method", "_default": None},
+        "aa_names": {"_type": "list[string]", "_default": []},
+        "aa_exchange_names": {"_type": "list[string]", "_default": []},
+        "aa_targets_not_updated": {"_type": "any", "_default": set()},
+        "removed_aa_uptake": {"_type": "any", "_default": None},
+        "catalyst_ids": {"_type": "list[string]", "_default": []},
+        "kinetic_constraint_enzymes": {"_type": "list[string]", "_default": []},
+        "kinetic_constraint_substrates": {"_type": "list[string]", "_default": []},
+        "metabolite_names_from_nutrients": {"_type": "list[string]", "_default": []},
+        "linked_metabolites": {"_type": "map[node]", "_default": {}},
+        # Michaelis-Menten glucose uptake parameters. Defaults: v_max matches
+        # the saturating rate the old media lookup produced on minimal+glucose
+        # (≈20 mmol/gDCW/h); K_m is the classical PTS-system value (~10 µM).
+        # At 22 mM media glucose the MM formula returns essentially v_max,
+        # so enabling this is inert at t=0; the smooth falloff only matters
+        # once environment-depletion feedback lands in a follow-up.
+        "glucose_vmax_mmol_gdcw_h": {"_type": "float", "_default": 20.0},
+        "glucose_km_mM": {"_type": "float", "_default": 0.01},
+        # Mechanistic biology constraints. These molecules are physically
+        # allowed to cross the cell boundary but E. coli cannot grow on
+        # them as a net-carbon/energy source. Left uncontrolled, the LP
+        # exploits CO2 fixation / H2 oxidation to satisfy the biomass
+        # objective after glucose runs out — a failure mode the FBA
+        # stoichiometry permits but the underlying biology does not.
+        # Override: import bound = 0 (secretion still allowed).
+        #
+        # Defaults target the known offenders in the E. coli metabolism:
+        #   CARBON-DIOXIDE[p]: no autotrophic CO2 fixation in E. coli
+        #   HYDROGEN-MOLECULE[c]: no aerobic H2 oxidation as C/energy
+        "secretion_only_molecules": {
+            "_type": "list[string]",
+            "_default": ["CARBON-DIOXIDE[p]", "HYDROGEN-MOLECULE[c]"],
+        },
+        # Full FBA external molecule list, used to deny imports by default:
+        # any molecule the FBA has an exchange reaction for but isn't in
+        # the wholecell's curated import allowlist (importExchangeMolecules)
+        # gets a hard 0 upper bound on uptake. Without this, the LP
+        # exploits ~68 boundary molecules never meant to be imported.
+        "all_external_molecule_ids": {
+            "_type": "list[string]", "_default": []},
+        # Master switch to restrict imports to the wholecell allowlist.
+        "enforce_import_allowlist": {
+            "_type": "boolean", "_default": True},
+    }
+
+    topology = {
+        "boundary": ("boundary",),
+        "environment": ("environment",),
+        "bulk": ("bulk",),
+        "bulk_total": ("bulk",),
+        "listeners": ("listeners",),
+        "polypeptide_elongation": ("polypeptide_elongation",),
+        "metabolism_inputs": ("metabolism_inputs",),
+    }
+
+    def initialize(self, config):
+        self.parameters = config or {}
+        p = self.parameters
+
+        self.external_state = p.get("external_state")
+        self.environment_molecules = p.get("environment_molecules", [])
+        threshold = p.get("import_constraint_threshold", 0)
+        if hasattr(threshold, "magnitude"):
+            threshold = float(threshold.magnitude)
+        elif hasattr(threshold, "asNumber"):
+            threshold = float(threshold.asNumber())
+        self.import_constraint_threshold = float(threshold)
+        if self.external_state is not None:
+            self.external_state.import_constraint_threshold = (
+                self.import_constraint_threshold)
+
+        self.nAvogadro = p["avogadro"]
+        self.cellDensity = p["cell_density"]
+        self.include_ppgpp = p["include_ppgpp"]
+        self.use_trna_charging = p["use_trna_charging"]
+        self.mechanistic_aa_transport = p["mechanistic_aa_transport"]
+        self.media_id = p["media_id"]
+        self.nutrientToDoublingTime = p["nutrientToDoublingTime"]
+        self.ppgpp_id = p["ppgpp_id"]
+        self.getBiomassAsConcentrations = p["get_biomass_as_concentrations"]
+        self.getppGppConc = p["get_ppGpp_conc"]
+
+        self.aa_names = p["aa_names"]
+        self.aa_exchange_names = np.asarray(p["aa_exchange_names"])
+        self.aa_environment_names = [aa[:-3] for aa in p["aa_exchange_names"]]
+        self.aa_targets_not_updated = p["aa_targets_not_updated"]
+        self.removed_aa_uptake = p["removed_aa_uptake"]
+        self.linked_metabolites = p.get("linked_metabolites", {})
+
+        self.catalyst_ids = p["catalyst_ids"]
+        self.kinetic_constraint_enzymes = p["kinetic_constraint_enzymes"]
+        self.kinetic_constraint_substrates = p["kinetic_constraint_substrates"]
+        self.metabolite_names_from_nutrients = p["metabolite_names_from_nutrients"]
+
+        self.glucose_vmax = float(p["glucose_vmax_mmol_gdcw_h"])
+        self.glucose_km = float(p["glucose_km_mM"])
+        self.secretion_only = list(p.get("secretion_only_molecules", []))
+        self.all_external_ids = list(p.get("all_external_molecule_ids", []))
+        self.enforce_allowlist = bool(p.get("enforce_import_allowlist", True))
+
+        # Snapshot a STATIC import allowlist from the initial media. The
+        # wholecell classifier is dynamic — as boundary concentrations
+        # change, previously-excluded molecules can reappear in its
+        # `unconstrained` list (e.g. CARBON-MONOXIDE, 5-Deoxy-D-Ribo
+        # sneak back in once nutrients drop). For mechanistic correctness
+        # we fix the allowlist from the initial state and treat anything
+        # else as disallowed regardless of runtime reclassification.
+        self._static_allowlist: set[str] = set()
+        if self.external_state is not None and self.enforce_allowlist:
+            try:
+                saved = self.external_state.saved_media
+                medium = saved.get(self.media_id) or next(iter(saved.values()))
+                ed = self.external_state.exchange_data_from_concentrations(
+                    dict(medium))
+                self._static_allowlist = (
+                    set(ed["importUnconstrainedExchangeMolecules"])
+                    | set(ed["importConstrainedExchangeMolecules"]))
+            except Exception:
+                self._static_allowlist = set()
+
+        self.aa_targets: dict[str, float] = {}
+
+        self.metabolite_idx = None
+        self.catalyst_idx = None
+        self.kinetics_enzymes_idx = None
+        self.kinetics_substrates_idx = None
+        self.aa_idx = None
+
+    def inputs(self):
+        return {
+            "boundary": "node",
+            "environment": {
+                "media_id": {"_type": "string", "_default": ""},
+            },
+            "bulk": {"_type": "bulk_array", "_default": []},
+            "bulk_total": {"_type": "bulk_array", "_default": []},
+            "listeners": {
+                "mass": {
+                    "cell_mass": {"_type": "float[fg]", "_default": 0.0},
+                    "dry_mass": {"_type": "float[fg]", "_default": 0.0},
+                    "rna_mass": {"_type": "float[fg]", "_default": 0.0},
+                    "protein_mass": {"_type": "float[fg]", "_default": 0.0},
+                },
+            },
+            "polypeptide_elongation": {
+                "gtp_to_hydrolyze": {"_type": "float", "_default": 0.0},
+                "aa_count_diff": {"_type": "array[float]", "_default": []},
+                "aa_exchange_rates": {
+                    "_type": "array[float[mmol/g/h]]", "_default": []},
+            },
+        }
+
+    def outputs(self):
+        return {
+            "environment": {
+                "exchange_data": {
+                    # Values are Unum quantities (mmol/g/h) produced by
+                    # exchange_data_from_concentrations. `node` bypasses
+                    # bigraph-schema's float coercion that would fail on Unum.
+                    "constrained": {"_type": "node", "_default": {}},
+                    "unconstrained": "list[string]",
+                },
+            },
+            # bigraph-schema's default apply for numeric types is *add*;
+            # emit everything through overwrite[...] so each step replaces
+            # rather than accumulates.
+            "metabolism_inputs": {
+                "current_media_id": {"_type": "overwrite[string]", "_default": ""},
+                "counts_to_molar_mM": {"_type": "overwrite[float]", "_default": 1.0},
+                "coefficient_gsL": {"_type": "overwrite[float]", "_default": 0.0},
+                "translation_gtp": {"_type": "overwrite[float]", "_default": 0.0},
+                "conc_updates_mM": {"_type": "overwrite[map[float]]", "_default": {}},
+                "aa_uptake_present": {"_type": "overwrite[boolean]", "_default": False},
+                "aa_uptake_rates": {"_type": "overwrite[array[float]]", "_default": []},
+                "aa_uptake_names": {"_type": "overwrite[list[string]]", "_default": []},
+                "aa_uptake_force": {"_type": "overwrite[boolean]", "_default": True},
+                "metabolite_counts": {"_type": "overwrite[array[integer]]", "_default": []},
+                "catalyst_counts": {"_type": "overwrite[array[integer]]", "_default": []},
+                "kinetic_enzyme_counts": {"_type": "overwrite[array[integer]]", "_default": []},
+                "kinetic_substrate_counts": {"_type": "overwrite[array[integer]]", "_default": []},
+                "disallowed_imports": {"_type": "overwrite[list[string]]", "_default": []},
+            },
+        }
+
+    def _exchange_bounds(self, external_state):
+        env_concs = {}
+        for mol in self.environment_molecules:
+            val = external_state[mol]
+            if hasattr(val, "magnitude"):
+                env_concs[mol] = float(val.magnitude)
+            elif hasattr(val, "asNumber"):
+                env_concs[mol] = float(val.asNumber())
+            else:
+                env_concs[mol] = float(val)
+        ed = self.external_state.exchange_data_from_concentrations(env_concs)
+        constrained = dict(ed["importConstrainedExchangeMolecules"])
+        unconstrained = list(ed["importUnconstrainedExchangeMolecules"])
+
+        # Everything below is nutrient-growth-branch biology. When the
+        # master toggle is OFF, MetabolicKinetics behaves as a pure port
+        # for the wholecell classifier's result — identical to vEcoli 1.0.
+        if not _nutrient_growth_on():
+            return constrained, unconstrained
+
+        # Michaelis-Menten glucose uptake override.
+        glc_ext = float(env_concs.get("GLC", 0.0))
+        denom = self.glucose_km + glc_ext
+        mm_rate = (self.glucose_vmax * glc_ext / denom) if denom > 0 else 0.0
+        constrained["GLC[p]"] = mm_rate * (units.mmol / units.g / units.h)
+
+        # Secretion-only and allowlist enforcement happen post-hoc in
+        # metabolism.py — we do not touch unconstrained / constrained
+        # here.
+        return constrained, unconstrained
+
+    def compute_disallowed_imports(self, constrained, unconstrained, external):
+        """Molecules the LP should NOT be able to import this step.
+
+        Three sources of disallowed imports, unified here:
+
+        1. Biologically secretion-only molecules (CO2, H2, ...). E. coli
+           cannot use these as net carbon/energy sources even though FBA
+           stoichiometry permits it.
+        2. FBA externals outside the STATIC initial allowlist. The
+           allowlist is locked at MK init from the starting media; the
+           wholecell classifier otherwise reclassifies molecules at
+           runtime, which lets the LP pick up obscure exchanges as
+           nutrients fall.
+        3. Allowlisted nutrients whose boundary concentration has
+           depleted to (near) zero. Stops the LP from pulling free flux
+           on e.g. AMMONIUM after its external pool has run out.
+
+        metabolism.py zeroes every returned molecule's entry in
+        external_molecule_levels after exchange_constraints runs — that
+        channel doesn't perturb the homeostatic-target registry.
+        """
+        if not _nutrient_growth_on():
+            return []
+        disallowed = set(self.secretion_only)
+        if self.enforce_allowlist and self.all_external_ids:
+            for m in self.all_external_ids:
+                if m not in self._static_allowlist:
+                    disallowed.add(m)
+        # Nutrient-depletion enforcement: any allowlisted molecule whose
+        # boundary concentration is effectively zero can't be imported.
+        threshold = self.import_constraint_threshold
+        for m in list(self._static_allowlist):
+            # Drop compartment suffix to read boundary.external.
+            bkey = m.rsplit("[", 1)[0] if "[" in m else m
+            val = external.get(bkey)
+            if val is None:
+                continue
+            try:
+                v = float(val.asNumber()) if hasattr(val, "asNumber") \
+                    else float(val)
+            except (TypeError, ValueError):
+                continue
+            if v <= threshold:
+                disallowed.add(m)
+        return sorted(disallowed)
+
+    def update_amino_acid_targets(
+        self, counts_to_molar, count_diff, amino_acid_counts,
+    ):
+        if self.aa_targets:
+            for aa, diff in count_diff.items():
+                if aa in self.aa_targets_not_updated:
+                    continue
+                self.aa_targets[aa] += diff
+                if self.aa_targets[aa] < 0:
+                    print(
+                        "Warning: updated amino acid target for "
+                        f"{aa} was negative - adjusted to be positive."
+                    )
+                    self.aa_targets[aa] = 1.0
+        else:
+            for aa, ct in amino_acid_counts.items():
+                if aa in self.aa_targets_not_updated:
+                    continue
+                self.aa_targets[aa] = float(ct)
+
+        conc_updates = {
+            aa: ct * counts_to_molar for aa, ct in self.aa_targets.items()
+        }
+        for met, link in self.linked_metabolites.items():
+            conc_updates[met] = (
+                conc_updates.get(link["lead"], 0 * counts_to_molar) * link["ratio"]
+            )
+        return conc_updates
+
+    def update(self, states, interval=None):
+        bulk = states["bulk"]
+        if self.metabolite_idx is None:
+            self.metabolite_idx = bulk_name_to_idx(
+                self.metabolite_names_from_nutrients, bulk["id"])
+            self.catalyst_idx = bulk_name_to_idx(self.catalyst_ids, bulk["id"])
+            self.kinetics_enzymes_idx = bulk_name_to_idx(
+                self.kinetic_constraint_enzymes, bulk["id"])
+            self.kinetics_substrates_idx = bulk_name_to_idx(
+                self.kinetic_constraint_substrates, bulk["id"])
+            self.aa_idx = bulk_name_to_idx(self.aa_names, bulk["id"])
+
+        timestep = states.get("timestep", 1)
+        current_media_id = states["environment"].get("media_id", "")
+
+        constrained_bounds, unconstrained_list = self._exchange_bounds(
+            states["boundary"]["external"])
+        disallowed_imports = self.compute_disallowed_imports(
+            constrained_bounds, unconstrained_list,
+            states["boundary"]["external"])
+
+        cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
+        dry_mass = states["listeners"]["mass"]["dry_mass"] * units.fg
+        cell_volume = cell_mass / self.cellDensity
+        counts_to_molar = (1 / (self.nAvogadro * cell_volume)).asUnit(CONC_UNITS)
+        coefficient = dry_mass / cell_mass * self.cellDensity * timestep * units.s
+
+        doubling_time = self.nutrientToDoublingTime.get(
+            current_media_id,
+            self.nutrientToDoublingTime.get(self.media_id))
+        if self.include_ppgpp:
+            conc_updates = self.getBiomassAsConcentrations(doubling_time)
+            conc_updates[self.ppgpp_id] = self.getppGppConc(
+                doubling_time).asUnit(CONC_UNITS)
+        else:
+            rp_ratio = (
+                states["listeners"]["mass"]["rna_mass"]
+                / states["listeners"]["mass"]["protein_mass"]
+            )
+            conc_updates = self.getBiomassAsConcentrations(
+                doubling_time, rp_ratio=rp_ratio)
+
+        if self.use_trna_charging:
+            conc_updates.update(
+                self.update_amino_acid_targets(
+                    counts_to_molar,
+                    dict(zip(self.aa_names,
+                             states["polypeptide_elongation"]["aa_count_diff"])),
+                    dict(zip(self.aa_names,
+                             counts(states["bulk_total"], self.aa_idx))),
+                )
+            )
+
+        conc_updates_float = {
+            met: conc.asNumber(CONC_UNITS) for met, conc in conc_updates.items()
+        }
+
+        aa_uptake_present = False
+        aa_uptake_rates = np.array([], dtype=float)
+        aa_uptake_names: list[str] = []
+        if self.mechanistic_aa_transport:
+            aa_in_media = np.array([
+                states["boundary"]["external"][name]
+                > self.import_constraint_threshold
+                for name in self.aa_environment_names
+            ])
+            aa_in_media[self.removed_aa_uptake] = False
+            exchange_rates = (
+                np.asarray(states["polypeptide_elongation"]["aa_exchange_rates"])
+                * timestep
+            )
+            aa_uptake_rates = exchange_rates[aa_in_media]
+            aa_uptake_names = list(self.aa_exchange_names[aa_in_media])
+            aa_uptake_present = True
+
+        metabolite_counts = counts(bulk, self.metabolite_idx)
+        catalyst_counts = counts(bulk, self.catalyst_idx)
+        kinetic_enzyme_counts = counts(bulk, self.kinetics_enzymes_idx)
+        kinetic_substrate_counts = counts(bulk, self.kinetics_substrates_idx)
+
+        return {
+            "environment": {
+                "exchange_data": {
+                    "constrained": constrained_bounds,
+                    "unconstrained": unconstrained_list,
+                },
+            },
+            "metabolism_inputs": {
+                "current_media_id": current_media_id,
+                "counts_to_molar_mM": float(counts_to_molar.asNumber(CONC_UNITS)),
+                "coefficient_gsL": float(coefficient.asNumber(CONVERSION_UNITS)),
+                "translation_gtp": float(
+                    states["polypeptide_elongation"]["gtp_to_hydrolyze"]),
+                "conc_updates_mM": conc_updates_float,
+                "aa_uptake_present": aa_uptake_present,
+                "aa_uptake_rates": aa_uptake_rates,
+                "aa_uptake_names": aa_uptake_names,
+                "aa_uptake_force": True,
+                "metabolite_counts": metabolite_counts,
+                "catalyst_counts": catalyst_counts,
+                "kinetic_enzyme_counts": kinetic_enzyme_counts,
+                "kinetic_substrate_counts": kinetic_substrate_counts,
+                "disallowed_imports": disallowed_imports,
+            },
+        }
+
+    def next_update(self, timestep, states):
+        return self.update(states, interval=timestep)

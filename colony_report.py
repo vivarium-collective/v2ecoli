@@ -36,13 +36,116 @@ from multi_cell.processes.multibody import (
 from multi_cell.processes.grow_divide import (
     add_adder_grow_divide_to_agents, make_adder_grow_divide_process,
     make_grow_divide_process)
+from multi_cell.processes.pressure import make_pressure_process
 from multi_cell.plots.multibody_plots import simulation_to_gif
 
 from v2ecoli.bridge import EcoliWCM
 from v2ecoli.types import ECOLI_TYPES
+from v2ecoli.viz.network import render_html as _viz_render_html
 
 
 REPORT_DIR = 'out/colony'
+
+
+# ---------------------------------------------------------------------------
+# Colony network graph (Cytoscape, same viewer as other network reports)
+# ---------------------------------------------------------------------------
+
+_COLONY_PROCESS_COLORS = {
+    'PymunkProcess': '#2563eb',   # blue — physics
+    'Pressure':      '#be185d',   # magenta — mechanics
+    'GrowDivide':    '#15803d',   # green — cell-cycle
+    'AdderGrowDivide': '#15803d',
+    'EcoliWCM':      '#ea580c',   # orange — whole-cell biology
+    'emitter':       '#64748b',   # slate
+}
+
+
+def _colony_proc_color(addr_tail):
+    return _COLONY_PROCESS_COLORS.get(addr_tail, '#9333ea')
+
+
+def _wire_to_path(wire):
+    """Normalize a wire (list of segments, possibly with '..') into a
+    canonical store path string. Returns None if the wire is unusable."""
+    if not isinstance(wire, (list, tuple)) or not wire:
+        return None
+    segs = [s for s in wire if s != '..' and isinstance(s, str) and s and not s.startswith('_')]
+    return '.'.join(segs) if segs else None
+
+
+def build_colony_graph(document):
+    """Build a Cytoscape-compatible graph dict from the colony document.
+
+    Walks the nested dict; every sub-dict with ``_type`` in {process, step}
+    becomes a process node and its ``inputs``/``outputs`` wires become edges
+    to store nodes. Stores referenced via ``['..', '..', 'cells']`` resolve
+    to the top-level ``cells`` store so per-cell processes and the multibody
+    process share the same anchor.
+    """
+    nodes = {}
+    edges = {}
+
+    def add_store(path):
+        if not path:
+            return
+        if path not in nodes:
+            nodes[path] = {'data': {
+                'id': path, 'label': path.split('.')[-1],
+                'kind': 'store', 'subsystem': 'store', 'color': '#FFFFFF',
+            }}
+
+    def add_edge(src, dst, direction, port):
+        key = (src, dst, direction)
+        if key not in edges:
+            edges[key] = {'data': {
+                'id': f'{src}__{dst}__{direction}',
+                'source': src, 'target': dst,
+                'direction': direction, 'ports': [],
+            }}
+        edges[key]['data']['ports'].append(port)
+
+    def walk(path_segs, node):
+        if not isinstance(node, dict):
+            return
+        t = node.get('_type')
+        if t in ('process', 'step'):
+            addr = node.get('address', '') or ''
+            addr_tail = addr.rsplit(':', 1)[-1] or addr
+            proc_id = '.'.join(path_segs) or addr_tail
+            label = addr_tail if len(path_segs) <= 1 else f'{path_segs[-1]} ({addr_tail})'
+            nodes[proc_id] = {'data': {
+                'id': proc_id, 'label': label,
+                'kind': 'process', 'subsystem': addr_tail,
+                'color': _colony_proc_color(addr_tail),
+                'klass': t, 'interval': node.get('interval'),
+            }}
+            for direction, ports in (
+                    ('input', node.get('inputs') or {}),
+                    ('output', node.get('outputs') or {})):
+                for port, wire in ports.items():
+                    store = _wire_to_path(wire)
+                    if not store:
+                        continue
+                    add_store(store)
+                    if direction == 'input':
+                        add_edge(store, proc_id, 'input', port)
+                    else:
+                        add_edge(proc_id, store, 'output', port)
+            return  # do not recurse into processes' own config
+        for k, v in node.items():
+            if k.startswith('_') or k in ('inputs', 'outputs', 'config'):
+                continue
+            walk(path_segs + [k], v)
+
+    walk([], document)
+
+    return {
+        'nodes': list(nodes.values()),
+        'edges': list(edges.values()),
+        'layers': [],
+        'legend': {p: c for p, c in _COLONY_PROCESS_COLORS.items()},
+    }
 
 
 def make_colony_document(
@@ -61,7 +164,7 @@ def make_colony_document(
     cells = {}
     total = n_adder + 1  # adder + 1 ecoli
 
-    # Place cells in a tight grid near center
+    # Random placement around center (like the original rigid-cell version).
     cols = int(np.ceil(np.sqrt(total)))
     spacing = 3.0  # µm between cell centers
 
@@ -81,24 +184,29 @@ def make_colony_document(
         length = 1.5 + rng.uniform(0, 1.0)
         radius = 0.4 + rng.uniform(0, 0.2)
 
+        # Density=1.0 so per-sub-body mass is high enough for stable bending
+        # physics. viva-munk's bending example stays stable because it runs a
+        # single cell; with 10+ bending cells that divide, low-mass sub-bodies
+        # accumulate numerical error at every pivot rebuild and fly apart.
         if i == ecoli_idx:
             # This is the whole-cell ecoli
             ecoli_id, ecoli_body = build_microbe(
                 rng, env_size=env_size,
                 x=x, y=y, angle=angle,
-                length=2.0, radius=0.5, density=0.02,
+                length=2.0, radius=0.5, density=50.0,
             )
             # Set initial physical mass to match WCM dry mass
             ecoli_body['mass'] = 380.0  # fg, matches v2ecoli initial dry mass
         else:
-            # Adder surrogate cell
+            # Adder surrogate cell — match ecoli's density/mass regime
             aid, body = build_microbe(
                 rng, env_size=env_size,
                 x=x, y=y, angle=angle,
-                length=length, radius=radius, density=0.02,
+                length=length, radius=radius, density=1.0,
             )
+            body['mass'] = 380.0  # fg, match v2ecoli initial dry mass
             body['grow_divide'] = make_adder_grow_divide_process(
-                config={'agents_key': 'cells'},
+                config={'agents_key': 'cells', 'pressure_k': 2.5},
                 agents_key='cells',
                 interval=physics_interval,
             )
@@ -142,17 +250,29 @@ def make_colony_document(
             'config': {
                 'env_size': env_size,
                 'elasticity': 0.1,
+                'n_bending_segments': 4,
+                'bending_stiffness': 120.0,
+                'bending_damping': 20.0,
+                'jitter_per_second': 0.0,
             },
             'interval': physics_interval,
             'inputs': {
-                'segment_cells': ['cells'],
+                'bending_cells': ['cells'],
                 'circle_particles': ['particles'],
             },
             'outputs': {
-                'segment_cells': ['cells'],
+                'bending_cells': ['cells'],
                 'circle_particles': ['particles'],
             },
         },
+
+        'pressure': make_pressure_process(
+            agents_key='cells',
+            contact_slack=0.2,
+            pressure_scale=1.0,
+            env_size=env_size,
+            wall_weight=2.0,
+        ),
 
         'emitter': emitter_from_wires({
             'agents': ['cells'],
@@ -215,12 +335,18 @@ def _generate_chromosome_gif_from_history(history, out_path, frame_duration_ms=1
     if not history:
         return
 
-    # Determine max panels needed (usually 1 before division, 2 after)
+    # Determine max panels needed (usually 1 before division, 2+ after).
+    # Lay out 2+ panels into a 2-row grid so wide rows don't squish subplots.
     max_panels = max((len(cells) for _, cells in history if cells), default=1)
     max_panels = max(1, max_panels)
+    if max_panels <= 2:
+        nrows, ncols = 1, max_panels
+    else:
+        nrows = 2
+        ncols = (max_panels + 1) // 2  # ceil
 
-    fig_w = 5.0 * max_panels
-    fig_h = 5.0
+    fig_w = 5.0 * ncols
+    fig_h = 5.0 * nrows
 
     images = []
     for t, ecoli_cells in history:
@@ -232,8 +358,8 @@ def _generate_chromosome_gif_from_history(history, out_path, frame_duration_ms=1
 
         sorted_cells = sorted(ecoli_cells.items(), key=lambda x: x[0])
 
-        for i in range(max_panels):
-            ax = fig.add_subplot(1, max_panels, i + 1)
+        for i in range(nrows * ncols):
+            ax = fig.add_subplot(nrows, ncols, i + 1)
 
             if i < len(sorted_cells):
                 aid, chrom = sorted_cells[i]
@@ -458,10 +584,13 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
     total = cached_total
     t0 = time.time()
     chromosome_history = []  # list of (time, {cell_id: chrom_state})
+    # Ecoli-lineage ids: any cell that ever had an 'ecoli' process attached,
+    # including granddaughters born from internal WCM division (whose ids do
+    # not prefix-match the original ecoli_id).
+    ecoli_lineage = {ecoli_id}
     # Keep reference to mother's EcoliWCM instance so we preserve its history
     # even after division removes it from the colony
     mother_wcm_history = None  # will be set when mother is found
-    daughter_wcms = {}  # {daughter_id: EcoliWCM} — manually driven after division
 
     # Restore mother history from cache if available
     if cached_mother_history:
@@ -487,34 +616,82 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
             print(f"  Warning at t={total+step}s: {type(e).__name__}")
         total += step
 
+        # Hydrate daughter process specs that were added via _add during
+        # division. process-bigraph does not auto-instantiate nested
+        # process specs that appear mid-simulation, so we walk the cells
+        # dict and instantiate any grow_divide process whose `instance` is
+        # missing by looking up its class in core.link_registry.
+        _hydrated_any = False
+        # First update lineage based on pre-hydration cells so the gate below
+        # knows which cells are ecoli descendants. (The lineage-refresh pass
+        # further down runs after this block.)
+        for _aid in list(sim.state.get('cells', {}).keys()):
+            for root in list(ecoli_lineage):
+                if _aid == root or _aid.startswith(root + '_'):
+                    ecoli_lineage.add(_aid)
+                    break
+        for aid, cell in sim.state.get('cells', {}).items():
+            for proc_key in ('grow_divide', 'ecoli'):
+                # Both 'ecoli' and 'grow_divide' keys are broadcast to every
+                # cell by bigraph-schema's map-schema fill. Gate each
+                # hydration to the cell's real lineage: ecoli ancestors get
+                # WCM, everything else gets grow_divide.
+                if proc_key == 'ecoli' and aid not in ecoli_lineage:
+                    continue
+                if proc_key == 'grow_divide' and aid in ecoli_lineage:
+                    continue
+                spec = cell.get(proc_key)
+                if not (isinstance(spec, dict)
+                        and spec.get('_type') == 'process'
+                        and not spec.get('instance')):
+                    continue
+                addr = spec.get('address', '')
+                if isinstance(addr, dict):
+                    cls_name = addr.get('data', '')
+                else:
+                    cls_name = addr.rsplit(':', 1)[-1] if addr else ''
+                cls = core.link_registry.get(cls_name)
+                if cls is None:
+                    print(f"    [hydrate] no class for {aid}.{proc_key} (addr={addr})")
+                    continue
+                try:
+                    inst = cls(config=spec.get('config') or {}, core=core)
+                    spec['instance'] = inst
+                    _hydrated_any = True
+                    print(f"    [hydrate] {aid}.{proc_key} -> {cls_name}")
+                except Exception as ex:
+                    print(f"    [hydrate] {aid}.{proc_key} failed: {ex}")
+        if _hydrated_any:
+            sim.find_instance_paths(sim.state)
+            sim.edge_paths = {**sim.process_paths, **sim.step_paths}
+            sim.expire_process_paths([('cells',)])
+
         # Collect chromosome state directly from EcoliWCM instances
         colony_cells = sim.state.get('cells', {})
+        # Refresh ecoli lineage by colony-path descent from a known ecoli
+        # ancestor. We CANNOT detect lineage by "has an 'ecoli' key" because
+        # bigraph-schema's fill() broadcasts the cells map's value-schema
+        # default (which contains the full EcoliWCM spec once any daughter
+        # carries it) to every cell in the store. The bridge names daughters
+        # {parent}_0 / {parent}_1, so lineage is identifiable by prefix.
+        for _aid in list(colony_cells.keys()):
+            for root in list(ecoli_lineage):
+                if _aid == root or _aid.startswith(root + '_'):
+                    ecoli_lineage.add(_aid)
+                    break
         chrom_snap = {}
         for aid, cell in colony_cells.items():
-            if aid == ecoli_id or aid.startswith(ecoli_id + '_'):
-                ecoli_proc = cell.get('ecoli', {})
-                inst = ecoli_proc.get('instance') if isinstance(ecoli_proc, dict) else None
-                if inst and hasattr(inst, '_composite') and inst._composite is not None:
-                    chrom_snap[aid] = inst._read_chromosome_state()
-                elif aid.startswith(ecoli_id + '_') and aid not in daughter_wcms:
-                    # Daughter process not yet hydrated — create standalone WCM
-                    try:
-                        config = ecoli_proc.get('config', {}) if isinstance(ecoli_proc, dict) else {}
-                        dwcm = EcoliWCM(config=config, core=core)
-                        daughter_wcms[aid] = dwcm
-                        print(f"    [hydrate] Created standalone EcoliWCM for {aid}")
-                    except Exception as e:
-                        print(f"    [hydrate] Failed for {aid}: {e}")
-
-        # Drive standalone daughter WCMs manually and collect their state
-        for aid, dwcm in daughter_wcms.items():
-            try:
-                dwcm.update({'local': {}, 'agent_id': aid,
-                             'location': (15, 15), 'angle': 0}, step)
-                if dwcm._composite is not None:
-                    chrom_snap[aid] = dwcm._read_chromosome_state()
-            except Exception:
-                pass  # daughter WCM step failed, keep going
+            if aid not in ecoli_lineage:
+                continue
+            ecoli_proc = cell.get('ecoli', {})
+            inst = ecoli_proc.get('instance') if isinstance(ecoli_proc, dict) else None
+            if inst and hasattr(inst, '_composite') and inst._composite is not None:
+                chrom_snap[aid] = inst._read_chromosome_state()
+            # No standalone-WCM fallback: the in-composite hydrate pass above
+            # instantiates the daughter's ecoli process inside `sim`, so it
+            # runs on the next tick with state routed back into the cell
+            # store. A parallel standalone WCM would fire its own independent
+            # division and spawn phantom granddaughters.
 
         if chrom_snap:
             chromosome_history.append((total, chrom_snap))
@@ -522,7 +699,8 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
         n_cells = len(colony_cells)
         ecoli_alive = ecoli_id in colony_cells
         # Check for daughter cells (ecoli_id_0, ecoli_id_1)
-        ecoli_daughters = [k for k in colony_cells if k.startswith(ecoli_id + '_')]
+        ecoli_daughters = [k for k in colony_cells
+                           if k != ecoli_id and k in ecoli_lineage]
         if ecoli_alive:
             status = 'alive'
         elif ecoli_daughters:
@@ -582,7 +760,7 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
             return child_rgb
 
         def _hybrid_color(aid, ent=None):
-            if aid == ecoli_id or aid.startswith(ecoli_id + '_'):
+            if aid in ecoli_lineage:
                 return _get_ecoli_color(aid)
             return (0.7, 0.7, 0.7)
 
@@ -618,7 +796,7 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
     daughter_ids_from_colony = []  # all daughter IDs present in colony
     colony_cells = sim.state.get('cells', {})
     for aid, cell in colony_cells.items():
-        if aid.startswith(ecoli_id + '_'):
+        if aid != ecoli_id and aid in ecoli_lineage:
             daughter_ids_from_colony.append(aid)
             ecoli_proc = cell.get('ecoli', {})
             inst = ecoli_proc.get('instance') if isinstance(ecoli_proc, dict) else None
@@ -628,7 +806,7 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
     # Also check chunk-collected chromosome_history for daughter data
     for t_chunk, chrom_snap in chromosome_history:
         for aid, chrom in chrom_snap.items():
-            if aid.startswith(ecoli_id + '_'):
+            if aid != ecoli_id:
                 if aid not in daughter_ids_from_colony:
                     daughter_ids_from_colony.append(aid)
                 daughter_histories.setdefault(aid, []).append((t_chunk, chrom))
@@ -659,54 +837,33 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
             t = entry.get('time', 0)
         frame_times.append(float(t))
 
-    # Split mother's RNAPs between the two daughters (deterministic partition)
-    mother_rnap_coords = mother_last_chrom.get('rnap_coords', []) if mother_last_chrom else []
-    half_n = len(mother_rnap_coords) // 2
-    daughter_rnap_pools = [
-        list(mother_rnap_coords[:half_n]),
-        list(mother_rnap_coords[half_n:2*half_n]),
-    ]
-    # RNAP elongation rate: ~45 nt/s on average
-    rnap_speed = 45  # nt/s
-
+    # Build frame-synced chromosome data by matching each emitter frame to the
+    # nearest chromosome_history snapshot (which captures all live ecoli
+    # lineage cells, including 2nd-gen daughters). Falls back to the mother
+    # history / daughter_histories when the per-chunk snapshot is missing.
     synced_chrom = []
+    history_times = [t for t, _ in chromosome_history]
     for ft in frame_times:
         frame_chrom = {}
 
-        if ft <= division_time:
-            # Before/at division: show mother
-            if mother_history:
-                best = min(mother_history, key=lambda h: abs(h[0] - ft))
-                if abs(best[0] - ft) < 120:
-                    frame_chrom[ecoli_id] = best[1]
-        else:
-            # After division: show daughters with simulated RNAP movement
-            dt = ft - division_time  # seconds since division
-            for i, did in enumerate(daughter_ids):
-                dhist = daughter_histories.get(did, [])
-                if dhist:
-                    best = min(dhist, key=lambda h: abs(h[0] - ft))
-                    if abs(best[0] - ft) < 120:
-                        frame_chrom[did] = best[1]
-                elif mother_last_chrom:
-                    pool_idx = min(i, len(daughter_rnap_pools) - 1)
-                    base_coords = daughter_rnap_pools[pool_idx]
-                    # Advance each RNAP along the chromosome, wrapping at genome end
-                    moved = [(c + rnap_speed * dt) % MAX_COORD for c in base_coords]
-                    half_mass = mother_last_chrom.get('dry_mass', 0) / 2
-                    # Simple exponential growth estimate (~0.01 fg/s)
-                    est_mass = half_mass * (1 + 0.00025 * dt)
-                    frame_chrom[did] = {
-                        'n_chromosomes': 1,
-                        'n_forks': 0,
-                        'fork_coords': [],
-                        'dry_mass': est_mass,
-                        'protein_mass': mother_last_chrom.get('protein_mass', 0) / 2,
-                        'rna_mass': mother_last_chrom.get('rna_mass', 0) / 2,
-                        'dna_mass': mother_last_chrom.get('dna_mass', 0) / 2,
-                        'n_rnap': len(base_coords),
-                        'rnap_coords': moved,
-                    }
+        if history_times:
+            # nearest-in-time chunk snapshot (covers all live ecoli-lineage cells)
+            best_idx = min(range(len(history_times)),
+                           key=lambda i: abs(history_times[i] - ft))
+            if abs(history_times[best_idx] - ft) < 120:
+                frame_chrom.update(chromosome_history[best_idx][1])
+
+        # Fill from mother_history if the chunk snapshot missed the mother
+        if ecoli_id not in frame_chrom and mother_history:
+            best = min(mother_history, key=lambda h: abs(h[0] - ft))
+            if abs(best[0] - ft) < 120:
+                frame_chrom[ecoli_id] = best[1]
+
+        # NOTE: per-daughter WCM chromosome_history cannot be used here
+        # because each daughter's internal composite has its own clock that
+        # starts at 0, so its h[0] timestamps are not comparable to the
+        # outer simulation time. The chunk-captured chromosome_history
+        # (global time) is authoritative for daughters.
 
         synced_chrom.append((ft, frame_chrom))
 
@@ -734,6 +891,108 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
         import traceback; traceback.print_exc()
         print(f"Chromosome GIF failed: {e}")
         chrom_gif_path = None
+
+    # Colony network viz (Cytoscape, same viewer as other network reports).
+    network_html = os.path.join(REPORT_DIR, 'colony_network.html')
+    try:
+        graph = build_colony_graph(doc)
+        n_proc = sum(1 for n in graph['nodes'] if n['data']['kind'] == 'process')
+        n_store = sum(1 for n in graph['nodes'] if n['data']['kind'] == 'store')
+        with open(network_html, 'w') as nf:
+            nf.write(_viz_render_html(
+                graph,
+                title='Colony composition',
+                subtitle=f'{n_proc} processes · {n_store} stores · {len(graph["edges"])} edges',
+            ))
+        print(f"Network viz saved: {network_html}")
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        print(f"Network viz failed: {e}")
+        network_html = None
+
+    # Mass timeseries GIF: one line per cell, colored the same as the colony
+    # GIF. When a cell divides its line stops and its daughters start ~half
+    # its mass with lineage-matched colors.
+    mass_gif_path = os.path.join(REPORT_DIR, 'mass_timeseries.gif')
+    print(f"Generating mass timeseries GIF ({len(results)} frames, skip={gif_skip})...")
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+        from PIL import Image
+        import io as _io
+
+        # Keep raw frame_ts for the animation cursor, but deduplicate each
+        # trajectory to only (time, mass) points where mass actually changed.
+        # Without this, slow processes (ecoli WCM at 60s) produce 6 identical
+        # 10s-spaced points and render as flat-then-jump; fast processes
+        # (adder at 10s) render smoother, so the visual cadences mismatch.
+        raw = {}
+        frame_ts = []
+        for entry in results:
+            t_f = float(entry.get('time', 0) or 0)
+            frame_ts.append(t_f)
+            for aid, a in (entry.get('agents') or {}).items():
+                raw.setdefault(aid, []).append((t_f, float(a.get('mass', 0) or 0)))
+        trajectories = {}
+        for aid, pts in raw.items():
+            keep = []
+            for t, m in pts:
+                if not keep or abs(m - keep[-1][1]) > 1e-9:
+                    keep.append((t, m))
+            # Ensure a terminal point at the final observed time so the
+            # line extends fully even if mass was constant at the end.
+            if keep and pts and keep[-1][0] != pts[-1][0]:
+                keep.append((pts[-1][0], keep[-1][1]))
+            trajectories[aid] = keep
+
+        t_max_s = max(frame_ts) if frame_ts else 1.0
+        m_max = max((m for traj in trajectories.values() for _, m in traj), default=1.0)
+        m_max = max(m_max * 1.15, 1.0)
+
+        frames_idx = list(range(0, len(results), max(1, gif_skip)))
+        images = []
+        for fi in frames_idx:
+            t_now = frame_ts[fi]
+            fig, ax = plt.subplots(figsize=(7, 3.5), facecolor='white', dpi=90)
+            for aid, traj in trajectories.items():
+                pts = [(t, m) for t, m in traj if t <= t_now]
+                if not pts:
+                    continue
+                xs = [p[0] / 60.0 for p in pts]
+                ys = [p[1] for p in pts]
+                rgb = _hybrid_color(aid)
+                is_ecoli = aid in ecoli_lineage
+                lw = 2.2 if is_ecoli else 1.1
+                alpha = 1.0 if is_ecoli else 0.75
+                ax.plot(xs, ys, color=rgb, lw=lw, alpha=alpha)
+                # mark current mass with a dot at the leading edge
+                ax.plot(xs[-1], ys[-1], 'o', color=rgb, ms=4,
+                        alpha=alpha, zorder=5)
+            ax.set_xlim(0, t_max_s / 60.0)
+            ax.set_ylim(0, m_max)
+            ax.set_xlabel('Time (min)')
+            ax.set_ylabel('Dry mass (fg)')
+            ax.grid(alpha=0.25)
+            t_int = int(t_now)
+            ax.set_title(
+                f't = {t_int // 3600:02d}:{(t_int % 3600) // 60:02d}:{t_int % 60:02d}',
+                fontsize=11, fontweight='bold')
+            buf = _io.BytesIO()
+            fig.savefig(buf, format='png', bbox_inches='tight')
+            plt.close(fig)
+            buf.seek(0)
+            images.append(Image.open(buf).copy())
+
+        if images:
+            images[0].save(mass_gif_path, save_all=True,
+                           append_images=images[1:],
+                           duration=gif_duration_ms, loop=0)
+            print(f"Mass GIF saved: {mass_gif_path}")
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        print(f"Mass GIF failed: {e}")
+        mass_gif_path = None
 
     # Generate HTML report
     report_path = os.path.join(REPORT_DIR, 'colony_report.html')
@@ -804,6 +1063,20 @@ model. Daughters are shown with color-shifted variants of the mother&rsquo;s gre
 </div>
 """)
 
+        if mass_gif_path and os.path.exists(mass_gif_path):
+            f.write("""
+<h2>Cell Mass Over Time</h2>
+<p>Each line traces one cell&rsquo;s dry mass. The thick coloured line is the
+whole-cell <em>E. coli</em> lineage; thin grey lines are surrogates. When a
+cell divides its line ends and two daughter lines start at roughly half the
+mother&rsquo;s mass, each inheriting a hue-shifted variant of the lineage
+colour (green family for <em>E. coli</em>, grey for surrogates).</p>
+<div class="media">
+  <img src="mass_timeseries.gif" alt="Cell mass over time">
+  <div class="media-label">Per-cell dry mass trajectories, synchronized with the colony animation.</div>
+</div>
+""")
+
         if chrom_gif_path and os.path.exists(chrom_gif_path):
             f.write(f"""
 <h2>Chromosome State</h2>
@@ -846,20 +1119,19 @@ forks, and active RNA polymerases.</p>
 <tr><td>Final cells</td><td>{n_final}</td></tr>
 <tr><td>Emitter frames</td><td>{len(results)}</td></tr>
 </table>
+""")
 
+        if network_html and os.path.exists(network_html):
+            f.write("""
+<h2>Composition Network</h2>
+<p>Interactive Cytoscape graph of the full colony composite — the multibody
+physics process, the pressure step, each cell&rsquo;s internal processes
+(grow/divide for surrogates, EcoliWCM for the whole-cell <em>E. coli</em>),
+and the shared stores that wire them together.</p>
+<div class="media"><p><a href="colony_network.html" target="_blank">Open interactive colony network &rarr;</a></p></div>
+""")
 
-<h2>Reproducibility</h2>
-<table style="font-size:0.85em;">
-<tr><th>Field</th><th>Value</th></tr>
-<tr><td>Date</td><td>{repro['date']}</td></tr>
-<tr><td>Git commit</td><td><code>{repro['commit']}</code> ({repro['branch']})</td></tr>
-<tr><td>Python</td><td>{repro['python']}</td></tr>
-<tr><td>Platform</td><td>{repro['platform']}</td></tr>
-<tr><td>process-bigraph</td><td>{repro['process_bigraph']}</td></tr>
-<tr><td>bigraph-schema</td><td>{repro['bigraph_schema']}</td></tr>
-<tr><td>Seed</td><td>{seed}</td></tr>
-<tr><td>Command</td><td><code>python3 colony_report.py --duration {duration_min} --n-adder {n_adder} --env-size {env_size}</code></td></tr>
-</table>
+        f.write("""
 
 <footer style="margin-top:2em; padding-top:1em; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:0.85em;">
 v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-collective/v2ecoli">github</a>
@@ -873,7 +1145,8 @@ v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-c
         os.path.dirname(os.path.abspath(__file__)), 'docs')
     if os.path.isdir(docs_dir):
         shutil.copy2(report_path, os.path.join(docs_dir, 'colony_report.html'))
-        for gif in ('colony.gif', 'chromosome.gif'):
+        for gif in ('colony.gif', 'chromosome.gif', 'mass_timeseries.gif',
+                    'colony_network.html'):
             src = os.path.join(os.path.dirname(report_path), gif)
             if os.path.exists(src):
                 shutil.copy2(src, os.path.join(docs_dir, gif))

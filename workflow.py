@@ -1044,7 +1044,13 @@ def step_parca():
         operons_on=True, remove_rrna_operons=False,
         remove_rrff=False, stable_rrna=False)
         t0 = time.time()
-        sim_data = fitSimData_1(raw_data)
+        cache_dir = os.path.join('out', 'cache')
+        os.makedirs(cache_dir, exist_ok=True)
+        sim_data = fitSimData_1(
+            raw_data,
+            basal_expression_condition="M9 Glucose minus AAs",
+            cache_dir=cache_dir,
+        )
         parca_time = time.time() - t0
 
         # Save simData

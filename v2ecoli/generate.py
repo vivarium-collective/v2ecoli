@@ -446,12 +446,11 @@ def _normalize_boundary_units(cell_state):
     external = boundary.get('external', {})
     if not isinstance(external, dict):
         return
+    from v2ecoli.library.unit_bridge import unum_to_pint
     for key, val in external.items():
-        if hasattr(val, 'magnitude') and hasattr(val, 'units'):
-            # Strip units — metabolism expects plain floats in mM
-            external[key] = float(val.magnitude)
-        elif hasattr(val, 'asNumber'):
-            external[key] = float(val.asNumber())
+        q = unum_to_pint(val)
+        if hasattr(q, 'magnitude') and hasattr(q, 'units'):
+            external[key] = float(q.magnitude)
 
 
 # ---------------------------------------------------------------------------

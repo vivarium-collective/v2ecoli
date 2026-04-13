@@ -293,6 +293,9 @@ class EcoliWCM(Process):
                 x=mx + ox, y=my + oy, angle=mother_angle + rng.uniform(-0.3, 0.3),
                 length=2.0, radius=0.5, density=0.02,
             )
+            d_body['id'] = d_id  # override build_microbe's random id so the
+                                 # daughter's WCM reads the colony path as
+                                 # its agent_id, keeping lineage IDs nested
             d_body['mass'] = half_mass
             # Each daughter gets its own EcoliWCM
             d_body['ecoli'] = {

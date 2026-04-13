@@ -50,6 +50,8 @@ from v2ecoli.library.schema import attrs as ecoli_attrs
 from process_bigraph import Composite
 from v2ecoli.generate import build_document, FLOW_ORDER
 from v2ecoli.cache import NumpyJSONEncoder, load_initial_state
+from v2ecoli.library.repro_banner import banner_html
+from v2ecoli.viz import build_graph, render_html
 
 try:
     from v2ecoli.library.division import divide_cell, divide_bulk
@@ -883,6 +885,7 @@ def step_biocyc():
         return meta
 
     print(f"  Step 0: EcoCyc API")
+    t0 = time.time()
     import requests
     base_url = "https://websvc.biocyc.org/wc-get?type="
     results = {}
@@ -908,6 +911,7 @@ def step_biocyc():
         'n_files': len(BIOCYC_FILE_IDS),
         'files': results,
         'n_fetched': sum(1 for v in results.values() if v['status'] == 'ok'),
+        'elapsed': time.time() - t0,
     }
     save_meta(step_name, meta)
     print(f"    {meta['n_fetched']}/{meta['n_files']} files fetched")
@@ -1820,7 +1824,7 @@ def plot_daughters_mass(daughters_meta, title=''):
 # HTML Report Generator
 # ---------------------------------------------------------------------------
 
-def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
+def generate_html_report(step_results, plots, network_iframe_src):
     """Generate the HTML report organized by pipeline step."""
 
     biocyc = step_results.get('biocyc', {})
@@ -1868,32 +1872,28 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
           <td>{info['d1']}</td><td>{info['d2']}</td>
           <td class="{ok}">{'Yes' if info['conserved'] else 'No'}</td></tr>"""
 
-    # Step diagnostics table
-    step_rows = ''
-    for d in diagnostics:
-        inner = f' ({d["inner_class"]})' if d['inner_class'] else ''
-        ports = ', '.join(d.get('input_ports', [])[:5])
-        if len(d.get('input_ports', [])) > 5:
-            ports += f' +{len(d["input_ports"])-5}'
-        step_rows += f"""<tr>
-          <td>{d['name']}</td>
-          <td>{d['class']}{inner}</td>
-          <td>{d['n_config_keys']}</td>
-          <td>{ports}</td>
-          <td>{d['priority']:.0f}</td>
-        </tr>"""
-
     # Collect timing data
+    biocyc_elapsed = biocyc.get('elapsed', 0)
+    raw_elapsed = raw.get('elapsed', 0)
     parca_time = parca.get('parca_time', 0)
     cache_time = parca.get('cache_time', 0)
     build_time = model.get('build_time', 0)
     long_wall = long.get('wall_time', 0)
     long_dur = long.get('duration', LONG_DURATION)
     long_rate = long.get('rate', 0)
+    v1_wall = step_results.get('v1_comparison', {}).get('v1_wall_time', 0)
+    split_time = div.get('split_time', 0)
+    daughter_build_time = div.get('daughter_build_time', 0)
     d1_wall = daughters.get('daughter_1', {}).get('wall_time', 0)
     d2_wall = daughters.get('daughter_2', {}).get('wall_time', 0)
+    d1_build = daughters.get('daughter_1', {}).get('build_time', 0)
+    d2_build = daughters.get('daughter_2', {}).get('build_time', 0)
     daughters_wall = d1_wall + d2_wall
     daughters_dur = daughters.get('duration', 0)
+    pipeline_wall = step_results.get('_pipeline_wall', 0)
+    total_wall = (biocyc_elapsed + raw_elapsed + parca_time + cache_time
+                  + build_time + long_wall + v1_wall + split_time
+                  + daughter_build_time + daughters_wall)
 
     report_path = os.path.join(WORKFLOW_DIR, 'workflow_report.html')
     with open(report_path, 'w') as f:
@@ -1946,6 +1946,8 @@ def generate_html_report(step_results, plots, bigraph_svg, diagnostics):
 </head>
 <body>
 
+{banner_html()}
+
 <h1>v2ecoli Workflow Report</h1>
 <p style="color: #64748b; font-size: 0.9em;">{time.strftime('%Y-%m-%d %H:%M')} &middot;
 Pipeline steps with intermediate caching &middot; process-bigraph <code>Composite.run()</code></p>
@@ -1971,8 +1973,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
     <li><a href="#sec-long">Single Cell Simulation + v1 Comparison ({long_dur/60:.0f} min)</a></li>
     <li><a href="#sec-division">Division</a></li>
     <li><a href="#sec-daughters">Daughter Simulations</a></li>
-    <li><a href="#sec-steps">Step Diagnostics</a></li>
-    <li><a href="#sec-bigraph">Network Visualization</a></li>
+    <li><a href="#sec-network">Step Flow + Interactive Network</a></li>
     <li><a href="#sec-timing">Timing Summary</a></li>
   </ol>
 </nav>
@@ -2201,91 +2202,63 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
             f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["daughters_mass"]}" alt="Daughters Mass"></div>\n')
 
         f.write(f"""
-<!-- ===== Step Diagnostics ===== -->
-<h2 id="sec-steps">7. Step Diagnostics ({len(diagnostics)} steps)</h2>
-<details open>
-<summary>Execution Flow</summary>
-<div class="section" style="overflow-x: auto;">
-  <table>
-    <thead><tr><th>Step</th><th>Class</th><th>Config Keys</th><th>Ports</th><th>Priority</th></tr></thead>
-    <tbody>{step_rows}</tbody>
-  </table>
-</div>
-</details>
-
-<!-- ===== Bigraph ===== -->
-<h2 id="sec-bigraph">8. Process-Bigraph Network Visualization</h2>
+<!-- ===== Combined Step Flow + Interactive Network ===== -->
+<h2 id="sec-network">7. Step Flow + Interactive Network</h2>
 <div class="section">
-  <p>Interactive visualization of the biological process network. Scroll to zoom, drag to pan.
-  Steps (colored) read from and write to shared stores (bulk, unique, listeners, request, allocate).</p>
-  <div class="bigraph-controls">
-    <button onclick="bgZoom(1.3)">Zoom In</button>
-    <button onclick="bgZoom(0.77)">Zoom Out</button>
-    <button onclick="bgReset()">Fit</button>
-    <span id="bg-zoom-level" style="font-size:0.8em;color:#64748b;padding:4px;"></span>
-  </div>
+  <p>Combined visualization: the left sidebar lists execution layers (step flow in
+  <code>Composite.run()</code> order), and the main panel is an interactive Cytoscape
+  graph showing how processes wire to shared stores. Click a layer to highlight its
+  members; click a node for details; scroll to zoom; drag to pan.</p>
 </div>
-<div class="bigraph-container" id="bigraph-container">{bigraph_svg}</div>
-<script>
-(function() {{
-  const ctr = document.getElementById('bigraph-container');
-  const svg = ctr.querySelector('svg');
-  if (!svg) return;
-  let scale = 1, tx = 0, ty = 0, dragging = false, sx, sy;
-  function apply() {{
-    svg.style.transform = `translate(${{tx}}px,${{ty}}px) scale(${{scale}})`;
-    document.getElementById('bg-zoom-level').textContent = Math.round(scale*100)+'%';
-  }}
-  function fit() {{
-    const bb = svg.getBBox();
-    const cw = ctr.clientWidth, ch = ctr.clientHeight;
-    scale = Math.min(cw / (bb.width + 40), ch / (bb.height + 40), 2);
-    tx = (cw - bb.width * scale) / 2 - bb.x * scale;
-    ty = (ch - bb.height * scale) / 2 - bb.y * scale;
-    apply();
-  }}
-  svg.style.width = svg.getAttribute('viewBox') ? '' : (svg.getBBox().width + 'px');
-  svg.style.height = svg.getAttribute('viewBox') ? '' : (svg.getBBox().height + 'px');
-  svg.removeAttribute('width'); svg.removeAttribute('height');
-  setTimeout(fit, 50);
-  window.bgReset = fit;
-  window.bgZoom = function(f) {{
-    const cx = ctr.clientWidth/2, cy = ctr.clientHeight/2;
-    tx = cx - f * (cx - tx); ty = cy - f * (cy - ty);
-    scale *= f; apply();
-  }};
-  ctr.addEventListener('wheel', function(e) {{
-    e.preventDefault();
-    const f = e.deltaY < 0 ? 1.12 : 0.89;
-    const r = ctr.getBoundingClientRect();
-    const mx = e.clientX - r.left, my = e.clientY - r.top;
-    tx = mx - f * (mx - tx); ty = my - f * (my - ty);
-    scale *= f; apply();
-  }}, {{passive: false}});
-  ctr.addEventListener('mousedown', function(e) {{
-    dragging = true; sx = e.clientX - tx; sy = e.clientY - ty;
-    ctr.classList.add('grabbing');
-  }});
-  window.addEventListener('mousemove', function(e) {{
-    if (!dragging) return;
-    tx = e.clientX - sx; ty = e.clientY - sy; apply();
-  }});
-  window.addEventListener('mouseup', function() {{
-    dragging = false; ctr.classList.remove('grabbing');
-  }});
-}})();
-</script>
+<iframe src="{network_iframe_src}" style="width:100%; height:820px; border:1px solid #e2e8f0;
+        border-radius:8px; background:white;"></iframe>
 
 <!-- ===== Timing Summary ===== -->
 <h2 id="sec-timing">Timing Summary</h2>
 <div class="section">
+  <p style="color:#64748b; font-size:0.85em; margin-bottom:8px;">
+    Per-step wall-clock breakdown. "Sim time" is simulated seconds; "Speed" is
+    sim/wall ratio. Pipeline wall includes orchestration overhead beyond the sum
+    of the step wall times.
+  </p>
   <table>
-    <tr><th>Step</th><th>Wall Time</th><th>Sim Time</th><th>Speed</th></tr>
-    <tr><td>Model build</td><td>{build_time:.2f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td>Single cell (to division)</td><td>{long_wall:.1f}s</td><td>{long_dur:.0f}s</td><td>{long_rate:.1f}x realtime</td></tr>
-    <tr><td>Division split</td><td>{div.get('split_time', 0):.3f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td>Daughter simulations</td><td>{daughters_wall:.1f}s</td><td>{daughters_dur*2:.0f}s (2x{daughters_dur:.0f}s)</td><td>{daughters_dur*2/max(daughters_wall, 0.1):.1f}x realtime</td></tr>
-    <tr><td><strong>Total</strong></td><td><strong>{build_time + long_wall + daughters_wall:.0f}s</strong></td><td><strong>{long_dur + daughters_dur*2:.0f}s</strong></td><td>&mdash;</td></tr>
+    <thead><tr><th>Step</th><th>Wall Time</th><th>Sim Time</th><th>Speed</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr><td>0. EcoCyc API fetch</td><td>{biocyc_elapsed:.1f}s</td><td>&mdash;</td><td>&mdash;</td>
+          <td>{biocyc.get('n_fetched', 0)}/{biocyc.get('n_files', 0)} files</td></tr>
+      <tr><td>1. Raw data catalog</td><td>{raw_elapsed:.1f}s</td><td>&mdash;</td><td>&mdash;</td>
+          <td>{raw.get('n_files', 0)} TSV, {raw.get('total_size_mb', 0)} MB</td></tr>
+      <tr><td>2a. ParCa</td><td>{parca_time:.1f}s</td><td>&mdash;</td><td>&mdash;</td>
+          <td>{'ran' if parca.get('parca_ran') else 'pre-cached'}</td></tr>
+      <tr><td>2b. Parca cache gen</td><td>{cache_time:.1f}s</td><td>&mdash;</td><td>&mdash;</td>
+          <td>{'ran' if parca.get('parca_ran') else 'pre-cached'}</td></tr>
+      <tr><td>3. Load model (build composite)</td><td>{build_time:.2f}s</td><td>&mdash;</td><td>&mdash;</td>
+          <td>{model.get('n_processes', 0)} processes</td></tr>
+      <tr><td>4. Single cell (to division)</td><td>{long_wall:.1f}s</td><td>{long_dur:.0f}s</td>
+          <td>{long_rate:.2f}x realtime</td><td>baseline</td></tr>
+      <tr><td>4b. v1 comparison run</td><td>{v1_wall:.1f}s</td><td>{long_dur:.0f}s</td>
+          <td>{(long_dur/max(v1_wall,0.1)):.2f}x realtime</td><td>for v1/v2 comparison</td></tr>
+      <tr><td>5a. Division split</td><td>{split_time:.3f}s</td><td>&mdash;</td><td>&mdash;</td>
+          <td>bulk + unique partition</td></tr>
+      <tr><td>5b. Daughter composite build</td><td>{daughter_build_time:.1f}s</td><td>&mdash;</td><td>&mdash;</td>
+          <td>2 composites</td></tr>
+      <tr><td>6. Daughter 1 sim</td><td>{d1_wall:.1f}s</td><td>{daughters_dur:.0f}s</td>
+          <td>{(daughters_dur/max(d1_wall,0.1)):.2f}x realtime</td>
+          <td>build {d1_build:.1f}s</td></tr>
+      <tr><td>6. Daughter 2 sim</td><td>{d2_wall:.1f}s</td><td>{daughters_dur:.0f}s</td>
+          <td>{(daughters_dur/max(d2_wall,0.1)):.2f}x realtime</td>
+          <td>build {d2_build:.1f}s</td></tr>
+      <tr style="border-top:2px solid #334155;">
+          <td><strong>Sum of steps</strong></td>
+          <td><strong>{total_wall:.1f}s</strong></td>
+          <td><strong>{long_dur + daughters_dur*2:.0f}s</strong></td>
+          <td>&mdash;</td><td>&mdash;</td></tr>
+      <tr>
+          <td><strong>Pipeline wall</strong></td>
+          <td><strong>{pipeline_wall:.1f}s</strong></td>
+          <td>&mdash;</td>
+          <td>&mdash;</td><td>includes orchestration + report gen</td></tr>
+    </tbody>
   </table>
 </div>
 
@@ -2350,22 +2323,36 @@ def run_workflow():
         daughters_meta = step_daughters()
     step_results['daughters'] = daughters_meta
 
-    # Step Diagnostics (always run, uses the composite from step 3)
-    print("  Diagnostics: Step analysis")
-    diag_composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
-    diagnostics = bench_step_diagnostics(diag_composite)
-    print(f"    {len(diagnostics)} steps analyzed")
+    # Build a composite for .pbg export and the interactive network viz
+    print("  Building composite for network viz + .pbg export...")
+    viz_composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
 
     # Update .pbg model files
     print("  Updating .pbg model files...")
     from v2ecoli.pbg import save_pbg
     os.makedirs('models', exist_ok=True)
-    save_pbg(diag_composite, 'models/partitioned.pbg')
+    save_pbg(viz_composite, 'models/partitioned.pbg')
     print(f"    models/partitioned.pbg updated")
 
-    # Network Visualization (always run)
-    print("  Generating bigraph visualization...")
-    bigraph_svg = make_bigraph_svg(diag_composite.state)
+    # Combined step-flow + interactive network visualization
+    print("  Generating combined step-flow + interactive network viz...")
+    from v2ecoli.generate import build_execution_layers, DEFAULT_FEATURES
+    layers = build_execution_layers(DEFAULT_FEATURES)
+    graph_data = build_graph(viz_composite, layers)
+    n_proc = sum(1 for n in graph_data['nodes'] if n['data']['kind'] == 'process')
+    n_store = sum(1 for n in graph_data['nodes'] if n['data']['kind'] == 'store')
+    n_edges = len(graph_data['edges'])
+    subtitle = (f'{n_proc} processes · {n_store} stores · {n_edges} edges · '
+                f'{len(layers)} execution layers')
+    network_html = render_html(
+        graph_data,
+        title='v2ecoli · Step Flow + Interactive Network',
+        subtitle=subtitle)
+    network_path = os.path.join(WORKFLOW_DIR, 'workflow_network.html')
+    with open(network_path, 'w') as f:
+        f.write(network_html)
+    network_iframe_src = 'workflow_network.html'
+    print(f"    Wrote {network_path}")
 
     # Generate plots
     print("  Generating plots...")
@@ -2388,9 +2375,12 @@ def run_workflow():
     if not daughters.get('skipped') and (daughters.get('daughter_1_snapshots') or daughters.get('daughter_2_snapshots')):
         plots['daughters_mass'] = plot_daughters_mass(daughters, 'Daughters — Daughter Mass Fold Change')
 
+    # Record pipeline wall time before report generation
+    step_results['_pipeline_wall'] = time.time() - pipeline_t0
+
     # Generate HTML report
     print("  Generating HTML report...")
-    report_path = generate_html_report(step_results, plots, bigraph_svg, diagnostics)
+    report_path = generate_html_report(step_results, plots, network_iframe_src)
 
     pipeline_time = time.time() - pipeline_t0
     print("=" * 60)

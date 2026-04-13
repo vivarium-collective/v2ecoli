@@ -26,8 +26,8 @@ th { background: #f1f5f9; }
             padding:10px 14px;margin:0 0 16px 0;font-size:12px;color:#475569;
             line-height:1.6">
   <strong style="color:#0f172a">Run provenance</strong> &nbsp;·&nbsp;
-  2026-04-12 13:14:14 EDT &nbsp;·&nbsp;
-  <code>main@43a3ab7</code> <span style="color:#dc2626;font-weight:600">[uncommitted changes]</span> &nbsp;·&nbsp;
+  2026-04-12 20:20:00 EDT &nbsp;·&nbsp;
+  <code>nutrient-growth@5aa3cf7</code> <span style="color:#dc2626;font-weight:600">[uncommitted changes]</span> &nbsp;·&nbsp;
   <span title="Host">eranagmon@LT-0919936</span> &nbsp;·&nbsp;
   Darwin 24.2.0 arm64 (16 cores) &nbsp;·&nbsp;
   Python 3.12.9
@@ -64,8 +64,19 @@ model. Daughters are shown with color-shifted variants of the mother&rsquo;s gre
 
 <div class="media">
   <img src="colony.gif" alt="Colony simulation — spatial view">
-  <div class="media-label">Colony spatial view: 10 initial cells → 20 final cells over 60 min.
+  <div class="media-label">Colony spatial view: 4 initial cells → 5 final cells over 45 min.
   Colored cell = whole-cell <em>E. coli</em>; grey = surrogates.</div>
+</div>
+
+<h2>Cell Mass Over Time</h2>
+<p>Each line traces one cell&rsquo;s dry mass. The thick coloured line is the
+whole-cell <em>E. coli</em> lineage; thin grey lines are surrogates. When a
+cell divides its line ends and two daughter lines start at roughly half the
+mother&rsquo;s mass, each inheriting a hue-shifted variant of the lineage
+colour (green family for <em>E. coli</em>, grey for surrogates).</p>
+<div class="media">
+  <img src="mass_timeseries.gif" alt="Cell mass over time">
+  <div class="media-label">Per-cell dry mass trajectories, synchronized with the colony animation.</div>
 </div>
 
 <h2>Chromosome State</h2>
@@ -88,9 +99,9 @@ forks, and active RNA polymerases.</p>
 <h2>Simulation Parameters</h2>
 <table>
 <tr><th>Parameter</th><th>Value</th></tr>
-<tr><td>Duration</td><td>60 min (3600s)</td></tr>
+<tr><td>Duration</td><td>45 min (2700s)</td></tr>
 <tr><td>Whole-cell <em>E. coli</em></td><td>1 cell (EcoliWCM bridge, 55 steps)</td></tr>
-<tr><td>Surrogate cells</td><td>9 (AdderGrowDivide)</td></tr>
+<tr><td>Surrogate cells</td><td>3 (AdderGrowDivide)</td></tr>
 <tr><td>Environment</td><td>40 × 40 µm</td></tr>
 <tr><td>Physics interval</td><td>10s</td></tr>
 <tr><td>WCM update interval</td><td>60s</td></tr>
@@ -100,26 +111,20 @@ forks, and active RNA polymerases.</p>
 <table>
 <tr><th>Metric</th><th>Value</th></tr>
 <tr><td>Build time</td><td>0.1s</td></tr>
-<tr><td>Wall time</td><td>391s (6.5 min)</td></tr>
-<tr><td>Speed</td><td>9.2× realtime</td></tr>
-<tr><td>Initial cells</td><td>10</td></tr>
-<tr><td>Final cells</td><td>20</td></tr>
-<tr><td>Emitter frames</td><td>390</td></tr>
+<tr><td>Wall time</td><td>264s (4.4 min)</td></tr>
+<tr><td>Speed</td><td>10.2× realtime</td></tr>
+<tr><td>Initial cells</td><td>4</td></tr>
+<tr><td>Final cells</td><td>5</td></tr>
+<tr><td>Emitter frames</td><td>293</td></tr>
 </table>
 
+<h2>Composition Network</h2>
+<p>Interactive Cytoscape graph of the full colony composite — the multibody
+physics process, the pressure step, each cell&rsquo;s internal processes
+(grow/divide for surrogates, EcoliWCM for the whole-cell <em>E. coli</em>),
+and the shared stores that wire them together.</p>
+<div class="media"><p><a href="colony_network.html" target="_blank">Open interactive colony network &rarr;</a></p></div>
 
-<h2>Reproducibility</h2>
-<table style="font-size:0.85em;">
-<tr><th>Field</th><th>Value</th></tr>
-<tr><td>Date</td><td>2026-04-12 13:07:31</td></tr>
-<tr><td>Git commit</td><td><code>43a3ab7</code> (main)</td></tr>
-<tr><td>Python</td><td>3.12.9</td></tr>
-<tr><td>Platform</td><td>Darwin arm64</td></tr>
-<tr><td>process-bigraph</td><td>dev</td></tr>
-<tr><td>bigraph-schema</td><td>dev</td></tr>
-<tr><td>Seed</td><td>0</td></tr>
-<tr><td>Command</td><td><code>python3 colony_report.py --duration 60 --n-adder 9 --env-size 40</code></td></tr>
-</table>
 
 <footer style="margin-top:2em; padding-top:1em; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:0.85em;">
 v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-collective/v2ecoli">github</a>

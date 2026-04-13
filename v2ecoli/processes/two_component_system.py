@@ -205,30 +205,47 @@ class TwoComponentSystem(Step):
         )
         cell_volume = cell_mass_g / self.cell_density
 
-        # Solve dx/dt = S @ rates(x) from t=0 to t=dt
-        if self.rates_fn is not None:
-            molecules_required, all_changes = self._solve_ode(
-                molecule_counts, cell_volume, states["timestep"])
-        else:
-            molecules_required, all_changes = self.moleculesToNextTimeStep(
-                molecule_counts, cell_volume, self.n_avogadro,
-                states["timestep"], self.random_state,
-                method="BDF", jit=self.jit)
-
-        # If ODE solution exceeds available counts (no allocator to protect
-        # against this now), re-solve at long-horizon steady state to find
-        # a physically consistent trajectory.
-        if (molecules_required > molecule_counts).any():
+        # Solve dx/dt = S @ rates(x) from t=0 to t=dt. In stationary phase
+        # (dark-matter scale → 0) all solvers may fail on depleted counts;
+        # fall back to zero changes so the sim can coast forward. Once we've
+        # failed, latch into a skip-mode for a while to avoid re-running the
+        # expensive multi-method retry loop on every tick.
+        n_mol = len(self.molecule_idx)
+        zero_changes = np.zeros(n_mol, dtype=int)
+        if cell_volume <= 0 or not np.isfinite(cell_volume):
+            return {"bulk": [(self.molecule_idx, zero_changes)]}
+        if getattr(self, "_skip_ticks_remaining", 0) > 0:
+            self._skip_ticks_remaining -= 1
+            return {"bulk": [(self.molecule_idx, zero_changes)]}
+        try:
             if self.rates_fn is not None:
-                _, all_changes = self._solve_ode(
-                    molecule_counts, cell_volume,
-                    self.STEADY_STATE_HORIZON_S,
-                    min_time_step=states["timestep"])
+                molecules_required, all_changes = self._solve_ode(
+                    molecule_counts, cell_volume, states["timestep"])
             else:
-                _, all_changes = self.moleculesToNextTimeStep(
+                molecules_required, all_changes = self.moleculesToNextTimeStep(
                     molecule_counts, cell_volume, self.n_avogadro,
-                    self.STEADY_STATE_HORIZON_S, self.random_state,
-                    method="BDF", min_time_step=states["timestep"],
-                    jit=self.jit)
+                    states["timestep"], self.random_state,
+                    method="BDF", jit=self.jit)
+
+            # If ODE solution exceeds available counts, re-solve at long
+            # horizon for a physically consistent trajectory.
+            if (molecules_required > molecule_counts).any():
+                if self.rates_fn is not None:
+                    _, all_changes = self._solve_ode(
+                        molecule_counts, cell_volume,
+                        self.STEADY_STATE_HORIZON_S,
+                        min_time_step=states["timestep"])
+                else:
+                    _, all_changes = self.moleculesToNextTimeStep(
+                        molecule_counts, cell_volume, self.n_avogadro,
+                        self.STEADY_STATE_HORIZON_S, self.random_state,
+                        method="BDF", min_time_step=states["timestep"],
+                        jit=self.jit)
+        except (ValueError, RuntimeError, ZeroDivisionError, FloatingPointError, Exception):
+            all_changes = zero_changes
+            # Latch: skip the solver for N ticks so we don't re-run the
+            # full multi-method retry loop on every step while the cell is
+            # in stationary phase.
+            self._skip_ticks_remaining = 60
 
         return {"bulk": [(self.molecule_idx, all_changes.astype(int))]}

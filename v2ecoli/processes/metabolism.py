@@ -1030,9 +1030,13 @@ class FluxBalanceAnalysisModel(object):
         self.fba.update_homeostatic_targets(objective)
         self.homeostatic_objective = {**self.homeostatic_objective, **objective}
 
-        # Internal concentrations
+        # Internal concentrations. During stationary-phase dark-matter runs
+        # the allocator clamps bulk draws, so counts can land at zero; rare
+        # round-trip races can also leave a count one below zero. FBA rejects
+        # negative levels, so floor at 0 before feeding the LP.
         metabolite_conc = counts_to_molar * metabolite_counts
-        self.fba.setInternalMoleculeLevels(metabolite_conc.asNumber(CONC_UNITS))
+        levels = np.maximum(metabolite_conc.asNumber(CONC_UNITS), 0.0)
+        self.fba.setInternalMoleculeLevels(levels)
 
         # External concentrations
         external_molecule_levels = self.update_external_molecule_levels(
@@ -1122,8 +1126,14 @@ class FluxBalanceAnalysisModel(object):
         """
 
         if self.use_kinetics:
-            enzyme_conc = counts_to_molar * kinetic_enzyme_counts
-            substrate_conc = counts_to_molar * kinetic_substrate_counts
+            # Floor negative counts at 0 before concentration conversion:
+            # stationary-phase clamping in allocator can leave residual
+            # negatives that otherwise propagate into negative kinetic
+            # targets (rejected by FBA).
+            enzyme_counts = np.maximum(kinetic_enzyme_counts, 0)
+            substrate_counts = np.maximum(kinetic_substrate_counts, 0)
+            enzyme_conc = counts_to_molar * enzyme_counts
+            substrate_conc = counts_to_molar * substrate_counts
 
             # Set target fluxes for reactions based on their most relaxed
             # constraint
@@ -1133,9 +1143,9 @@ class FluxBalanceAnalysisModel(object):
             targets = (time_step * reaction_targets).asNumber(CONC_UNITS)[
                 self.active_constraints_mask, :
             ]
-            lower_targets = targets[:, 0]
-            mean_targets = targets[:, 1]
-            upper_targets = targets[:, 2]
+            lower_targets = np.maximum(targets[:, 0], 0.0)
+            mean_targets = np.maximum(targets[:, 1], 0.0)
+            upper_targets = np.maximum(targets[:, 2], 0.0)
 
             # Set kinetic targets only if kinetics is enabled
             self.fba.set_scaled_kinetic_objective(time_step.asNumber(units.s))

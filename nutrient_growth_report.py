@@ -247,61 +247,46 @@ def _fig_to_b64(fig) -> str:
     return base64.b64encode(buf.read()).decode("ascii")
 
 
-# Baseline vs enforced run styles for overlay plots.
-_BASELINE_STYLE = {"color": "#64748b", "linestyle": "--", "label": "baseline (DM off)"}
-_ENFORCED_STYLE = {"color": "#7c3aed", "linestyle": "-",  "label": "enforced (DM on)"}
-
-
-def _compare_snaps(snaps_a, snaps_b):
-    """Yield (label, snaps, style) for each non-empty dataset."""
-    if snaps_a:
-        yield ("baseline", snaps_a, _BASELINE_STYLE)
-    if snaps_b:
-        yield ("enforced", snaps_b, _ENFORCED_STYLE)
-
-
-def plot_mass(snaps, snaps_enforced=None):
-    fig, ax = plt.subplots(figsize=(9, 3.8))
-    for _, ss, st in _compare_snaps(snaps, snaps_enforced):
-        t = [s["time"] / 60 for s in ss]
-        ax.plot(t, [s["dry_mass"] for s in ss], linewidth=2.0, **st)
+def plot_mass(snaps):
+    fig, ax = plt.subplots(figsize=(7, 3.8))
+    t = [s["time"] / 60 for s in snaps]
+    ax.plot(t, [s["dry_mass"] for s in snaps], linewidth=2.0, color="#7c3aed")
     t_shut = _glc_shutoff_min(snaps)
     if t_shut is not None:
         ax.axvline(t_shut, color="#dc2626", linestyle=":", alpha=0.6,
-                   linewidth=1.0, label=f"glc depleted (baseline, t={t_shut:.1f}min)")
+                   linewidth=1.0, label=f"glc depleted (t={t_shut:.1f}min)")
+        ax.legend(loc="best", fontsize=9)
     ax.set_xlabel("Time (min)"); ax.set_ylabel("Dry mass (fg)")
-    ax.grid(alpha=0.3); ax.legend(loc="best", fontsize=9)
-    ax.set_title("Single-cell dry mass — baseline vs dark-matter-enforced")
+    ax.grid(alpha=0.3)
+    ax.set_title("Single-cell dry mass")
     return _fig_to_b64(fig)
 
 
-def plot_growth_rate(snaps, snaps_enforced=None):
-    fig, ax = plt.subplots(figsize=(9, 3.8))
-    for _, ss, st in _compare_snaps(snaps, snaps_enforced):
-        t = [s["time"] / 60 for s in ss]
-        ax.plot(t, [s["growth_rate"] for s in ss], linewidth=1.8, **st)
+def plot_growth_rate(snaps):
+    fig, ax = plt.subplots(figsize=(7, 3.8))
+    t = [s["time"] / 60 for s in snaps]
+    ax.plot(t, [s["growth_rate"] for s in snaps], linewidth=1.8, color="#7c3aed")
     t_shut = _glc_shutoff_min(snaps)
     if t_shut is not None:
         ax.axvline(t_shut, color="#dc2626", linestyle=":", alpha=0.6, linewidth=1.0)
     ax.set_xlabel("Time (min)"); ax.set_ylabel("Growth rate (1/s)")
     ax.set_title("Instantaneous growth rate")
-    ax.grid(alpha=0.3); ax.legend(loc="best", fontsize=9)
+    ax.grid(alpha=0.3)
     return _fig_to_b64(fig)
 
 
-def plot_glucose_trajectory(snaps, snaps_enforced=None):
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 3.8))
-    for _, ss, st in _compare_snaps(snaps, snaps_enforced):
-        t = [s["time"] / 60 for s in ss]
-        ax1.plot(t, [s["glc_ext_mM"] for s in ss], linewidth=1.8, **st)
-        ax2.plot(t, [s["glc_bound_mmol_gdcw_h"] for s in ss], linewidth=1.8, **st)
+def plot_glucose_trajectory(snaps):
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(11, 3.8))
+    t = [s["time"] / 60 for s in snaps]
+    ax1.plot(t, [s["glc_ext_mM"] for s in snaps], linewidth=1.8, color="#7c3aed")
+    ax2.plot(t, [s["glc_bound_mmol_gdcw_h"] for s in snaps], linewidth=1.8,
+             color="#7c3aed")
     ax1.set_xlabel("Time (min)"); ax1.set_ylabel("[GLC]ₑₓₜ (mM)")
     ax1.set_title("External glucose"); ax1.grid(alpha=0.3)
-    ax1.legend(loc="best", fontsize=9)
     ax2.set_xlabel("Time (min)")
     ax2.set_ylabel("MM uptake bound (mmol/gDCW/h)")
     ax2.set_title("Kinetic glucose uptake bound")
-    ax2.grid(alpha=0.3); ax2.legend(loc="best", fontsize=9)
+    ax2.grid(alpha=0.3)
     return _fig_to_b64(fig)
 
 
@@ -519,10 +504,9 @@ def plot_externals(snaps, top_n: int = 6):
     return _fig_to_b64(fig)
 
 
-def plot_mass_composition(snaps, snaps_enforced=None):
-    """Side-by-side stacked mass composition (baseline vs enforced).
-    Answers "what's still growing?" when the cell is starved — with DM on,
-    nothing should grow after scale=0."""
+def plot_mass_composition(snaps):
+    """Stacked mass composition. Answers "what's still growing?" when the cell
+    is starved — with DM on, nothing should grow after scale=0."""
     if not snaps:
         return None
     import numpy as np
@@ -533,26 +517,18 @@ def plot_mass_composition(snaps, snaps_enforced=None):
         ("smallmol_mass", "Small molecule", "#f97316"),
     ]
     t_shut = _glc_shutoff_min(snaps)
-    datasets = [s for s in [("baseline (DM off)", snaps),
-                             ("enforced (DM on)", snaps_enforced)] if s[1]]
-
-    fig, axes = plt.subplots(1, len(datasets), figsize=(6.3 * len(datasets), 4.2),
-                              sharey=True)
-    if len(datasets) == 1: axes = [axes]
-    for ax, (title, ss) in zip(axes, datasets):
-        t = np.array([s["time"] / 60 for s in ss])
-        ys = [np.array([s.get(k, 0) for s in ss]) for k, _, _ in comps]
-        ax.stackplot(t, *ys, labels=[c[1] for c in comps],
-                     colors=[c[2] for c in comps], alpha=0.85)
-        if t_shut is not None:
-            ax.axvline(t_shut, color="#dc2626", linestyle="--",
-                       alpha=0.6, linewidth=1.0)
-        ax.set_xlabel("Time (min)")
-        ax.set_title(title)
-        ax.grid(alpha=0.3); ax.legend(fontsize=8, loc="upper left")
-    axes[0].set_ylabel("Dry mass (fg)")
-    fig.suptitle("Dry-mass composition — baseline vs dark-matter-enforced",
-                 fontsize=11, y=1.02)
+    fig, ax = plt.subplots(figsize=(7, 4.2))
+    t = np.array([s["time"] / 60 for s in snaps])
+    ys = [np.array([s.get(k, 0) for s in snaps]) for k, _, _ in comps]
+    ax.stackplot(t, *ys, labels=[c[1] for c in comps],
+                 colors=[c[2] for c in comps], alpha=0.85)
+    if t_shut is not None:
+        ax.axvline(t_shut, color="#dc2626", linestyle="--",
+                   alpha=0.6, linewidth=1.0)
+    ax.set_xlabel("Time (min)")
+    ax.set_ylabel("Dry mass (fg)")
+    ax.set_title("Dry-mass composition")
+    ax.grid(alpha=0.3); ax.legend(fontsize=8, loc="upper left")
     return _fig_to_b64(fig)
 
 
@@ -876,22 +852,41 @@ def plot_mm_curve(vmax: float, km: float):
 # Report assembly
 # ---------------------------------------------------------------------------
 
+# Consistent color-coded run identifiers for per-variant panel headers.
+_RUN_STYLES = {
+    "baseline (DM off)": {"bg": "#e0e7ff", "fg": "#3730a3", "badge": "DM OFF"},
+    "enforced (DM on)":  {"bg": "#ede9fe", "fg": "#6d28d9", "badge": "DM ON"},
+}
+
+
 def _side_by_side_plot(datasets, single_plot_fn, title_suffix=""):
     """Render `single_plot_fn(snaps)` for each (label, snaps) in datasets
-    into a row of PNG base64s, joined via an HTML snippet."""
+    into a row of PNG images. Each panel gets a color-coded header tying
+    the image back to its run so the two columns are never confused."""
     out = []
     for label, snaps in datasets:
         if not snaps:
             continue
         b = single_plot_fn(snaps)
-        if b:
-            out.append(
-                f'<div style="display:inline-block;width:49%;vertical-align:top">'
-                f'<h4 style="margin:0 0 4px 8px;color:#475569;font-size:0.9em">'
-                f'{label}{title_suffix}</h4>'
-                f'<img src="data:image/png;base64,{b}" '
-                f'style="max-width:100%;border:1px solid #e2e8f0;'
-                f'border-radius:4px"></div>')
+        if not b:
+            continue
+        style = _RUN_STYLES.get(label, {"bg": "#f1f5f9", "fg": "#475569", "badge": label})
+        header = (
+            f'<div style="display:flex;align-items:center;gap:8px;'
+            f'padding:6px 10px;margin-bottom:4px;border-radius:4px 4px 0 0;'
+            f'background:{style["bg"]};color:{style["fg"]};font-size:0.9em;'
+            f'font-weight:600">'
+            f'<span style="background:{style["fg"]};color:white;'
+            f'padding:2px 8px;border-radius:3px;font-size:0.8em">'
+            f'{style["badge"]}</span>'
+            f'<span>{label}{title_suffix}</span></div>'
+        )
+        out.append(
+            f'<div style="display:inline-block;width:49%;vertical-align:top;'
+            f'padding-right:4px">{header}'
+            f'<img src="data:image/png;base64,{b}" '
+            f'style="max-width:100%;border:1px solid #e2e8f0;'
+            f'border-radius:0 0 4px 4px"></div>')
     return "".join(out)
 
 
@@ -916,17 +911,17 @@ def generate_report(data, caglar, duration: int, vmax: float, km: float,
     ]
 
     plots = {
-        "mass": plot_mass(snaps, snaps_e) if snaps else None,
-        "growth_rate": plot_growth_rate(snaps, snaps_e) if snaps else None,
-        "glucose": plot_glucose_trajectory(snaps, snaps_e) if snaps else None,
+        "mass": _side_by_side_plot(ds_pair, plot_mass),
+        "growth_rate": _side_by_side_plot(ds_pair, plot_growth_rate),
+        "glucose": _side_by_side_plot(ds_pair, plot_glucose_trajectory),
         "mm": plot_mm_curve(vmax, km),
         "exchanges": _side_by_side_plot(ds_pair, plot_exchange_fluxes),
-        "exchange_diff": plot_exchange_diff(snaps),
-        "externals": plot_externals(snaps),
+        "exchange_diff": _side_by_side_plot(ds_pair, plot_exchange_diff),
+        "externals": _side_by_side_plot(ds_pair, plot_externals),
         "carbon_budget": _side_by_side_plot(ds_pair, plot_carbon_budget),
         "externals_all": _side_by_side_plot(
             ds_pair, plot_external_concentrations),
-        "mass_composition": plot_mass_composition(snaps, snaps_e),
+        "mass_composition": _side_by_side_plot(ds_pair, plot_mass_composition),
         "mass_balance": _side_by_side_plot(ds_pair, plot_mass_balance),
         "fba_mass_probe": _side_by_side_plot(
             ds_pair, plot_fba_mass_accounting),
@@ -1043,63 +1038,34 @@ footer {{ margin-top: 3em; padding-top: 1em; border-top: 1px solid #e2e8f0;
 
 <h1 id="summary">Nutrient-Growth Report</h1>
 
-<div style="padding: 10px 14px; margin: 1em 0; background: #e0f2fe;
-            border-left: 4px solid #0284c7; font-size: 0.95em;">
-<strong>Report mode:</strong>
-{'<em>comparison</em> — two runs at identical settings, overlaid. Baseline (dashed grey) has nutrient-growth features on but dark-matter mass-balance OFF; enforced (solid purple) has dark-matter ON. Side-by-side panels where overlay would be too busy.' if dark_matter else '<em>single-mode</em> — baseline run only. Pass without <code>--single-mode</code> for the comparison view.'}
+<div style="display:flex;gap:10px;margin:1em 0;flex-wrap:wrap">
+  <div style="flex:1;min-width:260px;background:#e0e7ff;border-left:4px solid #3730a3;padding:10px 14px;border-radius:4px">
+    <span style="background:#3730a3;color:white;padding:2px 8px;border-radius:3px;font-size:0.8em">DM OFF</span>
+    <strong style="color:#3730a3">&nbsp;Baseline.</strong>
+    MM glucose + environment depletion; LP homeostatic slacks unconstrained.
+  </div>
+  <div style="flex:1;min-width:260px;background:#ede9fe;border-left:4px solid #6d28d9;padding:10px 14px;border-radius:4px">
+    <span style="background:#6d28d9;color:white;padding:2px 8px;border-radius:3px;font-size:0.8em">DM ON</span>
+    <strong style="color:#6d28d9">&nbsp;Enforced.</strong>
+    Baseline + dark-matter scale ∈ [0, 1] so net cell mass gain ≤ boundary imports.
+  </div>
 </div>
 
 <h2 id="goals">Goals</h2>
-<p>This branch (<code>nutrient-growth</code>) aims to parameterize
-v2ecoli growth against the Caglar et al. 2017
-(<a href="https://doi.org/10.1038/srep45303" target="_blank">srep45303</a>)
-multi-condition dataset — 4 carbon sources × 10 Mg²⁺ levels ×
-3 Na⁺ levels × 3 growth phases. The long-term target is a single
-continuously-parameterized model that predicts doubling times and
-mass-component trajectories across all those conditions.</p>
-
-<p>The path to that goal is laid out in three design moves, all on
-this branch:</p>
+<p>Calibrate v2ecoli growth against Caglar et al. 2017
+(<a href="https://doi.org/10.1038/srep45303" target="_blank">srep45303</a>):
+4 carbon sources × 10 Mg²⁺ × 3 Na⁺ × 3 growth phases. Three design
+moves on this branch:</p>
 <ol>
-  <li><strong>Continuous glucose sensitivity.</strong> Replace the
-  media-id-keyed lookup for the FBA's glucose uptake bound with
-  Michaelis-Menten kinetics on <code>boundary.external.GLC</code>.
-  The uptake rate now decays smoothly as [GLC]ₑₓₜ falls toward K<sub>m</sub>,
-  so the sim can express any point along the uptake curve rather than
-  the saturated-or-absent switch of the original.</li>
-
-  <li><strong>Closed environment-depletion loop.</strong> New
-  <code>environment_update</code> step: the per-step exchange counts
-  metabolism emits are converted to concentration deltas (via a
-  configurable per-cell environment volume) and written back to
-  <code>boundary.external</code>. Glucose actually runs out over sim
-  time, driving the MM bound to zero, driving growth rate down.</li>
-
-  <li><strong>Mass-conservation enforcement.</strong> FBA with the
-  wholecell homeostatic objective doesn't strictly conserve atomic
-  mass — it has quadratic slack pseudofluxes bounded
-  <code>[-∞, +∞]</code> that let the LP "manufacture" biomass when
-  stoichiometry can't supply it. This branch adds a
-  <em>dark-matter pool</em>: each step's LP output is mass-checked
-  against boundary imports + unique-pool changes, and the positive
-  biomass deltas are proportionally scaled so that <em>net cell mass
-  change equals net boundary flux</em>, exactly. The cell stops
-  growing when carbon runs out — not because we told it to, but
-  because mass can't be created.</li>
+  <li><strong>Continuous glucose sensitivity</strong> — Michaelis-Menten
+  uptake on <code>boundary.external.GLC</code> replaces the media-id lookup.</li>
+  <li><strong>Closed depletion loop</strong> — <code>environment_update</code>
+  writes exchange deltas back to <code>boundary.external</code> using a
+  configurable per-cell volume.</li>
+  <li><strong>Mass-conservation enforcement</strong> — a dark-matter pool
+  scales LP output so net cell mass never exceeds boundary imports;
+  growth freezes when carbon runs out.</li>
 </ol>
-
-<p>The wider ambition is that calibration against Caglar becomes a
-matter of tuning physically-meaningful parameters (v<sub>max</sub>,
-K<sub>m</sub>, environment volume per cell, per-carbon-source
-stoichiometry) on a model that already respects atomic conservation.
-Without mass-balance, any nutrient-condition fit would be a
-confound between "biology" and "LP slack".</p>
-<p>Single-cell simulation exercising the extracted
-<code>metabolic_kinetics</code> step with Michaelis-Menten glucose uptake.
-Target: parameterize growth under varying nutrient conditions against
-the Caglar et al. 2017 (<a href="https://doi.org/10.1038/srep45303"
-target="_blank">srep45303</a>) multi-condition dataset
-committed under <code>data/caglar2017/</code>.</p>
 
 <h2 id="summary-details">Run summary</h2>
 <div class="perf">
@@ -1120,31 +1086,34 @@ committed under <code>data/caglar2017/</code>.</p>
 </div>
 
 <h2 id="growth">Growth trajectory</h2>
+<p>Dry mass (top row) and instantaneous growth rate (bottom row) for
+both runs. <strong>The DM-OFF cell keeps gaining mass well past glucose
+depletion</strong> (red dotted line) because the LP's homeostatic slacks
+can synthesize biomass without a matching carbon import. <strong>The
+DM-ON cell flattens out</strong> once scale → 0 — growth literally
+cannot proceed without boundary carbon.</p>
 {img("mass", "Dry mass vs time")}
 {img("growth_rate", "Growth rate vs time")}
 
 <h2 id="glc-kinetics">Glucose uptake kinetics</h2>
-<p>With Michaelis-Menten enabled in <code>metabolic_kinetics.py</code>,
-the glucose import bound is computed every step from
-<code>boundary.external.GLC</code> instead of being fixed by a media lookup.
-Parameters: <strong>v_max = {vmax} mmol/gDCW/h</strong>,
-<strong>K_m = {km} mM</strong>.</p>
+<p>MM bound computed each step from <code>boundary.external.GLC</code>:
+<strong>v_max = {vmax} mmol/gDCW/h</strong>, <strong>K_m = {km} mM</strong>.</p>
 
 {img("mm", "MM curve")}
 {img("glucose", "External glucose and applied uptake bound")}
 
 <h2 id="exchange">Exchange fluxes</h2>
-<p>Counts of molecules moving across the cell boundary per simulation
-step (negative = cell imports, positive = cell secretes). Y-axis is
-<em>symlog</em> so zero crossings and values spanning multiple decades
-are both visible. Red dashed line marks when [GLC]ₑₓₜ first drops
-below 0.01 mM.</p>
+<p>Per-step boundary counts (negative = import, positive = secretion).
+Y-axis is symlog; red dashed line marks [GLC]ₑₓₜ &lt; 0.01&nbsp;mM.</p>
 
 {img("exchanges", "Top exchange fluxes over time")}
 
 <h3>What picks up the slack when glucose cuts off?</h3>
-<p>Mean flux in snapshots with plenty of glucose (&gt;1 mM) vs. snapshots
-after depletion (&lt;0.01 mM). Biggest absolute shifts first.</p>
+<p>Mean flux in snapshots with glucose (&gt;1&nbsp;mM) vs. post-depletion
+(&lt;0.01&nbsp;mM). DM OFF ramps other imports to feed the LP; DM ON
+scales them down once mass balance bites.</p>
+
+<p>Table below is the <strong>DM-OFF</strong> run.</p>
 
 <table>
 <tr><th>Molecule</th><th>pre-shutoff<br/>(count/step)</th>
@@ -1153,163 +1122,82 @@ after depletion (&lt;0.01 mM). Biggest absolute shifts first.</p>
 {diff_rows}
 </table>
 
-{img("exchange_diff", "Pre vs post-shutoff flux comparison")}
+{img("exchange_diff", "Pre vs post-shutoff flux comparison (both runs)")}
 
 <h2 id="externals">External nutrient concentrations</h2>
-<p>Every boundary species <code>metabolism.py</code> exchanges with is
-dynamically updated by <code>environment_update.py</code>. This panel
-shows which nutrients drain first. <strong>Ammonium</strong> typically
-runs out alongside glucose in the default 10 fL environment; phosphate,
-sulfate, and trace ions decay more slowly.</p>
+<p><code>environment_update</code> drains every boundary species over
+time. Ammonium typically depletes alongside glucose in the default 10 fL
+environment; phosphate, sulfate, and trace ions decay more slowly.</p>
 
 {img("externals_all", "All external concentrations over time")}
 
 <h2 id="carbon">Carbon accounting</h2>
-<p>Emitted by the <code>carbon_budget_listener</code> each step (values
-in mmol C). Imports are weighted by per-molecule carbon counts from
-<code>v2ecoli/library/carbon_counts.py</code>. Biomass C is estimated
-from dry-mass delta at 48% C/g DCW.</p>
-
-<p><strong>Reading the plot:</strong> in a carbon-balanced cell, the
-green line (<em>C in</em>) should exceed the sum of red (<em>C out</em>)
-and blue (<em>C into biomass</em>). When the red-filled region on the
-right panel grows after glucose depletion, the cell is secreting more
-carbon than it imports — i.e. draining internal pools to keep the
-homeostatic objective happy. That pink area is the quantitative
-signature of the "pool-drain" failure mode.</p>
+<p>Per-step C flux (mmol C). Imports weighted by per-molecule C counts;
+biomass C from dry-mass delta at 48% C/g DCW. A red-filled region
+(C_out &gt; C_in + biomass_C) flags pool-drain.</p>
 
 {img("carbon_budget", "Carbon budget over time")}
 
 <h2 id="growing">What's actually growing?</h2>
-<p>Dry-mass composition over time. If carbon isn't coming in from the
-environment, the question is which biomass pools are still gaining mass
-— and the answer is <strong>all of them</strong>: protein, RNA, DNA,
-and small molecules all continue to accumulate past glucose depletion.
-That growth has to come from somewhere; see the mass balance below.</p>
+<p>Dry-mass composition. In DM OFF every pool keeps accumulating past
+glucose depletion; in DM ON they flatten.</p>
 
 {img("mass_composition", "Dry mass composition")}
 
 <h2 id="mass-balance">Mass-balance check</h2>
-<p>A closed cell must satisfy
-<code>Σ imports − Σ secretions = Σ dry-mass-gained</code>
-(in fg, ignoring water which doesn't contribute to dry mass).
-Any persistent negative deficit on the right panel means the LP is
-synthesizing biomass faster than it's importing mass — a direct
-quantitative symptom of the homeostatic-objective pool-drain
-pathology. This is the metric any further mechanistic fix should
-drive toward zero.</p>
+<p>Closed cell invariant:
+<code>Σ imports − Σ secretions = Σ dry-mass-gained</code> (fg).
+Persistent negative deficit = LP synthesizing biomass faster than it
+imports mass.</p>
 
 {img("mass_balance", "Mass balance check")}
 
 <h2 id="manufacture">How is biomass being manufactured?</h2>
-<p>wholecell's <code>modular_fba</code> implements a homeostatic
-objective using per-target <em>quadratic slack pseudofluxes</em> named
-<code>quadFractionFromUnity</code>. These slacks represent "the amount
-by which a metabolite's production missed its target"; they carry a
-quadratic penalty in the objective but are bounded
-<strong><code>[-∞, +∞]</code></strong> on flux (see
-<code>modular_fba.py</code> line 596). That means the LP can always
-"close the gap" on any homeostatic target by running these slacks —
-even when no carbon is coming in from the boundary.</p>
-
-<p>The FBA also has a built-in mass-accounting pseudometabolite
-(<code>_massExchangeID</code>) that sums net mass in/out through
-<em>exchange reactions only</em>, exposed via
-<code>setMaxMassAccumulated(bound)</code>. Experimentally setting this
-bound to ~0 (exchange-mass accumulation forbidden) has
-<strong>no effect on dry-mass growth</strong> — confirming the mass
-is entering via the quadratic slacks, not the exchanges.</p>
+<p><code>modular_fba</code>'s homeostatic objective uses quadratic slack
+pseudofluxes (<code>quadFractionFromUnity</code>) bounded
+<code>[−∞, +∞]</code>, so missed targets get filled in regardless of
+whether carbon is available. The built-in <code>_massExchangeID</code>
+pseudometabolite only audits exchange mass; bounding it to ~0 has no
+effect on dry-mass growth — confirming mass enters via the slacks in
+DM OFF. The DM-ON post-scale exists to correct this.</p>
 
 {img("fba_mass_probe", "FBA exchange-mass vs dry mass")}
 
 <h3 id="dark-matter">Dark-matter pool (diagnostic)</h3>
-<p>A "biomass dark matter" accountant. Each step:</p>
-<pre>dark_matter += (Σ bulk mass change) − (Σ exchange mass change)</pre>
-<p>where bulk-mass uses molecular weights for <strong>every
-molecule</strong> in sim_data (100% coverage, 12,809 entries).
-<strong>Invariant:</strong> mass can't be created, so
-<code>dark_matter ≥ 0</code> should stay near zero. Sustained upward
-drift = LP manufacturing mass without a boundary source.</p>
-
-<p>Phase 1 just measures and reports. Phase 2 adds a dark-matter flux
-to the LP with one-sided bounds and an objective-minimised
-withdrawal, so the LP tries to stay at pool=0 and is infeasible only
-when biomass targets genuinely can't be met (which is fine — cell
-stays at whatever growth the carbon actually allows).</p>
+<p>Per step, <code>dark_matter += Σ Δbulk_mass − Σ Δexchange_mass</code>
+using sim_data MWs (12,809 entries). Mass can't be created, so sustained
+upward drift = LP manufacturing mass.</p>
 
 {img("dark_matter", "Dark matter pool over time")}
 
 <h3>Phase 2: enforcement at the metabolism step</h3>
-<p><code>metabolism.py</code> now wraps the FBA solve in a mass-balance
-check. Each step:</p>
+<p>DM ON wraps the FBA solve:</p>
 <pre>Δ cell_mass = Σ Δcount × MW   (from LP)
 Δ boundary_mass = imports − secretions  (from exchange dict)
 excess = Δ cell_mass − Δ boundary_mass
 if excess > pool_fg: scale = (boundary + pool) / cell_mass</pre>
-<p>All LP-proposed count deltas are multiplied by
-<code>scale</code> before being written to bulk. This preserves
-stoichiometric ratios (if S·v=0 held for the LP solution, it holds for
-v × scale) while enforcing <strong>net cell mass change ≤ boundary
-imports + available pool</strong>. When pool is empty and no carbon is
-imported, scale → 0 and growth freezes — exactly the stationary-phase
-behavior we want.</p>
+<p>All LP deltas are multiplied by <code>scale</code> before bulk write —
+preserves stoichiometry, enforces <code>Δ cell_mass ≤ boundary + pool</code>.
+<code>scale → 0</code> when carbon is gone and growth freezes.</p>
 
 {img("dm_enforcement", "Dark matter enforcement effectiveness")}
-
-<p><strong>Numbers with 10 fL env, 600s run:</strong></p>
-<table>
-<tr><th>Time</th><th>[GLC] (mM)</th><th>Pool (fg)</th><th>Scale</th></tr>
-<tr><td>30s</td><td>9.2</td><td>0.0</td><td>0.992</td></tr>
-<tr><td>120s</td><td>2.6</td><td>0.0</td><td>0.992</td></tr>
-<tr><td>180s</td><td>0.0</td><td>0.0</td><td>0.524</td></tr>
-<tr><td>300s</td><td>0.0</td><td>0.0</td><td>0.000</td></tr>
-</table>
-
-<p>The scale drops smoothly from 0.992 (full glucose; the residual
-0.008 reflects precision in the boundary-mass vs cell-mass computation)
-to 0.524 (glucose just gone, internal pools still usable) to 0.0 (cell
-frozen — no carbon available, growth stops). This is the
-stationary-phase transition driven entirely by mass conservation.</p>
-
-<p>The orange dashed curve is what wholecell's LP <em>thinks</em> has
-accumulated through exchanges. The blue curve is actual dry-mass gain.
-They track each other pre-shutoff (cell is closed) and diverge
-post-shutoff — the gap is mass produced via the homeostatic slacks
-without a corresponding import.</p>
-
-<p><strong>To truly enforce mass balance</strong>, the slack
-pseudofluxes need tight upper bounds — e.g.
-<code>quadFractionFromUnity[m] ≤ 0</code> so the LP can only
-<em>undershoot</em> targets (physically meaningful: less biomass) and
-cannot <em>overshoot</em> by conjuring metabolites. That's a patch to
-<code>modular_fba</code> (or a monkeypatch in
-<code>metabolism.py</code> after the FBA model is built).</p>
 
 {img("externals", "Top external concentrations over time (by change)")}
 
 <div class="note">
-<strong>Why does growth continue after [GLC]ₑₓₜ hits zero?</strong>
-Three reasons stacked:
+<strong>Why does DM OFF keep growing after [GLC]ₑₓₜ hits zero?</strong>
 <ol>
-  <li><strong>~17 molecules have <em>unconstrained</em> exchange bounds</strong>
-      (AMMONIUM, OXYGEN-MOLECULE, Pi, SULFATE, WATER, K⁺, MG²⁺, NA⁺, Cl⁻,
-      Fe²⁺/³⁺, Mn, Zn, Ca, Co, Ni, selenocysteine, CO₂).
-      Once MM caps glucose uptake at 0, the LP keeps pulling on the others.</li>
-  <li><strong>The homeostatic objective pins internal metabolite
-      concentrations</strong> toward fixed targets (set by
-      <code>getBiomassAsConcentrations</code>). As the cell grows, these
-      targets rescale — the LP keeps producing internal metabolites even
-      when their upstream carbon supply is off.</li>
-  <li><strong>No carbon-balance constraint on biomass.</strong> The
-      biomass reaction's coefficients assume carbon comes from somewhere;
-      with GLC blocked the LP finds carbon in the CO₂ fixation /
-      reverse-TCA routes that have catalysts present, at reduced efficiency
-      but non-zero flux.</li>
+  <li>~17 molecules have unconstrained exchange bounds (AMMONIUM, O₂,
+      Pi, SULFATE, WATER, K⁺, MG²⁺, NA⁺, Cl⁻, Fe, Mn, Zn, Ca, Co, Ni,
+      selenocysteine, CO₂); the LP pulls harder on these when glucose hits 0.</li>
+  <li>The homeostatic objective pins internal metabolite concentrations
+      to targets that rescale with growth — LP keeps producing internals
+      regardless of upstream carbon.</li>
+  <li>No carbon-balance constraint on biomass: with GLC off, the LP finds
+      carbon via CO₂ fixation / reverse-TCA at reduced but nonzero flux.</li>
 </ol>
-A proper exp→stat transition needs at least one of: a carbon-balanced
-biomass objective (no carbon source → no biomass), a ppGpp-coupled
-biomass downscaling, or hard flux bounds on the "promiscuous" inputs
-above when their carbon-equivalent contribution would violate a mass
+DM ON eliminates all three at once via the post-scale. A proper
+mechanistic fix would bound the slack pseudofluxes or carbon-balance the
 balance.
 </div>
 

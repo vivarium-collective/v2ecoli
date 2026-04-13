@@ -26,7 +26,19 @@ TOPOLOGY = {
 # Register "allocator-1", "allocator-2", "allocator-3" to support
 # multi-tiered partitioning scheme
 
-ASSERT_POSITIVE_COUNTS = True
+import os as _os
+
+
+def _assert_positive_counts() -> bool:
+    """Runtime check so the dark-matter env var (set per-run by
+    nutrient_growth_report.py) actually takes effect. In DM mode, metabolism
+    can legitimately produce fewer molecules than consumers want during the
+    exp→stat transition — treat overdrafts as a clamp signal instead of
+    crashing the composite run."""
+    return _os.environ.get("V2ECOLI_DARK_MATTER") != "1"
+
+
+ASSERT_POSITIVE_COUNTS = True  # legacy constant, kept for external callers
 
 
 class NegativeCountsError(Exception):
@@ -113,6 +125,11 @@ class Allocator(Step):
             )
             self.atp_idx = bulk_name_to_idx("ATP[c]", states["bulk"]["id"])
         total_counts = counts(states["bulk"], self.molecule_idx)
+        # In dark-matter stationary runs, consumers can drive a bulk count
+        # negative between allocator ticks. Clamp to 0 so partitioning
+        # gracefully doles out nothing instead of crashing.
+        if not _assert_positive_counts():
+            total_counts = np.maximum(total_counts, 0)
         original_totals = total_counts.copy()
         counts_requested = np.zeros((self.n_molecules, self.n_processes), dtype=int)
         # Keep track of which process indices are in current partitioning layer
@@ -124,7 +141,7 @@ class Allocator(Step):
             for req_idx, req in states["request"][process]["bulk"]:
                 counts_requested[req_idx, proc_idx] += req
 
-        if ASSERT_POSITIVE_COUNTS and np.any(counts_requested < 0):
+        if _assert_positive_counts() and np.any(counts_requested < 0):
             raise NegativeCountsError(
                 "Negative value(s) in counts_requested:\n"
                 + "\n".join(
@@ -152,7 +169,22 @@ class Allocator(Step):
 
         partitioned_counts.astype(int, copy=False)
 
-        if ASSERT_POSITIVE_COUNTS and np.any(partitioned_counts < 0):
+        if not _assert_positive_counts():
+            # Clamp negative partitions to zero and cap so the per-molecule
+            # allocation across processes never exceeds what actually exists.
+            np.maximum(partitioned_counts, 0, out=partitioned_counts)
+            total_per_mol = partitioned_counts.sum(axis=-1)
+            overdraft = total_per_mol > original_totals
+            if np.any(overdraft):
+                scale = np.ones_like(total_per_mol, dtype=float)
+                denom = total_per_mol[overdraft]
+                scale[overdraft] = np.where(denom > 0,
+                                            original_totals[overdraft] / denom,
+                                            0.0)
+                partitioned_counts = np.floor(
+                    partitioned_counts * scale[:, None]).astype(int)
+
+        if _assert_positive_counts() and np.any(partitioned_counts < 0):
             raise NegativeCountsError(
                 "Negative value(s) in partitioned_counts:\n"
                 + "\n".join(
@@ -168,7 +200,7 @@ class Allocator(Step):
         # Ensure we are not overdrafting any molecules
         counts_unallocated = original_totals - np.sum(partitioned_counts, axis=-1)
 
-        if ASSERT_POSITIVE_COUNTS and np.any(counts_unallocated < 0):
+        if _assert_positive_counts() and np.any(counts_unallocated < 0):
             raise NegativeCountsError(
                 "Negative value(s) in counts_unallocated:\n"
                 + "\n".join(

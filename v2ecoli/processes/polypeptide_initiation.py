@@ -49,7 +49,8 @@ from v2ecoli.library.schema import (
     zero_listener,
 )
 
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.unit_bridge import unum_to_pint
 from wholecell.utils.fitting import normalize
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
@@ -156,7 +157,7 @@ class PolypeptideInitiation(Step):
         self.n_TUs = len(self.tu_ids)
         # Convert ribosome footprint size from nucleotides to amino acids
         self.active_ribosome_footprint_size = (
-            self.parameters["active_ribosome_footprint_size"] / 3
+            unum_to_pint(self.parameters["active_ribosome_footprint_size"]) / 3
         )
 
         # Get mapping from cistrons to protein monomers and TUs
@@ -244,9 +245,9 @@ class PolypeptideInitiation(Step):
             "effective_elongation_rate"
         ]
         if self.ribosomeElongationRate == 0:
-            self.ribosomeElongationRate = self.ribosome_elongation_rates_dict[
-                current_media_id
-            ].asNumber(units.aa / units.s)
+            self.ribosomeElongationRate = unum_to_pint(
+                self.ribosome_elongation_rates_dict[current_media_id]
+            ).to(units.aa / units.s).magnitude
         self.elongation_rates = np.fmax(self.make_elongation_rates(
             self.random_state,
             self.ribosomeElongationRate,
@@ -345,7 +346,7 @@ class PolypeptideInitiation(Step):
             * (units.s)
             * states["timestep"]
             / n_ribosomes_to_activate
-        ).asNumber()
+        ).magnitude
         max_p_per_protein = max_p * cistron_counts[self.cistron_to_monomer_mapping]
         is_overcrowded = protein_init_prob > max_p_per_protein
 
@@ -384,7 +385,7 @@ class PolypeptideInitiation(Step):
                         * states["timestep"]
                         / max_init_prob
                         * associated_cistron_counts
-                    ).asNumber()
+                    ).magnitude
                 )
 
                 # Update maximum probabilities based on new number of activated
@@ -395,7 +396,7 @@ class PolypeptideInitiation(Step):
                     * (units.s)
                     * states["timestep"]
                     / n_ribosomes_to_activate
-                ).asNumber()
+                ).magnitude
                 max_p_per_protein = (
                     max_p * cistron_counts[self.cistron_to_monomer_mapping]
                 )

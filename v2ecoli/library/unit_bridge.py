@@ -19,7 +19,7 @@ from v2ecoli.types.quantity import ureg
 # dimensionless-like base units in pint so unit algebra closes (e.g.
 # nucleotide / s remains nucleotide/s).
 for _name, _aliases in [
-    ("nucleotide", ()),
+    ("nucleotide", ("nt",)),
     ("amino_acid", ("aa",)),
     ("count", ()),
 ]:

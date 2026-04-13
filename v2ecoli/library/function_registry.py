@@ -23,6 +23,8 @@ Usage:
 
 import numpy as np
 from v2ecoli.library.random import stochasticRound
+from v2ecoli.library.unit_bridge import unum_to_pint
+from v2ecoli.types.quantity import ureg as _pint_units
 
 # ---------------------------------------------------------------------------
 # Registry
@@ -183,14 +185,11 @@ def get_rnap_active_fraction_factory(fraction_active_rnap_bound,
         fraction_active_rnap_free: float
         ppgpp_km_squared: float (squared KM for ppGpp binding)
     """
-    from v2ecoli.library.unit_defs import units as _units
-    PPGPP_CONC_UNITS = _units.umol / _units.L
+    PPGPP_CONC_UNITS = _pint_units.umol / _pint_units.L
 
     def fraction_rnap_bound_ppgpp(ppgpp):
-        try:
-            ppgpp_val = ppgpp.asNumber(PPGPP_CONC_UNITS)
-        except AttributeError:
-            ppgpp_val = float(ppgpp)
+        q = unum_to_pint(ppgpp)
+        ppgpp_val = q.to(PPGPP_CONC_UNITS).magnitude if hasattr(q, "magnitude") else float(q)
         return ppgpp_val ** 2 / (ppgpp_km_squared + ppgpp_val ** 2)
 
     def get_rnap_active_fraction_from_ppGpp(ppgpp):
@@ -211,17 +210,15 @@ def get_dna_critical_mass_factory(dry_mass_params, cell_dry_mass_fraction):
         dry_mass_params: array of 2 floats (slope, intercept for 1/dryMass vs tau)
         cell_dry_mass_fraction: float
     """
-    from v2ecoli.library.unit_defs import units
+    units = _pint_units
     NORMAL_CRITICAL_MASS = 975 * units.fg
     SLOW_GROWTH_FACTOR = 1.2
 
     dry_mass_params = np.asarray(dry_mass_params)
 
     def get_dna_critical_mass(doubling_time):
-        try:
-            tau = doubling_time.asNumber(units.min)
-        except AttributeError:
-            tau = float(doubling_time)
+        q = unum_to_pint(doubling_time)
+        tau = q.to(units.min).magnitude if hasattr(q, "magnitude") else float(q)
         inverse_mass = dry_mass_params[0] * tau + dry_mass_params[1]
         if inverse_mass < 0:
             raise ValueError(f"Negative inverse mass at tau={tau}")
@@ -246,17 +243,14 @@ def get_ribosome_elongation_rate_by_ppgpp_factory(
         H: float (Hill coefficient)
         charging_fraction_of_max_elong_rate: float (default 0.9)
     """
-    from v2ecoli.library.unit_defs import units
-    # Reconstruct unit objects
+    units = _pint_units
     ppgpp_units = units.umol / units.L
     rate_units = units.aa / units.s
 
     def get_ribosome_elongation_rate_by_ppgpp(ppgpp, max_rate=None):
         vmax = fit_vmax if max_rate is None else max_rate
-        try:
-            ppgpp_val = ppgpp.asNumber(ppgpp_units)
-        except AttributeError:
-            ppgpp_val = float(ppgpp)
+        q = unum_to_pint(ppgpp)
+        ppgpp_val = q.to(ppgpp_units).magnitude if hasattr(q, "magnitude") else float(q)
         return (
             rate_units * vmax
             / (1 + (ppgpp_val / KI) ** H)
@@ -274,19 +268,17 @@ def get_attenuation_stop_probabilities_factory(aa_from_trna, attenuation_k):
         aa_from_trna: 2D array (n_amino_acids × n_trnas), binary mapping
         attenuation_k: 2D array (n_amino_acids × n_attenuated_genes), in L/umol
     """
-    from v2ecoli.library.unit_defs import units
+    units = _pint_units
     aa_from_trna = np.asarray(aa_from_trna)
-    # attenuation_k stored as plain floats in L/umol;
-    # trna_conc comes in as umol/L, so product is unitless
     _attenuation_k = np.asarray(attenuation_k)
 
     def get_attenuation_stop_probabilities(trna_conc):
-        # Strip units and do plain numpy math
-        # trna_conc is in umol/L, attenuation_k is in L/umol, product is unitless
-        trna_vals = np.array([
-            float(x.asNumber(units.umol / units.L)) if hasattr(x, 'asNumber')
-            else float(x) for x in trna_conc
-        ])
+        target = units.umol / units.L
+
+        def _strip(x):
+            q = unum_to_pint(x)
+            return float(q.to(target).magnitude) if hasattr(q, "magnitude") else float(q)
+        trna_vals = np.array([_strip(x) for x in trna_conc])
         trna_by_aa = aa_from_trna @ trna_vals
         exponent = trna_by_aa @ _attenuation_k
         return 1 - np.exp(exponent)
@@ -507,8 +499,10 @@ def get_import_constraints_factory(all_external_exchange_molecules):
             mol_id in constrained
             for mol_id in all_external_exchange_molecules
         ]
+        target = unum_to_pint(constraint_units).units
         constraints = [
-            constrained.get(mol_id, np.nan * constraint_units).asNumber(constraint_units)
+            unum_to_pint(constrained.get(mol_id, np.nan * constraint_units))
+            .to(target).magnitude
             for mol_id in all_external_exchange_molecules
         ]
         return unconstrained_molecules, constrained_molecules, constraints
@@ -521,7 +515,7 @@ def exchange_data_from_media_factory(saved_media, env_to_exchange_map,
                                       import_constraint_threshold,
                                       carbon_sources):
     """Factory: exchange data from media label."""
-    from v2ecoli.library.unit_defs import units
+    units = _pint_units
     secretion_set = set(secretion_exchange_molecules)
 
     def exchange_data_from_concentrations(molecules):
@@ -565,17 +559,15 @@ def exchange_data_from_media_factory(saved_media, env_to_exchange_map,
 @register("growth_rate.get_ppGpp_conc")
 def get_ppGpp_conc_factory(x_units_str, y_units_str, fit_params):
     """Factory: ppGpp concentration from doubling time."""
-    from v2ecoli.library.unit_defs import units
+    units = _pint_units
     from wholecell.utils.fitting import interpolate_linearized_fit
 
     x_units = units.min
     y_units = units.pmol / units.L
 
     def get_ppGpp_conc(doubling_time):
-        try:
-            x = doubling_time.asNumber(x_units)
-        except AttributeError:
-            x = float(doubling_time)
+        q = unum_to_pint(doubling_time)
+        x = q.to(x_units).magnitude if hasattr(q, "magnitude") else float(q)
         return y_units * interpolate_linearized_fit(x, *fit_params)
 
     return get_ppGpp_conc
@@ -584,7 +576,7 @@ def get_ppGpp_conc_factory(x_units_str, y_units_str, fit_params):
 @register("getter.get_masses")
 def get_masses_factory(all_total_masses, mass_units_value):
     """Factory: get molecular masses by ID."""
-    from v2ecoli.library.unit_defs import units
+    units = _pint_units
     import re
     _compartment_tag = re.compile(r'\[.*\]')
     _mass_units = mass_units_value * units.g / units.mol
@@ -602,7 +594,7 @@ def get_masses_factory(all_total_masses, mass_units_value):
 @register("getter.get_mass")
 def get_mass_factory(all_total_masses, mass_units_value):
     """Factory: get single molecular mass by ID."""
-    from v2ecoli.library.unit_defs import units
+    units = _pint_units
     import re
     _compartment_tag = re.compile(r'\[.*\]')
     _mass_units = mass_units_value * units.g / units.mol
@@ -622,15 +614,19 @@ def concentration_updates_factory(default_concentrations_dict, exchange_fluxes,
     Returns an object with concentrations_based_on_nutrients() method
     and linked_metabolites attribute.
     """
-    from v2ecoli.library.unit_defs import units as u
-
+    u = _pint_units
     mol_per_L = u.mol / u.L
 
-    # Reconstruct Unum values for molecule_set_amounts
-    _molecule_set_amounts = {
-        k: v * mol_per_L if not hasattr(v, 'asNumber') else v
-        for k, v in molecule_set_amounts.items()
-    }
+    # Reconstruct unit-bearing values for molecule_set_amounts. Anything
+    # that already carries a unit (Unum from cache, pint Quantity from
+    # earlier in the migration) is normalized through the bridge and
+    # converted to mol/L.
+    def _to_mol_per_L(v):
+        if isinstance(v, (int, float)):
+            return v * mol_per_L
+        q = unum_to_pint(v)
+        return q.to(mol_per_L) if hasattr(q, "magnitude") else v * mol_per_L
+    _molecule_set_amounts = {k: _to_mol_per_L(v) for k, v in molecule_set_amounts.items()}
 
     class _ConcentrationUpdates:
         def __init__(self):
@@ -646,7 +642,7 @@ def concentration_updates_factory(default_concentrations_dict, exchange_fluxes,
                                                imports=None,
                                                conversion_units=None):
             if conversion_units:
-                conversion = self.units.asNumber(conversion_units)
+                conversion = self.units.to(unum_to_pint(conversion_units).units).magnitude
             else:
                 conversion = self.units
 
@@ -661,7 +657,7 @@ def concentration_updates_factory(default_concentrations_dict, exchange_fluxes,
 
             if imports is not None:
                 if conversion_units:
-                    conversion_to_no_units = conversion_units.asUnit(self.units)
+                    conversion_to_no_units = unum_to_pint(conversion_units).to(self.units)
 
                 if media_id in self.relative_changes:
                     for mol_id, conc_change in self.relative_changes[media_id].items():
@@ -675,7 +671,7 @@ def concentration_updates_factory(default_concentrations_dict, exchange_fluxes,
                     ) or (moleculeName in self.molecule_scale_factors
                            and moleculeName[:-3] + "[p]" in imports):
                         if conversion_units:
-                            setAmount = (setAmount / conversion_to_no_units).asNumber()
+                            setAmount = unum_to_pint(setAmount / conversion_to_no_units).magnitude
                         concDict[moleculeName] = setAmount
 
             for met, linked in self.linked_metabolites.items():
@@ -692,7 +688,7 @@ def exchange_constraints_factory(concentration_updates_obj):
 
     Takes a concentration_updates object (from the concentration_updates factory).
     """
-    from v2ecoli.library.unit_defs import units
+    units = _pint_units
 
     def exchange_constraints(exchangeIDs, coefficient, targetUnits, media_id,
                              unconstrained, constrained,
@@ -705,14 +701,16 @@ def exchange_constraints_factory(concentration_updates_obj):
         if concModificationsBasedOnCondition is not None:
             newObjective.update(concModificationsBasedOnCondition)
 
+        target = unum_to_pint(targetUnits).units
+        coeff = unum_to_pint(coefficient)
         externalMoleculeLevels = np.zeros(len(exchangeIDs), np.float64)
         for index, moleculeID in enumerate(exchangeIDs):
             if moleculeID in unconstrained:
                 externalMoleculeLevels[index] = np.inf
             elif moleculeID in constrained:
                 externalMoleculeLevels[index] = (
-                    constrained[moleculeID] * coefficient
-                ).asNumber(targetUnits)
+                    unum_to_pint(constrained[moleculeID]) * coeff
+                ).to(target).magnitude
 
         # Match v1 return order: (externalMoleculeLevels, newObjective)
         return externalMoleculeLevels, newObjective
@@ -729,7 +727,7 @@ def get_kinetic_constraints_factory(enzymes_expr, saturations_expr, kcats):
         saturations_expr: string expression for saturation calculation
         kcats: array (n_reactions × 3) of kcat values
     """
-    from v2ecoli.library.unit_defs import units
+    units = _pint_units
     CONC_UNITS = units.umol / units.L
 
     _kcats = np.asarray(kcats)
@@ -737,8 +735,8 @@ def get_kinetic_constraints_factory(enzymes_expr, saturations_expr, kcats):
     _compiled_saturation = eval(f"lambda s: {saturations_expr}")
 
     def get_kinetic_constraints(enzymes, substrates):
-        enzs = enzymes.asNumber(CONC_UNITS)
-        subs = substrates.asNumber(CONC_UNITS)
+        enzs = unum_to_pint(enzymes).to(CONC_UNITS).magnitude
+        subs = unum_to_pint(substrates).to(CONC_UNITS).magnitude
 
         capacity = np.array(_compiled_enzymes(enzs))[:, None] * _kcats
         saturation = np.array(
@@ -756,17 +754,14 @@ def get_biomass_as_concentrations_factory(precomputed):
     precomputed: dict mapping doubling_time_minutes (float) to
     dict of {metabolite_id: concentration_mol_per_L}
     """
-    from v2ecoli.library.unit_defs import units
+    units = _pint_units
 
-    # Convert string keys back to floats (JSON serialization)
     lookup = {float(k): v for k, v in precomputed.items()}
     sorted_dts = sorted(lookup.keys())
 
     def get_biomass_as_concentrations(doubling_time, **kwargs):
-        try:
-            dt_min = doubling_time.asNumber(units.min)
-        except AttributeError:
-            dt_min = float(doubling_time)
+        q = unum_to_pint(doubling_time)
+        dt_min = q.to(units.min).magnitude if hasattr(q, "magnitude") else float(q)
 
         # Find closest precomputed doubling time
         closest = min(sorted_dts, key=lambda x: abs(x - dt_min))
@@ -813,7 +808,7 @@ def synth_prob_from_ppgpp_factory(exp_free, exp_ppgpp,
         ppgpp_km_squared: float — squared KM for ppGpp binding
     """
     from wholecell.utils.fitting import interpolate_linearized_fit
-    from v2ecoli.library.unit_defs import units
+    units = _pint_units
 
     exp_free = np.asarray(exp_free, dtype=float)
     exp_ppgpp = np.asarray(exp_ppgpp, dtype=float)
@@ -834,10 +829,8 @@ def synth_prob_from_ppgpp_factory(exp_free, exp_ppgpp,
     PPGPP_CONC_UNITS = units.umol / units.L
 
     def synth_prob_from_ppgpp(ppgpp, copy_number, balanced_rRNA_prob=True):
-        try:
-            ppgpp_val = ppgpp.asNumber(PPGPP_CONC_UNITS)
-        except AttributeError:
-            ppgpp_val = float(ppgpp)
+        q = unum_to_pint(ppgpp)
+        ppgpp_val = q.to(PPGPP_CONC_UNITS).magnitude if hasattr(q, "magnitude") else float(q)
 
         f_ppgpp = fraction_rnap_bound_ppgpp(ppgpp_val)
 

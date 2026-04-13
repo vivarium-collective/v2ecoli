@@ -5,9 +5,10 @@ from typing import List, Optional, Tuple
 import numpy as np
 from numpy import typing as npt
 from scipy import stats
-import unum  # Imported here to be used in getCountsFromMassAndExpression assertions
+import pint
 
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.unit_bridge import unum_to_pint
 
 
 FUNCTIONS = {
@@ -60,20 +61,20 @@ def countsFromMassAndExpression(
     """
 
     assert np.allclose(np.sum(relativeExpression), 1)
-    assert not isinstance(mass, unum.Unum)
-    assert not isinstance(mws, unum.Unum)
-    assert not isinstance(relativeExpression, unum.Unum)
-    assert not isinstance(nAvogadro, unum.Unum)
+    assert not isinstance(mass, pint.Quantity)
+    assert not isinstance(mws, pint.Quantity)
+    assert not isinstance(relativeExpression, pint.Quantity)
+    assert not isinstance(nAvogadro, pint.Quantity)
     return mass / np.dot(mws / nAvogadro, relativeExpression)
 
 
 def masses_and_counts_for_homeostatic_target(
-    dry_mass_of_non_small_molecules: unum.Unum,
-    concentrations: unum.Unum,
-    weights: unum.Unum,
-    cell_density: unum.Unum,
-    avogadros_number: unum.Unum,
-) -> tuple[unum.Unum, unum.Unum]:
+    dry_mass_of_non_small_molecules: pint.Quantity,
+    concentrations: pint.Quantity,
+    weights: pint.Quantity,
+    cell_density: pint.Quantity,
+    avogadros_number: pint.Quantity,
+) -> tuple[pint.Quantity, pint.Quantity]:
     """
     Computes the dry mass fractions and counts associated with small molecules to maintain
     concentrations consistent with targets.  (Also includes water.)
@@ -151,7 +152,7 @@ def masses_and_counts_for_homeostatic_target(
         cell_density - total_small_mol_mass_conc
     )
 
-    if cell_volume.asNumber() < 0:
+    if cell_volume.magnitude < 0:
         raise ValueError(
             "Could not achieve concentration targets with the expected dry mass."
             " Check for any unusually high concentrations."
@@ -177,10 +178,11 @@ def calcProteinCounts(sim_data, monomerMass):
 
 def calcProteinTotalCounts(sim_data, monomerMass, monomerExpression):
     return countsFromMassAndExpression(
-        monomerMass.asNumber(units.g),
-        sim_data.process.translation.monomer_data["mw"].asNumber(units.g / units.mol),
+        unum_to_pint(monomerMass).to(units.g).magnitude,
+        unum_to_pint(sim_data.process.translation.monomer_data["mw"]).to(
+            units.g / units.mol).magnitude,
         monomerExpression,
-        sim_data.constants.n_avogadro.asNumber(1 / units.mol),
+        unum_to_pint(sim_data.constants.n_avogadro).to(1 / units.mol).magnitude,
     )
 
 
@@ -190,10 +192,10 @@ def calcProteinDistribution(sim_data):
             sim_data.relation.cistron_to_monomer_mapping
         ]
         / (
-            np.log(2) / sim_data.doubling_time.asNumber(units.s)
-            + sim_data.process.translation.monomer_data["deg_rate"].asNumber(
-                1 / units.s
-            )
+            np.log(2) / unum_to_pint(sim_data.doubling_time).to(units.s).magnitude
+            + unum_to_pint(
+                sim_data.process.translation.monomer_data["deg_rate"]
+            ).to(1 / units.s).magnitude
         )
     )
 

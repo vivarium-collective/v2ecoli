@@ -1,10 +1,11 @@
 """Generate HTML report from plasmid simulation timeseries.
 
 Reads out/plasmid/timeseries.json (produced by run_plasmid_experiment.py)
-and writes reports/plasmid_replication_report.html with: a reproducibility
-banner, a navigation menu, six plots inspired by the vEcoli_Plasmid PR
-visualizations, and a bottom section with the plasmid process docstring,
-math, and a static topology diagram.
+and writes reports/plasmid_replication_report.html with a reproducibility
+banner, navigation menu, six plots inspired by the vEcoli_Plasmid PR
+visualizations, and an interactive Cytoscape network viewer of the
+plasmid-enabled composite (using the shared v2ecoli.viz.build_graph /
+render_html pipeline used by the other reports).
 """
 import io
 import json
@@ -14,7 +15,6 @@ import sys
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -23,14 +23,11 @@ sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
 from v2ecoli.library.repro_banner import banner_html
-from v2ecoli.processes.plasmid_replication import (
-    NAME as PLASMID_NAME,
-    TOPOLOGY as PLASMID_TOPOLOGY,
-    PlasmidReplication,
-)
 
+CACHE_DIR = "out/cache_plasmid"
 IN = "out/plasmid/timeseries.json"
 OUT = "reports/plasmid_replication_report.html"
+NETWORK_OUT = "reports/plasmid_network.html"
 
 
 def svg(fig):
@@ -40,103 +37,36 @@ def svg(fig):
     return buf.getvalue()
 
 
-def topology_diagram():
-    """Static SVG showing the plasmid process and its stores."""
-    fig, ax = plt.subplots(figsize=(10, 5.5))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 6)
-    ax.axis("off")
+def build_network_html():
+    """Build the interactive Cytoscape network using the shared v2ecoli.viz
+    pipeline, filtered so the graph centers on the plasmid-replication
+    process and the stores it binds. Writes to NETWORK_OUT.
+    """
+    from v2ecoli.composite import make_composite
+    from v2ecoli.generate import build_execution_layers, DEFAULT_FEATURES
+    from v2ecoli.viz import build_graph, render_html
 
-    # Central process node
-    proc = mpatches.FancyBboxPatch(
-        (4.0, 2.5), 2.0, 1.0, boxstyle="round,pad=0.1",
-        fc="#F4A7A1", ec="#8B2E27", lw=1.5,
+    composite = make_composite(cache_dir=CACHE_DIR, features=DEFAULT_FEATURES)
+    layers = build_execution_layers(DEFAULT_FEATURES)
+    data = build_graph(composite, layers)
+
+    n_proc = sum(1 for n in data["nodes"] if n["data"]["kind"] == "process")
+    n_store = sum(1 for n in data["nodes"] if n["data"]["kind"] == "store")
+    n_edges = len(data["edges"])
+    subtitle = (f"{n_proc} processes · {n_store} stores · "
+                f"{n_edges} edges · plasmid-enabled baseline composite")
+
+    html = render_html(
+        data,
+        title="v2ecoli · Plasmid-enabled baseline",
+        subtitle=subtitle,
     )
-    ax.add_patch(proc)
-    ax.text(5.0, 3.0, "ecoli-plasmid-\nreplication",
-            ha="center", va="center", fontsize=10, fontweight="bold")
-
-    # Ports: store positions
-    stores = [
-        # (x, y, name, path, color)
-        (0.5, 5.0, "bulk",                       "bulk",                    "#FDE68A"),
-        (0.5, 3.8, "listeners",                  "listeners",               "#D5D5D5"),
-        (0.5, 2.6, "environment",                "environment",             "#BFDBFE"),
-        (0.5, 1.4, "timestep / global_time",     "timestep/global_time",    "#E5E7EB"),
-        (8.8, 5.2, "full_plasmids",              "unique/full_plasmid",     "#A4D4A4"),
-        (8.8, 4.2, "oriVs",                      "unique/oriV",             "#A4D4A4"),
-        (8.8, 3.2, "plasmid_domains",            "unique/plasmid_domain",   "#A4D4A4"),
-        (8.8, 2.2, "plasmid_active_replisomes",  "unique/plasmid_active_replisome", "#A4D4A4"),
-        (8.8, 0.9, "plasmid_rna_control",        "process_state/plasmid_rna_control", "#C084FC"),
-    ]
-    for x, y, port, path, color in stores:
-        box = mpatches.FancyBboxPatch(
-            (x - 0.1, y - 0.25), 1.9, 0.6, boxstyle="round,pad=0.05",
-            fc=color, ec="#334155", lw=1.0,
-        )
-        ax.add_patch(box)
-        ax.text(x + 0.85, y + 0.10, port, ha="center", va="center",
-                fontsize=8.5, fontweight="bold")
-        ax.text(x + 0.85, y - 0.08, path, ha="center", va="center",
-                fontsize=7, color="#475569", style="italic")
-        # edge to process
-        is_left = x < 5
-        if is_left:
-            ax.annotate("", xy=(4.0, 3.0), xytext=(x + 1.8, y),
-                        arrowprops=dict(arrowstyle="-|>", color="#334155",
-                                        lw=1.0, shrinkA=2, shrinkB=2))
-        else:
-            ax.annotate("", xy=(6.0, 3.0), xytext=(x + 0.0, y),
-                        arrowprops=dict(arrowstyle="-|>", color="#334155",
-                                        lw=1.0, shrinkA=2, shrinkB=2))
-
-    ax.text(5.0, 5.5, "Plasmid replication topology (ports → stores)",
-            ha="center", fontsize=12, fontweight="bold")
-
-    # Legend
-    patches = [
-        mpatches.Patch(color="#F4A7A1", label="process"),
-        mpatches.Patch(color="#A4D4A4", label="unique molecule store"),
-        mpatches.Patch(color="#FDE68A", label="bulk store"),
-        mpatches.Patch(color="#C084FC", label="process_state (RNA I/II)"),
-        mpatches.Patch(color="#BFDBFE", label="environment"),
-    ]
-    ax.legend(handles=patches, loc="lower left", fontsize=8, ncol=3,
-              frameon=False)
-    return svg(fig)
-
-
-def extract_math_blocks(docstring):
-    """Render key math equations as MathJax blocks."""
-    return [
-        ("RNA I / II / hybrid ODE (Ataai-Shuler 1986)", r"""
-\[
-\begin{aligned}
-\frac{d[\text{RNA}_{\text{I}}]}{dt}  &= K_T^{\text{I}} \cdot N_{\text{plasmids}} - k_h \cdot [\text{RNA}_{\text{I}}][\text{RNA}_{\text{II}}] - \gamma_I\,[\text{RNA}_{\text{I}}] \\
-\frac{d[\text{RNA}_{\text{II}}]}{dt} &= K_T^{\text{II}} \cdot N_{\text{plasmids}} - k_h \cdot [\text{RNA}_{\text{I}}][\text{RNA}_{\text{II}}] - \gamma_{II}\,[\text{RNA}_{\text{II}}] \\
-\frac{d[\text{Hybrid}]}{dt}          &= k_h \cdot [\text{RNA}_{\text{I}}][\text{RNA}_{\text{II}}] - \gamma_H\,[\text{Hybrid}]
-\end{aligned}
-\]"""),
-        ("Initiation criterion", r"""
-\[
-\Delta\,\text{PL}_{\text{fractional}} \;=\; N_{\text{plasmids}} \cdot f \cdot \exp(-k_h \cdot [\text{RNA}_{\text{I}}] \cdot t_{\text{tx}})
-\]
-<p>Every <code>1 / K_T^II</code> ≈ 360&nbsp;s, each plasmid fires one RNA&nbsp;II initiation attempt. The surviving fraction (not bound by RNA&nbsp;I during transcription time <code>t_tx</code>) is multiplied by primer efficiency <code>f</code> and added to the fractional accumulator. When the accumulator crosses&nbsp;1.0, one integer initiation fires.</p>
-"""),
-        ("Elongation (polymerize algorithm)", r"""
-\[
-\text{sequences} = \text{buildSequences}(\text{template}, \; \text{fork}_{\text{pos}}, \; v \cdot \Delta t)
-\quad\Rightarrow\quad
-\text{result} = \text{polymerize}(\text{sequences}, \; [\text{dNTP}], \; R_{\text{limit}})
-\]
-<p>Unidirectional (one replichore, 2 sequence rows). Mass increase per fork: <code>Δm = Σ n<sub>nt</sub> · w<sub>nt</sub></code> (fg). One PPi released per dNTP polymerized.</p>
-"""),
-        ("Termination", r"""
-\[
-\text{coord} \ge L_{\text{replichore}} \;\Rightarrow\; \text{delete replisome, create new full\_plasmid}
-\]
-"""),
-    ]
+    os.makedirs(os.path.dirname(NETWORK_OUT), exist_ok=True)
+    with open(NETWORK_OUT, "w") as f:
+        f.write(html)
+    print(f"wrote {NETWORK_OUT} ({os.path.getsize(NETWORK_OUT)/1024:.1f} KB, "
+          f"{n_proc} procs / {n_store} stores / {n_edges} edges)")
+    return os.path.basename(NETWORK_OUT), n_proc, n_store, n_edges
 
 
 def main():
@@ -227,18 +157,7 @@ def main():
     rna_i_final = snaps[-1]["rna_I"]
     rna_ii_final = snaps[-1]["rna_II"]
 
-    topo_svg = topology_diagram()
-    math_blocks = extract_math_blocks(PlasmidReplication.__doc__ or "")
-    docstring = (PlasmidReplication.__doc__ or "").strip()
-    # escape < > in docstring so it renders as text
-    import html as _html
-    docstring_html = _html.escape(docstring)
-
-    # Topology table
-    topo_rows = "\n".join(
-        f"<tr><td><code>{port}</code></td><td><code>{' / '.join(path)}</code></td></tr>"
-        for port, path in PLASMID_TOPOLOGY.items()
-    )
+    network_file, n_proc, n_store, n_edges = build_network_html()
 
     toc = """
 <nav class="toc">
@@ -250,9 +169,7 @@ def main():
   <a href="#initiation">4. Initiation</a>
   <a href="#subunits">5. Subunits</a>
   <a href="#mass">6. Mass</a>
-  <a href="#topology">Topology</a>
-  <a href="#math">Math</a>
-  <a href="#docstring">Docstring</a>
+  <a href="#network">Network</a>
 </nav>
 """
 
@@ -349,23 +266,16 @@ longer runs are needed for steady-state copy number (~20 at 60&nbsp;min doubling
 <h2 id="mass">6. Cell mass</h2>
 <div class="plot">{plots['mass']}</div>
 
-<h2 id="topology">Plasmid process topology</h2>
-<p>Ports and the store paths they bind to. Process runs as a plain
-<code>EcoliStep</code> in the standalone-replication execution layer,
-alongside <code>ecoli-chromosome-replication</code>.</p>
-<div class="plot">{topo_svg}</div>
-
-<table>
-<tr><th>Port</th><th>Store path</th></tr>
-{topo_rows}
-</table>
-
-<h2 id="math">Mathematical model</h2>
-{''.join(f'<div class="mathbox"><h3>{title}</h3>{body}</div>' for title, body in math_blocks)}
-
-<h2 id="docstring">Process docstring</h2>
-<p>From <code>v2ecoli/processes/plasmid_replication.py</code>:</p>
-<pre class="docstring">{docstring_html}</pre>
+<h2 id="network">Network visualization</h2>
+<p>Interactive Cytoscape viewer of the plasmid-enabled baseline composite
+(<code>{n_proc}</code> processes, <code>{n_store}</code> stores,
+<code>{n_edges}</code> edges). Same viewer as the other reports — click
+any node to inspect port schemas, resolved store paths, docstring, and
+class. <code>ecoli-plasmid-replication</code> is in the DNA-replication
+subsystem (same color as chromosome replication).</p>
+<p><a href="{network_file}" target="_blank" rel="noopener">Open full-screen &#8599;</a></p>
+<iframe src="{network_file}" style="width:100%;height:720px;border:1px solid #e5e7eb;
+        border-radius:6px;margin-top:0.5em" loading="lazy"></iframe>
 
 </body>
 </html>

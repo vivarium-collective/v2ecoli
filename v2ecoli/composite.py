@@ -107,7 +107,7 @@ def _build_from_cache(cache_dir, core, seed=0, features=None):
     )
 
 
-def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
+def save_cache(sim_data_path, cache_dir='out/cache', seed=0, has_plasmid=False):
     """Generate and save cache files from simData (vEcoli ParCa output).
 
     Creates:
@@ -119,7 +119,8 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
 
     os.makedirs(cache_dir, exist_ok=True)
 
-    loader = LoadSimData(sim_data_path=sim_data_path, seed=seed)
+    loader = LoadSimData(sim_data_path=sim_data_path, seed=seed,
+                         has_plasmid=has_plasmid)
 
     state = loader.generate_initial_state()
     save_initial_state(state, os.path.join(cache_dir, 'initial_state.json'))
@@ -134,6 +135,7 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
         'ecoli-rna-degradation', 'ecoli-complexation',
         'ecoli-transcript-elongation', 'ecoli-polypeptide-elongation',
         'ecoli-chromosome-structure', 'ecoli-metabolism',
+        'ecoli-plasmid-replication',
         'RNA_counts_listener', 'rna_synth_prob_listener',
         'monomer_counts_listener', 'dna_supercoiling_listener',
         'ribosome_data_listener', 'rnap_data_listener',

@@ -83,6 +83,7 @@ BASE_EXECUTION_LAYERS = [
 
     # Layer 4b: standalone initiation/replication/complexation
     ['ecoli-complexation', 'ecoli-chromosome-replication',
+     'ecoli-plasmid-replication',
      'ecoli-polypeptide-initiation', 'ecoli-transcript-initiation'],
     # RNA degradation still partitioned (shares water with other processes)
     ['ecoli-rna-degradation_requester'],

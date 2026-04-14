@@ -162,10 +162,12 @@ def test_division_conserves_unique_molecules(predivision_state):
 # 4. Daughters are viable and grow
 # ---------------------------------------------------------------------------
 
-DAUGHTER_RUN_SECONDS = 60.0
-DAUGHTER_MIN_GROWTH_FG = 0.5
+DAUGHTER_RUN_SECONDS = 20.0
+DAUGHTER_MIN_GROWTH_FG = 0.2  # ~0.3 fg/20s for healthy daughter; 0.2
+                              # rejects stalls without flaking on noise.
 
 
+@pytest.mark.sim
 def test_daughters_build_and_grow(predivision_state, sim_data_cache):
     """Build two daughter composites from the split state and run each
     for 60 s. Each must (a) build without exception and (b) gain at

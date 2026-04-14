@@ -26,6 +26,7 @@ markers = [
     "fast: runs without simulation cache (type tests, unit tests)",
     "slow: runs full simulations (60s+)",
     "behavior: model-behavior tests resumed from a saved checkpoint (seconds, not minutes)",
+    "sim: calls composite.run() — longer than pure-state tests. CI routes these to a parallel behavior-tests job.",
 ]
 
 [tool.setuptools]

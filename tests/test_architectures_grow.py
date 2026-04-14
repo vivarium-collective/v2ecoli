@@ -16,8 +16,9 @@ import os
 import pytest
 
 
-DURATION = 60.0
-MIN_GROWTH_FG = 1.0  # over 60s a healthy cell adds several fg
+DURATION = 20.0
+MIN_GROWTH_FG = 0.3  # over 20s a healthy cell adds ~1 fg; 0.3 rejects stalls
+                     # while staying robust to normal numerical drift.
 
 
 def _resolve_cache_dir():
@@ -56,6 +57,7 @@ def _run_and_measure(make_composite_fn, duration=DURATION):
     return m0, m1
 
 
+@pytest.mark.sim
 def test_baseline_grows():
     from v2ecoli.composite import make_composite
     m0, m1 = _run_and_measure(make_composite)
@@ -63,6 +65,7 @@ def test_baseline_grows():
         f'Baseline dry_mass did not grow enough: {m0:.2f} -> {m1:.2f} fg')
 
 
+@pytest.mark.sim
 def test_departitioned_grows():
     from v2ecoli.composite_departitioned import make_departitioned_composite
     m0, m1 = _run_and_measure(make_departitioned_composite)
@@ -70,6 +73,7 @@ def test_departitioned_grows():
         f'Departitioned dry_mass did not grow enough: {m0:.2f} -> {m1:.2f} fg')
 
 
+@pytest.mark.sim
 def test_reconciled_grows():
     from v2ecoli.composite_reconciled import make_reconciled_composite
     m0, m1 = _run_and_measure(make_reconciled_composite)

@@ -21,6 +21,11 @@ concurrency:
 # PyPI bigraph-schema 1.1.1 doesn't have it, so collection fails with
 # AttributeError on .dispatch. Re-enable after bigraph-schema ships those
 # changes to PyPI.
+#
+# Both jobs pin bigraph-schema to the `api` git branch after uv sync —
+# same reason: the behavior tests register v2ecoli Quantity against
+# bigraph_schema.schema.Quantity, which only resolves on the api branch.
+# Temporary until bigraph-schema cuts a PyPI release with those changes.
 
 jobs:
   fast-tests:
@@ -38,6 +43,9 @@ jobs:
 
       - name: Install dependencies (PyPI only)
         run: uv sync --no-sources --extra dev || uv sync --no-sources
+
+      - name: Pin bigraph-schema to api branch (temp)
+        run: uv pip install --force-reinstall git+https://github.com/vivarium-collective/bigraph-schema@api
 
       - name: Run fast tests (no .run() calls)
         run: >-
@@ -63,6 +71,9 @@ jobs:
 
       - name: Install dependencies (PyPI only)
         run: uv sync --no-sources --extra dev || uv sync --no-sources
+
+      - name: Pin bigraph-schema to api branch (temp)
+        run: uv pip install --force-reinstall git+https://github.com/vivarium-collective/bigraph-schema@api
 
       - name: Run simulation-based behavior tests
         run: >-

@@ -8,6 +8,7 @@ import os
 from typing import Any, Optional, TYPE_CHECKING
 from v2ecoli.types.quantity import ureg as units
 from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
+from wholecell.utils import units as wc_units
 vivunits = units
 from v2ecoli.library.unit_struct_array import UnitStructArray
 from v2ecoli.library.fitting import normalize
@@ -639,13 +640,13 @@ class LoadSimData:
 
         replisome_trimer_subunit_masses = np.vstack(
             [
-                unum_to_pint(self.sim_data.getter.get_submass_array(x)).to(units.fg / units.count).magnitude
+                self.sim_data.getter.get_submass_array(x).asNumber(wc_units.fg / wc_units.count)
                 for x in self.sim_data.molecule_groups.replisome_trimer_subunits
             ]
         )
         replisome_monomer_subunit_masses = np.vstack(
             [
-                unum_to_pint(self.sim_data.getter.get_submass_array(x)).to(units.fg / units.count).magnitude
+                self.sim_data.getter.get_submass_array(x).asNumber(wc_units.fg / wc_units.count)
                 for x in self.sim_data.molecule_groups.replisome_monomer_subunits
             ]
         )

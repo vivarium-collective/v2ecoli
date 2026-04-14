@@ -13,6 +13,10 @@ and comparable performance.
 - **[Workflow Report](https://vivarium-collective.github.io/v2ecoli/workflow_report.html)** — 
   Full cell lifecycle: single cell to division (~42 min), daughter simulations, 
   chromosome replication, growth metrics
+- **[Multigeneration Report](https://vivarium-collective.github.io/v2ecoli/multigeneration_report.html)** — 
+  Single-lineage simulation across N configurable generations: run a cell to 
+  division, keep one daughter, continue. Per-generation timings, mass trajectories, 
+  and fold-change plotted end-to-end with generation boundaries
 - **[Colony Report](https://vivarium-collective.github.io/v2ecoli/colony_report.html)** — 
   Mixed colony: 1 whole-cell E. coli + surrogate cells with 2D pymunk physics, 
   growth, and division

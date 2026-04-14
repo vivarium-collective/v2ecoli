@@ -77,16 +77,35 @@ def single_cell_trajectory():
     return {'snapshots': snaps, 'meta': meta}
 
 
+_CACHE_FIXTURE_DIR = os.path.join(_FIXTURE_DIR, 'cache')
+
+
 @pytest.fixture(scope='session')
 def sim_data_cache():
     """Path to the ParCa-derived sim_data_cache dir.
+
+    Lookup order:
+      1. $V2ECOLI_CACHE_DIR (explicit override)
+      2. tests/fixtures/cache/ (gzipped fixtures committed to the repo)
+      3. out/cache/ (locally-generated ParCa output)
+
+    Both gzipped (`.dill.gz`/`.json.gz`) and raw variants are loaded
+    transparently by v2ecoli.composite._load_cache_bundle.
 
     Note: sim_data_cache.dill is a ParCa parameter artifact, not a
     simulation save state. The save-state format policy does not apply to
     it — ParCa outputs are compiled parameter objects produced once and
     reused across runs.
     """
-    cache_dir = os.environ.get('V2ECOLI_CACHE_DIR', 'out/cache')
-    if not os.path.isdir(cache_dir):
-        pytest.skip(f'cache dir {cache_dir!r} not present (run ParCa first)')
-    return cache_dir
+    override = os.environ.get('V2ECOLI_CACHE_DIR')
+    candidates = [override] if override else []
+    candidates += [_CACHE_FIXTURE_DIR, 'out/cache']
+    for cache_dir in candidates:
+        if cache_dir and os.path.isdir(cache_dir) and (
+            os.path.exists(os.path.join(cache_dir, 'sim_data_cache.dill'))
+            or os.path.exists(os.path.join(cache_dir, 'sim_data_cache.dill.gz'))
+        ):
+            return cache_dir
+    pytest.skip(
+        f'No ParCa cache found. Tried: {candidates}. '
+        f'Run scripts/cache_predivision.py or commit fixtures.')

@@ -29,12 +29,28 @@ import os
 import pytest
 
 
-CACHE_DIR = 'out/cache'
+def _resolve_cache_dir():
+    """See tests/test_architectures_grow.py for rationale."""
+    override = os.environ.get('V2ECOLI_CACHE_DIR')
+    candidates = [override] if override else []
+    fixture_dir = os.path.join(
+        os.path.dirname(__file__), 'fixtures', 'cache')
+    candidates += [fixture_dir, 'out/cache']
+    for d in candidates:
+        if d and os.path.isdir(d) and (
+            os.path.exists(os.path.join(d, 'sim_data_cache.dill'))
+            or os.path.exists(os.path.join(d, 'sim_data_cache.dill.gz'))
+        ):
+            return d
+    return None
 
+
+CACHE_DIR = _resolve_cache_dir()
 
 pytestmark = pytest.mark.skipif(
-    not os.path.isdir(CACHE_DIR),
-    reason=f'cache dir {CACHE_DIR!r} not present (run scripts/cache_predivision.py)',
+    CACHE_DIR is None,
+    reason='No ParCa cache found (tested V2ECOLI_CACHE_DIR, '
+           'tests/fixtures/cache/, out/cache/).',
 )
 
 

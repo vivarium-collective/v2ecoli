@@ -9,6 +9,7 @@ Supports three loading modes:
 3. From pre-loaded state/configs: make_composite(initial_state=..., configs=...)
 """
 
+import gzip
 import os
 
 import dill
@@ -26,8 +27,20 @@ def _build_core():
     return core
 
 
+def _resolve_cache_file(cache_dir, base_name):
+    """Return path to `base_name` in `cache_dir`, preferring `.gz` if present."""
+    gz = os.path.join(cache_dir, base_name + '.gz')
+    if os.path.exists(gz):
+        return gz
+    return os.path.join(cache_dir, base_name)
+
+
 def _load_cache_bundle(cache_dir):
     """Load initial_state.json + sim_data_cache.dill from a cache directory.
+
+    `.json.gz` / `.dill.gz` variants are loaded transparently. This keeps
+    test fixtures (checked into tests/fixtures/cache/) small without
+    requiring a preflight gunzip step.
 
     Shared helper for composite.py and the departitioned/reconciled variants.
     Rebinds pint Quantities in the loaded cache onto the shared v2ecoli
@@ -36,9 +49,10 @@ def _load_cache_bundle(cache_dir):
     pint.application_registry.
     """
     initial_state = load_initial_state(
-        os.path.join(cache_dir, 'initial_state.json'))
-    cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
-    with open(cache_path, 'rb') as f:
+        _resolve_cache_file(cache_dir, 'initial_state.json'))
+    cache_path = _resolve_cache_file(cache_dir, 'sim_data_cache.dill')
+    opener = gzip.open if cache_path.endswith('.gz') else open
+    with opener(cache_path, 'rb') as f:
         cache = dill.load(f)
     from v2ecoli.library.unit_bridge import rebind_cache_quantities
     rebind_cache_quantities(cache)

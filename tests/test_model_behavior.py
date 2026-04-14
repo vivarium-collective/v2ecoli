@@ -172,22 +172,19 @@ def test_daughters_build_and_grow(predivision_state, sim_data_cache):
     least 0.5 fg of dry mass — the single strongest evidence that the
     full machinery (metabolism, translation, transcription) is wired
     through division, not just that division itself succeeded."""
-    import dill
-    import os
     from process_bigraph import Composite
     from v2ecoli.library.division import divide_cell
-    from v2ecoli.composite import _build_core
+    from v2ecoli.composite import _build_core, _load_cache_bundle
     from v2ecoli.generate import build_document
 
     cell = predivision_state
     d1_state, d2_state = divide_cell(cell)
 
-    with open(os.path.join(sim_data_cache, 'sim_data_cache.dill'), 'rb') as f:
-        cache = dill.load(f)
+    _, cache = _load_cache_bundle(sim_data_cache)
     configs = cache.get('configs')
     unique_names = cache.get('unique_names')
     dry_mass_inc = cache.get('dry_mass_inc_dict')
-    assert configs, 'sim_data_cache.dill missing configs — regenerate cache'
+    assert configs, 'sim_data_cache missing configs — regenerate cache'
 
     core = _build_core()
 

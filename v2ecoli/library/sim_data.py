@@ -7,7 +7,7 @@ import pickle
 import os
 from typing import Any, Optional, TYPE_CHECKING
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
+from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
 vivunits = units
 from v2ecoli.library.unit_struct_array import UnitStructArray
 from v2ecoli.library.fitting import normalize
@@ -1120,8 +1120,10 @@ class LoadSimData:
             "KMtf": unum_to_pint(transcription.trna_kms).to(MICROMOLAR_UNITS).magnitude,
             "krta": unum_to_pint(constants.Kdissociation_charged_trna_ribosome).to(MICROMOLAR_UNITS).magnitude,
             "krtf": unum_to_pint(constants.Kdissociation_uncharged_trna_ribosome).to(MICROMOLAR_UNITS).magnitude,
+            # get_amino_acid_conc_conversion is upstream Unum-native; convert
+            # our pint MICROMOLAR_UNITS at the boundary.
             "unit_conversion": metabolism.get_amino_acid_conc_conversion(
-                MICROMOLAR_UNITS
+                pint_to_unum(MICROMOLAR_UNITS)
             ),
             "KD_RelA": unum_to_pint(transcription.KD_RelA).to(MICROMOLAR_UNITS).magnitude,
             "k_RelA": unum_to_pint(constants.k_RelA_ppGpp_synthesis).to(1 / units.s).magnitude,

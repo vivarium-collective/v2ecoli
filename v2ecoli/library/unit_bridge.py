@@ -27,6 +27,48 @@ for _name, _aliases in [
         ureg.define(f"{_name} = [{_name}]" + (" = " + " = ".join(_aliases) if _aliases else ""))
 
 
+def rebind_cache_quantities(obj, _seen=None):
+    """Walk a loaded cache dict/list/tuple/ndarray and rebind every pint
+    Quantity to the shared ureg. Use after `dill.load` on cache.dill to
+    guard against stale-registry Quantities from cross-process unpickle
+    or from side-effectful imports (e.g. ecoli.library.bigraph_types
+    replacing pint.application_registry at import time)."""
+    import numpy as np
+    if _seen is None:
+        _seen = set()
+    if id(obj) in _seen:
+        return obj
+    _seen.add(id(obj))
+
+    def _rebind(q):
+        if isinstance(q, pint.Quantity) and q._REGISTRY is not ureg:
+            return ureg.Quantity(q.magnitude, str(q.units))
+        return q
+
+    if isinstance(obj, dict):
+        for k in list(obj.keys()):
+            v = obj[k]
+            if isinstance(v, pint.Quantity):
+                obj[k] = _rebind(v)
+            else:
+                rebind_cache_quantities(v, _seen)
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            if isinstance(v, pint.Quantity):
+                obj[i] = _rebind(v)
+            else:
+                rebind_cache_quantities(v, _seen)
+    elif isinstance(obj, np.ndarray) and obj.dtype == object:
+        flat = obj.ravel()
+        for i in range(flat.shape[0]):
+            v = flat[i]
+            if isinstance(v, pint.Quantity):
+                flat[i] = _rebind(v)
+            else:
+                rebind_cache_quantities(v, _seen)
+    return obj
+
+
 def _unit_string_from_unum(u: Unum) -> str:
     """Build a pint-parseable unit expression from a Unum's _unit dict."""
     parts = []
@@ -37,7 +79,20 @@ def _unit_string_from_unum(u: Unum) -> str:
 
 def unum_to_pint(u: Any) -> Any:
     """Convert an Unum quantity (scalar or ndarray-valued) to a pint Quantity
-    on the shared v2ecoli registry. Non-Unum inputs are returned unchanged."""
+    on the shared v2ecoli registry. Non-Unum inputs are rebound to ureg if
+    they are pint Quantities on a different registry, otherwise returned
+    unchanged. Rebinding handles the case where a cache.dill round-trip —
+    or a side-effectful import (e.g. ecoli.library.bigraph_types, which
+    replaces pint.application_registry at import time) — leaves a
+    Quantity tied to a stale UnitRegistry instance. Without this rebind,
+    `rna_conc_molar / self.Kms` raises 'different registries' or silently
+    produces garbage units, which was the root cause of the ~8x mRNA
+    accumulation seen in daughter sims."""
+    if isinstance(u, pint.Quantity):
+        if u._REGISTRY is ureg:
+            return u
+        # Rebind to the shared registry via string parsing.
+        return ureg.Quantity(u.magnitude, str(u.units))
     if not isinstance(u, Unum):
         return u
     magnitude = u._value
@@ -52,6 +107,13 @@ def unum_to_pint(u: Any) -> Any:
 _PINT_SYMBOL_TO_WC = {
     "l": "L",
     "amino_acid": "aa",
+    # pint uses unicode µ in short-symbol form; wholecell uses ASCII u.
+    "µmol": "umol",
+    "µg": "ug",
+    "µL": "uL",
+    "µm": "um",
+    "µs": "us",
+    "µM": "uM",
 }
 
 

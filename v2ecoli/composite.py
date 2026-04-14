@@ -81,6 +81,13 @@ def _build_from_cache(cache_dir, core, seed=0, features=None):
     cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
     with open(cache_path, 'rb') as f:
         cache = dill.load(f)
+    # Pint Quantities round-tripped through dill can land on a stale
+    # UnitRegistry if a side-effectful import (e.g. vEcoli bigraph_types)
+    # has replaced pint.application_registry. Rebind every Quantity in
+    # the loaded cache to the shared v2ecoli ureg so downstream
+    # arithmetic stays on a single registry.
+    from v2ecoli.library.unit_bridge import rebind_cache_quantities
+    rebind_cache_quantities(cache)
 
     return build_document(
         initial_state=initial_state,

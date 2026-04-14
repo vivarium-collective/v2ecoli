@@ -445,19 +445,25 @@ def set_small_molecule_counts(
             / sim_data.mass.avg_cell_to_initial_cell_conversion_factor
         )
     else:
+        # small_molecule_mass is pint; upstream Unum contributions are
+        # converted at the boundary.
         small_molecule_mass = 0 * units.fg
         for mol in conc_dict:
             mol_idx = bulk_name_to_idx(mol, bulk_ids)
-            small_molecule_mass += (
+            contribution = (
                 bulk_counts[mol_idx]
                 * sim_data.getter.get_mass(mol)
                 / sim_data.constants.n_avogadro
             )
-        other_dry_mass = cell_mass - small_molecule_mass
+            small_molecule_mass += unum_to_pint(contribution)
+        other_dry_mass = unum_to_pint(cell_mass) - small_molecule_mass
 
+    # masses_and_counts_for_homeostatic_target is upstream Unum-native;
+    # convert pint args at the boundary — pint/Unum mixing inside
+    # upstream arithmetic silently produces garbage units.
     masses_to_add, counts_to_add = masses_and_counts_for_homeostatic_target(
-        other_dry_mass,
-        molecule_concentrations,
+        pint_to_unum(other_dry_mass) if hasattr(other_dry_mass, 'magnitude') else other_dry_mass,
+        pint_to_unum(molecule_concentrations),
         sim_data.getter.get_masses(molecule_ids),
         sim_data.constants.cell_density,
         sim_data.constants.n_avogadro,
@@ -523,7 +529,8 @@ def initialize_replication(
     # the cell cycle
     # Get growth rate constants
     tau = unum_to_pint(sim_data.condition_to_doubling_time[sim_data.condition]).to(units.min)
-    critical_mass = sim_data.mass.get_dna_critical_mass(tau)
+    # get_dna_critical_mass is upstream Unum-native
+    critical_mass = unum_to_pint(sim_data.mass.get_dna_critical_mass(pint_to_unum(tau)))
     replication_rate = sim_data.process.replication.basal_elongation_rate
 
     # Calculate length of replichore
@@ -2088,12 +2095,14 @@ def initialize_trna_charging(
     .. note::
         Does not adjust for mass of amino acids on charged tRNA (~0.01% of cell mass)
     """
-    # Calculate cell volume for concentrations
-    cell_volume = (
-        calculate_cell_mass(bulk_state, unique_molecules, sim_data)
-        / sim_data.constants.cell_density
-    )
-    counts_to_molar = 1 / (sim_data.constants.n_avogadro * cell_volume)
+    # Calculate cell volume for concentrations. calculate_cell_mass returns
+    # a pint Quantity (fg); normalize sim_data.constants.* (Unum) through
+    # the bridge to avoid pint/Unum mixing in arithmetic.
+    cell_mass = calculate_cell_mass(bulk_state, unique_molecules, sim_data)
+    cell_density_pint = unum_to_pint(sim_data.constants.cell_density)
+    n_avogadro_pint = unum_to_pint(sim_data.constants.n_avogadro)
+    cell_volume = cell_mass / cell_density_pint
+    counts_to_molar = 1 / (n_avogadro_pint * cell_volume)
 
     # Get molecule views and concentrations
     transcription = sim_data.process.transcription
@@ -2153,14 +2162,17 @@ def initialize_trna_charging(
                 for aa in sim_data.molecule_groups.amino_acids
             ]
         ),
-        "unit_conversion": metabolism.get_amino_acid_conc_conversion(MICROMOLAR_UNITS),
+        # get_amino_acid_conc_conversion is upstream Unum-native
+        "unit_conversion": metabolism.get_amino_acid_conc_conversion(
+            pint_to_unum(MICROMOLAR_UNITS)),
     }
+    # calculate_trna_charging is upstream Unum-native
     fraction_charged, *_ = calculate_trna_charging(
-        synthetase_conc,
-        uncharged_trna_conc,
-        charged_trna_conc,
-        aa_conc,
-        ribosome_conc,
+        pint_to_unum(synthetase_conc),
+        pint_to_unum(uncharged_trna_conc),
+        pint_to_unum(charged_trna_conc),
+        pint_to_unum(aa_conc),
+        pint_to_unum(ribosome_conc),
         f,
         charging_params,
     )

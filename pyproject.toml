@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "v2ecoli"
 version = "0.1.0"
@@ -21,6 +25,7 @@ testpaths = ["tests"]
 markers = [
     "fast: runs without simulation cache (type tests, unit tests)",
     "slow: runs full simulations (60s+)",
+    "behavior: model-behavior tests resumed from a saved checkpoint (seconds, not minutes)",
 ]
 
 [tool.setuptools]
@@ -30,4 +35,4 @@ packages = { find = { where = ["."] } }
 vecoli = { path = "../vEcoli", editable = true }
 process-bigraph = { path = "../process-bigraph", editable = true }
 bigraph-schema = { path = "../bigraph-schema", editable = true }
-multi-cell = { path = "../pymunk-process", editable = true }
+multi-cell = { path = "../viva-munk", editable = true }

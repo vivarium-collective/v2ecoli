@@ -1380,8 +1380,8 @@ def step_single_cell():
     os.makedirs(pre_div_dir, exist_ok=True)
     if last_cell_data and 'bulk' in last_cell_data:
         from v2ecoli.cache import save_initial_state
-        save_initial_state(last_cell_data, os.path.join(pre_div_dir, 'pre_division_state.json'))
-        print(f"    Saved pre-division state: {pre_div_dir}/pre_division_state.json")
+        save_initial_state(last_cell_data, os.path.join(pre_div_dir, 'pre_division_state.json.gz'))
+        print(f"    Saved pre-division state: {pre_div_dir}/pre_division_state.json.gz")
 
     # Save .pbg snapshot of the full composite
     try:

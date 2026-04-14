@@ -7,20 +7,9 @@ requests, reconciles them proportionally against available supply,
 then runs evolve_state with fair allocations.
 """
 
-import os
-
-import dill
-from bigraph_schema import allocate_core
 from process_bigraph import Composite
 
-from v2ecoli.types import ECOLI_TYPES
-from v2ecoli.cache import load_initial_state
-
-
-def _build_core():
-    core = allocate_core()
-    core.register_types(ECOLI_TYPES)
-    return core
+from v2ecoli.composite import _build_core, _load_cache_bundle
 
 
 def make_reconciled_composite(cache_dir=None, seed=0, core=None):
@@ -30,12 +19,7 @@ def make_reconciled_composite(cache_dir=None, seed=0, core=None):
 
     from v2ecoli.generate_reconciled import build_reconciled_document
 
-    initial_state = load_initial_state(
-        os.path.join(cache_dir, 'initial_state.json'))
-
-    with open(os.path.join(cache_dir, 'sim_data_cache.dill'), 'rb') as f:
-        cache = dill.load(f)
-
+    initial_state, cache = _load_cache_bundle(cache_dir)
     document = build_reconciled_document(
         initial_state=initial_state,
         configs=cache['configs'],

@@ -319,9 +319,13 @@ class RnaDegradation(PartitionedProcess):
             self.proton_idx = bulk_name_to_idx(self.proton_id, bulk_ids)
 
         # counts_to_molar = 1 / (N_A * V)  [1/mol * 1/L = mol/L per count]
+        # .to(units.L) forces dimensional reduction; without it pint keeps
+        # cell_mass/cell_density as `femtogram·liter/gram` (fg/g = 1e-15
+        # dimensionless but pint doesn't simplify mass/mass across prefixes),
+        # which cascades to wrong magnitudes in rna_conc_molar/Kms.
         cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
-        cell_volume = cell_mass / self.cell_density  # [g / (g/L) = L]
-        counts_to_molar = 1 / (self.n_avogadro * cell_volume)
+        cell_volume = (cell_mass / self.cell_density).to(units.L)
+        counts_to_molar = (1 / (self.n_avogadro * cell_volume)).to(units.mol / units.L)
 
         # Get total counts of RNAs including free rRNAs, uncharged and charged tRNAs, and
         # active (translatable) unique mRNAs

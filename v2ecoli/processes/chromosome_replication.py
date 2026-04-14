@@ -232,7 +232,12 @@ class ChromosomeReplication(Step):
         # the process will initiate a round of chromosome replication for each
         # origin of replication.
         massPerOrigin = cellMass / n_oriC
-        self.criticalMassPerOriC = massPerOrigin / self.criticalInitiationMass
+        # .to('dimensionless') forces pint to reduce mass/mass; otherwise
+        # the ratio can retain residual unit scaling and the >= 1.0
+        # comparison below wrongly evaluates to False.
+        self.criticalMassPerOriC = (
+            massPerOrigin / self.criticalInitiationMass
+        ).to('dimensionless')
 
         # If replication should be initiated, request subunits required for
         # building two replisomes per one origin of replication, and edit

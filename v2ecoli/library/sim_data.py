@@ -8,7 +8,6 @@ import os
 from typing import Any, Optional, TYPE_CHECKING
 from v2ecoli.types.quantity import ureg as units
 from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
-from wholecell.utils import units as wc_units
 vivunits = units
 from v2ecoli.library.unit_struct_array import UnitStructArray
 from v2ecoli.library.fitting import normalize
@@ -638,15 +637,25 @@ class LoadSimData:
             self.sim_data.condition
         ]
 
+        # get_submass_array returns Unum in g/mol; convert to fg/count by
+        # going through g/mol then dividing by Avogadro's number. Pint has
+        # no implicit mol↔count equivalence (unlike wholecell's Unum), so
+        # we do the Avogadro division explicitly rather than using a
+        # direct fg/count asNumber/to conversion.
+        n_avogadro = unum_to_pint(
+            self.sim_data.constants.n_avogadro
+        ).to(1 / units.mol).magnitude
         replisome_trimer_subunit_masses = np.vstack(
             [
-                self.sim_data.getter.get_submass_array(x).asNumber(wc_units.fg / wc_units.count)
+                unum_to_pint(self.sim_data.getter.get_submass_array(x))
+                .to(units.fg / units.mol).magnitude / n_avogadro
                 for x in self.sim_data.molecule_groups.replisome_trimer_subunits
             ]
         )
         replisome_monomer_subunit_masses = np.vstack(
             [
-                self.sim_data.getter.get_submass_array(x).asNumber(wc_units.fg / wc_units.count)
+                unum_to_pint(self.sim_data.getter.get_submass_array(x))
+                .to(units.fg / units.mol).magnitude / n_avogadro
                 for x in self.sim_data.molecule_groups.replisome_monomer_subunits
             ]
         )

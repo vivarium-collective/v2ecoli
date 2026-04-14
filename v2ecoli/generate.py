@@ -29,6 +29,7 @@ from v2ecoli.processes.transcript_elongation import TranscriptElongation
 from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiation
 from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
 from v2ecoli.processes.chromosome_replication import ChromosomeReplication
+from v2ecoli.processes.plasmid_replication import PlasmidReplication
 
 # Generic Requester/Evolver wrappers from partition.py
 from v2ecoli.steps.partition import Requester, Evolver, PartitionedProcess
@@ -513,6 +514,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'ecoli-transcript-initiation': TranscriptInitiation,
         'ecoli-polypeptide-initiation': PolypeptideInitiation,
         'ecoli-chromosome-replication': ChromosomeReplication,
+        'ecoli-plasmid-replication': PlasmidReplication,
     }
 
     SIMPLE_STEPS = {

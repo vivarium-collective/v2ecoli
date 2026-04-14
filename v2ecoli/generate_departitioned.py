@@ -25,6 +25,7 @@ from v2ecoli.processes.protein_degradation import ProteinDegradation
 from v2ecoli.processes.transcript_initiation import TranscriptInitiation
 from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiation
 from v2ecoli.processes.chromosome_replication import ChromosomeReplication
+from v2ecoli.processes.plasmid_replication import PlasmidReplication
 
 # DepartitionedStep wrapper
 from v2ecoli.steps.departitioned import DepartitionedStep
@@ -193,6 +194,7 @@ def _instantiate_departitioned_step(step_name, config, loader, core):
         'ecoli-transcript-initiation': TranscriptInitiation,
         'ecoli-polypeptide-initiation': PolypeptideInitiation,
         'ecoli-chromosome-replication': ChromosomeReplication,
+        'ecoli-plasmid-replication': PlasmidReplication,
     }
 
     SIMPLE_STEPS = {

@@ -173,6 +173,7 @@ def initialize_unique_molecules(
     ppgpp_regulation,
     trna_attenuation,
     mechanistic_replisome,
+    has_plasmid=False,
 ):
     unique_molecules = {}
 
@@ -187,6 +188,7 @@ def initialize_unique_molecules(
         cell_mass,
         mechanistic_replisome,
         unique_id_rng,
+        has_plasmid,
     )
 
     # Initialize bound transcription factors
@@ -217,6 +219,15 @@ def initialize_unique_molecules(
     initialize_translation(
         bulk_state, unique_molecules, sim_data, random_state, unique_id_rng
     )
+
+    # Initialize plasmid molecules (full_plasmid). oriV, plasmid_domain, and
+    # plasmid_active_replisome are created by initialize_replication.
+    if has_plasmid:
+        initialize_full_plasmid(unique_molecules, sim_data, unique_id_rng)
+    else:
+        unique_molecules["full_plasmid"] = create_new_unique_molecules(
+            "full_plasmid", 0, sim_data, unique_id_rng
+        )
 
     return unique_molecules
 
@@ -512,6 +523,23 @@ def initialize_full_chromosome(unique_molecules, sim_data, unique_id_rng):
     )
 
 
+def initialize_full_plasmid(unique_molecules, sim_data, unique_id_rng):
+    """
+    Initializes the counts of full plasmids to one. division_time is set to
+    zero and has_triggered_division is True for consistency with the initial
+    chromosome.
+    """
+    unique_molecules["full_plasmid"] = create_new_unique_molecules(
+        "full_plasmid",
+        1,
+        sim_data,
+        unique_id_rng,
+        division_time=0.0,
+        has_triggered_division=True,
+        domain_index=0,
+    )
+
+
 def initialize_replication(
     bulk_state,
     unique_molecules,
@@ -519,6 +547,7 @@ def initialize_replication(
     cell_mass,
     mechanistic_replisome,
     unique_id_rng,
+    has_plasmid=False,
 ):
     """
     Initializes replication by creating an appropriate number of replication
@@ -536,6 +565,11 @@ def initialize_replication(
     # Calculate length of replichore
     genome_length = sim_data.process.replication.genome_length
     replichore_length = np.ceil(0.5 * genome_length) * units.nt
+
+    # Plasmid replichore (only used when has_plasmid=True)
+    if has_plasmid:
+        plasmid_length = sim_data.process.replication.plasmid_length
+        plasmid_replichore_length = plasmid_length * units.nt
 
     # Calculate the maximum number of replisomes that could be formed with
     # the existing counts of replisome subunits. If mechanistic_replisome option
@@ -586,6 +620,46 @@ def initialize_replication(
         unique_id_rng,
         domain_index=domain_state["domain_index"],
         child_domains=domain_state["child_domains"],
+    )
+
+    # Plasmid unique molecules (oriV, plasmid_domain, plasmid_active_replisome)
+    if has_plasmid:
+        plasmid_oriV_state, plasmid_replisome_state, plasmid_domain_state = (
+            determine_plasmid_state(
+                plasmid_replichore_length,
+                sim_data.process.replication.no_child_place_holder,
+            )
+        )
+        plasmid_n_oriV = plasmid_oriV_state["domain_index"].size
+        plasmid_n_replisome = plasmid_replisome_state["domain_index"].size
+        plasmid_n_domain = plasmid_domain_state["domain_index"].size
+
+        unique_molecules["oriV"] = create_new_unique_molecules(
+            "oriV",
+            plasmid_n_oriV,
+            sim_data,
+            unique_id_rng,
+            domain_index=plasmid_oriV_state["domain_index"],
+        )
+        unique_molecules["plasmid_domain"] = create_new_unique_molecules(
+            "plasmid_domain",
+            plasmid_n_domain,
+            sim_data,
+            unique_id_rng,
+            domain_index=plasmid_domain_state["domain_index"],
+            child_domains=plasmid_domain_state["child_domains"],
+        )
+    else:
+        plasmid_n_replisome = 0
+        unique_molecules["oriV"] = create_new_unique_molecules(
+            "oriV", 0, sim_data, unique_id_rng
+        )
+        unique_molecules["plasmid_domain"] = create_new_unique_molecules(
+            "plasmid_domain", 0, sim_data, unique_id_rng
+        )
+
+    unique_molecules["plasmid_active_replisome"] = create_new_unique_molecules(
+        "plasmid_active_replisome", plasmid_n_replisome, sim_data, unique_id_rng
     )
 
     if n_replisome != 0:
@@ -1849,6 +1923,38 @@ def initialize_translation(
     # Decrease counts of free 30S and 50S ribosomal subunits
     bulk_state["count"][ribosome30S_idx] = ribosome30S - n_ribosomes_to_activate
     bulk_state["count"][ribosome50S_idx] = ribosome50S - n_ribosomes_to_activate
+
+
+def determine_plasmid_state(
+    plasmid_replichore_length,
+    place_holder: int,
+) -> tuple[
+    dict[str, "npt.NDArray[np.int32]"],
+    dict[str, "npt.NDArray[Any]"],
+    dict[str, "npt.NDArray[np.int32]"],
+]:
+    """
+    Initialize plasmid oriV, replisome, and domain state at cell cycle start.
+    One oriV and one plasmid domain; no active replisomes. Replication
+    initiation is regulated by RNAI/RNAII balance at runtime.
+    """
+    unitless_plasmid_replichore_length = unum_to_pint(plasmid_replichore_length).to(units.nt).magnitude
+    assert unitless_plasmid_replichore_length > 0, "replichore_length must be positive."
+
+    root_domain = np.array([0], dtype=np.int32)
+    oriV_state = {"domain_index": root_domain.copy()}
+
+    plasmid_replisome_state = {
+        "coordinates": np.array([], dtype=np.int64),
+        "right_replichore": np.array([], dtype=bool),
+        "domain_index": np.array([], dtype=np.int32),
+    }
+    plasmid_domain_state = {
+        "domain_index": root_domain.copy(),
+        "child_domains": np.full((1, 2), place_holder, dtype=np.int32),
+    }
+
+    return oriV_state, plasmid_replisome_state, plasmid_domain_state
 
 
 def determine_chromosome_state(

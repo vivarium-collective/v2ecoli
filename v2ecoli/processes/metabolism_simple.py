@@ -51,7 +51,8 @@ from scipy.sparse import csr_matrix, vstack
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema import bulk_name_to_idx, counts
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.unit_bridge import unum_to_pint
 from wholecell.utils.random import stochasticRound
 
 
@@ -159,8 +160,8 @@ class SimplifiedMetabolism(Step):
 
     def initialize(self, config):
         stoich = self.parameters["reaction_stoich"]
-        self.n_avogadro = self.parameters["avogadro"]
-        self.cell_density = self.parameters["cell_density"]
+        self.n_avogadro = unum_to_pint(self.parameters["avogadro"])
+        self.cell_density = unum_to_pint(self.parameters["cell_density"])
         self.ngam = self.parameters["ngam"]
         self.random_state = np.random.RandomState(seed=self.parameters["seed"])
 
@@ -248,12 +249,12 @@ class SimplifiedMetabolism(Step):
         cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
         dry_mass = states["listeners"]["mass"]["dry_mass"] * units.fg
         cell_volume = cell_mass / self.cell_density
-        counts_to_molar = 1.0 / (self.n_avogadro * cell_volume.asNumber(VOLUME_UNITS))
+        counts_to_molar = 1.0 / (self.n_avogadro * cell_volume.to(VOLUME_UNITS).magnitude)
 
         # Coefficient: converts flux (mM) to count changes
         # coefficient = (dry_mass / cell_mass) * density * dt  [g*s/L]
         coefficient = (dry_mass / cell_mass * self.cell_density * dt * units.s)
-        coeff_val = coefficient.asNumber(MASS_UNITS * units.s / VOLUME_UNITS)
+        coeff_val = coefficient.to(MASS_UNITS * units.s / VOLUME_UNITS).magnitude
 
         # ---- Targets ----
         targets = np.array([

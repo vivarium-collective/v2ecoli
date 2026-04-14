@@ -51,15 +51,14 @@ class NumpyJSONEncoder(json.JSONEncoder):
             return {'__set__': True, 'data': sorted(list(obj))}
         if isinstance(obj, bytes):
             return {'__bytes__': True, 'data': obj.hex()}
-        if hasattr(obj, 'asNumber') and hasattr(obj, '_unit'):
-            # unum quantity
-            val = obj.asNumber()
-            if isinstance(val, np.ndarray):
-                return {'__unum_array__': True, 'value': val.tolist(), 'unit': str(obj._unit)}
-            return {'__unum__': True, 'value': float(val), 'unit': str(obj._unit)}
-        if hasattr(obj, 'magnitude') and hasattr(obj, 'units'):
-            # pint Quantity
-            return {'__pint__': True, 'magnitude': float(obj.magnitude), 'units': str(obj.units)}
+        # Both Unum and pint round-trip through pint via the bridge.
+        from v2ecoli.library.unit_bridge import unum_to_pint
+        q = unum_to_pint(obj)
+        if hasattr(q, 'magnitude') and hasattr(q, 'units'):
+            mag = q.magnitude
+            if isinstance(mag, np.ndarray):
+                return {'__pint_array__': True, 'magnitude': mag.tolist(), 'units': str(q.units)}
+            return {'__pint__': True, 'magnitude': float(mag), 'units': str(q.units)}
         if isinstance(obj, tuple):
             return {'__tuple__': True, 'data': list(obj)}
         if isinstance(obj, type):
@@ -88,12 +87,18 @@ def numpy_json_hook(obj):
             return set(obj['data'])
         if obj.get('__bytes__'):
             return bytes.fromhex(obj['data'])
-        if obj.get('__pint__'):
-            from v2ecoli.library.unit_defs import units
-            return obj['magnitude'] * getattr(units, obj['units'].split()[-1], 1)
-        if obj.get('__unum__'):
-            from v2ecoli.library.unit_defs import units
-            return obj['value']  # Just return the number for now
+        if obj.get('__pint__') or obj.get('__pint_array__'):
+            from v2ecoli.types.quantity import ureg
+            mag = obj.get('magnitude', obj.get('value'))
+            if obj.get('__pint_array__'):
+                mag = np.array(mag)
+            return ureg.Quantity(mag, obj['units'])
+        if obj.get('__unum__') or obj.get('__unum_array__'):
+            # Legacy save format used a dict-repr for the unit, which is not
+            # pint-parseable. Match the prior behavior of returning the bare
+            # magnitude — these entries were never unit-checked downstream.
+            mag = obj.get('value', obj.get('magnitude'))
+            return np.array(mag) if obj.get('__unum_array__') else mag
     return obj
 
 

@@ -6,7 +6,8 @@ import pandas as pd
 import pickle
 import os
 from typing import Any, Optional, TYPE_CHECKING
-from v2ecoli.library.unit_defs import units
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
 vivunits = units
 from v2ecoli.library.unit_struct_array import UnitStructArray
 from v2ecoli.library.fitting import normalize
@@ -577,11 +578,11 @@ class LoadSimData:
         """Precompute biomass concentrations for all unique doubling times."""
         seen = {}
         for dt in self.sim_data.condition_to_doubling_time.values():
-            dt_min = float(dt.asNumber(units.min))
+            dt_min = float(unum_to_pint(dt).to(units.min).magnitude)
             if dt_min not in seen:
                 result = self.sim_data.mass.getBiomassAsConcentrations(dt)
                 seen[dt_min] = {
-                    k: float(v.asNumber(units.mol / units.L))
+                    k: float(unum_to_pint(v).to(units.mol / units.L).magnitude)
                     for k, v in result.items()
                 }
         return seen
@@ -636,19 +637,25 @@ class LoadSimData:
             self.sim_data.condition
         ]
 
+        # get_submass_array returns Unum in g/mol; convert to fg/count by
+        # going through g/mol then dividing by Avogadro's number. Pint has
+        # no implicit mol↔count equivalence (unlike wholecell's Unum), so
+        # we do the Avogadro division explicitly rather than using a
+        # direct fg/count asNumber/to conversion.
+        n_avogadro = unum_to_pint(
+            self.sim_data.constants.n_avogadro
+        ).to(1 / units.mol).magnitude
         replisome_trimer_subunit_masses = np.vstack(
             [
-                self.sim_data.getter.get_submass_array(x).asNumber(
-                    units.fg / units.count
-                )
+                unum_to_pint(self.sim_data.getter.get_submass_array(x))
+                .to(units.fg / units.mol).magnitude / n_avogadro
                 for x in self.sim_data.molecule_groups.replisome_trimer_subunits
             ]
         )
         replisome_monomer_subunit_masses = np.vstack(
             [
-                self.sim_data.getter.get_submass_array(x).asNumber(
-                    units.fg / units.count
-                )
+                unum_to_pint(self.sim_data.getter.get_submass_array(x))
+                .to(units.fg / units.mol).magnitude / n_avogadro
                 for x in self.sim_data.molecule_groups.replisome_monomer_subunits
             ]
         )
@@ -673,7 +680,7 @@ class LoadSimData:
             "replication_coordinate": self.sim_data.process.transcription.rna_data[
                 "replication_coordinate"
             ],
-            "D_period": self.sim_data.process.replication.d_period.asNumber(units.s),
+            "D_period": unum_to_pint(self.sim_data.process.replication.d_period).to(units.s).magnitude,
             "replisome_protein_mass": replisome_mass_array.sum(),
             "no_child_place_holder": self.sim_data.process.replication.no_child_place_holder,
             "basal_elongation_rate": self.sim_data.process.replication.basal_elongation_rate,
@@ -791,7 +798,7 @@ class LoadSimData:
                     "exp_free": self.sim_data.process.transcription.exp_free.tolist(),
                     "exp_ppgpp": self.sim_data.process.transcription.exp_ppgpp.tolist(),
                     "ppgpp_growth_parameters": list(self.sim_data.process.transcription._ppgpp_growth_parameters),
-                    "rna_deg_rates": self.sim_data.process.transcription.rna_data["deg_rate"].asNumber(1 / units.s).tolist(),
+                    "rna_deg_rates": unum_to_pint(self.sim_data.process.transcription.rna_data["deg_rate"]).to(1 / units.s).magnitude.tolist(),
                     "wt_replication_coordinates": self.sim_data.process.transcription.rna_data["wt_replication_coordinate"].tolist(),
                     "is_rRNA": self.sim_data.process.transcription.rna_data["is_rRNA"].tolist(),
                     "ppgpp_km_squared": float(self.sim_data.process.transcription._ppgpp_km_squared),
@@ -801,8 +808,8 @@ class LoadSimData:
                 "_function": "replication.get_average_copy_number",
                 "_data": {
                     "replichore_lengths": self.sim_data.process.replication.replichore_lengths.tolist(),
-                    "c_period_in_mins": float(self.sim_data.process.replication.c_period.asNumber(units.min)),
-                    "d_period_in_mins": float(self.sim_data.process.replication.d_period.asNumber(units.min)),
+                    "c_period_in_mins": float(unum_to_pint(self.sim_data.process.replication.c_period).to(units.min).magnitude),
+                    "d_period_in_mins": float(unum_to_pint(self.sim_data.process.replication.d_period).to(units.min).magnitude),
                 },
             },
             "ppgpp_regulation": self.ppgpp_regulation,
@@ -830,9 +837,9 @@ class LoadSimData:
             "time_step": time_step,
             "rnaPolymeraseElongationRateDict": self.sim_data.process.transcription.rnaPolymeraseElongationRateDict,
             "rnaIds": self.sim_data.process.transcription.rna_data["id"],
-            "rnaLengths": self.sim_data.process.transcription.rna_data[
+            "rnaLengths": unum_to_pint(self.sim_data.process.transcription.rna_data[
                 "length"
-            ].asNumber(),
+            ]).magnitude,
             "rnaSequences": self.sim_data.process.transcription.transcription_sequences,
             "ntWeights": self.sim_data.process.transcription.transcription_monomer_weights,
             "endWeight": self.sim_data.process.transcription.transcription_end_weight,
@@ -861,7 +868,7 @@ class LoadSimData:
                 "_function": "transcription.get_attenuation_stop_probabilities",
                 "_data": {
                     "aa_from_trna": self.sim_data.process.transcription.aa_from_trna.tolist(),
-                    "attenuation_k": self.sim_data.process.transcription.attenuation_k.asNumber().tolist()
+                    "attenuation_k": unum_to_pint(self.sim_data.process.transcription.attenuation_k).magnitude.tolist()
                         if hasattr(self.sim_data.process.transcription, 'attenuation_k')
                         else [],
                 },
@@ -915,8 +922,8 @@ class LoadSimData:
             "rna_deg_rates": (1 / units.s)
             * np.concatenate(
                 (
-                    transcription.rna_data["deg_rate"].asNumber(1 / units.s),
-                    transcription.mature_rna_data["deg_rate"].asNumber(1 / units.s),
+                    unum_to_pint(transcription.rna_data["deg_rate"]).to(1 / units.s).magnitude,
+                    unum_to_pint(transcription.mature_rna_data["deg_rate"]).to(1 / units.s).magnitude,
                 )
             ),
             # All mature RNAs are not mRNAs
@@ -952,14 +959,14 @@ class LoadSimData:
             # Load lengths and nucleotide counts for all degradable RNAs
             "rna_lengths": np.concatenate(
                 (
-                    transcription.rna_data["length"].asNumber(),
-                    transcription.mature_rna_data["length"].asNumber(),
+                    unum_to_pint(transcription.rna_data["length"]).magnitude,
+                    unum_to_pint(transcription.mature_rna_data["length"]).magnitude,
                 )
             ),
             "nt_counts": np.concatenate(
                 (
-                    transcription.rna_data["counts_ACGU"].asNumber(units.nt),
-                    transcription.mature_rna_data["counts_ACGU"].asNumber(units.nt),
+                    unum_to_pint(transcription.rna_data["counts_ACGU"]).to(units.nt).magnitude,
+                    unum_to_pint(transcription.mature_rna_data["counts_ACGU"]).to(units.nt).magnitude,
                 )
             ),
             # Load bulk molecule names
@@ -978,12 +985,8 @@ class LoadSimData:
             "Kms": (units.mol / units.L)
             * np.concatenate(
                 (
-                    transcription.rna_data["Km_endoRNase"].asNumber(
-                        units.mol / units.L
-                    ),
-                    transcription.mature_rna_data["Km_endoRNase"].asNumber(
-                        units.mol / units.L
-                    ),
+                    unum_to_pint(transcription.rna_data["Km_endoRNase"]).to(units.mol / units.L).magnitude,
+                    unum_to_pint(transcription.mature_rna_data["Km_endoRNase"]).to(units.mol / units.L).magnitude,
                 )
             ),
             "seed": self._seedFromName("RnaDegradation"),
@@ -995,9 +998,9 @@ class LoadSimData:
     def get_polypeptide_initiation_config(self, time_step=1):
         polypeptide_initiation_config = {
             "time_step": time_step,
-            "protein_lengths": self.sim_data.process.translation.monomer_data[
+            "protein_lengths": unum_to_pint(self.sim_data.process.translation.monomer_data[
                 "length"
-            ].asNumber(),
+            ]).magnitude,
             "translation_efficiencies": normalize(
                 self.sim_data.process.translation.translation_efficiencies_by_monomer
             ),
@@ -1057,7 +1060,7 @@ class LoadSimData:
             # base parameters
             "n_avogadro": constants.n_avogadro,
             "proteinIds": translation.monomer_data["id"],
-            "proteinLengths": translation.monomer_data["length"].asNumber(),
+            "proteinLengths": unum_to_pint(translation.monomer_data["length"]).magnitude,
             "proteinSequences": translation.translation_sequences,
             "aaWeightsIncorporated": translation.translation_monomer_weights,
             "endWeight": translation.translation_end_weight,
@@ -1071,9 +1074,7 @@ class LoadSimData:
             },
             "next_aa_pad": translation.next_aa_pad,
             "ribosomeElongationRate": float(
-                self.sim_data.growth_rate_parameters.ribosomeElongationRate.asNumber(
-                    units.aa / units.s
-                )
+                unum_to_pint(self.sim_data.growth_rate_parameters.ribosomeElongationRate).to(units.aa / units.s).magnitude
             ),
             # Amino acid supply calculations
             "translation_aa_supply": self.sim_data.translation_supply_rate,
@@ -1093,9 +1094,7 @@ class LoadSimData:
                     for aa in self.sim_data.molecule_groups.amino_acids
                 ]
             ),
-            "basal_elongation_rate": self.sim_data.constants.ribosome_elongation_rate_basal.asNumber(
-                units.aa / units.s
-            ),
+            "basal_elongation_rate": unum_to_pint(self.sim_data.constants.ribosome_elongation_rate_basal).to(units.aa / units.s).magnitude,
             "ribosomeElongationRateDict": self.sim_data.process.translation.ribosomeElongationRateDict,
             "uncharged_trna_names": self.sim_data.process.transcription.uncharged_trna_names,
             "proton": self.sim_data.molecule_ids.proton,
@@ -1126,25 +1125,21 @@ class LoadSimData:
             "rela": molecule_ids.RelA,
             "spot": molecule_ids.SpoT,
             "ppgpp": molecule_ids.ppGpp,
-            "kS": constants.synthetase_charging_rate.asNumber(1 / units.s),
-            "KMaa": transcription.aa_kms.asNumber(MICROMOLAR_UNITS),
-            "KMtf": transcription.trna_kms.asNumber(MICROMOLAR_UNITS),
-            "krta": constants.Kdissociation_charged_trna_ribosome.asNumber(
-                MICROMOLAR_UNITS
-            ),
-            "krtf": constants.Kdissociation_uncharged_trna_ribosome.asNumber(
-                MICROMOLAR_UNITS
-            ),
+            "kS": unum_to_pint(constants.synthetase_charging_rate).to(1 / units.s).magnitude,
+            "KMaa": unum_to_pint(transcription.aa_kms).to(MICROMOLAR_UNITS).magnitude,
+            "KMtf": unum_to_pint(transcription.trna_kms).to(MICROMOLAR_UNITS).magnitude,
+            "krta": unum_to_pint(constants.Kdissociation_charged_trna_ribosome).to(MICROMOLAR_UNITS).magnitude,
+            "krtf": unum_to_pint(constants.Kdissociation_uncharged_trna_ribosome).to(MICROMOLAR_UNITS).magnitude,
+            # get_amino_acid_conc_conversion is upstream Unum-native; convert
+            # our pint MICROMOLAR_UNITS at the boundary.
             "unit_conversion": metabolism.get_amino_acid_conc_conversion(
-                MICROMOLAR_UNITS
+                pint_to_unum(MICROMOLAR_UNITS)
             ),
-            "KD_RelA": transcription.KD_RelA.asNumber(MICROMOLAR_UNITS),
-            "k_RelA": constants.k_RelA_ppGpp_synthesis.asNumber(1 / units.s),
-            "k_SpoT_syn": constants.k_SpoT_ppGpp_synthesis.asNumber(1 / units.s),
-            "k_SpoT_deg": constants.k_SpoT_ppGpp_degradation.asNumber(
-                1 / (MICROMOLAR_UNITS * units.s)
-            ),
-            "KI_SpoT": transcription.KI_SpoT.asNumber(MICROMOLAR_UNITS),
+            "KD_RelA": unum_to_pint(transcription.KD_RelA).to(MICROMOLAR_UNITS).magnitude,
+            "k_RelA": unum_to_pint(constants.k_RelA_ppGpp_synthesis).to(1 / units.s).magnitude,
+            "k_SpoT_syn": unum_to_pint(constants.k_SpoT_ppGpp_synthesis).to(1 / units.s).magnitude,
+            "k_SpoT_deg": unum_to_pint(constants.k_SpoT_ppGpp_degradation).to(1 / (MICROMOLAR_UNITS * units.s)).magnitude,
+            "KI_SpoT": unum_to_pint(transcription.KI_SpoT).to(MICROMOLAR_UNITS).magnitude,
             "ppgpp_reaction_stoich": metabolism.ppgpp_reaction_stoich,
             "synthesis_index": metabolism.ppgpp_reaction_names.index(
                 metabolism.ppgpp_synthesis_reaction
@@ -1194,10 +1189,8 @@ class LoadSimData:
             "time_step": time_step,
             "jit": False,
             # TODO -- wcEcoli has this in 1/mmol, why?
-            "n_avogadro": self.sim_data.constants.n_avogadro.asNumber(1 / units.mmol),
-            "cell_density": self.sim_data.constants.cell_density.asNumber(
-                units.g / units.L
-            ),
+            "n_avogadro": unum_to_pint(self.sim_data.constants.n_avogadro).to(1 / units.mmol).magnitude,
+            "cell_density": unum_to_pint(self.sim_data.constants.cell_density).to(units.g / units.L).magnitude,
             "moleculesToNextTimeStep": {
                 "_function": "two_component_system.ode_solver",
                 "_data": {
@@ -1230,10 +1223,8 @@ class LoadSimData:
         equilibrium_config = {
             "time_step": time_step,
             "jit": False,
-            "n_avogadro": self.sim_data.constants.n_avogadro.asNumber(1 / units.mol),
-            "cell_density": self.sim_data.constants.cell_density.asNumber(
-                units.g / units.L
-            ),
+            "n_avogadro": unum_to_pint(self.sim_data.constants.n_avogadro).to(1 / units.mol).magnitude,
+            "cell_density": unum_to_pint(self.sim_data.constants.cell_density).to(units.g / units.L).magnitude,
             "stoichMatrix": self.sim_data.process.equilibrium.stoich_matrix().astype(
                 np.int64
             ),
@@ -1266,18 +1257,18 @@ class LoadSimData:
     def get_protein_degradation_config(self, time_step=1):
         protein_degradation_config = {
             "time_step": time_step,
-            "raw_degradation_rate": self.sim_data.process.translation.monomer_data[
+            "raw_degradation_rate": unum_to_pint(self.sim_data.process.translation.monomer_data[
                 "deg_rate"
-            ].asNumber(1 / units.s),
+            ]).to(1 / units.s).magnitude,
             "water_id": self.sim_data.molecule_ids.water,
             "amino_acid_ids": self.sim_data.molecule_groups.amino_acids,
-            "amino_acid_counts": self.sim_data.process.translation.monomer_data[
+            "amino_acid_counts": unum_to_pint(self.sim_data.process.translation.monomer_data[
                 "aa_counts"
-            ].asNumber(),
+            ]).magnitude,
             "protein_ids": self.sim_data.process.translation.monomer_data["id"],
-            "protein_lengths": self.sim_data.process.translation.monomer_data[
+            "protein_lengths": unum_to_pint(self.sim_data.process.translation.monomer_data[
                 "length"
-            ].asNumber(),
+            ]).magnitude,
             "seed": self._seedFromName("ProteinDegradation"),
             "emit_unique": self.emit_unique,
         }
@@ -1402,7 +1393,7 @@ class LoadSimData:
                     "default_concentrations_dict": {k: float(v) for k, v in metabolism.concentration_updates.default_concentrations_dict.items()},
                     "exchange_fluxes": {k: list(v) if isinstance(v, set) else v for k, v in metabolism.concentration_updates.exchange_fluxes.items()},
                     "relative_changes": dict(metabolism.concentration_updates.relative_changes),
-                    "molecule_set_amounts": {k: float(v.asNumber()) if hasattr(v, 'asNumber') else float(v) for k, v in metabolism.concentration_updates.molecule_set_amounts.items()},
+                    "molecule_set_amounts": {k: float(unum_to_pint(v).magnitude) if hasattr(unum_to_pint(v), 'magnitude') else float(v) for k, v in metabolism.concentration_updates.molecule_set_amounts.items()},
                     "molecule_scale_factors": dict(metabolism.concentration_updates.molecule_scale_factors),
                     "linked_metabolites": dict(metabolism.concentration_updates.linked_metabolites),
                 },
@@ -1492,7 +1483,7 @@ class LoadSimData:
                     "default_concentrations_dict": {k: float(v) for k, v in metabolism.concentration_updates.default_concentrations_dict.items()},
                     "exchange_fluxes": {k: list(v) if isinstance(v, set) else v for k, v in metabolism.concentration_updates.exchange_fluxes.items()},
                     "relative_changes": dict(metabolism.concentration_updates.relative_changes),
-                    "molecule_set_amounts": {k: float(v.asNumber()) if hasattr(v, 'asNumber') else float(v) for k, v in metabolism.concentration_updates.molecule_set_amounts.items()},
+                    "molecule_set_amounts": {k: float(unum_to_pint(v).magnitude) if hasattr(unum_to_pint(v), 'magnitude') else float(v) for k, v in metabolism.concentration_updates.molecule_set_amounts.items()},
                     "molecule_scale_factors": dict(metabolism.concentration_updates.molecule_scale_factors),
                     "linked_metabolites": dict(metabolism.concentration_updates.linked_metabolites),
                 },
@@ -1613,9 +1604,9 @@ class LoadSimData:
         bulk_ids = self.sim_data.internal_state.bulk_molecules.bulk_data["id"]
         molecular_weights = {}
         for molecule_id in bulk_ids:
-            molecular_weights[molecule_id] = self.sim_data.getter.get_mass(
+            molecular_weights[molecule_id] = unum_to_pint(self.sim_data.getter.get_mass(
                 molecule_id
-            ).asNumber(units.fg / units.mol)
+            )).to(units.fg / units.mol).magnitude
 
         # unique molecule masses
         unique_masses = {}
@@ -1623,16 +1614,12 @@ class LoadSimData:
             self.sim_data.internal_state.unique_molecule.unique_molecule_masses
         )
         for id_, mass in zip(uniqueMoleculeMasses["id"], uniqueMoleculeMasses["mass"]):
-            unique_masses[id_] = (mass / self.sim_data.constants.n_avogadro).asNumber(
-                units.fg
-            )
+            unique_masses[id_] = unum_to_pint((mass / self.sim_data.constants.n_avogadro)).to(units.fg).magnitude
 
         mass_config = {
             "molecular_weights": molecular_weights,
             "unique_masses": unique_masses,
-            "cellDensity": self.sim_data.constants.cell_density.asNumber(
-                units.g / units.L
-            ),
+            "cellDensity": unum_to_pint(self.sim_data.constants.cell_density).to(units.g / units.L).magnitude,
             "water_id": "WATER[c]",
             "emit_unique": self.emit_unique,
         }
@@ -1643,20 +1630,18 @@ class LoadSimData:
         molecule_ids = tuple(sorted(u_masses["id"]))
         molecule_id_to_mass = {}
         for id_, mass in zip(u_masses["id"], u_masses["mass"]):
-            molecule_id_to_mass[id_] = (
+            molecule_id_to_mass[id_] = unum_to_pint((
                 mass / self.sim_data.constants.n_avogadro
-            ).asNumber(units.fg)
+            )).to(units.fg).magnitude
         molecule_masses = np.array([molecule_id_to_mass[x] for x in molecule_ids])
 
         mass_config = {
-            "cellDensity": self.sim_data.constants.cell_density.asNumber(
-                units.g / units.L
-            ),
+            "cellDensity": unum_to_pint(self.sim_data.constants.cell_density).to(units.g / units.L).magnitude,
             "bulk_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
-            "bulk_masses": self.sim_data.internal_state.bulk_molecules.bulk_data[
+            "bulk_masses": unum_to_pint(self.sim_data.internal_state.bulk_molecules.bulk_data[
                 "mass"
-            ].asNumber(units.fg / units.mol)
-            / self.sim_data.constants.n_avogadro.asNumber(1 / units.mol),
+            ]).to(units.fg / units.mol).magnitude
+            / unum_to_pint(self.sim_data.constants.n_avogadro).to(1 / units.mol).magnitude,
             "unique_ids": molecule_ids,
             "unique_masses": molecule_masses,
             "compartment_abbrev_to_index": self.sim_data.compartment_abbrev_to_index,
@@ -1818,9 +1803,9 @@ class LoadSimData:
             "n_mature_rnas": len(mature_rna_ids),
             "mature_rna_ids": mature_rna_ids,
             "mature_rna_end_positions": transcription.mature_rna_end_positions,
-            "mature_rna_nt_counts": transcription.mature_rna_data["counts_ACGU"]
-            .asNumber(units.nt)
-            .astype(int),
+            "mature_rna_nt_counts": unum_to_pint(
+                transcription.mature_rna_data["counts_ACGU"]
+            ).to(units.nt).magnitude.astype(int),
             "unprocessed_rna_index_mapping": {
                 rna_index: i for (i, rna_index) in enumerate(unprocessed_rna_indexes)
             },
@@ -1907,8 +1892,8 @@ class LoadSimData:
         # molecules
         counts_ACGU = np.vstack(
             (
-                rna_data["counts_ACGU"].asNumber(units.nt),
-                mature_rna_data["counts_ACGU"].asNumber(units.nt),
+                unum_to_pint(rna_data["counts_ACGU"]).to(units.nt).magnitude,
+                unum_to_pint(mature_rna_data["counts_ACGU"]).to(units.nt).magnitude,
             )
         )
         rna_id_to_index = {
@@ -1951,10 +1936,10 @@ class LoadSimData:
         tf_indexes = [
             np.where(bulk_ids == tf_id + "[c]")[0][0] for tf_id in config["tf_ids"]
         ]
-        config["active_tf_masses"] = (
+        config["active_tf_masses"] = unum_to_pint((
             self.sim_data.internal_state.bulk_molecules.bulk_data["mass"][tf_indexes]
             / self.sim_data.constants.n_avogadro
-        ).asNumber(units.fg)
+        )).to(units.fg).magnitude
         return config
 
     def get_rna_synth_prob_listener_config(self, time_step=1):

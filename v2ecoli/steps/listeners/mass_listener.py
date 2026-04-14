@@ -12,7 +12,8 @@ from numpy.lib import recfunctions as rfn
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema import numpy_schema, counts, attrs, bulk_name_to_idx
 # topology_registry removed — topology defined as class attribute
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.unit_bridge import unum_to_pint
 
 # Register default topology for this process, associating it with process name
 NAME = "ecoli-mass-listener"
@@ -61,12 +62,12 @@ class MassListener(Step):
         }},
         'compartment_id_to_index': 'map[integer]',
         'compartment_abbrev_to_index': 'map[integer]',
-        'n_avogadro': {'_type': 'unum', '_default': 6.0221409e23},
+        'n_avogadro': {'_type': 'any', '_default': 6.0221409e23},
         'time_step': {'_type': 'float', '_default': 1.0},
         'emit_unique': {'_type': 'boolean', '_default': False},
         'match_wcecoli': {'_type': 'boolean', '_default': False},
         'condition': {'_type': 'string', '_default': ''},
-        'condition_to_doubling_time': 'map[unum]',
+        'condition_to_doubling_time': 'map[any]',
     }
 
 
@@ -198,9 +199,11 @@ class MassListener(Step):
             "massDiff_" + submass for submass in self.parameters["submass_to_idx"]
         ]
 
-        self.cell_cycle_len = self.parameters["condition_to_doubling_time"][
-            self.parameters["condition"]
-        ].asNumber(units.s)
+        self.cell_cycle_len = unum_to_pint(
+            self.parameters["condition_to_doubling_time"][
+                self.parameters["condition"]
+            ]
+        ).to(units.s).magnitude
 
         # Helper indices for Numpy indexing
         self.bulk_idx = None

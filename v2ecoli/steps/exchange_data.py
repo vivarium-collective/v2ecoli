@@ -1,5 +1,5 @@
 from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.library.unit_defs import units
+from v2ecoli.types.quantity import ureg as units
 
 
 class ExchangeData(Step):
@@ -39,27 +39,19 @@ class ExchangeData(Step):
         }
 
     def next_update(self, timestep, states):
-        # Set exchange constraints for metabolism
-        # Convert pint Quantities to plain float magnitudes (in mM) to avoid
-        # cross-registry comparison errors when state is deserialized from dill
+        # Set exchange constraints for metabolism. Convert any unit-bearing
+        # values (Unum or pint) to plain float magnitudes in their native unit
+        # to avoid cross-registry comparison errors after dill round-trips.
+        from v2ecoli.library.unit_bridge import unum_to_pint
         env_concs = {}
         for mol in self.environment_molecules:
-            val = states["boundary"]["external"][mol]
-            if hasattr(val, 'magnitude'):
-                env_concs[mol] = float(val.magnitude)
-            elif hasattr(val, 'asNumber'):
-                env_concs[mol] = float(val.asNumber())
-            else:
-                env_concs[mol] = float(val)
+            q = unum_to_pint(states["boundary"]["external"][mol])
+            env_concs[mol] = float(q.magnitude) if hasattr(q, "magnitude") else float(q)
 
-        # Ensure threshold is a plain float for comparison
-        threshold = self.external_state.import_constraint_threshold
-        if hasattr(threshold, 'magnitude'):
-            self.external_state.import_constraint_threshold = float(threshold.magnitude)
-        elif hasattr(threshold, 'asNumber'):
-            self.external_state.import_constraint_threshold = float(threshold.asNumber())
-        else:
-            self.external_state.import_constraint_threshold = float(threshold)
+        threshold = unum_to_pint(self.external_state.import_constraint_threshold)
+        self.external_state.import_constraint_threshold = (
+            float(threshold.magnitude) if hasattr(threshold, "magnitude") else float(threshold)
+        )
         exchange_data = self.external_state.exchange_data_from_concentrations(env_concs)
 
         unconstrained = exchange_data["importUnconstrainedExchangeMolecules"]

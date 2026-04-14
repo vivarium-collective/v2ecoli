@@ -37,7 +37,7 @@ from scipy.integrate import solve_ivp
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
 
 
 # Register default topology for this process, associating it with process name
@@ -200,9 +200,9 @@ class TwoComponentSystem(Step):
         molecule_counts = counts(states["bulk"], self.molecule_idx)
 
         # cell_volume = cell_mass / cell_density  [g / (g/L) = L]
-        cell_mass_g = (states["listeners"]["mass"]["cell_mass"] * units.fg).asNumber(
-            units.g
-        )
+        cell_mass_g = (
+            states["listeners"]["mass"]["cell_mass"] * units.fg
+        ).to(units.g).magnitude
         cell_volume = cell_mass_g / self.cell_density
 
         # Solve dx/dt = S @ rates(x) from t=0 to t=dt

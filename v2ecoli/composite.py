@@ -26,6 +26,25 @@ def _build_core():
     return core
 
 
+def _load_cache_bundle(cache_dir):
+    """Load initial_state.json + sim_data_cache.dill from a cache directory.
+
+    Shared helper for composite.py and the departitioned/reconciled variants.
+    Rebinds pint Quantities in the loaded cache onto the shared v2ecoli
+    UnitRegistry — pint Quantities round-tripped through dill can land on
+    a stale registry if a side-effectful import has replaced
+    pint.application_registry.
+    """
+    initial_state = load_initial_state(
+        os.path.join(cache_dir, 'initial_state.json'))
+    cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
+    with open(cache_path, 'rb') as f:
+        cache = dill.load(f)
+    from v2ecoli.library.unit_bridge import rebind_cache_quantities
+    rebind_cache_quantities(cache)
+    return initial_state, cache
+
+
 def make_composite(document=None, cache_dir=None,
                    initial_state=None, configs=None, unique_names=None,
                    dry_mass_inc_dict=None, seed=0, core=None,
@@ -75,12 +94,7 @@ def _build_from_cache(cache_dir, core, seed=0, features=None):
     """Build a document from cached initial state and process configs."""
     from v2ecoli.generate import build_document
 
-    initial_state = load_initial_state(
-        os.path.join(cache_dir, 'initial_state.json'))
-
-    cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
-    with open(cache_path, 'rb') as f:
-        cache = dill.load(f)
+    initial_state, cache = _load_cache_bundle(cache_dir)
 
     return build_document(
         initial_state=initial_state,

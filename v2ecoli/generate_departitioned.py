@@ -22,11 +22,8 @@ from v2ecoli.processes.two_component_system import TwoComponentSystem
 from v2ecoli.processes.rna_maturation import RnaMaturation
 from v2ecoli.processes.complexation import Complexation
 from v2ecoli.processes.protein_degradation import ProteinDegradation
-from v2ecoli.processes.rna_degradation import RnaDegradation
 from v2ecoli.processes.transcript_initiation import TranscriptInitiation
-from v2ecoli.processes.transcript_elongation import TranscriptElongation
 from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiation
-from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
 from v2ecoli.processes.chromosome_replication import ChromosomeReplication
 
 # DepartitionedStep wrapper

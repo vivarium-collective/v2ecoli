@@ -7,7 +7,19 @@ from bigraph_schema.methods import infer, set_default, default, realize, render,
 from bigraph_schema.methods.serialize import serialize
 
 import pint
-ureg = pint.UnitRegistry()
+# Share bigraph-schema's UnitRegistry so v2ecoli, bigraph-schema, and
+# anything else on the bigraph stack use the same registry — and
+# register it as pint's application registry so pint Quantities survive
+# dill round-trips (cache.dill, save-state). The application registry
+# is pickled by reference; unpickled Quantities resolve to whatever
+# app-registry the loading process has configured, so arithmetic
+# between cache-built and runtime-built Quantities stays consistent
+# (otherwise pint raises "different registries" or silently produces
+# garbage units — the pre-fix behavior caused ~8x mRNA accumulation in
+# daughter sims because Kms/rates lost their registry binding on
+# cache reload).
+from bigraph_schema.units import units as ureg
+pint.set_application_registry(ureg)
 
 @dataclass(kw_only=True)
 class Quantity(Node):

@@ -1,6 +1,6 @@
 import numpy as np
 from v2ecoli.steps.base import V2Step as Step
-from v2ecoli.library.unit_defs import units
+from v2ecoli.types.quantity import ureg as units
 
 
 class MediaUpdate(Step):

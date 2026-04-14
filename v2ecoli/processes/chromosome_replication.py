@@ -60,7 +60,8 @@ from v2ecoli.library.schema import (
     listener_schema,
 )
 
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.unit_bridge import unum_to_pint
 from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
 
 # topology_registry removed
@@ -99,9 +100,9 @@ class ChromosomeReplication(Step):
     topology = TOPOLOGY
 
     config_schema = {
-        'D_period': {'_type': 'unum[s]', '_default': np.array([], dtype=float)},
+        'D_period': {'_type': 'any', '_default': np.array([], dtype=float)},
         'basal_elongation_rate': {'_type': 'integer[nt/s]', '_default': 967},
-        'criticalInitiationMass': {'_type': 'unum[fg]', '_default': 975.0},
+        'criticalInitiationMass': {'_type': 'any', '_default': 975.0},
         'dntps': {'_type': 'list[string]', '_default': []},
         'emit_unique': {'_type': 'boolean', '_default': False},
         'get_dna_critical_mass': {'_type': 'method', '_default': None},
@@ -109,7 +110,7 @@ class ChromosomeReplication(Step):
         'mechanistic_replisome': {'_type': 'boolean', '_default': True},
         'no_child_place_holder': {'_type': 'integer', '_default': -1},
         'nutrientToDoublingTime': {'_type': 'map[float]', '_default': {}},
-        'polymerized_dntp_weights': {'_type': 'unum[fg]', '_default': []},
+        'polymerized_dntp_weights': {'_type': 'any', '_default': []},
         'ppi': {'_type': 'list[string]', '_default': []},
         'replication_coordinate': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'replichore_lengths': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
@@ -162,11 +163,11 @@ class ChromosomeReplication(Step):
 
         # Load parameters
         self.get_dna_critical_mass = self.parameters["get_dna_critical_mass"]
-        self.criticalInitiationMass = self.parameters["criticalInitiationMass"]
+        self.criticalInitiationMass = unum_to_pint(self.parameters["criticalInitiationMass"])
         self.nutrientToDoublingTime = self.parameters["nutrientToDoublingTime"]
         self.replichore_lengths = self.parameters["replichore_lengths"]
         self.sequences = self.parameters["sequences"]
-        self.polymerized_dntp_weights = self.parameters["polymerized_dntp_weights"]
+        self.polymerized_dntp_weights = unum_to_pint(self.parameters["polymerized_dntp_weights"])
         self.replication_coordinate = self.parameters["replication_coordinate"]
         self.D_period = self.parameters["D_period"]
         self.replisome_protein_mass = self.parameters["replisome_protein_mass"]
@@ -220,16 +221,23 @@ class ChromosomeReplication(Step):
 
         # Get critical initiation mass for current simulation environment
         current_media_id = states["environment"]["media_id"]
-        self.criticalInitiationMass = self.get_dna_critical_mass(
+        # get_dna_critical_mass is upstream Unum-native; nutrientToDoublingTime
+        # values are still Unum (loaded from cache).
+        self.criticalInitiationMass = unum_to_pint(self.get_dna_critical_mass(
             self.nutrientToDoublingTime[current_media_id]
-        )
+        ))
 
         # Calculate mass per origin of replication, and compare to critical
         # initiation mass. If the cell mass has reached this critical mass,
         # the process will initiate a round of chromosome replication for each
         # origin of replication.
         massPerOrigin = cellMass / n_oriC
-        self.criticalMassPerOriC = massPerOrigin / self.criticalInitiationMass
+        # .to('dimensionless') forces pint to reduce mass/mass; otherwise
+        # the ratio can retain residual unit scaling and the >= 1.0
+        # comparison below wrongly evaluates to False.
+        self.criticalMassPerOriC = (
+            massPerOrigin / self.criticalInitiationMass
+        ).to('dimensionless')
 
         # If replication should be initiated, request subunits required for
         # building two replisomes per one origin of replication, and edit
@@ -400,10 +408,10 @@ class ChromosomeReplication(Step):
 
         # Write data from this module to a listener
         update["listeners"]["replication_data"]["critical_mass_per_oriC"] = (
-            self.criticalMassPerOriC.asNumber()
+            self.criticalMassPerOriC.magnitude
         )
         update["listeners"]["replication_data"]["critical_initiation_mass"] = (
-            self.criticalInitiationMass.asNumber(units.fg)
+            self.criticalInitiationMass.to(units.fg).magnitude
         )
 
         # Module 2: replication elongation
@@ -455,7 +463,7 @@ class ChromosomeReplication(Step):
         mass_increase_dna = computeMassIncrease(
             sequences,
             sequenceElongations,
-            self.polymerized_dntp_weights.asNumber(units.fg),
+            self.polymerized_dntp_weights.to(units.fg).magnitude,
         )
 
         # Compute masses that should be added to each replisome

@@ -15,11 +15,10 @@ from typing import Any, Callable
 
 import numpy as np
 import numpy.typing as npt
-from unum import Unum
-
 from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
 from wholecell.utils.random import stochasticRound
-from wholecell.utils import units
+from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
 
 from v2ecoli.library.schema import counts, attrs, bulk_name_to_idx
 from v2ecoli.processes.metabolism import CONC_UNITS, TIME_UNITS
@@ -49,9 +48,9 @@ class BaseElongationModel(object):
         max value of 22 amino acids/second.
         """
         current_media_id = states["environment"]["media_id"]
-        rate = self.process.elngRateFactor * self.ribosomeElongationRateDict[
-            current_media_id
-        ].asNumber(units.aa / units.s)
+        rate = self.process.elngRateFactor * unum_to_pint(
+            self.ribosomeElongationRateDict[current_media_id]
+        ).to(units.aa / units.s).magnitude
         return np.min([self.basal_elongation_rate, rate])
 
     def amino_acid_counts(self, aasInSequences):
@@ -140,7 +139,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         super().__init__(parameters, process)
 
         # Cell parameters
-        self.cellDensity = self.parameters["cellDensity"]
+        self.cellDensity = unum_to_pint(self.parameters["cellDensity"])
 
         # Names of molecules associated with tRNA charging
         self.charged_trna_names = self.parameters["charged_trna_names"]
@@ -169,7 +168,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             "krta": self.parameters["krta"],
             "krtf": self.parameters["krtf"],
             "max_elong_rate": float(
-                self.parameters["elongation_max"].asNumber(units.aa / units.s)
+                unum_to_pint(self.parameters["elongation_max"]).to(units.aa / units.s).magnitude
             ),
             "charging_mask": np.array(
                 [
@@ -215,9 +214,10 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             counts_to_molar = 1 / (self.process.n_avogadro * cell_volume)
             ppgpp_count = counts(states["bulk"], self.process.ppgpp_idx)
             ppgpp_conc = ppgpp_count * counts_to_molar
-            rate = self.elong_rate_by_ppgpp(
-                ppgpp_conc, self.basal_elongation_rate
-            ).asNumber(units.aa / units.s)
+            # elong_rate_by_ppgpp is upstream Unum-native
+            rate = unum_to_pint(self.elong_rate_by_ppgpp(
+                pint_to_unum(ppgpp_conc), self.basal_elongation_rate
+            )).to(units.aa / units.s).magnitude
         else:
             rate = super().elongation_rate(states)
         return rate
@@ -276,21 +276,28 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         )
         importer_counts = counts(states["bulk_total"], self.process.aa_importer_idx)
         exporter_counts = counts(states["bulk_total"], self.process.aa_exporter_idx)
+        # amino_acid_synthesis/import/export are upstream Numba-compiled and
+        # Unum-native; convert pint args at the boundary.
+        aa_conc_unum = pint_to_unum(aa_conc)
+        dry_mass_unum = pint_to_unum(dry_mass)
         synthesis, fwd_saturation, rev_saturation = self.amino_acid_synthesis(
-            fwd_enzyme_counts, rev_enzyme_counts, aa_conc
+            fwd_enzyme_counts, rev_enzyme_counts, aa_conc_unum
         )
         import_rates = self.amino_acid_import(
             aa_in_media,
-            dry_mass,
-            aa_conc,
+            dry_mass_unum,
+            aa_conc_unum,
             importer_counts,
             self.process.mechanistic_aa_transport,
         )
         export_rates = self.amino_acid_export(
-            exporter_counts, aa_conc, self.process.mechanistic_aa_transport
+            exporter_counts, aa_conc_unum, self.process.mechanistic_aa_transport
         )
         exchange_rates = import_rates - export_rates
 
+        # The closure produced here calls the upstream Unum-native
+        # amino_acid_synthesis/import/export with dry_mass and aa_conc, so
+        # convert dry_mass at the boundary.
         supply_function = get_charging_supply_function(
             self.process.aa_supply_in_charging,
             self.process.mechanistic_translation_supply,
@@ -303,7 +310,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             self.process.aa_supply,
             fwd_enzyme_counts,
             rev_enzyme_counts,
-            dry_mass,
+            pint_to_unum(dry_mass),
             importer_counts,
             exporter_counts,
             aa_in_media,
@@ -333,7 +340,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         # Use the supply calculated from each sub timestep while solving the charging steady state
         if self.process.aa_supply_in_charging:
             conversion = (
-                1 / self.counts_to_molar.asNumber(MICROMOLAR_UNITS) / states["timestep"]
+                1 / self.counts_to_molar.to(MICROMOLAR_UNITS).magnitude / states["timestep"]
             )
             synthesis = conversion * synthesis_in_charging
             import_rates = conversion * import_in_charging
@@ -350,7 +357,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             # Polypeptide elongation operates using concentration units of CONC_UNITS (uM)
             # but aa_supply_scaling uses M units, so convert using unit_conversion (1e-6)
             self.process.aa_supply *= self.aa_supply_scaling(
-                self.charging_params["unit_conversion"] * aa_conc.asNumber(CONC_UNITS),
+                self.charging_params["unit_conversion"] * aa_conc.to(CONC_UNITS).magnitude,
                 aa_in_media,
             )
 
@@ -358,7 +365,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             v_rib
             * f
             * states["timestep"]
-            / self.counts_to_molar.asNumber(MICROMOLAR_UNITS)
+            / self.counts_to_molar.to(MICROMOLAR_UNITS).magnitude
         )
 
         total_trna = charged_trna_array + uncharged_trna_array
@@ -451,15 +458,15 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
                     "growth_limits": {
                         "original_aa_supply": self.process.aa_supply,
                         "aa_in_media": aa_in_media,
-                        "synthetase_conc": synthetase_conc.asNumber(MICROMOLAR_UNITS),
-                        "uncharged_trna_conc": uncharged_trna_conc.asNumber(
+                        "synthetase_conc": synthetase_conc.to(MICROMOLAR_UNITS).magnitude,
+                        "uncharged_trna_conc": uncharged_trna_conc.to(
                             MICROMOLAR_UNITS
-                        ),
-                        "charged_trna_conc": charged_trna_conc.asNumber(
+                        ).magnitude,
+                        "charged_trna_conc": charged_trna_conc.to(
                             MICROMOLAR_UNITS
-                        ),
-                        "aa_conc": aa_conc.asNumber(MICROMOLAR_UNITS),
-                        "ribosome_conc": ribosome_conc.asNumber(MICROMOLAR_UNITS),
+                        ).magnitude,
+                        "aa_conc": aa_conc.to(MICROMOLAR_UNITS).magnitude,
+                        "ribosome_conc": ribosome_conc.to(MICROMOLAR_UNITS).magnitude,
                         "fraction_aa_to_elongate": f,
                         "aa_supply": self.process.aa_supply,
                         "aa_synthesis": synthesis * states["timestep"],
@@ -469,18 +476,18 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
                         "aa_supply_enzymes_rev": rev_enzyme_counts,
                         "aa_importers": importer_counts,
                         "aa_exporters": exporter_counts,
-                        "aa_supply_aa_conc": aa_conc.asNumber(units.mmol / units.L),
+                        "aa_supply_aa_conc": aa_conc.to(units.mmol / units.L).magnitude,
                         "aa_supply_fraction_fwd": fwd_saturation,
                         "aa_supply_fraction_rev": rev_saturation,
-                        "ppgpp_conc": ppgpp_conc.asNumber(MICROMOLAR_UNITS),
-                        "rela_conc": rela_conc.asNumber(MICROMOLAR_UNITS),
-                        "spot_conc": spot_conc.asNumber(MICROMOLAR_UNITS),
+                        "ppgpp_conc": ppgpp_conc.to(MICROMOLAR_UNITS).magnitude,
+                        "rela_conc": rela_conc.to(MICROMOLAR_UNITS).magnitude,
+                        "spot_conc": spot_conc.to(MICROMOLAR_UNITS).magnitude,
                     }
                 },
                 "polypeptide_elongation": {
                     "aa_exchange_rates": (
                         self.counts_to_molar / units.s * (import_rates - export_rates)
-                    ).asNumber(CONC_UNITS / TIME_UNITS)
+                    ).to(CONC_UNITS / TIME_UNITS).magnitude
                 },
             },
         )
@@ -570,9 +577,9 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         # This should come after all countInc/countDec calls since it shares some molecules with
         # other views and those counts should be updated to get the proper limits on ppGpp reactions
         if self.process.ppgpp_regulation:
-            v_rib = (nElongations * self.counts_to_molar).asNumber(
+            v_rib = (nElongations * self.counts_to_molar).to(
                 MICROMOLAR_UNITS
-            ) / states["timestep"]
+            ).magnitude / states["timestep"]
             ribosome_conc = (
                 self.counts_to_molar * states["active_ribosome"]["_entryState"].sum()
             )

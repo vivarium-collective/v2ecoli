@@ -14,7 +14,7 @@ import copy
 import numpy as np
 from bigraph_schema import allocate_core
 
-from v2ecoli.library.unit_defs import units
+from v2ecoli.types.quantity import ureg as units
 from v2ecoli.types import ECOLI_TYPES
 
 # Import partitioned process classes (vEcoli-style: single class per process)
@@ -32,6 +32,24 @@ from v2ecoli.processes.chromosome_replication import ChromosomeReplication
 
 # Generic Requester/Evolver wrappers from partition.py
 from v2ecoli.steps.partition import Requester, Evolver, PartitionedProcess
+
+# Additional processes and listeners used in _instantiate_step
+from v2ecoli.processes.tf_binding import TfBinding
+from v2ecoli.processes.tf_unbinding import TfUnbinding
+from v2ecoli.processes.chromosome_structure import ChromosomeStructure
+from v2ecoli.processes.metabolism import Metabolism
+from v2ecoli.steps.listeners.mass_listener import (
+    MassListener, PostDivisionMassListener)
+from v2ecoli.steps.listeners.rna_counts import RNACounts
+from v2ecoli.steps.listeners.rna_synth_prob import RnaSynthProb
+from v2ecoli.steps.listeners.monomer_counts import MonomerCounts
+from v2ecoli.steps.listeners.dna_supercoiling import DnaSupercoiling
+from v2ecoli.steps.listeners.replication_data import ReplicationData
+from v2ecoli.steps.listeners.rnap_data import RnapData
+from v2ecoli.steps.listeners.unique_molecule_counts import UniqueMoleculeCounts
+from v2ecoli.steps.listeners.ribosome_data import RibosomeData
+from v2ecoli.steps.media_update import MediaUpdate
+from v2ecoli.steps.exchange_data import ExchangeData
 
 
 # ---------------------------------------------------------------------------
@@ -446,12 +464,11 @@ def _normalize_boundary_units(cell_state):
     external = boundary.get('external', {})
     if not isinstance(external, dict):
         return
+    from v2ecoli.library.unit_bridge import unum_to_pint
     for key, val in external.items():
-        if hasattr(val, 'magnitude') and hasattr(val, 'units'):
-            # Strip units — metabolism expects plain floats in mM
-            external[key] = float(val.magnitude)
-        elif hasattr(val, 'asNumber'):
-            external[key] = float(val.asNumber())
+        q = unum_to_pint(val)
+        if hasattr(q, 'magnitude') and hasattr(q, 'units'):
+            external[key] = float(q.magnitude)
 
 
 # ---------------------------------------------------------------------------
@@ -480,23 +497,6 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
     """Instantiate a partitioned process step from its config."""
     if process_cache is None:
         process_cache = {}
-
-    from v2ecoli.processes.tf_binding import TfBinding
-    from v2ecoli.processes.tf_unbinding import TfUnbinding
-    from v2ecoli.processes.chromosome_structure import ChromosomeStructure
-    from v2ecoli.processes.metabolism import Metabolism
-    from v2ecoli.steps.listeners.mass_listener import (
-        MassListener, PostDivisionMassListener)
-    from v2ecoli.steps.listeners.rna_counts import RNACounts
-    from v2ecoli.steps.listeners.rna_synth_prob import RnaSynthProb
-    from v2ecoli.steps.listeners.monomer_counts import MonomerCounts
-    from v2ecoli.steps.listeners.dna_supercoiling import DnaSupercoiling
-    from v2ecoli.steps.listeners.replication_data import ReplicationData
-    from v2ecoli.steps.listeners.rnap_data import RnapData
-    from v2ecoli.steps.listeners.unique_molecule_counts import UniqueMoleculeCounts
-    from v2ecoli.steps.listeners.ribosome_data import RibosomeData
-    from v2ecoli.steps.media_update import MediaUpdate
-    from v2ecoli.steps.exchange_data import ExchangeData
 
     base_name = step_name.replace('_requester', '').replace('_evolver', '')
 

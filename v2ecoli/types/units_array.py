@@ -8,15 +8,18 @@ from bigraph_schema.schema import Node, Integer, Array
 from bigraph_schema.methods import infer, set_default, realize, render, wrap_default
 from bigraph_schema.methods.serialize import serialize
 
-from v2ecoli.types.unum import Unum
-
 from wholecell.utils.unit_struct_array import UnitStructArray
+# UnitStructArray comes from upstream wholecell as an Unum-tagged structured
+# array. v2ecoli internals don't introspect the unit field — it is
+# round-tripped opaquely — so we use ``typing.Any`` as the annotation rather
+# than carrying an Unum import here.
+from typing import Any
 
 
 @dataclass(kw_only=True)
 class UnitsArray(Node):
     struct: Array = field(default_factory=Array)
-    units: Unum = field(default_factory=Unum)
+    units: Any = field(default=None)
 
     def _serialize_state(self, state):
         if isinstance(state, dict):

@@ -166,6 +166,7 @@ DAUGHTER_RUN_SECONDS = 60.0
 DAUGHTER_MIN_GROWTH_FG = 0.5
 
 
+@pytest.mark.sim
 def test_daughters_build_and_grow(predivision_state, sim_data_cache):
     """Build two daughter composites from the split state and run each
     for 60 s. Each must (a) build without exception and (b) gain at

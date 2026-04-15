@@ -78,9 +78,9 @@ For deeper questions about either framework, invoke the `pbg-expert` skill.
 Regenerate the relevant report and inspect it before opening a PR that
 touches processes, steps, or composite wiring.
 
-- `workflow.py` → `out/reports/workflow_report.html` — full cell lifecycle,
+- `reports/workflow_report.py` → `out/reports/workflow_report.html` — full cell lifecycle,
   division at ~42 min.
-- `multigeneration.py` → `multigeneration_report.html` — N-generation single
+- `reports/multigeneration_report.py` → `multigeneration_report.html` — N-generation single
   lineage with mass trajectories and fold-change.
 - `reports/colony_report.py` → `colony_report.html` — mixed colony with pymunk
   physics, growth, and division.

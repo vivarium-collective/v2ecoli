@@ -15,8 +15,8 @@ Pipeline Steps:
 6. daughters — Divide and run both daughters
 
 Usage:
-    python workflow.py              # run full pipeline
-    python workflow.py --clean      # clear cache and re-run
+    python reports/workflow_report.py              # run full pipeline
+    python reports/workflow_report.py --clean      # clear cache and re-run
 """
 
 import os
@@ -872,7 +872,7 @@ BIOCYC_FILE_IDS = [
 ]
 
 FLAT_DIR = os.path.join(
-    os.path.dirname(__file__), '..', 'vEcoli', 'reconstruction', 'ecoli', 'flat')
+    os.path.dirname(__file__), '..', '..', 'vEcoli', 'reconstruction', 'ecoli', 'flat')
 
 
 def step_biocyc():

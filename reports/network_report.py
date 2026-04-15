@@ -5,11 +5,11 @@ extracts the composition graph via ``v2ecoli.viz.build_graph``, writes an
 HTML page with the interactive Cytoscape network, and opens it.
 
 Usage:
-    python network_report.py                          # baseline (default)
-    python network_report.py --model departitioned
-    python network_report.py --model reconciled
-    python network_report.py --model baseline --no-open
-    python network_report.py --output out/network_baseline.html
+    python reports/network_report.py                          # baseline (default)
+    python reports/network_report.py --model departitioned
+    python reports/network_report.py --model reconciled
+    python reports/network_report.py --model baseline --no-open
+    python reports/network_report.py --output out/network_baseline.html
 """
 
 import os
@@ -90,7 +90,7 @@ def main():
     # Mirror to docs/ so GitHub Pages stays in sync.
     import shutil
     docs_dir = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), 'docs')
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'docs')
     if os.path.isdir(docs_dir):
         shutil.copy2(output, os.path.join(
             docs_dir, f'network_{args.model}.html'))
@@ -103,5 +103,5 @@ def main():
 
 
 if __name__ == '__main__':
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     main()

@@ -82,11 +82,11 @@ touches processes, steps, or composite wiring.
   division at ~42 min.
 - `multigeneration.py` → `multigeneration_report.html` — N-generation single
   lineage with mass trajectories and fold-change.
-- `colony_report.py` → `colony_report.html` — mixed colony with pymunk
+- `reports/colony_report.py` → `colony_report.html` — mixed colony with pymunk
   physics, growth, and division.
-- `compare_report.py` → `comparison_report.html` — baseline vs departitioned
+- `reports/compare_report.py` → `comparison_report.html` — baseline vs departitioned
   vs reconciled, 42-min side-by-side.
-- `network_report.py` → `network_*.html` — per-architecture Cytoscape
+- `reports/network_report.py` → `network_*.html` — per-architecture Cytoscape
   topology. Click a process to see ports, schemas, config, docstring, math.
 - `compare_v1_v2.py` → `v1_v2_comparison.html` — vEcoli 1.0 vs 2.0 vs v2ecoli.
 

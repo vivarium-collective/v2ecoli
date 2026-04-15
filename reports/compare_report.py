@@ -8,10 +8,10 @@ trajectories, divergence analysis, and an n-way molecule divergence table
 comparing all architectures to baseline.
 
 Usage:
-    python compare_report.py                        # default 2520s sim
-    python compare_report.py --duration 600         # 10-min sim
-    python compare_report.py --seed 42 --output out/my_report.html
-    python compare_report.py --no-parallel          # sequential fallback
+    python reports/compare_report.py                        # default 2520s sim
+    python reports/compare_report.py --duration 600         # 10-min sim
+    python reports/compare_report.py --seed 42 --output out/my_report.html
+    python reports/compare_report.py --no-parallel          # sequential fallback
 """
 
 import os

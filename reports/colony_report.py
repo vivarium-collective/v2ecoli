@@ -11,9 +11,9 @@ Generates:
 - HTML report with cell counts, mass, timing
 
 Usage:
-    python colony_report.py                # default: 1 wc-ecoli + 9 adder cells, 80 min
-    python colony_report.py --n-adder 20   # more adder cells
-    python colony_report.py --duration 30  # shorter sim (minutes)
+    python reports/colony_report.py                # default: 1 wc-ecoli + 9 adder cells, 80 min
+    python reports/colony_report.py --n-adder 20   # more adder cells
+    python reports/colony_report.py --duration 30  # shorter sim (minutes)
 """
 
 import os
@@ -858,7 +858,7 @@ forks, and active RNA polymerases.</p>
 <tr><td>process-bigraph</td><td>{repro['process_bigraph']}</td></tr>
 <tr><td>bigraph-schema</td><td>{repro['bigraph_schema']}</td></tr>
 <tr><td>Seed</td><td>{seed}</td></tr>
-<tr><td>Command</td><td><code>python3 colony_report.py --duration {duration_min} --n-adder {n_adder} --env-size {env_size}</code></td></tr>
+<tr><td>Command</td><td><code>python3 reports/colony_report.py --duration {duration_min} --n-adder {n_adder} --env-size {env_size}</code></td></tr>
 </table>
 
 <footer style="margin-top:2em; padding-top:1em; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:0.85em;">
@@ -870,7 +870,7 @@ v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-c
     # so the rendered report can resolve its relative <img> paths.
     import shutil
     docs_dir = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), 'docs')
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'docs')
     if os.path.isdir(docs_dir):
         shutil.copy2(report_path, os.path.join(docs_dir, 'colony_report.html'))
         for gif in ('colony.gif', 'chromosome.gif'):

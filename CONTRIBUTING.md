@@ -91,10 +91,10 @@ should regenerate and sanity-check the relevant reports:
   ~42 min.
 - **Multigeneration report** (`multigeneration.py`) — N-generation single
   lineage.
-- **Colony report** (`colony_report.py`) — mixed colony with pymunk physics.
-- **Architecture comparison** (`compare_report.py`) — baseline vs
+- **Colony report** (`reports/colony_report.py`) — mixed colony with pymunk physics.
+- **Architecture comparison** (`reports/compare_report.py`) — baseline vs
   departitioned vs reconciled.
-- **Network views** (`network_report.py`) — per-architecture Cytoscape
+- **Network views** (`reports/network_report.py`) — per-architecture Cytoscape
   topology with ports, schemas, and math.
 
 Published versions live at https://vivarium-collective.github.io/v2ecoli/ and

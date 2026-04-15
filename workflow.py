@@ -79,13 +79,20 @@ DAUGHTER_DURATION = None  # Set to half the single-cell division time at runtime
 _OPTIONS = {
     'make_composite': make_composite,
     'fetch_biocyc': False,
+    'parca_rerun': False,
+    'parca_cpus': 4,
     'max_duration': MAX_LONG_DURATION,
 }
 
-# Try to find simData
+# Try to find simData.  Priority:
+#   1. Previous in-workflow run (out/workflow/simData.cPickle).
+#   2. Legacy vEcoli ParCa output (out/kb/simData.cPickle), if present.
+# When neither is found, step_parca will materialize the shipped
+# ``models/parca/parca_state.pkl.gz`` fixture into
+# out/workflow/simData.cPickle, or run the 9-Step pipeline from scratch.
 _sim_data_candidates = [
-    'out/kb/simData.cPickle',
     os.path.join(WORKFLOW_DIR, 'simData.cPickle'),
+    'out/kb/simData.cPickle',
 ]
 SIM_DATA_PATH = next((p for p in _sim_data_candidates if os.path.exists(p)), None)
 
@@ -871,8 +878,11 @@ BIOCYC_FILE_IDS = [
     "rnas", "transcription_units", "trna_charging_reactions",
 ]
 
+# Flat-file knowledge base — now vendored inside the merged parca
+# subpackage so the workflow runs without any vEcoli checkout.
 FLAT_DIR = os.path.join(
-    os.path.dirname(__file__), '..', 'vEcoli', 'reconstruction', 'ecoli', 'flat')
+    os.path.dirname(__file__), 'v2ecoli', 'processes', 'parca',
+    'reconstruction', 'ecoli', 'flat')
 
 
 def step_biocyc():
@@ -927,10 +937,12 @@ def step_raw_data():
     t0 = time.time()
 
     try:
-        from reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
-    except ImportError:
-        print(f"    Skipped (reconstruction module not available)")
-        meta = {'skipped': True, 'reason': 'reconstruction module not in v2ecoli'}
+        from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import (
+            KnowledgeBaseEcoli,
+        )
+    except ImportError as e:
+        print(f"    Skipped (merged ParCa package unavailable: {e})")
+        meta = {'skipped': True, 'reason': f'import failed: {e}'}
         save_meta(step_name, meta)
         return meta
     raw_data = KnowledgeBaseEcoli(
@@ -1029,38 +1041,63 @@ def step_parca():
     elif sim_data_path and os.path.exists(sim_data_path):
         print(f"    Using existing simData at {sim_data_path}")
         parca_time = 0.0
-        # out/kb/simData.cPickle is the vEcoli ParCa output location;
-        # out/workflow/simData.cPickle is a prior in-workflow run.
+        # out/kb/simData.cPickle is the legacy vEcoli ParCa output;
+        # out/workflow/simData.cPickle is produced by this workflow.
         if os.path.normpath(sim_data_path) == os.path.normpath('out/kb/simData.cPickle'):
             simdata_source = 'vecoli_pickle'
         else:
             simdata_source = 'workflow_pickle'
     else:
-        # Need to run ParCa
-        print("    Running fitSimData_1 (this takes a few minutes)...")
-        from reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
-        from reconstruction.ecoli.fit_sim_data_1 import fitSimData_1
-        raw_data = KnowledgeBaseEcoli(
-        operons_on=True, remove_rrna_operons=False,
-        remove_rrff=False, stable_rrna=False)
-        t0 = time.time()
-        cache_dir = os.path.join('out', 'cache')
-        os.makedirs(cache_dir, exist_ok=True)
-        sim_data = fitSimData_1(
-            raw_data,
-            basal_expression_condition="M9 Glucose minus AAs",
-            cache_dir=cache_dir,
-        )
-        parca_time = time.time() - t0
-
-        # Save simData
+        # Produce simData from the merged v2ecoli.processes.parca
+        # composite.  Two paths:
+        #   (a) Fast path: hydrate the shipped 18 MB fixture at
+        #       models/parca/parca_state.pkl.gz → unwrap its
+        #       sim_data_root → dump as simData.cPickle.  ~2 s.
+        #   (b) Slow path: run the 9-Step ParCa composite from scratch.
+        #       ~70 min in fast mode.  Triggered with
+        #       --parca-rerun or when the fixture is absent.
+        fixture_path = os.path.join(
+            'models', 'parca', 'parca_state.pkl.gz')
         sim_data_path = os.path.join(WORKFLOW_DIR, 'simData.cPickle')
         os.makedirs(WORKFLOW_DIR, exist_ok=True)
-        with open(sim_data_path, 'wb') as f:
-            dill.dump(sim_data, f)
-        parca_ran = True
-        simdata_source = 'computed'
-        print(f"    ParCa completed in {parca_time:.1f}s")
+
+        if os.path.exists(fixture_path) and not _OPTIONS.get('parca_rerun'):
+            print(f"    Using shipped ParCa fixture at {fixture_path}")
+            t0 = time.time()
+            from v2ecoli.processes.parca.data_loader import load_parca_state
+            state = load_parca_state(fixture_path)
+            sim_data = state['sim_data_root']
+            with open(sim_data_path, 'wb') as f:
+                dill.dump(sim_data, f)
+            parca_time = time.time() - t0
+            parca_ran = False
+            simdata_source = 'parca_fixture'
+            print(f"    Fixture hydrated in {parca_time:.1f}s → "
+                  f"{sim_data_path}")
+        else:
+            print("    Running v2ecoli ParCa composite "
+                  "(this takes ~70 min in fast mode)...")
+            from v2ecoli.processes.parca.composite import build_parca_composite
+            from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import (
+                KnowledgeBaseEcoli,
+            )
+            raw_data = KnowledgeBaseEcoli(
+                operons_on=True, remove_rrna_operons=False,
+                remove_rrff=False, stable_rrna=False,
+            )
+            t0 = time.time()
+            composite = build_parca_composite(
+                raw_data, debug=True,
+                cpus=_OPTIONS.get('parca_cpus', 4),
+                cache_dir=os.path.join('out', 'cache'),
+            )
+            sim_data = composite.state['sim_data_root']
+            with open(sim_data_path, 'wb') as f:
+                dill.dump(sim_data, f)
+            parca_time = time.time() - t0
+            parca_ran = True
+            simdata_source = 'parca_composite'
+            print(f"    ParCa composite completed in {parca_time:.1f}s")
 
     # Generate cache files
     if not os.path.exists(sim_data_cache):
@@ -1891,7 +1928,7 @@ def generate_html_report(step_results, plots, network_html_rel, diagnostics):
         sz_str = f"{sz/1024:.0f} KB" if sz > 1024 else f"{sz} B"
         fname = fi['name']
         file_rows += (f'<tr><td><a href="https://github.com/vivarium-collective/v2ecoli/'
-                      f'blob/main/v2ecoli/reconstruction/ecoli/flat/{fname}" '
+                      f'blob/main/v2ecoli/processes/parca/reconstruction/ecoli/flat/{fname}" '
                       f'target="_blank"><code>{fname}</code></a></td>'
                       f'<td>{sz_str}</td>'
                       f'<td><span style="background:{badge_color};color:white;'
@@ -2390,6 +2427,13 @@ if __name__ == '__main__':
                         help='Clear cached metadata and re-run all steps')
     parser.add_argument('--fetch-biocyc', action='store_true',
                         help='Fetch fresh data from EcoCyc API (slow, skipped by default)')
+    parser.add_argument('--parca-rerun', action='store_true',
+                        help='Re-run the v2ecoli.processes.parca composite '
+                             'instead of hydrating models/parca/parca_state.pkl.gz '
+                             '(adds ~70 min in fast mode)')
+    parser.add_argument('--parca-cpus', type=int, default=4,
+                        help='Parallelism for ParCa steps 4 + 5 when --parca-rerun '
+                             'is set (default 4)')
     parser.add_argument('--duration', type=int, default=None,
                         help='Override max sim duration in seconds (default: run to division)')
     parser.add_argument('--no-daughters', action='store_true',
@@ -2400,6 +2444,8 @@ if __name__ == '__main__':
 
     # Apply CLI overrides
     _OPTIONS['fetch_biocyc'] = args.fetch_biocyc
+    _OPTIONS['parca_rerun'] = args.parca_rerun
+    _OPTIONS['parca_cpus'] = args.parca_cpus
     if args.duration is not None:
         _OPTIONS['max_duration'] = args.duration
     _OPTIONS['skip_daughters'] = args.no_daughters

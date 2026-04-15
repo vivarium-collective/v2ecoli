@@ -16,9 +16,25 @@ from unum.units import mol, mmol, g, h, L, fg, min, s, umol, dmol, J, K  # noqa:
 from unum.units import *  # noqa: F403
 from unum import Unum
 
-count = Unum.unit("count", mol / scipy.constants.Avogadro)
-nt = Unum.unit("nucleotide", count)
-aa = Unum.unit("amino_acid", count)
+def _unit(symbol, conv):
+    """Idempotent wrapper around ``Unum.unit``.
+
+    The vEcoli pypi package ships a top-level ``wholecell.utils.units``
+    that registers the same unum symbols (``count``, ``nucleotide``,
+    ``amino_acid``).  When that package is installed alongside v2ecoli,
+    importing our merged copy a second time (e.g. via the legacy-pickle
+    aliaser) would hit ``unum.NameConflictError`` because unum's unit
+    table is process-global.  Re-use the already-registered unit in
+    that case rather than raising."""
+    existing = Unum._unitTable.get(symbol)
+    if existing is not None:
+        return Unum({symbol: 1}, 1, None, symbol)
+    return Unum.unit(symbol, conv)
+
+
+count = _unit("count", mol / scipy.constants.Avogadro)
+nt = _unit("nucleotide", count)
+aa = _unit("amino_acid", count)
 
 
 def __truediv__(self, other):

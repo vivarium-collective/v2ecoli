@@ -28,6 +28,32 @@ import os
 import pytest
 
 
+# ---------------------------------------------------------------------------
+# Global Unum patch — the merged ``v2ecoli.processes.parca.wholecell.utils``
+# and the pypi ``wholecell.utils`` (from vEcoli[dev]) both define the same
+# ``count`` / ``nucleotide`` / ``amino_acid`` unum units at module scope.
+# Importing both in the same process raises ``NameConflictError`` because
+# unum's unit table is global.  Make ``Unum.unit`` idempotent so re-import
+# returns the existing symbol instead of crashing — applies across every
+# test in this session.
+# ---------------------------------------------------------------------------
+
+def _patch_unum_idempotent():
+    import unum  # type: ignore
+    orig_unit = unum.Unum.unit
+
+    def _idempotent_unit(cls, symbol, conv=None, name=''):
+        existing = cls._unitTable.get(symbol)
+        if existing is not None:
+            return cls({symbol: 1}, 1, None, symbol)
+        return orig_unit(symbol, conv, name)
+
+    unum.Unum.unit = classmethod(_idempotent_unit)
+
+
+_patch_unum_idempotent()
+
+
 def _workflow_path(*parts):
     base = os.environ.get('V2ECOLI_PREDIV_CHECKPOINT_DIR', 'out/workflow')
     return os.path.join(base, *parts)

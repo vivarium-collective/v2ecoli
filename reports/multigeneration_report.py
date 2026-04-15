@@ -17,6 +17,7 @@ import argparse
 import base64
 import io
 import os
+import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -27,6 +28,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from v2ecoli.composite import make_composite, _build_core
 from v2ecoli.library.division import divide_cell

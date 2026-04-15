@@ -1,0 +1,34 @@
+"""
+SimulationData for bulk molecules state
+"""
+
+import numpy as np
+
+from v2ecoli.processes.parca.wholecell.utils import units
+from v2ecoli.processes.parca.wholecell.utils.unit_struct_array import UnitStructArray
+
+from v2ecoli.processes.parca.reconstruction.ecoli.dataclasses.state.stateFunctions import addToStateCommon
+
+
+class BulkMolecules(object):
+    """BulkMolecules"""
+
+    def __init__(self, raw_data, sim_data):
+        bulkData = np.zeros(
+            0,
+            dtype=[
+                ("id", "U50"),
+                ("mass", "{}f8".format(len(sim_data.submass_name_to_index))),
+            ],
+        )
+
+        # Add units to values
+        field_units = {
+            "id": None,
+            "mass": units.g / units.mol,
+        }
+
+        self.bulk_data = UnitStructArray(bulkData, field_units)
+
+    def add_to_bulk_state(self, ids, masses):
+        self.bulk_data = addToStateCommon(self.bulk_data, ids, masses)

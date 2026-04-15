@@ -6,3 +6,9 @@ __pycache__/
 out/
 *.cPickle
 *.dill
+
+# Cython / C-extension build artifacts (parca Cython extensions)
+*.so
+*.c
+build/
+v2ecoli/processes/parca/**/*.cpython-*.so

@@ -38,3 +38,32 @@ Purity legend
   READ-ONLY  compute reads sim_data via ref but does not mutate it
   COUPLED    compute still mutates sim_data via ref (future refactor target)
 """
+
+# ---------------------------------------------------------------------------
+# Unum idempotency guard — must run before ANY submodule imports
+# wholecell/utils/units.py (either our merged copy or the vEcoli pypi
+# version).  Both register the same ``count`` / ``nucleotide`` /
+# ``amino_acid`` unum symbols at module scope; the second import would
+# crash with ``NameConflictError`` because unum's unit table is global.
+# Patching ``Unum.unit`` to be idempotent fixes the collision for all
+# consumers in this process, regardless of import order.
+# ---------------------------------------------------------------------------
+def _patch_unum_idempotent():
+    try:
+        import unum as _unum  # type: ignore
+    except ImportError:
+        return
+    if getattr(_unum.Unum.unit, '_patched_idempotent', False):
+        return
+    _orig = _unum.Unum.unit.__func__  # unwrap classmethod
+
+    @classmethod  # type: ignore[misc]
+    def _safe_unit(cls, symbol, conv=None, name=''):
+        if symbol in cls._unitTable:
+            return cls({symbol: 1}, 1, None, symbol)
+        return _orig(cls, symbol, conv, name)
+    _safe_unit._patched_idempotent = True
+    _unum.Unum.unit = _safe_unit
+
+
+_patch_unum_idempotent()

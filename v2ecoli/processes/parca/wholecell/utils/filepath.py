@@ -11,13 +11,14 @@ import os
 import subprocess
 from typing import Any, Optional, Generator
 
-import v2ecoli.processes.parca.wholecell
-
-
 TIMEOUT = 60  # seconds
 
-# The wcEcoli/ project root path which contains wholecell/.
-ROOT_PATH = os.path.dirname(os.path.dirname(os.path.realpath(wholecell.__file__)))
+# Project root — two levels up from wholecell/utils/filepath.py, i.e.
+# the directory that contains the ``wholecell/`` package.  For the
+# merged v2ecoli.processes.parca layout this resolves to
+# ``v2ecoli/processes/parca/``.
+ROOT_PATH = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.realpath(__file__))))
 OUT_DIR = os.path.join(ROOT_PATH, "out")
 DEBUG_OUT_DIR = os.path.join(OUT_DIR, "debug")
 

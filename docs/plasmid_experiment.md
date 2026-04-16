@@ -1,115 +1,138 @@
 # Plasmid Replication Experiment
 
-How to run the ColE1/pBR322 plasmid replication experiment added in [PR #10](https://github.com/vivarium-collective/v2ecoli/pull/10) and regenerate `reports/plasmid_replication_report.html`.
+How to run the ColE1/pBR322 plasmid replication experiment from a fresh
+clone of v2ecoli (`plasmids` branch) and regenerate
+`reports/plasmid_replication_report.html`.
+
+The plasmid-aware ParCa fixture
+(`models/parca/parca_state.pkl.gz`) and the vendored ParCa code
+(`v2ecoli/processes/parca/`) both ship in this branch — there is no
+external `v2parca` checkout or install required.
 
 ## Prerequisites
 
-- v2ecoli at the `plasmids` branch of this repo
-- v2parca at the `plasmid` branch: https://github.com/vivarium-collective/v2parca/pull/1 — installed editable as a dep (see below)
-- GLPK (`brew install glpk`) and the usual dev stack (`ecos`, `swiglpk`, `autograd`, `ipython`, `pint`, `stochastic-arrow`, `vivarium-core`) installed into v2ecoli's `.venv`
+- v2ecoli at the `plasmids` branch
+- Python 3.12.9, `uv` installed
+- GLPK (`brew install glpk` on macOS, `apt install libglpk-dev` on Linux)
+- A known-good baseline `simData.cPickle` from a vEcoli ParCa run
+  (see step 2). Required because the v2ecoli fast-mode ParCa fixture has
+  initial-state issues that crash the online sim on the first step.
 
-## 1. Generate the sim_data
-
-The v2parca `plasmid` branch produces `data/parca_state.pkl.gz` containing a `SimulationDataEcoli` with plasmid fields wired in (plasmid sequence, oriV coordinate, unique molecule definitions, full_plasmid mass).
+## 1. Install + build vendored Cython extensions
 
 ```bash
-cd ../v2parca   # or wherever your v2parca checkout lives
-git checkout plasmid
-# If you want to regenerate rather than use the committed pickle:
-uv run python scripts/parca_bigraph.py --mode fast --cpus 4 -o out/sim_data
-# Resume step 6 if step 6 fails with ECOS:
-uv run python scripts/parca_bigraph.py --mode fast --cpus 4 \
-    -o out/sim_data --resume-from-step 6 --resume-pickle out/sim_data/checkpoint_step_5.pkl
+git clone https://github.com/vivarium-collective/v2ecoli.git
+cd v2ecoli
+git checkout plasmids
+uv venv
+uv sync                              # installs pyproject.toml deps incl. vEcoli
+bash scripts/parca_cython_build.sh   # compiles the 3 .pyx → .so files
 ```
 
-## 2. Install v2parca as a dep inside v2ecoli's venv
+The Cython step is mandatory — the `.so` files are gitignored, so every
+fresh clone needs this. Skipping it produces:
 
-v2ecoli's `SimulationDataEcoli` unpickler needs the v2parca module to be importable:
+```
+ModuleNotFoundError: No module named
+'v2ecoli.processes.parca.wholecell.utils.mc_complexation'
+```
+
+## 2. Get a baseline `simData.cPickle`
+
+The plasmid-aware fixture in `models/parca/` is fast-mode parca and has
+NaN/initial-state issues (cell hits division threshold at t=0,
+chromosomes already at 4) that crash the online sim. The workaround is
+to graft the plasmid fields from the fast-mode fixture onto a known-good
+baseline `simData.cPickle` produced by vEcoli's monolithic ParCa.
+
+Run vEcoli's parca **once** (~30-70 minutes) and copy the result:
 
 ```bash
+cd $VECOLI_REPO          # vEcoli is installed editable as a v2ecoli dep
+uv run python -m runscripts.parca \
+    --config configs/templates/parca_standalone.json \
+    --outdir out/parca
+mkdir -p ../v2ecoli/out/workflow
+cp out/parca/kb/simData.cPickle ../v2ecoli/out/workflow/simData.cPickle
 cd ../v2ecoli
-uv pip install --python .venv/bin/python -e ../v2parca
 ```
 
-## 3. Extract / patch the sim_data
+`scripts/build_plasmid_cache.py` looks for the baseline at:
 
-The fast-mode parca output currently has initial-state NaN issues that break the equilibrium ODE solver on its own. The short-term workaround is to patch plasmid fields into a known-good baseline sim_data (e.g. `out/workflow/simData.cPickle` from a prior workflow run). A helper script does this:
+  1. `out/workflow/simData.cPickle`
+  2. `out/kb/baseline_simData.cPickle`
+  3. `$VECOLI_REPO/out/test_installation/parca/kb/simData.cPickle`
+     (`VECOLI_REPO` defaults to `../vEcoli`)
 
-```python
-# scripts/patch_plasmid_into_workflow_simdata.py  (one-off, run once)
-import pickle
+so any of those locations will be picked up automatically.
 
-with open('out/workflow/simData.cPickle', 'rb') as f:
-    sd_good = pickle.load(f)
-with open('out/kb/simData.cPickle', 'rb') as f:     # extracted from parca_state.pkl.gz
-    sd_p = pickle.load(f)
-
-sd_good.molecule_ids.full_plasmid = sd_p.molecule_ids.full_plasmid
-sd_good.molecule_ids.plasmid_ori = sd_p.molecule_ids.plasmid_ori
-for attr in ('plasmid_sequence', 'plasmid_sequence_rc', 'plasmid_length',
-             'plasmid_A_count', 'plasmid_T_count', 'plasmid_G_count', 'plasmid_C_count',
-             'plasmid_ori_coordinate', 'plasmid_forward_sequence',
-             'plasmid_forward_complement_sequence', 'plasmid_replichore_lengths',
-             'plasmid_replication_sequences'):
-    setattr(sd_good.process.replication, attr, getattr(sd_p.process.replication, attr))
-for k in ('full_plasmid', 'plasmid_domain', 'oriV', 'plasmid_active_replisome'):
-    sd_good.internal_state.unique_molecule.unique_molecule_definitions[k] = \
-        sd_p.internal_state.unique_molecule.unique_molecule_definitions[k]
-    if k not in sd_good.molecule_groups.unique_molecules_domain_index_division:
-        sd_good.molecule_groups.unique_molecules_domain_index_division.append(k)
-sd_good.getter._all_plasmid_coordinates = sd_p.getter._all_plasmid_coordinates
-sd_good.getter._all_submass_arrays['full_plasmid'] = sd_p.getter._all_submass_arrays['full_plasmid']
-sd_good.getter._all_total_masses['full_plasmid'] = sd_p.getter._all_total_masses['full_plasmid']
-sd_good.getter._all_compartments['full_plasmid'] = \
-    sd_good.getter._all_compartments.get('full_chromosome', ['c'])
-
-with open('out/kb/simData_plasmid_patched.cPickle', 'wb') as f:
-    pickle.dump(sd_good, f)
-```
-
-Once v2parca fast-mode is producing a directly usable pickle, this patching step goes away and you just use `out/kb/simData.cPickle` directly.
-
-## 4. Build the plasmid-enabled cache
+## 3. Build the plasmid-enabled cache
 
 ```bash
-uv run python -c "
-from v2ecoli.composite import save_cache
-save_cache('out/kb/simData_plasmid_patched.cPickle',
-           cache_dir='out/cache_plasmid', seed=0, has_plasmid=True)
-"
+uv run python scripts/build_plasmid_cache.py
 ```
 
-`has_plasmid=True` tells `LoadSimData` to initialize one `full_plasmid`, one `oriV`, and one `plasmid_domain` at start.
+This script:
+  - hydrates the plasmid-aware fast-mode fixture
+    (`models/parca/parca_state.pkl.gz`) into a `SimulationDataEcoli`,
+  - patches its plasmid fields onto the baseline (molecule_ids,
+    process.replication, getter, internal_state.unique_molecule),
+  - writes `out/kb/simData_plasmid_patched.cPickle`,
+  - calls `save_cache(..., has_plasmid=True)` → `out/cache_plasmid/`.
 
-## 5. Run the simulation
+`has_plasmid=True` tells `LoadSimData` to seed one `full_plasmid`, one
+`oriV`, and one `plasmid_domain` at start.
+
+Override paths via `--baseline`, `--parca-fixture`, `--cache-dir`, or
+`--seed` if needed.
+
+## 4. Run the simulation
 
 ```bash
-PLASMID_DURATION=200 PLASMID_INTERVAL=10 \
+PLASMID_DURATION=600 PLASMID_INTERVAL=10 \
     uv run python scripts/run_plasmid_experiment.py
 ```
 
-Writes `out/plasmid/timeseries.json` with per-snapshot counts of plasmid unique molecules, replisome subunit pools, and the RNA I/II/hybrid state from the `plasmid_rna_control` port.
+Writes `out/plasmid/timeseries.json` with per-snapshot counts of plasmid
+unique molecules, replisome subunit pools, and the RNA I/II/hybrid state
+from the `plasmid_rna_control` port.
 
-Defaults are 60 s duration and 2 s emission interval. For visible replication events you generally need ≥ 600 s (one RNA II initiation interval is 360 s).
+Defaults are 60 s duration / 2 s emission interval. For visible
+replication events you generally need ≥ 600 s (one RNA II initiation
+interval is 360 s).
 
-## 6. Generate the HTML report
+## 5. Generate the HTML report
 
 ```bash
 uv run python scripts/plasmid_report.py
+open reports/plasmid_replication_report.html   # macOS
 ```
 
-Writes `reports/plasmid_replication_report.html` with six plots:
-1. Plasmid unique molecule counts
-2. Active replisomes (plasmid vs chromosome)
-3. RNA I / II / hybrid dynamics (Ataai-Shuler 1986 ODE)
-4. Initiation accumulator + RNA II interval countdown
-5. Replisome subunit pool
-6. Cell + DNA mass
-
-Open it with `open reports/plasmid_replication_report.html` on macOS.
+Six plots:
+  1. Plasmid unique molecule counts
+  2. Active replisomes (plasmid vs chromosome)
+  3. RNA I / II / hybrid dynamics (Ataai-Shuler 1986 ODE)
+  4. Initiation accumulator + RNA II interval countdown
+  5. Replisome subunit pool
+  6. Cell + DNA mass
 
 ## Known issues
 
-- v2parca fast-mode sim_data has equilibrium ODE NaN issues when used directly. The patching step above is a workaround; fixing this at the v2parca level is follow-up work.
-- Short runs (< 360 s) won't show replication events — RNA II control only fires once per interval.
-- Multi-generation, multi-seed, and copy-number-distribution visualizations from the upstream [vEcoli_Plasmid#2](https://github.com/vivarium-collective/vEcoli_Plasmid/pull/2) require division + multiple lineages, which is out of scope for this single-cell run.
+- v2ecoli fast-mode ParCa output (`models/parca/parca_state.pkl.gz`)
+  has NaN/initial-state issues when used directly: cell mass already at
+  division threshold, 4 chromosomes at t=0, immediate division on first
+  step which then crashes in bigraph-schema's resolver. The patching in
+  step 3 is the working workaround. Fixing this at the v2ecoli ParCa
+  level is follow-up work.
+- Short runs (< 360 s) won't show replication events — RNA II control
+  only fires once per RNA II initiation interval.
+- `save_cache` reports one expected non-fatal omission:
+  `ecoli-polypeptide-elongation` (`AttributeError: 'Metabolism' object
+  has no attribute 'aa_enzymes'`). Doesn't affect the plasmid
+  experiment — those processes get omitted from the cache and the run
+  proceeds without them.
+- Multi-generation, multi-seed, and copy-number-distribution
+  visualizations from the upstream
+  [vEcoli_Plasmid#2](https://github.com/vivarium-collective/vEcoli_Plasmid/pull/2)
+  require division + multiple lineages, out of scope for this
+  single-cell run.

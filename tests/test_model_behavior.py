@@ -10,7 +10,7 @@ These tests pin the four properties that define a working simulation:
   4. Daughters grow: after division, both daughters are viable and their
      dry mass increases over a short follow-on run.
 
-Tests resume from the pre-division checkpoint produced by `workflow.py`
+Tests resume from the pre-division checkpoint produced by `reports/workflow_report.py`
 (see tests/conftest.py). This avoids the ~4 min warmup and lets the tests
 run in seconds — suitable to block PR merges, not just nightly runs.
 

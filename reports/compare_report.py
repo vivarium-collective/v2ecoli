@@ -17,12 +17,15 @@ Usage:
 import os
 import io
 import re
+import sys
 import time
 import json
 import base64
 import argparse
 import html as html_lib
 import multiprocessing as mp
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import numpy as np
 import matplotlib

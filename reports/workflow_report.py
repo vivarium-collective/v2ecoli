@@ -81,13 +81,20 @@ DAUGHTER_DURATION = None  # Set to half the single-cell division time at runtime
 _OPTIONS = {
     'make_composite': make_composite,
     'fetch_biocyc': False,
+    'parca_rerun': False,
+    'parca_cpus': 4,
     'max_duration': MAX_LONG_DURATION,
 }
 
-# Try to find simData
+# Try to find simData.  Priority:
+#   1. Previous in-workflow run (out/workflow/simData.cPickle).
+#   2. Legacy vEcoli ParCa output (out/kb/simData.cPickle), if present.
+# When neither is found, step_parca will materialize the shipped
+# ``models/parca/parca_state.pkl.gz`` fixture into
+# out/workflow/simData.cPickle, or run the 9-Step pipeline from scratch.
 _sim_data_candidates = [
-    'out/kb/simData.cPickle',
     os.path.join(WORKFLOW_DIR, 'simData.cPickle'),
+    'out/kb/simData.cPickle',
 ]
 SIM_DATA_PATH = next((p for p in _sim_data_candidates if os.path.exists(p)), None)
 
@@ -873,8 +880,11 @@ BIOCYC_FILE_IDS = [
     "rnas", "transcription_units", "trna_charging_reactions",
 ]
 
+# Flat-file knowledge base — now vendored inside the merged parca
+# subpackage so the workflow runs without any vEcoli checkout.
 FLAT_DIR = os.path.join(
-    os.path.dirname(__file__), '..', '..', 'vEcoli', 'reconstruction', 'ecoli', 'flat')
+    os.path.dirname(__file__), '..', 'v2ecoli', 'processes', 'parca',
+    'reconstruction', 'ecoli', 'flat')
 
 
 def step_biocyc():
@@ -929,10 +939,12 @@ def step_raw_data():
     t0 = time.time()
 
     try:
-        from reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
-    except ImportError:
-        print(f"    Skipped (reconstruction module not available)")
-        meta = {'skipped': True, 'reason': 'reconstruction module not in v2ecoli'}
+        from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import (
+            KnowledgeBaseEcoli,
+        )
+    except ImportError as e:
+        print(f"    Skipped (merged ParCa package unavailable: {e})")
+        meta = {'skipped': True, 'reason': f'import failed: {e}'}
         save_meta(step_name, meta)
         return meta
     raw_data = KnowledgeBaseEcoli(
@@ -1031,38 +1043,68 @@ def step_parca():
     elif sim_data_path and os.path.exists(sim_data_path):
         print(f"    Using existing simData at {sim_data_path}")
         parca_time = 0.0
-        # out/kb/simData.cPickle is the vEcoli ParCa output location;
-        # out/workflow/simData.cPickle is a prior in-workflow run.
+        # out/kb/simData.cPickle is the legacy vEcoli ParCa output;
+        # out/workflow/simData.cPickle is produced by this workflow.
         if os.path.normpath(sim_data_path) == os.path.normpath('out/kb/simData.cPickle'):
             simdata_source = 'vecoli_pickle'
         else:
             simdata_source = 'workflow_pickle'
     else:
-        # Need to run ParCa
-        print("    Running fitSimData_1 (this takes a few minutes)...")
-        from reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
-        from reconstruction.ecoli.fit_sim_data_1 import fitSimData_1
-        raw_data = KnowledgeBaseEcoli(
-        operons_on=True, remove_rrna_operons=False,
-        remove_rrff=False, stable_rrna=False)
-        t0 = time.time()
-        cache_dir = os.path.join('out', 'cache')
-        os.makedirs(cache_dir, exist_ok=True)
-        sim_data = fitSimData_1(
-            raw_data,
-            basal_expression_condition="M9 Glucose minus AAs",
-            cache_dir=cache_dir,
-        )
-        parca_time = time.time() - t0
-
-        # Save simData
+        # Produce simData from the merged v2ecoli.processes.parca
+        # composite.  Two paths:
+        #   (a) Fast path: hydrate the shipped 18 MB fixture at
+        #       models/parca/parca_state.pkl.gz → unwrap its
+        #       sim_data_root → dump as simData.cPickle.  ~2 s.
+        #   (b) Slow path: run the 9-Step ParCa composite from scratch.
+        #       ~70 min in fast mode.  Triggered with
+        #       --parca-rerun or when the fixture is absent.
+        fixture_path = os.path.join(
+            'models', 'parca', 'parca_state.pkl.gz')
         sim_data_path = os.path.join(WORKFLOW_DIR, 'simData.cPickle')
         os.makedirs(WORKFLOW_DIR, exist_ok=True)
-        with open(sim_data_path, 'wb') as f:
-            dill.dump(sim_data, f)
-        parca_ran = True
-        simdata_source = 'computed'
-        print(f"    ParCa completed in {parca_time:.1f}s")
+
+        if os.path.exists(fixture_path) and not _OPTIONS.get('parca_rerun'):
+            print(f"    Using shipped ParCa fixture at {fixture_path}")
+            t0 = time.time()
+            from v2ecoli.processes.parca.data_loader import (
+                hydrate_sim_data_from_state, load_parca_state,
+            )
+            state = load_parca_state(fixture_path)
+            sim_data = hydrate_sim_data_from_state(state)
+            with open(sim_data_path, 'wb') as f:
+                dill.dump(sim_data, f)
+            parca_time = time.time() - t0
+            parca_ran = False
+            simdata_source = 'parca_fixture'
+            print(f"    Fixture hydrated in {parca_time:.1f}s → "
+                  f"{sim_data_path}")
+        else:
+            print("    Running v2ecoli ParCa composite "
+                  "(this takes ~70 min in fast mode)...")
+            from v2ecoli.processes.parca.composite import build_parca_composite
+            from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import (
+                KnowledgeBaseEcoli,
+            )
+            raw_data = KnowledgeBaseEcoli(
+                operons_on=True, remove_rrna_operons=False,
+                remove_rrff=False, stable_rrna=False,
+            )
+            t0 = time.time()
+            composite = build_parca_composite(
+                raw_data, debug=True,
+                cpus=_OPTIONS.get('parca_cpus', 4),
+                cache_dir=os.path.join('out', 'cache'),
+            )
+            from v2ecoli.processes.parca.data_loader import (
+                hydrate_sim_data_from_state,
+            )
+            sim_data = hydrate_sim_data_from_state(composite.state)
+            with open(sim_data_path, 'wb') as f:
+                dill.dump(sim_data, f)
+            parca_time = time.time() - t0
+            parca_ran = True
+            simdata_source = 'parca_composite'
+            print(f"    ParCa composite completed in {parca_time:.1f}s")
 
     # Generate cache files
     if not os.path.exists(sim_data_cache):
@@ -1164,11 +1206,11 @@ def step_single_cell():
     step_name = 'single_cell'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 4: Single Cell Simulation (cached)")
+        print(f"  Step 2: Single Cell Simulation (cached)")
         return meta
 
     max_dur = _OPTIONS['max_duration']
-    print(f"  Step 4: Single Cell Simulation (to division, max {max_dur}s)")
+    print(f"  Step 2: Single Cell Simulation (to division, max {max_dur}s)")
     composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
 
     cell = composite.state['agents']['0']
@@ -1488,10 +1530,10 @@ def step_division():
     step_name = 'division'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 5: Division (cached)")
+        print(f"  Step 3: Division (cached)")
         return meta
 
-    print(f"  Step 5: Division")
+    print(f"  Step 3: Division")
 
     # Try to load pre-division state from long sim
     prediv_state = None
@@ -1696,7 +1738,7 @@ def step_daughters():
     step_name = 'daughters'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 6: Daughter Simulations (cached)")
+        print(f"  Step 4: Daughter Simulations (cached)")
         return meta
 
     # Default daughter duration: half the single-cell generation time
@@ -1704,7 +1746,7 @@ def step_daughters():
     generation_time = single_cell_meta.get('duration', 2500)
     default_dur = int(generation_time / 2)
     daughter_dur = _OPTIONS.get('daughter_duration', default_dur)
-    print(f"  Step 6: Daughter Simulations ({daughter_dur}s per daughter, "
+    print(f"  Step 4: Daughter Simulations ({daughter_dur}s per daughter, "
           f"half generation = {default_dur}s)")
 
     # Load pre-division state from long sim
@@ -1866,6 +1908,7 @@ def generate_html_report(step_results, plots, network_html_rel, diagnostics):
     biocyc = step_results.get('biocyc', {})
     raw = step_results['raw_data']
     parca = step_results['parca']
+    parca_stats = parca.get('stats', {})
     model = step_results['load_model']
     long = step_results['single_cell']  # single cell sim results
     div = step_results['division']
@@ -1893,7 +1936,7 @@ def generate_html_report(step_results, plots, network_html_rel, diagnostics):
         sz_str = f"{sz/1024:.0f} KB" if sz > 1024 else f"{sz} B"
         fname = fi['name']
         file_rows += (f'<tr><td><a href="https://github.com/vivarium-collective/v2ecoli/'
-                      f'blob/main/v2ecoli/reconstruction/ecoli/flat/{fname}" '
+                      f'blob/main/v2ecoli/processes/parca/reconstruction/ecoli/flat/{fname}" '
                       f'target="_blank"><code>{fname}</code></a></td>'
                       f'<td>{sz_str}</td>'
                       f'<td><span style="background:{badge_color};color:white;'
@@ -1941,7 +1984,7 @@ def generate_html_report(step_results, plots, network_html_rel, diagnostics):
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>v2ecoli Workflow Report</title>
+<title>v2ecoli Simulation Report</title>
 <style>
   * {{ margin: 0; padding: 0; box-sizing: border-box; }}
   html {{ scroll-behavior: smooth; }}
@@ -1987,29 +2030,45 @@ def generate_html_report(step_results, plots, network_html_rel, diagnostics):
 <body>
 
 {banner}
-<h1>v2ecoli Workflow Report</h1>
+<h1>v2ecoli Simulation Report</h1>
 <p style="color: #64748b; font-size: 0.9em;">{time.strftime('%Y-%m-%d %H:%M')} &middot;
-Pipeline steps with intermediate caching &middot; process-bigraph <code>Composite.run()</code></p>
+Simulation pipeline &middot; process-bigraph <code>Composite.run()</code></p>
 
 <div class="section">
   <p><strong>v2ecoli</strong> is a whole-cell <em>E. coli</em> model running natively on
   <a href="https://github.com/vivarium-collective/process-bigraph">process-bigraph</a>.
-  It migrates all 55 biological steps from
-  <a href="https://github.com/CovertLab/vEcoli">vEcoli</a> to run through the standard
-  <code>Composite.run()</code> pipeline with custom bigraph-schema types for bulk molecules,
-  unique molecules, and listener stores.</p>
-  <p>This report runs a 7-step pipeline, caching intermediate results for fast re-runs.</p>
+  This report covers the <strong>simulation</strong> phase: building the online
+  model from a pre-fitted <code>sim_data</code>, running a single cell to
+  division, and continuing into daughter simulations.</p>
+  <p>The upstream <strong>ParCa (Parameter Calculator)</strong> that produces
+  <code>sim_data</code> from the raw knowledge base is covered in the separate
+  <a href="parca_workflow_report.html"><strong>ParCa Workflow Report</strong></a>.</p>
+</div>
+
+<!-- ===== sim_data provenance ===== -->
+<div class="section" style="background:#eff6ff;border-left:4px solid #2563eb;padding:0.75em 1em;margin:10px 0;">
+  <strong>sim_data source:</strong>
+  { {'vecoli_pickle':'Loaded from vEcoli ParCa output (<code>' + parca.get('sim_data_path', '') + '</code>)',
+     'workflow_pickle':'Loaded from a prior workflow run (<code>' + parca.get('sim_data_path', '') + '</code>)',
+     'cache':'Loaded from existing cache',
+     'parca_fixture':'Hydrated from the shipped ParCa fixture (<code>models/parca/parca_state.pkl.gz</code>) in ' + f"{parca.get('parca_time', 0):.1f}s",
+     'parca_composite':'Computed by v2ecoli.processes.parca composite in ' + f"{parca.get('parca_time', 0):.1f}s",
+     'computed':'Computed by fitSimData_1 in ' + f"{parca.get('parca_time', 0):.1f}s",
+    }.get(parca.get('simdata_source', ''), parca.get('simdata_source', 'unknown')) }
+  &nbsp;&middot;&nbsp;
+  Cache: <code>{parca.get('cache_dir', CACHE_DIR)}</code>
+  ({parca_stats.get('n_process_configs', '?')} process configs,
+   {parca_stats.get('n_bulk_molecules', '?'):,} bulk molecules)
+  &nbsp;&middot;&nbsp;
+  <a href="parca_workflow_report.html">ParCa Workflow Report &rarr;</a>
 </div>
 
 <nav style="background: white; border-radius: 8px; padding: 12px 20px; margin: 10px 0;
             box-shadow: 0 1px 2px rgba(0,0,0,0.08);">
-  <strong style="font-size: 0.9em; color: #475569;">Pipeline Steps</strong>
+  <strong style="font-size: 0.9em; color: #475569;">Simulation Steps</strong>
   <ol style="margin: 6px 0 0 0; padding-left: 20px; font-size: 0.88em; columns: 2; column-gap: 30px;">
-    <li><a href="#sec-biocyc">EcoCyc API</a></li>
-    <li><a href="#sec-raw">Raw Data</a></li>
-    <li><a href="#sec-parca">ParCa (Parameter Calculator)</a></li>
     <li><a href="#sec-model">Load Model</a></li>
-    <li><a href="#sec-long">Single Cell Simulation + v1 Comparison ({long_dur/60:.0f} min)</a></li>
+    <li><a href="#sec-long">Single Cell Simulation ({long_dur/60:.0f} min)</a></li>
     <li><a href="#sec-division">Division</a></li>
     <li><a href="#sec-daughters">Daughter Simulations</a></li>
     <li><a href="#sec-network">Process-Bigraph Network</a></li>
@@ -2018,101 +2077,8 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
   </ol>
 </nav>
 
-<!-- ===== Step 0: EcoCyc API ===== -->
-<h2 id="sec-biocyc">0. EcoCyc API {cached_badge(biocyc)}</h2>
-<div class="section">
-  <p>{biocyc.get('n_fetched', 0)}/{biocyc.get('n_files', 0)} files fetched from
-  <a href="https://biocyc.org">BioCyc</a> web services
-  (<code>https://websvc.biocyc.org/wc-get?type=...</code>).
-  Update: <code>python -m v2ecoli.reconstruction.ecoli.scripts.update_biocyc_files</code></p>
-</div>
-<div class="section" style="overflow-x: auto;">
-  <table>
-    <thead><tr><th>File</th><th>Lines</th><th>Size</th><th>Status</th></tr></thead>
-    <tbody>{biocyc_rows}</tbody>
-  </table>
-</div>
-
-<!-- ===== Step 1: Raw Data ===== -->
-<h2 id="sec-raw">1. Raw Data {cached_badge(raw)}</h2>
-<div class="metrics">
-  <div class="metric"><div class="label">TSV Files</div><div class="value">{raw.get('n_files', 0)}</div></div>
-  <div class="metric"><div class="label">Total Size</div><div class="value blue">{raw.get('total_size_mb', 0)} MB</div></div>
-  <div class="metric"><div class="label">Genes</div><div class="value">{raw.get('n_genes', 0):,}</div></div>
-  <div class="metric"><div class="label">RNAs</div><div class="value">{raw.get('n_rnas', 0):,}</div></div>
-  <div class="metric"><div class="label">Proteins</div><div class="value">{raw.get('n_proteins', 0):,}</div></div>
-  <div class="metric"><div class="label">Metabolites</div><div class="value">{raw.get('n_metabolites', 0):,}</div></div>
-  <div class="metric"><div class="label">Genome</div><div class="value">{raw.get('genome_length', 0):,} bp</div></div>
-</div>
-
-<details>
-<summary>File Catalog by Subdirectory</summary>
-<div class="section" style="overflow-x: auto;">
-  <table>
-    <thead><tr><th>Directory</th><th>Files</th><th>Size (KB)</th></tr></thead>
-    <tbody>""")
-
-        for subdir, info in sorted(raw.get('by_subdir', {}).items()):
-            f.write(f"""<tr><td>{subdir}</td><td>{info['count']}</td><td>{info['size']/1024:.0f}</td></tr>""")
-
-        f.write(f"""
-    </tbody>
-  </table>
-</div>
-</details>
-
-<details>
-<summary>All Raw Data Files ({len(raw.get('file_list', []))} files — click to browse, links to GitHub)</summary>
-<div class="section" style="overflow-x: auto; max-height: 400px; overflow-y: auto;">
-  <table>
-    <thead><tr><th>File</th><th>Size</th><th>Source</th></tr></thead>
-    <tbody>{file_rows}</tbody>
-  </table>
-</div>
-</details>
-
-<!-- ===== Step 2: ParCa ===== -->
-<h2 id="sec-parca">2. ParCa (Parameter Calculator) {cached_badge(parca)}</h2>
-{'<div class="section" style="background:#fff7ed;border-left:4px solid #f59e0b;padding:0.5em 0.75em;margin:0.5em 0;"><strong>simData source:</strong> reused from <a href="https://github.com/CovertLab/vEcoli">vEcoli</a> (<code>' + parca.get('sim_data_path', '') + '</code>) — ParCa was not re-run in this workflow.</div>' if parca.get('simdata_source') == 'vecoli_pickle' else ''}
-<div class="metrics">
-  <div class="metric"><div class="label">simData Source</div><div class="value" style="font-size:0.8em">{ {'vecoli_pickle':'vEcoli pickle','workflow_pickle':'workflow pickle','cache':'cached','computed':'computed here'}.get(parca.get('simdata_source'), parca.get('simdata_source','?')) }</div></div>
-  <div class="metric"><div class="label">ParCa Time</div><div class="value blue">{'pre-cached' if parca.get('parca_time', 0) == 0 and not parca.get('parca_ran') else f"{parca.get('parca_time', 0):.1f}s"}</div></div>
-  <div class="metric"><div class="label">Cache Gen</div><div class="value blue">{'pre-cached' if parca.get('cache_time', 0) == 0 and not parca.get('parca_ran') else f"{parca.get('cache_time', 0):.1f}s"}</div></div>
-  <div class="metric"><div class="label">Cache Dir</div><div class="value" style="font-size:0.7em">{parca.get('cache_dir', CACHE_DIR)}</div></div>
-</div>
-
-<div class="metrics">
-  <div class="metric"><div class="label">Process Configs</div><div class="value">{parca.get('stats', {}).get('n_process_configs', '?')}</div></div>
-  <div class="metric"><div class="label">Bulk Molecules</div><div class="value">{parca.get('stats', {}).get('n_bulk_molecules', '?'):,}</div></div>
-  <div class="metric"><div class="label">Unique Types</div><div class="value">{parca.get('stats', {}).get('n_unique_types', '?')}</div></div>
-</div>
-
-<details>
-<summary>Process Configs ({parca.get('stats', {}).get('n_process_configs', 0)})</summary>
-<div class="section">
-  <ul style="font-size: 0.85em; columns: 3;">""")
-
-        for name in parca.get('stats', {}).get('process_names', []):
-            f.write(f"<li><code>{name}</code></li>")
-
-        f.write(f"""</ul>
-</div>
-</details>
-
-<details>
-<summary>Unique Molecule Types ({parca.get('stats', {}).get('n_unique_types', 0)})</summary>
-<div class="section">
-  <ul style="font-size: 0.85em; columns: 2;">""")
-
-        for name in parca.get('stats', {}).get('unique_types', []):
-            f.write(f"<li><code>{name}</code></li>")
-
-        f.write(f"""</ul>
-</div>
-</details>
-
-<!-- ===== Step 3: Load Model ===== -->
-<h2 id="sec-model">3. Load Model {cached_badge(model)}</h2>
+<!-- ===== Step 1: Load Model ===== -->
+<h2 id="sec-model">1. Load Model {cached_badge(model)}</h2>
 <div class="metrics">
   <div class="metric"><div class="label">Build Time</div><div class="value blue">{model.get('build_time', 0):.2f}s</div></div>
   <div class="metric"><div class="label">Steps</div><div class="value">{model.get('n_steps', 0)}</div></div>
@@ -2123,7 +2089,7 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 </div>
 
 <!-- ===== Step 4: Long Sim + v1 Comparison ===== -->
-<h2 id="sec-long">4. Single Cell Simulation + v1 Comparison ({long_dur/60:.0f} min) {cached_badge(long)}</h2>
+<h2 id="sec-long">2. Single Cell Simulation + v1 Comparison ({long_dur/60:.0f} min) {cached_badge(long)}</h2>
 <div class="metrics">
   <div class="metric"><div class="label">Sim Duration</div><div class="value">{long_dur:.0f}s</div></div>
   <div class="metric"><div class="label">Wall Time</div><div class="value blue">{long_wall:.1f}s</div></div>
@@ -2165,8 +2131,8 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 </table>""")
 
         f.write(f"""
-<!-- ===== Step 5: Division ===== -->
-<h2 id="sec-division">5. Division {cached_badge(div)}</h2>
+<!-- ===== Step 3: Division ===== -->
+<h2 id="sec-division">3. Division {cached_badge(div)}</h2>
 
 <div class="section">
   <h3>How Division Works</h3>
@@ -2211,8 +2177,8 @@ Pipeline steps with intermediate caching &middot; process-bigraph <code>Composit
 </div>
 </details>
 
-<!-- ===== Step 6: Daughter Simulations ===== -->
-<h2 id="sec-daughters">6. Daughter Simulations {cached_badge(daughters)}</h2>""")
+<!-- ===== Step 4: Daughter Simulations ===== -->
+<h2 id="sec-daughters">4. Daughter Simulations {cached_badge(daughters)}</h2>""")
 
         if daughters.get('skipped'):
             f.write(f"""
@@ -2311,18 +2277,18 @@ def run_workflow():
     model_meta, composite = step_load_model()
     step_results['load_model'] = model_meta
 
-    # Step 4: Single Cell Simulation (to division)
+    # Step 2: Single Cell Simulation (to division)
     single_cell_meta = step_single_cell()
     step_results['single_cell'] = single_cell_meta
 
-    # Step 5: Division
+    # Step 3: Division
     div_meta = step_division()
     step_results['division'] = div_meta
 
-    # Step 6: Daughter Simulations (skip with --no-daughters)
+    # Step 4: Daughter Simulations (skip with --no-daughters)
     if _OPTIONS.get('skip_daughters'):
         daughters_meta = load_meta('daughters') or {'skipped': True, 'reason': '--no-daughters'}
-        print(f"  Step 6: Daughter Simulations (skipped)")
+        print(f"  Step 4: Daughter Simulations (skipped)")
     else:
         daughters_meta = step_daughters()
     step_results['daughters'] = daughters_meta
@@ -2392,6 +2358,13 @@ if __name__ == '__main__':
                         help='Clear cached metadata and re-run all steps')
     parser.add_argument('--fetch-biocyc', action='store_true',
                         help='Fetch fresh data from EcoCyc API (slow, skipped by default)')
+    parser.add_argument('--parca-rerun', action='store_true',
+                        help='Re-run the v2ecoli.processes.parca composite '
+                             'instead of hydrating models/parca/parca_state.pkl.gz '
+                             '(adds ~70 min in fast mode)')
+    parser.add_argument('--parca-cpus', type=int, default=4,
+                        help='Parallelism for ParCa steps 4 + 5 when --parca-rerun '
+                             'is set (default 4)')
     parser.add_argument('--duration', type=int, default=None,
                         help='Override max sim duration in seconds (default: run to division)')
     parser.add_argument('--no-daughters', action='store_true',
@@ -2402,6 +2375,8 @@ if __name__ == '__main__':
 
     # Apply CLI overrides
     _OPTIONS['fetch_biocyc'] = args.fetch_biocyc
+    _OPTIONS['parca_rerun'] = args.parca_rerun
+    _OPTIONS['parca_cpus'] = args.parca_cpus
     if args.duration is not None:
         _OPTIONS['max_duration'] = args.duration
     _OPTIONS['skip_daughters'] = args.no_daughters

@@ -743,7 +743,7 @@ def _section_cell_specs(v2parca, original_cell_specs) -> str:
 
 _HTML_TEMPLATE = r"""<!doctype html>
 <html><head><meta charset='utf-8'>
-<title>v2parca vs ParCa — per-step comparison</title>
+<title>v2ecoli ParCa Workflow Report</title>
 <style>
   :root {{ --accent: #2563eb; --pass: #ecfdf5; --warn: #fffbeb; --fail: #fef2f2; }}
   * {{ box-sizing: border-box; }}
@@ -835,7 +835,8 @@ _HTML_TEMPLATE = r"""<!doctype html>
 </head><body>
 <div id='layout'>
 <nav>
-  <h2>v2parca report</h2>
+  <h2>ParCa Workflow</h2>
+  <a href="workflow_report.html" style="color:#60a5fa;border:1px solid #374151;margin-bottom:6px;">Simulation Report &rarr;</a>
   <a href="#overview">Overview</a>
   <a href="#run_outcome">This Run</a>
   <a href="#biocyc">0. EcoCyc API</a>
@@ -844,7 +845,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
 </nav>
 <main>
 {banner}
-<h1>v2parca vs vEcoli ParCa</h1>
+<h1>v2ecoli ParCa Workflow Report</h1>
 <p class='meta'>{meta}</p>
 {sections}
 </main>
@@ -1250,7 +1251,7 @@ def main():
                    help='dir with checkpoint_step_N.pkl + runtimes.json')
     p.add_argument('--original-intermediates', default='out/original_intermediates',
                    help='dir with sim_data_<step>.cPickle + cell_specs_<step>.cPickle')
-    p.add_argument('-o', '--output', default='out/compare/report.html')
+    p.add_argument('-o', '--output', default='out/workflow/parca_workflow_report.html')
     p.add_argument('--fetch-biocyc', action='store_true',
                    help='Refresh the 10 BioCyc-sourced TSVs under '
                         'reconstruction/ecoli/flat/ by calling the BioCyc '

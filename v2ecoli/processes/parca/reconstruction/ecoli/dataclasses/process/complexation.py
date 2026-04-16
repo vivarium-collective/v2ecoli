@@ -5,12 +5,22 @@ SimulationData for the Complexation process
 import numpy as np
 from v2ecoli.processes.parca.wholecell.utils import units
 
+# The Cython extension ``mc_complexation`` is only needed when
+# ``Complexation.__init__`` actually runs.  Tests that merely import
+# this module (e.g. to pull ``STORE_PATH`` out of the parca composite
+# for wiring checks) shouldn't trip over a missing .so.  Defer the
+# import to the one use site; raise only when the functionality is
+# invoked.  This keeps ``test_parca_ports_and_wiring.py`` collectable
+# on CI without the Cython build step, while preserving the original
+# error for real parca runs.
 try:
-    from v2ecoli.processes.parca.wholecell.utils.mc_complexation import mccBuildMatrices
+    from v2ecoli.processes.parca.wholecell.utils.mc_complexation import (
+        mccBuildMatrices,
+    )
+    _MCC_IMPORT_ERROR: ImportError | None = None
 except ImportError as exc:
-    raise RuntimeError(
-        "Failed to import Cython module. Try running 'make clean compile'."
-    ) from exc
+    mccBuildMatrices = None  # type: ignore[assignment]
+    _MCC_IMPORT_ERROR = exc
 
 
 class ComplexationError(Exception):
@@ -122,6 +132,13 @@ class Complexation(object):
         )  # had to bump this up to 1e-8 because of flagella supercomplex
 
         stoichMatrix = self.stoich_matrix().astype(np.int64, order="F")
+        if mccBuildMatrices is None:
+            raise RuntimeError(
+                "Failed to import Cython module "
+                "``v2ecoli.processes.parca.wholecell.utils.mc_complexation``. "
+                "Run ``bash scripts/parca_cython_build.sh`` (or ``make clean "
+                "compile`` in the vEcoli tree) to build the extension."
+            ) from _MCC_IMPORT_ERROR
         self.prebuilt_matrices = mccBuildMatrices(stoichMatrix)
 
         # Add boolean array to mark reactions with unknown stoichiometries

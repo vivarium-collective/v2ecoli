@@ -1,11 +1,11 @@
 """Cache colony state just before E. coli division (~40 min).
 
-Saves the Composite + metadata so colony_report.py can resume
+Saves the Composite + metadata so reports/colony_report.py can resume
 from this checkpoint instead of re-running 40 min of simulation.
 
 Usage:
     python scripts/cache_predivision.py
-    python colony_report.py --from-cache out/colony/predivision_cache.pkl
+    python reports/colony_report.py --from-cache out/colony/predivision_cache.pkl
 """
 import os, sys, time, warnings, dill
 
@@ -18,7 +18,7 @@ from process_bigraph.emitter import emitter_from_wires
 from multi_cell import core_import
 from v2ecoli.bridge import EcoliWCM
 from v2ecoli.types import ECOLI_TYPES
-from colony_report import make_colony_document
+from reports.colony_report import make_colony_document
 
 CACHE_PATH = 'out/colony/predivision_cache.pkl'
 

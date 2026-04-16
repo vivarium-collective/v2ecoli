@@ -18,7 +18,22 @@ dependencies = [
     "numpy",
     "scipy",
     "pymunk",
+    # ParCa (v2ecoli/processes/parca/) runtime dependencies
+    "cvxpy",
+    "biopython",
+    "sympy",
+    "pandas",
+    "numba",
+    "unum",
+    "requests",
 ]
+
+[project.optional-dependencies]
+parca-build = ["cython", "setuptools>=68"]
+
+[tool.setuptools.package-data]
+# Ship the flat-file knowledge base with the package (~12.9 MB, 133 files).
+"v2ecoli.processes.parca.reconstruction.ecoli" = ["flat/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

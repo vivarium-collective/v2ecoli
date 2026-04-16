@@ -1,0 +1,125 @@
+# Generate full-mode ParCa fixture
+
+Instructions for a Claude session to produce a production-quality
+`parca_state.pkl.gz` that supports full simulation (not just comparison
+testing).
+
+## Context
+
+The shipped `models/parca/parca_state.pkl.gz` was built with `--mode fast`
+(debug=True, reduced TF condition set).  This is sufficient for comparison
+testing and the ParCa comparison report, but the online simulation's
+equilibrium solver crashes on it because some metabolite concentrations are
+left unpopulated when only a subset of TF conditions are fitted.
+
+A `--mode full` run produces a complete sim_data with all ~300 TF conditions
+fitted.  This takes several hours but the result supports end-to-end
+simulation (single cell → division → daughters).
+
+## Steps
+
+### 1. Build Cython extensions
+
+```bash
+cd /Users/eranagmon/code/v2ecoli   # or wherever the repo lives
+bash scripts/parca_cython_build.sh
+```
+
+This compiles `_build_sequences`, `_fastsums`, and `mc_complexation` for
+the current Python.  Only needed once per Python version.
+
+### 2. Run the full ParCa pipeline
+
+```bash
+python scripts/parca_run.py --mode full --cpus 8 -o out/sim_data
+```
+
+**Expected runtime:** 4–8 hours depending on CPU count.  Step 5
+(fit_condition) dominates — it solves a fixed-point iteration for each of
+~300 conditions.  Steps 1–4 take ~10 min; steps 6–9 take ~2 min.
+
+The script emits per-step checkpoints at `out/sim_data/checkpoint_step_N.pkl`
+and a final `out/sim_data/parca_state.pkl`.  If step 5 succeeds but a later
+step crashes, you can resume:
+
+```bash
+python scripts/parca_run.py --mode full --cpus 8 \
+  --resume-from-step 6 --resume-pickle out/sim_data/checkpoint_step_5.pkl
+```
+
+### 3. Package the fixture
+
+```bash
+gzip -c out/sim_data/parca_state.pkl > models/parca/parca_state.pkl.gz
+cp out/sim_data/runtimes.json models/parca/runtimes.json
+```
+
+### 4. Generate the simulation cache
+
+The online simulation needs `initial_state.json` + `sim_data_cache.dill`,
+produced by `save_cache` from the `simData.cPickle`:
+
+```python
+import sys, os, dill
+sys.path.insert(0, '.')
+from v2ecoli.processes.parca.data_loader import load_parca_state
+from v2ecoli.composite import save_cache
+
+# Hydrate the fixture → simData.cPickle
+state = load_parca_state('models/parca/parca_state.pkl.gz')
+os.makedirs('out/workflow', exist_ok=True)
+sd_path = 'out/workflow/simData.cPickle'
+with open(sd_path, 'wb') as f:
+    dill.dump(state['sim_data_root'], f)
+
+# Generate the cache
+save_cache(sd_path, 'out/cache')
+```
+
+### 5. Verify with a short simulation
+
+```python
+from v2ecoli.composite import make_composite
+composite = make_composite(cache_dir='out/cache')
+composite.run(10)  # 10 timesteps, ~30s
+print('OK')
+```
+
+If this succeeds without `RuntimeError: Could not solve ODEs in equilibrium
+to SS`, the fixture is production-ready.
+
+### 6. Commit and push
+
+```bash
+git add models/parca/parca_state.pkl.gz models/parca/runtimes.json
+git commit -m "models/parca: full-mode ParCa fixture (all TF conditions)
+
+Replaces the fast-mode fixture (debug=True, 7 conditions) with a
+full-mode run (all ~300 TF conditions, X hours on N cores).  The
+full fixture supports end-to-end simulation — the equilibrium solver
+no longer crashes on unpopulated metabolite concentrations.
+
+Runtimes: step_5=XXXXs, total=XXXXs."
+
+git push
+```
+
+### 7. (Optional) Update the comparison report
+
+```bash
+python scripts/parca_compare.py
+open out/compare/report.html
+```
+
+## Notes
+
+- The `--mode fast` fixture is still useful for CI (fast ParCa tests,
+  comparison report generation) but should NOT be used as the shipped
+  `models/parca/parca_state.pkl.gz` unless simulation support isn't needed.
+- The full-mode fixture is ~20–25 MB gzipped (vs ~18 MB for fast mode).
+- If you need to re-run only steps 6–9 after a successful step 5 (e.g. to
+  test a change in promoter fitting), use the resume path:
+  `scripts/parca_rerun_from_step5.sh` or pass `--resume-from-step 6`.
+- The Cython extensions must be built for the SAME Python version that runs
+  the pipeline.  If you switch Python versions, re-run
+  `scripts/parca_cython_build.sh`.

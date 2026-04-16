@@ -125,6 +125,7 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
     save_initial_state(state, os.path.join(cache_dir, 'initial_state.json'))
 
     configs = {}
+    failed: list[tuple[str, Exception]] = []
     for name in [
         'post-division-mass-listener', 'ecoli-mass-listener', 'media_update',
         'exchange_data', 'ecoli-tf-unbinding', 'ecoli-tf-binding',
@@ -141,8 +142,21 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
     ]:
         try:
             configs[name] = loader.get_config_by_name(name)
-        except Exception:
-            pass
+        except Exception as e:  # noqa: BLE001 — surface the name+error, don't lose it
+            # Don't crash the whole cache build on one bad config: the
+            # legacy vEcoli sim_data doesn't always expose every
+            # config-getter's inputs (e.g. ``ecoli-metabolism-redux``
+            # needs redux-specific attrs).  But DO print each failure
+            # loudly — silently dropping ``ecoli-mass-listener`` /
+            # ``ecoli-metabolism`` produces a cache that crashes the
+            # online sim's Equilibrium step with a divide-by-zero on
+            # ``listeners.mass.cell_mass``, which is obscure to debug.
+            failed.append((name, e))
+    if failed:
+        print(f"  save_cache: {len(failed)} config(s) failed to build and "
+              f"were omitted from the cache:")
+        for name, exc in failed:
+            print(f"    - {name}: {type(exc).__name__}: {exc}")
 
     unique_names = list(
         loader.sim_data.internal_state.unique_molecule

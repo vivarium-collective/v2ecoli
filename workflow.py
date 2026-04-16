@@ -1064,9 +1064,11 @@ def step_parca():
         if os.path.exists(fixture_path) and not _OPTIONS.get('parca_rerun'):
             print(f"    Using shipped ParCa fixture at {fixture_path}")
             t0 = time.time()
-            from v2ecoli.processes.parca.data_loader import load_parca_state
+            from v2ecoli.processes.parca.data_loader import (
+                hydrate_sim_data_from_state, load_parca_state,
+            )
             state = load_parca_state(fixture_path)
-            sim_data = state['sim_data_root']
+            sim_data = hydrate_sim_data_from_state(state)
             with open(sim_data_path, 'wb') as f:
                 dill.dump(sim_data, f)
             parca_time = time.time() - t0
@@ -1091,7 +1093,10 @@ def step_parca():
                 cpus=_OPTIONS.get('parca_cpus', 4),
                 cache_dir=os.path.join('out', 'cache'),
             )
-            sim_data = composite.state['sim_data_root']
+            from v2ecoli.processes.parca.data_loader import (
+                hydrate_sim_data_from_state,
+            )
+            sim_data = hydrate_sim_data_from_state(composite.state)
             with open(sim_data_path, 'wb') as f:
                 dill.dump(sim_data, f)
             parca_time = time.time() - t0

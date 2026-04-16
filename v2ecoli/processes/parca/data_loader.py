@@ -107,3 +107,67 @@ def load_parca_state(path: str | Path | None = None) -> dict[str, Any]:
     _ensure_parca_modules_loaded()
     with gzip.open(p, 'rb') as f:
         return _RemappingUnpickler(f).load()
+
+
+# Sibling composite stores that are produced by Steps 1–9 but never
+# installed onto ``sim_data_root`` during the run (the ParCa composite
+# keeps pure-data leaves at sibling store paths; see
+# ``v2ecoli/processes/parca/composite.py`` STORE_PATH).  Downstream
+# online-sim code reaches these via ``sim_data.<attr>``, so the
+# extraction step must copy them over.  Each tuple is
+# ``(store_key, sim_data_attr, install_if_present_and_empty_only)``.
+_SIM_DATA_SIBLING_STORES: tuple[tuple[str, str, bool], ...] = (
+    # Step 8 emits this; never lands on sim_data_root.
+    ('expected_dry_mass_increase_dict', 'expectedDryMassIncreaseDict', False),
+    # Step 1 initializes an empty dict on sim_data_root; steps populate
+    # the sibling store.  Overwrite only if the root's copy is empty.
+    ('translation_supply_rate', 'translation_supply_rate', True),
+)
+
+
+def hydrate_sim_data_from_state(state: dict[str, Any]) -> Any:
+    """Extract ``sim_data_root`` and install sibling composite stores.
+
+    The ParCa composite stores per-nutrient / per-condition data leaves
+    (``expected_dry_mass_increase_dict``, ``translation_supply_rate``,
+    …) as *siblings* of ``sim_data_root`` in the store tree, not as
+    attributes of the sim_data object itself.  Downstream online-sim
+    code — e.g. ``LoadSimData.get_mass_listener_config`` and
+    ``LoadSimData.get_metabolism_config`` — reaches these via
+    ``sim_data.<attr>``, so extraction without hydration leaves them
+    missing or empty and produces a cache that crashes the online
+    simulation's ``Equilibrium`` / ``PolypeptideElongation`` steps.
+
+    Args:
+        state: the dict returned by ``load_parca_state`` or by
+            ``composite.state`` after ``build_parca_composite`` runs.
+
+    Returns:
+        The ``sim_data_root`` object, with the sibling stores installed
+        as attributes in-place so the returned object is fully
+        consumable by the online pipeline.
+    """
+    sim_data = state['sim_data_root']
+    for store_key, sd_attr, install_only_if_empty in _SIM_DATA_SIBLING_STORES:
+        if store_key not in state:
+            continue
+        value = state[store_key]
+        if install_only_if_empty:
+            existing = getattr(sim_data, sd_attr, None)
+            # Only overwrite when the root's copy is empty/missing.
+            if existing and existing != value:
+                continue
+        setattr(sim_data, sd_attr, value)
+
+    # Defensive cleanup: an older ``condition_defs.tsv`` shipped with a
+    # trailing ``""`` row that parsed into ``condition_to_doubling_time[""] = ""``.
+    # That empty-string doubling time crashes
+    # ``LoadSimData._precompute_biomass_concentrations`` with
+    # ``AttributeError: 'str' object has no attribute 'to'`` because
+    # ``unum_to_pint('')`` blows up.  The TSV is fixed going forward,
+    # but existing pickles still carry the ghost row — strip it here.
+    ctdt = getattr(sim_data, 'condition_to_doubling_time', None)
+    if isinstance(ctdt, dict) and '' in ctdt and not ctdt['']:
+        del ctdt['']
+
+    return sim_data

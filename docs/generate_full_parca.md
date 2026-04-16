@@ -62,15 +62,21 @@ produced by `save_cache` from the `simData.cPickle`:
 ```python
 import sys, os, dill
 sys.path.insert(0, '.')
-from v2ecoli.processes.parca.data_loader import load_parca_state
+from v2ecoli.processes.parca.data_loader import (
+    hydrate_sim_data_from_state, load_parca_state,
+)
 from v2ecoli.composite import save_cache
 
-# Hydrate the fixture → simData.cPickle
+# Hydrate the fixture → simData.cPickle.  ``hydrate_sim_data_from_state``
+# copies sibling composite stores (expected_dry_mass_increase_dict,
+# translation_supply_rate, …) onto sim_data_root so downstream code
+# reaching ``sim_data.expectedDryMassIncreaseDict`` etc. finds them.
 state = load_parca_state('models/parca/parca_state.pkl.gz')
+sim_data = hydrate_sim_data_from_state(state)
 os.makedirs('out/workflow', exist_ok=True)
 sd_path = 'out/workflow/simData.cPickle'
 with open(sd_path, 'wb') as f:
-    dill.dump(state['sim_data_root'], f)
+    dill.dump(sim_data, f)
 
 # Generate the cache
 save_cache(sd_path, 'out/cache')

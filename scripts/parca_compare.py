@@ -183,7 +183,7 @@ def _section_biocyc(repo_root: str, out_dir: str, do_fetch: bool) -> str:
     ``out/compare/biocyc_meta.json`` (or shows a hint when absent)."""
     meta_path = os.path.join(out_dir, 'biocyc_meta.json')
     flat_dir = os.path.join(
-        repo_root, 'v2ecoli.processes.parca', 'reconstruction', 'ecoli', 'flat')
+        repo_root, 'v2ecoli', 'processes', 'parca', 'reconstruction', 'ecoli', 'flat')
 
     meta: Optional[Dict[str, Any]] = None
     if do_fetch:
@@ -842,6 +842,7 @@ _HTML_TEMPLATE = r"""<!doctype html>
   <a href="#biocyc">0. EcoCyc API</a>
   <a href="#raw_data">Raw Data</a>
   {nav_links}
+  <a href="#network">Composition Diagram</a>
 </nav>
 <main>
 {banner}
@@ -863,7 +864,7 @@ def _section_raw_data() -> str:
     """
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
     flat_dir = os.path.join(
-        repo_root, 'v2ecoli.processes.parca', 'reconstruction', 'ecoli', 'flat')
+        repo_root, 'v2ecoli', 'processes', 'parca', 'reconstruction', 'ecoli', 'flat')
     gh_tree = ('https://github.com/vivarium-collective/v2parca/tree/main/'
                'v2ecoli/processes/parca/reconstruction/ecoli/flat')
 
@@ -1191,12 +1192,43 @@ def build_report(v2parca_outdir: str, vecoli_dir: Optional[str],
     biocyc_html = _section_biocyc(repo_root, out_dir, fetch_biocyc)
     raw_data_html = _section_raw_data()
 
+    # Network visualization — embed the interactive Cytoscape.js diagram
+    # of the 9-Step pipeline as an iframe.  Generate it on-the-fly so the
+    # report is always up-to-date with the current port manifests.
+    network_html = ''
+    try:
+        from v2ecoli.processes.parca.viz import build_graph, render_html
+        graph_data = build_graph()
+        network_path = os.path.join(
+            os.path.dirname(output_path) or '.', 'parca_network.html')
+        with open(network_path, 'w') as nf:
+            nf.write(render_html(graph_data, network_path))
+        # Embed as an iframe
+        network_rel = os.path.basename(network_path)
+        network_html = (
+            '<section id="network">'
+            '<h2>ParCa Composition Diagram</h2>'
+            '<p class="meta">Interactive Cytoscape.js network of the 9-Step '
+            'ParCa pipeline and 34 stores it wires through.  Click any node '
+            'to inspect its ports, class, and docstring.  Switch layouts from '
+            'the dropdown.</p>'
+            f'<iframe src="{network_rel}" '
+            'style="width:100%;height:750px;border:1px solid #e5e7eb;'
+            'border-radius:6px;" loading="lazy"></iframe>'
+            '</section>')
+    except Exception as e:
+        network_html = (
+            '<section id="network"><h2>ParCa Composition Diagram</h2>'
+            f'<p class="meta">Network generation failed: <code>{e}</code></p>'
+            '</section>')
+
     sections_html = (intro_html + '\n' +
                      '\n'.join(overview) + '\n' +
                      run_outcome_html + '\n' +
                      biocyc_html + '\n' +
                      raw_data_html + '\n' +
-                     '\n'.join(it['html'] for it in section_items))
+                     '\n'.join(it['html'] for it in section_items) + '\n' +
+                     network_html)
 
     # Banner is best-effort — if git / platform probing fails, render nothing.
     try:

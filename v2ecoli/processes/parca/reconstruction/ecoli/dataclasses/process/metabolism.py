@@ -1759,11 +1759,125 @@ class Metabolism(object):
                 print(f"*** {amino_acid}: {kcat_fwd:5.1f} {kcat_rev:5.1f} ***")
 
             if kcat_fwd is None:
-                raise ValueError(
-                    "Could not find positive forward and reverse"
-                    f" kcat for {amino_acid}. Run with VERBOSE to check input"
-                    " parameters like KM and KI or check concentrations."
-                )
+                # The uptake factor sweep above finds a feasible (non-negative)
+                # (kcat_fwd, kcat_rev) pair by varying uptake.  For amino
+                # acids with ``measured_uptake_rates == 0`` (e.g. CYS) the
+                # sweep is structurally useless — every factor maps to the
+                # same balance equations, so if the raw solve yields a
+                # negative kcat_rev at factor=1, no factor will save it.
+                # That can also happen under a TF-condition-reduced (fast)
+                # ParCa where expression levels produce enzyme counts that
+                # the 2×2 balance system can't simultaneously satisfy with
+                # both kcats non-negative.
+                #
+                # Before giving up, fall back to a non-negative least-squares
+                # fit (scipy.optimize.nnls).  NNLS minimises ``‖Ax - b‖²``
+                # subject to ``x ≥ 0``, so it finds the least-wrong
+                # non-negative pair.  Typically that pair has one kcat at
+                # zero (biologically: no reverse flux for that AA under
+                # these conditions) and the other tuned to match one of
+                # the two balance equations.
+                from scipy.optimize import nnls
+
+                uptake_rate = measured_uptake_rates[amino_acid[:-3]]
+                # Build A, b at the default uptake (factor=1).  The uptake
+                # factor sweep's whole point was to make the raw solve yield
+                # non-negative results; once we're using NNLS the constraint
+                # is enforced directly and the extra sweep is redundant.
+                results = calc_kcats(
+                    aa_conc_basal, km_conc_basal,
+                    aa_conc_with_aa, km_conc_with_aa,
+                    kms, km_reverse, km_degradation, ki, uptake_rate)
+                _, _, _, _, _, uptake_count = results
+
+                # Reconstruct capacities + balances the same way calc_kcats does.
+                fwd_fraction_basal = units.strip_empty_units(
+                    1 / (1 + aa_conc_basal / ki)
+                    * np.prod(1 / (1 + kms / km_conc_basal)))
+                rev_fraction_basal = units.strip_empty_units(
+                    1 / (1 + km_reverse / aa_conc_basal
+                         * (1 + aa_conc_basal / km_degradation)))
+                deg_fraction_basal = units.strip_empty_units(
+                    1 / (1 + km_degradation / aa_conc_basal
+                         * (1 + aa_conc_basal / km_reverse)))
+                loss_fraction_basal = rev_fraction_basal + deg_fraction_basal
+                fwd_capacity_basal = fwd_enzymes_basal * fwd_fraction_basal
+                rev_capacity_basal = rev_enzymes_basal * loss_fraction_basal
+
+                fwd_fraction_with_aa = units.strip_empty_units(
+                    1 / (1 + aa_conc_with_aa / ki)
+                    * np.prod(1 / (1 + kms / km_conc_with_aa)))
+                rev_fraction_with_aa = units.strip_empty_units(
+                    1 / (1 + km_reverse / aa_conc_with_aa
+                         * (1 + aa_conc_with_aa / km_degradation)))
+                deg_fraction_with_aa = units.strip_empty_units(
+                    1 / (1 + km_degradation / aa_conc_with_aa
+                         * (1 + aa_conc_with_aa / km_reverse)))
+                loss_fraction_with_aa = rev_fraction_with_aa + deg_fraction_with_aa
+                fwd_capacity_with_aa = fwd_enzymes_with_aa * fwd_fraction_with_aa
+                rev_capacity_with_aa = rev_enzymes_with_aa * loss_fraction_with_aa
+
+                downstream_basal = 0
+                downstream_with_aa = 0
+                for i, stoich in enumerate(
+                    self.aa_forward_stoich[self.aa_to_index[amino_acid], :]
+                ):
+                    if stoich < 0:
+                        downstream_aa = aa_ids[i]
+                        downstream_basal += -stoich * fwd_rates[downstream_aa][0]
+                        downstream_with_aa += -stoich * fwd_rates[downstream_aa][1]
+                for i, stoich in enumerate(
+                    self.aa_reverse_stoich[self.aa_to_index[amino_acid], :]
+                ):
+                    if stoich < 0:
+                        downstream_aa = aa_ids[i]
+                        downstream_basal += stoich * rev_rates[downstream_aa][0]
+                        downstream_with_aa += stoich * rev_rates[downstream_aa][1]
+                balance_basal = basal_supply_mapping[amino_acid] + downstream_basal
+                balance_with_aa = (with_aa_supply_mapping[amino_acid]
+                                   + downstream_with_aa - uptake_count)
+
+                A_mat = np.array([
+                    [fwd_capacity_basal, -rev_capacity_basal],
+                    [fwd_capacity_with_aa, -rev_capacity_with_aa],
+                ])
+                # nnls requires non-negative RHS for convergence of the active-set
+                # method; for our problem balance values are non-negative (supply
+                # is positive, downstream contributions net non-negative) so we
+                # pass them as-is.  If either b entry is negative due to uptake
+                # overshoot, nnls falls back to a trivial zero solution.
+                b_vec = np.array([balance_basal, balance_with_aa], dtype=float)
+                try:
+                    x, _residual = nnls(A_mat, b_vec, maxiter=50)
+                    kcat_fwd, kcat_rev = float(x[0]), float(x[1])
+                    data["kcat"] = kcat_fwd * K_CAT_UNITS
+                    print(
+                        f"  Step 9 NNLS fallback for {amino_acid}: "
+                        f"kcat_fwd={kcat_fwd:.3f}, kcat_rev={kcat_rev:.3f} "
+                        f"(raw 2×2 solve infeasible with non-negative kcats)"
+                    )
+                    # Recompute rates using the fallback kcats so downstream
+                    # AAs see consistent values.
+                    fwd_rate = (
+                        kcat_fwd * fwd_enzymes_basal * fwd_fraction_basal,
+                        kcat_fwd * fwd_enzymes_with_aa * fwd_fraction_with_aa,
+                    )
+                    rev_rate = (
+                        kcat_rev * rev_enzymes_basal * rev_fraction_basal,
+                        kcat_rev * rev_enzymes_with_aa * rev_fraction_with_aa,
+                    )
+                    deg_rate = (
+                        kcat_rev * rev_enzymes_basal * deg_fraction_basal,
+                        kcat_rev * rev_enzymes_with_aa * deg_fraction_with_aa,
+                    )
+                    uptake = uptake_count
+                except Exception as nnls_err:
+                    raise ValueError(
+                        "Could not find positive forward and reverse"
+                        f" kcat for {amino_acid}, and NNLS fallback also"
+                        f" failed: {nnls_err}. Run with VERBOSE to check input"
+                        " parameters like KM and KI or check concentrations."
+                    )
 
             aa_enzymes += fwd_enzymes + rev_enzymes
             enzyme_to_aa_fwd += [amino_acid] * len(fwd_enzymes) + [None] * len(

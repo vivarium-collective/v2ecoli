@@ -1035,6 +1035,12 @@ def build_report(v2parca_outdir: str, vecoli_dir: Optional[str],
                  output_path: str, fetch_biocyc: bool = False) -> None:
     # Load runtimes.
     v2parca_rt_path = os.path.join(v2parca_outdir, 'runtimes.json')
+    # Fall back to the shipped fixture's runtimes when the outdir copy
+    # doesn't exist (common for fresh clones that haven't re-run the
+    # pipeline).
+    if not os.path.exists(v2parca_rt_path):
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+        v2parca_rt_path = os.path.join(repo_root, 'models', 'parca', 'runtimes.json')
     v2parca_rt = json.load(open(v2parca_rt_path)) if os.path.exists(v2parca_rt_path) else {}
     # vEcoli's --save-intermediates doesn't write a runtimes.json; we
     # parse its per-stage "Ran X in Ys" prints if a log is available.

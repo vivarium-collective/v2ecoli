@@ -67,7 +67,7 @@ def predivision_state():
     """Pre-division cell state loaded from bigraph-schema JSON.
 
     Looks first at the blessed fixture committed under tests/fixtures/,
-    then falls back to locally-generated checkpoints from workflow.py.
+    then falls back to locally-generated checkpoints from reports/workflow_report.py.
     """
     candidates = [
         os.path.join(_FIXTURE_DIR, 'pre_division_state.json.gz'),
@@ -78,7 +78,7 @@ def predivision_state():
     if path is None:
         pytest.skip(
             f'pre-division checkpoint not found. Tried: {candidates}. '
-            f'Run `python workflow.py` or set V2ECOLI_PREDIV_CHECKPOINT_DIR.')
+            f'Run `python reports/workflow_report.py` or set V2ECOLI_PREDIV_CHECKPOINT_DIR.')
     from v2ecoli.cache import load_initial_state
     return load_initial_state(path)
 
@@ -94,7 +94,7 @@ def single_cell_trajectory():
     if not os.path.exists(path):
         pytest.skip(
             f'single_cell trajectory not found at {path!r}. '
-            f'Run `python workflow.py` to generate.')
+            f'Run `python reports/workflow_report.py` to generate.')
     with open(path) as f:
         meta = json.load(f)
     snaps = meta.get('chromosome_snapshots')

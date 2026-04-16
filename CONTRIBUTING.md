@@ -53,7 +53,7 @@ Before opening a PR:
 - [ ] Tests added or updated. New processes require a
       `tests/test_behavior_<process>.py`.
 - [ ] Behavior preserved. If a change alters simulated trajectories, re-run
-      `workflow.py` and attach the generated report to the PR, explaining the
+      `reports/workflow_report.py` and attach the generated report to the PR, explaining the
       expected effect.
 - [ ] Units consistent. All quantities at process boundaries use `pint`.
 - [ ] No `pickle`/`dill` in save-state paths. Save states are bigraph-schema
@@ -87,9 +87,9 @@ These are load-bearing and enforced on review (and, over time, in CI):
 PRs that touch `v2ecoli/processes/`, `v2ecoli/steps/`, or composite wiring
 should regenerate and sanity-check the relevant reports:
 
-- **Workflow report** (`workflow.py`) — full cell lifecycle, division at
+- **Workflow report** (`reports/workflow_report.py`) — full cell lifecycle, division at
   ~42 min.
-- **Multigeneration report** (`multigeneration.py`) — N-generation single
+- **Multigeneration report** (`reports/multigeneration_report.py`) — N-generation single
   lineage.
 - **Colony report** (`reports/colony_report.py`) — mixed colony with pymunk physics.
 - **Architecture comparison** (`reports/compare_report.py`) — baseline vs

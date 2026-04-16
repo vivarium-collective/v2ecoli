@@ -15,8 +15,8 @@ Pipeline Steps:
 6. daughters — Divide and run both daughters
 
 Usage:
-    python workflow.py              # run full pipeline
-    python workflow.py --clean      # clear cache and re-run
+    python reports/workflow_report.py              # run full pipeline
+    python reports/workflow_report.py --clean      # clear cache and re-run
 """
 
 import os
@@ -27,6 +27,8 @@ import json
 import time
 import base64
 import html as html_lib
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import dill
 import numpy as np
@@ -881,7 +883,7 @@ BIOCYC_FILE_IDS = [
 # Flat-file knowledge base — now vendored inside the merged parca
 # subpackage so the workflow runs without any vEcoli checkout.
 FLAT_DIR = os.path.join(
-    os.path.dirname(__file__), 'v2ecoli', 'processes', 'parca',
+    os.path.dirname(__file__), '..', 'v2ecoli', 'processes', 'parca',
     'reconstruction', 'ecoli', 'flat')
 
 

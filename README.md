@@ -202,7 +202,7 @@ processes and phylogeny-mutated colors.
 
 ```bash
 # Single cell simulation (runs to division)
-python3 workflow.py
+python3 reports/workflow_report.py
 
 # Colony simulation (1 wc-ecoli + N surrogates)
 python3 reports/colony_report.py --duration 45 --n-adder 5
@@ -237,11 +237,12 @@ v2ecoli/
 │   ├── steps/              # infrastructure + 9 listeners
 │   ├── types/              # custom bigraph-schema types
 │   └── library/            # shared utilities
-├── workflow.py             # single cell lifecycle report
 ├── reports/
-│   ├── colony_report.py    # colony simulation report
-│   ├── compare_report.py   # partitioned vs departitioned comparison
-│   └── network_report.py   # per-architecture Cytoscape diagram
+│   ├── workflow_report.py        # single cell lifecycle report
+│   ├── multigeneration_report.py # N-generation single lineage report
+│   ├── colony_report.py          # colony simulation report
+│   ├── compare_report.py         # partitioned vs departitioned comparison
+│   └── network_report.py         # per-architecture Cytoscape diagram
 ├── benchmark.py            # v2ecoli vs vEcoli benchmark
 ├── compare_v1_v2.py        # three-way engine comparison
 ├── models/

@@ -37,13 +37,15 @@ from unittest import mock
 import dill
 import pytest
 
-# workflow.py lives at the repo root; tests/ sits alongside it.  Add the
-# repo root to sys.path so ``import workflow`` resolves.
+# workflow_report.py lives under reports/ (moved from root in #15).  Add
+# the repo root to sys.path so the ``reports`` package import resolves,
+# then alias the module as ``workflow`` so the existing test body keeps
+# reading like the pre-rename code.
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-import workflow  # noqa: E402
+from reports import workflow_report as workflow  # noqa: E402
 
 
 FIXTURE_PATH = REPO_ROOT / 'models' / 'parca' / 'parca_state.pkl.gz'
@@ -71,16 +73,16 @@ def test_all_biocyc_tsvs_present_in_flat_dir():
 
 
 def test_workflow_has_no_external_vecoli_paths():
-    """Structural smoke test — the rewritten workflow.py must not
+    """Structural smoke test — the rewritten workflow_report.py must not
     import from bare ``reconstruction`` / ``wholecell`` (the vEcoli top-
     level) and must not path-join into ``../vEcoli/``."""
-    src = (REPO_ROOT / 'workflow.py').read_text()
+    src = (REPO_ROOT / 'reports' / 'workflow_report.py').read_text()
     assert not re.search(
         r"^from (reconstruction|wholecell)\.", src, re.MULTILINE), \
-        'workflow.py still imports bare vEcoli modules — should use ' \
+        'workflow_report.py still imports bare vEcoli modules — should use ' \
         'v2ecoli.processes.parca.*'
     assert "'..', 'vEcoli'" not in src and '"../vEcoli"' not in src, \
-        'workflow.py still path-joins into an external vEcoli checkout'
+        'workflow_report.py still path-joins into an external vEcoli checkout'
 
 
 # ---------------------------------------------------------------------------

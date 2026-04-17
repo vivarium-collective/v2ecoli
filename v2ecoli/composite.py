@@ -19,6 +19,10 @@ from process_bigraph import Composite
 
 from v2ecoli.types import ECOLI_TYPES
 from v2ecoli.cache import load_initial_state, save_initial_state, save_json
+# Import at module load so the shared pint UnitRegistry has
+# nucleotide/amino_acid/count defined before any dill.load hydrates
+# a Quantity whose unit string references those names.
+from v2ecoli.library.unit_bridge import rebind_cache_quantities  # noqa: F401
 
 
 def _build_core():
@@ -34,9 +38,16 @@ def _load_cache_bundle_cached(cache_dir):
     initial_state = load_initial_state(
         os.path.join(cache_dir, 'initial_state.json'))
     cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
+    # Side-effectful imports (upstream vEcoli's bigraph_types) can
+    # replace pint.application_registry after unit_bridge has
+    # registered nucleotide/amino_acid/count on our ureg. Reassert
+    # the app registry so dill.load's Quantity unpickle resolves
+    # those custom units against the registry that has them.
+    import pint
+    from v2ecoli.types.quantity import ureg
+    pint.set_application_registry(ureg)
     with open(cache_path, 'rb') as f:
         cache = dill.load(f)
-    from v2ecoli.library.unit_bridge import rebind_cache_quantities
     rebind_cache_quantities(cache)
     return initial_state, cache
 

@@ -1558,10 +1558,10 @@ class LoadSimData:
                 },
             },
             "exchange_constraints": metabolism.exchange_constraints,  # TODO: last bound method
-            "ngam": self.sim_data.constants.non_growth_associated_maintenance,
-            "avogadro": self.sim_data.constants.n_avogadro,
-            "cell_density": self.sim_data.constants.cell_density,
-            "dark_atp": self.sim_data.constants.darkATP,
+            "ngam": unum_to_pint(self.sim_data.constants.non_growth_associated_maintenance),
+            "avogadro": unum_to_pint(self.sim_data.constants.n_avogadro),
+            "cell_density": unum_to_pint(self.sim_data.constants.cell_density),
+            "dark_atp": unum_to_pint(self.sim_data.constants.darkATP),
             "cell_dry_mass_fraction": self.sim_data.mass.cell_dry_mass_fraction,
             "get_biomass_as_concentrations": {
                 "_function": "mass.get_biomass_as_concentrations",

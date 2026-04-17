@@ -3,8 +3,9 @@ from plum import dispatch
 from dataclasses import dataclass, is_dataclass, field
 
 from bigraph_schema.schema import Node, String, Float, Link, Integer, Array, List, Tuple
-from bigraph_schema.methods import infer, set_default, default, realize, render, wrap_default, resolve
+from bigraph_schema.methods import infer, set_default, default, realize, render, wrap_default, resolve, reify_schema
 from bigraph_schema.methods.serialize import serialize
+from bigraph_schema.methods.handle_parameters import align_parameters
 
 import pint
 # Share bigraph-schema's UnitRegistry so v2ecoli, bigraph-schema, and
@@ -23,8 +24,25 @@ pint.set_application_registry(ureg)
 
 @dataclass(kw_only=True)
 class Quantity(Node):
+    """Pint-backed unit-bearing schema.
+
+    Supports parameterized string syntax ``quantity[<magnitude>,<unit>]``
+    or ``quantity[<unit>]`` (magnitude defaults to float). For example::
+
+        'quantity[float,1/mol]'     # Avogadro-style scalar
+        'quantity[fg]'              # shorthand — float magnitude
+        'quantity[array[float],mmol/L]'  # array-valued concentration
+
+    The ``_units`` field carries the unit string set at parse time;
+    ``units`` is the dict form inferred from a pint Quantity instance.
+    Both may be present — a runtime pint Quantity populates ``units``
+    (via :func:`infer`), while a declared string populates ``_units``
+    (via :func:`align_parameters` + :func:`reify_schema`).
+    """
+    _schema_keys = Node._schema_keys | frozenset({'_units'})
     units: typing.Dict = field(default_factory=dict)
-    magnitude: Node = field(default_factory=Node)
+    magnitude: Node = field(default_factory=lambda: Float())
+    _units: str = ''
 
     def _serialize_state(self, state):
         if isinstance(state, dict):
@@ -119,10 +137,49 @@ def realize(core, schema: Quantity, encode, path=()):
 
 @render.dispatch
 def render(schema: Quantity, defaults=False):
+    # Prefer the parameterized string form when the schema was declared
+    # via `quantity[<magnitude>,<unit>]`; fall back to the dict form for
+    # inferred schemas (where only the `units` dict was ever populated).
+    if schema._units:
+        mag_render = render(schema.magnitude)
+        if mag_render == 'float':
+            result = f'quantity[{schema._units}]'
+        else:
+            result = f'quantity[{mag_render},{schema._units}]'
+        return wrap_default(schema, result) if defaults else result
     data = {
         '_type': 'quantity',
         'units': schema.units,
         'magnitude': render(schema.magnitude)}
-
     return wrap_default(schema, data) if defaults else data
-    
+
+
+@align_parameters.dispatch
+def align_parameters(schema: Quantity, parameters):
+    """Map ``quantity[<magnitude>,<unit>]`` or ``quantity[<unit>]`` to
+    schema fields. A single parameter is treated as the unit string;
+    two parameters are magnitude type + unit string."""
+    if len(parameters) == 2:
+        return {'magnitude': parameters[0], '_units': parameters[1]}
+    if len(parameters) == 1:
+        return {'_units': parameters[0]}
+    return {}
+
+
+@reify_schema.dispatch
+def reify_schema(core, schema: Quantity, parameters):
+    """Populate `magnitude` and `_units` on the schema from parsed
+    parameters. The magnitude parameter may be a type name (resolved via
+    `core.access`) or an already-constructed Node."""
+    if 'magnitude' in parameters:
+        mag_param = parameters['magnitude']
+        if isinstance(mag_param, str):
+            schema.magnitude = core.access(mag_param)
+        elif isinstance(mag_param, Node):
+            schema.magnitude = mag_param
+    if '_units' in parameters:
+        units_param = parameters['_units']
+        if isinstance(units_param, str):
+            schema._units = units_param
+    return schema
+

@@ -1,5 +1,7 @@
+from v2ecoli.library.unit_bridge import unum_to_pint
 from v2ecoli.steps.base import V2Step as Step
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.types.stores import InPlaceDict, ListenerStore
 
 
 class ExchangeData(Step):
@@ -25,14 +27,12 @@ class ExchangeData(Step):
         self.environment_molecules = self.parameters.get("environment_molecules", [])
 
     def inputs(self):
-        from v2ecoli.types.stores import InPlaceDict, ListenerStore
         return {
             "boundary": InPlaceDict(),
             "environment": ListenerStore(),
         }
 
     def outputs(self):
-        from v2ecoli.types.stores import InPlaceDict, ListenerStore
         return {
             "boundary": InPlaceDict(),
             "environment": ListenerStore(),
@@ -42,7 +42,6 @@ class ExchangeData(Step):
         # Set exchange constraints for metabolism. Convert any unit-bearing
         # values (Unum or pint) to plain float magnitudes in their native unit
         # to avoid cross-registry comparison errors after dill round-trips.
-        from v2ecoli.library.unit_bridge import unum_to_pint
         env_concs = {}
         for mol in self.environment_molecules:
             q = unum_to_pint(states["boundary"]["external"][mol])

@@ -14,6 +14,10 @@ import json
 
 import numpy as np
 
+from v2ecoli.library.schema import MetadataArray
+from v2ecoli.library.unit_bridge import unum_to_pint
+from v2ecoli.types.quantity import ureg
+
 
 class NumpyJSONEncoder(json.JSONEncoder):
     """JSON encoder that handles numpy types."""
@@ -52,7 +56,6 @@ class NumpyJSONEncoder(json.JSONEncoder):
         if isinstance(obj, bytes):
             return {'__bytes__': True, 'data': obj.hex()}
         # Both Unum and pint round-trip through pint via the bridge.
-        from v2ecoli.library.unit_bridge import unum_to_pint
         q = unum_to_pint(obj)
         if hasattr(q, 'magnitude') and hasattr(q, 'units'):
             mag = q.magnitude
@@ -88,7 +91,6 @@ def numpy_json_hook(obj):
         if obj.get('__bytes__'):
             return bytes.fromhex(obj['data'])
         if obj.get('__pint__') or obj.get('__pint_array__'):
-            from v2ecoli.types.quantity import ureg
             mag = obj.get('magnitude', obj.get('value'))
             if obj.get('__pint_array__'):
                 mag = np.array(mag)
@@ -169,7 +171,6 @@ def save_initial_state(initial_state, path='out/initial_state.json'):
 
 def load_initial_state(path='out/initial_state.json'):
     """Load E. coli initial state from JSON."""
-    from v2ecoli.library.schema import MetadataArray
     state = load_json(path)
 
     # Reconstruct MetadataArray objects for unique molecules

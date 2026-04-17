@@ -54,7 +54,6 @@ import warnings
 from wholecell.utils.random import stochasticRound
 from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
 
 from v2ecoli.library.schema import (
     counts,
@@ -300,9 +299,9 @@ class TranscriptElongation(PartitionedProcess):
         # Calculate elongation rate based on the current media
         current_media_id = states["environment"]["media_id"]
 
-        self.rnapElongationRate = unum_to_pint(
-            self.rnaPolymeraseElongationRateDict[current_media_id]
-        ).to(units.nt / units.s).magnitude
+        self.rnapElongationRate = self.rnaPolymeraseElongationRateDict[
+            current_media_id
+        ].to(units.nt / units.s).magnitude
 
         self.elongation_rates = self.make_elongation_rates(
             self.random_state,

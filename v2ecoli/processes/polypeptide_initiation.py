@@ -50,7 +50,6 @@ from v2ecoli.library.schema import (
 )
 
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
 from wholecell.utils.fitting import normalize
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
@@ -157,7 +156,7 @@ class PolypeptideInitiation(Step):
         self.n_TUs = len(self.tu_ids)
         # Convert ribosome footprint size from nucleotides to amino acids
         self.active_ribosome_footprint_size = (
-            unum_to_pint(self.parameters["active_ribosome_footprint_size"]) / 3
+            self.parameters["active_ribosome_footprint_size"] / 3
         )
 
         # Get mapping from cistrons to protein monomers and TUs
@@ -245,9 +244,9 @@ class PolypeptideInitiation(Step):
             "effective_elongation_rate"
         ]
         if self.ribosomeElongationRate == 0:
-            self.ribosomeElongationRate = unum_to_pint(
-                self.ribosome_elongation_rates_dict[current_media_id]
-            ).to(units.aa / units.s).magnitude
+            self.ribosomeElongationRate = self.ribosome_elongation_rates_dict[
+                current_media_id
+            ].to(units.aa / units.s).magnitude
         self.elongation_rates = np.fmax(self.make_elongation_rates(
             self.random_state,
             self.ribosomeElongationRate,

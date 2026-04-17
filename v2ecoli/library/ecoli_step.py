@@ -148,14 +148,24 @@ class EcoliStep(Step):
     def perform_update(self, state):
         """Gate for step execution. Return True to run, False to skip.
 
-        Default always runs. Override to implement variable-timestep
-        listeners (e.g. run every N seconds of simulated time) without
-        paying the cost of the full update body on skipped ticks. Ported
-        from upstream vEcoli composite-branch commit 35003119 — the v1
-        `update_condition(timestep, states)` that several v2ecoli
-        listeners still define was never consulted by v2ecoli's invoke
-        path, so those ticks ran unconditionally.
+        Default behavior: if a subclass defines the legacy
+        `update_condition(self, timestep, states)` method (11+
+        listeners still do), delegate to it — vEcoli's v1 gate was
+        dead code in v2ecoli until this commit because `invoke` never
+        consulted it. Otherwise always run. Override directly for
+        custom gating on any port value.
+
+        Ported from upstream vEcoli composite-branch commit 35003119;
+        the method name differs from v1's `update_condition` to avoid
+        collision on classes that might dual-inherit from both the v1
+        and v2 stacks.
         """
+        for klass in type(self).__mro__:
+            if klass is EcoliStep:
+                break
+            if 'update_condition' in klass.__dict__:
+                timestep = state.get('timestep', 1)
+                return klass.__dict__['update_condition'](self, timestep, state)
         return True
 
     def invoke(self, state, interval=None):

@@ -91,6 +91,47 @@ def test_perform_update_true_runs_update():
     assert result.update == {'ran': True}
 
 
+class _LegacyUpdateConditionStep(_CountingStep):
+    """Legacy vivarium-v1 pattern: defines update_condition, not perform_update.
+    The base EcoliStep.perform_update must auto-delegate."""
+
+    def update_condition(self, timestep, states):
+        return bool(states.get('gate', False))
+
+
+def test_perform_update_delegates_to_legacy_update_condition():
+    """The 11+ v2ecoli listeners that still define
+    `update_condition(timestep, states)` should have their gates
+    honored without any per-listener migration — the base
+    `perform_update` walks the MRO and delegates."""
+    step = _LegacyUpdateConditionStep(parameters={})
+
+    r_skip = step.invoke({'gate': False}, interval=1.0)
+    assert step.update_calls == 0
+    assert r_skip.update == {}
+
+    r_run = step.invoke({'gate': True}, interval=1.0)
+    assert step.update_calls == 1
+    assert r_run.update == {'ran': True}
+
+
+def test_perform_update_override_beats_update_condition():
+    """If a subclass defines both, perform_update wins (explicit over
+    legacy) because the base delegation is only reached via super()."""
+
+    class _BothStep(_CountingStep):
+        def update_condition(self, timestep, states):
+            # Would skip — but perform_update override should win.
+            return False
+
+        def perform_update(self, state):
+            return True
+
+    step = _BothStep(parameters={})
+    step.invoke({}, interval=1.0)
+    assert step.update_calls == 1
+
+
 def test_perform_update_sees_invoke_state():
     """The state dict passed to invoke reaches perform_update unchanged —
     so subclasses can gate on global_time/timestep/etc."""

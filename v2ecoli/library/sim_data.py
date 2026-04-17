@@ -917,12 +917,12 @@ class LoadSimData:
             ),
             "all_rna_ids": all_rna_ids,
             "n_total_RNAs": len(all_rna_ids),
-            "n_avogadro": self.sim_data.constants.n_avogadro,
-            "cell_density": self.sim_data.constants.cell_density,
+            "n_avogadro": unum_to_pint(self.sim_data.constants.n_avogadro),
+            "cell_density": unum_to_pint(self.sim_data.constants.cell_density),
             "endoRNase_ids": self.sim_data.process.rna_decay.endoRNase_ids,
             "exoRNase_ids": self.sim_data.molecule_groups.exoRNases,
-            "kcat_exoRNase": self.sim_data.constants.kcat_exoRNase,
-            "Kcat_endoRNases": self.sim_data.process.rna_decay.kcats,
+            "kcat_exoRNase": unum_to_pint(self.sim_data.constants.kcat_exoRNase),
+            "Kcat_endoRNases": unum_to_pint(self.sim_data.process.rna_decay.kcats),
             "charged_trna_names": transcription.charged_trna_names,
             "uncharged_trna_indexes": np.array(
                 [
@@ -1072,7 +1072,7 @@ class LoadSimData:
             "translation_supply": self.translation_supply,
             "trna_charging": self.trna_charging,
             # base parameters
-            "n_avogadro": constants.n_avogadro,
+            "n_avogadro": unum_to_pint(constants.n_avogadro),
             "proteinIds": translation.monomer_data["id"],
             "proteinLengths": unum_to_pint(translation.monomer_data["length"]).magnitude,
             "proteinSequences": translation.translation_sequences,
@@ -1091,7 +1091,10 @@ class LoadSimData:
                 unum_to_pint(self.sim_data.growth_rate_parameters.ribosomeElongationRate).to(units.aa / units.s).magnitude
             ),
             # Amino acid supply calculations
-            "translation_aa_supply": self.sim_data.translation_supply_rate,
+            "translation_aa_supply": {
+                k: unum_to_pint(v)
+                for k, v in self.sim_data.translation_supply_rate.items()
+            },
             "import_threshold": self.sim_data.external_state.import_constraint_threshold,
             # Data structures for charging
             "aa_from_trna": transcription.aa_from_trna,
@@ -1683,7 +1686,10 @@ class LoadSimData:
             "n_avogadro": self.sim_data.constants.n_avogadro,  # 1/mol
             "time_step": time_step,
             "submass_to_idx": self.sim_data.submass_name_to_index,
-            "condition_to_doubling_time": self.sim_data.condition_to_doubling_time,
+            "condition_to_doubling_time": {
+                k: unum_to_pint(v)
+                for k, v in self.sim_data.condition_to_doubling_time.items()
+            },
             "condition": self.sim_data.condition,
             "emit_unique": self.emit_unique,
         }

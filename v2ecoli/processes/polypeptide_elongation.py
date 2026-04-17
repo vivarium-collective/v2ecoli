@@ -62,7 +62,6 @@ from scipy.integrate import solve_ivp
 from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
 from wholecell.utils.random import stochasticRound
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
 
 # vivarium imports
 # simulate_process removed
@@ -337,7 +336,7 @@ class PolypeptideElongation(PartitionedProcess):
         trna_charging = self.parameters["trna_charging"]
 
         # Load parameters
-        self.n_avogadro = unum_to_pint(self.parameters["n_avogadro"])
+        self.n_avogadro = self.parameters["n_avogadro"]
         self.proteinIds = self.parameters["proteinIds"]
         self.protein_lengths = self.parameters["proteinLengths"]
         self.proteinSequences = self.parameters["proteinSequences"]
@@ -356,10 +355,7 @@ class PolypeptideElongation(PartitionedProcess):
         self.ribosomeElongationRate = self.parameters["ribosomeElongationRate"]
 
         # Amino acid supply calculations
-        self.translation_aa_supply = {
-            media: unum_to_pint(rate)
-            for media, rate in self.parameters["translation_aa_supply"].items()
-        }
+        self.translation_aa_supply = self.parameters["translation_aa_supply"]
         self.import_threshold = self.parameters["import_threshold"]
 
         # Used for figure in publication

@@ -64,7 +64,18 @@ from bigraph_schema.schema import (
     Float as _Float, Node as _Node, Array as _Array, Map as _Map,
     Integer as _Integer, List as _List, Tuple as _Tuple, String as _String,
     Overwrite as _Overwrite, Boolean as _Boolean, Quote as _Quote,
+    Quantity as _BSQuantity,
 )
+
+# bigraph-schema 6fa6c63 added its own Quantity at key 'quantity'; v2ecoli's
+# Quantity has a custom _serialize_state, so prefer v2ecoli's on collision.
+@_resolve.dispatch
+def _resolve_bs_quantity_v2(current: _BSQuantity, update: Quantity, path=None):
+    return update
+
+@_resolve.dispatch
+def _resolve_v2_quantity_bs(current: Quantity, update: _BSQuantity, path=None):
+    return current
 
 # vEcoli-style type relaxation dispatches (from bigraph_types.py)
 @_resolve.dispatch
@@ -126,6 +137,17 @@ def _resolve_map_string(current: _Map, update: _String, path=None):
 @_resolve.dispatch
 def _resolve_quote_quote(current: _Quote, update: _Quote, path=None):
     return current
+
+# Cross-wrap resolve: agents store is Overwrite[Map[...]]; daughter docs
+# inserted via _add carry Quote[Node] process slots. Keep the structural
+# agents schema (current) and let the descent handle the Quote subfields.
+@_resolve.dispatch
+def _resolve_overwrite_quote(current: _Overwrite, update: _Quote, path=None):
+    return current
+
+@_resolve.dispatch
+def _resolve_quote_overwrite(current: _Quote, update: _Overwrite, path=None):
+    return update
 
 @_resolve.dispatch
 def _resolve_list_integer(current: _List, update: _Integer, path=None):
@@ -318,9 +340,8 @@ def _resolve_map_listener(current: _Map, update: ListenerStore, path=None):
 def _resolve_listener_map(current: ListenerStore, update: _Map, path=None):
     return update
 
-
 ECOLI_TYPES = {
-    'quantity': Quantity,
+    'quantity': _BSQuantity,
     'csr_matrix': CSRMatrix,
     'units_array': UnitsArray,
     'method': Method,

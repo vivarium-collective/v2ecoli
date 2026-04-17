@@ -57,13 +57,6 @@ class EcoliWCM(Process):
             'angle': 'float',
         }
 
-    def outputs(self):
-        return {
-            'mass': 'float',
-            'volume': 'float',
-            'exchange': 'map[float]',
-        }
-
     def _build_composite(self):
         """Lazily construct the internal v2ecoli Composite with bridge."""
         from v2ecoli.composite import _build_core

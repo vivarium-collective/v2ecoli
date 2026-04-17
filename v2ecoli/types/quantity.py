@@ -168,9 +168,16 @@ def align_parameters(schema: Quantity, parameters):
 
 @reify_schema.dispatch
 def reify_schema(core, schema: Quantity, parameters):
-    """Populate `magnitude` and `_units` on the schema from parsed
-    parameters. The magnitude parameter may be a type name (resolved via
-    `core.access`) or an already-constructed Node."""
+    """Populate `magnitude`, `_units`, and `units` on the schema from
+    parsed parameters. The magnitude parameter may be a type name
+    (resolved via `core.access`) or an already-constructed Node.
+
+    The `units` dict is derived from `_units` so that downstream
+    `realize` (which reads `schema.units`) can wrap bare numeric
+    values with the correct pint unit — otherwise a default like
+    `0.0` on a `quantity[float,1/mol]` field realizes to a
+    dimensionless Quantity, silently losing the declared unit.
+    """
     if 'magnitude' in parameters:
         mag_param = parameters['magnitude']
         if isinstance(mag_param, str):
@@ -181,5 +188,11 @@ def reify_schema(core, schema: Quantity, parameters):
         units_param = parameters['_units']
         if isinstance(units_param, str):
             schema._units = units_param
+            try:
+                schema.units = dict(ureg.Quantity(1, units_param).unit_items())
+            except Exception:
+                # Unparseable unit string — leave `units` empty; the
+                # `_units` field still records the declared annotation.
+                pass
     return schema
 

@@ -80,3 +80,19 @@ def test_render_roundtrips_parameterized_form(core):
 
     schema2 = core.access('quantity[integer,count]')
     assert render(schema2) == 'quantity[integer,count]'
+
+
+def test_reify_populates_units_dict(core):
+    """`reify_schema` must populate both `_units` (string) and `units`
+    (dict form derived from pint) so downstream `realize` can wrap bare
+    numeric values with the correct unit — otherwise a declared
+    `quantity[1/mol]` field realizes bare floats as dimensionless."""
+    schema = core.access('quantity[float,1/mol]')
+    assert schema._units == '1/mol'
+    assert schema.units  # non-empty
+    # pint yields {'mole': -1} for `1/mol` — exact keys depend on pint's
+    # canonical form, but the mole dimension must be present as -1.
+    assert schema.units.get('mole') == -1
+
+    schema2 = core.access('quantity[g/L]')
+    assert schema2.units  # populated despite short-form syntax

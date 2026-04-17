@@ -1266,13 +1266,25 @@ def step_single_cell():
                 print(f"    Cell divided at ~t={total_run}s ({total_run/60:.0f}min)")
                 divided = True
                 break
-            else:
-                # Non-division error — log and continue
+            # The structural divide can complete before an unrelated error
+            # fires later in the same composite.run (e.g. realize Array on a
+            # daughter's listener store). If the mother agent is gone, the
+            # divide already happened — treat as terminal. Still print the
+            # traceback so the deeper bug (blocks multigen) is diagnosable.
+            if composite.state.get('agents', {}).get('0') is None:
                 import traceback
-                print(f"    Warning at ~t={total_run}s: {type(e).__name__}: {err_str[:100]}")
-                if total_run <= SNAPSHOT_INTERVAL:
-                    traceback.print_exc()
-                continue
+                print(f"    Cell divided at ~t={total_run}s ({total_run/60:.0f}min) "
+                      f"({type(e).__name__} during post-add; daughter state discarded)")
+                print(f"    post-add error: {err_str[:200]}")
+                traceback.print_exc()
+                divided = True
+                break
+            # Non-division error — log full traceback so deeper bugs
+            # (e.g. growth_limits realize failure) are diagnosable.
+            import traceback
+            print(f"    Warning at ~t={total_run}s: {type(e).__name__}: {err_str[:200]}")
+            traceback.print_exc()
+            continue
         total_run += chunk
 
         cell = composite.state.get('agents', {}).get('0')

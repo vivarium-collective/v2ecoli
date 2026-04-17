@@ -79,7 +79,27 @@ def snapshot(t, cell, replisome_trimer_ids, replisome_monomer_ids, dntp_ids):
         if c is not None:
             monomer_total += c
     snap["replisome_monomer_min"] = monomer_total
+
+    # DnaG investigation (parity with vEcoli plasmid_replication_report Fig. 10):
+    # track the critical subunit (DnaG) + the other mechanistic-gate subunits
+    # + the LexA regulator (both monomer and active dimer) as explicit fields.
+    for key, mid in DNAG_INVESTIGATION_IDS.items():
+        c = _bulk_count(cell, mid)
+        snap[key] = int(c) if c is not None else 0
     return snap
+
+
+# Molecules tracked for the DnaG investigation (see
+# reports/plasmid_dnag_investigation_v2ecoli.html §6 for the table).
+DNAG_INVESTIGATION_IDS = {
+    "dnaG":       "EG10239-MONOMER[c]",   # DNA primase — the critical subunit
+    "pol_core":   "CPLX0-2361[c]",        # DNA pol III core (DnaE·DnaQ·HolE)
+    "beta_clamp": "CPLX0-3761[c]",        # β sliding clamp (DnaN dimer)
+    "dnaB":       "CPLX0-3621[c]",        # DnaB helicase hexamer
+    "holA":       "EG11412-MONOMER[c]",   # HolA (δ clamp-loader subunit)
+    "lexA_mon":   "EG10534-MONOMER[c]",   # LexA monomer
+    "lexA_dimer": "PC00010[c]",           # LexA active dimer (TF form)
+}
 
 
 def main():

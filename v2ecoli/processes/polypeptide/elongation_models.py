@@ -48,9 +48,11 @@ class BaseElongationModel(object):
         max value of 22 amino acids/second.
         """
         current_media_id = states["environment"]["media_id"]
-        rate = self.process.elngRateFactor * unum_to_pint(
-            self.ribosomeElongationRateDict[current_media_id]
-        ).to(units.aa / units.s).magnitude
+        rate = (
+            self.process.elngRateFactor
+            * self.ribosomeElongationRateDict[current_media_id]
+            .to(units.aa / units.s).magnitude
+        )
         return np.min([self.basal_elongation_rate, rate])
 
     def amino_acid_counts(self, aasInSequences):
@@ -139,7 +141,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         super().__init__(parameters, process)
 
         # Cell parameters
-        self.cellDensity = unum_to_pint(self.parameters["cellDensity"])
+        self.cellDensity = self.parameters["cellDensity"]
 
         # Names of molecules associated with tRNA charging
         self.charged_trna_names = self.parameters["charged_trna_names"]
@@ -168,7 +170,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             "krta": self.parameters["krta"],
             "krtf": self.parameters["krtf"],
             "max_elong_rate": float(
-                unum_to_pint(self.parameters["elongation_max"]).to(units.aa / units.s).magnitude
+                self.parameters["elongation_max"].to(units.aa / units.s).magnitude
             ),
             "charging_mask": np.array(
                 [
@@ -214,10 +216,11 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             counts_to_molar = 1 / (self.process.n_avogadro * cell_volume)
             ppgpp_count = counts(states["bulk"], self.process.ppgpp_idx)
             ppgpp_conc = ppgpp_count * counts_to_molar
-            # elong_rate_by_ppgpp is upstream Unum-native
-            rate = unum_to_pint(self.elong_rate_by_ppgpp(
-                pint_to_unum(ppgpp_conc), self.basal_elongation_rate
-            )).to(units.aa / units.s).magnitude
+            # elong_rate_by_ppgpp is the function-registry wrapper, which
+            # accepts pint and returns a pint Quantity in aa/s.
+            rate = self.elong_rate_by_ppgpp(
+                ppgpp_conc, self.basal_elongation_rate
+            ).to(units.aa / units.s).magnitude
         else:
             rate = super().elongation_rate(states)
         return rate

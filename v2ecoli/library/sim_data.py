@@ -1112,12 +1112,15 @@ class LoadSimData:
                 ]
             ),
             "basal_elongation_rate": unum_to_pint(self.sim_data.constants.ribosome_elongation_rate_basal).to(units.aa / units.s).magnitude,
-            "ribosomeElongationRateDict": self.sim_data.process.translation.ribosomeElongationRateDict,
+            "ribosomeElongationRateDict": {
+                k: unum_to_pint(v)
+                for k, v in self.sim_data.process.translation.ribosomeElongationRateDict.items()
+            },
             "uncharged_trna_names": self.sim_data.process.transcription.uncharged_trna_names,
             "proton": self.sim_data.molecule_ids.proton,
             "water": self.sim_data.molecule_ids.water,
-            "cellDensity": constants.cell_density,
-            "elongation_max": (
+            "cellDensity": unum_to_pint(constants.cell_density),
+            "elongation_max": unum_to_pint(
                 constants.ribosome_elongation_rate_max
                 if self.variable_elongation_translation
                 else constants.ribosome_elongation_rate_basal

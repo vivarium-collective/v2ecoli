@@ -145,8 +145,23 @@ class EcoliStep(Step):
         """Auto-extract ``_default`` values from ``inputs()``."""
         return _extract_defaults(self.inputs())
 
+    def perform_update(self, state):
+        """Gate for step execution. Return True to run, False to skip.
+
+        Default always runs. Override to implement variable-timestep
+        listeners (e.g. run every N seconds of simulated time) without
+        paying the cost of the full update body on skipped ticks. Ported
+        from upstream vEcoli composite-branch commit 35003119 — the v1
+        `update_condition(timestep, states)` that several v2ecoli
+        listeners still define was never consulted by v2ecoli's invoke
+        path, so those ticks ran unconditionally.
+        """
+        return True
+
     def invoke(self, state, interval=None):
         from process_bigraph.composite import SyncUpdate
+        if not self.perform_update(state):
+            return SyncUpdate({})
         update = self.update(state, interval)
         return SyncUpdate(update)
 

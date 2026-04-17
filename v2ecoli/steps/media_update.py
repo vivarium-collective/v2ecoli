@@ -1,6 +1,7 @@
 import numpy as np
 from v2ecoli.steps.base import V2Step as Step
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.types.stores import InPlaceDict
 
 
 class MediaUpdate(Step):
@@ -30,11 +31,9 @@ class MediaUpdate(Step):
         self.curr_media_id = self.parameters.get("media_id", "minimal")
 
     def inputs(self):
-        from v2ecoli.types.stores import InPlaceDict
         return {"boundary": InPlaceDict(), "environment": InPlaceDict()}
 
     def outputs(self):
-        from v2ecoli.types.stores import InPlaceDict
         return {"boundary": InPlaceDict(), "environment": InPlaceDict()}
 
     def next_update(self, timestep, states):

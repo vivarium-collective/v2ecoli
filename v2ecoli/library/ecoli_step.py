@@ -6,6 +6,9 @@ process-bigraph's Step/Process (config, core=) without importing
 vivarium-core.
 """
 
+import os
+
+import dill
 from process_bigraph import Step, Process
 
 
@@ -38,8 +41,6 @@ def _defaults_from_schema(config_schema):
 
 def _load_pickle(name):
     """Load a pickle from the library directory."""
-    import os
-    import dill
     path = os.path.join(os.path.dirname(__file__), name)
     if os.path.exists(path):
         with open(path, 'rb') as f:

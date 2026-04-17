@@ -25,6 +25,12 @@ Usage in a multi_cell document::
     }
 """
 
+import math
+import os
+import traceback
+
+import dill
+import numpy as np
 from process_bigraph import Process, Composite
 
 
@@ -64,7 +70,6 @@ class EcoliWCM(Process):
         from v2ecoli.cache import load_initial_state
         # Import types to trigger resolve dispatch registration
         import v2ecoli.types  # noqa: F401
-        import dill, os
 
         cache_dir = self.config.get('cache_dir', '') or 'out/cache'
         seed = int(self.config.get('seed', 0))
@@ -100,7 +105,6 @@ class EcoliWCM(Process):
 
     def _read_chromosome_state(self):
         """Extract chromosome state snapshot for visualization."""
-        import numpy as np
         cell = self._composite.state.get('agents', {}).get('0', self._composite.state)
         unique = cell.get('unique', {})
 
@@ -164,7 +168,6 @@ class EcoliWCM(Process):
 
         # Compute length from volume using capsule geometry:
         # V = (4/3)πr³ + πr²a, l = a + 2r
-        import math
         radius = 0.5  # µm, E. coli radius
         if cur_volume > 0:
             vol_um3 = cur_volume  # volume in fL ≈ µm³
@@ -196,7 +199,6 @@ class EcoliWCM(Process):
             try:
                 self._build_composite()
             except Exception as e:
-                import traceback
                 print(f"[EcoliWCM] _build_composite failed: {e}")
                 traceback.print_exc()
                 return {'mass': 0.0, 'volume': 0.0, 'exchange': {}}
@@ -273,7 +275,6 @@ class EcoliWCM(Process):
             mx, my = 15.0, 15.0
         mother_angle = float(state.get('angle', 0))
 
-        import math
         offset = 1.5  # µm apart
         dx = offset * math.cos(mother_angle)
         dy = offset * math.sin(mother_angle)

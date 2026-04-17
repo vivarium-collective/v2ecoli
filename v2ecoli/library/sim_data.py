@@ -672,11 +672,16 @@ class LoadSimData:
                     "cell_dry_mass_fraction": float(self.sim_data.mass.cell_dry_mass_fraction),
                 },
             },
-            "criticalInitiationMass": get_dna_critical_mass(doubling_time),
-            "nutrientToDoublingTime": self.sim_data.nutrient_to_doubling_time,
+            "criticalInitiationMass": unum_to_pint(get_dna_critical_mass(doubling_time)),
+            "nutrientToDoublingTime": {
+                k: unum_to_pint(v)
+                for k, v in self.sim_data.nutrient_to_doubling_time.items()
+            },
             "replichore_lengths": self.sim_data.process.replication.replichore_lengths,
             "sequences": self.sim_data.process.replication.replication_sequences,
-            "polymerized_dntp_weights": self.sim_data.process.replication.replication_monomer_weights,
+            "polymerized_dntp_weights": unum_to_pint(
+                self.sim_data.process.replication.replication_monomer_weights
+            ),
             "replication_coordinate": self.sim_data.process.transcription.rna_data[
                 "replication_coordinate"
             ],

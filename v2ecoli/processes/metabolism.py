@@ -252,9 +252,8 @@ class Metabolism(Step):
             include_ppgpp=self.include_ppgpp,
         )
 
-        # Save constants (cache values still arrive as Unum)
-        self.nAvogadro = unum_to_pint(self.parameters["avogadro"])
-        self.cellDensity = unum_to_pint(self.parameters["cell_density"])
+        self.nAvogadro = self.parameters["avogadro"]
+        self.cellDensity = self.parameters["cell_density"]
 
         # Track updated AA concentration targets with tRNA charging
         self.aa_targets = {}
@@ -669,8 +668,8 @@ class FluxBalanceAnalysisModel(object):
         self.maintenance_reaction = metabolism.maintenance_reaction
 
         # Load constants
-        self.ngam = unum_to_pint(parameters["ngam"])
-        gam = unum_to_pint(parameters["dark_atp"]) * parameters["cell_dry_mass_fraction"]
+        self.ngam = parameters["ngam"]
+        gam = parameters["dark_atp"] * parameters["cell_dry_mass_fraction"]
 
         self.exchange_constraints = metabolism.exchange_constraints
 
@@ -788,7 +787,7 @@ class FluxBalanceAnalysisModel(object):
             # The "inconvenient constant"--limit secretion (e.g., of CO2)
             "secretionPenaltyCoeff": metabolism.secretion_penalty_coeff,
             "solver": solver,
-            "maintenanceCostGAM": unum_to_pint(gam).to(COUNTS_UNITS / MASS_UNITS).magnitude,
+            "maintenanceCostGAM": gam.to(COUNTS_UNITS / MASS_UNITS).magnitude,
             "maintenanceReaction": metabolism.maintenance_reaction,
         }
         self.fba = FluxBalanceAnalysis(**fba_options)

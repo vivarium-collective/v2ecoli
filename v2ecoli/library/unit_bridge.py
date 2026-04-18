@@ -14,6 +14,19 @@ from wholecell.utils import units as wc_units
 
 from v2ecoli.types.quantity import ureg
 
+# Pre-trigger any upstream import that replaces pint.application_registry
+# (notably ecoli.library.bigraph_types). If we don't do this first, a
+# later transitive import — e.g. while unpickling sim_data_cache.dill —
+# will detach application_registry from our ureg mid-load, and pint's
+# unpickle path will fail to resolve the custom unit names below.
+try:
+    from ecoli.library import bigraph_types  # noqa: F401
+except ImportError:
+    pass
+# Re-assert ureg as the application registry after the side-effectful
+# import above; then register our custom units on it.
+pint.set_application_registry(ureg)
+
 # Register bio-specific units that pint doesn't know about. The upstream
 # Unum library treats these as named base units; we mirror that as
 # dimensionless-like base units in pint so unit algebra closes (e.g.

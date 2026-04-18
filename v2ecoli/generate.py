@@ -814,6 +814,8 @@ def _get_special_step(loader, step_name, core):
         div_config.setdefault('division_threshold', 'mass_distribution')
         dry_mass_inc = getattr(getattr(loader, 'sim_data', None),
                                'expectedDryMassIncreaseDict', {})
+        from v2ecoli.library.unit_bridge import unum_to_pint
+        dry_mass_inc = {k: unum_to_pint(v) for k, v in dry_mass_inc.items()}
         div_config.setdefault('dry_mass_inc_dict', dry_mass_inc)
         if hasattr(loader, '_configs'):
             div_config['configs'] = loader._configs

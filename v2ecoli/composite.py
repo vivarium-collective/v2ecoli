@@ -9,6 +9,8 @@ Supports three loading modes:
 3. From pre-loaded state/configs: make_composite(initial_state=..., configs=...)
 """
 
+import copy
+import functools
 import os
 
 import dill
@@ -17,6 +19,10 @@ from process_bigraph import Composite
 
 from v2ecoli.types import ECOLI_TYPES
 from v2ecoli.cache import load_initial_state, save_initial_state, save_json
+# Import at module load so the shared pint UnitRegistry has
+# nucleotide/amino_acid/count defined before any dill.load hydrates
+# a Quantity whose unit string references those names.
+from v2ecoli.library.unit_bridge import rebind_cache_quantities  # noqa: F401
 
 
 def _build_core():
@@ -26,8 +32,33 @@ def _build_core():
     return core
 
 
+@functools.lru_cache(maxsize=4)
+def _load_cache_bundle_cached(cache_dir):
+    """Raw loader — memoized by cache_dir."""
+    initial_state = load_initial_state(
+        os.path.join(cache_dir, 'initial_state.json'))
+    cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
+    # Side-effectful imports (upstream vEcoli's bigraph_types) can
+    # replace pint.application_registry after unit_bridge has
+    # registered nucleotide/amino_acid/count on our ureg. Reassert
+    # the app registry so dill.load's Quantity unpickle resolves
+    # those custom units against the registry that has them.
+    import pint
+    from v2ecoli.types.quantity import ureg
+    pint.set_application_registry(ureg)
+    with open(cache_path, 'rb') as f:
+        cache = dill.load(f)
+    rebind_cache_quantities(cache)
+    return initial_state, cache
+
+
 def _load_cache_bundle(cache_dir):
     """Load initial_state.json + sim_data_cache.dill from a cache directory.
+
+    The heavy work (reading the dill, rebinding pint Quantities onto the
+    shared UnitRegistry) is memoized per ``cache_dir``; this helper returns
+    a deep copy of ``initial_state`` (which ``build_document`` mutates) and
+    the read-only ``cache`` dict by reference.
 
     Shared helper for composite.py and the departitioned/reconciled variants.
     Rebinds pint Quantities in the loaded cache onto the shared v2ecoli
@@ -35,14 +66,8 @@ def _load_cache_bundle(cache_dir):
     a stale registry if a side-effectful import has replaced
     pint.application_registry.
     """
-    initial_state = load_initial_state(
-        os.path.join(cache_dir, 'initial_state.json'))
-    cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
-    with open(cache_path, 'rb') as f:
-        cache = dill.load(f)
-    from v2ecoli.library.unit_bridge import rebind_cache_quantities
-    rebind_cache_quantities(cache)
-    return initial_state, cache
+    initial_state, cache = _load_cache_bundle_cached(cache_dir)
+    return copy.deepcopy(initial_state), cache
 
 
 def make_composite(document=None, cache_dir=None,

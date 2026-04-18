@@ -146,20 +146,16 @@ def _run_generation(
         try:
             composite.run(chunk)
         except Exception as e:
-            total_run += chunk
             err_str = str(e)
             if (
                 "divide" in err_str.lower()
                 or "_add" in err_str
                 or "_remove" in err_str
             ):
+                total_run += chunk
                 divided = True
                 break
-            print(
-                f"    gen {gen_idx} warning at t={total_run:.0f}: "
-                f"{type(e).__name__}: {err_str[:120]}"
-            )
-            continue
+            raise
         total_run += chunk
 
         cur_cell = composite.state.get("agents", {}).get("0")

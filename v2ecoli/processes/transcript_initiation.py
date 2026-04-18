@@ -61,7 +61,6 @@ from v2ecoli.library.schema import (
 )
 
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
 from wholecell.utils.random import stochasticRound
 from wholecell.utils.unit_struct_array import UnitStructArray
 
@@ -260,13 +259,13 @@ class TranscriptInitiation(Step):
 
         # Load parameters
         self.fracActiveRnapDict = self.parameters["fracActiveRnapDict"]
-        self.rnaLengths = unum_to_pint(self.parameters["rnaLengths"])
+        self.rnaLengths = self.parameters["rnaLengths"]
         self.rnaPolymeraseElongationRateDict = self.parameters[
             "rnaPolymeraseElongationRateDict"
         ]
         self.variable_elongation = self.parameters["variable_elongation"]
         self.make_elongation_rates = self.parameters["make_elongation_rates"]
-        self.active_rnap_footprint_size = unum_to_pint(self.parameters["active_rnap_footprint_size"])
+        self.active_rnap_footprint_size = self.parameters["active_rnap_footprint_size"]
 
         # Initialize matrices used to calculate synthesis probabilities
         self.basal_prob = self.parameters["basal_prob"].copy()
@@ -481,9 +480,9 @@ class TranscriptInitiation(Step):
                 states["promoters"]["_entryState"].sum()
             )
 
-        self.rnaPolymeraseElongationRate = unum_to_pint(
-            self.rnaPolymeraseElongationRateDict[current_media_id]
-        )
+        self.rnaPolymeraseElongationRate = self.rnaPolymeraseElongationRateDict[
+            current_media_id
+        ]
         self.elongation_rates = self.make_elongation_rates(
             self.random_state,
             self.rnaPolymeraseElongationRate.to(units.nt / units.s).magnitude,

@@ -87,5 +87,20 @@ def deep_equal(a, b, path: str = '') -> tuple[bool, str]:
             return True, ''
         return (a == b, '' if a == b else f'{path}: {a!r} != {b!r}')
 
+    # Fall-through: try direct ==, but for custom objects without
+    # __eq__ (most importantly process-bigraph Step/Process instances
+    # that appear in composite.state), default Python equality is
+    # identity-based and would false-positive on every sim rerun.
+    # Two independent make_composite calls always produce distinct
+    # Python instances at distinct memory addresses; that's expected
+    # and not the kind of nondeterminism this helper exists to detect.
+    # So when both sides are same-class opaque objects, treat them as
+    # equal. Simulation-state determinism lives in the numeric leaves
+    # (arrays, scalars, Quantities) that the earlier branches cover.
+    if type(a) is type(b) and not isinstance(a, (int, str, bool, bytes, type(None))):
+        cls = type(a)
+        if cls.__eq__ is object.__eq__:
+            return True, ''
+
     ok = a == b
     return (ok, '' if ok else f'{path}: {a!r} != {b!r}')

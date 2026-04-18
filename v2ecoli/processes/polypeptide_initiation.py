@@ -79,12 +79,12 @@ class PolypeptideInitiation(Step):
     topology = TOPOLOGY
 
     config_schema = {
-        'active_ribosome_footprint_size': {'_type': 'any', '_default': 24.0},
+        'active_ribosome_footprint_size': {'_type': 'quantity[nt]', '_default': 24.0},
         'active_ribosome_fraction': {'_type': 'map[float]', '_default': {}},
         'cistron_start_end_pos_in_tu': {'_type': 'map[node]', '_default': {}},
         'cistron_to_monomer_mapping': {'_type': 'array[integer]', '_default': {}},
         'cistron_tu_mapping_matrix': {'_type': 'csr_matrix', '_default': {}},
-        'elongation_rates': {'_type': 'map[float]', '_default': {}},
+        'elongation_rates': {'_type': 'map[quantity[float,amino_acid/s]]', '_default': {}},
         'emit_unique': {'_type': 'boolean', '_default': False},
         'make_elongation_rates': {'_type': 'method', '_default': None},
         'monomer_ids': {'_type': 'list[string]', '_default': []},

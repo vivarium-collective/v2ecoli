@@ -345,12 +345,18 @@ def test_build_execution_layers_supercoiling():
 
 
 def test_build_execution_layers_ppgpp():
-    """ppGpp feature adds step before transcript-initiation."""
+    """ppGpp feature adds step before transcript-initiation.
+
+    Transcript-initiation runs as a plain Step in v2ecoli (not
+    partitioned), so the step name has no `_requester` suffix —
+    matching generate.py's FEATURE_MODULES entry which uses
+    `'insert_before': 'ecoli-transcript-initiation'`.
+    """
     from v2ecoli.generate import build_execution_layers
     layers = build_execution_layers(['ppgpp_regulation'])
     flat = [s for layer in layers for s in layer]
     assert 'ppgpp-initiation' in flat
-    ti_idx = flat.index('ecoli-transcript-initiation_requester')
+    ti_idx = flat.index('ecoli-transcript-initiation')
     pp_idx = flat.index('ppgpp-initiation')
     assert pp_idx < ti_idx
 

@@ -2,25 +2,31 @@
 Test polymerize_new.py
 """
 
-try:
-    from v2ecoli.processes.parca.wholecell.utils.mc_complexation import (
-        mccBuildMatrices,
-        mccFormComplexesWithPrebuiltMatrices,
-    )
-except ImportError as exc:
-    raise RuntimeError(
-        "Failed to import Cython module. Try running 'make clean compile'."
-    ) from exc
-
 import numpy as np
 import numpy.testing as npt
 
 import unittest
 
+try:
+    from v2ecoli.processes.parca.wholecell.utils.mc_complexation import (
+        mccBuildMatrices,
+        mccFormComplexesWithPrebuiltMatrices,
+    )
+    HAVE_MC_COMPLEXATION = True
+except ImportError:
+    # Cython module not built. Keep this module importable so bigraph-schema's
+    # dynamic package discovery (which walks installed packages and imports
+    # them) doesn't crash the test session; the test class below is skipped
+    # until `make clean compile` produces the .so.
+    HAVE_MC_COMPLEXATION = False
+    mccBuildMatrices = None
+    mccFormComplexesWithPrebuiltMatrices = None
+
 # Silence Sphinx autodoc warning
 unittest.TestCase.__module__ = "unittest"
 
 
+@unittest.skipUnless(HAVE_MC_COMPLEXATION, "mc_complexation Cython module not built")
 class Test_mc_complexation(unittest.TestCase):
     def test_mccBuildMatrices(self):
         stoichMatrix = np.array(

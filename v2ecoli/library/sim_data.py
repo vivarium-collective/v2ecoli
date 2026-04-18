@@ -675,11 +675,16 @@ class LoadSimData:
                     "cell_dry_mass_fraction": float(self.sim_data.mass.cell_dry_mass_fraction),
                 },
             },
-            "criticalInitiationMass": get_dna_critical_mass(doubling_time),
-            "nutrientToDoublingTime": self.sim_data.nutrient_to_doubling_time,
+            "criticalInitiationMass": unum_to_pint(get_dna_critical_mass(doubling_time)),
+            "nutrientToDoublingTime": {
+                k: unum_to_pint(v)
+                for k, v in self.sim_data.nutrient_to_doubling_time.items()
+            },
             "replichore_lengths": self.sim_data.process.replication.replichore_lengths,
             "sequences": self.sim_data.process.replication.replication_sequences,
-            "polymerized_dntp_weights": self.sim_data.process.replication.replication_monomer_weights,
+            "polymerized_dntp_weights": unum_to_pint(
+                self.sim_data.process.replication.replication_monomer_weights
+            ),
             "replication_coordinate": self.sim_data.process.transcription.rna_data[
                 "replication_coordinate"
             ],
@@ -767,8 +772,8 @@ class LoadSimData:
             "tf_ids": self.sim_data.process.transcription_regulation.tf_ids,
             "rna_ids": self.sim_data.process.transcription.rna_data["id"],
             "delta_prob": self.sim_data.process.transcription_regulation.delta_prob,
-            "n_avogadro": self.sim_data.constants.n_avogadro,
-            "cell_density": self.sim_data.constants.cell_density,
+            "n_avogadro": unum_to_pint(self.sim_data.constants.n_avogadro),
+            "cell_density": unum_to_pint(self.sim_data.constants.cell_density),
             "p_promoter_bound_tf": self.sim_data.process.transcription_regulation.p_promoter_bound_tf,
             "tf_to_tf_type": self.sim_data.process.transcription_regulation.tf_to_tf_type,
             "active_to_bound": self.sim_data.process.transcription_regulation.active_to_bound,
@@ -786,9 +791,9 @@ class LoadSimData:
             "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data[
                 "id"
             ],
-            "bulk_mass_data": self.sim_data.internal_state.bulk_molecules.bulk_data[
+            "bulk_mass_data": unum_to_pint(self.sim_data.internal_state.bulk_molecules.bulk_data[
                 "mass"
-            ],
+            ]),
             "seed": self._seedFromName("TfBinding"),
             "submass_indices": self.submass_indices,
             "emit_unique": self.emit_unique,
@@ -800,8 +805,11 @@ class LoadSimData:
         transcript_initiation_config = {
             "time_step": time_step,
             "fracActiveRnapDict": self.sim_data.process.transcription.rnapFractionActiveDict,
-            "rnaLengths": self.sim_data.process.transcription.rna_data["length"],
-            "rnaPolymeraseElongationRateDict": self.sim_data.process.transcription.rnaPolymeraseElongationRateDict,
+            "rnaLengths": unum_to_pint(self.sim_data.process.transcription.rna_data["length"]),
+            "rnaPolymeraseElongationRateDict": {
+                k: unum_to_pint(v)
+                for k, v in self.sim_data.process.transcription.rnaPolymeraseElongationRateDict.items()
+            },
             "variable_elongation": self.variable_elongation_transcription,
             "make_elongation_rates": {
                 "_function": "transcription.make_elongation_rates",
@@ -811,7 +819,7 @@ class LoadSimData:
                     "stable_RNA_elongation_rate": int(self.sim_data.process.transcription.stable_RNA_elongation_rate),
                 },
             },
-            "active_rnap_footprint_size": self.sim_data.process.transcription.active_rnap_footprint_size,
+            "active_rnap_footprint_size": unum_to_pint(self.sim_data.process.transcription.active_rnap_footprint_size),
             "basal_prob": self.sim_data.process.transcription_regulation.basal_prob,
             "delta_prob": self.sim_data.process.transcription_regulation.delta_prob,
             # Translation layer: vEcoli processes still expect the bound method.
@@ -848,8 +856,8 @@ class LoadSimData:
             "transcription_direction": self.sim_data.process.transcription.rna_data[
                 "is_forward"
             ],
-            "n_avogadro": self.sim_data.constants.n_avogadro,
-            "cell_density": self.sim_data.constants.cell_density,
+            "n_avogadro": unum_to_pint(self.sim_data.constants.n_avogadro),
+            "cell_density": unum_to_pint(self.sim_data.constants.cell_density),
             "inactive_RNAP": "APORNAP-CPLX[c]",
             "ppgpp": self.sim_data.molecule_ids.ppGpp,
             "synth_prob": {
@@ -895,7 +903,10 @@ class LoadSimData:
     def get_transcript_elongation_config(self, time_step=1):
         transcript_elongation_config = {
             "time_step": time_step,
-            "rnaPolymeraseElongationRateDict": self.sim_data.process.transcription.rnaPolymeraseElongationRateDict,
+            "rnaPolymeraseElongationRateDict": {
+                k: unum_to_pint(v)
+                for k, v in self.sim_data.process.transcription.rnaPolymeraseElongationRateDict.items()
+            },
             "rnaIds": self.sim_data.process.transcription.rna_data["id"],
             "rnaLengths": unum_to_pint(self.sim_data.process.transcription.rna_data[
                 "length"
@@ -922,8 +933,8 @@ class LoadSimData:
             # attenuation
             "trna_attenuation": self.trna_attenuation,
             "polymerized_ntps": self.sim_data.molecule_groups.polymerized_ntps,
-            "cell_density": self.sim_data.constants.cell_density,
-            "n_avogadro": self.sim_data.constants.n_avogadro,
+            "cell_density": unum_to_pint(self.sim_data.constants.cell_density),
+            "n_avogadro": unum_to_pint(self.sim_data.constants.n_avogadro),
             "get_attenuation_stop_probabilities": {
                 "_function": "transcription.get_attenuation_stop_probabilities",
                 "_data": {
@@ -966,12 +977,12 @@ class LoadSimData:
             ),
             "all_rna_ids": all_rna_ids,
             "n_total_RNAs": len(all_rna_ids),
-            "n_avogadro": self.sim_data.constants.n_avogadro,
-            "cell_density": self.sim_data.constants.cell_density,
+            "n_avogadro": unum_to_pint(self.sim_data.constants.n_avogadro),
+            "cell_density": unum_to_pint(self.sim_data.constants.cell_density),
             "endoRNase_ids": self.sim_data.process.rna_decay.endoRNase_ids,
             "exoRNase_ids": self.sim_data.molecule_groups.exoRNases,
-            "kcat_exoRNase": self.sim_data.constants.kcat_exoRNase,
-            "Kcat_endoRNases": self.sim_data.process.rna_decay.kcats,
+            "kcat_exoRNase": unum_to_pint(self.sim_data.constants.kcat_exoRNase),
+            "Kcat_endoRNases": unum_to_pint(self.sim_data.process.rna_decay.kcats),
             "charged_trna_names": transcription.charged_trna_names,
             "uncharged_trna_indexes": np.array(
                 [
@@ -1065,7 +1076,10 @@ class LoadSimData:
                 self.sim_data.process.translation.translation_efficiencies_by_monomer
             ),
             "active_ribosome_fraction": self.sim_data.process.translation.ribosomeFractionActiveDict,
-            "elongation_rates": self.sim_data.process.translation.ribosomeElongationRateDict,
+            "elongation_rates": {
+                k: unum_to_pint(v)
+                for k, v in self.sim_data.process.translation.ribosomeElongationRateDict.items()
+            },
             "variable_elongation": self.variable_elongation_translation,
             "make_elongation_rates": {
                 "_function": "translation.make_elongation_rates",
@@ -1078,7 +1092,7 @@ class LoadSimData:
             "rna_id_to_cistron_indexes": self.sim_data.process.transcription.rna_id_to_cistron_indexes,
             "cistron_start_end_pos_in_tu": self.sim_data.process.transcription.cistron_start_end_pos_in_tu,
             "tu_ids": self.sim_data.process.transcription.rna_data["id"],
-            "active_ribosome_footprint_size": self.sim_data.process.translation.active_ribosome_footprint_size,
+            "active_ribosome_footprint_size": unum_to_pint(self.sim_data.process.translation.active_ribosome_footprint_size),
             "cistron_to_monomer_mapping": self.sim_data.relation.cistron_to_monomer_mapping,
             "cistron_tu_mapping_matrix": self.sim_data.process.transcription.cistron_tu_mapping_matrix,
             "monomer_index_to_cistron_index": {
@@ -1118,7 +1132,7 @@ class LoadSimData:
             "translation_supply": self.translation_supply,
             "trna_charging": self.trna_charging,
             # base parameters
-            "n_avogadro": constants.n_avogadro,
+            "n_avogadro": unum_to_pint(constants.n_avogadro),
             "proteinIds": translation.monomer_data["id"],
             "proteinLengths": unum_to_pint(translation.monomer_data["length"]).magnitude,
             "proteinSequences": translation.translation_sequences,
@@ -1137,7 +1151,10 @@ class LoadSimData:
                 unum_to_pint(self.sim_data.growth_rate_parameters.ribosomeElongationRate).to(units.aa / units.s).magnitude
             ),
             # Amino acid supply calculations
-            "translation_aa_supply": self.sim_data.translation_supply_rate,
+            "translation_aa_supply": {
+                k: unum_to_pint(v)
+                for k, v in self.sim_data.translation_supply_rate.items()
+            },
             "import_threshold": self.sim_data.external_state.import_constraint_threshold,
             # Data structures for charging
             "aa_from_trna": transcription.aa_from_trna,
@@ -1155,12 +1172,15 @@ class LoadSimData:
                 ]
             ),
             "basal_elongation_rate": unum_to_pint(self.sim_data.constants.ribosome_elongation_rate_basal).to(units.aa / units.s).magnitude,
-            "ribosomeElongationRateDict": self.sim_data.process.translation.ribosomeElongationRateDict,
+            "ribosomeElongationRateDict": {
+                k: unum_to_pint(v)
+                for k, v in self.sim_data.process.translation.ribosomeElongationRateDict.items()
+            },
             "uncharged_trna_names": self.sim_data.process.transcription.uncharged_trna_names,
             "proton": self.sim_data.molecule_ids.proton,
             "water": self.sim_data.molecule_ids.water,
-            "cellDensity": constants.cell_density,
-            "elongation_max": (
+            "cellDensity": unum_to_pint(constants.cell_density),
+            "elongation_max": unum_to_pint(
                 constants.ribosome_elongation_rate_max
                 if self.variable_elongation_translation
                 else constants.ribosome_elongation_rate_basal
@@ -1400,8 +1420,8 @@ class LoadSimData:
             or getattr(metabolism, "force_constant_ppgpp", False),
             "mechanistic_aa_transport": self.mechanistic_aa_transport,
             # variables
-            "avogadro": self.sim_data.constants.n_avogadro,
-            "cell_density": self.sim_data.constants.cell_density,
+            "avogadro": unum_to_pint(self.sim_data.constants.n_avogadro),
+            "cell_density": unum_to_pint(self.sim_data.constants.cell_density),
             "nutrient_to_doubling_time": self.sim_data.nutrient_to_doubling_time,
             "dark_atp": self.sim_data.constants.darkATP,
             "non_growth_associated_maintenance": self.sim_data.constants.non_growth_associated_maintenance,
@@ -1601,10 +1621,10 @@ class LoadSimData:
                 },
             },
             "exchange_constraints": metabolism.exchange_constraints,  # TODO: last bound method
-            "ngam": self.sim_data.constants.non_growth_associated_maintenance,
-            "avogadro": self.sim_data.constants.n_avogadro,
-            "cell_density": self.sim_data.constants.cell_density,
-            "dark_atp": self.sim_data.constants.darkATP,
+            "ngam": unum_to_pint(self.sim_data.constants.non_growth_associated_maintenance),
+            "avogadro": unum_to_pint(self.sim_data.constants.n_avogadro),
+            "cell_density": unum_to_pint(self.sim_data.constants.cell_density),
+            "dark_atp": unum_to_pint(self.sim_data.constants.darkATP),
             "cell_dry_mass_fraction": self.sim_data.mass.cell_dry_mass_fraction,
             "get_biomass_as_concentrations": {
                 "_function": "mass.get_biomass_as_concentrations",
@@ -1729,7 +1749,10 @@ class LoadSimData:
             "n_avogadro": self.sim_data.constants.n_avogadro,  # 1/mol
             "time_step": time_step,
             "submass_to_idx": self.sim_data.submass_name_to_index,
-            "condition_to_doubling_time": self.sim_data.condition_to_doubling_time,
+            "condition_to_doubling_time": {
+                k: unum_to_pint(v)
+                for k, v in self.sim_data.condition_to_doubling_time.items()
+            },
             "condition": self.sim_data.condition,
             "emit_unique": self.emit_unique,
         }

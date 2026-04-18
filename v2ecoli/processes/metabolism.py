@@ -118,12 +118,12 @@ class Metabolism(Step):
         'aa_names': {'_type': 'list[string]', '_default': []},
         'aa_targets_not_updated': {'_type': 'any', '_default': set()},
         'amino_acid_ids': {'_type': 'map', '_default': {}},
-        'avogadro': {'_type': 'any', '_default': 6.02214076e+23},
+        'avogadro': {'_type': 'quantity[float,1/mol]', '_default': 6.02214076e+23},
         'base_reaction_ids': {'_type': 'list[string]', '_default': []},
-        'cell_density': {'_type': 'any', '_default': 1100.0},
+        'cell_density': {'_type': 'quantity[g/L]', '_default': 1100.0},
         'cell_dry_mass_fraction': {'_type': 'float', '_default': 0.3},
-        'dark_atp': {'_type': 'any', '_default': 33.565052868380675},
-        'doubling_time': {'_type': 'any', '_default': 44.0},
+        'dark_atp': {'_type': 'quantity[float,mmol/g]', '_default': 33.565052868380675},
+        'doubling_time': {'_type': 'quantity[float,min]', '_default': 44.0},
         'exchange_data_from_media': {'_type': 'method', '_default': None},
         'exchange_molecules': {'_type': 'list[string]', '_default': []},
         'fba_reaction_ids_to_base_reaction_ids': {'_type': 'list[string]', '_default': []},
@@ -137,8 +137,8 @@ class Metabolism(Step):
         'mechanistic_aa_transport': {'_type': 'boolean', '_default': False},
         'media_id': {'_type': 'string', '_default': 'minimal'},
         'metabolism': {'_type': 'any', '_default': None},
-        'ngam': {'_type': 'any', '_default': 8.39},
-        'nutrientToDoublingTime': {'_type': 'map[float]', '_default': {}},
+        'ngam': {'_type': 'quantity[float,mmol/g/h]', '_default': 8.39},
+        'nutrientToDoublingTime': {'_type': 'map[quantity[float,min]]', '_default': {}},
         'ppgpp_id': {'_type': 'string', '_default': 'ppgpp'},
         'removed_aa_uptake': {'_type': 'list[string]', '_default': []},
         'seed': {'_type': 'integer', '_default': 0},
@@ -252,9 +252,8 @@ class Metabolism(Step):
             include_ppgpp=self.include_ppgpp,
         )
 
-        # Save constants (cache values still arrive as Unum)
-        self.nAvogadro = unum_to_pint(self.parameters["avogadro"])
-        self.cellDensity = unum_to_pint(self.parameters["cell_density"])
+        self.nAvogadro = self.parameters["avogadro"]
+        self.cellDensity = self.parameters["cell_density"]
 
         # Track updated AA concentration targets with tRNA charging
         self.aa_targets = {}
@@ -669,8 +668,8 @@ class FluxBalanceAnalysisModel(object):
         self.maintenance_reaction = metabolism.maintenance_reaction
 
         # Load constants
-        self.ngam = unum_to_pint(parameters["ngam"])
-        gam = unum_to_pint(parameters["dark_atp"]) * parameters["cell_dry_mass_fraction"]
+        self.ngam = parameters["ngam"]
+        gam = parameters["dark_atp"] * parameters["cell_dry_mass_fraction"]
 
         self.exchange_constraints = metabolism.exchange_constraints
 
@@ -788,7 +787,7 @@ class FluxBalanceAnalysisModel(object):
             # The "inconvenient constant"--limit secretion (e.g., of CO2)
             "secretionPenaltyCoeff": metabolism.secretion_penalty_coeff,
             "solver": solver,
-            "maintenanceCostGAM": unum_to_pint(gam).to(COUNTS_UNITS / MASS_UNITS).magnitude,
+            "maintenanceCostGAM": gam.to(COUNTS_UNITS / MASS_UNITS).magnitude,
             "maintenanceReaction": metabolism.maintenance_reaction,
         }
         self.fba = FluxBalanceAnalysis(**fba_options)

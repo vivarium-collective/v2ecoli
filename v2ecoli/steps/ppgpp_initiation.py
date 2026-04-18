@@ -11,7 +11,6 @@ to media-dependent defaults (environment-dependent rescaling).
 
 import numpy as np
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema import bulk_name_to_idx, counts
@@ -58,8 +57,8 @@ class PpgppInitiation(Step):
         self.ppgpp = self.parameters["ppgpp"]
         self.synth_prob = self.parameters["synth_prob"]
         self.copy_number = self.parameters["copy_number"]
-        self.n_avogadro = unum_to_pint(self.parameters["n_avogadro"])
-        self.cell_density = unum_to_pint(self.parameters["cell_density"])
+        self.n_avogadro = self.parameters["n_avogadro"]
+        self.cell_density = self.parameters["cell_density"]
 
         # Prefer inline Hill function if its parameters are supplied;
         # fall back to the legacy callable otherwise.
@@ -106,10 +105,9 @@ class PpgppInitiation(Step):
         counts_to_molar = 1 / (self.n_avogadro * cell_volume)
         ppgpp_conc = counts(states["bulk"], self.ppgpp_idx) * counts_to_molar
 
-        # synth_prob and get_rnap_active_fraction_from_ppGpp are upstream
-        # Unum-native callables; convert at the boundary.
-        from v2ecoli.library.unit_bridge import pint_to_unum
-        basal_prob, _ = self.synth_prob(pint_to_unum(ppgpp_conc), self.copy_number)
+        # synth_prob and get_rnap_active_fraction_from_ppGpp are the
+        # function-registry wrappers, which accept pint directly.
+        basal_prob, _ = self.synth_prob(ppgpp_conc, self.copy_number)
 
         if self.trna_attenuation:
             basal_prob[self.attenuated_rna_indices] += self.attenuation_adjustments
@@ -118,7 +116,7 @@ class PpgppInitiation(Step):
         # frac_active = f_bound * frac_bound + (1 - f_bound) * frac_free
         if self.get_rnap_active_fraction_from_ppGpp is not None:
             frac_active_rnap = float(
-                self.get_rnap_active_fraction_from_ppGpp(pint_to_unum(ppgpp_conc)))
+                self.get_rnap_active_fraction_from_ppGpp(ppgpp_conc))
         else:
             ppgpp_val = ppgpp_conc.to(units.umol / units.L).magnitude
             f_bound = ppgpp_val ** 2 / (self._km_sq + ppgpp_val ** 2)

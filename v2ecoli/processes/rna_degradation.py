@@ -60,7 +60,6 @@ from v2ecoli.library.schema import (
 )
 
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
 
 # topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
@@ -85,10 +84,10 @@ class RnaDegradation(PartitionedProcess):
     topology = TOPOLOGY
 
     config_schema = {
-        'Kcat_endoRNases': {'_type': 'any', '_default': np.array([], dtype=float)},
-        'Kms': {'_type': 'any', '_default': np.array([], dtype=float)},
+        'Kcat_endoRNases': {'_type': 'quantity[array[float],1/s]', '_default': np.array([], dtype=float)},
+        'Kms': {'_type': 'quantity[array[float],mol/L]', '_default': np.array([], dtype=float)},
         'all_rna_ids': {'_type': 'list[string]', '_default': []},
-        'cell_density': {'_type': 'any', '_default': 1100.0},
+        'cell_density': {'_type': 'quantity[g/L]', '_default': 1100.0},
         'charged_trna_names': {'_type': 'list[string]', '_default': []},
         'cistron_ids': {'_type': 'list[string]', '_default': []},
         'cistron_tu_mapping_matrix': {'_type': 'csr_matrix', '_default': []},
@@ -100,10 +99,10 @@ class RnaDegradation(PartitionedProcess):
         'is_miscRNA': {'_type': 'array[boolean]', '_default': np.array([], dtype=float)},
         'is_rRNA': {'_type': 'array[boolean]', '_default': np.array([], dtype=float)},
         'is_tRNA': {'_type': 'array[boolean]', '_default': np.array([], dtype=float)},
-        'kcat_exoRNase': {'_type': 'any', '_default': np.array([], dtype=float)},
+        'kcat_exoRNase': {'_type': 'quantity[float,1/s]', '_default': np.array([], dtype=float)},
         'mature_rna_cistron_indexes': {'_type': 'array[integer]', '_default': []},
         'mature_rna_ids': {'_type': 'list[string]', '_default': []},
-        'n_avogadro': {'_type': 'float[1/mol]', '_default': 0.0},
+        'n_avogadro': {'_type': 'quantity[float,1/mol]', '_default': 0.0},
         'n_total_RNAs': {'_type': 'integer', '_default': 0},
         'nmp_ids': {'_type': 'list[string]', '_default': []},
         'nt_counts': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
@@ -112,7 +111,7 @@ class RnaDegradation(PartitionedProcess):
         'proton_id': {'_type': 'string', '_default': 'h+'},
         'ribosome30S': {'_type': 'string', '_default': 'ribosome30S'},
         'ribosome50S': {'_type': 'string', '_default': 'ribosome50S'},
-        'rna_deg_rates': {'_type': 'any', '_default': []},
+        'rna_deg_rates': {'_type': 'quantity[array[float],1/s]', '_default': []},
         'rna_ids': {'_type': 'list[string]', '_default': []},
         'rna_lengths': {'_type': 'array[integer[nt]]', '_default': np.array([], dtype=float)},
         'rrfa_idx': {'_type': 'integer', '_default': 0},
@@ -167,14 +166,14 @@ class RnaDegradation(PartitionedProcess):
         self.n_total_RNAs = self.parameters["n_total_RNAs"]
 
         # Load constants
-        self.n_avogadro = unum_to_pint(self.parameters["n_avogadro"])
-        self.cell_density = unum_to_pint(self.parameters["cell_density"])
+        self.n_avogadro = self.parameters["n_avogadro"]
+        self.cell_density = self.parameters["cell_density"]
 
         # Load RNase kinetic data
         self.endoRNase_ids = self.parameters["endoRNase_ids"]
         self.exoRNase_ids = self.parameters["exoRNase_ids"]
-        self.kcat_exoRNase = unum_to_pint(self.parameters["kcat_exoRNase"])
-        self.Kcat_endoRNases = unum_to_pint(self.parameters["Kcat_endoRNases"])
+        self.kcat_exoRNase = self.parameters["kcat_exoRNase"]
+        self.Kcat_endoRNases = self.parameters["Kcat_endoRNases"]
 
         # Load information about uncharged/charged tRNA
         self.uncharged_trna_indexes = self.parameters["uncharged_trna_indexes"]
@@ -182,7 +181,7 @@ class RnaDegradation(PartitionedProcess):
 
         # Load first-order RNA degradation rates
         # (estimated by mRNA half-life data)
-        self.rna_deg_rates = unum_to_pint(self.parameters["rna_deg_rates"])
+        self.rna_deg_rates = self.parameters["rna_deg_rates"]
 
         self.is_mRNA = self.parameters["is_mRNA"]
         self.is_rRNA = self.parameters["is_rRNA"]
@@ -221,7 +220,7 @@ class RnaDegradation(PartitionedProcess):
 
         # Load Michaelis-Menten constants fitted to recapitulate
         # first-order RNA decay model
-        self.Kms = unum_to_pint(self.parameters["Kms"])
+        self.Kms = self.parameters["Kms"]
 
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)

@@ -15,7 +15,6 @@ from v2ecoli.steps.base import V2Step
 from v2ecoli.types.stores import InPlaceDict
 from v2ecoli.library.schema import attrs
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
 
 
 def daughter_phylogeny_id(mother_id):
@@ -136,7 +135,7 @@ class Division(V2Step):
                 return {
                     "division_threshold": (
                         dry_mass
-                        + unum_to_pint(dry_mass_inc).to(units.fg).magnitude
+                        + dry_mass_inc.to(units.fg).magnitude
                         * self.division_mass_multiplier
                     )
                 }

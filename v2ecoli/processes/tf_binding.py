@@ -58,7 +58,6 @@ from v2ecoli.library.schema_types import PROMOTER_ARRAY
 
 from wholecell.utils.random import stochasticRound
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
 
 # topology_registry removed
 
@@ -85,13 +84,13 @@ class TfBinding(Step):
     config_schema = {
         'active_to_bound': 'map[string]',
         'active_to_inactive_tf': 'map[string]',
-        'bulk_mass_data': 'any',
+        'bulk_mass_data': 'quantity[array[float],g/mol]',
         'bulk_molecule_ids': 'list[string]',
-        'cell_density': {'_type': 'any', '_default': 1100},
+        'cell_density': {'_type': 'quantity[float,g/L]', '_default': 1100},
         'delta_prob': {'_type': 'node', '_default': {}},
         'emit_unique': {'_type': 'boolean', '_default': False},
         'get_unbound': 'method',
-        'n_avogadro': {'_type': 'any', '_default': 6.022141e+23},
+        'n_avogadro': {'_type': 'quantity[float,1/mol]', '_default': 6.022141e+23},
         'p_promoter_bound_tf': 'method',
         'rna_ids': 'list[string]',
         'seed': {'_type': 'integer', '_default': 0},
@@ -185,8 +184,7 @@ class TfBinding(Step):
             elif self.tf_to_tf_type[tf] == "2CS":
                 self.inactive_tfs[tf] = self.active_to_inactive_tf[tf + "[c]"]
 
-        self.bulk_mass_data = unum_to_pint(self.parameters["bulk_mass_data"])
-        self.n_avogadro = unum_to_pint(self.n_avogadro)
+        self.bulk_mass_data = self.parameters["bulk_mass_data"]
 
         # Build array of active TF masses
         self.bulk_molecule_ids = self.parameters["bulk_molecule_ids"]

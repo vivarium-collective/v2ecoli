@@ -341,7 +341,7 @@ def _resolve_listener_map(current: ListenerStore, update: _Map, path=None):
     return update
 
 ECOLI_TYPES = {
-    'quantity': _BSQuantity,
+    'quantity': Quantity,
     'csr_matrix': CSRMatrix,
     'units_array': UnitsArray,
     'method': Method,

@@ -146,13 +146,13 @@ def _run_generation(
         try:
             composite.run(chunk)
         except Exception as e:
-            total_run += chunk
             err_str = str(e)
             if (
                 "divide" in err_str.lower()
                 or "_add" in err_str
                 or "_remove" in err_str
             ):
+                total_run += chunk
                 divided = True
                 break
             # Post-add realize errors (e.g. growth_limits Array) fire after
@@ -161,13 +161,7 @@ def _run_generation(
             if composite.state.get("agents", {}).get("0") is None:
                 divided = True
                 break
-            import traceback
-            print(
-                f"    gen {gen_idx} warning at t={total_run:.0f}: "
-                f"{type(e).__name__}: {err_str[:200]}"
-            )
-            traceback.print_exc()
-            continue
+            raise
         total_run += chunk
 
         cur_cell = composite.state.get("agents", {}).get("0")

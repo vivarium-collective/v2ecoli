@@ -61,7 +61,6 @@ from v2ecoli.library.schema import (
 )
 
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
 from wholecell.utils.random import stochasticRound
 from wholecell.utils.unit_struct_array import UnitStructArray
 
@@ -179,11 +178,11 @@ class TranscriptInitiation(Step):
 
     config_schema = {
         'active_rnap_foorprint_size': {'_type': 'integer', '_default': 1},
-        'active_rnap_footprint_size': {'_type': 'any', '_default': 24.0},
+        'active_rnap_footprint_size': {'_type': 'quantity[nt]', '_default': 24.0},
         'attenuated_rna_indices': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'attenuation_adjustments': {'_type': 'array[float]', '_default': np.array([], dtype=float)},
         'basal_prob': {'_type': 'array[float]', '_default': np.array([], dtype=float)},
-        'cell_density': {'_type': 'any', '_default': 1100.0},
+        'cell_density': {'_type': 'quantity[g/L]', '_default': 1100.0},
         'copy_number': {'_type': 'array[integer]', '_default': None},
         'delta_prob': {'_type': 'map[node]', '_default': {}},
         'emit_unique': {'_type': 'boolean', '_default': False},
@@ -197,13 +196,13 @@ class TranscriptInitiation(Step):
         'idx_tRNA': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'inactive_RNAP': {'_type': 'string', '_default': 'APORNAP-CPLX[c]'},
         'make_elongation_rates': {'_type': 'method', '_default': None},
-        'n_avogadro': {'_type': 'any', '_default': 6.02214076e+23},
+        'n_avogadro': {'_type': 'quantity[float,1/mol]', '_default': 6.02214076e+23},
         'perturbations': {'_type': 'map[node]', '_default': {}},
         'ppgpp': {'_type': 'string', '_default': 'ppGpp'},
         'ppgpp_regulation': {'_type': 'boolean', '_default': False},
         'replication_coordinate': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
-        'rnaLengths': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
-        'rnaPolymeraseElongationRateDict': {'_type': 'map[float]', '_default': {}},
+        'rnaLengths': {'_type': 'quantity[array[integer],nt]', '_default': np.array([], dtype=float)},
+        'rnaPolymeraseElongationRateDict': {'_type': 'map[quantity[float,nucleotide/s]]', '_default': {}},
         'rnaSynthProbFractions': {'_type': 'map[float]', '_default': {}},
         'rnaSynthProbRProtein': {'_type': 'map[float]', '_default': {}},
         'rnaSynthProbRnaPolymerase': {'_type': 'map[float]', '_default': {}},
@@ -260,13 +259,13 @@ class TranscriptInitiation(Step):
 
         # Load parameters
         self.fracActiveRnapDict = self.parameters["fracActiveRnapDict"]
-        self.rnaLengths = unum_to_pint(self.parameters["rnaLengths"])
+        self.rnaLengths = self.parameters["rnaLengths"]
         self.rnaPolymeraseElongationRateDict = self.parameters[
             "rnaPolymeraseElongationRateDict"
         ]
         self.variable_elongation = self.parameters["variable_elongation"]
         self.make_elongation_rates = self.parameters["make_elongation_rates"]
-        self.active_rnap_footprint_size = unum_to_pint(self.parameters["active_rnap_footprint_size"])
+        self.active_rnap_footprint_size = self.parameters["active_rnap_footprint_size"]
 
         # Initialize matrices used to calculate synthesis probabilities
         self.basal_prob = self.parameters["basal_prob"].copy()
@@ -481,9 +480,9 @@ class TranscriptInitiation(Step):
                 states["promoters"]["_entryState"].sum()
             )
 
-        self.rnaPolymeraseElongationRate = unum_to_pint(
-            self.rnaPolymeraseElongationRateDict[current_media_id]
-        )
+        self.rnaPolymeraseElongationRate = self.rnaPolymeraseElongationRateDict[
+            current_media_id
+        ]
         self.elongation_rates = self.make_elongation_rates(
             self.random_state,
             self.rnaPolymeraseElongationRate.to(units.nt / units.s).magnitude,

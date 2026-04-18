@@ -61,7 +61,6 @@ from v2ecoli.library.schema import (
 )
 
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
 from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
 
 # topology_registry removed
@@ -102,15 +101,15 @@ class ChromosomeReplication(Step):
     config_schema = {
         'D_period': {'_type': 'any', '_default': np.array([], dtype=float)},
         'basal_elongation_rate': {'_type': 'integer[nt/s]', '_default': 967},
-        'criticalInitiationMass': {'_type': 'any', '_default': 975.0},
+        'criticalInitiationMass': {'_type': 'quantity[fg]', '_default': 975.0},
         'dntps': {'_type': 'list[string]', '_default': []},
         'emit_unique': {'_type': 'boolean', '_default': False},
         'get_dna_critical_mass': {'_type': 'method', '_default': None},
         'make_elongation_rates': {'_type': 'method', '_default': None},
         'mechanistic_replisome': {'_type': 'boolean', '_default': True},
         'no_child_place_holder': {'_type': 'integer', '_default': -1},
-        'nutrientToDoublingTime': {'_type': 'map[float]', '_default': {}},
-        'polymerized_dntp_weights': {'_type': 'any', '_default': []},
+        'nutrientToDoublingTime': {'_type': 'map[quantity[float,min]]', '_default': {}},
+        'polymerized_dntp_weights': {'_type': 'quantity[array[float],fg]', '_default': []},
         'ppi': {'_type': 'list[string]', '_default': []},
         'replication_coordinate': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'replichore_lengths': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
@@ -163,11 +162,11 @@ class ChromosomeReplication(Step):
 
         # Load parameters
         self.get_dna_critical_mass = self.parameters["get_dna_critical_mass"]
-        self.criticalInitiationMass = unum_to_pint(self.parameters["criticalInitiationMass"])
+        self.criticalInitiationMass = self.parameters["criticalInitiationMass"]
         self.nutrientToDoublingTime = self.parameters["nutrientToDoublingTime"]
         self.replichore_lengths = self.parameters["replichore_lengths"]
         self.sequences = self.parameters["sequences"]
-        self.polymerized_dntp_weights = unum_to_pint(self.parameters["polymerized_dntp_weights"])
+        self.polymerized_dntp_weights = self.parameters["polymerized_dntp_weights"]
         self.replication_coordinate = self.parameters["replication_coordinate"]
         self.D_period = self.parameters["D_period"]
         self.replisome_protein_mass = self.parameters["replisome_protein_mass"]
@@ -221,11 +220,9 @@ class ChromosomeReplication(Step):
 
         # Get critical initiation mass for current simulation environment
         current_media_id = states["environment"]["media_id"]
-        # get_dna_critical_mass is upstream Unum-native; nutrientToDoublingTime
-        # values are still Unum (loaded from cache).
-        self.criticalInitiationMass = unum_to_pint(self.get_dna_critical_mass(
+        self.criticalInitiationMass = self.get_dna_critical_mass(
             self.nutrientToDoublingTime[current_media_id]
-        ))
+        )
 
         # Calculate mass per origin of replication, and compare to critical
         # initiation mass. If the cell mass has reached this critical mass,

@@ -1,7 +1,7 @@
 """
 v2ecoli Workflow Testing Framework
 
-Step-based pipeline that caches intermediate states, replacing benchmark.py.
+Step-based pipeline that caches intermediate states, replacing benchmark_report.py.
 Each step checks for cached metadata before executing, enabling incremental
 development and fast re-runs.
 

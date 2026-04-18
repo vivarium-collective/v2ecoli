@@ -6,6 +6,9 @@ process-bigraph's Step/Process (config, core=) without importing
 vivarium-core.
 """
 
+import os
+
+import dill
 from process_bigraph import Step, Process
 
 
@@ -38,8 +41,6 @@ def _defaults_from_schema(config_schema):
 
 def _load_pickle(name):
     """Load a pickle from the library directory."""
-    import os
-    import dill
     path = os.path.join(os.path.dirname(__file__), name)
     if os.path.exists(path):
         with open(path, 'rb') as f:
@@ -144,8 +145,33 @@ class EcoliStep(Step):
         """Auto-extract ``_default`` values from ``inputs()``."""
         return _extract_defaults(self.inputs())
 
+    def perform_update(self, state):
+        """Gate for step execution. Return True to run, False to skip.
+
+        Default behavior: if a subclass defines the legacy
+        `update_condition(self, timestep, states)` method (11+
+        listeners still do), delegate to it — vEcoli's v1 gate was
+        dead code in v2ecoli until this commit because `invoke` never
+        consulted it. Otherwise always run. Override directly for
+        custom gating on any port value.
+
+        Ported from upstream vEcoli composite-branch commit 35003119;
+        the method name differs from v1's `update_condition` to avoid
+        collision on classes that might dual-inherit from both the v1
+        and v2 stacks.
+        """
+        for klass in type(self).__mro__:
+            if klass is EcoliStep:
+                break
+            if 'update_condition' in klass.__dict__:
+                timestep = state.get('timestep', 1)
+                return klass.__dict__['update_condition'](self, timestep, state)
+        return True
+
     def invoke(self, state, interval=None):
         from process_bigraph.composite import SyncUpdate
+        if not self.perform_update(state):
+            return SyncUpdate({})
         update = self.update(state, interval)
         return SyncUpdate(update)
 

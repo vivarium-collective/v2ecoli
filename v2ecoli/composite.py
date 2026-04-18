@@ -19,8 +19,8 @@ from process_bigraph import Composite
 
 from v2ecoli.types import ECOLI_TYPES
 from v2ecoli.cache import load_initial_state, save_initial_state, save_json
-from v2ecoli.library.cache_version import (
-    StaleCacheError,  # re-exported for callers that want to catch it
+from v2ecoli.library.cache_version import (  # noqa: F401 StaleCacheError is re-exported
+    StaleCacheError,
     verify_cache_version,
     write_cache_version,
 )

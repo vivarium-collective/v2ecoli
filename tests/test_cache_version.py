@@ -21,7 +21,6 @@ from __future__ import annotations
 import json
 import os
 import shutil
-import tempfile
 
 import dill
 import pint
@@ -32,12 +31,10 @@ import pytest
 import v2ecoli.library.unit_bridge  # noqa: F401
 from v2ecoli.library.cache_version import (
     CACHE_VERSION_FILENAME,
-    CacheVersion,
     StaleCacheError,
     compute_cache_version,
     read_cache_version,
     verify_cache_version,
-    write_cache_version,
 )
 
 

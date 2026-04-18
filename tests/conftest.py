@@ -76,9 +76,11 @@ def predivision_state():
     ]
     path = next((p for p in candidates if os.path.exists(p)), None)
     if path is None:
-        pytest.skip(
-            f'pre-division checkpoint not found. Tried: {candidates}. '
-            f'Run `python reports/workflow_report.py` or set V2ECOLI_PREDIV_CHECKPOINT_DIR.')
+        msg = (f'pre-division checkpoint not found. Tried: {candidates}. '
+               f'Run `python reports/workflow_report.py` or set V2ECOLI_PREDIV_CHECKPOINT_DIR.')
+        # Blessed fixture is committed; absence on CI signals a broken
+        # workflow (checkout failure, LFS miss, etc.) — don't hide it.
+        (pytest.fail if os.environ.get('CI') else pytest.skip)(msg)
     from v2ecoli.cache import load_initial_state
     return load_initial_state(path)
 

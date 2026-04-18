@@ -29,7 +29,7 @@ import dill
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from v2ecoli.composite import save_cache
-from v2ecoli.library.cache_version import compute_cache_version, write_cache_version
+from v2ecoli.library.cache_version import write_cache_version
 from v2ecoli.processes.parca.data_loader import (
     hydrate_sim_data_from_state, load_parca_state,
 )

@@ -191,10 +191,10 @@ python3 reports/colony_report.py --duration 45 --n-adder 5
 python3 reports/compare_report.py
 
 # Benchmark comparison
-python3 benchmark.py
+python3 reports/benchmark_report.py
 
 # Three-way comparison (vEcoli 1.0, vEcoli 2.0, v2ecoli)
-python3 compare_v1_v2.py --duration 2500
+python3 reports/v1_v2_report.py --duration 2500
 ```
 
 ## Dependencies
@@ -222,9 +222,9 @@ v2ecoli/
 │   ├── multigeneration_report.py # N-generation single lineage report
 │   ├── colony_report.py          # colony simulation report
 │   ├── compare_report.py         # partitioned vs departitioned comparison
-│   └── network_report.py         # per-architecture Cytoscape diagram
-├── benchmark.py            # v2ecoli vs vEcoli benchmark
-├── compare_v1_v2.py        # three-way engine comparison
+│   ├── network_report.py         # per-architecture Cytoscape diagram
+│   ├── benchmark_report.py       # v2ecoli vs vEcoli benchmark
+│   └── v1_v2_report.py           # three-way engine comparison
 ├── models/
 │   └── partitioned.pbg     # serialized model document
 └── docs/                   # GitHub Pages reports

@@ -88,7 +88,8 @@ touches processes, steps, or composite wiring.
   vs reconciled, 42-min side-by-side.
 - `reports/network_report.py` → `network_*.html` — per-architecture Cytoscape
   topology. Click a process to see ports, schemas, config, docstring, math.
-- `compare_v1_v2.py` → `v1_v2_comparison.html` — vEcoli 1.0 vs 2.0 vs v2ecoli.
+- `reports/v1_v2_report.py` → `v1_v2_comparison.html` — vEcoli 1.0 vs 2.0 vs v2ecoli.
+- `reports/benchmark_report.py` — v2ecoli vs vEcoli composite subprocess benchmark.
 
 Published at https://vivarium-collective.github.io/v2ecoli/.
 

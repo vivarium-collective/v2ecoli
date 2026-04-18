@@ -7,6 +7,14 @@ from bigraph_schema.methods import infer, set_default, default, realize, render,
 from bigraph_schema.methods.serialize import serialize
 from bigraph_schema.methods.handle_parameters import align_parameters
 
+# bigraph-schema 1.1.2+ ships its own Quantity in BASE_TYPES. Subclass it
+# when present so v2ecoli's parameterized version passes isinstance checks
+# against the upstream type and resolves cleanly during register_types.
+try:
+    from bigraph_schema.schema import Quantity as _BaseQuantity
+except ImportError:
+    _BaseQuantity = Node
+
 import pint
 # Share bigraph-schema's UnitRegistry so v2ecoli, bigraph-schema, and
 # anything else on the bigraph stack use the same registry — and
@@ -23,7 +31,7 @@ from bigraph_schema.units import units as ureg
 pint.set_application_registry(ureg)
 
 @dataclass(kw_only=True)
-class Quantity(Node):
+class Quantity(_BaseQuantity):
     """Pint-backed unit-bearing schema.
 
     Supports parameterized string syntax ``quantity[<magnitude>,<unit>]``
@@ -39,7 +47,7 @@ class Quantity(Node):
     (via :func:`infer`), while a declared string populates ``_units``
     (via :func:`align_parameters` + :func:`reify_schema`).
     """
-    _schema_keys = Node._schema_keys | frozenset({'_units'})
+    _schema_keys = _BaseQuantity._schema_keys | frozenset({'_units'})
     units: typing.Dict = field(default_factory=dict)
     magnitude: Node = field(default_factory=lambda: Float())
     _units: str = ''
@@ -98,6 +106,22 @@ def resolve(schema: Integer, update: Array, path=()):
 def resolve(schema: Quantity, update: Quantity, path=()):
     if schema.units == update.units:
         # TODO: transfer default?
+        return update
+
+
+if _BaseQuantity is not Node:
+    @resolve.dispatch
+    def _resolve_quantity_classes(
+        schema: typing.Type[_BaseQuantity],
+        update: typing.Type['Quantity'],
+        path=(),
+    ):
+        # Core.update_type passes the stored class and the new class
+        # (not instances) to resolve. bigraph-schema 1.1.2+ seeds
+        # BASE_TYPES['quantity'] with its own Quantity class, so our
+        # register_types(ECOLI_TYPES) call hits this path. The v2ecoli
+        # subclass extends the upstream one (adds `_units` and the
+        # parameterized `quantity[...]` form) — supersede with `update`.
         return update
 
 @resolve.dispatch

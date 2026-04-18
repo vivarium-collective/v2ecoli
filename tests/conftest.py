@@ -111,8 +111,33 @@ def sim_data_cache():
     simulation save state. The save-state format policy does not apply to
     it — ParCa outputs are compiled parameter objects produced once and
     reused across runs.
+
+    Behavior when the cache is missing or stale:
+      - Under CI (``CI`` env var truthy): pytest.fail with a rebuild
+        command. A silent skip here means every sim-touching test is
+        silently no-op'd on the PR, which is exactly how pre-existing
+        breakage (e.g. the unum→pint migration) escaped review.
+      - Locally: pytest.skip with the same rebuild message, so a
+        developer without a cache can still run fast tests.
     """
+    from v2ecoli.library.cache_version import (
+        StaleCacheError, verify_cache_version,
+    )
+
     cache_dir = os.environ.get('V2ECOLI_CACHE_DIR', 'out/cache')
+    on_ci = bool(os.environ.get('CI'))
+
+    rebuild_msg = (
+        f'cache dir {cache_dir!r} not present. Rebuild with:\n'
+        f'    python scripts/build_cache.py'
+    )
+
     if not os.path.isdir(cache_dir):
-        pytest.skip(f'cache dir {cache_dir!r} not present (run ParCa first)')
+        (pytest.fail if on_ci else pytest.skip)(rebuild_msg)
+
+    try:
+        verify_cache_version(cache_dir)
+    except StaleCacheError as exc:
+        (pytest.fail if on_ci else pytest.skip)(str(exc))
+
     return cache_dir

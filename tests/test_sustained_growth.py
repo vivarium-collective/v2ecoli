@@ -22,10 +22,14 @@ import pytest
 
 CACHE_DIR = 'out/cache'
 
-pytestmark = pytest.mark.skipif(
-    not os.path.isdir(CACHE_DIR),
-    reason=f'cache dir {CACHE_DIR!r} not present (run scripts/cache_predivision.py)',
-)
+pytestmark = [
+    pytest.mark.sim,
+    pytest.mark.skipif(
+        not os.path.isdir(CACHE_DIR) and not os.environ.get('CI'),
+        reason=f'cache dir {CACHE_DIR!r} not present; '
+               f'rebuild with `python scripts/build_cache.py`',
+    ),
+]
 
 
 def _dry_mass(composite):

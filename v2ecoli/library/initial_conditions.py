@@ -671,18 +671,28 @@ def initialize_replication(
     if n_replisome != 0:
         # Update mass of replisomes if the mechanistic replisome option is set
         if mechanistic_replisome:
+            # ``get_submass_array`` returns a pint Quantity in g/mol; we need
+            # fg/count. Pint can't bridge mol→count directly (the shared
+            # registry has ``count`` as dimensionless, so [substance] never
+            # reaches it), so apply Avogadro here: q[g/mol] * mol / N_A → g,
+            # which then converts cleanly to fg/count (count drops out as
+            # dimensionless). Upstream Unum did this implicitly; we keep
+            # the conversion local to this call site rather than enabling
+            # a global mol↔count context that would affect every conversion.
+            _N_A = 6.02214076e23
             _fg_per_count = units.fg / units.count
+            def _to_fg_per_count(mol_id):
+                q = unum_to_pint(sim_data.getter.get_submass_array(mol_id))
+                return (q * units.mol / _N_A).to(_fg_per_count).magnitude
             replisome_trimer_subunit_masses = np.vstack(
                 [
-                    unum_to_pint(sim_data.getter.get_submass_array(x))
-                    .to(_fg_per_count).magnitude
+                    _to_fg_per_count(x)
                     for x in sim_data.molecule_groups.replisome_trimer_subunits
                 ]
             )
             replisome_monomer_subunit_masses = np.vstack(
                 [
-                    unum_to_pint(sim_data.getter.get_submass_array(x))
-                    .to(_fg_per_count).magnitude
+                    _to_fg_per_count(x)
                     for x in sim_data.molecule_groups.replisome_monomer_subunits
                 ]
             )

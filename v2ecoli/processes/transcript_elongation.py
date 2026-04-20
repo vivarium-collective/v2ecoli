@@ -54,7 +54,6 @@ import warnings
 from wholecell.utils.random import stochasticRound
 from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
 
 from v2ecoli.library.schema import (
     counts,
@@ -125,7 +124,7 @@ class TranscriptElongation(PartitionedProcess):
 
     config_schema = {
         'attenuated_rna_indices': {'_type': 'array[integer]', '_default': np.array([], dtype=int)},
-        'cell_density': {'_type': 'any', '_default': 1100.0},
+        'cell_density': {'_type': 'quantity[g/L]', '_default': 1100.0},
         'charged_trnas': {'_type': 'list[string]', '_default': []},
         'emit_unique': {'_type': 'boolean', '_default': False},
         'endWeight': {'_type': 'array[float]', '_default': np.array([], dtype=float)},
@@ -135,7 +134,7 @@ class TranscriptElongation(PartitionedProcess):
         'is_mRNA': {'_type': 'array[boolean]', '_default': np.array([], dtype=float)},
         'location_lookup': {'_type': 'map[node]', '_default': {}},
         'make_elongation_rates': {'_type': 'method', '_default': None},
-        'n_avogadro': {'_type': 'any', '_default': 6.02214076e+23},
+        'n_avogadro': {'_type': 'quantity[float,1/mol]', '_default': 6.02214076e+23},
         'n_fragment_bases': {'_type': 'integer', '_default': 0},
         'ntWeights': {'_type': 'array[float]', '_default': np.array([], dtype=float)},
         'ntp_ids': {'_type': 'list[string]', '_default': []},
@@ -145,7 +144,7 @@ class TranscriptElongation(PartitionedProcess):
         'replichore_lengths': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'rnaIds': {'_type': 'list[string]', '_default': []},
         'rnaLengths': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
-        'rnaPolymeraseElongationRateDict': {'_type': 'map[float]', '_default': {}},
+        'rnaPolymeraseElongationRateDict': {'_type': 'map[quantity[float,nucleotide/s]]', '_default': {}},
         'rnaSequences': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'seed': {'_type': 'integer', '_default': 0},
         'submass_indices': {'_type': 'map[integer]', '_default': {}},
@@ -300,9 +299,9 @@ class TranscriptElongation(PartitionedProcess):
         # Calculate elongation rate based on the current media
         current_media_id = states["environment"]["media_id"]
 
-        self.rnapElongationRate = unum_to_pint(
-            self.rnaPolymeraseElongationRateDict[current_media_id]
-        ).to(units.nt / units.s).magnitude
+        self.rnapElongationRate = self.rnaPolymeraseElongationRateDict[
+            current_media_id
+        ].to(units.nt / units.s).magnitude
 
         self.elongation_rates = self.make_elongation_rates(
             self.random_state,

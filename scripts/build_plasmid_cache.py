@@ -92,6 +92,25 @@ def main() -> None:
     parser.add_argument('--cache-dir', default='out/cache_plasmid',
         help='Output directory for the online-sim cache.')
     parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--mechanistic-replisome', action='store_true',
+        help='Build a cache that gates chromosome AND plasmid replication '
+             'on full replisome subunit availability (DnaG, pol III core, '
+             'β-clamp, DnaB, HolA at 2-per-oriC etc.). Off by default — '
+             'use to reproduce the vEcoli DnaG-depletion lineage-collapse '
+             'investigation in v2ecoli.')
+    parser.add_argument('--dnag-lexa-scale', type=float, default=1.0,
+        help='Scale the LexA delta_prob entry on TU00352[c] (the only '
+             'dnaG-containing TU kept by ParCa) by this factor. Default '
+             '1.0 = unchanged ParCa fit (full LexA repression on the '
+             'housekeeping dnaG promoter, biologically wrong since rpsUp1 '
+             'is not LexA-regulated in vivo). 0.0 = LexA removed entirely. '
+             'Fractional values (e.g. 0.5) attenuate it, consistent with '
+             'a "1-of-3 dnaG TUs is LexA-regulated" lumped-TU story: '
+             'rpsUp3 is the SOS-inducible LexA target, but ParCa kept '
+             'TU00352 (rpsUp1 housekeeping) and inherited rpsUp3\'s '
+             'regulation onto it. Use the attenuation to dial the '
+             'effective DnaG steady-state up toward the ~10 copies '
+             'experimental target without wholly removing the regulation.')
     args = parser.parse_args()
 
     from v2ecoli.processes.parca.data_loader import (
@@ -128,6 +147,35 @@ def main() -> None:
     sd_good.getter._all_compartments['full_plasmid'] = (
         sd_good.getter._all_compartments.get('full_chromosome', ['c']))
 
+    if args.dnag_lexa_scale != 1.0:
+        import numpy as np
+        tr = sd_good.process.transcription_regulation
+        rna_ids = list(sd_good.process.transcription.rna_data['id'])
+        tu_idx = rna_ids.index('TU00352[c]')
+        lexa_idx = tr.tf_ids.index('PC00010')
+        I = tr.delta_prob['deltaI']
+        J = tr.delta_prob['deltaJ']
+        V = tr.delta_prob['deltaV']
+        mask = (I == tu_idx) & (J == lexa_idx)
+        n_hit = int(mask.sum())
+        if n_hit == 0:
+            print("  --dnag-lexa-scale: no (TU00352, lexA) delta_prob entry "
+                  "found — nothing to patch")
+        elif args.dnag_lexa_scale == 0.0:
+            keep = ~mask
+            tr.delta_prob['deltaI'] = I[keep]
+            tr.delta_prob['deltaJ'] = J[keep]
+            tr.delta_prob['deltaV'] = V[keep]
+            print(f"  --dnag-lexa-scale 0.0: removed {n_hit} "
+                  f"(TU00352, lexA) delta_prob entry(ies); LexA no "
+                  f"longer represses the housekeeping dnaG promoter.")
+        else:
+            old = float(V[mask][0])
+            V[mask] = old * args.dnag_lexa_scale
+            print(f"  --dnag-lexa-scale {args.dnag_lexa_scale}: "
+                  f"attenuated (TU00352, lexA) delta_prob from {old:.4g} "
+                  f"to {old * args.dnag_lexa_scale:.4g}.")
+
     os.makedirs(os.path.dirname(args.patched_out), exist_ok=True)
     with open(args.patched_out, 'wb') as f:
         pickle.dump(sd_good, f, protocol=pickle.HIGHEST_PROTOCOL)
@@ -135,8 +183,10 @@ def main() -> None:
 
     from v2ecoli.composite import save_cache
     save_cache(args.patched_out, cache_dir=args.cache_dir,
-               seed=args.seed, has_plasmid=True)
-    print(f"  cache ready: {args.cache_dir}")
+               seed=args.seed, has_plasmid=True,
+               mechanistic_replisome=args.mechanistic_replisome)
+    print(f"  cache ready: {args.cache_dir} "
+          f"(mechanistic_replisome={args.mechanistic_replisome})")
 
 
 if __name__ == '__main__':

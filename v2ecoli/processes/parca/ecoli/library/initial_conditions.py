@@ -28,11 +28,24 @@ from v2ecoli.processes.parca.wholecell.utils.fitting import (
 )
 
 try:
-    from v2ecoli.processes.parca.wholecell.utils.mc_complexation import mccFormComplexesWithPrebuiltMatrices
+    from v2ecoli.processes.parca.wholecell.utils.mc_complexation import (
+        mccFormComplexesWithPrebuiltMatrices,
+    )
+    _MCC_IMPORT_ERROR: ImportError | None = None
 except ImportError as exc:
-    raise RuntimeError(
-        "Failed to import Cython module. Try running 'make clean compile'."
-    ) from exc
+    mccFormComplexesWithPrebuiltMatrices = None  # type: ignore[assignment]
+    _MCC_IMPORT_ERROR = exc
+
+
+def _require_mc_complexation() -> None:
+    """Raise if the Cython ``mc_complexation`` extension failed to import."""
+    if _MCC_IMPORT_ERROR is not None:
+        raise RuntimeError(
+            "Failed to import Cython module "
+            "``v2ecoli.processes.parca.wholecell.utils.mc_complexation``. "
+            "Run ``bash scripts/parca_cython_build.sh`` (or ``make clean "
+            "compile`` in the vEcoli tree) to build the extension."
+        ) from _MCC_IMPORT_ERROR
 from v2ecoli.processes.parca.wholecell.utils.polymerize import computeMassIncrease
 from v2ecoli.processes.parca.wholecell.utils.random import stochasticRound
 
@@ -467,6 +480,7 @@ def initialize_complexation(bulk_counts, sim_data, random_state):
         np.int64, order="F"
     )
 
+    _require_mc_complexation()
     molecule_counts = bulk_counts[molecule_idx]
     updated_molecule_counts, complexation_events = mccFormComplexesWithPrebuiltMatrices(
         molecule_counts,

@@ -59,11 +59,23 @@ def snapshot(t, cell, replisome_trimer_ids, replisome_monomer_ids, dntp_ids):
         "n_full_chromosomes": _count_unique(unique, "full_chromosome"),
         "cell_mass": float(mass.get("cell_mass", 0.0) or 0.0),
         "dna_mass": float(mass.get("dna_mass", 0.0) or 0.0),
-        "rna_I": float(rna_control.get("rna_I", 0.0) or 0.0),
-        "rna_II": float(rna_control.get("rna_II", 0.0) or 0.0),
-        "hybrid": float(rna_control.get("hybrid", 0.0) or 0.0),
-        "time_since_rna_II": float(rna_control.get("time_since_rna_II", 0.0) or 0.0),
-        "PL_fractional": float(rna_control.get("PL_fractional", 0.0) or 0.0),
+        # BP1993 10-species ODE state (process_state.plasmid_rna_control).
+        # D-pool: free, R_I-bound (D_tII = short RNA II ≤360 nt), elongated
+        # past R_I window (D_lII), hybridized (D_p), star-complex (D_starc),
+        # cleaved primer (D_c), under replication (D_M). Free RNAs: R_I, R_II.
+        # M = active free Rom dimer. repl_accum = fractional initiation
+        # accumulator (becomes a new full_plasmid when it crosses 1.0).
+        "D":       float(rna_control.get("D", 0.0) or 0.0),
+        "D_tII":   float(rna_control.get("D_tII", 0.0) or 0.0),
+        "D_lII":   float(rna_control.get("D_lII", 0.0) or 0.0),
+        "D_p":     float(rna_control.get("D_p", 0.0) or 0.0),
+        "D_starc": float(rna_control.get("D_starc", 0.0) or 0.0),
+        "D_c":     float(rna_control.get("D_c", 0.0) or 0.0),
+        "D_M":     float(rna_control.get("D_M", 0.0) or 0.0),
+        "R_I":     float(rna_control.get("R_I", 0.0) or 0.0),
+        "R_II":    float(rna_control.get("R_II", 0.0) or 0.0),
+        "M":       float(rna_control.get("M", 0.0) or 0.0),
+        "repl_accum":        float(rna_control.get("repl_accum", 0.0) or 0.0),
         "n_rna_initiations": int(rna_control.get("n_rna_initiations", 0) or 0),
     }
     # Replisome subunit bulk counts
@@ -79,7 +91,27 @@ def snapshot(t, cell, replisome_trimer_ids, replisome_monomer_ids, dntp_ids):
         if c is not None:
             monomer_total += c
     snap["replisome_monomer_min"] = monomer_total
+
+    # DnaG investigation (parity with vEcoli plasmid_replication_report Fig. 10):
+    # track the critical subunit (DnaG) + the other mechanistic-gate subunits
+    # + the LexA regulator (both monomer and active dimer) as explicit fields.
+    for key, mid in DNAG_INVESTIGATION_IDS.items():
+        c = _bulk_count(cell, mid)
+        snap[key] = int(c) if c is not None else 0
     return snap
+
+
+# Molecules tracked for the DnaG investigation (see
+# reports/plasmid_dnag_investigation_v2ecoli.html §6 for the table).
+DNAG_INVESTIGATION_IDS = {
+    "dnaG":       "EG10239-MONOMER[c]",   # DNA primase — the critical subunit
+    "pol_core":   "CPLX0-2361[c]",        # DNA pol III core (DnaE·DnaQ·HolE)
+    "beta_clamp": "CPLX0-3761[c]",        # β sliding clamp (DnaN dimer)
+    "dnaB":       "CPLX0-3621[c]",        # DnaB helicase hexamer
+    "holA":       "EG11412-MONOMER[c]",   # HolA (δ clamp-loader subunit)
+    "lexA_mon":   "EG10534-MONOMER[c]",   # LexA monomer
+    "lexA_dimer": "PC00010[c]",           # LexA active dimer (TF form)
+}
 
 
 def main():
@@ -124,8 +156,8 @@ def main():
         snapshots.append(snap)
         print(f"  t={t_sim}: plasmids={snap['n_full_plasmids']}, "
               f"p_replisomes={snap['n_plasmid_active_replisomes']}, "
-              f"rna_I={snap['rna_I']:.2f}, rna_II={snap['rna_II']:.3f}, "
-              f"n_inits={snap['n_rna_initiations']}")
+              f"R_I={snap['R_I']:.2f}, R_II={snap['R_II']:.3f}, "
+              f"M={snap['M']:.2f}, n_inits={snap['n_rna_initiations']}")
 
     wall = time.time() - t_run
     print(f"[{time.strftime('%H:%M:%S')}] sim wall time: {wall:.1f}s "

@@ -146,20 +146,22 @@ def _run_generation(
         try:
             composite.run(chunk)
         except Exception as e:
-            total_run += chunk
             err_str = str(e)
             if (
                 "divide" in err_str.lower()
                 or "_add" in err_str
                 or "_remove" in err_str
             ):
+                total_run += chunk
                 divided = True
                 break
-            print(
-                f"    gen {gen_idx} warning at t={total_run:.0f}: "
-                f"{type(e).__name__}: {err_str[:120]}"
-            )
-            continue
+            # Post-add realize errors (e.g. growth_limits Array) fire after
+            # the structural divide has already happened. If the mother agent
+            # is gone, treat as divided — don't keep running the broken tree.
+            if composite.state.get("agents", {}).get("0") is None:
+                divided = True
+                break
+            raise
         total_run += chunk
 
         cur_cell = composite.state.get("agents", {}).get("0")
@@ -505,7 +507,18 @@ def main():
         default=MAX_GENERATION_DURATION,
         help="Safety cap (seconds) per generation (default: 3600).",
     )
+    parser.add_argument(
+        "--cache-dir",
+        type=str,
+        default=None,
+        help="Override cache directory (e.g. out/cache_plasmid for a "
+             "plasmid-enabled run).",
+    )
     args = parser.parse_args()
+
+    if args.cache_dir is not None:
+        global CACHE_DIR
+        CACHE_DIR = args.cache_dir
 
     print("=" * 60)
     print(f"v2ecoli multigeneration report — {args.generations} generation(s)")

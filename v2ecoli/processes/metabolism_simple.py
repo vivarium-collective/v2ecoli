@@ -52,7 +52,6 @@ from scipy.sparse import csr_matrix, vstack
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema import bulk_name_to_idx, counts
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint
 from wholecell.utils.random import stochasticRound
 
 
@@ -160,8 +159,8 @@ class SimplifiedMetabolism(Step):
 
     def initialize(self, config):
         stoich = self.parameters["reaction_stoich"]
-        self.n_avogadro = unum_to_pint(self.parameters["avogadro"])
-        self.cell_density = unum_to_pint(self.parameters["cell_density"])
+        self.n_avogadro = self.parameters["avogadro"]
+        self.cell_density = self.parameters["cell_density"]
         self.ngam = self.parameters["ngam"]
         self.random_state = np.random.RandomState(seed=self.parameters["seed"])
 

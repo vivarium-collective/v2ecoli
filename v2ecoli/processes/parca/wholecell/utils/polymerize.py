@@ -12,13 +12,31 @@ TODO:
 
 import numpy as np
 
+# Defer the Cython import failure: tests that transitively import this
+# module (for ports / wiring / schema checks) don't need the extensions,
+# but real parca runs do.  Raise when the functions are actually called.
 try:
     from ._build_sequences import buildSequences, computeMassIncrease
     from ._fastsums import sum_monomers, sum_monomers_reference_implementation
+    _CYTHON_IMPORT_ERROR: ImportError | None = None
 except ImportError as exc:
-    raise RuntimeError(
-        "Failed to import Cython module. Try running 'make clean compile'."
-    ) from exc
+    buildSequences = None  # type: ignore[assignment]
+    computeMassIncrease = None  # type: ignore[assignment]
+    sum_monomers = None  # type: ignore[assignment]
+    sum_monomers_reference_implementation = None  # type: ignore[assignment]
+    _CYTHON_IMPORT_ERROR = exc
+
+
+def _require_cython() -> None:
+    """Raise if the Cython polymerize extensions failed to import."""
+    if _CYTHON_IMPORT_ERROR is not None:
+        raise RuntimeError(
+            "Failed to import Cython module "
+            "(``v2ecoli.processes.parca.wholecell.utils._build_sequences`` / "
+            "``_fastsums``).  Run ``bash scripts/parca_cython_build.sh`` "
+            "(or ``make clean compile`` in the vEcoli tree) to build the "
+            "extensions."
+        ) from _CYTHON_IMPORT_ERROR
 
 # Reexport these Cython functions. Declaring them avoids
 # "unused import statement" warnings.
@@ -82,6 +100,7 @@ class polymerize(object):  # Class name is lowercase because interface is functi
         elongation_rates,
         variable_elongation=False,
     ):
+        _require_cython()
         # Check dimensions
         if sequences.shape[0] != len(elongation_rates):
             raise DimensionException(

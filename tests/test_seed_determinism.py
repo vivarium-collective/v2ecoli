@@ -43,7 +43,7 @@ def _run_baseline(duration: float):
     return composite.state
 
 
-@pytest.mark.xfail(reason="blocked by #26 (refire loop)", strict=False)
+@pytest.mark.refire_blocked
 def test_baseline_is_deterministic_under_fixed_seed():
     """Two fresh baseline runs with seed=0 produce identical state after
     the same duration. Localizes the first divergent leaf so the failure

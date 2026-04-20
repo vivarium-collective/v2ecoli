@@ -167,7 +167,7 @@ DAUGHTER_MIN_GROWTH_FG = 0.5
 
 
 @pytest.mark.sim
-@pytest.mark.xfail(reason="blocked by #26 (refire loop)", strict=False)
+@pytest.mark.refire_blocked
 def test_daughters_build_and_grow(predivision_state, sim_data_cache):
     """Build two daughter composites from the split state and run each
     for 60 s. Each must (a) build without exception and (b) gain at

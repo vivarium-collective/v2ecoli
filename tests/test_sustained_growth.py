@@ -41,6 +41,7 @@ def _n_oric(composite):
     return int(listeners.get('replication_data', {}).get('number_of_oric', 1))
 
 
+@pytest.mark.refire_blocked
 def test_baseline_sustained_growth_500s():
     """Cell must add >=20 fg over 500s. Exposes tick-level silent failures
     (unit errors, AttributeError on request_set, etc.) that only manifest

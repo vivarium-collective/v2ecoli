@@ -102,6 +102,44 @@ def _parsed_pint_unit(unit_expr: str) -> pint.Unit:
     return ureg.parse_units(unit_expr)
 
 
+@functools.lru_cache(maxsize=1024)
+def _conversion_factor(src_unit_expr: str, target_unit_repr: str) -> float:
+    """Scalar factor to convert magnitude in ``src_unit_expr`` to
+    magnitude in the unit ``target_unit_repr`` denotes.  Both sides are
+    strings so the cache key is hashable.  Building the factor costs one
+    pint ``.to()`` call; on the hot path we reuse it."""
+    src_q = ureg.Quantity(1.0, _parsed_pint_unit(src_unit_expr))
+    return src_q.to(_parsed_pint_unit(target_unit_repr)).magnitude
+
+
+def unum_magnitude_in(u: Any, target: Any) -> Any:
+    """Fast path: convert an Unum (or pint-Quantity, or bare float/array)
+    value straight to a magnitude in ``target``'s units, skipping the
+    transient pint.Quantity allocation and repeated ``.to()`` lookup.
+
+    ``target`` is a pint ``Unit`` or ``Quantity`` whose *units* define
+    the output basis. Module-level unit constants like ``CONC_UNITS``
+    are the intended arguments.
+
+    Use this at hot boundaries where the only purpose of building a pint
+    Quantity was to call ``.to(UNITS).magnitude`` immediately after.
+    """
+    target_units = target.units if isinstance(target, pint.Quantity) else target
+    target_repr = str(target_units)
+    if isinstance(u, Unum):
+        if not u._unit:
+            return u._value
+        src_expr = _unit_string_from_unum(u)
+        return u._value * _conversion_factor(src_expr, target_repr)
+    if isinstance(u, pint.Quantity):
+        if u._REGISTRY is ureg:
+            return u.to(target_units).magnitude
+        src_expr = str(u.units)
+        return u.magnitude * _conversion_factor(src_expr, target_repr)
+    # Bare float/array: trust the caller's unit contract.
+    return u
+
+
 def unum_to_pint(u: Any) -> Any:
     """Convert an Unum quantity (scalar or ndarray-valued) to a pint Quantity
     on the shared v2ecoli registry. Non-Unum inputs are rebound to ureg if

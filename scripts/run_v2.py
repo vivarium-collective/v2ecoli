@@ -1,4 +1,4 @@
-"""Run v2ecoli and collect snapshots. Called as subprocess by compare_v1_v2.py."""
+"""Run v2ecoli and collect snapshots. Called as subprocess by reports/v1_v2_report.py."""
 import os, sys, json, time, warnings
 import numpy as np
 
@@ -63,16 +63,16 @@ while total < duration:
     try:
         composite.run(chunk)
     except Exception:
-        total += chunk
-        # Non-fatal error — collect snapshot and continue
-        cell = composite.state.get('agents', {}).get('0')
-        if cell is not None:
-            snapshots.append(snap(total, cell))
-        continue
+        # composite.run raises when the cell divides — mother is removed
+        # and daughters are spawned under agents['00'] / agents['01']. We
+        # don't follow a daughter here (that's what multigeneration_report
+        # is for), so stop cleanly and report the sim-time at division.
+        break
     total += chunk
 
     cell = composite.state.get('agents', {}).get('0')
     if cell is None:
+        # Division event with no exception path — same handling.
         break
     snapshots.append(snap(total, cell))
 

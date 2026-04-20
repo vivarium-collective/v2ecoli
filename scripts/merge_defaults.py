@@ -107,7 +107,7 @@ def main():
             f.write(content)
         print(f"\n  Updated ecoli_step.py: removed defaults merge")
 
-    print("\nNow run: python3 benchmark.py")
+    print("\nNow run: python3 reports/benchmark_report.py")
 
 
 if __name__ == '__main__':

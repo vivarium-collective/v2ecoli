@@ -143,11 +143,23 @@ def main():
     import contextlib
     captured = io.StringIO()
     class _Tee:
-        def __init__(self, *streams): self.streams = streams
+        def __init__(self, *streams):
+            self.streams = streams
+            # Mirror enough of sys.stdout's interface that transitive
+            # imports (marimo via wholecell.io.qc_standalone) don't
+            # AttributeError on stdout introspection.
+            self.encoding = getattr(streams[0], 'encoding', 'utf-8')
+            self.errors = getattr(streams[0], 'errors', 'strict')
         def write(self, s):
             for st in self.streams: st.write(s)
         def flush(self):
             for st in self.streams: st.flush()
+        def isatty(self):
+            return getattr(self.streams[0], 'isatty', lambda: False)()
+        def fileno(self):
+            return self.streams[0].fileno()
+        def writable(self):
+            return True
     with contextlib.redirect_stdout(_Tee(sys.stdout, captured)):
         composite = build_parca_composite(
             raw,

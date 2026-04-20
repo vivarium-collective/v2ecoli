@@ -64,7 +64,33 @@ jobs:
       - name: Install dependencies (PyPI only)
         run: uv sync --no-sources --extra dev || uv sync --no-sources
 
+      # Cache out/cache (initial_state.json + sim_data_cache.dill +
+      # cache_version.json) across PRs. The cache key pins to the same
+      # input files that cache_version.compute_cache_version fingerprints,
+      # so a change to ParCa fixture or the LoadSimData boundary forces
+      # a rebuild on the next CI run.
+      - name: Restore ParCa cache
+        id: parca-cache
+        uses: actions/cache@v4
+        with:
+          path: out/cache
+          key: >-
+            parca-cache-v1-${{ hashFiles(
+              'models/parca/parca_state.pkl.gz',
+              'v2ecoli/library/sim_data.py',
+              'v2ecoli/library/unit_bridge.py',
+              'v2ecoli/types/quantity.py',
+              'v2ecoli/library/initial_conditions.py',
+              'v2ecoli/composite.py'
+            ) }}
+
+      - name: Build ParCa cache on miss
+        if: steps.parca-cache.outputs.cache-hit != 'true'
+        run: uv run --no-sources python scripts/build_cache.py
+
       - name: Run simulation-based behavior tests
+        env:
+          CI: 'true'
         run: >-
           uv run --no-sources pytest
           -m "sim and not slow"

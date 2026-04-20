@@ -1386,12 +1386,15 @@ class LoadSimData:
             "doubling_time": self.sim_data.condition_to_doubling_time[
                 self.sim_data.condition
             ],
-            "get_biomass_as_concentrations": {
-                "_function": "mass.get_biomass_as_concentrations",
-                "_data": {
-                    "precomputed": self._precompute_biomass_concentrations(),
-                },
-            },
+            # Bind the sim_data method directly. The factory variant used to
+            # precompute a doubling-time-indexed lookup table, which dropped
+            # the rp_ratio argument on the floor — that scales glycogen /
+            # murein / wall-component mass fractions and mattered to
+            # metabolism's per-tick targets. Dropping it left v2ecoli
+            # targeting ~15% more mass on those submasses, which FBA then
+            # produced — the small-molecule submass grew ~13% faster than
+            # vEcoli over a cell cycle.
+            "get_biomass_as_concentrations": self.sim_data.mass.getBiomassAsConcentrations,
             "aa_names": self.sim_data.molecule_groups.amino_acids,
             "linked_metabolites": metabolism.concentration_updates.linked_metabolites,
             "aa_exchange_names": aa_exchange_names,
@@ -1566,12 +1569,15 @@ class LoadSimData:
             "cell_density": unum_to_pint(self.sim_data.constants.cell_density),
             "dark_atp": unum_to_pint(self.sim_data.constants.darkATP),
             "cell_dry_mass_fraction": self.sim_data.mass.cell_dry_mass_fraction,
-            "get_biomass_as_concentrations": {
-                "_function": "mass.get_biomass_as_concentrations",
-                "_data": {
-                    "precomputed": self._precompute_biomass_concentrations(),
-                },
-            },
+            # Bind the sim_data method directly. The factory variant used to
+            # precompute a doubling-time-indexed lookup table, which dropped
+            # the rp_ratio argument on the floor — that scales glycogen /
+            # murein / wall-component mass fractions and mattered to
+            # metabolism's per-tick targets. Dropping it left v2ecoli
+            # targeting ~15% more mass on those submasses, which FBA then
+            # produced — the small-molecule submass grew ~13% faster than
+            # vEcoli over a cell cycle.
+            "get_biomass_as_concentrations": self.sim_data.mass.getBiomassAsConcentrations,
             "ppgpp_id": self.sim_data.molecule_ids.ppGpp,
             "get_ppGpp_conc": {
                 "_function": "growth_rate.get_ppGpp_conc",

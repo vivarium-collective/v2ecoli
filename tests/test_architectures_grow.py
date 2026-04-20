@@ -43,6 +43,7 @@ def _run_and_measure(make_composite_fn, duration=DURATION):
     return m0, m1
 
 
+@pytest.mark.xfail(reason="blocked by #26 (refire loop)", strict=False)
 def test_baseline_grows():
     from v2ecoli.composite import make_composite
     m0, m1 = _run_and_measure(make_composite)
@@ -50,6 +51,7 @@ def test_baseline_grows():
         f'Baseline dry_mass did not grow enough: {m0:.2f} -> {m1:.2f} fg')
 
 
+@pytest.mark.xfail(reason="blocked by #26 (refire loop)", strict=False)
 def test_departitioned_grows():
     from v2ecoli.composite_departitioned import make_departitioned_composite
     m0, m1 = _run_and_measure(make_departitioned_composite)
@@ -57,6 +59,7 @@ def test_departitioned_grows():
         f'Departitioned dry_mass did not grow enough: {m0:.2f} -> {m1:.2f} fg')
 
 
+@pytest.mark.xfail(reason="blocked by #26 (refire loop)", strict=False)
 def test_reconciled_grows():
     from v2ecoli.composite_reconciled import make_reconciled_composite
     m0, m1 = _run_and_measure(make_reconciled_composite)

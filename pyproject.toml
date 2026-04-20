@@ -30,6 +30,8 @@ dependencies = [
 
 [project.optional-dependencies]
 parca-build = ["cython", "setuptools>=68"]
+# Test-only deps. `uv sync --extra dev` pulls these in.
+dev = ["pytest-timeout>=2.3"]
 
 [tool.setuptools.package-data]
 # Ship the flat-file knowledge base with the package (~12.9 MB, 133 files).
@@ -43,6 +45,12 @@ markers = [
     "behavior: model-behavior tests resumed from a saved checkpoint (seconds, not minutes)",
     "sim: calls composite.run() — longer than pure-state tests. CI routes these to a parallel behavior-tests job.",
 ]
+# Per-test wall-clock cap. Prevents the refire-loop regression (#26) from
+# hanging CI for 49 min and OOMing the runner. Individual tests can
+# override with @pytest.mark.timeout(N). ``thread`` method interrupts
+# C-level hangs (LSODA) instead of waiting for the GIL.
+timeout = 120
+timeout_method = "thread"
 
 [tool.setuptools]
 packages = { find = { where = ["."] } }

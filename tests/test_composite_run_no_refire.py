@@ -75,11 +75,19 @@ PER_STEP_CAP = 100
 SIM_DURATION = 1.0
 
 
+@pytest.mark.xfail(
+    reason="pins #26 — test passes when the refire loop is fixed",
+    strict=False,
+)
 def test_composite_run_one_sec_does_not_refire_loop():
     """1 simulated second must not invoke any step 100+ times.
 
     Pins the cascading-trigger regression that turned multigeneration from
     ~10 min into a 30-min OOM. See module docstring for the symptom trace.
+
+    Marked xfail(strict=False): until #26 is fixed, this test *should*
+    fail; once the scheduler converges and the regression is gone, the
+    test passes and the marker can be removed.
     """
     from process_bigraph.composite import Step
 

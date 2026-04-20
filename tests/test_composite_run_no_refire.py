@@ -1,48 +1,30 @@
-"""Regression guard against the step-refire loop that blew up multigeneration.
+"""Regression guard against the step-refire loop that once blew up multigeneration.
 
-Symptom (discovered 2026-04-18): ``reports/multigeneration_report.py`` at
-default duration (3 generations, 3600 s/gen) was killed by the OS OOM
-handler after ~30 min wall time. Earlier runs reportedly finished in 10-15
-min. Per-process instrumentation during ``composite.run(1)`` (i.e. **one**
-simulated second) showed:
+On 2026-04-18 ``composite.run(1)`` (one simulated second) was invoking each
+step ~2,294 times instead of ~1, burning 15 min of CPU and 30–80 GB RSS on
+every sim-second. ``reports/multigeneration_report.py`` was OOM-killed at
+30 min wall. The cause turned out to be an incomplete ParCa fixture: the
+committed ``models/parca/parca_state.pkl.gz`` didn't populate
+``metabolism.aa_enzymes``, so ``save_cache`` silently dropped the
+``ecoli-polypeptide-elongation`` config. The resulting partial composite
+didn't converge, and the bigraph scheduler re-fired every step until its
+inputs stabilized — which never happened cleanly.
 
-  25,228  UniqueUpdate
-   4,586  Allocator
-   2,294  TwoComponentSystem, RnaMaturation, ProteinDegradation, Equilibrium,
-          Complexation, ChromosomeReplication, PolypeptideInitiation, ...
-   2,293  MassListener, RNACounts, MonomerCounts, RAMEmitter, ...
+Rebuilding the fixture with a KB state where ``aa_enzymes`` is populated
+(see the KB rollback + ``scripts/build_cache.py``) fixed it: sim-second now
+costs ~0.2 s wall, each step fires 1–10 times, and sim tests complete in
+seconds.
 
-Each step ran roughly **2,000+× per simulated second**. One sim-second cost
-~15 min of CPU (load_avg ~4, process pinned at 100% CPU, 30-80 GB RSS),
-instead of the expected few seconds.
+This test pins the healthy regime:
+  - ``composite.run(1)`` completes in a bounded wall-clock budget (30 s,
+    enough slack for CI's slower hardware).
+  - No step is invoked more than ~100 times in 1 simulated second.
+    Healthy bigraph composites converge in a few cycles; triple-digit
+    cycle counts are a loud "refire loop" signal.
 
-Root cause (hypothesis; not fixed in this PR): process-bigraph's cascading
-trigger / ``cycle_step_state`` path re-fires every step whose inputs changed
-after the previous layer's updates applied. v2ecoli's ``UniqueUpdate`` step
-emits ``{mol: {"update": True}}`` on every call, which the scheduler treats
-as a write to every unique-molecule port UniqueUpdate declares as output —
-which in turn is read by most downstream steps, which feed back into the
-reconciliation layer, which re-triggers UniqueUpdate, ad nauseam.
-
-The gate in ``v2ecoli.library.ecoli_step.EcoliStep.perform_update`` (#20)
-only skips updates for Steps that implement ``update_condition``.
-``UniqueUpdate`` and most partitioning steps don't, so the cycle keeps
-firing until (if ever) the scheduler's convergence check succeeds.
-
-What this test pins:
-  - ``composite.run(1)`` completes in a bounded wall-clock budget (30 s
-    locally, enough slack for CI's slower hardware).
-  - No step is invoked more than the convergence cap of ~100 times in 1
-    simulated second. Healthy bigraph composites converge in a few cycles;
-    triple-digit cycle counts are a loud "refire loop" signal.
-
-The specific numeric bounds are the *regression thresholds*: ~2,000× is
-clearly wrong, 10× is normal, 100× is the generous upper bound that lets
-legitimate multi-pass convergence through while still catching the loop.
-
-Until the scheduler-side fix lands, this test is expected to **fail** on
-current main. That's the point — it pins the regression so the fix and the
-test ship together.
+If a future change re-introduces the cycle (a partial save_cache, a new
+Step that retriggers itself, etc.), this test will fail in 30 s instead
+of the multi-hour OOM the original bug produced.
 """
 from __future__ import annotations
 
@@ -75,19 +57,12 @@ PER_STEP_CAP = 100
 SIM_DURATION = 1.0
 
 
-@pytest.mark.xfail(
-    reason="pins #26 — test passes when the refire loop is fixed",
-    strict=False,
-)
 def test_composite_run_one_sec_does_not_refire_loop():
     """1 simulated second must not invoke any step 100+ times.
 
-    Pins the cascading-trigger regression that turned multigeneration from
-    ~10 min into a 30-min OOM. See module docstring for the symptom trace.
-
-    Marked xfail(strict=False): until #26 is fixed, this test *should*
-    fail; once the scheduler converges and the regression is gone, the
-    test passes and the marker can be removed.
+    Pins the healthy convergence regime so a future partial-cache or
+    self-retriggering step can't sneak the refire loop back in.
+    See module docstring for the original symptom.
     """
     from process_bigraph.composite import Step
 

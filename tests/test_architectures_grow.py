@@ -43,7 +43,6 @@ def _run_and_measure(make_composite_fn, duration=DURATION):
     return m0, m1
 
 
-@pytest.mark.refire_blocked
 def test_baseline_grows():
     from v2ecoli.composite import make_composite
     m0, m1 = _run_and_measure(make_composite)
@@ -51,7 +50,6 @@ def test_baseline_grows():
         f'Baseline dry_mass did not grow enough: {m0:.2f} -> {m1:.2f} fg')
 
 
-@pytest.mark.refire_blocked
 def test_departitioned_grows():
     from v2ecoli.composite_departitioned import make_departitioned_composite
     m0, m1 = _run_and_measure(make_departitioned_composite)
@@ -59,7 +57,6 @@ def test_departitioned_grows():
         f'Departitioned dry_mass did not grow enough: {m0:.2f} -> {m1:.2f} fg')
 
 
-@pytest.mark.refire_blocked
 def test_reconciled_grows():
     from v2ecoli.composite_reconciled import make_reconciled_composite
     m0, m1 = _run_and_measure(make_reconciled_composite)
@@ -67,12 +64,6 @@ def test_reconciled_grows():
         f'Reconciled dry_mass did not grow enough: {m0:.2f} -> {m1:.2f} fg')
 
 
-@pytest.mark.xfail(
-    reason="ecoli-polypeptide-elongation config dropped by save_cache because "
-           "the shipped fast-mode ParCa fixture lacks metabolism.aa_enzymes "
-           "(needs docs/generate_full_parca.md)",
-    strict=False,
-)
 def test_all_processes_instantiated_in_departitioned():
     """Every step in FLOW_ORDER must be instantiable. The previous silent-drop
     bug let processes disappear without any error — this test ensures the
@@ -90,11 +81,6 @@ def test_all_processes_instantiated_in_departitioned():
             f'Departitioned: step {step_name!r} missing from cell_state')
 
 
-@pytest.mark.xfail(
-    reason="polypeptide-elongation config missing under fast-mode ParCa "
-           "(see test_all_processes_instantiated_in_departitioned)",
-    strict=False,
-)
 def test_all_processes_instantiated_in_reconciled():
     """Same contract for reconciled."""
     from v2ecoli.composite_reconciled import make_reconciled_composite

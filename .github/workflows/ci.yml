@@ -91,13 +91,9 @@ jobs:
       - name: Run simulation-based behavior tests
         env:
           CI: 'true'
-        # `not refire_blocked` skips the tests whose `composite.run()`
-        # calls hang under #26. pytest-timeout's thread method calls
-        # os._exit(1), so letting them run would kill the whole pytest
-        # process before any other test completed.
         run: >-
           uv run --no-sources pytest
-          -m "sim and not slow and not refire_blocked"
+          -m "sim and not slow"
           --ignore=tests/test_initialize.py
           --ignore=tests/test_kinetics_units.py
           --ignore=tests/test_unit_bridge.py

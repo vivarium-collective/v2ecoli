@@ -44,12 +44,11 @@ markers = [
     "slow: runs full simulations (60s+)",
     "behavior: model-behavior tests resumed from a saved checkpoint (seconds, not minutes)",
     "sim: calls composite.run() — longer than pure-state tests. CI routes these to a parallel behavior-tests job.",
-    "refire_blocked: calls composite.run() and hangs under the #26 refire loop. CI deselects via `-m 'not refire_blocked'` until the fix lands.",
 ]
-# Per-test wall-clock cap as a safety net. pytest-timeout with the thread
-# method calls os._exit(1) on timeout, so any test that busts this will
-# kill the whole pytest run — that's why CI deselects refire_blocked
-# tests instead of relying on the timeout alone.
+# Per-test wall-clock cap. Safety net for any future hang in sim code.
+# ``thread`` method interrupts C-level hangs (LSODA); note it calls
+# os._exit(1) on timeout, so it kills the whole pytest run — tests
+# should complete well under the cap.
 timeout = 120
 timeout_method = "thread"
 

@@ -364,4 +364,29 @@ def divide_cell(cell_state):
         d1_state['boundary'] = copy.deepcopy(cell_state['boundary'])
         d2_state['boundary'] = copy.deepcopy(cell_state['boundary'])
 
+    # Partition process_state. All count-like BP1993 species (D-pool +
+    # free R_I, R_II, M) halve between daughters — without this the
+    # ODE resets to schema defaults each generation, driving a
+    # multigen copy-number transient. The fractional replication
+    # accumulator is shared at the moment of division (both daughters
+    # inherit the same fractional remainder).
+    if 'process_state' in cell_state:
+        ps = cell_state['process_state']
+        d1_ps = copy.deepcopy(ps)
+        d2_ps = copy.deepcopy(ps)
+        rna_ctrl = ps.get('plasmid_rna_control')
+        if isinstance(rna_ctrl, dict):
+            halve_keys = (
+                'D', 'D_tII', 'D_lII', 'D_p',
+                'D_starc', 'D_c', 'D_M',
+                'R_I', 'R_II', 'M',
+            )
+            for key in halve_keys:
+                v = rna_ctrl.get(key)
+                if v is not None:
+                    d1_ps['plasmid_rna_control'][key] = float(v) * 0.5
+                    d2_ps['plasmid_rna_control'][key] = float(v) * 0.5
+        d1_state['process_state'] = d1_ps
+        d2_state['process_state'] = d2_ps
+
     return d1_state, d2_state

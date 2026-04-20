@@ -748,18 +748,38 @@ class LoadSimData:
             "replisome_monomers_subunits": self.sim_data.molecule_groups.replisome_monomer_subunits,
             "dntps": self.sim_data.molecule_groups.dntps,
             "ppi": [self.sim_data.molecule_ids.ppi],
-            # RNA I/II copy number control (Ataai-Shuler 1986). Rates from
-            # /hr to /s. k_h = 84e-13 cc/molecule/hr, divided by cytoplasmic
-            # volume (VC = 0.7 * V_cell) → 84 / (0.7 * 36000) /mol/s.
+            # Copy-number control — full BP1993 ODE system (eqns 1a-1j),
+            # pBR322 rom+ parameterization from Brendel & Perelson 1993
+            # (J Mol Biol 229:860-872) Table 1. Rates in BP's native
+            # units (min⁻¹ unimolecular; M⁻¹·min⁻¹ bimolecular k_1, k_3);
+            # plasmid_replication.initialize converts to per-second and
+            # per-count using V_c (BP's fixed cytoplasmic volume,
+            # 6.25e-16 L) and Avogadro. BP Table 2 predicts 28 cpc for
+            # rom+ wild-type with these values. The planned bulk-RNAP
+            # refactor (project memory `plasmid_mechanistic_target`)
+            # eliminates V_c entirely.
             "use_rna_control": True,
-            "rna_I_synthesis_rate": 63.0 / 3600,
-            "rna_I_degradation_rate": 21.0 / 3600,
-            "rna_II_synthesis_rate": 9.26 / 3600,
-            "rna_II_degradation_rate": 21.0 / 3600,
-            "hybridization_rate": 84.0 / (0.7 * 36000),
-            "hybrid_degradation_rate": 21.0 / 3600,
-            "transcription_time": 7.0,
-            "primer_efficiency": 0.5,
+            "V_c_L": 6.25e-16,
+            "n_avogadro": 6.022e23,
+            "k_1": 1.5e8,
+            "k_3": 1.7e8,
+            "k_neg1": 48.0,
+            "k_2":    44.0,
+            "k_neg2": 0.085,
+            "k_neg3": 0.17,
+            "k_4":    34.0,
+            "k_l":    12.0,
+            "k_negl": 4.3,
+            "k_p":    4.3,
+            "k_D":    5.0,
+            "k_negc": 17.0,
+            "k_I":    6.0,
+            "k_II":   0.25,
+            "k_M":    4.0,
+            "eps_I":  0.35,
+            "eps_II": 0.35,
+            "eps_M":  0.14,
+            "n_substeps": 10,
             "seed": self._seedFromName("PlasmidReplication"),
             "submass_indices": self.submass_indices,
         }

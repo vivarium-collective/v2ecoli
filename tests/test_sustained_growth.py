@@ -41,10 +41,16 @@ def _n_oric(composite):
     return int(listeners.get('replication_data', {}).get('number_of_oric', 1))
 
 
+@pytest.mark.timeout(600)
 def test_baseline_sustained_growth_500s():
     """Cell must add >=20 fg over 500s. Exposes tick-level silent failures
     (unit errors, AttributeError on request_set, etc.) that only manifest
-    after the first few chunks."""
+    after the first few chunks.
+
+    Timeout override: 500 s of sim takes ~35 s wall locally (M2 Pro, ~14×
+    realtime) but CI runners are ~3-5× slower, so we need headroom over
+    the global 120 s cap. 600 s is still well below the refire-loop
+    signature (>15 min wall per sim-second)."""
     from v2ecoli.composite import make_composite
     composite = make_composite(cache_dir=CACHE_DIR, seed=0)
     m0 = _dry_mass(composite)

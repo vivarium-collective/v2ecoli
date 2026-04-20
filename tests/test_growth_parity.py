@@ -91,6 +91,7 @@ def _extract_submasses(mass: dict) -> dict[str, float]:
     }
 
 
+@pytest.mark.timeout(600)
 def test_baseline_growth_trajectory_matches_vecoli(sim_data_cache):
     """Baseline cell's submass trajectory stays within tolerance of vEcoli.
 

@@ -129,6 +129,47 @@ def divide_by_domain(values, unique_state):
     return active[d1_bool], active[d2_bool]
 
 
+def divide_plasmid_domains(unique_state):
+    """Partition plasmid domains between daughters.
+
+    Mirrors ``divide_domains`` but uses ``full_plasmid`` and ``plasmid_domain``
+    instead of the chromosome trees. Returns empty arrays if no plasmids
+    are present in the cell state.
+    """
+    full = unique_state.get('full_plasmid')
+    domains = unique_state.get('plasmid_domain')
+    empty = np.array([], dtype=np.int32)
+    if full is None or domains is None:
+        return {'d1_all_domain_indexes': empty, 'd2_all_domain_indexes': empty}
+
+    (domain_index_full,) = attrs(full, ['domain_index'])
+    if len(domain_index_full) == 0:
+        return {'d1_all_domain_indexes': empty, 'd2_all_domain_indexes': empty}
+
+    domain_index_domains, child_domains = attrs(
+        domains, ['domain_index', 'child_domains'])
+
+    d1_full = domain_index_full[0::2]
+    d2_full = domain_index_full[1::2]
+
+    d1_all = get_descendent_domains(d1_full, domain_index_domains, child_domains, -1)
+    d2_all = get_descendent_domains(d2_full, domain_index_domains, child_domains, -1)
+
+    assert np.intersect1d(d1_all, d2_all).size == 0
+    return {'d1_all_domain_indexes': d1_all, 'd2_all_domain_indexes': d2_all}
+
+
+def divide_by_plasmid_domain(values, unique_state):
+    """Divide plasmid-attached molecules by their plasmid_domain assignment."""
+    domain_div = divide_plasmid_domains(unique_state)
+    active = values[values['_entryState'].view(np.bool_)]
+    d1_bool = np.isin(active['domain_index'], domain_div['d1_all_domain_indexes'])
+    d2_bool = np.isin(active['domain_index'], domain_div['d2_all_domain_indexes'])
+    if 'child_domains' not in values.dtype.names:
+        assert d1_bool.sum() + d2_bool.sum() == len(active)
+    return active[d1_bool], active[d2_bool]
+
+
 def divide_RNAs_by_domain(values, unique_state):
     """Divide RNA molecules: full transcripts binomial, partial follow RNAP.
 
@@ -239,6 +280,10 @@ UNIQUE_DIVIDERS = {
     'chromosomal_segment': divide_by_domain,
     'RNA': divide_RNAs_by_domain,
     'active_ribosome': divide_ribosomes_by_RNA,
+    'full_plasmid': divide_by_plasmid_domain,
+    'plasmid_domain': divide_by_plasmid_domain,
+    'oriV': divide_by_plasmid_domain,
+    'plasmid_active_replisome': divide_by_plasmid_domain,
 }
 
 
@@ -271,6 +316,8 @@ def divide_cell(cell_state):
         'chromosome_domain': unique['chromosome_domain'],
         'active_RNAP': unique['active_RNAP'],
         'RNA': unique['RNA'],
+        'full_plasmid': unique.get('full_plasmid'),
+        'plasmid_domain': unique.get('plasmid_domain'),
     }
 
     d1_unique = {}
@@ -291,6 +338,8 @@ def divide_cell(cell_state):
 
         if divider == divide_by_domain:
             d1_unique[name], d2_unique[name] = divide_by_domain(arr, unique_state)
+        elif divider == divide_by_plasmid_domain:
+            d1_unique[name], d2_unique[name] = divide_by_plasmid_domain(arr, unique_state)
         elif divider == divide_RNAs_by_domain:
             d1_unique[name], d2_unique[name] = divide_RNAs_by_domain(arr, unique_state)
         elif divider == divide_ribosomes_by_RNA:
@@ -314,5 +363,30 @@ def divide_cell(cell_state):
     if 'boundary' in cell_state:
         d1_state['boundary'] = copy.deepcopy(cell_state['boundary'])
         d2_state['boundary'] = copy.deepcopy(cell_state['boundary'])
+
+    # Partition process_state. All count-like BP1993 species (D-pool +
+    # free R_I, R_II, M) halve between daughters — without this the
+    # ODE resets to schema defaults each generation, driving a
+    # multigen copy-number transient. The fractional replication
+    # accumulator is shared at the moment of division (both daughters
+    # inherit the same fractional remainder).
+    if 'process_state' in cell_state:
+        ps = cell_state['process_state']
+        d1_ps = copy.deepcopy(ps)
+        d2_ps = copy.deepcopy(ps)
+        rna_ctrl = ps.get('plasmid_rna_control')
+        if isinstance(rna_ctrl, dict):
+            halve_keys = (
+                'D', 'D_tII', 'D_lII', 'D_p',
+                'D_starc', 'D_c', 'D_M',
+                'R_I', 'R_II', 'M',
+            )
+            for key in halve_keys:
+                v = rna_ctrl.get(key)
+                if v is not None:
+                    d1_ps['plasmid_rna_control'][key] = float(v) * 0.5
+                    d2_ps['plasmid_rna_control'][key] = float(v) * 0.5
+        d1_state['process_state'] = d1_ps
+        d2_state['process_state'] = d2_ps
 
     return d1_state, d2_state

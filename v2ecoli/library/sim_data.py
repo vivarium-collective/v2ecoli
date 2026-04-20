@@ -58,6 +58,7 @@ class LoadSimData:
         aa_supply_in_charging: bool = True,
         disable_ppgpp_elongation_inhibition: bool = False,
         emit_unique: bool = False,
+        has_plasmid: bool = False,
         **kwargs,
     ):
         """
@@ -163,6 +164,7 @@ class LoadSimData:
         self.disable_ppgpp_elongation_inhibition = disable_ppgpp_elongation_inhibition
         self.recycle_stalled_elongation = recycle_stalled_elongation
         self.emit_unique = emit_unique
+        self.has_plasmid = has_plasmid
 
         # NEW to vivarium-ecoli: Whether to lump miscRNA with mRNAs
         # when calculating degradation
@@ -603,6 +605,7 @@ class LoadSimData:
             "ecoli-metabolism-redux": self.get_metabolism_redux_config,
             "ecoli-metabolism-redux-classic": self.get_metabolism_redux_config,
             "ecoli-chromosome-replication": self.get_chromosome_replication_config,
+            "ecoli-plasmid-replication": self.get_plasmid_replication_config,
             "ecoli-mass": self.get_mass_config,
             "ecoli-mass-listener": self.get_mass_listener_config,
             "post-division-mass-listener": self.get_mass_listener_config,
@@ -705,6 +708,83 @@ class LoadSimData:
         }
 
         return chromosome_replication_config
+
+    def get_plasmid_replication_config(self, time_step=1):
+        n_avogadro = unum_to_pint(
+            self.sim_data.constants.n_avogadro
+        ).to(1 / units.mol).magnitude
+        replisome_trimer_subunit_masses = np.vstack(
+            [
+                unum_to_pint(self.sim_data.getter.get_submass_array(x))
+                .to(units.fg / units.mol).magnitude / n_avogadro
+                for x in self.sim_data.molecule_groups.replisome_trimer_subunits
+            ]
+        )
+        replisome_monomer_subunit_masses = np.vstack(
+            [
+                unum_to_pint(self.sim_data.getter.get_submass_array(x))
+                .to(units.fg / units.mol).magnitude / n_avogadro
+                for x in self.sim_data.molecule_groups.replisome_monomer_subunits
+            ]
+        )
+        replisome_mass_array = 3 * replisome_trimer_subunit_masses.sum(
+            axis=0
+        ) + replisome_monomer_subunit_masses.sum(axis=0)
+
+        plasmid_replication_config = {
+            "time_step": time_step,
+            "replichore_lengths": self.sim_data.process.replication.plasmid_replichore_lengths,
+            "sequences": self.sim_data.process.replication.plasmid_replication_sequences,
+            "polymerized_dntp_weights": self.sim_data.process.replication.replication_monomer_weights,
+            "D_period": unum_to_pint(self.sim_data.process.replication.d_period).to(units.s).magnitude,
+            "replisome_protein_mass": replisome_mass_array.sum(),
+            "no_child_place_holder": self.sim_data.process.replication.no_child_place_holder,
+            "basal_elongation_rate": self.sim_data.process.replication.basal_elongation_rate,
+            "make_elongation_rates": {
+                "_function": "replication.make_elongation_rates",
+            },
+            "mechanistic_replisome": self.mechanistic_replisome,
+            "replisome_trimers_subunits": self.sim_data.molecule_groups.replisome_trimer_subunits,
+            "replisome_monomers_subunits": self.sim_data.molecule_groups.replisome_monomer_subunits,
+            "dntps": self.sim_data.molecule_groups.dntps,
+            "ppi": [self.sim_data.molecule_ids.ppi],
+            # Copy-number control — full BP1993 ODE system (eqns 1a-1j),
+            # pBR322 rom+ parameterization from Brendel & Perelson 1993
+            # (J Mol Biol 229:860-872) Table 1. Rates in BP's native
+            # units (min⁻¹ unimolecular; M⁻¹·min⁻¹ bimolecular k_1, k_3);
+            # plasmid_replication.initialize converts to per-second and
+            # per-count using V_c (BP's fixed cytoplasmic volume,
+            # 6.25e-16 L) and Avogadro. BP Table 2 predicts 28 cpc for
+            # rom+ wild-type with these values. The planned bulk-RNAP
+            # refactor (project memory `plasmid_mechanistic_target`)
+            # eliminates V_c entirely.
+            "use_rna_control": True,
+            "V_c_L": 6.25e-16,
+            "n_avogadro": 6.022e23,
+            "k_1": 1.5e8,
+            "k_3": 1.7e8,
+            "k_neg1": 48.0,
+            "k_2":    44.0,
+            "k_neg2": 0.085,
+            "k_neg3": 0.17,
+            "k_4":    34.0,
+            "k_l":    12.0,
+            "k_negl": 4.3,
+            "k_p":    4.3,
+            "k_D":    5.0,
+            "k_negc": 17.0,
+            "k_I":    6.0,
+            "k_II":   0.25,
+            "k_M":    4.0,
+            "eps_I":  0.35,
+            "eps_II": 0.35,
+            "eps_M":  0.14,
+            "n_substeps": 10,
+            "seed": self._seedFromName("PlasmidReplication"),
+            "submass_indices": self.submass_indices,
+        }
+
+        return plasmid_replication_config
 
     def get_tf_config(self, time_step=1):
         tf_binding_config = {
@@ -2112,6 +2192,7 @@ class LoadSimData:
             self.ppgpp_regulation,
             self.trna_attenuation,
             self.mechanistic_replisome,
+            self.has_plasmid,
         )
 
         if self.trna_charging:

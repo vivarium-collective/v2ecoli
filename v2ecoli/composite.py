@@ -132,19 +132,30 @@ def _build_from_cache(cache_dir, core, seed=0, features=None):
     )
 
 
-def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
+def save_cache(sim_data_path, cache_dir='out/cache', seed=0, has_plasmid=False,
+               mechanistic_replisome=False):
     """Generate and save cache files from simData (vEcoli ParCa output).
 
     Creates:
     - cache_dir/initial_state.json
     - cache_dir/sim_data_cache.dill
     - cache_dir/metadata.json
+
+    Args:
+        mechanistic_replisome: If True, both chromosome and plasmid
+            replication require their full replisome subunit complement
+            (DnaG, pol III core, β-clamp, DnaB, HolA at 2-per-oriC etc.)
+            before initiating. Default False — matches LoadSimData's own
+            default and produces a permissive cache where DnaG depletion
+            does not gate replication.
     """
     from v2ecoli.library.sim_data import LoadSimData
 
     os.makedirs(cache_dir, exist_ok=True)
 
-    loader = LoadSimData(sim_data_path=sim_data_path, seed=seed)
+    loader = LoadSimData(sim_data_path=sim_data_path, seed=seed,
+                         has_plasmid=has_plasmid,
+                         mechanistic_replisome=mechanistic_replisome)
 
     state = loader.generate_initial_state()
     save_initial_state(state, os.path.join(cache_dir, 'initial_state.json'))
@@ -160,6 +171,7 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
         'ecoli-rna-degradation', 'ecoli-complexation',
         'ecoli-transcript-elongation', 'ecoli-polypeptide-elongation',
         'ecoli-chromosome-structure', 'ecoli-metabolism',
+        'ecoli-plasmid-replication',
         'RNA_counts_listener', 'rna_synth_prob_listener',
         'monomer_counts_listener', 'dna_supercoiling_listener',
         'ribosome_data_listener', 'rnap_data_listener',

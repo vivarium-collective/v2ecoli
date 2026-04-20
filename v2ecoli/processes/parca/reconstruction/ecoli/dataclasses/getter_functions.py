@@ -145,10 +145,17 @@ class GetterFunctions(object):
     def get_genomic_coordinates(self, site_id: str) -> tuple[int, int]:
         """
         Returns the genomic coordinates of the left and right ends of a DNA site
-        given the ID of the site.
+        given the ID of the site. Falls back to plasmid coordinates when the
+        site is not on the chromosome.
         """
         assert isinstance(site_id, str)
-        return self._all_genomic_coordinates[site_id]
+        if site_id in self._all_genomic_coordinates:
+            return self._all_genomic_coordinates[site_id]
+        if site_id in self._all_plasmid_coordinates:
+            return self._all_plasmid_coordinates[site_id]
+        raise KeyError(
+            f"Site ID {site_id} not found in genomic or plasmid coordinates"
+        )
 
     def get_miscrnas_with_singleton_tus(self) -> list[str]:
         """
@@ -368,6 +375,9 @@ class GetterFunctions(object):
         self._all_submass_arrays.update(
             self._build_full_chromosome_mass(raw_data, sim_data)
         )
+        self._all_submass_arrays.update(
+            self._build_full_plasmid_mass(raw_data, sim_data)
+        )
 
         # These updates can be dependent on the masses calculated above
         self._all_submass_arrays.update(self._build_modified_rna_masses(raw_data))
@@ -564,6 +574,42 @@ class GetterFunctions(object):
 
         return {
             sim_data.molecule_ids.full_chromosome[:-3]: self._build_submass_array(
+                mw, "DNA"
+            )
+        }
+
+    def _build_full_plasmid_mass(self, raw_data, sim_data):
+        """
+        Calculates the mass of the full plasmid from its sequence and the
+        weights of polymerized dNTPs.
+        """
+        plasmid_seq = raw_data.plasmid_sequence
+        forward_strand_nt_counts = np.array(
+            [
+                plasmid_seq.count(letter)
+                for letter in sim_data.dntp_code_to_id_ordered.keys()
+            ]
+        )
+        reverse_strand_nt_counts = np.array(
+            [
+                plasmid_seq.reverse_complement().count(letter)
+                for letter in sim_data.dntp_code_to_id_ordered.keys()
+            ]
+        )
+        polymerized_dntp_mws = np.array(
+            [
+                self._all_submass_arrays[met_id[:-3]].sum()
+                for met_id in sim_data.molecule_groups.polymerized_dntps
+            ]
+        )
+        mw = float(
+            np.dot(
+                forward_strand_nt_counts + reverse_strand_nt_counts,
+                polymerized_dntp_mws,
+            )
+        )
+        return {
+            sim_data.molecule_ids.full_plasmid[:-3]: self._build_submass_array(
                 mw, "DNA"
             )
         }
@@ -980,5 +1026,11 @@ class GetterFunctions(object):
         self._all_genomic_coordinates = {
             site["id"]: (site["left_end_pos"], site["right_end_pos"])
             for site in raw_data.dna_sites
+            if site["type"] not in IGNORED_DNA_SITE_TYPES
+        }
+
+        self._all_plasmid_coordinates = {
+            site["id"]: (site["left_end_pos"], site["right_end_pos"])
+            for site in raw_data.plasmid_dna_sites
             if site["type"] not in IGNORED_DNA_SITE_TYPES
         }

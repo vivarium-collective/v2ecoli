@@ -30,6 +30,7 @@ LIST_OF_DICT_FILENAMES = [
     "complexation_reactions_removed.tsv",
     "disabled_kinetic_reactions.tsv",
     "dna_sites.tsv",
+    "plasmid_dna_sites.tsv",
     "dry_mass_composition.tsv",
     "endoRNases.tsv",
     "equilibrium_reaction_rates.tsv",
@@ -130,6 +131,7 @@ LIST_OF_DICT_FILENAMES = [
     os.path.join("adjustments", "relative_metabolite_concentrations_changes.tsv"),
 ]
 SEQUENCE_FILE = "sequence.fasta"
+PLASMID_SEQUENCE_FILE = "plasmidsequence.fasta"
 LIST_OF_PARAMETER_FILENAMES = [
     "dna_supercoiling.tsv",
     "parameters.tsv",
@@ -321,6 +323,9 @@ class KnowledgeBaseEcoli(object):
 
         self.genome_sequence = self._load_sequence(
             os.path.join(FLAT_DIR, SEQUENCE_FILE)
+        )
+        self.plasmid_sequence = self._load_sequence(
+            os.path.join(FLAT_DIR, PLASMID_SEQUENCE_FILE)
         )
 
         self._prune_data()

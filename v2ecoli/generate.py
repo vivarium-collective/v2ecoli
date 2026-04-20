@@ -29,6 +29,7 @@ from v2ecoli.processes.transcript_elongation import TranscriptElongation
 from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiation
 from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
 from v2ecoli.processes.chromosome_replication import ChromosomeReplication
+from v2ecoli.processes.plasmid_replication import PlasmidReplication
 
 # Generic Requester/Evolver wrappers from partition.py
 from v2ecoli.steps.partition import Requester, Evolver, PartitionedProcess
@@ -82,6 +83,7 @@ BASE_EXECUTION_LAYERS = [
 
     # Layer 4b: standalone initiation/replication/complexation
     ['ecoli-complexation', 'ecoli-chromosome-replication',
+     'ecoli-plasmid-replication',
      'ecoli-polypeptide-initiation', 'ecoli-transcript-initiation'],
     # RNA degradation still partitioned (shares water with other processes)
     ['ecoli-rna-degradation_requester'],
@@ -513,6 +515,7 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'ecoli-transcript-initiation': TranscriptInitiation,
         'ecoli-polypeptide-initiation': PolypeptideInitiation,
         'ecoli-chromosome-replication': ChromosomeReplication,
+        'ecoli-plasmid-replication': PlasmidReplication,
     }
 
     SIMPLE_STEPS = {

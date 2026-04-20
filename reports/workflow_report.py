@@ -75,6 +75,7 @@ CACHE_DIR = 'out/cache' if os.path.isdir('out/cache') else 'out/workflow/cache'
 LONG_DURATION = 1800.0  # Legacy label
 MAX_LONG_DURATION = 3600  # Max seconds before giving up on division
 SNAPSHOT_INTERVAL = 50  # Seconds between chromosome snapshots
+PLASMID_SNAPSHOT_INTERVAL = 1  # Seconds between plasmid snapshots (when enabled)
 DAUGHTER_DURATION = None  # Set to half the single-cell division time at runtime
 
 # Runtime options (overridden by CLI args)
@@ -1217,6 +1218,32 @@ def step_single_cell():
     bulk_before = np.array(cell['bulk']['count'], copy=True)
     initial_dry_mass = float(cell.get('listeners', {}).get('mass', {}).get('dry_mass', 380))
 
+    # Plasmid mode: full_plasmid array seeded with active entries means the
+    # plasmid-aware cache (out/cache_plasmid) was used. Captured snapshots
+    # feed scripts/plasmid_report.py via out/plasmid/timeseries.json.
+    has_plasmids = False
+    fp = cell.get('unique', {}).get('full_plasmid')
+    if fp is not None and hasattr(fp, 'dtype') and '_entryState' in fp.dtype.names:
+        has_plasmids = int(fp['_entryState'].view(np.bool_).sum()) > 0
+    plasmid_snaps = []
+    plasmid_ids = {'trimer': [], 'monomer': [], 'dntp': []}
+    plasmid_snapshot_fn = None
+    if has_plasmids:
+        from scripts.run_plasmid_experiment import snapshot as plasmid_snapshot_fn
+        try:
+            with open(os.path.join(CACHE_DIR, 'sim_data_cache.dill'), 'rb') as _f:
+                _cache = dill.load(_f)
+            _cfg = _cache.get('configs', {}).get('ecoli-plasmid-replication', {})
+            plasmid_ids['trimer'] = _cfg.get('replisome_trimers_subunits', [])
+            plasmid_ids['monomer'] = _cfg.get('replisome_monomers_subunits', [])
+            plasmid_ids['dntp'] = _cfg.get('dntps', [])
+        except Exception as _e:
+            print(f"    plasmid id lookup failed: {_e}")
+        plasmid_snaps.append(plasmid_snapshot_fn(
+            0, cell, plasmid_ids['trimer'], plasmid_ids['monomer'], plasmid_ids['dntp']))
+        print(f"    plasmid mode: t=0 plasmids={plasmid_snaps[0]['n_full_plasmids']}, "
+              f"oriV={plasmid_snaps[0]['n_oriV']}")
+
     # Keep reference to emitter instance — survives division (agent removal)
     em_edge = cell.get('emitter', {})
     emitter_instance = em_edge.get('instance') if isinstance(em_edge, dict) else None
@@ -1226,8 +1253,9 @@ def step_single_cell():
     last_cell_data = None
     total_run = 0
 
+    chunk_interval = PLASMID_SNAPSHOT_INTERVAL if has_plasmids else SNAPSHOT_INTERVAL
     while total_run < max_dur:
-        chunk = min(SNAPSHOT_INTERVAL, max_dur - total_run)
+        chunk = min(chunk_interval, max_dur - total_run)
         try:
             composite.run(chunk)
         except Exception as e:
@@ -1238,19 +1266,38 @@ def step_single_cell():
                 print(f"    Cell divided at ~t={total_run}s ({total_run/60:.0f}min)")
                 divided = True
                 break
-            else:
-                # Non-division error — log and continue
+            # The structural divide can complete before an unrelated error
+            # fires later in the same composite.run (e.g. realize Array on a
+            # daughter's listener store). If the mother agent is gone, the
+            # divide already happened — treat as terminal. Still print the
+            # traceback so the deeper bug (blocks multigen) is diagnosable.
+            if composite.state.get('agents', {}).get('0') is None:
                 import traceback
-                print(f"    Warning at ~t={total_run}s: {type(e).__name__}: {err_str[:100]}")
-                if total_run <= SNAPSHOT_INTERVAL:
-                    traceback.print_exc()
-                continue
+                print(f"    Cell divided at ~t={total_run}s ({total_run/60:.0f}min) "
+                      f"({type(e).__name__} during post-add; daughter state discarded)")
+                print(f"    post-add error: {err_str[:200]}")
+                traceback.print_exc()
+                divided = True
+                break
+            # Non-division error — log full traceback so deeper bugs
+            # (e.g. growth_limits realize failure) are diagnosable.
+            import traceback
+            print(f"    Warning at ~t={total_run}s: {type(e).__name__}: {err_str[:200]}")
+            traceback.print_exc()
+            continue
         total_run += chunk
 
         cell = composite.state.get('agents', {}).get('0')
         if cell is None:
             divided = True
             break
+
+        # Plasmid snapshot from live state (process_state.plasmid_rna_control
+        # isn't carried in emitter_history, so capture here per chunk).
+        if has_plasmids and plasmid_snapshot_fn is not None:
+            plasmid_snaps.append(plasmid_snapshot_fn(
+                total_run, cell,
+                plasmid_ids['trimer'], plasmid_ids['monomer'], plasmid_ids['dntp']))
 
         # Save cell state snapshot for pre-division backup
         _data_keys = {'bulk', 'unique', 'listeners', 'environment', 'boundary',
@@ -1436,6 +1483,24 @@ def step_single_cell():
     except Exception as e:
         print(f"    Warning: could not save .pbg: {e}")
 
+    # Plasmid timeseries — written in the schema scripts/plasmid_report.py
+    # consumes, so the same renderer works for workflow + standalone runs.
+    plasmid_timeseries_path = None
+    if has_plasmids and plasmid_snaps:
+        plasmid_timeseries_path = 'out/plasmid/timeseries.json'
+        os.makedirs(os.path.dirname(plasmid_timeseries_path), exist_ok=True)
+        with open(plasmid_timeseries_path, 'w') as _f:
+            json.dump({
+                'duration': total_run,
+                'interval': PLASMID_SNAPSHOT_INTERVAL,
+                'wall_time': wall_time,
+                'trimer_subunit_ids': plasmid_ids['trimer'],
+                'monomer_subunit_ids': plasmid_ids['monomer'],
+                'dntp_ids': plasmid_ids['dntp'],
+                'snapshots': plasmid_snaps,
+            }, _f, indent=2, cls=NumpyJSONEncoder)
+        print(f"    wrote {plasmid_timeseries_path} ({len(plasmid_snaps)} snapshots)")
+
     meta = {
         'duration': total_run,
         'wall_time': wall_time,
@@ -1449,6 +1514,8 @@ def step_single_cell():
         'initial_dry_mass': initial_dry_mass,
         'chromosome_snapshots': snapshots,
         'pre_division_dir': pre_div_dir,
+        'has_plasmids': has_plasmids,
+        'plasmid_timeseries_path': plasmid_timeseries_path,
     }
     save_meta(step_name, meta)
 
@@ -1896,7 +1963,7 @@ def plot_daughters_mass(daughters_meta, title=''):
 # HTML Report Generator
 # ---------------------------------------------------------------------------
 
-def generate_html_report(step_results, plots, network_html_rel, diagnostics):
+def generate_html_report(step_results, plots, network_html_rel, diagnostics, has_plasmids=False):
     """Generate the HTML report organized by pipeline step."""
 
     try:
@@ -1978,7 +2045,8 @@ def generate_html_report(step_results, plots, network_html_rel, diagnostics):
     daughters_wall = d1_wall + d2_wall
     daughters_dur = daughters.get('duration', 0)
 
-    report_path = os.path.join(WORKFLOW_DIR, 'workflow_report.html')
+    report_name = 'workflow_report_plasmid.html' if has_plasmids else 'workflow_report.html'
+    report_path = os.path.join(WORKFLOW_DIR, report_name)
     with open(report_path, 'w') as f:
         f.write(f"""<!DOCTYPE html>
 <html lang="en">
@@ -2341,13 +2409,35 @@ def run_workflow():
 
     # Generate HTML report
     print("  Generating HTML report...")
-    report_path = generate_html_report(step_results, plots, network_html_rel, diagnostics)
+    report_path = generate_html_report(
+        step_results, plots, network_html_rel, diagnostics,
+        has_plasmids=bool(single_cell_meta.get('has_plasmids')))
+
+    # Plasmid report (only if simulation was plasmid-enabled)
+    plasmid_report_path = None
+    if single_cell_meta.get('has_plasmids'):
+        print("  Generating plasmid replication report...")
+        try:
+            from scripts.plasmid_report import main as plasmid_report_main, OUT as PLASMID_OUT
+            plasmid_report_main()
+            plasmid_report_path = PLASMID_OUT
+        except Exception as e:
+            print(f"    plasmid report failed: {type(e).__name__}: {e}")
 
     pipeline_time = time.time() - pipeline_t0
     print("=" * 60)
     print(f"Pipeline complete in {pipeline_time:.0f}s")
     print(f"Report: {report_path}")
+    if plasmid_report_path:
+        print(f"Plasmid report: {plasmid_report_path}")
     print(f"Cache:  {WORKFLOW_DIR}/")
+
+    if _OPTIONS.get('open_reports'):
+        import subprocess
+        for p in [report_path, plasmid_report_path]:
+            if p and os.path.exists(p):
+                subprocess.run(['open', p], check=False)
+
     return report_path
 
 
@@ -2371,6 +2461,11 @@ if __name__ == '__main__':
                         help='Skip the daughters simulation step')
     parser.add_argument('--daughter-duration', type=int, default=None,
                         help='Override daughter sim duration in seconds')
+    parser.add_argument('--cache-dir', type=str, default=None,
+                        help='Override cache directory (e.g. out/cache_plasmid '
+                             'for a plasmid-enabled run)')
+    parser.add_argument('--open', dest='open_reports', action='store_true',
+                        help='Open generated HTML report(s) at end of run (macOS)')
     args = parser.parse_args()
 
     # Apply CLI overrides
@@ -2382,6 +2477,9 @@ if __name__ == '__main__':
     _OPTIONS['skip_daughters'] = args.no_daughters
     if args.daughter_duration is not None:
         _OPTIONS['daughter_duration'] = args.daughter_duration
+    if args.cache_dir is not None:
+        CACHE_DIR = args.cache_dir
+    _OPTIONS['open_reports'] = args.open_reports
 
     if args.clean:
         import glob as glob_mod

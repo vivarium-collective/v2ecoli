@@ -19,6 +19,11 @@ from process_bigraph import Composite
 
 from v2ecoli.types import ECOLI_TYPES
 from v2ecoli.cache import load_initial_state, save_initial_state, save_json
+from v2ecoli.library.cache_version import (  # noqa: F401 StaleCacheError is re-exported
+    StaleCacheError,
+    verify_cache_version,
+    write_cache_version,
+)
 # Import at module load so the shared pint UnitRegistry has
 # nucleotide/amino_acid/count defined before any dill.load hydrates
 # a Quantity whose unit string references those names.
@@ -93,6 +98,11 @@ def make_composite(document=None, cache_dir=None,
 
     if document is None:
         if cache_dir and os.path.isdir(cache_dir):
+            # Fail fast with a rebuild message if the cache doesn't match
+            # the current sim_data code or ParCa fixture. Without this,
+            # stale caches drop several frames into mass_listener or
+            # similar with obscure AttributeErrors.
+            verify_cache_version(cache_dir)
             document = _build_from_cache(cache_dir, core, seed,
                                          features=features)
         elif initial_state is not None and configs is not None:
@@ -199,4 +209,5 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
         dill.dump(cache, f)
 
     save_json({'unique_names': unique_names}, os.path.join(cache_dir, 'metadata.json'))
+    write_cache_version(cache_dir)
     print(f"Cache saved to {cache_dir}")

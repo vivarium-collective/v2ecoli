@@ -103,6 +103,14 @@ Published at https://vivarium-collective.github.io/v2ecoli/.
   them into parallel jobs. Don't remove the marker.
 - Behavior fixtures live in `tests/fixtures/`. The pre-division state
   (`pre_division_state.json.gz`) and ParCa cache (`cache/`) are load-bearing.
+- `out/cache/` is fingerprinted by `v2ecoli/library/cache_version.py`.
+  `make_composite` calls `verify_cache_version` before loading, so a cache
+  that was built from a different `models/parca/parca_state.pkl.gz`,
+  `v2ecoli/library/sim_data.py`, or unit-bridge raises `StaleCacheError`
+  with a one-line rebuild command instead of a 10-frame-deep `AttributeError`.
+  Rebuild with `python scripts/build_cache.py` (fast; reuses the committed
+  ParCa fixture — no ParCa re-run). See `docs/generate_full_parca.md` for
+  the full ParCa path.
 
 ## What NOT to do
 
@@ -121,7 +129,8 @@ Published at https://vivarium-collective.github.io/v2ecoli/.
 ## Before opening a PR
 
 ```bash
-pytest -m "not sim"             # fast tests
+python scripts/build_cache.py                # regenerate out/cache if stale
+pytest -m "not sim"                          # fast tests
 pytest -m sim tests/test_model_behavior.py   # behavior tests
 ```
 

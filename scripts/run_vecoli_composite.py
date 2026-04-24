@@ -1,4 +1,4 @@
-"""Run vEcoli and collect snapshots. Called as subprocess by compare_v1_v2.py."""
+"""Run vEcoli and collect snapshots. Called as subprocess by reports/v1_v2_report.py."""
 import os, sys, json, time, warnings
 import numpy as np
 

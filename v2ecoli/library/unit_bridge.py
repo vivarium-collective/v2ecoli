@@ -5,6 +5,8 @@ never touch Unum directly outside this module.
 """
 
 from __future__ import annotations
+
+import functools
 from typing import Optional, Any
 
 import numpy as np
@@ -90,6 +92,54 @@ def _unit_string_from_unum(u: Unum) -> str:
     return " * ".join(parts) if parts else "dimensionless"
 
 
+@functools.lru_cache(maxsize=512)
+def _parsed_pint_unit(unit_expr: str) -> pint.Unit:
+    """Memoized parser for unit expression strings. Pint's parse_units is
+    a non-trivial walk (tokenize + parse + resolve + canonicalize) that
+    the profile showed eating ~23% of Metabolism.update wall time when
+    invoked once per metabolite per tick. Caching collapses each unique
+    unit string to a single parse for the lifetime of the process."""
+    return ureg.parse_units(unit_expr)
+
+
+@functools.lru_cache(maxsize=1024)
+def _conversion_factor(src_unit_expr: str, target_unit_repr: str) -> float:
+    """Scalar factor to convert magnitude in ``src_unit_expr`` to
+    magnitude in the unit ``target_unit_repr`` denotes.  Both sides are
+    strings so the cache key is hashable.  Building the factor costs one
+    pint ``.to()`` call; on the hot path we reuse it."""
+    src_q = ureg.Quantity(1.0, _parsed_pint_unit(src_unit_expr))
+    return src_q.to(_parsed_pint_unit(target_unit_repr)).magnitude
+
+
+def unum_magnitude_in(u: Any, target: Any) -> Any:
+    """Fast path: convert an Unum (or pint-Quantity, or bare float/array)
+    value straight to a magnitude in ``target``'s units, skipping the
+    transient pint.Quantity allocation and repeated ``.to()`` lookup.
+
+    ``target`` is a pint ``Unit`` or ``Quantity`` whose *units* define
+    the output basis. Module-level unit constants like ``CONC_UNITS``
+    are the intended arguments.
+
+    Use this at hot boundaries where the only purpose of building a pint
+    Quantity was to call ``.to(UNITS).magnitude`` immediately after.
+    """
+    target_units = target.units if isinstance(target, pint.Quantity) else target
+    target_repr = str(target_units)
+    if isinstance(u, Unum):
+        if not u._unit:
+            return u._value
+        src_expr = _unit_string_from_unum(u)
+        return u._value * _conversion_factor(src_expr, target_repr)
+    if isinstance(u, pint.Quantity):
+        if u._REGISTRY is ureg:
+            return u.to(target_units).magnitude
+        src_expr = str(u.units)
+        return u.magnitude * _conversion_factor(src_expr, target_repr)
+    # Bare float/array: trust the caller's unit contract.
+    return u
+
+
 def unum_to_pint(u: Any) -> Any:
     """Convert an Unum quantity (scalar or ndarray-valued) to a pint Quantity
     on the shared v2ecoli registry. Non-Unum inputs are rebound to ureg if
@@ -104,15 +154,16 @@ def unum_to_pint(u: Any) -> Any:
     if isinstance(u, pint.Quantity):
         if u._REGISTRY is ureg:
             return u
-        # Rebind to the shared registry via string parsing.
-        return ureg.Quantity(u.magnitude, str(u.units))
+        # Rebind to the shared registry. Cache the parsed unit — the same
+        # unit string recurs thousands of times per tick in hot paths.
+        return ureg.Quantity(u.magnitude, _parsed_pint_unit(str(u.units)))
     if not isinstance(u, Unum):
         return u
     magnitude = u._value
     if not u._unit:
         return ureg.Quantity(magnitude)
     unit_expr = _unit_string_from_unum(u)
-    return ureg.Quantity(magnitude, unit_expr)
+    return ureg.Quantity(magnitude, _parsed_pint_unit(unit_expr))
 
 
 # Pint short-symbol -> wholecell.utils.units name overrides for symbols that
@@ -141,14 +192,25 @@ def _resolve_wc_unit(symbol: str) -> Unum:
     return Unum({symbol: 1}, 1.0)
 
 
-def _unum_unit_from_pint(q: pint.Quantity) -> Unum:
-    """Build an Unum unit object matching a pint Quantity's dimensionality
-    using pint short symbols (e.g. 'mmol' rather than 'millimole')."""
+@functools.lru_cache(maxsize=512)
+def _unum_unit_for_pint_unit(pint_unit: pint.Unit) -> Unum:
+    """Memoized: build an Unum unit object matching a pint Unit's
+    dimensionality using pint short symbols (e.g. 'mmol' rather than
+    'millimole'). Same parse-heavy work as ``_parsed_pint_unit`` in the
+    reverse direction; keying by ``pint.Unit`` (hashable) folds
+    repeated calls to pint_to_unum over the same target unit down to a
+    single build."""
     unum_unit = Unum({}, 1.0)
-    for name, exp in q.units._units.items():
+    for name, exp in pint_unit._units.items():
         symbol = f"{ureg.Unit(name):~}"
         unum_unit = unum_unit * (_resolve_wc_unit(symbol) ** exp)
     return unum_unit
+
+
+def _unum_unit_from_pint(q: pint.Quantity) -> Unum:
+    """Build an Unum unit object matching a pint Quantity's dimensionality
+    using pint short symbols (e.g. 'mmol' rather than 'millimole')."""
+    return _unum_unit_for_pint_unit(q.units)
 
 
 def pint_to_unum(q: Any, target: Optional[Unum] = None) -> Any:

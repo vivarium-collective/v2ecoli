@@ -21,10 +21,18 @@ DURATION = 60.0
 MIN_GROWTH_FG = 1.0  # over 60s a healthy cell adds several fg
 
 
-pytestmark = pytest.mark.skipif(
-    not os.path.isdir(CACHE_DIR),
-    reason=f'cache dir {CACHE_DIR!r} not present (run scripts/cache_predivision.py)',
-)
+# These tests call composite.run() — mark them 'sim' so CI routes them to
+# the behavior-tests job (which builds the ParCa cache). Locally, skip when
+# the cache is missing; on CI, fail loud (hidden skips are how the
+# unum→pint migration broke main without anyone noticing).
+pytestmark = [
+    pytest.mark.sim,
+    pytest.mark.skipif(
+        not os.path.isdir(CACHE_DIR) and not os.environ.get('CI'),
+        reason=f'cache dir {CACHE_DIR!r} not present; '
+               f'rebuild with `python scripts/build_cache.py`',
+    ),
+]
 
 
 def _run_and_measure(make_composite_fn, duration=DURATION):

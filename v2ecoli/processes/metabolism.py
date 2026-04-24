@@ -67,7 +67,7 @@ from v2ecoli.library.ecoli_step import EcoliStep as Step
 # topology_registry removed
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
+from v2ecoli.library.unit_bridge import unum_magnitude_in, unum_to_pint, pint_to_unum
 from wholecell.utils.random import stochasticRound
 from wholecell.utils.modular_fba import FluxBalanceAnalysis
 import pint
@@ -415,12 +415,13 @@ class Metabolism(Step):
             current_media_id, self.nutrientToDoublingTime[self.media_id]
         )
         # getBiomassAsConcentrations / getppGppConc are upstream Unum-native;
-        # they accept and return Unum quantities.
+        # they accept and return Unum quantities. Keep them Unum through the
+        # merge below; a single fused conversion at the end goes Unum →
+        # magnitude without building 60+ transient pint.Quantity objects.
         if self.include_ppgpp:
             conc_updates = self.model.getBiomassAsConcentrations(doubling_time)
-            conc_updates[self.model.ppgpp_id] = unum_to_pint(
-                self.model.getppGppConc(doubling_time)
-            ).to(CONC_UNITS)
+            conc_updates[self.model.ppgpp_id] = self.model.getppGppConc(
+                doubling_time)
         else:
             rp_ratio = (
                 states["listeners"]["mass"]["rna_mass"]
@@ -444,11 +445,12 @@ class Metabolism(Step):
                 )
             )
 
-        # Convert from upstream Unum-valued conc dict to plain float magnitudes
-        # in CONC_UNITS. The per-met value can be Unum (from upstream) or pint
-        # (from the ppGpp branch above).
+        # Unum → magnitude in CONC_UNITS, direct (no intermediate pint
+        # Quantity). Conversion factors are memoized by (src_unit,
+        # CONC_UNITS) in ``_conversion_factor``, so every met with the
+        # same source unit reuses one scalar multiplication.
         conc_updates = {
-            met: unum_to_pint(conc).to(CONC_UNITS).magnitude
+            met: unum_magnitude_in(conc, CONC_UNITS)
             for met, conc in conc_updates.items()
         }
 

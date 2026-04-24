@@ -984,6 +984,239 @@ are exactly the values in <code>PlasmidReplication.config_schema</code>.
   <td>10</td><td>—</td><td>(integration choice)</td></tr>
 </table>
 
+<h3>How the model runs inside v2ecoli</h3>
+<p>
+The BP1993 ODE lives in <code>v2ecoli/processes/plasmid_replication.py</code>
+as the <code>PlasmidReplication</code> Step. Each tick it (a) re-syncs the
+continuous D-pool to the integer <code>full_plasmids</code> count that
+v2ecoli is tracking, (b) integrates eqns&nbsp;1a–1j over the tick, and
+(c) discretizes the continuous replication flux into integer initiation
+events that create new plasmid replisome unique molecules. The
+integer-count side of v2ecoli (full_plasmids, plasmid_active_replisomes,
+oriVs, plasmid_domains) stays authoritative; the ODE is a control
+signal, not a parallel copy of the plasmid inventory.
+</p>
+
+<h4>The 10-species state machine</h4>
+<p>
+Seven D-species are all the same plasmid DNA in different RNA&nbsp;II /
+RNA&nbsp;I / Rom complexation states. The three free species
+(R<sub>I</sub>, R<sub>II</sub>, M) float in the cytoplasm.
+</p>
+<table>
+<tr><th>Species</th><th>Meaning</th><th>Role in the loop</th></tr>
+<tr><td><strong>D</strong></td>
+  <td>Idle plasmid (no RNA II in progress)</td>
+  <td>Reservoir. Re-enters via primer release
+    (k<sub>D</sub>·D<sub>p</sub>), loop re-opening
+    (k<sub>−l</sub>·D<sub>lII</sub>) and kissing-complex disassembly
+    (k<sub>−c</sub>·D<sub>c</sub>).</td></tr>
+<tr><td><strong>D<sub>tII</sub></strong></td>
+  <td>Plasmid with <em>short</em> RNA&nbsp;II transcript (110–360&nbsp;nt)</td>
+  <td>The control point. Either matures to D<sub>lII</sub> (rate
+    k<sub>l</sub>) or is captured by R<sub>I</sub> into D<sub>*c</sub>
+    (rate k<sub>1</sub>·R<sub>I</sub>).</td></tr>
+<tr><td><strong>D<sub>lII</sub></strong></td>
+  <td>Plasmid with <em>long</em> RNA&nbsp;II transcript (past 360&nbsp;nt)</td>
+  <td>Loop region folded away — R<sub>I</sub> can no longer bind.
+    Commits to primer (k<sub>p</sub>) or aborts
+    (k<sub>−l</sub>).</td></tr>
+<tr><td><strong>D<sub>p</sub></strong></td>
+  <td>Primer-ready plasmid (RNase&nbsp;H cleaved)</td>
+  <td>One tick at k<sub>D</sub> and the plasmid replicates
+    (D&nbsp;→&nbsp;2·D).</td></tr>
+<tr><td><strong>D<sub>*c</sub></strong></td>
+  <td>Kissing complex (reversible
+    R<sub>I</sub>·D<sub>tII</sub>)</td>
+  <td>First committed inhibited state. Feeds D<sub>c</sub>
+    (k<sub>2</sub>) or D<sub>M</sub> (k<sub>3</sub>·M).</td></tr>
+<tr><td><strong>D<sub>c</sub></strong></td>
+  <td>Stable inhibited complex (cleaved)</td>
+  <td>Dead end except for slow disassembly (k<sub>−c</sub>) back
+    to D.</td></tr>
+<tr><td><strong>D<sub>M</sub></strong></td>
+  <td>Rom-stabilized inhibited complex</td>
+  <td>Rom bound to D<sub>*c</sub>. Hands off to D<sub>c</sub>
+    (k<sub>4</sub>). Carrier of the rom+ phenotype.</td></tr>
+<tr><td><strong>R<sub>I</sub></strong></td>
+  <td>Free antisense RNA&nbsp;I (inhibitor)</td>
+  <td>Produced at k<sub>I</sub>·D, degraded at ε<sub>I</sub>.
+    Drives the negative feedback: more plasmids → more
+    R<sub>I</sub> → more D<sub>tII</sub> captured before
+    maturation.</td></tr>
+<tr><td><strong>R<sub>II</sub></strong></td>
+  <td>Free RNA&nbsp;II (aborted transcripts)</td>
+  <td>Not reused; degraded at ε<sub>II</sub>. Released from
+    D<sub>lII</sub> (k<sub>−l</sub>) and D<sub>p</sub>
+    (k<sub>D</sub>, at primer cleavage).</td></tr>
+<tr><td><strong>M</strong></td>
+  <td>Free Rom protein</td>
+  <td>Produced at k<sub>M</sub>·D, degraded at ε<sub>M</sub>, binds
+    D<sub>*c</sub> at k<sub>3</sub>. No Rom → D<sub>M</sub> stays
+    empty → rom⁻-like phenotype emerges from the chemistry.</td></tr>
+</table>
+
+<h4>The per-tick handshake with v2ecoli's unique-molecule stack</h4>
+<p>
+v2ecoli counts plasmids with an integer <code>full_plasmids</code>
+unique-molecule array; BP1993's D-pool is continuous. The two are
+reconciled in <code>_prepare</code> every timestep:
+</p>
+<ol>
+<li><strong>Read the truth.</strong>
+  <code>n_plasmids&nbsp;=&nbsp;sum(full_plasmids._entryState)</code>
+  and
+  <code>n_active&nbsp;=&nbsp;sum(plasmid_active_replisomes._entryState)</code>.
+  <code>n_idle&nbsp;=&nbsp;n_plasmids&nbsp;−&nbsp;n_active</code> is
+  the number of plasmids available to sit in one of the seven
+  D-states.</li>
+<li><strong>Renormalize the D-pool to
+  <code>n_idle</code>.</strong>
+  <code>sum(D,&nbsp;D<sub>tII</sub>,&nbsp;D<sub>lII</sub>,&nbsp;D<sub>p</sub>,&nbsp;D<sub>*c</sub>,&nbsp;D<sub>c</sub>,&nbsp;D<sub>M</sub>)&nbsp;=&nbsp;n_idle</code>
+  after scaling. Division and replication-termination change
+  <code>n_full_plasmids</code> externally; this step absorbs those
+  jumps without perturbing the species ratios.</li>
+<li><strong>Integrate eqns 1a–1j</strong> with RK4,
+  <code>n_substeps&nbsp;=&nbsp;10</code> per tick, non-negative clamp
+  after each substep (<code>_bp_rk4</code>).</li>
+<li><strong>Discretize the replication flux.</strong> During
+  integration the 2·k<sub>D</sub>·D<sub>p</sub> term in dD/dt
+  inflates the D-pool above <code>n_idle</code>; the growth
+  <code>Δ&nbsp;=&nbsp;new_sum&nbsp;−&nbsp;n_idle</code> is the
+  continuous number of replication events that should fire this
+  tick. Add Δ into <code>repl_accum</code> and emit
+  <code>n_rna_initiations&nbsp;=&nbsp;int(repl_accum)</code>; keep
+  the fractional remainder for next tick. Renormalize the D-pool
+  back to <code>n_idle</code>.</li>
+<li><strong>Hand <code>n_rna_initiations</code> to
+  Module&nbsp;1.</strong> In <code>_evolve</code>, Module&nbsp;1
+  takes <code>min</code> of the requested initiations, available
+  idle plasmid domains, and subunit-gated
+  <code>max_new_replisomes</code>, then builds that many new
+  <code>plasmid_active_replisome</code> unique molecules and
+  decrements the corresponding subunit bulk counts.</li>
+</ol>
+
+<h4>Inputs — what v2ecoli feeds into the process</h4>
+<table>
+<tr><th>Port</th><th>Type</th><th>Used for</th></tr>
+<tr><td><code>bulk</code></td>
+  <td>bulk molecule array</td>
+  <td>Read: replisome subunits (DnaG, DnaB, HolA, pol&nbsp;III core,
+    β-clamp) to compute <code>max_new_replisomes</code>; dNTPs for
+    polymerization; PP<sub>i</sub> for by-product
+    accounting.</td></tr>
+<tr><td><code>full_plasmids</code></td>
+  <td>unique-molecule array</td>
+  <td>Sum gives <code>n_plasmids</code> — the authoritative integer
+    copy number. Pins <code>sum(D-pool)</code> via
+    renormalization.</td></tr>
+<tr><td><code>plasmid_active_replisomes</code></td>
+  <td>unique-molecule array</td>
+  <td>Sum gives <code>n_active</code>, subtracted from
+    <code>n_plasmids</code> to get <code>n_idle</code> (the D-pool
+    size). Also walked forward by Module&nbsp;2 at
+    elongation.</td></tr>
+<tr><td><code>oriVs</code>,
+    <code>plasmid_domains</code></td>
+  <td>unique-molecule arrays</td>
+  <td>Identify which plasmid domains have an active replisome vs.
+    which are idle (<code>idle_plasmid_domains</code>), so
+    Module&nbsp;1 only initiates on replisome-free
+    domains.</td></tr>
+<tr><td><code>environment.media_id</code></td>
+  <td>string</td>
+  <td>Routed through to <code>make_elongation_rates</code> so the
+    basal elongation rate can be media-conditioned (inherited from
+    the chromosomal replication process).</td></tr>
+<tr><td><code>plasmid_rna_control</code></td>
+  <td>12 scalar fields</td>
+  <td>The ODE's own state (10 species + <code>repl_accum</code> +
+    <code>n_rna_initiations</code>). Read at the start of the tick,
+    overwritten at the end.</td></tr>
+<tr><td><code>timestep</code>,
+    <code>global_time</code></td>
+  <td>integer[s], float</td>
+  <td>Tick length (1&nbsp;s for the plasmid loop) and absolute sim
+    time. RK4 integrates over <code>timestep</code>.</td></tr>
+</table>
+
+<h4>Outputs — what the process feeds back to v2ecoli</h4>
+<table>
+<tr><th>Port</th><th>Update type</th><th>Effect</th></tr>
+<tr><td><code>bulk</code></td>
+  <td>deltas (subunit draws, dNTP consumption, PP<sub>i</sub>
+    release)</td>
+  <td>Each new replisome debits one trimer and one monomer set of
+    subunits from <code>bulk</code>; active replisomes consume dNTPs
+    and emit PP<sub>i</sub> during elongation. This is the coupling
+    that lets plasmid replication <em>compete</em> with chromosomal
+    replication for shared pools — the DnaG depletion signature is
+    visible precisely because of this.</td></tr>
+<tr><td><code>plasmid_active_replisomes</code></td>
+  <td>adds / moves / terminates unique molecules</td>
+  <td>New replisomes created by Module&nbsp;1 (one per initiation
+    event). Module&nbsp;2 advances their coordinates each tick.
+    Module&nbsp;3 deletes them at termination and spawns daughter
+    <code>full_plasmids</code>.</td></tr>
+<tr><td><code>full_plasmids</code>,
+    <code>plasmid_domains</code>,
+    <code>oriVs</code></td>
+  <td>adds unique molecules (at replication completion)</td>
+  <td>A completed replisome run produces two daughter plasmids,
+    each with its own oriV and domain entry. This is the
+    <em>only</em> path by which <code>n_full_plasmids</code> grows —
+    the ODE never writes to it directly.</td></tr>
+<tr><td><code>plasmid_rna_control</code></td>
+  <td><code>overwrite</code> on all 12 scalar fields</td>
+  <td>Post-integration ODE state (10 species, renormalized),
+    updated <code>repl_accum</code>, and
+    <code>n_rna_initiations</code> for the current tick. This is
+    what the report's §3 &amp; §4 plots read.</td></tr>
+<tr><td><code>listeners.replication_data.plasmid_critical_mass_per_oriV</code></td>
+  <td><code>overwrite[float]</code></td>
+  <td>Reported as 0 when the BP1993 ODE is driving initiation (no
+    critical-mass gate is in use). Kept in the schema so the
+    chromosomal-style listener is still populated.</td></tr>
+</table>
+
+<h4>Boundary contracts worth knowing</h4>
+<ul>
+<li><strong>Integer vs. float responsibility.</strong> The ODE never
+  creates or destroys <code>full_plasmids</code>. Every plasmid
+  count change goes through Module&nbsp;1 (initiation) or
+  Module&nbsp;3 (termination → daughter), which manipulate the
+  unique-molecule store. The ODE's only lever is
+  <code>n_rna_initiations</code>, which caps how many Module&nbsp;1
+  attempts per tick.</li>
+<li><strong>Dilution handled externally
+  (μ&nbsp;=&nbsp;0).</strong> BP&nbsp;1993's eqns include a
+  <code>−μ·species</code> term for growth dilution; here it's
+  dropped because v2ecoli's composite halves every species at cell
+  division via <code>divide_cell</code> rather than shrinking
+  continuously.</li>
+<li><strong>Fixed V<sub>c</sub>&nbsp;=&nbsp;0.625&nbsp;fL.</strong>
+  BP's bimolecular rates (k<sub>1</sub>, k<sub>3</sub>) are
+  reported in M⁻¹·min⁻¹ against BP's declared cell volume.
+  Coupling them to v2ecoli's dynamic 1–2&nbsp;fL would implicitly
+  rescale every hybridization rate over the cell cycle and
+  destabilize the steady state. Removing this boundary is a
+  Stage&nbsp;C roadmap item.</li>
+<li><strong>R<sub>I</sub>, R<sub>II</sub>, M stay inside
+  <code>plasmid_rna_control</code>.</strong> They are not bulk
+  molecules, not transcribed by the main RNAP stack, and not
+  mass-accounted. Stage&nbsp;C promotes RNA&nbsp;I/II to proper
+  bulk species driven by the whole-cell transcription process —
+  then hybridization becomes a standard count-based reaction and
+  the fixed-V<sub>c</sub> caveat drops out.</li>
+<li><strong>No direct oriV → replication call.</strong> The
+  <code>oriV</code> unique molecule is purely a locus marker used
+  for bookkeeping (Module&nbsp;1 finds idle domains, Module&nbsp;3
+  distributes oriVs to daughters). The ODE decides
+  <em>whether</em> to initiate; the oriV tells Module&nbsp;1
+  <em>where</em> on the plasmid to place the new replisome.</li>
+</ul>
+
 <h3>What changed vs. the prior 3-ODE QSS implementation</h3>
 <p>
 v2ecoli previously ran a QSS-reduced version of the BP1993 chemistry:

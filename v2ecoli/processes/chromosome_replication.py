@@ -326,9 +326,16 @@ class ChromosomeReplication(Step):
             # 2) If mechanistic replisome option is on, there are enough
             # replisome subunits to assemble two replisomes per existing OriC.
             # Note that we assume asynchronous initiation does not happen.
+            # v2ecoli runs chromosome replication outside the main allocator,
+            # so `counts(states["bulk"], ...)` returns raw total bulk rather
+            # than an allocator-requested slice equal to the per-tick demand.
+            # `==` therefore reads "bulk exactly equals demand" — effectively
+            # never true against counts in the 10s–100s — and silently gates
+            # re-initiation off under mechanistic_replisome=True. `>=` matches
+            # the "enough subunits" intent stated above.
             initiate_replication = not self.mechanistic_replisome or (
-                np.all(n_replisome_trimers == 6 * n_oriC)
-                and np.all(n_replisome_monomers == 2 * n_oriC)
+                np.all(n_replisome_trimers >= 6 * n_oriC)
+                and np.all(n_replisome_monomers >= 2 * n_oriC)
             )
 
         # If all conditions are met, initiate a round of replication on every

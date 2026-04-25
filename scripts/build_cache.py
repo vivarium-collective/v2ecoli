@@ -40,7 +40,8 @@ DEFAULT_CACHE_DIR = "out/cache"
 DEFAULT_WORKDIR = "out/workflow"
 
 
-def build_cache(fixture: str, cache_dir: str, workdir: str) -> None:
+def build_cache(fixture: str, cache_dir: str, workdir: str,
+                mechanistic_replisome: bool = False) -> None:
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(repo_root)
 
@@ -65,7 +66,8 @@ def build_cache(fixture: str, cache_dir: str, workdir: str) -> None:
 
     t3 = time.time()
     print(f"[{time.strftime('%H:%M:%S')}] Building cache at {cache_dir} ...")
-    save_cache(sd_path, cache_dir)
+    save_cache(sd_path, cache_dir,
+               mechanistic_replisome=mechanistic_replisome)
 
     version = write_cache_version(cache_dir, repo_root=repo_root)
     print(f"    cache built in {time.time()-t3:.1f}s")
@@ -88,8 +90,13 @@ def main() -> None:
     parser.add_argument("--workdir", default=DEFAULT_WORKDIR,
                         help=f"intermediate simData.cPickle dir "
                              f"(default: {DEFAULT_WORKDIR})")
+    parser.add_argument("--mechanistic-replisome", action="store_true",
+                        help="require full replisome subunit complement "
+                             "for chromosome re-initiation (matches "
+                             "LoadSimData; default is permissive)")
     args = parser.parse_args()
-    build_cache(args.fixture, args.cache_dir, args.workdir)
+    build_cache(args.fixture, args.cache_dir, args.workdir,
+                mechanistic_replisome=args.mechanistic_replisome)
 
 
 if __name__ == "__main__":

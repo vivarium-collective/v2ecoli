@@ -284,7 +284,6 @@ def _instantiate_standalone_step(step_name, config, loader, core):
         'ecoli-protein-degradation': ProteinDegradation,
         'ecoli-transcript-initiation': TranscriptInitiation,
         'ecoli-polypeptide-initiation': PolypeptideInitiation,
-        'ecoli-plasmid-replication': PlasmidReplication,
     }
 
     SIMPLE_STEPS = {

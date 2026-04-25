@@ -121,7 +121,7 @@ def _allocated(cell: dict, proc: str, subunit_idx: dict, key: str):
         return 0
     try:
         return int(alloc[idx])
-    except (IndexError, TypeError):
+    except (IndexError, TypeError, KeyError):
         return 0
 
 
@@ -218,14 +218,14 @@ def run_seed(cache_dir: str, seed: int, duration: float | None, core) -> dict:
     # step, giving us runaway replication up to the host-resource cap.
     if "ecoli-plasmid-replication" in configs:
         configs["ecoli-plasmid-replication"]["use_rna_control"] = False
-        # Temporary: give chromosome replication priority over plasmid
-        # replication in the uncontrolled regime so chromosome dNTP/subunit
-        # requests win under contention. Remove after uncontrolled-dynamics
-        # plots are collected (control module will be the real fix).
-        if "allocator" in configs:
-            configs["allocator"].setdefault("custom_priorities", {})
-            configs["allocator"]["custom_priorities"][
-                "ecoli-chromosome-replication"] = 5
+        # Note: previously this script set custom_priorities to give
+        # chromosome replication priority 5 (vs plasmid's default 1) so
+        # chromosome would win under contention.  That hack is no longer
+        # needed — both processes are now PartitionedProcess instances in
+        # allocator_2 and the proportional-fairness math handles the
+        # competition directly.  Removing the priority override lets the
+        # allocator-driven chromosome-arrest phenotype emerge naturally
+        # under uncontrolled plasmid load.
 
     # Capture allocator's molecule_names so we can correctly index the
     # allocate/request stores, which are shape n_monitored_molecules

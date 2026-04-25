@@ -36,7 +36,7 @@ from v2ecoli.types.quantity import ureg as units
 from v2ecoli.library.unit_bridge import unum_to_pint
 from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
 
-from v2ecoli.library.ecoli_step import EcoliStep as Step
+from v2ecoli.steps.partition import PartitionedProcess
 from v2ecoli.library.schema_types import (
     FULL_PLASMID_ARRAY,
     PLASMID_DOMAIN_ARRAY,
@@ -60,13 +60,20 @@ TOPOLOGY = {
 }
 
 
-class PlasmidReplication(Step):
-    """Plasmid Replication Step (ColE1 / pBR322).
+class PlasmidReplication(PartitionedProcess):
+    """Plasmid Replication PartitionedProcess (ColE1 / pBR322).
 
-    Replisome subunits and dNTPs are shared with chromosome replication;
-    because v2ecoli's ChromosomeReplication runs as a plain Step without
-    allocator arbitration, this process runs similarly. Resource contention
-    is not mediated here.
+    Replisome subunits (DnaG, DnaB, HolA, pol-III core, β-clamp) and dNTPs
+    are shared with chromosome replication.  Both processes run in the
+    same allocator layer (``allocator_2``) so the allocator partitions
+    the shared subunit pool proportionally to demand under contention —
+    matching vEcoli's allocator-based fairness.
+
+    Implements ``calculate_request`` (BP1993 ODE integration + subunit /
+    dNTP request) and ``evolve_state`` (initiation, elongation,
+    termination on the allocated counts).  ODE state and the integer
+    ``n_rna_initiations`` count are stored on ``self`` between the two
+    phases.
     """
 
     name = NAME
@@ -238,12 +245,7 @@ class PlasmidReplication(Step):
             self.bp_k_3 = self.parameters["k_3"] * bimol_factor
             self.n_substeps = self.parameters["n_substeps"]
 
-    def update(self, states, interval=None):
-        self._rna_control_update, self._n_rna_initiations = self._prepare(states)
-        return self._evolve(states)
-
-    def _prepare(self, states):
-        timestep = states["timestep"]
+    def calculate_request(self, timestep, states):
         if self.ppi_idx is None:
             self.ppi_idx = bulk_name_to_idx(self.ppi, states["bulk"]["id"])
             self.replisome_trimers_idx = bulk_name_to_idx(
@@ -321,7 +323,7 @@ class PlasmidReplication(Step):
                 "n_rna_initiations": int(n_rna_initiations),
             }
 
-        # Compute elongation rates for the current timestep (used by _evolve).
+        # Compute elongation rates for the current timestep (used by evolve_state).
         n_active_replisomes = states["plasmid_active_replisomes"]["_entryState"].sum()
         if n_active_replisomes > 0:
             self.elongation_rates = self.make_elongation_rates(
@@ -331,7 +333,71 @@ class PlasmidReplication(Step):
                 timestep,
             )
 
-        return rna_control_update, n_rna_initiations
+        # Stash ODE outputs on self for evolve_state to consume.
+        self._rna_control_update = rna_control_update
+        self._n_rna_initiations = n_rna_initiations
+
+        # ---- Bulk request (mirrors vEcoli plasmid_replication.calculate_request) ----
+        requests = {"bulk": []}
+
+        # Subunit request: one set of replisome subunits per idle plasmid
+        # domain we might initiate on this tick (gated by RNA II under
+        # use_rna_control).  Allocator partitions vs chromosome / other
+        # processes in the same allocator layer.
+        n_full_plasmids = states["full_plasmids"]["_entryState"].sum()
+        if n_full_plasmids > 0:
+            (_, domain_index_replisome) = attrs(
+                states["plasmid_active_replisomes"],
+                ["coordinates", "domain_index"],
+            )
+            (domain_index_existing_plasmid,) = attrs(
+                states["full_plasmids"], ["domain_index"]
+            )
+            idle_plasmid_domains = np.setdiff1d(
+                domain_index_existing_plasmid, domain_index_replisome
+            )
+            if len(idle_plasmid_domains) > 0:
+                if self.use_rna_control:
+                    n_to_request = min(len(idle_plasmid_domains), n_rna_initiations)
+                else:
+                    n_to_request = len(idle_plasmid_domains)
+                if n_to_request > 0:
+                    requests["bulk"].append(
+                        (self.replisome_trimers_idx, 3 * n_to_request))
+                    requests["bulk"].append(
+                        (self.replisome_monomers_idx, 1 * n_to_request))
+
+        # dNTP request for elongation of existing forks.  Same idiom as
+        # chromosome_replication.calculate_request: build sequences for
+        # the next timestep, count dNTP composition, scale by available
+        # dNTPs to avoid over-requesting under bulk depletion.
+        if n_active_replisomes > 0:
+            (fork_coordinates, _) = attrs(
+                states["plasmid_active_replisomes"],
+                ["coordinates", "domain_index"],
+            )
+            sequence_length = np.abs(np.repeat(fork_coordinates, 2))
+            sequences = buildSequences(
+                self.sequences,
+                np.tile(np.arange(2), n_active_replisomes),
+                sequence_length,
+                self.elongation_rates,
+            )
+            sequenceComposition = np.bincount(
+                sequences[sequences != polymerize.PAD_VALUE], minlength=4
+            )
+            dNtpsTotal = counts(states["bulk"], self.dntps_idx)
+            maxFractionalReactionLimit = (
+                np.fmin(1, dNtpsTotal / sequenceComposition)
+            ).min()
+            requests["bulk"].append(
+                (
+                    self.dntps_idx,
+                    (maxFractionalReactionLimit * sequenceComposition).astype(int),
+                )
+            )
+
+        return requests
 
     def _bp_deriv(self, y):
         """BP1993 eqns 1a-1j (μ=0). y in molecule counts; returns dy/dt in /s.
@@ -387,7 +453,7 @@ class PlasmidReplication(Step):
             np.maximum(y, 0.0, out=y)
         return y
 
-    def _evolve(self, states):
+    def evolve_state(self, timestep, states):
         update = {
             "bulk": [],
             "plasmid_active_replisomes": {},

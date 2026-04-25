@@ -81,14 +81,16 @@ BASE_EXECUTION_LAYERS = [
     # Layer 4: protein degradation (standalone — no resource competition)
     ['ecoli-protein-degradation'],
 
-    # Layer 4b: standalone initiation/replication/complexation
-    ['ecoli-complexation', 'ecoli-chromosome-replication',
-     'ecoli-plasmid-replication',
+    # Layer 4b: standalone initiation/complexation/plasmid-replication
+    # Chromosome replication moved into allocator_2 alongside rna-degradation
+    # (matching vEcoli's flow — both depend on ecoli-tf-binding at the same
+    # dependency depth, so they share an allocator layer there).
+    ['ecoli-complexation', 'ecoli-plasmid-replication',
      'ecoli-polypeptide-initiation', 'ecoli-transcript-initiation'],
-    # RNA degradation still partitioned (shares water with other processes)
-    ['ecoli-rna-degradation_requester'],
+    # Allocator_2: rna-degradation + chromosome-replication
+    ['ecoli-rna-degradation_requester', 'ecoli-chromosome-replication_requester'],
     ['allocator_2'],
-    ['ecoli-rna-degradation_evolver'], FLUSH,
+    ['ecoli-rna-degradation_evolver', 'ecoli-chromosome-replication_evolver'], FLUSH,
 
     # Layer 5: partition layer 3 -- elongation requesters (parallel)
     ['ecoli-polypeptide-elongation_requester', 'ecoli-transcript-elongation_requester'],
@@ -199,20 +201,24 @@ FLOW_ORDER = [step for layer in EXECUTION_LAYERS for step in layer]
 
 PARTITIONED_PROCESSES = {
     'ecoli-rna-degradation': RnaDegradation,
+    'ecoli-chromosome-replication': ChromosomeReplication,
     'ecoli-transcript-elongation': TranscriptElongation,
     'ecoli-polypeptide-elongation': PolypeptideElongation,
 }
 
 # Promoted to standalone (no resource competition):
 # - ProteinDegradation, Equilibrium, TwoComponentSystem, Complexation,
-#   RnaMaturation, TranscriptInitiation, PolypeptideInitiation,
-#   ChromosomeReplication
+#   RnaMaturation, TranscriptInitiation, PolypeptideInitiation
+# Chromosome replication lives in allocator_2 alongside rna-degradation,
+# matching vEcoli's flow (both depend on ecoli-tf-binding at the same depth).
 
 ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 
 ALLOCATOR_LAYERS = {
-    # RNA degradation shares water with polymerizations
-    'allocator_2': ['ecoli-rna-degradation'],
+    # RNA degradation shares water with polymerizations; chromosome
+    # replication is in this layer per vEcoli's flow (same tf-binding
+    # dependency depth).
+    'allocator_2': ['ecoli-rna-degradation', 'ecoli-chromosome-replication'],
     # Elongation processes compete for NTPs / charged tRNAs
     'allocator_3': ['ecoli-polypeptide-elongation',
                     'ecoli-transcript-elongation'],
@@ -514,7 +520,6 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'ecoli-rna-maturation': RnaMaturation,
         'ecoli-transcript-initiation': TranscriptInitiation,
         'ecoli-polypeptide-initiation': PolypeptideInitiation,
-        'ecoli-chromosome-replication': ChromosomeReplication,
         'ecoli-plasmid-replication': PlasmidReplication,
     }
 

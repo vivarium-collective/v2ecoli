@@ -105,12 +105,14 @@ BASE_EXECUTION_LAYERS = [
     # Layer 4a: protein degradation (standalone)
     ['ecoli-protein-degradation'],
 
-    # Layer 4b: standalone init/replication/complexation
-    # (formerly in allocator_2 alongside rna_degradation)
-    ['ecoli-complexation', 'ecoli-chromosome-replication',
+    # Layer 4b: standalone init/complexation
+    # Chromosome replication moved into reconciled_2 alongside
+    # rna-degradation (matching vEcoli's flow — same tf-binding
+    # dependency depth).
+    ['ecoli-complexation',
      'ecoli-polypeptide-initiation', 'ecoli-transcript-initiation'],
 
-    # Layer 4c: reconciled rna_degradation (still shares water with elongation)
+    # Layer 4c: reconciled rna_degradation + chromosome_replication
     ['reconciled_2'], FLUSH,
 
     # Layer 5: reconciled elongation layer
@@ -282,7 +284,6 @@ def _instantiate_standalone_step(step_name, config, loader, core):
         'ecoli-protein-degradation': ProteinDegradation,
         'ecoli-transcript-initiation': TranscriptInitiation,
         'ecoli-polypeptide-initiation': PolypeptideInitiation,
-        'ecoli-chromosome-replication': ChromosomeReplication,
         'ecoli-plasmid-replication': PlasmidReplication,
     }
 

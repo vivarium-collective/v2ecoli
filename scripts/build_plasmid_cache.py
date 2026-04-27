@@ -32,6 +32,8 @@ import pickle
 import sys
 from pathlib import Path
 
+from wholecell.utils import units
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 os.chdir(REPO_ROOT)
@@ -134,9 +136,48 @@ def main() -> None:
     for attr in PLASMID_REPLICATION_ATTRS:
         setattr(sd_good.process.replication, attr,
                 getattr(sd_p.process.replication, attr))
+    # Patch plasmid unique molecules into the cache. We use the
+    # canonical add_to_unique_state() API rather than writing
+    # unique_molecule_definitions directly, so that the parallel
+    # unique_molecule_masses table is also populated. Without this,
+    # the mass listener (which reads from unique_molecule_masses) does
+    # not see plasmid molecules and dna_mass / cell_mass undercount
+    # under plasmid load. See memory project_plasmid_mass_listener_bug.md
+    # for the empirical signature (dna_mass freezes after chromosome
+    # termination even when plasmid count is growing rapidly).
+    #
+    # Skip molecules already registered in the baseline. Older baselines
+    # (built before the internal_state.py plasmid registration was
+    # generated) lack the plasmid entries; newer baselines (built with
+    # plasmid-aware fixtures) already have them. We add only if missing.
+    sp_um = sd_p.internal_state.unique_molecule
+    sg_um = sd_good.internal_state.unique_molecule
+    sp_masses = sp_um.unique_molecule_masses
+    sp_masses_arr = (sp_masses.fullArray()
+                     if hasattr(sp_masses, 'fullArray')
+                     else sp_masses)
+    sg_masses = sg_um.unique_molecule_masses
+    sg_masses_arr = (sg_masses.fullArray()
+                     if hasattr(sg_masses, 'fullArray')
+                     else sg_masses)
+    sg_existing_ids = set(sg_masses_arr['id'])
+    sp_ids = list(sp_masses_arr['id'])
     for k in PLASMID_UNIQUE_MOLECULES:
+        # Definitions are always synced (in case baseline definitions are
+        # stale or missing — direct write is idempotent).
         sd_good.internal_state.unique_molecule.unique_molecule_definitions[k] = (
-            sd_p.internal_state.unique_molecule.unique_molecule_definitions[k])
+            sp_um.unique_molecule_definitions[k])
+        # Masses: register only if not already in the baseline, to avoid
+        # duplicate entries.
+        if k not in sg_existing_ids:
+            if k not in sp_ids:
+                sys.exit(f"ERROR: plasmid fixture has no mass entry for {k}")
+            mass_row_idx = sp_ids.index(k)
+            mass_value = sp_masses_arr['mass'][mass_row_idx]
+            sg_um.add_to_unique_state(
+                k, sp_um.unique_molecule_definitions[k],
+                (units.g / units.mol) * mass_value,
+            )
         if k not in sd_good.molecule_groups.unique_molecules_domain_index_division:
             sd_good.molecule_groups.unique_molecules_domain_index_division.append(k)
     sd_good.getter._all_plasmid_coordinates = sd_p.getter._all_plasmid_coordinates

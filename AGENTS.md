@@ -66,12 +66,20 @@ For deeper questions about either framework, invoke the `pbg-expert` skill.
 - **ParCa** (Parameter Calculator) builds `sim_data` from raw EcoCyc-derived
   knowledge bases. It's expensive (minutes to hours). Never run ParCa in CI —
   CI uses a frozen gzipped cache at `tests/fixtures/cache/`.
-- **Three architectures** all simulate the same cell:
+- **Architectures** — all simulate the same cell:
   - `baseline` — partitioned, 55 processes, upstream-parity.
   - `departitioned` — 41 steps, requester+evolver halves fused.
   - `reconciled` — hybrid.
-  A change to a process must work across all three, or the PR must explain
-  why it's scoped. Use the architecture comparison report to verify.
+  - `replication_initiation` — v2ecoli-only divergence from `baseline`,
+    home for the more biologically detailed DnaA-cycle / RIDA / DDAH /
+    DARS / SeqA work. Curated reference at
+    `docs/references/replication_initiation.md` (PDF beside it);
+    structured constants in
+    `v2ecoli/data/replication_initiation/molecular_reference.py`. At
+    scaffolding time it is functionally identical to `baseline`.
+  A change to a process must work across all architectures, or the PR
+  must explain why it's scoped. Use the architecture comparison report
+  to verify.
 
 ## Reports
 
@@ -90,6 +98,11 @@ touches processes, steps, or composite wiring.
   topology. Click a process to see ports, schemas, config, docstring, math.
 - `reports/v1_v2_report.py` → `v1_v2_comparison.html` — vEcoli 1.0 vs 2.0 vs v2ecoli.
 - `reports/benchmark_report.py` — v2ecoli vs vEcoli composite subprocess benchmark.
+- `reports/replication_initiation_report.py` →
+  `out/reports/replication_initiation_report.html` — molecular reference
+  panels (oriC, dnaA promoter, datA, DARS1/2, SeqA, RIDA) plus a
+  trajectory plot under the `replication_initiation` architecture and an
+  explicit "what the model captures vs the PDF" gap table.
 
 Published at https://vivarium-collective.github.io/v2ecoli/.
 

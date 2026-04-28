@@ -64,6 +64,20 @@ def test_reconciled_grows():
         f'Reconciled dry_mass did not grow enough: {m0:.2f} -> {m1:.2f} fg')
 
 
+def test_replication_initiation_grows():
+    """Replication-initiation architecture: at the scaffolding stage this is
+    a clone of baseline, so growth must match baseline behavior. As divergent
+    processes (DnaA cycle, RIDA, DARS, SeqA) land, this test stays in place
+    as a coarse regression that the new biology doesn't break growth."""
+    from v2ecoli.composite_replication_initiation import (
+        make_replication_initiation_composite,
+    )
+    m0, m1 = _run_and_measure(make_replication_initiation_composite)
+    assert m1 - m0 >= MIN_GROWTH_FG, (
+        f'Replication-initiation dry_mass did not grow enough: '
+        f'{m0:.2f} -> {m1:.2f} fg')
+
+
 def test_all_processes_instantiated_in_departitioned():
     """Every step in FLOW_ORDER must be instantiable. The previous silent-drop
     bug let processes disappear without any error — this test ensures the

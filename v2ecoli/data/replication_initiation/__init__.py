@@ -39,6 +39,12 @@ from v2ecoli.data.replication_initiation.molecular_reference import (
     DNAA_APO_BULK_ID,
     DNAA_ATP_BULK_ID,
     DNAA_ADP_BULK_ID,
+    DnaANucleotideEquilibrium,
+    DNAA_NUCLEOTIDE_EQUILIBRIUM,
+    DnaAPoolDriver,
+    DNAA_POOL_DRIVERS,
+    CitedValue,
+    CITATIONS,
 )
 
 __all__ = [
@@ -73,4 +79,10 @@ __all__ = [
     'DNAA_APO_BULK_ID',
     'DNAA_ATP_BULK_ID',
     'DNAA_ADP_BULK_ID',
+    'DnaANucleotideEquilibrium',
+    'DNAA_NUCLEOTIDE_EQUILIBRIUM',
+    'DnaAPoolDriver',
+    'DNAA_POOL_DRIVERS',
+    'CitedValue',
+    'CITATIONS',
 ]

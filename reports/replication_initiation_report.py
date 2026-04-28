@@ -39,7 +39,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from v2ecoli.data.replication_initiation import (
+    CITATIONS,
     DARS1, DARS2, DATA, DNAA_BOX_CONSENSUS, DNAA_BOX_HIGHEST_AFFINITY,
+    DNAA_NUCLEOTIDE_EQUILIBRIUM, DNAA_POOL_DRIVERS,
     DNAA_PROMOTER, ORIC, RIDA, SEQA,
     PER_REGION_PDF_COUNT, PER_REGION_STRICT_CONSENSUS_COUNT,
 )
@@ -560,12 +562,6 @@ def _after_phase0(snaps):
             f'low-affinity sites that Phase 2 must enrich into the box list.</p>')
 
 
-def _before_phase1(snaps):
-    return _placeholder(
-        'Single DnaA monomer pool with no ATP/ADP distinction. After Phase 1 '
-        'this panel becomes two traces (DnaA-ATP, DnaA-ADP) plus a ratio panel.')
-
-
 def _dnaA_pool_traces(snaps):
     """Pull the DnaA apo / ATP / ADP pool counts from listener snapshots.
 
@@ -585,27 +581,168 @@ def _dnaA_pool_traces(snaps):
             np.array([0 if v is None else v for v in adp]))
 
 
+def _before_phase1(snaps):
+    """The 'before' state for Phase 1 is *not* "DnaA had no nucleotide
+    states." DnaA-ATP (MONOMER0-160) and DnaA-ADP (MONOMER0-4565) were
+    already registered as bulk molecules with equilibrium reactions
+    firing every step. What was missing: the listener didn't expose the
+    pool counts, so the dynamics were invisible from the trajectory."""
+    drivers_today = [d for d in DNAA_POOL_DRIVERS if d.wired_in_v2ecoli]
+    drivers_missing = [d for d in DNAA_POOL_DRIVERS if not d.wired_in_v2ecoli]
+
+    def _row(d):
+        cls = 'driver-on' if d.wired_in_v2ecoli else 'driver-off'
+        mark = '✓' if d.wired_in_v2ecoli else '○'
+        return (
+            f'<tr class="{cls}">'
+            f'<td>{mark}</td>'
+            f'<td><strong>{html_lib.escape(d.process)}</strong></td>'
+            f'<td><code>{html_lib.escape(d.direction)}</code></td>'
+            f'<td>{html_lib.escape(d.represents)}</td>'
+            f'</tr>'
+        )
+
+    rows = ''.join(_row(d) for d in DNAA_POOL_DRIVERS)
+    table = (
+        '<table class="ref drivers"><thead>'
+        '<tr><th></th><th>Process</th><th>Effect on pool</th>'
+        '<th>Biological meaning</th></tr></thead>'
+        f'<tbody>{rows}</tbody></table>'
+    )
+    return (
+        '<p class="note"><strong>Already wired before Phase 1:</strong> '
+        'DnaA-ATP (<code>MONOMER0-160</code>) and DnaA-ADP '
+        '(<code>MONOMER0-4565</code>) are both registered as bulk '
+        'molecules with equilibrium reactions in '
+        '<code>flat/equilibrium_reactions.tsv</code> '
+        '(<code>MONOMER0-160_RXN</code>, <code>MONOMER0-4565_RXN</code>). '
+        'Both reactions fire every step inside the equilibrium step.</p>'
+        '<p class="note"><strong>What was missing:</strong> the '
+        '<code>replication_data</code> listener did not emit the '
+        'apo / ATP / ADP pool counts, so the dynamics were invisible '
+        'from the trajectory and reports.</p>'
+        f'<p class="note"><strong>Drivers of the DnaA nucleotide-state '
+        f'dynamics</strong> ({len(drivers_today)} wired today, '
+        f'{len(drivers_missing)} pending in later phases):</p>'
+        + table
+    )
+
+
+def _provenance_table(cited_pairs):
+    """Render a small audit table for a list of (label, CitedValue)."""
+    rows = []
+    for label, cv in cited_pairs:
+        cit = CITATIONS.get(cv.citation_key, {})
+        full_cite = cit.get('cite', cv.citation_key)
+        flag = ('<span class="cite-pdf">in curated PDF</span>'
+                if cv.in_curated_pdf
+                else '<span class="cite-ext">outside curated PDF</span>')
+        note_html = (f'<div class="cite-note">{html_lib.escape(cv.note)}</div>'
+                     if cv.note else '')
+        rows.append(
+            f'<tr>'
+            f'<td>{html_lib.escape(label)}</td>'
+            f'<td><strong>{cv.value:g}</strong></td>'
+            f'<td>{flag}</td>'
+            f'<td><span class="cite-text">{html_lib.escape(full_cite)}</span>'
+            f'{note_html}</td>'
+            f'</tr>'
+        )
+    return ('<table class="ref provenance"><thead>'
+            '<tr><th>Quantity</th><th>Value</th><th>Source</th>'
+            '<th>Citation + caveat</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table>')
+
+
 def _after_phase1(snaps):
-    """Phase-1 result: DnaA apo / ATP / ADP pool counts over time."""
+    """Phase-1 result: pool traces + ATP-fraction trace with the
+    biological-target band overlaid, plus an audit table making each
+    overlay value's provenance explicit."""
     pulled = _dnaA_pool_traces(snaps)
     if pulled is None:
         return _placeholder(
             'No DnaA pool counts in trajectory yet — run a sim with the '
-            'updated replication_data listener (which emits dnaA_apo_count, '
-            'dnaA_atp_count, dnaA_adp_count) to populate this panel.')
+            'updated replication_data listener.')
     times, apo, atp, adp = pulled
-    fig, ax = plt.subplots(figsize=(9, 3.4))
+    total = apo + atp + adp
+    safe_total = np.where(total > 0, total, 1)
+    atp_frac = atp / safe_total
+
+    eq = DNAA_NUCLEOTIDE_EQUILIBRIUM
+    band_min = eq.biological_atp_fraction_min.value
+    band_max = eq.biological_atp_fraction_max.value
+    peak = eq.peak_atp_fraction_pre_initiation.value
+    trough = eq.typical_atp_fraction_post_initiation.value
+
+    fig, axes = plt.subplots(2, 1, figsize=(9, 6.4), sharex=True,
+                             gridspec_kw={'height_ratios': [3, 2]})
+
+    ax = axes[0]
     ax.plot(times, apo, color='#0891b2', lw=1.5, label='apo-DnaA (PD03831)')
-    ax.plot(times, atp, color='#16a34a', lw=1.6, label='DnaA-ATP (MONOMER0-160)')
-    ax.plot(times, adp, color='#dc2626', lw=1.6, label='DnaA-ADP (MONOMER0-4565)')
-    ax.set_xlabel('Time (min)'); ax.set_ylabel('Count')
-    ax.set_title('Phase 1: DnaA nucleotide pools (equilibrium-driven)')
-    ax.legend(fontsize=8); ax.grid(True, alpha=0.2)
+    ax.plot(times, atp, color='#16a34a', lw=1.8,
+            label='DnaA-ATP (MONOMER0-160)')
+    ax.plot(times, adp, color='#dc2626', lw=1.8,
+            label='DnaA-ADP (MONOMER0-4565)')
+    ax.plot(times, total, color='#475569', lw=1.0, ls=':', alpha=0.8,
+            label='total = apo + ATP + ADP')
+    ax.set_ylabel('Bulk count')
+    ax.set_title('Phase 1: DnaA pool counts emitted by the listener')
+    ax.legend(fontsize=8, loc='center right')
+    ax.grid(True, alpha=0.2)
+
+    ax = axes[1]
+    ax.fill_between(
+        [times.min(), times.max()], band_min, band_max,
+        color='#bfdbfe', alpha=0.55,
+        label=f'literature band ({band_min:.0%}–{band_max:.0%})')
+    ax.axhline(peak, color='#1e3a8a', ls='--', lw=0.9, alpha=0.7,
+               label=f'pre-initiation peak ({peak:.0%})')
+    ax.axhline(trough, color='#9f1239', ls='--', lw=0.9, alpha=0.7,
+               label=f'post-RIDA trough ({trough:.0%})')
+    ax.plot(times, atp_frac, color='#16a34a', lw=2.0,
+            label='observed DnaA-ATP fraction (current model)')
+    ax.set_ylabel('DnaA-ATP / total DnaA')
+    ax.set_xlabel('Time (min)')
+    ax.set_ylim(0, 1.05)
+    ax.set_title('DnaA-ATP fraction vs literature reference values')
+    ax.legend(fontsize=7, loc='center right')
+    ax.grid(True, alpha=0.2)
+
     fig.tight_layout()
-    note = (f'<p class="note">Apo-DnaA drains into DnaA-ATP within seconds '
-            f'of the equilibrium running. DnaA-ADP stays at zero — Phase 5 '
-            f'(RIDA) is the only source of flux into it.</p>')
-    return _img(fig_to_b64(fig), 'DnaA pool traces') + note
+    final_atp_frac = float(atp_frac[-1]) if len(atp_frac) else 0.0
+    interpretation = (
+        '<p class="note"><strong>Reading the lower panel:</strong> the '
+        'observed DnaA-ATP fraction sits above the literature band '
+        f'({band_min:.0%}–{band_max:.0%}) because the model has no flux '
+        'opposing the equilibrium\'s mass-action drive into the ATP form. '
+        f'Final observed value <strong>{final_atp_frac:.0%}</strong>. '
+        '<strong>Phase 5 (RIDA)</strong> is the dominant downward driver '
+        'in real cells; <strong>Phase 7 (DARS)</strong> closes the cycle. '
+        'Until those land, the ATP fraction stays at the equilibrium '
+        'ceiling.</p>')
+
+    provenance = _provenance_table([
+        ('biological steady-state min', eq.biological_atp_fraction_min),
+        ('biological steady-state max', eq.biological_atp_fraction_max),
+        ('pre-initiation peak', eq.peak_atp_fraction_pre_initiation),
+        ('post-RIDA trough', eq.typical_atp_fraction_post_initiation),
+        ('K_d(ATP)  [nM]', eq.kd_atp_nm),
+        ('K_d(ADP)  [nM]', eq.kd_adp_nm),
+        ('cellular ATP/ADP ratio', eq.typical_atp_adp_ratio),
+    ])
+    n_ext = sum(1 for cv in (
+        eq.biological_atp_fraction_min, eq.biological_atp_fraction_max,
+        eq.peak_atp_fraction_pre_initiation,
+        eq.typical_atp_fraction_post_initiation,
+        eq.kd_atp_nm, eq.kd_adp_nm, eq.typical_atp_adp_ratio,
+    ) if not cv.in_curated_pdf)
+    audit_note = (
+        f'<p class="note"><strong>Provenance audit.</strong> {n_ext} of 7 '
+        'reference values come from outside the curated PDF; review them '
+        'before treating them as load-bearing parameters.</p>'
+    )
+    return (_img(fig_to_b64(fig), 'DnaA pool traces + ATP fraction')
+            + interpretation + audit_note + provenance)
 
 
 def _before_phase2(snaps):
@@ -753,38 +890,49 @@ PHASES: list[Phase] = [
     ),
     Phase(
         number=1,
-        title='DnaA-ATP / DnaA-ADP listener',
-        goal=('Both species are already registered (`MONOMER0-160` for ATP-form, '
-              '`MONOMER0-4565` for ADP-form) and their equilibrium reactions '
-              'fire every step. Phase 1 wires a listener that emits both pool '
-              'counts so the trajectory exposes the partitioning, plus a '
-              'behavior test confirming apo-DnaA flows into DnaA-ATP at '
-              'equilibrium.'),
+        title='Expose DnaA nucleotide-state pools',
+        goal=('DnaA-ATP (`MONOMER0-160`) and DnaA-ADP (`MONOMER0-4565`) are '
+              'already registered as bulk molecules; their equilibrium '
+              'reactions (`MONOMER0-160_RXN`, `MONOMER0-4565_RXN`) fire every '
+              'step inside the equilibrium step. Phase 1 makes the dynamics '
+              '*observable* — wires a listener emitting apo / ATP / ADP pool '
+              'counts and adds a behavior test that pins the equilibrium '
+              'partitioning to the literature window.'),
         status_check=_check_phase1,
         tests=(
             TestSpec(
                 'tests/test_dnaA_nucleotide_pool.py',
-                'After a short sim the apo-DnaA pool (PD03831) drains into '
-                'DnaA-ATP (MONOMER0-160). DnaA-ADP stays near zero in the '
-                'absence of RIDA flux. The listener emits both pool counts '
-                'in `listeners.replication_data` per timestep.'),
+                'After a short sim, apo-DnaA (PD03831) drains into '
+                'DnaA-ATP via MONOMER0-160_RXN. DnaA-ADP stays near zero '
+                'in the absence of RIDA flux. The listener emits all '
+                'three pool counts in `listeners.replication_data` per '
+                'timestep, matching direct bulk reads. Total DnaA pool '
+                'is conserved modulo translation/degradation.'),
         ),
         gap_items=(
-            'No listener emits DnaA-ATP / DnaA-ADP / apo-DnaA pool counts; '
-            'the trajectory exposes only the structural DnaA-box counts.',
-            'No behavior test confirms the equilibrium reactions actually '
-            'partition apo-DnaA into the nucleotide-bound forms.',
+            'Equilibrium reactions for DnaA-ATP and DnaA-ADP fire each step '
+            'but the listener does not emit pool counts — the dynamics are '
+            'invisible from the trajectory.',
+            'No behavior test confirms the equilibrium actually partitions '
+            'apo-DnaA into the nucleotide-bound forms in the way the '
+            'literature predicts.',
+            'No literature-target band on the observed ATP fraction; with '
+            'equilibrium alone the model sits well above the biological '
+            'steady-state range. Phase 5 (RIDA) and Phase 7 (DARS) are '
+            'the missing drivers that pull the ratio down.',
         ),
         viz_plan=(
-            'Two-trace plot of DnaA-ATP and DnaA-ADP bulk counts over time, '
-            'plus apo-DnaA on the same axes. In the current model DnaA-ATP '
-            'fills up immediately because RIDA flux is 0; DnaA-ADP comes '
-            'online once Phase 5 lands.'),
+            'Two-panel plot. Top panel: apo-DnaA, DnaA-ATP, DnaA-ADP bulk '
+            'counts with their sum overlaid. Bottom panel: observed '
+            'DnaA-ATP fraction over time, with the literature steady-state '
+            'band (~30–70%) shaded plus the pre-initiation peak (~85%) '
+            'and post-RIDA trough (~20%) drawn as reference lines.'),
         before_plot=_before_phase1,
         after_description=(
-            'After Phase 1: the listener exposes the actual ATP/ADP/apo '
-            'pools, flat-line at first, with DnaA-ADP rising once Phase 5 '
-            'wires RIDA flux.'),
+            'After Phase 1: the listener exposes apo / ATP / ADP pools and '
+            'the report compares the observed ATP fraction to the literature '
+            'band. The gap (current ~95% vs target ~30–70%) is what later '
+            'phases close.'),
         after_plot=_after_phase1,
     ),
     Phase(
@@ -1257,6 +1405,21 @@ section {{ background: white; border: 1px solid #e2e8f0; border-radius: 8px;
              background: #fef3c7; border-left: 3px solid #f59e0b;
              padding: 8px 14px; margin: 4px 0 10px;
              border-radius: 0 4px 4px 0; }}
+table.drivers tr.driver-on td:first-child {{ color: #16a34a;
+                                               font-weight: 700; }}
+table.drivers tr.driver-off td:first-child {{ color: #94a3b8;
+                                                font-weight: 700; }}
+table.drivers tr.driver-off {{ background: #f8fafc; }}
+table.drivers tr.driver-off td {{ color: #475569; }}
+table.provenance .cite-text {{ font-size: 0.82em; color: #334155; }}
+table.provenance .cite-note {{ font-size: 0.78em; color: #64748b;
+                                font-style: italic; margin-top: 3px; }}
+.cite-pdf {{ display: inline-block; background: #dcfce7;
+             color: #166534; border-radius: 10px; padding: 1px 8px;
+             font-size: 0.76em; font-weight: 600; }}
+.cite-ext {{ display: inline-block; background: #fee2e2;
+             color: #991b1b; border-radius: 10px; padding: 1px 8px;
+             font-size: 0.76em; font-weight: 600; }}
 .before-after {{ display: grid; grid-template-columns: 1fr 1fr;
                   gap: 14px; margin-top: 6px; }}
 .ba-col {{ background: #f8fafc; border: 1px solid #e2e8f0;

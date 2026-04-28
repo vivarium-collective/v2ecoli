@@ -270,6 +270,239 @@ DNAA_ADP_BULK_ID: str = 'MONOMER0-4565[c]'
 
 
 # ---------------------------------------------------------------------------
+# DnaA nucleotide-state equilibrium — biological reference values
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class CitedValue:
+    """A scalar value paired with explicit provenance.
+
+    ``citation_key`` indexes into ``CITATIONS`` below.  ``in_curated_pdf``
+    is the audit flag: True when the citation is one of the references in
+    ``docs/references/replication_initiation_molecular_info.pdf``, False
+    when the value comes from outside that curated set.
+
+    Values flagged ``in_curated_pdf=False`` should be reviewed before
+    being relied on in tests or model parameters — they reflect general
+    field consensus rather than the curated source.
+    """
+
+    value: float
+    citation_key: str
+    in_curated_pdf: bool
+    note: str = ''
+
+
+# Bibliography indexed by citation key. Entries marked ``in_curated_pdf``
+# are listed in the references at the back of the curated PDF; entries
+# without that flag come from outside the curated set and should be
+# audited (or moved into the curated reference) before being used as
+# load-bearing parameters.
+CITATIONS: dict[str, dict] = {
+    'speck_1999': {
+        'cite': ('Speck C, Weigel C, Messer W. ATP- and ADP-DnaA protein, '
+                 'a molecular switch in gene regulation. EMBO J. '
+                 '18(21):6169–6176 (1999).'),
+        'in_curated_pdf': True,
+    },
+    'hansen_atlung_2018': {
+        'cite': ('Hansen FG, Atlung T. The DnaA tale. '
+                 'Front. Microbiol. 9:319 (2018).'),
+        'in_curated_pdf': True,
+    },
+    'katayama_2017': {
+        'cite': ('Katayama T, Kasho K, Kawakami H. The DnaA cycle in '
+                 'Escherichia coli: activation, function and inactivation '
+                 'of the initiator protein. Front. Microbiol. 8:2496 (2017).'),
+        'in_curated_pdf': True,
+    },
+    'riber_2016': {
+        'cite': ('Riber L, Frimodt-Møller J, Charbon G, Løbner-Olesen A. '
+                 'Multiple DNA binding proteins contribute to timing of '
+                 'chromosome replication in E. coli. Front. Mol. Biosci. '
+                 '3:29 (2016).'),
+        'in_curated_pdf': True,
+    },
+    # The following are NOT in the curated PDF reference list. They are
+    # included as best-known field-consensus values; treat as provisional
+    # until a curated source is added or the values are re-verified.
+    'kurokawa_1999': {
+        'cite': ('Kurokawa K, Nishida S, Emoto A, Sekimizu K, Katayama T. '
+                 'Replication cycle-coordinated change of the adenine '
+                 'nucleotide-bound forms of DnaA protein in Escherichia '
+                 'coli. EMBO J. 18(23):6642–6652 (1999).'),
+        'in_curated_pdf': False,
+    },
+    'bennett_2009': {
+        'cite': ('Bennett BD, Kimball EH, Gao M, Osterhout R, Van Dien SJ, '
+                 'Rabinowitz JD. Absolute metabolite concentrations and '
+                 'implied enzyme active site occupancy in Escherichia '
+                 'coli. Nat. Chem. Biol. 5(8):593–599 (2009).'),
+        'in_curated_pdf': False,
+    },
+}
+
+
+@dataclass(frozen=True)
+class DnaANucleotideEquilibrium:
+    """Biologically observed proportions of DnaA in each nucleotide state.
+
+    Each scalar carries explicit provenance via ``CitedValue``. The
+    ATP-fraction in growing E. coli is set by the kinetic balance between
+    two opposing processes:
+
+      * **Equilibrium binding** (apo-DnaA + ATP ⇌ DnaA-ATP and
+        apo-DnaA + ADP ⇌ DnaA-ADP). Mass action favors the ATP form
+        because cellular [ATP] >> [ADP] even though K_d(ATP) is tighter
+        than K_d(ADP).
+      * **RIDA** (DnaA-ATP + H2O → DnaA-ADP + Pi, catalyzed by the
+        DNA-loaded β-clamp + Hda complex). Drives the system toward
+        DnaA-ADP during ongoing replication.
+
+    With equilibrium alone (no RIDA flux), the model converges to a
+    very high DnaA-ATP fraction. Phase 5 (RIDA) and Phase 7 (DARS) are
+    the missing drivers that pull the cell-cycle-averaged ATP-fraction
+    down into the published window.
+    """
+
+    biological_atp_fraction_min: CitedValue
+    biological_atp_fraction_max: CitedValue
+    peak_atp_fraction_pre_initiation: CitedValue
+    typical_atp_fraction_post_initiation: CitedValue
+    kd_atp_nm: CitedValue
+    kd_adp_nm: CitedValue
+    typical_atp_adp_ratio: CitedValue
+
+
+DNAA_NUCLEOTIDE_EQUILIBRIUM = DnaANucleotideEquilibrium(
+    biological_atp_fraction_min=CitedValue(
+        value=0.30,
+        citation_key='hansen_atlung_2018',
+        in_curated_pdf=True,
+        note=('Lower edge of the cell-cycle-averaged DnaA-ATP fraction '
+              'window discussed in the review; specific value is '
+              'approximate field consensus, re-verify before relying on '
+              'it as a load-bearing parameter.'),
+    ),
+    biological_atp_fraction_max=CitedValue(
+        value=0.70,
+        citation_key='hansen_atlung_2018',
+        in_curated_pdf=True,
+        note=('Upper edge of the cell-cycle-averaged window; same caveat '
+              'as the lower bound.'),
+    ),
+    peak_atp_fraction_pre_initiation=CitedValue(
+        value=0.85,
+        citation_key='kurokawa_1999',
+        in_curated_pdf=False,
+        note=('Pre-initiation peak; specific number not verified in the '
+              'curated reference — Kurokawa et al. 1999 is the '
+              'frequently-cited primary source but is not in our PDF.'),
+    ),
+    typical_atp_fraction_post_initiation=CitedValue(
+        value=0.20,
+        citation_key='kurokawa_1999',
+        in_curated_pdf=False,
+        note=('Post-initiation trough after RIDA fires; same caveat — '
+              'primary citation is outside the curated reference.'),
+    ),
+    kd_atp_nm=CitedValue(
+        value=30.0,
+        citation_key='speck_1999',
+        in_curated_pdf=True,
+        note=('Order-of-magnitude estimate from Speck 1999. The paper '
+              'reports both forms binding at low-nM affinity; the '
+              'specific 30 nM value should be re-verified.'),
+    ),
+    kd_adp_nm=CitedValue(
+        value=80.0,
+        citation_key='speck_1999',
+        in_curated_pdf=True,
+        note=('Order-of-magnitude estimate from Speck 1999; ATP form is '
+              'somewhat tighter than ADP form, exact ratio varies by '
+              'preparation.'),
+    ),
+    typical_atp_adp_ratio=CitedValue(
+        value=10.0,
+        citation_key='bennett_2009',
+        in_curated_pdf=False,
+        note=('Order-of-magnitude cellular ATP/ADP ratio in fast-growing '
+              'E. coli; primary citation is outside the curated PDF.'),
+    ),
+)
+
+
+# Processes that contribute to DnaA nucleotide-state dynamics.
+# Each entry: process name, what it adds/removes, biological role,
+# wired in current v2ecoli? (True/False).
+@dataclass(frozen=True)
+class DnaAPoolDriver:
+    process: str
+    direction: str       # e.g. 'apo→ATP', 'ATP→ADP', 'ADP→apo→ATP'
+    represents: str      # one-line biological meaning
+    wired_in_v2ecoli: bool
+
+
+DNAA_POOL_DRIVERS: tuple[DnaAPoolDriver, ...] = (
+    DnaAPoolDriver(
+        process='transcription + translation (dnaA gene)',
+        direction='∅ → apo-DnaA',
+        represents='Synthesis of DnaA monomers from the dnaA gene.',
+        wired_in_v2ecoli=True,
+    ),
+    DnaAPoolDriver(
+        process='equilibrium step (MONOMER0-160_RXN)',
+        direction='apo-DnaA + ATP ⇌ DnaA-ATP',
+        represents='Reversible nucleotide binding; mass-action driven.',
+        wired_in_v2ecoli=True,
+    ),
+    DnaAPoolDriver(
+        process='equilibrium step (MONOMER0-4565_RXN)',
+        direction='apo-DnaA + ADP ⇌ DnaA-ADP',
+        represents='Reversible nucleotide binding; mass-action driven.',
+        wired_in_v2ecoli=True,
+    ),
+    DnaAPoolDriver(
+        process='protein degradation',
+        direction='DnaA → ∅',
+        represents='Routine proteolytic turnover of DnaA monomers.',
+        wired_in_v2ecoli=True,
+    ),
+    DnaAPoolDriver(
+        process='RIDA (RXN0-7444 in metabolism)',
+        direction='DnaA-ATP → DnaA-ADP',
+        represents=('Replication-coupled hydrolysis of DnaA-ATP, catalyzed '
+                    'by the DNA-loaded β-clamp + Hda complex. Reaction is '
+                    'in flat data and FBA but flux is currently zero.'),
+        wired_in_v2ecoli=False,  # reaction registered but no FBA flux
+    ),
+    DnaAPoolDriver(
+        process='DDAH (datA + IHF)',
+        direction='DnaA-ATP → DnaA-ADP',
+        represents=('Backup DnaA-ATP hydrolysis at the datA locus, gated '
+                    'by IHF binding. Not yet represented.'),
+        wired_in_v2ecoli=False,
+    ),
+    DnaAPoolDriver(
+        process='DARS1 / DARS2 reactivation',
+        direction='DnaA-ADP → apo-DnaA → DnaA-ATP',
+        represents=('Nucleotide release at the DARS loci (modulated by IHF '
+                    'and Fis at DARS2), regenerating active DnaA-ATP. Not '
+                    'yet represented.'),
+        wired_in_v2ecoli=False,
+    ),
+    DnaAPoolDriver(
+        process='DnaA-box binding (oriC, dnaA promoter, datA, DARS)',
+        direction='DnaA-ATP / DnaA-ADP ⇌ box-bound DnaA',
+        represents=('Sequestration of DnaA on chromosomal binding sites, '
+                    'depleting the cytoplasmic pool. Not yet represented '
+                    'in v2ecoli (DnaA_bound is write-only).'),
+        wired_in_v2ecoli=False,
+    ),
+)
+
+
+# ---------------------------------------------------------------------------
 # Region classifier (Phase 0)
 # ---------------------------------------------------------------------------
 #

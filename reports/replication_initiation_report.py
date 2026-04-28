@@ -292,12 +292,26 @@ def _check_phase0():
 
 
 def _check_phase1():
-    """DnaA-ADP species."""
-    p = 'v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/molecule_ids.py'
-    text = _read_file(p)
-    if text and ('DnaA-ADP' in text or 'DnaA_ADP' in text):
-        return 'done', 'DnaA-ADP molecule ID registered'
-    return 'pending', 'no DnaA-ADP molecule ID found in molecule_ids.py'
+    """DnaA-ADP species + equilibrium between ATP/ADP forms.
+
+    DnaA-ADP is ``MONOMER0-4565`` and DnaA-ATP is ``MONOMER0-160``;
+    both are wired into the equilibrium process via reactions in
+    ``equilibrium_reactions.tsv``. The piece still missing is a
+    listener that emits both pool counts so the trajectory exposes
+    them — that's what flips this from in_progress to done."""
+    eq_path = 'v2ecoli/processes/parca/reconstruction/ecoli/flat/equilibrium_reactions.tsv'
+    eq = _read_file(eq_path)
+    has_atp_rxn = bool(eq and 'MONOMER0-160_RXN' in eq)
+    has_adp_rxn = bool(eq and 'MONOMER0-4565_RXN' in eq)
+    rd = _read_file('v2ecoli/steps/listeners/replication_data.py')
+    has_listener = bool(rd and ('MONOMER0-4565' in rd or 'DnaA_ADP' in rd))
+    if has_atp_rxn and has_adp_rxn and has_listener:
+        return 'done', 'both equilibrium reactions wired and listener emits both pools'
+    if has_atp_rxn and has_adp_rxn:
+        return 'in_progress', (
+            'MONOMER0-160_RXN and MONOMER0-4565_RXN both wired into the '
+            'equilibrium process; listener does not yet emit DnaA-ATP/ADP counts')
+    return 'pending', 'DnaA-ADP equilibrium reaction not wired'
 
 
 def _check_phase2():
@@ -330,14 +344,31 @@ def _check_phase4():
 
 
 def _check_phase5():
-    """RIDA — Hda + β-clamp."""
+    """RIDA — Hda + β-clamp + DnaA-ATP hydrolysis reaction.
+
+    The hydrolysis reaction ``RXN0-7444`` (DnaA-ATP + H2O -> DnaA-ADP + Pi,
+    catalyzed by ``CPLX0-10342`` = Hda-β-clamp complex) is already in
+    ``metabolic_reactions.tsv`` and registered with the FBA model. The
+    Hda monomer (``G7313-MONOMER``) and Hda-β-clamp complex are present
+    in the bulk pool. What's left is producing FBA flux — a kinetic
+    constraint that ties RXN0-7444 flux to active replisome count, so
+    DnaA-ATP actually hydrolyzes to DnaA-ADP as replication proceeds."""
+    metab = _read_file('v2ecoli/processes/parca/reconstruction/ecoli/flat/metabolic_reactions.tsv')
+    cplx = _read_file('v2ecoli/processes/parca/reconstruction/ecoli/flat/complexation_reactions.tsv')
+    has_rxn = bool(metab and 'RXN0-7444' in metab)
+    has_complex = bool(cplx and 'CPLX0-10342_RXN' in cplx)
     if _file_exists('v2ecoli/processes/rida.py'):
-        return 'done', 'RIDA process present'
-    p = 'v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/molecule_ids.py'
-    text = _read_file(p)
-    if text and 'Hda' in text:
-        return 'in_progress', 'Hda registered; RIDA process pending'
-    return 'pending', 'no Hda molecule; no RIDA process'
+        return 'done', 'dedicated RIDA process present'
+    # A kinetic-constraint flag in chromosome_replication or sim_data:
+    rep = _read_file('v2ecoli/processes/chromosome_replication.py')
+    if rep and 'RXN0-7444' in rep:
+        return 'in_progress', 'RIDA flux gating wired into chromosome_replication; verify flux'
+    if has_rxn and has_complex:
+        return 'in_progress', (
+            'RXN0-7444 (DnaA-ATP hydrolysis) and CPLX0-10342 (Hda-β-clamp) '
+            'in flat data and FBA config; FBA flux is currently 0 — needs a '
+            'kinetic constraint coupled to active replisome count')
+    return 'pending', 'RIDA reaction or Hda-β-clamp complex missing from flat data'
 
 
 def _check_phase6():
@@ -677,32 +708,38 @@ PHASES: list[Phase] = [
     ),
     Phase(
         number=1,
-        title='DnaA-ADP species',
-        goal=('Add the DnaA-ADP molecule ID alongside DnaA-ATP. Split the '
-              'initial pool; listener emits both.'),
+        title='DnaA-ATP / DnaA-ADP listener',
+        goal=('Both species are already registered (`MONOMER0-160` for ATP-form, '
+              '`MONOMER0-4565` for ADP-form) and their equilibrium reactions '
+              'fire every step. Phase 1 wires a listener that emits both pool '
+              'counts so the trajectory exposes the partitioning, plus a '
+              'behavior test confirming apo-DnaA flows into DnaA-ATP at '
+              'equilibrium.'),
         status_check=_check_phase1,
         tests=(
             TestSpec(
                 'tests/test_dnaA_nucleotide_pool.py',
-                'DnaA-ATP and DnaA-ADP are both registered as bulk molecules; '
-                'their initial counts sum to the expected total DnaA-monomer '
-                'count; the ATP/ADP ratio matches the configured fraction '
-                '(default 70/30) within tolerance.'),
+                'After a short sim the apo-DnaA pool (PD03831) drains into '
+                'DnaA-ATP (MONOMER0-160). DnaA-ADP stays near zero in the '
+                'absence of RIDA flux. The listener emits both pool counts '
+                'in `listeners.replication_data` per timestep.'),
         ),
         gap_items=(
-            'Only DnaA-ATP (MONOMER0-160) is registered; nucleotide-state is '
-            'invisible to the rest of the model.',
-            'No conservation test for DnaA-ATP + DnaA-ADP + box-bound count.',
+            'No listener emits DnaA-ATP / DnaA-ADP / apo-DnaA pool counts; '
+            'the trajectory exposes only the structural DnaA-box counts.',
+            'No behavior test confirms the equilibrium reactions actually '
+            'partition apo-DnaA into the nucleotide-bound forms.',
         ),
         viz_plan=(
             'Two-trace plot of DnaA-ATP and DnaA-ADP bulk counts over time, '
-            'with their ratio plotted on a secondary axis. Without RIDA/DARS '
-            'these traces are flat — the time-varying behavior emerges in '
-            'Phases 5 and 7.'),
+            'plus apo-DnaA on the same axes. In the current model DnaA-ATP '
+            'fills up immediately because RIDA flux is 0; DnaA-ADP comes '
+            'online once Phase 5 lands.'),
         before_plot=_before_phase1,
         after_description=(
-            'After Phase 1: DnaA-ATP and DnaA-ADP traces with their ratio. '
-            'Phases 5 and 7 will animate the ratio over the cell cycle.'),
+            'After Phase 1: the listener exposes the actual ATP/ADP/apo '
+            'pools, flat-line at first, with DnaA-ADP rising once Phase 5 '
+            'wires RIDA flux.'),
     ),
     Phase(
         number=2,
@@ -800,21 +837,30 @@ PHASES: list[Phase] = [
     ),
     Phase(
         number=5,
-        title='RIDA',
-        goal=('Add Hda protein; expose loaded β-clamp count from active '
-              'replisomes; hydrolyze DnaA-ATP → DnaA-ADP at rate ∝ activity.'),
+        title='RIDA flux',
+        goal=('Hda monomer (`G7313-MONOMER`), β-clamp (`CPLX0-3761`), and the '
+              'Hda-β-clamp complex (`CPLX0-10342`) are all expressed. The '
+              'hydrolysis reaction `RXN0-7444` (DnaA-ATP + H₂O → DnaA-ADP + Pi, '
+              'catalyzed by `CPLX0-10342`) is in `metabolic_reactions.tsv` '
+              'and registered with the FBA model. What\'s missing: FBA flux '
+              'through it is currently zero. Phase 5 adds a kinetic constraint '
+              'tying the RIDA flux to active replisome count so DnaA-ATP '
+              'actually hydrolyzes during replication.'),
         status_check=_check_phase5,
         tests=(
             TestSpec(
                 'tests/test_rida.py',
-                'Active DnaA-ATP pool drops as replisomes elongate; the drop '
-                'rate is ∝ active replisome count; the pool recovers after '
-                'replication completes (no replisomes → no flux).'),
+                'After replication initiates, FBA flux through RXN0-7444 is '
+                'non-zero; DnaA-ADP pool rises in proportion to active '
+                'replisomes; DnaA-ATP pool falls. After replication completes, '
+                'flux returns to zero.'),
         ),
         gap_items=(
-            'Hda not in molecule_ids; no clamp count exposed; no RIDA process.',
-            'DnaN (β-clamp) protein is in the dnaA operon but is not counted '
-            'separately for clamp-loading logic.',
+            'No FBA flux through RXN0-7444 today (DnaA-ADP stays at 0 over a '
+            '1500s sim); the reaction is in the model but has no biomass '
+            'demand or kinetic constraint to drive it.',
+            'No coupling between active replisome count and RIDA flux; '
+            'the biology says rate ∝ DNA-loaded β-clamp ∝ replisome activity.',
         ),
         viz_plan=(
             'Twin-axis plot: DnaA-ATP pool (left axis) and active replisome '

@@ -126,7 +126,15 @@ def _extract_replication_signals(history):
         mass = h.get('listeners', {}).get('mass', {}) if isinstance(h.get('listeners'), dict) else {}
         rep_listener = h.get('listeners', {}).get('replication_data', {}) if isinstance(h.get('listeners'), dict) else {}
 
-        n_oric = _bool_entry_count(h.get('oriC'))
+        # The emitter history stores unique molecules under their schema
+        # names; ``oriC`` is not one of them (replication_data emits the
+        # count via ``number_of_oric`` — prefer that over a structured-
+        # array fallback that would silently return zero).
+        n_oric_listener = rep_listener.get('number_of_oric')
+        if n_oric_listener is not None:
+            n_oric = int(n_oric_listener)
+        else:
+            n_oric = _bool_entry_count(h.get('oriC'))
         n_chrom = _bool_entry_count(h.get('full_chromosome'))
         n_rep = _bool_entry_count(h.get('active_replisome'))
 
@@ -774,97 +782,6 @@ def _provenance_table(cited_pairs):
             '<tr><th>Quantity</th><th>Value</th><th>Source</th>'
             '<th>Citation + caveat</th></tr></thead>'
             f'<tbody>{"".join(rows)}</tbody></table>')
-
-
-def _after_phase1(snaps):
-    """Phase-1 result: pool traces + ATP-fraction trace with the
-    biological-target band overlaid, plus an audit table making each
-    overlay value's provenance explicit."""
-    pulled = _dnaA_pool_traces(snaps)
-    if pulled is None:
-        return _placeholder(
-            'No DnaA pool counts in trajectory yet — run a sim with the '
-            'updated replication_data listener.')
-    times, apo, atp, adp = pulled
-    total = apo + atp + adp
-    safe_total = np.where(total > 0, total, 1)
-    atp_frac = atp / safe_total
-
-    eq = DNAA_NUCLEOTIDE_EQUILIBRIUM
-    band_min = eq.biological_atp_fraction_min.value
-    band_max = eq.biological_atp_fraction_max.value
-    peak = eq.peak_atp_fraction_pre_initiation.value
-    trough = eq.typical_atp_fraction_post_initiation.value
-
-    fig, axes = plt.subplots(2, 1, figsize=(9, 6.4), sharex=True,
-                             gridspec_kw={'height_ratios': [3, 2]})
-
-    ax = axes[0]
-    ax.plot(times, apo, color='#0891b2', lw=1.5, label='apo-DnaA (PD03831)')
-    ax.plot(times, atp, color='#16a34a', lw=1.8,
-            label='DnaA-ATP (MONOMER0-160)')
-    ax.plot(times, adp, color='#dc2626', lw=1.8,
-            label='DnaA-ADP (MONOMER0-4565)')
-    ax.plot(times, total, color='#475569', lw=1.0, ls=':', alpha=0.8,
-            label='total = apo + ATP + ADP')
-    ax.set_ylabel('Bulk count')
-    ax.set_title('Phase 1: DnaA pool counts emitted by the listener')
-    ax.legend(fontsize=8, loc='center right')
-    ax.grid(True, alpha=0.2)
-
-    ax = axes[1]
-    ax.fill_between(
-        [times.min(), times.max()], band_min, band_max,
-        color='#bfdbfe', alpha=0.55,
-        label=f'literature band ({band_min:.0%}–{band_max:.0%})')
-    ax.axhline(peak, color='#1e3a8a', ls='--', lw=0.9, alpha=0.7,
-               label=f'pre-initiation peak ({peak:.0%})')
-    ax.axhline(trough, color='#9f1239', ls='--', lw=0.9, alpha=0.7,
-               label=f'post-RIDA trough ({trough:.0%})')
-    ax.plot(times, atp_frac, color='#16a34a', lw=2.0,
-            label='observed DnaA-ATP fraction (current model)')
-    ax.set_ylabel('DnaA-ATP / total DnaA')
-    ax.set_xlabel('Time (min)')
-    ax.set_ylim(0, 1.05)
-    ax.set_title('DnaA-ATP fraction vs literature reference values')
-    ax.legend(fontsize=7, loc='center right')
-    ax.grid(True, alpha=0.2)
-
-    fig.tight_layout()
-    final_atp_frac = float(atp_frac[-1]) if len(atp_frac) else 0.0
-    interpretation = (
-        '<p class="note"><strong>Reading the lower panel:</strong> the '
-        'observed DnaA-ATP fraction sits above the literature band '
-        f'({band_min:.0%}–{band_max:.0%}) because the model has no flux '
-        'opposing the equilibrium\'s mass-action drive into the ATP form. '
-        f'Final observed value <strong>{final_atp_frac:.0%}</strong>. '
-        '<strong>Phase 5 (RIDA)</strong> is the dominant downward driver '
-        'in real cells; <strong>Phase 7 (DARS)</strong> closes the cycle. '
-        'Until those land, the ATP fraction stays at the equilibrium '
-        'ceiling.</p>')
-
-    provenance = _provenance_table([
-        ('biological steady-state min', eq.biological_atp_fraction_min),
-        ('biological steady-state max', eq.biological_atp_fraction_max),
-        ('pre-initiation peak', eq.peak_atp_fraction_pre_initiation),
-        ('post-RIDA trough', eq.typical_atp_fraction_post_initiation),
-        ('K_d(ATP)  [nM]', eq.kd_atp_nm),
-        ('K_d(ADP)  [nM]', eq.kd_adp_nm),
-        ('cellular ATP/ADP ratio', eq.typical_atp_adp_ratio),
-    ])
-    n_ext = sum(1 for cv in (
-        eq.biological_atp_fraction_min, eq.biological_atp_fraction_max,
-        eq.peak_atp_fraction_pre_initiation,
-        eq.typical_atp_fraction_post_initiation,
-        eq.kd_atp_nm, eq.kd_adp_nm, eq.typical_atp_adp_ratio,
-    ) if not cv.in_curated_pdf)
-    audit_note = (
-        f'<p class="note"><strong>Provenance audit.</strong> {n_ext} of 7 '
-        'reference values come from outside the curated PDF; review them '
-        'before treating them as load-bearing parameters.</p>'
-    )
-    return (_img(fig_to_b64(fig), 'DnaA pool traces + ATP fraction')
-            + interpretation + audit_note + provenance)
 
 
 def _before_phase2(snaps):

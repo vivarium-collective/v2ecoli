@@ -769,6 +769,247 @@ def _phase1_extras(snaps, status):
     ]
 
 
+# ---------------------------------------------------------------------------
+# Architecture-change table — used by Phase 5 (and future phases) to show
+# the user exactly what each phase added, modified, or overrode.
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class ArchChange:
+    """One architectural delta introduced by a phase.
+
+    ``kind`` is one of:
+      * ``new_process``     — a new Step instance is wired into the
+                              cell_state and appended to flow_order.
+      * ``override``        — an existing process / config is mutated
+                              after instantiation.
+      * ``data``            — a new constant, dataclass, or look-up
+                              table is added.
+      * ``listener``        — a listener field is added or modified.
+    """
+
+    kind: str
+    summary: str
+    file: str
+    detail: str
+    reads: tuple[str, ...] = ()
+    writes: tuple[str, ...] = ()
+
+
+_ARCH_KIND_LABELS = {
+    'new_process': ('New process', '#16a34a'),
+    'override':    ('Override',     '#f59e0b'),
+    'data':        ('Data',         '#0891b2'),
+    'listener':    ('Listener',     '#7c3aed'),
+}
+
+
+def _render_arch_changes_html(changes):
+    """Render a styled table of architecture changes for one phase."""
+    rows = []
+    for c in changes:
+        label, color = _ARCH_KIND_LABELS.get(
+            c.kind, (c.kind, '#475569'))
+        pill = (f'<span class="pill" style="background:{color};">'
+                f'{html_lib.escape(label)}</span>')
+        ports_html = ''
+        if c.reads or c.writes:
+            ports_html = (
+                '<div class="ports">'
+                + (f'<div><strong>reads:</strong> '
+                   + ', '.join(f'<code>{html_lib.escape(r)}</code>' for r in c.reads)
+                   + '</div>' if c.reads else '')
+                + (f'<div><strong>writes:</strong> '
+                   + ', '.join(f'<code>{html_lib.escape(w)}</code>' for w in c.writes)
+                   + '</div>' if c.writes else '')
+                + '</div>')
+        rows.append(
+            f'<tr>'
+            f'<td>{pill}</td>'
+            f'<td><strong>{html_lib.escape(c.summary)}</strong></td>'
+            f'<td><code>{html_lib.escape(c.file)}</code></td>'
+            f'<td>{html_lib.escape(c.detail)}{ports_html}</td>'
+            f'</tr>'
+        )
+    return ('<table class="ref arch"><thead>'
+            '<tr><th>Kind</th><th>Summary</th><th>File</th>'
+            '<th>Detail / wiring</th></tr></thead>'
+            f'<tbody>{"".join(rows)}</tbody></table>')
+
+
+# ---------------------------------------------------------------------------
+# Phase 5 architecture-change list + process-connections diagram
+# ---------------------------------------------------------------------------
+
+PHASE5_ARCH_CHANGES = (
+    ArchChange(
+        kind='new_process',
+        summary='RIDA Step',
+        file='v2ecoli/processes/rida.py',
+        detail=('A dedicated EcoliStep that hydrolyzes DnaA-ATP → '
+                'DnaA-ADP each tick. Rate = k · n_active_replisomes · '
+                '[DnaA-ATP] · dt, drawn from a Poisson distribution.'),
+        reads=(
+            'bulk[MONOMER0-160[c]]',
+            'bulk[MONOMER0-4565[c]]',
+            'unique.active_replisome._entryState',
+            'timestep',
+        ),
+        writes=(
+            'bulk[MONOMER0-160[c]]',
+            'bulk[MONOMER0-4565[c]]',
+            'listeners.rida.flux_atp_to_adp',
+            'listeners.rida.active_replisomes',
+            'listeners.rida.rate_constant',
+        ),
+    ),
+    ArchChange(
+        kind='override',
+        summary='Deactivate MONOMER0-4565_RXN equilibrium',
+        file='v2ecoli/generate_replication_initiation.py',
+        detail=('After the baseline document is built, the live '
+                '`ecoli-equilibrium` step instance has its '
+                '`stoichMatrix` column for `MONOMER0-4565_RXN` zeroed. '
+                'The equilibrium SS solver still computes a flux for '
+                'this reaction but the result is multiplied by an '
+                'all-zero stoichiometry vector, so molecule counts '
+                'are not coupled by mass-action.'),
+        reads=('configs.ecoli-equilibrium.stoichMatrix',),
+        writes=(
+            'ecoli-equilibrium.instance.stoichMatrix',
+            'ecoli-equilibrium.instance._deactivated_reactions',
+        ),
+    ),
+    ArchChange(
+        kind='listener',
+        summary='New rida.* listener fields',
+        file='v2ecoli/processes/rida.py',
+        detail=('Each tick the RIDA Step emits its hydrolysis flux, '
+                'the active replisome count it observed, and the '
+                'configured rate constant.'),
+        writes=(
+            'listeners.rida.flux_atp_to_adp',
+            'listeners.rida.active_replisomes',
+            'listeners.rida.rate_constant',
+        ),
+    ),
+    ArchChange(
+        kind='data',
+        summary='Bulk-ID constants for DnaA forms',
+        file='v2ecoli/data/replication_initiation/molecular_reference.py',
+        detail=('`DNAA_APO_BULK_ID = "PD03831[c]"`, '
+                '`DNAA_ATP_BULK_ID = "MONOMER0-160[c]"`, '
+                '`DNAA_ADP_BULK_ID = "MONOMER0-4565[c]"`. '
+                'Imported by RIDA and the replication_data listener.'),
+    ),
+)
+
+
+def _phase5_connections_diagram():
+    """Boxes-and-arrows diagram of how RIDA connects into the
+    surrounding processes / data flow."""
+    fig, ax = plt.subplots(figsize=(10, 5.2))
+    ax.set_xlim(0, 10)
+    ax.set_ylim(0, 6)
+    ax.set_aspect('equal')
+    ax.axis('off')
+
+    def box(x, y, w, h, label, fc='#e0e7ff', ec='#4338ca', text_color='#1e1b4b'):
+        from matplotlib.patches import FancyBboxPatch
+        ax.add_patch(FancyBboxPatch(
+            (x, y), w, h,
+            boxstyle="round,pad=0.05",
+            linewidth=1.3, edgecolor=ec, facecolor=fc))
+        ax.text(x + w / 2, y + h / 2, label,
+                ha='center', va='center', fontsize=9.5,
+                color=text_color, weight='bold')
+
+    def arrow(x1, y1, x2, y2, label='', color='#475569',
+              ls='-', label_dy=0.15):
+        ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
+                    arrowprops=dict(arrowstyle='->', color=color,
+                                    lw=1.4, linestyle=ls,
+                                    shrinkA=4, shrinkB=4))
+        if label:
+            ax.text((x1 + x2) / 2, (y1 + y2) / 2 + label_dy, label,
+                    ha='center', va='center', fontsize=8,
+                    color=color, style='italic')
+
+    # Bulk pools (top row)
+    box(0.5, 4.6, 1.7, 0.8, 'apo-DnaA\n(PD03831)', fc='#f0f9ff', ec='#0369a1')
+    box(3.0, 4.6, 1.7, 0.8, 'DnaA-ATP\n(MONOMER0-160)', fc='#f0fdf4', ec='#15803d')
+    box(5.5, 4.6, 1.7, 0.8, 'DnaA-ADP\n(MONOMER0-4565)', fc='#fef2f2', ec='#b91c1c')
+
+    # Process boxes (mid row)
+    box(0.5, 2.6, 2.2, 0.8, 'transcription +\ntranslation',
+        fc='#fef3c7', ec='#b45309')
+    box(3.0, 2.6, 1.7, 0.8, 'equilibrium\n(active)', fc='#e0e7ff', ec='#4338ca')
+    box(5.5, 2.6, 1.7, 0.8, 'equilibrium\n(deactivated)',
+        fc='#f1f5f9', ec='#94a3b8', text_color='#64748b')
+    box(8.0, 4.6, 1.7, 0.8, 'metabolism FBA\n(RXN0-7444 inert)',
+        fc='#f1f5f9', ec='#94a3b8', text_color='#64748b')
+
+    # RIDA + replisome (bottom)
+    box(3.7, 0.6, 2.6, 0.9, 'RIDA Step\n(this PR)',
+        fc='#dcfce7', ec='#15803d')
+    box(7.4, 0.6, 2.0, 0.9, 'active_replisome\n(unique)',
+        fc='#fef3c7', ec='#b45309')
+
+    # Arrows: translation → apo
+    arrow(1.6, 3.4, 1.35, 4.6, label='produces')
+
+    # Arrow: apo + ATP ⇌ DnaA-ATP via equilibrium
+    arrow(2.2, 5.0, 3.0, 5.0, label='+ ATP', color='#15803d')
+    arrow(3.85, 4.6, 3.85, 3.4, label='⇌', color='#4338ca', label_dy=0.0)
+
+    # Arrow: apo + ADP — DEACTIVATED
+    arrow(6.35, 4.6, 6.35, 3.4, label='⇌ (no effect)',
+          color='#94a3b8', ls=':')
+
+    # Arrow: RIDA — DnaA-ATP -> DnaA-ADP
+    arrow(5.0, 1.5, 4.2, 4.6, label='-1 / step', color='#15803d')
+    arrow(5.6, 1.5, 6.0, 4.6, label='+1 / step', color='#b91c1c')
+
+    # Arrow: replisomes gate RIDA rate
+    arrow(7.4, 1.05, 6.3, 1.05, label='count → rate', color='#b45309')
+
+    # Note: metabolism reaction is parallel & inert
+    ax.annotate(
+        'inert\n(no kinetic constraint)',
+        xy=(8.85, 4.6), xytext=(8.85, 3.6),
+        ha='center', va='center', fontsize=7.5,
+        color='#475569', style='italic')
+
+    ax.set_title(
+        'How the RIDA Step connects (replication_initiation architecture)',
+        fontsize=11)
+    fig.tight_layout()
+    return _img(fig_to_b64(fig), 'RIDA process-connections diagram')
+
+
+def _phase5_extras(snaps, status):
+    arch = _render_arch_changes_html(PHASE5_ARCH_CHANGES)
+    diag = _phase5_connections_diagram()
+    note = (
+        '<p class="note"><strong>Is RIDA a constraint on metabolism?</strong> '
+        'No. The FBA reaction <code>RXN0-7444</code> exists in '
+        '<code>flat/metabolic_reactions.tsv</code> and is registered with '
+        'metabolism (stoichiometry, catalyst, base reaction) but it carries '
+        'no kinetic constraint and no biomass demand, so FBA pushes zero '
+        'flux through it. The dedicated <code>RIDA</code> Step runs in '
+        'parallel to metabolism: it reads <code>bulk</code> directly and '
+        'modifies <code>bulk</code> directly. Two parallel things — the '
+        'inert FBA reaction and the kinetic Step — represent the same '
+        'biology; the Step is what produces the observable flux today.</p>'
+    )
+    return [
+        ('Architecture changes — what this phase adds, modifies, overrides',
+         arch),
+        ('Process connections',
+         note + diag),
+    ]
+
+
 def _provenance_table(cited_pairs):
     """Render a small audit table for a list of (label, CitedValue)."""
     rows = []
@@ -1180,6 +1421,7 @@ PHASES: list[Phase] = [
             'crossing into the literature band, with RIDA flux scaling on '
             'replisome count.'),
         after_plot=_after_phase5,
+        extra_sections=_phase5_extras,
     ),
     Phase(
         number=6,
@@ -1540,6 +1782,12 @@ table.provenance .cite-note {{ font-size: 0.78em; color: #64748b;
 .cite-ext {{ display: inline-block; background: #fee2e2;
              color: #991b1b; border-radius: 10px; padding: 1px 8px;
              font-size: 0.76em; font-weight: 600; }}
+table.arch td:first-child {{ white-space: nowrap; width: 90px; }}
+table.arch .ports {{ font-size: 0.82em; color: #475569;
+                      margin-top: 6px;
+                      border-left: 2px solid #cbd5e1;
+                      padding-left: 8px; }}
+table.arch .ports code {{ background: #f1f5f9; }}
 .before-after {{ display: grid; grid-template-columns: 1fr 1fr;
                   gap: 14px; margin-top: 6px; }}
 .ba-col {{ background: #f8fafc; border: 1px solid #e2e8f0;

@@ -45,6 +45,9 @@ from v2ecoli.data.replication_initiation.molecular_reference import (
     DNAA_POOL_DRIVERS,
     CitedValue,
     CITATIONS,
+    RegionBindingRule,
+    REGION_BINDING_RULES,
+    DEFAULT_REGION_BINDING_RULE,
 )
 
 __all__ = [
@@ -85,4 +88,7 @@ __all__ = [
     'DNAA_POOL_DRIVERS',
     'CitedValue',
     'CITATIONS',
+    'RegionBindingRule',
+    'REGION_BINDING_RULES',
+    'DEFAULT_REGION_BINDING_RULE',
 ]

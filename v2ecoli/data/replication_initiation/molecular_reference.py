@@ -601,3 +601,51 @@ PER_REGION_PDF_COUNT: dict[str, int] = {
     'DARS1':         len(DARS1.core_box_names) + len(DARS1.extra_box_names),
     'DARS2':         len(DARS2.core_box_names) + len(DARS2.extra_box_names),
 }
+
+
+# ---------------------------------------------------------------------------
+# Per-region binding rules — used by the Phase 2 DnaABoxBinding process
+# to compute equilibrium occupancy from DnaA-ATP / DnaA-ADP pools.
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class RegionBindingRule:
+    """Affinity class + nucleotide-form preference for one regulatory region.
+
+    The bioinformatic strict-consensus motif search picks out the
+    high-affinity boxes (R1 / R2 / R4 at oriC; box1 at the dnaA
+    promoter; etc.) — these are the boxes that exist in
+    ``sim_data.process.replication.motif_coordinates['DnaA_box']``
+    today. So every region's strict-consensus boxes are treated as
+    high-affinity here. Low-affinity sites named in the curated
+    reference are not yet in the model — Phase 2 enrichment of the
+    box list with non-consensus sites is a follow-up.
+    """
+
+    region: str
+    affinity_class: str   # 'high' or 'low'
+    binds_atp: bool
+    binds_adp: bool
+
+
+REGION_BINDING_RULES: dict[str, RegionBindingRule] = {
+    # oriC R1, R2, R4 (high-affinity consensus boxes): bind both ATP
+    # and ADP forms with Kd ~1 nM. Curated reference:
+    # docs/references/replication_initiation.md#oric.
+    'oriC':           RegionBindingRule('oriC',           'high', True, True),
+    # dnaA promoter box1 (consensus, high-affinity): both forms.
+    'dnaA_promoter':  RegionBindingRule('dnaA_promoter',  'high', True, True),
+    # datA: not in the strict-consensus search results currently;
+    # included so the rule lookup succeeds when the search is
+    # enriched in a follow-up.
+    'datA':           RegionBindingRule('datA',           'high', True, True),
+    # DARS1, DARS2: consensus high-affinity boxes; both forms.
+    'DARS1':          RegionBindingRule('DARS1',          'high', True, True),
+    'DARS2':          RegionBindingRule('DARS2',          'high', True, True),
+}
+
+# Default rule for boxes outside any named region (the genome is full
+# of strict-consensus matches that aren't at characterized regulatory
+# loci). Treated as low-affinity ATP-preferential placeholders.
+DEFAULT_REGION_BINDING_RULE = RegionBindingRule(
+    'other', 'low', True, False)

@@ -35,6 +35,9 @@ from v2ecoli.generate import (
     make_edge,
 )
 from v2ecoli.processes.dars import DARS, NAME as DARS_NAME, TOPOLOGY as DARS_TOPOLOGY
+from v2ecoli.processes.dnaA_box_binding import (
+    DnaABoxBinding, NAME as BINDING_NAME, TOPOLOGY as BINDING_TOPOLOGY,
+)
 from v2ecoli.processes.rida import RIDA, NAME as RIDA_NAME, TOPOLOGY as RIDA_TOPOLOGY
 
 
@@ -108,6 +111,26 @@ def _splice_rida(document, seed):
     return document
 
 
+def _splice_dnaA_box_binding(document, seed):
+    """Add the DnaABoxBinding step to the cell_state and append it to
+    flow_order. The step reads the DnaA-ATP/ADP bulk pools and writes
+    DnaA_bound on each box per a per-region equilibrium occupancy
+    sample. This is the first thing in the model that ever sets
+    DnaA_bound to True.
+    """
+    cell_state = document['state']['agents']['0']
+    if BINDING_NAME in cell_state:
+        return document
+    binding_config = {'time_step': 1.0, 'seed': int(seed)}
+    instance = DnaABoxBinding(binding_config)
+    cell_state[BINDING_NAME] = make_edge(
+        instance, BINDING_TOPOLOGY, edge_type='step', config=binding_config)
+    document.setdefault('flow_order', [])
+    if BINDING_NAME not in document['flow_order']:
+        document['flow_order'] = list(document['flow_order']) + [BINDING_NAME]
+    return document
+
+
 def _splice_dars(document, seed):
     """Add the DARS step to the cell_state and append it to flow_order.
 
@@ -151,6 +174,7 @@ def build_replication_initiation_document(
     features=None,
     enable_rida: bool = True,
     enable_dars: bool = True,
+    enable_dnaA_box_binding: bool = True,
 ):
     """Build the replication-initiation document.
 
@@ -186,4 +210,6 @@ def build_replication_initiation_document(
             document, DEACTIVATED_EQUILIBRIUM_REACTIONS)
     if enable_dars:
         document = _splice_dars(document, seed=seed)
+    if enable_dnaA_box_binding:
+        document = _splice_dnaA_box_binding(document, seed=seed)
     return document

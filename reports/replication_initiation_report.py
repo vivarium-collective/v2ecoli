@@ -162,6 +162,7 @@ def _extract_replication_signals(history):
 
         rida_listener = h.get('listeners', {}).get('rida', {}) if isinstance(h.get('listeners'), dict) else {}
         dars_listener = h.get('listeners', {}).get('dars', {}) if isinstance(h.get('listeners'), dict) else {}
+        binding_listener = h.get('listeners', {}).get('dnaA_binding', {}) if isinstance(h.get('listeners'), dict) else {}
 
         snaps.append({
             'time': t,
@@ -177,6 +178,15 @@ def _extract_replication_signals(history):
             'rida_flux_atp_to_adp': rida_listener.get('flux_atp_to_adp'),
             'rida_active_replisomes': rida_listener.get('active_replisomes'),
             'dars_flux_adp_to_apo': dars_listener.get('flux_adp_to_apo'),
+            'binding_total_bound': binding_listener.get('total_bound'),
+            'binding_total_active': binding_listener.get('total_active'),
+            'binding_fraction_bound': binding_listener.get('fraction_bound'),
+            'binding_bound_oric': binding_listener.get('bound_oric'),
+            'binding_bound_dnaA_promoter': binding_listener.get('bound_dnaA_promoter'),
+            'binding_bound_datA': binding_listener.get('bound_datA'),
+            'binding_bound_DARS1': binding_listener.get('bound_DARS1'),
+            'binding_bound_DARS2': binding_listener.get('bound_DARS2'),
+            'binding_bound_other': binding_listener.get('bound_other'),
             'dry_mass': float(mass.get('dry_mass', 0)),
             'cell_mass': float(mass.get('cell_mass', 0)),
             'dna_mass': float(mass.get('dna_mass', 0)),
@@ -217,21 +227,34 @@ def _run_baseline_sim(duration):
 
 
 def _run_rida_only_sim(duration):
-    """Run the replication_initiation architecture with RIDA enabled
-    but DARS disabled — Phase 5's cumulative state. DnaA-ATP starts
-    depleting because nothing regenerates it."""
+    """Phase 5's cumulative state: RIDA enabled, no DARS, no binding."""
     from v2ecoli.composite_replication_initiation import (
         make_replication_initiation_composite,
     )
     return _run_sim(
         duration,
         lambda **kw: make_replication_initiation_composite(
-            enable_rida=True, enable_dars=False, **kw),
+            enable_rida=True, enable_dars=False,
+            enable_dnaA_box_binding=False, **kw),
         label='rida_only')
 
 
+def _run_rida_dars_sim(duration):
+    """Phase 7's cumulative state: RIDA + DARS, no binding yet."""
+    from v2ecoli.composite_replication_initiation import (
+        make_replication_initiation_composite,
+    )
+    return _run_sim(
+        duration,
+        lambda **kw: make_replication_initiation_composite(
+            enable_rida=True, enable_dars=True,
+            enable_dnaA_box_binding=False, **kw),
+        label='rida_dars')
+
+
 def _run_full_sim(duration):
-    """Run the full replication_initiation architecture (RIDA + DARS)."""
+    """Run the full replication_initiation architecture (RIDA + DARS +
+    box binding). This is Phase 2's cumulative state — the latest."""
     from v2ecoli.composite_replication_initiation import (
         make_replication_initiation_composite,
     )
@@ -437,11 +460,18 @@ def _check_phase1():
 
 
 def _check_phase2():
-    """DnaA box binding process."""
+    """DnaA box binding process — Phase 2 listener that samples
+    equilibrium occupancy per active box and emits per-region bound
+    counts."""
     if _file_exists('v2ecoli/processes/dnaA_box_binding.py'):
-        return 'done', 'v2ecoli/processes/dnaA_box_binding.py present'
-    if _file_exists('tests/test_dnaA_binding.py'):
-        return 'in_progress', 'phase test file exists; process not yet added'
+        gen = _read_file('v2ecoli/generate_replication_initiation.py')
+        if gen and '_splice_dnaA_box_binding' in gen:
+            return 'done', (
+                'DnaABoxBinding step wired into the architecture; '
+                'per-region bound counts emitted in '
+                'listeners.dnaA_binding')
+        return 'in_progress', (
+            'binding process file present but not spliced')
     return 'pending', 'no dnaA_box_binding process module'
 
 
@@ -1224,19 +1254,149 @@ def _provenance_table(cited_pairs):
 
 
 def _before_phase2(snaps):
+    """Phase 2 'Before' = state at the cumulative point just before
+    Phase 2 (rida_dars). The replication_data listener still reports
+    bound=0 because no process has ever sampled / written DnaA_bound."""
     if not snaps:
         return _no_data_msg()
     times = np.array([s['time'] / 60 for s in snaps])
     bound = np.array([s['dnaA_box_bound'] for s in snaps])
     total = np.array([s['dnaA_box_total'] for s in snaps])
     fig, ax = plt.subplots(figsize=(9, 3.0))
-    ax.plot(times, total, color='#1e293b', lw=1.4, label='total')
-    ax.plot(times, bound, color='#dc2626', lw=1.4, label='bound (always 0)')
+    ax.plot(times, total, color='#1e293b', lw=1.4, label='total active boxes')
+    ax.plot(times, bound, color='#dc2626', lw=1.4,
+            label='bound (replication_data listener — always 0)')
     ax.set_xlabel('Time (min)'); ax.set_ylabel('DnaA boxes')
-    ax.set_title('Current: DnaA_bound is write-only — never set to True')
+    ax.set_title('Pre-Phase-2: DnaA_bound flat at zero')
     ax.legend(fontsize=8); ax.grid(True, alpha=0.2)
     fig.tight_layout()
-    return _img(fig_to_b64(fig), 'DnaA-box occupancy (current)')
+    return _img(fig_to_b64(fig), 'DnaA-box occupancy (pre-Phase-2)')
+
+
+def _after_phase2(snaps):
+    """Phase 2 'After' = the binding listener's per-region occupancy
+    over the trajectory."""
+    if not snaps:
+        return _no_data_msg()
+    times = np.array([s['time'] / 60 for s in snaps])
+    fig, axes = plt.subplots(2, 1, figsize=(9, 6.0), sharex=True,
+                             gridspec_kw={'height_ratios': [2, 3]})
+
+    ax = axes[0]
+    total_bound = np.array(
+        [s.get('binding_total_bound') or 0 for s in snaps])
+    total_active = np.array(
+        [s.get('binding_total_active') or 1 for s in snaps])
+    fraction = total_bound / np.where(total_active > 0, total_active, 1)
+    ax.plot(times, fraction, color='#16a34a', lw=2.0,
+            label='global fraction bound')
+    ax.set_ylabel('Bound / active'); ax.set_ylim(0, 1.05)
+    ax.set_title('Per-tick equilibrium occupancy across all DnaA boxes')
+    ax.legend(fontsize=8, loc='center right')
+    ax.grid(True, alpha=0.2)
+
+    ax = axes[1]
+    region_specs = [
+        ('binding_bound_oric',          'oriC',          '#10b981'),
+        ('binding_bound_dnaA_promoter', 'dnaA promoter', '#0891b2'),
+        ('binding_bound_datA',          'datA',          '#7c3aed'),
+        ('binding_bound_DARS1',         'DARS1',         '#f59e0b'),
+        ('binding_bound_DARS2',         'DARS2',         '#dc2626'),
+        ('binding_bound_other',         'other (low-aff)', '#94a3b8'),
+    ]
+    for field, label, color in region_specs:
+        vals = np.array([s.get(field) or 0 for s in snaps])
+        ax.plot(times, vals, color=color, lw=1.5, label=label)
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('Bound count')
+    ax.set_title('Per-region bound count (high-affinity regions saturated)')
+    ax.legend(fontsize=7, loc='center right')
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+    note = (
+        '<p class="note">High-affinity regions (oriC / dnaA promoter / '
+        'DARS1 / DARS2 — Kd ~ 1 nM) saturate at 100% occupancy. '
+        '"Other" boxes (the bulk of the strict-consensus motif hits '
+        'across the genome, falling back to a low-affinity Kd ~ 100 nM '
+        'rule) sit at ~50–70% occupancy depending on the cellular '
+        '[DnaA-ATP].</p>'
+    )
+    return _img(fig_to_b64(fig), 'per-region bound counts') + note
+
+
+PHASE2_ARCH_CHANGES = (
+    ArchChange(
+        kind='new_process',
+        summary='DnaABoxBinding Step',
+        file='v2ecoli/processes/dnaA_box_binding.py',
+        detail=('Listener-only process: per active DnaA box, samples '
+                'bound/unbound from the equilibrium occupancy '
+                'p_bound = [DnaA] / (Kd + [DnaA]). Per-region Kd and '
+                'nucleotide preference come from the curated reference. '
+                'Does *not* write back to DnaA_bound on the unique '
+                'store (the set update mode conflicts with '
+                'chromosome_structure\'s add/delete on the same tick); '
+                'Phase 3 reads the listener counts directly.'),
+        reads=(
+            'bulk[MONOMER0-160[c]]',
+            'bulk[MONOMER0-4565[c]]',
+            'unique.DnaA_box.coordinates',
+            'unique.DnaA_box._entryState',
+        ),
+        writes=(
+            'listeners.dnaA_binding.total_bound',
+            'listeners.dnaA_binding.total_active',
+            'listeners.dnaA_binding.fraction_bound',
+            'listeners.dnaA_binding.bound_<region>',
+        ),
+    ),
+    ArchChange(
+        kind='data',
+        summary='REGION_BINDING_RULES + DEFAULT_REGION_BINDING_RULE',
+        file='v2ecoli/data/replication_initiation/molecular_reference.py',
+        detail=('Per-region (affinity_class, binds_atp, binds_adp) tuples '
+                'driving Phase 2\'s occupancy formula. All named regions '
+                'currently use the high-affinity class (Kd ~1 nM); '
+                'the default rule for unnamed regions is low-affinity '
+                'ATP-preferential (Kd ~100 nM).'),
+    ),
+    ArchChange(
+        kind='listener',
+        summary='New listeners.dnaA_binding.* fields',
+        file='v2ecoli/processes/dnaA_box_binding.py',
+        detail=('total_bound / total_active / fraction_bound plus '
+                'bound_oric / bound_dnaA_promoter / bound_datA / '
+                'bound_DARS1 / bound_DARS2 / bound_other.'),
+        writes=(
+            'listeners.dnaA_binding.total_bound',
+            'listeners.dnaA_binding.bound_oric',
+            'listeners.dnaA_binding.bound_dnaA_promoter',
+            'listeners.dnaA_binding.bound_datA',
+            'listeners.dnaA_binding.bound_DARS1',
+            'listeners.dnaA_binding.bound_DARS2',
+            'listeners.dnaA_binding.bound_other',
+        ),
+    ),
+)
+
+
+def _phase2_extras(snaps, status):
+    arch = _render_arch_changes_html(PHASE2_ARCH_CHANGES)
+    note = (
+        '<p class="note"><strong>Why a listener-only process?</strong> '
+        'The unique-array <code>set</code> update mode requires the new '
+        'value array to match the active-box count exactly. '
+        '<code>chromosome_structure</code> adds and deletes DnaA_box '
+        'entries during fork passage in the same tick that binding '
+        'samples occupancy, so the apply-time count differs from the '
+        'sample-time count and numpy raises a size mismatch. The '
+        'listener pattern dodges that conflict — Phase 3 (initiation '
+        'gating) and the report can both read the listener directly.</p>'
+    )
+    return [
+        ('Architecture changes — what this phase adds, modifies, overrides',
+         note + arch),
+    ]
 
 
 def _before_phase3(snaps):
@@ -1566,33 +1726,38 @@ PHASES: list[Phase] = [
     ),
     Phase(
         number=2,
-        title='DnaA box binding',
-        goal=('New DnaABoxBinding process: reads DnaA-ATP/ADP pools and '
-              'per-region affinities, writes DnaA_bound on each box.'),
+        title='DnaA box binding (listener)',
+        goal=('Add a listener-only DnaABoxBinding step that samples per-box '
+              'equilibrium occupancy each tick from the DnaA-ATP/ADP bulk '
+              'pools and per-region affinity classes. Emits per-region '
+              'bound counts that Phase 3 will read to gate initiation.'),
         status_check=_check_phase2,
         tests=(
             TestSpec(
                 'tests/test_dnaA_binding.py',
-                'At steady-state DnaA-ATP pool: high-affinity oriC boxes '
-                '(R1/R2/R4) are ≥95% occupied; low-affinity oriC boxes track '
-                'DnaA-ATP concentration; per-region affinity class drives '
-                'occupancy via region_for_coord.'),
+                'Step is in cell_state. listener.dnaA_binding emits '
+                'per-region counts. Total bound > 0. High-affinity '
+                'regions (oriC, dnaA promoter, DARS) saturate; low-affinity '
+                "'other' boxes are partially bound (Kd ~100 nM)."),
         ),
         gap_items=(
-            'DnaA_bound is write-only — set to False at init and after fork '
-            'passage, but no process ever sets it to True.',
-            'tf_binding handles promoter sites only; chromosomal DnaA boxes '
-            'have no binding logic.',
+            'No write-back to the DnaA_bound field on the unique-molecule '
+            'store yet — the set-update / add-delete conflict is left as a '
+            'follow-up. Phase 3 reads the listener directly.',
+            'All named regions are currently treated as high-affinity. '
+            'Per-box affinity differentiation (R1/R2/R4 vs the named low-'
+            'affinity oriC sites) is a follow-up that requires enriching '
+            'motif_coordinates with non-consensus boxes.',
         ),
-        viz_plan=(
-            'Per-region bound-fraction traces (oriC high-affinity, oriC '
-            'low-affinity, dnaA promoter, datA, DARS) over time. The '
-            "high-affinity oriC trace should sit near 1.0; the low-affinity "
-            'trace tracks DnaA-ATP concentration.'),
+        viz_plan='',
         before_plot=_before_phase2,
         after_description=(
-            'After Phase 2: per-region bound-fraction traces. Replaces the '
-            'flat-zero "bound" line with real occupancy dynamics.'),
+            'After Phase 2: per-region bound-count traces from the '
+            'binding listener.'),
+        after_plot=_after_phase2,
+        extra_sections=_phase2_extras,
+        before_config='rida_dars',
+        after_config='full',
     ),
     Phase(
         number=3,
@@ -1770,7 +1935,7 @@ PHASES: list[Phase] = [
         after_plot=_after_phase7,
         extra_sections=_phase7_extras,
         before_config='rida_only',
-        after_config='full',
+        after_config='rida_dars',
     ),
     Phase(
         number=8,
@@ -1868,9 +2033,10 @@ def _render_dars_table():
 
 
 _CONFIG_LABELS = {
-    'baseline':  'baseline architecture (no RIDA, no DARS)',
-    'rida_only': 'baseline + RIDA (no DARS)',
-    'full':      'replication_initiation (RIDA + DARS)',
+    'baseline':  'baseline architecture (no RIDA, no DARS, no box binding)',
+    'rida_only': 'baseline + RIDA (no DARS, no box binding)',
+    'rida_dars': 'baseline + RIDA + DARS (no box binding)',
+    'full':      'replication_initiation (RIDA + DARS + box binding)',
 }
 
 
@@ -2283,6 +2449,7 @@ def main():
         configs = [
             ('baseline', _run_baseline_sim),
             ('rida_only', _run_rida_only_sim),
+            ('rida_dars', _run_rida_dars_sim),
             ('full', _run_full_sim),
         ]
         for label, runner in configs:

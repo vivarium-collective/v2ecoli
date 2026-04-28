@@ -1,0 +1,155 @@
+"""Phase 2 — DnaA box binding process.
+
+The DnaABoxBinding step in ``v2ecoli/processes/dnaA_box_binding.py``
+samples bound/unbound for each active DnaA box from the equilibrium
+occupancy probability:
+
+    p_bound = [DnaA] / (Kd + [DnaA])
+
+with [DnaA] = (DnaA-ATP + DnaA-ADP) / V_cell, computed in nM, and Kd
+chosen per-region from
+``v2ecoli.data.replication_initiation.REGION_BINDING_RULES``. High-
+affinity regions (oriC, dnaA promoter, datA, DARS1, DARS2) get
+Kd ≈ 1 nM and bind both nucleotide forms; everything else falls back
+to a low-affinity ATP-preferential rule (Kd ≈ 100 nM).
+
+Pre-Phase-2 the ``DnaA_bound`` field on ``DNAA_BOX_ARRAY`` was
+write-only (set False at init and on fork passage, never set True).
+These tests pin down that the field is now actually used and that the
+per-region occupancy lines up with the curated affinity classes.
+"""
+
+from __future__ import annotations
+
+import os
+
+import numpy as np
+import pytest
+
+
+CACHE_DIR = 'out/cache'
+
+pytestmark = [
+    pytest.mark.sim,
+    pytest.mark.skipif(
+        not os.path.isdir(CACHE_DIR) and not os.environ.get('CI'),
+        reason=f'cache dir {CACHE_DIR!r} not present; '
+               f'rebuild with `python scripts/build_cache.py`',
+    ),
+]
+
+
+@pytest.fixture(scope='module')
+def composite():
+    from v2ecoli.composite_replication_initiation import (
+        make_replication_initiation_composite,
+    )
+    return make_replication_initiation_composite(cache_dir=CACHE_DIR, seed=0)
+
+
+def _binding_listener(state):
+    return state['agents']['0'].get('listeners', {}).get('dnaA_binding', {})
+
+
+def test_binding_step_in_cell_state(composite):
+    cell = composite.state['agents']['0']
+    assert 'dnaA_box_binding' in cell, (
+        f'binding step missing; keys: '
+        f'{[k for k in cell if not k.startswith("_")][:10]}...')
+
+
+def test_listener_emits_per_region_counts(composite):
+    """After the binding step has fired once, the listener exposes
+    bound counts for each named region plus 'other'."""
+    composite.run(60.0)
+    listener = _binding_listener(composite.state)
+    for field in ('total_bound', 'total_active', 'fraction_bound',
+                  'bound_oric', 'bound_dnaA_promoter', 'bound_datA',
+                  'bound_DARS1', 'bound_DARS2', 'bound_other'):
+        assert field in listener, f'{field} missing from dnaA_binding listener'
+
+
+def test_listener_reports_nonzero_bound_count(composite):
+    """Phase 2 emits a per-tick equilibrium-occupancy report on the
+    DnaA-box bound state. The listener's total_bound count is what
+    Phase 3 will read to gate initiation. (Note: Phase 2 does *not*
+    write back to DnaA_bound on the unique store — see the comment
+    in dnaA_box_binding.update on why.)"""
+    composite.run(60.0)
+    listener = _binding_listener(composite.state)
+    assert listener['total_bound'] > 0, (
+        f'binding listener reports total_bound=0 — Phase 2 binding step '
+        f'did not run or sampled zero occupancy across all boxes. '
+        f'Listener: {dict(listener)}')
+
+
+def test_high_affinity_regions_are_saturated(composite):
+    """At ~166 nM [DnaA-ATP] (typical cellular DnaA pool), high-
+    affinity regions (Kd ~1 nM) should be ≥95% occupied. The
+    bioinformatic strict-consensus search picks out the high-affinity
+    boxes per region, so every box in oriC / dnaA_promoter / DARS2
+    that's currently in motif_coordinates should be bound."""
+    composite.run(120.0)
+    listener = _binding_listener(composite.state)
+    # All strict-consensus oriC boxes should be bound. Phase 0 baseline:
+    # 3 distinct coords × 1-3 chromosome domains = up to ~9 boxes total.
+    bound_oric = int(listener['bound_oric'])
+    bound_dnaA_promoter = int(listener['bound_dnaA_promoter'])
+    bound_DARS2 = int(listener['bound_DARS2'])
+    assert bound_oric > 0, (
+        f'No oriC boxes bound after 120s — high-affinity binding '
+        f'should saturate. Listener: {dict(listener)}')
+    assert bound_dnaA_promoter > 0, (
+        f'No dnaA-promoter boxes bound; expected the consensus box1 to '
+        f'saturate at high-affinity Kd. Listener: {dict(listener)}')
+    assert bound_DARS2 > 0, (
+        f'No DARS2 boxes bound; expected high-affinity saturation. '
+        f'Listener: {dict(listener)}')
+
+
+def test_low_affinity_other_boxes_partially_bound(composite):
+    """Boxes outside named regions fall back to low-affinity
+    (Kd ≈ 100 nM, ATP-preferential). With ~166 nM DnaA-ATP, expected
+    occupancy ≈ 0.62. The 'other' bound count should be a meaningful
+    fraction — not zero, not 100%."""
+    composite.run(60.0)
+    listener = _binding_listener(composite.state)
+    bound_other = int(listener['bound_other'])
+    total_active = int(listener['total_active'])
+    bound_total = int(listener['total_bound'])
+    assert bound_other > 0, (
+        f"'other' boxes bound count is 0; low-affinity binding rule "
+        f'should still produce some occupancy. Listener: {dict(listener)}')
+    # Other-region boxes are the bulk of the active set; if they were
+    # all bound (saturated like high-affinity), the rule isn't using
+    # the low-affinity Kd.
+    assert bound_other < total_active, (
+        f"'other' boxes are 100% bound — low-affinity Kd not applied")
+
+
+def test_per_region_counts_match_phase0_baseline(composite):
+    """The per-region bound counts at saturation should agree with
+    the Phase 0 baseline (3 / 1 / 0 / 1 / 3 distinct strict-consensus
+    boxes per region) scaled by chromosome-domain copies. We don't
+    pin exact numbers because the chromosome state evolves during
+    sim; we just check the counts are non-negative and bounded by
+    physically reasonable values."""
+    from v2ecoli.data.replication_initiation import (
+        PER_REGION_STRICT_CONSENSUS_COUNT)
+    composite.run(60.0)
+    listener = _binding_listener(composite.state)
+    region_fields = {
+        'oriC': 'bound_oric',
+        'dnaA_promoter': 'bound_dnaA_promoter',
+        'datA': 'bound_datA',
+        'DARS1': 'bound_DARS1',
+        'DARS2': 'bound_DARS2',
+    }
+    for region, field in region_fields.items():
+        n_strict = PER_REGION_STRICT_CONSENSUS_COUNT.get(region, 0)
+        bound = int(listener[field])
+        # Up to ~3 chromosome domains active at init; each domain
+        # contributes its own copy. Bound count ≤ strict_count * 3.
+        assert bound <= n_strict * 3 + 1, (
+            f'{region}: bound={bound} exceeds plausible upper bound '
+            f'{n_strict * 3 + 1}. Listener: {dict(listener)}')

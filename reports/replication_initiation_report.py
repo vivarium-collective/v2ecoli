@@ -274,13 +274,19 @@ def plot_fork_positions(snaps):
 # ---------------------------------------------------------------------------
 
 def _check_phase0():
-    """Region-tag DnaA boxes."""
-    text = _read_file('v2ecoli/library/schema_types.py')
-    if text and 'DNAA_BOX_ARRAY' in text and 'region' in text.split('DNAA_BOX_ARRAY', 1)[1][:400]:
-        return 'done', '`region` field present in DNAA_BOX_ARRAY definition'
+    """Region classifier — coordinate-based, no schema change."""
+    text = _read_file('v2ecoli/data/replication_initiation/molecular_reference.py')
+    has_classifier = bool(text and 'def region_for_coord' in text)
+    has_boundaries = bool(text and 'REGION_BOUNDARIES' in text)
+    if has_classifier and has_boundaries:
+        return 'done', 'region_for_coord and REGION_BOUNDARIES in molecular_reference'
+    if has_boundaries or has_classifier:
+        return 'in_progress', (
+            'partial: ' + ('boundaries' if has_boundaries else 'classifier')
+            + ' present')
     if _file_exists('tests/test_dnaA_box_regions.py'):
-        return 'in_progress', 'phase test file exists; schema not yet extended'
-    return 'pending', '`region` field not in DNAA_BOX_ARRAY (`schema_types.py:58`)'
+        return 'in_progress', 'phase test file exists; classifier not yet added'
+    return 'pending', 'no region_for_coord / REGION_BOUNDARIES in molecular_reference.py'
 
 
 def _check_phase1():
@@ -385,12 +391,15 @@ def _expected_region_counts_table():
 def _analysis_phase0(snaps, status):
     if status == 'done':
         return _placeholder(
-            'Region-binned DnaA-box count plot to land alongside the schema '
-            'change. Awaiting trajectory under the new schema.')
+            'Region-binned DnaA-box count plot to land with the classifier; '
+            'computed by applying region_for_coord over the init-state '
+            '`coordinates` array. Awaiting trajectory.')
     expected = _expected_region_counts_table()
     return ('<p class="note">Expected per-region DnaA-box counts (from the curated reference). '
-            'After Phase 0, this table is mirrored by an init-state count check in '
-            '<code>tests/test_dnaA_box_regions.py</code>.</p>'
+            'After Phase 0, an init-state check in '
+            '<code>tests/test_dnaA_box_regions.py</code> applies '
+            '<code>region_for_coord</code> over the actual motif-search '
+            'coordinates and asserts these counts.</p>'
             + expected)
 
 
@@ -502,9 +511,11 @@ class Phase:
 PHASES: list[Phase] = [
     Phase(
         number=0,
-        title='Region-tag DnaA boxes',
-        goal=('Add a `region` field to DNAA_BOX_ARRAY and classify each box at '
-              'init using bp coordinates from the molecular reference.'),
+        title='Region classifier (coordinate-based)',
+        goal=('Add bp boundaries for oriC / dnaA_promoter / datA / DARS1 / '
+              'DARS2 to molecular_reference.py and a `region_for_coord(bp)` '
+              'classifier. No schema change — region is derived from each '
+              'box\'s existing `coordinates` field.'),
         status_check=_check_phase0,
         test_files=(
             'tests/test_replication_initiation_reference.py',
@@ -512,10 +523,11 @@ PHASES: list[Phase] = [
         ),
         analysis=_analysis_phase0,
         gap_items=(
-            'A single global `DnaA_box` motif set today; per-region occupancy '
-            'cannot be computed.',
+            'No way to slice DnaA boxes by regulatory locus (oriC vs dnaA '
+            'promoter vs datA vs DARS) — the binding process in Phase 2 needs '
+            'this to apply per-region affinity classes.',
             'No init-time check that the bioinformatic motif search finds the '
-            'expected number of boxes per regulatory locus.',
+            'expected number of boxes per locus (11 / 7 / 4 / 3 / 5).',
         ),
     ),
     Phase(

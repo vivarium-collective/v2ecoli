@@ -905,91 +905,93 @@ PHASE5_ARCH_CHANGES = (
 )
 
 
-def _phase5_connections_diagram():
-    """Boxes-and-arrows diagram of how RIDA connects into the
-    surrounding processes / data flow."""
-    fig, ax = plt.subplots(figsize=(10, 5.2))
-    ax.set_xlim(0, 10)
-    ax.set_ylim(0, 6)
-    ax.set_aspect('equal')
-    ax.axis('off')
+def _phase5_bigraph_svg():
+    """Render the RIDA-relevant subset of the live bigraph using
+    ``bigraph_viz.plot_bigraph``. Builds the architecture composite
+    once, filters cell_state to RIDA + the two adjacent processes that
+    touch the same DnaA pools (ecoli-equilibrium, ecoli-metabolism),
+    plus the stores they all wire to."""
+    if not os.path.isdir(CACHE_DIR):
+        return _placeholder(
+            f'cache dir {CACHE_DIR!r} not present; cannot render the '
+            f'live bigraph. Rebuild the cache and re-run the report.')
+    try:
+        from bigraph_viz import plot_bigraph
+    except ImportError:
+        return _placeholder(
+            'bigraph_viz not installed; install it to render the live '
+            'process-connections diagram.')
+    try:
+        from v2ecoli.composite_replication_initiation import (
+            make_replication_initiation_composite,
+        )
+        composite = make_replication_initiation_composite(
+            cache_dir=CACHE_DIR, seed=0)
+    except Exception as exc:
+        return _placeholder(
+            f'composite build failed: {type(exc).__name__}: {exc}')
 
-    def box(x, y, w, h, label, fc='#e0e7ff', ec='#4338ca', text_color='#1e1b4b'):
-        from matplotlib.patches import FancyBboxPatch
-        ax.add_patch(FancyBboxPatch(
-            (x, y), w, h,
-            boxstyle="round,pad=0.05",
-            linewidth=1.3, edgecolor=ec, facecolor=fc))
-        ax.text(x + w / 2, y + h / 2, label,
-                ha='center', va='center', fontsize=9.5,
-                color=text_color, weight='bold')
+    cell = composite.state['agents']['0']
+    keep_processes = {'rida', 'ecoli-equilibrium', 'ecoli-metabolism'}
+    viz = {}
+    for name, edge in cell.items():
+        if not isinstance(edge, dict) or '_type' not in edge:
+            continue
+        if name not in keep_processes:
+            continue
+        inputs = {p: w for p, w in edge.get('inputs', {}).items()
+                  if not p.startswith('_layer') and not p.startswith('_flow')
+                  and p != 'global_time' and p != 'timestep'}
+        outputs = {p: w for p, w in edge.get('outputs', {}).items()
+                   if not p.startswith('_layer') and not p.startswith('_flow')
+                   and p != 'global_time' and p != 'timestep'}
+        viz[name.replace('ecoli-', '')] = {
+            '_type': edge['_type'],
+            'inputs': inputs,
+            'outputs': outputs,
+        }
+    # Empty stores so the bigraph has something to draw edges to.
+    viz['bulk'] = {}
+    viz['unique'] = {'active_replisome': {}}
+    viz['listeners'] = {
+        'rida': {}, 'equilibrium_listener': {}, 'fba_results': {}}
 
-    def arrow(x1, y1, x2, y2, label='', color='#475569',
-              ls='-', label_dy=0.15):
-        ax.annotate('', xy=(x2, y2), xytext=(x1, y1),
-                    arrowprops=dict(arrowstyle='->', color=color,
-                                    lw=1.4, linestyle=ls,
-                                    shrinkA=4, shrinkB=4))
-        if label:
-            ax.text((x1 + x2) / 2, (y1 + y2) / 2 + label_dy, label,
-                    ha='center', va='center', fontsize=8,
-                    color=color, style='italic')
+    viz_state = {'agents': {'0': viz}}
 
-    # Bulk pools (top row)
-    box(0.5, 4.6, 1.7, 0.8, 'apo-DnaA\n(PD03831)', fc='#f0f9ff', ec='#0369a1')
-    box(3.0, 4.6, 1.7, 0.8, 'DnaA-ATP\n(MONOMER0-160)', fc='#f0fdf4', ec='#15803d')
-    box(5.5, 4.6, 1.7, 0.8, 'DnaA-ADP\n(MONOMER0-4565)', fc='#fef2f2', ec='#b91c1c')
-
-    # Process boxes (mid row)
-    box(0.5, 2.6, 2.2, 0.8, 'transcription +\ntranslation',
-        fc='#fef3c7', ec='#b45309')
-    box(3.0, 2.6, 1.7, 0.8, 'equilibrium\n(active)', fc='#e0e7ff', ec='#4338ca')
-    box(5.5, 2.6, 1.7, 0.8, 'equilibrium\n(deactivated)',
-        fc='#f1f5f9', ec='#94a3b8', text_color='#64748b')
-    box(8.0, 4.6, 1.7, 0.8, 'metabolism FBA\n(RXN0-7444 inert)',
-        fc='#f1f5f9', ec='#94a3b8', text_color='#64748b')
-
-    # RIDA + replisome (bottom)
-    box(3.7, 0.6, 2.6, 0.9, 'RIDA Step\n(this PR)',
-        fc='#dcfce7', ec='#15803d')
-    box(7.4, 0.6, 2.0, 0.9, 'active_replisome\n(unique)',
-        fc='#fef3c7', ec='#b45309')
-
-    # Arrows: translation → apo
-    arrow(1.6, 3.4, 1.35, 4.6, label='produces')
-
-    # Arrow: apo + ATP ⇌ DnaA-ATP via equilibrium
-    arrow(2.2, 5.0, 3.0, 5.0, label='+ ATP', color='#15803d')
-    arrow(3.85, 4.6, 3.85, 3.4, label='⇌', color='#4338ca', label_dy=0.0)
-
-    # Arrow: apo + ADP — DEACTIVATED
-    arrow(6.35, 4.6, 6.35, 3.4, label='⇌ (no effect)',
-          color='#94a3b8', ls=':')
-
-    # Arrow: RIDA — DnaA-ATP -> DnaA-ADP
-    arrow(5.0, 1.5, 4.2, 4.6, label='-1 / step', color='#15803d')
-    arrow(5.6, 1.5, 6.0, 4.6, label='+1 / step', color='#b91c1c')
-
-    # Arrow: replisomes gate RIDA rate
-    arrow(7.4, 1.05, 6.3, 1.05, label='count → rate', color='#b45309')
-
-    # Note: metabolism reaction is parallel & inert
-    ax.annotate(
-        'inert\n(no kinetic constraint)',
-        xy=(8.85, 4.6), xytext=(8.85, 3.6),
-        ha='center', va='center', fontsize=7.5,
-        color='#475569', style='italic')
-
-    ax.set_title(
-        'How the RIDA Step connects (replication_initiation architecture)',
-        fontsize=11)
-    fig.tight_layout()
-    return _img(fig_to_b64(fig), 'RIDA process-connections diagram')
+    out_dir = os.path.join(OUT_DIR, '_phase5_bigraph')
+    os.makedirs(out_dir, exist_ok=True)
+    try:
+        plot_bigraph(
+            viz_state, remove_process_place_edges=True,
+            rankdir='LR', dpi='90', port_labels=False,
+            node_label_size='14pt', label_margin='0.05',
+            out_dir=out_dir, filename='rida_subgraph',
+            file_format='svg')
+    except Exception as exc:
+        return _placeholder(
+            f'plot_bigraph failed: {type(exc).__name__}: {exc}')
+    svg_path = os.path.join(out_dir, 'rida_subgraph.svg')
+    if not os.path.exists(svg_path):
+        return _placeholder('SVG output not produced by plot_bigraph')
+    with open(svg_path, 'r', encoding='utf-8') as f:
+        svg = f.read()
+    # Strip fixed pt dimensions so the SVG scales fluidly inside the
+    # before/after grid column.
+    import re as _re
+    svg = _re.sub(r'width="[^"]*pt"', '', svg, count=1)
+    svg = _re.sub(r'height="[^"]*pt"', '', svg, count=1)
+    return (f'<div class="bigraph-svg">{svg}</div>'
+            f'<p class="note" style="font-size:0.78em;">'
+            f'Rendered by <code>bigraph_viz.plot_bigraph</code> from the '
+            f'live <code>replication_initiation</code> composite. '
+            f'Three Steps shown: the new <code>rida</code>, plus '
+            f'<code>ecoli-equilibrium</code> and <code>ecoli-metabolism</code> '
+            f'(which read/write the same DnaA bulk pools).</p>')
 
 
 def _phase5_extras(snaps, status):
     arch = _render_arch_changes_html(PHASE5_ARCH_CHANGES)
-    diag = _phase5_connections_diagram()
+    bigraph = _phase5_bigraph_svg()
     note = (
         '<p class="note"><strong>Is RIDA a constraint on metabolism?</strong> '
         'No. The FBA reaction <code>RXN0-7444</code> exists in '
@@ -997,16 +999,16 @@ def _phase5_extras(snaps, status):
         'metabolism (stoichiometry, catalyst, base reaction) but it carries '
         'no kinetic constraint and no biomass demand, so FBA pushes zero '
         'flux through it. The dedicated <code>RIDA</code> Step runs in '
-        'parallel to metabolism: it reads <code>bulk</code> directly and '
-        'modifies <code>bulk</code> directly. Two parallel things — the '
-        'inert FBA reaction and the kinetic Step — represent the same '
-        'biology; the Step is what produces the observable flux today.</p>'
+        'parallel to metabolism: both Steps read and write the shared '
+        '<code>bulk</code> store directly, but only RIDA produces the '
+        'observable DnaA-ATP → DnaA-ADP flux today. The bigraph below is '
+        'the live wiring extracted from the composite.</p>'
     )
     return [
         ('Architecture changes — what this phase adds, modifies, overrides',
          arch),
-        ('Process connections',
-         note + diag),
+        ('Process connections (live bigraph subset)',
+         note + bigraph),
     ]
 
 
@@ -1788,6 +1790,10 @@ table.arch .ports {{ font-size: 0.82em; color: #475569;
                       border-left: 2px solid #cbd5e1;
                       padding-left: 8px; }}
 table.arch .ports code {{ background: #f1f5f9; }}
+.bigraph-svg {{ background: white; border: 1px solid #e2e8f0;
+                border-radius: 6px; padding: 8px;
+                margin: 6px 0; text-align: center; }}
+.bigraph-svg svg {{ max-width: 100%; height: auto; }}
 .before-after {{ display: grid; grid-template-columns: 1fr 1fr;
                   gap: 14px; margin-top: 6px; }}
 .ba-col {{ background: #f8fafc; border: 1px solid #e2e8f0;

@@ -34,6 +34,7 @@ from v2ecoli.generate import (
     build_document as _baseline_build_document,
     make_edge,
 )
+from v2ecoli.processes.dars import DARS, NAME as DARS_NAME, TOPOLOGY as DARS_TOPOLOGY
 from v2ecoli.processes.rida import RIDA, NAME as RIDA_NAME, TOPOLOGY as RIDA_TOPOLOGY
 
 
@@ -107,6 +108,39 @@ def _splice_rida(document, seed):
     return document
 
 
+def _splice_dars(document, seed):
+    """Add the DARS step to the cell_state and append it to flow_order.
+
+    DARS releases ADP from DnaA-ADP, regenerating apo-DnaA. Paired
+    with the still-active ``MONOMER0-160_RXN`` equilibrium that
+    re-loads apo-DnaA with ATP, this closes the DnaA nucleotide cycle:
+
+        DnaA-ATP --[RIDA, gated by replisomes]--> DnaA-ADP
+        DnaA-ADP --[DARS]-->                       apo-DnaA
+        apo-DnaA + ATP <==[equilibrium]==>         DnaA-ATP
+
+    With both Phase 5 (RIDA) and Phase 7 (DARS) wired, the DnaA-ATP
+    fraction reaches a steady state inside the literature 30-70% band
+    instead of monotonically depleting.
+    """
+    cell_state = document['state']['agents']['0']
+    if DARS_NAME in cell_state:
+        return document
+
+    dars_config = {
+        'time_step': 1.0,
+        'seed': int(seed),
+    }
+    instance = DARS(dars_config)
+    cell_state[DARS_NAME] = make_edge(
+        instance, DARS_TOPOLOGY, edge_type='step', config=dars_config)
+
+    document.setdefault('flow_order', [])
+    if DARS_NAME not in document['flow_order']:
+        document['flow_order'] = list(document['flow_order']) + [DARS_NAME]
+    return document
+
+
 def build_replication_initiation_document(
     initial_state,
     configs,
@@ -137,6 +171,7 @@ def build_replication_initiation_document(
         features=features,
     )
     document = _splice_rida(document, seed=seed)
+    document = _splice_dars(document, seed=seed)
     document = _deactivate_equilibrium_reactions(
         document, DEACTIVATED_EQUILIBRIUM_REACTIONS)
     return document

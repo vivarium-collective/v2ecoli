@@ -89,8 +89,12 @@ def test_equilibrium_partitions_apo_into_nucleotide_bound_forms(composite):
     apo = _bulk_count(s, 'PD03831[c]')
     atp = _bulk_count(s, 'MONOMER0-160[c]')
     adp = _bulk_count(s, 'MONOMER0-4565[c]')
-    assert apo == 0, (
-        f'expected apo-DnaA drained by equilibrium MONOMER0-160_RXN, '
+    # Apo-DnaA is small but not always exactly zero — Phase 7 (DARS)
+    # continuously regenerates it from DnaA-ADP, and the equilibrium
+    # consumes it on a single-tick timescale. Allow a small steady-state
+    # apo pool.
+    assert apo <= 5, (
+        f'expected apo-DnaA mostly drained by equilibrium MONOMER0-160_RXN, '
         f'got apo={apo} (atp={atp}, adp={adp})')
     assert atp + adp >= 100, (
         f'expected the nucleotide-bound DnaA pool to dominate; '

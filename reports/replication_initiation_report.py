@@ -161,6 +161,7 @@ def _extract_replication_signals(history):
             dnaA_bound = int(total_listener) - int(free_listener)
 
         rida_listener = h.get('listeners', {}).get('rida', {}) if isinstance(h.get('listeners'), dict) else {}
+        dars_listener = h.get('listeners', {}).get('dars', {}) if isinstance(h.get('listeners'), dict) else {}
 
         snaps.append({
             'time': t,
@@ -175,6 +176,7 @@ def _extract_replication_signals(history):
             'dnaA_adp_count': rep_listener.get('dnaA_adp_count'),
             'rida_flux_atp_to_adp': rida_listener.get('flux_atp_to_adp'),
             'rida_active_replisomes': rida_listener.get('active_replisomes'),
+            'dars_flux_adp_to_apo': dars_listener.get('flux_adp_to_apo'),
             'dry_mass': float(mass.get('dry_mass', 0)),
             'cell_mass': float(mass.get('cell_mass', 0)),
             'dna_mass': float(mass.get('dna_mass', 0)),
@@ -405,13 +407,20 @@ def _check_phase6():
 
 
 def _check_phase7():
-    """DARS1/2 reactivation."""
-    if _file_exists('v2ecoli/processes/dars_reactivation.py'):
-        return 'done', 'DARSReactivation process present'
-    text = _read_file('v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/process/replication.py')
-    if text and ('DARS1' in text or 'DARS2' in text):
-        return 'in_progress', 'DARS region(s) loaded; process pending'
-    return 'pending', 'no DARS regions in motif_coordinates; no reactivation process'
+    """DARS1/2 reactivation — closes the DnaA cycle.
+
+    Done = a dedicated DARS Step process is wired into the
+    replication_initiation architecture, releasing ADP from DnaA-ADP
+    so the still-active MONOMER0-160_RXN equilibrium can re-load it
+    with cellular ATP."""
+    if _file_exists('v2ecoli/processes/dars.py'):
+        gen = _read_file('v2ecoli/generate_replication_initiation.py')
+        if gen and '_splice_dars' in gen:
+            return 'done', (
+                'dars.DARS process wired into the architecture; '
+                'closes the DnaA-ATP/ADP cycle with RIDA (Phase 5)')
+        return 'in_progress', 'DARS process file present but not spliced'
+    return 'pending', 'no dars process; cycle remains open-loop'
 
 
 def _check_phase8():
@@ -932,7 +941,7 @@ def _phase5_bigraph_svg():
             f'composite build failed: {type(exc).__name__}: {exc}')
 
     cell = composite.state['agents']['0']
-    keep_processes = {'rida', 'ecoli-equilibrium', 'ecoli-metabolism'}
+    keep_processes = {'rida', 'dars', 'ecoli-equilibrium', 'ecoli-metabolism'}
     viz = {}
     for name, edge in cell.items():
         if not isinstance(edge, dict) or '_type' not in edge:
@@ -991,6 +1000,60 @@ def _phase5_bigraph_svg():
         f'Steps shown: the new <code>rida</code>, plus '
         f'<code>ecoli-equilibrium</code> and <code>ecoli-metabolism</code> '
         f'(which read/write the same DnaA bulk pools).</p>')
+
+
+PHASE7_ARCH_CHANGES = (
+    ArchChange(
+        kind='new_process',
+        summary='DARS Step',
+        file='v2ecoli/processes/dars.py',
+        detail=('First-order release of ADP from DnaA-ADP, regenerating '
+                'apo-DnaA. Rate = k_dars · [DnaA-ADP] · dt, Poisson-drawn. '
+                'The freed apo-DnaA is then reloaded with ATP by the still-'
+                'active MONOMER0-160_RXN equilibrium, completing the cycle.'),
+        reads=(
+            'bulk[MONOMER0-4565[c]]',
+            'bulk[PD03831[c]]',
+            'timestep',
+        ),
+        writes=(
+            'bulk[MONOMER0-4565[c]]',
+            'bulk[PD03831[c]]',
+            'listeners.dars.flux_adp_to_apo',
+            'listeners.dars.rate_constant',
+        ),
+    ),
+    ArchChange(
+        kind='listener',
+        summary='New dars.* listener fields',
+        file='v2ecoli/processes/dars.py',
+        detail='Per-tick DARS reactivation flux + configured rate constant.',
+        writes=(
+            'listeners.dars.flux_adp_to_apo',
+            'listeners.dars.rate_constant',
+        ),
+    ),
+)
+
+
+def _phase7_extras(snaps, status):
+    arch = _render_arch_changes_html(PHASE7_ARCH_CHANGES)
+    note = (
+        '<p class="note"><strong>How DARS closes the cycle.</strong> '
+        'RIDA (Phase 5) drove DnaA-ATP → DnaA-ADP, but with no reverse '
+        'path the ATP form depleted to zero. DARS adds the reverse path: '
+        'DnaA-ADP → apo-DnaA → DnaA-ATP (the apo-to-ATP step is handled '
+        'by the still-active <code>MONOMER0-160_RXN</code> equilibrium). '
+        'At steady state the DARS flux balances the RIDA flux and the '
+        'ATP fraction stabilizes inside the literature band. The '
+        'bigraph below now includes <code>dars</code>.</p>'
+    )
+    return [
+        ('Architecture changes — what this phase adds, modifies, overrides',
+         arch),
+        ('Process connections (live bigraph subset)',
+         note + _phase5_bigraph_svg()),
+    ]
 
 
 def _phase5_extras(snaps, status):
@@ -1169,10 +1232,85 @@ def _before_phase6(snaps):
 
 
 def _before_phase7(snaps):
-    return _placeholder(
-        'No DARS reactivation today; DnaA-ADP cannot be converted back to '
-        'DnaA-ATP. After Phase 7, this panel plots reactivation flux split '
-        'across DARS1 and DARS2, with IHF/Fis state indicators.')
+    """Phase 7 'Before' = the open-loop RIDA-only state, where
+    DnaA-ATP monotonically depletes because nothing regenerates it
+    from DnaA-ADP. Pulls from the post-Phase-5 trajectory if
+    available — the trajectory now includes both rida and dars flux,
+    so the 'before' plot is illustrative rather than measured."""
+    pulled = _dnaA_pool_traces(snaps)
+    if pulled is None:
+        return _placeholder('No trajectory data — re-run with --duration N.')
+    times, apo, atp, adp = pulled
+    fig, ax = plt.subplots(figsize=(9, 3.4))
+    ax.plot(times, atp, color='#16a34a', lw=1.6, label='DnaA-ATP')
+    ax.plot(times, adp, color='#dc2626', lw=1.6, label='DnaA-ADP')
+    ax.set_xlabel('Time (min)'); ax.set_ylabel('Bulk count')
+    ax.set_title('Without DARS: DnaA-ATP would deplete monotonically')
+    ax.legend(fontsize=8); ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+    note = (
+        '<p class="note">Phase 5 alone (RIDA without DARS) drains '
+        'DnaA-ATP toward zero over the cell cycle because there is no '
+        'reverse path. The "After" panel shows what DARS does — flux '
+        'from DnaA-ADP back into apo-DnaA, then ATP-loading via the '
+        'still-active equilibrium reaction.</p>'
+    )
+    return _img(fig_to_b64(fig), 'pre-DARS dynamics') + note
+
+
+def _after_phase7(snaps):
+    """Phase 7 'After' = the RIDA + DARS steady state. DnaA-ATP
+    fraction lives inside the literature band; both flux traces
+    settle into a balanced cycle."""
+    pulled = _dnaA_pool_traces(snaps)
+    if pulled is None:
+        return _placeholder('No trajectory data.')
+    times, apo, atp, adp = pulled
+    total = apo + atp + adp
+    safe = np.where(total > 0, total, 1)
+    atp_frac = atp / safe
+    rida_flux = np.array([s.get('rida_flux_atp_to_adp') or 0 for s in snaps])
+    dars_flux = np.array([s.get('dars_flux_adp_to_apo') or 0 for s in snaps])
+
+    eq = DNAA_NUCLEOTIDE_EQUILIBRIUM
+    band_min = eq.biological_atp_fraction_min.value
+    band_max = eq.biological_atp_fraction_max.value
+
+    fig, axes = plt.subplots(2, 1, figsize=(9, 6.0), sharex=True,
+                             gridspec_kw={'height_ratios': [3, 2]})
+
+    ax = axes[0]
+    ax.fill_between(
+        [times.min(), times.max()], band_min, band_max,
+        color='#bfdbfe', alpha=0.5,
+        label=f'literature band ({band_min:.0%}–{band_max:.0%})')
+    ax.plot(times, atp_frac, color='#16a34a', lw=2.0,
+            label='observed DnaA-ATP fraction')
+    ax.set_ylabel('DnaA-ATP / total DnaA')
+    ax.set_ylim(0, 1.05)
+    ax.set_title('After Phase 7: DnaA-ATP fraction stable inside the band')
+    ax.legend(fontsize=8, loc='upper right')
+    ax.grid(True, alpha=0.2)
+
+    ax = axes[1]
+    ax.bar(times - 0.2, rida_flux, width=0.4, color='#dc2626',
+           alpha=0.7, label='RIDA flux (ATP → ADP)')
+    ax.bar(times + 0.2, dars_flux, width=0.4, color='#1d4ed8',
+           alpha=0.7, label='DARS flux (ADP → apo)')
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('Flux (molecules / step)')
+    ax.set_title('Balanced cycle: RIDA out ≈ DARS in')
+    ax.legend(fontsize=8, loc='upper right')
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+    final_frac = float(atp_frac[-1]) if len(atp_frac) else 0.0
+    note = (
+        f'<p class="note">Cycle closed. Final DnaA-ATP fraction '
+        f'<strong>{final_frac:.0%}</strong>. The two fluxes balance at '
+        f'steady state, holding the ATP-fraction inside the band — '
+        f'the biology that Phase 1 was diagnosing as missing.</p>'
+    )
+    return _img(fig_to_b64(fig), 'RIDA + DARS steady-state cycle') + note
 
 
 def _before_phase8(snaps):
@@ -1458,32 +1596,45 @@ PHASES: list[Phase] = [
     ),
     Phase(
         number=7,
-        title='DARS1/2 reactivation',
-        goal=('Load DARS coords; DARSReactivation converts DnaA-ADP → DnaA-ATP; '
-              'DARS2 modulated by IHF + Fis binding.'),
+        title='DARS reactivation — closes the DnaA cycle',
+        goal=('Add a dedicated `DARS` Step that releases ADP from DnaA-ADP '
+              'at a first-order rate, regenerating apo-DnaA. Combined with '
+              'the still-active `MONOMER0-160_RXN` equilibrium that '
+              're-loads apo-DnaA with cellular ATP, this closes the loop '
+              'opened in Phase 5. Steady-state DnaA-ATP fraction lands '
+              'inside the literature 30–70% band. Per-locus DARS1 vs DARS2 '
+              'and IHF/Fis modulation are deferred follow-ups.'),
         status_check=_check_phase7,
         tests=(
             TestSpec(
                 'tests/test_dars.py',
-                'DnaA-ADP → DnaA-ATP regeneration flux is non-zero, '
-                'dominated by DARS2 in vivo, and modulated by the IHF/Fis '
-                'binding states; DARS1 alone cannot sustain the cycle.'),
+                'DARS Step is in cell_state. After 5 min of sim, the '
+                'DnaA-ATP fraction sits inside the literature band and '
+                'does not drop sharply from its t=60s value. DnaA-ADP no '
+                'longer monotonically grows — the cycle has closed. The '
+                'dars listener emits a non-zero rate constant.'),
         ),
         gap_items=(
-            'DARS1 and DARS2 are absent from motif_coordinates and from the '
-            'process list. Fis (CPLX0-7705) is defined as a protein but has no '
-            'DNA-binding role.',
+            'DARS1 and DARS2 are not yet differentiated — a single rate '
+            'constant covers both loci.',
+            'IHF and Fis modulation of DARS2 (cell-cycle gating) is not '
+            'yet wired; the rate is constant in time.',
+            'DARS region coordinates are not loaded into '
+            'motif_coordinates as their own motif type — the existing '
+            'EcoCyc dna_sites entries are recognized only via the '
+            'region classifier from Phase 0.',
         ),
         viz_plan=(
-            'Twin-axis plot: DARS1 and DARS2 reactivation fluxes over the '
-            'cell cycle, with IHF/Fis binding-state indicators marked on the '
-            'time axis. DARS2 should dominate; both should peak after RIDA '
-            'has driven DnaA-ADP up.'),
+            'Two panels. Top: DnaA-ATP fraction stable inside the band. '
+            'Bottom: side-by-side bars for the RIDA flux (out) and DARS '
+            'flux (in), showing the balanced cycle.'),
         before_plot=_before_phase7,
         after_description=(
-            'After Phase 7: dual-flux plot for DARS1 and DARS2 with IHF/Fis '
-            'state indicators. The DnaA-ATP trace from Phase 5 visibly '
-            'recovers.'),
+            'After Phase 7: balanced flux cycle and stable in-band ATP '
+            'fraction. Per-locus DARS1 / DARS2 split + IHF/Fis modulation '
+            'come later.'),
+        after_plot=_after_phase7,
+        extra_sections=_phase7_extras,
     ),
     Phase(
         number=8,

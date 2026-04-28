@@ -26,19 +26,85 @@ divergent wiring here — see the draft-PR plan for the phased order:
 
 import copy
 
-# Re-export the FLOW_ORDER and DEFAULT_FEATURES from baseline so callers
-# (e.g. ``reports/workflow_report.py``) can keep importing them through
-# this module if they want the replication-initiation architecture's
-# layering, even when the layering itself has not yet diverged.
+import numpy as np
+
 from v2ecoli.generate import (
-    FLOW_ORDER,
     DEFAULT_FEATURES,
+    FLOW_ORDER,
     build_document as _baseline_build_document,
+    make_edge,
 )
+from v2ecoli.processes.rida import RIDA, NAME as RIDA_NAME, TOPOLOGY as RIDA_TOPOLOGY
 
 
 # Identifier used by reports / network views to label this architecture.
 ARCHITECTURE_NAME = 'replication_initiation'
+
+
+# Equilibrium reactions that the new architecture neutralizes so that
+# RIDA's output (DnaA-ADP) and DARS's output (regenerated DnaA-ATP)
+# can accumulate kinetically rather than being instantly re-equilibrated
+# by mass-action against cellular ATP / ADP. The reactions remain in the
+# config (so the equilibrium SS solver still runs successfully) but
+# their stoichMatrix columns are zeroed, which kills their effect on
+# molecule counts.
+DEACTIVATED_EQUILIBRIUM_REACTIONS: tuple[str, ...] = (
+    'MONOMER0-4565_RXN',  # apo-DnaA + ADP <-> DnaA-ADP
+)
+
+
+def _deactivate_equilibrium_reactions(document, reactions):
+    """Zero the stoichMatrix columns for the named equilibrium reactions
+    on the live equilibrium step instance. The mass-action drive for
+    those reactions is gone; molecule counts on either side are no
+    longer coupled by the equilibrium step."""
+    cell_state = document['state']['agents']['0']
+    eq_edge = cell_state.get('ecoli-equilibrium')
+    if not isinstance(eq_edge, dict) or 'instance' not in eq_edge:
+        return document
+    instance = eq_edge['instance']
+    rxn_ids = list(getattr(instance, 'reaction_ids', []))
+    sm = getattr(instance, 'stoichMatrix', None)
+    if sm is None or not rxn_ids:
+        return document
+    sm = np.array(sm, copy=True)
+    deactivated = []
+    for name in reactions:
+        if name in rxn_ids:
+            sm[:, rxn_ids.index(name)] = 0
+            deactivated.append(name)
+    instance.stoichMatrix = sm
+    instance.product_indices = [
+        idx for idx in np.where(np.any(sm > 0, axis=1))[0]]
+    instance._deactivated_reactions = tuple(deactivated)
+    return document
+
+
+def _splice_rida(document, seed):
+    """Add the RIDA step to the cell_state and append it to flow_order.
+
+    The reaction-level definition (``RXN0-7444`` in the metabolism FBA)
+    exists upstream but carries zero flux; this dedicated step actively
+    transfers DnaA-ATP -> DnaA-ADP at a rate proportional to active
+    replisome count. It runs after every other step in the flow so it
+    sees the post-equilibrium DnaA-ATP pool each tick.
+    """
+    cell_state = document['state']['agents']['0']
+    if RIDA_NAME in cell_state:
+        return document
+
+    rida_config = {
+        'time_step': 1.0,
+        'seed': int(seed),
+    }
+    instance = RIDA(rida_config)
+    cell_state[RIDA_NAME] = make_edge(
+        instance, RIDA_TOPOLOGY, edge_type='step', config=rida_config)
+
+    document.setdefault('flow_order', [])
+    if RIDA_NAME not in document['flow_order']:
+        document['flow_order'] = list(document['flow_order']) + [RIDA_NAME]
+    return document
 
 
 def build_replication_initiation_document(
@@ -52,10 +118,16 @@ def build_replication_initiation_document(
 ):
     """Build the replication-initiation document.
 
-    Currently delegates to the baseline document builder. Divergence from
-    baseline will be implemented here as the new processes land.
+    Starts from the baseline document and splices in the divergent
+    processes / config edits that distinguish this architecture:
+
+      * RIDA step (DnaA-ATP -> DnaA-ADP at rate ∝ active replisomes)
+      * Deactivated DnaA-ADP equilibrium reaction so that RIDA's output
+        is not immediately re-dissociated by mass-action against
+        cellular ADP — biologically apt because DnaA-ADP in vivo is
+        not in fast equilibrium with free apo-DnaA + ADP.
     """
-    return _baseline_build_document(
+    document = _baseline_build_document(
         initial_state=copy.deepcopy(initial_state),
         configs=configs,
         unique_names=unique_names,
@@ -64,3 +136,7 @@ def build_replication_initiation_document(
         seed=seed,
         features=features,
     )
+    document = _splice_rida(document, seed=seed)
+    document = _deactivate_equilibrium_reactions(
+        document, DEACTIVATED_EQUILIBRIUM_REACTIONS)
+    return document

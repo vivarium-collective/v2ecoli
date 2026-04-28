@@ -160,6 +160,8 @@ def _extract_replication_signals(history):
         if free_listener is not None and total_listener is not None:
             dnaA_bound = int(total_listener) - int(free_listener)
 
+        rida_listener = h.get('listeners', {}).get('rida', {}) if isinstance(h.get('listeners'), dict) else {}
+
         snaps.append({
             'time': t,
             'n_oriC': n_oric,
@@ -171,6 +173,8 @@ def _extract_replication_signals(history):
             'dnaA_apo_count': rep_listener.get('dnaA_apo_count'),
             'dnaA_atp_count': rep_listener.get('dnaA_atp_count'),
             'dnaA_adp_count': rep_listener.get('dnaA_adp_count'),
+            'rida_flux_atp_to_adp': rida_listener.get('flux_atp_to_adp'),
+            'rida_active_replisomes': rida_listener.get('active_replisomes'),
             'dry_mass': float(mass.get('dry_mass', 0)),
             'cell_mass': float(mass.get('cell_mass', 0)),
             'dna_mass': float(mass.get('dna_mass', 0)),
@@ -372,31 +376,22 @@ def _check_phase4():
 
 
 def _check_phase5():
-    """RIDA — Hda + β-clamp + DnaA-ATP hydrolysis reaction.
+    """RIDA — Hda + β-clamp + DnaA-ATP hydrolysis.
 
-    The hydrolysis reaction ``RXN0-7444`` (DnaA-ATP + H2O -> DnaA-ADP + Pi,
-    catalyzed by ``CPLX0-10342`` = Hda-β-clamp complex) is already in
-    ``metabolic_reactions.tsv`` and registered with the FBA model. The
-    Hda monomer (``G7313-MONOMER``) and Hda-β-clamp complex are present
-    in the bulk pool. What's left is producing FBA flux — a kinetic
-    constraint that ties RXN0-7444 flux to active replisome count, so
-    DnaA-ATP actually hydrolyzes to DnaA-ADP as replication proceeds."""
-    metab = _read_file('v2ecoli/processes/parca/reconstruction/ecoli/flat/metabolic_reactions.tsv')
-    cplx = _read_file('v2ecoli/processes/parca/reconstruction/ecoli/flat/complexation_reactions.tsv')
-    has_rxn = bool(metab and 'RXN0-7444' in metab)
-    has_complex = bool(cplx and 'CPLX0-10342_RXN' in cplx)
+    Done = a dedicated RIDA Step process exists and the architecture
+    deactivates the DnaA-ADP equilibrium reaction so RIDA's output is
+    not instantly re-dissociated by mass-action."""
     if _file_exists('v2ecoli/processes/rida.py'):
-        return 'done', 'dedicated RIDA process present'
-    # A kinetic-constraint flag in chromosome_replication or sim_data:
-    rep = _read_file('v2ecoli/processes/chromosome_replication.py')
-    if rep and 'RXN0-7444' in rep:
-        return 'in_progress', 'RIDA flux gating wired into chromosome_replication; verify flux'
-    if has_rxn and has_complex:
+        gen = _read_file('v2ecoli/generate_replication_initiation.py')
+        if gen and 'MONOMER0-4565_RXN' in gen and '_splice_rida' in gen:
+            return 'done', (
+                'rida.RIDA process wired into the architecture; '
+                'MONOMER0-4565_RXN equilibrium deactivated so RIDA flux '
+                'accumulates DnaA-ADP')
         return 'in_progress', (
-            'RXN0-7444 (DnaA-ATP hydrolysis) and CPLX0-10342 (Hda-β-clamp) '
-            'in flat data and FBA config; FBA flux is currently 0 — needs a '
-            'kinetic constraint coupled to active replisome count')
-    return 'pending', 'RIDA reaction or Hda-β-clamp complex missing from flat data'
+            'RIDA process present but DnaA-ADP equilibrium not deactivated; '
+            'flux will be re-equilibrated away each tick')
+    return 'pending', 'no rida process; DnaA-ADP cannot accumulate'
 
 
 def _check_phase6():
@@ -651,7 +646,7 @@ def _before_phase1(snaps):
     ax.plot(times, atp, color='#16a34a', lw=1.8, label='DnaA-ATP')
     ax.plot(times, adp, color='#dc2626', lw=1.8, label='DnaA-ADP')
     ax.set_ylabel('Bulk count')
-    ax.set_title('Observed DnaA pool counts (equilibrium only)')
+    ax.set_title('Observed DnaA pool counts')
     ax.legend(fontsize=8, loc='center right')
     ax.grid(True, alpha=0.2)
 
@@ -665,21 +660,37 @@ def _before_phase1(snaps):
     ax.set_ylabel('DnaA-ATP / total')
     ax.set_xlabel('Time (min)')
     ax.set_ylim(0, 1.05)
-    ax.set_title('Off target: ATP fraction sits at the equilibrium ceiling')
+    ax.set_title('Observed DnaA-ATP fraction vs literature band')
     ax.legend(fontsize=7, loc='center right')
     ax.grid(True, alpha=0.2)
     fig.tight_layout()
 
     final_atp_frac = float(atp_frac[-1]) if len(atp_frac) else 0.0
-    interpretation = (
-        f'<p class="note">DnaA-ATP saturates at '
-        f'<strong>{final_atp_frac:.0%}</strong> of the pool — outside the '
-        f'literature band of {band_min:.0%}–{band_max:.0%}. The '
-        f'equilibrium is doing what equilibrium does (favoring the '
-        f'ATP form because cellular [ATP] &gt;&gt; [ADP]); nothing yet '
-        f'pushes back.</p>'
-    )
-    return _img(fig_to_b64(fig), 'baseline DnaA pool + ATP fraction') + interpretation
+    if final_atp_frac > band_max:
+        diagnosis = (
+            f'<p class="note">Observed final DnaA-ATP fraction '
+            f'<strong>{final_atp_frac:.0%}</strong> sits <em>above</em> the '
+            f'literature band ({band_min:.0%}–{band_max:.0%}). The DnaA-ATP '
+            f'equilibrium is dominating; <strong>RIDA (Phase 5)</strong> is '
+            f'the missing kinetic force that hydrolyzes DnaA-ATP → DnaA-ADP.</p>'
+        )
+    elif final_atp_frac < band_min:
+        diagnosis = (
+            f'<p class="note">Observed final DnaA-ATP fraction '
+            f'<strong>{final_atp_frac:.0%}</strong> sits <em>below</em> the '
+            f'literature band ({band_min:.0%}–{band_max:.0%}). RIDA (Phase 5) '
+            f'is depleting DnaA-ATP but the cycle is open-loop; '
+            f'<strong>DARS (Phase 7)</strong> is the missing reactivation '
+            f'that converts DnaA-ADP back into DnaA-ATP.</p>'
+        )
+    else:
+        diagnosis = (
+            f'<p class="note">Observed final DnaA-ATP fraction '
+            f'<strong>{final_atp_frac:.0%}</strong> is inside the literature '
+            f'band ({band_min:.0%}–{band_max:.0%}). The model has reached '
+            f'biological steady-state for the DnaA nucleotide-state cycle.</p>'
+        )
+    return _img(fig_to_b64(fig), 'observed DnaA pool + ATP fraction') + diagnosis
 
 
 def _after_phase1(snaps):
@@ -842,6 +853,66 @@ def _before_phase5(snaps):
     ax.grid(True, alpha=0.2)
     fig.tight_layout()
     return _img(fig_to_b64(fig), 'replisome activity (current)')
+
+
+def _after_phase5(snaps):
+    """Phase 5 'After' = the RIDA-driven dynamics: DnaA-ATP fraction
+    leaving the equilibrium ceiling, twin-axis with RIDA flux."""
+    pulled = _dnaA_pool_traces(snaps)
+    if pulled is None:
+        return _placeholder('No DnaA pool counts in trajectory.')
+    times, apo, atp, adp = pulled
+    total = apo + atp + adp
+    safe = np.where(total > 0, total, 1)
+    atp_frac = atp / safe
+
+    flux = np.array([s.get('rida_flux_atp_to_adp') or 0 for s in snaps])
+    n_rep = np.array([s.get('n_replisomes') or 0 for s in snaps])
+
+    eq = DNAA_NUCLEOTIDE_EQUILIBRIUM
+    band_min = eq.biological_atp_fraction_min.value
+    band_max = eq.biological_atp_fraction_max.value
+
+    fig, axes = plt.subplots(2, 1, figsize=(9, 6.0), sharex=True,
+                             gridspec_kw={'height_ratios': [3, 2]})
+
+    ax = axes[0]
+    ax.fill_between(
+        [times.min(), times.max()], band_min, band_max,
+        color='#bfdbfe', alpha=0.5,
+        label=f'literature band ({band_min:.0%}–{band_max:.0%})')
+    ax.plot(times, atp_frac, color='#16a34a', lw=2.0,
+            label='observed DnaA-ATP fraction')
+    ax.set_ylabel('DnaA-ATP / total DnaA')
+    ax.set_ylim(0, 1.05)
+    ax.set_title('After Phase 5: DnaA-ATP fraction crosses into the literature band')
+    ax.legend(fontsize=8, loc='upper right')
+    ax.grid(True, alpha=0.2)
+
+    ax = axes[1]
+    ax2 = ax.twinx()
+    ax.bar(times, flux, width=0.5, color='#dc2626', alpha=0.7,
+           label='RIDA flux (DnaA-ATP → DnaA-ADP / step)')
+    ax2.step(times, n_rep, where='post', color='#f59e0b', lw=1.4,
+             label='active replisomes')
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('RIDA flux (molecules / step)')
+    ax2.set_ylabel('Active replisomes')
+    ax.set_title('RIDA flux scales with active replisome count')
+    ax.legend(fontsize=8, loc='upper left')
+    ax2.legend(fontsize=8, loc='upper right')
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+
+    final_frac = float(atp_frac[-1]) if len(atp_frac) else 0.0
+    note = (
+        f'<p class="note">Without DARS (Phase 7) the cycle is open-loop: '
+        f'RIDA monotonically depletes DnaA-ATP, ending the run at '
+        f'<strong>{final_frac:.0%}</strong>. The dip into the literature '
+        f'band is real but transient; Phase 7 closes the cycle by '
+        f'regenerating DnaA-ATP from DnaA-ADP via DARS1/2.</p>'
+    )
+    return _img(fig_to_b64(fig), 'RIDA-driven DnaA-ATP dynamics') + note
 
 
 def _before_phase6(snaps):
@@ -1072,41 +1143,43 @@ PHASES: list[Phase] = [
     ),
     Phase(
         number=5,
-        title='RIDA flux',
-        goal=('Hda monomer (`G7313-MONOMER`), β-clamp (`CPLX0-3761`), and the '
-              'Hda-β-clamp complex (`CPLX0-10342`) are all expressed. The '
-              'hydrolysis reaction `RXN0-7444` (DnaA-ATP + H₂O → DnaA-ADP + Pi, '
-              'catalyzed by `CPLX0-10342`) is in `metabolic_reactions.tsv` '
-              'and registered with the FBA model. What\'s missing: FBA flux '
-              'through it is currently zero. Phase 5 adds a kinetic constraint '
-              'tying the RIDA flux to active replisome count so DnaA-ATP '
-              'actually hydrolyzes during replication.'),
+        title='RIDA — DnaA-ATP hydrolysis at the replisome',
+        goal=('Add a dedicated `RIDA` Step that hydrolyzes DnaA-ATP to '
+              'DnaA-ADP at a rate ∝ active replisome count, and '
+              'deactivate the DnaA-ADP equilibrium reaction so RIDA\'s '
+              'output accumulates instead of being instantly re-dissociated. '
+              'Hda + Hda-β-clamp complex (CPLX0-10342) and the FBA-level '
+              'reaction (RXN0-7444) were already in the data; Phase 5 wires '
+              'the kinetic process and the equilibrium override.'),
         status_check=_check_phase5,
         tests=(
             TestSpec(
                 'tests/test_rida.py',
-                'After replication initiates, FBA flux through RXN0-7444 is '
-                'non-zero; DnaA-ADP pool rises in proportion to active '
-                'replisomes; DnaA-ATP pool falls. After replication completes, '
-                'flux returns to zero.'),
+                'RIDA Step is in the cell_state. The MONOMER0-4565_RXN '
+                'equilibrium is deactivated. After 60s of sim, the '
+                'DnaA-ATP fraction drops into the literature 30–70% band. '
+                'DnaA-ADP rises monotonically while replisomes are active '
+                '(open-loop until DARS in Phase 7).'),
         ),
         gap_items=(
-            'No FBA flux through RXN0-7444 today (DnaA-ADP stays at 0 over a '
-            '1500s sim); the reaction is in the model but has no biomass '
-            'demand or kinetic constraint to drive it.',
-            'No coupling between active replisome count and RIDA flux; '
-            'the biology says rate ∝ DNA-loaded β-clamp ∝ replisome activity.',
+            'Without DARS (Phase 7), the cycle is open-loop: DnaA-ATP '
+            'monotonically depletes during a sim. The dip into the '
+            'literature band is transient.',
+            'The rate constant `rate_per_replisome_per_s = 0.005` is a '
+            'first-pass tuning parameter; should be re-verified against '
+            'measured DnaA-ATP cell-cycle dynamics.',
         ),
         viz_plan=(
-            'Twin-axis plot: DnaA-ATP pool (left axis) and active replisome '
-            'count (right axis) over the cell cycle. Phase-5 effect: the '
-            'DnaA-ATP trace develops a visible dip while replisomes are '
-            'active.'),
+            'Two panels. Top: observed DnaA-ATP fraction with literature '
+            'band. Bottom: RIDA flux per timestep on left axis, active '
+            'replisome count on right. The flux scales with replisomes; '
+            'the fraction crosses into the band within ~60 s.'),
         before_plot=_before_phase5,
         after_description=(
-            'After Phase 5: twin-axis plot showing DnaA-ATP dipping during '
-            'active replication. Pre-Phase-5 trace shown as ghost line for '
-            'comparison.'),
+            'After Phase 5: live two-panel plot showing DnaA-ATP fraction '
+            'crossing into the literature band, with RIDA flux scaling on '
+            'replisome count.'),
+        after_plot=_after_phase5,
     ),
     Phase(
         number=6,

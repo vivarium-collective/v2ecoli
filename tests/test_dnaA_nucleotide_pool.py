@@ -79,27 +79,25 @@ def test_init_state_has_apo_dnaA_no_bound_forms(composite):
 # B. After a short sim — apo-DnaA drains into DnaA-ATP via equilibrium
 # ---------------------------------------------------------------------------
 
-def test_equilibrium_partitions_apo_into_dnaA_atp(composite):
-    """One minute of sim is enough for the equilibrium reactions to pull
-    apo-DnaA into the ATP-bound form. ADP-form remains near zero
-    (Phase 5 is what drives flux into it)."""
+def test_equilibrium_partitions_apo_into_nucleotide_bound_forms(composite):
+    """One minute of sim is enough for the equilibrium reaction
+    MONOMER0-160_RXN to drain apo-DnaA into the ATP-bound form. With
+    Phase 5 (RIDA) also wired in this architecture, the ADP-bound form
+    accumulates too."""
     composite.run(60.0)
     s = composite.state
     apo = _bulk_count(s, 'PD03831[c]')
     atp = _bulk_count(s, 'MONOMER0-160[c]')
     adp = _bulk_count(s, 'MONOMER0-4565[c]')
-    assert atp > 0, (
-        f'DnaA-ATP=0 after 60s; equilibrium reaction MONOMER0-160_RXN '
-        f'is not partitioning apo-DnaA into the ATP-bound form. '
-        f'(apo={apo}, atp={atp}, adp={adp})')
-    # The bulk of the DnaA pool should be in the ATP-bound form at
-    # steady-state (high cellular ATP). ATP form ≥ apo-DnaA form.
-    assert atp >= apo, (
-        f'expected DnaA-ATP to dominate at equilibrium, '
-        f'got apo={apo}, atp={atp}')
-    assert adp == 0, (
-        f'DnaA-ADP={adp} after 60s; without RIDA flux (Phase 5) the '
-        f'ADP form should stay at zero')
+    assert apo == 0, (
+        f'expected apo-DnaA drained by equilibrium MONOMER0-160_RXN, '
+        f'got apo={apo} (atp={atp}, adp={adp})')
+    assert atp + adp >= 100, (
+        f'expected the nucleotide-bound DnaA pool to dominate; '
+        f'atp+adp={atp + adp} (apo={apo})')
+    assert adp > 0, (
+        f'DnaA-ADP=0 after 60s; RIDA (Phase 5) should be producing '
+        f'DnaA-ADP from DnaA-ATP at a rate ∝ active replisomes')
 
 
 # ---------------------------------------------------------------------------
@@ -116,10 +114,13 @@ def test_listener_emits_dnaA_pool_counts(composite):
     assert 'dnaA_atp_count' in rd
     assert 'dnaA_adp_count' in rd
 
-    # The listener values should match what we read out of bulk directly.
-    assert rd['dnaA_apo_count'] == _bulk_count(s, 'PD03831[c]')
-    assert rd['dnaA_atp_count'] == _bulk_count(s, 'MONOMER0-160[c]')
-    assert rd['dnaA_adp_count'] == _bulk_count(s, 'MONOMER0-4565[c]')
+    # The listener values match the bulk array within rounding from
+    # in-tick step ordering — the listener captures values at its slot
+    # in flow_order, while RIDA (later in the flow) modifies the bulk
+    # before we read it from composite.state. ±5 molecules absorbs that.
+    assert abs(rd['dnaA_apo_count'] - _bulk_count(s, 'PD03831[c]')) <= 5
+    assert abs(rd['dnaA_atp_count'] - _bulk_count(s, 'MONOMER0-160[c]')) <= 5
+    assert abs(rd['dnaA_adp_count'] - _bulk_count(s, 'MONOMER0-4565[c]')) <= 5
 
 
 # ---------------------------------------------------------------------------

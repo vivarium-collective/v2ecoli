@@ -149,17 +149,27 @@ def build_replication_initiation_document(
     core=None,
     seed=0,
     features=None,
+    enable_rida: bool = True,
+    enable_dars: bool = True,
 ):
     """Build the replication-initiation document.
 
     Starts from the baseline document and splices in the divergent
-    processes / config edits that distinguish this architecture:
+    processes / config edits that distinguish this architecture. The
+    feature flags let callers (e.g. the per-phase report) build any
+    cumulative slice of the architecture for direct comparison:
 
-      * RIDA step (DnaA-ATP -> DnaA-ADP at rate ∝ active replisomes)
-      * Deactivated DnaA-ADP equilibrium reaction so that RIDA's output
-        is not immediately re-dissociated by mass-action against
-        cellular ADP — biologically apt because DnaA-ADP in vivo is
-        not in fast equilibrium with free apo-DnaA + ADP.
+      * ``enable_rida=False, enable_dars=False`` → identical to baseline.
+      * ``enable_rida=True,  enable_dars=False`` → Phase 5 only.
+        DnaA-ATP starts depleting because there is no reactivation.
+      * ``enable_rida=True,  enable_dars=True``  → current full state.
+        RIDA + DARS form a closed cycle around DnaA-ATP / DnaA-ADP.
+      * ``enable_rida=False, enable_dars=True``  → DARS without anything
+        producing DnaA-ADP for it to consume; nothing happens. Allowed
+        but not biologically meaningful.
+
+    The DnaA-ADP equilibrium override is bound to ``enable_rida`` —
+    without RIDA there is no DnaA-ADP to protect from mass-action.
     """
     document = _baseline_build_document(
         initial_state=copy.deepcopy(initial_state),
@@ -170,8 +180,10 @@ def build_replication_initiation_document(
         seed=seed,
         features=features,
     )
-    document = _splice_rida(document, seed=seed)
-    document = _splice_dars(document, seed=seed)
-    document = _deactivate_equilibrium_reactions(
-        document, DEACTIVATED_EQUILIBRIUM_REACTIONS)
+    if enable_rida:
+        document = _splice_rida(document, seed=seed)
+        document = _deactivate_equilibrium_reactions(
+            document, DEACTIVATED_EQUILIBRIUM_REACTIONS)
+    if enable_dars:
+        document = _splice_dars(document, seed=seed)
     return document

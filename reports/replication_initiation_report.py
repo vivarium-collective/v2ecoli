@@ -211,10 +211,65 @@ def _run_sim(duration, make_composite_fn, label):
 
 def _run_baseline_sim(duration):
     """Run the unmodified `baseline` architecture — no RIDA, no DARS,
-    no equilibrium override — so the report can show the original
-    ~95% DnaA-ATP saturation as the 'Before' comparison."""
+    no equilibrium override."""
     from v2ecoli.composite import make_composite
     return _run_sim(duration, make_composite, label='baseline')
+
+
+def _run_rida_only_sim(duration):
+    """Run the replication_initiation architecture with RIDA enabled
+    but DARS disabled — Phase 5's cumulative state. DnaA-ATP starts
+    depleting because nothing regenerates it."""
+    from v2ecoli.composite_replication_initiation import (
+        make_replication_initiation_composite,
+    )
+    return _run_sim(
+        duration,
+        lambda **kw: make_replication_initiation_composite(
+            enable_rida=True, enable_dars=False, **kw),
+        label='rida_only')
+
+
+def _run_full_sim(duration):
+    """Run the full replication_initiation architecture (RIDA + DARS)."""
+    from v2ecoli.composite_replication_initiation import (
+        make_replication_initiation_composite,
+    )
+    return _run_sim(
+        duration, make_replication_initiation_composite, label='full')
+
+
+# ---------------------------------------------------------------------------
+# Trajectory disk cache: pickle snapshot lists keyed by config + duration so
+# successive report regenerations can skip the sim runs.
+# ---------------------------------------------------------------------------
+
+def _trajectory_cache_path(config_label, duration):
+    return os.path.join(
+        OUT_DIR, f'_traj_{config_label}_d{int(duration)}.pkl')
+
+
+def _load_or_run(config_label, duration, runner_fn, force=False):
+    import pickle
+    path = _trajectory_cache_path(config_label, duration)
+    if not force and os.path.exists(path):
+        try:
+            with open(path, 'rb') as f:
+                snaps = pickle.load(f)
+            print(f'  reused cached {config_label} trajectory '
+                  f'({len(snaps)} snapshots) from {path}')
+            return snaps
+        except Exception as exc:
+            print(f'  cache read failed for {path}: {exc} — re-running')
+    snaps = runner_fn(duration)
+    if snaps:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        try:
+            with open(path, 'wb') as f:
+                pickle.dump(snaps, f)
+        except Exception as exc:
+            print(f'  cache write failed for {path}: {exc}')
+    return snaps
 
 
 def _run_replication_initiation_sim(duration):
@@ -1401,9 +1456,21 @@ class Phase:
     after_plot: Optional[Callable] = None  # filled in once phase lands
     extra_sections: Optional[Callable] = None
     """Optional callable returning ``[(heading, html), ...]`` — extra
-    subsections rendered between the gap list and the visualization
-    plan. Used by Phase 1 to surface the pool-driver table and the
-    citation provenance audit alongside the plots."""
+    subsections rendered between the gap list and the before/after
+    grid. Used by Phase 1 + 5 + 7 for driver tables, provenance audits,
+    and bigraph subsets."""
+
+    # Trajectory configurations to plug into before / after panels.
+    # Three configurations are run during a report regeneration:
+    #   'baseline'  — unmodified baseline architecture
+    #   'rida_only' — baseline + RIDA, no DARS (the cumulative state
+    #                  immediately after Phase 5 ships, before Phase 7)
+    #   'full'      — current replication_initiation (RIDA + DARS)
+    # Phases that don't compare cumulative slices default to 'full' for
+    # both panels — the before_plot / after_plot callable still controls
+    # what gets rendered.
+    before_config: str = 'full'
+    after_config: str = 'full'
 
     @property
     def slug(self) -> str:
@@ -1494,6 +1561,8 @@ PHASES: list[Phase] = [
             'schematic.'),
         after_plot=_after_phase1,
         extra_sections=_phase1_extras,
+        before_config='baseline',
+        after_config='full',
     ),
     Phase(
         number=2,
@@ -1629,6 +1698,8 @@ PHASES: list[Phase] = [
             'replisome count.'),
         after_plot=_after_phase5,
         extra_sections=_phase5_extras,
+        before_config='baseline',
+        after_config='rida_only',
     ),
     Phase(
         number=6,
@@ -1698,6 +1769,8 @@ PHASES: list[Phase] = [
             'come later.'),
         after_plot=_after_phase7,
         extra_sections=_phase7_extras,
+        before_config='rida_only',
+        after_config='full',
     ),
     Phase(
         number=8,
@@ -1794,38 +1867,49 @@ def _render_dars_table():
             '<tbody>' + ''.join(rows) + '</tbody></table>')
 
 
-def _render_phase_section(phase: Phase, statuses, snaps, baseline_snaps=None):
+_CONFIG_LABELS = {
+    'baseline':  'baseline architecture (no RIDA, no DARS)',
+    'rida_only': 'baseline + RIDA (no DARS)',
+    'full':      'replication_initiation (RIDA + DARS)',
+}
+
+
+def _render_phase_section(phase: Phase, statuses, trajectories):
     status, evidence = statuses[phase.number]
-    baseline_snaps = baseline_snaps or []
+    trajectories = trajectories or {}
     test_rows = ''.join(_render_test_li(t) for t in phase.tests)
     gap_rows = ''.join(
         f'<li>{html_lib.escape(g)}</li>' for g in phase.gap_items
     )
 
-    # Phase 1 wants the *baseline* trajectory in its Before panel and the
-    # current replication_initiation trajectory in After. Other phases use
-    # the same (replication_initiation) snaps for both.
-    before_snaps = baseline_snaps if (phase.number == 1 and baseline_snaps) else snaps
-    before_block = phase.before_plot(before_snaps)
+    full_snaps = trajectories.get('full', []) or []
+    before_snaps = trajectories.get(phase.before_config) or full_snaps
+    after_snaps = trajectories.get(phase.after_config) or full_snaps
 
+    before_block = phase.before_plot(before_snaps)
     if phase.after_plot is not None:
-        after_block = phase.after_plot(snaps)
+        after_block = phase.after_plot(after_snaps)
     else:
         after_block = _placeholder(phase.after_description)
 
     extras_html = ''
     if phase.extra_sections is not None:
-        for heading, body in phase.extra_sections(snaps, status):
+        # Extras get the 'full' (current) trajectory — they're meant to
+        # describe the architecture as it stands now.
+        for heading, body in phase.extra_sections(full_snaps, status):
             extras_html += f'<h3>{html_lib.escape(heading)}</h3>{body}'
 
-    if phase.number == 1 and baseline_snaps:
-        before_label = 'Before — baseline architecture (no RIDA, no DARS)'
-        after_label = 'After — replication_initiation architecture (RIDA + DARS wired)'
-    else:
+    if phase.before_config == phase.after_config:
         before_label = 'Before — current model behavior'
         after_label = (
-            f'After — Phase {phase.number} lands' if phase.after_plot is None
+            f'After — Phase {phase.number} lands'
+            if phase.after_plot is None
             else f'After — Phase {phase.number} (current state)')
+    else:
+        before_desc = _CONFIG_LABELS.get(phase.before_config, phase.before_config)
+        after_desc = _CONFIG_LABELS.get(phase.after_config, phase.after_config)
+        before_label = f'Before — {before_desc}'
+        after_label = f'After — {after_desc}'
 
     return f"""
 <section id="{phase.slug}">
@@ -1908,11 +1992,16 @@ def _ref_path(out_path, target):
     return os.path.relpath(target_abs, out_dir)
 
 
-def render_html(snaps, sim_meta, out_path, baseline_snaps=None):
+def render_html(trajectories, sim_meta, out_path):
+    """trajectories is a dict mapping config name -> list of snapshots.
+    Expected keys: 'baseline', 'rida_only', 'full'. Missing keys fall
+    back to 'full' so phases can still render their plots."""
     statuses = {p.number: p.status_check() for p in PHASES}
     n_done = sum(1 for s, _ in statuses.values() if s == 'done')
     n_in_progress = sum(1 for s, _ in statuses.values() if s == 'in_progress')
     n_total = len(PHASES)
+
+    full_snaps = trajectories.get('full', []) or []
 
     pdf_link = _ref_path(out_path, 'replication_initiation_molecular_info.pdf')
     md_link = _ref_path(out_path, 'replication_initiation.md')
@@ -1925,9 +2014,7 @@ def render_html(snaps, sim_meta, out_path, baseline_snaps=None):
     sidebar_html = _render_sidebar(statuses)
     overview_table = _render_overview_table(statuses)
     phase_sections = '\n'.join(
-        _render_phase_section(p, statuses, snaps,
-                              baseline_snaps=baseline_snaps or [])
-        for p in PHASES
+        _render_phase_section(p, statuses, trajectories) for p in PHASES
     )
 
     return f"""<!DOCTYPE html>
@@ -2063,7 +2150,7 @@ table code {{ background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }}
 <h1>Replication-initiation report</h1>
 <div class="banner">
 <strong>Architecture:</strong> <span class="kv">{html_lib.escape(ARCHITECTURE_NAME)}</span>
-&nbsp;|&nbsp; <strong>Snapshots:</strong> {len(snaps)}
+&nbsp;|&nbsp; <strong>Snapshots:</strong> {len(full_snaps)}
 &nbsp;|&nbsp; <strong>Phase progress:</strong>
 {n_done}/{n_total} done, {n_in_progress} in progress
 &nbsp;|&nbsp; <strong>Source:</strong>
@@ -2143,9 +2230,9 @@ Highest-affinity 9-mer: <code>{DNAA_BOX_HIGHEST_AFFINITY}</code> (Kd ~1 nM).
 <section id="trajectory">
 <h2>Trajectory under the new architecture</h2>
 {('<p class="note">' + html_lib.escape(sim_meta) + '</p>') if sim_meta else ''}
-{(_img(plot_initiation_signals(snaps), 'replication-initiation signals')
-   if snaps else _placeholder('No simulation data — re-run with the ParCa cache present.'))}
-{_img(plot_fork_positions(snaps), 'fork positions over time') if snaps else ''}
+{(_img(plot_initiation_signals(full_snaps), 'replication-initiation signals')
+   if full_snaps else _placeholder('No simulation data — re-run with the ParCa cache present.'))}
+{_img(plot_fork_positions(full_snaps), 'fork positions over time') if full_snaps else ''}
 </section>
 
 <section id="references">
@@ -2179,42 +2266,39 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--duration', type=float, default=DEFAULT_DURATION)
     parser.add_argument('--no-sim', action='store_true')
-    parser.add_argument('--no-baseline', action='store_true',
-                        help='skip the baseline-architecture sim '
-                             '(Phase 1 Before will fall back to a placeholder)')
-    parser.add_argument('--out', default=os.path.join(OUT_DIR, 'replication_initiation_report.html'))
+    parser.add_argument('--force-resim', action='store_true',
+                        help='ignore disk-cached trajectories and re-run sims')
+    parser.add_argument('--out',
+                        default=os.path.join(OUT_DIR, 'replication_initiation_report.html'))
     args = parser.parse_args()
 
-    snaps = []
-    baseline_snaps = []
+    trajectories: dict[str, list] = {}
     sim_meta = ''
     if args.no_sim:
         sim_meta = 'Reference-only mode (--no-sim).'
     else:
-        sim_meta = (f'Ran fresh single-cell sims under the baseline AND '
-                    f'replication_initiation architectures for up to '
-                    f'{args.duration:.0f}s each.')
-        snaps = _run_replication_initiation_sim(args.duration)
-        if not args.no_baseline:
-            baseline_snaps = _run_baseline_sim(args.duration)
-        else:
-            sim_meta = (f'Ran a fresh single-cell sim under the '
-                        f'replication_initiation architecture for up to '
-                        f'{args.duration:.0f}s. Baseline skipped (--no-baseline).')
+        sim_meta = (f'Ran (or reused cached) single-cell sims for three '
+                    f'cumulative configurations: baseline → +RIDA → +DARS '
+                    f'(full). Each up to {args.duration:.0f}s.')
+        configs = [
+            ('baseline', _run_baseline_sim),
+            ('rida_only', _run_rida_only_sim),
+            ('full', _run_full_sim),
+        ]
+        for label, runner in configs:
+            trajectories[label] = _load_or_run(
+                label, args.duration, runner, force=args.force_resim)
 
-    # Drop the first snapshot before plotting — many quantities jump
-    # discontinuously over the first equilibrium tick (apo-DnaA → DnaA-ATP,
-    # initial-condition relaxation, etc.). Keeping it in the plots
-    # compresses the post-relaxation dynamics into a tiny y-range.
-    if len(snaps) > 1:
-        snaps = snaps[1:]
-    if len(baseline_snaps) > 1:
-        baseline_snaps = baseline_snaps[1:]
+    # Drop the first snapshot before plotting — the first equilibrium
+    # tick has discontinuous jumps that compress the post-relaxation
+    # dynamics into a tiny y-range.
+    for label, snaps in list(trajectories.items()):
+        if len(snaps) > 1:
+            trajectories[label] = snaps[1:]
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, 'w') as f:
-        f.write(render_html(snaps, sim_meta, args.out,
-                            baseline_snaps=baseline_snaps))
+        f.write(render_html(trajectories, sim_meta, args.out))
     print(f'Wrote {args.out}')
 
 

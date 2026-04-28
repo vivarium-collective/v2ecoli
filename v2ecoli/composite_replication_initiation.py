@@ -24,12 +24,13 @@ from v2ecoli.composite import _build_core, _load_cache_bundle
 
 def make_replication_initiation_composite(
     cache_dir=None, seed=0, core=None, features=None,
+    enable_rida: bool = True, enable_dars: bool = True,
 ):
     """Create a replication-initiation Composite from cache.
 
-    Mirrors ``make_composite`` but routes through
-    ``v2ecoli.generate_replication_initiation.build_replication_initiation_document``
-    so future divergent wiring can land without touching the baseline path.
+    Feature flags let callers build any cumulative slice of the
+    architecture (e.g. baseline+RIDA-only vs full) for direct
+    comparison in reports / tests.
     """
     if core is None:
         core = _build_core()
@@ -47,6 +48,8 @@ def make_replication_initiation_composite(
         core=core,
         seed=seed,
         features=features,
+        enable_rida=enable_rida,
+        enable_dars=enable_dars,
     )
 
     return Composite(document, core=core)

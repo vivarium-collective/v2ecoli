@@ -184,6 +184,39 @@ def _extract_replication_signals(history):
     return snaps
 
 
+def _run_sim(duration, make_composite_fn, label):
+    if not os.path.isdir(CACHE_DIR):
+        print(f'  cache dir {CACHE_DIR!r} not present — skipping {label} sim')
+        return []
+    print(f'  building {label} composite from {CACHE_DIR}')
+    composite = make_composite_fn(cache_dir=CACHE_DIR, seed=0)
+    cell = composite.state['agents']['0']
+    em_edge = cell.get('emitter', {})
+    emitter = em_edge.get('instance') if isinstance(em_edge, dict) else None
+    t0 = time.time()
+    elapsed = 0.0
+    while elapsed < duration:
+        chunk = min(SNAPSHOT_INTERVAL, duration - elapsed)
+        try:
+            composite.run(chunk)
+        except Exception as exc:
+            print(f'  {label} sim aborted at t={elapsed}s: '
+                  f'{type(exc).__name__}: {exc}')
+            break
+        elapsed += chunk
+    print(f'  ran {elapsed:.0f}s {label} sim in {time.time() - t0:.1f}s wall time')
+    history = emitter.history if emitter is not None else []
+    return _extract_replication_signals(history)
+
+
+def _run_baseline_sim(duration):
+    """Run the unmodified `baseline` architecture — no RIDA, no DARS,
+    no equilibrium override — so the report can show the original
+    ~95% DnaA-ATP saturation as the 'Before' comparison."""
+    from v2ecoli.composite import make_composite
+    return _run_sim(duration, make_composite, label='baseline')
+
+
 def _run_replication_initiation_sim(duration):
     if not os.path.isdir(CACHE_DIR):
         print(f'  cache dir {CACHE_DIR!r} not present — skipping sim')
@@ -630,14 +663,15 @@ def _drivers_table_html():
 
 
 def _before_phase1(snaps):
-    """Phase 1 Before = the observed pool dynamics today. The lower
-    panel makes the off-target ATP fraction obvious: ~95% vs literature
-    band 30–70%."""
+    """Phase 1 Before = the *baseline* architecture's pool dynamics.
+    No RIDA, no DARS, no equilibrium override. The DnaA-ATP fraction
+    sits at the equilibrium ceiling (~95%), well above the literature
+    30–70% band — this is the gap the new mechanisms close."""
     pulled = _dnaA_pool_traces(snaps)
     if pulled is None:
         return _placeholder(
-            'No DnaA pool counts in trajectory yet — run a sim with the '
-            'updated replication_data listener.')
+            'No DnaA pool counts in trajectory — re-run with --duration N '
+            'and without --no-baseline.')
     times, apo, atp, adp = pulled
     total = apo + atp + adp
     safe_total = np.where(total > 0, total, 1)
@@ -703,44 +737,73 @@ def _before_phase1(snaps):
 
 
 def _after_phase1(snaps):
-    """Phase 1 After = a schematic of the target ATP fraction once
-    the missing kinetic drivers (Phase 5, Phase 7) land. Replaced with
-    a real plot once the drivers ship."""
+    """Phase 1 After = the *current* replication_initiation trajectory
+    with RIDA + DARS wired. Same plot structure as Before so the user
+    can compare side-by-side. The ATP fraction crosses into the band
+    and stabilizes there."""
+    pulled = _dnaA_pool_traces(snaps)
+    if pulled is None:
+        return _placeholder('No replication_initiation trajectory data.')
+    times, apo, atp, adp = pulled
+    total = apo + atp + adp
+    safe = np.where(total > 0, total, 1)
+    atp_frac = atp / safe
+
     eq = DNAA_NUCLEOTIDE_EQUILIBRIUM
     band_min = eq.biological_atp_fraction_min.value
     band_max = eq.biological_atp_fraction_max.value
-    peak = eq.peak_atp_fraction_pre_initiation.value
-    trough = eq.typical_atp_fraction_post_initiation.value
 
-    fig, ax = plt.subplots(figsize=(9, 3.4))
-    t_min, t_max = 0.0, 25.0
-    ax.fill_between([t_min, t_max], band_min, band_max,
-                    color='#bfdbfe', alpha=0.55,
-                    label=f'literature band ({band_min:.0%}–{band_max:.0%})')
-    ax.axhline(peak, color='#1e3a8a', ls='--', lw=0.9, alpha=0.7,
-               label=f'pre-initiation peak ({peak:.0%})')
-    ax.axhline(trough, color='#9f1239', ls='--', lw=0.9, alpha=0.7,
-               label=f'post-RIDA trough ({trough:.0%})')
-    t_sketch = np.linspace(t_min, t_max, 200)
-    sketch = trough + (peak - trough) * (
-        0.5 - 0.5 * np.cos(2 * np.pi * (t_sketch - 2) / 20))
-    sketch[t_sketch < 2] = trough + (peak - trough) * (t_sketch[t_sketch < 2] / 2)
-    ax.plot(t_sketch, sketch, color='#16a34a', lw=2.0, alpha=0.7,
-            ls='-.', label='target shape (illustrative)')
-    ax.set_xlabel('Time (min)')
+    fig, axes = plt.subplots(2, 1, figsize=(9, 6.0), sharex=True,
+                             gridspec_kw={'height_ratios': [3, 2]})
+
+    ax = axes[0]
+    ax.plot(times, apo, color='#0891b2', lw=1.4, label='apo-DnaA')
+    ax.plot(times, atp, color='#16a34a', lw=1.8, label='DnaA-ATP')
+    ax.plot(times, adp, color='#dc2626', lw=1.8, label='DnaA-ADP')
+    ax.set_ylabel('Bulk count')
+    ax.set_title('replication_initiation: DnaA pool counts')
+    ax.legend(fontsize=8, loc='center right')
+    ax.grid(True, alpha=0.2)
+
+    ax = axes[1]
+    ax.fill_between(
+        [times.min(), times.max()], band_min, band_max,
+        color='#bfdbfe', alpha=0.55,
+        label=f'literature band ({band_min:.0%}–{band_max:.0%})')
+    ax.plot(times, atp_frac, color='#16a34a', lw=2.0,
+            label='observed DnaA-ATP fraction')
     ax.set_ylabel('DnaA-ATP / total')
+    ax.set_xlabel('Time (min)')
     ax.set_ylim(0, 1.05)
-    ax.set_title('Target shape after Phase 5 (RIDA) + Phase 7 (DARS)')
-    ax.legend(fontsize=7, loc='lower right')
+    ax.set_title('ATP fraction settles inside the literature band')
+    ax.legend(fontsize=7, loc='center right')
     ax.grid(True, alpha=0.2)
     fig.tight_layout()
-    note = (
-        '<p class="note">Sketch of the cell-cycle ATP-fraction pattern: '
-        'a trough after RIDA fires, a rise as DARS regenerates, a peak '
-        'before the next initiation. The dotted curve becomes a real '
-        'observation once Phase 5 + Phase 7 are wired.</p>'
-    )
-    return _img(fig_to_b64(fig), 'target DnaA-ATP fraction') + note
+
+    final_atp_frac = float(atp_frac[-1]) if len(atp_frac) else 0.0
+    if band_min <= final_atp_frac <= band_max:
+        diagnosis = (
+            f'<p class="note">Observed final DnaA-ATP fraction '
+            f'<strong>{final_atp_frac:.0%}</strong> sits inside the '
+            f'literature band ({band_min:.0%}–{band_max:.0%}). RIDA '
+            f'(Phase 5) and DARS (Phase 7) hold the cycle in steady '
+            f'state — the gap Phase 1 was diagnosing is closed.</p>'
+        )
+    elif final_atp_frac > band_max:
+        diagnosis = (
+            f'<p class="note">Observed final DnaA-ATP fraction '
+            f'<strong>{final_atp_frac:.0%}</strong> sits above the '
+            f'band; RIDA flux not strong enough to balance the '
+            f'equilibrium. Tune k_rida / k_dars.</p>'
+        )
+    else:
+        diagnosis = (
+            f'<p class="note">Observed final DnaA-ATP fraction '
+            f'<strong>{final_atp_frac:.0%}</strong> sits below the '
+            f'band; DARS flux not strong enough to balance RIDA. '
+            f'Tune k_rida / k_dars.</p>'
+        )
+    return _img(fig_to_b64(fig), 'replication_initiation DnaA dynamics') + diagnosis
 
 
 def _phase1_provenance_html():
@@ -1731,12 +1794,19 @@ def _render_dars_table():
             '<tbody>' + ''.join(rows) + '</tbody></table>')
 
 
-def _render_phase_section(phase: Phase, statuses, snaps):
+def _render_phase_section(phase: Phase, statuses, snaps, baseline_snaps=None):
     status, evidence = statuses[phase.number]
+    baseline_snaps = baseline_snaps or []
     test_rows = ''.join(_render_test_li(t) for t in phase.tests)
     gap_rows = ''.join(
         f'<li>{html_lib.escape(g)}</li>' for g in phase.gap_items
     )
+
+    # Phase 1 wants the *baseline* trajectory in its Before panel and the
+    # current replication_initiation trajectory in After. Other phases use
+    # the same (replication_initiation) snaps for both.
+    before_snaps = baseline_snaps if (phase.number == 1 and baseline_snaps) else snaps
+    before_block = phase.before_plot(before_snaps)
 
     if phase.after_plot is not None:
         after_block = phase.after_plot(snaps)
@@ -1747,6 +1817,15 @@ def _render_phase_section(phase: Phase, statuses, snaps):
     if phase.extra_sections is not None:
         for heading, body in phase.extra_sections(snaps, status):
             extras_html += f'<h3>{html_lib.escape(heading)}</h3>{body}'
+
+    if phase.number == 1 and baseline_snaps:
+        before_label = 'Before — baseline architecture (no RIDA, no DARS)'
+        after_label = 'After — replication_initiation architecture (RIDA + DARS wired)'
+    else:
+        before_label = 'Before — current model behavior'
+        after_label = (
+            f'After — Phase {phase.number} lands' if phase.after_plot is None
+            else f'After — Phase {phase.number} (current state)')
 
     return f"""
 <section id="{phase.slug}">
@@ -1761,15 +1840,13 @@ def _render_phase_section(phase: Phase, statuses, snaps):
   <h3>Mechanisms still missing</h3>
   <ul class="gaps">{gap_rows}</ul>
   {extras_html}
-  <h3>Visualization plan</h3>
-  <p class="viz-plan">{html_lib.escape(phase.viz_plan)}</p>
   <div class="before-after">
     <div class="ba-col">
-      <h4>Before — current model behavior</h4>
-      {phase.before_plot(snaps)}
+      <h4>{html_lib.escape(before_label)}</h4>
+      {before_block}
     </div>
     <div class="ba-col">
-      <h4>After — target once missing mechanisms land</h4>
+      <h4>{html_lib.escape(after_label)}</h4>
       {after_block}
     </div>
   </div>
@@ -1831,7 +1908,7 @@ def _ref_path(out_path, target):
     return os.path.relpath(target_abs, out_dir)
 
 
-def render_html(snaps, sim_meta, out_path):
+def render_html(snaps, sim_meta, out_path, baseline_snaps=None):
     statuses = {p.number: p.status_check() for p in PHASES}
     n_done = sum(1 for s, _ in statuses.values() if s == 'done')
     n_in_progress = sum(1 for s, _ in statuses.values() if s == 'in_progress')
@@ -1848,7 +1925,9 @@ def render_html(snaps, sim_meta, out_path):
     sidebar_html = _render_sidebar(statuses)
     overview_table = _render_overview_table(statuses)
     phase_sections = '\n'.join(
-        _render_phase_section(p, statuses, snaps) for p in PHASES
+        _render_phase_section(p, statuses, snaps,
+                              baseline_snaps=baseline_snaps or [])
+        for p in PHASES
     )
 
     return f"""<!DOCTYPE html>
@@ -2100,24 +2179,28 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--duration', type=float, default=DEFAULT_DURATION)
     parser.add_argument('--no-sim', action='store_true')
+    parser.add_argument('--no-baseline', action='store_true',
+                        help='skip the baseline-architecture sim '
+                             '(Phase 1 Before will fall back to a placeholder)')
     parser.add_argument('--out', default=os.path.join(OUT_DIR, 'replication_initiation_report.html'))
     args = parser.parse_args()
 
     snaps = []
+    baseline_snaps = []
     sim_meta = ''
-    if not args.no_sim:
-        cached = _load_cached_trajectory()
-        if cached:
-            sim_meta = (f'Reusing cached trajectory from '
-                        f'{WORKFLOW_DIR}/single_cell.dill ({len(cached)} snapshots).')
-            snaps = cached
-        else:
-            sim_meta = (f'Ran a fresh single-cell simulation under the '
-                        f'replication_initiation architecture for up to '
-                        f'{args.duration:.0f}s.')
-            snaps = _run_replication_initiation_sim(args.duration)
-    else:
+    if args.no_sim:
         sim_meta = 'Reference-only mode (--no-sim).'
+    else:
+        sim_meta = (f'Ran fresh single-cell sims under the baseline AND '
+                    f'replication_initiation architectures for up to '
+                    f'{args.duration:.0f}s each.')
+        snaps = _run_replication_initiation_sim(args.duration)
+        if not args.no_baseline:
+            baseline_snaps = _run_baseline_sim(args.duration)
+        else:
+            sim_meta = (f'Ran a fresh single-cell sim under the '
+                        f'replication_initiation architecture for up to '
+                        f'{args.duration:.0f}s. Baseline skipped (--no-baseline).')
 
     # Drop the first snapshot before plotting — many quantities jump
     # discontinuously over the first equilibrium tick (apo-DnaA → DnaA-ATP,
@@ -2125,10 +2208,13 @@ def main():
     # compresses the post-relaxation dynamics into a tiny y-range.
     if len(snaps) > 1:
         snaps = snaps[1:]
+    if len(baseline_snaps) > 1:
+        baseline_snaps = baseline_snaps[1:]
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, 'w') as f:
-        f.write(render_html(snaps, sim_meta, args.out))
+        f.write(render_html(snaps, sim_meta, args.out,
+                            baseline_snaps=baseline_snaps))
     print(f'Wrote {args.out}')
 
 

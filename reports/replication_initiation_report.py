@@ -158,6 +158,9 @@ def _extract_replication_signals(history):
             'fork_coords': fork_coords,
             'dnaA_box_total': dnaA_total,
             'dnaA_box_bound': dnaA_bound,
+            'dnaA_apo_count': rep_listener.get('dnaA_apo_count'),
+            'dnaA_atp_count': rep_listener.get('dnaA_atp_count'),
+            'dnaA_adp_count': rep_listener.get('dnaA_adp_count'),
             'dry_mass': float(mass.get('dry_mass', 0)),
             'cell_mass': float(mass.get('cell_mass', 0)),
             'dna_mass': float(mass.get('dna_mass', 0)),
@@ -563,6 +566,48 @@ def _before_phase1(snaps):
         'this panel becomes two traces (DnaA-ATP, DnaA-ADP) plus a ratio panel.')
 
 
+def _dnaA_pool_traces(snaps):
+    """Pull the DnaA apo / ATP / ADP pool counts from listener snapshots.
+
+    Returns ``(times_min, apo, atp, adp)`` arrays, or ``None`` if the
+    listener fields aren't present in the trajectory."""
+    if not snaps:
+        return None
+    times = [s.get('time', 0) / 60 for s in snaps]
+    apo = [s.get('dnaA_apo_count') for s in snaps]
+    atp = [s.get('dnaA_atp_count') for s in snaps]
+    adp = [s.get('dnaA_adp_count') for s in snaps]
+    if all(v is None for v in apo) and all(v is None for v in atp):
+        return None
+    return (np.array(times),
+            np.array([0 if v is None else v for v in apo]),
+            np.array([0 if v is None else v for v in atp]),
+            np.array([0 if v is None else v for v in adp]))
+
+
+def _after_phase1(snaps):
+    """Phase-1 result: DnaA apo / ATP / ADP pool counts over time."""
+    pulled = _dnaA_pool_traces(snaps)
+    if pulled is None:
+        return _placeholder(
+            'No DnaA pool counts in trajectory yet — run a sim with the '
+            'updated replication_data listener (which emits dnaA_apo_count, '
+            'dnaA_atp_count, dnaA_adp_count) to populate this panel.')
+    times, apo, atp, adp = pulled
+    fig, ax = plt.subplots(figsize=(9, 3.4))
+    ax.plot(times, apo, color='#0891b2', lw=1.5, label='apo-DnaA (PD03831)')
+    ax.plot(times, atp, color='#16a34a', lw=1.6, label='DnaA-ATP (MONOMER0-160)')
+    ax.plot(times, adp, color='#dc2626', lw=1.6, label='DnaA-ADP (MONOMER0-4565)')
+    ax.set_xlabel('Time (min)'); ax.set_ylabel('Count')
+    ax.set_title('Phase 1: DnaA nucleotide pools (equilibrium-driven)')
+    ax.legend(fontsize=8); ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+    note = (f'<p class="note">Apo-DnaA drains into DnaA-ATP within seconds '
+            f'of the equilibrium running. DnaA-ADP stays at zero — Phase 5 '
+            f'(RIDA) is the only source of flux into it.</p>')
+    return _img(fig_to_b64(fig), 'DnaA pool traces') + note
+
+
 def _before_phase2(snaps):
     if not snaps:
         return _no_data_msg()
@@ -740,6 +785,7 @@ PHASES: list[Phase] = [
             'After Phase 1: the listener exposes the actual ATP/ADP/apo '
             'pools, flat-line at first, with DnaA-ADP rising once Phase 5 '
             'wires RIDA flux.'),
+        after_plot=_after_phase1,
     ),
     Phase(
         number=2,

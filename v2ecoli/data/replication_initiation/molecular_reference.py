@@ -251,6 +251,25 @@ RIDA = Rida(
 
 
 # ---------------------------------------------------------------------------
+# Bulk molecule IDs — EcoCyc identifiers used by sim_data and the
+# equilibrium / metabolism / complexation processes.
+# ---------------------------------------------------------------------------
+
+# apo-DnaA monomer (no bound nucleotide). Source: ``flat/proteins.tsv``.
+DNAA_APO_BULK_ID: str = 'PD03831[c]'
+
+# DnaA-ATP complex. Equilibrium-bound from apo-DnaA + ATP via
+# ``MONOMER0-160_RXN`` in ``flat/equilibrium_reactions.tsv``.
+DNAA_ATP_BULK_ID: str = 'MONOMER0-160[c]'
+
+# DnaA-ADP complex. Equilibrium-bound from apo-DnaA + ADP via
+# ``MONOMER0-4565_RXN`` in ``flat/equilibrium_reactions.tsv``.
+# Hydrolysis from DnaA-ATP via ``RXN0-7444`` (catalyzed by the
+# Hda-β-clamp complex CPLX0-10342) — see ``flat/metabolic_reactions.tsv``.
+DNAA_ADP_BULK_ID: str = 'MONOMER0-4565[c]'
+
+
+# ---------------------------------------------------------------------------
 # Region classifier (Phase 0)
 # ---------------------------------------------------------------------------
 #

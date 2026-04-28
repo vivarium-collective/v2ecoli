@@ -36,6 +36,9 @@ from v2ecoli.data.replication_initiation.molecular_reference import (
     PER_REGION_STRICT_CONSENSUS_COUNT,
     PER_REGION_PDF_COUNT,
     region_for_coord,
+    DNAA_APO_BULK_ID,
+    DNAA_ATP_BULK_ID,
+    DNAA_ADP_BULK_ID,
 )
 
 __all__ = [
@@ -67,4 +70,7 @@ __all__ = [
     'PER_REGION_STRICT_CONSENSUS_COUNT',
     'PER_REGION_PDF_COUNT',
     'region_for_coord',
+    'DNAA_APO_BULK_ID',
+    'DNAA_ATP_BULK_ID',
+    'DNAA_ADP_BULK_ID',
 ]

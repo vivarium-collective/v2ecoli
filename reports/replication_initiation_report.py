@@ -960,33 +960,37 @@ def _phase5_bigraph_svg():
 
     out_dir = os.path.join(OUT_DIR, '_phase5_bigraph')
     os.makedirs(out_dir, exist_ok=True)
+    # Match viva-munk's rendering recipe: PNG output, high DPI,
+    # collapse_redundant_processes for a tighter graph, embed as <img>
+    # with max-width CSS so the browser handles scaling cleanly.
     try:
         plot_bigraph(
             viz_state, remove_process_place_edges=True,
-            rankdir='LR', dpi='90', port_labels=False,
-            node_label_size='14pt', label_margin='0.05',
+            rankdir='LR', dpi='200',
+            collapse_redundant_processes=True,
+            show_values=False,
+            port_labels=True,
             out_dir=out_dir, filename='rida_subgraph',
-            file_format='svg')
+            file_format='png')
     except Exception as exc:
         return _placeholder(
             f'plot_bigraph failed: {type(exc).__name__}: {exc}')
-    svg_path = os.path.join(out_dir, 'rida_subgraph.svg')
-    if not os.path.exists(svg_path):
-        return _placeholder('SVG output not produced by plot_bigraph')
-    with open(svg_path, 'r', encoding='utf-8') as f:
-        svg = f.read()
-    # Strip fixed pt dimensions so the SVG scales fluidly inside the
-    # before/after grid column.
-    import re as _re
-    svg = _re.sub(r'width="[^"]*pt"', '', svg, count=1)
-    svg = _re.sub(r'height="[^"]*pt"', '', svg, count=1)
-    return (f'<div class="bigraph-svg">{svg}</div>'
-            f'<p class="note" style="font-size:0.78em;">'
-            f'Rendered by <code>bigraph_viz.plot_bigraph</code> from the '
-            f'live <code>replication_initiation</code> composite. '
-            f'Three Steps shown: the new <code>rida</code>, plus '
-            f'<code>ecoli-equilibrium</code> and <code>ecoli-metabolism</code> '
-            f'(which read/write the same DnaA bulk pools).</p>')
+    png_path = os.path.join(out_dir, 'rida_subgraph.png')
+    if not os.path.exists(png_path):
+        return _placeholder('PNG output not produced by plot_bigraph')
+    with open(png_path, 'rb') as f:
+        png_b64 = base64.b64encode(f.read()).decode('utf-8')
+    return (
+        f'<div class="bigraph-img">'
+        f'<img alt="RIDA subgraph rendered via bigraph_viz" '
+        f'src="data:image/png;base64,{png_b64}"/>'
+        f'</div>'
+        f'<p class="note" style="font-size:0.78em;">'
+        f'Rendered by <code>bigraph_viz.plot_bigraph</code> from the '
+        f'live <code>replication_initiation</code> composite. Three '
+        f'Steps shown: the new <code>rida</code>, plus '
+        f'<code>ecoli-equilibrium</code> and <code>ecoli-metabolism</code> '
+        f'(which read/write the same DnaA bulk pools).</p>')
 
 
 def _phase5_extras(snaps, status):
@@ -1790,10 +1794,11 @@ table.arch .ports {{ font-size: 0.82em; color: #475569;
                       border-left: 2px solid #cbd5e1;
                       padding-left: 8px; }}
 table.arch .ports code {{ background: #f1f5f9; }}
-.bigraph-svg {{ background: white; border: 1px solid #e2e8f0;
-                border-radius: 6px; padding: 8px;
-                margin: 6px 0; text-align: center; }}
-.bigraph-svg svg {{ max-width: 100%; height: auto; }}
+.bigraph-img {{ background: white; border: 1px solid #e2e8f0;
+                border-radius: 6px; padding: 12px; margin: 6px 0;
+                text-align: center; overflow-x: auto; }}
+.bigraph-img img {{ max-width: 95%; height: auto;
+                     display: block; margin: 0 auto; }}
 .before-after {{ display: grid; grid-template-columns: 1fr 1fr;
                   gap: 14px; margin-top: 6px; }}
 .ba-col {{ background: #f8fafc; border: 1px solid #e2e8f0;

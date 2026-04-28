@@ -21,14 +21,15 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import ast
 import base64
 import html as html_lib
 import io
 import os
 import sys
 import time
-from dataclasses import dataclass
-from typing import Callable
+from dataclasses import dataclass, field
+from typing import Callable, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -374,6 +375,86 @@ def _placeholder(text):
     return (f'<div class="placeholder">{html_lib.escape(text)}</div>')
 
 
+# ---------------------------------------------------------------------------
+# Test-file introspection — pull docstrings from the AST so hover tooltips
+# describe what each test asserts. For not-yet-existing test files we fall
+# back to the planned description carried on the TestSpec.
+# ---------------------------------------------------------------------------
+
+def _extract_test_summary(rel_path):
+    """Return (n_tests, [(name, summary), ...]) by parsing the test file's AST.
+
+    ``summary`` is the first line of the docstring if present, else a short
+    synthesized phrase from the function name. Returns (0, []) if the file
+    is missing or fails to parse."""
+    text = _read_file(rel_path)
+    if text is None:
+        return 0, []
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return 0, []
+    items = []
+
+    def _docline(node):
+        d = ast.get_docstring(node)
+        if not d:
+            return ''
+        return d.strip().split('\n', 1)[0]
+
+    def _humanize(name):
+        return name.removeprefix('test_').replace('_', ' ')
+
+    for top in tree.body:
+        if isinstance(top, ast.ClassDef) and top.name.startswith('Test'):
+            cls_doc = _docline(top)
+            for sub in top.body:
+                if isinstance(sub, (ast.FunctionDef, ast.AsyncFunctionDef)) \
+                        and sub.name.startswith('test_'):
+                    items.append((
+                        f'{top.name}.{sub.name}',
+                        _docline(sub) or cls_doc or _humanize(sub.name),
+                    ))
+        elif isinstance(top, (ast.FunctionDef, ast.AsyncFunctionDef)) \
+                and top.name.startswith('test_'):
+            items.append((top.name, _docline(top) or _humanize(top.name)))
+    return len(items), items
+
+
+@dataclass
+class TestSpec:
+    path: str
+    description: str  # planned summary; shown when the file does not exist
+
+
+def _render_test_li(spec):
+    """One <li> per test file with a hover tooltip showing per-test summaries."""
+    n_tests, items = _extract_test_summary(spec.path)
+    present = _file_exists(spec.path)
+    mark = '✓' if present else '○'
+    cls = 'present' if present else 'missing'
+
+    if present:
+        header = f'<strong>{n_tests} test{"" if n_tests == 1 else "s"}</strong>'
+        rows = ''.join(
+            f'<div class="t-row"><code>{html_lib.escape(name)}</code>'
+            f' — {html_lib.escape(summary)}</div>'
+            for name, summary in items
+        ) or f'<div class="t-row note">{html_lib.escape(spec.description)}</div>'
+        body = header + rows
+    else:
+        body = (f'<strong class="planned">Planned</strong>'
+                f'<div class="t-row note">{html_lib.escape(spec.description)}</div>')
+
+    return (f'<li class="test {cls}"><span class="mark">{mark}</span> '
+            f'<code>{html_lib.escape(spec.path)}</code>'
+            f'<span class="tooltip">{body}</span></li>')
+
+
+# ---------------------------------------------------------------------------
+# "Before / after" analysis blocks — generic renderer driven by per-phase data
+# ---------------------------------------------------------------------------
+
 def _expected_region_counts_table():
     rows = [
         ('oriC', len(ORIC.dnaA_boxes)),
@@ -388,105 +469,107 @@ def _expected_region_counts_table():
             f'<tbody>{body}</tbody></table>')
 
 
-def _analysis_phase0(snaps, status):
-    if status == 'done':
-        return _placeholder(
-            'Region-binned DnaA-box count plot to land with the classifier; '
-            'computed by applying region_for_coord over the init-state '
-            '`coordinates` array. Awaiting trajectory.')
-    expected = _expected_region_counts_table()
-    return ('<p class="note">Expected per-region DnaA-box counts (from the curated reference). '
-            'After Phase 0, an init-state check in '
-            '<code>tests/test_dnaA_box_regions.py</code> applies '
-            '<code>region_for_coord</code> over the actual motif-search '
-            'coordinates and asserts these counts.</p>'
-            + expected)
+def _no_data_msg():
+    return _placeholder('No simulation data — re-run with --duration N.')
 
 
-def _analysis_phase1(snaps, status):
-    if status == 'done':
-        return _placeholder(
-            'DnaA-ATP / DnaA-ADP bulk-count plot to land with Phase 1.')
+# Per-phase "before" plots use only data already in the trajectory (so they
+# render today even with the model in its current state). When the phase
+# lands, the matching ``after_plot`` slot in the Phase dataclass swaps the
+# placeholder for a real plot.
+
+def _before_phase0(snaps):
+    return ('<p class="note">Today the chromosome carries DnaA boxes from a '
+            'single global motif set, with no per-region breakdown. Below is '
+            'the expected per-region count when the classifier is applied to '
+            'the existing init-state coordinates.</p>'
+            + _expected_region_counts_table())
+
+
+def _before_phase1(snaps):
     return _placeholder(
-        'No DnaA-ADP species exists yet; only DnaA-ATP (MONOMER0-160) is registered. '
-        'Phase 1 splits the bulk pool into ATP and ADP forms.')
+        'Single DnaA monomer pool with no ATP/ADP distinction. After Phase 1 '
+        'this panel becomes two traces (DnaA-ATP, DnaA-ADP) plus a ratio panel.')
 
 
-def _analysis_phase2(snaps, status):
+def _before_phase2(snaps):
     if not snaps:
-        return _placeholder('No simulation data available.')
+        return _no_data_msg()
     times = np.array([s['time'] / 60 for s in snaps])
     bound = np.array([s['dnaA_box_bound'] for s in snaps])
     total = np.array([s['dnaA_box_total'] for s in snaps])
-    fig, ax = plt.subplots(figsize=(9, 3.4))
+    fig, ax = plt.subplots(figsize=(9, 3.0))
     ax.plot(times, total, color='#1e293b', lw=1.4, label='total')
-    ax.plot(times, bound, color='#dc2626', lw=1.4, label='bound (currently always 0)')
+    ax.plot(times, bound, color='#dc2626', lw=1.4, label='bound (always 0)')
     ax.set_xlabel('Time (min)'); ax.set_ylabel('DnaA boxes')
-    ax.set_title('Current state: DnaA_bound is write-only')
+    ax.set_title('Current: DnaA_bound is write-only — never set to True')
     ax.legend(fontsize=8); ax.grid(True, alpha=0.2)
     fig.tight_layout()
-    return _img(fig_to_b64(fig), 'DnaA-box occupancy')
+    return _img(fig_to_b64(fig), 'DnaA-box occupancy (current)')
 
 
-def _analysis_phase3(snaps, status):
+def _before_phase3(snaps):
     if not snaps:
-        return _placeholder('No simulation data available.')
+        return _no_data_msg()
     times = np.array([s['time'] / 60 for s in snaps])
     cell_mass = np.array([s['cell_mass'] for s in snaps])
     n_oric = np.array([max(1, s['n_oriC']) for s in snaps])
-    fig, ax = plt.subplots(figsize=(9, 3.4))
-    ax.plot(times, cell_mass / n_oric, color='#0891b2', lw=1.6, label='cell mass / oriC')
+    fig, ax = plt.subplots(figsize=(9, 3.0))
+    ax.plot(times, cell_mass / n_oric, color='#0891b2', lw=1.6,
+            label='cell mass / oriC')
     ax.set_xlabel('Time (min)'); ax.set_ylabel('Mass (fg)')
-    ax.set_title('Mass-per-oriC — current initiation trigger (Phase 3 replaces this)')
+    ax.set_title('Current trigger: mass-per-oriC vs M_critical')
     ax.legend(fontsize=8); ax.grid(True, alpha=0.2)
     fig.tight_layout()
-    return _img(fig_to_b64(fig), 'mass-per-oriC trigger')
+    return _img(fig_to_b64(fig), 'mass-per-oriC trigger (current)')
 
 
-def _analysis_phase4(snaps, status):
+def _before_phase4(snaps):
     if not snaps:
-        return _placeholder('No simulation data available.')
+        return _no_data_msg()
     times = np.array([s['time'] / 60 for s in snaps])
     n_oric = np.array([s['n_oriC'] for s in snaps])
-    fig, ax = plt.subplots(figsize=(9, 3.4))
+    fig, ax = plt.subplots(figsize=(9, 3.0))
     ax.step(times, n_oric, where='post', color='#10b981', lw=1.6)
     ax.set_xlabel('Time (min)'); ax.set_ylabel('oriC count')
-    ax.set_title('oriC count — Phase 4 will block re-initiation for ~10 min after a fork passes')
+    ax.set_title('Current: oriC count — no sequestration window after fork passage')
     ax.grid(True, alpha=0.2)
     fig.tight_layout()
-    return _img(fig_to_b64(fig), 'oriC count')
+    return _img(fig_to_b64(fig), 'oriC count (current)')
 
 
-def _analysis_phase5(snaps, status):
+def _before_phase5(snaps):
     if not snaps:
-        return _placeholder('No simulation data available.')
+        return _no_data_msg()
     times = np.array([s['time'] / 60 for s in snaps])
     n_rep = np.array([s['n_replisomes'] for s in snaps])
-    fig, ax = plt.subplots(figsize=(9, 3.4))
+    fig, ax = plt.subplots(figsize=(9, 3.0))
     ax.step(times, n_rep, where='post', color='#f59e0b', lw=1.6)
     ax.set_xlabel('Time (min)'); ax.set_ylabel('Active replisomes')
-    ax.set_title('Replisome activity — Phase 5 wires this to DnaA-ATP hydrolysis')
+    ax.set_title('Current: replisome activity is not coupled to DnaA-ATP hydrolysis')
     ax.grid(True, alpha=0.2)
     fig.tight_layout()
-    return _img(fig_to_b64(fig), 'replisome activity')
+    return _img(fig_to_b64(fig), 'replisome activity (current)')
 
 
-def _analysis_phase6(snaps, status):
+def _before_phase6(snaps):
     return _placeholder(
-        'datA-mediated DnaA-ATP hydrolysis flux — to plot once datA is loaded '
-        'into motif_coordinates and the DDAH process emits a flux listener.')
+        'No datA locus in the model today; no DnaA-ATP hydrolysis flux from datA. '
+        'After Phase 6, this panel plots datA-mediated flux versus RIDA flux.')
 
 
-def _analysis_phase7(snaps, status):
+def _before_phase7(snaps):
     return _placeholder(
-        'DARS1/DARS2 DnaA-ADP → DnaA-ATP regeneration flux — to plot once '
-        'DARS regions are loaded and the reactivation process emits its flux listener.')
+        'No DARS reactivation today; DnaA-ADP cannot be converted back to '
+        'DnaA-ATP. After Phase 7, this panel plots reactivation flux split '
+        'across DARS1 and DARS2, with IHF/Fis state indicators.')
 
 
-def _analysis_phase8(snaps, status):
+def _before_phase8(snaps):
     return _placeholder(
-        'dnaA mRNA level vs DnaA-ATP/ADP occupancy at p1/p2 — to plot once '
-        'the autoregulation hook is wired into transcript_initiation.')
+        'dnaA transcription rate is constant (no occupancy feedback). After '
+        'Phase 8, this panel plots dnaA mRNA against DnaA-ATP/ADP occupancy '
+        'at p1/p2 — the closed feedback loop.')
 
 
 # ---------------------------------------------------------------------------
@@ -499,9 +582,12 @@ class Phase:
     title: str
     goal: str
     status_check: Callable
-    test_files: tuple[str, ...]
-    analysis: Callable
+    tests: tuple[TestSpec, ...]
     gap_items: tuple[str, ...]
+    viz_plan: str
+    before_plot: Callable
+    after_description: str
+    after_plot: Optional[Callable] = None  # filled in once phase lands
 
     @property
     def slug(self) -> str:
@@ -517,11 +603,18 @@ PHASES: list[Phase] = [
               'classifier. No schema change — region is derived from each '
               'box\'s existing `coordinates` field.'),
         status_check=_check_phase0,
-        test_files=(
-            'tests/test_replication_initiation_reference.py',
-            'tests/test_dnaA_box_regions.py',
+        tests=(
+            TestSpec(
+                'tests/test_replication_initiation_reference.py',
+                'Locks in the curated PDF facts (counts, sequences, affinity '
+                'classes, motif compatibility) as data assertions.'),
+            TestSpec(
+                'tests/test_dnaA_box_regions.py',
+                'Apply region_for_coord over the actual init-state DnaA-box '
+                'coordinates from sim_data and assert the count per region '
+                'matches the curated reference (oriC=11, dnaA promoter=7, '
+                'datA=4, DARS1=3, DARS2=5).'),
         ),
-        analysis=_analysis_phase0,
         gap_items=(
             'No way to slice DnaA boxes by regulatory locus (oriC vs dnaA '
             'promoter vs datA vs DARS) — the binding process in Phase 2 needs '
@@ -529,6 +622,17 @@ PHASES: list[Phase] = [
             'No init-time check that the bioinformatic motif search finds the '
             'expected number of boxes per locus (11 / 7 / 4 / 3 / 5).',
         ),
+        viz_plan=(
+            'Bar chart of DnaA-box counts per region, with the curated '
+            'reference counts overlaid as horizontal markers. Highlights '
+            'any gap between what the motif search returns and what the '
+            'literature says should be there.'),
+        before_plot=_before_phase0,
+        after_description=(
+            'After Phase 0: live bar chart of DnaA-box counts per region '
+            'computed from sim_data.process.replication.motif_coordinates '
+            'via region_for_coord — the same lookup the binding process '
+            'will use.'),
     ),
     Phase(
         number=1,
@@ -536,15 +640,28 @@ PHASES: list[Phase] = [
         goal=('Add the DnaA-ADP molecule ID alongside DnaA-ATP. Split the '
               'initial pool; listener emits both.'),
         status_check=_check_phase1,
-        test_files=(
-            'tests/test_dnaA_nucleotide_pool.py',
+        tests=(
+            TestSpec(
+                'tests/test_dnaA_nucleotide_pool.py',
+                'DnaA-ATP and DnaA-ADP are both registered as bulk molecules; '
+                'their initial counts sum to the expected total DnaA-monomer '
+                'count; the ATP/ADP ratio matches the configured fraction '
+                '(default 70/30) within tolerance.'),
         ),
-        analysis=_analysis_phase1,
         gap_items=(
             'Only DnaA-ATP (MONOMER0-160) is registered; nucleotide-state is '
             'invisible to the rest of the model.',
             'No conservation test for DnaA-ATP + DnaA-ADP + box-bound count.',
         ),
+        viz_plan=(
+            'Two-trace plot of DnaA-ATP and DnaA-ADP bulk counts over time, '
+            'with their ratio plotted on a secondary axis. Without RIDA/DARS '
+            'these traces are flat — the time-varying behavior emerges in '
+            'Phases 5 and 7.'),
+        before_plot=_before_phase1,
+        after_description=(
+            'After Phase 1: DnaA-ATP and DnaA-ADP traces with their ratio. '
+            'Phases 5 and 7 will animate the ratio over the cell cycle.'),
     ),
     Phase(
         number=2,
@@ -552,16 +669,29 @@ PHASES: list[Phase] = [
         goal=('New DnaABoxBinding process: reads DnaA-ATP/ADP pools and '
               'per-region affinities, writes DnaA_bound on each box.'),
         status_check=_check_phase2,
-        test_files=(
-            'tests/test_dnaA_binding.py',
+        tests=(
+            TestSpec(
+                'tests/test_dnaA_binding.py',
+                'At steady-state DnaA-ATP pool: high-affinity oriC boxes '
+                '(R1/R2/R4) are ≥95% occupied; low-affinity oriC boxes track '
+                'DnaA-ATP concentration; per-region affinity class drives '
+                'occupancy via region_for_coord.'),
         ),
-        analysis=_analysis_phase2,
         gap_items=(
             'DnaA_bound is write-only — set to False at init and after fork '
             'passage, but no process ever sets it to True.',
             'tf_binding handles promoter sites only; chromosomal DnaA boxes '
             'have no binding logic.',
         ),
+        viz_plan=(
+            'Per-region bound-fraction traces (oriC high-affinity, oriC '
+            'low-affinity, dnaA promoter, datA, DARS) over time. The '
+            "high-affinity oriC trace should sit near 1.0; the low-affinity "
+            'trace tracks DnaA-ATP concentration.'),
+        before_plot=_before_phase2,
+        after_description=(
+            'After Phase 2: per-region bound-fraction traces. Replaces the '
+            'flat-zero "bound" line with real occupancy dynamics.'),
     ),
     Phase(
         number=3,
@@ -569,17 +699,36 @@ PHASES: list[Phase] = [
         goal=('Gate ChromosomeReplication on R1/R2/R4 occupancy + low-affinity '
               'DnaA-ATP filament threshold instead of M_cell/n_oriC.'),
         status_check=_check_phase3,
-        test_files=(
-            'tests/test_model_behavior.py',
-            'tests/test_initiation_dnaA_gate.py',
+        tests=(
+            TestSpec(
+                'tests/test_model_behavior.py',
+                'Existing whole-cell behavior tests (cell-cycle timing, mass '
+                'doubling, replication-fork conservation). Thresholds may '
+                'need rebaselining for the DnaA-driven gate.'),
+            TestSpec(
+                'tests/test_initiation_dnaA_gate.py',
+                'Initiation timing under the DnaA-occupancy gate matches the '
+                'mass-threshold version within ±10% under nominal growth, '
+                'but shifts measurably when the DnaA pool is perturbed '
+                '(±20% DnaA monomer count).'),
         ),
-        analysis=_analysis_phase3,
         gap_items=(
             'Initiation in `chromosome_replication.py:243, 320` is purely '
             'mass-driven; DnaA is not even in the bulk inputs.',
             'Behavior thresholds in `test_model_behavior.py` will need '
             'rebaselining once the gate is DnaA-driven.',
         ),
+        viz_plan=(
+            'Side-by-side: cell mass / oriC trace and DnaA-ATP filament '
+            'occupancy at oriC, with vertical markers at every initiation '
+            'event. Demonstrates that the new gate fires at biologically '
+            'consistent times rather than purely mass-based ones.'),
+        before_plot=_before_phase3,
+        after_description=(
+            'After Phase 3: dual panel with mass-per-oriC (deprecated trigger) '
+            'and DnaA-filament occupancy (new trigger), with initiation '
+            'events marked on both. Shifts visible when the DnaA pool is '
+            'perturbed.'),
     ),
     Phase(
         number=4,
@@ -587,15 +736,26 @@ PHASES: list[Phase] = [
         goal=('Add SeqA protein, GATC site coords at oriC, hemimethylation '
               'timer; SeqASequestration blocks DnaA rebinding for ~10 min.'),
         status_check=_check_phase4,
-        test_files=(
-            'tests/test_seqA_sequestration.py',
+        tests=(
+            TestSpec(
+                'tests/test_seqA_sequestration.py',
+                'After a forced initiation, no second initiation occurs '
+                'within the SeqA sequestration window (~10 min). The window '
+                'duration scales with doubling time as expected.'),
         ),
-        analysis=_analysis_phase4,
         gap_items=(
             'SeqA listed as a gene but no protein definition; no sequestration '
             'process; no hemimethylation tracking.',
             'No GATC-site coordinates loaded into motif_coordinates.',
         ),
+        viz_plan=(
+            'oriC count over time with the hemimethylation window shaded '
+            'beneath each initiation event, plus a marker showing what would '
+            'have been a too-early re-initiation if SeqA were absent.'),
+        before_plot=_before_phase4,
+        after_description=(
+            'After Phase 4: oriC count with shaded sequestration window and '
+            'a counterfactual marker showing pre-Phase-4 timing.'),
     ),
     Phase(
         number=5,
@@ -603,15 +763,28 @@ PHASES: list[Phase] = [
         goal=('Add Hda protein; expose loaded β-clamp count from active '
               'replisomes; hydrolyze DnaA-ATP → DnaA-ADP at rate ∝ activity.'),
         status_check=_check_phase5,
-        test_files=(
-            'tests/test_rida.py',
+        tests=(
+            TestSpec(
+                'tests/test_rida.py',
+                'Active DnaA-ATP pool drops as replisomes elongate; the drop '
+                'rate is ∝ active replisome count; the pool recovers after '
+                'replication completes (no replisomes → no flux).'),
         ),
-        analysis=_analysis_phase5,
         gap_items=(
             'Hda not in molecule_ids; no clamp count exposed; no RIDA process.',
             'DnaN (β-clamp) protein is in the dnaA operon but is not counted '
             'separately for clamp-loading logic.',
         ),
+        viz_plan=(
+            'Twin-axis plot: DnaA-ATP pool (left axis) and active replisome '
+            'count (right axis) over the cell cycle. Phase-5 effect: the '
+            'DnaA-ATP trace develops a visible dip while replisomes are '
+            'active.'),
+        before_plot=_before_phase5,
+        after_description=(
+            'After Phase 5: twin-axis plot showing DnaA-ATP dipping during '
+            'active replication. Pre-Phase-5 trace shown as ghost line for '
+            'comparison.'),
     ),
     Phase(
         number=6,
@@ -619,14 +792,26 @@ PHASES: list[Phase] = [
         goal=('Load datA region coords; IHF binds the datA IBS; DDAH process '
               'hydrolyzes DnaA-ATP via the datA–IHF complex.'),
         status_check=_check_phase6,
-        test_files=(
-            'tests/test_ddah.py',
+        tests=(
+            TestSpec(
+                'tests/test_ddah.py',
+                'Knocking out datA (parameter gate) accelerates the next '
+                'initiation by a measurable amount; flux from DDAH is '
+                'non-zero only when IHF is present at the datA IBS.'),
         ),
-        analysis=_analysis_phase6,
         gap_items=(
             'datA not loaded into `sim_data.process.replication.motif_coordinates`.',
             'IhfA/IhfB defined as proteins but no DNA-binding logic at datA.',
         ),
+        viz_plan=(
+            'Stacked-area plot of DnaA-ATP hydrolysis flux split into RIDA '
+            'and DDAH contributions over the cell cycle. Both should be '
+            'non-trivial; DDAH peaks shortly after initiation when IHF '
+            'binds datA.'),
+        before_plot=_before_phase6,
+        after_description=(
+            'After Phase 6: stacked-area RIDA + DDAH flux. Knockout overlay '
+            'shows the loss of DDAH flux when datA is removed.'),
     ),
     Phase(
         number=7,
@@ -634,15 +819,28 @@ PHASES: list[Phase] = [
         goal=('Load DARS coords; DARSReactivation converts DnaA-ADP → DnaA-ATP; '
               'DARS2 modulated by IHF + Fis binding.'),
         status_check=_check_phase7,
-        test_files=(
-            'tests/test_dars.py',
+        tests=(
+            TestSpec(
+                'tests/test_dars.py',
+                'DnaA-ADP → DnaA-ATP regeneration flux is non-zero, '
+                'dominated by DARS2 in vivo, and modulated by the IHF/Fis '
+                'binding states; DARS1 alone cannot sustain the cycle.'),
         ),
-        analysis=_analysis_phase7,
         gap_items=(
             'DARS1 and DARS2 are absent from motif_coordinates and from the '
             'process list. Fis (CPLX0-7705) is defined as a protein but has no '
             'DNA-binding role.',
         ),
+        viz_plan=(
+            'Twin-axis plot: DARS1 and DARS2 reactivation fluxes over the '
+            'cell cycle, with IHF/Fis binding-state indicators marked on the '
+            'time axis. DARS2 should dominate; both should peak after RIDA '
+            'has driven DnaA-ADP up.'),
+        before_plot=_before_phase7,
+        after_description=(
+            'After Phase 7: dual-flux plot for DARS1 and DARS2 with IHF/Fis '
+            'state indicators. The DnaA-ATP trace from Phase 5 visibly '
+            'recovers.'),
     ),
     Phase(
         number=8,
@@ -650,14 +848,25 @@ PHASES: list[Phase] = [
         goal=('transcript_initiation reads DnaA-ATP/ADP occupancy at the p1/p2 '
               'boxes and modulates dnaA transcription rate.'),
         status_check=_check_phase8,
-        test_files=(
-            'tests/test_dnaA_autoregulation.py',
+        tests=(
+            TestSpec(
+                'tests/test_dnaA_autoregulation.py',
+                'dnaA mRNA level decreases when DnaA-ATP occupancy at p1/p2 '
+                'boxes is elevated and recovers when the DnaA pool drops; '
+                'p2/p1 promoter activity ratio ≈ 3 at low DnaA occupancy.'),
         ),
-        analysis=_analysis_phase8,
         gap_items=(
             'dnaA gene is transcribed via generic `transcript_initiation`; '
             'no DnaA-occupancy feedback on its own promoter.',
         ),
+        viz_plan=(
+            'Twin-axis plot: dnaA mRNA level (left axis) and DnaA-ATP+ADP '
+            'occupancy at p1/p2 boxes (right axis). The two should be '
+            'anti-correlated, closing the autoregulatory loop.'),
+        before_plot=_before_phase8,
+        after_description=(
+            'After Phase 8: anti-correlated dnaA mRNA and p1/p2 occupancy '
+            'traces; p2/p1 ratio panel.'),
     ),
 ]
 
@@ -730,18 +939,16 @@ def _render_dars_table():
 
 def _render_phase_section(phase: Phase, statuses, snaps):
     status, evidence = statuses[phase.number]
-    test_rows = []
-    for t in phase.test_files:
-        present = _file_exists(t)
-        mark = '✓' if present else '○'
-        cls = 'present' if present else 'missing'
-        test_rows.append(
-            f'<li class="test {cls}"><span class="mark">{mark}</span> '
-            f'<code>{html_lib.escape(t)}</code></li>'
-        )
+    test_rows = ''.join(_render_test_li(t) for t in phase.tests)
     gap_rows = ''.join(
         f'<li>{html_lib.escape(g)}</li>' for g in phase.gap_items
     )
+
+    if phase.after_plot is not None:
+        after_block = phase.after_plot(snaps)
+    else:
+        after_block = _placeholder(phase.after_description)
+
     return f"""
 <section id="{phase.slug}">
   <div class="phase-header">
@@ -750,12 +957,22 @@ def _render_phase_section(phase: Phase, statuses, snaps):
   </div>
   <p class="goal">{html_lib.escape(phase.goal)}</p>
   <p class="evidence">Status check: <em>{html_lib.escape(evidence)}</em></p>
-  <h3>Tests</h3>
-  <ul class="tests">{''.join(test_rows)}</ul>
+  <h3>Tests <span class="hint">(hover for descriptions)</span></h3>
+  <ul class="tests">{test_rows}</ul>
   <h3>Gaps closed by this phase</h3>
   <ul class="gaps">{gap_rows}</ul>
-  <h3>Analysis</h3>
-  <div class="analysis">{phase.analysis(snaps, status)}</div>
+  <h3>Visualization plan</h3>
+  <p class="viz-plan">{html_lib.escape(phase.viz_plan)}</p>
+  <div class="before-after">
+    <div class="ba-col">
+      <h4>Before — current model</h4>
+      {phase.before_plot(snaps)}
+    </div>
+    <div class="ba-col">
+      <h4>After — Phase {phase.number} lands</h4>
+      {after_block}
+    </div>
+  </div>
 </section>
 """
 
@@ -876,20 +1093,50 @@ section {{ background: white; border: 1px solid #e2e8f0; border-radius: 8px;
 .goal {{ color: #334155; font-size: 0.92em; margin-top: 8px; }}
 .evidence {{ color: #475569; font-size: 0.85em; }}
 .tests {{ list-style: none; padding-left: 0; margin: 4px 0 8px; }}
-.tests li.test {{ font-family: monospace; font-size: 0.85em; padding: 2px 0; }}
+.tests li.test {{ font-family: monospace; font-size: 0.85em; padding: 2px 0;
+                   position: relative; cursor: help; }}
 .tests .mark {{ display: inline-block; width: 16px;
                 color: #16a34a; font-weight: 700; }}
 .tests li.missing .mark {{ color: #94a3b8; }}
 .tests li.missing code {{ color: #64748b; }}
+.tests .tooltip {{ display: none; position: absolute;
+                    left: 24px; top: 100%; z-index: 20;
+                    background: #0f172a; color: #e2e8f0;
+                    border-radius: 6px; padding: 10px 14px;
+                    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+                    font-size: 0.82em; line-height: 1.5;
+                    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+                    width: 520px; max-width: 80vw; }}
+.tests li.test:hover .tooltip {{ display: block; }}
+.tests .tooltip strong {{ color: #fff; display: inline-block;
+                           margin-bottom: 4px; }}
+.tests .tooltip strong.planned {{ color: #fbbf24; }}
+.tests .tooltip .t-row {{ margin: 3px 0; }}
+.tests .tooltip .t-row code {{ background: #1e293b; color: #93c5fd;
+                                padding: 1px 5px; border-radius: 3px; }}
+.tests .tooltip .t-row.note {{ color: #cbd5e1; font-style: italic; }}
+.hint {{ font-size: 0.75em; font-weight: normal; color: #94a3b8;
+         font-family: -apple-system, sans-serif; }}
 .gaps {{ margin: 4px 0 8px; padding-left: 22px; font-size: 0.9em;
          color: #334155; }}
 .gaps li {{ margin-bottom: 3px; }}
-.analysis {{ margin-top: 6px; }}
-.analysis img {{ max-width: 100%; height: auto; border: 1px solid #e2e8f0;
-                  border-radius: 4px; }}
+.viz-plan {{ font-size: 0.92em; color: #1e293b;
+             background: #fef3c7; border-left: 3px solid #f59e0b;
+             padding: 8px 14px; margin: 4px 0 10px;
+             border-radius: 0 4px 4px 0; }}
+.before-after {{ display: grid; grid-template-columns: 1fr 1fr;
+                  gap: 14px; margin-top: 6px; }}
+.ba-col {{ background: #f8fafc; border: 1px solid #e2e8f0;
+            border-radius: 6px; padding: 12px; }}
+.ba-col h4 {{ margin: 0 0 8px; font-size: 0.9em;
+              color: #1e293b; text-transform: uppercase;
+              letter-spacing: 0.05em; }}
+.ba-col img {{ max-width: 100%; height: auto; border: 1px solid #e2e8f0;
+                border-radius: 4px; background: white; }}
 .placeholder {{ background: #f1f5f9; border: 1px dashed #cbd5e1;
                 border-radius: 6px; padding: 12px 16px; color: #475569;
-                font-size: 0.9em; font-style: italic; }}
+                font-size: 0.85em; font-style: italic; }}
+@media (max-width: 900px) {{ .before-after {{ grid-template-columns: 1fr; }} }}
 table {{ border-collapse: collapse; width: 100%;
          font-size: 0.88em; margin: 6px 0 12px; }}
 table th, table td {{ border: 1px solid #cbd5e1; padding: 5px 9px;

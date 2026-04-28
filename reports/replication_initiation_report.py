@@ -793,11 +793,23 @@ def _render_sidebar(statuses):
 """
 
 
-def render_html(snaps, sim_meta):
+def _ref_path(out_path, target):
+    """Compute a relative path from the report's output dir to a file
+    under ``docs/references/``. Works whether the report lives at
+    ``out/reports/...`` (local) or at ``docs/...`` (published)."""
+    out_dir = os.path.dirname(os.path.abspath(out_path))
+    target_abs = os.path.join(REPO_ROOT, 'docs', 'references', target)
+    return os.path.relpath(target_abs, out_dir)
+
+
+def render_html(snaps, sim_meta, out_path):
     statuses = {p.number: p.status_check() for p in PHASES}
     n_done = sum(1 for s, _ in statuses.values() if s == 'done')
     n_in_progress = sum(1 for s, _ in statuses.values() if s == 'in_progress')
     n_total = len(PHASES)
+
+    pdf_link = _ref_path(out_path, 'replication_initiation_molecular_info.pdf')
+    md_link = _ref_path(out_path, 'replication_initiation.md')
 
     try:
         from v2ecoli.generate_replication_initiation import ARCHITECTURE_NAME
@@ -891,8 +903,8 @@ table code {{ background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }}
 &nbsp;|&nbsp; <strong>Phase progress:</strong>
 {n_done}/{n_total} done, {n_in_progress} in progress
 &nbsp;|&nbsp; <strong>Source:</strong>
-<a href="../../docs/references/replication_initiation_molecular_info.pdf">PDF</a>
-&middot; <a href="../../docs/references/replication_initiation.md">Markdown summary</a>
+<a href="{html_lib.escape(pdf_link)}">PDF</a>
+&middot; <a href="{html_lib.escape(md_link)}">Markdown summary</a>
 </div>
 
 <section id="overview">
@@ -1024,7 +1036,7 @@ def main():
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, 'w') as f:
-        f.write(render_html(snaps, sim_meta))
+        f.write(render_html(snaps, sim_meta, args.out))
     print(f'Wrote {args.out}')
 
 

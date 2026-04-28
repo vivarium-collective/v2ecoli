@@ -28,6 +28,14 @@ from v2ecoli.data.replication_initiation.molecular_reference import (
     DARS2,
     SEQA,
     RIDA,
+    GENOME_LENGTH_BP,
+    ORIC_ABS_CENTER_BP,
+    TERC_ABS_CENTER_BP,
+    REGION_BOUNDARIES,
+    REGION_BOUNDARIES_ABS,
+    PER_REGION_STRICT_CONSENSUS_COUNT,
+    PER_REGION_PDF_COUNT,
+    region_for_coord,
 )
 
 __all__ = [
@@ -51,4 +59,12 @@ __all__ = [
     'DARS2',
     'SEQA',
     'RIDA',
+    'GENOME_LENGTH_BP',
+    'ORIC_ABS_CENTER_BP',
+    'TERC_ABS_CENTER_BP',
+    'REGION_BOUNDARIES',
+    'REGION_BOUNDARIES_ABS',
+    'PER_REGION_STRICT_CONSENSUS_COUNT',
+    'PER_REGION_PDF_COUNT',
+    'region_for_coord',
 ]

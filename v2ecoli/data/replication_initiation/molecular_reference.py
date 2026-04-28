@@ -248,3 +248,104 @@ RIDA = Rida(
     hda_clamp_binding_motif_terminus='N',
     reaction='DnaA-ATP -> DnaA-ADP',
 )
+
+
+# ---------------------------------------------------------------------------
+# Region classifier (Phase 0)
+# ---------------------------------------------------------------------------
+#
+# E. coli K-12 MG1655 reference (GenBank U00096.3). The model stores DnaA-box
+# coordinates *relative to oriC*, computed by
+# ``parca.reconstruction.ecoli.dataclasses.process.replication.
+# _get_relative_coordinates``. We mirror that transform here so the
+# classifier can accept the same relative coordinate the model uses.
+
+GENOME_LENGTH_BP: int = 4_641_652
+ORIC_ABS_CENTER_BP: int = 3_925_860   # midpoint of EcoCyc oriC site (3925744-3925975)
+TERC_ABS_CENTER_BP: int = 1_609_168   # midpoint of EcoCyc terC site (1609157-1609179)
+
+
+def _to_relative(abs_bp: int) -> int:
+    """Convert an absolute MG1655 coordinate to relative-to-oriC.
+
+    Mirrors the formula in
+    ``parca...replication.Replication._get_relative_coordinates``."""
+    rel = ((abs_bp - TERC_ABS_CENTER_BP) % GENOME_LENGTH_BP) \
+        + TERC_ABS_CENTER_BP - ORIC_ABS_CENTER_BP
+    if rel < 0:
+        rel += 1
+    return rel
+
+
+# Absolute bp boundaries for each regulatory locus, centered on the EcoCyc
+# minimal-site midpoint (or a literature-derived position for datA, which
+# isn't a named EcoCyc site) and widened to the PDF region length so all
+# named DnaA boxes — including non-consensus ones — fall inside the window.
+# Window construction: ``lo = mid - width // 2``, ``hi = mid + (width-1) // 2``,
+# so the inclusive width ``hi - lo + 1`` equals the PDF length exactly.
+REGION_BOUNDARIES_ABS: dict[str, tuple[int, int]] = {
+    'oriC':           (3_925_629, 3_926_090),  # 462 bp; ORIC.length_bp
+    'dnaA_promoter':  (3_883_730, 3_884_177),  # 448 bp; upstream of dnaA CDS (-strand)
+    'datA':           (4_396_023, 4_396_385),  # 363 bp; near 94.7 min on the chromosome
+    'DARS1':          (   812_808,    813_439),  # 632 bp; centered on EcoCyc DARS1
+    'DARS2':          (2_968_784, 2_969_520),  # 737 bp; centered on EcoCyc DARS2
+}
+
+
+def _abs_pair_to_rel(lo_abs: int, hi_abs: int) -> tuple[int, int]:
+    lo, hi = _to_relative(lo_abs), _to_relative(hi_abs)
+    return (lo, hi) if lo <= hi else (hi, lo)
+
+
+# Pre-computed relative-coord boundaries (the form the model uses on the
+# DnaA_box ``coordinates`` field).
+REGION_BOUNDARIES: dict[str, tuple[int, int]] = {
+    name: _abs_pair_to_rel(lo, hi)
+    for name, (lo, hi) in REGION_BOUNDARIES_ABS.items()
+}
+
+
+def region_for_coord(rel_bp: int) -> Optional[str]:
+    """Classify a DnaA-box relative coordinate by regulatory region.
+
+    Returns the region name (``'oriC'``, ``'dnaA_promoter'``, ``'datA'``,
+    ``'DARS1'``, ``'DARS2'``) when ``rel_bp`` falls inside a known
+    regulatory locus; ``None`` when the coordinate is elsewhere on the
+    chromosome.
+
+    The argument is a coordinate *relative to oriC*, matching the format
+    of ``DnaA_box.coordinates`` in the simulation state.
+    """
+    for name, (lo, hi) in REGION_BOUNDARIES.items():
+        if lo <= rel_bp <= hi:
+            return name
+    return None
+
+
+# Empirical baseline (distinct coordinates): the bioinformatic strict-
+# consensus search (``DnaA_box`` motif = TTWTNCACA, 8 sequence variants;
+# see ``flat/sequence_motifs.tsv``) finds these counts of distinct
+# coordinates per region when ``region_for_coord`` is applied to the
+# init-state DnaA-box coordinates. The total (8 distinct) is far less
+# than the 30 PDF-named boxes — the strict motif misses named low-
+# affinity non-consensus boxes. Phase 2 (DnaA-box binding) closes this
+# gap by enriching the box list with the named non-consensus boxes.
+PER_REGION_STRICT_CONSENSUS_COUNT: dict[str, int] = {
+    'oriC':          3,
+    'dnaA_promoter': 1,
+    'datA':          0,
+    'DARS1':         1,
+    'DARS2':         3,
+}
+
+# Curated counts from the reference PDF (named boxes per region — high- and
+# low-affinity sites, including non-consensus ones). The ratio
+# ``PER_REGION_STRICT_CONSENSUS_COUNT[r] / PER_REGION_PDF_COUNT[r]`` is the
+# coverage of bioinformatic search for that locus.
+PER_REGION_PDF_COUNT: dict[str, int] = {
+    'oriC':          len(ORIC.dnaA_boxes),
+    'dnaA_promoter': len(DNAA_PROMOTER.dnaA_boxes),
+    'datA':          DATA.n_dnaA_boxes,
+    'DARS1':         len(DARS1.core_box_names) + len(DARS1.extra_box_names),
+    'DARS2':         len(DARS2.core_box_names) + len(DARS2.extra_box_names),
+}

@@ -41,6 +41,7 @@ import numpy as np
 from v2ecoli.data.replication_initiation import (
     DARS1, DARS2, DATA, DNAA_BOX_CONSENSUS, DNAA_BOX_HIGHEST_AFFINITY,
     DNAA_PROMOTER, ORIC, RIDA, SEQA,
+    PER_REGION_PDF_COUNT, PER_REGION_STRICT_CONSENSUS_COUNT,
 )
 
 
@@ -486,6 +487,45 @@ def _before_phase0(snaps):
             + _expected_region_counts_table())
 
 
+def _after_phase0(snaps):
+    """Phase-0 result: per-region bar chart of strict-consensus search
+    coverage vs the curated PDF counts."""
+    regions = list(PER_REGION_PDF_COUNT.keys())
+    pdf_counts = [PER_REGION_PDF_COUNT[r] for r in regions]
+    strict_counts = [PER_REGION_STRICT_CONSENSUS_COUNT[r] for r in regions]
+    pretty = {
+        'oriC': 'oriC', 'dnaA_promoter': 'dnaA prom',
+        'datA': 'datA', 'DARS1': 'DARS1', 'DARS2': 'DARS2',
+    }
+    labels = [pretty[r] for r in regions]
+
+    fig, ax = plt.subplots(figsize=(9, 3.4))
+    x = np.arange(len(regions))
+    w = 0.38
+    ax.bar(x - w / 2, pdf_counts, w, color='#1e3a8a',
+           label='Curated PDF count (named boxes)')
+    ax.bar(x + w / 2, strict_counts, w, color='#f59e0b',
+           label='Bioinformatic strict-consensus (current model)')
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_ylabel('DnaA-box count')
+    ax.set_title('Phase 0 result: strict-consensus motif search vs PDF named boxes')
+    ax.legend(fontsize=8, loc='upper right')
+    ax.grid(True, alpha=0.2, axis='y')
+    # Annotate counts above each bar
+    for i, (p, s) in enumerate(zip(pdf_counts, strict_counts)):
+        ax.text(i - w / 2, p + 0.2, str(p), ha='center', fontsize=8)
+        ax.text(i + w / 2, s + 0.2, str(s), ha='center', fontsize=8)
+    fig.tight_layout()
+    total_pdf = sum(pdf_counts)
+    total_strict = sum(strict_counts)
+    return (_img(fig_to_b64(fig), 'Phase 0 region counts') +
+            f'<p class="note">Coverage: <strong>{total_strict}/{total_pdf}</strong> '
+            f'named boxes are caught by the strict-consensus motif. '
+            f'The remaining {total_pdf - total_strict} are non-consensus '
+            f'low-affinity sites that Phase 2 must enrich into the box list.</p>')
+
+
 def _before_phase1(snaps):
     return _placeholder(
         'Single DnaA monomer pool with no ATP/ADP distinction. After Phase 1 '
@@ -633,6 +673,7 @@ PHASES: list[Phase] = [
             'computed from sim_data.process.replication.motif_coordinates '
             'via region_for_coord — the same lookup the binding process '
             'will use.'),
+        after_plot=_after_phase0,
     ),
     Phase(
         number=1,

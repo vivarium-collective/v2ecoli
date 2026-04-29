@@ -1896,7 +1896,8 @@ def plot_daughters_mass(daughters_meta, title=''):
 # HTML Report Generator
 # ---------------------------------------------------------------------------
 
-def generate_html_report(step_results, plots, network_html_rel, diagnostics):
+def generate_html_report(step_results, plots, network_html_rel, diagnostics,
+                         parca_network_html_rel=None):
     """Generate the HTML report organized by pipeline step."""
 
     try:
@@ -2072,6 +2073,7 @@ Simulation pipeline &middot; process-bigraph <code>Composite.run()</code></p>
     <li><a href="#sec-division">Division</a></li>
     <li><a href="#sec-daughters">Daughter Simulations</a></li>
     <li><a href="#sec-network">Process-Bigraph Network</a></li>
+    <li><a href="#sec-parca-network">ParCa Composition Diagram</a></li>
     <li><a href="#sec-bigraph">Network Visualization</a></li>
     <li><a href="#sec-timing">Timing Summary</a></li>
   </ol>
@@ -2218,7 +2220,23 @@ Simulation pipeline &middot; process-bigraph <code>Composite.run()</code></p>
   Full-screen viewer: <a href="{network_html_rel}" target="_blank"><code>{network_html_rel}</code></a>.</p>
 </div>
 <iframe src="{network_html_rel}" style="width:100%;height:900px;border:1px solid #e2e8f0;border-radius:6px;"></iframe>
+""")
 
+        if parca_network_html_rel:
+            f.write(f"""
+<!-- ===== ParCa Composition Diagram (Cytoscape.js viewer) ===== -->
+<h2 id="sec-parca-network">8. ParCa Composition Diagram</h2>
+<div class="section">
+  <p>Interactive Cytoscape.js view of the upstream <strong>ParCa</strong> 9-Step pipeline that
+  produces <code>sim_data</code> from the raw knowledge base. Stores on the left, Steps on the right;
+  click a node for ports, class, and docstring.
+  Full-screen viewer: <a href="{parca_network_html_rel}" target="_blank"><code>{parca_network_html_rel}</code></a>
+  &middot; details: <a href="parca_workflow_report.html">ParCa Workflow Report &rarr;</a></p>
+</div>
+<iframe src="{parca_network_html_rel}" style="width:100%;height:750px;border:1px solid #e2e8f0;border-radius:6px;"></iframe>
+""")
+
+        f.write(f"""
 <!-- ===== Timing Summary ===== -->
 <h2 id="sec-timing">Timing Summary</h2>
 <div class="section">
@@ -2318,6 +2336,27 @@ def run_workflow():
     )
     network_html_rel = os.path.relpath(network_html_path, WORKFLOW_DIR)
 
+    # ParCa Composition Diagram (the upstream 9-Step ParCa pipeline).
+    # Best-effort: if the parca viz package isn't importable, just skip.
+    parca_network_html_rel = None
+    try:
+        from v2ecoli.processes.parca.viz import (
+            build_graph as build_parca_graph,
+            write_outputs as write_parca_outputs,
+        )
+        parca_graph = build_parca_graph()
+        _, parca_network_html_path = write_parca_outputs(
+            parca_graph,
+            out_dir=WORKFLOW_DIR,
+            name='parca_network',
+            title='ParCa Composition Diagram',
+            subtitle='Interactive Cytoscape.js view of the 9-Step ParCa pipeline',
+        )
+        parca_network_html_rel = os.path.relpath(
+            parca_network_html_path, WORKFLOW_DIR)
+    except Exception as e:
+        print(f"    Skipped ParCa composition diagram: {e}")
+
     # Generate plots
     print("  Generating plots...")
     plots = {}
@@ -2341,7 +2380,10 @@ def run_workflow():
 
     # Generate HTML report
     print("  Generating HTML report...")
-    report_path = generate_html_report(step_results, plots, network_html_rel, diagnostics)
+    report_path = generate_html_report(
+        step_results, plots, network_html_rel, diagnostics,
+        parca_network_html_rel=parca_network_html_rel,
+    )
 
     pipeline_time = time.time() - pipeline_t0
     print("=" * 60)

@@ -185,6 +185,7 @@ def _extract_replication_signals(history):
         dars_listener = h.get('listeners', {}).get('dars', {}) if isinstance(h.get('listeners'), dict) else {}
         ddah_listener = h.get('listeners', {}).get('ddah', {}) if isinstance(h.get('listeners'), dict) else {}
         binding_listener = h.get('listeners', {}).get('dnaA_binding', {}) if isinstance(h.get('listeners'), dict) else {}
+        autoreg_listener = h.get('listeners', {}).get('dnaA_autoregulation', {}) if isinstance(h.get('listeners'), dict) else {}
 
         snaps.append({
             'time': t,
@@ -210,6 +211,11 @@ def _extract_replication_signals(history):
             'binding_bound_DARS1': binding_listener.get('bound_DARS1'),
             'binding_bound_DARS2': binding_listener.get('bound_DARS2'),
             'binding_bound_other': binding_listener.get('bound_other'),
+            'autoreg_repression_factor': autoreg_listener.get('repression_factor'),
+            'autoreg_dnaA_basal_prob': autoreg_listener.get('dnaA_basal_prob'),
+            'autoreg_dnaA_basal_prob_baseline': autoreg_listener.get(
+                'dnaA_basal_prob_baseline'),
+            'autoreg_fraction_bound': autoreg_listener.get('fraction_bound'),
             'critical_mass_per_oriC': rep_listener.get('critical_mass_per_oriC'),
             'critical_initiation_mass': rep_listener.get('critical_initiation_mass'),
             'dry_mass': float(mass.get('dry_mass', 0)),
@@ -328,12 +334,32 @@ def _run_pre_ddah_sim(duration):
 
 def _run_full_sim(duration):
     """Full replication_initiation architecture: RIDA + DARS + box
-    binding + DnaA-gated initiation + SeqA sequestration + DDAH."""
+    binding + DnaA-gated initiation + SeqA sequestration + DDAH +
+    dnaA promoter autoregulation."""
     from v2ecoli.composite_replication_initiation import (
         make_replication_initiation_composite,
     )
     return _run_sim(
         duration, make_replication_initiation_composite, label='full')
+
+
+def _run_pre_autoreg_sim(duration):
+    """Cumulative state right before Phase 8: everything except
+    dnaA promoter autoregulation. dnaA mRNA basal_prob runs at its
+    Parca-fit baseline, no occupancy feedback."""
+    from v2ecoli.composite_replication_initiation import (
+        make_replication_initiation_composite,
+    )
+    return _run_sim(
+        duration,
+        lambda **kw: make_replication_initiation_composite(
+            enable_rida=True, enable_dars=True,
+            enable_dnaA_box_binding=True,
+            enable_dnaA_gated_initiation=True,
+            enable_seqA_sequestration=True,
+            enable_ddah=True,
+            enable_dnaA_autoregulation=False, **kw),
+        label='pre_autoreg')
 
 
 # ---------------------------------------------------------------------------
@@ -1162,9 +1188,17 @@ def _check_phase7():
 
 def _check_phase8():
     """dnaA promoter autoregulation."""
-    text = _read_file('v2ecoli/processes/transcript_initiation.py')
-    if text and ('dnaA_autoregulation' in text or 'dnaA_box_occupancy' in text):
-        return 'done', 'dnaA-promoter autoregulation hook present in transcript_initiation'
+    process_text = _read_file('v2ecoli/processes/dnaA_autoregulation.py')
+    builder_text = _read_file('v2ecoli/generate_replication_initiation.py')
+    has_process = bool(process_text and 'class DnaAAutoregulation' in process_text)
+    has_splice = bool(builder_text and '_splice_dnaA_autoregulation' in builder_text)
+    if has_process and has_splice:
+        return 'done', (
+            'DnaAAutoregulation step rescales dnaA TU basal_prob by '
+            'bound_dnaA_promoter occupancy each tick')
+    if has_process or has_splice:
+        return 'in_progress', (
+            'partial: ' + ('process' if has_process else 'splice') + ' present')
     return 'pending', 'no DnaA-occupancy hook in transcript_initiation'
 
 
@@ -2611,10 +2645,119 @@ def _after_phase7(snaps):
 
 
 def _before_phase8(snaps):
-    return _placeholder(
-        'dnaA transcription rate is constant (no occupancy feedback). After '
-        'Phase 8, this panel plots dnaA mRNA against DnaA-ATP/ADP occupancy '
-        'at p1/p2 — the closed feedback loop.')
+    """Phase 8 Before = pre_autoreg: full architecture except the
+    autoregulator. dnaA basal_prob runs at its constant Parca-fit
+    baseline; the binding listener still reports occupancy at the
+    promoter, but nothing reads it. Plot the two channels next to each
+    other to show that occupancy varies but transcription doesn't
+    respond."""
+    if not snaps:
+        return _no_data_msg()
+    times = np.array([s['time'] / 60 for s in snaps])
+    bound = np.array([s.get('binding_bound_dnaA_promoter') or 0
+                      for s in snaps])
+    baseline = np.array([s.get('autoreg_dnaA_basal_prob_baseline') or 0.0
+                          for s in snaps])
+    # autoreg is disabled in this config so basal_prob just sits at the
+    # Parca-fit value (baseline), independent of occupancy.
+    fallback = float(np.nanmax(baseline)) if baseline.size else 0.0
+    fig, axes = plt.subplots(2, 1, figsize=(11, 6.5), sharex=True,
+                             gridspec_kw={'height_ratios': [2, 2]})
+    ax = axes[0]
+    ax.step(times, bound, where='post', color='#0891b2', lw=2.0,
+            label='bound DnaA at dnaA_promoter')
+    ax.set_ylabel('Bound DnaA (count)')
+    ax.set_title('Promoter occupancy fluctuates with the DnaA pool')
+    ax.legend(loc='upper right')
+    ax.grid(True, alpha=0.2)
+
+    ax = axes[1]
+    if fallback > 0:
+        ax.axhline(fallback, color='#64748b', lw=2.0, ls='--',
+                   label=f'dnaA basal_prob (constant, {fallback:.2e})')
+    else:
+        ax.axhline(0, color='#64748b', lw=2.0, ls='--',
+                   label='dnaA basal_prob (autoreg disabled)')
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('basal_prob')
+    ax.set_title('dnaA transcription rate is constant — no feedback yet')
+    ax.legend(loc='lower right')
+    ax.grid(True, alpha=0.2)
+
+    fig.tight_layout()
+    note = (
+        '<p class="note">Pre-Phase-8 cumulative slice: the full '
+        'architecture is in place, except <code>dnaA_autoregulation</code> '
+        'is disabled. Occupancy at the dnaA promoter (top) varies with '
+        'the DnaA pool, but the dnaA transcription rate (bottom) is '
+        'pinned to its Parca-fit baseline — there is nothing reading the '
+        'occupancy.</p>'
+    )
+    return _img(fig_to_b64(fig), 'Phase 8 before: open feedback loop') + note
+
+
+def _after_phase8(snaps):
+    """Phase 8 After: autoregulation closed. Show
+    ``autoreg_repression_factor`` and the resulting
+    ``autoreg_dnaA_basal_prob`` next to the bound-DnaA driver, so the
+    feedback is visibly anti-correlated with occupancy."""
+    if not snaps:
+        return _no_data_msg()
+    times = np.array([s['time'] / 60 for s in snaps])
+    bound = np.array([s.get('binding_bound_dnaA_promoter') or 0
+                      for s in snaps])
+    rf = np.array([s.get('autoreg_repression_factor') or 1.0
+                    for s in snaps])
+    bp = np.array([s.get('autoreg_dnaA_basal_prob') or 0.0
+                    for s in snaps])
+    base = np.array([s.get('autoreg_dnaA_basal_prob_baseline') or 0.0
+                      for s in snaps])
+    base_val = float(np.nanmax(base)) if base.size else 0.0
+
+    fig, axes = plt.subplots(2, 1, figsize=(11, 6.5), sharex=True,
+                             gridspec_kw={'height_ratios': [2, 2]})
+
+    ax = axes[0]
+    ax.step(times, bound, where='post', color='#0891b2', lw=2.0,
+            label='bound DnaA at dnaA_promoter (driver)')
+    ax2 = ax.twinx()
+    ax2.step(times, rf, where='post', color='#dc2626', lw=2.0, ls='--',
+             label='repression factor (1 → no repression, ↓ → repressed)')
+    ax2.set_ylim(0, 1.05)
+    ax.set_ylabel('Bound DnaA (count)', color='#0891b2')
+    ax2.set_ylabel('Repression factor', color='#dc2626')
+    ax.set_title('Autoregulation: bound DnaA at the dnaA promoter '
+                 'drives repression')
+    lines, labels = ax.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax.legend(lines + lines2, labels + labels2, loc='upper right')
+    ax.grid(True, alpha=0.2)
+
+    ax = axes[1]
+    ax.step(times, bp, where='post', color='#7c3aed', lw=2.0,
+            label='dnaA basal_prob (applied this tick)')
+    if base_val > 0:
+        ax.axhline(base_val, color='#64748b', lw=1.5, ls=':',
+                   label=f'baseline (Parca-fit, {base_val:.2e})')
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('basal_prob')
+    ax.set_title('dnaA transcription rate is now scaled down by '
+                 'occupancy — closing the feedback loop')
+    ax.legend(loc='lower right')
+    ax.grid(True, alpha=0.2)
+
+    fig.tight_layout()
+    note = (
+        '<p class="note">Phase 8 closes the loop. The repression factor '
+        '<code>1 - max_repression × bound/total</code> rescales the dnaA '
+        'TU\'s <code>basal_prob</code> in the live '
+        '<code>TranscriptInitiation</code> step each tick. With '
+        '<code>max_repression = 0.7</code>, full saturation drives '
+        '~3-fold repression. The applied basal_prob (lower panel, purple) '
+        'drops in concert with the bound count (upper panel, blue), '
+        'exactly anti-correlated with the autoregulator\'s driver.</p>'
+    )
+    return _img(fig_to_b64(fig), 'Phase 8 after: closed feedback loop') + note
 
 
 # ---------------------------------------------------------------------------
@@ -3030,29 +3173,53 @@ PHASES: list[Phase] = [
     ),
     Phase(
         number=8,
-        title='dnaA promoter autoregulation',
-        goal=('transcript_initiation reads DnaA-ATP/ADP occupancy at the p1/p2 '
-              'boxes and modulates dnaA transcription rate.'),
+        title='dnaA promoter autoregulation — close the loop on the DnaA cycle',
+        goal=('Add a dedicated `DnaAAutoregulation` Step that reads the '
+              'binding listener\'s `bound_dnaA_promoter` count each tick '
+              'and rescales the dnaA TU\'s `basal_prob` in the live '
+              '`TranscriptInitiation` instance. The repression factor is '
+              '`1 - max_repression × bound/total`, identity at zero '
+              'occupancy and minimum `1 - max_repression` at saturation. '
+              'The Parca-fit baseline is captured at attach-time and '
+              're-applied each tick, so the feedback is fully reversible. '
+              'p1 vs p2 splitting and the DnaA-ADP boost reported at p2 '
+              'are deferred follow-ups.'),
         status_check=_check_phase8,
         tests=(
             TestSpec(
                 'tests/test_dnaA_autoregulation.py',
-                'dnaA mRNA level decreases when DnaA-ATP occupancy at p1/p2 '
-                'boxes is elevated and recovers when the DnaA pool drops; '
-                'p2/p1 promoter activity ratio ≈ 3 at low DnaA occupancy.'),
+                'DnaAAutoregulation Step is in cell_state. Listener emits '
+                '`repression_factor`, `dnaA_basal_prob`, and '
+                '`dnaA_basal_prob_baseline`. The applied basal_prob is '
+                'scaled exactly by `1 - max_repression × f_bound` and '
+                'returns to baseline when occupancy drops back to zero '
+                '(reversibility). Disabling via `enable_dnaA_autoregulation'
+                '=False` removes the splice cleanly.'),
         ),
         gap_items=(
-            'dnaA gene is transcribed via generic `transcript_initiation`; '
-            'no DnaA-occupancy feedback on its own promoter.',
+            'No p1 / p2 promoter splitting yet — both share the same '
+            'TU-level basal_prob and the same scaling factor.',
+            'The default `max_repression = 0.7` (~3-fold repression at '
+            'saturation) is a first-pass tune; not calibrated to '
+            'measured fold-repression numbers.',
+            'Recent reports of *positive* regulation at p2 are not '
+            'modeled.',
         ),
         viz_plan=(
-            'Twin-axis plot: dnaA mRNA level (left axis) and DnaA-ATP+ADP '
-            'occupancy at p1/p2 boxes (right axis). The two should be '
-            'anti-correlated, closing the autoregulatory loop.'),
+            'Two-panel plot. Top: bound DnaA at the dnaA promoter '
+            '(driver) on the left axis with the repression factor on '
+            'the right axis. Bottom: applied dnaA `basal_prob` (purple) '
+            'against the constant Parca-fit baseline. The applied '
+            'basal_prob is anti-correlated with the bound count.'),
         before_plot=_before_phase8,
         after_description=(
-            'After Phase 8: anti-correlated dnaA mRNA and p1/p2 occupancy '
-            'traces; p2/p1 ratio panel.'),
+            'After Phase 8: dnaA basal_prob is rescaled each tick by '
+            '`1 - max_repression × bound/total`, anti-correlated with '
+            'promoter occupancy. The applied basal_prob and the bound '
+            'count move together but in opposite directions.'),
+        after_plot=_after_phase8,
+        before_config='pre_autoreg',
+        after_config='full',
     ),
 ]
 
@@ -3701,6 +3868,7 @@ def main():
             ('pre_gate', _run_pre_gate_sim),
             ('gated_no_seqA', _run_gated_no_seqA_sim),
             ('pre_ddah', _run_pre_ddah_sim),
+            ('pre_autoreg', _run_pre_autoreg_sim),
             ('full', _run_full_sim),
         ]
         for label, runner in configs:

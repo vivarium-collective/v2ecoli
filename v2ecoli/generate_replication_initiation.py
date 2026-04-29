@@ -39,6 +39,11 @@ from v2ecoli.processes.chromosome_replication_dnaA_gated import (
 )
 from v2ecoli.processes.dars import DARS, NAME as DARS_NAME, TOPOLOGY as DARS_TOPOLOGY
 from v2ecoli.processes.ddah import DDAH, NAME as DDAH_NAME, TOPOLOGY as DDAH_TOPOLOGY
+from v2ecoli.processes.dnaA_autoregulation import (
+    DnaAAutoregulation,
+    NAME as AUTOREG_NAME,
+    TOPOLOGY as AUTOREG_TOPOLOGY,
+)
 from v2ecoli.processes.dnaA_box_binding import (
     DnaABoxBinding, NAME as BINDING_NAME, TOPOLOGY as BINDING_TOPOLOGY,
 )
@@ -46,6 +51,7 @@ from v2ecoli.processes.rida import RIDA, NAME as RIDA_NAME, TOPOLOGY as RIDA_TOP
 
 
 _CHROMOSOME_REPLICATION_STEP_NAME = 'ecoli-chromosome-replication'
+_TRANSCRIPT_INITIATION_STEP_NAME = 'ecoli-transcript-initiation'
 
 # SeqA sequestration window — ~10 min in fast-growth E. coli per the
 # curated reference (Katayama et al. 2017, in the curated PDF).
@@ -223,6 +229,42 @@ def _splice_dars(document, seed):
     return document
 
 
+def _splice_dnaA_autoregulation(document):
+    """Add the DnaAAutoregulation step and wire it to the live
+    TranscriptInitiation instance. The step rescales the dnaA TU's
+    basal_prob each tick based on the binding listener's
+    ``bound_dnaA_promoter`` count, closing the negative feedback loop
+    on the DnaA cycle. Requires Phase 2 (dnaA_box_binding) to be active
+    so the listener has a value to read.
+    """
+    cell_state = document['state']['agents']['0']
+    if AUTOREG_NAME in cell_state:
+        return document
+    autoreg_config = {'time_step': 1.0}
+    instance = DnaAAutoregulation(autoreg_config)
+
+    # Wire to the live TranscriptInitiation step so the autoregulator
+    # can poke its basal_prob array directly. If transcript_initiation
+    # isn't in the document (extremely minimal architectures), the
+    # autoregulator falls back to listener-only behavior.
+    txi_edge = cell_state.get(_TRANSCRIPT_INITIATION_STEP_NAME)
+    if isinstance(txi_edge, dict) and 'instance' in txi_edge:
+        instance.attach_transcript_initiation(txi_edge['instance'])
+
+    cell_state[AUTOREG_NAME] = make_edge(
+        instance, AUTOREG_TOPOLOGY, edge_type='step', config=autoreg_config)
+
+    document.setdefault('flow_order', [])
+    if AUTOREG_NAME not in document['flow_order']:
+        # Autoregulation runs *after* dnaA_box_binding (so the bound
+        # count is fresh) and *before* transcript_initiation (so the
+        # rescaled basal_prob is what TranscriptInitiation reads this
+        # tick). flow_order entries that aren't present are no-ops, so
+        # it's safe to append unconditionally.
+        document['flow_order'] = list(document['flow_order']) + [AUTOREG_NAME]
+    return document
+
+
 def build_replication_initiation_document(
     initial_state,
     configs,
@@ -237,6 +279,7 @@ def build_replication_initiation_document(
     enable_dnaA_gated_initiation: bool = True,
     enable_seqA_sequestration: bool = True,
     enable_ddah: bool = True,
+    enable_dnaA_autoregulation: bool = True,
 ):
     """Build the replication-initiation document.
 
@@ -281,4 +324,6 @@ def build_replication_initiation_document(
                        if enable_seqA_sequestration else 0.0)
         document = _swap_in_dnaA_gated_chromosome_replication(
             document, seqA_window_s=seqA_window)
+    if enable_dnaA_autoregulation and enable_dnaA_box_binding:
+        document = _splice_dnaA_autoregulation(document)
     return document

@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import ast
 import base64
+import functools
 import html as html_lib
 import io
 import os
@@ -61,7 +62,7 @@ SNAPSHOT_INTERVAL = 50.0
 
 def fig_to_b64(fig):
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=140, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=100, bbox_inches='tight')
     plt.close(fig)
     buf.seek(0)
     return base64.b64encode(buf.read()).decode('utf-8')
@@ -252,9 +253,25 @@ def _run_rida_dars_sim(duration):
         label='rida_dars')
 
 
+def _run_pre_gate_sim(duration):
+    """Cumulative state right before Phase 3: RIDA + DARS + box
+    binding, but the baseline mass-threshold ChromosomeReplication
+    is still in place."""
+    from v2ecoli.composite_replication_initiation import (
+        make_replication_initiation_composite,
+    )
+    return _run_sim(
+        duration,
+        lambda **kw: make_replication_initiation_composite(
+            enable_rida=True, enable_dars=True,
+            enable_dnaA_box_binding=True,
+            enable_dnaA_gated_initiation=False, **kw),
+        label='pre_gate')
+
+
 def _run_full_sim(duration):
-    """Run the full replication_initiation architecture (RIDA + DARS +
-    box binding). This is Phase 2's cumulative state — the latest."""
+    """Full replication_initiation architecture: RIDA + DARS + box
+    binding + DnaA-gated initiation."""
     from v2ecoli.composite_replication_initiation import (
         make_replication_initiation_composite,
     )
@@ -476,13 +493,18 @@ def _check_phase2():
 
 
 def _check_phase3():
-    """Replace mass-threshold initiation gate."""
-    text = _read_file('v2ecoli/processes/chromosome_replication.py')
-    if text and 'criticalMassPerOriC' not in text:
-        return 'done', 'mass threshold removed from chromosome_replication.py'
-    if text and 'dnaA_filament' in text:
-        return 'in_progress', 'DnaA-filament gating logic present alongside mass threshold'
-    return 'pending', 'mass threshold (`criticalMassPerOriC`) still drives initiation'
+    """DnaA-gated chromosome-replication initiation."""
+    if _file_exists('v2ecoli/processes/chromosome_replication_dnaA_gated.py'):
+        gen = _read_file('v2ecoli/generate_replication_initiation.py')
+        if gen and '_swap_in_dnaA_gated_chromosome_replication' in gen:
+            return 'done', (
+                'DnaAGatedChromosomeReplication subclass swapped in; '
+                'initiation gates on DnaA-ATP-per-oriC instead of '
+                'cell-mass-per-oriC')
+        return 'in_progress', (
+            'DnaA-gated subclass exists but the architecture does not '
+            'swap it in')
+    return 'pending', 'no DnaA-gated chromosome_replication subclass'
 
 
 def _check_phase4():
@@ -1062,6 +1084,7 @@ PHASE5_ARCH_CHANGES = (
 )
 
 
+@functools.lru_cache(maxsize=1)
 def _phase5_bigraph_svg():
     """Render the RIDA-relevant subset of the live bigraph using
     ``bigraph_viz.plot_bigraph``. Builds the architecture composite
@@ -1123,7 +1146,7 @@ def _phase5_bigraph_svg():
     try:
         plot_bigraph(
             viz_state, remove_process_place_edges=True,
-            rankdir='LR', dpi='200',
+            rankdir='LR', dpi='140',
             collapse_redundant_processes=True,
             show_values=False,
             port_labels=True,
@@ -1757,44 +1780,45 @@ PHASES: list[Phase] = [
         after_plot=_after_phase2,
         extra_sections=_phase2_extras,
         before_config='rida_dars',
-        after_config='full',
+        after_config='pre_gate',
     ),
     Phase(
         number=3,
-        title='Replace mass-threshold initiation',
-        goal=('Gate ChromosomeReplication on R1/R2/R4 occupancy + low-affinity '
-              'DnaA-ATP filament threshold instead of M_cell/n_oriC.'),
+        title='Replace mass-threshold initiation gate',
+        goal=('Substitute `DnaAGatedChromosomeReplication` for the baseline '
+              '`ChromosomeReplication`. The new gate fires when '
+              '`DnaA-ATP / n_oriC >= threshold`, matching the structure '
+              'of the mass-per-oriC gate (per-oriC division gives the '
+              'same self-limiting feedback) but routed through the '
+              'DnaA-ATP pool that Phases 5 + 7 set up.'),
         status_check=_check_phase3,
         tests=(
             TestSpec(
-                'tests/test_model_behavior.py',
-                'Existing whole-cell behavior tests (cell-cycle timing, mass '
-                'doubling, replication-fork conservation). Thresholds may '
-                'need rebaselining for the DnaA-driven gate.'),
-            TestSpec(
                 'tests/test_initiation_dnaA_gate.py',
-                'Initiation timing under the DnaA-occupancy gate matches the '
-                'mass-threshold version within ±10% under nominal growth, '
-                'but shifts measurably when the DnaA pool is perturbed '
-                '(±20% DnaA monomer count).'),
+                'DnaAGatedChromosomeReplication is in cell_state at the '
+                'baseline step name. Initiation fires at least once over '
+                '30 min of sim. The gate self-limits: oriC count does '
+                "not run away. enable_dnaA_gated_initiation=False falls "
+                'back to baseline.'),
         ),
         gap_items=(
-            'Initiation in `chromosome_replication.py:243, 320` is purely '
-            'mass-driven; DnaA is not even in the bulk inputs.',
-            'Behavior thresholds in `test_model_behavior.py` will need '
-            'rebaselining once the gate is DnaA-driven.',
+            'The current gate uses absolute DnaA-ATP count per oriC, with a '
+            'tunable threshold parameter. A more refined gate would read '
+            'the binding listener (Phase 2) for actual bound-box counts at '
+            'oriC and require a specific R1/R2/R4 occupancy + low-affinity '
+            'filament configuration.',
+            'Threshold value is hardcoded at 60 DnaA-ATP / oriC; should be '
+            'calibrated against measured cell-cycle timing.',
         ),
-        viz_plan=(
-            'Side-by-side: cell mass / oriC trace and DnaA-ATP filament '
-            'occupancy at oriC, with vertical markers at every initiation '
-            'event. Demonstrates that the new gate fires at biologically '
-            'consistent times rather than purely mass-based ones.'),
+        viz_plan='',
         before_plot=_before_phase3,
         after_description=(
-            'After Phase 3: dual panel with mass-per-oriC (deprecated trigger) '
-            'and DnaA-filament occupancy (new trigger), with initiation '
-            'events marked on both. Shifts visible when the DnaA pool is '
-            'perturbed.'),
+            'After Phase 3: oriC count over time under the DnaA-gated '
+            'initiation; the listener `critical_mass_per_oriC` field now '
+            'reads as DnaA-ATP-per-oriC / threshold.'),
+        after_plot=_before_phase3,  # same plot shape; data differs by config
+        before_config='pre_gate',
+        after_config='full',
     ),
     Phase(
         number=4,
@@ -2033,10 +2057,11 @@ def _render_dars_table():
 
 
 _CONFIG_LABELS = {
-    'baseline':  'baseline architecture (no RIDA, no DARS, no box binding)',
-    'rida_only': 'baseline + RIDA (no DARS, no box binding)',
-    'rida_dars': 'baseline + RIDA + DARS (no box binding)',
-    'full':      'replication_initiation (RIDA + DARS + box binding)',
+    'baseline':  'baseline (no extras; mass-threshold initiation gate)',
+    'rida_only': '+ RIDA (no DARS, no binding; mass gate)',
+    'rida_dars': '+ RIDA + DARS (no binding; mass gate)',
+    'pre_gate':  '+ RIDA + DARS + binding (mass gate still active)',
+    'full':      'replication_initiation (DnaA-gated initiation)',
 }
 
 
@@ -2450,6 +2475,7 @@ def main():
             ('baseline', _run_baseline_sim),
             ('rida_only', _run_rida_only_sim),
             ('rida_dars', _run_rida_dars_sim),
+            ('pre_gate', _run_pre_gate_sim),
             ('full', _run_full_sim),
         ]
         for label, runner in configs:

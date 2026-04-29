@@ -34,11 +34,37 @@ from v2ecoli.generate import (
     build_document as _baseline_build_document,
     make_edge,
 )
+from v2ecoli.processes.chromosome_replication_dnaA_gated import (
+    DnaAGatedChromosomeReplication,
+)
 from v2ecoli.processes.dars import DARS, NAME as DARS_NAME, TOPOLOGY as DARS_TOPOLOGY
 from v2ecoli.processes.dnaA_box_binding import (
     DnaABoxBinding, NAME as BINDING_NAME, TOPOLOGY as BINDING_TOPOLOGY,
 )
 from v2ecoli.processes.rida import RIDA, NAME as RIDA_NAME, TOPOLOGY as RIDA_TOPOLOGY
+
+
+_CHROMOSOME_REPLICATION_STEP_NAME = 'ecoli-chromosome-replication'
+
+
+def _swap_in_dnaA_gated_chromosome_replication(document):
+    """Replace the baseline ChromosomeReplication instance with the
+    DnaA-gated subclass. Keeps the same step name, topology, and
+    config — only the underlying class differs. The subclass calls
+    super()._prepare() so existing bookkeeping (bulk indices,
+    replisome subunit accounting) is preserved."""
+    cell_state = document['state']['agents']['0']
+    edge = cell_state.get(_CHROMOSOME_REPLICATION_STEP_NAME)
+    if not isinstance(edge, dict) or 'instance' not in edge:
+        return document
+    old_instance = edge['instance']
+    raw_config = getattr(old_instance, '_raw_config',
+                         getattr(old_instance, 'parameters', {}))
+    new_instance = DnaAGatedChromosomeReplication(raw_config)
+    edge['instance'] = new_instance
+    cls = type(new_instance)
+    edge['address'] = f'local:{cls.__module__}.{cls.__qualname__}'
+    return document
 
 
 # Identifier used by reports / network views to label this architecture.
@@ -175,6 +201,7 @@ def build_replication_initiation_document(
     enable_rida: bool = True,
     enable_dars: bool = True,
     enable_dnaA_box_binding: bool = True,
+    enable_dnaA_gated_initiation: bool = True,
 ):
     """Build the replication-initiation document.
 
@@ -212,4 +239,6 @@ def build_replication_initiation_document(
         document = _splice_dars(document, seed=seed)
     if enable_dnaA_box_binding:
         document = _splice_dnaA_box_binding(document, seed=seed)
+    if enable_dnaA_gated_initiation:
+        document = _swap_in_dnaA_gated_chromosome_replication(document)
     return document

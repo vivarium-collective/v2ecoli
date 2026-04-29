@@ -1727,11 +1727,14 @@ class Phase:
 PHASES: list[Phase] = [
     Phase(
         number=0,
-        title='Region classifier (coordinate-based)',
-        goal=('Add bp boundaries for oriC / dnaA_promoter / datA / DARS1 / '
-              'DARS2 to molecular_reference.py and a `region_for_coord(bp)` '
-              'classifier. No schema change — region is derived from each '
-              'box\'s existing `coordinates` field.'),
+        title='Region classifier — partition the 307 consensus boxes',
+        goal=('The bioinformatic strict-consensus search at '
+              '`flat/sequence_motifs.tsv` finds ~307 distinct DnaA boxes '
+              '(TTWTNCACA variants) across the chromosome. Phase 0 adds '
+              '`REGION_BOUNDARIES_ABS` and `region_for_coord(bp)` to '
+              'partition them into oriC / dnaA_promoter / datA / DARS1 / '
+              'DARS2 / `other`. No schema change — region is derived from '
+              'each box\'s existing `coordinates` field.'),
         status_check=_check_phase0,
         tests=(
             TestSpec(
@@ -1746,11 +1749,15 @@ PHASES: list[Phase] = [
                 'datA=4, DARS1=3, DARS2=5).'),
         ),
         gap_items=(
-            'No way to slice DnaA boxes by regulatory locus (oriC vs dnaA '
-            'promoter vs datA vs DARS) — the binding process in Phase 2 needs '
-            'this to apply per-region affinity classes.',
-            'No init-time check that the bioinformatic motif search finds the '
-            'expected number of boxes per locus (11 / 7 / 4 / 3 / 5).',
+            'Of ~307 strict-consensus boxes total, only ~8 fall in the '
+            'five named regulatory regions; the remaining ~99% are in '
+            '`other` (genomic background). These background boxes are '
+            'where most DnaA titration happens.',
+            'Per-box affinity differentiation (R1/R2/R4 vs the named '
+            'low-affinity oriC sites) is not yet supported — the '
+            'strict-consensus search picks out high-affinity boxes only. '
+            'Enriching `motif_coordinates` with named non-consensus boxes '
+            'is a follow-up.',
         ),
         viz_plan=(
             'Bar chart of DnaA-box counts per region, with the curated '
@@ -1767,13 +1774,14 @@ PHASES: list[Phase] = [
     ),
     Phase(
         number=1,
-        title='Expose DnaA pools + diagnose nucleotide-state gap',
+        title='Expose the DnaA nucleotide-state pools',
         goal=('Wire a listener that emits apo / DnaA-ATP / DnaA-ADP pool '
-              'counts every step (already done) and use those counts to '
-              'show how far the current model sits from the literature '
-              'band. The phase is incomplete until Phase 5 (RIDA) and '
-              'Phase 7 (DARS) supply the kinetic forces that pull the '
-              'observed DnaA-ATP fraction down into the biological range.'),
+              'counts every step. Pool dynamics were already running '
+              'underneath (the equilibrium reactions for both '
+              'nucleotide-bound forms have been firing in the cache '
+              'since the start) but were invisible from the trajectory; '
+              'Phase 1 surfaces them so the rest of the work can be '
+              'measured against the literature steady-state band.'),
         status_check=_check_phase1,
         tests=(
             TestSpec(
@@ -1786,14 +1794,10 @@ PHASES: list[Phase] = [
                 'conserved modulo translation / degradation.'),
         ),
         gap_items=(
-            'Observed DnaA-ATP fraction sits at ~95% — outside the '
-            'literature band of 30–70%.',
-            'RIDA flux is zero in FBA today (Phase 5 wires the kinetic '
-            'constraint that pulls DnaA-ATP toward DnaA-ADP).',
-            'No DARS reactivation yet (Phase 7 closes the cycle by '
-            'converting DnaA-ADP back into DnaA-ATP via DARS1/2).',
-            'No DnaA-box-bound sequestration of the cytoplasmic DnaA '
-            'pool (Phase 2 wires the binding process).',
+            'Phase 2 (DnaA-box binding) is wired as a listener-only '
+            'process today — bound boxes are counted but not yet '
+            'subtracted from the free DnaA pool. The observed pool '
+            'counts represent total DnaA, not free DnaA.',
         ),
         viz_plan=(
             'Before: observed DnaA pool counts and ATP-fraction trace, '
@@ -1813,11 +1817,15 @@ PHASES: list[Phase] = [
     ),
     Phase(
         number=2,
-        title='DnaA box binding (listener)',
-        goal=('Add a listener-only DnaABoxBinding step that samples per-box '
-              'equilibrium occupancy each tick from the DnaA-ATP/ADP bulk '
-              'pools and per-region affinity classes. Emits per-region '
-              'bound counts that Phase 3 will read to gate initiation.'),
+        title='DnaA-box binding + chromosomal titration',
+        goal=('Add a DnaABoxBinding step that samples per-box equilibrium '
+              'occupancy each tick from the DnaA-ATP/ADP bulk pools and '
+              'per-region affinity classes. Emits per-region bound counts '
+              '(including the ~99 background boxes in `other`, which '
+              'sequester most of the DnaA pool — the chromosomal '
+              'titration buffer described in the curated reference). '
+              'Currently a listener: bound counts are reported but not '
+              'yet subtracted from the free pool.'),
         status_check=_check_phase2,
         tests=(
             TestSpec(
@@ -1828,13 +1836,21 @@ PHASES: list[Phase] = [
                 "'other' boxes are partially bound (Kd ~100 nM)."),
         ),
         gap_items=(
-            'No write-back to the DnaA_bound field on the unique-molecule '
-            'store yet — the set-update / add-delete conflict is left as a '
-            'follow-up. Phase 3 reads the listener directly.',
-            'All named regions are currently treated as high-affinity. '
-            'Per-box affinity differentiation (R1/R2/R4 vs the named low-'
-            'affinity oriC sites) is a follow-up that requires enriching '
-            'motif_coordinates with non-consensus boxes.',
+            '<strong>Titration is not yet wired into the dynamics.</strong> '
+            'The listener counts ~250+ bound boxes at steady state but '
+            'does not decrement the free DnaA-ATP / DnaA-ADP pool. '
+            'Phases 3, 5, 7 see the un-buffered total pool, which '
+            'inflates the available DnaA-ATP for initiation by ~5–10×. '
+            'The follow-up is to move bound counts into the bulk delta '
+            'each tick.',
+            'No write-back to the `DnaA_bound` field on the unique-'
+            'molecule store — the set-update / add-delete conflict with '
+            'chromosome_structure is left as a follow-up.',
+            'All named regions currently use the high-affinity rule. '
+            'Per-box affinity differentiation (R1/R2/R4 vs named low-'
+            'affinity oriC sites) and context-dependent binding (variants '
+            'near high-affinity clusters acting as high-affinity sites '
+            'via cooperativity) are follow-ups.',
         ),
         viz_plan='',
         before_plot=_before_phase2,
@@ -1866,13 +1882,14 @@ PHASES: list[Phase] = [
                 'back to baseline.'),
         ),
         gap_items=(
-            'The current gate uses absolute DnaA-ATP count per oriC, with a '
-            'tunable threshold parameter. A more refined gate would read '
-            'the binding listener (Phase 2) for actual bound-box counts at '
-            'oriC and require a specific R1/R2/R4 occupancy + low-affinity '
-            'filament configuration.',
-            'Threshold value is hardcoded at 60 DnaA-ATP / oriC; should be '
-            'calibrated against measured cell-cycle timing.',
+            'The threshold (60 DnaA-ATP / oriC) is calibrated against the '
+            'un-buffered DnaA pool. Once Phase 2 wires titration so the '
+            'gate sees the *free* pool only, this number will need to '
+            'come down by an order of magnitude.',
+            'A more refined gate would read the binding listener directly '
+            'for the R1/R2/R4 high-affinity occupancy + the low-affinity '
+            'DnaA-ATP filament configuration the curated reference '
+            'describes, instead of the bulk-count proxy.',
         ),
         viz_plan='',
         before_plot=_before_phase3,
@@ -1956,9 +1973,10 @@ PHASES: list[Phase] = [
     ),
     Phase(
         number=6,
-        title='DDAH (datA)',
+        title='DDAH — backup DnaA-ATP hydrolysis at datA',
         goal=('Load datA region coords; IHF binds the datA IBS; DDAH process '
-              'hydrolyzes DnaA-ATP via the datA–IHF complex.'),
+              'hydrolyzes DnaA-ATP via the datA–IHF complex. Acts as a '
+              'replication-uncoupled brake on DnaA-ATP, complementing RIDA.'),
         status_check=_check_phase6,
         tests=(
             TestSpec(
@@ -2052,6 +2070,105 @@ PHASES: list[Phase] = [
             'traces; p2/p1 ratio panel.'),
     ),
 ]
+
+
+# ---------------------------------------------------------------------------
+# Narrative: phases grouped into four Parts
+#
+# Phase numbers track implementation order (and so commits / tests).
+# The Parts impose a *narrative* order on top: a reader following the
+# story from the top of the report goes through Foundations → the
+# nucleotide-state cycle → cytoplasm-to-chromosome → regulatory
+# feedbacks. Within a Part the phases are re-ordered to read in
+# dependency order, not by number.
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class Part:
+    number: int
+    title: str
+    intro: str
+    phase_numbers: tuple[int, ...]
+
+    @property
+    def slug(self) -> str:
+        return f'part-{self.number}'
+
+
+PARTS: tuple[Part, ...] = (
+    Part(
+        number=1,
+        title='Part I — Foundations: codify what\'s already there',
+        intro=(
+            'Before adding any new biology, codify the curated reference '
+            'and surface the relevant pools. The bioinformatic motif '
+            'search at <code>flat/sequence_motifs.tsv</code> already '
+            'finds ~307 strict-consensus DnaA boxes (TTWTNCACA) across '
+            'the chromosome — far more than the 30 named in the curated '
+            'PDF. Phase 0 partitions these into the named regulatory '
+            'regions plus an "other" bucket for the genomic background; '
+            'Phase 1 wires a listener so the apo / DnaA-ATP / DnaA-ADP '
+            'pool counts are visible in the trajectory.'
+        ),
+        phase_numbers=(0, 1),
+    ),
+    Part(
+        number=2,
+        title='Part II — Nucleotide-state cycle: drive DnaA-ATP / DnaA-ADP dynamics',
+        intro=(
+            'The DnaA nucleotide state is the central control variable. '
+            'RIDA pulls DnaA-ATP into DnaA-ADP during ongoing replication '
+            '(coupled to the DNA-loaded β-clamp + Hda complex); DARS '
+            'pulls DnaA-ADP back into the apo form, which is then re-'
+            'loaded with cellular ATP via the existing equilibrium '
+            'reaction. Together they form a closed cycle whose steady-'
+            'state ATP-fraction lands in the literature-observed '
+            '30–70% band.'
+        ),
+        phase_numbers=(5, 7),
+    ),
+    Part(
+        number=3,
+        title='Part III — Cytoplasm to chromosome: bind, titrate, gate',
+        intro=(
+            'DnaA acts on initiation by binding to chromosomal sites at '
+            'oriC. Phase 2 wires an equilibrium-occupancy binding model '
+            'over the ~307 consensus boxes; the genomic-background '
+            'boxes ("other") sequester the bulk of the DnaA pool '
+            '(<strong>titration</strong>). Phase 3 replaces the baseline '
+            'mass-threshold initiation gate with a DnaA-ATP-per-oriC '
+            'gate — same per-oriC self-limiting feedback as the mass '
+            'gate, but now driven by the DnaA biology that Part II '
+            'sets up. Note: the binding listener counts bound boxes '
+            'today but does not yet decrement the free DnaA pool — '
+            'the titration force is visible only in the listener, not '
+            'in downstream dynamics. Adding that decrement is a '
+            'follow-up.'
+        ),
+        phase_numbers=(2, 3),
+    ),
+    Part(
+        number=4,
+        title='Part IV — Regulatory feedbacks: refine the timing',
+        intro=(
+            'Three regulatory layers refine the cell-cycle timing: '
+            'SeqA sequesters newly-replicated origins for ~10 min '
+            '(blocking premature reinitiation), DDAH provides backup '
+            'DnaA-ATP hydrolysis at the datA locus (with IHF as the '
+            'gating cofactor), and the dnaA gene autoregulates its '
+            'own expression via DnaA binding at the boxes between p1 '
+            'and p2. None of these are wired yet.'
+        ),
+        phase_numbers=(4, 6, 8),
+    ),
+)
+
+
+def _phase_by_number(n: int) -> Phase:
+    for p in PHASES:
+        if p.number == n:
+            return p
+    raise KeyError(n)
 
 
 # ---------------------------------------------------------------------------
@@ -2194,48 +2311,68 @@ def _render_phase_section(phase: Phase, statuses, trajectories):
 
 
 def _render_overview_table(statuses):
-    rows = []
-    for phase in PHASES:
-        status, _ = statuses[phase.number]
-        rows.append(
-            f'<tr><td>{phase.number}</td>'
-            f'<td><a href="#{phase.slug}">{html_lib.escape(phase.title)}</a></td>'
-            f'<td>{_status_pill(status)}</td>'
-            f'<td>{html_lib.escape(phase.goal)}</td></tr>'
-        )
-    return ('<table class="overview"><thead><tr><th>#</th><th>Phase</th>'
-            '<th>Status</th><th>Goal</th></tr></thead>'
-            '<tbody>' + ''.join(rows) + '</tbody></table>')
+    """Overview grouped by Part. Phases listed in narrative order
+    (the order they appear in PARTS), not by phase number."""
+    out = ['<table class="overview"><thead>'
+           '<tr><th>#</th><th>Phase</th><th>Status</th>'
+           '<th>What it does</th></tr></thead><tbody>']
+    for part in PARTS:
+        out.append(
+            f'<tr class="part-row"><td colspan="4">'
+            f'<a href="#{part.slug}"><strong>{html_lib.escape(part.title)}</strong></a>'
+            f'</td></tr>')
+        for n in part.phase_numbers:
+            phase = _phase_by_number(n)
+            status, _ = statuses[phase.number]
+            out.append(
+                f'<tr><td>P{phase.number}</td>'
+                f'<td><a href="#{phase.slug}">{html_lib.escape(phase.title)}</a></td>'
+                f'<td>{_status_pill(status)}</td>'
+                f'<td>{html_lib.escape(phase.goal)}</td></tr>'
+            )
+    out.append('</tbody></table>')
+    return ''.join(out)
 
 
 def _render_sidebar(statuses):
-    phase_links = []
-    for phase in PHASES:
-        status, _ = statuses[phase.number]
-        color = _STATUS_COLORS[status][0]
-        phase_links.append(
-            f'<a href="#{phase.slug}" class="phase-link">'
-            f'<span class="dot" style="background:{color};"></span>'
-            f'<span class="num">P{phase.number}</span> '
-            f'<span class="ttl">{html_lib.escape(phase.title)}</span></a>'
-        )
-    return f"""
-<aside class="sidebar">
-  <h3>Navigation</h3>
-  <a href="#overview" class="nav-link">Overview</a>
-  <div class="phase-list">{''.join(phase_links)}</div>
-  <h3>Reference</h3>
-  <a href="#ref-oriC" class="nav-link">oriC</a>
-  <a href="#ref-promoter" class="nav-link">dnaA promoter</a>
-  <a href="#ref-datA" class="nav-link">datA</a>
-  <a href="#ref-dars" class="nav-link">DARS1 / DARS2</a>
-  <a href="#ref-seqA-rida" class="nav-link">SeqA / RIDA</a>
-  <a href="#ref-motifs" class="nav-link">Consensus motifs</a>
-  <h3>Data</h3>
-  <a href="#trajectory" class="nav-link">Trajectory plots</a>
-  <a href="#references" class="nav-link">References</a>
-</aside>
-"""
+    out = ['<aside class="sidebar">'
+           '<h3>Navigation</h3>'
+           '<a href="#overview" class="nav-link">Overview</a>']
+    for part in PARTS:
+        out.append(f'<h3>{html_lib.escape(part.title)}</h3>')
+        out.append('<div class="phase-list">')
+        for n in part.phase_numbers:
+            phase = _phase_by_number(n)
+            status, _ = statuses[phase.number]
+            color = _STATUS_COLORS[status][0]
+            out.append(
+                f'<a href="#{phase.slug}" class="phase-link">'
+                f'<span class="dot" style="background:{color};"></span>'
+                f'<span class="num">P{phase.number}</span> '
+                f'<span class="ttl">{html_lib.escape(phase.title)}</span></a>')
+        out.append('</div>')
+    out.append(
+        '<h3>Reference</h3>'
+        '<a href="#ref-oriC" class="nav-link">oriC</a>'
+        '<a href="#ref-promoter" class="nav-link">dnaA promoter</a>'
+        '<a href="#ref-datA" class="nav-link">datA</a>'
+        '<a href="#ref-dars" class="nav-link">DARS1 / DARS2</a>'
+        '<a href="#ref-seqA-rida" class="nav-link">SeqA / RIDA</a>'
+        '<a href="#ref-motifs" class="nav-link">Consensus motifs</a>'
+        '<h3>Data</h3>'
+        '<a href="#trajectory" class="nav-link">Trajectory plots</a>'
+        '<a href="#references" class="nav-link">References</a>'
+        '</aside>')
+    return ''.join(out)
+
+
+def _render_part_intro(part: Part) -> str:
+    return (
+        f'<section id="{part.slug}" class="part-intro">'
+        f'<h2 class="part-title">{html_lib.escape(part.title)}</h2>'
+        f'<p class="part-intro-text">{part.intro}</p>'
+        f'</section>'
+    )
 
 
 def _ref_path(out_path, target):
@@ -2268,9 +2405,24 @@ def render_html(trajectories, sim_meta, out_path):
 
     sidebar_html = _render_sidebar(statuses)
     overview_table = _render_overview_table(statuses)
-    phase_sections = '\n'.join(
-        _render_phase_section(p, statuses, trajectories) for p in PHASES
-    )
+    # Render Parts in narrative order: Part intro, then each phase in
+    # the Part's declared order. Phase numbers in PHASES no longer
+    # control display order — PARTS does.
+    rendered_phase_numbers: set[int] = set()
+    sections = []
+    for part in PARTS:
+        sections.append(_render_part_intro(part))
+        for n in part.phase_numbers:
+            phase = _phase_by_number(n)
+            sections.append(_render_phase_section(phase, statuses, trajectories))
+            rendered_phase_numbers.add(n)
+    # Safety net: any Phase not assigned to a Part still gets rendered
+    # at the bottom so nothing silently disappears if PARTS gets out
+    # of sync with PHASES.
+    for phase in PHASES:
+        if phase.number not in rendered_phase_numbers:
+            sections.append(_render_phase_section(phase, statuses, trajectories))
+    phase_sections = '\n'.join(sections)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -2391,6 +2543,17 @@ table th, table td {{ border: 1px solid #cbd5e1; padding: 5px 9px;
 table thead {{ background: #e2e8f0; }}
 table.overview td:first-child {{ width: 28px; text-align: center;
                                   font-family: monospace; }}
+table.overview tr.part-row td {{ background: #1e3a8a; color: #fff;
+                                  border: 1px solid #1e3a8a;
+                                  padding: 6px 10px; }}
+table.overview tr.part-row td a {{ color: #fff; text-decoration: none; }}
+table.overview tr.part-row td a:hover {{ text-decoration: underline; }}
+section.part-intro {{ background: #eff6ff; border: 1px solid #bfdbfe;
+                       border-left: 4px solid #1e3a8a; }}
+section.part-intro h2.part-title {{ color: #1e3a8a; margin-top: 0; }}
+section.part-intro .part-intro-text {{ color: #1e293b; font-size: 0.95em;
+                                        line-height: 1.55; margin-bottom: 0; }}
+.sidebar h3 {{ font-size: 0.74em; }}
 table code {{ background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }}
 .note {{ font-size: 0.85em; color: #475569; }}
 .refs {{ font-size: 0.85em; color: #334155; }}
@@ -2416,9 +2579,14 @@ table code {{ background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }}
 <section id="overview">
 <h2>Overview</h2>
 <p class="note">
-Each row links to the phase's section. Status is auto-detected from the codebase
-(schema fields, molecule_ids entries, process modules, sim_data attributes), so
-the indicators below cannot drift from reality.
+The work is grouped into four <strong>Parts</strong>, each answering one
+question: codify what's already there → drive the DnaA-ATP/ADP cycle →
+bind to the chromosome and gate initiation → add regulatory feedbacks.
+Phase numbers track implementation order; the table below renders them
+in <em>narrative</em> order under each Part. Status pills are
+auto-detected from the codebase (schema fields, molecule_ids entries,
+process modules, sim_data attributes), so the indicators cannot drift
+from reality.
 </p>
 {overview_table}
 </section>

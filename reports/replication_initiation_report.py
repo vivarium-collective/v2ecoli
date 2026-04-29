@@ -511,15 +511,156 @@ def _rel_to_angle(rel_bp: int) -> float:
     return _abs_to_angle(abs_bp)
 
 
-def _draw_one_circle(ax, cx, cy, R, fork_coords, *, show_regions=True):
-    """Draw one chromosome circle at (cx, cy) with named regions,
-    oriC at top, ter at bottom, and the given fork coordinates."""
+def _region_mid_angle(lo: int, hi: int) -> float:
+    """Vector-average the two endpoint angles of a region. Naïve scalar
+    averaging breaks when the region straddles bp 0 (e.g. oriC), because
+    the two endpoints land on opposite sides of the angle wrap and their
+    arithmetic mean ends up half a circle away from the actual region."""
+    a1 = _abs_to_angle(lo)
+    a2 = _abs_to_angle(hi)
+    return float(np.arctan2(np.sin(a1) + np.sin(a2),
+                            np.cos(a1) + np.cos(a2)))
+
+
+def _draw_region_arc(ax, cx, cy, R, lo_abs, hi_abs, color, *,
+                      min_arc_deg=4.0, lw=8.0, zorder=4):
+    """Draw a thick colored arc on the rim spanning the angular extent
+    of a region. The named loci are all <1 kb out of 4.6 Mb (well
+    under 0.1° at true scale), so we floor the half-width to a
+    visibility minimum — the arc is a *symbol* of the region, scaled
+    to its true relative position but enlarged for legibility."""
+    a_lo = _abs_to_angle(lo_abs)
+    a_hi = _abs_to_angle(hi_abs)
+    mid = float(np.arctan2(np.sin(a_lo) + np.sin(a_hi),
+                            np.cos(a_lo) + np.cos(a_hi)))
+    def _ang_dist(a: float, b: float) -> float:
+        return float(abs(np.arctan2(np.sin(a - b), np.cos(a - b))))
+    half_span = max(_ang_dist(a_lo, mid), _ang_dist(a_hi, mid))
+    half_span = max(half_span, np.deg2rad(min_arc_deg) / 2)
+    theta = np.linspace(mid - half_span, mid + half_span, 30)
+    ax.plot(cx + R * np.cos(theta), cy + R * np.sin(theta),
+            color=color, lw=lw, alpha=0.95, zorder=zorder,
+            solid_capstyle='round')
+
+
+def _bubble_inset_radii(R, n_pairs):
+    """Inset radii for replication bubbles, outermost (most-progressed)
+    first. Centralized so the bubble drawer and the oriC-placement
+    function agree on where each bubble sits."""
+    if n_pairs == 0:
+        return []
+    if n_pairs == 1:
+        return [R * 0.93]
+    return list(np.linspace(R * 0.94, R * 0.62, n_pairs))
+
+
+def _place_oric_dots(ax, cx, cy, R, bubble_radii, n_oric):
+    """Stack the oriC dots radially at 12 o'clock — one on the rim,
+    one at the top of each replication bubble — so the multifork
+    pattern reads as a vertical line of dots whose count matches the
+    number of origin copies. Each bubble was sprouted by its own
+    initiation event, so the oriCs are anchored on the bubbles they
+    came from rather than all piled on the outer chromosome.
+
+    If the cell has more oriCs than levels (e.g. just after a bubble
+    completed and chromosome_structure hasn't yet split the
+    chromosome), surplus dots stack above the rim."""
+    if n_oric <= 0:
+        return
+    levels = [(cx, cy + R, 11)]  # (x, y, marker size) — rim
+    for r in bubble_radii:
+        levels.append((cx, cy + r, 9))  # one dot per bubble top
+    n_to_place = min(n_oric, len(levels))
+    for i in range(n_to_place):
+        x, y, ms = levels[i]
+        ax.plot(x, y, 'o', color='#10b981', ms=ms, zorder=5,
+                markeredgecolor='#065f46', markeredgewidth=0.9)
+    # Surplus (rare): stack above the rim with smaller dots so they
+    # don't visually fight with the rim oriC.
+    surplus = n_oric - n_to_place
+    for j in range(surplus):
+        ax.plot(cx, cy + R + 0.06 * (j + 1), 'o', color='#10b981',
+                ms=7, zorder=5,
+                markeredgecolor='#065f46', markeredgewidth=0.8)
+
+
+def _pair_forks(fork_coords):
+    """Pair signed fork coordinates by sorted-symmetric matching.
+    Bidirectional replication runs both forks of a bubble in opposite
+    directions from oriC, so the most-progressed bubble pairs the most
+    extreme negative coord with the most extreme positive coord, etc.
+    Returns a list of (lo, hi) pairs sorted from outermost (most
+    progressed) to innermost (just fired)."""
+    sorted_forks = sorted(int(c) for c in fork_coords)
+    n_pairs = len(sorted_forks) // 2
+    pairs = [(sorted_forks[i], sorted_forks[-1 - i]) for i in range(n_pairs)]
+    pairs.sort(key=lambda p: -(abs(p[0]) + abs(p[1])) / 2)
+    return pairs
+
+
+def _draw_replication_bubbles(ax, cx, cy, R, fork_coords):
+    """Draw nested replication bubbles inside the chromosome rim. Each
+    pair of forks defines a bubble — the colored arc traces the
+    replicated portion of the genome from one fork through oriC (top)
+    to the other fork. Newer (less-progressed) bubbles sit at smaller
+    radii so all bubbles in a multifork cell are visible. Returns the
+    list of inset radii (outermost-first) so the oriC placement can
+    line up dots with each bubble's top."""
+    pairs = _pair_forks(fork_coords)
+    if not pairs:
+        return []
+
+    radii = _bubble_inset_radii(R, len(pairs))
+
+    bubble_color = '#10b981'
+    a_oric = np.pi / 2
+
+    for (f_lo, f_hi), r_bubble in zip(pairs, radii):
+        a_lo = _rel_to_angle(int(f_lo))
+        a_hi = _rel_to_angle(int(f_hi))
+        # Sort endpoints so the arc through oriC (at the top) is the
+        # short way around: a_min < π/2 < a_max for a bubble that
+        # hasn't yet wrapped past terC.
+        a_min, a_max = sorted([a_lo, a_hi])
+        if a_min <= a_oric <= a_max:
+            theta = np.linspace(a_min, a_max, 120)
+        else:
+            # Bubble straddles the bottom of the disc (terC); take the
+            # other arc so we still pass through oriC.
+            theta = np.linspace(a_max, a_min + 2 * np.pi, 120)
+        ax.plot(cx + r_bubble * np.cos(theta),
+                cy + r_bubble * np.sin(theta),
+                color=bubble_color, lw=3.5, alpha=0.55, zorder=2,
+                solid_capstyle='round')
+
+        # Forks: amber triangles at the rim, with a faint connector
+        # back to the bubble inset so the eye can pair them.
+        for f in (f_lo, f_hi):
+            a = _rel_to_angle(int(f))
+            fx = cx + (R + 0.07) * np.cos(a)
+            fy = cy + (R + 0.07) * np.sin(a)
+            ax.plot(fx, fy, '^', color='#f59e0b', ms=12, zorder=6,
+                    markeredgecolor='black', markeredgewidth=0.7)
+            ax.plot([cx + r_bubble * np.cos(a), cx + R * np.cos(a)],
+                    [cy + r_bubble * np.sin(a), cy + R * np.sin(a)],
+                    color=bubble_color, lw=1.0, alpha=0.4, zorder=2)
+    return radii
+
+
+def _draw_one_circle(ax, cx, cy, R, fork_coords, *,
+                      show_regions: bool = True,
+                      n_oric: int = 1,
+                      show_bubbles: bool = True):
+    """Draw one chromosome circle at (cx, cy). Regulatory regions are
+    drawn as thick colored arcs along the rim (true relative position,
+    floored to a visibility minimum since the loci are all < 1 kb).
+    Replication bubbles are drawn as nested inset arcs derived from the
+    fork coordinates — multifork replication is read off as multiple
+    concentric green bubbles. ``n_oric`` controls how many oriC dots
+    are stacked at the top to communicate the actual count."""
     theta = np.linspace(0, 2 * np.pi, 200)
     ax.plot(cx + R * np.cos(theta), cy + R * np.sin(theta),
             color='#cbd5e1', lw=4, zorder=1)
-    # oriC — green dot at 12 o'clock (coordinate 0 relative to oriC)
-    ax.plot(cx, cy + R, 'o', color='#10b981', ms=12, zorder=5,
-            markeredgecolor='#065f46', markeredgewidth=1.0)
     # ter — red square at 6 o'clock
     ax.plot(cx, cy - R, 's', color='#ef4444', ms=10, zorder=5,
             markeredgecolor='#7f1d1d', markeredgewidth=1.0)
@@ -527,25 +668,30 @@ def _draw_one_circle(ax, cx, cy, R, fork_coords, *, show_regions=True):
     if show_regions:
         for region, (lo, hi) in REGION_BOUNDARIES_ABS.items():
             color = _REGION_COLORS.get(region, '#64748b')
-            mid_angle = (_abs_to_angle(lo) + _abs_to_angle(hi)) / 2
-            mx = cx + R * np.cos(mid_angle)
-            my = cy + R * np.sin(mid_angle)
-            ax.plot(mx, my, 'o', color=color, ms=10, zorder=4,
-                    markeredgecolor='black', markeredgewidth=0.7)
-            label_r = R * 1.20
+            _draw_region_arc(ax, cx, cy, R, lo, hi, color)
+            mid_angle = (np.pi / 2 if region == 'oriC'
+                         else _region_mid_angle(lo, hi))
+            label_r = R * (1.34 if region == 'oriC' else 1.18)
             lx = cx + label_r * np.cos(mid_angle)
             ly = cy + label_r * np.sin(mid_angle)
-            ha = 'left' if lx > cx + 0.05 else ('right' if lx < cx - 0.05 else 'center')
+            ha = ('left' if lx > cx + 0.05
+                  else ('right' if lx < cx - 0.05 else 'center'))
             va = 'bottom' if ly > cy else 'top'
             ax.text(lx, ly, region, ha=ha, va=va, fontsize=10,
                     color=color, fontweight='bold')
 
-    for c in fork_coords:
-        ang = _rel_to_angle(int(c))
-        fx = cx + (R + 0.07) * np.cos(ang)
-        fy = cy + (R + 0.07) * np.sin(ang)
-        ax.plot(fx, fy, '^', color='#f59e0b', ms=14, zorder=6,
-                markeredgecolor='black', markeredgewidth=0.7)
+    bubble_radii: list[float] = []
+    if show_bubbles and fork_coords:
+        bubble_radii = _draw_replication_bubbles(ax, cx, cy, R, fork_coords)
+    else:
+        for c in fork_coords or []:
+            ang = _rel_to_angle(int(c))
+            fx = cx + (R + 0.07) * np.cos(ang)
+            fy = cy + (R + 0.07) * np.sin(ang)
+            ax.plot(fx, fy, '^', color='#f59e0b', ms=14, zorder=6,
+                    markeredgecolor='black', markeredgewidth=0.7)
+
+    _place_oric_dots(ax, cx, cy, R, bubble_radii, n_oric)
 
 
 def _draw_chromosome_diagram(ax, snap, *,
@@ -556,43 +702,59 @@ def _draw_chromosome_diagram(ax, snap, *,
     vertically when n_chromosomes > 1 (each gets oriC at the top of
     its own circle). Adds a legend explaining the markers."""
     n_chrom = max(1, int(snap.get('n_chromosomes') or 1))
+    n_oric_total = max(1, int(snap.get('n_oriC') or 1))
     fork_coords = list(snap.get('fork_coords') or []) if show_replisomes else []
+
+    # Distribute oriCs and forks evenly across chromosomes. The model's
+    # multifork case (1 chromosome + 4 oriCs) keeps all oriCs on the
+    # single disc; once chromosome_structure splits the mother, the
+    # oriCs and forks split with it.
+    oric_per = n_oric_total // n_chrom
+    extra_oric = n_oric_total - oric_per * n_chrom
+    forks_per = len(fork_coords) // n_chrom if fork_coords else 0
+    extra_forks = len(fork_coords) - forks_per * n_chrom
 
     if n_chrom == 1:
         _draw_one_circle(ax, 0.0, 0.0, R=0.9, fork_coords=fork_coords,
-                         show_regions=show_regions)
-        ax.set_xlim(-1.5, 1.5)
-        ax.set_ylim(-1.5, 1.5)
+                         show_regions=show_regions,
+                         n_oric=n_oric_total,
+                         show_bubbles=show_replisomes)
+        ax.set_xlim(-1.6, 1.6)
+        ax.set_ylim(-1.5, 1.6)
     else:
         R = 0.7
-        spacing = 2.0 * R + 0.5
+        spacing = 2.0 * R + 0.6
         total_h = (n_chrom - 1) * spacing
-        # Distribute forks across chromosomes — cap 2 per circle
-        # (typical bidirectional replication has 2 forks per origin).
-        forks_per = max(1, len(fork_coords) // n_chrom) if fork_coords else 0
+        f_cursor = 0
         for ci in range(n_chrom):
             cy = total_h / 2 - ci * spacing
-            f_lo = ci * forks_per
-            f_hi = (ci + 1) * forks_per if ci < n_chrom - 1 else len(fork_coords)
+            n_f_this = forks_per + (1 if ci < extra_forks else 0)
+            n_o_this = oric_per + (1 if ci < extra_oric else 0)
+            this_forks = fork_coords[f_cursor:f_cursor + n_f_this]
+            f_cursor += n_f_this
             _draw_one_circle(
                 ax, 0.0, cy, R=R,
-                fork_coords=fork_coords[f_lo:f_hi],
-                show_regions=show_regions)
-        ax.set_xlim(-1.3, 1.3)
-        ax.set_ylim(-total_h / 2 - R - 0.4, total_h / 2 + R + 0.4)
+                fork_coords=this_forks,
+                show_regions=show_regions,
+                n_oric=n_o_this,
+                show_bubbles=show_replisomes)
+        ax.set_xlim(-1.4, 1.4)
+        ax.set_ylim(-total_h / 2 - R - 0.4, total_h / 2 + R + 0.5)
 
     if show_legend:
         ax.plot([], [], 'o', color='#10b981', ms=10,
                 markeredgecolor='#065f46',
-                label='oriC (coord 0)')
+                label='oriC (one dot per origin)')
         ax.plot([], [], 's', color='#ef4444', ms=9,
                 markeredgecolor='#7f1d1d',
                 label='ter')
-        ax.plot([], [], 'o', color='#7c3aed', ms=9,
-                markeredgecolor='black', label='regulatory region')
+        ax.plot([], [], '-', color='#7c3aed', lw=6,
+                label='regulatory region (arc)')
         ax.plot([], [], '^', color='#f59e0b', ms=12,
                 markeredgecolor='black',
                 label='active replisome (fork)')
+        ax.plot([], [], '-', color='#10b981', lw=3.5, alpha=0.55,
+                label='replication bubble (nested = multifork)')
         ax.legend(loc='lower right', fontsize=8, framealpha=0.95,
                   borderaxespad=0.3)
 
@@ -703,6 +865,146 @@ def _chromosome_diagram_static():
         fontsize=12)
     fig.tight_layout()
     return _img(fig_to_b64(fig), 'chromosome region map')
+
+
+# ---------------------------------------------------------------------------
+# Alternative chromosome view: DnaA-box occupancy per region
+# ---------------------------------------------------------------------------
+
+# Snapshot keys that carry the per-region bound-DnaA counts emitted by
+# the dnaA_box_binding listener.
+_REGION_TO_BOUND_KEY = {
+    'oriC':          'binding_bound_oric',
+    'dnaA_promoter': 'binding_bound_dnaA_promoter',
+    'datA':          'binding_bound_datA',
+    'DARS1':         'binding_bound_DARS1',
+    'DARS2':         'binding_bound_DARS2',
+}
+
+
+def _draw_box_occupancy_circle(ax, cx, cy, R, snap, *,
+                                show_legend: bool = True):
+    """Draw one chromosome circle showing each region's DnaA boxes as a
+    small fan of dot markers — filled when bound, hollow when free.
+    Box totals are taken from PER_REGION_PDF_COUNT; bound counts come
+    from the binding_bound_<region> snapshot fields."""
+    theta = np.linspace(0, 2 * np.pi, 200)
+    ax.plot(cx + R * np.cos(theta), cy + R * np.sin(theta),
+            color='#cbd5e1', lw=4, zorder=1)
+    # ter — red square at 6 o'clock
+    ax.plot(cx, cy - R, 's', color='#ef4444', ms=10, zorder=5,
+            markeredgecolor='#7f1d1d', markeredgewidth=1.0)
+
+    for region, (lo, hi) in REGION_BOUNDARIES_ABS.items():
+        color = _REGION_COLORS.get(region, '#64748b')
+        mid_angle = (np.pi / 2 if region == 'oriC'
+                     else _region_mid_angle(lo, hi))
+        n_total = max(1, int(PER_REGION_PDF_COUNT.get(region, 1)))
+        n_bound = int(snap.get(_REGION_TO_BOUND_KEY[region], 0) or 0)
+        n_bound = max(0, min(n_bound, n_total))
+
+        # Fan the boxes along a short arc tangent to the disc, with a
+        # spread proportional to box count (capped so the fan doesn't
+        # overlap neighboring regions).
+        arc_extent = min(0.18, 0.025 * n_total)
+        if n_total > 1:
+            angles = np.linspace(mid_angle - arc_extent,
+                                 mid_angle + arc_extent, n_total)
+        else:
+            angles = [mid_angle]
+        r_dot = R + 0.10
+        for i, a in enumerate(angles):
+            dx = cx + r_dot * np.cos(a)
+            dy = cy + r_dot * np.sin(a)
+            if i < n_bound:
+                ax.plot(dx, dy, 'o', color=color, ms=6.5, zorder=4,
+                        markeredgecolor='black', markeredgewidth=0.5)
+            else:
+                ax.plot(dx, dy, 'o', markerfacecolor='white',
+                        markeredgecolor=color, markeredgewidth=1.2,
+                        ms=6.0, zorder=4)
+
+        label_r = R * (1.46 if region == 'oriC' else 1.32)
+        lx = cx + label_r * np.cos(mid_angle)
+        ly = cy + label_r * np.sin(mid_angle)
+        ha = ('left' if lx > cx + 0.05
+              else ('right' if lx < cx - 0.05 else 'center'))
+        va = 'bottom' if ly > cy else 'top'
+        ax.text(lx, ly, f'{region}\n{n_bound}/{n_total}',
+                ha=ha, va=va, fontsize=9, color=color, fontweight='bold')
+
+    if show_legend:
+        ax.plot([], [], 'o', color='#64748b', ms=7, markeredgecolor='black',
+                markeredgewidth=0.5, label='DnaA-bound box')
+        ax.plot([], [], 'o', markerfacecolor='white',
+                markeredgecolor='#64748b', markeredgewidth=1.2,
+                ms=7, label='free box')
+        ax.plot([], [], 's', color='#ef4444', ms=9,
+                markeredgecolor='#7f1d1d', label='ter')
+        ax.legend(loc='lower right', fontsize=8, framealpha=0.95,
+                  borderaxespad=0.3)
+
+
+def _box_occupancy_timeline_plot(snaps, indices=None, title=''):
+    """Row of box-occupancy chromosome diagrams across the trajectory,
+    plus a bottom panel of bound-DnaA counts per region over time."""
+    if not snaps:
+        return _no_data_msg()
+    if indices is None:
+        n = len(snaps)
+        if n >= 5:
+            indices = [0, n // 4, n // 2, 3 * n // 4, n - 1]
+        elif n >= 3:
+            indices = [0, n // 2, n - 1]
+        else:
+            indices = list(range(n))
+    indices = sorted(set(indices))
+    n_maps = len(indices)
+    fig = plt.figure(figsize=(max(11, n_maps * 3.2), 8.0))
+    if title:
+        fig.suptitle(title, fontsize=14, y=0.99)
+
+    for i, idx in enumerate(indices):
+        ax = fig.add_subplot(2, n_maps, i + 1)
+        snap = snaps[idx]
+        _draw_box_occupancy_circle(ax, 0.0, 0.0, R=0.9, snap=snap,
+                                    show_legend=(i == 0))
+        ax.set_xlim(-1.7, 1.7)
+        ax.set_ylim(-1.5, 1.7)
+        ax.set_aspect('equal')
+        ax.axis('off')
+        ax.set_title(f't = {snap["time"] / 60:.1f} min', fontsize=11)
+
+    ax = fig.add_subplot(2, 1, 2)
+    times = np.array([s['time'] / 60 for s in snaps])
+    plotted = False
+    for region, key in _REGION_TO_BOUND_KEY.items():
+        ys = np.array([s.get(key) or 0 for s in snaps])
+        if not np.any(ys):
+            continue
+        plotted = True
+        ax.plot(times, ys, lw=2.0, color=_REGION_COLORS[region],
+                label=f'{region} ({PER_REGION_PDF_COUNT.get(region, "?")} boxes)')
+    if not plotted:
+        ax.text(0.5, 0.5,
+                'No DnaA-box binding listener data in trajectory '
+                '(Phase 2 not active).',
+                ha='center', va='center', transform=ax.transAxes,
+                fontsize=11, color='#64748b')
+        ax.axis('off')
+    else:
+        for idx in indices:
+            ax.axvline(times[idx], color='#94a3b8', ls=':', lw=1.0,
+                       alpha=0.45, zorder=0)
+        ax.set_xlabel('Time (min)')
+        ax.set_ylabel('Bound DnaA per region')
+        ax.set_title('Per-region bound-DnaA counts over time '
+                     '(grey dotted = snapshots above)')
+        ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        ax.legend(loc='upper right', ncol=3, fontsize=9)
+        ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+    return _img(fig_to_b64(fig), 'DnaA-box occupancy timeline')
 
 
 # ---------------------------------------------------------------------------
@@ -1800,9 +2102,23 @@ def _phase2_extras(snaps, status):
         'listener pattern dodges that conflict — Phase 3 (initiation '
         'gating) and the report can both read the listener directly.</p>'
     )
+    occupancy = _box_occupancy_timeline_plot(
+        snaps,
+        title='DnaA-box occupancy by regulatory region')
+    occupancy_note = (
+        '<p class="note">Alternative chromosome view: each region\'s '
+        'DnaA boxes are drawn as a fan of dots — filled dots are '
+        'currently DnaA-bound, hollow dots are unbound. Box totals come '
+        'from the curated PDF (see <code>PER_REGION_PDF_COUNT</code>); '
+        'the bound count is sampled each tick by '
+        '<code>dnaA_box_binding</code> from the DnaA-ATP / DnaA-ADP '
+        'pools using per-region affinity rules.</p>'
+    )
     return [
         ('Architecture changes — what this phase adds, modifies, overrides',
          note + arch),
+        ('DnaA-box occupancy view — alternative chromosome diagram',
+         occupancy + occupancy_note),
     ]
 
 

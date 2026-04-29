@@ -37,6 +37,19 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
+# Bump default font sizes — the per-phase before/after grid renders
+# each plot inside a narrow column, so the matplotlib defaults (~10pt
+# everywhere) end up unreadably small once the SVG / PNG is scaled to
+# fit. These rcParams apply to every plot the report renders.
+plt.rcParams.update({
+    'font.size':       12,
+    'axes.titlesize':  13,
+    'axes.labelsize':  12,
+    'legend.fontsize': 10,
+    'xtick.labelsize': 11,
+    'ytick.labelsize': 11,
+})
 import numpy as np
 
 from v2ecoli.data.replication_initiation import (
@@ -52,7 +65,9 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CACHE_DIR = 'out/cache'
 WORKFLOW_DIR = 'out/workflow'
 OUT_DIR = 'out/reports'
-DEFAULT_DURATION = 1500.0
+DEFAULT_DURATION = 3600.0  # 60 min — at least one full cell cycle
+                            # so the mass-threshold pre_gate config has
+                            # time to actually cross the critical mass
 SNAPSHOT_INTERVAL = 50.0
 
 
@@ -1309,6 +1324,11 @@ def _after_phase2(snaps):
     over the trajectory."""
     if not snaps:
         return _no_data_msg()
+    # Drop t=0 — the binding step hasn't fired yet, so its listener
+    # fields are at their `_default` of 0, which makes a meaningless
+    # spike at the left of the plot.
+    if len(snaps) > 1:
+        snaps = snaps[1:]
     times = np.array([s['time'] / 60 for s in snaps])
     fig, axes = plt.subplots(2, 1, figsize=(9, 6.0), sharex=True,
                              gridspec_kw={'height_ratios': [2, 3]})

@@ -188,6 +188,8 @@ def _extract_replication_signals(history):
             'binding_bound_DARS1': binding_listener.get('bound_DARS1'),
             'binding_bound_DARS2': binding_listener.get('bound_DARS2'),
             'binding_bound_other': binding_listener.get('bound_other'),
+            'critical_mass_per_oriC': rep_listener.get('critical_mass_per_oriC'),
+            'critical_initiation_mass': rep_listener.get('critical_initiation_mass'),
             'dry_mass': float(mass.get('dry_mass', 0)),
             'cell_mass': float(mass.get('cell_mass', 0)),
             'dna_mass': float(mass.get('dna_mass', 0)),
@@ -733,9 +735,14 @@ def _dnaA_pool_traces(snaps):
     """Pull the DnaA apo / ATP / ADP pool counts from listener snapshots.
 
     Returns ``(times_min, apo, atp, adp)`` arrays, or ``None`` if the
-    listener fields aren't present in the trajectory."""
+    listener fields aren't present in the trajectory. Drops the very
+    first snapshot — the equilibrium relaxes from apo=124, atp=0, adp=0
+    in the first tick, and including that point compresses the
+    post-relaxation dynamics into a tiny y-range."""
     if not snaps:
         return None
+    if len(snaps) > 1:
+        snaps = snaps[1:]
     times = [s.get('time', 0) / 60 for s in snaps]
     apo = [s.get('dnaA_apo_count') for s in snaps]
     atp = [s.get('dnaA_atp_count') for s in snaps]
@@ -1161,7 +1168,7 @@ def _phase5_bigraph_svg():
     with open(png_path, 'rb') as f:
         png_b64 = base64.b64encode(f.read()).decode('utf-8')
     return (
-        f'<div class="bigraph-img">'
+        f'<div class="bigraph-img" id="phase5-bigraph">'
         f'<img alt="RIDA subgraph rendered via bigraph_viz" '
         f'src="data:image/png;base64,{png_b64}"/>'
         f'</div>'
@@ -1216,14 +1223,15 @@ def _phase7_extras(snaps, status):
         'DnaA-ADP → apo-DnaA → DnaA-ATP (the apo-to-ATP step is handled '
         'by the still-active <code>MONOMER0-160_RXN</code> equilibrium). '
         'At steady state the DARS flux balances the RIDA flux and the '
-        'ATP fraction stabilizes inside the literature band. The '
-        'bigraph below now includes <code>dars</code>.</p>'
+        'ATP fraction stabilizes inside the literature band. '
+        'The live bigraph (which now includes <code>dars</code>) is '
+        'rendered once in '
+        '<a href="#phase5-bigraph">Phase 5 → Process connections</a>.</p>'
     )
     return [
         ('Architecture changes — what this phase adds, modifies, overrides',
          arch),
-        ('Process connections (live bigraph subset)',
-         note + _phase5_bigraph_svg()),
+        ('How DARS closes the cycle', note),
     ]
 
 
@@ -1422,20 +1430,73 @@ def _phase2_extras(snaps, status):
     ]
 
 
-def _before_phase3(snaps):
+def _phase3_initiation_panel(snaps, title):
+    """Show actual initiation events and the gate signal that drives
+    them. Used by both Phase 3 Before (pre_gate / mass threshold) and
+    After (full / DnaA-ATP gate)."""
     if not snaps:
         return _no_data_msg()
     times = np.array([s['time'] / 60 for s in snaps])
-    cell_mass = np.array([s['cell_mass'] for s in snaps])
-    n_oric = np.array([max(1, s['n_oriC']) for s in snaps])
-    fig, ax = plt.subplots(figsize=(9, 3.0))
-    ax.plot(times, cell_mass / n_oric, color='#0891b2', lw=1.6,
-            label='cell mass / oriC')
-    ax.set_xlabel('Time (min)'); ax.set_ylabel('Mass (fg)')
-    ax.set_title('Current trigger: mass-per-oriC vs M_critical')
-    ax.legend(fontsize=8); ax.grid(True, alpha=0.2)
+    n_oric = np.array([s.get('n_oriC') or 0 for s in snaps])
+    n_rep = np.array([s.get('n_replisomes') or 0 for s in snaps])
+    gate = np.array([s.get('critical_mass_per_oriC') or 0.0 for s in snaps])
+
+    init_events = [
+        times[i] for i in range(1, len(n_oric))
+        if n_oric[i] > n_oric[i - 1]
+    ]
+
+    fig, axes = plt.subplots(2, 1, figsize=(9, 6.0), sharex=True,
+                             gridspec_kw={'height_ratios': [3, 2]})
+
+    ax = axes[0]
+    ax.step(times, n_oric, where='post', color='#10b981', lw=2.0,
+            label='oriC count')
+    ax.step(times, n_rep, where='post', color='#f59e0b', lw=1.6,
+            label='active replisomes')
+    for i, t in enumerate(init_events):
+        ax.axvline(t, color='#dc2626', ls='--', lw=0.9, alpha=0.6,
+                   label='initiation event' if i == 0 else None)
+    ax.set_ylabel('Count')
+    ax.set_title(title)
+    ax.legend(fontsize=8, loc='center left')
+    ax.grid(True, alpha=0.2)
+    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+
+    ax = axes[1]
+    ax.plot(times, gate, color='#7c3aed', lw=1.8,
+            label='gate ratio (critical_mass_per_oriC listener)')
+    ax.axhline(1.0, color='#dc2626', ls='--', lw=1.0, alpha=0.7,
+               label='trigger threshold')
+    for t in init_events:
+        ax.axvline(t, color='#dc2626', ls='--', lw=0.9, alpha=0.4)
+    ax.set_ylabel('Gate ratio')
+    ax.set_xlabel('Time (min)')
+    ax.set_title('Initiation gate signal — fires at ratio ≥ 1.0')
+    ax.legend(fontsize=8, loc='center right')
+    ax.grid(True, alpha=0.2)
     fig.tight_layout()
-    return _img(fig_to_b64(fig), 'mass-per-oriC trigger (current)')
+    note = (
+        f'<p class="note">Observed <strong>{len(init_events)}</strong> '
+        f'initiation event(s) over {times[-1]:.0f} min of sim. Each red '
+        f'dashed line marks one (oriC count steps up). The gate ratio in '
+        f'the lower panel crosses 1.0 at each event and drops back below '
+        f'afterward — the per-oriC denominator provides the self-limiting '
+        f'feedback that both gates share.</p>'
+    )
+    return _img(fig_to_b64(fig), 'initiation events + gate signal') + note
+
+
+def _before_phase3(snaps):
+    """Phase 3 Before = mass-threshold gate (pre_gate config)."""
+    return _phase3_initiation_panel(
+        snaps, title='Mass-threshold gate (pre-Phase-3)')
+
+
+def _after_phase3(snaps):
+    """Phase 3 After = DnaA-ATP-per-oriC gate (full config)."""
+    return _phase3_initiation_panel(
+        snaps, title='DnaA-ATP-per-oriC gate (Phase 3 active)')
 
 
 def _before_phase4(snaps):
@@ -1477,8 +1538,10 @@ def _after_phase5(snaps):
     safe = np.where(total > 0, total, 1)
     atp_frac = atp / safe
 
-    flux = np.array([s.get('rida_flux_atp_to_adp') or 0 for s in snaps])
-    n_rep = np.array([s.get('n_replisomes') or 0 for s in snaps])
+    # _dnaA_pool_traces drops the first snapshot; align other arrays.
+    aligned = snaps[1:] if len(snaps) > 1 else snaps
+    flux = np.array([s.get('rida_flux_atp_to_adp') or 0 for s in aligned])
+    n_rep = np.array([s.get('n_replisomes') or 0 for s in aligned])
 
     eq = DNAA_NUCLEOTIDE_EQUILIBRIUM
     band_min = eq.biological_atp_fraction_min.value
@@ -1570,8 +1633,9 @@ def _after_phase7(snaps):
     total = apo + atp + adp
     safe = np.where(total > 0, total, 1)
     atp_frac = atp / safe
-    rida_flux = np.array([s.get('rida_flux_atp_to_adp') or 0 for s in snaps])
-    dars_flux = np.array([s.get('dars_flux_adp_to_apo') or 0 for s in snaps])
+    aligned = snaps[1:] if len(snaps) > 1 else snaps
+    rida_flux = np.array([s.get('rida_flux_atp_to_adp') or 0 for s in aligned])
+    dars_flux = np.array([s.get('dars_flux_adp_to_apo') or 0 for s in aligned])
 
     eq = DNAA_NUCLEOTIDE_EQUILIBRIUM
     band_min = eq.biological_atp_fraction_min.value
@@ -1816,7 +1880,7 @@ PHASES: list[Phase] = [
             'After Phase 3: oriC count over time under the DnaA-gated '
             'initiation; the listener `critical_mass_per_oriC` field now '
             'reads as DnaA-ATP-per-oriC / threshold.'),
-        after_plot=_before_phase3,  # same plot shape; data differs by config
+        after_plot=_after_phase3,
         before_config='pre_gate',
         after_config='full',
     ),
@@ -2482,12 +2546,10 @@ def main():
             trajectories[label] = _load_or_run(
                 label, args.duration, runner, force=args.force_resim)
 
-    # Drop the first snapshot before plotting — the first equilibrium
-    # tick has discontinuous jumps that compress the post-relaxation
-    # dynamics into a tiny y-range.
-    for label, snaps in list(trajectories.items()):
-        if len(snaps) > 1:
-            trajectories[label] = snaps[1:]
+    # We keep t=0 in the trajectory so the per-phase plots can show
+    # the very first initiation event (which often fires within the
+    # first equilibrium tick). The few plots that suffer from the
+    # initial relaxation discontinuity drop it locally instead.
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, 'w') as f:

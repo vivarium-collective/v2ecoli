@@ -289,9 +289,26 @@ def _run_pre_gate_sim(duration):
         label='pre_gate')
 
 
+def _run_gated_no_seqA_sim(duration):
+    """Cumulative state right before Phase 4: DnaA-gated initiation
+    is in place but no SeqA sequestration. Lets the report compare
+    the gate's behavior with and without the refractory window."""
+    from v2ecoli.composite_replication_initiation import (
+        make_replication_initiation_composite,
+    )
+    return _run_sim(
+        duration,
+        lambda **kw: make_replication_initiation_composite(
+            enable_rida=True, enable_dars=True,
+            enable_dnaA_box_binding=True,
+            enable_dnaA_gated_initiation=True,
+            enable_seqA_sequestration=False, **kw),
+        label='gated_no_seqA')
+
+
 def _run_full_sim(duration):
     """Full replication_initiation architecture: RIDA + DARS + box
-    binding + DnaA-gated initiation."""
+    binding + DnaA-gated initiation + SeqA sequestration."""
     from v2ecoli.composite_replication_initiation import (
         make_replication_initiation_composite,
     )
@@ -528,13 +545,19 @@ def _check_phase3():
 
 
 def _check_phase4():
-    """SeqA sequestration."""
-    if _file_exists('v2ecoli/processes/seqA_sequestration.py'):
-        return 'done', 'SeqASequestration process present'
-    text = _read_file('v2ecoli/library/schema_types.py')
-    if text and 'hemimethylated' in text.lower():
-        return 'in_progress', 'hemimethylation field added to schema; process pending'
-    return 'pending', 'no SeqA process; no hemimethylation tracking'
+    """SeqA sequestration — refractory window after each initiation
+    event, modeling SeqA binding to hemimethylated GATC sites at the
+    newly-replicated origin. Wired into the DnaA-gated subclass."""
+    text = _read_file('v2ecoli/processes/chromosome_replication_dnaA_gated.py')
+    gen = _read_file('v2ecoli/generate_replication_initiation.py')
+    if (text and 'seqA_sequestration_window_s' in text
+            and gen and 'enable_seqA_sequestration' in gen):
+        return 'done', (
+            'SeqA refractory window wired into the DnaA-gated '
+            'chromosome-replication step (default 600s)')
+    if text and 'seqA' in text.lower():
+        return 'in_progress', 'SeqA fields present but flag not wired'
+    return 'pending', 'no SeqA refractory window; no sequestration'
 
 
 def _check_phase5():
@@ -1198,6 +1221,72 @@ def _phase5_bigraph_svg():
         f'(which read/write the same DnaA bulk pools).</p>')
 
 
+PHASE4_ARCH_CHANGES = (
+    ArchChange(
+        kind='override',
+        summary='SeqA refractory window in DnaAGatedChromosomeReplication',
+        file='v2ecoli/processes/chromosome_replication_dnaA_gated.py',
+        detail=('The DnaA-gated subclass tracks the previous tick\'s '
+                'oriC count; when it jumps, an initiation just fired '
+                'and global_time is recorded. While '
+                '(global_time - last_init) < seqA_sequestration_window_s '
+                '(default 600s), `_compute_dnaA_gate` returns 0 — the '
+                'gate is shut. Models SeqA binding to hemimethylated '
+                'GATC sites at the newly-replicated origin.'),
+        reads=(
+            'states.oriCs._entryState',
+            'states.global_time',
+        ),
+        writes=(
+            'self._previous_n_oric',
+            'self._last_initiation_time_s',
+        ),
+    ),
+    ArchChange(
+        kind='data',
+        summary='SeqA already in bulk; no protein addition needed',
+        file='v2ecoli/processes/parca/reconstruction/ecoli/flat/proteins.tsv',
+        detail=('SeqA monomer (`EG12197-MONOMER`) is already expressed '
+                'by the baseline transcription/translation pipeline at '
+                '~1029 copies in the init state. Phase 4 wires its '
+                '*activity* downstream of the gate — a future refinement '
+                'would consume SeqA stoichiometrically (one bound '
+                'multimer per sequestered origin) so SeqA scarcity '
+                'could shorten the window.'),
+    ),
+    ArchChange(
+        kind='override',
+        summary='enable_seqA_sequestration flag (default True)',
+        file='v2ecoli/generate_replication_initiation.py',
+        detail=('build_replication_initiation_document gains '
+                '`enable_seqA_sequestration` (default True). When True, '
+                '`_swap_in_dnaA_gated_chromosome_replication` instantiates '
+                'the subclass with `seqA_sequestration_window_s=600.0`. '
+                'When False, window=0 — gate has no refractory.'),
+    ),
+)
+
+
+def _phase4_extras(snaps, status):
+    arch = _render_arch_changes_html(PHASE4_ARCH_CHANGES)
+    note = (
+        '<p class="note"><strong>Why the refractory window approach?</strong> '
+        'Modeling hemimethylated-GATC tracking + SeqA-multimer binding '
+        'on the unique-molecule store would conflict with '
+        'chromosome_structure\'s in-tick add/delete (same set-update '
+        'issue we hit in Phase 2). The refractory window captures the '
+        'biology that matters most for cell-cycle timing — SeqA blocks '
+        'rebinding for a fixed window after each initiation — without '
+        'requiring a hemimethylation field on the oriC unique molecule. '
+        'Future refinement: read the bulk SeqA count and decrement / '
+        'reset the window if SeqA is depleted.</p>'
+    )
+    return [
+        ('Architecture changes — what this phase adds, modifies, overrides',
+         note + arch),
+    ]
+
+
 PHASE7_ARCH_CHANGES = (
     ArchChange(
         kind='new_process',
@@ -1522,18 +1611,96 @@ def _after_phase3(snaps):
         snaps, title='DnaA-ATP-per-oriC gate (Phase 3 active)')
 
 
-def _before_phase4(snaps):
+def _phase4_gate_panel(snaps, title, sequestration_window_min=10.0,
+                        show_window=False):
+    """oriC count + gate ratio for Phase 4. Optionally shades the
+    SeqA sequestration window after each initiation event."""
     if not snaps:
         return _no_data_msg()
     times = np.array([s['time'] / 60 for s in snaps])
-    n_oric = np.array([s['n_oriC'] for s in snaps])
-    fig, ax = plt.subplots(figsize=(11, 3.8))
-    ax.step(times, n_oric, where='post', color='#10b981', lw=1.6)
-    ax.set_xlabel('Time (min)'); ax.set_ylabel('oriC count')
-    ax.set_title('Current: oriC count — no sequestration window after fork passage')
+    n_oric = np.array([s.get('n_oriC') or 0 for s in snaps])
+    gate = np.array([s.get('critical_mass_per_oriC') or 0.0 for s in snaps])
+
+    init_events = [
+        times[i] for i in range(1, len(n_oric))
+        if n_oric[i] > n_oric[i - 1]
+    ]
+    # Treat t=0 as an initiation event for gated configs (the gate
+    # fires in the first tick — see Phase 3 panel).
+    if len(times) > 0 and not init_events and n_oric[0] >= 4:
+        init_events = [times[0]]
+
+    fig, axes = plt.subplots(2, 1, figsize=(11, 6.5), sharex=True,
+                             gridspec_kw={'height_ratios': [3, 2]})
+
+    ax = axes[0]
+    ax.step(times, n_oric, where='post', color='#10b981', lw=2.2,
+            label='oriC count')
+    for i, t in enumerate(init_events):
+        ax.axvline(t, color='#dc2626', ls='--', lw=1.0, alpha=0.6,
+                   label='initiation event' if i == 0 else None)
+    ax.set_ylabel('Count')
+    ax.set_title(title)
+    ax.legend(loc='center left')
+    ax.grid(True, alpha=0.2)
+    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+
+    ax = axes[1]
+    if show_window:
+        for i, t in enumerate(init_events):
+            ax.axvspan(
+                t, t + sequestration_window_min,
+                color='#fde68a', alpha=0.45,
+                label=(f'SeqA window (~{sequestration_window_min:.0f} min)'
+                       if i == 0 else None))
+    ax.plot(times, gate, color='#7c3aed', lw=2.2,
+            label='gate ratio')
+    ax.axhline(1.0, color='#dc2626', ls='--', lw=1.0, alpha=0.7,
+               label='trigger threshold')
+    for t in init_events:
+        ax.axvline(t, color='#dc2626', ls='--', lw=1.0, alpha=0.4)
+    ax.set_ylabel('Gate ratio')
+    ax.set_xlabel('Time (min)')
+    ax.set_title('DnaA-ATP-per-oriC gate signal')
+    ax.legend(loc='upper right')
     ax.grid(True, alpha=0.2)
     fig.tight_layout()
-    return _img(fig_to_b64(fig), 'oriC count (current)')
+    if show_window:
+        note = (
+            f'<p class="note">After the initiation event, the gate is '
+            f'forced to 0 for the SeqA sequestration window '
+            f'(<strong>~{sequestration_window_min:.0f} min</strong>, '
+            f'shaded amber). Once the window expires, the gate resumes '
+            f'reading the actual DnaA-ATP-per-oriC ratio — and '
+            f'because RIDA+DARS dynamics keep the per-oriC value '
+            f'below 1.0, no immediate re-initiation fires.</p>'
+        )
+    else:
+        note = (
+            '<p class="note">Without SeqA, the gate signal is just the '
+            'DnaA-ATP-per-oriC ratio at every tick. Reinitiation timing '
+            'is set entirely by the DnaA pool dynamics — there is no '
+            'refractory window after a firing event.</p>'
+        )
+    return _img(fig_to_b64(fig), 'Phase 4 gate panel') + note
+
+
+def _before_phase4(snaps):
+    """Phase 4 'Before' = the DnaA gate without SeqA sequestration.
+    The gate ratio is the raw DnaA-ATP-per-oriC at every tick."""
+    return _phase4_gate_panel(
+        snaps,
+        title='Without SeqA: gate ratio reads DnaA-ATP-per-oriC always',
+        show_window=False)
+
+
+def _after_phase4(snaps):
+    """Phase 4 'After' = SeqA sequestration window forces the gate
+    to 0 for ~10 min after each initiation event."""
+    return _phase4_gate_panel(
+        snaps,
+        title='With SeqA: refractory window after each initiation',
+        show_window=True)
 
 
 def _before_phase5(snaps):
@@ -1922,34 +2089,51 @@ PHASES: list[Phase] = [
             'reads as DnaA-ATP-per-oriC / threshold.'),
         after_plot=_after_phase3,
         before_config='pre_gate',
-        after_config='full',
+        after_config='gated_no_seqA',
     ),
     Phase(
         number=4,
-        title='SeqA sequestration',
-        goal=('Add SeqA protein, GATC site coords at oriC, hemimethylation '
-              'timer; SeqASequestration blocks DnaA rebinding for ~10 min.'),
+        title='SeqA sequestration window after initiation',
+        goal=('SeqA the protein (`EG12197-MONOMER`) is already expressed '
+              '(~1029 copies in the init state); Phase 4 wires its '
+              '*activity*. The DnaA-gated step records the time of each '
+              'initiation event and forces its gate ratio to 0 for the '
+              'next ~10 minutes — modeling SeqA binding to '
+              'hemimethylated GATC sites at the newly-replicated origin '
+              'and blocking DnaA rebinding during the window.'),
         status_check=_check_phase4,
         tests=(
             TestSpec(
                 'tests/test_seqA_sequestration.py',
-                'After a forced initiation, no second initiation occurs '
-                'within the SeqA sequestration window (~10 min). The window '
-                'duration scales with doubling time as expected.'),
+                'SeqA monomer is already in bulk (~1029 copies). The '
+                'DnaA-gated step has seqA_sequestration_window_s = 600 '
+                'with the default flag. After t=0 initiation, the gate '
+                'ratio is 0 throughout the 600s window. At t=900s '
+                '(window expired) the gate resumes reading the actual '
+                'DnaA-ATP-per-oriC ratio. enable_seqA_sequestration='
+                'False falls back to the unblocked gate.'),
         ),
         gap_items=(
-            'SeqA listed as a gene but no protein definition; no sequestration '
-            'process; no hemimethylation tracking.',
-            'No GATC-site coordinates loaded into motif_coordinates.',
+            'No hemimethylated-GATC tracking on the oriC unique '
+            'molecule — the refractory window is a coarser proxy for '
+            'the SeqA-binding biology. Adding a hemimethylation field '
+            'would conflict with chromosome_structure\'s in-tick '
+            'add/delete (same set-update issue as Phase 2).',
+            'No stoichiometric coupling to bulk SeqA. The window is a '
+            'fixed-duration cap; depleted SeqA does not shorten it. '
+            'A future refinement would scale the window by the bulk '
+            'SeqA count.',
         ),
-        viz_plan=(
-            'oriC count over time with the hemimethylation window shaded '
-            'beneath each initiation event, plus a marker showing what would '
-            'have been a too-early re-initiation if SeqA were absent.'),
+        viz_plan='',
         before_plot=_before_phase4,
         after_description=(
-            'After Phase 4: oriC count with shaded sequestration window and '
-            'a counterfactual marker showing pre-Phase-4 timing.'),
+            'After Phase 4: gate ratio held at 0 for ~10 min after the '
+            'initiation event (shaded amber); resumes normal DnaA-ATP-'
+            'per-oriC reading once the window closes.'),
+        after_plot=_after_phase4,
+        extra_sections=_phase4_extras,
+        before_config='gated_no_seqA',
+        after_config='full',
     ),
     Phase(
         number=5,
@@ -2261,11 +2445,12 @@ def _render_dars_table():
 
 
 _CONFIG_LABELS = {
-    'baseline':  'baseline (no extras; mass-threshold initiation gate)',
-    'rida_only': '+ RIDA (no DARS, no binding; mass gate)',
-    'rida_dars': '+ RIDA + DARS (no binding; mass gate)',
-    'pre_gate':  '+ RIDA + DARS + binding (mass gate still active)',
-    'full':      'replication_initiation (DnaA-gated initiation)',
+    'baseline':       'baseline (no extras; mass-threshold initiation gate)',
+    'rida_only':      '+ RIDA (no DARS, no binding; mass gate)',
+    'rida_dars':      '+ RIDA + DARS (no binding; mass gate)',
+    'pre_gate':       '+ RIDA + DARS + binding (mass gate still active)',
+    'gated_no_seqA':  'DnaA-gated initiation (no SeqA sequestration)',
+    'full':           'replication_initiation (DnaA gate + SeqA sequestration)',
 }
 
 
@@ -2735,6 +2920,7 @@ def main():
             ('rida_only', _run_rida_only_sim),
             ('rida_dars', _run_rida_dars_sim),
             ('pre_gate', _run_pre_gate_sim),
+            ('gated_no_seqA', _run_gated_no_seqA_sim),
             ('full', _run_full_sim),
         ]
         for label, runner in configs:

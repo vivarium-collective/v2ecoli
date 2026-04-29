@@ -79,6 +79,17 @@ class DnaAGatedChromosomeReplication(ChromosomeReplication):
             '_type': 'float',
             '_default': DEFAULT_DNAA_ATP_PER_ORIC_THRESHOLD,
         },
+        # Phase 4 — SeqA sequestration window. After an initiation
+        # event, the gate is forced shut for this many seconds,
+        # modeling SeqA binding to hemimethylated GATC sites at the
+        # newly-replicated origin (~10 min in fast-growth E. coli per
+        # the curated reference). Default 0 means no sequestration —
+        # set to 600.0 by the architecture when enable_seqA_
+        # sequestration=True.
+        'seqA_sequestration_window_s': {
+            '_type': 'float',
+            '_default': 0.0,
+        },
     }
 
     def initialize(self, config):
@@ -86,18 +97,53 @@ class DnaAGatedChromosomeReplication(ChromosomeReplication):
         self.dnaA_atp_per_oric_threshold = float(self.parameters.get(
             'dnaA_atp_per_oric_threshold',
             DEFAULT_DNAA_ATP_PER_ORIC_THRESHOLD))
+        self.seqA_sequestration_window_s = float(self.parameters.get(
+            'seqA_sequestration_window_s', 0.0))
         self._dnaA_atp_idx = None
+        # Phase 4 state
+        self._previous_n_oric: int | None = None
+        self._last_initiation_time_s: float | None = None
 
     def update(self, states, interval=None):
+        # Detect an initiation event from the previous tick: if oriC
+        # count jumped between this tick's start and last tick's start,
+        # someone fired the gate.
+        n_oric_now = int(states['oriCs']['_entryState'].sum())
+        if (self._previous_n_oric is not None
+                and n_oric_now > self._previous_n_oric):
+            self._last_initiation_time_s = float(states.get('global_time', 0))
+        self._previous_n_oric = n_oric_now
+
         self._prepare(states)
         self.criticalMassPerOriC = self._compute_dnaA_gate(states)
         return self._evolve(states)
+
+    def _seqA_gate_closed(self, states) -> bool:
+        """SeqA sequestration check — block initiation for
+        ``seqA_sequestration_window_s`` seconds after the previous
+        initiation event. Models SeqA binding to hemimethylated GATC
+        sites at the newly-replicated origin. The SeqA protein
+        (``EG12197-MONOMER``) is already expressed via the standard
+        transcription / translation pipeline; this gate is the
+        downstream activity that uses it. A future refinement would
+        consume SeqA stoichiometrically (one bound multimer per
+        sequestered origin) so SeqA scarcity can shorten the window."""
+        if self.seqA_sequestration_window_s <= 0:
+            return False
+        if self._last_initiation_time_s is None:
+            return False
+        current_time = float(states.get('global_time', 0))
+        elapsed = current_time - self._last_initiation_time_s
+        return 0.0 <= elapsed < self.seqA_sequestration_window_s
 
     def _compute_dnaA_gate(self, states):
         """Returns a dimensionless pint Quantity. Initiation fires when
         the value is >= 1.0 — i.e. when ``atp_per_oric >= threshold``.
         Importing ``DNAA_APO_BULK_ID`` / ``DNAA_ADP_BULK_ID`` is kept
         for future expansion of the gate logic."""
+        if self._seqA_gate_closed(states):
+            # SeqA-bound origin — DnaA can't reach oriC, gate is shut.
+            return 0.0 * units.dimensionless
         if self._dnaA_atp_idx is None:
             self._dnaA_atp_idx = bulk_name_to_idx(
                 DNAA_ATP_BULK_ID, states['bulk']['id'])

@@ -60,6 +60,8 @@ from v2ecoli.data.replication_initiation import (
     DARS1, DARS2, DATA, DNAA_BOX_CONSENSUS, DNAA_BOX_HIGHEST_AFFINITY,
     DNAA_NUCLEOTIDE_EQUILIBRIUM, DNAA_POOL_DRIVERS,
     DNAA_PROMOTER, ORIC, RIDA, SEQA,
+    GENOME_LENGTH_BP, ORIC_ABS_CENTER_BP, TERC_ABS_CENTER_BP,
+    REGION_BOUNDARIES_ABS,
     PER_REGION_PDF_COUNT, PER_REGION_STRICT_CONSENSUS_COUNT,
 )
 
@@ -471,6 +473,177 @@ def plot_fork_positions(snaps):
     ax.grid(True, alpha=0.15)
     fig.tight_layout()
     return fig_to_b64(fig)
+
+
+# ---------------------------------------------------------------------------
+# Reusable circular-chromosome diagram (used by Phase 0, 3, 5, 7)
+# ---------------------------------------------------------------------------
+
+# Genome / origin / terminus constants for converting absolute bp to angle.
+_GENOME_BP = GENOME_LENGTH_BP  # 4_641_652
+_ORIC_ABS = ORIC_ABS_CENTER_BP
+_TERC_ABS = TERC_ABS_CENTER_BP
+
+# Color per regulatory region (matches Phase 2 plot palette).
+_REGION_COLORS = {
+    'oriC':           '#10b981',  # green
+    'dnaA_promoter':  '#0891b2',  # cyan
+    'datA':           '#7c3aed',  # purple
+    'DARS1':          '#f59e0b',  # amber
+    'DARS2':          '#dc2626',  # red
+}
+
+
+def _abs_to_angle(abs_bp: int) -> float:
+    """Convert an absolute MG1655 coordinate to an angle on a circular
+    chromosome where oriC sits at 12 o'clock (90 deg), terC at 6 o'clock
+    (-90 deg / 270 deg)."""
+    rel = (abs_bp - _ORIC_ABS) % _GENOME_BP
+    # Half-genome to angle: rel=0 at oriC, rel=±half_genome at terC.
+    angle_from_oric = 2 * np.pi * rel / _GENOME_BP
+    return np.pi / 2 - angle_from_oric
+
+
+def _rel_to_angle(rel_bp: int) -> float:
+    """Convert a coordinate relative to oriC (DnaA-box and replisome
+    coordinates are stored this way) to an angle on the circle."""
+    abs_bp = (_ORIC_ABS + rel_bp) % _GENOME_BP
+    return _abs_to_angle(abs_bp)
+
+
+def _draw_chromosome_diagram(ax, snap, *,
+                              show_regions: bool = True,
+                              show_replisomes: bool = True,
+                              R: float = 1.0,
+                              cx: float = 0.0,
+                              cy: float = 0.0):
+    """Draw one chromosome circle with named regions, oriC, ter, and
+    optionally active replisomes (forks) and a region legend."""
+    theta = np.linspace(0, 2 * np.pi, 200)
+    ax.plot(cx + R * np.cos(theta), cy + R * np.sin(theta),
+            color='#cbd5e1', lw=4, zorder=1)
+    # oriC — green dot at 12 o'clock
+    ax.plot(cx, cy + R, 'o', color='#10b981', ms=12, zorder=5,
+            markeredgecolor='#065f46', markeredgewidth=1.0)
+    # ter — red square at 6 o'clock
+    ax.plot(cx, cy - R, 's', color='#ef4444', ms=10, zorder=5,
+            markeredgecolor='#7f1d1d', markeredgewidth=1.0)
+
+    if show_regions:
+        # Draw arcs for each named region
+        for region, (lo, hi) in REGION_BOUNDARIES_ABS.items():
+            color = _REGION_COLORS.get(region, '#64748b')
+            a_lo = _abs_to_angle(lo)
+            a_hi = _abs_to_angle(hi)
+            # Region arcs are tiny (~hundreds of bp on a ~4.6 Mb genome).
+            # Render as a thick chord plus a labelled marker so they
+            # show up at this scale.
+            mid_angle = (a_lo + a_hi) / 2
+            mx = cx + R * np.cos(mid_angle)
+            my = cy + R * np.sin(mid_angle)
+            ax.plot(mx, my, 'o', color=color, ms=11, zorder=4,
+                    markeredgecolor='black', markeredgewidth=0.8)
+            # Label outside the circle
+            label_r = R * 1.18
+            lx = cx + label_r * np.cos(mid_angle)
+            ly = cy + label_r * np.sin(mid_angle)
+            ha = 'left' if lx > cx + 0.05 else ('right' if lx < cx - 0.05 else 'center')
+            va = 'bottom' if ly > cy else 'top'
+            ax.text(lx, ly, region, ha=ha, va=va, fontsize=11,
+                    color=color, fontweight='bold')
+
+    if show_replisomes:
+        fork_coords = snap.get('fork_coords') or []
+        for c in fork_coords:
+            ang = _rel_to_angle(int(c))
+            fx = cx + (R + 0.07) * np.cos(ang)
+            fy = cy + (R + 0.07) * np.sin(ang)
+            ax.plot(fx, fy, '^', color='#f59e0b', ms=14, zorder=6,
+                    markeredgecolor='black', markeredgewidth=0.7)
+
+
+def _chromosome_timeline_plot(snaps, indices=None, title='',
+                               annotate_events=True):
+    """Draw a row of chromosome diagrams at selected snapshot indices.
+    Bottom panel shows oriC + replisome counts over time so the user
+    can read the timeline alongside the spatial state."""
+    if not snaps:
+        return _no_data_msg()
+    if indices is None:
+        n = len(snaps)
+        if n >= 5:
+            indices = [0, n // 4, n // 2, 3 * n // 4, n - 1]
+        elif n >= 3:
+            indices = [0, n // 2, n - 1]
+        else:
+            indices = list(range(n))
+    indices = sorted(set(indices))
+
+    n_maps = len(indices)
+    fig = plt.figure(figsize=(max(11, n_maps * 3.0), 7.5))
+    if title:
+        fig.suptitle(title, fontsize=14, y=0.99)
+
+    for i, idx in enumerate(indices):
+        ax = fig.add_subplot(2, n_maps, i + 1)
+        snap = snaps[idx]
+        _draw_chromosome_diagram(ax, snap)
+        n_oric = snap.get('n_oriC') or 0
+        n_rep = snap.get('n_replisomes') or 0
+        ax.set_aspect('equal')
+        ax.axis('off')
+        ax.set_xlim(-1.5, 1.5)
+        ax.set_ylim(-1.5, 1.5)
+        ax.set_title(
+            f't = {snap["time"] / 60:.1f} min\n'
+            f'oriC={n_oric}  replisomes={n_rep}',
+            fontsize=11)
+
+    # Bottom panel: oriC + replisome counts over time, full width
+    ax = fig.add_subplot(2, 1, 2)
+    times = np.array([s['time'] / 60 for s in snaps])
+    n_oric = np.array([s.get('n_oriC') or 0 for s in snaps])
+    n_rep = np.array([s.get('n_replisomes') or 0 for s in snaps])
+    ax.step(times, n_oric, where='post', color='#10b981', lw=2.4,
+            label='oriC count')
+    ax.step(times, n_rep, where='post', color='#f59e0b', lw=2.0,
+            label='active replisomes')
+    if annotate_events:
+        for i in range(1, len(n_oric)):
+            if n_oric[i] > n_oric[i - 1]:
+                ax.axvline(times[i], color='#dc2626', ls='--',
+                           lw=0.9, alpha=0.5)
+    # Mark which snapshots are shown above
+    for idx in indices:
+        ax.axvline(times[idx], color='#94a3b8', ls=':', lw=1.0,
+                   alpha=0.55, zorder=0)
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('Count')
+    ax.set_title('oriC count + active replisomes over time '
+                 '(grey dotted lines mark the snapshots above)')
+    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    ax.legend(loc='upper left')
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+    return _img(fig_to_b64(fig), 'chromosome timeline')
+
+
+def _chromosome_diagram_static():
+    """Single labeled chromosome — used in Phase 0 to show region
+    placement without any trajectory data. Doesn't need snaps."""
+    fig, ax = plt.subplots(figsize=(7.5, 7.5))
+    snap = {'fork_coords': [], 'n_oriC': 1, 'n_replisomes': 0}
+    _draw_chromosome_diagram(ax, snap, show_replisomes=False)
+    ax.set_aspect('equal')
+    ax.axis('off')
+    ax.set_xlim(-1.5, 1.5)
+    ax.set_ylim(-1.5, 1.5)
+    ax.set_title(
+        'Regulatory regions on the E. coli MG1655 chromosome\n'
+        '(circle = full genome, ~4.64 Mb)',
+        fontsize=12)
+    fig.tight_layout()
+    return _img(fig_to_b64(fig), 'chromosome region map')
 
 
 # ---------------------------------------------------------------------------
@@ -1377,11 +1550,23 @@ def _phase5_extras(snaps, status):
         'observable DnaA-ATP → DnaA-ADP flux today. The bigraph below is '
         'the live wiring extracted from the composite.</p>'
     )
+    chromosome = _chromosome_timeline_plot(
+        snaps,
+        title='Replisome activity across the trajectory '
+              '(amber triangles = active forks)')
+    chromosome_note = (
+        '<p class="note">RIDA\'s rate is gated on the active-replisome '
+        'count. The disc at each snapshot shows how many forks are '
+        'currently engaged with the chromosome — that\'s the substrate '
+        'pool RIDA reads each tick.</p>'
+    )
     return [
         ('Architecture changes — what this phase adds, modifies, overrides',
          arch),
         ('Process connections (live bigraph subset)',
          note + bigraph),
+        ('Chromosome dynamics — replisomes drive the RIDA flux',
+         chromosome + chromosome_note),
     ]
 
 
@@ -2124,6 +2309,16 @@ PHASES: list[Phase] = [
             'via region_for_coord — the same lookup the binding process '
             'will use.'),
         after_plot=_after_phase0,
+        extra_sections=lambda snaps, status: [(
+            'Where the named regions sit on the chromosome',
+            (_chromosome_diagram_static() +
+             '<p class="note">A schematic view of the E. coli chromosome '
+             '(~4.64 Mb circle) with oriC at 12 o\'clock, ter at 6, and '
+             'each named region marked at its absolute bp position. The '
+             'arc between any two regions is to scale, so the sparsity '
+             'of named regions vs. the genomic background (~99% of the '
+             '307 strict-consensus boxes) is visible at a glance.</p>'),
+        )],
     ),
     Phase(
         number=1,
@@ -2251,6 +2446,20 @@ PHASES: list[Phase] = [
             'initiation; the listener `critical_mass_per_oriC` field now '
             'reads as DnaA-ATP-per-oriC / threshold.'),
         after_plot=_after_phase3,
+        extra_sections=lambda snaps, status: [(
+            'Chromosome dynamics — initiation events in space',
+            _chromosome_timeline_plot(
+                snaps,
+                title='Chromosome state across the trajectory '
+                      '(post-Phase-3 DnaA gate)') +
+            '<p class="note">Each disc shows the chromosome at one '
+            'snapshot. Green dot = oriC, red square = ter, amber '
+            'triangles outside the circle = active replisomes (forks). '
+            'The named regulatory regions are marked around the rim. '
+            'The bottom strip plots oriC + replisome counts vs time '
+            'so you can see when initiations fired (red dashed lines '
+            'mark step-ups in oriC count).</p>',
+        )],
         before_config='pre_gate',
         after_config='gated_no_seqA',
     ),

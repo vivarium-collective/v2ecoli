@@ -43,12 +43,15 @@ import matplotlib.pyplot as plt
 # everywhere) end up unreadably small once the SVG / PNG is scaled to
 # fit. These rcParams apply to every plot the report renders.
 plt.rcParams.update({
-    'font.size':       12,
-    'axes.titlesize':  13,
-    'axes.labelsize':  12,
-    'legend.fontsize': 10,
-    'xtick.labelsize': 11,
-    'ytick.labelsize': 11,
+    'font.size':       13,
+    'axes.titlesize':  15,
+    'axes.labelsize':  13,
+    'legend.fontsize': 12,
+    'xtick.labelsize': 12,
+    'ytick.labelsize': 12,
+    'lines.linewidth': 2.0,
+    'axes.titlepad':   10,
+    'axes.labelpad':   6,
 })
 import numpy as np
 
@@ -415,7 +418,7 @@ def plot_initiation_signals(snaps):
 def plot_fork_positions(snaps):
     if not snaps:
         return ''
-    fig, ax = plt.subplots(figsize=(10, 4))
+    fig, ax = plt.subplots(figsize=(11, 4.0))
     fig.suptitle('Replication-fork positions over time', fontsize=12)
     has_data = False
     for s in snaps:
@@ -719,7 +722,7 @@ def _after_phase0(snaps):
     }
     labels = [pretty[r] for r in regions]
 
-    fig, ax = plt.subplots(figsize=(9, 3.4))
+    fig, ax = plt.subplots(figsize=(11, 4.0))
     x = np.arange(len(regions))
     w = 0.38
     ax.bar(x - w / 2, pdf_counts, w, color='#1e3a8a',
@@ -810,7 +813,7 @@ def _before_phase1(snaps):
     band_min = eq.biological_atp_fraction_min.value
     band_max = eq.biological_atp_fraction_max.value
 
-    fig, axes = plt.subplots(2, 1, figsize=(9, 6.0), sharex=True,
+    fig, axes = plt.subplots(2, 1, figsize=(11, 6.5), sharex=True,
                              gridspec_kw={'height_ratios': [3, 2]})
 
     ax = axes[0]
@@ -882,7 +885,7 @@ def _after_phase1(snaps):
     band_min = eq.biological_atp_fraction_min.value
     band_max = eq.biological_atp_fraction_max.value
 
-    fig, axes = plt.subplots(2, 1, figsize=(9, 6.0), sharex=True,
+    fig, axes = plt.subplots(2, 1, figsize=(11, 6.5), sharex=True,
                              gridspec_kw={'height_ratios': [3, 2]})
 
     ax = axes[0]
@@ -1308,7 +1311,7 @@ def _before_phase2(snaps):
     times = np.array([s['time'] / 60 for s in snaps])
     bound = np.array([s['dnaA_box_bound'] for s in snaps])
     total = np.array([s['dnaA_box_total'] for s in snaps])
-    fig, ax = plt.subplots(figsize=(9, 3.0))
+    fig, ax = plt.subplots(figsize=(11, 3.8))
     ax.plot(times, total, color='#1e293b', lw=1.4, label='total active boxes')
     ax.plot(times, bound, color='#dc2626', lw=1.4,
             label='bound (replication_data listener — always 0)')
@@ -1330,7 +1333,7 @@ def _after_phase2(snaps):
     if len(snaps) > 1:
         snaps = snaps[1:]
     times = np.array([s['time'] / 60 for s in snaps])
-    fig, axes = plt.subplots(2, 1, figsize=(9, 6.0), sharex=True,
+    fig, axes = plt.subplots(2, 1, figsize=(11, 6.5), sharex=True,
                              gridspec_kw={'height_ratios': [2, 3]})
 
     ax = axes[0]
@@ -1466,7 +1469,7 @@ def _phase3_initiation_panel(snaps, title):
         if n_oric[i] > n_oric[i - 1]
     ]
 
-    fig, axes = plt.subplots(2, 1, figsize=(9, 6.0), sharex=True,
+    fig, axes = plt.subplots(2, 1, figsize=(11, 6.5), sharex=True,
                              gridspec_kw={'height_ratios': [3, 2]})
 
     ax = axes[0]
@@ -1524,7 +1527,7 @@ def _before_phase4(snaps):
         return _no_data_msg()
     times = np.array([s['time'] / 60 for s in snaps])
     n_oric = np.array([s['n_oriC'] for s in snaps])
-    fig, ax = plt.subplots(figsize=(9, 3.0))
+    fig, ax = plt.subplots(figsize=(11, 3.8))
     ax.step(times, n_oric, where='post', color='#10b981', lw=1.6)
     ax.set_xlabel('Time (min)'); ax.set_ylabel('oriC count')
     ax.set_title('Current: oriC count — no sequestration window after fork passage')
@@ -1538,7 +1541,7 @@ def _before_phase5(snaps):
         return _no_data_msg()
     times = np.array([s['time'] / 60 for s in snaps])
     n_rep = np.array([s['n_replisomes'] for s in snaps])
-    fig, ax = plt.subplots(figsize=(9, 3.0))
+    fig, ax = plt.subplots(figsize=(11, 3.8))
     ax.step(times, n_rep, where='post', color='#f59e0b', lw=1.6)
     ax.set_xlabel('Time (min)'); ax.set_ylabel('Active replisomes')
     ax.set_title('Current: replisome activity is not coupled to DnaA-ATP hydrolysis')
@@ -1567,7 +1570,7 @@ def _after_phase5(snaps):
     band_min = eq.biological_atp_fraction_min.value
     band_max = eq.biological_atp_fraction_max.value
 
-    fig, axes = plt.subplots(2, 1, figsize=(9, 6.0), sharex=True,
+    fig, axes = plt.subplots(2, 1, figsize=(11, 6.5), sharex=True,
                              gridspec_kw={'height_ratios': [3, 2]})
 
     ax = axes[0]
@@ -1625,7 +1628,7 @@ def _before_phase7(snaps):
     if pulled is None:
         return _placeholder('No trajectory data — re-run with --duration N.')
     times, apo, atp, adp = pulled
-    fig, ax = plt.subplots(figsize=(9, 3.4))
+    fig, ax = plt.subplots(figsize=(11, 4.0))
     ax.plot(times, atp, color='#16a34a', lw=1.6, label='DnaA-ATP')
     ax.plot(times, adp, color='#dc2626', lw=1.6, label='DnaA-ADP')
     ax.set_xlabel('Time (min)'); ax.set_ylabel('Bulk count')
@@ -1661,7 +1664,7 @@ def _after_phase7(snaps):
     band_min = eq.biological_atp_fraction_min.value
     band_max = eq.biological_atp_fraction_max.value
 
-    fig, axes = plt.subplots(2, 1, figsize=(9, 6.0), sharex=True,
+    fig, axes = plt.subplots(2, 1, figsize=(11, 6.5), sharex=True,
                              gridspec_kw={'height_ratios': [3, 2]})
 
     ax = axes[0]
@@ -2468,7 +2471,7 @@ body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans
 .phase-link .num {{ font-family: monospace; font-size: 0.78em; color: #64748b;
                     flex-shrink: 0; }}
 .phase-link .ttl {{ flex: 1; }}
-.main {{ flex: 1; padding: 28px 36px; max-width: 1000px; }}
+.main {{ flex: 1; padding: 28px 36px; max-width: 1200px; }}
 h1 {{ color: #0f172a; border-bottom: 3px solid #2563eb; padding-bottom: 8px;
       margin-top: 0; }}
 h2 {{ color: #1e3a8a; margin-top: 0; font-size: 1.2em; }}
@@ -2543,19 +2546,23 @@ table.arch .ports code {{ background: #f1f5f9; }}
                 text-align: center; overflow-x: auto; }}
 .bigraph-img img {{ max-width: 95%; height: auto;
                      display: block; margin: 0 auto; }}
-.before-after {{ display: grid; grid-template-columns: 1fr 1fr;
-                  gap: 14px; margin-top: 6px; }}
+.before-after {{ display: flex; flex-direction: column;
+                  gap: 18px; margin-top: 10px; }}
 .ba-col {{ background: #f8fafc; border: 1px solid #e2e8f0;
-            border-radius: 6px; padding: 12px; }}
-.ba-col h4 {{ margin: 0 0 8px; font-size: 0.9em;
+            border-radius: 6px; padding: 16px; }}
+.ba-col:nth-child(1) {{ border-left: 4px solid #94a3b8; }}
+.ba-col:nth-child(2) {{ border-left: 4px solid #16a34a; }}
+.ba-col h4 {{ margin: 0 0 12px; font-size: 1.0em;
               color: #1e293b; text-transform: uppercase;
-              letter-spacing: 0.05em; }}
+              letter-spacing: 0.05em;
+              border-bottom: 1px solid #e2e8f0;
+              padding-bottom: 6px; }}
 .ba-col img {{ max-width: 100%; height: auto; border: 1px solid #e2e8f0;
-                border-radius: 4px; background: white; }}
+                border-radius: 4px; background: white; display: block;
+                margin: 0 auto; }}
 .placeholder {{ background: #f1f5f9; border: 1px dashed #cbd5e1;
-                border-radius: 6px; padding: 12px 16px; color: #475569;
-                font-size: 0.85em; font-style: italic; }}
-@media (max-width: 900px) {{ .before-after {{ grid-template-columns: 1fr; }} }}
+                border-radius: 6px; padding: 14px 18px; color: #475569;
+                font-size: 0.95em; font-style: italic; }}
 table {{ border-collapse: collapse; width: 100%;
          font-size: 0.88em; margin: 6px 0 12px; }}
 table th, table td {{ border: 1px solid #cbd5e1; padding: 5px 9px;

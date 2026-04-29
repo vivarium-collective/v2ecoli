@@ -181,6 +181,7 @@ def _extract_replication_signals(history):
 
         rida_listener = h.get('listeners', {}).get('rida', {}) if isinstance(h.get('listeners'), dict) else {}
         dars_listener = h.get('listeners', {}).get('dars', {}) if isinstance(h.get('listeners'), dict) else {}
+        ddah_listener = h.get('listeners', {}).get('ddah', {}) if isinstance(h.get('listeners'), dict) else {}
         binding_listener = h.get('listeners', {}).get('dnaA_binding', {}) if isinstance(h.get('listeners'), dict) else {}
 
         snaps.append({
@@ -197,6 +198,7 @@ def _extract_replication_signals(history):
             'rida_flux_atp_to_adp': rida_listener.get('flux_atp_to_adp'),
             'rida_active_replisomes': rida_listener.get('active_replisomes'),
             'dars_flux_adp_to_apo': dars_listener.get('flux_adp_to_apo'),
+            'ddah_flux_atp_to_adp': ddah_listener.get('flux_atp_to_adp'),
             'binding_total_bound': binding_listener.get('total_bound'),
             'binding_total_active': binding_listener.get('total_active'),
             'binding_fraction_bound': binding_listener.get('fraction_bound'),
@@ -306,9 +308,25 @@ def _run_gated_no_seqA_sim(duration):
         label='gated_no_seqA')
 
 
+def _run_pre_ddah_sim(duration):
+    """Cumulative state right before Phase 6: everything except DDAH."""
+    from v2ecoli.composite_replication_initiation import (
+        make_replication_initiation_composite,
+    )
+    return _run_sim(
+        duration,
+        lambda **kw: make_replication_initiation_composite(
+            enable_rida=True, enable_dars=True,
+            enable_dnaA_box_binding=True,
+            enable_dnaA_gated_initiation=True,
+            enable_seqA_sequestration=True,
+            enable_ddah=False, **kw),
+        label='pre_ddah')
+
+
 def _run_full_sim(duration):
     """Full replication_initiation architecture: RIDA + DARS + box
-    binding + DnaA-gated initiation + SeqA sequestration."""
+    binding + DnaA-gated initiation + SeqA sequestration + DDAH."""
     from v2ecoli.composite_replication_initiation import (
         make_replication_initiation_composite,
     )
@@ -580,13 +598,15 @@ def _check_phase5():
 
 
 def _check_phase6():
-    """DDAH — datA-mediated DnaA-ATP hydrolysis."""
+    """DDAH — backup DnaA-ATP hydrolysis at the datA locus."""
     if _file_exists('v2ecoli/processes/ddah.py'):
-        return 'done', 'DDAH process present'
-    text = _read_file('v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/process/replication.py')
-    if text and 'datA' in text:
-        return 'in_progress', 'datA region loaded into motif_coordinates; process pending'
-    return 'pending', 'no datA region in motif_coordinates; no DDAH process'
+        gen = _read_file('v2ecoli/generate_replication_initiation.py')
+        if gen and '_splice_ddah' in gen:
+            return 'done', (
+                'DDAH process spliced into the architecture; constitutive '
+                'first-order DnaA-ATP hydrolysis runs alongside RIDA')
+        return 'in_progress', 'DDAH process file present but not spliced'
+    return 'pending', 'no DDAH process'
 
 
 def _check_phase7():
@@ -1779,10 +1799,153 @@ def _after_phase5(snaps):
     return _img(fig_to_b64(fig), 'RIDA-driven DnaA-ATP dynamics') + note
 
 
+def _phase6_panel(snaps, title, show_ddah=True):
+    """Phase 6 view: DnaA-ATP fraction trace + RIDA / DDAH fluxes.
+    With DDAH, the ATP fraction sits a bit lower than without it
+    (an additional drain on top of RIDA)."""
+    pulled = _dnaA_pool_traces(snaps)
+    if pulled is None:
+        return _placeholder('No DnaA pool data in trajectory.')
+    times, apo, atp, adp = pulled
+    total = apo + atp + adp
+    safe = np.where(total > 0, total, 1)
+    atp_frac = atp / safe
+
+    aligned = snaps[1:] if len(snaps) > 1 else snaps
+    rida_flux = np.array([s.get('rida_flux_atp_to_adp') or 0 for s in aligned])
+    ddah_flux = np.array([s.get('ddah_flux_atp_to_adp') or 0 for s in aligned])
+
+    eq = DNAA_NUCLEOTIDE_EQUILIBRIUM
+    band_min = eq.biological_atp_fraction_min.value
+    band_max = eq.biological_atp_fraction_max.value
+
+    fig, axes = plt.subplots(2, 1, figsize=(11, 6.5), sharex=True,
+                             gridspec_kw={'height_ratios': [3, 2]})
+
+    ax = axes[0]
+    ax.fill_between(
+        [times.min(), times.max()], band_min, band_max,
+        color='#bfdbfe', alpha=0.5,
+        label=f'literature band ({band_min:.0%}–{band_max:.0%})')
+    ax.plot(times, atp_frac, color='#16a34a', lw=2.2,
+            label='DnaA-ATP fraction')
+    ax.set_ylabel('DnaA-ATP / total')
+    ax.set_ylim(0, 1.05)
+    ax.set_title(title)
+    ax.legend(loc='upper right')
+    ax.grid(True, alpha=0.2)
+
+    ax = axes[1]
+    width = 0.4
+    ax.bar(times - width / 2, rida_flux, width=width,
+           color='#dc2626', alpha=0.75,
+           label='RIDA flux')
+    if show_ddah:
+        ax.bar(times + width / 2, ddah_flux, width=width,
+               color='#7c3aed', alpha=0.75,
+               label='DDAH flux')
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('Hydrolysis flux (molecules / step)')
+    ax.set_title('DnaA-ATP hydrolysis flux contributors')
+    ax.legend(loc='upper right')
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+    if show_ddah:
+        cumulative_ddah = int(ddah_flux.sum())
+        cumulative_rida = int(rida_flux.sum())
+        note = (
+            f'<p class="note">Over this trajectory, RIDA contributed '
+            f'<strong>{cumulative_rida}</strong> hydrolysis events vs '
+            f'DDAH\'s <strong>{cumulative_ddah}</strong>. RIDA dominates '
+            f'while replisomes are active; DDAH provides a steady '
+            f'background drain that runs even between replication '
+            f'rounds.</p>'
+        )
+    else:
+        note = (
+            '<p class="note">Without DDAH, RIDA is the only DnaA-ATP '
+            'hydrolyzer. The ATP fraction sits closer to the upper '
+            'edge of the literature band because nothing pulls it '
+            'down between replication pulses.</p>'
+        )
+    return _img(fig_to_b64(fig), 'Phase 6 panel') + note
+
+
 def _before_phase6(snaps):
-    return _placeholder(
-        'No datA locus in the model today; no DnaA-ATP hydrolysis flux from datA. '
-        'After Phase 6, this panel plots datA-mediated flux versus RIDA flux.')
+    """Phase 6 'Before' = pre_ddah: gate + SeqA, no DDAH."""
+    return _phase6_panel(
+        snaps,
+        title='Without DDAH: RIDA alone hydrolyzes DnaA-ATP',
+        show_ddah=False)
+
+
+def _after_phase6(snaps):
+    """Phase 6 'After' = full: gate + SeqA + DDAH."""
+    return _phase6_panel(
+        snaps,
+        title='With DDAH: a constant background drain alongside RIDA',
+        show_ddah=True)
+
+
+PHASE6_ARCH_CHANGES = (
+    ArchChange(
+        kind='new_process',
+        summary='DDAH Step',
+        file='v2ecoli/processes/ddah.py',
+        detail=('A constitutive first-order DnaA-ATP -> DnaA-ADP '
+                'hydrolyzer modeling the catalytic effect of the '
+                'datA-IHF complex. Rate = k_ddah * dnaA_atp_count, '
+                'Poisson-drawn each tick. Default rate is ~10x slower '
+                'than RIDA per replisome so DDAH stays a backup.'),
+        reads=(
+            'bulk[MONOMER0-160[c]]',
+            'bulk[MONOMER0-4565[c]]',
+            'timestep',
+        ),
+        writes=(
+            'bulk[MONOMER0-160[c]]',
+            'bulk[MONOMER0-4565[c]]',
+            'listeners.ddah.flux_atp_to_adp',
+            'listeners.ddah.rate_constant',
+        ),
+    ),
+    ArchChange(
+        kind='listener',
+        summary='New listeners.ddah.* fields',
+        file='v2ecoli/processes/ddah.py',
+        detail='Per-tick DDAH hydrolysis flux + configured rate constant.',
+        writes=(
+            'listeners.ddah.flux_atp_to_adp',
+            'listeners.ddah.rate_constant',
+        ),
+    ),
+    ArchChange(
+        kind='override',
+        summary='enable_ddah flag (default True)',
+        file='v2ecoli/generate_replication_initiation.py',
+        detail=('build_replication_initiation_document gains '
+                '`enable_ddah` (default True). When True, '
+                '`_splice_ddah` adds the step to flow_order alongside '
+                'RIDA / DARS / box binding.'),
+    ),
+)
+
+
+def _phase6_extras(snaps, status):
+    arch = _render_arch_changes_html(PHASE6_ARCH_CHANGES)
+    note = (
+        '<p class="note"><strong>What\'s deferred for the first cut:</strong> '
+        'DDAH currently fires constitutively — it does not gate on '
+        'IHF binding at datA, and the bioinformatic strict-consensus '
+        'search finds 0 boxes in the datA window so per-box occupancy '
+        'is not used. Adding datA region coordinates to '
+        '<code>motif_coordinates</code> and gating on the IHF '
+        'heterodimer count are the natural follow-ups.</p>'
+    )
+    return [
+        ('Architecture changes — what this phase adds, modifies, overrides',
+         note + arch),
+    ]
 
 
 def _before_phase7(snaps):
@@ -2133,7 +2296,7 @@ PHASES: list[Phase] = [
         after_plot=_after_phase4,
         extra_sections=_phase4_extras,
         before_config='gated_no_seqA',
-        after_config='full',
+        after_config='pre_ddah',
     ),
     Phase(
         number=5,
@@ -2181,30 +2344,42 @@ PHASES: list[Phase] = [
     Phase(
         number=6,
         title='DDAH — backup DnaA-ATP hydrolysis at datA',
-        goal=('Load datA region coords; IHF binds the datA IBS; DDAH process '
-              'hydrolyzes DnaA-ATP via the datA–IHF complex. Acts as a '
-              'replication-uncoupled brake on DnaA-ATP, complementing RIDA.'),
+        goal=('Add a DDAH Step that hydrolyzes DnaA-ATP at a small '
+              'constitutive rate, modeling the catalytic effect of the '
+              'datA-IHF complex described in the curated reference. '
+              'Pairs with Phase 5 (RIDA): RIDA dominates while replisomes '
+              'are active, DDAH provides a steady background drain that '
+              'runs even between replication rounds.'),
         status_check=_check_phase6,
         tests=(
             TestSpec(
                 'tests/test_ddah.py',
-                'Knocking out datA (parameter gate) accelerates the next '
-                'initiation by a measurable amount; flux from DDAH is '
-                'non-zero only when IHF is present at the datA IBS.'),
+                'DDAH step in cell_state. listener.ddah emits a non-zero '
+                'rate constant. Cumulative flux > 0 over a 20-min window. '
+                'enable_ddah=False removes the step.'),
         ),
         gap_items=(
-            'datA not loaded into `sim_data.process.replication.motif_coordinates`.',
-            'IhfA/IhfB defined as proteins but no DNA-binding logic at datA.',
+            'datA region coordinates not yet in `motif_coordinates` — the '
+            'strict-consensus motif search finds 0 boxes in the datA '
+            'window. Per-box occupancy is therefore not used; DDAH fires '
+            'at a constant rate independent of datA box count.',
+            'IHF heterodimer count is not yet read by DDAH. The biology '
+            'gates DDAH on IHF binding at the datA IBS; we approximate '
+            'with a constant rate instead.',
+            'Rate constant (`rate_per_s = 0.0005`) is a first-pass tune. '
+            'With it, the ATP fraction can dip slightly below the lower '
+            'edge of the literature band — would need recalibration once '
+            'the IHF gating is wired.',
         ),
-        viz_plan=(
-            'Stacked-area plot of DnaA-ATP hydrolysis flux split into RIDA '
-            'and DDAH contributions over the cell cycle. Both should be '
-            'non-trivial; DDAH peaks shortly after initiation when IHF '
-            'binds datA.'),
+        viz_plan='',
         before_plot=_before_phase6,
         after_description=(
-            'After Phase 6: stacked-area RIDA + DDAH flux. Knockout overlay '
-            'shows the loss of DDAH flux when datA is removed.'),
+            'After Phase 6: ATP-fraction trace + side-by-side RIDA / DDAH '
+            'flux bars showing both hydrolyzers contributing.'),
+        after_plot=_after_phase6,
+        extra_sections=_phase6_extras,
+        before_config='pre_ddah',
+        after_config='full',
     ),
     Phase(
         number=7,
@@ -2450,7 +2625,8 @@ _CONFIG_LABELS = {
     'rida_dars':      '+ RIDA + DARS (no binding; mass gate)',
     'pre_gate':       '+ RIDA + DARS + binding (mass gate still active)',
     'gated_no_seqA':  'DnaA-gated initiation (no SeqA sequestration)',
-    'full':           'replication_initiation (DnaA gate + SeqA sequestration)',
+    'pre_ddah':       'gate + SeqA, no DDAH backup hydrolysis',
+    'full':           'replication_initiation (gate + SeqA + DDAH)',
 }
 
 
@@ -2921,6 +3097,7 @@ def main():
             ('rida_dars', _run_rida_dars_sim),
             ('pre_gate', _run_pre_gate_sim),
             ('gated_no_seqA', _run_gated_no_seqA_sim),
+            ('pre_ddah', _run_pre_ddah_sim),
             ('full', _run_full_sim),
         ]
         for label, runner in configs:

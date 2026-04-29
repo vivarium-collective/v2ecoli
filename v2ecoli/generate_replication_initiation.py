@@ -38,6 +38,7 @@ from v2ecoli.processes.chromosome_replication_dnaA_gated import (
     DnaAGatedChromosomeReplication,
 )
 from v2ecoli.processes.dars import DARS, NAME as DARS_NAME, TOPOLOGY as DARS_TOPOLOGY
+from v2ecoli.processes.ddah import DDAH, NAME as DDAH_NAME, TOPOLOGY as DDAH_TOPOLOGY
 from v2ecoli.processes.dnaA_box_binding import (
     DnaABoxBinding, NAME as BINDING_NAME, TOPOLOGY as BINDING_TOPOLOGY,
 )
@@ -169,6 +170,26 @@ def _splice_dnaA_box_binding(document, seed):
     return document
 
 
+def _splice_ddah(document, seed):
+    """Add the DDAH step to the cell_state and append it to flow_order.
+
+    DDAH is the datA-IHF backup pathway: a constitutive first-order
+    hydrolysis of DnaA-ATP that runs alongside RIDA. A future
+    refinement would gate DDAH on IHF binding at datA.
+    """
+    cell_state = document['state']['agents']['0']
+    if DDAH_NAME in cell_state:
+        return document
+    ddah_config = {'time_step': 1.0, 'seed': int(seed)}
+    instance = DDAH(ddah_config)
+    cell_state[DDAH_NAME] = make_edge(
+        instance, DDAH_TOPOLOGY, edge_type='step', config=ddah_config)
+    document.setdefault('flow_order', [])
+    if DDAH_NAME not in document['flow_order']:
+        document['flow_order'] = list(document['flow_order']) + [DDAH_NAME]
+    return document
+
+
 def _splice_dars(document, seed):
     """Add the DARS step to the cell_state and append it to flow_order.
 
@@ -215,6 +236,7 @@ def build_replication_initiation_document(
     enable_dnaA_box_binding: bool = True,
     enable_dnaA_gated_initiation: bool = True,
     enable_seqA_sequestration: bool = True,
+    enable_ddah: bool = True,
 ):
     """Build the replication-initiation document.
 
@@ -250,6 +272,8 @@ def build_replication_initiation_document(
             document, DEACTIVATED_EQUILIBRIUM_REACTIONS)
     if enable_dars:
         document = _splice_dars(document, seed=seed)
+    if enable_ddah:
+        document = _splice_ddah(document, seed=seed)
     if enable_dnaA_box_binding:
         document = _splice_dnaA_box_binding(document, seed=seed)
     if enable_dnaA_gated_initiation:

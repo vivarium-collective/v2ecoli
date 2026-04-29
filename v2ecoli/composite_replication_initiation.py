@@ -28,6 +28,7 @@ def make_replication_initiation_composite(
     enable_dnaA_box_binding: bool = True,
     enable_dnaA_gated_initiation: bool = True,
     enable_seqA_sequestration: bool = True,
+    enable_ddah: bool = True,
 ):
     """Create a replication-initiation Composite from cache.
 
@@ -56,6 +57,7 @@ def make_replication_initiation_composite(
         enable_dnaA_box_binding=enable_dnaA_box_binding,
         enable_dnaA_gated_initiation=enable_dnaA_gated_initiation,
         enable_seqA_sequestration=enable_seqA_sequestration,
+        enable_ddah=enable_ddah,
     )
 
     return Composite(document, core=core)

@@ -511,18 +511,13 @@ def _rel_to_angle(rel_bp: int) -> float:
     return _abs_to_angle(abs_bp)
 
 
-def _draw_chromosome_diagram(ax, snap, *,
-                              show_regions: bool = True,
-                              show_replisomes: bool = True,
-                              R: float = 1.0,
-                              cx: float = 0.0,
-                              cy: float = 0.0):
-    """Draw one chromosome circle with named regions, oriC, ter, and
-    optionally active replisomes (forks) and a region legend."""
+def _draw_one_circle(ax, cx, cy, R, fork_coords, *, show_regions=True):
+    """Draw one chromosome circle at (cx, cy) with named regions,
+    oriC at top, ter at bottom, and the given fork coordinates."""
     theta = np.linspace(0, 2 * np.pi, 200)
     ax.plot(cx + R * np.cos(theta), cy + R * np.sin(theta),
             color='#cbd5e1', lw=4, zorder=1)
-    # oriC — green dot at 12 o'clock
+    # oriC — green dot at 12 o'clock (coordinate 0 relative to oriC)
     ax.plot(cx, cy + R, 'o', color='#10b981', ms=12, zorder=5,
             markeredgecolor='#065f46', markeredgewidth=1.0)
     # ter — red square at 6 o'clock
@@ -530,45 +525,97 @@ def _draw_chromosome_diagram(ax, snap, *,
             markeredgecolor='#7f1d1d', markeredgewidth=1.0)
 
     if show_regions:
-        # Draw arcs for each named region
         for region, (lo, hi) in REGION_BOUNDARIES_ABS.items():
             color = _REGION_COLORS.get(region, '#64748b')
-            a_lo = _abs_to_angle(lo)
-            a_hi = _abs_to_angle(hi)
-            # Region arcs are tiny (~hundreds of bp on a ~4.6 Mb genome).
-            # Render as a thick chord plus a labelled marker so they
-            # show up at this scale.
-            mid_angle = (a_lo + a_hi) / 2
+            mid_angle = (_abs_to_angle(lo) + _abs_to_angle(hi)) / 2
             mx = cx + R * np.cos(mid_angle)
             my = cy + R * np.sin(mid_angle)
-            ax.plot(mx, my, 'o', color=color, ms=11, zorder=4,
-                    markeredgecolor='black', markeredgewidth=0.8)
-            # Label outside the circle
-            label_r = R * 1.18
+            ax.plot(mx, my, 'o', color=color, ms=10, zorder=4,
+                    markeredgecolor='black', markeredgewidth=0.7)
+            label_r = R * 1.20
             lx = cx + label_r * np.cos(mid_angle)
             ly = cy + label_r * np.sin(mid_angle)
             ha = 'left' if lx > cx + 0.05 else ('right' if lx < cx - 0.05 else 'center')
             va = 'bottom' if ly > cy else 'top'
-            ax.text(lx, ly, region, ha=ha, va=va, fontsize=11,
+            ax.text(lx, ly, region, ha=ha, va=va, fontsize=10,
                     color=color, fontweight='bold')
 
-    if show_replisomes:
-        fork_coords = snap.get('fork_coords') or []
-        for c in fork_coords:
-            ang = _rel_to_angle(int(c))
-            fx = cx + (R + 0.07) * np.cos(ang)
-            fy = cy + (R + 0.07) * np.sin(ang)
-            ax.plot(fx, fy, '^', color='#f59e0b', ms=14, zorder=6,
-                    markeredgecolor='black', markeredgewidth=0.7)
+    for c in fork_coords:
+        ang = _rel_to_angle(int(c))
+        fx = cx + (R + 0.07) * np.cos(ang)
+        fy = cy + (R + 0.07) * np.sin(ang)
+        ax.plot(fx, fy, '^', color='#f59e0b', ms=14, zorder=6,
+                markeredgecolor='black', markeredgewidth=0.7)
+
+
+def _draw_chromosome_diagram(ax, snap, *,
+                              show_regions: bool = True,
+                              show_replisomes: bool = True,
+                              show_legend: bool = True):
+    """Draw one or more chromosome circles for a snapshot. Stacks
+    vertically when n_chromosomes > 1 (each gets oriC at the top of
+    its own circle). Adds a legend explaining the markers."""
+    n_chrom = max(1, int(snap.get('n_chromosomes') or 1))
+    fork_coords = list(snap.get('fork_coords') or []) if show_replisomes else []
+
+    if n_chrom == 1:
+        _draw_one_circle(ax, 0.0, 0.0, R=0.9, fork_coords=fork_coords,
+                         show_regions=show_regions)
+        ax.set_xlim(-1.5, 1.5)
+        ax.set_ylim(-1.5, 1.5)
+    else:
+        R = 0.7
+        spacing = 2.0 * R + 0.5
+        total_h = (n_chrom - 1) * spacing
+        # Distribute forks across chromosomes — cap 2 per circle
+        # (typical bidirectional replication has 2 forks per origin).
+        forks_per = max(1, len(fork_coords) // n_chrom) if fork_coords else 0
+        for ci in range(n_chrom):
+            cy = total_h / 2 - ci * spacing
+            f_lo = ci * forks_per
+            f_hi = (ci + 1) * forks_per if ci < n_chrom - 1 else len(fork_coords)
+            _draw_one_circle(
+                ax, 0.0, cy, R=R,
+                fork_coords=fork_coords[f_lo:f_hi],
+                show_regions=show_regions)
+        ax.set_xlim(-1.3, 1.3)
+        ax.set_ylim(-total_h / 2 - R - 0.4, total_h / 2 + R + 0.4)
+
+    if show_legend:
+        ax.plot([], [], 'o', color='#10b981', ms=10,
+                markeredgecolor='#065f46',
+                label='oriC (coord 0)')
+        ax.plot([], [], 's', color='#ef4444', ms=9,
+                markeredgecolor='#7f1d1d',
+                label='ter')
+        ax.plot([], [], 'o', color='#7c3aed', ms=9,
+                markeredgecolor='black', label='regulatory region')
+        ax.plot([], [], '^', color='#f59e0b', ms=12,
+                markeredgecolor='black',
+                label='active replisome (fork)')
+        ax.legend(loc='lower right', fontsize=8, framealpha=0.95,
+                  borderaxespad=0.3)
 
 
 def _chromosome_timeline_plot(snaps, indices=None, title='',
-                               annotate_events=True):
-    """Draw a row of chromosome diagrams at selected snapshot indices.
-    Bottom panel shows oriC + replisome counts over time so the user
-    can read the timeline alongside the spatial state."""
+                               annotate_events=True,
+                               show_pre_init: bool = True):
+    """Row of chromosome diagrams at selected snapshots, with a
+    bottom panel tracking oriC / chromosome / replisome counts over
+    the full trajectory. When the leftmost snapshot already shows
+    post-initiation state (gate fired in tick 0 before snapshot
+    capture), prepend a synthetic pre-sim snapshot so the 2→4 oriC
+    step-up is visible."""
     if not snaps:
         return _no_data_msg()
+    if (show_pre_init and snaps
+            and int(snaps[0].get('n_oriC') or 0) >= 4):
+        pre_init = dict(snaps[0])
+        pre_init['time'] = -0.5
+        pre_init['n_oriC'] = 2
+        pre_init['n_chromosomes'] = 1
+        pre_init['n_replisomes'] = 2
+        snaps = [pre_init] + list(snaps)
     if indices is None:
         n = len(snaps)
         if n >= 5:
@@ -580,30 +627,35 @@ def _chromosome_timeline_plot(snaps, indices=None, title='',
     indices = sorted(set(indices))
 
     n_maps = len(indices)
-    fig = plt.figure(figsize=(max(11, n_maps * 3.0), 7.5))
+    # Tall enough that 2-chromosome stacks aren't squashed.
+    fig = plt.figure(figsize=(max(11, n_maps * 3.2), 9.0))
     if title:
         fig.suptitle(title, fontsize=14, y=0.99)
 
     for i, idx in enumerate(indices):
         ax = fig.add_subplot(2, n_maps, i + 1)
         snap = snaps[idx]
-        _draw_chromosome_diagram(ax, snap)
-        n_oric = snap.get('n_oriC') or 0
-        n_rep = snap.get('n_replisomes') or 0
+        # Show legend on the first panel only — repeating it on every
+        # disc would clutter the row.
+        _draw_chromosome_diagram(ax, snap, show_legend=(i == 0))
         ax.set_aspect('equal')
         ax.axis('off')
-        ax.set_xlim(-1.5, 1.5)
-        ax.set_ylim(-1.5, 1.5)
+        n_chrom = int(snap.get('n_chromosomes') or 1)
+        n_oric = snap.get('n_oriC') or 0
+        n_rep = snap.get('n_replisomes') or 0
         ax.set_title(
             f't = {snap["time"] / 60:.1f} min\n'
-            f'oriC={n_oric}  replisomes={n_rep}',
+            f'chromosomes={n_chrom}  oriC={n_oric}  '
+            f'replisomes={n_rep}',
             fontsize=11)
 
-    # Bottom panel: oriC + replisome counts over time, full width
     ax = fig.add_subplot(2, 1, 2)
     times = np.array([s['time'] / 60 for s in snaps])
+    n_chrom_arr = np.array([s.get('n_chromosomes') or 0 for s in snaps])
     n_oric = np.array([s.get('n_oriC') or 0 for s in snaps])
     n_rep = np.array([s.get('n_replisomes') or 0 for s in snaps])
+    ax.step(times, n_chrom_arr, where='post', color='#7c3aed', lw=2.4,
+            label='chromosomes')
     ax.step(times, n_oric, where='post', color='#10b981', lw=2.4,
             label='oriC count')
     ax.step(times, n_rep, where='post', color='#f59e0b', lw=2.0,
@@ -612,15 +664,23 @@ def _chromosome_timeline_plot(snaps, indices=None, title='',
         for i in range(1, len(n_oric)):
             if n_oric[i] > n_oric[i - 1]:
                 ax.axvline(times[i], color='#dc2626', ls='--',
-                           lw=0.9, alpha=0.5)
-    # Mark which snapshots are shown above
+                           lw=0.9, alpha=0.5,
+                           label='initiation event'
+                                 if i == 1 else None)
+        for i in range(1, len(n_chrom_arr)):
+            if n_chrom_arr[i] > n_chrom_arr[i - 1]:
+                ax.axvline(times[i], color='#1d4ed8', ls=':',
+                           lw=1.2, alpha=0.7,
+                           label='chromosome doubled'
+                                 if i == 1 else None)
     for idx in indices:
         ax.axvline(times[idx], color='#94a3b8', ls=':', lw=1.0,
-                   alpha=0.55, zorder=0)
+                   alpha=0.45, zorder=0)
     ax.set_xlabel('Time (min)')
     ax.set_ylabel('Count')
-    ax.set_title('oriC count + active replisomes over time '
-                 '(grey dotted lines mark the snapshots above)')
+    ax.set_title('Cell-cycle timeline (grey dotted = snapshots above; '
+                 'red dashed = initiation; blue dotted = chromosome '
+                 'replication completed)')
     ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
     ax.legend(loc='upper left')
     ax.grid(True, alpha=0.2)
@@ -630,17 +690,16 @@ def _chromosome_timeline_plot(snaps, indices=None, title='',
 
 def _chromosome_diagram_static():
     """Single labeled chromosome — used in Phase 0 to show region
-    placement without any trajectory data. Doesn't need snaps."""
+    placement without any trajectory data."""
     fig, ax = plt.subplots(figsize=(7.5, 7.5))
-    snap = {'fork_coords': [], 'n_oriC': 1, 'n_replisomes': 0}
+    snap = {'fork_coords': [], 'n_oriC': 1, 'n_replisomes': 0,
+            'n_chromosomes': 1}
     _draw_chromosome_diagram(ax, snap, show_replisomes=False)
     ax.set_aspect('equal')
     ax.axis('off')
-    ax.set_xlim(-1.5, 1.5)
-    ax.set_ylim(-1.5, 1.5)
     ax.set_title(
         'Regulatory regions on the E. coli MG1655 chromosome\n'
-        '(circle = full genome, ~4.64 Mb)',
+        '(circle = full genome, ~4.64 Mb; oriC at top = coordinate 0)',
         fontsize=12)
     fig.tight_layout()
     return _img(fig_to_b64(fig), 'chromosome region map')
@@ -1750,9 +1809,28 @@ def _phase2_extras(snaps, status):
 def _phase3_initiation_panel(snaps, title):
     """Show actual initiation events and the gate signal that drives
     them. Used by both Phase 3 Before (pre_gate / mass threshold) and
-    After (full / DnaA-ATP gate)."""
+    After (full / DnaA-ATP gate).
+
+    The cache's init state is mid-cycle (1 chromosome, 2 oriC, 2
+    active forks). For the post-gate configurations the gate fires
+    in tick 0 before the first snapshot is captured, so the leftmost
+    point shows oriC=4 already. We prepend a synthetic pre-init
+    snapshot at t=-0.5s so the 2→4 transition is visible.
+    """
     if not snaps:
         return _no_data_msg()
+    n_oric_first = int(snaps[0].get('n_oriC') or 0)
+    if n_oric_first >= 4:
+        # Likely fired before t=0 capture — show the cache's pre-sim
+        # state (1 chromosome, 2 oriC, 2 forks; gate ratio just at
+        # threshold) to make the firing event readable.
+        pre_init = dict(snaps[0])
+        pre_init['time'] = -0.5
+        pre_init['n_oriC'] = 2
+        pre_init['n_chromosomes'] = 1
+        pre_init['n_replisomes'] = 2
+        pre_init['critical_mass_per_oriC'] = 1.0
+        snaps = [pre_init] + list(snaps)
     times = np.array([s['time'] / 60 for s in snaps])
     n_oric = np.array([s.get('n_oriC') or 0 for s in snaps])
     n_rep = np.array([s.get('n_replisomes') or 0 for s in snaps])

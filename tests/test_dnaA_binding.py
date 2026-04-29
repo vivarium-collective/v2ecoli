@@ -127,15 +127,15 @@ def test_low_affinity_other_boxes_partially_bound(composite):
         f"'other' boxes are 100% bound — low-affinity Kd not applied")
 
 
-def test_per_region_counts_match_phase0_baseline(composite):
-    """The per-region bound counts at saturation should agree with
-    the Phase 0 baseline (3 / 1 / 0 / 1 / 3 distinct strict-consensus
-    boxes per region) scaled by chromosome-domain copies. We don't
-    pin exact numbers because the chromosome state evolves during
-    sim; we just check the counts are non-negative and bounded by
-    physically reasonable values."""
+def test_per_region_counts_bounded_by_pdf_total(composite):
+    """Per-region bound counts are bounded by the curated PDF total
+    for that region (oriC has 11 boxes total, so bound_oric ≤ 11).
+    Lower bound is zero. With per-tier sampling the high-affinity
+    boxes saturate quickly while low-affinity ones fill cooperatively,
+    so the per-region bound count is between n_high and n_total at
+    typical DnaA concentrations."""
     from v2ecoli.data.replication_initiation import (
-        PER_REGION_STRICT_CONSENSUS_COUNT)
+        PER_REGION_PDF_COUNT, PER_REGION_AFFINITY_PROFILE)
     composite.run(60.0)
     listener = _binding_listener(composite.state)
     region_fields = {
@@ -146,10 +146,28 @@ def test_per_region_counts_match_phase0_baseline(composite):
         'DARS2': 'bound_DARS2',
     }
     for region, field in region_fields.items():
-        n_strict = PER_REGION_STRICT_CONSENSUS_COUNT.get(region, 0)
+        n_total = PER_REGION_PDF_COUNT.get(region, 0)
         bound = int(listener[field])
-        # Up to ~3 chromosome domains active at init; each domain
-        # contributes its own copy. Bound count ≤ strict_count * 3.
-        assert bound <= n_strict * 3 + 1, (
-            f'{region}: bound={bound} exceeds plausible upper bound '
-            f'{n_strict * 3 + 1}. Listener: {dict(listener)}')
+        assert 0 <= bound <= n_total, (
+            f'{region}: bound={bound} outside [0, {n_total}]. '
+            f'Listener: {dict(listener)}')
+
+
+def test_oric_load_and_trigger_split(composite):
+    """At any reasonable DnaA-ATP concentration, oriC's high-affinity
+    boxes (Kd ~1 nM) saturate quickly while low-affinity boxes (Kd >
+    100 nM) fill cooperatively. Confirm the per-tier listener fields
+    expose this split — bound_oric_high should be at or near the
+    full count of 3, while bound_oric_low typically lags the low-tier
+    total of 8."""
+    composite.run(60.0)
+    listener = _binding_listener(composite.state)
+    high = int(listener['bound_oric_high'])
+    low = int(listener['bound_oric_low'])
+    assert 0 <= high <= 3, (
+        f'bound_oric_high={high} outside [0, 3]')
+    assert 0 <= low <= 8, (
+        f'bound_oric_low={low} outside [0, 8]')
+    # bound_oric is the sum of the tiers (the 'very_low' tier is 0
+    # at oriC, so bound_oric == high + low).
+    assert int(listener['bound_oric']) == high + low

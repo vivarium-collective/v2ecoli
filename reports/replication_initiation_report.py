@@ -58,6 +58,7 @@ import numpy as np
 from v2ecoli.data.replication_initiation import (
     CITATIONS,
     DARS1, DARS2, DATA, DNAA_BOX_CONSENSUS, DNAA_BOX_HIGHEST_AFFINITY,
+    DNAA_BOX_HIGH_AFFINITY_KD_NM, DNAA_BOX_LOW_AFFINITY_KD_NM_LOWER_BOUND,
     DNAA_NUCLEOTIDE_EQUILIBRIUM, DNAA_POOL_DRIVERS,
     DNAA_PROMOTER, ORIC, RIDA, SEQA,
     GENOME_LENGTH_BP, ORIC_ABS_CENTER_BP, TERC_ABS_CENTER_BP,
@@ -206,6 +207,8 @@ def _extract_replication_signals(history):
             'binding_total_active': binding_listener.get('total_active'),
             'binding_fraction_bound': binding_listener.get('fraction_bound'),
             'binding_bound_oric': binding_listener.get('bound_oric'),
+            'binding_bound_oric_high': binding_listener.get('bound_oric_high'),
+            'binding_bound_oric_low': binding_listener.get('bound_oric_low'),
             'binding_bound_dnaA_promoter': binding_listener.get('bound_dnaA_promoter'),
             'binding_bound_datA': binding_listener.get('bound_datA'),
             'binding_bound_DARS1': binding_listener.get('bound_DARS1'),
@@ -969,6 +972,52 @@ def _draw_box_occupancy_circle(ax, cx, cy, R, snap, *,
                 markeredgecolor='#7f1d1d', label='ter')
         ax.legend(loc='lower right', fontsize=8, framealpha=0.95,
                   borderaxespad=0.3)
+
+
+def _oric_tier_split_plot(snaps):
+    """Plot bound_oric_high vs bound_oric_low over time. Shows the
+    load-and-trigger pattern: the 3 high-affinity boxes saturate
+    almost immediately (capped at 3), while the 8 low-affinity
+    boxes fill more slowly as the DnaA-ATP pool grows. This is the
+    panel that justifies the per-tier sampling — at typical DnaA
+    concentrations the high tier is at ceiling and the low tier is
+    far from it."""
+    if not snaps:
+        return _no_data_msg()
+    times = np.array([s['time'] / 60 for s in snaps])
+    oric_h = np.array([s.get('binding_bound_oric_high') or 0
+                        for s in snaps])
+    oric_l = np.array([s.get('binding_bound_oric_low') or 0
+                        for s in snaps])
+    if not (np.any(oric_h) or np.any(oric_l)):
+        return _placeholder(
+            'No per-tier oriC binding data — re-run with the '
+            'updated dnaA_box_binding step to populate '
+            'bound_oric_high / bound_oric_low.')
+    fig, ax = plt.subplots(figsize=(11, 4.0))
+    ax.step(times, oric_h, where='post', color='#10b981', lw=2.2,
+            label='bound_oric_high (3 boxes; R1 / R2 / R4; '
+                  'Kd ≈ 1 nM, both ATP and ADP forms)')
+    ax.step(times, oric_l, where='post', color='#f59e0b', lw=2.2,
+            label='bound_oric_low (8 boxes; R5M / τ2 / I1-3 / C1-3; '
+                  'Kd > 100 nM, ATP-only, cooperative)')
+    ax.axhline(3, color='#10b981', ls=':', lw=1.0, alpha=0.6)
+    ax.axhline(8, color='#f59e0b', ls=':', lw=1.0, alpha=0.6)
+    ax.text(times[-1] if len(times) else 0, 3.05,
+            'high-tier ceiling (3)',
+            fontsize=8, ha='right', va='bottom', color='#065f46')
+    ax.text(times[-1] if len(times) else 0, 8.05,
+            'low-tier ceiling (8)',
+            fontsize=8, ha='right', va='bottom', color='#92400e')
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('Bound boxes at oriC')
+    ax.set_title('Load-and-trigger at oriC: high-affinity tier '
+                 'saturates fast, low-affinity tier fills slowly')
+    ax.set_ylim(0, 12)
+    ax.legend(loc='center right', fontsize=9)
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+    return _img(fig_to_b64(fig), 'oriC tier split')
 
 
 def _box_occupancy_timeline_plot(snaps, indices=None, title=''):
@@ -2123,8 +2172,109 @@ PHASE2_ARCH_CHANGES = (
 )
 
 
+def _render_box_affinity_table(boxes, *, region_label: str) -> str:
+    """Render the curated DnaA-box affinity table for one region.
+    Affinity classes ('high', 'low', 'very_low') and nucleotide
+    preferences come straight from the PDF-sourced
+    ``molecular_reference`` data; Kd numbers are the canonical
+    values from the curated reference."""
+    kd_high = f'~{DNAA_BOX_HIGH_AFFINITY_KD_NM:g} nM'
+    kd_low = f'&gt;{DNAA_BOX_LOW_AFFINITY_KD_NM_LOWER_BOUND:g} nM'
+    kd_for = {
+        'high': kd_high,
+        'low': kd_low,
+        'very_low': f'≫ {DNAA_BOX_LOW_AFFINITY_KD_NM_LOWER_BOUND:g} nM',
+    }
+    rows = []
+    for b in boxes:
+        seq = b.sequence or '—'
+        kd = kd_for.get(b.affinity_class, '—')
+        rows.append(
+            f'<tr><td><code>{html_lib.escape(b.name)}</code></td>'
+            f'<td>{html_lib.escape(b.affinity_class)}</td>'
+            f'<td>{kd}</td>'
+            f'<td><code>{html_lib.escape(seq)}</code></td>'
+            f'<td>{html_lib.escape(b.nucleotide_preference)}</td></tr>'
+        )
+    return (
+        f'<table class="ref affinity-table">'
+        f'<thead><tr><th colspan="5">{html_lib.escape(region_label)}</th></tr>'
+        f'<tr><th>Box</th><th>Class</th><th>Kd</th>'
+        f'<th>Sequence (consensus / variant)</th>'
+        f'<th>Nucleotide form</th></tr></thead>'
+        f'<tbody>{"".join(rows)}</tbody></table>'
+    )
+
+
 def _phase2_extras(snaps, status):
     arch = _render_arch_changes_html(PHASE2_ARCH_CHANGES)
+
+    # --- Affinity panel sourced from the curated PDF --------------------
+    n_oric = len(ORIC.dnaA_boxes)
+    n_oric_high = sum(1 for b in ORIC.dnaA_boxes
+                       if b.affinity_class == 'high')
+    n_oric_low = n_oric - n_oric_high
+    affinity_intro = (
+        '<p class="note">'
+        '<strong>Affinity at the DnaA boxes is highly heterogeneous, '
+        'and at oriC most boxes are low-affinity.</strong> The curated '
+        'reference (Katayama et al. 2017; Kasho, Ozaki, Katayama 2023) '
+        f'reports {n_oric_high} high-affinity boxes at oriC '
+        f'(<code>R1</code>, <code>R2</code>, <code>R4</code>; '
+        f'Kd ≈ {DNAA_BOX_HIGH_AFFINITY_KD_NM:g}&nbsp;nM, both DnaA-ATP '
+        f'and DnaA-ADP) and {n_oric_low} low-affinity sites '
+        f'(Kd &gt; {DNAA_BOX_LOW_AFFINITY_KD_NM_LOWER_BOUND:g}&nbsp;nM, '
+        f'DnaA-ATP-preferential, cooperative). Pre-initiation, only '
+        f'the three high-affinity boxes are routinely occupied; the '
+        f'low-affinity DOR boxes fill in cooperatively only after the '
+        f'DnaA-ATP pool is high enough — that\'s the load-and-trigger '
+        f'mechanism that produces a sharp initiation switch.</p>'
+        '<p class="note">'
+        '<strong>Mechanism (from the curated PDF):</strong> '
+        '(1)&nbsp;In the resting cell, R1/R2/R4 hold DnaA in either '
+        'nucleotide form, and IHF binds IBS1. '
+        '(2)&nbsp;As the DnaA-ATP pool rises, DnaA-ATP cooperatively '
+        'assembles on the right arm of the DOR — '
+        f'<code>{" → ".join(ORIC.ordered_oligomerization_right_arm)}</code> — '
+        'anchored by R4. '
+        '(3)&nbsp;IHF-induced bending promotes a second DnaA-ATP '
+        'filament on the left arm of the DOR, anchored by R1 with '
+        'help from R2. '
+        '(4)&nbsp;Torsional strain from the DnaA oligomers unwinds '
+        'the adjacent DUE; DnaB helicase loads onto the open '
+        'single-stranded substrate. The cooperative low-affinity '
+        'binding is what makes initiation a switch rather than a '
+        'gradient.</p>'
+    )
+    affinity_tables = (
+        _render_box_affinity_table(
+            ORIC.dnaA_boxes,
+            region_label=(
+                f'oriC — {n_oric} boxes ({n_oric_high} high-affinity, '
+                f'{n_oric_low} low-affinity, cooperative DnaA-ATP loading)'
+            )) +
+        _render_box_affinity_table(
+            DNAA_PROMOTER.dnaA_boxes,
+            region_label=(
+                f'dnaA promoter — {len(DNAA_PROMOTER.dnaA_boxes)} boxes '
+                f'spanning p1 / p2 (~{DNAA_PROMOTER.promoter_separation_bp} '
+                f'bp apart; p2 ≈ {DNAA_PROMOTER.p2_to_p1_strength_ratio:g}× '
+                f'stronger than p1)'
+            ))
+    )
+    model_caveat = (
+        '<p class="note"><strong>How the Phase 2 step uses these:</strong> '
+        '<code>dnaA_box_binding</code> samples each active box per tick '
+        'against an equilibrium-occupancy probability '
+        '<code>p = [DnaA] / (Kd + [DnaA])</code>, picking <em>one</em> '
+        'Kd per region from <code>REGION_BINDING_RULES</code>. This '
+        'collapses the per-box heterogeneity (and the cooperativity) '
+        'into a region-level scalar, so it does not yet reproduce the '
+        'sharp load-and-trigger switch — that\'s a follow-up. Phase 3 '
+        'reads the bound counts directly off this listener; the '
+        'feedback is real even with the simplified affinity model.</p>'
+    )
+
     note = (
         '<p class="note"><strong>Why a listener-only process?</strong> '
         'The unique-array <code>set</code> update mode requires the new '
@@ -2148,9 +2298,25 @@ def _phase2_extras(snaps, status):
         '<code>dnaA_box_binding</code> from the DnaA-ATP / DnaA-ADP '
         'pools using per-region affinity rules.</p>'
     )
+    tier_plot = _oric_tier_split_plot(snaps)
+    tier_note = (
+        '<p class="note">The two oriC tiers in action. The 3 '
+        'high-affinity boxes (green) saturate at their ceiling of 3 '
+        'within the first tick — at ~100 nM DnaA-ATP and Kd ≈ 1 nM, '
+        '<code>p_bound = 100 / (1 + 100) ≈ 0.99</code>. The 8 '
+        'low-affinity boxes (amber) hover well below their ceiling '
+        'of 8 — at the same concentration but Kd &gt; 100 nM, '
+        '<code>p_bound ≈ 0.5</code>, so the binomial expectation is '
+        '~4. This is the load-and-trigger split that single-Kd '
+        'sampling collapses.</p>'
+    )
     return [
         ('Architecture changes — what this phase adds, modifies, overrides',
          note + arch),
+        ('DnaA-box affinities — per-box detail from the curated reference',
+         affinity_intro + affinity_tables + model_caveat),
+        ('Load-and-trigger at oriC — per-tier occupancy over time',
+         tier_plot + tier_note),
         ('DnaA-box occupancy view — alternative chromosome diagram',
          occupancy + occupancy_note),
     ]
@@ -3250,66 +3416,93 @@ class Part:
 PARTS: tuple[Part, ...] = (
     Part(
         number=1,
-        title='Part I — Foundations: codify what\'s already there',
+        title='Part I — Foundations',
         intro=(
-            'Before adding any new biology, codify the curated reference '
-            'and surface the relevant pools. The bioinformatic motif '
-            'search at <code>flat/sequence_motifs.tsv</code> already '
-            'finds ~307 strict-consensus DnaA boxes (TTWTNCACA) across '
-            'the chromosome — far more than the 30 named in the curated '
-            'PDF. Phase 0 partitions these into the named regulatory '
-            'regions plus an "other" bucket for the genomic background; '
-            'Phase 1 wires a listener so the apo / DnaA-ATP / DnaA-ADP '
-            'pool counts are visible in the trajectory.'
+            'Before changing the biology, take stock. v2ecoli already '
+            'places ~307 candidate DnaA-binding sites on the chromosome '
+            '(matches to the consensus 9-mer <code>TTWTNCACA</code>) '
+            'but treats them as inert — none of them gate initiation. '
+            'Phase 0 just adds a coordinate-to-region classifier so '
+            'later phases can ask "which boxes are at oriC?" instead '
+            'of "which boxes fall between bp&nbsp;3,925,629 and '
+            '3,926,090?". Phase 1 adds a listener that emits the '
+            'apo / DnaA-ATP / DnaA-ADP pool counts each tick. Reading '
+            'that listener confirms what is otherwise easy to overlook: '
+            'in the baseline architecture the DnaA-ATP pool sits at '
+            'its equilibrium ceiling because nothing hydrolyzes it.'
         ),
         phase_numbers=(0, 1),
     ),
     Part(
         number=2,
-        title='Part II — Nucleotide-state cycle: drive DnaA-ATP / DnaA-ADP dynamics',
+        title='Part II — The DnaA nucleotide cycle',
         intro=(
-            'The DnaA nucleotide state is the central control variable. '
-            'RIDA pulls DnaA-ATP into DnaA-ADP during ongoing replication '
-            '(coupled to the DNA-loaded β-clamp + Hda complex); DARS '
-            'pulls DnaA-ADP back into the apo form, which is then re-'
-            'loaded with cellular ATP via the existing equilibrium '
-            'reaction. Together they form a closed cycle whose steady-'
-            'state ATP-fraction lands in the literature-observed '
-            '30–70% band.'
+            'Replication initiation in <em>E.&nbsp;coli</em> is gated '
+            'by the active form of DnaA — DnaA-ATP. Rather than '
+            'producing DnaA-ATP afresh each cell cycle, the cell '
+            'cycles a constant DnaA pool through three nucleotide '
+            'states: apo (no nucleotide bound), DnaA-ATP (active), '
+            'and DnaA-ADP (inactive). The two phases in this Part '
+            'wire the protein-mediated reactions that move DnaA '
+            'between those states. <strong>Phase 5 (RIDA)</strong> '
+            'is the inactivation arm — the β-clamp on the moving '
+            'replisome pairs with Hda to hydrolyze DnaA-ATP → '
+            'DnaA-ADP. <strong>Phase 7 (DARS)</strong> is the '
+            'reactivation arm — the DARS1/DARS2 chromosomal loci '
+            'release ADP from DnaA-ADP, returning DnaA to apo (which '
+            'then re-loads ATP via the still-active equilibrium '
+            'reaction). With both arms wired, the DnaA-ATP fraction '
+            'reaches a steady state inside the 30–70% band that the '
+            'literature observes; without DARS, RIDA monotonically '
+            'depletes DnaA-ATP.'
         ),
         phase_numbers=(5, 7),
     ),
     Part(
         number=3,
-        title='Part III — Cytoplasm to chromosome: bind, titrate, gate',
+        title='Part III — From cytoplasm to chromosome',
         intro=(
-            'DnaA acts on initiation by binding to chromosomal sites at '
-            'oriC. Phase 2 wires an equilibrium-occupancy binding model '
-            'over the ~307 consensus boxes; the genomic-background '
-            'boxes ("other") sequester the bulk of the DnaA pool '
-            '(<strong>titration</strong>). Phase 3 replaces the baseline '
-            'mass-threshold initiation gate with a DnaA-ATP-per-oriC '
-            'gate — same per-oriC self-limiting feedback as the mass '
-            'gate, but now driven by the DnaA biology that Part II '
-            'sets up. Note: the binding listener counts bound boxes '
-            'today but does not yet decrement the free DnaA pool — '
-            'the titration force is visible only in the listener, not '
-            'in downstream dynamics. Adding that decrement is a '
+            'DnaA acts on initiation by physically binding to <em>DnaA '
+            'boxes</em> — short DNA sequences clustered at oriC and a '
+            'handful of other regulatory loci. <strong>Phase 2</strong> '
+            'samples each box per tick using equilibrium-binding '
+            'thermodynamics: the bound fraction is '
+            '<code>[DnaA] / (Kd + [DnaA])</code>, with Kd set by the '
+            'box\'s affinity class (high or low). Critically, oriC has '
+            'only 3 high-affinity boxes (R1, R2, R4) plus 8 cooperative '
+            'low-affinity boxes — the low-affinity load is what makes '
+            'initiation a switch rather than a gradient. '
+            '<strong>Phase 3</strong> replaces the baseline mass-per-'
+            'oriC threshold with a DnaA-ATP-per-oriC threshold. Same '
+            'self-limiting shape as the mass gate (n_oriC doubles '
+            'after firing, halving the per-oriC value), but now keyed '
+            'off the actual molecular driver. A caveat: the binding '
+            'listener does not yet decrement the free DnaA pool, so '
+            'the genomic-background <em>titration</em> force is visible '
+            'in the listener but not in downstream dynamics — a '
             'follow-up.'
         ),
         phase_numbers=(2, 3),
     ),
     Part(
         number=4,
-        title='Part IV — Regulatory feedbacks: refine the timing',
+        title='Part IV — Regulatory feedbacks',
         intro=(
-            'Three regulatory layers refine the cell-cycle timing: '
-            'SeqA sequesters newly-replicated origins for ~10 min '
-            '(blocking premature reinitiation), DDAH provides backup '
-            'DnaA-ATP hydrolysis at the datA locus (with IHF as the '
-            'gating cofactor), and the dnaA gene autoregulates its '
-            'own expression via DnaA binding at the boxes between p1 '
-            'and p2. None of these are wired yet.'
+            'Three timing-control layers sit on top of the DnaA cycle. '
+            '<strong>Phase 4 (SeqA)</strong> sequesters the newly-'
+            'replicated origin for ~10 minutes after each firing — '
+            'modeling SeqA binding to hemimethylated GATC sites at '
+            'oriC and physically blocking DnaA rebinding, so the cell '
+            'cannot fire again immediately. <strong>Phase 6 (DDAH)</strong> '
+            'adds a constitutive backup DnaA-ATP hydrolysis term that '
+            'represents the IHF-induced loop at the datA locus: less '
+            'powerful than RIDA but always on, so DnaA-ATP cannot drift '
+            'upward between replication rounds. <strong>Phase 8 (dnaA '
+            'promoter autoregulation)</strong> closes the loop on the '
+            'whole cycle: when DnaA binds the seven boxes at its own '
+            'p1 / p2 promoters, transcription of <em>dnaA</em> is '
+            'repressed, scaling the gene\'s baseline transcription rate '
+            'in the live transcript-initiation step.'
         ),
         phase_numbers=(4, 6, 8),
     ),
@@ -3437,18 +3630,47 @@ def _render_phase_section(phase: Phase, statuses, trajectories):
         before_label = f'Before — {before_desc}'
         after_label = f'After — {after_desc}'
 
+    # The phase goal can run multi-paragraph; render it as the
+    # leading summary box. Caveats (gap_items) come second, formatted
+    # as a small details panel so they don't interrupt the visual
+    # flow but stay one click away.
+    n_tests, _ = _extract_test_summary(phase.tests[0].path) if phase.tests else (0, [])
+    test_count_blurb = (
+        f' &nbsp;·&nbsp; <strong>{n_tests}</strong> test'
+        f'{"s" if n_tests != 1 else ""}'
+        if n_tests else '')
+    caveats_html = ''
+    if gap_rows:
+        caveats_html = (
+            '<details class="caveats">'
+            '<summary>Caveats &amp; deferred follow-ups</summary>'
+            f'<ul class="gaps">{gap_rows}</ul>'
+            '</details>'
+        )
+    tests_details_html = ''
+    if test_rows:
+        tests_details_html = (
+            '<details class="tests-details">'
+            '<summary>Test coverage <span class="hint">'
+            '(hover items for descriptions)</span></summary>'
+            f'<ul class="tests">{test_rows}</ul>'
+            '</details>'
+        )
+
     return f"""
 <section id="{phase.slug}">
   <div class="phase-header">
     <h2>Phase {phase.number} — {html_lib.escape(phase.title)}</h2>
     {_status_pill(status)}
   </div>
-  <p class="goal">{html_lib.escape(phase.goal)}</p>
-  <p class="evidence">Status check: <em>{html_lib.escape(evidence)}</em></p>
-  <h3>Tests <span class="hint">(hover for descriptions)</span></h3>
-  <ul class="tests">{test_rows}</ul>
-  <h3>Mechanisms still missing</h3>
-  <ul class="gaps">{gap_rows}</ul>
+  <div class="phase-summary">
+    <strong>What this phase does:</strong>
+    {html_lib.escape(phase.goal)}
+    <div class="phase-evidence">
+      <em>Auto-check:</em> {html_lib.escape(evidence)}
+      {test_count_blurb}
+    </div>
+  </div>
   {extras_html}
   <div class="before-after">
     <div class="ba-col">
@@ -3460,6 +3682,8 @@ def _render_phase_section(phase: Phase, statuses, trajectories):
       {after_block}
     </div>
   </div>
+  {caveats_html}
+  {tests_details_html}
 </section>
 """
 
@@ -3506,6 +3730,8 @@ def _render_sidebar(statuses):
                 f'<span class="ttl">{html_lib.escape(phase.title)}</span></a>')
         out.append('</div>')
     out.append(
+        '<h3>Follow-ups</h3>'
+        '<a href="#follow-ups" class="nav-link">Mechanisms not yet modeled</a>'
         '<h3>Reference</h3>'
         '<a href="#ref-oriC" class="nav-link">oriC</a>'
         '<a href="#ref-promoter" class="nav-link">dnaA promoter</a>'
@@ -3716,6 +3942,41 @@ table code {{ background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }}
 .note {{ font-size: 0.85em; color: #475569; }}
 .refs {{ font-size: 0.85em; color: #334155; }}
 .refs li {{ margin-bottom: 4px; }}
+ol.migration-plan {{ font-size: 0.92em; line-height: 1.55;
+                      padding-left: 22px; }}
+ol.migration-plan li {{ margin-bottom: 8px; }}
+ol.migration-plan li strong:first-child {{ color: #1e3a8a; }}
+section#overview h3 {{ color: #1e3a8a; margin-top: 1.5em;
+                        margin-bottom: 0.5em; }}
+ul.note {{ font-size: 0.92em; line-height: 1.55; }}
+ul.note li {{ margin-bottom: 6px; }}
+.phase-summary {{ background: #f8fafc; border-left: 3px solid #1e3a8a;
+                   padding: 10px 14px; margin: 12px 0;
+                   font-size: 0.95em; line-height: 1.55; }}
+.phase-summary strong {{ color: #1e3a8a; }}
+.phase-evidence {{ margin-top: 6px; font-size: 0.85em; color: #64748b; }}
+p.lede {{ font-size: 1.05em; line-height: 1.6; color: #1e293b;
+           margin: 0 0 14px 0; }}
+details.caveats, details.tests-details {{ margin: 12px 0; font-size: 0.88em;
+                                          color: #475569; }}
+details.caveats summary, details.tests-details summary {{
+    cursor: pointer; color: #334155; padding: 4px 0;
+    font-weight: 600; }}
+details.caveats[open] summary, details.tests-details[open] summary {{
+    margin-bottom: 8px; }}
+details.caveats ul.gaps {{ margin: 0; padding-left: 20px; }}
+table.affinity-table {{ margin-top: 14px; font-size: 0.88em; }}
+table.affinity-table thead tr:first-child th {{
+    background: #1e3a8a; color: #fff; text-align: left;
+    font-size: 0.95em; padding: 8px 10px; }}
+table.affinity-table thead tr:nth-child(2) th {{
+    background: #e2e8f0; }}
+table.affinity-table tbody td:first-child {{ font-weight: 600; }}
+dl.glossary {{ font-size: 0.92em; line-height: 1.55;
+                margin: 0 0 14px 0; }}
+dl.glossary dt {{ margin-top: 8px; color: #1e3a8a;
+                   font-weight: 600; }}
+dl.glossary dd {{ margin: 2px 0 6px 22px; color: #1e293b; }}
 </style>
 </head>
 <body>
@@ -3723,33 +3984,356 @@ table code {{ background: #f1f5f9; padding: 1px 4px; border-radius: 3px; }}
 {sidebar_html}
 <main class="main">
 
-<h1>Replication-initiation report</h1>
+<h1>From mass threshold to molecular biology</h1>
+<p class="lede">
+  A nine-phase migration of the v2ecoli chromosome-replication-initiation
+  model. Each phase replaces one piece of the baseline heuristic with
+  the molecular biology it stands in for, validates the change with a
+  before/after sim, and stacks on the previous phases.
+</p>
 <div class="banner">
 <strong>Architecture:</strong> <span class="kv">{html_lib.escape(ARCHITECTURE_NAME)}</span>
-&nbsp;|&nbsp; <strong>Snapshots:</strong> {len(full_snaps)}
 &nbsp;|&nbsp; <strong>Phase progress:</strong>
-{n_done}/{n_total} done, {n_in_progress} in progress
-&nbsp;|&nbsp; <strong>Source:</strong>
+{n_done}/{n_total} done{f', {n_in_progress} in progress' if n_in_progress else ''}
+&nbsp;|&nbsp; <strong>Snapshots in the full-architecture sim:</strong> {len(full_snaps)}
+&nbsp;|&nbsp; <strong>Curated reference:</strong>
 <a href="{html_lib.escape(pdf_link)}">PDF</a>
 &middot; <a href="{html_lib.escape(md_link)}">Markdown summary</a>
 </div>
 
 <section id="overview">
-<h2>Overview</h2>
+<h2>What this architecture does, and why</h2>
+
+<p>
+<strong>v2ecoli</strong> is a single-cell whole-cell simulator of
+<em>E. coli</em> — every protein, RNA, metabolic flux, and genome
+position represented and updated each timestep. Replication of the
+4.6&nbsp;Mb chromosome is one of those processes: a step in the
+simulation decides when a new round of replication fires from the
+single origin, <em>oriC</em>, and how the two replisomes that result
+march outward to the terminus.
+</p>
+
+<p>
+The <strong>baseline</strong> chromosome-replication step decides
+this using a single heuristic — <em>cell mass per oriC ≥ a critical
+mass</em> — calibrated so the average cell-cycle timing comes out
+right. The threshold itself is a number ("ParCa-fit", from <strong>Pa</strong>rameter
+<strong>Ca</strong>lculator, the offline pipeline that fits hundreds
+of constants from the published <em>E.&nbsp;coli</em> data so the
+simulation reproduces measured growth rates and abundances). DnaA
+appears in the baseline only as a translated protein with a fixed
+copy-number budget — not as the regulatory driver it actually is in
+the cell.
+</p>
+
+<p>
+<em>In vivo</em>, the cell decides when to initiate replication
+through a network of DnaA-centered interactions: DnaA loads ATP and
+binds boxes near oriC; once enough are loaded, the origin opens and
+fires; the moving replisome then hydrolyzes DnaA-ATP to keep it from
+firing again; helper sequences elsewhere on the chromosome
+re-activate inactive DnaA later in the cycle; SeqA and DnaA-promoter
+feedback set the timing. The <strong>replication_initiation</strong>
+architecture replaces the mass-per-oriC heuristic with that network,
+in nine cumulative phases that each build on the previous.
+</p>
+
+<h3>Glossary — the players and what they do</h3>
+<dl class="glossary">
+  <dt><strong>DnaA</strong></dt>
+  <dd>The master initiator protein. Cycles between three nucleotide
+      states: apo (no nucleotide), DnaA-ATP (active), DnaA-ADP
+      (inactive). Only DnaA-ATP can fully drive origin opening.</dd>
+
+  <dt><strong>oriC</strong></dt>
+  <dd>The single chromosomal origin of replication, ~462&nbsp;bp,
+      containing 11 <em>DnaA boxes</em> — short DNA sequences that
+      bind DnaA. Three (R1, R2, R4) are <em>high-affinity</em>
+      (Kd ≈ 1&nbsp;nM, bind both ATP- and ADP-DnaA); the other 8 are
+      <em>low-affinity</em> (Kd&nbsp;&gt;&nbsp;100&nbsp;nM, ATP-form
+      only, fill cooperatively). The cooperative low-affinity load is
+      what makes initiation a switch.</dd>
+
+  <dt><strong>DOR / DUE</strong></dt>
+  <dd>Two functional regions of oriC: <strong>DOR</strong>
+      (DnaA-Oligomerization Region) is the DnaA-box platform on
+      which DnaA assembles into a filament; <strong>DUE</strong>
+      (Duplex Unwinding Element) is the AT-rich segment that the
+      DnaA filament locally unwinds, exposing single-stranded DNA
+      for the helicase.</dd>
+
+  <dt><strong>RIDA</strong></dt>
+  <dd>Regulatory Inactivation of DnaA. The β-clamp of the moving
+      replisome (DnaN) recruits an ADP-loaded version of the protein
+      <em>Hda</em>; the clamp+Hda complex catalyzes hydrolysis of
+      DnaA-ATP → DnaA-ADP. RIDA is the dominant DnaA-inactivation
+      pathway whenever a replisome is active, and is what
+      <em>prevents re-initiation</em> within the same cell cycle.</dd>
+
+  <dt><strong>DDAH</strong></dt>
+  <dd>datA-Dependent ATP Hydrolysis. A backup hydrolysis pathway
+      that operates at a separate locus, <strong>datA</strong>
+      (94.7&nbsp;min on the <em>E.&nbsp;coli</em> chromosome), where
+      IHF binding induces a DNA loop that catalytically hydrolyzes
+      DnaA-ATP. Less powerful than RIDA, but constitutive — runs
+      whether or not replication is active.</dd>
+
+  <dt><strong>DARS1 / DARS2</strong></dt>
+  <dd>DnaA-Reactivating Sequences. Two non-coding loci that catalyze
+      release of ADP from DnaA-ADP, returning DnaA to its apo form
+      (which then re-loads ATP from the cytoplasmic pool).
+      DARS2 is dominant <em>in vivo</em> and is gated cell-cycle
+      timing by IHF and Fis binding. Together with RIDA, DARS closes
+      the DnaA nucleotide-state loop.</dd>
+
+  <dt><strong>SeqA</strong></dt>
+  <dd>A protein that binds <em>hemimethylated</em> GATC sequences —
+      sites where one strand is Dam-methylated and the other isn't,
+      which is the state of newly-replicated DNA before Dam catches
+      up. oriC is unusually GATC-rich, so right after firing it gets
+      coated by SeqA for ~10 min, blocking DnaA re-binding and
+      preventing premature re-initiation.</dd>
+
+  <dt><strong>IHF / Fis</strong></dt>
+  <dd>Two nucleoid-associated proteins that bend DNA. Both act as
+      structural cofactors at oriC, datA, and DARS2 — their
+      cell-cycle-timed binding gates when those loci can do their
+      DnaA-related job. Already present in v2ecoli but their
+      regulatory role at these specific loci is not yet wired.</dd>
+
+  <dt><strong>dnaA promoter (p1, p2)</strong></dt>
+  <dd>The promoter of the <em>dnaA</em> gene itself, with two
+      transcription start sites: <strong>p1</strong> (basal level)
+      and <strong>p2</strong> (~3× stronger). The 7 DnaA boxes
+      between them turn DnaA into a repressor of its own gene — the
+      negative feedback that closes the loop on the whole cycle.</dd>
+
+  <dt><strong>ParCa</strong></dt>
+  <dd><strong>Pa</strong>rameter <strong>Ca</strong>lculator. The
+      one-time pre-processing pipeline that, given the published
+      <em>E.&nbsp;coli</em> proteomic / transcriptomic / metabolomic
+      data, derives the per-gene transcription rates, per-protein
+      degradation rates, biomass coefficients, etc. that the
+      simulation needs. Anything labeled "ParCa-fit" in this report
+      is a number that came from that pipeline rather than from a
+      first-principles formula.</dd>
+</dl>
+
+<h3>What's already present in the baseline model</h3>
+<ul class="note">
+  <li><strong>DnaA the protein.</strong> Expressed via the generic
+      transcription / translation pipeline (the same machinery used
+      for every protein in v2ecoli) and accumulates as bulk
+      <code>PD03831[c]</code> (apo-DnaA monomer). Copy number tracks
+      cell mass.</li>
+  <li><strong>Equilibrium nucleotide loading.</strong> Two
+      mass-action reactions in the equilibrium step exchange apo-DnaA
+      with cellular ATP and ADP, giving DnaA-ATP / DnaA-ADP / apo-DnaA
+      species in fast equilibrium with the cytoplasmic nucleotide
+      pools. <em>Without</em> a hydrolysis pathway, DnaA-ATP just
+      sits at its equilibrium ceiling — that's the
+      regulatory-emptiness Phase 1 diagnoses.</li>
+  <li><strong>~307 candidate DnaA boxes</strong> placed on the
+      chromosome by a bioinformatic motif search for the consensus
+      9-mer <code>TTWTNCACA</code>. Far more than the 30 named in
+      the curated reference, because most are random matches in the
+      genomic background.</li>
+  <li><strong>SeqA</strong> as a translated protein (~1029 copies in
+      the initial state), but no DNA-binding activity wired.</li>
+  <li><strong>Mass-threshold initiation step.</strong> Fires when
+      cell mass per oriC crosses the ParCa-fit critical value; then
+      advances the resulting replisomes along the chromosome and
+      writes the new replicated DNA into the bulk store.</li>
+</ul>
+
+<h3>What's missing, and what each phase adds</h3>
 <p class="note">
-The work is grouped into four <strong>Parts</strong>, each answering one
-question: codify what's already there → drive the DnaA-ATP/ADP cycle →
-bind to the chromosome and gate initiation → add regulatory feedbacks.
-Phase numbers track implementation order; the table below renders them
-in <em>narrative</em> order under each Part. Status pills are
-auto-detected from the codebase (schema fields, molecule_ids entries,
-process modules, sim_data attributes), so the indicators cannot drift
-from reality.
+The phases are <em>cumulative</em>: each turns on a feature flag in
+the architecture builder and stacks on top of the previous. The
+before/after panels under each phase compare two such slices —
+"before" is the cumulative architecture immediately upstream of the
+phase; "after" is that same slice plus the new phase. Status pills
+are auto-detected from the codebase (whether the relevant file
+exists, whether the splice is wired, whether the listener emits) so
+they cannot drift from the source.
+</p>
+<ol class="migration-plan">
+  <li><strong>Phase 0 — DnaA-box region classifier.</strong>
+      Bookkeeping. Adds a coordinate-based function
+      <code>region_for_coord</code> that labels every DnaA box on the
+      chromosome with its regulatory region (oriC, dnaA-promoter,
+      datA, DARS1, DARS2, or "other" for the genomic background) so
+      later phases can talk about "DnaA boxes at oriC" instead of
+      raw bp positions.</li>
+  <li><strong>Phase 1 — Surface the DnaA pools.</strong> Adds a
+      listener that emits apo / DnaA-ATP / DnaA-ADP counts each tick.
+      Lets the report confirm the diagnosis: in the baseline
+      architecture, DnaA-ATP runs at its equilibrium ceiling because
+      nothing hydrolyzes it.</li>
+  <li><strong>Phase 2 — DnaA-box binding.</strong> Each tick, sample
+      which DnaA boxes are bound by computing the equilibrium
+      occupancy probability <code>p = [DnaA] / (Kd + [DnaA])</code>
+      for each per-tier (high-affinity / low-affinity / very-low) and
+      drawing from a binomial. Listener-only — does not yet decrement
+      the free DnaA pool, which is a separate "titration" effect.</li>
+  <li><strong>Phase 3 — DnaA-gated initiation.</strong> Replaces the
+      mass-per-oriC threshold with a <em>DnaA-ATP-per-oriC</em>
+      threshold. Same self-limiting shape as the mass gate (n_oriC
+      doubles after firing, halving the per-oriC value), but the
+      driver is now the molecular agent rather than a proxy.</li>
+  <li><strong>Phase 4 — SeqA sequestration window.</strong> After
+      each initiation event, force the gate to 0 for ~10 min. Models
+      SeqA binding hemimethylated GATC sites at the newly-replicated
+      origin and physically blocking DnaA from rebinding.</li>
+  <li><strong>Phase 5 — RIDA hydrolysis flux.</strong> A dedicated
+      step that hydrolyzes DnaA-ATP → DnaA-ADP at a rate proportional
+      to the active replisome count. Models the β-clamp + Hda
+      complex on the moving replisome — the dominant pathway for
+      preventing re-initiation within the same cycle.</li>
+  <li><strong>Phase 6 — DDAH backup hydrolysis.</strong> A
+      constitutive first-order DnaA-ATP hydrolysis term, modeling
+      the IHF-induced loop at datA. Smaller rate than RIDA, but
+      runs whether or not a replisome is active — keeps DnaA-ATP
+      from drifting up between rounds.</li>
+  <li><strong>Phase 7 — DARS reactivation.</strong> A first-order
+      DnaA-ADP → apo-DnaA conversion. Combined with the still-active
+      equilibrium re-loading of apo-DnaA with ATP, this closes the
+      nucleotide cycle (ATP → ADP via RIDA/DDAH; ADP → apo via DARS;
+      apo → ATP via equilibrium) and stabilizes the DnaA-ATP fraction
+      inside the literature 30–70% band.</li>
+  <li><strong>Phase 8 — dnaA promoter autoregulation.</strong> Read
+      the binding listener's count of bound boxes at the dnaA promoter
+      each tick, and scale the dnaA gene's transcription rate down
+      in proportion: <code>rate = baseline × (1 − max_repression ×
+      fraction_bound)</code>. Negative feedback that closes the loop
+      on the entire cycle.</li>
+</ol>
+
+<p class="note">
+The four <strong>Parts</strong> below group these phases by what
+question they answer: codify what's there → drive the DnaA cycle →
+bind to the chromosome and gate initiation → add regulatory
+feedbacks. Phase numbers track implementation order; the table
+renders them in narrative order under each Part.
 </p>
 {overview_table}
 </section>
 
 {phase_sections}
+
+<section id="follow-ups">
+<h2>Mechanisms in the curated PDF that are not yet modeled</h2>
+<p>
+The migration as it stands turns the mass-per-oriC heuristic into
+a DnaA-centered regulatory network — but several mechanisms named
+in the curated reference are still represented as simplifications.
+Each one is a candidate follow-up; the model would gain biological
+fidelity from any of them.
+</p>
+<dl class="glossary">
+  <dt>Per-box affinity / cooperative DnaA filament loading</dt>
+  <dd>The Phase 2 binding step now distinguishes high-affinity
+      from low-affinity boxes per region (so oriC's 8 low-affinity
+      sites fill on a different curve than the 3 high-affinity
+      ones), but the curated PDF describes the low-affinity load
+      as <em>cooperative and ordered</em>: along the right arm of
+      the DOR the order is C1 → I3 → C2 → C3, anchored by R4-bound
+      DnaA, with a second filament on the left arm anchored by R1.
+      The current model treats the low-affinity boxes as
+      independent — no cooperativity coefficient, no anchor
+      dependency. Adding a Hill term or explicit filament-loading
+      kinetics would reproduce the load-and-trigger switch.</dd>
+
+  <dt>Phase 3 gate reads cytoplasmic DnaA-ATP, not oriC occupancy</dt>
+  <dd>Today the DnaA-gated initiation step fires when the
+      <em>cytoplasmic</em> DnaA-ATP-per-oriC ratio crosses a
+      threshold — a proxy for "enough DnaA-ATP to fill the
+      low-affinity oriC boxes". A more direct gate would read
+      <code>bound_oric_low</code> from the binding listener
+      (which now exists, per Phase 2 above) and fire when the
+      cooperative low-affinity boxes cross some saturation
+      fraction. That would tie the firing event to the actual
+      molecular configuration rather than a concentration proxy.</dd>
+
+  <dt>IHF binding and its locus-specific roles</dt>
+  <dd>IHF (Integration Host Factor) is a nucleoid-associated
+      DNA-bending protein. The PDF assigns it three distinct
+      regulatory roles: at oriC it bends DNA between R1 and R5M
+      (IBS1) to promote DnaA-ATP filament formation on the left
+      arm; at datA it induces a loop that catalyzes DnaA-ATP
+      hydrolysis (Phase 6 / DDAH); at DARS2 it gates the locus
+      cell-cycle timing. None of these IHF-driven structural
+      events are wired today — DDAH runs at a constant rate, oriC
+      filament formation is implicit, DARS2 timing is approximated
+      as constant.</dd>
+
+  <dt>Fis modulation of DARS2</dt>
+  <dd>The DARS2 locus is gated <em>in vivo</em> by a balance of
+      IHF and Fis (Factor for Inversion Stimulation) binding.
+      Fis is already expressed in v2ecoli but its DARS2 binding
+      sites (FBS1, FBS2-3) are not wired — so DARS1 and DARS2
+      currently share a single first-order rate, with no cell-cycle
+      dependence.</dd>
+
+  <dt>Hda nucleotide-state requirement for RIDA</dt>
+  <dd>Per the curated PDF, RIDA is catalyzed by an
+      ADP-loaded Hda (specifically Hda-ADP), interacting with the
+      moving β-clamp via Hda's N-terminal clamp-binding motif. The
+      Phase 5 RIDA step assumes Hda-ADP is always available — it
+      reads the active replisome count directly. A faithful model
+      would track the Hda nucleotide-state pool and gate the RIDA
+      rate on Hda-ADP availability.</dd>
+
+  <dt>SeqA at the dnaA promoter</dt>
+  <dd>The dnaA-promoter region is GATC-rich, so SeqA also binds
+      <em>there</em> (not just at oriC) for the brief window
+      after the replisome passes through it. This buffers the
+      transient gene-dosage spike and contributes to dnaA
+      expression dynamics in the cell cycle. The Phase 4 SeqA
+      sequestration window currently only blocks initiation; it
+      does not modulate transcription at the dnaA promoter.</dd>
+
+  <dt>p1 vs p2 differential regulation at the dnaA promoter</dt>
+  <dd>The dnaA promoter has two start sites: <em>p1</em> at
+      basal level and <em>p2</em> ≈ 3× stronger; recent work
+      reports that DnaA can act as both a positive and a negative
+      regulator at p2 specifically. Phase 8 collapses both
+      promoters into a single TU-level basal_prob and applies a
+      single repression scale — preserving the loop topology but
+      losing the p1 / p2 asymmetry.</dd>
+
+  <dt>DnaB helicase loading and DUE opening dynamics</dt>
+  <dd>Once enough DnaA-ATP is loaded onto the DOR, the resulting
+      DnaA filament unwinds the DUE and DnaB helicase loads onto
+      the exposed single-stranded DNA — that's what physically
+      converts "gate fired" into "two replisomes moving outward".
+      The current model treats this transition as instantaneous:
+      one tick after the gate fires, the replisomes appear in
+      the unique-store. The actual delay is short (seconds) but
+      a more detailed model would track the DnaB loading
+      reaction.</dd>
+
+  <dt>Position-specific motif preferences</dt>
+  <dd>The PDF reports preferences within the consensus 9-mer:
+      position 3 prefers A&nbsp;&gt;&nbsp;T, position 5 prefers
+      C&nbsp;&gt;&nbsp;A&nbsp;≥&nbsp;G&nbsp;&gt;&nbsp;T. The
+      current binding step ignores per-position effects and
+      treats every consensus match the same. A more refined model
+      would weight box affinity by motif-position scores.</dd>
+
+  <dt>Titration of the free DnaA pool by the bulk of background boxes</dt>
+  <dd>The genomic background contains several hundred consensus
+      DnaA-box matches (the "other" region in the binding
+      listener). When DnaA binds them, they should remove free
+      DnaA from the cytoplasmic pool — that's the textbook
+      titration mechanism that contributes to cell-cycle timing.
+      The Phase 2 binding step is currently <em>listener-only</em>:
+      it samples occupancy but does not decrement the free DnaA
+      pool. So the titration effect is reported but not felt by
+      downstream processes.</dd>
+</dl>
+</section>
 
 <section id="ref-oriC">
 <h2>oriC</h2>

@@ -603,6 +603,47 @@ PER_REGION_PDF_COUNT: dict[str, int] = {
 }
 
 
+def _affinity_histogram(
+    boxes: tuple[DnaABox, ...]) -> dict[str, int]:
+    """Bucket a region's named boxes by affinity_class
+    ('high' / 'low' / 'very_low')."""
+    h = {'high': 0, 'low': 0, 'very_low': 0}
+    for b in boxes:
+        h[b.affinity_class] = h.get(b.affinity_class, 0) + 1
+    return h
+
+
+# Per-region affinity-tier composition. Used by the Phase 2 binding
+# process to sample the high- and low-affinity boxes separately, so the
+# load-and-trigger biology of oriC (3 high + 8 cooperative low) is
+# preserved instead of being collapsed to a single Kd. Where the data
+# class doesn't carry per-box affinity (datA, DARS1/2), we fall back
+# to the PDF text:
+#
+#   datA — 4 boxes, all functionally important for DDAH (essential
+#     boxes 2/3/7 + stimulatory box 4). Treated as high-affinity here:
+#     they need to be reliably DnaA-bound for IHF to position the
+#     locus and stimulate hydrolysis.
+#   DARS1 — 3 core boxes (I, II, III). The strict-consensus search
+#     finds 1 of them; we treat all 3 as high since DARS1 functions
+#     as a unit when bound by DnaA-ADP.
+#   DARS2 — 3 core boxes treated as high; 2 extra boxes (IV, V)
+#     reported in the literature with weaker / accessory roles —
+#     classified as low here.
+PER_REGION_AFFINITY_PROFILE: dict[str, dict[str, int]] = {
+    'oriC':          _affinity_histogram(ORIC.dnaA_boxes),
+    'dnaA_promoter': _affinity_histogram(DNAA_PROMOTER.dnaA_boxes),
+    'datA':          {
+        'high': DATA.n_dnaA_boxes, 'low': 0, 'very_low': 0},
+    'DARS1':         {
+        'high': len(DARS1.core_box_names) + len(DARS1.extra_box_names),
+        'low': 0, 'very_low': 0},
+    'DARS2':         {
+        'high': len(DARS2.core_box_names),
+        'low': len(DARS2.extra_box_names), 'very_low': 0},
+}
+
+
 # ---------------------------------------------------------------------------
 # Per-region binding rules — used by the Phase 2 DnaABoxBinding process
 # to compute equilibrium occupancy from DnaA-ATP / DnaA-ADP pools.

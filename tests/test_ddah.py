@@ -60,19 +60,26 @@ def test_ddah_listener_emits_rate_constant(composite):
 
 
 def test_ddah_produces_nonzero_cumulative_flux(composite):
-    """Over ~20 minutes, DDAH should have hydrolyzed at least a few
+    """Over ~5 minutes, DDAH should have hydrolyzed at least a few
     DnaA-ATP molecules. The default rate is small (Poisson process
-    on a pool of ~40 molecules at ~0.0005/s/molecule), so cumulative
-    flux is in the single-to-low-double digits over this window."""
+    on a pool of ~30 molecules at 0.0005/s/molecule), so the expected
+    cumulative count over this window is ~4-5; the assertion is a
+    loose ``> 0`` to keep the test a property check rather than a
+    point estimate.
+
+    Window kept short to stay inside the 120 s CI test timeout —
+    the replication-initiation composite runs ~0.1-0.5 s wall per
+    sim-second once the post-Phase-3 cascade kicks in, so a 20 min
+    window blew the budget."""
     # Module-scope fixture — accumulate flux by reading listener
     # snapshots across a few sim chunks.
     cumulative = 0
-    for _ in range(20):
+    for _ in range(5):
         composite.run(60.0)
         ddah = composite.state['agents']['0']['listeners'].get('ddah', {})
         cumulative += int(ddah.get('flux_atp_to_adp') or 0)
     assert cumulative > 0, (
-        f'DDAH cumulative flux over 20 min = {cumulative}; expected > 0')
+        f'DDAH cumulative flux over 5 min = {cumulative}; expected > 0')
 
 
 def test_disabling_ddah_removes_step(composite):

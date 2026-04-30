@@ -600,6 +600,9 @@ def _bubble_inset_radii(R, n_pairs):
     return list(np.linspace(R * 0.94, R * 0.62, n_pairs))
 
 
+_ORIC_DOT_DISPLAY_CAP = 8
+
+
 def _place_oric_dots(ax, cx, cy, R, bubble_radii, n_oric):
     """Stack the oriC dots radially at 12 o'clock — one on the rim,
     one at the top of each replication bubble — so the multifork
@@ -608,9 +611,10 @@ def _place_oric_dots(ax, cx, cy, R, bubble_radii, n_oric):
     initiation event, so the oriCs are anchored on the bubbles they
     came from rather than all piled on the outer chromosome.
 
-    If the cell has more oriCs than levels (e.g. just after a bubble
-    completed and chromosome_structure hasn't yet split the
-    chromosome), surplus dots stack above the rim."""
+    If the cell has many more oriCs than there are bubble levels
+    (multifork runaway, e.g. when SeqA isn't enabled), we cap the
+    number of drawn dots and label the count next to them so the
+    diagram stays legible."""
     if n_oric <= 0:
         return
     levels = [(cx, cy + R, 11)]  # (x, y, marker size) — rim
@@ -621,13 +625,26 @@ def _place_oric_dots(ax, cx, cy, R, bubble_radii, n_oric):
         x, y, ms = levels[i]
         ax.plot(x, y, 'o', color='#10b981', ms=ms, zorder=5,
                 markeredgecolor='#065f46', markeredgewidth=0.9)
-    # Surplus (rare): stack above the rim with smaller dots so they
-    # don't visually fight with the rim oriC.
     surplus = n_oric - n_to_place
-    for j in range(surplus):
+    if surplus <= 0:
+        return
+    # Bounded surplus: stack a few small dots above the rim. If the
+    # surplus is huge (oriC ≫ bubble levels, e.g. multifork runaway
+    # without SeqA), draw a small visual cap and label the actual
+    # count to keep the diagram legible.
+    surplus_cap = min(surplus, _ORIC_DOT_DISPLAY_CAP)
+    for j in range(surplus_cap):
         ax.plot(cx, cy + R + 0.06 * (j + 1), 'o', color='#10b981',
                 ms=7, zorder=5,
                 markeredgecolor='#065f46', markeredgewidth=0.8)
+    if surplus > _ORIC_DOT_DISPLAY_CAP:
+        # Annotate the total count just above the topmost dot.
+        ax.text(cx, cy + R + 0.06 * (surplus_cap + 1) + 0.04,
+                f'oriC × {n_oric}',
+                ha='center', va='bottom', fontsize=9,
+                color='#065f46', fontweight='bold',
+                bbox=dict(facecolor='white', edgecolor='#065f46',
+                           boxstyle='round,pad=0.2', alpha=0.95))
 
 
 def _pair_forks(fork_coords):
@@ -3723,7 +3740,8 @@ _CONFIG_LABELS = {
     'pre_gate':       '+ RIDA + DARS + binding (mass gate still active)',
     'gated_no_seqA':  'DnaA-gated initiation (no SeqA sequestration)',
     'pre_ddah':       'gate + SeqA, no DDAH backup hydrolysis',
-    'full':           'replication_initiation (gate + SeqA + DDAH)',
+    'pre_autoreg':    'gate + SeqA + DDAH (no autoregulation yet)',
+    'full':           'replication_initiation (gate + SeqA + DDAH + autoregulation)',
 }
 
 
@@ -3757,17 +3775,26 @@ def _render_phase_section(phase: Phase, statuses, trajectories):
         for heading, body in phase.extra_sections(after_snaps, status):
             extras_html += f'<h3>{html_lib.escape(heading)}</h3>{body}'
 
+    # Frame the comparison as "without this phase / with this phase",
+    # which is what the reader actually wants to know — rather than the
+    # bare config-slice names.
     if phase.before_config == phase.after_config:
-        before_label = 'Before — current model behavior'
-        after_label = (
-            f'After — Phase {phase.number} lands'
-            if phase.after_plot is None
-            else f'After — Phase {phase.number} (current state)')
+        before_label = 'Without this phase'
+        after_label = f'With this phase active'
+        comparison_note = ''
     else:
         before_desc = _CONFIG_LABELS.get(phase.before_config, phase.before_config)
         after_desc = _CONFIG_LABELS.get(phase.after_config, phase.after_config)
-        before_label = f'Before — {before_desc}'
-        after_label = f'After — {after_desc}'
+        before_label = f'Without this phase'
+        after_label = f'With this phase'
+        comparison_note = (
+            f'<p class="compare-note">The two simulations below share '
+            f'all upstream architecture; the only difference is whether '
+            f'Phase {phase.number} is wired in. '
+            f'<strong>Left</strong> ({phase.before_config}): '
+            f'{before_desc}. <strong>Right</strong> '
+            f'({phase.after_config}): {after_desc}.</p>'
+        )
 
     # The phase goal can run multi-paragraph; render it as the
     # leading summary box. Caveats (gap_items) come second, formatted
@@ -3811,13 +3838,15 @@ def _render_phase_section(phase: Phase, statuses, trajectories):
     </div>
   </div>
   {extras_html}
+  <h3 class="compare-heading">The difference this phase makes</h3>
+  {comparison_note}
   <div class="before-after">
     <div class="ba-col">
-      <h4>{html_lib.escape(before_label)}</h4>
+      <h4 class="ba-without">{html_lib.escape(before_label)}</h4>
       {before_block}
     </div>
     <div class="ba-col">
-      <h4>{html_lib.escape(after_label)}</h4>
+      <h4 class="ba-with">{html_lib.escape(after_label)}</h4>
       {after_block}
     </div>
   </div>
@@ -4179,6 +4208,15 @@ details.glossary-details > dl {{ padding: 0 14px; }}
     margin-right: 6px; }}
 .overview-rundown .phase-rundown-body {{
     font-size: 0.9em; line-height: 1.55; color: #334155; }}
+.compare-heading {{ margin-top: 18px; padding-top: 10px;
+                     border-top: 1px solid #e2e8f0;
+                     color: #1e3a8a; }}
+p.compare-note {{ font-size: 0.9em; color: #475569;
+                   line-height: 1.55; margin: 4px 0 12px 0; }}
+.ba-col h4.ba-without {{ color: #94a3b8; }}
+.ba-col h4.ba-with {{ color: #1e3a8a; }}
+.ba-col h4.ba-without::before {{ content: "↶ "; }}
+.ba-col h4.ba-with::before {{ content: "✓ "; color: #10b981; }}
 </style>
 </head>
 <body>

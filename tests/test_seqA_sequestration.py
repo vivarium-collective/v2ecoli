@@ -99,21 +99,37 @@ def test_gate_closed_during_sequestration_window(composite):
 
 
 def test_gate_resumes_after_window_expires(composite):
-    """At t=900s (300s past the 600s window), the gate ratio must
-    reflect the actual DnaA-ATP-per-oriC again — non-zero, with the
-    DnaA-ATP pool dynamics from RIDA + DARS visible."""
-    composite.run(300.0)  # total t = 900s
-    rd = composite.state['agents']['0']['listeners'].get(
-        'replication_data', {})
-    ratio_900s = float(rd.get('critical_mass_per_oriC', -1))
-    assert ratio_900s > 0.0, (
-        f'gate ratio at t=900s = {ratio_900s} but should be > 0 — '
-        f'sequestration window should have expired')
+    """The SeqA refractory window expires after seqA_sequestration_window_s
+    seconds. The mechanism is in the gate's ``_seqA_gate_closed`` helper:
+    it returns True when ``elapsed < window`` and False otherwise.
+
+    We test the mechanism directly because the natural-emergent gate
+    ratio after a window expires depends on whether the cell has
+    sufficient free DnaA-ATP to refill low-affinity oriC boxes. Phase 2
+    titration (3070a66) sequesters most ATP onto background boxes
+    early in the cycle, so the natural ratio at t=900 s can be 0 from
+    box-occupancy alone — independent of whether SeqA is artificially
+    closing the gate. Pinning the helper instead avoids that
+    confounder."""
+    inst = composite.state['agents']['0'][
+        'ecoli-chromosome-replication']['instance']
+    window = float(getattr(inst, 'seqA_sequestration_window_s', 0))
+    assert window == 600.0, f'unexpected window: {window!r}'
+
+    # Just past the window from a synthetic initiation event.
+    inst._last_initiation_time_s = 0.0
+    states_just_inside = {'global_time': window - 1.0}
+    states_just_outside = {'global_time': window + 1.0}
+    assert inst._seqA_gate_closed(states_just_inside) is True, (
+        'gate should be closed within the SeqA window')
+    assert inst._seqA_gate_closed(states_just_outside) is False, (
+        'gate should reopen after the SeqA window expires')
 
 
 def test_disabling_seqA_keeps_gate_open(composite):
-    """``enable_seqA_sequestration=False`` skips the sequestration
-    check; the gate ratio is the raw DnaA-ATP-per-oriC at all times."""
+    """``enable_seqA_sequestration=False`` sets the window to 0, which
+    makes ``_seqA_gate_closed`` short-circuit to False regardless of
+    elapsed time — i.e. the gate is never artificially held closed."""
     from v2ecoli.composite_replication_initiation import (
         make_replication_initiation_composite,
     )
@@ -122,11 +138,9 @@ def test_disabling_seqA_keeps_gate_open(composite):
         enable_seqA_sequestration=False)
     inst = c.state['agents']['0']['ecoli-chromosome-replication']['instance']
     assert getattr(inst, 'seqA_sequestration_window_s', None) == 0.0
-    c.run(60.0)
-    rd = c.state['agents']['0']['listeners'].get('replication_data', {})
-    ratio = float(rd.get('critical_mass_per_oriC', -1))
-    # Without SeqA, the gate at t=60s reads the DnaA-ATP-per-oriC ratio
-    # — small post-init but non-zero.
-    assert ratio > 0.0, (
-        f'gate ratio at t=60s with SeqA disabled = {ratio} — should '
-        f'reflect DnaA-ATP-per-oriC, not be 0')
+    # With window=0, the gate-closed predicate should be False even
+    # immediately after a (synthetic) initiation event.
+    inst._last_initiation_time_s = 0.0
+    assert inst._seqA_gate_closed({'global_time': 1.0}) is False, (
+        'window=0 should disable the SeqA gate-closed forcing entirely')
+    assert inst._seqA_gate_closed({'global_time': 100.0}) is False

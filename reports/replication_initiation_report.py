@@ -2952,6 +2952,9 @@ class Phase:
     number: int
     title: str
     goal: str
+    """One-paragraph description of what the phase does and how. Used as
+    the lead summary inside the per-phase section. Plain text — gets
+    HTML-escaped at render time, so don't put markup in here."""
     status_check: Callable
     tests: tuple[TestSpec, ...]
     gap_items: tuple[str, ...]
@@ -2964,6 +2967,12 @@ class Phase:
     subsections rendered between the gap list and the before/after
     grid. Used by Phase 1 + 5 + 7 for driver tables, provenance audits,
     and bigraph subsets."""
+
+    overview_html: str = ''
+    """Richer narrative paragraph used in the consolidated overview at
+    the top of the report (the Parts-organized rundown). HTML allowed —
+    rendered as-is, not escaped. Falls back to ``goal`` (escaped) when
+    empty."""
 
     # Trajectory configurations to plug into before / after panels.
     # Three configurations are run during a report regeneration:
@@ -2988,18 +2997,15 @@ PHASES: list[Phase] = [
         title='Region classifier — partition the 307 consensus boxes',
         goal=('The bioinformatic strict-consensus search at '
               '`flat/sequence_motifs.tsv` finds ~307 distinct DnaA boxes '
-              '(TTWTNCACA variants) across the chromosome. They are '
-              '<strong>already in the model</strong> — instantiated as '
-              'unique-store entries in the <code>DnaA_box</code> array '
-              'every cell. Phase 0 just adds a coordinate-to-region '
-              'classifier (<code>region_for_coord(bp)</code>) so later '
-              'phases can ask "which boxes are at oriC?" instead of '
-              '"which boxes fall between bp 3,925,629 and 3,926,090?". '
-              'No schema change — region is derived from each box\'s '
-              'existing <code>coordinates</code> field. All 307 are '
-              'available to Phase 2 for binding; about 30 fall in the '
-              'five named regulatory regions, and the remaining ~280 '
-              'are the genomic-background pool that titrates DnaA-ATP.'),
+              '(TTWTNCACA variants) across the chromosome — they are '
+              'already in the model as unique-store entries from t=0. '
+              'Phase 0 just adds a coordinate-to-region classifier '
+              '`region_for_coord(bp)` so later phases can ask "which '
+              'boxes are at oriC?" instead of working from raw bp '
+              'positions. No schema change. All 307 boxes become '
+              'available to Phase 2: about 30 fall in the five named '
+              'regulatory regions; the remaining ~280 are the '
+              'genomic-background pool that titrates DnaA-ATP.'),
         status_check=_check_phase0,
         tests=(
             TestSpec(
@@ -3021,10 +3027,9 @@ PHASES: list[Phase] = [
             'consensus.',
             'The strict-consensus search picks out high-affinity boxes. '
             'Named low-affinity boxes (R5M, τ2, I1-I3, C1-C3 at oriC; '
-            'box3-c at the dnaA promoter) are not in '
-            '<code>motif_coordinates</code> as separate coordinate '
-            'entries — Phase 2 reconstructs them via the curated '
-            'PDF affinity profile instead.',
+            'box3-c at the dnaA promoter) are not in motif_coordinates '
+            'as separate coordinate entries — Phase 2 reconstructs '
+            'them via the curated PDF affinity profile instead.',
         ),
         viz_plan=(
             'Bar chart of DnaA-box counts per region, with the curated '
@@ -3048,6 +3053,16 @@ PHASES: list[Phase] = [
              'of named regions vs. the genomic background (~99% of the '
              '307 strict-consensus boxes) is visible at a glance.</p>'),
         )],
+        overview_html=(
+            'Bookkeeping. The ~307 consensus DnaA boxes are <em>already '
+            'in the model</em> as unique-store entries; Phase 0 just '
+            'adds a coordinate-based classifier '
+            '<code>region_for_coord</code> that labels each one with '
+            'its regulatory region (oriC, dnaA-promoter, datA, DARS1, '
+            'DARS2, or "other"). All 307 then become available to '
+            'Phase 2 — the named regions are the regulatory drivers, '
+            'and the ~280 "other" boxes are the titration sink that '
+            'keeps free DnaA-ATP low.'),
     ),
     Phase(
         number=1,
@@ -3091,6 +3106,11 @@ PHASES: list[Phase] = [
         extra_sections=_phase1_extras,
         before_config='baseline',
         after_config='full',
+        overview_html=(
+            'Adds a listener that emits apo / DnaA-ATP / DnaA-ADP '
+            'counts each tick. Lets the report confirm the diagnosis: '
+            'in the baseline architecture, DnaA-ATP runs at its '
+            'equilibrium ceiling because nothing hydrolyzes it.'),
     ),
     Phase(
         number=2,
@@ -3113,21 +3133,21 @@ PHASES: list[Phase] = [
                 "'other' boxes are partially bound (Kd ~100 nM)."),
         ),
         gap_items=(
-            '<strong>Titration is not yet wired into the dynamics.</strong> '
-            'The listener counts ~250+ bound boxes at steady state but '
-            'does not decrement the free DnaA-ATP / DnaA-ADP pool. '
-            'Phases 3, 5, 7 see the un-buffered total pool, which '
-            'inflates the available DnaA-ATP for initiation by ~5–10×. '
-            'The follow-up is to move bound counts into the bulk delta '
-            'each tick.',
-            'No write-back to the `DnaA_bound` field on the unique-'
-            'molecule store — the set-update / add-delete conflict with '
+            'No write-back to the DnaA_bound field on the unique-molecule '
+            'store — the set-update / add-delete conflict with '
             'chromosome_structure is left as a follow-up.',
-            'All named regions currently use the high-affinity rule. '
-            'Per-box affinity differentiation (R1/R2/R4 vs named low-'
-            'affinity oriC sites) and context-dependent binding (variants '
-            'near high-affinity clusters acting as high-affinity sites '
-            'via cooperativity) are follow-ups.',
+            'No cooperativity within a region: the cooperative loading '
+            'of the low-affinity oriC tier (C1 → I3 → C2 → C3, anchored '
+            'by R4) is not modeled. Each box in the tier is sampled '
+            'independently from the equilibrium probability, so the '
+            'whole tier fills in one tick once DnaA-ATP rises high '
+            'enough rather than accumulating over a kinetic time.',
+            'Total DnaA pool size: with ~500 active boxes and the '
+            'cache\'s ~120-molecule DnaA pool, titration drains free '
+            'DnaA-ATP fast. The literature pool is closer to 1000–2000 '
+            'molecules per cell — bumping the DnaA expression rate '
+            'would let the background "other" boxes pull a meaningful '
+            'fraction without starving oriC.',
         ),
         viz_plan='',
         before_plot=_before_phase2,
@@ -3138,6 +3158,19 @@ PHASES: list[Phase] = [
         extra_sections=_phase2_extras,
         before_config='rida_dars',
         after_config='pre_gate',
+        overview_html=(
+            'Each tick, sample which DnaA boxes are bound from the '
+            'equilibrium occupancy probability '
+            '<code>p = [DnaA] / (Kd + [DnaA])</code> per affinity tier, '
+            'then <em>allocate the actual cytoplasmic DnaA pool to '
+            'the samples in priority order</em> (highest affinity '
+            'first, lowest last). Bound DnaA molecules are subtracted '
+            'from <code>bulk[DnaA-ATP]</code> / '
+            '<code>bulk[DnaA-ADP]</code> for the next tick — so the '
+            '~280 background "other" boxes titrate the free pool, '
+            'lowering the concentration that drives named-region '
+            'binding. Phase 3 reads <code>bound_oric_low</code> from '
+            'this listener.'),
     ),
     Phase(
         number=3,
@@ -3204,6 +3237,19 @@ PHASES: list[Phase] = [
         )],
         before_config='pre_gate',
         after_config='gated_no_seqA',
+        overview_html=(
+            'Replaces the mass-per-oriC threshold with a check on '
+            '<em>oriC occupancy</em>: fire when at least 4 of the 8 '
+            'cooperative low-affinity DnaA boxes at oriC are loaded '
+            'with DnaA-ATP (≈ "right-arm filament assembled" per the '
+            'PDF). The gate reads <code>bound_oric_low</code> from '
+            'the Phase 2 binding listener, so the trigger is the '
+            'actual molecular configuration rather than a cytoplasmic '
+            'concentration proxy. Same self-limiting shape as the '
+            'baseline mass gate — n_oriC doubles after firing, '
+            'bound_oric_low briefly drops, SeqA (Phase 4) holds the '
+            'gate shut while RIDA (Phase 5) clears the DnaA-ATP '
+            'pool.'),
     ),
     Phase(
         number=4,
@@ -3248,6 +3294,11 @@ PHASES: list[Phase] = [
         extra_sections=_phase4_extras,
         before_config='gated_no_seqA',
         after_config='pre_ddah',
+        overview_html=(
+            'After each initiation event, force the gate to 0 for '
+            '~10&nbsp;min. Models SeqA binding hemimethylated GATC '
+            'sites at the newly-replicated origin and physically '
+            'blocking DnaA from rebinding.'),
     ),
     Phase(
         number=5,
@@ -3291,6 +3342,12 @@ PHASES: list[Phase] = [
         extra_sections=_phase5_extras,
         before_config='baseline',
         after_config='rida_only',
+        overview_html=(
+            'A dedicated step that hydrolyzes DnaA-ATP → DnaA-ADP at '
+            'a rate proportional to the active replisome count. '
+            'Models the β-clamp + Hda complex on the moving '
+            'replisome — the dominant pathway for preventing '
+            're-initiation within the same cycle.'),
     ),
     Phase(
         number=6,
@@ -3331,6 +3388,12 @@ PHASES: list[Phase] = [
         extra_sections=_phase6_extras,
         before_config='pre_ddah',
         after_config='full',
+        overview_html=(
+            'A constitutive first-order DnaA-ATP hydrolysis term, '
+            'modeling the IHF-induced loop at datA. Smaller rate '
+            'than RIDA, but runs whether or not a replisome is '
+            'active — keeps DnaA-ATP from drifting up between '
+            'rounds.'),
     ),
     Phase(
         number=7,
@@ -3375,6 +3438,13 @@ PHASES: list[Phase] = [
         extra_sections=_phase7_extras,
         before_config='rida_only',
         after_config='rida_dars',
+        overview_html=(
+            'A first-order DnaA-ADP → apo-DnaA conversion. Combined '
+            'with the still-active equilibrium re-loading of apo-DnaA '
+            'with ATP, this closes the nucleotide cycle (ATP → ADP '
+            'via RIDA/DDAH; ADP → apo via DARS; apo → ATP via '
+            'equilibrium) and stabilizes the DnaA-ATP fraction inside '
+            'the literature 30–70% band.'),
     ),
     Phase(
         number=8,
@@ -3425,6 +3495,13 @@ PHASES: list[Phase] = [
         after_plot=_after_phase8,
         before_config='pre_autoreg',
         after_config='full',
+        overview_html=(
+            'Read the binding listener\'s count of bound boxes at the '
+            'dnaA promoter each tick, and scale the dnaA gene\'s '
+            'transcription rate down in proportion: '
+            '<code>rate = baseline × (1 − max_repression × '
+            'fraction_bound)</code>. Negative feedback that closes '
+            'the loop on the entire cycle.'),
     ),
 ]
 
@@ -3745,28 +3822,47 @@ def _render_phase_section(phase: Phase, statuses, trajectories):
 """
 
 
-def _render_overview_table(statuses):
-    """Overview grouped by Part. Phases listed in narrative order
-    (the order they appear in PARTS), not by phase number."""
-    out = ['<table class="overview"><thead>'
-           '<tr><th>#</th><th>Phase</th><th>Status</th>'
-           '<th>What it does</th></tr></thead><tbody>']
+def _render_overview_rundown(statuses):
+    """Single Parts-organized rundown that combines what the prior
+    structure split across two places: a flat ordered list of phases
+    with one-paragraph descriptions ("what each phase adds") and a
+    table of Parts with status pills and goals.
+
+    Each phase is rendered with: status pill, anchor-linked title,
+    and the rich ``overview_html`` narrative (falling back to
+    ``goal`` if not set). Phases are grouped under their Part with
+    the Part intro at the top.
+    """
+    out = ['<div class="overview-rundown">']
     for part in PARTS:
         out.append(
-            f'<tr class="part-row"><td colspan="4">'
-            f'<a href="#{part.slug}"><strong>{html_lib.escape(part.title)}</strong></a>'
-            f'</td></tr>')
+            f'<div class="part-block">'
+            f'<h4 class="part-block-title">'
+            f'<a href="#{part.slug}">{html_lib.escape(part.title)}</a>'
+            f'</h4>'
+            f'<p class="part-block-intro">{part.intro}</p>'
+            f'<ul class="phase-rundown">')
         for n in part.phase_numbers:
             phase = _phase_by_number(n)
             status, _ = statuses[phase.number]
+            narrative = phase.overview_html or html_lib.escape(phase.goal)
             out.append(
-                f'<tr><td>P{phase.number}</td>'
-                f'<td><a href="#{phase.slug}">{html_lib.escape(phase.title)}</a></td>'
-                f'<td>{_status_pill(status)}</td>'
-                f'<td>{html_lib.escape(phase.goal)}</td></tr>'
-            )
-    out.append('</tbody></table>')
+                f'<li>'
+                f'<div class="phase-rundown-head">'
+                f'<a class="phase-rundown-title" href="#{phase.slug}">'
+                f'<span class="phase-num">P{phase.number}</span> '
+                f'{html_lib.escape(phase.title)}</a>'
+                f'{_status_pill(status)}'
+                f'</div>'
+                f'<div class="phase-rundown-body">{narrative}</div>'
+                f'</li>')
+        out.append('</ul></div>')
+    out.append('</div>')
     return ''.join(out)
+
+
+# Backwards-compat alias — old name used in render_html.
+_render_overview_table = _render_overview_rundown
 
 
 def _render_sidebar(statuses):
@@ -4034,6 +4130,50 @@ dl.glossary {{ font-size: 0.92em; line-height: 1.55;
 dl.glossary dt {{ margin-top: 8px; color: #1e3a8a;
                    font-weight: 600; }}
 dl.glossary dd {{ margin: 2px 0 6px 22px; color: #1e293b; }}
+details.glossary-details {{ margin: 14px 0; }}
+details.glossary-details summary {{
+    cursor: pointer; padding: 8px 12px;
+    background: #f8fafc; border: 1px solid #e2e8f0;
+    border-radius: 6px; color: #1e3a8a;
+    font-size: 0.95em; }}
+details.glossary-details summary:hover {{ background: #eff6ff; }}
+details.glossary-details[open] summary {{ margin-bottom: 8px; }}
+details.glossary-details > dl {{ padding: 0 14px; }}
+
+/* Consolidated overview rundown — Parts each containing a list of
+   phases with status pill + narrative paragraph. */
+.overview-rundown .part-block {{
+    margin: 18px 0; border-left: 3px solid #1e3a8a;
+    padding: 8px 16px; background: #f8fafc;
+    border-radius: 0 6px 6px 0; }}
+.overview-rundown .part-block-title {{
+    margin: 0 0 4px 0; color: #1e3a8a; font-size: 1.05em; }}
+.overview-rundown .part-block-title a {{
+    color: #1e3a8a; text-decoration: none; }}
+.overview-rundown .part-block-title a:hover {{ text-decoration: underline; }}
+.overview-rundown .part-block-intro {{
+    margin: 4px 0 12px 0; font-size: 0.9em;
+    color: #475569; line-height: 1.55; }}
+.overview-rundown ul.phase-rundown {{
+    margin: 0; padding-left: 0; list-style: none; }}
+.overview-rundown ul.phase-rundown > li {{
+    margin: 8px 0; padding: 8px 12px; background: white;
+    border: 1px solid #e2e8f0; border-radius: 6px; }}
+.overview-rundown .phase-rundown-head {{
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 6px; }}
+.overview-rundown .phase-rundown-title {{
+    color: #1e293b; text-decoration: none; font-weight: 600;
+    flex: 1; }}
+.overview-rundown .phase-rundown-title:hover {{
+    color: #1e3a8a; text-decoration: underline; }}
+.overview-rundown .phase-num {{
+    display: inline-block; padding: 1px 6px;
+    background: #1e3a8a; color: white; border-radius: 4px;
+    font-family: monospace; font-size: 0.85em;
+    margin-right: 6px; }}
+.overview-rundown .phase-rundown-body {{
+    font-size: 0.9em; line-height: 1.55; color: #334155; }}
 </style>
 </head>
 <body>
@@ -4096,7 +4236,8 @@ architecture replaces the mass-per-oriC heuristic with that network,
 in nine cumulative phases that each build on the previous.
 </p>
 
-<h3>Glossary — the players and what they do</h3>
+<details class="glossary-details">
+<summary><strong>Glossary</strong> — the players and what they do (click to expand)</summary>
 <dl class="glossary">
   <dt><strong>DnaA</strong></dt>
   <dd>The master initiator protein. Cycles between three nucleotide
@@ -4176,6 +4317,7 @@ in nine cumulative phases that each build on the previous.
       is a number that came from that pipeline rather than from a
       first-principles formula.</dd>
 </dl>
+</details>
 
 <h3>What's already present in the baseline model</h3>
 <ul class="note">
@@ -4204,90 +4346,18 @@ in nine cumulative phases that each build on the previous.
       writes the new replicated DNA into the bulk store.</li>
 </ul>
 
-<h3>What's missing, and what each phase adds</h3>
+<h3>The plan: four Parts, nine phases, one cumulative architecture</h3>
 <p class="note">
 The phases are <em>cumulative</em>: each turns on a feature flag in
 the architecture builder and stacks on top of the previous. The
 before/after panels under each phase compare two such slices —
 "before" is the cumulative architecture immediately upstream of the
 phase; "after" is that same slice plus the new phase. Status pills
-are auto-detected from the codebase (whether the relevant file
-exists, whether the splice is wired, whether the listener emits) so
-they cannot drift from the source.
-</p>
-<ol class="migration-plan">
-  <li><strong>Phase 0 — DnaA-box region classifier.</strong>
-      Bookkeeping. The ~307 consensus DnaA boxes are <em>already in
-      the model</em> as unique-store entries; Phase 0 just adds a
-      coordinate-based classifier <code>region_for_coord</code> that
-      labels each one with its regulatory region (oriC, dnaA-promoter,
-      datA, DARS1, DARS2, or "other" for the genomic background). All
-      307 then become available to Phase 2 for binding and titration —
-      the named regions are the regulatory drivers, and the ~280
-      "other" boxes are the titration sink that keeps free DnaA-ATP
-      low.</li>
-  <li><strong>Phase 1 — Surface the DnaA pools.</strong> Adds a
-      listener that emits apo / DnaA-ATP / DnaA-ADP counts each tick.
-      Lets the report confirm the diagnosis: in the baseline
-      architecture, DnaA-ATP runs at its equilibrium ceiling because
-      nothing hydrolyzes it.</li>
-  <li><strong>Phase 2 — DnaA-box binding (with titration).</strong>
-      Each tick, sample which DnaA boxes are bound from the
-      equilibrium occupancy probability
-      <code>p = [DnaA] / (Kd + [DnaA])</code> per affinity tier, then
-      <em>allocate the actual cytoplasmic DnaA pool to the samples in
-      priority order</em> (highest affinity first, lowest last). The
-      bound DnaA molecules are subtracted from the cytoplasmic
-      <code>bulk[DnaA-ATP]</code> / <code>bulk[DnaA-ADP]</code> pools
-      for the next tick — so the ~280 background "other" boxes
-      titrate the free pool, lowering the concentration that drives
-      named-region binding. Phase 3 reads
-      <code>bound_oric_low</code> from this listener.</li>
-  <li><strong>Phase 3 — DnaA-gated initiation.</strong> Replaces the
-      mass-per-oriC threshold with a check on <em>oriC occupancy</em>:
-      fire when at least 4 of the 8 cooperative low-affinity DnaA
-      boxes at oriC are loaded with DnaA-ATP (≈ "right-arm filament
-      assembled", per the curated PDF). The gate reads
-      <code>bound_oric_low</code> from the Phase 2 binding listener,
-      so the trigger is the actual molecular configuration rather
-      than a cytoplasmic concentration proxy. Same self-limiting
-      shape as the baseline mass gate — n_oriC doubles after firing,
-      bound_oric_low briefly drops, and SeqA (Phase 4) holds the
-      gate shut while RIDA (Phase 5) clears the DnaA-ATP pool.</li>
-  <li><strong>Phase 4 — SeqA sequestration window.</strong> After
-      each initiation event, force the gate to 0 for ~10 min. Models
-      SeqA binding hemimethylated GATC sites at the newly-replicated
-      origin and physically blocking DnaA from rebinding.</li>
-  <li><strong>Phase 5 — RIDA hydrolysis flux.</strong> A dedicated
-      step that hydrolyzes DnaA-ATP → DnaA-ADP at a rate proportional
-      to the active replisome count. Models the β-clamp + Hda
-      complex on the moving replisome — the dominant pathway for
-      preventing re-initiation within the same cycle.</li>
-  <li><strong>Phase 6 — DDAH backup hydrolysis.</strong> A
-      constitutive first-order DnaA-ATP hydrolysis term, modeling
-      the IHF-induced loop at datA. Smaller rate than RIDA, but
-      runs whether or not a replisome is active — keeps DnaA-ATP
-      from drifting up between rounds.</li>
-  <li><strong>Phase 7 — DARS reactivation.</strong> A first-order
-      DnaA-ADP → apo-DnaA conversion. Combined with the still-active
-      equilibrium re-loading of apo-DnaA with ATP, this closes the
-      nucleotide cycle (ATP → ADP via RIDA/DDAH; ADP → apo via DARS;
-      apo → ATP via equilibrium) and stabilizes the DnaA-ATP fraction
-      inside the literature 30–70% band.</li>
-  <li><strong>Phase 8 — dnaA promoter autoregulation.</strong> Read
-      the binding listener's count of bound boxes at the dnaA promoter
-      each tick, and scale the dnaA gene's transcription rate down
-      in proportion: <code>rate = baseline × (1 − max_repression ×
-      fraction_bound)</code>. Negative feedback that closes the loop
-      on the entire cycle.</li>
-</ol>
-
-<p class="note">
-The four <strong>Parts</strong> below group these phases by what
-question they answer: codify what's there → drive the DnaA cycle →
-bind to the chromosome and gate initiation → add regulatory
-feedbacks. Phase numbers track implementation order; the table
-renders them in narrative order under each Part.
+(<em>done</em> / <em>in&nbsp;progress</em> / <em>pending</em>) are
+auto-detected from the codebase — they cannot drift from the
+source. Phase numbers track implementation order; the rundown below
+is in <em>narrative</em> order under each Part. Click any phase
+title to jump to its full section further down.
 </p>
 {overview_table}
 </section>

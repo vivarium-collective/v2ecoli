@@ -200,9 +200,15 @@ def _extract_replication_signals(history):
             'dnaA_atp_count': rep_listener.get('dnaA_atp_count'),
             'dnaA_adp_count': rep_listener.get('dnaA_adp_count'),
             'rida_flux_atp_to_adp': rida_listener.get('flux_atp_to_adp'),
+            'rida_cumulative_flux': rida_listener.get(
+                'cumulative_flux_atp_to_adp'),
             'rida_active_replisomes': rida_listener.get('active_replisomes'),
             'dars_flux_adp_to_apo': dars_listener.get('flux_adp_to_apo'),
+            'dars_cumulative_flux': dars_listener.get(
+                'cumulative_flux_adp_to_apo'),
             'ddah_flux_atp_to_adp': ddah_listener.get('flux_atp_to_adp'),
+            'ddah_cumulative_flux': ddah_listener.get(
+                'cumulative_flux_atp_to_adp'),
             'binding_total_bound': binding_listener.get('total_bound'),
             'binding_total_active': binding_listener.get('total_active'),
             'binding_fraction_bound': binding_listener.get('fraction_bound'),
@@ -2563,7 +2569,10 @@ def _after_phase5(snaps):
 
     # _dnaA_pool_traces drops the first snapshot; align other arrays.
     aligned = snaps[1:] if len(snaps) > 1 else snaps
-    flux = np.array([s.get('rida_flux_atp_to_adp') or 0 for s in aligned])
+    # Use cumulative-flux deltas so we see total events per ~50 s
+    # snapshot interval rather than just the last tick's flux.
+    rida_cum = np.array([s.get('rida_cumulative_flux') or 0 for s in aligned])
+    flux = np.diff(rida_cum, prepend=rida_cum[:1])
     n_rep = np.array([s.get('n_replisomes') or 0 for s in aligned])
 
     eq = DNAA_NUCLEOTIDE_EQUILIBRIUM
@@ -2589,13 +2598,14 @@ def _after_phase5(snaps):
     ax = axes[1]
     ax2 = ax.twinx()
     ax.bar(times, flux, width=0.5, color='#dc2626', alpha=0.7,
-           label='RIDA flux (DnaA-ATP → DnaA-ADP / step)')
+           label='RIDA flux (events per snapshot interval)')
     ax2.step(times, n_rep, where='post', color='#f59e0b', lw=1.4,
              label='active replisomes')
     ax.set_xlabel('Time (min)')
-    ax.set_ylabel('RIDA flux (molecules / step)')
+    ax.set_ylabel('RIDA hydrolysis events / interval')
     ax2.set_ylabel('Active replisomes')
-    ax.set_title('RIDA flux scales with active replisome count')
+    ax.set_title('RIDA flux scales with active replisome count '
+                 '(cumulative-difference per ~50 s window)')
     ax.legend(fontsize=8, loc='upper left')
     ax2.legend(fontsize=8, loc='upper right')
     ax.grid(True, alpha=0.2)
@@ -2613,9 +2623,10 @@ def _after_phase5(snaps):
 
 
 def _phase6_panel(snaps, title, show_ddah=True):
-    """Phase 6 view: DnaA-ATP fraction trace + RIDA / DDAH fluxes.
-    With DDAH, the ATP fraction sits a bit lower than without it
-    (an additional drain on top of RIDA)."""
+    """Phase 6 view: DnaA-ATP fraction trace + RIDA / DDAH cumulative
+    flux over time. The flux is plotted as cumulative-difference per
+    snapshot interval so DDAH's small per-tick rate is visible (the
+    per-tick flux underflows the snapshot interval)."""
     pulled = _dnaA_pool_traces(snaps)
     if pulled is None:
         return _placeholder('No DnaA pool data in trajectory.')
@@ -2624,9 +2635,15 @@ def _phase6_panel(snaps, title, show_ddah=True):
     safe = np.where(total > 0, total, 1)
     atp_frac = atp / safe
 
+    # Cumulative flux from process listeners, then per-interval delta
+    # so the plotted bar is "events between this snap and the previous".
+    # Align to the same snapshot range as the time array (which drops
+    # the first snap inside _dnaA_pool_traces).
     aligned = snaps[1:] if len(snaps) > 1 else snaps
-    rida_flux = np.array([s.get('rida_flux_atp_to_adp') or 0 for s in aligned])
-    ddah_flux = np.array([s.get('ddah_flux_atp_to_adp') or 0 for s in aligned])
+    rida_cum = np.array([s.get('rida_cumulative_flux') or 0 for s in aligned])
+    ddah_cum = np.array([s.get('ddah_cumulative_flux') or 0 for s in aligned])
+    rida_per_interval = np.diff(rida_cum, prepend=rida_cum[:1])
+    ddah_per_interval = np.diff(ddah_cum, prepend=ddah_cum[:1])
 
     eq = DNAA_NUCLEOTIDE_EQUILIBRIUM
     band_min = eq.biological_atp_fraction_min.value
@@ -2650,22 +2667,23 @@ def _phase6_panel(snaps, title, show_ddah=True):
 
     ax = axes[1]
     width = 0.4
-    ax.bar(times - width / 2, rida_flux, width=width,
+    ax.bar(times - width / 2, rida_per_interval, width=width,
            color='#dc2626', alpha=0.75,
-           label='RIDA flux')
+           label='RIDA flux per interval')
     if show_ddah:
-        ax.bar(times + width / 2, ddah_flux, width=width,
+        ax.bar(times + width / 2, ddah_per_interval, width=width,
                color='#7c3aed', alpha=0.75,
-               label='DDAH flux')
+               label='DDAH flux per interval')
     ax.set_xlabel('Time (min)')
-    ax.set_ylabel('Hydrolysis flux (molecules / step)')
-    ax.set_title('DnaA-ATP hydrolysis flux contributors')
+    ax.set_ylabel('Hydrolysis events (per snapshot interval)')
+    ax.set_title('DnaA-ATP hydrolysis flux contributors '
+                 '(cumulative-difference per ~50 s window)')
     ax.legend(loc='upper right')
     ax.grid(True, alpha=0.2)
     fig.tight_layout()
     if show_ddah:
-        cumulative_ddah = int(ddah_flux.sum())
-        cumulative_rida = int(rida_flux.sum())
+        cumulative_ddah = int(ddah_cum[-1]) if len(ddah_cum) else 0
+        cumulative_rida = int(rida_cum[-1]) if len(rida_cum) else 0
         note = (
             f'<p class="note">Over this trajectory, RIDA contributed '
             f'<strong>{cumulative_rida}</strong> hydrolysis events vs '
@@ -2675,11 +2693,13 @@ def _phase6_panel(snaps, title, show_ddah=True):
             f'rounds.</p>'
         )
     else:
+        cumulative_rida = int(rida_cum[-1]) if len(rida_cum) else 0
         note = (
-            '<p class="note">Without DDAH, RIDA is the only DnaA-ATP '
-            'hydrolyzer. The ATP fraction sits closer to the upper '
-            'edge of the literature band because nothing pulls it '
-            'down between replication pulses.</p>'
+            f'<p class="note">Without DDAH, RIDA is the only DnaA-ATP '
+            f'hydrolyzer (<strong>{cumulative_rida}</strong> events '
+            f'over the trajectory). The ATP fraction sits closer to '
+            f'the upper edge of the literature band because nothing '
+            f'pulls it down between replication pulses.</p>'
         )
     return _img(fig_to_b64(fig), 'Phase 6 panel') + note
 
@@ -2800,8 +2820,12 @@ def _after_phase7(snaps):
     safe = np.where(total > 0, total, 1)
     atp_frac = atp / safe
     aligned = snaps[1:] if len(snaps) > 1 else snaps
-    rida_flux = np.array([s.get('rida_flux_atp_to_adp') or 0 for s in aligned])
-    dars_flux = np.array([s.get('dars_flux_adp_to_apo') or 0 for s in aligned])
+    # Cumulative-difference per snapshot interval, so the bars reflect
+    # actual events per ~50 s window rather than the last tick's flux.
+    rida_cum = np.array([s.get('rida_cumulative_flux') or 0 for s in aligned])
+    dars_cum = np.array([s.get('dars_cumulative_flux') or 0 for s in aligned])
+    rida_flux = np.diff(rida_cum, prepend=rida_cum[:1])
+    dars_flux = np.diff(dars_cum, prepend=dars_cum[:1])
 
     eq = DNAA_NUCLEOTIDE_EQUILIBRIUM
     band_min = eq.biological_atp_fraction_min.value
@@ -3404,7 +3428,7 @@ PHASES: list[Phase] = [
         after_plot=_after_phase6,
         extra_sections=_phase6_extras,
         before_config='pre_ddah',
-        after_config='full',
+        after_config='pre_autoreg',
         overview_html=(
             'A constitutive first-order DnaA-ATP hydrolysis term, '
             'modeling the IHF-induced loop at datA. Smaller rate '

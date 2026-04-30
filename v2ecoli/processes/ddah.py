@@ -90,6 +90,15 @@ class DDAH(Step):
         self.random_state = np.random.RandomState(
             seed=int(self.parameters.get('seed', 0)))
         self._bulk_idx = None
+        # Running cumulative DnaA-ATP -> DnaA-ADP flux across all
+        # ticks. The per-tick flux is small (Poisson on a few hundred
+        # molecules at a small rate constant) and snapshots are
+        # taken much less frequently than ticks, so a per-tick
+        # listener can read 0 in most snapshots even when DDAH is
+        # firing several times per snapshot interval. The cumulative
+        # field lets the report compute per-period flux as a
+        # difference between consecutive snapshots.
+        self._cumulative_flux: int = 0
 
     def inputs(self):
         return {
@@ -104,6 +113,8 @@ class DDAH(Step):
             'listeners': {
                 'ddah': {
                     'flux_atp_to_adp': {
+                        '_type': 'overwrite[integer]', '_default': []},
+                    'cumulative_flux_atp_to_adp': {
                         '_type': 'overwrite[integer]', '_default': []},
                     'rate_constant': {
                         '_type': 'overwrite[float]', '_default': []},
@@ -133,11 +144,14 @@ class DDAH(Step):
         # Bulk indices: [DnaA-ATP, DnaA-ADP] -> delta = [-h, +h]
         delta = np.array([-n_hydrolyzed, n_hydrolyzed], dtype=np.int64)
 
+        self._cumulative_flux += n_hydrolyzed
+
         return {
             'bulk': [(self._bulk_idx, delta)],
             'listeners': {
                 'ddah': {
                     'flux_atp_to_adp': n_hydrolyzed,
+                    'cumulative_flux_atp_to_adp': self._cumulative_flux,
                     'rate_constant': float(self.k),
                 },
             },

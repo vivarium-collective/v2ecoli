@@ -105,6 +105,10 @@ class DARS(Step):
         self.random_state = np.random.RandomState(
             seed=int(self.parameters.get('seed', 0)))
         self._bulk_idx = None
+        # Running cumulative DnaA-ADP -> apo flux. Per-tick listener
+        # values are too noisy for sparse snapshots; cumulative-diff
+        # gives the report a meaningful per-window flux.
+        self._cumulative_flux: int = 0
 
     def inputs(self):
         return {
@@ -119,6 +123,8 @@ class DARS(Step):
             'listeners': {
                 'dars': {
                     'flux_adp_to_apo': {
+                        '_type': 'overwrite[integer]', '_default': []},
+                    'cumulative_flux_adp_to_apo': {
                         '_type': 'overwrite[integer]', '_default': []},
                     'rate_constant': {
                         '_type': 'overwrite[float]', '_default': []},
@@ -149,11 +155,14 @@ class DARS(Step):
         # Bulk indices: [DnaA-ADP, apo-DnaA] -> delta = [-released, +released]
         delta = np.array([-n_released, n_released], dtype=np.int64)
 
+        self._cumulative_flux += n_released
+
         return {
             'bulk': [(self._bulk_idx, delta)],
             'listeners': {
                 'dars': {
                     'flux_adp_to_apo': n_released,
+                    'cumulative_flux_adp_to_apo': self._cumulative_flux,
                     'rate_constant': float(self.k),
                 },
             },

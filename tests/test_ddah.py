@@ -67,19 +67,16 @@ def test_ddah_produces_nonzero_cumulative_flux(composite):
     loose ``> 0`` to keep the test a property check rather than a
     point estimate.
 
-    Window kept short to stay inside the 120 s CI test timeout —
-    the replication-initiation composite runs ~0.1-0.5 s wall per
-    sim-second once the post-Phase-3 cascade kicks in, so a 20 min
-    window blew the budget."""
-    # Module-scope fixture — accumulate flux by reading listener
-    # snapshots across a few sim chunks.
-    cumulative = 0
-    for _ in range(5):
-        composite.run(60.0)
-        ddah = composite.state['agents']['0']['listeners'].get('ddah', {})
-        cumulative += int(ddah.get('flux_atp_to_adp') or 0)
+    The ``flux_atp_to_adp`` listener reports the *current tick's*
+    flux only — sparsely-sampled summing of that field consistently
+    underreports. Use the cumulative-flux field instead, which
+    monotonically accumulates across ticks."""
+    composite.run(300.0)
+    ddah = composite.state['agents']['0']['listeners'].get('ddah', {})
+    cumulative = int(ddah.get('cumulative_flux_atp_to_adp') or 0)
     assert cumulative > 0, (
-        f'DDAH cumulative flux over 5 min = {cumulative}; expected > 0')
+        f'DDAH cumulative flux over 5 min = {cumulative}; expected > 0. '
+        f'Listener: {dict(ddah)}')
 
 
 def test_disabling_ddah_removes_step(composite):

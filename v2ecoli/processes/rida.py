@@ -94,6 +94,12 @@ class RIDA(Step):
         self.random_state = np.random.RandomState(
             seed=int(self.parameters.get('seed', 0)))
         self._bulk_idx = None
+        # Running cumulative DnaA-ATP -> DnaA-ADP flux. The per-tick
+        # listener field is too noisy for sparsely-sampled snapshots
+        # (the snapshot only sees one tick out of N between samples);
+        # the cumulative field lets the report compute per-period flux
+        # as a difference between consecutive snapshots.
+        self._cumulative_flux: int = 0
 
     def inputs(self):
         return {
@@ -110,6 +116,8 @@ class RIDA(Step):
             'listeners': {
                 'rida': {
                     'flux_atp_to_adp': {
+                        '_type': 'overwrite[integer]', '_default': []},
+                    'cumulative_flux_atp_to_adp': {
                         '_type': 'overwrite[integer]', '_default': []},
                     'active_replisomes': {
                         '_type': 'overwrite[integer]', '_default': []},
@@ -149,11 +157,14 @@ class RIDA(Step):
 
         delta = np.array([-n_hydrolyzed, n_hydrolyzed], dtype=np.int64)
 
+        self._cumulative_flux += n_hydrolyzed
+
         return {
             'bulk': [(self._bulk_idx, delta)],
             'listeners': {
                 'rida': {
                     'flux_atp_to_adp': n_hydrolyzed,
+                    'cumulative_flux_atp_to_adp': self._cumulative_flux,
                     'active_replisomes': n_replisomes,
                     'rate_constant': float(self.k),
                 },

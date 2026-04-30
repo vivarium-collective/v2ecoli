@@ -261,7 +261,11 @@ def _run_baseline_sim(duration):
 
 
 def _run_rida_only_sim(duration):
-    """Phase 5's cumulative state: RIDA enabled, no DARS, no binding."""
+    """Phase 5's cumulative state: baseline + RIDA only. Critically,
+    we disable Phase 3 (the DnaA-occupancy gate) and Phase 2 (the
+    binding listener) so this slice actually represents what the
+    architecture looked like immediately before Phase 5 landed. The
+    chromosome-replication step is the baseline mass-threshold gate."""
     from v2ecoli.composite_replication_initiation import (
         make_replication_initiation_composite,
     )
@@ -269,12 +273,20 @@ def _run_rida_only_sim(duration):
         duration,
         lambda **kw: make_replication_initiation_composite(
             enable_rida=True, enable_dars=False,
-            enable_dnaA_box_binding=False, **kw),
+            enable_dnaA_box_binding=False,
+            enable_dnaA_gated_initiation=False,
+            enable_seqA_sequestration=False,
+            enable_ddah=False,
+            enable_dnaA_autoregulation=False,
+            **kw),
         label='rida_only')
 
 
 def _run_rida_dars_sim(duration):
-    """Phase 7's cumulative state: RIDA + DARS, no binding yet."""
+    """Phase 7's cumulative state: baseline + RIDA + DARS. Phase 3
+    (DnaA-occupancy gate) and the regulatory feedbacks (SeqA, DDAH,
+    autoregulation) are explicitly disabled so this slice matches its
+    docstring — RIDA + DARS on the baseline mass-threshold gate."""
     from v2ecoli.composite_replication_initiation import (
         make_replication_initiation_composite,
     )
@@ -282,7 +294,12 @@ def _run_rida_dars_sim(duration):
         duration,
         lambda **kw: make_replication_initiation_composite(
             enable_rida=True, enable_dars=True,
-            enable_dnaA_box_binding=False, **kw),
+            enable_dnaA_box_binding=False,
+            enable_dnaA_gated_initiation=False,
+            enable_seqA_sequestration=False,
+            enable_ddah=False,
+            enable_dnaA_autoregulation=False,
+            **kw),
         label='rida_dars')
 
 
@@ -3117,11 +3134,18 @@ PHASES: list[Phase] = [
         number=3,
         title='Replace mass-threshold initiation gate',
         goal=('Substitute `DnaAGatedChromosomeReplication` for the baseline '
-              '`ChromosomeReplication`. The new gate fires when '
-              '`DnaA-ATP / n_oriC >= threshold`, matching the structure '
-              'of the mass-per-oriC gate (per-oriC division gives the '
-              'same self-limiting feedback) but routed through the '
-              'DnaA-ATP pool that Phases 5 + 7 set up.'),
+              '`ChromosomeReplication`. The new gate fires when at least '
+              '4 of the 8 cooperative low-affinity DnaA boxes at oriC '
+              'are loaded with DnaA-ATP (≈ "right-arm filament '
+              'assembled" per the curated PDF: R4 → C1 → I3 → C2 → '
+              'C3). The gate reads `bound_oric_low` from the Phase 2 '
+              'binding listener, so the trigger is the actual molecular '
+              'configuration on the chromosome, not a cytoplasmic '
+              'concentration proxy. Per-tick state-merge ordering means '
+              'the gate sees `bound_oric_low = 0` at t=0 (before the '
+              'binding step has sampled), so the cell starts in the '
+              'cache\'s correct state of 1 chromosome / 2 oriC / 2 '
+              'forks rather than firing an extra initiation in tick 0.'),
         status_check=_check_phase3,
         tests=(
             TestSpec(
@@ -3133,21 +3157,27 @@ PHASES: list[Phase] = [
                 'back to baseline.'),
         ),
         gap_items=(
-            'The threshold (60 DnaA-ATP / oriC) is calibrated against the '
-            'un-buffered DnaA pool. Once Phase 2 wires titration so the '
-            'gate sees the *free* pool only, this number will need to '
-            'come down by an order of magnitude.',
-            'A more refined gate would read the binding listener directly '
-            'for the R1/R2/R4 high-affinity occupancy + the low-affinity '
-            'DnaA-ATP filament configuration the curated reference '
-            'describes, instead of the bulk-count proxy.',
+            'Threshold of 4 of 8 low-affinity boxes is a first-pass '
+            'tune for the right-arm filament. The PDF\'s full '
+            'load-and-trigger criterion would also require the '
+            'left-arm filament (R1-anchored) to be loaded; our '
+            'binding listener doesn\'t resolve right-arm vs left-arm '
+            'boxes — it reports them as a single low-affinity tier.',
+            'No cooperativity in the binding step: each low-affinity '
+            'box is sampled independently every tick, so the tier '
+            'fills in one tick once DnaA-ATP rises high enough. A '
+            'faithful model would require ordered, anchor-conditional '
+            'loading (C1 → I3 → C2 → C3) over a finite kinetic time.',
+            'No DnaB helicase loading or DUE-opening kinetics — the '
+            'transition from "gate fired" to "two replisomes moving" '
+            'is treated as instantaneous.',
         ),
         viz_plan='',
         before_plot=_before_phase3,
         after_description=(
             'After Phase 3: oriC count over time under the DnaA-gated '
             'initiation; the listener `critical_mass_per_oriC` field now '
-            'reads as DnaA-ATP-per-oriC / threshold.'),
+            'reads as `bound_oric_low / threshold`.'),
         after_plot=_after_phase3,
         extra_sections=lambda snaps, status: [(
             'Chromosome dynamics — initiation events in space',
@@ -3473,14 +3503,21 @@ PARTS: tuple[Part, ...] = (
             'low-affinity boxes — the low-affinity load is what makes '
             'initiation a switch rather than a gradient. '
             '<strong>Phase 3</strong> replaces the baseline mass-per-'
-            'oriC threshold with a DnaA-ATP-per-oriC threshold. Same '
-            'self-limiting shape as the mass gate (n_oriC doubles '
-            'after firing, halving the per-oriC value), but now keyed '
-            'off the actual molecular driver. A caveat: the binding '
-            'listener does not yet decrement the free DnaA pool, so '
-            'the genomic-background <em>titration</em> force is visible '
-            'in the listener but not in downstream dynamics — a '
-            'follow-up.'
+            'oriC threshold with a check on actual oriC occupancy: '
+            'fire when at least 4 of the 8 cooperative low-affinity '
+            'oriC boxes are loaded with DnaA-ATP (≈ "right-arm '
+            'filament assembled", per the PDF). The gate reads '
+            '<code>bound_oric_low</code> from the Phase 2 binding '
+            'listener, so initiation is keyed off the actual molecular '
+            'configuration on the chromosome rather than a cytoplasmic '
+            'concentration proxy. The cell-cycle self-limiting shape '
+            'is preserved: after firing, n_oriC doubles, '
+            'bound_oric_low briefly drops, SeqA (Phase 4) holds the '
+            'gate shut, and RIDA (Phase 5) drains the DnaA-ATP pool. '
+            'A caveat: the binding listener does not yet decrement '
+            'the free DnaA pool, so the genomic-background '
+            '<em>titration</em> force is visible in the listener but '
+            'not in downstream dynamics — a follow-up.'
         ),
         phase_numbers=(2, 3),
     ),
@@ -4178,10 +4215,16 @@ they cannot drift from the source.
       drawing from a binomial. Listener-only — does not yet decrement
       the free DnaA pool, which is a separate "titration" effect.</li>
   <li><strong>Phase 3 — DnaA-gated initiation.</strong> Replaces the
-      mass-per-oriC threshold with a <em>DnaA-ATP-per-oriC</em>
-      threshold. Same self-limiting shape as the mass gate (n_oriC
-      doubles after firing, halving the per-oriC value), but the
-      driver is now the molecular agent rather than a proxy.</li>
+      mass-per-oriC threshold with a check on <em>oriC occupancy</em>:
+      fire when at least 4 of the 8 cooperative low-affinity DnaA
+      boxes at oriC are loaded with DnaA-ATP (≈ "right-arm filament
+      assembled", per the curated PDF). The gate reads
+      <code>bound_oric_low</code> from the Phase 2 binding listener,
+      so the trigger is the actual molecular configuration rather
+      than a cytoplasmic concentration proxy. Same self-limiting
+      shape as the baseline mass gate — n_oriC doubles after firing,
+      bound_oric_low briefly drops, and SeqA (Phase 4) holds the
+      gate shut while RIDA (Phase 5) clears the DnaA-ATP pool.</li>
   <li><strong>Phase 4 — SeqA sequestration window.</strong> After
       each initiation event, force the gate to 0 for ~10 min. Models
       SeqA binding hemimethylated GATC sites at the newly-replicated
@@ -4245,16 +4288,18 @@ fidelity from any of them.
       dependency. Adding a Hill term or explicit filament-loading
       kinetics would reproduce the load-and-trigger switch.</dd>
 
-  <dt>Phase 3 gate reads cytoplasmic DnaA-ATP, not oriC occupancy</dt>
-  <dd>Today the DnaA-gated initiation step fires when the
-      <em>cytoplasmic</em> DnaA-ATP-per-oriC ratio crosses a
-      threshold — a proxy for "enough DnaA-ATP to fill the
-      low-affinity oriC boxes". A more direct gate would read
-      <code>bound_oric_low</code> from the binding listener
-      (which now exists, per Phase 2 above) and fire when the
-      cooperative low-affinity boxes cross some saturation
-      fraction. That would tie the firing event to the actual
-      molecular configuration rather than a concentration proxy.</dd>
+  <dt>Instantaneous equilibrium binding / no loading kinetics</dt>
+  <dd>The Phase 2 binding step samples each oriC box independently
+      from an equilibrium occupancy probability every tick. So when
+      DnaA-ATP rises, the low-affinity boxes fill in a single tick
+      rather than over a few seconds of cooperative loading. This
+      lets the Phase 3 gate fire immediately once
+      <code>bound_oric_low</code> crosses threshold, rather than
+      requiring the load-and-trigger switch to actually accumulate.
+      A faithful model would track loading kinetics — DnaA-ATP
+      arriving at the open boxes at some on-rate, with a refractory
+      window after R4 / R1 anchor before the cooperative quartet
+      can populate.</dd>
 
   <dt>IHF binding and its locus-specific roles</dt>
   <dd>IHF (Integration Host Factor) is a nucleoid-associated

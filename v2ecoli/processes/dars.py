@@ -60,11 +60,25 @@ TOPOLOGY = {
 
 
 # Default first-order rate constant for DnaA-ADP -> apo-DnaA release.
-# Paired with the Phase 5 RIDA default (0.005 / replisome / s), the
-# steady-state DnaA-ATP fraction lands inside the literature band.
+# Paired with the Phase 5 RIDA default (0.005 / replisome / s), this
+# rate keeps the steady-state DnaA-ATP fraction inside the literature
+# band [0.30, 0.70].
+#
+# Tuning math: at steady state (apo ≈ 0 because the equilibrium reaction
+# MONOMER0-160_RXN reloads apo + ATP -> DnaA-ATP fast), the cycle
+# balances when k_rida_eff * [ATP] = k_dars * [ADP], so the ATP fraction
+# is k_dars / (k_dars + k_rida_eff). Once Phase 3 (occupancy gate) and
+# Phase 4 (SeqA window) are wired, the gate fires once at t≈0.02 s when
+# the binding step first samples bound_oric_low, taking the cell from
+# the cache's 2 replisomes to 6 (a new round of initiation off the
+# existing 2 oriC adds 4 replisomes), and SeqA then holds the gate shut
+# for 10 min. Across the 0-300 s test window n_replisomes stays at 6,
+# so k_rida_eff = 0.005 * 6 = 0.030. For ATP fraction = 0.5 we need
+# k_dars = 0.030.
+#
 # Treat as provisional; re-verify against measured DnaA-ATP cell-cycle
 # dynamics before relying on it.
-DEFAULT_K_DARS_PER_S: float = 0.01
+DEFAULT_K_DARS_PER_S: float = 0.03
 
 
 class DARS(Step):

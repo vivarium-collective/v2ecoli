@@ -2988,11 +2988,18 @@ PHASES: list[Phase] = [
         title='Region classifier — partition the 307 consensus boxes',
         goal=('The bioinformatic strict-consensus search at '
               '`flat/sequence_motifs.tsv` finds ~307 distinct DnaA boxes '
-              '(TTWTNCACA variants) across the chromosome. Phase 0 adds '
-              '`REGION_BOUNDARIES_ABS` and `region_for_coord(bp)` to '
-              'partition them into oriC / dnaA_promoter / datA / DARS1 / '
-              'DARS2 / `other`. No schema change — region is derived from '
-              'each box\'s existing `coordinates` field.'),
+              '(TTWTNCACA variants) across the chromosome. They are '
+              '<strong>already in the model</strong> — instantiated as '
+              'unique-store entries in the <code>DnaA_box</code> array '
+              'every cell. Phase 0 just adds a coordinate-to-region '
+              'classifier (<code>region_for_coord(bp)</code>) so later '
+              'phases can ask "which boxes are at oriC?" instead of '
+              '"which boxes fall between bp 3,925,629 and 3,926,090?". '
+              'No schema change — region is derived from each box\'s '
+              'existing <code>coordinates</code> field. All 307 are '
+              'available to Phase 2 for binding; about 30 fall in the '
+              'five named regulatory regions, and the remaining ~280 '
+              'are the genomic-background pool that titrates DnaA-ATP.'),
         status_check=_check_phase0,
         tests=(
             TestSpec(
@@ -3007,15 +3014,17 @@ PHASES: list[Phase] = [
                 'datA=4, DARS1=3, DARS2=5).'),
         ),
         gap_items=(
-            'Of ~307 strict-consensus boxes total, only ~8 fall in the '
-            'five named regulatory regions; the remaining ~99% are in '
-            '`other` (genomic background). These background boxes are '
-            'where most DnaA titration happens.',
-            'Per-box affinity differentiation (R1/R2/R4 vs the named '
-            'low-affinity oriC sites) is not yet supported — the '
-            'strict-consensus search picks out high-affinity boxes only. '
-            'Enriching `motif_coordinates` with named non-consensus boxes '
-            'is a follow-up.',
+            'Per-box affinity differentiation within "other" is not '
+            'tracked. Every background box is treated as low-affinity '
+            'ATP-preferential (Kd ≈ 100 nM); a more refined model would '
+            'score each match by its motif-position similarity to the '
+            'consensus.',
+            'The strict-consensus search picks out high-affinity boxes. '
+            'Named low-affinity boxes (R5M, τ2, I1-I3, C1-C3 at oriC; '
+            'box3-c at the dnaA promoter) are not in '
+            '<code>motif_coordinates</code> as separate coordinate '
+            'entries — Phase 2 reconstructs them via the curated '
+            'PDF affinity profile instead.',
         ),
         viz_plan=(
             'Bar chart of DnaA-box counts per region, with the curated '
@@ -3450,16 +3459,22 @@ PARTS: tuple[Part, ...] = (
         intro=(
             'Before changing the biology, take stock. v2ecoli already '
             'places ~307 candidate DnaA-binding sites on the chromosome '
-            '(matches to the consensus 9-mer <code>TTWTNCACA</code>) '
-            'but treats them as inert — none of them gate initiation. '
-            'Phase 0 just adds a coordinate-to-region classifier so '
-            'later phases can ask "which boxes are at oriC?" instead '
-            'of "which boxes fall between bp&nbsp;3,925,629 and '
-            '3,926,090?". Phase 1 adds a listener that emits the '
-            'apo / DnaA-ATP / DnaA-ADP pool counts each tick. Reading '
-            'that listener confirms what is otherwise easy to overlook: '
-            'in the baseline architecture the DnaA-ATP pool sits at '
-            'its equilibrium ceiling because nothing hydrolyzes it.'
+            '(matches to the consensus 9-mer <code>TTWTNCACA</code>) — '
+            'they\'re instantiated as unique-store entries from t=0 — '
+            'but the baseline architecture treats them as inert. None '
+            'of them bind anything; none of them gate initiation. '
+            '<strong>Phase 0</strong> adds a coordinate-to-region '
+            'classifier so later phases can ask "which boxes are at '
+            'oriC?" instead of "which boxes fall between bp 3,925,629 '
+            'and 3,926,090?". The classification splits the 307 boxes '
+            'into ~30 in the five named regulatory regions and ~280 '
+            'in the genomic-background "other" pool. All 307 are then '
+            'available to Phase 2 for binding (and titration). '
+            '<strong>Phase 1</strong> adds a listener that emits the '
+            'apo / DnaA-ATP / DnaA-ADP pool counts each tick — '
+            'confirming the diagnosis that in the baseline architecture '
+            'the DnaA-ATP pool sits at its equilibrium ceiling because '
+            'nothing hydrolyzes it.'
         ),
         phase_numbers=(0, 1),
     ),
@@ -3492,14 +3507,23 @@ PARTS: tuple[Part, ...] = (
         number=3,
         title='Part III — From cytoplasm to chromosome',
         intro=(
-            'DnaA acts on initiation by physically binding to <em>DnaA '
-            'boxes</em> — short DNA sequences clustered at oriC and a '
-            'handful of other regulatory loci. <strong>Phase 2</strong> '
-            'samples each box per tick using equilibrium-binding '
-            'thermodynamics: the bound fraction is '
-            '<code>[DnaA] / (Kd + [DnaA])</code>, with Kd set by the '
-            'box\'s affinity class (high or low). Critically, oriC has '
-            'only 3 high-affinity boxes (R1, R2, R4) plus 8 cooperative '
+            'DnaA binds DNA at <em>DnaA boxes</em> — short consensus '
+            'sequences clustered at oriC and a handful of regulatory '
+            'loci, but also scattered across the chromosomal '
+            'background (~280 sites). The background pool is large '
+            'enough to <strong>titrate</strong> the cytoplasmic '
+            'DnaA-ATP, keeping free concentration low and pacing '
+            'how fast the named regions can load. <strong>Phase '
+            '2</strong> samples each box per tick using equilibrium '
+            'binding (<code>p = [DnaA] / (Kd + [DnaA])</code>, with '
+            'Kd from the box\'s affinity class), then <em>allocates '
+            'the actual DnaA pool</em> to the samples in priority '
+            'order — highest affinity first — so under contention the '
+            'named regulatory regions win. Bound molecules are '
+            'subtracted from <code>bulk[DnaA-ATP]</code> / '
+            '<code>bulk[DnaA-ADP]</code> so titration is felt by all '
+            'downstream phases. Critically, oriC has only 3 '
+            'high-affinity boxes (R1, R2, R4) plus 8 cooperative '
             'low-affinity boxes — the low-affinity load is what makes '
             'initiation a switch rather than a gradient. '
             '<strong>Phase 3</strong> replaces the baseline mass-per-'
@@ -3514,10 +3538,6 @@ PARTS: tuple[Part, ...] = (
             'is preserved: after firing, n_oriC doubles, '
             'bound_oric_low briefly drops, SeqA (Phase 4) holds the '
             'gate shut, and RIDA (Phase 5) drains the DnaA-ATP pool. '
-            'A caveat: the binding listener does not yet decrement '
-            'the free DnaA pool, so the genomic-background '
-            '<em>titration</em> force is visible in the listener but '
-            'not in downstream dynamics — a follow-up.'
         ),
         phase_numbers=(2, 3),
     ),
@@ -4197,23 +4217,32 @@ they cannot drift from the source.
 </p>
 <ol class="migration-plan">
   <li><strong>Phase 0 — DnaA-box region classifier.</strong>
-      Bookkeeping. Adds a coordinate-based function
-      <code>region_for_coord</code> that labels every DnaA box on the
-      chromosome with its regulatory region (oriC, dnaA-promoter,
-      datA, DARS1, DARS2, or "other" for the genomic background) so
-      later phases can talk about "DnaA boxes at oriC" instead of
-      raw bp positions.</li>
+      Bookkeeping. The ~307 consensus DnaA boxes are <em>already in
+      the model</em> as unique-store entries; Phase 0 just adds a
+      coordinate-based classifier <code>region_for_coord</code> that
+      labels each one with its regulatory region (oriC, dnaA-promoter,
+      datA, DARS1, DARS2, or "other" for the genomic background). All
+      307 then become available to Phase 2 for binding and titration —
+      the named regions are the regulatory drivers, and the ~280
+      "other" boxes are the titration sink that keeps free DnaA-ATP
+      low.</li>
   <li><strong>Phase 1 — Surface the DnaA pools.</strong> Adds a
       listener that emits apo / DnaA-ATP / DnaA-ADP counts each tick.
       Lets the report confirm the diagnosis: in the baseline
       architecture, DnaA-ATP runs at its equilibrium ceiling because
       nothing hydrolyzes it.</li>
-  <li><strong>Phase 2 — DnaA-box binding.</strong> Each tick, sample
-      which DnaA boxes are bound by computing the equilibrium
-      occupancy probability <code>p = [DnaA] / (Kd + [DnaA])</code>
-      for each per-tier (high-affinity / low-affinity / very-low) and
-      drawing from a binomial. Listener-only — does not yet decrement
-      the free DnaA pool, which is a separate "titration" effect.</li>
+  <li><strong>Phase 2 — DnaA-box binding (with titration).</strong>
+      Each tick, sample which DnaA boxes are bound from the
+      equilibrium occupancy probability
+      <code>p = [DnaA] / (Kd + [DnaA])</code> per affinity tier, then
+      <em>allocate the actual cytoplasmic DnaA pool to the samples in
+      priority order</em> (highest affinity first, lowest last). The
+      bound DnaA molecules are subtracted from the cytoplasmic
+      <code>bulk[DnaA-ATP]</code> / <code>bulk[DnaA-ADP]</code> pools
+      for the next tick — so the ~280 background "other" boxes
+      titrate the free pool, lowering the concentration that drives
+      named-region binding. Phase 3 reads
+      <code>bound_oric_low</code> from this listener.</li>
   <li><strong>Phase 3 — DnaA-gated initiation.</strong> Replaces the
       mass-per-oriC threshold with a check on <em>oriC occupancy</em>:
       fire when at least 4 of the 8 cooperative low-affinity DnaA
@@ -4367,16 +4396,27 @@ fidelity from any of them.
       treats every consensus match the same. A more refined model
       would weight box affinity by motif-position scores.</dd>
 
-  <dt>Titration of the free DnaA pool by the bulk of background boxes</dt>
-  <dd>The genomic background contains several hundred consensus
-      DnaA-box matches (the "other" region in the binding
-      listener). When DnaA binds them, they should remove free
-      DnaA from the cytoplasmic pool — that's the textbook
-      titration mechanism that contributes to cell-cycle timing.
-      The Phase 2 binding step is currently <em>listener-only</em>:
-      it samples occupancy but does not decrement the free DnaA
-      pool. So the titration effect is reported but not felt by
-      downstream processes.</dd>
+  <dt>Total DnaA pool size vs. titration demand</dt>
+  <dd>Phase 2 now applies titration: bound DnaA molecules are
+      decremented from the cytoplasmic <code>bulk[DnaA-ATP]</code> /
+      <code>bulk[DnaA-ADP]</code> pools. With ~500 active boxes
+      across the chromosome and the cache's ~120-molecule DnaA pool,
+      the free pool is essentially zeroed out within a few ticks.
+      Priority allocation (highest affinity first) gets the named
+      regulatory regions saturated, but the background "other" pool
+      is starved for DnaA. The literature DnaA pool is closer to
+      1000–2000 molecules per cell — much larger than the cache's
+      apo-DnaA count. Bumping the DnaA expression rate (or
+      pre-loading more apo-DnaA in the cache) would let the
+      background actually pull a meaningful fraction.</dd>
+
+  <dt>Per-region competitive binding within an affinity tier</dt>
+  <dd>Under contention, the priority allocation iterates regions in
+      tier order but doesn't differentiate within a tier — e.g., all
+      five "high" tiers (one per named region) are equal. A more
+      faithful model would weight by absolute Kd or by binding
+      kinetics (which would favor oriC's R1/R2/R4 over the dnaA
+      promoter's box1/box2 if their Kds differ).</dd>
 </dl>
 </section>
 

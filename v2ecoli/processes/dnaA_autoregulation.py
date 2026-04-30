@@ -181,8 +181,11 @@ class DnaAAutoregulation(Step):
             self._baseline_basal_probs = []
 
     def update(self, states, interval=None):
-        bound = int(states['listeners']['dnaA_binding'].get(
-            'bound_dnaA_promoter', 0) or 0)
+        # Listener path may not yet exist on the very first tick if the
+        # binding step hasn't fired — fall back to the schema default.
+        listeners = states.get('listeners', {}) or {}
+        binding = listeners.get('dnaA_binding', {}) or {}
+        bound = int(binding.get('bound_dnaA_promoter', 0) or 0)
         n_total = max(1, int(self.n_total_boxes))
         f_bound = max(0.0, min(1.0, bound / n_total))
         repression = float(np.clip(

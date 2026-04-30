@@ -3747,9 +3747,14 @@ def _render_phase_section(phase: Phase, statuses, trajectories):
 
     extras_html = ''
     if phase.extra_sections is not None:
-        # Extras get the 'full' (current) trajectory — they're meant to
-        # describe the architecture as it stands now.
-        for heading, body in phase.extra_sections(full_snaps, status):
+        # Extras get the same trajectory as the "After" panel so the
+        # two views are sourced from the same simulation. (Earlier
+        # versions passed the full-architecture trajectory to all
+        # extras; that produced inconsistencies — e.g. Phase 5's
+        # chromosome timeline showed multifork stacking from the full
+        # architecture's DnaA gate while the After panel showed
+        # rida_only's quiescent dynamics.)
+        for heading, body in phase.extra_sections(after_snaps, status):
             extras_html += f'<h3>{html_lib.escape(heading)}</h3>{body}'
 
     if phase.before_config == phase.after_config:

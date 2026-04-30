@@ -55,11 +55,19 @@ def _bulk_count(state, mol_id):
 
 
 def _atp_fraction(state):
+    """Total DnaA-ATP fraction across the whole DnaA pool — free in
+    cytoplasm plus sequestered onto chromosomal DnaA boxes. Phase 2
+    titration (commit 3070a66) decrements the cytoplasmic pool by the
+    count bound to boxes; literature DnaA-ATP measurements are the
+    total cellular ratio regardless of localization."""
     apo = _bulk_count(state, 'PD03831[c]')
-    atp = _bulk_count(state, 'MONOMER0-160[c]')
-    adp = _bulk_count(state, 'MONOMER0-4565[c]')
-    total = apo + atp + adp
-    return atp / total if total else 0.0
+    free_atp = _bulk_count(state, 'MONOMER0-160[c]')
+    free_adp = _bulk_count(state, 'MONOMER0-4565[c]')
+    binding = state['agents']['0'].get('listeners', {}).get('dnaA_binding', {})
+    seq_atp = int(binding.get('atp_sequestered', 0) or 0)
+    seq_adp = int(binding.get('adp_sequestered', 0) or 0)
+    total = apo + free_atp + seq_atp + free_adp + seq_adp
+    return (free_atp + seq_atp) / total if total else 0.0
 
 
 # ---------------------------------------------------------------------------
@@ -117,12 +125,21 @@ def test_rida_flux_listener_emits(composite):
     assert rida['active_replisomes'] > 0
 
 
+def _adp_total(state):
+    """Total DnaA-ADP — cytoplasmic + sequestered. See _atp_fraction
+    for why we include the sequestered tier post-Phase-2."""
+    free_adp = _bulk_count(state, 'MONOMER0-4565[c]')
+    binding = state['agents']['0'].get('listeners', {}).get('dnaA_binding', {})
+    seq_adp = int(binding.get('adp_sequestered', 0) or 0)
+    return free_adp + seq_adp
+
+
 def test_dnaA_adp_count_grows_with_replication(composite):
     """DnaA-ADP rises monotonically while replisomes are active.
     Snapshot the count, run another minute, expect higher."""
-    adp_before = _bulk_count(composite.state, 'MONOMER0-4565[c]')
+    adp_before = _adp_total(composite.state)
     composite.run(60.0)
-    adp_after = _bulk_count(composite.state, 'MONOMER0-4565[c]')
+    adp_after = _adp_total(composite.state)
     # Without DARS the cycle is open-loop; ADP only grows. We allow for
     # some rounding at small counts but expect a non-trivial increase.
     assert adp_after >= adp_before, (

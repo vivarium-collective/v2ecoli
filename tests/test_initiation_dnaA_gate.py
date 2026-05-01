@@ -85,16 +85,21 @@ def test_critical_mass_per_oric_listener_is_dnaA_ratio(composite):
 
 
 def test_initiation_fires_at_least_once(composite):
-    """Over a 30-minute window the cell should fire at least one
-    initiation, growing oriC from its initial 2 to >= 4. (The
-    baseline mass gate does this same sanity check; the DnaA gate
-    must hit at least the same bar.)"""
+    """The cell should fire at least one initiation, growing oriC
+    from its initial 2 to >= 4. With the Phase 3 occupancy gate +
+    Phase 2 binding, the first fire happens at t ≈ 0.02 s once the
+    binding step populates ``bound_oric_low`` past its threshold; the
+    cache state has 2 oriC and a fresh round adds 2 more, so 60 s of
+    sim is plenty.
+
+    The original 30-minute window came from the older
+    DnaA-ATP-per-oriC gate where firing was a slow concentration
+    integration. The new gate fires fast — keeping a 30-min sim was
+    burning ~1500 sim-s × ~0.3 s/sim-s wall = ~7-8 min CI per run."""
     composite.run(60.0)
-    n0 = _count_active_unique(composite.state, 'oriC')
-    composite.run(1740.0)  # 60s + 1740s = 1800s = 30 min total
-    n1 = _count_active_unique(composite.state, 'oriC')
-    assert n1 >= 4, (
-        f'oriC count after 30 min of sim is {n1}; expected >= 4. '
+    n_oric = _count_active_unique(composite.state, 'oriC')
+    assert n_oric >= 4, (
+        f'oriC count after 60s of sim is {n_oric}; expected >= 4. '
         f'Phase 3 gate may be set too high — initiation never fires.')
 
 

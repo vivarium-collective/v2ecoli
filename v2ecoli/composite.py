@@ -78,7 +78,7 @@ def _load_cache_bundle(cache_dir):
 def make_composite(document=None, cache_dir=None,
                    initial_state=None, configs=None, unique_names=None,
                    dry_mass_inc_dict=None, seed=0, core=None,
-                   features=None):
+                   features=None, feature_configs=None):
     """Create a Composite from a document, cache, or configs.
 
     Loading modes (in priority order):
@@ -89,6 +89,8 @@ def make_composite(document=None, cache_dir=None,
     Args:
         features: List of feature module names to enable (e.g. ['supercoiling']).
             Defaults to generate.DEFAULT_FEATURES if None.
+        feature_configs: Dict mapping step names to config overrides for
+            feature-module steps (e.g. {'ecoli-oxidative-stress': {'external_h2o2_uM': 100}}).
 
     Returns:
         A Composite ready for .run(interval).
@@ -104,7 +106,8 @@ def make_composite(document=None, cache_dir=None,
             # similar with obscure AttributeErrors.
             verify_cache_version(cache_dir)
             document = _build_from_cache(cache_dir, core, seed,
-                                         features=features)
+                                         features=features,
+                                         feature_configs=feature_configs)
         elif initial_state is not None and configs is not None:
             from v2ecoli.generate import build_document
             document = build_document(
@@ -115,6 +118,7 @@ def make_composite(document=None, cache_dir=None,
                 core=core,
                 seed=seed,
                 features=features,
+                feature_configs=feature_configs,
             )
         else:
             raise ValueError(
@@ -125,7 +129,8 @@ def make_composite(document=None, cache_dir=None,
     return composite
 
 
-def _build_from_cache(cache_dir, core, seed=0, features=None):
+def _build_from_cache(cache_dir, core, seed=0, features=None,
+                      feature_configs=None):
     """Build a document from cached initial state and process configs."""
     from v2ecoli.generate import build_document
 
@@ -139,6 +144,7 @@ def _build_from_cache(cache_dir, core, seed=0, features=None):
         core=core,
         seed=seed,
         features=features,
+        feature_configs=feature_configs,
     )
 
 

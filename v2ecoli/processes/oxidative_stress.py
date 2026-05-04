@@ -175,6 +175,9 @@ class OxidativeStress(Step):
                 "mass": {
                     "cell_mass": {"_type": "float[fg]", "_default": 0.0},
                 },
+                "timed_stress": {
+                    "h2o2_signal_uM_s": {"_type": "float", "_default": 0.0},
+                },
             },
             "timestep": {"_type": "float", "_default": self.parameters.get("time_step", 1.0)},
         }
@@ -288,6 +291,8 @@ class OxidativeStress(Step):
     # ------------------------------------------------------------------
     def update(self, states, interval=None):
         timestep = interval if interval is not None else states.get("timestep", 1.0)
+        # process-bigraph may pass negative intervals; use absolute value
+        timestep = abs(timestep) if timestep != 0 else 1.0
 
         if not self._indices_resolved:
             self._resolve_indices(states["bulk_total"])
@@ -303,8 +308,16 @@ class OxidativeStress(Step):
         vol     = self._cell_volume(states)
 
         # Total production rate (molecules/s)
+        # Include timed stress H₂O₂ signal if present
+        timed_h2o2 = 0.0
+        try:
+            timed_h2o2 = float(
+                states["listeners"]["timed_stress"]["h2o2_signal_uM_s"])
+        except (KeyError, TypeError):
+            pass
+        effective_ext = self.ext_h2o2_uM + timed_h2o2
         prod_rate = (_uM_to_count(self.h2o2_prod_rate_uM_s, vol)
-                     + _uM_to_count(self.ext_h2o2_uM, vol))
+                     + _uM_to_count(effective_ext, vol))
 
         # Quasi-steady-state [H2O2]
         new_uM  = self._h2o2_qss_uM(prod_rate, ahpc, katg, kate, vol)

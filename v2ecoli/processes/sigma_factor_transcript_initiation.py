@@ -185,7 +185,7 @@ class SigmaFactorTranscriptInitiation(TranscriptInitiation):
         sigma_ids={"_type": "list[string]", "_default": [s[0] for s in SIGMA_FACTORS]},
         sigma_Kd_nM={"_type": "array[float]", "_default": np.array([s[1] for s in SIGMA_FACTORS])},
         sigma_ppgpp_sensitivity={"_type": "array[float]", "_default": np.array([s[2] for s in SIGMA_FACTORS])},
-        sigma_free_fractions={"_type": "array[float]", "_default": np.array([1.0, 0.02, 0.01, 0.05, 0.02])},
+        sigma_free_fractions={"_type": "array[float]", "_default": np.array([0.80, 0.03, 0.015, 0.10, 0.05])},
         promoter_sigma_weights={"_type": "array[float]", "_default": np.array([])},
         oxyr_tu_indices={"_type": "list[integer]", "_default": [31, 1572, 1708, 1941, 2077, 2600, 2975, 3010]},
         soxrs_tu_indices={"_type": "list[integer]", "_default": [1608, 1806, 1814, 2621, 2727, 2728]},

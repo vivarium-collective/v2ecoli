@@ -29,6 +29,14 @@ from v2ecoli.processes.transcript_elongation import TranscriptElongation
 from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiation
 from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
 from v2ecoli.processes.chromosome_replication import ChromosomeReplication
+from v2ecoli.processes.oxidative_stress import OxidativeStress
+from v2ecoli.processes.ppgpp_sustained_stress import PpGppSustainedStress
+from v2ecoli.processes.sigma_factor_transcript_initiation import SigmaFactorTranscriptInitiation
+from v2ecoli.processes.mauri_klumpp_transcript_initiation import MauriKlumppTranscriptInitiation
+from v2ecoli.processes.timed_stress import TimedStress
+from v2ecoli.processes.oxyr_feedback import OxyRFeedback
+from v2ecoli.processes.stringent_response import StringentResponse
+from v2ecoli.processes.osmotic_stress import OsmoticStress
 
 # Generic Requester/Evolver wrappers from partition.py
 from v2ecoli.steps.partition import Requester, Evolver, PartitionedProcess
@@ -149,6 +157,57 @@ FEATURE_MODULES = {
         'insert_before': 'ecoli-transcript-elongation_requester',
         'steps': ['trna-attenuation-config'],
     },
+    'sigma_factor_competition': {
+        # Replace standard transcript initiation with sigma-factor version
+        'replace': {
+            'ecoli-transcript-initiation':
+                'ecoli-sigma-factor-transcript-initiation',
+        },
+        # Insert oxidative stress step before transcript initiation so
+        # OxyR/SoxRS fold changes are available when sigma competition runs
+        'insert_before': 'ecoli-sigma-factor-transcript-initiation',
+        'steps': ['ecoli-oxidative-stress'],
+        'listeners': [],
+    },
+    'mauri_klumpp_competition': {
+        # Alternative: 2-sigma (RpoD/RpoS) Mauri & Klumpp model
+        'replace': {
+            'ecoli-transcript-initiation':
+                'ecoli-mauri-klumpp-transcript-initiation',
+        },
+        'insert_before': 'ecoli-mauri-klumpp-transcript-initiation',
+        'steps': ['ecoli-oxidative-stress'],
+        'listeners': [],
+    },
+    'sustained_stress': {
+        # Clamp ppGpp at a target level each timestep (stationary phase)
+        'insert_after': 'exchange_data',
+        'steps': ['ecoli-ppgpp-sustained-stress'],
+    },
+    'timed_stress': {
+        # Apply stress mid-simulation (reads global_time)
+        # Must run before oxidative stress so the H₂O₂ signal is available
+        'insert_before': 'ecoli-oxidative-stress',
+        'steps': ['ecoli-timed-stress'],
+    },
+    'oxyr_feedback': {
+        # Close the OxyR → enzyme synthesis → scavenging feedback loop
+        # Runs after oxidative stress (reads OxyR FC) and before next
+        # oxidative stress step (which reads enzyme counts)
+        'insert_after': 'ecoli-oxidative-stress',
+        'steps': ['ecoli-oxyr-feedback'],
+    },
+    'stringent_response': {
+        # Full RelA/SpoT ppGpp dynamics with positive feedback + RpoS stabilisation
+        # Runs early (after exchange_data) so ppGpp is updated before sigma competition
+        'insert_after': 'exchange_data',
+        'steps': ['ecoli-stringent-response'],
+    },
+    'osmotic_stress': {
+        # Hyperosmotic stress: EnvZ/OmpR, K⁺/glutamate, trehalose, growth inhibition
+        'insert_after': 'exchange_data',
+        'steps': ['ecoli-osmotic-stress'],
+    },
 }
 
 DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation disabled to match v1 default
@@ -161,6 +220,12 @@ def build_execution_layers(features=None):
         feat = FEATURE_MODULES.get(feat_name)
         if feat is None:
             continue
+        # Replace steps (swap one step name for another in all layers)
+        for old_name, new_name in feat.get('replace', {}).items():
+            for layer in layers:
+                if isinstance(layer, list) and old_name in layer:
+                    idx = layer.index(old_name)
+                    layer[idx] = new_name
         # Insert steps after a reference step
         if 'insert_after' in feat:
             ref = feat['insert_after']
@@ -513,6 +578,8 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'ecoli-transcript-initiation': TranscriptInitiation,
         'ecoli-polypeptide-initiation': PolypeptideInitiation,
         'ecoli-chromosome-replication': ChromosomeReplication,
+        'ecoli-sigma-factor-transcript-initiation': SigmaFactorTranscriptInitiation,
+        'ecoli-mauri-klumpp-transcript-initiation': MauriKlumppTranscriptInitiation,
     }
 
     SIMPLE_STEPS = {
@@ -528,6 +595,12 @@ def _instantiate_step(step_name, config, loader, core, process_cache=None):
         'ribosome_data_listener': RibosomeData,
         'media_update': MediaUpdate,
         'exchange_data': ExchangeData,
+        'ecoli-oxidative-stress': OxidativeStress,
+        'ecoli-ppgpp-sustained-stress': PpGppSustainedStress,
+        'ecoli-timed-stress': TimedStress,
+        'ecoli-oxyr-feedback': OxyRFeedback,
+        'ecoli-stringent-response': StringentResponse,
+        'ecoli-osmotic-stress': OsmoticStress,
     }
 
     from v2ecoli.library.config_resolver import resolve_config
@@ -834,6 +907,75 @@ def _get_special_step(loader, step_name, core):
         }
         return instance, topo, 'step'
 
+    # --- Sigma factor model steps (use defaults or transcript-initiation config) ---
+
+    if step_name in ('ecoli-sigma-factor-transcript-initiation',
+                     'ecoli-mauri-klumpp-transcript-initiation'):
+        # These inherit from TranscriptInitiation and use its config
+        try:
+            config = loader.get_config_by_name('ecoli-transcript-initiation')
+        except (KeyError, AttributeError):
+            config = {}
+        from v2ecoli.library.config_resolver import resolve_config
+        config = resolve_config(config) if config else config
+        return _instantiate_step(step_name, config, loader, core)
+
+    if step_name == 'ecoli-oxidative-stress':
+        # Check if feature config provides overrides (e.g. external H₂O₂)
+        ox_config = getattr(loader, '_feature_configs', {}).get(
+            'ecoli-oxidative-stress', {})
+        instance = _make_instance(OxidativeStress, ox_config, core)
+        topo = getattr(instance, 'topology', {})
+        if callable(topo):
+            topo = topo()
+        return instance, topo, 'step'
+
+    if step_name == 'ecoli-ppgpp-sustained-stress':
+        # Check if feature config provides overrides (e.g. target count)
+        ppgpp_config = getattr(loader, '_feature_configs', {}).get(
+            'ecoli-ppgpp-sustained-stress', {})
+        instance = _make_instance(PpGppSustainedStress, ppgpp_config, core)
+        topo = getattr(instance, 'topology', {})
+        if callable(topo):
+            topo = topo()
+        return instance, topo, 'step'
+
+    if step_name == 'ecoli-timed-stress':
+        ts_config = getattr(loader, '_feature_configs', {}).get(
+            'ecoli-timed-stress', {})
+        instance = _make_instance(TimedStress, ts_config, core)
+        topo = getattr(instance, 'topology', {})
+        if callable(topo):
+            topo = topo()
+        return instance, topo, 'step'
+
+    if step_name == 'ecoli-oxyr-feedback':
+        fb_config = getattr(loader, '_feature_configs', {}).get(
+            'ecoli-oxyr-feedback', {})
+        instance = _make_instance(OxyRFeedback, fb_config, core)
+        topo = getattr(instance, 'topology', {})
+        if callable(topo):
+            topo = topo()
+        return instance, topo, 'step'
+
+    if step_name == 'ecoli-stringent-response':
+        sr_config = getattr(loader, '_feature_configs', {}).get(
+            'ecoli-stringent-response', {})
+        instance = _make_instance(StringentResponse, sr_config, core)
+        topo = getattr(instance, 'topology', {})
+        if callable(topo):
+            topo = topo()
+        return instance, topo, 'step'
+
+    if step_name == 'ecoli-osmotic-stress':
+        os_config = getattr(loader, '_feature_configs', {}).get(
+            'ecoli-osmotic-stress', {})
+        instance = _make_instance(OsmoticStress, os_config, core)
+        topo = getattr(instance, 'topology', {})
+        if callable(topo):
+            topo = topo()
+        return instance, topo, 'step'
+
     return None
 
 
@@ -843,7 +985,7 @@ def _get_special_step(loader, step_name, core):
 
 def build_document(initial_state, configs, unique_names,
                    dry_mass_inc_dict=None, core=None, seed=0,
-                   features=None):
+                   features=None, feature_configs=None):
     """Build a partitioned-architecture document from pre-loaded configs.
 
     Args:
@@ -854,6 +996,8 @@ def build_document(initial_state, configs, unique_names,
         core: bigraph-schema core. If None, creates one.
         seed: Random seed.
         features: List of feature module names to enable (default: DEFAULT_FEATURES).
+        feature_configs: Dict mapping step names to config overrides for
+            feature-module steps (e.g. {'ecoli-oxidative-stress': {'external_h2o2_uM': 100}}).
 
     Returns:
         Document dict for Composite().
@@ -947,6 +1091,7 @@ def build_document(initial_state, configs, unique_names,
             raise KeyError(f'Unknown: {name}')
 
     loader = _CachedLoader(configs, unique_names, dry_mass_inc_dict)
+    loader._feature_configs = feature_configs or {}
 
     # Build execution layers for the requested feature set
     if features is None:

@@ -54,7 +54,15 @@ class ExchangeData(Step):
         exchange_data = self.external_state.exchange_data_from_concentrations(env_concs)
 
         unconstrained = exchange_data["importUnconstrainedExchangeMolecules"]
-        constrained = exchange_data["importConstrainedExchangeMolecules"]
+        # importConstrainedExchangeMolecules carries unum quantities (mmol/g/h);
+        # the downstream schema is `map[float]` and the metabolism reader
+        # re-attaches the unit. Strip to magnitudes so apply() sees plain floats.
+        constrained = {
+            mol: float(unum_to_pint(val).magnitude)
+            if hasattr(unum_to_pint(val), "magnitude")
+            else float(val)
+            for mol, val in exchange_data["importConstrainedExchangeMolecules"].items()
+        }
         return {
             "environment": {
                 "exchange_data": {

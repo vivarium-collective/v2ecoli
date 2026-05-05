@@ -142,39 +142,37 @@ def _build_from_cache(cache_dir, core, seed=0, features=None):
     )
 
 
-def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
-    """Generate and save cache files from simData (vEcoli ParCa output).
+_CACHE_CONFIG_NAMES = [
+    'post-division-mass-listener', 'ecoli-mass-listener', 'media_update',
+    'exchange_data', 'ecoli-tf-unbinding', 'ecoli-tf-binding',
+    'ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation',
+    'ecoli-transcript-initiation', 'ecoli-polypeptide-initiation',
+    'ecoli-chromosome-replication', 'ecoli-protein-degradation',
+    'ecoli-rna-degradation', 'ecoli-complexation',
+    'ecoli-transcript-elongation', 'ecoli-polypeptide-elongation',
+    'ecoli-chromosome-structure', 'ecoli-metabolism',
+    'RNA_counts_listener', 'rna_synth_prob_listener',
+    'monomer_counts_listener', 'dna_supercoiling_listener',
+    'ribosome_data_listener', 'rnap_data_listener',
+    'unique_molecule_counts', 'allocator',
+]
 
-    Creates:
-    - cache_dir/initial_state.json
-    - cache_dir/sim_data_cache.dill
-    - cache_dir/metadata.json
+
+def _write_sim_input_bundle(loader, bundle_dir):
+    """Write the simulation-input bundle from an instantiated LoadSimData.
+
+    Shared body of ``save_cache`` (path-based) and ``save_sim_input``
+    (live-object). Emits ``initial_state.json``, ``sim_data_cache.dill``,
+    ``metadata.json``, and the cache-version marker into ``bundle_dir``.
     """
-    from v2ecoli.library.sim_data import LoadSimData
-
-    os.makedirs(cache_dir, exist_ok=True)
-
-    loader = LoadSimData(sim_data_path=sim_data_path, seed=seed)
+    os.makedirs(bundle_dir, exist_ok=True)
 
     state = loader.generate_initial_state()
-    save_initial_state(state, os.path.join(cache_dir, 'initial_state.json'))
+    save_initial_state(state, os.path.join(bundle_dir, 'initial_state.json'))
 
     configs = {}
     failed: list[tuple[str, Exception]] = []
-    for name in [
-        'post-division-mass-listener', 'ecoli-mass-listener', 'media_update',
-        'exchange_data', 'ecoli-tf-unbinding', 'ecoli-tf-binding',
-        'ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation',
-        'ecoli-transcript-initiation', 'ecoli-polypeptide-initiation',
-        'ecoli-chromosome-replication', 'ecoli-protein-degradation',
-        'ecoli-rna-degradation', 'ecoli-complexation',
-        'ecoli-transcript-elongation', 'ecoli-polypeptide-elongation',
-        'ecoli-chromosome-structure', 'ecoli-metabolism',
-        'RNA_counts_listener', 'rna_synth_prob_listener',
-        'monomer_counts_listener', 'dna_supercoiling_listener',
-        'ribosome_data_listener', 'rnap_data_listener',
-        'unique_molecule_counts', 'allocator',
-    ]:
+    for name in _CACHE_CONFIG_NAMES:
         try:
             configs[name] = loader.get_config_by_name(name)
         except Exception as e:  # noqa: BLE001 — surface the name+error, don't lose it
@@ -188,8 +186,8 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
             # ``listeners.mass.cell_mass``, which is obscure to debug.
             failed.append((name, e))
     if failed:
-        print(f"  save_cache: {len(failed)} config(s) failed to build and "
-              f"were omitted from the cache:")
+        print(f"  sim-input bundle: {len(failed)} config(s) failed to build "
+              f"and were omitted:")
         for name, exc in failed:
             print(f"    - {name}: {type(exc).__name__}: {exc}")
 
@@ -204,10 +202,37 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
         'unique_names': unique_names,
         'dry_mass_inc_dict': dry_mass_inc,
     }
-    cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
+    cache_path = os.path.join(bundle_dir, 'sim_data_cache.dill')
     with open(cache_path, 'wb') as f:
         dill.dump(cache, f)
 
-    save_json({'unique_names': unique_names}, os.path.join(cache_dir, 'metadata.json'))
-    write_cache_version(cache_dir)
-    print(f"Cache saved to {cache_dir}")
+    save_json({'unique_names': unique_names},
+              os.path.join(bundle_dir, 'metadata.json'))
+    write_cache_version(bundle_dir)
+    print(f"Sim-input bundle saved to {bundle_dir}")
+
+
+def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
+    """Generate the simulation-input bundle from a dilled SimulationDataEcoli.
+
+    Prefer ``save_sim_input(sim_data, ...)`` when the SimulationDataEcoli is
+    already in memory — this entry point exists for callers that only have a
+    pickle path (legacy vEcoli ``simData.cPickle``).
+    """
+    from v2ecoli.library.sim_data import LoadSimData
+    loader = LoadSimData(sim_data_path=sim_data_path, seed=seed)
+    _write_sim_input_bundle(loader, cache_dir)
+
+
+def save_sim_input(sim_data, bundle_dir='out/cache', seed=0):
+    """Generate the simulation-input bundle from a live ``SimulationDataEcoli``.
+
+    Skips the ~300 MB dill round-trip that ``save_cache`` performs to load
+    sim_data from disk. Use this when you already have a hydrated
+    ``SimulationDataEcoli`` in hand (e.g. straight off the parca composite or
+    its fixture) — the resulting bundle is byte-for-byte equivalent to what
+    ``save_cache`` would produce from the same sim_data dilled to a file.
+    """
+    from v2ecoli.library.sim_data import LoadSimData
+    loader = LoadSimData(sim_data=sim_data, seed=seed)
+    _write_sim_input_bundle(loader, bundle_dir)

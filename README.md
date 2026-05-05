@@ -69,6 +69,11 @@ rather than threaded through a deeply-mutated `sim_data` blob.
 The per-step port manifests ship in
 [`v2ecoli/processes/parca/steps/`](v2ecoli/processes/parca/steps/); the
 wire table is [`STORE_PATH`](v2ecoli/processes/parca/composite.py).
+A static [`models/parca.pbg`](models/parca.pbg) (~16 KB) captures the
+same 9-Step pipeline as a process-bigraph JSON document — addresses +
+port wiring, no fitted data — for tooling that wants to inspect the
+pipeline shape without importing v2ecoli.  Regenerated automatically
+by `python reports/workflow_report.py` alongside `models/partitioned.pbg`.
 
 ### Using the fitted `sim_data`
 

@@ -43,6 +43,8 @@ ALLOWLIST: dict[str, str] = {
         'loads config_defaults.pickle (ParCa-derived defaults)',
     'library/function_registry.py':
         'base64-dill for compiled rate functions (parameter compilation)',
+    'cli/parca.py':
+        'ParCa pipeline runner — writes parca_state.pkl + step checkpoints (ParCa cache exception)',
 }
 
 # Package-prefix allowlist (paths starting with these are ParCa internal,

@@ -80,41 +80,20 @@ def _wires(port_names):
     return {name: STORE_PATH[name] for name in port_names}
 
 
-def build_parca_composite(raw_data, debug=False, cpus=1,
-                          cache_dir='', core=None,
-                          variable_elongation_transcription=True,
-                          variable_elongation_translation=False,
-                          disable_ribosome_capacity_fitting=False,
-                          disable_rnapoly_capacity_fitting=False,
-                          resume_from_step=1, resume_state=None):
-    """Build a Composite that runs the 9-step ParCa pipeline.
+STEP_ORDER = [
+    'initialize', 'input_adjustments', 'basal_specs', 'tf_condition_specs',
+    'fit_condition', 'promoter_binding', 'adjust_promoters',
+    'set_conditions', 'final_adjustments',
+]
 
-    Args:
-        raw_data: a ``KnowledgeBaseEcoli`` instance.  Passed through
-            InitializeStep's config to keep bigraph-schema from walking
-            its nested KB internals at composite construction time.
-            Required when ``resume_from_step <= 1``; ignored otherwise.
-        debug, cpus, cache_dir, *_elongation*, *_capacity_fitting:
-            forwarded to the relevant Step configs.
-        core: optional pre-built core.
-        resume_from_step: 1-9.  When > 1, steps 1..(N-1) are skipped and
-            the composite's initial store state is seeded from
-            ``resume_state`` (which must be a dict produced by a prior
-            run's ``composite.state``).  Used to debug late-pipeline
-            steps without re-running the expensive Step 5.
-        resume_state: store-state dict from a prior run, required when
-            ``resume_from_step > 1``.
-    Returns:
-        The ``Composite`` instance with the pipeline already executed.
-        The final store state is at ``composite.state``.
+
+def _build_step_slots(raw_data, debug, cpus, cache_dir, _elong):
+    """Build the 9 step entries with addresses, configs, and wiring.
+
+    Shared by ``build_parca_composite`` (which fires the pipeline) and
+    ``build_parca_document`` (which returns the unfired structural state
+    for serialization).
     """
-    if resume_from_step > 1 and resume_state is None:
-        raise ValueError(
-            "resume_from_step > 1 requires resume_state from a prior run")
-    if core is None:
-        core = allocate_core(top=ALL_STEP_CLASSES)
-        register_parca_schema(core)
-
     from v2ecoli.processes.parca.steps.step_01_initialize        import OUTPUT_PORTS as _s1_out
     from v2ecoli.processes.parca.steps.step_02_input_adjustments import (
         INPUT_PORTS as _s2_in, OUTPUT_PORTS as _s2_out)
@@ -133,15 +112,6 @@ def build_parca_composite(raw_data, debug=False, cpus=1,
     from v2ecoli.processes.parca.steps.step_09_final_adjustments import (
         INPUT_PORTS as _s9_in, OUTPUT_PORTS as _s9_out)
 
-    _elong = dict(
-        variable_elongation_transcription=variable_elongation_transcription,
-        variable_elongation_translation=variable_elongation_translation,
-        disable_ribosome_capacity_fitting=disable_ribosome_capacity_fitting,
-        disable_rnapoly_capacity_fitting=disable_rnapoly_capacity_fitting,
-    )
-
-    # Ticks are already baked into each step's INPUT_PORTS / OUTPUT_PORTS
-    # so _wires() picks them up automatically.
     s1i, s1o = {}, _wires(_s1_out.keys())
     s2i, s2o = _wires(_s2_in.keys()), _wires(_s2_out.keys())
     s3i, s3o = _wires(_s3_in.keys()), _wires(_s3_out.keys())
@@ -152,9 +122,7 @@ def build_parca_composite(raw_data, debug=False, cpus=1,
     s8i, s8o = _wires(_s8_in.keys()), _wires(_s8_out.keys())
     s9i, s9o = _wires(_s9_in.keys()), _wires(_s9_out.keys())
 
-    # Each step slot.  We build them once and selectively include them
-    # below according to ``resume_from_step``.
-    step_slots = {
+    return {
         'initialize': {
             '_type': 'step', 'address': 'local:InitializeStep',
             'config': {'raw_data': raw_data},
@@ -202,11 +170,76 @@ def build_parca_composite(raw_data, debug=False, cpus=1,
         },
     }
 
-    STEP_ORDER = [
-        'initialize', 'input_adjustments', 'basal_specs', 'tf_condition_specs',
-        'fit_condition', 'promoter_binding', 'adjust_promoters',
-        'set_conditions', 'final_adjustments',
-    ]
+
+def build_parca_document(debug=False, cpus=1, cache_dir=''):
+    """Return the parca composite spec state dict (steps + wiring, unfired).
+
+    Use with ``v2ecoli.pbg.save_pbg_doc(...)`` to serialize the parca
+    pipeline structure to a ``.pbg`` JSON document without running. The
+    configs that vary per-run (raw_data, cache directories) are
+    placeholders here — ``save_pbg_doc`` strips them out anyway.
+    """
+    _elong = dict(
+        variable_elongation_transcription=True,
+        variable_elongation_translation=False,
+        disable_ribosome_capacity_fitting=False,
+        disable_rnapoly_capacity_fitting=False,
+    )
+    slots = _build_step_slots(
+        raw_data=None, debug=debug, cpus=cpus,
+        cache_dir=cache_dir, _elong=_elong,
+    )
+    return {name: slots[name] for name in STEP_ORDER}
+
+
+def build_parca_composite(raw_data, debug=False, cpus=1,
+                          cache_dir='', core=None,
+                          variable_elongation_transcription=True,
+                          variable_elongation_translation=False,
+                          disable_ribosome_capacity_fitting=False,
+                          disable_rnapoly_capacity_fitting=False,
+                          resume_from_step=1, resume_state=None):
+    """Build a Composite that runs the 9-step ParCa pipeline.
+
+    Args:
+        raw_data: a ``KnowledgeBaseEcoli`` instance.  Passed through
+            InitializeStep's config to keep bigraph-schema from walking
+            its nested KB internals at composite construction time.
+            Required when ``resume_from_step <= 1``; ignored otherwise.
+        debug, cpus, cache_dir, *_elongation*, *_capacity_fitting:
+            forwarded to the relevant Step configs.
+        core: optional pre-built core.
+        resume_from_step: 1-9.  When > 1, steps 1..(N-1) are skipped and
+            the composite's initial store state is seeded from
+            ``resume_state`` (which must be a dict produced by a prior
+            run's ``composite.state``).  Used to debug late-pipeline
+            steps without re-running the expensive Step 5.
+        resume_state: store-state dict from a prior run, required when
+            ``resume_from_step > 1``.
+    Returns:
+        The ``Composite`` instance with the pipeline already executed.
+        The final store state is at ``composite.state``.
+    """
+    if resume_from_step > 1 and resume_state is None:
+        raise ValueError(
+            "resume_from_step > 1 requires resume_state from a prior run")
+    if core is None:
+        core = allocate_core(top=ALL_STEP_CLASSES)
+        register_parca_schema(core)
+
+    _elong = dict(
+        variable_elongation_transcription=variable_elongation_transcription,
+        variable_elongation_translation=variable_elongation_translation,
+        disable_ribosome_capacity_fitting=disable_ribosome_capacity_fitting,
+        disable_rnapoly_capacity_fitting=disable_rnapoly_capacity_fitting,
+    )
+
+    # Ticks are already baked into each step's INPUT_PORTS / OUTPUT_PORTS
+    # so _wires() picks them up automatically.
+    step_slots = _build_step_slots(
+        raw_data=raw_data, debug=debug, cpus=cpus,
+        cache_dir=cache_dir, _elong=_elong,
+    )
 
     state = {}
     # Seed leaves from a prior run when resuming.  Skip composite-internal

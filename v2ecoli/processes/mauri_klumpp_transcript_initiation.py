@@ -3,7 +3,7 @@
 Mauri & Klumpp (2014) Sigma Factor Competition — Full Whole-Cell Process
 =============================================================================
 
-PhD-quality implementation of sigma factor competition for transcript
+Implementation of sigma factor competition for transcript
 initiation in E. coli, based on:
 
   Mauri M, Klumpp S (2014) A Model for Sigma Factor Competition in Bacterial

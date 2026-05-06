@@ -16,6 +16,25 @@ flat-file knowledge base are both vendored, so a fresh clone can run
 the full build → simulate → divide pipeline end-to-end without any
 external vEcoli checkout.
 
+## Install
+
+Requires [`uv`](https://docs.astral.sh/uv/) (recommended) and a C
+compiler (Xcode CLI tools on macOS, `build-essential` on Linux).
+
+```bash
+git clone https://github.com/vivarium-collective/v2ecoli.git
+cd v2ecoli
+uv sync
+```
+
+`uv sync` provisions Python 3.12.12, installs all dependencies (vEcoli,
+process-bigraph, bigraph-schema, multi-cell), and compiles the three
+vendored Cython extensions automatically.  The fitted `sim_data` ships
+pre-computed at [`models/parca/parca_state.pkl.gz`](models/parca/) so a
+fresh clone can simulate end-to-end without re-running ParCa
+(~70 min).  See [Re-running from scratch](#re-running-from-scratch) for
+that path.
+
 ## Reports
 
 **[All reports](https://vivarium-collective.github.io/v2ecoli/)** —
@@ -50,6 +69,11 @@ rather than threaded through a deeply-mutated `sim_data` blob.
 The per-step port manifests ship in
 [`v2ecoli/processes/parca/steps/`](v2ecoli/processes/parca/steps/); the
 wire table is [`STORE_PATH`](v2ecoli/processes/parca/composite.py).
+A static [`models/parca.pbg`](models/parca.pbg) (~16 KB) captures the
+same 9-Step pipeline as a process-bigraph JSON document — addresses +
+port wiring, no fitted data — for tooling that wants to inspect the
+pipeline shape without importing v2ecoli.  Regenerated automatically
+by `python reports/workflow_report.py` alongside `models/partitioned.pbg`.
 
 ### Using the fitted `sim_data`
 
@@ -76,16 +100,16 @@ default (~2 s) and dills its `sim_data_root` into
 ### Re-running from scratch
 
 ```bash
-# One-time: build the three vendored Cython extensions for the
-# current Python.
-bash scripts/parca_cython_build.sh
-
-# Full pipeline (~70 min in fast mode)
-python scripts/parca_run.py --mode fast --cpus 4
+# Full pipeline (~70 min in fast mode; --cpus defaults to os.cpu_count)
+v2ecoli-parca --mode fast
 
 # Or resume from a cached step-5 checkpoint (~15 s)
 bash scripts/parca_rerun_from_step5.sh
 ```
+
+The Cython extensions are built automatically by `uv sync`.  If you
+edit a `.pyx` file and want to rebuild without a full reinstall, run
+`bash scripts/parca_cython_build.sh`.
 
 ### Reconstruction data
 

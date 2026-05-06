@@ -107,6 +107,37 @@ def _serialize_array(arr):
     return arr
 
 
+def save_pbg_doc(state_dict, path):
+    """Save a flat composite state dict (no agents/0 wrapping) as .pbg JSON.
+
+    Use this for composites whose top-level state isn't wrapped in the
+    multi-cell ``agents/0`` pattern — e.g. the ParCa pipeline, where each
+    Step entry sits directly at the top level alongside data leaves.
+    Output mirrors ``save_pbg``: ``_type`` entries become {address, inputs,
+    outputs} stubs (configs stripped), nested data dicts are serialized
+    recursively, numpy arrays are JSON-friendly.
+    """
+    doc = {'global_time': 0.0}
+    for key, val in state_dict.items():
+        if isinstance(val, dict) and '_type' in val:
+            doc[key] = {
+                '_type': val.get('_type'),
+                'address': val.get('address'),
+                'inputs': _clean_wiring(val.get('inputs', {})),
+                'outputs': _clean_wiring(val.get('outputs', {})),
+            }
+        elif isinstance(val, dict):
+            doc[key] = _serialize_state(val)
+        elif hasattr(val, 'dtype'):
+            doc[key] = _serialize_array(val)
+        else:
+            doc[key] = val
+    os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+    with open(path, 'w') as f:
+        json.dump(doc, f, cls=PbgEncoder, indent=2)
+    return path
+
+
 def load_pbg(path):
     """Load a .pbg file and return the document dict."""
     with open(path) as f:

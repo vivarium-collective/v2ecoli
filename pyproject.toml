@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=68", "cython", "numpy>=2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,7 @@ name = "v2ecoli"
 version = "0.1.0"
 description = "Whole-cell E. coli model on process-bigraph (partitioned architecture)"
 readme = "README.md"
-requires-python = "==3.12.9"
+requires-python = "==3.12.12"
 dependencies = [
     "bigraph-schema>=0.0.60",
     "process-bigraph>=0.0.38",
@@ -29,9 +29,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-parca-build = ["cython", "setuptools>=68"]
 # Test-only deps. `uv sync --extra dev` pulls these in.
 dev = ["pytest-timeout>=2.3"]
+
+[project.scripts]
+v2ecoli-parca = "v2ecoli.cli.parca:main"
 
 [tool.setuptools.package-data]
 # Ship the flat-file knowledge base with the package (~12.9 MB, 133 files).
@@ -56,7 +58,6 @@ timeout_method = "thread"
 packages = { find = { where = ["."] } }
 
 [tool.uv.sources]
-vecoli = { path = "../vEcoli", editable = true }
-process-bigraph = { path = "../process-bigraph", editable = true }
-bigraph-schema = { path = "../bigraph-schema", editable = true }
-multi-cell = { path = "../viva-munk", editable = true }
+process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
+bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
+multi-cell = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }

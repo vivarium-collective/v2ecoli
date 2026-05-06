@@ -211,7 +211,13 @@ class Evolver(Step):
         return False
 
     def update(self, states, interval=None):
-        allocations = states.pop("allocate")
+        # The allocate store may not be present in the states view if the
+        # Allocator hasn't run yet or if the process-bigraph version
+        # doesn't include empty stores in the view. Handle gracefully.
+        allocations = states.pop("allocate", None)
+        if allocations is None:
+            # No allocations available — skip this evolver tick
+            return {}
         for key, value in allocations.items():
             if isinstance(value, list):
                 value = np.array(value)

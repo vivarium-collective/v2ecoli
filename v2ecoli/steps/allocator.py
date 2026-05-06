@@ -60,9 +60,16 @@ class Allocator(Step):
         }
 
     def outputs(self):
+        # Note: do NOT wrap allocate/request in `overwrite[...]`. Bigraph-schema
+        # promotes per-port schemas into self.schema during apply, and an
+        # `overwrite[map[...]]` at the parent map level causes ANY sub-key write
+        # (e.g. a per-process Requester writing only its own slot) to replace
+        # the whole map, dropping siblings. With plain `map[...]`, Map.apply
+        # walks update keys and preserves siblings — which is the behavior
+        # the partitioned execution layers depend on.
         return {
-            'allocate': 'overwrite[map[map[list[integer]]]]',
-            'request': 'overwrite[map[map[list[integer]]]]',
+            'allocate': 'map[map[list[integer]]]',
+            'request': 'map[map[list[integer]]]',
             'listeners': {
                 'atp': {
                     # length n_processes; written as numpy arrays

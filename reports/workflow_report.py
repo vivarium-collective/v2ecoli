@@ -2319,10 +2319,13 @@ def run_workflow():
 
     # Update .pbg model files
     print("  Updating .pbg model files...")
-    from v2ecoli.pbg import save_pbg
+    from v2ecoli.pbg import save_pbg, save_pbg_doc
+    from v2ecoli.processes.parca.composite import build_parca_document
     os.makedirs('models', exist_ok=True)
     save_pbg(diag_composite, 'models/partitioned.pbg')
     print(f"    models/partitioned.pbg updated")
+    save_pbg_doc(build_parca_document(), 'models/parca.pbg')
+    print(f"    models/parca.pbg updated")
 
     # Network Visualization (Cytoscape.js interactive viewer)
     print("  Generating interactive network visualization...")

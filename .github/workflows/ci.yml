@@ -15,12 +15,10 @@ concurrency:
 #   behavior-tests  — simulation-running tests (composite.run), target <5 min, PR-gating
 # A PR only merges when BOTH are green (branch protection requires both).
 #
-# tests/test_initialize.py, test_kinetics_units.py, test_unit_bridge.py are
-# deselected: any test that imports v2ecoli.types triggers a load of the
-# unreleased bigraph-schema `api` branch (plum-dispatched serialize).
-# PyPI bigraph-schema 1.1.1 doesn't have it, so collection fails with
-# AttributeError on .dispatch. Re-enable after bigraph-schema ships those
-# changes to PyPI.
+# NOTE: process-bigraph and bigraph-schema are installed from GitHub (main)
+# because the PyPI releases (0.0.x) are incompatible with v2ecoli's 1.x API.
+# The [tool.uv.sources] section in pyproject.toml points to local editable
+# paths for development; CI overrides these with GitHub installs.
 
 jobs:
   fast-tests:
@@ -38,6 +36,10 @@ jobs:
 
       - name: Install dependencies (PyPI only)
         run: uv sync --no-sources --extra dev || uv sync --no-sources
+
+      - name: Install process-bigraph and bigraph-schema from GitHub
+        run: |
+          uv pip install --reinstall "process-bigraph @ git+https://github.com/vivarium-collective/process-bigraph.git@main" "bigraph-schema @ git+https://github.com/vivarium-collective/bigraph-schema.git@main"
 
       - name: Run fast tests (no .run() calls)
         run: >-
@@ -63,6 +65,10 @@ jobs:
 
       - name: Install dependencies (PyPI only)
         run: uv sync --no-sources --extra dev || uv sync --no-sources
+
+      - name: Install process-bigraph and bigraph-schema from GitHub
+        run: |
+          uv pip install --reinstall "process-bigraph @ git+https://github.com/vivarium-collective/process-bigraph.git@main" "bigraph-schema @ git+https://github.com/vivarium-collective/bigraph-schema.git@main"
 
       # Cache out/cache (initial_state.json + sim_data_cache.dill +
       # cache_version.json) across PRs. The cache key pins to the same

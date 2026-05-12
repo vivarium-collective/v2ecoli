@@ -45,12 +45,6 @@ def test_all_submodules_import():
         __import__(f"v2ecoli.library.xarray_emitter.{name}")
 
 
-@pytest.fixture
-def core():
-    from bigraph_schema import allocate_core
-    return allocate_core()
-
-
 @pytest.mark.fast
 def test_xarray_emitter_imports():
     from v2ecoli.library.xarray_emitter import XArrayEmitter
@@ -70,15 +64,11 @@ def test_xarray_emitter_config_schema_has_expected_keys():
 
 
 @pytest.mark.fast
-def test_metadata_validators_failure_raises(tmp_path, core):
+def test_metadata_validators_failure_raises(minimal_xarray_config, core):
     from v2ecoli.library.xarray_emitter import XArrayEmitter
 
     cfg = {
-        "emit": {},
-        "out_uri": str(tmp_path / "x.zarr"),
-        "transducer": {},
-        "view": [],
-        "writer": {"type": "async", "out_uri": str(tmp_path / "x.zarr")},
+        **minimal_xarray_config,
         "metadata": {"single_daughters": False},
         "metadata_validators": {"single_daughters": True},
     }
@@ -87,23 +77,13 @@ def test_metadata_validators_failure_raises(tmp_path, core):
 
 
 @pytest.mark.fast
-def test_empty_metadata_validators_no_op(tmp_path, core):
+def test_empty_metadata_validators_no_op(minimal_xarray_config, core):
     """Empty validators dict => no validation error from the validator path."""
     from v2ecoli.library.xarray_emitter import XArrayEmitter
 
-    cfg = {
-        "emit": {},
-        "out_uri": str(tmp_path / "x.zarr"),
-        "transducer": {},
-        "view": [],
-        "writer": {"type": "async", "out_uri": str(tmp_path / "x.zarr")},
-        "metadata": {"anything": "goes"},
-        "metadata_validators": {},
-    }
-    # Should not raise a validator-related ValueError. Other failures from
-    # transducer/writer internals are out-of-scope here.
-    try:
-        XArrayEmitter(config=cfg, core=core)
-    except ValueError as e:
-        if "single_daughters" in str(e) or "validator" in str(e).lower():
-            pytest.fail(f"unexpected validator error: {e}")
+    cfg = {**minimal_xarray_config, "metadata_validators": {}}
+    # If construction raised a ValueError from a validator, the test would fail.
+    # With empty validators, construction must succeed.
+    emitter = XArrayEmitter(config=cfg, core=core)
+    assert emitter is not None
+    emitter.close()  # tidy up the writer

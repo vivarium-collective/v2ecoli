@@ -10,12 +10,6 @@ pytest.importorskip("duckdb")
 pytest.importorskip("polars")
 
 
-@pytest.fixture
-def core():
-    from bigraph_schema import allocate_core
-    return allocate_core()
-
-
 @pytest.mark.fast
 def test_import_succeeds_with_parquet_extra():
     from v2ecoli.library.parquet_emitter import ParquetEmitter

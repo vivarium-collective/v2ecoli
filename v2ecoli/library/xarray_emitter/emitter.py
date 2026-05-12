@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime
 from pathlib import Path
 from pprint import pp
-from typing import Any, Optional
+from typing import Any
 
 from process_bigraph.emitter import Emitter
 
@@ -50,45 +50,22 @@ class XArrayEmitter(BufferedEmitter):
         )
         self._closed: bool = False
 
-        # Run metadata validators BEFORE any infrastructure construction so
-        # that a validator mismatch raises ValueError early.
-        metadata = dict(config.get("metadata") or {})
-        if metadata:
-            self.validate_metadata(metadata)
-
-        # Build the transducer/writer from config only when the transducer
-        # sub-config contains the required fields. Tests that exercise only the
-        # validator path supply an empty transducer dict; we skip construction
-        # in that case rather than raising a KeyError from the transducer.
-        _transducer_cfg = config.get("transducer") or {}
-        _has_full_transducer = (
-            isinstance(_transducer_cfg, dict)
-            and "predicate" in _transducer_cfg
-            and isinstance(_transducer_cfg.get("buffer"), dict)
-            and "size" in _transducer_cfg["buffer"]
-        )
-        _writer_cfg = config.get("writer") or {}
-        _has_full_writer = (
-            isinstance(_writer_cfg, dict)
-            and "backend" in _writer_cfg
-        )
-
-        self.transducer: Optional[XarrayTransducer] = None
-        self.writer: Optional[AsyncBufferWriter] = None
-
-        if _has_full_transducer and _has_full_writer:
-            # Pass full config so XarrayTransducer can access both
-            # config["transducer"] and config["view"].
-            self.transducer = XarrayTransducer(config, debug=self.debug)
-            self.writer = AsyncBufferWriter.dispatch(_writer_cfg)
+        # Unconditionally build the transducer and writer. Tests that only
+        # exercise the validator path should supply a minimum-valid transducer
+        # config (see the `minimal_xarray_config` fixture in tests/conftest.py).
+        self.transducer = XarrayTransducer(config, debug=self.debug)
+        self.writer = AsyncBufferWriter.dispatch(config["writer"])
 
         # Call the BufferedEmitter base __init__ AFTER setting up attributes
         # (per the upstream warning that __init__ must be called at the end).
         BufferedEmitter.__init__(self, config, core)
 
         # vivarium's "configuration" emit happens here at construction time
-        # when we have a fully-configured transducer and writer.
-        if metadata and self.transducer is not None and self.writer is not None:
+        # when metadata is available. validate_metadata is called before
+        # transducer.alloc so a validator mismatch raises ValueError early.
+        metadata = dict(config.get("metadata") or {})
+        if metadata:
+            self.validate_metadata(metadata)
             partition = self.extract_partition(metadata)
             extracted_meta = self.extract_metadata(metadata)
             coords = config.get("output_metadata") or {}
@@ -156,6 +133,9 @@ class XArrayEmitter(BufferedEmitter):
     def flush(self, *, final: bool = False) -> None:
         if self.transducer is None or self.writer is None:
             return
+        if self.writer._buffer is None:
+            # store not yet opened (no metadata was provided at construction)
+            return
         self.writer.write(self.transducer, final=final)
 
     def update(self, state: dict[str, Any]) -> dict:
@@ -173,7 +153,7 @@ class XArrayEmitter(BufferedEmitter):
         if self._closed:
             return
         self.flush(final=True)
-        if self.writer is not None:
+        if self.writer is not None and self.writer._buffer is not None:
             if success:
                 self.writer.mark_success()
             self.writer.close()

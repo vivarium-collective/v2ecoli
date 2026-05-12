@@ -223,8 +223,7 @@ class XarrayBuffer:
                 case None:
                     # `v_path` is not an expected emitted path
                     if sim_tix == 0:
-                        # executed inside `Engine.__init__()`,
-                        # and hence before `XarrayEmitter.reset_emit_flags()`
+                        # Skip unknown paths gracefully — they may appear before the first allocation completes.
                         continue
                     if self.view.matches_emitted_prefix_path(v_path):
                         # ignored member of an expected emitted store

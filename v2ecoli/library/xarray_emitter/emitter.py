@@ -139,7 +139,22 @@ class XArrayEmitter(BufferedEmitter):
         self.writer.write(self.transducer, final=final)
 
     def update(self, state: dict[str, Any]) -> dict:
-        """Buffer one history row via the transducer; flush when buffer fills."""
+        """Buffer one history row via the transducer; flush when buffer fills.
+
+        The ``state`` dict must be shaped to match the underlying vEcoli/vivarium
+        storage layout that the transducer expects: a top-level ``"agents"`` key
+        keyed by ``agent_id`` (matching ``config["metadata"]["agent_id"]``) plus a
+        top-level ``"time"`` key. Example::
+
+            emitter.update({
+                "time": 1.0,
+                "agents": {"1": {"listeners": {"global_time": 1.0}}},
+            })
+
+        This nesting is inherited from PR #414's ``XarrayTransducer.write()``
+        implementation (see ``transducer.py``); it's the cost of vendoring the
+        upstream transducer/view machinery unchanged.
+        """
         if self.transducer is None:
             return {}
         if not self.transducer.step(state):

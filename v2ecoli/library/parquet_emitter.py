@@ -1046,13 +1046,15 @@ class ParquetEmitter(Emitter):
         history_dir = os.path.join(
             self.out_uri, self.experiment_id or "default", "history",
         )
+        # Escape single quotes for the SQL string literal.
+        escaped = history_dir.replace("'", "''")
         if self.partitioning_keys:
             sql = (
-                f"SELECT * FROM read_parquet('{history_dir}/**/*.pq', "
+                f"SELECT * FROM read_parquet('{escaped}/**/*.pq', "
                 f"hive_partitioning = true)"
             )
         else:
-            sql = f"SELECT * FROM read_parquet('{history_dir}/*.pq')"
+            sql = f"SELECT * FROM read_parquet('{escaped}/*.pq')"
         conn = duckdb.connect(":memory:")
         try:
             df = conn.execute(sql).pl()
@@ -1060,7 +1062,8 @@ class ParquetEmitter(Emitter):
             conn.close()
         select = paths if paths is not None else query
         if isinstance(select, list):
-            cols = ["__".join(p) if isinstance(p, list) else p for p in select]
+            sep = self.flatten_separator
+            cols = [sep.join(p) if isinstance(p, list) else p for p in select]
             df = df.select([c for c in cols if c in df.columns])
         return df
 

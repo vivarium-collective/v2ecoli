@@ -858,28 +858,18 @@ class ParquetEmitter(Emitter):
 
     config_schema = {
         **Emitter.config_schema,
-        "out_dir":           "string",
-        "out_uri":           "maybe[string]",
-        "batch_size":        {"_type": "integer", "_default": 400},
-        "threaded":          {"_type": "boolean", "_default": True},
-        "flatten_separator": {"_type": "string",  "_default": "__"},
-        "partitioning_keys": "maybe[list[string]]",
-        "dtype_overrides":   "maybe[map[string]]",
-        "metadata":          "maybe[map[any]]",
+        "out_dir":           {"_type": "string",       "_default": ""},
+        "out_uri":           {"_type": "string",       "_default": ""},
+        "batch_size":        {"_type": "integer",      "_default": 400},
+        "threaded":          {"_type": "boolean",      "_default": True},
+        "flatten_separator": {"_type": "string",       "_default": "__"},
+        "partitioning_keys": {"_type": "list[string]", "_default": []},
+        "dtype_overrides":   {"_type": "map[string]",  "_default": {}},
+        "metadata":          {"_type": "map",          "_default": {}},
     }
 
     def __init__(self, config: dict[str, Any], core: Any) -> None:
-        # Bypass the process-bigraph Edge.__init__ which requires a non-None
-        # core and tries to parse config_schema through the type registry
-        # (which can't handle "maybe[map[any]]" in all versions).  We set the
-        # minimal set of attributes that downstream code and the Emitter
-        # contract expect, then do our own initialisation.
-        self.core = core
-        self._config = config
-        self._composition = "edge"
-        self._state: dict = {}
-        self._command_result: Any = None
-        self._pending_command = None
+        super().__init__(config, core)
 
         if "out_uri" in config and config["out_uri"]:
             self.out_uri: str = config["out_uri"]
@@ -915,7 +905,7 @@ class ParquetEmitter(Emitter):
         self._closed: bool = False
 
         metadata = config.get("metadata")
-        if metadata is not None:
+        if metadata:
             self._write_configuration(dict(metadata))
 
     def _build_partitioning_path(self, metadata: dict[str, Any]) -> str:

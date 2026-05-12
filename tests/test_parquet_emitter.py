@@ -11,6 +11,12 @@ pytest.importorskip("duckdb")
 pytest.importorskip("polars")
 
 
+@pytest.fixture
+def core():
+    from bigraph_schema import allocate_core
+    return allocate_core()
+
+
 @pytest.mark.fast
 def test_import_succeeds_with_parquet_extra():
     from v2ecoli.library.parquet_emitter import ParquetEmitter
@@ -37,7 +43,7 @@ def test_class_has_expected_config_schema_keys():
 
 
 @pytest.mark.fast
-def test_roundtrip_no_partitioning(tmp_path):
+def test_roundtrip_no_partitioning(tmp_path, core):
     """Write 5 ticks of synthetic state, query back, verify rows and dtypes."""
     from v2ecoli.library.parquet_emitter import ParquetEmitter
 
@@ -48,7 +54,7 @@ def test_roundtrip_no_partitioning(tmp_path):
             "batch_size": 2,
             "threaded": False,
         },
-        core=None,
+        core=core,
     )
     for i in range(5):
         emitter.update({"x": float(i), "y": int(i * 10)})
@@ -62,7 +68,7 @@ def test_roundtrip_no_partitioning(tmp_path):
 
 
 @pytest.mark.fast
-def test_dtype_overrides_exact_name(tmp_path):
+def test_dtype_overrides_exact_name(tmp_path, core):
     from v2ecoli.library.parquet_emitter import ParquetEmitter
 
     emitter = ParquetEmitter(
@@ -73,7 +79,7 @@ def test_dtype_overrides_exact_name(tmp_path):
             "threaded": False,
             "dtype_overrides": {"counts": "UInt16"},
         },
-        core=None,
+        core=core,
     )
     emitter.update({"counts": 42})
     emitter.close()
@@ -83,7 +89,7 @@ def test_dtype_overrides_exact_name(tmp_path):
 
 
 @pytest.mark.fast
-def test_dtype_overrides_fnmatch_glob(tmp_path):
+def test_dtype_overrides_fnmatch_glob(tmp_path, core):
     from v2ecoli.library.parquet_emitter import ParquetEmitter
 
     emitter = ParquetEmitter(
@@ -94,7 +100,7 @@ def test_dtype_overrides_fnmatch_glob(tmp_path):
             "threaded": False,
             "dtype_overrides": {"listeners__rna_synth_prob__*": "UInt32"},
         },
-        core=None,
+        core=core,
     )
     emitter.update({"listeners__rna_synth_prob__foo": 1000})
     emitter.close()
@@ -104,7 +110,7 @@ def test_dtype_overrides_fnmatch_glob(tmp_path):
 
 
 @pytest.mark.fast
-def test_partitioning_keys_hive_layout(tmp_path):
+def test_partitioning_keys_hive_layout(tmp_path, core):
     """With partitioning_keys, output should land at the expected hive path."""
     from v2ecoli.library.parquet_emitter import ParquetEmitter
 
@@ -118,7 +124,7 @@ def test_partitioning_keys_hive_layout(tmp_path):
             "partitioning_keys": ["experiment_id", "variant"],
             "metadata": {"experiment_id": "exp1", "variant": 2},
         },
-        core=None,
+        core=core,
     )
     emitter.update({"v": 1.0})
     emitter.close()
@@ -130,7 +136,7 @@ def test_partitioning_keys_hive_layout(tmp_path):
 
 
 @pytest.mark.fast
-def test_partitioning_missing_key_raises_keyerror(tmp_path):
+def test_partitioning_missing_key_raises_keyerror(tmp_path, core):
     from v2ecoli.library.parquet_emitter import ParquetEmitter
 
     with pytest.raises(KeyError, match="experiment_id"):
@@ -141,12 +147,12 @@ def test_partitioning_missing_key_raises_keyerror(tmp_path):
                 "partitioning_keys": ["experiment_id"],
                 "metadata": {"variant": 0},  # missing experiment_id
             },
-            core=None,
+            core=core,
         )
 
 
 @pytest.mark.fast
-def test_close_idempotent(tmp_path):
+def test_close_idempotent(tmp_path, core):
     from v2ecoli.library.parquet_emitter import ParquetEmitter
 
     emitter = ParquetEmitter(
@@ -156,7 +162,7 @@ def test_close_idempotent(tmp_path):
             "batch_size": 4,
             "threaded": False,
         },
-        core=None,
+        core=core,
     )
     emitter.update({"v": 1})
     emitter.close()
@@ -165,7 +171,7 @@ def test_close_idempotent(tmp_path):
 
 
 @pytest.mark.fast
-def test_close_with_success_writes_sentinel_when_partitioned(tmp_path):
+def test_close_with_success_writes_sentinel_when_partitioned(tmp_path, core):
     from v2ecoli.library.parquet_emitter import ParquetEmitter
 
     out_dir = tmp_path / "out"
@@ -178,7 +184,7 @@ def test_close_with_success_writes_sentinel_when_partitioned(tmp_path):
             "partitioning_keys": ["experiment_id"],
             "metadata": {"experiment_id": "exp1"},
         },
-        core=None,
+        core=core,
     )
     emitter.update({"v": 1})
     emitter.close(success=True)
@@ -188,7 +194,7 @@ def test_close_with_success_writes_sentinel_when_partitioned(tmp_path):
 
 
 @pytest.mark.fast
-def test_close_with_success_no_sentinel_when_not_partitioned(tmp_path):
+def test_close_with_success_no_sentinel_when_not_partitioned(tmp_path, core):
     from v2ecoli.library.parquet_emitter import ParquetEmitter
 
     out_dir = tmp_path / "out"
@@ -199,7 +205,7 @@ def test_close_with_success_no_sentinel_when_not_partitioned(tmp_path):
             "batch_size": 1,
             "threaded": False,
         },
-        core=None,
+        core=core,
     )
     emitter.update({"v": 1})
     emitter.close(success=True)

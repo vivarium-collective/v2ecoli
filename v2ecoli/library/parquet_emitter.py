@@ -905,6 +905,8 @@ class ParquetEmitter(Emitter):
         self._closed: bool = False
 
         metadata = config.get("metadata")
+        # Empty dict (the schema default) means "no metadata requested" —
+        # don't run the one-shot configuration write.
         if metadata:
             self._write_configuration(dict(metadata))
 

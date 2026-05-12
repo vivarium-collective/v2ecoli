@@ -869,7 +869,17 @@ class ParquetEmitter(Emitter):
     }
 
     def __init__(self, config: dict[str, Any], core: Any) -> None:
-        super().__init__(config, core)
+        # Bypass the process-bigraph Edge.__init__ which requires a non-None
+        # core and tries to parse config_schema through the type registry
+        # (which can't handle "maybe[map[any]]" in all versions).  We set the
+        # minimal set of attributes that downstream code and the Emitter
+        # contract expect, then do our own initialisation.
+        self.core = core
+        self._config = config
+        self._composition = "edge"
+        self._state: dict = {}
+        self._command_result: Any = None
+        self._pending_command = None
 
         if "out_uri" in config and config["out_uri"]:
             self.out_uri: str = config["out_uri"]

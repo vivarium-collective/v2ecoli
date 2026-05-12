@@ -112,3 +112,84 @@ def test_xarray_vecoli_writer_override():
         writer=custom_writer,
     )
     assert cfg["writer"] == custom_writer
+
+
+@pytest.mark.fast
+def test_parquet_vecoli_preset_drives_emitter(tmp_path, core):
+    """End-to-end: construct ParquetEmitter from parquet_vecoli config, emit
+    a state matching one of the listener columns, verify hive layout and
+    dtype-override behavior."""
+    pytest.importorskip("duckdb")
+    pytest.importorskip("polars")
+
+    from v2ecoli.library.emitter_presets import parquet_vecoli
+    from v2ecoli.library.parquet_emitter import ParquetEmitter
+    from ecoli.library.parquet_emitter import USE_UINT16
+
+    cfg = parquet_vecoli(
+        str(tmp_path / "out"),
+        experiment_id="exp1",
+        variant=2,
+        lineage_seed=7,
+        agent_id="01",
+        batch_size=1,
+        threaded=False,
+    )
+    cfg["emit"] = {"v": "node"}  # caller wiring
+
+    emitter = ParquetEmitter(config=cfg, core=core)
+
+    # Emit a synthetic state that includes a USE_UINT16 column.
+    uint16_col = next(iter(USE_UINT16))
+    emitter.update({"v": 1.0, uint16_col: 42})
+    emitter.close(success=True)
+
+    # Hive path layout
+    base = tmp_path / "out" / "exp1" / "history"
+    expected = (
+        base
+        / "experiment_id=exp1"
+        / "variant=2"
+        / "lineage_seed=7"
+        / "generation=2"
+        / "agent_id=01"
+    )
+    assert expected.exists(), f"missing hive path: {expected}"
+
+    # Dtype override applied
+    df = emitter.query()
+    assert str(df.schema[uint16_col]) == "UInt16"
+
+    # Success sentinel written
+    sentinel_dir = tmp_path / "out" / "exp1" / "success"
+    assert list(sentinel_dir.rglob("s.pq"))
+
+
+@pytest.mark.fast
+def test_xarray_vecoli_preset_validates(tmp_path):
+    """Construct an xarray_vecoli config and assert it carries the vEcoli
+    metadata_keys and empty validators, plus passes XArrayEmitter.validate_config.
+
+    Full XArrayEmitter construction needs a real transducer config (the
+    preset takes them as required kwargs), so this test exercises only the
+    config-builder side and the static validator."""
+    pytest.importorskip("xarray")
+    pytest.importorskip("zarr")
+
+    from v2ecoli.library.emitter_presets import (
+        xarray_vecoli, VECOLI_XARRAY_METADATA_KEYS,
+    )
+    from v2ecoli.library.xarray_emitter import XArrayEmitter
+
+    cfg = xarray_vecoli(
+        str(tmp_path / "x.zarr"),
+        transducer={"some": "config"},
+        view=["some_view"],
+        metadata={"experiment_id": "exp1", "variant": 0,
+                  "lineage_seed": 0, "agent_id": "1"},
+    )
+    cfg["emit"] = {}
+
+    assert cfg["metadata_keys"] == VECOLI_XARRAY_METADATA_KEYS
+    assert cfg["metadata_validators"] == {}
+    XArrayEmitter.validate_config(cfg)  # raises if structure is bad

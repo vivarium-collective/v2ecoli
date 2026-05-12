@@ -16,5 +16,6 @@ except ImportError as e:
         f"Install with: pip install 'v2ecoli[xarray]'. (missing: {e.name})"
     ) from e
 
-# Re-export only after the outer class is wired in Task 6.
-# from v2ecoli.library.xarray_emitter.emitter import XArrayEmitter
+from v2ecoli.library.xarray_emitter.emitter import XArrayEmitter
+
+__all__ = ["XArrayEmitter"]

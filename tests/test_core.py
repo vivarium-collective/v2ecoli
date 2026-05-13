@@ -16,11 +16,13 @@ def test_build_core_returns_core_with_ecoli_types():
     assert sample_type in core.registry
 
 
-@pytest.mark.fast
+@pytest.mark.sim
 def test_load_cache_bundle_returns_expected_keys(tmp_path):
-    """If the test fixture cache exists, load_cache_bundle returns a dict
-    with the expected keys. If it doesn't exist (CI not yet primed),
-    skip."""
+    """If the cache exists at out/cache, load_cache_bundle returns a dict
+    with the expected keys. Marked ``sim`` because it depends on the
+    ParCa cache being materialized — locally via ``python scripts/build_cache.py``
+    and in CI by the behavior-tests job (the fast-tests job does NOT build
+    the cache)."""
     from v2ecoli.core import load_cache_bundle
     cache_dir = "out/cache"
     if not os.path.isdir(cache_dir) and not os.environ.get("CI"):

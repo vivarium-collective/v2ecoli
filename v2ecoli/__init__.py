@@ -9,6 +9,7 @@ from pbg_superpowers.composite_generator import _REGISTRY, build_generator
 
 from v2ecoli.core import build_core
 from v2ecoli import composites  # noqa: F401 — forces @composite_generator decorators to fire
+from v2ecoli import visualizations  # noqa: F401 — forces Visualization Steps into link_registry
 
 
 def build_composite(

@@ -48,7 +48,7 @@ except ImportError:
     V1_AVAILABLE = False
 
 from v2ecoli import build_composite
-from v2ecoli.core import build_core, save_cache
+from v2ecoli.core import build_core, save_cache, save_sim_input
 from v2ecoli.composites.baseline import (
     baseline as _baseline_doc,
     seed_mass_listener,
@@ -1035,6 +1035,9 @@ def step_parca():
 
     parca_ran = False
     simdata_source = 'unknown'
+    # Live sim_data populated in the fresh-hydrate branches below; lets the
+    # cache build skip the dill round-trip via save_sim_input(...).
+    sim_data = None
     if os.path.exists(sim_data_cache):
         print(f"    Cache exists at {CACHE_DIR}")
         parca_time = 0.0
@@ -1117,7 +1120,13 @@ def step_parca():
     if not os.path.exists(sim_data_cache):
         print("    Generating cache (initial_state.json + sim_data_cache.dill)...")
         t0 = time.time()
-        save_cache(sim_data_path, CACHE_DIR)
+        if sim_data is not None:
+            # Fast path — sim_data is already in memory from the fresh-hydrate
+            # branches above; skip the ~300 MB dill round-trip.
+            save_sim_input(sim_data, CACHE_DIR)
+        else:
+            # Legacy path — only a path-on-disk simData.cPickle is available.
+            save_cache(sim_data_path, CACHE_DIR)
         cache_time = time.time() - t0
         print(f"    Cache generated in {cache_time:.1f}s")
     else:

@@ -32,6 +32,18 @@ dependencies = [
 [project.optional-dependencies]
 # Test-only deps. `uv sync --extra dev` pulls these in.
 dev = ["pytest-timeout>=2.3"]
+parquet = [
+    "duckdb",
+    "polars",
+    "fsspec",
+    "tqdm",
+]
+xarray = [
+    "xarray>=2026.04",
+    "zarr~=3.1.6",
+    "zarrs>=0.2",
+]
+emitters = ["v2ecoli[parquet,xarray]"]
 
 [project.scripts]
 v2ecoli-parca = "v2ecoli.cli.parca:main"

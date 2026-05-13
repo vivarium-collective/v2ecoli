@@ -32,8 +32,9 @@ RAND_MAX = 2**31
 class LoadSimData:
     def __init__(
         self,
-        sim_data_path: str,
+        sim_data_path: Optional[str] = None,
         seed: int = 0,
+        sim_data: Optional["SimulationDataEcoli"] = None,
         max_duration: int = 10,
         fixed_media: Optional[str] = None,
         media_timeline: tuple[tuple[int, str]] = (
@@ -168,9 +169,18 @@ class LoadSimData:
         # when calculating degradation
         self.degrade_misc = False
 
-        # load sim_data
-        with open(sim_data_path, "rb") as sim_data_file:
-            self.sim_data: "SimulationDataEcoli" = pickle.load(sim_data_file)
+        # load sim_data — either from a pickle path or a pre-hydrated object.
+        # Skipping the pickle round-trip is the v2ecoli ParCa fast path: the
+        # composite produces a live ``SimulationDataEcoli`` we can hand in
+        # directly, which saves a ~300 MB dump + reload.
+        if sim_data is not None:
+            self.sim_data: "SimulationDataEcoli" = sim_data
+        elif sim_data_path is not None:
+            with open(sim_data_path, "rb") as sim_data_file:
+                self.sim_data: "SimulationDataEcoli" = pickle.load(sim_data_file)
+        else:
+            raise ValueError(
+                "LoadSimData requires either sim_data_path or sim_data")
 
         if condition is not None:
             self.sim_data.condition = condition

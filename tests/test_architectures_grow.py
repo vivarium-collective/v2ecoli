@@ -35,8 +35,9 @@ pytestmark = [
 ]
 
 
-def _run_and_measure(make_composite_fn, duration=DURATION):
-    composite = make_composite_fn(cache_dir=CACHE_DIR, seed=0)
+def _run_and_measure(arch, duration=DURATION):
+    from v2ecoli import build_composite
+    composite = build_composite(arch, cache_dir=CACHE_DIR, seed=0)
     m0 = float(composite.state['agents']['0']['listeners']['mass']['dry_mass'])
     composite.run(duration)
     m1 = float(composite.state['agents']['0']['listeners']['mass']['dry_mass'])
@@ -44,22 +45,19 @@ def _run_and_measure(make_composite_fn, duration=DURATION):
 
 
 def test_baseline_grows():
-    from v2ecoli.composite import make_composite
-    m0, m1 = _run_and_measure(make_composite)
+    m0, m1 = _run_and_measure("baseline")
     assert m1 - m0 >= MIN_GROWTH_FG, (
         f'Baseline dry_mass did not grow enough: {m0:.2f} -> {m1:.2f} fg')
 
 
 def test_departitioned_grows():
-    from v2ecoli.composite_departitioned import make_departitioned_composite
-    m0, m1 = _run_and_measure(make_departitioned_composite)
+    m0, m1 = _run_and_measure("departitioned")
     assert m1 - m0 >= MIN_GROWTH_FG, (
         f'Departitioned dry_mass did not grow enough: {m0:.2f} -> {m1:.2f} fg')
 
 
 def test_reconciled_grows():
-    from v2ecoli.composite_reconciled import make_reconciled_composite
-    m0, m1 = _run_and_measure(make_reconciled_composite)
+    m0, m1 = _run_and_measure("reconciled")
     assert m1 - m0 >= MIN_GROWTH_FG, (
         f'Reconciled dry_mass did not grow enough: {m0:.2f} -> {m1:.2f} fg')
 
@@ -67,11 +65,12 @@ def test_reconciled_grows():
 def test_all_processes_instantiated_in_departitioned():
     """Every step in FLOW_ORDER must be instantiable. The previous silent-drop
     bug let processes disappear without any error — this test ensures the
-    new RuntimeError guard fires during build_document and also catches any
+    new RuntimeError guard fires during composite construction and also catches any
     future promotion of a PartitionedProcess that isn't registered."""
-    from v2ecoli.composite_departitioned import make_departitioned_composite
-    from v2ecoli.generate_departitioned import FLOW_ORDER
-    composite = make_departitioned_composite(cache_dir=CACHE_DIR, seed=0)
+    from v2ecoli import build_composite
+    from v2ecoli.composites.departitioned import build_execution_layers, DEFAULT_FEATURES
+    FLOW_ORDER = [step for layer in build_execution_layers(DEFAULT_FEATURES) for step in layer]
+    composite = build_composite("departitioned", cache_dir=CACHE_DIR, seed=0)
     cell_state = composite.state['agents']['0']
     # Every non-infra step in FLOW_ORDER should be present in cell_state
     for step_name in FLOW_ORDER:
@@ -83,9 +82,10 @@ def test_all_processes_instantiated_in_departitioned():
 
 def test_all_processes_instantiated_in_reconciled():
     """Same contract for reconciled."""
-    from v2ecoli.composite_reconciled import make_reconciled_composite
-    from v2ecoli.generate_reconciled import FLOW_ORDER
-    composite = make_reconciled_composite(cache_dir=CACHE_DIR, seed=0)
+    from v2ecoli import build_composite
+    from v2ecoli.composites.reconciled import build_execution_layers, DEFAULT_FEATURES
+    FLOW_ORDER = [step for layer in build_execution_layers(DEFAULT_FEATURES) for step in layer]
+    composite = build_composite("reconciled", cache_dir=CACHE_DIR, seed=0)
     cell_state = composite.state['agents']['0']
     for step_name in FLOW_ORDER:
         if step_name.startswith('allocator'):

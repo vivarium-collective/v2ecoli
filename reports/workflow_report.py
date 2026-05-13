@@ -47,10 +47,17 @@ except ImportError:
     V1_ROOT_PATH = os.getcwd()
     V1_AVAILABLE = False
 
-from v2ecoli.composite import make_composite, _build_core, save_cache, save_sim_input
+from v2ecoli import build_composite
+from v2ecoli.core import build_core, save_cache, save_sim_input
+from v2ecoli.composites.baseline import (
+    baseline as _baseline_doc,
+    seed_mass_listener,
+    build_execution_layers,
+    DEFAULT_FEATURES,
+    FLOW_ORDER,
+)
 from v2ecoli.library.schema import attrs as ecoli_attrs
 from process_bigraph import Composite
-from v2ecoli.generate import build_document, FLOW_ORDER, build_execution_layers, DEFAULT_FEATURES
 from v2ecoli.viz import build_graph, write_outputs
 from v2ecoli.cache import NumpyJSONEncoder, load_initial_state
 
@@ -79,7 +86,7 @@ DAUGHTER_DURATION = None  # Set to half the single-cell division time at runtime
 
 # Runtime options (overridden by CLI args)
 _OPTIONS = {
-    'make_composite': make_composite,
+    'composite_factory': lambda **kw: build_composite("baseline", **kw),
     'fetch_biocyc': False,
     'parca_rerun': False,
     'parca_cpus': 4,
@@ -1168,7 +1175,7 @@ def step_load_model():
     # Always build the composite (needed by later steps), but cache metadata
     print(f"  Step 3: Load Model", end='')
     t0 = time.time()
-    composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
+    composite = _OPTIONS['composite_factory'](cache_dir=CACHE_DIR)
     build_time = time.time() - t0
 
     n_steps = len(composite.step_paths)
@@ -1220,7 +1227,7 @@ def step_single_cell():
 
     max_dur = _OPTIONS['max_duration']
     print(f"  Step 2: Single Cell Simulation (to division, max {max_dur}s)")
-    composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
+    composite = _OPTIONS['composite_factory'](cache_dir=CACHE_DIR)
 
     cell = composite.state['agents']['0']
     bulk_before = np.array(cell['bulk']['count'], copy=True)
@@ -1579,7 +1586,7 @@ def step_division():
         cell = prediv_state
     else:
         print("    No pre-division checkpoint -- using initial state (t=0)")
-        composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
+        composite = _OPTIONS['composite_factory'](cache_dir=CACHE_DIR)
         cell = composite.state['agents']['0']
 
     # Test bulk conservation
@@ -1630,16 +1637,18 @@ def step_division():
     daughter_viable = False
 
     if can_build_daughters:
-        from v2ecoli.generate import (
-            build_document)
         t0 = time.time()
         try:
-            d1_doc = build_document(
-                d1_state, configs, unique_names,
-                dry_mass_inc_dict=dry_mass_inc,
-                seed=1)
+            _core = build_core()
+            d1_doc = _baseline_doc(core=_core, seed=1, cache_dir=CACHE_DIR)
+            _agent = d1_doc['state']['agents']['0']
+            for _key in ('bulk', 'unique', 'environment', 'boundary'):
+                if _key in d1_state:
+                    _agent[_key] = d1_state[_key]
+            _agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
+            seed_mass_listener(_agent, _core)
             daughter_build_time = time.time() - t0
-            d1_composite = Composite(d1_doc, core=_build_core())
+            d1_composite = Composite(d1_doc, core=_core)
             d1_composite.run(1.0)
             daughter_viable = True
         except Exception as e:
@@ -1780,24 +1789,18 @@ def step_daughters():
     print("    Dividing mother cell...")
     d1_state, d2_state = divide_cell(cell_data)
 
-    # Load configs for building daughter composites
-    cache_path = os.path.join(CACHE_DIR, 'sim_data_cache.dill')
-    with open(cache_path, 'rb') as f:
-        cache = dill.load(f)
-    configs = cache.get('configs', {})
-    unique_names = cache.get('unique_names', [])
-    dry_mass_inc = cache.get('dry_mass_inc_dict', {})
-
-    from v2ecoli.generate import (
-        build_document)
-
     def _run_daughter(label, dstate, seed):
         """Build and run a single daughter composite, return results dict."""
         t0 = time.time()
-        doc = build_document(
-            dstate, configs, unique_names,
-            dry_mass_inc_dict=dry_mass_inc, seed=seed)
-        comp = Composite(doc, core=_build_core())
+        _core = build_core()
+        doc = _baseline_doc(core=_core, seed=seed, cache_dir=CACHE_DIR)
+        _agent = doc['state']['agents']['0']
+        for _key in ('bulk', 'unique', 'environment', 'boundary'):
+            if _key in dstate:
+                _agent[_key] = dstate[_key]
+        _agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
+        seed_mass_listener(_agent, _core)
+        comp = Composite(doc, core=_core)
         build_time = time.time() - t0
 
         d_cell = comp.state['agents']['0']
@@ -2322,7 +2325,7 @@ def run_workflow():
 
     # Step Diagnostics (always run, uses the composite from step 3)
     print("  Diagnostics: Step analysis")
-    diag_composite = _OPTIONS['make_composite'](cache_dir=CACHE_DIR)
+    diag_composite = _OPTIONS['composite_factory'](cache_dir=CACHE_DIR)
     diagnostics = bench_step_diagnostics(diag_composite)
     print(f"    {len(diagnostics)} steps analyzed")
 

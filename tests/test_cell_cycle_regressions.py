@@ -151,9 +151,9 @@ def test_cell_cycle_completes_to_division():
     This is the single best regression signal — it catches any listener
     crash, allocator wiring break, or state-handoff bug within ~4 min
     wall time."""
-    from v2ecoli.composite import make_composite
+    from v2ecoli import build_composite
 
-    composite = make_composite(cache_dir=CACHE_DIR, seed=0)
+    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=0)
 
     def _chrom_and_forks():
         cell = composite.state.get('agents', {}).get('0')

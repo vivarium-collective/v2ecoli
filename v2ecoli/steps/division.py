@@ -94,6 +94,7 @@ class Division(V2Step):
         self._configs = self.parameters.get('configs', {})
         self._unique_names = self.parameters.get('unique_names', [])
         self._seed = self.parameters.get('seed', 0)
+        self._cache_dir = self.parameters.get('cache_dir', 'out/cache')
 
         # Division mass multiplier
         seed = self._seed
@@ -187,25 +188,26 @@ class Division(V2Step):
 
             d1_id, d2_id = daughter_phylogeny_id(self.agent_id)
 
-            if not self._configs:
-                print(f'  No configs available for daughter generation')
-                return {}
-
-            # Build daughter docs via the standard partitioned builder.
-            # (The old v2ecoli.partitioned.generate_partitioned module was
-            # removed; build_document is the surviving entry point.)
-            from v2ecoli.generate import build_document
+            # Build daughter docs via the new composite generator API.
+            # baseline() loads wiring from the cache; we then overlay the
+            # daughter's divided biological state on top.
+            from v2ecoli.composites.baseline import baseline, seed_mass_listener
             d1_seed = (self._seed + 1) % (2**31)
             d2_seed = (self._seed + 2) % (2**31)
 
-            d1_doc = build_document(
-                d1_data, self._configs, self._unique_names,
-                dry_mass_inc_dict=self.dry_mass_inc_dict,
-                core=self.core, seed=d1_seed)
-            d2_doc = build_document(
-                d2_data, self._configs, self._unique_names,
-                dry_mass_inc_dict=self.dry_mass_inc_dict,
-                core=self.core, seed=d2_seed)
+            def _build_daughter_doc(d_data, seed):
+                doc = baseline(
+                    core=self.core, seed=seed, cache_dir=self._cache_dir)
+                agent = doc['state']['agents']['0']
+                for key in ('bulk', 'unique', 'environment', 'boundary'):
+                    if key in d_data:
+                        agent[key] = d_data[key]
+                agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
+                seed_mass_listener(agent, self.core)
+                return doc
+
+            d1_doc = _build_daughter_doc(d1_data, d1_seed)
+            d2_doc = _build_daughter_doc(d2_data, d2_seed)
 
             d1_cell = d1_doc['state']['agents']['0']
             d2_cell = d2_doc['state']['agents']['0']

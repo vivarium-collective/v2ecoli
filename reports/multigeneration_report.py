@@ -22,7 +22,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-import dill
 import matplotlib
 
 matplotlib.use("Agg")
@@ -31,9 +30,10 @@ import numpy as np
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from v2ecoli.composite import make_composite, _build_core
+from v2ecoli import build_composite
+from v2ecoli.core import build_core
+from v2ecoli.composites.baseline import baseline, seed_mass_listener
 from v2ecoli.library.division import divide_cell
-from v2ecoli.generate import build_document
 from process_bigraph import Composite
 
 
@@ -200,26 +200,12 @@ def run_multigeneration(
 ) -> list[GenerationResult]:
     """Run n_generations of single-lineage cells, carrying one daughter
     forward across each division."""
-    # Load cache configs for rebuilding daughter composites.
-    with open(os.path.join(CACHE_DIR, "sim_data_cache.dill"), "rb") as f:
-        cache = dill.load(f)
-    # On the pint-migrated branches, cache contains pint Quantities whose
-    # registry identity is lost across dill; rebind them to the shared
-    # app-registry. No-op on main (cache is pure-Unum there).
-    try:
-        from v2ecoli.library.unit_bridge import rebind_cache_quantities
-        rebind_cache_quantities(cache)
-    except ImportError:
-        pass
-    configs = cache.get("configs", {})
-    unique_names = cache.get("unique_names", [])
-    dry_mass_inc = cache.get("dry_mass_inc_dict", {})
 
     results: list[GenerationResult] = []
 
     # Generation 1 — start from the fresh initial state the workflow/canary use.
     print(f"  Gen 1: building from cache {CACHE_DIR}")
-    composite = make_composite(cache_dir=CACHE_DIR)
+    composite = build_composite("baseline", cache_dir=CACHE_DIR)
     cell0 = composite.state["agents"]["0"]
     print(
         f"    initial dry_mass={cell0['listeners']['mass'].get('dry_mass',0):.1f} fg"
@@ -245,14 +231,15 @@ def run_multigeneration(
         d1_state, _d2_state = divide_cell(prev_cell_data)
 
         t_build0 = time.time()
-        doc = build_document(
-            d1_state,
-            configs,
-            unique_names,
-            dry_mass_inc_dict=dry_mass_inc,
-            seed=gen_idx,
-        )
-        composite = Composite(doc, core=_build_core())
+        core = build_core()
+        doc = baseline(core=core, seed=gen_idx, cache_dir=CACHE_DIR)
+        agent = doc['state']['agents']['0']
+        for key in ('bulk', 'unique', 'environment', 'boundary'):
+            if key in d1_state:
+                agent[key] = d1_state[key]
+        agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
+        seed_mass_listener(agent, core)
+        composite = Composite(doc, core=core)
         build_time = time.time() - t_build0
         print(f"    built daughter composite in {build_time:.1f}s")
 

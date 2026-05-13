@@ -73,6 +73,23 @@ For deeper questions about either framework, invoke the `pbg-expert` skill.
   A change to a process must work across all three, or the PR must explain
   why it's scoped. Use the architecture comparison report to verify.
 
+### Adding a new composite architecture
+
+Each architecture is a function decorated with `@composite_generator`
+from `pbg_superpowers.composite_generator`. To add one:
+
+1. Create `v2ecoli/composites/<arch>.py` with a
+   `<arch>(core, *, seed, cache_dir) -> dict` function decorated
+   `@composite_generator(name="<arch>", description=..., parameters={...})`.
+2. Append `from v2ecoli.composites import <arch>` to
+   `v2ecoli/composites/__init__.py`.
+3. Update `v2ecoli/library/cache_version.py:INPUT_FILES` to include the
+   new file.
+
+Once registered, callers reach it via
+`v2ecoli.build_composite("<arch>", ...)`. The function returns a
+process-bigraph state document; `build_composite` wraps it in a `Composite`.
+
 ## Reports
 
 Regenerate the relevant report and inspect it before opening a PR that
@@ -104,7 +121,7 @@ Published at https://vivarium-collective.github.io/v2ecoli/.
 - Behavior fixtures live in `tests/fixtures/`. The pre-division state
   (`pre_division_state.json.gz`) and ParCa cache (`cache/`) are load-bearing.
 - `out/cache/` is fingerprinted by `v2ecoli/library/cache_version.py`.
-  `make_composite` calls `verify_cache_version` before loading, so a cache
+  `build_composite` calls `verify_cache_version` before loading, so a cache
   that was built from a different `models/parca/parca_state.pkl.gz`,
   `v2ecoli/library/sim_data.py`, or unit-bridge raises `StaleCacheError`
   with a one-line rebuild command instead of a 10-frame-deep `AttributeError`.

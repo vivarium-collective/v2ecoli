@@ -16,7 +16,7 @@ sys.path.insert(0, v2ecoli_dir)
 fd = os.open(os.devnull, os.O_WRONLY)
 os.dup2(fd, 2)
 
-from v2ecoli.composite import make_composite
+from v2ecoli import build_composite
 
 
 def snap(t, cell):
@@ -50,7 +50,7 @@ def snap(t, cell):
 
 
 t0 = time.time()
-composite = make_composite(cache_dir='out/cache', seed=0)
+composite = build_composite("baseline", cache_dir='out/cache', seed=0)
 load_time = time.time() - t0
 
 cell = composite.state['agents']['0']

@@ -24,8 +24,8 @@ FIXTURE_PATH = REPO_ROOT / 'models' / 'parca' / 'parca_state.pkl.gz'
                     reason=f'fixture absent at {FIXTURE_PATH}')
 def test_save_sim_input_writes_full_bundle(tmp_path):
     """``save_sim_input`` produces all four bundle artifacts a downstream
-    ``make_composite(cache_dir=...)`` expects."""
-    from v2ecoli.composite import save_sim_input
+    ``build_composite(cache_dir=...)`` expects."""
+    from v2ecoli.core import save_sim_input
     from v2ecoli.processes.parca.data_loader import (
         hydrate_sim_data_from_state, load_parca_state,
     )

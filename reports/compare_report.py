@@ -225,13 +225,13 @@ def _build_network_data(composite, model_key):
         return None
 
     if model_key == 'baseline':
-        from v2ecoli.generate import build_execution_layers, DEFAULT_FEATURES
+        from v2ecoli.composites.baseline import build_execution_layers, DEFAULT_FEATURES
     elif model_key == 'departitioned':
-        from v2ecoli.generate_departitioned import (
+        from v2ecoli.composites.departitioned import (
             build_execution_layers, DEFAULT_FEATURES,
         )
     elif model_key == 'reconciled':
-        from v2ecoli.generate_reconciled import (
+        from v2ecoli.composites.reconciled import (
             build_execution_layers, DEFAULT_FEATURES,
         )
     else:
@@ -370,17 +370,8 @@ def _run_one_model(args):
     model_key, cache_dir, seed, duration, snapshot_interval = args
     import warnings; warnings.filterwarnings('ignore')
 
-    if model_key == 'baseline':
-        from v2ecoli.composite import make_composite
-        composite = make_composite(cache_dir=cache_dir, seed=seed)
-    elif model_key == 'departitioned':
-        from v2ecoli.composite_departitioned import make_departitioned_composite
-        composite = make_departitioned_composite(cache_dir=cache_dir, seed=seed)
-    elif model_key == 'reconciled':
-        from v2ecoli.composite_reconciled import make_reconciled_composite
-        composite = make_reconciled_composite(cache_dir=cache_dir, seed=seed)
-    else:
-        raise ValueError(f'Unknown model: {model_key}')
+    from v2ecoli import build_composite
+    composite = build_composite(model_key, cache_dir=cache_dir, seed=seed)
 
     n_steps = len(composite.step_paths)
     label = MODELS[model_key]['label']

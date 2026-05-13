@@ -14,10 +14,10 @@ DURATION = 60.0
 V2ECOLI_SCRIPT = f"""
 import time, json, os
 os.chdir('/Users/eranagmon/code/v2ecoli')
-from v2ecoli.composite import make_composite
+from v2ecoli import build_composite
 
 t0 = time.time()
-composite = make_composite(cache_dir='out/cache', seed=0)
+composite = build_composite("baseline", cache_dir='out/cache', seed=0)
 load_time = time.time() - t0
 
 t0 = time.time()

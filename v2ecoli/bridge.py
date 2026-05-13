@@ -29,7 +29,6 @@ import math
 import os
 import traceback
 
-import dill
 import numpy as np
 from process_bigraph import Process, Composite
 
@@ -65,31 +64,17 @@ class EcoliWCM(Process):
 
     def _build_composite(self):
         """Lazily construct the internal v2ecoli Composite with bridge."""
-        from v2ecoli.composite import _build_core
-        from v2ecoli.generate import build_document
-        from v2ecoli.cache import load_initial_state
+        from v2ecoli.core import build_core
+        from v2ecoli.composites.baseline import baseline
         # Import types to trigger resolve dispatch registration
         import v2ecoli.types  # noqa: F401
 
         cache_dir = self.config.get('cache_dir', '') or 'out/cache'
         seed = int(self.config.get('seed', 0))
 
-        internal_core = _build_core()
+        internal_core = build_core()
 
-        # Build from cache
-        initial_state = load_initial_state(
-            os.path.join(cache_dir, 'initial_state.json'))
-        with open(os.path.join(cache_dir, 'sim_data_cache.dill'), 'rb') as f:
-            cache = dill.load(f)
-
-        document = build_document(
-            initial_state=initial_state,
-            configs=cache['configs'],
-            unique_names=cache['unique_names'],
-            dry_mass_inc_dict=cache.get('dry_mass_inc_dict', {}),
-            core=internal_core,
-            seed=seed,
-        )
+        document = baseline(core=internal_core, seed=seed, cache_dir=cache_dir)
 
         # Use the full document directly — preserves agents wrapper.
         # The division step's '..' wire to parent agents will resolve to

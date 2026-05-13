@@ -51,8 +51,8 @@ def test_baseline_sustained_growth_500s():
     realtime) but CI runners are ~3-5× slower, so we need headroom over
     the global 120 s cap. 600 s is still well below the refire-loop
     signature (>15 min wall per sim-second)."""
-    from v2ecoli.composite import make_composite
-    composite = make_composite(cache_dir=CACHE_DIR, seed=0)
+    from v2ecoli import build_composite
+    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=0)
     m0 = _dry_mass(composite)
     composite.run(500)
     m1 = _dry_mass(composite)
@@ -67,8 +67,8 @@ def test_baseline_sustained_growth_500s():
 def test_baseline_chromosome_replication_initiates():
     """Chromosome replication must initiate by 1500s (~25 min). The initial
     oriC count is 1; once replication initiates it becomes 2."""
-    from v2ecoli.composite import make_composite
-    composite = make_composite(cache_dir=CACHE_DIR, seed=0)
+    from v2ecoli import build_composite
+    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=0)
     assert _n_oric(composite) == 1, (
         f'Expected initial oriC count = 1, got {_n_oric(composite)}')
     composite.run(1500)

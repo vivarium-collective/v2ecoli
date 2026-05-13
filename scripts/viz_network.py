@@ -26,7 +26,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from v2ecoli.viz import build_graph, write_outputs  # noqa: E402
+from v2ecoli.visualizations._helpers import build_graph, write_outputs  # noqa: E402
 
 
 OUT_DIR = REPO_ROOT / 'out' / 'viz'

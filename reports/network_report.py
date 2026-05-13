@@ -1,98 +1,87 @@
 """Standalone composition-diagram viewer for a v2ecoli composite.
 
-Loads one architecture (baseline by default), builds the execution layers,
-extracts the composition graph via ``v2ecoli.viz.build_graph``, writes an
-HTML page with the interactive Cytoscape network, and opens it.
+Loads one architecture, builds the execution layers, extracts the
+composition graph, and renders an HTML page with the interactive Cytoscape
+network. The rendering is owned by
+``v2ecoli.visualizations.network.NetworkVisualization``; this script handles
+CLI args + composite construction + writing the HTML.
 
 Usage:
     python reports/network_report.py                          # baseline (default)
     python reports/network_report.py --model departitioned
     python reports/network_report.py --model reconciled
     python reports/network_report.py --model baseline --no-open
-    python reports/network_report.py --output out/network_baseline.html
+    python reports/network_report.py --out out/network_baseline.html
 """
 
-import os
-import sys
 import argparse
+import os
 import subprocess
+import sys
 import warnings
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 MODELS = {
-    'baseline': {
-        'layers': 'v2ecoli.composites.baseline',
-        'label': 'Baseline (partitioned)',
-    },
-    'departitioned': {
-        'layers': 'v2ecoli.composites.departitioned',
-        'label': 'Departitioned (no allocator)',
-    },
-    'reconciled': {
-        'layers': 'v2ecoli.composites.reconciled',
-        'label': 'Reconciled (grouped allocator)',
-    },
+    "baseline":      "Baseline (partitioned)",
+    "departitioned": "Departitioned",
+    "reconciled":    "Reconciled",
 }
 
 
-def main():
-    parser = argparse.ArgumentParser(description='v2ecoli composition-diagram viewer')
-    parser.add_argument('--model', choices=list(MODELS), default='baseline',
-                        help='which architecture to visualize')
-    parser.add_argument('--cache', default='out/cache',
-                        help='simdata cache directory')
-    parser.add_argument('--seed', type=int, default=0)
-    parser.add_argument('--output', default=None,
-                        help='output HTML path (default: out/network_<model>.html)')
-    parser.add_argument('--no-open', action='store_true',
-                        help='skip opening the report in a browser')
+def _build_layers(model: str) -> list[list[str]]:
+    """Build the execution-layer ordering for the chosen architecture."""
+    if model == "baseline":
+        from v2ecoli.composites.baseline import build_execution_layers, DEFAULT_FEATURES
+        return build_execution_layers(DEFAULT_FEATURES)
+    if model == "departitioned":
+        from v2ecoli.composites.departitioned import build_execution_layers, DEFAULT_FEATURES
+        return build_execution_layers(DEFAULT_FEATURES)
+    if model == "reconciled":
+        from v2ecoli.composites.reconciled import build_execution_layers, DEFAULT_FEATURES
+        return build_execution_layers(DEFAULT_FEATURES)
+    raise ValueError(f"unknown model: {model!r}")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model", choices=MODELS.keys(), default="baseline")
+    parser.add_argument("--out", default=None,
+                        help="Output HTML path (default: out/reports/network_<model>.html)")
+    parser.add_argument("--no-open", action="store_true")
+    parser.add_argument("--seed", type=int, default=0,
+                        help="RNG seed (default: 0)")
+    parser.add_argument("--cache-dir", default="out/cache",
+                        help="ParCa cache directory (default: out/cache)")
     args = parser.parse_args()
 
-    spec = MODELS[args.model]
-
-    import importlib
-    layers_mod = importlib.import_module(spec['layers'])
-    build_execution_layers = layers_mod.build_execution_layers
-    DEFAULT_FEATURES = layers_mod.DEFAULT_FEATURES
-
     from v2ecoli import build_composite
-    from v2ecoli.viz import build_graph, render_html
+    from v2ecoli.visualizations._helpers import build_graph
+    from v2ecoli.visualizations.network import NetworkVisualization
 
-    print(f'Building {args.model} composite ...')
-    composite = build_composite(args.model, cache_dir=args.cache, seed=args.seed)
-    layers = build_execution_layers(DEFAULT_FEATURES)
+    composite = build_composite(args.model, seed=args.seed, cache_dir=args.cache_dir)
+    layers = _build_layers(args.model)
+    spec = build_graph(composite, layers)
+    spec["architecture"] = args.model
 
-    print('Extracting composition graph ...')
-    data = build_graph(composite, layers)
+    out_path = args.out or f"out/reports/network_{args.model}.html"
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
-    n_proc = sum(1 for n in data['nodes'] if n['data']['kind'] == 'process')
-    n_store = sum(1 for n in data['nodes'] if n['data']['kind'] == 'store')
-    n_edges = len(data['edges'])
-    title = f'v2ecoli · {spec["label"]}'
-    subtitle = f'{n_proc} processes · {n_store} stores · {n_edges} edges'
-
-    output = args.output or f'out/network_{args.model}.html'
-    os.makedirs(os.path.dirname(output) or '.', exist_ok=True)
-    with open(output, 'w') as f:
-        f.write(render_html(data, title, subtitle))
-
-    # Mirror to docs/ so GitHub Pages stays in sync.
-    import shutil
-    docs_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'docs')
-    if os.path.isdir(docs_dir):
-        shutil.copy2(output, os.path.join(
-            docs_dir, f'network_{args.model}.html'))
-
-    print(f'Wrote {output}')
-    print(f'  {subtitle}')
-
-    if not args.no_open:
-        subprocess.run(['open', output], capture_output=True)
+    viz = NetworkVisualization(
+        config={
+            "title": f"v2ecoli network — {MODELS[args.model]}",
+            "subtitle": args.model,
+        },
+        core=composite.core,
+    )
+    result = viz.update({"composite_spec": spec})
+    with open(out_path, "w") as f:
+        f.write(result["html"])
+    print(f"wrote {out_path}")
+    if not args.no_open and sys.platform == "darwin":
+        subprocess.Popen(["open", out_path])
 
 
-if __name__ == '__main__':
-    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if __name__ == "__main__":
     main()

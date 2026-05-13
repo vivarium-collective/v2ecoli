@@ -6,6 +6,6 @@ discovery. After ``import v2ecoli``, all Visualization Steps are
 auto-registered in any ``allocate_core()``'s ``link_registry``.
 """
 
-from v2ecoli.visualizations import network  # noqa: F401
+from v2ecoli.visualizations import network, benchmark  # noqa: F401
 
-__all__: list[str] = ["network"]
+__all__: list[str] = ["network", "benchmark"]

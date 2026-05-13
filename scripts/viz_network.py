@@ -35,12 +35,12 @@ OUT_DIR = REPO_ROOT / 'out' / 'viz'
 # Architecture registry: name -> (composite_factory, layer_builder, title_prefix)
 def _load_arch(name: str):
     if name == 'baseline':
-        from v2ecoli.composite import make_composite
-        from v2ecoli.generate import build_execution_layers, DEFAULT_FEATURES
+        from v2ecoli import build_composite
+        from v2ecoli.composites.baseline import build_execution_layers, DEFAULT_FEATURES
         return {
-            'factory': lambda cache_dir, features: make_composite(
+            'factory': lambda cache_dir, features: build_composite(
+                "baseline",
                 cache_dir=cache_dir,
-                features=features or DEFAULT_FEATURES,
             ),
             'layer_builder': build_execution_layers,
             'default_features': DEFAULT_FEATURES,
@@ -48,12 +48,11 @@ def _load_arch(name: str):
             'name': 'baseline_network',
         }
     if name == 'departitioned':
-        from v2ecoli.composite_departitioned import make_departitioned_composite
-        from v2ecoli.generate_departitioned import (
-            build_execution_layers, DEFAULT_FEATURES,
-        )
+        from v2ecoli import build_composite
+        from v2ecoli.composites.departitioned import build_execution_layers, DEFAULT_FEATURES
         return {
-            'factory': lambda cache_dir, features: make_departitioned_composite(
+            'factory': lambda cache_dir, features: build_composite(
+                "departitioned",
                 cache_dir=cache_dir,
             ),
             'layer_builder': build_execution_layers,
@@ -62,12 +61,11 @@ def _load_arch(name: str):
             'name': 'departitioned_network',
         }
     if name == 'reconciled':
-        from v2ecoli.composite_reconciled import make_reconciled_composite
-        from v2ecoli.generate_reconciled import (
-            build_execution_layers, DEFAULT_FEATURES,
-        )
+        from v2ecoli import build_composite
+        from v2ecoli.composites.reconciled import build_execution_layers, DEFAULT_FEATURES
         return {
-            'factory': lambda cache_dir, features: make_reconciled_composite(
+            'factory': lambda cache_dir, features: build_composite(
+                "reconciled",
                 cache_dir=cache_dir,
             ),
             'layer_builder': build_execution_layers,

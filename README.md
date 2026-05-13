@@ -73,7 +73,7 @@ A static [`models/parca.pbg`](models/parca.pbg) (~16 KB) captures the
 same 9-Step pipeline as a process-bigraph JSON document — addresses +
 port wiring, no fitted data — for tooling that wants to inspect the
 pipeline shape without importing v2ecoli.  Regenerated automatically
-by `python reports/workflow_report.py` alongside `models/partitioned.pbg`.
+by `python reports/workflow_report.py` alongside `models/baseline.pbg`.
 
 ### Using the fitted `sim_data`
 
@@ -211,7 +211,7 @@ python3 reports/workflow_report.py
 # Colony simulation (1 wc-ecoli + N surrogates)
 python3 reports/colony_report.py --duration 45 --n-adder 5
 
-# Partitioned vs departitioned architecture comparison (42 min)
+# Baseline vs departitioned architecture comparison (42 min)
 python3 reports/compare_report.py
 
 # Benchmark comparison
@@ -233,8 +233,8 @@ python3 reports/v1_v2_report.py --duration 2500
 ```
 v2ecoli/
 ├── v2ecoli/
-│   ├── composite.py        # make_composite() entry point
-│   ├── generate.py         # build_document(), execution layers
+│   ├── __init__.py         # build_composite() entry point
+│   ├── composites/         # baseline, departitioned, reconciled architectures
 │   ├── bridge.py           # EcoliWCM: whole-cell model as Process with bridge
 │   ├── colony.py           # make_colony() for multi-cell simulations
 │   ├── processes/          # 15 biological processes (from vEcoli)
@@ -245,11 +245,11 @@ v2ecoli/
 │   ├── workflow_report.py        # single cell lifecycle report
 │   ├── multigeneration_report.py # N-generation single lineage report
 │   ├── colony_report.py          # colony simulation report
-│   ├── compare_report.py         # partitioned vs departitioned comparison
+│   ├── compare_report.py         # baseline vs departitioned vs reconciled comparison
 │   ├── network_report.py         # per-architecture Cytoscape diagram
 │   ├── benchmark_report.py       # v2ecoli vs vEcoli benchmark
 │   └── v1_v2_report.py           # three-way engine comparison
 ├── models/
-│   └── partitioned.pbg     # serialized model document
+│   └── baseline.pbg        # serialized model document
 └── docs/                   # GitHub Pages reports
 ```

@@ -27,13 +27,43 @@ cd v2ecoli
 uv sync
 ```
 
-`uv sync` provisions Python 3.12.12, installs all dependencies (vEcoli,
+`uv sync` provisions Python 3.12, installs all dependencies (vEcoli,
 process-bigraph, bigraph-schema, multi-cell), and compiles the three
 vendored Cython extensions automatically.  The fitted `sim_data` ships
 pre-computed at [`models/parca/parca_state.pkl.gz`](models/parca/) so a
 fresh clone can simulate end-to-end without re-running ParCa
 (~70 min).  See [Re-running from scratch](#re-running-from-scratch) for
 that path.
+
+### Auto-discovery via bigraph-schema
+
+v2ecoli ships a lightweight discovery layer that follows the
+[bigraph-schema package-discovery convention](https://github.com/vivarium-collective/bigraph-schema).
+
+Once v2ecoli is pip-installed (editable or otherwise) in a venv that also
+has `bigraph-schema` and `process-bigraph`, the key biological processes
+auto-register whenever a consumer calls `allocate_core()` — no manual
+`core.register_link()` calls needed:
+
+```python
+from process_bigraph import allocate_core
+
+core = allocate_core()
+print([k for k in core.link_registry if 'DnaA' in k or 'ChromosomePartition' in k])
+# ['DnaABinder', 'v2ecoli.processes.chromosome_initiation.DnaABinder',
+#  'ChromosomePartition', 'v2ecoli.processes.chromosome_initiation.ChromosomePartition']
+```
+
+Discovery-safe classes (importable without the full vEcoli / Cython stack):
+
+| Class | Module | Description |
+|---|---|---|
+| `DnaABinder` | `v2ecoli.processes.chromosome_initiation` | DnaA-oriC binding dynamics (skeleton) |
+| `ChromosomePartition` | `v2ecoli.processes.chromosome_initiation` | Chromosome partitioning at division (skeleton) |
+
+The full vEcoli-backed processes (`ChromosomeReplication`, `Metabolism`, etc.)
+are also `process_bigraph.Step` subclasses and will be discovered if the
+complete v2ecoli dependency set is available in the consumer's environment.
 
 ## Reports
 

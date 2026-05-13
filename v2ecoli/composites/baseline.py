@@ -165,9 +165,10 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -
 
     # Create a mock loader that returns configs from the cache
     class _CachedLoader:
-        def __init__(self, configs, unique_names, dry_mass_inc_dict):
+        def __init__(self, configs, unique_names, dry_mass_inc_dict, cache_dir='out/cache'):
             self._configs = configs
             self.unique_names = unique_names
+            self.cache_dir = cache_dir
 
             class _SimData:
                 class _InternalState:
@@ -190,7 +191,7 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -
                 return self._configs[name]
             raise KeyError(f'Unknown: {name}')
 
-    loader = _CachedLoader(configs, unique_names, dry_mass_inc_dict)
+    loader = _CachedLoader(configs, unique_names, dry_mass_inc_dict, cache_dir=cache_dir)
 
     # Build execution layers for the requested feature set
     execution_layers = build_execution_layers(features)

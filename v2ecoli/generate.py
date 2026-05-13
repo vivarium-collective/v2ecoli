@@ -820,6 +820,7 @@ def _get_special_step(loader, step_name, core):
         if hasattr(loader, '_configs'):
             div_config['configs'] = loader._configs
         div_config.setdefault('unique_names', getattr(loader, 'unique_names', []))
+        div_config.setdefault('cache_dir', getattr(loader, 'cache_dir', 'out/cache'))
         instance = _make_instance(Division, div_config, core)
         topo = {
             'bulk': ('bulk',),
@@ -921,9 +922,10 @@ def build_document(initial_state, configs, unique_names,
 
     # Create a mock loader that returns configs from the cache
     class _CachedLoader:
-        def __init__(self, configs, unique_names, dry_mass_inc_dict):
+        def __init__(self, configs, unique_names, dry_mass_inc_dict, cache_dir='out/cache'):
             self._configs = configs
             self.unique_names = unique_names
+            self.cache_dir = cache_dir
 
             class _SimData:
                 class _InternalState:

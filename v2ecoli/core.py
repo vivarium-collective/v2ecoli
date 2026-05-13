@@ -1,0 +1,153 @@
+"""Shared infrastructure for v2ecoli composites.
+
+Provides the bigraph-schema ``core`` (with ECOLI_TYPES registered) and the
+cache-loading/saving helpers used by every architecture's
+``@composite_generator`` function in ``v2ecoli/composites/``.
+"""
+
+from __future__ import annotations
+
+import copy
+import functools
+import os
+from typing import Any
+
+import dill
+from bigraph_schema import allocate_core
+
+from v2ecoli.cache import load_initial_state, save_initial_state, save_json
+from v2ecoli.library.cache_version import (
+    StaleCacheError,
+    verify_cache_version,
+    write_cache_version,
+)
+# Import at module load so the shared pint UnitRegistry has
+# nucleotide/amino_acid/count defined before any dill.load hydrates
+# a Quantity whose unit string references those names.
+from v2ecoli.library.unit_bridge import rebind_cache_quantities  # noqa: F401
+from v2ecoli.types import ECOLI_TYPES
+
+
+__all__ = [
+    "build_core",
+    "load_cache_bundle",
+    "save_cache",
+    "StaleCacheError",
+]
+
+
+def build_core():
+    """Create and configure a bigraph-schema core with ecoli types."""
+    core = allocate_core()
+    core.register_types(ECOLI_TYPES)
+    return core
+
+
+@functools.lru_cache(maxsize=4)
+def _load_cache_bundle_cached(cache_dir):
+    """Raw loader — memoized by cache_dir."""
+    initial_state = load_initial_state(
+        os.path.join(cache_dir, 'initial_state.json'))
+    cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
+    # Side-effectful imports (upstream vEcoli's bigraph_types) can
+    # replace pint.application_registry after unit_bridge has
+    # registered nucleotide/amino_acid/count on our ureg. Reassert
+    # the app registry so dill.load's Quantity unpickle resolves
+    # those custom units against the registry that has them.
+    import pint
+    from v2ecoli.types.quantity import ureg
+    pint.set_application_registry(ureg)
+    with open(cache_path, 'rb') as f:
+        cache = dill.load(f)
+    rebind_cache_quantities(cache)
+    return initial_state, cache
+
+
+def load_cache_bundle(cache_dir):
+    """Load initial_state.json + sim_data_cache.dill from a cache directory.
+
+    The heavy work (reading the dill, rebinding pint Quantities onto the
+    shared UnitRegistry) is memoized per ``cache_dir``; this helper returns
+    a deep copy of ``initial_state`` (which ``build_document`` mutates) and
+    the read-only ``cache`` dict by reference.
+
+    Shared helper for composite.py and the departitioned/reconciled variants.
+    Rebinds pint Quantities in the loaded cache onto the shared v2ecoli
+    UnitRegistry — pint Quantities round-tripped through dill can land on
+    a stale registry if a side-effectful import has replaced
+    pint.application_registry.
+    """
+    initial_state, cache = _load_cache_bundle_cached(cache_dir)
+    return copy.deepcopy(initial_state), cache
+
+
+def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
+    """Generate and save cache files from simData (vEcoli ParCa output).
+
+    Creates:
+    - cache_dir/initial_state.json
+    - cache_dir/sim_data_cache.dill
+    - cache_dir/metadata.json
+    - cache_dir/cache_version.json
+    """
+    from v2ecoli.library.sim_data import LoadSimData
+
+    os.makedirs(cache_dir, exist_ok=True)
+
+    loader = LoadSimData(sim_data_path=sim_data_path, seed=seed)
+
+    state = loader.generate_initial_state()
+    save_initial_state(state, os.path.join(cache_dir, 'initial_state.json'))
+
+    configs = {}
+    failed: list[tuple[str, Exception]] = []
+    for name in [
+        'post-division-mass-listener', 'ecoli-mass-listener', 'media_update',
+        'exchange_data', 'ecoli-tf-unbinding', 'ecoli-tf-binding',
+        'ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation',
+        'ecoli-transcript-initiation', 'ecoli-polypeptide-initiation',
+        'ecoli-chromosome-replication', 'ecoli-protein-degradation',
+        'ecoli-rna-degradation', 'ecoli-complexation',
+        'ecoli-transcript-elongation', 'ecoli-polypeptide-elongation',
+        'ecoli-chromosome-structure', 'ecoli-metabolism',
+        'RNA_counts_listener', 'rna_synth_prob_listener',
+        'monomer_counts_listener', 'dna_supercoiling_listener',
+        'ribosome_data_listener', 'rnap_data_listener',
+        'unique_molecule_counts', 'allocator',
+    ]:
+        try:
+            configs[name] = loader.get_config_by_name(name)
+        except Exception as e:  # noqa: BLE001 — surface the name+error, don't lose it
+            # Don't crash the whole cache build on one bad config: the
+            # legacy vEcoli sim_data doesn't always expose every
+            # config-getter's inputs (e.g. ``ecoli-metabolism-redux``
+            # needs redux-specific attrs).  But DO print each failure
+            # loudly — silently dropping ``ecoli-mass-listener`` /
+            # ``ecoli-metabolism`` produces a cache that crashes the
+            # online sim's Equilibrium step with a divide-by-zero on
+            # ``listeners.mass.cell_mass``, which is obscure to debug.
+            failed.append((name, e))
+    if failed:
+        print(f"  save_cache: {len(failed)} config(s) failed to build and "
+              f"were omitted from the cache:")
+        for name, exc in failed:
+            print(f"    - {name}: {type(exc).__name__}: {exc}")
+
+    unique_names = list(
+        loader.sim_data.internal_state.unique_molecule
+        .unique_molecule_definitions.keys())
+
+    dry_mass_inc = getattr(loader.sim_data, 'expectedDryMassIncreaseDict', {})
+
+    cache = {
+        'configs': configs,
+        'unique_names': unique_names,
+        'dry_mass_inc_dict': dry_mass_inc,
+    }
+    cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
+    with open(cache_path, 'wb') as f:
+        dill.dump(cache, f)
+
+    save_json({'unique_names': unique_names}, os.path.join(cache_dir, 'metadata.json'))
+    write_cache_version(cache_dir)
+    print(f"Cache saved to {cache_dir}")

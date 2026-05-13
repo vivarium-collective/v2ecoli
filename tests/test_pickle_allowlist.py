@@ -35,6 +35,8 @@ BANNED = frozenset({'pickle', 'dill', 'cloudpickle'})
 ALLOWLIST: dict[str, str] = {
     'composite.py':
         'loads ParCa sim_data_cache.dill (ParCa cache — AGENTS.md:114 exception)',
+    'core.py':
+        'shared cache helpers extracted from composite.py — same ParCa dill exception',
     'bridge.py':
         'loads ParCa sim_data_cache.dill',
     'library/sim_data.py':

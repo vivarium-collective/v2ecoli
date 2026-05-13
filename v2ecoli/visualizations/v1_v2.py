@@ -14,10 +14,6 @@ import warnings
 from html import escape
 from typing import Any
 
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-
 warnings.filterwarnings("ignore")
 
 from pbg_superpowers.visualization import Visualization
@@ -49,6 +45,7 @@ _TH = 'style="padding:8px 12px;text-align:left;border:1px solid #e2e8f0;backgrou
 # ---------------------------------------------------------------------------
 
 def _fig_to_b64(fig) -> str:
+    import matplotlib.pyplot as plt  # lazy — only imported when rendering
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=120, bbox_inches="tight")
     plt.close(fig)
@@ -58,6 +55,7 @@ def _fig_to_b64(fig) -> str:
 
 def _plot_comparison(datasets: dict, metric: str, ylabel: str, title: str) -> str:
     """Single metric overlay plot for all available engines. Returns base64 PNG."""
+    import matplotlib.pyplot as plt  # lazy — only imported when rendering
     fig, ax = plt.subplots(figsize=(10, 4))
     for key, label, color, ls in _ENGINES:
         snaps = datasets.get(key, {}).get("snapshots", [])
@@ -76,6 +74,7 @@ def _plot_comparison(datasets: dict, metric: str, ylabel: str, title: str) -> st
 
 def _plot_side_by_side(datasets: dict, metrics: list, ylabel: str, title: str) -> str:
     """Side-by-side panels for each engine showing multiple metrics. Returns base64 PNG."""
+    import matplotlib.pyplot as plt  # lazy — only imported when rendering
     active = [(k, l, c, ls) for k, l, c, ls in _ENGINES if datasets.get(k, {}).get("snapshots")]
     n = max(len(active), 1)
     fig, axes = plt.subplots(1, n, figsize=(7 * n, 5), sharey=True, squeeze=False)
@@ -136,6 +135,9 @@ def _render_comparison_html(datasets: dict, duration: float, title: str) -> str:
     dicts with at least a ``"snapshots"`` list.  Each snapshot is a flat dict
     with numeric fields (``time``, ``dry_mass``, ``cell_mass``, etc.).
     """
+    # Lazy import: matplotlib cold-import is ~100ms; only pay it when rendering.
+    import matplotlib
+    matplotlib.use("Agg")  # headless backend — required for HTML embed
     intervals = [t for t in [0, 60, 300, 600, 1200, 1800, 2400] if t <= duration]
 
     # Generate plots only when there is at least some data.

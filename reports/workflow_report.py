@@ -17,24 +17,21 @@ Pipeline Steps:
 Usage:
     python reports/workflow_report.py              # run full pipeline
     python reports/workflow_report.py --clean      # clear cache and re-run
+
+Rendering has been migrated to WorkflowVisualization (v2ecoli/visualizations/workflow.py).
+This wrapper keeps all pipeline orchestration and dispatches to the Step for HTML.
 """
 
 import os
-import io
 import re
 import sys
 import json
 import time
-import base64
-import html as html_lib
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import dill
 import numpy as np
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
 from contextlib import chdir
 
@@ -144,575 +141,6 @@ def load_state_data(step_name):
 
 
 # ---------------------------------------------------------------------------
-# Plotting Functions
-# ---------------------------------------------------------------------------
-
-def fig_to_b64(fig):
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
-    plt.close(fig)
-    buf.seek(0)
-    return base64.b64encode(buf.read()).decode('utf-8')
-
-
-MASS_KEYS = {
-    'Protein': 'protein_mass', 'tRNA': 'tRna_mass', 'rRNA': 'rRna_mass',
-    'mRNA': 'mRna_mass', 'DNA': 'dna_mass', 'Small Mol': 'smallMolecule_mass',
-    'Dry Mass': 'dry_mass',
-}
-COLORS = ['#e41a1c', '#377eb8', '#4daf4a', '#984ea3', '#ff7f00', '#ffff33', '#a65628']
-
-
-def plot_mass(history, title=''):
-    if not history or len(history) < 2:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.text(0.5, 0.5, 'No data', ha='center', va='center')
-        return fig_to_b64(fig)
-
-    times = np.array([s.get('global_time', 0) for s in history])
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-
-    for i, (label, key) in enumerate(MASS_KEYS.items()):
-        vals = np.array([s.get('listeners', {}).get('mass', {}).get(key, 0) for s in history])
-        if len(vals) > 0 and vals[0] > 0:
-            axes[0].plot(times / 60, vals / vals[0], color=COLORS[i], lw=1.5, label=label)
-            axes[1].plot(times / 60, vals, color=COLORS[i], lw=1.5, label=label)
-
-    axes[0].set_xlabel('Time (min)')
-    axes[0].set_ylabel('Fold change')
-    axes[0].set_title('Fold Change (normalized to t=0)')
-    axes[0].legend(fontsize=7)
-    axes[0].grid(True, alpha=0.15)
-
-    axes[1].set_xlabel('Time (min)')
-    axes[1].set_ylabel('Mass (fg)')
-    axes[1].set_title('Absolute Mass')
-    axes[1].legend(fontsize=7)
-    axes[1].grid(True, alpha=0.15)
-
-    fig.suptitle(title, fontsize=13)
-    fig.tight_layout()
-    return fig_to_b64(fig)
-
-
-def plot_growth(history):
-    if not history or len(history) < 2:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.text(0.5, 0.5, 'No data', ha='center', va='center')
-        return fig_to_b64(fig)
-
-    times = np.array([s.get('global_time', 0) for s in history])
-    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
-
-    gr = np.array([s.get('listeners', {}).get('mass', {}).get('instantaneous_growth_rate', 0) for s in history])
-    vol = np.array([s.get('listeners', {}).get('mass', {}).get('volume', 0) for s in history])
-    pf = np.array([s.get('listeners', {}).get('mass', {}).get('protein_mass_fraction', 0) for s in history])
-    rf = np.array([s.get('listeners', {}).get('mass', {}).get('rna_mass_fraction', 0) for s in history])
-
-    axes[0].plot(times / 60, gr * 3600, color='#2563eb', lw=1)
-    axes[0].set_ylabel('Growth rate (1/h)')
-    axes[0].set_title('Instantaneous Growth Rate')
-
-    axes[1].plot(times / 60, vol, color='#16a34a', lw=1)
-    axes[1].set_ylabel('Volume (fL)')
-    axes[1].set_title('Cell Volume')
-
-    axes[2].plot(times / 60, pf, color='#e41a1c', lw=1, label='Protein')
-    axes[2].plot(times / 60, rf, color='#377eb8', lw=1, label='RNA')
-    axes[2].set_ylabel('Mass fraction')
-    axes[2].set_title('Mass Fractions')
-    axes[2].legend()
-
-    for ax in axes:
-        ax.set_xlabel('Time (min)')
-        ax.grid(True, alpha=0.15)
-    fig.tight_layout()
-    return fig_to_b64(fig)
-
-
-# ---------------------------------------------------------------------------
-# Bigraph Visualization
-# ---------------------------------------------------------------------------
-
-SKIP_STEPS = {'unique_update', 'global_clock', 'mark_d_period', 'division',
-              'exchange_data', 'media_update', 'post-division-mass-listener', 'emitter'}
-SKIP_PORTS = {'timestep', 'global_time', 'next_update_time', 'process'}
-BIO_COLORS = {
-    'dna': ('#FFB6C1', lambda n: 'chromosome' in n),
-    'rna': ('#ADD8E6', lambda n: any(s in n for s in ('transcript', 'rna-', 'rna_', 'RNA', 'rnap'))),
-    'protein': ('#90EE90', lambda n: any(s in n for s in ('polypeptide', 'protein', 'ribosome'))),
-    'meta': ('#FFD700', lambda n: any(s in n for s in ('metabolism', 'equilibrium', 'complexation', 'two-component'))),
-    'reg': ('#DDA0DD', lambda n: any(s in n for s in ('tf-', 'tf_'))),
-    'alloc': ('#FFA07A', lambda n: 'allocator' in n),
-    'infra': ('#E0E0E0', lambda n: any(s in n for s in ('unique_update', 'global_clock', 'emitter',
-                                                          'mark_d_period', 'division', 'exchange',
-                                                          'media_update', 'post-division'))),
-    'listen': ('#D3D3D3', lambda n: 'listener' in n),
-}
-
-
-# ---------------------------------------------------------------------------
-# Chromosome visualization
-# ---------------------------------------------------------------------------
-
-MAX_COORD = 2_320_826  # Half-genome in bp (OriC to Ter = 4,641,652 / 2)
-
-
-def _coord_to_angle(coord):
-    """Convert genome coordinate to angle on circular chromosome."""
-    frac = coord / MAX_COORD  # -1 to +1
-    return np.pi / 2 - frac * np.pi  # OriC=90deg, Ter=-90deg
-
-
-def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
-    """Draw one circular chromosome at (cx, cy) with RNAP and forks."""
-    theta = np.linspace(0, 2 * np.pi, 200)
-    ax.plot(cx + R * np.cos(theta), cy + R * np.sin(theta),
-            color='#cbd5e1', lw=3, zorder=1)
-    ax.plot(cx, cy + R, 'o', color='#10b981', ms=7, zorder=5)
-    ax.plot(cx, cy - R, 's', color='#ef4444', ms=5, zorder=5)
-
-    if rnap_coords:
-        angles = [_coord_to_angle(c) for c in rnap_coords]
-        rx = [cx + R * np.cos(a) for a in angles]
-        ry = [cy + R * np.sin(a) for a in angles]
-        ax.scatter(rx, ry, c='#3b82f6', s=3, alpha=0.3, zorder=3)
-
-    for coord in fork_coords:
-        angle = _coord_to_angle(coord)
-        fx = cx + (R + 0.08) * np.cos(angle)
-        fy = cy + (R + 0.08) * np.sin(angle)
-        ax.plot(fx, fy, '^', color='#f59e0b', ms=9, zorder=6,
-                markeredgecolor='black', markeredgewidth=0.5)
-
-
-def plot_chromosome_map(snapshot, ax, title=''):
-    """Draw chromosomes stacked vertically, each with RNAP and forks."""
-    n_chrom = max(1, snapshot.get('n_chromosomes', 1))
-    rnap_coords = snapshot.get('rnap_coords', [])
-    fork_coords = snapshot.get('fork_coords', [])
-
-    rnap_per = len(rnap_coords) // max(n_chrom, 1)
-    forks_per = 2
-
-    if n_chrom == 1:
-        R = 0.9
-        _draw_chromosome(ax, 0, 0, R, rnap_coords, fork_coords)
-        ax.set_xlim(-1.3, 1.3)
-        ax.set_ylim(-1.3, 1.3)
-    else:
-        R = 0.7
-        spacing = 2.0 * R + 0.3
-        total_h = (n_chrom - 1) * spacing
-        for ci in range(n_chrom):
-            cy = total_h / 2 - ci * spacing
-
-            r_start = ci * rnap_per
-            r_end = r_start + rnap_per if ci < n_chrom - 1 else len(rnap_coords)
-            f_start = ci * forks_per
-            f_end = min(f_start + forks_per, len(fork_coords))
-
-            _draw_chromosome(ax, 0, cy, R,
-                             rnap_coords[r_start:r_end],
-                             fork_coords[f_start:f_end])
-
-        margin = R + 0.3
-        ax.set_xlim(-margin, margin)
-        ax.set_ylim(-total_h / 2 - margin, total_h / 2 + margin)
-
-    # Legend
-    ax.plot([], [], 'o', color='#10b981', ms=7, label='OriC')
-    ax.plot([], [], 's', color='#ef4444', ms=5, label='Ter')
-    if rnap_coords:
-        ax.scatter([], [], c='#3b82f6', s=12, label=f'RNAP ({len(rnap_coords)})')
-    if fork_coords:
-        ax.plot([], [], '^', color='#f59e0b', ms=9, label=f'Replisome ({len(fork_coords)})')
-
-    ax.set_aspect('equal')
-    ax.legend(loc='upper right', fontsize=5, framealpha=0.9)
-    t = snapshot.get('time', 0)
-    chrom_label = f'{n_chrom} chr' if n_chrom > 1 else '1 chr'
-    ax.set_title(title or f"t={t:.0f}s ({chrom_label})", fontsize=9)
-    ax.axis('off')
-
-
-def plot_chromosome_state(snapshots, title=''):
-    """Plot chromosome state: circular maps at key times + timeseries."""
-    if not snapshots:
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.text(0.5, 0.5, 'No chromosome data', ha='center', va='center')
-        return fig_to_b64(fig)
-
-    times = [s['time'] for s in snapshots]
-
-    # Pick 5 representative snapshots for circular maps
-    n = len(snapshots)
-    if n >= 5:
-        indices = [0, n // 4, n // 2, 3 * n // 4, n - 1]
-    elif n >= 3:
-        indices = [0, n // 2, n - 1]
-    else:
-        indices = list(range(n))
-    indices = sorted(set(indices))
-
-    n_maps = len(indices)
-    fig = plt.figure(figsize=(max(14, n_maps * 3.2), 12))
-    fig.suptitle(title or 'Chromosome State', fontsize=14, y=0.98)
-
-    # Top row: circular chromosome maps at key timepoints
-    for i, idx in enumerate(indices):
-        ax = fig.add_subplot(2, n_maps, i + 1)
-        plot_chromosome_map(snapshots[idx], ax)
-
-    # Bottom left: fork progress + chromosome count over time
-    ax = fig.add_subplot(2, 2, 3)
-    for s in snapshots:
-        for coord in s.get('fork_coords', []):
-            ax.scatter(s['time'], coord / MAX_COORD, c='#f59e0b', s=12,
-                       alpha=0.7, zorder=3, edgecolors='black', linewidths=0.3)
-    ax.set_ylabel('Fork position (fraction of half-genome)')
-    ax.set_xlabel('Time (s)')
-    ax.set_title('Replication Fork Progress')
-    ax.set_ylim(-1.15, 1.15)
-    ax.axhline(0, color='#10b981', lw=0.8, ls='--', alpha=0.5, label='OriC')
-    ax.axhline(1, color='#ef4444', lw=0.8, ls='--', alpha=0.4, label='Ter')
-    ax.axhline(-1, color='#ef4444', lw=0.8, ls='--', alpha=0.4)
-    # Overlay chromosome count as step
-    ax2 = ax.twinx()
-    n_chroms = [s['n_chromosomes'] for s in snapshots]
-    ax2.step(times, n_chroms, where='post', color='#10b981', lw=2, alpha=0.5, label='Chromosomes')
-    ax2.set_ylabel('Chromosomes', color='#10b981', fontsize=9)
-    ax2.set_ylim(0, max(n_chroms) + 2)
-    ax2.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-    ax2.tick_params(axis='y', labelcolor='#10b981')
-    ax.legend(fontsize=7, loc='lower left')
-
-    # Bottom right: DNA mass + dry mass + division threshold
-    ax = fig.add_subplot(2, 2, 4)
-    dna = [s['dna_mass'] for s in snapshots]
-    dry = [s['dry_mass'] for s in snapshots]
-    ax.plot(times, dry, color='#f59e0b', lw=2, label='Dry mass')
-    ax.plot(times, dna, color='#8b5cf6', lw=1.5, label='DNA mass')
-    if dry:
-        ax.axhline(dry[0] * 2, color='red', lw=1, ls=':', alpha=0.4, label='~2x initial (division)')
-    ax.set_ylabel('Mass (fg)')
-    ax.set_xlabel('Time (s)')
-    ax.set_title('Mass Growth')
-    ax.legend(fontsize=7)
-
-    try:
-        plt.tight_layout()
-    except Exception:
-        plt.subplots_adjust(hspace=0.3, wspace=0.3)
-    return fig_to_b64(fig)
-
-
-def plot_single_cell_growth(snapshots, title=''):
-    """Plot growth metrics from long sim snapshots: growth rate, volume, absolute mass, fold change."""
-    if not snapshots or len(snapshots) < 2:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.text(0.5, 0.5, 'No data', ha='center', va='center')
-        return fig_to_b64(fig)
-
-    times = np.array([s['time'] for s in snapshots]) / 60  # minutes
-
-    fig, axes = plt.subplots(2, 2, figsize=(14, 9))
-    fig.suptitle(title or 'Growth Metrics', fontsize=13)
-
-    # 1. Instantaneous growth rate
-    ax = axes[0, 0]
-    gr = np.array([s.get('instantaneous_growth_rate', 0) for s in snapshots])
-    ax.plot(times, gr * 3600, color='#2563eb', lw=1)
-    ax.set_ylabel('Growth rate (1/h)')
-    ax.set_xlabel('Time (min)')
-    ax.set_title('Instantaneous Growth Rate')
-    ax.grid(True, alpha=0.15)
-
-    # 2. Cell volume
-    ax = axes[0, 1]
-    vol = np.array([s.get('volume', 0) for s in snapshots])
-    ax.plot(times, vol, color='#16a34a', lw=1.5)
-    ax.set_ylabel('Volume (fL)')
-    ax.set_xlabel('Time (min)')
-    ax.set_title('Cell Volume')
-    ax.grid(True, alpha=0.15)
-
-    # 3. Absolute mass
-    ax = axes[1, 0]
-    for (label, key), color in zip(MASS_KEYS.items(), COLORS):
-        vals = np.array([s.get(key, 0) for s in snapshots])
-        ax.plot(times, vals, color=color, lw=1.5, label=label)
-    ax.set_xlabel('Time (min)')
-    ax.set_ylabel('Mass (fg)')
-    ax.set_title('Absolute Mass')
-    ax.legend(fontsize=7)
-    ax.grid(True, alpha=0.15)
-
-    # 4. Fold change
-    ax = axes[1, 1]
-    for (label, key), color in zip(MASS_KEYS.items(), COLORS):
-        vals = np.array([s.get(key, 0) for s in snapshots])
-        if len(vals) > 0 and vals[0] > 0:
-            ax.plot(times, vals / vals[0], color=color, lw=1.5, label=label)
-    ax.set_xlabel('Time (min)')
-    ax.set_ylabel('Fold change')
-    ax.set_title('Fold Change (normalized to t=0)')
-    ax.legend(fontsize=7)
-    ax.grid(True, alpha=0.15)
-
-    fig.tight_layout()
-    return fig_to_b64(fig)
-
-
-def plot_ppgpp_dynamics(snapshots, title=''):
-    """Plot ppGpp, amino acid pools, RNA fractions, and NTP pools."""
-    if not snapshots or len(snapshots) < 2:
-        fig, ax = plt.subplots(figsize=(10, 4))
-        ax.text(0.5, 0.5, 'No ppGpp data', ha='center', va='center')
-        return fig_to_b64(fig)
-
-    times = np.array([s['time'] for s in snapshots]) / 60  # minutes
-
-    # ppGpp concentration: count / (volume_L * N_A) → uM
-    N_A = 6.022e23
-    ppgpp_counts = np.array([s.get('ppgpp_count', 0) for s in snapshots], dtype=float)
-    volumes = np.array([s.get('volume', 0) for s in snapshots], dtype=float)
-    volumes_L = np.where(volumes > 0, volumes * 1e-15, 1e-15)
-    ppgpp_uM = ppgpp_counts / (N_A * volumes_L) * 1e6
-
-    fig, axes = plt.subplots(2, 2, figsize=(14, 9))
-    fig.suptitle(title or 'ppGpp & Metabolic Dynamics', fontsize=13)
-
-    # 1. ppGpp concentration
-    ax = axes[0, 0]
-    ax.plot(times, ppgpp_uM, color='#dc2626', lw=1.5)
-    ax.set_xlabel('Time (min)')
-    ax.set_ylabel('ppGpp (μM)')
-    ax.set_title('ppGpp Concentration')
-    ax.grid(True, alpha=0.15)
-
-    # 2. Amino acid pool (individual AA counts)
-    ax = axes[0, 1]
-    # Collect all AA IDs from the first snapshot that has data
-    aa_ids = []
-    for s in snapshots:
-        ac = s.get('aa_counts', {})
-        if ac:
-            aa_ids = sorted(ac.keys())
-            break
-    if aa_ids:
-        cmap = plt.cm.get_cmap('tab20', len(aa_ids))
-        has_data = False
-        for i, aa_id in enumerate(aa_ids):
-            counts = np.array([s.get('aa_counts', {}).get(aa_id, 0) for s in snapshots], dtype=float)
-            if counts.max() > 0:
-                has_data = True
-            label = aa_id.replace('[c]', '')
-            ax.plot(times, counts / 1e3, color=cmap(i), lw=0.8, label=label)
-        if has_data:
-            ax.set_ylabel('Counts (thousands)')
-            ax.legend(fontsize=5, ncol=3, loc='upper left',
-                      bbox_to_anchor=(0, 1), framealpha=0.7)
-        else:
-            ax.text(0.5, 0.5, 'No AA data', ha='center', va='center', transform=ax.transAxes)
-    else:
-        ax.text(0.5, 0.5, 'No AA data', ha='center', va='center', transform=ax.transAxes)
-    ax.set_xlabel('Time (min)')
-    ax.set_title('Amino Acid Pool')
-    ax.grid(True, alpha=0.15)
-
-    # 3. RNA mass fractions (rRNA, tRNA, mRNA as fraction of total RNA)
-    ax = axes[1, 0]
-    rRNA = np.array([s.get('rRna_mass', 0) for s in snapshots])
-    tRNA = np.array([s.get('tRna_mass', 0) for s in snapshots])
-    mRNA = np.array([s.get('mRna_mass', 0) for s in snapshots])
-    total_rna = rRNA + tRNA + mRNA
-    total_rna = np.where(total_rna > 0, total_rna, 1)
-    ax.stackplot(times, rRNA / total_rna, tRNA / total_rna, mRNA / total_rna,
-                 labels=['rRNA', 'tRNA', 'mRNA'],
-                 colors=['#2563eb', '#16a34a', '#f59e0b'], alpha=0.7)
-    ax.set_xlabel('Time (min)')
-    ax.set_ylabel('Fraction of total RNA')
-    ax.set_title('RNA Composition')
-    ax.set_ylim(0, 1)
-    ax.legend(fontsize=8, loc='center right')
-    ax.grid(True, alpha=0.15)
-
-    # 4. NTP pools
-    ax = axes[1, 1]
-    ntp_colors = {'ATP[c]': '#dc2626', 'GTP[c]': '#2563eb',
-                  'CTP[c]': '#16a34a', 'UTP[c]': '#f59e0b'}
-    has_ntp = False
-    for ntp_name, color in ntp_colors.items():
-        counts = np.array([s.get('ntp_counts', {}).get(ntp_name, 0)
-                          for s in snapshots], dtype=float)
-        if counts.max() > 0:
-            label = ntp_name.replace('[c]', '')
-            ax.plot(times, counts / 1e6, color=color, lw=1.5, label=label)
-            has_ntp = True
-    if has_ntp:
-        ax.legend(fontsize=8)
-        ax.set_ylabel('Counts (millions)')
-    else:
-        ax.text(0.5, 0.5, 'No NTP data', ha='center', va='center', transform=ax.transAxes)
-    ax.set_xlabel('Time (min)')
-    ax.set_title('NTP Pools')
-    ax.grid(True, alpha=0.15)
-
-    fig.tight_layout()
-    return fig_to_b64(fig)
-
-
-def plot_lifecycle_comparison(lifecycle_meta):
-    """Plot v1 vs v2 lifecycle comparison: mass, chromosomes, forks, RNAP."""
-    v1_snaps = lifecycle_meta.get('v1_snapshots', [])
-    v2_snaps = lifecycle_meta.get('v2_snapshots', [])
-
-    if not v1_snaps and not v2_snaps:
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.text(0.5, 0.5, 'No lifecycle data', ha='center', va='center')
-        return fig_to_b64(fig)
-
-    fig, axes = plt.subplots(3, 2, figsize=(14, 12))
-    fig.suptitle('v1 vs v2 Lifecycle Comparison', fontsize=14, y=0.98)
-
-    def get_ts(snaps, key):
-        return [s['time'] for s in snaps], [s.get(key, 0) for s in snaps]
-
-    # 1. Dry mass
-    ax = axes[0, 0]
-    if v1_snaps:
-        t, v = get_ts(v1_snaps, 'dry_mass')
-        ax.plot(t, v, 'b-', lw=1.5, alpha=0.8, label='v1')
-    if v2_snaps:
-        t, v = get_ts(v2_snaps, 'dry_mass')
-        ax.plot(t, v, 'r--', lw=1.5, alpha=0.8, label='v2')
-    ax.set_ylabel('Dry mass (fg)')
-    ax.set_xlabel('Time (s)')
-    ax.set_title('Dry Mass')
-    ax.legend(fontsize=8)
-
-    # 2. DNA mass
-    ax = axes[0, 1]
-    if v1_snaps:
-        t, v = get_ts(v1_snaps, 'dna_mass')
-        ax.plot(t, v, 'b-', lw=1.5, alpha=0.8, label='v1')
-    if v2_snaps:
-        t, v = get_ts(v2_snaps, 'dna_mass')
-        ax.plot(t, v, 'r--', lw=1.5, alpha=0.8, label='v2')
-    ax.set_ylabel('DNA mass (fg)')
-    ax.set_xlabel('Time (s)')
-    ax.set_title('DNA Mass')
-    ax.legend(fontsize=8)
-
-    # 3. Chromosome count
-    ax = axes[1, 0]
-    if v1_snaps:
-        t, v = get_ts(v1_snaps, 'n_chromosomes')
-        ax.step(t, v, 'b-', where='post', lw=2, alpha=0.8, label='v1')
-    if v2_snaps:
-        t, v = get_ts(v2_snaps, 'n_chromosomes')
-        ax.step(t, v, 'r--', where='post', lw=2, alpha=0.8, label='v2')
-    ax.set_ylabel('Chromosomes')
-    ax.set_xlabel('Time (s)')
-    ax.set_title('Chromosome Count')
-    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-    ax.legend(fontsize=8)
-
-    # 4. Replication fork coordinates
-    ax = axes[1, 1]
-    for snaps, color, label in [(v1_snaps, '#3b82f6', 'v1'), (v2_snaps, '#ef4444', 'v2')]:
-        for s in snaps:
-            for coord in s.get('fork_coords', []):
-                ax.scatter(s['time'], coord / MAX_COORD, c=color, s=6, alpha=0.4)
-        if snaps:
-            ax.scatter([], [], c=color, s=20, label=label)  # legend entry
-    ax.set_ylabel('Fork position (frac genome)')
-    ax.set_xlabel('Time (s)')
-    ax.set_title('Replication Forks')
-    ax.set_ylim(-1.15, 1.15)
-    ax.axhline(0, color='gray', lw=0.5, ls='--', alpha=0.3)
-    ax.legend(fontsize=8)
-
-    # 5. Active RNAP count
-    ax = axes[2, 0]
-    if v1_snaps:
-        t, v = get_ts(v1_snaps, 'n_rnap')
-        ax.plot(t, v, 'b-', lw=1.5, alpha=0.8, label='v1')
-    if v2_snaps:
-        t, v = get_ts(v2_snaps, 'n_rnap')
-        ax.plot(t, v, 'r--', lw=1.5, alpha=0.8, label='v2')
-    ax.set_ylabel('Active RNAP')
-    ax.set_xlabel('Time (s)')
-    ax.set_title('Active RNA Polymerases')
-    ax.legend(fontsize=8)
-
-    # 6. Number of active forks
-    ax = axes[2, 1]
-    if v1_snaps:
-        t = [s['time'] for s in v1_snaps]
-        n = [len(s.get('fork_coords', [])) for s in v1_snaps]
-        ax.step(t, n, 'b-', where='post', lw=2, alpha=0.8, label='v1')
-    if v2_snaps:
-        t = [s['time'] for s in v2_snaps]
-        n = [len(s.get('fork_coords', [])) for s in v2_snaps]
-        ax.step(t, n, 'r--', where='post', lw=2, alpha=0.8, label='v2')
-    ax.set_ylabel('Active forks')
-    ax.set_xlabel('Time (s)')
-    ax.set_title('Replication Forks (count)')
-    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
-    ax.legend(fontsize=8)
-
-    plt.tight_layout()
-    return fig_to_b64(fig)
-
-
-def make_bigraph_svg(state):
-    cell = state.get('agents', {}).get('0', state)
-    viz = {}
-    for name, edge in cell.items():
-        if not isinstance(edge, dict): continue
-        if '_type' in edge:
-            inputs = {p: w for p, w in edge.get('inputs', {}).items()
-                      if not p.startswith('_layer') and not p.startswith('_flow')}
-            outputs = {p: w for p, w in edge.get('outputs', {}).items()
-                       if not p.startswith('_layer') and not p.startswith('_flow')}
-            clean = name.replace('ecoli-', '')
-            viz[clean] = {'_type': edge['_type'], 'inputs': inputs, 'outputs': outputs}
-        elif name == 'unique' and isinstance(edge, dict):
-            viz[name] = {k: {} for k in edge.keys()}
-        elif name in ('bulk', 'listeners', 'environment', 'boundary',
-                       'request', 'allocate', 'process_state'):
-            viz[name] = {}
-
-    viz_state = {'agents': {'0': viz}}
-    prefix = ('agents', '0')
-    colors, groups = {}, {k: [] for k in BIO_COLORS}
-    for n in viz:
-        if '_type' not in viz.get(n, {}): continue
-        p = prefix + (n,)
-        for gk, (c, m) in BIO_COLORS.items():
-            if m(n): colors[p] = c; groups[gk].append(p); break
-
-    out_dir = os.path.join(WORKFLOW_DIR, 'plots')
-    os.makedirs(out_dir, exist_ok=True)
-    try:
-        plot_bigraph(viz_state, remove_process_place_edges=True,
-                     node_groups=[g for g in groups.values() if g],
-                     node_fill_colors=colors, rankdir='LR',
-                     dpi='72', port_labels=False, node_label_size='16pt',
-                     label_margin='0.05', out_dir=out_dir,
-                     filename='bigraph', file_format='svg')
-        with open(os.path.join(out_dir, 'bigraph.svg')) as f:
-            svg = f.read()
-        svg = re.sub(r'width="[^"]*pt"', '', svg, count=1)
-        svg = re.sub(r'height="[^"]*pt"', '', svg, count=1)
-        return svg
-    except Exception as e:
-        return f'<p>Failed: {html_lib.escape(str(e))}</p>'
-
-
-# ---------------------------------------------------------------------------
 # Step Diagnostics
 # ---------------------------------------------------------------------------
 
@@ -765,19 +193,11 @@ def bench_step_diagnostics(composite):
 # ---------------------------------------------------------------------------
 
 def _collect_v1_lifecycle(duration):
-    """Run v1 for the full lifecycle, extracting data from emitted listeners.
-
-    The v1 timeseries emitter captures:
-    - listeners.mass (dry_mass, dna_mass, etc.)
-    - listeners.replication_data (fork_coordinates, number_of_oric)
-    - listeners.unique_molecule_counts (full_chromosome, active_RNAP, etc.)
-    - listeners.rnap_data (active_rnap_coordinates)
-    """
+    """Run v1 for the full lifecycle, extracting data from emitted listeners."""
     try:
         if not hasattr(np, 'in1d'):
             np.in1d = np.isin
 
-        # Monkey-patch git metadata (fails outside git repos)
         import ecoli.experiments.ecoli_master_sim as _ems
         os.environ.setdefault('IMAGE_GIT_HASH', 'v2ecoli')
         if not hasattr(_ems, '_orig_get_git_diff'):
@@ -787,7 +207,6 @@ def _collect_v1_lifecycle(duration):
         saved_argv = sys.argv
         sys.argv = [sys.argv[0]]
 
-        # Find simData: check multiple locations
         sim_data_candidates = [
             'out/kb/simData.cPickle',
             os.path.join(WORKFLOW_DIR, 'simData.cPickle'),
@@ -817,7 +236,6 @@ def _collect_v1_lifecycle(duration):
         sys.argv = saved_argv
         print(f"    v1 completed in {wall_time:.0f}s")
 
-        # Extract snapshots from emitted timeseries (every SNAPSHOT_INTERVAL)
         v1_ts = sim.query()
         snapshots = []
         for t_key in sorted(v1_ts.keys()):
@@ -835,14 +253,12 @@ def _collect_v1_lifecycle(duration):
             dry_mass = float(mass.get('dry_mass', 0)) if isinstance(mass, dict) else 0
             dna_mass = float(mass.get('dna_mass', 0)) if isinstance(mass, dict) else 0
 
-            # Chromosome count from unique_molecule_counts listener
             umc = listeners.get('unique_molecule_counts', {})
             n_chrom = 0
             if isinstance(umc, dict):
                 fc_count = umc.get('full_chromosome', 0)
                 n_chrom = int(fc_count) if isinstance(fc_count, (int, float, np.integer)) else 0
 
-            # Replication fork coordinates from replication_data listener
             rd = listeners.get('replication_data', {})
             fork_coords = []
             if isinstance(rd, dict):
@@ -851,7 +267,6 @@ def _collect_v1_lifecycle(duration):
                     if isinstance(fc, (list, np.ndarray)) and len(fc) > 0:
                         fork_coords = [int(c) for c in fc]
 
-            # Active RNAP count from rnap_data listener
             rnap_data = listeners.get('rnap_data', {})
             n_rnap = 0
             if isinstance(rnap_data, dict):
@@ -958,7 +373,6 @@ def step_raw_data():
         operons_on=True, remove_rrna_operons=False,
         remove_rrff=False, stable_rrna=False)
 
-    # Walk flat directory
     flat_dir = FLAT_DIR
     n_files = 0
     total_size = 0
@@ -976,7 +390,6 @@ def step_raw_data():
             by_subdir[rel]['count'] += 1
             by_subdir[rel]['size'] += sz
 
-    # Extract stats from raw_data
     n_genes = len(raw_data.genes) if hasattr(raw_data, 'genes') else 0
     n_rnas = len(raw_data.rnas) if hasattr(raw_data, 'rnas') else 0
     n_proteins = len(raw_data.proteins) if hasattr(raw_data, 'proteins') else 0
@@ -985,7 +398,6 @@ def step_raw_data():
 
     elapsed = time.time() - t0
 
-    # Catalog individual files with type classification
     file_list = []
     for root, dirs, files in os.walk(flat_dir):
         for fn in sorted(files):
@@ -1029,20 +441,16 @@ def step_parca():
 
     print(f"  Step 2: ParCa")
 
-    # Check for existing cache or simData
     sim_data_cache = os.path.join(CACHE_DIR, 'sim_data_cache.dill')
     sim_data_path = SIM_DATA_PATH
 
     parca_ran = False
     simdata_source = 'unknown'
-    # Live sim_data populated in the fresh-hydrate branches below; lets the
-    # cache build skip the dill round-trip via save_sim_input(...).
     sim_data = None
     if os.path.exists(sim_data_cache):
         print(f"    Cache exists at {CACHE_DIR}")
         parca_time = 0.0
         cache_time = 0.0
-        # Classify by the source pickle the cache was built from, not "cache".
         if sim_data_path and os.path.normpath(sim_data_path) == os.path.normpath('out/kb/simData.cPickle'):
             simdata_source = 'vecoli_pickle'
         elif sim_data_path and os.path.exists(sim_data_path):
@@ -1053,23 +461,12 @@ def step_parca():
     elif sim_data_path and os.path.exists(sim_data_path):
         print(f"    Using existing simData at {sim_data_path}")
         parca_time = 0.0
-        # out/kb/simData.cPickle is the legacy vEcoli ParCa output;
-        # out/workflow/simData.cPickle is produced by this workflow.
         if os.path.normpath(sim_data_path) == os.path.normpath('out/kb/simData.cPickle'):
             simdata_source = 'vecoli_pickle'
         else:
             simdata_source = 'workflow_pickle'
     else:
-        # Produce simData from the merged v2ecoli.processes.parca
-        # composite.  Two paths:
-        #   (a) Fast path: hydrate the shipped 18 MB fixture at
-        #       models/parca/parca_state.pkl.gz → unwrap its
-        #       sim_data_root → dump as simData.cPickle.  ~2 s.
-        #   (b) Slow path: run the 9-Step ParCa composite from scratch.
-        #       ~70 min in fast mode.  Triggered with
-        #       --parca-rerun or when the fixture is absent.
-        fixture_path = os.path.join(
-            'models', 'parca', 'parca_state.pkl.gz')
+        fixture_path = os.path.join('models', 'parca', 'parca_state.pkl.gz')
         sim_data_path = os.path.join(WORKFLOW_DIR, 'simData.cPickle')
         os.makedirs(WORKFLOW_DIR, exist_ok=True)
 
@@ -1086,8 +483,7 @@ def step_parca():
             parca_time = time.time() - t0
             parca_ran = False
             simdata_source = 'parca_fixture'
-            print(f"    Fixture hydrated in {parca_time:.1f}s → "
-                  f"{sim_data_path}")
+            print(f"    Fixture hydrated in {parca_time:.1f}s → {sim_data_path}")
         else:
             print("    Running v2ecoli ParCa composite "
                   "(this takes ~70 min in fast mode)...")
@@ -1116,16 +512,12 @@ def step_parca():
             simdata_source = 'parca_composite'
             print(f"    ParCa composite completed in {parca_time:.1f}s")
 
-    # Generate cache files
     if not os.path.exists(sim_data_cache):
         print("    Generating cache (initial_state.json + sim_data_cache.dill)...")
         t0 = time.time()
         if sim_data is not None:
-            # Fast path — sim_data is already in memory from the fresh-hydrate
-            # branches above; skip the ~300 MB dill round-trip.
             save_sim_input(sim_data, CACHE_DIR)
         else:
-            # Legacy path — only a path-on-disk simData.cPickle is available.
             save_cache(sim_data_path, CACHE_DIR)
         cache_time = time.time() - t0
         print(f"    Cache generated in {cache_time:.1f}s")
@@ -1133,7 +525,6 @@ def step_parca():
         cache_time = 0.0
         print("    Cache already exists")
 
-    # Extract stats from cache
     stats = {}
     try:
         with open(sim_data_cache, 'rb') as f:
@@ -1144,7 +535,6 @@ def step_parca():
         stats['process_names'] = sorted(configs.keys())
         stats['n_unique_types'] = len(unique_names)
         stats['unique_types'] = unique_names
-        # Count bulk molecules from initial state
         init_state_path = os.path.join(CACHE_DIR, 'initial_state.json')
         if os.path.exists(init_state_path):
             init = load_initial_state(init_state_path)
@@ -1172,7 +562,6 @@ def step_load_model():
     step_name = 'load_model'
     meta = load_meta(step_name)
 
-    # Always build the composite (needed by later steps), but cache metadata
     print(f"  Step 3: Load Model", end='')
     t0 = time.time()
     composite = _OPTIONS['composite_factory'](cache_dir=CACHE_DIR)
@@ -1233,7 +622,6 @@ def step_single_cell():
     bulk_before = np.array(cell['bulk']['count'], copy=True)
     initial_dry_mass = float(cell.get('listeners', {}).get('mass', {}).get('dry_mass', 380))
 
-    # Keep reference to emitter instance — survives division (agent removal)
     em_edge = cell.get('emitter', {})
     emitter_instance = em_edge.get('instance') if isinstance(em_edge, dict) else None
 
@@ -1248,14 +636,12 @@ def step_single_cell():
             composite.run(chunk)
         except Exception as e:
             total_run += chunk
-            # Check if this is from the Division step or an unrelated crash
             err_str = str(e)
             if 'divide' in err_str.lower() or '_add' in err_str or '_remove' in err_str:
                 print(f"    Cell divided at ~t={total_run}s ({total_run/60:.0f}min)")
                 divided = True
                 break
             else:
-                # Non-division error — log and continue
                 import traceback
                 print(f"    Warning at ~t={total_run}s: {type(e).__name__}: {err_str[:100]}")
                 if total_run <= SNAPSHOT_INTERVAL:
@@ -1268,7 +654,6 @@ def step_single_cell():
             divided = True
             break
 
-        # Save cell state snapshot for pre-division backup
         _data_keys = {'bulk', 'unique', 'listeners', 'environment', 'boundary',
                       'global_time', 'timestep', 'divide', 'division_threshold',
                       'process_state', 'allocator_rng'}
@@ -1277,7 +662,6 @@ def step_single_cell():
 
         unique = cell.get('unique', {})
 
-        # Check division readiness from live state
         fc = unique.get('full_chromosome')
         n_chrom = 0
         if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
@@ -1286,7 +670,6 @@ def step_single_cell():
         mass = cell.get('listeners', {}).get('mass', {})
         dry_mass = float(mass.get('dry_mass', 0))
 
-        # Check mass threshold for division readiness reporting
         threshold = cell.get('division_threshold', float('inf'))
         if isinstance(threshold, str):
             threshold = float('inf')
@@ -1300,13 +683,11 @@ def step_single_cell():
             print(f"    t={total_run}s ({total_run/60:.0f}min): {n_chrom} chroms, "
                   f"dry_mass={dry_mass:.0f}/{thresh_str}, forks={fork_count}")
 
-    # Extract snapshot data from emitter history (saved reference survives division)
     emitter_history = emitter_instance.history if emitter_instance else []
 
-    # Build bulk molecule indexes once for efficient extraction
     ppgpp_idx = None
-    aa_idxs = {}  # aa_id -> idx
-    ntp_idxs = {}  # name -> idx
+    aa_idxs = {}
+    ntp_idxs = {}
     if emitter_history:
         first_bulk = emitter_history[0].get('bulk')
         if first_bulk is not None and hasattr(first_bulk, 'dtype') and 'id' in first_bulk.dtype.names:
@@ -1320,7 +701,6 @@ def step_single_cell():
 
             ppgpp_idx = _find_idx('GUANOSINE-5DP-3DP[c]')
 
-            # Amino acid indexes (21 canonical)
             _AA_IDS = [
                 'L-ALPHA-ALANINE[c]', 'ARG[c]', 'ASN[c]', 'L-ASPARTATE[c]',
                 'CYS[c]', 'GLT[c]', 'GLN[c]', 'GLY[c]', 'HIS[c]', 'ILE[c]',
@@ -1332,7 +712,6 @@ def step_single_cell():
                 if idx is not None:
                     aa_idxs[aa_id] = idx
 
-            # NTP indexes
             for ntp in ['ATP[c]', 'GTP[c]', 'CTP[c]', 'UTP[c]']:
                 idx = _find_idx(ntp)
                 if idx is not None:
@@ -1346,7 +725,6 @@ def step_single_cell():
 
         mass = snap.get('listeners', {}).get('mass', {}) if isinstance(snap.get('listeners'), dict) else {}
 
-        # Chromosome state from emitter
         fc = snap.get('full_chromosome')
         n_chrom = 0
         if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
@@ -1373,7 +751,6 @@ def step_single_cell():
             if n_rnap > 0 and 'coordinates' in rnap.dtype.names:
                 rnap_coords = active_rnap['coordinates'].tolist()
 
-        # Bulk molecule counts
         ppgpp_count = 0
         aa_counts_dict = {}
         ntp_counts = {}
@@ -1411,7 +788,6 @@ def step_single_cell():
 
     wall_time = time.time() - t0
 
-    # After division, agent '0' may be gone — use last snapshot data
     agents = composite.state.get('agents', {})
     cell = agents.get('0')
     if cell is None:
@@ -1426,16 +802,13 @@ def step_single_cell():
     else:
         changed = 0
 
-    # Use last snapshot for final metrics
     final_snap = snapshots[-1] if snapshots else {}
 
-    # Save pre-division cell state for division test
     save_state_data(step_name, {
         'cell_state': last_cell_data,
         'global_time': final_snap.get('time', 0.0),
     })
 
-    # Save pre-division state as JSON and .pbg
     pre_div_dir = os.path.join(WORKFLOW_DIR, 'pre_division')
     os.makedirs(pre_div_dir, exist_ok=True)
     if last_cell_data and 'bulk' in last_cell_data:
@@ -1443,7 +816,6 @@ def step_single_cell():
         save_initial_state(last_cell_data, os.path.join(pre_div_dir, 'pre_division_state.json.gz'))
         print(f"    Saved pre-division state: {pre_div_dir}/pre_division_state.json.gz")
 
-    # Save .pbg snapshot of the full composite
     try:
         from v2ecoli.pbg import save_pbg
         pbg_path = os.path.join(pre_div_dir, 'pre_division.pbg')
@@ -1476,11 +848,7 @@ def step_single_cell():
 
 
 def step_v1_comparison():
-    """Step 4b: Run v1 lifecycle comparison (cached independently).
-
-    The v1 result is expensive (~40s for 2500s sim) and rarely changes.
-    It's cached in its own JSON file that survives --clean runs.
-    """
+    """Step 4b: Run v1 lifecycle comparison (cached independently)."""
     step_name = 'v1_comparison'
     meta = load_meta(step_name)
     if meta is not None:
@@ -1497,7 +865,6 @@ def step_v1_comparison():
 
     duration = single_cell_meta.get('duration', 0)
 
-    # Check for legacy v1 cache file (list of snapshots)
     v1_cache_path = os.path.join(WORKFLOW_DIR, f'v1_lifecycle_{duration}s.json')
     v1_snapshots = []
     v1_wall_time = 0
@@ -1505,7 +872,6 @@ def step_v1_comparison():
     if os.path.exists(v1_cache_path):
         with open(v1_cache_path) as f:
             cached = json.load(f)
-        # Handle both old (list) and new (dict with wall_time) formats
         if isinstance(cached, list):
             v1_snapshots = cached
         elif isinstance(cached, dict):
@@ -1520,7 +886,7 @@ def step_v1_comparison():
                 v1_snapshots = result.get('snapshots', [])
                 v1_wall_time = result.get('wall_time', 0)
             else:
-                v1_snapshots = result  # legacy list format
+                v1_snapshots = result
             if v1_snapshots:
                 with open(v1_cache_path, 'w') as f:
                     json.dump({'snapshots': v1_snapshots, 'wall_time': v1_wall_time,
@@ -1551,7 +917,6 @@ def step_division():
 
     print(f"  Step 3: Division")
 
-    # Try to load pre-division state from long sim
     prediv_state = None
     prediv_time = 0.0
     long_state_path = os.path.join(WORKFLOW_DIR, 'single_cell.dill')
@@ -1567,7 +932,6 @@ def step_division():
         except Exception as e:
             print(f"    Could not load long sim state: {e}")
 
-    # Also check the old predivision path
     if prediv_state is None:
         old_prediv = 'out/predivision.dill'
         if os.path.exists(old_prediv):
@@ -1589,19 +953,16 @@ def step_division():
         composite = _OPTIONS['composite_factory'](cache_dir=CACHE_DIR)
         cell = composite.state['agents']['0']
 
-    # Test bulk conservation
     d1_bulk, d2_bulk = divide_bulk(cell['bulk'])
     mother_count = int(cell['bulk']['count'].sum())
     d1_count = int(d1_bulk['count'].sum())
     d2_count = int(d2_bulk['count'].sum())
     conserved = (d1_count + d2_count == mother_count)
 
-    # Test full cell division
     t0 = time.time()
     d1_state, d2_state = divide_cell(cell)
     split_time = time.time() - t0
 
-    # Unique molecule counts
     unique_conservation = {}
     for name in d1_state.get('unique', {}):
         d1_arr = d1_state['unique'][name]
@@ -1617,7 +978,6 @@ def step_division():
                     'conserved': d1 + d2 == m
                 }
 
-    # Test daughter document build
     div_step = cell.get('division', {}).get('instance')
     configs = getattr(div_step, '_configs', None)
     unique_names = getattr(div_step, '_unique_names', None)
@@ -1655,7 +1015,6 @@ def step_division():
             daughter_build_time = time.time() - t0
             print(f"    Daughter build error: {e}")
 
-    # Check division-ready state
     fc = cell.get('unique', {}).get('full_chromosome')
     n_chromosomes = 0
     if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
@@ -1748,18 +1107,13 @@ def _extract_snapshots_from_emitter(composite, label=''):
 
 
 def step_daughters():
-    """Step 6: Divide pre-division cell into 2 daughters, run both for half a generation.
-
-    Builds two daughter composites from the pre-division state, runs each for
-    DAUGHTER_DURATION seconds, and extracts snapshot data from their emitters.
-    """
+    """Step 6: Divide pre-division cell into 2 daughters, run both for half a generation."""
     step_name = 'daughters'
     meta = load_meta(step_name)
     if meta is not None:
         print(f"  Step 4: Daughter Simulations (cached)")
         return meta
 
-    # Default daughter duration: half the single-cell generation time
     single_cell_meta = load_meta('single_cell') or {}
     generation_time = single_cell_meta.get('duration', 2500)
     default_dur = int(generation_time / 2)
@@ -1767,7 +1121,6 @@ def step_daughters():
     print(f"  Step 4: Daughter Simulations ({daughter_dur}s per daughter, "
           f"half generation = {default_dur}s)")
 
-    # Load pre-division state from long sim
     long_state_path = os.path.join(WORKFLOW_DIR, 'single_cell.dill')
     if not os.path.exists(long_state_path):
         print("    No pre-division state available — skipping")
@@ -1785,7 +1138,6 @@ def step_daughters():
         save_meta(step_name, meta)
         return meta
 
-    # Divide the cell
     print("    Dividing mother cell...")
     d1_state, d2_state = divide_cell(cell_data)
 
@@ -1819,7 +1171,6 @@ def step_daughters():
         final_snap = snaps[-1] if snaps else {}
         final_dry = final_snap.get('dry_mass', 0)
 
-        # Fallback: read final mass from composite state (emitter may be absent)
         if final_dry == 0:
             d_cell_post = comp.state.get('agents', {}).get('0', {})
             d_mass_post = d_cell_post.get('listeners', {}).get('mass', {})
@@ -1855,421 +1206,6 @@ def step_daughters():
     }
     save_meta(step_name, meta)
     return meta
-
-
-def plot_daughters_mass(daughters_meta, title=''):
-    """Plot both daughters' mass fold change side by side (2 subplots)."""
-    d1_snaps = daughters_meta.get('daughter_1_snapshots', [])
-    d2_snaps = daughters_meta.get('daughter_2_snapshots', [])
-
-    if not d1_snaps and not d2_snaps:
-        fig, ax = plt.subplots(figsize=(6, 4))
-        ax.text(0.5, 0.5, 'No daughters data', ha='center', va='center')
-        return fig_to_b64(fig)
-
-    fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-    fig.suptitle(title or 'Daughter Simulations — Daughter Mass', fontsize=13)
-
-    mass_components = [
-        ('dry_mass', 'Dry Mass', 'k'),
-        ('protein_mass', 'Protein', '#22c55e'),
-        ('dna_mass', 'DNA', '#8b5cf6'),
-        ('rRna_mass', 'rRNA', '#3b82f6'),
-        ('tRna_mass', 'tRNA', '#06b6d4'),
-        ('mRna_mass', 'mRNA', '#f97316'),
-        ('smallMolecule_mass', 'Small mol', '#f59e0b'),
-    ]
-
-    for ax, snaps, label in [(axes[0], d1_snaps, 'Daughter 1'),
-                              (axes[1], d2_snaps, 'Daughter 2')]:
-        if not snaps:
-            ax.text(0.5, 0.5, f'No data for {label}', ha='center', va='center')
-            ax.set_title(label)
-            continue
-
-        times = [s['time'] for s in snaps]
-        for key, comp_label, color in mass_components:
-            vals = [s.get(key, 0) for s in snaps]
-            if vals and vals[0] > 0:
-                fold = [v / vals[0] for v in vals]
-                ax.plot(times, fold, color=color, lw=1.5, label=comp_label)
-
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Fold change')
-        ax.set_title(label)
-        ax.legend(fontsize=7)
-        ax.grid(True, alpha=0.15)
-
-    plt.tight_layout()
-    return fig_to_b64(fig)
-
-
-# ---------------------------------------------------------------------------
-# HTML Report Generator
-# ---------------------------------------------------------------------------
-
-def generate_html_report(step_results, plots, network_html_rel, diagnostics,
-                         parca_network_html_rel=None):
-    """Generate the HTML report organized by pipeline step."""
-
-    try:
-        from v2ecoli.library.repro_banner import banner_html
-        banner = banner_html()
-    except Exception:
-        banner = ''
-
-    biocyc = step_results.get('biocyc', {})
-    raw = step_results['raw_data']
-    parca = step_results['parca']
-    parca_stats = parca.get('stats', {})
-    model = step_results['load_model']
-    long = step_results['single_cell']  # single cell sim results
-    div = step_results['division']
-    daughters = step_results.get('daughters', {})
-
-    def cached_badge(meta):
-        ts = meta.get('timestamp', '')
-        return f'<span class="timing">cached {ts}</span>' if ts else ''
-
-    # BioCyc file rows
-    biocyc_rows = ''
-    for fid, info in biocyc.get('files', {}).items():
-        status = info.get('status', 'unknown')
-        color = 'green' if status == 'ok' else 'red'
-        sz = f"{info.get('bytes', 0):,}" if status == 'ok' else '-'
-        biocyc_rows += f'<tr><td><code>{fid}.tsv</code></td><td>{info.get("lines", 0)}</td><td>{sz}</td><td class="{color}">{status}</td></tr>'
-
-    # File download rows (all raw files with source classification)
-    file_rows = ''
-    for fi in raw.get('file_list', []):
-        src = fi.get('source', 'curated')
-        badge = {'biocyc': 'EcoCyc API', 'modifier': 'Modifier', 'curated': 'Curated'}.get(src, src)
-        badge_color = {'biocyc': '#3b82f6', 'modifier': '#f59e0b', 'curated': '#64748b'}.get(src, '#64748b')
-        sz = fi.get('size', 0)
-        sz_str = f"{sz/1024:.0f} KB" if sz > 1024 else f"{sz} B"
-        fname = fi['name']
-        file_rows += (f'<tr><td><a href="https://github.com/vivarium-collective/v2ecoli/'
-                      f'blob/main/v2ecoli/processes/parca/reconstruction/ecoli/flat/{fname}" '
-                      f'target="_blank"><code>{fname}</code></a></td>'
-                      f'<td>{sz_str}</td>'
-                      f'<td><span style="background:{badge_color};color:white;'
-                      f'padding:1px 6px;border-radius:3px;font-size:0.75em;">{badge}</span></td></tr>')
-
-    # Division unique molecule rows
-    div_unique_rows = ''
-    for name, info in div.get('unique_conservation', {}).items():
-        ok = 'green' if info['conserved'] else 'red'
-        div_unique_rows += f"""<tr>
-          <td>{name}</td><td>{info['mother']}</td>
-          <td>{info['d1']}</td><td>{info['d2']}</td>
-          <td class="{ok}">{'Yes' if info['conserved'] else 'No'}</td></tr>"""
-
-    # Step diagnostics table
-    step_rows = ''
-    for d in diagnostics:
-        inner = f' ({d["inner_class"]})' if d['inner_class'] else ''
-        ports = ', '.join(d.get('input_ports', [])[:5])
-        if len(d.get('input_ports', [])) > 5:
-            ports += f' +{len(d["input_ports"])-5}'
-        step_rows += f"""<tr>
-          <td>{d['name']}</td>
-          <td>{d['class']}{inner}</td>
-          <td>{d['n_config_keys']}</td>
-          <td>{ports}</td>
-          <td>{d['priority']:.0f}</td>
-        </tr>"""
-
-    # Collect timing data
-    parca_time = parca.get('parca_time', 0)
-    cache_time = parca.get('cache_time', 0)
-    build_time = model.get('build_time', 0)
-    long_wall = long.get('wall_time', 0)
-    long_dur = long.get('duration', LONG_DURATION)
-    long_rate = long.get('rate', 0)
-    d1_wall = daughters.get('daughter_1', {}).get('wall_time', 0)
-    d2_wall = daughters.get('daughter_2', {}).get('wall_time', 0)
-    daughters_wall = d1_wall + d2_wall
-    daughters_dur = daughters.get('duration', 0)
-
-    report_path = os.path.join(WORKFLOW_DIR, 'workflow_report.html')
-    with open(report_path, 'w') as f:
-        f.write(f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>v2ecoli Simulation Report</title>
-<style>
-  * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-  html {{ scroll-behavior: smooth; }}
-  body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-         max-width: 1400px; margin: 0 auto; padding: 20px; background: #f8fafc; color: #1e293b; }}
-  h1 {{ font-size: 1.8em; margin: 15px 0; color: #0f172a; }}
-  h2 {{ font-size: 1.3em; margin: 25px 0 10px; color: #334155; border-bottom: 2px solid #e2e8f0; padding-bottom: 6px; }}
-  h3 {{ font-size: 1.05em; margin: 15px 0 8px; color: #475569; }}
-  .metrics {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-              gap: 8px; margin: 10px 0; }}
-  .metric {{ background: white; border-radius: 8px; padding: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }}
-  .metric .label {{ font-size: 0.7em; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; }}
-  .metric .value {{ font-size: 1.3em; font-weight: 700; margin-top: 2px; }}
-  .green {{ color: #16a34a; }} .blue {{ color: #2563eb; }} .red {{ color: #dc2626; }} .purple {{ color: #7c3aed; }}
-  .plot {{ background: white; border-radius: 8px; padding: 12px; margin: 10px 0;
-           box-shadow: 0 1px 2px rgba(0,0,0,0.08); text-align: center; }}
-  .plot img {{ max-width: 100%; }}
-  .section {{ background: white; border-radius: 8px; padding: 15px; margin: 10px 0;
-              box-shadow: 0 1px 2px rgba(0,0,0,0.08); }}
-  details {{ margin: 5px 0; }}
-  details > summary {{ cursor: pointer; font-weight: 600; color: #475569; padding: 5px 0; }}
-  details > summary:hover {{ color: #1e293b; }}
-  table {{ border-collapse: collapse; width: 100%; font-size: 0.82em; }}
-  th, td {{ border: 1px solid #e2e8f0; padding: 5px 8px; text-align: left; }}
-  th {{ background: #f1f5f9; font-weight: 600; }}
-  .bigraph-container {{ position: relative; border: 1px solid #e2e8f0; border-radius: 8px;
-              background: #fafafa; overflow: hidden; height: 700px; cursor: grab; }}
-  .bigraph-container.grabbing {{ cursor: grabbing; }}
-  .bigraph-container svg {{ position: absolute; transform-origin: 0 0; }}
-  .bigraph-controls {{ display: flex; gap: 6px; margin: 8px 0; }}
-  .bigraph-controls button {{ padding: 4px 12px; border: 1px solid #cbd5e1; border-radius: 4px;
-              background: white; cursor: pointer; font-size: 0.85em; }}
-  .bigraph-controls button:hover {{ background: #f1f5f9; }}
-  .bench-bar {{ display: flex; align-items: center; gap: 8px; margin: 3px 0; }}
-  .bench-bar .bar {{ height: 20px; border-radius: 3px; min-width: 2px; }}
-  .bench-bar .label {{ font-size: 0.8em; min-width: 100px; }}
-  .timing {{ display: inline-block; background: #dbeafe; color: #1e40af; padding: 1px 6px;
-             border-radius: 3px; font-size: 0.8em; font-weight: 500; }}
-  footer {{ margin-top: 30px; padding: 15px 0; border-top: 1px solid #e2e8f0;
-            color: #94a3b8; font-size: 0.75em; text-align: center; }}
-</style>
-</head>
-<body>
-
-{banner}
-<h1>v2ecoli Simulation Report</h1>
-<p style="color: #64748b; font-size: 0.9em;">{time.strftime('%Y-%m-%d %H:%M')} &middot;
-Simulation pipeline &middot; process-bigraph <code>Composite.run()</code></p>
-
-<div class="section">
-  <p><strong>v2ecoli</strong> is a whole-cell <em>E. coli</em> model running natively on
-  <a href="https://github.com/vivarium-collective/process-bigraph">process-bigraph</a>.
-  This report covers the <strong>simulation</strong> phase: building the online
-  model from a pre-fitted <code>sim_data</code>, running a single cell to
-  division, and continuing into daughter simulations.</p>
-  <p>The upstream <strong>ParCa (Parameter Calculator)</strong> that produces
-  <code>sim_data</code> from the raw knowledge base is covered in the separate
-  <a href="parca_workflow_report.html"><strong>ParCa Workflow Report</strong></a>.</p>
-</div>
-
-<!-- ===== sim_data provenance ===== -->
-<div class="section" style="background:#eff6ff;border-left:4px solid #2563eb;padding:0.75em 1em;margin:10px 0;">
-  <strong>sim_data source:</strong>
-  { {'vecoli_pickle':'Loaded from vEcoli ParCa output (<code>' + parca.get('sim_data_path', '') + '</code>)',
-     'workflow_pickle':'Loaded from a prior workflow run (<code>' + parca.get('sim_data_path', '') + '</code>)',
-     'cache':'Loaded from existing cache',
-     'parca_fixture':'Hydrated from the shipped ParCa fixture (<code>models/parca/parca_state.pkl.gz</code>) in ' + f"{parca.get('parca_time', 0):.1f}s",
-     'parca_composite':'Computed by v2ecoli.processes.parca composite in ' + f"{parca.get('parca_time', 0):.1f}s",
-     'computed':'Computed by fitSimData_1 in ' + f"{parca.get('parca_time', 0):.1f}s",
-    }.get(parca.get('simdata_source', ''), parca.get('simdata_source', 'unknown')) }
-  &nbsp;&middot;&nbsp;
-  Cache: <code>{parca.get('cache_dir', CACHE_DIR)}</code>
-  ({parca_stats.get('n_process_configs', '?')} process configs,
-   {parca_stats.get('n_bulk_molecules', '?'):,} bulk molecules)
-  &nbsp;&middot;&nbsp;
-  <a href="parca_workflow_report.html">ParCa Workflow Report &rarr;</a>
-</div>
-
-<nav style="background: white; border-radius: 8px; padding: 12px 20px; margin: 10px 0;
-            box-shadow: 0 1px 2px rgba(0,0,0,0.08);">
-  <strong style="font-size: 0.9em; color: #475569;">Simulation Steps</strong>
-  <ol style="margin: 6px 0 0 0; padding-left: 20px; font-size: 0.88em; columns: 2; column-gap: 30px;">
-    <li><a href="#sec-model">Load Model</a></li>
-    <li><a href="#sec-long">Single Cell Simulation ({long_dur/60:.0f} min)</a></li>
-    <li><a href="#sec-division">Division</a></li>
-    <li><a href="#sec-daughters">Daughter Simulations</a></li>
-    <li><a href="#sec-network">Process-Bigraph Network</a></li>
-    <li><a href="#sec-parca-network">ParCa Composition Diagram</a></li>
-    <li><a href="#sec-bigraph">Network Visualization</a></li>
-    <li><a href="#sec-timing">Timing Summary</a></li>
-  </ol>
-</nav>
-
-<!-- ===== Step 1: Load Model ===== -->
-<h2 id="sec-model">1. Load Model {cached_badge(model)}</h2>
-<div class="metrics">
-  <div class="metric"><div class="label">Build Time</div><div class="value blue">{model.get('build_time', 0):.2f}s</div></div>
-  <div class="metric"><div class="label">Steps</div><div class="value">{model.get('n_steps', 0)}</div></div>
-  <div class="metric"><div class="label">Processes</div><div class="value">{model.get('n_processes', 0)}</div></div>
-  <div class="metric"><div class="label">Bulk Molecules</div><div class="value">{model.get('n_bulk', 0):,}</div></div>
-  <div class="metric"><div class="label">Unique Types</div><div class="value">{model.get('n_unique_types', 0)}</div></div>
-  <div class="metric"><div class="label">Initial Dry Mass</div><div class="value">{model.get('initial_dry_mass', 0):.1f} fg</div></div>
-</div>
-
-<!-- ===== Step 4: Long Sim + v1 Comparison ===== -->
-<h2 id="sec-long">2. Single Cell Simulation + v1 Comparison ({long_dur/60:.0f} min) {cached_badge(long)}</h2>
-<div class="metrics">
-  <div class="metric"><div class="label">Sim Duration</div><div class="value">{long_dur:.0f}s</div></div>
-  <div class="metric"><div class="label">Wall Time</div><div class="value blue">{long_wall:.1f}s</div></div>
-  <div class="metric"><div class="label">Sim/Wall</div><div class="value green">{long_rate:.1f}x</div></div>
-  <div class="metric"><div class="label">Bulk Changed</div><div class="value purple">{long.get('bulk_changed', 0)}</div></div>
-  <div class="metric"><div class="label">Dry Mass</div><div class="value">{long.get('final_dry_mass', 0):.1f} fg</div></div>
-  <div class="metric"><div class="label">Division</div><div class="value {'green' if long.get('division_reached') else 'purple'}">{'Reached' if long.get('division_reached') else 'Not reached'}</div></div>
-</div>""")
-
-        if plots.get('chromosome_long'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["chromosome_long"]}" alt="Chromosome State"></div>\n')
-        if plots.get('growth_long'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["growth_long"]}" alt="Growth Metrics"></div>\n')
-        if plots.get('ppgpp_dynamics'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["ppgpp_dynamics"]}" alt="ppGpp Dynamics"></div>\n')
-
-        # Single cell simulation summary
-        v2_wall = long.get('wall_time', 0)
-        v2_rate = long_dur / v2_wall if v2_wall > 0 else 0
-        v2_final_dry = long.get('final_dry_mass', 0)
-
-        f.write(f"""
-<h3>Single Cell Summary</h3>
-<table style="margin: 1em auto; border-collapse: collapse; font-size: 0.9em;">
-<tr style="background: #f3f4f6;"><th style="padding: 6px 16px; text-align: left;">Metric</th>
-    <th style="padding: 6px 16px;">Value</th></tr>
-<tr><td style="padding: 4px 16px;">Sim duration</td>
-    <td style="padding: 4px 16px; text-align: center;">{long_dur:.0f}s</td></tr>
-<tr><td style="padding: 4px 16px;">Wall time</td>
-    <td style="padding: 4px 16px; text-align: center;">{v2_wall:.0f}s</td></tr>
-<tr><td style="padding: 4px 16px;">Speed (sim/wall)</td>
-    <td style="padding: 4px 16px; text-align: center; font-weight: bold;">{v2_rate:.1f}x</td></tr>
-<tr><td style="padding: 4px 16px;">Final dry mass</td>
-    <td style="padding: 4px 16px; text-align: center;">{v2_final_dry:.1f} fg</td></tr>
-<tr><td style="padding: 4px 16px;">Division reached</td>
-    <td style="padding: 4px 16px; text-align: center;">{'Yes' if long.get('division_reached') else 'No'}</td></tr>
-<tr><td style="padding: 4px 16px;">Snapshots</td>
-    <td style="padding: 4px 16px; text-align: center;">{len(long.get('chromosome_snapshots', []))}</td></tr>
-</table>""")
-
-        f.write(f"""
-<!-- ===== Step 3: Division ===== -->
-<h2 id="sec-division">3. Division {cached_badge(div)}</h2>
-
-<div class="section">
-  <h3>How Division Works</h3>
-  <p>The Division step uses process-bigraph's native <code>_add</code>/<code>_remove</code> structural
-  updates. When division is triggered (dry mass &ge; threshold with &ge; 2 chromosomes):</p>
-  <ol style="margin: 8px 0 8px 20px; font-size: 0.9em;">
-    <li><strong>State splitting</strong> &mdash; <code>divide_cell()</code> partitions the mother cell's state:
-      <ul>
-        <li>Bulk molecules: binomial distribution (p=0.5) on each molecule's count</li>
-        <li>Chromosomes: alternating assignment (even&rarr;D1, odd&rarr;D2) with descendant domain tracking</li>
-        <li>Chromosome-attached molecules: follow their domain</li>
-        <li>RNAs: full transcripts binomial, partial transcripts follow RNAP domain</li>
-        <li>Ribosomes: follow their mRNA</li>
-      </ul>
-    </li>
-    <li><strong>Daughter cell construction</strong> &mdash; <code>build_document_from_configs()</code> builds complete
-    cell states with fresh process instances from the divided initial state + cached configs</li>
-  </ol>
-</div>
-
-<h3>Division Test Results</h3>
-<div class="section">
-  <p>Tests run on {'pre-division state (t=' + str(int(div.get("prediv_time", 0))) + 's, ' + str(div.get("n_chromosomes", 0)) + ' chromosomes, dry mass ' + str(round(div.get("dry_mass", 0))) + ' fg)' if div.get('prediv_time', 0) > 0 else 'initial state (t=0)'}.</p>
-</div>
-<div class="metrics">
-  <div class="metric"><div class="label">Bulk Conserved</div><div class="value {'green' if div.get('bulk_conserved') else 'red'}">{'Yes' if div.get('bulk_conserved') else 'No'}</div></div>
-  <div class="metric"><div class="label">Mother Bulk</div><div class="value">{div.get('mother_bulk_count', 0):,}</div></div>
-  <div class="metric"><div class="label">D1 Bulk</div><div class="value">{div.get('d1_bulk_count', 0):,}</div></div>
-  <div class="metric"><div class="label">D2 Bulk</div><div class="value">{div.get('d2_bulk_count', 0):,}</div></div>
-  <div class="metric"><div class="label">State Split</div><div class="value blue">{div.get('split_time', 0)*1000:.0f} ms</div></div>
-  <div class="metric"><div class="label">Daughter Build</div><div class="value blue">{div.get('daughter_build_time', 0):.1f}s</div></div>
-  <div class="metric"><div class="label">Daughter Viable</div><div class="value {'green' if div.get('daughter_viable') else 'red'}">{'Yes' if div.get('daughter_viable') else 'No'}</div></div>
-</div>
-
-<details open>
-<summary>Unique Molecule Conservation</summary>
-<div class="section" style="overflow-x: auto;">
-  <table>
-    <thead><tr><th>Molecule</th><th>Mother (active)</th><th>Daughter 1</th><th>Daughter 2</th><th>Conserved</th></tr></thead>
-    <tbody>{div_unique_rows}</tbody>
-  </table>
-</div>
-</details>
-
-<!-- ===== Step 4: Daughter Simulations ===== -->
-<h2 id="sec-daughters">4. Daughter Simulations {cached_badge(daughters)}</h2>""")
-
-        if daughters.get('skipped'):
-            f.write(f"""
-<div class="section"><p>Skipped: {daughters.get('reason', 'unknown')}</p></div>""")
-        else:
-            d1 = daughters.get('daughter_1', {})
-            d2 = daughters.get('daughter_2', {})
-            f.write(f"""
-<div class="section">
-  <p>Two daughter cells from the pre-division state, each run for {daughters.get('duration', 0)}s
-  (approximately half a generation).</p>
-</div>
-<h3>Daughter 1</h3>
-<div class="metrics">
-  <div class="metric"><div class="label">Wall Time</div><div class="value blue">{d1.get('wall_time', 0):.0f}s</div></div>
-  <div class="metric"><div class="label">Initial Dry Mass</div><div class="value">{d1.get('initial_dry_mass', 0):.0f} fg</div></div>
-  <div class="metric"><div class="label">Final Dry Mass</div><div class="value">{d1.get('final_dry_mass', 0):.0f} fg</div></div>
-  <div class="metric"><div class="label">Fold Change</div><div class="value green">{d1.get('fold_change', 0):.2f}x</div></div>
-</div>
-<h3>Daughter 2</h3>
-<div class="metrics">
-  <div class="metric"><div class="label">Wall Time</div><div class="value blue">{d2.get('wall_time', 0):.0f}s</div></div>
-  <div class="metric"><div class="label">Initial Dry Mass</div><div class="value">{d2.get('initial_dry_mass', 0):.0f} fg</div></div>
-  <div class="metric"><div class="label">Final Dry Mass</div><div class="value">{d2.get('final_dry_mass', 0):.0f} fg</div></div>
-  <div class="metric"><div class="label">Fold Change</div><div class="value green">{d2.get('fold_change', 0):.2f}x</div></div>
-</div>""")
-
-        if plots.get('daughters_mass'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["daughters_mass"]}" alt="Daughters Mass"></div>\n')
-
-        f.write(f"""
-<!-- ===== Process-Bigraph Network (Cytoscape.js viewer) ===== -->
-<h2 id="sec-network">7. Process-Bigraph Network</h2>
-<div class="section">
-  <p>Interactive Cytoscape.js viewer of the composite — stores on the left, processes on the right,
-  sorted by execution layer. Click a node for math, ports, config; switch layouts from the dropdown.
-  Full-screen viewer: <a href="{network_html_rel}" target="_blank"><code>{network_html_rel}</code></a>.</p>
-</div>
-<iframe src="{network_html_rel}" style="width:100%;height:900px;border:1px solid #e2e8f0;border-radius:6px;"></iframe>
-""")
-
-        if parca_network_html_rel:
-            f.write(f"""
-<!-- ===== ParCa Composition Diagram (Cytoscape.js viewer) ===== -->
-<h2 id="sec-parca-network">8. ParCa Composition Diagram</h2>
-<div class="section">
-  <p>Interactive Cytoscape.js view of the upstream <strong>ParCa</strong> 9-Step pipeline that
-  produces <code>sim_data</code> from the raw knowledge base. Stores on the left, Steps on the right;
-  click a node for ports, class, and docstring.
-  Full-screen viewer: <a href="{parca_network_html_rel}" target="_blank"><code>{parca_network_html_rel}</code></a>
-  &middot; details: <a href="parca_workflow_report.html">ParCa Workflow Report &rarr;</a></p>
-</div>
-<iframe src="{parca_network_html_rel}" style="width:100%;height:750px;border:1px solid #e2e8f0;border-radius:6px;"></iframe>
-""")
-
-        f.write(f"""
-<!-- ===== Timing Summary ===== -->
-<h2 id="sec-timing">Timing Summary</h2>
-<div class="section">
-  <table>
-    <tr><th>Step</th><th>Wall Time</th><th>Sim Time</th><th>Speed</th></tr>
-    <tr><td>Model build</td><td>{build_time:.2f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td>Single cell (to division)</td><td>{long_wall:.1f}s</td><td>{long_dur:.0f}s</td><td>{long_rate:.1f}x realtime</td></tr>
-    <tr><td>Division split</td><td>{div.get('split_time', 0):.3f}s</td><td>&mdash;</td><td>&mdash;</td></tr>
-    <tr><td>Daughter simulations</td><td>{daughters_wall:.1f}s</td><td>{daughters_dur*2:.0f}s (2x{daughters_dur:.0f}s)</td><td>{daughters_dur*2/max(daughters_wall, 0.1):.1f}x realtime</td></tr>
-    <tr><td><strong>Total</strong></td><td><strong>{build_time + long_wall + daughters_wall:.0f}s</strong></td><td><strong>{long_dur + daughters_dur*2:.0f}s</strong></td><td>&mdash;</td></tr>
-  </table>
-</div>
-
-<footer>
-  v2ecoli &middot; <a href="https://github.com/vivarium-collective/v2ecoli">github.com/vivarium-collective/v2ecoli</a>
-  &middot; All steps run through process-bigraph Composite.run()
-</footer>
-</body>
-</html>""")
-
-    return report_path
 
 
 # ---------------------------------------------------------------------------
@@ -2352,7 +1288,6 @@ def run_workflow():
     network_html_rel = os.path.relpath(network_html_path, WORKFLOW_DIR)
 
     # ParCa Composition Diagram (the upstream 9-Step ParCa pipeline).
-    # Best-effort: if the parca viz package isn't importable, just skip.
     parca_network_html_rel = None
     try:
         from v2ecoli.processes.parca.viz import (
@@ -2372,33 +1307,58 @@ def run_workflow():
     except Exception as e:
         print(f"    Skipped ParCa composition diagram: {e}")
 
-    # Generate plots
-    print("  Generating plots...")
-    plots = {}
-
-    # Long sim plots
+    # Collect trajectory for rendering
     chrom_snaps = single_cell_meta.get('chromosome_snapshots', [])
-    if chrom_snaps:
-        dur = single_cell_meta.get('duration', 0)
-        plots['chromosome_long'] = plot_chromosome_state(
-            chrom_snaps, f'v2 Chromosome State (to t={dur:.0f}s)')
-        plots['growth_long'] = plot_single_cell_growth(
-            chrom_snaps, f'Growth Metrics ({dur/60:.0f} min)')
-        if any(s.get('ppgpp_count', 0) > 0 for s in chrom_snaps):
-            plots['ppgpp_dynamics'] = plot_ppgpp_dynamics(
-                chrom_snaps, f'ppGpp Dynamics ({dur/60:.0f} min)')
 
-    # Daughters plots
-    daughters = step_results.get('daughters', {})
-    if not daughters.get('skipped') and (daughters.get('daughter_1_snapshots') or daughters.get('daughter_2_snapshots')):
-        plots['daughters_mass'] = plot_daughters_mass(daughters, 'Daughters — Daughter Mass Fold Change')
+    # Dispatch to WorkflowVisualization Step for HTML rendering
+    print("  Generating HTML report (via WorkflowVisualization)...")
+    from bigraph_schema import allocate_core
+    from v2ecoli.visualizations.workflow import WorkflowVisualization
 
-    # Generate HTML report
-    print("  Generating HTML report...")
-    report_path = generate_html_report(
-        step_results, plots, network_html_rel, diagnostics,
-        parca_network_html_rel=parca_network_html_rel,
+    # Pass network links through metadata for wrapper-level insertion
+    step_results['_network_html_rel'] = network_html_rel
+    if parca_network_html_rel:
+        step_results['_parca_network_html_rel'] = parca_network_html_rel
+
+    viz = WorkflowVisualization(
+        config={"title": "v2ecoli Simulation Report"},
+        core=allocate_core(),
     )
+    result = viz.update({
+        "history": chrom_snaps,
+        "metadata": step_results,
+    })
+    html_content = result["html"]
+
+    # Inject network iframes (wrapper concern — relative paths only valid here)
+    network_section = f"""
+<!-- ===== Process-Bigraph Network (Cytoscape.js viewer) ===== -->
+<h2 id="sec-network">Process-Bigraph Network</h2>
+<div style="background:white;border-radius:8px;padding:15px;margin:10px 0;box-shadow:0 1px 2px rgba(0,0,0,0.08);">
+  <p>Interactive Cytoscape.js viewer of the composite — stores on the left, processes on the right,
+  sorted by execution layer.
+  Full-screen viewer: <a href="{network_html_rel}" target="_blank"><code>{network_html_rel}</code></a>.</p>
+</div>
+<iframe src="{network_html_rel}" style="width:100%;height:900px;border:1px solid #e2e8f0;border-radius:6px;"></iframe>
+"""
+    if parca_network_html_rel:
+        network_section += f"""
+<!-- ===== ParCa Composition Diagram ===== -->
+<h2 id="sec-parca-network">ParCa Composition Diagram</h2>
+<div style="background:white;border-radius:8px;padding:15px;margin:10px 0;box-shadow:0 1px 2px rgba(0,0,0,0.08);">
+  <p>Interactive Cytoscape.js view of the upstream <strong>ParCa</strong> 9-Step pipeline.
+  Full-screen: <a href="{parca_network_html_rel}" target="_blank"><code>{parca_network_html_rel}</code></a>
+  &middot; <a href="parca_workflow_report.html">ParCa Workflow Report &rarr;</a></p>
+</div>
+<iframe src="{parca_network_html_rel}" style="width:100%;height:750px;border:1px solid #e2e8f0;border-radius:6px;"></iframe>
+"""
+
+    # Insert network section before </body>
+    html_content = html_content.replace('</body>', network_section + '\n</body>', 1)
+
+    report_path = os.path.join(WORKFLOW_DIR, 'workflow_report.html')
+    with open(report_path, 'w') as f:
+        f.write(html_content)
 
     pipeline_time = time.time() - pipeline_t0
     print("=" * 60)

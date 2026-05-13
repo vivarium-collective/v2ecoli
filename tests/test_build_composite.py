@@ -22,32 +22,35 @@ def test_generators_registered_under_short_names():
 @pytest.mark.sim
 def test_build_composite_baseline_returns_composite():
     import os
-    if not os.path.isdir("tests/fixtures/cache"):
-        pytest.skip("test fixture cache not present")
+    if not os.path.isdir("out/cache") and not os.environ.get("CI"):
+        pytest.skip("cache dir 'out/cache' not present; "
+                    "build via `python scripts/build_cache.py` (CI builds it automatically)")
     from v2ecoli import build_composite
     from process_bigraph.composite import Composite
-    comp = build_composite("baseline", seed=0, cache_dir="tests/fixtures/cache")
+    comp = build_composite("baseline", seed=0, cache_dir="out/cache")
     assert isinstance(comp, Composite)
 
 
 @pytest.mark.sim
 def test_build_composite_each_architecture():
     import os
-    if not os.path.isdir("tests/fixtures/cache"):
-        pytest.skip("test fixture cache not present")
+    if not os.path.isdir("out/cache") and not os.environ.get("CI"):
+        pytest.skip("cache dir 'out/cache' not present; "
+                    "build via `python scripts/build_cache.py` (CI builds it automatically)")
     from v2ecoli import build_composite
     for name in ("baseline", "departitioned", "reconciled"):
-        comp = build_composite(name, seed=0, cache_dir="tests/fixtures/cache")
+        comp = build_composite(name, seed=0, cache_dir="out/cache")
         assert comp is not None, f"{name} produced no composite"
 
 
 @pytest.mark.sim
 def test_build_composite_accepts_core_override():
     import os
-    if not os.path.isdir("tests/fixtures/cache"):
-        pytest.skip("test fixture cache not present")
+    if not os.path.isdir("out/cache") and not os.environ.get("CI"):
+        pytest.skip("cache dir 'out/cache' not present; "
+                    "build via `python scripts/build_cache.py` (CI builds it automatically)")
     from v2ecoli import build_composite
     from v2ecoli.core import build_core
     core = build_core()
-    comp = build_composite("baseline", seed=0, cache_dir="tests/fixtures/cache", core=core)
+    comp = build_composite("baseline", seed=0, cache_dir="out/cache", core=core)
     assert comp.core is core

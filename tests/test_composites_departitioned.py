@@ -23,11 +23,12 @@ def test_departitioned_function_signature():
 
 @pytest.mark.sim
 def test_departitioned_returns_a_document():
-    if not os.path.isdir("tests/fixtures/cache"):
-        pytest.skip("test fixture cache not present")
+    if not os.path.isdir("out/cache") and not os.environ.get("CI"):
+        pytest.skip("cache dir 'out/cache' not present; "
+                    "build via `python scripts/build_cache.py` (CI builds it automatically)")
     from v2ecoli.core import build_core
     from v2ecoli.composites.departitioned import departitioned
     core = build_core()
-    doc = departitioned(core=core, seed=0, cache_dir="tests/fixtures/cache")
+    doc = departitioned(core=core, seed=0, cache_dir="out/cache")
     assert isinstance(doc, dict)
     assert len(doc) > 0

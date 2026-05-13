@@ -26,11 +26,12 @@ def test_baseline_function_signature():
 def test_baseline_returns_a_document():
     """End-to-end: call baseline() with the test fixture cache, assert it
     returns a process-bigraph document dict."""
-    if not os.path.isdir("tests/fixtures/cache"):
-        pytest.skip("test fixture cache not present")
+    if not os.path.isdir("out/cache") and not os.environ.get("CI"):
+        pytest.skip("cache dir 'out/cache' not present; "
+                    "build via `python scripts/build_cache.py` (CI builds it automatically)")
     from v2ecoli.core import build_core
     from v2ecoli.composites.baseline import baseline
     core = build_core()
-    doc = baseline(core=core, seed=0, cache_dir="tests/fixtures/cache")
+    doc = baseline(core=core, seed=0, cache_dir="out/cache")
     assert isinstance(doc, dict)
     assert len(doc) > 0

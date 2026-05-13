@@ -22,9 +22,10 @@ def test_load_cache_bundle_returns_expected_keys(tmp_path):
     with the expected keys. If it doesn't exist (CI not yet primed),
     skip."""
     from v2ecoli.core import load_cache_bundle
-    cache_dir = "tests/fixtures/cache"
-    if not os.path.isdir(cache_dir):
-        pytest.skip("test fixture cache not present")
+    cache_dir = "out/cache"
+    if not os.path.isdir(cache_dir) and not os.environ.get("CI"):
+        pytest.skip("cache dir 'out/cache' not present; "
+                    "build via `python scripts/build_cache.py` (CI builds it automatically)")
     bundle = load_cache_bundle(cache_dir)
     assert isinstance(bundle, dict), f"expected dict, got {type(bundle).__name__}"
     assert "initial_state" in bundle, f"expected 'initial_state' key, got {sorted(bundle)}"

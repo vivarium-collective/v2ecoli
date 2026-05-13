@@ -91,7 +91,7 @@ def deep_equal(a, b, path: str = '') -> tuple[bool, str]:
     # __eq__ (most importantly process-bigraph Step/Process instances
     # that appear in composite.state), default Python equality is
     # identity-based and would false-positive on every sim rerun.
-    # Two independent make_composite calls always produce distinct
+    # Two independent build_composite calls always produce distinct
     # Python instances at distinct memory addresses; that's expected
     # and not the kind of nondeterminism this helper exists to detect.
     # So when both sides are same-class opaque objects, treat them as

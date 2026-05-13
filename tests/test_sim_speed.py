@@ -55,9 +55,9 @@ def test_composite_runs_at_positive_realtime_rate(sim_data_cache):
     (process instantiation, pint unit parsing, etc.) that the real budget
     shouldn't pay for on subsequent calls.
     """
-    from v2ecoli.composite import make_composite
+    from v2ecoli import build_composite
 
-    composite = make_composite(cache_dir='out/cache', seed=0)
+    composite = build_composite("baseline", cache_dir='out/cache', seed=0)
     composite.run(1)  # warm-up — first tick builds per-process caches
 
     t0 = time.time()

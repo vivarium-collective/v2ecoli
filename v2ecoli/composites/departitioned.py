@@ -33,11 +33,6 @@ from v2ecoli.generate import (
     _seed_state_from_defaults,
     _seed_mass_listener,
     _normalize_boundary_units,
-    _make_instance,
-    _get_special_step,
-    _expand_flushes,
-    FLUSH,
-    PARTITIONED_PROCESSES,
     ALL_PARTITIONED,
 )
 
@@ -75,9 +70,15 @@ def departitioned(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cach
     Note: ``features`` is fixed to ``DEFAULT_FEATURES`` and is not a caller-visible
     parameter. Adjust by switching to a different architecture's generator.
 
+    Note: ``seed`` is accepted for signature uniformity across all three
+    architectures, but the departitioned document is deterministic; the
+    seed is not consumed during construction. (Stochastic processes inside
+    the composite use the seed during simulation, not at build time.)
+
     Args:
         core: bigraph-schema core. If None, one is created via build_core().
-        seed: Random seed for stochastic initialisation.
+        seed: Random seed for stochastic initialisation (not consumed at
+            build time; accepted for signature uniformity only).
         cache_dir: Path to the ParCa cache directory (must contain
             ``initial_state.json`` and ``sim_data_cache.dill``).
 

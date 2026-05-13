@@ -34,13 +34,7 @@ from v2ecoli.generate import (
     _seed_state_from_defaults,
     _seed_mass_listener,
     _normalize_boundary_units,
-    _make_instance,
-    _get_special_step,
-    _expand_flushes,
-    FLUSH,
-    PARTITIONED_PROCESSES,
     ALL_PARTITIONED,
-    ALLOCATOR_LAYERS,
 )
 
 # Architecture-specific helpers from generate_reconciled.py
@@ -48,7 +42,6 @@ from v2ecoli.generate_reconciled import (
     build_execution_layers,
     _get_step_config,
     DEFAULT_FEATURES,
-    RECONCILED_LAYERS,
 )
 
 

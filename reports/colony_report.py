@@ -425,7 +425,7 @@ def _gif_to_b64(gif_path):
 
 
 def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
-               from_cache=None):
+               from_cache=None, out_path=None):
     """Run the colony simulation and generate report.
 
     Orchestration (simulation, GIF generation) lives here.
@@ -804,7 +804,8 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
     html_content = viz_result['html']
 
     # Write HTML report
-    report_path = os.path.join(REPORT_DIR, 'colony_report.html')
+    report_path = out_path or os.path.join(REPORT_DIR, 'colony_report.html')
+    os.makedirs(os.path.dirname(os.path.abspath(report_path)), exist_ok=True)
     with open(report_path, 'w') as f:
         f.write(html_content)
 
@@ -834,6 +835,8 @@ def main():
                         help='Environment size in µm (default: 40)')
     parser.add_argument('--from-cache', type=str, default=None,
                         help='Resume from cached pre-division state (dill pickle)')
+    parser.add_argument('--out', default=None,
+                        help='Output HTML path (default: out/colony/colony_report.html)')
     args = parser.parse_args()
 
     report = run_colony(
@@ -841,6 +844,7 @@ def main():
         n_adder=args.n_adder,
         env_size=args.env_size,
         from_cache=args.from_cache,
+        out_path=args.out,
     )
 
     import subprocess

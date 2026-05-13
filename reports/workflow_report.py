@@ -1212,7 +1212,7 @@ def step_daughters():
 # Main Pipeline
 # ---------------------------------------------------------------------------
 
-def run_workflow():
+def run_workflow(out_path=None):
     """Execute the full workflow pipeline with caching."""
     os.makedirs(WORKFLOW_DIR, exist_ok=True)
 
@@ -1356,7 +1356,8 @@ def run_workflow():
     # Insert network section before </body>
     html_content = html_content.replace('</body>', network_section + '\n</body>', 1)
 
-    report_path = os.path.join(WORKFLOW_DIR, 'workflow_report.html')
+    report_path = out_path or os.path.join(WORKFLOW_DIR, 'workflow_report.html')
+    os.makedirs(os.path.dirname(os.path.abspath(report_path)), exist_ok=True)
     with open(report_path, 'w') as f:
         f.write(html_content)
 
@@ -1388,6 +1389,8 @@ if __name__ == '__main__':
                         help='Skip the daughters simulation step')
     parser.add_argument('--daughter-duration', type=int, default=None,
                         help='Override daughter sim duration in seconds')
+    parser.add_argument('--out', default=None,
+                        help='Output HTML path (default: out/workflow/workflow_report.html)')
     args = parser.parse_args()
 
     # Apply CLI overrides
@@ -1409,4 +1412,4 @@ if __name__ == '__main__':
             os.remove(f)
             print(f"  Removed {f}")
 
-    run_workflow()
+    run_workflow(out_path=args.out)

@@ -50,13 +50,17 @@ def main() -> None:
     parser.add_argument("--out", default=None,
                         help="Output HTML path (default: out/reports/network_<model>.html)")
     parser.add_argument("--no-open", action="store_true")
+    parser.add_argument("--seed", type=int, default=0,
+                        help="RNG seed (default: 0)")
+    parser.add_argument("--cache-dir", default="out/cache",
+                        help="ParCa cache directory (default: out/cache)")
     args = parser.parse_args()
 
     from v2ecoli import build_composite
     from v2ecoli.visualizations._helpers import build_graph
     from v2ecoli.visualizations.network import NetworkVisualization
 
-    composite = build_composite(args.model, seed=0, cache_dir="out/cache")
+    composite = build_composite(args.model, seed=args.seed, cache_dir=args.cache_dir)
     layers = _build_layers(args.model)
     spec = build_graph(composite, layers)
     spec["architecture"] = args.model

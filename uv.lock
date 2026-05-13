@@ -2244,6 +2244,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pbg-superpowers"
+version = "0.6.1"
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#f5188022c3fead3d968ce62fcbf953e2cff71390" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "click" },
+    { name = "jinja2" },
+    { name = "jsonschema", extra = ["format-nongpl"] },
+    { name = "process-bigraph" },
+    { name = "pyyaml" },
+]
+
+[[package]]
 name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3495,6 +3508,7 @@ dependencies = [
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pbg-superpowers" },
     { name = "plum-dispatch" },
     { name = "process-bigraph" },
     { name = "pymunk" },
@@ -3520,6 +3534,7 @@ requires-dist = [
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pbg-superpowers", git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main" },
     { name = "plum-dispatch", specifier = ">=2.5" },
     { name = "process-bigraph", git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main" },
     { name = "pymunk" },

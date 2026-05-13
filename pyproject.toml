@@ -11,6 +11,7 @@ requires-python = "==3.12.12"
 dependencies = [
     "bigraph-schema>=0.0.60",
     "process-bigraph>=0.0.38",
+    "pbg-superpowers",
     "vEcoli[dev]>=1.1.0",
     "multi-cell>=0.0.1",
     "plum-dispatch>=2.5",
@@ -60,4 +61,5 @@ packages = { find = { where = ["."] } }
 [tool.uv.sources]
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
+pbg-superpowers = { git = "https://github.com/vivarium-collective/pbg-superpowers.git", branch = "main" }
 multi-cell = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }

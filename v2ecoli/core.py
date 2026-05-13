@@ -18,7 +18,6 @@ from bigraph_schema import allocate_core
 from v2ecoli.cache import load_initial_state, save_initial_state, save_json
 from v2ecoli.library.cache_version import (
     StaleCacheError,
-    verify_cache_version,
     write_cache_version,
 )
 # Import at module load so the shared pint UnitRegistry has

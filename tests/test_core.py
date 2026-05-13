@@ -1,7 +1,6 @@
 """Unit tests for v2ecoli.core."""
 
 import os
-import tempfile
 
 import pytest
 

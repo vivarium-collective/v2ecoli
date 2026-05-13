@@ -1,0 +1,15 @@
+{
+  "inputs_hash": "8fa87f4254d1c7d68834386898f1003714df90814e3fe33cedfe6c5b97214c18",
+  "per_file_hashes": {
+    "models/parca/parca_state.pkl.gz": "5701c5d35a347b379939e68bd8753d6897b14a5de2da919875b6de1da13b0ce8",
+    "v2ecoli/composites/baseline.py": "7010b0a8478a7e5b60777b17fe8684344c30a79d07673e1c483d0c3ed138f8fc",
+    "v2ecoli/composites/departitioned.py": "f7545a4286c3851b20e6ed2293703fc6907e9500a13bbc75f1e08d8320be4d92",
+    "v2ecoli/composites/reconciled.py": "506a81c05aa5999d59d4ff96462cb330fbb46dbb0d2ee2bd2fa84fbc61dedcd2",
+    "v2ecoli/core.py": "f7e3f7dc439eb5b0c3b2ab2c385375276e78807c76215ae7830a30faf564ec34",
+    "v2ecoli/library/initial_conditions.py": "db9ec7b9102c97e132dedff203bb1b36a568a95383abd6607602c230d566ff4b",
+    "v2ecoli/library/sim_data.py": "1e45e9b383fc89ce72524840a253885858c91d45677bfa77a68d6fd1dd5fe7f6",
+    "v2ecoli/library/unit_bridge.py": "9b37bfec358be5bd7f0de6509fef1ebfab7da21a921724cb0d68d7f6832cec10",
+    "v2ecoli/types/quantity.py": "ac041a021fe8e51f1698d1ca372ac40070833c81ea60540fc29fb0c10f566a07"
+  },
+  "schema_version": "1"
+}

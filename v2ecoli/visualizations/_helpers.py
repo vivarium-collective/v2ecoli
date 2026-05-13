@@ -1083,7 +1083,9 @@ def render_repro_banner() -> str:
     platform. Intended to be injected at the top of every generated report
     for traceability.
     """
-    now = _dt.datetime.now(_dt.timezone(_dt.timedelta(hours=-5)))  # Eastern
+    # Use local wall-clock time. astimezone() with no arg attaches the local tz,
+    # which is DST-correct (no zoneinfo dependency required).
+    now = _dt.datetime.now().astimezone()
     try:
         git_sha = _subprocess.check_output(
             ["git", "rev-parse", "--short", "HEAD"],

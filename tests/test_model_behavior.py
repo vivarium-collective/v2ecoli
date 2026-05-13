@@ -177,7 +177,7 @@ def test_daughters_build_and_grow(predivision_state, sim_data_cache):
     from process_bigraph import Composite
     from v2ecoli.library.division import divide_cell
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline, _seed_mass_listener
+    from v2ecoli.composites.baseline import baseline, seed_mass_listener
 
     cell = predivision_state
     d1_state, d2_state = divide_cell(cell)
@@ -196,7 +196,7 @@ def test_daughters_build_and_grow(predivision_state, sim_data_cache):
         # dry_mass reading (m0) reflects the daughter state, not the cache's
         # initial state (which baseline() used internally).
         agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
-        _seed_mass_listener(agent, core)
+        seed_mass_listener(agent, core)
         comp = Composite(doc, core=core)
         agent = comp.state['agents']['0']
         m0 = float(agent['listeners']['mass']['dry_mass'])

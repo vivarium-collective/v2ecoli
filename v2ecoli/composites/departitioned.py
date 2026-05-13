@@ -30,7 +30,7 @@ from v2ecoli.composites._helpers import (
     make_edge,
     inject_flow_dependencies,
     _seed_state_from_defaults,
-    _seed_mass_listener,
+    seed_mass_listener,
     _normalize_boundary_units,
     _make_instance,
     _get_special_step,
@@ -443,7 +443,7 @@ def departitioned(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cach
                 instance, topology, edge_type=edge_type)
 
     _seed_state_from_defaults(cell_state)
-    _seed_mass_listener(cell_state, core)
+    seed_mass_listener(cell_state, core)
 
     inject_flow_dependencies(
         cell_state, flow_order, layers=execution_layers)

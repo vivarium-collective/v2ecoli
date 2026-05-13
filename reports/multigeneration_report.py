@@ -32,7 +32,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from v2ecoli import build_composite
 from v2ecoli.core import build_core
-from v2ecoli.composites.baseline import baseline, _seed_mass_listener
+from v2ecoli.composites.baseline import baseline, seed_mass_listener
 from v2ecoli.library.division import divide_cell
 from process_bigraph import Composite
 
@@ -238,7 +238,7 @@ def run_multigeneration(
             if key in d1_state:
                 agent[key] = d1_state[key]
         agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
-        _seed_mass_listener(agent, core)
+        seed_mass_listener(agent, core)
         composite = Composite(doc, core=core)
         build_time = time.time() - t_build0
         print(f"    built daughter composite in {build_time:.1f}s")

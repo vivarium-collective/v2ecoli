@@ -191,7 +191,7 @@ class Division(V2Step):
             # Build daughter docs via the new composite generator API.
             # baseline() loads wiring from the cache; we then overlay the
             # daughter's divided biological state on top.
-            from v2ecoli.composites.baseline import baseline, _seed_mass_listener
+            from v2ecoli.composites.baseline import baseline, seed_mass_listener
             d1_seed = (self._seed + 1) % (2**31)
             d2_seed = (self._seed + 2) % (2**31)
 
@@ -203,7 +203,7 @@ class Division(V2Step):
                     if key in d_data:
                         agent[key] = d_data[key]
                 agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
-                _seed_mass_listener(agent, self.core)
+                seed_mass_listener(agent, self.core)
                 return doc
 
             d1_doc = _build_daughter_doc(d1_data, d1_seed)

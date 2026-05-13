@@ -8,7 +8,7 @@ Exported names (all are considered semi-private implementation details):
   - make_edge
   - inject_flow_dependencies
   - _seed_state_from_defaults
-  - _seed_mass_listener
+  - seed_mass_listener
   - _normalize_boundary_units
   - _make_instance
   - _get_special_step
@@ -166,7 +166,7 @@ def _inject_port_default(state, wire_path, port_schema):
         _inject_port_default(target, [key], subport)
 
 
-def _seed_mass_listener(cell_state, core):
+def seed_mass_listener(cell_state, core):
     """Run mass listener once to populate initial mass values."""
     for name in ['post-division-mass-listener', 'ecoli-mass-listener']:
         edge = cell_state.get(name)

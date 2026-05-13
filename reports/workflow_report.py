@@ -51,7 +51,7 @@ from v2ecoli import build_composite
 from v2ecoli.core import build_core, save_cache
 from v2ecoli.composites.baseline import (
     baseline as _baseline_doc,
-    _seed_mass_listener,
+    seed_mass_listener,
     build_execution_layers,
     DEFAULT_FEATURES,
     FLOW_ORDER,
@@ -1637,7 +1637,7 @@ def step_division():
                 if _key in d1_state:
                     _agent[_key] = d1_state[_key]
             _agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
-            _seed_mass_listener(_agent, _core)
+            seed_mass_listener(_agent, _core)
             daughter_build_time = time.time() - t0
             d1_composite = Composite(d1_doc, core=_core)
             d1_composite.run(1.0)
@@ -1790,7 +1790,7 @@ def step_daughters():
             if _key in dstate:
                 _agent[_key] = dstate[_key]
         _agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
-        _seed_mass_listener(_agent, _core)
+        seed_mass_listener(_agent, _core)
         comp = Composite(doc, core=_core)
         build_time = time.time() - t0
 

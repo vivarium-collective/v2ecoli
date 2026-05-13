@@ -20,7 +20,6 @@ those two files.
 
 from __future__ import annotations
 
-import copy
 from typing import Any
 
 import numpy as np
@@ -42,8 +41,6 @@ from v2ecoli.generate import (
     _seed_state_from_defaults,
     _seed_mass_listener,
     _normalize_boundary_units,
-    _make_instance,
-    _get_special_step,
     _get_step_config,
     _expand_flushes,
     build_execution_layers,
@@ -77,6 +74,10 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -
     Migrated from ``v2ecoli/generate.py:build_document`` +
     ``v2ecoli/composite.py:_build_from_cache``.  Returns a plain dict
     suitable for ``Composite(doc, core=core)``; does NOT wrap in Composite.
+
+    Note: ``features`` is fixed to ``DEFAULT_FEATURES`` and is not a caller-
+    visible parameter.  To run with a different feature set, use the
+    departitioned or reconciled generator (when they land).
 
     Args:
         core: bigraph-schema core.  If None, one is created via build_core().
@@ -143,7 +144,6 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -
     # Pre-create shared request/allocate/process stores with per-process sub-keys
     cell_state.setdefault('request', {})
     cell_state.setdefault('allocate', {})
-    proc_store = cell_state.setdefault('process', {})
     for proc_name in ALL_PARTITIONED:
         cell_state['request'].setdefault(proc_name, {'bulk': {}})
         cell_state['allocate'].setdefault(proc_name, {'bulk': {}})

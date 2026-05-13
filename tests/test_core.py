@@ -18,7 +18,7 @@ def test_build_core_returns_core_with_ecoli_types():
 
 
 @pytest.mark.fast
-def test_load_cache_bundle_returns_expected_keys(tmp_path, monkeypatch):
+def test_load_cache_bundle_returns_expected_keys(tmp_path):
     """If the test fixture cache exists, load_cache_bundle returns a dict
     with the expected keys. If it doesn't exist (CI not yet primed),
     skip."""
@@ -27,10 +27,11 @@ def test_load_cache_bundle_returns_expected_keys(tmp_path, monkeypatch):
     if not os.path.isdir(cache_dir):
         pytest.skip("test fixture cache not present")
     bundle = load_cache_bundle(cache_dir)
-    assert isinstance(bundle, dict)
-    # The bundle is created by save_cache; sanity-check it has at least
-    # one of the keys that downstream generators consume.
-    assert any(k in bundle for k in ("configs", "unique_names", "dry_mass_inc_dict", "initial_state"))
+    assert isinstance(bundle, dict), f"expected dict, got {type(bundle).__name__}"
+    assert "initial_state" in bundle, f"expected 'initial_state' key, got {sorted(bundle)}"
+    # The dill cache should contribute at least one of these keys.
+    assert any(k in bundle for k in ("configs", "unique_names", "dry_mass_inc_dict")), \
+        f"expected at least one cache key in bundle, got {sorted(bundle)}"
 
 
 @pytest.mark.fast

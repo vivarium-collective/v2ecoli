@@ -1,11 +1,16 @@
-"""@pytest.mark.sim parity tests: each Visualization Step's HTML output
-structurally matches the golden captured from current main.
+"""@pytest.mark.sim + @pytest.mark.slow parity tests: each Visualization
+Step's HTML output structurally matches the golden captured from current main.
 
 Goldens live at tests/fixtures/visualizations/<name>.golden.html and were
 captured by scripts/regenerate_viz_goldens.py (Task 1).
 
 Diff strategy: structural via BeautifulSoup tag/ID/class compare. The
 repro banner is stripped before comparison (timestamp + git SHA differ).
+
+These are marked `slow` because individual report runs can take 5-20 minutes
+for the heavier reports (workflow, multigeneration, colony). CI's behavior-tests
+job runs `-m "sim and not slow"` so it skips these. Run locally with
+`pytest -m slow tests/test_visualizations_html_parity.py` or directly by path.
 """
 
 import subprocess
@@ -64,6 +69,7 @@ def _structural_diff(html_a: str, html_b: str) -> list[str]:
 
 
 @pytest.mark.sim
+@pytest.mark.slow
 @pytest.mark.parametrize("name", [
     "network",
     "compare",

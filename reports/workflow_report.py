@@ -55,7 +55,7 @@ from v2ecoli.composites.baseline import (
 )
 from v2ecoli.library.schema import attrs as ecoli_attrs
 from process_bigraph import Composite
-from v2ecoli.viz import build_graph, write_outputs
+from v2ecoli.visualizations._helpers import build_graph, write_outputs
 from v2ecoli.cache import NumpyJSONEncoder, load_initial_state
 
 try:

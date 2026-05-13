@@ -51,6 +51,11 @@ from v2ecoli.generate import (
     DEFAULT_FEATURES,
 )
 
+# Convenience re-export: ordered list of all step names in execution order.
+# Computed once at module import so callers don't need to import from
+# v2ecoli.generate directly.
+FLOW_ORDER = [step for layer in build_execution_layers(DEFAULT_FEATURES) for step in layer]
+
 
 @composite_generator(
     name="baseline",

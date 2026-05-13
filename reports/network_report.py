@@ -23,27 +23,18 @@ warnings.filterwarnings('ignore')
 
 MODELS = {
     'baseline': {
-        'factory': 'v2ecoli.composite.make_composite',
-        'layers': 'v2ecoli.generate',
+        'layers': 'v2ecoli.composites.baseline',
         'label': 'Baseline (partitioned)',
     },
     'departitioned': {
-        'factory': 'v2ecoli.composite_departitioned.make_departitioned_composite',
-        'layers': 'v2ecoli.generate_departitioned',
+        'layers': 'v2ecoli.composites.departitioned',
         'label': 'Departitioned (no allocator)',
     },
     'reconciled': {
-        'factory': 'v2ecoli.composite_reconciled.make_reconciled_composite',
-        'layers': 'v2ecoli.generate_reconciled',
+        'layers': 'v2ecoli.composites.reconciled',
         'label': 'Reconciled (grouped allocator)',
     },
 }
-
-
-def _resolve(dotted):
-    mod_path, name = dotted.rsplit('.', 1)
-    import importlib
-    return getattr(importlib.import_module(mod_path), name)
 
 
 def main():
@@ -60,17 +51,17 @@ def main():
     args = parser.parse_args()
 
     spec = MODELS[args.model]
-    make_composite = _resolve(spec['factory'])
 
     import importlib
     layers_mod = importlib.import_module(spec['layers'])
     build_execution_layers = layers_mod.build_execution_layers
     DEFAULT_FEATURES = layers_mod.DEFAULT_FEATURES
 
+    from v2ecoli import build_composite
     from v2ecoli.viz import build_graph, render_html
 
     print(f'Building {args.model} composite ...')
-    composite = make_composite(cache_dir=args.cache, seed=args.seed)
+    composite = build_composite(args.model, cache_dir=args.cache, seed=args.seed)
     layers = build_execution_layers(DEFAULT_FEATURES)
 
     print('Extracting composition graph ...')

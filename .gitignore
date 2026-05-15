@@ -1,0 +1,25 @@
+.venv/
+.pbg/server/
+.pbg/state.json
+.pbg/composite-runs.db
+.pbg/runs/
+# Investigation runtime artifacts (results DB + rendered HTML + lock file).
+# spec.yaml + data/ are tracked; everything else is regenerated on each run.
+investigations/*/runs.db
+investigations/*/viz/
+investigations/*/.run.lock
+.pbg/viz-requests/
+.pbg/viz-responses/
+.pbg/agent-requests/
+.pbg/agent-responses/
+.pbg/visualizations-staged/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+# Dashboard-copied report assets (style.css, client.js, vivarium-logo.png, …) —
+# regenerated from vivarium-dashboard on each report render. Only .keep is tracked.
+reports/assets/*
+!reports/assets/.keep
+# Transient brainstorm session artifacts (server PIDs, logs, rendered HTML).
+.superpowers/brainstorm/

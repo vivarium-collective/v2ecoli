@@ -1,0 +1,12 @@
+schema_version: 2
+name: v2ecoli
+created: "2026-05-15"
+plugin_version: 0.4.16
+package_path: pbg_v2ecoli
+observables: []
+visualizations: []
+simulations: []
+datasets: []
+references_bib: references/papers.bib
+server:
+  enabled: false

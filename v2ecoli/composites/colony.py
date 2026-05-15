@@ -17,6 +17,25 @@ from pbg_superpowers.composite_generator import composite_generator
 from v2ecoli.colony import make_colony_document
 
 
+# Canonical visualizations for the multi-cell colony composite. ColonyVisualization
+# is the integrated colony report (per-cell positions over time + colony total
+# mass + cell-count trajectory). Standalone TimeSeriesPlots aren't appropriate
+# here — colony state is per-cell, so the canonical view is the whole-colony
+# report. Topology is included for inspecting the colony's process wiring.
+DEFAULT_COLONY_VISUALIZATIONS = [
+    {
+        'name': 'colony-report',
+        'address': 'local:ColonyVisualization',
+        'config': {'title': 'v2ecoli colony — agent positions + mass over time'},
+    },
+    {
+        'name': 'topology',
+        'address': 'local:NetworkVisualization',
+        'config': {'title': 'Colony composite topology'},
+    },
+]
+
+
 @composite_generator(
     name="colony",
     description=(
@@ -55,6 +74,7 @@ from v2ecoli.colony import make_colony_document
             "description": "Seconds between per-cell EcoliWCM updates.",
         },
     },
+    visualizations=DEFAULT_COLONY_VISUALIZATIONS,
 )
 def colony(
     core: Any = None,

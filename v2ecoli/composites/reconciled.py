@@ -40,6 +40,7 @@ from v2ecoli.composites._helpers import (
     PARTITIONED_PROCESSES,
     ALL_PARTITIONED,
     ALLOCATOR_LAYERS,
+    DEFAULT_SINGLE_CELL_VISUALIZATIONS,
 )
 
 # Process imports needed by _instantiate_reconciled_layer
@@ -351,6 +352,7 @@ def _get_step_config(loader, step_name, core, seed=0):
             "description": "Path to ParCa cache directory",
         },
     },
+    visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
 )
 def reconciled(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -> dict:
     """Build the process-bigraph state document for the reconciled architecture.

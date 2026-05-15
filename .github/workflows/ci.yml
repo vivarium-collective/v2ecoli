@@ -37,11 +37,11 @@ jobs:
         run: uv python install 3.12.9
 
       - name: Install dependencies (PyPI only)
-        run: uv sync --no-sources --extra dev || uv sync --no-sources
+        run: uv sync --extra dev || uv sync
 
       - name: Run fast tests (no .run() calls)
         run: >-
-          uv run --no-sources pytest
+          uv run pytest
           -m "not slow and not sim"
           --ignore=tests/test_initialize.py
           --ignore=tests/test_kinetics_units.py
@@ -62,7 +62,7 @@ jobs:
         run: uv python install 3.12.9
 
       - name: Install dependencies (PyPI only)
-        run: uv sync --no-sources --extra dev || uv sync --no-sources
+        run: uv sync --extra dev || uv sync
 
       # Cache out/cache (initial_state.json + sim_data_cache.dill +
       # cache_version.json) across PRs. The cache key pins to the same
@@ -93,13 +93,13 @@ jobs:
 
       - name: Build ParCa cache on miss
         if: steps.parca-cache.outputs.cache-hit != 'true'
-        run: uv run --no-sources python scripts/build_cache.py
+        run: uv run python scripts/build_cache.py
 
       - name: Run simulation-based behavior tests
         env:
           CI: 'true'
         run: >-
-          uv run --no-sources pytest
+          uv run pytest
           -m "sim and not slow"
           --ignore=tests/test_initialize.py
           --ignore=tests/test_kinetics_units.py

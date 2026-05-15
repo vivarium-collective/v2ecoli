@@ -1,0 +1,78 @@
+# Skeleton Investigation spec for v2ecoli — multi-cell colony Study.
+#
+# Uses the `colony` composite generator (added alongside this spec) — each
+# cell embeds the full v2ecoli whole-cell model via the EcoliWCM bridge,
+# and PymunkProcess drives 2D physics.
+#
+# Heavyweight: each step ticks N copies of the 55-process model plus a
+# pymunk integration. Plan for minutes per simulated minute, not realtime.
+
+name: colony
+question: |
+  Does a 3-cell colony grow and divide with physically plausible spatial
+  dynamics over 30 simulated minutes?
+hypothesis: |
+  Colony total mass grows ~exponentially; at least one cell divides by
+  t = 25 min; cells remain inside the environment box.
+status: draft
+tags: [colony, multi-cell, heavy, requires-pymunk, requires-multi-cell]
+
+baseline: colony
+
+variants:
+  - name: colony
+    source: local:colony
+    parameters:
+      seed: 0
+      cache_dir: ${V2ECOLI_CACHE}
+      n_cells: 3
+      env_size: 30
+      physics_interval: 1.0
+      ecoli_interval: 1.0
+
+# Colony state doesn't share v2ecoli's listeners/mass layout — observables
+# come off the per-cell `mass` and `location` stores wired by build_microbe +
+# the EcoliWCM bridge. See v2ecoli/colony.py for the document shape.
+observables:
+  - {path: [cells, "*", mass]}        # per-cell dry mass (fg), wildcard over cell IDs
+  - {path: [cells, "*", volume]}
+  - {path: [cells, "*", location]}
+  - {path: [global_time]}
+
+runs:
+  - {composite: colony, params: {seed: 0}, steps: 1800}    # 30 min sim time at 1-s tick
+
+visualizations:
+  # ColonyVisualization is the canonical port of legacy colony_report —
+  # renders agent positions over time, mass trajectories, and a snapshot
+  # animation. Expects `history` + `metadata`.
+  - name: colony-report
+    address: "local:ColonyVisualization"
+    inputs:
+      history:  {source: run, run: colony-0}
+      metadata: {source: run-meta, run: colony-0}
+    config:
+      title: "3-cell colony — 30 minute simulation"
+
+  # Aggregate colony mass over time (derived: sum of per-cell mass at each
+  # step). If the orchestrator doesn't auto-aggregate wildcard observables,
+  # this will need a small derived-observable preprocessor.
+  - name: total-mass
+    address: "local:TimeSeriesPlot"
+    config:
+      observable: mass            # the orchestrator aggregates cells.*.mass
+      reduce: sum
+      sources: [colony]
+      title: "Total colony mass over time"
+
+# ── Notes ───────────────────────────────────────────────────────────────────
+# - This Study requires `multi_cell` + `pymunk` installed in the workspace
+#   environment. The colony composite_generator imports both lazily inside
+#   the `if core is None` block, so it errors clearly at first use rather
+#   than at module-import time.
+# - The wildcard observable path `[cells, "*", mass]` is a proposed
+#   extension. Confirm the orchestrator supports wildcards; if not, expand
+#   to one observable per cell ID at run time (the orchestrator may need a
+#   pre-pass that reads the rendered composite doc).
+# - 1800 steps × 3 cells × 55 procs is the rate-limiting factor; expect
+#   wall-clock around 30 min on a modern laptop without parallelism.

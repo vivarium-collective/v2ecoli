@@ -17,6 +17,7 @@ dependencies = [
     # Extracted from pbg-template as of v0.5.0; provides the `vivarium-dashboard
     # serve` CLI invoked by scripts/serve.sh.
     "vivarium-dashboard",
+    "v2ecoli",
 ]
 
 [project.optional-dependencies]
@@ -34,4 +35,5 @@ build-backend = "hatchling.build"
 bypass-selection = true
 
 [tool.uv.sources]
+v2ecoli = { path = "external/v2ecoli", editable = true }
 vivarium-dashboard = { path = "../vivarium-dashboard", editable = true }

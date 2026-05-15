@@ -1,6 +1,6 @@
 schema_version: 2
 name: v2ecoli
-created: "2026-05-15"
+created: '2026-05-15'
 plugin_version: 0.4.16
 package_path: pbg_v2ecoli
 observables: []
@@ -10,3 +10,13 @@ datasets: []
 references_bib: references/papers.bib
 server:
   enabled: false
+imports:
+  v2ecoli:
+    source: https://github.com/vivarium-collective/v2ecoli.git
+    ref: main
+    mode: reference
+    path: external/v2ecoli
+    description: Whole-cell E. coli model in Vivarium 2
+    installed: true
+    install_path: /Users/eranagmon/code/v2ecoli-workspace/external/v2ecoli
+    package: v2ecoli

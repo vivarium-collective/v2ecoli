@@ -1,0 +1,134 @@
+name: full-lifecycle
+question: 'Does the baseline architecture reach division in ~42 minutes with
+
+  upstream-parity mass dynamics?
+
+  '
+hypothesis: "cell_mass roughly doubles, growth_rate stays in the 1.5e-4\u20133e-4\
+  \ s\u207B\xB9\nband, and a division event fires near t = 2520 s.\n"
+status: draft
+tags:
+- baseline
+- lifecycle
+- fast-smoke
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    cache_dir: out/cache
+    seed: 0
+variants: []
+observables:
+- path:
+  - agents
+  - '0'
+  - listeners
+  - mass
+  - cell_mass
+- path:
+  - agents
+  - '0'
+  - listeners
+  - mass
+  - dry_mass
+- path:
+  - agents
+  - '0'
+  - listeners
+  - mass
+  - instantaneous_growth_rate
+- path:
+  - agents
+  - '0'
+  - listeners
+  - mass
+  - volume
+- path:
+  - agents
+  - '0'
+  - listeners
+  - mass
+  - protein_mass
+- path:
+  - agents
+  - '0'
+  - listeners
+  - mass
+  - rRna_mass
+- path:
+  - agents
+  - '0'
+  - listeners
+  - mass
+  - tRna_mass
+- path:
+  - agents
+  - '0'
+  - listeners
+  - mass
+  - mRna_mass
+- path:
+  - agents
+  - '0'
+  - listeners
+  - mass
+  - dna_mass
+- path:
+  - agents
+  - '0'
+  - divide
+runs:
+- composite: baseline
+  params:
+    seed: 0
+  steps: 2520
+visualizations:
+- name: workflow
+  address: local:WorkflowVisualization
+  inputs:
+    history:
+      source: run
+      run: baseline-0
+    metadata:
+      source: run-meta
+      run: baseline-0
+  config:
+    title: "Baseline \u2014 single-cell lifecycle"
+- name: cell-mass
+  address: local:TimeSeriesPlot
+  config:
+    observable: cell_mass
+    sources:
+    - baseline
+    title: Cell mass (fg)
+- name: growth-rate
+  address: local:TimeSeriesPlot
+  config:
+    observable: instantaneous_growth_rate
+    sources:
+    - baseline
+    title: "Instantaneous growth rate (s\u207B\xB9)"
+- name: mass-fractions
+  address: local:TimeSeriesPlot
+  config:
+    observables:
+    - protein_mass
+    - rRna_mass
+    - tRna_mass
+    - mRna_mass
+    - dna_mass
+    sources:
+    - baseline
+    title: Mass fractions
+- name: topology
+  address: local:NetworkVisualization
+  inputs:
+    composite_spec:
+      source: variant-document
+      variant: baseline
+  config:
+    title: "Baseline \u2014 process topology"
+schema_version: 3
+objective: ''
+parent_studies: []
+interventions: []

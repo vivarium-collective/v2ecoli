@@ -2274,8 +2274,8 @@ wheels = [
 
 [[package]]
 name = "pbg-superpowers"
-version = "0.6.1"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#f5188022c3fead3d968ce62fcbf953e2cff71390" }
+version = "0.8.1"
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#e94c8e82b8c3996afbb0f667284094a0c44197e6" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },

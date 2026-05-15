@@ -43,6 +43,7 @@ from v2ecoli.composites._helpers import (
     PARTITIONED_PROCESSES,
     ALL_PARTITIONED,
     ALLOCATOR_LAYERS,
+    DEFAULT_SINGLE_CELL_VISUALIZATIONS,
 )
 
 
@@ -353,6 +354,7 @@ def _get_step_config(loader, step_name, core, process_cache=None):
             "description": "Path to ParCa cache directory",
         },
     },
+    visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
 )
 def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -> dict:
     """Build the process-bigraph state document for the baseline architecture.

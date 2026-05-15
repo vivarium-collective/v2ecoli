@@ -38,6 +38,7 @@ from v2ecoli.composites._helpers import (
     FLUSH,
     PARTITIONED_PROCESSES,
     ALL_PARTITIONED,
+    DEFAULT_SINGLE_CELL_VISUALIZATIONS,
 )
 
 # Process imports needed by _instantiate_departitioned_step
@@ -312,6 +313,7 @@ def _get_step_config(loader, step_name, core):
             "description": "Path to ParCa cache directory",
         },
     },
+    visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
 )
 def departitioned(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -> dict:
     """Build the process-bigraph state document for the departitioned architecture.

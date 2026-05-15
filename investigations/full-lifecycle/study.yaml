@@ -82,6 +82,36 @@ runs:
   params:
     seed: 0
   steps: 2520
+- run_id: v2ecoli.composites.baseline.baseline__1778855076__6c7a38
+  variant: null
+  label: baseline
+  status: completed
+  n_steps: 5
+  composite: baseline
+- run_id: v2ecoli.composites.baseline.baseline__1778857422__986b70
+  variant: null
+  label: baseline
+  status: completed
+  n_steps: 5
+  composite: baseline
+- run_id: v2ecoli.composites.baseline.baseline__1778859252__8e9164
+  variant: null
+  label: baseline
+  status: completed
+  n_steps: 5
+  composite: baseline
+- run_id: v2ecoli.composites.baseline.baseline__1778878421__3d586d
+  variant: null
+  label: baseline
+  status: completed
+  n_steps: 5
+  composite: baseline
+- run_id: v2ecoli.composites.baseline.baseline__1778884563__46c228
+  variant: null
+  label: baseline
+  status: completed
+  n_steps: 5
+  composite: baseline
 visualizations:
 - name: workflow
   address: local:WorkflowVisualization

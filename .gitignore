@@ -24,3 +24,5 @@ reports/assets/*
 # Transient brainstorm session artifacts (server PIDs, logs, rendered HTML).
 .superpowers/brainstorm/
 out/
+.pbg/composite-runs.db-shm
+.pbg/composite-runs.db-wal

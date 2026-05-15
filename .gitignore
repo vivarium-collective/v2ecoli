@@ -23,3 +23,4 @@ reports/assets/*
 !reports/assets/.keep
 # Transient brainstorm session artifacts (server PIDs, logs, rendered HTML).
 .superpowers/brainstorm/
+out/

@@ -1,5 +1,5 @@
 [project]
-name = "v2ecoli"
+name = "pbg_v2ecoli"
 version = "0.0.0"
 description = "Process-bigraph research workspace"
 requires-python = ">=3.11"

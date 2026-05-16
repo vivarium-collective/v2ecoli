@@ -1,0 +1,81 @@
+# Auto-seeded 2026-05-16 from dnaa-01-expression-dynamics's follow_up_studies[1] ('Recalibrate EG10235 translation_efficiency in ParCa').
+# Original kind: calibration_task. Effort estimate: M.
+# Walk through Design → Build → Simulate → Evaluate → Decide; fill TBD fields as you go.
+
+schema_version: 3
+name: dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca
+created: '2026-05-16'
+status: planned
+phase: Design
+seeded_from:
+  parent: dnaa-01-expression-dynamics
+  followup_idx: 1
+  followup_title: Recalibrate EG10235 translation_efficiency in ParCa
+  kind: calibration_task
+baseline:
+- name: baseline-placeholder
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+purpose:
+  question: 'With the listener bug fixed, v2ecoli''s median DnaA pool is ~115/cell.
+
+    Literature (Sekimizu, Schmidt, Mori) reports 300-800. v2ecoli is ~5×
+
+    too low. Most likely cause: translation_efficiency for EG10235 in the
+
+    ParCa cache. Other candidates worth ruling out: DnaA degradation rate;
+
+    whether literature numbers include chromosome-bound DnaA that the
+
+    listener might not be summing back in.'
+  mechanism: Investigate the mechanism implied by follow-up 'Recalibrate EG10235 translation_efficiency
+    in ParCa'. Add concrete model_change details before moving past Design.
+  expected_outcome: "Satisfies the acceptance criteria inherited from the parent's\
+    \ follow_up_studies[1]:\n  - dnaa-01 re-run produces median DnaA in [300, 800]\n\
+    \  - bulk[MONOMER0-160[c]] (DnaA-ATP) reaches the expected 200-500 free pool fraction"
+pipeline_gate:
+  prerequisites:
+  - dnaa-01-expression-dynamics
+  enables: []
+  proceed_condition: TBD — define before Simulate.
+simulation_set: []
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_processes: []
+  new_state_variables: []
+  new_parameters: []
+  modified_processes: []
+  notes: Populate during Build phase.
+key_assumptions:
+- 'Inherited acceptance criterion: dnaa-01 re-run produces median DnaA in [300, 800]'
+- 'Inherited acceptance criterion: bulk[MONOMER0-160[c]] (DnaA-ATP) reaches the expected
+  200-500 free pool fraction'
+readouts: []
+behavior_tests: []
+conclusion_logic:
+  if_primary_tests_pass:
+    implementation_status: TBD
+    biological_validation: TBD
+  if_primary_tests_fail:
+    diagnose:
+    - TBD
+    block_downstream: TBD
+limitations:
+- TBD — fill before Decide phase.
+implementation_requirements: []
+bibliography:
+  expert:
+  - replication_initiation_molecular_info
+  - chromosome_replication_plan
+  bib_keys: []
+runs: []
+conclusion: null
+parent_studies:
+- dnaa-01-expression-dynamics
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

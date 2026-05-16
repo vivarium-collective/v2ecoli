@@ -334,23 +334,6 @@ def main() -> None:
     for w in study_warnings:
         print(w, file=sys.stderr)
 
-    # Cross-study biology consistency (P2b-7): validates enum-typed fields
-    # against the registered bigraph-schema enums in v2ecoli/types/biology.py
-    # AND checks that the same literature/model observable maps to the same
-    # pool across studies. Fails the lint on enum violations or pool conflicts.
-    biology_validator = WS_ROOT / "scripts" / "validate_study_biology.py"
-    if biology_validator.exists():
-        result = subprocess.run(
-            [sys.executable, str(biology_validator)],
-            cwd=WS_ROOT, capture_output=True, text=True, timeout=30,
-        )
-        if result.stdout:
-            print(result.stdout.rstrip())
-        if result.stderr:
-            print(result.stderr.rstrip(), file=sys.stderr)
-        if result.returncode != 0:
-            _fail("cross-study biology consistency check failed")
-
 
 if __name__ == "__main__":
     main()

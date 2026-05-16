@@ -307,14 +307,25 @@ behavior_tests:
   - Hansen2021FrontMolBiosci
 - name: autorepression-correlation
   classification: supporting
-  description: "When DnaA bound-to-promoters is high, dnaA transcription init\nevents\
-    \ are low \u2014 autorepression signature. Pearson r \u2264 -0.3\nacross the second-half\
-    \ window.\n"
+  description: |
+    When DnaA bound-to-promoters is high, cell-wide transcription init
+    events should bias down \u2014 autorepression signature. Coarse first-pass
+    test: Pearson r \u2264 -0.3 across the second-half window.
+
+    X axis: DnaA-specific TF binding (sum over TUs in column 12 of
+    listeners.rna_synth_prob.n_bound_TF_per_TU; idx 12 = MONOMER0-160
+    = DnaA-ATP in tf_binding.tf_ids).
+
+    Y axis: cell-wide transcription init events. Note this is a coarse
+    proxy \u2014 true autorepression targets the dnaA promoter (EG10235_RNA
+    TU) specifically. Refining Y to slice on EG10235_RNA's TU index
+    needs a sim_data lookup not currently available to the evaluator.
   measure:
     kind: xy_correlation
     x:
-      kind: listener_sum
+      kind: tf_axis_sum
       path: listeners.rna_synth_prob.n_bound_TF_per_TU
+      tf_index: 12        # MONOMER0-160 = DnaA-ATP in tf_ids
     y:
       kind: listener_sum
       path: listeners.rnap_data.rna_init_event
@@ -324,6 +335,8 @@ behavior_tests:
     threshold: -0.3
   units: dimensionless r
   requires_simulation: baseline-steady-state
+  prerequisites:
+  - run with --heavy_tf_listener so n_bound_TF_per_TU is populated
   cites:
   - Speck1999EMBO
   - Saggioro2013BiochemJ

@@ -118,6 +118,57 @@ ALLOCATOR_LAYERS = {
 
 
 # ---------------------------------------------------------------------------
+# Emitter override (module-level)
+# ---------------------------------------------------------------------------
+# When a Study runner needs persistent time-series history, it can set
+# ``_EMITTER_OVERRIDE`` to a dict of SQLiteEmitter-config kwargs (e.g.
+# ``{'file_path': '.../studies/<name>', 'db_file': 'runs.db',
+#   'name': 'baseline-steady-state'}``) BEFORE building the composite.
+# When set, the special 'emitter' step in baseline / departitioned /
+# reconciled swaps RAMEmitter for SQLiteEmitter and expands the emit
+# schema to cover the per-listener fields the dnaa investigation reads.
+#
+# Use the ``sqlite_emitter()`` context manager below for safety —
+# ensures the override is cleared even on exceptions.
+_EMITTER_OVERRIDE: dict | None = None
+
+
+def set_emitter_override(config: dict | None) -> None:
+    """Set the module-level emitter override. Pass None to clear."""
+    global _EMITTER_OVERRIDE
+    _EMITTER_OVERRIDE = config
+
+
+import contextlib  # noqa: E402
+
+@contextlib.contextmanager
+def sqlite_emitter(*, file_path: str, db_file: str = 'runs.db',
+                   name: str | None = None,
+                   simulation_id: str | None = None,
+                   subsample: int = 1):
+    """Context manager: build composite with a SQLiteEmitter step.
+
+    Usage:
+        with sqlite_emitter(file_path='studies/dnaa-01/', name='baseline'):
+            doc = baseline(cache_dir='out/cache')
+            comp = Composite(doc, core=core)
+            comp.update({}, 60.0 * 60)   # 60 minutes
+    """
+    cfg = {'file_path': file_path, 'db_file': db_file}
+    if name is not None:
+        cfg['name'] = name
+    if simulation_id is not None:
+        cfg['simulation_id'] = simulation_id
+    if subsample != 1:
+        cfg['subsample'] = subsample
+    set_emitter_override(cfg)
+    try:
+        yield cfg
+    finally:
+        set_emitter_override(None)
+
+
+# ---------------------------------------------------------------------------
 # Wiring helpers
 # ---------------------------------------------------------------------------
 
@@ -429,30 +480,72 @@ def _get_special_step(loader, step_name, core):
         return instance, topo, 'process'
 
     if step_name == 'emitter':
-        from process_bigraph.emitter import RAMEmitter
+        from process_bigraph.emitter import RAMEmitter, SQLiteEmitter
+        # Mass listener fields — always emitted, used by the workflow report.
+        mass_schema = {
+            'cell_mass': 'float',
+            'water_mass': 'float',
+            'dry_mass': 'float',
+            'protein_mass': 'float',
+            'rna_mass': 'float',
+            'rRna_mass': 'float',
+            'tRna_mass': 'float',
+            'mRna_mass': 'float',
+            'dna_mass': 'float',
+            'smallMolecule_mass': 'float',
+            'instantaneous_growth_rate': 'float',
+            'volume': 'float',
+        }
+        listeners_schema = {'mass': mass_schema}
+
+        # When a caller-set override is active (typical for study runs that
+        # need persistent SQLite history), expand the emit schema to capture
+        # the dnaa-investigation readouts: monomer_counts / rna_counts /
+        # rna_synth_prob / rnap_data. Cheap to add — they're already in the
+        # per-step state tree.
+        override = _EMITTER_OVERRIDE
+        if override is not None:
+            # Only the leaves the dnaa-investigation readouts actually consume.
+            # NB: ``monomer_counts`` is a flat array store (not nested under
+            # a ``monomerCounts`` key) — confirmed at runtime via the
+            # composite-emitted state shape.
+            listeners_schema.update({
+                'monomer_counts': 'array[integer]',
+                'rna_counts': {
+                    'mRNA_counts': 'array[integer]',
+                },
+                'rna_synth_prob': {
+                    'n_bound_TF_per_TU': 'array[float]',
+                    'n_actual_bound': 'array[integer]',
+                    'total_rna_init': 'integer',
+                },
+                'rnap_data': {
+                    'rna_init_event': 'array[integer]',
+                    'did_initialize': 'integer',
+                },
+                'replication_data': {
+                    'number_of_oric': 'integer',
+                    'free_DnaA_boxes': 'integer',
+                    'total_DnaA_boxes': 'integer',
+                },
+            })
+
         emit_schema = {
             'global_time': 'float',
             'bulk': 'array',
-            'listeners': {'mass': {
-                'cell_mass': 'float',
-                'water_mass': 'float',
-                'dry_mass': 'float',
-                'protein_mass': 'float',
-                'rna_mass': 'float',
-                'rRna_mass': 'float',
-                'tRna_mass': 'float',
-                'mRna_mass': 'float',
-                'dna_mass': 'float',
-                'smallMolecule_mass': 'float',
-                'instantaneous_growth_rate': 'float',
-                'volume': 'float',
-            }},
+            'listeners': listeners_schema,
             'full_chromosome': 'node',
             'active_replisome': 'node',
             'active_RNAP': 'node',
             'chromosome_domain': 'node',
         }
-        instance = RAMEmitter({'emit': emit_schema}, core)
+
+        if override is not None:
+            cfg = {'emit': emit_schema, **override}
+            instance = SQLiteEmitter(cfg, core)
+        else:
+            instance = RAMEmitter({'emit': emit_schema}, core)
+
         topo = {
             'global_time': ('global_time',),
             'bulk': ('bulk',),

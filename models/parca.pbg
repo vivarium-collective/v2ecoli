@@ -1,0 +1,811 @@
+{
+  "global_time": 0.0,
+  "initialize": {
+    "_type": "step",
+    "address": "local:InitializeStep",
+    "inputs": {},
+    "outputs": {
+      "tick_1": [
+        "tick_1"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "translation": [
+        "process",
+        "translation"
+      ],
+      "metabolism": [
+        "process",
+        "metabolism"
+      ],
+      "rna_decay": [
+        "process",
+        "rna_decay"
+      ],
+      "complexation": [
+        "process",
+        "complexation"
+      ],
+      "equilibrium": [
+        "process",
+        "equilibrium"
+      ],
+      "two_component_system": [
+        "process",
+        "two_component_system"
+      ],
+      "transcription_regulation": [
+        "process",
+        "transcription_regulation"
+      ],
+      "replication": [
+        "process",
+        "replication"
+      ],
+      "mass": [
+        "mass"
+      ],
+      "constants": [
+        "constants"
+      ],
+      "growth_rate_parameters": [
+        "growth_rate_parameters"
+      ],
+      "adjustments": [
+        "adjustments"
+      ],
+      "molecule_groups": [
+        "molecule_groups"
+      ],
+      "molecule_ids": [
+        "molecule_ids"
+      ],
+      "relation": [
+        "relation"
+      ],
+      "getter": [
+        "getter"
+      ],
+      "bulk_molecules": [
+        "internal_state",
+        "bulk_molecules"
+      ],
+      "external_state": [
+        "external_state"
+      ],
+      "sim_data_root": [
+        "sim_data_root"
+      ],
+      "tf_to_active_inactive_conditions": [
+        "tf_to_active_inactive_conditions"
+      ],
+      "conditions": [
+        "conditions"
+      ],
+      "condition_to_doubling_time": [
+        "condition_to_doubling_time"
+      ],
+      "tf_to_fold_change": [
+        "tf_to_fold_change"
+      ],
+      "tf_to_direction": [
+        "tf_to_direction"
+      ],
+      "condition_active_tfs": [
+        "condition_active_tfs"
+      ],
+      "condition_inactive_tfs": [
+        "condition_inactive_tfs"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ],
+      "translation_supply_rate": [
+        "translation_supply_rate"
+      ],
+      "expected_dry_mass_increase_dict": [
+        "expected_dry_mass_increase_dict"
+      ],
+      "pPromoterBound": [
+        "pPromoterBound"
+      ],
+      "condition": [
+        "condition"
+      ]
+    }
+  },
+  "input_adjustments": {
+    "_type": "step",
+    "address": "local:InputAdjustmentsStep",
+    "inputs": {
+      "tick_1": [
+        "tick_1"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "translation": [
+        "process",
+        "translation"
+      ],
+      "adjustments": [
+        "adjustments"
+      ],
+      "tf_to_active_inactive_conditions": [
+        "tf_to_active_inactive_conditions"
+      ]
+    },
+    "outputs": {
+      "tick_2": [
+        "tick_2"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "translation": [
+        "process",
+        "translation"
+      ],
+      "tf_to_active_inactive_conditions": [
+        "tf_to_active_inactive_conditions"
+      ]
+    }
+  },
+  "basal_specs": {
+    "_type": "step",
+    "address": "local:BasalSpecsStep",
+    "inputs": {
+      "tick_2": [
+        "tick_2"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "translation": [
+        "process",
+        "translation"
+      ],
+      "metabolism": [
+        "process",
+        "metabolism"
+      ],
+      "rna_decay": [
+        "process",
+        "rna_decay"
+      ],
+      "complexation": [
+        "process",
+        "complexation"
+      ],
+      "replication": [
+        "process",
+        "replication"
+      ],
+      "mass": [
+        "mass"
+      ],
+      "constants": [
+        "constants"
+      ],
+      "growth_rate_parameters": [
+        "growth_rate_parameters"
+      ],
+      "molecule_groups": [
+        "molecule_groups"
+      ],
+      "molecule_ids": [
+        "molecule_ids"
+      ],
+      "relation": [
+        "relation"
+      ],
+      "getter": [
+        "getter"
+      ],
+      "bulk_molecules": [
+        "internal_state",
+        "bulk_molecules"
+      ],
+      "sim_data_root": [
+        "sim_data_root"
+      ],
+      "condition_to_doubling_time": [
+        "condition_to_doubling_time"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ]
+    },
+    "outputs": {
+      "tick_3": [
+        "tick_3"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "mass": [
+        "mass"
+      ],
+      "constants": [
+        "constants"
+      ],
+      "rna_decay": [
+        "process",
+        "rna_decay"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ]
+    }
+  },
+  "tf_condition_specs": {
+    "_type": "step",
+    "address": "local:TfConditionSpecsStep",
+    "inputs": {
+      "tick_3": [
+        "tick_3"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "translation": [
+        "process",
+        "translation"
+      ],
+      "metabolism": [
+        "process",
+        "metabolism"
+      ],
+      "rna_decay": [
+        "process",
+        "rna_decay"
+      ],
+      "complexation": [
+        "process",
+        "complexation"
+      ],
+      "equilibrium": [
+        "process",
+        "equilibrium"
+      ],
+      "two_component_system": [
+        "process",
+        "two_component_system"
+      ],
+      "transcription_regulation": [
+        "process",
+        "transcription_regulation"
+      ],
+      "replication": [
+        "process",
+        "replication"
+      ],
+      "mass": [
+        "mass"
+      ],
+      "constants": [
+        "constants"
+      ],
+      "growth_rate_parameters": [
+        "growth_rate_parameters"
+      ],
+      "molecule_groups": [
+        "molecule_groups"
+      ],
+      "molecule_ids": [
+        "molecule_ids"
+      ],
+      "relation": [
+        "relation"
+      ],
+      "getter": [
+        "getter"
+      ],
+      "bulk_molecules": [
+        "internal_state",
+        "bulk_molecules"
+      ],
+      "sim_data_root": [
+        "sim_data_root"
+      ],
+      "tf_to_active_inactive_conditions": [
+        "tf_to_active_inactive_conditions"
+      ],
+      "conditions": [
+        "conditions"
+      ],
+      "condition_to_doubling_time": [
+        "condition_to_doubling_time"
+      ],
+      "tf_to_fold_change": [
+        "tf_to_fold_change"
+      ],
+      "condition_active_tfs": [
+        "condition_active_tfs"
+      ],
+      "condition_inactive_tfs": [
+        "condition_inactive_tfs"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ]
+    },
+    "outputs": {
+      "tick_4": [
+        "tick_4"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ]
+    }
+  },
+  "fit_condition": {
+    "_type": "step",
+    "address": "local:FitConditionStep",
+    "inputs": {
+      "tick_4": [
+        "tick_4"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "translation": [
+        "process",
+        "translation"
+      ],
+      "complexation": [
+        "process",
+        "complexation"
+      ],
+      "equilibrium": [
+        "process",
+        "equilibrium"
+      ],
+      "two_component_system": [
+        "process",
+        "two_component_system"
+      ],
+      "mass": [
+        "mass"
+      ],
+      "constants": [
+        "constants"
+      ],
+      "growth_rate_parameters": [
+        "growth_rate_parameters"
+      ],
+      "molecule_ids": [
+        "molecule_ids"
+      ],
+      "relation": [
+        "relation"
+      ],
+      "molecule_groups": [
+        "molecule_groups"
+      ],
+      "getter": [
+        "getter"
+      ],
+      "bulk_molecules": [
+        "internal_state",
+        "bulk_molecules"
+      ],
+      "sim_data_root": [
+        "sim_data_root"
+      ],
+      "conditions": [
+        "conditions"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ]
+    },
+    "outputs": {
+      "tick_5": [
+        "tick_5"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ],
+      "translation_supply_rate": [
+        "translation_supply_rate"
+      ]
+    }
+  },
+  "promoter_binding": {
+    "_type": "step",
+    "address": "local:PromoterBindingStep",
+    "inputs": {
+      "tick_5": [
+        "tick_5"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "transcription_regulation": [
+        "process",
+        "transcription_regulation"
+      ],
+      "equilibrium": [
+        "process",
+        "equilibrium"
+      ],
+      "two_component_system": [
+        "process",
+        "two_component_system"
+      ],
+      "replication": [
+        "process",
+        "replication"
+      ],
+      "mass": [
+        "mass"
+      ],
+      "constants": [
+        "constants"
+      ],
+      "molecule_ids": [
+        "molecule_ids"
+      ],
+      "molecule_groups": [
+        "molecule_groups"
+      ],
+      "relation": [
+        "relation"
+      ],
+      "getter": [
+        "getter"
+      ],
+      "bulk_molecules": [
+        "internal_state",
+        "bulk_molecules"
+      ],
+      "sim_data_root": [
+        "sim_data_root"
+      ],
+      "conditions": [
+        "conditions"
+      ],
+      "condition_to_doubling_time": [
+        "condition_to_doubling_time"
+      ],
+      "tf_to_active_inactive_conditions": [
+        "tf_to_active_inactive_conditions"
+      ],
+      "tf_to_fold_change": [
+        "tf_to_fold_change"
+      ],
+      "tf_to_direction": [
+        "tf_to_direction"
+      ],
+      "condition_active_tfs": [
+        "condition_active_tfs"
+      ],
+      "condition_inactive_tfs": [
+        "condition_inactive_tfs"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ]
+    },
+    "outputs": {
+      "tick_6": [
+        "tick_6"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "transcription_regulation": [
+        "process",
+        "transcription_regulation"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ],
+      "pPromoterBound": [
+        "pPromoterBound"
+      ]
+    }
+  },
+  "adjust_promoters": {
+    "_type": "step",
+    "address": "local:AdjustPromotersStep",
+    "inputs": {
+      "tick_6": [
+        "tick_6"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "transcription_regulation": [
+        "process",
+        "transcription_regulation"
+      ],
+      "equilibrium": [
+        "process",
+        "equilibrium"
+      ],
+      "two_component_system": [
+        "process",
+        "two_component_system"
+      ],
+      "metabolism": [
+        "process",
+        "metabolism"
+      ],
+      "replication": [
+        "process",
+        "replication"
+      ],
+      "mass": [
+        "mass"
+      ],
+      "constants": [
+        "constants"
+      ],
+      "molecule_ids": [
+        "molecule_ids"
+      ],
+      "molecule_groups": [
+        "molecule_groups"
+      ],
+      "relation": [
+        "relation"
+      ],
+      "getter": [
+        "getter"
+      ],
+      "bulk_molecules": [
+        "internal_state",
+        "bulk_molecules"
+      ],
+      "sim_data_root": [
+        "sim_data_root"
+      ],
+      "conditions": [
+        "conditions"
+      ],
+      "condition_to_doubling_time": [
+        "condition_to_doubling_time"
+      ],
+      "tf_to_active_inactive_conditions": [
+        "tf_to_active_inactive_conditions"
+      ],
+      "tf_to_fold_change": [
+        "tf_to_fold_change"
+      ],
+      "tf_to_direction": [
+        "tf_to_direction"
+      ],
+      "condition_active_tfs": [
+        "condition_active_tfs"
+      ],
+      "condition_inactive_tfs": [
+        "condition_inactive_tfs"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ],
+      "pPromoterBound": [
+        "pPromoterBound"
+      ]
+    },
+    "outputs": {
+      "tick_7": [
+        "tick_7"
+      ],
+      "transcription_regulation": [
+        "process",
+        "transcription_regulation"
+      ],
+      "metabolism": [
+        "process",
+        "metabolism"
+      ],
+      "equilibrium": [
+        "process",
+        "equilibrium"
+      ]
+    }
+  },
+  "set_conditions": {
+    "_type": "step",
+    "address": "local:SetConditionsStep",
+    "inputs": {
+      "tick_7": [
+        "tick_7"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "translation": [
+        "process",
+        "translation"
+      ],
+      "metabolism": [
+        "process",
+        "metabolism"
+      ],
+      "mass": [
+        "mass"
+      ],
+      "constants": [
+        "constants"
+      ],
+      "growth_rate_parameters": [
+        "growth_rate_parameters"
+      ],
+      "getter": [
+        "getter"
+      ],
+      "sim_data_root": [
+        "sim_data_root"
+      ],
+      "conditions": [
+        "conditions"
+      ],
+      "condition_to_doubling_time": [
+        "condition_to_doubling_time"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ]
+    },
+    "outputs": {
+      "tick_8": [
+        "tick_8"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "translation": [
+        "process",
+        "translation"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ],
+      "expected_dry_mass_increase_dict": [
+        "expected_dry_mass_increase_dict"
+      ]
+    }
+  },
+  "final_adjustments": {
+    "_type": "step",
+    "address": "local:FinalAdjustmentsStep",
+    "inputs": {
+      "tick_8": [
+        "tick_8"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "translation": [
+        "process",
+        "translation"
+      ],
+      "metabolism": [
+        "process",
+        "metabolism"
+      ],
+      "complexation": [
+        "process",
+        "complexation"
+      ],
+      "equilibrium": [
+        "process",
+        "equilibrium"
+      ],
+      "two_component_system": [
+        "process",
+        "two_component_system"
+      ],
+      "transcription_regulation": [
+        "process",
+        "transcription_regulation"
+      ],
+      "replication": [
+        "process",
+        "replication"
+      ],
+      "mass": [
+        "mass"
+      ],
+      "constants": [
+        "constants"
+      ],
+      "growth_rate_parameters": [
+        "growth_rate_parameters"
+      ],
+      "molecule_ids": [
+        "molecule_ids"
+      ],
+      "molecule_groups": [
+        "molecule_groups"
+      ],
+      "relation": [
+        "relation"
+      ],
+      "getter": [
+        "getter"
+      ],
+      "bulk_molecules": [
+        "internal_state",
+        "bulk_molecules"
+      ],
+      "sim_data_root": [
+        "sim_data_root"
+      ],
+      "conditions": [
+        "conditions"
+      ],
+      "condition_to_doubling_time": [
+        "condition_to_doubling_time"
+      ],
+      "tf_to_active_inactive_conditions": [
+        "tf_to_active_inactive_conditions"
+      ],
+      "tf_to_fold_change": [
+        "tf_to_fold_change"
+      ],
+      "tf_to_direction": [
+        "tf_to_direction"
+      ],
+      "condition_active_tfs": [
+        "condition_active_tfs"
+      ],
+      "condition_inactive_tfs": [
+        "condition_inactive_tfs"
+      ],
+      "cell_specs": [
+        "cell_specs"
+      ],
+      "translation_supply_rate": [
+        "translation_supply_rate"
+      ],
+      "pPromoterBound": [
+        "pPromoterBound"
+      ],
+      "external_state": [
+        "external_state"
+      ],
+      "condition": [
+        "condition"
+      ]
+    },
+    "outputs": {
+      "tick_9": [
+        "tick_9"
+      ],
+      "transcription": [
+        "process",
+        "transcription"
+      ],
+      "metabolism": [
+        "process",
+        "metabolism"
+      ],
+      "constants": [
+        "constants"
+      ]
+    }
+  }
+}

@@ -1,0 +1,235 @@
+"""Unum <-> pint translation at the boundary between v2ecoli (pint) and
+upstream vEcoli/wholecell (Unum). All call sites that cross into upstream
+Unum-native code must convert here. The v2ecoli internal codebase should
+never touch Unum directly outside this module.
+"""
+
+from __future__ import annotations
+
+import functools
+from typing import Optional, Any
+
+import numpy as np
+import pint
+from unum import Unum
+from wholecell.utils import units as wc_units
+
+from v2ecoli.types.quantity import ureg
+
+# Pre-trigger any upstream import that replaces pint.application_registry
+# (notably ecoli.library.bigraph_types). If we don't do this first, a
+# later transitive import — e.g. while unpickling sim_data_cache.dill —
+# will detach application_registry from our ureg mid-load, and pint's
+# unpickle path will fail to resolve the custom unit names below.
+try:
+    from ecoli.library import bigraph_types  # noqa: F401
+except ImportError:
+    pass
+# Re-assert ureg as the application registry after the side-effectful
+# import above; then register our custom units on it.
+pint.set_application_registry(ureg)
+
+# Register bio-specific units that pint doesn't know about. The upstream
+# Unum library treats these as named base units; we mirror that as
+# dimensionless-like base units in pint so unit algebra closes (e.g.
+# nucleotide / s remains nucleotide/s).
+for _name, _aliases in [
+    ("nucleotide", ("nt",)),
+    ("amino_acid", ("aa",)),
+    ("count", ()),
+]:
+    if _name not in ureg:
+        ureg.define(f"{_name} = [{_name}]" + (" = " + " = ".join(_aliases) if _aliases else ""))
+
+
+def rebind_cache_quantities(obj, _seen=None):
+    """Walk a loaded cache dict/list/tuple/ndarray and rebind every pint
+    Quantity to the shared ureg. Use after `dill.load` on cache.dill to
+    guard against stale-registry Quantities from cross-process unpickle
+    or from side-effectful imports (e.g. ecoli.library.bigraph_types
+    replacing pint.application_registry at import time)."""
+    import numpy as np
+    if _seen is None:
+        _seen = set()
+    if id(obj) in _seen:
+        return obj
+    _seen.add(id(obj))
+
+    def _rebind(q):
+        if isinstance(q, pint.Quantity) and q._REGISTRY is not ureg:
+            return ureg.Quantity(q.magnitude, str(q.units))
+        return q
+
+    if isinstance(obj, dict):
+        for k in list(obj.keys()):
+            v = obj[k]
+            if isinstance(v, pint.Quantity):
+                obj[k] = _rebind(v)
+            else:
+                rebind_cache_quantities(v, _seen)
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            if isinstance(v, pint.Quantity):
+                obj[i] = _rebind(v)
+            else:
+                rebind_cache_quantities(v, _seen)
+    elif isinstance(obj, np.ndarray) and obj.dtype == object:
+        flat = obj.ravel()
+        for i in range(flat.shape[0]):
+            v = flat[i]
+            if isinstance(v, pint.Quantity):
+                flat[i] = _rebind(v)
+            else:
+                rebind_cache_quantities(v, _seen)
+    return obj
+
+
+def _unit_string_from_unum(u: Unum) -> str:
+    """Build a pint-parseable unit expression from a Unum's _unit dict."""
+    parts = []
+    for name, exp in u._unit.items():
+        parts.append(f"{name}**{exp}" if exp != 1 else name)
+    return " * ".join(parts) if parts else "dimensionless"
+
+
+@functools.lru_cache(maxsize=512)
+def _parsed_pint_unit(unit_expr: str) -> pint.Unit:
+    """Memoized parser for unit expression strings. Pint's parse_units is
+    a non-trivial walk (tokenize + parse + resolve + canonicalize) that
+    the profile showed eating ~23% of Metabolism.update wall time when
+    invoked once per metabolite per tick. Caching collapses each unique
+    unit string to a single parse for the lifetime of the process."""
+    return ureg.parse_units(unit_expr)
+
+
+@functools.lru_cache(maxsize=1024)
+def _conversion_factor(src_unit_expr: str, target_unit_repr: str) -> float:
+    """Scalar factor to convert magnitude in ``src_unit_expr`` to
+    magnitude in the unit ``target_unit_repr`` denotes.  Both sides are
+    strings so the cache key is hashable.  Building the factor costs one
+    pint ``.to()`` call; on the hot path we reuse it."""
+    src_q = ureg.Quantity(1.0, _parsed_pint_unit(src_unit_expr))
+    return src_q.to(_parsed_pint_unit(target_unit_repr)).magnitude
+
+
+def unum_magnitude_in(u: Any, target: Any) -> Any:
+    """Fast path: convert an Unum (or pint-Quantity, or bare float/array)
+    value straight to a magnitude in ``target``'s units, skipping the
+    transient pint.Quantity allocation and repeated ``.to()`` lookup.
+
+    ``target`` is a pint ``Unit`` or ``Quantity`` whose *units* define
+    the output basis. Module-level unit constants like ``CONC_UNITS``
+    are the intended arguments.
+
+    Use this at hot boundaries where the only purpose of building a pint
+    Quantity was to call ``.to(UNITS).magnitude`` immediately after.
+    """
+    target_units = target.units if isinstance(target, pint.Quantity) else target
+    target_repr = str(target_units)
+    if isinstance(u, Unum):
+        if not u._unit:
+            return u._value
+        src_expr = _unit_string_from_unum(u)
+        return u._value * _conversion_factor(src_expr, target_repr)
+    if isinstance(u, pint.Quantity):
+        if u._REGISTRY is ureg:
+            return u.to(target_units).magnitude
+        src_expr = str(u.units)
+        return u.magnitude * _conversion_factor(src_expr, target_repr)
+    # Bare float/array: trust the caller's unit contract.
+    return u
+
+
+def unum_to_pint(u: Any) -> Any:
+    """Convert an Unum quantity (scalar or ndarray-valued) to a pint Quantity
+    on the shared v2ecoli registry. Non-Unum inputs are rebound to ureg if
+    they are pint Quantities on a different registry, otherwise returned
+    unchanged. Rebinding handles the case where a cache.dill round-trip —
+    or a side-effectful import (e.g. ecoli.library.bigraph_types, which
+    replaces pint.application_registry at import time) — leaves a
+    Quantity tied to a stale UnitRegistry instance. Without this rebind,
+    `rna_conc_molar / self.Kms` raises 'different registries' or silently
+    produces garbage units, which was the root cause of the ~8x mRNA
+    accumulation seen in daughter sims."""
+    if isinstance(u, pint.Quantity):
+        if u._REGISTRY is ureg:
+            return u
+        # Rebind to the shared registry. Cache the parsed unit — the same
+        # unit string recurs thousands of times per tick in hot paths.
+        return ureg.Quantity(u.magnitude, _parsed_pint_unit(str(u.units)))
+    if not isinstance(u, Unum):
+        return u
+    magnitude = u._value
+    if not u._unit:
+        return ureg.Quantity(magnitude)
+    unit_expr = _unit_string_from_unum(u)
+    return ureg.Quantity(magnitude, _parsed_pint_unit(unit_expr))
+
+
+# Pint short-symbol -> wholecell.utils.units name overrides for symbols that
+# wc_units doesn't expose by abbreviation (or where casing differs).
+_PINT_SYMBOL_TO_WC = {
+    "l": "L",
+    "amino_acid": "aa",
+    # pint uses unicode µ in short-symbol form; wholecell uses ASCII u.
+    "µmol": "umol",
+    "µg": "ug",
+    "µL": "uL",
+    "µm": "um",
+    "µs": "us",
+    "µM": "uM",
+}
+
+
+def _resolve_wc_unit(symbol: str) -> Unum:
+    """Find the wholecell.utils.units Unum that corresponds to a pint short
+    symbol. Falls back to constructing a bare Unum for names Unum registers
+    globally but wc_units doesn't re-export (e.g. 'nucleotide')."""
+    name = _PINT_SYMBOL_TO_WC.get(symbol, symbol)
+    wc = getattr(wc_units, name, None)
+    if isinstance(wc, Unum):
+        return wc
+    return Unum({symbol: 1}, 1.0)
+
+
+@functools.lru_cache(maxsize=512)
+def _unum_unit_for_pint_unit(pint_unit: pint.Unit) -> Unum:
+    """Memoized: build an Unum unit object matching a pint Unit's
+    dimensionality using pint short symbols (e.g. 'mmol' rather than
+    'millimole'). Same parse-heavy work as ``_parsed_pint_unit`` in the
+    reverse direction; keying by ``pint.Unit`` (hashable) folds
+    repeated calls to pint_to_unum over the same target unit down to a
+    single build."""
+    unum_unit = Unum({}, 1.0)
+    for name, exp in pint_unit._units.items():
+        symbol = f"{ureg.Unit(name):~}"
+        unum_unit = unum_unit * (_resolve_wc_unit(symbol) ** exp)
+    return unum_unit
+
+
+def _unum_unit_from_pint(q: pint.Quantity) -> Unum:
+    """Build an Unum unit object matching a pint Quantity's dimensionality
+    using pint short symbols (e.g. 'mmol' rather than 'millimole')."""
+    return _unum_unit_for_pint_unit(q.units)
+
+
+def pint_to_unum(q: Any, target: Optional[Unum] = None) -> Any:
+    """Convert a pint Quantity to an Unum quantity. If target is provided
+    (an Unum unit-only object, e.g. units.mmol/units.L), the pint quantity
+    is converted into that unit first; otherwise the pint unit names are
+    mapped 1:1 to wholecell.utils.units. Non-pint inputs are returned
+    unchanged. Bare pint Unit objects are promoted to a 1.0-valued Quantity
+    so the unit alone can be translated."""
+    if isinstance(q, pint.Unit):
+        q = ureg.Quantity(1.0, q)
+    if not isinstance(q, pint.Quantity):
+        return q
+    if target is not None:
+        target_pint_str = _unit_string_from_unum(target)
+        magnitude = q.to(target_pint_str).magnitude
+        return magnitude * target
+    if q.dimensionless and not q.units._units:
+        return Unum({}, q.magnitude)
+    # Unum-on-the-left so numpy ndarray magnitudes don't take operator
+    # precedence and strip the unit.
+    return _unum_unit_from_pint(q) * q.magnitude

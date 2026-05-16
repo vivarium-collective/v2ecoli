@@ -1,0 +1,17 @@
+# CODEOWNERS — automatic review requests
+# Syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default reviewer for everything
+*                              @eagmon
+
+# High-risk areas — biological processes, type system, composite wiring
+/v2ecoli/processes/            @eagmon
+/v2ecoli/steps/                @eagmon
+/v2ecoli/types/                @eagmon
+/v2ecoli/composite*.py         @eagmon
+/v2ecoli/generate*.py          @eagmon
+
+# CI, build, and fixtures must not change without explicit review
+/.github/                      @eagmon
+/pyproject.toml                @eagmon
+/tests/fixtures/               @eagmon

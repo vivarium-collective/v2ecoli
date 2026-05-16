@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Two jobs run in parallel:
+#   fast-tests      — unit + state-only tests, target <30 s, PR-gating
+#   behavior-tests  — simulation-running tests (composite.run), target <5 min, PR-gating
+# A PR only merges when BOTH are green (branch protection requires both).
+#
+# tests/test_initialize.py, test_kinetics_units.py, test_unit_bridge.py are
+# deselected: any test that imports v2ecoli.types triggers a load of the
+# unreleased bigraph-schema `api` branch (plum-dispatched serialize).
+# PyPI bigraph-schema 1.1.1 doesn't have it, so collection fails with
+# AttributeError on .dispatch. Re-enable after bigraph-schema ships those
+# changes to PyPI.
+
+jobs:
+  fast-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12.9
+
+      - name: Install dependencies (PyPI only)
+        run: uv sync --extra dev || uv sync
+
+      - name: Run fast tests (no .run() calls)
+        run: >-
+          uv run pytest
+          -m "not slow and not sim"
+          --ignore=tests/test_initialize.py
+          --ignore=tests/test_kinetics_units.py
+          --ignore=tests/test_unit_bridge.py
+          -v --tb=short
+
+  behavior-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.12.9
+
+      - name: Install dependencies (PyPI only)
+        run: uv sync --extra dev || uv sync
+
+      # Cache out/cache (initial_state.json + sim_data_cache.dill +
+      # cache_version.json) across PRs. The cache key pins to the same
+      # input files that cache_version.compute_cache_version fingerprints,
+      # so a change to ParCa fixture or the LoadSimData boundary forces
+      # a rebuild on the next CI run. The hashFiles list mirrors
+      # cache_version.INPUT_FILES, plus cache_version.py itself so future
+      # additions to INPUT_FILES automatically bust the cache.
+      - name: Restore ParCa cache
+        id: parca-cache
+        uses: actions/cache@v4
+        with:
+          path: out/cache
+          key: >-
+            parca-cache-v2-${{ hashFiles(
+              'models/parca/parca_state.pkl.gz',
+              'v2ecoli/library/sim_data.py',
+              'v2ecoli/library/unit_bridge.py',
+              'v2ecoli/types/quantity.py',
+              'v2ecoli/library/initial_conditions.py',
+              'v2ecoli/library/cache_version.py',
+              'v2ecoli/core.py',
+              'v2ecoli/composites/baseline.py',
+              'v2ecoli/composites/colony.py',
+              'v2ecoli/composites/departitioned.py',
+              'v2ecoli/composites/reconciled.py'
+            ) }}
+
+      - name: Build ParCa cache on miss
+        if: steps.parca-cache.outputs.cache-hit != 'true'
+        run: uv run python scripts/build_cache.py
+
+      - name: Run simulation-based behavior tests
+        env:
+          CI: 'true'
+        run: >-
+          uv run pytest
+          -m "sim and not slow"
+          --ignore=tests/test_initialize.py
+          --ignore=tests/test_kinetics_units.py
+          --ignore=tests/test_unit_bridge.py
+          -v --tb=short

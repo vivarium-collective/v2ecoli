@@ -44,9 +44,9 @@ class RnaSynthProb(Step):
     def inputs(self):
         return {
             'rna_synth_prob': {
-                'actual_rna_synth_prob': {'_type': f'array[{self.n_TU},float]', '_default': []},
-                'target_rna_synth_prob': {'_type': f'array[{self.n_TU},float]', '_default': []},
-                'n_bound_TF_per_TU': {'_type': f'array[({self.n_TU}|{self.n_TF}),integer]', '_default': []},
+                'actual_rna_synth_prob': {'_type': f'overwrite[array[{self.n_TU},float]]', '_default': []},
+                'target_rna_synth_prob': {'_type': f'overwrite[array[{self.n_TU},float]]', '_default': []},
+                'n_bound_TF_per_TU': {'_type': f'overwrite[array[({self.n_TU}|{self.n_TF}),integer]]', '_default': []},
                 'total_rna_init': {'_type': 'integer', '_default': 0},
             },
             'promoters': {'_type': PROMOTER_ARRAY, '_default': []},
@@ -58,16 +58,16 @@ class RnaSynthProb(Step):
     def outputs(self):
         return {
             'rna_synth_prob': {
-                'promoter_copy_number': {'_type': f'array[{self.n_TU},integer]', '_default': []},
-                'gene_copy_number': {'_type': f'array[{self.n_cistron},integer]', '_default': []},
-                'bound_TF_indexes': {'_type': 'array[integer]', '_default': []},
-                'bound_TF_coordinates': {'_type': 'array[integer]', '_default': []},
-                'bound_TF_domains': {'_type': 'array[integer]', '_default': []},
+                'promoter_copy_number': {'_type': f'overwrite[array[{self.n_TU},integer]]', '_default': []},
+                'gene_copy_number': {'_type': f'overwrite[array[{self.n_cistron},integer]]', '_default': []},
+                'bound_TF_indexes': {'_type': 'overwrite[array[integer]]', '_default': []},
+                'bound_TF_coordinates': {'_type': 'overwrite[array[integer]]', '_default': []},
+                'bound_TF_domains': {'_type': 'overwrite[array[integer]]', '_default': []},
                 # Probabilities — dimensionless floats in [0, 1]
-                'expected_rna_init_per_cistron': {'_type': f'array[{self.n_cistron},float]', '_default': []},
-                'actual_rna_synth_prob_per_cistron': {'_type': f'array[{self.n_cistron},float]', '_default': []},
-                'target_rna_synth_prob_per_cistron': {'_type': f'array[{self.n_cistron},float]', '_default': []},
-                'n_bound_TF_per_cistron': {'_type': f'array[{self.n_cistron},integer]', '_default': []},
+                'expected_rna_init_per_cistron': {'_type': f'overwrite[array[{self.n_cistron},float]]', '_default': []},
+                'actual_rna_synth_prob_per_cistron': {'_type': f'overwrite[array[{self.n_cistron},float]]', '_default': []},
+                'target_rna_synth_prob_per_cistron': {'_type': f'overwrite[array[{self.n_cistron},float]]', '_default': []},
+                'n_bound_TF_per_cistron': {'_type': f'overwrite[array[{self.n_cistron},integer]]', '_default': []},
             },
         }
 

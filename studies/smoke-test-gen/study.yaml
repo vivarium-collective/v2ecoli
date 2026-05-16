@@ -1,0 +1,12 @@
+name: smoke-test-gen
+description: ''
+status: planned
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params: {}
+variants: []
+interventions: []
+observables: []
+visualizations: []
+runs: []

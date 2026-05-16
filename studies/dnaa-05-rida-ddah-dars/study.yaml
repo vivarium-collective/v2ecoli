@@ -215,11 +215,16 @@ expected_behavior:
     kind: listener_path
     path: "listeners.dnaA_cycle.atp_fraction"
     reduce: series
+    units: "fraction (DnaA-ATP / total)"
   expect: {op: oscillation_amplitude_at_least, value: 0.15}   # ≥0.15 swing peak-to-trough
   status: gated
   requires:
     - listener: dnaA_cycle.atp_fraction
     - upstream: dnaa-05 RIDA + DARS processes
+  cites:
+    - Katayama2017Frontiers      # DnaA cycle: RIDA + DDAH + DARS oscillate ATP fraction
+    - Riber2016FrontMolBiosci    # multiple DNA-binding proteins time initiation
+    - Boesen2024PNAS             # ATP-fraction time course
 
 - name: inter-initiation-cv-narrows-vs-intrinsic-only
   en: "Adding RIDA + DDAH + DARS narrows the inter-initiation timing CV by at least 30% vs the dnaa-02 intrinsic-only baseline."
@@ -227,22 +232,29 @@ expected_behavior:
   measure:
     kind: cross_run_cv_ratio
     path: "listeners.replication.interinitiation_min"
+    units: "ratio of CVs (this run / compare_to run)"
   expect: {op: at_most, value: 0.70}
   status: gated
   requires:
     - cross_study: dnaa-02-baseline run available
+  cites:
+    - Riber2016FrontMolBiosci    # multiple proteins contribute to timing — narrowing CV
+    - Berger2022NatCommun        # coupled-homeostasis narrows initiation noise
 
 - name: no-DDAH-shows-early-initiation
   en: "no-DDAH variant: mean initiation mass drops ≥10% (untimely early initiation, mirroring delta-datA observations)."
   given:  {run: variant, variant: no-DDAH, window: full, compare_to: baseline}
   measure:
     kind: cross_run_ratio
-    series: {kind: listener_path, path: "listeners.replication.initiation_mass"}
+    series: {kind: listener_path, path: "listeners.replication.initiation_mass", units: "fg"}
     reduce: mean
   expect: {op: at_most, value: 0.90}
   status: gated
   requires:
     - variant_hook: ddah_rate_per_min_per_data
+  cites:
+    - Katayama2017Frontiers      # delta-datA → untimely initiation
+    - Hansen2018DnaATale         # DDAH backup pathway
 
 - name: no-DARS-fails-to-recover-atp-form
   en: "Without DARS1+DARS2, DnaA-ATP fraction post-first-initiation drops below 0.05 and doesn't recover within the cycle."
@@ -252,24 +264,31 @@ expected_behavior:
     path: "listeners.dnaA_cycle.atp_fraction"
     reduce: post_event_min
     event: replication_initiation
+    units: "fraction (minimum DnaA-ATP / total in the post-event window)"
   expect: {op: at_most, value: 0.05}
   status: gated
   requires:
     - variant_hook: dars1_rate_per_min_per_locus
     - variant_hook: dars2_rate_per_min_per_locus
+  cites:
+    - Fujimitsu2009GenesDev      # DARS1/DARS2 reactivate ADP-DnaA
+    - Kasho2014NAR               # DARS2 timely binding regulates ATP-DnaA production
 
 - name: dnaa-atp-anti-correlated-with-replisomes
   en: "During active replication, DnaA-ATP fraction and replisome count are anti-correlated (Pearson r < -0.3 — RIDA hydrolyses ATP-form per fork)."
   given:  {run: baseline, window: replication_active}
   measure:
     kind: xy_correlation
-    x: {kind: listener_path, path: "listeners.dnaA_cycle.atp_fraction"}
-    y: {kind: listener_path, path: "listeners.replication.replisome_count"}
+    x: {kind: listener_path, path: "listeners.dnaA_cycle.atp_fraction",  units: "fraction"}
+    y: {kind: listener_path, path: "listeners.replication.replisome_count", units: "forks/cell"}
   expect: {op: pearson_below, threshold: -0.3}
   status: gated
   requires:
     - listener: dnaA_cycle.atp_fraction
     - listener: replication.replisome_count
+  cites:
+    - Katayama2017Frontiers      # RIDA: replisome-coupled ATP-DnaA hydrolysis via β-clamp/Hda
+    - Riber2016FrontMolBiosci    # multiple DNA-binding proteins time chromosome replication
 
 expert_questions:
 - What's the right quantitative scaling for RIDA per fork? (β-clamp residence

@@ -208,6 +208,116 @@ limitations:
 - 'No regression test in the v2ecoli test suite asserts overwrite[] semantics on listener outputs; future plain-array[] additions could reintroduce the bug.'
 
 
+# ─── Decisions to make from this run's outcomes ───────────────────────────
+# Each entry can be seeded into a child study via the dashboard's
+# Decide tab. The mapping FROM failed/partial outcome TO suggested
+# follow-up is:
+#
+#   FAIL n_bound_TF_per_TU-populates  →  (a) tf_binding investigation
+#                                        (the real autorepression-correlation
+#                                        unblocker)
+#   PASS listeners-stop-accumulating  →  (b) re-run dnaa-01 to record the
+#                                        post-fix outcomes against its
+#                                        existing tests (already done in
+#                                        this session — formalize as an
+#                                        existing follow-up)
+#   risk: regression of the bug       →  (c) workspace lint rule rejecting
+#                                        plain array[] in listener outputs
+#   scope: other composites unaudited →  (d) audit departitioned + reconciled
+#                                        composites for the same bug pattern
+follow_up_studies:
+
+- title: Investigate why tf_binding leaves n_bound_TF_per_TU empty
+  kind: new
+  effort: M
+  status: open
+  why: |
+    Direct consequence of THIS study's n_bound_TF_per_TU-populates FAIL.
+    The field stays empty across the run even with the listener output
+    fix in place. That means it's fed by an upstream process (tf_binding
+    or a partitioned-allocator step), not produced by rna_synth_prob_
+    listener. Until we identify where the write SHOULD happen and why
+    it doesn't, dnaa-01's autorepression-correlation cannot evaluate.
+  hypothesized_mechanism: |
+    Three candidate root causes, in priority order:
+      (1) tf_binding never writes n_bound_TF_per_TU in this composite
+          config — its outputs() schema declares the field but its
+          update() returns a dict that omits it. Fix: grep tf_binding.py
+          for 'n_bound_TF_per_TU' and verify the return statement.
+      (2) tf_binding writes a SCALAR or 1D array at the wrong path,
+          and the listener guard (length != n_TU) silently rejects it.
+          Fix: log the field's shape per tick from tf_binding's update().
+      (3) The (n_TU × n_TF) 2D shape is computed at init but never
+          resized as promoters get added — the field is "populated"
+          but with shape (0, 0).
+  unblocks:
+  - tests.autorepression-correlation in dnaa-01 (primary supporting test)
+  - readouts.dnaA_bound_to_promoters in dnaa-01
+  - dnaa-03's DnaA-box-occupancy readouts (same store path is the source)
+  acceptance:
+  - At least one timestep in a baseline run has len(n_bound_TF_per_TU) == n_TU
+  - autorepression-correlation produces a non-zero Pearson r (PASS or FAIL on biology, not infrastructure)
+
+- title: Re-run dnaa-01 against its existing tests now that listeners are fixed
+  kind: existing
+  status: done
+  effort: XS
+  why: |
+    The listener fix changes what dnaa-01's tests see. Two of dnaa-01's
+    behavior_tests read listener data that was previously corrupted:
+    dnaA-concentration-stable (reads listeners.monomer_counts) and
+    autorepression-correlation (reads listeners.rna_synth_prob.
+    n_bound_TF_per_TU + listeners.rnap_data.rna_init_event). A re-run
+    is the only way to know if the fix changes their outcomes.
+  unblocks:
+  - 'dnaa-01.runs[]: gets a fresh row reflecting post-fix listener values'
+  - dnaa-01's pipeline_gate.proceed_condition becomes evaluable again
+  acceptance:
+  - dnaa-01.runs[] has a new entry tagged 'baseline-postfix' with current outcomes
+  - 'If autorepression-correlation flips PASS → unblock dnaa-02. Otherwise → spawn the tf_binding follow-up (above).'
+
+- title: Add workspace lint rule rejecting plain array[…] in listener outputs
+  kind: infrastructure_fix
+  effort: S
+  status: open
+  why: |
+    Recurrence-prevention. The bug we just fixed is easy to re-introduce
+    by copy/pasting from older listener code. A lint check that fails CI
+    when any `'_type': 'array[` (or f-string equivalent) appears in a
+    listener output schema without an `overwrite[…]` wrapper would catch
+    this at PR time forever.
+  hypothesized_mechanism: |
+    Extend scripts/lint-workspace.py to walk v2ecoli/steps/listeners/
+    *.py with a regex that flags plain-array outputs. False positive
+    rate should be near zero (the pattern is narrow).
+  unblocks:
+  - 'CI gate: future PRs cannot reintroduce the accumulation bug'
+  acceptance:
+  - 'scripts/lint-workspace.py exits non-zero when a listener output omits overwrite[]'
+  - The rule is documented in docs/ so contributors know about it
+
+- title: Audit departitioned + reconciled composites for the same listener bug
+  kind: infrastructure_fix
+  effort: S
+  status: open
+  why: |
+    The baseline composite is just one of three v2ecoli architectures.
+    departitioned + reconciled use a subset of the same listener steps
+    via _helpers._get_special_step, but they may also instantiate
+    additional listener implementations OR override schema in ways that
+    bypass the overwrite[] fix. Worth a quick audit so the next study
+    using one of those architectures doesn't hit the same bug.
+  hypothesized_mechanism: |
+    Read v2ecoli/composites/{departitioned,reconciled}.py for any
+    listener instantiation; spot-check their output schemas; run the
+    same accumulation-vs-instantaneous check via a smoke sim.
+  unblocks:
+  - 'Confidence that fix is workspace-wide, not just baseline'
+  acceptance:
+  - All listener output schemas in all three architectures use overwrite[…]
+  - Smoke sim per architecture confirms listener values don't accumulate
+
+
 implementation_requirements:
 - id: req-1-regression-test-on-listener-outputs
   kind: test

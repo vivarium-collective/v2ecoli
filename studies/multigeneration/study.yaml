@@ -1,0 +1,46 @@
+name: multigeneration
+description: |
+  Single-lineage multi-generation trajectory. Runs the baseline composite
+  to division, keeps one daughter cell, rebuilds the composite seeded
+  from that daughter's bulk / unique / environment / boundary state, and
+  repeats `lineage.generations` times. Dispatches the concatenated
+  trajectory (rows tagged by `generation`) to
+  MultigenerationVisualization.
+
+  Driven by `python reports/multigeneration_report.py --study <this file>`.
+  Legacy CLI invocation (without --study) still runs the same flow with
+  the built-in defaults.
+status: planned
+tags:
+  - lineage
+  - multigeneration
+
+baseline:
+  - name: baseline
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 0
+      cache_dir: out/cache
+
+# Lineage block — new in v3 for multi-generation Studies. The runner
+# (reports/multigeneration_report.py) builds the baseline composite,
+# runs it to division, divides the resulting cell, keeps daughter 1,
+# rebuilds the baseline composite with that daughter's state injected,
+# and repeats `generations` times. `max_duration` is the per-generation
+# safety cap before the runner gives up on division.
+lineage:
+  generations: 3
+  max_duration: 3600
+  seed_strategy: daughter_carry_forward
+
+variants: []
+interventions: []
+observables: []
+
+visualizations:
+  - name: multigen
+    address: local:MultigenerationVisualization
+    config:
+      title: v2ecoli multi-generation lineage
+
+runs: []

@@ -89,6 +89,71 @@ tasks:
 - Add Dam re-methylation kinetics (re-methylation -> SeqA dissociates).
 - Block DnaA binding at sequestered loci.
 
+# ── Interventions ───────────────────────────────────────────────────────────
+interventions:
+
+- name: wildtype-sequestration-window
+  description: |
+    Wildtype baseline with SeqA active. Capture the 10-minute
+    sequestration window post-initiation and confirm exactly one
+    initiation per generation (no reinitiation).
+  variant: null
+  protocol:
+    duration_min: 120      # 2 generations so we see one full sequestration cycle
+    seeds: [0, 1, 2, 3, 4]
+  triggers_tests:
+    - seqa-sequestration-lasts-10-minutes
+    - wildtype-zero-reinitiation
+  key_observables:
+    - oric_sequestered
+    - oric_hemimethylated_fraction
+    - initiation_events
+  requires:
+    - listener: seqa.oric_sequestered_bool
+    - listener: seqa.oric_hemimethylated_fraction
+    - upstream: dnaa-06 SeqA implementation
+
+- name: seqa-knockout
+  description: |
+    Knock out SeqA entirely. Expect ≥1.5 initiation events per
+    generation (premature reinitiation) and a ≥40% larger
+    dnaA-promoter transcription spike post-replication (no
+    sequestration buffering the gene-dosage doubling).
+  variant: no-SeqA
+  protocol:
+    duration_min: 120
+    seeds: [0, 1, 2, 3, 4, 5]
+    cross_study_compare:
+      - study:    this   # vs the wildtype intervention above
+        baseline: baseline
+  triggers_tests:
+    - no-seqa-causes-reinitiation
+    - dnaap-sequestration-dampens-tx-spike
+  key_observables:
+    - initiation_events
+    - dnaap_sequestered
+    - dnaA_protein_concentration
+  requires:
+    - variant_hook: seqa_active
+
+- name: extended-sequestration-window
+  description: |
+    Push the sequestration window from 10 min to 20 min. Expect the
+    second initiation in the cycle to be delayed by ≥10 min (linearly
+    with the window extension).
+  variant: long-sequestration
+  protocol:
+    duration_min: 180      # 3 generations
+    seeds: [0, 1, 2, 3]
+  triggers_tests:
+    - long-sequestration-delays-reinitiation
+  key_observables:
+    - oric_sequestered
+    - initiation_events
+    - time_between_initiations
+  requires:
+    - variant_hook: seqa_sequestration_min
+
 expected_behavior:
 
 - name: seqa-sequestration-lasts-10-minutes

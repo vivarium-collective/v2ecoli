@@ -114,6 +114,98 @@ tasks:
   convert DnaA-ADP -> apo-DnaA (which then reloads ATP).
 - Add IHF + Fis cell-cycle modulation of DARS2 if data supports it.
 
+# ── Interventions ───────────────────────────────────────────────────────────
+interventions:
+
+- name: full-cycle-rida-ddah-dars
+  description: |
+    Wild-type baseline with all three extrinsic conversion pathways
+    active. Capture DnaA-ATP fraction time course + replisome count to
+    confirm cell-cycle oscillation and anti-correlation. Pair with the
+    dnaa-02 intrinsic-only run for the CV-narrowing comparison.
+  variant: null
+  protocol:
+    duration_min: 240
+    seeds: [0, 1, 2, 3, 4, 5]
+    cross_study_compare:
+      - study: dnaa-02-atp-hydrolysis
+        baseline: baseline
+  triggers_tests:
+    - dnaa-atp-fraction-oscillates
+    - inter-initiation-cv-narrows-vs-intrinsic-only
+    - dnaa-atp-anti-correlated-with-replisomes
+  key_observables:
+    - dnaA_atp_fraction
+    - rida_flux
+    - ddah_flux
+    - dars1_flux
+    - dars2_flux
+    - replisome_count
+    - initiation_events
+  requires:
+    - listener: dnaA_cycle.atp_fraction
+    - listener: dnaA_cycle.rida_flux
+    - upstream: dnaa-05 RIDA + DDAH + DARS processes
+
+- name: knockout-DDAH
+  description: |
+    Zero the DDAH (datA-dependent) hydrolysis rate. Expect earlier
+    initiation (mean mass drops ≥10%), mirroring observed delta-datA
+    untimely initiation.
+  variant: no-DDAH
+  protocol:
+    duration_min: 240
+    seeds: [0, 1, 2, 3, 4]
+  triggers_tests:
+    - no-DDAH-shows-early-initiation
+  key_observables:
+    - initiation_mass
+    - dnaA_atp_fraction
+    - ddah_flux
+  requires:
+    - variant_hook: ddah_rate_per_min_per_data
+
+- name: double-DARS-knockout
+  description: |
+    Zero both DARS1 and DARS2 reactivation rates. Expect DnaA-ATP
+    fraction to fail to recover after the first initiation event
+    (drops below 0.05 and stays there).
+  variant: no-DARS1-and-DARS2
+  protocol:
+    duration_min: 240
+    seeds: [0, 1, 2]
+  triggers_tests:
+    - no-DARS-fails-to-recover-atp-form
+  key_observables:
+    - dnaA_atp_fraction
+    - dars1_flux
+    - dars2_flux
+  requires:
+    - variant_hook: dars1_rate_per_min_per_locus
+    - variant_hook: dars2_rate_per_min_per_locus
+
+- name: single-pathway-knockouts-comparison
+  description: |
+    Individual pathway knockouts (no-RIDA / no-DARS1 / no-DARS2) for
+    visualization: side-by-side DnaA-ATP fraction time courses showing
+    which pathway dominates which cell-cycle phase. Currently
+    visualization-driven; no quantitative test attached.
+  variant: [no-RIDA, no-DARS1, no-DARS2]
+  protocol:
+    kind: sweep
+    duration_min: 240
+    seeds: [0, 1, 2]
+  triggers_tests: []
+  key_observables:
+    - dnaA_atp_fraction
+    - rida_flux
+    - dars1_flux
+    - dars2_flux
+  notes: |
+    Useful as visualization (pathway-fluxes) but the quantitative
+    predictions per single knockout aren't well-constrained by current
+    data — keep as a v0 sanity sweep.
+
 expected_behavior:
 
 - name: dnaa-atp-fraction-oscillates

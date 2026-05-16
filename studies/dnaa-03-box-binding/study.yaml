@@ -105,6 +105,75 @@ tasks:
 - Track bound nucleotide form so dnaa-04 can release the matching form.
 - Author a chromosome-map visualization (linear or circular).
 
+# ── Interventions ───────────────────────────────────────────────────────────
+interventions:
+
+- name: single-cycle-binding-dynamics
+  description: |
+    Run baseline for one full cell cycle and record the time course of
+    chromosomal occupancy, oriC occupancy (high vs low affinity), free
+    DnaA, and dnaAp occupancy. The cleanest set-up to observe the
+    titration -> 2-step oriC fill -> free DnaA rise pattern.
+  variant: null
+  protocol:
+    duration_min: 60
+    seeds: [0, 1, 2, 3, 4]
+  triggers_tests:
+    - chromosomal-occupancy-monotonic-increasing
+    - oric-stays-unoccupied-until-chromosome-saturates
+    - free-dnaa-rises-after-titration
+    - oric-occupancy-is-two-step
+  key_observables:
+    - chromosome_box_occupancy_fraction
+    - oric_high_occupancy
+    - oric_low_occupancy
+    - free_dnaA
+    - bound_dnaA_atp
+    - bound_dnaA_adp
+  requires:
+    - listener: dnaA_binding.chromosome.occupied_fraction
+    - listener: dnaA_binding.oric.high_affinity_occupied
+    - listener: dnaA_binding.oric.low_affinity_occupied
+    - listener: dnaA_binding.free_total
+    - upstream: dnaa-03 box-binding model
+
+- name: start-with-saturated-dnaa
+  description: |
+    Initialize the cell with 5000 DnaA molecules (≥10× normal) and run
+    one cycle. Tests the autorepression feedback when the pool is
+    deliberately oversaturated.
+  variant: high-initial-dnaA
+  protocol:
+    duration_min: 60
+    seeds: [0, 1, 2]
+  triggers_tests:
+    - high-initial-dnaa-shows-autorepression
+  key_observables:
+    - dnaap_occupancy
+    - dnaA_protein_count    # cross-study reference to dnaa-01 observable
+    - dnaA_transcription_init_events
+  requires:
+    - variant_hook: initial_dnaA_count_per_cell
+    - listener:     dnaA_binding.dnaap.occupied
+
+- name: disable-oric-binding-titration-only
+  description: |
+    Disable oriC + dnaAp binding entirely (chromosomal-boxes-only).
+    Provides a pure-titration control: confirms the free-DnaA plateau
+    is ≥3× higher when the oriC sink is removed, isolating the
+    titration component.
+  variant: chromosomal-boxes-only
+  protocol:
+    duration_min: 60
+    seeds: [0, 1, 2]
+  triggers_tests:
+    - chromosomal-boxes-only-variant-no-oric-fill
+  key_observables:
+    - free_dnaA
+  requires:
+    - variant_hook: enable_oric_binding
+    - listener:     dnaA_binding.free_total
+
 expected_behavior:
 
 - name: chromosomal-occupancy-monotonic-increasing

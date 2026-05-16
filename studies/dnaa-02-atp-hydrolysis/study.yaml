@@ -90,6 +90,66 @@ tasks:
 - Optionally expose a clamp so dnaA-03/04 can run before extrinsic
   conversion (RIDA/DDAH/DARS) is implemented.
 
+# ── Interventions ───────────────────────────────────────────────────────────
+interventions:
+
+- name: steady-state-nucleotide-cycle
+  description: |
+    Baseline run; capture the steady-state DnaA-ATP / ADP / apo split and
+    the background ATP / ADP pools. Establishes the physiological
+    reference fractions (Boesen 2024) that all hydrolysis variants
+    compare against.
+  variant: null
+  protocol:
+    duration_min: 60
+    seeds: [0, 1, 2]
+  triggers_tests:
+    - apo-dnaa-fraction-is-small
+    - dnaa-atp-fraction-in-physiological-range
+    - atp-pool-much-greater-than-adp
+  key_observables:
+    - dnaA_atp_count
+    - dnaA_adp_count
+    - dnaA_apo_count
+    - dnaA_atp_fraction
+    - atp_pool
+    - adp_pool
+  requires:
+    - listener: dnaA_apo
+    - listener: dnaA_ATP
+    - listener: dnaA_ADP
+
+- name: knockout-intrinsic-hydrolysis
+  description: |
+    Zero the intrinsic DnaA-ATP → ADP hydrolysis rate. DnaA-ATP fraction
+    should monotonically climb (no decay sink). Confirms the
+    intrinsic-only baseline depends on this term.
+  variant: no-intrinsic-hydrolysis
+  protocol:
+    duration_min: 60
+    seeds: [0, 1, 2]
+  triggers_tests:
+    - no-hydrolysis-variant-accumulates-atp-form
+  key_observables:
+    - dnaA_atp_fraction
+  requires:
+    - variant_hook: dnaA_intrinsic_hydrolysis_rate_per_min
+
+- name: boost-intrinsic-hydrolysis-10x
+  description: |
+    10× the intrinsic hydrolysis rate (0.46/min). DnaA-ATP fraction
+    should fall below 0.1, confirming hydrolysis is rate-limiting.
+  variant: fast-intrinsic-hydrolysis
+  protocol:
+    duration_min: 60
+    seeds: [0, 1, 2]
+  triggers_tests:
+    - fast-hydrolysis-variant-suppresses-atp-form
+  key_observables:
+    - dnaA_atp_fraction
+  requires:
+    - variant_hook: dnaA_intrinsic_hydrolysis_rate_per_min
+
 expected_behavior:
 
 - name: apo-dnaa-fraction-is-small

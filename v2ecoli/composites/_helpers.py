@@ -85,57 +85,21 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 #   - workflow: integrated WorkflowVisualization (chromosome state + replication
 #     forks + ppGpp dynamics + mass fold change + division — the full legacy
 #     simulation report)
-#   - cell-mass / cell-volume / growth-rate: standalone TimeSeriesPlots that the
-#     dashboard can render as their own tiles for quick inspection
-#   - absolute-mass-components: multi-line trace of the mass breakdown
-#   - mass-fold-change: multi-line trace of the *_fold_change leaves already
-#     computed and emitted by v2ecoli.steps.listeners.mass_listener.MassListener
 #   - topology: NetworkVisualization of the process wiring
+#
+# Note: the cell-mass / cell-volume / growth-rate / absolute-mass-components /
+# mass-fold-change TimeSeriesPlots that previously lived here used a
+# `config.observable: '<short-name>'` convention that the dashboard's
+# build_viz_composite (vivarium-dashboard, lib/investigations.py) does not yet
+# understand — it only honors `inputs_map` for port→observable wiring, so
+# those plots came out with empty y-data even though the emitter recorded
+# them. They will land back here once the dashboard grows a short-name /
+# leaf-name resolver for canonical viz wiring.
 DEFAULT_SINGLE_CELL_VISUALIZATIONS = [
     {
         'name': 'workflow',
         'address': 'local:WorkflowVisualization',
         'config': {'title': 'v2ecoli — single-cell lifecycle'},
-    },
-    {
-        'name': 'cell-mass',
-        'address': 'local:TimeSeriesPlot',
-        'config': {'observable': 'cell_mass', 'title': 'Cell mass (fg)'},
-    },
-    {
-        'name': 'cell-volume',
-        'address': 'local:TimeSeriesPlot',
-        'config': {'observable': 'volume', 'title': 'Cell volume (fL)'},
-    },
-    {
-        'name': 'growth-rate',
-        'address': 'local:TimeSeriesPlot',
-        'config': {
-            'observable': 'instantaneous_growth_rate',
-            'title': 'Instantaneous growth rate (s⁻¹)',
-        },
-    },
-    {
-        'name': 'absolute-mass-components',
-        'address': 'local:TimeSeriesPlot',
-        'config': {
-            'observables': [
-                'protein_mass', 'rRna_mass', 'tRna_mass', 'mRna_mass',
-                'dna_mass', 'smallMolecule_mass',
-            ],
-            'title': 'Mass components (absolute)',
-        },
-    },
-    {
-        'name': 'mass-fold-change',
-        'address': 'local:TimeSeriesPlot',
-        'config': {
-            'observables': [
-                'dry_mass_fold_change', 'protein_mass_fold_change',
-                'rna_mass_fold_change', 'small_molecule_fold_change',
-            ],
-            'title': 'Mass fold change',
-        },
     },
     {
         'name': 'topology',

@@ -212,23 +212,31 @@ expected_behavior:
     kind: event_count_per_window
     event: replication_initiation
     window_kind: generation
+    units: "events/generation"
   expect: {op: in_range, low: 0.9, high: 1.1}
   status: gated
   requires:
     - listener: replication.initiation_events
     - upstream: dnaa-04 mechanism-driven initiation
+  cites:
+    - Hansen1991ResMicrobiol     # initiator-titration model predicts once-per-generation
+    - Berger2022NatCommun        # robust once-per-generation under coupled homeostasis
+    - Katayama2017Frontiers      # DnaA cycle ensures single initiation per cycle
 
 - name: initiation-mass-mean-matches-heuristic
   en: "Mechanism-driven initiation mass mean is within ±5% of the heuristic baseline's mean across seeds."
   given:  {run: baseline-mechanism, window: full, compare_to: baseline-heuristic}
   measure:
     kind: cross_run_ratio
-    series: {kind: listener_path, path: "listeners.replication.initiation_mass"}
+    series: {kind: listener_path, path: "listeners.replication.initiation_mass", units: "fg"}
     reduce: mean
   expect: {op: in_range, low: 0.95, high: 1.05}
   status: gated
   requires:
     - variant_hook: initiation_mode
+  cites:
+    - Berger2022NatCommun        # robust initiation mass under coupled homeostasis
+    - Hansen1991ResMicrobiol     # classic titration prediction of constant initiation mass
 
 - name: replication-times-narrow-distribution
   en: "C-period (replication time) coefficient of variation stays below 0.10 across initiations."
@@ -236,10 +244,13 @@ expected_behavior:
   measure:
     kind: cv_of_listener
     path: "listeners.replication.c_period_min"
+    units: "min"
   expect: {op: at_most, value: 0.10}
   status: gated
   requires:
     - listener: replication.c_period_min
+  cites:
+    - Katayama2017Frontiers      # C-period control
 
 - name: inter-initiation-noisier-than-heuristic
   en: "Inter-initiation timing is wider for mechanism vs heuristic (CV ratio ≥ 1.3) — no global trigger means more noise."
@@ -247,46 +258,59 @@ expected_behavior:
   measure:
     kind: cross_run_cv_ratio
     path: "listeners.replication.interinitiation_min"
+    units: "min"
   expect: {op: at_least, value: 1.3}
   status: gated
   requires:
     - listener: replication.interinitiation_min
+  cites:
+    - Berger2023PRXLife          # noisier inter-initiation under titration vs ATP-fraction sensing
+    - Olivi2025NatCommun         # titration on chromosome — single-cell variability
 
 - name: fast-growth-earlier-replication
   en: "Fast-growth-rich variant initiates earlier in the cycle than the slow-growth baseline (lower initiation mass)."
   given:  {run: variant, variant: fast-growth-rich, window: full, compare_to: slow-growth-M9}
   measure:
     kind: cross_run_ratio
-    series: {kind: listener_path, path: "listeners.replication.initiation_mass"}
+    series: {kind: listener_path, path: "listeners.replication.initiation_mass", units: "fg"}
     reduce: mean
   expect: {op: at_most, value: 0.95}
   status: gated
   requires:
     - variant_hook: media
+  cites:
+    - Mori2021MolSysBiol         # proteome shifts with growth rate (background)
+    - Hansen1991ResMicrobiol     # initiation mass vs growth rate
 
 - name: reduced-box-count-shortens-inter-initiation
   en: "Reducing chromosomal box count from ~307 to 100 → ~3× shorter inter-initiation time (1/N titration scaling)."
   given:  {run: variant, variant: reduced-box-count-100, window: full, compare_to: baseline-mechanism}
   measure:
     kind: cross_run_ratio
-    series: {kind: listener_path, path: "listeners.replication.interinitiation_min"}
+    series: {kind: listener_path, path: "listeners.replication.interinitiation_min", units: "min"}
     reduce: mean
   expect: {op: at_most, value: 0.5}
   status: gated
   requires:
     - variant_hook: chromosomal_box_count
+  cites:
+    - Hansen1991ResMicrobiol     # 1/N scaling — the textbook titration prediction
+    - Berger2022NatCommun        # coupled-homeostasis perspective on box count sensitivity
+    - Olivi2025NatCommun         # 307 chromosomal box count established here
 
 - name: redistributed-boxes-shifts-timing
   en: "oriC-clustered boxes shift initiation timing (mean initiation mass differs by ≥10% from uniform distribution)."
   given:  {run: variant, variant: redistributed-boxes, window: full, compare_to: baseline-mechanism}
   measure:
     kind: cross_run_ratio
-    series: {kind: listener_path, path: "listeners.replication.initiation_mass"}
+    series: {kind: listener_path, path: "listeners.replication.initiation_mass", units: "fg"}
     reduce: mean
   expect: {op: outside_range, low: 0.90, high: 1.10}
   status: gated
   requires:
     - variant_hook: chromosomal_box_distribution
+  cites:
+    - Olivi2025NatCommun         # spatial distribution of boxes on chromosome
 
 expert_questions:
 - For the slow-growth-only regime, is the 40-min C-period assumption tight

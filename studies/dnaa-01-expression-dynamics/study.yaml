@@ -382,9 +382,15 @@ expected_behavior:
 - name: dnaa-count-in-mass-spec-range
   en: "Under steady growth, DnaA monomer count per cell is between 300 and 800 (mass-spec / EcoCyc range)."
   given:  {run: baseline, window: second_half}
-  measure: {kind: bulk_count, id: "MONOMER0-160[c]", reduce: median}
+  measure: {kind: bulk_count, id: "MONOMER0-160[c]", reduce: median, units: "molecules/cell"}
   expect:  {op: in_range, low: 300, high: 800}
   status: implemented
+  cites:
+    - Sekimizu1991JBacteriol     # original western-blot abundance
+    - Schmidt2016NatBiotechnol   # mass-spec proteome
+    - Mori2021MolSysBiol         # proteome under growth conditions
+    - Liu2020NatMicrobiol        # DnaA stoichiometry
+    - Boesen2024PNAS             # PNAS 2024 (300-800 figure recapitulates here)
 
 - name: dnaa-concentration-stable-within-10pct
   en: "DnaA concentration is stable across the cycle: rolling 5-step coefficient of variation stays below 0.10."
@@ -393,47 +399,69 @@ expected_behavior:
     kind: bulk_count
     id: "MONOMER0-160[c]"
     reduce: series
+    units: "molecules/cell (fallback; uM once gap-1 listener lands)"
   expect:  {op: rolling_cv_below, window_steps: 5, threshold: 0.10}
   status: implemented
   requires:
     - listener: dnaA_protein_concentration   # gap-1: prefer the concentration listener once it exists
+  cites:
+    - Hansen2018DnaATale         # DnaA homeostasis review
+    - Hansen1999JBacteriol       # DnaA stability sets the dilution+turnover balance
+    - Hansen2021FrontMolBiosci   # DnaA stability follow-up
 
 - name: stop-synthesis-drops-30pct
   en: "If you stop DnaA synthesis, DnaA count drops by at least 30% over one doubling time."
   given:  {run: variant, variant: stop-dnaA-synthesis, window: full}
-  measure: {kind: bulk_count, id: "MONOMER0-160[c]", reduce: first_and_last}
+  measure: {kind: bulk_count, id: "MONOMER0-160[c]", reduce: first_and_last, units: "molecules/cell"}
   expect:  {op: ratio_at_most, ratio: 0.70}   # last / first ≤ 0.70
   status: implemented
   requires:
     - variant_hook: translation_efficiency_override   # gap-2
+  cites:
+    - Li2014Cell                 # DnaA synthesis rate — what's being knocked out
+    - Hansen1999JBacteriol       # whether dilution alone is enough depends on DnaA stability
 
 - name: stop-synthesis-monotonic-decrease
   en: "If you stop DnaA synthesis, DnaA count decreases monotonically (no rebound)."
   given:  {run: variant, variant: stop-dnaA-synthesis, window: full}
-  measure: {kind: bulk_count, id: "MONOMER0-160[c]", reduce: series}
+  measure: {kind: bulk_count, id: "MONOMER0-160[c]", reduce: series, units: "molecules/cell"}
   expect:  {op: monotonic_decreasing, allow_rebound_pct: 5}
   status: implemented
   requires:
     - variant_hook: translation_efficiency_override   # gap-2
+  cites:
+    - Hansen1999JBacteriol
+    - Hansen2021FrontMolBiosci
 
 - name: coarse-autorepression-negative-correlation
   en: "When DnaA is highly bound to its promoter targets, dnaA transcription init events are low (autorepression; Pearson r < -0.3)."
   given:  {run: baseline, window: second_half}
   measure:
     kind: xy_correlation
-    x: {kind: listener_sum, path: "listeners.rna_synth_prob.n_actual_bound"}
-    y: {kind: listener_sum, path: "listeners.rnap_data.rna_init_event"}
+    x: {kind: listener_sum, path: "listeners.rna_synth_prob.n_actual_bound", units: "molecules"}
+    y: {kind: listener_sum, path: "listeners.rnap_data.rna_init_event",     units: "events/step"}
   expect:  {op: pearson_below, threshold: -0.3}
   status: implemented
+  cites:
+    - Speck1999EMBO              # dnaA promoter autorepression: ATP-DnaA / ADP-DnaA switch
+    - Saggioro2013BiochemJ       # dnaAp autorepression temp-dependence
+    - Katayama2017Frontiers      # DnaA cycle (review)
 
 - name: post-initiation-gene-dosage-spike
   en: "Within 10 minutes of a replication initiation event, dnaA transcription rate rises by at least 50% (gene dosage doubles)."
   given:  {run: baseline, window: post_initiation_10min}
-  measure: {kind: listener_sum, path: "listeners.rnap_data.rna_init_event", reduce: pre_post_event_ratio}
+  measure:
+    kind: listener_sum
+    path: "listeners.rnap_data.rna_init_event"
+    reduce: pre_post_event_ratio
+    units: "ratio (post-event / pre-event init rate)"
   expect:  {op: ratio_at_least, ratio: 1.5}
   status: stub
   requires:
     - listener: replication_initiation_event   # initiation-event detection — defer to dnaa-04
+  cites:
+    - Speck1999EMBO              # gene-dosage shift of dnaA tx coupled to autoregulation
+    - Hansen2018DnaATale         # gene-dosage role in DnaA homeostasis (review)
   notes: "Stub until dnaa-04 lands the initiation-event detector. Pytest marks this xfail."
 
 expert_questions:

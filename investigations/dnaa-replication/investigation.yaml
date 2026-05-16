@@ -1,0 +1,68 @@
+schema_version: 1
+name: dnaa-replication
+title: DnaA / Replication Initiation
+created: '2026-05-16'
+status: planning
+
+question: |
+  Can a DnaA-driven mechanistic model of replication initiation in v2ecoli
+  reproduce the observed once-per-generation timing, initiation-mass
+  homeostasis, and ATP-fraction oscillations while staying within ±5% of
+  the mass-threshold heuristic baseline under slow non-overlapping growth?
+
+hypothesis: |
+  Yes. The six staged studies (expression → ATP/ADP cycle → DnaA-box
+  binding → mechanism-driven initiation → RIDA/DDAH/DARS extrinsic
+  conversion → SeqA sequestration) compose into a model that recapitulates
+  the textbook DnaA cycle. Each study's behavioral tests pass before the
+  next study in the chain is started; the final mechanism baseline matches
+  the heuristic's initiation-mass distribution within ±5%.
+
+description: |
+  Multi-phase port of DnaA / replication initiation into v2ecoli, driven by
+  the molecular-info expert document and the multi-phase plan
+  (references/expert/). Each study is a discrete, gated implementation
+  phase; tests in each must pass before its dependents can run.
+
+  Studies, in dependency order:
+
+  1. dnaa-01-expression-dynamics    — steady DnaA expression + autorepression baseline.
+  2. dnaa-02-atp-hydrolysis         — DnaA-ATP/ADP/apo nucleotide cycle, intrinsic hydrolysis.
+  3. dnaa-03-box-binding            — 307 chromosomal boxes + 11 oriC + 4 dnaAp boxes, titration.
+  4. dnaa-04-initiation-mechanism   — replace mass-threshold heuristic with DnaA-driven initiation.
+  5. dnaa-05-rida-ddah-dars         — replisome-coupled hydrolysis + DARS reactivation.
+  6. dnaa-06-seqa-sequestration     — post-initiation SeqA sequestration of oriC + dnaAp.
+
+  See investigations/<name>/STATUS.md for the per-phase implementation
+  status and the cross-study test report (planned).
+
+# Studies in this investigation, in suggested execution order.
+# The DAG is computed from each study's `parent_studies:` field at render
+# time; this list determines visibility / grouping only.
+studies:
+  - dnaa-01-expression-dynamics
+  - dnaa-02-atp-hydrolysis
+  - dnaa-03-box-binding
+  - dnaa-04-initiation-mechanism
+  - dnaa-05-rida-ddah-dars
+  - dnaa-06-seqa-sequestration
+
+# Inputs (expert docs, datasets) supporting this whole investigation —
+# duplicates of what's in workspace.yaml.expert_docs but scoped to the
+# investigation for cross-reference convenience.
+expert_docs:
+  - replication_initiation_molecular_info
+  - chromosome_replication_plan
+
+# Top-level success criteria. Each entry should map to a behavioral test
+# in one of the constituent studies; the investigation is "complete" when
+# all its acceptance criteria pass.
+acceptance_criteria:
+  - {study: dnaa-01-expression-dynamics, behavior: dnaa-count-in-mass-spec-range}
+  - {study: dnaa-01-expression-dynamics, behavior: dnaa-concentration-stable-within-10pct}
+  - {study: dnaa-02-atp-hydrolysis,      behavior: dnaa-atp-fraction-in-physiological-range}
+  - {study: dnaa-03-box-binding,         behavior: oric-stays-unoccupied-until-chromosome-saturates}
+  - {study: dnaa-04-initiation-mechanism, behavior: one-initiation-per-generation}
+  - {study: dnaa-04-initiation-mechanism, behavior: initiation-mass-mean-matches-heuristic}
+  - {study: dnaa-05-rida-ddah-dars,      behavior: inter-initiation-cv-narrows-vs-intrinsic-only}
+  - {study: dnaa-06-seqa-sequestration,  behavior: wildtype-zero-reinitiation}

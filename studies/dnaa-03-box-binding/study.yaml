@@ -1,0 +1,119 @@
+schema_version: 3
+name: dnaa-03-box-binding
+created: '2026-05-16'
+status: draft
+objective: |
+  Implement DnaA binding to the ~307 chromosomal DnaA boxes, the 11 oriC
+  boxes (3 high-affinity + 8 low-affinity), and the 4 dnaA promoter boxes
+  (2 high + 2 low). Track which form (DnaA-ATP vs DnaA-ADP) is bound so
+  the correct form is released on replication-fork passage.
+description: |
+  Phase 3 of the multi-phase replication-initiation plan
+  (references/expert/chromosome_replication_plan.pdf, Study 3).
+  Wires DnaA to its DNA targets. Builds on dnaa-02 (nucleotide cycle).
+
+  Affinity assumptions (initial pass):
+    - Chromosomal consensus boxes (TTWTNCACA, n≈307): KD ~ 1 nM, high
+      affinity for both DnaA-ATP and DnaA-ADP.
+    - oriC: 3 high-affinity (R1, R2, R4; KD ~ 1 nM, bind ATP and ADP forms)
+            + 8 low-affinity (R5M, τ2, I1-3, C1-3; KD ~ 100 nM,
+              DnaA-ATP-preferential).
+    - dnaA promoter: 2 high (box 1, box 2) + 2 low (box b, box c).
+    - DNA binding does NOT alter the DnaA-ATP intrinsic hydrolysis rate.
+
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+
+variants:
+- name: chromosomal-boxes-only
+  description: |
+    Disable oriC + dnaA-promoter binding. Pure titration sink — used to
+    measure how long titration alone delays free-DnaA accumulation.
+  params:
+    enable_oric_binding: false
+    enable_dnaap_binding: false
+
+- name: all-high-affinity
+  description: |
+    Promote low-affinity oriC boxes to high affinity (1 nM). Expect early
+    oriC saturation regardless of chromosomal pool.
+  params:
+    oric_low_affinity_kd_nM: 1.0
+
+- name: high-initial-dnaA
+  description: |
+    Start with high DnaA. Per the plan: expect low dnaA-promoter activity
+    (autorepression) and over-occupied oriC.
+  params:
+    initial_dnaA_count_per_cell: 5000
+
+observables:
+- name: chromosome_box_occupancy_fraction
+  store_path: agents.0.listeners.dnaA_binding.chromosome.occupied_fraction
+- name: oric_high_occupancy
+  store_path: agents.0.listeners.dnaA_binding.oric.high_affinity_occupied
+- name: oric_low_occupancy
+  store_path: agents.0.listeners.dnaA_binding.oric.low_affinity_occupied
+- name: dnaap_occupancy
+  store_path: agents.0.listeners.dnaA_binding.dnaap.occupied
+- name: free_dnaA
+  store_path: agents.0.listeners.dnaA_binding.free_total
+- name: bound_dnaA_atp
+  store_path: agents.0.listeners.dnaA_binding.bound_atp
+- name: bound_dnaA_adp
+  store_path: agents.0.listeners.dnaA_binding.bound_adp
+
+visualizations:
+- name: chromosome-occupancy
+  address: local:TimeSeriesPlot
+  config:
+    title: "Chromosome DnaA-box occupancy vs free DnaA"
+    observables: [chromosome_box_occupancy_fraction, free_dnaA]
+- name: oric-two-step
+  address: local:TimeSeriesPlot
+  config:
+    title: "oriC occupancy — high-affinity then low-affinity (2-step)"
+    observables: [oric_high_occupancy, oric_low_occupancy]
+- name: chromosome-map
+  address: local:ChromosomeBoxMap   # NEW visualization to author via /pbg-viz
+  config:
+    title: "Full chromosome — DnaA boxes bound (ATP / ADP / free)"
+
+implementation_tasks:
+- Catalog all 307 chromosomal DnaA-box positions + 11 oriC sites + 4
+  dnaAp sites, with affinity class (high vs low) and nucleotide preference.
+- Add DnaA-DNA binding kinetics (KD-driven; cooperative low-affinity if
+  feasible).
+- Track bound nucleotide form so dnaa-04 can release the matching form.
+- Author a chromosome-map visualization (linear or circular).
+
+expected_behavior:
+- "Chromosomal occupancy rises monotonically as DnaA accumulates."
+- "oriC remains largely unoccupied until chromosomal sites are saturated;
+   when free chromosomal sites ≈ free oriC sites (~10), oriC binding begins,
+   high-affinity first."
+- "Free DnaA rises after chromosomal titration completes, before initiation."
+- "oriC occupancy looks like a 2-step process (high then low)."
+- "high-initial-dnaA: low dnaAp activity (autorepression); oriC saturates fast."
+- "Compare oriC occupancy timing with the mass-threshold initiation
+   heuristic — they should roughly co-occur (testable)."
+
+expert_questions:
+- Are all 307 consensus boxes truly equivalent, or does context (cooperativity
+  with neighbors) make some effectively higher-affinity?
+- Validate the KD ~ 1 nM (high) and ~ 100 nM (low) bracketing.
+- Should we model DnaA-ATP only at low-affinity sites, or allow ADP-form
+  binding with much lower probability?
+
+references:
+  expert: [replication_initiation_molecular_info]
+  bib_keys: [Schaper1995JBC, Roth1998MolMicrobiol, Hansen2006JMB, Olivi2025NatCommun, Katayama2017Frontiers, Kasho2023IJMS]
+  claims: [dnaa.boxes.consensus-ttwtncaca, dnaa.boxes.chromosomal-307, dnaa.boxes.oric-3high-8low, dnaa.boxes.dnaap-2high-2low, dnaa.boxes.cooperativity, dnaa.titration.initiation-timing]
+
+runs: []
+conclusion: null
+parent_studies: [dnaa-02-atp-hydrolysis]

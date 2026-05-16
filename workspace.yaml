@@ -1,0 +1,43 @@
+schema_version: 2
+name: v2ecoli
+created: '2026-05-16'
+plugin_version: 0.6.1
+package_path: v2ecoli
+references_bib: references/papers.bib
+server:
+  enabled: true
+
+# Expert curation — PDFs / lab notes registered under references/expert/.
+# Surfaced in the dashboard's Workspace inputs > Expert knowledge panel.
+expert_docs:
+  - name: replication_initiation_molecular_info
+    path: references/expert/replication_initiation_molecular_info.pdf
+    sha256: 4c4b85ff4d88b46b816bacc84b494fcdf073ef1d901e77b56329effa92a0dab2
+    description: |
+      Molecular information for simulating replication initiation in E. coli.
+      Curated biological knowledge on oriC structure (DOR, DUE, 11 DnaA boxes),
+      dnaA promoter (p1/p2, boxes 1-4 + a-c), DnaA boxes consensus, RIDA, DDAH
+      (datA), DARS1 & DARS2, intrinsic ATPase activity, and DnaA dissociation
+      after initiation. Drives the dnaa-01..06 studies.
+    contributor: Replication-initiation working group (Katayama/Lobner-Olesen)
+    claims_supported:
+      - dnaa.autorepression.dnaap
+      - dnaa.intrinsic-hydrolysis.0p046-per-min
+      - dnaa.boxes.consensus-ttwtncaca
+      - dnaa.boxes.oric-3high-8low
+      - dnaa.rida.replisome-coupled
+      - dnaa.ddah.data-dependent
+      - dnaa.dars.reactivation
+      - dnaa.atp-fraction.0p2-to-0p5
+      - dnaa.seqa.post-initiation-sequestration
+
+  - name: chromosome_replication_plan
+    path: references/expert/chromosome_replication_plan.pdf
+    sha256: e9145149e9181ac882cd5c9594151ea59c105e75e0b171f062a8dba23b4a105e
+    description: |
+      Multi-phase workflow plan for porting DnaA / replication initiation into
+      v2ecoli. Decomposes the work into 6 studies (expression, intrinsic
+      hydrolysis, DnaA box binding, mechanism-driven initiation, RIDA/DDAH/DARS,
+      SeqA sequestration) plus Phase 7 (cooperativity) and Phase 8 (validation)
+      placeholders.
+    contributor: Replication-initiation working group

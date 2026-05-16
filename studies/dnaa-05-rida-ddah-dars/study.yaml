@@ -1,0 +1,125 @@
+schema_version: 3
+name: dnaa-05-rida-ddah-dars
+created: '2026-05-16'
+status: draft
+objective: |
+  Add the three extrinsic DnaA-ATP/ADP conversion pathways: RIDA
+  (replisome-coupled hydrolysis via β-clamp/Hda), DDAH (datA-IHF
+  catalyzed hydrolysis), and DARS1 / DARS2 (ADP-DnaA -> apo-DnaA
+  reactivation at non-coding loci).
+description: |
+  Phase 5 of the multi-phase replication-initiation plan
+  (references/expert/chromosome_replication_plan.pdf, Study 5).
+  Builds on dnaa-02 (intrinsic hydrolysis) + dnaa-04 (mechanism-driven
+  initiation). Together these pathways tune the DnaA-ATP/ADP ratio
+  through the cell cycle and should improve initiation-timing synchrony.
+
+  Activity dependencies:
+    - RIDA  ∝ replication-fork count (β-clamp loaded onto nascent DNA).
+    - DDAH  ∝ datA locus copy number (IHF + 4 boxes; boxes 2, 3, 7
+              essential; box 4 stimulatory).
+    - DARS1 ∝ DARS1 locus copy number.
+    - DARS2 ∝ DARS2 locus copy number, modulated by IHF + Fis timing.
+
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+
+variants:
+- name: no-RIDA
+  description: Zero out RIDA rate; expect loss of replication-coupled inactivation.
+  params: { rida_rate_per_min_per_fork: 0.0 }
+
+- name: no-DDAH
+  description: Zero out DDAH at datA; expect untimely initiation
+    (per delta-datA observations).
+  params: { ddah_rate_per_min_per_data: 0.0 }
+
+- name: no-DARS1
+  params: { dars1_rate_per_min_per_locus: 0.0 }
+
+- name: no-DARS2
+  description: |
+    DARS2 dominates in vivo; expect biggest hit to DnaA-ATP recovery.
+  params: { dars2_rate_per_min_per_locus: 0.0 }
+
+- name: no-DARS1-and-DARS2
+  params:
+    dars1_rate_per_min_per_locus: 0.0
+    dars2_rate_per_min_per_locus: 0.0
+
+observables:
+- name: dnaA_atp_fraction
+  store_path: agents.0.listeners.dnaA_cycle.atp_fraction
+- name: dnaA_atp_count
+  store_path: agents.0.bulk.DnaA_ATP
+- name: rida_flux
+  store_path: agents.0.listeners.dnaA_cycle.rida_flux
+- name: ddah_flux
+  store_path: agents.0.listeners.dnaA_cycle.ddah_flux
+- name: dars1_flux
+  store_path: agents.0.listeners.dnaA_cycle.dars1_flux
+- name: dars2_flux
+  store_path: agents.0.listeners.dnaA_cycle.dars2_flux
+- name: replisome_count
+  store_path: agents.0.listeners.replication.replisome_count
+- name: initiation_events
+  store_path: agents.0.listeners.replication.initiation_events
+- name: data_copy_number
+  store_path: agents.0.listeners.chromosome.data_copy
+- name: dars1_copy_number
+  store_path: agents.0.listeners.chromosome.dars1_copy
+- name: dars2_copy_number
+  store_path: agents.0.listeners.chromosome.dars2_copy
+
+visualizations:
+- name: dnaa-atp-vs-replisomes
+  address: local:TimeSeriesPlot
+  config:
+    title: "DnaA-ATP fraction vs replisome count"
+    observables: [dnaA_atp_fraction, replisome_count]
+- name: pathway-fluxes
+  address: local:TimeSeriesPlot
+  config:
+    title: "RIDA / DDAH / DARS1 / DARS2 fluxes"
+    observables: [rida_flux, ddah_flux, dars1_flux, dars2_flux]
+- name: initiation-synchrony
+  address: local:Histogram
+  config:
+    title: "Inter-initiation timing — WT vs single knockouts"
+    observable: time_between_initiations
+    overlay_variants: [baseline, no-RIDA, no-DDAH, no-DARS1, no-DARS2]
+
+implementation_tasks:
+- Add RIDA process — flux ∝ replisome count, converts DnaA-ATP -> DnaA-ADP.
+- Add DDAH process — flux ∝ datA copy number, requires IHF.
+- Add DARS1 + DARS2 processes — flux ∝ each locus's copy number;
+  convert DnaA-ADP -> apo-DnaA (which then reloads ATP).
+- Add IHF + Fis cell-cycle modulation of DARS2 if data supports it.
+
+expected_behavior:
+- "DnaA-ATP fraction oscillates through the cell cycle (peak around initiation,
+   trough mid-C-period when RIDA is most active)."
+- "Increased synchrony of initiation timing across simulated cells vs dnaa-04."
+- "no-DDAH variant: untimely initiation (per delta-datA observations)."
+- "no-DARS1+DARS2 variant: DnaA-ATP fails to recover after initiation."
+- "DnaA-ATP vs replisomes: anti-correlated during active replication."
+
+expert_questions:
+- What's the right quantitative scaling for RIDA per fork? (β-clamp residence
+  time on lagging strand has been measured.)
+- Is IHF availability rate-limiting for DDAH, or always saturating?
+- Should DARS2's IHF + Fis modulation be modeled as a cell-cycle gate or as
+  a continuous rate modifier?
+
+references:
+  expert: [replication_initiation_molecular_info]
+  bib_keys: [Katayama2017Frontiers, Hansen2018DnaATale, Riber2016FrontMolBiosci, Fujimitsu2009GenesDev, Kasho2014NAR]
+  claims: [dnaa.rida.replisome-coupled, dnaa.ddah.data-dependent, dnaa.dars.reactivation]
+
+runs: []
+conclusion: null
+parent_studies: [dnaa-02-atp-hydrolysis, dnaa-04-initiation-mechanism]

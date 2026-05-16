@@ -1,0 +1,99 @@
+schema_version: 3
+name: dnaa-02-atp-hydrolysis
+created: '2026-05-16'
+status: draft
+objective: |
+  Model DnaA-ATP intrinsic hydrolysis to DnaA-ADP as a first-order decay,
+  and DnaA-ATP/DnaA-ADP binding such that DnaA is predominantly
+  nucleotide-bound at steady state.
+description: |
+  Phase 2 of the multi-phase replication-initiation plan
+  (references/expert/chromosome_replication_plan.pdf, Study 2).
+  Builds on the steady DnaA expression baseline from dnaa-01. Adds the
+  apo-DnaA/DnaA-ATP/DnaA-ADP three-state nucleotide cycle with intrinsic
+  hydrolysis rate ~0.046/min (50% in 15 min; Sekimizu et al. 1987).
+
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+
+variants:
+- name: no-intrinsic-hydrolysis
+  description: |
+    Set the intrinsic hydrolysis rate to 0 — DnaA-ATP should accumulate.
+  params:
+    dnaA_intrinsic_hydrolysis_rate_per_min: 0.0
+
+- name: fast-intrinsic-hydrolysis
+  description: |
+    10x intrinsic hydrolysis — DnaA-ATP fraction should fall below 0.2.
+  params:
+    dnaA_intrinsic_hydrolysis_rate_per_min: 0.46
+
+- name: heuristic-clamp
+  description: |
+    If the ratio drifts outside the expected band, hold DnaA-ATP/total in
+    [0.2, 0.5] heuristically so downstream studies can proceed.
+  params:
+    dnaA_atp_fraction_clamp: [0.2, 0.5]
+
+observables:
+- name: dnaA_atp_count
+  store_path: agents.0.bulk.DnaA_ATP
+- name: dnaA_adp_count
+  store_path: agents.0.bulk.DnaA_ADP
+- name: dnaA_apo_count
+  store_path: agents.0.bulk.DnaA_apo
+- name: dnaA_atp_fraction
+  store_path: agents.0.listeners.dnaA_cycle.atp_fraction
+- name: atp_pool
+  store_path: agents.0.bulk.ATP[c]
+- name: adp_pool
+  store_path: agents.0.bulk.ADP[c]
+
+visualizations:
+- name: dnaa-nucleotide-states
+  address: local:TimeSeriesPlot
+  config:
+    title: "DnaA nucleotide states over time"
+    observables: [dnaA_atp_count, dnaA_adp_count, dnaA_apo_count]
+- name: dnaa-atp-fraction
+  address: local:TimeSeriesPlot
+  config:
+    title: "DnaA-ATP / total DnaA"
+    observables: [dnaA_atp_fraction]
+    reference_band: { y_min: 0.2, y_max: 0.5, label: "PNAS 2024" }
+- name: background-nucleotide-pools
+  address: local:TimeSeriesPlot
+  config:
+    title: "Background ATP / ADP pools"
+    observables: [atp_pool, adp_pool]
+
+implementation_tasks:
+- Add apo-DnaA + DnaA-ATP + DnaA-ADP species and ATP/ADP-binding kinetics.
+- Add intrinsic first-order DnaA-ATP -> DnaA-ADP hydrolysis (~0.046/min).
+- Optionally expose a clamp so dnaA-03/04 can run before extrinsic
+  conversion (RIDA/DDAH/DARS) is implemented.
+
+expected_behavior:
+- "Most DnaA bound by ATP or ADP (apo-DnaA fraction small)."
+- "DnaA-ATP / total DnaA ≈ 0.2-0.5 (Boesen et al. 2024 PNAS)."
+- "Background ATP >> ADP from metabolism."
+- "no-intrinsic-hydrolysis variant: DnaA-ATP accumulates monotonically."
+
+expert_questions:
+- Confirm the apo-DnaA pool size assumption (negligible at physiological [ATP]).
+- Confirm whether ATP/ADP binding kinetics differ enough to matter at this
+  resolution, or whether equilibrium fractionation is sufficient.
+
+references:
+  expert: [replication_initiation_molecular_info]
+  bib_keys: [Sekimizu1987Cell, Kawakami2006MolMicrobiol, Boesen2024PNAS]
+  claims: [dnaa.intrinsic-hydrolysis.0p046-per-min, dnaa.atp-adp-binding.tight, dnaa.atp-fraction.0p2-to-0p5]
+
+runs: []
+conclusion: null
+parent_studies: [dnaa-01-expression-dynamics]

@@ -1,0 +1,99 @@
+schema_version: 3
+name: dnaa-06-seqa-sequestration
+created: '2026-05-16'
+status: draft
+objective: |
+  Add SeqA-mediated post-replication sequestration at oriC (and modulation
+  at the dnaA promoter): transient binding of SeqA to hemimethylated GATC
+  sites prevents DnaA rebinding to newly replicated oriC for ~10 min.
+description: |
+  Phase 6 of the multi-phase replication-initiation plan
+  (references/expert/chromosome_replication_plan.pdf, Study 6).
+  Required to prevent reinitiation within the same cell cycle.
+
+  Mechanism summary (from expert doc):
+    - Dam methyltransferase methylates GATC adenines on both strands.
+    - After replication, oriC + dnaAp are transiently hemimethylated.
+    - SeqA binds >10 GATC sites in newly replicated oriC and multimerizes,
+      sequestering oriC for ~10 min (≈1/3 of doubling time at rapid growth).
+    - SeqA also buffers the transient dnaA gene-dosage doubling.
+
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+
+variants:
+- name: no-SeqA
+  description: |
+    Knockout SeqA — expect rapid reinitiation at oriC, runaway DnaA at
+    dnaAp post-replication.
+  params:
+    seqa_active: false
+
+- name: short-sequestration
+  description: |
+    Reduce sequestration window to ~3 min; partial-knockout phenotype.
+  params:
+    seqa_sequestration_min: 3.0
+
+- name: long-sequestration
+  description: |
+    Extend sequestration window to ~20 min; expect delayed reinitiation.
+  params:
+    seqa_sequestration_min: 20.0
+
+observables:
+- name: oric_sequestered
+  store_path: agents.0.listeners.seqa.oric_sequestered_bool
+- name: oric_hemimethylated_fraction
+  store_path: agents.0.listeners.seqa.oric_hemimethylated_fraction
+- name: dnaap_sequestered
+  store_path: agents.0.listeners.seqa.dnaap_sequestered_bool
+- name: initiation_events
+  store_path: agents.0.listeners.replication.initiation_events
+- name: time_between_initiations
+  store_path: agents.0.listeners.replication.interinitiation_min
+- name: dnaA_protein_concentration
+  store_path: agents.0.listeners.concentrations.DnaA
+
+visualizations:
+- name: sequestration-window
+  address: local:TimeSeriesPlot
+  config:
+    title: "oriC sequestered + hemimethylated fraction around initiation"
+    observables: [oric_sequestered, oric_hemimethylated_fraction]
+- name: reinitiation-prevention
+  address: local:TimeSeriesPlot
+  config:
+    title: "DnaA + initiation events — WT vs no-SeqA"
+    observables: [dnaA_protein_concentration, initiation_events]
+    overlay_variants: [baseline, no-SeqA]
+
+implementation_tasks:
+- Track GATC methylation state at oriC + dnaAp (fully / hemi-methylated).
+- Add SeqA-multimer binding to hemimethylated GATC clusters.
+- Add Dam re-methylation kinetics (re-methylation -> SeqA dissociates).
+- Block DnaA binding at sequestered loci.
+
+expected_behavior:
+- "SeqA bound to oriC for ~10 min after initiation; DnaA cannot rebind."
+- "Without SeqA: rapid re-binding of DnaA -> premature reinitiation."
+- "dnaAp transient sequestration buffers gene-dosage doubling."
+- "Long-sequestration variant: delayed reinitiation, eventually rescues."
+
+expert_questions:
+- Is SeqA cooperativity (multimerization across multiple GATC sites) needed
+  at this level of detail, or sufficient to model as a Hill-shaped on/off?
+- What's the right Dam re-methylation rate? Should it scale with cell volume?
+
+references:
+  expert: [replication_initiation_molecular_info]
+  bib_keys: [Katayama2017Frontiers, Leonard2015FrontMicrobiol, Kasho2023IJMS]
+  claims: [dnaa.seqa.post-initiation-sequestration]
+
+runs: []
+conclusion: null
+parent_studies: [dnaa-04-initiation-mechanism]

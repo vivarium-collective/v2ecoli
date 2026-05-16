@@ -445,3 +445,90 @@ on the v3 user-facing contract.
    validation path that the dashboard uses, so the agent gets the error
    without having to start the server. Right now lint passes but the
    dashboard rejects — that mismatch ate 6 tool calls of debugging.
+
+### 2026-05-16 (refining dnaa-01)
+
+- Concrete iteration: mapped the dnaa-01 study to the real v2ecoli
+  identifiers (EG10235, EG10235_RNA, MONOMER0-160[c]) and existing
+  listener paths (rnap_data.rna_init_event, rna_synth_prob.n_actual_bound).
+- Surfaced an important user-experience insight: the study.yaml's
+  `observables` block needs a per-entry `status:` flag (available /
+  derived-needed / aspirational), because in a plan-driven workflow many
+  observables are *intentions* not measurements. Without that flag the
+  user can't tell at a glance which plots will populate today.
+- Also added per-observable `index_by: {type, value}` to express the
+  numpy-indexed-by-id pattern used by v2ecoli's `bulk_array` and TF /
+  TU-indexed listeners. The current observable schema (name/store_path/
+  units/description) has no shape for this, but the dashboard tolerated
+  the extension field. Worth formalizing.
+- Added `gaps:` block at study top level with id/title/why/approach for
+  each piece of new code needed. Effectively a study-local TODO list. The
+  dashboard tolerates this; it would be more useful if it were rendered.
+
+## Finding #11 (added live): YAML traps in flow-style values
+
+Within an hour of authoring I hit two YAML parse errors that the
+dashboard surfaced (because v3→v4 migration walks the whole spec):
+
+- `{translation_efficiency_override={EG10235: 0.0}}` in a flow mapping —
+  the bare `:` makes YAML think we're declaring a sub-mapping. Need to
+  quote the whole string.
+- `index_by: {type: bulk_id, value: MONOMER0-160[c]}` — the bare `[c]`
+  is parsed as a flow sequence inside a flow mapping. Need to quote.
+
+**Proposal.** `scripts/lint-workspace.py` should validate every
+`study.yaml` by parsing it through PyYAML (already happens implicitly)
+*and* through `vivarium_dashboard.lib.spec_migration.migrate_v3_to_v4 +
+_validate_study_v3_or_v4`. The current lint silently passes specs that
+the dashboard rejects, forcing the agent to start the server just to
+catch trivial syntax problems.
+
+This is a sharper version of finding #4's "ship a schema" — the schema
+isn't enough; the same migration code needs to be reachable from the
+CLI.
+
+## Finding #12 (added live): per-observable `status:` and `index_by:` are missing from the v3 schema but are essential for plan-driven authoring
+
+**What I did.** Each `observables[i]` entry in my refined dnaa-01 has:
+
+```yaml
+- name: dnaA_protein_count
+  status: available
+  description: |
+    Bulk DnaA monomer count ...
+  store_path: agents.0.bulk
+  index_by: {type: bulk_id, value: "MONOMER0-160[c]"}
+```
+
+**Why this matters.**
+- `status: available | derived-needed | aspirational` tells the user
+  which observables will plot today vs which require new derived
+  listeners or are deferred to a later study. In plan-driven work that
+  decomposes intent before code lands, most observables in a draft
+  study are aspirational; the user needs to see which are which.
+- `index_by` covers the very common case where the underlying store is
+  a numpy structured array (e.g. v2ecoli's `bulk_array`) addressed by
+  a string ID. Without it, the `store_path` either points at the whole
+  array (no scalar to plot) or has to bake the index into a synthetic
+  path the dashboard can't resolve.
+
+**Proposal.** Extend the v3/v4 observable schema with both fields,
+documented, and have visualizations honor them:
+
+```jsonschema
+{
+  "status": {"enum": ["available", "derived-needed", "aspirational"]},
+  "index_by": {
+    "type": "object",
+    "required": ["type", "value"],
+    "properties": {
+      "type":  {"enum": ["bulk_id", "rna_id", "tf_id", "tu_id", "literal_index"]},
+      "value": {"type": ["string", "integer"]}
+    }
+  }
+}
+```
+
+The dashboard's observable resolver can then dispatch on `index_by.type`:
+look up the index in sim_data, then read `store_path[index]`. Without
+this, every dnaa-* study has to reinvent the convention.

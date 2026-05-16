@@ -272,71 +272,88 @@ gaps:
     (ii) emit a summary listener.
   defer_until: dnaa-03 (full DnaA-box binding model).
 
-# ── Expected behavior (steady-state targets) ────────────────────────────────
+# ── Expected behavior ───────────────────────────────────────────────────────
+#
+# Each entry is a precise, testable prediction. The user-facing field is
+# `en:` — a one-sentence English description that goes in the Overview tab.
+# `given / measure / expect` is the machine-readable form that
+# `tests/_behaviors.py` turns into a pytest assertion at run time, so every
+# English sentence here auto-generates exactly one test.
+#
+# Grammar:
+#   en:      one-sentence English summary.
+#   given:   {run: baseline | <variant-name>, window: full | second_half |
+#             post_initiation_10min, ...}
+#   measure: {kind: bulk_count | listener_path | listener_sum | xy_correlation,
+#             ...measure-specific args, reduce: median | mean | series |
+#             first_and_last | top_quartile_vs_bottom_quartile}
+#   expect:  {op: in_range | rolling_cv_below | ratio_at_most |
+#             ratio_at_least | pearson_below | pearson_above | monotonic_decreasing,
+#             ...op-specific args}
+#   status:  implemented | stub | gated
+#   requires: optional list of {gap | listener | variant_hook} cross-refs.
+#
+# This is the canonical source of truth for dnaa-01's behavioral tests.
+# The dashboard should render `en:` on the Overview tab; pytest is invoked
+# from tests/test_behaviors.py which iterates over this list.
 expected_behavior:
-- "DnaA per cell within ~300-800 (mass-spec, EcoCyc) or ~200/oriC (western)."
-- "Roughly constant DnaA mRNA and DnaA protein concentrations (±10%) across the cycle."
-- "stop-dnaA-synthesis variant: concentrations decay on the dilution timescale."
-- "Wildtype: after initiation, DnaA pool shifts due to increased gene dosage
-   and increased autorepression strength."
-- "distal-dnaA-promoter variant: detectable gene-dosage shift on DnaA timing."
 
-# ── Behavioral tests ────────────────────────────────────────────────────────
-# Each entry has an English description that goes in the Overview, plus a
-# pytest node id pointing to the actual test function in tests/. The
-# dashboard runs `pytest studies/<slug>/tests/` and parses results into
-# study.yaml.tests.last_results.
-behavioral_tests:
-- id: BT-01
-  english: |
-    Steady-state DnaA monomer count lies within the mass-spec / EcoCyc
-    range of 300-800 per cell (median across the second half of the
-    baseline run).
-  pytest_node: tests/test_expression_dynamics.py::test_dnaA_count_within_mass_spec_range
+- name: dnaa-count-in-mass-spec-range
+  en: "Under steady growth, DnaA monomer count per cell is between 300 and 800 (mass-spec / EcoCyc range)."
+  given:  {run: baseline, window: second_half}
+  measure: {kind: bulk_count, id: "MONOMER0-160[c]", reduce: median}
+  expect:  {op: in_range, low: 300, high: 800}
   status: implemented
-  requires_run: baseline
 
-- id: BT-02
-  english: |
-    DnaA monomer concentration is stable across the cycle: rolling
-    coefficient of variation (std/mean over a 5-minute window) stays
-    below 0.10 for the second half of the run.
-  pytest_node: tests/test_expression_dynamics.py::test_dnaA_concentration_stability_within_10pct
+- name: dnaa-concentration-stable-within-10pct
+  en: "DnaA concentration is stable across the cycle: rolling 5-step coefficient of variation stays below 0.10."
+  given:  {run: baseline, window: second_half}
+  measure:
+    kind: bulk_count
+    id: "MONOMER0-160[c]"
+    reduce: series
+  expect:  {op: rolling_cv_below, window_steps: 5, threshold: 0.10}
   status: implemented
-  requires_run: baseline
-  requires_listener: dnaA_protein_concentration   # gap-1 (DnaaConcentrationListener)
+  requires:
+    - listener: dnaA_protein_concentration   # gap-1: prefer the concentration listener once it exists
 
-- id: BT-03
-  english: |
-    In the stop-dnaA-synthesis variant, DnaA monomer count decays
-    monotonically on the dilution timescale: count at t=T is below
-    count at t=0 by at least 30% for one doubling time T.
-  pytest_node: tests/test_expression_dynamics.py::test_stop_synthesis_decays_on_dilution_timescale
+- name: stop-synthesis-drops-30pct
+  en: "If you stop DnaA synthesis, DnaA count drops by at least 30% over one doubling time."
+  given:  {run: variant, variant: stop-dnaA-synthesis, window: full}
+  measure: {kind: bulk_count, id: "MONOMER0-160[c]", reduce: first_and_last}
+  expect:  {op: ratio_at_most, ratio: 0.70}   # last / first ≤ 0.70
   status: implemented
-  requires_run: stop-dnaA-synthesis
-  requires_variant_hook: translation_efficiency_override   # gap-2
+  requires:
+    - variant_hook: translation_efficiency_override   # gap-2
 
-- id: BT-04
-  english: |
-    Coarse autorepression: when DnaA bound-to-promoter count is in the
-    top quartile of its range, dnaA transcription init events per step
-    are in the bottom quartile (negative correlation; Pearson r < -0.3).
-  pytest_node: tests/test_expression_dynamics.py::test_coarse_autorepression_negative_correlation
+- name: stop-synthesis-monotonic-decrease
+  en: "If you stop DnaA synthesis, DnaA count decreases monotonically (no rebound)."
+  given:  {run: variant, variant: stop-dnaA-synthesis, window: full}
+  measure: {kind: bulk_count, id: "MONOMER0-160[c]", reduce: series}
+  expect:  {op: monotonic_decreasing, allow_rebound_pct: 5}
   status: implemented
-  requires_run: baseline
+  requires:
+    - variant_hook: translation_efficiency_override   # gap-2
 
-- id: BT-05
-  english: |
-    Post-initiation gene-dosage effect: within 10 min of a replication
-    initiation event, dnaA transcription rate increases by ≥50%
-    (because the dnaA locus has doubled). Needs initiation-event
-    detection from chromosome_initiation listeners.
-  pytest_node: tests/test_expression_dynamics.py::test_post_initiation_gene_dosage_doubles_tx_rate
+- name: coarse-autorepression-negative-correlation
+  en: "When DnaA is highly bound to its promoter targets, dnaA transcription init events are low (autorepression; Pearson r < -0.3)."
+  given:  {run: baseline, window: second_half}
+  measure:
+    kind: xy_correlation
+    x: {kind: listener_sum, path: "listeners.rna_synth_prob.n_actual_bound"}
+    y: {kind: listener_sum, path: "listeners.rnap_data.rna_init_event"}
+  expect:  {op: pearson_below, threshold: -0.3}
+  status: implemented
+
+- name: post-initiation-gene-dosage-spike
+  en: "Within 10 minutes of a replication initiation event, dnaA transcription rate rises by at least 50% (gene dosage doubles)."
+  given:  {run: baseline, window: post_initiation_10min}
+  measure: {kind: listener_sum, path: "listeners.rnap_data.rna_init_event", reduce: pre_post_event_ratio}
+  expect:  {op: ratio_at_least, ratio: 1.5}
   status: stub
-  requires_run: baseline
-  notes: |
-    Stub because initiation-event detection convention isn't settled
-    yet (see dnaa-04). For now the test xfails.
+  requires:
+    - listener: replication_initiation_event   # initiation-event detection — defer to dnaa-04
+  notes: "Stub until dnaa-04 lands the initiation-event detector. Pytest marks this xfail."
 
 expert_questions:
 - Ask Katayama and Lobner-Olesen labs for opinions on dnaA autorepression.

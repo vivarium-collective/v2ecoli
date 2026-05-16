@@ -1,0 +1,232 @@
+"""Generic evaluator for the structured `expected_behavior:` block in
+study.yaml.
+
+Each entry is shaped:
+
+    name:   <slug>
+    en:     "...one-sentence English description..."
+    given:  {run, window, ...}
+    measure: {kind, ...}
+    expect: {op, ...}
+    status: implemented | stub | gated
+    requires: [...]
+
+Call `evaluate(entry, history)` to get (passed: bool, message: str). The
+parametrized test in `test_behaviors.py` wires this up to pytest.
+
+Keeping this evaluator deliberately small + dependency-free (just stdlib
++ statistics) so it can move into a workspace-shared helper later.
+"""
+from __future__ import annotations
+
+import statistics
+from typing import Any
+
+
+# ─── Identifiers (mirrored from conftest for standalone use) ────────────────
+
+DNAA_MONOMER_ID = "MONOMER0-160[c]"
+DNAA_MRNA_ID = "EG10235_RNA"
+
+
+# ─── State accessors ────────────────────────────────────────────────────────
+
+def _bulk_count(state: dict, molecule_id: str) -> int | None:
+    agents = state.get("agents") or {}
+    if not agents:
+        return None
+    first = next(iter(agents.values()))
+    bulk = first.get("bulk")
+    if bulk is None:
+        return None
+    if isinstance(bulk, dict) and "id" in bulk and "count" in bulk:
+        ids = bulk["id"]
+        counts = bulk["count"]
+    elif isinstance(bulk, list) and bulk and isinstance(bulk[0], (list, tuple)):
+        ids = [row[0] for row in bulk]
+        counts = [row[1] for row in bulk]
+    else:
+        return None
+    try:
+        idx = ids.index(molecule_id)
+    except ValueError:
+        return None
+    return counts[idx]
+
+
+def _listener_value(state: dict, dotted_path: str):
+    agents = state.get("agents") or {}
+    if not agents:
+        return None
+    cur = next(iter(agents.values()))
+    for seg in dotted_path.split("."):
+        if not isinstance(cur, dict) or seg not in cur:
+            return None
+        cur = cur[seg]
+    return cur
+
+
+# ─── Window selection ───────────────────────────────────────────────────────
+
+def _window(history: list, name: str) -> list:
+    if name == "full":
+        return history
+    if name == "second_half":
+        n = len(history)
+        return history[n // 2 :] if n >= 2 else history
+    if name == "post_initiation_10min":
+        # Stub for the gene-dosage test (BT-05 equivalent). Without an
+        # initiation-event detector we can't slice this window correctly.
+        return []
+    raise ValueError(f"unknown window {name!r}")
+
+
+# ─── Measure dispatch ───────────────────────────────────────────────────────
+
+def _measure_series(history: list, measure: dict) -> list[float] | None:
+    kind = measure["kind"]
+    if kind == "bulk_count":
+        mol = measure["id"]
+        series = [_bulk_count(s["state"], mol) for s in history]
+        if all(v is None for v in series):
+            return None
+        return [v for v in series if v is not None]
+    if kind == "listener_sum":
+        path = measure["path"]
+        series = []
+        for s in history:
+            v = _listener_value(s["state"], path)
+            series.append(sum(v) if isinstance(v, list) else (v or 0))
+        return series
+    if kind == "listener_path":
+        path = measure["path"]
+        return [_listener_value(s["state"], path) for s in history]
+    raise ValueError(f"unknown measure kind {kind!r}")
+
+
+def _measure(history: list, measure: dict):
+    """Reduce a measure to whatever shape the operator expects."""
+    if measure["kind"] == "xy_correlation":
+        x = _measure_series(history, measure["x"])
+        y = _measure_series(history, measure["y"])
+        return {"x": x, "y": y}
+
+    reduce = measure.get("reduce", "series")
+    series = _measure_series(history, measure)
+    if series is None or not series:
+        return None
+    if reduce == "series":
+        return series
+    if reduce == "median":
+        return statistics.median(series)
+    if reduce == "mean":
+        return statistics.mean(series)
+    if reduce == "first_and_last":
+        return {"first": series[0], "last": series[-1]}
+    if reduce == "pre_post_event_ratio":
+        # Used by the post-initiation-gene-dosage stub; needs an event index.
+        return None
+    raise ValueError(f"unknown reduce {reduce!r}")
+
+
+# ─── Expect dispatch ────────────────────────────────────────────────────────
+
+def _pearson(x: list[float], y: list[float]) -> float | None:
+    if not x or not y or len(x) != len(y) or len(x) < 2:
+        return None
+    if statistics.stdev(x) == 0 or statistics.stdev(y) == 0:
+        return None
+    mx, my = statistics.mean(x), statistics.mean(y)
+    cov = sum((a - mx) * (b - my) for a, b in zip(x, y))
+    denom = statistics.stdev(x) * statistics.stdev(y) * (len(x) - 1)
+    return cov / denom if denom else None
+
+
+def _check(value, expect: dict) -> tuple[bool, str]:
+    op = expect["op"]
+    if value is None:
+        return False, f"measure returned None; cannot evaluate op={op}"
+
+    if op == "in_range":
+        lo, hi = expect["low"], expect["high"]
+        return (lo <= value <= hi,
+                f"value={value} expected in [{lo}, {hi}]")
+
+    if op == "rolling_cv_below":
+        series = value  # series
+        w = expect.get("window_steps", 5)
+        thresh = expect["threshold"]
+        if len(series) < w:
+            return False, f"need ≥{w} samples for rolling CV; got {len(series)}"
+        cvs = []
+        for i in range(len(series) - w + 1):
+            block = series[i : i + w]
+            m = statistics.mean(block)
+            if m == 0:
+                continue
+            cvs.append(statistics.stdev(block) / m if len(block) > 1 else 0.0)
+        max_cv = max(cvs) if cvs else 0.0
+        return (max_cv < thresh,
+                f"max rolling CV={max_cv:.3f} expected < {thresh}")
+
+    if op == "ratio_at_most":
+        first, last = value["first"], value["last"]
+        if first == 0:
+            return False, "first sample is zero; ratio undefined"
+        ratio = last / first
+        return (ratio <= expect["ratio"],
+                f"last/first ratio={ratio:.3f} expected ≤ {expect['ratio']}")
+
+    if op == "ratio_at_least":
+        first, last = value["first"], value["last"]
+        if first == 0:
+            return False, "first sample is zero; ratio undefined"
+        ratio = last / first
+        return (ratio >= expect["ratio"],
+                f"last/first ratio={ratio:.3f} expected ≥ {expect['ratio']}")
+
+    if op == "monotonic_decreasing":
+        series = value  # series
+        if len(series) < 2:
+            return False, f"need ≥2 samples; got {len(series)}"
+        peak = series[0]
+        max_rebound_pct = expect.get("allow_rebound_pct", 0) / 100.0
+        for v in series[1:]:
+            if peak == 0:
+                continue
+            if (v - peak) / peak > max_rebound_pct:
+                return False, (
+                    f"non-monotonic: peak={peak}, later value={v} "
+                    f"(rebound > {max_rebound_pct:.1%})"
+                )
+            peak = min(peak, v)
+        return True, f"monotonic-decreasing (first={series[0]}, last={series[-1]})"
+
+    if op in ("pearson_below", "pearson_above"):
+        r = _pearson(value["x"], value["y"])
+        if r is None:
+            return False, "insufficient variance to compute Pearson r"
+        thresh = expect["threshold"]
+        if op == "pearson_below":
+            return r < thresh, f"r={r:.3f} expected < {thresh}"
+        return r > thresh, f"r={r:.3f} expected > {thresh}"
+
+    raise ValueError(f"unknown expect op {op!r}")
+
+
+# ─── Public entry point ─────────────────────────────────────────────────────
+
+def evaluate(entry: dict, history: list) -> tuple[bool, str]:
+    """Evaluate one expected_behavior entry against a loaded history.
+
+    Returns (passed, message). Doesn't raise — caller decides whether the
+    failure should be assert / xfail / skip.
+    """
+    given = entry.get("given") or {}
+    window_name = given.get("window", "full")
+    sub_history = _window(history, window_name)
+    if not sub_history:
+        return False, f"window {window_name!r} produced an empty history slice"
+
+    value = _measure(sub_history, entry["measure"])
+    return _check(value, entry["expect"])

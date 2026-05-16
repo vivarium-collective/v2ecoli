@@ -3,7 +3,7 @@ name: dnaa-01-expression-dynamics
 created: '2026-05-16'
 status: ran
 phase: Decide
-last_run: 2026-05-16T19:44Z
+last_run: 2026-05-16T21:30Z
 baseline:
 - name: baseline-steady-state
   composite: v2ecoli.composites.baseline.baseline
@@ -511,13 +511,18 @@ implementation_requirements:
   kind: listener
   title: TF-axis sum on n_bound_TF_per_TU
   effort: XS
-  description: "n_bound_TF_per_TU is (n_TU \xD7 n_TF). For dnaa-01's autorepression\n\
-    correlation we want a 1-D series: sum over TUs along the DnaA TF\naxis. Either\
-    \ add a derived listener or compute in the test\nevaluator.\n"
+  status: done
+  description: |
+    n_bound_TF_per_TU is (n_TU x n_TF). For dnaa-01's autorepression
+    correlation we want a 1-D series: sum over TUs along the DnaA TF
+    axis. Implemented as the `tf_axis_sum` measure kind in
+    studies/dnaa-01-expression-dynamics/tests/_behaviors.py (2026-05-16).
+    Requires `emit_n_bound_TF_per_TU=True` on tf_binding, which the
+    runner opts into via `--heavy_tf_listener`.
   steps:
-  - Look up DnaA's TF axis index in tf_binding's config.
-  - Either add a derived Step emitting listeners.rna_synth_prob.dnaA_bound_total,
-    or compute in _behaviors.py.
+  - "DONE: looked up DnaA's TF axis index in tf_binding.tf_ids -> idx 12 (MONOMER0-160 = DnaA-ATP)."
+  - "DONE: added tf_axis_sum measure kind to _behaviors.py."
+  - "DONE: updated autorepression-correlation test to use tf_axis_sum with tf_index: 12."
   unblocks:
   - readouts.dnaA_bound_to_promoters
   - tests.autorepression-correlation
@@ -578,6 +583,42 @@ runs:
     autorepression-correlation:
       result: FAIL
       reason: "n_bound_TF_per_TU empty \u2014 req-6 underlying data missing"
+
+- simulation: baseline-heavy-tf
+  seed: 0
+  duration_s: 600
+  started_at: '2026-05-16T21:30Z'
+  wall_seconds: 83
+  rows: 601
+  db: studies/dnaa-01-expression-dynamics/runs.db
+  note: |
+    After (a) overwrite[] fix swept across all 7 listener files
+    (47/47 fields wrapped), and (b) opting into tf_binding's heavy
+    listener via --heavy_tf_listener so n_bound_TF_per_TU populates as
+    the (n_TU x n_TF) matrix (3277x23), and (c) implementing req-6's
+    tf_axis_sum measure in _behaviors.py with DnaA-TF idx 12.
+  outcomes:
+    dnaA-count-in-range:
+      result: FAIL
+      value: 115
+      expected: '[300, 800]'
+      note: Unchanged from prior run \u2014 still the same calibration shortfall.
+    dnaA-concentration-stable:
+      result: PASS
+      max_rolling_cv: 0.008
+    autorepression-correlation:
+      result: FAIL
+      pearson_r: 0.197
+      expected: '<= -0.3'
+      note: |
+        First-ever execution of this test against real per-tick
+        TF-binding data. r = +0.197 (weak positive correlation) instead
+        of the predicted strong negative. v2ecoli does NOT reproduce the
+        textbook autorepression signature at this resolution. Y axis is
+        still cell-wide init events (not dnaA-specific) \u2014 a TU-axis
+        refinement on Y could change r; currently blocked on the
+        EG10235_RNA TU index lookup.
+
 conclusion: "Phase=Decide outcome: PIPELINE-GATED on translation-efficiency calibration.\n\
   \u2022 Test framework works end-to-end (baseline \u2192 SQLite emitter \u2192 evaluator).\n\
   \u2022 Discovered + fixed an infrastructure bug: monomer_counts_listener output\n\
@@ -654,29 +695,56 @@ follow_up_studies:
 - title: Investigate why tf_binding leaves n_bound_TF_per_TU empty
   kind: infrastructure_fix
   effort: M
-  status: open
+  status: done
   why: |
     Discovered while running follow-up #0 (listener overwrite[] sweep):
-    fixing the listener output schema does NOT populate
-    listeners.rna_synth_prob.n_bound_TF_per_TU. The field stays an empty
-    list across the whole run, which leaves autorepression-correlation
-    unable to compute Pearson r (zero variance). The field is FED by
-    tf_binding (a different process), not produced by the listener — so
-    the actual blocker is in tf_binding's output wiring or in how it
-    populates this field during update.
+    fixing the listener output schema did NOT populate
+    listeners.rna_synth_prob.n_bound_TF_per_TU.
   hypothesized_mechanism: |
-    Either (a) tf_binding never writes n_bound_TF_per_TU in this composite
-    config (look at its outputs() / update() return shape), or (b) the
-    field IS written but to a different store path that the listener
-    isn't reading, or (c) the n_TU dimension is computed at init time but
-    the array is never resized when promoters get added.
+    Three candidates; root cause was (a).
+  resolved: |
+    Hypothesis (a) confirmed: tf_binding's config has a feature flag
+    `emit_n_bound_TF_per_TU` that defaults to False because the
+    (n_TU x n_TF) matrix is ~900KB/tick. Flipping the flag populates
+    the field. Implementation: studies/dnaa-01-expression-dynamics/
+    sims/run_baseline.py grew a --heavy_tf_listener arg that monkey-
+    patches the cached config before composite build. Confirmed in
+    the baseline-heavy-tf run (601 steps; shape (3277, 23)).
   unblocks:
   - tests.autorepression-correlation in dnaa-01 (the supporting primary test)
   - readouts.dnaA_bound_to_promoters in dnaa-01
   - dnaa-03's DnaA-box-occupancy readouts (n_bound_TF_per_TU is the source)
   acceptance:
-  - listeners.rna_synth_prob.n_bound_TF_per_TU has length n_TU each tick after the first.
-  - autorepression-correlation produces a non-zero Pearson r (PASS or FAIL on biology, not infrastructure).
+  - "DONE: listeners.rna_synth_prob.n_bound_TF_per_TU has shape (3277, 23) each tick after t=1."
+  - "DONE: autorepression-correlation now produces r=+0.197 (real result, not insufficient-variance)."
+
+- title: "Investigate v2ecoli's lack of dnaA autorepression signature"
+  kind: new
+  effort: L
+  status: open
+  why: |
+    With tf_binding's heavy listener populated AND DnaA-specific TF-axis
+    slicing in place (req-6, done), the autorepression-correlation test
+    yields Pearson r = +0.197 — weak POSITIVE correlation, not the
+    strong negative predicted by literature (Speck 1999, Saggioro 2013).
+    This is a real biology gap, not an infrastructure issue.
+  hypothesized_mechanism: |
+    Three candidates, in priority order:
+    (1) The Y axis is still too coarse — summing all 3277 TU init events
+        instead of slicing to the dnaA promoter's TU index. dnaA init
+        events are a tiny fraction of cell-wide events, so cell-wide Y
+        is dominated by other transcription.
+    (2) The autorepression model in v2ecoli (tf_binding's dnaA→EG10235
+        fold change) may not be strong enough to register over the noise.
+    (3) The 10-minute window may be too short — autorepression operates
+        on cell-cycle timescales (~60 min). Try multi-generation runs.
+  unblocks:
+  - autorepression-correlation may flip PASS once Y is dnaA-specific
+  - Validates / falsifies v2ecoli's autorepression model
+  acceptance:
+  - Y axis sliced to dnaA TU index (needs sim_data mRNA_TU_ids lookup)
+  - Re-evaluate; if still positive, escalate to expert review of fold_changes.tsv parameter for dnaA→EG10235
+
 parent_studies: []
 tests:
   auto_discover: true

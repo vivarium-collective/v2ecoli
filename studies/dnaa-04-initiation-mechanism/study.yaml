@@ -307,4 +307,5 @@ bibliography:
 
 runs: []
 conclusion: null
-parent_studies: [dnaa-03-box-binding]
+parent_studies:
+  - {study: dnaa-03-box-binding, condition: tests-passed}

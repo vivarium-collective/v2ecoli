@@ -41,6 +41,8 @@ description: |
 # time; this list determines visibility / grouping only.
 studies:
   - dnaa-01-expression-dynamics
+  - dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca
+  - dnaa-01f-apply-overwrite-fix-to-sibling-listeners-rna-synth-prob-repl
   - dnaa-02-atp-hydrolysis
   - dnaa-03-box-binding
   - dnaa-04-initiation-mechanism

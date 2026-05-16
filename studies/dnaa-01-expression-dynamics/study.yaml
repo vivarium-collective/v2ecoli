@@ -239,23 +239,40 @@ behavior_tests:
   units: molecules/cell
   requires_simulation: baseline-steady-state
   calibration_anchor:
-    v2ecoli_observed: 51781         # median over second-half of 10-min seed-0 run (2026-05-16)
+    v2ecoli_observed: 115           # median over second-half of 10-min seed-0 run
+                                     # (2026-05-16, AFTER monomer_counts overwrite-merge fix)
     literature_target: 550          # midpoint of [300, 800]
     divergence_alarm_factor: 10     # > 10× divergence → calibration question
-    divergence_observed: 65         # 51781 / 800 — well past the alarm threshold
+    divergence_observed: 4.8        # 550 / 115 — v2ecoli is too LOW by ~5×, not too high
     notes: |
-      Phase 1 walkthrough found v2ecoli's t=2350s monomer_counts[DnaA] = 256,299.
-      First real 10-min seed-0 run (2026-05-16) gives median 51,781 over the
-      second-half window — 64× the upper bound of [300, 800]. Same order as
-      the t=2350s observation when adjusted for the shorter window. The
-      divergence is consistent across timepoints, so this is NOT a transient
-      — it's a calibration / concept-mismatch issue between v2ecoli's
-      monomer_counts aggregate and the literature's per-cell DnaA count.
-      Resolution: expert sign-off before flipping this to a hard gate.
-      Likely candidates: (a) monomer_counts re-aggregates complexed DnaA
-      into the total (over-count), (b) v2ecoli's translation efficiency for
-      EG10235 needs recalibration, (c) the literature concept is "free DnaA"
-      and we should compare to bulk[PD03831[c]] free pool only.
+      Two-stage finding from the 2026-05-16 walkthrough:
+
+      STAGE 1 — Infrastructure bug (discovered + fixed):
+      First 10-min run emitted monomer_counts[DnaA] = 51,781 (and ALL top
+      monomers in the tens-of-millions). Root cause: the
+      monomer_counts_listener's output type was declared as a plain
+      `array[N,integer]` without an `overwrite[]` wrapper, so each timestep
+      ADDED to the previous value instead of replacing it. Fixed by
+      wrapping the output type. Re-run gave physiological values.
+      (Sibling listeners rna_synth_prob / replication_data have the same
+      pattern and likely the same bug — flagged for follow-up.)
+
+      STAGE 2 — Real calibration finding:
+      With the bug fixed, v2ecoli emits a stable median DnaA = 115 per
+      cell over the second-half window. Literature target is [300, 800]
+      (Sekimizu / Schmidt / Mori / Liu). So v2ecoli is ~5× too LOW, not
+      300× too high. This is a tractable calibration question, not a
+      concept mismatch. Likely causes — to evaluate with expert:
+        (a) translation_efficiency for EG10235 is set too low in
+            ParCa-cache for slow-growth media;
+        (b) DnaA half-life / degradation rate is too short;
+        (c) The literature numbers include chromosome-bound DnaA (DnaA
+            boxes, replisome) which v2ecoli stores in `unique` and would
+            need to be summed back in — but the listener already accounts
+            for unique-molecule subunit contributions, so this is unlikely
+            to explain a 5× gap.
+      Recommend re-checking ParCa's translation_efficiency for EG10235
+      before kicking off dnaa-02.
   cites: [Sekimizu1991JBacteriol, Schmidt2016NatBiotechnol, Mori2021MolSysBiol, Liu2020NatMicrobiol, Boesen2024PNAS]
 
 - name: dnaA-concentration-stable
@@ -502,21 +519,40 @@ runs:
   rows: 601
   db: studies/dnaa-01-expression-dynamics/runs.db
   outcomes:
-    dnaA-count-in-range:        {result: FAIL, value: 51781, expected: '[300, 800]'}
+    dnaA-count-in-range:        {result: FAIL, value: 51781, expected: '[300, 800]', note: 'pre-bugfix — listener missing overwrite[]'}
     dnaA-concentration-stable:  {result: PASS, max_rolling_cv: 0.005}
     autorepression-correlation: {result: FAIL, reason: 'n_bound_TF_per_TU empty — listener not populated in baseline composite'}
 
+- simulation: baseline-steady-state
+  seed: 0
+  duration_s: 600
+  started_at: '2026-05-16T20:09Z'
+  wall_seconds: 71
+  rows: 601
+  db: studies/dnaa-01-expression-dynamics/runs.db
+  note: 'After monomer_counts_listener overwrite[] fix.'
+  outcomes:
+    dnaA-count-in-range:        {result: FAIL, value: 115,   expected: '[300, 800]', note: 'true biological calibration shortfall, ~5× low'}
+    dnaA-concentration-stable:  {result: PASS, max_rolling_cv: 0.008}
+    autorepression-correlation: {result: FAIL, reason: 'n_bound_TF_per_TU empty — req-6 underlying data missing'}
+
 conclusion: |
-  Phase=Decide outcome: PIPELINE-GATED on calibration question.
+  Phase=Decide outcome: PIPELINE-GATED on translation-efficiency calibration.
   • Test framework works end-to-end (baseline → SQLite emitter → evaluator).
-  • dnaA-concentration-stable PASSES (max rolling CV 0.005 << 10%).
-  • dnaA-count-in-range FAILS by 64× — divergence_alarm_factor=10 triggered;
-    pre-stated diagnostic in conclusion_logic.if_primary_tests_fail applies:
-    "likely concept mismatch (monomer_counts vs bulk vs complex form)".
-  • autorepression-correlation BLOCKED on n_bound_TF_per_TU being empty in
-    the current baseline composite output (req-6 underlying data missing).
-  Recommend: do NOT auto-unblock dnaa-02. Resolve the DnaA-count concept
-  question with expert review first; then re-run dnaa-01 and re-evaluate.
+  • Discovered + fixed an infrastructure bug: monomer_counts_listener output
+    type lacked the overwrite[] wrapper, causing every timestep to ADD onto
+    the previous value. Top monomers were emitting in the tens of millions.
+    After fix, top monomers are in 10^5 (physiological).
+  • dnaA-concentration-stable PASSES (rolling CV 0.008 << 0.10) — v2ecoli's
+    DnaA pool IS homeostatically regulated.
+  • dnaA-count-in-range FAILS — v2ecoli emits 115 DnaA/cell vs literature's
+    [300, 800]. The pre-stated divergence_alarm_factor of 10× is NOT
+    triggered (4.8× divergence is below the alarm), but the test still
+    fails its hard band. This is a real calibration question.
+  • autorepression-correlation BLOCKED on n_bound_TF_per_TU populating —
+    suspect the same overwrite[] bug pattern in rna_synth_prob_listener.
+  Recommend: hold dnaa-02 pending expert review of EG10235's
+  translation_efficiency in ParCa, then re-run dnaa-01.
 
 parent_studies: []     # superseded by pipeline_gate.prerequisites; kept for dashboard back-compat
 

@@ -50,9 +50,9 @@ class BenchmarkVisualization(Visualization):
     """Render v2ecoli vs vEcoli side-by-side benchmark.
 
     Inputs:
-      - history_v2ecoli: list[map[any]] — trajectory rows from v2ecoli run
-      - history_vecoli:  list[map[any]] — trajectory rows from vEcoli run
-      - metadata:        map[any]       — run metadata (seed, duration, etc.)
+      - history_v2ecoli: list[map[node]] — trajectory rows from v2ecoli run
+      - history_vecoli:  list[map[node]] — trajectory rows from vEcoli run
+      - metadata:        map[node]       — run metadata (seed, duration, etc.)
     """
 
     config_schema = {
@@ -61,9 +61,9 @@ class BenchmarkVisualization(Visualization):
 
     def inputs(self) -> dict[str, Any]:
         return {
-            "history_v2ecoli": "list[map[any]]",
-            "history_vecoli":  "list[map[any]]",
-            "metadata":        "map[any]",
+            "history_v2ecoli": "list[map[node]]",
+            "history_vecoli":  "list[map[node]]",
+            "metadata":        "map[node]",
         }
 
     def update(self, state: dict[str, Any]) -> dict:

@@ -328,10 +328,10 @@ class V1V2Visualization(Visualization):
 
     def inputs(self) -> dict[str, Any]:
         return {
-            "history_v1":      "list[map[any]]",
-            "history_v2":      "list[map[any]]",
-            "history_v2ecoli": "list[map[any]]",
-            "metadata":        "map[any]",
+            "history_v1":      "list[map[node]]",
+            "history_v2":      "list[map[node]]",
+            "history_v2ecoli": "list[map[node]]",
+            "metadata":        "map[node]",
         }
 
     def update(self, state: dict[str, Any]) -> dict:

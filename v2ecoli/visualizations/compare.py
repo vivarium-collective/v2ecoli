@@ -77,7 +77,7 @@ class CompareVisualization(Visualization):
 
     def inputs(self) -> dict[str, Any]:
         return {
-            "composite_specs": "list[map[any]]",
+            "composite_specs": "list[map[node]]",
         }
 
     def update(self, state: dict[str, Any]) -> dict:

@@ -27,7 +27,7 @@ class NetworkVisualization(Visualization):
 
     def inputs(self) -> dict[str, Any]:
         return {
-            "composite_spec": "map[any]",
+            "composite_spec": "map[node]",
         }
 
     def update(self, state: dict[str, Any]) -> dict:

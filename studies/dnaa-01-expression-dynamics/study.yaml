@@ -619,6 +619,168 @@ runs:
         refinement on Y could change r; currently blocked on the
         EG10235_RNA TU index lookup.
 
+# ─── Findings — what this study TAUGHT us ────────────────────────────────
+# Each finding is a discrete claim with: kind (biological | computational |
+# methodological), the evidence (which run/test/value produced it), the
+# expected/reference comparison (with cite or expert-doc quote), and an
+# agreement marker (confirms | partial | contradicts | novel). Surfaced
+# prominently in the HTML report and study-detail Overview so a biology
+# expert can scan what we learned without reading raw run outcomes.
+findings:
+
+- id: F-01
+  kind: biological
+  status: contradicts
+  statement: |
+    v2ecoli's baseline emits a stable DnaA pool of ~115 molecules/cell —
+    about 5× below the mass-spec literature band [300, 800].
+  evidence:
+    from_run: baseline-heavy-tf (and baseline-postfix)
+    from_test: dnaA-count-in-range
+    observed: 115
+    units: molecules/cell
+    reduction: median over second-half window
+  expected:
+    cites: [Schmidt2016NatBiotechnol, Sekimizu1991JBacteriol, Mori2021MolSysBiol, Liu2020NatMicrobiol]
+    range: [300, 800]
+    summary: |
+      Mass-spec quantification (Schmidt 2016) puts DnaA at 300-800
+      copies/cell across slow-growth conditions; corroborated by
+      Mori 2021 and Liu 2020. Sekimizu 1991 earlier reported ~1000
+      by western blot.
+  explanation: |
+    The shortfall is consistent across timepoints (115 stable across
+    a 10-min run), suggesting a calibration problem rather than a
+    transient. Most likely cause: EG10235 (dnaA) translation_efficiency
+    in the ParCa cache is set for a smaller per-cell target. Less
+    likely: DnaA degradation rate too high. NOT a concept mismatch —
+    bulk[PD03831[c]] + bulk[MONOMER0-160[c]] sum reconciles with the
+    listener's aggregate post-fix.
+  expert_reference:
+    doc: chromosome_replication_plan
+    note: "Plan §2.1 lists 'DnaA per-cell count' as a layer-1 sanity check."
+  next_action: Seed calibration_task follow-up; do not start dnaa-02 until resolved.
+
+- id: F-02
+  kind: biological
+  status: contradicts
+  statement: |
+    v2ecoli does NOT reproduce the textbook DnaA autorepression
+    signature at this resolution (Pearson r = +0.20 between DnaA-TF
+    binding and cell-wide transcription init events; literature
+    predicts r ≤ −0.3).
+  evidence:
+    from_run: baseline-heavy-tf
+    from_test: autorepression-correlation
+    observed: 0.197
+    units: Pearson r (dimensionless)
+    window: second_half (300–600 s of a 10-min run)
+  expected:
+    cites: [Speck1999EMBO, Saggioro2013BiochemJ, Katayama2017Frontiers, Hansen2018DnaATale]
+    range: [-1.0, -0.3]
+    summary: |
+      Speck 1999 + Saggioro 2013 establish DnaA's autorepression of its
+      own promoter; Hansen 2018 reviews the homeostatic feedback loop.
+      All predict a negative correlation between DnaA binding occupancy
+      and dnaA transcription rate within steady-state windows.
+  explanation: |
+    Two candidates: (a) the Y axis is still cell-wide (3277 TUs); only
+    dnaA's own TU should show autorepression — the signal is being
+    diluted. Refining Y to slice on EG10235_RNA's TU index needs a
+    sim_data mRNA_TU_ids lookup. (b) the autorepression model wiring
+    in tf_binding may not have a strong enough fold_change to register
+    over noise at this window length.
+  expert_reference:
+    doc: replication_initiation_molecular_info
+    quote: |
+      "DnaA binding at the dnaAp1 / dnaAp2 promoters represses dnaA
+      transcription, producing a homeostatic loop that maintains
+      total DnaA per cell" — §4 (DnaA autoregulation).
+  next_action: Seed "Investigate v2ecoli's lack of autorepression signature" follow-up; refine Y axis to dnaA TU first.
+
+- id: F-03
+  kind: biological
+  status: confirms
+  statement: |
+    DnaA pool is homeostatically regulated within a steady-state window
+    — rolling coefficient of variation 0.008 across the second half
+    of a 10-min sim, well under the 10% literature-derived threshold.
+  evidence:
+    from_run: baseline-heavy-tf
+    from_test: dnaA-concentration-stable
+    observed: 0.008
+    units: fraction (max rolling CV)
+    window: second_half
+  expected:
+    cites: [Hansen2018DnaATale, Hansen1999JBacteriol, Hansen2021FrontMolBiosci]
+    threshold: 0.10
+    summary: |
+      Hansen 2018 reviews evidence that DnaA per-cell pool is tightly
+      regulated (CV well under 10%) within a steady-state window even
+      though the absolute count differs across conditions.
+  explanation: |
+    v2ecoli reaches the homeostatic regime quickly — CV stays well
+    below threshold even at the 10-min mark. This is the ONE primary
+    test dnaa-01 passes. Consistent with the model having a working
+    feedback loop in principle, even if the absolute count (F-01) and
+    the autorepression signature (F-02) need work.
+
+- id: F-04
+  kind: computational
+  status: novel
+  statement: |
+    All v2ecoli listener output fields declared as plain `array[…]`
+    accumulate across timesteps because bigraph-schema's default array
+    combinator is element-wise addition. Affects 43 fields across 7
+    listener files; previously silently corrupted every per-tick
+    readout. Fixed by wrapping in `overwrite[array[…]]`.
+  evidence:
+    discovered_during: dnaa-01 baseline run, first SQLite-emitted history ever.
+    smoking_gun: |
+      monomer_counts[3861] grew linearly at exactly ~115/s (≈ 300×
+      the instantaneous DnaA pool by step 300), but bulk[PD03831[c]]
+      stayed at 0-1. Replaying the listener's math on captured state
+      returned 115 — proving the listener was correct and the
+      accumulation was in the emit pipeline.
+  expected:
+    summary: Per-tick listener emissions should REPLACE, not sum.
+  explanation: |
+    Without `overwrite[]`, the schema combinator for `array[N,T]` is
+    additive merge. The semantic mismatch was invisible until a
+    persistent emitter (SQLiteEmitter) made multi-tick history queryable.
+  next_action: |
+    (1) PR #51 lands the monomer_counts fix on main. (2) Wider sweep
+    (43 fields × 7 files) sits on dnaa-replication-studies branch.
+    (3) Add lint rule to prevent regression.
+
+- id: F-05
+  kind: computational
+  status: novel
+  statement: |
+    n_bound_TF_per_TU is gated behind an opt-in flag (~900 KB/tick)
+    that defaults OFF in v2ecoli. Any study that needs DnaA-binding
+    data must opt in via `emit_n_bound_TF_per_TU=True` (or the runner's
+    `--heavy_tf_listener` flag).
+  evidence:
+    discovered_during: dnaa-01f-apply-overwrite-fix-to-sibling-listeners run
+    smoking_gun: |
+      After the listener overwrite[] fix, the field STILL emitted as
+      length-0 list. Tracing showed tf_binding's config_schema has
+      `emit_n_bound_TF_per_TU: bool default False` with the comment
+      "Heavy debug listener: ~900KB/timestep."
+  expected: {summary: "Tests reading this field need to opt in."}
+  explanation: |
+    Not a bug — an intentional cost gate. Documentation in tf_binding.py
+    flags it but no central inventory tells study authors which heavy
+    listeners exist and which behavior tests require them.
+  next_action: |
+    (1) dnaa-01's autorepression-correlation now declares
+    `prerequisites: [--heavy_tf_listener]` so the runner can warn if
+    omitted. (2) Consider promoting heavy-listener opt-in to a
+    composite-level parameter so it's visible from study.yaml without
+    a runner kwarg.
+
+
 conclusion: "Phase=Decide outcome: PIPELINE-GATED on translation-efficiency calibration.\n\
   \u2022 Test framework works end-to-end (baseline \u2192 SQLite emitter \u2192 evaluator).\n\
   \u2022 Discovered + fixed an infrastructure bug: monomer_counts_listener output\n\

@@ -814,8 +814,8 @@ rendering) — together they give the workspace a coherent
 |---|---|---|---|
 | 8     | `lint-workspace.py` enumerates findings + runs the dashboard's own validator (#11) | XS | P0 |
 | 13    | Filter Registry tab discovered-processes by workspace imports | M | P0 |
-| 14    | Render status + Q + H + expected_behavior on study pop-out | M | P0 |
-| 17    | Observables tab with bigraph-tree picker | L | P0 (user just asked) |
+| 14    | Render expected_behavior on Overview tab (status pill + Q + H already render today) | M | P0 — PARTIAL ✅ |
+| 17    | Observables tab with bigraph-tree picker | L | P0 (user asked) — VIEW ONLY ✅ |
 | 16r   | Lift expected_behavior DSL + evaluator + fixtures to the dashboard package | M | P1 |
 | 4     | `.pbg/schemas/study.schema.json` (now needs to include the DSL) | M | P1 |
 | 15    | `/pbg-study fill-overview <slug>` | M | P1 |
@@ -824,6 +824,64 @@ rendering) — together they give the workspace a coherent
 | 5     | `/pbg-data add-expert <pdf>` | S | P2 |
 | 6     | Document study-subdir layout | XS | P3 |
 | 9     | `/pbg-study dag` | S | P3 |
+
+### 2026-05-16 (dashboard UI patches — user wanted these visible NOW)
+
+User said: *"i dont see expected behavior in my dashboard Study. can
+we get this up? and add Observables tab"*. The data was already in the
+API (`/api/study/<name>.spec.expected_behavior` is a list of 6 entries);
+the UI just didn't render it.
+
+Shipped two patches to `vivarium-dashboard-tests-investigations` branch
+`feat/studies-with-tests-and-investigations` (commit `21d6a07`):
+
+1. **Overview tab → Expected Behavior section.** Renders each entry's
+   `en:` sentence in a card with a status-coded left border
+   (implemented=green, stub=amber, gated=slate) and a collapsible
+   "Assertion" disclosure that prints the `given/measure/expect/requires`
+   structured form. Section omits cleanly when the list is empty.
+2. **New Observables tab.** Read-only table of
+   `{name, status, store_path, indexed_by, description}` with status
+   icons (available / derived-needed / aspirational). Placeholder
+   disclosure documents the planned `GET /api/study/<name>/bigraph-paths`
+   picker (the actual bigraph-tree picker is still finding #17).
+3. **Status dropdown** extended to include `planned`, `running`, `ran`,
+   `complete` (the canonical `_VALID_STATUSES`) — v2ecoli's
+   `status: planned` previously wasn't in the dropdown options.
+
+Caveats / follow-ups for the other Claude:
+- The "+ Add observable" form is a static placeholder; the
+  bigraph-tree picker still needs the backend endpoint + JS interaction.
+  Same pattern as the existing variant-add form.
+- No JS changes were needed — `_setStudyTab()` already switches on
+  `data-kind` which matches the new tab.
+- Status pill CSS classes (`.status-planned`, `.status-running`, etc.)
+  may not exist yet; the inline status icons in the Expected Behavior
+  list don't depend on them but the title-bar pill might fall through
+  to default styling. Worth a follow-up CSS pass.
+
+## Finding #18 (added live): dashboard's status dropdown vocab doesn't match `_VALID_STATUSES`
+
+While shipping the patches above, I found that the old
+`templates/study-detail.html` dropdown offered
+`{draft, in-progress, completed, archived}` while the validator at
+`vivarium_dashboard/lib/investigations.py:30` declares
+`_VALID_STATUSES = {planned, running, ran, complete, failed, invalid}`.
+**Two different vocabularies in the same package.** The dropdown's
+values aren't canonical; status writes via `/api/investigation-set-overview`
+would reject `in-progress`, `completed`, `archived` on `_VALID_STATUSES`
+membership unless that endpoint bypasses validation.
+
+**Proposal.** Pick one vocabulary and unify:
+- The validator vocab is run-centric. The dropdown vocab is design-
+  process-centric. The user wanted finer wording for the latter
+  ("planning, implementing, done") which neither covers.
+- Suggest the union: `{planned, implementing, runnable, running, ran,
+  analyzing, complete, archived, failed, invalid}` with a documented
+  state-transition map.
+- Make `_VALID_STATUSES` the source of truth and have the template
+  render `<option>` entries by iterating that set, so the two stay
+  in sync automatically.
 
 ---
 

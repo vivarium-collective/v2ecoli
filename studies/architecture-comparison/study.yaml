@@ -1,0 +1,45 @@
+name: architecture-comparison
+description: |
+  Structural three-way comparison of the v2ecoli single-cell architectures —
+  baseline (partitioned), departitioned (flat), and reconciled (hybrid).
+  Each composite is built but not simulated; CompareVisualization renders
+  the three graph_data dicts (nodes, edges, layers, legend) side-by-side as
+  interactive Cytoscape diagrams.
+
+  Driven by `python reports/compare_report.py --study <this file>`. The
+  legacy CLI still works without --study and runs the same three
+  architectures with default seed/cache_dir.
+status: planned
+tags:
+  - architecture
+  - structural
+  - comparison
+
+baseline:
+  - name: baseline
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 0
+      cache_dir: out/cache
+  - name: departitioned
+    composite: v2ecoli.composites.departitioned.departitioned
+    params:
+      seed: 0
+      cache_dir: out/cache
+  - name: reconciled
+    composite: v2ecoli.composites.reconciled.reconciled
+    params:
+      seed: 0
+      cache_dir: out/cache
+
+variants: []
+interventions: []
+observables: []
+
+visualizations:
+  - name: comparison
+    address: local:CompareVisualization
+    config:
+      title: v2ecoli Architecture Comparison
+
+runs: []

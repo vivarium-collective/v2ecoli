@@ -90,6 +90,77 @@ tasks:
 - Optionally expose a clamp so dnaA-03/04 can run before extrinsic
   conversion (RIDA/DDAH/DARS) is implemented.
 
+# ── Concrete gaps ───────────────────────────────────────────────────────────
+gaps:
+- id: gap-1
+  title: Split DnaA bulk into ATP / ADP / apo species
+  effort: M
+  why: |
+    Today MONOMER0-160[c] is a single bulk species (legacy "DnaA_ATP_complex"
+    label, used as total DnaA). All dnaa-02 behaviors require the three-state
+    split to compute fractions.
+  approach: |
+    Add three bulk IDs (DnaA_ATP, DnaA_ADP, DnaA_apo) and migrate the
+    initial-state seeding to distribute MONOMER0-160[c]'s initial count
+    among them at the equilibrium fraction.
+  steps:
+    - "Add bulk IDs in v2ecoli/library/sim_data.py (or wherever bulk IDs are registered)."
+    - "Initial-state seeder: split existing total DnaA across the three species at the equilibrium fraction (~30% ATP-bound under physiological [ATP])."
+    - "Audit every existing reference to MONOMER0-160[c]: either keep as the SUM (computed listener) or rewire to the new species explicitly."
+    - "Behavioral test: assert sum(DnaA_apo + DnaA_ATP + DnaA_ADP) ≈ historical MONOMER0-160[c] count."
+  unblocks:
+    - dnaa-02 all 5 behaviors
+    - dnaa-05 DnaA-ATP-fraction observables
+
+- id: gap-2
+  title: Intrinsic DnaA-ATP → DnaA-ADP hydrolysis Step
+  effort: S
+  why: |
+    First-order hydrolysis at ~0.046/min (Sekimizu 1987). The decay term
+    in the nucleotide cycle.
+  approach: |
+    A Step that reads DnaA_ATP count + timestep, transfers a Poisson
+    or deterministic fraction to DnaA_ADP each step. Rate is a
+    composite parameter so variants can perturb it.
+  steps:
+    - "Create v2ecoli/steps/dnaa_intrinsic_hydrolysis.py."
+    - "Add composite param dnaA_intrinsic_hydrolysis_rate_per_min: float = 0.046."
+    - "Wire into baseline composite after the nucleotide-binding equilibrium step."
+    - "Behavioral test: no-hydrolysis variant → DnaA-ATP fraction monotonic increasing."
+  unblocks:
+    - dnaa-02 no-hydrolysis-variant-accumulates-atp-form
+    - dnaa-02 fast-hydrolysis-variant-suppresses-atp-form
+
+- id: gap-3
+  title: dnaA_atp_fraction listener
+  effort: XS
+  why: Plot DnaA-ATP / total fraction time course (the central readout).
+  approach: A Step emitting listeners.dnaA_cycle.atp_fraction at each timestep.
+  steps:
+    - "Read DnaA_apo + DnaA_ATP + DnaA_ADP from bulk; compute ATP / sum."
+    - "Emit at agents.<id>.listeners.dnaA_cycle.atp_fraction."
+    - "Hook into the same composite Step layer as gap-2."
+  unblocks:
+    - dnaa-02 apo-dnaa-fraction-is-small, dnaa-atp-fraction-in-physiological-range
+    - dnaa-05 dnaa-atp-fraction-oscillates, dnaa-atp-anti-correlated-with-replisomes
+
+- id: gap-4
+  title: Optional ATP-fraction clamp
+  effort: XS
+  why: |
+    If the unforced cycle drifts outside [0.2, 0.5], a clamp lets
+    downstream studies (dnaa-03, dnaa-04) proceed without waiting for
+    dnaa-05's extrinsic conversion to stabilize the fraction.
+  approach: |
+    A Step that, when enabled, redistributes ATP / ADP each timestep to
+    keep ATP/total in a user-specified band.
+  steps:
+    - "Add composite params dnaA_atp_fraction_clamp: list[float] | None = None (e.g. [0.2, 0.5])."
+    - "Step runs AFTER hydrolysis; rebalances if outside band."
+    - "Behavioral test: assert atp_fraction stays in the band when clamp is set."
+  unblocks:
+    - allows dnaa-03 / dnaa-04 to proceed before dnaa-05 lands
+
 # ── Interventions ───────────────────────────────────────────────────────────
 interventions:
 

@@ -89,6 +89,45 @@ tasks:
 - Add Dam re-methylation kinetics (re-methylation -> SeqA dissociates).
 - Block DnaA binding at sequestered loci.
 
+# ── Concrete gaps ───────────────────────────────────────────────────────────
+gaps:
+- id: gap-1
+  title: GATC methylation state at oriC + dnaAp
+  effort: S
+  why: SeqA recognizes hemimethylated GATC clusters. We must track methylation.
+  approach: |
+    Track per-GATC-site methylation state on both strands. On replication,
+    set the daughter strand to "unmethylated"; Dam re-methylation kinetics
+    return it to fully methylated over time.
+  steps:
+    - "Add an attribute methylation_state ∈ {fully, hemi-top, hemi-bottom, unmethylated} to GATC sites in chromosome_structure."
+    - "On replication fork passage, set daughter to hemi-methylated."
+    - "Add a Dam re-methylation Step with rate dam_remethylation_rate_per_min: float."
+
+- id: gap-2
+  title: SeqA Process (sequestration)
+  effort: M
+  why: SeqA binds hemimethylated GATC clusters and multimerizes; blocks DnaA rebinding.
+  approach: |
+    A Process that, when hemimethylation density at oriC exceeds a threshold,
+    flags oriC as sequestered. Block dnaa-03's DnaA-box binding while
+    sequestered.
+  steps:
+    - "Create v2ecoli/processes/seqa.py."
+    - "Composite params seqa_active: bool = True, seqa_sequestration_min: float = 10.0."
+    - "Listener: emit listeners.seqa.oric_sequestered_bool + .dnaap_sequestered_bool."
+    - "Behavioral test: WT → ≤1 init/gen; no-SeqA → >1.5 init/gen."
+  unblocks:
+    - all dnaa-06 behaviors
+
+- id: gap-3
+  title: dnaAp-specific sequestration listener
+  effort: XS
+  why: Track SeqA binding at the dnaAp GATC cluster (buffers gene-dosage spike).
+  steps:
+    - "Add a second listener output: agents.<id>.listeners.seqa.dnaap_sequestered_bool."
+    - "Use the same hemimethylation-density rule scoped to dnaAp's GATC sites."
+
 # ── Interventions ───────────────────────────────────────────────────────────
 interventions:
 

@@ -1,0 +1,34 @@
+name: single-cell-lifecycle
+description: |
+  Single-cell lifecycle report — one v2ecoli baseline cell run forward
+  to division, with optional daughter follow-up. Dispatches the run
+  trajectory to WorkflowVisualization (mass / growth / chromosome /
+  ppGpp / division panels — the full legacy simulation report).
+
+  Driven by `python reports/workflow_report.py --study <this file>`.
+  Legacy CLI invocation (without --study) keeps working.
+status: planned
+tags:
+  - lifecycle
+  - single-cell
+
+baseline:
+  - name: baseline
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 0
+      cache_dir: out/cache
+      # Omit `duration` to let the report run to division (the default).
+      # daughter_duration: 1500     # uncomment to follow daughters
+
+variants: []
+interventions: []
+observables: []
+
+visualizations:
+  - name: lifecycle
+    address: local:WorkflowVisualization
+    config:
+      title: v2ecoli — single-cell lifecycle
+
+runs: []

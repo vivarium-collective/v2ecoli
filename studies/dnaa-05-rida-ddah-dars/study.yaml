@@ -114,6 +114,54 @@ tasks:
   convert DnaA-ADP -> apo-DnaA (which then reloads ATP).
 - Add IHF + Fis cell-cycle modulation of DARS2 if data supports it.
 
+# ── Concrete gaps ───────────────────────────────────────────────────────────
+gaps:
+- id: gap-1
+  title: RIDA Process (replisome-coupled DnaA-ATP hydrolysis)
+  effort: M
+  why: |
+    β-clamp + Hda complex on nascent DNA accelerates DnaA-ATP → ADP
+    hydrolysis. Activity scales with replication-fork count.
+  approach: |
+    Step that reads listeners.replication.replisome_count and applies a
+    second hydrolysis flux proportional to fork count.
+  steps:
+    - "Create v2ecoli/processes/dnaa_rida.py."
+    - "Composite param rida_rate_per_min_per_fork: float = <tbd>."
+    - "Wire into composite alongside the intrinsic hydrolysis Step (gap from dnaa-02)."
+    - "Sanity: no-RIDA variant → DnaA-ATP doesn't drop during C-period."
+  unblocks:
+    - dnaa-05 dnaa-atp-fraction-oscillates, dnaa-atp-anti-correlated-with-replisomes
+
+- id: gap-2
+  title: DDAH Process (datA + IHF catalyzed hydrolysis)
+  effort: M
+  why: |
+    The datA locus + IHF binding forms a DnaA-ATP hydrolysis catalyst.
+    Activity scales with datA copy number (so doubles after replication
+    of the datA locus, which is near oriC).
+  steps:
+    - "Catalog the datA locus position (94.7 min ≈ 4.39 Mbp on the chromosome)."
+    - "Read datA copy number from chromosome_structure (count gene_id='datA' rows)."
+    - "Composite param ddah_rate_per_min_per_data: float = <tbd>."
+    - "Behavioral test: no-DDAH variant → earlier initiation."
+  unblocks:
+    - dnaa-05 no-DDAH-shows-early-initiation
+
+- id: gap-3
+  title: DARS1 + DARS2 Processes (ADP-DnaA reactivation)
+  effort: M
+  why: |
+    DARS1 / DARS2 non-coding loci catalyze ADP release from DnaA-ADP,
+    yielding apo-DnaA that re-binds ATP. The recovery side of the cycle.
+  steps:
+    - "Catalog DARS1, DARS2 positions on the chromosome."
+    - "Two Steps (one per locus) reading copy_number_<dars1|dars2>."
+    - "Composite params dars1_rate_per_min_per_locus, dars2_rate_per_min_per_locus."
+    - "Optionally model DARS2's IHF + Fis cell-cycle gate as a multiplicative modifier."
+  unblocks:
+    - dnaa-05 no-DARS-fails-to-recover-atp-form
+
 # ── Interventions ───────────────────────────────────────────────────────────
 interventions:
 

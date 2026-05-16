@@ -105,6 +105,55 @@ tasks:
 - Track bound nucleotide form so dnaa-04 can release the matching form.
 - Author a chromosome-map visualization (linear or circular).
 
+# ── Concrete gaps ───────────────────────────────────────────────────────────
+gaps:
+- id: gap-1
+  title: DnaA-box catalog (307 chromosomal + 11 oriC + 4 dnaAp)
+  effort: M
+  why: Without explicit box positions + affinity classes, no binding is computed.
+  approach: |
+    chromosome_structure.py already has a `DnaA_boxes` unique store with
+    `DnaA_bound` flags. Need to (a) seed it with the 307 chromosomal box
+    positions from EcoCyc (or from the bioinformatic motif scan in
+    Olivi 2025) + their high/low-affinity class, (b) annotate the 11
+    oriC boxes (R1-R4 + R5M + τ2 + I1-3 + C1-3) and 4 dnaAp boxes
+    (1, 2, b, c) with explicit role tags.
+  steps:
+    - "Author v2ecoli/data/dnaa_box_catalog.tsv: box_id, position, region (chromosome|oriC|dnaap), affinity (high|low), bound_nucleotide_preference (atp|both)."
+    - "chromosome_structure._init reads the catalog + seeds DnaA_boxes."
+    - "Lint: 307 chromosomal + 11 oriC (3 high + 8 low) + 4 dnaap (2 high + 2 low) match the expected counts."
+  unblocks:
+    - dnaa-03 all behaviors
+    - dnaa-04 reduced-box-count-shortens-inter-initiation
+
+- id: gap-2
+  title: DnaA-box binding kinetics
+  effort: L
+  why: Sites bind DnaA at affinity-class-specific KD; bound form must be tracked.
+  approach: |
+    A Step that, each timestep, updates DnaA_bound for each box by a
+    simple equilibrium (or stochastic Gillespie) based on free DnaA
+    pool, box affinity, and bound-form preference. Track which form
+    (ATP / ADP) is bound on each high-affinity site so fork-passage
+    (dnaa-04) can release the correct form.
+  steps:
+    - "Create v2ecoli/processes/dnaa_box_binding.py with a Process or Step shape."
+    - "Composite param dnaA_box_binding_kd_nM: {high: 1.0, low: 100.0}."
+    - "Update DnaA_bound + the nucleotide-form annotation on each box."
+    - "Listener: emit listeners.dnaA_binding.{chromosome,oric,dnaap}.<rollup>."
+  unblocks:
+    - all dnaa-03 behaviors
+    - dnaa-04 mechanism-driven initiation depends on oriC occupancy
+
+- id: gap-3
+  title: Variant hooks (initial_dnaA_count_per_cell, enable_oric_binding)
+  effort: S
+  why: Two of dnaa-03's variants need explicit composite-level knobs.
+  steps:
+    - "Add composite param initial_dnaA_count_per_cell: int | None = None."
+    - "When set, the initial-state seeder uses this value (overrides sim_data's calculated count)."
+    - "Add composite param enable_oric_binding: bool = True for the chromosomal-boxes-only variant."
+
 # ── Interventions ───────────────────────────────────────────────────────────
 interventions:
 

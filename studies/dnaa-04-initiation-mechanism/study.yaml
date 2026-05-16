@@ -117,6 +117,58 @@ tasks:
 - Re-bind DnaA to the regenerated double-stranded domains behind the fork.
 - Plot initiation-mass distribution over many seeds for both baselines.
 
+# ── Concrete gaps ───────────────────────────────────────────────────────────
+gaps:
+- id: gap-1
+  title: Replace mass-threshold initiation with DnaA-driven trigger
+  effort: L
+  why: |
+    The current v2ecoli baseline uses a mass-threshold heuristic from
+    chromosome_initiation.py. This study's central goal is to swap that
+    for a mechanism: oriC fill → DnaA-ATP filament → DUE opening.
+  approach: |
+    Add an alternative initiation Process that:
+    1. Reads oriC occupancy from the dnaa-03 binding model.
+    2. When all 3 high-affinity + ≥4 low-affinity oriC boxes are
+       DnaA-ATP-occupied, trigger initiation.
+    3. Keep the heuristic available behind a composite param so dnaa-04
+       can compare both via baseline-heuristic vs baseline-mechanism.
+  steps:
+    - "Composite param initiation_mode: 'heuristic' | 'dnaa_mechanism' = 'heuristic'."
+    - "Create v2ecoli/processes/dnaa_initiation.py with the mechanism trigger."
+    - "Behavioral test: multi-seed sweep showing initiation-mass distribution overlap with heuristic."
+  unblocks:
+    - dnaa-04 one-initiation-per-generation, initiation-mass-mean-matches-heuristic, etc.
+
+- id: gap-2
+  title: Fork-passage DnaA release + rebinding
+  effort: M
+  why: |
+    As replisomes advance, the DNA at each DnaA-box is locally unwound;
+    canonical DnaA binding requires dsDNA. Plan: track which form
+    (ATP / ADP) was bound; release the same form back to the free pool
+    on fork passage; rebind to the regenerated boxes behind the fork.
+  steps:
+    - "Hook into chromosome_replication.py's fork-advance step."
+    - "When a fork crosses a DnaA box, set DnaA_bound = False and increment the corresponding free-DnaA-form bulk count."
+    - "After fork passage, regenerate DnaA boxes on the new daughter strands (already happens in chromosome_structure)."
+    - "Sanity test: post-fork-passage, free DnaA pool increases by the count released."
+  unblocks:
+    - dnaa-04 chromosomal-occupancy-monotonic-increasing across multiple generations
+    - dnaa-04 stable cell cycle
+
+- id: gap-3
+  title: Variant hooks (chromosomal_box_count, chromosomal_box_distribution)
+  effort: S
+  why: 1/N scaling and oriC-clustered tests need to perturb the catalog.
+  steps:
+    - "Composite param chromosomal_box_count: int | None = None (override the catalog count)."
+    - "Composite param chromosomal_box_distribution: 'uniform' | 'oriC_clustered' = 'uniform'."
+    - "Initial-state seeder honors both, redistributing boxes accordingly."
+  unblocks:
+    - dnaa-04 reduced-box-count-shortens-inter-initiation
+    - dnaa-04 redistributed-boxes-shifts-timing
+
 # ── Interventions ───────────────────────────────────────────────────────────
 interventions:
 

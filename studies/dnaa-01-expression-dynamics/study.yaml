@@ -229,48 +229,94 @@ tasks:
 gaps:
 - id: gap-1
   title: DnaaConcentrationListener Step
+  effort: S
   why: Plot DnaA + dnaA mRNA in uM (the plan's primary readout).
   approach: |
     A Step that reads bulk[MONOMER0-160[c]], bulk[EG10235_RNA], and
     cell_volume, and emits at agents.<id>.listeners.dnaa.{protein_uM,mrna_uM}.
     Convert via Avogadro + volume.
+  steps:
+    - "Create v2ecoli/steps/dnaa_concentration_listener.py subclassing Step."
+    - "inputs(): {bulk, cell_volume}; outputs(): {listeners.dnaa.{protein_uM, mrna_uM}}."
+    - "Compute: count / (cell_volume * N_A) * 1e6 (uM)."
+    - "Wire into baseline composite — append to build_execution_layers after transcript / translation."
+    - "Add unit test in tests/test_behavior_dnaa_concentration.py — assert dnaA_protein_uM > 0 after one timestep."
+  unblocks:
+    - dnaa-01 dnaa-concentration-stable-within-10pct (replaces count-based fallback)
+    - dnaa-02 (concentration-based ATP-fraction checks)
 
 - id: gap-2
-  title: translation_efficiency override hook
+  title: translation_efficiency_override composite hook
+  effort: S
   why: The `stop-dnaA-synthesis` variant needs to zero out DnaA translation.
   approach: |
     Add `translation_efficiency_override: dict[str, float]` to
     baseline composite parameters; in build_composite, patch
     sim_data.process.translation.translation_efficiency before instantiating
     polypeptide_initiation.
+  steps:
+    - "v2ecoli/composites/baseline.py: add parameter `translation_efficiency_override: dict | None = None` to @composite_generator."
+    - "In the body, if not None, copy sim_data and patch sim_data.process.translation.translation_efficiency[gene_id] for each entry."
+    - "Verify with: stop-dnaA-synthesis intervention → DnaA count series → check monotonic decrease."
+    - "Add test_behavior_translation_override.py asserting 0.0 override drives DnaA to <30% over one doubling time."
+  unblocks:
+    - dnaa-01 stop-synthesis-drops-30pct
+    - dnaa-01 stop-synthesis-monotonic-decrease
 
 - id: gap-3
   title: dnaap autorepression multiplier
+  effort: M
   why: low- / high-autorepression variants.
   approach: |
     Either (a) multiply the (dnaA, EG10235_RNA) entry in fold_changes
     inside a Step that runs before transcript_initiation, or (b) expose
     a single parameter that scales the existing fold-change for that
     (TF, TU) pair at sim-data load.
+  steps:
+    - "Prefer (b): patch sim_data at build_composite time, leaves transcript_initiation unchanged."
+    - "Locate the fold-change row in fold_changes.tsv for TF=dnaA, TU=EG10235_RNA."
+    - "Add baseline param `dnaap_autorepression_multiplier: float = 1.0`."
+    - "Patch sim_data.process.transcription.delta_prob (or fold_changes table) for that (TF, TU)."
+    - "Sanity: 0.1× → DnaA pool drops noticeably; 3× → DnaA pool drops sharply."
+  unblocks:
+    - dnaa-01 low-autorepression + high-autorepression variants
 
 - id: gap-4
   title: dnaA locus relocation
+  effort: L
   why: distal-dnaA-promoter variant — gene-dosage test from the plan.
   approach: |
     Override sim_data.process.replication.genome_data.gene_data
     (EG10235 row, coordinate column) at build_composite time. Complicated
     because replication models gene-dosage by walking from oriC; needs
     care to keep replication-fork advance + DnaA gene dosage consistent.
+  steps:
+    - "Audit chromosome_replication.py: where does DnaA gene-dosage scale with fork position?"
+    - "Override sim_data.process.replication.gene_data['EG10235']['coordinate']."
+    - "Verify replication still terminates correctly after the override."
+    - "Add behavioral test: post-initiation tx-rate spike comes LATER for distal locus."
   defer_until: dnaa-04 (which already touches replication mechanism).
+  unblocks:
+    - dnaa-01 distal-dnaA-promoter variant
+    - dnaa-01 post-initiation-gene-dosage-spike
 
 - id: gap-5
   title: per-box dnaAp occupancy listener
+  effort: M
   why: Plan asks for occupancy per dnaAp box (1, 2, 3, 4, a, b, c).
   approach: |
     chromosome_structure already has DnaA_boxes with DnaA_bound flags.
     Need to (i) tag dnaAp boxes in the chromosome_structure init, and
     (ii) emit a summary listener.
+  steps:
+    - "Catalog dnaAp box positions from references/expert/replication_initiation_molecular_info.pdf."
+    - "Tag those boxes in chromosome_structure._init with role='dnaap.<box-id>'."
+    - "Add a Step DnaapBoxOccupancyListener that aggregates DnaA_bound by box role."
+    - "Emit listeners.dnaa.dnaap_box_occupancy as {box_id: bool}."
   defer_until: dnaa-03 (full DnaA-box binding model).
+  unblocks:
+    - dnaa-01 dnaap_box_occupancy observable
+    - dnaa-03 oric-occupancy-is-two-step (uses similar pattern for oriC R1-R4 vs low-affinity)
 
 # ── Interventions ───────────────────────────────────────────────────────────
 # An intervention is an explicit simulation plan: which baseline, which

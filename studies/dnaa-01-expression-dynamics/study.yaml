@@ -1,0 +1,111 @@
+schema_version: 3
+name: dnaa-01-expression-dynamics
+created: '2026-05-16'
+status: draft
+objective: |
+  Add dnaA transcription, mRNA dynamics, translation, and DnaA protein
+  abundance dynamics sufficient to maintain realistic DnaA levels during
+  steady growth.
+description: |
+  Phase 1 of the multi-phase replication-initiation plan
+  (see references/expert/chromosome_replication_plan.pdf, Study 1).
+  Goal: steady-state DnaA expression baseline that downstream studies
+  (hydrolysis, box binding, mechanism-driven initiation) can build on.
+
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+
+variants:
+- name: stop-dnaA-synthesis
+  description: |
+    Knock out DnaA translation to confirm dilution/degradation drives
+    concentration down on the expected timescale.
+  params:
+    dnaA_translation_rate: 0.0
+
+- name: distal-dnaA-promoter
+  description: |
+    Move the dnaA promoter region further from oriC to expose gene-dosage
+    effects on DnaA accumulation.
+  params:
+    dnaA_locus_position_relative_to_oric: 0.5   # 0=oriC, 1=ter
+
+- name: low-autorepression
+  description: |
+    Reduce the autorepression coefficient at dnaAp to test feedback
+    sensitivity.
+  params:
+    dnaap_repression_strength: 0.1
+
+- name: high-autorepression
+  description: |
+    Strong autorepression; expect lower steady-state DnaA pool.
+  params:
+    dnaap_repression_strength: 3.0
+
+observables:
+- name: dnaA_transcription_events_per_step
+  store_path: agents.0.listeners.transcription.events.dnaA
+- name: dnaA_mrna_count
+  store_path: agents.0.bulk.dnaA_mrna
+- name: dnaA_mrna_concentration
+  store_path: agents.0.listeners.concentrations.dnaA_mrna
+- name: dnaA_protein_count
+  store_path: agents.0.bulk.CPLX0-3803[c]    # DnaA monomer EcoCyc CPLX0-3803 (placeholder)
+- name: dnaA_protein_concentration
+  store_path: agents.0.listeners.concentrations.DnaA
+- name: dnaap_box_occupancy
+  store_path: agents.0.listeners.promoters.dnaAp.box_occupancy
+
+visualizations:
+- name: dnaa-counts-vs-time
+  address: local:TimeSeriesPlot
+  config:
+    title: "dnaA mRNA + DnaA protein counts vs time"
+    observables: [dnaA_mrna_count, dnaA_protein_count]
+- name: dnaa-concentration-vs-time
+  address: local:TimeSeriesPlot
+  config:
+    title: "dnaA mRNA + DnaA concentrations vs time"
+    observables: [dnaA_mrna_concentration, dnaA_protein_concentration]
+- name: dnaap-occupancy
+  address: local:TimeSeriesPlot
+  config:
+    title: "dnaAp DnaA-box occupancy"
+    observables: [dnaap_box_occupancy]
+
+# Implementation tasks (from the plan) — converted into the work order for
+# subsequent process additions. Not consumed by reports; documentation only.
+implementation_tasks:
+- Add dnaA transcription events
+- Add dnaA mRNA degradation
+- Add DnaA translation
+- Add DnaA protein dilution/degradation if appropriate
+- Add promoter occupancy state for dnaAp DnaA boxes
+- Add placeholder autorepression (transcription rate decreases with
+  occupancy; expose repression strength as a tunable parameter)
+
+expected_behavior:
+- "DnaA per cell within ~300-800 (mass-spec, EcoCyc) — or ~200/oriC (western)."
+- "Roughly constant DnaA mRNA and protein concentrations (±10%) across the cycle."
+- "stop-dnaA-synthesis variant: concentrations decay on the dilution timescale."
+- "Wildtype: after initiation, DnaA pool shifts due to increased gene dosage
+   and increased autorepression strength."
+- "distal-dnaA-promoter variant should reveal gene-dosage effect on DnaA timing."
+
+expert_questions:
+- Ask Katayama and Lobner-Olesen labs for opinions on dnaA autorepression.
+- Ask specifically about each DnaA box in the dnaA promoter region (boxes 1-4 + a-c).
+
+references:
+  expert: [replication_initiation_molecular_info, chromosome_replication_plan]
+  bib_keys: [Boesen2024PNAS, Hansen2018DnaATale, Speck1999EMBO, Saggioro2013BiochemJ, Katayama2017Frontiers]
+  claims: [dnaa.autorepression.dnaap, dnaa.expression.steady-300-800, dnaa.boxes.dnaap-2high-2low]
+
+runs: []
+conclusion: null
+parent_studies: []

@@ -1,0 +1,136 @@
+schema_version: 3
+name: dnaa-04-initiation-mechanism
+created: '2026-05-16'
+status: draft
+objective: |
+  Replace the current mass-threshold replication-initiation heuristic with
+  a DnaA-driven mechanism (oriC occupancy + DnaA-ATP filament + DUE opening).
+  Compare emergent initiation timing and mass against the heuristic.
+description: |
+  Phase 4 of the multi-phase replication-initiation plan
+  (references/expert/chromosome_replication_plan.pdf, Study 4).
+  Constraints for the first pass:
+    - Slow growth, non-overlapping cell cycles only.
+    - Constant replication speed -> 40 min C period.
+    - Constant D period (termination -> division).
+    - DnaA must unbind chromosomal boxes as the fork passes (DnaA boxes
+      require double-stranded DNA); DnaA re-binds to new boxes on the
+      newly synthesized chromosome domains.
+
+baseline:
+- name: baseline-heuristic
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+    initiation_mode: heuristic
+
+- name: baseline-mechanism
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+    initiation_mode: dnaa_mechanism
+
+variants:
+- name: slow-growth-M9
+  description: M9-minimal-glucose; long doubling time; expect late initiation.
+  params:
+    media: M9_glucose
+
+- name: fast-growth-rich
+  description: LB-equivalent; short doubling time; expect early initiation
+    (under non-overlapping assumption this is a stress test).
+  params:
+    media: LB
+
+- name: reduced-box-count-100
+  description: Set ~200 chromosomal boxes to affinity 0 so titration completes
+    earlier; measure initiation-timing shift.
+  params:
+    chromosomal_box_count: 100
+
+- name: reduced-box-count-50
+  params:
+    chromosomal_box_count: 50
+
+- name: redistributed-boxes
+  description: |
+    Shift chromosomal DnaA boxes to be near oriC vs uniformly distributed;
+    measure timing impact.
+  params:
+    chromosomal_box_distribution: oriC_clustered
+
+observables:
+- name: initiation_events
+  store_path: agents.0.listeners.replication.initiation_events
+- name: initiation_mass
+  store_path: agents.0.listeners.replication.initiation_mass
+- name: replisome_count
+  store_path: agents.0.listeners.replication.replisome_count
+- name: c_period_min
+  store_path: agents.0.listeners.replication.c_period_min
+- name: d_period_min
+  store_path: agents.0.listeners.replication.d_period_min
+- name: time_between_initiations
+  store_path: agents.0.listeners.replication.interinitiation_min
+
+visualizations:
+- name: initiation-timing-vs-mass
+  address: local:ScatterPlot
+  config:
+    title: "Initiation mass per event — heuristic vs mechanism"
+    x: time
+    y: initiation_mass
+    color_by: baseline
+- name: initiation-mass-distribution
+  address: local:Histogram
+  config:
+    title: "Initiation mass distribution (over seeds)"
+    observable: initiation_mass
+    overlay: [baseline-heuristic, baseline-mechanism]
+- name: interinitiation-time
+  address: local:Histogram
+  config:
+    title: "Time between initiation events"
+    observable: time_between_initiations
+
+implementation_tasks:
+- Replace the mass-threshold trigger with a DnaA-occupancy / DnaA-ATP-filament
+  trigger at oriC.
+- Add fork-passage handler that removes DnaA from boxes as the replisome
+  advances, tracking which nucleotide form was bound for correct release.
+- Re-bind DnaA to the regenerated double-stranded domains behind the fork.
+- Plot initiation-mass distribution over many seeds for both baselines.
+
+expected_behavior:
+- "Stable cell cycle: initiation once per generation on average."
+- "Initiation-mass distribution reaches a steady-state regardless of initial
+   condition (multi-seed sweep)."
+- "Replication times within a narrow distribution."
+- "Time-between-initiation events shows less coordination than the heuristic
+   (no global trigger)."
+- "Fast growth -> earlier replication (under non-overlapping cycle regime)."
+- "Reducing box count -> shorter inter-initiation time (1/N scaling test)."
+- "Redistributing boxes (oriC-clustered vs uniform) shifts initiation timing."
+
+expert_questions:
+- For the slow-growth-only regime, is the 40-min C-period assumption tight
+  enough that we can hold it constant?
+- Confirm DnaA box dissociation mechanism on fork passage — is it strictly
+  the strand-separation event, or are SSB/DnaB also part of the displacement?
+- Is there cooperativity in the DnaA-ATP filament loading at oriC that we
+  must capture before this study can match observed mass distributions?
+
+references:
+  expert: [replication_initiation_molecular_info]
+  bib_keys: [Olivi2025NatCommun, Katayama2017Frontiers, Leonard2015FrontMicrobiol]
+  claims: [dnaa.titration.initiation-timing, dnaa.dissociation.post-replication]
+  papers_to_read:
+    - https://www.nature.com/articles/s41467-022-33886-6
+    - https://journals.aps.org/prxlife/abstract/10.1103/PRXLife.1.013011
+    - https://www.sciencedirect.com/science/article/pii/0923250891900256
+
+runs: []
+conclusion: null
+parent_studies: [dnaa-03-box-binding]

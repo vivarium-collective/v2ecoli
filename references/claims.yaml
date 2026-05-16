@@ -1,2 +1,18 @@
-# Maps named claims (e.g., "phase-2.dnaA-fires-at-threshold") to BibTeX keys.
-claims: {}
+# Maps named claims (e.g., "dnaa.autorepression.dnaap") to BibTeX keys.
+claims:
+  dnaa.autorepression.dnaap: [Speck1999EMBO, Saggioro2013BiochemJ, Katayama2017Frontiers]
+  dnaa.expression.steady-300-800: [Boesen2024PNAS, Hansen2018DnaATale]
+  dnaa.intrinsic-hydrolysis.0p046-per-min: [Sekimizu1987Cell, Kawakami2006MolMicrobiol]
+  dnaa.atp-adp-binding.tight: [Sekimizu1987Cell, Kawakami2006MolMicrobiol]
+  dnaa.atp-fraction.0p2-to-0p5: [Boesen2024PNAS]
+  dnaa.boxes.consensus-ttwtncaca: [Schaper1995JBC, Hansen2006JMB]
+  dnaa.boxes.chromosomal-307: [Roth1998MolMicrobiol, Olivi2025NatCommun]
+  dnaa.boxes.oric-3high-8low: [Katayama2017Frontiers, Kasho2023IJMS]
+  dnaa.boxes.dnaap-2high-2low: [Speck1999EMBO]
+  dnaa.boxes.cooperativity: [Hansen2006JMB]
+  dnaa.titration.initiation-timing: [Olivi2025NatCommun]
+  dnaa.rida.replisome-coupled: [Katayama2017Frontiers, Riber2016FrontMolBiosci]
+  dnaa.ddah.data-dependent: [Katayama2017Frontiers, Hansen2018DnaATale]
+  dnaa.dars.reactivation: [Fujimitsu2009GenesDev, Kasho2014NAR]
+  dnaa.seqa.post-initiation-sequestration: [Katayama2017Frontiers, Leonard2015FrontMicrobiol]
+  dnaa.dissociation.post-replication: [Katayama2017Frontiers, Leonard2015FrontMicrobiol]

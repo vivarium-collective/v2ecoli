@@ -117,6 +117,92 @@ tasks:
 - Re-bind DnaA to the regenerated double-stranded domains behind the fork.
 - Plot initiation-mass distribution over many seeds for both baselines.
 
+# ── Interventions ───────────────────────────────────────────────────────────
+interventions:
+
+- name: heuristic-vs-mechanism-multigenerational
+  description: |
+    Run both baseline-heuristic (mass-threshold trigger) and
+    baseline-mechanism (DnaA-driven trigger) for 4 generations under
+    slow-growth M9 minimal media, then compare initiation-mass and
+    inter-initiation-timing distributions across seeds. The core
+    apples-to-apples test that the mechanism reproduces the heuristic's
+    steady state.
+  variant: null
+  protocol:
+    kind: cross_baseline
+    baselines: [baseline-heuristic, baseline-mechanism]
+    duration_min: 240       # ~4 generations of 60 min
+    seeds: [0, 1, 2, 3, 4, 5, 6, 7]
+  triggers_tests:
+    - one-initiation-per-generation
+    - initiation-mass-mean-matches-heuristic
+    - replication-times-narrow-distribution
+    - inter-initiation-noisier-than-heuristic
+  key_observables:
+    - initiation_events
+    - initiation_mass
+    - replisome_count
+    - c_period_min
+    - time_between_initiations
+  requires:
+    - variant_hook: initiation_mode
+
+- name: growth-rate-sweep
+  description: |
+    Run the mechanism baseline under three media — M9-minimal-glucose
+    (slow), neutral baseline, LB-rich (fast) — and compare initiation
+    timing across the cycle. Confirms growth rate shifts initiation
+    earlier in the cycle.
+  variant: [slow-growth-M9, baseline-mechanism, fast-growth-rich]
+  protocol:
+    kind: sweep
+    duration_min: 240
+    seeds: [0, 1, 2, 3]
+  triggers_tests:
+    - fast-growth-earlier-replication
+  key_observables:
+    - initiation_mass
+    - initiation_events
+  requires:
+    - variant_hook: media
+
+- name: dnaa-box-count-titration
+  description: |
+    1/N scaling: vary chromosomal box count across [50, 100, 200, 307]
+    and measure inter-initiation time. Tests the central prediction of
+    the titration model (Sompayrac & Maaløe 1973).
+  variant: [reduced-box-count-50, reduced-box-count-100, baseline-mechanism]
+  protocol:
+    kind: sweep
+    duration_min: 240
+    seeds: [0, 1, 2, 3, 4]
+  triggers_tests:
+    - reduced-box-count-shortens-inter-initiation
+  key_observables:
+    - time_between_initiations
+    - initiation_mass
+  requires:
+    - variant_hook: chromosomal_box_count
+
+- name: box-distribution-shift
+  description: |
+    Compare uniform vs oriC-clustered distribution of DnaA boxes.
+    Tests whether spatial layout (not just total count) influences
+    initiation timing.
+  variant: [redistributed-boxes, baseline-mechanism]
+  protocol:
+    kind: ab_compare
+    duration_min: 240
+    seeds: [0, 1, 2, 3, 4]
+  triggers_tests:
+    - redistributed-boxes-shifts-timing
+  key_observables:
+    - initiation_mass
+    - time_between_initiations
+  requires:
+    - variant_hook: chromosomal_box_distribution
+
 expected_behavior:
 
 - name: one-initiation-per-generation

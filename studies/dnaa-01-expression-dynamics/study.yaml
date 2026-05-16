@@ -272,6 +272,87 @@ gaps:
     (ii) emit a summary listener.
   defer_until: dnaa-03 (full DnaA-box binding model).
 
+# ── Interventions ───────────────────────────────────────────────────────────
+# An intervention is an explicit simulation plan: which baseline, which
+# variant, how long to run, when to perturb, and which behavioral tests
+# the resulting run unlocks. Each intervention should map 1:N to entries
+# in `expected_behavior:` via `triggers_tests:`.
+interventions:
+
+- name: steady-state-baseline
+  description: |
+    Run the baseline composite for one doubling time (no perturbation) and
+    capture DnaA + dnaA-mRNA at steady state. Establishes the reference
+    pool for all subsequent comparisons.
+  variant: null               # baseline composite, no overrides
+  protocol:
+    duration_min: 60          # one doubling time on minimal media
+    seeds: [0, 1, 2, 3, 4]    # multi-seed for distribution checks
+  triggers_tests:
+    - dnaa-count-in-mass-spec-range
+    - dnaa-concentration-stable-within-10pct
+    - coarse-autorepression-negative-correlation
+  key_observables:
+    - dnaA_protein_count
+    - dnaA_mrna_count
+    - dnaA_transcription_init_events
+    - dnaA_bound_to_promoters_total
+
+- name: knockout-translation-and-watch-decay
+  description: |
+    Apply the stop-dnaA-synthesis variant (translation_efficiency[EG10235]=0)
+    from t=0 and watch the DnaA pool decay over one doubling time.
+  variant: stop-dnaA-synthesis
+  protocol:
+    duration_min: 60
+    seeds: [0, 1, 2]
+  triggers_tests:
+    - stop-synthesis-drops-30pct
+    - stop-synthesis-monotonic-decrease
+  key_observables:
+    - dnaA_protein_count
+  requires:
+    - variant_hook: translation_efficiency_override   # gap-2
+
+- name: gene-dosage-distal-promoter
+  description: |
+    Move the dnaA locus to ~50% relative-to-oriC distance. Run for two
+    doublings to capture the gene-dosage shift around replication.
+    Required to evaluate BT-05 (post-initiation transcription-rate spike).
+  variant: distal-dnaA-promoter
+  protocol:
+    duration_min: 120
+    seeds: [0, 1, 2, 3, 4, 5]
+  triggers_tests:
+    - post-initiation-gene-dosage-spike
+  key_observables:
+    - dnaA_transcription_init_events
+    - dnaA_protein_count
+  requires:
+    - variant_hook: dnaA_locus_relative_to_oric        # gap-4
+    - listener:    replication_initiation_event       # initiation-event detector
+
+- name: autorepression-strength-sweep
+  description: |
+    Sweep dnaap_autorepression_multiplier across [0.1, 1.0, 3.0] (low /
+    baseline / high) and compare steady-state DnaA pool. Confirms the
+    feedback knob inversely scales the pool size.
+  variant: [low-autorepression, baseline, high-autorepression]
+  protocol:
+    kind: sweep
+    duration_min: 60
+    seeds: [0, 1, 2]
+  triggers_tests: []     # no quantitative test yet; visualization-only
+  key_observables:
+    - dnaA_protein_count
+    - dnaap_box_occupancy
+  notes: |
+    Designed as a visualization-driven sanity check. Add a quantitative
+    test (e.g. "steady-state DnaA scales inversely with repression
+    multiplier") once gap-3 lands and the sweep produces clean data.
+  requires:
+    - variant_hook: dnaap_autorepression_multiplier   # gap-3
+
 # ── Expected behavior ───────────────────────────────────────────────────────
 #
 # Each entry is a precise, testable prediction. The user-facing field is

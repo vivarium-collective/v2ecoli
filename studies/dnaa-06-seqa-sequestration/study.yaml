@@ -72,7 +72,7 @@ visualizations:
     observables: [dnaA_protein_concentration, initiation_events]
     overlay_variants: [baseline, no-SeqA]
 
-implementation_tasks:
+tasks:
 - Track GATC methylation state at oriC + dnaAp (fully / hemi-methylated).
 - Add SeqA-multimer binding to hemimethylated GATC clusters.
 - Add Dam re-methylation kinetics (re-methylation -> SeqA dissociates).
@@ -89,7 +89,7 @@ expert_questions:
   at this level of detail, or sufficient to model as a Hill-shaped on/off?
 - What's the right Dam re-methylation rate? Should it scale with cell volume?
 
-references:
+bibliography:
   expert: [replication_initiation_molecular_info]
   bib_keys: [Katayama2017Frontiers, Leonard2015FrontMicrobiol, Kasho2023IJMS]
   claims: [dnaa.seqa.post-initiation-sequestration]

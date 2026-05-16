@@ -93,7 +93,7 @@ visualizations:
     observable: time_between_initiations
     overlay_variants: [baseline, no-RIDA, no-DDAH, no-DARS1, no-DARS2]
 
-implementation_tasks:
+tasks:
 - Add RIDA process — flux ∝ replisome count, converts DnaA-ATP -> DnaA-ADP.
 - Add DDAH process — flux ∝ datA copy number, requires IHF.
 - Add DARS1 + DARS2 processes — flux ∝ each locus's copy number;
@@ -115,7 +115,7 @@ expert_questions:
 - Should DARS2's IHF + Fis modulation be modeled as a cell-cycle gate or as
   a continuous rate modifier?
 
-references:
+bibliography:
   expert: [replication_initiation_molecular_info]
   bib_keys: [Katayama2017Frontiers, Hansen2018DnaATale, Riber2016FrontMolBiosci, Fujimitsu2009GenesDev, Kasho2014NAR]
   claims: [dnaa.rida.replisome-coupled, dnaa.ddah.data-dependent, dnaa.dars.reactivation]

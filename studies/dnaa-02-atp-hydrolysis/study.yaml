@@ -72,7 +72,7 @@ visualizations:
     title: "Background ATP / ADP pools"
     observables: [atp_pool, adp_pool]
 
-implementation_tasks:
+tasks:
 - Add apo-DnaA + DnaA-ATP + DnaA-ADP species and ATP/ADP-binding kinetics.
 - Add intrinsic first-order DnaA-ATP -> DnaA-ADP hydrolysis (~0.046/min).
 - Optionally expose a clamp so dnaA-03/04 can run before extrinsic
@@ -89,7 +89,7 @@ expert_questions:
 - Confirm whether ATP/ADP binding kinetics differ enough to matter at this
   resolution, or whether equilibrium fractionation is sufficient.
 
-references:
+bibliography:
   expert: [replication_initiation_molecular_info]
   bib_keys: [Sekimizu1987Cell, Kawakami2006MolMicrobiol, Boesen2024PNAS]
   claims: [dnaa.intrinsic-hydrolysis.0p046-per-min, dnaa.atp-adp-binding.tight, dnaa.atp-fraction.0p2-to-0p5]

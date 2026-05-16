@@ -80,7 +80,7 @@ visualizations:
 
 # Implementation tasks (from the plan) — converted into the work order for
 # subsequent process additions. Not consumed by reports; documentation only.
-implementation_tasks:
+tasks:
 - Add dnaA transcription events
 - Add dnaA mRNA degradation
 - Add DnaA translation
@@ -101,7 +101,7 @@ expert_questions:
 - Ask Katayama and Lobner-Olesen labs for opinions on dnaA autorepression.
 - Ask specifically about each DnaA box in the dnaA promoter region (boxes 1-4 + a-c).
 
-references:
+bibliography:
   expert: [replication_initiation_molecular_info, chromosome_replication_plan]
   bib_keys: [Boesen2024PNAS, Hansen2018DnaATale, Speck1999EMBO, Saggioro2013BiochemJ, Katayama2017Frontiers]
   claims: [dnaa.autorepression.dnaap, dnaa.expression.steady-300-800, dnaa.boxes.dnaap-2high-2low]

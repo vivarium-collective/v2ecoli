@@ -1,199 +1,368 @@
 # pbg-superpowers test-run notes — DnaA studies scaffolding (2026-05-16)
 
-Context: scaffolded a v2ecoli pbg workspace (workspace.yaml + references/expert/
-+ 6 dnaa-* study.yaml files) on a branch off main. PR #50 had just merged the
-generic scaffolding kit; the new `/pbg-workspace --upstream` upstream-branch
-mode is in the installed skill.
+> **Audience.** Another Claude Code session is reading these notes live and
+> using them as input for pbg-superpowers improvements. Treat each
+> section as a self-contained brief: what I did, what was awkward, where
+> the gap is in pbg-superpowers / pbg-template, and a concrete proposal
+> (skill name, CLI signature, file path) the receiving session can act on
+> without re-reading my full transcript.
+>
+> Repo paths used in this run:
+> - `~/code/v2ecoli/` — the v2ecoli source repo I scaffolded as a workspace.
+> - `~/code/pbg-superpowers/` — the source of installed skills.
+> - `~/code/pbg-template/` — the workspace template repo.
+> - `~/code/viva-munk/` — another pbg workspace, used as a v3 `study.yaml` example.
+> - `~/code/v2ecoli-workspace/` — a sibling pbg-template-cloned v2ecoli workspace.
 
-What follows are friction points and proposed improvements, in priority order.
+## Cold-start orientation
 
----
+The task: a user dropped two PDFs (a multi-phase replication-initiation **plan**
+and an **expert-knowledge** brief) and asked to (a) register the expert doc
+under "Inputs > Expert curation" and (b) scaffold one study per phase, viewable
+in the dashboard. The user wanted to stay in `~/code/v2ecoli` and treat it as
+a workspace (not a sibling repo).
 
-## 1. Discovery: "where is the workspace?" was the slowest step
+`origin/main` of v2ecoli had just merged PR #50 (`feat(template): add workspace
+scaffolding kit`) which contributes generic `references/`, `experiments/`,
+`scripts/`, `.pbg/schemas/`, `pbg_v2ecoli/`, `NEXT_STEPS.md` to v2ecoli, but
+**intentionally** omits the workspace-specific files (`workspace.yaml`,
+`.gitmodules`, `.claude/settings.json`). So I:
 
-I burned ~6 tool calls answering "is v2ecoli already a pbg workspace, or do I
-need a sibling workspace dir?" before landing on the answer (`workspace.yaml`
-is the marker; the cwd v2ecoli didn't have one until PR #50). The signal was
-scattered across:
+1. Branched `dnaa-replication-studies` off `b927dc3` (one behind main).
+2. Hand-rolled `workspace.yaml`, populated `references/expert/` with both PDFs,
+   wrote `references/papers.bib` + `claims.yaml`, and authored
+   `studies/dnaa-01..06/study.yaml` v3-shape drafts.
+3. Rebased onto `origin/main` (PR #50); resolved add/add conflicts on
+   `references/{README.md, papers.bib, claims.yaml}` by keeping mine.
+4. `python scripts/lint-workspace.py` → `workspace lint: OK`.
 
-- `.pbg/server/server-info` in v2ecoli (stale — suggested a server had run)
-- `docs/workspace-template/investigations/` (templates, not a real workspace)
-- `~/code/v2ecoli-workspace/` (a separate pbg-template-cloned workspace)
-- `~/code/viva-munk/` (a v3 study.yaml example)
-- pbg-template's `template/` (the canonical source-of-truth)
+Resulting tree on the branch (new files only):
 
-**Proposal:** `/pbg-status` or `/pbg-workspace status` that, given a cwd:
+```
+workspace.yaml
+references/expert/replication_initiation_molecular_info.pdf
+references/expert/chromosome_replication_plan.pdf
+references/papers.bib                 # 17 bib entries (was 1-line skeleton)
+references/claims.yaml                # 16 claim mappings (was {})
+studies/dnaa-01-expression-dynamics/study.yaml
+studies/dnaa-02-atp-hydrolysis/study.yaml
+studies/dnaa-03-box-binding/study.yaml
+studies/dnaa-04-initiation-mechanism/study.yaml
+studies/dnaa-05-rida-ddah-dars/study.yaml
+studies/dnaa-06-seqa-sequestration/study.yaml
+docs/superpowers/notes/2026-05-16-dnaa-studies-test-run.md   # this file
+```
 
-1. Walks up to find `workspace.yaml`. If found, prints name, package_path,
-   imports, and a one-line "this IS a pbg workspace" verdict.
-2. If not found, looks for sibling pbg workspaces in `~/.pbg/workspaces.json`
-   and suggests them.
-3. Prints whether a dashboard server is alive (and where).
-
-Right now the user has to invoke `pbg-workspace` (bootstrap-mode skill), read
-its prose, and infer the answer. A dedicated status skill is much faster for
-both humans and agents.
-
----
-
-## 2. Study scaffolding from a multi-phase plan PDF should be one command
-
-The user handed me a multi-phase plan PDF and an expert-knowledge PDF. The
-**obvious** flow is "decompose plan into studies, register expert doc". I did
-it by hand — 6 study.yaml writes + workspace.yaml expert_docs entries + papers.bib
-+ claims.yaml. ~600 lines of YAML.
-
-**Proposal:** `/pbg-study scaffold-from-plan <plan.pdf> [--expert <expert.pdf>]`:
-
-1. Read the plan PDF; ask Claude to identify each study/phase as a section.
-2. For each, emit a `studies/<slug>/study.yaml` draft with status: draft,
-   objective + description from the section, observables + variants + expected
-   behavior + expert_questions extracted into structured fields.
-3. If `--expert` given, copy under `references/expert/` and register in
-   `workspace.yaml.expert_docs` with sha256 + description.
-4. Pull bib keys mentioned in the plan/expert into a stub `papers.bib`.
-
-This is exactly the test-run task I just performed. It should be a skill.
-
----
-
-## 3. The v3 study.yaml shape is implicit — schema would help
-
-`workspace.yaml` has a JSON Schema (`.pbg/schemas/workspace.schema.json`).
-`study.yaml` does not. I had to infer the shape from:
-
-- `viva-munk/studies/bending-pressure-260515/study.yaml` (full v3 example —
-  `baseline` is a dict, not a list)
-- v2ecoli's `reports/{workflow,multigeneration,colony,compare}_report.py`
-  `_load_study` validators (`baseline` is a LIST of architectures)
-
-The list-vs-dict mismatch will bite. I picked the list shape (matches v2ecoli
-reports) but viva-munk uses dict. **Proposal:** ship
-`.pbg/schemas/study.schema.json`, lint study.yaml in `lint-workspace.py`,
-and document the dict/list rule (it's "one composite → dict; many → list" or
-similar — pick one).
-
-I also added "extension" fields (`implementation_tasks`, `expected_behavior`,
-`expert_questions`, `references.{expert,bib_keys,claims}`) that aren't read by
-any report or by `/pbg-study`. They're documentation. The schema should
-either accept them or formalize them — right now they're floating in YAML
-limbo.
+The receiving session can `git checkout dnaa-replication-studies` on the
+v2ecoli repo to see the exact scaffolding.
 
 ---
 
-## 4. /pbg-workspace upstream-branch mode arrived just in time — needs a "from existing checkout" mode
+## Findings, in priority order
 
-Today's exact situation: I was already in `~/code/v2ecoli` (on main, with some
-work-in-progress and a stale `.pbg/server/`) when the user asked to scaffold.
-The new `/pbg-workspace ... --upstream vivarium-collective/v2ecoli` clones
-into a **new** directory. It doesn't help "scaffold this existing checkout
-in-place".
+Each finding has: **What I did** · **Friction** · **Gap in pbg-superpowers** ·
+**Proposal** (concrete enough to start coding).
 
-**Proposal:** `/pbg-workspace bootstrap-in-place [--branch <name>]`:
+### 1. "Is this cwd a pbg workspace?" took ~6 tool calls
 
-1. Refuse if a workspace.yaml already exists.
-2. Create the branch off the current HEAD (no clone).
-3. Apply the same scaffolding files as upstream-branch mode (pyproject
-   imports, references/, experiments/, scripts/, .pbg/schemas/, NEXT_STEPS.md,
-   workspace.yaml).
-4. Commit on the new branch.
+**What I did.** Tried to figure out where to put the scaffolding. Searched
+v2ecoli for `workspace.yaml`, `studies/`, `investigations/`, `study.yaml`,
+`spec.yaml`. None present in v2ecoli; found one in viva-munk, partial in
+v2ecoli-workspace.
 
-Otherwise the agent has to either (a) abandon the working checkout and start
-fresh, or (b) hand-roll the scaffolding (what I just did). Option (b) means
-duplicating template content the agent has to maintain in sync with
-pbg-template by hand. PR #50 is great, but it only addresses (a).
+**Friction.** The cwd had a stale `.pbg/server/server-info` pointing at port
+61341 (server dead), plus `docs/workspace-template/investigations/` template
+files. Both were red herrings. The actual signal — "no `workspace.yaml` =>
+not a workspace" — wasn't surfaced by any skill.
 
----
+**Gap.** No `/pbg-status` or `/pbg-workspace status` subcommand. `pbg-workspace`
+is bootstrap-only.
 
-## 5. expert_docs PDF ingestion — auto-extract metadata
+**Proposal.** New skill `/pbg-status` in `pbg-superpowers/skills/pbg-status/`:
 
-I had to:
+```
+$ /pbg-status
+cwd: /Users/eranagmon/code/v2ecoli
+workspace.yaml: NOT FOUND
+  -> this directory is not a pbg workspace.
+nearest workspace.yaml above cwd: (none)
+catalog (~/.pbg/workspaces.json): 3 registered workspaces:
+  - v2ecoli-workspace  /Users/eranagmon/code/v2ecoli-workspace  (last opened: 2026-05-15)
+  - viva-munk          /Users/eranagmon/code/viva-munk          (last opened: 2026-05-15)
+  - pbg-biomodels      /Users/eranagmon/code/pbg-biomodels      (last opened: 2026-04-30)
+dashboard servers: 1 alive (viva-munk on http://127.0.0.1:61349)
+stale .pbg/server/server-info in cwd: yes (PID 60307 not running; safe to delete)
 
-- shasum each PDF
-- write `path:` + `sha256:` + `description:` by hand in workspace.yaml
-- duplicate the description in `expert_docs[i].description` and in the
-  per-study `description:`/`references.expert:` fields
+next:
+  /pbg-workspace ... --upstream <repo>       # spawn a sibling workspace
+  /pbg-workspace bootstrap-in-place          # turn this checkout into a workspace
+  cd /Users/eranagmon/code/viva-munk         # open an existing one
+```
 
-**Proposal:** `/pbg-data add-expert <pdf>` or dashboard "Workspace inputs >
-Expert knowledge > Add PDF" that:
+Argument: none, or optional `--path <dir>`. Tools: `Bash` only.
 
-1. Copies the PDF under `references/expert/` (deduped by sha256).
-2. Reads the first page (or asks Claude for a 2-line description).
-3. Appends to `workspace.yaml.expert_docs`.
-4. Optionally suggests `claims_supported:` IDs based on a Claude pass.
+### 2. `/pbg-workspace --upstream` clones into a new dir; there's no in-place mode
 
-The current `scripts/add-reference.sh` handles BibTeX-only; there's no
-equivalent for expert PDFs. The skill description says PDFs auto-extract
-metadata — the implementation gap is what I just filled by hand.
+**What I did.** The user explicitly asked to stay in `~/code/v2ecoli`. I
+couldn't use upstream-branch mode (it `gh repo clone`s into a fresh target).
+Hand-rolled `workspace.yaml` + populated the scaffolding instead.
 
----
+**Friction.** Two-thirds of `workspace.yaml` is boilerplate that should not be
+authored from scratch. I duplicated pbg-template's content from memory.
 
-## 6. studies/<name>/composites/ + runs.db + viz/ — pre-create or lazy?
+**Gap.** `pbg-workspace` SKILL.md has two modes (upstream-branch, standalone).
+Neither handles "I already have the upstream cloned at cwd — promote this
+checkout into a workspace branch."
 
-viva-munk's study dirs have `composites/`, `runs.db`, `viz/` alongside
-study.yaml. v2ecoli-workspace's investigations have `runs.db` + `viz/`.
-My dnaa-* studies have JUST `study.yaml` (no runs yet).
+**Proposal.** Add a third mode to `pbg-workspace`:
 
-**Question:** should `/pbg-study new` pre-create those subdirs (with .keep)
-or are they lazy? Document this explicitly. I made the call to NOT
-pre-create (status: draft, no runs yet) but a future `/pbg-study run-baseline`
-will need them to exist.
+```
+/pbg-workspace bootstrap-in-place [--branch <name>] [--package <pkg>]
+```
 
----
+Pre-flight:
+- refuse if `workspace.yaml` already exists at cwd-root
+- require cwd-root is a git repo with a clean working tree
+- require currently on a branch with an upstream (so we can branch off it
+  consistently)
 
-## 7. Implicit MEMORY: dashboard schema vs workspace schema
+Steps:
+1. `git checkout -b <branch>` (default: kebab-case of repo name + `-workspace`)
+2. Apply pbg-template's workspace-specific files: `workspace.yaml`,
+   `.claude/settings.json`, `.gitignore` additions, `NEXT_STEPS.md` if missing.
+   (Generic scaffolding from PR #50 may already be present; merge, don't
+   overwrite.)
+3. `python -m pbg_superpowers.workspace_catalog add --path . --name <name> --package <pkg>`
+4. `git add -A && git commit -m "feat(workspace): bootstrap in-place"`
 
-The dashboard's "5 tabs" (Workspace inputs / Registry / Simulation Setup /
-Visualizations / Build Model) — none of the per-tab API endpoints are
-discoverable from CLI alone. I gathered them from `/pbg-study`'s
-sub-commands.
+This is exactly what I did manually; it should be one command.
 
-**Proposal:** `docs/concepts/vivarium-dashboard-model.md` should be linked
-from `pbg-workspace`'s SKILL.md "Next steps" section (it's mentioned in
-pbg-study, but not pbg-workspace — which is the first skill a new user
-hits).
+### 3. Scaffolding 6 studies from a plan PDF should be one skill invocation
 
----
+**What I did.** Read `chromosome-replication-plan-2.pdf`, identified six
+phases/studies, wrote `studies/dnaa-{01..06}/study.yaml` by hand. Each
+study.yaml has: objective, description, baseline composite ref, variants,
+observables, visualizations, implementation_tasks, expected_behavior,
+expert_questions, references. ~600 lines total YAML.
 
-## 8. Lint-workspace.py is silent on study.yaml
+**Friction.** This is mechanical transcription with light judgment calls.
+The plan PDF already segments by `## Study N:` headers; each section has
+predictable subheaders (Objective / Required knowledge / Implementation
+Tasks / Read outs / Expected Behavior / References / Expert questions). I
+spent ~20 min on plumbing that should be ~2 min of review.
 
-`python scripts/lint-workspace.py` says `workspace lint: OK` even with 6
-study.yaml files that have unknown extension fields. Linter should at least
-ENUMERATE the studies it found.
+**Gap.** `/pbg-study new` (in source pbg-superpowers/skills/pbg-study/) creates
+ONE empty study. There is no "decompose a plan into N drafts" path.
 
-**Proposal:** lint output:
+**Proposal.** Sub-command:
+
+```
+/pbg-study scaffold-from-plan <plan.pdf> \
+    [--expert <expert.pdf> ...] \
+    [--composite <dotted-ref>] \
+    [--slug-prefix <prefix>] \
+    [--bib-key-prefix <prefix>]
+```
+
+Behavior:
+1. Read the PDF; ask Claude (the host model — this is a skill, so this happens
+   in-band) for a structured list of studies/phases with the canonical fields.
+2. For each, write `studies/<slug-prefix>-NN-<slugified-name>/study.yaml` with
+   `status: draft`, baseline pointing at `--composite` (or prompt if absent).
+3. For each PDF given as `--expert`, copy under `references/expert/` (sha256
+   dedup) and register in `workspace.yaml.expert_docs`.
+4. Surface authored references; offer to append BibTeX skeletons to
+   `references/papers.bib` and stub `references/claims.yaml` entries.
+5. Print a summary tree + recommended next step
+   (`/pbg-study open dnaa-01-...`).
+
+The plan I just consumed was unusually well-structured, so a v0 that requires
+exactly that structure is fine; document the expected section layout.
+
+### 4. v3 `study.yaml` shape is implicit and inconsistent
+
+**What I did.** Picked the field shape by reading three contradictory sources.
+
+**Friction.**
+
+- `~/code/viva-munk/studies/bending-pressure-260515/study.yaml` uses
+  `baseline:` as a **dict** (`{composite, params}`).
+- v2ecoli `reports/{workflow,multigeneration,colony,compare}_report.py`
+  `_load_study()` expects `baseline:` as a **list of dicts**
+  (`[{name, composite, params}, ...]`).
+- The viva-munk study has `runs:` populated; my drafts have `runs: []` and
+  there's no schema saying "runs may be absent" or "if status is draft,
+  runs must be empty."
+
+**Gap.** No `.pbg/schemas/study.schema.json`. `scripts/lint-workspace.py`
+doesn't validate `studies/**/study.yaml`. `pbg-study` has 14 subcommands all
+operating on this shape with no schema-of-record.
+
+**Proposal.**
+
+1. Add `.pbg/schemas/study.schema.json` to pbg-template/template/.pbg/schemas/.
+   Required: `schema_version` (const 3), `name`, `created`, `status`,
+   `objective`, `baseline`, `variants`, `runs`, `visualizations`.
+   - `baseline`: anyOf [dict, list-of-dicts]. Document the single-arch /
+     multi-arch convention OR pick one (recommend always-list; matches v2ecoli
+     reports).
+2. Extend `scripts/lint-workspace.py` to glob `studies/**/study.yaml` and
+   validate each. Print one line per study (see finding #8).
+3. Migrate viva-munk if the list shape wins.
+
+### 5. expert_docs registration is manual paperwork
+
+**What I did.**
+```bash
+cp ~/Downloads/Molecular\ information\ ...pdf references/expert/replication_initiation_molecular_info.pdf
+shasum -a 256 references/expert/replication_initiation_molecular_info.pdf
+# -> 4c4b85ff4d88b46b816bacc84b494fcdf073ef1d901e77b56329effa92a0dab2
+# then hand-edited workspace.yaml.expert_docs with name + path + sha256 + description + contributor + claims_supported
+```
+
+**Friction.** Path slug, sha256, description, and `claims_supported:` cross-
+references all hand-typed. Easy to mistype the sha or forget to register.
+
+**Gap.** `scripts/add-reference.sh` exists for BibTeX. No analogue for
+expert PDFs. The dashboard description claims PDFs auto-extract metadata, but
+no shell/skill entry-point.
+
+**Proposal.** Either a shell script `scripts/add-expert.sh <pdf>` mirroring
+`add-reference.sh`, OR (preferred) a skill `/pbg-data add-expert <pdf>`:
+
+```
+/pbg-data add-expert ~/Downloads/foo.pdf \
+    --name foo_brief \
+    [--contributor "Alice / Bob lab"] \
+    [--claims claim.id.1,claim.id.2]
+```
+
+Behavior:
+1. Copy under `references/expert/<name>.pdf` (refuse if sha256 collides).
+2. Compute sha256.
+3. Extract first-page text; ask Claude for a 2-line description.
+4. Append a complete entry to `workspace.yaml.expert_docs`.
+5. Lint workspace.
+
+### 6. Pre-create `studies/<name>/{composites,viz}/` and `runs.db`?
+
+**What I did.** Created only `study.yaml`, not the sibling subdirs that
+viva-munk and v2ecoli-workspace have (`composites/`, `viz/`, `runs.db`).
+
+**Friction.** When the user runs the first baseline, where does the run land?
+Is `runs.db` auto-created or must `/pbg-study run-baseline` create it?
+
+**Gap.** Undocumented. Need to read `pbg-study run-baseline` source to find out.
+
+**Proposal.** Document in `pbg-study`'s SKILL.md: "`run-baseline` lazily
+creates `runs.db` + `viz/`; `study.yaml` is the only required file for
+`status: draft`." Or — opposite — have `/pbg-study new` pre-create the
+subdirs with `.keep` files so the layout is immediately greppable.
+
+### 7. Dashboard model needs to be linked from `pbg-workspace`
+
+**What I did.** Searched for the dashboard's API endpoints (`/api/study-*`,
+`/api/expert-doc`, etc.) to know what to populate. Found them by reading
+`pbg-study` subcommand listings.
+
+**Gap.** `pbg-workspace`'s "Next steps" mentions tabs but not the dashboard
+data model document.
+
+**Proposal.** Add a single line at the end of `pbg-workspace/SKILL.md`:
+"See `docs/concepts/vivarium-dashboard-model.md` for the dashboard's data
+model and `/api/*` endpoints."
+
+### 8. `scripts/lint-workspace.py` is silent on what it found
+
+**Current output (success):** `workspace lint: OK`
+
+**What I'd want.** After running on my scaffolded v2ecoli:
 
 ```
 workspace lint: OK
-  - 2 expert_docs, 17 bib keys, 16 claims
-  - 6 studies: dnaa-01-expression-dynamics, dnaa-02-atp-hydrolysis, ... (all status: draft)
-  - 0 active runs, 0 completed runs
+  workspace: v2ecoli  (package: v2ecoli)
+  expert_docs: 2  (replication_initiation_molecular_info, chromosome_replication_plan)
+  bib: 17 keys
+  claims: 16 (all resolve to bib keys)
+  studies: 6  (all status: draft)
+    - dnaa-01-expression-dynamics       baseline: v2ecoli.composites.baseline.baseline
+    - dnaa-02-atp-hydrolysis            ... parent_studies: [dnaa-01-expression-dynamics]
+    - dnaa-03-box-binding               ...
+    ...
+  runs: 0 active, 0 completed
+  composites discovered in registry: 4  (baseline, departitioned, reconciled, colony)
 ```
 
-Gives the agent (and the user) instant confidence the scaffolding registered.
+**Gap.** Current `scripts/lint-workspace.py` introspects `build_core()` but
+doesn't print findings on success — exits silently. The verbose summary
+would be the agent's primary "did the scaffolding register?" feedback.
+
+**Proposal.** Add `--summary` flag (or make verbose the default; quiet on `--quiet`):
+
+```python
+# at the end of main() in scripts/lint-workspace.py
+if not args.quiet:
+    print(f"workspace lint: OK")
+    print(f"  workspace: {ws_data['name']}  (package: {ws_data.get('package_path')})")
+    print(f"  expert_docs: {len(ws_data.get('expert_docs', []))} ...")
+    # etc.
+```
+
+### 9. `parent_studies:` exists; nothing renders the DAG
+
+**What I did.** Used `parent_studies:` to encode dnaa-02 ← dnaa-01,
+dnaa-04 ← dnaa-03, dnaa-05 ← {dnaa-02, dnaa-04}, dnaa-06 ← dnaa-04.
+
+**Gap.** Nothing reads `parent_studies:`. No tooling.
+
+**Proposal.** `/pbg-study dag` prints:
+
+```
+dnaa-01-expression-dynamics
+└── dnaa-02-atp-hydrolysis
+    └── dnaa-05-rida-ddah-dars (also depends on dnaa-04)
+dnaa-03-box-binding
+└── dnaa-04-initiation-mechanism
+    ├── dnaa-05-rida-ddah-dars
+    └── dnaa-06-seqa-sequestration
+```
+
+And/or a `--mermaid` flag emits a mermaid graph that the dashboard's Studies
+tab can render natively.
 
 ---
 
-## 9. Cross-study links: `parent_studies:` is good, no tooling around it
+## Concrete deliverable shortlist for the other Claude session
 
-I used `parent_studies:` to express the dependency chain (dnaa-02 depends on
-dnaa-01, dnaa-04 on dnaa-03, dnaa-05 on dnaa-02 + dnaa-04, dnaa-06 on
-dnaa-04). Nothing consumes this. **Proposal:** the dashboard's Studies tab
-should render the DAG. `/pbg-study dag` should print the DAG as ASCII or
-mermaid.
+If you're improving pbg-superpowers and want a sequence to attack:
+
+1. **`scripts/lint-workspace.py --summary`** (finding #8) — smallest change,
+   biggest UX win for agents authoring scaffolding.
+2. **`.pbg/schemas/study.schema.json`** (finding #4) — eliminates the
+   "dict vs list" ambiguity I just lived through.
+3. **`/pbg-workspace bootstrap-in-place`** (finding #2) — pairs with PR #50 to
+   cover the "I'm already cloned" path.
+4. **`/pbg-status`** (finding #1) — single most useful agent-onboarding skill.
+5. **`/pbg-study scaffold-from-plan <plan.pdf>`** (finding #3) — biggest
+   end-user win but largest implementation.
+6. **`/pbg-data add-expert <pdf>`** (finding #5) — pairs with #5 nicely.
 
 ---
 
-## Summary of recommended new skills / sub-commands
+## Live log
 
-| Skill / command | Purpose |
-|---|---|
-| `/pbg-status` | Detect cwd's workspace state in one shot |
-| `/pbg-workspace bootstrap-in-place` | Scaffold an existing checkout (no clone) |
-| `/pbg-study scaffold-from-plan <plan.pdf>` | Decompose a plan PDF into N study.yamls |
-| `/pbg-data add-expert <pdf>` | Auto-register expert PDFs with metadata |
-| `/pbg-study dag` | Print parent_studies DAG |
-| `study.schema.json` | Formalize the v3 shape |
+Appended as I work the rest of this session with the user iterating on the
+studies and viewing them in the dashboard. New entries go below; do not
+edit older ones.
 
-And one ergonomic fix: `scripts/lint-workspace.py` should enumerate what it
-found instead of just printing OK.
+### 2026-05-16 (post-scaffolding)
+
+- Branch `dnaa-replication-studies` lives at HEAD `2891f01` on v2ecoli.
+  Two commits: scaffolding + this notes file.
+- `scripts/lint-workspace.py` passes.
+- Next step in this session: have user `/pbg-server start` from the workspace
+  and confirm the 6 studies show up in the dashboard's Studies tab.
+- Open question: does the running dashboard auto-discover
+  `studies/**/study.yaml`, or does each study need to be registered via
+  `/api/study-new`? My drafts don't have associated runs, so they may not
+  appear if discovery is run-driven.

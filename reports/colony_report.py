@@ -425,11 +425,15 @@ def _gif_to_b64(gif_path):
 
 
 def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
-               from_cache=None, out_path=None):
+               from_cache=None, out_path=None, viz_config=None):
     """Run the colony simulation and generate report.
 
     Orchestration (simulation, GIF generation) lives here.
     HTML rendering is delegated to ColonyVisualization.update().
+
+    ``viz_config`` (when provided) overrides the ColonyVisualization
+    config dict at render time. Defaults to
+    ``{"title": "E. coli Colony Simulation"}``.
     """
     duration = duration_min * 60
     repro = _get_reproducibility_info()
@@ -782,7 +786,10 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
     from v2ecoli.visualizations.colony import ColonyVisualization
 
     viz_core = _allocate_core()
-    viz = ColonyVisualization(config={'title': 'E. coli Colony Simulation'}, core=viz_core)
+    viz = ColonyVisualization(
+        config=viz_config or {'title': 'E. coli Colony Simulation'},
+        core=viz_core,
+    )
 
     viz_result = viz.update({
         'history': history_rows,
@@ -825,26 +832,105 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
     return report_path
 
 
+def _load_study(study_path):
+    """Load + lightly validate a v3-shape study.yaml driving this report.
+
+    Expected shape::
+
+        baseline:
+        - name: <any>
+          composite: v2ecoli.composites.colony.colony
+          params: {seed?, n_adder?, env_size?, duration?, from_cache?}
+        visualizations:
+        - name: <any>
+          address: local:ColonyVisualization
+          config: {title: str, ...}
+
+    Reject:
+      - more than one ``baseline`` entry (colony has one canonical composite),
+      - a composite ref other than ``...colony.colony``,
+      - a ``lineage`` block (colony evolves in real time, not by chained
+        generations; use multigeneration_report for the lineage pattern).
+    """
+    import yaml as _yaml
+    with open(study_path) as fh:
+        spec = _yaml.safe_load(fh) or {}
+
+    baseline_entries = spec.get("baseline") or []
+    if len(baseline_entries) != 1:
+        raise ValueError(
+            f"study {study_path!r}: colony_report needs exactly one "
+            f"`baseline:` entry; got {len(baseline_entries)}"
+        )
+    composite_ref = baseline_entries[0].get("composite") or ""
+    if not composite_ref.endswith(".colony.colony"):
+        raise ValueError(
+            f"study {study_path!r}: colony_report only handles the "
+            f"colony composite (e.g. v2ecoli.composites.colony.colony); "
+            f"got {composite_ref!r}"
+        )
+    if spec.get("lineage"):
+        raise ValueError(
+            f"study {study_path!r}: colony_report has no generation "
+            f"chain; the `lineage:` block belongs to multigeneration_report"
+        )
+    return spec
+
+
 def main():
     parser = argparse.ArgumentParser(description='E. coli colony report')
-    parser.add_argument('--duration', type=int, default=60,
-                        help='Duration in minutes (default: 60)')
-    parser.add_argument('--n-adder', type=int, default=9,
-                        help='Number of adder cells (default: 9)')
-    parser.add_argument('--env-size', type=int, default=40,
-                        help='Environment size in µm (default: 40)')
+    parser.add_argument('--study', default=None,
+                        help='Path to a v3-shape study.yaml driving the report. '
+                             'baseline[0].params seeds n_adder / env_size / '
+                             'duration / seed / from_cache; visualizations[0].config '
+                             'seeds the ColonyVisualization title. CLI flags below '
+                             'still override.')
+    parser.add_argument('--duration', type=int, default=None,
+                        help='Duration in minutes (default: 60, or study param)')
+    parser.add_argument('--n-adder', type=int, default=None,
+                        help='Number of adder cells (default: 9, or study param)')
+    parser.add_argument('--env-size', type=int, default=None,
+                        help='Environment size in µm (default: 40, or study param)')
+    parser.add_argument('--seed', type=int, default=None,
+                        help='RNG seed (default: 0, or study param)')
     parser.add_argument('--from-cache', type=str, default=None,
                         help='Resume from cached pre-division state (dill pickle)')
     parser.add_argument('--out', default=None,
                         help='Output HTML path (default: out/colony/colony_report.html)')
     args = parser.parse_args()
 
+    # Resolve study-derived defaults before CLI overrides land on top.
+    study_spec = _load_study(args.study) if args.study else None
+    study_params = ((study_spec or {}).get('baseline') or [{}])[0].get('params') or {}
+    study_viz_config = None
+    if study_spec is not None:
+        for v in (study_spec.get('visualizations') or []):
+            if isinstance(v, dict) and 'ColonyVisualization' in (v.get('address') or ''):
+                study_viz_config = dict(v.get('config') or {})
+                break
+
+    # CLI > study > built-in defaults.
+    duration = args.duration if args.duration is not None \
+        else int(study_params.get('duration', 60))
+    n_adder = args.n_adder if args.n_adder is not None \
+        else int(study_params.get('n_adder', 9))
+    env_size = args.env_size if args.env_size is not None \
+        else int(study_params.get('env_size', 40))
+    seed = args.seed if args.seed is not None \
+        else int(study_params.get('seed', 0))
+    from_cache = args.from_cache if args.from_cache is not None \
+        else study_params.get('from_cache')
+
+    if study_spec is not None:
+        print(f"Study: {study_spec.get('name', '(unnamed)')}")
     report = run_colony(
-        duration_min=args.duration,
-        n_adder=args.n_adder,
-        env_size=args.env_size,
-        from_cache=args.from_cache,
+        duration_min=duration,
+        n_adder=n_adder,
+        env_size=env_size,
+        seed=seed,
+        from_cache=from_cache,
         out_path=args.out,
+        viz_config=study_viz_config,
     )
 
     import subprocess

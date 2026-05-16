@@ -260,43 +260,133 @@ def _results_to_history(results: list[GenerationResult]) -> list[dict]:
     return history
 
 
+def _load_study(study_path: str) -> dict:
+    """Load + lightly validate a v3-shape study.yaml driving this report.
+
+    Expected shape::
+
+        baseline:
+        - name: <any>                     # informational
+          composite: v2ecoli.composites.baseline.baseline
+          params: {seed: int, cache_dir: str}
+        lineage:
+          generations: int                # how many divisions to chain
+          max_duration: float             # per-gen safety cap (seconds)
+          seed_strategy: daughter_carry_forward
+        visualizations:
+        - name: <any>
+          address: local:MultigenerationVisualization
+          config: {title: str, ...}
+
+    Only the ``baseline`` (single entry; must be the partitioned ``baseline``
+    composite — multigeneration_report hardcodes that architecture) and
+    ``lineage`` blocks are required. Other fields are passed through but
+    ignored.
+    """
+    import yaml as _yaml
+    with open(study_path) as fh:
+        spec = _yaml.safe_load(fh) or {}
+
+    baseline_entries = spec.get("baseline") or []
+    if len(baseline_entries) != 1:
+        raise ValueError(
+            f"study {study_path!r}: `baseline:` must have exactly one entry "
+            f"(multigeneration_report chains a single architecture); got "
+            f"{len(baseline_entries)}"
+        )
+    composite_ref = baseline_entries[0].get("composite") or ""
+    if not composite_ref.endswith(".baseline.baseline"):
+        raise ValueError(
+            f"study {study_path!r}: baseline composite must be the "
+            f"partitioned `baseline` architecture (e.g. "
+            f"v2ecoli.composites.baseline.baseline); got {composite_ref!r}"
+        )
+
+    lineage = spec.get("lineage") or {}
+    if "generations" not in lineage:
+        raise ValueError(
+            f"study {study_path!r}: missing required `lineage.generations`"
+        )
+    strategy = lineage.get("seed_strategy", "daughter_carry_forward")
+    if strategy != "daughter_carry_forward":
+        raise ValueError(
+            f"study {study_path!r}: lineage.seed_strategy must be "
+            f"'daughter_carry_forward' (the only one implemented); got "
+            f"{strategy!r}"
+        )
+    return spec
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
+        "--study", default=None,
+        help="Path to a v3-shape study.yaml driving the lineage. When set, "
+             "the baseline entry's params and the lineage block (generations, "
+             "max_duration) become defaults; CLI flags below still override.",
+    )
+    parser.add_argument(
         "--generations",
         type=int,
-        default=3,
-        help="Number of generations to run (default: 3).",
+        default=None,
+        help="Number of generations to run (default: 3, or study.lineage.generations).",
     )
     parser.add_argument(
         "--max-duration",
         type=float,
-        default=MAX_GENERATION_DURATION,
-        help="Safety cap (seconds) per generation (default: 3600).",
+        default=None,
+        help="Safety cap (seconds) per generation "
+             "(default: 3600, or study.lineage.max_duration).",
     )
     parser.add_argument(
         "--out",
         default=os.path.join(OUTPUT_DIR, "multigeneration_report.html"),
         help="Output HTML path.",
     )
-    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument(
         "--cache-dir",
-        default="out/cache" if os.path.isdir("out/cache") else "out/workflow/cache",
-        help="Directory holding ParCa cache.",
+        default=None,
+        help="Directory holding ParCa cache "
+             "(default: out/cache or out/workflow/cache, or study param).",
     )
     args = parser.parse_args()
 
+    # Resolve effective config: CLI > study > built-in defaults.
+    study_spec = _load_study(args.study) if args.study else None
+    study_params = ((study_spec or {}).get("baseline") or [{}])[0].get("params") or {}
+    study_lineage = (study_spec or {}).get("lineage") or {}
+
+    n_generations = args.generations if args.generations is not None \
+        else int(study_lineage.get("generations", 3))
+    max_duration = args.max_duration if args.max_duration is not None \
+        else float(study_lineage.get("max_duration", MAX_GENERATION_DURATION))
+    seed = args.seed if args.seed is not None \
+        else int(study_params.get("seed", 0))
+    cache_dir = args.cache_dir or study_params.get("cache_dir") \
+        or ("out/cache" if os.path.isdir("out/cache") else "out/workflow/cache")
+
+    # Visualization config: prefer the study's MultigenerationVisualization
+    # entry; otherwise fall back to a default title.
+    viz_config = {"title": f"v2ecoli {n_generations}-generation lineage"}
+    if study_spec is not None:
+        for v in (study_spec.get("visualizations") or []):
+            if isinstance(v, dict) and "MultigenerationVisualization" in (v.get("address") or ""):
+                viz_config = dict(v.get("config") or viz_config)
+                break
+
     print("=" * 60)
-    print(f"v2ecoli multigeneration report — {args.generations} generation(s)")
+    print(f"v2ecoli multigeneration report — {n_generations} generation(s)")
+    if study_spec is not None:
+        print(f"Study: {study_spec.get('name', '(unnamed)')}")
     print("=" * 60)
 
     t_pipeline = time.time()
     results = run_multigeneration(
-        args.generations,
-        args.max_duration,
-        cache_dir=args.cache_dir,
-        seed=args.seed,
+        n_generations,
+        max_duration,
+        cache_dir=cache_dir,
+        seed=seed,
     )
     pipeline_wall = time.time() - t_pipeline
 
@@ -307,15 +397,15 @@ def main() -> None:
     history = _results_to_history(results)
 
     viz = MultigenerationVisualization(
-        config={"title": f"v2ecoli {args.generations}-generation lineage"},
+        config=viz_config,
         core=allocate_core(),
     )
     result = viz.update({
         "history": history,
         "metadata": {
-            "n_generations": args.generations,
-            "seed": args.seed,
-            "cache_dir": args.cache_dir,
+            "n_generations": n_generations,
+            "seed": seed,
+            "cache_dir": cache_dir,
             "pipeline_wall_time": pipeline_wall,
         },
     })

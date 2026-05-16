@@ -883,6 +883,78 @@ membership unless that endpoint bypasses validation.
   render `<option>` entries by iterating that set, so the two stay
   in sync automatically.
 
+### 2026-05-16 (width fix + bigraph-tree picker shipped)
+
+User: *"the embedded Study within the window is underutilizing the
+size of the browser window… Fix that and the bigraph-tree picker"*.
+Both shipped on the dashboard branch `feat/studies-with-tests-and-investigations`
+(commit `2d693f0`).
+
+**Width fix (one CSS rule, three overrides).**
+- `main { max-width: 1800px }` (was 1200) — bumps the global container.
+- `#page-studies { max-width: none }` — Studies tab fills the window.
+- `main.study-page { max-width: none; padding: 16px 20px }` — embedded
+  study-detail content fills its iframe.
+- `#study-detail-frame { height: calc(100vh - 160px); min-height: 720px }`
+  — iframe also gets more vertical room.
+
+**Bigraph-tree picker (new GET endpoint + new tree walker + two-pane UI).**
+- `GET /api/study-bigraph-paths?study=<slug>[&baseline=<name>][&max_depth=N]`
+  resolves the study's first baseline composite, looks for a serialized
+  state file under `<workspace>/models/<basename>.{pbg,json}` (with a
+  v2ecoli legacy fallback to `partitioned.pbg`), and returns
+  `{composite, source_file, max_depth, node_count, nodes:[{path,kind,...}]}`.
+  Cached by `(path, mtime, max_depth)`. Returns 404 with `looked_in` +
+  `hint` when no snapshot is on disk.
+- New `walk_state_snapshot()` in `composite_recipes.py`: companion to
+  `walk_state_tree()`; handles state snapshots without `_type` metadata;
+  special-cases the `__structured_array__` marker (extracts the column
+  names from `dtype`); bounded depth.
+- Observables tab in `study-detail.html` now renders a two-pane picker
+  on the left side. Right side carries a "Selected path" panel +
+  auto-generated observable YAML snippet + Copy button. For
+  `structured_array` leaves the snippet pre-fills an `index_by` stub.
+
+**Verified.** Against v2ecoli baseline:
+
+```
+GET /api/study-bigraph-paths?study=dnaa-01-expression-dynamics&max_depth=4
+-> 238 leaves from models/partitioned.pbg
+   including agents.0.bulk (structured_array) and
+   agents.0.unique.DnaA_box (structured_array).
+```
+
+**Still open (finding #17 follow-ups).**
+- "Click → Save" (no copy/paste) — needs a `POST /api/study-observable-add`
+  endpoint that appends to `study.yaml.observables` and re-validates.
+  Right now the snippet must be copy-pasted into study.yaml manually.
+- For `bulk`-like stores indexed by molecule id, ideally the picker
+  should let the user drill into the actual id list. The .pbg snapshot
+  doesn't carry the id list — only the dtype — so this needs either a
+  separate sim_data-introspection endpoint (expensive) or a runtime
+  fetch from the most recent run's history.
+- The depth limit (default 8) hides deeper paths. Acceptable today for
+  the v2ecoli baseline (238 leaves at max_depth=4 is enough to find
+  every interesting top-level store); revisit if any study needs
+  deep-indexed paths.
+
+## Finding #19 (added live): walk_state_tree vs walk_state_snapshot
+
+While building the bigraph picker I added `walk_state_snapshot()`
+alongside the existing `walk_state_tree()`. The two address different
+needs:
+
+- `walk_state_tree(doc)` — reads a process-bigraph **composite document**
+  with `_type` / `_default` / `address` metadata. Used by the existing
+  Composites tab and the loom-explore renderer.
+- `walk_state_snapshot(state)` — reads a **state snapshot** (no type
+  metadata, just values). Used by the new bigraph-paths endpoint.
+
+**Proposal.** Document the distinction at the top of
+`composite_recipes.py`, since the naming is too close. Or merge under
+a single `walk(...)` with a `kind=` parameter. Either way, the next
+agent will trip on this if it isn't called out.
+
 ---
 
 ## Concrete deliverable shortlist for the other Claude session (updated)

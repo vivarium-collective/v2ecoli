@@ -140,177 +140,31 @@ def set_emitter_override(config: dict | None) -> None:
 
 
 import contextlib  # noqa: E402
-import os  # noqa: E402
-import sqlite3  # noqa: E402
-import uuid  # noqa: E402
-from pathlib import Path  # noqa: E402
-
-
-def _find_workspace_root(start: Path | None = None) -> Path | None:
-    """Walk up from ``start`` (default: cwd) looking for ``workspace.yaml``.
-
-    Returns the directory that contains ``workspace.yaml``, or ``None`` if
-    none is found before hitting the filesystem root. Cheap, no imports.
-    """
-    cur = Path(start or Path.cwd()).resolve()
-    for d in (cur, *cur.parents):
-        if (d / 'workspace.yaml').is_file():
-            return d
-    return None
-
-
-def _ensure_study_columns(db_path: str) -> None:
-    """Idempotently add study_slug / investigation_slug columns to ``simulations``.
-
-    Safe to call on a missing DB (creates the parent dir + an empty DB with
-    just the columns we add — the SQLiteEmitter's _init_history_db will
-    create the rest of the schema on its own init).
-    """
-    parent = os.path.dirname(db_path)
-    if parent:
-        os.makedirs(parent, exist_ok=True)
-    conn = sqlite3.connect(db_path, isolation_level=None)
-    try:
-        # Mirror the SQLiteEmitter's table layout — without recreating the
-        # full schema, we just need the `simulations` table to exist before
-        # we ALTER. If SQLiteEmitter has already initialized it, the CREATE
-        # is a no-op.
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS simulations (
-                simulation_id TEXT PRIMARY KEY,
-                name TEXT,
-                started_at TEXT NOT NULL,
-                completed_at TEXT,
-                elapsed_seconds REAL,
-                composite_config TEXT,
-                metadata TEXT,
-                emit_schema TEXT
-            )
-        ''')
-        existing = {row[1] for row in conn.execute(
-            'PRAGMA table_info(simulations)')}
-        if 'study_slug' not in existing:
-            conn.execute('ALTER TABLE simulations ADD COLUMN study_slug TEXT')
-        if 'investigation_slug' not in existing:
-            conn.execute(
-                'ALTER TABLE simulations ADD COLUMN investigation_slug TEXT')
-    finally:
-        conn.close()
-
-
-def _stamp_study_metadata(
-    db_path: str,
-    simulation_id: str,
-    study_slug: str | None,
-    investigation_slug: str | None,
-) -> None:
-    """Write study_slug + investigation_slug for ``simulation_id``.
-
-    Upserts a row keyed on ``simulation_id`` and leaves any existing
-    SQLiteEmitter-managed fields (name, emit_schema, ...) untouched. Use
-    after the SQLiteEmitter step has been constructed (which inserts the
-    initial row) — or before, in which case ``started_at`` defaults to
-    now-UTC and the emitter will overwrite it on its own insert.
-    """
-    if study_slug is None and investigation_slug is None:
-        return
-    import datetime
-    now_iso = datetime.datetime.now(datetime.timezone.utc).strftime(
-        '%Y-%m-%dT%H:%M:%SZ')
-    conn = sqlite3.connect(db_path, isolation_level=None)
-    try:
-        conn.execute(
-            'INSERT INTO simulations '
-            '(simulation_id, started_at, study_slug, investigation_slug) '
-            'VALUES (?, ?, ?, ?) '
-            'ON CONFLICT(simulation_id) DO UPDATE SET '
-            '  study_slug = COALESCE(excluded.study_slug, simulations.study_slug), '
-            '  investigation_slug = COALESCE(excluded.investigation_slug, simulations.investigation_slug)',
-            (simulation_id, now_iso, study_slug, investigation_slug),
-        )
-    finally:
-        conn.close()
-
 
 @contextlib.contextmanager
-def sqlite_emitter(*, file_path: str | None = None,
-                   db_file: str | None = None,
+def sqlite_emitter(*, file_path: str, db_file: str = 'runs.db',
                    name: str | None = None,
                    simulation_id: str | None = None,
-                   subsample: int = 1,
-                   study_slug: str | None = None,
-                   investigation_slug: str | None = None):
+                   subsample: int = 1):
     """Context manager: build composite with a SQLiteEmitter step.
 
-    By default writes to ``<workspace_root>/.pbg/composite-runs.db`` — the
-    same workspace-shared DB the vivarium-dashboard's Simulations DB tab
-    aggregates from. Pass ``study_slug`` / ``investigation_slug`` to tag the
-    run; the slugs are stored as columns on the ``simulations`` row so the
-    dashboard can group / filter by them.
-
-    To keep using a per-study DB, pass ``file_path`` (and optionally
-    ``db_file``) explicitly — the old behavior is preserved.
-
-    Usage::
-
-        with sqlite_emitter(name='baseline-seed0',
-                            study_slug='dnaa-01-expression-dynamics',
-                            investigation_slug='dnaa-replication'):
+    Usage:
+        with sqlite_emitter(file_path='studies/dnaa-01/', name='baseline'):
             doc = baseline(cache_dir='out/cache')
             comp = Composite(doc, core=core)
-            comp.update({}, 60.0 * 60)
+            comp.update({}, 60.0 * 60)   # 60 minutes
     """
-    # Resolve workspace-default DB path when caller didn't pin one.
-    if file_path is None:
-        ws_root = _find_workspace_root()
-        if ws_root is None:
-            raise RuntimeError(
-                'sqlite_emitter(): no file_path given and no workspace.yaml '
-                'found walking up from cwd; either run from inside a '
-                'workspace or pass file_path explicitly.')
-        file_path = str(ws_root / '.pbg')
-        if db_file is None:
-            db_file = 'composite-runs.db'
-    else:
-        if db_file is None:
-            db_file = 'runs.db'
-
-    # Pin the simulation_id upfront so we can stamp metadata around the
-    # emitter's own init insert.
-    if simulation_id is None:
-        simulation_id = str(uuid.uuid4())
-
-    cfg = {
-        'file_path': file_path,
-        'db_file': db_file,
-        'simulation_id': simulation_id,
-    }
+    cfg = {'file_path': file_path, 'db_file': db_file}
     if name is not None:
         cfg['name'] = name
+    if simulation_id is not None:
+        cfg['simulation_id'] = simulation_id
     if subsample != 1:
         cfg['subsample'] = subsample
-
-    db_path = os.path.join(file_path, db_file)
-    # Ensure our extra columns exist on the simulations table BEFORE the
-    # SQLiteEmitter step runs its own _init_history_db (which is a no-op for
-    # already-existing tables). Then stamp the slugs. Safe to run unconditionally
-    # — the helpers are idempotent and tolerate a missing file.
-    _ensure_study_columns(db_path)
-    _stamp_study_metadata(db_path, simulation_id, study_slug, investigation_slug)
-
     set_emitter_override(cfg)
     try:
         yield cfg
     finally:
-        # Re-stamp in case the emitter's own insert ran after ours and we
-        # need to ensure the slugs survived. ON CONFLICT DO UPDATE preserves
-        # any non-NULL value, so this is a belt-and-suspenders no-op when
-        # things already stuck.
-        try:
-            _stamp_study_metadata(
-                db_path, simulation_id, study_slug, investigation_slug)
-        except sqlite3.OperationalError:
-            pass
         set_emitter_override(None)
 
 

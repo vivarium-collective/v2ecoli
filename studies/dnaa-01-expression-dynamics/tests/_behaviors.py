@@ -1,42 +1,58 @@
-"""Generic evaluator for the structured `expected_behavior:` block in
-study.yaml.
+"""Generic evaluator for behavior-test entries in study.yaml.
 
-Each entry is shaped:
+Supports two schema shapes:
 
-    name:   <slug>
-    en:     "...one-sentence English description..."
-    given:  {run, window, ...}
-    measure: {kind, ...}
-    expect: {op, ...}
-    status: implemented | stub | gated
-    requires: [...]
+  Legacy (`expected_behavior:`)
+    name / en / given.window / measure.{kind,...} / expect.{op,...}
 
-Call `evaluate(entry, history)` to get (passed: bool, message: str). The
-parametrized test in `test_behaviors.py` wires this up to pytest.
+  v3 (`behavior_tests:`)
+    name / classification / measure.{kind,window,...} / pass_if.{op,...} /
+    requires_simulation / cites / calibration_anchor
 
-Keeping this evaluator deliberately small + dependency-free (just stdlib
-+ statistics) so it can move into a workspace-shared helper later.
+Call `evaluate(entry, history, *, monomer_ids=None)` to get
+(passed, message). The parametrized test in `test_behaviors.py` wires
+this up to pytest.
+
+`monomer_ids` is the optional list-of-strings index used by the v3
+`monomer_count` measure kind to resolve readouts like "PD03831[c]" to a
+position in the per-step `monomer_counts.monomerCounts` array.
 """
 from __future__ import annotations
 
 import statistics
-from typing import Any
 
 
 # ─── Identifiers (mirrored from conftest for standalone use) ────────────────
 
-DNAA_MONOMER_ID = "MONOMER0-160[c]"
+DNAA_MONOMER_ID = "MONOMER0-160[c]"   # the DnaA-ATP complex form (bulk)
+DNAA_MONOMER_PD = "PD03831[c]"        # the v3 schema's canonical DnaA monomer id
 DNAA_MRNA_ID = "EG10235_RNA"
 
 
 # ─── State accessors ────────────────────────────────────────────────────────
 
-def _bulk_count(state: dict, molecule_id: str) -> int | None:
-    agents = state.get("agents") or {}
-    if not agents:
+def _agent_view(state: dict) -> dict | None:
+    """Return the per-agent state subtree.
+
+    The SQLite emitter sits inside ``agents.0`` and emits its per-step
+    state directly under that node — so each row is the flat per-agent
+    subtree (``listeners``, ``bulk``, ``unique``, ``global_time``).
+    The synthetic-history tests wrap their snapshots in ``{agents: {0: ...}}``,
+    so accept that shape too.
+    """
+    if not isinstance(state, dict):
         return None
-    first = next(iter(agents.values()))
-    bulk = first.get("bulk")
+    agents = state.get("agents")
+    if isinstance(agents, dict) and agents:
+        return next(iter(agents.values()))
+    return state
+
+
+def _bulk_count(state: dict, molecule_id: str) -> int | None:
+    agent = _agent_view(state)
+    if agent is None:
+        return None
+    bulk = agent.get("bulk")
     if bulk is None:
         return None
     if isinstance(bulk, dict) and "id" in bulk and "count" in bulk:
@@ -55,10 +71,9 @@ def _bulk_count(state: dict, molecule_id: str) -> int | None:
 
 
 def _listener_value(state: dict, dotted_path: str):
-    agents = state.get("agents") or {}
-    if not agents:
+    cur = _agent_view(state)
+    if cur is None:
         return None
-    cur = next(iter(agents.values()))
     for seg in dotted_path.split("."):
         if not isinstance(cur, dict) or seg not in cur:
             return None
@@ -83,11 +98,50 @@ def _window(history: list, name: str) -> list:
 
 # ─── Measure dispatch ───────────────────────────────────────────────────────
 
-def _measure_series(history: list, measure: dict) -> list[float] | None:
+def _monomer_count(state: dict, monomer_id: str, monomer_ids: list[str] | None) -> int | None:
+    """Resolve a monomer count via listeners.monomer_counts[idx],
+    where idx = monomer_ids.index(monomer_id). The monomer_ids list is loaded
+    from sim_data and threaded through as a kwarg on the evaluator entry
+    point; fall back to a hardcoded index for the well-known DnaA case so the
+    evaluator stays useful without sim_data on hand.
+
+    Two physical shapes are tolerated:
+      - ``listeners.monomer_counts`` is the flat array (current emitter)
+      - ``listeners.monomer_counts.monomerCounts`` is the array (legacy
+        single_cell.dill shape)
+    """
+    arr = _listener_value(state, "listeners.monomer_counts")
+    if isinstance(arr, dict):
+        arr = arr.get("monomerCounts")
+    if arr is None:
+        return None
+    if monomer_ids is not None:
+        try:
+            idx = monomer_ids.index(monomer_id)
+        except ValueError:
+            return None
+    elif monomer_id == DNAA_MONOMER_PD:
+        idx = 3861   # confirmed at t=2350s in cached run (256,299 DnaA monomers)
+    else:
+        return None
+    try:
+        return int(arr[idx])
+    except (IndexError, TypeError):
+        return None
+
+
+def _measure_series(history: list, measure: dict,
+                    *, monomer_ids: list[str] | None = None) -> list[float] | None:
     kind = measure["kind"]
     if kind == "bulk_count":
         mol = measure["id"]
         series = [_bulk_count(s["state"], mol) for s in history]
+        if all(v is None for v in series):
+            return None
+        return [v for v in series if v is not None]
+    if kind == "monomer_count":
+        mol = measure["id"]
+        series = [_monomer_count(s["state"], mol, monomer_ids) for s in history]
         if all(v is None for v in series):
             return None
         return [v for v in series if v is not None]

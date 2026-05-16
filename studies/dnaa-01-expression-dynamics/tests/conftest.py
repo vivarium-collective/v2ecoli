@@ -26,30 +26,35 @@ def _open_runs_db() -> sqlite3.Connection | None:
     return sqlite3.connect(str(RUNS_DB))
 
 
-def _latest_run_id(conn: sqlite3.Connection, variant_label: str | None) -> str | None:
-    """Return the most recently completed run_id, optionally filtered to a
-    variant by label match."""
+def _latest_run_id(conn: sqlite3.Connection, name: str | None) -> str | None:
+    """Return the most recently started simulation_id, optionally filtered
+    by run name (matches a `simulation_set:` entry in study.yaml)."""
     cur = conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name='runs_meta'"
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='simulations'"
     )
     if cur.fetchone() is None:
         return None
-    if variant_label is None:
+    if name is None:
         row = conn.execute(
-            "SELECT run_id FROM runs_meta WHERE status='completed' "
-            "ORDER BY completed_at DESC LIMIT 1"
+            "SELECT simulation_id FROM simulations "
+            "ORDER BY started_at DESC LIMIT 1"
         ).fetchone()
     else:
         row = conn.execute(
-            "SELECT run_id FROM runs_meta WHERE status='completed' AND label=? "
-            "ORDER BY completed_at DESC LIMIT 1",
-            (variant_label,),
+            "SELECT simulation_id FROM simulations WHERE name=? "
+            "ORDER BY started_at DESC LIMIT 1",
+            (name,),
         ).fetchone()
     return row[0] if row else None
 
 
 def _load_history(conn: sqlite3.Connection, run_id: str) -> list[dict]:
-    """Return a list of {step, time, state} dicts, ordered by step."""
+    """Return a list of {step, time, state} dicts, ordered by step.
+
+    Each row's ``state`` column is a JSON blob of the per-step subtree the
+    composite's emit_schema declared. The fixture's tests treat the result
+    as a list of ``{step, time, state}`` records.
+    """
     rows = conn.execute(
         "SELECT step, global_time, state FROM history WHERE simulation_id=? "
         "ORDER BY step ASC",
@@ -63,14 +68,16 @@ def _load_history(conn: sqlite3.Connection, run_id: str) -> list[dict]:
 
 @pytest.fixture(scope="session")
 def baseline_history():
-    """Latest completed `baseline` run, or skip if none."""
+    """Latest `baseline-steady-state` run, or skip if none."""
     conn = _open_runs_db()
     if conn is None:
-        pytest.skip(f"no runs.db at {RUNS_DB}; run the baseline first")
+        pytest.skip(f"no runs.db at {RUNS_DB}; run the baseline first "
+                    f"(python studies/dnaa-01-expression-dynamics/sims/run_baseline.py)")
     try:
-        run_id = _latest_run_id(conn, variant_label=None)
+        run_id = (_latest_run_id(conn, "baseline-steady-state")
+                  or _latest_run_id(conn, None))
         if run_id is None:
-            pytest.skip("no completed runs in runs.db")
+            pytest.skip("no runs in runs.db")
         return _load_history(conn, run_id)
     finally:
         conn.close()
@@ -78,14 +85,14 @@ def baseline_history():
 
 @pytest.fixture(scope="session")
 def stop_synthesis_history():
-    """Latest completed `stop-dnaA-synthesis` variant run, or skip."""
+    """Latest `stop-dnaA-synthesis` variant run, or skip."""
     conn = _open_runs_db()
     if conn is None:
         pytest.skip(f"no runs.db at {RUNS_DB}; run the variant first")
     try:
-        run_id = _latest_run_id(conn, variant_label="stop-dnaA-synthesis")
+        run_id = _latest_run_id(conn, "stop-dnaA-synthesis")
         if run_id is None:
-            pytest.skip("no completed stop-dnaA-synthesis run in runs.db")
+            pytest.skip("no stop-dnaA-synthesis run in runs.db")
         return _load_history(conn, run_id)
     finally:
         conn.close()

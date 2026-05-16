@@ -327,8 +327,13 @@ behavior_tests:
       path: listeners.rna_synth_prob.n_bound_TF_per_TU
       tf_index: 12        # MONOMER0-160 = DnaA-ATP in tf_ids
     y:
-      kind: listener_sum
-      path: listeners.rnap_data.rna_init_event
+      kind: listener_index
+      path: listeners.rna_counts.mRNA_cistron_counts
+      index: 227          # EG10235_RNA in cistron_ids (dnaA's own mRNA)
+      # Switched from rna_init_event_per_cistron[227] because dnaA init
+      # events are too sparse (~0/step) in a 10-min window to compute
+      # correlation. mRNA_cistron_counts is the continuous downstream
+      # signal — autorepression should suppress sustained dnaA mRNA.
     window: second_half
   pass_if:
     op: pearson_at_most
@@ -619,6 +624,38 @@ runs:
         refinement on Y could change r; currently blocked on the
         EG10235_RNA TU index lookup.
 
+- simulation: baseline-dnaA-mrna
+  seed: 0
+  duration_s: 600
+  started_at: '2026-05-16T22:30Z'
+  wall_seconds: 72
+  rows: 601
+  db: studies/dnaa-01-expression-dynamics/runs.db
+  note: |
+    After (a) extending emit schema with rnap_data.rna_init_event_per_cistron
+    + rna_counts.mRNA_cistron_counts, (b) implementing a `listener_index`
+    measure kind in _behaviors.py, (c) updating autorepression-correlation's
+    Y axis to listeners.rna_counts.mRNA_cistron_counts[227] (= EG10235_RNA
+    = dnaA's own mRNA, the canonical autorepression target).
+  outcomes:
+    dnaA-count-in-range:
+      result: FAIL
+      value: 115
+      expected: '[300, 800]'
+      note: Same calibration shortfall (independent of test refinements).
+    dnaA-concentration-stable:
+      result: PASS
+      max_rolling_cv: 0.008
+    autorepression-correlation:
+      result: FAIL
+      reason: insufficient variance to compute Pearson r
+      note: |
+        dnaA mRNA copy number ranges 0-1 across the 10-min window
+        (mean 0.18, stdev 0.39) \u2014 too sparse for correlation. Test
+        is design-blocked at this scale; see findings F-06 + F-07.
+        Earlier coarse Y (cell-wide init events) returned r=+0.197 \u2014
+        a spurious signal washed out by the rest of the transcriptome.
+
 # ─── Findings — what this study TAUGHT us ────────────────────────────────
 # Each finding is a discrete claim with: kind (biological | computational |
 # methodological), the evidence (which run/test/value produced it), the
@@ -779,6 +816,70 @@ findings:
     omitted. (2) Consider promoting heavy-listener opt-in to a
     composite-level parameter so it's visible from study.yaml without
     a runner kwarg.
+
+- id: F-06
+  kind: biological
+  status: contradicts
+  statement: |
+    v2ecoli's baseline dnaA mRNA pool is ~0.18 copies/cell on average
+    (range 0-1 across a 10-min window). Combined with F-01 (low DnaA
+    protein), this points at LOW transcription rate as a co-driver of
+    the protein shortfall, not translation efficiency alone.
+  evidence:
+    from_run: baseline-dnaA-mrna
+    from_test: ad-hoc inspection (no behavior_test yet — mean dnaA mRNA <1 makes correlation tests degenerate)
+    observed: 0.18
+    units: dnaA mRNA copies/cell (mean across 10-min run; range 0-1; stdev 0.39)
+    reduction: mean over full 10-min window
+  expected:
+    cites: [Li2014Cell, Mori2021MolSysBiol]
+    summary: |
+      Li 2014 (ribosome profiling) and Mori 2021 (proteome quantification)
+      imply dnaA mRNA is rare (~1 copy/cell on average) but rarely 0 in
+      a steady-state window. v2ecoli's 0.18 mean is on the very low end.
+  explanation: |
+    Sparse dnaA mRNA breaks the autorepression-correlation test
+    (insufficient variance to compute Pearson r even with cistron-
+    specific Y axis). Implies TWO calibration knobs need attention,
+    not just translation_efficiency:
+      • dnaA transcription initiation rate (rnap probabilities)
+      • dnaA mRNA degradation rate (if too high)
+    Either could explain why downstream DnaA protein ends up at 115/cell.
+  next_action: |
+    Expand the EG10235 calibration follow-up to cover BOTH mRNA-level
+    parameters (transcription init prob, mRNA half-life) and protein-
+    level (translation efficiency). A single recalibration pass on
+    translation alone is unlikely to land DnaA in the literature band.
+
+- id: F-07
+  kind: methodological
+  status: novel
+  statement: |
+    The autorepression-correlation behavior test as currently designed
+    cannot evaluate in a 10-min single-seed window — both the per-step
+    dnaA init events and the dnaA mRNA copy number have effectively
+    zero variance. Test design needs revision.
+  evidence:
+    from_run: baseline-dnaA-specific + baseline-dnaA-mrna (both 10-min seed-0)
+    from_test: autorepression-correlation
+    observed: insufficient_variance
+    units: Pearson r evaluator returns "insufficient variance"
+  expected:
+    summary: |
+      A correlation test needs variance in both axes. dnaA's signal is
+      sparse at the single-cell, single-gene scale in a short window.
+  explanation: |
+    Two design options to make the test evaluable:
+    (a) Run multi-generation (overlapping rounds amplify variance), or
+    (b) Average across many seeds (5-10) and correlate within a wider
+        window, or
+    (c) Switch the test concept entirely — e.g. inducible-DnaA
+        perturbation experiment where binding is artificially varied
+        and mRNA response is measured.
+  next_action: |
+    Update the test definition to use multi-seed aggregation + a longer
+    window. Until then, mark autorepression-correlation as "design-
+    blocked" rather than "fail" in the gate decision.
 
 
 conclusion: "Phase=Decide outcome: PIPELINE-GATED on translation-efficiency calibration.\n\

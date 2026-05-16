@@ -532,3 +532,166 @@ documented, and have visualizations honor them:
 The dashboard's observable resolver can then dispatch on `index_by.type`:
 look up the index in sim_data, then read `store_path[index]`. Without
 this, every dnaa-* study has to reinvent the convention.
+
+### 2026-05-16 (Q+H, status vocab, behavioral_tests for dnaA-01)
+
+- Added `question:` and `hypothesis:` to all 6 dnaa-* studies. Each Q
+  states the measurable prediction; each H states quantitative thresholds
+  drawn from the plan + expert doc (e.g. dnaa-02 hypothesises ATP-fraction
+  0.2-0.5 from Boesen 2024; dnaa-05 says inter-initiation CV narrows by
+  ≥30% vs intrinsic-only).
+- Migrated all 6 from `status: draft` (informal) to `status: planned`
+  (the canonical `_VALID_STATUSES` member in
+  `vivarium_dashboard/lib/investigations.py:30`). The dashboard now
+  reports `status=planned` for all 6 instead of the freeform `draft`
+  string. **User flagged:** the existing `draft` marker is visible in
+  the dashboard pop-out today — that's because reads tolerate any string
+  but writes go through `update_spec_status` which enforces the six.
+  Worth surfacing in `pbg-status` (finding #1) which value is canonical.
+- Implemented BT-01..BT-04 as real pytest assertions in
+  `studies/dnaa-01-expression-dynamics/tests/test_expression_dynamics.py`.
+  Each ties back 1:1 to a `behavioral_tests:` entry in study.yaml via
+  the `pytest_node:` field. BT-05 (post-initiation gene-dosage) is an
+  xfail stub until dnaa-04 lands.
+- `conftest.py` reads this study's `runs.db` directly (SQLite,
+  runs_meta + history(state JSON), schema documented at
+  `vivarium_dashboard/lib/composite_runs.py`). Tests `pytest.skip`
+  cleanly when no completed run exists, so the suite is meaningful
+  documentation even pre-run.
+
+## Finding #13 (added live): Registry tab leaks processes from other workspaces
+
+**Reported by the user mid-session.** The dashboard's Registry tab shows
+discovered processes from `multi_cell` (viva-munk) and other workspaces
+while reporting that this workspace has **no installed modules**. The
+two views contradict each other.
+
+**Diagnosis (probable).** `vivarium_dashboard/server.py` builds the
+"discovered processes" list by calling `build_core()`, which walks
+*every* installed entry point — including processes pip-installed into
+the same Python environment as the dashboard server, not filtered by
+the active workspace. The "Installed modules" panel reads
+`workspace.yaml.imports` which is empty here. Two distinct discovery
+paths, no reconciliation.
+
+**Proposal.**
+1. Filter the discovered-processes table by the active workspace's
+   imports + its own package_path. Anything outside that set is hidden
+   (or shown under a separate "Available in environment but not
+   imported" section).
+2. If a process is discoverable but not declared in `workspace.yaml`,
+   surface it as an actionable item: "Add `<pkg>` to imports?" with a
+   one-click registry-import button.
+3. The "Installed modules" panel should at minimum list `package_path`
+   from workspace.yaml (here: `v2ecoli`) as installed-by-default, since
+   that's what `build_core()` was given to import.
+
+This is finding-priority HIGH; it's the kind of bug that erodes trust in
+the dashboard for a new user.
+
+## Finding #14 (added live): Pop-out should render `status`, `question`, `hypothesis`
+
+**Reported by the user mid-session.** When they clicked into a study and
+the pop-out / details panel opened, the new `question:` and
+`hypothesis:` fields and the canonical `status:` (planned vs draft)
+were not visible there. The list view shows them but the detail
+pop-out doesn't.
+
+**Proposal.** In the study detail / pop-out panel, render:
+- A status chip (planned / running / ran / complete / failed / invalid)
+  with the canonical color coding.
+- The `question:` field as italicised text under the title.
+- The `hypothesis:` field as a callout box ("Predicted outcome").
+- The `behavioral_tests:` entries as a checklist with status icons
+  (implemented = ✓, stub = ◯, gated-by-gap = ⏳) and the English
+  description as hover text.
+
+This is essential for the plan-driven authoring loop: the user iterates
+on the spec, then opens the pop-out to read back what the study
+*claims* to test, before running anything.
+
+## Finding #15 (added live): new skill `/pbg-study fill-overview <slug>`
+
+**What the user asked for, verbatim.** "Can you also fill out the
+Question and Hypothesis of these different studies for me? and this
+should be a pbg-superpower to fill in these fields."
+
+**Proposal.** New subcommand on `pbg-study`:
+
+```
+/pbg-study fill-overview <slug> \
+    [--from-plan references/expert/<plan>.pdf] \
+    [--from-expert references/expert/<doc>.pdf ...] \
+    [--fields question,hypothesis,objective,description]
+```
+
+Behavior:
+1. Read the study's current `study.yaml`.
+2. Read the linked plan / expert docs from
+   `workspace.yaml.expert_docs`.
+3. Ask the host Claude to draft each requested field. Each field is
+   bounded:
+   - `question:` — one paragraph, scientifically framed, ends with `?`.
+   - `hypothesis:` — one paragraph with quantitative thresholds where
+     the source documents give them.
+   - `objective:` — imperative present tense, one paragraph.
+   - `description:` — multi-paragraph, citing the source section.
+4. Preview-and-confirm flow: print the diff, ask the user
+   yes/no/edit-prompt, then write.
+5. Update the study via `/api/study-set-overview` (which already
+   accepts `{question, hypothesis, topic, status}` per
+   server.py:6136) so the dashboard sees it immediately without
+   needing a re-read of disk.
+
+This is the most-leveraged proposal in the notes today: I filled 12
+fields by hand (6 questions + 6 hypotheses); a tool that does this from
+the plan PDF in one call replaces ~30 minutes of mechanical work.
+
+## Finding #16 (added live): `behavioral_tests:` block + tests/ convention
+
+**What I built today.**
+- Added a top-level `behavioral_tests:` list in dnaa-01's study.yaml,
+  each entry shaped: `{id, english, pytest_node, status,
+  requires_run?, requires_listener?, requires_variant_hook?, notes?}`.
+- Mirrored each entry as a pytest function in
+  `studies/<slug>/tests/test_<area>.py`.
+- Added `tests/conftest.py` with `baseline_history` +
+  `stop_synthesis_history` fixtures that read `runs.db` and skip if no
+  run exists.
+
+**Proposal.** Adopt this as the canonical v3 schema extension:
+
+1. Add `behavioral_tests:` to the v3/v4 study schema with the entry
+   shape above. Validate `pytest_node:` resolves to a real test file
+   (via static parsing or pytest --collect-only) when present.
+2. Have the dashboard's per-study runner (`study_tests.py`) join
+   the pytest results back to the `behavioral_tests:` entries by
+   `pytest_node:` so the dashboard can render the English description
+   alongside pass/fail.
+3. Provide a workspace-level fixture library at
+   `<workspace>/scripts/study_test_helpers.py` exporting
+   `latest_run_history(study_slug)`, `bulk_count(state, id)`,
+   `listener_value(state, dotted_path)` so every study doesn't
+   re-implement the SQLite read + state walking. Today every
+   conftest.py would copy-paste the same ~80 lines.
+
+---
+
+## Concrete deliverable shortlist for the other Claude session (updated)
+
+Picking up where the prior list left off; #2 has already landed; #8 is
+the cheapest remaining win.
+
+| # | Improvement | Estimated effort | Priority |
+|---|---|---|---|
+| 8 | `lint-workspace.py` enumerates findings + runs the dashboard's own validator path (#11) | XS | P0 (cheapest UX win) |
+| 13 | Filter Registry tab discovered-processes by workspace imports | M | P0 (user-visible bug) |
+| 14 | Render `status` + Q + H in study pop-out | M | P0 (user just asked) |
+| 4 | `.pbg/schemas/study.schema.json` + observable extensions (#12) | M | P1 |
+| 15 | `/pbg-study fill-overview <slug>` | M | P1 (highest agent leverage) |
+| 16 | Canonical `behavioral_tests:` block + shared test fixtures | S | P1 |
+| 1  | `/pbg-status` | S | P2 |
+| 3  | `/pbg-study scaffold-from-plan <plan.pdf>` | L | P2 |
+| 5  | `/pbg-data add-expert <pdf>` | S | P2 |
+| 6  | Document study-subdir layout (lazy vs pre-created) | XS | P3 |
+| 9  | `/pbg-study dag` | S | P3 |

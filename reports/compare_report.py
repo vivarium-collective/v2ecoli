@@ -109,49 +109,106 @@ def _build_one_model(args: tuple) -> dict:
     }
 
 
-def _build_all_parallel(cache_dir: str, seed: int) -> dict[str, dict]:
-    print('\nStep 1: Building 3 composites in parallel...')
-    t0 = time.time()
-    args_list = [(k, cache_dir, seed) for k in MODELS]
-    ctx = mp.get_context('spawn')
-    with ctx.Pool(3) as pool:
-        results = pool.map(_build_one_model, args_list)
-    print(f'  All 3 built in {time.time() - t0:.1f}s wall (parallel)')
-    return {r['key']: r for r in results}
-
-
-def _build_all_sequential(cache_dir: str, seed: int) -> dict[str, dict]:
-    print('\nStep 1: Building 3 composites sequentially...')
-    t0 = time.time()
-    results = {}
-    for key in MODELS:
-        r = _build_one_model((key, cache_dir, seed))
-        results[r['key']] = r
-    print(f'  All 3 built in {time.time() - t0:.1f}s wall (sequential)')
-    return results
-
-
 # ---------------------------------------------------------------------------
-# Main entry point
+# Study spec + main entry point
 # ---------------------------------------------------------------------------
+
+def _load_study(study_path: str) -> dict:
+    """Load + lightly validate a v3-shape study.yaml driving this report.
+
+    Expected shape:
+        baseline:
+        - name: <one of MODELS>           # used as the build_composite key
+          composite: <dotted ref>          # informational; matched against ``name``
+          params: { seed: int, cache_dir: str }
+        - ...
+        visualizations:
+        - name: comparison                 # first viz used
+          address: local:CompareVisualization
+          config: { title: str, ... }
+    """
+    import yaml as _yaml
+    with open(study_path) as fh:
+        spec = _yaml.safe_load(fh) or {}
+
+    baseline_entries = spec.get('baseline') or []
+    if not baseline_entries:
+        raise ValueError(
+            f"study {study_path!r}: `baseline:` list is empty — nothing to compare"
+        )
+    unknown = [e.get('name') for e in baseline_entries if e.get('name') not in MODELS]
+    if unknown:
+        raise ValueError(
+            f"study {study_path!r}: baseline entry name(s) {unknown!r} not in "
+            f"{sorted(MODELS)} — compare_report only knows these architectures"
+        )
+    return spec
+
 
 def run_comparison(
     seed: int = 0,
     cache_dir: str = 'out/cache',
     output: str = 'out/comparison_report.html',
     parallel: bool = True,
+    study: dict | None = None,
 ) -> str:
+    """Build the three architecture composites, extract their graph_data, and
+    render via CompareVisualization.
+
+    When ``study`` is provided (a parsed study.yaml dict, v3 shape):
+      - the model list comes from ``study.baseline[].name``
+      - per-model seed/cache_dir come from ``study.baseline[i].params``
+        (CLI ``seed`` / ``cache_dir`` are still applied as defaults when a
+        params entry omits them)
+      - the visualization config comes from
+        ``study.visualizations[0].config`` if a ``CompareVisualization`` entry
+        is present; otherwise the title/options default to in-code values
+    Otherwise the legacy behavior runs all three MODELS at the supplied
+    seed + cache_dir.
+    """
     print('=== v2ecoli Architecture Comparison (v0 — structural) ===')
-    print(f'    Seed: {seed}  Cache: {cache_dir}  Parallel: {parallel}')
+
+    # Resolve per-model build args from the study (or fall back to defaults).
+    if study is not None:
+        baseline_entries = study['baseline']
+        model_keys = [e['name'] for e in baseline_entries]
+        per_model_args = []
+        for entry in baseline_entries:
+            p = entry.get('params') or {}
+            per_model_args.append((
+                entry['name'],
+                p.get('cache_dir', cache_dir),
+                int(p.get('seed', seed)),
+            ))
+        print(f'    Study: {study.get("name", "(unnamed)")}  '
+              f'Models: {", ".join(model_keys)}  Parallel: {parallel}')
+    else:
+        model_keys = list(MODELS)
+        per_model_args = [(k, cache_dir, seed) for k in model_keys]
+        print(f'    Seed: {seed}  Cache: {cache_dir}  Parallel: {parallel}')
 
     # Build composites + extract graph specs
+    print(f'\nStep 1: Building {len(per_model_args)} composite(s) '
+          f'{"in parallel" if parallel else "sequentially"}...')
+    t0 = time.time()
     if parallel:
-        build_data = _build_all_parallel(cache_dir, seed)
+        ctx = mp.get_context('spawn')
+        with ctx.Pool(len(per_model_args)) as pool:
+            results = pool.map(_build_one_model, per_model_args)
     else:
-        build_data = _build_all_sequential(cache_dir, seed)
+        results = [_build_one_model(args) for args in per_model_args]
+    print(f'  All {len(results)} built in {time.time() - t0:.1f}s wall')
 
-    # Collect specs in model order
-    composite_specs = [build_data[k]['graph_data'] for k in MODELS if k in build_data]
+    build_data = {r['key']: r for r in results}
+    composite_specs = [build_data[k]['graph_data'] for k in model_keys if k in build_data]
+
+    # Visualization config: prefer study's CompareVisualization entry, else default.
+    viz_config = {"title": "v2ecoli Architecture Comparison"}
+    if study is not None:
+        for v in (study.get('visualizations') or []):
+            if isinstance(v, dict) and 'CompareVisualization' in (v.get('address') or ''):
+                viz_config = dict(v.get('config') or viz_config)
+                break
 
     # Dispatch to CompareVisualization
     print('\nStep 2: Rendering HTML via CompareVisualization...')
@@ -159,7 +216,7 @@ def run_comparison(
     from v2ecoli.visualizations.compare import CompareVisualization
 
     viz = CompareVisualization(
-        config={"title": "v2ecoli Architecture Comparison"},
+        config=viz_config,
         core=allocate_core(),
     )
     result = viz.update({"composite_specs": composite_specs})
@@ -176,14 +233,20 @@ def run_comparison(
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='v2ecoli architecture comparison (structural, v0)')
+    parser.add_argument('--study',      default=None,
+        help='Path to a v3-shape study.yaml driving the comparison (overrides '
+             'the default model list; CLI seed/cache-dir become per-model '
+             'defaults when the study omits them).')
     parser.add_argument('--seed',       type=int, default=0)
     parser.add_argument('--cache-dir',  default='out/cache')
     parser.add_argument('--output',     default='out/comparison_report.html')
     parser.add_argument('--no-parallel', action='store_true')
     args = parser.parse_args()
+    study_spec = _load_study(args.study) if args.study else None
     run_comparison(
         seed=args.seed,
         cache_dir=args.cache_dir,
         output=args.output,
         parallel=not args.no_parallel,
+        study=study_spec,
     )

@@ -1212,8 +1212,60 @@ def step_daughters():
 # Main Pipeline
 # ---------------------------------------------------------------------------
 
-def run_workflow(out_path=None):
-    """Execute the full workflow pipeline with caching."""
+def _load_study(study_path):
+    """Load + lightly validate a v3-shape study.yaml driving this report.
+
+    workflow_report is single-cell + single-architecture (baseline) by
+    design, so the spec is checked against the narrow shape that fits
+    that intent::
+
+        baseline:
+        - name: <any>
+          composite: v2ecoli.composites.baseline.baseline
+          params: {seed?, cache_dir?, duration?, daughter_duration?}
+        visualizations:
+        - name: <any>
+          address: local:WorkflowVisualization
+          config: {title: str, ...}
+
+    Reject:
+      - more than one ``baseline`` entry (workflow is not multi-arch),
+      - a composite ref other than ``...baseline.baseline``,
+      - a ``lineage`` block (workflow is one generation; use
+        multigeneration_report for chained generations).
+    """
+    import yaml as _yaml
+    with open(study_path) as fh:
+        spec = _yaml.safe_load(fh) or {}
+
+    baseline_entries = spec.get("baseline") or []
+    if len(baseline_entries) != 1:
+        raise ValueError(
+            f"study {study_path!r}: workflow_report needs exactly one "
+            f"`baseline:` entry; got {len(baseline_entries)}"
+        )
+    composite_ref = baseline_entries[0].get("composite") or ""
+    if not composite_ref.endswith(".baseline.baseline"):
+        raise ValueError(
+            f"study {study_path!r}: workflow_report only handles the "
+            f"partitioned `baseline` architecture (e.g. "
+            f"v2ecoli.composites.baseline.baseline); got {composite_ref!r}"
+        )
+    if spec.get("lineage"):
+        raise ValueError(
+            f"study {study_path!r}: workflow_report is single-generation; "
+            f"the `lineage:` block belongs to multigeneration_report"
+        )
+    return spec
+
+
+def run_workflow(out_path=None, viz_config=None):
+    """Execute the full workflow pipeline with caching.
+
+    ``viz_config`` (when provided) overrides the WorkflowVisualization
+    config dict used at the report-render step. Defaults to
+    ``{"title": "v2ecoli Simulation Report"}``.
+    """
     os.makedirs(WORKFLOW_DIR, exist_ok=True)
 
     print("=" * 60)
@@ -1321,7 +1373,7 @@ def run_workflow(out_path=None):
         step_results['_parca_network_html_rel'] = parca_network_html_rel
 
     viz = WorkflowVisualization(
-        config={"title": "v2ecoli Simulation Report"},
+        config=viz_config or {"title": "v2ecoli Simulation Report"},
         core=allocate_core(),
     )
     result = viz.update({
@@ -1372,6 +1424,12 @@ def run_workflow(out_path=None):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser(description='v2ecoli workflow pipeline')
+    parser.add_argument('--study', default=None,
+                        help='Path to a v3-shape study.yaml driving the report '
+                             '(baseline[0].params seeds cache_dir / duration / '
+                             'daughter_duration; visualizations[0].config seeds '
+                             'the WorkflowVisualization title). CLI flags '
+                             'below still override.')
     parser.add_argument('--clean', action='store_true',
                         help='Clear cached metadata and re-run all steps')
     parser.add_argument('--fetch-biocyc', action='store_true',
@@ -1389,19 +1447,43 @@ if __name__ == '__main__':
                         help='Skip the daughters simulation step')
     parser.add_argument('--daughter-duration', type=int, default=None,
                         help='Override daughter sim duration in seconds')
+    parser.add_argument('--cache-dir', default=None,
+                        help='Directory holding ParCa cache (default: '
+                             'out/cache or out/workflow/cache; or study param).')
     parser.add_argument('--out', default=None,
                         help='Output HTML path (default: out/workflow/workflow_report.html)')
     args = parser.parse_args()
 
-    # Apply CLI overrides
+    # Resolve study-derived defaults before CLI overrides land on top.
+    study_spec = _load_study(args.study) if args.study else None
+    study_params = ((study_spec or {}).get('baseline') or [{}])[0].get('params') or {}
+    study_viz_config = None
+    if study_spec is not None:
+        for v in (study_spec.get('visualizations') or []):
+            if isinstance(v, dict) and 'WorkflowVisualization' in (v.get('address') or ''):
+                study_viz_config = dict(v.get('config') or {})
+                break
+
+    # Apply CLI overrides on top of study values.
     _OPTIONS['fetch_biocyc'] = args.fetch_biocyc
     _OPTIONS['parca_rerun'] = args.parca_rerun
     _OPTIONS['parca_cpus'] = args.parca_cpus
-    if args.duration is not None:
-        _OPTIONS['max_duration'] = args.duration
+    duration = args.duration if args.duration is not None \
+        else study_params.get('duration')
+    if duration is not None:
+        _OPTIONS['max_duration'] = int(duration)
     _OPTIONS['skip_daughters'] = args.no_daughters
-    if args.daughter_duration is not None:
-        _OPTIONS['daughter_duration'] = args.daughter_duration
+    daughter_duration = args.daughter_duration if args.daughter_duration is not None \
+        else study_params.get('daughter_duration')
+    if daughter_duration is not None:
+        _OPTIONS['daughter_duration'] = int(daughter_duration)
+
+    # CACHE_DIR is referenced by name throughout the module, so override the
+    # module-level binding if the CLI or the study supplies one.
+    if args.cache_dir is not None:
+        CACHE_DIR = args.cache_dir
+    elif 'cache_dir' in study_params:
+        CACHE_DIR = study_params['cache_dir']
 
     if args.clean:
         import glob as glob_mod
@@ -1412,4 +1494,6 @@ if __name__ == '__main__':
             os.remove(f)
             print(f"  Removed {f}")
 
-    run_workflow(out_path=args.out)
+    if study_spec is not None:
+        print(f"Study: {study_spec.get('name', '(unnamed)')}")
+    run_workflow(out_path=args.out, viz_config=study_viz_config)

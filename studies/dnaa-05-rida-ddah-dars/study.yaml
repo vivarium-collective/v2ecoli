@@ -115,12 +115,69 @@ tasks:
 - Add IHF + Fis cell-cycle modulation of DARS2 if data supports it.
 
 expected_behavior:
-- "DnaA-ATP fraction oscillates through the cell cycle (peak around initiation,
-   trough mid-C-period when RIDA is most active)."
-- "Increased synchrony of initiation timing across simulated cells vs dnaa-04."
-- "no-DDAH variant: untimely initiation (per delta-datA observations)."
-- "no-DARS1+DARS2 variant: DnaA-ATP fails to recover after initiation."
-- "DnaA-ATP vs replisomes: anti-correlated during active replication."
+
+- name: dnaa-atp-fraction-oscillates
+  en: "DnaA-ATP fraction oscillates through the cell cycle: peak around initiation, trough mid-C-period when RIDA fires on every fork."
+  given:  {run: baseline, window: full}
+  measure:
+    kind: listener_path
+    path: "listeners.dnaA_cycle.atp_fraction"
+    reduce: series
+  expect: {op: oscillation_amplitude_at_least, value: 0.15}   # ≥0.15 swing peak-to-trough
+  status: gated
+  requires:
+    - listener: dnaA_cycle.atp_fraction
+    - upstream: dnaa-05 RIDA + DARS processes
+
+- name: inter-initiation-cv-narrows-vs-intrinsic-only
+  en: "Adding RIDA + DDAH + DARS narrows the inter-initiation timing CV by at least 30% vs the dnaa-02 intrinsic-only baseline."
+  given:  {run: baseline, window: full, compare_to: dnaa-02-baseline}
+  measure:
+    kind: cross_run_cv_ratio
+    path: "listeners.replication.interinitiation_min"
+  expect: {op: at_most, value: 0.70}
+  status: gated
+  requires:
+    - cross_study: dnaa-02-baseline run available
+
+- name: no-DDAH-shows-early-initiation
+  en: "no-DDAH variant: mean initiation mass drops ≥10% (untimely early initiation, mirroring delta-datA observations)."
+  given:  {run: variant, variant: no-DDAH, window: full, compare_to: baseline}
+  measure:
+    kind: cross_run_ratio
+    series: {kind: listener_path, path: "listeners.replication.initiation_mass"}
+    reduce: mean
+  expect: {op: at_most, value: 0.90}
+  status: gated
+  requires:
+    - variant_hook: ddah_rate_per_min_per_data
+
+- name: no-DARS-fails-to-recover-atp-form
+  en: "Without DARS1+DARS2, DnaA-ATP fraction post-first-initiation drops below 0.05 and doesn't recover within the cycle."
+  given:  {run: variant, variant: no-DARS1-and-DARS2, window: full}
+  measure:
+    kind: listener_path
+    path: "listeners.dnaA_cycle.atp_fraction"
+    reduce: post_event_min
+    event: replication_initiation
+  expect: {op: at_most, value: 0.05}
+  status: gated
+  requires:
+    - variant_hook: dars1_rate_per_min_per_locus
+    - variant_hook: dars2_rate_per_min_per_locus
+
+- name: dnaa-atp-anti-correlated-with-replisomes
+  en: "During active replication, DnaA-ATP fraction and replisome count are anti-correlated (Pearson r < -0.3 — RIDA hydrolyses ATP-form per fork)."
+  given:  {run: baseline, window: replication_active}
+  measure:
+    kind: xy_correlation
+    x: {kind: listener_path, path: "listeners.dnaA_cycle.atp_fraction"}
+    y: {kind: listener_path, path: "listeners.replication.replisome_count"}
+  expect: {op: pearson_below, threshold: -0.3}
+  status: gated
+  requires:
+    - listener: dnaA_cycle.atp_fraction
+    - listener: replication.replisome_count
 
 expert_questions:
 - What's the right quantitative scaling for RIDA per fork? (β-clamp residence

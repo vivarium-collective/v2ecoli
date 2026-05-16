@@ -91,10 +91,68 @@ tasks:
   conversion (RIDA/DDAH/DARS) is implemented.
 
 expected_behavior:
-- "Most DnaA bound by ATP or ADP (apo-DnaA fraction small)."
-- "DnaA-ATP / total DnaA ≈ 0.2-0.5 (Boesen et al. 2024 PNAS)."
-- "Background ATP >> ADP from metabolism."
-- "no-intrinsic-hydrolysis variant: DnaA-ATP accumulates monotonically."
+
+- name: apo-dnaa-fraction-is-small
+  en: "At steady-state, the apo-DnaA fraction stays below 5% of total DnaA (nucleotide is tightly bound)."
+  given:  {run: baseline, window: second_half}
+  measure:
+    kind: ratio_of_sums
+    numerator:   {kind: bulk_count, id: DnaA_apo, reduce: median}
+    denominator: {kind: bulk_count_sum, ids: [DnaA_apo, DnaA_ATP, DnaA_ADP], reduce: median}
+  expect: {op: at_most, value: 0.05}
+  status: gated
+  requires:
+    - listener: dnaA_apo                # NEW bulk species (dnaa-02 implementation)
+    - listener: dnaA_ATP
+    - listener: dnaA_ADP
+
+- name: dnaa-atp-fraction-in-physiological-range
+  en: "DnaA-ATP / total-DnaA is between 0.2 and 0.5 (Boesen et al. 2024 PNAS)."
+  given:  {run: baseline, window: second_half}
+  measure:
+    kind: ratio_of_sums
+    numerator:   {kind: bulk_count, id: DnaA_ATP, reduce: median}
+    denominator: {kind: bulk_count_sum, ids: [DnaA_apo, DnaA_ATP, DnaA_ADP], reduce: median}
+  expect: {op: in_range, low: 0.2, high: 0.5}
+  status: gated
+  requires:
+    - listener: dnaA_ATP
+    - listener: dnaA_ADP
+
+- name: atp-pool-much-greater-than-adp
+  en: "Background ATP >> ADP from metabolism (ratio > 10× at steady state)."
+  given:  {run: baseline, window: second_half}
+  measure:
+    kind: ratio_of_bulks
+    numerator:   {id: "ATP[c]"}
+    denominator: {id: "ADP[c]"}
+    reduce: median
+  expect: {op: at_least, value: 10.0}
+  status: implemented   # ATP/ADP pools already exist in v2ecoli baseline
+
+- name: no-hydrolysis-variant-accumulates-atp-form
+  en: "In the no-intrinsic-hydrolysis variant, DnaA-ATP fraction monotonically rises (no decay sink)."
+  given:  {run: variant, variant: no-intrinsic-hydrolysis, window: full}
+  measure:
+    kind: ratio_of_sums
+    numerator:   {kind: bulk_count, id: DnaA_ATP, reduce: series}
+    denominator: {kind: bulk_count_sum, ids: [DnaA_apo, DnaA_ATP, DnaA_ADP], reduce: series}
+  expect: {op: monotonic_increasing, allow_dip_pct: 5}
+  status: gated
+  requires:
+    - variant_hook: dnaA_intrinsic_hydrolysis_rate_per_min
+
+- name: fast-hydrolysis-variant-suppresses-atp-form
+  en: "The 10× hydrolysis variant pushes DnaA-ATP fraction below 0.1 at steady state."
+  given:  {run: variant, variant: fast-intrinsic-hydrolysis, window: second_half}
+  measure:
+    kind: ratio_of_sums
+    numerator:   {kind: bulk_count, id: DnaA_ATP, reduce: median}
+    denominator: {kind: bulk_count_sum, ids: [DnaA_apo, DnaA_ATP, DnaA_ADP], reduce: median}
+  expect: {op: at_most, value: 0.1}
+  status: gated
+  requires:
+    - variant_hook: dnaA_intrinsic_hydrolysis_rate_per_min
 
 expert_questions:
 - Confirm the apo-DnaA pool size assumption (negligible at physiological [ATP]).

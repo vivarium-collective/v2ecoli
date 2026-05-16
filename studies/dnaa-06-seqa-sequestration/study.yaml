@@ -90,10 +90,69 @@ tasks:
 - Block DnaA binding at sequestered loci.
 
 expected_behavior:
-- "SeqA bound to oriC for ~10 min after initiation; DnaA cannot rebind."
-- "Without SeqA: rapid re-binding of DnaA -> premature reinitiation."
-- "dnaAp transient sequestration buffers gene-dosage doubling."
-- "Long-sequestration variant: delayed reinitiation, eventually rescues."
+
+- name: seqa-sequestration-lasts-10-minutes
+  en: "After replication initiation, oriC stays SeqA-sequestered for approximately 10 minutes (8-12 min window)."
+  given:  {run: baseline, window: post_initiation_30min}
+  measure:
+    kind: event_duration
+    event_start: oriC_sequestered_true
+    event_end:   oriC_sequestered_false
+    reduce: median
+  expect: {op: in_range, low: 480.0, high: 720.0}   # seconds
+  status: gated
+  requires:
+    - listener: seqa.oric_sequestered_bool
+    - upstream: dnaa-06 SeqA implementation
+
+- name: no-seqa-causes-reinitiation
+  en: "Without SeqA (knockout variant), ≥50% of cells reinitiate before division (vs zero in wildtype)."
+  given:  {run: variant, variant: no-SeqA, window: per_cycle}
+  measure:
+    kind: event_count_per_window
+    event: replication_initiation
+    window_kind: generation
+  expect: {op: at_least, value: 1.5}    # >1 initiation per generation
+  status: gated
+  requires:
+    - variant_hook: seqa_active
+
+- name: wildtype-zero-reinitiation
+  en: "With SeqA active, exactly one initiation per cell cycle on average (no premature reinitiation)."
+  given:  {run: baseline, window: full}
+  measure:
+    kind: event_count_per_window
+    event: replication_initiation
+    window_kind: generation
+  expect: {op: in_range, low: 0.95, high: 1.05}
+  status: gated
+  requires:
+    - listener: seqa.oric_sequestered_bool
+
+- name: dnaap-sequestration-dampens-tx-spike
+  en: "Post-replication transient SeqA at dnaAp dampens the transcription-rate spike from gene dosage by ≥40% (peak height) vs no-SeqA."
+  given:  {run: variant, variant: no-SeqA, window: post_initiation_10min, compare_to: baseline}
+  measure:
+    kind: cross_run_ratio
+    series: {kind: listener_sum, path: "listeners.rnap_data.rna_init_event"}
+    reduce: max
+  expect: {op: at_least, value: 1.4}    # no-SeqA peak ≥1.4× wildtype peak
+  status: gated
+  requires:
+    - listener: seqa.dnaap_sequestered_bool
+    - variant_hook: seqa_active
+
+- name: long-sequestration-delays-reinitiation
+  en: "Long-sequestration variant (20 min) delays the second initiation by ≥10 min vs baseline (10 min sequestration)."
+  given:  {run: variant, variant: long-sequestration, window: full, compare_to: baseline}
+  measure:
+    kind: cross_run_delta
+    series: {kind: listener_path, path: "listeners.replication.interinitiation_min"}
+    reduce: mean
+  expect: {op: at_least, value: 10.0, units: "minutes"}
+  status: gated
+  requires:
+    - variant_hook: seqa_sequestration_min
 
 expert_questions:
 - Is SeqA cooperativity (multimerization across multiple GATC sites) needed

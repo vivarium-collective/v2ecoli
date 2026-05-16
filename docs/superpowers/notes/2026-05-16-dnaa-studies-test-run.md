@@ -957,6 +957,218 @@ agent will trip on this if it isn't called out.
 
 ---
 
+### 2026-05-16 (Investigations as study collections)
+
+User asked: *"I want to bring back a concept of Investigation, which
+is a set of connected studies with dependencies between them."* —
+Investigation is now the **higher-level container** (a named
+collection of studies with an explicit DAG), and Study stays as the
+per-experiment unit. The legacy "investigations as a synonym for
+studies" naming is fully retired in the UI; backend keeps the legacy
+aliases for back-compat.
+
+Shipped end-to-end across both repos:
+
+**v2ecoli** (`investigations/dnaa-replication/investigation.yaml`)
+- New YAML format at `investigations/<name>/investigation.yaml` with
+  `{schema_version, name, title, status, question, hypothesis,
+    description, studies:[study-slug, ...], expert_docs:[...],
+    acceptance_criteria:[{study, behavior}, ...]}`.
+- File lives under `investigations/` but uses `investigation.yaml`
+  (not `spec.yaml`) so the legacy walker correctly skips it.
+
+**vivarium-dashboard** (`feat/studies-with-tests-and-investigations`
+commits `a39c975`, `5b353a8`, `bc6c061`, `bc0c165`)
+- `_iter_iset_dirs()` in `server.py` yields only dirs that contain
+  `investigation.yaml` (vs `_iter_study_dirs` which yields per-study
+  dirs by `study.yaml` / `spec.yaml`).
+- New GET endpoints:
+  - `/api/iset-list` — summaries (name, title, status, n_studies).
+  - `/api/iset/<name>` — investigation + resolved studies. Each study
+    carries `parent_studies:` normalized into the
+    `[{study, condition}]` shape for the DAG.
+- Rail rendering: studies grouped by their iset membership; group
+  headers collapsible; topological depth ordering within each group;
+  `[DAG]` link in each group header jumps to the investigation
+  detail view. Ungrouped studies fall into a final "Ungrouped" bucket.
+- New page `#page-investigations` with two views: list of investigation
+  cards on entry, DAG canvas detail view on click. Width treatment
+  mirrors `#page-studies` (`:has()` selector + full-bleed overrides).
+
+## Finding #20 (added live): DAG visualization pattern
+
+**What I built.** A simple SVG + absolute-positioned div layout for
+the study DAG inside an investigation:
+
+- BFS depth from roots: y = depth × (CARD_H + Y_GAP), x = within-depth
+  slot. Rows centered horizontally.
+- Each row is a horizontal band; cards have status-coded left border
+  (planned/running/ran/complete/failed colors).
+- SVG `<defs><marker>` arrowhead, cubic-Bezier paths between parent
+  bottom-mid and child top-mid with vertical control offsets so curves
+  flow downward.
+- Edge labels show the parent's `condition:` (tests-passed / ran /
+  complete) at the curve's midpoint.
+- Shell uses `overflow-y: visible` + JS-driven `height = canvasH` so
+  the **page** scrolls through the DAG instead of an inner box.
+  Critical UX detail — easy to miss.
+
+**Proposal.**
+1. Lift the layout into `vivarium_dashboard/static/dag-layout.js` (or
+   `lib/`) so it can be reused by future "study-of-studies" views
+   (e.g., a workspace-wide DAG showing all investigations).
+2. Replace the hand-rolled BFS-depth with a real layered-DAG
+   algorithm (dagre-like) for cases with many cross-edges. v0 is
+   fine for ≤10 nodes; the dnaA investigation has 6.
+
+## Finding #21 (added live): In-place embed pattern for collection items
+
+**What I built.** Clicking a node in the investigation DAG opens the
+full study **in the same page**, below the DAG, in an iframe pointing
+at `/studies/<name>`. Mirrors the existing study-detail embed inside
+the Studies tab — no page switch, no context loss.
+
+**Pattern (shareable across collection views):**
+- Embed panel = `<div>` with title bar (name + Pop out + ×) + `<iframe>`.
+- Click handler sets `iframe.src = '/<resource>/<name>'`, scrolls
+  panel into view.
+- Pop-out button uses `_openDetachedWindow(url, w, h)` (see #22).
+- Close button clears `iframe.src` and hides the panel.
+
+The same pattern works for "click a study in the rail → open in the
+current page" (which I implemented with a back-compat shim that picks
+the right embed target based on `window._currentIset`).
+
+**Proposal.** Extract the embed panel + handlers into a reusable
+component / partial (`templates/_embed_panel.html.j2` +
+`static/embed.js`) so the Studies tab, the Investigations tab, and
+any future tab can drop in the same affordance with one include.
+
+## Finding #22 (added live): Pop-out → detached window, not new tab
+
+**What the user wanted.** *"the pop out button opens up in a new
+window in the same browser rather than truly popping out"* — they
+want a real detached window for the popped-out study or
+investigation.
+
+**Cross-browser facts:**
+- `window.open(url, '_blank')` without features → tab (modern default).
+- `window.open(url, '_blank', 'popup=yes,width=N,height=N')` → popup
+  window in Chromium and Safari. `popup=yes` is the modern keyword.
+- Firefox respects `width=`/`height=` when present (default prefs).
+- Hard-coded tab-only browsers (user pref) ignore the JS request;
+  no JS escape hatch exists.
+
+**Helper shipped:**
+
+```js
+function _openDetachedWindow(url, width, height) {
+  var features = [
+    'popup=yes',
+    'width=' + (width || 1280),
+    'height=' + (height || 900),
+    'left=' + Math.max(0, (screen.availWidth - width) / 2),
+    'top='  + Math.max(0, (screen.availHeight - height) / 2),
+    'menubar=no', 'toolbar=no', 'location=no', 'status=no',
+    'resizable=yes', 'scrollbars=yes',
+    'noopener',           // discourage tab grouping with opener
+  ].join(',');
+  return window.open(url, '_blank', features);
+}
+```
+
+All three pop-outs (`_popoutStudy`, `_popoutInvestigation`,
+`_popoutInvestigationStudy`) route through it. Popup-blocker fallback
+is `console.warn` + `alert`.
+
+**Proposal.** Lift `_openDetachedWindow` into a shared client helper
+in `vivarium_dashboard/static/client.js`. Document the
+`browser-side prefs override JS` caveat in the dashboard's pop-out
+README so users aren't surprised when their Arc/Firefox-config
+returns a tab.
+
+## Finding #23 (added live): URL-param round-trip for "open in detached window"
+
+**The pattern.** A popped-out window needs to know which resource to
+display. Two options:
+
+1. Dedicated route per resource: `/studies/<name>` (already exists),
+   `/investigations/<name>` (NEW — would need a server-side template).
+2. Shared root URL + query param: `/?investigation=<name>#investigations`
+   — JS reads the param on load and auto-opens the detail view.
+
+I went with (2) for investigations to avoid adding a server-side
+template for a feature that's frontend-only. Two gotchas:
+
+- **Race**: the URL-param handler may fire before the
+  page-investigations DOM is mounted. Solution: retry up to 20×
+  with 100ms spacing (already in `walkthrough.js`).
+- **Origin assumption**: build the URL from
+  `window.location.origin + window.location.pathname`, NOT a hardcoded
+  `/`. The dashboard might be deployed under a sub-path.
+
+**Proposal.** For collection views, prefer option (1) (dedicated
+route) when the resource has a stable identifier, AND option (2) (URL
+param) for ephemeral views. Add a route handler for
+`/investigations/<name>` that returns the dashboard HTML pre-rendered
+with the right investigation pre-selected (eliminates the race).
+
+## Finding #24 (added live): Sidebar grouping needs both a list endpoint and a member endpoint
+
+The rail's grouped sidebar (collapsible investigations with member
+studies) needs BOTH:
+
+1. `/api/iset-list` — the investigations (group headers).
+2. `/api/investigations` — the studies (group members, with their
+   own status + blocked state).
+
+The frontend `_renderRailInvestigationGroups` runs after BOTH have
+loaded; if either is missing it falls back to the legacy flat
+rendering. This works but it's brittle.
+
+**Proposal.** Add a single `GET /api/iset-list?include=studies` flag
+that returns the grouped representation in one round-trip:
+
+```json
+{
+  "investigations": [
+    {"name": "...", "title": "...", "studies": [<full study summary>, ...]},
+    ...
+  ],
+  "ungrouped": [<study summaries>]
+}
+```
+
+Cuts the number of fetches the rail makes from 2 to 1 and lets the
+backend handle the membership computation that the frontend currently
+re-does on every render.
+
+---
+
+## Concrete deliverable shortlist for the other Claude session (updated 3)
+
+| # | Improvement | Effort | Priority |
+|---|---|---|---|
+| 8     | `lint-workspace.py` enumerates findings + runs the dashboard's own validator (#11) | XS | P0 |
+| 13    | Filter Registry tab discovered-processes by workspace imports | M | P0 |
+| 14    | Render expected_behavior on Overview tab (LANDED PARTIAL ✅) | M | P0 — PARTIAL |
+| 17    | Observables tab with bigraph-tree picker (VIEW ONLY ✅) | L | P0 |
+| 21    | Reusable embed-panel component | S | P0 (highest reuse) |
+| 22    | Lift `_openDetachedWindow` into shared client helper | XS | P1 |
+| 23    | Dedicated `/investigations/<name>` route to eliminate URL-param race | S | P1 |
+| 24    | `/api/iset-list?include=studies` to reduce rail round-trips | S | P1 |
+| 20    | Lift DAG-layout into a reusable module | M | P1 |
+| 16r   | Lift expected_behavior DSL + evaluator + fixtures to the dashboard package | M | P1 |
+| 4     | `.pbg/schemas/study.schema.json` + investigation.schema.json | M | P1 |
+| 15    | `/pbg-study fill-overview <slug>` | M | P1 |
+| 1     | `/pbg-status` | S | P2 |
+| 3     | `/pbg-study scaffold-from-plan <plan.pdf>` | L | P2 |
+| 5     | `/pbg-data add-expert <pdf>` | S | P2 |
+| 6     | Document study-subdir layout | XS | P3 |
+| 9     | `/pbg-study dag` (now subsumed by the in-dashboard DAG view, but still useful for CLI use) | S | P3 |
+
+---
+
 ## Concrete deliverable shortlist for the other Claude session (updated)
 
 Picking up where the prior list left off; #2 has already landed; #8 is

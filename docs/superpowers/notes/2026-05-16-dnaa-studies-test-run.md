@@ -101,7 +101,14 @@ next:
 
 Argument: none, or optional `--path <dir>`. Tools: `Bash` only.
 
-### 2. `/pbg-workspace --upstream` clones into a new dir; there's no in-place mode
+### 2. `/pbg-workspace --upstream` clones into a new dir; there's no in-place mode  ✅ LANDED 2026-05-16
+
+> **Update:** the receiving Claude session shipped this. The `pbg-workspace`
+> skill description now reads "Three modes: (1) upstream-branch ... (2)
+> standalone ... (3) in-place — promote an existing git checkout into a
+> workspace branch without cloning." Verified by inspecting the skill list
+> mid-session. Leaving the original finding below for context.
+
 
 **What I did.** The user explicitly asked to stay in `~/code/v2ecoli`. I
 couldn't use upstream-branch mode (it `gh repo clone`s into a fresh target).
@@ -366,3 +373,75 @@ edit older ones.
   `studies/**/study.yaml`, or does each study need to be registered via
   `/api/study-new`? My drafts don't have associated runs, so they may not
   appear if discovery is run-driven.
+
+### 2026-05-16 (server started)
+
+- `vivarium-dashboard serve --workspace /Users/eranagmon/code/v2ecoli`
+  bound on port 49428. `GET /api/state` returns 200, workspace.yaml +
+  both expert_docs visible.
+- Cleaned a **stale `.pbg/server/server-info` left in cwd by a long-gone
+  server**. The pre-existing pid file was already gone. Re-iterates
+  finding #1: agents need `/pbg-status` to surface this without manual
+  `kill -0 $PID`.
+- **Open question answered:** the dashboard DOES auto-discover studies.
+  `GET /api/studies` returns 6 entries with metadata derived directly
+  from each `studies/<name>/study.yaml`. No `/api/study-create` round-trip
+  needed.
+- **New friction (now finding #10 below):** the dashboard auto-migrates
+  any `schema_version: 3` study to v4 in memory and runs the v4 validator.
+  My custom `references:` (dict) + `implementation_tasks:` (list) collided
+  with the v4 reserved field shapes (list-of-{file} + string respectively),
+  so all 6 studies came back as `status: invalid` until I renamed them to
+  `bibliography:` + `tasks:`. Fix is commit `f181977`.
+- All 6 are now `status: draft, n_baseline: 1, baseline_source:
+  v2ecoli:baseline.baseline`, n_variants matches the plan (4/3/3/5/5/3).
+- **Friction next to surface:** `composite: ""` and `composites: []` are
+  empty in the dashboard's per-study response, even though
+  `baseline_source` resolved. Hints that the dashboard expects a separate
+  "register the baseline composite" step. To investigate.
+
+### 2026-05-16 (finding #2 landed)
+
+- The receiving Claude session updated `pbg-workspace` SKILL.md so the
+  description now lists three modes including in-place. So the cycle is
+  working as designed: notes → improvement → installed skill. Worth
+  amplifying: putting **a single proposal block per finding** (skill name,
+  CLI signature, behavior steps) made the receiving end's job easy.
+  Vague "we should have X" doesn't.
+
+---
+
+## Finding #10 (added live): v3→v4 auto-migration trips user-defined fields
+
+**What I did.** Wrote `schema_version: 3` study.yaml files with custom keys
+`references:` (a structured dict) and `implementation_tasks:` (a list of
+strings). Loaded the dashboard. Got back six
+`{"status": "invalid", "error": "references must be a list"}` from
+`/api/studies`.
+
+**Friction.** The error message ("references must be a list") doesn't tell
+you *why* the validator wants a list. The actual reason is in
+`vivarium_dashboard/lib/spec_migration.py:170-191` — `migrate_v3_to_v4`
+is called unconditionally on read, promotes my v3 spec to v4, then the
+v4 validator (`vivarium_dashboard/lib/investigations.py:170-190`) trips
+because v4 reserves `references:` for `[{file: "path"}, ...]` and
+`implementation_tasks:` for a markdown string. None of this is documented
+on the v3 user-facing contract.
+
+**Gap.**
+- v4 reserved field names aren't called out in v3 docs.
+- The error message doesn't say "v4 reserved field"; it says "must be a
+  list", which suggests v3 had a `references:` field that wanted a list,
+  which isn't true.
+
+**Proposal.**
+1. **Error message:** when the v4 validator trips on a field that didn't
+   exist in v3, prefix the error: "v3→v4 auto-migration: field
+   `references` collides with a v4 reserved name; rename it or migrate
+   your spec to v4 explicitly".
+2. **Documentation:** add a "Reserved field names in v4" subsection to
+   the v3 study.yaml contract (when it lands per finding #4).
+3. **Tooling:** `lint-workspace.py` should call the same migration +
+   validation path that the dashboard uses, so the agent gets the error
+   without having to start the server. Right now lint passes but the
+   dashboard rejects — that mismatch ate 6 tool calls of debugging.

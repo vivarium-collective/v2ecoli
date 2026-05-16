@@ -42,6 +42,12 @@ def main() -> int:
                         help='ParCa cache directory.')
     parser.add_argument('--subsample', type=int, default=1,
                         help='Record every Nth step (default: 1).')
+    parser.add_argument('--heavy_tf_listener', action='store_true',
+                        help='Flip tf_binding.emit_n_bound_TF_per_TU=True so '
+                             'the (n_TU x n_TF) binding matrix is emitted. '
+                             '~900KB/tick — needed for autorepression-correlation '
+                             'but expensive. Off by default to match the v2ecoli '
+                             'default.')
     args = parser.parse_args()
 
     duration_s = args.duration_min * 60.0
@@ -49,10 +55,22 @@ def main() -> int:
 
     from v2ecoli.composites.baseline import baseline
     from v2ecoli.composites._helpers import sqlite_emitter
-    from v2ecoli.core import build_core
+    from v2ecoli.core import build_core, load_cache_bundle
 
     core = build_core()
     print(f"[run_baseline] core built", flush=True)
+
+    # Heavy-listener opt-in: monkey-patch the cached tf_binding config to flip
+    # emit_n_bound_TF_per_TU before baseline() reads the bundle. This lets the
+    # autorepression-correlation behavior_test see the per-TU x per-TF matrix
+    # without changing the v2ecoli composite default.
+    if args.heavy_tf_listener:
+        bundle = load_cache_bundle(args.cache_dir)
+        tf_cfg = bundle['configs'].get('ecoli-tf-binding')
+        if tf_cfg is not None:
+            tf_cfg['emit_n_bound_TF_per_TU'] = True
+            print("[run_baseline] tf_binding.emit_n_bound_TF_per_TU = True (heavy listener)",
+                  flush=True)
 
     with sqlite_emitter(file_path=str(STUDY_DIR),
                         db_file='runs.db',

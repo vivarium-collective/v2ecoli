@@ -150,11 +150,35 @@ def _measure_series(history: list, measure: dict,
         series = []
         for s in history:
             v = _listener_value(s["state"], path)
-            series.append(sum(v) if isinstance(v, list) else (v or 0))
+            if isinstance(v, list):
+                # Flatten one level for 2D matrices (e.g. n_bound_TF_per_TU
+                # shape (n_TU, n_TF)). Deeper structures would need a
+                # dedicated measure kind.
+                if v and isinstance(v[0], list):
+                    series.append(sum(sum(row) for row in v))
+                else:
+                    series.append(sum(v))
+            else:
+                series.append(v or 0)
         return series
     if kind == "listener_path":
         path = measure["path"]
         return [_listener_value(s["state"], path) for s in history]
+    if kind == "tf_axis_sum":
+        # Read a 2-D listener field (e.g. listeners.rna_synth_prob.n_bound_TF_per_TU
+        # with shape (n_TU, n_TF)) and project onto one TF column by summing
+        # across TUs. Used by autorepression tests to get the per-tick
+        # binding load for a specific transcription factor.
+        path = measure.get("path", "listeners.rna_synth_prob.n_bound_TF_per_TU")
+        tf_idx = measure["tf_index"]
+        series = []
+        for s in history:
+            v = _listener_value(s["state"], path)
+            if isinstance(v, list) and v and isinstance(v[0], list):
+                series.append(sum(row[tf_idx] for row in v if len(row) > tf_idx))
+            else:
+                series.append(0)
+        return series
     raise ValueError(f"unknown measure kind {kind!r}")
 
 

@@ -554,6 +554,73 @@ conclusion: |
   Recommend: hold dnaa-02 pending expert review of EG10235's
   translation_efficiency in ParCa, then re-run dnaa-01.
 
+
+# ─── Follow-up studies / decisions ────────────────────────────────────────
+# Concrete next steps derived from running this study. Each entry is a
+# decision the next person (or future-you) needs to make. Mix of:
+#   • existing downstream studies in the pipeline (kind: existing)
+#   • new studies this run uncovered as needed (kind: new)
+#   • non-study follow-ups (infrastructure fixes, expert questions, calibration tasks)
+#
+# Reasons should cite the run outcome that motivated them, so the
+# follow-up isn't ungrounded.
+follow_up_studies:
+
+- title: "Apply overwrite[] fix to sibling listeners (rna_synth_prob, replication_data)"
+  kind: infrastructure_fix
+  effort: S
+  why: |
+    The monomer_counts_listener bug pattern (plain array[] output without
+    overwrite[] wrapper) likely exists in rna_synth_prob_listener and
+    replication_data_listener. This explains why n_bound_TF_per_TU stays
+    empty in the emit, which blocks autorepression-correlation here AND
+    dnaa-03's DnaA-box-occupancy readouts.
+  unblocks:
+    - tests.autorepression-correlation in dnaa-01
+    - dnaa-03's box-occupancy readouts
+  acceptance:
+    - After fix, listeners.rna_synth_prob.n_bound_TF_per_TU is populated each tick
+    - After fix, listeners.replication_data.* fields update each tick
+
+- title: "Recalibrate EG10235 translation_efficiency in ParCa"
+  kind: calibration_task
+  effort: M
+  why: |
+    With the listener bug fixed, v2ecoli's median DnaA pool is ~115/cell.
+    Literature (Sekimizu, Schmidt, Mori) reports 300-800. v2ecoli is ~5×
+    too low. Most likely cause: translation_efficiency for EG10235 in the
+    ParCa cache. Other candidates worth ruling out: DnaA degradation rate;
+    whether literature numbers include chromosome-bound DnaA that the
+    listener might not be summing back in.
+  unblocks:
+    - tests.dnaA-count-in-range in dnaa-01 (passing the gate)
+    - all of dnaa-02..06 (a realistic DnaA pool is the baseline they depend on)
+  acceptance:
+    - dnaa-01 re-run produces median DnaA in [300, 800]
+    - bulk[MONOMER0-160[c]] (DnaA-ATP) reaches the expected 200-500 free pool fraction
+
+- title: dnaa-02-atp-hydrolysis
+  kind: existing
+  status: blocked
+  why: |
+    Pre-stated pipeline_gate.proceed_condition not met — primary test
+    dnaA-count-in-range failed. dnaa-02 builds on the layer-1 (total
+    pool) baseline that dnaa-01 was meant to certify; starting it now
+    would tune nucleotide-state rates against an unrealistic pool size.
+  unblocks_when: dnaa-01's calibration is resolved (above)
+
+- title: "Expert question for the dashboard: which DnaA pool does the literature target match?"
+  kind: expert_question
+  effort: XS
+  why: |
+    Literature numbers [300, 800] may refer to: (a) free DnaA in cytosol,
+    (b) total cellular DnaA including bound, (c) DnaA-ATP form only.
+    Different choice changes which v2ecoli readout to compare. Worth
+    confirming before tuning translation_efficiency to the wrong target.
+  unblocks:
+    - The interpretation of dnaA-count-in-range
+  forward_to: replication_initiation_molecular_info expert
+
 parent_studies: []     # superseded by pipeline_gate.prerequisites; kept for dashboard back-compat
 
 tests:

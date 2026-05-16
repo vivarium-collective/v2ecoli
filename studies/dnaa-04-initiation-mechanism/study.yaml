@@ -298,12 +298,16 @@ expert_questions:
 
 bibliography:
   expert: [replication_initiation_molecular_info]
-  bib_keys: [Olivi2025NatCommun, Katayama2017Frontiers, Leonard2015FrontMicrobiol]
-  claims: [dnaa.titration.initiation-timing, dnaa.dissociation.post-replication]
-  papers_to_read:
-    - https://www.nature.com/articles/s41467-022-33886-6
-    - https://journals.aps.org/prxlife/abstract/10.1103/PRXLife.1.013011
-    - https://www.sciencedirect.com/science/article/pii/0923250891900256
+  bib_keys:
+    # Primary expert doc:
+    - Olivi2025NatCommun              # DnaA titration on chromosome
+    - Katayama2017Frontiers           # DnaA cycle review
+    - Leonard2015FrontMicrobiol       # orisome structure
+    # Initiator-titration modeling (plan Study 4 references):
+    - Hansen1991ResMicrobiol          # classic Hansen titration model
+    - Berger2022NatCommun             # robust replication initiation from coupled mechanisms
+    - Berger2023PRXLife               # initiator-titration model (PRX Life)
+  claims: [dnaa.titration.initiation-timing, dnaa.dissociation.post-replication, dnaa.initiator.titration-model]
 
 runs: []
 conclusion: null

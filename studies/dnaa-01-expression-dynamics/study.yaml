@@ -446,8 +446,23 @@ expert_questions:
 
 bibliography:
   expert: [replication_initiation_molecular_info, chromosome_replication_plan]
-  bib_keys: [Boesen2024PNAS, Hansen2018DnaATale, Speck1999EMBO, Saggioro2013BiochemJ, Katayama2017Frontiers]
-  claims: [dnaa.autorepression.dnaap, dnaa.expression.steady-300-800, dnaa.boxes.dnaap-2high-2low]
+  bib_keys:
+    # Primary (expert doc + plan):
+    - Boesen2024PNAS                  # DnaA-ATP fraction
+    - Hansen2018DnaATale              # key review
+    - Katayama2017Frontiers           # DnaA cycle review
+    - Speck1999EMBO                   # dnaA promoter / autorepression
+    - Saggioro2013BiochemJ            # dnaAp temp-dependence
+    # DnaA abundance reference range (300-800/cell):
+    - Sekimizu1991JBacteriol          # original DnaA abundance measurement
+    - Schmidt2016NatBiotechnol        # E. coli proteome (mass-spec)
+    - Li2014Cell                      # absolute synthesis rates
+    - Mori2021MolSysBiol              # absolute proteome under growth conditions
+    - Liu2020NatMicrobiol             # DnaA stoichiometry (Chenli Liu lab)
+    # DnaA protein stability:
+    - Hansen1999JBacteriol            # half-life / turnover
+    - Hansen2021FrontMolBiosci        # stability in growth-rate transitions
+  claims: [dnaa.autorepression.dnaap, dnaa.expression.steady-300-800, dnaa.protein.stability, dnaa.boxes.dnaap-2high-2low]
 
 # ── Tests (v4 shape) ────────────────────────────────────────────────────────
 # Picked up by vivarium_dashboard/lib/study_tests.py: shells out to pytest

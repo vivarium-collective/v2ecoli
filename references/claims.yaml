@@ -1,7 +1,9 @@
 # Maps named claims (e.g., "dnaa.autorepression.dnaap") to BibTeX keys.
 claims:
   dnaa.autorepression.dnaap: [Speck1999EMBO, Saggioro2013BiochemJ, Katayama2017Frontiers]
-  dnaa.expression.steady-300-800: [Boesen2024PNAS, Hansen2018DnaATale]
+  dnaa.expression.steady-300-800: [Boesen2024PNAS, Hansen2018DnaATale, Sekimizu1991JBacteriol, Schmidt2016NatBiotechnol, Li2014Cell, Mori2021MolSysBiol, Liu2020NatMicrobiol]
+  dnaa.protein.stability: [Hansen1999JBacteriol, Hansen2021FrontMolBiosci]
+  dnaa.initiator.titration-model: [Hansen1991ResMicrobiol, Berger2022NatCommun, Berger2023PRXLife, Olivi2025NatCommun]
   dnaa.intrinsic-hydrolysis.0p046-per-min: [Sekimizu1987Cell, Kawakami2006MolMicrobiol]
   dnaa.atp-adp-binding.tight: [Sekimizu1987Cell, Kawakami2006MolMicrobiol]
   dnaa.atp-fraction.0p2-to-0p5: [Boesen2024PNAS]

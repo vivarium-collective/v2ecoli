@@ -1,8 +1,9 @@
 schema_version: 3
 name: dnaa-01-expression-dynamics
 created: '2026-05-16'
-status: planned
-phase: Design   # Design | Build | Simulate | Evaluate | Decide
+status: ran
+phase: Decide   # Design | Build | Simulate | Evaluate | Decide
+last_run: '2026-05-16T19:44Z'
 
 
 # ─── Dashboard v3 compatibility shim ──────────────────────────────────────
@@ -238,14 +239,23 @@ behavior_tests:
   units: molecules/cell
   requires_simulation: baseline-steady-state
   calibration_anchor:
-    v2ecoli_observed: null         # populated by /pbg-study preview-viz
+    v2ecoli_observed: 51781         # median over second-half of 10-min seed-0 run (2026-05-16)
     literature_target: 550          # midpoint of [300, 800]
     divergence_alarm_factor: 10     # > 10× divergence → calibration question
+    divergence_observed: 65         # 51781 / 800 — well past the alarm threshold
     notes: |
       Phase 1 walkthrough found v2ecoli's t=2350s monomer_counts[DnaA] = 256,299.
-      That's a 320× divergence from the band — likely a CONCEPT mismatch
-      (monomer_counts aggregates complexed DnaA too) or a calibration issue.
+      First real 10-min seed-0 run (2026-05-16) gives median 51,781 over the
+      second-half window — 64× the upper bound of [300, 800]. Same order as
+      the t=2350s observation when adjusted for the shorter window. The
+      divergence is consistent across timepoints, so this is NOT a transient
+      — it's a calibration / concept-mismatch issue between v2ecoli's
+      monomer_counts aggregate and the literature's per-cell DnaA count.
       Resolution: expert sign-off before flipping this to a hard gate.
+      Likely candidates: (a) monomer_counts re-aggregates complexed DnaA
+      into the total (over-count), (b) v2ecoli's translation efficiency for
+      EG10235 needs recalibration, (c) the literature concept is "free DnaA"
+      and we should compare to bulk[PD03831[c]] free pool only.
   cites: [Sekimizu1991JBacteriol, Schmidt2016NatBiotechnol, Mori2021MolSysBiol, Liu2020NatMicrobiol, Boesen2024PNAS]
 
 - name: dnaA-concentration-stable
@@ -483,8 +493,31 @@ bibliography:
 # NOTE: the field `tests:` (dict) is the dashboard's v4 RESERVED config —
 # don't put behavior tests here. Behavior test definitions live under
 # `behavior_tests:` above.
-runs: []
-conclusion: null
+runs:
+- simulation: baseline-steady-state
+  seed: 0
+  duration_s: 600
+  started_at: '2026-05-16T19:44Z'
+  wall_seconds: 72
+  rows: 601
+  db: studies/dnaa-01-expression-dynamics/runs.db
+  outcomes:
+    dnaA-count-in-range:        {result: FAIL, value: 51781, expected: '[300, 800]'}
+    dnaA-concentration-stable:  {result: PASS, max_rolling_cv: 0.005}
+    autorepression-correlation: {result: FAIL, reason: 'n_bound_TF_per_TU empty — listener not populated in baseline composite'}
+
+conclusion: |
+  Phase=Decide outcome: PIPELINE-GATED on calibration question.
+  • Test framework works end-to-end (baseline → SQLite emitter → evaluator).
+  • dnaA-concentration-stable PASSES (max rolling CV 0.005 << 10%).
+  • dnaA-count-in-range FAILS by 64× — divergence_alarm_factor=10 triggered;
+    pre-stated diagnostic in conclusion_logic.if_primary_tests_fail applies:
+    "likely concept mismatch (monomer_counts vs bulk vs complex form)".
+  • autorepression-correlation BLOCKED on n_bound_TF_per_TU being empty in
+    the current baseline composite output (req-6 underlying data missing).
+  Recommend: do NOT auto-unblock dnaa-02. Resolve the DnaA-count concept
+  question with expert review first; then re-run dnaa-01 and re-evaluate.
+
 parent_studies: []     # superseded by pipeline_gate.prerequisites; kept for dashboard back-compat
 
 tests:

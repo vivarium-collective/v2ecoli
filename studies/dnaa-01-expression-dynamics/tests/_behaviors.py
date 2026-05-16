@@ -270,17 +270,70 @@ def _check(value, expect: dict) -> tuple[bool, str]:
 
 # ─── Public entry point ─────────────────────────────────────────────────────
 
-def evaluate(entry: dict, history: list) -> tuple[bool, str]:
-    """Evaluate one expected_behavior entry against a loaded history.
+def _normalize_pass_if(pass_if: dict) -> dict:
+    """Rename v3 ops to match the existing _check() dispatcher."""
+    op = pass_if.get("op")
+    if op == "rolling_cv_at_most":
+        return {**pass_if, "op": "rolling_cv_below"}
+    if op == "pearson_at_most":
+        return {**pass_if, "op": "pearson_below"}
+    if op == "pearson_at_least":
+        return {**pass_if, "op": "pearson_above"}
+    return pass_if
+
+
+def evaluate(entry: dict, history: list,
+             *, monomer_ids: list[str] | None = None) -> tuple[bool, str]:
+    """Evaluate one behavior entry against a loaded history.
+
+    Handles both schema shapes:
+      - legacy: ``given.window`` + ``expect``
+      - v3:     ``measure.window`` + ``pass_if``
 
     Returns (passed, message). Doesn't raise — caller decides whether the
     failure should be assert / xfail / skip.
     """
-    given = entry.get("given") or {}
-    window_name = given.get("window", "full")
+    measure = entry["measure"]
+    pass_if = entry.get("pass_if") or entry.get("expect")
+    if pass_if is None:
+        return False, "entry has neither `pass_if` nor `expect`"
+
+    # Window resolution: v3 places window inside measure; legacy under `given`.
+    window_name = measure.get("window")
+    if window_name is None:
+        given = entry.get("given") or {}
+        window_name = given.get("window", "full")
     sub_history = _window(history, window_name)
     if not sub_history:
         return False, f"window {window_name!r} produced an empty history slice"
 
-    value = _measure(sub_history, entry["measure"])
-    return _check(value, entry["expect"])
+    # The xy_correlation kind walks sub-measures; window doesn't propagate
+    # into them. _measure() handles dispatch.
+    if measure["kind"] == "xy_correlation":
+        # Build x and y from the windowed history.
+        x = _measure_series(sub_history, measure["x"], monomer_ids=monomer_ids)
+        y = _measure_series(sub_history, measure["y"], monomer_ids=monomer_ids)
+        if x is None or y is None:
+            return False, "xy_correlation sub-measure returned None"
+        # Match lengths (n_bound_TF_per_TU might be empty at some steps).
+        n = min(len(x), len(y))
+        value = {"x": x[:n], "y": y[:n]}
+    else:
+        reduce = measure.get("reduce", "series")
+        series = _measure_series(sub_history, measure, monomer_ids=monomer_ids)
+        if series is None or not series:
+            value = None
+        elif reduce == "series":
+            value = series
+        elif reduce == "median":
+            value = statistics.median(series)
+        elif reduce == "mean":
+            value = statistics.mean(series)
+        elif reduce == "first_and_last":
+            value = {"first": series[0], "last": series[-1]}
+        elif reduce == "pre_post_event_ratio":
+            value = None   # needs an event index — see req-5
+        else:
+            return False, f"unknown reduce {reduce!r}"
+
+    return _check(value, _normalize_pass_if(pass_if))

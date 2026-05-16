@@ -1,0 +1,35 @@
+name: colony
+description: |
+  Colony simulation: one v2ecoli whole-cell agent plus N adder-grow-divide
+  surrogate cells in a 2D pymunk environment. Dispatches per-tick position
+  / size / mass rows to ColonyVisualization, which renders the trajectory
+  as an interactive Plotly + GIF report.
+
+  Driven by `python reports/colony_report.py --study <this file>`.
+  Legacy CLI invocation (without --study) still works.
+status: planned
+tags:
+  - colony
+  - multi-cell
+  - spatial
+
+baseline:
+  - name: colony
+    composite: v2ecoli.composites.colony.colony
+    params:
+      seed: 0
+      duration: 60       # minutes
+      n_adder: 9         # surrogate cells around the wc-ecoli
+      env_size: 40       # µm
+
+variants: []
+interventions: []
+observables: []
+
+visualizations:
+  - name: colony
+    address: local:ColonyVisualization
+    config:
+      title: v2ecoli — E. coli colony simulation
+
+runs: []

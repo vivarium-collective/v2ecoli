@@ -1,7 +1,21 @@
 schema_version: 3
 name: dnaa-03-box-binding
 created: '2026-05-16'
-status: draft
+status: planned
+question: |
+  Does pure DnaA-box titration (~307 chromosomal high-affinity sites +
+  the 11 oriC boxes + 4 dnaA-promoter boxes) reproduce the textbook
+  2-step oriC occupancy (high-affinity sites first, then low) and the
+  free-DnaA rise after chromosomal saturation?
+hypothesis: |
+  Chromosomal occupancy grows monotonically as DnaA accumulates; oriC
+  binding stays low until ≤~10 chromosomal sites remain unoccupied,
+  then the high-affinity oriC sites fill quickly, followed by the
+  low-affinity sites only when DnaA-ATP is plentiful. Free DnaA stays
+  sub-Kd through most of the cycle, then rises sharply, providing the
+  signal that downstream replication-initiation studies (dnaa-04) will
+  consume. With all-high-affinity oriC (variant), the 2-step pattern
+  collapses into a single fill event.
 objective: |
   Implement DnaA binding to the ~307 chromosomal DnaA boxes, the 11 oriC
   boxes (3 high-affinity + 8 low-affinity), and the 4 dnaA promoter boxes

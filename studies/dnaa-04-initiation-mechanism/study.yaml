@@ -1,7 +1,21 @@
 schema_version: 3
 name: dnaa-04-initiation-mechanism
 created: '2026-05-16'
-status: draft
+status: planned
+question: |
+  When the v2ecoli mass-threshold initiation heuristic is replaced with a
+  DnaA-driven mechanism (oriC fill + DnaA-ATP filament + DUE opening), do
+  emergent initiation timing and mass match the heuristic's distribution
+  under slow non-overlapping growth, with the expected sensitivity to
+  growth rate and DnaA-box count?
+hypothesis: |
+  The mechanism converges to a steady-state initiation mass within ±5% of
+  the heuristic's mean across seeds. Inter-initiation timing is wider than
+  the heuristic (no global trigger) but bounded. Scaling chromosomal box
+  count by 1/N shifts inter-initiation timing proportionally (the
+  titration prediction). Fast growth shifts initiation earlier in the
+  cycle. Replication-fork passage cleanly removes DnaA from boxes; new
+  boxes appear behind the fork with empty occupancy.
 objective: |
   Replace the current mass-threshold replication-initiation heuristic with
   a DnaA-driven mechanism (oriC occupancy + DnaA-ATP filament + DUE opening).

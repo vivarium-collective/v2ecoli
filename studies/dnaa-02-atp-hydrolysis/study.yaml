@@ -1,7 +1,19 @@
 schema_version: 3
 name: dnaa-02-atp-hydrolysis
 created: '2026-05-16'
-status: draft
+status: planned
+question: |
+  Does an exponential intrinsic DnaA-ATP -> DnaA-ADP hydrolysis (k ≈ 0.046/min,
+  Sekimizu et al. 1987) paired with tight ATP / ADP binding produce the
+  physiological DnaA-ATP / total-DnaA fraction of 0.2-0.5 (Boesen et al.
+  2024) under the steady DnaA expression baseline from dnaa-01?
+hypothesis: |
+  Without any extrinsic conversion, the system equilibrates near the lower
+  end of the band (~0.2) because ATP-binding rate roughly balances
+  hydrolysis at physiological [ATP]. The no-intrinsic-hydrolysis variant
+  drives DnaA-ATP fraction up toward 1.0 monotonically; the
+  10× hydrolysis variant pushes it below 0.1. The apo-DnaA pool stays
+  small (<5% of total) at physiological [ATP].
 objective: |
   Model DnaA-ATP intrinsic hydrolysis to DnaA-ADP as a first-order decay,
   and DnaA-ATP/DnaA-ADP binding such that DnaA is predominantly

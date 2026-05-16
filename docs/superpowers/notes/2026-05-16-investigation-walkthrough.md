@@ -257,3 +257,213 @@ streams of work:
 
 These are exactly the streamlining proposals to feed back into
 pbg-superpowers.
+
+---
+
+## Phase 2 — How to build studies + investigations MORE ROBUSTLY
+
+User feedback after Phase 1: *"I want to make sure we build future
+studies and investigations more robustly based on what we learned.
+We should check that all the requested readouts are valid, and even
+run some baseline visualizations to confirm things are looking fine
+before we resume the study. Each study should have its planned
+visualizations that an expert could look over and confirm."*
+
+This is the validation-before-execution theme. Phase 1 showed that
+design-phase looks complete but reality finds 3 wrong identifiers in
+5 minutes. The fix is a structured **lifecycle** with gates between
+phases, plus tooling at each gate.
+
+### Proposed study lifecycle (state machine)
+
+```
+planned          (spec exists, no validation done yet)
+  ↓ run /pbg-study verify <slug>
+spec-validated   (all identifiers resolve; all variants' params have a hook
+                  OR are marked aspirational; cross-study refs resolve)
+  ↓ run /pbg-study preview-viz <slug>
+viz-previewed    (each declared visualization renders against the cached
+                  baseline; expert can sanity-check the shape of every plot)
+  ↓ expert review (manual)
+ready            (expert questions addressed; calibration disagreements
+                  resolved; gate to actually execute)
+  ↓ run /pbg-study run-baseline (existing)
+running          (simulation in flight)
+  ↓
+ran              (at least one completed run on disk)
+  ↓ run /pbg-study run-tests (existing)
+tests-passed     (parametrized behaviors all green)
+  ↓ expert review
+complete         (study contributes its results to investigation acceptance)
+```
+
+The existing dashboard `_VALID_STATUSES = {planned, running, ran,
+complete, failed, invalid}` covers the *runtime* states but not the
+*pre-run* validation states. Three new states needed:
+`spec-validated`, `viz-previewed`, `ready`. Each is gated by a
+specific tool that produces an artifact + an explicit pass/fail.
+
+### Tool proposals (P0 for the listening Claude)
+
+#### Finding #25 — `/pbg-study verify <slug>`: spec-validated gate
+
+What it does, per study.yaml:
+- Loads `out/cache/initial_state.json` + sim_data + listener configs.
+- **For each observable**: resolves `index_by` against the right
+  catalog (bulk_id → bulk array; rna_id → RNA_counts_listener config;
+  monomer_id → monomer_counts_listener config; tf_id → tf_binding
+  config). Reports ✓ / ✗ / ⚠ (value found but zero) per entry.
+- **For each variant**: checks that its `params:` map onto a real
+  composite parameter, OR that the variant is `status: aspirational`
+  with a matching `requires:` block.
+- **For each behavioral test**: checks that the `measure.path` + any
+  `index_by` resolve. Catches the dnaa-01-style "MONOMER0-160[c] is
+  the wrong identifier" bug before pytest discovers it.
+- **For each cross-study reference** (`requires.cross_study`,
+  `compare_to: dnaa-02-baseline`): checks that the named study exists
+  + has a corresponding baseline run on disk.
+- **Cited bib keys**: every key in `cites:` must be in
+  `references/papers.bib`.
+
+Output: a structured JSON report + an HTML render that the
+investigation report links to. A failing `verify` blocks the
+spec-validated transition.
+
+#### Finding #26 — `/pbg-study preview-viz <slug>`: viz-previewed gate
+
+What it does:
+- Reads each entry in `study.yaml.visualizations`.
+- For each, renders a preview against the most-recent cached baseline
+  run (or against `out/cache/initial_state.json` if no run exists).
+- Saves the rendered HTML / SVG to `studies/<slug>/viz/<viz-name>.preview.html`.
+- The Visualizations tab in the dashboard shows the rendered plot
+  with a "Looks right?" thumbs-up/down chip the expert can click.
+
+Critical missing piece: **a generic `TimeSeriesFromObservables`
+Visualization Step** that consumes any list of observable specs +
+a runs.db and produces a time-series plot. Without this, studies
+that declare `address: local:TimeSeriesPlot` have no backing code
+and can't be previewed.
+
+Proposal: add `v2ecoli/visualizations/timeseries_from_observables.py`
+that:
+1. Reads `study.yaml.observables` for the named observables.
+2. Resolves each via the same index_by mechanism `verify` uses.
+3. Pulls the time-series from `runs.db` history rows (or constructs
+   from `out/workflow/single_cell.dill` if no runs.db yet).
+4. Renders a multi-line Plotly chart with the observable name + units
+   from the spec.
+
+This single Viz class lights up most studies' declared
+visualizations without per-study code. Move it into the dashboard
+package long-term so every workspace gets it.
+
+#### Finding #27 — Investigation-level "all studies ready" gate
+
+Each investigation's `acceptance_criteria:` maps to per-study
+behavioral tests. The investigation should NOT start runs until:
+- Every study in `studies:` is `status: ready` or higher.
+- Every acceptance-criterion's (study, behavior) pair resolves
+  cleanly via `/pbg-study verify`.
+- At least one preview viz per study has been thumbs-up'd by the
+  expert.
+
+The Generate-report flow should highlight non-ready studies in red:
+*"3 of 6 studies are not yet ready: dnaa-01 (1 viz failed preview),
+dnaa-04 (3 variants without hooks)…"*. The expert reads the report,
+clicks the red items, and the dashboard guides them to the fix.
+
+### Finding #28 — Each study needs **calibration anchors** alongside expectations
+
+Phase 1 surfaced a 256k vs 800 DnaA discrepancy that broke a behavior
+test. The spec didn't say "this is the calibrated value in v2ecoli
+today; the textbook value is 800; if they diverge by >Nx, surface
+to the expert as an alarm". Propose:
+
+```yaml
+# In each behavior with quantitative thresholds:
+expect:
+  op: in_range
+  low: 300
+  high: 800
+calibration_anchor:
+  v2ecoli_observed: 256299     # populated by /pbg-study preview-viz
+  literature_target: 550       # midpoint of [300, 800]
+  divergence_factor: 466       # auto-computed; > 10 → alarm
+  resolution: "expert"          # one of: model | thresholds | concept
+```
+
+The behavioral test reports calibration_anchor.divergence_factor
+alongside pass/fail so an expert can immediately tell whether the
+disagreement is a model-calibration problem or a threshold-vs-concept
+mismatch.
+
+### Finding #29 — Generic readout types observed in v2ecoli
+
+For the listening Claude building `verify-identifiers`, here is the
+catalog of how each storage concept is reached. This table belongs in
+`docs/concepts/observable-storage-classes.md` (which doesn't exist
+yet but should).
+
+| Concept | Path pattern | Index by | sim_data catalog |
+|---|---|---|---|
+| Bulk count | `agents.<id>.bulk` (structured array `id`/`count`) | molecule id | n/a — the array itself carries id strings |
+| Aggregated monomer count | `agents.<id>.listeners.monomer_counts.monomerCounts` (ndarray length 4309) | monomer id | `monomer_counts_listener.monomer_ids` |
+| RNA TU count | `agents.<id>.listeners.rna_counts.mRNA_counts` (or `full_mRNA_counts`, `partial_mRNA_counts`) | rna id | `RNA_counts_listener.mRNA_TU_ids` |
+| Transcription init events | `agents.<id>.listeners.rnap_data.rna_init_event` | TU index | `sim_data.process.transcription.rna_data.id` |
+| TF bound per TU | `agents.<id>.listeners.rna_synth_prob.n_bound_TF_per_TU` (n_TU × n_TF) | (TU id, TF id) | TBD |
+| Unique molecules | `agents.<id>.unique.<type>` (structured arrays with attributes) | filter by attribute (e.g. TU_index, DnaA_bound) | n/a |
+| Mass / volume | `agents.<id>.listeners.mass.{cell_mass, dry_mass, cell_volume}` | scalar | n/a |
+
+Each of those needs a `kind:` in the EB DSL's `measure:` block
+(`kind: bulk_count | monomer_count | rna_count | listener_indexed |
+unique_count | listener_scalar`). The current set (`bulk_count`,
+`listener_path`, `listener_sum`, `xy_correlation`) is too narrow.
+
+### Investigation-level checklist (the "before you run" doc)
+
+The /pbg-study tool should publish a per-investigation checklist
+template the expert + author work through together. Draft:
+
+```
+Investigation: <name>
+For each study in dependency order:
+
+  [ ] verify: all observables resolve, status: spec-validated
+  [ ] preview-viz: at least one declared viz renders against baseline
+  [ ] expert review: question + hypothesis correspond to the data
+        actually rendered
+  [ ] calibration check: behavior thresholds within an order of
+        magnitude of the v2ecoli baseline; large divergences
+        annotated with resolution: {model, thresholds, concept}
+  [ ] all expert_questions addressed (or moved to acceptance_criteria)
+
+When every study in the investigation passes all 5 checks, set the
+investigation's status to 'ready' and proceed to run.
+```
+
+The dashboard renders this as a checklist at the top of each study's
+Overview tab + the investigation's detail view. Each checkbox is
+backed by tool output (verify result, preview render presence, expert
+question count). Manual ticks for "expert review" + "expert questions
+addressed" because those are human judgments.
+
+### Summary for the listening Claude
+
+The investigation walkthrough revealed that the **design phase
+artifacts are necessary but not sufficient**. Three additional gates
+are needed before execution can be trusted:
+
+1. **Spec validation** (mechanical): catch wrong ids, broken links,
+   unbacked variants. Tool: `/pbg-study verify`.
+2. **Visual preview** (sanity check): render the declared plots against
+   real (or initial-state) data so the expert sees shapes before
+   waiting for hour-long simulations. Tool: `/pbg-study preview-viz`
+   + a generic `TimeSeriesFromObservables` Viz.
+3. **Calibration anchoring**: surface model-vs-literature divergences
+   AS PART OF the behavioral test, not just pass/fail.
+
+The Generate-report flow + sticky-nav + DAG + dependency framework
+all already exist; they're the *display* layer. The *validation*
+layer is what's missing. That's the next P0 batch of pbg-superpowers
+work.

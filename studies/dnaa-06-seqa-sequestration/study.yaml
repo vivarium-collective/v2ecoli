@@ -1,7 +1,18 @@
 schema_version: 3
 name: dnaa-06-seqa-sequestration
 created: '2026-05-16'
-status: draft
+status: planned
+question: |
+  Does SeqA sequestration of newly replicated, hemimethylated oriC
+  (~10 min window driven by Dam re-methylation kinetics) prevent
+  reinitiation within the same cell cycle, and does it buffer the
+  dnaA-promoter transient activity spike caused by locus duplication?
+hypothesis: |
+  With SeqA active, the number of oriC reinitiation events per cell cycle
+  is zero across seeds. With SeqA off (knockout variant), ≥50% of cells
+  reinitiate before division. The dnaA-promoter activity spike that
+  follows locus duplication is dampened by ≥40% (peak height) when SeqA
+  is bound transiently at the hemimethylated dnaAp GATC cluster.
 objective: |
   Add SeqA-mediated post-replication sequestration at oriC (and modulation
   at the dnaA promoter): transient binding of SeqA to hemimethylated GATC

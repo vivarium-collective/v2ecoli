@@ -1,7 +1,21 @@
 schema_version: 3
 name: dnaa-05-rida-ddah-dars
 created: '2026-05-16'
-status: draft
+status: planned
+question: |
+  Does adding the three extrinsic DnaA-ATP / ADP conversion pathways
+  (RIDA scaling with replisome count, DDAH with datA copy number, DARS1
+  / DARS2 with their respective locus copies) produce the observed
+  DnaA-ATP-fraction oscillation through the cell cycle and tighten the
+  inter-initiation timing distribution relative to the intrinsic-only
+  baseline (dnaa-02)?
+hypothesis: |
+  DnaA-ATP fraction peaks just before initiation (driven by DARS), drops
+  during the C-period as RIDA fires on every fork, and recovers between
+  initiations as DDAH catches up. Inter-initiation timing CV narrows by
+  ≥30% vs the dnaa-02 baseline. Single-pathway knockouts produce
+  characteristic phenotypes: no-DDAH gives untimely (early) initiation;
+  no-DARS1 + no-DARS2 fails to recover DnaA-ATP after the first cycle.
 objective: |
   Add the three extrinsic DnaA-ATP/ADP conversion pathways: RIDA
   (replisome-coupled hydrolysis via β-clamp/Hda), DDAH (datA-IHF

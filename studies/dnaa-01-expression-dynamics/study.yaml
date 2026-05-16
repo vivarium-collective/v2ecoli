@@ -1,7 +1,19 @@
 schema_version: 3
 name: dnaa-01-expression-dynamics
 created: '2026-05-16'
-status: draft
+status: planned
+question: |
+  Does the v2ecoli baseline maintain a realistic, steady DnaA pool
+  (300-800 monomers/cell) with concentration stability within ±10%
+  through one cell cycle, and does autorepression at dnaAp set this
+  steady-state?
+hypothesis: |
+  With the existing transcript_initiation + tf_binding autoregulation
+  chain driven by the dnaA→EG10235_RNA fold change, DnaA concentration
+  is steady within ±10%. Disabling DnaA translation
+  (stop-dnaA-synthesis variant) causes monotonic decay on the dilution
+  timescale (~doubling time). The autorepression-strength knob shifts
+  steady-state inversely (stronger repression → lower DnaA pool).
 objective: |
   Add dnaA transcription, mRNA dynamics, translation, and DnaA protein
   abundance dynamics sufficient to maintain realistic DnaA levels during
@@ -269,6 +281,63 @@ expected_behavior:
    and increased autorepression strength."
 - "distal-dnaA-promoter variant: detectable gene-dosage shift on DnaA timing."
 
+# ── Behavioral tests ────────────────────────────────────────────────────────
+# Each entry has an English description that goes in the Overview, plus a
+# pytest node id pointing to the actual test function in tests/. The
+# dashboard runs `pytest studies/<slug>/tests/` and parses results into
+# study.yaml.tests.last_results.
+behavioral_tests:
+- id: BT-01
+  english: |
+    Steady-state DnaA monomer count lies within the mass-spec / EcoCyc
+    range of 300-800 per cell (median across the second half of the
+    baseline run).
+  pytest_node: tests/test_expression_dynamics.py::test_dnaA_count_within_mass_spec_range
+  status: implemented
+  requires_run: baseline
+
+- id: BT-02
+  english: |
+    DnaA monomer concentration is stable across the cycle: rolling
+    coefficient of variation (std/mean over a 5-minute window) stays
+    below 0.10 for the second half of the run.
+  pytest_node: tests/test_expression_dynamics.py::test_dnaA_concentration_stability_within_10pct
+  status: implemented
+  requires_run: baseline
+  requires_listener: dnaA_protein_concentration   # gap-1 (DnaaConcentrationListener)
+
+- id: BT-03
+  english: |
+    In the stop-dnaA-synthesis variant, DnaA monomer count decays
+    monotonically on the dilution timescale: count at t=T is below
+    count at t=0 by at least 30% for one doubling time T.
+  pytest_node: tests/test_expression_dynamics.py::test_stop_synthesis_decays_on_dilution_timescale
+  status: implemented
+  requires_run: stop-dnaA-synthesis
+  requires_variant_hook: translation_efficiency_override   # gap-2
+
+- id: BT-04
+  english: |
+    Coarse autorepression: when DnaA bound-to-promoter count is in the
+    top quartile of its range, dnaA transcription init events per step
+    are in the bottom quartile (negative correlation; Pearson r < -0.3).
+  pytest_node: tests/test_expression_dynamics.py::test_coarse_autorepression_negative_correlation
+  status: implemented
+  requires_run: baseline
+
+- id: BT-05
+  english: |
+    Post-initiation gene-dosage effect: within 10 min of a replication
+    initiation event, dnaA transcription rate increases by ≥50%
+    (because the dnaA locus has doubled). Needs initiation-event
+    detection from chromosome_initiation listeners.
+  pytest_node: tests/test_expression_dynamics.py::test_post_initiation_gene_dosage_doubles_tx_rate
+  status: stub
+  requires_run: baseline
+  notes: |
+    Stub because initiation-event detection convention isn't settled
+    yet (see dnaa-04). For now the test xfails.
+
 expert_questions:
 - Ask Katayama and Lobner-Olesen labs for opinions on dnaA autorepression.
 - Ask about each DnaA box in the dnaA promoter region (boxes 1-4 + a-c).
@@ -281,6 +350,15 @@ bibliography:
   expert: [replication_initiation_molecular_info, chromosome_replication_plan]
   bib_keys: [Boesen2024PNAS, Hansen2018DnaATale, Speck1999EMBO, Saggioro2013BiochemJ, Katayama2017Frontiers]
   claims: [dnaa.autorepression.dnaap, dnaa.expression.steady-300-800, dnaa.boxes.dnaap-2high-2low]
+
+# ── Tests (v4 shape) ────────────────────────────────────────────────────────
+# Picked up by vivarium_dashboard/lib/study_tests.py: shells out to pytest
+# against studies/<slug>/tests/ and writes a summary into tests.last_results.
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null
 
 runs: []
 conclusion: null

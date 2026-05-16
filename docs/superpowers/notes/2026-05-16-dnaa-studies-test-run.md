@@ -647,33 +647,183 @@ This is the most-leveraged proposal in the notes today: I filled 12
 fields by hand (6 questions + 6 hypotheses); a tool that does this from
 the plan PDF in one call replaces ~30 minutes of mechanical work.
 
-## Finding #16 (added live): `behavioral_tests:` block + tests/ convention
+## Finding #16 (SUPERSEDED → see #16-rev): structured `expected_behavior:` DSL
 
-**What I built today.**
-- Added a top-level `behavioral_tests:` list in dnaa-01's study.yaml,
-  each entry shaped: `{id, english, pytest_node, status,
-  requires_run?, requires_listener?, requires_variant_hook?, notes?}`.
-- Mirrored each entry as a pytest function in
-  `studies/<slug>/tests/test_<area>.py`.
-- Added `tests/conftest.py` with `baseline_history` +
-  `stop_synthesis_history` fixtures that read `runs.db` and skip if no
-  run exists.
+> The first pass of this finding proposed a parallel `behavioral_tests:`
+> block alongside `expected_behavior:` (list of strings). After one
+> more iteration with the user — who asked for a precise + reproducible
+> grammar matching simple English statements like *"If you stop
+> synthesized DnaA, look for decrease in concentration"* — the two
+> blocks have been unified into one structured `expected_behavior:`
+> list. See finding #16-rev below.
 
-**Proposal.** Adopt this as the canonical v3 schema extension:
+## Finding #16-rev (built live in dnaa-01): expected_behavior DSL
 
-1. Add `behavioral_tests:` to the v3/v4 study schema with the entry
-   shape above. Validate `pytest_node:` resolves to a real test file
-   (via static parsing or pytest --collect-only) when present.
-2. Have the dashboard's per-study runner (`study_tests.py`) join
-   the pytest results back to the `behavioral_tests:` entries by
-   `pytest_node:` so the dashboard can render the English description
-   alongside pass/fail.
-3. Provide a workspace-level fixture library at
-   `<workspace>/scripts/study_test_helpers.py` exporting
-   `latest_run_history(study_slug)`, `bulk_count(state, id)`,
-   `listener_value(state, dotted_path)` so every study doesn't
-   re-implement the SQLite read + state walking. Today every
-   conftest.py would copy-paste the same ~80 lines.
+**What I built today.** A small grammar that pairs each English
+prediction with a precise machine-readable triple so one YAML entry
+auto-generates exactly one pytest assertion. Lives at:
+
+- `studies/dnaa-01-expression-dynamics/study.yaml` — the structured
+  `expected_behavior:` list (6 entries today).
+- `studies/dnaa-01-expression-dynamics/tests/_behaviors.py` — the
+  evaluator (~250 LOC, stdlib + statistics).
+- `studies/dnaa-01-expression-dynamics/tests/test_behaviors.py` — one
+  parametrized test that walks the list.
+- `studies/dnaa-01-expression-dynamics/tests/test_with_synthetic_history.py`
+  — demonstrates 5 green tests against an in-memory plausible history
+  before any real simulation has been executed.
+
+**Grammar (final shape).**
+
+```yaml
+expected_behavior:
+- name: <stable-slug>
+  en: "<one-sentence English description; goes in Overview tab>"
+  given:
+    run: baseline | variant
+    variant: <variant-name>          # if run == variant
+    window: full | second_half | post_initiation_10min
+  measure:
+    kind: bulk_count | listener_path | listener_sum | xy_correlation
+    # ...kind-specific args
+    reduce: median | mean | series | first_and_last | pre_post_event_ratio
+  expect:
+    op: in_range | rolling_cv_below | ratio_at_most | ratio_at_least |
+        monotonic_decreasing | pearson_below | pearson_above
+    # ...op-specific args (low, high, threshold, ratio, window_steps, ...)
+  status: implemented | stub | gated
+  requires:
+    - gap: <gap-id>
+    - listener: <listener-id>
+    - variant_hook: <hook-id>
+```
+
+**Why this matters.** The user's exact phrasing: *"is there a way to do
+this very precisely and reproducibly?"* The DSL hits both axes:
+
+- **Precisely:** every English sentence has a unique `(given, measure,
+  expect)` triple. No ambiguity about what "look for decrease" means;
+  it's `op: ratio_at_most, ratio: 0.7` over `window: full`.
+- **Reproducibly:** any future Claude session reading the YAML can
+  re-derive the same assertion. The evaluator is deterministic.
+
+**Proposal for pbg-superpowers.**
+
+1. **Adopt the DSL upstream.** Add `expected_behavior:` (structured) to
+   the v3/v4 study schema. Document the grammar in
+   `docs/concepts/expected-behavior-grammar.md`.
+2. **Lift the evaluator.** Move `_behaviors.py` into the dashboard's
+   `vivarium_dashboard/lib/expected_behavior.py` so every workspace
+   uses the same dispatch logic instead of copying it.
+3. **Lift the conftest helpers.** Provide
+   `vivarium_dashboard/testing/study_fixtures.py` with
+   `baseline_history`, `variant_history(name)`, `bulk_count(state, id)`,
+   `listener_value(state, path)`. Workspaces import from there; per-study
+   conftest.py shrinks to ~10 lines.
+4. **Render in the dashboard.** On the Overview tab (per finding #14),
+   show each `expected_behavior:` entry as: ⬛ status icon · `en:` text ·
+   "Show assertion ▶" disclosure that prints the structured form. On the
+   Tests tab, group pytest nodes by their `expected_behavior[i].name` so
+   pass/fail aligns with the English sentence.
+5. **Extension primitives needed.** A few common measures are still
+   missing from my v0 evaluator:
+   - `event_count(predicate)` — count timesteps satisfying a predicate
+     (e.g., initiations).
+   - `pre_post_event(event, before_min, after_min)` — slice around an
+     event time, paired with `reduce: pre_post_event_ratio`. This unblocks
+     BT-05 / dnaa-04's gene-dosage test.
+   - `concentration(molecule, volume_path)` — derived from bulk_count +
+     volume; closes finding gap-1 without a custom listener Step.
+
+## Finding #17 (added live): Observables tab with bigraph-tree picker
+
+**Reported by the user.** *"The Study needs also a tab for 'Observables'
+which are the experimental measurements. This should select them from
+the bigraph structure, with paths."*
+
+**Current state.** Observables are author-only YAML in
+`study.yaml.observables[]` with `name + store_path + (custom) index_by`.
+There's no UI to discover what's available in the composite's bigraph
+state tree. I had to spelunk into the source — `v2ecoli/processes/
+transcript_initiation.py:249`, `transcript_elongation.py:184`,
+`tf_binding.py:122`, etc — to find legal `store_path` values. Per
+finding #1, this is a slow path for an agent and an impossible path
+for a non-developer user.
+
+**Proposal: new Observables tab in the per-study UI.**
+
+1. **Backend.** `GET /api/study/<name>/bigraph-paths` returns the JSON
+   tree of stores for this study's baseline composite. Build it by
+   importing the composite (via `v2ecoli.build_composite` or the workspace
+   equivalent) and walking the resulting `Composite.state` schema. Cache
+   per (workspace, composite_ref, sim_data_fingerprint).
+
+2. **Tree shape.**
+
+   ```jsonc
+   {
+     "path": ["agents", "0", "listeners", "rnap_data"],
+     "kind": "store",
+     "type_hint": "map",
+     "children": [
+       {
+         "path": [..., "rna_init_event"],
+         "kind": "store",
+         "type_hint": "overwrite[array[integer]]",
+         "leaf_meta": {
+           "indexed_by": {"type": "rna_id", "lookup": "sim_data.process.transcription.rna_data.id"},
+           "units": null,
+           "first_seen_in_process": "transcript_initiation"
+         }
+       },
+       ...
+     ]
+   }
+   ```
+
+3. **UI.**
+   - Left pane: collapsible tree of paths under `agents.<id>.*`. Type hints
+     and indexed-by metadata visible inline.
+   - Right pane: form to add an observable — name, store_path (auto-filled
+     from the tree click), optional index_by (auto-suggested when the
+     leaf carries `indexed_by`), units, description.
+   - Save → appends to `study.yaml.observables[]` and refreshes the
+     Visualizations tab's dropdown.
+
+4. **Cross-link to expected_behavior.** When the user references an
+   observable name in an `expected_behavior:` entry's `measure:` block,
+   the dashboard validates the name resolves and the path/index_by line up.
+
+**Why this matters.**
+
+- For the user: replaces "ask the agent to find the right path" with a
+  click. Closes the loop between the bigraph state model and the study
+  schema.
+- For agents: an HTTP endpoint that returns the legal-paths tree means
+  no more grepping the codebase. Same data, two interfaces.
+
+This pairs naturally with finding #1 (`/pbg-status`) and #14 (pop-out
+rendering) — together they give the workspace a coherent
+"introspect-and-author" surface.
+
+---
+
+## Concrete deliverable shortlist for the other Claude session (updated 2)
+
+| # | Improvement | Effort | Priority |
+|---|---|---|---|
+| 8     | `lint-workspace.py` enumerates findings + runs the dashboard's own validator (#11) | XS | P0 |
+| 13    | Filter Registry tab discovered-processes by workspace imports | M | P0 |
+| 14    | Render status + Q + H + expected_behavior on study pop-out | M | P0 |
+| 17    | Observables tab with bigraph-tree picker | L | P0 (user just asked) |
+| 16r   | Lift expected_behavior DSL + evaluator + fixtures to the dashboard package | M | P1 |
+| 4     | `.pbg/schemas/study.schema.json` (now needs to include the DSL) | M | P1 |
+| 15    | `/pbg-study fill-overview <slug>` | M | P1 |
+| 1     | `/pbg-status` | S | P2 |
+| 3     | `/pbg-study scaffold-from-plan <plan.pdf>` | L | P2 |
+| 5     | `/pbg-data add-expert <pdf>` | S | P2 |
+| 6     | Document study-subdir layout | XS | P3 |
+| 9     | `/pbg-study dag` | S | P3 |
 
 ---
 

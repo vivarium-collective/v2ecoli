@@ -930,6 +930,61 @@ findings:
     `runs_aggregate: pool-seeds` field to behavior_tests to declare
     when pooling is required.
 
+- id: F-08
+  kind: biological
+  status: confirms
+  statement: |
+    Multiplying dnaA's ParCa translation_efficiency by 50× lands the
+    DnaA monomer pool at median 497/cell — squarely in the literature
+    band [300, 800]. The 50× factor is empirical from a calibration
+    sweep: 5× barely moved the needle (115 → 129, autorepression
+    buffered the increase), 50× broke through the homeostasis.
+  evidence:
+    from_run: baseline-te50x (dnaa_te_multiplier=50.0, seed 0, 10 min)
+    from_test: dnaA-count-in-range
+    observed: 497
+    units: molecules/cell (median, second-half window)
+    sweep:
+      "1x":  {te: 7.23e-05, median_dnaa: 115, test: FAIL}
+      "5x":  {te: 3.62e-04, median_dnaa: 129, test: FAIL}
+      "50x": {te: 3.62e-03, median_dnaa: 497, test: PASS}
+  expected:
+    cites: [Schmidt2016NatBiotechnol, Sekimizu1991JBacteriol, Mori2021MolSysBiol]
+    range: [300, 800]
+  explanation: |
+    The 50× factor itself raises a flag: 3.6e-3 sits ABOVE the current
+    max TE in v2ecoli's proteome (2.1e-3). So either (a) ParCa's
+    derived TE for dnaA is genuinely wrong by ~50× (units bug? cistron-
+    vs-monomer indexing?), (b) dnaA's TE has been under-calibrated
+    relative to other proteins, or (c) Schmidt/Mori measure something
+    different from what v2ecoli's monomer_counts represents.
+
+    Whichever it is, the LEVER works — recalibrating TE alone is
+    sufficient to close the F-01 gate. F-06's "two-knob" framing
+    (Tx + Tl) may be wrong: at 50× TE, dnaA mRNA stayed near 0 yet
+    protein landed in band, because every rare mRNA event now
+    produces 50× more protein.
+
+    Side effect to investigate: at 50× TE, autorepression-correlation
+    flips to r=+0.613 in a single 10-min seed. Multi-seed pooling
+    (per F-07) hasn't been re-run at 50× yet — needs verification
+    that the feedback loop still behaves correctly under the new
+    calibration before formally passing the gate.
+  expert_reference:
+    doc: chromosome_replication_plan
+    note: |
+      Plan §2.1 expects DnaA ~300-800/cell as a layer-1 sanity check.
+      v2ecoli reaches this with a 50× TE adjustment.
+  next_action: |
+    (1) Multi-seed at 50× TE → re-evaluate autorepression-correlation
+        under the new calibration.
+    (2) Seed a follow-up study to investigate WHY the cached TE is so
+        low (units bug? ParCa source data? indexing mismatch?). Don't
+        ship the 50× override permanently until the root cause is
+        understood.
+    (3) Once (1) confirms the feedback loop still holds, dnaa-01's
+        pipeline_gate can formally pass and dnaa-02 unblocks.
+
 
 conclusion: "Phase=Decide outcome: PIPELINE-GATED on translation-efficiency calibration.\n\
   \u2022 Test framework works end-to-end (baseline \u2192 SQLite emitter \u2192 evaluator).\n\

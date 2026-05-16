@@ -48,6 +48,11 @@ def main() -> int:
                              '~900KB/tick — needed for autorepression-correlation '
                              'but expensive. Off by default to match the v2ecoli '
                              'default.')
+    parser.add_argument('--dnaa_te_multiplier', type=float, default=1.0,
+                        help='Multiply dnaA (PD03831[c]) translation_efficiency '
+                             'by this factor before composite build. Used to '
+                             'test the F-01 calibration hypothesis — default '
+                             'is 1.0 (no change).')
     args = parser.parse_args()
 
     duration_s = args.duration_min * 60.0
@@ -60,17 +65,30 @@ def main() -> int:
     core = build_core()
     print(f"[run_baseline] core built", flush=True)
 
-    # Heavy-listener opt-in: monkey-patch the cached tf_binding config to flip
-    # emit_n_bound_TF_per_TU before baseline() reads the bundle. This lets the
-    # autorepression-correlation behavior_test see the per-TU x per-TF matrix
-    # without changing the v2ecoli composite default.
-    if args.heavy_tf_listener:
+    # Pre-build patches to the cached config. Both flags are no-ops in their
+    # default state so a vanilla run is byte-identical to the canonical
+    # v2ecoli baseline.
+    needs_bundle = args.heavy_tf_listener or args.dnaa_te_multiplier != 1.0
+    if needs_bundle:
         bundle = load_cache_bundle(args.cache_dir)
-        tf_cfg = bundle['configs'].get('ecoli-tf-binding')
-        if tf_cfg is not None:
-            tf_cfg['emit_n_bound_TF_per_TU'] = True
-            print("[run_baseline] tf_binding.emit_n_bound_TF_per_TU = True (heavy listener)",
-                  flush=True)
+        if args.heavy_tf_listener:
+            tf_cfg = bundle['configs'].get('ecoli-tf-binding')
+            if tf_cfg is not None:
+                tf_cfg['emit_n_bound_TF_per_TU'] = True
+                print("[run_baseline] tf_binding.emit_n_bound_TF_per_TU = True (heavy listener)",
+                      flush=True)
+        if args.dnaa_te_multiplier != 1.0:
+            # PD03831[c] is monomer_ids[3861]; translation_efficiencies is
+            # aligned with monomer_ids, so the same index applies.
+            pi_cfg = bundle['configs'].get('ecoli-polypeptide-initiation')
+            if pi_cfg is not None and 'translation_efficiencies' in pi_cfg:
+                import numpy as np
+                te = pi_cfg['translation_efficiencies']
+                old = float(te[3861])
+                new = old * args.dnaa_te_multiplier
+                te[3861] = new
+                print(f"[run_baseline] dnaA TE: {old:.3e} → {new:.3e}  "
+                      f"(× {args.dnaa_te_multiplier})", flush=True)
 
     with sqlite_emitter(file_path=str(STUDY_DIR),
                         db_file='runs.db',

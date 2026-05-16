@@ -9,8 +9,39 @@ objective: |
 description: |
   Phase 1 of the multi-phase replication-initiation plan
   (see references/expert/chromosome_replication_plan.pdf, Study 1).
-  Goal: steady-state DnaA expression baseline that downstream studies
+  Goal: a steady-state DnaA expression baseline that downstream studies
   (hydrolysis, box binding, mechanism-driven initiation) can build on.
+
+  Identifiers (from v2ecoli/processes/parca/reconstruction/ecoli/flat/):
+    - dnaA gene:              EG10235  (b3702, ECK3694; locus 3,882,326-3,883,729 on minus strand)
+    - dnaA mRNA (TU):         EG10235_RNA  (half-life 1.9 min)
+    - dnaA translation eff.:  0.35
+    - DnaA monomer (TF):      MONOMER0-160[c]
+                              ^ molecule_ids.py labels this as "DnaA_ATP_complex" —
+                                the existing v2ecoli model collapses DnaA / DnaA-ATP /
+                                DnaA-ADP into a single bulk species. Splitting them
+                                is dnaa-02's job.
+
+  What already exists in baseline (no new code needed):
+    - dnaA transcription and mRNA dynamics via transcript_initiation +
+      transcript_elongation + rna_degradation processes.
+    - DnaA translation via polypeptide_initiation + polypeptide_elongation.
+    - Autoregulation via tf_binding + transcript_initiation: the
+      transcription_factors.tsv entry "dnaA  EG10235  MONOMER0-160" wires
+      DnaA as a TF for its own TU. tf_condition.tsv carries the minimal-
+      media fold change (-1.91 from ppgpp_fc.tsv).
+    - Per-step transcription init + completion counts via
+      listeners.rnap_data.{rna_init_event, count_rna_synthesized}.
+
+  What is NOT yet exposed (and needs new code; see `gaps:` below):
+    - DnaA / DnaA-ATP / DnaA-ADP split (deferred to dnaa-02).
+    - dnaAp-specific binding-occupancy listener (the box 1-4 + a-c story
+      from the plan). tf_binding's n_actual_bound[DnaA] aggregates across
+      all DnaA TUs, not just dnaAp.
+    - Tunable autorepression strength as a single composite parameter
+      (currently buried in fold_changes.tsv).
+    - Gene-locus relocation hook (variant `distal-dnaA-promoter` needs a
+      composite-level override of the EG10235 chromosomal coordinates).
 
 baseline:
 - name: baseline
@@ -21,85 +52,230 @@ baseline:
 
 variants:
 - name: stop-dnaA-synthesis
+  status: aspirational
   description: |
     Knock out DnaA translation to confirm dilution/degradation drives
-    concentration down on the expected timescale.
+    concentration down on the expected timescale. Need a hook in
+    polypeptide_elongation (or sim_data.translation_efficiency override)
+    to zero out translation_efficiency[EG10235].
+  requires:
+    - "param-hook: baseline composite override `translation_efficiency_override={EG10235: 0.0}`"
   params:
-    dnaA_translation_rate: 0.0
+    translation_efficiency_override:
+      EG10235: 0.0
 
 - name: distal-dnaA-promoter
+  status: aspirational
   description: |
-    Move the dnaA promoter region further from oriC to expose gene-dosage
-    effects on DnaA accumulation.
+    Move the dnaA gene further from oriC to expose gene-dosage effects on
+    DnaA accumulation. Requires a composite-level chromosomal-coordinate
+    override; not currently exposed.
+  requires:
+    - "param-hook: composite override for sim_data.process.replication.genome_length + the EG10235 locus coordinates"
   params:
-    dnaA_locus_position_relative_to_oric: 0.5   # 0=oriC, 1=ter
+    dnaA_locus_relative_to_oric: 0.5    # 0=oriC, 1=ter (placeholder)
 
 - name: low-autorepression
+  status: aspirational
   description: |
-    Reduce the autorepression coefficient at dnaAp to test feedback
-    sensitivity.
+    Reduce autorepression strength. Currently the dnaA→EG10235_RNA fold
+    change lives in fold_changes.tsv (~-0.92 to -1.91); exposing a single
+    knob ("repression_multiplier") at composite level requires a small
+    Step + a sim_data hook.
+  requires:
+    - "param-hook: composite override that multiplies the dnaA->EG10235_RNA fold change"
   params:
-    dnaap_repression_strength: 0.1
+    dnaap_autorepression_multiplier: 0.1
 
 - name: high-autorepression
-  description: |
-    Strong autorepression; expect lower steady-state DnaA pool.
+  status: aspirational
+  description: Strong autorepression; expect lower steady-state DnaA pool.
+  requires:
+    - "param-hook: same as low-autorepression"
   params:
-    dnaap_repression_strength: 3.0
+    dnaap_autorepression_multiplier: 3.0
 
+# ── Observables ─────────────────────────────────────────────────────────────
+# Each observable carries `status:`
+#   available        = path resolves in the live baseline composite today;
+#   derived-needed   = the underlying data exists, but a derived listener
+#                      Step has to wire it to a clean store_path;
+#   aspirational     = the data does not exist yet (waiting on
+#                      dnaa-02 / dnaa-03 work).
 observables:
-- name: dnaA_transcription_events_per_step
-  store_path: agents.0.listeners.transcription.events.dnaA
-- name: dnaA_mrna_count
-  store_path: agents.0.bulk.dnaA_mrna
-- name: dnaA_mrna_concentration
-  store_path: agents.0.listeners.concentrations.dnaA_mrna
-- name: dnaA_protein_count
-  store_path: agents.0.bulk.CPLX0-3803[c]    # DnaA monomer EcoCyc CPLX0-3803 (placeholder)
-- name: dnaA_protein_concentration
-  store_path: agents.0.listeners.concentrations.DnaA
-- name: dnaap_box_occupancy
-  store_path: agents.0.listeners.promoters.dnaAp.box_occupancy
+- name: dnaA_transcription_init_events
+  status: available
+  description: |
+    Per-step transcription initiations on EG10235_RNA. Read from the
+    indexed rnap_data array; the TU index is sim_data.process.transcription
+    .rna_data.id.index("EG10235_RNA").
+  store_path: agents.0.listeners.rnap_data.rna_init_event
+  index_by:
+    type: rna_id
+    value: EG10235_RNA
 
+- name: dnaA_mrna_synthesized_events
+  status: available
+  description: Per-step mRNA-completion events (transcript_elongation terminations).
+  store_path: agents.0.listeners.rnap_data.count_rna_synthesized
+  index_by: {type: rna_id, value: EG10235_RNA}
+
+- name: dnaA_mrna_count
+  status: available
+  description: |
+    Bulk mRNA count. v2ecoli's `bulk` store is a `bulk_array` (structured
+    array of id+count); the observable resolver should look up by molecule
+    id.
+  store_path: agents.0.bulk
+  index_by: {type: bulk_id, value: EG10235_RNA}
+
+- name: dnaA_protein_count
+  status: available
+  description: |
+    Bulk DnaA monomer count (current model: one species for total DnaA;
+    dnaa-02 will split this into ATP/ADP/apo forms).
+  store_path: agents.0.bulk
+  index_by: {type: bulk_id, value: "MONOMER0-160[c]"}
+
+- name: dnaA_protein_concentration
+  status: derived-needed
+  description: |
+    Volume-normalised DnaA concentration. Requires a derived listener:
+    dnaA_protein_count / cell_volume. Volume is at
+    agents.0.listeners.mass.cell_volume (or .volume). Add a small Step
+    `DnaaConcentrationListener` that emits at agents.0.listeners.dnaa.protein_uM.
+  store_path: agents.0.listeners.dnaa.protein_uM    # provisional
+
+- name: dnaA_mrna_concentration
+  status: derived-needed
+  description: |
+    Same derived-listener pattern as protein_concentration. Emits at
+    agents.0.listeners.dnaa.mrna_uM (provisional).
+  store_path: agents.0.listeners.dnaa.mrna_uM      # provisional
+
+- name: dnaA_bound_to_promoters_total
+  status: available
+  description: |
+    Count of DnaA molecules currently bound across ALL its TF target TUs
+    (not just dnaAp). Read from rna_synth_prob.n_actual_bound at the DnaA
+    index. Useful as a coarse autorepression proxy until the per-promoter
+    listener lands.
+  store_path: agents.0.listeners.rna_synth_prob.n_actual_bound
+  index_by: {type: tf_id, value: MONOMER0-160}
+
+- name: dnaap_box_occupancy
+  status: aspirational
+  description: |
+    Per-box (1, 2, 3, 4, a, b, c) DnaA occupancy at the dnaA promoter
+    region. Needs a new derived listener that filters
+    n_actual_bound by TU=EG10235_RNA and then breaks the count out by
+    the (planned) per-box state from chromosome_structure.DnaA_boxes. NOT
+    available until dnaa-03 lands the dnaAp box catalog.
+  store_path: agents.0.listeners.dnaa.dnaap_box_occupancy   # provisional
+
+# ── Visualizations ──────────────────────────────────────────────────────────
 visualizations:
 - name: dnaa-counts-vs-time
   address: local:TimeSeriesPlot
   config:
     title: "dnaA mRNA + DnaA protein counts vs time"
     observables: [dnaA_mrna_count, dnaA_protein_count]
+- name: dnaa-transcription-events
+  address: local:TimeSeriesPlot
+  config:
+    title: "dnaA transcription init + completion events per step"
+    observables: [dnaA_transcription_init_events, dnaA_mrna_synthesized_events]
 - name: dnaa-concentration-vs-time
   address: local:TimeSeriesPlot
   config:
-    title: "dnaA mRNA + DnaA concentrations vs time"
+    title: "dnaA mRNA + DnaA concentrations vs time (requires derived listener)"
     observables: [dnaA_mrna_concentration, dnaA_protein_concentration]
+- name: autorepression-proxy
+  address: local:TimeSeriesPlot
+  config:
+    title: "DnaA bound to its TF targets (coarse autorepression proxy)"
+    observables: [dnaA_bound_to_promoters_total]
 - name: dnaap-occupancy
   address: local:TimeSeriesPlot
   config:
-    title: "dnaAp DnaA-box occupancy"
+    title: "dnaAp DnaA-box occupancy (aspirational — needs dnaa-03)"
     observables: [dnaap_box_occupancy]
 
-# Implementation tasks (from the plan) — converted into the work order for
-# subsequent process additions. Not consumed by reports; documentation only.
+# ── Tasks (from the plan) ───────────────────────────────────────────────────
 tasks:
-- Add dnaA transcription events
-- Add dnaA mRNA degradation
-- Add DnaA translation
-- Add DnaA protein dilution/degradation if appropriate
-- Add promoter occupancy state for dnaAp DnaA boxes
-- Add placeholder autorepression (transcription rate decreases with
-  occupancy; expose repression strength as a tunable parameter)
+- "[exists] dnaA transcription events"
+- "[exists] dnaA mRNA degradation"
+- "[exists] DnaA translation"
+- "[exists] DnaA protein dilution/degradation (implicit via division dilution)"
+- "[gap-1] Add `DnaaConcentrationListener` Step emitting dnaA protein/mRNA in uM"
+- "[gap-2] Expose `translation_efficiency_override` hook on baseline composite"
+- "[gap-3] Expose `dnaap_autorepression_multiplier` hook on baseline composite"
+- "[gap-4] Expose `dnaA_locus_relative_to_oric` hook (chromosome-coords override)"
+- "[gap-5] Add per-box dnaAp occupancy listener (deferred — partly dnaa-03)"
 
+# ── Concrete gaps ───────────────────────────────────────────────────────────
+gaps:
+- id: gap-1
+  title: DnaaConcentrationListener Step
+  why: Plot DnaA + dnaA mRNA in uM (the plan's primary readout).
+  approach: |
+    A Step that reads bulk[MONOMER0-160[c]], bulk[EG10235_RNA], and
+    cell_volume, and emits at agents.<id>.listeners.dnaa.{protein_uM,mrna_uM}.
+    Convert via Avogadro + volume.
+
+- id: gap-2
+  title: translation_efficiency override hook
+  why: The `stop-dnaA-synthesis` variant needs to zero out DnaA translation.
+  approach: |
+    Add `translation_efficiency_override: dict[str, float]` to
+    baseline composite parameters; in build_composite, patch
+    sim_data.process.translation.translation_efficiency before instantiating
+    polypeptide_initiation.
+
+- id: gap-3
+  title: dnaap autorepression multiplier
+  why: low- / high-autorepression variants.
+  approach: |
+    Either (a) multiply the (dnaA, EG10235_RNA) entry in fold_changes
+    inside a Step that runs before transcript_initiation, or (b) expose
+    a single parameter that scales the existing fold-change for that
+    (TF, TU) pair at sim-data load.
+
+- id: gap-4
+  title: dnaA locus relocation
+  why: distal-dnaA-promoter variant — gene-dosage test from the plan.
+  approach: |
+    Override sim_data.process.replication.genome_data.gene_data
+    (EG10235 row, coordinate column) at build_composite time. Complicated
+    because replication models gene-dosage by walking from oriC; needs
+    care to keep replication-fork advance + DnaA gene dosage consistent.
+  defer_until: dnaa-04 (which already touches replication mechanism).
+
+- id: gap-5
+  title: per-box dnaAp occupancy listener
+  why: Plan asks for occupancy per dnaAp box (1, 2, 3, 4, a, b, c).
+  approach: |
+    chromosome_structure already has DnaA_boxes with DnaA_bound flags.
+    Need to (i) tag dnaAp boxes in the chromosome_structure init, and
+    (ii) emit a summary listener.
+  defer_until: dnaa-03 (full DnaA-box binding model).
+
+# ── Expected behavior (steady-state targets) ────────────────────────────────
 expected_behavior:
-- "DnaA per cell within ~300-800 (mass-spec, EcoCyc) — or ~200/oriC (western)."
-- "Roughly constant DnaA mRNA and protein concentrations (±10%) across the cycle."
+- "DnaA per cell within ~300-800 (mass-spec, EcoCyc) or ~200/oriC (western)."
+- "Roughly constant DnaA mRNA and DnaA protein concentrations (±10%) across the cycle."
 - "stop-dnaA-synthesis variant: concentrations decay on the dilution timescale."
 - "Wildtype: after initiation, DnaA pool shifts due to increased gene dosage
    and increased autorepression strength."
-- "distal-dnaA-promoter variant should reveal gene-dosage effect on DnaA timing."
+- "distal-dnaA-promoter variant: detectable gene-dosage shift on DnaA timing."
 
 expert_questions:
 - Ask Katayama and Lobner-Olesen labs for opinions on dnaA autorepression.
-- Ask specifically about each DnaA box in the dnaA promoter region (boxes 1-4 + a-c).
+- Ask about each DnaA box in the dnaA promoter region (boxes 1-4 + a-c).
+- Confirm that the existing transcript_initiation autoregulation (driven by
+  the dnaA→EG10235_RNA fold change) is biologically appropriate as the
+  starting baseline — or whether the explicit dnaAp box-occupancy
+  mechanism is required from the outset.
 
 bibliography:
   expert: [replication_initiation_molecular_info, chromosome_replication_plan]

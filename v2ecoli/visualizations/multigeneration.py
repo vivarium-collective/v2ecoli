@@ -66,8 +66,8 @@ class MultigenerationVisualization(Visualization):
 
     def inputs(self) -> dict[str, Any]:
         return {
-            "history":  "list[map[any]]",
-            "metadata": "map[any]",
+            "history":  "list[map[node]]",
+            "metadata": "map[node]",
         }
 
     def update(self, state: dict[str, Any]) -> dict:

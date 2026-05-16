@@ -106,15 +106,85 @@ tasks:
 - Author a chromosome-map visualization (linear or circular).
 
 expected_behavior:
-- "Chromosomal occupancy rises monotonically as DnaA accumulates."
-- "oriC remains largely unoccupied until chromosomal sites are saturated;
-   when free chromosomal sites ≈ free oriC sites (~10), oriC binding begins,
-   high-affinity first."
-- "Free DnaA rises after chromosomal titration completes, before initiation."
-- "oriC occupancy looks like a 2-step process (high then low)."
-- "high-initial-dnaA: low dnaAp activity (autorepression); oriC saturates fast."
-- "Compare oriC occupancy timing with the mass-threshold initiation
-   heuristic — they should roughly co-occur (testable)."
+
+- name: chromosomal-occupancy-monotonic-increasing
+  en: "Chromosomal DnaA-box occupancy rises monotonically as DnaA accumulates from cell birth."
+  given:  {run: baseline, window: full}
+  measure:
+    kind: listener_path
+    path: "listeners.dnaA_binding.chromosome.occupied_fraction"
+    reduce: series
+  expect: {op: monotonic_increasing, allow_dip_pct: 5}
+  status: gated
+  requires:
+    - listener: dnaA_binding.chromosome.occupied_fraction
+    - upstream: dnaa-03 box-binding model
+
+- name: oric-stays-unoccupied-until-chromosome-saturates
+  en: "oriC remains largely unoccupied (<20% sites bound) until chromosomal sites are >90% occupied — the titration prediction."
+  given:  {run: baseline, window: full}
+  measure:
+    kind: cross_threshold
+    series_x: {kind: listener_path, path: "listeners.dnaA_binding.chromosome.occupied_fraction"}
+    series_y: {kind: listener_path, path: "listeners.dnaA_binding.oric.high_affinity_occupied"}
+    when_x_crosses: 0.90
+  expect: {op: y_was_at_most, value: 0.20}
+  status: gated
+  requires:
+    - listener: dnaA_binding.chromosome.occupied_fraction
+    - listener: dnaA_binding.oric.high_affinity_occupied
+
+- name: free-dnaa-rises-after-titration
+  en: "Free DnaA pool rises sharply once chromosomal titration nears completion (≥50% delta over 5 min before initiation)."
+  given:  {run: baseline, window: full}
+  measure:
+    kind: listener_path
+    path: "listeners.dnaA_binding.free_total"
+    reduce: first_and_last
+  expect: {op: ratio_at_least, ratio: 1.5}
+  status: gated
+  requires:
+    - listener: dnaA_binding.free_total
+
+- name: oric-occupancy-is-two-step
+  en: "oriC occupancy is a two-step process: high-affinity sites fill before low-affinity sites (time lag detectable across the cycle)."
+  given:  {run: baseline, window: full}
+  measure:
+    kind: time_lag_between
+    series_a: {kind: listener_path, path: "listeners.dnaA_binding.oric.high_affinity_occupied"}
+    series_b: {kind: listener_path, path: "listeners.dnaA_binding.oric.low_affinity_occupied"}
+    threshold: 0.5
+  expect: {op: at_least, value: 60.0, units: "seconds"}   # ≥1 min separation
+  status: gated
+  requires:
+    - listener: dnaA_binding.oric.high_affinity_occupied
+    - listener: dnaA_binding.oric.low_affinity_occupied
+
+- name: high-initial-dnaa-shows-autorepression
+  en: "Starting with high DnaA suppresses dnaA transcription activity (autorepression at dnaAp; Pearson r < -0.3 between bound DnaA and tx-init events)."
+  given:  {run: variant, variant: high-initial-dnaA, window: second_half}
+  measure:
+    kind: xy_correlation
+    x: {kind: listener_path, path: "listeners.dnaA_binding.dnaap.occupied"}
+    y: {kind: listener_sum, path: "listeners.rnap_data.rna_init_event"}
+  expect: {op: pearson_below, threshold: -0.3}
+  status: gated
+  requires:
+    - variant_hook: initial_dnaA_count_per_cell
+    - listener: dnaA_binding.dnaap.occupied
+
+- name: chromosomal-boxes-only-variant-no-oric-fill
+  en: "With oriC binding disabled (chromosomal-boxes-only variant), free DnaA reaches a much higher plateau (≥3× baseline median) since the oriC sink is gone."
+  given:  {run: variant, variant: chromosomal-boxes-only, window: second_half}
+  measure:
+    kind: listener_path
+    path: "listeners.dnaA_binding.free_total"
+    reduce: median
+  expect: {op: at_least, value: 3.0, units: "ratio_vs_baseline"}   # comparative
+  status: gated
+  requires:
+    - variant_hook: enable_oric_binding
+    - listener: dnaA_binding.free_total
 
 expert_questions:
 - Are all 307 consensus boxes truly equivalent, or does context (cooperativity

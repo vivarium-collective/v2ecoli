@@ -118,15 +118,89 @@ tasks:
 - Plot initiation-mass distribution over many seeds for both baselines.
 
 expected_behavior:
-- "Stable cell cycle: initiation once per generation on average."
-- "Initiation-mass distribution reaches a steady-state regardless of initial
-   condition (multi-seed sweep)."
-- "Replication times within a narrow distribution."
-- "Time-between-initiation events shows less coordination than the heuristic
-   (no global trigger)."
-- "Fast growth -> earlier replication (under non-overlapping cycle regime)."
-- "Reducing box count -> shorter inter-initiation time (1/N scaling test)."
-- "Redistributing boxes (oriC-clustered vs uniform) shifts initiation timing."
+
+- name: one-initiation-per-generation
+  en: "On average exactly one initiation event per generation (stable cell cycle)."
+  given:  {run: baseline-mechanism, window: full}
+  measure:
+    kind: event_count_per_window
+    event: replication_initiation
+    window_kind: generation
+  expect: {op: in_range, low: 0.9, high: 1.1}
+  status: gated
+  requires:
+    - listener: replication.initiation_events
+    - upstream: dnaa-04 mechanism-driven initiation
+
+- name: initiation-mass-mean-matches-heuristic
+  en: "Mechanism-driven initiation mass mean is within ±5% of the heuristic baseline's mean across seeds."
+  given:  {run: baseline-mechanism, window: full, compare_to: baseline-heuristic}
+  measure:
+    kind: cross_run_ratio
+    series: {kind: listener_path, path: "listeners.replication.initiation_mass"}
+    reduce: mean
+  expect: {op: in_range, low: 0.95, high: 1.05}
+  status: gated
+  requires:
+    - variant_hook: initiation_mode
+
+- name: replication-times-narrow-distribution
+  en: "C-period (replication time) coefficient of variation stays below 0.10 across initiations."
+  given:  {run: baseline-mechanism, window: full}
+  measure:
+    kind: cv_of_listener
+    path: "listeners.replication.c_period_min"
+  expect: {op: at_most, value: 0.10}
+  status: gated
+  requires:
+    - listener: replication.c_period_min
+
+- name: inter-initiation-noisier-than-heuristic
+  en: "Inter-initiation timing is wider for mechanism vs heuristic (CV ratio ≥ 1.3) — no global trigger means more noise."
+  given:  {run: baseline-mechanism, window: full, compare_to: baseline-heuristic}
+  measure:
+    kind: cross_run_cv_ratio
+    path: "listeners.replication.interinitiation_min"
+  expect: {op: at_least, value: 1.3}
+  status: gated
+  requires:
+    - listener: replication.interinitiation_min
+
+- name: fast-growth-earlier-replication
+  en: "Fast-growth-rich variant initiates earlier in the cycle than the slow-growth baseline (lower initiation mass)."
+  given:  {run: variant, variant: fast-growth-rich, window: full, compare_to: slow-growth-M9}
+  measure:
+    kind: cross_run_ratio
+    series: {kind: listener_path, path: "listeners.replication.initiation_mass"}
+    reduce: mean
+  expect: {op: at_most, value: 0.95}
+  status: gated
+  requires:
+    - variant_hook: media
+
+- name: reduced-box-count-shortens-inter-initiation
+  en: "Reducing chromosomal box count from ~307 to 100 → ~3× shorter inter-initiation time (1/N titration scaling)."
+  given:  {run: variant, variant: reduced-box-count-100, window: full, compare_to: baseline-mechanism}
+  measure:
+    kind: cross_run_ratio
+    series: {kind: listener_path, path: "listeners.replication.interinitiation_min"}
+    reduce: mean
+  expect: {op: at_most, value: 0.5}
+  status: gated
+  requires:
+    - variant_hook: chromosomal_box_count
+
+- name: redistributed-boxes-shifts-timing
+  en: "oriC-clustered boxes shift initiation timing (mean initiation mass differs by ≥10% from uniform distribution)."
+  given:  {run: variant, variant: redistributed-boxes, window: full, compare_to: baseline-mechanism}
+  measure:
+    kind: cross_run_ratio
+    series: {kind: listener_path, path: "listeners.replication.initiation_mass"}
+    reduce: mean
+  expect: {op: outside_range, low: 0.90, high: 1.10}
+  status: gated
+  requires:
+    - variant_hook: chromosomal_box_distribution
 
 expert_questions:
 - For the slow-growth-only regime, is the 40-min C-period assumption tight

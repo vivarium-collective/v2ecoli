@@ -285,4 +285,6 @@ bibliography:
 
 runs: []
 conclusion: null
-parent_studies: [dnaa-02-atp-hydrolysis, dnaa-04-initiation-mechanism]
+parent_studies:
+  - {study: dnaa-02-atp-hydrolysis,     condition: tests-passed}
+  - {study: dnaa-04-initiation-mechanism, condition: ran}    # just need a baseline-mechanism run for the cross-run CV comparison

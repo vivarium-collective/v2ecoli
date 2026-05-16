@@ -231,4 +231,5 @@ bibliography:
 
 runs: []
 conclusion: null
-parent_studies: [dnaa-04-initiation-mechanism]
+parent_studies:
+  - {study: dnaa-04-initiation-mechanism, condition: tests-passed}

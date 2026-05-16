@@ -226,4 +226,5 @@ bibliography:
 
 runs: []
 conclusion: null
-parent_studies: [dnaa-01-expression-dynamics]
+parent_studies:
+  - {study: dnaa-01-expression-dynamics, condition: tests-passed}

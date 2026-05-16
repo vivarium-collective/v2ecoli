@@ -34,9 +34,9 @@ class MassListener(Step):
     config_schema = {
         'cellDensity': {'_type': 'float', '_default': 1100.0},
         'bulk_ids': 'list[string]',
-        'bulk_masses': {'_type': 'array[float]', '_default': None},
+        'bulk_masses': {'_type': 'overwrite[array[float]]', '_default': None},
         'unique_ids': 'list[string]',
-        'unique_masses': {'_type': 'array[float]', '_default': None},
+        'unique_masses': {'_type': 'overwrite[array[float]]', '_default': None},
         'submass_to_idx': {'_type': 'map[integer]', '_default': {
             "rRNA": 0,
             "tRNA": 1,

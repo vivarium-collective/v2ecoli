@@ -656,6 +656,43 @@ runs:
         Earlier coarse Y (cell-wide init events) returned r=+0.197 \u2014
         a spurious signal washed out by the rest of the transcriptome.
 
+- simulation: baseline-seed{0..4}-pooled
+  seeds: [0, 1, 2, 3, 4]
+  duration_s_each: 600
+  started_at: '2026-05-16T23:09Z'
+  wall_seconds_total: 366
+  rows_total: 3005
+  db: studies/dnaa-01-expression-dynamics/runs.db
+  note: |
+    Five 10-min runs (one per seed), evaluated via the pooled-history
+    evaluator at studies/dnaa-01-expression-dynamics/sims/
+    evaluate_multiseed.py. 1503 step-records in the second-half
+    pooled window.
+  outcomes:
+    dnaA-count-in-range:
+      result: FAIL
+      value: 115
+      expected: '[300, 800]'
+      note: Median across 5 seeds is identical to single-seed (115). Calibration shortfall is reproducible and seed-independent.
+    dnaA-concentration-stable:
+      result: PASS
+      max_rolling_cv: 0.060
+      note: |
+        CV rises from 0.008 (single-seed) to 0.060 across seeds \u2014 still
+        well under the 0.10 threshold. Confirms homeostasis is real
+        across the seed ensemble, not just a single trajectory.
+    autorepression-correlation:
+      result: PASS
+      pearson_r: -0.594
+      expected: '<= -0.3'
+      note: |
+        First test-passing result for autorepression. The 5-seed pool
+        provides the variance the single-seed window lacked. v2ecoli's
+        baseline DOES reproduce the literature autorepression
+        signature once the Y axis is dnaA-specific and seeds are
+        pooled. See findings F-02 (updated to confirms) and F-07 (the
+        multi-seed evaluator methodology).
+
 # ─── Findings — what this study TAUGHT us ────────────────────────────────
 # Each finding is a discrete claim with: kind (biological | computational |
 # methodological), the evidence (which run/test/value produced it), the
@@ -700,18 +737,23 @@ findings:
 
 - id: F-02
   kind: biological
-  status: contradicts
+  status: confirms
   statement: |
-    v2ecoli does NOT reproduce the textbook DnaA autorepression
-    signature at this resolution (Pearson r = +0.20 between DnaA-TF
-    binding and cell-wide transcription init events; literature
-    predicts r ≤ −0.3).
+    v2ecoli DOES reproduce the textbook DnaA autorepression signature
+    when measured properly: Pearson r = −0.594 across 5 seeds × 10 min
+    between DnaA-TF binding (column 12 of n_bound_TF_per_TU) and dnaA-
+    specific mRNA copy number (mRNA_cistron_counts[227] = EG10235_RNA).
+    Literature predicts r ≤ −0.3 — v2ecoli falls comfortably in band.
+
+    Original status was "contradicts" based on coarser measures (cell-
+    wide init events as Y, single-seed). Refining to dnaA-specific Y +
+    multi-seed aggregation flipped the result. See update history below.
   evidence:
-    from_run: baseline-heavy-tf
+    from_run: baseline-seed{0..4} (5 seeds × 10 min, pooled)
     from_test: autorepression-correlation
-    observed: 0.197
+    observed: -0.594
     units: Pearson r (dimensionless)
-    window: second_half (300–600 s of a 10-min run)
+    window: second_half · pooled across 5 seeds (1503 step-records)
   expected:
     cites: [Speck1999EMBO, Saggioro2013BiochemJ, Katayama2017Frontiers, Hansen2018DnaATale]
     range: [-1.0, -0.3]
@@ -721,12 +763,13 @@ findings:
       All predict a negative correlation between DnaA binding occupancy
       and dnaA transcription rate within steady-state windows.
   explanation: |
-    Two candidates: (a) the Y axis is still cell-wide (3277 TUs); only
-    dnaA's own TU should show autorepression — the signal is being
-    diluted. Refining Y to slice on EG10235_RNA's TU index needs a
-    sim_data mRNA_TU_ids lookup. (b) the autorepression model wiring
-    in tf_binding may not have a strong enough fold_change to register
-    over noise at this window length.
+    Three iterations to land this result:
+      (1) Cell-wide init events as Y → r = +0.20 (false negative —
+          dnaA's signal lost in the 3277-TU sum).
+      (2) dnaA-specific per-step init events → degenerate (variance ≈ 0).
+      (3) dnaA mRNA copy number, pooled across 5 seeds → r = −0.594.
+    The TRUE signal is there; the iteration history is itself a
+    methodology finding (see F-07).
   expert_reference:
     doc: replication_initiation_molecular_info
     quote: |
@@ -853,33 +896,39 @@ findings:
 
 - id: F-07
   kind: methodological
-  status: novel
+  status: confirms
   statement: |
-    The autorepression-correlation behavior test as currently designed
-    cannot evaluate in a 10-min single-seed window — both the per-step
-    dnaA init events and the dnaA mRNA copy number have effectively
-    zero variance. Test design needs revision.
+    Multi-seed aggregation rescues rare-event correlation tests for
+    single-cell whole-cell simulations. Pooling 5 seeds × 10 min raised
+    dnaA mRNA nonzero-fraction from ~12% (single seed) to 15% (5 seeds)
+    while increasing sample size from 300 to 1503 step-records. That
+    was enough to compute r = −0.594 (was insufficient_variance at any
+    single-seed window length).
   evidence:
-    from_run: baseline-dnaA-specific + baseline-dnaA-mrna (both 10-min seed-0)
+    from_run: baseline-seed{0..4} aggregated by evaluate_multiseed.py
     from_test: autorepression-correlation
-    observed: insufficient_variance
-    units: Pearson r evaluator returns "insufficient variance"
+    observed: r_5seed=-0.594  (vs single-seed=insufficient_variance)
+    units: pooled Pearson r
   expected:
     summary: |
-      A correlation test needs variance in both axes. dnaA's signal is
-      sparse at the single-cell, single-gene scale in a short window.
+      Standard correlation tests need O(100+) variance-bearing samples.
+      Single-cell rare events (dnaA mRNA at 0.18 copies/cell) only hit
+      ~12% nonzero rate — pooling across seeds is the cheapest path
+      to enough variance.
   explanation: |
-    Two design options to make the test evaluable:
-    (a) Run multi-generation (overlapping rounds amplify variance), or
-    (b) Average across many seeds (5-10) and correlate within a wider
-        window, or
-    (c) Switch the test concept entirely — e.g. inducible-DnaA
-        perturbation experiment where binding is artificially varied
-        and mRNA response is measured.
+    Of the three design options I'd noted:
+      (a) multi-generation — not tested, still on the table for tests
+          that need temporal autocorrelation (replication-cycle effects)
+      (b) MULTI-SEED AGGREGATION — chosen, works at 5 seeds × 10 min
+      (c) inducible-DnaA perturbation — bigger model change, deferred
+    The multi-seed evaluator (studies/dnaa-01-expression-dynamics/sims/
+    evaluate_multiseed.py) pools all baseline-seed* runs and runs the
+    same behavior_tests against the concatenated history.
   next_action: |
-    Update the test definition to use multi-seed aggregation + a longer
-    window. Until then, mark autorepression-correlation as "design-
-    blocked" rather than "fail" in the gate decision.
+    Generalize the multi-seed evaluator into a workspace-shared helper
+    so other studies can use it without copy-paste. Add a
+    `runs_aggregate: pool-seeds` field to behavior_tests to declare
+    when pooling is required.
 
 
 conclusion: "Phase=Decide outcome: PIPELINE-GATED on translation-efficiency calibration.\n\

@@ -135,17 +135,41 @@ observables:
 - name: dnaA_mrna_count
   status: available
   description: |
-    Bulk mRNA count. v2ecoli's `bulk` store is a `bulk_array` (structured
-    array of id+count); the observable resolver should look up by molecule
-    id.
-  store_path: agents.0.bulk
-  index_by: {type: bulk_id, value: EG10235_RNA}
+    Aggregate dnaA mRNA count.
+    NOTE (corrected via investigation walkthrough 2026-05-16):
+    EG10235_RNA is NOT a bulk-table id — v2ecoli tracks mRNAs as
+    unique molecules with TU_index. The RNA_counts_listener aggregates
+    them and emits at `listeners.rna_counts.mRNA_counts[idx]` where
+    `idx = sim_data.process.transcription.rna_data.id.index("EG10235_RNA")`.
+  store_path: agents.0.listeners.rna_counts.mRNA_counts
+  index_by:
+    type: rna_id            # resolved through sim_data.process.transcription.rna_data.id
+    value: EG10235_RNA
 
 - name: dnaA_protein_count
   status: available
   description: |
-    Bulk DnaA monomer count (current model: one species for total DnaA;
-    dnaa-02 will split this into ATP/ADP/apo forms).
+    DnaA monomer count via the monomer_counts_listener (which re-aggregates
+    bulk + complexation + equilibrium stoichiometry).
+    NOTE (corrected via investigation walkthrough 2026-05-16):
+    DnaA's real bulk id is `PD03831[c]` (initial count = 124 in
+    out/cache/initial_state.json). The label `MONOMER0-160[c]` in
+    molecule_ids.py refers to the DnaA-ATP COMPLEX form, which starts
+    at 0 — different concept. The monomer_counts_listener resolves the
+    index automatically.
+  store_path: agents.0.listeners.monomer_counts.monomerCounts
+  index_by:
+    type: monomer_id        # resolved through monomer_counts_listener config's monomer_ids
+    value: "PD03831[c]"
+
+# Legacy entry kept for the dnaa-02 split tracking (DnaA-ATP complex):
+- name: dnaA_atp_complex_bulk_count
+  status: aspirational
+  description: |
+    Bulk count of MONOMER0-160[c] = "DnaA_ATP_complex" label in
+    molecule_ids.py. Starts at 0 in v2ecoli's initial state today;
+    the population mechanism is not wired up yet. dnaa-02 will split
+    DnaA into ATP / ADP / apo forms with explicit kinetics.
   store_path: agents.0.bulk
   index_by: {type: bulk_id, value: "MONOMER0-160[c]"}
 
@@ -166,14 +190,19 @@ observables:
   store_path: agents.0.listeners.dnaa.mrna_uM      # provisional
 
 - name: dnaA_bound_to_promoters_total
-  status: available
+  status: derived-needed
   description: |
-    Count of DnaA molecules currently bound across ALL its TF target TUs
-    (not just dnaAp). Read from rna_synth_prob.n_actual_bound at the DnaA
-    index. Useful as a coarse autorepression proxy until the per-promoter
-    listener lands.
-  store_path: agents.0.listeners.rna_synth_prob.n_actual_bound
-  index_by: {type: tf_id, value: MONOMER0-160}
+    Count of DnaA molecules currently bound across promoters.
+    NOTE (corrected via investigation walkthrough 2026-05-16):
+    v2ecoli's listeners.rna_synth_prob today emits only
+    `{actual_rna_synth_prob, n_bound_TF_per_TU, target_rna_synth_prob,
+    total_rna_init}` — there is NO `n_actual_bound` field at all.
+    `n_bound_TF_per_TU` is a (n_TU × n_TF) array; summing along the
+    DnaA-TF axis gives total bound DnaA per TU.
+    This is a derived-listener-needed observable: a small Step that
+    reads n_bound_TF_per_TU and emits a 1-D series indexed by TF.
+  store_path: agents.0.listeners.rna_synth_prob.n_bound_TF_per_TU
+  index_by: {type: tf_axis_id, value: "PD03831[c]"}     # resolved via tf_binding config
 
 - name: dnaap_box_occupancy
   status: aspirational
@@ -428,7 +457,7 @@ expected_behavior:
 - name: dnaa-count-in-mass-spec-range
   en: "Under steady growth, DnaA monomer count per cell is between 300 and 800 (mass-spec / EcoCyc range)."
   given:  {run: baseline, window: second_half}
-  measure: {kind: bulk_count, id: "MONOMER0-160[c]", reduce: median, units: "molecules/cell"}
+  measure: {kind: listener_indexed, path: "listeners.monomer_counts.monomerCounts", index_by: "monomer_id:PD03831[c]", reduce: median, units: "molecules/cell"}
   expect:  {op: in_range, low: 300, high: 800}
   status: implemented
   cites:
@@ -443,7 +472,7 @@ expected_behavior:
   given:  {run: baseline, window: second_half}
   measure:
     kind: bulk_count
-    id: "MONOMER0-160[c]"
+    id: "PD03831[c]"
     reduce: series
     units: "molecules/cell (fallback; uM once gap-1 listener lands)"
   expect:  {op: rolling_cv_below, window_steps: 5, threshold: 0.10}
@@ -458,7 +487,7 @@ expected_behavior:
 - name: stop-synthesis-drops-30pct
   en: "If you stop DnaA synthesis, DnaA count drops by at least 30% over one doubling time."
   given:  {run: variant, variant: stop-dnaA-synthesis, window: full}
-  measure: {kind: bulk_count, id: "MONOMER0-160[c]", reduce: first_and_last, units: "molecules/cell"}
+  measure: {kind: listener_indexed, path: "listeners.monomer_counts.monomerCounts", index_by: "monomer_id:PD03831[c]", reduce: first_and_last, units: "molecules/cell"}
   expect:  {op: ratio_at_most, ratio: 0.70}   # last / first ≤ 0.70
   status: implemented
   requires:
@@ -470,7 +499,7 @@ expected_behavior:
 - name: stop-synthesis-monotonic-decrease
   en: "If you stop DnaA synthesis, DnaA count decreases monotonically (no rebound)."
   given:  {run: variant, variant: stop-dnaA-synthesis, window: full}
-  measure: {kind: bulk_count, id: "MONOMER0-160[c]", reduce: series, units: "molecules/cell"}
+  measure: {kind: listener_indexed, path: "listeners.monomer_counts.monomerCounts", index_by: "monomer_id:PD03831[c]", reduce: series, units: "molecules/cell"}
   expect:  {op: monotonic_decreasing, allow_rebound_pct: 5}
   status: implemented
   requires:

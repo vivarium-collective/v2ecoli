@@ -274,34 +274,23 @@ design-phase looks complete but reality finds 3 wrong identifiers in
 5 minutes. The fix is a structured **lifecycle** with gates between
 phases, plus tooling at each gate.
 
-### Proposed study lifecycle (state machine)
+### Study lifecycle: Design → Build → Simulate → Evaluate → Decide
 
-```
-planned          (spec exists, no validation done yet)
-  ↓ run /pbg-study verify <slug>
-spec-validated   (all identifiers resolve; all variants' params have a hook
-                  OR are marked aspirational; cross-study refs resolve)
-  ↓ run /pbg-study preview-viz <slug>
-viz-previewed    (each declared visualization renders against the cached
-                  baseline; expert can sanity-check the shape of every plot)
-  ↓ expert review (manual)
-ready            (expert questions addressed; calibration disagreements
-                  resolved; gate to actually execute)
-  ↓ run /pbg-study run-baseline (existing)
-running          (simulation in flight)
-  ↓
-ran              (at least one completed run on disk)
-  ↓ run /pbg-study run-tests (existing)
-tests-passed     (parametrized behaviors all green)
-  ↓ expert review
-complete         (study contributes its results to investigation acceptance)
-```
+User correction after first draft: simpler than the 7-state machine.
+The five phases:
 
-The existing dashboard `_VALID_STATUSES = {planned, running, ran,
-complete, failed, invalid}` covers the *runtime* states but not the
-*pre-run* validation states. Three new states needed:
-`spec-validated`, `viz-previewed`, `ready`. Each is gated by a
-specific tool that produces an artifact + an explicit pass/fail.
+| Phase | Exit gate | Tool |
+|---|---|---|
+| **Design** | spec validated — every readout / test resolves, gates declared | `/pbg-study verify` |
+| **Build** | implementation_requirements landed; gated simulations turn `ready` | dev work; re-run verify |
+| **Simulate** | at least one simulation_set entry runs to completion | `pbg-study run-baseline` |
+| **Evaluate** | behavior_tests have pass/fail; calibration_anchors populated | `run-tests` + `preview-viz` |
+| **Decide** | conclusion_logic applied; pipeline_gate.proceed_condition resolved | manual (expert) |
+
+Each study.yaml carries `phase:` at the top alongside `status:`. The
+dashboard's existing `_VALID_STATUSES` covers run-time states; `phase:`
+captures the higher-level project view that maps Design / Build /
+Simulate / Evaluate / Decide to concrete tools + artifacts.
 
 ### Tool proposals (P0 for the listening Claude)
 
@@ -467,3 +456,88 @@ The Generate-report flow + sticky-nav + DAG + dependency framework
 all already exist; they're the *display* layer. The *validation*
 layer is what's missing. That's the next P0 batch of pbg-superpowers
 work.
+
+---
+
+## Phase 3 — Study template refactor (eight sections, five phases)
+
+User feedback: "The current template is too narrative. ... Refactor
+around 8 major shifts." The result is a new 8-section template
+documented in `docs/concepts/study-spec.md`:
+
+1. `purpose:`   (question + mechanism + expected_outcome — replaces Q+H+Obj)
+2. `pipeline_gate:`   (prerequisites + enables + proceed_condition)
+3. `simulation_set:`   (unified run plans; replaces variants + interventions)
+4. `model_change:` + `key_assumptions:`   (code changes vs biology)
+5. `readouts:` + `behavior_tests:`   (data + pass/fail rules)
+6. `conclusion_logic:`   (if-pass / if-fail; implementation vs biological)
+7. `limitations:`   (explicit out-of-scope)
+8. `implementation_requirements:`   (process · step · listener · hook · data)
+
+Plus `phase:` at the top carrying the 5-phase lifecycle (Design,
+Build, Simulate, Evaluate, Decide).
+
+All 6 dnaa-* studies migrated to the new template; dashboard validates
+each. Schema-collision notes:
+
+- `tests:` is dashboard-v4-reserved; behavior tests are now under
+  `behavior_tests:`.
+- `references:` is dashboard-v4-reserved; bib keys are under
+  `bibliography:`.
+- `baseline:` and `parent_studies:` kept as v3 back-compat shims; the
+  v4 renderer should switch to consuming `simulation_set:` +
+  `pipeline_gate:` directly.
+
+## Finding #30 — Dashboard renderer needs to follow the new template
+
+Critical follow-up for the listening Claude. The dashboard's
+study-detail.html template + the Generate-report builder currently
+render the OLD fields (question / hypothesis / objective /
+expected_behavior / variants / interventions / gaps). They need to be
+updated to render the NEW fields:
+
+- **Overview tab**:
+  - Render `purpose.question` / `purpose.mechanism` /
+    `purpose.expected_outcome` as three sub-callouts (replacing the
+    old Q+H+Obj).
+  - Show `phase:` chip alongside `status:`.
+  - Show `pipeline_gate.prerequisites` + `enables` + `proceed_condition`.
+  - Show `limitations:` prominently below tests.
+
+- **Tests tab**:
+  - Render `behavior_tests:` (not `expected_behavior:`).
+  - Group by `classification:` (primary, supporting, diagnostic, regression).
+  - Surface `calibration_anchor:` block as an "Expert question" callout.
+
+- **Observables tab** → rename to "Readouts":
+  - Render `readouts:` (not `observables:`).
+  - Show `status:` chip (available / derived-needed / aspirational) +
+    `blocked_by_requirements` if any.
+
+- **New tab: "Simulations"** (or merge into Variants):
+  - Render `simulation_set:` entries. Each row: name, base_model,
+    perturbation, condition, duration, seeds, applied tests, status.
+
+- **New section: "Build" / "Implementation"**:
+  - Render `implementation_requirements:` as a checklist; each item
+    has an effort chip, a "what unblocks" list, and (when present)
+    `defer_until` cross-reference.
+
+- **Conclusion tab**:
+  - Render `conclusion_logic:` as a two-column "if pass / if fail"
+    structure.
+
+- **DAG view**:
+  - Use `pipeline_gate.prerequisites` + `pipeline_gate.enables` instead
+    of `parent_studies:` (which is now a v3 back-compat shim).
+
+- **Generate-report flow**:
+  - Mirror the new section layout in the standalone HTML report.
+  - Per-study sticky nav (already shipped) should use the new section
+    names: Purpose · Pipeline Gate · Simulations · Model Change ·
+    Assumptions · Readouts · Tests · Conclusion · Limitations ·
+    Requirements · References.
+
+This is mechanical template editing on the dashboard side — no new
+backend endpoints needed. The /api/study/<name>.spec already passes
+all the new fields through.

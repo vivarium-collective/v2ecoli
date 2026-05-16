@@ -247,33 +247,67 @@ automatically (`/pbg-study generate-tasks <slug>`).
 
 ---
 
-## Validation lifecycle
+## Lifecycle: Design → Build → Simulate → Evaluate → Decide
+
+Every study moves through five phases. The `phase:` field at the top
+of `study.yaml` carries the current phase. Each phase has an explicit
+exit gate.
 
 ```
-planned                              (spec exists)
-  ↓ /pbg-study verify <slug>
-spec-validated                       (all readouts resolve, all
-                                      simulation_set hooks exist or
-                                      are gated)
-  ↓ /pbg-study preview-viz <slug>
-viz-previewed                        (each readout produces a sane
-                                      sample plot)
-  ↓ expert review
-ready                                (calibration anchors annotated;
-                                      limitations acknowledged)
-  ↓ /pbg-study run-baseline <slug>
-running → ran → tests-passed → complete
+┌─────────┐   /pbg-study verify
+│ Design  │ ──────────────────────────────► spec validated:
+└─────────┘                                  - every readout resolves
+   ↓                                         - every behavior_test's measure + pass_if resolve
+                                             - pipeline_gate is set
+                                             - every simulation_set entry is either ready
+                                               or has blocked_by_requirements pointing at
+                                               an implementation_requirements entry
+
+┌─────────┐   implementation_requirements satisfied
+│ Build   │ ──────────────────────────────► gated simulation_set entries flip to ready:
+└─────────┘                                  - new processes / steps / listeners exist
+   ↓                                         - parameter hooks land on the composite
+                                             - data + listeners verified by /pbg-study verify
+                                               (re-run)
+
+┌──────────┐   simulation_set runs complete
+│ Simulate │ ──────────────────────────────► at least one simulation_set entry has
+└──────────┘                                  status: ran (runs.db populated)
+   ↓
+
+┌──────────┐   behavior_tests evaluated
+│ Evaluate │ ──────────────────────────────► every behavior_test has a pass/fail result;
+└──────────┘                                  calibration_anchor.v2ecoli_observed populated;
+   ↓                                          divergences vs literature_target flagged.
+
+┌────────┐    conclusion_logic applied + pipeline_gate.proceed_condition
+│ Decide │    resolved (by expert)
+└────────┘
+   ↓
+  next study in pipeline_gate.enables: starts at Design
 ```
+
+Phase summary:
+
+| Phase | What's happening | Exit gate | Tools |
+|---|---|---|---|
+| **Design** | spec authored / refined | `/pbg-study verify` passes | `pbg-study verify` |
+| **Build** | implementation_requirements landed | all simulation_set entries either `ready` or `gated-and-acknowledged` | dev work; re-run `verify` |
+| **Simulate** | runs executing | at least one run completed | `pbg-study run-baseline` (existing) |
+| **Evaluate** | behavior_tests applied | every primary test has a result + calibration_anchor populated | `pbg-study run-tests` + `preview-viz` |
+| **Decide** | expert applies conclusion_logic | pipeline_gate.proceed_condition resolved | manual (expert) |
 
 Validation tooling (proposed for the listening Claude in
 `docs/superpowers/notes/2026-05-16-investigation-walkthrough.md`):
 
-- `/pbg-study verify` — mechanical resolution of every identifier
-  and reference. Catches wrong-id bugs before runtime.
-- `/pbg-study preview-viz` — renders each readout + behavior test
-  against the cached baseline so the expert sanity-checks shapes.
-- `calibration_anchor` field above — surfaces v2ecoli-vs-literature
-  divergences as questions, not failures.
+- `/pbg-study verify` — Design exit gate; mechanical resolution of every
+  identifier and reference. Catches wrong-id bugs before runtime.
+- `/pbg-study preview-viz` — Evaluate gate helper; renders each readout
+  + behavior test against the cached baseline so the expert sanity-
+  checks shapes before locking the test thresholds.
+- `calibration_anchor` field above — Evaluate-phase output; surfaces
+  v2ecoli-vs-literature divergences as expert questions, not silent
+  test failures.
 
 ## Migration from the old narrative template
 

@@ -2,390 +2,318 @@ schema_version: 3
 name: dnaa-04-initiation-mechanism
 created: '2026-05-16'
 status: planned
-question: |
-  When the v2ecoli mass-threshold initiation heuristic is replaced with a
-  DnaA-driven mechanism (oriC fill + DnaA-ATP filament + DUE opening), do
-  emergent initiation timing and mass match the heuristic's distribution
-  under slow non-overlapping growth, with the expected sensitivity to
-  growth rate and DnaA-box count?
-hypothesis: |
-  The mechanism converges to a steady-state initiation mass within ±5% of
-  the heuristic's mean across seeds. Inter-initiation timing is wider than
-  the heuristic (no global trigger) but bounded. Scaling chromosomal box
-  count by 1/N shifts inter-initiation timing proportionally (the
-  titration prediction). Fast growth shifts initiation earlier in the
-  cycle. Replication-fork passage cleanly removes DnaA from boxes; new
-  boxes appear behind the fork with empty occupancy.
-objective: |
-  Replace the current mass-threshold replication-initiation heuristic with
-  a DnaA-driven mechanism (oriC occupancy + DnaA-ATP filament + DUE opening).
-  Compare emergent initiation timing and mass against the heuristic.
-description: |
-  Phase 4 of the multi-phase replication-initiation plan
-  (references/expert/chromosome_replication_plan.pdf, Study 4).
-  Constraints for the first pass:
-    - Slow growth, non-overlapping cell cycles only.
-    - Constant replication speed -> 40 min C period.
-    - Constant D period (termination -> division).
-    - DnaA must unbind chromosomal boxes as the fork passes (DnaA boxes
-      require double-stranded DNA); DnaA re-binds to new boxes on the
-      newly synthesized chromosome domains.
+phase: Design   # Design | Build | Simulate | Evaluate | Decide
 
 baseline:
-- name: baseline-heuristic
-  composite: v2ecoli.composites.baseline.baseline
-  params:
-    seed: 0
-    cache_dir: out/cache
-    initiation_mode: heuristic
-
 - name: baseline-mechanism
   composite: v2ecoli.composites.baseline.baseline
-  params:
-    seed: 0
-    cache_dir: out/cache
-    initiation_mode: dnaa_mechanism
+  params: {seed: 0, cache_dir: out/cache, initiation_mode: dnaa_mechanism}
 
-variants:
-- name: slow-growth-M9
-  description: M9-minimal-glucose; long doubling time; expect late initiation.
-  params:
-    media: M9_glucose
 
-- name: fast-growth-rich
-  description: LB-equivalent; short doubling time; expect early initiation
-    (under non-overlapping assumption this is a stress test).
-  params:
-    media: LB
+# ─── 1. PURPOSE ────────────────────────────────────────────────────────────
+purpose:
+  question: |
+    Can a DnaA-driven mechanistic initiation trigger (oriC fill + ATP-DnaA
+    filament + DUE opening) replace v2ecoli's mass-threshold heuristic
+    and reproduce the observed initiation-mass distribution + 1/N
+    titration scaling?
+  mechanism: |
+    Add a new initiation Process gated by oriC occupancy from dnaa-03.
+    Toggle behind a composite param so heuristic-vs-mechanism can be
+    compared 1:1. Add fork-passage release of DnaA from chromosomal
+    boxes (returns the bound nucleotide form to free pool).
+  expected_outcome: |
+    Mechanism reproduces heuristic's mean initiation mass within ±5%
+    across seeds; one initiation per generation on average; inter-
+    initiation CV widens vs heuristic (no global trigger → more noise);
+    box-count reduction shortens inter-initiation time linearly.
 
-- name: reduced-box-count-100
-  description: Set ~200 chromosomal boxes to affinity 0 so titration completes
-    earlier; measure initiation-timing shift.
-  params:
-    chromosomal_box_count: 100
 
-- name: reduced-box-count-50
-  params:
-    chromosomal_box_count: 50
+# ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
+pipeline_gate:
+  prerequisites:
+    - dnaa-03-box-binding         # mechanism reads oriC occupancy
+  enables:
+    - dnaa-05-rida-ddah-dars
+    - dnaa-06-seqa-sequestration
+  proceed_condition: |
+    one-initiation-per-generation + initiation-mass-mean-matches-heuristic
+    both pass. Replication-time CV is narrow (<0.10).
 
-- name: redistributed-boxes
-  description: |
-    Shift chromosomal DnaA boxes to be near oriC vs uniformly distributed;
-    measure timing impact.
-  params:
-    chromosomal_box_distribution: oriC_clustered
 
-observables:
-- name: initiation_events
-  store_path: agents.0.listeners.replication.initiation_events
-- name: initiation_mass
-  store_path: agents.0.listeners.replication.initiation_mass
-- name: replisome_count
-  store_path: agents.0.listeners.replication.replisome_count
-- name: c_period_min
-  store_path: agents.0.listeners.replication.c_period_min
-- name: d_period_min
-  store_path: agents.0.listeners.replication.d_period_min
-- name: time_between_initiations
-  store_path: agents.0.listeners.replication.interinitiation_min
+# ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
+simulation_set:
 
-visualizations:
-- name: initiation-timing-vs-mass
-  address: local:ScatterPlot
-  config:
-    title: "Initiation mass per event — heuristic vs mechanism"
-    x: time
-    y: initiation_mass
-    color_by: baseline
-- name: initiation-mass-distribution
-  address: local:Histogram
-  config:
-    title: "Initiation mass distribution (over seeds)"
-    observable: initiation_mass
-    overlay: [baseline-heuristic, baseline-mechanism]
-- name: interinitiation-time
-  address: local:Histogram
-  config:
-    title: "Time between initiation events"
-    observable: time_between_initiations
-
-tasks:
-- Replace the mass-threshold trigger with a DnaA-occupancy / DnaA-ATP-filament
-  trigger at oriC.
-- Add fork-passage handler that removes DnaA from boxes as the replisome
-  advances, tracking which nucleotide form was bound for correct release.
-- Re-bind DnaA to the regenerated double-stranded domains behind the fork.
-- Plot initiation-mass distribution over many seeds for both baselines.
-
-# ── Concrete gaps ───────────────────────────────────────────────────────────
-gaps:
-- id: gap-1
-  title: Replace mass-threshold initiation with DnaA-driven trigger
-  effort: L
-  why: |
-    The current v2ecoli baseline uses a mass-threshold heuristic from
-    chromosome_initiation.py. This study's central goal is to swap that
-    for a mechanism: oriC fill → DnaA-ATP filament → DUE opening.
-  approach: |
-    Add an alternative initiation Process that:
-    1. Reads oriC occupancy from the dnaa-03 binding model.
-    2. When all 3 high-affinity + ≥4 low-affinity oriC boxes are
-       DnaA-ATP-occupied, trigger initiation.
-    3. Keep the heuristic available behind a composite param so dnaa-04
-       can compare both via baseline-heuristic vs baseline-mechanism.
-  steps:
-    - "Composite param initiation_mode: 'heuristic' | 'dnaa_mechanism' = 'heuristic'."
-    - "Create v2ecoli/processes/dnaa_initiation.py with the mechanism trigger."
-    - "Behavioral test: multi-seed sweep showing initiation-mass distribution overlap with heuristic."
-  unblocks:
-    - dnaa-04 one-initiation-per-generation, initiation-mass-mean-matches-heuristic, etc.
-
-- id: gap-2
-  title: Fork-passage DnaA release + rebinding
-  effort: M
-  why: |
-    As replisomes advance, the DNA at each DnaA-box is locally unwound;
-    canonical DnaA binding requires dsDNA. Plan: track which form
-    (ATP / ADP) was bound; release the same form back to the free pool
-    on fork passage; rebind to the regenerated boxes behind the fork.
-  steps:
-    - "Hook into chromosome_replication.py's fork-advance step."
-    - "When a fork crosses a DnaA box, set DnaA_bound = False and increment the corresponding free-DnaA-form bulk count."
-    - "After fork passage, regenerate DnaA boxes on the new daughter strands (already happens in chromosome_structure)."
-    - "Sanity test: post-fork-passage, free DnaA pool increases by the count released."
-  unblocks:
-    - dnaa-04 chromosomal-occupancy-monotonic-increasing across multiple generations
-    - dnaa-04 stable cell cycle
-
-- id: gap-3
-  title: Variant hooks (chromosomal_box_count, chromosomal_box_distribution)
-  effort: S
-  why: 1/N scaling and oriC-clustered tests need to perturb the catalog.
-  steps:
-    - "Composite param chromosomal_box_count: int | None = None (override the catalog count)."
-    - "Composite param chromosomal_box_distribution: 'uniform' | 'oriC_clustered' = 'uniform'."
-    - "Initial-state seeder honors both, redistributing boxes accordingly."
-  unblocks:
-    - dnaa-04 reduced-box-count-shortens-inter-initiation
-    - dnaa-04 redistributed-boxes-shifts-timing
-
-# ── Interventions ───────────────────────────────────────────────────────────
-interventions:
-
-- name: heuristic-vs-mechanism-multigenerational
-  description: |
-    Run both baseline-heuristic (mass-threshold trigger) and
-    baseline-mechanism (DnaA-driven trigger) for 4 generations under
-    slow-growth M9 minimal media, then compare initiation-mass and
-    inter-initiation-timing distributions across seeds. The core
-    apples-to-apples test that the mechanism reproduces the heuristic's
-    steady state.
-  variant: null
-  protocol:
+- name: heuristic-vs-mechanism-multigeneration
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
     kind: cross_baseline
-    baselines: [baseline-heuristic, baseline-mechanism]
-    duration_min: 240       # ~4 generations of 60 min
-    seeds: [0, 1, 2, 3, 4, 5, 6, 7]
-  triggers_tests:
+    runs:
+      - {initiation_mode: heuristic}
+      - {initiation_mode: dnaa_mechanism}
+  condition: M9-minimal-glucose
+  duration_min: 240    # ~4 generations
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7]
+  readouts: [initiation_events, initiation_mass, c_period_min, time_between_initiations]
+  applies_tests:
     - one-initiation-per-generation
     - initiation-mass-mean-matches-heuristic
-    - replication-times-narrow-distribution
+    - replication-times-narrow
     - inter-initiation-noisier-than-heuristic
-  key_observables:
-    - initiation_events
-    - initiation_mass
-    - replisome_count
-    - c_period_min
-    - time_between_initiations
-  requires:
-    - variant_hook: initiation_mode
+  status: gated
+  blocked_by_requirements: [req-1-mechanism-trigger, req-2-fork-passage-release]
 
 - name: growth-rate-sweep
-  description: |
-    Run the mechanism baseline under three media — M9-minimal-glucose
-    (slow), neutral baseline, LB-rich (fast) — and compare initiation
-    timing across the cycle. Confirms growth rate shifts initiation
-    earlier in the cycle.
-  variant: [slow-growth-M9, baseline-mechanism, fast-growth-rich]
-  protocol:
-    kind: sweep
-    duration_min: 240
-    seeds: [0, 1, 2, 3]
-  triggers_tests:
-    - fast-growth-earlier-replication
-  key_observables:
-    - initiation_mass
-    - initiation_events
-  requires:
-    - variant_hook: media
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
+    media: [M9_glucose, baseline, LB]
+  condition: sweep
+  duration_min: 240
+  seeds: [0, 1, 2, 3]
+  readouts: [initiation_mass, initiation_events]
+  applies_tests: [fast-growth-earlier-replication]
+  status: gated
+  blocked_by_requirements: [req-1-mechanism-trigger, req-2-fork-passage-release]
 
-- name: dnaa-box-count-titration
-  description: |
-    1/N scaling: vary chromosomal box count across [50, 100, 200, 307]
-    and measure inter-initiation time. Tests the central prediction of
-    the titration model (Sompayrac & Maaløe 1973).
-  variant: [reduced-box-count-50, reduced-box-count-100, baseline-mechanism]
-  protocol:
-    kind: sweep
-    duration_min: 240
-    seeds: [0, 1, 2, 3, 4]
-  triggers_tests:
-    - reduced-box-count-shortens-inter-initiation
-  key_observables:
-    - time_between_initiations
-    - initiation_mass
-  requires:
-    - variant_hook: chromosomal_box_count
+- name: box-count-titration
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
+    chromosomal_box_count: [50, 100, 200, 307]
+  condition: sweep
+  duration_min: 240
+  seeds: [0, 1, 2, 3, 4]
+  readouts: [time_between_initiations, initiation_mass]
+  applies_tests: [reduced-box-count-shortens-inter-initiation]
+  status: gated
+  blocked_by_requirements: [req-3-box-count-override, req-1-mechanism-trigger]
 
 - name: box-distribution-shift
-  description: |
-    Compare uniform vs oriC-clustered distribution of DnaA boxes.
-    Tests whether spatial layout (not just total count) influences
-    initiation timing.
-  variant: [redistributed-boxes, baseline-mechanism]
-  protocol:
-    kind: ab_compare
-    duration_min: 240
-    seeds: [0, 1, 2, 3, 4]
-  triggers_tests:
-    - redistributed-boxes-shifts-timing
-  key_observables:
-    - initiation_mass
-    - time_between_initiations
-  requires:
-    - variant_hook: chromosomal_box_distribution
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
+    chromosomal_box_distribution: [uniform, oriC_clustered]
+  condition: sweep
+  duration_min: 240
+  seeds: [0, 1, 2, 3, 4]
+  readouts: [initiation_mass, time_between_initiations]
+  applies_tests: [redistributed-boxes-shifts-timing]
+  status: gated
+  blocked_by_requirements: [req-4-box-distribution-override]
 
-expected_behavior:
+
+# ─── 4. MODEL CHANGE ───────────────────────────────────────────────────────
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_processes:
+    - {name: DnaaInitiationMechanism, kind: Process, requirement_id: req-1-mechanism-trigger}
+  new_parameters:
+    - {name: initiation_mode, default: heuristic, type: "heuristic | dnaa_mechanism"}
+    - {name: chromosomal_box_count, default: null}
+    - {name: chromosomal_box_distribution, default: uniform}
+    - {name: media, default: M9_glucose}
+  new_listeners:
+    - {name: replication.initiation_events + initiation_mass + c_period_min + interinitiation_min}
+  modified_processes:
+    - "chromosome_initiation: gate by initiation_mode."
+    - "chromosome_replication: on fork passage, call DnaaBoxBinding to release bound DnaA (correct nucleotide form)."
+
+
+# ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
+key_assumptions:
+  - "Slow non-overlapping growth (single C-period 40 min, single D-period)."
+  - "Initiation fires when ≥3 high-affinity + ≥4 low-affinity oriC boxes are DnaA-ATP-occupied."
+  - "Fork passage removes ALL DnaA from any chromosomal box it crosses; the bound form returns to free pool."
+  - "Replication speed is constant (no DnaA feedback)."
+
+
+# ─── 5. READOUTS + BEHAVIOR TESTS ──────────────────────────────────────────
+
+readouts:
+
+- name: initiation_events
+  store_path: agents.0.listeners.replication.initiation_events
+  units: events
+  status: derived-needed
+  blocked_by_requirements: [req-1-mechanism-trigger]
+
+- name: initiation_mass
+  store_path: agents.0.listeners.replication.initiation_mass
+  units: fg
+  status: derived-needed
+  blocked_by_requirements: [req-1-mechanism-trigger]
+
+- name: c_period_min
+  store_path: agents.0.listeners.replication.c_period_min
+  units: min
+  status: derived-needed
+
+- name: time_between_initiations
+  store_path: agents.0.listeners.replication.interinitiation_min
+  units: min
+  status: derived-needed
+
+
+behavior_tests:
 
 - name: one-initiation-per-generation
-  en: "On average exactly one initiation event per generation (stable cell cycle)."
-  given:  {run: baseline-mechanism, window: full}
-  measure:
-    kind: event_count_per_window
-    event: replication_initiation
-    window_kind: generation
-    units: "events/generation"
-  expect: {op: in_range, low: 0.9, high: 1.1}
-  status: gated
-  requires:
-    - listener: replication.initiation_events
-    - upstream: dnaa-04 mechanism-driven initiation
-  cites:
-    - Hansen1991ResMicrobiol     # initiator-titration model predicts once-per-generation
-    - Berger2022NatCommun        # robust once-per-generation under coupled homeostasis
-    - Katayama2017Frontiers      # DnaA cycle ensures single initiation per cycle
+  classification: primary
+  description: "Exactly one initiation per generation (in [0.9, 1.1] events/gen)."
+  measure: {kind: event_count_per_window, event: replication_initiation, window_kind: generation}
+  pass_if: {op: in_range, low: 0.9, high: 1.1}
+  units: events/generation
+  requires_simulation: heuristic-vs-mechanism-multigeneration
+  cites: [Hansen1991ResMicrobiol, Berger2022NatCommun, Katayama2017Frontiers]
 
 - name: initiation-mass-mean-matches-heuristic
-  en: "Mechanism-driven initiation mass mean is within ±5% of the heuristic baseline's mean across seeds."
-  given:  {run: baseline-mechanism, window: full, compare_to: baseline-heuristic}
+  classification: primary
+  description: "Mechanism initiation-mass mean within ±5% of heuristic baseline."
   measure:
     kind: cross_run_ratio
-    series: {kind: listener_path, path: "listeners.replication.initiation_mass", units: "fg"}
+    series: {kind: listener_path, path: "listeners.replication.initiation_mass"}
     reduce: mean
-  expect: {op: in_range, low: 0.95, high: 1.05}
-  status: gated
-  requires:
-    - variant_hook: initiation_mode
-  cites:
-    - Berger2022NatCommun        # robust initiation mass under coupled homeostasis
-    - Hansen1991ResMicrobiol     # classic titration prediction of constant initiation mass
+  pass_if: {op: in_range, low: 0.95, high: 1.05}
+  units: ratio
+  requires_simulation: heuristic-vs-mechanism-multigeneration
+  cites: [Berger2022NatCommun, Hansen1991ResMicrobiol]
 
-- name: replication-times-narrow-distribution
-  en: "C-period (replication time) coefficient of variation stays below 0.10 across initiations."
-  given:  {run: baseline-mechanism, window: full}
-  measure:
-    kind: cv_of_listener
-    path: "listeners.replication.c_period_min"
-    units: "min"
-  expect: {op: at_most, value: 0.10}
-  status: gated
-  requires:
-    - listener: replication.c_period_min
-  cites:
-    - Katayama2017Frontiers      # C-period control
+- name: replication-times-narrow
+  classification: supporting
+  description: "C-period CV stays below 10%."
+  measure: {kind: cv_of_listener, path: "listeners.replication.c_period_min"}
+  pass_if: {op: at_most, value: 0.10}
+  units: fraction
+  requires_simulation: heuristic-vs-mechanism-multigeneration
+  cites: [Katayama2017Frontiers]
 
 - name: inter-initiation-noisier-than-heuristic
-  en: "Inter-initiation timing is wider for mechanism vs heuristic (CV ratio ≥ 1.3) — no global trigger means more noise."
-  given:  {run: baseline-mechanism, window: full, compare_to: baseline-heuristic}
-  measure:
-    kind: cross_run_cv_ratio
-    path: "listeners.replication.interinitiation_min"
-    units: "min"
-  expect: {op: at_least, value: 1.3}
-  status: gated
-  requires:
-    - listener: replication.interinitiation_min
-  cites:
-    - Berger2023PRXLife          # noisier inter-initiation under titration vs ATP-fraction sensing
-    - Olivi2025NatCommun         # titration on chromosome — single-cell variability
+  classification: supporting
+  description: "Inter-initiation CV ratio (mechanism / heuristic) ≥ 1.3 — mechanism is noisier."
+  measure: {kind: cross_run_cv_ratio, path: "listeners.replication.interinitiation_min"}
+  pass_if: {op: at_least, value: 1.3}
+  units: ratio
+  requires_simulation: heuristic-vs-mechanism-multigeneration
+  cites: [Berger2023PRXLife, Olivi2025NatCommun]
 
 - name: fast-growth-earlier-replication
-  en: "Fast-growth-rich variant initiates earlier in the cycle than the slow-growth baseline (lower initiation mass)."
-  given:  {run: variant, variant: fast-growth-rich, window: full, compare_to: slow-growth-M9}
+  classification: diagnostic
+  description: "Fast-growth media → mean initiation mass ≤ 0.95× slow-growth."
   measure:
     kind: cross_run_ratio
-    series: {kind: listener_path, path: "listeners.replication.initiation_mass", units: "fg"}
+    series: {kind: listener_path, path: "listeners.replication.initiation_mass"}
     reduce: mean
-  expect: {op: at_most, value: 0.95}
-  status: gated
-  requires:
-    - variant_hook: media
-  cites:
-    - Mori2021MolSysBiol         # proteome shifts with growth rate (background)
-    - Hansen1991ResMicrobiol     # initiation mass vs growth rate
+  pass_if: {op: at_most, value: 0.95}
+  units: ratio
+  requires_simulation: growth-rate-sweep
+  cites: [Mori2021MolSysBiol, Hansen1991ResMicrobiol]
 
 - name: reduced-box-count-shortens-inter-initiation
-  en: "Reducing chromosomal box count from ~307 to 100 → ~3× shorter inter-initiation time (1/N titration scaling)."
-  given:  {run: variant, variant: reduced-box-count-100, window: full, compare_to: baseline-mechanism}
+  classification: diagnostic
+  description: "Halving chromosomal box count to 100 → inter-initiation time ≤ 0.5× full-count (1/N titration scaling)."
   measure:
     kind: cross_run_ratio
-    series: {kind: listener_path, path: "listeners.replication.interinitiation_min", units: "min"}
+    series: {kind: listener_path, path: "listeners.replication.interinitiation_min"}
     reduce: mean
-  expect: {op: at_most, value: 0.5}
-  status: gated
-  requires:
-    - variant_hook: chromosomal_box_count
-  cites:
-    - Hansen1991ResMicrobiol     # 1/N scaling — the textbook titration prediction
-    - Berger2022NatCommun        # coupled-homeostasis perspective on box count sensitivity
-    - Olivi2025NatCommun         # 307 chromosomal box count established here
+  pass_if: {op: at_most, value: 0.5}
+  units: ratio
+  requires_simulation: box-count-titration
+  cites: [Hansen1991ResMicrobiol, Berger2022NatCommun, Olivi2025NatCommun]
 
 - name: redistributed-boxes-shifts-timing
-  en: "oriC-clustered boxes shift initiation timing (mean initiation mass differs by ≥10% from uniform distribution)."
-  given:  {run: variant, variant: redistributed-boxes, window: full, compare_to: baseline-mechanism}
+  classification: diagnostic
+  description: "oriC-clustered box distribution shifts mean initiation mass by ≥10% vs uniform."
   measure:
     kind: cross_run_ratio
-    series: {kind: listener_path, path: "listeners.replication.initiation_mass", units: "fg"}
+    series: {kind: listener_path, path: "listeners.replication.initiation_mass"}
     reduce: mean
-  expect: {op: outside_range, low: 0.90, high: 1.10}
-  status: gated
-  requires:
-    - variant_hook: chromosomal_box_distribution
-  cites:
-    - Olivi2025NatCommun         # spatial distribution of boxes on chromosome
+  pass_if: {op: outside_range, low: 0.90, high: 1.10}
+  units: ratio
+  requires_simulation: box-distribution-shift
+  cites: [Olivi2025NatCommun]
 
-expert_questions:
-- For the slow-growth-only regime, is the 40-min C-period assumption tight
-  enough that we can hold it constant?
-- Confirm DnaA box dissociation mechanism on fork passage — is it strictly
-  the strand-separation event, or are SSB/DnaB also part of the displacement?
-- Is there cooperativity in the DnaA-ATP filament loading at oriC that we
-  must capture before this study can match observed mass distributions?
+
+# ─── 6. CONCLUSION LOGIC ───────────────────────────────────────────────────
+conclusion_logic:
+  if_primary_tests_pass:
+    implementation_status: "DnaA-driven initiation mechanism matches the mass-threshold heuristic within tolerance."
+    biological_validation: "Reproduces once-per-generation timing + titration scaling per Hansen 1991 / Berger 2022."
+    pipeline_unblocks:
+      - dnaa-05-rida-ddah-dars
+      - dnaa-06-seqa-sequestration
+  if_primary_tests_fail:
+    diagnose:
+      - "Mass-mismatch: oriC fill threshold or DnaA-ATP filament size is wrong."
+      - "Multiple-per-gen or zero-per-gen: DnaA-box release on fork passage is broken."
+      - "Wide C-period: replisome elongation rate is sensitive to DnaA-box density (shouldn't be)."
+    block_downstream: "dnaa-05 + dnaa-06 require a working mechanism baseline."
+
+
+# ─── 7. LIMITATIONS ────────────────────────────────────────────────────────
+limitations:
+  - "Slow non-overlapping growth only; overlapping cycles (rich media, multi-fork) not validated."
+  - "Constant C-period assumed; replisome speed feedback not modeled."
+  - "Fork-passage release returns to free pool without distinguishing apo vs ATP vs ADP downstream effects."
+  - "No SeqA sequestration (dnaa-06) — assumes oriC reset after initiation."
+
+
+# ─── 8. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
+implementation_requirements:
+
+- id: req-1-mechanism-trigger
+  kind: process
+  title: DnaaInitiationMechanism Process
+  effort: L
+  description: |
+    Replace mass-threshold heuristic with: trigger when ≥3 high-affinity
+    + ≥4 low-affinity oriC boxes are DnaA-ATP-occupied. Gate behind
+    composite param initiation_mode.
+  steps:
+    - "Composite param initiation_mode: 'heuristic' | 'dnaa_mechanism' = 'heuristic'."
+    - "Create v2ecoli/processes/dnaa_initiation.py."
+    - "Hook into chromosome_initiation: dispatch on initiation_mode."
+    - "Multi-seed test: mass distribution overlaps heuristic baseline within 5%."
+  unblocks: [all dnaa-04 behavior_tests, dnaa-05, dnaa-06]
+
+- id: req-2-fork-passage-release
+  kind: step
+  title: Fork-passage DnaA release + rebinding
+  effort: M
+  description: |
+    Each timestep, where replisomes advance, set DnaA_bound = False on
+    crossed boxes and return the bound nucleotide-form to the free pool.
+    After fork passage, newly synthesized boxes appear with empty
+    occupancy.
+  steps:
+    - "Hook into chromosome_replication's fork-advance step."
+    - "On fork-cross-box, increment free-DnaA-<form> bulk count by 1."
+    - "Validate: multi-generation runs show stable DnaA pool + correct daughter inheritance."
+  unblocks: [primary + supporting tests in dnaa-04]
+
+- id: req-3-box-count-override
+  kind: parameter_hook
+  title: chromosomal_box_count override
+  effort: S
+  description: "Composite-level int that subsamples the box catalog before binding."
+  unblocks: [box-count-titration simulation, reduced-box-count-shortens-inter-initiation test]
+
+- id: req-4-box-distribution-override
+  kind: parameter_hook
+  title: chromosomal_box_distribution override
+  effort: S
+  description: "'uniform' or 'oriC_clustered' — controls how the box catalog is sampled."
+  unblocks: [box-distribution-shift simulation]
+
 
 bibliography:
   expert: [replication_initiation_molecular_info]
-  bib_keys:
-    # Primary expert doc:
-    - Olivi2025NatCommun              # DnaA titration on chromosome
-    - Katayama2017Frontiers           # DnaA cycle review
-    - Leonard2015FrontMicrobiol       # orisome structure
-    # Initiator-titration modeling (plan Study 4 references):
-    - Hansen1991ResMicrobiol          # classic Hansen titration model
-    - Berger2022NatCommun             # robust replication initiation from coupled mechanisms
-    - Berger2023PRXLife               # initiator-titration model (PRX Life)
-  claims: [dnaa.titration.initiation-timing, dnaa.dissociation.post-replication, dnaa.initiator.titration-model]
+  bib_keys: [Olivi2025NatCommun, Katayama2017Frontiers, Leonard2015FrontMicrobiol, Hansen1991ResMicrobiol, Berger2022NatCommun, Berger2023PRXLife, Mori2021MolSysBiol]
+
 
 runs: []
 conclusion: null
 parent_studies:
   - {study: dnaa-03-box-binding, condition: tests-passed}
+
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

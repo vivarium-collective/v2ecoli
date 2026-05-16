@@ -2,6 +2,7 @@ schema_version: 3
 name: dnaa-01-expression-dynamics
 created: '2026-05-16'
 status: planned
+phase: Design   # Design | Build | Simulate | Evaluate | Decide
 
 
 # ─── Dashboard v3 compatibility shim ──────────────────────────────────────

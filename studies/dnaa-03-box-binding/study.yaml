@@ -83,7 +83,7 @@ visualizations:
   config:
     title: "Full chromosome — DnaA boxes bound (ATP / ADP / free)"
 
-implementation_tasks:
+tasks:
 - Catalog all 307 chromosomal DnaA-box positions + 11 oriC sites + 4
   dnaAp sites, with affinity class (high vs low) and nucleotide preference.
 - Add DnaA-DNA binding kinetics (KD-driven; cooperative low-affinity if
@@ -109,7 +109,7 @@ expert_questions:
 - Should we model DnaA-ATP only at low-affinity sites, or allow ADP-form
   binding with much lower probability?
 
-references:
+bibliography:
   expert: [replication_initiation_molecular_info]
   bib_keys: [Schaper1995JBC, Roth1998MolMicrobiol, Hansen2006JMB, Olivi2025NatCommun, Katayama2017Frontiers, Kasho2023IJMS]
   claims: [dnaa.boxes.consensus-ttwtncaca, dnaa.boxes.chromosomal-307, dnaa.boxes.oric-3high-8low, dnaa.boxes.dnaap-2high-2low, dnaa.boxes.cooperativity, dnaa.titration.initiation-timing]

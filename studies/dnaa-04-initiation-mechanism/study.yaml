@@ -95,7 +95,7 @@ visualizations:
     title: "Time between initiation events"
     observable: time_between_initiations
 
-implementation_tasks:
+tasks:
 - Replace the mass-threshold trigger with a DnaA-occupancy / DnaA-ATP-filament
   trigger at oriC.
 - Add fork-passage handler that removes DnaA from boxes as the replisome
@@ -122,7 +122,7 @@ expert_questions:
 - Is there cooperativity in the DnaA-ATP filament loading at oriC that we
   must capture before this study can match observed mass distributions?
 
-references:
+bibliography:
   expert: [replication_initiation_molecular_info]
   bib_keys: [Olivi2025NatCommun, Katayama2017Frontiers, Leonard2015FrontMicrobiol]
   claims: [dnaa.titration.initiation-timing, dnaa.dissociation.post-replication]

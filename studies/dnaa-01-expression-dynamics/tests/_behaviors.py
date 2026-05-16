@@ -179,6 +179,21 @@ def _measure_series(history: list, measure: dict,
             else:
                 series.append(0)
         return series
+    if kind == "listener_index":
+        # Read a 1-D listener field and pick out a single index. Used to slice
+        # cistron-indexed or TU-indexed series to one gene's column. Example:
+        #   {kind: listener_index, path: listeners.rnap_data.rna_init_event_per_cistron, index: 227}
+        # → dnaA's per-step transcription init events.
+        path = measure["path"]
+        idx = measure["index"]
+        series = []
+        for s in history:
+            v = _listener_value(s["state"], path)
+            if isinstance(v, list) and len(v) > idx:
+                series.append(v[idx])
+            else:
+                series.append(0)
+        return series
     raise ValueError(f"unknown measure kind {kind!r}")
 
 

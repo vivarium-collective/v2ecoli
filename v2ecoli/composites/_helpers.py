@@ -513,6 +513,7 @@ def _get_special_step(loader, step_name, core):
                 'monomer_counts': 'array[integer]',
                 'rna_counts': {
                     'mRNA_counts': 'array[integer]',
+                    'mRNA_cistron_counts': 'array[integer]',
                 },
                 'rna_synth_prob': {
                     'n_bound_TF_per_TU': 'array[float]',
@@ -521,6 +522,7 @@ def _get_special_step(loader, step_name, core):
                 },
                 'rnap_data': {
                     'rna_init_event': 'array[integer]',
+                    'rna_init_event_per_cistron': 'array[integer]',
                     'did_initialize': 'integer',
                 },
                 'replication_data': {

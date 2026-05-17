@@ -47,7 +47,7 @@ class RnapData(Step):
         return {
             'listeners': {
                 'rnap_data': {
-                    'rna_init_event': {'_type': f'array[{self.n_TUs},integer]', '_default': []},
+                    'rna_init_event': {'_type': f'overwrite[array[{self.n_TUs},integer]]', '_default': []},
                 },
             },
             'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
@@ -62,12 +62,12 @@ class RnapData(Step):
         return {
             'listeners': {
                 'rnap_data': {
-                    'rna_init_event_per_cistron': {'_type': f'array[{self.n_cistrons},integer]', '_default': []},
-                    'active_rnap_coordinates': {'_type': 'array[integer]', '_default': []},
-                    'active_rnap_domain_indexes': {'_type': 'array[integer]', '_default': []},
-                    'active_rnap_unique_indexes': {'_type': 'array[integer]', '_default': []},
-                    'active_rnap_on_stable_RNA_indexes': {'_type': 'array[integer]', '_default': []},
-                    'active_rnap_n_bound_ribosomes': {'_type': 'array[integer]', '_default': []},
+                    'rna_init_event_per_cistron': {'_type': f'overwrite[array[{self.n_cistrons},integer]]', '_default': []},
+                    'active_rnap_coordinates': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'active_rnap_domain_indexes': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'active_rnap_unique_indexes': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'active_rnap_on_stable_RNA_indexes': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'active_rnap_n_bound_ribosomes': {'_type': 'overwrite[array[integer]]', '_default': []},
                 },
             },
             'next_update_time': 'overwrite[float]',

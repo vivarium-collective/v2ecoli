@@ -145,17 +145,34 @@ The Step should be extended NOW with placeholder series that draw zero
 until the supporting mechanism lands. Then when dnaa-03 wires in box
 binding, the viz starts showing real data without further Step changes.
 
-### P2b-7 Cross-study `biological_pool` consistency validator
+### P2b-7 Cross-study `biological_pool` consistency validator — **LANDED**
 
 When two studies reference the same biological measurement but with
 different `biological_pool` values, that's a quiet conflict the
 aggregator should flag.
 
-Implementation: a workspace-level validator that runs after
-`load_spec()` on every study and builds a `{study_name:
-{measurement_id: biological_pool}}` map. Any cross-study reference
-(via `findings.evidence`, `parent_studies`, conclusion claims) gets
-checked: if two studies claim the same value with different pools, warn.
+**Implementation** (commit on PR #56): `scripts/validate_study_biology.py`.
+Walks every `studies/*/study.yaml` and:
+
+1. Validates enum-typed fields against `BIOLOGY_TYPES` (the registered
+   bigraph-schema enums in `v2ecoli/types/biology.py`):
+   `target_class`, `biological_pool`, `molecular_pool`, `failure_cause`,
+   `region_type`, `affinity_class`, `nucleotide_preference`, `result`
+   (verdict_result / autorepression_test_result by context),
+   `narrative_confidence`, `autorepression_test_kind`,
+   `perturbation_kind`, `seqa_version`, `reset_mechanism_kind`.
+   Contextual rules use strict shape matching (`list_item` vs
+   `dict_value`) so e.g. `autorepression_test_suite[i].measure.kind`
+   is NOT wrongly checked against the autorepression-test-kind enum.
+2. Cross-study consistency: same `literature_observable.name` must map
+   to the same `biological_pool` across studies (ERROR if not); same
+   `model_observable.state_path` must map to the same `molecular_pool`
+   (ERROR if not); same `literature_observable.name` cited with
+   completely disjoint `source_ids` across studies emits a WARNING.
+
+Hooked into `scripts/lint-workspace.py` — failed enum or cross-study
+checks fail the workspace lint. Standalone usage:
+`python scripts/validate_study_biology.py [--json] [--strict]`.
 
 ## P3b — process / reporting
 

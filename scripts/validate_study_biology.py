@@ -1,30 +1,27 @@
 #!/usr/bin/env python3
-"""Cross-study consistency validator.
+"""Cross-study biology consistency validator (P2b-7).
 
 Walks every ``studies/*/study.yaml`` and:
 
   1. Validates enum-typed fields against the registered bigraph-schema
      enums in ``v2ecoli/types/biology.py`` (``BIOLOGY_TYPES``):
-       target_class, narrative_confidence, failure_cause,
-       perturbation_kind, verdict_result (the ``result`` field inside
-       ``conclusion_verdicts`` / ``last_results``).
-
-     Unknown enum types are skipped gracefully — if a workspace
-     extends ``BIOLOGY_TYPES`` with domain-specific enums (e.g. a
-     ``dnaa_pool_kind`` or similar), referencing the new type name in
-     the maps below will pick it up automatically.
+       target_class, biological_pool, molecular_pool, failure_cause,
+       region_type, affinity_class, nucleotide_preference, result
+       (verdict_result), narrative_confidence, autorepression_test_kind,
+       perturbation_kind, seqa_version, reset_mechanism_kind.
 
   2. Cross-study consistency:
        - Same ``literature_observable.name`` must map to the same
-         ``biological_pool`` across studies (ERROR on divergence).
+         ``biological_pool`` across studies.
        - Same ``model_observable.state_path`` must map to the same
-         ``molecular_pool`` across studies (ERROR on divergence).
-       - Same ``literature_observable.name`` must cite an overlapping
-         ``source_ids`` set across studies (WARNING on totally disjoint
-         citations).
+         ``molecular_pool`` across studies.
+       - Same ``literature_observable.name`` must cite the same
+         ``source_ids`` set (warning on divergence — sometimes
+         different studies cite overlapping subsets, but a totally
+         disjoint citation set for the same observable is suspicious).
 
-Exit code 0 if clean, 1 if any errors. ``--strict`` promotes warnings
-to errors.
+Exit code 0 if clean, 1 if any errors, 0 with warnings printed on stderr
+if only warnings.
 
 Standalone usage:
     python scripts/validate_study_biology.py
@@ -59,15 +56,17 @@ BIOLOGY_TYPES = _bio_mod.BIOLOGY_TYPES
 
 # Map study.yaml YAML field-names to their bigraph-schema enum type name.
 # A field-path key is the LAST element of the breadcrumb (the leaf YAML key).
-# Enum types not registered in BIOLOGY_TYPES are silently skipped, so
-# workspaces that extend BIOLOGY_TYPES with new pool-kind / region-type
-# enums can register them here without modifying the validator logic.
+# This is intentionally simple: enum fields use distinct names by convention.
 SCALAR_ENUM_FIELDS: dict[str, str] = {
-    "target_class":         "target_class",
+    "target_class": "target_class",
+    "biological_pool": "dnaa_pool_kind",
+    "molecular_pool": "dnaa_pool_kind",
+    "region_type": "dnaa_box_region_type",
+    "affinity_class": "dnaa_box_affinity_class",
+    "nucleotide_preference": "dnaa_box_nucleotide_preference",
     "narrative_confidence": "narrative_confidence",
-    # Workspace-specific pool-kind enums (skipped when not registered):
-    "biological_pool":      "dnaa_pool_kind",
-    "molecular_pool":       "dnaa_pool_kind",
+    "seqa_version": "seqa_version",
+    "reset_mechanism_kind": "reset_mechanism_kind",
 }
 
 # Enum fields where the parent breadcrumb matters to disambiguate. Each rule
@@ -77,24 +76,26 @@ SCALAR_ENUM_FIELDS: dict[str, str] = {
 #   shape='dict_value'— leaf is a direct field on a dict value of a dict named
 #                       `parent` keyed by arbitrary names.
 #                       Path = [..., parent, <key>, leaf].
-# Strict shape matching prevents over-matching deeper occurrences of the
-# same leaf name (e.g. `measure.kind` nested two levels under a parent
-# named ``perturbation_panel`` is NOT checked against perturbation_kind).
+# These shapes are strict — they prevent over-matching deeper occurrences of
+# the same leaf name (e.g. `measure.kind` nested inside an
+# `autorepression_test_suite[i].measure` block must NOT be checked against
+# the autorepression_test_kind enum).
 CONTEXTUAL_ENUM_FIELDS: list[tuple[str, str, str, str]] = [
-    # parent_name,                leaf_name, enum_type_name,   shape
-    ("conclusion_verdicts",       "result",  "verdict_result", "dict_value"),
-    ("perturbation_panel",        "kind",    "perturbation_kind", "list_item"),
+    # parent_name,                leaf_name, enum_type_name,             shape
+    ("conclusion_verdicts",       "result", "verdict_result",            "dict_value"),
+    ("autorepression_test_suite", "result", "autorepression_test_result", "list_item"),
+    ("autorepression_test_suite", "kind",   "autorepression_test_kind",   "list_item"),
+    ("perturbation_panel",        "kind",   "perturbation_kind",          "list_item"),
+    ("active_signal_required",    "pool",   "dnaa_pool_kind",             "list_item"),
     # tests.last_results.<test_name> sub-blocks like {result: PASS, observed: 707}
-    ("last_results",              "result",  "verdict_result", "dict_value"),
+    ("last_results",              "result", "verdict_result",             "dict_value"),
 ]
 
-# Fields whose values are LISTS of enum members. Value ``None`` means
-# the list is free-text and should be skipped (declared here so the
-# walker doesn't try to enum-check it).
-LIST_ENUM_FIELDS: dict[str, str | None] = {
+# Fields whose values are LISTS of enum members.
+LIST_ENUM_FIELDS: dict[str, str] = {
     "failure_cause_candidates": "failure_cause",
-    "requires_perturbations":   None,  # free-text perturbation names
-    "forbidden_proxies":        None,  # free-text path strings
+    "requires_perturbations": None,           # free-text perturbation names; skip enum check
+    "forbidden_proxies": None,                # free-text pool path strings; skip enum check
 }
 
 
@@ -299,19 +300,10 @@ def main(argv: list[str] | None = None) -> int:
                     help="treat warnings as errors (non-zero exit)")
     args = ap.parse_args(argv)
 
-    studies_dir = WS_ROOT / "studies"
-    study_files = sorted(studies_dir.glob("*/study.yaml")) if studies_dir.exists() else []
+    study_files = sorted((WS_ROOT / "studies").glob("*/study.yaml"))
     if not study_files:
-        # No studies yet — no enums to check. Clean exit so the validator
-        # is safe to invoke from lint-workspace.py on freshly-scaffolded
-        # workspaces.
-        if args.json:
-            print(json.dumps({
-                "studies_checked": 0, "errors": [], "warnings": [],
-            }, indent=2))
-        else:
-            print("validate_study_biology: no studies/ found — nothing to check")
-        return 0
+        print("validate_study_biology: no studies/ found", file=sys.stderr)
+        return 1
 
     errors: list[str] = []
     warnings: list[str] = []

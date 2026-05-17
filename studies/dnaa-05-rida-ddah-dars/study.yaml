@@ -258,6 +258,49 @@ behavior_tests:
 
 
 # ─── 6. CONCLUSION LOGIC ───────────────────────────────────────────────────
+# ── Abstraction layer (ADDENDUM P3b-8) ──────────────────────────────────
+abstraction_level:
+  name: 'extrinsic conversion via RIDA + DDAH + DARS (per-pathway, not implemented yet)'
+  resolves:
+  - 'spatial coupling of hydrolysis to active replisomes (RIDA)'
+  - 'datA-localized hydrolysis pulses (DDAH)'
+  - 'site-specific ATP reactivation (DARS1, DARS2)'
+  does_not_resolve:
+  - 'molecular details of HdaA / IscR engagement'
+  - 'RIDA fork-passage release kinetics'
+  - 'whether DARS sites bind DnaA before or after Dam re-methylation'
+
+
+# ── Triple verdict (ADDENDUM P1b-2) ─────────────────────────────────────
+conclusion_verdicts:
+  regression_compatibility:
+    result: PENDING
+    basis: |
+      No simulations run yet — the lumped 4.6/min from dnaa-02 demonstrates
+      that SOMETHING at this magnitude is needed, but per-pathway rates
+      are unimplemented.
+    contributing_tests: []
+  biological_validation:
+    result: PENDING
+    basis: |
+      Implementation gap, not evidence gap. Once RIDA/DDAH/DARS Steps land,
+      validation requires per-pathway knockout perturbations (RIDA-only,
+      DDAH-only, DARS-only, DARS-double) confirming each pathway's
+      independent contribution to ATP-fraction dynamics.
+    blocking_evidence_needed:
+    - 'RIDA Step implementation + replisome-coupling test'
+    - 'DDAH Step + datA-localized binding'
+    - 'DARS1/DARS2 Steps + ATP-reactivation cycle'
+    - 'Per-pathway-knockout perturbation_panel'
+  explanatory_gain:
+    result: PENDING
+    basis: |
+      The PROMISE of dnaa-05 is explanatory: explain how the cell achieves
+      [0.20, 0.50] ATP fraction via three pathways with overlapping
+      cell-cycle timings. Until the Steps land, this remains a claim
+      backed only by review citations.
+
+
 conclusion_logic:
   if_primary_tests_pass:
     implementation_status: "Full DnaA cycle (RIDA + DDAH + DARS) is functional; ATP-fraction oscillates with the cell cycle."

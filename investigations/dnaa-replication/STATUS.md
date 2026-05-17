@@ -39,25 +39,25 @@ See `overnight-2026-05-17/REPORT.md` for the full report. 10 insights,
 
 ## Live study status
 
-> **Gate-status legend**  
-> 🟢 **`open`** — both primary gate tests PASS; downstream **clear to start**.  
-> 🟡 **`conditional`** — work done; downstream can start *with caveats* (see summary).  
-> 🟠 **`hold`** — work done, gate question outstanding; downstream proceeds at its own risk.  
-> 🔵 **`ready`** — prerequisites met, work **not yet started**; pick this up next.  
-> 🔴 **`blocked`** — prerequisites NOT met; **wait**.
+> **Gate badge format** (post-ADDENDUM-P1b-2):
+> Each study gets THREE independent verdicts, scored separately. Columns:
+> **reg** = regression_compatibility, **bio** = biological_validation, **expl** = explanatory_gain.
+> Symbols: ✓ PASS · ✗ FAIL · ⏸ PENDING · — NOT_CLAIMED · ⛔ BLOCKED
+>
+> Per the biology review: a heuristic-match (regression_compatibility) test cannot count as biological_validation — the three classes must be reported independently, not collapsed.
 
-| # | Study | Phase | Status | Gate | Findings | Runs |
-|---|---|---|---|---|---|---|
-| 1  | [dnaa-01-expression-dynamics](../../studies/dnaa-01-expression-dynamics/study.yaml) | Decide | ran | 🟡 conditional | 10 | 5 |
-| 1f | [dnaa-01f-listener-fix](../../studies/dnaa-01f-apply-overwrite-fix-to-sibling-listeners-rna-synth-prob-repl/study.yaml) | Decide | ran | 🟢 open | 0 | 1 |
-| 1f | [dnaa-01f-recalibrate-EG10235](../../studies/dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca/study.yaml) | Decide | ran | 🟡 conditional | 3 | 1 set |
-| 1g | [dnaa-01g-joint-te-fold-change-sweep](../../studies/dnaa-01g-joint-te-fold-change-sweep/study.yaml) | Design | planned | 🟡 conditional (regression-only; biology pending perturbations) | 0 | 0 |
-| 1g | [dnaa-01g-parca-te-derivation-audit](../../studies/dnaa-01g-parca-te-derivation-audit/study.yaml) | Design | planned | 🔴 blocked (not started) | 0 | 0 |
-| 2 | [dnaa-02-atp-hydrolysis](../../studies/dnaa-02-atp-hydrolysis/study.yaml) | Decide | ran | 🟢 reg ✓ · ⏸ bio · — expl (F-04 model_implied) | 5 | 4 probes |
-| 3 | [dnaa-03-box-binding](../../studies/dnaa-03-box-binding/study.yaml) | Decide | ran | 🟡 conditional | 5 | 2 probes |
-| 4 | [dnaa-04-initiation-mechanism](../../studies/dnaa-04-initiation-mechanism/study.yaml) | Decide | ran | 🔴 **blocked** (per ADDENDUM P1b-1 — oriC-only signal required; dnaa-03 region_type catalog blocking) | 4 | 1 |
-| 5 | [dnaa-05-rida-ddah-dars](../../studies/dnaa-05-rida-ddah-dars/study.yaml) | **Decide** | **ran** | 🟡 conditional | **2** | 0 |
-| 6 | [dnaa-06-seqa-sequestration](../../studies/dnaa-06-seqa-sequestration/study.yaml) | **Decide** | **ran** | 🟡 conditional | **3** | 0 |
+| # | Study | Phase | reg | bio | expl | Findings | Runs |
+|---|---|---|---|---|---|---|---|
+| 1  | [dnaa-01-expression-dynamics](../../studies/dnaa-01-expression-dynamics/study.yaml) | Decide | ✓ (via cascaded recipe) | ⏸ (perturbations + suite pending) | — | 10 | 5 |
+| 1f | [dnaa-01f-listener-fix](../../studies/dnaa-01f-apply-overwrite-fix-to-sibling-listeners-rna-synth-prob-repl/study.yaml) | Decide | ✓ | ✓ (mechanistic fix verified) | — | 0 | 1 |
+| 1f | [dnaa-01f-recalibrate-EG10235](../../studies/dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca/study.yaml) | Decide | ⏸ (F-03 model_implied) | ⏸ | — | 3 | 1 set |
+| 1g | [dnaa-01g-joint-te-fold-change-sweep](../../studies/dnaa-01g-joint-te-fold-change-sweep/study.yaml) | Design | ✓ (TE=20×, fc=0.7 model_implied) | ⏸ | — | 0 | 0 |
+| 1g | [dnaa-01g-parca-te-derivation-audit](../../studies/dnaa-01g-parca-te-derivation-audit/study.yaml) | Design | ⛔ blocked | ⛔ | — | 0 | 0 |
+| 2 | [dnaa-02-atp-hydrolysis](../../studies/dnaa-02-atp-hydrolysis/study.yaml) | Decide | ✓ (F-04 model_implied) | ⏸ (perturbations + expert Q dnaa-02-EQ-01) | — | 5 | 4 probes |
+| 3 | [dnaa-03-box-binding](../../studies/dnaa-03-box-binding/study.yaml) | Decide | ✗ (F-05: Hill n=2 fails) | ⏸ | — | 5 | 2 probes |
+| 4 | [dnaa-04-initiation-mechanism](../../studies/dnaa-04-initiation-mechanism/study.yaml) | Decide | ⛔ blocked (ADDENDUM P1b-1: oriC-only signal required) | ⛔ | ⛔ | 4 | 1 |
+| 5 | [dnaa-05-rida-ddah-dars](../../studies/dnaa-05-rida-ddah-dars/study.yaml) | Decide | ⏸ (no implementation yet) | ⏸ | ⏸ (promise of explanatory gain) | 2 | 0 |
+| 6 | [dnaa-06-seqa-sequestration](../../studies/dnaa-06-seqa-sequestration/study.yaml) | Decide | ⏸ | ⏸ | — | 3 | 0 |
 
 **Totals:** 10 studies · 34 findings · 54 sim-runs (48 in `dnaa-01-expression-dynamics/runs.db` + 6 in-memory probes).
 

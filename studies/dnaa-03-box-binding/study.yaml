@@ -245,6 +245,43 @@ behavior_tests:
 
 
 # ─── 6. CONCLUSION LOGIC ───────────────────────────────────────────────────
+# ── Abstraction layer (ADDENDUM P3b-8) ──────────────────────────────────
+abstraction_level:
+  name: 'DnaA-box occupancy with per-class affinity, no cooperativity (v1)'
+  resolves:
+  - 'site existence + coordinate distribution'
+  - 'crude affinity classification (high/med/low)'
+  does_not_resolve:
+  - 'cooperative binding at oriC — v2 would add Hill exponent'
+  - 'accessory-factor dependence (HU/IHF/Fis)'
+  - 'nucleotide-form preference (ATP vs ADP) — needs dnaa-02 three-state pool fully integrated'
+  - 'release dynamics on fork passage — needs dnaa-04+'
+
+
+# ── Triple verdict (ADDENDUM P1b-2) ─────────────────────────────────────
+conclusion_verdicts:
+  regression_compatibility:
+    result: FAIL
+    basis: |
+      F-05: simple Hill n=2 model does NOT reproduce textbook two-step
+      oriC-fill pattern. Hill n=5-10 is the predicted fix (model_implied).
+    contributing_tests:
+    - probe_box_binding_simulation
+  biological_validation:
+    result: PENDING
+    basis: |
+      No binding-Process is wired yet — DnaA_bound state never updates at
+      runtime (F-03). All current claims are from external probes; need
+      the actual Process implementation + perturbations to validate.
+    blocking_evidence_needed:
+    - 'cooperative-binding Step implementation (or accessory-factor model)'
+    - 'site-mutation perturbation (remove subset, observe occupancy shift)'
+    - 'in-vivo cooperativity measurement from literature (open expert question)'
+  explanatory_gain:
+    result: NOT_CLAIMED
+    basis: 'dnaa-03 catalogs and counts; explanations come from cooperative-binding follow-up.'
+
+
 conclusion_logic:
   if_primary_tests_pass:
     implementation_status: "DnaA-box catalog + binding kinetics produce the expected titration → free DnaA rise pattern."
@@ -436,8 +473,22 @@ findings:
     Account for per-oriC fill independence in any binding model.
 
 - id: F-05
+  # Per ADDENDUM P1b-3: the "Hill n=5-10 will reproduce the two-step"
+  # next-step is model_implied — predicted to fit, not verified against
+  # in-vivo cooperativity measurements. Alternatives are real.
   kind: biological
   status: contradicts
+  model_implied: true                  # ← NEW (P1b-3) — applies to the FORWARD prediction
+  model_implied_note: |
+    F-05 itself observes that the simple n=2 Hill model FAILS the textbook
+    pattern (this part is empirical, not model_implied). The model_implied
+    tag applies to the proposed NEXT step ("cooperative Hill n=5-10
+    will reproduce the pattern"). Alternative explanations remain open:
+    (a) Hill cooperativity (n=5-10) at oriC — current favorite hypothesis.
+    (b) Accessory factors (HU, IHF, Fis) gating oriC access in vivo.
+    (c) SeqA sequestration (dnaa-06) creating the LATE oriC-fill phase.
+    Until perturbations distinguish, "n=5-10 fixes it" is a prediction,
+    not validated biology.
   statement: |
     A simple Hill model (n=2) with per-box Kd assignment (high/med/low =
     5/50/300 DnaA-ATP) DOES NOT REPRODUCE the textbook two-step

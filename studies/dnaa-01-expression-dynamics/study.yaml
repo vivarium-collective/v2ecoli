@@ -605,6 +605,54 @@ perturbation_panel:
 mechanism_cards: []   # dnaa-01 implements the EXPRESSION layer only;
                        # mechanism cards belong to dnaa-02..06.
 
+# ── Abstraction layer this study addresses (ADDENDUM P3b-8) ─────────────
+abstraction_level:
+  name: 'lumped total-DnaA pool, quasi-steady-state'
+  resolves:
+  - 'total DnaA homeostasis (CV)'
+  - 'autorepression as a same-time correlation signal'
+  - 'TE → pool-size calibration sensitivity'
+  does_not_resolve:
+  - 'per-form (apo / ATP / ADP) dynamics — that is dnaa-02'
+  - 'spatial DnaA distribution (oriC vs chromosomal binding) — that is dnaa-03'
+  - 'cell-cycle initiation timing — that is dnaa-04'
+  - 'RIDA / DDAH / DARS reset dynamics — that is dnaa-05'
+  - 'SeqA sequestration window — that is dnaa-06'
+
+
+# ── Triple verdict (ADDENDUM P1b-2): the three classes scored separately ──
+conclusion_verdicts:
+  regression_compatibility:
+    result: PASS                   # via dnaa_01g_calibrated recipe (TE=20×, fc=0.7)
+    basis: |
+      Cascaded calibration in dnaa-01g recipe makes total DnaA = 707 ∈
+      [300, 800] and Pearson r = -0.521 at 5 seeds. Literature targets
+      matched.
+    contributing_tests:
+    - dnaA-count-in-range
+    - dnaA-concentration-stable
+    - autorepression-correlation
+    caveat: 'The recipe parameters are model_implied (fits, not measured biology).'
+  biological_validation:
+    result: PENDING
+    basis: |
+      Per the review (P1-5): wild-type baseline alone cannot close
+      biological_validation. Perturbation panel has not run.
+      The autorepression test suite (P1-3, 4 tests) is also pending —
+      Pearson r alone is insufficient.
+    blocking_evidence_needed:
+    - 'perturbation_panel runs (dnaA-overexpression, dnaA-knockdown, autorepression-ablation, ATP-cycle-ablation, titration-site-removal)'
+    - 'autorepression_test_suite runs (4 tests beyond Pearson r)'
+    - 'measurement_mapping resolution: does Schmidt 2016 mass-spec include DNA-bound DnaA?'
+  explanatory_gain:
+    result: NOT_CLAIMED
+    basis: |
+      dnaa-01 describes homeostasis at the lumped-pool level; it does not
+      claim to EXPLAIN a previously-unexplained phenomenon. The 8.6th-percentile
+      ParCa TE finding is observed but its explanation is deferred to
+      dnaa-01g-parca-te-derivation-audit.
+
+
 conclusion_logic:
   if_primary_tests_pass:
     implementation_status: v2ecoli baseline is functional at the layer-1 (total DnaA

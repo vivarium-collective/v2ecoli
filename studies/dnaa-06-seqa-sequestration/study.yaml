@@ -232,6 +232,47 @@ behavior_tests:
 
 
 # ─── 6. CONCLUSION LOGIC ───────────────────────────────────────────────────
+# ── Abstraction layer (ADDENDUM P3b-8) — three versions per P2-2 ───────
+abstraction_level:
+  versions:
+  - name: seqa_v0_fixed_timer
+    resolves: ['one-initiation-per-generation gate (10-min lockout window)']
+    does_not_resolve: ['why 10 min', 'methylation kinetics', 'cooperative binding']
+  - name: seqa_v1_methylation_state
+    resolves: ['Dam re-methylation kinetics, SeqA binding to hemimethylated GATC']
+    does_not_resolve: ['cooperative SeqA-Dam dynamics']
+  - name: seqa_v2_cooperative_seqa_dam
+    resolves: ['full SeqA-Dam mutual regulation']
+    does_not_resolve: ['inter-strain SeqA binding-energy variation']
+  current_implementation: not_yet_implemented   # Once a Step lands, set to seqa_v0/v1/v2 explicitly
+
+
+# ── Triple verdict (ADDENDUM P1b-2) ─────────────────────────────────────
+conclusion_verdicts:
+  regression_compatibility:
+    result: PENDING
+    basis: |
+      No SeqASequestration Step exists — `oriC.sequestered_until` attribute
+      missing from the oriC unique-store schema. Design + protein inventory
+      complete (F-01..F-03); awaits implementation cycle.
+    contributing_tests: []
+  biological_validation:
+    result: PENDING
+    basis: |
+      Will require a seqA-knockout perturbation (set sequestered_until = 0
+      always) to confirm SeqA's role in preventing re-initiation.
+    blocking_evidence_needed:
+    - 'SeqASequestration Step implementation + oriC schema extension'
+    - 'seqA-knockout perturbation showing reinitiation events'
+    - 'time-since-initiation distribution matching Lu1994 / Kang2003 ~10-min window'
+  explanatory_gain:
+    result: NOT_CLAIMED
+    basis: |
+      dnaa-06 is straightforward implementation of a well-characterized
+      mechanism — high textbook consensus (Hansen 2018, Katayama 2017).
+      Not a candidate for explanatory_gain in this scope.
+
+
 conclusion_logic:
   if_primary_tests_pass:
     implementation_status: "SeqA sequestration prevents reinitiation in v2ecoli."

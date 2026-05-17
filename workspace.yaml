@@ -3,9 +3,69 @@ name: v2ecoli
 created: '2026-05-16'
 plugin_version: 0.6.1
 package_path: v2ecoli
+references_bib: references/papers.bib
+expert_docs:
+- name: replication_initiation_molecular_info
+  path: references/expert/replication_initiation_molecular_info.pdf
+  sha256: 4c4b85ff4d88b46b816bacc84b494fcdf073ef1d901e77b56329effa92a0dab2
+  description: 'Molecular information for simulating replication initiation in E. coli.
+
+    Curated biological knowledge on oriC structure (DOR, DUE, 11 DnaA boxes),
+
+    dnaA promoter (p1/p2, boxes 1-4 + a-c), DnaA boxes consensus, RIDA, DDAH
+
+    (datA), DARS1 & DARS2, intrinsic ATPase activity, and DnaA dissociation
+
+    after initiation. Drives the dnaa-01..06 studies.
+
+    '
+  contributor: Replication-initiation working group (Katayama/Lobner-Olesen)
+  claims_supported:
+  - dnaa.autorepression.dnaap
+  - dnaa.intrinsic-hydrolysis.0p046-per-min
+  - dnaa.boxes.consensus-ttwtncaca
+  - dnaa.boxes.oric-3high-8low
+  - dnaa.rida.replisome-coupled
+  - dnaa.ddah.data-dependent
+  - dnaa.dars.reactivation
+  - dnaa.atp-fraction.0p2-to-0p5
+  - dnaa.seqa.post-initiation-sequestration
+- name: chromosome_replication_plan
+  path: references/expert/chromosome_replication_plan.pdf
+  sha256: e9145149e9181ac882cd5c9594151ea59c105e75e0b171f062a8dba23b4a105e
+  description: 'Multi-phase workflow plan for porting DnaA / replication initiation into
+
+    v2ecoli. Decomposes the work into 6 studies (expression, intrinsic
+
+    hydrolysis, DnaA box binding, mechanism-driven initiation, RIDA/DDAH/DARS,
+
+    SeqA sequestration) plus Phase 7 (cooperativity) and Phase 8 (validation)
+
+    placeholders.
+
+    '
+  contributor: Replication-initiation working group
+- name: dnaa_biology_feedback
+  path: references/expert/dnaa_biology_feedback.pdf
+  sha256: c509350a3716a4f447bca44cabbef3edda2c167a492aa9626eb94322ded56904
+  description: "Expert biology review of the dnaA / replication-initiation investigation\nreport (May 2026). Core message:\
+    \ the decomposition is scientifically\nsensible, but the report must separate heuristic regression from\nbiological validation,\
+    \ map every literature value to the exact model\nobservable, and use perturbation panels (not wild-type baseline alone)\n\
+    to call a mechanism validated. Defines compact schemas:\n  - target_class: regression_compatibility | biological_validation\
+    \ | explanatory_gain\n  - measurement_mapping: literature_observable + model_observable + transformation + caveats\n \
+    \ - autorepression_tests: lagged_binding_mrna_cross_correlation, conditional_transcription_probability_given_promoter_bound,\n\
+    \    transcription_burst_rate_by_promoter_state, dnaA_gene_dosage_corrected_expression\n  - SeqA versioning: v0 fixed\
+    \ timer, v1 methylation+Dam, v2 cooperative SeqA-Dam\nDrives dnaa-* study improvements documented in\ninvestigations/dnaa-replication/biology-feedback-2026-05-17/PLAN.md.\n"
+  contributor: External biology reviewer
+  claims_supported:
+  - dnaa.targets.separate-regression-from-validation
+  - dnaa.observables.literature-to-model-mapping-required
+  - dnaa.autorepression.promoter-response-test-suite
+  - dnaa.pools.atp-decomposition-explicit
+  - dnaa.validation.perturbation-panel-required
+server:
+  enabled: true
 observables: []
 visualizations: []
 simulations: []
 datasets: []
-server:
-  enabled: true

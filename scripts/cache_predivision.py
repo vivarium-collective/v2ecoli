@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from process_bigraph import Composite
 from process_bigraph.emitter import emitter_from_wires
-from multi_cell import core_import
+from viva_munk import core_import
 from v2ecoli.bridge import EcoliWCM
 from v2ecoli.types import ECOLI_TYPES
 from reports.colony_report import make_colony_document

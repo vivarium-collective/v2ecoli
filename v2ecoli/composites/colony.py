@@ -88,7 +88,7 @@ def colony(
 ) -> dict:
     """Build the colony composite document.
 
-    The colony requires both the ``multi_cell`` package (``PymunkProcess``,
+    The colony requires both the ``viva_munk`` package (``PymunkProcess``,
     ``build_microbe``) and v2ecoli's ``EcoliWCM`` bridge. If ``core`` is not
     supplied, one is bootstrapped with both registries; otherwise the caller
     is responsible for having ``ECOLI_TYPES`` registered and ``EcoliWCM``
@@ -108,7 +108,7 @@ def colony(
         Process-bigraph document dict with a single ``state`` key.
     """
     if core is None:
-        from multi_cell import core_import
+        from viva_munk import core_import
         from v2ecoli.bridge import EcoliWCM
         from v2ecoli.types import ECOLI_TYPES
 

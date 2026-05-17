@@ -985,6 +985,68 @@ findings:
     (3) Once (1) confirms the feedback loop still holds, dnaa-01's
         pipeline_gate can formally pass and dnaa-02 unblocks.
 
+- id: F-09
+  kind: biological
+  status: contradicts
+  statement: |
+    The 50× TE calibration that lands DnaA in the literature band
+    (F-08) BREAKS the autorepression signature. Multi-seed Pearson r
+    flips from −0.594 (1× TE, 5-seed pool) to +0.596 (50× TE, 5-seed
+    pool). Production overwhelms the negative feedback at this scale.
+  evidence:
+    from_run: baseline-te50x-seed{0..4} (5 seeds × 10 min, multi-seed pool)
+    from_test: autorepression-correlation
+    observed: 0.596
+    units: pooled Pearson r
+    sweep_comparison:
+      "1x_5seed_pool":  {pearson_r: -0.594, dnaa_count_median: 115}
+      "50x_5seed_pool": {pearson_r: +0.596, dnaa_count_median: 497}
+  expected:
+    cites: [Speck1999EMBO, Saggioro2013BiochemJ, Hansen2018DnaATale]
+    range: [-1.0, -0.3]
+    summary: |
+      Literature autorepression should hold across calibration changes
+      to TE — the negative feedback is a structural feature of the
+      promoter/binding architecture, not a function of absolute protein
+      level. A r=+0.6 result is biologically anomalous.
+  explanation: |
+    Three interpretations of the inversion:
+      (a) At 50× TE, dnaA mRNA → 50× protein each event. Even rare
+          mRNA spikes (still 0-2 copies/cell) drive large protein
+          jumps that swamp the binding-feedback timescale. The
+          feedback IS active but mathematically saturated.
+      (b) The autorepression model's fold_change parameter scales with
+          DnaA binding linearly; at 5× more bound DnaA, the
+          suppression might be capped (saturable promoter) and
+          contribute no further variance to transcription, leaving
+          the correlation to be driven by other noise sources.
+      (c) v2ecoli's autorepression strength is genuinely too weak to
+          maintain negative correlation at literature-band DnaA levels.
+
+    Diagnostic test: a TE sweep at 5×, 10×, 20× — find the TE value
+    above which r flips sign. That value bounds the model's effective
+    autorepression strength.
+
+    Pipeline implication: the 50× TE override is NOT a clean pass for
+    dnaa-01. It trades F-01 PASS for F-02 FAIL. The real calibration
+    requires either (a) finding the source bug in ParCa's TE (so the
+    "true" TE is moderate, not 50×), or (b) re-tuning the
+    autorepression strength alongside TE so both stay biological.
+  expert_reference:
+    doc: replication_initiation_molecular_info
+    note: |
+      §4 (DnaA autoregulation) describes the loop as essential to
+      maintaining ~constant per-cell DnaA. Breaking the negative
+      correlation at high TE suggests v2ecoli's wiring of this loop
+      may need a saturable-binding term or stronger fold_change.
+  next_action: |
+    Seed two follow-ups:
+      • TE sweep (5×, 10×, 20×, 50×, 100×) → find the inflection where
+        r flips sign. Quantifies autorepression's saturation point.
+      • Investigate the ParCa-derived TE value for EG10235 — find why
+        the cache says 7.23e-5 when 50× breaks the proteome max. Could
+        be a units/indexing bug.
+
 
 conclusion: "Phase=Decide outcome: PIPELINE-GATED on translation-efficiency calibration.\n\
   \u2022 Test framework works end-to-end (baseline \u2192 SQLite emitter \u2192 evaluator).\n\

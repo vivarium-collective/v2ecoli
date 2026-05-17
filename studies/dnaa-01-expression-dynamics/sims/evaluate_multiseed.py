@@ -22,13 +22,13 @@ sys.path.insert(0, str(STUDY_DIR / "tests"))
 from _behaviors import evaluate, _monomer_count, _listener_value, DNAA_MONOMER_PD  # noqa: E402
 
 
-def _load_seed_runs(db_path: Path) -> list[tuple[str, list[dict]]]:
-    """Return [(run_name, history), ...] for every baseline-seed* run."""
+def _load_seed_runs(db_path: Path, like: str = "baseline-seed%") -> list[tuple[str, list[dict]]]:
+    """Return [(run_name, history), ...] for runs matching SQL LIKE pattern."""
     conn = sqlite3.connect(str(db_path))
     sims = conn.execute(
         "SELECT simulation_id, name FROM simulations "
-        "WHERE name LIKE 'baseline-seed%' "
-        "ORDER BY name ASC"
+        "WHERE name LIKE ? "
+        "ORDER BY name ASC", (like,)
     ).fetchall()
     out = []
     for sim_id, name in sims:
@@ -44,28 +44,33 @@ def _load_seed_runs(db_path: Path) -> list[tuple[str, list[dict]]]:
 
 def main() -> int:
     spec = yaml.safe_load((STUDY_DIR / "study.yaml").read_text())
-    seed_runs = _load_seed_runs(STUDY_DIR / "runs.db")
+    # Accept an optional SQL LIKE pattern as argv[1] (e.g. "baseline-te50x%").
+    pattern = sys.argv[1] if len(sys.argv) > 1 else "baseline-seed%"
+    seed_runs = _load_seed_runs(STUDY_DIR / "runs.db", like=pattern)
     if not seed_runs:
-        print("No baseline-seed* runs in runs.db", file=sys.stderr)
+        print(f"No runs in runs.db matching LIKE {pattern!r}", file=sys.stderr)
         return 2
+    print(f"Filter: name LIKE {pattern!r}")
 
     print(f"Loaded {len(seed_runs)} seed runs:")
     for name, hist in seed_runs:
         print(f"  {name}: {len(hist)} steps")
     print()
 
-    # Concatenate all histories (each contributes its second_half to the pool).
-    # For tests with measure.window=second_half this is the natural slice.
+    # Concatenate each sim's SECOND-HALF (not the full sim) so the pool
+    # doesn't include startup transients. The behavior_tests' window:
+    # second_half then operates on the pool as a whole and gets the
+    # steady-state samples only.
     pooled = []
     for _, hist in seed_runs:
-        pooled.extend(hist)
-    print(f"Pooled history length: {len(pooled)} step-records "
-          f"(across {len(seed_runs)} seeds)")
+        pooled.extend(hist[len(hist)//2:])
+    print(f"Pooled second-half history length: {len(pooled)} step-records "
+          f"(across {len(seed_runs)} seeds, each contributing its own second half)")
     print()
 
     # Per-seed sanity for dnaA mRNA — does aggregation add variance?
     series_pooled = []
-    for s in pooled[len(pooled)//2:]:   # second half of pooled
+    for s in pooled:   # pooled is already each sim's second-half concatenated
         v = _listener_value(s["state"], "listeners.rna_counts.mRNA_cistron_counts")
         if isinstance(v, list) and len(v) > 227:
             series_pooled.append(v[227])
@@ -81,7 +86,7 @@ def main() -> int:
 
     # Median DnaA across pooled second-half (for the count-in-range finding).
     dnaA = []
-    for s in pooled[len(pooled)//2:]:
+    for s in pooled:
         c = _monomer_count(s["state"], DNAA_MONOMER_PD, None)
         if c is not None:
             dnaA.append(c)

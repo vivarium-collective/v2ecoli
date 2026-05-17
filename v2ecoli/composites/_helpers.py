@@ -148,12 +148,19 @@ def sqlite_emitter(*, file_path: str, db_file: str = 'runs.db',
                    subsample: int = 1):
     """Context manager: build composite with a SQLiteEmitter step.
 
+    On clean exit, stamps `completed_at` + `elapsed_seconds` on the most-
+    recent row in the `simulations` table that matches our `name`. Without
+    this, runs.db rows stay with `completed_at=NULL` forever — the
+    SQLiteEmitter itself never writes it. The dashboard's Simulations DB
+    tab then surfaces every sim as `status=running` even after they finish.
+
     Usage:
         with sqlite_emitter(file_path='studies/dnaa-01/', name='baseline'):
             doc = baseline(cache_dir='out/cache')
             comp = Composite(doc, core=core)
             comp.update({}, 60.0 * 60)   # 60 minutes
     """
+    import time as _time
     cfg = {'file_path': file_path, 'db_file': db_file}
     if name is not None:
         cfg['name'] = name
@@ -162,10 +169,61 @@ def sqlite_emitter(*, file_path: str, db_file: str = 'runs.db',
     if subsample != 1:
         cfg['subsample'] = subsample
     set_emitter_override(cfg)
+    t_start = _time.monotonic()
     try:
         yield cfg
+        # Clean exit → stamp the most-recent sim with this name as completed.
+        elapsed = _time.monotonic() - t_start
+        try:
+            _mark_named_sim_finished(file_path, db_file, name, elapsed)
+        except Exception:
+            # Never let a bookkeeping failure crash the calling code.
+            pass
     finally:
         set_emitter_override(None)
+
+
+def _mark_named_sim_finished(file_path: str, db_file: str,
+                             name: str | None, elapsed_seconds: float) -> None:
+    """Stamp completed_at on the most-recent sim with this `name` in the db.
+
+    We can't use the SQLiteEmitter's process_bigraph helper directly because
+    the sqlite_emitter context manager doesn't always know the simulation_id
+    (the emitter auto-generates a UUID per instance). Instead we look up the
+    most-recently-started row with this `name` and update it.
+
+    No-op when the runs.db file or the simulations table doesn't exist.
+    """
+    import os, sqlite3
+    db_path = os.path.join(file_path, db_file)
+    if not os.path.exists(db_path) or name is None:
+        return
+    conn = sqlite3.connect(db_path)
+    try:
+        # Ensure schema exists
+        tbls = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        ).fetchall()}
+        if 'simulations' not in tbls:
+            return
+        row = conn.execute(
+            "SELECT simulation_id FROM simulations "
+            "WHERE name = ? ORDER BY started_at DESC LIMIT 1",
+            (name,),
+        ).fetchone()
+        if row is None:
+            return
+        sim_id = row[0]
+        from datetime import datetime, timezone
+        completed_at = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        conn.execute(
+            'UPDATE simulations SET completed_at = ?, elapsed_seconds = ? '
+            'WHERE simulation_id = ?',
+            (completed_at, float(elapsed_seconds), sim_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 # ---------------------------------------------------------------------------

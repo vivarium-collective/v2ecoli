@@ -12,7 +12,14 @@ seeded_from:
   followup_title: ParCa TE derivation audit for low-mRNA-count genes
   kind: new
 
-baseline: []  # No simulation runs — this is a code/data audit.
+baseline:
+# Audit-only study with no simulation runs of its own. The reference baseline
+# is the raw v2ecoli composite — listed here purely to satisfy the v3 schema's
+# `baseline must be non-empty` rule. Nothing will actually be simulated by
+# this study.
+- name: reference-only
+  composite: v2ecoli.composites.baseline.baseline
+  params: {seed: 0, cache_dir: out/cache}
 
 purpose:
   question: |

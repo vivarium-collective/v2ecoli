@@ -330,7 +330,10 @@ tests:
   data_source: latest_run
   pytest_args: []
   last_results:
-    summary: '2 primary tests across 9 multipliers: count-in-range PASSED only at 50× (with sign-flipped autorep); autorep-correlation PASSED at 10× and 15× only (both with count below band). No multiplier passes both.'
+    summary:
+      passed: 0
+      failed: 2
+      note: '2 primary tests across 9 multipliers: count-in-range PASSED only at 50× (with sign-flipped autorep); autorep-correlation PASSED at 10× and 15× only (both with count below band). No multiplier passes both.'
     timestamp: '2026-05-17T05:00:00Z'
 
 # Driven by investigations/dnaa-replication/overnight-2026-05-17/ scripts.

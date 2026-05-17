@@ -67,7 +67,11 @@ def make_colony_document(
             length=2.0, radius=0.5, density=0.02,
         )
 
-        # Embed EcoliWCM process inside each cell
+        # Embed EcoliWCM process inside each cell. Wiring matches what
+        # _handle_division produces for daughters (v2ecoli/bridge.py) so
+        # initial cells can themselves divide cleanly: agent_id/location/
+        # angle drive daughter placement, and `agents` is the wire the
+        # division update writes `{_remove, _add}` to.
         cell_body['ecoli'] = {
             '_type': 'process',
             'address': 'local:EcoliWCM',
@@ -78,11 +82,16 @@ def make_colony_document(
             'interval': ecoli_interval,
             'inputs': {
                 'local': ['local'],
+                'agent_id': ['id'],
+                'location': ['location'],
+                'angle': ['angle'],
             },
             'outputs': {
                 'mass': ['mass'],
+                'length': ['length'],
                 'volume': ['volume'],
                 'exchange': ['exchange'],
+                'agents': ['..', '..', 'cells'],
             },
         }
 

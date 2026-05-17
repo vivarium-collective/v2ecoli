@@ -35,9 +35,9 @@ def test_colony_returns_a_document():
         pytest.skip("cache dir 'out/cache' not present; build via "
                     "`python scripts/build_cache.py`")
     try:
-        from multi_cell import core_import  # noqa: F401
+        from viva_munk import core_import  # noqa: F401
     except ImportError:
-        pytest.skip("multi_cell package not installed; colony requires it")
+        pytest.skip("viva_munk package not installed; colony requires it")
 
     from v2ecoli.composites.colony import colony
     doc = colony(seed=0, cache_dir="out/cache", n_cells=1)

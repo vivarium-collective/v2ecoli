@@ -4,13 +4,13 @@ EcoliWCM — whole-cell E. coli model as a Process with bridge.
 Wraps the full v2ecoli simulation (55 biological steps) as a single
 Process node with inputs/outputs connected to internal stores via
 a Composite bridge. This allows the whole-cell model to be embedded
-inside multi_cell colony simulations or any other bigraph composite.
+inside viva_munk colony simulations or any other bigraph composite.
 
 The bridge maps:
     external inputs  →  internal stores
     internal stores  →  external outputs
 
-Usage in a multi_cell document::
+Usage in a viva_munk document::
 
     'ecoli': {
         '_type': 'process',
@@ -217,7 +217,7 @@ class EcoliWCM(Process):
             division_fired = True
 
         if division_fired:
-            return self._handle_division(state)
+            return self._handle_division(state, interval)
 
         # Normal: read outputs and return deltas
         d_mass, d_length, d_volume, exchange = self._read_outputs()
@@ -235,8 +235,13 @@ class EcoliWCM(Process):
             'chromosome_state': chrom,
         }
 
-    def _handle_division(self, state):
-        """Handle WCM division: produce two daughter cells in the colony."""
+    def _handle_division(self, state, interval):
+        """Handle WCM division: produce two daughter cells in the colony.
+
+        ``interval`` is the mother's current tick interval (passed in from
+        ``update``); daughters inherit it so they tick at the same cadence
+        as the rest of the colony. (``self.config`` does not declare
+        ``interval`` — it lives on the wire, not in process config.)"""
         cell = self._composite.state.get('agents', {}).get('0', self._composite.state)
         mass_data = cell.get('listeners', {}).get('mass', {})
         mother_mass = float(mass_data.get('dry_mass', 380.0))
@@ -249,7 +254,7 @@ class EcoliWCM(Process):
         cache_dir = self.config.get('cache_dir', 'out/cache')
         seed = int(self.config.get('seed', 0))
 
-        from multi_cell.processes.multibody import make_rng, build_microbe
+        from viva_munk.processes.multibody import make_rng, build_microbe
         rng = make_rng(seed + hash(agent_id) % 10000)
 
         # Place daughters near mother
@@ -281,7 +286,7 @@ class EcoliWCM(Process):
                     'cache_dir': cache_dir,
                     'seed': seed + i + 1,
                 },
-                'interval': self.config.get('interval', 60.0),
+                'interval': interval,
                 'inputs': {
                     'local': ['local'],
                     'agent_id': ['id'],

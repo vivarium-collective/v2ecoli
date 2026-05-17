@@ -1,0 +1,11 @@
+schema_version: 2
+name: v2ecoli
+created: '2026-05-16'
+plugin_version: 0.6.1
+package_path: v2ecoli
+observables: []
+visualizations: []
+simulations: []
+datasets: []
+server:
+  enabled: true

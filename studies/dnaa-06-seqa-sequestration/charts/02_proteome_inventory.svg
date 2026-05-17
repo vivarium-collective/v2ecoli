@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="380" viewBox="0 0 720 380" font-family="-apple-system,sans-serif" font-size="13">
+<rect width="720" height="380" fill="white"/>
+<text x="360.0" y="22" text-anchor="middle" font-weight="600" font-size="15" fill="#0f172a">Proteome inventory for SeqA sequestration mechanism</text>
+<text x="360.0" y="40" text-anchor="middle" fill="#64748b" font-size="11">All 4 proteins needed for the sequestration mechanism already exist in v2ecoli's proteome — just need a Process that uses them.</text>
+<text x="70" y="89.33333333333333" text-anchor="end" fill="#0f172a" font-weight="600">SeqA</text>
+<rect x="80" y="70.0" width="220.82" height="30.666666666666664" fill="#16a34a" opacity="0.7"/>
+<text x="308.82" y="89.33333333333333" fill="#475569" font-size="11">EG12197 · 181 aa · ✓ in proteome</text>
+<text x="70" y="125.99999999999999" text-anchor="end" fill="#0f172a" font-weight="600">Dam</text>
+<rect x="80" y="106.66666666666666" width="339.16" height="30.666666666666664" fill="#16a34a" opacity="0.7"/>
+<text x="427.16" y="125.99999999999999" fill="#475569" font-size="11">EG10204 · 278 aa · ✓ in proteome</text>
+<text x="70" y="162.66666666666666" text-anchor="end" fill="#0f172a" font-weight="600">HspQ</text>
+<rect x="80" y="143.33333333333331" width="126.88" height="30.666666666666664" fill="#16a34a" opacity="0.7"/>
+<text x="214.88" y="162.66666666666666" fill="#475569" font-size="11">G6500 · 104 aa · ✓ in proteome</text>
+<text x="70" y="199.33333333333334" text-anchor="end" fill="#0f172a" font-weight="600">DamX</text>
+<rect x="80" y="180.0" width="522.16" height="30.666666666666664" fill="#16a34a" opacity="0.7"/>
+<text x="610.16" y="199.33333333333334" fill="#475569" font-size="11">EG11183 · 428 aa · ✓ in proteome</text>
+<text x="70" y="236.0" text-anchor="end" fill="#0f172a" font-weight="600">SeqASequestration Step</text>
+<rect x="80" y="216.66666666666666" width="200" height="30.666666666666664" fill="#dc2626" opacity="0.3" stroke="#dc2626"/>
+<text x="88" y="236.0" fill="#dc2626" font-weight="600">NOT IMPLEMENTED</text>
+<text x="70" y="272.66666666666663" text-anchor="end" fill="#0f172a" font-weight="600">oriC.sequestered_until</text>
+<rect x="80" y="253.33333333333331" width="200" height="30.666666666666664" fill="#dc2626" opacity="0.3" stroke="#dc2626"/>
+<text x="88" y="272.66666666666663" fill="#dc2626" font-weight="600">attribute MISSING</text>
+<text x="360.0" y="355" text-anchor="middle" fill="#475569" font-weight="600" font-size="12">Implementation effort: ~1 day. Smallest piece of the dnaA upstream chain.</text>
+</svg>

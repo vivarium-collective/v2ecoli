@@ -1,0 +1,30 @@
+[
+  {
+    "rate_multiplier": 1,
+    "k_per_min": 0.046,
+    "median_total": 470,
+    "median_atp_frac": 0.9868766404199475,
+    "boesen_pass": false
+  },
+  {
+    "rate_multiplier": 10,
+    "k_per_min": 0.45999999999999996,
+    "median_total": 316,
+    "median_atp_frac": 0.9208860759493671,
+    "boesen_pass": false
+  },
+  {
+    "rate_multiplier": 100,
+    "k_per_min": 4.6,
+    "median_total": 502,
+    "median_atp_frac": 0.23113207547169812,
+    "boesen_pass": true
+  },
+  {
+    "rate_multiplier": 1000,
+    "k_per_min": 46.0,
+    "median_total": 512,
+    "median_atp_frac": 0.0,
+    "boesen_pass": false
+  }
+]

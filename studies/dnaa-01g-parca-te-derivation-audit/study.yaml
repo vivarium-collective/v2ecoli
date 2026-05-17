@@ -1,0 +1,127 @@
+# Auto-seeded 2026-05-17 from dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca's
+# follow_up_studies[1] ('ParCa TE derivation audit for low-mRNA-count genes'). Original kind: new.
+
+schema_version: 3
+name: dnaa-01g-parca-te-derivation-audit
+created: '2026-05-17'
+status: planned
+phase: Design
+seeded_from:
+  parent: dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca
+  followup_idx: 1
+  followup_title: ParCa TE derivation audit for low-mRNA-count genes
+  kind: new
+
+baseline: []  # No simulation runs — this is a code/data audit.
+
+purpose:
+  question: |
+    F-01 of the parent showed dnaA's ParCa-cached TE sits at the 8.6th
+    percentile of the proteome (7.23e-5 vs proteome median 2.30e-4),
+    biologically improbable for a master regulator. WHY is the cached
+    value so low? Is it (a) an indexing bug, (b) a numerical instability
+    in the steady-state mass-balance fit, (c) the raw ribosome-profiling
+    data genuinely reporting low ribosome density for dnaA mRNA, or
+    (d) a different deg_rate or mRNA half-life issue?
+  mechanism: |
+    Audit the ParCa fitting steps that produce translation_efficiencies_by_monomer:
+      - step_02 (input_adjustments): no dnaA entry.
+      - step_08 (mass-balance derivation): unknown — needs inspection.
+      - step_09 (final_adjustments): unknown — needs inspection.
+    Trace the EG10235 / PD03831[c] value through each step. Cross-check
+    against Schmidt 2016 mass-spec (300-800 protein/cell) and Li 2014
+    ribosome profiling for dnaA specifically.
+  expected_outcome: |
+    Either: (a) a specific ParCa step is identified as numerically
+    unstable for low-mRNA-count genes — fix it; or (b) ribosome
+    profiling data is itself missing/low — switch dnaA to use a
+    mass-spec-derived TE; or (c) some other explanation.
+
+pipeline_gate:
+  prerequisites: [dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca]
+  enables: ['permanent TE adjustment in translation_efficiencies_adjustments.tsv']
+  # open | conditional | hold | blocked
+  gate_status: blocked
+  gate_status_summary: |
+    Not started. Pure code+data audit; needed before we can promote the
+    runtime override (TE=20×) to a permanent ParCa adjustment with
+    biological justification. Does NOT block dnaa-02 (the runtime
+    calibration suffices for downstream work).
+  proceed_condition: |
+    Root cause of 8.6th-percentile TE documented; recommended fix path
+    proposed (with code-change diff or rationale for keeping cached value).
+
+simulation_set: []
+
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline (no composite changes; this is metadata/cache work)
+  new_processes: []
+  new_state_variables: []
+  new_parameters: []
+  modified_processes: []
+  notes: |
+    No simulation work. This is a code + data audit. Output is a written
+    finding + (potentially) a one-line patch to
+    translation_efficiencies_adjustments.tsv.
+
+key_assumptions:
+- 'ParCa cache rebuilding is repeatable and deterministic.'
+- 'Li 2014 ribosome profiling data is accessible somewhere in the
+  v2ecoli or upstream ecoli source tree.'
+
+readouts:
+- name: cached_te_for_eg10235
+  store_path: ParCa cache → ecoli-polypeptide-initiation.translation_efficiencies[3861]
+- name: raw_ribosome_profiling_for_eg10235
+  store_path: 'v2ecoli/processes/parca/reconstruction/ecoli/flat/ribosome_profiling.tsv (TBD: is this file present?)'
+
+behavior_tests:
+- name: audit-documents-root-cause
+  classification: primary
+  description: |
+    The audit must produce a written finding stating: (1) which ParCa
+    step yields dnaA's 7.23e-5 TE, (2) what input data led there, and
+    (3) whether the value is correct or should be overridden.
+  measure: {kind: written_finding, evidence_chain: [step_02..step_09 dnaA values]}
+  expect: {op: exists}
+
+conclusion_logic:
+  if_primary_tests_pass:
+    implementation_status: 'Audit complete; recommendation made.'
+    biological_validation: 'Either the cached value is justified (kept) or replaced with literature-derived value.'
+    pipeline_unblocks: ['permanent TE adjustment in translation_efficiencies_adjustments.tsv']
+  if_primary_tests_fail:
+    diagnose:
+    - 'ParCa steps may not have clear data lineage — may need to instrument them.'
+    block_downstream: 'dnaa-01 calibration remains a runtime override (less elegant but functional).'
+
+limitations:
+- 'No simulation runs. Pure code+data audit.'
+- 'Outcome depends on accessibility of upstream ribosome-profiling raw data.'
+
+implementation_requirements:
+- id: req-1-audit-script
+  kind: code_change
+  effort: M
+  title: Write parca_te_audit.py that traces EG10235 through ParCa steps
+  description: |
+    For each of the 9 ParCa steps that touch translation_efficiencies_by_monomer,
+    record the value at index for dnaA (PD03831[c] or EG10235's monomer) and
+    write a step-by-step report.
+
+bibliography:
+  expert: [chromosome_replication_plan]
+  bib_keys:
+  - Schmidt2016NatBiotechnol
+  - Li2014Cell  # Ribosome profiling
+  - Sekimizu1991JBacteriol
+
+runs: []
+conclusion: null
+parent_studies: [dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca]
+
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

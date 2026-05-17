@@ -1,13 +1,32 @@
 schema_version: 3
+status_overwritten: 2026-05-17T09:30Z
 name: dnaa-04-initiation-mechanism
 created: '2026-05-16'
-status: planned
-phase: Design   # Design | Build | Simulate | Evaluate | Decide
+status: ran
+phase: Decide   # Design | Build | Simulate | Evaluate | Decide
 
 baseline:
 - name: baseline-mechanism
-  composite: v2ecoli.composites.baseline.baseline
+  # ↓ CASCADING RECIPE: builds on dnaa-03's box-binding-aware baseline.
+  # Walks: v2ecoli_baseline → dnaa_01g_calibrated → dnaa_02_with_extrinsic_target_rate →
+  #        dnaa_03_with_box_binding → dnaa_04_with_dnaa_initiation_trigger.
+  # The DnaA-occupancy initiation-trigger swap is TODO; currently equivalent to dnaa-03.
+  composite: v2ecoli.composites.baseline_recipes.dnaa_04_with_dnaa_initiation_trigger
   params: {seed: 0, cache_dir: out/cache, initiation_mode: dnaa_mechanism}
+
+
+# Live Visualization Steps (rendered ONCE at sim end from emitted state).
+visualizations:
+  - name: dnaa_state
+    address: 'local:DnaAStateVisualization'
+    config:
+      title: 'dnaa-04 — DnaA pool drives the new initiation trigger'
+      sample_every: 10
+  - name: dnaa_box_occupancy
+    address: 'local:DnaABoxOccupancyVisualization'
+    config:
+      title: 'dnaa-04 — Box occupancy at oriC = trigger readout'
+      sample_every: 10
 
 
 # ─── 1. PURPOSE ────────────────────────────────────────────────────────────
@@ -36,6 +55,14 @@ pipeline_gate:
   enables:
     - dnaa-05-rida-ddah-dars
     - dnaa-06-seqa-sequestration
+  # open | conditional | hold | ready | blocked
+  gate_status: conditional
+  gate_status_summary: |
+    Design + insertion-point work complete (F-01..F-04). Validation
+    requires 60+ min sims that overnight could not afford. Implementation
+    is well-scoped: replace chromosome_replication.py:244 with
+    `if n_DnaA_bound_at_oriC >= filament_threshold:`. dnaa-05/06 can
+    proceed because they consume existing initiation events, not new ones.
   proceed_condition: |
     one-initiation-per-generation + initiation-mass-mean-matches-heuristic
     both pass. Replication-time CV is narrow (<0.10).
@@ -307,8 +334,147 @@ bibliography:
   bib_keys: [Olivi2025NatCommun, Katayama2017Frontiers, Leonard2015FrontMicrobiol, Hansen1991ResMicrobiol, Berger2022NatCommun, Berger2023PRXLife, Mori2021MolSysBiol]
 
 
-runs: []
-conclusion: null
+runs:
+- simulation: probe-mass-threshold-trajectory
+  duration_s: 600
+  started_at: 2026-05-17T09:30Z
+  wall_seconds: 0   # data extracted from existing baseline-te20x-fc0.7-seed0 run
+  rows: 601 history rows
+  notes: |
+    Extracted listeners.replication_data from the validated (TE=20×, fc=0.7)
+    seed0 sim. Found: cell starts with 2 oriCs + 2 active replisomes (forks
+    at ±1.33Mb), already mid-replication. cm_per_oriC trajectory is empty
+    (early-exit condition in chromosome_replication.py:215). Within 10 min,
+    no new initiation event fires.
+  outcomes:
+    initial_oriCs: 2
+    initial_replisomes: 2
+    fork_coordinates_step_300: '[+1,331,293, -1,331,293] bp (forks ~29% through 4.6Mb genome)'
+    cm_per_oriC_emitted: false
+    total_DnaA_boxes_initial: 456
+    total_DnaA_boxes_at_step_300: 491
+    DnaA_boxes_bound_throughout: 0
+
+findings:
+- id: F-01
+  kind: computational
+  status: novel
+  statement: |
+    v2ecoli's current replication initiation trigger is a MASS-THRESHOLD
+    HEURISTIC at chromosome_replication.py:244 (`if criticalMassPerOriC
+    >= 1.0`). Replacing it with a DnaA-driven mechanism requires
+    changing exactly this conditional. The surrounding code (replisome
+    request, fork creation, oriC consumption) is unchanged.
+  evidence:
+    from_file: 'v2ecoli/processes/chromosome_replication.py'
+    insertion_point: 'line 244: `if self.criticalMassPerOriC >= 1.0:`'
+    line_count: 602
+    nearby_code: |
+      Lines 215-235: load cell mass, compute criticalInitiationMass via
+      `get_dna_critical_mass(nutrientToDoublingTime[media_id])`.
+      Lines 244-247: if threshold met, request replisome subunits.
+      Lines 250-590: elongation and termination logic (unaffected).
+    swap_strategy: |
+      Replace lines 215-247 with:
+      (1) read DnaA-ATP count per oriC (from dnaa-03's binding state)
+      (2) compute occupancy_ok = (n_DnaA_bound_at_oriC >= filament_threshold)
+      (3) if occupancy_ok: request replisome subunits (same as today)
+  next_action: |
+    No work possible until dnaa-03 provides per-oriC DnaA binding state.
+    The insertion point + swap strategy are documented; this is now a
+    well-scoped 1-day implementation task once dnaa-03 lands.
+
+- id: F-02
+  kind: computational
+  status: novel
+  statement: |
+    The `chromosome_initiation.py` module is a lightweight set of
+    discovery STUBS (DnaABinder, ChromosomePartition) with empty
+    update() methods. Whatever full DnaA-oriC binding model dnaa-03/04
+    implements should go here rather than in chromosome_structure.py
+    or chromosome_replication.py — those handle the structural/replication
+    parts and the stubs in chromosome_initiation.py are explicitly
+    placeholder names for the binding+initiation logic.
+  evidence:
+    from_file: 'v2ecoli/processes/chromosome_initiation.py'
+    stubs:
+    - 'class DnaABinder(Process) — empty update returning {free_DnaA: 0.0, oriC_state: state.get("oriC_state", "free")}'
+    - 'class ChromosomePartition(Process) — empty update returning {chromosome: state.get("chromosome", {})}'
+  next_action: 'When implementing dnaa-04, fill in DnaABinder.update() rather than monkeypatching elsewhere.'
+
+- id: F-03
+  kind: computational
+  status: novel
+  statement: |
+    Within v2ecoli's initial state, cells start in a STEADY-STATE
+    mid-replication phase: 2 active oriCs (recently created by previous
+    round's termination) AND 2 active replisomes (mid-elongation, forks at
+    ±1.33 Mb of a 4.6 Mb genome). This means a 10-minute sim window does
+    NOT see a NEW initiation event — the existing forks are well into
+    elongation and will terminate before a new initiation fires
+    (~30-60 min generation time at typical growth rates).
+  evidence:
+    from_run: 'baseline-te20x-fc0.7-seed0 (10 min sim)'
+    initial_n_oriCs: 2
+    initial_n_replisomes: 2
+    fork_coords_step_300: '[±1,331,293] bp (~29% through 4.6Mb)'
+    cell_mass: '1266 fg (initial) → 1479 fg (10 min) — modest growth, no division'
+  next_action: |
+    For dnaa-04 swap validation, need either: (a) start from a freshly-
+    divided daughter cell (pre-initiation, n_oriCs=1, n_replisomes=0), or
+    (b) run 60+ min sims to capture termination + new initiation cycle.
+
+- id: F-04
+  kind: computational
+  status: novel
+  statement: |
+    `chromosome_structure.py` correctly adds new DnaA boxes BEHIND moving
+    replisomes during elongation. Initial 456 boxes grew to 491 at step
+    300 (delta +35 over 5 min, matching the rate of DNA replicated). This
+    confirms the box-catalog machinery is replication-aware — important
+    for dnaa-03's binding Process, which must handle dynamically-added
+    sites correctly.
+  evidence:
+    from_run: 'baseline-te20x-fc0.7-seed0'
+    total_DnaA_boxes_initial: 456
+    total_DnaA_boxes_step_300: 491
+    code_ref: 'v2ecoli/processes/chromosome_structure.py:691-713'
+  next_action: |
+    When implementing dnaa-03's binding Process, the per-box affinity
+    attribute must be set on newly-added boxes too — the box at
+    `coordinates` X belongs to the same affinity class as a sibling box
+    at the equivalent position on the parent chromosome.
+
+conclusion: |
+  Phase=Decide outcome: CONDITIONAL — implementation path is clear, but
+  validation requires longer sims than overnight could afford.
+
+  ✓ F-01: Swap point at chromosome_replication.py:244 is precisely
+    identified. Surrounding code (replisome request, fork creation, oriC
+    consumption) is unchanged after the swap.
+  ✓ F-02: `chromosome_initiation.py` has empty DnaABinder/ChromosomePartition
+    stubs explicitly intended for this work.
+  ✓ F-03: v2ecoli's initial state is mid-replication; 10-min sims won't
+    capture an initiation event. dnaa-04 validation needs 60+ min sims OR
+    a daughter-cell initial state.
+  ✓ F-04: Replication-aware box machinery is in place — dnaa-03's binding
+    Process will work correctly on newly-added boxes.
+
+  Gate decision: CONDITIONAL — the design is clear, but full validation
+  (testing one-initiation-per-generation, initiation-mass-mean-matches-heuristic)
+  needs a longer-sim runner that captures multiple cell cycles. dnaa-05/06
+  can proceed because they consume the EXISTING initiation events rather
+  than depending on the swap.
+
+  Concrete next implementation steps:
+  (1) Author DnaABinder.update() in chromosome_initiation.py to compute
+      `n_DnaA_bound_at_oriC` from the DnaA_bound state.
+  (2) Replace chromosome_replication.py:244 with
+      `if n_DnaA_bound_at_oriC >= filament_threshold:`
+      (filament_threshold ~= 11 based on the cooperative-binding hypothesis
+      from dnaa-03 F-05).
+  (3) Add a long-sim variant runner that captures ≥2 generations to
+      validate the new trigger against literature initiation timing.
 parent_studies:
   - {study: dnaa-03-box-binding, condition: tests-passed}
 

@@ -1,0 +1,4 @@
+{
+  "title": "DnaA-box positions around the genome",
+  "caption": "456 boxes spread across the 4.6Mb circular chromosome; colored by replication domain. Spec said 322 (Roth1998 curated); v2ecoli's motif-scan finds more putative sites."
+}

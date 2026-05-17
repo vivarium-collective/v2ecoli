@@ -46,6 +46,12 @@ pipeline_gate:
   - dnaa-01-expression-dynamics
   enables:
   - dnaa-01-expression-dynamics    # re-evaluate parent after fix lands
+  # open | conditional | hold | blocked
+  gate_status: open
+  gate_status_summary: |
+    Primary infrastructure fix WORKS (43 plain-array[] fields wrapped;
+    listeners stop accumulating). Recorded as F-01-equivalent in parent's
+    findings. No remaining blockers; this study is complete.
   proceed_condition: |
     All listener output fields stop accumulating; subsequent re-run of
     dnaa-01 produces an updated outcome row for autorepression-correlation.

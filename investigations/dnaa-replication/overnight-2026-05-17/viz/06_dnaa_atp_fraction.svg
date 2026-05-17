@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="380" viewBox="0 0 800 380" font-family="-apple-system,sans-serif" font-size="13">
+<rect width="800" height="380" fill="white"/>
+<text x="400.0" y="22" text-anchor="middle" font-weight="600" font-size="15">DnaA-ATP fraction over time (baseline 1× TE)</text>
+<rect x="60" y="190.0" width="710" height="84.0" fill="#86efac" fill-opacity="0.3"/>
+<text x="70" y="205.0" fill="#16a34a" font-size="11">Boesen 2024 physiological band [0.2, 0.5]</text>
+<line x1="60" y1="330" x2="770" y2="330" stroke="#e5e7eb"/>
+<text x="52" y="334" text-anchor="end" fill="#64748b">0.00</text>
+<line x1="60" y1="260.0" x2="770" y2="260.0" stroke="#e5e7eb"/>
+<text x="52" y="264.0" text-anchor="end" fill="#64748b">0.25</text>
+<line x1="60" y1="190.0" x2="770" y2="190.0" stroke="#e5e7eb"/>
+<text x="52" y="194.0" text-anchor="end" fill="#64748b">0.50</text>
+<line x1="60" y1="120.0" x2="770" y2="120.0" stroke="#e5e7eb"/>
+<text x="52" y="124.0" text-anchor="end" fill="#64748b">0.75</text>
+<line x1="60" y1="50.0" x2="770" y2="50.0" stroke="#e5e7eb"/>
+<text x="52" y="54.0" text-anchor="end" fill="#64748b">1.00</text>
+<text x="60.0" y="348" text-anchor="middle" fill="#64748b">0s</text>
+<text x="131.0" y="348" text-anchor="middle" fill="#64748b">60s</text>
+<text x="202.0" y="348" text-anchor="middle" fill="#64748b">120s</text>
+<text x="273.0" y="348" text-anchor="middle" fill="#64748b">180s</text>
+<text x="344.0" y="348" text-anchor="middle" fill="#64748b">240s</text>
+<text x="415.0" y="348" text-anchor="middle" fill="#64748b">300s</text>
+<text x="486.0" y="348" text-anchor="middle" fill="#64748b">360s</text>
+<text x="557.0" y="348" text-anchor="middle" fill="#64748b">420s</text>
+<text x="628.0" y="348" text-anchor="middle" fill="#64748b">480s</text>
+<text x="699.0" y="348" text-anchor="middle" fill="#64748b">540s</text>
+<text x="770.0" y="348" text-anchor="middle" fill="#64748b">600s</text>
+<path d="M 60.0,330.0 L 71.8,50.0 L 83.7,50.0 L 95.5,55.0 L 107.3,50.0 L 119.2,52.5 L 131.0,50.0 L 142.8,50.0 L 154.7,50.0 L 166.5,52.4 L 178.3,50.0 L 190.2,50.0 L 202.0,50.0 L 213.8,52.4 L 225.7,52.4 L 237.5,50.0 L 249.3,50.0 L 261.2,50.0 L 273.0,50.0 L 284.8,50.0 L 296.7,50.0 L 308.5,50.0 L 320.3,50.0 L 332.2,50.0 L 344.0,50.0 L 355.8,50.0 L 367.7,50.0 L 379.5,50.0 L 391.3,50.0 L 403.2,50.0 L 415.0,52.4 L 426.8,50.0 L 438.7,50.0 L 450.5,50.0 L 462.3,50.0 L 474.2,50.0 L 486.0,50.0 L 497.8,50.0 L 509.7,50.0 L 521.5,52.4 L 533.3,50.0 L 545.2,52.4 L 557.0,50.0 L 568.8,50.0 L 580.7,50.0 L 592.5,52.4 L 604.3,50.0 L 616.2,50.0 L 628.0,50.0 L 639.8,50.0 L 651.7,50.0 L 663.5,50.0 L 675.3,50.0 L 687.2,50.0 L 699.0,50.0 L 710.8,52.4 L 722.7,52.5 L 734.5,52.5 L 746.3,50.0 L 758.2,50.0 L 770.0,50.0" fill="none" stroke="#dc2626" stroke-width="2.5"/>
+<text x="760" y="80" text-anchor="end" fill="#dc2626" font-size="12">final ATP fraction = 1.000</text>
+<text x="760" y="96" text-anchor="end" fill="#dc2626" font-size="11">2× over upper bound of physiological band</text>
+<text x="400.0" y="368" text-anchor="middle" fill="#334155">simulated time (seconds)</text>
+<text x="20" y="190.0" text-anchor="middle" transform="rotate(-90 20 190.0)" fill="#334155">DnaA-ATP / total</text>
+</svg>

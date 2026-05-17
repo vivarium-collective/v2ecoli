@@ -1,0 +1,825 @@
+{
+  "recipe": "dnaa_02_with_extrinsic_target_rate",
+  "lineage": [
+    "v2ecoli_baseline",
+    "dnaa_01g_calibrated",
+    "dnaa_02_with_extrinsic_target_rate"
+  ],
+  "bundle_patches": [
+    {
+      "kind": "enable_heavy_tf_listener"
+    },
+    {
+      "kind": "scale_translation_efficiency",
+      "monomer_idx": 3861,
+      "factor": 20.0
+    },
+    {
+      "kind": "scale_tf_fold_change",
+      "tf_index": 12,
+      "factor": 0.7
+    }
+  ],
+  "loop_patches": [
+    {
+      "kind": "dnaa_intrinsic_hydrolysis_loop",
+      "k_per_min": 4.6
+    }
+  ],
+  "samples": [
+    {
+      "t": 0.0,
+      "apo": 124,
+      "atp": 0,
+      "adp": 0,
+      "total": 124,
+      "loop_info": {}
+    },
+    {
+      "t": 10.0,
+      "apo": 0,
+      "atp": 25,
+      "adp": 84,
+      "total": 109,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 84,
+          "cumulative": 84
+        }
+      }
+    },
+    {
+      "t": 20.0,
+      "apo": 1,
+      "atp": 26,
+      "adp": 83,
+      "total": 110,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 83,
+          "cumulative": 167
+        }
+      }
+    },
+    {
+      "t": 30.0,
+      "apo": 0,
+      "atp": 28,
+      "adp": 92,
+      "total": 120,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 91,
+          "cumulative": 258
+        }
+      }
+    },
+    {
+      "t": 40.0,
+      "apo": 1,
+      "atp": 32,
+      "adp": 103,
+      "total": 136,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 103,
+          "cumulative": 361
+        }
+      }
+    },
+    {
+      "t": 50.0,
+      "apo": 1,
+      "atp": 33,
+      "adp": 111,
+      "total": 145,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 110,
+          "cumulative": 471
+        }
+      }
+    },
+    {
+      "t": 60.0,
+      "apo": 3,
+      "atp": 36,
+      "adp": 116,
+      "total": 155,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 116,
+          "cumulative": 587
+        }
+      }
+    },
+    {
+      "t": 70.0,
+      "apo": 2,
+      "atp": 39,
+      "adp": 129,
+      "total": 170,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 129,
+          "cumulative": 716
+        }
+      }
+    },
+    {
+      "t": 80.0,
+      "apo": 0,
+      "atp": 42,
+      "adp": 137,
+      "total": 179,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 136,
+          "cumulative": 852
+        }
+      }
+    },
+    {
+      "t": 90.0,
+      "apo": 3,
+      "atp": 45,
+      "adp": 145,
+      "total": 193,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 145,
+          "cumulative": 997
+        }
+      }
+    },
+    {
+      "t": 100.0,
+      "apo": 5,
+      "atp": 50,
+      "adp": 165,
+      "total": 220,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 165,
+          "cumulative": 1162
+        }
+      }
+    },
+    {
+      "t": 110.0,
+      "apo": 1,
+      "atp": 57,
+      "adp": 184,
+      "total": 242,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 184,
+          "cumulative": 1346
+        }
+      }
+    },
+    {
+      "t": 120.0,
+      "apo": 4,
+      "atp": 63,
+      "adp": 207,
+      "total": 274,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 207,
+          "cumulative": 1553
+        }
+      }
+    },
+    {
+      "t": 130.0,
+      "apo": 6,
+      "atp": 71,
+      "adp": 232,
+      "total": 309,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 232,
+          "cumulative": 1785
+        }
+      }
+    },
+    {
+      "t": 140.0,
+      "apo": 1,
+      "atp": 76,
+      "adp": 247,
+      "total": 324,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 246,
+          "cumulative": 2031
+        }
+      }
+    },
+    {
+      "t": 150.0,
+      "apo": 1,
+      "atp": 79,
+      "adp": 263,
+      "total": 343,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 262,
+          "cumulative": 2293
+        }
+      }
+    },
+    {
+      "t": 160.0,
+      "apo": 0,
+      "atp": 83,
+      "adp": 275,
+      "total": 358,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 274,
+          "cumulative": 2567
+        }
+      }
+    },
+    {
+      "t": 170.0,
+      "apo": 1,
+      "atp": 88,
+      "adp": 292,
+      "total": 381,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 291,
+          "cumulative": 2858
+        }
+      }
+    },
+    {
+      "t": 180.0,
+      "apo": 0,
+      "atp": 91,
+      "adp": 298,
+      "total": 389,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 298,
+          "cumulative": 3156
+        }
+      }
+    },
+    {
+      "t": 190.0,
+      "apo": 2,
+      "atp": 93,
+      "adp": 306,
+      "total": 401,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 305,
+          "cumulative": 3461
+        }
+      }
+    },
+    {
+      "t": 200.0,
+      "apo": 0,
+      "atp": 97,
+      "adp": 318,
+      "total": 415,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 317,
+          "cumulative": 3778
+        }
+      }
+    },
+    {
+      "t": 210.0,
+      "apo": 4,
+      "atp": 101,
+      "adp": 330,
+      "total": 435,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 330,
+          "cumulative": 4108
+        }
+      }
+    },
+    {
+      "t": 220.0,
+      "apo": 2,
+      "atp": 106,
+      "adp": 346,
+      "total": 454,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 345,
+          "cumulative": 4453
+        }
+      }
+    },
+    {
+      "t": 230.0,
+      "apo": 5,
+      "atp": 108,
+      "adp": 357,
+      "total": 470,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 357,
+          "cumulative": 4810
+        }
+      }
+    },
+    {
+      "t": 240.0,
+      "apo": 4,
+      "atp": 114,
+      "adp": 373,
+      "total": 491,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 372,
+          "cumulative": 5182
+        }
+      }
+    },
+    {
+      "t": 250.0,
+      "apo": 2,
+      "atp": 117,
+      "adp": 387,
+      "total": 506,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 386,
+          "cumulative": 5568
+        }
+      }
+    },
+    {
+      "t": 260.0,
+      "apo": 5,
+      "atp": 122,
+      "adp": 403,
+      "total": 530,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 402,
+          "cumulative": 5970
+        }
+      }
+    },
+    {
+      "t": 270.0,
+      "apo": 2,
+      "atp": 125,
+      "adp": 413,
+      "total": 540,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 412,
+          "cumulative": 6382
+        }
+      }
+    },
+    {
+      "t": 280.0,
+      "apo": 0,
+      "atp": 129,
+      "adp": 424,
+      "total": 553,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 423,
+          "cumulative": 6805
+        }
+      }
+    },
+    {
+      "t": 290.0,
+      "apo": 0,
+      "atp": 132,
+      "adp": 435,
+      "total": 567,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 434,
+          "cumulative": 7239
+        }
+      }
+    },
+    {
+      "t": 300.0,
+      "apo": 2,
+      "atp": 136,
+      "adp": 450,
+      "total": 588,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 449,
+          "cumulative": 7688
+        }
+      }
+    },
+    {
+      "t": 310.0,
+      "apo": 0,
+      "atp": 137,
+      "adp": 451,
+      "total": 588,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 450,
+          "cumulative": 8138
+        }
+      }
+    },
+    {
+      "t": 320.0,
+      "apo": 0,
+      "atp": 137,
+      "adp": 451,
+      "total": 588,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 450,
+          "cumulative": 8588
+        }
+      }
+    },
+    {
+      "t": 330.0,
+      "apo": 0,
+      "atp": 137,
+      "adp": 451,
+      "total": 588,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 450,
+          "cumulative": 9038
+        }
+      }
+    },
+    {
+      "t": 340.0,
+      "apo": 0,
+      "atp": 137,
+      "adp": 451,
+      "total": 588,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 450,
+          "cumulative": 9488
+        }
+      }
+    },
+    {
+      "t": 350.0,
+      "apo": 0,
+      "atp": 136,
+      "adp": 452,
+      "total": 588,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 451,
+          "cumulative": 9939
+        }
+      }
+    },
+    {
+      "t": 360.0,
+      "apo": 0,
+      "atp": 137,
+      "adp": 451,
+      "total": 588,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 450,
+          "cumulative": 10389
+        }
+      }
+    },
+    {
+      "t": 370.0,
+      "apo": 0,
+      "atp": 137,
+      "adp": 451,
+      "total": 588,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 450,
+          "cumulative": 10839
+        }
+      }
+    },
+    {
+      "t": 380.0,
+      "apo": 2,
+      "atp": 138,
+      "adp": 453,
+      "total": 593,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 452,
+          "cumulative": 11291
+        }
+      }
+    },
+    {
+      "t": 390.0,
+      "apo": 3,
+      "atp": 142,
+      "adp": 466,
+      "total": 611,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 465,
+          "cumulative": 11756
+        }
+      }
+    },
+    {
+      "t": 400.0,
+      "apo": 2,
+      "atp": 147,
+      "adp": 484,
+      "total": 633,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 483,
+          "cumulative": 12239
+        }
+      }
+    },
+    {
+      "t": 410.0,
+      "apo": 1,
+      "atp": 152,
+      "adp": 503,
+      "total": 656,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 502,
+          "cumulative": 12741
+        }
+      }
+    },
+    {
+      "t": 420.0,
+      "apo": 2,
+      "atp": 155,
+      "adp": 511,
+      "total": 668,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 510,
+          "cumulative": 13251
+        }
+      }
+    },
+    {
+      "t": 430.0,
+      "apo": 1,
+      "atp": 158,
+      "adp": 520,
+      "total": 679,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 519,
+          "cumulative": 13770
+        }
+      }
+    },
+    {
+      "t": 440.0,
+      "apo": 1,
+      "atp": 160,
+      "adp": 529,
+      "total": 690,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 528,
+          "cumulative": 14298
+        }
+      }
+    },
+    {
+      "t": 450.0,
+      "apo": 1,
+      "atp": 165,
+      "adp": 541,
+      "total": 707,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 540,
+          "cumulative": 14838
+        }
+      }
+    },
+    {
+      "t": 460.0,
+      "apo": 4,
+      "atp": 168,
+      "adp": 552,
+      "total": 724,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 551,
+          "cumulative": 15389
+        }
+      }
+    },
+    {
+      "t": 470.0,
+      "apo": 4,
+      "atp": 173,
+      "adp": 569,
+      "total": 746,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 568,
+          "cumulative": 15957
+        }
+      }
+    },
+    {
+      "t": 480.0,
+      "apo": 2,
+      "atp": 175,
+      "adp": 577,
+      "total": 754,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 576,
+          "cumulative": 16533
+        }
+      }
+    },
+    {
+      "t": 490.0,
+      "apo": 0,
+      "atp": 179,
+      "adp": 591,
+      "total": 770,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 590,
+          "cumulative": 17123
+        }
+      }
+    },
+    {
+      "t": 500.0,
+      "apo": 2,
+      "atp": 183,
+      "adp": 601,
+      "total": 786,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 600,
+          "cumulative": 17723
+        }
+      }
+    },
+    {
+      "t": 510.0,
+      "apo": 2,
+      "atp": 187,
+      "adp": 615,
+      "total": 804,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 614,
+          "cumulative": 18337
+        }
+      }
+    },
+    {
+      "t": 520.0,
+      "apo": 2,
+      "atp": 189,
+      "adp": 624,
+      "total": 815,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 622,
+          "cumulative": 18959
+        }
+      }
+    },
+    {
+      "t": 530.0,
+      "apo": 0,
+      "atp": 193,
+      "adp": 633,
+      "total": 826,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 632,
+          "cumulative": 19591
+        }
+      }
+    },
+    {
+      "t": 540.0,
+      "apo": 2,
+      "atp": 194,
+      "adp": 641,
+      "total": 837,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 640,
+          "cumulative": 20231
+        }
+      }
+    },
+    {
+      "t": 550.0,
+      "apo": 0,
+      "atp": 195,
+      "adp": 642,
+      "total": 837,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 641,
+          "cumulative": 20872
+        }
+      }
+    },
+    {
+      "t": 560.0,
+      "apo": 0,
+      "atp": 194,
+      "adp": 641,
+      "total": 835,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 640,
+          "cumulative": 21512
+        }
+      }
+    },
+    {
+      "t": 570.0,
+      "apo": 1,
+      "atp": 195,
+      "adp": 639,
+      "total": 835,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 638,
+          "cumulative": 22150
+        }
+      }
+    },
+    {
+      "t": 580.0,
+      "apo": 1,
+      "atp": 194,
+      "adp": 640,
+      "total": 835,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 639,
+          "cumulative": 22789
+        }
+      }
+    },
+    {
+      "t": 590.0,
+      "apo": 0,
+      "atp": 195,
+      "adp": 640,
+      "total": 835,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 639,
+          "cumulative": 23428
+        }
+      }
+    },
+    {
+      "t": 600.0,
+      "apo": 1,
+      "atp": 194,
+      "adp": 640,
+      "total": 835,
+      "loop_info": {
+        "dnaa_intrinsic_hydrolysis_loop": {
+          "n_hydrolyzed_step": 639,
+          "cumulative": 24067
+        }
+      }
+    }
+  ],
+  "result": {
+    "median_total": 707,
+    "median_atp_frac": 0.23246753246753246,
+    "count_pass": true,
+    "atp_frac_pass": true
+  }
+}

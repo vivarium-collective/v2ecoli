@@ -1,0 +1,496 @@
+{
+  "description": "DnaA-ATP / DnaA-ADP / apo trajectory for baseline composite (1\u00d7 TE, seed 0)",
+  "sample_every_s": 10,
+  "duration_s": 600,
+  "seed": 0,
+  "samples": [
+    {
+      "t": 0.0,
+      "apo": 124,
+      "atp": 0,
+      "adp": 0,
+      "total": 124,
+      "atp_frac": 0.0
+    },
+    {
+      "t": 10.0,
+      "apo": 0,
+      "atp": 109,
+      "adp": 0,
+      "total": 109,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 20.0,
+      "apo": 0,
+      "atp": 110,
+      "adp": 0,
+      "total": 110,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 30.0,
+      "apo": 1,
+      "atp": 109,
+      "adp": 1,
+      "total": 111,
+      "atp_frac": 0.9819819819819819
+    },
+    {
+      "t": 40.0,
+      "apo": 0,
+      "atp": 112,
+      "adp": 0,
+      "total": 112,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 50.0,
+      "apo": 0,
+      "atp": 112,
+      "adp": 1,
+      "total": 113,
+      "atp_frac": 0.9911504424778761
+    },
+    {
+      "t": 60.0,
+      "apo": 0,
+      "atp": 113,
+      "adp": 0,
+      "total": 113,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 70.0,
+      "apo": 0,
+      "atp": 113,
+      "adp": 0,
+      "total": 113,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 80.0,
+      "apo": 0,
+      "atp": 113,
+      "adp": 0,
+      "total": 113,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 90.0,
+      "apo": 1,
+      "atp": 114,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 0.991304347826087
+    },
+    {
+      "t": 100.0,
+      "apo": 0,
+      "atp": 116,
+      "adp": 0,
+      "total": 116,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 110.0,
+      "apo": 0,
+      "atp": 117,
+      "adp": 0,
+      "total": 117,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 120.0,
+      "apo": 0,
+      "atp": 117,
+      "adp": 0,
+      "total": 117,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 130.0,
+      "apo": 1,
+      "atp": 116,
+      "adp": 0,
+      "total": 117,
+      "atp_frac": 0.9914529914529915
+    },
+    {
+      "t": 140.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 1,
+      "total": 116,
+      "atp_frac": 0.9913793103448276
+    },
+    {
+      "t": 150.0,
+      "apo": 0,
+      "atp": 116,
+      "adp": 0,
+      "total": 116,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 160.0,
+      "apo": 0,
+      "atp": 116,
+      "adp": 0,
+      "total": 116,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 170.0,
+      "apo": 0,
+      "atp": 116,
+      "adp": 0,
+      "total": 116,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 180.0,
+      "apo": 0,
+      "atp": 116,
+      "adp": 0,
+      "total": 116,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 190.0,
+      "apo": 0,
+      "atp": 116,
+      "adp": 0,
+      "total": 116,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 200.0,
+      "apo": 0,
+      "atp": 116,
+      "adp": 0,
+      "total": 116,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 210.0,
+      "apo": 0,
+      "atp": 116,
+      "adp": 0,
+      "total": 116,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 220.0,
+      "apo": 0,
+      "atp": 116,
+      "adp": 0,
+      "total": 116,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 230.0,
+      "apo": 0,
+      "atp": 116,
+      "adp": 0,
+      "total": 116,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 240.0,
+      "apo": 0,
+      "atp": 116,
+      "adp": 0,
+      "total": 116,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 250.0,
+      "apo": 0,
+      "atp": 116,
+      "adp": 0,
+      "total": 116,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 260.0,
+      "apo": 0,
+      "atp": 117,
+      "adp": 0,
+      "total": 117,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 270.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 280.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 290.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 300.0,
+      "apo": 1,
+      "atp": 114,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 0.991304347826087
+    },
+    {
+      "t": 310.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 320.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 330.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 340.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 350.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 360.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 370.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 380.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 390.0,
+      "apo": 1,
+      "atp": 114,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 0.991304347826087
+    },
+    {
+      "t": 400.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 410.0,
+      "apo": 1,
+      "atp": 114,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 0.991304347826087
+    },
+    {
+      "t": 420.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 430.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 440.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 450.0,
+      "apo": 1,
+      "atp": 114,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 0.991304347826087
+    },
+    {
+      "t": 460.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 470.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 480.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 490.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 500.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 510.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 520.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 530.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 540.0,
+      "apo": 0,
+      "atp": 115,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 550.0,
+      "apo": 1,
+      "atp": 114,
+      "adp": 0,
+      "total": 115,
+      "atp_frac": 0.991304347826087
+    },
+    {
+      "t": 560.0,
+      "apo": 1,
+      "atp": 112,
+      "adp": 0,
+      "total": 113,
+      "atp_frac": 0.9911504424778761
+    },
+    {
+      "t": 570.0,
+      "apo": 1,
+      "atp": 113,
+      "adp": 0,
+      "total": 114,
+      "atp_frac": 0.9912280701754386
+    },
+    {
+      "t": 580.0,
+      "apo": 0,
+      "atp": 113,
+      "adp": 0,
+      "total": 113,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 590.0,
+      "apo": 0,
+      "atp": 113,
+      "adp": 0,
+      "total": 113,
+      "atp_frac": 1.0
+    },
+    {
+      "t": 600.0,
+      "apo": 0,
+      "atp": 113,
+      "adp": 0,
+      "total": 113,
+      "atp_frac": 1.0
+    }
+  ]
+}

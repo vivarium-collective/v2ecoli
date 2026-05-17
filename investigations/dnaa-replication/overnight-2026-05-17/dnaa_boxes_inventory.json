@@ -1,0 +1,45 @@
+{
+  "n_boxes_initial": 456,
+  "n_oriCs_initial": 2,
+  "box_attrs": [
+    "coordinates",
+    "domain_index",
+    "DnaA_bound",
+    "massDiff_rRNA",
+    "massDiff_tRNA",
+    "massDiff_mRNA",
+    "massDiff_miscRNA",
+    "massDiff_nonspecific_RNA",
+    "massDiff_protein",
+    "massDiff_metabolite",
+    "massDiff_water",
+    "massDiff_DNA",
+    "_entryState",
+    "unique_index"
+  ],
+  "oriC_attrs": [
+    "domain_index",
+    "massDiff_rRNA",
+    "massDiff_tRNA",
+    "massDiff_mRNA",
+    "massDiff_miscRNA",
+    "massDiff_nonspecific_RNA",
+    "massDiff_protein",
+    "massDiff_metabolite",
+    "massDiff_water",
+    "massDiff_DNA",
+    "_entryState",
+    "unique_index"
+  ],
+  "initial_bound": 0,
+  "unique_domain_indices": [
+    0,
+    1,
+    2
+  ],
+  "n_boxes_active": 456,
+  "coord_min": -2308493,
+  "coord_max": 2304038,
+  "n_oriCs_active": 2,
+  "bound_after_60s": 0
+}

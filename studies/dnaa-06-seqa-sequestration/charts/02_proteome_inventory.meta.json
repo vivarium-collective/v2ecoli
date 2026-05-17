@@ -1,0 +1,4 @@
+{
+  "title": "Proteome inventory \u2014 all 4 sequestration proteins already present",
+  "caption": "SeqA, Dam, HspQ, DamX are all in v2ecoli's proteome. The implementation gap is just the Process + one oriC attribute (sequestered_until)."
+}

@@ -1,0 +1,1276 @@
+{
+  "description": "External binding-Hill-model probe (dnaa-03)",
+  "params": {
+    "TE_multiplier": 20.0,
+    "autorep_multiplier": 0.7,
+    "Kd_high": 5.0,
+    "Kd_med": 50.0,
+    "Kd_low": 300.0,
+    "Hill_n": 2.0,
+    "n_boxes_high": 11,
+    "n_boxes_med": 50,
+    "n_boxes_low": 395
+  },
+  "samples": [
+    {
+      "t": 10.0,
+      "n_atp": 109,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 43,
+          "frac": 0.86
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 50,
+          "frac": 0.12658227848101267
+        }
+      }
+    },
+    {
+      "t": 20.0,
+      "n_atp": 109,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 43,
+          "frac": 0.86
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 42,
+          "frac": 0.10632911392405063
+        }
+      }
+    },
+    {
+      "t": 30.0,
+      "n_atp": 119,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 33,
+          "frac": 0.66
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 50,
+          "frac": 0.12658227848101267
+        }
+      }
+    },
+    {
+      "t": 40.0,
+      "n_atp": 135,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 46,
+          "frac": 0.92
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 67,
+          "frac": 0.16962025316455695
+        }
+      }
+    },
+    {
+      "t": 50.0,
+      "n_atp": 143,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 47,
+          "frac": 0.94
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 58,
+          "frac": 0.1468354430379747
+        }
+      }
+    },
+    {
+      "t": 60.0,
+      "n_atp": 152,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 10,
+          "frac": 0.9090909090909091
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 48,
+          "frac": 0.96
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 82,
+          "frac": 0.20759493670886076
+        }
+      }
+    },
+    {
+      "t": 70.0,
+      "n_atp": 168,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 47,
+          "frac": 0.94
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 86,
+          "frac": 0.21772151898734177
+        }
+      }
+    },
+    {
+      "t": 80.0,
+      "n_atp": 178,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 45,
+          "frac": 0.9
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 117,
+          "frac": 0.29620253164556964
+        }
+      }
+    },
+    {
+      "t": 90.0,
+      "n_atp": 190,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 48,
+          "frac": 0.96
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 118,
+          "frac": 0.29873417721518986
+        }
+      }
+    },
+    {
+      "t": 100.0,
+      "n_atp": 215,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 49,
+          "frac": 0.98
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 146,
+          "frac": 0.369620253164557
+        }
+      }
+    },
+    {
+      "t": 110.0,
+      "n_atp": 241,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 49,
+          "frac": 0.98
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 156,
+          "frac": 0.3949367088607595
+        }
+      }
+    },
+    {
+      "t": 120.0,
+      "n_atp": 270,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 49,
+          "frac": 0.98
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 170,
+          "frac": 0.43037974683544306
+        }
+      }
+    },
+    {
+      "t": 130.0,
+      "n_atp": 303,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 205,
+          "frac": 0.5189873417721519
+        }
+      }
+    },
+    {
+      "t": 140.0,
+      "n_atp": 322,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 48,
+          "frac": 0.96
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 209,
+          "frac": 0.529113924050633
+        }
+      }
+    },
+    {
+      "t": 150.0,
+      "n_atp": 341,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 49,
+          "frac": 0.98
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 227,
+          "frac": 0.5746835443037974
+        }
+      }
+    },
+    {
+      "t": 160.0,
+      "n_atp": 357,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 49,
+          "frac": 0.98
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 219,
+          "frac": 0.5544303797468354
+        }
+      }
+    },
+    {
+      "t": 170.0,
+      "n_atp": 379,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 244,
+          "frac": 0.6177215189873417
+        }
+      }
+    },
+    {
+      "t": 180.0,
+      "n_atp": 389,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 256,
+          "frac": 0.6481012658227848
+        }
+      }
+    },
+    {
+      "t": 190.0,
+      "n_atp": 398,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 246,
+          "frac": 0.6227848101265823
+        }
+      }
+    },
+    {
+      "t": 200.0,
+      "n_atp": 414,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 254,
+          "frac": 0.6430379746835443
+        }
+      }
+    },
+    {
+      "t": 210.0,
+      "n_atp": 431,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 49,
+          "frac": 0.98
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 264,
+          "frac": 0.6683544303797468
+        }
+      }
+    },
+    {
+      "t": 220.0,
+      "n_atp": 451,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 270,
+          "frac": 0.6835443037974683
+        }
+      }
+    },
+    {
+      "t": 230.0,
+      "n_atp": 465,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 291,
+          "frac": 0.7367088607594937
+        }
+      }
+    },
+    {
+      "t": 240.0,
+      "n_atp": 486,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 287,
+          "frac": 0.7265822784810126
+        }
+      }
+    },
+    {
+      "t": 250.0,
+      "n_atp": 503,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 49,
+          "frac": 0.98
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 295,
+          "frac": 0.7468354430379747
+        }
+      }
+    },
+    {
+      "t": 260.0,
+      "n_atp": 524,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 296,
+          "frac": 0.7493670886075949
+        }
+      }
+    },
+    {
+      "t": 270.0,
+      "n_atp": 537,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 309,
+          "frac": 0.7822784810126582
+        }
+      }
+    },
+    {
+      "t": 280.0,
+      "n_atp": 552,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 49,
+          "frac": 0.98
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 298,
+          "frac": 0.7544303797468355
+        }
+      }
+    },
+    {
+      "t": 290.0,
+      "n_atp": 566,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 313,
+          "frac": 0.7924050632911392
+        }
+      }
+    },
+    {
+      "t": 300.0,
+      "n_atp": 585,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 319,
+          "frac": 0.8075949367088607
+        }
+      }
+    },
+    {
+      "t": 310.0,
+      "n_atp": 587,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 313,
+          "frac": 0.7924050632911392
+        }
+      }
+    },
+    {
+      "t": 320.0,
+      "n_atp": 587,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 310,
+          "frac": 0.7848101265822784
+        }
+      }
+    },
+    {
+      "t": 330.0,
+      "n_atp": 587,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 49,
+          "frac": 0.98
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 312,
+          "frac": 0.789873417721519
+        }
+      }
+    },
+    {
+      "t": 340.0,
+      "n_atp": 587,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 49,
+          "frac": 0.98
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 321,
+          "frac": 0.8126582278481013
+        }
+      }
+    },
+    {
+      "t": 350.0,
+      "n_atp": 587,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 304,
+          "frac": 0.769620253164557
+        }
+      }
+    },
+    {
+      "t": 360.0,
+      "n_atp": 587,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 311,
+          "frac": 0.7873417721518987
+        }
+      }
+    },
+    {
+      "t": 370.0,
+      "n_atp": 587,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 313,
+          "frac": 0.7924050632911392
+        }
+      }
+    },
+    {
+      "t": 380.0,
+      "n_atp": 590,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 311,
+          "frac": 0.7873417721518987
+        }
+      }
+    },
+    {
+      "t": 390.0,
+      "n_atp": 607,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 49,
+          "frac": 0.98
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 313,
+          "frac": 0.7924050632911392
+        }
+      }
+    },
+    {
+      "t": 400.0,
+      "n_atp": 630,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 319,
+          "frac": 0.8075949367088607
+        }
+      }
+    },
+    {
+      "t": 410.0,
+      "n_atp": 654,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 324,
+          "frac": 0.8202531645569621
+        }
+      }
+    },
+    {
+      "t": 420.0,
+      "n_atp": 665,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 49,
+          "frac": 0.98
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 325,
+          "frac": 0.8227848101265823
+        }
+      }
+    },
+    {
+      "t": 430.0,
+      "n_atp": 677,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 328,
+          "frac": 0.830379746835443
+        }
+      }
+    },
+    {
+      "t": 440.0,
+      "n_atp": 688,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 330,
+          "frac": 0.8354430379746836
+        }
+      }
+    },
+    {
+      "t": 450.0,
+      "n_atp": 705,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 333,
+          "frac": 0.8430379746835444
+        }
+      }
+    },
+    {
+      "t": 460.0,
+      "n_atp": 719,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 316,
+          "frac": 0.8
+        }
+      }
+    },
+    {
+      "t": 470.0,
+      "n_atp": 741,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 332,
+          "frac": 0.8405063291139241
+        }
+      }
+    },
+    {
+      "t": 480.0,
+      "n_atp": 751,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 342,
+          "frac": 0.8658227848101265
+        }
+      }
+    },
+    {
+      "t": 490.0,
+      "n_atp": 769,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 343,
+          "frac": 0.8683544303797468
+        }
+      }
+    },
+    {
+      "t": 500.0,
+      "n_atp": 783,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 343,
+          "frac": 0.8683544303797468
+        }
+      }
+    },
+    {
+      "t": 510.0,
+      "n_atp": 801,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 48,
+          "frac": 0.96
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 353,
+          "frac": 0.8936708860759494
+        }
+      }
+    },
+    {
+      "t": 520.0,
+      "n_atp": 811,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 347,
+          "frac": 0.8784810126582279
+        }
+      }
+    },
+    {
+      "t": 530.0,
+      "n_atp": 825,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 354,
+          "frac": 0.8962025316455696
+        }
+      }
+    },
+    {
+      "t": 540.0,
+      "n_atp": 834,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 342,
+          "frac": 0.8658227848101265
+        }
+      }
+    },
+    {
+      "t": 550.0,
+      "n_atp": 836,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 361,
+          "frac": 0.9139240506329114
+        }
+      }
+    },
+    {
+      "t": 560.0,
+      "n_atp": 834,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 349,
+          "frac": 0.8835443037974684
+        }
+      }
+    },
+    {
+      "t": 570.0,
+      "n_atp": 833,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 346,
+          "frac": 0.8759493670886076
+        }
+      }
+    },
+    {
+      "t": 580.0,
+      "n_atp": 833,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 353,
+          "frac": 0.8936708860759494
+        }
+      }
+    },
+    {
+      "t": 590.0,
+      "n_atp": 834,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 355,
+          "frac": 0.8987341772151899
+        }
+      }
+    },
+    {
+      "t": 600.0,
+      "n_atp": 833,
+      "occupancy": {
+        "high": {
+          "n_total": 11,
+          "n_bound": 11,
+          "frac": 1.0
+        },
+        "med": {
+          "n_total": 50,
+          "n_bound": 50,
+          "frac": 1.0
+        },
+        "low": {
+          "n_total": 395,
+          "n_bound": 351,
+          "frac": 0.8886075949367088
+        }
+      }
+    }
+  ]
+}

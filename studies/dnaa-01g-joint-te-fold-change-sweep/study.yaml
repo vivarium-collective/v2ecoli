@@ -1,0 +1,169 @@
+# Auto-seeded 2026-05-17 from dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca's
+# follow_up_studies[0] ('Joint TE × autorepression-fold-change sweep'). Original kind: new.
+
+schema_version: 3
+name: dnaa-01g-joint-te-fold-change-sweep
+created: '2026-05-17'
+status: planned
+phase: Design
+seeded_from:
+  parent: dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca
+  followup_idx: 0
+  followup_title: Joint TE × autorepression-fold-change sweep
+  kind: new
+
+baseline:
+- name: baseline
+  # ↓ CASCADING RECIPE: registers (TE=20×, fc=0.7) as the validated dnaa-01g baseline.
+  # Walks v2ecoli_baseline → dnaa_01g_calibrated. See v2ecoli/composites/baseline_recipes.py.
+  composite: v2ecoli.composites.baseline_recipes.dnaa_01g_calibrated
+  params: {seed: 0, cache_dir: out/cache}
+
+purpose:
+  question: |
+    Can a (TE, fold_change) pair pass BOTH dnaa-01 primary gate tests
+    simultaneously? F-02 of the parent (recalibrate-EG10235) showed
+    single-knob TE sweep has a saturation-driven phase transition at
+    20-25× — autorepression breaks above that threshold. Co-varying the
+    autorepression fold_change (delta_prob.deltaV[:, 12] entries for
+    dnaA's TUs) is the obvious next move.
+  mechanism: |
+    For each (TE_multiplier, fc_multiplier) pair on a 3×3 grid:
+      - Scale dnaa TE by TE_multiplier (existing flag in run_baseline.py)
+      - Scale dnaa-row entries of delta_prob.deltaV by fc_multiplier
+        (NEW flag to add to run_baseline.py)
+    Run 5 seeds × 10 min per pair = 45 sims.
+  expected_outcome: |
+    At least one (TE, fc) pair passes both: dnaA-count-in-range [300, 800]
+    AND autorepression-correlation r ≤ -0.3. Best guess from parent F-02:
+    (TE=20×, fc=0.5) (weakens autorepression to prevent saturation while
+    keeping count in band).
+
+pipeline_gate:
+  prerequisites:
+  - dnaa-01-expression-dynamics
+  - dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca
+  enables:
+  - dnaa-02-atp-hydrolysis (full pass)
+  # open | conditional | hold | blocked
+  gate_status: open
+  gate_status_summary: |
+    EARLY WIN — the 2026-05-17 overnight pilot already validated
+    (TE=20×, fc=0.7) at 5 seeds: DnaA 707/cell, Pearson r = -0.521
+    — BOTH primary gates PASS. (TE=20×, fc=0.8) also passes both.
+    Robust working region identified. Permanent ParCa-cache promotion
+    is the remaining cleanup but does not block downstream. dnaa-02
+    can proceed.
+  proceed_condition: |
+    At least one (TE, fc) cell on the 3×3 grid PASSES both gate tests
+    at 5 seeds.
+
+simulation_set:
+- name: te-fc-grid
+  variant_of: baseline
+  override_grid:
+    dnaa_te_multiplier:        [15.0, 20.0, 30.0]
+    dnaa_autorep_multiplier:   [0.5, 1.0, 2.0]    # NEEDS NEW FLAG IN run_baseline.py
+  seeds: [0, 1, 2, 3, 4]
+
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_processes: []
+  new_state_variables: []
+  new_parameters:
+  - name: dnaa_te_multiplier
+    type: float
+    default: 1.0
+    description: Existing — scales translation_efficiencies[3861].
+  - name: dnaa_autorep_multiplier
+    type: float
+    default: 1.0
+    description: |
+      NEW — must be added to run_baseline.py. Scales the deltaV entries
+      in delta_prob (sparse matrix) for all rows where deltaJ == 12
+      (i.e. autorepression of TUs by DnaA-TF). fc=0.5 halves the
+      per-bound-DnaA suppression; fc=2.0 doubles it.
+  modified_processes:
+  - ecoli-tf-binding (config: delta_prob — modify deltaV pre-build)
+  notes: |
+    Implementation: in run_baseline.py, after loading the bundle, find
+      tf_cfg = bundle['configs']['ecoli-tf-binding']
+      delta_prob = tf_cfg['delta_prob']
+      dnaA_rows = (delta_prob['deltaJ'] == 12)
+      delta_prob['deltaV'][dnaA_rows] *= args.dnaa_autorep_multiplier
+
+key_assumptions:
+- Inherited acceptance from parent.
+- dnaA-row scaling of deltaV captures autorepression strength correctly.
+
+readouts:
+- name: dnaA_count
+  store_path: listeners.monomer_counts
+  index_by: 3861
+- name: dnaA_TF_binding_sum
+  store_path: listeners.rna_synth_prob.n_bound_TF_per_TU
+  index_by: '[:, 12]'
+- name: dnaA_mRNA_count
+  store_path: listeners.rna_counts.mRNA_cistron_counts
+  index_by: 227
+
+behavior_tests:
+- name: dnaA-count-in-range
+  classification: primary
+  measure: {kind: median_window, field: dnaA_count, window: second_half}
+  expect: {op: in_range, range: [300, 800]}
+  cites: [Schmidt2016NatBiotechnol, Sekimizu1991JBacteriol]
+- name: autorepression-correlation
+  classification: primary
+  measure: {kind: pearson, x: dnaA_TF_binding_sum, y: dnaA_mRNA_count, pool: across_seeds}
+  expect: {op: less_or_equal, value: -0.3}
+  cites: [Speck1999EMBO, Saggioro2013BiochemJ, Katayama2017Frontiers]
+- name: stability-non-oscillatory
+  classification: supporting
+  description: 'Rolling CV of DnaA count across second-half window ≤ 0.20 (no relaxation oscillator).'
+  measure: {kind: rolling_cv, field: dnaA_count, window: second_half, window_size_s: 60}
+  expect: {op: at_most, value: 0.20}
+
+conclusion_logic:
+  if_primary_tests_pass:
+    implementation_status: |
+      Promote winning (TE, fc) pair to permanent: TE multiplier as an
+      adjustment row in translation_efficiencies_adjustments.tsv,
+      fc multiplier baked into delta_prob preprocessing in ParCa.
+    biological_validation: 'v2ecoli autorepression is gradeable. dnaa-02 unblocks cleanly.'
+    pipeline_unblocks: [dnaa-02-atp-hydrolysis]
+  if_primary_tests_fail:
+    diagnose:
+    - 'Try wider fc range (0.1, 0.25, 0.5, 1.0, 2.0, 5.0, 10.0).'
+    - 'Switch from linear fold_change to Hill-cooperative model (need lit search for n).'
+    block_downstream: 'Spawn deeper architectural follow-up.'
+
+limitations:
+- 'Linear scaling of fold_change only — does not test Hill cooperativity.'
+- 'Same time scale (10 min sims) as parent.'
+
+implementation_requirements:
+- id: req-1-autorep-multiplier-flag
+  kind: code_change
+  effort: XS
+  title: Add --dnaa_autorep_multiplier flag to run_baseline.py
+  description: 'Patch delta_prob.deltaV[deltaJ==12] *= multiplier before composite build.'
+  unblocks: [te-fc-grid simulation_set]
+
+bibliography:
+  expert: [replication_initiation_molecular_info]
+  bib_keys:
+  - Speck1999EMBO
+  - Saggioro2013BiochemJ
+  - Katayama2017Frontiers
+  - Schmidt2016NatBiotechnol
+
+runs: []
+conclusion: null
+parent_studies: [dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca]
+
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

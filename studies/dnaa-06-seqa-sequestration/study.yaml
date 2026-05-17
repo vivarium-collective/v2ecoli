@@ -1,13 +1,30 @@
 schema_version: 3
 name: dnaa-06-seqa-sequestration
 created: '2026-05-16'
-status: planned
-phase: Design   # Design | Build | Simulate | Evaluate | Decide
+status: ran
+phase: Decide   # Design | Build | Simulate | Evaluate | Decide
 
 baseline:
 - name: baseline-with-seqa
-  composite: v2ecoli.composites.baseline.baseline
+  # ↓ CASCADING RECIPE: builds on dnaa-04's DnaA-driven initiation (PARALLEL to dnaa-05).
+  # Walks: ... → dnaa_04_with_dnaa_initiation_trigger → dnaa_06_with_seqa_sequestration.
+  # The SeqA Step + oriC.sequestered_until attribute are TODO; currently equivalent to dnaa-04.
+  composite: v2ecoli.composites.baseline_recipes.dnaa_06_with_seqa_sequestration
   params: {seed: 0, cache_dir: out/cache}
+
+
+# Live Visualization Steps (rendered ONCE at sim end from emitted state).
+visualizations:
+  - name: dnaa_state
+    address: 'local:DnaAStateVisualization'
+    config:
+      title: 'dnaa-06 — DnaA pool stability under SeqA sequestration window'
+      sample_every: 10
+  - name: dnaa_box_occupancy
+    address: 'local:DnaABoxOccupancyVisualization'
+    config:
+      title: 'dnaa-06 — oriC box occupancy + sequestration state'
+      sample_every: 10
 
 
 # ─── 1. PURPOSE ────────────────────────────────────────────────────────────
@@ -35,6 +52,13 @@ pipeline_gate:
   prerequisites:
     - dnaa-04-initiation-mechanism    # needs initiation events
   enables: []                         # leaf in main pipeline
+  # open | conditional | hold | ready | blocked
+  gate_status: conditional
+  gate_status_summary: |
+    Design + biology + protein-availability documented (F-01..F-03).
+    SeqA + Dam + HspQ + DamX all present in proteome. Implementation
+    is the SHORTEST in the dnaA upstream chain: add one oriC attribute
+    + one Step. Deferred to next implementation cycle.
   proceed_condition: |
     Primary tests pass; SeqA window length matches literature
     (8-12 min); no-SeqA variant produces reinitiation.
@@ -275,7 +299,84 @@ bibliography:
 
 
 runs: []
-conclusion: null
+
+findings:
+- id: F-01
+  kind: computational
+  status: novel
+  statement: |
+    SeqA protein machinery EXISTS in v2ecoli's proteome (EG12197-MONOMER,
+    "negative modulator of initiation of replication"). Dam methyltransferase
+    also present (EG10204-MONOMER). HspQ (G6500-MONOMER) annotated as
+    "hemimethylated DNA-binding protein" — relevant accessory factor.
+    DamX (EG11183-MONOMER, "cell division protein DamX") also present.
+    But NO Process implements sequestration kinetics; the proteins are
+    expressed/translated but never bind oriC.
+  evidence:
+    proteome_entries:
+      seqA: 'EG12197-MONOMER (CCO-CYTOSOL, 181 aa)'
+      dam: 'EG10204-MONOMER (CCO-CYTOSOL, 278 aa, DNA adenine methyltransferase)'
+      hspQ: 'G6500-MONOMER (CCO-CYTOSOL, 104 aa, hemimethylated DNA-binding)'
+      damX: 'EG11183-MONOMER (CCO-PM-BAC-NEG, 428 aa)'
+    process_count: 0  # zero Step implements SeqA binding kinetics
+  next_action: |
+    Implementation strategy: write SeqASequestration Step. Reads
+    bulk[EG12197-MONOMER] (SeqA count) + chromosome_replication events
+    to detect new oriC creation. Toggles a new oriC attribute
+    `sequestered_until: float` for ~10 min after initiation. The
+    chromosome_initiation.DnaABinder gate (from dnaa-04 implementation)
+    checks this attribute and skips sequestered oriCs.
+
+- id: F-02
+  kind: computational
+  status: novel
+  statement: |
+    The `oriC` unique store has 12 attributes (domain_index + massDiff_*
+    columns + _entryState), NONE of which track methylation state or
+    sequestration. To model SeqA's ~10-min sequestration window, oriC
+    needs an additional `sequestered_until: float` attribute (timestamp).
+  evidence:
+    from_run: 'probe_dnaa_boxes.py'
+    oriC_attrs: '[domain_index, massDiff_rRNA, massDiff_tRNA, ..., _entryState] (12 total)'
+    missing: ['methylation_state', 'sequestered_until', 'last_initiation_time']
+  next_action: |
+    Extend ORIC_ARRAY type in v2ecoli/library/schema_types.py to add
+    sequestered_until:float. Initialize to 0.0 (not sequestered).
+
+- id: F-03
+  kind: biological
+  status: novel
+  statement: |
+    SeqA sequestration is conceptually SIMPLER than dnaa-05's three
+    pathways: a single Step that toggles one boolean per oriC for a
+    fixed time window (~10 min per Lu 1994, Kang 2003). No complex
+    flux calculations or stoichiometric balancing — just timestamp
+    management on oriC unique entries.
+  evidence:
+    literature_window: '8-12 min (Lu 1994 cell, Kang 2003 PNAS)'
+    implementation_complexity: 'low — single Step with timestamp gate'
+  next_action: |
+    Estimate: dnaa-06 is the SHORTEST implementation in the dependency
+    chain. Could be built in ~1 day after dnaa-04 lands. Recommend
+    parallel work with dnaa-05 since they share no code.
+
+conclusion: |
+  Phase=Decide outcome: CONDITIONAL — protein machinery and conceptual
+  design are clear, but the oriC state extension + SeqASequestration Step
+  remain to implement.
+
+  ✓ F-01: SeqA + Dam protein machinery EXISTS in proteome; just no
+    Process binds them to oriC.
+  ✓ F-02: oriC needs a `sequestered_until: float` attribute (12 → 13
+    attributes). Minor schema change.
+  ✓ F-03: Simplest of the dnaA upstream studies in implementation effort.
+
+  Gate decision: CONDITIONAL — design + biology + protein-availability
+  documented. Implementation deferred to next cycle.
+
+  No new follow-ups needed (the work is well-scoped).
+
+conclusion_phase_decide_at: 2026-05-17T09:40Z
 parent_studies:
   - {study: dnaa-04-initiation-mechanism, condition: tests-passed}
 

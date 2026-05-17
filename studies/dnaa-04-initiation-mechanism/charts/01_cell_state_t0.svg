@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="480" viewBox="0 0 720 480" font-family="-apple-system,sans-serif" font-size="13">
+<rect width="720" height="480" fill="white"/>
+<text x="360.0" y="22" text-anchor="middle" font-weight="600" font-size="15" fill="#0f172a">Cell state at t=0 in v2ecoli baseline — already mid-replication</text>
+<text x="360.0" y="40" text-anchor="middle" fill="#64748b" font-size="11">2 active oriCs + 2 active replisomes at ±1.33Mb (29% replicated). 10-min sims won't capture a new initiation event.</text>
+<circle cx="360" cy="260" r="200" fill="none" stroke="#cbd5e1" stroke-width="3"/>
+<circle cx="350" cy="60" r="8" fill="#dc2626"/>
+<circle cx="370" cy="60" r="8" fill="#dc2626"/>
+<text x="360" y="44" text-anchor="middle" fill="#dc2626" font-weight="700">2 oriCs</text>
+<polygon points="546.6732812453338,301.8509931100208 562.6732812453338,301.8509931100208 554.6732812453338,313.8509931100208" fill="#2563eb"/>
+<polygon points="157.32671875466622,301.8509931100208 173.32671875466622,301.8509931100208 165.32671875466622,313.8509931100208" fill="#2563eb"/>
+<text x="578.6732812453338" y="310.8509931100208" fill="#2563eb" font-weight="600">replisome ▲</text>
+<text x="61.32671875466622" y="310.8509931100208" fill="#2563eb" font-weight="600">replisome ▲</text>
+<text x="360" y="482" text-anchor="middle" fill="#64748b">ter</text>
+<rect x="180" y="505" width="360" height="90" fill="#f8fafc" stroke="#e5e7eb" rx="4"/>
+<text x="190" y="525" fill="#0f172a" font-weight="600">Implication for dnaa-04 validation:</text>
+<text x="190" y="545" fill="#475569" font-size="12">• Cell mass 1266 → 1479 fg in 10 min (modest growth)</text>
+<text x="190" y="562" fill="#475569" font-size="12">• criticalMassPerOriC: not emitted (early-exit @ n_oriC > 0)</text>
+<text x="190" y="579" fill="#475569" font-size="12">• Need ≥60 min sims to capture termination + new initiation</text>
+</svg>

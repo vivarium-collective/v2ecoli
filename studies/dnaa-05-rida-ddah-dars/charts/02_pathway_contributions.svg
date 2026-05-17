@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="460" viewBox="0 0 720 460" font-family="-apple-system,sans-serif" font-size="13">
+<rect width="720" height="460" fill="white"/>
+<text x="360.0" y="22" text-anchor="middle" font-weight="600" font-size="15" fill="#0f172a">DnaA-ATP → DnaA-ADP flux: required vs literature estimates</text>
+<text x="360.0" y="40" text-anchor="middle" fill="#64748b" font-size="11">Each bar shows one source of hydrolysis flux. Y-axis: 1/min per cell.</text>
+<line x1="80" y1="380.0" x2="690" y2="380.0" stroke="#e5e7eb"/>
+<text x="72" y="384.0" text-anchor="end" fill="#64748b">0</text>
+<line x1="80" y1="323.6363636363636" x2="690" y2="323.6363636363636" stroke="#e5e7eb"/>
+<text x="72" y="327.6363636363636" text-anchor="end" fill="#64748b">1</text>
+<line x1="80" y1="267.27272727272725" x2="690" y2="267.27272727272725" stroke="#e5e7eb"/>
+<text x="72" y="271.27272727272725" text-anchor="end" fill="#64748b">2</text>
+<line x1="80" y1="210.90909090909093" x2="690" y2="210.90909090909093" stroke="#e5e7eb"/>
+<text x="72" y="214.90909090909093" text-anchor="end" fill="#64748b">3</text>
+<line x1="80" y1="154.54545454545453" x2="690" y2="154.54545454545453" stroke="#e5e7eb"/>
+<text x="72" y="158.54545454545453" text-anchor="end" fill="#64748b">4</text>
+<line x1="80" y1="98.18181818181819" x2="690" y2="98.18181818181819" stroke="#e5e7eb"/>
+<text x="72" y="102.18181818181819" text-anchor="end" fill="#64748b">5</text>
+<text x="20" y="225.0" text-anchor="middle" transform="rotate(-90 20 225.0)" fill="#334155">hydrolysis rate (1/min)</text>
+<rect x="80" y="98.18181818181819" width="610" height="225.45454545454544" fill="#bbf7d0" fill-opacity="0.3"/>
+<text x="680" y="112.18181818181819" text-anchor="end" fill="#16a34a" font-size="11">probe-validated operating window [1, 50]/min</text>
+<rect x="104.4" y="377.40727272727275" width="73.2" height="6" fill="#94a3b8"/>
+<text x="141.0" y="371.40727272727275" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="11">0.05</text>
+<text x="141.0" y="396" text-anchor="middle" fill="#475569" font-size="10">Intrinsic (Boesen</text>
+<text x="141.0" y="409" text-anchor="middle" fill="#475569" font-size="10">2024)</text>
+<rect x="226.4" y="301.0909090909091" width="73.2" height="50.72727272727269" fill="#3b82f6" opacity="0.6"/>
+<line x1="263.0" y1="351.8181818181818" x2="263.0" y2="301.0909090909091" stroke="#0f172a" stroke-width="1"/>
+<text x="263.0" y="295.0909090909091" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="11">0.50–1.40</text>
+<text x="263.0" y="396" text-anchor="middle" fill="#475569" font-size="10">RIDA</text>
+<text x="263.0" y="409" text-anchor="middle" fill="#475569" font-size="10">(replisome-coupled)</text>
+<rect x="348.4" y="351.8181818181818" width="73.2" height="22.54545454545456" fill="#f59e0b" opacity="0.6"/>
+<line x1="385.0" y1="374.3636363636364" x2="385.0" y2="351.8181818181818" stroke="#0f172a" stroke-width="1"/>
+<text x="385.0" y="345.8181818181818" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="11">0.10–0.50</text>
+<text x="385.0" y="396" text-anchor="middle" fill="#475569" font-size="10">DDAH (datA, pulsatile</text>
+<text x="385.0" y="409" text-anchor="middle" fill="#475569" font-size="10">avg)</text>
+<rect x="470.4" y="270.0909090909091" width="73.2" height="73.27272727272725" fill="#16a34a" opacity="0.6"/>
+<line x1="507.0" y1="343.3636363636364" x2="507.0" y2="270.0909090909091" stroke="#0f172a" stroke-width="1"/>
+<text x="507.0" y="264.0909090909091" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="11">0.65–1.95</text>
+<text x="507.0" y="396" text-anchor="middle" fill="#475569" font-size="10">Total extrinsic (lit.</text>
+<text x="507.0" y="409" text-anchor="middle" fill="#475569" font-size="10">sum)</text>
+<rect x="592.4" y="120.72727272727275" width="73.2" height="6" fill="#dc2626"/>
+<text x="629.0" y="114.72727272727275" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="11">4.60</text>
+<text x="629.0" y="396" text-anchor="middle" fill="#475569" font-size="10">Required (v2ecoli</text>
+<text x="629.0" y="409" text-anchor="middle" fill="#475569" font-size="10">probe F-04)</text>
+<text x="360.0" y="440" text-anchor="middle" fill="#dc2626" font-weight="600" font-size="12">Gap: literature extrinsic sum (~1.3) is ~3.5× short of v2ecoli's 4.6 target → audit equilibrium reverse-rate first.</text>
+</svg>

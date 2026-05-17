@@ -1,0 +1,4 @@
+{
+  "title": "Chromosomal context for SeqA sequestration",
+  "caption": "SeqA recognizes hemimethylated GATC sites clustered near oriC (green circle at top). When `sequestered_until > t`, the oriC marker should switch color \u2014 this is the dnaa-06 implementation target."
+}

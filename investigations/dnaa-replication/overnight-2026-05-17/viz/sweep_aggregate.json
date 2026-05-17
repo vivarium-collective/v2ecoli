@@ -1,0 +1,101 @@
+{
+  "1": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 115.0,
+    "dnaa_q25": 115.0,
+    "dnaa_q75": 115.0,
+    "mrna_mean": 0.0,
+    "pearson_r": null,
+    "count_pass": false,
+    "autorep_pass": false
+  },
+  "5": {
+    "seeds": 3,
+    "samples": 903,
+    "dnaa_median": 129.0,
+    "dnaa_q25": 129.0,
+    "dnaa_q75": 129.0,
+    "mrna_mean": 0.0,
+    "pearson_r": null,
+    "count_pass": false,
+    "autorep_pass": false
+  },
+  "10": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 188.0,
+    "dnaa_q25": 168.0,
+    "dnaa_q75": 206.0,
+    "mrna_mean": 0.33222591362126247,
+    "pearson_r": -0.3008136139281309,
+    "count_pass": false,
+    "autorep_pass": true
+  },
+  "15": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 247.0,
+    "dnaa_q25": 197.0,
+    "dnaa_q75": 284.0,
+    "mrna_mean": 0.6212624584717608,
+    "pearson_r": -0.5327530364317689,
+    "count_pass": false,
+    "autorep_pass": true
+  },
+  "20": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 296.0,
+    "dnaa_q25": 278.0,
+    "dnaa_q75": 296.0,
+    "mrna_mean": 0.2857142857142857,
+    "pearson_r": -0.2529420664650761,
+    "count_pass": false,
+    "autorep_pass": false
+  },
+  "25": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 263.0,
+    "dnaa_q25": 263.0,
+    "dnaa_q75": 263.0,
+    "mrna_mean": 0.09302325581395349,
+    "pearson_r": 0.7796722002158208,
+    "count_pass": false,
+    "autorep_pass": false
+  },
+  "30": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 159.0,
+    "dnaa_q25": 159.0,
+    "dnaa_q75": 180.0,
+    "mrna_mean": 0.13953488372093023,
+    "pearson_r": 0.1862448758095867,
+    "count_pass": false,
+    "autorep_pass": false
+  },
+  "50": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 497.0,
+    "dnaa_q25": 497.0,
+    "dnaa_q75": 497.0,
+    "mrna_mean": 0.30564784053156147,
+    "pearson_r": 0.6132476343339665,
+    "count_pass": true,
+    "autorep_pass": false
+  },
+  "100": {
+    "seeds": 3,
+    "samples": 903,
+    "dnaa_median": 108.0,
+    "dnaa_q25": 108.0,
+    "dnaa_q75": 133.0,
+    "mrna_mean": 0.06312292358803986,
+    "pearson_r": -0.09290251584398306,
+    "count_pass": false,
+    "autorep_pass": false
+  }
+}

@@ -1,0 +1,4 @@
+{
+  "title": "Cascading recipe chain \u2014 dnaA investigation",
+  "caption": "Each node is a registered baseline recipe; arrows show inheritance. Bundle/loop patches accumulate down the chain. Downstream studies declare their baseline by referencing a recipe name."
+}

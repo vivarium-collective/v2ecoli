@@ -1,0 +1,4 @@
+[submodule "external/v2ecoli"]
+	path = external/v2ecoli
+	url = https://github.com/vivarium-collective/v2ecoli.git
+	branch = main

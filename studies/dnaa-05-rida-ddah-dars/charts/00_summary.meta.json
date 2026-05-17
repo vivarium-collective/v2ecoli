@@ -1,0 +1,4 @@
+{
+  "title": "dnaa-05 extrinsic-conversion scoreboard",
+  "caption": "Green-field implementation; converted from open-ended design to calibrated target (~4.6/min combined extrinsic flux). Recommend equilibrium-rate audit before authoring 3 new Step modules."
+}

@@ -1,0 +1,130 @@
+{
+  "1x_fc1.0": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 115.0,
+    "pearson_r": null,
+    "count_pass": false,
+    "autorep_pass": false
+  },
+  "100x_fc1.0": {
+    "seeds": 3,
+    "samples": 903,
+    "dnaa_median": 108.0,
+    "pearson_r": -0.09290251584398306,
+    "count_pass": false,
+    "autorep_pass": false
+  },
+  "10x_fc1.0": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 188.0,
+    "pearson_r": -0.3008136139281309,
+    "count_pass": false,
+    "autorep_pass": true
+  },
+  "15x_fc1.0": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 247.0,
+    "pearson_r": -0.5327530364317689,
+    "count_pass": false,
+    "autorep_pass": true
+  },
+  "20x_fc0.3": {
+    "seeds": 2,
+    "samples": 602,
+    "dnaa_median": 401.0,
+    "pearson_r": 0.16840077528555225,
+    "count_pass": true,
+    "autorep_pass": false
+  },
+  "20x_fc0.5": {
+    "seeds": 2,
+    "samples": 602,
+    "dnaa_median": 933.0,
+    "pearson_r": -0.3948819030112827,
+    "count_pass": false,
+    "autorep_pass": true
+  },
+  "20x_fc0.6": {
+    "seeds": 3,
+    "samples": 903,
+    "dnaa_median": 699.0,
+    "pearson_r": 0.2177138835768452,
+    "count_pass": true,
+    "autorep_pass": false
+  },
+  "20x_fc0.7": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 707.0,
+    "pearson_r": -0.5211047474509798,
+    "count_pass": true,
+    "autorep_pass": true
+  },
+  "20x_fc0.8": {
+    "seeds": 3,
+    "samples": 903,
+    "dnaa_median": 707.0,
+    "pearson_r": -0.3922639110231591,
+    "count_pass": true,
+    "autorep_pass": true
+  },
+  "20x_fc2.0": {
+    "seeds": 2,
+    "samples": 602,
+    "dnaa_median": 365.0,
+    "pearson_r": null,
+    "count_pass": true,
+    "autorep_pass": false
+  },
+  "20x_fc1.0": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 296.0,
+    "pearson_r": -0.2529420664650761,
+    "count_pass": false,
+    "autorep_pass": false
+  },
+  "25x_fc1.0": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 263.0,
+    "pearson_r": 0.7796722002158208,
+    "count_pass": false,
+    "autorep_pass": false
+  },
+  "30x_fc0.3": {
+    "seeds": 2,
+    "samples": 602,
+    "dnaa_median": 737.0,
+    "pearson_r": -0.20075005963815692,
+    "count_pass": true,
+    "autorep_pass": false
+  },
+  "30x_fc1.0": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 159.0,
+    "pearson_r": 0.1862448758095867,
+    "count_pass": false,
+    "autorep_pass": false
+  },
+  "50x_fc1.0": {
+    "seeds": 5,
+    "samples": 1505,
+    "dnaa_median": 497.0,
+    "pearson_r": 0.6132476343339665,
+    "count_pass": true,
+    "autorep_pass": false
+  },
+  "5x_fc1.0": {
+    "seeds": 3,
+    "samples": 903,
+    "dnaa_median": 129.0,
+    "pearson_r": null,
+    "count_pass": false,
+    "autorep_pass": false
+  }
+}

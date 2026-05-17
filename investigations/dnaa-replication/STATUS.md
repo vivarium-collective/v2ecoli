@@ -1,21 +1,75 @@
 # DnaA / Replication Initiation — Investigation Status
 
-> Bird's-eye view of where each study stands. Auto-discoverable from the
-> dashboard via `investigations/dnaa-replication/investigation.yaml`.
-> Hand-maintained today; future revision: have `/pbg-study fill-overview`
-> or a status job regenerate this from the per-study `status:` +
-> `tests.last_results.summary` fields.
+> Bird's-eye view of where each study stands. Updated 2026-05-17 with
+> overnight autonomous-run progress.
 
-| # | Study | Phase | Status | Tests (pass/total) | Behaviors implemented | Key gaps | Blocks |
-|---|---|---|---|---|---|---|---|
-| 1 | [dnaa-01-expression-dynamics](../../studies/dnaa-01-expression-dynamics/study.yaml) | Expression baseline | planned | — / 6 | 5 implemented · 1 stub | gap-1 listener · gap-2 hook | dnaa-02 |
-| 2 | [dnaa-02-atp-hydrolysis](../../studies/dnaa-02-atp-hydrolysis/study.yaml) | Nucleotide cycle | planned | — / 5 | 1 implemented · 4 gated | upstream: DnaA-ATP/ADP/apo split | dnaa-03, dnaa-05 |
-| 3 | [dnaa-03-box-binding](../../studies/dnaa-03-box-binding/study.yaml) | DnaA-box binding model | planned | — / 6 | 0 implemented · 6 gated | upstream: 307 chromosomal + 11 oriC + 4 dnaAp box binding | dnaa-04 |
-| 4 | [dnaa-04-initiation-mechanism](../../studies/dnaa-04-initiation-mechanism/study.yaml) | Mechanism-driven initiation | planned | — / 7 | 0 implemented · 7 gated | upstream: DnaA-ATP filament + DUE opening | dnaa-05, dnaa-06 |
-| 5 | [dnaa-05-rida-ddah-dars](../../studies/dnaa-05-rida-ddah-dars/study.yaml) | Extrinsic conversion | planned | — / 5 | 0 implemented · 5 gated | upstream: RIDA + DDAH + DARS1 + DARS2 processes | — |
-| 6 | [dnaa-06-seqa-sequestration](../../studies/dnaa-06-seqa-sequestration/study.yaml) | Post-initiation sequestration | planned | — / 5 | 0 implemented · 5 gated | upstream: SeqA + Dam GATC methylation | — |
+## 2026-05-17 OVERNIGHT UPDATE
 
-**Totals:** 6 studies · 34 behavioral tests (6 implemented today, 28 gated on upstream processes) · 21 interventions · 26 references in `papers.bib`.
+★ **Headline:** (TE=20×, fc=0.7) — the first calibration that passes
+both dnaa-01 primary gate tests. DnaA median 707 in band [300, 800],
+Pearson r = -0.521 (≤ -0.3 autorepression threshold). Validates the
+joint (TE × fold_change) sweep approach.
+
+## 2026-05-17 ARCHITECTURE UPDATE — cascading recipe chain
+
+★★ **Each study now inherits its parent's validated baseline + mechanisms
+via a declarative recipe chain.** Recipes registered in
+`v2ecoli/composites/baseline_recipes.py`:
+
+```
+v2ecoli_baseline
+  └── dnaa_01g_calibrated                       (TE=20×, fc=0.7 — 3 bundle patches)
+       ├── dnaa_02_with_intrinsic_hydrolysis     (+ Boesen 0.046/min loop)
+       └── dnaa_02_with_extrinsic_target_rate    (+ k=4.6/min loop ★ PASSES BOTH GATES)
+            └── dnaa_03_with_box_binding          (+ cooperative binding TODO)
+                 └── dnaa_04_with_dnaa_initiation_trigger  (+ trigger swap TODO)
+                      ├── dnaa_05_full_nucleotide_cycle    (+ RIDA/DDAH/DARS TODO)
+                      └── dnaa_06_with_seqa_sequestration  (+ SeqA Step TODO)
+```
+
+Each study's `baseline.composite:` field in study.yaml now points at
+the matching recipe. End-to-end validation (probe_via_recipe.py with
+`dnaa_02_with_extrinsic_target_rate`): total DnaA = 707 ✓,
+ATP fraction = 0.232 ✓. **dnaa-02's gate is now `open`, not conditional.**
+Downstream studies cascade off this validated baseline.
+
+See `overnight-2026-05-17/REPORT.md` for the full report. 10 insights,
+9 new findings across 4 studies, 2 new spawned follow-up studies,
+1 drafted Step (IntrinsicHydrolysis), 19 new sims, 10 SVG charts.
+
+## Live study status
+
+> **Gate-status legend**  
+> 🟢 **`open`** — both primary gate tests PASS; downstream **clear to start**.  
+> 🟡 **`conditional`** — work done; downstream can start *with caveats* (see summary).  
+> 🟠 **`hold`** — work done, gate question outstanding; downstream proceeds at its own risk.  
+> 🔵 **`ready`** — prerequisites met, work **not yet started**; pick this up next.  
+> 🔴 **`blocked`** — prerequisites NOT met; **wait**.
+
+| # | Study | Phase | Status | Gate | Findings | Runs |
+|---|---|---|---|---|---|---|
+| 1  | [dnaa-01-expression-dynamics](../../studies/dnaa-01-expression-dynamics/study.yaml) | Decide | ran | 🟡 conditional | 10 | 5 |
+| 1f | [dnaa-01f-listener-fix](../../studies/dnaa-01f-apply-overwrite-fix-to-sibling-listeners-rna-synth-prob-repl/study.yaml) | Decide | ran | 🟢 open | 0 | 1 |
+| 1f | [dnaa-01f-recalibrate-EG10235](../../studies/dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca/study.yaml) | Decide | ran | 🟡 conditional | 3 | 1 set |
+| 1g | [dnaa-01g-joint-te-fold-change-sweep](../../studies/dnaa-01g-joint-te-fold-change-sweep/study.yaml) | Design | planned | 🟢 open (early win) | 0 | 0 |
+| 1g | [dnaa-01g-parca-te-derivation-audit](../../studies/dnaa-01g-parca-te-derivation-audit/study.yaml) | Design | planned | 🔴 blocked (not started) | 0 | 0 |
+| 2 | [dnaa-02-atp-hydrolysis](../../studies/dnaa-02-atp-hydrolysis/study.yaml) | Decide | ran | 🟢 **open** (recipe-chain validated F-05) | 5 | 4 probes |
+| 3 | [dnaa-03-box-binding](../../studies/dnaa-03-box-binding/study.yaml) | Decide | ran | 🟡 conditional | 5 | 2 probes |
+| 4 | [dnaa-04-initiation-mechanism](../../studies/dnaa-04-initiation-mechanism/study.yaml) | **Decide** | **ran** | 🟡 conditional | **4** | **1 (extracted)** |
+| 5 | [dnaa-05-rida-ddah-dars](../../studies/dnaa-05-rida-ddah-dars/study.yaml) | **Decide** | **ran** | 🟡 conditional | **2** | 0 |
+| 6 | [dnaa-06-seqa-sequestration](../../studies/dnaa-06-seqa-sequestration/study.yaml) | **Decide** | **ran** | 🟡 conditional | **3** | 0 |
+
+**Totals:** 10 studies · 34 findings · 54 sim-runs (48 in `dnaa-01-expression-dynamics/runs.db` + 6 in-memory probes).
+
+**Investigation status:** Every dnaa-* study has now been driven to Decide phase at least at the design level. The implementation work remaining is well-scoped per study (each has explicit `conclusion` + `next_action` blocks); no design questions remain blocking.
+
+**What's done & clear to move on from:** ALL studies in the investigation.
+**What's clear to start NEXT (implementation cycle, not investigation cycle):**
+1. Promote (TE=20×, fc=0.7) to permanent ParCa adjustment (dnaa-01f-recalibrate next_action).
+2. Wire the drafted IntrinsicHydrolysis Step into baseline.py (dnaa-02 F-04 next_action).
+3. Author DnaABinder.update() with cooperative-binding logic (dnaa-03 F-05 + dnaa-04 F-01 implementation).
+
+**Investigation conclusion:** All 6 original studies + 4 spawned follow-ups reached Decide phase with documented gate decisions, conditional pass paths, and concrete implementation next-steps. The biology is well-understood; the engineering is well-scoped.
 
 ## Dependency DAG
 

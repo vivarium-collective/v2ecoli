@@ -1,0 +1,4 @@
+{
+  "title": "Recipe chain validation \u2014 dnaa-02 PASSES both gates",
+  "caption": "Trajectory under recipe dnaa_02_with_extrinsic_target_rate (walks v2ecoli_baseline \u2192 dnaa_01g_calibrated \u2192 this). Total DnaA = 707 (in literature band); ATP fraction = 0.232 (in Boesen band). Validates the cascading-recipe architecture end-to-end."
+}

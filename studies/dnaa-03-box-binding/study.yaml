@@ -1,13 +1,30 @@
 schema_version: 3
 name: dnaa-03-box-binding
 created: '2026-05-16'
-status: planned
-phase: Design   # Design | Build | Simulate | Evaluate | Decide
+status: ran
+phase: Decide   # Design | Build | Simulate | Evaluate | Decide
 
 baseline:
 - name: baseline-box-binding
-  composite: v2ecoli.composites.baseline.baseline
+  # ↓ CASCADING RECIPE: builds on dnaa-02's three-state DnaA pool with extrinsic-rate hydrolysis.
+  # Walks: v2ecoli_baseline → dnaa_01g_calibrated → dnaa_02_with_extrinsic_target_rate → dnaa_03_with_box_binding.
+  # Cooperative binding loop-patch implementation is TODO; currently equivalent to dnaa-02 extrinsic baseline.
+  composite: v2ecoli.composites.baseline_recipes.dnaa_03_with_box_binding
   params: {seed: 0, cache_dir: out/cache}
+
+
+# Live Visualization Steps (rendered ONCE at sim end from emitted state).
+visualizations:
+  - name: dnaa_box_occupancy
+    address: 'local:DnaABoxOccupancyVisualization'
+    config:
+      title: 'dnaa-03 — DnaA-box binding state trajectory + end-landscape'
+      sample_every: 10
+  - name: dnaa_state
+    address: 'local:DnaAStateVisualization'
+    config:
+      title: 'dnaa-03 — DnaA pool feeding the box-binding mechanism'
+      sample_every: 10
 
 
 # ─── 1. PURPOSE ────────────────────────────────────────────────────────────
@@ -33,6 +50,14 @@ pipeline_gate:
     - dnaa-02-atp-hydrolysis   # binding distinguishes ATP / ADP / apo forms
   enables:
     - dnaa-04-initiation-mechanism
+  # open | conditional | hold | ready | blocked  (see study-spec.md)
+  gate_status: conditional
+  gate_status_summary: |
+    Infrastructure ready (456 boxes, DnaA-ATP pool calibrated). Simple
+    Hill-binding model FAILS to reproduce textbook two-step pattern (F-05).
+    Cooperativity at oriC (Hill n=5-10) is the next refinement. dnaa-04
+    can proceed using DnaA_bound + bulk[MONOMER0-160] as proxies until
+    the cooperative-binding follow-up lands.
   proceed_condition: |
     Primary tests pass; oriC two-step pattern visible; oriC remains
     unoccupied while chromosome titrates.
@@ -299,8 +324,181 @@ bibliography:
   bib_keys: [Roth1998MolMicrobiol, Olivi2025NatCommun, Hansen1991ResMicrobiol, Berger2022NatCommun, Katayama2017Frontiers, Kasho2023IJMS, Leonard2015FrontMicrobiol, Speck1999EMBO, Saggioro2013BiochemJ, Schaper1995JBC, Hansen2006JMB]
 
 
-runs: []
-conclusion: null
+runs:
+- simulation: probe-box-inventory
+  duration_s: 60
+  started_at: 2026-05-17T09:05Z
+  wall_seconds: 11
+  rows: initial + 60s snapshots
+  notes: |
+    probe_dnaa_boxes.py — read the DnaA_box unique array at t=0 and t=60s.
+  outcomes:
+    n_boxes_active: 456
+    n_oriCs_active: 2
+    box_attrs: 'coordinates, domain_index, DnaA_bound (bool), ...'
+    DnaA_bound_initial: 0
+    DnaA_bound_after_60s: 0
+    note: 'No process touches DnaA_bound during simulation.'
+
+- simulation: probe-hill-binding-simulation
+  duration_s: 600
+  started_at: 2026-05-17T09:17Z
+  wall_seconds: 276
+  rows: 60 sample points (every 10s)
+  notes: |
+    probe_box_binding_simulation.py — external Hill-binding model
+    applied between comp.update() calls. Uses (TE=20×, fc=0.7) calibration.
+    Hill n=2, Kd = 5/50/300 DnaA-ATP for high/med/low affinity classes.
+    Tests whether the textbook two-step pattern emerges naturally.
+  outcomes:
+    final_occupancy: {high: 1.00, med: 1.00, low: 0.89}
+    chromosomal_half_cross_t_s: 130
+    oriC_half_cross_t_s: 10
+    two_step_pattern_observed: false
+    note: 'Simple Hill model fails — oriC fills FIRST, not last as textbook predicts.'
+
+findings:
+- id: F-01
+  kind: computational
+  status: novel
+  statement: |
+    The DnaA-box catalog data structure ALREADY EXISTS in v2ecoli's
+    chromosome_structure.py. ParCa initializes the boxes from
+    `sim_data.process.replication.motif_coordinates`. The DNAA_BOX_ARRAY
+    type has `coordinates`, `domain_index`, and `DnaA_bound` (boolean)
+    attributes. req-1 ("DnaA-box catalog") is therefore PARTIALLY DONE.
+  evidence:
+    from_files:
+      type_definition: 'v2ecoli/library/schema_types.py:58 (DNAA_BOX_ARRAY)'
+      structure_process: 'v2ecoli/processes/chromosome_structure.py:107, 162-185, 691-713'
+      parca_initial: 'v2ecoli/processes/parca/ecoli/library/initial_conditions.py:658, 770-805'
+    what_is_tracked: 'coordinates, domain_index, DnaA_bound (boolean)'
+    what_is_missing: |
+      (a) Per-box affinity classification (high vs low Kd; literature 1nM vs 100nM).
+      (b) Per-form binding preference (DnaA-ATP binds all, DnaA-ADP binds only high-affinity).
+      (c) A binding Process that actually consumes free DnaA-ATP and toggles DnaA_bound.
+
+- id: F-02
+  kind: computational
+  status: contradicts
+  statement: |
+    v2ecoli has 456 active DnaA boxes (3 chromosomal domains × ~150 each),
+    NOT the 322 (307 chromosomal + 11 oriC + 4 dnaAp) cited in the study
+    design. The discrepancy is real — ParCa's motif_coordinates source
+    finds significantly more putative sites than the curated Roth1998 +
+    Hansen lists.
+  evidence:
+    from_run: 'probe_dnaa_boxes.py'
+    n_active_boxes: 456
+    n_oriCs: 2
+    domain_indices_used: '[0, 1, 2] (parent + 2 daughter chromosomes)'
+    coord_range: '[-2.3M, +2.3M] basepairs (full 4.6Mb genome)'
+  explanation: |
+    The 322 in literature is from curated experimental work; ParCa
+    appears to use a PWM-based motif scan that returns more candidate
+    sites. Worth checking ecoli's motif_coordinates derivation in
+    sim_data.process.replication to confirm.
+  next_action: |
+    Cross-reference v2ecoli's motif_coordinates against Roth1998 +
+    Hansen2018 box lists. Either accept the 456 (broader functional
+    set) or filter to the 322 curated sites.
+
+- id: F-03
+  kind: computational
+  status: novel
+  statement: |
+    NOTHING modifies DnaA_bound during simulation. The only writers are
+    initial-conditions setup (set all-False). chromosome_replication.py
+    uses ZERO DnaA-box infrastructure — it relies purely on the
+    mass-threshold heuristic, never reading DnaA_bound. The 456-box
+    catalog is currently structural-only.
+  evidence:
+    grep_results:
+      writers: 'initial_conditions.py:814, 815 (both set to np.zeros)'
+      runtime_mutators: 'none'
+    runtime_check: 'DnaA_bound sum = 0 at t=0 AND at t=60s of a sim'
+  next_action: |
+    A binding Process must be authored. Drafted plan: read bulk[MONOMER0-160],
+    compute per-box binding probability via cooperative model (see F-05),
+    stochastically toggle DnaA_bound.
+
+- id: F-04
+  kind: biological
+  status: novel
+  statement: |
+    Initial chromosome state has 2 active oriCs (one per chromosome
+    after the cell's most recent division), not 1. This means the
+    "oriC fill" question is per-replisome, not per-cell.
+  evidence:
+    from_run: 'probe_dnaa_boxes.py'
+    n_oriCs_active: 2
+  next_action: |
+    Account for per-oriC fill independence in any binding model.
+
+- id: F-05
+  kind: biological
+  status: contradicts
+  statement: |
+    A simple Hill model (n=2) with per-box Kd assignment (high/med/low =
+    5/50/300 DnaA-ATP) DOES NOT REPRODUCE the textbook two-step
+    occupancy pattern. With v2ecoli's calibrated DnaA-ATP trajectory
+    (rises from 115 to 833 over 10 min), oriC-affinity sites fill FIRST
+    (half-cross at t=10s, fully bound by 60s), THEN chromosomal sites
+    fill (half-cross at t=130s).
+  evidence:
+    from_run: 'probe_box_binding_simulation.py'
+    final_occupancy: {high: 1.00, med: 1.00, low: 0.89}
+    oriC_half_cross_s: 10
+    chrom_half_cross_s: 130
+    delay_s: -120
+  expected: |
+    Textbook (Hansen 2018, Speck 1999, Saggioro 2013): chromosomal
+    sites saturate FIRST (titration phase), THEN oriC fills sharply
+    when free DnaA-ATP exceeds the cooperative threshold. The two-step
+    pattern is essential to delaying initiation until enough DnaA-ATP
+    is available.
+  explanation: |
+    Three possible mechanisms for the missing pattern:
+    (a) Strong COOPERATIVITY at oriC (Hill n=5-10), so oriC doesn't
+        fill until DnaA-ATP exceeds a high threshold. The 11 oriC sites
+        work as a cooperative filament, not 11 independent sites.
+    (b) ACCESSORY-FACTOR dependence: oriC binding requires HU, IHF, Fis
+        in specific stoichiometry — these proteins gate access.
+    (c) SeqA sequestration after initiation keeps oriC unbound for
+        ~10 min, even when DnaA-ATP would otherwise saturate it
+        (that's dnaa-06's mechanism, not native to dnaa-03).
+    Literature strongly favors (a) — the cooperative-filament model.
+  next_action: |
+    Implement cooperative binding model at oriC with Hill n=5-10.
+    Independent simulation of n=10 cooperativity expected to reproduce
+    the two-step pattern. This is the dnaa-03 implementation target.
+
+conclusion: |
+  Phase=Decide outcome: CONDITIONAL — infrastructure is partial; the
+  simple binding model does NOT reproduce the textbook two-step pattern,
+  but the gap is precisely characterized.
+
+  ✓ F-01: DnaA-box catalog data structure already exists (456 boxes).
+  ✓ F-02: v2ecoli's box count (456) differs from the literature-curated 322
+    — separate motif source needs reconciliation.
+  ✓ F-03: No binding Process exists; DnaA_bound never changes at runtime.
+  ✓ F-04: 2 active oriCs (one per daughter chromosome) — per-oriC modeling.
+  ✓ F-05: Simple Hill (n=2) model with per-box Kd assignment FAILS to
+    reproduce the textbook two-step oriC-fill pattern. Cooperativity at
+    oriC (Hill n=5-10, the DnaA-ATP filament model) is required.
+
+  Gate decision: CONDITIONAL — dnaa-04 can use the existing infrastructure
+  (read DnaA_bound and bulk[MONOMER0-160] as proxies for oriC occupancy),
+  but a proper binding Process with cooperative oriC kinetics is the
+  remaining engineering work. F-05 provides a quantitative testable
+  hypothesis: a cooperative Hill model (n=5-10) at oriC should reproduce
+  the textbook pattern; this is the next probe.
+
+  Two new spawned follow-ups recommended:
+  (1) dnaa-03f-cooperative-orics-binding-model — implement the n=5-10
+      cooperative model and re-test the two-step pattern.
+  (2) dnaa-03g-reconcile-motif-source — investigate the 456 vs 322
+      discrepancy and decide which set is canonical.
 parent_studies:
   - {study: dnaa-02-atp-hydrolysis, condition: tests-passed}
 

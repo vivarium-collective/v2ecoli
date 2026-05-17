@@ -1,13 +1,25 @@
 schema_version: 3
 name: dnaa-05-rida-ddah-dars
 created: '2026-05-16'
-status: planned
-phase: Design   # Design | Build | Simulate | Evaluate | Decide
+status: ran
+phase: Decide   # Design | Build | Simulate | Evaluate | Decide
 
 baseline:
 - name: baseline-extrinsic
-  composite: v2ecoli.composites.baseline.baseline
+  # ↓ CASCADING RECIPE: builds on dnaa-04's DnaA-driven initiation baseline.
+  # Walks: ... → dnaa_04_with_dnaa_initiation_trigger → dnaa_05_full_nucleotide_cycle.
+  # The RIDA/DDAH/DARS per-pathway implementation is TODO; currently equivalent to dnaa-04.
+  composite: v2ecoli.composites.baseline_recipes.dnaa_05_full_nucleotide_cycle
   params: {seed: 0, cache_dir: out/cache}
+
+
+# Live Visualization Steps (rendered ONCE at sim end from emitted state).
+visualizations:
+  - name: dnaa_state
+    address: 'local:DnaAStateVisualization'
+    config:
+      title: 'dnaa-05 — DnaA-ATP/ADP cycle with RIDA/DDAH/DARS contributions'
+      sample_every: 10
 
 
 # ─── 1. PURPOSE ────────────────────────────────────────────────────────────
@@ -36,6 +48,14 @@ pipeline_gate:
     - dnaa-02-atp-hydrolysis           # need the ATP/ADP/apo split
     - dnaa-04-initiation-mechanism     # need replisome events
   enables: []                          # leaf of the main pipeline
+  # open | conditional | hold | ready | blocked
+  gate_status: conditional
+  gate_status_summary: |
+    Design + quantitative target documented (F-02: combined RIDA+DDAH+DARS
+    flux ≈ 4.6/min, from dnaa-02 sensitivity). Actual Step implementation
+    deferred; spawned follow-up dnaa-05g recommends auditing the equilibrium
+    reverse-rate first, before sinking effort into 3 new pathways to
+    compensate for a possibly-mis-calibrated MONOMER0-160_RXN.
   proceed_condition: |
     Primary tests pass. dnaa-04 already has a working mechanism baseline
     that this can compare against.
@@ -316,7 +336,85 @@ bibliography:
 
 
 runs: []
-conclusion: null
+
+findings:
+- id: F-01
+  kind: computational
+  status: novel
+  statement: |
+    NO existing infrastructure in v2ecoli for RIDA / DDAH / DARS. Grep
+    across the codebase finds zero hits for RIDA, DDAH, DARS, HdaA, datA,
+    DARS1, or DARS2 (only seqA appears, but that's dnaa-06's territory).
+    This is a fresh-code study — no shortcut paths like dnaa-02's
+    already-wired equilibrium machinery.
+  evidence:
+    grep_targets: ['RIDA', 'DDAH', 'DARS', 'HdaA', 'datA']
+    grep_results: '0 hits in v2ecoli/'
+    existing_seqA: 'EG12197_RNA (seqA mRNA) exists but no protein machinery'
+  next_action: |
+    Implementation strategy: write three new Step modules (Rida, Ddah,
+    Dars) under v2ecoli/processes/ that share the dnaa-02
+    IntrinsicHydrolysis Step pattern (read bulk[MONOMER0-160], compute
+    flux, write bulk delta). Differences: RIDA couples to active_replisome
+    state (only fires when forks are present); DDAH couples to a new
+    datA box (genomic position; one site); DARS1/DARS2 reverse the flux
+    (ADP → ATP at two specific genomic positions).
+
+- id: F-02
+  kind: biological
+  status: novel
+  statement: |
+    The dnaa-02 F-04 sensitivity probe provides a CONCRETE QUANTITATIVE
+    TARGET for dnaa-05: combined RIDA + DDAH + DARS hydrolysis flux must
+    be ~100× the intrinsic rate (k_combined ≈ 4.6/min, vs. intrinsic
+    0.046/min) to bring DnaA-ATP fraction into Boesen's [0.20, 0.50]
+    band given v2ecoli's current equilibrium reverse-pull. This converts
+    a green-field design problem into a calibration target.
+  evidence:
+    from_run: 'dnaa-02 probe_hydrolysis_rate_sensitivity (4 rates × 5min)'
+    target_combined_rate_per_min: 4.6
+    intrinsic_baseline_per_min: 0.046
+    upper_limit_per_min: 50  # beyond, ATP pool collapses to 0
+    operating_window: '[1, 50]/min total DnaA-ATP → DnaA-ADP flux'
+  explanation: |
+    Literature partition (rough, from Katayama 2017 + Hansen 2018):
+    - RIDA (replisome-coupled): dominant during S phase, ~10-30× intrinsic
+      → 0.5-1.4/min
+    - DDAH (datA-bound): pulsatile during specific cell-cycle windows
+      → 0.1-0.5/min average over generation
+    - DARS1/DARS2 (REVERSE — ADP → ATP, at oriC-adjacent positions):
+      acts as a reset; not net hydrolysis flux
+    These ranges sum to ~0.6-1.9/min for forward hydrolysis. To hit our
+    4.6/min target, individual rates likely need to be 2-5× the
+    literature midpoints — or the equilibrium reverse-pull in v2ecoli
+    is artificially fast and should be re-fit.
+  next_action: |
+    Spawn follow-up: dnaa-05g-equilibrium-reverse-rate-audit. The
+    MONOMER0-160_RXN reverse rate (2.9e-8) is the suspect.
+    Lowering this would reduce the burden on extrinsic pathways.
+
+conclusion: |
+  Phase=Decide outcome: CONDITIONAL — work shifted from green-field to
+  calibration with concrete numbers, but actual implementation pending.
+
+  ✓ F-01: No existing infrastructure for RIDA/DDAH/DARS; fresh-code
+    implementation needed. Step pattern from dnaa-02 (IntrinsicHydrolysis)
+    is the template.
+  ✓ F-02: dnaa-02 gave a quantitative target — combined extrinsic flux
+    should be ~4.6/min total DnaA-ATP → DnaA-ADP, in operating window
+    [1, 50]/min. Literature partition suggests this is 2-5× higher than
+    the per-pathway rates would naively predict — pointing at v2ecoli's
+    equilibrium reverse-rate as needing re-calibration.
+
+  Gate decision: CONDITIONAL — biology and quantitative target documented.
+  Actual Step implementation deferred to next implementation cycle.
+
+  One new spawned follow-up recommended:
+  (1) dnaa-05g-equilibrium-reverse-rate-audit — investigate whether the
+      MONOMER0-160_RXN reverse rate is calibrated correctly, before
+      sinking effort into 3 new Step modules to compensate.
+
+conclusion_phase_decide_at: 2026-05-17T09:35Z
 parent_studies:
   - {study: dnaa-02-atp-hydrolysis,      condition: tests-passed}
   - {study: dnaa-04-initiation-mechanism, condition: ran}

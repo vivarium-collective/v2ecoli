@@ -1,0 +1,501 @@
+{
+  "description": "DnaA-state trajectory under (TE=20\u00d7, fc=0.7) + EXTERNAL intrinsic hydrolysis (Boesen 0.046/min)",
+  "params": {
+    "TE_multiplier": 20.0,
+    "autorep_multiplier": 0.7,
+    "k_hydrolysis_per_min": 0.046,
+    "duration_s": 600,
+    "seed": 0
+  },
+  "samples": [
+    {
+      "t": 0.0,
+      "apo": 124,
+      "atp": 0,
+      "adp": 0,
+      "n_hydrolyzed_step": 0,
+      "total": 124
+    },
+    {
+      "t": 10.0,
+      "apo": 0,
+      "atp": 108,
+      "adp": 1,
+      "n_hydrolyzed_step": 1,
+      "total": 109
+    },
+    {
+      "t": 20.0,
+      "apo": 1,
+      "atp": 108,
+      "adp": 1,
+      "n_hydrolyzed_step": 1,
+      "total": 110
+    },
+    {
+      "t": 30.0,
+      "apo": 0,
+      "atp": 118,
+      "adp": 2,
+      "n_hydrolyzed_step": 1,
+      "total": 120
+    },
+    {
+      "t": 40.0,
+      "apo": 1,
+      "atp": 134,
+      "adp": 1,
+      "n_hydrolyzed_step": 1,
+      "total": 136
+    },
+    {
+      "t": 50.0,
+      "apo": 1,
+      "atp": 142,
+      "adp": 2,
+      "n_hydrolyzed_step": 1,
+      "total": 145
+    },
+    {
+      "t": 60.0,
+      "apo": 3,
+      "atp": 151,
+      "adp": 1,
+      "n_hydrolyzed_step": 1,
+      "total": 155
+    },
+    {
+      "t": 70.0,
+      "apo": 2,
+      "atp": 167,
+      "adp": 1,
+      "n_hydrolyzed_step": 1,
+      "total": 170
+    },
+    {
+      "t": 80.0,
+      "apo": 0,
+      "atp": 177,
+      "adp": 2,
+      "n_hydrolyzed_step": 1,
+      "total": 179
+    },
+    {
+      "t": 90.0,
+      "apo": 3,
+      "atp": 189,
+      "adp": 1,
+      "n_hydrolyzed_step": 1,
+      "total": 193
+    },
+    {
+      "t": 100.0,
+      "apo": 5,
+      "atp": 213,
+      "adp": 2,
+      "n_hydrolyzed_step": 2,
+      "total": 220
+    },
+    {
+      "t": 110.0,
+      "apo": 1,
+      "atp": 239,
+      "adp": 2,
+      "n_hydrolyzed_step": 2,
+      "total": 242
+    },
+    {
+      "t": 120.0,
+      "apo": 4,
+      "atp": 268,
+      "adp": 2,
+      "n_hydrolyzed_step": 2,
+      "total": 274
+    },
+    {
+      "t": 130.0,
+      "apo": 6,
+      "atp": 301,
+      "adp": 2,
+      "n_hydrolyzed_step": 2,
+      "total": 309
+    },
+    {
+      "t": 140.0,
+      "apo": 1,
+      "atp": 320,
+      "adp": 3,
+      "n_hydrolyzed_step": 2,
+      "total": 324
+    },
+    {
+      "t": 150.0,
+      "apo": 1,
+      "atp": 338,
+      "adp": 4,
+      "n_hydrolyzed_step": 3,
+      "total": 343
+    },
+    {
+      "t": 160.0,
+      "apo": 0,
+      "atp": 354,
+      "adp": 4,
+      "n_hydrolyzed_step": 3,
+      "total": 358
+    },
+    {
+      "t": 170.0,
+      "apo": 1,
+      "atp": 376,
+      "adp": 4,
+      "n_hydrolyzed_step": 3,
+      "total": 381
+    },
+    {
+      "t": 180.0,
+      "apo": 0,
+      "atp": 386,
+      "adp": 3,
+      "n_hydrolyzed_step": 3,
+      "total": 389
+    },
+    {
+      "t": 190.0,
+      "apo": 2,
+      "atp": 395,
+      "adp": 4,
+      "n_hydrolyzed_step": 3,
+      "total": 401
+    },
+    {
+      "t": 200.0,
+      "apo": 0,
+      "atp": 411,
+      "adp": 4,
+      "n_hydrolyzed_step": 3,
+      "total": 415
+    },
+    {
+      "t": 210.0,
+      "apo": 4,
+      "atp": 428,
+      "adp": 3,
+      "n_hydrolyzed_step": 3,
+      "total": 435
+    },
+    {
+      "t": 220.0,
+      "apo": 2,
+      "atp": 448,
+      "adp": 4,
+      "n_hydrolyzed_step": 3,
+      "total": 454
+    },
+    {
+      "t": 230.0,
+      "apo": 5,
+      "atp": 461,
+      "adp": 4,
+      "n_hydrolyzed_step": 4,
+      "total": 470
+    },
+    {
+      "t": 240.0,
+      "apo": 4,
+      "atp": 483,
+      "adp": 4,
+      "n_hydrolyzed_step": 3,
+      "total": 491
+    },
+    {
+      "t": 250.0,
+      "apo": 2,
+      "atp": 499,
+      "adp": 5,
+      "n_hydrolyzed_step": 4,
+      "total": 506
+    },
+    {
+      "t": 260.0,
+      "apo": 5,
+      "atp": 520,
+      "adp": 5,
+      "n_hydrolyzed_step": 4,
+      "total": 530
+    },
+    {
+      "t": 270.0,
+      "apo": 2,
+      "atp": 533,
+      "adp": 5,
+      "n_hydrolyzed_step": 4,
+      "total": 540
+    },
+    {
+      "t": 280.0,
+      "apo": 0,
+      "atp": 548,
+      "adp": 5,
+      "n_hydrolyzed_step": 4,
+      "total": 553
+    },
+    {
+      "t": 290.0,
+      "apo": 0,
+      "atp": 562,
+      "adp": 5,
+      "n_hydrolyzed_step": 4,
+      "total": 567
+    },
+    {
+      "t": 300.0,
+      "apo": 2,
+      "atp": 580,
+      "adp": 6,
+      "n_hydrolyzed_step": 5,
+      "total": 588
+    },
+    {
+      "t": 310.0,
+      "apo": 0,
+      "atp": 582,
+      "adp": 6,
+      "n_hydrolyzed_step": 5,
+      "total": 588
+    },
+    {
+      "t": 320.0,
+      "apo": 0,
+      "atp": 583,
+      "adp": 5,
+      "n_hydrolyzed_step": 4,
+      "total": 588
+    },
+    {
+      "t": 330.0,
+      "apo": 0,
+      "atp": 582,
+      "adp": 6,
+      "n_hydrolyzed_step": 5,
+      "total": 588
+    },
+    {
+      "t": 340.0,
+      "apo": 0,
+      "atp": 583,
+      "adp": 5,
+      "n_hydrolyzed_step": 4,
+      "total": 588
+    },
+    {
+      "t": 350.0,
+      "apo": 0,
+      "atp": 582,
+      "adp": 6,
+      "n_hydrolyzed_step": 5,
+      "total": 588
+    },
+    {
+      "t": 360.0,
+      "apo": 0,
+      "atp": 583,
+      "adp": 5,
+      "n_hydrolyzed_step": 4,
+      "total": 588
+    },
+    {
+      "t": 370.0,
+      "apo": 0,
+      "atp": 583,
+      "adp": 5,
+      "n_hydrolyzed_step": 4,
+      "total": 588
+    },
+    {
+      "t": 380.0,
+      "apo": 2,
+      "atp": 586,
+      "adp": 5,
+      "n_hydrolyzed_step": 4,
+      "total": 593
+    },
+    {
+      "t": 390.0,
+      "apo": 3,
+      "atp": 603,
+      "adp": 5,
+      "n_hydrolyzed_step": 4,
+      "total": 611
+    },
+    {
+      "t": 400.0,
+      "apo": 2,
+      "atp": 625,
+      "adp": 6,
+      "n_hydrolyzed_step": 5,
+      "total": 633
+    },
+    {
+      "t": 410.0,
+      "apo": 1,
+      "atp": 649,
+      "adp": 6,
+      "n_hydrolyzed_step": 5,
+      "total": 656
+    },
+    {
+      "t": 420.0,
+      "apo": 2,
+      "atp": 660,
+      "adp": 6,
+      "n_hydrolyzed_step": 5,
+      "total": 668
+    },
+    {
+      "t": 430.0,
+      "apo": 1,
+      "atp": 672,
+      "adp": 6,
+      "n_hydrolyzed_step": 5,
+      "total": 679
+    },
+    {
+      "t": 440.0,
+      "apo": 1,
+      "atp": 682,
+      "adp": 7,
+      "n_hydrolyzed_step": 6,
+      "total": 690
+    },
+    {
+      "t": 450.0,
+      "apo": 1,
+      "atp": 700,
+      "adp": 6,
+      "n_hydrolyzed_step": 5,
+      "total": 707
+    },
+    {
+      "t": 460.0,
+      "apo": 4,
+      "atp": 714,
+      "adp": 6,
+      "n_hydrolyzed_step": 5,
+      "total": 724
+    },
+    {
+      "t": 470.0,
+      "apo": 4,
+      "atp": 735,
+      "adp": 7,
+      "n_hydrolyzed_step": 6,
+      "total": 746
+    },
+    {
+      "t": 480.0,
+      "apo": 2,
+      "atp": 745,
+      "adp": 7,
+      "n_hydrolyzed_step": 6,
+      "total": 754
+    },
+    {
+      "t": 490.0,
+      "apo": 0,
+      "atp": 763,
+      "adp": 7,
+      "n_hydrolyzed_step": 6,
+      "total": 770
+    },
+    {
+      "t": 500.0,
+      "apo": 2,
+      "atp": 777,
+      "adp": 7,
+      "n_hydrolyzed_step": 6,
+      "total": 786
+    },
+    {
+      "t": 510.0,
+      "apo": 2,
+      "atp": 795,
+      "adp": 7,
+      "n_hydrolyzed_step": 6,
+      "total": 804
+    },
+    {
+      "t": 520.0,
+      "apo": 2,
+      "atp": 805,
+      "adp": 8,
+      "n_hydrolyzed_step": 6,
+      "total": 815
+    },
+    {
+      "t": 530.0,
+      "apo": 0,
+      "atp": 819,
+      "adp": 7,
+      "n_hydrolyzed_step": 6,
+      "total": 826
+    },
+    {
+      "t": 540.0,
+      "apo": 2,
+      "atp": 827,
+      "adp": 8,
+      "n_hydrolyzed_step": 7,
+      "total": 837
+    },
+    {
+      "t": 550.0,
+      "apo": 0,
+      "atp": 829,
+      "adp": 8,
+      "n_hydrolyzed_step": 7,
+      "total": 837
+    },
+    {
+      "t": 560.0,
+      "apo": 0,
+      "atp": 827,
+      "adp": 8,
+      "n_hydrolyzed_step": 7,
+      "total": 835
+    },
+    {
+      "t": 570.0,
+      "apo": 1,
+      "atp": 827,
+      "adp": 7,
+      "n_hydrolyzed_step": 6,
+      "total": 835
+    },
+    {
+      "t": 580.0,
+      "apo": 1,
+      "atp": 826,
+      "adp": 8,
+      "n_hydrolyzed_step": 7,
+      "total": 835
+    },
+    {
+      "t": 590.0,
+      "apo": 0,
+      "atp": 828,
+      "adp": 7,
+      "n_hydrolyzed_step": 6,
+      "total": 835
+    },
+    {
+      "t": 600.0,
+      "apo": 1,
+      "atp": 826,
+      "adp": 8,
+      "n_hydrolyzed_step": 7,
+      "total": 835
+    }
+  ],
+  "total_hydrolysis_events": 239
+}

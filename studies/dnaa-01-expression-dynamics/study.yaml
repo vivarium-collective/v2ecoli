@@ -36,6 +36,16 @@ pipeline_gate:
   enables:
   - dnaa-02-atp-hydrolysis
   - dnaa-03-box-binding
+  # ── Machine-readable gate signal ──────────────────────────────────────
+  # open | conditional | hold | blocked  (see docs/concepts/study-spec.md)
+  gate_status: conditional
+  gate_status_summary: |
+    Single-knob 1× baseline FAILS dnaA-count-in-range (115 vs [300, 800]),
+    but the 2026-05-17 overnight joint sweep validated (TE=20×, fc=0.7)
+    at 5 seeds (DnaA 707, r=-0.521 — BOTH pass). dnaa-02 unblocks with
+    that calibration; permanent ParCa-cache promotion is the remaining
+    cleanup. See dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca
+    and dnaa-01g-joint-te-fold-change-sweep.
   proceed_condition: 'All primary tests pass; the supporting autorepression-correlation
 
     test passes; calibration discrepancies (if any) are annotated and

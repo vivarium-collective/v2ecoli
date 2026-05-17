@@ -56,13 +56,22 @@ pipeline_gate:
     - dnaa-05-rida-ddah-dars
     - dnaa-06-seqa-sequestration
   # open | conditional | hold | ready | blocked
-  gate_status: conditional
+  gate_status: blocked    # ← downgraded per ADDENDUM P1b-1
   gate_status_summary: |
-    Design + insertion-point work complete (F-01..F-04). Validation
-    requires 60+ min sims that overnight could not afford. Implementation
-    is well-scoped: replace chromosome_replication.py:244 with
-    `if n_DnaA_bound_at_oriC >= filament_threshold:`. dnaa-05/06 can
-    proceed because they consume existing initiation events, not new ones.
+    BLOCKED on dnaa-03's box-binding mechanism PLUS the box-catalog
+    `region_type` attribute (P2-1 in PLAN.md). The initiation trigger
+    MUST read DnaA_box.DnaA_bound WHERE region_type=='oriC' — per the
+    biology review, **total DnaA-ATP cannot be used as the active
+    initiation signal** (dnaa_biology_feedback section 3, "DnaA-ATP
+    decomposition" acceptance). Previously I noted "use bulk[MONOMER0-160]
+    as a fallback proxy" — that's explicitly forbidden by the review and
+    has been removed.
+
+    Implementation is still well-scoped: replace chromosome_replication.py:244
+    with `if n_DnaA_bound_at_oriC >= filament_threshold:`, where
+    n_DnaA_bound_at_oriC is computed by filtering DnaA_boxes on region_type
+    AND DnaA_bound. dnaa-05/06 are unaffected — they consume existing
+    initiation events, not new ones.
   proceed_condition: |
     one-initiation-per-generation + initiation-mass-mean-matches-heuristic
     both pass. Replication-time CV is narrow (<0.10).
@@ -376,13 +385,27 @@ findings:
       Lines 250-590: elongation and termination logic (unaffected).
     swap_strategy: |
       Replace lines 215-247 with:
-      (1) read DnaA-ATP count per oriC (from dnaa-03's binding state)
+      (1) Read DnaA_box.DnaA_bound, FILTERED to entries where
+          region_type=='oriC' (requires P2-1 box-catalog enrichment in
+          dnaa-03 to populate region_type).
       (2) compute occupancy_ok = (n_DnaA_bound_at_oriC >= filament_threshold)
       (3) if occupancy_ok: request replisome subunits (same as today)
+    biology_review_constraint: |
+      Per dnaa_biology_feedback section 3 "DnaA-ATP decomposition" — the
+      initiation signal MUST be the oriC-bound subset, NOT total DnaA-ATP.
+      Total DnaA-ATP includes non-oriC chromosomal titration sites, which
+      do not signal initiation readiness. A bulk[MONOMER0-160] proxy is
+      explicitly disallowed by the review.
+    active_signal_required:
+      pool: oriC_bound          # ← from registered dnaa_pool_kind enum
+      data_source: 'DnaA_boxes WHERE region_type==oriC AND DnaA_bound==True'
+      forbidden_proxies:
+      - 'bulk[MONOMER0-160[c]] (total DnaA-ATP, conflates oriC + non-oriC)'
+      - 'monomer_counts[3861] (total DnaA across forms)'
   next_action: |
-    No work possible until dnaa-03 provides per-oriC DnaA binding state.
-    The insertion point + swap strategy are documented; this is now a
-    well-scoped 1-day implementation task once dnaa-03 lands.
+    BLOCKED on dnaa-03's box-binding mechanism AND the box-catalog
+    region_type attribute. Once both land, this becomes a focused
+    1-day implementation task.
 
 - id: F-02
   kind: computational

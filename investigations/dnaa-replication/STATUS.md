@@ -51,11 +51,11 @@ See `overnight-2026-05-17/REPORT.md` for the full report. 10 insights,
 | 1  | [dnaa-01-expression-dynamics](../../studies/dnaa-01-expression-dynamics/study.yaml) | Decide | ran | 🟡 conditional | 10 | 5 |
 | 1f | [dnaa-01f-listener-fix](../../studies/dnaa-01f-apply-overwrite-fix-to-sibling-listeners-rna-synth-prob-repl/study.yaml) | Decide | ran | 🟢 open | 0 | 1 |
 | 1f | [dnaa-01f-recalibrate-EG10235](../../studies/dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca/study.yaml) | Decide | ran | 🟡 conditional | 3 | 1 set |
-| 1g | [dnaa-01g-joint-te-fold-change-sweep](../../studies/dnaa-01g-joint-te-fold-change-sweep/study.yaml) | Design | planned | 🟢 open (early win) | 0 | 0 |
+| 1g | [dnaa-01g-joint-te-fold-change-sweep](../../studies/dnaa-01g-joint-te-fold-change-sweep/study.yaml) | Design | planned | 🟡 conditional (regression-only; biology pending perturbations) | 0 | 0 |
 | 1g | [dnaa-01g-parca-te-derivation-audit](../../studies/dnaa-01g-parca-te-derivation-audit/study.yaml) | Design | planned | 🔴 blocked (not started) | 0 | 0 |
-| 2 | [dnaa-02-atp-hydrolysis](../../studies/dnaa-02-atp-hydrolysis/study.yaml) | Decide | ran | 🟢 **open** (recipe-chain validated F-05) | 5 | 4 probes |
+| 2 | [dnaa-02-atp-hydrolysis](../../studies/dnaa-02-atp-hydrolysis/study.yaml) | Decide | ran | 🟢 reg ✓ · ⏸ bio · — expl (F-04 model_implied) | 5 | 4 probes |
 | 3 | [dnaa-03-box-binding](../../studies/dnaa-03-box-binding/study.yaml) | Decide | ran | 🟡 conditional | 5 | 2 probes |
-| 4 | [dnaa-04-initiation-mechanism](../../studies/dnaa-04-initiation-mechanism/study.yaml) | **Decide** | **ran** | 🟡 conditional | **4** | **1 (extracted)** |
+| 4 | [dnaa-04-initiation-mechanism](../../studies/dnaa-04-initiation-mechanism/study.yaml) | Decide | ran | 🔴 **blocked** (per ADDENDUM P1b-1 — oriC-only signal required; dnaa-03 region_type catalog blocking) | 4 | 1 |
 | 5 | [dnaa-05-rida-ddah-dars](../../studies/dnaa-05-rida-ddah-dars/study.yaml) | **Decide** | **ran** | 🟡 conditional | **2** | 0 |
 | 6 | [dnaa-06-seqa-sequestration](../../studies/dnaa-06-seqa-sequestration/study.yaml) | **Decide** | **ran** | 🟡 conditional | **3** | 0 |
 

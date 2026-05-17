@@ -248,8 +248,19 @@ findings:
   next_action: 'Joint TE × fold_change sweep follow-up.'
 
 - id: F-03
+  # Per ADDENDUM P1b-3: this is a fit-to-target calibration — the 15× is
+  # the multiplier we found that makes our autorepression-Pearson PASS,
+  # NOT a biologically-motivated TE value. Tag prevents readers from
+  # interpreting "15× TE" as a biology claim.
   kind: methodological
   status: confirms
+  model_implied: true                  # ← NEW (P1b-3)
+  model_implied_note: |
+    15× TE is the empirical fit that maximizes our autorepression Pearson
+    while staying closest to count target. NOT a measured value — the
+    underlying ParCa TE for EG10235 (7.23e-5) is at the 8.6th percentile
+    of the proteome and may itself be miscalibrated (see
+    dnaa-01g-parca-te-derivation-audit follow-up).
   statement: |
     15× TE is the cleanest single-knob calibration: autorepression PASSES
     strongly (r=-0.533) while undershooting count by 18% (247 vs target

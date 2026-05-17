@@ -46,14 +46,27 @@ pipeline_gate:
   enables:
   - dnaa-02-atp-hydrolysis (full pass)
   # open | conditional | hold | blocked
-  gate_status: open
+  gate_status: conditional             # ← was 'open'; re-classified per ADDENDUM P1b-3
   gate_status_summary: |
-    EARLY WIN — the 2026-05-17 overnight pilot already validated
-    (TE=20×, fc=0.7) at 5 seeds: DnaA 707/cell, Pearson r = -0.521
-    — BOTH primary gates PASS. (TE=20×, fc=0.8) also passes both.
-    Robust working region identified. Permanent ParCa-cache promotion
-    is the remaining cleanup but does not block downstream. dnaa-02
-    can proceed.
+    REGRESSION-COMPATIBILITY win, NOT biological_validation.
+
+    The 2026-05-17 overnight pilot validated that (TE=20×, fc=0.7) at
+    5 seeds makes DnaA = 707/cell and Pearson r = -0.521, both within
+    the literature targets. (TE=20×, fc=0.8) also passes both.
+
+    Per the biology review (P1b-3): the (TE, fc) pair is FIT to the
+    literature targets — it is `model_implied: true`. It demonstrates
+    that v2ecoli CAN reproduce the targets with two tunable knobs, NOT
+    that v2ecoli's underlying mechanism is biologically validated. To
+    upgrade this gate from `conditional` to `open` requires:
+    - Perturbation panel from dnaa-01 (autorepression-ablation, dnaA-
+      overexpression / knockdown) confirming the system responds
+      correctly to challenges.
+    - Resolution of the ParCa TE root cause (dnaa-01g-parca-te-derivation-audit
+      follow-up) to understand WHY a 20× multiplier is needed.
+
+    dnaa-02 still proceeds — the recipe chain inheriting this calibration
+    works for downstream studies.
   proceed_condition: |
     At least one (TE, fc) cell on the 3×3 grid PASSES both gate tests
     at 5 seeds.

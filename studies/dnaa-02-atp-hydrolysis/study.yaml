@@ -264,6 +264,58 @@ conclusion_logic:
     block_downstream: "dnaa-03 onward need a valid intrinsic baseline."
 
 
+# ─── Triple verdict (ADDENDUM P1b-2): three target classes scored independently ──
+# Per the review, a heuristic-match (regression_compatibility) test cannot
+# count as biological_validation. Final decisions must show all three
+# outcomes — collapsing them into a single gate badge is misleading.
+conclusion_verdicts:
+  regression_compatibility:
+    result: PASS                   # ← registered verdict_result enum
+    basis: |
+      Recipe dnaa_02_with_extrinsic_target_rate (TE=20×, fc=0.7, k_hyd=4.6/min)
+      makes total DnaA = 707 ∈ [300, 800] and ATP fraction = 0.232 ∈
+      [0.20, 0.50]. Both literature targets matched.
+    contributing_tests:
+    - dnaa-atp-fraction-in-physiological-range
+    - dnaa-count-in-range  # via the cascaded dnaa_01g_calibrated parent recipe
+  biological_validation:
+    result: PENDING
+    basis: |
+      No perturbation panel has been run. Wild-type baseline alone cannot
+      close biological_validation per the review (P1-5). The mechanism
+      is plausible but its k=4.6/min rate is fit, not measured (see F-04
+      model_implied tag below).
+    blocking_evidence_needed:
+    - 'IntrinsicHydrolysis Step perturbation (knockout → ATP fraction → 1.0)'
+    - 'ATP-cycle-ablation panel from dnaa-01'
+    - 'Direct measurement of in-vivo total DnaA hydrolysis flux'
+  explanatory_gain:
+    result: NOT_CLAIMED
+    basis: |
+      dnaa-02 documents the three-state cycle mechanism but does not
+      claim to EXPLAIN a previously-unexplained phenomenon. The 100×
+      intrinsic-rate gap is described but the underlying biology is
+      unresolved (see expert_decisions_needed below — could be RIDA/DDAH/DARS
+      flux OR a mis-calibrated equilibrium reverse-rate).
+
+
+# ─── Expert decisions needed (ADDENDUM P3b-10) ──────────────────────────
+expert_decisions_needed:
+- id: dnaa-02-EQ-01
+  question: 'Is the v2ecoli equilibrium reverse-rate (MONOMER0-160_RXN rate constant 2.9e-8) correctly calibrated, or does the 100× gap between intrinsic Boesen rate and required v2ecoli flux indicate the equilibrium reverse-rate is the actual problem?'
+  alternatives:
+  - 'Equilibrium reverse-rate is correct → RIDA + DDAH + DARS together really must deliver ~99× the intrinsic rate in vivo (dnaa-05 work).'
+  - 'Equilibrium reverse-rate is over-estimated by ~10-100× → less extrinsic flux required → simpler dnaa-05.'
+  - 'Both are partially wrong → calibrate jointly.'
+  impact_if_wrong: 'Mis-attribution of ~100× hydrolysis-flux requirement to extrinsic pathways vs equilibrium calibration. Affects dnaa-05 design entirely.'
+  blocks:
+  - dnaa-02 conclusion_verdicts.biological_validation
+  - dnaa-05 implementation
+  requested_response: 'Authority + DOI for the MONOMER0-160_RXN forward/reverse rate constants in ParCa; cross-reference Boesen 2024 + Sekimizu 1987 for in-vivo total flux measurements.'
+  status: open
+  asked_to: TBD
+
+
 # ─── 7. LIMITATIONS ────────────────────────────────────────────────────────
 limitations:
   - "Intrinsic hydrolysis only; the cell-cycle oscillation requires dnaa-05's RIDA + DDAH + DARS."
@@ -453,8 +505,27 @@ findings:
     for the dnaa pool. Option B is cleaner — recommended.
 
 - id: F-04
-  kind: biological
+  # Per ADDENDUM P1b-3: any finding whose evidence is "model matches
+  # literature because we fit a parameter" must be tagged model_implied=True.
+  # F-04's k=4.6/min is exactly such a fit — derived to make the ATP-fraction
+  # band pass, NOT a measured in-vivo rate. Without this tag readers (and
+  # downstream dnaa-05) treat 4.6/min as a biological constraint when it's
+  # actually a model-internal calibration target.
+  kind: computational                # ← was 'biological'; reclassified
   status: novel
+  model_implied: true                # ← NEW (P1b-3)
+  model_implied_note: |
+    k = 4.6/min is the rate REQUIRED to make v2ecoli's three-state cycle
+    match Boesen's [0.20, 0.50] ATP-fraction band given v2ecoli's
+    equilibrium reverse-rate (MONOMER0-160_RXN, 2.9e-8). It is NOT a
+    measured in-vivo hydrolysis rate. Alternative interpretations
+    (alphabetized for clarity):
+    - The equilibrium reverse-rate may be mis-calibrated by ~10-100× (open
+      expert question dnaa-02-EQ-01).
+    - RIDA + DDAH + DARS combined may genuinely deliver ~99× the intrinsic
+      rate in vivo (dnaa-05 territory).
+    - The Boesen [0.20, 0.50] band may include DNA-bound DnaA-ATP that
+      v2ecoli does not yet sum into the fraction (observable_mismatch).
   superseded_by: [F-05]
   statement: |
     Intrinsic hydrolysis at Boesen 2024's measured rate (0.046/min) is
@@ -464,6 +535,8 @@ findings:
     mechanism PASSES the [0.20, 0.50] target at 100× the intrinsic
     rate (k = 4.6/min, ATP fraction = 0.231) and OVERSHOOTS at 1000×
     (ATP fraction = 0.000 — DnaA-ATP fully depleted).
+
+    ★ model_implied: the 4.6/min number is FIT to the target, not measured.
   evidence:
     from_run: 'probe_hydrolysis_rate_sensitivity.py (4 rates × 5-min sim)'
     calibration: 'TE=20×, fc=0.7 (winning baseline from dnaa-01g-joint-te-fold-change-sweep)'

@@ -24,6 +24,40 @@ threshold, explicit DnaA pool decomposition, and perturbation panels.
 from __future__ import annotations
 
 
+# ─── verdict_result: per-target-class outcome in conclusion_verdicts ────
+
+VERDICT_RESULT = {
+    '_type': 'enum',
+    '_values': [
+        'PASS',            # mechanism / target satisfied
+        'FAIL',            # mechanism / target violated
+        'PENDING',         # required evidence not yet collected (e.g. perturbations not run)
+        'NOT_APPLICABLE',  # this class doesn't apply to this study
+        'NOT_CLAIMED',     # study deliberately doesn't make this claim
+    ],
+    '_description': (
+        'Outcome for one of the three target_class verdicts in '
+        'conclusion_verdicts. Per ADDENDUM P1b-2: a study\'s final verdict '
+        'must report regression_compatibility, biological_validation, and '
+        'explanatory_gain INDEPENDENTLY — not collapsed to a single pass/fail.'
+    ),
+}
+
+
+# ─── narrative_confidence: textbook-consensus rating on mechanism cards ─
+
+NARRATIVE_CONFIDENCE = {
+    '_type': 'enum',
+    '_values': ['strong', 'moderate', 'contested', 'open'],
+    '_description': (
+        'Per ADDENDUM P3b-9 (extending the review\'s section 1 framing: '
+        '"must not treat a staged textbook narrative as more settled than '
+        'the current evidence warrants"): each mechanism_card carries this '
+        'rating so claims built on contested textbook assertions get flagged.'
+    ),
+}
+
+
 # ─── target_class: how to interpret a behavior_test result ──────────────
 
 TARGET_CLASS = {
@@ -274,6 +308,9 @@ BIOLOGY_TYPES = {
     'perturbation_kind':             PERTURBATION_KIND,
     'seqa_version':                  SEQA_VERSION,
     'reset_mechanism_kind':          RESET_MECHANISM_KIND,
+    # Per ADDENDUM (P1b-2, P3b-9):
+    'verdict_result':                VERDICT_RESULT,
+    'narrative_confidence':          NARRATIVE_CONFIDENCE,
 }
 
 # Compound shapes that aren't registered as bigraph types but are validated

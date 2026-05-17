@@ -1,0 +1,263 @@
+schema_version: 3
+name: dnaa-fresh-01f-recalibrate-eg10235-translation-efficiency-in-parca
+created: '2026-05-17'
+status: planning
+phase: Design
+seeded_from:
+  parent: dnaa-01-expression-dynamics
+  followup_idx: 1
+  followup_title: Recalibrate EG10235 translation_efficiency in ParCa
+  kind: calibration_task
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+purpose:
+  question: "With the listener bug fixed, v2ecoli's median DnaA pool is ~115/cell.\nLiterature (Sekimizu, Schmidt, Mori) reports\
+    \ 300-800. v2ecoli is ~5\xD7\ntoo low. F-08 found 50\xD7 TE puts DnaA at 497 (in band) but breaks\nautorepression. F-10's\
+    \ TE-sweep showed no single multiplier passes\nboth gates. This study finds the optimal single-knob TE multiplier\nAND\
+    \ surfaces a deeper architectural finding about the autorepression\nmechanism.\n"
+  mechanism: "Direct sweep of translation_efficiencies[3861] (EG10235 / dnaA\nmonomer) at integer multiples of the ParCa-cached\
+    \ value (7.23e-5).\n5 seeds per multiplier \xD7 10 min sim. Pool across seeds for\nautorepression Pearson r.\n"
+  expected_outcome: "Satisfies parent's follow_up_studies[1] acceptance criteria:\n  - dnaa-01 re-run produces median DnaA\
+    \ in [300, 800]\n  - bulk[MONOMER0-160[c]] (DnaA-ATP) reaches expected 200-500 free pool\n"
+pipeline_gate:
+  prerequisites:
+  - dnaa-fresh-01-expression-dynamics
+  enables:
+  - dnaa-fresh-02-atp-hydrolysis
+  gate_status: blocked
+  gate_status_summary: "Not yet started \u2014 investigation cloned in fresh planning state."
+  proceed_condition: 'EITHER (a) a single-knob TE adjustment lands both primary gate tests
+
+    PASS at 5 seeds; OR (b) we have a documented architectural finding
+
+    that no single TE multiplier passes both, and have spawned the next
+
+    follow-up to investigate the autorepression fold_change as a second
+
+    knob.
+
+    '
+simulation_set:
+- name: "baseline (1\xD7) \u2014 control"
+  variant_of: baseline
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  status: gated
+- name: te10x-sweep
+  variant_of: baseline
+  override:
+    dnaa_te_multiplier: 10.0
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  status: gated
+- name: te15x-sweep
+  variant_of: baseline
+  override:
+    dnaa_te_multiplier: 15.0
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  status: gated
+- name: te20x-sweep
+  variant_of: baseline
+  override:
+    dnaa_te_multiplier: 20.0
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  status: gated
+- name: te25x-sweep
+  variant_of: baseline
+  override:
+    dnaa_te_multiplier: 25.0
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  status: gated
+- name: te30x-sweep
+  variant_of: baseline
+  override:
+    dnaa_te_multiplier: 30.0
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  status: gated
+- name: te50x-sweep
+  variant_of: baseline
+  override:
+    dnaa_te_multiplier: 50.0
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  status: gated
+- name: te100x-sweep
+  variant_of: baseline
+  override:
+    dnaa_te_multiplier: 100.0
+  seeds:
+  - 0
+  - 1
+  - 2
+  status: gated
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_processes: []
+  new_state_variables: []
+  new_parameters:
+  - name: dnaa_te_multiplier
+    type: float
+    default: 1.0
+    description: 'Pre-build patch to ecoli-polypeptide-initiation.translation_efficiencies[3861].
+
+      Already present in run_baseline.py since F-08 of the parent study.
+
+      '
+  modified_processes: []
+  notes: "No new processes. Single existing runtime parameter used to scale the\ncached TE. By design \u2014 this study's\
+    \ job is to find the right scalar,\nnot to add new mechanism.\n"
+key_assumptions:
+- 'Inherited: dnaa-01 re-run produces median DnaA in [300, 800] (Schmidt 2016)'
+- 'Inherited: bulk[MONOMER0-160[c]] (DnaA-ATP) reaches expected 200-500 free pool fraction'
+- Multi-seed pooling (5 seeds) is sufficient for stable autorepression Pearson r at 10-min duration (verified in F-02 of parent).
+readouts:
+- name: dnaA_count
+  store_path: listeners.monomer_counts
+  index_by: 3861
+- name: dnaA_TF_binding_sum
+  store_path: listeners.rna_synth_prob.n_bound_TF_per_TU
+  index_by: '[:, 12]'
+- name: dnaA_mRNA_count
+  store_path: listeners.rna_counts.mRNA_cistron_counts
+  index_by: 227
+behavior_tests:
+- name: dnaA-count-in-range
+  classification: primary
+  description: Median DnaA per cell (second-half window) in [300, 800] per Schmidt 2016 mass-spec.
+  measure:
+    kind: median_window
+    field: dnaA_count
+    window: second_half
+  expect:
+    op: in_range
+    range:
+    - 300
+    - 800
+  cites:
+  - Schmidt2016NatBiotechnol
+  - Sekimizu1991JBacteriol
+- name: autorepression-correlation
+  classification: primary
+  description: "Pearson r(DnaA-TF binding, dnaA-mRNA) \u2264 -0.3, pooled 5 seeds \xD7 second-half."
+  measure:
+    kind: pearson
+    x: dnaA_TF_binding_sum
+    y: dnaA_mRNA_count
+    pool: across_seeds
+  expect:
+    op: less_or_equal
+    value: -0.3
+  cites:
+  - Speck1999EMBO
+  - Saggioro2013BiochemJ
+  - Katayama2017Frontiers
+conclusion_logic:
+  if_primary_tests_pass:
+    implementation_status: 'Promote winning multiplier to permanent adjustment in
+
+      v2ecoli/processes/parca/reconstruction/ecoli/flat/adjustments/translation_efficiencies_adjustments.tsv.
+
+      '
+    biological_validation: DnaA matches Schmidt 2016 AND autorepression preserved. dnaa-01 gate opens; dnaa-02 unblocks.
+    pipeline_unblocks:
+    - dnaa-02-atp-hydrolysis
+  if_primary_tests_fail:
+    diagnose:
+    - "Determine if non-monotonicity (DnaA count drops 296 \u2192 263 \u2192 159 across 20\xD7/25\xD7/30\xD7) is autorepression-model\
+      \ saturation."
+    - "Pearson r sign-flip from -0.253 at 20\xD7 to +0.780 at 25\xD7 = phase transition."
+    - Inspect fold_change parameter for dnaA in delta_prob.deltaV (sparse from ParCa).
+    block_downstream: dnaa-02 conditionally proceeds; spawn fold_change follow-up.
+limitations:
+- "Single-knob scan only. The TE \xD7 autorepression-fold-change joint sweep recommended in F-10 spawned as a separate follow-up."
+- Underlying ParCa raw-data fitting not re-verified. The 8.6th-percentile TE position may itself reflect a raw-source choice.
+- 10-min sims only. Cell-cycle phenomena (doubling-time variants) not tested.
+implementation_requirements:
+- Run with --heavy_tf_listener (enables n_bound_TF_per_TU emission for autorepression Pearson r).
+bibliography:
+  expert:
+  - replication_initiation_molecular_info
+  - chromosome_replication_plan
+  bib_keys:
+  - Schmidt2016NatBiotechnol
+  - Sekimizu1991JBacteriol
+  - Boesen2024MolMicrobiol
+  - Speck1999EMBO
+  - Saggioro2013BiochemJ
+  - Katayama2017Frontiers
+parent_studies:
+- dnaa-01-expression-dynamics
+follow_up_studies:
+- title: "Joint TE \xD7 autorepression-fold-change sweep"
+  kind: new
+  effort: M
+  status: planned
+  why: "F-02 shows TE alone has a saturable autorepression response with a\nphase transition at 20-25\xD7. The right move\
+    \ is to co-vary autorepression\nstrength (fold_change) and TE on a 2D grid.\n"
+  hypothesized_mechanism: "Reducing dnaA's fold_change (deltaV entries in delta_prob[:, 12])\nweakens per-bound-DnaA suppression.\
+    \ Combined with mid-TE (~20\xD7), this\ncould produce a calibration where DnaA reaches literature range\nwithout triggering\
+    \ saturation-driven oscillation.\n"
+  unblocks:
+  - dnaa-02-atp-hydrolysis (will pass cleanly if this works)
+  acceptance:
+  - Joint sweep produces at least one (TE, fold_change) pair PASSING both gate tests at 5 seeds.
+- title: ParCa TE derivation audit for low-mRNA-count genes
+  kind: new
+  effort: L
+  status: planned
+  why: "F-01 shows dnaA's cached TE (7.23e-5) sits at 8.6th percentile of\nproteome \u2014 biologically improbable. Determine\
+    \ which raw input source\n(ribosome profiling vs mass-spec) should govern the dnaA TE estimate.\n"
+  hypothesized_mechanism: 'ParCa step_08/step_09 derives TE from steady-state mass-balance. For
+
+    low-mRNA-count genes (dnaA mean mRNA ~0/cell), the ratio is
+
+    numerically unstable. Switching dnaA to use Schmidt 2016 mass-spec
+
+    count + Li 2014 half-life directly may be more accurate.
+
+    '
+  unblocks:
+  - permanent TE adjustment in translation_efficiencies_adjustments.tsv
+  acceptance:
+  - Documented root cause of 8.6th-percentile TE; either fix or rule out.
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

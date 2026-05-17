@@ -1,0 +1,50 @@
+schema_version: 1
+name: dnaa-replication-fresh
+title: DnaA / Replication Initiation
+created: '2026-05-17'
+status: planning
+question: "Can a DnaA-driven mechanistic model of replication initiation in v2ecoli\nreproduce the observed once-per-generation\
+  \ timing, initiation-mass\nhomeostasis, and ATP-fraction oscillations while staying within \xB15% of\nthe mass-threshold\
+  \ heuristic baseline under slow non-overlapping growth?\n"
+hypothesis: "Yes. The six staged studies (expression \u2192 ATP/ADP cycle \u2192 DnaA-box\nbinding \u2192 mechanism-driven\
+  \ initiation \u2192 RIDA/DDAH/DARS extrinsic\nconversion \u2192 SeqA sequestration) compose into a model that recapitulates\n\
+  the textbook DnaA cycle. Each study's behavioral tests pass before the\nnext study in the chain is started; the final mechanism\
+  \ baseline matches\nthe heuristic's initiation-mass distribution within \xB15%.\n"
+description: "Multi-phase port of DnaA / replication initiation into v2ecoli, driven by\nthe molecular-info expert document\
+  \ and the multi-phase plan\n(references/expert/). Each study is a discrete, gated implementation\nphase; tests in each must\
+  \ pass before its dependents can run.\n\nStudies, in dependency order:\n\n1. dnaa-01-expression-dynamics    \u2014 steady\
+  \ DnaA expression + autorepression baseline.\n2. dnaa-02-atp-hydrolysis         \u2014 DnaA-ATP/ADP/apo nucleotide cycle,\
+  \ intrinsic hydrolysis.\n3. dnaa-03-box-binding            \u2014 307 chromosomal boxes + 11 oriC + 4 dnaAp boxes, titration.\n\
+  4. dnaa-04-initiation-mechanism   \u2014 replace mass-threshold heuristic with DnaA-driven initiation.\n5. dnaa-05-rida-ddah-dars\
+  \         \u2014 replisome-coupled hydrolysis + DARS reactivation.\n6. dnaa-06-seqa-sequestration     \u2014 post-initiation\
+  \ SeqA sequestration of oriC + dnaAp.\n\nSee investigations/<name>/STATUS.md for the per-phase implementation\nstatus and\
+  \ the cross-study test report (planned).\n"
+studies:
+- dnaa-fresh-01-expression-dynamics
+- dnaa-fresh-01f-recalibrate-eg10235-translation-efficiency-in-parca
+- dnaa-fresh-01f-apply-overwrite-fix-to-sibling-listeners-rna-synth-prob-repl
+- dnaa-fresh-02-atp-hydrolysis
+- dnaa-fresh-03-box-binding
+- dnaa-fresh-04-initiation-mechanism
+- dnaa-fresh-05-rida-ddah-dars
+- dnaa-fresh-06-seqa-sequestration
+expert_docs:
+- replication_initiation_molecular_info
+- chromosome_replication_plan
+acceptance_criteria:
+- study: dnaa-fresh-01-expression-dynamics
+  behavior: dnaa-count-in-mass-spec-range
+- study: dnaa-fresh-01-expression-dynamics
+  behavior: dnaa-concentration-stable-within-10pct
+- study: dnaa-fresh-02-atp-hydrolysis
+  behavior: dnaa-atp-fraction-in-physiological-range
+- study: dnaa-fresh-03-box-binding
+  behavior: oric-stays-unoccupied-until-chromosome-saturates
+- study: dnaa-fresh-04-initiation-mechanism
+  behavior: one-initiation-per-generation
+- study: dnaa-fresh-04-initiation-mechanism
+  behavior: initiation-mass-mean-matches-heuristic
+- study: dnaa-fresh-05-rida-ddah-dars
+  behavior: inter-initiation-cv-narrows-vs-intrinsic-only
+- study: dnaa-fresh-06-seqa-sequestration
+  behavior: wildtype-zero-reinitiation

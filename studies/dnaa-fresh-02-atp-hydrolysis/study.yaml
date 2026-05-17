@@ -1,0 +1,431 @@
+schema_version: 3
+name: dnaa-fresh-02-atp-hydrolysis
+created: '2026-05-17'
+status: planning
+phase: Design
+baseline:
+- name: baseline-nucleotide-cycle
+  composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
+  params:
+    seed: 0
+    cache_dir: out/cache
+- name: baseline-extrinsic-target
+  composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_extrinsic_target_rate
+  params:
+    seed: 0
+    cache_dir: out/cache
+visualizations:
+- name: dnaa_state
+  address: local:DnaAStateVisualization
+  config:
+    title: "dnaa-02 \u2014 DnaA state (apo/ATP/ADP) trajectory"
+    sample_every: 10
+- name: dnaa_box_occupancy
+  address: local:DnaABoxOccupancyVisualization
+  config:
+    title: "dnaa-02 \u2014 DnaA-box occupancy (end-state landscape)"
+    sample_every: 10
+purpose:
+  question: "Does an exponential intrinsic DnaA-ATP \u2192 DnaA-ADP hydrolysis\n(k \u2248 0.046/min; Sekimizu 1987) paired\
+    \ with tight ATP/ADP binding\nproduce the physiological DnaA-ATP / total-DnaA fraction band of\n0.2-0.5 (Boesen 2024)?\n"
+  mechanism: "Split the single DnaA species into three bulk forms (DnaA-apo,\nDnaA-ATP, DnaA-ADP). Add a first-order hydrolysis\
+    \ Step\nDnaA-ATP \u2192 DnaA-ADP with rate parameter. Optionally clamp the\nDnaA-ATP fraction to the [0.2, 0.5] band so\
+    \ downstream studies\n(dnaa-03, dnaa-04) can proceed before the full RIDA/DDAH/DARS\nnetwork in dnaa-05 lands.\n"
+  expected_outcome: "Intrinsic-only baseline equilibrates near the low end of the\nphysiological band (~0.2). no-hydrolysis\
+    \ variant drifts to ~1.0;\n10\xD7 variant drops below 0.1. apo fraction < 5%.\n"
+pipeline_gate:
+  prerequisites:
+  - dnaa-fresh-01-expression-dynamics
+  enables:
+  - dnaa-fresh-03-box-binding
+  - dnaa-fresh-05-rida-ddah-dars
+  gate_status: blocked
+  gate_status_summary: "Not yet started \u2014 investigation cloned in fresh planning state."
+  proceed_condition: 'apo-dnaA-fraction-is-small + dnaa-atp-fraction-in-physiological-range
+
+    pass (or the clamp is enabled and acknowledged by the expert as a
+
+    temporary scaffold).
+
+    '
+simulation_set:
+- name: baseline-nucleotide-cycle
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation: null
+  condition: M9-minimal-glucose
+  duration_min: 60
+  seeds:
+  - 0
+  - 1
+  - 2
+  readouts:
+  - dnaA_atp_fraction
+  - dnaA_apo_count
+  - atp_pool
+  - adp_pool
+  applies_tests:
+  - apo-dnaa-fraction-is-small
+  - dnaa-atp-fraction-in-physiological-range
+  - atp-pool-much-greater-than-adp
+  status: gated
+  blocked_by_requirements:
+  - req-1-nucleotide-split
+  - req-2-intrinsic-hydrolysis-step
+  - req-3-atp-fraction-listener
+- name: no-intrinsic-hydrolysis
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
+    dnaA_intrinsic_hydrolysis_rate_per_min: 0.0
+  condition: M9-minimal-glucose
+  duration_min: 60
+  seeds:
+  - 0
+  - 1
+  - 2
+  readouts:
+  - dnaA_atp_fraction
+  applies_tests:
+  - no-hydrolysis-accumulates-atp-form
+  status: gated
+  blocked_by_requirements:
+  - req-1-nucleotide-split
+  - req-2-intrinsic-hydrolysis-step
+- name: fast-intrinsic-hydrolysis
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
+    dnaA_intrinsic_hydrolysis_rate_per_min: 0.46
+  condition: M9-minimal-glucose
+  duration_min: 60
+  seeds:
+  - 0
+  - 1
+  - 2
+  readouts:
+  - dnaA_atp_fraction
+  applies_tests:
+  - fast-hydrolysis-suppresses-atp-form
+  status: gated
+  blocked_by_requirements:
+  - req-1-nucleotide-split
+  - req-2-intrinsic-hydrolysis-step
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_state_variables:
+  - id: DnaA_apo
+    kind: bulk
+    units: molecules/cell
+  - id: DnaA_ATP
+    kind: bulk
+    units: molecules/cell
+  - id: DnaA_ADP
+    kind: bulk
+    units: molecules/cell
+  new_processes:
+  - name: DnaaIntrinsicHydrolysis
+    kind: Step
+    fires_per: timestep
+    requirement_id: req-2-intrinsic-hydrolysis-step
+  new_parameters:
+  - name: dnaA_intrinsic_hydrolysis_rate_per_min
+    default: 0.046
+    units: per_min
+  - name: dnaA_atp_fraction_clamp
+    default: null
+    type: '[low, high] | null'
+  new_listeners:
+  - name: dnaA_atp_fraction
+    emits:
+    - agents.<id>.listeners.dnaA_cycle.atp_fraction
+    requirement_id: req-3-atp-fraction-listener
+  modified_processes:
+  - 'Initial-state seeder: split MONOMER0-160[c] equivalent across the three new species at equilibrium fraction.'
+key_assumptions:
+- DnaA binding to ATP and ADP is tight (Kd ~30 nM ATP, ~100 nM ADP; Sekimizu 1987).
+- Intrinsic hydrolysis is first-order and slow (~0.046/min; 50% in 15 min).
+- At physiological [ATP] = 6-7 mM, apo-DnaA is a small minority.
+- DNA-binding does NOT modify the intrinsic hydrolysis rate (per Sekimizu 1987 in vitro).
+readouts:
+- name: dnaA_atp_fraction
+  description: DnaA-ATP / (DnaA-apo + DnaA-ATP + DnaA-ADP) over time.
+  store_path: agents.0.listeners.dnaA_cycle.atp_fraction
+  units: fraction
+  status: derived-needed
+  blocked_by_requirements:
+  - req-1-nucleotide-split
+  - req-3-atp-fraction-listener
+- name: dnaA_apo_count
+  store_path: agents.0.bulk
+  index_by:
+    type: bulk_id
+    value: DnaA_apo
+  units: molecules/cell
+  status: aspirational
+  blocked_by_requirements:
+  - req-1-nucleotide-split
+- name: atp_pool
+  store_path: agents.0.bulk
+  index_by:
+    type: bulk_id
+    value: ATP[c]
+  units: molecules/cell
+  status: available
+- name: adp_pool
+  store_path: agents.0.bulk
+  index_by:
+    type: bulk_id
+    value: ADP[c]
+  units: molecules/cell
+  status: available
+behavior_tests:
+- name: apo-dnaa-fraction-is-small
+  classification: primary
+  description: "apo-DnaA / total \u2264 5% at steady state (nucleotide is tightly bound)."
+  measure:
+    kind: ratio_of_sums
+    numerator:
+      kind: bulk_count
+      id: DnaA_apo
+      reduce: median
+    denominator:
+      kind: bulk_count_sum
+      ids:
+      - DnaA_apo
+      - DnaA_ATP
+      - DnaA_ADP
+      reduce: median
+    window: second_half
+  pass_if:
+    op: at_most
+    value: 0.05
+  units: fraction
+  requires_simulation: baseline-nucleotide-cycle
+  cites:
+  - Sekimizu1987Cell
+  - Kawakami2006MolMicrobiol
+- name: dnaa-atp-fraction-in-physiological-range
+  classification: primary
+  description: DnaA-ATP / total in [0.2, 0.5] (Boesen 2024 PNAS Delta4 cells).
+  measure:
+    kind: ratio_of_sums
+    numerator:
+      kind: bulk_count
+      id: DnaA_ATP
+      reduce: median
+    denominator:
+      kind: bulk_count_sum
+      ids:
+      - DnaA_apo
+      - DnaA_ATP
+      - DnaA_ADP
+      reduce: median
+    window: second_half
+  pass_if:
+    op: in_range
+    low: 0.2
+    high: 0.5
+  units: fraction
+  requires_simulation: baseline-nucleotide-cycle
+  cites:
+  - Boesen2024PNAS
+- name: atp-pool-much-greater-than-adp
+  classification: supporting
+  description: Background metabolism keeps ATP/ADP > 10 at steady state.
+  measure:
+    kind: ratio_of_bulks
+    numerator:
+      id: ATP[c]
+    denominator:
+      id: ADP[c]
+    reduce: median
+    window: second_half
+  pass_if:
+    op: at_least
+    value: 10.0
+  units: ratio
+  requires_simulation: baseline-nucleotide-cycle
+  cites:
+  - Boesen2024PNAS
+- name: no-hydrolysis-accumulates-atp-form
+  classification: diagnostic
+  description: With hydrolysis rate = 0, DnaA-ATP fraction monotonically rises.
+  measure:
+    kind: ratio_of_sums
+    numerator:
+      kind: bulk_count
+      id: DnaA_ATP
+      reduce: series
+    denominator:
+      kind: bulk_count_sum
+      ids:
+      - DnaA_apo
+      - DnaA_ATP
+      - DnaA_ADP
+      reduce: series
+    window: full
+  pass_if:
+    op: monotonic_increasing
+    allow_dip_pct: 5
+  units: fraction
+  requires_simulation: no-intrinsic-hydrolysis
+  cites:
+  - Sekimizu1987Cell
+- name: fast-hydrolysis-suppresses-atp-form
+  classification: diagnostic
+  description: "10\xD7 hydrolysis pushes DnaA-ATP fraction below 0.1."
+  measure:
+    kind: ratio_of_sums
+    numerator:
+      kind: bulk_count
+      id: DnaA_ATP
+      reduce: median
+    denominator:
+      kind: bulk_count_sum
+      ids:
+      - DnaA_apo
+      - DnaA_ATP
+      - DnaA_ADP
+      reduce: median
+    window: second_half
+  pass_if:
+    op: at_most
+    value: 0.1
+  units: fraction
+  requires_simulation: fast-intrinsic-hydrolysis
+  cites:
+  - Sekimizu1987Cell
+  - Kawakami2006MolMicrobiol
+conclusion_logic:
+  if_primary_tests_pass:
+    implementation_status: Three-state DnaA nucleotide cycle works at the intrinsic-only level.
+    biological_validation: "Confirms Sekimizu 1987's intrinsic rate alone CAN produce a\nphysiological ATP-fraction band \u2014\
+      \ but doesn't validate the\ncell-cycle oscillation (that's dnaa-05's territory).\n"
+    pipeline_unblocks:
+    - dnaa-03-box-binding (box affinity depends on nucleotide form)
+    - dnaa-05-rida-ddah-dars (extrinsic conversion overlays this)
+  if_primary_tests_fail:
+    diagnose:
+    - 'If DnaA-ATP fraction is too high: hydrolysis rate is too low or DNA binding is shielding ATP form.'
+    - 'If DnaA-ATP fraction is too low: hydrolysis rate too high or ATP-binding kinetics wrong.'
+    - 'If apo fraction is large: ATP-binding Kd too weak in the implementation.'
+    block_downstream: dnaa-03 onward need a valid intrinsic baseline.
+conclusion_verdicts:
+  regression_compatibility:
+    result: PENDING
+    basis: "No runs yet \u2014 investigation cloned in fresh planning state."
+  biological_validation:
+    result: PENDING
+    basis: "No runs yet \u2014 investigation cloned in fresh planning state."
+    blocking_evidence_needed:
+    - "IntrinsicHydrolysis Step perturbation (knockout \u2192 ATP fraction \u2192 1.0)"
+    - ATP-cycle-ablation panel from dnaa-01
+    - Direct measurement of in-vivo total DnaA hydrolysis flux
+  explanatory_gain:
+    result: PENDING
+    basis: "No runs yet \u2014 investigation cloned in fresh planning state."
+expert_decisions_needed:
+- id: dnaa-02-EQ-01
+  question: "Is the v2ecoli equilibrium reverse-rate (MONOMER0-160_RXN rate constant 2.9e-8) correctly calibrated, or does\
+    \ the 100\xD7 gap between intrinsic Boesen rate and required v2ecoli flux indicate the equilibrium reverse-rate is the\
+    \ actual problem?"
+  alternatives:
+  - "Equilibrium reverse-rate is correct \u2192 RIDA + DDAH + DARS together really must deliver ~99\xD7 the intrinsic rate\
+    \ in vivo (dnaa-05 work)."
+  - "Equilibrium reverse-rate is over-estimated by ~10-100\xD7 \u2192 less extrinsic flux required \u2192 simpler dnaa-05."
+  - "Both are partially wrong \u2192 calibrate jointly."
+  impact_if_wrong: "Mis-attribution of ~100\xD7 hydrolysis-flux requirement to extrinsic pathways vs equilibrium calibration.\
+    \ Affects dnaa-05 design entirely."
+  blocks:
+  - dnaa-02 conclusion_verdicts.biological_validation
+  - dnaa-05 implementation
+  requested_response: Authority + DOI for the MONOMER0-160_RXN forward/reverse rate constants in ParCa; cross-reference Boesen
+    2024 + Sekimizu 1987 for in-vivo total flux measurements.
+  status: open
+  asked_to: TBD
+limitations:
+- Intrinsic hydrolysis only; the cell-cycle oscillation requires dnaa-05's RIDA + DDAH + DARS.
+- Single doubling time; multi-generation drift not validated.
+- Assumes physiological [ATP]/[ADP] from baseline metabolism is correct (validated by atp-pool-much-greater-than-adp).
+- "Does not validate which DnaA species binds which DnaA-box class \u2014 that's dnaa-03."
+implementation_requirements:
+- id: req-1-nucleotide-split
+  kind: state_variables
+  title: Split DnaA bulk into ATP / ADP / apo species
+  effort: M
+  description: 'The existing v2ecoli model has DnaA as a single bulk entry
+
+    (PD03831[c]) + a complex form (MONOMER0-160[c] = "DnaA_ATP_complex").
+
+    Need three explicit species (DnaA_apo, DnaA_ATP, DnaA_ADP) with
+
+    proper initial-state seeding at equilibrium fraction.
+
+    '
+  steps:
+  - Add 3 bulk ids in v2ecoli/library/sim_data.py.
+  - 'Initial-state seeder: distribute existing total DnaA across the three species at equilibrium fraction (~30% ATP-bound
+    under physiological [ATP]).'
+  - "Audit every reference to MONOMER0-160[c] / PD03831[c] \u2014 either keep as the SUM or rewire to the new species explicitly."
+  - "Behavioral check: sum(DnaA_apo + DnaA_ATP + DnaA_ADP) \u2248 historical PD03831[c] count."
+  unblocks:
+  - all dnaa-02 behavior_tests
+  - dnaa-03 box binding (form-specific)
+  - dnaa-05 atp_fraction observable
+- id: req-2-intrinsic-hydrolysis-step
+  kind: step
+  title: "DnaA-ATP \u2192 DnaA-ADP hydrolysis Step"
+  effort: S
+  description: First-order Step with rate parameter; transfers count each timestep.
+  steps:
+  - Create v2ecoli/steps/dnaa_intrinsic_hydrolysis.py.
+  - 'Composite param dnaA_intrinsic_hydrolysis_rate_per_min: float = 0.046.'
+  - Wire into baseline composite after nucleotide-binding equilibrium.
+  - "Test: no-hydrolysis variant \u2192 atp_fraction monotonic increasing."
+  unblocks:
+  - no-hydrolysis-accumulates-atp-form
+  - fast-hydrolysis-suppresses-atp-form
+- id: req-3-atp-fraction-listener
+  kind: listener
+  title: dnaA_atp_fraction listener
+  effort: XS
+  description: Step emitting agents.<id>.listeners.dnaA_cycle.atp_fraction = ATP / total each timestep.
+  unblocks:
+  - readouts.dnaA_atp_fraction
+  - apo-dnaa-fraction-is-small, dnaa-atp-fraction-in-physiological-range
+- id: req-4-atp-fraction-clamp
+  kind: step
+  title: Optional ATP-fraction clamp
+  effort: XS
+  description: 'Optional Step that, when enabled, redistributes ATP/ADP each
+
+    timestep to keep ATP/total in a user-specified band. Lets
+
+    dnaa-03 and dnaa-04 run before dnaa-05''s RIDA / DARS / DDAH
+
+    network lands.
+
+    '
+  steps:
+  - 'Composite param dnaA_atp_fraction_clamp: [low, high] | None = None.'
+  - Step runs AFTER hydrolysis; rebalances if outside band.
+  - 'Validation: clamped run keeps atp_fraction in the band.'
+  unblocks:
+  - dnaa-03 / dnaa-04 can proceed before dnaa-05 lands
+bibliography:
+  expert:
+  - replication_initiation_molecular_info
+  bib_keys:
+  - Sekimizu1987Cell
+  - Kawakami2006MolMicrobiol
+  - Boesen2024PNAS
+  - Hansen2018DnaATale
+  - Katayama2017Frontiers
+parent_studies:
+- study: dnaa-fresh-01-expression-dynamics
+  condition: tests-passed-or-conditional
+- study: dnaa-fresh-01f-recalibrate-eg10235-translation-efficiency-in-parca
+  condition: insights-recorded
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

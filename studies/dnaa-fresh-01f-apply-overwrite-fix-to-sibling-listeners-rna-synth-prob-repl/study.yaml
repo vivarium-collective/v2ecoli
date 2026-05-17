@@ -1,0 +1,287 @@
+schema_version: 3
+name: dnaa-fresh-01f-apply-overwrite-fix-to-sibling-listeners-rna-synth-prob-repl
+created: '2026-05-17'
+status: planning
+phase: Design
+seeded_from:
+  parent: dnaa-01-expression-dynamics
+  followup_idx: 0
+  followup_title: Apply overwrite[] fix to sibling listeners (rna_synth_prob, replication_data)
+  kind: infrastructure_fix
+baseline:
+- name: baseline-postfix
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+purpose:
+  question: 'Does applying the overwrite[] wrapper fix to rna_synth_prob_listener
+
+    and replication_data_listener (the sibling listeners suspected to
+
+    share monomer_counts_listener''s accumulation bug) populate
+
+    n_bound_TF_per_TU and unblock dnaa-01''s autorepression-correlation
+
+    test?
+
+    '
+  mechanism: "Wrap every plain `array[\u2026]` output field in those listeners with\n`overwrite[array[\u2026]]` so per-tick\
+    \ emissions REPLACE the previous\nvalue instead of accumulating element-wise (the bigraph-schema\ndefault array merge\
+    \ combinator).\n"
+  expected_outcome: "Per parent's follow_up_studies[0].acceptance:\n  1. listeners.rna_synth_prob.n_bound_TF_per_TU is populated\
+    \ each tick.\n  2. listeners.replication_data.* fields update each tick.\nIf both hold, autorepression-correlation should\
+    \ compute a non-zero\nPearson r against listeners.rnap_data.rna_init_event.\n"
+pipeline_gate:
+  prerequisites:
+  - dnaa-fresh-01-expression-dynamics
+  enables:
+  - dnaa-fresh-01-expression-dynamics
+  gate_status: blocked
+  gate_status_summary: "Not yet started \u2014 investigation cloned in fresh planning state."
+  proceed_condition: 'All listener output fields stop accumulating; subsequent re-run of
+
+    dnaa-01 produces an updated outcome row for autorepression-correlation.
+
+    '
+simulation_set:
+- name: baseline-postfix
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation: null
+  condition: M9-minimal-glucose
+  duration_min: 10
+  seeds:
+  - 0
+  readouts:
+  - rna_init_event_per_step
+  - n_bound_TF_per_TU_length
+  - dnaA_monomer_count
+  applies_tests:
+  - listeners-stop-accumulating
+  - n_bound_TF_per_TU-populates
+  status: gated
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  scope: 7 listener files in v2ecoli/steps/listeners/
+  fields_wrapped: 43
+  files:
+  - v2ecoli/steps/listeners/monomer_counts.py
+  - v2ecoli/steps/listeners/rna_synth_prob.py
+  - v2ecoli/steps/listeners/replication_data.py
+  - v2ecoli/steps/listeners/rnap_data.py
+  - v2ecoli/steps/listeners/rna_counts.py
+  - v2ecoli/steps/listeners/ribosome_data.py
+  - v2ecoli/steps/listeners/mass_listener.py
+  - v2ecoli/steps/listeners/dna_supercoiling.py
+  notes: "Mechanical sed-style refactor: every `'_type': 'array[\u2026]'` becomes\n`'_type': 'overwrite[array[\u2026]]'`.\
+    \ No new processes or parameters.\nScope widened from the original target (just 2 files) once we saw\nthe same pattern\
+    \ in 5 more.\n"
+key_assumptions:
+- Bigraph-schema's plain `array` combinator is element-wise addition (verified empirically).
+- "Wrapping in `overwrite[\u2026]` switches the combinator to last-write-wins."
+- Listener fields that are pure outputs (the listener writes them every tick) are the affected ones; fields the listener reads
+  from upstream processes are not affected by this fix.
+readouts:
+- name: rna_init_event_per_step
+  store_path: agents.0.listeners.rnap_data.rna_init_event
+  reducer: sum
+  units: events/step
+  status: available
+- name: n_bound_TF_per_TU_length
+  store_path: agents.0.listeners.rna_synth_prob.n_bound_TF_per_TU
+  reducer: length
+  units: int (count of TUs)
+  status: available
+behavior_tests:
+- name: listeners-stop-accumulating
+  classification: primary
+  description: 'rnap_data.rna_init_event sum over the second-half window should be
+
+    a stable per-step quantity (median 40-80 events/step), not a value
+
+    that grows linearly with timestep number.
+
+    '
+  measure:
+    kind: listener_sum
+    path: listeners.rnap_data.rna_init_event
+    reduce: median
+    window: second_half
+  pass_if:
+    op: in_range
+    low: 20
+    high: 200
+  units: events/step
+  requires_simulation: baseline-postfix
+- name: n_bound_TF_per_TU-populates
+  classification: primary
+  description: "listeners.rna_synth_prob.n_bound_TF_per_TU should have length > 0\nafter the fix \u2014 non-trivial 2D shape\
+    \ (n_TU \xD7 n_TF). If it stays\nempty, the listener-output fix is necessary but not sufficient \u2014\nthe upstream process\
+    \ (tf_binding) isn't writing the field.\n"
+  measure:
+    kind: listener_path
+    path: listeners.rna_synth_prob.n_bound_TF_per_TU
+    reduce: median
+    window: second_half
+  pass_if:
+    op: in_range
+    low: 1
+    high: 1e9
+  units: length
+  requires_simulation: baseline-postfix
+conclusion_logic:
+  if_primary_tests_pass:
+    implementation_status: All listener output fields stop accumulating + n_bound_TF_per_TU populates.
+    biological_validation: 'The infrastructure fix is sufficient to unblock dnaa-01''s
+
+      autorepression-correlation test. Re-run dnaa-01 to verify the
+
+      test now computes a non-zero Pearson r.
+
+      '
+    pipeline_unblocks:
+    - "Re-run dnaa-01 \u2192 autorepression-correlation should produce a result (PASS or FAIL on biology, not on infrastructure)."
+    - All future studies that read these listeners get correct per-tick values.
+  if_primary_tests_fail:
+    diagnose:
+    - "If listeners-stop-accumulating FAILS \u2014 the overwrite[] wrapper didn't take effect (cache, wrong file, schema not\
+      \ registered)."
+    - "If n_bound_TF_per_TU-populates FAILS \u2014 the listener output fix is NECESSARY but NOT SUFFICIENT. The field is populated\
+      \ by tf_binding (an upstream process), not by this listener. Need a separate follow-up to investigate tf_binding's output\
+      \ wiring."
+    block_downstream: 'If only the n_bound_TF_per_TU test fails, the broader fix still
+
+      ships (it cures the accumulation bug for every other listener).
+
+      dnaa-01 stays gated on a SEPARATE follow-up targeting tf_binding.
+
+      '
+limitations:
+- "Only validates listener OUTPUT merge semantics, not upstream PROCESS writes \u2014 a process step that fails to write a\
+  \ field will still leave that field empty regardless of this fix."
+- No regression test in the v2ecoli test suite asserts overwrite[] semantics on listener outputs; future plain-array[] additions
+  could reintroduce the bug.
+follow_up_studies:
+- title: Investigate why tf_binding leaves n_bound_TF_per_TU empty
+  kind: new
+  effort: M
+  status: open
+  why: 'Direct consequence of THIS study''s n_bound_TF_per_TU-populates FAIL.
+
+    The field stays empty across the run even with the listener output
+
+    fix in place. That means it''s fed by an upstream process (tf_binding
+
+    or a partitioned-allocator step), not produced by rna_synth_prob_
+
+    listener. Until we identify where the write SHOULD happen and why
+
+    it doesn''t, dnaa-01''s autorepression-correlation cannot evaluate.
+
+    '
+  hypothesized_mechanism: "Three candidate root causes, in priority order:\n  (1) tf_binding never writes n_bound_TF_per_TU\
+    \ in this composite\n      config \u2014 its outputs() schema declares the field but its\n      update() returns a dict\
+    \ that omits it. Fix: grep tf_binding.py\n      for 'n_bound_TF_per_TU' and verify the return statement.\n  (2) tf_binding\
+    \ writes a SCALAR or 1D array at the wrong path,\n      and the listener guard (length != n_TU) silently rejects it.\n\
+    \      Fix: log the field's shape per tick from tf_binding's update().\n  (3) The (n_TU \xD7 n_TF) 2D shape is computed\
+    \ at init but never\n      resized as promoters get added \u2014 the field is \"populated\"\n      but with shape (0,\
+    \ 0).\n"
+  unblocks:
+  - tests.autorepression-correlation in dnaa-01 (primary supporting test)
+  - readouts.dnaA_bound_to_promoters in dnaa-01
+  - dnaa-03's DnaA-box-occupancy readouts (same store path is the source)
+  acceptance:
+  - At least one timestep in a baseline run has len(n_bound_TF_per_TU) == n_TU
+  - autorepression-correlation produces a non-zero Pearson r (PASS or FAIL on biology, not infrastructure)
+- title: Re-run dnaa-01 against its existing tests now that listeners are fixed
+  kind: existing
+  status: done
+  effort: XS
+  why: 'The listener fix changes what dnaa-01''s tests see. Two of dnaa-01''s
+
+    behavior_tests read listener data that was previously corrupted:
+
+    dnaA-concentration-stable (reads listeners.monomer_counts) and
+
+    autorepression-correlation (reads listeners.rna_synth_prob.
+
+    n_bound_TF_per_TU + listeners.rnap_data.rna_init_event). A re-run
+
+    is the only way to know if the fix changes their outcomes.
+
+    '
+  unblocks:
+  - 'dnaa-01.runs[]: gets a fresh row reflecting post-fix listener values'
+  - dnaa-01's pipeline_gate.proceed_condition becomes evaluable again
+  acceptance:
+  - dnaa-01.runs[] has a new entry tagged 'baseline-postfix' with current outcomes
+  - "If autorepression-correlation flips PASS \u2192 unblock dnaa-02. Otherwise \u2192 spawn the tf_binding follow-up (above)."
+- title: "Add workspace lint rule rejecting plain array[\u2026] in listener outputs"
+  kind: infrastructure_fix
+  effort: S
+  status: open
+  why: "Recurrence-prevention. The bug we just fixed is easy to re-introduce\nby copy/pasting from older listener code. A\
+    \ lint check that fails CI\nwhen any `'_type': 'array[` (or f-string equivalent) appears in a\nlistener output schema\
+    \ without an `overwrite[\u2026]` wrapper would catch\nthis at PR time forever.\n"
+  hypothesized_mechanism: 'Extend scripts/lint-workspace.py to walk v2ecoli/steps/listeners/
+
+    *.py with a regex that flags plain-array outputs. False positive
+
+    rate should be near zero (the pattern is narrow).
+
+    '
+  unblocks:
+  - 'CI gate: future PRs cannot reintroduce the accumulation bug'
+  acceptance:
+  - scripts/lint-workspace.py exits non-zero when a listener output omits overwrite[]
+  - The rule is documented in docs/ so contributors know about it
+- title: Audit departitioned + reconciled composites for the same listener bug
+  kind: infrastructure_fix
+  effort: S
+  status: open
+  why: 'The baseline composite is just one of three v2ecoli architectures.
+
+    departitioned + reconciled use a subset of the same listener steps
+
+    via _helpers._get_special_step, but they may also instantiate
+
+    additional listener implementations OR override schema in ways that
+
+    bypass the overwrite[] fix. Worth a quick audit so the next study
+
+    using one of those architectures doesn''t hit the same bug.
+
+    '
+  hypothesized_mechanism: 'Read v2ecoli/composites/{departitioned,reconciled}.py for any
+
+    listener instantiation; spot-check their output schemas; run the
+
+    same accumulation-vs-instantaneous check via a smoke sim.
+
+    '
+  unblocks:
+  - Confidence that fix is workspace-wide, not just baseline
+  acceptance:
+  - "All listener output schemas in all three architectures use overwrite[\u2026]"
+  - Smoke sim per architecture confirms listener values don't accumulate
+implementation_requirements:
+- id: req-1-regression-test-on-listener-outputs
+  kind: test
+  title: "Workspace lint rule rejecting plain array[\u2026] in listener outputs"
+  effort: S
+  description: "Add a scripts/lint-workspace.py check that scans v2ecoli/steps/\nlisteners/*.py for `_type': 'array[` (or\
+    \ f-string equivalent) NOT\nwrapped in `overwrite[\u2026]`. Fails the lint if any are found.\n"
+  unblocks:
+  - 'Prevents regression: future listener fields that copy/paste from old patterns will fail lint.'
+bibliography:
+  expert:
+  - replication_initiation_molecular_info
+  - chromosome_replication_plan
+  bib_keys: []
+parent_studies:
+- dnaa-01-expression-dynamics
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

@@ -14,8 +14,15 @@
 <path d="M1550,100.0 L1630,100.0" stroke="#94a3b8" stroke-width="1.2" fill="none" marker-end="url(#arrow)"/>
 <path d="M1550,100.0 L1630,210.0" stroke="#94a3b8" stroke-width="1.2" fill="none" marker-end="url(#arrow)"/>
 <rect x="30" y="60" width="240" height="80" fill="#fffbeb" stroke="#f59e0b" stroke-width="3" rx="6"/>
-<rect x="175" y="65" width="90" height="20" rx="3" fill="#f59e0b" fill-opacity="0.95"/>
-<text x="220" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="11">⚠ CONDITIONAL</text>
+<rect x="182" y="65" width="26" height="20" rx="3" fill="#16a34a"/>
+<text x="195" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="12">✓</text>
+<text x="195" y="94" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">reg</text>
+<rect x="210" y="65" width="26" height="20" rx="3" fill="#f59e0b"/>
+<text x="223" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="12">⏸</text>
+<text x="223" y="94" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">bio</text>
+<rect x="238" y="65" width="26" height="20" rx="3" fill="#94a3b8"/>
+<text x="251" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="12">—</text>
+<text x="251" y="94" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">expl</text>
 <text x="40" y="80" font-weight="600" fill="#0f172a">01 expr</text>
 <rect x="40" y="90" width="55" height="18" rx="9" fill="#16a34a" fill-opacity="0.18" stroke="#16a34a"/>
 <text x="67" y="103" text-anchor="middle" fill="#16a34a" font-size="10" font-weight="600">Decide</text>
@@ -40,9 +47,9 @@
 <rect x="422" y="200" width="55" height="18" rx="9" fill="#10b981" fill-opacity="0.2" stroke="#10b981"/>
 <text x="449" y="213" text-anchor="middle" fill="#10b981" font-size="10" font-weight="600">ran</text>
 <text x="360" y="236" fill="#64748b" font-size="11">3 findings · 1 runs</text>
-<rect x="670" y="60" width="240" height="80" fill="#f0fdf4" stroke="#16a34a" stroke-width="3" rx="6"/>
-<rect x="815" y="65" width="90" height="20" rx="3" fill="#16a34a" fill-opacity="0.95"/>
-<text x="860" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="11">✓ OPEN</text>
+<rect x="670" y="60" width="240" height="80" fill="#fffbeb" stroke="#f59e0b" stroke-width="3" rx="6"/>
+<rect x="815" y="65" width="90" height="20" rx="3" fill="#f59e0b" fill-opacity="0.95"/>
+<text x="860" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="11">⚠ CONDITIONAL</text>
 <text x="680" y="80" font-weight="600" fill="#0f172a">01g joint te fold change sweep</text>
 <rect x="680" y="90" width="55" height="18" rx="9" fill="#94a3b8" fill-opacity="0.18" stroke="#94a3b8"/>
 <text x="707" y="103" text-anchor="middle" fill="#94a3b8" font-size="10" font-weight="600">Design</text>
@@ -58,27 +65,41 @@
 <rect x="742" y="200" width="55" height="18" rx="9" fill="#cbd5e1" fill-opacity="0.2" stroke="#cbd5e1"/>
 <text x="769" y="213" text-anchor="middle" fill="#cbd5e1" font-size="10" font-weight="600">planned</text>
 <text x="680" y="236" fill="#64748b" font-size="11">0 findings · 0 runs</text>
-<rect x="670" y="280" width="240" height="80" fill="#fffbeb" stroke="#f59e0b" stroke-width="3" rx="6"/>
-<rect x="815" y="285" width="90" height="20" rx="3" fill="#f59e0b" fill-opacity="0.95"/>
-<text x="860" y="299" text-anchor="middle" fill="white" font-weight="700" font-size="11">⚠ CONDITIONAL</text>
+<rect x="670" y="280" width="240" height="80" fill="#f0fdf4" stroke="#16a34a" stroke-width="3" rx="6"/>
+<rect x="822" y="285" width="26" height="20" rx="3" fill="#16a34a"/>
+<text x="835" y="299" text-anchor="middle" fill="white" font-weight="700" font-size="12">✓</text>
+<text x="835" y="314" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">reg</text>
+<rect x="850" y="285" width="26" height="20" rx="3" fill="#f59e0b"/>
+<text x="863" y="299" text-anchor="middle" fill="white" font-weight="700" font-size="12">⏸</text>
+<text x="863" y="314" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">bio</text>
+<rect x="878" y="285" width="26" height="20" rx="3" fill="#94a3b8"/>
+<text x="891" y="299" text-anchor="middle" fill="white" font-weight="700" font-size="12">—</text>
+<text x="891" y="314" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">expl</text>
 <text x="680" y="300" font-weight="600" fill="#0f172a">02 atp hydrolysis</text>
 <rect x="680" y="310" width="55" height="18" rx="9" fill="#16a34a" fill-opacity="0.18" stroke="#16a34a"/>
 <text x="707" y="323" text-anchor="middle" fill="#16a34a" font-size="10" font-weight="600">Decide</text>
 <rect x="742" y="310" width="55" height="18" rx="9" fill="#10b981" fill-opacity="0.2" stroke="#10b981"/>
 <text x="769" y="323" text-anchor="middle" fill="#10b981" font-size="10" font-weight="600">ran</text>
-<text x="680" y="346" fill="#64748b" font-size="11">4 findings · 3 runs</text>
+<text x="680" y="346" fill="#64748b" font-size="11">5 findings · 3 runs</text>
 <rect x="990" y="60" width="240" height="80" fill="#fffbeb" stroke="#f59e0b" stroke-width="3" rx="6"/>
-<rect x="1135" y="65" width="90" height="20" rx="3" fill="#f59e0b" fill-opacity="0.95"/>
-<text x="1180" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="11">⚠ CONDITIONAL</text>
+<rect x="1142" y="65" width="26" height="20" rx="3" fill="#dc2626"/>
+<text x="1155" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="12">✗</text>
+<text x="1155" y="94" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">reg</text>
+<rect x="1170" y="65" width="26" height="20" rx="3" fill="#f59e0b"/>
+<text x="1183" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="12">⏸</text>
+<text x="1183" y="94" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">bio</text>
+<rect x="1198" y="65" width="26" height="20" rx="3" fill="#94a3b8"/>
+<text x="1211" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="12">—</text>
+<text x="1211" y="94" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">expl</text>
 <text x="1000" y="80" font-weight="600" fill="#0f172a">03 box binding</text>
 <rect x="1000" y="90" width="55" height="18" rx="9" fill="#16a34a" fill-opacity="0.18" stroke="#16a34a"/>
 <text x="1027" y="103" text-anchor="middle" fill="#16a34a" font-size="10" font-weight="600">Decide</text>
 <rect x="1062" y="90" width="55" height="18" rx="9" fill="#10b981" fill-opacity="0.2" stroke="#10b981"/>
 <text x="1089" y="103" text-anchor="middle" fill="#10b981" font-size="10" font-weight="600">ran</text>
 <text x="1000" y="126" fill="#64748b" font-size="11">5 findings · 2 runs</text>
-<rect x="1310" y="60" width="240" height="80" fill="#fffbeb" stroke="#f59e0b" stroke-width="3" rx="6"/>
-<rect x="1455" y="65" width="90" height="20" rx="3" fill="#f59e0b" fill-opacity="0.95"/>
-<text x="1500" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="11">⚠ CONDITIONAL</text>
+<rect x="1310" y="60" width="240" height="80" fill="#fef2f2" stroke="#dc2626" stroke-width="3" rx="6"/>
+<rect x="1455" y="65" width="90" height="20" rx="3" fill="#dc2626" fill-opacity="0.95"/>
+<text x="1500" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="11">✗ BLOCKED</text>
 <text x="1320" y="80" font-weight="600" fill="#0f172a">04 initiation mechanism</text>
 <rect x="1320" y="90" width="55" height="18" rx="9" fill="#16a34a" fill-opacity="0.18" stroke="#16a34a"/>
 <text x="1347" y="103" text-anchor="middle" fill="#16a34a" font-size="10" font-weight="600">Decide</text>
@@ -86,8 +107,15 @@
 <text x="1409" y="103" text-anchor="middle" fill="#10b981" font-size="10" font-weight="600">ran</text>
 <text x="1320" y="126" fill="#64748b" font-size="11">4 findings · 1 runs</text>
 <rect x="1630" y="60" width="240" height="80" fill="#fffbeb" stroke="#f59e0b" stroke-width="3" rx="6"/>
-<rect x="1775" y="65" width="90" height="20" rx="3" fill="#f59e0b" fill-opacity="0.95"/>
-<text x="1820" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="11">⚠ CONDITIONAL</text>
+<rect x="1782" y="65" width="26" height="20" rx="3" fill="#f59e0b"/>
+<text x="1795" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="12">⏸</text>
+<text x="1795" y="94" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">reg</text>
+<rect x="1810" y="65" width="26" height="20" rx="3" fill="#f59e0b"/>
+<text x="1823" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="12">⏸</text>
+<text x="1823" y="94" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">bio</text>
+<rect x="1838" y="65" width="26" height="20" rx="3" fill="#f59e0b"/>
+<text x="1851" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="12">⏸</text>
+<text x="1851" y="94" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">expl</text>
 <text x="1640" y="80" font-weight="600" fill="#0f172a">05 rida ddah dars</text>
 <rect x="1640" y="90" width="55" height="18" rx="9" fill="#16a34a" fill-opacity="0.18" stroke="#16a34a"/>
 <text x="1667" y="103" text-anchor="middle" fill="#16a34a" font-size="10" font-weight="600">Decide</text>
@@ -95,23 +123,43 @@
 <text x="1729" y="103" text-anchor="middle" fill="#10b981" font-size="10" font-weight="600">ran</text>
 <text x="1640" y="126" fill="#64748b" font-size="11">2 findings · 0 runs</text>
 <rect x="1630" y="170" width="240" height="80" fill="#fffbeb" stroke="#f59e0b" stroke-width="3" rx="6"/>
-<rect x="1775" y="175" width="90" height="20" rx="3" fill="#f59e0b" fill-opacity="0.95"/>
-<text x="1820" y="189" text-anchor="middle" fill="white" font-weight="700" font-size="11">⚠ CONDITIONAL</text>
+<rect x="1782" y="175" width="26" height="20" rx="3" fill="#f59e0b"/>
+<text x="1795" y="189" text-anchor="middle" fill="white" font-weight="700" font-size="12">⏸</text>
+<text x="1795" y="204" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">reg</text>
+<rect x="1810" y="175" width="26" height="20" rx="3" fill="#f59e0b"/>
+<text x="1823" y="189" text-anchor="middle" fill="white" font-weight="700" font-size="12">⏸</text>
+<text x="1823" y="204" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">bio</text>
+<rect x="1838" y="175" width="26" height="20" rx="3" fill="#94a3b8"/>
+<text x="1851" y="189" text-anchor="middle" fill="white" font-weight="700" font-size="12">—</text>
+<text x="1851" y="204" text-anchor="middle" fill="#475569" font-size="8" font-family="ui-monospace,monospace">expl</text>
 <text x="1640" y="190" font-weight="600" fill="#0f172a">06 seqa sequestration</text>
 <rect x="1640" y="200" width="55" height="18" rx="9" fill="#16a34a" fill-opacity="0.18" stroke="#16a34a"/>
 <text x="1667" y="213" text-anchor="middle" fill="#16a34a" font-size="10" font-weight="600">Decide</text>
 <rect x="1702" y="200" width="55" height="18" rx="9" fill="#10b981" fill-opacity="0.2" stroke="#10b981"/>
 <text x="1729" y="213" text-anchor="middle" fill="#10b981" font-size="10" font-weight="600">ran</text>
 <text x="1640" y="236" fill="#64748b" font-size="11">3 findings · 0 runs</text>
-<text x="30" y="420" fill="#475569" font-size="11" font-weight="600">Gate status: </text>
-<rect x="120" y="408" width="14" height="14" fill="#16a34a" rx="2"/>
-<text x="138" y="420" fill="#475569" font-size="11">open</text>
-<rect x="220" y="408" width="14" height="14" fill="#f59e0b" rx="2"/>
-<text x="238" y="420" fill="#475569" font-size="11">conditional</text>
-<rect x="320" y="408" width="14" height="14" fill="#fb923c" rx="2"/>
-<text x="338" y="420" fill="#475569" font-size="11">hold</text>
-<rect x="420" y="408" width="14" height="14" fill="#3b82f6" rx="2"/>
-<text x="438" y="420" fill="#475569" font-size="11">ready</text>
-<rect x="520" y="408" width="14" height="14" fill="#dc2626" rx="2"/>
-<text x="538" y="420" fill="#475569" font-size="11">blocked</text>
+<text x="30" y="400" fill="#475569" font-size="11" font-weight="600">Triple verdict (reg | bio | expl): </text>
+<rect x="240" y="388" width="22" height="16" rx="2" fill="#16a34a"/>
+<text x="251" y="400" text-anchor="middle" fill="white" font-weight="700" font-size="11">✓</text>
+<text x="268" y="400" fill="#475569" font-size="11">PASS</text>
+<rect x="370" y="388" width="22" height="16" rx="2" fill="#dc2626"/>
+<text x="381" y="400" text-anchor="middle" fill="white" font-weight="700" font-size="11">✗</text>
+<text x="398" y="400" fill="#475569" font-size="11">FAIL</text>
+<rect x="500" y="388" width="22" height="16" rx="2" fill="#f59e0b"/>
+<text x="511" y="400" text-anchor="middle" fill="white" font-weight="700" font-size="11">⏸</text>
+<text x="528" y="400" fill="#475569" font-size="11">PENDING</text>
+<rect x="630" y="388" width="22" height="16" rx="2" fill="#94a3b8"/>
+<text x="641" y="400" text-anchor="middle" fill="white" font-weight="700" font-size="11">—</text>
+<text x="658" y="400" fill="#475569" font-size="11">NOT_CLAIMED</text>
+<text x="30" y="425" fill="#475569" font-size="11" font-weight="600">Fill color (legacy): </text>
+<rect x="165" y="413" width="14" height="14" fill="#16a34a" rx="2"/>
+<text x="183" y="425" fill="#475569" font-size="11">open</text>
+<rect x="260" y="413" width="14" height="14" fill="#f59e0b" rx="2"/>
+<text x="278" y="425" fill="#475569" font-size="11">conditional</text>
+<rect x="355" y="413" width="14" height="14" fill="#fb923c" rx="2"/>
+<text x="373" y="425" fill="#475569" font-size="11">hold</text>
+<rect x="450" y="413" width="14" height="14" fill="#3b82f6" rx="2"/>
+<text x="468" y="425" fill="#475569" font-size="11">ready</text>
+<rect x="545" y="413" width="14" height="14" fill="#dc2626" rx="2"/>
+<text x="563" y="425" fill="#475569" font-size="11">blocked</text>
 </svg>

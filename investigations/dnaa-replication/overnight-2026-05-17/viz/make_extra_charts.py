@@ -222,12 +222,20 @@ def make_investigation_dag():
         d = yaml.safe_load(open(p))
         n = d.get('name')
         pg = d.get('pipeline_gate', {}) or {}
+        # Per ADDENDUM P1b-2: prefer triple verdict over single gate_status badge.
+        cv = d.get('conclusion_verdicts') or {}
+        verdicts = {
+            'reg':  (cv.get('regression_compatibility') or {}).get('result'),
+            'bio':  (cv.get('biological_validation')    or {}).get('result'),
+            'expl': (cv.get('explanatory_gain')         or {}).get('result'),
+        }
         nodes[n] = {
-            'phase':  d.get('phase', 'Design'),
-            'status': d.get('status', 'planned'),
+            'phase':    d.get('phase', 'Design'),
+            'status':   d.get('status', 'planned'),
             'findings': len(d.get('findings') or []),
-            'runs': len(d.get('runs') or []),
-            'gate':   pg.get('gate_status', 'unknown'),
+            'runs':     len(d.get('runs') or []),
+            'gate':     pg.get('gate_status', 'unknown'),  # legacy single-badge
+            'verdicts': verdicts,                          # triple badge
         }
         for ps in (d.get('parent_studies') or []):
             parent = ps.get('study') if isinstance(ps, dict) else ps
@@ -321,13 +329,24 @@ def make_investigation_dag():
         parts.append(f'<path d="M{x1},{y1} L{x2},{y2}" stroke="#94a3b8" '
                      f'stroke-width="1.2" fill="none" marker-end="url(#arrow)"/>')
 
-    # Nodes — gate_status drives the dominant visual (thick border + corner badge)
+    # Triple-verdict symbol map (ADDENDUM P1b-2)
+    verdict_symbol = {
+        'PASS':           ('✓', '#16a34a'),
+        'FAIL':           ('✗', '#dc2626'),
+        'PENDING':        ('⏸', '#f59e0b'),
+        'NOT_CLAIMED':    ('—', '#94a3b8'),
+        'NOT_APPLICABLE': ('—', '#94a3b8'),
+        None:             ('?', '#cbd5e1'),
+    }
+
+    # Nodes — triple verdict (when conclusion_verdicts present) OR legacy
+    # gate_status (when not). Triple verdict is now preferred.
     for n, (x, y) in pos.items():
         meta = nodes[n]
         fill = '#fff'
         gate = meta.get('gate', 'unknown')
         gate_c = gate_color.get(gate, '#94a3b8')
-        # Tint the fill subtly by gate so the user can scan from across the room
+        # Tint by legacy gate so the eye can still scan; verdict triple lives inside.
         if gate == 'open':
             fill = '#f0fdf4'
         elif gate == 'conditional':
@@ -340,13 +359,32 @@ def make_investigation_dag():
             fill = '#fef2f2'
         parts.append(f'<rect x="{x}" y="{y}" width="{NODE_W}" height="{NODE_H}" '
                      f'fill="{fill}" stroke="{gate_c}" stroke-width="3" rx="6"/>')
-        # Gate badge — top-right corner, large + bold
-        badge_x = x + NODE_W - 95
-        parts.append(f'<rect x="{badge_x}" y="{y+5}" width="90" height="20" rx="3" '
-                     f'fill="{gate_c}" fill-opacity="0.95"/>')
-        parts.append(f'<text x="{badge_x+45}" y="{y+19}" text-anchor="middle" '
-                     f'fill="white" font-weight="700" font-size="11">'
-                     f'{gate_label.get(gate, gate.upper())}</text>')
+
+        # Top-right: triple verdict (preferred). Fall back to single gate label.
+        verdicts = meta.get('verdicts') or {}
+        has_triple = any(verdicts.get(k) for k in ('reg', 'bio', 'expl'))
+        if has_triple:
+            # Three small badges: reg | bio | expl
+            triple_x = x + NODE_W - 88
+            for i, key in enumerate(('reg', 'bio', 'expl')):
+                v = verdicts.get(key)
+                sym, color = verdict_symbol.get(v, verdict_symbol[None])
+                badge_x = triple_x + i * 28
+                parts.append(f'<rect x="{badge_x}" y="{y+5}" width="26" height="20" rx="3" '
+                             f'fill="{color}"/>')
+                parts.append(f'<text x="{badge_x+13}" y="{y+19}" text-anchor="middle" '
+                             f'fill="white" font-weight="700" font-size="12">{sym}</text>')
+                parts.append(f'<text x="{badge_x+13}" y="{y+34}" text-anchor="middle" '
+                             f'fill="#475569" font-size="8" font-family="ui-monospace,monospace">'
+                             f'{key}</text>')
+        else:
+            # Legacy single badge
+            badge_x = x + NODE_W - 95
+            parts.append(f'<rect x="{badge_x}" y="{y+5}" width="90" height="20" rx="3" '
+                         f'fill="{gate_c}" fill-opacity="0.95"/>')
+            parts.append(f'<text x="{badge_x+45}" y="{y+19}" text-anchor="middle" '
+                         f'fill="white" font-weight="700" font-size="11">'
+                         f'{gate_label.get(gate, gate.upper())}</text>')
         # Name (truncate)
         name_short = n.replace('-', ' ').replace('dnaa ', '').replace('expression dynamics', 'expr')
         if len(name_short) > 30:
@@ -367,15 +405,29 @@ def make_investigation_dag():
         parts.append(f'<text x="{x+10}" y="{y+66}" fill="#64748b" font-size="11">'
                      f'{meta["findings"]} findings · {meta["runs"]} runs</text>')
 
-    # Legend at bottom
-    legend_y = H - 30
-    parts.append(f'<text x="30" y="{legend_y}" fill="#475569" font-size="11" font-weight="600">Gate status: </text>')
-    lx = 120
+    # Legends — two rows: triple-verdict per-class + legacy gate-status fill
+    legend_y = H - 50
+    parts.append(f'<text x="30" y="{legend_y}" fill="#475569" font-size="11" font-weight="600">Triple verdict (reg | bio | expl): </text>')
+    lx = 240
+    for state, (sym, color) in [
+        ('PASS',        ('✓', '#16a34a')),
+        ('FAIL',        ('✗', '#dc2626')),
+        ('PENDING',     ('⏸', '#f59e0b')),
+        ('NOT_CLAIMED', ('—', '#94a3b8')),
+    ]:
+        parts.append(f'<rect x="{lx}" y="{legend_y-12}" width="22" height="16" rx="2" fill="{color}"/>')
+        parts.append(f'<text x="{lx+11}" y="{legend_y}" text-anchor="middle" fill="white" font-weight="700" font-size="11">{sym}</text>')
+        parts.append(f'<text x="{lx+28}" y="{legend_y}" fill="#475569" font-size="11">{state}</text>')
+        lx += 130
+
+    legend_y2 = H - 25
+    parts.append(f'<text x="30" y="{legend_y2}" fill="#475569" font-size="11" font-weight="600">Fill color (legacy): </text>')
+    lx = 165
     for state in ['open', 'conditional', 'hold', 'ready', 'blocked']:
-        parts.append(f'<rect x="{lx}" y="{legend_y-12}" width="14" height="14" '
+        parts.append(f'<rect x="{lx}" y="{legend_y2-12}" width="14" height="14" '
                      f'fill="{gate_color[state]}" rx="2"/>')
-        parts.append(f'<text x="{lx+18}" y="{legend_y}" fill="#475569" font-size="11">{state}</text>')
-        lx += 100
+        parts.append(f'<text x="{lx+18}" y="{legend_y2}" fill="#475569" font-size="11">{state}</text>')
+        lx += 95
 
     parts.append('</svg>')
     (OUT_DIR / 'viz' / '08_investigation_dag.svg').write_text('\n'.join(parts))

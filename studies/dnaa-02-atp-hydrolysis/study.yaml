@@ -60,7 +60,6 @@ pipeline_gate:
   - dnaa-01-expression-dynamics
   enables:
   - dnaa-03-box-binding
-  - dnaa-05-rida-ddah-dars
   gate_status: blocked
   gate_status_summary: Not yet started — study scaffolded from PLAN-time spec; no runs yet.
   proceed_condition: 'apo-dnaA-fraction-is-small + dnaa-atp-fraction-in-physiological-range

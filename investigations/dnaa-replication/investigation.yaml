@@ -11,12 +11,14 @@ question: |
   the mass-threshold heuristic baseline under slow non-overlapping growth?
 
 hypothesis: |
-  Yes. The six staged studies (expression → ATP/ADP cycle → DnaA-box
-  binding → mechanism-driven initiation → RIDA/DDAH/DARS extrinsic
-  conversion → SeqA sequestration) compose into a model that recapitulates
-  the textbook DnaA cycle. Each study's behavioral tests pass before the
-  next study in the chain is started; the final mechanism baseline matches
-  the heuristic's initiation-mass distribution within ±5%.
+  Yes. The four staged studies (expression → ATP/ADP cycle → DnaA-box
+  binding → mechanism-driven initiation) compose into a model that
+  recapitulates the core DnaA cycle through the initiation event itself.
+  Each study's behavioral tests pass before the next study in the chain
+  is started; the final mechanism baseline matches the heuristic's
+  initiation-mass distribution within ±5%. Extrinsic conversion
+  (RIDA/DDAH/DARS) and post-initiation SeqA sequestration are out of
+  scope for this investigation.
 
 description: |
   Multi-phase port of DnaA / replication initiation into v2ecoli, driven by
@@ -30,8 +32,9 @@ description: |
   2. dnaa-02-atp-hydrolysis         — DnaA-ATP/ADP/apo nucleotide cycle, intrinsic hydrolysis.
   3. dnaa-03-box-binding            — 307 chromosomal boxes + 11 oriC + 4 dnaAp boxes, titration.
   4. dnaa-04-initiation-mechanism   — replace mass-threshold heuristic with DnaA-driven initiation.
-  5. dnaa-05-rida-ddah-dars         — replisome-coupled hydrolysis + DARS reactivation.
-  6. dnaa-06-seqa-sequestration     — post-initiation SeqA sequestration of oriC + dnaAp.
+
+  Out-of-scope (deferred to a follow-on investigation): extrinsic
+  conversion (RIDA/DDAH/DARS) and post-initiation SeqA sequestration.
 
   See investigations/<name>/STATUS.md for the per-phase implementation
   status and the cross-study test report (planned).
@@ -44,8 +47,6 @@ studies:
   - dnaa-02-atp-hydrolysis
   - dnaa-03-box-binding
   - dnaa-04-initiation-mechanism
-  - dnaa-05-rida-ddah-dars
-  - dnaa-06-seqa-sequestration
 
 # Inputs (expert docs, datasets) supporting this whole investigation —
 # duplicates of what's in workspace.yaml.expert_docs but scoped to the
@@ -64,5 +65,3 @@ acceptance_criteria:
   - {study: dnaa-03-box-binding,         behavior: oric-stays-unoccupied-until-chromosome-saturates}
   - {study: dnaa-04-initiation-mechanism, behavior: one-initiation-per-generation}
   - {study: dnaa-04-initiation-mechanism, behavior: initiation-mass-mean-matches-heuristic}
-  - {study: dnaa-05-rida-ddah-dars,      behavior: inter-initiation-cv-narrows-vs-intrinsic-only}
-  - {study: dnaa-06-seqa-sequestration,  behavior: wildtype-zero-reinitiation}

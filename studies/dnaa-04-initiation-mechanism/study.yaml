@@ -53,9 +53,7 @@ purpose:
 pipeline_gate:
   prerequisites:
   - dnaa-03-box-binding
-  enables:
-  - dnaa-05-rida-ddah-dars
-  - dnaa-06-seqa-sequestration
+  enables: []
   gate_status: blocked
   gate_status_summary: Not yet started — study scaffolded from PLAN-time spec; no runs yet.
   proceed_condition: 'one-initiation-per-generation + initiation-mass-mean-matches-heuristic

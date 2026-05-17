@@ -217,7 +217,7 @@ class EcoliWCM(Process):
             division_fired = True
 
         if division_fired:
-            return self._handle_division(state)
+            return self._handle_division(state, interval)
 
         # Normal: read outputs and return deltas
         d_mass, d_length, d_volume, exchange = self._read_outputs()
@@ -235,8 +235,13 @@ class EcoliWCM(Process):
             'chromosome_state': chrom,
         }
 
-    def _handle_division(self, state):
-        """Handle WCM division: produce two daughter cells in the colony."""
+    def _handle_division(self, state, interval):
+        """Handle WCM division: produce two daughter cells in the colony.
+
+        ``interval`` is the mother's current tick interval (passed in from
+        ``update``); daughters inherit it so they tick at the same cadence
+        as the rest of the colony. (``self.config`` does not declare
+        ``interval`` — it lives on the wire, not in process config.)"""
         cell = self._composite.state.get('agents', {}).get('0', self._composite.state)
         mass_data = cell.get('listeners', {}).get('mass', {})
         mother_mass = float(mass_data.get('dry_mass', 380.0))
@@ -281,7 +286,7 @@ class EcoliWCM(Process):
                     'cache_dir': cache_dir,
                     'seed': seed + i + 1,
                 },
-                'interval': self.config.get('interval', 60.0),
+                'interval': interval,
                 'inputs': {
                     'local': ['local'],
                     'agent_id': ['id'],

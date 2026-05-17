@@ -4,13 +4,13 @@ EcoliWCM — whole-cell E. coli model as a Process with bridge.
 Wraps the full v2ecoli simulation (55 biological steps) as a single
 Process node with inputs/outputs connected to internal stores via
 a Composite bridge. This allows the whole-cell model to be embedded
-inside multi_cell colony simulations or any other bigraph composite.
+inside viva_munk colony simulations or any other bigraph composite.
 
 The bridge maps:
     external inputs  →  internal stores
     internal stores  →  external outputs
 
-Usage in a multi_cell document::
+Usage in a viva_munk document::
 
     'ecoli': {
         '_type': 'process',
@@ -249,7 +249,7 @@ class EcoliWCM(Process):
         cache_dir = self.config.get('cache_dir', 'out/cache')
         seed = int(self.config.get('seed', 0))
 
-        from multi_cell.processes.multibody import make_rng, build_microbe
+        from viva_munk.processes.multibody import make_rng, build_microbe
         rng = make_rng(seed + hash(agent_id) % 10000)
 
         # Place daughters near mother

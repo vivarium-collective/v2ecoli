@@ -19,8 +19,8 @@ import numpy as np
 from process_bigraph import Composite
 from process_bigraph.emitter import emitter_from_wires
 
-from multi_cell import core_import
-from multi_cell.processes.multibody import (
+from viva_munk import core_import
+from viva_munk.processes.multibody import (
     PymunkProcess, build_microbe, make_rng)
 
 from v2ecoli.bridge import EcoliWCM, ecoli_document

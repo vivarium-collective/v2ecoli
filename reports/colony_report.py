@@ -32,13 +32,13 @@ warnings.filterwarnings('ignore')
 from process_bigraph import Composite, gather_emitter_results
 from process_bigraph.emitter import emitter_from_wires
 
-from multi_cell import core_import
-from multi_cell.processes.multibody import (
+from viva_munk import core_import
+from viva_munk.processes.multibody import (
     make_initial_state, make_rng, build_microbe)
-from multi_cell.processes.grow_divide import (
+from viva_munk.processes.grow_divide import (
     add_adder_grow_divide_to_agents, make_adder_grow_divide_process,
     make_grow_divide_process)
-from multi_cell.plots.multibody_plots import simulation_to_gif
+from viva_munk.plots.multibody_plots import simulation_to_gif
 
 from v2ecoli.bridge import EcoliWCM
 from v2ecoli.types import ECOLI_TYPES

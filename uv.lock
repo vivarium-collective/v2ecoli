@@ -3946,7 +3946,7 @@ wheels = [
 [[package]]
 name = "viva-munk"
 version = "0.0.1"
-source = { git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main#97b420a91064fa07ab63a86225f929cf0cbf8407" }
+source = { git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main#26220477b76fbae37daa14cfb81d224034a42729" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "bigraph-viz" },

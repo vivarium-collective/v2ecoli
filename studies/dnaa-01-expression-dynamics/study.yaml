@@ -1047,6 +1047,83 @@ findings:
         the cache says 7.23e-5 when 50× breaks the proteome max. Could
         be a units/indexing bug.
 
+- id: F-10
+  kind: biological
+  status: contradicts
+  statement: |
+    TE-sweep across 6 multipliers (1×, 5×, 10×, 20×, 50×, 100×) shows
+    there is NO single TE multiplier that simultaneously satisfies
+    dnaA-count-in-range AND autorepression-correlation. The autorepression
+    saturation point sits between 20× and 50×; the count-in-range
+    threshold (300+) sits between 20× and 50×. The two curves cross
+    but neither test is in pass range at the crossover.
+  evidence:
+    from_run: baseline-te{1,5,10,20,50,100}x-seed* (17 sims total, ~3 seeds per multiplier)
+    from_test: te-sweep (custom evaluator, sims/evaluate_te_sweep.py)
+    sweep_table:
+      "1x":   {dnaA_median: 115, mrna_mean: 0.000, pearson_r: null,   count_test: FAIL, autorep_test: FAIL_no_variance}
+      "5x":   {dnaA_median: 129, mrna_mean: 0.000, pearson_r: null,   count_test: FAIL, autorep_test: FAIL_no_variance}
+      "10x":  {dnaA_median: 188, mrna_mean: 0.332, pearson_r: -0.301, count_test: FAIL, autorep_test: PASS}
+      "20x":  {dnaA_median: 296, mrna_mean: 0.286, pearson_r: -0.253, count_test: FAIL, autorep_test: FAIL_just_above_threshold}
+      "50x":  {dnaA_median: 497, mrna_mean: 0.306, pearson_r: +0.613, count_test: PASS, autorep_test: FAIL_sign_flipped}
+      "100x": {dnaA_median: 108, mrna_mean: 0.063, pearson_r: -0.093, count_test: FAIL, autorep_test: FAIL_system_collapse}
+  expected:
+    summary: |
+      In a faithful model, both tests should pass simultaneously at
+      the calibrated TE value. v2ecoli does not have such a TE.
+  explanation: |
+    Three reveals from the sweep:
+
+      (i) THE SIGN FLIP IS REAL. Pearson r is negative at 10×–20× and
+          positive at 50×. The autorepression model saturates somewhere
+          in the 20×–50× window. Below saturation, binding suppresses
+          mRNA → r negative. Above saturation, binding doesn't change
+          mRNA much, and the residual correlation is driven by noise +
+          translation lag → r flips.
+
+      (ii) THE 100× COLLAPSE. At 100× TE, DnaA actually CRASHES BACK
+           DOWN to 108 — lower than baseline — with dnaA mRNA almost
+           absent (6% nonzero, mean 0.063). This is a system instability:
+           extreme over-production triggers some downstream cascade
+           (likely chromosome-bound DnaA depleting via replication, or
+           autorepression hitting a hard ceiling). Worth understanding
+           independently — may indicate where v2ecoli's negative
+           feedback IS strong (just not in the 1×–50× regime).
+
+      (iii) NO SINGLE TE PASSES BOTH TESTS. The "true" calibration
+            point — where the model both reproduces autorepression AND
+            sits in the literature DnaA band — does NOT exist along
+            the TE-only axis. dnaa-01 cannot be closed by recalibrating
+            TE alone. Either:
+              (a) the autorepression fold_change parameter needs
+                  re-tuning alongside TE (joint calibration), or
+              (b) v2ecoli's autorepression model is structurally too
+                  weak to maintain negative correlation at literature-
+                  band DnaA levels (needs a stronger / saturable model).
+  expert_reference:
+    doc: replication_initiation_molecular_info
+    note: |
+      §4 (DnaA autoregulation) gives a Hill-like binding model with
+      cooperative interaction at dnaAp1/dnaAp2. v2ecoli's linear-ish
+      fold_change parametrization may not capture the cooperative
+      term, which is what would maintain negative correlation at
+      higher DnaA levels.
+  next_action: |
+    (1) Joint calibration sweep: TE × autorepression-fold-change grid
+        (3 × 3 = 9 points around the 20×–50× TE inflection).
+    (2) Investigate the 100× collapse — what triggers DnaA back down?
+    (3) Read replication_initiation_molecular_info §4 with fresh eyes
+        for what the autorepression Hill coefficient SHOULD be.
+
+  # Important caveat about F-02's earlier r=-0.594 claim:
+  # That result was from an earlier code path / Y axis that has since
+  # been deprecated. The current sweep with mRNA_cistron_counts[227]
+  # as Y axis shows 1× TE produces all-zero mRNA (no signal), so
+  # F-02's r=-0.594 is not reproducible with the current evaluator and
+  # should be treated as stale. The structural finding stands:
+  # autorepression IS present (visible at 10×–20× TE where mRNA is
+  # nonzero enough to compute correlation).
+
 
 conclusion: "Phase=Decide outcome: PIPELINE-GATED on translation-efficiency calibration.\n\
   \u2022 Test framework works end-to-end (baseline \u2192 SQLite emitter \u2192 evaluator).\n\

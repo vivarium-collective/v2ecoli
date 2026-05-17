@@ -63,6 +63,16 @@ expert_docs:
   - dnaa.autorepression.promoter-response-test-suite
   - dnaa.pools.atp-decomposition-explicit
   - dnaa.validation.perturbation-panel-required
+imports:
+  v2ecoli:
+    source: https://github.com/vivarium-collective/v2ecoli.git
+    ref: main
+    mode: reference
+    path: external/v2ecoli
+    description: Whole-cell E. coli model in Vivarium 2
+    installed: true
+    install_path: /Users/eranagmon/code/v2ecoli/external/v2ecoli
+    package: v2ecoli
 server:
   enabled: true
 observables: []

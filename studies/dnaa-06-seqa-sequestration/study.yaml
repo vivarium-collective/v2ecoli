@@ -273,6 +273,35 @@ conclusion_verdicts:
       Not a candidate for explanatory_gain in this scope.
 
 
+# ── Structured expert questions (ADDENDUM P3b-10) ───────────────────────
+expert_decisions_needed:
+- id: dnaa-06-EQ-01
+  question: 'What sets the ~10-minute sequestration window length in vivo: SeqA dissociation kinetics, Dam re-methylation kinetics, or competitive DNA binding?'
+  alternatives:
+  - 'SeqA dissociation rate-limiting: window ≈ 1 / k_off(SeqA). v0 fixed timer is a fine approximation.'
+  - 'Dam re-methylation rate-limiting: window ≈ time for Dam to re-methylate the cluster. v1 methylation model required to capture.'
+  - 'Competitive DNA binding: window depends on SeqA pool size + chromosomal GATC site distribution. v2 cooperative model required.'
+  impact_if_wrong: 'Determines whether v0 (fixed timer) is sufficient or v1/v2 required. Affects scope of dnaa-06 implementation.'
+  blocks:
+  - dnaa-06 implementation version choice (v0 / v1 / v2)
+  requested_response: 'Lu 1994 + Kang 2003 rate-limiting analysis; ideally an in-vivo time-resolved measurement'
+  status: open
+  asked_to: TBD
+
+- id: dnaa-06-EQ-02
+  question: 'Does SeqA sequester ONLY oriC, or also the dnaAp promoter region (which has GATC sites)? If both, does dnaA expression also drop during the SeqA window?'
+  alternatives:
+  - 'Only oriC: dnaa expression continues during the window'
+  - 'oriC + dnaAp: dnaa transcription is silenced during the window'
+  - 'oriC + dnaAp + datA: maximum effect; window also affects DDAH dynamics (dnaa-05 interaction)'
+  impact_if_wrong: 'Cross-couples to dnaa-01 (autorepression dynamics if dnaAp is bound) and dnaa-05 (DDAH dynamics if datA is bound).'
+  blocks:
+  - dnaa-06 oriC.sequestered_until vs dnaAp.sequestered_until schema choice
+  requested_response: 'Hansen 2018 review + specific SeqA-binding-site catalog citations'
+  status: open
+  asked_to: TBD
+
+
 conclusion_logic:
   if_primary_tests_pass:
     implementation_status: "SeqA sequestration prevents reinitiation in v2ecoli."

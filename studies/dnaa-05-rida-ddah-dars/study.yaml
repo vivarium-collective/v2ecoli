@@ -301,6 +301,50 @@ conclusion_verdicts:
       backed only by review citations.
 
 
+# ── Structured expert questions (ADDENDUM P3b-10) ───────────────────────
+expert_decisions_needed:
+- id: dnaa-05-EQ-01
+  question: "Is v2ecoli's equilibrium reverse-rate constant (MONOMER0-160_RXN, 2.9e-8) correctly calibrated? If too high, RIDA/DDAH/DARS may not need to deliver the 100× extrinsic flux that dnaa-02 F-04 implies."
+  alternatives:
+  - 'Reverse-rate correct: dnaa-05 must deliver ~99× the Boesen intrinsic rate via RIDA+DDAH+DARS'
+  - 'Reverse-rate over-estimated by ~10×: RIDA+DDAH+DARS deliver ~10× intrinsic (closer to literature per-pathway estimates)'
+  - 'Reverse-rate over-estimated by ~100×: extrinsic delivery only needs to match intrinsic — pathways are validation, not absolute-rate makers'
+  impact_if_wrong: 'Determines whether dnaa-05 design needs aggressive flux from each pathway (case 1) or modest contributions (case 3). Affects per-Step rate parameters by an order of magnitude.'
+  blocks:
+  - dnaa-05 per-Step rate calibration
+  - dnaa-02 F-04 reinterpretation
+  requested_response: 'ParCa rate-constant authority + cross-check against in-vivo total flux estimates (Boesen 2024 supplementary?)'
+  status: open
+  asked_to: TBD
+  related_to: dnaa-02-EQ-01
+
+- id: dnaa-05-EQ-02
+  question: 'Should DARS1 and DARS2 sites also bind DnaA-ADP before re-activation, or do they catalyze nucleotide exchange on already-bound DnaA?'
+  alternatives:
+  - 'Bind DnaA-ADP then reactivate: DARS is a sink + source — converts bound ADP to bound ATP without releasing'
+  - 'Catalyze in-situ exchange: DnaA stays bound, nucleotide swaps via DARS contact'
+  - 'Mixed: DARS1 vs DARS2 differ (paper-dependent)'
+  impact_if_wrong: 'Determines whether DARS pulls from the DNA-bound or free DnaA-ADP pool. Affects Step topology (which port reads from which bulk species).'
+  blocks:
+  - dnaa-05 DARS1 / DARS2 Step design
+  requested_response: 'Kasho 2023 IJMS or Frimodt-Moller author + figure pointer'
+  status: open
+  asked_to: TBD
+
+- id: dnaa-05-EQ-03
+  question: 'RIDA is replisome-coupled — but how does its activity scale with fork PROGRESS vs fork PRESENCE? Linear in elongation rate, or step-function at initiation/termination?'
+  alternatives:
+  - 'Linear in fork-elongation rate (per-nt scaling)'
+  - 'Step-function ON at initiation, OFF at termination (per-fork constant)'
+  - 'Step-function at specific fork-coordinate windows (e.g., near oriC)'
+  impact_if_wrong: 'Affects RIDA rate modeling. Linear case: rate = k_per_nt * d(fork_coord)/dt. Step case: rate = k_per_fork * n_active_forks.'
+  blocks:
+  - dnaa-05 RIDA Step rate-law choice
+  requested_response: 'Kawakami 2006 + Katayama review specifics'
+  status: open
+  asked_to: TBD
+
+
 conclusion_logic:
   if_primary_tests_pass:
     implementation_status: "Full DnaA cycle (RIDA + DDAH + DARS) is functional; ATP-fraction oscillates with the cell cycle."

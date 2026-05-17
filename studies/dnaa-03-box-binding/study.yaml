@@ -282,6 +282,37 @@ conclusion_verdicts:
     basis: 'dnaa-03 catalogs and counts; explanations come from cooperative-binding follow-up.'
 
 
+# ── Structured expert questions (ADDENDUM P3b-10) ───────────────────────
+expert_decisions_needed:
+- id: dnaa-03-EQ-01
+  question: "v2ecoli's motif scan finds 456 active DnaA boxes (F-02). Literature reports ~322 (307 chromosomal + 11 oriC + 4 dnaAp). What is the correct catalog: keep the 456 v2ecoli set (broader functional definition), filter to the 322 curated set (stricter), or use a hybrid?"
+  alternatives:
+  - "Use v2ecoli's 456: trust the PWM scan; the extra ~134 sites are real low-affinity titration buffer"
+  - 'Filter to curated 322: experimental literature only; the extra 134 are PWM false-positives'
+  - 'Hybrid: 322 confirmed + 134 flagged as "candidate" with low confidence, region_type=other'
+  impact_if_wrong: 'Affects titration-buffer size by ~40%, which directly affects oriC fill timing in the cooperative-binding model.'
+  blocks:
+  - dnaa-03 implementation choice between v1 (no cooperativity) and v2 (with)
+  - dnaa-04 initiation timing (depends on titration-buffer saturation curve)
+  requested_response: "Cross-reference Roth 1998 + Hansen 2018 box lists against v2ecoli's motif_coordinates output; flag agreements + disagreements"
+  status: open
+  asked_to: TBD
+
+- id: dnaa-03-EQ-02
+  question: "Does dnaa-03's textbook two-step oriC fill pattern (chromosomal sites saturate first, then oriC fills sharply) require cooperative DnaA-ATP binding at oriC (Hill n=5-10) OR can it be explained by accessory factors (HU, IHF, Fis) that gate oriC access until specific cell-cycle windows?"
+  alternatives:
+  - 'Cooperativity sufficient: implement Hill n=5-10 at oriC, no accessory-factor model needed'
+  - 'Accessory factors necessary: cooperativity alone fails (current F-05 evidence supports this); need HU/IHF/Fis time-gating'
+  - 'Both contribute: Hill n=3-5 PLUS time-gated access from accessory factors'
+  impact_if_wrong: 'Determines whether dnaa-03 v2 (cooperative model) is sufficient or whether dnaa-03 v3 (accessory-factor model) is also needed before dnaa-04 can proceed.'
+  blocks:
+  - dnaa-03 v2 implementation
+  - dnaa-04 initiation trigger (depends on robust oriC-fill mechanism)
+  requested_response: 'In-vivo cooperativity measurement DOI + accessory-factor expression timing data'
+  status: open
+  asked_to: TBD
+
+
 conclusion_logic:
   if_primary_tests_pass:
     implementation_status: "DnaA-box catalog + binding kinetics produce the expected titration → free DnaA rise pattern."

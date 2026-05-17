@@ -653,6 +653,53 @@ conclusion_verdicts:
       dnaa-01g-parca-te-derivation-audit.
 
 
+# ── Structured expert questions (ADDENDUM P3b-10) ───────────────────────
+# Turns ambient uncertainties into answerable questions with alternatives,
+# impact_if_wrong, blocking status, and requested response type.
+expert_decisions_needed:
+- id: dnaa-01-EQ-01
+  question: 'Does the Schmidt 2016 mass-spec 300-800 cellular DnaA per cell INCLUDE chromosomally-bound DnaA (i.e., DnaA bound at oriC, dnaAp, datA, chromosomal titration sites), or is it the soluble cytoplasmic fraction only?'
+  alternatives:
+  - "Total cellular (includes bound): then v2ecoli's 115 is a 4.8× shortfall regardless of binding"
+  - 'Soluble only: then v2ecoli (without dnaa-03 binding yet) reports the wrong pool; gap may shrink'
+  - 'Partial / extraction-protocol-dependent: bracket the uncertainty by including both bounds'
+  impact_if_wrong: 'Mis-attribution of the 4.8× count gap. If "soluble only", a chunk of the gap is observable_mismatch (P2-4 failure_cause) rather than miscalibration. dnaa-01g recipe (TE=20×, fc=0.7) may be over-correcting by a factor of 1.1-1.3.'
+  blocks:
+  - dnaa-01 conclusion_verdicts.biological_validation
+  - dnaa-02 calibration target derivation
+  - dnaa-01g-parca-te-derivation-audit reference target
+  requested_response: 'One paragraph from a mass-spec expert citing the 2016 paper extraction-protocol section + DOI'
+  status: open
+  asked_to: TBD
+
+- id: dnaa-01-EQ-02
+  question: 'What Hill cooperativity coefficient governs DnaA binding to its OWN promoter (dnaAp1 + dnaAp2)? Literature ranges from n=1 (independent) to n=4 (strong cooperative).'
+  alternatives:
+  - 'n ≤ 2 (mild cooperativity): Pearson autorepression r should saturate at ~-0.5 to -0.7'
+  - 'n = 3-4 (strong cooperativity): r could reach -0.8 or below; current r=-0.594 PASS may be coincidental'
+  - "Per-promoter different: dnaAp1 n=1, dnaAp2 n>1 — needs the autorepression_test_suite's dnaAp1_response + dnaAp2_response tests to discriminate"
+  impact_if_wrong: 'Sets the bar for "PASS" on autorepression-correlation. Currently we treat r ≤ -0.3 as PASS; the right threshold depends on n.'
+  blocks:
+  - dnaa-01 autorepression_test_suite calibration
+  requested_response: 'Literature recommendation + DOI; ideally a specific value or narrow range'
+  status: open
+  asked_to: TBD
+
+- id: dnaa-01-EQ-03
+  question: 'Is the ParCa-cached translation_efficiency for dnaA (7.23e-5, 8.6th-percentile of proteome) biologically correct, or an artifact of ribosome-profiling extraction conditions / cistron-vs-monomer indexing?'
+  alternatives:
+  - 'Correct: dnaA is genuinely translated at very low efficiency, and our 20× multiplier compensates for a real biological feature (?why?)'
+  - 'Artifact: ribosome profiling under-counts dnaA due to a methodological issue, and the multiplier reflects the correction'
+  - 'Indexing bug: ParCa uses the wrong column / cistron during the TE derivation'
+  impact_if_wrong: 'Whether the TE=20× recipe is a band-aid (artifact) or a documented physiological setting (correct). Affects whether dnaa-01g-parca-te-derivation-audit is necessary.'
+  blocks:
+  - dnaa-01g-parca-te-derivation-audit
+  - permanent promotion of TE multiplier to translation_efficiencies_adjustments.tsv
+  requested_response: 'ParCa author + ribosome-profiling reviewer; pointer to the EG10235 row in original Li 2014 / Schmidt 2016 data'
+  status: open
+  asked_to: TBD
+
+
 conclusion_logic:
   if_primary_tests_pass:
     implementation_status: v2ecoli baseline is functional at the layer-1 (total DnaA

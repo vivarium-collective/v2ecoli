@@ -296,9 +296,24 @@ def _check(value, expect: dict) -> tuple[bool, str]:
         return True, f"monotonic-decreasing (first={series[0]}, last={series[-1]})"
 
     if op in ("pearson_below", "pearson_above"):
+        # Per ADDENDUM P1b-4: distinguish FAIL from INSUFFICIENT_EVIDENCE.
+        # Returns a flagged-fail with reason starting "INSUFFICIENT_EVIDENCE:"
+        # which the caller (evaluate()) recognises and translates into the
+        # proper outcome enum. Conditions for INSUFFICIENT_EVIDENCE:
+        #   - fewer than MIN_PEARSON_SAMPLES samples (need enough variance to fit)
+        #   - zero variance in either signal (constant signal can't correlate)
+        MIN_PEARSON_SAMPLES = 30
+        n = min(len(value["x"]), len(value["y"]))
+        if n < MIN_PEARSON_SAMPLES:
+            return False, (f"INSUFFICIENT_EVIDENCE: n={n} samples below "
+                           f"threshold {MIN_PEARSON_SAMPLES} for reliable Pearson r")
+        if len(value["x"]) > 1 and statistics.stdev(value["x"]) == 0:
+            return False, "INSUFFICIENT_EVIDENCE: zero variance in x signal — sparse mRNA pattern"
+        if len(value["y"]) > 1 and statistics.stdev(value["y"]) == 0:
+            return False, "INSUFFICIENT_EVIDENCE: zero variance in y signal — sparse mRNA pattern"
         r = _pearson(value["x"], value["y"])
         if r is None:
-            return False, "insufficient variance to compute Pearson r"
+            return False, "INSUFFICIENT_EVIDENCE: Pearson r undefined (denominator zero)"
         thresh = expect["threshold"]
         if op == "pearson_below":
             return r < thresh, f"r={r:.3f} expected < {thresh}"
@@ -321,6 +336,23 @@ def _normalize_pass_if(pass_if: dict) -> dict:
     return pass_if
 
 
+def evaluate_v2(entry: dict, history: list,
+                *, monomer_ids: list[str] | None = None) -> tuple[str, str]:
+    """Evaluate one behavior entry; returns (outcome, message).
+
+    outcome is one of: 'PASS' | 'FAIL' | 'INSUFFICIENT_EVIDENCE' (per
+    ADDENDUM P1b-4 and the registered autorepression_test_result enum).
+    INSUFFICIENT_EVIDENCE is correctly distinguished from FAIL when the
+    underlying signal is too sparse or noise-free to evaluate the test
+    (per the biology review: "sparse mRNA data can return insufficient
+    evidence rather than false pass/fail").
+    """
+    passed, msg = evaluate(entry, history, monomer_ids=monomer_ids)
+    if not passed and msg.startswith('INSUFFICIENT_EVIDENCE:'):
+        return 'INSUFFICIENT_EVIDENCE', msg[len('INSUFFICIENT_EVIDENCE: '):]
+    return ('PASS' if passed else 'FAIL'), msg
+
+
 def evaluate(entry: dict, history: list,
              *, monomer_ids: list[str] | None = None) -> tuple[bool, str]:
     """Evaluate one behavior entry against a loaded history.
@@ -331,6 +363,11 @@ def evaluate(entry: dict, history: list,
 
     Returns (passed, message). Doesn't raise — caller decides whether the
     failure should be assert / xfail / skip.
+
+    Backwards-compat wrapper around evaluate_v2: an INSUFFICIENT_EVIDENCE
+    outcome is reported as `passed=False` with a message prefixed
+    'INSUFFICIENT_EVIDENCE: <reason>'. New callers should use evaluate_v2
+    to get the three-state outcome.
     """
     measure = entry["measure"]
     pass_if = entry.get("pass_if") or entry.get("expect")

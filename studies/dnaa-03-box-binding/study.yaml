@@ -1,0 +1,454 @@
+schema_version: 3
+name: dnaa-03-box-binding
+created: '2026-05-16'
+status: planning
+phase: Design
+baseline:
+- name: baseline-box-binding
+  composite: v2ecoli.composites.baseline_recipes.dnaa_03_with_box_binding
+  params:
+    seed: 0
+    cache_dir: out/cache
+visualizations:
+- name: dnaa_box_occupancy
+  address: local:DnaABoxOccupancyVisualization
+  config:
+    title: dnaa-03 — DnaA-box binding state trajectory + end-landscape
+    sample_every: 10
+- name: dnaa_state
+  address: local:DnaAStateVisualization
+  config:
+    title: dnaa-03 — DnaA pool feeding the box-binding mechanism
+    sample_every: 10
+purpose:
+  question: 'Does explicit DnaA binding to the 322 catalogued sites (307 chromosomal
+
+    + 11 oriC + 4 dnaAp) reproduce the textbook two-step oriC occupancy
+
+    pattern and the post-titration rise in free DnaA?
+
+    '
+  mechanism: 'Add a DnaA-box catalog (positions + affinity class + nucleotide-form
+
+    preference) to chromosome_structure. Add a binding Process that
+
+    updates DnaA_bound + the bound-nucleotide annotation each timestep
+
+    using affinity-class-specific KDs (1 nM high, 100 nM low).
+
+    '
+  expected_outcome: 'Chromosomal occupancy rises monotonically; oriC stays <20% bound
+
+    until chromosomal sites are >90% occupied; free DnaA rises sharply
+
+    after titration; oriC fills in two steps (high then low).
+
+    '
+pipeline_gate:
+  prerequisites:
+  - dnaa-02-atp-hydrolysis
+  enables:
+  - dnaa-04-initiation-mechanism
+  gate_status: blocked
+  gate_status_summary: Not yet started — study scaffolded from PLAN-time spec; no runs yet.
+  proceed_condition: 'Primary tests pass; oriC two-step pattern visible; oriC remains
+
+    unoccupied while chromosome titrates.
+
+    '
+simulation_set:
+- name: single-cycle-binding-dynamics
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation: null
+  condition: M9-minimal-glucose
+  duration_min: 60
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  readouts:
+  - chromosome_occupied_fraction
+  - oric_high_occupancy
+  - oric_low_occupancy
+  - free_dnaA
+  applies_tests:
+  - chromosomal-occupancy-monotonic
+  - oric-stays-unoccupied-until-chromosome-saturates
+  - free-dnaa-rises-after-titration
+  - oric-occupancy-is-two-step
+  status: gated
+  blocked_by_requirements:
+  - req-1-box-catalog
+  - req-2-binding-kinetics
+- name: high-initial-dnaA
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
+    initial_dnaA_count_per_cell: 5000
+  condition: M9-minimal-glucose
+  duration_min: 60
+  seeds:
+  - 0
+  - 1
+  - 2
+  readouts:
+  - dnaap_occupancy
+  - dnaA_tx_init_events
+  applies_tests:
+  - high-initial-dnaa-autorepression
+  status: gated
+  blocked_by_requirements:
+  - req-3-initial-pool-hook
+  - req-1-box-catalog
+  - req-2-binding-kinetics
+- name: chromosomal-boxes-only
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
+    enable_oric_binding: false
+  condition: M9-minimal-glucose
+  duration_min: 60
+  seeds:
+  - 0
+  - 1
+  - 2
+  readouts:
+  - free_dnaA
+  applies_tests:
+  - chromosomal-only-no-oric-fill
+  status: gated
+  blocked_by_requirements:
+  - req-4-oric-toggle
+  - req-1-box-catalog
+  - req-2-binding-kinetics
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_state_variables:
+  - id: unique.DnaA_box (with role + affinity_class + bound_form attributes)
+    kind: unique
+  new_processes:
+  - name: DnaaBoxBinding
+    kind: Process
+    requirement_id: req-2-binding-kinetics
+  new_parameters:
+  - name: dnaA_box_binding_kd_nM
+    default:
+      high: 1.0
+      low: 100.0
+  - name: enable_oric_binding
+    default: true
+  - name: initial_dnaA_count_per_cell
+    default: null
+  new_listeners:
+  - name: dnaA_binding
+    emits:
+    - agents.<id>.listeners.dnaA_binding.{chromosome,oric,dnaap,free_total}
+  modified_processes:
+  - 'chromosome_structure: seed DnaA_boxes from data/dnaa_box_catalog.tsv at cell birth + on replication.'
+key_assumptions:
+- 307 chromosomal consensus boxes (TTWTNCACA) — Roth 1998 / Olivi 2025.
+- '11 oriC boxes: R1, R2, R4 high-affinity (1 nM); R5M, τ2, I1-3, C1-3 low (100 nM).'
+- '4 dnaAp boxes: 1, 2 high; b, c low.'
+- Both DnaA-ATP and DnaA-ADP bind high-affinity sites; low-affinity sites require DnaA-ATP.
+- DNA binding does NOT alter intrinsic hydrolysis rate (Sekimizu 1987).
+readouts:
+- name: chromosome_occupied_fraction
+  store_path: agents.0.listeners.dnaA_binding.chromosome.occupied_fraction
+  units: fraction
+  status: derived-needed
+  blocked_by_requirements:
+  - req-2-binding-kinetics
+- name: oric_high_occupancy
+  store_path: agents.0.listeners.dnaA_binding.oric.high_affinity_occupied
+  units: fraction
+  status: derived-needed
+  blocked_by_requirements:
+  - req-2-binding-kinetics
+- name: oric_low_occupancy
+  store_path: agents.0.listeners.dnaA_binding.oric.low_affinity_occupied
+  units: fraction
+  status: derived-needed
+  blocked_by_requirements:
+  - req-2-binding-kinetics
+- name: free_dnaA
+  store_path: agents.0.listeners.dnaA_binding.free_total
+  units: molecules/cell
+  status: derived-needed
+  blocked_by_requirements:
+  - req-2-binding-kinetics
+- name: dnaap_occupancy
+  store_path: agents.0.listeners.dnaA_binding.dnaap.occupied
+  units: fraction
+  status: derived-needed
+  blocked_by_requirements:
+  - req-2-binding-kinetics
+- name: dnaA_tx_init_events
+  store_path: agents.0.listeners.rnap_data.rna_init_event
+  index_by:
+    type: tu_id
+    value: EG10235_RNA
+  units: events/step
+  status: available
+behavior_tests:
+- name: chromosomal-occupancy-monotonic
+  classification: primary
+  description: Chromosomal box occupancy rises monotonically as DnaA accumulates.
+  measure:
+    kind: listener_path
+    path: listeners.dnaA_binding.chromosome.occupied_fraction
+    reduce: series
+    window: full
+  pass_if:
+    op: monotonic_increasing
+    allow_dip_pct: 5
+  units: fraction
+  requires_simulation: single-cycle-binding-dynamics
+  cites:
+  - Roth1998MolMicrobiol
+  - Olivi2025NatCommun
+- name: oric-stays-unoccupied-until-chromosome-saturates
+  classification: primary
+  description: oriC high-affinity occupancy stays <20% until chromosomal sites are >90% occupied (the titration prediction).
+  measure:
+    kind: cross_threshold
+    series_x:
+      kind: listener_path
+      path: listeners.dnaA_binding.chromosome.occupied_fraction
+    series_y:
+      kind: listener_path
+      path: listeners.dnaA_binding.oric.high_affinity_occupied
+    when_x_crosses: 0.9
+  pass_if:
+    op: y_was_at_most
+    value: 0.2
+  units: fraction
+  requires_simulation: single-cycle-binding-dynamics
+  cites:
+  - Hansen1991ResMicrobiol
+  - Olivi2025NatCommun
+  - Berger2022NatCommun
+- name: free-dnaa-rises-after-titration
+  classification: supporting
+  description: Free DnaA pool rises ≥1.5× over the run.
+  measure:
+    kind: listener_path
+    path: listeners.dnaA_binding.free_total
+    reduce: first_and_last
+    window: full
+  pass_if:
+    op: ratio_at_least
+    ratio: 1.5
+  units: ratio
+  requires_simulation: single-cycle-binding-dynamics
+  cites:
+  - Hansen1991ResMicrobiol
+  - Olivi2025NatCommun
+- name: oric-occupancy-is-two-step
+  classification: supporting
+  description: oriC high-affinity sites cross 50% occupancy ≥60s before low-affinity sites.
+  measure:
+    kind: time_lag_between
+    series_a:
+      kind: listener_path
+      path: listeners.dnaA_binding.oric.high_affinity_occupied
+    series_b:
+      kind: listener_path
+      path: listeners.dnaA_binding.oric.low_affinity_occupied
+    threshold: 0.5
+  pass_if:
+    op: at_least
+    value: 60.0
+  units: seconds
+  requires_simulation: single-cycle-binding-dynamics
+  cites:
+  - Katayama2017Frontiers
+  - Kasho2023IJMS
+  - Leonard2015FrontMicrobiol
+- name: high-initial-dnaa-autorepression
+  classification: diagnostic
+  description: Starting with 5000 DnaA → bound-DnaA and tx-init-events anti-correlate (r ≤ -0.3).
+  measure:
+    kind: xy_correlation
+    x:
+      kind: listener_path
+      path: listeners.dnaA_binding.dnaap.occupied
+    y:
+      kind: listener_sum
+      path: listeners.rnap_data.rna_init_event
+    window: second_half
+  pass_if:
+    op: pearson_at_most
+    threshold: -0.3
+  units: dimensionless r
+  requires_simulation: high-initial-dnaA
+  cites:
+  - Speck1999EMBO
+  - Saggioro2013BiochemJ
+- name: chromosomal-only-no-oric-fill
+  classification: diagnostic
+  description: With oriC binding disabled, free DnaA median is ≥3× a counterfactual baseline (cross-run).
+  measure:
+    kind: listener_path
+    path: listeners.dnaA_binding.free_total
+    reduce: median
+    window: second_half
+  pass_if:
+    op: at_least
+    value: 3.0
+    units: ratio_vs_baseline
+  units: ratio
+  requires_simulation: chromosomal-boxes-only
+  cites:
+  - Hansen1991ResMicrobiol
+abstraction_level:
+  name: DnaA-box occupancy with per-class affinity, no cooperativity (v1)
+  resolves:
+  - site existence + coordinate distribution
+  - crude affinity classification (high/med/low)
+  does_not_resolve:
+  - cooperative binding at oriC — v2 would add Hill exponent
+  - accessory-factor dependence (HU/IHF/Fis)
+  - nucleotide-form preference (ATP vs ADP) — needs dnaa-02 three-state pool fully integrated
+  - release dynamics on fork passage — needs dnaa-04+
+conclusion_verdicts:
+  regression_compatibility:
+    result: PENDING
+    basis: No runs yet — study scaffolded from PLAN-time spec.
+  biological_validation:
+    result: PENDING
+    basis: No runs yet — study scaffolded from PLAN-time spec.
+    blocking_evidence_needed:
+    - cooperative-binding Step implementation (or accessory-factor model)
+    - site-mutation perturbation (remove subset, observe occupancy shift)
+    - in-vivo cooperativity measurement from literature (open expert question)
+  explanatory_gain:
+    result: PENDING
+    basis: No runs yet — study scaffolded from PLAN-time spec.
+expert_decisions_needed:
+- id: dnaa-03-EQ-01
+  question: 'v2ecoli''s motif scan finds 456 active DnaA boxes (F-02). Literature reports ~322 (307 chromosomal + 11 oriC
+    + 4 dnaAp). What is the correct catalog: keep the 456 v2ecoli set (broader functional definition), filter to the 322 curated
+    set (stricter), or use a hybrid?'
+  alternatives:
+  - 'Use v2ecoli''s 456: trust the PWM scan; the extra ~134 sites are real low-affinity titration buffer'
+  - 'Filter to curated 322: experimental literature only; the extra 134 are PWM false-positives'
+  - 'Hybrid: 322 confirmed + 134 flagged as "candidate" with low confidence, region_type=other'
+  impact_if_wrong: Affects titration-buffer size by ~40%, which directly affects oriC fill timing in the cooperative-binding
+    model.
+  blocks:
+  - dnaa-03 implementation choice between v1 (no cooperativity) and v2 (with)
+  - dnaa-04 initiation timing (depends on titration-buffer saturation curve)
+  requested_response: Cross-reference Roth 1998 + Hansen 2018 box lists against v2ecoli's motif_coordinates output; flag agreements
+    + disagreements
+  status: open
+  asked_to: TBD
+- id: dnaa-03-EQ-02
+  question: Does dnaa-03's textbook two-step oriC fill pattern (chromosomal sites saturate first, then oriC fills sharply)
+    require cooperative DnaA-ATP binding at oriC (Hill n=5-10) OR can it be explained by accessory factors (HU, IHF, Fis)
+    that gate oriC access until specific cell-cycle windows?
+  alternatives:
+  - 'Cooperativity sufficient: implement Hill n=5-10 at oriC, no accessory-factor model needed'
+  - 'Accessory factors necessary: cooperativity alone fails (current F-05 evidence supports this); need HU/IHF/Fis time-gating'
+  - 'Both contribute: Hill n=3-5 PLUS time-gated access from accessory factors'
+  impact_if_wrong: Determines whether dnaa-03 v2 (cooperative model) is sufficient or whether dnaa-03 v3 (accessory-factor
+    model) is also needed before dnaa-04 can proceed.
+  blocks:
+  - dnaa-03 v2 implementation
+  - dnaa-04 initiation trigger (depends on robust oriC-fill mechanism)
+  requested_response: In-vivo cooperativity measurement DOI + accessory-factor expression timing data
+  status: open
+  asked_to: TBD
+conclusion_logic:
+  if_primary_tests_pass:
+    implementation_status: DnaA-box catalog + binding kinetics produce the expected titration → free DnaA rise pattern.
+    biological_validation: Reproduces Hansen 1991's titration prediction + Olivi 2025's measurements.
+    pipeline_unblocks:
+    - dnaa-04-initiation-mechanism
+  if_primary_tests_fail:
+    diagnose:
+    - 'Monotonic fail: binding kinetics may be too slow / too fast.'
+    - 'Two-step fail: high vs low KDs not separated enough.'
+    - 'Free-DnaA-rise fail: total DnaA pool too small (recheck dnaa-01 calibration).'
+    block_downstream: dnaa-04 mechanism needs working titration.
+limitations:
+- Equilibrium (or Gillespie) binding; ignores cooperativity between adjacent boxes.
+- DnaAp box-specific occupancy (boxes 1, 2, b, c individually) not validated — only aggregate.
+- Single doubling time; box dynamics across multiple cycles untested.
+- IHF / Fis facilitation of low-affinity binding not modeled (dnaa-04 may add).
+implementation_requirements:
+- id: req-1-box-catalog
+  kind: reference_data
+  title: DnaA-box catalog (322 sites with affinity + form preference)
+  effort: M
+  description: 'Author v2ecoli/data/dnaa_box_catalog.tsv listing 307 chromosomal +
+
+    11 oriC + 4 dnaAp sites with columns: box_id, position, region,
+
+    affinity (high/low), bound_nucleotide_preference (atp/both).
+
+    Seed chromosome_structure.DnaA_boxes from this catalog.
+
+    '
+  steps:
+  - Extract 307 chromosomal positions from Olivi 2025 supplementary.
+  - Annotate 11 oriC boxes (R1/R2/R4/R5M/τ2/I1-3/C1-3) per Katayama 2017.
+  - Annotate 4 dnaAp boxes per Speck 1999.
+  - 'Validate: counts match 307 / 3+8 / 2+2.'
+  unblocks:
+  - all dnaa-03 readouts and behavior_tests
+- id: req-2-binding-kinetics
+  kind: process
+  title: DnaA-box binding Process
+  effort: L
+  description: 'Process that each timestep updates DnaA_bound + bound_form on each
+
+    box using affinity-class KDs + free-DnaA pool. Form-aware so
+
+    dnaa-04''s fork-passage release returns the correct species.
+
+    '
+  steps:
+  - Create v2ecoli/processes/dnaa_box_binding.py.
+  - 'Composite param dnaA_box_binding_kd_nM: {high: 1.0, low: 100.0}.'
+  - Update DnaA_bound + bound_form on each box per timestep.
+  - Emit listeners.dnaA_binding.{chromosome,oric,dnaap,free_total}.
+  unblocks:
+  - all dnaa-03 readouts and behavior_tests
+  - dnaa-04 mechanism trigger
+- id: req-3-initial-pool-hook
+  kind: parameter_hook
+  title: initial_dnaA_count_per_cell override
+  effort: S
+  description: Composite-level override for the cell-birth DnaA pool.
+  unblocks:
+  - simulation_set.high-initial-dnaA
+- id: req-4-oric-toggle
+  kind: parameter_hook
+  title: enable_oric_binding toggle
+  effort: XS
+  description: Composite-level boolean to disable oriC + dnaAp binding (pure titration control).
+  unblocks:
+  - simulation_set.chromosomal-boxes-only
+bibliography:
+  expert:
+  - replication_initiation_molecular_info
+  bib_keys:
+  - Roth1998MolMicrobiol
+  - Olivi2025NatCommun
+  - Hansen1991ResMicrobiol
+  - Berger2022NatCommun
+  - Katayama2017Frontiers
+  - Kasho2023IJMS
+  - Leonard2015FrontMicrobiol
+  - Speck1999EMBO
+  - Saggioro2013BiochemJ
+  - Schaper1995JBC
+  - Hansen2006JMB
+parent_studies:
+- study: dnaa-02-atp-hydrolysis
+  condition: tests-passed
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

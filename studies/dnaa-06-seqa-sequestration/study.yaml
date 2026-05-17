@@ -1,0 +1,419 @@
+schema_version: 3
+name: dnaa-06-seqa-sequestration
+created: '2026-05-16'
+status: planning
+phase: Design
+baseline:
+- name: baseline-with-seqa
+  composite: v2ecoli.composites.baseline_recipes.dnaa_06_with_seqa_sequestration
+  params:
+    seed: 0
+    cache_dir: out/cache
+visualizations:
+- name: dnaa_state
+  address: local:DnaAStateVisualization
+  config:
+    title: dnaa-06 — DnaA pool stability under SeqA sequestration window
+    sample_every: 10
+- name: dnaa_box_occupancy
+  address: local:DnaABoxOccupancyVisualization
+  config:
+    title: dnaa-06 — oriC box occupancy + sequestration state
+    sample_every: 10
+purpose:
+  question: 'Does SeqA sequestration of newly replicated, hemimethylated oriC
+
+    (~10 min window) prevent reinitiation within the same cell cycle,
+
+    and does it buffer the dnaA-promoter transient activity spike from
+
+    locus duplication?
+
+    '
+  mechanism: 'Track GATC methylation state at oriC + dnaAp (full / hemi / un).
+
+    On replication-fork passage set affected GATC sites to hemi; Dam
+
+    re-methylates over time. Add a SeqA Process that flags oriC /
+
+    dnaAp as sequestered when local hemimethylation density crosses a
+
+    threshold; block DnaA box binding (from dnaa-03) at sequestered loci.
+
+    '
+  expected_outcome: 'Wildtype: exactly one initiation per generation; SeqA-bound at oriC
+
+    for ~10 min post-initiation. no-SeqA knockout: ≥1.5 init/gen
+
+    (premature reinitiation). dnaAp transient activity spike dampened
+
+    by ≥40% with SeqA active.
+
+    '
+pipeline_gate:
+  prerequisites:
+  - dnaa-04-initiation-mechanism
+  enables: []
+  gate_status: blocked
+  gate_status_summary: Not yet started — study scaffolded from PLAN-time spec; no runs yet.
+  proceed_condition: 'Primary tests pass; SeqA window length matches literature
+
+    (8-12 min); no-SeqA variant produces reinitiation.
+
+    '
+simulation_set:
+- name: wildtype-sequestration-window
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation: null
+  condition: M9-minimal-glucose
+  duration_min: 120
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  readouts:
+  - oric_sequestered
+  - oric_hemimethylated_fraction
+  - initiation_events
+  applies_tests:
+  - seqa-sequestration-lasts-10-minutes
+  - wildtype-one-initiation-per-generation
+  status: gated
+  blocked_by_requirements:
+  - req-1-methylation-state
+  - req-2-seqa-process
+- name: seqa-knockout
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
+    seqa_active: false
+  condition: M9-minimal-glucose
+  duration_min: 120
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  readouts:
+  - initiation_events
+  - dnaap_sequestered
+  - dnaA_tx_init_events
+  applies_tests:
+  - no-seqa-causes-reinitiation
+  - dnaap-sequestration-dampens-tx-spike
+  status: gated
+  blocked_by_requirements:
+  - req-2-seqa-process
+- name: extended-sequestration
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
+    seqa_sequestration_min: 20.0
+  condition: M9-minimal-glucose
+  duration_min: 180
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  readouts:
+  - oric_sequestered
+  - initiation_events
+  - time_between_initiations
+  applies_tests:
+  - long-sequestration-delays-reinitiation
+  status: gated
+  blocked_by_requirements:
+  - req-2-seqa-process
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_state_variables:
+  - GATC methylation state per site (in unique.GATC or as attribute on existing chromosome_segment)
+  new_processes:
+  - name: DamMethylation
+    kind: Step
+    requirement_id: req-1-methylation-state
+  - name: SeqaSequestration
+    kind: Process
+    requirement_id: req-2-seqa-process
+  new_parameters:
+  - name: seqa_active
+    default: true
+  - name: seqa_sequestration_min
+    default: 10.0
+  - name: dam_remethylation_rate_per_min
+  new_listeners:
+  - name: seqa
+    emits:
+    - listeners.seqa.{oric_sequestered_bool, dnaap_sequestered_bool, oric_hemimethylated_fraction}
+  modified_processes:
+  - 'chromosome_replication: on fork-cross-GATC, set daughter strand to hemi-methylated.'
+  - 'DnaaBoxBinding (from dnaa-03): block binding at sequestered loci.'
+key_assumptions:
+- Dam methylates GATC adenines on both strands; post-replication oriC is transiently hemimethylated.
+- SeqA binds hemimethylated GATC clusters cooperatively; binds >10 sites near oriC.
+- Sequestration window ~10 min (~1/3 of doubling at rapid growth).
+- SeqA at dnaAp transiently buffers gene-dosage doubling of dnaA transcription.
+readouts:
+- name: oric_sequestered
+  store_path: agents.0.listeners.seqa.oric_sequestered_bool
+  units: bool
+  status: derived-needed
+  blocked_by_requirements:
+  - req-2-seqa-process
+- name: oric_hemimethylated_fraction
+  store_path: agents.0.listeners.seqa.oric_hemimethylated_fraction
+  units: fraction
+  status: derived-needed
+  blocked_by_requirements:
+  - req-1-methylation-state
+- name: dnaap_sequestered
+  store_path: agents.0.listeners.seqa.dnaap_sequestered_bool
+  units: bool
+  status: derived-needed
+  blocked_by_requirements:
+  - req-3-dnaap-listener
+- name: initiation_events
+  store_path: agents.0.listeners.replication.initiation_events
+  units: events
+  status: derived-needed
+- name: time_between_initiations
+  store_path: agents.0.listeners.replication.interinitiation_min
+  units: min
+  status: derived-needed
+- name: dnaA_tx_init_events
+  store_path: agents.0.listeners.rnap_data.rna_init_event
+  index_by:
+    type: tu_id
+    value: EG10235_RNA
+  units: events/step
+  status: available
+behavior_tests:
+- name: seqa-sequestration-lasts-10-minutes
+  classification: primary
+  description: Post-initiation, oriC stays SeqA-sequestered for 8-12 min.
+  measure:
+    kind: event_duration
+    event_start: oriC_sequestered_true
+    event_end: oriC_sequestered_false
+    reduce: median
+    window: post_initiation_30min
+  pass_if:
+    op: in_range
+    low: 480.0
+    high: 720.0
+  units: seconds
+  requires_simulation: wildtype-sequestration-window
+  cites:
+  - Katayama2017Frontiers
+  - Leonard2015FrontMicrobiol
+- name: wildtype-one-initiation-per-generation
+  classification: primary
+  description: With SeqA active, exactly one initiation per cell cycle.
+  measure:
+    kind: event_count_per_window
+    event: replication_initiation
+    window_kind: generation
+  pass_if:
+    op: in_range
+    low: 0.95
+    high: 1.05
+  units: events/generation
+  requires_simulation: wildtype-sequestration-window
+  cites:
+  - Katayama2017Frontiers
+  - Hansen1991ResMicrobiol
+- name: no-seqa-causes-reinitiation
+  classification: primary
+  description: Without SeqA, ≥1.5 init/generation (premature reinitiation).
+  measure:
+    kind: event_count_per_window
+    event: replication_initiation
+    window_kind: generation
+  pass_if:
+    op: at_least
+    value: 1.5
+  units: events/generation
+  requires_simulation: seqa-knockout
+  cites:
+  - Katayama2017Frontiers
+  - Leonard2015FrontMicrobiol
+- name: dnaap-sequestration-dampens-tx-spike
+  classification: diagnostic
+  description: no-SeqA / WT ratio of peak dnaA tx-init rate post-initiation ≥ 1.4× (SeqA dampens by ≥40%).
+  measure:
+    kind: cross_run_ratio
+    series:
+      kind: listener_sum
+      path: listeners.rnap_data.rna_init_event
+    reduce: max
+    window: post_initiation_10min
+  pass_if:
+    op: at_least
+    value: 1.4
+  units: ratio
+  requires_simulation: seqa-knockout
+  cites:
+  - Speck1999EMBO
+  - Saggioro2013BiochemJ
+- name: long-sequestration-delays-reinitiation
+  classification: diagnostic
+  description: Long-sequestration variant delays mean inter-initiation by ≥10 min vs baseline.
+  measure:
+    kind: cross_run_delta
+    series:
+      kind: listener_path
+      path: listeners.replication.interinitiation_min
+    reduce: mean
+  pass_if:
+    op: at_least
+    value: 10.0
+  units: minutes
+  requires_simulation: extended-sequestration
+  cites:
+  - Katayama2017Frontiers
+  - Leonard2015FrontMicrobiol
+abstraction_level:
+  versions:
+  - name: seqa_v0_fixed_timer
+    resolves:
+    - one-initiation-per-generation gate (10-min lockout window)
+    does_not_resolve:
+    - why 10 min
+    - methylation kinetics
+    - cooperative binding
+  - name: seqa_v1_methylation_state
+    resolves:
+    - Dam re-methylation kinetics, SeqA binding to hemimethylated GATC
+    does_not_resolve:
+    - cooperative SeqA-Dam dynamics
+  - name: seqa_v2_cooperative_seqa_dam
+    resolves:
+    - full SeqA-Dam mutual regulation
+    does_not_resolve:
+    - inter-strain SeqA binding-energy variation
+  current_implementation: not_yet_implemented
+conclusion_verdicts:
+  regression_compatibility:
+    result: PENDING
+    basis: No runs yet — study scaffolded from PLAN-time spec.
+  biological_validation:
+    result: PENDING
+    basis: No runs yet — study scaffolded from PLAN-time spec.
+    blocking_evidence_needed:
+    - SeqASequestration Step implementation + oriC schema extension
+    - seqA-knockout perturbation showing reinitiation events
+    - time-since-initiation distribution matching Lu1994 / Kang2003 ~10-min window
+  explanatory_gain:
+    result: PENDING
+    basis: No runs yet — study scaffolded from PLAN-time spec.
+expert_decisions_needed:
+- id: dnaa-06-EQ-01
+  question: 'What sets the ~10-minute sequestration window length in vivo: SeqA dissociation kinetics, Dam re-methylation
+    kinetics, or competitive DNA binding?'
+  alternatives:
+  - 'SeqA dissociation rate-limiting: window ≈ 1 / k_off(SeqA). v0 fixed timer is a fine approximation.'
+  - 'Dam re-methylation rate-limiting: window ≈ time for Dam to re-methylate the cluster. v1 methylation model required to
+    capture.'
+  - 'Competitive DNA binding: window depends on SeqA pool size + chromosomal GATC site distribution. v2 cooperative model
+    required.'
+  impact_if_wrong: Determines whether v0 (fixed timer) is sufficient or v1/v2 required. Affects scope of dnaa-06 implementation.
+  blocks:
+  - dnaa-06 implementation version choice (v0 / v1 / v2)
+  requested_response: Lu 1994 + Kang 2003 rate-limiting analysis; ideally an in-vivo time-resolved measurement
+  status: open
+  asked_to: TBD
+- id: dnaa-06-EQ-02
+  question: Does SeqA sequester ONLY oriC, or also the dnaAp promoter region (which has GATC sites)? If both, does dnaA expression
+    also drop during the SeqA window?
+  alternatives:
+  - 'Only oriC: dnaa expression continues during the window'
+  - 'oriC + dnaAp: dnaa transcription is silenced during the window'
+  - 'oriC + dnaAp + datA: maximum effect; window also affects DDAH dynamics (dnaa-05 interaction)'
+  impact_if_wrong: Cross-couples to dnaa-01 (autorepression dynamics if dnaAp is bound) and dnaa-05 (DDAH dynamics if datA
+    is bound).
+  blocks:
+  - dnaa-06 oriC.sequestered_until vs dnaAp.sequestered_until schema choice
+  requested_response: Hansen 2018 review + specific SeqA-binding-site catalog citations
+  status: open
+  asked_to: TBD
+conclusion_logic:
+  if_primary_tests_pass:
+    implementation_status: SeqA sequestration prevents reinitiation in v2ecoli.
+    biological_validation: Reproduces ~10-min window + once-per-generation prediction; no-SeqA phenotype matches ΔseqA reinitiation
+      observations.
+    pipeline_unblocks:
+    - Investigation acceptance criterion wildtype-zero-reinitiation.
+  if_primary_tests_fail:
+    diagnose:
+    - 'Window too long/short: Dam re-methylation rate is wrong, or SeqA cooperativity threshold mistuned.'
+    - 'no-SeqA WITHOUT reinitiation: the binding-prevention hook isn''t wired into dnaa-03''s box binding correctly.'
+    - 'WT > 1 init/gen: SeqA isn''t actually blocking dnaa-04''s mechanism trigger.'
+limitations:
+- SeqA modeled as a binary sequestered/free state on oriC + dnaAp; doesn't track individual SeqA multimers.
+- Dam re-methylation rate is a single global parameter, not site-specific.
+- Only oriC + dnaAp; other GATC-rich loci (e.g., other promoters) ignored.
+- Slow growth only; rapid-growth regime (where sequestration is ~1/3 of doubling) not validated.
+implementation_requirements:
+- id: req-1-methylation-state
+  kind: state_variables
+  title: GATC methylation state tracking
+  effort: S
+  description: 'Add a methylation_state ∈ {fully, hemi-top, hemi-bottom, un} attribute
+
+    on GATC sites in chromosome_structure (or a new unique.GATC). Add
+
+    Dam re-methylation Step with rate dam_remethylation_rate_per_min.
+
+    '
+  unblocks:
+  - oric_hemimethylated_fraction readout
+  - seqa-sequestration-lasts-10-minutes test
+- id: req-2-seqa-process
+  kind: process
+  title: SeqaSequestration Process
+  effort: M
+  description: 'Process that flags oriC + dnaAp as sequestered when local
+
+    hemimethylation density crosses a threshold. Hooks into
+
+    DnaaBoxBinding (dnaa-03''s req-2) to BLOCK binding at sequestered
+
+    loci.
+
+    '
+  steps:
+  - Create v2ecoli/processes/seqa.py.
+  - 'Composite params: seqa_active: bool, seqa_sequestration_min: float = 10.0.'
+  - 'Listener: emit listeners.seqa.oric_sequestered_bool + .dnaap_sequestered_bool.'
+  - 'Behavior: WT → ≤1 init/gen; no-SeqA → >1.5 init/gen.'
+  unblocks:
+  - all dnaa-06 behavior_tests
+- id: req-3-dnaap-listener
+  kind: listener
+  title: dnaAp-specific sequestration listener
+  effort: XS
+  description: Second listener output for SeqA binding at dnaAp's GATC cluster.
+  unblocks:
+  - dnaap-sequestration-dampens-tx-spike
+bibliography:
+  expert:
+  - replication_initiation_molecular_info
+  bib_keys:
+  - Katayama2017Frontiers
+  - Leonard2015FrontMicrobiol
+  - Kasho2023IJMS
+  - Hansen1991ResMicrobiol
+  - Speck1999EMBO
+  - Saggioro2013BiochemJ
+conclusion_phase_decide_at: 2026-05-17T09:40Z
+parent_studies:
+- study: dnaa-04-initiation-mechanism
+  condition: tests-passed
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

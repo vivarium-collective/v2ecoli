@@ -1,0 +1,468 @@
+schema_version: 3
+name: dnaa-05-rida-ddah-dars
+created: '2026-05-16'
+status: planning
+phase: Design
+baseline:
+- name: baseline-extrinsic
+  composite: v2ecoli.composites.baseline_recipes.dnaa_05_full_nucleotide_cycle
+  params:
+    seed: 0
+    cache_dir: out/cache
+visualizations:
+- name: dnaa_state
+  address: local:DnaAStateVisualization
+  config:
+    title: dnaa-05 — DnaA-ATP/ADP cycle with RIDA/DDAH/DARS contributions
+    sample_every: 10
+purpose:
+  question: 'Does adding the three extrinsic DnaA-ATP/ADP conversion pathways
+
+    (RIDA replisome-coupled hydrolysis, DDAH datA-dependent hydrolysis,
+
+    DARS1/DARS2 reactivation) produce DnaA-ATP-fraction oscillations
+
+    through the cell cycle and tighten the inter-initiation timing
+
+    distribution vs intrinsic-only (dnaa-02)?
+
+    '
+  mechanism: 'Add three new Processes: RIDA (rate ∝ replisome count), DDAH
+
+    (rate ∝ datA copy number), DARS1 + DARS2 (rate ∝ each locus''s
+
+    copy number). Each modulates the existing DnaA-ATP / ADP species
+
+    introduced in dnaa-02.
+
+    '
+  expected_outcome: 'Cell-cycle ATP-fraction swing of ≥0.15 peak-to-trough. Inter-
+
+    initiation CV narrows by ≥30% vs the dnaa-02 intrinsic-only
+
+    baseline. Single-knockout phenotypes: no-DDAH = earlier initiation,
+
+    no-DARS = ATP-fraction fails to recover.
+
+    '
+pipeline_gate:
+  prerequisites:
+  - dnaa-02-atp-hydrolysis
+  - dnaa-04-initiation-mechanism
+  enables: []
+  gate_status: blocked
+  gate_status_summary: Not yet started — study scaffolded from PLAN-time spec; no runs yet.
+  proceed_condition: 'Primary tests pass. dnaa-04 already has a working mechanism baseline
+
+    that this can compare against.
+
+    '
+simulation_set:
+- name: full-cycle-with-extrinsic
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation: null
+  condition: M9-minimal-glucose
+  duration_min: 240
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  readouts:
+  - dnaA_atp_fraction
+  - rida_flux
+  - ddah_flux
+  - dars1_flux
+  - dars2_flux
+  - replisome_count
+  - initiation_events
+  applies_tests:
+  - dnaa-atp-fraction-oscillates
+  - inter-initiation-cv-narrows-vs-intrinsic-only
+  - dnaa-atp-anti-correlated-with-replisomes
+  status: gated
+  blocked_by_requirements:
+  - req-1-rida
+  - req-2-ddah
+  - req-3-dars
+- name: knockout-DDAH
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
+    ddah_rate_per_min_per_data: 0.0
+  condition: M9-minimal-glucose
+  duration_min: 240
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  readouts:
+  - initiation_mass
+  - dnaA_atp_fraction
+  - ddah_flux
+  applies_tests:
+  - no-DDAH-early-initiation
+  status: gated
+  blocked_by_requirements:
+  - req-2-ddah
+- name: knockout-DARS
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
+    dars1_rate_per_min_per_locus: 0.0
+    dars2_rate_per_min_per_locus: 0.0
+  condition: M9-minimal-glucose
+  duration_min: 240
+  seeds:
+  - 0
+  - 1
+  - 2
+  readouts:
+  - dnaA_atp_fraction
+  - dars1_flux
+  - dars2_flux
+  applies_tests:
+  - no-DARS-fails-to-recover-atp
+  status: gated
+  blocked_by_requirements:
+  - req-3-dars
+- name: single-pathway-knockouts-comparison
+  base_model: v2ecoli.composites.baseline.baseline
+  perturbation:
+    sweep:
+    - rida_rate_per_min_per_fork: 0.0
+    - dars1_rate_per_min_per_locus: 0.0
+    - dars2_rate_per_min_per_locus: 0.0
+  condition: sweep
+  duration_min: 240
+  seeds:
+  - 0
+  - 1
+  - 2
+  readouts:
+  - dnaA_atp_fraction
+  - rida_flux
+  - dars1_flux
+  - dars2_flux
+  applies_tests: []
+  status: gated
+  blocked_by_requirements:
+  - req-1-rida
+  - req-3-dars
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_processes:
+  - name: DnaaRIDA
+    kind: Step
+    requirement_id: req-1-rida
+  - name: DnaaDDAH
+    kind: Step
+    requirement_id: req-2-ddah
+  - name: DnaaDARS1
+    kind: Step
+    requirement_id: req-3-dars
+  - name: DnaaDARS2
+    kind: Step
+    requirement_id: req-3-dars
+  new_parameters:
+  - name: rida_rate_per_min_per_fork
+  - name: ddah_rate_per_min_per_data
+  - name: dars1_rate_per_min_per_locus
+  - name: dars2_rate_per_min_per_locus
+  new_listeners:
+  - name: dnaA_cycle
+    emits:
+    - listeners.dnaA_cycle.{rida_flux,ddah_flux,dars1_flux,dars2_flux}
+key_assumptions:
+- RIDA activity ∝ replisome count (β-clamp residence on lagging strand).
+- DDAH activity ∝ datA copy number; IHF saturating (not rate-limiting).
+- DARS1 < DARS2 in vivo (Kasho 2014 NAR).
+- DARS2 IHF + Fis cell-cycle modulation modeled as continuous rate modifier (not a hard gate).
+readouts:
+- name: dnaA_atp_fraction
+  store_path: agents.0.listeners.dnaA_cycle.atp_fraction
+  units: fraction
+  status: derived-needed
+- name: rida_flux
+  store_path: agents.0.listeners.dnaA_cycle.rida_flux
+  units: molecules/min
+  status: derived-needed
+  blocked_by_requirements:
+  - req-1-rida
+- name: ddah_flux
+  store_path: agents.0.listeners.dnaA_cycle.ddah_flux
+  units: molecules/min
+  status: derived-needed
+  blocked_by_requirements:
+  - req-2-ddah
+- name: dars1_flux
+  store_path: agents.0.listeners.dnaA_cycle.dars1_flux
+  units: molecules/min
+  status: derived-needed
+  blocked_by_requirements:
+  - req-3-dars
+- name: dars2_flux
+  store_path: agents.0.listeners.dnaA_cycle.dars2_flux
+  units: molecules/min
+  status: derived-needed
+  blocked_by_requirements:
+  - req-3-dars
+- name: replisome_count
+  store_path: agents.0.listeners.replication.replisome_count
+  units: forks/cell
+  status: available
+- name: initiation_events
+  store_path: agents.0.listeners.replication.initiation_events
+  units: events
+  status: derived-needed
+behavior_tests:
+- name: dnaa-atp-fraction-oscillates
+  classification: primary
+  description: Peak-to-trough swing of DnaA-ATP fraction ≥ 0.15 across the cycle.
+  measure:
+    kind: listener_path
+    path: listeners.dnaA_cycle.atp_fraction
+    reduce: series
+    window: full
+  pass_if:
+    op: oscillation_amplitude_at_least
+    value: 0.15
+  units: fraction
+  requires_simulation: full-cycle-with-extrinsic
+  cites:
+  - Katayama2017Frontiers
+  - Riber2016FrontMolBiosci
+  - Boesen2024PNAS
+- name: inter-initiation-cv-narrows-vs-intrinsic-only
+  classification: primary
+  description: Inter-initiation timing CV ≤ 70% of the dnaa-02 intrinsic-only baseline.
+  measure:
+    kind: cross_run_cv_ratio
+    path: listeners.replication.interinitiation_min
+    compare_to: dnaa-02-baseline
+  pass_if:
+    op: at_most
+    value: 0.7
+  units: ratio
+  requires_simulation: full-cycle-with-extrinsic
+  cites:
+  - Riber2016FrontMolBiosci
+  - Berger2022NatCommun
+- name: dnaa-atp-anti-correlated-with-replisomes
+  classification: supporting
+  description: During active replication, DnaA-ATP and replisome count Pearson r ≤ -0.3 (RIDA signature).
+  measure:
+    kind: xy_correlation
+    x:
+      kind: listener_path
+      path: listeners.dnaA_cycle.atp_fraction
+    y:
+      kind: listener_path
+      path: listeners.replication.replisome_count
+    window: replication_active
+  pass_if:
+    op: pearson_at_most
+    threshold: -0.3
+  units: dimensionless r
+  requires_simulation: full-cycle-with-extrinsic
+  cites:
+  - Katayama2017Frontiers
+  - Riber2016FrontMolBiosci
+- name: no-DDAH-early-initiation
+  classification: diagnostic
+  description: Knock out DDAH → mean initiation mass drops ≥ 10% (delta-datA phenotype).
+  measure:
+    kind: cross_run_ratio
+    series:
+      kind: listener_path
+      path: listeners.replication.initiation_mass
+    reduce: mean
+  pass_if:
+    op: at_most
+    value: 0.9
+  units: ratio
+  requires_simulation: knockout-DDAH
+  cites:
+  - Katayama2017Frontiers
+  - Hansen2018DnaATale
+- name: no-DARS-fails-to-recover-atp
+  classification: diagnostic
+  description: Post-initiation, DnaA-ATP fraction drops below 0.05 and doesn't recover.
+  measure:
+    kind: listener_path
+    path: listeners.dnaA_cycle.atp_fraction
+    reduce: post_event_min
+    event: replication_initiation
+    window: full
+  pass_if:
+    op: at_most
+    value: 0.05
+  units: fraction
+  requires_simulation: knockout-DARS
+  cites:
+  - Fujimitsu2009GenesDev
+  - Kasho2014NAR
+abstraction_level:
+  name: extrinsic conversion via RIDA + DDAH + DARS (per-pathway, not implemented yet)
+  resolves:
+  - spatial coupling of hydrolysis to active replisomes (RIDA)
+  - datA-localized hydrolysis pulses (DDAH)
+  - site-specific ATP reactivation (DARS1, DARS2)
+  does_not_resolve:
+  - molecular details of HdaA / IscR engagement
+  - RIDA fork-passage release kinetics
+  - whether DARS sites bind DnaA before or after Dam re-methylation
+conclusion_verdicts:
+  regression_compatibility:
+    result: PENDING
+    basis: No runs yet — study scaffolded from PLAN-time spec.
+  biological_validation:
+    result: PENDING
+    basis: No runs yet — study scaffolded from PLAN-time spec.
+    blocking_evidence_needed:
+    - RIDA Step implementation + replisome-coupling test
+    - DDAH Step + datA-localized binding
+    - DARS1/DARS2 Steps + ATP-reactivation cycle
+    - Per-pathway-knockout perturbation_panel
+  explanatory_gain:
+    result: PENDING
+    basis: No runs yet — study scaffolded from PLAN-time spec.
+expert_decisions_needed:
+- id: dnaa-05-EQ-01
+  question: Is v2ecoli's equilibrium reverse-rate constant (MONOMER0-160_RXN, 2.9e-8) correctly calibrated? If too high, RIDA/DDAH/DARS
+    may not need to deliver the 100× extrinsic flux that dnaa-02 F-04 implies.
+  alternatives:
+  - 'Reverse-rate correct: dnaa-05 must deliver ~99× the Boesen intrinsic rate via RIDA+DDAH+DARS'
+  - 'Reverse-rate over-estimated by ~10×: RIDA+DDAH+DARS deliver ~10× intrinsic (closer to literature per-pathway estimates)'
+  - 'Reverse-rate over-estimated by ~100×: extrinsic delivery only needs to match intrinsic — pathways are validation, not
+    absolute-rate makers'
+  impact_if_wrong: Determines whether dnaa-05 design needs aggressive flux from each pathway (case 1) or modest contributions
+    (case 3). Affects per-Step rate parameters by an order of magnitude.
+  blocks:
+  - dnaa-05 per-Step rate calibration
+  - dnaa-02 F-04 reinterpretation
+  requested_response: ParCa rate-constant authority + cross-check against in-vivo total flux estimates (Boesen 2024 supplementary?)
+  status: open
+  asked_to: TBD
+  related_to: dnaa-02-EQ-01
+- id: dnaa-05-EQ-02
+  question: Should DARS1 and DARS2 sites also bind DnaA-ADP before re-activation, or do they catalyze nucleotide exchange
+    on already-bound DnaA?
+  alternatives:
+  - 'Bind DnaA-ADP then reactivate: DARS is a sink + source — converts bound ADP to bound ATP without releasing'
+  - 'Catalyze in-situ exchange: DnaA stays bound, nucleotide swaps via DARS contact'
+  - 'Mixed: DARS1 vs DARS2 differ (paper-dependent)'
+  impact_if_wrong: Determines whether DARS pulls from the DNA-bound or free DnaA-ADP pool. Affects Step topology (which port
+    reads from which bulk species).
+  blocks:
+  - dnaa-05 DARS1 / DARS2 Step design
+  requested_response: Kasho 2023 IJMS or Frimodt-Moller author + figure pointer
+  status: open
+  asked_to: TBD
+- id: dnaa-05-EQ-03
+  question: RIDA is replisome-coupled — but how does its activity scale with fork PROGRESS vs fork PRESENCE? Linear in elongation
+    rate, or step-function at initiation/termination?
+  alternatives:
+  - Linear in fork-elongation rate (per-nt scaling)
+  - Step-function ON at initiation, OFF at termination (per-fork constant)
+  - Step-function at specific fork-coordinate windows (e.g., near oriC)
+  impact_if_wrong: 'Affects RIDA rate modeling. Linear case: rate = k_per_nt * d(fork_coord)/dt. Step case: rate = k_per_fork
+    * n_active_forks.'
+  blocks:
+  - dnaa-05 RIDA Step rate-law choice
+  requested_response: Kawakami 2006 + Katayama review specifics
+  status: open
+  asked_to: TBD
+conclusion_logic:
+  if_primary_tests_pass:
+    implementation_status: Full DnaA cycle (RIDA + DDAH + DARS) is functional; ATP-fraction oscillates with the cell cycle.
+    biological_validation: Reproduces Katayama 2017's cycle picture + Riber 2016's narrowing-CV prediction.
+    pipeline_unblocks:
+    - Investigation completion (dnaa-05 is a leaf in the main chain).
+  if_primary_tests_fail:
+    diagnose:
+    - 'No oscillation: pathway rates wrong or all balance out — check rida_flux vs dars2_flux time series.'
+    - 'CV doesn''t narrow: dnaa-02 intrinsic-only baseline may already be tightly bounded for the wrong reason (e.g., box-saturation
+      noise dominates).'
+    - 'RIDA anti-correlation absent: RIDA rate too slow or replisome count too small.'
+    block_downstream: Investigation acceptance criterion 'inter-initiation-cv-narrows-vs-intrinsic-only' requires this.
+limitations:
+- Hda complex modeled as part of RIDA rate; not tracked as separate molecular species.
+- IHF saturating assumption — at very high DnaA-ATP, DDAH could be IHF-limited.
+- DARS2 IHF + Fis cell-cycle modulation is a continuous modifier, not a hard cell-cycle gate.
+- Slow growth only; multi-fork (rich-media) regime not validated.
+implementation_requirements:
+- id: req-1-rida
+  kind: process
+  title: DnaaRIDA Step (replisome-coupled hydrolysis)
+  effort: M
+  description: 'Step reading listeners.replication.replisome_count + DnaA-ATP count;
+
+    applies hydrolysis flux ∝ fork count.
+
+    '
+  steps:
+  - Create v2ecoli/processes/dnaa_rida.py.
+  - 'Composite param rida_rate_per_min_per_fork: float (tune to literature).'
+  - Wire after intrinsic hydrolysis Step (from dnaa-02).
+  - 'Validate: no-RIDA → DnaA-ATP doesn''t drop during C-period.'
+  unblocks:
+  - simulation_set.full-cycle-with-extrinsic
+  - dnaa-atp-fraction-oscillates, dnaa-atp-anti-correlated-with-replisomes
+- id: req-2-ddah
+  kind: process
+  title: DnaaDDAH Step (datA-dependent hydrolysis)
+  effort: M
+  description: 'Step reading datA copy number from chromosome_structure +
+
+    DnaA-ATP count; applies hydrolysis flux ∝ datA copy count.
+
+    '
+  steps:
+  - Catalog datA position (~94.7 min, 4.39 Mbp).
+  - Read copy number from unique.gene where gene_id='datA'.
+  - 'Composite param ddah_rate_per_min_per_data: float.'
+  - 'Validate: no-DDAH → earlier initiation.'
+  unblocks:
+  - no-DDAH-early-initiation
+- id: req-3-dars
+  kind: process
+  title: DnaaDARS1 + DnaaDARS2 Steps (ADP-DnaA reactivation)
+  effort: M
+  description: 'Two Steps reading copy_number_<dars1|dars2> + DnaA-ADP count.
+
+    Convert DnaA-ADP → apo-DnaA, which re-binds ATP via the existing
+
+    nucleotide-binding equilibrium.
+
+    '
+  steps:
+  - Catalog DARS1, DARS2 positions on the chromosome.
+  - Composite params dars1_rate_per_min_per_locus, dars2_rate_per_min_per_locus.
+  - 'Optionally: DARS2 IHF + Fis modifier (cell-cycle phase function).'
+  unblocks:
+  - no-DARS-fails-to-recover-atp
+bibliography:
+  expert:
+  - replication_initiation_molecular_info
+  bib_keys:
+  - Katayama2017Frontiers
+  - Hansen2018DnaATale
+  - Riber2016FrontMolBiosci
+  - Fujimitsu2009GenesDev
+  - Kasho2014NAR
+  - Boesen2024PNAS
+  - Berger2022NatCommun
+conclusion_phase_decide_at: 2026-05-17T09:35Z
+parent_studies:
+- study: dnaa-02-atp-hydrolysis
+  condition: tests-passed
+- study: dnaa-04-initiation-mechanism
+  condition: ran
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

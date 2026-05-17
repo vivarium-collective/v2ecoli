@@ -1,6 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="938" viewBox="0 0 1100 938" font-family="-apple-system,sans-serif" font-size="12">
-<rect width="1100" height="938" fill="white"/>
-<text x="20" y="28" font-weight="600" font-size="15" fill="#0f172a">Investigation findings overview — 31 total</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="966" viewBox="0 0 1100 966" font-family="-apple-system,sans-serif" font-size="12">
+<rect width="1100" height="966" fill="white"/>
+<text x="20" y="28" font-weight="600" font-size="15" fill="#0f172a">Investigation findings overview — 32 total</text>
 <text x="20" y="50" font-weight="600" fill="#334155">Study</text>
 <text x="350" y="50" font-weight="600" fill="#334155">ID</text>
 <text x="400" y="50" font-weight="600" fill="#334155">Kind</text>
@@ -98,84 +98,89 @@
 <rect x="20" y="506" width="1060" height="26" fill="#f8fafc"/>
 <text x="20" y="522" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-02-atp-hydrolysis</text>
 <text x="350" y="522" fill="#334155" font-weight="600">F-04</text>
-<text x="400" y="522" fill="#7c3aed">biological</text>
+<text x="400" y="522" fill="#0891b2">computational</text>
 <text x="490" y="522" fill="#2563eb">novel</text>
 <text x="580" y="522" fill="#0f172a">Intrinsic hydrolysis at Boesen 2024's measured rate (0.046/min) is ~100× too slo</text>
-<text x="20" y="550" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-03-box-binding</text>
-<text x="350" y="550" fill="#334155" font-weight="600">F-01</text>
-<text x="400" y="550" fill="#0891b2">computational</text>
-<text x="490" y="550" fill="#2563eb">novel</text>
-<text x="580" y="550" fill="#0f172a">The DnaA-box catalog data structure ALREADY EXISTS in v2ecoli's chromosome_struc</text>
+<text x="20" y="550" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-02-atp-hydrolysis</text>
+<text x="350" y="550" fill="#334155" font-weight="600">F-05</text>
+<text x="400" y="550" fill="#65a30d">methodological</text>
+<text x="490" y="550" fill="#16a34a">confirms</text>
+<text x="580" y="550" fill="#0f172a">Cascading-baseline-recipe chain VALIDATED end-to-end. Recipe `dnaa_02_with_extri</text>
 <rect x="20" y="562" width="1060" height="26" fill="#f8fafc"/>
 <text x="20" y="578" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-03-box-binding</text>
-<text x="350" y="578" fill="#334155" font-weight="600">F-02</text>
+<text x="350" y="578" fill="#334155" font-weight="600">F-01</text>
 <text x="400" y="578" fill="#0891b2">computational</text>
-<text x="490" y="578" fill="#dc2626">contradicts</text>
-<text x="580" y="578" fill="#0f172a">v2ecoli has 456 active DnaA boxes (3 chromosomal domains × ~150 each), NOT the 3</text>
+<text x="490" y="578" fill="#2563eb">novel</text>
+<text x="580" y="578" fill="#0f172a">The DnaA-box catalog data structure ALREADY EXISTS in v2ecoli's chromosome_struc</text>
 <text x="20" y="606" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-03-box-binding</text>
-<text x="350" y="606" fill="#334155" font-weight="600">F-03</text>
+<text x="350" y="606" fill="#334155" font-weight="600">F-02</text>
 <text x="400" y="606" fill="#0891b2">computational</text>
-<text x="490" y="606" fill="#2563eb">novel</text>
-<text x="580" y="606" fill="#0f172a">NOTHING modifies DnaA_bound during simulation. The only writers are initial-cond</text>
+<text x="490" y="606" fill="#dc2626">contradicts</text>
+<text x="580" y="606" fill="#0f172a">v2ecoli has 456 active DnaA boxes (3 chromosomal domains × ~150 each), NOT the 3</text>
 <rect x="20" y="618" width="1060" height="26" fill="#f8fafc"/>
 <text x="20" y="634" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-03-box-binding</text>
-<text x="350" y="634" fill="#334155" font-weight="600">F-04</text>
-<text x="400" y="634" fill="#7c3aed">biological</text>
+<text x="350" y="634" fill="#334155" font-weight="600">F-03</text>
+<text x="400" y="634" fill="#0891b2">computational</text>
 <text x="490" y="634" fill="#2563eb">novel</text>
-<text x="580" y="634" fill="#0f172a">Initial chromosome state has 2 active oriCs (one per chromosome after the cell's</text>
+<text x="580" y="634" fill="#0f172a">NOTHING modifies DnaA_bound during simulation. The only writers are initial-cond</text>
 <text x="20" y="662" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-03-box-binding</text>
-<text x="350" y="662" fill="#334155" font-weight="600">F-05</text>
+<text x="350" y="662" fill="#334155" font-weight="600">F-04</text>
 <text x="400" y="662" fill="#7c3aed">biological</text>
-<text x="490" y="662" fill="#dc2626">contradicts</text>
-<text x="580" y="662" fill="#0f172a">A simple Hill model (n=2) with per-box Kd assignment (high/med/low = 5/50/300 Dn</text>
+<text x="490" y="662" fill="#2563eb">novel</text>
+<text x="580" y="662" fill="#0f172a">Initial chromosome state has 2 active oriCs (one per chromosome after the cell's</text>
 <rect x="20" y="674" width="1060" height="26" fill="#f8fafc"/>
-<text x="20" y="690" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-04-initiation-mechanism</text>
-<text x="350" y="690" fill="#334155" font-weight="600">F-01</text>
-<text x="400" y="690" fill="#0891b2">computational</text>
-<text x="490" y="690" fill="#2563eb">novel</text>
-<text x="580" y="690" fill="#0f172a">v2ecoli's current replication initiation trigger is a MASS-THRESHOLD HEURISTIC a</text>
+<text x="20" y="690" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-03-box-binding</text>
+<text x="350" y="690" fill="#334155" font-weight="600">F-05</text>
+<text x="400" y="690" fill="#7c3aed">biological</text>
+<text x="490" y="690" fill="#dc2626">contradicts</text>
+<text x="580" y="690" fill="#0f172a">A simple Hill model (n=2) with per-box Kd assignment (high/med/low = 5/50/300 Dn</text>
 <text x="20" y="718" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-04-initiation-mechanism</text>
-<text x="350" y="718" fill="#334155" font-weight="600">F-02</text>
+<text x="350" y="718" fill="#334155" font-weight="600">F-01</text>
 <text x="400" y="718" fill="#0891b2">computational</text>
 <text x="490" y="718" fill="#2563eb">novel</text>
-<text x="580" y="718" fill="#0f172a">The `chromosome_initiation.py` module is a lightweight set of discovery STUBS (D</text>
+<text x="580" y="718" fill="#0f172a">v2ecoli's current replication initiation trigger is a MASS-THRESHOLD HEURISTIC a</text>
 <rect x="20" y="730" width="1060" height="26" fill="#f8fafc"/>
 <text x="20" y="746" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-04-initiation-mechanism</text>
-<text x="350" y="746" fill="#334155" font-weight="600">F-03</text>
+<text x="350" y="746" fill="#334155" font-weight="600">F-02</text>
 <text x="400" y="746" fill="#0891b2">computational</text>
 <text x="490" y="746" fill="#2563eb">novel</text>
-<text x="580" y="746" fill="#0f172a">Within v2ecoli's initial state, cells start in a STEADY-STATE mid-replication ph</text>
+<text x="580" y="746" fill="#0f172a">The `chromosome_initiation.py` module is a lightweight set of discovery STUBS (D</text>
 <text x="20" y="774" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-04-initiation-mechanism</text>
-<text x="350" y="774" fill="#334155" font-weight="600">F-04</text>
+<text x="350" y="774" fill="#334155" font-weight="600">F-03</text>
 <text x="400" y="774" fill="#0891b2">computational</text>
 <text x="490" y="774" fill="#2563eb">novel</text>
-<text x="580" y="774" fill="#0f172a">`chromosome_structure.py` correctly adds new DnaA boxes BEHIND moving replisomes</text>
+<text x="580" y="774" fill="#0f172a">Within v2ecoli's initial state, cells start in a STEADY-STATE mid-replication ph</text>
 <rect x="20" y="786" width="1060" height="26" fill="#f8fafc"/>
-<text x="20" y="802" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-05-rida-ddah-dars</text>
-<text x="350" y="802" fill="#334155" font-weight="600">F-01</text>
+<text x="20" y="802" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-04-initiation-mechanism</text>
+<text x="350" y="802" fill="#334155" font-weight="600">F-04</text>
 <text x="400" y="802" fill="#0891b2">computational</text>
 <text x="490" y="802" fill="#2563eb">novel</text>
-<text x="580" y="802" fill="#0f172a">NO existing infrastructure in v2ecoli for RIDA / DDAH / DARS. Grep across the co</text>
+<text x="580" y="802" fill="#0f172a">`chromosome_structure.py` correctly adds new DnaA boxes BEHIND moving replisomes</text>
 <text x="20" y="830" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-05-rida-ddah-dars</text>
-<text x="350" y="830" fill="#334155" font-weight="600">F-02</text>
-<text x="400" y="830" fill="#7c3aed">biological</text>
+<text x="350" y="830" fill="#334155" font-weight="600">F-01</text>
+<text x="400" y="830" fill="#0891b2">computational</text>
 <text x="490" y="830" fill="#2563eb">novel</text>
-<text x="580" y="830" fill="#0f172a">The dnaa-02 F-04 sensitivity probe provides a CONCRETE QUANTITATIVE TARGET for d</text>
+<text x="580" y="830" fill="#0f172a">NO existing infrastructure in v2ecoli for RIDA / DDAH / DARS. Grep across the co</text>
 <rect x="20" y="842" width="1060" height="26" fill="#f8fafc"/>
-<text x="20" y="858" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-06-seqa-sequestration</text>
-<text x="350" y="858" fill="#334155" font-weight="600">F-01</text>
-<text x="400" y="858" fill="#0891b2">computational</text>
+<text x="20" y="858" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-05-rida-ddah-dars</text>
+<text x="350" y="858" fill="#334155" font-weight="600">F-02</text>
+<text x="400" y="858" fill="#7c3aed">biological</text>
 <text x="490" y="858" fill="#2563eb">novel</text>
-<text x="580" y="858" fill="#0f172a">SeqA protein machinery EXISTS in v2ecoli's proteome (EG12197-MONOMER, "negative </text>
+<text x="580" y="858" fill="#0f172a">The dnaa-02 F-04 sensitivity probe provides a CONCRETE QUANTITATIVE TARGET for d</text>
 <text x="20" y="886" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-06-seqa-sequestration</text>
-<text x="350" y="886" fill="#334155" font-weight="600">F-02</text>
+<text x="350" y="886" fill="#334155" font-weight="600">F-01</text>
 <text x="400" y="886" fill="#0891b2">computational</text>
 <text x="490" y="886" fill="#2563eb">novel</text>
-<text x="580" y="886" fill="#0f172a">The `oriC` unique store has 12 attributes (domain_index + massDiff_* columns + _</text>
+<text x="580" y="886" fill="#0f172a">SeqA protein machinery EXISTS in v2ecoli's proteome (EG12197-MONOMER, "negative </text>
 <rect x="20" y="898" width="1060" height="26" fill="#f8fafc"/>
 <text x="20" y="914" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-06-seqa-sequestration</text>
-<text x="350" y="914" fill="#334155" font-weight="600">F-03</text>
-<text x="400" y="914" fill="#7c3aed">biological</text>
+<text x="350" y="914" fill="#334155" font-weight="600">F-02</text>
+<text x="400" y="914" fill="#0891b2">computational</text>
 <text x="490" y="914" fill="#2563eb">novel</text>
-<text x="580" y="914" fill="#0f172a">SeqA sequestration is conceptually SIMPLER than dnaa-05's three pathways: a sing</text>
+<text x="580" y="914" fill="#0f172a">The `oriC` unique store has 12 attributes (domain_index + massDiff_* columns + _</text>
+<text x="20" y="942" fill="#64748b" font-size="11" font-family="ui-monospace,monospace">dnaa-06-seqa-sequestration</text>
+<text x="350" y="942" fill="#334155" font-weight="600">F-03</text>
+<text x="400" y="942" fill="#7c3aed">biological</text>
+<text x="490" y="942" fill="#2563eb">novel</text>
+<text x="580" y="942" fill="#0f172a">SeqA sequestration is conceptually SIMPLER than dnaa-05's three pathways: a sing</text>
 </svg>

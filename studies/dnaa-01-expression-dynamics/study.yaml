@@ -245,6 +245,42 @@ readouts:
 behavior_tests:
 - name: dnaA-count-in-range
   classification: primary
+
+  # ── Biology-review schema additions (dnaa_biology_feedback, 2026-05-17) ──
+  # These fields are first-class bigraph-schema types registered in
+  # v2ecoli/types/biology.py; invalid values are rejected at composite-build.
+  target_class: biological_validation   # NOT regression_compatibility — calibration vs literature
+                                         # requires perturbation panel below to fully validate.
+  measurement_mapping:
+    literature_observable:
+      name: total cellular DnaA per cell
+      biological_pool: total           # apo + ATP-bound + ADP-bound + DNA-bound + complexed
+      condition: 'M9 + glucose, exponential growth, doubling ~30 min'
+      statistic: median across population
+      source_ids: [Schmidt2016NatBiotechnol, Sekimizu1991JBacteriol, Mori2021MolSysBiol, Liu2020NatMicrobiol]
+    model_observable:
+      listener_path: listeners.monomer_counts
+      state_path: 'bulk[PD03831[c]] + bulk[MONOMER0-160[c]] + bulk[MONOMER0-4565[c]]'
+      molecular_pool: total
+      units: molecules/cell
+      includes_bound_species: false    # CAVEAT: chromosomal-DnaA-bound population not yet in pool
+    transformation:
+      formula: 'median(sum_three_forms over t in [duration/2, duration])'
+      time_window: second_half
+      aggregation: median across seeds
+    caveats:
+    - 'v2ecoli does not yet sum chromosomally DNA-bound DnaA into monomer_counts[3861]. If Schmidt 2016 mass-spec includes that fraction, the model count understates by an unknown amount (literature suggests ~10-30% during S phase).'
+    - 'Schmidt 2016 mass-spec excludes DnaA bound during fixation washouts — extraction efficiency uncertain.'
+    - 'Sekimizu 1991 used radioactive label decay (DnaA half-life proxy) — assumes no replisome-bound subpopulation.'
+  failure_cause_candidates:            # if FAIL, narrow to these per P2-4
+  - observable_mismatch                # the pool definition above might explain part of the 4.8× gap
+  - miscalibration                     # ParCa TE for EG10235 may be wrong (see dnaa-01g-parca-te-derivation-audit)
+  requires_perturbations:              # P1-5 — no biological_validation without these
+  - dnaA-overexpression
+  - dnaA-knockdown
+  - autorepression-ablation
+  # ──────────────────────────────────────────────────────────────────────────
+
   description: 'Median DnaA monomer count over the second half of the run lies
 
     within the literature band [300, 800] reported by Sekimizu 1991,
@@ -317,6 +353,37 @@ behavior_tests:
   - Hansen2021FrontMolBiosci
 - name: autorepression-correlation
   classification: supporting
+
+  # \u2500\u2500 Biology-review schema additions (dnaa_biology_feedback, 2026-05-17) \u2500\u2500
+  # Per P1-3: Pearson r alone is the WEAKEST autorepression test. This entry
+  # remains as a first-pass screen but is downgraded to `target_class:
+  # regression_compatibility`. Full biological validation now requires the
+  # autorepression_test_suite below (4 tests; this is just test 1 of 4).
+  target_class: regression_compatibility  # NOT biological_validation by itself
+  measurement_mapping:
+    literature_observable:
+      name: dnaA autorepression strength
+      biological_pool: ATP_bound        # only DnaA-ATP binds dnaAp promoter
+      condition: 'M9 + glucose, exponential growth'
+      statistic: 'negative correlation between bound-DnaA and dnaA transcription rate'
+      source_ids: [Speck1999EMBO, Saggioro2013BiochemJ, Katayama2017Frontiers, Hansen2018DnaATale]
+    model_observable:
+      listener_path: 'listeners.rna_synth_prob.n_bound_TF_per_TU + listeners.rna_counts.mRNA_cistron_counts'
+      state_path: 'sum(n_bound_TF_per_TU[:, 12]) at t  vs  mRNA_cistron_counts[227] at t'
+      molecular_pool: ATP_bound
+      units: dimensionless (Pearson r)
+      includes_bound_species: true
+    transformation:
+      formula: 'pooled_pearson_r(x=sum_binding_col_12, y=mRNA_cistron_227, samples=second_half_across_5_seeds)'
+      time_window: second_half
+      aggregation: pooled across seeds
+    caveats:
+    - 'Pearson r is symmetric in time \u2014 does NOT discriminate causation from co-incidence.'
+    - 'Same-time correlation misses transcription-binding lag (~30-120s in vivo).'
+    - 'Cell-wide init events (rna_init_event sum) was the original Y axis; switched to mRNA_cistron_counts[227] because dnaA init events are too sparse (~0/step in 10-min window).'
+    - 'A PASS here is necessary but not sufficient for autorepression validation \u2014 see autorepression_test_suite.'
+
+  # \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
   description: |
     When DnaA bound-to-promoters is high, cell-wide transcription init
     events should bias down \u2014 autorepression signature. Coarse first-pass
@@ -407,6 +474,137 @@ behavior_tests:
   cites:
   - Speck1999EMBO
   - Hansen2018DnaATale
+
+
+# ── Biology-review additions (dnaa_biology_feedback, 2026-05-17) ────────────
+# Per P1-3: replace Pearson-only autorepression with a SUITE. Sparse mRNA data
+# can return INSUFFICIENT_EVIDENCE rather than a false PASS or FAIL.
+
+autorepression_test_suite:
+- name: lagged_binding_mrna_cross_correlation
+  kind: lagged_binding_mrna_cross_correlation   # ← bigraph-registered enum
+  description: |
+    Cross-correlation between DnaA-TF binding(t-Δt) and dnaA mRNA(t) at
+    Δt ∈ {0, 30, 60, 120}s. Biologically valid autorepression should show
+    a NEGATIVE peak at Δt ≈ 30-90s (transcription-binding response delay).
+  measure:
+    kind: cross_correlation
+    x_signal: 'sum(listeners.rna_synth_prob.n_bound_TF_per_TU[:, 12])'
+    y_signal: 'listeners.rna_counts.mRNA_cistron_counts[227]'
+    lags_s: [0, 30, 60, 120]
+  pass_if:
+    op: negative_peak_at_lag_within
+    lag_range_s: [30, 120]
+    min_magnitude: 0.3
+  status: not_implemented_yet
+
+- name: conditional_transcription_probability_given_promoter_bound
+  kind: conditional_transcription_probability_given_promoter_bound
+  description: |
+    P(rna_init_event[EG10235] = 1 | dnaAp promoter bound) vs
+    P(rna_init_event[EG10235] = 1 | dnaAp promoter unbound).
+    Ratio < 1.0 = autorepression active.
+  measure:
+    kind: conditional_probability_ratio
+    condition_on: 'listeners.rna_synth_prob.n_bound_TF_per_TU[dnaAp_TUs, 12] > 0'
+    event:        'listeners.rnap_data.rna_init_event[EG10235_TUs] > 0'
+  pass_if:
+    op: less_than
+    value: 1.0
+  status: not_implemented_yet
+  requires_data: 'dnaAp_TUs index list — currently unresolved (P3 expert question)'
+
+- name: transcription_burst_rate_by_promoter_state
+  kind: transcription_burst_rate_by_promoter_state
+  description: |
+    Burst rate when bound vs unbound, computed via inter-event interval
+    distribution. Bound state should have longer inter-event intervals.
+  status: not_implemented_yet
+
+- name: dnaA_gene_dosage_corrected_expression
+  kind: dnaA_gene_dosage_corrected_expression
+  description: |
+    Correct for gene dosage (chromosomal-locus replication doubles dnaA
+    gene copies mid-cycle). Per-copy expression should drop when DnaA
+    is high. Without this correction, dosage swamps the autorepression
+    signal.
+  status: not_implemented_yet
+  requires_data: 'per-cell-cycle replication-fork position relative to dnaA locus'
+
+
+# Per P1-5: perturbation panel required for biological_validation.
+# A test that declares target_class=biological_validation AND lists
+# requires_perturbations: [...] cannot pass until those perturbations have run.
+
+perturbation_panel:
+- name: dnaA-overexpression
+  kind: expression_step                # ← bigraph-registered enum
+  description: |
+    Double dnaA TE at t=300s of a 600s sim. Expected: dnaA mRNA drops
+    within 60s (autorepression kicks in), DnaA-ATP steady-state rises
+    <1.5× (not 2× — autorepression attenuates).
+  expected_response:
+    metric: 'change in mRNA[EG10235] within 60s of perturbation'
+    direction: decrease
+    magnitude_estimate: '~30-50%'
+  status: not_run
+
+- name: dnaA-knockdown
+  kind: expression_step
+  description: |
+    Halve dnaA TE at t=300s. Expected: dnaAp promoter de-repression
+    within 60s (mRNA bursts higher), eventual recovery toward new lower
+    steady state.
+  expected_response:
+    metric: 'change in mRNA[EG10235] within 60s'
+    direction: increase
+  status: not_run
+
+- name: autorepression-ablation
+  kind: parameter_swap
+  description: |
+    Set fc multiplier = 0 (zero out delta_prob.deltaV[:, 12] entries).
+    Expected: uncontrolled DnaA accumulation; CV of DnaA count grows
+    over time; cell loses homeostatic regulation. This is the "what would
+    change my mind" control — if DnaA pool stays stable WITHOUT
+    autorepression, the autorepression-tests above are testing the wrong
+    thing.
+  expected_response:
+    metric: 'rolling CV of DnaA count over 10 min'
+    direction: increase
+    magnitude_estimate: '> 0.5 (vs <0.01 baseline)'
+  status: not_run
+
+- name: ATP-cycle-ablation
+  kind: pathway_swap
+  description: |
+    Disable the IntrinsicHydrolysis Step. Expected: DnaA-ATP fraction
+    → 1.0 (no sink for the ATP form). Confirms F-04 of dnaa-02 in the
+    reverse direction.
+  expected_response:
+    metric: 'median DnaA-ATP / total over second half'
+    direction: increase
+    target_value: 1.0
+  status: not_run
+
+- name: titration-site-removal
+  kind: site_mutation
+  description: |
+    Remove the ~445 non-oriC chromosomal DnaA-boxes (P2-1 dependent —
+    requires DnaA_box catalog with region_type attribute). Expected:
+    oriC saturates earlier (smaller titration buffer), initiation
+    timing shifts earlier in the cell cycle.
+  expected_response:
+    metric: 'inter-initiation interval (when initiation mechanism is wired in dnaa-04)'
+    direction: decrease
+  status: blocked_until_dnaa_03_box_catalog
+
+
+# Per P2-2 / P2-3: SeqA + reset mechanisms get versioned mechanism cards.
+# Currently a no-op for dnaa-01; populated in dnaa-05 / dnaa-06.
+mechanism_cards: []   # dnaa-01 implements the EXPRESSION layer only;
+                       # mechanism cards belong to dnaa-02..06.
+
 conclusion_logic:
   if_primary_tests_pass:
     implementation_status: v2ecoli baseline is functional at the layer-1 (total DnaA

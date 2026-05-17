@@ -339,8 +339,10 @@ ECOLI_TYPES = {
     'accumulate_float': AccumulateFloat,
 }
 
-# Study-evaluation framework enums (target_class, verdict_result,
-# failure_cause, ...). Kept in a separate module so per-investigation
-# layers can extend the framework without touching this file.
+# ─── biology-review-driven types (dnaa_biology_feedback expert doc, 2026-05-17) ──
+# These give first-class registry support to the schema additions the biology
+# review mandated: target_class, dnaa_pool_kind, measurement_mapping, failure_cause,
+# perturbation_kind, etc. Studies (and their behavior_tests/readouts/perturbation_panels)
+# reference these by type name; the registry rejects invalid values at composite-build.
 from v2ecoli.types.biology import BIOLOGY_TYPES  # noqa: E402
 ECOLI_TYPES.update(BIOLOGY_TYPES)

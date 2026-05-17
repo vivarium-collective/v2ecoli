@@ -13,7 +13,7 @@ dependencies = [
     "process-bigraph>=0.0.38",
     "pbg-superpowers",
     "vEcoli[dev]>=1.1.0",
-    "multi-cell>=0.0.1",
+    "viva-munk>=0.0.1",
     "plum-dispatch>=2.5",
     "dill>=0.3",
     "numpy",
@@ -74,4 +74,4 @@ packages = { find = { where = ["."] } }
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
 pbg-superpowers = { git = "https://github.com/vivarium-collective/pbg-superpowers.git", branch = "main" }
-multi-cell = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
+viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }

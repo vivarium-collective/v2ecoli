@@ -71,6 +71,13 @@ visualizations:
   config:
     title: dnaa-04 — DnaA pool drives the new initiation trigger
     sample_every: 10
+    # Restrict to the canonical replisome-gate runs (3 seeds) so the
+    # chart compares the 3 stable trajectories without 6 older
+    # exploratory runs cluttering the legend.
+    sources:
+    - dnaa04-replisome-gate-seed0
+    - dnaa04-replisome-gate-seed1
+    - dnaa04-replisome-gate-seed2
     inputs_map:
       apo_count:     listeners.dnaA_cycle.apo_count
       atp_count:     listeners.dnaA_cycle.atp_count
@@ -84,6 +91,10 @@ visualizations:
   config:
     title: dnaa-04 — Box occupancy at oriC = trigger readout
     sample_every: 10
+    sources:
+    - dnaa04-replisome-gate-seed0
+    - dnaa04-replisome-gate-seed1
+    - dnaa04-replisome-gate-seed2
     inputs_map:
       chromosome_fraction: listeners.dnaA_binding.chromosome.occupied_fraction
       oric_high:           listeners.dnaA_binding.oric.high_affinity_occupied
@@ -96,7 +107,11 @@ visualizations:
 - name: dnaa_initiation_gate
   address: local:DnaAInitiationGate
   config:
-    title: dnaa-04 — Gate signal + SeqA-v0 refractory
+    title: "dnaa-04 — Gate signal + SeqA-v0 refractory (3 seeds, canonical)"
+    sources:
+    - dnaa04-replisome-gate-seed0
+    - dnaa04-replisome-gate-seed1
+    - dnaa04-replisome-gate-seed2
     inputs_map:
       would_fire:           listeners.dnaA_initiation.would_fire
       in_refractory:        listeners.dnaA_initiation.in_refractory
@@ -109,6 +124,10 @@ visualizations:
   address: local:DnaACycleSummary
   config:
     title: dnaa-04 — Trajectory under the new architecture (multi-panel)
+    sources:
+    - dnaa04-replisome-gate-seed0
+    - dnaa04-replisome-gate-seed1
+    - dnaa04-replisome-gate-seed2
     inputs_map:
       apo_count:           listeners.dnaA_cycle.apo_count
       atp_count:           listeners.dnaA_cycle.atp_count
@@ -122,6 +141,10 @@ visualizations:
   address: local:DnaAFluxContributions
   config:
     title: dnaa-04 — DnaA-ATP hydrolysis flux contributors per tick
+    sources:
+    - dnaa04-replisome-gate-seed0
+    - dnaa04-replisome-gate-seed1
+    - dnaa04-replisome-gate-seed2
     inputs_map:
       intrinsic_events: listeners.dnaA_cycle.intrinsic_hydrolysis_events
       rida_events:      listeners.dnaA_cycle.rida_events

@@ -476,27 +476,38 @@ conclusion_verdicts:
       '
 design_pivot_required:
 - id: dnaa-02-EQ-04
-  status: resolved-by-pivot
-  resolution: 'PIVOT 2026-05-17: option B selected. The composite recipe
-    dnaa_02_with_intrinsic_hydrolysis now patches the live
-    ecoli-equilibrium Step instance to zero out the MONOMER0-4565_RXN
-    column of its stoichMatrix. Free DnaA + free ADP no longer rebinds
-    via the equilibrium pathway; DnaA-ADP can only form via the
-    IntrinsicHydrolysis Step (this study) or the deferred RIDA / DDAH
-    pathways (dnaa-05).
+  status: superseded-by-dnaa-02f
+  resolution: '2026-05-17 PIVOT (option B): the composite recipe
+    dnaa_02_with_intrinsic_hydrolysis patches the live ecoli-equilibrium
+    Step instance to zero out the MONOMER0-4565_RXN column of its
+    stoichMatrix. DnaA-ADP can only form via IntrinsicHydrolysis (this
+    study) or RIDA / DDAH (deferred dnaa-05). PASS verdict in this study
+    was obtained via this mechanism + the ATP-fraction clamp.
 
-    Biological justification: direct free-DnaA + free-ADP binding is a
-    minor in-vivo side reaction. Sekimizu 1987 + Kawakami 2006 treat
-    the productive cycle as ATP-binding -> intrinsic / RIDA / DDAH
-    hydrolysis. The patch preserves MONOMER0-160_RXN (the ATP-binding
-    equilibrium) intact because that pathway IS the dominant in-vivo
-    DnaA-ATP loading mechanism.
+    2026-05-18 SUPERSESSION (variant E): the dnaa-02f-equilibrium-cleanup
+    follow-up study compared three alternatives and selected RIDA-v0 +
+    intact-equilibrium + clamp as the canonical mechanism. Key findings:
+
+      (a) Variant B (this study''s monkey-patch + clamp) PASSES atp-
+          fraction-band test at 0.216-0.270 across seeds 0/1/2, but
+          with high cross-seed CV (~16%) and total-DnaA inflation
+          (115 → 121-144).
+      (b) Variant E (RIDA-v0 + clamp at literature 100× rate, equilibrium
+          INTACT) PASSES at atp_fraction = 0.496 with CV < 1% and
+          total-DnaA preserved at 113-114.
+      (c) Critically: dnaa-02''s current PASS came from the CLAMP, not
+          the biology. Intrinsic hydrolysis alone produces atp_fraction
+          ≈ 0.92 regardless of any equilibrium attenuation.
+
+    Recommendation for next session: refactor dnaa_02_with_intrinsic_
+    hydrolysis to use the variant-E mechanism by default; retire the
+    _disable_dnaa_adp_equilibrium monkey-patch. dnaa-03 inherits the
+    new recipe.
 
     Implementation in v2ecoli/composites/baseline_recipes.py:
       _disable_dnaa_adp_equilibrium(cell_state) — mutates the live
-      Step instance''s stoichMatrix at composite-build time. Raises if
-      the reaction or step can''t be located so a misconfigured recipe
-      fails loudly.
+      Step instance''s stoichMatrix at composite-build time. Will be
+      removed once retire-dnaa-02-monkey-patch follow-up lands.
     '
   question: 'How do we make the DnaaIntrinsicHydrolysis + DnaaAtpFractionClamp
     deltas STICK against the existing ecoli-equilibrium MONOMER0-4565_RXN

@@ -12,3 +12,15 @@ out/
 *.c
 build/
 v2ecoli/processes/parca/**/*.cpython-*.so
+
+# Workspace / investigation runtime artefacts (regenerable; not source)
+# See docs/superpowers/notes/.../friction-log session-3 #24.
+.pbg/server/
+.pbg/state.json
+.pbg/study-test-results/
+**/runs.db
+**/runs.db-shm
+**/runs.db-wal
+studies/*/viz/
+reports/
+investigations/*/viz/

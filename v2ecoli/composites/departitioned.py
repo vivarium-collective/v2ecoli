@@ -369,10 +369,14 @@ def departitioned(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cach
     cell_state['listeners'].setdefault(
         'mass', {'dry_mass': 0.0, 'cell_mass': 0.0})
 
-    # Initialize next_update_time for all processes
+    # Initialize next_update_time only for partitioned processes whose
+    # configs are in the cache — a slot for a never-instantiated process
+    # (e.g. plasmid replication when has_plasmid=False) pins GlobalClock
+    # at global_time=0 forever; see baseline.py for the full explanation.
     nut = cell_state.setdefault('next_update_time', {})
     for proc_name in ALL_PARTITIONED:
-        nut.setdefault(proc_name, 0.0)
+        if proc_name in configs:
+            nut.setdefault(proc_name, 0.0)
 
     # Listener sub-stores
     n_part = len(ALL_PARTITIONED)

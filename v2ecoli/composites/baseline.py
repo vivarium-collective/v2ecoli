@@ -428,10 +428,17 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
         'enabled': False,
     })
 
-    # Initialize next_update_time for all partitioned processes
+    # Initialize next_update_time only for partitioned processes whose
+    # configs are in the cache — these are the ones _get_step_config will
+    # actually instantiate. A slot for a never-instantiated process
+    # (e.g. plasmid replication when the cache was built without
+    # has_plasmid=True) pins GlobalClock at global_time=0 forever: nothing
+    # advances that slot, so min(next_update_time - global_time) stays 0
+    # and no process update ever fires.
     nut = cell_state.setdefault('next_update_time', {})
     for proc_name in ALL_PARTITIONED:
-        nut.setdefault(proc_name, 0.0)
+        if proc_name in configs:
+            nut.setdefault(proc_name, 0.0)
 
     # Pre-create shared request/allocate/process stores
     cell_state.setdefault('request', {})

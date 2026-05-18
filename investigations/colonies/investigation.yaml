@@ -47,6 +47,8 @@ studies:
   - colonies-01-hpc-readiness
   # - colonies-02-hpc-deployment   # added when scaffolded
 
+expert_docs: []
+
 acceptance_criteria:
   - {study: colonies-01-hpc-readiness, behavior: daughters-hydrated}
   - {study: colonies-01-hpc-readiness, behavior: per-cell-cost-within-2x-reference}

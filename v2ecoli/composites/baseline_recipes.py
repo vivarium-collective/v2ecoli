@@ -38,6 +38,7 @@ from v2ecoli.steps.dnaa_intrinsic_hydrolysis import DnaaIntrinsicHydrolysis
 from v2ecoli.steps.dnaa_cycle_listener import DnaaCycleListener
 from v2ecoli.steps.dnaa_atp_fraction_clamp import DnaaAtpFractionClamp
 from v2ecoli.steps.dnaa_rida_v0 import DnaaRidaV0
+from v2ecoli.steps.dnaa_initiation_mechanism import DnaaInitiationMechanism
 from v2ecoli.processes.dnaa_box_binding import DnaaBoxBinding
 
 
@@ -50,6 +51,7 @@ _PRIORITY_RIDA        = 0.28   # between intrinsic and clamp; also writes to MON
 _PRIORITY_CLAMP       = 0.20
 _PRIORITY_BOX_BINDING = 0.15  # between clamp and listener
 _PRIORITY_LISTENER    = 0.10
+_PRIORITY_INITIATION  = 0.05   # last: reads other listeners' emits
 
 
 _DNAA_ADP_REACTION_ID = "MONOMER0-4565_RXN"
@@ -672,6 +674,105 @@ def dnaa_02f_with_recalibrated_equilibrium(
         "dnaa-intrinsic-hydrolysis",
         "dnaa-atp-fraction-clamp",
         "dnaa-cycle-listener",
+    ]
+
+    return doc
+
+
+# ─── dnaa-04: initiation-mechanism shadow observer ─────────────────────────
+@composite_generator(
+    name="dnaa_04_with_dnaa_initiation_trigger",
+    description=(
+        "v2ecoli baseline + dnaa-02 + dnaa-03 + DnaaInitiationMechanism "
+        "shadow observer. The observer emits a 'would_fire' signal each "
+        "tick when (oriC_high ≥ θ_oric AND atp_fraction ≥ θ_atp AND "
+        "not in SeqA-v0 refractory). Does NOT replace v2ecoli's actual "
+        "initiation Process — it runs in parallel and provides observables "
+        "for comparing the mechanistic trigger against the existing "
+        "heuristic. dnaa-04 first-pass scope."
+    ),
+    parameters={
+        "seed":      {"type": "integer", "default": 0},
+        "cache_dir": {"type": "string",  "default": "out/cache"},
+        # Inherited from dnaa-02 / dnaa-03
+        "mechanism":         {"type": "string",  "default": "rida-v0"},
+        "rida_rate_per_min": {"type": "number",  "default": 4.6},
+        "hydrolysis_rate_per_min":  {"type": "number", "default": 0.046},
+        "atp_fraction_clamp_low":   {"type": "number", "default": 0.2},
+        "atp_fraction_clamp_high":  {"type": "number", "default": 0.5},
+        "kd_high_nM":           {"type": "number",  "default": 1.0},
+        "kd_low_nM":            {"type": "number",  "default": 100.0},
+        "enable_oric_binding":  {"type": "boolean", "default": True},
+        "enable_dnaap_binding": {"type": "boolean", "default": True},
+        "initial_dnaA_count_per_cell": {"type": "integer", "default": None},
+        # dnaa-04 specific
+        "oric_high_threshold":     {"type": "number", "default": 0.8,
+                                    "description": "oriC high-affinity occupancy threshold for would_fire."},
+        "atp_fraction_threshold":  {"type": "number", "default": 0.3,
+                                    "description": "DnaA-ATP / total threshold for would_fire."},
+        "refractory_seconds":      {"type": "number", "default": 600.0,
+                                    "description": "SeqA-v0 fixed-timer refractory after each would_fire event."},
+    },
+)
+def dnaa_04_with_dnaa_initiation_trigger(
+    core: Any = None,
+    *,
+    seed: int = 0,
+    cache_dir: str = "out/cache",
+    mechanism: str = "rida-v0",
+    rida_rate_per_min: float = 4.6,
+    hydrolysis_rate_per_min: float = 0.046,
+    atp_fraction_clamp_low: float | None = 0.2,
+    atp_fraction_clamp_high: float | None = 0.5,
+    kd_high_nM: float = 1.0,
+    kd_low_nM: float = 100.0,
+    enable_oric_binding: bool = True,
+    enable_dnaap_binding: bool = True,
+    initial_dnaA_count_per_cell: int | None = None,
+    oric_high_threshold: float = 0.8,
+    atp_fraction_threshold: float = 0.3,
+    refractory_seconds: float = 600.0,
+) -> dict:
+    """Build the dnaa-04 shadow-observer composite.
+
+    Stacks dnaa-03 (which itself stacks dnaa-02) and appends a single
+    Step: DnaaInitiationMechanism. The Step reads
+    ``listeners.dnaA_binding.oric_high_occupied`` and
+    ``listeners.dnaA_cycle.atp_fraction`` per tick, applies the trigger
+    + SeqA-v0 refractory logic, and emits to
+    ``listeners.dnaA_initiation.{would_fire, oric_high_obs, atp_fraction_obs,
+    in_refractory, t_since_last_fire_s, cumulative_fires}``.
+
+    The would_fire signal is purely observational. Future passes will
+    replace v2ecoli's existing mass-threshold heuristic with this
+    trigger (requires direct edit of the chromosome process).
+    """
+    doc = dnaa_03_with_box_binding(
+        core=core, seed=seed, cache_dir=cache_dir,
+        mechanism=mechanism,
+        rida_rate_per_min=rida_rate_per_min,
+        hydrolysis_rate_per_min=hydrolysis_rate_per_min,
+        atp_fraction_clamp_low=atp_fraction_clamp_low,
+        atp_fraction_clamp_high=atp_fraction_clamp_high,
+        kd_high_nM=kd_high_nM,
+        kd_low_nM=kd_low_nM,
+        enable_oric_binding=enable_oric_binding,
+        enable_dnaap_binding=enable_dnaap_binding,
+        initial_dnaA_count_per_cell=initial_dnaA_count_per_cell,
+    )
+    cell_state = doc["state"]["agents"]["0"]
+
+    initiation = DnaaInitiationMechanism(parameters={
+        "oric_high_threshold":    float(oric_high_threshold),
+        "atp_fraction_threshold": float(atp_fraction_threshold),
+        "refractory_seconds":     float(refractory_seconds),
+    })
+
+    _append_step(cell_state, "dnaa-initiation-mechanism",
+                 initiation, _PRIORITY_INITIATION)
+
+    doc["flow_order"] = list(doc.get("flow_order", [])) + [
+        "dnaa-initiation-mechanism",
     ]
 
     return doc

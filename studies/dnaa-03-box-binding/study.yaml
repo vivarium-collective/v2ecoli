@@ -69,10 +69,10 @@ visualizations:
     title: dnaa-03 — DnaA-box binding state trajectory + end-landscape
     sample_every: 10
     inputs_map:
-      chromosome_fraction: listeners.dnaA_binding.chrom_occupied_fraction
-      oric_high:           listeners.dnaA_binding.oric_high_occupied
-      oric_low:            listeners.dnaA_binding.oric_low_occupied
-      dnaap_fraction:      listeners.dnaA_binding.dnaap_occupied_fraction
+      chromosome_fraction: listeners.dnaA_binding.chromosome.occupied_fraction
+      oric_high:           listeners.dnaA_binding.oric.high_affinity_occupied
+      oric_low:            listeners.dnaA_binding.oric.low_affinity_occupied
+      dnaap_fraction:      listeners.dnaA_binding.dnaap.occupied
       free_atp:            listeners.dnaA_binding.free_atp
       free_adp:            listeners.dnaA_binding.free_adp
       bound_total:         listeners.dnaA_binding.bound_total

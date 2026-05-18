@@ -85,14 +85,47 @@ visualizations:
     title: dnaa-04 — Box occupancy at oriC = trigger readout
     sample_every: 10
     inputs_map:
-      chromosome_fraction: listeners.dnaA_binding.chrom_occupied_fraction
-      oric_high:           listeners.dnaA_binding.oric_high_occupied
-      oric_low:            listeners.dnaA_binding.oric_low_occupied
-      dnaap_fraction:      listeners.dnaA_binding.dnaap_occupied_fraction
+      chromosome_fraction: listeners.dnaA_binding.chromosome.occupied_fraction
+      oric_high:           listeners.dnaA_binding.oric.high_affinity_occupied
+      oric_low:            listeners.dnaA_binding.oric.low_affinity_occupied
+      dnaap_fraction:      listeners.dnaA_binding.dnaap.occupied
       free_atp:            listeners.dnaA_binding.free_atp
       free_adp:            listeners.dnaA_binding.free_adp
       bound_total:         listeners.dnaA_binding.bound_total
       time:                global_time
+- name: dnaa_initiation_gate
+  address: local:DnaAInitiationGate
+  config:
+    title: dnaa-04 — Gate signal + SeqA-v0 refractory
+    inputs_map:
+      would_fire:           listeners.dnaA_initiation.would_fire
+      in_refractory:        listeners.dnaA_initiation.in_refractory
+      cumulative_fires:     listeners.dnaA_initiation.cumulative_fires
+      t_since_last_fire_s:  listeners.dnaA_initiation.t_since_last_fire_s
+      oric_high_obs:        listeners.dnaA_initiation.oric_high_obs
+      atp_fraction_obs:     listeners.dnaA_initiation.atp_fraction_obs
+      time:                 global_time
+- name: dnaa_cycle_summary
+  address: local:DnaACycleSummary
+  config:
+    title: dnaa-04 — Trajectory under the new architecture (multi-panel)
+    inputs_map:
+      apo_count:           listeners.dnaA_cycle.apo_count
+      atp_count:           listeners.dnaA_cycle.atp_count
+      adp_count:           listeners.dnaA_cycle.adp_count
+      chromosome_fraction: listeners.dnaA_binding.chromosome.occupied_fraction
+      oric_high_occupied:  listeners.dnaA_binding.oric.high_affinity_occupied
+      dnaap_fraction:      listeners.dnaA_binding.dnaap.occupied
+      cell_mass_fg:        listeners.mass.cell_mass
+      time:                global_time
+- name: dnaa_flux_contributions
+  address: local:DnaAFluxContributions
+  config:
+    title: dnaa-04 — DnaA-ATP hydrolysis flux contributors per tick
+    inputs_map:
+      intrinsic_events: listeners.dnaA_cycle.intrinsic_hydrolysis_events
+      rida_events:      listeners.dnaA_cycle.rida_events
+      time:             global_time
 purpose:
   question: 'Can a DnaA-driven mechanistic initiation trigger (oriC fill + ATP-DnaA
 

@@ -198,22 +198,31 @@ class EcoliWCM(Process):
                 ecoli_name = mol_map.get(mc_name, mc_name)
                 boundary[ecoli_name] = float(conc)
 
-        # Run the internal composite directly
+        # Run the internal composite directly. Detect division three ways
+        # (the inner Division step's mass-threshold path doesn't set the
+        # `divide` flag — it emits a structural `_remove`+`_add` on the
+        # inner agents map — so flag-watching alone misses natural division):
+        #   (a) exception with "divide"/"DIVISION" in the message
+        #   (b) `divide: True` written by MarkDPeriod into agents.0.divide
+        #   (c) the inner agents map changed across run() — mother removed
+        #       or daughter ids added
+        agents_before = set((self._composite.state.get('agents') or {}).keys())
         division_fired = False
         try:
             self._composite.run(interval)
         except Exception as e:
-            # Check if this was a division event
             err_str = str(e).lower()
             if 'divide' in err_str or 'division' in err_str or 'DIVISION' in str(e):
                 division_fired = True
-            # Otherwise return zeros
             if not division_fired:
                 return {'mass': 0.0, 'volume': 0.0, 'exchange': {}}
 
-        # Check for division flag in internal state
         cell = self._composite.state.get('agents', {}).get('0', self._composite.state)
         if cell.get('divide', False):
+            division_fired = True
+
+        agents_after = set((self._composite.state.get('agents') or {}).keys())
+        if agents_before and agents_before != agents_after:
             division_fired = True
 
         if division_fired:

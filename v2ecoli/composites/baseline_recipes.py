@@ -37,6 +37,7 @@ from v2ecoli.composites.baseline import baseline
 from v2ecoli.steps.dnaa_intrinsic_hydrolysis import DnaaIntrinsicHydrolysis
 from v2ecoli.steps.dnaa_cycle_listener import DnaaCycleListener
 from v2ecoli.steps.dnaa_atp_fraction_clamp import DnaaAtpFractionClamp
+from v2ecoli.steps.dnaa_rida_v0 import DnaaRidaV0
 from v2ecoli.processes.dnaa_box_binding import DnaaBoxBinding
 
 
@@ -45,6 +46,7 @@ from v2ecoli.processes.dnaa_box_binding import DnaaBoxBinding
 # priority (~1.0 for the last step in the layer chain), so they fire
 # after every baseline step has settled.
 _PRIORITY_HYDROLYSIS  = 0.30
+_PRIORITY_RIDA        = 0.28   # between intrinsic and clamp; also writes to MONOMER0-160/4565
 _PRIORITY_CLAMP       = 0.20
 _PRIORITY_BOX_BINDING = 0.15  # between clamp and listener
 _PRIORITY_LISTENER    = 0.10
@@ -361,3 +363,118 @@ def _set_initial_dnaA_pool(cell_state, target_total: int) -> None:
     # Put the delta in the ATP-complex form — the dnaa-02 cycle will
     # split it physically.
     bulk["count"][atp_idx[0]] = int(bulk[atp_idx[0]]["count"]) + delta
+
+
+# ─── dnaa-02f variant E: RIDA-v0 placeholder ──────────────────────────────
+@composite_generator(
+    name="dnaa_02f_with_rida_v0",
+    description=(
+        "v2ecoli baseline + dnaa-02 intrinsic hydrolysis + RIDA-v0 "
+        "(fork-active 100× hydrolysis multiplier). Variant E of the "
+        "dnaa-02f equilibrium-cleanup follow-up. Equilibrium reactions "
+        "stay INTACT — no stoichMatrix mutation, no fictional species."
+    ),
+    parameters={
+        "seed":      {"type": "integer", "default": 0},
+        "cache_dir": {"type": "string",  "default": "out/cache"},
+        "hydrolysis_rate_per_min": {
+            "type": "number", "default": 0.046,
+            "description": "Sekimizu 1987 intrinsic rate (constitutive).",
+        },
+        "rida_rate_per_min": {
+            "type": "number", "default": 4.6,
+            "description": "RIDA-v0 effective rate when ≥1 replisome is "
+                           "active (default 100× intrinsic, order-of-"
+                           "magnitude literature estimate for S phase).",
+        },
+        "atp_fraction_clamp_low":  {"type": "number", "default": None},
+        "atp_fraction_clamp_high": {"type": "number", "default": None},
+    },
+)
+def dnaa_02f_with_rida_v0(
+    core: Any = None,
+    *,
+    seed: int = 0,
+    cache_dir: str = "out/cache",
+    hydrolysis_rate_per_min: float = 0.046,
+    rida_rate_per_min: float = 4.6,
+    atp_fraction_clamp_low: float | None = None,
+    atp_fraction_clamp_high: float | None = None,
+) -> dict:
+    """Build the dnaa-02f variant-E composite.
+
+    Differs from ``dnaa_02_with_intrinsic_hydrolysis`` in two ways:
+
+    1. **Does NOT call ``_disable_dnaa_adp_equilibrium``.** MONOMER0-4565_RXN
+       stays in the equilibrium reaction set. This is the explicit test:
+       can RIDA's 100× scaling outpace the equilibrium's recovery?
+    2. **Adds a DnaaRidaV0 Step** between intrinsic-hydrolysis and the
+       clamp. RIDA only acts during S phase (when at least one replisome
+       is in unique.active_replisome).
+
+    Args:
+        core: bigraph-schema core. If None, baseline() creates one.
+        seed: RNG seed.
+        cache_dir: ParCa cache directory.
+        hydrolysis_rate_per_min: constitutive intrinsic rate (Sekimizu 1987).
+        rida_rate_per_min: S-phase effective rate (RIDA-v0).
+        atp_fraction_clamp_low, atp_fraction_clamp_high: optional clamp
+            band; both None disables.
+
+    Returns:
+        process-bigraph state document.
+    """
+    # 1. Baseline composite. NO monkey-patch — equilibrium stays intact.
+    doc = baseline(core=core, seed=seed, cache_dir=cache_dir)
+    cell_state = doc["state"]["agents"]["0"]
+
+    # 2. Steps — intrinsic hydrolysis, RIDA-v0, clamp, listener.
+    hydrolysis = DnaaIntrinsicHydrolysis(parameters={
+        "rate_per_min":  float(hydrolysis_rate_per_min),
+        "deterministic": False,
+        "seed":          int(seed),
+    })
+    rida = DnaaRidaV0(parameters={
+        "rida_rate_per_min":      float(rida_rate_per_min),
+        "intrinsic_rate_per_min": float(hydrolysis_rate_per_min),
+        "deterministic":          False,
+        "seed":                   int(seed),
+    })
+
+    clamp_band = None
+    if (atp_fraction_clamp_low is not None
+            and atp_fraction_clamp_high is not None):
+        clamp_band = [float(atp_fraction_clamp_low),
+                      float(atp_fraction_clamp_high)]
+    clamp = DnaaAtpFractionClamp(parameters={"band": clamp_band})
+
+    listener = DnaaCycleListener(parameters={})
+
+    # 3. Token chain: intrinsic → rida → clamp → listener.
+    cell_state.setdefault("_dnaa02f_token_h",  0.0)
+    cell_state.setdefault("_dnaa02f_token_r",  0.0)
+    cell_state.setdefault("_dnaa02f_token_c",  0.0)
+
+    _append_step(cell_state, "dnaa-intrinsic-hydrolysis",
+                 hydrolysis, _PRIORITY_HYDROLYSIS,
+                 token_out="_dnaa02f_token_h")
+    _append_step(cell_state, "dnaa-rida-v0",
+                 rida, _PRIORITY_RIDA,
+                 token_in="_dnaa02f_token_h",
+                 token_out="_dnaa02f_token_r")
+    _append_step(cell_state, "dnaa-atp-fraction-clamp",
+                 clamp, _PRIORITY_CLAMP,
+                 token_in="_dnaa02f_token_r",
+                 token_out="_dnaa02f_token_c")
+    _append_step(cell_state, "dnaa-cycle-listener",
+                 listener, _PRIORITY_LISTENER,
+                 token_in="_dnaa02f_token_c")
+
+    doc["flow_order"] = list(doc.get("flow_order", [])) + [
+        "dnaa-intrinsic-hydrolysis",
+        "dnaa-rida-v0",
+        "dnaa-atp-fraction-clamp",
+        "dnaa-cycle-listener",
+    ]
+
+    return doc

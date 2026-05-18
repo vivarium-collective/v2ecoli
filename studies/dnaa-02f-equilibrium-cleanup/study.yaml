@@ -311,6 +311,35 @@ conclusion_verdicts:
          Production RIDA (with explicit Hda + β-clamp kinetics) in
          dnaa-05 will refine this; variant E is the v0 placeholder.
 
+      4. Variant E + clamp is INSENSITIVE to RIDA rate over a wide range
+         (50× ≤ k_RIDA ≤ 500× intrinsic). atp_fraction lands at exactly
+         0.496 (the clamp''s upper band edge minus 1 epsilon) for all
+         tested rates in this range. The CLAMP is the dominant force;
+         RIDA only needs to supply enough background ATP→ADP flux to
+         keep the clamp''s transfers from being unwound by the
+         equilibrium. Once that threshold is met, the clamp pins the
+         atp_fraction at the band edge regardless of how much
+         additional RIDA flux is added. Concrete numbers (1800s, seed 0):
+
+           RIDA rate     /min      × intrinsic   atp_fraction   rida_events/tick
+           ──────────────────────────────────────────────────────────────────────
+           2.3                     50×           0.496          1.5
+           4.6  (literature)       100×          0.496          6.5
+           9.2                     200×          0.496          14.0
+           23.0                    500×          0.496          32.5
+
+         RIDA events scale linearly with the rate (Poisson on k·dt·N is
+         expected); the steady state does not. The clamp absorbs the
+         excess.
+
+         Implication for dnaa-05 production RIDA: the rate constant is
+         far less important than the existence of a fork-active flux
+         channel. Mechanism design can prioritise FAITHFUL kinetics
+         over precise rate-matching. The cell''s actual atp_fraction
+         pin-point comes from whatever sets the upper band edge — in
+         vivo, that''s the balance of DARS/RIDA/equilibrium dynamics,
+         not the absolute RIDA rate.
+
 design_pivot_required:
 - id: dnaa-02-EQ-04
   status: superseded-by-dnaa-02f

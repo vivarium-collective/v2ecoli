@@ -24,15 +24,16 @@ biological_summary: |
   conclusion_verdicts.biological_validation + design_pivot_required.EQ-04).
 
   Two structural alternatives exist but have not been evaluated:
-    A. Add a new "locked" bulk species DnaA-ADP-locked[c] that the
-       equilibrium reaction set does not touch. Hydrolysis writes to it;
-       the clamp transfers DnaA-ATP into it. Equilibrium cannot reverse
-       the transfer because it has no reaction wired to the locked species.
-    B'. Re-calibrate the existing MONOMER0-4565_RXN rate constants
-        instead of disabling the reaction — possibly the reverse rate
-        (2.9e-8 per the ParCa cache) is mis-calibrated and the equilibrium
-        is biologically the right model with the right numbers.
-    B (current).  The monkey-patch we already ship.
+    B (current).  The monkey-patch we already ship. Control.
+    B'.           Re-calibrate the existing MONOMER0-4565_RXN rate constants
+                  instead of disabling the reaction. If the reverse rate
+                  (2.9e-8 per the ParCa cache) is mis-calibrated, fix the
+                  number — no workaround needed. Real biology, real reactions.
+    E.            RIDA-v0 placeholder: scale intrinsic hydrolysis by ~100×
+                  when at least one replisome is active. RIDA is the in-vivo
+                  mechanism that drives DnaA-ADP accumulation during S phase;
+                  bringing a minimal stand-in forward from the deferred dnaa-05
+                  models the actual biology rather than disabling it.
 
   dnaa-03 (box binding) and dnaa-04 (initiation) inherit whichever variant
   dnaa-02 ships with. If A or B' would produce materially different
@@ -51,13 +52,15 @@ study_card:
     on. If the current monkey-patch is fragile or biologically off, the
     titration + initiation studies recalibrate against the wrong DnaA-ATP
     pool.'
-  expected_result: 'At least one of A or B'' matches the current option-B
-    ATP-fraction-band PASS without monkey-patching the equilibrium step.
-    Pick that one as the canonical recipe; rebind dnaa-03/04.'
+  expected_result: 'At least one of B'' (rate recalibration) or E (RIDA-v0)
+    matches the current option-B ATP-fraction-band PASS without monkey-
+    patching the equilibrium step. Pick that one as the canonical recipe;
+    rebind dnaa-03/04.'
   main_expert_question: 'Is the v2ecoli MONOMER0-4565_RXN reverse-rate
-    (2.9e-8 in ParCa cache) correctly calibrated? Resolves whether option
-    B'' is even feasible. Also: is DnaA-ADP-locked[c] biologically defensible
-    as a placeholder until dnaa-05''s RIDA/DDAH/DARS land?'
+    (2.9e-8 in ParCa cache) correctly calibrated? Resolves whether variant
+    B'' is feasible. Companion: what is the right order-of-magnitude scale
+    for the RIDA-v0 placeholder (variant E)? Literature suggests ~100×
+    intrinsic during S phase; production RIDA in dnaa-05 will refine.'
 
 literature_anchors:
 - expectation: 'Direct free-DnaA + free-ADP binding (MONOMER0-4565_RXN forward direction)
@@ -72,15 +75,15 @@ literature_anchors:
     over-estimated by 10-100× per the friction-log working hypothesis.'
 
 baseline:
-- name: variant-A-locked-species
-  composite: v2ecoli.composites.baseline_recipes.dnaa_02f_with_locked_dnaa_adp
-  params: {seed: 0, cache_dir: out/cache}
 - name: variant-B-current-pivot
   composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
   params: {seed: 0, cache_dir: out/cache}
 - name: variant-Bprime-recalibrated
   composite: v2ecoli.composites.baseline_recipes.dnaa_02f_with_recalibrated_equilibrium
   params: {seed: 0, cache_dir: out/cache, dnaa_adp_rxn_reverse_rate_scale: 0.01}
+- name: variant-E-rida-v0
+  composite: v2ecoli.composites.baseline_recipes.dnaa_02f_with_rida_v0
+  params: {seed: 0, cache_dir: out/cache, rida_scale_when_forks_active: 100.0}
 
 visualizations:
 - name: dnaa_state_across_variants
@@ -105,17 +108,21 @@ purpose:
     DnaA nucleotide-cycle baseline for dnaa-03 + dnaa-04 to inherit?
   mechanism: |
     Three composite variants, each running the EXACT same 30-min sim, same
-    seed, same readouts. The current option-B variant acts as the control
-    (the workspace's ground truth today); option A (locked species) and
-    option B' (rate recalibration) are the candidates. Tests run on each.
+    seed, same readouts. Variant B (current monkey-patch) is the control
+    (the workspace's ground truth today); variants B' (rate recalibration
+    within the real reaction set) and E (RIDA-v0 placeholder) are the
+    real-biology candidates. Tests run on each.
   expected_outcome: |
-    All three variants pass the ATP-fraction-band test (the work has
-    already produced a passing recipe via option B; A or B' are expected
-    to match it). The differentiator is the downstream-isolation test:
-    option A is expected to leave MONOMER0-160 trajectory closest to the
-    baseline (no equilibrium reaction was touched); option B' depends on
-    whether the recalibrated reverse-rate is small enough to not unwind
-    the IntrinsicHydrolysis transfers within a tick.
+    All three variants are expected to pass the ATP-fraction-band test
+    (option B already does; B' and E are designed to match it without the
+    monkey-patch). The differentiator is the downstream-isolation test
+    (which one leaves MONOMER0-160 trajectory closest to the dnaa-01
+    baseline) and the equilibrium-untouched-flag test (B fails by design,
+    documenting that it mutates ecoli-equilibrium's stoichMatrix; B' and
+    E both pass — they operate without mutating the live Step instance).
+    Variant E is the most biologically faithful (RIDA is the actual in-vivo
+    driver of DnaA-ADP accumulation); B' is the cheapest fix if the rate
+    constant is the real issue.
 
 pipeline_gate:
   prerequisites: [dnaa-02-atp-hydrolysis]
@@ -124,21 +131,23 @@ pipeline_gate:
   - 'dnaa-04-initiation-mechanism (transitively)'
   gate_status: open
   proceed_condition: |
-    At least one of variants A or B' passes BOTH:
+    At least one of variants B' or E passes BOTH:
       (1) the dnaa-02 ATP-fraction-band test (atp_fraction in [0.2, 0.5]
           over the second half of a 30-min sim, seed 0/1/2), and
       (2) the downstream-isolation test (MONOMER0-160 trajectory matches
           dnaa-01 baseline ±10% over the second half).
     Pick the cleanest passing variant; if both pass equivalently, prefer
-    option A (locked species) for its lower risk surface.
+    variant E (RIDA-v0) for biological fidelity — RIDA is the actual
+    in-vivo mechanism, and a v0 placeholder cleanly extends to dnaa-05's
+    full RIDA implementation.
   blocks_until_resolved: |
     None — this study runs in parallel with dnaa-03. dnaa-03 inherits the
     current option-B recipe and will be rerun if dnaa-02f selects a
     different variant.
 
 simulation_set:
-- name: variant-A-locked-species
-  composite: v2ecoli.composites.baseline_recipes.dnaa_02f_with_locked_dnaa_adp
+- name: variant-B-current-pivot
+  composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
   duration_s: 1800
   interval_s: 1
   seed: 0
@@ -148,16 +157,17 @@ simulation_set:
   - listeners.dnaA_cycle.apo_count
   - listeners.dnaA_cycle.atp_fraction
   - bulk.MONOMER0-160_count_via_listener
+  - unique.active_replisome.count    # for variant E's RIDA gating
   status: planned
-- name: variant-B-current-pivot
-  composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
+- name: variant-Bprime-recalibrated
+  composite: v2ecoli.composites.baseline_recipes.dnaa_02f_with_recalibrated_equilibrium
   duration_s: 1800
   interval_s: 1
   seed: 0
   readouts: *variant_readouts
   status: planned
-- name: variant-Bprime-recalibrated
-  composite: v2ecoli.composites.baseline_recipes.dnaa_02f_with_recalibrated_equilibrium
+- name: variant-E-rida-v0
+  composite: v2ecoli.composites.baseline_recipes.dnaa_02f_with_rida_v0
   duration_s: 1800
   interval_s: 1
   seed: 0
@@ -189,24 +199,29 @@ behavior_tests:
     stochastic noise.'
 
 implementation_requirements:
-- name: dnaa_02f_with_locked_dnaa_adp
-  kind: composite-recipe
-  description: 'New recipe in v2ecoli.composites.baseline_recipes. Reuses
-    DnaaIntrinsicHydrolysis + DnaaCycleListener from dnaa-02. Adds a new
-    bulk id DnaA-ADP-locked[c] to sim_data (not in any equilibrium reaction).
-    Steps write to DnaA-ADP-locked[c] instead of MONOMER0-4565[c]. Listener
-    reads both bulks and sums them for the cycle totals so the test panel is
-    apples-to-apples with option B.'
-  effort_estimate: 'medium — needs sim_data wiring for the new bulk id +
-    listener update for the dual-source DnaA-ADP read.'
 - name: dnaa_02f_with_recalibrated_equilibrium
   kind: composite-recipe
-  description: 'New recipe in v2ecoli.composites.baseline_recipes. Same as
-    option B but instead of zeroing the stoichMatrix column, multiplies the
-    MONOMER0-4565_RXN reverse-rate by a scale factor (default 0.01). Param
-    exposed as dnaa_adp_rxn_reverse_rate_scale.'
+  description: 'New recipe in v2ecoli.composites.baseline_recipes. Same
+    structure as option B but instead of zeroing the stoichMatrix column,
+    multiplies the MONOMER0-4565_RXN reverse-rate by a scale factor
+    (default 0.01). Param exposed as dnaa_adp_rxn_reverse_rate_scale.
+    Real biology: the equilibrium reaction stays in the model with its
+    correct stoichiometry; only the rate constant is adjusted, motivated
+    by dnaa-02-EQ-01''s open question on the provenance of 2.9e-8.'
   effort_estimate: 'small — single-line param + a multiplicative scale at
     composite-build time. Reuses dnaa-02 Steps unchanged.'
+- name: dnaa_02f_with_rida_v0
+  kind: composite-recipe
+  description: 'New recipe in v2ecoli.composites.baseline_recipes. Keeps
+    the equilibrium reaction set INTACT (no monkey-patch). Adds a
+    DnaaRidaV0 Step that reads unique.active_replisome and multiplies the
+    DnaaIntrinsicHydrolysis effective rate by rida_scale_when_forks_active
+    (default 100×) whenever ≥1 replisome is active, else 1×. Models the
+    in-vivo RIDA biology that drives DnaA-ADP accumulation during S phase.
+    NOT a full RIDA (no Hda / β-clamp loading dynamics) — explicitly a v0
+    stand-in until dnaa-05.'
+  effort_estimate: 'medium — new Step + composite recipe + listener entry.
+    Reuses DnaaCycleListener unchanged. No sim_data changes.'
 - name: downstream-isolation-test
   kind: behavior-test
   description: 'Read both this study''s runs.db and dnaa-01-expression-dynamics''
@@ -217,12 +232,16 @@ implementation_requirements:
 key_assumptions:
 - 'dnaa-01 baseline is the authoritative DnaA-ATP reference (115/cell median
   in MONOMER0-160[c]) — see dnaa-01 conclusion verdicts.'
-- 'Option A bulk-id wiring does not regress any other process that reads
-  MONOMER0-4565[c]. (No other process should — friction-log session-1 #4
-  noted dnaa-02-EQ-02 audit found only the equilibrium step writing it.)'
-- 'Option B'' rate recalibration is mechanism-consistent: the scaled rate
+- 'Variant B'' rate recalibration is mechanism-consistent: the scaled rate
   is the "true" in-vivo rate; the unscaled rate was an artefact of
-  fitting against incomplete reaction-network coverage in ParCa.'
+  fitting against incomplete reaction-network coverage in ParCa. Real
+  biology, real reactions, just a different number.'
+- 'Variant E (RIDA-v0) faithfully captures the in-vivo order-of-magnitude
+  acceleration during S phase (Hda + β-clamp loading on the moving fork).
+  The placeholder uses a continuous multiplier on intrinsic-hydrolysis rate;
+  production RIDA in dnaa-05 will replace this with explicit clamp-loading
+  kinetics. No invented species — only an existing rate-constant scaler
+  gated on the existing unique.active_replisome count.'
 
 limitations:
 - 'Three variants × three seeds × 1800s = 9 runs at ~15s wall-clock each
@@ -237,17 +256,24 @@ limitations:
 
 expert_decisions_needed:
 - id: dnaa-02f-EQ-01
-  question: 'Is DnaA-ADP-locked[c] biologically defensible as a placeholder
-    pool until dnaa-05 RIDA/DDAH/DARS land, or does it bake in too much
-    fiction (e.g., the locked pool can never drain back to apo-DnaA)?'
+  question: 'For variant E (RIDA-v0): is the literature rate-scale of ~100×
+    intrinsic the right magnitude under fork-active conditions, or does the
+    real RIDA/Hda mechanism produce something materially different (e.g.,
+    pulsed bursts tied to specific replication-fork landmarks)? The v0
+    placeholder uses a continuous multiplier; production RIDA in dnaa-05
+    will resolve clamp-loading kinetics explicitly.'
   alternatives:
-  - 'Locked species is fine as a stand-in; dnaa-05 will absorb it.'
-  - 'Locked species creates a downstream consistency trap; prefer option B'' even
-    if rate recalibration is imperfect.'
-  - 'Both A and B'' fail for different reasons; option B (monkey-patch) is
-    pragmatically the best of bad options.'
-  impact_if_wrong: 'Affects dnaa-05 design — if option A wins here, dnaa-05
-    must include a mechanism to drain DnaA-ADP-locked back to apo-DnaA.'
+  - 'Continuous 100× multiplier is a defensible v0 — captures the
+    order-of-magnitude effect; refined kinetics deferred to dnaa-05.'
+  - 'Variant E should use a sweep [10×, 30×, 100×, 300×] to characterise
+    sensitivity before committing to a single number.'
+  - 'Skip variant E here — wait until dnaa-05''s full RIDA lands; meanwhile
+    variant B'' (rate recalibration) is the only acceptable real-biology
+    alternative.'
+  impact_if_wrong: 'If E''s scale is wrong, DnaA-ADP accumulation rate is
+    misrepresented and downstream studies (dnaa-03, dnaa-04) calibrate
+    against a fictional dynamic. But the order-of-magnitude effect should
+    dominate the question of "does ATP-fraction track in [0.2, 0.5]?"'
   blocks: [dnaa-02f conclusion]
   status: open
   asked_to: TBD
@@ -274,5 +300,6 @@ decision_inputs_to_dnaa_03:
   description: 'The variant that passes both primary tests. Becomes the
     canonical dnaa_02_with_intrinsic_hydrolysis recipe; dnaa-03''s recipe
     chains off of it.'
-  affects: 'dnaa-03 simulation_set baseline composite name; possibly the
-    listener wiring if option A introduces new bulk ids.'
+  affects: 'dnaa-03 simulation_set baseline composite name; if variant E
+    wins, dnaa-03 inherits the fork-active hydrolysis scaling, which may
+    materially change DnaA-ATP dynamics once replication starts firing.'

@@ -53,6 +53,7 @@ emitters = ["v2ecoli[parquet,xarray]"]
 
 [project.scripts]
 v2ecoli-parca = "v2ecoli.cli.parca:main"
+v2ecoli-colony = "v2ecoli.cli.colony:main"
 
 [tool.setuptools.package-data]
 # Ship the flat-file knowledge base with the package (~12.9 MB, 133 files).

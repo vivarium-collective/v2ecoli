@@ -18,12 +18,14 @@ v2ecoli/processes/parca/**/*.cpython-*.so
 .pbg/server/
 .pbg/state.json
 .pbg/study-test-results/
+.pbg/default-baseline/
 **/runs.db
 **/runs.db-shm
 **/runs.db-wal
 studies/*/viz/
 reports/
 investigations/*/viz/
+.dashboard.log
 
 # Per-session agent notes (friction logs, overnight summaries, internal
 # observations meant for the pbg-superpowers improvement-cycle agent).

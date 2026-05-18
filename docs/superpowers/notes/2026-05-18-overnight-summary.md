@@ -121,6 +121,46 @@ In rough priority:
    `reports/` to .gitignore so the worktree stops accumulating
    untracked artefacts.
 
+## Bonus finding — RIDA rate is insensitive over a wide range
+
+Late in the session I ran variant E + clamp at RIDA rates from 50× to
+500× intrinsic. **All four produce identical atp_fraction = 0.496.**
+The clamp is the dominant force; RIDA only needs enough flux to keep
+the equilibrium from unwinding the clamp's transfers. Past that
+threshold, more RIDA just means more rida_events; the steady state
+is unchanged.
+
+  RIDA rate     × intrinsic   atp_fraction   rida_events/tick
+  ──────────────────────────────────────────────────────────────
+  2.3 /min      50×           0.496          1.5
+  4.6 /min      100× (lit)    0.496          6.5
+  9.2 /min      200×          0.496          14.0
+  23.0 /min     500×          0.496          32.5
+
+**Implication for dnaa-05 production RIDA:** the absolute rate
+constant matters less than having a fork-active flux channel. dnaa-05
+designers can prioritise correct kinetics (Hda + β-clamp binding
+mechanism) over rate-matching.
+
+## Commits pushed this session (newest first)
+
+  v2ecoli @ feat/dnaa-mock-investigation-start:
+    7e5dead  feat(dnaa-02f, dnaa-04): rate-insensitivity finding + dnaa-04 inputs_map
+    da83ce0  chore: gitignore runtime artefacts + supersede dnaa-02 EQ-04
+    d9b5a21  docs: overnight summary 2026-05-18 — variant E wins dnaa-02f
+    11eb380  feat(dnaa-02f): variant E + clamp wins; dnaa-03 converted
+    83102db  feat(dnaa-02f): variant E (RIDA-v0) — equilibrium intact
+    8f1316f  fix(dnaa-02f): drop fictional DnaA-ADP-locked species
+    940b65d  feat(dnaa-02f): scaffold equilibrium-cleanup follow-up
+
+  vivarium-dashboard @ feat/viz-pipeline-fixes (PR #40):
+    a0e3358  feat(study-detail): auto-discover viz HTML + static routing fix
+    444bc48  feat(study-detail): Runs tab reads runs.db
+    5997355  fix(viz): nested observable resolution + mixed-type ts sort
+
+  pbg-superpowers @ feat/lint-viz-addresses (PR #27):
+    ca0cd9a  feat(runner): pbg_runner context manager
+
 ## What I did NOT do (intentionally)
 
 - Did not merge any PR — your standing rule.

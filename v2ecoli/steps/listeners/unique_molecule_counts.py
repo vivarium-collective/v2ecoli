@@ -56,11 +56,18 @@ class UniqueMoleculeCounts(Step):
         return (states["global_time"] % states["timestep"]) == 0
 
     def update(self, states, interval=None):
-        # Guard: return empty on first tick if data not yet populated
+        # self.unique_ids comes from the cache, which lists every
+        # unique-molecule type in the ParCa fixture (incl. plasmid molecules
+        # baked in by --mode full). State from a non-plasmid sim may omit
+        # those keys — report 0 instead of raising KeyError.
+        unique = states["unique"]
         return {
             "listeners": {
                 "unique_molecule_counts": {
-                    str(unique_id): states["unique"][unique_id]["_entryState"].sum()
+                    str(unique_id): (
+                        unique[unique_id]["_entryState"].sum()
+                        if unique_id in unique else 0
+                    )
                     for unique_id in self.unique_ids
                 }
             }

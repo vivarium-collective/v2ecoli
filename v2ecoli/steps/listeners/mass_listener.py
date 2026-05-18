@@ -245,6 +245,13 @@ class MassListener(Step):
         unique_compartment_masses = np.zeros_like(bulk_compartment_masses)
         for unique_id, unique_mass in zip(self.unique_ids, self.unique_masses):
             molecules = states["unique"].get(unique_id)
+            # self.unique_ids comes from the cache, which lists every
+            # unique-molecule type the ParCa fixture defines (incl. plasmid
+            # molecules baked in by --mode full). State from a non-plasmid
+            # sim (e.g. the pre-division checkpoint, or any daughter built
+            # from it) omits those keys — treat absent == zero count.
+            if molecules is None:
+                continue
             n_molecules = molecules["_entryState"].sum()
 
             if n_molecules == 0:

@@ -222,7 +222,7 @@ def main() -> None:
         pickle.dump(sd_good, f, protocol=pickle.HIGHEST_PROTOCOL)
     print(f"  wrote patched sim_data: {args.patched_out}")
 
-    from v2ecoli.composite import save_cache
+    from v2ecoli.core import save_cache
     save_cache(args.patched_out, cache_dir=args.cache_dir,
                seed=args.seed, has_plasmid=True,
                mechanistic_replisome=args.mechanistic_replisome)

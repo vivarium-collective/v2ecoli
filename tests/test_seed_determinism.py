@@ -1,9 +1,9 @@
 """Determinism under a fixed seed.
 
-Two independent `make_composite(cache_dir=..., seed=0)` calls, each run
-for the same duration, must produce identical simulation state. A failure
-means something in the process-bigraph graph or in v2ecoli's processes is
-reading from an unseeded source (dict iteration order, set iteration,
+Two independent `build_composite("baseline", cache_dir=..., seed=0)` calls,
+each run for the same duration, must produce identical simulation state. A
+failure means something in the process-bigraph graph or in v2ecoli's processes
+is reading from an unseeded source (dict iteration order, set iteration,
 hash randomization, uninitialized RNG, etc.) — a silent hazard for every
 reproducibility claim downstream.
 
@@ -18,7 +18,7 @@ import os
 
 import pytest
 
-from v2ecoli.composite import make_composite
+from v2ecoli import build_composite
 
 from _state_equal import deep_equal
 
@@ -38,7 +38,7 @@ pytestmark = [
 
 
 def _run_baseline(duration: float):
-    composite = make_composite(cache_dir=CACHE_DIR, seed=0)
+    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=0)
     composite.run(duration)
     return composite.state
 

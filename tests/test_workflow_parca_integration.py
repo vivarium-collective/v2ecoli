@@ -129,10 +129,11 @@ def test_step_parca_hydrates_fixture(tmp_path, monkeypatch):
     monkeypatch.setattr(workflow, 'CACHE_DIR', str(tmp_path / 'cache'))
     monkeypatch.setattr(workflow, 'load_meta', lambda _n: None)
     monkeypatch.setattr(workflow, 'save_meta', lambda _n, _m: None)
-    # Stub save_cache — we don't want to generate the full initial
-    # state JSON during this test (that's a separate step with its own
-    # coverage).  We assert the dill file is well-formed instead.
+    # Stub the bundle writers — we don't want to generate the full
+    # initial state JSON during this test (that's a separate step with
+    # its own coverage).  We assert the dill file is well-formed instead.
     monkeypatch.setattr(workflow, 'save_cache', lambda *a, **k: None)
+    monkeypatch.setattr(workflow, 'save_sim_input', lambda *a, **k: None)
 
     # Force the fixture path (not a composite rerun)
     assert workflow._OPTIONS.get('parca_rerun') is not True
@@ -174,6 +175,7 @@ def test_step_parca_fixture_is_fast(tmp_path, monkeypatch):
     monkeypatch.setattr(workflow, 'load_meta', lambda _n: None)
     monkeypatch.setattr(workflow, 'save_meta', lambda _n, _m: None)
     monkeypatch.setattr(workflow, 'save_cache', lambda *a, **k: None)
+    monkeypatch.setattr(workflow, 'save_sim_input', lambda *a, **k: None)
 
     cwd = os.getcwd()
     os.chdir(REPO_ROOT)

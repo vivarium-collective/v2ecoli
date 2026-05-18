@@ -1208,7 +1208,11 @@ def build_report(v2parca_outdir: str, vecoli_dir: Optional[str],
         network_path = os.path.join(
             os.path.dirname(output_path) or '.', 'parca_network.html')
         with open(network_path, 'w') as nf:
-            nf.write(render_html(graph_data, network_path))
+            nf.write(render_html(
+                graph_data,
+                'ParCa Composition Diagram',
+                'Interactive Cytoscape.js view of the 9-Step ParCa pipeline',
+            ))
         # Embed as an iframe
         network_rel = os.path.basename(network_path)
         network_html = (

@@ -35,9 +35,8 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
-from v2ecoli.composite import _build_core, _build_from_cache
+from v2ecoli import build_core, build_document
 from v2ecoli.library.division import divide_cell
-from v2ecoli.generate import build_document
 from process_bigraph import Composite
 
 
@@ -56,9 +55,9 @@ def _strip_emitter(doc: dict) -> dict:
 
 
 def _make_composite_no_emitter(cache_dir: str, core, seed: int = 0):
-    """Drop-in replacement for make_composite(cache_dir=...) that strips
+    """Drop-in replacement for build_composite(cache_dir=...) that strips
     the emitter from the document before construction."""
-    doc = _build_from_cache(cache_dir, core, seed=seed)
+    doc = build_document("baseline", core=core, seed=seed, cache_dir=cache_dir)
     _strip_emitter(doc)
     return Composite(doc, core=core)
 
@@ -238,7 +237,7 @@ def main():
     dry_mass_inc = cache.get("dry_mass_inc_dict", {})
 
     print(f"[{time.strftime('%H:%M:%S')}] Gen 1: building from {cache_dir}")
-    core = _build_core()
+    core = build_core()
     composite = _make_composite_no_emitter(cache_dir, core)
     gens: list[dict] = []
     t_pipeline = time.time()
@@ -298,10 +297,14 @@ def main():
         try:
             d1_state, _d2_state = divide_cell(prev_cell)
             t_build = time.time()
-            doc = build_document(
-                d1_state, configs, unique_names,
-                dry_mass_inc_dict=dry_mass_inc, seed=gen_idx,
-            )
+            daughter_bundle = {
+                "initial_state": d1_state,
+                "configs": configs,
+                "unique_names": unique_names,
+                "dry_mass_inc_dict": dry_mass_inc,
+            }
+            doc = build_document("baseline", core=core, seed=gen_idx,
+                                 bundle=daughter_bundle)
             _strip_emitter(doc)
             composite = Composite(doc, core=core)
             print(f"    built daughter composite in {time.time() - t_build:.1f}s")

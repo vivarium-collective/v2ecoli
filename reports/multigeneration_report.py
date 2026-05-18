@@ -2,9 +2,9 @@
 
 Runs a single cell to division, keeps exactly one daughter, runs that to
 division, keeps one of its daughters, etc. — for a configurable number
-of generations. Plots mass trajectories end-to-end across all
-generations and writes an HTML report (same provenance banner as the
-rest of the reports).
+of generations. Dispatches the concatenated trajectory (rows tagged by
+``generation``) to
+v2ecoli.visualizations.multigeneration.MultigenerationVisualization.
 
     python reports/multigeneration_report.py --generations 3
 
@@ -14,31 +14,16 @@ Output: out/multigeneration/multigeneration_report.html
 from __future__ import annotations
 
 import argparse
-import base64
-import io
 import os
 import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
-import dill
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import numpy as np
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from v2ecoli.composite import make_composite, _build_core
-from v2ecoli.library.division import divide_cell
-from v2ecoli.generate import build_document
-from process_bigraph import Composite
 
 
 OUTPUT_DIR = "out/multigeneration"
-CACHE_DIR = "out/cache" if os.path.isdir("out/cache") else "out/workflow/cache"
 SNAPSHOT_INTERVAL = 50  # seconds between mass captures
 MAX_GENERATION_DURATION = 3600  # safety cap per generation
 
@@ -121,7 +106,7 @@ def _extract_cell_data(cell: dict) -> dict[str, Any]:
 
 
 def _run_generation(
-    composite: Composite,
+    composite,
     gen_idx: int,
     max_duration: float,
 ) -> GenerationResult:
@@ -203,32 +188,25 @@ def _run_generation(
 def run_multigeneration(
     n_generations: int,
     max_duration_per_gen: float,
+    cache_dir: str = "out/cache",
+    seed: int = 0,
 ) -> list[GenerationResult]:
     """Run n_generations of single-lineage cells, carrying one daughter
     forward across each division."""
-    # Load cache configs for rebuilding daughter composites.
-    with open(os.path.join(CACHE_DIR, "sim_data_cache.dill"), "rb") as f:
-        cache = dill.load(f)
-    # On the pint-migrated branches, cache contains pint Quantities whose
-    # registry identity is lost across dill; rebind them to the shared
-    # app-registry. No-op on main (cache is pure-Unum there).
-    try:
-        from v2ecoli.library.unit_bridge import rebind_cache_quantities
-        rebind_cache_quantities(cache)
-    except ImportError:
-        pass
-    configs = cache.get("configs", {})
-    unique_names = cache.get("unique_names", [])
-    dry_mass_inc = cache.get("dry_mass_inc_dict", {})
+    from v2ecoli import build_composite
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.baseline import baseline, seed_mass_listener
+    from v2ecoli.library.division import divide_cell
+    from process_bigraph import Composite
 
     results: list[GenerationResult] = []
 
     # Generation 1 — start from the fresh initial state the workflow/canary use.
-    print(f"  Gen 1: building from cache {CACHE_DIR}")
-    composite = make_composite(cache_dir=CACHE_DIR)
+    print(f"  Gen 1: building from cache {cache_dir}")
+    composite = build_composite("baseline", cache_dir=cache_dir)
     cell0 = composite.state["agents"]["0"]
     print(
-        f"    initial dry_mass={cell0['listeners']['mass'].get('dry_mass',0):.1f} fg"
+        f"    initial dry_mass={cell0['listeners']['mass'].get('dry_mass', 0):.1f} fg"
     )
 
     gen = _run_generation(composite, 1, max_duration_per_gen)
@@ -251,14 +229,15 @@ def run_multigeneration(
         d1_state, _d2_state = divide_cell(prev_cell_data)
 
         t_build0 = time.time()
-        doc = build_document(
-            d1_state,
-            configs,
-            unique_names,
-            dry_mass_inc_dict=dry_mass_inc,
-            seed=gen_idx,
-        )
-        composite = Composite(doc, core=_build_core())
+        core = build_core()
+        doc = baseline(core=core, seed=gen_idx, cache_dir=cache_dir)
+        agent = doc["state"]["agents"]["0"]
+        for key in ("bulk", "unique", "environment", "boundary"):
+            if key in d1_state:
+                agent[key] = d1_state[key]
+        agent["listeners"]["mass"] = {"dry_mass": 0.0, "cell_mass": 0.0}
+        seed_mass_listener(agent, core)
+        composite = Composite(doc, core=core)
         build_time = time.time() - t_build0
         print(f"    built daughter composite in {build_time:.1f}s")
 
@@ -275,274 +254,177 @@ def run_multigeneration(
     return results
 
 
-MASS_KEYS = [
-    ("dry_mass", "Dry Mass", "k"),
-    ("protein_mass", "Protein", "#22c55e"),
-    ("dna_mass", "DNA", "#8b5cf6"),
-    ("rRna_mass", "rRNA", "#3b82f6"),
-    ("tRna_mass", "tRNA", "#06b6d4"),
-    ("mRna_mass", "mRNA", "#f97316"),
-    ("smallMolecule_mass", "Small mol", "#f59e0b"),
-]
-
-
-def _fig_to_b64(fig) -> str:
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight")
-    plt.close(fig)
-    return base64.b64encode(buf.getvalue()).decode("ascii")
-
-
-def plot_multigeneration_mass(results: list[GenerationResult]) -> str:
-    """Plot mass fold change across all generations on one concatenated
-    time axis. Each generation re-normalizes fold change to 1.0 at its
-    own start; generation boundaries are drawn as vertical dashed lines."""
-    fig, (ax_abs, ax_fold) = plt.subplots(
-        2, 1, figsize=(14, 9), sharex=True
-    )
-    fig.suptitle(
-        f"Multigeneration lineage — {len(results)} generation(s)",
-        fontsize=13,
-    )
-
-    cumulative_t = 0.0
-    gen_boundaries: list[float] = []
-
+def _results_to_history(results: list[GenerationResult]) -> list[dict]:
+    """Convert GenerationResult snapshots to a flat history list with
+    ``generation`` tags, as expected by MultigenerationVisualization."""
+    history: list[dict] = []
     for gen in results:
-        if not gen.snapshots:
-            continue
-        times = np.array([s["time"] for s in gen.snapshots])
-        t_offset = cumulative_t
-        plot_times = (times + t_offset) / 60.0  # minutes
-
-        for key, label, color in MASS_KEYS:
-            vals = np.array([s.get(key, 0) for s in gen.snapshots], dtype=float)
-            if vals.size == 0 or vals[0] <= 0:
-                continue
-            # Only label on the first generation to keep the legend tidy
-            legend_label = label if gen.index == 1 else None
-            ax_abs.plot(plot_times, vals, color=color, lw=1.4, label=legend_label)
-            ax_fold.plot(
-                plot_times,
-                vals / vals[0],
-                color=color,
-                lw=1.4,
-                label=legend_label,
-            )
-
-        cumulative_t += gen.duration
-        gen_boundaries.append(cumulative_t)
-
-    for ax, ylabel, title in (
-        (ax_abs, "Mass (fg)", "Absolute mass"),
-        (ax_fold, "Fold change (within each generation)", "Per-generation fold change"),
-    ):
-        for b in gen_boundaries[:-1]:
-            ax.axvline(b / 60.0, ls="--", color="#64748b", alpha=0.4, lw=1)
-        ax.set_title(title, fontsize=11)
-        ax.set_ylabel(ylabel)
-        ax.grid(True, alpha=0.15)
-        if ax is ax_abs:
-            ax.legend(fontsize=8, ncol=4, loc="upper left")
-
-    ax_fold.set_xlabel("Cumulative time (min)")
-    fig.tight_layout()
-    return _fig_to_b64(fig)
+        for snap in gen.snapshots:
+            row = dict(snap)
+            row["generation"] = gen.index
+            history.append(row)
+    return history
 
 
-def generate_html_report(
-    results: list[GenerationResult],
-    report_plot_b64: str,
-    output_path: str,
-    pipeline_wall_time: float,
-) -> None:
-    try:
-        from v2ecoli.library.repro_banner import banner_html
+def _load_study(study_path: str) -> dict:
+    """Load + lightly validate a v3-shape study.yaml driving this report.
 
-        repro_banner = banner_html()
-    except Exception:
-        repro_banner = ""
+    Expected shape::
 
-    gens_rows = ""
-    total_sim_time = 0.0
-    for gen in results:
-        total_sim_time += gen.duration
-        gens_rows += (
-            "<tr>"
-            f"<td>{gen.index}</td>"
-            f"<td>{gen.duration:.0f}</td>"
-            f"<td>{gen.wall_time:.0f}</td>"
-            f"<td>{gen.initial_dry_mass:.1f}</td>"
-            f"<td>{gen.final_dry_mass:.1f}</td>"
-            f"<td>{gen.final_dry_mass/max(gen.initial_dry_mass,1e-9):.2f}×</td>"
-            f"<td class=\"{'green' if gen.divided else 'red'}\">"
-            f"{'divided' if gen.divided else 'no division'}</td>"
-            "</tr>"
+        baseline:
+        - name: <any>                     # informational
+          composite: v2ecoli.composites.baseline.baseline
+          params: {seed: int, cache_dir: str}
+        lineage:
+          generations: int                # how many divisions to chain
+          max_duration: float             # per-gen safety cap (seconds)
+          seed_strategy: daughter_carry_forward
+        visualizations:
+        - name: <any>
+          address: local:MultigenerationVisualization
+          config: {title: str, ...}
+
+    Only the ``baseline`` (single entry; must be the partitioned ``baseline``
+    composite — multigeneration_report hardcodes that architecture) and
+    ``lineage`` blocks are required. Other fields are passed through but
+    ignored.
+    """
+    import yaml as _yaml
+    with open(study_path) as fh:
+        spec = _yaml.safe_load(fh) or {}
+
+    baseline_entries = spec.get("baseline") or []
+    if len(baseline_entries) != 1:
+        raise ValueError(
+            f"study {study_path!r}: `baseline:` must have exactly one entry "
+            f"(multigeneration_report chains a single architecture); got "
+            f"{len(baseline_entries)}"
+        )
+    composite_ref = baseline_entries[0].get("composite") or ""
+    if not composite_ref.endswith(".baseline.baseline"):
+        raise ValueError(
+            f"study {study_path!r}: baseline composite must be the "
+            f"partitioned `baseline` architecture (e.g. "
+            f"v2ecoli.composites.baseline.baseline); got {composite_ref!r}"
         )
 
-    n_snaps_total = sum(len(g.snapshots) for g in results)
-
-    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
-    with open(output_path, "w") as f:
-        f.write(
-            f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>v2ecoli — multigeneration report</title>
-<style>
-  body {{
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    max-width: 1200px;
-    margin: 20px auto;
-    padding: 0 20px;
-    color: #1e293b;
-  }}
-  h1 {{ margin-bottom: 0; }}
-  h2 {{ margin-top: 32px; color: #0f172a; }}
-  .metric-row {{
-    display: flex;
-    gap: 16px;
-    margin: 16px 0;
-    flex-wrap: wrap;
-  }}
-  .metric {{
-    background: #f1f5f9;
-    padding: 10px 16px;
-    border-radius: 6px;
-    min-width: 160px;
-  }}
-  .metric .label {{ font-size: 0.82em; color: #64748b; }}
-  .metric .value {{ font-size: 1.3em; font-weight: 600; }}
-  table {{
-    border-collapse: collapse;
-    margin: 12px 0;
-    width: 100%;
-  }}
-  th, td {{
-    padding: 6px 14px;
-    border-bottom: 1px solid #e2e8f0;
-    text-align: left;
-  }}
-  th {{ background: #f8fafc; }}
-  .green {{ color: #15803d; }}
-  .red {{ color: #b91c1c; }}
-  .plot img {{ max-width: 100%; }}
-  p.intro {{ color: #475569; }}
-</style>
-</head>
-<body>
-{repro_banner}
-
-<h1>Multigeneration lineage</h1>
-<p class="intro">
-  Single-lineage simulation: start from one newborn cell, run to division,
-  keep exactly one daughter, repeat. The plot below shows mass over time
-  across all generations, with dashed lines at generation boundaries.
-</p>
-
-<div class="metric-row">
-  <div class="metric">
-    <div class="label">Generations</div>
-    <div class="value">{len(results)}</div>
-  </div>
-  <div class="metric">
-    <div class="label">Total simulated time</div>
-    <div class="value">{total_sim_time/60:.0f} min</div>
-  </div>
-  <div class="metric">
-    <div class="label">Total wall time</div>
-    <div class="value">{pipeline_wall_time:.0f} s</div>
-  </div>
-  <div class="metric">
-    <div class="label">Snapshots captured</div>
-    <div class="value">{n_snaps_total}</div>
-  </div>
-</div>
-
-<h2>Per-generation summary</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Gen</th>
-      <th>Sim time (s)</th>
-      <th>Wall (s)</th>
-      <th>Initial dry mass (fg)</th>
-      <th>Final dry mass (fg)</th>
-      <th>Growth</th>
-      <th>Status</th>
-    </tr>
-  </thead>
-  <tbody>
-    {gens_rows}
-  </tbody>
-</table>
-
-<h2>Mass across generations</h2>
-<div class="plot">
-  <img src="data:image/png;base64,{report_plot_b64}" alt="multigeneration mass plot">
-</div>
-
-<p style="color:#94a3b8; font-size:0.85em; margin-top:48px;">
-  Generated by <code>reports/multigeneration_report.py</code> at {time.strftime('%Y-%m-%d %H:%M:%S')}.
-  Each generation is seeded from the previous cell's divide-time state via
-  <code>v2ecoli.library.division.divide_cell</code> (daughter 1 kept).
-</p>
-</body>
-</html>"""
+    lineage = spec.get("lineage") or {}
+    if "generations" not in lineage:
+        raise ValueError(
+            f"study {study_path!r}: missing required `lineage.generations`"
         )
+    strategy = lineage.get("seed_strategy", "daughter_carry_forward")
+    if strategy != "daughter_carry_forward":
+        raise ValueError(
+            f"study {study_path!r}: lineage.seed_strategy must be "
+            f"'daughter_carry_forward' (the only one implemented); got "
+            f"{strategy!r}"
+        )
+    return spec
 
 
-def main():
-    parser = argparse.ArgumentParser()
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--study", default=None,
+        help="Path to a v3-shape study.yaml driving the lineage. When set, "
+             "the baseline entry's params and the lineage block (generations, "
+             "max_duration) become defaults; CLI flags below still override.",
+    )
     parser.add_argument(
         "--generations",
         type=int,
-        default=3,
-        help="Number of generations to run (default: 3).",
+        default=None,
+        help="Number of generations to run (default: 3, or study.lineage.generations).",
     )
     parser.add_argument(
         "--max-duration",
         type=float,
-        default=MAX_GENERATION_DURATION,
-        help="Safety cap (seconds) per generation (default: 3600).",
+        default=None,
+        help="Safety cap (seconds) per generation "
+             "(default: 3600, or study.lineage.max_duration).",
     )
     parser.add_argument(
+        "--out",
+        default=os.path.join(OUTPUT_DIR, "multigeneration_report.html"),
+        help="Output HTML path.",
+    )
+    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
         "--cache-dir",
-        type=str,
         default=None,
-        help="Override cache directory (e.g. out/cache_plasmid for a "
-             "plasmid-enabled run).",
+        help="Directory holding ParCa cache "
+             "(default: out/cache or out/workflow/cache, or study param; "
+             "use e.g. out/cache_plasmid for a plasmid-enabled run).",
     )
     args = parser.parse_args()
 
-    if args.cache_dir is not None:
-        global CACHE_DIR
-        CACHE_DIR = args.cache_dir
+    study_spec = _load_study(args.study) if args.study else None
+    study_params = ((study_spec or {}).get("baseline") or [{}])[0].get("params") or {}
+    study_lineage = (study_spec or {}).get("lineage") or {}
+
+    n_generations = args.generations if args.generations is not None \
+        else int(study_lineage.get("generations", 3))
+    max_duration = args.max_duration if args.max_duration is not None \
+        else float(study_lineage.get("max_duration", MAX_GENERATION_DURATION))
+    seed = args.seed if args.seed is not None \
+        else int(study_params.get("seed", 0))
+    cache_dir = args.cache_dir or study_params.get("cache_dir") \
+        or ("out/cache" if os.path.isdir("out/cache") else "out/workflow/cache")
+
+    viz_config = {"title": f"v2ecoli {n_generations}-generation lineage"}
+    if study_spec is not None:
+        for v in (study_spec.get("visualizations") or []):
+            if isinstance(v, dict) and "MultigenerationVisualization" in (v.get("address") or ""):
+                viz_config = dict(v.get("config") or viz_config)
+                break
 
     print("=" * 60)
-    print(f"v2ecoli multigeneration report — {args.generations} generation(s)")
+    print(f"v2ecoli multigeneration report — {n_generations} generation(s)")
+    if study_spec is not None:
+        print(f"Study: {study_spec.get('name', '(unnamed)')}")
     print("=" * 60)
 
     t_pipeline = time.time()
-    results = run_multigeneration(args.generations, args.max_duration)
+    results = run_multigeneration(
+        n_generations,
+        max_duration,
+        cache_dir=cache_dir,
+        seed=seed,
+    )
     pipeline_wall = time.time() - t_pipeline
 
-    print("  Generating plot…")
-    plot_b64 = plot_multigeneration_mass(results)
+    print("  Dispatching to MultigenerationVisualization…")
+    from bigraph_schema import allocate_core
+    from v2ecoli.visualizations.multigeneration import MultigenerationVisualization
 
-    print("  Writing HTML report…")
-    report_path = os.path.join(OUTPUT_DIR, "multigeneration_report.html")
-    generate_html_report(results, plot_b64, report_path, pipeline_wall)
+    history = _results_to_history(results)
+
+    viz = MultigenerationVisualization(
+        config=viz_config,
+        core=allocate_core(),
+    )
+    result = viz.update({
+        "history": history,
+        "metadata": {
+            "n_generations": n_generations,
+            "seed": seed,
+            "cache_dir": cache_dir,
+            "pipeline_wall_time": pipeline_wall,
+        },
+    })
+
+    os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
+    with open(args.out, "w") as f:
+        f.write(result["html"])
 
     print("=" * 60)
     print(f"Pipeline wall time: {pipeline_wall:.0f} s")
-    print(f"Report: {report_path}")
+    print(f"Report: {args.out}")
 
     try:
         import subprocess
-
-        subprocess.run(["open", report_path], check=False)
+        subprocess.run(["open", args.out], check=False)
     except Exception:
         pass
 

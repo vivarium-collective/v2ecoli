@@ -1,0 +1,15 @@
+{
+ "unique_names": [
+  "active_RNAP",
+  "RNA",
+  "active_ribosome",
+  "full_chromosome",
+  "chromosome_domain",
+  "active_replisome",
+  "oriC",
+  "promoter",
+  "gene",
+  "chromosomal_segment",
+  "DnaA_box"
+ ]
+}

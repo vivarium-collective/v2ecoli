@@ -16,7 +16,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
-from v2ecoli.composite import make_composite
+from v2ecoli import build_composite
 
 CACHE_DIR = "out/cache_plasmid"
 OUT_JSON = "out/plasmid/timeseries.json"
@@ -118,7 +118,7 @@ def main():
     os.makedirs(os.path.dirname(OUT_JSON), exist_ok=True)
     print(f"[{time.strftime('%H:%M:%S')}] Loading composite from {CACHE_DIR}")
     t0 = time.time()
-    composite = make_composite(cache_dir=CACHE_DIR, seed=0)
+    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=0)
     print(f"  loaded in {time.time() - t0:.1f}s")
 
     cell = composite.state["agents"]["0"]

@@ -1,0 +1,813 @@
+"""Shared helpers for the v2ecoli composite generators.
+
+These were previously defined in ``v2ecoli/generate.py`` and re-imported by
+``generate_departitioned.py`` and ``generate_reconciled.py``.  Task 14 moves
+them here so the legacy generate*.py files can be deleted.
+
+Exported names (all are considered semi-private implementation details):
+  - make_edge
+  - inject_flow_dependencies
+  - _seed_state_from_defaults
+  - seed_mass_listener
+  - _normalize_boundary_units
+  - _make_instance
+  - _get_special_step
+  - _expand_flushes
+  - FLUSH
+  - PARTITIONED_PROCESSES
+  - ALL_PARTITIONED
+  - ALLOCATOR_LAYERS
+"""
+
+from __future__ import annotations
+
+import copy
+
+import numpy as np
+
+# ---------------------------------------------------------------------------
+# Process imports (needed for PARTITIONED_PROCESSES and _instantiate_step)
+# ---------------------------------------------------------------------------
+from v2ecoli.processes.rna_degradation import RnaDegradation
+from v2ecoli.processes.transcript_elongation import TranscriptElongation
+from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
+from v2ecoli.processes.chromosome_replication import ChromosomeReplication
+from v2ecoli.processes.plasmid_replication import PlasmidReplication
+
+
+# ---------------------------------------------------------------------------
+# FLUSH sentinel and helper
+# ---------------------------------------------------------------------------
+
+# FLUSH marks a position where the UniqueNumpyUpdater buffer should be
+# drained before the next layer runs.  Expanded to a real step by
+# _expand_flushes() at build time.
+FLUSH = '__unique_flush__'
+
+
+def _expand_flushes(layers):
+    """Replace each FLUSH sentinel with a real [unique_update_N] sub-layer.
+
+    N is assigned in declaration order so state keys stay stable across
+    architecture variants (baseline, departitioned, reconciled).
+    """
+    out, n = [], 0
+    for layer in layers:
+        if layer == FLUSH:
+            n += 1
+            out.append([f'unique_update_{n}'])
+        else:
+            out.append(layer)
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Partitioned process registry
+# ---------------------------------------------------------------------------
+
+PARTITIONED_PROCESSES = {
+    'ecoli-rna-degradation': RnaDegradation,
+    'ecoli-chromosome-replication': ChromosomeReplication,
+    'ecoli-plasmid-replication': PlasmidReplication,
+    'ecoli-transcript-elongation': TranscriptElongation,
+    'ecoli-polypeptide-elongation': PolypeptideElongation,
+}
+
+ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
+
+
+# ---------------------------------------------------------------------------
+# Canonical visualization set for single-cell architectures.
+# ---------------------------------------------------------------------------
+# Shared by baseline / departitioned / reconciled — all three resolve to the
+# same observables.mass / unique-molecule layout so the same viz tiles apply.
+# Surfaced via ``@composite_generator(visualizations=...)`` so any Study
+# built on one of these architectures inherits the v2ecoli simulation report
+# panels without having to hand-author them in spec.yaml.
+#
+# Coverage:
+#   - workflow: integrated WorkflowVisualization (chromosome state + replication
+#     forks + ppGpp dynamics + mass fold change + division — the full legacy
+#     simulation report)
+#   - topology: NetworkVisualization of the process wiring
+#
+# Note: the cell-mass / cell-volume / growth-rate / absolute-mass-components /
+# mass-fold-change TimeSeriesPlots that previously lived here used a
+# `config.observable: '<short-name>'` convention that the dashboard's
+# build_viz_composite (vivarium-dashboard, lib/investigations.py) does not yet
+# understand — it only honors `inputs_map` for port→observable wiring, so
+# those plots came out with empty y-data even though the emitter recorded
+# them. They will land back here once the dashboard grows a short-name /
+# leaf-name resolver for canonical viz wiring.
+DEFAULT_SINGLE_CELL_VISUALIZATIONS = [
+    {
+        'name': 'workflow',
+        'address': 'local:WorkflowVisualization',
+        'config': {'title': 'v2ecoli — single-cell lifecycle'},
+    },
+    {
+        'name': 'topology',
+        'address': 'local:NetworkVisualization',
+        'config': {'title': 'Process topology'},
+    },
+]
+
+ALLOCATOR_LAYERS = {
+    # RNA degradation + chromosome + plasmid replication share allocator_2.
+    # vEcoli's flow puts chromosome at the same tf-binding dependency
+    # depth as rna-degradation; plasmid joins them so the two replication
+    # processes compete for replisome subunits (DnaG, DnaB, HolA, pol-III
+    # core, β-clamp) and dNTPs via the existing allocator-fairness math.
+    'allocator_2': ['ecoli-rna-degradation', 'ecoli-chromosome-replication',
+                    'ecoli-plasmid-replication'],
+    # Elongation processes compete for NTPs / charged tRNAs
+    'allocator_3': ['ecoli-polypeptide-elongation',
+                    'ecoli-transcript-elongation'],
+}
+
+
+# ---------------------------------------------------------------------------
+# Emitter override (module-level)
+# ---------------------------------------------------------------------------
+# When a Study runner needs persistent time-series history, it can set
+# ``_EMITTER_OVERRIDE`` to a dict of SQLiteEmitter-config kwargs (e.g.
+# ``{'file_path': '.../studies/<name>', 'db_file': 'runs.db',
+#   'name': 'baseline-steady-state'}``) BEFORE building the composite.
+# When set, the special 'emitter' step in baseline / departitioned /
+# reconciled swaps RAMEmitter for SQLiteEmitter and expands the emit
+# schema to cover the per-listener fields the dnaa investigation reads.
+#
+# Use the ``sqlite_emitter()`` context manager below for safety —
+# ensures the override is cleared even on exceptions.
+_EMITTER_OVERRIDE: dict | None = None
+
+
+def set_emitter_override(config: dict | None) -> None:
+    """Set the module-level emitter override. Pass None to clear."""
+    global _EMITTER_OVERRIDE
+    _EMITTER_OVERRIDE = config
+
+
+import contextlib  # noqa: E402
+import os  # noqa: E402
+import sqlite3  # noqa: E402
+import uuid  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+
+def _find_workspace_root(start: Path | None = None) -> Path | None:
+    """Walk up from ``start`` (default: cwd) looking for ``workspace.yaml``.
+
+    Returns the directory that contains ``workspace.yaml``, or ``None`` if
+    none is found before hitting the filesystem root. Cheap, no imports.
+    """
+    cur = Path(start or Path.cwd()).resolve()
+    for d in (cur, *cur.parents):
+        if (d / 'workspace.yaml').is_file():
+            return d
+    return None
+
+
+def _ensure_study_columns(db_path: str) -> None:
+    """Idempotently add study_slug / investigation_slug columns to ``simulations``.
+
+    Safe to call on a missing DB (creates the parent dir + an empty DB with
+    just the columns we add — the SQLiteEmitter's _init_history_db will
+    create the rest of the schema on its own init).
+    """
+    parent = os.path.dirname(db_path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    conn = sqlite3.connect(db_path, isolation_level=None)
+    try:
+        # Mirror the SQLiteEmitter's table layout — without recreating the
+        # full schema, we just need the `simulations` table to exist before
+        # we ALTER. If SQLiteEmitter has already initialized it, the CREATE
+        # is a no-op.
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS simulations (
+                simulation_id TEXT PRIMARY KEY,
+                name TEXT,
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                elapsed_seconds REAL,
+                composite_config TEXT,
+                metadata TEXT,
+                emit_schema TEXT
+            )
+        ''')
+        existing = {row[1] for row in conn.execute(
+            'PRAGMA table_info(simulations)')}
+        if 'study_slug' not in existing:
+            conn.execute('ALTER TABLE simulations ADD COLUMN study_slug TEXT')
+        if 'investigation_slug' not in existing:
+            conn.execute(
+                'ALTER TABLE simulations ADD COLUMN investigation_slug TEXT')
+    finally:
+        conn.close()
+
+
+def _stamp_study_metadata(
+    db_path: str,
+    simulation_id: str,
+    study_slug: str | None,
+    investigation_slug: str | None,
+) -> None:
+    """Write study_slug + investigation_slug for ``simulation_id``.
+
+    Upserts a row keyed on ``simulation_id`` and leaves any existing
+    SQLiteEmitter-managed fields (name, emit_schema, ...) untouched. Use
+    after the SQLiteEmitter step has been constructed (which inserts the
+    initial row) — or before, in which case ``started_at`` defaults to
+    now-UTC and the emitter will overwrite it on its own insert.
+    """
+    if study_slug is None and investigation_slug is None:
+        return
+    import datetime
+    now_iso = datetime.datetime.now(datetime.timezone.utc).strftime(
+        '%Y-%m-%dT%H:%M:%SZ')
+    conn = sqlite3.connect(db_path, isolation_level=None)
+    try:
+        conn.execute(
+            'INSERT INTO simulations '
+            '(simulation_id, started_at, study_slug, investigation_slug) '
+            'VALUES (?, ?, ?, ?) '
+            'ON CONFLICT(simulation_id) DO UPDATE SET '
+            '  study_slug = COALESCE(excluded.study_slug, simulations.study_slug), '
+            '  investigation_slug = COALESCE(excluded.investigation_slug, simulations.investigation_slug)',
+            (simulation_id, now_iso, study_slug, investigation_slug),
+        )
+    finally:
+        conn.close()
+
+
+@contextlib.contextmanager
+def sqlite_emitter(*, file_path: str | None = None,
+                   db_file: str | None = None,
+                   name: str | None = None,
+                   simulation_id: str | None = None,
+                   subsample: int = 1,
+                   study_slug: str | None = None,
+                   investigation_slug: str | None = None):
+    """Context manager: build composite with a SQLiteEmitter step.
+
+    By default writes to ``<workspace_root>/.pbg/composite-runs.db`` — the
+    same workspace-shared DB the vivarium-dashboard's Simulations DB tab
+    aggregates from. Pass ``study_slug`` / ``investigation_slug`` to tag the
+    run; the slugs are stored as columns on the ``simulations`` row so the
+    dashboard can group / filter by them.
+
+    To keep using a per-study DB, pass ``file_path`` (and optionally
+    ``db_file``) explicitly — the old behavior is preserved.
+
+    Usage::
+
+        with sqlite_emitter(name='baseline-seed0',
+                            study_slug='dnaa-01-expression-dynamics',
+                            investigation_slug='dnaa-replication'):
+            doc = baseline(cache_dir='out/cache')
+            comp = Composite(doc, core=core)
+            comp.update({}, 60.0 * 60)
+    """
+    # Resolve workspace-default DB path when caller didn't pin one.
+    if file_path is None:
+        ws_root = _find_workspace_root()
+        if ws_root is None:
+            raise RuntimeError(
+                'sqlite_emitter(): no file_path given and no workspace.yaml '
+                'found walking up from cwd; either run from inside a '
+                'workspace or pass file_path explicitly.')
+        file_path = str(ws_root / '.pbg')
+        if db_file is None:
+            db_file = 'composite-runs.db'
+    else:
+        if db_file is None:
+            db_file = 'runs.db'
+
+    # Pin the simulation_id upfront so we can stamp metadata around the
+    # emitter's own init insert.
+    if simulation_id is None:
+        simulation_id = str(uuid.uuid4())
+
+    cfg = {
+        'file_path': file_path,
+        'db_file': db_file,
+        'simulation_id': simulation_id,
+    }
+    if name is not None:
+        cfg['name'] = name
+    if subsample != 1:
+        cfg['subsample'] = subsample
+
+    db_path = os.path.join(file_path, db_file)
+    # Ensure our extra columns exist on the simulations table BEFORE the
+    # SQLiteEmitter step runs its own _init_history_db (which is a no-op for
+    # already-existing tables). Then stamp the slugs. Safe to run unconditionally
+    # — the helpers are idempotent and tolerate a missing file.
+    _ensure_study_columns(db_path)
+    _stamp_study_metadata(db_path, simulation_id, study_slug, investigation_slug)
+
+    set_emitter_override(cfg)
+    try:
+        yield cfg
+    finally:
+        # Re-stamp in case the emitter's own insert ran after ours and we
+        # need to ensure the slugs survived. ON CONFLICT DO UPDATE preserves
+        # any non-NULL value, so this is a belt-and-suspenders no-op when
+        # things already stuck.
+        try:
+            _stamp_study_metadata(
+                db_path, simulation_id, study_slug, investigation_slug)
+        except sqlite3.OperationalError:
+            pass
+        set_emitter_override(None)
+
+
+# ---------------------------------------------------------------------------
+# Wiring helpers
+# ---------------------------------------------------------------------------
+
+def _seed_state_from_defaults(cell_state):
+    """Walk each edge's port_defaults and inject values into cell_state.
+
+    Each step instance provides port_defaults() which returns a nested dict
+    of default values for ports that need pre-population.
+    """
+    for edge in list(cell_state.values()):
+        if not (isinstance(edge, dict) and 'instance' in edge):
+            continue
+        instance = edge['instance']
+        try:
+            defaults = instance.port_defaults()
+        except (AttributeError, Exception):
+            continue
+        if not defaults:
+            continue
+        for port_name, wire_path in edge.get('inputs', {}).items():
+            port_default = defaults.get(port_name)
+            if port_default is None or not isinstance(wire_path, list):
+                continue
+            if isinstance(port_default, dict):
+                _inject_nested_defaults(cell_state, wire_path, port_default)
+            else:
+                _inject_port_default(cell_state, wire_path, {'_default': port_default})
+
+
+def _inject_nested_defaults(state, wire_path, defaults_dict):
+    """Recursively inject nested default values into state."""
+    target = state
+    for segment in wire_path:
+        if not isinstance(target, dict):
+            return
+        target = target.setdefault(segment, {})
+    if not isinstance(target, dict):
+        return
+    for key, val in defaults_dict.items():
+        if isinstance(val, dict):
+            sub = target.setdefault(key, {})
+            if isinstance(sub, dict):
+                for k2, v2 in val.items():
+                    if isinstance(v2, dict):
+                        sub2 = sub.setdefault(k2, {})
+                        if isinstance(sub2, dict):
+                            for k3, v3 in v2.items():
+                                sub2.setdefault(k3, v3)
+                    else:
+                        sub.setdefault(k2, v2)
+        else:
+            target.setdefault(key, val)
+
+
+def _inject_port_default(state, wire_path, port_schema):
+    """Inject _default values along wire_path into state."""
+    if '_default' in port_schema:
+        default = port_schema['_default']
+        target = state
+        for segment in wire_path[:-1]:
+            if not isinstance(target, dict):
+                return
+            target = target.setdefault(segment, {})
+        if isinstance(target, dict) and wire_path:
+            key = wire_path[-1]
+            current = target.get(key)
+            if current is None or (
+                    isinstance(current, (list, dict, tuple))
+                    and len(current) == 0):
+                target[key] = default
+        return
+
+    target = state
+    for segment in wire_path:
+        if not isinstance(target, dict):
+            return
+        target = target.setdefault(segment, {})
+    if not isinstance(target, dict):
+        return
+    for key, subport in port_schema.items():
+        if key.startswith('_') or key == '*' or not isinstance(subport, dict):
+            continue
+        _inject_port_default(target, [key], subport)
+
+
+def seed_mass_listener(cell_state, core):
+    """Run mass listener once to populate initial mass values."""
+    for name in ['post-division-mass-listener', 'ecoli-mass-listener']:
+        edge = cell_state.get(name)
+        if not isinstance(edge, dict) or 'instance' not in edge:
+            continue
+        instance = edge['instance']
+        if not hasattr(instance, 'next_update'):
+            continue
+
+        view = {}
+        wires = edge.get('inputs', {})
+        for port, wire in wires.items():
+            if isinstance(wire, list) and wire:
+                target = cell_state
+                for seg in wire:
+                    if isinstance(target, dict):
+                        target = target.get(seg)
+                    else:
+                        target = None
+                        break
+                if target is not None:
+                    view[port] = target
+
+        for key in ['bulk']:
+            arr = view.get(key)
+            if arr is not None and hasattr(arr, 'flags'):
+                try:
+                    arr.flags.writeable = True
+                except ValueError:
+                    view[key] = arr.copy()
+                    view[key].flags.writeable = True
+        for uname, uarr in view.get('unique', {}).items():
+            if hasattr(uarr, 'flags'):
+                try:
+                    uarr.flags.writeable = True
+                except ValueError:
+                    pass
+
+        try:
+            delta = instance.next_update(1.0, view)
+            if delta and 'listeners' in delta:
+                mass = delta['listeners'].get('mass', {})
+                cell_state['listeners']['mass'].update(mass)
+        except Exception:
+            pass
+        break
+
+
+def list_paths(path):
+    """Convert tuple paths to list paths. Flatten _path dicts."""
+    if isinstance(path, tuple):
+        return list(path)
+    elif isinstance(path, dict):
+        if '_path' in path:
+            result = {}
+            for key, subpath in path.items():
+                if key == '_path':
+                    continue
+                result[key] = list_paths(subpath)
+            return result
+        return {key: list_paths(subpath) for key, subpath in path.items()}
+    return path
+
+
+def inject_flow_dependencies(cell_state, flow_order, layers=None):
+    """Add flow token wiring and priorities to enforce execution order.
+
+    When layers is provided, uses layer-based tokens: all steps in a layer
+    depend on the previous layer's token and produce the current layer's
+    token.
+    """
+    if layers is None:
+        n = len(flow_order)
+        for i, step_name in enumerate(flow_order):
+            edge = cell_state.get(step_name)
+            if not isinstance(edge, dict):
+                continue
+            edge['priority'] = float(n - i)
+            if i == 0:
+                edge.setdefault('inputs', {})['global_time'] = ['global_time']
+            if i > 0:
+                edge.setdefault('inputs', {})[f'_flow_in_{i}'] = [f'_flow_token_{i-1}']
+            if i < n - 1:
+                edge.setdefault('outputs', {})[f'_flow_out_{i}'] = [f'_flow_token_{i}']
+        return
+
+    n_layers = len(layers)
+    step_idx = 0
+    total_steps = sum(len(layer) for layer in layers)
+
+    for layer_idx, layer in enumerate(layers):
+        for j, step_name in enumerate(layer):
+            edge = cell_state.get(step_name)
+            if not isinstance(edge, dict):
+                step_idx += 1
+                continue
+
+            edge['priority'] = float(total_steps - step_idx)
+
+            if layer_idx == 0:
+                edge.setdefault('inputs', {})['global_time'] = ['global_time']
+
+            if layer_idx > 0:
+                edge.setdefault('inputs', {})[f'_layer_in_{layer_idx}'] = \
+                    [f'_layer_token_{layer_idx - 1}']
+
+            if layer_idx < n_layers - 1:
+                edge.setdefault('outputs', {})[f'_layer_out_{layer_idx}'] = \
+                    [f'_layer_token_{layer_idx}']
+
+            step_idx += 1
+
+
+def make_edge(instance, topology, input_topology=None, output_topology=None,
+              edge_type='step', config=None):
+    """Create an edge dict for a process/step instance."""
+    wires = list_paths(topology)
+    in_wires = list_paths(input_topology) if input_topology is not None else wires
+    out_wires = list_paths(output_topology) if output_topology is not None else wires
+    state = {'priority': 1.0} if edge_type == 'step' else {'interval': 1.0}
+
+    inputs_schema = {}
+    outputs_schema = {}
+    if hasattr(instance, 'inputs'):
+        try:
+            inputs_schema = instance.inputs()
+        except Exception:
+            pass
+    if hasattr(instance, 'outputs'):
+        try:
+            outputs_schema = instance.outputs()
+        except Exception:
+            pass
+
+    cls = type(instance)
+    address = f'local:{cls.__module__}.{cls.__qualname__}'
+    raw_config = config or getattr(instance, '_raw_config', {})
+
+    state.update({
+        '_type': edge_type,
+        'address': address,
+        'config': raw_config,
+        '_inputs': inputs_schema,
+        '_outputs': outputs_schema,
+        'instance': instance,
+        'inputs': copy.deepcopy(in_wires),
+        'outputs': copy.deepcopy(out_wires),
+    })
+    return state
+
+
+def _normalize_boundary_units(cell_state):
+    """Re-create pint Quantities in boundary.external with the current registry."""
+    boundary = cell_state.get('boundary', {})
+    external = boundary.get('external', {})
+    if not isinstance(external, dict):
+        return
+    from v2ecoli.library.unit_bridge import unum_to_pint
+    for key, val in external.items():
+        q = unum_to_pint(val)
+        if hasattr(q, 'magnitude') and hasattr(q, 'units'):
+            external[key] = float(q.magnitude)
+
+
+# ---------------------------------------------------------------------------
+# Step instantiation helpers
+# ---------------------------------------------------------------------------
+
+def _make_instance(cls, config, core):
+    """Instantiate a Step/Process class, trying multiple signatures."""
+    from v2ecoli.library.ecoli_step import set_current_core
+    set_current_core(core)
+    try:
+        return cls(parameters=config)
+    except TypeError:
+        try:
+            return cls(config=config, core=core)
+        except TypeError:
+            return cls(config)
+    finally:
+        set_current_core(None)
+
+
+def _get_special_step(loader, step_name, core):
+    """Handle steps that aren't in LoadSimData's config map."""
+    from v2ecoli.steps.unique_update import UniqueUpdate
+
+    unique_names = list(
+        loader.sim_data.internal_state.unique_molecule
+        .unique_molecule_definitions.keys())
+
+    if step_name.startswith('unique_update'):
+        UNIQUE_PLURAL = {
+            'full_chromosome': 'full_chromosomes',
+            'chromosome_domain': 'chromosome_domains',
+            'active_replisome': 'active_replisomes',
+            'oriC': 'oriCs',
+            'promoter': 'promoters',
+            'chromosomal_segment': 'chromosomal_segments',
+            'DnaA_box': 'DnaA_boxes',
+            'active_RNAP': 'active_RNAPs',
+            'RNA': 'RNAs',
+            'gene': 'genes',
+            'active_ribosome': 'active_ribosome',
+        }
+        unique_topo_v1 = {}
+        unique_names_v1 = []
+        for name in unique_names:
+            plural = UNIQUE_PLURAL.get(name, name)
+            unique_topo_v1[plural] = ('unique', name)
+            unique_names_v1.append(plural)
+        config = {'unique_names': unique_names_v1, 'unique_topo': unique_topo_v1}
+        instance = _make_instance(UniqueUpdate, config, core)
+        return instance, unique_topo_v1, 'step'
+
+    if step_name == 'global_clock':
+        from v2ecoli.steps.global_clock import GlobalClock
+        instance = GlobalClock(config={}, core=core)
+        topo = {
+            'global_time': ('global_time',),
+            'next_update_time': ('next_update_time',),
+        }
+        return instance, topo, 'process'
+
+    if step_name == 'emitter':
+        from process_bigraph.emitter import RAMEmitter, SQLiteEmitter
+        # Mass listener fields — always emitted, used by the workflow report.
+        mass_schema = {
+            'cell_mass': 'float',
+            'water_mass': 'float',
+            'dry_mass': 'float',
+            'protein_mass': 'float',
+            'rna_mass': 'float',
+            'rRna_mass': 'float',
+            'tRna_mass': 'float',
+            'mRna_mass': 'float',
+            'dna_mass': 'float',
+            'smallMolecule_mass': 'float',
+            'instantaneous_growth_rate': 'float',
+            'volume': 'float',
+        }
+        listeners_schema = {'mass': mass_schema}
+
+        # When a caller-set override is active (typical for study runs that
+        # need persistent SQLite history), expand the emit schema to capture
+        # the dnaa-investigation readouts: monomer_counts / rna_counts /
+        # rna_synth_prob / rnap_data. Cheap to add — they're already in the
+        # per-step state tree.
+        override = _EMITTER_OVERRIDE
+        if override is not None:
+            # Only the leaves the dnaa-investigation readouts actually consume.
+            # NB: ``monomer_counts`` is a flat array store (not nested under
+            # a ``monomerCounts`` key) — confirmed at runtime via the
+            # composite-emitted state shape.
+            listeners_schema.update({
+                'monomer_counts': 'array[integer]',
+                'rna_counts': {
+                    'mRNA_counts': 'array[integer]',
+                },
+                'rna_synth_prob': {
+                    'n_bound_TF_per_TU': 'array[float]',
+                    'n_actual_bound': 'array[integer]',
+                    'total_rna_init': 'integer',
+                },
+                'rnap_data': {
+                    'rna_init_event': 'array[integer]',
+                    'did_initialize': 'integer',
+                },
+                'replication_data': {
+                    'number_of_oric': 'integer',
+                    'free_DnaA_boxes': 'integer',
+                    'total_DnaA_boxes': 'integer',
+                },
+            })
+
+        emit_schema = {
+            'global_time': 'float',
+            'bulk': 'array',
+            'listeners': listeners_schema,
+            'full_chromosome': 'node',
+            'active_replisome': 'node',
+            'active_RNAP': 'node',
+            'chromosome_domain': 'node',
+        }
+
+        if override is not None:
+            cfg = {'emit': emit_schema, **override}
+            instance = SQLiteEmitter(cfg, core)
+        else:
+            instance = RAMEmitter({'emit': emit_schema}, core)
+
+        topo = {
+            'global_time': ('global_time',),
+            'bulk': ('bulk',),
+            'listeners': ('listeners',),
+            'full_chromosome': ('unique', 'full_chromosome'),
+            'active_replisome': ('unique', 'active_replisome'),
+            'active_RNAP': ('unique', 'active_RNAP'),
+            'chromosome_domain': ('unique', 'chromosome_domain'),
+        }
+        return instance, topo, 'step'
+
+    if step_name == 'ppgpp-initiation':
+        from v2ecoli.steps.ppgpp_initiation import PpgppInitiation
+        try:
+            ti_config = loader.get_config_by_name('ecoli-transcript-initiation')
+        except (KeyError, AttributeError):
+            ti_config = {}
+        ppgpp_config = {
+            'ppgpp': ti_config.get('ppgpp', ''),
+            'synth_prob': ti_config.get('synth_prob'),
+            'copy_number': ti_config.get('copy_number', 1),
+            'n_avogadro': ti_config.get('n_avogadro', 0),
+            'cell_density': ti_config.get('cell_density', 0),
+            'get_rnap_active_fraction_from_ppGpp': ti_config.get(
+                'get_rnap_active_fraction_from_ppGpp'),
+            'trna_attenuation': ti_config.get('trna_attenuation', False),
+            'attenuated_rna_indices': ti_config.get('attenuated_rna_indices', []),
+            'attenuation_adjustments': ti_config.get('attenuation_adjustments', []),
+        }
+        from v2ecoli.library.config_resolver import resolve_config
+        ppgpp_config = resolve_config(ppgpp_config)
+        instance = _make_instance(PpgppInitiation, ppgpp_config, core)
+        topo = {
+            'bulk': ('bulk',),
+            'listeners': ('listeners',),
+            'ppgpp_state': ('ppgpp_state',),
+        }
+        return instance, topo, 'step'
+
+    if step_name == 'trna-attenuation-config':
+        from v2ecoli.steps.trna_attenuation import TrnaAttenuationConfig
+        try:
+            te_config = loader.get_config_by_name('ecoli-transcript-elongation')
+        except (KeyError, AttributeError):
+            te_config = {}
+        att_config = {
+            'get_attenuation_stop_probabilities': te_config.get(
+                'get_attenuation_stop_probabilities'),
+            'attenuated_rna_indices': te_config.get(
+                'attenuated_rna_indices', []),
+            'location_lookup': te_config.get('location_lookup', {}),
+            'cell_density': te_config.get('cell_density', 0),
+            'n_avogadro': te_config.get('n_avogadro', 0),
+            'charged_trnas': te_config.get('charged_trnas', []),
+        }
+        instance = _make_instance(TrnaAttenuationConfig, att_config, core)
+        topo = {
+            'attenuation_config': ('attenuation_config',),
+        }
+        return instance, topo, 'step'
+
+    if step_name == 'replication_data_listener':
+        from v2ecoli.steps.listeners.replication_data import ReplicationData
+        config = {'time_step': 1}
+        instance = ReplicationData(config=config, core=core)
+        topology = getattr(instance, 'topology', {})
+        return instance, topology, 'step'
+
+    if step_name == 'mark_d_period':
+        from v2ecoli.steps.division import MarkDPeriod
+        instance = MarkDPeriod(config={}, core=core)
+        topo = {
+            'full_chromosome': ('unique', 'full_chromosome'),
+            'global_time': ('global_time',),
+            'divide': ('divide',),
+        }
+        return instance, topo, 'step'
+
+    if step_name == 'division':
+        from v2ecoli.steps.division import Division
+        try:
+            div_config = loader.get_config_by_name('division')
+        except Exception:
+            div_config = {}
+        div_config.setdefault('agent_id', '0')
+        div_config.setdefault('division_threshold', 'mass_distribution')
+        dry_mass_inc = getattr(getattr(loader, 'sim_data', None),
+                               'expectedDryMassIncreaseDict', {})
+        from v2ecoli.library.unit_bridge import unum_to_pint
+        dry_mass_inc = {k: unum_to_pint(v) for k, v in dry_mass_inc.items()}
+        div_config.setdefault('dry_mass_inc_dict', dry_mass_inc)
+        if hasattr(loader, '_configs'):
+            div_config['configs'] = loader._configs
+        div_config.setdefault('unique_names', getattr(loader, 'unique_names', []))
+        div_config.setdefault('cache_dir', getattr(loader, 'cache_dir', 'out/cache'))
+        instance = _make_instance(Division, div_config, core)
+        topo = {
+            'bulk': ('bulk',),
+            'unique': ('unique',),
+            'listeners': ('listeners',),
+            'environment': ('environment',),
+            'boundary': ('boundary',),
+            'global_time': ('global_time',),
+            'division_threshold': ('division_threshold',),
+            'media_id': ('environment', 'media_id'),
+            'agents': ('..',),
+        }
+        return instance, topo, 'step'
+
+    return None

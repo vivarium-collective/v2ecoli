@@ -39,15 +39,16 @@ def svg(fig):
 
 
 def build_network_html():
-    """Build the interactive Cytoscape network using the shared v2ecoli.viz
-    pipeline, filtered so the graph centers on the plasmid-replication
-    process and the stores it binds. Writes to NETWORK_OUT.
+    """Build the interactive Cytoscape network using the shared v2ecoli
+    visualizations pipeline, filtered so the graph centers on the
+    plasmid-replication process and the stores it binds. Writes to
+    NETWORK_OUT.
     """
-    from v2ecoli.composite import make_composite
-    from v2ecoli.generate import build_execution_layers, DEFAULT_FEATURES
-    from v2ecoli.viz import build_graph, render_html
+    from v2ecoli import build_composite
+    from v2ecoli.composites.baseline import build_execution_layers, DEFAULT_FEATURES
+    from v2ecoli.visualizations._helpers import build_graph, render_html
 
-    composite = make_composite(cache_dir=CACHE_DIR, features=DEFAULT_FEATURES)
+    composite = build_composite("baseline", cache_dir=CACHE_DIR)
     layers = build_execution_layers(DEFAULT_FEATURES)
     data = build_graph(composite, layers)
 

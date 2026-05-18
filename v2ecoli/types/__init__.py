@@ -359,3 +359,9 @@ ECOLI_TYPES = {
     'listener_store': ListenerStore,
     'accumulate_float': AccumulateFloat,
 }
+
+# Study-evaluation framework enums (target_class, verdict_result,
+# failure_cause, ...). Kept in a separate module so per-investigation
+# layers can extend the framework without touching this file.
+from v2ecoli.types.biology import BIOLOGY_TYPES  # noqa: E402
+ECOLI_TYPES.update(BIOLOGY_TYPES)

@@ -1,411 +1,185 @@
 """
-Three-Way E. coli Simulation Comparison
+Three-Way E. coli Simulation Comparison (wrapper)
 
-Runs three engines in parallel:
-  - vEcoli 1.0 (vivarium engine, master branch)
-  - vEcoli 2.0 (composite migration, composite branch)
-  - v2ecoli   (pure process-bigraph, this repo)
-
-Generates an HTML report with overlaid plots, side-by-side mass components,
-and a detailed comparison table.
+Runs three engines — vEcoli 1.0, vEcoli 2.0, and v2ecoli — in separate
+subprocesses to avoid type conflicts, then dispatches to
+``V1V2Visualization`` for HTML rendering.
 
 Usage:
     python reports/v1_v2_report.py                    # 2500s default
     python reports/v1_v2_report.py --duration 300     # short comparison
+    python reports/v1_v2_report.py --out out/cmp.html
 """
 
+import json
 import os
 import sys
 import time
-import json
-import base64
 import argparse
-import warnings
-
-import numpy as np
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-
-warnings.filterwarnings('ignore')
+import subprocess as sp
 
 SNAPSHOT_INTERVAL = 50  # seconds between snapshots
-REPORT_DIR = 'out/comparison'
-
-
-# ---------------------------------------------------------------------------
-# Data collection
-# ---------------------------------------------------------------------------
-
-def _extract_mass(cell):
-    """Extract mass metrics from a cell state."""
-    mass = cell.get('listeners', {}).get('mass', {})
-    return {k: float(mass.get(k, 0)) for k in [
-        'dry_mass', 'cell_mass', 'protein_mass', 'rna_mass',
-        'rRna_mass', 'tRna_mass', 'mRna_mass', 'dna_mass',
-        'smallMolecule_mass', 'water_mass', 'volume',
-        'instantaneous_growth_rate',
-    ]}
-
-
-def _extract_chromosome(cell):
-    """Extract chromosome metrics from a cell state."""
-    unique = cell.get('unique', {})
-    fc = unique.get('full_chromosome')
-    n_chrom = 0
-    if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
-        n_chrom = int(fc['_entryState'].sum())
-    rep = unique.get('active_replisome')
-    n_forks = 0
-    if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
-        n_forks = int(rep['_entryState'].sum())
-    return {'n_chromosomes': n_chrom, 'n_forks': n_forks}
-
-
-def fig_to_b64(fig):
-    import io
-    buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=120, bbox_inches='tight')
-    plt.close(fig)
-    buf.seek(0)
-    return base64.b64encode(buf.read()).decode('ascii')
-
-
-ENGINES = [
-    ('vecoli_v1', 'vEcoli 1.0 (vivarium)', '#3b82f6', '--'),
-    ('vecoli_composite', 'vEcoli 2.0 (composite)', '#8b5cf6', '-.'),
-    ('v2ecoli', 'v2ecoli (pure PBG)', '#ef4444', '-'),
-]
-
-
-def plot_comparison(datasets, metric, ylabel, title):
-    """Single metric overlay plot for all available engines."""
-    fig, ax = plt.subplots(figsize=(10, 4))
-    for key, label, color, ls in ENGINES:
-        snaps = datasets.get(key, {}).get('snapshots', [])
-        if not snaps:
-            continue
-        t = [s['time']/60 for s in snaps]
-        y = [s.get(metric, 0) for s in snaps]
-        ax.plot(t, y, color=color, linestyle=ls, label=label, linewidth=1.5)
-    ax.set_xlabel('Time (min)')
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    return fig_to_b64(fig)
-
-
-def plot_side_by_side(datasets, metrics, ylabel, title):
-    """Side-by-side panels for each engine showing multiple metrics."""
-    active = [(k, l, c, ls) for k, l, c, ls in ENGINES if datasets.get(k, {}).get('snapshots')]
-    n = max(len(active), 1)
-    fig, axes = plt.subplots(1, n, figsize=(7*n, 5), sharey=True, squeeze=False)
-    fig.suptitle(title, fontsize=13)
-
-    for i, (key, label, _, _) in enumerate(active):
-        ax = axes[0][i]
-        snaps = datasets[key]['snapshots']
-        t = [s['time']/60 for s in snaps]
-        for mkey, name, color in metrics:
-            y = [s.get(mkey, 0) for s in snaps]
-            ax.plot(t, y, color=color, label=name, linewidth=1.2)
-        ax.set_xlabel('Time (min)')
-        ax.set_ylabel(ylabel)
-        ax.set_title(label)
-        ax.legend(fontsize=8)
-        ax.grid(True, alpha=0.3)
-
-    # Fill empty panels
-    for i in range(len(active), n):
-        axes[0][i].text(0.5, 0.5, 'No data', ha='center', va='center', transform=axes[0][i].transAxes)
-
-    plt.tight_layout()
-    return fig_to_b64(fig)
-
-
-def plot_mass_components(datasets, title='Mass Components'):
-    """Side-by-side mass component plots for each engine."""
-    components = [
-        ('protein_mass', 'Protein', '#22c55e'),
-        ('dna_mass', 'DNA', '#8b5cf6'),
-        ('rRna_mass', 'rRNA', '#3b82f6'),
-        ('tRna_mass', 'tRNA', '#06b6d4'),
-        ('mRna_mass', 'mRNA', '#f97316'),
-        ('smallMolecule_mass', 'Small mol', '#f59e0b'),
-    ]
-    return plot_side_by_side(datasets, components, 'Mass (fg)', title)
-
+REPORT_DIR = "out/comparison"
 
 # ---------------------------------------------------------------------------
-# HTML Report
+# Engine definitions
 # ---------------------------------------------------------------------------
+# Each entry: (dataset_key, runner_script, temp_result_file)
+_RUNNERS = {
+    "vecoli_v1":        ("scripts/run_vecoli_v1.py",       "_vecoli_v1_result.json"),
+    "vecoli_composite": ("scripts/run_vecoli_composite.py", "_vecoli_composite_result.json"),
+    "v2ecoli":          ("scripts/run_v2.py",               "_v2ecoli_result.json"),
+}
 
-def generate_report(datasets, duration):
-    """Generate three-way HTML comparison report."""
-    os.makedirs(REPORT_DIR, exist_ok=True)
+_EMPTY = {
+    "snapshots": [],
+    "wall_time": 0,
+    "sim_time": 0,
+    "speed": 0,
+    "load_time": 0,
+}
 
-    # Mass comparison at regular intervals
-    intervals = [0, 60, 300, 600, 1200, 1800, 2400]
-    intervals = [t for t in intervals if t <= duration]
 
-    def snap_at(snaps, t):
-        """Find snapshot closest to time t."""
-        best = {}
-        for s in snaps:
-            if abs(s['time'] - t) < abs(best.get('time', 1e9) - t):
-                best = s
-        return best
+def _launch(key: str, duration: int, base: str, result_paths: dict):
+    """Launch a subprocess runner for *key*; return Popen or None."""
+    script_rel, result_file = _RUNNERS[key]
+    rpath = os.path.join(base, REPORT_DIR, result_file)
+    spath = os.path.join(base, script_rel)
+    result_paths[key] = rpath
+    if os.path.exists(spath):
+        return sp.Popen(
+            [sys.executable, spath, str(duration), str(SNAPSHOT_INTERVAL), rpath]
+        )
+    print(f"  {key}: script not found ({spath})")
+    return None
 
-    # Generate plots
-    plots = {}
-    has_data = any(datasets.get(k, {}).get('snapshots') for k, _, _, _ in ENGINES)
-    if has_data:
-        plots['dry_mass'] = plot_comparison(datasets, 'dry_mass', 'Dry Mass (fg)', 'Dry Mass Over Time')
-        plots['cell_mass'] = plot_comparison(datasets, 'cell_mass', 'Cell Mass (fg)', 'Cell Mass (wet)')
-        plots['growth_rate'] = plot_comparison(datasets, 'instantaneous_growth_rate', 'Growth Rate (1/s)', 'Instantaneous Growth Rate')
-        plots['volume'] = plot_comparison(datasets, 'volume', 'Volume (fL)', 'Cell Volume')
-        plots['chromosomes'] = plot_comparison(datasets, 'n_chromosomes', 'Chromosomes', 'Chromosome Count')
-        plots['forks'] = plot_comparison(datasets, 'n_forks', 'Forks', 'Replication Forks')
-        plots['mass_components'] = plot_mass_components(datasets, 'Mass Components')
 
-        rna_metrics = [
-            ('rRna_mass', 'rRNA', '#3b82f6'),
-            ('tRna_mass', 'tRNA', '#06b6d4'),
-            ('mRna_mass', 'mRNA', '#f97316'),
-        ]
-        plots['rna_breakdown'] = plot_side_by_side(datasets, rna_metrics, 'Mass (fg)', 'RNA Mass Breakdown')
+def _collect(key: str, proc, result_paths: dict, datasets: dict) -> None:
+    """Wait for *proc* and load its JSON output into *datasets[key]*."""
+    rpath = result_paths[key]
+    if proc is None:
+        datasets[key] = {**_EMPTY, "engine": f"{key} (skipped)"}
+        return
+    proc.wait()
+    if os.path.exists(rpath):
+        with open(rpath) as f:
+            data = json.load(f)
+        os.unlink(rpath)
+        print(f"  {key}: {data.get('sim_time',0)}s in {data.get('wall_time',0):.1f}s "
+              f"({data.get('speed',0):.1f}x)")
+        datasets[key] = data
+    else:
+        print(f"  {key}: FAILED (rc={proc.returncode})")
+        datasets[key] = {**_EMPTY, "engine": f"{key} (FAILED)"}
 
-        struct_metrics = [
-            ('protein_mass', 'Protein', '#22c55e'),
-            ('dna_mass', 'DNA', '#8b5cf6'),
-            ('smallMolecule_mass', 'Small molecules', '#f59e0b'),
-        ]
-        plots['structural'] = plot_side_by_side(datasets, struct_metrics, 'Mass (fg)', 'Structural Components')
 
-    # Build mass comparison table — one row per time, columns per engine
-    mass_table_rows = ''
-    for t in intervals:
-        row = f'<tr><td style="font-weight:bold">{t/60:.0f} min</td>'
-        for key, _, _, _ in ENGINES:
-            snaps = datasets.get(key, {}).get('snapshots', [])
-            st = snap_at(snaps, t) if snaps else {}
-            dm = st.get('dry_mass', 0)
-            row += f'<td>{dm:.1f}</td>' if dm > 0 else '<td>—</td>'
-        row += '</tr>'
-        mass_table_rows += row
-
-    # Build performance cards for each engine
-    perf_cards = ''
-    for key, label, color, _ in ENGINES:
-        d = datasets.get(key, {})
-        speed = d.get('speed', 0)
-        wall = d.get('wall_time', 0)
-        sim = d.get('sim_time', 0)
-        if speed > 0:
-            perf_cards += f'''<div class="perf-card">
-    <div class="label">{label}</div>
-    <div class="value" style="color:{color}">{speed:.1f}x</div>
-    <div class="label">{wall:.0f}s wall for {sim:.0f}s sim</div>
-  </div>\n'''
-        else:
-            perf_cards += f'''<div class="perf-card">
-    <div class="label">{label}</div>
-    <div class="value" style="color:#ccc">N/A</div>
-    <div class="label">not available</div>
-  </div>\n'''
-
-    # Build overview table rows
-    overview_rows = ''
-    metrics_list = [
-        ('Engine', lambda d: d.get('engine', 'N/A')),
-        ('Load time', lambda d: f"{d.get('load_time',0):.2f}s" if d.get('load_time') else 'N/A'),
-        ('Sim duration', lambda d: f"{d.get('sim_time',0):.0f}s ({d.get('sim_time',0)/60:.1f} min)" if d.get('sim_time') else 'N/A'),
-        ('Wall time', lambda d: f"{d.get('wall_time',0):.1f}s" if d.get('wall_time') else 'N/A'),
-        ('Speed', lambda d: f"{d.get('speed',0):.1f}x" if d.get('speed') else 'N/A'),
-    ]
-    for name, fn in metrics_list:
-        row = f'<tr><td>{name}</td>'
-        for key, _, _, _ in ENGINES:
-            d = datasets.get(key, {})
-            row += f'<td>{fn(d)}</td>'
-        row += '</tr>'
-        overview_rows += row
-
-    # Final snapshot metrics
-    for name, metric in [('Final dry mass', 'dry_mass'), ('Chromosomes', 'n_chromosomes'), ('Forks', 'n_forks')]:
-        row = f'<tr><td>{name}</td>'
-        for key, _, _, _ in ENGINES:
-            snaps = datasets.get(key, {}).get('snapshots', [])
-            val = snaps[-1].get(metric, 0) if snaps else 0
-            fmt = f'{val:.1f} fg' if 'mass' in name.lower() else str(int(val))
-            row += f'<td>{fmt}</td>'
-        row += '</tr>'
-        overview_rows += row
-
-    from v2ecoli.library.repro_banner import banner_html
-    repro_banner = banner_html()
-
-    report_path = os.path.join(REPORT_DIR, 'comparison.html')
-    with open(report_path, 'w') as f:
-        f.write(f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<title>E. coli Simulation Comparison</title>
-<style>
-body {{ font-family: -apple-system, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f8fafc; color: #1e293b; }}
-h1 {{ color: #0f172a; border-bottom: 3px solid #3b82f6; padding-bottom: 8px; }}
-h2 {{ color: #1e40af; margin-top: 2em; }}
-h3 {{ color: #334155; }}
-table {{ border-collapse: collapse; margin: 1em 0; width: 100%; }}
-th, td {{ padding: 6px 12px; border: 1px solid #e2e8f0; text-align: center; }}
-th {{ background: #f1f5f9; font-weight: 600; }}
-.plot {{ margin: 1em 0; text-align: center; }}
-.plot img {{ max-width: 100%; border: 1px solid #e2e8f0; border-radius: 4px; }}
-.perf {{ display: flex; gap: 2em; justify-content: center; margin: 1em 0; }}
-.perf-card {{ background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1em 2em; text-align: center; }}
-.perf-card .value {{ font-size: 2em; font-weight: bold; }}
-.perf-card .label {{ color: #64748b; font-size: 0.9em; }}
-.green {{ color: #16a34a; }}
-.blue {{ color: #2563eb; }}
-.red {{ color: #ef4444; }}
-</style>
-</head><body>
-{repro_banner}
-<h1>E. coli Whole-Cell Simulation Comparison</h1>
-<p>Three-way comparison of vEcoli 1.0 (vivarium engine), vEcoli 2.0 (composite migration),
-and v2ecoli (pure process-bigraph). All use the same ParCa parameters, initial state,
-and biological process logic.</p>
-
-<h2>Performance</h2>
-<div class="perf">
-  {perf_cards}
-</div>
-
-<table>
-<tr><th>Metric</th><th>vEcoli 1.0</th><th>vEcoli 2.0</th><th>v2ecoli</th></tr>
-{overview_rows}
-</table>
-
-<h2>Growth Comparison</h2>
-""")
-
-        for key, title in [('dry_mass', 'Dry Mass'), ('cell_mass', 'Cell Mass'),
-                           ('growth_rate', 'Growth Rate'), ('volume', 'Volume')]:
-            if plots.get(key):
-                f.write(f'<div class="plot"><img src="data:image/png;base64,{plots[key]}" alt="{title}"></div>\n')
-
-        f.write('<h2>Chromosome Replication</h2>\n')
-        for key, title in [('chromosomes', 'Chromosomes'), ('forks', 'Replication Forks')]:
-            if plots.get(key):
-                f.write(f'<div class="plot"><img src="data:image/png;base64,{plots[key]}" alt="{title}"></div>\n')
-
-        f.write('<h2>Mass Components (side-by-side)</h2>\n')
-        if plots.get('mass_components'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["mass_components"]}" alt="Mass Components"></div>\n')
-        if plots.get('rna_breakdown'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["rna_breakdown"]}" alt="RNA Breakdown"></div>\n')
-        if plots.get('structural'):
-            f.write(f'<div class="plot"><img src="data:image/png;base64,{plots["structural"]}" alt="Structural Components"></div>\n')
-
-        f.write(f"""
-<h2>Dry Mass Comparison Table (fg)</h2>
-<table>
-<tr><th>Time</th><th>vEcoli 1.0</th><th>vEcoli 2.0</th><th>v2ecoli</th></tr>
-{mass_table_rows}
-</table>
-
-<footer>
-  Generated by reports/v1_v2_report.py &middot; v2ecoli (pure process-bigraph)
-</footer>
-</body></html>""")
-
-    # Mirror to docs/ so GitHub Pages stays in sync.
-    import shutil
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    docs_dir = os.path.join(repo_root, 'docs')
-    if os.path.isdir(docs_dir):
-        shutil.copy2(report_path, os.path.join(docs_dir, 'v1_v2_comparison.html'))
-
-    print(f"\nReport: {report_path}")
-    return report_path
+def _datasets_to_histories(datasets: dict) -> tuple[list, list, list]:
+    """Convert legacy datasets dict to three snapshot lists for the Step."""
+    return (
+        datasets.get("vecoli_v1",        {}).get("snapshots", []),
+        datasets.get("vecoli_composite", {}).get("snapshots", []),
+        datasets.get("v2ecoli",          {}).get("snapshots", []),
+    )
 
 
 def main():
-    parser = argparse.ArgumentParser(description='v1 vs v2 comparison')
-    parser.add_argument('--duration', type=int, default=2520,
-                        help='Simulation duration in seconds (default: 2520 = 42 min)')
+    parser = argparse.ArgumentParser(description="v1 vs v2 three-way comparison")
+    parser.add_argument(
+        "--duration", type=int, default=2520,
+        help="Simulation duration in seconds (default: 2520 = 42 min)",
+    )
+    parser.add_argument(
+        "--out", type=str, default=None,
+        help="Output HTML path (default: out/comparison/comparison.html)",
+    )
     args = parser.parse_args()
 
-    # Ensure we're in the v2ecoli directory (repo root)
-    os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    os.makedirs(REPORT_DIR, exist_ok=True)
+    # Ensure working directory is the repo root.
+    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    os.chdir(base)
+    os.makedirs(os.path.join(base, REPORT_DIR), exist_ok=True)
+
+    out_path = args.out or os.path.join(base, REPORT_DIR, "comparison.html")
 
     print("=" * 60)
     print(f"Three-Way Comparison ({args.duration}s)")
     print("=" * 60)
 
-    import subprocess as sp
-    base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-    runners = {
-        'vecoli_v1': ('scripts/run_vecoli_v1.py', '_vecoli_v1_result.json'),
-        'vecoli_composite': ('scripts/run_vecoli_composite.py', '_vecoli_composite_result.json'),
-        'v2ecoli': ('scripts/run_v2.py', '_v2ecoli_result.json'),
-    }
-
     t0 = time.time()
-    datasets = {}
-    empty = {'snapshots': [], 'wall_time': 0, 'sim_time': 0, 'speed': 0, 'load_time': 0}
-    result_paths = {}
+    datasets: dict = {}
+    result_paths: dict = {}
 
-    def _launch(key):
-        script, result_file = runners[key]
-        rpath = os.path.join(base, REPORT_DIR, result_file)
-        spath = os.path.join(base, script)
-        result_paths[key] = rpath
-        if os.path.exists(spath):
-            return sp.Popen([sys.executable, spath, str(args.duration), str(SNAPSHOT_INTERVAL), rpath])
-        print(f"  {key}: script not found ({spath})")
-        return None
+    # Phase 1: composite + v2ecoli in parallel (both use composite branch).
+    print("  Launching composite + v2ecoli in parallel...")
+    p_comp = _launch("vecoli_composite", args.duration, base, result_paths)
+    p_v2   = _launch("v2ecoli",          args.duration, base, result_paths)
+    _collect("vecoli_composite", p_comp, result_paths, datasets)
+    _collect("v2ecoli",          p_v2,   result_paths, datasets)
 
-    def _collect(key, proc):
-        rpath = result_paths[key]
-        label = next(l for k, l, _, _ in ENGINES if k == key)
-        if proc is None:
-            datasets[key] = {**empty, 'engine': f'{label} (skipped)'}
-            return
-        proc.wait()
-        if os.path.exists(rpath):
-            with open(rpath) as f:
-                data = json.load(f)
-            os.unlink(rpath)
-            print(f"  {label}: {data['sim_time']}s in {data['wall_time']:.1f}s ({data['speed']:.1f}x)")
-            datasets[key] = data
-        else:
-            print(f"  {label}: FAILED (rc={proc.returncode})")
-            datasets[key] = {**empty, 'engine': f'{label} (FAILED)'}
-
-    # Phase 1: composite + v2ecoli in parallel (both need vEcoli on composite branch)
-    print(f"  Launching composite + v2ecoli in parallel...")
-    p_comp = _launch('vecoli_composite')
-    p_v2 = _launch('v2ecoli')
-    _collect('vecoli_composite', p_comp)
-    _collect('v2ecoli', p_v2)
-
-    # Phase 2: v1 sequentially (switches vEcoli to master branch)
-    print(f"  Launching v1 (vivarium engine)...")
-    p_v1 = _launch('vecoli_v1')
-    _collect('vecoli_v1', p_v1)
+    # Phase 2: v1 sequentially (switches vEcoli to master branch).
+    print("  Launching v1 (vivarium engine)...")
+    p_v1 = _launch("vecoli_v1", args.duration, base, result_paths)
+    _collect("vecoli_v1", p_v1, result_paths, datasets)
 
     total = time.time() - t0
 
-    report = generate_report(datasets, args.duration)
+    # Dispatch to V1V2Visualization for rendering.
+    from bigraph_schema import allocate_core
+    from v2ecoli.visualizations.v1_v2 import V1V2Visualization
+
+    h_v1, h_v2, h_v2ecoli = _datasets_to_histories(datasets)
+
+    # Build per-dataset metadata (wall/sim/load/speed).
+    def _meta(key: str) -> dict:
+        d = datasets.get(key, {})
+        return {
+            "wall_time": d.get("wall_time", 0),
+            "sim_time":  d.get("sim_time",  0),
+            "load_time": d.get("load_time", 0),
+            "speed":     d.get("speed",     0),
+            "engine":    d.get("engine",    key),
+        }
+
+    # Merge per-engine metadata: V1V2Visualization currently accepts a single
+    # metadata dict; we use the overall run metadata + the three engine dicts
+    # so the performance table can be populated.  The Step renders all three
+    # via the datasets dict it rebuilds internally from _meta_from_rows, which
+    # is driven by this single metadata pass-through for now.
+    meta = {
+        "duration_sec": args.duration,
+        # Performance for the overview table is embedded in the snapshot
+        # lists by the runner scripts.  Pass wall-time totals for reference.
+        "total_wall_sec": total,
+    }
+
+    viz = V1V2Visualization(
+        config={"title": "E. coli Whole-Cell Simulation Comparison"},
+        core=allocate_core(),
+    )
+    result = viz.update({
+        "history_v1":      h_v1,
+        "history_v2":      h_v2,
+        "history_v2ecoli": h_v2ecoli,
+        "metadata":        meta,
+    })
+    html = result["html"]
+
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    with open(out_path, "w") as f:
+        f.write(html)
+
+    print(f"\nReport: {out_path}")
     print(f"Total: {total:.0f}s")
 
-    # Open in browser
-    import subprocess as sp
-    sp.run(['open', report], capture_output=True)
+    # Mirror to docs/ for GitHub Pages.
+    import shutil
+    docs_dir = os.path.join(base, "docs")
+    if os.path.isdir(docs_dir):
+        shutil.copy2(out_path, os.path.join(docs_dir, "v1_v2_comparison.html"))
+
+    # Open in browser if interactive.
+    sp.run(["open", out_path], capture_output=True)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

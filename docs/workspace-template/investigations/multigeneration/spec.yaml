@@ -1,0 +1,93 @@
+# Skeleton Investigation spec for v2ecoli — N-seed lineage Study.
+#
+# Runs the baseline architecture across N seeds; useful for catching seed-
+# dependent regressions (mass, growth, fold-change) and for visualising the
+# distribution of division outcomes.
+#
+# Per study-model-design.md, the v2 spec shape uses an explicit `runs:` list
+# rather than the older simulations[kind=seeds] block. Each seed is one run.
+
+name: multigeneration
+question: |
+  Across 5 RNG seeds, do mass + growth dynamics stay within their canonical
+  bands and converge on division near t = 2520 s?
+hypothesis: |
+  cell_mass at division falls within 5 % of the across-seed mean; growth_rate
+  is stable across seeds (std/mean < 0.05).
+status: draft
+tags: [lineage, seed-sweep, regression-gate]
+
+baseline: baseline
+
+variants:
+  - name: baseline
+    source: local:baseline
+    parameters: {cache_dir: ${V2ECOLI_CACHE}}   # seed is set per-run
+
+observables:
+  - {path: [agents, "0", listeners, mass, cell_mass]}
+  - {path: [agents, "0", listeners, mass, dry_mass]}
+  - {path: [agents, "0", listeners, mass, instantaneous_growth_rate]}
+  - {path: [agents, "0", listeners, mass, protein_mass]}
+  - {path: [agents, "0", listeners, mass, rRna_mass]}
+  - {path: [agents, "0", listeners, mass, dna_mass]}
+  - {path: [agents, "0", divide]}
+
+# Five seeds, same architecture + duration. Each row becomes one run in
+# runs.db; the orchestrator groups them by composite-name when feeding viz
+# inputs.
+runs:
+  - {composite: baseline, params: {seed: 0}, steps: 2520}
+  - {composite: baseline, params: {seed: 1}, steps: 2520}
+  - {composite: baseline, params: {seed: 2}, steps: 2520}
+  - {composite: baseline, params: {seed: 3}, steps: 2520}
+  - {composite: baseline, params: {seed: 4}, steps: 2520}
+
+visualizations:
+  # MultigenerationVisualization expects per-seed history + metadata. The
+  # orchestrator must marshal all runs of the baseline variant into a
+  # list-of-histories — or, if it auto-binds only a single history, the
+  # orchestrator needs an aggregator for the seeds case (open seam).
+  - name: multigen
+    address: "local:MultigenerationVisualization"
+    inputs:
+      history:  {source: runs,     variant: baseline}
+      metadata: {source: run-meta, variant: baseline}
+    config:
+      title: "Baseline — 5-seed lineage report"
+
+  # Final-step distributions across seeds, via pbg-superpowers' Distribution.
+  - name: mass-final-distribution
+    address: "local:Distribution"
+    config:
+      observable: cell_mass
+      sources: [baseline]
+      at_step: final
+      kind: histogram
+      title: "cell_mass at division (5 seeds)"
+
+  - name: growth-final-distribution
+    address: "local:Distribution"
+    config:
+      observable: instantaneous_growth_rate
+      sources: [baseline]
+      at_step: final
+      kind: histogram
+      title: "growth_rate at division (5 seeds)"
+
+  # Per-seed cell_mass trajectories overlaid.
+  - name: mass-traj-all-seeds
+    address: "local:TimeSeriesPlot"
+    config:
+      observable: cell_mass
+      sources: [baseline]
+      title: "cell_mass — all 5 seeds"
+
+# ── Notes ───────────────────────────────────────────────────────────────────
+# - If the orchestrator's binding for `history: {source: runs, variant: X}`
+#   isn't implemented, replace with explicit per-run binding (history_0..4) or
+#   shift to the older `simulations: [{kind: seeds, n_seeds: 5}]` shape if the
+#   orchestrator still supports it.
+# - 5 runs × 2520 steps is heavy (~ 5–10 min/run on a modern laptop without
+#   parallelism). The Investigations orchestrator is single-process by design;
+#   plan accordingly.

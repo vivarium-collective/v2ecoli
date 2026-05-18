@@ -37,9 +37,9 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
-from v2ecoli.composite import _build_core, _load_cache_bundle
+from v2ecoli import build_core, build_document
+from v2ecoli.core import load_cache_bundle
 from v2ecoli.library.division import divide_cell
-from v2ecoli.generate import build_document
 from process_bigraph import Composite
 
 from scripts.run_plasmid_experiment import (
@@ -219,7 +219,8 @@ def run_seed_lineage(seed: int, n_gens: int, cache_dir: str,
     from an earlier run), the runner attempts to resume by loading the
     highest-gen checkpoint and continuing from the next generation.
     """
-    initial_state, cache = _load_cache_bundle(cache_dir)
+    cache = load_cache_bundle(cache_dir)
+    initial_state = cache["initial_state"]
     configs = copy.deepcopy(cache["configs"])
     _seed_override(configs, seed)
     unique_names = cache.get("unique_names", [])
@@ -255,14 +256,13 @@ def run_seed_lineage(seed: int, n_gens: int, cache_dir: str,
 
     if resume_from == 0:
         print(f"[{time.strftime('%H:%M:%S')}] seed {seed} gen 1: building")
-        doc = build_document(
-            initial_state=initial_state,
-            configs=configs,
-            unique_names=unique_names,
-            dry_mass_inc_dict=dry_mass_inc,
-            core=core,
-            seed=seed,
-        )
+        bundle = {
+            "initial_state": initial_state,
+            "configs": configs,
+            "unique_names": unique_names,
+            "dry_mass_inc_dict": dry_mass_inc,
+        }
+        doc = build_document("baseline", core=core, seed=seed, bundle=bundle)
         _strip_emitter(doc)
         composite = Composite(doc, core=core)
 
@@ -291,10 +291,15 @@ def run_seed_lineage(seed: int, n_gens: int, cache_dir: str,
               f"dividing, building daughter")
         try:
             d1_state, _d2 = divide_cell(prev_cell)
-            doc = build_document(
-                d1_state, configs, unique_names,
-                dry_mass_inc_dict=dry_mass_inc, seed=seed * 1000 + gen_idx,
-            )
+            daughter_bundle = {
+                "initial_state": d1_state,
+                "configs": configs,
+                "unique_names": unique_names,
+                "dry_mass_inc_dict": dry_mass_inc,
+            }
+            doc = build_document("baseline", core=core,
+                                 seed=seed * 1000 + gen_idx,
+                                 bundle=daughter_bundle)
             _strip_emitter(doc)
             composite = Composite(doc, core=core)
             gen = run_generation(composite, gen_idx, max_duration)
@@ -372,7 +377,7 @@ def main():
             print(f"  resume load failed: {type(e).__name__}: {e}")
 
     print(f"[{time.strftime('%H:%M:%S')}] building core")
-    core = _build_core()
+    core = build_core()
 
     # Rebind pint quantities so cache unpickling doesn't crash on first load.
     try:

@@ -324,7 +324,7 @@ def test_port_defaults_tf_unbinding():
 
 def test_build_execution_layers_base():
     """Base layers exclude optional feature steps."""
-    from v2ecoli.generate import build_execution_layers
+    from v2ecoli.composites.baseline import build_execution_layers
     layers = build_execution_layers([])
     flat = [s for layer in layers for s in layer]
     assert 'dna_supercoiling_listener' not in flat
@@ -334,7 +334,7 @@ def test_build_execution_layers_base():
 
 def test_build_execution_layers_supercoiling():
     """Supercoiling feature adds step after chromosome-structure and listener."""
-    from v2ecoli.generate import build_execution_layers
+    from v2ecoli.composites.baseline import build_execution_layers
     layers = build_execution_layers(['supercoiling'])
     flat = [s for layer in layers for s in layer]
     assert 'dna-supercoiling-step' in flat
@@ -352,7 +352,7 @@ def test_build_execution_layers_ppgpp():
     matching generate.py's FEATURE_MODULES entry which uses
     `'insert_before': 'ecoli-transcript-initiation'`.
     """
-    from v2ecoli.generate import build_execution_layers
+    from v2ecoli.composites.baseline import build_execution_layers
     layers = build_execution_layers(['ppgpp_regulation'])
     flat = [s for layer in layers for s in layer]
     assert 'ppgpp-initiation' in flat
@@ -363,7 +363,7 @@ def test_build_execution_layers_ppgpp():
 
 def test_build_execution_layers_trna_attenuation():
     """tRNA attenuation feature adds config step before transcript-elongation."""
-    from v2ecoli.generate import build_execution_layers
+    from v2ecoli.composites.baseline import build_execution_layers
     layers = build_execution_layers(['trna_attenuation'])
     flat = [s for layer in layers for s in layer]
     assert 'trna-attenuation-config' in flat
@@ -374,7 +374,7 @@ def test_build_execution_layers_trna_attenuation():
 
 def test_build_execution_layers_combined():
     """Multiple features can be enabled together."""
-    from v2ecoli.generate import build_execution_layers
+    from v2ecoli.composites.baseline import build_execution_layers
     layers = build_execution_layers([
         'supercoiling', 'ppgpp_regulation', 'trna_attenuation'])
     flat = [s for layer in layers for s in layer]
@@ -386,7 +386,7 @@ def test_build_execution_layers_combined():
 
 def test_build_execution_layers_unknown_feature():
     """Unknown feature names are silently ignored."""
-    from v2ecoli.generate import build_execution_layers
+    from v2ecoli.composites.baseline import build_execution_layers
     layers = build_execution_layers(['nonexistent_feature'])
     flat = [s for layer in layers for s in layer]
     assert 'ecoli-chromosome-structure' in flat  # base still works

@@ -33,8 +33,8 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
-from v2ecoli.composite import _build_core, _load_cache_bundle
-from v2ecoli.generate import build_document
+from v2ecoli import build_core, build_document
+from v2ecoli.core import load_cache_bundle
 from process_bigraph import Composite
 
 from scripts.run_plasmid_experiment import (
@@ -211,7 +211,8 @@ def run_seed(cache_dir: str, seed: int, duration: float | None, core) -> dict:
     until the cell divides (no time cap). ``duration`` is an optional
     safety ceiling in simulated seconds; pass None for unbounded.
     Returns {seed, duration_ran, wall_time, divided, snapshots}."""
-    initial_state, cache = _load_cache_bundle(cache_dir)
+    cache = load_cache_bundle(cache_dir)
+    initial_state = cache["initial_state"]
     configs = copy.deepcopy(cache["configs"])
     # Flip BP1993 OFF. The uncontrolled branch (plasmid_replication.py
     # line 460) then fires one initiation per idle plasmid domain per
@@ -246,14 +247,13 @@ def run_seed(cache_dir: str, seed: int, duration: float | None, core) -> dict:
         if isinstance(proc_cfg, dict) and "seed" in proc_cfg:
             proc_cfg["seed"] = binascii.crc32(
                 proc_name.encode("utf-8"), seed) & 0xFFFFFFFF
-    doc = build_document(
-        initial_state=initial_state,
-        configs=configs,
-        unique_names=cache["unique_names"],
-        dry_mass_inc_dict=cache.get("dry_mass_inc_dict", {}),
-        core=core,
-        seed=seed,
-    )
+    mutated_bundle = {
+        "initial_state": initial_state,
+        "configs": configs,
+        "unique_names": cache["unique_names"],
+        "dry_mass_inc_dict": cache.get("dry_mass_inc_dict", {}),
+    }
+    doc = build_document("baseline", core=core, seed=seed, bundle=mutated_bundle)
     _strip_emitter(doc)
     composite = Composite(doc, core=core)
 
@@ -321,7 +321,7 @@ def main():
 
     # Build core once and reuse; each seed still gets a fresh composite.
     print(f"[{time.strftime('%H:%M:%S')}] building core")
-    core = _build_core()
+    core = build_core()
 
     # Rebind pint quantities so cache unpickling doesn't crash on the
     # first load (matches the pattern in run_plasmid_multigen.py).

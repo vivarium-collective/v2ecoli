@@ -541,23 +541,42 @@ follow_up_studies:
 - id: retune-tests-under-rida-v0-mechanism
   description: |
     dnaa-02 canonicalized variant E (rida-v0) on 2026-05-18 — dnaa-03
-    inherits it by default. The change is biologically motivated (no
-    monkey-patch, intact equilibrium) but produces different stochastic
-    dynamics + steady-state DnaA-ATP supply (~56 vs ~28-38 under monkey-
-    patch). Two dnaa-03 tests that passed at seed 0 under monkey-patch
-    now flip-flop under rida-v0:
+    inherits it by default. Multi-seed comparison (1800s, initial_dnaA=500):
 
-      Test                                              monkey-patch (s0)   rida-v0 (s0)
-      ───────────────────────────────────────────────────────────────────────────────
-      chromosomal-occupancy-monotonic                   PASS                FAIL
-      oric-stays-unoccupied-until-chromosome-saturates  PASS                FAIL
-      free-dnaa-rises-after-titration                   FAIL (1.20)         PASS (1.33)
-      oric-occupancy-is-two-step                        PASS (lag=60)       PASS (lag=60)
+      Mechanism      seed   chrom_mono   oric_sat   free_rise        two_step   total
+      ────────────────────────────────────────────────────────────────────────────────
+      monkey-patch   0      PASS         PASS       FAIL (1.20)      PASS       3/4
+      monkey-patch   1      FAIL         PASS       PASS (1.50)      FAIL       2/4
+      monkey-patch   2      FAIL         PASS       PASS (1.28)      PASS       3/4
+      rida-v0        0      FAIL         FAIL       PASS (1.33)      PASS       2/4
+      rida-v0        1      FAIL         FAIL       PASS (1.38)      FAIL       1/4
+      rida-v0        2      FAIL         PASS       PASS (1.31)      FAIL       2/4
 
-    The biology changed — neither set of test results is wrong; the
-    thresholds were tuned against the old mechanism. Action: re-tune
-    behavior_tests under rida-v0 OR retune kd_high / kd_low /
-    initial_dnaA to match the new DnaA-ATP availability.
+    Reading the numerical results (not just pass/fail):
+
+      - chromosomal-occupancy-monotonic: final fraction ≈ 0.80-0.87 under
+        BOTH mechanisms. The test's smoothed-monotonicity threshold trips
+        on stochastic dips. This is a test-noise issue, not a biology issue.
+      - oric-stays-unoccupied-until-chromosome-saturates: under rida-v0,
+        oric saturates faster because DnaA-ATP supply is higher (~56 vs
+        ~28-38 under monkey-patch). This reveals a missing-biology gap —
+        the cell uses cooperative DnaA-ATP/oriC + HU/IHF DNA-bending +
+        SeqA to delay oriC firing. Not modelled in dnaa-03.
+      - free-dnaa-rises-after-titration: PASSES under rida-v0 in all
+        seeds (1.31-1.38). Improvement over monkey-patch (mixed).
+        rida-v0 produces a more biologically faithful titration pattern.
+      - oric-occupancy-is-two-step: FAILS under rida-v0 because high
+        and low affinity sites saturate simultaneously instead of in
+        sequence. Same missing-biology gap as above — cooperative
+        binding kinetics not modelled.
+
+    Conclusion: rida-v0 surfaces real biology gaps (cooperative binding,
+    HU/IHF facilitation, SeqA sequestration) that the monkey-patch
+    masked via its slower DnaA-ATP supply. These gaps belong to dnaa-04
+    (SeqA-v0) and a future dnaa-03b (cooperative binding). The
+    behavior_tests should be retuned to ASSERT the gap exists (regression
+    tests for the missing biology) rather than expecting them to pass
+    in the current state.
   blocks: [dnaa-03 conclusion under canonical mechanism]
   status: planned
 

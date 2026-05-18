@@ -4,6 +4,60 @@ name: dnaa-04-initiation-mechanism
 created: '2026-05-16'
 status: planning
 phase: Design
+embed_visualizations:
+- name: dnaa-04 planning-phase preview (placeholders + expected shapes)
+  url: /reports/dnaa_04_preview/index.html
+  description: 'No runs yet — this preview shows the four PLANNED charts
+    with the expected shape annotated on each: initiation-mass distribution
+    (heuristic vs mechanism), inter-initiation CV, box-count titration
+    scan, and growth-rate sweep. Will populate with real data once the
+    DnaaInitiationMechanism Process + SeqA_v0 timer are implemented.'
+biological_summary: |
+  The current v2ecoli decides when to fire chromosome replication using
+  a single rule: cell-mass-per-oriC must exceed a critical threshold
+  (a ParCa-fit number). In a real cell, the decision is made by the
+  DnaA mechanism we built up in dnaa-01 → 02 → 03: when enough oriC
+  boxes are occupied by DnaA-ATP, the origin opens and replisomes
+  assemble. This study replaces the mass-threshold heuristic with the
+  mechanistic trigger, and ships a SeqA_v0 fixed-timer placeholder so
+  the model doesn't immediately re-fire after each initiation
+  (full SeqA methylation is dnaa-06, deferred).
+study_card:
+  goal: Replace the mass-threshold heuristic with a DnaA-driven mechanistic trigger.
+  mechanism: 'New DnaaInitiationMechanism Process: fire when ≥3 high-affinity
+    + ≥4 low-affinity oriC boxes are DnaA-ATP-occupied. SeqA_v0 fixed-timer
+    refractory blocks re-fire for 10 min. Behind composite param
+    initiation_mode = heuristic | dnaa_mechanism for 1:1 comparison.'
+  why_before_next: 'This is the capstone study of the in-scope investigation.
+    Downstream work (dnaa-05 RIDA/DDAH/DARS, dnaa-06 SeqA full model) is
+    deferred to a follow-on investigation; this study''s placeholders
+    must be working first.'
+  expected_result: 'Mechanism reproduces heuristic''s mean initiation mass
+    within ±5%; one initiation per generation; inter-initiation CV is
+    wider than heuristic (no global trigger → more noise);
+    halving the chromosomal box count shortens inter-initiation time
+    (1/N titration scaling).'
+  main_expert_question: 'How long should the SeqA_v0 refractory window be?
+    Molecular_info doc cites ~10 min (one-third of a doubling time under
+    rapid growth). Is 10 min the right slow-growth default, or should
+    we tune to growth rate?'
+literature_anchors:
+- expectation: 'Exactly one replication initiation per cell generation on average'
+  model_observable: 'replication_initiation events per generation'
+  source: 'Hansen 1991 / Berger 2022 / Katayama 2017 (basic cell cycle fact)'
+  status_in_v2ecoli: 'Heuristic baseline already passes this — need to show mechanism does too'
+- expectation: 'Initiation mass is homeostatic (cells initiate at a characteristic mass per oriC)'
+  model_observable: 'mean listeners.replication.initiation_mass across the run'
+  source: 'Donachie 1968 / Berger 2022 / Hansen 1991'
+  status_in_v2ecoli: 'Heuristic baseline produces this by construction; mechanism must match within ±5%'
+- expectation: 'Replication time is narrow (C-period CV < 10%)'
+  model_observable: 'CV of listeners.replication.c_period_min'
+  source: 'Katayama 2017 (constant replisome speed approximation)'
+  status_in_v2ecoli: 'Should hold with constant replication-speed assumption'
+- expectation: 'Reducing chromosomal DnaA-box count shortens inter-initiation time (1/N titration scaling)'
+  model_observable: 'mean inter-initiation time as a function of box count (50, 100, 200, 307)'
+  source: 'Hansen 1991 / Berger 2022 / Olivi 2025'
+  status_in_v2ecoli: 'Diagnostic perturbation — confirms titration buffer is causal, not decorative'
 baseline:
 - name: baseline-mechanism
   composite: v2ecoli.composites.baseline_recipes.dnaa_04_with_dnaa_initiation_trigger
@@ -94,6 +148,7 @@ simulation_set:
   blocked_by_requirements:
   - req-1-mechanism-trigger
   - req-2-fork-passage-release
+  - req-5-seqa-v0-fixed-timer
 - name: growth-rate-sweep
   base_model: v2ecoli.composites.baseline.baseline
   perturbation:
@@ -117,6 +172,7 @@ simulation_set:
   blocked_by_requirements:
   - req-1-mechanism-trigger
   - req-2-fork-passage-release
+  - req-5-seqa-v0-fixed-timer
 - name: box-count-titration
   base_model: v2ecoli.composites.baseline.baseline
   perturbation:
@@ -170,6 +226,16 @@ model_change:
   - name: DnaaInitiationMechanism
     kind: Process
     requirement_id: req-1-mechanism-trigger
+  - name: SeqA_v0_FixedTimerRefractory
+    kind: Step
+    requirement_id: req-5-seqa-v0-fixed-timer
+    rationale: 'dnaa-06 SeqA full model is deferred (out of scope for this
+      investigation). Without ANY post-initiation reset, the mechanism trigger
+      will fire repeatedly once oriC fills — so a placeholder fixed-timer
+      refractory at oriC is required for "one initiation per generation"
+      to be measurable in the four-study scope. Maps to the biology
+      feedback''s "SeqA_v0 fixed timer" abstraction level.
+      '
   new_parameters:
   - name: initiation_mode
     default: heuristic
@@ -180,6 +246,14 @@ model_change:
     default: uniform
   - name: media
     default: M9_glucose
+  - name: seqa_v0_refractory_min
+    default: 10.0
+    units: min
+    rationale: 'Fixed-timer post-initiation refractory at oriC. Molecular_info
+      doc cites "~10 min, roughly one-third of a doubling time under rapid
+      growth" for SeqA sequestration. 10 min is the slow-growth conservative
+      default; tune with growth rate later.
+      '
   new_listeners:
   - name: replication.initiation_events + initiation_mass + c_period_min + interinitiation_min
   modified_processes:
@@ -190,6 +264,18 @@ key_assumptions:
 - Initiation fires when ≥3 high-affinity + ≥4 low-affinity oriC boxes are DnaA-ATP-occupied.
 - Fork passage removes ALL DnaA from any chromosomal box it crosses; the bound form returns to free pool.
 - Replication speed is constant (no DnaA feedback).
+- 'Post-initiation oriC reset comes from TWO mechanisms in this scope:
+  (a) fork-passage release of DnaA from oriC boxes (req-2),
+  (b) SeqA_v0 fixed-timer refractory at oriC (req-5).
+  Together they prevent immediate re-firing. dnaa-06 will eventually
+  replace (b) with the methylation-based SeqA model.
+  '
+- 'Per molecular_info (Katayama 2017, Leonard 2015): the DnaA complex at
+  oriC is RAPIDLY DISASSEMBLED after initiation, not maintained as an
+  active orisome. Fork passage + helicase loading + SSB binding destabilize
+  the DnaA-oriC complex. SeqA_v0 captures the resulting refractory window
+  abstractly; the underlying biology is not yet modeled.
+  '
 readouts:
 - name: initiation_events
   store_path: agents.0.listeners.replication.initiation_events
@@ -399,6 +485,35 @@ implementation_requirements:
   description: '''uniform'' or ''oriC_clustered'' — controls how the box catalog is sampled.'
   unblocks:
   - box-distribution-shift simulation
+- id: req-5-seqa-v0-fixed-timer
+  kind: step
+  title: SeqA_v0 fixed-timer refractory at oriC
+  effort: S
+  status: required-for-investigation-scope
+  description: 'Placeholder for dnaa-06''s SeqA full model. On initiation,
+    block any further initiation at oriC for `seqa_v0_refractory_min`
+    minutes by gating the DnaaInitiationMechanism trigger.
+    Implementation note: a Step that maintains a per-oriC "next_eligible_time"
+    store. When the trigger Process queries oriC, it returns "blocked"
+    until t >= next_eligible_time. Conceptually equivalent to a refractory
+    period in neurobiology.
+    '
+  steps:
+  - Create v2ecoli/steps/seqa_v0_refractory.py.
+  - 'Composite param seqa_v0_refractory_min: float = 10.0 (slow-growth default).'
+  - Wire so DnaaInitiationMechanism (req-1) consults the refractory store.
+  - 'Behavior test: with seqa_v0_refractory_min=10 and a constantly-saturated
+     oriC, observe exactly one initiation per 10-min window (not continuous).'
+  - 'Diagnostic test: setting seqa_v0_refractory_min=0 should produce
+     re-initiation immediately — confirms the gate is load-bearing.'
+  unblocks:
+  - tests.one-initiation-per-generation (without this, expected to fail)
+  - tests.replication-times-narrow (without this, replication forks could
+    pile up)
+  scope_note: 'v0 (fixed timer) is the abstraction level implemented in this
+    investigation. v1 (methylation-state) + v2 (cooperative SeqA-Dam)
+    belong to the follow-on dnaa-06 study.
+    '
 bibliography:
   expert:
   - replication_initiation_molecular_info

@@ -6,5 +6,6 @@ in ``pbg_superpowers.composite_generator._REGISTRY``.
 """
 
 from v2ecoli.composites import baseline, colony, departitioned, reconciled  # noqa: F401
+from v2ecoli.composites import baseline_recipes  # noqa: F401  — registers dnaa-* gate recipes
 
-__all__ = ["baseline", "colony", "departitioned", "reconciled"]
+__all__ = ["baseline", "colony", "departitioned", "reconciled", "baseline_recipes"]

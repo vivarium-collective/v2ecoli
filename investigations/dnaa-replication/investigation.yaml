@@ -2,7 +2,48 @@ schema_version: 1
 name: dnaa-replication
 title: DnaA / Replication Initiation
 created: '2026-05-16'
-status: planning
+last_baseline_run: '2026-05-17'
+status: planning-with-baseline-confirmed
+
+biological_story: |
+  In a real E. coli cell, the decision to start a new round of chromosome
+  replication is made by the protein DnaA. The cycle goes like this:
+
+  1. DnaA is continuously produced from its own gene (the dnaA gene).
+     It autoregulates — when DnaA gets high, it represses its own promoter.
+  2. DnaA binds ATP or ADP. Only the ATP-bound form can drive replication
+     initiation. The cell keeps DnaA-ATP in a tight physiological band
+     (~20-50% of total DnaA).
+  3. DnaA-ATP loads onto DnaA-box sites scattered across the chromosome.
+     Most of these sites act as a *titration buffer* — they soak up DnaA
+     so it doesn't fire at oriC too soon.
+  4. As DnaA accumulates, the chromosomal sites fill, then DnaA-ATP starts
+     loading onto the 11 boxes at oriC.
+  5. When enough oriC boxes are loaded, the origin opens (the "DUE
+     opening") and replisomes assemble. Replication fires.
+  6. After firing, several mechanisms (RIDA, datA, SeqA) reset the system
+     so it can't fire again until next cell cycle.
+
+  This investigation ports steps 1-5 into v2ecoli, replacing the current
+  heuristic ("cell mass per oriC ≥ critical mass") with the actual
+  DnaA-driven mechanism. Step 6's reset mechanisms (RIDA / DDAH / DARS for
+  ATP recycling, SeqA for sequestration) are deferred to a follow-on
+  investigation; this scope ships *placeholders* (an ATP-fraction clamp
+  and a fixed-timer refractory at oriC) so the four studies still produce
+  closed-cycle behavior.
+
+  Why the order matters: you cannot test DnaA-box titration (step 3)
+  before you have a steady DnaA pool (step 1) AND a way to split DnaA into
+  ATP/ADP forms (step 2). And you cannot test the mechanistic initiation
+  trigger (step 5) before titration works. So the studies stack:
+
+      dnaa-01 (DnaA expression)
+        ↓
+      dnaa-02 (DnaA-ATP/ADP/apo nucleotide cycle)
+        ↓
+      dnaa-03 (DnaA-box titration: 307 chromosomal + 11 oriC + 7 dnaAp)
+        ↓
+      dnaa-04 (initiation trigger driven by oriC occupancy)
 
 question: |
   Can a DnaA-driven mechanistic model of replication initiation in v2ecoli
@@ -30,11 +71,31 @@ description: |
 
   1. dnaa-01-expression-dynamics    — steady DnaA expression + autorepression baseline.
   2. dnaa-02-atp-hydrolysis         — DnaA-ATP/ADP/apo nucleotide cycle, intrinsic hydrolysis.
-  3. dnaa-03-box-binding            — 307 chromosomal boxes + 11 oriC + 4 dnaAp boxes, titration.
+  3. dnaa-03-box-binding            — 307 chromosomal + 11 oriC + 7 dnaAp boxes, titration.
   4. dnaa-04-initiation-mechanism   — replace mass-threshold heuristic with DnaA-driven initiation.
 
   Out-of-scope (deferred to a follow-on investigation): extrinsic
-  conversion (RIDA/DDAH/DARS) and post-initiation SeqA sequestration.
+  conversion (RIDA/DDAH/DARS) and full SeqA methylation-state sequestration
+  (dnaa-05, dnaa-06).
+
+  In-scope STAND-INS for the deferred mechanisms (necessary for the four-study
+  scope to produce closed-cycle behavior):
+
+  - dnaa-02 ships with an ATP-fraction CLAMP step (req-4) that holds
+    DnaA-ATP / total in the Boesen 2024 band [0.2, 0.5]. This is the
+    de-facto extrinsic-balance stand-in until dnaa-05 lands.
+  - dnaa-04 ships with a SeqA_v0 FIXED-TIMER refractory at oriC (req-5)
+    that blocks re-initiation for 10 min after each firing. This is the
+    de-facto SeqA stand-in until dnaa-06 lands. Maps to the biology
+    feedback's "SeqA versioning: v0 fixed timer" abstraction level.
+
+  Baseline rerun 2026-05-17 (this worktree):
+    Seeds 0/1/2, 600s/60s, M9-glucose:
+      - DnaA monomer total (monomer_counts[3861]) = 115/cell median (all seeds)
+      - bulk[MONOMER0-160[c]] (DnaA-ATP complex) = 115 (all 115 sit here)
+      - bulk[PD03831[c]] (free monomer) ≈ 0
+      - Pool is stable + reproducible; 5× below literature [300, 800].
+    Runner: studies/dnaa-01-expression-dynamics/sims/run_baseline.py
 
   See investigations/<name>/STATUS.md for the per-phase implementation
   status and the cross-study test report (planned).

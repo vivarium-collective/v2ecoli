@@ -106,6 +106,7 @@ description: |
 studies:
   - dnaa-01-expression-dynamics
   - dnaa-02-atp-hydrolysis
+  - dnaa-02f-equilibrium-cleanup   # parallel follow-up of dnaa-02; does NOT gate dnaa-03
   - dnaa-03-box-binding
   - dnaa-04-initiation-mechanism
 

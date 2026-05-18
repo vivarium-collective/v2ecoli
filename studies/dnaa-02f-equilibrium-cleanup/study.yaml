@@ -1,0 +1,278 @@
+schema_version: 3
+name: dnaa-02f-equilibrium-cleanup
+created: '2026-05-17'
+status: planning
+phase: Plan
+gate_status: open
+
+follow_up_of: dnaa-02-atp-hydrolysis
+parent_studies:
+- {study: dnaa-02-atp-hydrolysis, condition: pass-via-pivot}
+
+# This study runs IN PARALLEL with dnaa-03, not as a gate before it.
+# dnaa-03 inherits the current option-B pivot; if dnaa-02f selects a
+# different recipe, dnaa-03's recipe rebinds and dnaa-03 reruns.
+gating: parallel-with-dnaa-03
+
+biological_summary: |
+  dnaa-02 currently passes its DnaA-ATP fraction band test, but it does so
+  via an invasive workaround: the recipe mutates the live ecoli-equilibrium
+  Step's stoichMatrix at composite-build time to zero out MONOMER0-4565_RXN
+  (the equilibrium reaction that loads free DnaA with free ADP). Without
+  this mutation, snapshot-semantics let the equilibrium reverse every
+  hydrolysis transfer within the same tick (see dnaa-02 study.yaml
+  conclusion_verdicts.biological_validation + design_pivot_required.EQ-04).
+
+  Two structural alternatives exist but have not been evaluated:
+    A. Add a new "locked" bulk species DnaA-ADP-locked[c] that the
+       equilibrium reaction set does not touch. Hydrolysis writes to it;
+       the clamp transfers DnaA-ATP into it. Equilibrium cannot reverse
+       the transfer because it has no reaction wired to the locked species.
+    B'. Re-calibrate the existing MONOMER0-4565_RXN rate constants
+        instead of disabling the reaction — possibly the reverse rate
+        (2.9e-8 per the ParCa cache) is mis-calibrated and the equilibrium
+        is biologically the right model with the right numbers.
+    B (current).  The monkey-patch we already ship.
+
+  dnaa-03 (box binding) and dnaa-04 (initiation) inherit whichever variant
+  dnaa-02 ships with. If A or B' would produce materially different
+  DnaA-ADP dynamics or different MONOMER0-160 dynamics, the downstream
+  studies are calibrating against the wrong baseline. This study compares
+  all three on the same behavior tests + a downstream-isolation test so
+  the chain has a defensible foundation.
+
+study_card:
+  goal: 'Select a structurally clean DnaA nucleotide-cycle implementation by
+    A/B-comparing three pivots on the same test panel.'
+  mechanism: 'Three composite variants; each runs the same dnaa-02 behavior
+    tests AND a new downstream-isolation test for MONOMER0-160[c] +
+    MONOMER0-4565[c] trajectories.'
+  why_before_next: 'dnaa-03/04 will inherit whichever recipe dnaa-02 settles
+    on. If the current monkey-patch is fragile or biologically off, the
+    titration + initiation studies recalibrate against the wrong DnaA-ATP
+    pool.'
+  expected_result: 'At least one of A or B'' matches the current option-B
+    ATP-fraction-band PASS without monkey-patching the equilibrium step.
+    Pick that one as the canonical recipe; rebind dnaa-03/04.'
+  main_expert_question: 'Is the v2ecoli MONOMER0-4565_RXN reverse-rate
+    (2.9e-8 in ParCa cache) correctly calibrated? Resolves whether option
+    B'' is even feasible. Also: is DnaA-ADP-locked[c] biologically defensible
+    as a placeholder until dnaa-05''s RIDA/DDAH/DARS land?'
+
+literature_anchors:
+- expectation: 'Direct free-DnaA + free-ADP binding (MONOMER0-4565_RXN forward direction)
+    is a minor in-vivo route. Productive cycle is ATP-binding → intrinsic
+    / RIDA / DDAH hydrolysis.'
+  source: Sekimizu 1987; Kawakami 2006
+  status_in_v2ecoli: 'Asserted in dnaa-02 design pivot, not validated by
+    any in-sim or literature-rate comparison.'
+- expectation: 'MONOMER0-4565_RXN reverse-rate constant'
+  source: ParCa cache (provenance unclear)
+  status_in_v2ecoli: '2.9e-8 — open question dnaa-02-EQ-01 (unresolved). May be
+    over-estimated by 10-100× per the friction-log working hypothesis.'
+
+baseline:
+- name: variant-A-locked-species
+  composite: v2ecoli.composites.baseline_recipes.dnaa_02f_with_locked_dnaa_adp
+  params: {seed: 0, cache_dir: out/cache}
+- name: variant-B-current-pivot
+  composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
+  params: {seed: 0, cache_dir: out/cache}
+- name: variant-Bprime-recalibrated
+  composite: v2ecoli.composites.baseline_recipes.dnaa_02f_with_recalibrated_equilibrium
+  params: {seed: 0, cache_dir: out/cache, dnaa_adp_rxn_reverse_rate_scale: 0.01}
+
+visualizations:
+- name: dnaa_state_across_variants
+  address: local:DnaAStateVisualization
+  config:
+    title: dnaa-02f — DnaA state across three pivot variants
+    sample_every: 10
+    inputs_map:
+      apo_count:    listeners.dnaA_cycle.apo_count
+      atp_count:    listeners.dnaA_cycle.atp_count
+      adp_count:    listeners.dnaA_cycle.adp_count
+      atp_fraction: listeners.dnaA_cycle.atp_fraction
+      adp_fraction: listeners.dnaA_cycle.adp_fraction
+      apo_fraction: listeners.dnaA_cycle.apo_fraction
+      time:         global_time
+
+purpose:
+  question: |
+    Of three structural alternatives for resolving the dnaa-02 snapshot-
+    semantics tug-of-war between DnaaIntrinsicHydrolysis/Clamp and
+    ecoli-equilibrium's MONOMER0-4565_RXN, which produces a defensible
+    DnaA nucleotide-cycle baseline for dnaa-03 + dnaa-04 to inherit?
+  mechanism: |
+    Three composite variants, each running the EXACT same 30-min sim, same
+    seed, same readouts. The current option-B variant acts as the control
+    (the workspace's ground truth today); option A (locked species) and
+    option B' (rate recalibration) are the candidates. Tests run on each.
+  expected_outcome: |
+    All three variants pass the ATP-fraction-band test (the work has
+    already produced a passing recipe via option B; A or B' are expected
+    to match it). The differentiator is the downstream-isolation test:
+    option A is expected to leave MONOMER0-160 trajectory closest to the
+    baseline (no equilibrium reaction was touched); option B' depends on
+    whether the recalibrated reverse-rate is small enough to not unwind
+    the IntrinsicHydrolysis transfers within a tick.
+
+pipeline_gate:
+  prerequisites: [dnaa-02-atp-hydrolysis]
+  enables:
+  - 'dnaa-03-box-binding (rebind to selected variant if not option B)'
+  - 'dnaa-04-initiation-mechanism (transitively)'
+  gate_status: open
+  proceed_condition: |
+    At least one of variants A or B' passes BOTH:
+      (1) the dnaa-02 ATP-fraction-band test (atp_fraction in [0.2, 0.5]
+          over the second half of a 30-min sim, seed 0/1/2), and
+      (2) the downstream-isolation test (MONOMER0-160 trajectory matches
+          dnaa-01 baseline ±10% over the second half).
+    Pick the cleanest passing variant; if both pass equivalently, prefer
+    option A (locked species) for its lower risk surface.
+  blocks_until_resolved: |
+    None — this study runs in parallel with dnaa-03. dnaa-03 inherits the
+    current option-B recipe and will be rerun if dnaa-02f selects a
+    different variant.
+
+simulation_set:
+- name: variant-A-locked-species
+  composite: v2ecoli.composites.baseline_recipes.dnaa_02f_with_locked_dnaa_adp
+  duration_s: 1800
+  interval_s: 1
+  seed: 0
+  readouts: &variant_readouts
+  - listeners.dnaA_cycle.atp_count
+  - listeners.dnaA_cycle.adp_count
+  - listeners.dnaA_cycle.apo_count
+  - listeners.dnaA_cycle.atp_fraction
+  - bulk.MONOMER0-160_count_via_listener
+  status: planned
+- name: variant-B-current-pivot
+  composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
+  duration_s: 1800
+  interval_s: 1
+  seed: 0
+  readouts: *variant_readouts
+  status: planned
+- name: variant-Bprime-recalibrated
+  composite: v2ecoli.composites.baseline_recipes.dnaa_02f_with_recalibrated_equilibrium
+  duration_s: 1800
+  interval_s: 1
+  seed: 0
+  readouts: *variant_readouts
+  status: planned
+
+behavior_tests:
+- name: atp-fraction-band-across-variants
+  primary: true
+  description: 'For each variant, second-half median of listeners.dnaA_cycle.atp_fraction
+    falls inside the Boesen 2024 band [0.2, 0.5]. Required for any variant
+    to be a candidate replacement for option B.'
+- name: downstream-isolation-monomer160
+  primary: true
+  description: 'For each variant, the trajectory of bulk[MONOMER0-160[c]] (DnaA-ATP
+    complex) over the second-half stays within ±10% of the dnaa-01 baseline
+    trajectory at matching timepoints. Variant that DEVIATES has materially
+    different DnaA-ATP dynamics — flag as a poor choice for dnaa-03 inheritance.'
+- name: equilibrium-untouched-flag
+  primary: false
+  description: 'After build, assert that ecoli-equilibrium.stoichMatrix is byte-equal
+    to the unpatched baseline matrix. PASS for variants A and B''; FAIL for
+    variant B (control). Documents which variants leave the equilibrium step
+    untouched and which mutate it.'
+- name: cross-seed-stability
+  primary: false
+  description: 'Across seeds 0/1/2, second-half medians of atp_fraction differ
+    by < 0.05 per variant. Catches variants whose pivot mechanism amplifies
+    stochastic noise.'
+
+implementation_requirements:
+- name: dnaa_02f_with_locked_dnaa_adp
+  kind: composite-recipe
+  description: 'New recipe in v2ecoli.composites.baseline_recipes. Reuses
+    DnaaIntrinsicHydrolysis + DnaaCycleListener from dnaa-02. Adds a new
+    bulk id DnaA-ADP-locked[c] to sim_data (not in any equilibrium reaction).
+    Steps write to DnaA-ADP-locked[c] instead of MONOMER0-4565[c]. Listener
+    reads both bulks and sums them for the cycle totals so the test panel is
+    apples-to-apples with option B.'
+  effort_estimate: 'medium — needs sim_data wiring for the new bulk id +
+    listener update for the dual-source DnaA-ADP read.'
+- name: dnaa_02f_with_recalibrated_equilibrium
+  kind: composite-recipe
+  description: 'New recipe in v2ecoli.composites.baseline_recipes. Same as
+    option B but instead of zeroing the stoichMatrix column, multiplies the
+    MONOMER0-4565_RXN reverse-rate by a scale factor (default 0.01). Param
+    exposed as dnaa_adp_rxn_reverse_rate_scale.'
+  effort_estimate: 'small — single-line param + a multiplicative scale at
+    composite-build time. Reuses dnaa-02 Steps unchanged.'
+- name: downstream-isolation-test
+  kind: behavior-test
+  description: 'Read both this study''s runs.db and dnaa-01-expression-dynamics''
+    runs.db. Compare bulk[MONOMER0-160[c]] trajectories. Output a per-variant
+    deviation ratio (median absolute deviation / dnaa-01 median).'
+  effort_estimate: 'small — read history rows + compute deviation.'
+
+key_assumptions:
+- 'dnaa-01 baseline is the authoritative DnaA-ATP reference (115/cell median
+  in MONOMER0-160[c]) — see dnaa-01 conclusion verdicts.'
+- 'Option A bulk-id wiring does not regress any other process that reads
+  MONOMER0-4565[c]. (No other process should — friction-log session-1 #4
+  noted dnaa-02-EQ-02 audit found only the equilibrium step writing it.)'
+- 'Option B'' rate recalibration is mechanism-consistent: the scaled rate
+  is the "true" in-vivo rate; the unscaled rate was an artefact of
+  fitting against incomplete reaction-network coverage in ParCa.'
+
+limitations:
+- 'Three variants × three seeds × 1800s = 9 runs at ~15s wall-clock each
+  + load time. Whole study completes in ~5 min wall time on this machine.'
+- 'The downstream-isolation test uses dnaa-01 as reference but dnaa-01 is
+  itself at ~115 DnaA/cell, 5× below the literature band (open calibration
+  issue, see dnaa-01 follow_up_studies). Test asserts isolation against the
+  in-sim baseline, NOT against literature.'
+- 'Does not resolve dnaa-02-EQ-01 (whether the original 2.9e-8 rate is
+  correct). Option B'' uses a heuristic 0.01× scale as a starting point;
+  proper resolution needs literature work or ParCa code archaeology.'
+
+expert_decisions_needed:
+- id: dnaa-02f-EQ-01
+  question: 'Is DnaA-ADP-locked[c] biologically defensible as a placeholder
+    pool until dnaa-05 RIDA/DDAH/DARS land, or does it bake in too much
+    fiction (e.g., the locked pool can never drain back to apo-DnaA)?'
+  alternatives:
+  - 'Locked species is fine as a stand-in; dnaa-05 will absorb it.'
+  - 'Locked species creates a downstream consistency trap; prefer option B'' even
+    if rate recalibration is imperfect.'
+  - 'Both A and B'' fail for different reasons; option B (monkey-patch) is
+    pragmatically the best of bad options.'
+  impact_if_wrong: 'Affects dnaa-05 design — if option A wins here, dnaa-05
+    must include a mechanism to drain DnaA-ADP-locked back to apo-DnaA.'
+  blocks: [dnaa-02f conclusion]
+  status: open
+  asked_to: TBD
+- id: dnaa-02f-EQ-02
+  question: 'For option B'', what is the right scale factor for the
+    MONOMER0-4565_RXN reverse rate? 0.01× is a starting heuristic. Should
+    we sweep [1.0, 0.1, 0.01, 0.001] and pick the smallest that still
+    passes the test?'
+  alternatives:
+  - 'Use a sweep; pick the largest passing value (most conservative deviation
+    from current ParCa cache).'
+  - 'Use 0× (which is option B by another name) — recovers the current
+    behavior and confirms the rate IS the problem.'
+  - 'Defer until dnaa-02-EQ-01 (the original rate-calibration question) is
+    resolved by literature work.'
+  impact_if_wrong: 'Picks the wrong scale → option B'' passes for the wrong
+    reason. Should be backed by a parameter-sensitivity panel.'
+  blocks: [dnaa-02f conclusion]
+  status: open
+  asked_to: TBD
+
+decision_inputs_to_dnaa_03:
+- name: selected-recipe
+  description: 'The variant that passes both primary tests. Becomes the
+    canonical dnaa_02_with_intrinsic_hydrolysis recipe; dnaa-03''s recipe
+    chains off of it.'
+  affects: 'dnaa-03 simulation_set baseline composite name; possibly the
+    listener wiring if option A introduces new bulk ids.'

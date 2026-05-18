@@ -22,6 +22,7 @@ Exported names (all are considered semi-private implementation details):
 from __future__ import annotations
 
 import copy
+import warnings
 
 import numpy as np
 
@@ -444,8 +445,18 @@ def seed_mass_listener(cell_state, core):
             if delta and 'listeners' in delta:
                 mass = delta['listeners'].get('mass', {})
                 cell_state['listeners']['mass'].update(mass)
-        except Exception:
-            pass
+        except Exception as exc:
+            # Don't crash composite construction if the mass listener fails
+            # on partial state — but surface the failure. A silent miss here
+            # leaves cell_mass=0, which surfaces several layers downstream
+            # as a non-finite y_init in Equilibrium's ODE solver.
+            warnings.warn(
+                f"seed_mass_listener({name}) failed: "
+                f"{type(exc).__name__}: {exc}. "
+                f"cell_mass / dry_mass left unset.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         break
 
 

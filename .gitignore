@@ -14,7 +14,7 @@ build/
 v2ecoli/processes/parca/**/*.cpython-*.so
 
 # Workspace / investigation runtime artefacts (regenerable; not source)
-# See docs/superpowers/notes/.../friction-log session-3 #24.
+# See friction-log session-3 #24.
 .pbg/server/
 .pbg/state.json
 .pbg/study-test-results/
@@ -24,3 +24,9 @@ v2ecoli/processes/parca/**/*.cpython-*.so
 studies/*/viz/
 reports/
 investigations/*/viz/
+
+# Per-session agent notes (friction logs, overnight summaries, internal
+# observations meant for the pbg-superpowers improvement-cycle agent).
+# These are local-only working notes — not part of the investigation's
+# published artefacts.
+docs/superpowers/notes/

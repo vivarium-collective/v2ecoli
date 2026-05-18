@@ -13,7 +13,12 @@ dependencies = [
     "process-bigraph>=0.0.38",
     "pbg-superpowers",
     "vEcoli[dev]>=1.1.0",
-    "multi-cell>=0.0.1",
+    "viva-munk>=0.0.1",
+    # viva-munk's __init__.py imports from spatio_flux.processes.particles
+    # AND spatio_flux.visualizations at module-import time. We pin via
+    # [tool.uv.sources] below to the git main, which carries the
+    # visualizations submodule (the PyPI release surface drifts).
+    "spatio-flux",
     "plum-dispatch>=2.5",
     "dill>=0.3",
     "numpy",
@@ -31,7 +36,7 @@ dependencies = [
 
 [project.optional-dependencies]
 # Test-only deps. `uv sync --extra dev` pulls these in.
-dev = ["pytest-timeout>=2.3"]
+dev = ["pytest-timeout>=2.3", "pytest-xdist>=3.6"]
 parquet = [
     "duckdb",
     "polars",
@@ -74,4 +79,5 @@ packages = { find = { where = ["."] } }
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
 pbg-superpowers = { git = "https://github.com/vivarium-collective/pbg-superpowers.git", branch = "main" }
-multi-cell = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
+viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
+spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }

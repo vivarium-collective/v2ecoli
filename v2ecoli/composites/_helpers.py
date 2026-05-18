@@ -22,6 +22,7 @@ Exported names (all are considered semi-private implementation details):
 from __future__ import annotations
 
 import copy
+import warnings
 
 import numpy as np
 
@@ -115,6 +116,203 @@ ALLOCATOR_LAYERS = {
     'allocator_3': ['ecoli-polypeptide-elongation',
                     'ecoli-transcript-elongation'],
 }
+
+
+# ---------------------------------------------------------------------------
+# Emitter override (module-level)
+# ---------------------------------------------------------------------------
+# When a Study runner needs persistent time-series history, it can set
+# ``_EMITTER_OVERRIDE`` to a dict of SQLiteEmitter-config kwargs (e.g.
+# ``{'file_path': '.../studies/<name>', 'db_file': 'runs.db',
+#   'name': 'baseline-steady-state'}``) BEFORE building the composite.
+# When set, the special 'emitter' step in baseline / departitioned /
+# reconciled swaps RAMEmitter for SQLiteEmitter and expands the emit
+# schema to cover the per-listener fields the dnaa investigation reads.
+#
+# Use the ``sqlite_emitter()`` context manager below for safety —
+# ensures the override is cleared even on exceptions.
+_EMITTER_OVERRIDE: dict | None = None
+
+
+def set_emitter_override(config: dict | None) -> None:
+    """Set the module-level emitter override. Pass None to clear."""
+    global _EMITTER_OVERRIDE
+    _EMITTER_OVERRIDE = config
+
+
+import contextlib  # noqa: E402
+import os  # noqa: E402
+import sqlite3  # noqa: E402
+import uuid  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+
+def _find_workspace_root(start: Path | None = None) -> Path | None:
+    """Walk up from ``start`` (default: cwd) looking for ``workspace.yaml``.
+
+    Returns the directory that contains ``workspace.yaml``, or ``None`` if
+    none is found before hitting the filesystem root. Cheap, no imports.
+    """
+    cur = Path(start or Path.cwd()).resolve()
+    for d in (cur, *cur.parents):
+        if (d / 'workspace.yaml').is_file():
+            return d
+    return None
+
+
+def _ensure_study_columns(db_path: str) -> None:
+    """Idempotently add study_slug / investigation_slug columns to ``simulations``.
+
+    Safe to call on a missing DB (creates the parent dir + an empty DB with
+    just the columns we add — the SQLiteEmitter's _init_history_db will
+    create the rest of the schema on its own init).
+    """
+    parent = os.path.dirname(db_path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
+    conn = sqlite3.connect(db_path, isolation_level=None)
+    try:
+        # Mirror the SQLiteEmitter's table layout — without recreating the
+        # full schema, we just need the `simulations` table to exist before
+        # we ALTER. If SQLiteEmitter has already initialized it, the CREATE
+        # is a no-op.
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS simulations (
+                simulation_id TEXT PRIMARY KEY,
+                name TEXT,
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                elapsed_seconds REAL,
+                composite_config TEXT,
+                metadata TEXT,
+                emit_schema TEXT
+            )
+        ''')
+        existing = {row[1] for row in conn.execute(
+            'PRAGMA table_info(simulations)')}
+        if 'study_slug' not in existing:
+            conn.execute('ALTER TABLE simulations ADD COLUMN study_slug TEXT')
+        if 'investigation_slug' not in existing:
+            conn.execute(
+                'ALTER TABLE simulations ADD COLUMN investigation_slug TEXT')
+    finally:
+        conn.close()
+
+
+def _stamp_study_metadata(
+    db_path: str,
+    simulation_id: str,
+    study_slug: str | None,
+    investigation_slug: str | None,
+) -> None:
+    """Write study_slug + investigation_slug for ``simulation_id``.
+
+    Upserts a row keyed on ``simulation_id`` and leaves any existing
+    SQLiteEmitter-managed fields (name, emit_schema, ...) untouched. Use
+    after the SQLiteEmitter step has been constructed (which inserts the
+    initial row) — or before, in which case ``started_at`` defaults to
+    now-UTC and the emitter will overwrite it on its own insert.
+    """
+    if study_slug is None and investigation_slug is None:
+        return
+    import datetime
+    now_iso = datetime.datetime.now(datetime.timezone.utc).strftime(
+        '%Y-%m-%dT%H:%M:%SZ')
+    conn = sqlite3.connect(db_path, isolation_level=None)
+    try:
+        conn.execute(
+            'INSERT INTO simulations '
+            '(simulation_id, started_at, study_slug, investigation_slug) '
+            'VALUES (?, ?, ?, ?) '
+            'ON CONFLICT(simulation_id) DO UPDATE SET '
+            '  study_slug = COALESCE(excluded.study_slug, simulations.study_slug), '
+            '  investigation_slug = COALESCE(excluded.investigation_slug, simulations.investigation_slug)',
+            (simulation_id, now_iso, study_slug, investigation_slug),
+        )
+    finally:
+        conn.close()
+
+
+@contextlib.contextmanager
+def sqlite_emitter(*, file_path: str | None = None,
+                   db_file: str | None = None,
+                   name: str | None = None,
+                   simulation_id: str | None = None,
+                   subsample: int = 1,
+                   study_slug: str | None = None,
+                   investigation_slug: str | None = None):
+    """Context manager: build composite with a SQLiteEmitter step.
+
+    By default writes to ``<workspace_root>/.pbg/composite-runs.db`` — the
+    same workspace-shared DB the vivarium-dashboard's Simulations DB tab
+    aggregates from. Pass ``study_slug`` / ``investigation_slug`` to tag the
+    run; the slugs are stored as columns on the ``simulations`` row so the
+    dashboard can group / filter by them.
+
+    To keep using a per-study DB, pass ``file_path`` (and optionally
+    ``db_file``) explicitly — the old behavior is preserved.
+
+    Usage::
+
+        with sqlite_emitter(name='baseline-seed0',
+                            study_slug='dnaa-01-expression-dynamics',
+                            investigation_slug='dnaa-replication'):
+            doc = baseline(cache_dir='out/cache')
+            comp = Composite(doc, core=core)
+            comp.update({}, 60.0 * 60)
+    """
+    # Resolve workspace-default DB path when caller didn't pin one.
+    if file_path is None:
+        ws_root = _find_workspace_root()
+        if ws_root is None:
+            raise RuntimeError(
+                'sqlite_emitter(): no file_path given and no workspace.yaml '
+                'found walking up from cwd; either run from inside a '
+                'workspace or pass file_path explicitly.')
+        file_path = str(ws_root / '.pbg')
+        if db_file is None:
+            db_file = 'composite-runs.db'
+    else:
+        if db_file is None:
+            db_file = 'runs.db'
+
+    # Pin the simulation_id upfront so we can stamp metadata around the
+    # emitter's own init insert.
+    if simulation_id is None:
+        simulation_id = str(uuid.uuid4())
+
+    cfg = {
+        'file_path': file_path,
+        'db_file': db_file,
+        'simulation_id': simulation_id,
+    }
+    if name is not None:
+        cfg['name'] = name
+    if subsample != 1:
+        cfg['subsample'] = subsample
+
+    db_path = os.path.join(file_path, db_file)
+    # Ensure our extra columns exist on the simulations table BEFORE the
+    # SQLiteEmitter step runs its own _init_history_db (which is a no-op for
+    # already-existing tables). Then stamp the slugs. Safe to run unconditionally
+    # — the helpers are idempotent and tolerate a missing file.
+    _ensure_study_columns(db_path)
+    _stamp_study_metadata(db_path, simulation_id, study_slug, investigation_slug)
+
+    set_emitter_override(cfg)
+    try:
+        yield cfg
+    finally:
+        # Re-stamp in case the emitter's own insert ran after ours and we
+        # need to ensure the slugs survived. ON CONFLICT DO UPDATE preserves
+        # any non-NULL value, so this is a belt-and-suspenders no-op when
+        # things already stuck.
+        try:
+            _stamp_study_metadata(
+                db_path, simulation_id, study_slug, investigation_slug)
+        except sqlite3.OperationalError:
+            pass
+        set_emitter_override(None)
 
 
 # ---------------------------------------------------------------------------
@@ -247,8 +445,18 @@ def seed_mass_listener(cell_state, core):
             if delta and 'listeners' in delta:
                 mass = delta['listeners'].get('mass', {})
                 cell_state['listeners']['mass'].update(mass)
-        except Exception:
-            pass
+        except Exception as exc:
+            # Don't crash composite construction if the mass listener fails
+            # on partial state — but surface the failure. A silent miss here
+            # leaves cell_mass=0, which surfaces several layers downstream
+            # as a non-finite y_init in Equilibrium's ODE solver.
+            warnings.warn(
+                f"seed_mass_listener({name}) failed: "
+                f"{type(exc).__name__}: {exc}. "
+                f"cell_mass / dry_mass left unset.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         break
 
 
@@ -429,30 +637,72 @@ def _get_special_step(loader, step_name, core):
         return instance, topo, 'process'
 
     if step_name == 'emitter':
-        from process_bigraph.emitter import RAMEmitter
+        from process_bigraph.emitter import RAMEmitter, SQLiteEmitter
+        # Mass listener fields — always emitted, used by the workflow report.
+        mass_schema = {
+            'cell_mass': 'float',
+            'water_mass': 'float',
+            'dry_mass': 'float',
+            'protein_mass': 'float',
+            'rna_mass': 'float',
+            'rRna_mass': 'float',
+            'tRna_mass': 'float',
+            'mRna_mass': 'float',
+            'dna_mass': 'float',
+            'smallMolecule_mass': 'float',
+            'instantaneous_growth_rate': 'float',
+            'volume': 'float',
+        }
+        listeners_schema = {'mass': mass_schema}
+
+        # When a caller-set override is active (typical for study runs that
+        # need persistent SQLite history), expand the emit schema to capture
+        # the dnaa-investigation readouts: monomer_counts / rna_counts /
+        # rna_synth_prob / rnap_data. Cheap to add — they're already in the
+        # per-step state tree.
+        override = _EMITTER_OVERRIDE
+        if override is not None:
+            # Only the leaves the dnaa-investigation readouts actually consume.
+            # NB: ``monomer_counts`` is a flat array store (not nested under
+            # a ``monomerCounts`` key) — confirmed at runtime via the
+            # composite-emitted state shape.
+            listeners_schema.update({
+                'monomer_counts': 'array[integer]',
+                'rna_counts': {
+                    'mRNA_counts': 'array[integer]',
+                },
+                'rna_synth_prob': {
+                    'n_bound_TF_per_TU': 'array[float]',
+                    'n_actual_bound': 'array[integer]',
+                    'total_rna_init': 'integer',
+                },
+                'rnap_data': {
+                    'rna_init_event': 'array[integer]',
+                    'did_initialize': 'integer',
+                },
+                'replication_data': {
+                    'number_of_oric': 'integer',
+                    'free_DnaA_boxes': 'integer',
+                    'total_DnaA_boxes': 'integer',
+                },
+            })
+
         emit_schema = {
             'global_time': 'float',
             'bulk': 'array',
-            'listeners': {'mass': {
-                'cell_mass': 'float',
-                'water_mass': 'float',
-                'dry_mass': 'float',
-                'protein_mass': 'float',
-                'rna_mass': 'float',
-                'rRna_mass': 'float',
-                'tRna_mass': 'float',
-                'mRna_mass': 'float',
-                'dna_mass': 'float',
-                'smallMolecule_mass': 'float',
-                'instantaneous_growth_rate': 'float',
-                'volume': 'float',
-            }},
+            'listeners': listeners_schema,
             'full_chromosome': 'node',
             'active_replisome': 'node',
             'active_RNAP': 'node',
             'chromosome_domain': 'node',
         }
-        instance = RAMEmitter({'emit': emit_schema}, core)
+
+        if override is not None:
+            cfg = {'emit': emit_schema, **override}
+            instance = SQLiteEmitter(cfg, core)
+        else:
+            instance = RAMEmitter({'emit': emit_schema}, core)
+
         topo = {
             'global_time': ('global_time',),
             'bulk': ('bulk',),

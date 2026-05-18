@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from collections import Counter
 
 import yaml
 from jsonschema import Draft7Validator, FormatChecker, ValidationError
@@ -220,7 +221,135 @@ def main() -> None:
             for err in _validate_simulation_processes(ws, registry):
                 _fail(err)
 
+    # ---- Summary -------------------------------------------------------
+    # Count expert_docs
+    expert_docs = ws.get("expert_docs", []) or []
+    n_expert = len(expert_docs)
+    expert_names = [d.get("name", "?") for d in expert_docs if isinstance(d, dict)]
+
+    # Count bib keys
+    bib_file = WS_ROOT / "references" / "papers.bib"
+    bib_keys_found: set = set()
+    if bib_file.exists():
+        bib_keys_found = set(re.findall(r"@\w+\{([A-Za-z0-9_:-]+),", bib_file.read_text()))
+    n_bib = len(bib_keys_found)
+
+    # Count claims
+    claims_file = WS_ROOT / "references" / "claims.yaml"
+    n_claims = 0
+    if claims_file.exists():
+        try:
+            claims_data = yaml.safe_load(claims_file.read_text()) or {}
+            if isinstance(claims_data, dict):
+                n_claims = len(claims_data.get("claims", claims_data) or {})
+            elif isinstance(claims_data, list):
+                n_claims = len(claims_data)
+        except Exception:
+            # Fall back to line count
+            n_claims = sum(1 for ln in claims_file.read_text().splitlines() if ln.strip() and not ln.startswith("#"))
+
+    # Enumerate studies
+    study_schema_path = WS_ROOT / ".pbg" / "schemas" / "study.schema.json"
+    study_schema: dict | None = None
+    if study_schema_path.exists():
+        try:
+            study_schema = json.loads(study_schema_path.read_text())
+        except Exception:
+            pass
+
+    study_names: list[str] = []
+    study_statuses: list[str] = []
+    study_warnings: list[str] = []
+
+    for study_yaml_path in sorted((WS_ROOT / "studies").glob("*/study.yaml")):
+        study_dir = study_yaml_path.parent.name
+        try:
+            study_data = yaml.safe_load(study_yaml_path.read_text()) or {}
+            s_name = study_data.get("name", study_dir)
+            s_status = study_data.get("status", "unknown")
+            study_names.append(s_name)
+            study_statuses.append(s_status)
+
+            # Validate against schema if available
+            if study_schema is not None:
+                try:
+                    from jsonschema import Draft202012Validator
+                    validator = Draft202012Validator(study_schema)
+                    errs = sorted(validator.iter_errors(study_data), key=lambda e: list(e.path))
+                    for err in errs:
+                        path_str = ".".join(str(p) for p in err.path) if err.path else "(root)"
+                        study_warnings.append(f"  WARN study {s_name}: [{path_str}] {err.message}")
+                except ImportError:
+                    # jsonschema draft 2020-12 validator not available; fall back silently
+                    try:
+                        Draft7Validator(study_schema, format_checker=FormatChecker()).validate(study_data)
+                    except Exception as ve:
+                        study_warnings.append(f"  WARN study {s_name}: {ve.message}")
+                except Exception as ve:
+                    study_warnings.append(f"  WARN study {s_name}: {ve}")
+        except Exception as exc:
+            study_warnings.append(f"  WARN could not parse {study_yaml_path}: {exc}")
+
+    n_studies = len(study_names)
+    status_counts = Counter(study_statuses)
+    status_summary = ", ".join(f"{v} {k}" for k, v in sorted(status_counts.items()))
+
+    # Count runs (by checking for runs.db files)
+    n_active_runs = 0
+    n_completed_runs = 0
+    for runs_db in (WS_ROOT / "studies").glob("*/runs.db"):
+        try:
+            import sqlite3
+            conn = sqlite3.connect(str(runs_db))
+            try:
+                cur = conn.execute("SELECT status FROM runs")
+                for (row_status,) in cur.fetchall():
+                    if row_status in ("running", "pending"):
+                        n_active_runs += 1
+                    elif row_status == "completed":
+                        n_completed_runs += 1
+            except Exception:
+                pass
+            finally:
+                conn.close()
+        except Exception:
+            pass
+
+    # Print summary
+    ws_name = ws.get("name", "?")
+    ws_pkg = ws.get("package_path", "")
+    study_names_preview = ", ".join(study_names[:3])
+    if n_studies > 3:
+        study_names_preview += f", ... (+{n_studies - 3} more)"
+
     print("workspace lint: OK")
+    print(f"  workspace: {ws_name}  (package: {ws_pkg})")
+    print(f"  {n_expert} expert_docs, {n_bib} bib keys, {n_claims} claims")
+    if n_studies == 0:
+        print("  0 studies")
+    else:
+        print(f"  {n_studies} studies: {study_names_preview}  (status: {status_summary})")
+    print(f"  {n_active_runs} active runs, {n_completed_runs} completed runs")
+
+    for w in study_warnings:
+        print(w, file=sys.stderr)
+
+    # Cross-study biology consistency (P2b-7): validates enum-typed fields
+    # against the registered bigraph-schema enums in v2ecoli/types/biology.py
+    # AND checks that the same literature/model observable maps to the same
+    # pool across studies. Fails the lint on enum violations or pool conflicts.
+    biology_validator = WS_ROOT / "scripts" / "validate_study_biology.py"
+    if biology_validator.exists():
+        result = subprocess.run(
+            [sys.executable, str(biology_validator)],
+            cwd=WS_ROOT, capture_output=True, text=True, timeout=30,
+        )
+        if result.stdout:
+            print(result.stdout.rstrip())
+        if result.stderr:
+            print(result.stderr.rstrip(), file=sys.stderr)
+        if result.returncode != 0:
+            _fail("cross-study biology consistency check failed")
 
 
 if __name__ == "__main__":

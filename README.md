@@ -62,6 +62,21 @@ Regenerated from the corresponding `reports/*.py` scripts.
 | Time to division | ~42 min | ~42 min |
 | vivarium-core | required | none |
 
+## Known limitations
+
+- **Colony throughput**: the `EcoliWCM` bridge runs each cell's internal
+  composite synchronously (~0.7 s per tick), so a colony sim with one
+  whole-cell ecoli runs at ~2.6× realtime.
+- **Daughter state**: daughter `EcoliWCM` processes start from a fresh
+  composite — they don't inherit the mother's internal state at division.
+- **Cell length transient**: at the WCM's starting volume, the
+  capsule-geometry volume→length map gives a shorter cell than expected,
+  so length dips before climbing.
+- **Division mechanism**: the `Division` step fires via exception
+  handling (it attempts a structural modification that crashes; the
+  bridge catches and applies the handoff). Clean structural division is
+  on the roadmap.
+
 ## Architecture
 
 Three architectures share the same 55 processes and 9 listeners; they

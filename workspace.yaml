@@ -1,9 +1,30 @@
-schema_version: 2
+schema_version: 3
 name: v2ecoli
 created: '2026-05-16'
 plugin_version: 0.6.1
 package_path: v2ecoli
 references_bib: references/papers.bib
+
+# ─── DEFAULT BASELINE ─────────────────────────────────────────────────
+# A workspace-wide "before any study runs" snapshot. The dashboard and
+# downloaded pre-simulation reports use this to pre-fill visualizations
+# for ALL studies — so an evaluator opening a study before its specific
+# runs exist still sees the cell's baseline behaviour (mass, chromosomes,
+# DnaA pool, etc.) against the study's measure paths.
+#
+# Run once via `python scripts/run_default_baseline.py`. Stores at
+# .pbg/default-baseline/runs.db; the dashboard auto-discovers it.
+default_baseline:
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+  duration_s: 1800
+  interval_s: 60
+  description: |
+    M9-glucose, slow steady growth, seed 0. The reference state every
+    study compares "before vs after" against. Re-run when the upstream
+    v2ecoli composite changes; otherwise stable.
 expert_docs:
 - name: replication_initiation_molecular_info
   path: references/expert/replication_initiation_molecular_info.pdf

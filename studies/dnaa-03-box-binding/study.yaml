@@ -537,11 +537,38 @@ conclusion_logic:
     - 'Two-step fail: high vs low KDs not separated enough.'
     - 'Free-DnaA-rise fail: total DnaA pool too small (recheck dnaa-01 calibration).'
     block_downstream: dnaa-04 mechanism needs working titration.
+follow_up_studies:
+- id: retune-tests-under-rida-v0-mechanism
+  description: |
+    dnaa-02 canonicalized variant E (rida-v0) on 2026-05-18 — dnaa-03
+    inherits it by default. The change is biologically motivated (no
+    monkey-patch, intact equilibrium) but produces different stochastic
+    dynamics + steady-state DnaA-ATP supply (~56 vs ~28-38 under monkey-
+    patch). Two dnaa-03 tests that passed at seed 0 under monkey-patch
+    now flip-flop under rida-v0:
+
+      Test                                              monkey-patch (s0)   rida-v0 (s0)
+      ───────────────────────────────────────────────────────────────────────────────
+      chromosomal-occupancy-monotonic                   PASS                FAIL
+      oric-stays-unoccupied-until-chromosome-saturates  PASS                FAIL
+      free-dnaa-rises-after-titration                   FAIL (1.20)         PASS (1.33)
+      oric-occupancy-is-two-step                        PASS (lag=60)       PASS (lag=60)
+
+    The biology changed — neither set of test results is wrong; the
+    thresholds were tuned against the old mechanism. Action: re-tune
+    behavior_tests under rida-v0 OR retune kd_high / kd_low /
+    initial_dnaA to match the new DnaA-ATP availability.
+  blocks: [dnaa-03 conclusion under canonical mechanism]
+  status: planned
+
 limitations:
 - Equilibrium (or Gillespie) binding; ignores cooperativity between adjacent boxes.
 - DnaAp box-specific occupancy (boxes 1, 2, b, c individually) not validated — only aggregate.
 - Single doubling time; box dynamics across multiple cycles untested.
 - IHF / Fis facilitation of low-affinity binding not modeled (dnaa-04 may add).
+- Test thresholds were tuned against the legacy 'monkey-patch' mechanism. After dnaa-02f
+  canonicalized 'rida-v0' (2026-05-18), some test pass/fail patterns flipped due to the
+  different steady-state DnaA-ATP availability. See follow_up_studies.retune-tests-under-rida-v0-mechanism.
 implementation_requirements:
 - id: req-1-box-catalog
   kind: reference_data

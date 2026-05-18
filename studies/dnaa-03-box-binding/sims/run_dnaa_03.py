@@ -114,16 +114,25 @@ def main():
     p.add_argument("--clamp-low", type=float, default=0.2)
     p.add_argument("--clamp-high", type=float, default=0.5)
     p.add_argument("--cache-dir", default="out/cache")
+    p.add_argument("--mechanism", default="rida-v0",
+                   choices=["rida-v0", "monkey-patch"],
+                   help="dnaa-02 nucleotide-cycle mechanism (default rida-v0 "
+                        "per dnaa-02f winner; legacy 'monkey-patch' reproduces "
+                        "the original dnaa-02 verdict).")
+    p.add_argument("--rida-rate", type=float, default=4.6,
+                   help="RIDA-v0 effective rate when mechanism=rida-v0.")
     p.add_argument("--initial-dnaA", type=int, default=None,
                    help="Override initial DnaA count per cell. "
                         "Use ~500 to bypass dnaa-01's 5x calibration shortfall "
                         "and test dnaa-03's titration biology in isolation.")
     p.add_argument("--sim-name", default=None)
     args = p.parse_args()
-    sim_name = args.sim_name or f"dnaa03-seed{args.seed}-kd{args.kd_high}-{args.kd_low}"
+    sim_name = args.sim_name or (
+        f"dnaa03-{args.mechanism}-seed{args.seed}-kd{args.kd_high}-{args.kd_low}")
     params = {
         "seed": args.seed, "duration_s": args.duration,
         "interval_s": args.interval,
+        "mechanism": args.mechanism, "rida_rate_per_min": args.rida_rate,
         "clamp_low": args.clamp_low, "clamp_high": args.clamp_high,
         "kd_high_nM": args.kd_high, "kd_low_nM": args.kd_low,
         "disable_oric": args.disable_oric,
@@ -145,6 +154,8 @@ def main():
                 "dnaa_03_with_box_binding",
                 cache_dir=args.cache_dir,
                 seed=args.seed,
+                mechanism=args.mechanism,
+                rida_rate_per_min=args.rida_rate,
                 atp_fraction_clamp_low=args.clamp_low,
                 atp_fraction_clamp_high=args.clamp_high,
                 kd_high_nM=args.kd_high,

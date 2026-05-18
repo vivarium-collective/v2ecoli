@@ -123,10 +123,23 @@ pipeline_gate:
   enables:
   - dnaa-03-box-binding
   gate_status: passed
-  gate_status_summary: '2026-05-17 implementation + run (seed 0,
-    30 min, after EQ-04 biology pivot): all four primary/diagnostic
-    tests pass. atp-fraction in band, apo-fraction = 0,
-    no-hydrolysis -> 1.0, fast-hydrolysis -> 0.012. dnaa-03 unblocked.
+  gate_status_summary: '2026-05-17 implementation + run (seed 0, 30 min,
+    EQ-04 option B = legacy monkey-patch): all four primary/diagnostic
+    tests pass.
+
+    2026-05-18 CANONICAL UPDATE: the dnaa-02f follow-up selected variant
+    E (RIDA-v0 + clamp, equilibrium INTACT) as the canonical mechanism.
+    dnaa_02_with_intrinsic_hydrolysis now defaults to mechanism=''rida-v0'';
+    pass mechanism=''monkey-patch'' to reproduce the original verdict.
+    Re-run on the new default (3 seeds, 1800s) gives atp_fraction = 0.496
+    exactly, total DnaA = 113.5 — multi-seed stable.
+
+    dnaa-03 inherits the new mechanism by default. Some dnaa-03 behavior
+    tests show different results under the two mechanisms (e.g.,
+    oric-stays-unoccupied-until-chromosome-saturates passes under monkey-
+    patch but fails under rida-v0 with current parameters); dnaa-03''s
+    kd / threshold tuning is a follow-up. dnaa-03 unblocked structurally;
+    biology calibration ongoing.
     '
   proceed_condition: 'apo-dnaA-fraction-is-small + dnaa-atp-fraction-in-physiological-range
 

@@ -170,12 +170,31 @@ def _append_step(cell_state, step_name, instance, priority,
     name="dnaa_02_with_intrinsic_hydrolysis",
     description=(
         "v2ecoli baseline + DnaA nucleotide cycle (intrinsic hydrolysis, "
-        "atp-fraction clamp, dnaA_cycle listener). dnaa-02 gate."
+        "atp-fraction clamp, dnaA_cycle listener). dnaa-02 gate. "
+        "Default mechanism is 'rida-v0' (winner of dnaa-02f, equilibrium "
+        "intact, RIDA-v0 + clamp). Pass mechanism='monkey-patch' for the "
+        "legacy 2026-05-17 option-B behavior."
     ),
     parameters={
         "seed":          {"type": "integer", "default": 0,        "description": "RNG seed"},
         "cache_dir":     {"type": "string",  "default": "out/cache",
                           "description": "Path to ParCa cache directory"},
+        "mechanism": {
+            "type": "string", "default": "rida-v0",
+            "description": "DnaA-ADP-generation mechanism. 'rida-v0' (default, "
+                           "canonical per dnaa-02f) keeps the equilibrium "
+                           "INTACT and adds a fork-active RIDA-v0 Step that "
+                           "supplies the missing extrinsic flux. "
+                           "'monkey-patch' is the legacy option-B behavior — "
+                           "_disable_dnaa_adp_equilibrium mutates the live "
+                           "ecoli-equilibrium step's stoichMatrix.",
+        },
+        "rida_rate_per_min": {
+            "type": "number", "default": 4.6,
+            "description": "RIDA-v0 effective rate when ≥1 replisome active "
+                           "(only relevant when mechanism='rida-v0'). Default "
+                           "4.6/min = literature 100× Sekimizu intrinsic.",
+        },
         "hydrolysis_rate_per_min": {
             "type": "number", "default": 0.046,
             "description": "First-order DnaA-ATP -> DnaA-ADP rate (Sekimizu 1987).",
@@ -201,6 +220,8 @@ def dnaa_02_with_intrinsic_hydrolysis(
     *,
     seed: int = 0,
     cache_dir: str = "out/cache",
+    mechanism: str = "rida-v0",
+    rida_rate_per_min: float = 4.6,
     hydrolysis_rate_per_min: float = 0.046,
     hydrolysis_deterministic: bool = False,
     atp_fraction_clamp_low: float | None = None,
@@ -208,12 +229,31 @@ def dnaa_02_with_intrinsic_hydrolysis(
 ) -> dict:
     """Build the dnaa-02 gate composite.
 
+    Two mechanisms are supported:
+
+    - ``mechanism='rida-v0'`` (default, canonical per dnaa-02f):
+      The equilibrium reaction set stays INTACT. A DnaaRidaV0 Step is
+      added between intrinsic hydrolysis and the clamp; when ≥1
+      replisome is active it supplies an extra ATP→ADP flux at
+      ``rida_rate_per_min`` (default 4.6 = literature 100× Sekimizu
+      intrinsic). The clamp + RIDA together pin atp_fraction at the
+      upper band edge against the equilibrium's reverse flux. No
+      monkey-patch, no fictional species.
+
+    - ``mechanism='monkey-patch'`` (legacy, 2026-05-17 option-B):
+      _disable_dnaa_adp_equilibrium mutates the live ecoli-equilibrium
+      Step's stoichMatrix to zero out the MONOMER0-4565_RXN column.
+      Kept for backward compatibility + reproducibility of the
+      original dnaa-02 verdict. dnaa-02f superseded this.
+
     Args:
         core: bigraph-schema core. If None, baseline() creates one.
         seed: RNG seed for stochastic init.
         cache_dir: ParCa cache directory.
-        hydrolysis_rate_per_min: DnaA-ATP -> DnaA-ADP rate. Default
-            0.046/min from Sekimizu 1987.
+        mechanism: 'rida-v0' (default) or 'monkey-patch' (legacy).
+        rida_rate_per_min: RIDA-v0 effective rate (rida-v0 only).
+        hydrolysis_rate_per_min: intrinsic DnaA-ATP→DnaA-ADP rate
+            (Sekimizu 1987 default 0.046/min).
         hydrolysis_deterministic: round expected transfers (tests).
         atp_fraction_clamp_low, atp_fraction_clamp_high: if both set,
             the clamp Step holds DnaA-ATP / total inside [low, high].
@@ -222,38 +262,36 @@ def dnaa_02_with_intrinsic_hydrolysis(
     Returns:
         process-bigraph state document.
     """
+    if mechanism not in ("rida-v0", "monkey-patch"):
+        raise ValueError(
+            f"dnaa_02_with_intrinsic_hydrolysis: mechanism must be "
+            f"'rida-v0' or 'monkey-patch', got {mechanism!r}"
+        )
+
     # 1. Build the standard baseline composite.
     doc = baseline(core=core, seed=seed, cache_dir=cache_dir)
     cell_state = doc["state"]["agents"]["0"]
 
-    # 1b. BIOLOGY PIVOT (resolved dnaa-02-EQ-04, option B):
-    #     Disable the existing MONOMER0-4565_RXN equilibrium reaction
-    #
-    #         PD03831[c] + ADP[c]  ->  MONOMER0-4565[c]
-    #
-    #     so that DnaA-ADP can only form via the hydrolysis pathway
-    #     (intrinsic in this study; RIDA/DDAH/DARS in dnaa-05). Without
-    #     this patch, ecoli-equilibrium drives DnaA-ATP/DnaA-ADP back to
-    #     its thermodynamic ratio each tick and reverses our hydrolysis
-    #     and clamp transfers.
-    #
-    #     Biological justification: in vivo, the DnaA-ADP pool comes
-    #     overwhelmingly from hydrolysis of bound DnaA-ATP, not from
-    #     direct binding of free DnaA to free ADP. Sekimizu 1987 +
-    #     Kawakami 2006 treat the productive cycle as ATP-binding ->
-    #     intrinsic / RIDA / DDAH hydrolysis. The ADP-binding
-    #     equilibrium is a minor biochemical side reaction that
-    #     happens to be encoded in v2ecoli's sim_data.
-    #
-    #     MONOMER0-160_RXN (the ATP-binding equilibrium) is INTACT.
-    _disable_dnaa_adp_equilibrium(cell_state)
+    # 1b. Biology mechanism — RIDA-v0 (default) leaves the equilibrium
+    #     intact; monkey-patch (legacy) zeros MONOMER0-4565_RXN.
+    if mechanism == "monkey-patch":
+        _disable_dnaa_adp_equilibrium(cell_state)
 
-    # 2. Instantiate the three dnaa-02 Steps.
+    # 2. Instantiate Steps.
     hydrolysis = DnaaIntrinsicHydrolysis(parameters={
         "rate_per_min":   float(hydrolysis_rate_per_min),
         "deterministic":  bool(hydrolysis_deterministic),
         "seed":           int(seed),
     })
+
+    rida = None
+    if mechanism == "rida-v0":
+        rida = DnaaRidaV0(parameters={
+            "rida_rate_per_min":      float(rida_rate_per_min),
+            "intrinsic_rate_per_min": float(hydrolysis_rate_per_min),
+            "deterministic":          False,
+            "seed":                   int(seed),
+        })
 
     clamp_band = None
     if (atp_fraction_clamp_low is not None
@@ -264,30 +302,39 @@ def dnaa_02_with_intrinsic_hydrolysis(
 
     listener = DnaaCycleListener(parameters={})
 
-    # 3. Append edges with explicit low priorities AND token chains so the
-    #    three new Steps fire in order hydrolysis -> clamp -> listener.
-    #    Token stores are seeded as plain floats in cell_state so the
-    #    framework can hash them.
+    # 3. Token-chained Step ordering: intrinsic → [RIDA] → clamp → listener.
     cell_state.setdefault("_dnaa02_token_h", 0.0)
+    if rida is not None:
+        cell_state.setdefault("_dnaa02_token_r", 0.0)
     cell_state.setdefault("_dnaa02_token_c", 0.0)
 
     _append_step(cell_state, "dnaa-intrinsic-hydrolysis",
                  hydrolysis, _PRIORITY_HYDROLYSIS,
                  token_out="_dnaa02_token_h")
-    _append_step(cell_state, "dnaa-atp-fraction-clamp",
-                 clamp, _PRIORITY_CLAMP,
-                 token_in="_dnaa02_token_h",
-                 token_out="_dnaa02_token_c")
+    if rida is not None:
+        _append_step(cell_state, "dnaa-rida-v0",
+                     rida, _PRIORITY_RIDA,
+                     token_in="_dnaa02_token_h",
+                     token_out="_dnaa02_token_r")
+        _append_step(cell_state, "dnaa-atp-fraction-clamp",
+                     clamp, _PRIORITY_CLAMP,
+                     token_in="_dnaa02_token_r",
+                     token_out="_dnaa02_token_c")
+    else:
+        _append_step(cell_state, "dnaa-atp-fraction-clamp",
+                     clamp, _PRIORITY_CLAMP,
+                     token_in="_dnaa02_token_h",
+                     token_out="_dnaa02_token_c")
     _append_step(cell_state, "dnaa-cycle-listener",
                  listener, _PRIORITY_LISTENER,
                  token_in="_dnaa02_token_c")
 
-    # 4. Extend flow_order so listing tools (network_report etc.) include them.
-    doc["flow_order"] = list(doc.get("flow_order", [])) + [
-        "dnaa-intrinsic-hydrolysis",
-        "dnaa-atp-fraction-clamp",
-        "dnaa-cycle-listener",
-    ]
+    # 4. Extend flow_order so listing tools include the new Steps.
+    flow = ["dnaa-intrinsic-hydrolysis"]
+    if rida is not None:
+        flow.append("dnaa-rida-v0")
+    flow.extend(["dnaa-atp-fraction-clamp", "dnaa-cycle-listener"])
+    doc["flow_order"] = list(doc.get("flow_order", [])) + flow
 
     return doc
 
@@ -298,12 +345,15 @@ def dnaa_02_with_intrinsic_hydrolysis(
     description=(
         "v2ecoli baseline + dnaa-02 nucleotide cycle + dnaa-03 DnaA-box "
         "binding (322+ catalogued sites: 11 oriC + 7 dnaAp + 307 chromosomal "
-        "+ datA/DARS placeholders)."
+        "+ datA/DARS placeholders). Inherits dnaa-02's mechanism param "
+        "(default 'rida-v0' per dnaa-02f)."
     ),
     parameters={
         "seed":      {"type": "integer", "default": 0},
         "cache_dir": {"type": "string",  "default": "out/cache"},
         # dnaa-02 params (inherited)
+        "mechanism": {"type": "string",  "default": "rida-v0"},
+        "rida_rate_per_min": {"type": "number", "default": 4.6},
         "hydrolysis_rate_per_min": {"type": "number", "default": 0.046},
         "atp_fraction_clamp_low":  {"type": "number", "default": 0.2},
         "atp_fraction_clamp_high": {"type": "number", "default": 0.5},
@@ -326,6 +376,8 @@ def dnaa_03_with_box_binding(
     *,
     seed: int = 0,
     cache_dir: str = "out/cache",
+    mechanism: str = "rida-v0",
+    rida_rate_per_min: float = 4.6,
     hydrolysis_rate_per_min: float = 0.046,
     atp_fraction_clamp_low: float | None = 0.2,
     atp_fraction_clamp_high: float | None = 0.5,
@@ -337,9 +389,9 @@ def dnaa_03_with_box_binding(
 ) -> dict:
     """Build the dnaa-03 gate composite.
 
-    Stacks on top of dnaa-02 (intrinsic hydrolysis + ATP-fraction clamp,
-    with MONOMER0-4565_RXN disabled) and adds the box-binding Process
-    that tracks per-site occupancy across 322 active DnaA-boxes.
+    Stacks on top of dnaa-02 (intrinsic hydrolysis + ATP-fraction clamp +
+    the dnaa-02 nucleotide-cycle mechanism — 'rida-v0' by default after
+    dnaa-02f, or 'monkey-patch' for legacy reproduction).
 
     The dnaa-02 default clamp band [0.2, 0.5] is on by default here so
     the box-binding model sees a physiologically reasonable ATP/ADP
@@ -348,6 +400,8 @@ def dnaa_03_with_box_binding(
     """
     doc = dnaa_02_with_intrinsic_hydrolysis(
         core=core, seed=seed, cache_dir=cache_dir,
+        mechanism=mechanism,
+        rida_rate_per_min=rida_rate_per_min,
         hydrolysis_rate_per_min=hydrolysis_rate_per_min,
         atp_fraction_clamp_low=atp_fraction_clamp_low,
         atp_fraction_clamp_high=atp_fraction_clamp_high,

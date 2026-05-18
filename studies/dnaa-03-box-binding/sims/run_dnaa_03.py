@@ -36,6 +36,11 @@ if os.environ.get("DNAA03_QUIET"):
     os.dup2(_fd, 2)
 
 from v2ecoli import build_composite
+from v2ecoli.composites._helpers import sqlite_emitter
+from pbg_superpowers.runner import pbg_runner
+
+STUDY_SLUG = "dnaa-03-box-binding"
+INVESTIGATION_SLUG = "dnaa-replication"
 
 
 BULKS = {
@@ -113,44 +118,66 @@ def main():
                    help="Override initial DnaA count per cell. "
                         "Use ~500 to bypass dnaa-01's 5x calibration shortfall "
                         "and test dnaa-03's titration biology in isolation.")
+    p.add_argument("--sim-name", default=None)
     args = p.parse_args()
+    sim_name = args.sim_name or f"dnaa03-seed{args.seed}-kd{args.kd_high}-{args.kd_low}"
+    params = {
+        "seed": args.seed, "duration_s": args.duration,
+        "interval_s": args.interval,
+        "clamp_low": args.clamp_low, "clamp_high": args.clamp_high,
+        "kd_high_nM": args.kd_high, "kd_low_nM": args.kd_low,
+        "disable_oric": args.disable_oric,
+        "disable_dnaap": args.disable_dnaap,
+        "initial_dnaA": args.initial_dnaA,
+    }
 
-    t0 = time.time()
-    composite = build_composite(
-        "dnaa_03_with_box_binding",
-        cache_dir=args.cache_dir,
-        seed=args.seed,
-        atp_fraction_clamp_low=args.clamp_low,
-        atp_fraction_clamp_high=args.clamp_high,
-        kd_high_nM=args.kd_high,
-        kd_low_nM=args.kd_low,
-        enable_oric_binding=(not args.disable_oric),
-        enable_dnaap_binding=(not args.disable_dnaap),
-        initial_dnaA_count_per_cell=args.initial_dnaA,
-    )
-    load_time = time.time() - t0
+    with pbg_runner(study=STUDY_SLUG, name=sim_name, params=params) as run:
+        with sqlite_emitter(
+            file_path=str(run.db_path.parent),
+            db_file=run.db_path.name,
+            simulation_id=run.run_id,
+            name=sim_name,
+            study_slug=STUDY_SLUG,
+            investigation_slug=INVESTIGATION_SLUG,
+        ):
+            t0 = time.time()
+            composite = build_composite(
+                "dnaa_03_with_box_binding",
+                cache_dir=args.cache_dir,
+                seed=args.seed,
+                atp_fraction_clamp_low=args.clamp_low,
+                atp_fraction_clamp_high=args.clamp_high,
+                kd_high_nM=args.kd_high,
+                kd_low_nM=args.kd_low,
+                enable_oric_binding=(not args.disable_oric),
+                enable_dnaap_binding=(not args.disable_dnaap),
+                initial_dnaA_count_per_cell=args.initial_dnaA,
+            )
+            load_time = time.time() - t0
 
-    cell = composite.state["agents"]["0"]
-    bulk_idx = _build_bulk_idx(cell["bulk"])
+            cell = composite.state["agents"]["0"]
+            bulk_idx = _build_bulk_idx(cell["bulk"])
 
-    snapshots = [snap(0, cell, bulk_idx)]
-    t_run = time.time()
-    total = 0
-    divided = False
-    while total < args.duration:
-        chunk = min(args.interval, args.duration - total)
-        try:
-            composite.run(chunk)
-        except Exception:
-            divided = True
-            break
-        total += chunk
-        cell = composite.state.get("agents", {}).get("0")
-        if cell is None:
-            divided = True
-            break
-        snapshots.append(snap(total, cell, bulk_idx))
-    wall_time = time.time() - t_run
+            snapshots = [snap(0, cell, bulk_idx)]
+            t_run = time.time()
+            total = 0
+            divided = False
+            while total < args.duration:
+                chunk = min(args.interval, args.duration - total)
+                try:
+                    composite.run(chunk)
+                except Exception:
+                    divided = True
+                    break
+                total += chunk
+                cell = composite.state.get("agents", {}).get("0")
+                if cell is None:
+                    divided = True
+                    break
+                snapshots.append(snap(total, cell, bulk_idx))
+                run.heartbeat(len(snapshots))
+            wall_time = time.time() - t_run
+            run.n_steps = len(snapshots)
 
     # ─── Test evaluation ────────────────────────────────────────────────
     def series(field):

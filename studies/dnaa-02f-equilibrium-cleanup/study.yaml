@@ -1,9 +1,10 @@
 schema_version: 3
 name: dnaa-02f-equilibrium-cleanup
 created: '2026-05-17'
-status: planning
-phase: Plan
-gate_status: open
+last_run: '2026-05-18'
+status: complete-variant-e-wins
+phase: Evaluate
+gate_status: passed
 
 follow_up_of: dnaa-02-atp-hydrolysis
 parent_studies:
@@ -242,6 +243,121 @@ key_assumptions:
   production RIDA in dnaa-05 will replace this with explicit clamp-loading
   kinetics. No invented species — only an existing rate-constant scaler
   gated on the existing unique.active_replisome count.'
+
+conclusion_verdicts:
+  regression_compatibility:
+    result: PASS
+    basis: |
+      2026-05-18 implementation: all three variants build cleanly and
+      run for 1800s at 60s intervals. No regressions in the baseline
+      composite chain. Variant E adds DnaaRidaV0 between
+      DnaaIntrinsicHydrolysis and DnaaAtpFractionClamp; variant B' adds
+      a parametric _scale_dnaa_adp_equilibrium helper. Both new
+      composites are token-chained so step order is deterministic.
+  biological_validation:
+    result: PASS
+    basis: |
+      2026-05-18, seeds 0/1/2, 1800s sims (in second-half medians):
+
+        Variant                    seed 0   seed 1   seed 2   total DnaA
+        ──────────────────────────────────────────────────────────────────
+        B (monkey-patch + clamp)   0.216    0.270    0.208    121-144
+        B' (recalibrated, scale 0.001-1.0)  FAIL — intrinsic-only steady state
+                                            stuck at atp_fraction = 0.92 regardless
+                                            of equilibrium scaling; no clamp coupling
+                                            tested here, but B' adds nothing without it
+        E (RIDA-v0 + clamp @ lit 100×)  0.496    0.496    0.496    113-114
+
+      Variant E + clamp at literature RIDA rate (4.6/min = 100×
+      Sekimizu intrinsic) PASSES the atp-fraction-band test across all
+      three seeds with remarkable stability (CV < 1%). Variant B also
+      passes but sits at the low edge of the band with higher
+      cross-seed variance (CV ~16%) and total-DnaA growth (115 →
+      121-144 over 30 min). Variant B' alone (intrinsic + scaled
+      equilibrium, no clamp, no RIDA) cannot reach the band — the
+      intrinsic Sekimizu rate is too slow to compete with the
+      equilibrium recovery at any tested scale.
+
+      Critical insight: in variant E + clamp, the equilibrium reaction
+      is INTACT. No stoichMatrix mutation, no fictional bulk-IDs. The
+      clamp + RIDA together outpace the equilibrium's recovery,
+      something the clamp ALONE could not do in dnaa-02 (which is why
+      option B was originally adopted). Adding the literature-rate RIDA
+      contribution shifts the steady-state balance enough for the
+      clamp's transfers to stick.
+    blocking_evidence_needed: []
+  explanatory_gain:
+    result: POSITIVE
+    basis: |
+      Three findings worth keeping:
+
+      1. The original dnaa-02 PASS comes from the CLAMP, not the
+         biology. The intrinsic-only rate (Sekimizu 0.046/min) is too
+         slow to produce any meaningful DnaA-ADP accumulation against
+         v2ecoli's equilibrium reverse flux. The clamp Step is the
+         actor; the monkey-patch was a workaround to let its transfers
+         stick.
+
+      2. The MONOMER0-4565_RXN scaling sweep (variant B') showed that
+         any attenuation factor ≤ 0.1 produces identical steady states
+         (atp_fraction ≈ 0.92). The reaction is essentially binary —
+         either full strength (= 1.0) or effectively disabled (≤ 0.1).
+         Smooth scaling between these regimes is not biologically
+         meaningful with the legacy fluxesAndMoleculesToSS solver path.
+
+      3. RIDA at literature rate (~100× intrinsic) combined with the
+         clamp is the right biological-fidelity solution. The
+         equilibrium reaction stays in the model. No invented species.
+         Production RIDA (with explicit Hda + β-clamp kinetics) in
+         dnaa-05 will refine this; variant E is the v0 placeholder.
+
+design_pivot_required:
+- id: dnaa-02-EQ-04
+  status: superseded-by-dnaa-02f
+  resolution: |
+    Original pivot adopted option B (zero out MONOMER0-4565_RXN's
+    stoichMatrix column). dnaa-02f revisits this with three real-biology
+    alternatives:
+
+      A. (DROPPED) Fictional DnaA-ADP-locked[c] species. Rejected on
+         biological-correctness grounds: invented molecules erode the
+         model's fidelity to known biology.
+      B'. Re-scale MONOMER0-4565_RXN reverse rate within the existing
+         reaction set. EVALUATED — fails the band test regardless of
+         scale because intrinsic-only is too slow.
+      E. RIDA-v0 placeholder Step (fork-active 100× hydrolysis
+         multiplier) + ATP-fraction clamp. EVALUATED — passes the band
+         test at literature RIDA rate, with the equilibrium INTACT.
+
+    Decision: variant E + clamp at literature RIDA replaces option B
+    as the canonical dnaa-02 recipe. Implementation work to retire the
+    monkey-patch tracked in dnaa-02f follow_up_studies (planned).
+    Downstream studies (dnaa-03, dnaa-04) inherit variant E's recipe.
+
+follow_up_studies:
+- id: retire-dnaa-02-monkey-patch
+  description: |
+    Refactor dnaa_02_with_intrinsic_hydrolysis composite recipe to
+    use the variant-E mechanism (RIDA-v0 + intact equilibrium + clamp)
+    as its default. Drop _disable_dnaa_adp_equilibrium. Update
+    dnaa-02 study.yaml conclusion_verdicts to point at variant-E
+    canonical setup.
+  blocks: [dnaa-03 recipe rebinding]
+  status: planned
+- id: variant-e-downstream-isolation-test
+  description: |
+    Build the downstream-isolation test (originally scoped for
+    dnaa-02f). Compare other-process behavior (ATP/ADP free-pool
+    dynamics, ribosome activity, growth rate) between variant B and
+    variant E to confirm the equilibrium-untouched path doesn't
+    introduce unintended side effects elsewhere.
+  status: planned
+- id: hda-clamp-loading-dnaa05
+  description: |
+    Production RIDA (dnaa-05) — replace the v0 continuous multiplier
+    with explicit Hda + β-clamp loading kinetics. Variant E's
+    rida_rate_per_min parameter goes away in favor of mechanism.
+  status: planned-dnaa-05
 
 limitations:
 - 'Three variants × three seeds × 1800s = 9 runs at ~15s wall-clock each

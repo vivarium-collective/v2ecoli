@@ -55,6 +55,50 @@ _PRIORITY_LISTENER    = 0.10
 _DNAA_ADP_REACTION_ID = "MONOMER0-4565_RXN"
 
 
+def _scale_dnaa_adp_equilibrium(cell_state, scale: float):
+    """Multiply the MONOMER0-4565_RXN stoichMatrix column by ``scale``.
+
+    Used by variant B' of dnaa-02f. ``scale=0.0`` is equivalent to
+    ``_disable_dnaa_adp_equilibrium`` (full disable, option B); ``scale=1.0``
+    leaves the reaction untouched (option E baseline). Values in between
+    partially attenuate the equilibrium's recovery flux — letting us
+    quantitatively answer "is the reverse rate over-estimated, and if so,
+    by how much?"
+
+    The interpretation: with the legacy ``fluxesAndMoleculesToSS`` solver
+    (no explicit rates_fwd / rates_rev arrays), scaling the stoichMatrix
+    column scales the per-tick delta applied via this reaction by the
+    same factor, which is mechanically equivalent to scaling both the
+    forward and reverse rate constants by ``scale``.
+
+    Raises a clean error if the ecoli-equilibrium Step or the named
+    reaction can't be located, mirroring _disable_dnaa_adp_equilibrium.
+    """
+    if scale < 0:
+        raise ValueError(f"_scale_dnaa_adp_equilibrium: scale must be ≥ 0, got {scale}")
+    edge = cell_state.get("ecoli-equilibrium")
+    if not isinstance(edge, dict) or "instance" not in edge:
+        raise RuntimeError(
+            "_scale_dnaa_adp_equilibrium: ecoli-equilibrium step is "
+            "not in cell_state. Did baseline() change its step name?"
+        )
+    eq = edge["instance"]
+    rxn_ids = list(getattr(eq, "reaction_ids", []))
+    if _DNAA_ADP_REACTION_ID not in rxn_ids:
+        raise RuntimeError(
+            f"_scale_dnaa_adp_equilibrium: {_DNAA_ADP_REACTION_ID!r} not "
+            f"in ecoli-equilibrium.reaction_ids. Was sim_data updated?"
+        )
+    idx = rxn_ids.index(_DNAA_ADP_REACTION_ID)
+    eq.stoichMatrix = eq.stoichMatrix.copy()
+    eq.stoichMatrix[:, idx] = eq.stoichMatrix[:, idx] * float(scale)
+    if hasattr(eq, "rates_fwd") and len(getattr(eq, "rates_fwd", [])) > idx:
+        eq.rates_fwd = np.array(eq.rates_fwd, copy=True)
+        eq.rates_rev = np.array(eq.rates_rev, copy=True)
+        eq.rates_fwd[idx] = eq.rates_fwd[idx] * float(scale)
+        eq.rates_rev[idx] = eq.rates_rev[idx] * float(scale)
+
+
 def _disable_dnaa_adp_equilibrium(cell_state):
     """Zero out the MONOMER0-4565_RXN reaction in the ecoli-equilibrium Step.
 
@@ -473,6 +517,105 @@ def dnaa_02f_with_rida_v0(
     doc["flow_order"] = list(doc.get("flow_order", [])) + [
         "dnaa-intrinsic-hydrolysis",
         "dnaa-rida-v0",
+        "dnaa-atp-fraction-clamp",
+        "dnaa-cycle-listener",
+    ]
+
+    return doc
+
+
+# ─── dnaa-02f variant B': recalibrated equilibrium reverse rate ────────────
+@composite_generator(
+    name="dnaa_02f_with_recalibrated_equilibrium",
+    description=(
+        "v2ecoli baseline + dnaa-02 intrinsic hydrolysis + scaled "
+        "MONOMER0-4565_RXN equilibrium reaction. Variant B' of dnaa-02f: "
+        "tests whether the v2ecoli equilibrium reverse-rate is over-"
+        "estimated. ``dnaa_adp_rxn_reverse_rate_scale`` scales the "
+        "reaction's stoichMatrix column (1.0 = intact, 0.0 = same as "
+        "option B). No fictional species — operates within the real "
+        "reaction set."
+    ),
+    parameters={
+        "seed":      {"type": "integer", "default": 0},
+        "cache_dir": {"type": "string",  "default": "out/cache"},
+        "hydrolysis_rate_per_min": {
+            "type": "number", "default": 0.046,
+            "description": "Sekimizu 1987 intrinsic rate (constitutive).",
+        },
+        "dnaa_adp_rxn_reverse_rate_scale": {
+            "type": "number", "default": 0.01,
+            "description": "Scale factor on MONOMER0-4565_RXN's stoichMatrix "
+                           "column. 1.0 leaves the equilibrium intact; 0.0 "
+                           "matches the option-B disable. Default 0.01 = 100× "
+                           "attenuation, a starting heuristic.",
+        },
+        "atp_fraction_clamp_low":  {"type": "number", "default": None},
+        "atp_fraction_clamp_high": {"type": "number", "default": None},
+    },
+)
+def dnaa_02f_with_recalibrated_equilibrium(
+    core: Any = None,
+    *,
+    seed: int = 0,
+    cache_dir: str = "out/cache",
+    hydrolysis_rate_per_min: float = 0.046,
+    dnaa_adp_rxn_reverse_rate_scale: float = 0.01,
+    atp_fraction_clamp_low: float | None = None,
+    atp_fraction_clamp_high: float | None = None,
+) -> dict:
+    """Build the dnaa-02f variant-B' composite.
+
+    Differs from ``dnaa_02_with_intrinsic_hydrolysis`` by replacing the
+    binary ``_disable_dnaa_adp_equilibrium`` patch with a continuous
+    ``_scale_dnaa_adp_equilibrium(cell_state, scale)`` — same Step graph,
+    just a parametric equilibrium-recovery rate. Lets us sweep the scale
+    to find the threshold at which the equilibrium no longer dominates.
+
+    No new bulk ids, no fork-gating, no fictional species — operates
+    entirely within the existing real reaction set. The biological
+    interpretation: ``dnaa_adp_rxn_reverse_rate_scale`` represents our
+    best-guess correction factor for ParCa's fitted 2.9e-8 reverse rate
+    (dnaa-02-EQ-01 open question).
+    """
+    doc = baseline(core=core, seed=seed, cache_dir=cache_dir)
+    cell_state = doc["state"]["agents"]["0"]
+
+    # The biology pivot: scale instead of disable.
+    _scale_dnaa_adp_equilibrium(
+        cell_state, scale=float(dnaa_adp_rxn_reverse_rate_scale))
+
+    hydrolysis = DnaaIntrinsicHydrolysis(parameters={
+        "rate_per_min":  float(hydrolysis_rate_per_min),
+        "deterministic": False,
+        "seed":          int(seed),
+    })
+
+    clamp_band = None
+    if (atp_fraction_clamp_low is not None
+            and atp_fraction_clamp_high is not None):
+        clamp_band = [float(atp_fraction_clamp_low),
+                      float(atp_fraction_clamp_high)]
+    clamp = DnaaAtpFractionClamp(parameters={"band": clamp_band})
+
+    listener = DnaaCycleListener(parameters={})
+
+    cell_state.setdefault("_dnaa02bp_token_h", 0.0)
+    cell_state.setdefault("_dnaa02bp_token_c", 0.0)
+
+    _append_step(cell_state, "dnaa-intrinsic-hydrolysis",
+                 hydrolysis, _PRIORITY_HYDROLYSIS,
+                 token_out="_dnaa02bp_token_h")
+    _append_step(cell_state, "dnaa-atp-fraction-clamp",
+                 clamp, _PRIORITY_CLAMP,
+                 token_in="_dnaa02bp_token_h",
+                 token_out="_dnaa02bp_token_c")
+    _append_step(cell_state, "dnaa-cycle-listener",
+                 listener, _PRIORITY_LISTENER,
+                 token_in="_dnaa02bp_token_c")
+
+    doc["flow_order"] = list(doc.get("flow_order", [])) + [
+        "dnaa-intrinsic-hydrolysis",
         "dnaa-atp-fraction-clamp",
         "dnaa-cycle-listener",
     ]

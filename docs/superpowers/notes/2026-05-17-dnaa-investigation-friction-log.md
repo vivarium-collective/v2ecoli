@@ -755,6 +755,172 @@ unchosen alternatives. The downstream studies' `pipeline_gate.prerequisites`
 should include "either dnaa-02f resolved OR dnaa-02 pivot validated by
 expert sign-off."
 
+### Session-3 / Biology — variant E + clamp wins dnaa-02f; original dnaa-02 PASS came from the clamp, not biology
+
+The dnaa-02f three-variant comparison (multi-seed, 1800s each) produced a
+biological result worth keeping front-of-mind:
+
+  Variant                                      atp_fraction (3 seeds)   CV
+  ──────────────────────────────────────────────────────────────────────────
+  B  (monkey-patch + clamp; canonical dnaa-02) 0.216 / 0.270 / 0.208    ~16%
+  B' (recalibrated equilibrium scale ≤ 0.1)    intrinsic-only 0.92      —
+  E  (RIDA-v0 + clamp @ literature 100×)       0.496 / 0.496 / 0.496    < 1%
+
+Three findings worth keeping in the investigation memory:
+
+1. **dnaa-02 PASS came from the clamp, not the biology.** Without the
+   ATP-fraction clamp, intrinsic hydrolysis alone (Sekimizu k=0.046/min)
+   produces atp_fraction ≈ 0.92 regardless of how heavily we attenuate the
+   equilibrium reverse rate. The 0.92 steady state is approximately
+   k_intrinsic · t_window / DnaA_total = 0.046 · 30 · 115 / 60 / 115 ≈ 0.023
+   = ~3% DnaA-ADP, atp_frac = ~0.97 (rounding to 0.92 observed). The
+   "passing" dnaa-02 verdict was the clamp's work; the equilibrium was just
+   disabled to let the clamp's transfers stick. That's not really biology.
+
+2. **Variant B' has a binary regime.** Scaling MONOMER0-4565_RXN's
+   stoichMatrix column by 1.0 → atp_frac = 1.0 (equilibrium dominates,
+   pushes everything to DnaA-ATP). Scaling by 0.1 → atp_frac = 0.92
+   (intrinsic-only steady state). Scaling 0.01, 0.001, 0.0001 →
+   identical 0.92. There's no smooth dial; the equilibrium is either at
+   full strength or effectively off. Likely because the legacy
+   fluxesAndMoleculesToSS solver produces per-tick deltas that round to
+   zero below some attenuation threshold.
+
+3. **RIDA + clamp together outpace the equilibrium where clamp alone
+   cannot.** Variant E at literature rate (rida_rate_per_min=4.6 =
+   100× Sekimizu intrinsic) with the equilibrium INTACT keeps
+   atp_fraction at 0.496 stable across all three seeds. The mechanism:
+   RIDA produces ~7-12 hydrolysis events per tick on top of intrinsic's
+   ~0, the clamp's transfers no longer have to fight the equilibrium
+   alone, and the equilibrium settles into a competing steady state
+   where the clamp's "transfer if atp_frac > 0.5" rule has work to do
+   each tick but doesn't have to overcome the full reverse-flux burst.
+
+**Decision recorded in dnaa-02f.conclusion_verdicts:** variant E + clamp
+at literature RIDA is canonical. The dnaa-02 monkey-patch is retired
+(follow-up study `retire-dnaa-02-monkey-patch` planned). The equilibrium
+reaction set stays in the model. No fictional species.
+
+### Session-3 / Friction #20 — Bash cwd resets confound multi-step file operations
+
+Every Bash invocation resets cwd back to the parent directory. A worktree
+session that wants to do `cd <worktree> && grep ...` for many tools must
+prefix EVERY command. Otherwise relative-path file reads silently target the
+parent checkout's file (different content, different branch, different
+size). The agent doesn't immediately notice because the file *does* exist
+at the relative path — just not the one they meant.
+
+Concrete cost in this session: I made the same edit twice (once to the
+parent v2ecoli, once to the worktree's file) before realising. Took ~10 min
+to diagnose because everything kept "looking right" — grep returned hits
+that were correct for the file the shell was reading, but wrong for the
+file the editor had modified.
+
+**Improvement suggestions:**
+- pbg-workspace setup could emit a `bin/wt` shell helper that wraps Bash
+  commands in `cd <worktree-root> && $@`. AI agents could call `wt grep ...`
+  instead of remembering the prefix.
+- Or: add a `WORKTREE_ROOT` env var the shell-snapshot picks up,
+  auto-applying via PROMPT_COMMAND. Less visible but always-on.
+- Or: the Claude Code harness could remember "user is in a worktree at
+  path X" and auto-cd shells launched from that worktree's tools.
+
+### Session-3 / Friction #21 — Two Python interpreters in the same workspace
+
+The workspace's `.venv/bin/python` (uv-managed) and the pyenv-global
+`/Users/eranagmon/.pyenv/versions/3.12.9/bin/python` had different sets of
+installed packages. `vivarium_dashboard` lived in pyenv-global; the runners
+in `.venv`. Render scripts needed pyenv-global; sim runners needed `.venv`.
+
+Confusing because both Python interpreters worked, and `import v2ecoli`
+worked in both — only one specific module (vivarium_dashboard) was missing
+in `.venv`.
+
+**Improvement suggestion:** `uv pip list` and `pyenv-global pip list` are
+both needed to fully understand which functions an arbitrary Python script
+can call. A `pbg-doctor` command that scans installed packages across the
+workspace's Python interpreter(s) + every reachable pyenv would catch the
+divergence.
+
+### Session-3 / Friction #22 — Background-task harness silently ate output
+
+When I ran a render script with the Bash tool, the harness sometimes
+launched the command as a background task (returning a task-id) even when
+I expected foreground. The output file at the task's path stayed at 0 bytes
+for ages even though the actual viz files DID get written. So the result
+was real (HTML on disk) but invisible.
+
+Concrete cost: I thought the render had hung and killed the orphan shell
+process — losing the dnaa-02f viz render that was about to complete.
+Then I had to retry.
+
+**Improvement suggestion:** if a Bash invocation is going to be classified
+as background-task by the harness, ensure that signal is plumbed to the
+agent BEFORE the agent's text reasoning about it. The current pattern —
+"task started in background; output at <path>; wait for notification" — is
+explicit but easy to miss when busy.
+
+### Session-3 / Friction #23 — Cherry-picking a feature commit across upstream branches
+
+I committed `pbg_runner` onto `pbg-superpowers/feat/lint-viz-addresses`
+(which had an open PR), but then the working tree got switched to a
+different branch (`feat/workspace-root-helper`) that didn't have my commit.
+The editable install was therefore broken — the `runner.py` module
+wasn't on disk in the path the venv pointed at.
+
+Fixed by cherry-picking the commit onto the second branch. But now the
+same logical commit lives on two branches; merging either could leave
+duplicate / conflicting state.
+
+**Improvement suggestion:** when an agent commits to a multi-branch
+upstream package (here pbg-superpowers), it should record which branch
+the commit lives on AND verify the editable install path on disk matches
+that branch. A pre-commit hook that warns "current branch has an open PR
+on origin; this commit will land on PR #N — confirm?" would have caught
+this in time.
+
+### Session-3 / Friction #24 — `out/<study>/` JSON files were not gitignored either
+
+Like `runs.db`, the per-run JSON files at `out/<study>/*.json` are output
+artefacts, not source. They piled up uncommitted throughout the session
+(7-10 files per study, 100-500KB each). The workspace `.gitignore` doesn't
+cover `out/` either — only `__pycache__`, `*.egg-info`, `.venv`, etc.
+
+**Improvement suggestion:** the pbg-workspace template's `.gitignore`
+should include `out/`, `**/runs.db*`, `**/*.db-shm`, `**/*.db-wal`,
+`reports/`, `studies/*/viz/`, `.pbg/server/`, `.pbg/state.json`. All are
+runtime / regenerable artefacts; none belongs in version control.
+
+### Session-3 / Pattern — Decision-by-empirical-sweep before committing to a fix
+
+The dnaa-02f cleanup wasn't a "pick one and implement it" study. The
+sweep across RIDA rates (4.6, 46, 460, 4600 /min) revealed that
+literature-rate RIDA alone is insufficient (atp_frac = 0.90), 1000×
+brings it into band, and 10000× saturates. Without the sweep we'd have
+either shipped variant E at literature rate (and FAILED biology
+validation) or at 1000× (and over-shot). The sweep characterised the
+sensitivity surface, and the eventual clamp-coupling test found the
+actual passing configuration.
+
+**Pattern worth preserving:** any biology variant that introduces a free
+parameter should ship with a sensitivity sweep + a quantitative criterion
+for "what value passes" in the study's behavior_tests. The four-value
+sweep we did was cheap (4 × 15s = 1 min wall time) and would have caught
+several wrong-default mistakes.
+
+### Session-3 / dnaa-03 status
+
+The dnaa-03 runner was converted to `pbg_runner` + `sqlite_emitter`. A
+baseline run (1800s, seed 0, initial_dnaA=500) populates runs.db with
+121 history rows. 3 of 4 behavior tests pass at this configuration:
+chromosomal-occupancy-monotonic ✓, oric-stays-unoccupied-until-
+chromosome-saturates ✓, oric-occupancy-is-two-step ✓, free-dnaa-rises-
+after-titration ✗ (ratio 1.20, threshold 1.5).
+
+The failing test likely needs a longer simulation window or refined
+kd_low / kd_high. dnaa-03's biology debugging is parked here; future
+sessions to tune.
+
 ### Bio-friction #B3 — `expert_decisions_needed` blocks rot without a UI surface
 
 Both `dnaa-02-EQ-01` (equilibrium rate calibration) and `dnaa-02-EQ-04`

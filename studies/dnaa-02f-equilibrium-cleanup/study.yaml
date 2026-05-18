@@ -103,7 +103,7 @@ visualizations:
 - name: dnaa_flux_contributions
   address: local:DnaAFluxContributions
   config:
-    title: dnaa-02f — Hydrolysis flux: intrinsic vs RIDA-v0
+    title: "dnaa-02f — Hydrolysis flux: intrinsic vs RIDA-v0"
     inputs_map:
       intrinsic_events: listeners.dnaA_cycle.intrinsic_hydrolysis_events
       rida_events:      listeners.dnaA_cycle.rida_events

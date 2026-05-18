@@ -45,6 +45,7 @@ from v2ecoli.library.ecoli_step import EcoliStep as Step
 NAME = "dnaa-initiation-mechanism"
 TOPOLOGY = {
     "listeners":   ("listeners",),
+    "unique":      ("unique",),
     "global_time": ("global_time",),
 }
 
@@ -66,16 +67,21 @@ class DnaaInitiationMechanism(Step):
     topology = TOPOLOGY
 
     config_schema = {
-        "oric_high_threshold":     {"_type": "float",   "_default": 0.8},
-        "atp_fraction_threshold":  {"_type": "float",   "_default": 0.3},
-        "refractory_seconds":      {"_type": "float",   "_default": 600.0},
-        "time_step":               {"_type": "float",   "_default": 1.0},
+        "oric_high_threshold":          {"_type": "float",   "_default": 0.8},
+        "atp_fraction_threshold":       {"_type": "float",   "_default": 0.3},
+        "refractory_seconds":           {"_type": "float",   "_default": 600.0},
+        # Hard biology constraint: don't fire while existing replication is
+        # active. Models SeqA's role at the v0 abstraction level. -1 disables
+        # the check (for tests where you want to fire regardless).
+        "n_replisomes_max_for_fire":    {"_type": "integer", "_default": 0},
+        "time_step":                    {"_type": "float",   "_default": 1.0},
     }
 
     def initialize(self, config):
-        self.oric_high_threshold    = float(self.parameters["oric_high_threshold"])
-        self.atp_fraction_threshold = float(self.parameters["atp_fraction_threshold"])
-        self.refractory_seconds     = float(self.parameters["refractory_seconds"])
+        self.oric_high_threshold       = float(self.parameters["oric_high_threshold"])
+        self.atp_fraction_threshold    = float(self.parameters["atp_fraction_threshold"])
+        self.refractory_seconds        = float(self.parameters["refractory_seconds"])
+        self.n_replisomes_max_for_fire = int(self.parameters["n_replisomes_max_for_fire"])
         # State maintained across ticks.
         self._last_fire_time: float = -1e18  # Far in the past => not in refractory
         self._cumulative_fires: int = 0
@@ -83,6 +89,7 @@ class DnaaInitiationMechanism(Step):
     def inputs(self):
         return {
             "listeners":   "node",
+            "unique":      "node",
             "global_time": {"_type": "float", "_default": 0.0},
         }
 
@@ -94,6 +101,7 @@ class DnaaInitiationMechanism(Step):
                     "oric_high_obs":         {"_type": "overwrite[float]",   "_default": 0.0},
                     "atp_fraction_obs":      {"_type": "overwrite[float]",   "_default": 0.0},
                     "in_refractory":         {"_type": "overwrite[integer]", "_default": 0},
+                    "replisomes_active":     {"_type": "overwrite[integer]", "_default": 0},
                     "t_since_last_fire_s":   {"_type": "overwrite[float]",   "_default": 0.0},
                     "cumulative_fires":      {"_type": "overwrite[integer]", "_default": 0},
                 },
@@ -121,10 +129,29 @@ class DnaaInitiationMechanism(Step):
         t_since_last = t - self._last_fire_time
         in_refractory = t_since_last < self.refractory_seconds
 
+        # SeqA-v0 biology gate: don't fire while existing replication is in
+        # progress. v2ecoli's chromosome state has active_replisome instances
+        # whose _entryState flags indicate "this slot holds a real replisome".
+        unique = states.get("unique") or {}
+        rep = unique.get("active_replisome") if isinstance(unique, dict) else None
+        n_replisomes = 0
+        if rep is not None and hasattr(rep, "dtype"):
+            names = (rep.dtype.names or ())
+            if "_entryState" in names:
+                try:
+                    n_replisomes = int(rep["_entryState"].sum())
+                except Exception:
+                    n_replisomes = 0
+        replisome_gate_blocks = (
+            self.n_replisomes_max_for_fire >= 0 and
+            n_replisomes > self.n_replisomes_max_for_fire
+        )
+
         condition_met = (
             oric_high >= self.oric_high_threshold and
             atp_frac  >= self.atp_fraction_threshold and
-            not in_refractory
+            not in_refractory and
+            not replisome_gate_blocks
         )
 
         if condition_met:
@@ -138,6 +165,7 @@ class DnaaInitiationMechanism(Step):
                     "oric_high_obs":       oric_high,
                     "atp_fraction_obs":    atp_frac,
                     "in_refractory":       1 if in_refractory else 0,
+                    "replisomes_active":   n_replisomes,
                     "t_since_last_fire_s": t_since_last,
                     "cumulative_fires":    self._cumulative_fires,
                 },

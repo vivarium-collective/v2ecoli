@@ -1,0 +1,4 @@
+{
+  "title": "Simple Hill model: oriC fills FIRST (wrong)",
+  "caption": "External Hill-binding probe (n=2; Kd high/med/low = 5/50/300 DnaA-ATP). oriC-affinity sites saturate at t=10s; chromosomal sites take until t=130s. Textbook predicts the OPPOSITE: chromosomal first, then oriC. Cooperativity at oriC (Hill n=5-10) is the missing ingredient."
+}

@@ -1,0 +1,4 @@
+{
+  "title": "dnaa-01 gate-test scoreboard",
+  "caption": "Summary of the 4 primary gate tests for dnaa-01 plus the TE-percentile root cause. 1\u00d7 baseline fails count but passes autorepression+stability; the joint (TE\u00d7fc) sweep resolved both."
+}

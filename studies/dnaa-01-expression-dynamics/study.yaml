@@ -104,7 +104,7 @@ tests:
   question: Is the v2ecoli total DnaA count within the literature mass-spec band?
   measure:
     kind: listener_median
-    path: listeners.monomer_counts.monomerCounts
+    path: listeners.monomer_counts
     index: 3861
     window: second_half
   pass_if:
@@ -119,7 +119,7 @@ tests:
   question: Is the DnaA pool stable (no drift) over one doubling time?
   measure:
     kind: rolling_cv
-    path: listeners.monomer_counts.monomerCounts
+    path: listeners.monomer_counts
     index: 3861
     window: second_half
   pass_if:

@@ -63,6 +63,60 @@ For deeper questions about either framework, invoke the `pbg-expert` skill.
   biological entity should cite the EcoCyc ID (e.g., `EG10001`, `TU0-42`) in
   the process docstring. Parameters for metabolism, transcription, and
   translation all descend from EcoCyc via the ParCa pipeline.
+
+### EcoCyc ID conventions you'll see everywhere in this repo
+
+| Prefix | Meaning | Example |
+|---|---|---|
+| `PD` | Polypeptide (apo / unmodified monomer) | `PD03831[c]` — apo DnaA |
+| `MONOMER` | Monomer / single-subunit functional form (often nucleotide-bound) | `MONOMER0-160[c]` — DnaA-ATP · `MONOMER0-4565[c]` — DnaA-ADP |
+| `CPLX` | Multi-subunit complex | `CPLX0-7710[c]` — MarR · `CPLX0-3953[c]` — 30S ribosome |
+| `RXN` | Reaction (FBA / metabolism flat data) | `RXN0-7444` — RIDA (DnaA-ATP → DnaA-ADP) |
+| `<NAME>_RXN` | ParCa-fitted mass-action equilibrium reaction | `MONOMER0-160_RXN` — apo + ATP ⇌ DnaA-ATP |
+| `EG` | Encoding gene (RegulonDB-derived) | `EG10235` — dnaA |
+| `EG<N>_RNA` | The mRNA transcribed from that gene | `EG10235_RNA` — dnaA mRNA |
+| `TU` | Transcription unit | `TU0-42` |
+| Compartment suffix | `[c]` cytoplasm · `[p]` periplasm · `[i]` inner-membrane · `[o]` outer-membrane |
+
+### How to find an ID when you don't already know it
+
+The IDs are scattered across many places. Search in roughly this order:
+
+1. **Workspace expert docs first.** `references/expert/*.html` or `.pdf` —
+   for the DnaA investigation, the May 2026 prior-art HTML report
+   (`v2ecoli_replication_initiation_report`) enumerates every relevant
+   bulk ID + reaction ID with biological context. Check
+   `workspace.yaml.expert_docs[]` for the registered set, plus
+   `references/notes/*.md` for the per-paper digests.
+
+2. **Existing process modules.** Many processes hardcode the IDs they
+   touch as module-level constants — `grep -rn 'PD0\|MONOMER0\|CPLX0\|RXN0' v2ecoli/processes/` finds them fast.
+   Examples: `v2ecoli/processes/dnaa_box_binding.py` has
+   `DNAA_ATP_ID = "MONOMER0-160[c]"` + `DNAA_ADP_ID = "MONOMER0-4565[c]"`.
+
+3. **The dnaa-box catalog** (`v2ecoli/data/dnaa_box_catalog.py`) defines
+   the 307 consensus chromosomal boxes + their region partition + per-box
+   affinity / form-preference. Authoritative for any DnaA-binding question.
+
+4. **A real `runs.db` state blob.** Every history row is a JSON snapshot
+   of the live cell state; `state.bulk` is a list of `[id, count, ...]`
+   tuples covering every molecule in the model (~16 000 entries). One
+   `SELECT state FROM history LIMIT 1` + `json.loads` gives you the
+   ground-truth list. Useful when grep doesn't find a name.
+
+5. **EcoCyc itself.** When you have a biological name and need the ID
+   (or the reverse), the canonical lookup is https://ecocyc.org — but
+   for routine work the sources above usually answer it without leaving
+   the repo.
+
+Common failure mode (and why this section exists): writing assumptions
+or test paths that *paraphrase* the biology ("DnaA-ATP", "RIDA
+hydrolysis", "300 chromosomal boxes") instead of pinning the actual
+EcoCyc IDs (`MONOMER0-160[c]`, `RXN0-7444`, **307** boxes). The
+paraphrased form looks plausible but won't grep against the runs.db
+state — listener paths that reference a non-existent key silently
+produce empty charts. Always include the EcoCyc ID alongside the
+biological name.
 - **ParCa** (Parameter Calculator) builds `sim_data` from raw EcoCyc-derived
   knowledge bases. It's expensive (minutes to hours). Never run ParCa in CI —
   CI uses a frozen gzipped cache at `tests/fixtures/cache/`.

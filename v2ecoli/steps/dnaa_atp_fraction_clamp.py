@@ -65,7 +65,7 @@ class DnaaAtpFractionClamp(Step):
 
     config_schema = {
         # ``band`` is a [low, high] pair; None disables the clamp.
-        "band": {"_type": "any", "_default": None},
+        "band": {'_type': 'node', "_default": None},
         "time_step": {"_type": "float", "_default": 1.0},
     }
 

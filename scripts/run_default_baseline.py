@@ -69,8 +69,13 @@ def main():
 
     composite_path = cfg["composite"]
     params         = dict(cfg.get("params") or {})
-    duration_s     = int(cfg.get("duration_s", 1800))
+    # Stop-on-division is the primary terminator; max_duration_s is a
+    # safety ceiling. Accept the legacy ``duration_s`` key as a fallback
+    # so older configs keep working.
+    max_duration_s = int(cfg.get("max_duration_s")
+                         or cfg.get("duration_s", 7200))
     interval_s     = int(cfg.get("interval_s", 60))
+    stop_on        = (cfg.get("stop_on") or "division").lower()
 
     # Composite path is `<package>.<module>.<func>`; build_composite takes
     # the shortcut name; map back from the dotted path to the recipe name.
@@ -86,16 +91,18 @@ def main():
         return
 
     print(f"Running workspace default baseline:")
-    print(f"  composite: {composite_path}  (recipe={recipe_name})")
-    print(f"  params:    {params}")
-    print(f"  duration:  {duration_s}s @ {interval_s}s intervals")
-    print(f"  db_path:   {db_path.relative_to(REPO_ROOT)}")
+    print(f"  composite:  {composite_path}  (recipe={recipe_name})")
+    print(f"  params:     {params}")
+    print(f"  stop on:    {stop_on}  (safety ceiling: {max_duration_s}s)")
+    print(f"  interval:   {interval_s}s")
+    print(f"  db_path:    {db_path.relative_to(REPO_ROOT)}")
     print()
 
     with pbg_runner(
         study="__workspace_default__",
         name=args.sim_name,
-        params={**params, "duration_s": duration_s, "interval_s": interval_s},
+        params={**params, "max_duration_s": max_duration_s,
+                "interval_s": interval_s, "stop_on": stop_on},
         workspace_root=REPO_ROOT,
         db_file=db_path,
     ) as run:
@@ -114,37 +121,53 @@ def main():
             t_run = time.time()
             total = 0
             divided = False
+            stop_reason = "unknown"
             n_snapshots = 0
-            while total < duration_s:
-                chunk = min(interval_s, duration_s - total)
+            while total < max_duration_s:
+                chunk = min(interval_s, max_duration_s - total)
+                # Division-detection follows the dnaa-01 pattern: either
+                # composite.run() raises, OR the parent agent disappears
+                # from state.agents["0"] (v2ecoli's "cell divided"
+                # signal). Either way the cell cycle is complete.
                 try:
                     composite.run(chunk)
                 except Exception:
                     divided = True
+                    stop_reason = "division (composite raised)"
                     break
                 total += chunk
                 n_snapshots += 1
                 run.heartbeat(n_snapshots)
+                agents = (composite.state or {}).get("agents") or {}
+                if agents.get("0") is None:
+                    divided = True
+                    stop_reason = "division (agent removed)"
+                    break
+            else:
+                stop_reason = f"max_duration_s reached ({max_duration_s}s without division)"
             wall_time = time.time() - t_run
             run.n_steps = n_snapshots
 
             summary = {
-                "composite":  composite_path,
-                "params":     params,
-                "duration_s": duration_s,
-                "interval_s": interval_s,
-                "sim_time":   total,
-                "load_time":  load_time,
-                "wall_time":  wall_time,
-                "divided":    divided,
-                "run_id":     run.run_id,
-                "db_path":    str(db_path.relative_to(REPO_ROOT)),
-                "n_snapshots": n_snapshots,
+                "composite":       composite_path,
+                "params":          params,
+                "stop_on":         stop_on,
+                "max_duration_s":  max_duration_s,
+                "interval_s":      interval_s,
+                "sim_time":        total,
+                "load_time":       load_time,
+                "wall_time":       wall_time,
+                "divided":         divided,
+                "stop_reason":     stop_reason,
+                "run_id":          run.run_id,
+                "db_path":         str(db_path.relative_to(REPO_ROOT)),
+                "n_snapshots":     n_snapshots,
             }
             (db_dir / "result.json").write_text(json.dumps(summary, indent=2))
 
     print(f"\nWrote {db_path.relative_to(REPO_ROOT)}")
     print(f"  sim_time={total}s  wall={wall_time:.1f}s  divided={divided}")
+    print(f"  stop_reason: {stop_reason}")
     print(f"  run_id={run.run_id}")
     print(f"  summary: .pbg/default-baseline/result.json")
 

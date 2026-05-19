@@ -83,7 +83,7 @@ conditions:
       '
     type: number
     default: 0.046
-    current: 0.046
+    current: 0.001
     gate: optional
     range:
     - 0.001

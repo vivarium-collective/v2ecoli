@@ -19,12 +19,21 @@ default_baseline:
   params:
     seed: 0
     cache_dir: out/cache
-  duration_s: 1800
+  # Stop condition: cell division. The runner terminates as soon as the
+  # division event fires (the parent agent disappears from
+  # state.agents["0"] OR composite.run() raises). max_duration_s is a
+  # SAFETY ceiling — if the cell hasn't divided by then, the run stops
+  # and the snapshot reflects "no division within 2 h". For slow M9-glc
+  # growth the doubling time is ~30-60 min so a divided baseline is
+  # almost always produced.
+  stop_on: division
+  max_duration_s: 7200
   interval_s: 60
   description: |
-    M9-glucose, slow steady growth, seed 0. The reference state every
-    study compares "before vs after" against. Re-run when the upstream
-    v2ecoli composite changes; otherwise stable.
+    M9-glucose, slow steady growth, seed 0. Runs one full cell cycle —
+    stops when division triggers (or after max_duration_s as a guard).
+    The reference state every study compares "before vs after" against.
+    Re-run when the upstream v2ecoli composite changes; otherwise stable.
 expert_docs:
 - name: replication_initiation_molecular_info
   path: references/expert/replication_initiation_molecular_info.pdf

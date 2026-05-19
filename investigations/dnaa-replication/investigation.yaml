@@ -155,55 +155,11 @@ expert_docs:
   - replication_initiation_molecular_info
   - chromosome_replication_plan
 
-# ─── COMPARATIVE VISUALIZATIONS ────────────────────────────────────────
-# Investigation-wide visualisations that overlay traces from multiple
-# study runs.db files. Rendered automatically by the
-# /api/investigation-run-unblocked worker once all runs land; output
-# goes to investigations/<inv>/viz/<name>.html and is auto-picked-up
-# by the dashboard's viz-discovery pipeline.
-#
-# Each entry needs:
-#   name             slug (becomes the html filename)
-#   title            displayed at the top of the chart
-#   observable_path  dotted listener path, e.g. listeners.itv2.volume
-#                    (paths must use [A-Za-z0-9_.] — no bulk-id brackets)
-#   y_label          axis label
-#   runs:            list of {study, variant?, label?} — currently the
-#                    dashboard reads each study's runs.db (LATEST run);
-#                    variant labels are for the legend only.
-#
-# Optional: target_band (tuple [lo, hi]) + target_band_label for a
-# shaded acceptance region (e.g. the Boesen 2024 [0.2, 0.5] DnaA-ATP-
-# fraction band).
-comparative_visualizations:
-  - name: dnaa05-cell-volume-vs-time
-    title: Cell volume over time (3-way comparison)
-    observable_path: listeners.itv2.volume
-    y_label: cell volume (µm³)
-    runs:
-      - {study: dnaa-05-itv2-comparison, variant: itv2-standalone-wt, label: ITv2 standalone (WT)}
-      - {study: dnaa-05-itv2-comparison, variant: v2ecoli-baseline-default, label: v2ecoli baseline}
-      - {study: dnaa-05-itv2-comparison, variant: v2ecoli-with-fxj-params, label: v2ecoli + FXJ params}
-
-  - name: dnaa05-dnaa-atp-count-vs-time
-    title: DnaA-ATP count over time (3-way comparison)
-    observable_path: listeners.itv2.dnaa_atp_count
-    y_label: DnaA-ATP (molecules / cell)
-    runs:
-      - {study: dnaa-05-itv2-comparison, variant: itv2-standalone-wt, label: ITv2 standalone (WT)}
-      - {study: dnaa-05-itv2-comparison, variant: v2ecoli-baseline-default, label: v2ecoli baseline}
-      - {study: dnaa-05-itv2-comparison, variant: v2ecoli-with-fxj-params, label: v2ecoli + FXJ params}
-
-  - name: dnaa05-dnaa-atp-fraction-vs-time
-    title: DnaA-ATP fraction over time (3-way comparison)
-    observable_path: listeners.itv2.dnaa_atp_fraction
-    y_label: DnaA-ATP / total
-    target_band: [0.2, 0.5]
-    target_band_label: physiological band (Boesen 2024)
-    runs:
-      - {study: dnaa-05-itv2-comparison, variant: itv2-standalone-wt, label: ITv2 standalone (WT)}
-      - {study: dnaa-05-itv2-comparison, variant: v2ecoli-baseline-default, label: v2ecoli baseline}
-      - {study: dnaa-05-itv2-comparison, variant: v2ecoli-with-fxj-params, label: v2ecoli + FXJ params}
+# Comparative visualisations used to live here at the investigation
+# level. They've been moved into each study's yaml (under
+# ``comparative_visualizations:``) so the comparison is scoped to the
+# study's own baseline + variants, and the resulting HTML lands in
+# ``studies/<slug>/viz/`` next to all the other per-study viz.
 
 # Top-level success criteria. Each entry should map to a behavioral test
 # in one of the constituent studies; the investigation is "complete" when

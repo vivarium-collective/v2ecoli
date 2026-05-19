@@ -74,9 +74,23 @@ class DnaaAtpFractionClamp(Step):
         self.low: float | None = None
         self.high: float | None = None
         if band is not None:
+            # ``band`` arrives as either:
+            #   - a list/tuple ``[low, high]``           (yaml-native)
+            #   - a dict ``{0: low, 1: high}`` or
+            #     ``{"0": low, "1": high}``              (bigraph-schema 'node' rewrap)
+            #   - a dict ``{"low": ..., "high": ...}``   (explicit-key form)
+            if isinstance(band, dict):
+                if "low" in band and "high" in band:
+                    band_seq = [band["low"], band["high"]]
+                else:
+                    # Pull index-keyed entries; tolerate str or int keys.
+                    band_seq = [band.get(0, band.get("0")),
+                                band.get(1, band.get("1"))]
+            else:
+                band_seq = list(band)
             try:
-                lo, hi = float(band[0]), float(band[1])
-            except (TypeError, ValueError, IndexError):
+                lo, hi = float(band_seq[0]), float(band_seq[1])
+            except (TypeError, ValueError, IndexError, KeyError):
                 raise ValueError(
                     f"DnaaAtpFractionClamp.band must be [low, high] or None, "
                     f"got {band!r}"

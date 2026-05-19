@@ -92,6 +92,8 @@ description: |
 # at the top of the investigation page, so an evaluator gets the scope
 # in 10 seconds without reading the studies.
 at_a_glance:
+  - study: dnaa-00-parameter-foundation
+    role: Composite foundation — defines the baseline + Stage 1-parameterised variant every other study calibrates against; catalogs the Fu/Xiao/Jun (2023) parameter table with v2ecoli wiring status.
   - study: dnaa-01-expression-dynamics
     role: Establish that v2ecoli already maintains a steady DnaA pool with autorepression — the foundation everything else builds on.
   - study: dnaa-02-atp-hydrolysis
@@ -141,6 +143,7 @@ glossary:
 # The DAG is computed from each study's `parent_studies:` field at render
 # time; this list determines visibility / grouping only.
 studies:
+  - dnaa-00-parameter-foundation  # canonical Stage 1 parameter catalog (no sims)
   - dnaa-01-expression-dynamics
   - dnaa-02-atp-hydrolysis
   - dnaa-02f-equilibrium-cleanup   # parallel follow-up of dnaa-02; does NOT gate dnaa-03

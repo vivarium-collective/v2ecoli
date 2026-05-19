@@ -93,6 +93,35 @@ expert_docs:
   - dnaa.autorepression.promoter-response-test-suite
   - dnaa.pools.atp-decomposition-explicit
   - dnaa.validation.perturbation-panel-required
+- name: wcm_stage1_parameters
+  path: references/expert/wcm_stage1_parameters.pdf
+  sha256: 0539039751f55dc2182a03f8824c9b5fa0ff8d8bfa2fd99b5e8b949952ba1e2a
+  description: |
+    Stage 1 heuristic parameter table for the whole-cell DnaA / replication-
+    initiation model. Companion spreadsheet to FuXiaoJun2023. 23 rows
+    spanning cell-cycle physics (τ, C, D, replication speed), DnaA pool
+    dynamics (transcription rate, translation efficiency, ATP/ADP Kds,
+    intrinsic hydrolysis), DnaA-box layout (consensus Kd, oriC weak-box
+    cooperative range, locations), and the extrinsic conversion network
+    (Hda / RIDA, datA / DDAH, DARS1, DARS2). Each row is either anchored
+    to literature (Sekimizu 1987, Kawakami 2006, Hansen & Atlung 2018) or
+    flagged "artificial setup" for the heuristic placeholders. Provides
+    the canonical parameter foundation for the dnaa-* investigation —
+    every study calibrates a subset of these values. See dnaa-00 for the
+    parameter-by-parameter v2ecoli wiring status.
+  contributor: Replication-initiation working group (Fu / Xiao / Jun)
+  claims_supported:
+  - dnaa.parameters.stage1-heuristic-values-canonical
+  - dnaa.parameters.taudoubling-150min-abt-min-glycerol
+  - dnaa.parameters.c-period-70min
+  - dnaa.parameters.d-period-30min
+  - dnaa.parameters.consensus-dnaa-box-kd-1nm
+  - dnaa.parameters.oric-low-affinity-box-cooperative-50-to-1-nm
+  - dnaa.parameters.dnaa-intrinsic-atpase-0p046-per-min
+  - dnaa.parameters.hda-rida-rate-40-per-min-per-fork-pair
+  - dnaa.parameters.data-ddah-rate-12-per-min-per-locus
+  - dnaa.parameters.dars1-conversion-5-per-min
+  - dnaa.parameters.dars2-conversion-10-per-min
 imports:
   v2ecoli:
     source: https://github.com/vivarium-collective/v2ecoli.git

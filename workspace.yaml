@@ -93,6 +93,38 @@ expert_docs:
   - dnaa.autorepression.promoter-response-test-suite
   - dnaa.pools.atp-decomposition-explicit
   - dnaa.validation.perturbation-panel-required
+- name: v2ecoli_replication_initiation_report
+  path: references/expert/v2ecoli_replication_initiation_report.html
+  sha256: cb2e875bd1b0644d969efd466080ed98971551c3a2a61beeda8960e83c57c208
+  description: |
+    Comprehensive replication-initiation report for v2ecoli (May 2026).
+    Structured as 9 phases across 4 parts: Foundations (region classifier
+    for 307 consensus DnaA boxes; expose DnaA-ATP / DnaA-ADP / apo pools),
+    DnaA nucleotide cycle (RIDA hydrolysis at the replisome via RXN0-7444;
+    DARS reactivation), cytoplasm-to-chromosome (DnaA-box binding +
+    chromosomal titration; replace mass-threshold initiation gate),
+    and regulatory feedbacks (SeqA post-initiation sequestration; DDAH
+    backup hydrolysis at datA via IHF binding; DARS modulation by Fis
+    + IHF). Identifies every relevant molecule: PD03831[c] apo-DnaA,
+    MONOMER0-160[c] DnaA-ATP, MONOMER0-4565[c] DnaA-ADP, plus the four
+    nucleotide-pool drivers (transcription/translation, equilibrium
+    reactions MONOMER0-160_RXN / MONOMER0-4565_RXN, protein degradation,
+    RIDA RXN0-7444) and the DnaA-box catalog with per-box affinities.
+    Use this as the canonical molecule-level catalog for the
+    dnaa-replication investigation — richer than the parameter table
+    (which is the spec) or the molecular-info doc (which is the biology).
+  contributor: dnaa-investigation prior-art (May 2026 pre-redesign report)
+  claims_supported:
+  - dnaa.molecules.pd03831-apo-monomer
+  - dnaa.molecules.monomer0-160-dnaa-atp
+  - dnaa.molecules.monomer0-4565-dnaa-adp
+  - dnaa.reactions.monomer0-160-rxn-equilibrium
+  - dnaa.reactions.monomer0-4565-rxn-equilibrium
+  - dnaa.reactions.rxn0-7444-rida-metabolism
+  - dnaa.regions.307-consensus-chromosomal-boxes
+  - dnaa.regions.dars1-dars2-loci
+  - dnaa.regulation.ihf-gates-ddah-at-data
+  - dnaa.regulation.fis-ihf-modulate-dars
 - name: wcm_stage1_parameters
   path: references/expert/wcm_stage1_parameters.pdf
   sha256: 0539039751f55dc2182a03f8824c9b5fa0ff8d8bfa2fd99b5e8b949952ba1e2a

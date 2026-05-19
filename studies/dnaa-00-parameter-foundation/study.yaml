@@ -110,6 +110,44 @@ assumptions:
   verified_in_v2ecoli: true
   note: dnaa-04 ships SeqA_v0 fixed-timer stand-in; set refractory_seconds = 0 to recover Stage 1.
 
+# ── Molecule + reaction catalog (from v2ecoli_replication_initiation_report) ──
+# The May 2026 prior-art report enumerated every relevant species and
+# reaction by ID. Captured here so downstream studies have one place
+# to look up "what is X in v2ecoli?".
+- text: apo-DnaA monomer = bulk ID PD03831[c] — newly translated, not yet nucleotide-bound.
+  cites: [v2ecoli_replication_initiation_report]
+  verified_in_v2ecoli: true
+- text: DnaA-ATP (active, initiation-competent) = bulk ID MONOMER0-160[c].
+  cites: [v2ecoli_replication_initiation_report]
+  verified_in_v2ecoli: true
+- text: DnaA-ADP (inactive, cannot bind oriC weak boxes) = bulk ID MONOMER0-4565[c].
+  cites: [v2ecoli_replication_initiation_report]
+  verified_in_v2ecoli: true
+- text: apo-DnaA + ATP ⇌ DnaA-ATP equilibrium runs through reaction MONOMER0-160_RXN (mass-action driven, ParCa-fitted Kd ≈ 30 nM).
+  cites: [v2ecoli_replication_initiation_report]
+  verified_in_v2ecoli: true
+- text: apo-DnaA + ADP ⇌ DnaA-ADP equilibrium runs through reaction MONOMER0-4565_RXN (mass-action driven, ParCa-fitted Kd ≈ 100 nM).
+  cites: [v2ecoli_replication_initiation_report]
+  verified_in_v2ecoli: true
+- text: RIDA (DnaA-ATP → DnaA-ADP, replisome-coupled) is encoded in v2ecoli's metabolism as reaction RXN0-7444. Flux is currently zero (not wired through dnaa-02f); dnaa-rida-v0 Step is the workaround.
+  cites: [v2ecoli_replication_initiation_report]
+  verified_in_v2ecoli: false
+  note: Reaction exists in flat data and FBA, but no flux until dnaa-rida-v0 fires.
+- text: 307 consensus chromosomal DnaA boxes are partitioned by a region classifier into chromosomal-titration / oriC / dnaAp / datA / DARS regions.
+  cites: [v2ecoli_replication_initiation_report]
+  verified_in_v2ecoli: true
+  note: Box catalog at v2ecoli/data/dnaa_box_catalog.py; region partitioning matches the report's classifier.
+- text: oriC carries 11 DnaA boxes — 3 high-affinity + 8 low-affinity (cooperative). DnaA-ATP only binds the 8 low-affinity sites; both ATP- and ADP-forms can bind the 3 high-affinity sites.
+  cites: [v2ecoli_replication_initiation_report]
+  verified_in_v2ecoli: false
+  note: v2ecoli's catalog ships 7 (not 8) oriC low-affinity boxes today.
+- text: DDAH (DnaA-ATP hydrolysis at datA) is gated by IHF binding at the datA locus — not currently represented in v2ecoli.
+  cites: [v2ecoli_replication_initiation_report]
+  verified_in_v2ecoli: false
+- text: DARS1 + DARS2 reactivate DnaA-ADP → apo → DnaA-ATP (nucleotide release at the DARS loci, with DARS2 additionally modulated by IHF + Fis). Not yet represented.
+  cites: [v2ecoli_replication_initiation_report]
+  verified_in_v2ecoli: false
+
 # ─── CONDITIONS ─────────────────────────────────────────────────────────
 # Foundation composites. Every downstream study calibrates perturbations
 # against one of these. The optional ITv2 variant provides an external
@@ -120,6 +158,11 @@ conditions:
     params:
       seed: 0
       cache_dir: out/cache
+      # Run length in sim-seconds. v2ecoli ticks at ~1s; 3600 = one
+      # hour of cell-cycle time. Long enough for the slow-growth
+      # baseline to complete a doubling and emit a meaningful trace
+      # of listeners.dnaA_cycle.atp_fraction + listeners.monomer_counts.
+      n_steps: 3600
 
   variants:
     # The same v2ecoli code as `baseline`, but with the dnaa-04
@@ -144,6 +187,7 @@ conditions:
           initial_dnaA_count_per_cell = 300  (anchor to literature band)
       params:
         seed: 0
+        n_steps: 3600   # one hour of sim time, same as the baseline
         mechanism: rida-v0
         hydrolysis_rate_per_min: 0.046
         rida_rate_per_min: 40.0
@@ -173,6 +217,7 @@ conditions:
         analytical predictions in one place.
       params:
         seed: 0
+        n_steps: 3600   # one hour of sim time — long enough for a full cycle
 
   # Model settings — Stage 1 canonical values mirrored here for
   # downstream studies to inherit if they want.
@@ -296,6 +341,7 @@ parent_studies: []  # root: every other study calibrates against this foundation
 expert_docs:
 - wcm_stage1_parameters
 - replication_initiation_molecular_info
+- v2ecoli_replication_initiation_report
 
 bibliography:
   bib_keys:

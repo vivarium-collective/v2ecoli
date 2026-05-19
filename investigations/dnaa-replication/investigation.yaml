@@ -102,6 +102,8 @@ at_a_glance:
     role: Add the 307 chromosomal + 11 oriC + 7 dnaAp DnaA-box sites and verify titration keeps oriC empty until late in the cycle.
   - study: dnaa-04-initiation-mechanism
     role: Replace the mass-threshold heuristic with a DnaA-occupancy trigger and match the heuristic's initiation-mass distribution within ±5 %.
+  - study: dnaa-05-itv2-comparison
+    role: Three-way comparison — standalone Fu/Xiao/Jun (2023) analytical model, v2ecoli at default parameters, and v2ecoli with parameters retuned to the FXJ paper. Validates v2ecoli's DnaA mechanism against an external mean-field reference.
 
 # ─── HOW TO READ THIS ──────────────────────────────────────────────────
 # Tips for someone who's never seen this investigation before. Renders
@@ -144,6 +146,7 @@ studies:
   - dnaa-02f-equilibrium-cleanup   # parallel follow-up of dnaa-02; does NOT gate dnaa-03
   - dnaa-03-box-binding
   - dnaa-04-initiation-mechanism
+  - dnaa-05-itv2-comparison        # 3-way comparison vs FuXiaoJun2023 analytical model
 
 # Inputs (expert docs, datasets) supporting this whole investigation —
 # duplicates of what's in workspace.yaml.expert_docs but scoped to the

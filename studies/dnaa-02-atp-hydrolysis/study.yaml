@@ -72,7 +72,7 @@ conditions:
     description: 10× intrinsic rate; expect atp_fraction → low edge of band.
     composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
     diff_from_baseline: hydrolysis_rate_per_min=0.46
-  expert_inputs:
+  model_settings:
   - name: hydrolysis_rate_per_min
     description: 'Sekimizu 1987 intrinsic rate (0.046/min). Constitutive — does not
 

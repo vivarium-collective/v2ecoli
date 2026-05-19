@@ -1,4 +1,6 @@
 {
   "title": "Autorepression r vs TE multiplier",
-  "caption": "Pooled Pearson correlation (DnaA-TF binding \u2194 dnaA mRNA). Green pass band: r \u2264 -0.3. Note the sign-flip between 20\u00d7 and 25\u00d7 \u2014 autorepression saturation."
+  "caption": "Pooled Pearson correlation (DnaA-TF promoter binding ↔ dnaA mRNA copy number) across the second half of each run. Green pass band: r ≤ -0.3 (negative correlation means binding suppresses mRNA — autorepression).",
+  "simulations": "Same TE-multiplier sweep as chart 01. For each run, the time series of DnaA-TF promoter binding (listener: tf_binding.bound_DnaA_at_dnaA_promoter) and dnaA mRNA copy number (listener: rna_counts.mRNA_counts[EG10235_RNA]) are extracted, restricted to the second half (cell-state-stabilised window), and Pearson-correlated. Per-seed r values are then pooled to a single multiplier-level statistic.",
+  "interpretation": "A healthy autorepression loop produces negative r (high binding → low mRNA next tick). At low TE (1×-20×) the correlation is strongly negative and the loop is functional. Between 20× and 25× the sign flips and r climbs toward zero — DnaA has saturated its own promoter boxes and the cell can no longer use binding to throttle transcription. Combined with chart 01, this is why a single TE knob can't simultaneously satisfy the count gate (needs ≥50×) and the autorepression gate (needs <25×)."
 }

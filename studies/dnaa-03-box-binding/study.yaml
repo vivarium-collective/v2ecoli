@@ -49,7 +49,7 @@ assumptions:
   - Speck1999
   - Kawakami2005
   verified_in_v2ecoli: false
-  note: Sensitive to the kd parameters; see expert_inputs.
+  note: Sensitive to the kd parameters; see model_settings.
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline_recipes.dnaa_03_with_box_binding
@@ -70,7 +70,7 @@ conditions:
       sub-stoichiometric DnaA.
     composite: v2ecoli.composites.baseline_recipes.dnaa_03_with_box_binding
     diff_from_baseline: initial_dnaA_count_per_cell=null
-  expert_inputs:
+  model_settings:
   - name: kd_high_nM
     description: 'Dissociation constant for high-affinity oriC sites. Speck 1999 reports
 

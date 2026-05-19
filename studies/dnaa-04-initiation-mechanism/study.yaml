@@ -73,7 +73,7 @@ conditions:
     composite: v2ecoli.composites.baseline_recipes.dnaa_04_with_dnaa_initiation_trigger
     diff_from_baseline:
       mechanism: monkey-patch
-  expert_inputs:
+  model_settings:
   - name: oric_high_threshold
     description: 'Fraction of high-affinity oriC sites that must be DnaA-occupied
 

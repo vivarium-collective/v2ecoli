@@ -43,7 +43,7 @@ assumptions:
   - Li2014
   - Hansen1999
   verified_in_v2ecoli: false
-  note: Requires translation_efficiency_override hook (see expert_inputs).
+  note: Requires translation_efficiency_override hook (see model_settings).
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline.baseline
@@ -51,7 +51,7 @@ conditions:
       seed: 0
       cache_dir: out/cache
   variants: []
-  expert_inputs:
+  model_settings:
   - name: translation_efficiency_eg10235_scale
     description: 'Scale factor on the dnaA gene''s translation efficiency in ParCa.
 

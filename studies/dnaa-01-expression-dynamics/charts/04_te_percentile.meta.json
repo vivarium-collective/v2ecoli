@@ -1,4 +1,6 @@
 {
   "title": "dnaA at 8.6th percentile of v2ecoli proteome",
-  "caption": "dnaA's ParCa-cached translation efficiency sits at the bottom 9% of the proteome \u2014 biologically improbable for a master regulator."
+  "caption": "dnaA's ParCa-cached translation efficiency sits at the bottom 9% of the proteome — biologically improbable for a master regulator.",
+  "simulations": "No simulation. Read directly from the ParCa-fitted parameters cache (out/cache/sim_data.cPickle) — specifically translation_efficiencies_by_monomer for every protein, then ranks dnaA's value against the full proteome. One-shot analysis.",
+  "interpretation": "DnaA is a master regulator that needs hundreds of copies per cell, yet ParCa places its translation efficiency in the slowest 9% of all proteins. This is the root-cause finding for the 5× count shortfall seen in chart 01: even without any homeostasis effects, the ParCa fit can't physically deliver enough DnaA at default TE. Either ParCa's fit is mis-anchored for this gene (e.g. the wrong fold-change reference in the proteomics input) or the upstream mass-spec count is genuinely an over-estimate that the model is correctly rejecting. Expert input on which is more plausible would resolve dnaa-01's primary calibration gate."
 }

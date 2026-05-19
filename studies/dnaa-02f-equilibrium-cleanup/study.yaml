@@ -68,7 +68,7 @@ conditions:
     description: RIDA-v0 + clamp at literature 100× intrinsic, equilibrium INTACT. Real biology candidate.
     composite: v2ecoli.composites.baseline_recipes.dnaa_02f_with_rida_v0
     diff_from_baseline: rida_rate_per_min=4.6
-  expert_inputs:
+  model_settings:
   - name: rida_rate_per_min
     description: 'RIDA-v0 effective rate (×Sekimizu intrinsic = 0.046/min). Literature
 

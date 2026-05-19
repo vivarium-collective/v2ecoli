@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1400" height="484" viewBox="0 0 1400 484" font-family="-apple-system,sans-serif" font-size="13"><title>Chromosome state over a calibrated 10-min run</title><rect width="1400" height="484" fill="white"/>
 <rect x="0" y="0" width="1400" height="44" fill="#0f172a"/><text x="700.0" y="28" text-anchor="middle" fill="white" font-weight="600" font-size="15">Chromosome state over a calibrated 10-min run</text><text x="700.0" y="60" text-anchor="middle" fill="#64748b" font-size="11">Recipe: dnaa_02_with_extrinsic_target_rate (TE=20×, fc=0.7, k_hyd=4.6/min). OriC, Ter, replisome forks, and RNAP density along the 4.6 Mb circular chromosome.</text>
-<text x="197.5" y="70" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="13">t=0s (2 chr)</text>
+<text x="197.5" y="70" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="13">t=0s (2 chromosome domains)</text>
 <circle cx="197.5" cy="217" r="127" fill="none" stroke="#cbd5e1" stroke-width="2"/>
 <circle cx="70.63915847303106" cy="222.9436425758347" r="1.5" fill="#3b82f6"/>
 <circle cx="70.64520875622256" cy="223.07140333840934" r="1.5" fill="#3b82f6"/>
@@ -189,7 +189,7 @@
 <polygon points="322.8229532894279,188.42921054466137 314.8229532894279,202.02921054466137 330.8229532894279,202.02921054466137" fill="#f59e0b"/>
 <polygon points="72.17704671057209,188.42921054466137 64.17704671057209,202.02921054466137 80.17704671057209,202.02921054466137" fill="#f59e0b"/>
 <circle cx="197.5" cy="90.0" r="9" fill="#16a34a"/>
-<text x="532.5" y="70" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="13">t=60s (2 chr)</text>
+<text x="532.5" y="70" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="13">t=60s (2 chromosome domains)</text>
 <circle cx="532.5" cy="217" r="127" fill="none" stroke="#cbd5e1" stroke-width="2"/>
 <circle cx="409.60094507492215" cy="249.01284583604985" r="1.5" fill="#3b82f6"/>
 <circle cx="405.6770541324644" cy="223.7037602493026" r="1.5" fill="#3b82f6"/>
@@ -377,7 +377,7 @@
 <polygon points="659.0644452481667,198.49089922858215 651.0644452481667,212.09089922858215 667.0644452481667,212.09089922858215" fill="#f59e0b"/>
 <polygon points="405.9355547518333,198.49089922858215 397.9355547518333,212.09089922858215 413.9355547518333,212.09089922858215" fill="#f59e0b"/>
 <circle cx="532.5" cy="90.0" r="9" fill="#16a34a"/>
-<text x="867.5" y="70" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="13">t=300s (2 chr)</text>
+<text x="867.5" y="70" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="13">t=300s (2 chromosome domains)</text>
 <circle cx="867.5" cy="217" r="127" fill="none" stroke="#cbd5e1" stroke-width="2"/>
 <circle cx="740.6686709968247" cy="223.54323951023673" r="1.5" fill="#3b82f6"/>
 <circle cx="740.6656729564422" cy="223.48486572010896" r="1.5" fill="#3b82f6"/>
@@ -536,7 +536,7 @@
 <polygon points="991.1175335907869,238.1153806248632 983.1175335907869,251.7153806248632 999.1175335907869,251.7153806248632" fill="#f59e0b"/>
 <polygon points="743.8824664092131,238.1153806248632 735.8824664092131,251.7153806248632 751.8824664092131,251.7153806248632" fill="#f59e0b"/>
 <circle cx="867.5" cy="90.0" r="9" fill="#16a34a"/>
-<text x="1202.5" y="70" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="13">t=600s (2 chr)</text>
+<text x="1202.5" y="70" text-anchor="middle" fill="#0f172a" font-weight="600" font-size="13">t=600s (2 chromosome domains)</text>
 <circle cx="1202.5" cy="217" r="127" fill="none" stroke="#cbd5e1" stroke-width="2"/>
 <circle cx="1075.6682815017084" cy="210.4643146671417" r="1.5" fill="#3b82f6"/>
 <circle cx="1296.6959338944932" cy="302.18289756602707" r="1.5" fill="#3b82f6"/>

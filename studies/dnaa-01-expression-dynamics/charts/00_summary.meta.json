@@ -1,4 +1,6 @@
 {
   "title": "dnaa-01 gate-test scoreboard",
-  "caption": "Summary of the 4 primary gate tests for dnaa-01 plus the TE-percentile root cause. 1\u00d7 baseline fails count but passes autorepression+stability; the joint (TE\u00d7fc) sweep resolved both."
+  "caption": "Aggregate read of all dnaa-01 gate tests across the calibration sweeps. Each row is one test; columns show pass/fail at the 1× baseline and at the best calibration point found.",
+  "simulations": "Aggregates the runs from charts 01-04 plus the 1× baseline run from studies/dnaa-01-expression-dynamics/sims/run_baseline.py. The baseline column reads off the unmodified ParCa fit (TE=1, fc=1); the calibration column reads off the joint (TE × fold-change) sweep landing point.",
+  "interpretation": "The 1× baseline cleanly passes the autorepression and concentration-stability tests (the regulatory loop is intact and the pool isn't drifting) but fails the count test by 5×. Pushing TE alone fails autorepression once it crosses ~25× (chart 02). The joint TE × fold-change calibration found a point that passes all four tests simultaneously — that's the configuration dnaa-02 will inherit as its starting condition."
 }

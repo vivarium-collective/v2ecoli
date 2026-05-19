@@ -1,0 +1,4 @@
+{
+  "title": "Chromosome state at calibrated DnaA-ATP / ADP cycling",
+  "caption": "Same trajectory as dnaa-01's but the bulk DnaA pool now carries both DnaA-ATP and DnaA-ADP (see also chart 02 ATP-fraction over time). Forks mid-elongation; oriC is unbound (DnaA-box binding mechanism lands in dnaa-03). Each panel header reports the number of active chromosome_domain entries, not the chromosome count — the cell has ONE chromosome throughout this run; the count is 2 because replication is mid-progress and the two daughter strands are tracked as separate domains until segregation finishes."
+}

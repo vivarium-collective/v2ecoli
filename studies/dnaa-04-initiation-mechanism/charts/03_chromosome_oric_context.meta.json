@@ -1,0 +1,4 @@
+{
+  "title": "Chromosome context for DnaA-occupancy initiation trigger",
+  "caption": "Same DnaA-box landscape used by dnaa-03. dnaa-04 reads the bound-state of the 11 oriC-proximal boxes (top of the circle) to decide whether to trigger replication \u2014 replacing the current mass-threshold heuristic."
+}

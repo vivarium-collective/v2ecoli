@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="420" viewBox="0 0 800 420" font-family="-apple-system,sans-serif" font-size="13">
+<rect width="800" height="420" fill="white"/>
+<text x="400.0" y="22" text-anchor="middle" font-weight="600" font-size="15" fill="#0f172a">dnaa-04 implementation: replace mass-threshold with DnaA-occupancy trigger</text>
+<text x="400.0" y="40" text-anchor="middle" fill="#64748b" font-size="11">Single-line conditional change at chromosome_replication.py:244. All surrounding logic (replisome request, fork creation, oriC consumption) unchanged.</text>
+<rect x="40" y="70" width="350" height="280" fill="#0f172a" rx="6"/>
+<rect x="40" y="70" width="350" height="32" fill="#dc2626" rx="6"/>
+<rect x="40" y="86" width="350" height="16" fill="#dc2626"/>
+<text x="215.0" y="91" text-anchor="middle" fill="white" font-weight="700">BEFORE (current, line 244)</text>
+<text x="52" y="120" fill="#94a3b8" font-family="ui-monospace,monospace" font-size="12"># Calculate mass per origin</text>
+<text x="52" y="138" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12">massPerOrigin = cellMass / n_oriC</text>
+<text x="52" y="156" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12">self.criticalMassPerOriC = (</text>
+<text x="52" y="174" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12">    massPerOrigin /</text>
+<text x="52" y="192" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12">    self.criticalInitiationMass</text>
+<text x="52" y="210" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12">).to("dimensionless")</text>
+<text x="52" y="228" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12"></text>
+<text x="52" y="246" fill="#94a3b8" font-family="ui-monospace,monospace" font-size="12"># Trigger: mass-threshold heuristic</text>
+<text x="52" y="264" fill="#fbbf24" font-family="ui-monospace,monospace" font-size="12">if self.criticalMassPerOriC &gt;= 1.0:</text>
+<text x="52" y="282" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12">    requests["bulk"].append(...)</text>
+<rect x="410" y="70" width="350" height="280" fill="#0f172a" rx="6"/>
+<rect x="410" y="70" width="350" height="32" fill="#16a34a" rx="6"/>
+<rect x="410" y="86" width="350" height="16" fill="#16a34a"/>
+<text x="585.0" y="91" text-anchor="middle" fill="white" font-weight="700">AFTER (proposed)</text>
+<text x="422" y="120" fill="#94a3b8" font-family="ui-monospace,monospace" font-size="12"># Read oriC binding state from</text>
+<text x="422" y="138" fill="#94a3b8" font-family="ui-monospace,monospace" font-size="12"># dnaa-03 DnaA_bound + dnaa-02 ATP pool</text>
+<text x="422" y="156" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12">n_bound_at_oriC = sum_oriC_bound(</text>
+<text x="422" y="174" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12">    states["DnaA_boxes"],</text>
+<text x="422" y="192" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12">    states["oriCs"]</text>
+<text x="422" y="210" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12">)</text>
+<text x="422" y="228" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12"></text>
+<text x="422" y="246" fill="#94a3b8" font-family="ui-monospace,monospace" font-size="12"># Trigger: DnaA-occupancy cooperative filament</text>
+<text x="422" y="264" fill="#fbbf24" font-family="ui-monospace,monospace" font-size="12">if n_bound_at_oriC &gt;= 11:  # 11 oriC sites</text>
+<text x="422" y="282" fill="#e0e7ff" font-family="ui-monospace,monospace" font-size="12">    requests["bulk"].append(...)</text>
+<text x="400.0" y="390" text-anchor="middle" fill="#475569" font-weight="600">The mechanism is biological, not heuristic — replication starts when enough DnaA-ATP is loaded at oriC.</text>
+<text x="400.0" y="410" text-anchor="middle" fill="#64748b" font-size="11">Implementation hooks: chromosome_initiation.DnaABinder.update() (currently empty stub)</text>
+</svg>

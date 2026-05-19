@@ -1,0 +1,6 @@
+{
+  "title": "Joint gate landscape: count + autorepression",
+  "caption": "Two gate tests overlaid on the same TE-multiplier axis. Count (left axis, bars) and autorepression r (right axis, points + line). No single multiplier passes both gates.",
+  "simulations": "Same TE-multiplier sweep as charts 01 and 02 — this is a re-projection of those data onto a shared x-axis, not new runs.",
+  "interpretation": "The two gate tests pull in opposite directions: the literature count band requires high TE (≥50×), but autorepression breaks above ~25×. The horizontal green band marks the count target; the dashed horizontal line marks the autorepression pass threshold (r ≤ -0.3). There is no overlap region, which is the motivation for dnaa-02: adding the DnaA-ATP/ADP nucleotide cycle gives a second knob that should let us satisfy count and autorepression simultaneously without over-driving TE."
+}

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="400" viewBox="0 0 720 400" font-family="-apple-system,sans-serif" font-size="13"><title>dnaA monomer count vs translation_efficiency multiplier</title><rect width="720" height="400" fill="white"/><text x="360.0" y="22" text-anchor="middle" font-weight="600" font-size="15">dnaA monomer count vs translation_efficiency multiplier</text>
+<rect x="60" y="83.33333333333337" width="630" height="166.66666666666663" fill="#86efac" fill-opacity="0.3"/>
+<text x="685" y="97.33333333333337" text-anchor="end" fill="#16a34a" font-size="11">literature range [300, 800] (Schmidt 2016)</text>
+<line x1="60" y1="350.0" x2="690" y2="350.0" stroke="#e5e7eb"/>
+<text x="52" y="354.0" text-anchor="end" fill="#64748b">0</text>
+<line x1="60" y1="283.33333333333337" x2="690" y2="283.33333333333337" stroke="#e5e7eb"/>
+<text x="52" y="287.33333333333337" text-anchor="end" fill="#64748b">200</text>
+<line x1="60" y1="216.66666666666669" x2="690" y2="216.66666666666669" stroke="#e5e7eb"/>
+<text x="52" y="220.66666666666669" text-anchor="end" fill="#64748b">400</text>
+<line x1="60" y1="150.0" x2="690" y2="150.0" stroke="#e5e7eb"/>
+<text x="52" y="154.0" text-anchor="end" fill="#64748b">600</text>
+<line x1="60" y1="83.33333333333337" x2="690" y2="83.33333333333337" stroke="#e5e7eb"/>
+<text x="52" y="87.33333333333337" text-anchor="end" fill="#64748b">800</text>
+<text x="20" y="200.0" text-anchor="middle" transform="rotate(-90 20 200.0)" fill="#334155">DnaA / cell (median, second-half)</text>
+<rect x="70.5" y="311.6666666666667" width="49.0" height="38.333333333333314" fill="#94a3b8"/>
+<line x1="95.0" y1="311.6666666666667" x2="95.0" y2="311.6666666666667" stroke="#1e293b" stroke-width="1.5"/>
+<text x="95.0" y="307.6666666666667" text-anchor="middle" fill="#334155" font-size="11">115</text>
+<text x="95.0" y="366" text-anchor="middle" fill="#334155">1×</text>
+<text x="95.0" y="380" text-anchor="middle" fill="#94a3b8" font-size="10">n=5</text>
+<rect x="140.5" y="307.0" width="49.0" height="43.0" fill="#94a3b8"/>
+<line x1="165.0" y1="307.0" x2="165.0" y2="307.0" stroke="#1e293b" stroke-width="1.5"/>
+<text x="165.0" y="303.0" text-anchor="middle" fill="#334155" font-size="11">129</text>
+<text x="165.0" y="366" text-anchor="middle" fill="#334155">5×</text>
+<text x="165.0" y="380" text-anchor="middle" fill="#94a3b8" font-size="10">n=3</text>
+<rect x="210.5" y="287.3333333333333" width="49.0" height="62.666666666666686" fill="#94a3b8"/>
+<line x1="235.0" y1="294.0" x2="235.0" y2="281.3333333333333" stroke="#1e293b" stroke-width="1.5"/>
+<text x="235.0" y="283.3333333333333" text-anchor="middle" fill="#334155" font-size="11">188</text>
+<text x="235.0" y="366" text-anchor="middle" fill="#334155">10×</text>
+<text x="235.0" y="380" text-anchor="middle" fill="#94a3b8" font-size="10">n=5</text>
+<rect x="280.5" y="267.6666666666667" width="49.0" height="82.33333333333331" fill="#94a3b8"/>
+<line x1="305.0" y1="284.3333333333333" x2="305.0" y2="255.33333333333334" stroke="#1e293b" stroke-width="1.5"/>
+<text x="305.0" y="263.6666666666667" text-anchor="middle" fill="#334155" font-size="11">247</text>
+<text x="305.0" y="366" text-anchor="middle" fill="#334155">15×</text>
+<text x="305.0" y="380" text-anchor="middle" fill="#94a3b8" font-size="10">n=5</text>
+<rect x="350.5" y="251.33333333333331" width="49.0" height="98.66666666666669" fill="#94a3b8"/>
+<line x1="375.0" y1="257.33333333333337" x2="375.0" y2="251.33333333333331" stroke="#1e293b" stroke-width="1.5"/>
+<text x="375.0" y="247.33333333333331" text-anchor="middle" fill="#334155" font-size="11">296</text>
+<text x="375.0" y="366" text-anchor="middle" fill="#334155">20×</text>
+<text x="375.0" y="380" text-anchor="middle" fill="#94a3b8" font-size="10">n=5</text>
+<rect x="420.5" y="262.3333333333333" width="49.0" height="87.66666666666669" fill="#94a3b8"/>
+<line x1="445.0" y1="262.3333333333333" x2="445.0" y2="262.3333333333333" stroke="#1e293b" stroke-width="1.5"/>
+<text x="445.0" y="258.3333333333333" text-anchor="middle" fill="#334155" font-size="11">263</text>
+<text x="445.0" y="366" text-anchor="middle" fill="#334155">25×</text>
+<text x="445.0" y="380" text-anchor="middle" fill="#94a3b8" font-size="10">n=5</text>
+<rect x="490.5" y="297.0" width="49.0" height="53.0" fill="#94a3b8"/>
+<line x1="515.0" y1="297.0" x2="515.0" y2="290.0" stroke="#1e293b" stroke-width="1.5"/>
+<text x="515.0" y="293.0" text-anchor="middle" fill="#334155" font-size="11">159</text>
+<text x="515.0" y="366" text-anchor="middle" fill="#334155">30×</text>
+<text x="515.0" y="380" text-anchor="middle" fill="#94a3b8" font-size="10">n=5</text>
+<rect x="560.5" y="184.33333333333334" width="49.0" height="165.66666666666666" fill="#22c55e"/>
+<line x1="585.0" y1="184.33333333333334" x2="585.0" y2="184.33333333333334" stroke="#1e293b" stroke-width="1.5"/>
+<text x="585.0" y="180.33333333333334" text-anchor="middle" fill="#334155" font-size="11">497</text>
+<text x="585.0" y="366" text-anchor="middle" fill="#334155">50×</text>
+<text x="585.0" y="380" text-anchor="middle" fill="#94a3b8" font-size="10">n=5</text>
+<rect x="630.5" y="314.0" width="49.0" height="36.0" fill="#94a3b8"/>
+<line x1="655.0" y1="314.0" x2="655.0" y2="305.6666666666667" stroke="#1e293b" stroke-width="1.5"/>
+<text x="655.0" y="310.0" text-anchor="middle" fill="#334155" font-size="11">108</text>
+<text x="655.0" y="366" text-anchor="middle" fill="#334155">100×</text>
+<text x="655.0" y="380" text-anchor="middle" fill="#94a3b8" font-size="10">n=3</text>
+</svg>

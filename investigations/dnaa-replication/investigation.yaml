@@ -1,0 +1,176 @@
+schema_version: 1
+name: dnaa-replication
+title: DnaA / Replication Initiation
+created: '2026-05-16'
+last_baseline_run: '2026-05-17'
+status: planning-with-baseline-confirmed
+
+biological_story: |
+  In a real E. coli cell, the decision to start a new round of chromosome
+  replication is made by the protein DnaA. The cycle goes like this:
+
+  1. DnaA is continuously produced from its own gene (the dnaA gene).
+     It autoregulates — when DnaA gets high, it represses its own promoter.
+  2. DnaA binds ATP or ADP. Only the ATP-bound form can drive replication
+     initiation. The cell keeps DnaA-ATP in a tight physiological band
+     (~20-50% of total DnaA).
+  3. DnaA-ATP loads onto DnaA-box sites scattered across the chromosome.
+     Most of these sites act as a *titration buffer* — they soak up DnaA
+     so it doesn't fire at oriC too soon.
+  4. As DnaA accumulates, the chromosomal sites fill, then DnaA-ATP starts
+     loading onto the 11 boxes at oriC.
+  5. When enough oriC boxes are loaded, the origin opens (the "DUE
+     opening") and replisomes assemble. Replication fires.
+  6. After firing, several mechanisms (RIDA, datA, SeqA) reset the system
+     so it can't fire again until next cell cycle.
+
+  This investigation ports steps 1-5 into v2ecoli, replacing the current
+  heuristic ("cell mass per oriC ≥ critical mass") with the actual
+  DnaA-driven mechanism. Step 6's reset mechanisms (RIDA / DDAH / DARS for
+  ATP recycling, SeqA for sequestration) are deferred to a follow-on
+  investigation; this scope ships *placeholders* (an ATP-fraction clamp
+  and a fixed-timer refractory at oriC) so the four studies still produce
+  closed-cycle behavior.
+
+  Why the order matters: you cannot test DnaA-box titration (step 3)
+  before you have a steady DnaA pool (step 1) AND a way to split DnaA into
+  ATP/ADP forms (step 2). And you cannot test the mechanistic initiation
+  trigger (step 5) before titration works. So the studies stack:
+
+      dnaa-01 (DnaA expression)
+        ↓
+      dnaa-02 (DnaA-ATP/ADP/apo nucleotide cycle)
+        ↓
+      dnaa-03 (DnaA-box titration: 307 chromosomal + 11 oriC + 7 dnaAp)
+        ↓
+      dnaa-04 (initiation trigger driven by oriC occupancy)
+
+question: |
+  Can a DnaA-driven mechanistic model of replication initiation in v2ecoli
+  reproduce the observed once-per-generation timing, initiation-mass
+  homeostasis, and ATP-fraction oscillations while staying within ±5% of
+  the mass-threshold heuristic baseline under slow non-overlapping growth?
+
+hypothesis: |
+  Yes. The four staged studies (expression → ATP/ADP cycle → DnaA-box
+  binding → mechanism-driven initiation) compose into a model that
+  recapitulates the core DnaA cycle through the initiation event itself.
+  Each study's behavioral tests pass before the next study in the chain
+  is started; the final mechanism baseline matches the heuristic's
+  initiation-mass distribution within ±5%. Extrinsic conversion
+  (RIDA/DDAH/DARS) and post-initiation SeqA sequestration are out of
+  scope for this investigation.
+
+# ─── INTRO ────────────────────────────────────────────────────────────
+# `lead` is the front-of-the-textbook paragraph the dashboard renders
+# above the study DAG. Keep it tight (3-4 sentences). Detailed biology
+# lives in `biological_story` below; per-study mechanics live in each
+# studies/<slug>/study.yaml.
+lead: |
+  This investigation replaces v2ecoli's current heuristic
+  ("cell mass per oriC ≥ critical mass") with the actual **DnaA-driven**
+  mechanism by which *E. coli* decides to initiate chromosome replication.
+  We port the cycle into v2ecoli across four sequential studies — each a
+  discrete, gated implementation phase whose behavioral tests must pass
+  before downstream studies can build on it. Extrinsic ATP recycling
+  (RIDA/DDAH/DARS) and SeqA methylation-state sequestration are deferred
+  to a follow-on investigation; this scope ships two **stand-ins**
+  (an ATP-fraction clamp in dnaa-02 and a fixed-timer oriC refractory in
+  dnaa-04) so the four studies still produce closed-cycle behavior.
+
+# `description` is kept verbatim for legacy code paths that read it
+# (some downloadable-report fields). New UI surfaces `lead` instead.
+description: |
+  Multi-phase port of DnaA / replication initiation into v2ecoli. Four
+  gated studies replace the mass-threshold heuristic with a DnaA-driven
+  mechanism. See `lead` for the human summary, `at_a_glance` for the
+  study roster, `how_to_read` for evaluator orientation, and `glossary`
+  for jargon. Detailed mechanism in `biological_story`.
+
+# ─── AT A GLANCE ───────────────────────────────────────────────────────
+# One tile per study — what it asks in one sentence. Renders as a grid
+# at the top of the investigation page, so an evaluator gets the scope
+# in 10 seconds without reading the studies.
+at_a_glance:
+  - study: dnaa-00-parameter-foundation
+    role: Composite foundation — defines the baseline + Stage 1-parameterised variant every other study calibrates against; catalogs the Fu/Xiao/Jun (2023) parameter table with v2ecoli wiring status.
+  - study: dnaa-01-expression-dynamics
+    role: Establish that v2ecoli already maintains a steady DnaA pool with autorepression — the foundation everything else builds on.
+  - study: dnaa-02-atp-hydrolysis
+    role: Split DnaA into ATP / ADP / apo nucleotide forms and confirm intrinsic hydrolysis keeps the ATP fraction in the physiological band.
+  - study: dnaa-02f-equilibrium-cleanup
+    role: Parallel follow-up — decompose the pre-existing MONOMER0-160 ATP-complex pool so the dnaa-02 split is biologically clean.
+  - study: dnaa-03-box-binding
+    role: Add the 307 chromosomal + 11 oriC + 7 dnaAp DnaA-box sites and verify titration keeps oriC empty until late in the cycle.
+  - study: dnaa-04-initiation-mechanism
+    role: Replace the mass-threshold heuristic with a DnaA-occupancy trigger and match the heuristic's initiation-mass distribution within ±5 %.
+  - study: dnaa-05-itv2-comparison
+    role: Three-way comparison — standalone Fu/Xiao/Jun (2023) analytical model, v2ecoli at default parameters, and v2ecoli with parameters retuned to the FXJ paper. Validates v2ecoli's DnaA mechanism against an external mean-field reference.
+
+# ─── HOW TO READ THIS ──────────────────────────────────────────────────
+# Tips for someone who's never seen this investigation before. Renders
+# as a yellow callout. Aim for 4-6 short bullets; full sentences each.
+how_to_read:
+  - Start with the **DAG below** — it shows the four studies in dependency order. Each card carries a status pill that summarises whether the gate has cleared.
+  - Read the studies **top-down**. A downstream study assumes everything above it has passed; reading dnaa-04 before dnaa-01 will feel like cheating because the calibration context is missing.
+  - Every study has the same **5-section header**: question → assumptions → conditions (baseline + variants + expert inputs) → tests → status. The tests are the only place where pass/fail is decided.
+  - Charts can come from **two sources**. A `live` chart is rendered from the latest run.db; a chart marked **"Drawn from workspace default-baseline"** means the study hasn't run yet and we're showing the pre-execution baseline as a "before" reference.
+  - The `💬` icons in the downloadable report let an offline evaluator leave inline feedback on any section. "Generate feedback report" packages everything into a single yaml file that comes back via `pbg-feedback-import`.
+
+# ─── GLOSSARY ─────────────────────────────────────────────────────────
+# Pop-out under the intro. Each entry is one term + one sentence — no
+# walls of text. Cross-references should link to the studies that use
+# the term in depth.
+glossary:
+  - term: DnaA
+    definition: The replication-initiator protein. When ATP-bound and clustered at oriC, it triggers origin opening and replisome assembly.
+  - term: DnaA-ATP fraction
+    definition: Fraction of total DnaA in the active (ATP-bound) form. The cell holds this in a narrow band (~0.2-0.5 in slow growth). dnaa-02 owns the readout.
+  - term: oriC
+    definition: The single chromosomal origin of replication. Carries 11 DnaA-binding boxes; once enough are occupied by DnaA-ATP, the origin fires.
+  - term: DnaA box / DUE
+    definition: Short DNA motif (TT(A/T)TNCACA) that DnaA recognises. Boxes scattered across the chromosome titrate DnaA away from oriC. The DUE (DnaA-unwinding element) is the strand-separation site at oriC opened during firing.
+  - term: RIDA / DDAH / DARS
+    definition: The three extrinsic mechanisms that reset DnaA-ATP after firing — RIDA (replisome-coupled hydrolysis), DDAH (datA-dependent), DARS1/DARS2 (reactivation). Deferred to a follow-on investigation; we ship a clamp stand-in.
+  - term: SeqA / refractory period
+    definition: Post-initiation sequestration of newly-replicated oriC, preventing immediate re-initiation. Deferred; we ship a v0 fixed-timer stand-in (10 min) in dnaa-04.
+  - term: Initiation mass
+    definition: The cell mass at which replication fires. Used as the canonical aggregate metric for matching the heuristic baseline within ±5 %.
+  - term: Gate / pass-fail
+    definition: A study is **gated** if its dependents may not run until its primary behavioral tests pass. The DAG renders gate status on each card.
+
+# Studies in this investigation, in suggested execution order.
+# The DAG is computed from each study's `parent_studies:` field at render
+# time; this list determines visibility / grouping only.
+studies:
+  - dnaa-00-parameter-foundation  # canonical Stage 1 parameter catalog (no sims)
+  - dnaa-01-expression-dynamics
+  - dnaa-02-atp-hydrolysis
+  - dnaa-02f-equilibrium-cleanup   # parallel follow-up of dnaa-02; does NOT gate dnaa-03
+  - dnaa-03-box-binding
+  - dnaa-04-initiation-mechanism
+  - dnaa-05-itv2-comparison        # 3-way comparison vs FuXiaoJun2023 analytical model
+
+# Inputs (expert docs, datasets) supporting this whole investigation —
+# duplicates of what's in workspace.yaml.expert_docs but scoped to the
+# investigation for cross-reference convenience.
+expert_docs:
+  - replication_initiation_molecular_info
+  - chromosome_replication_plan
+
+# Comparative visualisations used to live here at the investigation
+# level. They've been moved into each study's yaml (under
+# ``comparative_visualizations:``) so the comparison is scoped to the
+# study's own baseline + variants, and the resulting HTML lands in
+# ``studies/<slug>/viz/`` next to all the other per-study viz.
+
+# Top-level success criteria. Each entry should map to a behavioral test
+# in one of the constituent studies; the investigation is "complete" when
+# all its acceptance criteria pass.
+acceptance_criteria:
+  - {study: dnaa-01-expression-dynamics, behavior: dnaa-count-in-mass-spec-range}
+  - {study: dnaa-01-expression-dynamics, behavior: dnaa-concentration-stable-within-10pct}
+  - {study: dnaa-02-atp-hydrolysis,      behavior: dnaa-atp-fraction-in-physiological-range}
+  - {study: dnaa-03-box-binding,         behavior: oric-stays-unoccupied-until-chromosome-saturates}
+  - {study: dnaa-04-initiation-mechanism, behavior: one-initiation-per-generation}
+  - {study: dnaa-04-initiation-mechanism, behavior: initiation-mass-mean-matches-heuristic}

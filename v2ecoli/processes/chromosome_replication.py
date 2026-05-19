@@ -99,7 +99,7 @@ class ChromosomeReplication(Step):
     topology = TOPOLOGY
 
     config_schema = {
-        'D_period': {'_type': 'any', '_default': np.array([], dtype=float)},
+        'D_period': {'_type': 'node', '_default': np.array([], dtype=float)},
         'basal_elongation_rate': {'_type': 'integer[nt/s]', '_default': 967},
         'criticalInitiationMass': {'_type': 'quantity[fg]', '_default': 975.0},
         'dntps': {'_type': 'list[string]', '_default': []},

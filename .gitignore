@@ -14,11 +14,13 @@ build/
 v2ecoli/processes/parca/**/*.cpython-*.so
 
 # Workspace / investigation runtime artefacts (regenerable; not source)
-# See friction-log session-3 #24.
-.pbg/server/
-.pbg/state.json
-.pbg/study-test-results/
-.pbg/default-baseline/
+# See friction-log session-3 #24 and 2026-05-19 item #15. Blanket `.pbg/`
+# covers every dashboard-authored runtime file (composite-runs.db + shm +
+# wal, dashboard/ pid+log+info, runs/ per-run logs, server/, state.json,
+# study-test-results/, default-baseline/, …) so the dashboard's
+# dirty-tree gate stops blocking Install / Workstream Commit on its own
+# writes.
+.pbg/
 **/runs.db
 **/runs.db-shm
 **/runs.db-wal

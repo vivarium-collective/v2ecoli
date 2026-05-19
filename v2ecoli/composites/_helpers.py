@@ -77,15 +77,17 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # ---------------------------------------------------------------------------
 # Shared by baseline / departitioned / reconciled — all three resolve to the
 # same observables.mass / unique-molecule layout so the same viz tiles apply.
-# Surfaced via ``@composite_generator(visualizations=...)`` so any Study
-# built on one of these architectures inherits the v2ecoli simulation report
-# panels without having to hand-author them in spec.yaml.
-#
-# Coverage:
-#   - workflow: integrated WorkflowVisualization (chromosome state + replication
-#     forks + ppGpp dynamics + mass fold change + division — the full legacy
-#     simulation report)
-#   - topology: NetworkVisualization of the process wiring
+# Opt-in: every study built on one of the v2ecoli single-cell composites
+# (baseline / reconciled / departitioned) that wants the legacy
+# WorkflowVisualization + NetworkVisualization panels must declare them
+# explicitly in its study.yaml `visualizations:` block. Auto-attaching them
+# here used to be the default, but the panels rendered confusingly empty for
+# planning-not-yet-run studies and for any study whose runs.db wasn't
+# populated yet — see docs/superpowers/notes/2026-05-19-dashboard-runner-friction.md
+# item #17. Re-enable per study by copying the two-entry list below into
+# the study's spec, OR opt back into project-wide auto-attach by setting
+# ``visualizations=v2ecoli_default_single_cell_visualizations()`` on the
+# specific @composite_generator call.
 #
 # Note: the cell-mass / cell-volume / growth-rate / absolute-mass-components /
 # mass-fold-change TimeSeriesPlots that previously lived here used a
@@ -95,18 +97,27 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # those plots came out with empty y-data even though the emitter recorded
 # them. They will land back here once the dashboard grows a short-name /
 # leaf-name resolver for canonical viz wiring.
-DEFAULT_SINGLE_CELL_VISUALIZATIONS = [
-    {
-        'name': 'workflow',
-        'address': 'local:WorkflowVisualization',
-        'config': {'title': 'v2ecoli — single-cell lifecycle'},
-    },
-    {
-        'name': 'topology',
-        'address': 'local:NetworkVisualization',
-        'config': {'title': 'Process topology'},
-    },
-]
+DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = []
+
+
+def v2ecoli_default_single_cell_visualizations() -> list[dict]:
+    """The legacy workflow + topology viz spec, available for explicit opt-in.
+
+    Returns a fresh list each call so the consumer can mutate without
+    polluting other studies' specs.
+    """
+    return [
+        {
+            'name': 'workflow',
+            'address': 'local:WorkflowVisualization',
+            'config': {'title': 'v2ecoli — single-cell lifecycle'},
+        },
+        {
+            'name': 'topology',
+            'address': 'local:NetworkVisualization',
+            'config': {'title': 'Process topology'},
+        },
+    ]
 
 ALLOCATOR_LAYERS = {
     # RNA degradation shares water with polymerizations

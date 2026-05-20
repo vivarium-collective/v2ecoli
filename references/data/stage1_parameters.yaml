@@ -1,0 +1,185 @@
+# Fu / Xiao / Jun (2023) — WCM Stage 1 heuristic parameter table.
+#
+# Canonical machine-readable copy of the companion parameter table
+# (verbatim transcription in references/notes/wcm_stage1_parameters.md;
+# original PDF registered as the `wcm_stage1_parameters` expert doc).
+#
+# Stage 1 values are HEURISTIC — anchored to literature where it exists
+# (Sekimizu 1987, Kawakami 2006, Hansen & Atlung 2018), placeholder
+# ("artificial setup") where the structural detail is still being worked
+# out (the RIDA / DDAH / DARS network). Growth condition throughout:
+# ABT minimal glycerol, MG1655, slow non-overlapping cell cycle.
+#
+# This file is the single source of truth surfaced as investigation-level
+# guidelines (investigations/dnaa-replication/investigation.yaml:guidelines)
+# and cited by study assumptions via the `wcm_stage1_parameters` doc slug.
+
+meta:
+  source: "Fu, Xiao, Jun (2023) — companion parameter table"
+  growth_condition: "ABT minimal glycerol, MG1655, slow non-overlapping cell cycle"
+  stage: 1
+  nature: "heuristic — literature-anchored where available, artificial-setup placeholders for the RIDA/DDAH/DARS network"
+  expert_doc: wcm_stage1_parameters
+
+parameters:
+  - n: 1
+    parameter: cell birth volume
+    value: 1
+    unit: "µm³"
+    source: ""
+    v2ecoli_param: null
+    status: not-driven-by-composite-param
+  - n: 2
+    parameter: doubling time
+    value: 150
+    unit: min
+    source: "ABT min-glycerol, non-overlapping cycle"
+    v2ecoli_param: null
+    status: todo-media-level-override
+  - n: 3
+    parameter: C period
+    value: 70
+    unit: min
+    source: ""
+    v2ecoli_param: null
+    status: todo-emerges-from-replication-speed-not-surfaced
+  - n: 4
+    parameter: D period
+    value: 30
+    unit: min
+    source: ""
+    v2ecoli_param: null
+    status: todo-cell-division-listener-config-not-surfaced
+  - n: 5
+    parameter: replication speed
+    value: 66.31
+    unit: kbp/min
+    source: "= genome length / C period"
+    v2ecoli_param: null
+    status: todo
+  - n: 6
+    parameter: dnaA transcription rate
+    value: 1.5
+    unit: mRNA/min/gene
+    source: "constitutive expression assumed at this stage"
+    v2ecoli_param: null
+    status: todo-parca-override-hook
+  - n: 7
+    parameter: DnaA translation efficiency
+    value: 1
+    unit: protein/mRNA
+    source: "Hansen & Atlung 2018"
+    v2ecoli_param: model_settings.translation_efficiency_eg10235_scale
+    status: wired
+  - n: 8
+    parameter: DnaA degradation rate
+    value: 0
+    unit: "/min"
+    source: "assumed fully stable"
+    v2ecoli_param: null
+    status: confirmed-already-non-degraded
+  - n: 9
+    parameter: DnaA→ATP dissociation constant
+    value: 30
+    unit: nM
+    source: "Sekimizu 1987, Kawakami 2006"
+    v2ecoli_param: null
+    status: todo-in-MONOMER0-160-equilibrium-not-surfaced
+  - n: 10
+    parameter: DnaA→ADP dissociation constant
+    value: 100
+    unit: nM
+    source: "Sekimizu 1987, Kawakami 2006"
+    v2ecoli_param: null
+    status: todo-in-MONOMER0-4565-equilibrium-not-surfaced
+  - n: 11
+    parameter: DnaA-ATP intrinsic hydrolysis rate
+    value: 0.046
+    unit: "/min"
+    source: "Sekimizu 1987"
+    v2ecoli_param: hydrolysis_rate_per_min
+    status: wired
+  - n: 12
+    parameter: consensus DnaA-box dissociation constant
+    value: 1
+    unit: nM
+    source: "applies to both DnaA-ATP and DnaA-ADP forms"
+    v2ecoli_param: kd_high_nM
+    status: wired
+  - n: 13
+    parameter: oriC location
+    value: "3925744-3925989"
+    unit: bp
+    source: "dnaa_box_loci_locations sheet 'locus locations'"
+    v2ecoli_param: null
+    status: catalog-data
+  - n: 14
+    parameter: oriC low-affinity DnaA-ATP box count
+    value: 8
+    unit: boxes
+    source: "binds DnaA-ATP only"
+    v2ecoli_param: null
+    status: catalog-is-7-today-needs-plus-1
+  - n: 15
+    parameter: oriC low-affinity box dissociation constant
+    value: "50-1"
+    unit: nM
+    source: "cooperative — decreases with occupancy, 50 nM (first site) → 1 nM (last site), assumed linear"
+    v2ecoli_param: kd_low_nM
+    status: partial-set-to-50-cooperativity-is-dnaa-03-EQ-02
+  - n: 16
+    parameter: Hda hydrolysis rate (RIDA)
+    value: 40
+    unit: "/min/replication-fork-pair"
+    source: "artificial setup"
+    v2ecoli_param: rida_rate_per_min
+    status: wired
+  - n: 17
+    parameter: datA location
+    value: "4392732-4392914"
+    unit: bp
+    source: "dnaa_box_loci_locations sheet 'locus locations'"
+    v2ecoli_param: null
+    status: catalog-data
+  - n: 18
+    parameter: DnaA-ATP hydrolysis rate at datA (DDAH)
+    value: 12
+    unit: "/min/datA-locus"
+    source: "artificial setup"
+    v2ecoli_param: null
+    status: todo-no-step-yet-dnaa-05-06-deferred
+  - n: 19
+    parameter: DARS1 location
+    value: "813086-813186"
+    unit: bp
+    source: "dnaa_box_loci_locations sheet 'locus locations'"
+    v2ecoli_param: null
+    status: catalog-data
+  - n: 20
+    parameter: DnaA-ADP→DnaA-ATP conversion rate at DARS1
+    value: 5
+    unit: "/min/DARS1-locus"
+    source: "artificial setup"
+    v2ecoli_param: null
+    status: todo-no-step-yet-dnaa-05-06-deferred
+  - n: 21
+    parameter: DARS2 location
+    value: "2969112-2969367"
+    unit: bp
+    source: "dnaa_box_loci_locations sheet 'locus locations'"
+    v2ecoli_param: null
+    status: catalog-data
+  - n: 22
+    parameter: DnaA-ADP→DnaA-ATP conversion rate at DARS2
+    value: 10
+    unit: "/min/DARS2-locus"
+    source: "artificial setup"
+    v2ecoli_param: null
+    status: todo-no-step-yet-dnaa-05-06-deferred
+  - n: 23
+    parameter: SeqA sequestration time
+    value: 0
+    unit: min
+    source: "not considered at this stage"
+    v2ecoli_param: refractory_seconds
+    status: wired

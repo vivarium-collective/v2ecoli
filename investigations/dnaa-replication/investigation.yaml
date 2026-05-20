@@ -139,6 +139,50 @@ glossary:
   - term: Gate / pass-fail
     definition: A study is **gated** if its dependents may not run until its primary behavioral tests pass. The DAG renders gate status on each card.
 
+# Investigation-wide guidelines — authoritative reference values + rules
+# every study calibrates against. Surfaced as its own panel on the
+# investigation page. The Stage-1 parameter table is the canonical
+# heuristic parameter set (Fu/Xiao/Jun 2023); the machine-readable copy
+# lives at references/data/stage1_parameters.yaml and the source PDF is
+# the `wcm_stage1_parameters` expert doc.
+guidelines:
+  - title: "Stage 1 parameter values (Fu / Xiao / Jun 2023)"
+    summary: >
+      The authoritative heuristic parameter set this investigation calibrates
+      against. Values are literature-anchored where available (Sekimizu 1987,
+      Kawakami 2006, Hansen & Atlung 2018) and artificial-setup placeholders
+      for the RIDA/DDAH/DARS network. Growth condition throughout: ABT minimal
+      glycerol, MG1655, slow non-overlapping cell cycle. Every study cites this
+      via the `wcm_stage1_parameters` doc slug; dnaa-00 catalogs the v2ecoli
+      wiring status per parameter.
+    source: wcm_stage1_parameters
+    data_file: references/data/stage1_parameters.yaml
+    columns: [parameter, value, v2ecoli_param, status]
+    parameters:
+      - { parameter: "cell birth volume",                          value: "1 µm³",            v2ecoli_param: "—",                              status: "not driven by composite param" }
+      - { parameter: "doubling time",                              value: "150 min",          v2ecoli_param: "— (media)",                      status: "TODO: media-level override" }
+      - { parameter: "C period",                                   value: "70 min",           v2ecoli_param: "— (replication_speed)",          status: "TODO: not surfaced" }
+      - { parameter: "D period",                                   value: "30 min",           v2ecoli_param: "— (division listener)",          status: "TODO: not surfaced" }
+      - { parameter: "replication speed",                          value: "66.31 kbp/min",    v2ecoli_param: "—",                              status: "TODO" }
+      - { parameter: "dnaA transcription rate",                    value: "1.5 mRNA/min/gene", v2ecoli_param: "— (ParCa-fitted)",              status: "TODO: ParCa override hook" }
+      - { parameter: "DnaA translation efficiency",                value: "1 protein/mRNA",   v2ecoli_param: "translation_efficiency_eg10235_scale", status: "wired (default 1.0)" }
+      - { parameter: "DnaA degradation rate",                      value: "0 /min",           v2ecoli_param: "— (already stable)",             status: "confirmed already" }
+      - { parameter: "DnaA→ATP dissociation constant",             value: "30 nM",            v2ecoli_param: "— (MONOMER0-160 eq.)",           status: "TODO: not surfaced" }
+      - { parameter: "DnaA→ADP dissociation constant",             value: "100 nM",           v2ecoli_param: "— (MONOMER0-4565 eq.)",          status: "TODO: not surfaced" }
+      - { parameter: "DnaA-ATP intrinsic hydrolysis rate",         value: "0.046 /min",       v2ecoli_param: "hydrolysis_rate_per_min",        status: "wired" }
+      - { parameter: "consensus DnaA-box dissociation constant",   value: "1 nM",             v2ecoli_param: "kd_high_nM",                     status: "wired" }
+      - { parameter: "oriC location",                              value: "3925744-3925989",  v2ecoli_param: "— (box catalog)",                status: "catalog data" }
+      - { parameter: "oriC low-affinity DnaA-ATP box count",       value: "8",                v2ecoli_param: "— (box catalog)",                status: "catalog is 7 today; needs +1" }
+      - { parameter: "oriC low-affinity box dissociation constant", value: "50→1 nM (coop.)", v2ecoli_param: "kd_low_nM",                      status: "partial: set to 50; cooperativity is dnaa-03-EQ-02" }
+      - { parameter: "Hda hydrolysis rate (RIDA)",                 value: "40 /min/fork-pair", v2ecoli_param: "rida_rate_per_min",             status: "wired" }
+      - { parameter: "datA location",                              value: "4392732-4392914",  v2ecoli_param: "— (box catalog)",                status: "catalog data" }
+      - { parameter: "DnaA-ATP hydrolysis rate at datA (DDAH)",    value: "12 /min/locus",    v2ecoli_param: "—",                              status: "TODO: no Step yet (dnaa-05/06)" }
+      - { parameter: "DARS1 location",                             value: "813086-813186",    v2ecoli_param: "— (box catalog)",                status: "catalog data" }
+      - { parameter: "DnaA-ADP→ATP conversion rate at DARS1",      value: "5 /min/locus",     v2ecoli_param: "—",                              status: "TODO: no Step yet (dnaa-05/06)" }
+      - { parameter: "DARS2 location",                             value: "2969112-2969367",  v2ecoli_param: "— (box catalog)",                status: "catalog data" }
+      - { parameter: "DnaA-ADP→ATP conversion rate at DARS2",      value: "10 /min/locus",    v2ecoli_param: "—",                              status: "TODO: no Step yet (dnaa-05/06)" }
+      - { parameter: "SeqA sequestration time",                    value: "0 min",            v2ecoli_param: "refractory_seconds",             status: "wired" }
+
 # Studies in this investigation, in suggested execution order.
 # The DAG is computed from each study's `parent_studies:` field at render
 # time; this list determines visibility / grouping only.

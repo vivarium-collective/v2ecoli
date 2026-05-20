@@ -1,4 +1,4 @@
-schema_version: 3
+schema_version: 2
 name: v2ecoli
 created: '2026-05-16'
 plugin_version: 0.6.1
@@ -169,4 +169,15 @@ server:
 observables: []
 visualizations: []
 simulations: []
-datasets: []
+datasets:
+  - name: stage1_parameters
+    path: references/data/stage1_parameters.yaml
+    sha256: 058e5277bd4271d3d63c5215f88d921b81330f61d59dc4d241dae448acce8c28
+    claims: []
+    description: >
+      Fu/Xiao/Jun (2023) WCM Stage-1 heuristic parameter table — 23 parameters
+      (cell-cycle timing, DnaA expression/binding/hydrolysis, oriC + datA +
+      DARS loci) with value, unit, literature source, the v2ecoli composite
+      parameter each maps to, and wiring status. The canonical machine-readable
+      copy of the wcm_stage1_parameters expert doc; also surfaced as the
+      dnaa-replication investigation's Guidelines panel.

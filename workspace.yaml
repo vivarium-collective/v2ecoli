@@ -154,6 +154,20 @@ expert_docs:
   - dnaa.parameters.data-ddah-rate-12-per-min-per-locus
   - dnaa.parameters.dars1-conversion-5-per-min
   - dnaa.parameters.dars2-conversion-10-per-min
+- name: stage1_parameters_table
+  path: references/data/stage1_parameters.yaml
+  sha256: 058e5277bd4271d3d63c5215f88d921b81330f61d59dc4d241dae448acce8c28
+  description: |
+    Machine-readable companion to the wcm_stage1_parameters PDF — the same
+    23-row Fu/Xiao/Jun (2023) Stage-1 heuristic table as structured YAML
+    (parameter, value, unit, literature source, the v2ecoli composite
+    parameter each maps to, and wiring status). Use this when you need to
+    read parameter values programmatically; use the PDF for the original
+    spreadsheet layout. Also registered as the `stage1_parameters` dataset
+    and surfaced as the dnaa-replication investigation's Guidelines panel.
+  contributor: Replication-initiation working group (Fu / Xiao / Jun)
+  claims_supported:
+  - dnaa.parameters.stage1-heuristic-values-canonical
 imports:
   v2ecoli:
     source: https://github.com/vivarium-collective/v2ecoli.git

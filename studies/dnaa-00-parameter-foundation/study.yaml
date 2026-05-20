@@ -154,7 +154,15 @@ assumptions:
 # analytical comparator when the v2ecoli traces need a sanity check.
 conditions:
   baseline:
-    composite: v2ecoli.composites.baseline.baseline
+    # Default v2ecoli dynamics + a read-only DnaA-cycle listener (no
+    # mechanism, no dynamics change). The listener computes
+    # listeners.dnaA_cycle.atp_fraction from the baseline's existing bulk
+    # molecules (PD03831[c] apo, MONOMER0-160[c] DnaA-ATP, MONOMER0-4565[c]
+    # DnaA-ADP) so the baseline run carries the same readout as the
+    # Stage-1 variant — letting the atp-fraction comparative overlay an
+    # unmodified-cell trace. Dynamics are identical to
+    # v2ecoli.composites.baseline.baseline.
+    composite: v2ecoli.composites.baseline_recipes.dnaa_00_baseline_with_dnaa_readout
     params:
       seed: 0
       cache_dir: out/cache

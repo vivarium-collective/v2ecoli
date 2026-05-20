@@ -341,6 +341,50 @@ def dnaa_02_with_intrinsic_hydrolysis(
     return doc
 
 
+# ─── dnaa-00: baseline + DnaA-cycle readout (observability only) ───────────
+@composite_generator(
+    name="dnaa_00_baseline_with_dnaa_readout",
+    description=(
+        "v2ecoli default whole-cell baseline + the read-only DnaaCycleListener. "
+        "Adds NO mechanism and changes NO dynamics — it only computes the DnaA "
+        "nucleotide-state readout (apo / DnaA-ATP / DnaA-ADP counts + fractions) "
+        "from the existing bulk molecules PD03831[c], MONOMER0-160[c], "
+        "MONOMER0-4565[c] each tick, so listeners.dnaA_cycle.atp_fraction is "
+        "available on the plain baseline. Used as dnaa-00's baseline run so the "
+        "baseline-vs-Stage-1 comparatives can overlay an atp_fraction trace for "
+        "the unmodified cell."
+    ),
+    parameters={
+        "seed":      {"type": "integer", "default": 0, "description": "RNG seed"},
+        "cache_dir": {"type": "string",  "default": "out/cache",
+                      "description": "Path to ParCa cache directory"},
+    },
+)
+def dnaa_00_baseline_with_dnaa_readout(
+    core: Any = None,
+    *,
+    seed: int = 0,
+    cache_dir: str = "out/cache",
+) -> dict:
+    """Baseline + read-only DnaaCycleListener (observability only).
+
+    The DnaA-ATP / DnaA-ADP / apo-DnaA species exist in the WCM baseline as
+    standard bulk molecules; the plain baseline composite simply doesn't wire
+    in a Step to compute their fractions. This recipe adds ONLY that listener
+    (a pure observer — reads bulk, writes listeners.dnaA_cycle.*, touches no
+    dynamics), so the default cell's DnaA-ATP fraction is visible without
+    altering its behaviour. See the dnaa-cycle-listener Step docstring.
+    """
+    doc = baseline(core=core, seed=seed, cache_dir=cache_dir)
+    cell_state = doc["state"]["agents"]["0"]
+
+    listener = DnaaCycleListener(parameters={})
+    _append_step(cell_state, "dnaa-cycle-listener",
+                 listener, _PRIORITY_LISTENER)
+    doc["flow_order"] = list(doc.get("flow_order", [])) + ["dnaa-cycle-listener"]
+    return doc
+
+
 # ─── dnaa-03: box binding ──────────────────────────────────────────────────
 @composite_generator(
     name="dnaa_03_with_box_binding",

@@ -687,31 +687,52 @@ def _get_special_step(loader, step_name, core):
                 },
             })
 
-        emit_schema = {
-            'global_time': 'float',
-            'bulk': 'array',
-            'listeners': listeners_schema,
-            'full_chromosome': 'node',
-            'active_replisome': 'node',
-            'active_RNAP': 'node',
-            'chromosome_domain': 'node',
-        }
-
         if override is not None:
+            # Persistent SQLite path (default-baseline + per-study run
+            # scripts). Capture ONLY global_time + listeners. The raw
+            # ``bulk`` store (~25k molecules) and the unique-node structures
+            # (full_chromosome / active_replisome / active_RNAP /
+            # chromosome_domain) are MULTI-MB PER ROW — emitting them every
+            # tick produced a 5.5 GB default-baseline db (1.75 MB × 2461
+            # rows) that timed out the dashboard's post-hoc chart extraction
+            # (blank study pages). No viz/test reads them: study yamls
+            # declare listeners.* paths, and raw bulk-id paths aren't even
+            # json_extract-able. The bulk-derived observable studies DO use
+            # (monomer_counts) lives under listeners and is kept.
+            emit_schema = {
+                'global_time': 'float',
+                'listeners': listeners_schema,
+            }
+            topo = {
+                'global_time': ('global_time',),
+                'listeners': ('listeners',),
+            }
             cfg = {'emit': emit_schema, **override}
             instance = SQLiteEmitter(cfg, core)
         else:
+            # In-memory RAMEmitter: no disk cost, so keep the full capture
+            # (bulk + chromosome/replisome structures) for callers that
+            # want the complete state tree in RAM.
+            emit_schema = {
+                'global_time': 'float',
+                'bulk': 'array',
+                'listeners': listeners_schema,
+                'full_chromosome': 'node',
+                'active_replisome': 'node',
+                'active_RNAP': 'node',
+                'chromosome_domain': 'node',
+            }
+            topo = {
+                'global_time': ('global_time',),
+                'bulk': ('bulk',),
+                'listeners': ('listeners',),
+                'full_chromosome': ('unique', 'full_chromosome'),
+                'active_replisome': ('unique', 'active_replisome'),
+                'active_RNAP': ('unique', 'active_RNAP'),
+                'chromosome_domain': ('unique', 'chromosome_domain'),
+            }
             instance = RAMEmitter({'emit': emit_schema}, core)
 
-        topo = {
-            'global_time': ('global_time',),
-            'bulk': ('bulk',),
-            'listeners': ('listeners',),
-            'full_chromosome': ('unique', 'full_chromosome'),
-            'active_replisome': ('unique', 'active_replisome'),
-            'active_RNAP': ('unique', 'active_RNAP'),
-            'chromosome_domain': ('unique', 'chromosome_domain'),
-        }
         return instance, topo, 'step'
 
     if step_name == 'ppgpp-initiation':

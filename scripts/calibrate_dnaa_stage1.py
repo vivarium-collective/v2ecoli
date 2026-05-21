@@ -12,15 +12,13 @@ Measured quantities (per iteration):
       = sum_t rnap_data.rna_init_event_per_cistron[dnaA_cistron]
         / run_minutes / mean(gene_copy_number[dnaA])
   - realized TE (protein/mRNA)
-      WARNING — UNRELIABLE PROXY. Currently Δ(monomer_counts[dnaA]) /
-      total dnaA mRNA synthesized. This measures NET protein ACCUMULATION,
-      not synthesis: in a near-steady / dividing cell, dilution offsets
-      synthesis so Δprotein ≈ 0 even at high synthesis (iteration 0 gave
-      0.037, implausibly low). The correct measure is ribosome INITIATION
-      events on dnaA mRNA per minute (ribosome_data) ÷ dnaA mRNA synthesis
-      rate. TODO before trusting TE calibration: switch to init-event based
-      measurement. Until then the TE leg of this loop is NOT trustworthy;
-      the transcription (mRNA-rate) leg is sound.
+      = total dnaA ribosome-initiation events / total dnaA mRNA synthesized
+        over the run. Both are direct INITIATION-EVENT counts
+        (ribosome_data.ribosome_init_event_per_monomer[dnaA] and
+        rnap_data.rna_init_event_per_cistron[dnaA]), so this is the true
+        proteins-made-per-mRNA-made ratio — NOT a count-delta (free-monomer
+        count is confounded by ATP/ADP binding + degradation, which is why
+        the earlier Δprotein proxy gave a spurious 0.037).
 
 Rescale rule (locally linear away from the renorm denominator):
   transcription_factor *= target_mrna_rate / realized_mrna_rate
@@ -80,9 +78,9 @@ def measure(cache_dir: str, sim_minutes: float, seed: int = 0) -> dict:
     total_s = sim_minutes * 60.0
     chunk = 60.0
     done = 0.0
-    mrna_events = 0.0
+    mrna_events = 0.0          # dnaA mRNA initiation events (RNAP)
+    protein_events = 0.0       # dnaA ribosome initiation events
     copy_samples: list[float] = []
-    protein0 = protein_last = None
 
     def _read(path):
         node = comp.state["agents"]["0"].get("listeners") or {}
@@ -99,26 +97,23 @@ def measure(cache_dir: str, sim_minutes: float, seed: int = 0) -> dict:
         ev = _read(["rnap_data", "rna_init_event_per_cistron"])
         if ev is not None and len(ev) > cistron_idx:
             mrna_events += float(ev[cistron_idx])
+        ri = _read(["ribosome_data", "ribosome_init_event_per_monomer"])
+        if ri is not None and len(ri) > DNAA_MONOMER_IDX:
+            protein_events += float(ri[DNAA_MONOMER_IDX])
         cn = _read(["rna_synth_prob", "gene_copy_number"])
         if cn is not None and len(cn) > cistron_idx:
             copy_samples.append(float(cn[cistron_idx]))
-        prot = _read(["monomer_counts"])
-        if prot is not None and len(prot) > DNAA_MONOMER_IDX:
-            pv = float(prot[DNAA_MONOMER_IDX])
-            if protein0 is None:
-                protein0 = pv
-            protein_last = pv
 
     run_min = total_s / 60.0
     mean_copy = float(np.mean(copy_samples)) if copy_samples else 1.0
     mrna_rate = mrna_events / run_min / max(mean_copy, 1e-9)         # mRNA/min/gene
-    protein_made = (protein_last - protein0) if (protein0 is not None) else 0.0
-    realized_te = (protein_made / mrna_events) if mrna_events > 0 else float("nan")
+    # True proteins-made-per-mRNA-made (both are initiation-event counts).
+    realized_te = (protein_events / mrna_events) if mrna_events > 0 else float("nan")
     return {
         "mrna_events": mrna_events,
+        "protein_events": protein_events,
         "mean_gene_copy": mean_copy,
         "mrna_rate_per_min_per_gene": mrna_rate,
-        "protein_made": protein_made,
         "realized_te_protein_per_mrna": realized_te,
         "run_minutes": run_min,
     }

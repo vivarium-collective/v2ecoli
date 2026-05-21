@@ -264,11 +264,20 @@ def dnaa_02_with_intrinsic_hydrolysis(
     Returns:
         process-bigraph state document.
     """
-    if mechanism not in ("rida-v0", "monkey-patch"):
+    if mechanism not in ("intrinsic", "rida-v0", "monkey-patch"):
         raise ValueError(
             f"dnaa_02_with_intrinsic_hydrolysis: mechanism must be "
-            f"'rida-v0' or 'monkey-patch', got {mechanism!r}"
+            f"'intrinsic', 'rida-v0' or 'monkey-patch', got {mechanism!r}"
         )
+    # 'intrinsic' (expert-preferred for dnaa-02, round-1 feedback 2026-05-21):
+    # equilibrium INTACT, NO RIDA step. RIDA / DDAH / DARS are extrinsic
+    # regulators whose loci/partners (datA, DARS1/2) aren't modelled yet, so
+    # adding RIDA here is premature — the reviewer asked for intrinsic
+    # hydrolysis ONLY at this stage. Pair with atp_fraction_clamp_*=None to
+    # see the honest intrinsic-only behaviour (no artificial band-forcing).
+    # 'rida-v0' (former dnaa-02f default) is retained for the later study
+    # where RIDA's prerequisites exist; 'monkey-patch' is the legacy
+    # equilibrium-zeroing option.
 
     # 1. Build the standard baseline composite.
     doc = baseline(core=core, seed=seed, cache_dir=cache_dir)

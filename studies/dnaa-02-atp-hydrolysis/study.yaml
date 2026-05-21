@@ -60,9 +60,16 @@ conditions:
     params:
       seed: 0
       cache_dir: out/cache
-      mechanism: rida-v0
-      atp_fraction_clamp_low: 0.2
-      atp_fraction_clamp_high: 0.5
+      # Round-1 expert feedback (2026-05-21, Haochen): at this stage use
+      # ONLY intrinsic hydrolysis. RIDA / DDAH / DARS are extrinsic
+      # regulators whose loci/partners (datA, DARS1&2) aren't modelled yet,
+      # so the former rida-v0 default (from dnaa-02f's test-driven verdict)
+      # is premature here. Clamp also disabled — the band-forcing stand-in
+      # masks the honest intrinsic-only behaviour the reviewer wants to see.
+      # See investigations/dnaa-replication/feedback-2026-05-21/PLAN.md.
+      mechanism: intrinsic
+      atp_fraction_clamp_low: null
+      atp_fraction_clamp_high: null
   variants:
   - name: no-intrinsic-hydrolysis
     description: Disable intrinsic hydrolysis; expect atp_fraction → 1.0 (no DnaA-ADP).

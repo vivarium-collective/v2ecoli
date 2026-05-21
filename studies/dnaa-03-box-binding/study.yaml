@@ -26,6 +26,30 @@ assumptions:
   - Schaper2000
   verified_in_v2ecoli: true
   note: Catalog in v2ecoli/data/dnaa_box_catalog.py.
+- text: 'Box set is the curated 307 chromosomal CONSENSUS DnaA-boxes
+    (TTWTNCACA motif; Roth 1998 + Olivi 2025), all high-affinity
+    (Kd~1 nM), plus the oriC + dnaAp sites — NOT v2ecoli''s genome motif
+    search. The reviewer noted a chart showing ~456 boxes: that reflects
+    replication-DUPLICATED box copies at a mid-cycle snapshot (boxes
+    between oriC and the fork present in 2 copies), not 456 distinct
+    sites. At this stage we deliberately use the 307 consensus rather
+    than exploring additional putative boxes (expert round-1 2026-05-21).'
+  cites:
+  - Roth1998
+  verified_in_v2ecoli: true
+  note: 307 consensus = chromosomal titration sites; search criterion is the
+    TTWTNCACA consensus motif, documented in dnaa_box_catalog.py.
+- text: 'oriC low-affinity boxes (8 weak DnaA-ATP sites) use occupancy-
+    dependent differential affinity: a per-site Kd gradient 50→1 nM
+    (linear, wcm_stage1_parameters) — the tightest fills last, giving
+    cooperative graded occupancy. Replaces a flat low Kd / Hill
+    coefficient, which cannot resolve per-box occupancy (expert
+    round-1 2026-05-21). The 3 oriC high-affinity boxes stay at Kd~1 nM.'
+  cites:
+  - Speck1999
+  verified_in_v2ecoli: true
+  note: DnaaBoxBinding.oric_low_cooperative (default True); gradient endpoints
+    kd_oric_low_max_nM=50, kd_oric_low_min_nM=1.
 - text: 'DnaA-box binding equilibrates much faster than gene expression
 
     or replication; per-tick equilibrium-binding is a reasonable

@@ -369,6 +369,64 @@ def dnaa_02_with_intrinsic_hydrolysis(
                       "description": "Path to ParCa cache directory"},
     },
 )
+@composite_generator(
+    name="dnaa_stage1_constitutive",
+    description=(
+        "Stage-1 dnaA expression (expert round-1, 2026-05-21): a constitutive "
+        "apo-DnaA source at 1.5 protein/min/gene (= transcription 1.5 × TE 1), "
+        "+ the read-only dnaA-cycle listener. Pair with the 'stage1-heuristic' "
+        "condition cache (cache_dir=out/cache-stage1-heuristic), which zeroes "
+        "ParCa's DnaA translation so this Step is the SOLE DnaA source. "
+        "Replaces the non-convergent ParCa-patch approach (Option B). "
+        "Constitutive = no autorepression yet, by the expert's staging."
+    ),
+    parameters={
+        "seed":      {"type": "integer", "default": 0, "description": "RNG seed"},
+        "cache_dir": {"type": "string",  "default": "out/cache-stage1-heuristic",
+                      "description": "Stage-1 condition cache (TE[DnaA]=0)"},
+        "rate_protein_per_min_per_gene": {
+            "type": "number", "default": 1.5,
+            "description": "Constitutive DnaA synthesis rate (Stage-1: 1.5)"},
+        "gene_copies": {
+            "type": "number", "default": 1.0,
+            "description": "dnaA gene-copy multiplier (slow non-overlapping cycle ≈ 1)"},
+    },
+)
+def dnaa_stage1_constitutive(
+    core: Any = None,
+    *,
+    seed: int = 0,
+    cache_dir: str = "out/cache-stage1-heuristic",
+    rate_protein_per_min_per_gene: float = 1.5,
+    gene_copies: float = 1.0,
+) -> dict:
+    """Stage-1 dnaA expression: constitutive apo-DnaA source + cycle readout.
+
+    Uses the 'stage1-heuristic' condition cache (ParCa DnaA translation
+    zeroed) so the DnaaConstitutiveExpression Step is the only DnaA source,
+    producing apo-DnaA at the absolute Stage-1 rate. See the Step docstring
+    and feedback-2026-05-21/PLAN.md.
+    """
+    from v2ecoli.steps.dnaa_constitutive_expression import DnaaConstitutiveExpression
+
+    doc = baseline(core=core, seed=seed, cache_dir=cache_dir)
+    cell_state = doc["state"]["agents"]["0"]
+
+    expr = DnaaConstitutiveExpression(parameters={
+        "rate_protein_per_min_per_gene": float(rate_protein_per_min_per_gene),
+        "gene_copies": float(gene_copies),
+        "seed": int(seed),
+    })
+    _append_step(cell_state, "dnaa-constitutive-expression",
+                 expr, _PRIORITY_HYDROLYSIS)   # runs before the listener
+    listener = DnaaCycleListener(parameters={})
+    _append_step(cell_state, "dnaa-cycle-listener",
+                 listener, _PRIORITY_LISTENER)
+    doc["flow_order"] = list(doc.get("flow_order", [])) + [
+        "dnaa-constitutive-expression", "dnaa-cycle-listener"]
+    return doc
+
+
 def dnaa_00_baseline_with_dnaa_readout(
     core: Any = None,
     *,

@@ -91,50 +91,46 @@ def _dnaa_tu_idx(sim_data):
     return int(tus[0]), str(rna_ids[tus[0]]), int(len(tus))
 
 
-def patch_dnaa_stage1(sim_data, transcription_factor: float,
-                      te_factor: float) -> dict:
-    """Scale dnaA transcription + translation knobs by the given factors.
+def patch_dnaa_stage1(sim_data, transcription_factor: float = 0.0,
+                      te_factor: float = 0.0) -> dict:
+    """Disable ParCa's DnaA translation so the constitutive Step is the
+    sole DnaA source (Option A).
 
-    Patches BOTH the ppGpp-on path (exp_free / exp_ppgpp) and the ppGpp-off
-    path (basal_prob) for EG10235_RNA, and the translation-efficiency weight
-    for PD03831. Returns a record of what changed (for the manifest). The
-    absolute Stage-1 targets are realised by the calibration loop choosing
-    the factors; this function just applies them.
+    Sets ``translation_efficiencies_by_monomer[PD03831] = 0`` — a clean
+    per-monomer change that stops ParCa translating DnaA without touching
+    the dnaN/recF operon-mates (those share dnaA's TU but not its monomer
+    TE). The Stage-1 baseline recipe then adds a DnaaConstitutiveExpression
+    Step that produces apo-DnaA at the absolute Stage-1 rate
+    (1.5 protein/min/gene), which the equilibrium distributes to the
+    ATP/ADP forms.
+
+    ParCa still transcribes the dnaA operon mRNA; it's left untranslated
+    (harmless for the DnaA level). The ``*_factor`` args are ignored —
+    kept only so the (now-deprecated) calibration loop signature still
+    calls cleanly; Option A needs no calibration.
+
+    Why not patch ParCa transcription/TE to the absolute targets directly
+    (Option B): empirically non-convergent — the normalised ParCa weights
+    renormalise across ~4500 TUs/monomers, so scaling dnaA's weight does
+    not move the realised rate monotonically. See
+    scripts/calibrate_dnaa_stage1.py and feedback-2026-05-21/PLAN.md.
     """
-    record: dict = {"transcription_factor": transcription_factor,
-                    "te_factor": te_factor, "patched": {}}
+    record: dict = {"approach": "option-A: disable ParCa DnaA translation; "
+                    "constitutive Step supplies DnaA", "patched": {}}
 
-    tx = sim_data.process.transcription
-    treg = sim_data.process.transcription_regulation
     tl = sim_data.process.translation
-
     ti, tu_id, n_tus = _dnaa_tu_idx(sim_data)
     mi = _monomer_idx(sim_data)
-    record["dnaA_tu"] = {"index": ti, "tu_id": tu_id,
-                         "n_tus_for_gene": n_tus}
+    record["dnaA_tu"] = {"index": ti, "tu_id": tu_id, "n_tus_for_gene": n_tus,
+                         "note": "operon (dnaA-dnaN-recF); transcription left intact"}
     record["monomer_index"] = mi
 
-    # Transcription: scale every array that feeds the realized synthesis
-    # rate, so the patch holds whether or not ppGpp regulation is active.
-    for attr, owner in (("exp_free", tx), ("exp_ppgpp", tx),
-                        ("basal_prob", treg)):
-        a = getattr(owner, attr, None)
-        if a is not None and len(a) > ti:
-            a = np.array(a, copy=True)
-            before = float(a[ti])
-            a[ti] = before * transcription_factor
-            setattr(owner, attr, a)
-            record["patched"][attr] = {"index": ti, "before": before,
-                                       "after": float(a[ti])}
-
-    # Translation efficiency weight for dnaA monomer.
     te = np.array(tl.translation_efficiencies_by_monomer, copy=True)
     before = float(te[mi])
-    te[mi] = before * te_factor
+    te[mi] = 0.0
     tl.translation_efficiencies_by_monomer = te
-    record["patched"]["translation_efficiency"] = {
-        "index": mi, "before": before, "after": float(te[mi])}
-
+    record["patched"]["translation_efficiency_zeroed"] = {
+        "index": mi, "before": before, "after": 0.0}
     return record
 
 

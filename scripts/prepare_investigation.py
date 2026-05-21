@@ -85,6 +85,65 @@ def _post(url: str, payload: dict, timeout: float = 1800.0) -> tuple[int, dict]:
         return 0, {"error": str(e)}
 
 
+def _git_sha() -> str:
+    import subprocess
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"], cwd=REPO_ROOT,
+            capture_output=True, text=True, check=True).stdout.strip()
+    except Exception:
+        return "unknown"
+
+
+def _new_generation_id() -> str:
+    import datetime
+    return "gen-" + datetime.datetime.now().strftime("%Y%m%dT%H%M%S")
+
+
+def _write_generation_manifest(inv: str, generation_id: str,
+                                results: list[dict],
+                                condition_caches: dict | None = None) -> Path:
+    """Write the coordinated-generation manifest.
+
+    A *generation* is one coordinated prep run: every study's baseline +
+    comparison variants run, and every comparative rendered, under one id +
+    one code state (git sha). The dashboard report reads the current
+    manifest, shows 'results coordinated as of <generation>', and flags any
+    displayed study whose latest run isn't in this generation as stale —
+    so the 'results mixed across dates' problem becomes visible, not silent.
+    See investigations/<inv>/feedback-2026-05-21/PLAN.md (Part 1).
+    """
+    import datetime
+    gen_dir = REPO_ROOT / ".pbg" / "generations"
+    gen_dir.mkdir(parents=True, exist_ok=True)
+    manifest = {
+        "generation_id": generation_id,
+        "investigation": inv,
+        "created_at": datetime.datetime.now().isoformat(),
+        "git_sha": _git_sha(),
+        # condition_caches: {study_or_run: condition_cache_id} — pins which
+        # named ParCa sim_data fit each run used (task #24). Empty until the
+        # condition-cache mechanism lands.
+        "condition_caches": condition_caches or {},
+        "studies": [
+            {
+                "study": r["study"],
+                "runs": [
+                    {"sim_name": rr["run"], "kind": rr["kind"],
+                     "run_id": rr.get("run_id")}
+                    for rr in (r.get("runs") or [])
+                ],
+                "comparatives": [v.get("viz") for v in (r.get("rendered") or [])
+                                 if "bytes" in v],
+            }
+            for r in results if not r.get("skipped")
+        ],
+    }
+    (gen_dir / f"{generation_id}.json").write_text(json.dumps(manifest, indent=2))
+    (gen_dir / "current.json").write_text(json.dumps(manifest, indent=2))
+    return gen_dir / f"{generation_id}.json"
+
+
 def _investigations() -> list[str]:
     inv_root = REPO_ROOT / "investigations"
     if not inv_root.is_dir():
@@ -132,16 +191,19 @@ def prepare_study(slug: str, dash: str, steps: int | None,
                 payload = {"study": slug}
                 if steps is not None:
                     payload["steps"] = steps
-                code, _ = _post(f"{dash}/api/study-run-baseline", payload)
-                run_results.append({"run": sn, "kind": "baseline", "http": code})
+                code, body = _post(f"{dash}/api/study-run-baseline", payload)
+                kind = "baseline"
             else:
                 payload = {"study": slug, "variant": sn}
                 if steps is not None:
                     payload["steps"] = steps
-                code, _ = _post(f"{dash}/api/study-run-variant", payload)
-                run_results.append({"run": sn, "kind": "variant", "http": code})
-            print(f"  ran {sn} ({run_results[-1]['kind']}): HTTP {run_results[-1]['http']}",
-                  flush=True)
+                code, body = _post(f"{dash}/api/study-run-variant", payload)
+                kind = "variant"
+            run_id = (body.get("simulation_id") or body.get("run_id")
+                      if isinstance(body, dict) else None)
+            run_results.append({"run": sn, "kind": kind, "http": code,
+                                "run_id": run_id})
+            print(f"  ran {sn} ({kind}): HTTP {code} run_id={run_id}", flush=True)
 
     # Render comparatives directly (the run endpoints render declared viz but
     # not the comparative overlays — those only render inside run-unblocked).
@@ -201,7 +263,9 @@ def main() -> int:
 
     dash = _dashboard_url(args.dashboard_url)
     studies = [args.study] if args.study else _study_slugs(inv)
+    generation_id = _new_generation_id()
     print(f"Preparing investigation {inv!r} via {dash}")
+    print(f"  generation: {generation_id}  (git {_git_sha()})")
     print(f"  studies: {studies}")
     if not args.render_only:
         print("  (running baseline + comparison variants — this may take several "
@@ -212,7 +276,14 @@ def main() -> int:
         print(f"\n=== {slug} ===", flush=True)
         results.append(prepare_study(slug, dash, args.steps, args.render_only))
 
-    print("\n=== SUMMARY ===")
+    # Record the coordinated generation. When preparing a SUBSET (--study),
+    # the manifest still records what ran — but a partial generation should
+    # only be promoted to current when the whole investigation was prepared.
+    full_run = not args.study
+    manifest_path = _write_generation_manifest(inv, generation_id, results)
+    print(f"\n=== SUMMARY ===")
+    print(f"generation {generation_id} → {manifest_path.relative_to(REPO_ROOT)}"
+          f"{'' if full_run else '  (PARTIAL: prepared a single study)'}")
     for r in results:
         if r.get("skipped"):
             print(f"  {r['study']}: skipped ({r['skipped']})")

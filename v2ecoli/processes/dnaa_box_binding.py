@@ -101,6 +101,15 @@ class DnaaBoxBinding(Step):
         "seed":       {"_type": "integer", "_default": 0},
         "enable_oric_binding":  {"_type": "boolean", "_default": True},
         "enable_dnaap_binding": {"_type": "boolean", "_default": True},
+        # oriC low-affinity cooperativity (Stage-1, expert round-1 2026-05-21):
+        # the 8 weak oriC DnaA-ATP boxes have a per-site Kd GRADIENT decreasing
+        # with occupancy — 50 nM (first site to fill) → 1 nM (last) linearly
+        # (wcm_stage1_parameters). This "differential binding affinity by
+        # occupancy" replaces a flat low Kd / Hill coefficient (which can't
+        # track per-box occupancy). Disable to fall back to flat kd_low_nM.
+        "oric_low_cooperative":   {"_type": "boolean", "_default": True},
+        "kd_oric_low_max_nM":     {"_type": "float", "_default": 50.0},
+        "kd_oric_low_min_nM":     {"_type": "float", "_default": 1.0},
         "time_step": {"_type": "float", "_default": 1.0},
     }
 
@@ -109,6 +118,9 @@ class DnaaBoxBinding(Step):
 
         self.kd_high_nM = float(self.parameters["kd_high_nM"])
         self.kd_low_nM = float(self.parameters["kd_low_nM"])
+        self.oric_low_cooperative = bool(self.parameters.get("oric_low_cooperative", True))
+        self.kd_oric_low_max_nM = float(self.parameters.get("kd_oric_low_max_nM", 50.0))
+        self.kd_oric_low_min_nM = float(self.parameters.get("kd_oric_low_min_nM", 1.0))
         self.enable_oric = bool(self.parameters["enable_oric_binding"])
         self.enable_dnaap = bool(self.parameters["enable_dnaap_binding"])
         self.seed = int(self.parameters["seed"])
@@ -145,6 +157,21 @@ class DnaaBoxBinding(Step):
         self._mask_oric_low = self._mask_oric & (self._affinity == "low")
         # Mask: does this site accept ADP-bound DnaA?
         self._accepts_adp = self._form_pref == "both"
+
+        # oriC low-affinity cooperativity: give the weak oriC boxes a per-site
+        # Kd GRADIENT (50→1 nM linear) instead of the flat kd_low. The tightest
+        # site (Kd≈1) fills last as occupancy rises, so occupancy is a graded,
+        # cooperative function of [DnaA-ATP] — the "differential affinity by
+        # occupancy" the reviewer asked for (vs a Hill coefficient that can't
+        # resolve per-box occupancy). Indices ordered by the catalog; the
+        # gradient is over the count, not genomic position.
+        oric_low_idx = np.where(self._mask_oric_low)[0]
+        if self.oric_low_cooperative and len(oric_low_idx) > 0:
+            n = len(oric_low_idx)
+            grad = (np.linspace(self.kd_oric_low_max_nM, self.kd_oric_low_min_nM, n)
+                    if n > 1 else np.array([self.kd_oric_low_min_nM]))
+            self._kd_nM = np.array(self._kd_nM, dtype=float)
+            self._kd_nM[oric_low_idx] = grad
 
         self._atp_idx: int | None = None
         self._adp_idx: int | None = None
@@ -231,59 +258,41 @@ class DnaaBoxBinding(Step):
         c_atp_nM = self._free_concentration_nM(free_atp, cell_volume_L)
         c_adp_nM = self._free_concentration_nM(free_adp, cell_volume_L)
 
-        # Update each site stochastically. Iterate by affinity class +
-        # form-preference because the binding probability depends on:
-        #   - which forms the site accepts (atp_only vs both)
-        #   - the Kd of the class
-        # We compute, for each site, P(bound by ATP-DnaA) and
-        # P(bound by ADP-DnaA), normalized by the free pool. Sites
-        # that accept "both" share the combined free pool.
+        # Update each site stochastically using its PER-SITE Kd
+        # (self._kd_nM). This is fully per-site rather than per-class so the
+        # oriC low-affinity Kd gradient (50→1 nM) takes effect — each weak
+        # oriC box has its own affinity, giving graded/cooperative occupancy.
+        #   - atp_preferential sites: P_bound = c_atp / (Kd_i + c_atp)
+        #   - "both" sites: pool the two free concentrations
         new_occupied = np.zeros(self._n_sites, dtype=bool)
         new_form = np.zeros(self._n_sites, dtype=np.int8)
+        kd_site = np.asarray(self._kd_nM, dtype=float)
 
-        # We loop per affinity class for vectorization. Within each class,
-        # all sites share the same Kd.
-        for affinity_value in ("high", "low"):
-            class_mask = self._affinity == affinity_value
-            if not class_mask.any():
-                continue
-            kd = self.kd_high_nM if affinity_value == "high" else self.kd_low_nM
-            # ATP-only sites in this class
-            atp_only_mask = class_mask & (self._form_pref == "atp_preferential")
-            both_mask = class_mask & (self._form_pref == "both")
+        atp_only_mask = self._form_pref == "atp_preferential"
+        both_mask = self._form_pref == "both"
 
-            # ATP-only sites: P_bound = c_atp / (Kd + c_atp)
-            p_atp_only = self._equilibrium_occupied(
-                atp_only_mask.sum(), kd, c_atp_nM)
-            # "both" sites: pool the two free concentrations
-            p_both = self._equilibrium_occupied(
-                both_mask.sum(), kd, c_atp_nM + c_adp_nM)
+        # ATP-only sites: per-site p_bound from c_atp and per-site Kd.
+        if atp_only_mask.any():
+            kds = kd_site[atp_only_mask]
+            denom = kds + c_atp_nM
+            p = np.where(denom > 0, c_atp_nM / denom, 0.0)
+            occ = self.random_state.random(p.shape[0]) < p
+            new_occupied[atp_only_mask] = occ
+            new_form[atp_only_mask] = np.where(occ, 1, 0)
 
-            # Draw occupancy probabilistically
-            n_atp_only = atp_only_mask.sum()
-            if n_atp_only > 0:
-                draws = self.random_state.random(n_atp_only)
-                occ_atp_only = draws < p_atp_only
-                # All bound by ATP (definition of atp_preferential)
-                new_occupied[atp_only_mask] = occ_atp_only
-                new_form[atp_only_mask] = np.where(occ_atp_only, 1, 0)
-
-            n_both = both_mask.sum()
-            if n_both > 0:
-                draws = self.random_state.random(n_both)
-                occ_both = draws < p_both
-                # If c_atp + c_adp = 0, leave form at 0
-                total_free = c_atp_nM + c_adp_nM
-                if total_free > 0:
-                    p_atp_given_bound = c_atp_nM / total_free
-                else:
-                    p_atp_given_bound = 0.0
-                form_draws = self.random_state.random(n_both)
-                # 1 (ATP) if draw < p_atp_given_bound, else 2 (ADP)
-                forms_for_bound = np.where(form_draws < p_atp_given_bound, 1, 2)
-                # Only assign forms to the actually-occupied subset
-                new_form[both_mask] = np.where(occ_both, forms_for_bound, 0)
-                new_occupied[both_mask] = occ_both
+        # "both" sites: pool free ATP+ADP; per-site p_bound; assign form by
+        # the free-pool ratio.
+        if both_mask.any():
+            kds = kd_site[both_mask]
+            total_free = c_atp_nM + c_adp_nM
+            denom = kds + total_free
+            p = np.where(denom > 0, total_free / denom, 0.0)
+            occ = self.random_state.random(p.shape[0]) < p
+            p_atp_given_bound = (c_atp_nM / total_free) if total_free > 0 else 0.0
+            form_draws = self.random_state.random(p.shape[0])
+            forms_for_bound = np.where(form_draws < p_atp_given_bound, 1, 2)
+            new_form[both_mask] = np.where(occ, forms_for_bound, 0)
+            new_occupied[both_mask] = occ
 
         # Cap by free pool. If we accidentally tried to bind more than the
         # free pool, randomly evict the excess. Iterate at most a few times

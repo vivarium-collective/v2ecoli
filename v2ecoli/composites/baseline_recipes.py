@@ -390,6 +390,13 @@ def dnaa_02_with_intrinsic_hydrolysis(
         "gene_copies": {
             "type": "number", "default": 1.0,
             "description": "dnaA gene-copy multiplier (slow non-overlapping cycle ≈ 1)"},
+        "initial_dnaa_count": {
+            "type": "integer", "default": 325,
+            "description": "Seed apo-DnaA count. The stage1 cache zeroes ParCa "
+                           "DnaA translation, so without seeding the cell starts "
+                           "at 0 DnaA (long unphysical transient). Default 325 ≈ "
+                           "rate·τ/ln2 (steady state at 1.5/min, τ=150min) and in "
+                           "the literature band 300-800 (Schmidt 2016)."},
     },
 )
 def dnaa_stage1_constitutive(
@@ -399,6 +406,7 @@ def dnaa_stage1_constitutive(
     cache_dir: str = "out/cache-stage1-heuristic",
     rate_protein_per_min_per_gene: float = 1.5,
     gene_copies: float = 1.0,
+    initial_dnaa_count: int = 325,
 ) -> dict:
     """Stage-1 dnaA expression: constitutive apo-DnaA source + cycle readout.
 
@@ -408,9 +416,23 @@ def dnaa_stage1_constitutive(
     and feedback-2026-05-21/PLAN.md.
     """
     from v2ecoli.steps.dnaa_constitutive_expression import DnaaConstitutiveExpression
+    from v2ecoli.library.schema import bulk_name_to_idx
 
     doc = baseline(core=core, seed=seed, cache_dir=cache_dir)
     cell_state = doc["state"]["agents"]["0"]
+
+    # Seed apo-DnaA: the stage1 cache zeroes ParCa DnaA translation, so the
+    # initial proteome has 0 DnaA. Start at a physiological count (~325) so
+    # the cell is at steady state from t=0; the equilibrium then partitions
+    # apo into the DnaA-ATP/ADP forms (fast). Without this the run shows a
+    # full-generation build-up from 0.
+    if initial_dnaa_count and "bulk" in cell_state:
+        bulk = cell_state["bulk"]
+        try:
+            apo_idx = int(bulk_name_to_idx("PD03831[c]", bulk["id"]))
+            bulk["count"][apo_idx] = int(initial_dnaa_count)
+        except Exception:
+            pass
 
     expr = DnaaConstitutiveExpression(parameters={
         "rate_protein_per_min_per_gene": float(rate_protein_per_min_per_gene),

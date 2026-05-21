@@ -166,11 +166,17 @@ conditions:
     params:
       seed: 0
       cache_dir: out/cache
-      # Run length in sim-seconds. v2ecoli ticks at ~1s; 3600 = one
-      # hour of cell-cycle time. Long enough for the slow-growth
-      # baseline to complete a doubling and emit a meaningful trace
-      # of listeners.dnaA_cycle.atp_fraction + listeners.monomer_counts.
-      n_steps: 3600
+      # Run length in sim-seconds. v2ecoli ticks at ~1s. The Stage-1
+      # mass-doubling time is τ = 150 min = 9000 s (model_settings
+      # tau_min_stage1), so one full cell cycle for the slow-growth
+      # condition is 9000 s. The expert review asked dnaa-00 to span "one
+      # or a few cell cycles"; 10800 s == 1.2 τ gives one complete cycle
+      # with margin so the `baseline-produces-cell-cycle` test reliably
+      # captures the division event even if the slow condition divides a
+      # little past τ. (The default-condition cell at ~44 min doubling
+      # completes ~4 cycles in this window.) Long enough for a meaningful
+      # trace of listeners.dnaA_cycle.atp_fraction + listeners.monomer_counts.
+      n_steps: 10800
 
   variants:
     # The same v2ecoli code as `baseline`, but with the dnaa-04
@@ -195,7 +201,7 @@ conditions:
           initial_dnaA_count_per_cell = 300  (anchor to literature band)
       params:
         seed: 0
-        n_steps: 3600   # one hour of sim time, same as the baseline
+        n_steps: 10800   # 1.2 Stage-1 cell cycles (τ=150 min) w/ division margin, same as baseline
         mechanism: rida-v0
         hydrolysis_rate_per_min: 0.046
         rida_rate_per_min: 40.0
@@ -225,7 +231,7 @@ conditions:
         analytical predictions in one place.
       params:
         seed: 0
-        n_steps: 3600   # one hour of sim time — long enough for a full cycle
+        n_steps: 10800   # 1.2 Stage-1 cell cycles (τ=150 min) w/ division margin
 
   # Model settings — Stage 1 canonical values mirrored here for
   # downstream studies to inherit if they want.
@@ -277,14 +283,20 @@ conditions:
 tests:
 - name: baseline-produces-cell-cycle
   classification: primary
-  question: Does the v2ecoli baseline complete a full cell cycle (division event triggers within max_duration_s)?
+  # The v2ecoli single-cell composite does not emit a scalar division
+  # counter (replication_data only carries fork_coordinates/-domains/
+  # -unique_index arrays). The honest "completed a cell cycle" signal for
+  # a single-generation run is biomass doubling: mass.dry_mass_fold_change
+  # reaching ~2.0 over one τ. The 10800 s (1.2 τ) run length is sized so
+  # this is reachable for the slow Stage-1 condition with margin.
+  question: Does the v2ecoli baseline complete a full cell cycle (dry-mass doubles within the run window)?
   measure:
     kind: listener_max
-    path: listeners.replication_data.n_division_events
+    path: listeners.mass.dry_mass_fold_change
     window: full_run
   pass_if:
     op: at_least
-    value: 1
+    value: 2.0
   status: pending-first-run
   cites: [wcm_stage1_parameters]
   run_ids: []

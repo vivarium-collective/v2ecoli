@@ -244,6 +244,27 @@ class GetterFunctions(object):
         }
         self._miscrna_id_to_singleton_tu_id = {}
 
+        # Build the dedup-exemption set from per_promoter_ratios.tsv. For each
+        # TU listed there, compute the same gene_tuple key used by dedup
+        # (sorted gene IDs filtered to valid_gene_ids). All TUs sharing such a
+        # gene_tuple survive into transcription_units; downstream ParCa code
+        # must then apportion gene-level expression across them.
+        exempt_gene_tuples = set()
+        if hasattr(raw_data, "per_promoter_ratios"):
+            tu_id_to_tu = {tu["id"]: tu for tu in raw_data.transcription_units}
+            for row in raw_data.per_promoter_ratios:
+                tu_id = row.get("TU_id")
+                tu = tu_id_to_tu.get(tu_id)
+                if tu is None:
+                    continue
+                gene_tuple = tuple(
+                    sorted(
+                        [g for g in tu["genes"] if g in valid_gene_ids]
+                    )
+                )
+                if len(gene_tuple) > 0:
+                    exempt_gene_tuples.add(gene_tuple)
+
         for i, tu in enumerate(raw_data.transcription_units):
             # Get list of genes in TU after excluding invalid genes
             gene_tuple = tuple(
@@ -256,8 +277,12 @@ class GetterFunctions(object):
             if len(gene_tuple) == 0:
                 continue
 
-            # Skip duplicate TUs but compile all evidence codes
-            if gene_tuple in gene_tuple_to_tu_index:
+            # Skip duplicate TUs but compile all evidence codes — unless this
+            # gene_tuple is in the per_promoter_ratios.tsv exemption set, in
+            # which case all sharing TUs survive (their distinct promoters
+            # carry biologically different regulation that per_promoter_ratios
+            # apportions for ParCa).
+            if gene_tuple in gene_tuple_to_tu_index and gene_tuple not in exempt_gene_tuples:
                 evidence_list = raw_data.transcription_units[
                     gene_tuple_to_tu_index[gene_tuple]
                 ]["evidence"]
@@ -266,7 +291,7 @@ class GetterFunctions(object):
                 # Add nonduplicate evidence codes to original list
                 evidence_list.extend(list(set(new_evidence) - set(evidence_list)))
                 continue
-            else:
+            elif gene_tuple not in gene_tuple_to_tu_index:
                 gene_tuple_to_tu_index[gene_tuple] = i
 
             # Use gene coordinates if left and right end positions are not given

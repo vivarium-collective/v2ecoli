@@ -215,6 +215,20 @@ def _append_step(cell_state, step_name, instance, priority,
             "type": "number", "default": None,
             "description": "Upper edge of the ATP-fraction clamp band.",
         },
+        "stage1_dnaa_expression": {
+            "type": "boolean", "default": False,
+            "description": "Add constitutive DnaA expression + seed apo-DnaA so "
+                           "DnaA is at the physiological ~325 (Stage-1). Use with "
+                           "cache_dir=out/cache-stage1-heuristic.",
+        },
+        "dnaa_synthesis_rate_per_min": {
+            "type": "number", "default": 1.5,
+            "description": "Constitutive DnaA synthesis rate (Stage-1: 1.5/min/gene).",
+        },
+        "initial_dnaa_count": {
+            "type": "integer", "default": 325,
+            "description": "Seed apo-DnaA count when stage1_dnaa_expression=True.",
+        },
     },
 )
 def dnaa_02_with_intrinsic_hydrolysis(
@@ -228,8 +242,19 @@ def dnaa_02_with_intrinsic_hydrolysis(
     hydrolysis_deterministic: bool = False,
     atp_fraction_clamp_low: float | None = None,
     atp_fraction_clamp_high: float | None = None,
+    stage1_dnaa_expression: bool = False,
+    dnaa_synthesis_rate_per_min: float = 1.5,
+    initial_dnaa_count: int = 325,
 ) -> dict:
     """Build the dnaa-02 gate composite.
+
+    ``stage1_dnaa_expression=True`` (expert round-1, 2026-05-21): also add a
+    constitutive DnaaConstitutiveExpression Step + seed apo-DnaA, so the
+    DnaA level is the physiological ~325 (Stage-1) rather than v2ecoli's
+    ~12×-high ParCa default. Use with cache_dir=out/cache-stage1-heuristic
+    (which zeroes ParCa DnaA translation). This is how dnaa-02 gets the
+    corrected DnaA level the expert asked for; the intrinsic-hydrolysis +
+    equilibrium then act on that level.
 
     Two mechanisms are supported:
 
@@ -288,6 +313,25 @@ def dnaa_02_with_intrinsic_hydrolysis(
     if mechanism == "monkey-patch":
         _disable_dnaa_adp_equilibrium(cell_state)
 
+    # 1c. Stage-1 constitutive DnaA expression (opt-in): seed apo-DnaA + add
+    #     the constitutive Step so DnaA sits at the physiological ~325 (with
+    #     cache_dir=out/cache-stage1-heuristic zeroing ParCa DnaA translation).
+    if stage1_dnaa_expression:
+        from v2ecoli.steps.dnaa_constitutive_expression import DnaaConstitutiveExpression
+        from v2ecoli.library.schema import bulk_name_to_idx
+        if initial_dnaa_count and "bulk" in cell_state:
+            try:
+                _ai = int(bulk_name_to_idx("PD03831[c]", cell_state["bulk"]["id"]))
+                cell_state["bulk"]["count"][_ai] = int(initial_dnaa_count)
+            except Exception:
+                pass
+        _expr = DnaaConstitutiveExpression(parameters={
+            "rate_protein_per_min_per_gene": float(dnaa_synthesis_rate_per_min),
+            "seed": int(seed),
+        })
+        _append_step(cell_state, "dnaa-constitutive-expression",
+                     _expr, _PRIORITY_HYDROLYSIS)
+
     # 2. Instantiate Steps.
     hydrolysis = DnaaIntrinsicHydrolysis(parameters={
         "rate_per_min":   float(hydrolysis_rate_per_min),
@@ -341,7 +385,10 @@ def dnaa_02_with_intrinsic_hydrolysis(
                  token_in="_dnaa02_token_c")
 
     # 4. Extend flow_order so listing tools include the new Steps.
-    flow = ["dnaa-intrinsic-hydrolysis"]
+    flow = []
+    if stage1_dnaa_expression:
+        flow.append("dnaa-constitutive-expression")
+    flow.append("dnaa-intrinsic-hydrolysis")
     if rida is not None:
         flow.append("dnaa-rida-v0")
     flow.extend(["dnaa-atp-fraction-clamp", "dnaa-cycle-listener"])

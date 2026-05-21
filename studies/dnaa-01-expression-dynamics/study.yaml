@@ -46,10 +46,21 @@ assumptions:
   note: Requires translation_efficiency_override hook (see model_settings).
 conditions:
   baseline:
-    composite: v2ecoli.composites.baseline.baseline
+    # Stage-1 dnaA expression (expert round-1, 2026-05-21): constitutive
+    # apo-DnaA synthesis at 1.5 protein/min/gene (= transcription 1.5 × TE 1)
+    # on the stage1-heuristic condition cache (ParCa DnaA translation zeroed).
+    # Holds DnaA at the physiological ~325 (literature band 300-800) instead
+    # of v2ecoli's ~12×-high ParCa default. Constitutive = no autorepression
+    # at this stage. Replaces the never-built ParCa translation_efficiency
+    # override hook (Option B, found non-convergent). Build the cache once:
+    #   python scripts/build_condition_cache.py --condition stage1-heuristic
+    # See investigations/dnaa-replication/feedback-2026-05-21/PLAN.md.
+    composite: v2ecoli.composites.baseline_recipes.dnaa_stage1_constitutive
     params:
       seed: 0
-      cache_dir: out/cache
+      cache_dir: out/cache-stage1-heuristic
+      rate_protein_per_min_per_gene: 1.5
+      initial_dnaa_count: 325
   variants: []
   model_settings:
   - name: translation_efficiency_eg10235_scale

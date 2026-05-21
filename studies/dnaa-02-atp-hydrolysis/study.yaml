@@ -70,6 +70,13 @@ conditions:
       mechanism: intrinsic
       atp_fraction_clamp_low: null
       atp_fraction_clamp_high: null
+      # Stage-1 dnaA expression so DnaA is at the physiological ~325 rather
+      # than v2ecoli's ~12×-high ParCa default (expert: "DnaA-ATP too high
+      # because the model raised translation efficiency"). Requires the
+      # stage1-heuristic condition cache (ParCa DnaA translation zeroed):
+      #   python scripts/build_condition_cache.py --condition stage1-heuristic
+      cache_dir: out/cache-stage1-heuristic
+      stage1_dnaa_expression: true
   variants:
   - name: no-intrinsic-hydrolysis
     description: Disable intrinsic hydrolysis; expect atp_fraction → 1.0 (no DnaA-ADP).

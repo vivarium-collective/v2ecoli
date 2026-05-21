@@ -171,8 +171,8 @@ conditions:
       # tau_min_stage1), so one full cell cycle for the slow-growth
       # condition is 9000 s. The expert review asked dnaa-00 to span "one
       # or a few cell cycles"; 10800 s == 1.2 τ gives one complete cycle
-      # with margin so the `baseline-produces-cell-cycle` test reliably
-      # captures the division event even if the slow condition divides a
+      # with margin so the `baseline-initiates-replication` test reliably
+      # captures the oriC-doubling event even if the slow condition fires a
       # little past τ. (The default-condition cell at ~44 min doubling
       # completes ~4 cycles in this window.) Long enough for a meaningful
       # trace of listeners.dnaA_cycle.atp_fraction + listeners.monomer_counts.
@@ -281,22 +281,28 @@ conditions:
 
 # ─── TESTS ──────────────────────────────────────────────────────────────
 tests:
-- name: baseline-produces-cell-cycle
+- name: baseline-initiates-replication
   classification: primary
-  # The v2ecoli single-cell composite does not emit a scalar division
-  # counter (replication_data only carries fork_coordinates/-domains/
-  # -unique_index arrays). The honest "completed a cell cycle" signal for
-  # a single-generation run is biomass doubling: mass.dry_mass_fold_change
-  # reaching ~2.0 over one τ. The 10800 s (1.2 τ) run length is sized so
-  # this is reachable for the slow Stage-1 condition with margin.
-  question: Does the v2ecoli baseline complete a full cell cycle (dry-mass doubles within the run window)?
+  # The v2ecoli single-cell run self-terminates at division and emits no
+  # scalar division counter, so "completed a cell cycle" isn't directly
+  # measurable. For a replication-INITIATION investigation the defining,
+  # measurable event is a replication round firing: listeners.replication_
+  # data.number_of_oric (= oriCs._entryState.sum()) at least doubles when a
+  # round initiates (slow condition 1→2; fast/overlapping condition 2→4).
+  # ratio_at_least 2.0 over the full run = the baseline fired at least one
+  # round of chromosome replication. (Biomass alone is a poor proxy here:
+  # the cell divides at ~1.85× dry mass, never reaching a clean 2.0×.) The
+  # 10800 s (1.2 τ) run length ensures the slow Stage-1 condition has room
+  # to reach initiation before dividing.
+  question: Does the v2ecoli baseline initiate a round of chromosome replication (oriC count at least doubles) within the run window?
   measure:
-    kind: listener_max
-    path: listeners.mass.dry_mass_fold_change
+    kind: listener_path
+    path: listeners.replication_data.number_of_oric
+    reduce: first_and_last
     window: full_run
   pass_if:
-    op: at_least
-    value: 2.0
+    op: ratio_at_least
+    ratio: 2.0
   status: pending-first-run
   cites: [wcm_stage1_parameters]
   run_ids: []

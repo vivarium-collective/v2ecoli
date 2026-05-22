@@ -87,7 +87,7 @@ class SimplifiedMetabolism(Step):
 
     config_schema = {
         # Stoichiometry: {reaction_id: {metabolite_id: coefficient}}
-        'reaction_stoich': {'_type': 'any', '_default': {}},
+        'reaction_stoich': {'_type': 'node', '_default': {}},
         # Homeostatic targets: {metabolite_id: target_concentration_mM}
         'homeostatic_targets': {'_type': 'map[float]', '_default': {}},
         # Exchange molecules: list of external molecule IDs (with compartment tags)
@@ -100,7 +100,7 @@ class SimplifiedMetabolism(Step):
         'catalysis_matrix_V': {'_type': 'array[float]', '_default': []},
         # Maintenance
         'ngam': {'_type': 'float[mmol/g/h]', '_default': 8.39},
-        'maintenance_reaction': {'_type': 'any', '_default': {}},
+        'maintenance_reaction': {'_type': 'node', '_default': {}},
         'dark_atp': {'_type': 'float', '_default': 33.565},
         'cell_dry_mass_fraction': {'_type': 'float', '_default': 0.3},
         # Physical constants

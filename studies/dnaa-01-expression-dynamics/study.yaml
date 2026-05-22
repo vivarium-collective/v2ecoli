@@ -69,12 +69,15 @@ report:
     too-coarse cell-wide Y axis or weak fold change, but its verdict awaits a
     non-scalar evaluator.
 
-    Haochen R2 (charts, ~1900s dip): the slight dnaA drop is unexpected — NO
-    autorepression parameters are wired at the heuristic stage, so it should not
-    arise from autoregulation. Candidate causes to investigate (not yet resolved,
-    flagged as an open question): post-division dilution of the pool, interaction
-    of the constitutive-synthesis Step with the growing cell volume, or a
-    total-vs-free DnaA measurement effect — NOT genuine dnaA autorepression.
+    Haochen R2 (~1900s dip) — INVESTIGATED: the dip does NOT reproduce in the
+    slow-growth (acetate) full-cycle run. There DnaA rises smoothly and
+    monotonically (325 -> 407), and at the same 1700-2100 s window it sits steady
+    at ~363-370 with no drop. Since a genuine autoregulatory signature would
+    persist across growth conditions, the glucose-run dip is NOT autorepression —
+    it is a glucose-specific transient / division-timing artifact (in the 44-min
+    glucose cycle, ~1900 s is late-cycle near the ~2640 s division; the same
+    absolute time is mid-cycle under acetate and shows nothing). Consistent with
+    no autorepression parameters being wired at the heuristic stage.
 
     Haochen R2 (duration) — RESOLVED: re-run over a full cell cycle on minimal-
     acetate (slow non-overlapping growth; glycerol isn't in v2ecoli's ParCa, so
@@ -86,7 +89,8 @@ report:
     steady-state cycle length.
   decision: >-
     Pipeline gate PASSED for structural progression: regression_compatibility =
-    PASS, biological_validation = PASS (dnaA-count-in-range = 357, in band),
+    PASS, biological_validation = PASS (dnaA-count-in-range: acetate full-cycle
+    median 366, in band [300,800] throughout, second-half CV 2.8%),
     explanatory_gain = PENDING. No calibration shortfall remains; dnaa-02/03 build
     on a baseline whose absolute count is validated.
   next_action: >-
@@ -94,7 +98,8 @@ report:
     tests can be auto-verdicted; raise the expert question of which DnaA pool (free /
     total / ATP-form) the literature band targets; investigate the weak autorepression
     signature by slicing the Y axis to the dnaA-specific TU; and proceed to
-    dnaa-02-atp-hydrolysis (count calibration is now resolved — DnaA = 357, in band).
+    dnaa-02-atp-hydrolysis (count calibration is resolved — acetate full-cycle
+    median 366, in band, steady at CV 2.8%).
 question: 'Does v2ecoli reproduce the steady DnaA pool + autorepression baseline
 
   expected from the literature? Before we can mechanise replication

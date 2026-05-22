@@ -1,7 +1,14 @@
 schema_version: 3
 name: mbp-01-batch-reactor-scaffold
 created: '2026-05-22'
-status: planned
+# Multi-axis status (Pass A, canonical). Six independent axes; gate_status
+# is intentionally unset — it's a pass/fail outcome, only meaningful after
+# the gate is attempted. Replaces the legacy `status: planned` enum.
+design_status: drafted             # planned | drafted | expert_reviewed | approved
+implementation_status: not_started # not_started | partial | complete
+simulation_status: not_run         # not_run | running | ran | failed
+evaluation_status: not_evaluated   # not_evaluated | evaluated | failed_evaluation
+expert_review_status: not_requested # not_requested | requested | reviewed | approved | disputed
 phase: Design   # Design | Build | Simulate | Evaluate | Decide
 
 # NOTE: The reactor/cell composites live in the sibling repo
@@ -43,7 +50,6 @@ pipeline_gate:
   enables:
     - mbp-02-kla-gas-transport
     - mbp-03-dfba-substitution
-  gate_status: open   # open | conditional | hold | ready | blocked
   gate_status_summary: |
     First construction phase; no upstream dependencies. Gates the whole chain:
     the reactor composite skeleton and the cell-side interface contract built
@@ -219,7 +225,6 @@ bibliography:
 
 runs: []
 
-parent_studies: []
 
 tests:
   auto_discover: true

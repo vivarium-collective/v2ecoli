@@ -1,7 +1,14 @@
 schema_version: 3
 name: mbp-03-dfba-substitution
 created: '2026-05-22'
-status: planned
+# Multi-axis status (Pass A, canonical). Six independent axes; gate_status
+# is intentionally unset — it's a pass/fail outcome, only meaningful after
+# the gate is attempted. Replaces the legacy `status: planned` enum.
+design_status: drafted             # planned | drafted | expert_reviewed | approved
+implementation_status: not_started # not_started | partial | complete
+simulation_status: not_run         # not_run | running | ran | failed
+evaluation_status: not_evaluated   # not_evaluated | evaluated | failed_evaluation
+expert_review_status: not_requested # not_requested | requested | reviewed | approved | disputed
 phase: Design
 
 baseline:
@@ -42,7 +49,6 @@ pipeline_gate:
     - mbp-02-kla-gas-transport
   enables:
     - mbp-04-fed-batch-operations
-  gate_status: hold
   gate_status_summary: |
     Blocked on mbp-01 (interface contract + reactor) and mbp-02 (kLa transport,
     needed for the low-DO overflow regime). The keystone phase: validates that
@@ -200,8 +206,6 @@ bibliography:
 
 runs: []
 
-parent_studies:
-  - {study: mbp-02-kla-gas-transport, condition: tests-passed}
 
 tests:
   auto_discover: true

@@ -1,7 +1,14 @@
 schema_version: 3
 name: mbp-05-palsson-benchmark
 created: '2026-05-22'
-status: planned
+# Multi-axis status (Pass A, canonical). Six independent axes; gate_status
+# is intentionally unset — it's a pass/fail outcome, only meaningful after
+# the gate is attempted. Replaces the legacy `status: planned` enum.
+design_status: drafted             # planned | drafted | expert_reviewed | approved
+implementation_status: not_started # not_started | partial | complete
+simulation_status: not_run         # not_run | running | ran | failed
+evaluation_status: not_evaluated   # not_evaluated | evaluated | failed_evaluation
+expert_review_status: not_requested # not_requested | requested | reviewed | approved | disputed
 phase: Design
 
 baseline:
@@ -40,7 +47,6 @@ pipeline_gate:
   prerequisites:
     - mbp-04-fed-batch-operations
   enables: []   # leaf of the near-term construction arc
-  gate_status: hold
   gate_status_summary: |
     Blocked on mbp-04 (fed-batch operations) and on Palsson-2025 ingestion in
     the sibling repo (refs/palsson-2025/ + structured extraction in
@@ -184,8 +190,6 @@ bibliography:
 
 runs: []
 
-parent_studies:
-  - {study: mbp-04-fed-batch-operations, condition: tests-passed}
 
 tests:
   auto_discover: true

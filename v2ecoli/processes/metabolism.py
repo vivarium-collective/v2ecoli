@@ -116,7 +116,7 @@ class Metabolism(Step):
     config_schema = {
         'aa_exchange_names': {'_type': 'list[string]', '_default': []},
         'aa_names': {'_type': 'list[string]', '_default': []},
-        'aa_targets_not_updated': {'_type': 'any', '_default': set()},
+        'aa_targets_not_updated': {'_type': 'node', '_default': set()},
         'amino_acid_ids': {'_type': 'map', '_default': {}},
         'avogadro': {'_type': 'quantity[float,1/mol]', '_default': 6.02214076e+23},
         'base_reaction_ids': {'_type': 'list[string]', '_default': []},
@@ -136,7 +136,7 @@ class Metabolism(Step):
         'include_ppgpp': {'_type': 'boolean', '_default': False},
         'mechanistic_aa_transport': {'_type': 'boolean', '_default': False},
         'media_id': {'_type': 'string', '_default': 'minimal'},
-        'metabolism': {'_type': 'any', '_default': None},
+        'metabolism': {'_type': 'node', '_default': None},
         'ngam': {'_type': 'quantity[float,mmol/g/h]', '_default': 8.39},
         'nutrientToDoublingTime': {'_type': 'map[quantity[float,min]]', '_default': {}},
         'ppgpp_id': {'_type': 'string', '_default': 'ppgpp'},

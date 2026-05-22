@@ -253,6 +253,7 @@ studies:
   - dnaa-03-box-binding
   - dnaa-04-initiation-mechanism
   - dnaa-05-itv2-comparison        # 3-way comparison vs FuXiaoJun2023 analytical model
+  - dnaa-06-extrinsic-regulation   # RIDA/datA/DARS reset network — supplies the band intrinsic-only (dnaa-02) can't
 
 # Inputs (expert docs, datasets) supporting this whole investigation —
 # duplicates of what's in workspace.yaml.expert_docs but scoped to the

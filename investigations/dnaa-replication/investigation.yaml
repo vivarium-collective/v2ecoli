@@ -3,7 +3,7 @@ name: dnaa-replication
 title: DnaA / Replication Initiation
 created: '2026-05-16'
 last_baseline_run: '2026-05-17'
-status: planning-with-baseline-confirmed
+status: executed-round2-addressed-pending-review
 
 # ── Executive layer (report top): narrative + conclusions for a human reviewer.
 # Authored, not auto-derived. The generated report leads with this.

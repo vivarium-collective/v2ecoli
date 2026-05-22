@@ -29,6 +29,8 @@
 schema_version: 4
 name: dnaa-00-parameter-foundation
 created: '2026-05-18'
+runtime:
+  subprocess_timeout_s: 3600   # headroom for the ~44 min glucose cell cycle
 
 # ─── REPORT (compact, human-facing) ──────────────────────────────────────
 # The generated report renders each study with this uniform pattern:
@@ -79,16 +81,6 @@ report:
     heuristic, so it is a valid reference. Adding the hydrolysis/RIDA layer is
     what brings DnaA-ATP into the physiological band — evidence that the ported
     mechanism, not the heuristic, governs the ATP fraction.
-
-    Haochen R2 (fig 1, DnaA-ATP fraction): the Stage-1 RIDA-active trace
-    transiently rises toward ~1 during the window with NO active replication
-    forks. This is expected fork-coupling, not a glitch: RIDA/Hda hydrolyses
-    DnaA-ATP only at active forks (it needs the β-clamp loaded at a fork), so
-    between rounds RIDA shuts off and DnaA-ATP accumulates; the fraction drops
-    back into band when the next round fires and forks reactivate RIDA. (DnaA-ADP
-    does not "disappear" — its fraction falls because ATP-form accumulates while
-    hydrolysis is paused.) Fig 2 (monomer count): the orange trace is "Baseline +
-    Stage 1 params"; blue is the v2ecoli default — the legend sits below the plot.
   decision: >-
     Baseline confirmed and parameter-pinned. Proceed to the mechanism studies.
   next_action: >-
@@ -235,19 +227,12 @@ conditions:
     params:
       seed: 0
       cache_dir: out/cache
-      # Run-length CEILING in sim-seconds (v2ecoli ticks at ~1s). Set to 10800 to
-      # express the ≥ 1-doubling-time intent (Haochen R1/R2), BUT NOTE this ceiling
-      # is NOT currently reachable on glucose: on minimal-glucose (out/cache,
-      # media_id "minimal") the cell divides at ~2640 s (~44 min) and the run
-      # STOPS at the first division — run_with_division is division-SAFE, not
-      # multi-generation (it halts at division; verified: dnaa-02 requested 10800
-      # but ran to global_time 2624 s). To actually cover ≥ 1 doubling time:
-      #   (1) build the τ=150 min ABT minimal-glycerol Stage-1 ParCa cache
-      #       (model_settings.tau_min_stage1; status todo-media-override) and run
-      #       a single generation there (~150 min), OR
-      #   (2) implement true multi-generation (continue the daughter after division).
-      # The review-readiness duration gate flags this study until a run covers ≥ 1 τ.
-      n_steps: 10800
+      # Runs on minimal-glucose (~44 min cell cycle). NOTE: we tried the acetate
+      # carbon source to get a slower cycle, but it does NOT slow v2ecoli's growth
+      # (the growth rate is fixed by the synthesis machinery from the glucose ParCa
+      # fit), so the cell still divides at ~44 min. A true >1-doubling-time view
+      # needs a multi-generation run (follow-up #36), not a nutrient swap.
+      n_steps: 3600   # ceiling; glucose cell divides ~2640 s (~44 min)
 
   variants:
     # The same v2ecoli code as `baseline`, but with the dnaa-04
@@ -272,7 +257,8 @@ conditions:
           initial_dnaA_count_per_cell = 300  (anchor to literature band)
       params:
         seed: 0
-        n_steps: 3600   # ceiling; glucose run divides ~2640 s (~44 min), same as baseline
+        cache_dir: out/cache-stage1-heuristic
+        n_steps: 3600   # ceiling; glucose ~44 min cycle (acetate doesn't slow growth — see baseline note)
         mechanism: rida-v0
         hydrolysis_rate_per_min: 0.046
         rida_rate_per_min: 40.0

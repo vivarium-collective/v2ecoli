@@ -1,0 +1,91 @@
+schema_version: 1
+name: multiscale-bioprocess
+title: Multiscale Bioprocess — Cell ↔ Reactor Coupling
+created: '2026-05-22'
+status: planning
+
+question: |
+  Can a Process Bigraph–native multiscale model that couples a cell-scale
+  metabolic process to well-mixed bioreactor physics (mass balances, kLa
+  gas-liquid transport, fed-batch operations) reproduce the batch and
+  fed-batch high-density E. coli fermentation trajectories reported by the
+  2025 Palsson lab study — within tolerances set per phase — while
+  preserving a substitutable cell-side interface (Monod → dFBA → eventual
+  whole-cell)?
+
+hypothesis: |
+  Yes. Building the reactor substrate incrementally — a mass-balanced batch
+  scaffold, then kLa gas-liquid transport, then a drop-in dFBA cell side
+  under the same exchange-flux interface, then fed-batch operations — and
+  validating each increment against qualitative-direction and (where
+  literature supports) quantitative-range acceptance tests yields a model
+  whose simulated fed-batch trajectory matches the Palsson 2025 benchmark on
+  end-of-run OD, time-to-target-OD, and acetate-accumulation shape within
+  per-phase tolerances. Each study's acceptance tests must pass before the
+  next in the chain begins; the substitutability contract is exercised by
+  Phase 3's Monod→dFBA swap under an unchanged reactor composite.
+
+description: |
+  v2ecoli-workspace investigation tracking the near-term construction arc of
+  the vivarium-collective/multiscale-bioprocess project (SMS / DARPA). The
+  scientific code lands in that sibling repo; this investigation mirrors its
+  roadmap (the "Phase 0 artifact", docs/roadmap.md on the chris/initial-scaffolding
+  branch) as a gated study chain so the work is visible in the v2ecoli
+  dashboard and rides the same behavior-driven-development discipline.
+
+  Scope is 0D well-mixed cell ↔ reactor coupling (bench-scale). The cell side
+  starts as a Monod placeholder, is replaced by dynamic FBA (iML1515 or a
+  curated reduced model) under the substitutability contract, and the reactor
+  side gains kLa gas-liquid transport and fed-batch operations. The arc
+  culminates in a quantitative benchmark against the 2025 Palsson high-density
+  fed-batch E. coli study.
+
+  Out of scope here (longer-horizon, not yet phase-decomposed upstream):
+  substituting v2ecoli/v2coli as the whole-cell cell-side engine, high-density
+  (OD > 10) regime extension, WCM-internal mass-balance validation, and CFD /
+  spatial-mixing coupling. Those become their own studies once the dFBA arc
+  validates.
+
+  Studies, in dependency order:
+
+  1. mbp-01-batch-reactor-scaffold — PBG well-mixed batch reactor + placeholder
+     Monod cell process; mass balances close.
+  2. mbp-02-kla-gas-transport      — kLa-driven Henry's-law gas-liquid transport
+     for O2 and CO2.
+  3. mbp-03-dfba-substitution      — replace the Monod placeholder with a dFBA
+     cell process under the same exchange-flux interface.
+  4. mbp-04-fed-batch-operations   — feed schedules (constant / exponential /
+     pulsed), volume + dilution dynamics.
+  5. mbp-05-palsson-benchmark      — ingest Palsson 2025; overlay simulated vs.
+     published fed-batch trajectories; quantitative comparison.
+
+# Studies in this investigation, in suggested execution order.
+# The DAG is computed from each study's `parent_studies:` field at render time;
+# this list determines visibility / grouping only.
+studies:
+  - mbp-01-batch-reactor-scaffold
+  - mbp-02-kla-gas-transport
+  - mbp-03-dfba-substitution
+  - mbp-04-fed-batch-operations
+  - mbp-05-palsson-benchmark
+
+# Inputs (expert docs, datasets) supporting this investigation.
+# Source plan: vivarium-collective/multiscale-bioprocess docs/roadmap.md +
+# docs/concepts/ (chris/initial-scaffolding branch). Palsson 2025 PDF lands in
+# the sibling repo's refs/palsson-2025/ during mbp-05.
+expert_docs:
+  - multiscale_bioprocess_roadmap
+  - palsson_2025_fed_batch
+
+# Top-level success criteria. Each maps to a behavioral test in a constituent
+# study; the investigation is "complete" when all its acceptance criteria pass.
+acceptance_criteria:
+  - {study: mbp-01-batch-reactor-scaffold, behavior: reactor-carbon-mass-balance-closes}
+  - {study: mbp-01-batch-reactor-scaffold, behavior: final-biomass-matches-yield-on-glucose}
+  - {study: mbp-02-kla-gas-transport,      behavior: no-consumption-do-converges-to-henry-saturation}
+  - {study: mbp-02-kla-gas-transport,      behavior: higher-kla-raises-steady-state-do}
+  - {study: mbp-03-dfba-substitution,      behavior: aerobic-glucose-mu-max-in-literature-range}
+  - {study: mbp-03-dfba-substitution,      behavior: low-do-induces-acetate-overflow}
+  - {study: mbp-04-fed-batch-operations,   behavior: exponential-feed-yields-exponential-biomass}
+  - {study: mbp-05-palsson-benchmark,      behavior: end-of-run-od-matches-published}
+  - {study: mbp-05-palsson-benchmark,      behavior: acetate-profile-matches-published-shape}

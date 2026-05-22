@@ -1,0 +1,228 @@
+schema_version: 3
+name: mbp-01-batch-reactor-scaffold
+created: '2026-05-22'
+status: planned
+phase: Design   # Design | Build | Simulate | Evaluate | Decide
+
+# NOTE: The reactor/cell composites live in the sibling repo
+# vivarium-collective/multiscale-bioprocess (package `multiscale_bioprocess`),
+# NOT in v2ecoli. Composite addresses below are PLANNED targets; they do not
+# resolve in this workspace yet. This study tracks the upstream phase.
+baseline:
+- name: batch-monod-scaffold
+  composite: multiscale_bioprocess.composites.batch_reactor_monod   # TODO: not yet built
+  params: {seed: 0}
+
+
+# ─── 1. PURPOSE ────────────────────────────────────────────────────────────
+purpose:
+  question: |
+    Does a PBG-native well-mixed batch reactor coupled to a placeholder
+    Monod cell process produce a mass-conserving batch growth trajectory —
+    biomass rising while glucose lasts, halting at depletion — with carbon
+    and nitrogen balances closing to numerical tolerance?
+  mechanism: |
+    Reactor store holds volume, biomass, glucose, a simple nitrogen source,
+    dissolved O2/CO2 (as state only — no gas-liquid transport yet; initial DO
+    is a parameter), and an optional byproduct store. A Monod-style cell
+    process consumes glucose, produces biomass at a fixed yield Y_xs, consumes
+    O2, and produces CO2. Batch mode only: no feed, no kLa transport, no
+    overflow metabolism. The placeholder's job is to exercise the cell-side
+    interface contract (biomass + substrate concentrations in, exchange-flux
+    deltas out) that Phase 3 substitutes a dFBA process against.
+  expected_outcome: |
+    Biomass increases monotonically while glucose is available and plateaus at
+    glucose depletion; higher initial glucose extends time-to-depletion; final
+    biomass ≈ Y_xs × initial_glucose; carbon and nitrogen mass balances close
+    within numerical tolerance over the batch.
+
+
+# ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
+pipeline_gate:
+  prerequisites: []
+  enables:
+    - mbp-02-kla-gas-transport
+    - mbp-03-dfba-substitution
+  gate_status: open   # open | conditional | hold | ready | blocked
+  gate_status_summary: |
+    First construction phase; no upstream dependencies. Gates the whole chain:
+    the reactor composite skeleton and the cell-side interface contract built
+    here are what every later phase extends or substitutes against.
+  proceed_condition: |
+    Mass-balance acceptance tests pass; the Monod cell-side interface contract
+    is documented well enough that Phase 3 can substitute a dFBA process
+    without changing the reactor composite.
+
+
+# ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
+simulation_set:
+
+- name: batch-baseline
+  base_model: multiscale_bioprocess.composites.batch_reactor_monod
+  perturbation: null
+  condition: glucose-minimal-batch
+  duration_min: 600
+  seeds: [0]
+  readouts: [biomass_gL, glucose_gL, nitrogen_gL, carbon_balance_residual]
+  applies_tests:
+    - biomass-monotonic-until-glucose-depletion
+    - reactor-carbon-mass-balance-closes
+    - reactor-nitrogen-mass-balance-closes
+    - final-biomass-matches-yield-on-glucose
+  status: planned
+
+- name: glucose-titration
+  base_model: multiscale_bioprocess.composites.batch_reactor_monod
+  perturbation:
+    initial_glucose_gL: [5.0, 10.0, 20.0]
+  condition: glucose-minimal-batch
+  duration_min: 900
+  seeds: [0]
+  readouts: [glucose_gL, time_to_glucose_depletion_min, biomass_gL]
+  applies_tests:
+    - higher-initial-glucose-extends-time-to-depletion
+  status: planned
+
+
+# ─── 4. MODEL CHANGE ───────────────────────────────────────────────────────
+model_change:
+  base_model: multiscale_bioprocess.composites.batch_reactor_monod
+  new_state_variables:
+    - "reactor.volume_L (L)"
+    - "reactor.biomass_gL, reactor.glucose_gL, reactor.nitrogen_gL (g/L)"
+    - "reactor.dissolved_O2, reactor.dissolved_CO2 (mmol/L) — state only, no transport this phase"
+    - "reactor.byproduct_gL (g/L, optional)"
+  new_processes:
+    - {name: WellMixedBatchReactor, kind: Process, requirement_id: req-1-reactor-process}
+    - {name: MonodCell, kind: Process, requirement_id: req-2-monod-cell}
+  new_parameters:
+    - {name: Y_xs, default: 0.5, units: "g-biomass / g-glucose"}
+    - {name: mu_max, default: 0.6, units: "1/h"}
+    - {name: K_s, default: 0.05, units: "g/L"}
+    - {name: initial_dissolved_O2, default: 0.21, units: "mmol/L"}
+  modified_processes: []
+  notes: |
+    Prior art (reimplement-freely with attribution, not a dependency):
+    pbg-bioreactordesign (Monod kinetics, reactor wrapper) and
+    spatio-flux/processes/dfba.py (cell-process pattern). The cell-side
+    interface here is the contract Phase 3 substitutes dFBA against:
+    reactor emits substrate concentrations to the cell; cell emits
+    exchange-flux deltas back to shared stores.
+
+
+# ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
+key_assumptions:
+  - "Well-mixed (0D); no spatial gradients."
+  - "Batch only — no feed, no volume change."
+  - "Fixed biomass yield Y_xs; no maintenance term this phase."
+  - "Dissolved O2 is a fixed parameter (no kLa transport until Phase 2)."
+  - "No overflow metabolism (acetate) — Monod placeholder; dFBA introduces it in Phase 3."
+
+
+# ─── 5. READOUTS + BEHAVIOR TESTS ──────────────────────────────────────────
+
+readouts:
+- {name: biomass_gL,                store_path: reactor.biomass_gL,  units: g/L,   status: planned}
+- {name: glucose_gL,                store_path: reactor.glucose_gL,  units: g/L,   status: planned}
+- {name: nitrogen_gL,               store_path: reactor.nitrogen_gL, units: g/L,   status: planned}
+- {name: carbon_balance_residual,   store_path: reactor.diagnostics.carbon_residual,   units: fraction, status: planned}
+- {name: nitrogen_balance_residual, store_path: reactor.diagnostics.nitrogen_residual, units: fraction, status: planned}
+- {name: time_to_glucose_depletion_min, store_path: reactor.diagnostics.t_glucose_zero, units: min, status: planned}
+
+
+behavior_tests:
+
+- name: biomass-monotonic-until-glucose-depletion
+  classification: primary
+  description: "Biomass increases monotonically while glucose > 0 and plateaus once glucose is depleted."
+  measure: {kind: series, path: reactor.biomass_gL, window: glucose_available}
+  pass_if: {op: monotonic_increasing}
+  units: g/L
+  requires_simulation: batch-baseline
+  cites: [Monod1949AnnRevMicrobiol]
+
+- name: higher-initial-glucose-extends-time-to-depletion
+  classification: primary
+  description: "Across the glucose titration, time-to-depletion increases with initial glucose."
+  measure: {kind: cross_run_trend, x: initial_glucose_gL, y: time_to_glucose_depletion_min}
+  pass_if: {op: positive_monotonic}
+  units: min
+  requires_simulation: glucose-titration
+  cites: [Monod1949AnnRevMicrobiol]
+
+- name: reactor-carbon-mass-balance-closes
+  classification: primary
+  description: "Total carbon (glucose-C + biomass-C + CO2-C + byproduct-C) is conserved across the batch within numerical tolerance."
+  measure: {kind: series, path: reactor.diagnostics.carbon_residual, reduce: max_abs, window: full}
+  pass_if: {op: at_most, value: 0.01}
+  units: fraction
+  requires_simulation: batch-baseline
+  cites: []
+
+- name: reactor-nitrogen-mass-balance-closes
+  classification: primary
+  description: "Total nitrogen (nitrogen-source-N + biomass-N) is conserved across the batch within numerical tolerance."
+  measure: {kind: series, path: reactor.diagnostics.nitrogen_residual, reduce: max_abs, window: full}
+  pass_if: {op: at_most, value: 0.01}
+  units: fraction
+  requires_simulation: batch-baseline
+  cites: []
+
+- name: final-biomass-matches-yield-on-glucose
+  classification: primary
+  description: "Final biomass ≈ Y_xs × initial_glucose (mass-balance check, not a biological calibration)."
+  measure: {kind: derived_ratio, numerator: final_biomass_gL, denominator: "Y_xs * initial_glucose_gL"}
+  pass_if: {op: in_range, low: 0.95, high: 1.05}
+  units: fraction
+  requires_simulation: batch-baseline
+  cites: []
+
+
+# ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
+limitations:
+  - "Monod cell is a placeholder; not biologically calibrated. Its only load-bearing role is exercising the cell-side interface contract."
+  - "No gas-liquid transport — dissolved O2 is a fixed parameter; Phase 2 adds kLa."
+  - "No overflow metabolism, no maintenance energy, single carbon + single nitrogen source."
+
+
+# ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
+implementation_requirements:
+
+- id: req-1-reactor-process
+  kind: process
+  title: WellMixedBatchReactor Process
+  effort: M
+  description: |
+    PBG-native well-mixed reactor process owning volume + dissolved-phase
+    state. Inputs: cell-side exchange-flux deltas. Outputs: updated
+    concentrations. Enforces mass balance; emits carbon/nitrogen residual
+    diagnostics. Reimplement reactor-wrapper pattern from pbg-bioreactordesign
+    with attribution.
+  unblocks: [all mbp-01 behavior_tests]
+
+- id: req-2-monod-cell
+  kind: process
+  title: MonodCell placeholder process
+  effort: S
+  description: |
+    Monod-kinetics cell process: mu = mu_max * S/(K_s + S). Consumes glucose,
+    produces biomass at fixed Y_xs, consumes O2, produces CO2. Emits
+    exchange-flux deltas under the cell-side interface contract that Phase 3's
+    dFBA process substitutes against.
+  unblocks: [batch-baseline simulation]
+
+
+bibliography:
+  expert: [multiscale_bioprocess_roadmap]
+  bib_keys: [Monod1949AnnRevMicrobiol]
+
+
+runs: []
+
+parent_studies: []
+
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

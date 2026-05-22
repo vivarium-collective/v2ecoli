@@ -171,14 +171,6 @@ comparative_visualizations:
   - {sim_name: intrinsic-only-control,        label: "intrinsic only (dnaa-02)"}
   - {sim_name: dnaa-06-extrinsic-regulation,  label: "RIDA only (Hda 40/min)"}
   - {sim_name: rida-plus-data-dars,           label: "full network (RIDA + datA + DARS)"}
-- name: dnaa-atp-count-reset-network
-  title: "DnaA-ATP molecule count across the three configs"
-  observable_path: listeners.dnaA_cycle.atp_count
-  y_label: DnaA-ATP (molecules)
-  runs:
-  - {sim_name: intrinsic-only-control,        label: "intrinsic only"}
-  - {sim_name: dnaa-06-extrinsic-regulation,  label: "RIDA only"}
-  - {sim_name: rida-plus-data-dars,           label: "full network"}
 
 # ─── MODEL CHANGE ───────────────────────────────────────────────────────────
 model_change: |

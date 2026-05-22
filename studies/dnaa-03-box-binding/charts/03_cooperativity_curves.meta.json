@@ -1,4 +1,0 @@
-{
-  "title": "Hill cooperativity prediction for oriC binding",
-  "caption": "Probability oriC site is bound vs DnaA-ATP count, at Hill exponents n=2/5/10/20. n=2 (probe result) gives gradual fill \u2014 wrong. n=5-10 (target) gives sharp threshold = textbook two-step pattern."
-}

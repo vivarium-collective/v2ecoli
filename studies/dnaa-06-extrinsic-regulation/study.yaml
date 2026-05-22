@@ -156,6 +156,30 @@ readouts:
 - {store_path: listeners.dnaA_cycle.atp_count, units: molecules}
 - {store_path: listeners.dnaA_cycle.adp_count, units: molecules}
 
+# ─── COMPARATIVE VISUALIZATIONS ─────────────────────────────────────────────
+# The headline figure: DnaA-ATP fraction across the three configs, with the
+# Boesen 2024 [0.2,0.5] band marked. Tells the mechanistic story — intrinsic
+# stuck high, RIDA sets the band, the full network (with DARS) lifts the floor.
+comparative_visualizations:
+- name: dnaa-atp-fraction-reset-network
+  title: "DnaA-ATP fraction — intrinsic-only vs RIDA-only vs full reset network"
+  observable_path: listeners.dnaA_cycle.atp_fraction
+  y_label: DnaA-ATP / total DnaA
+  target_band: [0.2, 0.5]
+  target_band_label: "Boesen 2024 physiological band"
+  runs:
+  - {sim_name: intrinsic-only-control,        label: "intrinsic only (dnaa-02)"}
+  - {sim_name: dnaa-06-extrinsic-regulation,  label: "RIDA only (Hda 40/min)"}
+  - {sim_name: rida-plus-data-dars,           label: "full network (RIDA + datA + DARS)"}
+- name: dnaa-atp-count-reset-network
+  title: "DnaA-ATP molecule count across the three configs"
+  observable_path: listeners.dnaA_cycle.atp_count
+  y_label: DnaA-ATP (molecules)
+  runs:
+  - {sim_name: intrinsic-only-control,        label: "intrinsic only"}
+  - {sim_name: dnaa-06-extrinsic-regulation,  label: "RIDA only"}
+  - {sim_name: rida-plus-data-dars,           label: "full network"}
+
 # ─── MODEL CHANGE ───────────────────────────────────────────────────────────
 model_change: |
   Adds the extrinsic DnaA-ATP/ADP regulators on top of dnaa-02's intrinsic

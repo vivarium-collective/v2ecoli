@@ -1,4 +1,0 @@
-{
-  "title": "Swap point: mass-threshold \u2192 DnaA-occupancy",
-  "caption": "The conditional at chromosome_replication.py:244 is the single line that changes. Surrounding logic (replisome request, fork creation) unchanged."
-}

@@ -389,20 +389,6 @@ visualizations:
       dnaap_fraction: listeners.dnaA_binding.dnaap.occupied
       cell_mass_fg: listeners.mass.cell_mass
       time: global_time
-- name: dnaa_flux_contributions
-  address: local:DnaAFluxContributions
-  known_limitation: 'Renders empty in coordinated generation gen-20260522T003700Z-9fcb58:
-    the intrinsic/RIDA hydrolysis-event observables are not yet emitted.'
-  config:
-    title: dnaa-04 — DnaA-ATP hydrolysis flux contributors per tick
-    sources:
-    - dnaa04-replisome-gate-seed0
-    - dnaa04-replisome-gate-seed1
-    - dnaa04-replisome-gate-seed2
-    inputs_map:
-      intrinsic_events: listeners.dnaA_cycle.intrinsic_hydrolysis_events
-      rida_events: listeners.dnaA_cycle.rida_events
-      time: global_time
 pipeline_gate:
   prerequisites:
   - dnaa-03-box-binding

@@ -285,14 +285,6 @@ visualizations:
       adp_fraction: listeners.dnaA_cycle.adp_fraction
       apo_fraction: listeners.dnaA_cycle.apo_fraction
       time: global_time
-- name: dnaa_flux_contributions
-  address: local:DnaAFluxContributions
-  config:
-    title: dnaa-02 — Hydrolysis flux per tick (intrinsic + RIDA-v0 once canonical)
-    inputs_map:
-      intrinsic_events: listeners.dnaA_cycle.intrinsic_hydrolysis_events
-      rida_events: listeners.dnaA_cycle.rida_events
-      time: global_time
 pipeline_gate:
   prerequisites:
   - dnaa-01-expression-dynamics

@@ -1,4 +1,0 @@
-{
-  "title": "Cell state at t=0: mid-replication",
-  "caption": "In v2ecoli baseline, the initial state already has 2 active oriCs + 2 replisomes mid-elongation. 10-min sims won't capture a new initiation event \u2014 need \u226560 min runs."
-}

@@ -1,6 +1,0 @@
-{
-  "title": "DnaA count vs TE multiplier (literature acceptance band)",
-  "caption": "Bar height = median DnaA-monomer count per cell over the second half of each run. Green band = the Schmidt 2016 mass-spec literature target [300, 800].",
-  "simulations": "Sweep over 9 translation-efficiency multipliers (1×, 5×, 10×, 15×, 20×, 25×, 30×, 50×, 100×) of the dnaA gene's ParCa-fitted TE. 3-5 seeds per multiplier (n shown under each bar), 10 min sim-time each, M9-glucose, single-cell. The 1× point is the default ParCa value — the unmodified baseline. The error bars are ±1σ across seeds.",
-  "interpretation": "At 1× (the default) the cell maintains ~115 DnaA — five-fold below the literature band. Pushing TE up moves the count higher, but only 50× lands inside [300, 800]. The non-monotonic shape (count drops back down at 30× and 100×) is unexpected; we'd value expert input on whether ParCa's TE knob saturates non-linearly above ~25×, or whether downstream homeostasis (DnaA autorepression / DnaA-box titration) is re-regulating the pool back down at high supply."
-}

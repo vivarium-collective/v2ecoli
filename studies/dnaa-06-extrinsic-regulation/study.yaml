@@ -28,16 +28,23 @@ report:
     Hda rate (40/min per fork pair) plus new datA (DDAH, 12/min) and DARS1/2
     (5 and 10/min) Steps. Variants isolate each regulator's contribution.
   result: >-
-    Planned — not yet run. RIDA-v0 exists; datA and DARS Steps are
-    implementation_requirements below.
+    First data point (RIDA-only, gen run 2026-05-22, minimal-glucose):
+    RIDA at the Stage-1 Hda rate (40/min/fork) ALONE lands the DnaA-ATP fraction
+    in band — second-half median 0.365 ∈ [0.2, 0.5], ranging [0.18, 1.0] over
+    the cycle (high at birth, dropping via RIDA). The intrinsic-only control
+    stays stuck at 0.998, reproducing dnaa-02. datA/DARS not yet added (their
+    Steps are implementation_requirements).
   interpretation: >-
-    dnaa-02 established that the band is not set intrinsically; this study tests
-    the expert's mechanistic claim that RIDA + datA (lowering DnaA-ATP after
-    initiation) balanced against DARS (raising it before the next cycle) is what
-    holds and oscillates the fraction in band.
+    dnaa-02 showed the band isn't set intrinsically. This first result shows
+    RIDA is the dominant band-setter — at the Stage-1 rate it pulls the fraction
+    from ~1.0 into [0.2, 0.5] on its own. datA (further lowering after
+    initiation) and DARS (recovery before the next cycle) are now expected to
+    SHAPE the oscillation around that RIDA-set band rather than supply the bulk
+    correction — a hypothesis the full network will test.
   decision: >-
-    Pending first run. Gate on whether the full network lands the second-half
-    median in [0.2, 0.5] with a cell-cycle oscillation.
+    RIDA-only already lands the band — a strong first signal. Proceed to add
+    datA + DARS to test whether they sharpen the cell-cycle oscillation, then
+    feed the validated network into dnaa-04's initiation timing.
   next_action: >-
     Implement the datA (DDAH) and DARS1/2 Steps; run baseline + per-regulator
     knockouts; then feed the validated reset network back into dnaa-04's
@@ -112,7 +119,7 @@ tests:
   measure: {kind: listener_path, path: listeners.dnaA_cycle.atp_fraction, reduce: median, window: second_half}
   pass_if: {op: at_least, value: 0.9}
   requires_simulation: intrinsic-only-control
-  status: planned
+  status: passed  # 2026-05-22: 2nd-half median 0.998 ≥ 0.9 (reproduces dnaa-02)
   cites: [wcm_stage1_parameters]
 - name: atp-fraction-oscillates-over-cycle
   classification: primary
@@ -170,7 +177,7 @@ follow_up_studies:
   rationale: With the ATP/ADP reset network in place, add SeqA origin sequestration (the post-firing refractory) to prevent re-initiation.
 
 # ─── STATUS ─────────────────────────────────────────────────────────────────
-status: planned
+status: ran-rida-only-in-band  # RIDA alone lands [0.2,0.5]; datA/DARS pending
 phase: Mechanism
 
 bibliography:

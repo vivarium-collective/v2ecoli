@@ -1,0 +1,248 @@
+# dnaa-06: Extrinsic DnaA-ATP/ADP regulation (the reset network)
+#
+# Motivated directly by dnaa-02's CURRENT result: intrinsic hydrolysis alone
+# (dX/dt = -kX at 0.046/min) holds DnaA-ATP fraction at ~0.997 — it CANNOT
+# pull the fraction into the physiological [0.2, 0.5] band. The expert flagged
+# this in round-1: the band is set by the EXTRINSIC regulators, which dnaa-02
+# deliberately deferred. This study adds them:
+#   RIDA (Hda + beta-clamp at replication forks)  DnaA-ATP -> DnaA-ADP
+#   datA (DDAH)                                    DnaA-ATP -> DnaA-ADP
+#   DARS1 / DARS2                                  DnaA-ADP -> DnaA-ATP
+# and asks whether the reset network reproduces the physiological band + its
+# cell-cycle oscillation.
+
+schema_version: 4
+name: dnaa-06-extrinsic-regulation
+created: '2026-05-22'
+
+# ─── REPORT (compact, human-facing) ──────────────────────────────────────
+report:
+  title: "Extrinsic DnaA-ATP reset network"
+  verdict: passing
+  confidence: medium
+  evidence_quality: calibrated
+  objective: >-
+    Test whether the extrinsic reset network (RIDA/Hda, datA/DDAH, DARS1&2) holds
+    the DnaA-ATP fraction in the [0.2, 0.5] band that intrinsic hydrolysis alone
+    cannot.
+  conclusion: >-
+    The full reset network lands the band (median 0.466 in [0.2, 0.5]) with the
+    expected DARS recovery signature; both primary tests pass.
+  main_insight: >-
+    RIDA is the dominant band-setter (~1.0 -> 0.365 alone) while DARS supplies the
+    only recovery arm - with DARS in, the floor lifts from 0.18 to 0.365,
+    preventing over-depletion.
+  caveat: >-
+    Oscillation is shown over a single cycle only; per-regulator knockouts and a
+    multigeneration sustained-oscillation run are still pending.
+  lit_match: "Boesen 2024 band"
+  key_metrics:
+  - {label: "full-network ATP fraction", value: 0.466, status: pass}
+  - {label: "intrinsic-only control", value: 0.998, status: fail}
+  - {label: "RIDA-only", value: 0.365, status: pass}
+  - "band [0.2, 0.5]"
+  purpose: >-
+    Test whether adding the extrinsic DnaA-ATP/ADP reset network (RIDA via Hda,
+    datA/DDAH, and DARS1&2 reactivation) holds the DnaA-ATP fraction in the
+    physiological [0.2, 0.5] band that intrinsic hydrolysis alone (dnaa-02)
+    cannot — and reproduces its cell-cycle oscillation.
+  setup: >-
+    Builds on the dnaa-02 intrinsic-hydrolysis baseline (minimal-glucose,
+    Stage-1 DnaA expression). Adds the existing RIDA-v0 Step at the Stage-1
+    Hda rate (40/min per fork pair) plus new datA (DDAH, 12/min) and DARS1/2
+    (5 and 10/min) Steps. Variants isolate each regulator's contribution.
+  result: >-
+    Runs 2026-05-22, minimal-glucose, second-half median DnaA-ATP fraction:
+    intrinsic-only control 0.998 (stuck high, reproduces dnaa-02); RIDA-only
+    (Hda 40/min) 0.365, range [0.18, 1.0]; FULL network (RIDA + datA 12/min +
+    DARS1/2 5+10/min) 0.466, range [0.365, 0.886] — all-in-band for the two
+    extrinsic configs. Adding the full network RAISES the floor from 0.18
+    (RIDA-only) to 0.365: DARS's DnaA-ADP->ATP recovery prevents the fraction
+    over-depleting. Cell-cycle excursion amplitude ~0.52.
+  interpretation: >-
+    Confirms the mechanistic split the expert implied. RIDA is the dominant
+    band-SETTER (pulls ~1.0 → 0.365 alone). datA adds further DnaA-ATP lowering,
+    while DARS supplies the only recovery arm (ADP->ATP) — and its signature is
+    visible: with DARS in, the fraction's floor lifts from 0.18 to 0.365, i.e.
+    DARS keeps DnaA-ATP from crashing between initiations. The net full-network
+    band (0.466) sits near the upper edge. A sustained multi-cycle oscillation
+    can't be shown here (the single-cell run halts at division); this is one
+    birth→division excursion.
+  decision: >-
+    Full reset network lands the band (0.466 ∈ [0.2,0.5]) with the expected DARS
+    recovery signature — both primary tests pass on current data. Next: feed the
+    validated network into dnaa-04's initiation timing, and (later) a
+    multigeneration run to show the sustained oscillation.
+  next_action: >-
+    datA + DARS Steps built and the full network validated in band. Next: feed
+    the reset network into dnaa-04's initiation timing, add per-regulator
+    knockouts (datA-only, DARS-knockout) to quantify each contribution, and run
+    multigeneration to show the sustained oscillation.
+
+# ─── QUESTION ───────────────────────────────────────────────────────────
+question: |
+  Intrinsic DnaA-ATP hydrolysis alone (dnaa-02) cannot hold the DnaA-ATP
+  fraction in the physiological [0.2, 0.5] band — it stays near 1.0. Does
+  adding the extrinsic reset network — RIDA (Hda/beta-clamp), datA (DDAH),
+  and DARS1&2 — reproduce the band AND its cell-cycle oscillation (high
+  DnaA-ATP at initiation, dropping after firing via RIDA/datA, recovering
+  before the next cycle via DARS)?
+
+# ─── ASSUMPTIONS (Stage-1 extrinsic rates, from wcm_stage1_parameters) ────
+assumptions:
+- text: Hda (RIDA) hydrolyses DnaA-ATP -> DnaA-ADP at 40/min per replication-fork pair (fork-coupled).
+  cites: [wcm_stage1_parameters]
+  verified_in_v2ecoli: false
+  note: dnaa-rida-v0 Step exists; default rate 4.6/min is ~10x below Stage-1's 40. This study pins 40.
+- text: datA (DDAH) hydrolyses DnaA-ATP -> DnaA-ADP at 12/min per locus (artificial heuristic rate).
+  cites: [wcm_stage1_parameters]
+  verified_in_v2ecoli: false
+  note: No datA Step exists yet — implementation_requirement below.
+- text: DARS1 reactivates DnaA-ADP -> DnaA-ATP at 5/min per locus.
+  cites: [wcm_stage1_parameters]
+  verified_in_v2ecoli: false
+  note: No DARS Step exists yet — implementation_requirement below.
+- text: DARS2 reactivates DnaA-ADP -> DnaA-ATP at 10/min per locus.
+  cites: [wcm_stage1_parameters]
+  verified_in_v2ecoli: false
+  note: No DARS Step exists yet — implementation_requirement below.
+- text: Intrinsic hydrolysis (dnaa-02, 0.046/min, Sekimizu 1987) remains active alongside the extrinsic network.
+  cites: [wcm_stage1_parameters, Sekimizu1991]
+  verified_in_v2ecoli: true
+
+# ─── CONDITIONS ──────────────────────────────────────────────────────────
+conditions:
+  baseline:
+    # Intrinsic (dnaa-02) + RIDA-v0 at the Stage-1 Hda rate. datA/DARS added
+    # once their Steps land; until then this is the partial (RIDA-only) network.
+    composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
+    params:
+      seed: 0
+      cache_dir: out/cache
+      n_steps: 3600          # ceiling; glucose divides ~2640 s
+      mechanism: rida-v0
+      rida_rate_per_min: 40.0
+      stage1_dnaa_expression: true
+  variants:
+    - name: intrinsic-only-control
+      description: Reproduces dnaa-02 (no extrinsic regulators) as the in-study negative control.
+      composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
+      params: {seed: 0, cache_dir: out/cache, n_steps: 3600, mechanism: intrinsic, stage1_dnaa_expression: true}
+    - name: rida-plus-data-dars
+      description: Full reset network — RIDA (40/min) + datA (DDAH 12/min) + DARS1&2 (5+10/min).
+      composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
+      params:
+        seed: 0
+        cache_dir: out/cache
+        n_steps: 3600
+        mechanism: rida-v0
+        rida_rate_per_min: 40.0
+        stage1_dnaa_expression: true
+        enable_data: true
+        data_rate_per_min: 12.0
+        enable_dars: true
+        dars1_rate_per_min: 5.0
+        dars2_rate_per_min: 10.0
+
+# ─── TESTS ───────────────────────────────────────────────────────────────
+tests:
+- name: full-network-holds-atp-fraction-in-band
+  classification: primary
+  question: Does the full extrinsic network hold DnaA-ATP fraction in [0.2, 0.5] (second half)?
+  measure: {kind: listener_path, path: listeners.dnaA_cycle.atp_fraction, reduce: median, window: second_half}
+  pass_if: {op: in_range, low: 0.2, high: 0.5}
+  requires_simulation: rida-plus-data-dars
+  status: passed  # 2026-05-22: 2nd-half median 0.466 ∈ [0.2,0.5]
+  cites: [wcm_stage1_parameters, Boesen2024PNAS]
+- name: intrinsic-only-stays-high
+  classification: supporting
+  question: Does the intrinsic-only control stay above the band (~1.0), reproducing dnaa-02?
+  measure: {kind: listener_path, path: listeners.dnaA_cycle.atp_fraction, reduce: median, window: second_half}
+  pass_if: {op: at_least, value: 0.9}
+  requires_simulation: intrinsic-only-control
+  status: passed  # 2026-05-22: 2nd-half median 0.998 ≥ 0.9 (reproduces dnaa-02)
+  cites: [wcm_stage1_parameters]
+- name: atp-fraction-oscillates-over-cycle
+  classification: primary
+  question: Does DnaA-ATP fraction oscillate over the cell cycle (drop after firing, recover before next)?
+  measure: {kind: listener_path, path: listeners.dnaA_cycle.atp_fraction, reduce: series, window: full}
+  pass_if: {op: oscillation_amplitude_at_least, value: 0.2}
+  requires_simulation: rida-plus-data-dars
+  # 2026-05-22: cell-cycle excursion amplitude ~0.52 (range [0.365,0.886]) >= 0.2.
+  # Single-cell run = one birth->division excursion; sustained multi-cycle
+  # oscillation needs the multigeneration framework.
+  status: passed-single-cycle
+  cites: [Katayama2017Frontiers, Kasho2023IJMS]
+
+# ─── READOUTS ──────────────────────────────────────────────────────────────
+readouts:
+- {store_path: listeners.dnaA_cycle.atp_fraction, units: fraction, note: DnaA-ATP / total DnaA}
+- {store_path: listeners.dnaA_cycle.atp_count, units: molecules}
+- {store_path: listeners.dnaA_cycle.adp_count, units: molecules}
+
+# ─── COMPARATIVE VISUALIZATIONS ─────────────────────────────────────────────
+# The headline figure: DnaA-ATP fraction across the three configs, with the
+# Boesen 2024 [0.2,0.5] band marked. Tells the mechanistic story — intrinsic
+# stuck high, RIDA sets the band, the full network (with DARS) lifts the floor.
+comparative_visualizations:
+- name: dnaa-atp-fraction-reset-network
+  title: "DnaA-ATP fraction — intrinsic-only vs RIDA-only vs full reset network"
+  observable_path: listeners.dnaA_cycle.atp_fraction
+  y_label: DnaA-ATP / total DnaA
+  target_band: [0.2, 0.5]
+  target_band_label: "Boesen 2024 physiological band"
+  runs:
+  - {sim_name: intrinsic-only-control,        label: "intrinsic only (dnaa-02)"}
+  - {sim_name: dnaa-06-extrinsic-regulation,  label: "RIDA only (Hda 40/min)"}
+  - {sim_name: rida-plus-data-dars,           label: "full network (RIDA + datA + DARS)"}
+
+# ─── MODEL CHANGE ───────────────────────────────────────────────────────────
+model_change: |
+  Adds the extrinsic DnaA-ATP/ADP regulators on top of dnaa-02's intrinsic
+  hydrolysis: RIDA-v0 pinned to the Stage-1 Hda rate (40/min/fork), plus new
+  datA (DDAH) and DARS1/2 reactivation Steps. This is the "reset" half of the
+  cycle the investigation has deferred since dnaa-02.
+
+# ─── IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────────
+implementation_requirements:
+- name: datA-DDAH-step
+  description: >-
+    A datA (DDAH) Step that hydrolyses DnaA-ATP -> DnaA-ADP at 12/min per locus.
+    Pattern: mirror dnaa_intrinsic_hydrolysis / dnaa_rida_v0; locus count from the
+    chromosome state. datA is a high-affinity DnaA-box cluster near oriC.
+  blocks: [full-network-holds-atp-fraction-in-band, atp-fraction-oscillates-over-cycle]
+- name: DARS-reactivation-step
+  description: >-
+    A DARS1/DARS2 Step that reactivates DnaA-ADP -> DnaA-ATP at 5 and 10/min per
+    locus. This is the recovery arm — without it the fraction would only ratchet
+    down. Nucleotide exchange on a chromosomal DnaA-reactivating sequence.
+  blocks: [full-network-holds-atp-fraction-in-band, atp-fraction-oscillates-over-cycle]
+
+# ─── PIPELINE GATE ──────────────────────────────────────────────────────────
+pipeline_gate:
+  prerequisites:
+    - {study: dnaa-02-atp-hydrolysis, condition: ran}
+  enables: [dnaa-04-initiation-mechanism]
+  rationale: >-
+    dnaa-02 proved intrinsic-only is insufficient; this study supplies the reset
+    network that should hold the band, which dnaa-04's initiation timing then
+    consumes.
+
+parent_studies:
+  - {study: dnaa-02-atp-hydrolysis, condition: ran}
+
+# ─── FOLLOW-UPS ─────────────────────────────────────────────────────────────
+follow_up_studies:
+- name: dnaa-07-seqA-sequestration
+  rationale: With the ATP/ADP reset network in place, add SeqA origin sequestration (the post-firing refractory) to prevent re-initiation.
+
+# ─── STATUS ─────────────────────────────────────────────────────────────────
+status: ran-full-network-in-band  # RIDA+datA+DARS land 0.466 ∈ [0.2,0.5]; DARS raises the floor
+phase: Mechanism
+
+bibliography:
+  - {key: wcm_stage1_parameters, note: Stage-1 parameter table (expert doc)}
+  - {key: Boesen2024PNAS, note: "DnaA-ATP fraction physiological band [0.2, 0.5]"}
+  - {key: Katayama2017Frontiers, note: DnaA cycling — RIDA/datA/DARS review}
+  - {key: Kasho2023IJMS, note: datA/DARS regulation of the DnaA cycle}
+  - {key: Sekimizu1991, note: intrinsic DnaA-ATP hydrolysis rate}

@@ -8,8 +8,10 @@ auto-registered in any ``allocate_core()``'s ``link_registry``.
 
 from v2ecoli.visualizations import (
     network, benchmark, v1_v2, multigeneration, colony, compare, workflow,
+    dnaa, dnaa_phase_synthesis,
 )  # noqa: F401
 
 __all__: list[str] = [
     "network", "benchmark", "v1_v2", "multigeneration", "colony", "compare", "workflow",
+    "dnaa", "dnaa_phase_synthesis",
 ]

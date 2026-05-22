@@ -24,6 +24,7 @@ v2ecoli/processes/parca/**/*.cpython-*.so
 **/runs.db
 **/runs.db-shm
 **/runs.db-wal
+studies/*/sims/*.subprocess.py
 studies/*/viz/
 reports/
 investigations/*/viz/

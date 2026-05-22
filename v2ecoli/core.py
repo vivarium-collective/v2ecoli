@@ -160,7 +160,8 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
     _write_sim_input_bundle(loader, cache_dir)
 
 
-def save_sim_input(sim_data, bundle_dir='out/cache', seed=0):
+def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
+                   condition=None, fixed_media=None):
     """Generate the simulation-input bundle from a live ``SimulationDataEcoli``.
 
     Skips the ~300 MB dill round-trip that ``save_cache`` performs to load
@@ -168,7 +169,18 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0):
     ``SimulationDataEcoli`` in hand (e.g. straight off the parca composite or
     its fixture) — the resulting bundle is byte-for-byte equivalent to what
     ``save_cache`` would produce from the same sim_data dilled to a file.
+
+    ``condition`` (e.g. "acetate") and ``fixed_media`` (e.g. "minimal_acetate")
+    select a non-default nutrient condition so the generated initial state
+    reflects that condition's growth rate / doubling time — both already live in
+    the ParCa state's ``condition_to_doubling_time`` / saved media, so no refit
+    is needed. Omitted → default basal / minimal (glucose).
     """
     from v2ecoli.library.sim_data import LoadSimData
-    loader = LoadSimData(sim_data=sim_data, seed=seed)
+    kwargs = {"sim_data": sim_data, "seed": seed}
+    if condition is not None:
+        kwargs["condition"] = condition
+    if fixed_media is not None:
+        kwargs["fixed_media"] = fixed_media
+    loader = LoadSimData(**kwargs)
     _write_sim_input_bundle(loader, bundle_dir)

@@ -74,13 +74,24 @@ def _trace(name: str, x: Sequence[float], y: Sequence[float],
         line["color"] = color
     if dash:
         line["dash"] = dash
+    def _num(v):
+        # Tolerate non-numeric points (None, NaN, or a stray dict/list from an
+        # empty-container '{}' capture) — render them as a gap rather than
+        # crashing the whole report on float({}).
+        if v is None or isinstance(v, (dict, list)):
+            return None
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return None
+        return None if math.isnan(f) else f
+
     return {
         "type": "scatter",
         "mode": "lines",
         "name": name,
         "x": list(x),
-        "y": [None if (v is None or (isinstance(v, float) and math.isnan(v)))
-              else float(v) for v in y],
+        "y": [_num(v) for v in y],
         "line": line,
     }
 

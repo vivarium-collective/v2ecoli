@@ -1,0 +1,34 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260522122205"
+  generated_at: "2026-05-22T16:00:54.387Z"
+  page_title: "Investigation: DnaA / Replication Initiation"
+  source_url: "file:///Users/haochen/Documents/Data/WCM/investigation-dnaa-replication-2026-05-22-6.html"
+annotations:
+  "study-dnaa-00-parameter-foundation-embeds":
+    - ts: "2026-05-22T15:23:16.174Z"
+      text: "In the first figure, why did DnaA-ATP fraction suddenly increase to 1, namely, DnaA-ADP suddenly disappeared?"
+    - ts: "2026-05-22T15:24:59.635Z"
+      text: "In the second figure, what is the orange curve about?"
+    - ts: "2026-05-22T15:28:16.907Z"
+      author: "Haochen"
+      text: "The generation time in the heuristic parameter set should be 150 min, so here the simulation duration is still shorter than that."
+  "study-dnaa-01-expression-dynamics-charts":
+    - ts: "2026-05-22T15:41:40.089Z"
+      author: "Haochen"
+      text: "There seems to be auto-repression there because the curve slightly drops near 1900s. Since we did not provide auto-repression parameters at the current heuristic stage, why is auto-repression still there?"
+  "study-dnaa-01-expression-dynamics-embeds":
+    - ts: "2026-05-22T16:00:49.379Z"
+      author: "Haochen"
+      text: "It's better to fold these previous results."
+  "study-dnaa-01-expression-dynamics-readouts":
+    - ts: "2026-05-22T15:45:02.205Z"
+      author: "Haochen"
+      text: "Again, we need longer-than-one doubling time to judge if DnaA concentration is steady."
+  "study-dnaa-02-atp-hydrolysis-conditions":
+    - ts: "2026-05-22T15:50:24.291Z"
+      author: "Haochen"
+      text: "The current hydrolysis rate (0.001/min) is much smaller than the default given by the heuristic parameter set (0.046/min). Why did it choose such a small value? This is probably the reason the model always obtain a DnaA-ATP fraction close to 1."

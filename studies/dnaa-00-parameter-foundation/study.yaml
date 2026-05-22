@@ -235,19 +235,18 @@ conditions:
     params:
       seed: 0
       cache_dir: out/cache
-      # Run-length CEILING in sim-seconds (v2ecoli ticks at ~1s). 10800 s
-      # (~180 min) covers ≥ 1 mass-doubling time so DnaA steadiness can be judged
-      # over a generation (Haochen R1/R2: "need longer-than-one doubling time").
-      # CAVEAT — REQUIRES A MULTIGENERATION RUN: on minimal-glucose (out/cache,
-      # media_id "minimal") the cell divides at ~2640 s (~44 min) and a SINGLE-CELL
-      # run self-terminates there, so this ceiling is only reached when the run
-      # continues through divisions (run_with_division — the path dnaa-02's 180-min
-      # run used). Two ways to satisfy the doubling-time requirement:
-      #   (1) multigeneration on this glucose cache (run_with_division; ~4 gens),
-      #   (2) the τ=150 min ABT minimal-glycerol Stage-1 condition once that ParCa
-      #       cache is built (model_settings.tau_min_stage1; status todo-media-override).
-      # The review-readiness duration gate now flags this study until the run
-      # actually covers ≥ 1 τ.
+      # Run-length CEILING in sim-seconds (v2ecoli ticks at ~1s). Set to 10800 to
+      # express the ≥ 1-doubling-time intent (Haochen R1/R2), BUT NOTE this ceiling
+      # is NOT currently reachable on glucose: on minimal-glucose (out/cache,
+      # media_id "minimal") the cell divides at ~2640 s (~44 min) and the run
+      # STOPS at the first division — run_with_division is division-SAFE, not
+      # multi-generation (it halts at division; verified: dnaa-02 requested 10800
+      # but ran to global_time 2624 s). To actually cover ≥ 1 doubling time:
+      #   (1) build the τ=150 min ABT minimal-glycerol Stage-1 ParCa cache
+      #       (model_settings.tau_min_stage1; status todo-media-override) and run
+      #       a single generation there (~150 min), OR
+      #   (2) implement true multi-generation (continue the daughter after division).
+      # The review-readiness duration gate flags this study until a run covers ≥ 1 τ.
       n_steps: 10800
 
   variants:

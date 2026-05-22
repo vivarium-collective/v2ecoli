@@ -164,7 +164,9 @@ conditions:
       a stale spec value that never drove the simulation (model_settings are not
       auto-applied) — corrected to 0.046 to match the actual run + the heuristic.
       Haochen R2: the band failure is NOT an artifact of a too-small rate; intrinsic
-      hydrolysis at the full heuristic 0.046/min over the 180-min run still cannot
+      hydrolysis at the full heuristic 0.046/min over the run (which stops at the
+      first division, ~44 min on minimal-glucose; run requested 10800 steps but
+      run_with_division halts at division) still cannot
       pull DnaA-ATP below ~0.997, because binding/ATP-loading replenishes the
       ATP-form faster than slow intrinsic hydrolysis removes it. That is the genuine,
       expected result — the extrinsic regulators (RIDA/datA/DARS, dnaa-06) are

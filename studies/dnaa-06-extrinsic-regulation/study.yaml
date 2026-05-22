@@ -28,27 +28,32 @@ report:
     Hda rate (40/min per fork pair) plus new datA (DDAH, 12/min) and DARS1/2
     (5 and 10/min) Steps. Variants isolate each regulator's contribution.
   result: >-
-    First data point (RIDA-only, gen run 2026-05-22, minimal-glucose):
-    RIDA at the Stage-1 Hda rate (40/min/fork) ALONE lands the DnaA-ATP fraction
-    in band — second-half median 0.365 ∈ [0.2, 0.5], ranging [0.18, 1.0] over
-    the cycle (high at birth, dropping via RIDA). The intrinsic-only control
-    stays stuck at 0.998, reproducing dnaa-02. datA/DARS not yet added (their
-    Steps are implementation_requirements).
+    Runs 2026-05-22, minimal-glucose, second-half median DnaA-ATP fraction:
+    intrinsic-only control 0.998 (stuck high, reproduces dnaa-02); RIDA-only
+    (Hda 40/min) 0.365, range [0.18, 1.0]; FULL network (RIDA + datA 12/min +
+    DARS1/2 5+10/min) 0.466, range [0.365, 0.886] — all-in-band for the two
+    extrinsic configs. Adding the full network RAISES the floor from 0.18
+    (RIDA-only) to 0.365: DARS's DnaA-ADP->ATP recovery prevents the fraction
+    over-depleting. Cell-cycle excursion amplitude ~0.52.
   interpretation: >-
-    dnaa-02 showed the band isn't set intrinsically. This first result shows
-    RIDA is the dominant band-setter — at the Stage-1 rate it pulls the fraction
-    from ~1.0 into [0.2, 0.5] on its own. datA (further lowering after
-    initiation) and DARS (recovery before the next cycle) are now expected to
-    SHAPE the oscillation around that RIDA-set band rather than supply the bulk
-    correction — a hypothesis the full network will test.
+    Confirms the mechanistic split the expert implied. RIDA is the dominant
+    band-SETTER (pulls ~1.0 → 0.365 alone). datA adds further DnaA-ATP lowering,
+    while DARS supplies the only recovery arm (ADP->ATP) — and its signature is
+    visible: with DARS in, the fraction's floor lifts from 0.18 to 0.365, i.e.
+    DARS keeps DnaA-ATP from crashing between initiations. The net full-network
+    band (0.466) sits near the upper edge. A sustained multi-cycle oscillation
+    can't be shown here (the single-cell run halts at division); this is one
+    birth→division excursion.
   decision: >-
-    RIDA-only already lands the band — a strong first signal. Proceed to add
-    datA + DARS to test whether they sharpen the cell-cycle oscillation, then
-    feed the validated network into dnaa-04's initiation timing.
+    Full reset network lands the band (0.466 ∈ [0.2,0.5]) with the expected DARS
+    recovery signature — both primary tests pass on current data. Next: feed the
+    validated network into dnaa-04's initiation timing, and (later) a
+    multigeneration run to show the sustained oscillation.
   next_action: >-
-    Implement the datA (DDAH) and DARS1/2 Steps; run baseline + per-regulator
-    knockouts; then feed the validated reset network back into dnaa-04's
-    initiation timing.
+    datA + DARS Steps built and the full network validated in band. Next: feed
+    the reset network into dnaa-04's initiation timing, add per-regulator
+    knockouts (datA-only, DARS-knockout) to quantify each contribution, and run
+    multigeneration to show the sustained oscillation.
 
 # ─── QUESTION ───────────────────────────────────────────────────────────
 question: |
@@ -100,8 +105,20 @@ conditions:
       composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
       params: {seed: 0, cache_dir: out/cache, n_steps: 3600, mechanism: intrinsic, stage1_dnaa_expression: true}
     - name: rida-plus-data-dars
-      description: Full reset network — RIDA + datA + DARS1&2 (requires the new Steps; placeholder until they land).
-      base_composite: baseline
+      description: Full reset network — RIDA (40/min) + datA (DDAH 12/min) + DARS1&2 (5+10/min).
+      composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
+      params:
+        seed: 0
+        cache_dir: out/cache
+        n_steps: 3600
+        mechanism: rida-v0
+        rida_rate_per_min: 40.0
+        stage1_dnaa_expression: true
+        enable_data: true
+        data_rate_per_min: 12.0
+        enable_dars: true
+        dars1_rate_per_min: 5.0
+        dars2_rate_per_min: 10.0
 
 # ─── TESTS ───────────────────────────────────────────────────────────────
 tests:
@@ -111,7 +128,7 @@ tests:
   measure: {kind: listener_path, path: listeners.dnaA_cycle.atp_fraction, reduce: median, window: second_half}
   pass_if: {op: in_range, low: 0.2, high: 0.5}
   requires_simulation: rida-plus-data-dars
-  status: planned
+  status: passed  # 2026-05-22: 2nd-half median 0.466 ∈ [0.2,0.5]
   cites: [wcm_stage1_parameters, Boesen2024PNAS]
 - name: intrinsic-only-stays-high
   classification: supporting
@@ -127,7 +144,10 @@ tests:
   measure: {kind: listener_path, path: listeners.dnaA_cycle.atp_fraction, reduce: series, window: full}
   pass_if: {op: oscillation_amplitude_at_least, value: 0.2}
   requires_simulation: rida-plus-data-dars
-  status: planned
+  # 2026-05-22: cell-cycle excursion amplitude ~0.52 (range [0.365,0.886]) >= 0.2.
+  # Single-cell run = one birth->division excursion; sustained multi-cycle
+  # oscillation needs the multigeneration framework.
+  status: passed-single-cycle
   cites: [Katayama2017Frontiers, Kasho2023IJMS]
 
 # ─── READOUTS ──────────────────────────────────────────────────────────────
@@ -177,7 +197,7 @@ follow_up_studies:
   rationale: With the ATP/ADP reset network in place, add SeqA origin sequestration (the post-firing refractory) to prevent re-initiation.
 
 # ─── STATUS ─────────────────────────────────────────────────────────────────
-status: ran-rida-only-in-band  # RIDA alone lands [0.2,0.5]; datA/DARS pending
+status: ran-full-network-in-band  # RIDA+datA+DARS land 0.466 ∈ [0.2,0.5]; DARS raises the floor
 phase: Mechanism
 
 bibliography:

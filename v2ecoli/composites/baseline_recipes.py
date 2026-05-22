@@ -38,6 +38,8 @@ from v2ecoli.steps.dnaa_intrinsic_hydrolysis import DnaaIntrinsicHydrolysis
 from v2ecoli.steps.dnaa_cycle_listener import DnaaCycleListener
 from v2ecoli.steps.dnaa_atp_fraction_clamp import DnaaAtpFractionClamp
 from v2ecoli.steps.dnaa_rida_v0 import DnaaRidaV0
+from v2ecoli.steps.dnaa_data_ddah import DnaaDataDdah
+from v2ecoli.steps.dnaa_dars import DnaaDars
 from v2ecoli.steps.dnaa_initiation_mechanism import DnaaInitiationMechanism
 from v2ecoli.processes.dnaa_box_binding import DnaaBoxBinding
 
@@ -48,6 +50,8 @@ from v2ecoli.processes.dnaa_box_binding import DnaaBoxBinding
 # after every baseline step has settled.
 _PRIORITY_HYDROLYSIS  = 0.30
 _PRIORITY_RIDA        = 0.28   # between intrinsic and clamp; also writes to MONOMER0-160/4565
+_PRIORITY_DATA        = 0.26   # datA/DDAH: ATP->ADP, after RIDA
+_PRIORITY_DARS        = 0.24   # DARS1/2: ADP->ATP (recovery), after datA
 _PRIORITY_CLAMP       = 0.20
 _PRIORITY_BOX_BINDING = 0.15  # between clamp and listener
 _PRIORITY_LISTENER    = 0.10
@@ -229,6 +233,26 @@ def _append_step(cell_state, step_name, instance, priority,
             "type": "integer", "default": 325,
             "description": "Seed apo-DnaA count when stage1_dnaa_expression=True.",
         },
+        "enable_data": {
+            "type": "boolean", "default": False,
+            "description": "Add the datA (DDAH) Step: DnaA-ATP->ADP, dnaa-06 extrinsic network.",
+        },
+        "data_rate_per_min": {
+            "type": "number", "default": 12.0,
+            "description": "datA/DDAH hydrolysis rate per locus (Stage-1 heuristic 12/min).",
+        },
+        "enable_dars": {
+            "type": "boolean", "default": False,
+            "description": "Add the DARS1/2 Step: DnaA-ADP->ATP recovery, dnaa-06 extrinsic network.",
+        },
+        "dars1_rate_per_min": {
+            "type": "number", "default": 5.0,
+            "description": "DARS1 reactivation rate per locus (Stage-1 heuristic 5/min).",
+        },
+        "dars2_rate_per_min": {
+            "type": "number", "default": 10.0,
+            "description": "DARS2 reactivation rate per locus (Stage-1 heuristic 10/min).",
+        },
     },
 )
 def dnaa_02_with_intrinsic_hydrolysis(
@@ -245,8 +269,19 @@ def dnaa_02_with_intrinsic_hydrolysis(
     stage1_dnaa_expression: bool = False,
     dnaa_synthesis_rate_per_min: float = 1.5,
     initial_dnaa_count: int = 325,
+    enable_data: bool = False,
+    data_rate_per_min: float = 12.0,
+    enable_dars: bool = False,
+    dars1_rate_per_min: float = 5.0,
+    dars2_rate_per_min: float = 10.0,
 ) -> dict:
     """Build the dnaa-02 gate composite.
+
+    ``enable_data`` / ``enable_dars`` (dnaa-06): add the extrinsic reset network
+    on top of intrinsic+RIDA — datA (DDAH, DnaA-ATP->ADP at ``data_rate_per_min``,
+    default 12/min) and DARS1/2 (DnaA-ADP->ATP recovery at
+    ``dars1_rate_per_min`` + ``dars2_rate_per_min``, default 5+10/min). Both off
+    by default (dnaa-02 stays intrinsic-only / +RIDA).
 
     ``stage1_dnaa_expression=True`` (expert round-1, 2026-05-21): also add a
     constitutive DnaaConstitutiveExpression Step + seed apo-DnaA, so the
@@ -355,43 +390,52 @@ def dnaa_02_with_intrinsic_hydrolysis(
                       float(atp_fraction_clamp_high)]
     clamp = DnaaAtpFractionClamp(parameters={"band": clamp_band})
 
+    # dnaa-06 extrinsic reset network (off by default).
+    data_step = None
+    if enable_data:
+        data_step = DnaaDataDdah(parameters={
+            "rate_per_min": float(data_rate_per_min),
+            "deterministic": False,
+            "seed": int(seed),
+        })
+    dars_step = None
+    if enable_dars:
+        dars_step = DnaaDars(parameters={
+            "dars1_rate_per_min": float(dars1_rate_per_min),
+            "dars2_rate_per_min": float(dars2_rate_per_min),
+            "deterministic": False,
+            "seed": int(seed),
+        })
+
     listener = DnaaCycleListener(parameters={})
 
-    # 3. Token-chained Step ordering: intrinsic → [RIDA] → clamp → listener.
-    cell_state.setdefault("_dnaa02_token_h", 0.0)
+    # 3. Token-chained Step ordering — each writes to the DnaA-ATP/ADP bulk
+    # pools, so chain them for deterministic order:
+    #   intrinsic → [RIDA] → [datA] → [DARS] → clamp → listener.
+    chain = [("dnaa-intrinsic-hydrolysis", hydrolysis, _PRIORITY_HYDROLYSIS)]
     if rida is not None:
-        cell_state.setdefault("_dnaa02_token_r", 0.0)
-    cell_state.setdefault("_dnaa02_token_c", 0.0)
+        chain.append(("dnaa-rida-v0", rida, _PRIORITY_RIDA))
+    if data_step is not None:
+        chain.append(("dnaa-data-ddah", data_step, _PRIORITY_DATA))
+    if dars_step is not None:
+        chain.append(("dnaa-dars", dars_step, _PRIORITY_DARS))
+    chain.append(("dnaa-atp-fraction-clamp", clamp, _PRIORITY_CLAMP))
+    chain.append(("dnaa-cycle-listener", listener, _PRIORITY_LISTENER))
 
-    _append_step(cell_state, "dnaa-intrinsic-hydrolysis",
-                 hydrolysis, _PRIORITY_HYDROLYSIS,
-                 token_out="_dnaa02_token_h")
-    if rida is not None:
-        _append_step(cell_state, "dnaa-rida-v0",
-                     rida, _PRIORITY_RIDA,
-                     token_in="_dnaa02_token_h",
-                     token_out="_dnaa02_token_r")
-        _append_step(cell_state, "dnaa-atp-fraction-clamp",
-                     clamp, _PRIORITY_CLAMP,
-                     token_in="_dnaa02_token_r",
-                     token_out="_dnaa02_token_c")
-    else:
-        _append_step(cell_state, "dnaa-atp-fraction-clamp",
-                     clamp, _PRIORITY_CLAMP,
-                     token_in="_dnaa02_token_h",
-                     token_out="_dnaa02_token_c")
-    _append_step(cell_state, "dnaa-cycle-listener",
-                 listener, _PRIORITY_LISTENER,
-                 token_in="_dnaa02_token_c")
+    prev_token = None
+    for i, (sname, step, prio) in enumerate(chain):
+        tok_out = None if i == len(chain) - 1 else f"_dnaa02_token_{i}"
+        if tok_out is not None:
+            cell_state.setdefault(tok_out, 0.0)
+        _append_step(cell_state, sname, step, prio,
+                     token_in=prev_token, token_out=tok_out)
+        prev_token = tok_out
 
     # 4. Extend flow_order so listing tools include the new Steps.
     flow = []
     if stage1_dnaa_expression:
         flow.append("dnaa-constitutive-expression")
-    flow.append("dnaa-intrinsic-hydrolysis")
-    if rida is not None:
-        flow.append("dnaa-rida-v0")
-    flow.extend(["dnaa-atp-fraction-clamp", "dnaa-cycle-listener"])
+    flow.extend([c[0] for c in chain])
     doc["flow_order"] = list(doc.get("flow_order", [])) + flow
 
     return doc

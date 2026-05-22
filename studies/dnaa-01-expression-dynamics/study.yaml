@@ -2,6 +2,31 @@ schema_version: 4
 name: dnaa-01-expression-dynamics
 created: '2026-05-16'
 report:
+  title: "DnaA expression dynamics"
+  verdict: passing-with-caveats
+  confidence: medium
+  evidence_quality: literature-matched
+  objective: >-
+    Certify that v2ecoli's existing transcription/translation chain produces a
+    steady, physiological DnaA pool before any initiation mechanism is built on
+    top of it.
+  conclusion: >-
+    DnaA count = 357 now passes inside the literature [300, 800] band; the
+    Stage-1 transcription/translation wiring works as intended.
+  main_insight: >-
+    v2ecoli reproduces a DnaA pool whose absolute count validates against the
+    mass-spec abundance band, confirming the Stage-1 chain produces a
+    physiological pool.
+  caveat: >-
+    Concentration-stability (rolling_cv) and autorepression (pearson) tests use
+    measure kinds the scalar evaluator cannot auto-verdict, so those verdicts are
+    refresh-pending; the weak +0.197 autorepression signal remains a biology gap.
+  lit_match: "mass-spec abundance band [300, 800]"
+  key_metrics:
+  - {label: "DnaA count", value: 357, status: pass}
+  - "band [300, 800]"
+  - {label: "autorepression r", value: "+0.197", status: warn}
+  - "rolling CV <1%"
   purpose: >-
     Certify that v2ecoli's existing transcription/translation chain already
     produces a steady, self-regulating DnaA pool before any replication-initiation

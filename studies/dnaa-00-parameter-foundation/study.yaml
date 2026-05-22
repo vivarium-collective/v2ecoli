@@ -35,6 +35,30 @@ created: '2026-05-18'
 # Purpose · Setup · Result · Interpretation · Decision · Next action.
 # Authored; the machinery (runs, tests, params) is disclosed separately.
 report:
+  title: "DnaA parameter foundation"
+  verdict: passing
+  confidence: high
+  evidence_quality: literature-matched
+  objective: >-
+    Establish the parameter-pinned v2ecoli baseline the whole investigation
+    calibrates against, before any new mechanism lands.
+  conclusion: >-
+    The unmodified cell already fires one replication round per cycle and holds
+    DnaA at ~325 (literature band 300-800); adding RIDA is what brings the
+    DnaA-ATP fraction into the physiological range.
+  main_insight: >-
+    The legacy mass-per-oriC heuristic, not the ported layer, fires replication,
+    so it is a valid reference; the hydrolysis/RIDA mechanism governs the ATP
+    fraction.
+  caveat: >-
+    Replication still fires via the legacy mass-per-oriC heuristic, not the DnaA
+    mechanism under test.
+  lit_match: "Boesen 2024 / Fu-Xiao-Jun 2023"
+  key_metrics:
+  - {label: "DnaA count", value: "~325", status: pass}
+  - "band [300, 800]"
+  - "oriC 2->4 within one cycle"
+  - {label: "RIDA-active ATP fraction", value: "0.15-0.44", status: pass}
   purpose: >-
     Establish the baseline the whole investigation calibrates against, and
     show how the same v2ecoli code behaves when its surfaced parameters are

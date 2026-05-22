@@ -2,6 +2,31 @@ schema_version: 4
 name: dnaa-02f-equilibrium-cleanup
 created: '2026-05-17'
 report:
+  title: "DnaA nucleotide-cycle equilibrium cleanup"
+  verdict: passing
+  confidence: high
+  evidence_quality: calibrated
+  objective: >-
+    Find a real-biology alternative to dnaa-02's monkey-patch that gives a
+    defensible DnaA-ATP-fraction baseline without inventing molecules or mutating
+    stoichiometry.
+  conclusion: >-
+    Variant E (RIDA-v0 fork-active 100x hydrolysis + ATP-fraction clamp) passes
+    the band at 0.5 with the equilibrium reaction intact, and replaces the
+    monkey-patch as the canonical dnaa-02 recipe.
+  main_insight: >-
+    The original dnaa-02 pass came from the clamp, not the biology; variant E adds
+    enough fork-active ATP-to-ADP flux for the clamp's transfers to stick with no
+    stoichMatrix mutation.
+  caveat: >-
+    Variant E still relies on a clamp stand-in plus a RIDA-v0 multiplier;
+    production RIDA (explicit Hda / beta-clamp kinetics) is deferred to
+    dnaa-05/06.
+  key_metrics:
+  - {label: "atp_fraction (variant E)", value: 0.5, status: pass}
+  - "band [0.2, 0.5]"
+  - "CV <1% (seeds 0/1/2)"
+  - {label: "stoichMatrix mutation", value: "none", status: pass}
   purpose: >-
     dnaa-02 passes its DnaA-ATP fraction band test only via an invasive
     monkey-patch that zeroes MONOMER0-4565_RXN's stoichMatrix column. This study

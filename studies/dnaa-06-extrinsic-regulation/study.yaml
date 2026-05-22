@@ -17,6 +17,30 @@ created: '2026-05-22'
 
 # ─── REPORT (compact, human-facing) ──────────────────────────────────────
 report:
+  title: "Extrinsic DnaA-ATP reset network"
+  verdict: passing
+  confidence: medium
+  evidence_quality: calibrated
+  objective: >-
+    Test whether the extrinsic reset network (RIDA/Hda, datA/DDAH, DARS1&2) holds
+    the DnaA-ATP fraction in the [0.2, 0.5] band that intrinsic hydrolysis alone
+    cannot.
+  conclusion: >-
+    The full reset network lands the band (median 0.466 in [0.2, 0.5]) with the
+    expected DARS recovery signature; both primary tests pass.
+  main_insight: >-
+    RIDA is the dominant band-setter (~1.0 -> 0.365 alone) while DARS supplies the
+    only recovery arm - with DARS in, the floor lifts from 0.18 to 0.365,
+    preventing over-depletion.
+  caveat: >-
+    Oscillation is shown over a single cycle only; per-regulator knockouts and a
+    multigeneration sustained-oscillation run are still pending.
+  lit_match: "Boesen 2024 band"
+  key_metrics:
+  - {label: "full-network ATP fraction", value: 0.466, status: pass}
+  - {label: "intrinsic-only control", value: 0.998, status: fail}
+  - {label: "RIDA-only", value: 0.365, status: pass}
+  - "band [0.2, 0.5]"
   purpose: >-
     Test whether adding the extrinsic DnaA-ATP/ADP reset network (RIDA via Hda,
     datA/DDAH, and DARS1&2 reactivation) holds the DnaA-ATP fraction in the

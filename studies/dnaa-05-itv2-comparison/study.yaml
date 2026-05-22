@@ -18,6 +18,31 @@ name: dnaa-05-itv2-comparison
 created: '2026-05-18'
 
 report:
+  title: "ITv2 analytical-reference comparison"
+  verdict: preliminary
+  confidence: low
+  evidence_quality: exploratory
+  objective: >-
+    Validate v2ecoli's DnaA mechanism against the Fu/Xiao/Jun (2023) ITv2
+    analytical model - initiation mass, ATP/ADP oscillation, and 1/N synchrony -
+    at matched parameters.
+  conclusion: >-
+    Inconclusive with one clear negative: the default-parameter v2ecoli DnaA-ATP
+    fraction (~0.94) sits far above [0.2, 0.5], and the ITv2 initiation-mass
+    match has no data (emit/path gap).
+  main_insight: >-
+    v2ecoli should converge to the analytical prediction once parameters are
+    matched; the default-parameter run diverges as expected (~115 DnaA/cell,
+    roughly 5x below the paper's anchor).
+  caveat: >-
+    The ITv2 initiation-mass observable was not captured
+    (listeners.itv2.initiation_mass emit/path gap), so the headline match cannot
+    be judged - it needs a re-run with the path emitted.
+  lit_match: "Fu-Xiao-Jun 2023 ITv2 (not yet validated)"
+  key_metrics:
+  - {label: "v2ecoli baseline ATP fraction", value: "~0.94", status: fail}
+  - "band [0.2, 0.5]"
+  - {label: "ITv2 mass match", value: "no data", status: warn}
   purpose: >-
     Validate v2ecoli's whole-cell DnaA mechanism against the Fu/Xiao/Jun (2023)
     initiator-titration model v2 (ITv2) analytical reference, testing whether

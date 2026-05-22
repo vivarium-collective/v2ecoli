@@ -2,6 +2,30 @@ schema_version: 4
 name: dnaa-02-atp-hydrolysis
 created: '2026-05-16'
 report:
+  title: "DnaA ATP/ADP intrinsic hydrolysis"
+  verdict: failing-bio
+  confidence: high
+  evidence_quality: calibrated
+  objective: >-
+    Test whether a minimal intrinsic-hydrolysis Step alone can hold the DnaA-ATP
+    fraction inside the physiological 20-50% band (Boesen 2024).
+  conclusion: >-
+    Intrinsic hydrolysis alone cannot hold the band - atp_fraction sits at 0.997,
+    far above [0.2, 0.5] - the honest, expected control result without the
+    extrinsic network.
+  main_insight: >-
+    Only DnaA-ATP drives initiation; intrinsic hydrolysis is too slow to balance
+    ATP-loading, so the extrinsic regulators (RIDA/datA/DARS) are required to set
+    the band.
+  caveat: >-
+    The band failure is the expected intrinsic-only control; the three-state
+    split builds and unblocks dnaa-03, and dnaa-02f / dnaa-06 recover the band
+    with the extrinsic network.
+  lit_match: "Boesen 2024 band (not met by intrinsic-only)"
+  key_metrics:
+  - {label: "atp_fraction (intrinsic-only)", value: 0.997, status: fail}
+  - "target band [0.2, 0.5]"
+  - {label: "three-state pool builds", value: "yes", status: pass}
   purpose: >-
     Tests whether v2ecoli can reproduce the DnaA nucleotide cycle (apo / DnaA-ATP /
     DnaA-ADP), specifically whether a minimal intrinsic-hydrolysis Step can hold the

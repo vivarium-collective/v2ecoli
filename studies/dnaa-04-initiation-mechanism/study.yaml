@@ -2,6 +2,31 @@ schema_version: 4
 name: dnaa-04-initiation-mechanism
 created: '2026-05-16'
 report:
+  title: "DnaA-driven initiation trigger"
+  verdict: preliminary
+  confidence: low
+  evidence_quality: exploratory
+  objective: >-
+    Test whether a DnaA-driven initiation trigger (oriC high-affinity fill +
+    ATP-DnaA band + no active replication, with a SeqA-v0 refractory) can replace
+    v2ecoli's mass-per-oriC heuristic, run as a shadow observer to compare firing
+    times.
+  conclusion: >-
+    The mechanism runs as a shadow observer alongside the heuristic, but the
+    coordinated generation produced no refreshed numeric verdicts (measure kinds
+    unsupported), so the prior PASS-with-offset analysis is verdict-refresh-pending.
+  main_insight: >-
+    The DnaA mechanism built across dnaa-01..03 (oriC boxes occupied by DnaA-ATP
+    open the origin) plus a SeqA-v0 fixed-timer placeholder substitutes for the
+    single mass-per-oriC threshold.
+  caveat: >-
+    Tests use count/delta_t/cv measure kinds the scalar evaluator cannot
+    auto-verdict; SeqA is a fixed-timer placeholder; replisome-gate and
+    mass-at-fire follow-ups are still open.
+  key_metrics:
+  - "shadow-observer mode"
+  - {label: "numeric verdicts", value: "refresh-pending", status: warn}
+  - "SeqA-v0 fixed timer"
   purpose: >-
     Test whether a DnaA-driven mechanistic initiation trigger (oriC high-affinity
     fill + ATP-DnaA band + no active replication, with a SeqA-v0 refractory) can

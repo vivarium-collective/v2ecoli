@@ -2,6 +2,30 @@ schema_version: 4
 name: dnaa-03-box-binding
 created: '2026-05-16'
 report:
+  title: "DnaA-box binding and titration"
+  verdict: passing-with-caveats
+  confidence: medium
+  evidence_quality: calibrated
+  objective: >-
+    Test whether explicit DnaA binding to the 307-box chromosomal consensus
+    (plus oriC and dnaAp) reproduces the textbook titration order: chromosome
+    fills first, then oriC saturates, then free DnaA rises.
+  conclusion: >-
+    The occupancy-dependent affinity gradient produces graded oriC filling and
+    the expected titration buffering; regression and explanatory-gain pass,
+    biological-validation refresh-pending.
+  main_insight: >-
+    The 307 chromosomal sites act as a titration buffer that soaks up free DnaA
+    so the cell does not fire too early, with oriC as the actual switch.
+  caveat: >-
+    Behavior tests use measure kinds the scalar evaluator cannot auto-verdict (no
+    numeric bio verdicts); cooperative DnaA-ATP binding, HU/IHF facilitation, and
+    SeqA sequestration are not yet modelled.
+  key_metrics:
+  - "307-box consensus catalog"
+  - {label: "regression", value: "PASS", status: pass}
+  - {label: "explanatory gain", value: "POSITIVE", status: pass}
+  - {label: "biological_validation", value: "refresh-pending", status: warn}
   purpose: >-
     Tests whether explicit DnaA binding to the catalogued DnaA-boxes
     (chromosomal + oriC + dnaAp) reproduces the textbook titration pattern —

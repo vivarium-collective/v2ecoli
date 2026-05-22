@@ -79,6 +79,16 @@ report:
     heuristic, so it is a valid reference. Adding the hydrolysis/RIDA layer is
     what brings DnaA-ATP into the physiological band — evidence that the ported
     mechanism, not the heuristic, governs the ATP fraction.
+
+    Haochen R2 (fig 1, DnaA-ATP fraction): the Stage-1 RIDA-active trace
+    transiently rises toward ~1 during the window with NO active replication
+    forks. This is expected fork-coupling, not a glitch: RIDA/Hda hydrolyses
+    DnaA-ATP only at active forks (it needs the β-clamp loaded at a fork), so
+    between rounds RIDA shuts off and DnaA-ATP accumulates; the fraction drops
+    back into band when the next round fires and forks reactivate RIDA. (DnaA-ADP
+    does not "disappear" — its fraction falls because ATP-form accumulates while
+    hydrolysis is paused.) Fig 2 (monomer count): the orange trace is "Baseline +
+    Stage 1 params"; blue is the v2ecoli default — the legend sits below the plot.
   decision: >-
     Baseline confirmed and parameter-pinned. Proceed to the mechanism studies.
   next_action: >-

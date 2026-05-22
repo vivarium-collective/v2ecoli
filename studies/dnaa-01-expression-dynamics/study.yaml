@@ -54,6 +54,19 @@ report:
     The +0.197 autorepression signal remains a genuine biology gap likely from a
     too-coarse cell-wide Y axis or weak fold change, but its verdict awaits a
     non-scalar evaluator.
+
+    Haochen R2 (charts, ~1900s dip): the slight dnaA drop is unexpected — NO
+    autorepression parameters are wired at the heuristic stage, so it should not
+    arise from autoregulation. Candidate causes to investigate (not yet resolved,
+    flagged as an open question): post-division dilution of the pool, interaction
+    of the constitutive-synthesis Step with the growing cell volume, or a
+    total-vs-free DnaA measurement effect — NOT genuine dnaA autorepression.
+
+    Haochen R2 (duration): this run was 600 s (~10 min), far shorter than one
+    mass-doubling time (τ = 150 min at Stage 1). Steadiness of the DnaA
+    concentration CANNOT be judged on a sub-generation window — a re-run covering
+    ≥ 1 doubling time (minimal-glycerol Stage-1 media) is required before any
+    steady-state claim. The review-readiness duration gate now flags this.
   decision: >-
     Pipeline gate PASSED for structural progression: regression_compatibility =
     PASS, biological_validation = PASS (dnaA-count-in-range = 357, in band),

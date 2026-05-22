@@ -15,52 +15,58 @@ report:
     steady, physiological DnaA pool before any initiation mechanism is built on
     top of it.
   conclusion: >-
-    Over a FULL cell cycle on minimal-acetate (τ slow; ran one generation, ~67
-    min to division), DnaA count stays in the literature [300, 800] band the
-    whole time (median 366, range 315-407) with a second-half CV of 2.8% — so the
-    pool is steady over >=1 doubling time, the judgement the earlier 10-min run
-    could not support.
+    Over ONE full cell cycle (~67 min, run on the acetate carbon source) DnaA
+    count stays in the literature [300, 800] band the whole time (median 366,
+    range 315-407) with second-half CV 2.8% — so the pool is steady WITHIN a
+    generation. Judging steadiness ACROSS multiple doubling times still needs a
+    multi-generation run (see caveat).
   main_insight: >-
     v2ecoli reproduces a DnaA pool whose absolute count validates against the
-    mass-spec abundance band AND now holds steady across a complete generation —
-    confirming the Stage-1 chain produces a physiological, stable pool.
+    mass-spec abundance band and holds in band across one full cell cycle —
+    evidence the Stage-1 chain produces a physiological pool.
   caveat: >-
-    Steadiness is shown over ONE cell cycle on a slow-growth proxy (minimal-
-    acetate, since glycerol isn't in v2ecoli's ParCa); the first cycle divides at
-    ~67 min, not acetate's nominal 136-min steady-state τ (initial-mass effect) —
-    multi-generation would confirm the steady-state cycle. The autorepression
-    (pearson) verdict is still refresh-pending and the ~1900s dip is still open.
+    Steadiness is shown over only ONE cell cycle. The run used the acetate carbon
+    source, but it did NOT actually slow growth — v2ecoli's growth rate is set by
+    the synthesis machinery (glucose ParCa fit), so the cell still divided at
+    ~67 min, near glucose pace, not acetate's nominal 136-min doubling time.
+    Judging cross-cycle drift (true steadiness over >1 doubling time) needs a
+    multi-generation run (not yet built — colony continuation works but clean
+    emit/lineage tracking is pending). The autorepression (pearson) verdict is
+    still refresh-pending and the ~1900s dip is still open.
   lit_match: "mass-spec abundance band [300, 800]"
   key_metrics:
-  - {label: "DnaA count (acetate, full cycle)", value: "366 median", status: pass}
+  - {label: "DnaA count (1 cycle)", value: "366 median", status: pass}
   - "band [300, 800]; range 315-407"
   - {label: "second-half CV", value: "2.8%", status: pass}
-  - {label: "cycle length", value: "~67 min (1 generation)", status: pass}
+  - {label: "cross-cycle steadiness", value: "needs multi-gen", status: warn}
   purpose: >-
     Certify that v2ecoli's existing transcription/translation chain already
     produces a steady, self-regulating DnaA pool before any replication-initiation
     mechanism (dnaa-02..04) is built on top of it. If this baseline pool is wrong,
     every downstream nucleotide-cycle rate is calibrated against fiction.
   setup: >-
-    Ran the dnaa_stage1_constitutive composite on minimal-ACETATE (slow non-
-    overlapping growth, via the out/cache-stage1-heuristic-acetate condition cache
-    — doubling 136 min, built with the new --media-condition support), one full
-    cell cycle to division (~67 min), apo-DnaA synthesised constitutively at
-    1.5 protein/min/gene, initial DnaA = 325. A translation_efficiency_eg10235_scale
-    model_setting (current 2.48) is the calibration knob; no new processes added —
-    a no-code-change certification, now over a full generation per Haochen R2.
+    Ran the dnaa_stage1_constitutive composite on the acetate carbon source (via
+    out/cache-stage1-heuristic-acetate, built with the new --media-condition
+    support — exchange switched GLC[p] -> ACET[p]) for one full cell cycle to
+    division (~67 min), apo-DnaA synthesised constitutively at 1.5 protein/min/gene,
+    initial DnaA = 325. A translation_efficiency_eg10235_scale model_setting
+    (current 2.48) is the calibration knob; no new processes added — a no-code-
+    change certification, now over a full generation. NOTE: acetate did NOT slow
+    growth (the cell still divided at ~67 min, near glucose pace) — v2ecoli's
+    growth rate is fixed by the synthesis machinery from the glucose ParCa fit, so
+    the nutrient swap changes only the carbon source, not the doubling time.
   result: >-
-    Re-run on minimal-ACETATE (slow non-overlapping cycle; one full generation,
-    0 -> ~67 min to division) to satisfy Haochen's >=1-doubling-time requirement:
-    the dnaA-count-in-range primary test PASSES the whole cycle — DnaA count
-    median 366, range 315-407, never leaving the literature [300, 800] band, and
-    the second-half CV is 2.8% (well under the 10% stability threshold). The count
-    rises 325 -> 407 across the cycle (cell growth) and would halve at division.
+    Run for one full cell cycle (0 -> ~67 min to division): the dnaA-count-in-range
+    primary test PASSES the whole cycle — DnaA count median 366, range 315-407,
+    never leaving the literature [300, 800] band, second-half CV 2.8% (well under
+    the 10% stability threshold). The count rises 325 -> 407 across the cycle (cell
+    growth) and would halve at division. So DnaA is steady WITHIN one generation.
     The concentration-stability (rolling_cv) and autorepression (pearson) tests
-    still use measure kinds the scalar evaluator cannot auto-verdict, so their
-    formal verdicts remain refresh-pending — but the 2.8% CV now gives a concrete
-    steadiness read over a full generation. (Earlier glucose run: 357 over a
-    44-min cycle; the original 10-min run was too short to judge steadiness.)
+    use measure kinds the scalar evaluator cannot auto-verdict, so their formal
+    verdicts remain refresh-pending. Judging cross-cycle drift (steadiness over
+    MULTIPLE doubling times — Haochen R2) needs a multi-generation run, which
+    isn't built yet. (Earlier glucose run: 357 over a 44-min cycle; the original
+    10-min run was too short to see even one cycle.)
   interpretation: >-
     v2ecoli reproduces a DnaA pool whose absolute count (357) now validates against
     the mass-spec literature band [300, 800], confirming the listener correctly
@@ -70,23 +76,24 @@ report:
     non-scalar evaluator.
 
     Haochen R2 (~1900s dip) — INVESTIGATED: the dip does NOT reproduce in the
-    slow-growth (acetate) full-cycle run. There DnaA rises smoothly and
-    monotonically (325 -> 407), and at the same 1700-2100 s window it sits steady
-    at ~363-370 with no drop. Since a genuine autoregulatory signature would
-    persist across growth conditions, the glucose-run dip is NOT autorepression —
-    it is a glucose-specific transient / division-timing artifact (in the 44-min
-    glucose cycle, ~1900 s is late-cycle near the ~2640 s division; the same
-    absolute time is mid-cycle under acetate and shows nothing). Consistent with
-    no autorepression parameters being wired at the heuristic stage.
+    full-cycle (~67 min) run. There DnaA rises smoothly and monotonically
+    (325 -> 407), and at the same 1700-2100 s window it sits steady at ~363-370
+    with no drop. Since a genuine autoregulatory signature would persist across
+    runs, the glucose-run dip is NOT autorepression — it is a glucose-specific
+    transient / division-timing artifact (in the 44-min glucose cycle, ~1900 s is
+    late-cycle near the ~2640 s division; in the ~67-min cycle the same absolute
+    time is earlier in the cycle and shows nothing). Consistent with no
+    autorepression parameters being wired at the heuristic stage.
 
-    Haochen R2 (duration) — RESOLVED: re-run over a full cell cycle on minimal-
-    acetate (slow non-overlapping growth; glycerol isn't in v2ecoli's ParCa, so
-    acetate is the no-refit slow-growth proxy). Over the ~67-min generation the
-    DnaA count holds in band (median 366, CV 2.8% in the second half), so the
-    pool IS steady across a doubling time. Caveat: the first cycle divides at
-    ~67 min rather than acetate's nominal 136-min steady-state τ (the initial
-    mass isn't the acetate birth mass); a multi-generation run would confirm the
-    steady-state cycle length.
+    Haochen R2 (duration) — PARTIALLY addressed: the run now covers ONE full cell
+    cycle (~67 min) vs the original 10-min slice, and DnaA holds in band (median
+    366, CV 2.8% second half) — steady WITHIN a generation. NOT fully resolved:
+    the acetate carbon swap did NOT slow growth (v2ecoli's growth rate is fixed by
+    the synthesis machinery from the glucose ParCa fit, so the cell still divided
+    at ~67 min, near glucose pace — NOT acetate's nominal 136 min). Judging
+    steadiness ACROSS multiple doubling times (cross-cycle drift) needs a true
+    multi-generation run; that's captured as follow-up work (colony continuation
+    past division is validated, but clean lineage emit/viz is pending).
   decision: >-
     Pipeline gate PASSED for structural progression: regression_compatibility =
     PASS, biological_validation = PASS (dnaA-count-in-range: acetate full-cycle

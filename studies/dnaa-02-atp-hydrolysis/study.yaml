@@ -159,16 +159,19 @@ conditions:
     diff_from_baseline: hydrolysis_rate_per_min=0.46
   model_settings:
   - name: hydrolysis_rate_per_min
-    description: 'Sekimizu 1987 intrinsic rate (0.046/min). Constitutive — does not
-
-      depend on cell state. Provided as expert_input so future ParCa
-
-      bumps to the rate constant can be reviewed before being applied.
-
-      '
+    description: 'Sekimizu 1987 intrinsic rate, k = ln(2)/15 min ≈ 0.046/min. The
+      run uses the recipe default (0.046); the earlier ``current: 0.001`` here was
+      a stale spec value that never drove the simulation (model_settings are not
+      auto-applied) — corrected to 0.046 to match the actual run + the heuristic.
+      Haochen R2: the band failure is NOT an artifact of a too-small rate; intrinsic
+      hydrolysis at the full heuristic 0.046/min over the 180-min run still cannot
+      pull DnaA-ATP below ~0.997, because binding/ATP-loading replenishes the
+      ATP-form faster than slow intrinsic hydrolysis removes it. That is the genuine,
+      expected result — the extrinsic regulators (RIDA/datA/DARS, dnaa-06) are
+      required to set the band.'
     type: number
     default: 0.046
-    current: 0.001
+    current: 0.046
     gate: optional
     range:
     - 0.001

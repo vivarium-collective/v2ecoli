@@ -51,7 +51,11 @@ assumptions:
 - text: Mass-doubling time τ is 150 min in ABT minimal-glycerol (non-overlapping cell cycle).
   cites: [wcm_stage1_parameters]
   verified_in_v2ecoli: false
-  note: v2ecoli's τ is implicit in the media composition, not a single surfaced parameter.
+  note: >-
+    Expert target, NOT applied. v2ecoli's τ is implicit in the media
+    composition; these runs use minimal-glucose (τ≈44 min, cell divides
+    ~2640 s), not the glycerol Stage-1 condition. Switching to 150 min needs a
+    media-level override / ParCa fit for ABT minimal-glycerol (TODO).
 - text: C period (replication duration) is 70 min — sets replication speed at ≈ 66.31 kbp/min.
   cites: [wcm_stage1_parameters]
   verified_in_v2ecoli: false
@@ -166,17 +170,19 @@ conditions:
     params:
       seed: 0
       cache_dir: out/cache
-      # Run length in sim-seconds. v2ecoli ticks at ~1s. The Stage-1
-      # mass-doubling time is τ = 150 min = 9000 s (model_settings
-      # tau_min_stage1), so one full cell cycle for the slow-growth
-      # condition is 9000 s. The expert review asked dnaa-00 to span "one
-      # or a few cell cycles"; 10800 s == 1.2 τ gives one complete cycle
-      # with margin so the `baseline-initiates-replication` test reliably
-      # captures the oriC-doubling event even if the slow condition fires a
-      # little past τ. (The default-condition cell at ~44 min doubling
-      # completes ~4 cycles in this window.) Long enough for a meaningful
-      # trace of listeners.dnaA_cycle.atp_fraction + listeners.monomer_counts.
-      n_steps: 10800
+      # Run-length CEILING in sim-seconds (v2ecoli ticks at ~1s). This cache
+      # runs on minimal-glucose (out/cache, media_id "minimal"), so the cell
+      # divides at ~2640 s (~44 min doubling) and the single-cell run self-
+      # terminates there — n_steps is just an upper bound, not the actual
+      # length. 3600 covers one full cell cycle with margin. (The expert's
+      # Stage-1 target is τ=150 min in ABT minimal-glycerol — see
+      # model_settings.tau_min_stage1 — but that media override is NOT applied
+      # here; these runs are glucose ~44 min. If/when the glycerol condition
+      # lands, raise this to ~10800.) One cycle is long enough for a meaningful
+      # trace of listeners.dnaA_cycle.atp_fraction + listeners.monomer_counts
+      # and to capture the oriC-doubling the baseline-initiates-replication
+      # test checks.
+      n_steps: 3600
 
   variants:
     # The same v2ecoli code as `baseline`, but with the dnaa-04
@@ -201,7 +207,7 @@ conditions:
           initial_dnaA_count_per_cell = 300  (anchor to literature band)
       params:
         seed: 0
-        n_steps: 10800   # 1.2 Stage-1 cell cycles (τ=150 min) w/ division margin, same as baseline
+        n_steps: 3600   # ceiling; glucose run divides ~2640 s (~44 min), same as baseline
         mechanism: rida-v0
         hydrolysis_rate_per_min: 0.046
         rida_rate_per_min: 40.0
@@ -231,17 +237,23 @@ conditions:
         analytical predictions in one place.
       params:
         seed: 0
-        n_steps: 10800   # 1.2 Stage-1 cell cycles (τ=150 min) w/ division margin
+        n_steps: 3600   # ceiling; itv2 is analytical (fast) and self-terminates on divide
 
   # Model settings — Stage 1 canonical values mirrored here for
   # downstream studies to inherit if they want.
   model_settings:
   - name: tau_min_stage1
-    description: "Mass-doubling time τ at Stage 1: 150 min (ABT minimal-glycerol)."
+    description: >-
+      Mass-doubling time τ at Stage 1: 150 min (ABT minimal-glycerol).
+      EXPERT TARGET, NOT YET APPLIED — these runs use minimal-glucose
+      (media_id "minimal", τ≈44 min); the glycerol media-level override is a
+      TODO (see references/data/stage1_parameters.yaml). `current` records the
+      target, not the value the model runs at.
     type: number
     default: 150.0
     current: 150.0
     gate: optional
+    status: target-not-applied
     cites: [wcm_stage1_parameters]
   - name: c_period_min_stage1
     description: "Replication period C at Stage 1: 70 min."
@@ -288,12 +300,13 @@ tests:
   # measurable. For a replication-INITIATION investigation the defining,
   # measurable event is a replication round firing: listeners.replication_
   # data.number_of_oric (= oriCs._entryState.sum()) at least doubles when a
-  # round initiates (slow condition 1→2; fast/overlapping condition 2→4).
+  # round initiates (slow condition 1→2; fast/overlapping condition 2→4 —
+  # the glucose runs here are fast/overlapping and go 2→4).
   # ratio_at_least 2.0 over the full run = the baseline fired at least one
   # round of chromosome replication. (Biomass alone is a poor proxy here:
   # the cell divides at ~1.85× dry mass, never reaching a clean 2.0×.) The
-  # 10800 s (1.2 τ) run length ensures the slow Stage-1 condition has room
-  # to reach initiation before dividing.
+  # 3600 s ceiling covers the glucose cell cycle (divides ~2640 s), leaving
+  # room to reach initiation before dividing.
   question: Does the v2ecoli baseline initiate a round of chromosome replication (oriC count at least doubles) within the run window?
   measure:
     kind: listener_path

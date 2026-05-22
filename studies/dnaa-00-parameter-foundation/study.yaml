@@ -235,19 +235,20 @@ conditions:
     params:
       seed: 0
       cache_dir: out/cache
-      # Run-length CEILING in sim-seconds (v2ecoli ticks at ~1s). This cache
-      # runs on minimal-glucose (out/cache, media_id "minimal"), so the cell
-      # divides at ~2640 s (~44 min doubling) and the single-cell run self-
-      # terminates there — n_steps is just an upper bound, not the actual
-      # length. 3600 covers one full cell cycle with margin. (The expert's
-      # Stage-1 target is τ=150 min in ABT minimal-glycerol — see
-      # model_settings.tau_min_stage1 — but that media override is NOT applied
-      # here; these runs are glucose ~44 min. If/when the glycerol condition
-      # lands, raise this to ~10800.) One cycle is long enough for a meaningful
-      # trace of listeners.dnaA_cycle.atp_fraction + listeners.monomer_counts
-      # and to capture the oriC-doubling the baseline-initiates-replication
-      # test checks.
-      n_steps: 3600
+      # Run-length CEILING in sim-seconds (v2ecoli ticks at ~1s). 10800 s
+      # (~180 min) covers ≥ 1 mass-doubling time so DnaA steadiness can be judged
+      # over a generation (Haochen R1/R2: "need longer-than-one doubling time").
+      # CAVEAT — REQUIRES A MULTIGENERATION RUN: on minimal-glucose (out/cache,
+      # media_id "minimal") the cell divides at ~2640 s (~44 min) and a SINGLE-CELL
+      # run self-terminates there, so this ceiling is only reached when the run
+      # continues through divisions (run_with_division — the path dnaa-02's 180-min
+      # run used). Two ways to satisfy the doubling-time requirement:
+      #   (1) multigeneration on this glucose cache (run_with_division; ~4 gens),
+      #   (2) the τ=150 min ABT minimal-glycerol Stage-1 condition once that ParCa
+      #       cache is built (model_settings.tau_min_stage1; status todo-media-override).
+      # The review-readiness duration gate now flags this study until the run
+      # actually covers ≥ 1 τ.
+      n_steps: 10800
 
   variants:
     # The same v2ecoli code as `baseline`, but with the dnaa-04

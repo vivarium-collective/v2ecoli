@@ -14,28 +14,38 @@ report:
     fraction is in band, and no replisome is active (n_replisomes_max_for_fire=0,
     the SeqA-v0 biology gate); a heuristic-only control disables the observer.
   result: >-
-    Multi-seed sweep (seeds 0/1/2, 1800s sims): with the replisome gate enabled the
-    mechanism fires once per 30-min window (cumulative_fires=1), matching the
-    heuristic's event count, with cross-seed CV ~0% (deterministic at fixed
-    thresholds). Mechanism fires at t=1380s vs the heuristic's t=1680s, a -300s
-    offset. Note: tests framed as multigeneration cannot be satisfied by this
-    single-cell run (it halts at division), and the flux-contributions figure
-    renders empty because intrinsic/RIDA hydrolysis-event observables are not yet
-    emitted; the mass-at-fire comparison test remains analysis pending.
+    Status as of coordinated generation gen-20260522T003700Z-9fcb58 (minimal-GLUCOSE):
+    the study's declarative tests use measure kinds (count, delta_t, cv) that the
+    scalar evaluator cannot auto-verdict, so there are NO refreshed numeric verdicts
+    from this generation — every test is "refresh pending (measure kind not
+    auto-evaluable in the current evaluator)". Prior recorded analysis (a multi-seed
+    sweep, seeds 0/1/2, with the replisome gate enabled) reported the mechanism firing
+    once per window matching the heuristic event count, deterministic across seeds, and
+    a ~-300s offset vs the heuristic; those figures are prior recorded analysis pending
+    verdict refresh, not current results. Known limitations: tests framed as
+    multigeneration cannot be satisfied by the single-cell run (it self-terminates at
+    division), and the dnaa_flux_contributions figure renders empty because the
+    intrinsic/RIDA hydrolysis-event observables are not yet emitted.
   interpretation: >-
     v2ecoli currently decides initiation by a single mass-per-oriC threshold; this
     study substitutes the DnaA mechanism built up across dnaa-01 to 03 (oriC boxes
     occupied by DnaA-ATP open the origin) plus a SeqA-v0 fixed-timer placeholder so
-    the model does not immediately re-fire. The -300s offset is the expected
-    difference between a resource-availability trigger (mechanism) and a timing
-    trigger (mass heuristic), and at ~10% of doubling time and stable across seeds
-    it is a positive validation signal.
+    the model does not immediately re-fire. The mechanism description (the dnaa_04
+    initiation trigger running as a shadow observer alongside the mass-per-oriC
+    heuristic) is current. The prior recorded ~-300s offset interpretation — the
+    expected difference between a resource-availability trigger (mechanism) and a
+    timing trigger (mass heuristic) — is prior recorded analysis pending verdict
+    refresh; the current evaluator cannot auto-verdict the delta_t measure that
+    produced it.
   decision: >-
-    Gate status partial-shadow-observer-passing: regression_compatibility PASS (the
-    observer is non-destructive), biological_validation PASS-WITH-CHARACTERISED-OFFSET,
-    explanatory_gain POSITIVE. The full proceed condition is not yet met
-    (initiation-mass-mean-matches-heuristic still pending); the capstone in-scope
-    study is otherwise characterised.
+    Gate status partial-shadow-observer: the prior recorded verdicts
+    (regression_compatibility PASS, biological_validation PASS-WITH-CHARACTERISED-OFFSET,
+    explanatory_gain POSITIVE) are prior recorded analysis pending verdict refresh —
+    the coordinated generation gen-20260522T003700Z-9fcb58 produced no refreshed numeric
+    verdicts because the tests' measure kinds (count, delta_t, cv) are not auto-evaluable
+    in the current scalar evaluator. The shadow-observer mechanism is implemented and
+    its description is current; the full proceed condition remains unmet
+    (initiation-mass-mean-matches-heuristic pending).
   next_action: >-
     Planned follow-ups: dnaa-04-add-replisome-gate (verify the fire shifts to match
     v2ecoli's timing) and dnaa-04-mass-at-fire-analysis (compute mass-at-fire and
@@ -93,8 +103,9 @@ assumptions:
   cites:
   - Donachie1968
   - Cooper1968
-  verified_in_v2ecoli: true
-  note: dnaa-04 multi-seed runs confirm 1 init / 30-min sim.
+  verified_in_v2ecoli: false
+  note: 'Prior recorded multi-seed runs reported 1 init / 30-min sim; pending verdict
+    refresh (the count measure is not auto-evaluable in the current evaluator).'
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline_recipes.dnaa_04_with_dnaa_initiation_trigger
@@ -201,7 +212,7 @@ tests:
     op: in_range
     low: 1
     high: 1
-  status: pass-3-seeds
+  status: refresh pending (measure kind not auto-evaluable in the current evaluator)
   cites:
   - Donachie1968
   - Cooper1968
@@ -220,8 +231,10 @@ tests:
   pass_if:
     op: at_most_abs
     value: 600
-  status: pass
+  status: refresh pending (measure kind not auto-evaluable in the current evaluator)
   observed_offset_seconds: -300
+  observed_offset_note: 'Prior recorded analysis pending verdict refresh — not a current
+    coordinated-generation result.'
   observed_offset_basis: 'The mechanism fires when its resources are available (boxes
 
     saturated + ATP-fraction OK + no active replisomes); the
@@ -246,9 +259,9 @@ tests:
   pass_if:
     op: at_most
     value: 0.1
-  status: pass
+  status: refresh pending (measure kind not auto-evaluable in the current evaluator)
   run_ids: []
-status: evaluate-passing-shadow-observer
+status: evaluate-shadow-observer-verdict-refresh-pending
 status_overwritten: 2026-05-17T09:30Z
 embed_visualizations:
 - name: dnaa-04 planning-phase preview (placeholders + expected shapes)
@@ -378,6 +391,8 @@ visualizations:
       time: global_time
 - name: dnaa_flux_contributions
   address: local:DnaAFluxContributions
+  known_limitation: 'Renders empty in coordinated generation gen-20260522T003700Z-9fcb58:
+    the intrinsic/RIDA hydrolysis-event observables are not yet emitted.'
   config:
     title: dnaa-04 — DnaA-ATP hydrolysis flux contributors per tick
     sources:
@@ -392,8 +407,12 @@ pipeline_gate:
   prerequisites:
   - dnaa-03-box-binding
   enables: []
-  gate_status: partial-shadow-observer-passing
-  gate_status_summary: "2026-05-18: shadow-observer first pass implemented + characterised.\nDnaaInitiationMechanism\
+  gate_status: partial-shadow-observer
+  gate_status_summary: "PRIOR RECORDED ANALYSIS PENDING VERDICT REFRESH. The coordinated\
+    \ generation\ngen-20260522T003700Z-9fcb58 (minimal-GLUCOSE) produced no refreshed numeric\n\
+    verdicts for this study — its tests use measure kinds (count, delta_t, cv) the\n\
+    scalar evaluator cannot auto-verdict. The numbers below are from earlier runs and\n\
+    are retained for reference only.\n\n2026-05-18: shadow-observer first pass implemented + characterised.\nDnaaInitiationMechanism\
     \ Step runs alongside v2ecoli's existing\nheuristic without replacing it; emits listeners.dnaA_initiation.*\n\
     for direct comparison.\n\nMulti-seed sweep (1800s sims, θ_oric=0.5, θ_atp=0.3, refractory=600s):\n\
     \  seed 0: 3 would_fires at t=[60, 660, 1260]s\n  seed 1: 3 would_fires at t=[60, 660, 1260]s\n  seed\
@@ -420,7 +439,10 @@ pipeline_gate:
     '
 conclusion_verdicts:
   regression_compatibility:
-    result: PASS
+    result: refresh pending (measure kind not auto-evaluable in the current evaluator)
+    prior_recorded_result: PASS
+    note: 'Prior recorded analysis pending verdict refresh. The coordinated generation
+      gen-20260522T003700Z-9fcb58 produced no refreshed numeric verdict for this study.'
     basis: '2026-05-18 first pass: DnaaInitiationMechanism builds and runs
 
       alongside the existing chain (dnaa-02 + dnaa-03) without
@@ -435,7 +457,12 @@ conclusion_verdicts:
 
       '
   biological_validation:
-    result: PASS-WITH-CHARACTERISED-OFFSET
+    result: refresh pending (measure kind not auto-evaluable in the current evaluator)
+    prior_recorded_result: PASS-WITH-CHARACTERISED-OFFSET
+    note: 'Prior recorded analysis pending verdict refresh. The coordinated generation
+      gen-20260522T003700Z-9fcb58 produced no refreshed numeric verdict; the delta_t /
+      count measures behind this offset are not auto-evaluable in the current scalar
+      evaluator.'
     basis: "First pass (no replisome gate): mechanism fires 3× per 30 min vs\nheuristic 1× — the first\
       \ fire at t=60s was an artefact of starting\nmid-cycle (oriC boxes already saturated, no SeqA suppression).\n\
       \nFixed 2026-05-18 by adding ``n_replisomes_max_for_fire`` (default 0)\nto DnaaInitiationMechanism.\
@@ -454,7 +481,11 @@ conclusion_verdicts:
       \ fact that the offset is small\n(300s = ~10% of doubling time) and stable across seeds (TBD —\n\
       need multi-seed rerun with the gate) is a positive validation\nsignal for the mechanism.\n"
   explanatory_gain:
-    result: POSITIVE
+    result: refresh pending (measure kind not auto-evaluable in the current evaluator)
+    prior_recorded_result: POSITIVE
+    note: 'Prior recorded analysis pending verdict refresh. The shadow-observer
+      mechanism description below is current; the cross-seed CV and refractory-sweep
+      numbers are prior recorded analysis, not current coordinated-generation results.'
     basis: "Three findings worth keeping:\n\n1. The shadow-observer pattern works: a Step reading existing\n\
       \   listener emits + emitting its own ``listeners.dnaA_initiation.*``\n   is non-destructive and\
       \ enables 1:1 comparison vs the heuristic\n   without modifying v2ecoli's chromosome process. Important\n\

@@ -33,12 +33,17 @@ report:
     FXJ values (DnaA into the [300,800] band, intrinsic hydrolysis 0.046/min,
     ATP-fraction clamp toward [0.2,0.5], rida-v0 mechanism).
   result: >-
-    Ran in coordinated generation gen-20260522T003700Z-9fcb58; quantitative
-    analysis pending (study status is planning-not-yet-run and all three primary
-    tests are pending-first-run with no recorded findings). Three comparative
-    figures were set up overlaying the four runs: cell volume vs time, DnaA-ATP
-    count vs time, and DnaA-ATP fraction vs time (with the Boesen 2024 [0.2,0.5]
-    physiological band marked).
+    Ran in coordinated generation gen-20260522T003700Z-9fcb58. Of the three
+    primary tests: (1) the ITv2 initiation-mass match has NO DATA — the
+    observable listeners.itv2.initiation_mass was not captured for the itv2 run
+    (a path/emit gap), so it cannot be evaluated; (2) the v2ecoli-baseline
+    DnaA-ATP-fraction convergence test FAILED — the default-parameter v2ecoli
+    baseline sits at ~0.94, well outside the Boesen 2024 [0.2, 0.5] band; and
+    (3) the ITv2-vs-v2ecoli initiation-mass agreement is a cross-run-compare
+    measure the scalar evaluator cannot auto-verdict, so its verdict refresh is
+    pending. The three comparative figures (cell volume vs time, DnaA-ATP count
+    vs time, and DnaA-ATP fraction vs time with the Boesen 2024 [0.2,0.5] band
+    marked) all rendered with data.
   interpretation: >-
     If v2ecoli's mechanism captures the biology, it should converge to the
     analytical prediction once parameters are matched; the default-parameter
@@ -47,10 +52,14 @@ report:
     should close that gap. Any residual divergence after parameter matching points
     at structural/mechanism differences worth flagging for expert review.
   decision: >-
-    No verdict yet — no conclusion_verdicts or pipeline_gate are recorded; the
-    study is awaiting its first run before the three primary tests (ITv2
-    initiation-mass match, v2ecoli baseline ATP-fraction convergence, and
-    ITv2-vs-v2ecoli initiation-mass agreement within ±10%) can be evaluated.
+    Inconclusive on validation, with one clear negative. The v2ecoli baseline
+    DnaA-ATP fraction (~0.94) sits far above the physiological [0.2, 0.5] band,
+    confirming the default-parameter mechanism does not reproduce the expected
+    nucleotide-cycle balance. The ITv2 initiation-mass match cannot be judged
+    until the listeners.itv2.initiation_mass observable is captured, and the
+    cross-run initiation-mass agreement awaits an evaluator that can verdict a
+    cross_run_compare measure. No overall pass can be claimed until the
+    capture/evaluation gaps are closed.
   next_action: >-
     No follow_up_studies are recorded yet; this study itself is the follow-up to
     dnaa-04-initiation-mechanism, validating that mechanism against the external
@@ -183,7 +192,11 @@ tests:
     op: in_range
     low: 0.49        # 0.52 * 0.95
     high: 0.55       # 0.52 * 1.06
-  status: pending-first-run
+  status: no-data
+  verdict: >-
+    No data — observable not captured. listeners.itv2.initiation_mass was not
+    emitted for the itv2 run in gen-20260522T003700Z-9fcb58 (path/emit gap), so
+    this test cannot be evaluated.
   cites: [FuXiaoJun2023]
   run_ids: []
 
@@ -198,7 +211,11 @@ tests:
     op: in_range
     low: 0.2
     high: 0.5
-  status: pending-first-run
+  status: fail
+  verdict: >-
+    FAIL — measured ~0.94 in gen-20260522T003700Z-9fcb58, outside the Boesen
+    2024 band [0.2, 0.5]. The default-parameter v2ecoli baseline holds DnaA-ATP
+    far above the physiological fraction.
   cites: [Boesen2024PNAS, FuXiaoJun2023]
   run_ids: []
 
@@ -214,7 +231,11 @@ tests:
   pass_if:
     op: relative_diff_at_most
     value: 0.10
-  status: pending-first-run
+  status: verdict-refresh-pending
+  verdict: >-
+    Verdict refresh pending — this is a cross_run_compare measure that the
+    scalar evaluator cannot auto-verdict. Needs a cross-run-capable evaluator
+    before a pass/fail can be recorded.
   cites: [FuXiaoJun2023]
   run_ids: []
 
@@ -264,7 +285,7 @@ comparative_visualizations:
       - {sim_name: v2ecoli-with-fxj-params,     label: v2ecoli + FXJ params}
 
 # ─── STATUS ─────────────────────────────────────────────────────────────
-status: planning-not-yet-run
+status: ran-inconclusive  # ran in gen-20260522T003700Z-9fcb58; 1 fail, 1 no-data, 1 verdict-refresh-pending
 
 # ─── REFERENCES ────────────────────────────────────────────────────────
 parent_studies:

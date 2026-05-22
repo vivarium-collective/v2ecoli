@@ -15,24 +15,30 @@ report:
     low-affinity boxes use an occupancy-dependent affinity gradient (50→1 nM)
     rather than a flat Kd; the 3 oriC high-affinity boxes stay at Kd~1 nM.
   result: >-
-    Ran in coordinated generation gen-20260522T003700Z-9fcb58. From the
-    recorded 2026-05-17 seed-0 run: chromosomal occupancy rose monotonically
-    (0 → 0.87, fluctuations <5%, PASS); oriC stayed unoccupied until the
-    chromosome titrated (PASS); the two-step oriC fill passed numerically
-    (high crosses 0.5 at t=60s, low at t=120s, lag = 60s); free-DnaA-rise
-    failed (206 → 248, ratio 1.20 vs 1.5 threshold). Multi-seed under rida-v0
-    is mixed (1–2 of 4 tests/seed) and the box_occupancy figure shows
-    chromosome boxes filling before oriC.
+    Ran in coordinated generation gen-20260522T003700Z-9fcb58 (minimal-GLUCOSE)
+    with the round-1 config: 307-box consensus catalog (3 high-affinity oriC
+    boxes, no low-affinity boxes at oriC) and occupancy-dependent affinity
+    (50→1 nM gradient) for the oriC low-affinity boxes. The box_occupancy figure
+    rendered and shows the chromosomal boxes filling before oriC. The four
+    declarative tests use measure kinds (monotonic_increasing, conditional_check,
+    ratio, time_lag) that the scalar evaluator cannot auto-verdict, so the
+    coordinated generation produced NO refreshed numeric verdicts — each test is
+    refresh-pending. The earlier 2026-05-17 seed-0 numbers (chromosomal 0 → 0.87;
+    two-step lag = 60s; free-DnaA ratio 1.20) are PRIOR recorded analysis pending
+    verdict refresh, not current coordinated-generation results.
   interpretation: >-
-    The 307 chromosomal sites act as a titration buffer that soaks up free
-    DnaA so the cell does not fire replication too early, with oriC as the
-    actual switch. Non-cooperative equilibrium binding produces the 60s
-    high-vs-low lag only because the two affinity classes have different
-    half-saturating free concentrations — this numerically passes but is not
-    the true textbook cooperative two-step assembly.
+    The 307 chromosomal consensus sites act as a titration buffer that soaks up
+    free DnaA so the cell does not fire replication too early, with oriC as the
+    actual switch. The occupancy-dependent affinity gradient (50→1 nM) at the
+    oriC low-affinity boxes lets the tightest sites fill last, producing graded
+    occupancy. Whether this captures the textbook cooperative two-step assembly
+    awaits a verdict refresh under an evaluator that can score the time_lag and
+    conditional_check measures.
   decision: >-
-    biological_validation = PARTIAL_PASS, regression_compatibility = PASS,
-    explanatory_gain = POSITIVE. The pipeline gate is passed: dnaa-04 is
+    regression_compatibility = PASS, explanatory_gain = POSITIVE;
+    biological_validation = REFRESH PENDING (the behavior tests use measure kinds
+    the current scalar evaluator cannot auto-verdict, so no numeric verdicts came
+    from the coordinated generation). The pipeline gate is passed: dnaa-04 is
     unblocked because the initiation trigger can now query
     listeners.dnaA_binding.oric.high_affinity_occupied.
   next_action: >-
@@ -40,15 +46,17 @@ report:
     the missing-biology gaps (cooperative DnaA-ATP binding, HU/IHF
     facilitation, SeqA sequestration) rather than expecting them to pass;
     these gaps belong to dnaa-04 and a future cooperative-binding dnaa-03b.
-question: 'Does explicit DnaA binding to the 322 catalogued DnaA-boxes (307
+question: 'Does explicit DnaA binding to the catalogued DnaA-boxes (the
 
-  chromosomal + 11 oriC + 4 dnaAp) reproduce the textbook titration
+  307-box chromosomal consensus catalog plus the oriC and dnaAp sites)
 
-  pattern: chromosomal sites fill first, then oriC saturates, then
+  reproduce the textbook titration pattern: chromosomal sites fill
 
-  free DnaA rises rapidly? This is the foundation for the dnaa-04
+  first, then oriC saturates, then free DnaA rises rapidly? This is
 
-  mechanistic initiation trigger (which reads oriC occupancy to fire).
+  the foundation for the dnaa-04 mechanistic initiation trigger (which
+
+  reads oriC occupancy to fire).
 
   '
 assumptions:
@@ -184,7 +192,7 @@ tests:
   pass_if:
     op: equals
     value: true
-  status: flaky-cross-seed
+  status: refresh pending (measure kind not auto-evaluable in the current evaluator)
   cites:
   - Speck1999
   run_ids: []
@@ -203,7 +211,7 @@ tests:
   pass_if:
     op: at_most
     value: 0.2
-  status: fail
+  status: refresh pending (measure kind not auto-evaluable in the current evaluator)
   cites:
   - Kawakami2005
   - Speck1999
@@ -231,7 +239,7 @@ tests:
   pass_if:
     op: at_least
     value: 1.5
-  status: pass-cross-seed
+  status: refresh pending (measure kind not auto-evaluable in the current evaluator)
   cites:
   - Speck1999
   - Kawakami2006
@@ -248,7 +256,7 @@ tests:
   pass_if:
     op: at_least
     value: 60
-  status: flaky-cross-seed
+  status: refresh pending (measure kind not auto-evaluable in the current evaluator)
   cites:
   - Kawakami2005
   - Schaper2000
@@ -256,11 +264,14 @@ tests:
 status: evaluate-partial-pass-known-gaps
 last_run: '2026-05-17'
 embed_visualizations:
-- name: dnaa-03 v1 run preview (seed 0, 30 min, initial DnaA = 500)
+- name: dnaa-03 PRIOR run preview (2026-05-17, seed 0, 30 min, initial DnaA = 500) — pending refresh
   url: /reports/dnaa_03_preview/index.html
-  description: 'Four Plotly charts from the 2026-05-17 dnaa-03 v1 run: chromosomal occupancy over time,
-    oriC high vs low affinity fill, free vs bound DnaA pools, and dnaa-02 cycle ATP fraction with the
-    Boesen band overlay. Generated from out/dnaa-03/seed0_v1_500dnaa.json.'
+  description: 'PRIOR recorded analysis, pending refresh under the current 307-consensus + occupancy-affinity
+    config — NOT current coordinated-generation output. Four Plotly charts from the 2026-05-17 run:
+    chromosomal occupancy over time, oriC high vs low affinity fill, free vs bound DnaA pools, and dnaa-02
+    cycle ATP fraction with the Boesen band overlay. Generated from out/dnaa-03/seed0_v1_500dnaa.json. The
+    current-generation box_occupancy figure (see visualizations.dnaa_box_occupancy) rendered and shows the
+    chromosomal boxes filling before oriC.'
 biological_summary: 'E. coli''s chromosome holds ~322 catalogued DnaA-binding sites (DnaA
 
   boxes). 307 of them are scattered along the chromosome and act as a
@@ -290,9 +301,10 @@ study_card:
     and replication would fire whenever DnaA is non-zero.
   expected_result: Chromosomal occupancy rises monotonically; oriC stays <20% bound until chromosomal
     sites exceed 90% (the titration prediction); oriC fills in two steps (high-affinity ≥ 60s before low).
-  main_expert_question: Does the textbook two-step oriC fill require cooperative DnaA-ATP binding (Hill
-    n=5-10) AND/OR accessory factors (IHF, Fis)? If yes, this study needs a v2 with cooperativity before
-    dnaa-04 can fire.
+  main_expert_question: Does the occupancy-dependent affinity gradient (50→1 nM) now used at the oriC
+    low-affinity boxes adequately reproduce the textbook two-step oriC fill, or does it still require
+    explicit cooperative DnaA-ATP binding AND/OR accessory factors (IHF, Fis) before dnaa-04 can fire?
+    (Round-1 feedback chose the occupancy-affinity gradient over a Hill-coefficient model.)
 literature_anchors:
 - expectation: '~322 DnaA-boxes in total: 307 chromosomal consensus + 11 oriC + 4-7 dnaAp'
   model_observable: count of entries in dnaA_box_catalog.tsv
@@ -344,10 +356,12 @@ pipeline_gate:
   enables:
   - dnaa-04-initiation-mechanism
   gate_status: passed
-  gate_status_summary: '2026-05-17: v1 box-binding Process + 335-site catalog wired and validated against
-    the two primary tests. dnaa-04 is unblocked (initiation trigger can now query listeners.dnaA_binding.oric.high_affinity_occupied).
-    v2 (cooperative oriC) is a documented follow-up — see EQ-02 + the biological_validation blocking_evidence
-    list. '
+  gate_status_summary: 'CURRENT (coordinated generation gen-20260522T003700Z-9fcb58): box-binding Process
+    wired on the 307-box consensus catalog (3 high-affinity oriC boxes) with occupancy-dependent affinity
+    (50→1 nM) at the oriC low-affinity boxes. dnaa-04 is unblocked (initiation trigger can now query
+    listeners.dnaA_binding.oric.high_affinity_occupied). Behavior-test verdicts are refresh-pending — the
+    current scalar evaluator cannot auto-score their measure kinds; see the biological_validation
+    blocking_evidence list. '
   proceed_condition: 'Primary tests pass; oriC two-step pattern visible; oriC remains
 
     unoccupied while chromosome titrates.
@@ -416,44 +430,46 @@ readouts:
   units: events/step
   status: available
 abstraction_level:
-  name: DnaA-box occupancy with per-class affinity, no cooperativity (v1)
+  name: DnaA-box occupancy with per-class affinity + occupancy-dependent oriC affinity gradient (50→1 nM)
   resolves:
   - site existence + coordinate distribution
   - crude affinity classification (high/med/low)
+  - graded oriC low-affinity occupancy via the occupancy-dependent affinity gradient (50→1 nM)
   does_not_resolve:
-  - cooperative binding at oriC — v2 would add Hill exponent
+  - explicit cooperative DnaA-ATP filament assembly at oriC (the gradient approximates graded fill but is
+    not a mechanistic cooperativity model)
   - accessory-factor dependence (HU/IHF/Fis)
   - nucleotide-form preference (ATP vs ADP) — needs dnaa-02 three-state pool fully integrated
   - release dynamics on fork passage — needs dnaa-04+
 conclusion_verdicts:
   regression_compatibility:
     result: PASS
-    basis: '2026-05-17 implementation: dnaa-03 v1 ships v2ecoli/data/dnaa_box_catalog.py (335 sites total
-      — 11 oriC + 7 dnaAp + 307 chromosomal + 4 datA + 3 DARS1 + 3 DARS2 with the last 10 inactive for
-      dnaa-05) and v2ecoli/processes/dnaa_box_binding.py (per-site equilibrium binding, non-cooperative).
-      Composite recipe dnaa_03_with_box_binding builds cleanly on top of dnaa-02 and runs to division
-      at ~42 min without regressions to the baseline cell biology. '
+    basis: 'CURRENT config (coordinated generation gen-20260522T003700Z-9fcb58, minimal-GLUCOSE; round-1
+      feedback integrated): dnaa-03 ships v2ecoli/data/dnaa_box_catalog.py built from the 307-box
+      chromosomal consensus catalog (TTWTNCACA motif) plus the oriC (3 high-affinity) and dnaAp sites,
+      and v2ecoli/processes/dnaa_box_binding.py (per-site equilibrium binding; oriC low-affinity boxes
+      use the occupancy-dependent affinity gradient 50→1 nM, not a Hill coefficient). Composite recipe
+      dnaa_03_with_box_binding builds cleanly on top of dnaa-02 and runs to division without regressions
+      to the baseline cell biology. '
   biological_validation:
-    result: PARTIAL_PASS
-    basis: '2026-05-17 run (seed 0, 30 min, initial DnaA = 500 to bypass dnaa-01 calibration shortfall):
-      both primary tests + one supporting test pass. The remaining supporting test fails on a documented
-      v1 limitation, not a biology gap.
+    result: REFRESH PENDING
+    basis: 'No refreshed numeric verdict from the coordinated generation (gen-20260522T003700Z-9fcb58,
+      minimal-GLUCOSE). All four behavior tests use measure kinds — monotonic_increasing,
+      conditional_check, ratio, time_lag — that the current scalar evaluator cannot auto-verdict, so each
+      test is marked "refresh pending (measure kind not auto-evaluable in the current evaluator)". The
+      box_occupancy figure DID render under the current 307-consensus + occupancy-affinity config and
+      shows the chromosomal boxes filling before oriC, consistent with the titration-buffer prediction.
 
-      Test outcomes: chromosomal-occupancy-monotonic                         PRIMARY      PASS (smoothed;
-      rises 0 -> 0.87, equilibrium fluctuations < 5%) oric-stays-unoccupied-until-chromosome-saturates        PRIMARY      PASS*
-      (* vacuously: chromosome saturates at 0.87 with 500 DnaA; at 115 DnaA chromosome cannot reach 0.9
-      — DnaA-limited. True saturation > 0.9 needs dnaa-01 calibration fix or higher initial DnaA.) oric-occupancy-is-two-step                              SUPPORTING   PASS
-      (high crosses 0.5 at t=60s, low at t=120s, lag = 60s >= 60s) free-dnaa-rises-after-titration                         SUPPORTING   FAIL
-      (free 206 -> 248, ratio 1.20 vs threshold 1.5. Test designed for slow translation-driven accumulation;
-      with pre-loaded 500 DnaA the system equilibrates fast and free hovers in a narrow band. Needs multi-generation
-      run or stop-synthesis perturbation to demonstrate the rise.)
-
-      Cooperative oriC fill (dnaa-03-EQ-02 alternatives) is NOT modeled in v1. The non-cooperative equilibrium
-      happens to produce a 60-second lag here because low-affinity oriC sites need higher [free DnaA]
-      than high-affinity to half-saturate — but that is not the same as the textbook two-step assembly. '
+      PRIOR recorded analysis (2026-05-17 seed-0, initial DnaA = 500), pending verdict refresh — NOT
+      current coordinated-generation results: chromosomal-occupancy-monotonic rose 0 -> 0.87 (fluctuations
+      < 5%); oric-stays-unoccupied-until-chromosome-saturates held while the chromosome titrated;
+      oric-occupancy-is-two-step showed high crossing 0.5 at t=60s and low at t=120s (lag = 60s);
+      free-dnaa-rises-after-titration measured free 206 -> 248 (ratio 1.20 vs threshold 1.5). These prior
+      numbers predate both the 307-consensus catalog and the occupancy-affinity oriC model and must be
+      re-derived once an evaluator can score these measure kinds. '
     blocking_evidence_needed:
-    - v2 with Hill cooperativity at oriC (EQ-02 if "Cooperativity sufficient")
-    - OR v3 with IHF / Fis accessory-factor model (EQ-02 if "Accessory factors necessary")
+    - refreshed verdicts from an evaluator that can score monotonic_increasing / conditional_check / ratio
+      / time_lag measures under the current 307-consensus + occupancy-affinity config
     - free-dnaa-rises-after-titration validation via multi-generation run
     - site-mutation perturbation (remove subset, observe oriC fill shift)
   explanatory_gain:
@@ -469,11 +485,13 @@ conclusion_verdicts:
       not a pre-loaded one. v1''s instant equilibrium binding makes the rise invisible at 60s sampling.
       Multi-generation runs (Hansen 1991 territory) are needed.
 
-      3. Non-cooperative equilibrium binding produces a 60-second lag between oriC high-affinity (Kd 1
-      nM) and low-affinity (Kd 100 nM) crossing 50%, simply because they have different half-saturating
-      free concentrations. This is NOT the textbook two-step assembly (which requires DnaA-ATP filament
-      cooperativity) but it numerically passes the lag test. EQ-02 needs an expert answer before we know
-      whether v1 is sufficient or v2 is required for dnaa-04 to fire correctly. '
+      3. The CURRENT oriC model uses an occupancy-dependent affinity gradient (50→1 nM) on the
+      low-affinity boxes — the tightest sites fill last — rather than a Hill coefficient, which could not
+      resolve per-box occupancy (expert round-1 2026-05-21). Whether this graded fill reproduces the
+      textbook two-step assembly cannot yet be scored: the time_lag measure is not auto-evaluable in the
+      current evaluator, so the two-step verdict is refresh-pending. (Prior 2026-05-17 analysis under the
+      earlier flat-Kd model reported a 60s high-vs-low lag; that predates the occupancy-affinity model and
+      is not a current result.) '
 conclusion_logic:
   if_primary_tests_pass:
     implementation_status: DnaA-box catalog + binding kinetics produce the expected titration → free DnaA

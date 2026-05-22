@@ -15,12 +15,15 @@ report:
     (RIDA-v0 fork-active 100x hydrolysis multiplier plus ATP-fraction clamp,
     equilibrium intact; baseline rida_rate_per_min=4.6).
   result: >-
-    Variant E + clamp passed the ATP-fraction-band test at all three seeds,
-    landing at atp_fraction 0.496 with CV under 1% and total DnaA 113-114.
-    Variant B (control) passed at the low band edge (0.208-0.270) with CV ~16%
-    and DnaA growth to 121-144. Variant B' failed: intrinsic-only steady state
-    stuck near 0.92 regardless of equilibrium scaling. A rate sweep (50x-500x)
-    showed atp_fraction is insensitive to RIDA rate once the clamp dominates.
+    Current re-evaluation (coordinated generation gen-20260522T003700Z-9fcb58,
+    minimal-glucose): the ATP-fraction-band test PASSES at atp_fraction 0.5
+    (∈ [0.2, 0.5]). The original 2026-05-18 multi-seed analysis (below)
+    recorded variant E + clamp landing at ~0.496 across seeds 0/1/2 with CV
+    under 1% and total DnaA 113-114; variant B (control) at the low band edge
+    (0.208-0.270, CV ~16%, DnaA growth to 121-144); and variant B' failing
+    (intrinsic-only steady state stuck near 0.92 regardless of equilibrium
+    scaling). A rate sweep (50x-500x) showed atp_fraction is insensitive to
+    RIDA rate once the clamp dominates.
   interpretation: >-
     The original dnaa-02 PASS comes from the clamp, not the biology; the
     intrinsic Sekimizu rate is too slow to compete with equilibrium recovery.
@@ -138,7 +141,9 @@ tests:
     op: in_range
     low: 0.2
     high: 0.5
-  status: pass-2-of-3
+  status: pass
+  current_verdict: 'PASS — atp_fraction 0.5 (∈ [0.2, 0.5]) on re-evaluation against
+    coordinated generation gen-20260522T003700Z-9fcb58, minimal-glucose.'
   cites:
   - Boesen2024
   run_ids: []
@@ -157,7 +162,9 @@ tests:
   pass_if:
     op: at_most
     value: 0.1
-  status: partial
+  status: verdict-refresh-pending
+  current_verdict: 'Verdict refresh pending (measure kind deviation_from_reference
+    not auto-evaluable by the scalar evaluator). Recorded analysis retained.'
   cites:
   - v2ecoli/dnaa-01
   run_ids: []
@@ -170,7 +177,9 @@ tests:
   pass_if:
     op: equals
     value: baseline-stoichMatrix
-  status: pass-B'-and-E
+  status: verdict-refresh-pending
+  current_verdict: 'Verdict refresh pending (measure kind equality_check not auto-evaluable
+    by the scalar evaluator). Recorded analysis retained.'
   cites: []
   run_ids: []
 - name: cross-seed-stability
@@ -184,7 +193,9 @@ tests:
   pass_if:
     op: at_most
     value: 0.05
-  status: pass-E-CV-0.0
+  status: verdict-refresh-pending
+  current_verdict: 'Verdict refresh pending (measure kind cv not auto-evaluable by
+    the scalar evaluator). Recorded analysis retained.'
   run_ids: []
 status: done-variant-E-wins
 last_run: '2026-05-18'

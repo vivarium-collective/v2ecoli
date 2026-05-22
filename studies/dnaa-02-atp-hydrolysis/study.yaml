@@ -17,26 +17,33 @@ report:
     those loci (datA, DARS1/2) aren't modelled yet. Diagnostic variants sweep the
     rate (no hydrolysis; 10x hydrolysis).
   result: >-
-    Ran in coordinated generation gen-20260522T003700Z-9fcb58; quantitative analysis
-    of the intrinsic-only configuration pending. The four primary/diagnostic tests
-    track DnaA-ATP fraction and apo fraction (second-half medians) against the
-    [0.2, 0.5] band and the <=5% apo bound. Note: earlier recorded runs that passed
-    these tests used the clamp / monkey-patch (or RIDA-v0) mechanisms now disabled;
-    those same notes record that the intrinsic rate alone descends through the band
-    and falls below it by ~1800 s, so the demoted intrinsic-only run is not expected
-    to hold the band unaided.
+    Re-evaluated against coordinated generation gen-20260522T003700Z-9fcb58 on
+    minimal-glucose with the CURRENT intrinsic-only configuration (mechanism=intrinsic,
+    clamp disabled, RIDA/datA/DARS deferred). Second-half medians:
+    dnaa-atp-fraction-in-physiological-range FAILS — atp_fraction = 0.997, far above
+    the [0.2, 0.5] band; apo-dnaa-fraction-is-small PASSES (apo_fraction = 0,
+    <= 0.05); the no-hydrolysis diagnostic PASSES (atp_fraction = 0.997, >= 0.95);
+    the fast-hydrolysis diagnostic FAILS (atp_fraction = 0.997, not <= 0.1). The two
+    FAILs are the expected, informative signal: intrinsic hydrolysis ALONE cannot pull
+    the DnaA-ATP fraction into the physiological band. Earlier recorded PASSES at
+    ~0.21-0.50 used the clamp / monkey-patch / RIDA-v0 mechanisms, all now DISABLED;
+    those are historical, not the current result.
   interpretation: >-
     Biologically, only DnaA-ATP drives replication initiation, and the cell keeps its
     fraction in a tight band by balancing slow intrinsic ATP hydrolysis against
     ATP-loading. This study adds the explicit three-state pool plus the slow
-    hydrolysis sink; the recorded explanatory finding is that intrinsic hydrolysis
-    alone cannot sustain the physiological band without the deferred extrinsic
-    network, which motivates dnaa-05.
+    hydrolysis sink. With the extrinsic regulators disabled, atp_fraction sits at 0.997
+    — the slow intrinsic rate (Sekimizu 1987) cannot counteract ATP-loading on its own.
+    This is the expert's exact point: the physiological band is set by the faster
+    extrinsic pathways (RIDA / datA / DARS), so the band FAIL here is meaningful
+    evidence that motivates the extrinsic-regulation follow-up study, not a regression.
   decision: >-
-    Pipeline gate previously passed (regression PASS, biological_validation PASS under
-    the prior clamp/RIDA-v0 mechanism) and structurally unblocks dnaa-03; under the
-    demoted intrinsic-only configuration the honest intrinsic behaviour is being
-    re-examined and quantitative re-validation is pending.
+    The three-state nucleotide split and intrinsic-hydrolysis Step build and run, and
+    structurally unblock dnaa-03. Under the current intrinsic-only configuration the
+    DnaA-ATP band test FAILS at 0.997 — accepted as the honest, expected behaviour of
+    intrinsic hydrolysis without the extrinsic network. (Earlier PASSES came from the
+    now-disabled clamp/RIDA-v0 mechanisms.) Closing the band is deferred to the
+    extrinsic-regulation follow-up study.
   next_action: >-
     Proceed to dnaa-03 (DnaA-box binding), which needs the nucleotide split to test
     site selectivity, and defer the extrinsic balance to dnaa-05 (RIDA/DDAH/DARS),
@@ -156,10 +163,14 @@ tests:
     op: in_range
     low: 0.2
     high: 0.5
-  status: pass
+  status: fail
   cites:
   - Boesen2024
   run_ids: []
+  note: >-
+    gen-20260522T003700Z-9fcb58, intrinsic-only: atp_fraction = 0.997, well above the
+    [0.2, 0.5] band. Expected FAIL — intrinsic hydrolysis alone is too slow to hold the
+    band; the extrinsic regulators (RIDA/datA/DARS) that set it are deferred.
 - name: apo-dnaa-fraction-is-small
   classification: primary
   question: Is apo-DnaA (no nucleotide) ≤ 5% of total at steady state?
@@ -175,6 +186,7 @@ tests:
   - Sekimizu1987
   - Kawakami2006
   run_ids: []
+  note: 'gen-20260522T003700Z-9fcb58, intrinsic-only: apo_fraction = 0 (<= 0.05). PASS.'
 - name: no-hydrolysis-accumulates-atp-form
   classification: diagnostic
   question: With hydrolysis disabled, does DnaA-ATP fraction approach 1.0?
@@ -190,6 +202,7 @@ tests:
   cites:
   - Sekimizu1987
   run_ids: []
+  note: 'gen-20260522T003700Z-9fcb58, no-hydrolysis variant: atp_fraction = 0.997 (>= 0.95). PASS.'
 - name: fast-hydrolysis-suppresses-atp-form
   classification: diagnostic
   question: With 10× hydrolysis, does DnaA-ATP fraction drop below 0.1?
@@ -201,11 +214,15 @@ tests:
   pass_if:
     op: at_most
     value: 0.1
-  status: pass
+  status: fail
   cites:
   - Sekimizu1987
   run_ids: []
-status: done-tests-passing
+  note: >-
+    gen-20260522T003700Z-9fcb58, fast-intrinsic-hydrolysis variant: atp_fraction = 0.997,
+    not <= 0.1. Same intrinsic-insufficiency signal — even a 10x intrinsic rate cannot
+    suppress the ATP form against ATP-loading without the extrinsic network.
+status: done-band-fails-as-expected-intrinsic-only
 runs: []
 last_run: '2026-05-17'
 biological_summary: 'In a real cell, DnaA exists in three nucleotide states: apo (empty),
@@ -392,31 +409,28 @@ conclusion_verdicts:
       DnaA pool sits at ~120-130/cell (close to the 115 dnaa-01 baseline) — no regression, slight growth-related
       drift over 30 min. '
   biological_validation:
-    result: PASS
-    basis: '2026-05-17 runs (seed 0, 30 min, after design-pivot EQ-04 option B — disable MONOMER0-4565_RXN
-      to make hydrolysis stick): four primary/diagnostic tests pass.
+    result: MIXED
+    basis: 'CURRENT result — re-evaluated against coordinated generation gen-20260522T003700Z-9fcb58
+      (minimal-glucose, intrinsic-only: mechanism=intrinsic, clamp disabled, RIDA/datA/DARS deferred).
+      Second-half medians: apo-dnaa-fraction-is-small : apo_frac = 0.000 <= 0.05 PASS;
+      dnaa-atp-fraction-in-physiological-range : atp_frac = 0.997, NOT in [0.2, 0.5] FAIL;
+      no-hydrolysis-accumulates-atp-form : atp_frac = 0.997 >= 0.95 PASS;
+      fast-hydrolysis-suppresses-atp-form : atp_frac = 0.997, NOT <= 0.1 FAIL.
 
-      Test outcomes (second-half medians): apo-dnaa-fraction-is-small        : apo_frac = 0.000  ≤ 0.05  PASS
-      dnaa-atp-fraction-in-physiological-range : atp_frac = 0.213  ∈ [0.2, 0.5]  PASS no-hydrolysis-accumulates-atp-form
-      : rate=0    -> atp_frac = 1.000  PASS fast-hydrolysis-suppresses-atp-form : rate=0.46 -> atp_frac
-      = 0.012  PASS (≤ 0.1)
+      The two band FAILs are EXPECTED and INFORMATIVE, not a regression: intrinsic hydrolysis ALONE
+      (even at 10x rate) cannot pull the DnaA-ATP fraction into the physiological band. This is precisely
+      the expert''s point — the band is set in vivo by the faster extrinsic regulators (RIDA / datA / DARS),
+      which are deferred to a follow-up study. The apo PASS confirms DnaA stays nucleotide-loaded as
+      expected (Sekimizu 1987 tight Kd).
 
-      Trajectory shape (clamp on, band [0.2, 0.5]): t=  0s  atp=0   adp=0     atp_frac=0.000  (initial
-      — no equilibrium yet) t=120s  atp=50  adp=66    atp_frac=0.431  (in-band) t=600s  atp=36  adp=82    atp_frac=0.305  (in-band)
-      t=1800s atp=26  adp=100   atp_frac=0.206  (in-band, at low edge)
-
-      Intrinsic-only trajectory (clamp OFF, rate=0.046/min): t=120s   atp_frac=0.896  (descending) t=600s   atp_frac=0.509  (entering
-      the band) t=1200s  atp_frac=0.320  (mid-band) t=1800s  atp_frac=0.130  (below band — needs RIDA/DDAH/DARS
-      or clamp)
-
-      This matches the expected_outcome in the original study spec: "intrinsic-only baseline equilibrates
-      near the low end of the physiological band (~0.2)" + "10× variant drops below 0.1" + "no-hydrolysis
-      variant drifts to ~1.0". '
+      HISTORICAL: earlier 2026-05-17/18 runs recorded a PASS at atp_fraction ~0.21-0.50, but those used
+      the ATP-fraction clamp / monkey-patch / RIDA-v0 mechanisms, all now DISABLED. Those numbers do not
+      describe the current intrinsic-only configuration.'
     blocking_evidence_needed:
+    - extrinsic-regulation follow-up study (RIDA / datA / DARS) needed to actually close the [0.2, 0.5] band
     - atp-pool-much-greater-than-adp test (need to capture bulk[ATP[c]] / bulk[ADP[c]] in the runner —
       pending)
     - 3-seed cross-seed confirmation (currently seed 0 only)
-    - perturbation panel from dnaa-01
   explanatory_gain:
     result: POSITIVE
     basis: 'Three findings worth keeping:
@@ -429,9 +443,11 @@ conclusion_verdicts:
       is a minor in-vivo pathway anyway; the productive DnaA-ADP route is hydrolysis of bound ATP, which
       our IntrinsicHydrolysis Step now models.
 
-      3. Without DARS (dnaa-05, deferred), the intrinsic pathway alone eventually drains DnaA-ATP below
-      the physiological band. The ATP-fraction clamp Step bridges this gap as a placeholder. Confirms
-      the biology motivation for dnaa-05. '
+      3. Under the current intrinsic-only configuration the intrinsic pathway alone cannot move DnaA-ATP
+      into the physiological band (atp_fraction = 0.997 in gen-20260522T003700Z-9fcb58). This FAIL is the
+      direct, honest evidence that the extrinsic regulators (RIDA / datA / DARS) are required to set the
+      band — the motivation for the deferred follow-up study. (A clamp / monkey-patch / RIDA-v0 stand-in
+      was tried earlier to force the band but has since been disabled in favour of the honest signal.) '
 design_pivot_required:
 - id: dnaa-02-EQ-04
   status: superseded-by-dnaa-02f

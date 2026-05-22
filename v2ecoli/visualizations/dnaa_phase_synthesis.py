@@ -46,6 +46,19 @@ from v2ecoli.visualizations.dnaa import (
 )
 
 
+def _numz(v):
+    """Coerce to float, mapping None/NaN/non-numeric (e.g. a stray empty-
+    container '{}' from an unresolved observable) to 0 — so a missing/dict
+    point renders flat instead of crashing report generation on float({})."""
+    if v is None or isinstance(v, (dict, list)):
+        return 0.0
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return 0.0
+    return 0.0 if math.isnan(f) else f
+
+
 # ---------------------------------------------------------------------------
 # DnaAInitiationGate — fires + refractory + gate signal
 # ---------------------------------------------------------------------------
@@ -161,7 +174,7 @@ class DnaAInitiationGate(Visualization):
                     _t(ref, i), ref[i], color=color, dash="dash"))
             if i < len(tsl) and tsl[i]:
                 # Clip the t_since_last_fire to a sane upper bound for plotting
-                clipped = [min(float(v) if v is not None else 0, 1800) for v in tsl[i]]
+                clipped = [min(_numz(v), 1800) for v in tsl[i]]
                 p2_traces.append(_trace(
                     f"t since last fire (s, clip 1800) · {labels[i]}",
                     _t(tsl, i), clipped, color=color))
@@ -457,7 +470,7 @@ class DnaAFluxContributions(Visualization):
                     "type": "bar",
                     "name": f"intrinsic · {label}",
                     "x": xs,
-                    "y": [float(v) if v is not None else 0 for v in intr[i]],
+                    "y": [_numz(v) for v in intr[i]],
                     "marker": {"color": "#6366f1"},
                 })
             if i < len(rida) and rida[i]:
@@ -465,7 +478,7 @@ class DnaAFluxContributions(Visualization):
                     "type": "bar",
                     "name": f"RIDA · {label}",
                     "x": xs,
-                    "y": [float(v) if v is not None else 0 for v in rida[i]],
+                    "y": [_numz(v) for v in rida[i]],
                     "marker": {"color": "#f59e0b"},
                 })
 

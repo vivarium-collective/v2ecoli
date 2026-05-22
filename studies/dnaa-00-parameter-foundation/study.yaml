@@ -428,6 +428,15 @@ comparative_visualizations:
       - {sim_name: dnaa-00-parameter-foundation, label: Baseline (v2ecoli default)}
       - {sim_name: baseline-stage1-modified,      label: Baseline + Stage 1 params}
 
+  # ── chromosome / replication dynamics ──
+  - name: dnaa-oric-count-foundation
+    title: oriC copy number over the cell cycle (replication initiation)
+    observable_path: listeners.replication_data.number_of_oric
+    y_label: oriC copies / cell
+    runs:
+      - {sim_name: dnaa-00-parameter-foundation, label: Baseline (v2ecoli default)}
+      - {sim_name: baseline-stage1-modified,      label: Baseline + Stage 1 params}
+
 # ─── STATUS ─────────────────────────────────────────────────────────────
 # Ran in coordinated generation gen-20260522T003700Z-9fcb58 (minimal-glucose).
 # Both primary tests pass on the current data: baseline initiates replication

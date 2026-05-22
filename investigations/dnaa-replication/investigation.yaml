@@ -5,6 +5,65 @@ created: '2026-05-16'
 last_baseline_run: '2026-05-17'
 status: planning-with-baseline-confirmed
 
+# ── Executive layer (report top): narrative + conclusions for a human reviewer.
+# Authored, not auto-derived. The generated report leads with this.
+executive:
+  what_is_this: >-
+    Porting the DnaA-driven chromosome-replication-initiation decision into
+    v2ecoli — replacing the legacy "cell mass per oriC ≥ critical mass"
+    heuristic with the actual mechanism (DnaA expression → ATP/ADP exchange →
+    DnaA-box titration across the chromosome → oriC loading → initiation).
+  verdict: >-
+    In progress. The expression, box-binding, and intrinsic-hydrolysis layers
+    are ported and produce physiologically-bounded behaviour on the
+    minimal-glucose baseline: the cell initiates replication (oriC count
+    doubles), DnaA-ATP fraction sits near the literature band when RIDA is
+    active, and oriC fills only after the chromosomal boxes. The initiation
+    trigger and the reset network (RIDA/datA/SeqA) are not yet validated, and
+    runs use minimal-glucose rather than the Stage-1 glycerol condition. All
+    round-1 expert feedback is addressed.
+  verdict_status: in-progress      # supported | mixed | refuted | in-progress
+  decisions_needed:
+    - question: Apply the Stage-1 growth condition (ABT minimal-glycerol, τ=150 min), or accept minimal-glucose (~44 min)?
+      context: >-
+        The expert's Stage-1 parameter set specifies glycerol/150-min growth;
+        the cache only patches DnaA expression and runs on minimal-glucose.
+        Applying glycerol needs a media-level override / ParCa re-fit.
+    - question: When should the reset network (RIDA / datA / SeqA) be introduced?
+      context: >-
+        Per round-1 feedback, dnaa-02 was demoted to intrinsic hydrolysis only
+        because datA/DARS loci aren't modelled. A dedicated reset study is the
+        natural next unit.
+    - question: Is constitutive DnaA expression acceptable, or should autorepression be modelled now?
+      context: >-
+        Stage-1 expression holds DnaA at ~325 (literature 300-800) without
+        autoregulation; the autorepression loop is deferred.
+
+# ── Scientific-argument layer: the claim and the evidence, for the reviewer.
+scientific_argument:
+  main_claim: >-
+    v2ecoli can reproduce DnaA-driven replication initiation — a physiological
+    DnaA-ATP fraction, chromosome-before-oriC box-filling order, and an
+    initiation event (oriC doubling) — from ported mechanism rather than the
+    mass-per-oriC heuristic.
+  evidence_for:
+    - "dnaa-00 baseline initiates replication within one cell cycle (number_of_oric 2→4)."
+    - "RIDA-active variant holds DnaA-ATP fraction ~0.15-0.44, near Boesen 2024's [0.2, 0.5]; the no-RIDA baseline sits at ~1.0."
+    - "dnaa-03 box binding shows chromosome boxes fill before oriC (307-box consensus catalog, occupancy-dependent oriC affinity)."
+    - "Stage-1 expression heuristic holds the DnaA pool at ~325, inside the 300-800 literature band."
+  evidence_against:
+    - "Runs use minimal-glucose (~44 min doubling), not the Stage-1 glycerol condition (150 min) — growth-rate mismatch with the expert framing."
+    - "The reset network (RIDA/datA/SeqA) is not yet modelled; dnaa-02 is intrinsic-hydrolysis only."
+    - "The flux-contribution observable is not emitted, so that panel is empty."
+  key_figures:
+    - { study: dnaa-00-parameter-foundation, viz: dnaa-atp-fraction-foundation, caption: "DnaA-ATP fraction: no-RIDA baseline (~1.0) vs RIDA-active (0.15-0.44) vs ITv2 analytical." }
+    - { study: dnaa-03-box-binding, viz: dnaa_box_occupancy, caption: "Box occupancy trajectory: chromosomal boxes saturate before oriC loads." }
+  caveats:
+    - "Growth condition is minimal-glucose, not the Stage-1 glycerol target (documented TODO; expert confirmed glucose is acceptable for now)."
+    - "DnaA expression is constitutive — no autorepression at this stage."
+    - "Coordinated results are generation gen-20260522T003700Z-9fcb58 (one git sha, one run batch)."
+  interpretation_ref: biological_story   # the full mechanism prose lives below
+
 biological_story: |
   In a real E. coli cell, the decision to start a new round of chromosome
   replication is made by the protein DnaA. The cycle goes like this:

@@ -1,6 +1,46 @@
 schema_version: 4
 name: dnaa-02-atp-hydrolysis
 created: '2026-05-16'
+report:
+  purpose: >-
+    Tests whether v2ecoli can reproduce the DnaA nucleotide cycle (apo / DnaA-ATP /
+    DnaA-ADP), specifically whether a minimal intrinsic-hydrolysis Step can hold the
+    DnaA-ATP fraction inside the physiological 20-50% band (Boesen 2024) that in vivo
+    is set by binding equilibria, slow intrinsic hydrolysis (Sekimizu 1987), and
+    faster extrinsic pathways.
+  setup: >-
+    Ran the dnaa_02_with_intrinsic_hydrolysis composite on minimal-glucose (seed 0,
+    stage-1 dnaA expression so DnaA sits near the physiological ~325 rather than the
+    ParCa-inflated default). Per Round-1 expert feedback this study was demoted to
+    INTRINSIC HYDROLYSIS ONLY (mechanism=intrinsic, hydrolysis dX/dt=-kX); the
+    RIDA/DDAH/DARS extrinsic pathways and the ATP-fraction clamp are disabled because
+    those loci (datA, DARS1/2) aren't modelled yet. Diagnostic variants sweep the
+    rate (no hydrolysis; 10x hydrolysis).
+  result: >-
+    Ran in coordinated generation gen-20260522T003700Z-9fcb58; quantitative analysis
+    of the intrinsic-only configuration pending. The four primary/diagnostic tests
+    track DnaA-ATP fraction and apo fraction (second-half medians) against the
+    [0.2, 0.5] band and the <=5% apo bound. Note: earlier recorded runs that passed
+    these tests used the clamp / monkey-patch (or RIDA-v0) mechanisms now disabled;
+    those same notes record that the intrinsic rate alone descends through the band
+    and falls below it by ~1800 s, so the demoted intrinsic-only run is not expected
+    to hold the band unaided.
+  interpretation: >-
+    Biologically, only DnaA-ATP drives replication initiation, and the cell keeps its
+    fraction in a tight band by balancing slow intrinsic ATP hydrolysis against
+    ATP-loading. This study adds the explicit three-state pool plus the slow
+    hydrolysis sink; the recorded explanatory finding is that intrinsic hydrolysis
+    alone cannot sustain the physiological band without the deferred extrinsic
+    network, which motivates dnaa-05.
+  decision: >-
+    Pipeline gate previously passed (regression PASS, biological_validation PASS under
+    the prior clamp/RIDA-v0 mechanism) and structurally unblocks dnaa-03; under the
+    demoted intrinsic-only configuration the honest intrinsic behaviour is being
+    re-examined and quantitative re-validation is pending.
+  next_action: >-
+    Proceed to dnaa-03 (DnaA-box binding), which needs the nucleotide split to test
+    site selectivity, and defer the extrinsic balance to dnaa-05 (RIDA/DDAH/DARS),
+    which will replace the clamp stand-in once those loci are modelled.
 question: 'Does v2ecoli reproduce the DnaA nucleotide cycle (apo / DnaA-ATP /
 
   DnaA-ADP)? In vivo the cell holds DnaA-ATP at ~20-50% of total DnaA

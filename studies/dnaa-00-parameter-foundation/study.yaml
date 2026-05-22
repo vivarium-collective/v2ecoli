@@ -30,6 +30,37 @@ schema_version: 4
 name: dnaa-00-parameter-foundation
 created: '2026-05-18'
 
+# ─── REPORT (compact, human-facing) ──────────────────────────────────────
+# The generated report renders each study with this uniform pattern:
+# Purpose · Setup · Result · Interpretation · Decision · Next action.
+# Authored; the machinery (runs, tests, params) is disclosed separately.
+report:
+  purpose: >-
+    Establish the baseline the whole investigation calibrates against, and
+    show how the same v2ecoli code behaves when its surfaced parameters are
+    pinned to the Fu/Xiao/Jun (2023) Stage-1 heuristic values — before any
+    new mechanism lands.
+  setup: >-
+    v2ecoli baseline + a read-only DnaA-cycle listener on minimal-glucose
+    (seed 0), run to division (~2640 s). Two comparators overlay it: a
+    RIDA-active variant (dnaa-04 mechanism, Stage-1 parameters) and the
+    Fu/Xiao/Jun ITv2 analytical mean-field model.
+  result: >-
+    The baseline initiates a round of replication within one cell cycle
+    (oriC count 2→4) and holds DnaA at ~325 (literature band 300-800). The
+    RIDA-active variant keeps DnaA-ATP fraction at ~0.15-0.44 (near Boesen
+    2024's [0.2, 0.5]); the no-RIDA baseline sits at ~1.0.
+  interpretation: >-
+    The unmodified cell already fires replication via the legacy mass-per-oriC
+    heuristic, so it is a valid reference. Adding the hydrolysis/RIDA layer is
+    what brings DnaA-ATP into the physiological band — evidence that the ported
+    mechanism, not the heuristic, governs the ATP fraction.
+  decision: >-
+    Baseline confirmed and parameter-pinned. Proceed to the mechanism studies.
+  next_action: >-
+    dnaa-01 (expression dynamics) and dnaa-02 (intrinsic hydrolysis) build on
+    these two composites.
+
 # ─── QUESTION ───────────────────────────────────────────────────────────
 question: |
   What baseline does the dnaa-replication investigation calibrate

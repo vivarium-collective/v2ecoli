@@ -17,6 +17,45 @@ schema_version: 4
 name: dnaa-05-itv2-comparison
 created: '2026-05-18'
 
+report:
+  purpose: >-
+    Validate v2ecoli's whole-cell DnaA mechanism against the Fu/Xiao/Jun (2023)
+    initiator-titration model v2 (ITv2) analytical reference, testing whether
+    v2ecoli reproduces the analytical initiation mass, DnaA-ATP/ADP oscillation
+    amplitude, and 1/N synchrony scaling at matched parameters — and whether a
+    default-parameter divergence closes once model_settings are retuned to the
+    FXJ paper's values.
+  setup: >-
+    Three-way comparison against the standalone ITv2 analytical model (WT, paper
+    canonical parameters, RIDA enabled) as baseline: the ITv2 standalone run, the
+    v2ecoli baseline composite at default ParCa parameters, and the v2ecoli
+    baseline+dnaa-02 nucleotide-cycle composite with model_settings retuned to
+    FXJ values (DnaA into the [300,800] band, intrinsic hydrolysis 0.046/min,
+    ATP-fraction clamp toward [0.2,0.5], rida-v0 mechanism).
+  result: >-
+    Ran in coordinated generation gen-20260522T003700Z-9fcb58; quantitative
+    analysis pending (study status is planning-not-yet-run and all three primary
+    tests are pending-first-run with no recorded findings). Three comparative
+    figures were set up overlaying the four runs: cell volume vs time, DnaA-ATP
+    count vs time, and DnaA-ATP fraction vs time (with the Boesen 2024 [0.2,0.5]
+    physiological band marked).
+  interpretation: >-
+    If v2ecoli's mechanism captures the biology, it should converge to the
+    analytical prediction once parameters are matched; the default-parameter
+    v2ecoli is expected to diverge because it produces ~115 DnaA/cell, roughly 5x
+    below the paper's c_I=600/µm³ anchor, while the parameter-tuned variant
+    should close that gap. Any residual divergence after parameter matching points
+    at structural/mechanism differences worth flagging for expert review.
+  decision: >-
+    No verdict yet — no conclusion_verdicts or pipeline_gate are recorded; the
+    study is awaiting its first run before the three primary tests (ITv2
+    initiation-mass match, v2ecoli baseline ATP-fraction convergence, and
+    ITv2-vs-v2ecoli initiation-mass agreement within ±10%) can be evaluated.
+  next_action: >-
+    No follow_up_studies are recorded yet; this study itself is the follow-up to
+    dnaa-04-initiation-mechanism, validating that mechanism against the external
+    analytical reference at matched parameters.
+
 # ─── QUESTION ───────────────────────────────────────────────────────────
 question: |
   Does v2ecoli's whole-cell DnaA mechanism reproduce the analytical predictions

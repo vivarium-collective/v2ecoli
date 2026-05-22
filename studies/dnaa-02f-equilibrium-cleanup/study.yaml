@@ -1,6 +1,42 @@
 schema_version: 4
 name: dnaa-02f-equilibrium-cleanup
 created: '2026-05-17'
+report:
+  purpose: >-
+    dnaa-02 passes its DnaA-ATP fraction band test only via an invasive
+    monkey-patch that zeroes MONOMER0-4565_RXN's stoichMatrix column. This study
+    asks which real-biology alternative produces a defensible DnaA
+    nucleotide-cycle baseline for dnaa-03/04 to inherit, without inventing
+    molecules or mutating the live equilibrium Step.
+  setup: >-
+    Minimal-glucose. Three composite variants compared on the same test panel,
+    seeds 0/1/2 over 1800s: variant B (legacy monkey-patch control), variant B'
+    (recalibrated MONOMER0-4565_RXN reverse rate, scale 0.01), and variant E
+    (RIDA-v0 fork-active 100x hydrolysis multiplier plus ATP-fraction clamp,
+    equilibrium intact; baseline rida_rate_per_min=4.6).
+  result: >-
+    Variant E + clamp passed the ATP-fraction-band test at all three seeds,
+    landing at atp_fraction 0.496 with CV under 1% and total DnaA 113-114.
+    Variant B (control) passed at the low band edge (0.208-0.270) with CV ~16%
+    and DnaA growth to 121-144. Variant B' failed: intrinsic-only steady state
+    stuck near 0.92 regardless of equilibrium scaling. A rate sweep (50x-500x)
+    showed atp_fraction is insensitive to RIDA rate once the clamp dominates.
+  interpretation: >-
+    The original dnaa-02 PASS comes from the clamp, not the biology; the
+    intrinsic Sekimizu rate is too slow to compete with equilibrium recovery.
+    Variant E adds enough fork-active ATP-to-ADP flux for the clamp's transfers
+    to stick while keeping the equilibrium reaction intact, with no stoichMatrix
+    mutation or fictional species.
+  decision: >-
+    Variant E (RIDA-v0 + clamp at literature 100x rate) wins and replaces option
+    B as the canonical dnaa-02 recipe. Regression, biological-validation, and
+    explanatory-gain verdicts all positive; pipeline gate runs parallel with
+    dnaa-03, which rebinds to variant E.
+  next_action: >-
+    Retire the dnaa-02 monkey-patch by refactoring the recipe to variant E as
+    default; build the deferred downstream-isolation test comparing variant B vs
+    E side effects; and advance to dnaa-05 production RIDA (explicit Hda /
+    beta-clamp loading kinetics replacing the v0 multiplier).
 question: 'dnaa-02 currently passes its DnaA-ATP fraction band test, but it does
 
   so via an invasive monkey-patch (zeroing MONOMER0-4565_RXN''s

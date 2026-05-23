@@ -6,14 +6,14 @@ report:
   verdict: preliminary
   confidence: low
   evidence_quality: exploratory
-  objective: Validate v2ecoli's DnaA mechanism against the Fu/Xiao/Jun (2023) ITv2 analytical model -
-    initiation mass, ATP/ADP oscillation, and 1/N synchrony - at matched parameters.
-  conclusion: 'Inconclusive with one clear negative: the default-parameter v2ecoli DnaA-ATP fraction (~0.94)
-    sits far above [0.2, 0.5], and the ITv2 initiation-mass match has no data (emit/path gap).'
-  main_insight: v2ecoli should converge to the analytical prediction once parameters are matched; the
-    default-parameter run diverges as expected (~115 DnaA/cell, roughly 5x below the paper's anchor).
-  caveat: The ITv2 initiation-mass observable was not captured (listeners.itv2.initiation_mass emit/path
-    gap), so the headline match cannot be judged - it needs a re-run with the path emitted.
+  objective: Validate v2ecoli's DnaA mechanism against the Fu/Xiao/Jun (2023) ITv2 analytical model - initiation
+    mass, ATP/ADP oscillation, and 1/N synchrony - at matched parameters.
+  conclusion: 'Inconclusive with one clear negative: the default-parameter v2ecoli DnaA-ATP fraction (~0.94) sits
+    far above [0.2, 0.5], and the ITv2 initiation-mass match has no data (emit/path gap).'
+  main_insight: v2ecoli should converge to the analytical prediction once parameters are matched; the default-parameter
+    run diverges as expected (~115 DnaA/cell, roughly 5x below the paper's anchor).
+  caveat: The ITv2 initiation-mass observable was not captured (listeners.itv2.initiation_mass emit/path gap), so
+    the headline match cannot be judged - it needs a re-run with the path emitted.
   lit_match: Fu-Xiao-Jun 2023 ITv2 (not yet validated)
   key_metrics:
   - label: v2ecoli baseline ATP fraction
@@ -23,34 +23,31 @@ report:
   - label: ITv2 mass match
     value: no data
     status: warn
-  purpose: Validate v2ecoli's whole-cell DnaA mechanism against the Fu/Xiao/Jun (2023) initiator-titration
-    model v2 (ITv2) analytical reference, testing whether v2ecoli reproduces the analytical initiation
-    mass, DnaA-ATP/ADP oscillation amplitude, and 1/N synchrony scaling at matched parameters — and whether
-    a default-parameter divergence closes once model_settings are retuned to the FXJ paper's values.
-  setup: 'Three-way comparison against the standalone ITv2 analytical model (WT, paper canonical parameters,
-    RIDA enabled) as baseline: the ITv2 standalone run, the v2ecoli baseline composite at default ParCa
-    parameters, and the v2ecoli baseline+dnaa-02 nucleotide-cycle composite with model_settings retuned
-    to FXJ values (DnaA into the [300,800] band, intrinsic hydrolysis 0.046/min, ATP-fraction clamp toward
-    [0.2,0.5], rida-v0 mechanism).'
-  result: 'Ran in coordinated generation gen-20260522T003700Z-9fcb58. Of the three primary tests: (1)
-    the ITv2 initiation-mass match has NO DATA — the observable listeners.itv2.initiation_mass was not
-    captured for the itv2 run (a path/emit gap), so it cannot be evaluated; (2) the v2ecoli-baseline DnaA-ATP-fraction
-    convergence test FAILED — the default-parameter v2ecoli baseline sits at ~0.94, well outside the Boesen
-    2024 [0.2, 0.5] band; and (3) the ITv2-vs-v2ecoli initiation-mass agreement is a cross-run-compare
-    measure the scalar evaluator cannot auto-verdict, so its verdict refresh is pending. The three comparative
-    figures (cell volume vs time, DnaA-ATP count vs time, and DnaA-ATP fraction vs time with the Boesen
-    2024 [0.2,0.5] band marked) all rendered with data.'
-  interpretation: If v2ecoli's mechanism captures the biology, it should converge to the analytical prediction
-    once parameters are matched; the default-parameter v2ecoli is expected to diverge because it produces
-    ~115 DnaA/cell, roughly 5x below the paper's c_I=600/µm³ anchor, while the parameter-tuned variant
-    should close that gap. Any residual divergence after parameter matching points at structural/mechanism
-    differences worth flagging for expert review.
-  decision: Inconclusive on validation, with one clear negative. The v2ecoli baseline DnaA-ATP fraction
-    (~0.94) sits far above the physiological [0.2, 0.5] band, confirming the default-parameter mechanism
-    does not reproduce the expected nucleotide-cycle balance. The ITv2 initiation-mass match cannot be
-    judged until the listeners.itv2.initiation_mass observable is captured, and the cross-run initiation-mass
-    agreement awaits an evaluator that can verdict a cross_run_compare measure. No overall pass can be
-    claimed until the capture/evaluation gaps are closed.
+  purpose: Validate v2ecoli's whole-cell DnaA mechanism against the Fu/Xiao/Jun (2023) initiator-titration model
+    v2 (ITv2) analytical reference, testing whether v2ecoli reproduces the analytical initiation mass, DnaA-ATP/ADP
+    oscillation amplitude, and 1/N synchrony scaling at matched parameters — and whether a default-parameter divergence
+    closes once model_settings are retuned to the FXJ paper's values.
+  setup: 'Three-way comparison against the standalone ITv2 analytical model (WT, paper canonical parameters, RIDA
+    enabled) as baseline: the ITv2 standalone run, the v2ecoli baseline composite at default ParCa parameters, and
+    the v2ecoli baseline+dnaa-02 nucleotide-cycle composite with model_settings retuned to FXJ values (DnaA into
+    the [300,800] band, intrinsic hydrolysis 0.046/min, ATP-fraction clamp toward [0.2,0.5], rida-v0 mechanism).'
+  result: 'Ran in coordinated generation gen-20260522T003700Z-9fcb58. Of the three primary tests: (1) the ITv2 initiation-mass
+    match has NO DATA — the observable listeners.itv2.initiation_mass was not captured for the itv2 run (a path/emit
+    gap), so it cannot be evaluated; (2) the v2ecoli-baseline DnaA-ATP-fraction convergence test FAILED — the default-parameter
+    v2ecoli baseline sits at ~0.94, well outside the Boesen 2024 [0.2, 0.5] band; and (3) the ITv2-vs-v2ecoli initiation-mass
+    agreement is a cross-run-compare measure the scalar evaluator cannot auto-verdict, so its verdict refresh is
+    pending. The three comparative figures (cell volume vs time, DnaA-ATP count vs time, and DnaA-ATP fraction vs
+    time with the Boesen 2024 [0.2,0.5] band marked) all rendered with data.'
+  interpretation: If v2ecoli's mechanism captures the biology, it should converge to the analytical prediction once
+    parameters are matched; the default-parameter v2ecoli is expected to diverge because it produces ~115 DnaA/cell,
+    roughly 5x below the paper's c_I=600/µm³ anchor, while the parameter-tuned variant should close that gap. Any
+    residual divergence after parameter matching points at structural/mechanism differences worth flagging for expert
+    review.
+  decision: Inconclusive on validation, with one clear negative. The v2ecoli baseline DnaA-ATP fraction (~0.94)
+    sits far above the physiological [0.2, 0.5] band, confirming the default-parameter mechanism does not reproduce
+    the expected nucleotide-cycle balance. The ITv2 initiation-mass match cannot be judged until the listeners.itv2.initiation_mass
+    observable is captured, and the cross-run initiation-mass agreement awaits an evaluator that can verdict a cross_run_compare
+    measure. No overall pass can be claimed until the capture/evaluation gaps are closed.
   next_action: No follow_up_studies are recorded yet; this study itself is the follow-up to dnaa-04-initiation-mechanism,
     validating that mechanism against the external analytical reference at matched parameters.
 question: 'Does v2ecoli''s whole-cell DnaA mechanism reproduce the analytical predictions
@@ -69,22 +66,20 @@ question: 'Does v2ecoli''s whole-cell DnaA mechanism reproduce the analytical pr
 
   '
 assumptions:
-- text: The initiator-titration model v2 is a faithful low-resolution analogue of E. coli DnaA-driven
-    initiation. Its initiation mass + cell-cycle synchrony predictions are validated against single-cell
-    data in the paper.
+- text: The initiator-titration model v2 is a faithful low-resolution analogue of E. coli DnaA-driven initiation.
+    Its initiation mass + cell-cycle synchrony predictions are validated against single-cell data in the paper.
   cites:
   - FuXiaoJun2023
   verified_in_v2ecoli: false
   note: This is the model-validation reference. We treat it as the analytical baseline.
-- text: At matched parameters, v2ecoli's DnaA mechanism should produce initiation events at the same mean
-    cell volume (initiation mass) as ITv2 within ±10%.
+- text: At matched parameters, v2ecoli's DnaA mechanism should produce initiation events at the same mean cell volume
+    (initiation mass) as ITv2 within ±10%.
   cites:
   - FuXiaoJun2023
   - Boesen2024PNAS
   verified_in_v2ecoli: false
-- text: v2ecoli's default ParCa-fitted DnaA parameters produce DnaA at 8.6th percentile of the proteome
-    (~115 / cell), 5× below the FXJ paper's c_I = 600/µm³ assumption. The retuned variant uses the paper's
-    value.
+- text: v2ecoli's default ParCa-fitted DnaA parameters produce DnaA at 8.6th percentile of the proteome (~115 /
+    cell), 5× below the FXJ paper's c_I = 600/µm³ assumption. The retuned variant uses the paper's value.
   cites:
   - Schmidt2016
   - Mori2021
@@ -216,8 +211,8 @@ tests:
     low: 0.49
     high: 0.55
   status: no-data
-  verdict: No data — observable not captured. listeners.itv2.initiation_mass was not emitted for the itv2
-    run in gen-20260522T003700Z-9fcb58 (path/emit gap), so this test cannot be evaluated.
+  verdict: No data — observable not captured. listeners.itv2.initiation_mass was not emitted for the itv2 run in
+    gen-20260522T003700Z-9fcb58 (path/emit gap), so this test cannot be evaluated.
   cites:
   - FuXiaoJun2023
   run_ids: []
@@ -233,16 +228,16 @@ tests:
     low: 0.2
     high: 0.5
   status: fail
-  verdict: FAIL — measured ~0.94 in gen-20260522T003700Z-9fcb58, outside the Boesen 2024 band [0.2, 0.5].
-    The default-parameter v2ecoli baseline holds DnaA-ATP far above the physiological fraction.
+  verdict: FAIL — measured ~0.94 in gen-20260522T003700Z-9fcb58, outside the Boesen 2024 band [0.2, 0.5]. The default-parameter
+    v2ecoli baseline holds DnaA-ATP far above the physiological fraction.
   cites:
   - Boesen2024PNAS
   - FuXiaoJun2023
   run_ids: []
 - name: itv2-vs-v2ecoli-initiation-mass-agreement
   classification: primary
-  question: At matched parameters, do the analytical model and v2ecoli-with-fxj-params produce initiation
-    masses within ±10% of each other?
+  question: At matched parameters, do the analytical model and v2ecoli-with-fxj-params produce initiation masses
+    within ±10% of each other?
   measure:
     kind: cross_run_compare
     paths:
@@ -253,19 +248,12 @@ tests:
     op: relative_diff_at_most
     value: 0.1
   status: verdict-refresh-pending
-  verdict: Verdict refresh pending — this is a cross_run_compare measure that the scalar evaluator cannot
-    auto-verdict. Needs a cross-run-capable evaluator before a pass/fail can be recorded.
+  verdict: Verdict refresh pending — this is a cross_run_compare measure that the scalar evaluator cannot auto-verdict.
+    Needs a cross-run-capable evaluator before a pass/fail can be recorded.
   cites:
   - FuXiaoJun2023
   run_ids: []
 comparative_visualizations:
-# Paths use v2ecoli's NATIVE listeners (listeners.mass.*, listeners.dnaA_cycle.*).
-# Earlier these charts pointed at listeners.itv2.* — only the ITv2-standalone
-# composite populates that namespace, so the v2ecoli-based runs (3 of 4) wrote
-# empty dicts and the charts came out blank. The ITv2 standalone is left in the
-# overlay anyway; its listeners.itv2.volume value won't show on the
-# listeners.mass.volume axis, which is the honest representation of "different
-# simulators write to different listener namespaces".
 - name: cell-volume-vs-time
   title: Cell volume over time — baseline vs variants
   observable_path: agents.0.listeners.mass.volume
@@ -295,8 +283,8 @@ comparative_visualizations:
 status: ran-inconclusive
 parent_studies:
 - study: dnaa-04-initiation-mechanism
-  reason: dnaa-04 lands v2ecoli's initiation mechanism; this study validates it against an external analytical
-    reference at matched parameters.
+  reason: dnaa-04 lands v2ecoli's initiation mechanism; this study validates it against an external analytical reference
+    at matched parameters.
 follow_up_of:
 - dnaa-04-initiation-mechanism
 bibliography:
@@ -357,3 +345,19 @@ readouts:
   units: fraction
   status: available
   description: v2ecoli DnaA-ATP fraction (for side-by-side comparison vs ITv2).
+biological_role: 'External validation: compares v2ecoli''s DnaA mechanism against a standalone analytical model
+  of replication initiation (ITv2 from Fu / Xiao / Jun 2023) at matched parameters. Cross-check that v2ecoli''s
+  mechanism behaves consistently with an independent implementation of the same biology.'
+dependency_rationale: Follow-on to dnaa-04 — only meaningful once v2ecoli has a mechanism-driven initiation step
+  to compare. Doesn't gate other studies but acts as confidence check on the full mechanism chain.
+mechanism_replaced: Nothing — pure comparison study.
+primary_claim: v2ecoli's cell-volume trajectory and DnaA-ATP fraction trajectory agree with the standalone ITv2
+  analytical model under matched parameters, validating that v2ecoli's mechanism is a sound discrete-agent realisation
+  of the mean-field reference.
+primary_visualization: 'Side-by-side cell-volume + DnaA-ATP fraction trajectories: v2ecoli baseline (initiator_titration_v2
+  composite) vs v2ecoli + FXJ params vs v2ecoli default baseline. The physiological [0.2, 0.5] band overlaid on
+  the ATP fraction panel.'
+scope_boundary: ITv2 standalone runs in its own listener namespace (listeners.itv2.*); v2ecoli runs in listeners.mass.*
+  + listeners.dnaA_cycle.*. The comparative charts use v2ecoli's native paths so the v2ecoli runs overlay consistently.
+deferred_biology: The 1-D mean-field model can't capture the stochastic per-cell variation the v2ecoli mechanism
+  produces. Disagreement on noise / CV is expected and not a v2ecoli defect.

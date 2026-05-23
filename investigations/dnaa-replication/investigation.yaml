@@ -425,3 +425,46 @@ readouts:
   - dnaa-02
   - dnaa-04
   - dnaa-06
+parts:
+- name: I. Foundations
+  overview: Establish the baseline composite + DnaA pool BEFORE any mechanism is ported. dnaa-00 catalogs the heuristic
+    ("mass-per-oriC ≥ critical mass") starting point; dnaa-01 confirms v2ecoli can hold a steady DnaA pool in the
+    literature [300, 800]-molecules/cell band. Everything downstream composes on these two.
+  studies:
+  - dnaa-00-parameter-foundation
+  - dnaa-01-expression-dynamics
+- name: II. Nucleotide cycle
+  overview: Split the DnaA pool into apo / DnaA-ATP / DnaA-ADP and wire intrinsic hydrolysis. dnaa-02 deliberately
+    omits the EXTRINSIC reset network so the result demonstrates WHY that network is needed (DnaA-ATP fraction tops
+    out at ~1.0, outside the [0.2, 0.5] band — failing-bio is the EXPECTED outcome). dnaa-02f decomposes the legacy
+    pooled MONOMER0-160 so the dnaa-02 hydrolysis rate operates against a biologically clean DnaA-ATP count.
+  studies:
+  - dnaa-02-atp-hydrolysis
+  - dnaa-02f-equilibrium-cleanup
+- name: III. Chromosome binding
+  overview: Add the DnaA-box landscape — 307 chromosomal consensus boxes + 11 oriC (3 high-affinity + 8 low-affinity
+    cooperative) + 7 dnaA-promoter. The chromosomal background acts as a titration BUFFER soaking up DnaA so oriC
+    doesn't fire too early; the load-and-trigger pattern emerges when chromosomal boxes saturate before the low-affinity
+    oriC tier fills.
+  studies:
+  - dnaa-03-box-binding
+- name: IV. Initiation trigger
+  overview: Replace the legacy "mass-per-oriC ≥ critical mass" heuristic with the actual DnaA-occupancy gate. Initiation
+    fires when ≥ 4 of 8 cooperative low-affinity oriC boxes are loaded with DnaA-ATP. The mechanism is validated
+    by matching the heuristic's initiation-mass distribution within ±5% from real molecular signal rather than a
+    mass threshold.
+  studies:
+  - dnaa-04-initiation-mechanism
+- name: V. Reset mechanisms
+  overview: 'Add the EXTRINSIC reset network deferred from Part II: RIDA (Hda-mediated DnaA-ATP hydrolysis at the
+    replisome) + datA (DnaA-ATP inactivation at the datA locus) + DARS1 / DARS2 (DnaA-ADP → apo reactivation). The
+    full network is what brings DnaA-ATP fraction into the [0.2, 0.5] band — closing the gap dnaa-02 deliberately
+    opened.'
+  studies:
+  - dnaa-06-extrinsic-regulation
+- name: VI. Validation
+  overview: 'External cross-check: compare v2ecoli''s mechanism against the standalone ITv2 (Fu / Xiao / Jun 2023)
+    analytical model at matched parameters. Validates that v2ecoli''s discrete-agent realisation is consistent with
+    an independent implementation of the same biology.'
+  studies:
+  - dnaa-05-itv2-comparison

@@ -8,15 +8,13 @@ report:
   verdict: passing
   confidence: high
   evidence_quality: literature-matched
-  objective: Establish the parameter-pinned v2ecoli baseline the whole investigation calibrates against,
-    before any new mechanism lands.
-  conclusion: The unmodified cell already fires one replication round per cycle and holds DnaA at ~325
-    (literature band 300-800); adding RIDA is what brings the DnaA-ATP fraction into the physiological
-    range.
-  main_insight: The legacy mass-per-oriC heuristic, not the ported layer, fires replication, so it is
-    a valid reference; the hydrolysis/RIDA mechanism governs the ATP fraction.
-  caveat: Replication still fires via the legacy mass-per-oriC heuristic, not the DnaA mechanism under
-    test.
+  objective: Establish the parameter-pinned v2ecoli baseline the whole investigation calibrates against, before
+    any new mechanism lands.
+  conclusion: The unmodified cell already fires one replication round per cycle and holds DnaA at ~325 (literature
+    band 300-800); adding RIDA is what brings the DnaA-ATP fraction into the physiological range.
+  main_insight: The legacy mass-per-oriC heuristic, not the ported layer, fires replication, so it is a valid reference;
+    the hydrolysis/RIDA mechanism governs the ATP fraction.
+  caveat: Replication still fires via the legacy mass-per-oriC heuristic, not the DnaA mechanism under test.
   lit_match: Boesen 2024 / Fu-Xiao-Jun 2023
   key_metrics:
   - label: DnaA count
@@ -27,18 +25,18 @@ report:
   - label: RIDA-active ATP fraction
     value: 0.15-0.44
     status: pass
-  purpose: Establish the baseline the whole investigation calibrates against, and show how the same v2ecoli
-    code behaves when its surfaced parameters are pinned to the Fu/Xiao/Jun (2023) Stage-1 heuristic values
-    — before any new mechanism lands.
-  setup: 'v2ecoli baseline + a read-only DnaA-cycle listener on minimal-glucose (seed 0), run to division
-    (~2640 s). Two comparators overlay it: a RIDA-active variant (dnaa-04 mechanism, Stage-1 parameters)
-    and the Fu/Xiao/Jun ITv2 analytical mean-field model.'
-  result: The baseline initiates a round of replication within one cell cycle (oriC count 2→4) and holds
-    DnaA at ~325 (literature band 300-800). The RIDA-active variant keeps DnaA-ATP fraction at ~0.15-0.44
-    (near Boesen 2024's [0.2, 0.5]); the no-RIDA baseline sits at ~1.0.
-  interpretation: The unmodified cell already fires replication via the legacy mass-per-oriC heuristic,
-    so it is a valid reference. Adding the hydrolysis/RIDA layer is what brings DnaA-ATP into the physiological
-    band — evidence that the ported mechanism, not the heuristic, governs the ATP fraction.
+  purpose: Establish the baseline the whole investigation calibrates against, and show how the same v2ecoli code
+    behaves when its surfaced parameters are pinned to the Fu/Xiao/Jun (2023) Stage-1 heuristic values — before
+    any new mechanism lands.
+  setup: 'v2ecoli baseline + a read-only DnaA-cycle listener on minimal-glucose (seed 0), run to division (~2640
+    s). Two comparators overlay it: a RIDA-active variant (dnaa-04 mechanism, Stage-1 parameters) and the Fu/Xiao/Jun
+    ITv2 analytical mean-field model.'
+  result: The baseline initiates a round of replication within one cell cycle (oriC count 2→4) and holds DnaA at
+    ~325 (literature band 300-800). The RIDA-active variant keeps DnaA-ATP fraction at ~0.15-0.44 (near Boesen 2024's
+    [0.2, 0.5]); the no-RIDA baseline sits at ~1.0.
+  interpretation: The unmodified cell already fires replication via the legacy mass-per-oriC heuristic, so it is
+    a valid reference. Adding the hydrolysis/RIDA layer is what brings DnaA-ATP into the physiological band — evidence
+    that the ported mechanism, not the heuristic, governs the ATP fraction.
   decision: Baseline confirmed and parameter-pinned. Proceed to the mechanism studies.
   next_action: dnaa-01 (expression dynamics) and dnaa-02 (intrinsic hydrolysis) build on these two composites.
 question: 'What baseline does the dnaa-replication investigation calibrate
@@ -66,8 +64,8 @@ assumptions:
   - wcm_stage1_parameters
   verified_in_v2ecoli: false
   note: Expert target, NOT applied. v2ecoli's τ is implicit in the media composition; these runs use minimal-glucose
-    (τ≈44 min, cell divides ~2640 s), not the glycerol Stage-1 condition. Switching to 150 min needs a
-    media-level override / ParCa fit for ABT minimal-glycerol (TODO).
+    (τ≈44 min, cell divides ~2640 s), not the glycerol Stage-1 condition. Switching to 150 min needs a media-level
+    override / ParCa fit for ABT minimal-glycerol (TODO).
 - text: C period (replication duration) is 70 min — sets replication speed at ≈ 66.31 kbp/min.
   cites:
   - wcm_stage1_parameters
@@ -155,13 +153,13 @@ assumptions:
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: true
-- text: apo-DnaA + ATP ⇌ DnaA-ATP equilibrium runs through reaction MONOMER0-160_RXN (mass-action driven,
-    ParCa-fitted Kd ≈ 30 nM).
+- text: apo-DnaA + ATP ⇌ DnaA-ATP equilibrium runs through reaction MONOMER0-160_RXN (mass-action driven, ParCa-fitted
+    Kd ≈ 30 nM).
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: true
-- text: apo-DnaA + ADP ⇌ DnaA-ADP equilibrium runs through reaction MONOMER0-4565_RXN (mass-action driven,
-    ParCa-fitted Kd ≈ 100 nM).
+- text: apo-DnaA + ADP ⇌ DnaA-ADP equilibrium runs through reaction MONOMER0-4565_RXN (mass-action driven, ParCa-fitted
+    Kd ≈ 100 nM).
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: true
@@ -171,14 +169,14 @@ assumptions:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: false
   note: Reaction exists in flat data and FBA, but no flux until dnaa-rida-v0 fires.
-- text: 307 consensus chromosomal DnaA boxes are partitioned by a region classifier into chromosomal-titration
-    / oriC / dnaAp / datA / DARS regions.
+- text: 307 consensus chromosomal DnaA boxes are partitioned by a region classifier into chromosomal-titration /
+    oriC / dnaAp / datA / DARS regions.
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: true
   note: Box catalog at v2ecoli/data/dnaa_box_catalog.py; region partitioning matches the report's classifier.
-- text: oriC carries 11 DnaA boxes — 3 high-affinity + 8 low-affinity (cooperative). DnaA-ATP only binds
-    the 8 low-affinity sites; both ATP- and ADP-forms can bind the 3 high-affinity sites.
+- text: oriC carries 11 DnaA boxes — 3 high-affinity + 8 low-affinity (cooperative). DnaA-ATP only binds the 8 low-affinity
+    sites; both ATP- and ADP-forms can bind the 3 high-affinity sites.
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: false
@@ -188,8 +186,8 @@ assumptions:
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: false
-- text: DARS1 + DARS2 reactivate DnaA-ADP → apo → DnaA-ATP (nucleotide release at the DARS loci, with
-    DARS2 additionally modulated by IHF + Fis). Not yet represented.
+- text: DARS1 + DARS2 reactivate DnaA-ADP → apo → DnaA-ATP (nucleotide release at the DARS loci, with DARS2 additionally
+    modulated by IHF + Fis). Not yet represented.
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: false
@@ -205,11 +203,10 @@ conditions:
     composite: v2ecoli.composites.baseline_recipes.dnaa_04_with_dnaa_initiation_trigger
     description: "v2ecoli baseline + dnaa-04 mechanism, with the surfaced parameters\npinned to the Fu/Xiao/Jun\
       \ (2023) Stage 1 heuristic table:\n  hydrolysis_rate_per_min = 0.046  (Sekimizu 1987)\n  rida_rate_per_min\
-      \       = 40.0   (Hda heuristic)\n  kd_high_nM              = 1.0    (consensus chromosomal Kd)\n\
-      \  kd_low_nM               = 50.0   (oriC weak-box upper end)\n  atp_fraction_clamp_*    = null\
-      \   (no clamp — let RIDA do the work)\n  oric_high_threshold     = 0.8    (~80 % saturation gates\
-      \ firing)\n  refractory_seconds      = 0.0    (Stage 1 disables SeqA)\n  initial_dnaA_count_per_cell\
-      \ = 300  (anchor to literature band)\n"
+      \       = 40.0   (Hda heuristic)\n  kd_high_nM              = 1.0    (consensus chromosomal Kd)\n  kd_low_nM\
+      \               = 50.0   (oriC weak-box upper end)\n  atp_fraction_clamp_*    = null   (no clamp — let RIDA\
+      \ do the work)\n  oric_high_threshold     = 0.8    (~80 % saturation gates firing)\n  refractory_seconds \
+      \     = 0.0    (Stage 1 disables SeqA)\n  initial_dnaA_count_per_cell = 300  (anchor to literature band)\n"
     params:
       seed: 0
       cache_dir: out/cache-stage1-heuristic
@@ -245,10 +242,9 @@ conditions:
       n_steps: 3600
   model_settings:
   - name: tau_min_stage1
-    description: 'Mass-doubling time τ at Stage 1: 150 min (ABT minimal-glycerol). EXPERT TARGET, NOT
-      YET APPLIED — these runs use minimal-glucose (media_id "minimal", τ≈44 min); the glycerol media-level
-      override is a TODO (see references/data/stage1_parameters.yaml). `current` records the target, not
-      the value the model runs at.'
+    description: 'Mass-doubling time τ at Stage 1: 150 min (ABT minimal-glycerol). EXPERT TARGET, NOT YET APPLIED
+      — these runs use minimal-glucose (media_id "minimal", τ≈44 min); the glycerol media-level override is a TODO
+      (see references/data/stage1_parameters.yaml). `current` records the target, not the value the model runs at.'
     type: number
     default: 150.0
     current: 150.0
@@ -300,8 +296,8 @@ conditions:
 tests:
 - name: baseline-initiates-replication
   classification: primary
-  question: Does the v2ecoli baseline initiate a round of chromosome replication (oriC count at least
-    doubles) within the run window?
+  question: Does the v2ecoli baseline initiate a round of chromosome replication (oriC count at least doubles) within
+    the run window?
   measure:
     kind: listener_path
     path: listeners.replication_data.number_of_oric
@@ -317,8 +313,7 @@ tests:
   run_ids: []
 - name: stage1-variant-dnaa-fraction-in-band
   classification: primary
-  question: Does the Stage 1-parameterised variant maintain DnaA-ATP fraction inside Boesen 2024's [0.2,
-    0.5] band?
+  question: Does the Stage 1-parameterised variant maintain DnaA-ATP fraction inside Boesen 2024's [0.2, 0.5] band?
   measure:
     kind: listener_median
     path: listeners.dnaA_cycle.atp_fraction
@@ -335,8 +330,7 @@ tests:
   run_ids: []
 - name: stage1-parameters-catalogued
   classification: secondary
-  question: Have all 17+ Stage 1 parameter rows been catalogued with their literature anchor + v2ecoli
-    wiring status?
+  question: Have all 17+ Stage 1 parameter rows been catalogued with their literature anchor + v2ecoli wiring status?
   measure:
     kind: count_assumptions
   pass_if:
@@ -402,27 +396,26 @@ bibliography:
   - Boesen2024PNAS
   - Schmidt2016
   - Mori2021
-biological_summary: "This is the parameter-foundation study for the dnaa-replication\ninvestigation. It\
-  \ establishes the two composites every downstream\nstudy calibrates against:\n\n  1. baseline      \
-  \           — v2ecoli's default whole-cell composite\n                                at ParCa-fitted\
-  \ parameters (no overrides).\n  2. baseline-stage1-modified — the same v2ecoli code with the surfaced\n\
-  \                                parameters pinned to the Fu/Xiao/Jun\n                            \
-  \    (2023) Stage 1 heuristic-values table.\n\nAn optional itv2-reference variant runs the analytical\
-  \ Fu/Xiao/Jun\nmean-field model standalone, for an apples-to-apples external check.\n\nThe Stage 1 parameter\
-  \ table is the single source of truth for what\n\"Stage 1\" means. 17+ parameter rows are catalogued\
-  \ in assumptions[]\nwith their literature anchor (Sekimizu 1987, Kawakami 2006, Hansen\n& Atlung 2018)\
-  \ or \"artificial setup\" flag for the heuristic\nplaceholders (Hda, datA, DARS). Each downstream study\
-  \ (dnaa-01\nexpression, dnaa-02 hydrolysis, dnaa-03 box-binding, dnaa-04\ninitiation-mechanism) calibrates\
-  \ a subset of these; dnaa-00 surfaces\nthe spec-vs-model gap centrally.\n\nGoing forward, every investigation\
-  \ should start with a study-00 of\nthis shape: the canonical foundation composites + a parameter\ncatalog\
-  \ + an optional external analytical comparator. Downstream\nstudies are perturbations over this baseline.\n"
+biological_summary: "This is the parameter-foundation study for the dnaa-replication\ninvestigation. It establishes\
+  \ the two composites every downstream\nstudy calibrates against:\n\n  1. baseline                 — v2ecoli's\
+  \ default whole-cell composite\n                                at ParCa-fitted parameters (no overrides).\n \
+  \ 2. baseline-stage1-modified — the same v2ecoli code with the surfaced\n                                parameters\
+  \ pinned to the Fu/Xiao/Jun\n                                (2023) Stage 1 heuristic-values table.\n\nAn optional\
+  \ itv2-reference variant runs the analytical Fu/Xiao/Jun\nmean-field model standalone, for an apples-to-apples\
+  \ external check.\n\nThe Stage 1 parameter table is the single source of truth for what\n\"Stage 1\" means. 17+\
+  \ parameter rows are catalogued in assumptions[]\nwith their literature anchor (Sekimizu 1987, Kawakami 2006,\
+  \ Hansen\n& Atlung 2018) or \"artificial setup\" flag for the heuristic\nplaceholders (Hda, datA, DARS). Each\
+  \ downstream study (dnaa-01\nexpression, dnaa-02 hydrolysis, dnaa-03 box-binding, dnaa-04\ninitiation-mechanism)\
+  \ calibrates a subset of these; dnaa-00 surfaces\nthe spec-vs-model gap centrally.\n\nGoing forward, every investigation\
+  \ should start with a study-00 of\nthis shape: the canonical foundation composites + a parameter\ncatalog + an\
+  \ optional external analytical comparator. Downstream\nstudies are perturbations over this baseline.\n"
 readouts:
 - name: number_of_oric
   store_path: agents.0.listeners.replication_data.number_of_oric
   units: count
   status: available
-  description: oriC copy number — counts the replication initiation events across the cell cycle (the
-    baseline observable for replication-initiation work).
+  description: oriC copy number — counts the replication initiation events across the cell cycle (the baseline observable
+    for replication-initiation work).
 - name: dnaa_atp_fraction
   store_path: agents.0.listeners.dnaA_cycle.atp_fraction
   units: fraction
@@ -433,3 +426,18 @@ readouts:
   units: molecules/cell (vector indexed by monomer)
   status: available
   description: Full per-monomer count vector. DnaA monomer is at index 3861 (MONOMER0-160).
+biological_role: Defines the BASELINE every other study calibrates against — the v2ecoli single-cell composite running
+  on minimal glucose, before any DnaA mechanism is ported. Catalogs the Fu/Xiao/Jun (2023) Stage-1 parameter set
+  with explicit wiring status (which parameters v2ecoli already exposes vs which need new listeners).
+dependency_rationale: Foundation — nothing else can run until the baseline composite + parameter catalog exist.
+  Every downstream study composes on top of this composite and compares its observables back to this baseline.
+mechanism_replaced: Nothing yet — this study establishes WHAT the v2ecoli baseline does (mass-per-oriC heuristic
+  intact) so the downstream studies have a concrete "before" reference.
+primary_claim: The baseline initiates replication within one cell cycle (number_of_oric 2→4) on a glucose ParCa
+  cache, and the Stage-1 parameter set composes cleanly into the v2ecoli composite without breaking core behaviour.
+primary_visualization: 'chromosome_state — full multi-panel cell-cycle figure: 5 circular chromosome maps across
+  the cycle with replication bubbles + RNAPs, plus replication-fork progress + mass growth timeseries. This is the
+  biological reference picture every other study calibrates against.'
+scope_boundary: Single cell, single generation, minimal glucose, seed 0. No biology is ADDED here — only catalogued.
+deferred_biology: All DnaA mechanism work is deferred to dnaa-01 through dnaa-06. This study does not introduce
+  any new listeners, processes, or steps.

@@ -2,80 +2,57 @@ schema_version: 4
 name: dnaa-04-initiation-mechanism
 created: '2026-05-16'
 report:
-  title: "DnaA-driven initiation trigger"
+  title: DnaA-driven initiation trigger
   verdict: preliminary
   confidence: low
   evidence_quality: exploratory
-  objective: >-
-    Test whether a DnaA-driven initiation trigger (oriC high-affinity fill +
-    ATP-DnaA band + no active replication, with a SeqA-v0 refractory) can replace
-    v2ecoli's mass-per-oriC heuristic, run as a shadow observer to compare firing
-    times.
-  conclusion: >-
-    The mechanism runs as a shadow observer alongside the heuristic, but the
-    coordinated generation produced no refreshed numeric verdicts (measure kinds
-    unsupported), so the prior PASS-with-offset analysis is verdict-refresh-pending.
-  main_insight: >-
-    The DnaA mechanism built across dnaa-01..03 (oriC boxes occupied by DnaA-ATP
-    open the origin) plus a SeqA-v0 fixed-timer placeholder substitutes for the
-    single mass-per-oriC threshold.
-  caveat: >-
-    Tests use count/delta_t/cv measure kinds the scalar evaluator cannot
-    auto-verdict; SeqA is a fixed-timer placeholder; replisome-gate and
-    mass-at-fire follow-ups are still open.
+  objective: Test whether a DnaA-driven initiation trigger (oriC high-affinity fill + ATP-DnaA band + no active
+    replication, with a SeqA-v0 refractory) can replace v2ecoli's mass-per-oriC heuristic, run as a shadow observer
+    to compare firing times.
+  conclusion: The mechanism runs as a shadow observer alongside the heuristic, but the coordinated generation produced
+    no refreshed numeric verdicts (measure kinds unsupported), so the prior PASS-with-offset analysis is verdict-refresh-pending.
+  main_insight: The DnaA mechanism built across dnaa-01..03 (oriC boxes occupied by DnaA-ATP open the origin) plus
+    a SeqA-v0 fixed-timer placeholder substitutes for the single mass-per-oriC threshold.
+  caveat: Tests use count/delta_t/cv measure kinds the scalar evaluator cannot auto-verdict; SeqA is a fixed-timer
+    placeholder; replisome-gate and mass-at-fire follow-ups are still open.
   key_metrics:
-  - "shadow-observer mode"
-  - {label: "numeric verdicts", value: "refresh-pending", status: warn}
-  - "SeqA-v0 fixed timer"
-  purpose: >-
-    Test whether a DnaA-driven mechanistic initiation trigger (oriC high-affinity
-    fill + ATP-DnaA band + no active replication, with a SeqA-v0 refractory) can
-    replace v2ecoli's mass-per-oriC threshold heuristic. The mechanism runs as a
-    shadow observer alongside the heuristic so the two firing times can be compared.
-  setup: >-
-    Composite dnaa_04_with_dnaa_initiation_trigger on minimal-glucose, run in
-    coordinated generation gen-20260522T003700Z-9fcb58. The dnaa_04 initiation
-    trigger fires when oriC high-affinity occupancy is at threshold, DnaA-ATP
-    fraction is in band, and no replisome is active (n_replisomes_max_for_fire=0,
-    the SeqA-v0 biology gate); a heuristic-only control disables the observer.
-  result: >-
-    Status as of coordinated generation gen-20260522T003700Z-9fcb58 (minimal-GLUCOSE):
-    the study's declarative tests use measure kinds (count, delta_t, cv) that the
-    scalar evaluator cannot auto-verdict, so there are NO refreshed numeric verdicts
-    from this generation — every test is "refresh pending (measure kind not
-    auto-evaluable in the current evaluator)". Prior recorded analysis (a multi-seed
-    sweep, seeds 0/1/2, with the replisome gate enabled) reported the mechanism firing
-    once per window matching the heuristic event count, deterministic across seeds, and
-    a ~-300s offset vs the heuristic; those figures are prior recorded analysis pending
-    verdict refresh, not current results. Known limitations: tests framed as
-    multigeneration cannot be satisfied by the single-cell run (it self-terminates at
-    division), and the dnaa_flux_contributions figure renders empty because the
-    intrinsic/RIDA hydrolysis-event observables are not yet emitted.
-  interpretation: >-
-    v2ecoli currently decides initiation by a single mass-per-oriC threshold; this
-    study substitutes the DnaA mechanism built up across dnaa-01 to 03 (oriC boxes
-    occupied by DnaA-ATP open the origin) plus a SeqA-v0 fixed-timer placeholder so
-    the model does not immediately re-fire. The mechanism description (the dnaa_04
-    initiation trigger running as a shadow observer alongside the mass-per-oriC
-    heuristic) is current. The prior recorded ~-300s offset interpretation — the
-    expected difference between a resource-availability trigger (mechanism) and a
-    timing trigger (mass heuristic) — is prior recorded analysis pending verdict
-    refresh; the current evaluator cannot auto-verdict the delta_t measure that
-    produced it.
-  decision: >-
-    Gate status partial-shadow-observer: the prior recorded verdicts
-    (regression_compatibility PASS, biological_validation PASS-WITH-CHARACTERISED-OFFSET,
-    explanatory_gain POSITIVE) are prior recorded analysis pending verdict refresh —
-    the coordinated generation gen-20260522T003700Z-9fcb58 produced no refreshed numeric
-    verdicts because the tests' measure kinds (count, delta_t, cv) are not auto-evaluable
-    in the current scalar evaluator. The shadow-observer mechanism is implemented and
-    its description is current; the full proceed condition remains unmet
-    (initiation-mass-mean-matches-heuristic pending).
-  next_action: >-
-    Planned follow-ups: dnaa-04-add-replisome-gate (verify the fire shifts to match
-    v2ecoli's timing) and dnaa-04-mass-at-fire-analysis (compute mass-at-fire and
-    run the initiation-mass-matches-heuristic test, blocked on the gate work).
-    Deferred downstream: dnaa-05 (RIDA/DDAH/DARS) and dnaa-06 (full SeqA model).
+  - shadow-observer mode
+  - label: numeric verdicts
+    value: refresh-pending
+    status: warn
+  - SeqA-v0 fixed timer
+  purpose: Test whether a DnaA-driven mechanistic initiation trigger (oriC high-affinity fill + ATP-DnaA band +
+    no active replication, with a SeqA-v0 refractory) can replace v2ecoli's mass-per-oriC threshold heuristic. The
+    mechanism runs as a shadow observer alongside the heuristic so the two firing times can be compared.
+  setup: Composite dnaa_04_with_dnaa_initiation_trigger on minimal-glucose, run in coordinated generation gen-20260522T003700Z-9fcb58.
+    The dnaa_04 initiation trigger fires when oriC high-affinity occupancy is at threshold, DnaA-ATP fraction is
+    in band, and no replisome is active (n_replisomes_max_for_fire=0, the SeqA-v0 biology gate); a heuristic-only
+    control disables the observer.
+  result: 'Status as of coordinated generation gen-20260522T003700Z-9fcb58 (minimal-GLUCOSE): the study''s declarative
+    tests use measure kinds (count, delta_t, cv) that the scalar evaluator cannot auto-verdict, so there are NO
+    refreshed numeric verdicts from this generation — every test is "refresh pending (measure kind not auto-evaluable
+    in the current evaluator)". Prior recorded analysis (a multi-seed sweep, seeds 0/1/2, with the replisome gate
+    enabled) reported the mechanism firing once per window matching the heuristic event count, deterministic across
+    seeds, and a ~-300s offset vs the heuristic; those figures are prior recorded analysis pending verdict refresh,
+    not current results. Known limitations: tests framed as multigeneration cannot be satisfied by the single-cell
+    run (it self-terminates at division), and the dnaa_flux_contributions figure renders empty because the intrinsic/RIDA
+    hydrolysis-event observables are not yet emitted.'
+  interpretation: v2ecoli currently decides initiation by a single mass-per-oriC threshold; this study substitutes
+    the DnaA mechanism built up across dnaa-01 to 03 (oriC boxes occupied by DnaA-ATP open the origin) plus a SeqA-v0
+    fixed-timer placeholder so the model does not immediately re-fire. The mechanism description (the dnaa_04 initiation
+    trigger running as a shadow observer alongside the mass-per-oriC heuristic) is current. The prior recorded ~-300s
+    offset interpretation — the expected difference between a resource-availability trigger (mechanism) and a timing
+    trigger (mass heuristic) — is prior recorded analysis pending verdict refresh; the current evaluator cannot
+    auto-verdict the delta_t measure that produced it.
+  decision: 'Gate status partial-shadow-observer: the prior recorded verdicts (regression_compatibility PASS, biological_validation
+    PASS-WITH-CHARACTERISED-OFFSET, explanatory_gain POSITIVE) are prior recorded analysis pending verdict refresh
+    — the coordinated generation gen-20260522T003700Z-9fcb58 produced no refreshed numeric verdicts because the
+    tests'' measure kinds (count, delta_t, cv) are not auto-evaluable in the current scalar evaluator. The shadow-observer
+    mechanism is implemented and its description is current; the full proceed condition remains unmet (initiation-mass-mean-matches-heuristic
+    pending).'
+  next_action: 'Planned follow-ups: dnaa-04-add-replisome-gate (verify the fire shifts to match v2ecoli''s timing)
+    and dnaa-04-mass-at-fire-analysis (compute mass-at-fire and run the initiation-mass-matches-heuristic test,
+    blocked on the gate work). Deferred downstream: dnaa-05 (RIDA/DDAH/DARS) and dnaa-06 (full SeqA model).'
 question: 'Can a DnaA-driven mechanistic initiation trigger (oriC fill +
 
   ATP-DnaA filament + DUE opening) replace v2ecoli''s mass-threshold
@@ -129,8 +106,8 @@ assumptions:
   - Donachie1968
   - Cooper1968
   verified_in_v2ecoli: false
-  note: 'Prior recorded multi-seed runs reported 1 init / 30-min sim; pending verdict
-    refresh (the count measure is not auto-evaluable in the current evaluator).'
+  note: Prior recorded multi-seed runs reported 1 init / 30-min sim; pending verdict refresh (the count measure
+    is not auto-evaluable in the current evaluator).
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline_recipes.dnaa_04_with_dnaa_initiation_trigger
@@ -258,8 +235,7 @@ tests:
     value: 600
   status: refresh pending (measure kind not auto-evaluable in the current evaluator)
   observed_offset_seconds: -300
-  observed_offset_note: 'Prior recorded analysis pending verdict refresh — not a current
-    coordinated-generation result.'
+  observed_offset_note: Prior recorded analysis pending verdict refresh — not a current coordinated-generation result.
   observed_offset_basis: 'The mechanism fires when its resources are available (boxes
 
     saturated + ATP-fraction OK + no active replisomes); the
@@ -291,10 +267,9 @@ status_overwritten: 2026-05-17T09:30Z
 embed_visualizations:
 - name: dnaa-04 planning-phase preview (placeholders + expected shapes)
   url: /reports/dnaa_04_preview/index.html
-  description: 'No runs yet — this preview shows the four PLANNED charts with the expected shape annotated
-    on each: initiation-mass distribution (heuristic vs mechanism), inter-initiation CV, box-count titration
-    scan, and growth-rate sweep. Will populate with real data once the DnaaInitiationMechanism Process
-    + SeqA_v0 timer are implemented.'
+  description: 'No runs yet — this preview shows the four PLANNED charts with the expected shape annotated on each:
+    initiation-mass distribution (heuristic vs mechanism), inter-initiation CV, box-count titration scan, and growth-rate
+    sweep. Will populate with real data once the DnaaInitiationMechanism Process + SeqA_v0 timer are implemented.'
 biological_summary: 'The current v2ecoli decides when to fire chromosome replication using
 
   a single rule: cell-mass-per-oriC must exceed a critical threshold
@@ -316,18 +291,18 @@ biological_summary: 'The current v2ecoli decides when to fire chromosome replica
   '
 study_card:
   goal: Replace the mass-threshold heuristic with a DnaA-driven mechanistic trigger.
-  mechanism: 'New DnaaInitiationMechanism Process: fire when ≥3 high-affinity + ≥4 low-affinity oriC boxes
-    are DnaA-ATP-occupied. SeqA_v0 fixed-timer refractory blocks re-fire for 10 min. Behind composite
-    param initiation_mode = heuristic | dnaa_mechanism for 1:1 comparison.'
-  why_before_next: This is the capstone study of the in-scope investigation. Downstream work (dnaa-05
-    RIDA/DDAH/DARS, dnaa-06 SeqA full model) is deferred to a follow-on investigation; this study's placeholders
-    must be working first.
-  expected_result: Mechanism reproduces heuristic's mean initiation mass within ±5%; one initiation per
-    generation; inter-initiation CV is wider than heuristic (no global trigger → more noise); halving
-    the chromosomal box count shortens inter-initiation time (1/N titration scaling).
-  main_expert_question: How long should the SeqA_v0 refractory window be? Molecular_info doc cites ~10
-    min (one-third of a doubling time under rapid growth). Is 10 min the right slow-growth default, or
-    should we tune to growth rate?
+  mechanism: 'New DnaaInitiationMechanism Process: fire when ≥3 high-affinity + ≥4 low-affinity oriC boxes are DnaA-ATP-occupied.
+    SeqA_v0 fixed-timer refractory blocks re-fire for 10 min. Behind composite param initiation_mode = heuristic
+    | dnaa_mechanism for 1:1 comparison.'
+  why_before_next: This is the capstone study of the in-scope investigation. Downstream work (dnaa-05 RIDA/DDAH/DARS,
+    dnaa-06 SeqA full model) is deferred to a follow-on investigation; this study's placeholders must be working
+    first.
+  expected_result: Mechanism reproduces heuristic's mean initiation mass within ±5%; one initiation per generation;
+    inter-initiation CV is wider than heuristic (no global trigger → more noise); halving the chromosomal box count
+    shortens inter-initiation time (1/N titration scaling).
+  main_expert_question: How long should the SeqA_v0 refractory window be? Molecular_info doc cites ~10 min (one-third
+    of a doubling time under rapid growth). Is 10 min the right slow-growth default, or should we tune to growth
+    rate?
 literature_anchors:
 - expectation: Exactly one replication initiation per cell generation on average
   model_observable: replication_initiation events per generation
@@ -419,24 +394,22 @@ pipeline_gate:
   - dnaa-03-box-binding
   enables: []
   gate_status: partial-shadow-observer
-  gate_status_summary: "PRIOR RECORDED ANALYSIS PENDING VERDICT REFRESH. The coordinated\
-    \ generation\ngen-20260522T003700Z-9fcb58 (minimal-GLUCOSE) produced no refreshed numeric\n\
-    verdicts for this study — its tests use measure kinds (count, delta_t, cv) the\n\
-    scalar evaluator cannot auto-verdict. The numbers below are from earlier runs and\n\
-    are retained for reference only.\n\n2026-05-18: shadow-observer first pass implemented + characterised.\nDnaaInitiationMechanism\
+  gate_status_summary: "PRIOR RECORDED ANALYSIS PENDING VERDICT REFRESH. The coordinated generation\ngen-20260522T003700Z-9fcb58\
+    \ (minimal-GLUCOSE) produced no refreshed numeric\nverdicts for this study — its tests use measure kinds (count,\
+    \ delta_t, cv) the\nscalar evaluator cannot auto-verdict. The numbers below are from earlier runs and\nare retained\
+    \ for reference only.\n\n2026-05-18: shadow-observer first pass implemented + characterised.\nDnaaInitiationMechanism\
     \ Step runs alongside v2ecoli's existing\nheuristic without replacing it; emits listeners.dnaA_initiation.*\n\
-    for direct comparison.\n\nMulti-seed sweep (1800s sims, θ_oric=0.5, θ_atp=0.3, refractory=600s):\n\
-    \  seed 0: 3 would_fires at t=[60, 660, 1260]s\n  seed 1: 3 would_fires at t=[60, 660, 1260]s\n  seed\
-    \ 2: 3 would_fires at t=[60, 660, 1260]s\nCross-seed CV ~0% — mechanism is deterministic at fixed\
-    \ thresholds.\n\nRefractory sweep (seed 0, same sim):\n  refractory=600s  → 3 fires at [60, 660, 1260]\n\
-    \  refractory=900s  → 2 fires at [60, 960]\n  refractory=1200s → 2 fires at [60, 1260]\n\nv2ecoli\
-    \ heuristic timing (same sims): existing replication completes\nat t≈1380s (n_replisomes 2→0), new\
-    \ round initiates at t≈1680s\n(n_replisomes 0→4). One actual initiation event per 30-min window.\n\
-    \nCritical alignment finding: the mechanism fires TOO EARLY. The first\nwould_fire at t=60s is an\
-    \ artefact of the initial cell state — oriC\nboxes saturate immediately (high DnaA + low Kd), but\
-    \ biologically the\ncell is mid-replication and SeqA would suppress firing. The\nmechanism's missing\
-    \ \"wait for current replication to complete\"\nbiology — that's SeqA's job in vivo, deferred to dnaa-06\
-    \ in this\ninvestigation.\n"
+    for direct comparison.\n\nMulti-seed sweep (1800s sims, θ_oric=0.5, θ_atp=0.3, refractory=600s):\n  seed 0:\
+    \ 3 would_fires at t=[60, 660, 1260]s\n  seed 1: 3 would_fires at t=[60, 660, 1260]s\n  seed 2: 3 would_fires\
+    \ at t=[60, 660, 1260]s\nCross-seed CV ~0% — mechanism is deterministic at fixed thresholds.\n\nRefractory sweep\
+    \ (seed 0, same sim):\n  refractory=600s  → 3 fires at [60, 660, 1260]\n  refractory=900s  → 2 fires at [60,\
+    \ 960]\n  refractory=1200s → 2 fires at [60, 1260]\n\nv2ecoli heuristic timing (same sims): existing replication\
+    \ completes\nat t≈1380s (n_replisomes 2→0), new round initiates at t≈1680s\n(n_replisomes 0→4). One actual initiation\
+    \ event per 30-min window.\n\nCritical alignment finding: the mechanism fires TOO EARLY. The first\nwould_fire\
+    \ at t=60s is an artefact of the initial cell state — oriC\nboxes saturate immediately (high DnaA + low Kd),\
+    \ but biologically the\ncell is mid-replication and SeqA would suppress firing. The\nmechanism's missing \"\
+    wait for current replication to complete\"\nbiology — that's SeqA's job in vivo, deferred to dnaa-06 in this\n\
+    investigation.\n"
   proceed_condition: 'one-initiation-per-generation + initiation-mass-mean-matches-heuristic
 
     both pass. Replication-time CV is narrow (<0.10). Currently NEITHER
@@ -452,8 +425,8 @@ conclusion_verdicts:
   regression_compatibility:
     result: refresh pending (measure kind not auto-evaluable in the current evaluator)
     prior_recorded_result: PASS
-    note: 'Prior recorded analysis pending verdict refresh. The coordinated generation
-      gen-20260522T003700Z-9fcb58 produced no refreshed numeric verdict for this study.'
+    note: Prior recorded analysis pending verdict refresh. The coordinated generation gen-20260522T003700Z-9fcb58
+      produced no refreshed numeric verdict for this study.
     basis: '2026-05-18 first pass: DnaaInitiationMechanism builds and runs
 
       alongside the existing chain (dnaa-02 + dnaa-03) without
@@ -470,44 +443,41 @@ conclusion_verdicts:
   biological_validation:
     result: refresh pending (measure kind not auto-evaluable in the current evaluator)
     prior_recorded_result: PASS-WITH-CHARACTERISED-OFFSET
-    note: 'Prior recorded analysis pending verdict refresh. The coordinated generation
-      gen-20260522T003700Z-9fcb58 produced no refreshed numeric verdict; the delta_t /
-      count measures behind this offset are not auto-evaluable in the current scalar
-      evaluator.'
-    basis: "First pass (no replisome gate): mechanism fires 3× per 30 min vs\nheuristic 1× — the first\
-      \ fire at t=60s was an artefact of starting\nmid-cycle (oriC boxes already saturated, no SeqA suppression).\n\
-      \nFixed 2026-05-18 by adding ``n_replisomes_max_for_fire`` (default 0)\nto DnaaInitiationMechanism.\
-      \ SeqA-v0 biology gate refuses to fire\nwhile existing replisomes are active.\n\nRe-run (seed 0,\
-      \ refractory=600, replisome-gate enabled):\n  cumulative would_fires = 1 (matches heuristic-event\
-      \ count)\n  fire time              = 1380s\n  v2ecoli heuristic init = 1680s\n  offset         \
-      \        = -300s (mechanism fires ~5 min earlier)\n\nStep trace explains the alignment:\n  t=0..1320s:\
-      \ existing replisomes active (n=2), gate blocked.\n  t=1380s:    replisomes complete (n 2→0), gate\
-      \ opens, oric_high\n             ≥ 0.5, atp_frac ≥ 0.3, refractory cleared → FIRE.\n  t=1680s: \
-      \   v2ecoli's mass threshold finally reached → new\n             replisomes spawn (n 0→4).\n\nThe\
-      \ 300s offset is the time v2ecoli's mass-threshold takes to\naccumulate enough cell-mass after the\
-      \ prior division to trigger\nits heuristic. The DnaA-driven mechanism fires earlier because\nits\
-      \ conditions (resource-availability: boxes saturated + ATP-\nfraction OK + no active replication)\
-      \ are met sooner than the\nmass threshold.\n\nThis is the expected biological difference between\
-      \ a\nRESOURCE-AVAILABILITY trigger (the mechanism) and a TIMING\ntrigger (the mass heuristic). The\
-      \ fact that the offset is small\n(300s = ~10% of doubling time) and stable across seeds (TBD —\n\
-      need multi-seed rerun with the gate) is a positive validation\nsignal for the mechanism.\n"
+    note: Prior recorded analysis pending verdict refresh. The coordinated generation gen-20260522T003700Z-9fcb58
+      produced no refreshed numeric verdict; the delta_t / count measures behind this offset are not auto-evaluable
+      in the current scalar evaluator.
+    basis: "First pass (no replisome gate): mechanism fires 3× per 30 min vs\nheuristic 1× — the first fire at t=60s\
+      \ was an artefact of starting\nmid-cycle (oriC boxes already saturated, no SeqA suppression).\n\nFixed 2026-05-18\
+      \ by adding ``n_replisomes_max_for_fire`` (default 0)\nto DnaaInitiationMechanism. SeqA-v0 biology gate refuses\
+      \ to fire\nwhile existing replisomes are active.\n\nRe-run (seed 0, refractory=600, replisome-gate enabled):\n\
+      \  cumulative would_fires = 1 (matches heuristic-event count)\n  fire time              = 1380s\n  v2ecoli\
+      \ heuristic init = 1680s\n  offset                 = -300s (mechanism fires ~5 min earlier)\n\nStep trace\
+      \ explains the alignment:\n  t=0..1320s: existing replisomes active (n=2), gate blocked.\n  t=1380s:    replisomes\
+      \ complete (n 2→0), gate opens, oric_high\n             ≥ 0.5, atp_frac ≥ 0.3, refractory cleared → FIRE.\n\
+      \  t=1680s:    v2ecoli's mass threshold finally reached → new\n             replisomes spawn (n 0→4).\n\n\
+      The 300s offset is the time v2ecoli's mass-threshold takes to\naccumulate enough cell-mass after the prior\
+      \ division to trigger\nits heuristic. The DnaA-driven mechanism fires earlier because\nits conditions (resource-availability:\
+      \ boxes saturated + ATP-\nfraction OK + no active replication) are met sooner than the\nmass threshold.\n\n\
+      This is the expected biological difference between a\nRESOURCE-AVAILABILITY trigger (the mechanism) and a\
+      \ TIMING\ntrigger (the mass heuristic). The fact that the offset is small\n(300s = ~10% of doubling time)\
+      \ and stable across seeds (TBD —\nneed multi-seed rerun with the gate) is a positive validation\nsignal for\
+      \ the mechanism.\n"
   explanatory_gain:
     result: refresh pending (measure kind not auto-evaluable in the current evaluator)
     prior_recorded_result: POSITIVE
-    note: 'Prior recorded analysis pending verdict refresh. The shadow-observer
-      mechanism description below is current; the cross-seed CV and refractory-sweep
-      numbers are prior recorded analysis, not current coordinated-generation results.'
-    basis: "Three findings worth keeping:\n\n1. The shadow-observer pattern works: a Step reading existing\n\
-      \   listener emits + emitting its own ``listeners.dnaA_initiation.*``\n   is non-destructive and\
-      \ enables 1:1 comparison vs the heuristic\n   without modifying v2ecoli's chromosome process. Important\n\
-      \   pattern for future \"replace with mechanism\" studies.\n\n2. Mechanism timing is deterministic\
-      \ at fixed thresholds —\n   cross-seed CV ~0%. The stochasticity in the downstream chain\n   (RIDA\
-      \ + clamp) doesn't propagate into the initiation gate\n   because the gate condition is far above\
-      \ the noise floor. This\n   was not obvious in advance; it constrains how much \"stochastic\n  \
-      \ initiation timing\" emerges in the model.\n\n3. Refractory sensitivity is well-behaved: at refractory=900s\n\
-      \   we drop from 3 fires to 2; at 1200s also 2; the steps are\n   clean. Implies the right refractory\
-      \ for \"1 fire per\n   generation\" is somewhere in [1200, 1800]s — close to the\n   biological\
-      \ doubling time + SeqA window.\n"
+    note: Prior recorded analysis pending verdict refresh. The shadow-observer mechanism description below is current;
+      the cross-seed CV and refractory-sweep numbers are prior recorded analysis, not current coordinated-generation
+      results.
+    basis: "Three findings worth keeping:\n\n1. The shadow-observer pattern works: a Step reading existing\n   listener\
+      \ emits + emitting its own ``listeners.dnaA_initiation.*``\n   is non-destructive and enables 1:1 comparison\
+      \ vs the heuristic\n   without modifying v2ecoli's chromosome process. Important\n   pattern for future \"\
+      replace with mechanism\" studies.\n\n2. Mechanism timing is deterministic at fixed thresholds —\n   cross-seed\
+      \ CV ~0%. The stochasticity in the downstream chain\n   (RIDA + clamp) doesn't propagate into the initiation\
+      \ gate\n   because the gate condition is far above the noise floor. This\n   was not obvious in advance; it\
+      \ constrains how much \"stochastic\n   initiation timing\" emerges in the model.\n\n3. Refractory sensitivity\
+      \ is well-behaved: at refractory=900s\n   we drop from 3 fires to 2; at 1200s also 2; the steps are\n   clean.\
+      \ Implies the right refractory for \"1 fire per\n   generation\" is somewhere in [1200, 1800]s — close to\
+      \ the\n   biological doubling time + SeqA window.\n"
 design_pivot_required:
 - id: dnaa-04-fix-mid-cycle-startup
   status: resolved-by-replisome-gate
@@ -589,10 +559,10 @@ model_change:
   - name: SeqA_v0_FixedTimerRefractory
     kind: Step
     requirement_id: req-5-seqa-v0-fixed-timer
-    rationale: 'dnaa-06 SeqA full model is deferred (out of scope for this investigation). Without ANY
-      post-initiation reset, the mechanism trigger will fire repeatedly once oriC fills — so a placeholder
-      fixed-timer refractory at oriC is required for "one initiation per generation" to be measurable
-      in the four-study scope. Maps to the biology feedback''s "SeqA_v0 fixed timer" abstraction level. '
+    rationale: 'dnaa-06 SeqA full model is deferred (out of scope for this investigation). Without ANY post-initiation
+      reset, the mechanism trigger will fire repeatedly once oriC fills — so a placeholder fixed-timer refractory
+      at oriC is required for "one initiation per generation" to be measurable in the four-study scope. Maps to
+      the biology feedback''s "SeqA_v0 fixed timer" abstraction level. '
   new_parameters:
   - name: initiation_mode
     default: heuristic
@@ -606,15 +576,14 @@ model_change:
   - name: seqa_v0_refractory_min
     default: 10.0
     units: min
-    rationale: 'Fixed-timer post-initiation refractory at oriC. Molecular_info doc cites "~10 min, roughly
-      one-third of a doubling time under rapid growth" for SeqA sequestration. 10 min is the slow-growth
-      conservative default; tune with growth rate later. '
+    rationale: 'Fixed-timer post-initiation refractory at oriC. Molecular_info doc cites "~10 min, roughly one-third
+      of a doubling time under rapid growth" for SeqA sequestration. 10 min is the slow-growth conservative default;
+      tune with growth rate later. '
   new_listeners:
   - name: replication.initiation_events + initiation_mass + c_period_min + interinitiation_min
   modified_processes:
   - 'chromosome_initiation: gate by initiation_mode.'
-  - 'chromosome_replication: on fork passage, call DnaaBoxBinding to release bound DnaA (correct nucleotide
-    form).'
+  - 'chromosome_replication: on fork passage, call DnaaBoxBinding to release bound DnaA (correct nucleotide form).'
 readouts:
 - name: initiation_events
   store_path: agents.0.listeners.replication.initiation_events
@@ -638,10 +607,8 @@ readouts:
   status: derived-needed
 conclusion_logic:
   if_primary_tests_pass:
-    implementation_status: DnaA-driven initiation mechanism matches the mass-threshold heuristic within
-      tolerance.
-    biological_validation: Reproduces once-per-generation timing + titration scaling per Hansen 1991 /
-      Berger 2022.
+    implementation_status: DnaA-driven initiation mechanism matches the mass-threshold heuristic within tolerance.
+    biological_validation: Reproduces once-per-generation timing + titration scaling per Hansen 1991 / Berger 2022.
     pipeline_unblocks:
     - dnaa-05-rida-ddah-dars
     - dnaa-06-seqa-sequestration
@@ -716,19 +683,18 @@ implementation_requirements:
   title: SeqA_v0 fixed-timer refractory at oriC
   effort: S
   status: required-for-investigation-scope
-  description: 'Placeholder for dnaa-06''s SeqA full model. On initiation, block any further initiation
-    at oriC for `seqa_v0_refractory_min` minutes by gating the DnaaInitiationMechanism trigger. Implementation
-    note: a Step that maintains a per-oriC "next_eligible_time" store. When the trigger Process queries
-    oriC, it returns "blocked" until t >= next_eligible_time. Conceptually equivalent to a refractory
-    period in neurobiology. '
+  description: 'Placeholder for dnaa-06''s SeqA full model. On initiation, block any further initiation at oriC
+    for `seqa_v0_refractory_min` minutes by gating the DnaaInitiationMechanism trigger. Implementation note: a Step
+    that maintains a per-oriC "next_eligible_time" store. When the trigger Process queries oriC, it returns "blocked"
+    until t >= next_eligible_time. Conceptually equivalent to a refractory period in neurobiology. '
   steps:
   - Create v2ecoli/steps/seqa_v0_refractory.py.
   - 'Composite param seqa_v0_refractory_min: float = 10.0 (slow-growth default).'
   - Wire so DnaaInitiationMechanism (req-1) consults the refractory store.
-  - 'Behavior test: with seqa_v0_refractory_min=10 and a constantly-saturated oriC, observe exactly one
-    initiation per 10-min window (not continuous).'
-  - 'Diagnostic test: setting seqa_v0_refractory_min=0 should produce re-initiation immediately — confirms
-    the gate is load-bearing.'
+  - 'Behavior test: with seqa_v0_refractory_min=10 and a constantly-saturated oriC, observe exactly one initiation
+    per 10-min window (not continuous).'
+  - 'Diagnostic test: setting seqa_v0_refractory_min=0 should produce re-initiation immediately — confirms the gate
+    is load-bearing.'
   unblocks:
   - tests.one-initiation-per-generation (without this, expected to fail)
   - tests.replication-times-narrow (without this, replication forks could pile up)
@@ -753,3 +719,21 @@ tests_config:
   data_source: latest_run
   pytest_args: []
   last_results: null
+biological_role: Replaces the legacy "cell mass per oriC ≥ critical mass" heuristic with the actual DnaA-driven
+  mechanism. Initiation fires when at least 4 of the 8 cooperative low-affinity oriC boxes are loaded with DnaA-ATP
+  (≈ "right-arm filament assembled" per the Katayama / Kasho papers).
+dependency_rationale: Capstone of the mechanism chain — needs dnaa-01 (pool), dnaa-02 (nucleotide cycle), and dnaa-03
+  (oriC box binding) all working first. The mass-per-oriC heuristic is removed only after this gate is validated.
+mechanism_replaced: Removes mass-per-oriC heuristic. Replaces with a DnaA-occupancy gate reading listeners.dnaA_binding.oric.low_affinity_occupied
+  and firing when occupancy ≥ 4/8 cooperative low-affinity oriC boxes.
+primary_claim: DnaA-occupancy-driven initiation fires in the same mass window as the heuristic baseline (within
+  ±5%) AND with the same once-per-generation cadence. The mechanism reproduces the heuristic's phenomenology from
+  real molecular signal.
+primary_visualization: 'Chromosome state timeline (5 timepoints across cycle) with the initiation gate signal panel
+  below: oriC low-affinity occupancy trajectory, red dashed line at the 4/8 firing threshold, red dashed verticals
+  at initiation events. Adjacent: heuristic-baseline overlay to confirm the ±5% mass-window match.'
+scope_boundary: DnaA-occupancy gate only. SeqA sequestration window is a fixed-timer stand-in (10 min refractory)
+  at the gate level; not a true methylation-state model.
+deferred_biology: True SeqA hemimethylation-state sequestration (currently a refractory timer). DnaB helicase loading
+  kinetics (currently instantaneous). IHF-mediated oriC bending. DUE opening kinetics. Autorepression feedback on
+  dnaA transcription rate (open from dnaa-01).

@@ -259,35 +259,27 @@ tests:
   - FuXiaoJun2023
   run_ids: []
 comparative_visualizations:
+# Paths use v2ecoli's NATIVE listeners (listeners.mass.*, listeners.dnaA_cycle.*).
+# Earlier these charts pointed at listeners.itv2.* — only the ITv2-standalone
+# composite populates that namespace, so the v2ecoli-based runs (3 of 4) wrote
+# empty dicts and the charts came out blank. The ITv2 standalone is left in the
+# overlay anyway; its listeners.itv2.volume value won't show on the
+# listeners.mass.volume axis, which is the honest representation of "different
+# simulators write to different listener namespaces".
 - name: cell-volume-vs-time
   title: Cell volume over time — baseline vs variants
-  observable_path: listeners.itv2.volume
-  y_label: cell volume (µm³)
+  observable_path: agents.0.listeners.mass.volume
+  y_label: cell volume (fL)
   runs:
   - sim_name: dnaa-05-itv2-comparison
     label: Baseline (ITv2 WT)
-  - sim_name: itv2-standalone-wt
-    label: ITv2 standalone (WT)
-  - sim_name: v2ecoli-baseline-default
-    label: v2ecoli default
-  - sim_name: v2ecoli-with-fxj-params
-    label: v2ecoli + FXJ params
-- name: dnaa-atp-count-vs-time
-  title: DnaA-ATP count over time — baseline vs variants
-  observable_path: listeners.itv2.dnaa_atp_count
-  y_label: DnaA-ATP (molecules / cell)
-  runs:
-  - sim_name: dnaa-05-itv2-comparison
-    label: Baseline (ITv2 WT)
-  - sim_name: itv2-standalone-wt
-    label: ITv2 standalone (WT)
   - sim_name: v2ecoli-baseline-default
     label: v2ecoli default
   - sim_name: v2ecoli-with-fxj-params
     label: v2ecoli + FXJ params
 - name: dnaa-atp-fraction-vs-time
   title: DnaA-ATP fraction over time — baseline vs variants
-  observable_path: listeners.itv2.dnaa_atp_fraction
+  observable_path: agents.0.listeners.dnaA_cycle.atp_fraction
   y_label: DnaA-ATP / total
   target_band:
   - 0.2
@@ -296,8 +288,6 @@ comparative_visualizations:
   runs:
   - sim_name: dnaa-05-itv2-comparison
     label: Baseline (ITv2 WT)
-  - sim_name: itv2-standalone-wt
-    label: ITv2 standalone (WT)
   - sim_name: v2ecoli-baseline-default
     label: v2ecoli default
   - sim_name: v2ecoli-with-fxj-params

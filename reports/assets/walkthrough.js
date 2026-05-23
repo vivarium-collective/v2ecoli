@@ -431,7 +431,7 @@
     var focus = params.get('focus');
     var focusedPage = null;
     if (focus) {
-      var validPages = ['workspace-inputs', 'simulation-setup', 'visualizations', 'registry', 'investigations', 'studies', 'simulations', 'composite-explore'];
+      var validPages = ['workspace-inputs', 'simulation-setup', 'visualizations', 'registry', 'investigations', 'studies', 'simulations', 'composite-explore', 'github'];
       if (validPages.indexOf(focus) >= 0) {
         document.body.classList.add('focus-mode', 'focus-' + focus);
         _switchPage(focus);
@@ -446,7 +446,7 @@
     if (!focusedPage) {
       function fromHash() {
         var h = (window.location.hash || '').replace(/^#/, '');
-        var validPages = ['workspace-inputs', 'registry', 'simulation-setup', 'visualizations', 'investigations', 'studies', 'simulations', 'composite-explore'];
+        var validPages = ['workspace-inputs', 'registry', 'simulation-setup', 'visualizations', 'investigations', 'studies', 'simulations', 'composite-explore', 'github'];
         _switchPage(validPages.indexOf(h) >= 0 ? h : 'workspace-inputs');
       }
       window.addEventListener('hashchange', fromHash);
@@ -5421,6 +5421,46 @@
       // Renders when study.yaml declares any of: biological_summary,
       // study_card, literature_anchors. Designed so a biologist reading
       // the report sees the biology before any code identifier.
+      // ── MECHANISM NARRATIVE (framework: 7 first-class fields any study can
+      // declare). Designed so the report reads as a cumulative mechanism
+      // migration rather than a sequence of implementation tasks. Each
+      // field is independently optional; only declared fields render.
+      //   biological_role         — what mechanism this study introduces
+      //   mechanism_replaced      — what heuristic / placeholder it replaces
+      //   dependency_rationale    — why this study must run at this point in
+      //                              the dependency chain
+      //   primary_claim           — what observable would convince us the
+      //                              mechanism is behaving correctly
+      //   primary_visualization   — the explanatory figure for this claim
+      //   scope_boundary          — what is explicitly in scope
+      //   deferred_biology        — what biology is intentionally deferred to
+      //                              later studies
+      var narrativeFields = [
+        ['biological_role',       'Biological role'],
+        ['mechanism_replaced',    'Mechanism replaced'],
+        ['dependency_rationale',  'Dependency rationale'],
+        ['primary_claim',         'Primary claim'],
+        ['primary_visualization', 'Primary visualization'],
+        ['scope_boundary',        'Scope boundary'],
+        ['deferred_biology',      'Deferred biology'],
+      ];
+      var narrativeRows = [];
+      narrativeFields.forEach(function(pair) {
+        var key = pair[0], label = pair[1];
+        var v = s[key];
+        if (typeof v === 'string' && v.trim()) {
+          narrativeRows.push('<tr><th>' + label + '</th><td>' + _multiline(v) + '</td></tr>');
+        }
+      });
+      var mechanismNarrativeHtml = '';
+      if (narrativeRows.length) {
+        mechanismNarrativeHtml =
+          '<div class="mechanism-narrative">'
+          + '<h3 class="biology-glance-label">Mechanism narrative</h3>'
+          + '<table class="mechanism-narrative-table">' + narrativeRows.join('') + '</table>'
+          + '</div>';
+      }
+
       var biologyGlanceHtml = '';
       if (s.biological_summary || s.study_card || s.literature_anchors) {
         var bgsBits = [];
@@ -5555,9 +5595,17 @@
               var isStale = emb.stale === true
                 || (typeof emb.description === 'string' && emb.description.indexOf('⚠') === 0)
                 || /\b(prior|planning[- ]phase|placeholder|pending refresh|pre-execution|superseded|baseline rerun|will be populated|not yet run)\b/.test(meta);
+              // If the inner doc declares a fixed CSS height clamp (e.g.
+              // comparative_viz emits `html,body{height:540px;overflow:hidden}`
+              // to bound Plotly's hover-layer scrollHeight inflation), set
+              // the iframe height directly so _fitEmbed's measurements can't
+              // over- or under-grow it. Unclamped embeds (e.g. the tall
+              // chromosome figures) fall through to _fitEmbed's autosize.
+              var _hClamp = (emb.html || '').match(/html,body\{height:(\d+)px/);
+              var _hStyle = _hClamp ? (';height:' + (parseInt(_hClamp[1], 10) + 24) + 'px') : '';
               var iframe = '<iframe srcdoc="' + escaped + '" '
                 + 'class="embed-frame" onload="_wireEmbed(this)" '
-                + 'style="width:100%;min-height:200px;border:0;display:block" '
+                + 'style="width:100%;min-height:200px;border:0;display:block' + _hStyle + '" '
                 + 'title="' + _h(emb.name) + '"></iframe>';
               if (isStale) {
                 // Collapsed by default; re-fit on expand.
@@ -5732,6 +5780,7 @@
         +   reviewHtml          // ⚠ review-readiness gates (duration / param-vs-reference)
         +   feedbackHtml        // 💬 imported expert feedback (B.1)
         +   biologyGlanceHtml   // 0. Biology-at-a-glance
+        +   mechanismNarrativeHtml  // 0a. Mechanism narrative (7 framework fields)
         +   embedsHtml          // 0b. Embedded preview HTMLs
         +   summaryHtml         // 1. Plain-English summary
         +   decisionHtml        // 2. Decision box
@@ -6023,7 +6072,52 @@
         + '</section>';
     }
 
-    var studiesHtml = ordered.map(studySection).join('\n');
+    // ── PARTS grouping (framework): investigation.yaml may declare a `parts`
+    // field grouping studies into conceptual phases (Foundations / Nucleotide
+    // cycle / Chromosome binding / Initiation trigger / Reset mechanisms / …).
+    // When present, render a Part header before each group's studies so the
+    // report reads as a coherent mechanism progression rather than a flat list.
+    // Schema:
+    //   parts:
+    //     - name: "I. Foundations"
+    //       overview: "Optional 1-2 sentence prose..."
+    //       studies: ["dnaa-00-parameter-foundation", "dnaa-01-expression-dynamics"]
+    var studiesHtml;
+    var parts = (iset && Array.isArray(iset.parts)) ? iset.parts : null;
+    if (parts && parts.length) {
+      // Map slug → index in `ordered` so we render each study once even when
+      // a part declares a study not in `ordered` (skip) or `ordered` has a
+      // study not declared in any part (append as "Unassigned" group).
+      var byNameIdx = {};
+      ordered.forEach(function(s, i) { byNameIdx[s && s.name] = i; });
+      var rendered = {};
+      var groupHtmls = [];
+      parts.forEach(function(part) {
+        var partStudies = (part && Array.isArray(part.studies)) ? part.studies : [];
+        var sections = [];
+        partStudies.forEach(function(slug) {
+          var i = byNameIdx[slug];
+          if (i === undefined) return;
+          sections.push(studySection(ordered[i], i));
+          rendered[slug] = true;
+        });
+        if (!sections.length) return;
+        var heading = '<header class="part-heading"><h2 class="part-title">' + _h(part.name || '') + '</h2>'
+          + (part.overview ? '<p class="part-overview">' + _multiline(part.overview) + '</p>' : '')
+          + '</header>';
+        groupHtmls.push('<section class="investigation-part">' + heading + sections.join('\n') + '</section>');
+      });
+      // Catch any unassigned studies (so nothing silently disappears).
+      var unassigned = ordered.filter(function(s) { return s && !rendered[s.name]; });
+      if (unassigned.length) {
+        var stub = '<header class="part-heading"><h2 class="part-title">Other studies</h2></header>';
+        var sec = unassigned.map(function(s) { return studySection(s, byNameIdx[s.name]); }).join('\n');
+        groupHtmls.push('<section class="investigation-part">' + stub + sec + '</section>');
+      }
+      studiesHtml = groupHtmls.join('\n');
+    } else {
+      studiesHtml = ordered.map(studySection).join('\n');
+    }
 
     var acceptance = (iset.acceptance_criteria || []).map(function(c) {
       return '<li><code>' + _h(c.study) + '</code> · <code>' + _h(c.behavior) + '</code></li>';
@@ -6420,6 +6514,17 @@
       + '.study-card-table th{text-align:left;font-weight:600;color:#166534;background:#f0fdf4;padding:6px 10px;white-space:nowrap;vertical-align:top;width:180px;border-bottom:1px solid #bbf7d0}'
       + '.study-card-table td{padding:6px 10px;vertical-align:top;color:#14532d;border-bottom:1px solid #f0fdf4;line-height:1.5}'
       + '.study-card-table tr:last-child th,.study-card-table tr:last-child td{border-bottom:none}'
+      // Investigation Parts grouping: section headings before each study group.
+      + '.investigation-part{margin-bottom:30px}'
+      + '.part-heading{margin:34px 0 10px 0;padding:14px 18px;background:linear-gradient(90deg,#eef2ff 0%,#fff 100%);border-left:4px solid #6366f1;border-radius:4px}'
+      + '.part-title{margin:0;font-size:1.4em;color:#3730a3;font-weight:700}'
+      + '.part-overview{margin:6px 0 0 0;color:#475569;font-size:0.95em;line-height:1.5;white-space:pre-line}'
+      // Mechanism narrative: 7 framework fields any study can declare.
+      + '.mechanism-narrative{margin:18px 0 14px 0;background:#fff;border-radius:6px;padding:10px 14px;border:1px solid #c7d2fe}'
+      + '.mechanism-narrative-table{width:100%;border-collapse:collapse;font-size:0.93em;margin:0}'
+      + '.mechanism-narrative-table th{text-align:left;font-weight:600;color:#3730a3;background:#eef2ff;padding:6px 10px;white-space:nowrap;vertical-align:top;width:190px;border-bottom:1px solid #c7d2fe}'
+      + '.mechanism-narrative-table td{padding:6px 10px;vertical-align:top;color:#1e1b4b;border-bottom:1px solid #eef2ff;line-height:1.55;white-space:pre-line}'
+      + '.mechanism-narrative-table tr:last-child th,.mechanism-narrative-table tr:last-child td{border-bottom:none}'
       + '.literature-anchors{background:#fff;border-radius:6px;padding:10px 14px;border:1px solid #d1fae5}'
       + '.literature-anchor-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}'
       + '.literature-anchor-card{padding:8px 12px;background:#f8fefa;border-left:3px solid #16a34a;border-radius:4px;font-size:0.92em}'
@@ -6523,7 +6628,20 @@
       // ResizeObserver of the inner doc plus a few timed fallbacks.
       + '<script>'
       + 'window._fitEmbed=function(f){try{var d=f.contentDocument||(f.contentWindow&&f.contentWindow.document);if(!d)return;'
-      +   'var h=Math.max(d.documentElement?d.documentElement.scrollHeight:0,d.body?d.body.scrollHeight:0);'
+      +   'var b=d.body,e=d.documentElement;'
+      +   // If the inner body declares a fixed CSS height + overflow:hidden,
+      +   // read the DECLARED height directly (b.clientHeight is the laid-out
+      +   // height which is clipped by the iframe viewport, so it shrinks
+      +   // instead of pinning at the CSS value). getComputedStyle.height is
+      +   // a string like "540px" — parse it. Falls back to scrollHeight
+      +   // for unclamped embeds (e.g. tall chromosome figures).
+      +   'var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;'
+      +   'var pinnedH=0;'
+      +   'if(bStyle&&(bStyle.overflow||"").indexOf("hidden")>=0){'
+      +     'var hm=(bStyle.height||"").match(/^(\\d+(?:\\.\\d+)?)px$/);'
+      +     'if(hm)pinnedH=Math.round(parseFloat(hm[1]));'
+      +   '}'
+      +   'var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);'
       +   'if(h>0)f.style.height=(h+24)+"px";}catch(e){}};'
       + 'window._wireEmbed=function(f){window._fitEmbed(f);'
       +   'try{var d=f.contentDocument;if(window.ResizeObserver&&d){var ro=new ResizeObserver(function(){window._fitEmbed(f);});'
@@ -6999,6 +7117,42 @@
 
   // Sidebar grouping: studies-by-investigation, collapsible.
   // Replaces the existing flat-list render in #viv-rail-investigations.
+  // Map a study's free-form status string to a small colored dot. Keeps the
+  // rail rows readable: the study NAME gets the full row width, the dot is a
+  // glanceable status, the full status text is shown in the title tooltip.
+  function _railStatusColor(status) {
+    var s = String(status || '').toLowerCase();
+    if (s.indexOf('fail') !== -1 || s.indexOf('invalid') !== -1) return '#ef4444';   // red
+    if (s.indexOf('pending') !== -1 || s.indexOf('refresh') !== -1) return '#f59e0b';// amber
+    if (s.indexOf('inconclusive') !== -1 || s.indexOf('partial') !== -1) return '#d97706'; // dark amber
+    if (s.indexOf('running') === 0) return '#3b82f6';                                // blue
+    if (s.indexOf('done') === 0 || s.indexOf('ran') === 0 || s.indexOf('complete') !== -1
+        || s.indexOf('evaluated') !== -1 || s.indexOf('confirmed') !== -1 || s.indexOf('passing') !== -1
+        || s.indexOf('-wins') !== -1 || s.indexOf('in-band') !== -1) return '#16a34a'; // green
+    if (s.indexOf('evaluate') === 0) return '#6366f1';                               // indigo (mid-pass action)
+    return '#9ca3af';                                                                // gray (planned/unknown)
+  }
+
+  // Single-row per study: [dot] name [🔒?]. Full status string in tooltip.
+  // Used by both the flat-list and grouped rail layouts.
+  function _railStudyItem(s, opts) {
+    opts = opts || {};
+    var status = s.status || 'planned';
+    var color = _railStatusColor(status);
+    var indent = opts.indent ? '28px' : '12px';
+    var fontSize = opts.indent ? '0.85em' : '0.86em';
+    var nameColor = opts.indent ? '#64748b' : '#374151';
+    var tip = _esc(s.name) + ' — ' + _esc(status) + (s.blocked ? ' (blocked)' : '');
+    return '<a class="viv-rail-sublink" ' +
+           'onclick="event.preventDefault();_openStudyEmbeddedNewTab(\'' + _esc(s.name) + '\');return false;" ' +
+           'href="#" title="' + tip + '" ' +
+           'style="display:flex;align-items:center;gap:8px;padding:4px 14px 4px ' + indent + ';color:' + nameColor + ';text-decoration:none;font-size:' + fontSize + ';">' +
+             '<span aria-hidden="true" style="flex:none;width:8px;height:8px;border-radius:50%;background:' + color + ';display:inline-block"></span>' +
+             '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + _esc(s.name) + '</span>' +
+             (s.blocked ? '<span title="blocked" style="font-size:0.85em;flex:none">🔒</span>' : '') +
+           '</a>';
+  }
+
   function _renderRailInvestigationGroups() {
     var host = document.getElementById('viv-rail-investigations');
     if (!host) return;
@@ -7045,17 +7199,7 @@
     // under the "Studies" rail-section label — no redundant group header.
     if (groups.length === 1 && groups[0].name !== '__ungrouped__') {
       var g = groups[0];
-      host.innerHTML = g.studies.map(function(s) {
-        var status = s.status || 'planned';
-        return '<a class="viv-rail-sublink" ' +
-               'onclick="event.preventDefault();_openStudyEmbeddedNewTab(\'' + _esc(s.name) + '\');return false;" ' +
-               'href="#" ' +
-               'style="display:flex;align-items:baseline;gap:6px;padding:4px 12px;color:#374151;text-decoration:none;font-size:0.86em;">' +
-                 '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + _esc(s.name) + '</span>' +
-                 (s.blocked ? '<span title="blocked" style="font-size:0.85em">🔒</span>' : '') +
-                 '<span class="muted" style="font-size:0.72em">' + _esc(status) + '</span>' +
-               '</a>';
-      }).join('');
+      host.innerHTML = g.studies.map(function(s) { return _railStudyItem(s); }).join('');
       return;
     }
 
@@ -7063,15 +7207,7 @@
     host.innerHTML = groups.map(function(g) {
       var isCollapsed = !!collapsedState[g.name];
       var children = isCollapsed ? '' : g.studies.map(function(s) {
-        var status = s.status || 'planned';
-        return '<a class="viv-rail-sublink" ' +
-               'onclick="event.preventDefault();_openStudyEmbeddedNewTab(\'' + _esc(s.name) + '\');return false;" ' +
-               'href="#" ' +
-               'style="display:flex;align-items:baseline;gap:6px;padding:3px 14px 3px 28px;color:#64748b;text-decoration:none;font-size:0.85em;">' +
-                 '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + _esc(s.name) + '</span>' +
-                 (s.blocked ? '<span title="blocked" style="font-size:0.85em">🔒</span>' : '') +
-                 '<span class="muted" style="font-size:0.72em">' + _esc(status) + '</span>' +
-               '</a>';
+        return _railStudyItem(s, { indent: true });
       }).join('');
       var headerClick = "event.preventDefault(); window._isetRailCollapsed = window._isetRailCollapsed || {}; window._isetRailCollapsed['" + _esc(g.name) + "'] = !window._isetRailCollapsed['" + _esc(g.name) + "']; _renderRailInvestigationGroups();";
       var groupClick = g.name === '__ungrouped__' ? '' :
@@ -10379,7 +10515,11 @@
       var openPrBtn = document.getElementById('btn-open-pr');
       if (openPrBtn) openPrBtn.hidden = !!s.pr_url;
 
-      // Action buttons (unified from former _refreshWorkStrip)
+      // Action buttons (Link branch / Push / End workstream). When the
+      // dedicated #viv-git-actions container exists (GitHub tab layout) we
+      // render the action buttons there as a clear separate row alongside
+      // the existing Open-PR button. Otherwise fall back to inline append
+      // for layouts that still embed everything inside #viv-git-status.
       var actions = [];
       if (!s.upstream_repo) {
         actions.push(s.gh_available
@@ -10391,12 +10531,97 @@
       if (s.has_active_workstream) {
         actions.push('<button class="ws-btn ws-end" onclick="_endWork()" title="Switch back to ' + _esc(s.base) + ' (workstream branch is preserved)">End</button>');
       }
-      if (actions.length) {
+      var actionsHost = document.getElementById('viv-git-actions');
+      if (actionsHost) {
+        // Replace any previously-injected actions (preserve the static
+        // Open-PR button that lives in the markup with id="btn-open-pr").
+        actionsHost.querySelectorAll('[data-injected-action]').forEach(function (n) { n.remove(); });
+        if (actions.length) {
+          var tmp = document.createElement('span');
+          tmp.dataset.injectedAction = '1';
+          tmp.innerHTML = actions.join(' ');
+          actionsHost.appendChild(tmp);
+        }
+      } else if (actions.length) {
         box.innerHTML += ' <span class="git-status-actions">' + actions.join(' ') + '</span>';
       }
     }).catch(function () { /* silent */ });
   }
   window._refreshGitStatus = _refreshGitStatus;
+
+  // ------------------------------------------------------------------
+  // GitHub tab — default-org picker. Populates #viv-gh-default-org from
+  // /api/auth/github/orgs once the user is signed in. Persists the
+  // selection to localStorage; new-workspace flows can read it. (Backend
+  // workspace.yaml.github_org persistence is a follow-up; this UX gives
+  // configurability now.)
+  // ------------------------------------------------------------------
+  var GH_DEFAULT_ORG_KEY = 'viv-dashboard-default-github-org';
+
+  function _loadGithubOrgs() {
+    var sel = document.getElementById('viv-gh-default-org');
+    var hint = document.getElementById('viv-gh-default-org-hint');
+    if (!sel) return;
+    sel.disabled = true;
+    fetch('/api/auth/github/orgs').then(function (r) {
+      if (r.status === 401) {
+        sel.innerHTML = '<option value="">Sign in to load orgs…</option>';
+        if (hint) hint.textContent = '';
+        return;
+      }
+      if (!r.ok) {
+        sel.innerHTML = '<option value="">Could not load orgs</option>';
+        if (hint) hint.textContent = 'GitHub returned HTTP ' + r.status + '.';
+        return;
+      }
+      return r.json().then(function (data) {
+        var orgs = (data && data.orgs) || [];
+        var saved = '';
+        try { saved = localStorage.getItem(GH_DEFAULT_ORG_KEY) || ''; } catch (_e) {}
+        sel.innerHTML = orgs.map(function (o) {
+          var login = o.login || o;
+          var label = o.kind === 'user' ? (login + ' (you)') : login;
+          var selAttr = (login === saved) ? ' selected' : '';
+          return '<option value="' + _esc(login) + '"' + selAttr + '>' + _esc(label) + '</option>';
+        }).join('') || '<option value="">No orgs found</option>';
+        if (hint) {
+          hint.textContent = saved
+            ? 'Default: ' + saved + ' (saved in this browser).'
+            : 'Pick one to use as the default for new-repo flows.';
+        }
+      });
+    }).catch(function () {
+      sel.innerHTML = '<option value="">Network error</option>';
+    }).then(function () {
+      sel.disabled = false;
+    });
+  }
+  window._loadGithubOrgs = _loadGithubOrgs;
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var sel = document.getElementById('viv-gh-default-org');
+    if (sel) {
+      sel.addEventListener('change', function () {
+        try { localStorage.setItem(GH_DEFAULT_ORG_KEY, sel.value || ''); } catch (_e) {}
+        var hint = document.getElementById('viv-gh-default-org-hint');
+        if (hint && sel.value) hint.textContent = 'Default: ' + sel.value + ' (saved in this browser).';
+      });
+    }
+    _loadGithubOrgs();
+
+    // Re-load orgs when the github-login chip flips to authenticated. Keeps
+    // github-login.js untouched (no cross-file coupling) — we just observe
+    // the data-state attribute the widget already maintains.
+    var chip = document.getElementById('viv-gh-chip');
+    if (chip && typeof MutationObserver !== 'undefined') {
+      var lastState = chip.dataset.state;
+      new MutationObserver(function () {
+        var s = chip.dataset.state;
+        if (s !== lastState && s === 'in') _loadGithubOrgs();
+        lastState = s;
+      }).observe(chip, { attributes: true, attributeFilter: ['data-state'] });
+    }
+  });
 
   document.addEventListener('DOMContentLoaded', _refreshGitStatus);
 

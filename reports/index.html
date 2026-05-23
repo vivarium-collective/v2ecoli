@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"><title>v2ecoli:multiscale-bioprocess</title>
-<link rel="stylesheet" href="assets/style.css?v=1779497451_1779497488">
+<link rel="stylesheet" href="assets/style.css?v=1779573989_1779497488">
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <style>
 /* Modal overlay */
@@ -392,6 +392,19 @@
         </span>
         <span class="viv-rail-link-label">Visualizations</span>
       </a>
+      <!-- GitHub: sign-in + org-link controls. Branch + node icon. -->
+      <a href="#github"            class="viv-rail-link menu-link" data-page="github">
+        <span class="viv-rail-link-icon">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="viv-rail-link-svg">
+            <circle cx="6" cy="6" r="2"/>
+            <circle cx="6" cy="18" r="2"/>
+            <circle cx="18" cy="12" r="2"/>
+            <path d="M6 8v8"/>
+            <path d="M6 8a6 6 0 0 0 6 6h4"/>
+          </svg>
+        </span>
+        <span class="viv-rail-link-label">GitHub</span>
+      </a>
     </nav>
 
     <!-- Studies of the active investigation, dependency-ordered. -->
@@ -444,13 +457,10 @@
         <span>v2ecoli:multiscale-bioprocess dashboard</span>
       </nav>
       <div class="viv-topbar-actions" id="viv-topbar-actions">
-        <!-- Git status strip + action buttons populated by JS (_refreshGitStatus) -->
-        <div id="viv-git-status" class="git-status" hidden></div>
-        <div class="topbar-actions">
-          <button id="btn-open-pr" class="action-btn" onclick="_openPRDialog()" title="Open PR for current branch">
-            Open PR ↗
-          </button>
-        </div>
+        <!-- Git status strip + Open-PR button were here; moved into the
+             GitHub tab (Workspace → GitHub) for a cleaner topbar. The JS
+             (_refreshGitStatus) still targets #viv-git-status by id and
+             populates it wherever it lives. -->
         <span class="viv-btn viv-tooltip" data-tooltip="Coming soon — share workspace link">Share</span>
         <span class="viv-kebab viv-tooltip" data-tooltip="Workspace settings — coming soon">⋯</span>
         
@@ -1224,6 +1234,54 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
   </div>
 </section>
 
+<!-- GitHub: in-UI sign-in + (future) org picker. The github-login.js widget
+     activates the #viv-gh-chip element on load. No-AI-agent setup path. -->
+<section id="page-github" class="page" data-page="github">
+  <h2 class="page-title">GitHub</h2>
+
+  <!-- Row 1: identity + org picker side by side -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
+    <div class="panel" style="margin:0">
+      <h3 style="margin-top:0">Signed in</h3>
+      <div id="viv-gh-chip"
+           class="viv-rail-footer viv-rail-footer-link viv-rail-footer-no-github"
+           data-state="loading"
+           title="Sign in to GitHub from the dashboard"
+           style="cursor:pointer;display:inline-flex;max-width:100%">
+        <div class="viv-avatar viv-avatar-rail" aria-hidden="true">+</div>
+        <div class="viv-rail-footer-text">
+          <strong>Connect GitHub</strong>
+          <small>checking…</small>
+        </div>
+      </div>
+      <p class="muted small" style="margin:10px 0 0">No terminal required. Uses your <code>gh</code> session if present, otherwise OAuth Device Flow (browser code-paste).</p>
+      <noscript>
+        <p class="muted small">Dashboard JS is disabled. Run <code>gh auth login</code> from a terminal to connect.</p>
+      </noscript>
+    </div>
+
+    <div class="panel" style="margin:0">
+      <h3 style="margin-top:0">Default GitHub org</h3>
+      <p class="muted small" style="margin:0 0 10px">Used to pre-fill <strong>org</strong> for new workspaces + "Create GitHub repo" actions. Picks from the orgs your account belongs to.</p>
+      <select id="viv-gh-default-org" style="width:100%;padding:6px 8px;font:inherit;border:1px solid #cbd5e1;border-radius:4px;background:#fff">
+        <option value="">Sign in to load orgs…</option>
+      </select>
+      <p id="viv-gh-default-org-hint" class="muted small" style="margin:8px 0 0"></p>
+    </div>
+  </div>
+
+  <!-- Row 2: workspace repo state (full width). The status strip is JS-populated
+       (_refreshGitStatus targets #viv-git-status). Action buttons render into
+       #viv-git-actions so they're a clear separate row, not crammed into the strip. -->
+  <div class="panel" style="margin-top:16px">
+    <h3 style="margin-top:0">This workspace's repo</h3>
+    <div id="viv-git-status" class="git-status" hidden></div>
+    <div id="viv-git-actions" class="git-status-actions" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">
+      <button id="btn-open-pr" class="action-btn" onclick="_openPRDialog()" title="Open PR for current branch">Open PR ↗</button>
+    </div>
+  </div>
+</section>
+
 <section id="page-studies" class="page" data-page="studies">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
     <h2 class="page-title" style="margin:0">Studies</h2>
@@ -1806,7 +1864,8 @@ Nothing on <code id="pr-base-display-2">main</code> changes until someone presse
 
 <script src="assets/render-helpers.js"></script>
 <script src="assets/client.js" onerror="/* live mode unavailable */"></script>
-<script src="assets/walkthrough.js?v=1779497451_1779497488" onerror="/* walkthrough unavailable */"></script>
+<script src="assets/walkthrough.js?v=1779573989_1779497488" onerror="/* walkthrough unavailable */"></script>
+<script src="assets/github-login.js?v=1779573989_1779497488" onerror="/* github-login unavailable */"></script>
 <script src="assets/investigations.js" onerror="/* investigations unavailable */"></script>
 <!-- workspace-switcher.js is intentionally not loaded: the left-rail dropdown
      it used to drive has been repurposed into the investigation switcher

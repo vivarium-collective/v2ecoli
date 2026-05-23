@@ -98,15 +98,30 @@ def extract_snapshot(state: dict, t: float) -> dict | None:
 
 
 def render_html(b64_png: str, title: str) -> str:
-    """Wrap a base64 PNG in an iframe-embed-friendly self-contained HTML page."""
+    """Wrap a base64 PNG in an iframe-embed-friendly self-contained HTML page.
+
+    Uses the same height-clamp pattern as comparative_viz (``html,body
+    {height:Npx;overflow:hidden}``) so the dashboard's iframe insertion
+    code can pin the iframe to a known height — otherwise scrollHeight
+    measurements on a ``width:100%;height:auto`` image fail before
+    layout completes, leaving the iframe at its 200px min-height.
+
+    The image gets ``max-height: 920px`` so it scales DOWN to fit but
+    keeps its aspect ratio; centered horizontally so narrower iframes
+    don't stretch it wide-and-short.
+    """
+    body_h = 1000  # 920 image + chrome (title + subtitle + padding)
+    img_max_h = 920
     return (
         '<!doctype html><html><head><meta charset="utf-8">'
         f"<title>{title}</title>"
-        "<style>html,body{margin:0;padding:0;background:#fff;font-family:-apple-system,system-ui,sans-serif}"
-        ".wrap{padding:16px 22px}"
+        f"<style>html,body{{height:{body_h}px;overflow:hidden}}"
+        "body{margin:0;padding:0;background:#fff;font-family:-apple-system,system-ui,sans-serif}"
+        ".wrap{padding:16px 22px;height:100%;box-sizing:border-box;display:flex;flex-direction:column}"
         "h1{font-size:1.05em;margin:0 0 4px 0;color:#0f172a}"
         ".sub{color:#6b7280;font-size:0.85em;margin-bottom:12px}"
-        "img{width:100%;height:auto;display:block;border:1px solid #e5e7eb;border-radius:6px}"
+        f"img{{display:block;margin:0 auto;max-width:100%;max-height:{img_max_h}px;width:auto;height:auto;"
+        "border:1px solid #e5e7eb;border-radius:6px;object-fit:contain}"
         "</style></head><body><div class='wrap'>"
         f"<h1>{title}</h1>"
         "<div class='sub'>Circular chromosome maps at 5 timepoints across the cell cycle, plus "

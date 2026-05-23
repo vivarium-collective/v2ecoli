@@ -1,0 +1,202 @@
+schema_version: 3
+name: mbp-04-multigeneration-runs
+created: '2026-05-22'
+phase: Design
+
+design_status: drafted
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+expert_review_status: not_requested
+
+baseline:
+- name: multigeneration-coupled-baseline
+  composite: v2ecoli.composites.reactor_bird_coupled
+  params: {seed: 0, cache_dir: out/cache}
+
+
+# ─── 1. PURPOSE ────────────────────────────────────────────────────────────
+purpose:
+  question: |
+    Does the mbp-03 coupled composite (v2ecoli ↔ pbg-bioreactordesign) stay
+    mass-conserving, computationally tractable, and physically coherent
+    over multiple v2ecoli generations (3+ doublings) under sustained
+    reactor dynamics — capturing the regime transition from glucose-replete
+    exponential growth into glucose-limited or DO-limited slowdown as the
+    population grows and consumes the batch?
+  mechanism: |
+    Take the mbp-03 coupled composite, run for ≥ 3 generations starting
+    from a defined initial glucose pool. As the population grows, glucose
+    drops (via the mbp-01 env hook); as O2 demand grows, DO drops (via the
+    mbp-03 coupler). Eventually one of: (a) glucose depletes →
+    glucose-limited slowdown; (b) DO drops below v2ecoli's metabolism
+    constraint → oxygen-limited slowdown; (c) both. The regime transition
+    is the headline observable.
+
+    Mass-balance audit: cumulative glucose decrement = cumulative metabolism
+    glucose uptake integrated over the population. Cell-count audit: cell
+    count over generations matches the integral of μ × population.
+  expected_outcome: |
+    Population grows ~exponentially through the first 2 generations, then
+    flattens as glucose / DO becomes limiting (regime transition near the
+    end of glucose). Carbon and nitrogen mass-balance close to within
+    numerical tolerance. Run completes (no NaN, no infinite loops, no
+    unbounded memory growth) within a wall-clock budget set by the spec
+    PR (target: 3 generations in < 30 min wall time at seed 0).
+
+
+# ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
+pipeline_gate:
+  prerequisites:
+    - mbp-03-bird-reactor-coupling
+  enables:
+    - mbp-05-palsson-benchmark
+  gate_status_summary: |
+    Blocked on mbp-03 (the coupled composite). This is where the coupling
+    proves itself at fed-batch-relevant timescales — without committing to
+    the full fed-batch operating mode (pbg-bioreactordesign has no fed-batch
+    yet; that is flagged as a deferred enhancement, see mbp-05 notes).
+  proceed_condition: |
+    Regime-transition test passes (population growth flattens once a
+    limiting substrate is exhausted); mass-balance audits close; wall-clock
+    budget met; no NaN / divergence.
+
+
+# ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
+simulation_set:
+
+- name: three-generation-batch
+  base_model: v2ecoli.composites.reactor_bird_coupled
+  perturbation:
+    initial_glucose_gL: 4.0
+    bird_reactor_config: {reactor_type: bubble_column, volume_L: 1.0, gas_flow_rate_Lpm: 2.0, temperature_K: 310.15}
+  condition: M9-minimal-glucose-aerated-batch
+  duration_min: 240
+  seeds: [0]
+  readouts:
+    - population_cell_count
+    - population_total_biomass_gDW
+    - reactor_glucose_gL                 # via env-driver
+    - reactor_dissolved_o2
+    - cell_mu_per_h
+    - carbon_balance_residual
+    - nitrogen_balance_residual
+  applies_tests:
+    - population-grows-then-flattens-at-substrate-limit
+    - carbon-mass-balance-closes-over-3-generations
+    - nitrogen-mass-balance-closes-over-3-generations
+    - wall-clock-budget-met
+  status: planned
+
+
+# ─── 4. MODEL CHANGE ───────────────────────────────────────────────────────
+model_change:
+  base_model: v2ecoli.composites.reactor_bird_coupled
+  new_state_variables:
+    - "reactor.diagnostics.carbon_residual (fraction)"
+    - "reactor.diagnostics.nitrogen_residual (fraction)"
+  new_processes:
+    - {name: MassBalanceAuditor, kind: Step, requirement_id: req-1-mass-balance-auditor}
+  modified_processes:
+    - "EnvironmentDriver (mbp-01) extended to track cumulative external-pool decrements for the mass-balance audit."
+  notes: |
+    Pure extension of mbp-03 — no new physics, just longer runs and a
+    mass-balance diagnostic Step. Fed-batch is OUT of scope here; this
+    study validates the BATCH regime over multiple generations.
+
+
+# ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
+key_assumptions:
+  - "Batch mode only; no feed addition (pbg-bioreactordesign has no fed-batch support yet)."
+  - "Initial glucose 4 g/L is enough for ~3 generations at v2ecoli's yield; refine with calibration."
+  - "v2ecoli's metabolism remains stable in glucose-limited regime (no runaway / NaN). If not, that becomes a finding for this phase."
+  - "Wall-clock budget of 30 min for 240-min sim is a placeholder; the spec PR sets the real budget."
+
+
+# ─── 5. READOUTS + BEHAVIOR TESTS ──────────────────────────────────────────
+
+readouts:
+- {name: population_cell_count,         store_path: population.cell_count,                units: cells,    status: planned}
+- {name: population_total_biomass_gDW,  store_path: population.total_biomass_gDW,         units: gDW,      status: planned}
+- {name: reactor_glucose_gL,            store_path: "environment.external_concentrations.GLC[p]", units: mM, status: planned}
+- {name: reactor_dissolved_o2,          store_path: reactor.dissolved_o2,                 units: mg/L,     status: planned}
+- {name: cell_mu_per_h,                 store_path: agents.0.listeners.mass.instantaneous_growth_rate, units: "1/h", status: planned}
+- {name: carbon_balance_residual,       store_path: reactor.diagnostics.carbon_residual,  units: fraction, status: planned}
+- {name: nitrogen_balance_residual,     store_path: reactor.diagnostics.nitrogen_residual, units: fraction, status: planned}
+
+
+behavior_tests:
+
+- name: population-grows-then-flattens-at-substrate-limit
+  classification: primary
+  description: "Cell count rises exponentially through the first 2 generations, then growth rate measurably flattens once a limiting substrate (glucose or DO) is exhausted."
+  measure: {kind: derived_rate_window, path: population.cell_count, window_a: first_third, window_b: last_third, reduce: fitted_exponential_rate}
+  pass_if: {op: ratio_at_most, value: 0.3}   # last-third rate ≤ 30% of first-third rate
+  units: fraction
+  requires_simulation: three-generation-batch
+  cites: []
+
+- name: carbon-mass-balance-closes-over-3-generations
+  classification: primary
+  description: "Total carbon (glucose-C + biomass-C + CO2-C + acetate-C) is conserved across the run within numerical tolerance."
+  measure: {kind: series, path: reactor.diagnostics.carbon_residual, reduce: max_abs, window: full}
+  pass_if: {op: at_most, value: 0.02}
+  units: fraction
+  requires_simulation: three-generation-batch
+  cites: []
+
+- name: nitrogen-mass-balance-closes-over-3-generations
+  classification: primary
+  description: "Total nitrogen (nitrogen-source-N + biomass-N) is conserved across the run within numerical tolerance."
+  measure: {kind: series, path: reactor.diagnostics.nitrogen_residual, reduce: max_abs, window: full}
+  pass_if: {op: at_most, value: 0.02}
+  units: fraction
+  requires_simulation: three-generation-batch
+  cites: []
+
+- name: wall-clock-budget-met
+  classification: supporting
+  description: "240-min sim completes in < 30 min wall time at seed 0 (budget placeholder; real budget set in spec PR)."
+  measure: {kind: wall_clock, source: run_meta}
+  pass_if: {op: at_most, value: 1800}   # seconds
+  units: seconds
+  requires_simulation: three-generation-batch
+  cites: []
+
+
+# ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
+limitations:
+  - "Batch only; fed-batch operations require either an upstream pbg-bioreactordesign enhancement or a v2ecoli-side feed Step — deferred."
+  - "Single seed; stochastic variation across seeds not characterized here (a candidate-future-study)."
+  - "Bubble column geometry; stirred tank / airlift not validated."
+  - "Acetate handling depends on v2ecoli's metabolism; not separately validated this phase."
+
+
+# ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
+implementation_requirements:
+
+- id: req-1-mass-balance-auditor
+  kind: process
+  title: MassBalanceAuditor Step
+  effort: S
+  description: |
+    PBG Step that integrates external-pool decrements, biomass accumulation,
+    and metabolism flux outputs to compute carbon/nitrogen mass-balance
+    residuals. Reads cumulative trackers exposed by EnvironmentDriver and
+    PopulationAggregator. Writes reactor.diagnostics.{carbon,nitrogen}_residual.
+  unblocks: [carbon-mass-balance-closes-over-3-generations, nitrogen-mass-balance-closes-over-3-generations]
+
+
+bibliography:
+  expert: [multiscale_bioprocess_roadmap]
+  bib_keys: []
+
+
+runs: []
+
+
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

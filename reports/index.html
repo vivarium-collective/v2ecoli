@@ -485,14 +485,58 @@
     <h3>Expert knowledge</h3>
     <p class="panel-lead">Curated expert documents &mdash; PDFs, lab notes, expert review docs &mdash; that aren&rsquo;t formal publications but capture domain knowledge driving the model. Linked to the claims they support.</p>
     
-    <p style="color:#888;font-style:italic">No expert documents registered yet.</p>
+    <div class="expert-docs-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:14px;margin-bottom:12px">
+    
+      <div class="expert-doc-card" style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <strong style="font-size:1.02em;flex:1">multiscale_bioprocess_roadmap</strong>
+          
+            
+              <span class="file-status status-ok" style="font-size:0.78em">✓ 2.1 KB</span>
+            
+            <a href="/references/expert/multiscale_bioprocess_roadmap.md" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
+          
+        </div>
+        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">references/expert/multiscale_bioprocess_roadmap.md</div>
+        
+        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">Pointer to the upstream vivarium-collective/multiscale-bioprocess
+roadmap (chris/initial-scaffolding) that inspired (but is diverged
+from by) the v2ecoli-workspace multiscale-bioprocess investigation.
+</p>
+        
+        
+        
+      </div>
+    
+      <div class="expert-doc-card" style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <strong style="font-size:1.02em;flex:1">palsson_2025_fed_batch</strong>
+          
+            
+              <span class="file-status status-ok" style="font-size:0.78em">✓ 1.1 KB</span>
+            
+            <a href="/references/expert/palsson_2025_fed_batch.md" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
+          
+        </div>
+        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">references/expert/palsson_2025_fed_batch.md</div>
+        
+        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">Placeholder for the 2025 Palsson lab high-density fed-batch E. coli
+study targeted as the mbp-05 quantitative benchmark. Exact citation
+TBD; bib stub at references/papers.bib `@Palsson2025FedBatch`.
+</p>
+        
+        
+        
+      </div>
+    
+    </div>
     
     <button class="action-btn" onclick="openModal('modal-expert-doc')">+ Add expert document</button>
   </div>
 
   <!-- References panel — papers.bib explorer + PDF status + add-reference action -->
   <div class="panel">
-    <h3>References <span class="muted" style="font-size:0.75em;font-weight:normal">(0 entries, 0 PDFs in references/papers.bib)</span></h3>
+    <h3>References <span class="muted" style="font-size:0.75em;font-weight:normal">(9 entries, 0 PDFs in references/papers.bib)</span></h3>
     <p class="panel-lead">Formal publications cited across the studies, plus the PDFs committed alongside them. Click any card to expand its details; click <em>Open ↗</em> to access the paper. Reading notes (if present) live at <code>references/notes/&lt;bib-key&gt;.md</code>. Adds entries to <code>references/papers.bib</code> and <code>references/claims.yaml</code>.</p>
 
     <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px">
@@ -506,13 +550,354 @@
     
     
     
+      
+        
+      
+    
+      
+        
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
 
+    
+    <details style="margin-bottom:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px">
+      <summary style="cursor:pointer;font-weight:600;color:#1e40af">
+        🤖 Hand off 2 unresolved references to a Claude Code session
+      </summary>
+      <p style="margin:10px 0 6px 0;font-size:0.88em;color:#1e3a8a">
+        These entries have no committed PDF, no open-access link, and no DOI/publisher URL. Copy the prompt below into <strong>any Claude Code session running in this workspace</strong>; it will search for each paper, download PDFs where openly available, and add DOI / URL fields to <code>references/papers.bib</code>.
+      </p>
+      <textarea id="refs-ai-prompt" readonly
+                style="width:100%;min-height:200px;padding:10px;border:1px solid #cbd5e1;border-radius:4px;font-family:ui-monospace,monospace;font-size:0.82em;background:#fff;resize:vertical">For each of the bib entries listed below in `references/papers.bib`, do the following — work entry by entry, committing as you go:
+
+1. Search the web for the paper using its title + first author + year. Use WebSearch / WebFetch to find the canonical publisher page.
+2. Note the DOI and the publisher URL.
+3. If an open-access PDF is available (publisher, arXiv, bioRxiv, PubMed Central, author's site, institutional repository, etc.), download it to `references/{bib_key}.pdf` and add the entry to `workspace.yaml.references_pdfs` with the sha256 of the downloaded file.
+4. Edit the entry in `references/papers.bib` to add `doi = {...}` and `url = {...}` fields where missing. Preserve the existing entry structure.
+5. If you cannot find a freely-available PDF but can identify a stable URL (publisher page, paywall landing page, indexed search result), just add the `url` / `doi` and skip the PDF download.
+6. After updating papers.bib + workspace.yaml, run `python scripts/lint-workspace.py` to confirm nothing is broken.
+
+You can also short-circuit DOI + Unpaywall lookup by calling the dashboard's existing endpoint:
+    curl -X POST -H 'Content-Type: application/json' -d '{"key":"<bibkey>"}' http://localhost:8765/api/references-fetch
+
+…but treat that as a fallback — manual search usually finds links Unpaywall misses (paywalled DOIs the publisher hosts a free PDF for, preprint servers, etc.).
+
+Entries to research:
+
+- Palsson2025FedBatch — "High-density fed-batch fermentation of \em Escherichia coli" (Palsson lab, 2025)
+- Monod1949AnnRevMicrobiol — "The growth of bacterial cultures" (Monod, Jacques, 1949, Annual Review of Microbiology)
+
+When done, summarize which entries got PDFs vs URLs only vs were unresolvable, and commit the workspace changes on the active workstream branch.</textarea>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+        <button class="btn-mini" onclick="_copyRefsAiPrompt(this)" title="Copy prompt to clipboard">📋 Copy prompt</button>
+        <span class="muted" style="font-size:0.78em">Paste into a Claude Code session running in this workspace.</span>
+      </div>
+    </details>
     
 
     
 
     
-    <p style="color:#888;font-style:italic">No bibliography entries yet. Add some to <code>references/papers.bib</code>.</p>
+    <div id="bib-entries-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:12px">
+    
+      <details class="bib-entry" data-key="palsson2025fedbatch" data-title="high-density fed-batch fermentation of \em escherichia coli" data-author="palsson lab" data-year="2025"
+               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Palsson2025FedBatch</code>
+            <span class="muted" style="font-size:0.82em">2025</span>
+            <span style="font-size:0.85em"></span>
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">High-density fed-batch fermentation of \em Escherichia coli</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Palsson lab</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          
+          
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> TBD — citation to be confirmed. Cited by the upstream multiscale-bioprocess roadmap (vivarium-collective/multiscale-bioprocess, chris/initial-scaffolding, docs/roadmap.md Phase 5) as the targeted benchmark for the fed-batch E. coli phase. Exact journal / DOI / supplementary data not yet obtained — fill in when the paper is in references/papers/.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="monod1949annrevmicrobiol" data-title="the growth of bacterial cultures" data-author="monod, jacques" data-year="1949"
+               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Monod1949AnnRevMicrobiol</code>
+            <span class="muted" style="font-size:0.82em">1949</span>
+            <span style="font-size:0.85em">Annual Review of Microbiology</span>
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">The growth of bacterial cultures</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Monod, Jacques</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Annual Review of Microbiology</em> 3, pp. 371--394 (1949).</p>
+          
+          
+          
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Source for Monod kinetics (placeholder cell process in mbp-01).</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="sander2015atmoschemphys" data-title="compilation of henry's law constants (version 4.0) for water as solvent" data-author="sander, r." data-year="2015"
+               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Sander2015AtmosChemPhys</code>
+            <span class="muted" style="font-size:0.82em">2015</span>
+            <span style="font-size:0.85em">Atmospheric Chemistry and Physics</span>
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Compilation of Henry's law constants (version 4.0) for water as solvent</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Sander, R.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Atmospheric Chemistry and Physics</em> 15, pp. 4399--4981 (2015).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.5194/acp-15-4399-2015" target="_blank">10.5194/acp-15-4399-2015</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Source for O2/CO2 Henry constants used in mbp-02 kLa transport.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="gardengarciaochoa2009biotechadv" data-title="bioreactor scale-up and oxygen transfer rate in microbial processes: an overview" data-author="garcia-ochoa, felix and gomez, emilio" data-year="2009"
+               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">GardenGarciaOchoa2009BiotechAdv</code>
+            <span class="muted" style="font-size:0.82em">2009</span>
+            <span style="font-size:0.85em">Biotechnology Advances</span>
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Bioreactor scale-up and oxygen transfer rate in microbial processes: An overview</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Garcia-Ochoa, Felix and Gomez, Emilio</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Biotechnology Advances</em> 27, pp. 153--176 (2009).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/j.biotechadv.2008.10.006" target="_blank">10.1016/j.biotechadv.2008.10.006</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Reference for kLa correlations and oxygen transfer in stirred bioreactors (mbp-02).</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="vemuri2006applenvironmicrobiol" data-title="overflow metabolism in escherichia coli during steady-state growth: transcriptional regulation and effect of the redox ratio" data-author="vemuri, g. n. and altman, e. and sangurdekar, d. p. and khodursky, a. b. and eiteman, m. a." data-year="2006"
+               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Vemuri2006ApplEnvironMicrobiol</code>
+            <span class="muted" style="font-size:0.82em">2006</span>
+            <span style="font-size:0.85em">Applied and Environmental Microbiology</span>
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Overflow metabolism in Escherichia coli during steady-state growth: Transcriptional regulation and effect of the redox ratio</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Vemuri, G. N. and Altman, E. and Sangurdekar, D. P. and Khodursky, A. B. and Eiteman, M. A.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Applied and Environmental Microbiology</em> 72, pp. 3653--3661 (2006).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1128/AEM.72.5.3653-3661.2006" target="_blank">10.1128/AEM.72.5.3653-3661.2006</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Acetate overflow under low DO; cited in mbp-03 acceptance tests.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="basan2015nature" data-title="overflow metabolism in \em escherichia coli results from efficient proteome allocation" data-author="basan, markus and hui, sheng and okano, hiroyuki and zhang, zhongge and shen, yang and williamson, james r. and hwa, terence" data-year="2015"
+               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Basan2015Nature</code>
+            <span class="muted" style="font-size:0.82em">2015</span>
+            <span style="font-size:0.85em">Nature</span>
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Overflow metabolism in \em Escherichia coli results from efficient proteome allocation</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Basan, Markus and Hui, Sheng and Okano, Hiroyuki and Zhang, Zhongge and Shen, Yang and Williamson, James R. and Hwa, Terence</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Nature</em> 528, pp. 99--104 (2015).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1038/nature15765" target="_blank">10.1038/nature15765</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Proteome-allocation explanation of acetate overflow.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="enjalbert2017scirep" data-title="acetate fluxes in \em escherichia coli are determined by the thermodynamic control of the pta-acka pathway" data-author="enjalbert, brice and millard, pierre and dinclaux, mickael and portais, jean-charles and letisse, fabien" data-year="2017"
+               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Enjalbert2017SciRep</code>
+            <span class="muted" style="font-size:0.82em">2017</span>
+            <span style="font-size:0.85em">Scientific Reports</span>
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Acetate fluxes in \em Escherichia coli are determined by the thermodynamic control of the Pta-AckA pathway</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Enjalbert, Brice and Millard, Pierre and Dinclaux, Mickael and Portais, Jean-Charles and Letisse, Fabien</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Scientific Reports</em> 7, pp. 42135 (2017).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1038/srep42135" target="_blank">10.1038/srep42135</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Acetate reconsumption phase; cited in mbp-03.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="lee1996trendsbiotechnol" data-title="high cell-density culture of \em escherichia coli" data-author="lee, sang yup" data-year="1996"
+               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Lee1996TrendsBiotechnol</code>
+            <span class="muted" style="font-size:0.82em">1996</span>
+            <span style="font-size:0.85em">Trends in Biotechnology</span>
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">High cell-density culture of \em Escherichia coli</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Lee, Sang Yup</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Trends in Biotechnology</em> 14, pp. 98--105 (1996).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/0167-7799(96)80930-9" target="_blank">10.1016/0167-7799(96)80930-9</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Fed-batch operations reference; cited in mbp-04.</p>
+          
+          
+        </div>
+      </details>
+    
+      <details class="bib-entry" data-key="korz1995jbiotechnol" data-title="simple fed-batch technique for high cell density cultivation of \em escherichia coli" data-author="korz, d. j. and rinas, u. and hellmuth, k. and sanders, e. a. and deckwer, w.-d." data-year="1995"
+               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+        <summary style="cursor:pointer;list-style:none">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Korz1995JBiotechnol</code>
+            <span class="muted" style="font-size:0.82em">1995</span>
+            <span style="font-size:0.85em">Journal of Biotechnology</span>
+            
+            
+            
+          </div>
+          <div style="margin-top:5px;font-weight:500">Simple fed-batch technique for high cell density cultivation of \em Escherichia coli</div>
+          <div class="muted" style="font-size:0.85em;margin-top:3px">Korz, D. J. and Rinas, U. and Hellmuth, K. and Sanders, E. A. and Deckwer, W.-D.</div>
+        </summary>
+        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #f1f5f9;font-size:0.88em">
+          
+          <p style="margin:4px 0"><em>Journal of Biotechnology</em> 39, pp. 59--65 (1995).</p>
+          
+          
+          <p style="margin:4px 0"><strong>DOI:</strong> <a href="https://doi.org/10.1016/0168-1656(94)00143-Z" target="_blank">10.1016/0168-1656(94)00143-Z</a></p>
+          
+          
+          <p style="margin:6px 0;padding:6px 10px;background:#fef9c3;border-left:3px solid #facc15;border-radius:3px;font-size:0.85em"><strong>Note:</strong> Exponential feed protocol; cited in mbp-04.</p>
+          
+          
+        </div>
+      </details>
+    
+    </div>
+    <script>
+      function _filterBibEntries(q) {
+        q = (q || '').toLowerCase().trim();
+        document.querySelectorAll('#bib-entries-grid .bib-entry').forEach(function(el) {
+          var hay = (el.dataset.key + ' ' + el.dataset.title + ' ' + el.dataset.author + ' ' + el.dataset.year).toLowerCase();
+          el.style.display = (!q || hay.indexOf(q) >= 0) ? '' : 'none';
+        });
+      }
+
+      // Copy the "hand off to Claude Code" prompt to the user's clipboard.
+      // The textarea is already on the page (rendered server-side); we just
+      // shovel its value into the clipboard API. Falls back to the
+      // execCommand path for older browsers / non-HTTPS contexts.
+      function _copyRefsAiPrompt(btn) {
+        var ta = document.getElementById('refs-ai-prompt');
+        if (!ta) return;
+        var done = function(ok) {
+          if (!btn) return;
+          var orig = btn.textContent;
+          btn.textContent = ok ? '✓ Copied' : '⚠ Copy failed — select + Cmd+C';
+          btn.disabled = true;
+          setTimeout(function() { btn.textContent = orig; btn.disabled = false; }, 1800);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(ta.value).then(function() { done(true); },
+                                                       function() { done(false); });
+        } else {
+          ta.select();
+          try { done(document.execCommand('copy')); } catch (e) { done(false); }
+        }
+      }
+      window._copyRefsAiPrompt = _copyRefsAiPrompt;
+    </script>
     
   </div>
 

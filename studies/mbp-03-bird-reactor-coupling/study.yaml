@@ -1,0 +1,272 @@
+schema_version: 3
+name: mbp-03-bird-reactor-coupling
+created: '2026-05-22'
+phase: Design
+
+design_status: drafted
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+expert_review_status: not_requested
+
+baseline:
+- name: bird-coupled-baseline
+  composite: v2ecoli.composites.reactor_bird_coupled   # TODO — see implementation_requirements
+  params: {seed: 0, cache_dir: out/cache}
+
+
+# ─── 1. PURPOSE ────────────────────────────────────────────────────────────
+purpose:
+  question: |
+    Can v2ecoli (with the mbp-01 time-varying-env hook and mbp-02 population
+    aggregator) be coupled to `pbg-bioreactordesign`'s BiRDReactorProcess —
+    via a thin adapter that resolves the biomass-ownership conflict between
+    the two — such that BiRD supplies dissolved O2, kLa, gas-phase physics,
+    and v2ecoli supplies population biomass and exchange-flux demand,
+    producing a physically consistent coupled trajectory in a 0D
+    well-mixed bench-scale reactor?
+  mechanism: |
+    pbg-bioreactordesign's `BiRDReactorProcess` provides 0D well-mixed
+    reactor physics (Higbie kLa, temperature-dependent Henry's law,
+    Wilke-Chang diffusivity, gas-holdup) but ALSO carries an internal
+    biomass ODE driven by its own Monod kinetics. v2ecoli owns biomass
+    via per-cell mass and Division. The known interface mismatch resolves
+    by:
+      (1) **Disabling BiRD's internal biomass ODE** (set max_growth_rate_per_h
+          = 0 so X stays at initial; OR fork to a BiRDTransportProcess that
+          omits the biomass equation entirely).
+      (2) **Driving BiRD's biomass with v2ecoli's aggregated population**
+          via a `ReactorCellCoupler` Step that writes
+          `reactor.biomass = population.biomass_concentration_gL` each step.
+      (3) **Driving v2ecoli's environment with BiRD's dissolved-phase**:
+          coupler also writes BiRD's `dissolved_o2` / `dissolved_co2` into
+          v2ecoli's `environment.external_concentrations.OXYGEN-MOLECULE[p]`
+          etc. (units conversion mg/L → mM).
+      (4) **Driving BiRD's O2 demand with v2ecoli's metabolism**: coupler
+          aggregates v2ecoli's `external_exchange_fluxes.OXYGEN-MOLECULE[p]`
+          across agents and writes it as BiRD's `o2_uptake_rate` input
+          (replacing BiRD's internal Monod q_o2).
+    Result: BiRD = transport-only physics; v2ecoli = biology + biomass.
+    The coupling is the smallest viable adapter — no BiRD code change in
+    option (1); a forked transport-only variant under option (b) if
+    cleaner.
+  expected_outcome: |
+    DO drops below saturation as v2ecoli's population consumes O2; raising
+    kLa raises steady-state DO. Reactor biomass concentration tracks
+    v2ecoli's population growth. With cells removed (population aggregator
+    returning zero), DO converges to BiRD's Henry-saturation. Coupled run
+    completes one v2ecoli generation (~60 min) without state divergence.
+
+
+# ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
+pipeline_gate:
+  prerequisites:
+    - mbp-01-time-varying-environment
+    - mbp-02-population-aggregation
+  enables:
+    - mbp-04-multigeneration-runs
+  gate_status_summary: |
+    Blocked on mbp-01 (env hook so BiRD's DO can drive v2ecoli) and mbp-02
+    (population aggregator so v2ecoli's biomass can drive BiRD). The
+    keystone study: this is where v2ecoli ↔ reactor coupling becomes real.
+  proceed_condition: |
+    Coupling direction tests pass (DO drops with cells; higher kLa lifts
+    DO); no-cells run reaches Henry equilibrium; one v2ecoli generation
+    completes without state divergence; mass-balance tests close.
+
+
+# ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
+simulation_set:
+
+- name: one-generation-coupled
+  base_model: v2ecoli.composites.reactor_bird_coupled
+  perturbation: null
+  condition: M9-minimal-glucose-aerated
+  duration_min: 60
+  seeds: [0]
+  readouts:
+    - reactor_dissolved_o2
+    - reactor_kla_o2
+    - reactor_biomass_gL
+    - population_cell_count
+    - cell_mu_per_h
+    - metabolism_o2_uptake_flux
+  applies_tests:
+    - one-generation-completes-without-divergence
+    - cells-drop-do-below-saturation
+    - reactor-biomass-tracks-population
+  status: planned
+
+- name: kla-sweep-coupled
+  base_model: v2ecoli.composites.reactor_bird_coupled
+  perturbation:
+    gas_flow_rate_Lpm: [0.5, 2.0, 5.0]   # drives kLa via BiRD's Higbie
+  condition: M9-minimal-glucose-aerated
+  duration_min: 60
+  seeds: [0]
+  readouts: [reactor_dissolved_o2, reactor_kla_o2, cell_mu_per_h]
+  applies_tests:
+    - higher-kla-raises-steady-state-do
+  status: planned
+
+- name: no-cells-henry-equilibrium
+  base_model: v2ecoli.composites.reactor_bird_coupled
+  perturbation: {force_zero_population: true}
+  condition: aerated-no-cells
+  duration_min: 30
+  seeds: [0]
+  readouts: [reactor_dissolved_o2, reactor_o2_saturation]
+  applies_tests:
+    - no-cells-do-converges-to-henry-saturation
+  status: planned
+
+
+# ─── 4. MODEL CHANGE ───────────────────────────────────────────────────────
+model_change:
+  base_model: v2ecoli.composites.baseline_population   # + baseline_time_varying_env
+  new_state_variables:
+    - "reactor.* (all BiRD output ports — dissolved_o2, dissolved_co2, kla_o2, biomass, gas_holdup, …)"
+  new_processes:
+    - {name: BiRDReactorProcess, kind: Process, requirement_id: req-1-bird-dep, provenance: "pbg-bioreactordesign"}
+    - {name: ReactorCellCoupler, kind: Step,    requirement_id: req-2-cell-coupler}
+  new_parameters:
+    - {name: bird_reactor_config, default: "{reactor_type: bubble_column, volume_L: 1.0, gas_flow_rate_Lpm: 2.0, temperature_K: 310.15}"}
+    - {name: bird_disable_internal_biomass, default: true, units: "bool"}
+  modified_processes:
+    - "v2ecoli baseline (with mbp-01 + mbp-02 enhancements): reactor_volume_L parameter now read from reactor.volume_L store (BiRD owns volume)."
+  notes: |
+    pbg-bioreactordesign added as a workspace dependency. BiRD's
+    internal biomass ODE is disabled (max_growth_rate_per_h = 0) so the
+    only biomass dynamics come from v2ecoli's population aggregator.
+    Future cleanup: fork BiRDTransportProcess that omits the biomass
+    state entirely; tracked as a candidate-future-study, not in mbp-03 scope.
+
+
+# ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
+key_assumptions:
+  - "0D well-mixed reactor; bubble column geometry as the default for mbp-03 (per BiRD's default)."
+  - "BiRD's biomass ODE is disabled; v2ecoli's population is the single source of biomass truth."
+  - "v2ecoli's per-cell μ from metabolism — when aggregated — captures the same physics BiRD's Monod would have approximated."
+  - "Timestep mismatch resolved by running BiRD on a 1.0 h interval and the coupler at v2ecoli's emit cadence (typically 1 s) — coupler holds last-known BiRD state between BiRD ticks."
+
+
+# ─── 5. READOUTS + BEHAVIOR TESTS ──────────────────────────────────────────
+
+readouts:
+- {name: reactor_dissolved_o2,    store_path: reactor.dissolved_o2,         units: mg/L,   status: planned}
+- {name: reactor_kla_o2,          store_path: reactor.kla_o2,               units: "1/h",  status: planned}
+- {name: reactor_o2_saturation,   store_path: reactor.o2_saturation,        units: mg/L,   status: planned}
+- {name: reactor_biomass_gL,      store_path: reactor.biomass,              units: g/L,    status: planned}
+- {name: population_cell_count,   store_path: population.cell_count,        units: cells,  status: planned}
+- {name: population_total_biomass_gDW, store_path: population.total_biomass_gDW, units: gDW, status: planned}
+- {name: cell_mu_per_h,           store_path: agents.0.listeners.mass.instantaneous_growth_rate, units: "1/h", status: planned}
+- {name: metabolism_o2_uptake_flux, store_path: "agents.0.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]", units: "mmol/(gDW·h)", status: planned}
+
+
+behavior_tests:
+
+- name: one-generation-completes-without-divergence
+  classification: primary
+  description: "Coupled sim runs for one v2ecoli doubling time (60 min) without state divergence (no NaN; DO stays in [0, saturation]; cell_count ≥ 1)."
+  measure: {kind: completion_check, checks: [no_nan, do_in_range, cell_count_at_least_one]}
+  pass_if: {op: all_pass}
+  units: "—"
+  requires_simulation: one-generation-coupled
+  cites: []
+
+- name: cells-drop-do-below-saturation
+  classification: primary
+  description: "With v2ecoli cells consuming O2, steady-state dissolved O2 sits below BiRD's Henry-law saturation."
+  measure: {kind: derived_difference, a: reactor.dissolved_o2, b: reactor.o2_saturation, reduce: mean, window: second_half}
+  pass_if: {op: at_most, value: 0.0}
+  units: mg/L
+  requires_simulation: one-generation-coupled
+  cites: [GardenGarciaOchoa2009BiotechAdv]
+
+- name: reactor-biomass-tracks-population
+  classification: primary
+  description: "reactor.biomass equals population.biomass_concentration_gL within numerical tolerance — coupling is wired without drift."
+  measure: {kind: derived_ratio, numerator: reactor.biomass, denominator: population.biomass_concentration_gL}
+  pass_if: {op: in_range, low: 0.95, high: 1.05}
+  units: fraction
+  requires_simulation: one-generation-coupled
+  cites: []
+
+- name: higher-kla-raises-steady-state-do
+  classification: primary
+  description: "Across the gas-flow sweep (which drives kLa via BiRD's Higbie correlation), steady-state DO increases monotonically with kLa."
+  measure: {kind: cross_run_trend, x: reactor.kla_o2, y: reactor.dissolved_o2}
+  pass_if: {op: positive_monotonic}
+  units: mg/L
+  requires_simulation: kla-sweep-coupled
+  cites: [GardenGarciaOchoa2009BiotechAdv]
+
+- name: no-cells-do-converges-to-henry-saturation
+  classification: supporting
+  description: "With force_zero_population=true (population aggregator returns 0 cells), DO converges to BiRD's Henry-law saturation."
+  measure: {kind: derived_difference, a: reactor.dissolved_o2, b: reactor.o2_saturation, reduce: final, window: full}
+  pass_if: {op: abs_at_most, value: 0.2}
+  units: mg/L
+  requires_simulation: no-cells-henry-equilibrium
+  cites: [Sander2015AtmosChemPhys]
+
+
+# ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
+limitations:
+  - "BiRD's biomass ODE is DISABLED — clean solution would fork a transport-only variant. Tracked as candidate-future-study."
+  - "Single v2ecoli generation only; multi-generation stability is mbp-04's scope."
+  - "Bubble column geometry default; stirred tank / airlift not validated this phase."
+  - "Fed-batch operations not supported (pbg-bioreactordesign has no fed-batch yet) — flagged as a deferred enhancement; mbp-05 may stress this."
+
+
+# ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
+implementation_requirements:
+
+- id: req-1-bird-dep
+  kind: dependency
+  title: Add pbg-bioreactordesign as a workspace dependency
+  effort: XS
+  description: |
+    Install pbg-bioreactordesign (https://github.com/vivarium-collective/pbg-bioreactordesign,
+    main branch) into v2ecoli's venv. Register BiRDReactorProcess via the
+    core registry. Confirm tests pass against the installed dep.
+  unblocks: [all mbp-03 behavior_tests]
+
+- id: req-2-cell-coupler
+  kind: process
+  title: ReactorCellCoupler Step
+  effort: M
+  description: |
+    PBG Step running each emit cycle. Reads:
+      - `population.biomass_concentration_gL` → writes `reactor.biomass` (BiRD biomass input)
+      - `reactor.dissolved_o2`, `reactor.dissolved_co2` (mg/L) → converts to mM and writes
+        `environment.external_concentrations.{OXYGEN-MOLECULE[p],CARBON-DIOXIDE[p]}`
+      - aggregated `agents.*.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]`
+        × population.total_biomass_gDW → writes `reactor.o2_uptake_rate` (BiRD input)
+    Holds last-known reactor state between BiRD ticks (BiRD typically on 1 h interval).
+  unblocks: [all mbp-03 behavior_tests]
+
+- id: req-3-reactor-bird-composite
+  kind: composite
+  title: v2ecoli.composites.reactor_bird_coupled
+  effort: S
+  description: |
+    Composite combining v2ecoli.composites.baseline_population +
+    baseline_time_varying_env + BiRDReactorProcess + ReactorCellCoupler.
+    Pre-disables BiRD's internal biomass ODE (max_growth_rate_per_h=0).
+  unblocks: [all mbp-03 simulations]
+
+
+bibliography:
+  expert: [multiscale_bioprocess_roadmap]
+  bib_keys: [Sander2015AtmosChemPhys, GardenGarciaOchoa2009BiotechAdv]
+
+
+runs: []
+
+
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

@@ -1,1 +1,104 @@
+% References for v2ecoli investigations.
 % Add references via /pbg-data <model> or by hand.
+
+% --- Multiscale bioprocess investigation ---
+
+@misc{Palsson2025FedBatch,
+  author       = {{Palsson lab}},
+  title        = {{High-density fed-batch fermentation of {\em Escherichia coli}}},
+  year         = {2025},
+  note         = {TBD — citation to be confirmed.
+                  Cited by the upstream multiscale-bioprocess roadmap
+                  (vivarium-collective/multiscale-bioprocess, chris/initial-scaffolding,
+                  docs/roadmap.md Phase 5) as the targeted benchmark for the fed-batch
+                  E. coli phase. Exact journal / DOI / supplementary data not yet
+                  obtained — fill in when the paper is in references/papers/.},
+  keywords     = {fed-batch, high-density, E. coli, bioprocess, benchmark, palsson},
+}
+
+@article{Monod1949AnnRevMicrobiol,
+  author  = {Monod, Jacques},
+  title   = {The growth of bacterial cultures},
+  journal = {Annual Review of Microbiology},
+  year    = {1949},
+  volume  = {3},
+  pages   = {371--394},
+  note    = {Source for Monod kinetics (placeholder cell process in mbp-01).},
+}
+
+@article{Sander2015AtmosChemPhys,
+  author  = {Sander, R.},
+  title   = {Compilation of Henry's law constants (version 4.0) for water as solvent},
+  journal = {Atmospheric Chemistry and Physics},
+  year    = {2015},
+  volume  = {15},
+  pages   = {4399--4981},
+  doi     = {10.5194/acp-15-4399-2015},
+  note    = {Source for O2/CO2 Henry constants used in mbp-02 kLa transport.},
+}
+
+@article{GardenGarciaOchoa2009BiotechAdv,
+  author  = {Garcia-Ochoa, Felix and Gomez, Emilio},
+  title   = {Bioreactor scale-up and oxygen transfer rate in microbial processes: An overview},
+  journal = {Biotechnology Advances},
+  year    = {2009},
+  volume  = {27},
+  pages   = {153--176},
+  doi     = {10.1016/j.biotechadv.2008.10.006},
+  note    = {Reference for kLa correlations and oxygen transfer in stirred bioreactors (mbp-02).},
+}
+
+@article{Vemuri2006ApplEnvironMicrobiol,
+  author  = {Vemuri, G. N. and Altman, E. and Sangurdekar, D. P. and Khodursky, A. B. and Eiteman, M. A.},
+  title   = {Overflow metabolism in Escherichia coli during steady-state growth: Transcriptional regulation and effect of the redox ratio},
+  journal = {Applied and Environmental Microbiology},
+  year    = {2006},
+  volume  = {72},
+  pages   = {3653--3661},
+  doi     = {10.1128/AEM.72.5.3653-3661.2006},
+  note    = {Acetate overflow under low DO; cited in mbp-03 acceptance tests.},
+}
+
+@article{Basan2015Nature,
+  author  = {Basan, Markus and Hui, Sheng and Okano, Hiroyuki and Zhang, Zhongge and Shen, Yang and Williamson, James R. and Hwa, Terence},
+  title   = {Overflow metabolism in {\em Escherichia coli} results from efficient proteome allocation},
+  journal = {Nature},
+  year    = {2015},
+  volume  = {528},
+  pages   = {99--104},
+  doi     = {10.1038/nature15765},
+  note    = {Proteome-allocation explanation of acetate overflow.},
+}
+
+@article{Enjalbert2017SciRep,
+  author  = {Enjalbert, Brice and Millard, Pierre and Dinclaux, Mickael and Portais, Jean-Charles and Letisse, Fabien},
+  title   = {Acetate fluxes in {\em Escherichia coli} are determined by the thermodynamic control of the Pta-AckA pathway},
+  journal = {Scientific Reports},
+  year    = {2017},
+  volume  = {7},
+  pages   = {42135},
+  doi     = {10.1038/srep42135},
+  note    = {Acetate reconsumption phase; cited in mbp-03.},
+}
+
+@article{Lee1996TrendsBiotechnol,
+  author  = {Lee, Sang Yup},
+  title   = {High cell-density culture of {\em Escherichia coli}},
+  journal = {Trends in Biotechnology},
+  year    = {1996},
+  volume  = {14},
+  pages   = {98--105},
+  doi     = {10.1016/0167-7799(96)80930-9},
+  note    = {Fed-batch operations reference; cited in mbp-04.},
+}
+
+@article{Korz1995JBiotechnol,
+  author  = {Korz, D. J. and Rinas, U. and Hellmuth, K. and Sanders, E. A. and Deckwer, W.-D.},
+  title   = {Simple fed-batch technique for high cell density cultivation of {\em Escherichia coli}},
+  journal = {Journal of Biotechnology},
+  year    = {1995},
+  volume  = {39},
+  pages   = {59--65},
+  doi     = {10.1016/0168-1656(94)00143-Z},
+  note    = {Exponential feed protocol; cited in mbp-04.},
+}

@@ -1,74 +1,87 @@
 schema_version: 3
 name: mbp-05-palsson-benchmark
 created: '2026-05-22'
-# Multi-axis status (Pass A, canonical). Six independent axes; gate_status
-# is intentionally unset — it's a pass/fail outcome, only meaningful after
-# the gate is attempted. Replaces the legacy `status: planned` enum.
-design_status: drafted             # planned | drafted | expert_reviewed | approved
-implementation_status: not_started # not_started | partial | complete
-simulation_status: not_run         # not_run | running | ran | failed
-evaluation_status: not_evaluated   # not_evaluated | evaluated | failed_evaluation
-expert_review_status: not_requested # not_requested | requested | reviewed | approved | disputed
 phase: Design
 
+design_status: drafted
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+expert_review_status: not_requested
+
 baseline:
-- name: palsson-matched-fed-batch
-  composite: multiscale_bioprocess.composites.fed_batch_reactor_dfba   # run with Palsson-matched conditions
-  params: {seed: 0}
+- name: palsson-matched-coupled
+  composite: v2ecoli.composites.reactor_bird_coupled
+  params: {seed: 0, cache_dir: out/cache}
 
 
 # ─── 1. PURPOSE ────────────────────────────────────────────────────────────
 purpose:
   question: |
-    Run with conditions matched to the 2025 Palsson lab fed-batch high-density
-    E. coli study — does the simulated fed-batch trajectory match the published
-    one on end-of-run optical density, time-to-target-OD, and acetate-
-    accumulation profile within per-metric tolerances, and are residual
-    divergences interpretable and categorized?
+    Configured with operating conditions matched to the 2025 Palsson lab
+    high-density E. coli study, does the v2ecoli ↔ pbg-bioreactordesign
+    coupled model reproduce the published batch (or, if fed-batch
+    enhancement lands, fed-batch) trajectory on end-of-run optical
+    density, time-to-target-OD, and acetate-accumulation profile within
+    per-metric tolerances, and are residual divergences interpretable
+    and categorized?
   mechanism: |
-    Ingest the Palsson 2025 study as a structured knowledge source
-    (experimental conditions, fed-batch operating profile, measured
-    trajectories) under the sibling repo's knowledge/. Configure the Phase 4
-    fed-batch composite to the published operating profile (feed schedule,
-    aeration, medium), run, and overlay simulated vs. published trajectories.
-    This is the first phase whose primary deliverable is a quantitative
-    validation rather than a new capability; the report card is dominated by
-    overlay plots and comparison metrics.
+    Ingest the Palsson 2025 study as a structured knowledge source under
+    `references/papers/palsson-2025/` (raw PDF + supplementary data) and
+    `references/expert/palsson_2025_fed_batch.md` (currently a placeholder
+    stub — see expert doc registered in workspace.yaml). Configure the
+    mbp-03/04 coupled composite to the published operating profile
+    (reactor geometry, aeration, medium, initial conditions). Run; overlay
+    simulated vs. published trajectories; compute end-of-run OD,
+    time-to-target-OD, and acetate-profile comparison metrics. The phase
+    report card is dominated by overlay plots and quantitative comparison
+    metrics. Divergences are categorized in the report card (v2ecoli
+    metabolic deficiency / coupling-adapter limitation / experimental
+    uncertainty / placeholder-induced).
   expected_outcome: |
-    End-of-run OD matches the published value within tolerance; time-to-target-
-    OD matches published timing within tolerance; the acetate-accumulation
-    profile matches the published trajectory qualitatively (shape) and within a
-    magnitude band. Divergences are categorized (model deficiency / parameter
-    calibration / experimental uncertainty / placeholder-induced).
+    End-of-run OD matches the published value within a per-metric tolerance
+    (placeholder ±15% until the spec PR sets the real band). Time-to-
+    target-OD matches published timing within tolerance. Acetate-profile
+    matches qualitatively (shape) and within a magnitude band. If the
+    Palsson dataset is fed-batch only and pbg-bioreactordesign still lacks
+    fed-batch support at this point, the study scopes to the BATCH-only
+    portion of the Palsson dataset (e.g. the initial batch phase before
+    feed onset) — the spec PR makes that scope call explicitly.
 
 
 # ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
 pipeline_gate:
   prerequisites:
-    - mbp-04-fed-batch-operations
-  enables: []   # leaf of the near-term construction arc
+    - mbp-04-multigeneration-runs
+  enables: []   # terminal study of the investigation
   gate_status_summary: |
-    Blocked on mbp-04 (fed-batch operations) and on Palsson-2025 ingestion in
-    the sibling repo (refs/palsson-2025/ + structured extraction in
-    knowledge/palsson-2025/). The investigation's terminal acceptance gate.
+    Blocked on mbp-04 (multi-generation stability) AND on the Palsson 2025
+    ingestion (currently a placeholder — exact citation not yet confirmed,
+    PDF not in refs yet). Terminal acceptance gate of the investigation.
   proceed_condition: |
-    End-of-run-OD and acetate-profile quantitative tests pass within the
-    tolerances set in the spec PR; divergences categorized in the report card.
-    If a model deficiency blocks an in-scope test, default is defer-and-proceed
-    (record placeholder + candidate-future-phase pointer); halt-and-amend only
-    if the deficiency makes the phase objective unattainable.
+    End-of-run-OD and acetate-profile quantitative tests pass within
+    tolerances set in the spec PR; divergences categorized in the
+    report card. If a coupling-adapter or v2ecoli-metabolism deficiency
+    blocks an in-scope test, default is defer-and-proceed (record
+    placeholder + candidate-future-study); halt-and-amend only if the
+    deficiency makes the phase objective unattainable.
 
 
 # ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
 simulation_set:
 
-- name: palsson-matched-run
-  base_model: multiscale_bioprocess.composites.fed_batch_reactor_dfba
-  perturbation: {operating_profile: palsson_2025}   # feed schedule + aeration + medium from the paper
-  condition: palsson-2025-fed-batch
-  duration_min: 1800
+- name: palsson-matched-batch
+  base_model: v2ecoli.composites.reactor_bird_coupled
+  perturbation: {operating_profile: palsson_2025_batch_only}
+  condition: palsson-2025-batch
+  duration_min: 480     # placeholder — refit to published batch duration
   seeds: [0]
-  readouts: [optical_density, biomass_gL, acetate_gL, glucose_gL, dissolved_O2, volume_L]
+  readouts:
+    - population_OD600
+    - population_total_biomass_gDW
+    - reactor_glucose_gL
+    - reactor_acetate_gL
+    - reactor_dissolved_o2
   applies_tests:
     - end-of-run-od-matches-published
     - time-to-target-od-matches-published
@@ -79,75 +92,74 @@ simulation_set:
 
 # ─── 4. MODEL CHANGE ───────────────────────────────────────────────────────
 model_change:
-  base_model: multiscale_bioprocess.composites.fed_batch_reactor_dfba
+  base_model: v2ecoli.composites.reactor_bird_coupled
   new_state_variables: []
   new_processes: []
   new_parameters:
-    - {name: operating_profile, default: palsson_2025, units: "—"}
-    - {name: od_to_gdw, units: "gDW/(L·OD600)"}
+    - {name: operating_profile,           default: palsson_2025_batch_only, units: "—"}
+    - {name: published_trajectory_path,   default: references/papers/palsson-2025/trajectories.csv, units: "—"}
   modified_processes: []
   notes: |
-    No new capability — this phase configures the Phase 4 composite to the
-    Palsson-2025 operating profile and adds the experimental-data comparison
-    harness. Knowledge ingestion (refs/ + knowledge/ extraction, behavior-test
-    panel skeleton) is the Palsson-ingestion plan's deliverable in the sibling
-    repo and feeds this study's expected values.
+    No new capability — configures the mbp-03/04 coupled composite to
+    Palsson-matched conditions and adds a comparison harness. Knowledge
+    ingestion (raw PDF + structured extraction) is prerequisite work,
+    tracked under the expert doc placeholder.
 
 
 # ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
 key_assumptions:
   - "Published trajectories are digitizable / available at sufficient resolution to overlay."
-  - "OD↔gDW conversion factor is known or fitted from the paper."
-  - "0D well-mixed reactor is an acceptable approximation at the paper's scale (bench)."
-  - "High-density (OD > 10) physics gaps may surface here and become longer-horizon studies."
+  - "OD600 ↔ gDW conversion factor (od_to_gdw, default 0.33) holds at Palsson's cell-density regime, or is refit from the paper."
+  - "If Palsson is fed-batch only, this study scopes to the batch-phase prefix until pbg-bioreactordesign gains fed-batch (deferred enhancement)."
+  - "0D well-mixed assumption holds at the paper's reactor scale (bench)."
 
 
 # ─── 5. READOUTS + BEHAVIOR TESTS ──────────────────────────────────────────
 
 readouts:
-- {name: optical_density, store_path: reactor.diagnostics.OD600, units: OD600, status: planned}
-- {name: biomass_gL,      store_path: reactor.biomass_gL,        units: g/L,   status: planned}
-- {name: acetate_gL,      store_path: reactor.acetate_gL,        units: g/L,   status: planned}
-- {name: glucose_gL,      store_path: reactor.glucose_gL,        units: g/L,   status: planned}
-- {name: dissolved_O2,    store_path: reactor.dissolved_O2,      units: mmol/L, status: planned}
+- {name: population_OD600,             store_path: population.OD600,                    units: OD600, status: planned}
+- {name: population_total_biomass_gDW, store_path: population.total_biomass_gDW,        units: gDW,   status: planned}
+- {name: reactor_glucose_gL,           store_path: "environment.external_concentrations.GLC[p]", units: mM, status: planned}
+- {name: reactor_acetate_gL,           store_path: "environment.external_concentrations.ACET[p]", units: mM, status: planned}
+- {name: reactor_dissolved_o2,         store_path: reactor.dissolved_o2,                units: mg/L,  status: planned}
 
 
 behavior_tests:
 
 - name: end-of-run-od-matches-published
   classification: primary
-  description: "End-of-run optical density matches the Palsson 2025 published value within tolerance (tolerance set in spec PR; ±15% placeholder)."
-  measure: {kind: series, path: reactor.diagnostics.OD600, reduce: final, window: full}
+  description: "End-of-run OD matches the Palsson 2025 published value within tolerance (placeholder ±15% until spec PR; replace once citation lands)."
+  measure: {kind: series, path: population.OD600, reduce: final, window: full}
   pass_if: {op: relative_to_reference, reference: palsson_2025_final_OD, tolerance: 0.15}
   units: OD600
-  requires_simulation: palsson-matched-run
+  requires_simulation: palsson-matched-batch
   cites: [Palsson2025FedBatch]
 
 - name: time-to-target-od-matches-published
   classification: primary
-  description: "Time to reach the published target OD matches published timing within tolerance (tolerance set in spec PR)."
-  measure: {kind: time_to_threshold, path: reactor.diagnostics.OD600, threshold: palsson_2025_target_OD}
+  description: "Time to reach the published target OD matches within tolerance."
+  measure: {kind: time_to_threshold, path: population.OD600, threshold: palsson_2025_target_OD}
   pass_if: {op: relative_to_reference, reference: palsson_2025_time_to_target, tolerance: 0.15}
   units: min
-  requires_simulation: palsson-matched-run
+  requires_simulation: palsson-matched-batch
   cites: [Palsson2025FedBatch]
 
 - name: acetate-profile-matches-published-shape
   classification: primary
   description: "Simulated acetate-accumulation profile matches the published trajectory qualitatively (shape) and within a magnitude band."
-  measure: {kind: trajectory_compare, series: reactor.acetate_gL, reference: palsson_2025_acetate_profile}
+  measure: {kind: trajectory_compare, series: "environment.external_concentrations.ACET[p]", reference: palsson_2025_acetate_profile}
   pass_if: {op: shape_match_within_band, band: 0.3}
   units: g/L
-  requires_simulation: palsson-matched-run
+  requires_simulation: palsson-matched-batch
   cites: [Palsson2025FedBatch]
 
 - name: divergences-categorized-in-report-card
   classification: supporting
-  description: "Divergences between simulated and published trajectories are categorized in the report card (model deficiency / parameter calibration / experimental uncertainty / placeholder-induced) — the comparison is interpretable."
+  description: "Divergences categorized in the report card (v2ecoli metabolic deficiency / coupling-adapter limitation / experimental uncertainty / placeholder-induced) — the comparison is interpretable."
   measure: {kind: qualitative_review, artifact: report.md}
   pass_if: {op: review_complete}
   units: "—"
-  requires_simulation: palsson-matched-run
+  requires_simulation: palsson-matched-batch
   cites: [Palsson2025FedBatch]
 
 
@@ -155,7 +167,8 @@ behavior_tests:
 limitations:
   - "Single benchmark study; not a multi-dataset validation."
   - "Tolerances are placeholders until the spec PR sets them against the digitized data."
-  - "Whole-cell (v2ecoli) engine substitution and high-density extension are explicitly out of scope here — longer-horizon studies."
+  - "Fed-batch operations remain a deferred enhancement (pbg-bioreactordesign has no fed-batch yet); if Palsson is fed-batch only, this study scopes to the batch-phase prefix."
+  - "v2ecoli's calibration is slow-growth M9-glucose; high-density regime may stress-test."
 
 
 # ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
@@ -166,10 +179,10 @@ implementation_requirements:
   title: Palsson 2025 structured ingestion
   effort: M
   description: |
-    Raw PDF + supplements into refs/palsson-2025/; structured extraction
-    (conditions, fed-batch profile, measured trajectories) into
-    knowledge/palsson-2025/ in the sibling repo. Supplies the reference values
-    this study's tests compare against. (Palsson-ingestion plan deliverable.)
+    Raw PDF + supplementary materials into references/papers/palsson-2025/;
+    structured extraction (operating conditions, trajectories) into
+    references/expert/palsson_2025_fed_batch.md. Replace the @misc
+    placeholder in references/papers.bib with the real @article entry.
   unblocks: [all mbp-05 behavior_tests]
 
 - id: req-2-comparison-harness
@@ -178,8 +191,8 @@ implementation_requirements:
   effort: S
   description: |
     Overlay simulated vs. published trajectories; compute end-of-run-OD,
-    time-to-target-OD, and acetate-shape comparison metrics; render the overlay
-    plots that dominate the report card.
+    time-to-target-OD, and acetate-shape comparison metrics; render the
+    overlay plots that dominate the report card.
   unblocks: [end-of-run-od-matches-published, acetate-profile-matches-published-shape]
 
 

@@ -1,0 +1,247 @@
+schema_version: 3
+name: mbp-01-time-varying-environment
+created: '2026-05-22'
+phase: Design
+
+# Multi-axis status (Pass A, canonical).
+design_status: drafted
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+expert_review_status: not_requested
+
+baseline:
+- name: time-varying-env-baseline
+  composite: v2ecoli.composites.baseline_time_varying_env   # TODO — see implementation_requirements
+  params: {seed: 0, cache_dir: out/cache}
+
+
+# ─── 1. PURPOSE ────────────────────────────────────────────────────────────
+purpose:
+  question: |
+    Can v2ecoli's `media_update` / `exchange_data` Layer-1 Steps consume an
+    externally-driven, time-varying nutrient pool — instead of the static
+    media configuration baked into ParCa — such that metabolic exchange
+    fluxes and growth rate respond correctly to declining glucose, declining
+    DO, and other dynamic external concentrations?
+  mechanism: |
+    v2ecoli's baseline composite currently treats the external environment as
+    a constant medium definition (constrained / unconstrained exchange sets
+    parameterized at composite-build time, see v2ecoli/steps/media_update.py
+    and metabolism's `exchange_data_from_media` method). For reactor
+    coupling, the external pool must be a TIME-VARYING store that external
+    physics writes into each timestep. This study introduces an
+    `EnvironmentDriver` Step (or a thin extension to `media_update`) that
+    reads from an `environment.external_concentrations` store (`map[float]`,
+    mM) and updates the constraints feeding metabolism each step. Reactor /
+    BiRD coupling (mbp-03) writes to that store; this study verifies the
+    plumbing in isolation by driving it with synthetic trajectories.
+  expected_outcome: |
+    With external glucose declining linearly from 5 g/L → 0 g/L over the
+    run, v2ecoli's glucose uptake flux declines proportionally and growth
+    rate drops as glucose approaches zero (glucose-limited regime). With
+    external DO clamped low, metabolism shifts (e.g. acetate exchange flux
+    increases — overflow signature, if v2ecoli's metabolism handles this).
+    Mass-balance over the run: cumulative external-glucose decrease ≈
+    cumulative v2ecoli glucose-uptake flux integral.
+
+
+# ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
+pipeline_gate:
+  prerequisites: []
+  enables:
+    - mbp-03-bird-reactor-coupling
+  gate_status_summary: |
+    First v2ecoli-enhancement study; no upstream dependencies. Gates the
+    reactor-coupling work — until the environment hook exists, BiRD's
+    dissolved O2 cannot drive v2ecoli's metabolism.
+  proceed_condition: |
+    External-concentration changes propagate to metabolism flux within one
+    timestep; the time-varying-env mass-balance test closes; the static-env
+    regression test (baseline composite with constant medium still works
+    unchanged) passes — no break of existing baseline.
+
+
+# ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
+simulation_set:
+
+- name: linear-glucose-decline
+  base_model: v2ecoli.composites.baseline_time_varying_env
+  perturbation:
+    external_glucose_trajectory: linear_decline
+    glucose_start_gL: 5.0
+    glucose_end_gL:   0.0
+  condition: glucose-minimal
+  duration_min: 60
+  seeds: [0]
+  readouts:
+    - external_glucose
+    - metabolism_glucose_uptake_flux
+    - cell_mu_per_h
+    - cell_mass
+  applies_tests:
+    - uptake-flux-tracks-external-glucose
+    - mu-drops-when-glucose-depletes
+    - cumulative-mass-balance-closes
+  status: planned
+
+- name: do-clamp-low
+  base_model: v2ecoli.composites.baseline_time_varying_env
+  perturbation:
+    external_DO_clamp_mmolL: 0.005
+  condition: glucose-minimal
+  duration_min: 60
+  seeds: [0]
+  readouts:
+    - external_DO
+    - metabolism_o2_uptake_flux
+    - metabolism_acetate_flux
+  applies_tests:
+    - low-do-clamp-reduces-o2-uptake
+  status: planned
+
+- name: static-env-regression
+  base_model: v2ecoli.composites.baseline_time_varying_env
+  perturbation: null   # use static medium config; same as plain baseline
+  condition: M9-minimal-glucose
+  duration_min: 60
+  seeds: [0]
+  readouts: [cell_mu_per_h, dnaA_protein_count]
+  applies_tests:
+    - static-env-baseline-unchanged
+  status: planned
+
+
+# ─── 4. MODEL CHANGE ───────────────────────────────────────────────────────
+model_change:
+  base_model: v2ecoli.composites.baseline
+  new_state_variables:
+    - "environment.external_concentrations (map[float], mM) — populated by external physics each timestep"
+  new_processes:
+    - {name: EnvironmentDriver, kind: Step, requirement_id: req-1-env-driver}
+  new_parameters:
+    - {name: env_driver_mode, default: external_store, units: "{static|external_store|synthetic_trajectory}"}
+    - {name: env_driver_trajectory_spec, default: null, units: "—"}
+  modified_processes:
+    - "media_update / exchange_data: read external_concentrations (when env_driver_mode != static) instead of static media config. Backward-compatible default."
+  notes: |
+    Internal v2ecoli enhancement — the smallest viable hook that lets
+    external physics drive v2ecoli's metabolism. Implementation must keep
+    the static-medium path untouched for existing baseline regressions
+    (verified by the static-env-regression sim above).
+
+
+# ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
+key_assumptions:
+  - "v2ecoli's metabolism Process can re-read environment constraints every step (it already does via `exchange_data_from_media`)."
+  - "External concentrations are well-mixed (single value per species across all agents in this single-cell study)."
+  - "No timestep mismatch handled this phase — env updates and metabolism updates run on the same timebase."
+
+
+# ─── 5. READOUTS + BEHAVIOR TESTS ──────────────────────────────────────────
+
+readouts:
+- {name: external_glucose,               store_path: "environment.external_concentrations.GLC[p]",           units: mM,           status: planned}
+- {name: external_DO,                    store_path: "environment.external_concentrations.OXYGEN-MOLECULE[p]", units: mM,         status: planned}
+- {name: metabolism_glucose_uptake_flux, store_path: "agents.0.metabolism.external_exchange_fluxes.GLC[p]",  units: "mmol/(gDW·h)", status: planned}
+- {name: metabolism_o2_uptake_flux,      store_path: "agents.0.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]", units: "mmol/(gDW·h)", status: planned}
+- {name: metabolism_acetate_flux,        store_path: "agents.0.metabolism.external_exchange_fluxes.ACET[p]", units: "mmol/(gDW·h)", status: planned}
+- {name: cell_mu_per_h,                  store_path: agents.0.listeners.mass.instantaneous_growth_rate,    units: "1/h",        status: planned}
+- {name: cell_mass,                      store_path: agents.0.listeners.mass.cell_mass,                    units: fg,           status: planned}
+- {name: dnaA_protein_count,             store_path: agents.0.listeners.monomer_counts.monomerCounts,      index_by: {type: monomer_id, value: "PD03831[c]"}, units: molecules/cell, status: available}
+
+
+behavior_tests:
+
+- name: uptake-flux-tracks-external-glucose
+  classification: primary
+  description: "As external glucose declines linearly, v2ecoli's glucose uptake flux declines (positive correlation between external_glucose and metabolism_glucose_uptake_flux)."
+  measure: {kind: correlation, x: "environment.external_concentrations.GLC[p]", y: "agents.0.metabolism.external_exchange_fluxes.GLC[p]", window: full}
+  pass_if: {op: pearson_at_least, value: 0.7}
+  units: "—"
+  requires_simulation: linear-glucose-decline
+  cites: []
+
+- name: mu-drops-when-glucose-depletes
+  classification: primary
+  description: "As external glucose falls below ~0.5 g/L, v2ecoli's growth rate measurably drops."
+  measure: {kind: cross_window_delta, path: agents.0.listeners.mass.instantaneous_growth_rate, window_a: first_quarter, window_b: last_quarter}
+  pass_if: {op: negative}
+  units: "1/h"
+  requires_simulation: linear-glucose-decline
+  cites: []
+
+- name: cumulative-mass-balance-closes
+  classification: primary
+  description: "Cumulative external-glucose decrease (integral over the run) matches cumulative v2ecoli glucose-uptake flux integral within numerical tolerance — the environment hook is wired without leakage."
+  measure: {kind: derived_ratio, numerator: cumulative_uptake_mmol, denominator: cumulative_external_drop_mmol}
+  pass_if: {op: in_range, low: 0.9, high: 1.1}
+  units: fraction
+  requires_simulation: linear-glucose-decline
+  cites: []
+
+- name: low-do-clamp-reduces-o2-uptake
+  classification: supporting
+  description: "Clamping external DO low reduces v2ecoli's O2 uptake flux relative to the no-clamp baseline."
+  measure: {kind: cross_run_delta, series: {kind: listener_path, path: "agents.0.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]"}, reduce: mean}
+  pass_if: {op: negative}
+  units: "mmol/(gDW·h)"
+  requires_simulation: do-clamp-low
+  cites: [Vemuri2006ApplEnvironMicrobiol]
+
+- name: static-env-baseline-unchanged
+  classification: primary
+  description: "With env_driver_mode=static, the composite produces the same baseline trajectory (e.g. DnaA count, growth rate) as the unmodified v2ecoli.composites.baseline. Regression guard."
+  measure: {kind: trajectory_match, reference: "v2ecoli.composites.baseline:default-run", series: [dnaA_protein_count, cell_mu_per_h]}
+  pass_if: {op: numerical_match, tolerance: 0.01}
+  units: "—"
+  requires_simulation: static-env-regression
+  cites: []
+
+
+# ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
+limitations:
+  - "Single cell only; population aggregation is mbp-02's job."
+  - "Reactor physics (kLa, gas transport) not coupled here — that is mbp-03."
+  - "Time-varying-medium support assumes the same exchange-molecule set as static medium; new species require ParCa regeneration."
+
+
+# ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
+implementation_requirements:
+
+- id: req-1-env-driver
+  kind: process
+  title: EnvironmentDriver Step
+  effort: S
+  description: |
+    PBG Step that, each timestep, writes to environment.external_concentrations
+    from either (a) an external source store (default for reactor coupling),
+    or (b) a synthetic trajectory function (for unit testing this phase).
+    Hooks the existing media_update to read from this store when
+    env_driver_mode != static.
+  unblocks: [linear-glucose-decline, do-clamp-low, all primary tests]
+
+- id: req-2-time-varying-composite
+  kind: composite
+  title: v2ecoli.composites.baseline_time_varying_env
+  effort: XS
+  description: |
+    Thin wrapper around v2ecoli.composites.baseline that injects
+    EnvironmentDriver and the environment.external_concentrations store.
+    Backward-compatible default: env_driver_mode=static.
+  unblocks: [all mbp-01 simulations]
+
+
+bibliography:
+  expert: [multiscale_bioprocess_roadmap]
+  bib_keys: [Vemuri2006ApplEnvironMicrobiol]
+
+
+runs: []
+
+
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

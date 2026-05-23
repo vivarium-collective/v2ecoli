@@ -1,91 +1,104 @@
 schema_version: 1
 name: multiscale-bioprocess
-title: Multiscale Bioprocess — Cell ↔ Reactor Coupling
+title: v2ecoli — Bioprocess Migration & Reactor Coupling
 created: '2026-05-22'
 status: planning
 
 question: |
-  Can a Process Bigraph–native multiscale model that couples a cell-scale
-  metabolic process to well-mixed bioreactor physics (mass balances, kLa
-  gas-liquid transport, fed-batch operations) reproduce the batch and
-  fed-batch high-density E. coli fermentation trajectories reported by the
-  2025 Palsson lab study — within tolerances set per phase — while
-  preserving a substitutable cell-side interface (Monod → dFBA → eventual
-  whole-cell)?
+  Can v2ecoli be migrated and enhanced to operate inside a bench-scale
+  bioreactor — specifically: a time-varying external environment hook, a
+  population / OD-scale biomass aggregator, and a coupling adapter to
+  `pbg-bioreactordesign`'s BiRDReactorProcess — and produce a coupled
+  v2ecoli ↔ reactor trajectory that reproduces the batch (and ultimately
+  fed-batch) fermentation behavior of the 2025 Palsson lab high-density
+  E. coli study within per-metric tolerances?
 
 hypothesis: |
-  Yes. Building the reactor substrate incrementally — a mass-balanced batch
-  scaffold, then kLa gas-liquid transport, then a drop-in dFBA cell side
-  under the same exchange-flux interface, then fed-batch operations — and
-  validating each increment against qualitative-direction and (where
-  literature supports) quantitative-range acceptance tests yields a model
-  whose simulated fed-batch trajectory matches the Palsson 2025 benchmark on
-  end-of-run OD, time-to-target-OD, and acetate-accumulation shape within
-  per-phase tolerances. Each study's acceptance tests must pass before the
-  next in the chain begins; the substitutability contract is exercised by
-  Phase 3's Monod→dFBA swap under an unchanged reactor composite.
+  Yes. v2ecoli's existing Layer-1 Steps (`media_update`, `exchange_data`)
+  already expose the environment-coupling surface; the metabolism Process
+  already emits `external_exchange_fluxes`. The required enhancements are
+  small and additive: (1) a time-varying-env hook over the existing
+  static-medium plumbing, (2) a population aggregator that derives
+  reactor-scale biomass / OD from per-cell mass listeners, (3) a
+  ReactorCellCoupler Step that bridges to `pbg-bioreactordesign`'s
+  BiRDReactorProcess (whose internal Monod biomass ODE is disabled in
+  favor of v2ecoli's population). Each study's acceptance tests pass
+  before the next in the chain begins; the multi-generation coupled run
+  validates that no piece drifts over time; the Palsson benchmark
+  validates against published trajectories.
 
 description: |
-  v2ecoli-workspace investigation tracking the near-term construction arc of
-  the vivarium-collective/multiscale-bioprocess project (SMS / DARPA). The
-  scientific code lands in that sibling repo; this investigation mirrors its
-  roadmap (the "Phase 0 artifact", docs/roadmap.md on the chris/initial-scaffolding
-  branch) as a gated study chain so the work is visible in the v2ecoli
-  dashboard and rides the same behavior-driven-development discipline.
+  Investigation in the v2ecoli workspace migrating and enhancing v2ecoli
+  for bench-scale bioprocess context, then coupling it to
+  `vivarium-collective/pbg-bioreactordesign` for the physical reactor side.
 
-  Scope is 0D well-mixed cell ↔ reactor coupling (bench-scale). The cell side
-  starts as a Monod placeholder, is replaced by dynamic FBA (iML1515 or a
-  curated reduced model) under the substitutability contract, and the reactor
-  side gains kLa gas-liquid transport and fed-batch operations. The arc
-  culminates in a quantitative benchmark against the 2025 Palsson high-density
-  fed-batch E. coli study.
+  **Scope.** The work is INTERNAL v2ecoli upgrades, not a reactor wrapper
+  built from scratch. v2ecoli gains a small set of additive features
+  (time-varying environment, population aggregation, reactor coupler);
+  reactor physics comes from `pbg-bioreactordesign` consumed as a
+  dependency. Out of scope here: dynamic-FBA as the cell side (the upstream
+  multiscale-bioprocess roadmap's choice — see references/expert/
+  multiscale_bioprocess_roadmap.md); multi-cell colony composite as the
+  primary path (deferred); CFD / spatial-mixing; WCM-internal mass-balance
+  audits.
 
-  Out of scope here (longer-horizon, not yet phase-decomposed upstream):
-  substituting v2ecoli/v2coli as the whole-cell cell-side engine, high-density
-  (OD > 10) regime extension, WCM-internal mass-balance validation, and CFD /
-  spatial-mixing coupling. Those become their own studies once the dFBA arc
-  validates.
+  **Fed-batch is deferred.** `pbg-bioreactordesign` does not yet expose
+  fed-batch operations (feed schedules, dynamic volume). Until that lands
+  upstream — or a v2ecoli-side feed Step is added — the mbp-05 Palsson
+  benchmark scopes to the BATCH portion of the Palsson dataset; the spec
+  PR makes that scope call explicit.
+
+  **Reactor + coupling code lives in `v2ecoli/`** (planned packages:
+  `v2ecoli.composites.baseline_time_varying_env`,
+  `v2ecoli.composites.baseline_population`,
+  `v2ecoli.composites.reactor_bird_coupled`). Cell-side composite stays
+  `v2ecoli.composites.baseline` (single cell + Division Step).
+  `pbg-bioreactordesign` is added as a workspace dependency in mbp-03.
 
   Studies, in dependency order:
 
-  1. mbp-01-batch-reactor-scaffold — PBG well-mixed batch reactor + placeholder
-     Monod cell process; mass balances close.
-  2. mbp-02-kla-gas-transport      — kLa-driven Henry's-law gas-liquid transport
-     for O2 and CO2.
-  3. mbp-03-dfba-substitution      — replace the Monod placeholder with a dFBA
-     cell process under the same exchange-flux interface.
-  4. mbp-04-fed-batch-operations   — feed schedules (constant / exponential /
-     pulsed), volume + dilution dynamics.
-  5. mbp-05-palsson-benchmark      — ingest Palsson 2025; overlay simulated vs.
-     published fed-batch trajectories; quantitative comparison.
+  1. mbp-01-time-varying-environment — v2ecoli enhancement: media /
+     environment becomes externally driven (time-varying nutrient pool
+     consumed by the existing Layer-1 Steps).
+  2. mbp-02-population-aggregation   — v2ecoli enhancement: aggregate
+     per-cell mass into reactor-scale biomass / OD600 / cell-count.
+  3. mbp-03-bird-reactor-coupling    — adapter to `pbg-bioreactordesign`'s
+     BiRDReactorProcess: BiRD owns transport physics; v2ecoli owns biomass
+     (BiRD's internal Monod ODE disabled). THE keystone coupling.
+  4. mbp-04-multigeneration-runs     — sustained coupled run (≥ 3
+     v2ecoli generations); mass-balance audit; regime transition into
+     substrate-limited growth.
+  5. mbp-05-palsson-benchmark        — quantitative validation against
+     Palsson 2025 (batch-phase scope until fed-batch enhancement lands).
 
 # Studies in this investigation, in suggested execution order.
-# The DAG is computed from each study's `parent_studies:` field at render time;
-# this list determines visibility / grouping only.
+# The DAG is computed from each study's `pipeline_gate.prerequisites`
+# field at render time; this list determines visibility / grouping only.
 studies:
-  - mbp-01-batch-reactor-scaffold
-  - mbp-02-kla-gas-transport
-  - mbp-03-dfba-substitution
-  - mbp-04-fed-batch-operations
+  - mbp-01-time-varying-environment
+  - mbp-02-population-aggregation
+  - mbp-03-bird-reactor-coupling
+  - mbp-04-multigeneration-runs
   - mbp-05-palsson-benchmark
 
-# Inputs (expert docs, datasets) supporting this investigation.
-# Source plan: vivarium-collective/multiscale-bioprocess docs/roadmap.md +
-# docs/concepts/ (chris/initial-scaffolding branch). Palsson 2025 PDF lands in
-# the sibling repo's refs/palsson-2025/ during mbp-05.
+# Expert docs supporting the investigation. Each name must match a
+# `workspace.yaml.expert_docs[].name` entry. Both currently point at
+# placeholder pages — fill in as the work progresses.
 expert_docs:
   - multiscale_bioprocess_roadmap
   - palsson_2025_fed_batch
 
-# Top-level success criteria. Each maps to a behavioral test in a constituent
-# study; the investigation is "complete" when all its acceptance criteria pass.
+# Top-level success criteria. Each maps to a behavioral test in a
+# constituent study; the investigation is "complete" when all pass.
 acceptance_criteria:
-  - {study: mbp-01-batch-reactor-scaffold, behavior: reactor-carbon-mass-balance-closes}
-  - {study: mbp-01-batch-reactor-scaffold, behavior: final-biomass-matches-yield-on-glucose}
-  - {study: mbp-02-kla-gas-transport,      behavior: no-consumption-do-converges-to-henry-saturation}
-  - {study: mbp-02-kla-gas-transport,      behavior: higher-kla-raises-steady-state-do}
-  - {study: mbp-03-dfba-substitution,      behavior: aerobic-glucose-mu-max-in-literature-range}
-  - {study: mbp-03-dfba-substitution,      behavior: low-do-induces-acetate-overflow}
-  - {study: mbp-04-fed-batch-operations,   behavior: exponential-feed-yields-exponential-biomass}
-  - {study: mbp-05-palsson-benchmark,      behavior: end-of-run-od-matches-published}
-  - {study: mbp-05-palsson-benchmark,      behavior: acetate-profile-matches-published-shape}
+  - {study: mbp-01-time-varying-environment, behavior: uptake-flux-tracks-external-glucose}
+  - {study: mbp-01-time-varying-environment, behavior: cumulative-mass-balance-closes}
+  - {study: mbp-02-population-aggregation,   behavior: cell-count-doubles-per-generation}
+  - {study: mbp-02-population-aggregation,   behavior: per-cell-observables-unchanged-vs-baseline}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: one-generation-completes-without-divergence}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: cells-drop-do-below-saturation}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: higher-kla-raises-steady-state-do}
+  - {study: mbp-04-multigeneration-runs,     behavior: population-grows-then-flattens-at-substrate-limit}
+  - {study: mbp-04-multigeneration-runs,     behavior: carbon-mass-balance-closes-over-3-generations}
+  - {study: mbp-05-palsson-benchmark,        behavior: end-of-run-od-matches-published}
+  - {study: mbp-05-palsson-benchmark,        behavior: acetate-profile-matches-published-shape}

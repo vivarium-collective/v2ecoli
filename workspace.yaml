@@ -7,5 +7,20 @@ observables: []
 visualizations: []
 simulations: []
 datasets: []
+expert_docs:
+  - name: multiscale_bioprocess_roadmap
+    title: Multiscale bioprocess upstream roadmap
+    path: references/expert/multiscale_bioprocess_roadmap.md
+    description: |
+      Pointer to the upstream vivarium-collective/multiscale-bioprocess
+      roadmap (chris/initial-scaffolding) that inspired (but is diverged
+      from by) the v2ecoli-workspace multiscale-bioprocess investigation.
+  - name: palsson_2025_fed_batch
+    title: Palsson 2025 — high-density fed-batch E. coli (PLACEHOLDER)
+    path: references/expert/palsson_2025_fed_batch.md
+    description: |
+      Placeholder for the 2025 Palsson lab high-density fed-batch E. coli
+      study targeted as the mbp-05 quantitative benchmark. Exact citation
+      TBD; bib stub at references/papers.bib `@Palsson2025FedBatch`.
 server:
   enabled: true

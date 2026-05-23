@@ -476,21 +476,14 @@ def _plot_chromosome_timeline(snapshots, title='', annotate_events: bool = True)
     if title:
         fig.suptitle(title, fontsize=14, y=0.99)
 
-    R = 0.9
     for i, idx in enumerate(indices):
         ax = fig.add_subplot(2, n_maps, i + 1)
         snap = snapshots[idx]
-        _draw_chromosome(
-            ax, 0, 0, R,
-            snap.get('rnap_coords') or [],
-            snap.get('fork_coords') or [],
-            rnap_domains=snap.get('rnap_domains'),
-            fork_domains=snap.get('fork_domains'),
-            domain_children=snap.get('domain_children'),
-        )
-        ax.set_xlim(-1.3, 1.3)
-        ax.set_ylim(-1.3, 1.3)
-        ax.set_aspect('equal')
+        # Route through _plot_chromosome_map so n_chromosomes > 1 stacks
+        # SEPARATE chromosome circles (each with its own bubble), rather
+        # than nesting both bubbles inside one rim — the post-division /
+        # multifork case is otherwise visually wrong.
+        _plot_chromosome_map(snap, ax)
         ax.axis('off')
         n_chrom = int(snap.get('n_chromosomes') or 1)
         n_fork = len(snap.get('fork_coords') or [])

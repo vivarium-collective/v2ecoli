@@ -5,6 +5,15 @@ plugin_version: 0.6.1
 package_path: v2ecoli
 references_bib: references/papers.bib
 
+# ─── RUNTIME ──────────────────────────────────────────────────────────
+# Workspace-level defaults for the dashboard run path. v2ecoli prefers
+# XArrayEmitter (multi-generation native; zarr partitioned by
+# experiment_id/variant/lineage_seed/generation) over the
+# single-generation SQLiteEmitter that the dashboard ships as default.
+runtime:
+  default_emitter: xarray   # 'xarray' | 'sqlite'
+  max_generations: 3        # multi-gen cap (xarray runs only)
+
 # ─── DEFAULT BASELINE ─────────────────────────────────────────────────
 # A workspace-wide "before any study runs" snapshot. The dashboard and
 # downloaded pre-simulation reports use this to pre-fill visualizations

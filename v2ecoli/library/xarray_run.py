@@ -27,8 +27,21 @@ from typing import Any, Callable
 from v2ecoli.library.xarray_emitter import XArrayEmitter
 
 
+#: v2ecoli observables known to be vectors/arrays — auto-view skips them.
+#: Vectors need an explicit view config with a declared shape; the auto-view
+#: only handles scalar leaves for v0.
+_KNOWN_VECTOR_LEAVES: set[str] = {
+    "monomer_counts",
+    "mRna_counts",
+    "fork_coordinates",
+    "RNAP_coordinates",
+    "ribosome_coordinates",
+}
+
+
 def view_from_emit_paths(
     emit_paths: list[str], *, default_dtype: str = "<f8",
+    skip_leaves: set[str] | None = None,
 ) -> list[dict]:
     """Build a v2ecoli-shaped XArray view config from a flat list of dotted emit paths.
 
@@ -42,13 +55,19 @@ def view_from_emit_paths(
     Default dtype is ``<f8`` (float64); pass an explicit ``dtype_overrides``
     map at the call site if int dtypes are needed for specific leaves.
     """
+    skip = (skip_leaves if skip_leaves is not None else _KNOWN_VECTOR_LEAVES)
     variables: dict = {}
     for p in emit_paths:
-        parts = p.split(".")
+        # Accept dotted or slash-separated paths; strip optional agents/<id>/ prefix.
+        parts = [x for x in p.replace(".", "/").split("/") if x]
+        if parts and parts[0] == "agents" and len(parts) >= 3:
+            parts = parts[2:]
         if len(parts) < 2 or parts[0] != "listeners":
             continue
         rest = parts[1:]
         leaf_name = rest[-1]
+        if leaf_name in skip:
+            continue
         cursor = variables
         for k in rest[:-1]:
             cursor = cursor.setdefault(k, {})

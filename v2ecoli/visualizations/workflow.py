@@ -293,7 +293,7 @@ def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords,
         angles = [_coord_to_angle(c) for c in rnap_coords]
         rx = [cx + R * np.cos(a) for a in angles]
         ry = [cy + R * np.sin(a) for a in angles]
-        ax.scatter(rx, ry, c='#3b82f6', s=3, alpha=0.3, zorder=3)
+        ax.scatter(rx, ry, c='#3b82f6', s=6, alpha=0.55, zorder=3)
 
     # Bubble RNAPs: descendant-domain RNAPs ALSO plotted at the bubble
     # radius to show the second daughter strand carries its own RNAPs.

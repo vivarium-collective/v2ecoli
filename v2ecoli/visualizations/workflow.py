@@ -284,29 +284,26 @@ def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords,
         for c, d in zip(rnap_coords, rnap_domains):
             rnap_by_domain.setdefault(int(d), []).append(int(c))
 
-    daughter_doms: set[int] = set()
+    # Rim RNAPs: ALL of them, regardless of domain. The parent rim
+    # represents one of the daughter chromosomes (or the parent before
+    # initiation); after a region is replicated, that physical location
+    # still carries RNAPs from one of the two daughter strands. The
+    # bubble below represents the OTHER daughter strand.
+    if rnap_coords:
+        angles = [_coord_to_angle(c) for c in rnap_coords]
+        rx = [cx + R * np.cos(a) for a in angles]
+        ry = [cy + R * np.sin(a) for a in angles]
+        ax.scatter(rx, ry, c='#3b82f6', s=3, alpha=0.3, zorder=3)
+
+    # Bubble RNAPs: descendant-domain RNAPs ALSO plotted at the bubble
+    # radius to show the second daughter strand carries its own RNAPs.
     if fork_coords:
-        _, daughter_doms = _draw_replication_bubbles(
+        _draw_replication_bubbles(
             ax, cx, cy, R, fork_coords,
             fork_domains=fork_domains,
             rnap_coords_by_domain=rnap_by_domain,
             domain_children=domain_children,
         )
-
-    # Parent-rim RNAPs = everything not already plotted on a bubble.
-    if rnap_coords:
-        if rnap_by_domain:
-            rim_coords = [
-                c for d, coords in rnap_by_domain.items()
-                for c in coords if d not in daughter_doms
-            ]
-        else:
-            rim_coords = list(rnap_coords)
-        if rim_coords:
-            angles = [_coord_to_angle(c) for c in rim_coords]
-            rx = [cx + R * np.cos(a) for a in angles]
-            ry = [cy + R * np.sin(a) for a in angles]
-            ax.scatter(rx, ry, c='#3b82f6', s=3, alpha=0.3, zorder=3)
 
     for coord in fork_coords:
         angle = _coord_to_angle(coord)

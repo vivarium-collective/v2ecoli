@@ -2449,13 +2449,14 @@ wheels = [
 [[package]]
 name = "pbg-superpowers"
 version = "0.9.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#c8bb0e29e485978630dcf7bf5034c1825ab50786" }
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#1d028c4d3c114a6561900f5aa53017b185742939" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
     { name = "jinja2" },
     { name = "jsonschema", extra = ["format-nongpl"] },
     { name = "process-bigraph" },
+    { name = "pypdf" },
     { name = "pyyaml" },
 ]
 
@@ -2898,6 +2899,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f3/91/9c6ee907786a473bf81c5f53cf703ba0957b23ab84c264080fb5a450416f/pyparsing-3.3.2.tar.gz", hash = "sha256:c777f4d763f140633dcb6d8a3eda953bf7a214dc4eff598413c070bcdc117cbc", size = 6851574, upload-time = "2026-01-21T03:57:59.36Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/10/bd/c038d7cc38edc1aa5bf91ab8068b63d4308c66c4c8bb3cbba7dfbc049f9c/pyparsing-3.3.2-py3-none-any.whl", hash = "sha256:850ba148bd908d7e2411587e247a1e4f0327839c40e2e5e6d05a007ecc69911d", size = 122781, upload-time = "2026-01-21T03:57:55.912Z" },
+]
+
+[[package]]
+name = "pypdf"
+version = "6.11.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bf/58/6dd97d78a4b17a7a6b9d1c6ad23895abc41f0fdc49c553cc05bdfdcc36d0/pypdf-6.11.0.tar.gz", hash = "sha256:062b51c81b0910e6d2755e99e1c5547a0a23b7d0a32322af66240d8edcfabe87", size = 6453975, upload-time = "2026-05-09T13:26:48.955Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/b1/68feb7eb3b99f0c020b414234825f4a5d70e0126c18d933770e8c93a35fc/pypdf-6.11.0-py3-none-any.whl", hash = "sha256:769394d5756d5b304c9b6bef88b54b1816b328e7e6fc9254e625529a15ed4ab8", size = 338819, upload-time = "2026-05-09T13:26:46.904Z" },
 ]
 
 [[package]]
@@ -3830,6 +3840,7 @@ dependencies = [
     { name = "unum" },
     { name = "vecoli", extra = ["dev"] },
     { name = "viva-munk" },
+    { name = "vivarium-dashboard" },
 ]
 
 [package.optional-dependencies]
@@ -3885,6 +3896,7 @@ requires-dist = [
     { name = "v2ecoli", extras = ["parquet", "xarray"], marker = "extra == 'emitters'" },
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
+    { name = "vivarium-dashboard", git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main" },
     { name = "xarray", marker = "extra == 'xarray'", specifier = ">=2026.4" },
     { name = "zarr", marker = "extra == 'xarray'", specifier = "~=3.1.6" },
     { name = "zarrs", marker = "extra == 'xarray'", specifier = ">=0.2" },
@@ -3999,6 +4011,21 @@ dependencies = [
     { name = "setuptools" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca3036152fe5df56860a57e70f3e68ac0198dbd7df60fcb/vivarium-core-1.6.5.tar.gz", hash = "sha256:1d83faa60005304b548f623447ab8675a06bb7ed8f6b7c0bd25b4aaa3381fccb", size = 136102, upload-time = "2024-12-03T21:49:29.797Z" }
+
+[[package]]
+name = "vivarium-dashboard"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#7c06cb2650ac02352f0295f869a9e1521432bff6" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "jinja2" },
+    { name = "jsonschema", extra = ["format-nongpl"] },
+    { name = "numpy" },
+    { name = "pbg-superpowers" },
+    { name = "process-bigraph" },
+    { name = "pypdf" },
+    { name = "pyyaml" },
+]
 
 [[package]]
 name = "vl-convert-python"

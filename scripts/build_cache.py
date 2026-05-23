@@ -38,7 +38,9 @@ DEFAULT_FIXTURE = "models/parca/parca_state.pkl.gz"
 DEFAULT_CACHE_DIR = "out/cache"
 
 
-def build_cache(fixture: str, cache_dir: str) -> None:
+def build_cache(fixture: str, cache_dir: str,
+                media_condition: str | None = None,
+                fixed_media: str | None = None) -> None:
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(repo_root)
 
@@ -52,9 +54,18 @@ def build_cache(fixture: str, cache_dir: str) -> None:
     sim_data = hydrate_sim_data_from_state(state)
     print(f"    hydrated in {time.time()-t1:.1f}s")
 
+    if media_condition is not None:
+        avail = dict(getattr(sim_data, "condition_to_doubling_time", {}) or {})
+        if media_condition not in avail:
+            raise SystemExit(f"unknown media_condition {media_condition!r}; "
+                             f"known: {sorted(avail)}")
+        print(f"    nutrient condition {media_condition!r} "
+              f"(doubling {avail[media_condition]}), media {fixed_media!r}")
+
     t2 = time.time()
     print(f"[{time.strftime('%H:%M:%S')}] Building bundle at {cache_dir} ...")
-    save_sim_input(sim_data, cache_dir)
+    save_sim_input(sim_data, cache_dir,
+                   condition=media_condition, fixed_media=fixed_media)
 
     version = write_cache_version(cache_dir, repo_root=repo_root)
     print(f"    bundle built in {time.time()-t2:.1f}s")
@@ -74,8 +85,14 @@ def main() -> None:
                         help=f"ParCa fixture pickle (default: {DEFAULT_FIXTURE})")
     parser.add_argument("--cache", default=DEFAULT_CACHE_DIR, dest="cache_dir",
                         help=f"output bundle dir (default: {DEFAULT_CACHE_DIR})")
+    parser.add_argument("--media-condition", default=None,
+                        help="ParCa nutrient condition for the initial state / "
+                             "doubling time (e.g. acetate; default basal)")
+    parser.add_argument("--fixed-media", default=None,
+                        help="media id pinned for the run (e.g. minimal_acetate)")
     args = parser.parse_args()
-    build_cache(args.fixture, args.cache_dir)
+    build_cache(args.fixture, args.cache_dir,
+                media_condition=args.media_condition, fixed_media=args.fixed_media)
 
 
 if __name__ == "__main__":

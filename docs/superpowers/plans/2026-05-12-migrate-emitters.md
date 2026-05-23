@@ -1,5 +1,10 @@
 # Migrate ParquetEmitter and XArrayEmitter Implementation Plan
 
+> **STATUS (updated 2026-05-22):** The migration **code has landed** (commit `4f7a4ff` / "feat(emitters): migrate ParquetEmitter and XArrayEmitter from vEcoli (#36)"). The per-task checkboxes below were never ticked, so they read as 0/57 — that is **stale**, not accurate. Actual state:
+> - **Tasks 1–6 (vendor + classes + presets + tests): DONE.** `ParquetEmitter` is in `v2ecoli/library/parquet_emitter.py`; `XArrayEmitter` (+ `_base`, `transducer`, `view`, `writer`, `zarr_writer`, `storage`, `emit_path`, `emit_predicate`, `utils`) is in `v2ecoli/library/xarray_emitter/`; `emitter_presets.py` has `parquet_vecoli`/`xarray_vecoli`. Tests `test_xarray_emitter` (8/8), `test_emitter_presets`, `test_emitter_vecoli_parity` exist.
+> - **`[xarray]` extra INSTALLED (2026-05-22):** `xarray 2026.4.0`, `zarr 3.1.6`, `zarrs 0.2.3` are now in the workspace venv; `import v2ecoli.library.xarray_emitter` works and the test suite passes. (Previously import-gated off → the `module not found during dynamic import` log line.)
+> - **NOT DONE — run-path wiring:** the dashboard run path still injects `SQLiteEmitter` (`composite_runs.inject_sqlite_emitter`/`inject_emitter_for_declared_paths`). To route runs through `XArrayEmitter` we still need: (a) a v2ecoli transducer/view config that maps the composite state — incl. the multi-agent/colony `agents/*` dimension — to xarray variables; (b) an `inject_xarray_emitter` in the run path with a per-run zarr `out_uri`; (c) a read path off the zarr store for the report/viz (today `comparative_viz`/`study_charts` query SQLite). This is the work that would let multi-generation **colony emit** use XArray instead of hand-rolled per-path SQLite.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Vendor vEcoli's `ParquetEmitter` and PR #414's `XArrayEmitter` into `v2ecoli/library/` as generic `process_bigraph.emitter.Emitter` subclasses, plus an `emitter_presets.py` module whose `parquet_vecoli(...)` / `xarray_vecoli(...)` config builders reproduce exact vEcoli behavior.
@@ -2116,3 +2121,47 @@ No `TBD`, `TODO`, `implement later`, "appropriate error handling", or "similar t
 - **Each task ends in a commit** — that's the rollback boundary. If a task's tests can't be made green, surface the issue and stop rather than committing broken code or skipping checks.
 - **Task 5 Step 7 (vivarium imports in sub-modules)**: if a sub-module references `Engine` or `Store` in active code paths (not just in `reset_emit_flags`-style methods we're removing), surface the situation to the user — don't guess at a replacement.
 - **Task 8 Step 4 (golden generator)**: if the transducer config schema doesn't match `{"buffer_size": 4}`, read `transducer.py` to find the real schema and adjust both `regenerate.py` and the parity test in lockstep.
+
+---
+
+## Task 7: Wire XArrayEmitter into the v2ecoli run path (ADDED 2026-05-22)
+
+> Traced end-to-end this session. Goal: route multi-generation (colony) runs through `XArrayEmitter` so daughter lineages (`agents/00,01,...`) are captured natively, instead of the per-path `SQLiteEmitter` that only sees `agents/0`.
+
+**What's confirmed/in place**
+- `XArrayEmitter` imports + 8/8 tests pass; `[xarray]` extra installed.
+- Config shape (from `minimal_xarray_config`): `{out_uri, transducer:{predicate,buffer}, view:[{root,(tuple) variables:{name:[{path,dtype}]}}], writer:{backend:"zarr",store,backend_config:{format:3}}, metadata, metadata_keys, metadata_validators}`.
+- Agent dimension is **first-class**: `EmitPathType.agent` (`emit_path.py`) — a `view` whose `root` starts with `("agents",)` iterates agents (the colony forest). `TreeView` asserts `not root.type.is_agent`, so the agent iteration is handled one layer up (ForestView/the agent-rooted view).
+- Lifecycle: `__init__` builds `XarrayTransducer` + `AsyncBufferWriter`; `update(state)` → `transducer.step(state)` per tick; `close(success)` flushes. **`open_store` only fires when `metadata` is non-empty** — so the per-composite variable schema is required to actually write.
+
+**Remaining steps**
+- [ ] **7.1 Per-composite variable schema (the substantial piece).** For the dnaa composites, define the `view` (agent-rooted) + `metadata` (variable shapes/coords) for: `listeners.replication_data.number_of_oric` (scalar/int), `listeners.dnaA_cycle.atp_fraction` (scalar/float), `listeners.monomer_counts[3861]` (DnaA, int), and the chromosome arrays (`fork_coordinates`). This is what lets the zarr store allocate. Model on `emitter_presets.xarray_vecoli(...)`.
+- [ ] **7.2 `inject_xarray_emitter(state, *, run_id, out_uri, view, metadata)`** in `composite_runs.py`, mirroring `inject_sqlite_emitter` — append an `XArrayEmitter` step; wire `inputs` (incl. `global_time`) so it re-fires every tick (same Step-retrigger gotcha as the SQLite emitter).
+- [ ] **7.3 Run-path switch.** Add an emitter choice (sqlite|xarray) to the run trigger; for multi-generation runs use xarray.
+- [ ] **7.4 Multi-generation loop.** Extend `run_with_division` to continue past division (colony continuation is validated); XArray captures all lineages over time.
+- [ ] **7.5 Zarr read path for viz.** `comparative_viz`/`study_charts` read SQLite today; add an xarray/zarr reader so a multi-generation oriC/DnaA figure (sawtooth across divisions, per lineage) can render from the zarr store.
+
+### Task 7.1 — VALIDATED 2026-05-22 (single-cell write works)
+
+A v2ecoli dnaA `XArrayEmitter` config now **writes a readable zarr store**. Validated end-to-end (see `docs/superpowers/notes/xarray_dnaa_emit_validated.py`):
+- Captured `number_of_oric = [2,2,2,2,4,4]` (oriC 2→4 initiation), `atp_fraction`, `time`.
+- Store auto-partitions by `experiment_id/variant/lineage_seed/generation` — **the multi-generation/lineage dimension is built into the layout**, so #7.4 falls out of the partition rather than needing hand-rolled colony emit.
+
+**KEY CONFIG FINDINGS (the non-obvious parts):**
+- The `view.variables` dict must **mirror the state nesting** — the dict KEYS form the input path (via `dict_to_paths`), and the leaf `"path"` is the OUTPUT (DataTree) name. e.g. `{"replication_data": {"number_of_oric": [{"path": "number_of_oric", "dtype": "<i4"}]}}` maps state `agents/<id>/listeners/replication_data/number_of_oric`. (A flat `"path": "replication_data/number_of_oric"` does NOT work — `Unexpected emit path`.)
+- `metadata` MUST be non-empty (needs `experiment_id`, `agent_id`, `time_step`, `max_duration`, `variant`, `lineage_seed`) — that's what triggers `open_store` + allocates the partition. Empty metadata constructs but never writes.
+- State must be agent-wrapped: `{"time": t, "agents": {"<id>": {"listeners": {...}}}}`.
+- Read with `xarray.open_datatree(store, engine="zarr")` (NOT `open_zarr` — the store is hierarchical/partitioned).
+
+**NEXT BLOCKER for 7.4 (colony/multi-gen):** the transducer is pinned to a single `agent_id` (from `metadata.agent_id`); at division it can't follow daughters `00/01` (`Unexpected emit path: ()` because `get_in(data, ("agents","0"))` is None). Multi-gen needs the multi-agent/ForestView path that iterates all agents per tick instead of one pinned id — that's the remaining work for true colony emit.
+
+### Task 7.4 — VALIDATED 2026-05-22 (emitter-per-generation multi-gen write)
+
+Multi-gen works via **emitter-swap at division** rather than a single multi-agent emitter. Validated artifact: `docs/superpowers/notes/2026-05-22-xarray-multigen-emit-validated.py`. Result: `dnaa_00_baseline_with_dnaa_readout`, seed=0, 9000 sim steps → two divisions (t=2621s, t=3203s) → the zarr store at `/tmp/dnaa_multigen.zarr` accumulates `number_of_oric` for **generation=1 AND generation=2** in `/experiment_id=dnaa-mg/variant=0/lineage_seed=0/number_of_oric` — partitioned by `(experiment_id, variant, lineage_seed, generation)` natively.
+
+**Three non-obvious lessons (must be baked into `inject_xarray_emitter`):**
+1. **Buffer must flush before close.** `flush` asserts `not include_static` on the final write; `include_static` is True only at `generation==1 AND num_writes==0`. So if the gen-1 emitter never had a non-final flush (e.g. predicate gated emits to zero, or buffer size > number of emits), close fails with `AssertionError`. Use `subsample(interval=1)` + small `buffer.size` (e.g. 4) so flushes happen.
+2. **Input shape must EXACTLY match the view subtree.** The transducer walks the agent's subtree and rejects siblings (`bulk`, `listeners.atp`, etc.) with `Unexpected emit path`. Pre-filter input to `{"agents": {<id>: {<view-root>: {<view leaves only>}}}}`.
+3. **vEcoli daughters can be renamed, not hierarchically extended** — division of `00` produced daughters `00`, `01`, not `000`, `001`. So `followed in agents` keeps being True across some divisions; the "swap at agent-id-disappearance" rule misses these events. Detect division by a content signal (chromosome-count reset, division event from the composite), not agent_id presence.
+
+The emitter-per-generation pattern (one `XArrayEmitter` instance per generation, all writing to the same zarr store) is the validated multi-gen design. `XarrayStoragePartition` is documented as "for a single generation" — this matches: the multi-agent multi-gen layout falls out of multiple emitters writing different generation partitions to the shared store.

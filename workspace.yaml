@@ -11,7 +11,7 @@ references_bib: references/papers.bib
 # experiment_id/variant/lineage_seed/generation) over the
 # single-generation SQLiteEmitter that the dashboard ships as default.
 runtime:
-  default_emitter: xarray   # 'xarray' | 'sqlite'
+  default_emitter: sqlite   # 'xarray' | 'sqlite' — keep on sqlite until task 7.5 (zarr-read viz) lands; xarray works but report charts still query sqlite
   max_generations: 3        # multi-gen cap (xarray runs only)
 
 # ─── DEFAULT BASELINE ─────────────────────────────────────────────────

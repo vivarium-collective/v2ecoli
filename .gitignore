@@ -13,9 +13,14 @@ out/
 build/
 v2ecoli/processes/parca/**/*.cpython-*.so
 
-# Worktree-local runtime (server, venv symlinks, logs, scheduled-task locks)
+# Worktree-local runtime (server, venv symlinks, logs, scheduled-task locks,
+# per-run dashboard artefacts). Schemas under .pbg/schemas/ stay tracked.
 .venv
-.pbg/serve.log
-.pbg/server/
-.pbg/dashboard/
-.pbg/composite-runs.db*
+.pbg/*
+!.pbg/schemas/
+investigations/*/runs.db
+investigations/*/viz/
+investigations/*/.run.lock
+# Dashboard re-render targets (regenerated on demand by /api/render)
+reports/assets/*
+!reports/assets/.keep

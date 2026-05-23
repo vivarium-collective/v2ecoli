@@ -217,16 +217,20 @@ claims:
   oxidizeme-engine-available:
     statement: |
       OxidizeME (Yang et al. 2019 PNAS), the ME-model used in Beulig 2025,
-      is wrapped as a process-bigraph Step at the sibling repo
-      `~/code/pbg-oxidizeme`. The Step satisfies the cell-side interface
-      contract (inputs: environment.external_concentrations, ros/metal
-      concentrations, mu_fixed; outputs: mu, exchange fluxes, proteome
-      allocations, damaged-proteome fraction). The real-solver path is
-      environment-blocked by the upstream Python 2.7 / qMINOS stack; a
-      labelled non-strict scaffolding path lets the wrapper be wired into
-      a composite without the solver.
+      is wrapped as a process-bigraph Step at the published sibling repo
+      vivarium-collective/pbg-oxidizeme (live demo:
+      https://vivarium-collective.github.io/pbg-oxidizeme/). The Step
+      satisfies the cell-side interface contract (inputs:
+      environment.external_concentrations, ros/metal concentrations,
+      mu_fixed; outputs: mu, exchange fluxes, proteome allocations,
+      damaged-proteome fraction). As of 2026-05-22 the wrapper is installed
+      in this workspace's venv and registered in workspace.yaml.imports;
+      `OxidizeMEStep` is auto-discovered via `allocate_core()`. The
+      real-solver path is environment-blocked by the upstream Python 2.7 /
+      qMINOS stack; non-strict mode lets the wrapper be wired into a
+      composite without the solver.
     regime: 'v2ecoli investigation 2026-05-22 onwards'
-    strength: preliminary
+    strength: paper
     sources: [Beulig2025mSystems]
     cited_by:
       - mbp-06-gap-analysis

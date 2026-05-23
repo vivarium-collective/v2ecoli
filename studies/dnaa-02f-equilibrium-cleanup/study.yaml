@@ -2,69 +2,51 @@ schema_version: 4
 name: dnaa-02f-equilibrium-cleanup
 created: '2026-05-17'
 report:
-  title: "DnaA nucleotide-cycle equilibrium cleanup"
+  title: DnaA nucleotide-cycle equilibrium cleanup
   verdict: passing
   confidence: high
   evidence_quality: calibrated
-  objective: >-
-    Find a real-biology alternative to dnaa-02's monkey-patch that gives a
-    defensible DnaA-ATP-fraction baseline without inventing molecules or mutating
-    stoichiometry.
-  conclusion: >-
-    Variant E (RIDA-v0 fork-active 100x hydrolysis + ATP-fraction clamp) passes
-    the band at 0.5 with the equilibrium reaction intact, and replaces the
-    monkey-patch as the canonical dnaa-02 recipe.
-  main_insight: >-
-    The original dnaa-02 pass came from the clamp, not the biology; variant E adds
-    enough fork-active ATP-to-ADP flux for the clamp's transfers to stick with no
-    stoichMatrix mutation.
-  caveat: >-
-    Variant E still relies on a clamp stand-in plus a RIDA-v0 multiplier;
-    production RIDA (explicit Hda / beta-clamp kinetics) is deferred to
-    dnaa-05/06.
+  objective: Find a real-biology alternative to dnaa-02's monkey-patch that gives a defensible DnaA-ATP-fraction
+    baseline without inventing molecules or mutating stoichiometry.
+  conclusion: Variant E (RIDA-v0 fork-active 100x hydrolysis + ATP-fraction clamp) passes the band at
+    0.5 with the equilibrium reaction intact, and replaces the monkey-patch as the canonical dnaa-02 recipe.
+  main_insight: The original dnaa-02 pass came from the clamp, not the biology; variant E adds enough
+    fork-active ATP-to-ADP flux for the clamp's transfers to stick with no stoichMatrix mutation.
+  caveat: Variant E still relies on a clamp stand-in plus a RIDA-v0 multiplier; production RIDA (explicit
+    Hda / beta-clamp kinetics) is deferred to dnaa-05/06.
   key_metrics:
-  - {label: "atp_fraction (variant E)", value: 0.5, status: pass}
-  - "band [0.2, 0.5]"
-  - "CV <1% (seeds 0/1/2)"
-  - {label: "stoichMatrix mutation", value: "none", status: pass}
-  purpose: >-
-    dnaa-02 passes its DnaA-ATP fraction band test only via an invasive
-    monkey-patch that zeroes MONOMER0-4565_RXN's stoichMatrix column. This study
-    asks which real-biology alternative produces a defensible DnaA
-    nucleotide-cycle baseline for dnaa-03/04 to inherit, without inventing
-    molecules or mutating the live equilibrium Step.
-  setup: >-
-    Minimal-glucose. Three composite variants compared on the same test panel,
-    seeds 0/1/2 over 1800s: variant B (legacy monkey-patch control), variant B'
-    (recalibrated MONOMER0-4565_RXN reverse rate, scale 0.01), and variant E
-    (RIDA-v0 fork-active 100x hydrolysis multiplier plus ATP-fraction clamp,
-    equilibrium intact; baseline rida_rate_per_min=4.6).
-  result: >-
-    Current re-evaluation (coordinated generation gen-20260522T003700Z-9fcb58,
-    minimal-glucose): the ATP-fraction-band test PASSES at atp_fraction 0.5
-    (∈ [0.2, 0.5]). The original 2026-05-18 multi-seed analysis (below)
-    recorded variant E + clamp landing at ~0.496 across seeds 0/1/2 with CV
-    under 1% and total DnaA 113-114; variant B (control) at the low band edge
-    (0.208-0.270, CV ~16%, DnaA growth to 121-144); and variant B' failing
-    (intrinsic-only steady state stuck near 0.92 regardless of equilibrium
-    scaling). A rate sweep (50x-500x) showed atp_fraction is insensitive to
-    RIDA rate once the clamp dominates.
-  interpretation: >-
-    The original dnaa-02 PASS comes from the clamp, not the biology; the
-    intrinsic Sekimizu rate is too slow to compete with equilibrium recovery.
-    Variant E adds enough fork-active ATP-to-ADP flux for the clamp's transfers
-    to stick while keeping the equilibrium reaction intact, with no stoichMatrix
+  - label: atp_fraction (variant E)
+    value: 0.5
+    status: pass
+  - band [0.2, 0.5]
+  - CV <1% (seeds 0/1/2)
+  - label: stoichMatrix mutation
+    value: none
+    status: pass
+  purpose: dnaa-02 passes its DnaA-ATP fraction band test only via an invasive monkey-patch that zeroes
+    MONOMER0-4565_RXN's stoichMatrix column. This study asks which real-biology alternative produces a
+    defensible DnaA nucleotide-cycle baseline for dnaa-03/04 to inherit, without inventing molecules or
+    mutating the live equilibrium Step.
+  setup: 'Minimal-glucose. Three composite variants compared on the same test panel, seeds 0/1/2 over
+    1800s: variant B (legacy monkey-patch control), variant B'' (recalibrated MONOMER0-4565_RXN reverse
+    rate, scale 0.01), and variant E (RIDA-v0 fork-active 100x hydrolysis multiplier plus ATP-fraction
+    clamp, equilibrium intact; baseline rida_rate_per_min=4.6).'
+  result: 'Current re-evaluation (coordinated generation gen-20260522T003700Z-9fcb58, minimal-glucose):
+    the ATP-fraction-band test PASSES at atp_fraction 0.5 (∈ [0.2, 0.5]). The original 2026-05-18 multi-seed
+    analysis (below) recorded variant E + clamp landing at ~0.496 across seeds 0/1/2 with CV under 1%
+    and total DnaA 113-114; variant B (control) at the low band edge (0.208-0.270, CV ~16%, DnaA growth
+    to 121-144); and variant B'' failing (intrinsic-only steady state stuck near 0.92 regardless of equilibrium
+    scaling). A rate sweep (50x-500x) showed atp_fraction is insensitive to RIDA rate once the clamp dominates.'
+  interpretation: The original dnaa-02 PASS comes from the clamp, not the biology; the intrinsic Sekimizu
+    rate is too slow to compete with equilibrium recovery. Variant E adds enough fork-active ATP-to-ADP
+    flux for the clamp's transfers to stick while keeping the equilibrium reaction intact, with no stoichMatrix
     mutation or fictional species.
-  decision: >-
-    Variant E (RIDA-v0 + clamp at literature 100x rate) wins and replaces option
-    B as the canonical dnaa-02 recipe. Regression, biological-validation, and
-    explanatory-gain verdicts all positive; pipeline gate runs parallel with
-    dnaa-03, which rebinds to variant E.
-  next_action: >-
-    Retire the dnaa-02 monkey-patch by refactoring the recipe to variant E as
-    default; build the deferred downstream-isolation test comparing variant B vs
-    E side effects; and advance to dnaa-05 production RIDA (explicit Hda /
-    beta-clamp loading kinetics replacing the v0 multiplier).
+  decision: Variant E (RIDA-v0 + clamp at literature 100x rate) wins and replaces option B as the canonical
+    dnaa-02 recipe. Regression, biological-validation, and explanatory-gain verdicts all positive; pipeline
+    gate runs parallel with dnaa-03, which rebinds to variant E.
+  next_action: Retire the dnaa-02 monkey-patch by refactoring the recipe to variant E as default; build
+    the deferred downstream-isolation test comparing variant B vs E side effects; and advance to dnaa-05
+    production RIDA (explicit Hda / beta-clamp loading kinetics replacing the v0 multiplier).
 question: 'dnaa-02 currently passes its DnaA-ATP fraction band test, but it does
 
   so via an invasive monkey-patch (zeroing MONOMER0-4565_RXN''s
@@ -167,8 +149,8 @@ tests:
     low: 0.2
     high: 0.5
   status: pass
-  current_verdict: 'PASS — atp_fraction 0.5 (∈ [0.2, 0.5]) on re-evaluation against
-    coordinated generation gen-20260522T003700Z-9fcb58, minimal-glucose.'
+  current_verdict: PASS — atp_fraction 0.5 (∈ [0.2, 0.5]) on re-evaluation against coordinated generation
+    gen-20260522T003700Z-9fcb58, minimal-glucose.
   cites:
   - Boesen2024
   run_ids: []
@@ -188,8 +170,8 @@ tests:
     op: at_most
     value: 0.1
   status: verdict-refresh-pending
-  current_verdict: 'Verdict refresh pending (measure kind deviation_from_reference
-    not auto-evaluable by the scalar evaluator). Recorded analysis retained.'
+  current_verdict: Verdict refresh pending (measure kind deviation_from_reference not auto-evaluable by
+    the scalar evaluator). Recorded analysis retained.
   cites:
   - v2ecoli/dnaa-01
   run_ids: []
@@ -203,8 +185,8 @@ tests:
     op: equals
     value: baseline-stoichMatrix
   status: verdict-refresh-pending
-  current_verdict: 'Verdict refresh pending (measure kind equality_check not auto-evaluable
-    by the scalar evaluator). Recorded analysis retained.'
+  current_verdict: Verdict refresh pending (measure kind equality_check not auto-evaluable by the scalar
+    evaluator). Recorded analysis retained.
   cites: []
   run_ids: []
 - name: cross-seed-stability
@@ -219,8 +201,8 @@ tests:
     op: at_most
     value: 0.05
   status: verdict-refresh-pending
-  current_verdict: 'Verdict refresh pending (measure kind cv not auto-evaluable by
-    the scalar evaluator). Recorded analysis retained.'
+  current_verdict: Verdict refresh pending (measure kind cv not auto-evaluable by the scalar evaluator).
+    Recorded analysis retained.
   run_ids: []
 status: done-variant-E-wins
 last_run: '2026-05-18'
@@ -467,3 +449,14 @@ decision_inputs_to_dnaa_03:
     recipe; dnaa-03's recipe chains off of it.
   affects: dnaa-03 simulation_set baseline composite name; if variant E wins, dnaa-03 inherits the fork-active
     hydrolysis scaling, which may materially change DnaA-ATP dynamics once replication starts firing.
+readouts:
+- name: dnaa_atp_fraction
+  store_path: agents.0.listeners.dnaA_cycle.atp_fraction
+  units: fraction
+  status: available
+  description: DnaA-ATP / total — the equilibrium target in [0.2, 0.5].
+- name: dnaa_atp_bulk_count
+  store_path: agents.0.bulk[MONOMER0-160]
+  units: molecules/cell
+  status: available
+  description: DnaA-ATP bulk count (MONOMER0-160 = DnaA-ATP species).

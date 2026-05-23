@@ -416,6 +416,22 @@ model_change:
   modified_processes:
   - 'chromosome_structure: seed DnaA_boxes from data/dnaa_box_catalog.tsv at cell birth + on replication.'
 readouts:
+- name: dnaa_box_locations
+  store_path: agents.0.unique.DnaA_box.coordinates
+  units: bp (signed; oriC = 0)
+  status: available
+  classification: structural
+  description: >
+    Real chromosomal coordinates of all ~456 DnaA-box motif positions in
+    v2ecoli sim_data (sim_data.process.replication.motif_coordinates["DnaA_box"]
+    — sequence_motifs.tsv TTWTNCACA consensus matched against the genome).
+    Visualised in the dnaa_box_landscape figure. v1 of dnaa-03 acts on the
+    ~307 high-confidence consensus subset of these motif matches.
+- name: dnaa_box_bound_state
+  store_path: agents.0.unique.DnaA_box.DnaA_bound
+  units: bool per box
+  status: available
+  description: Per-box bound flag (parallel array to dnaa_box_locations).
 - name: chromosome_occupied_fraction
   store_path: agents.0.listeners.dnaA_binding.chromosome.occupied_fraction
   units: fraction

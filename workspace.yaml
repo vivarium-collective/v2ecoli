@@ -3,6 +3,16 @@ name: v2ecoli
 created: '2026-05-16'
 plugin_version: 0.6.1
 package_path: v2ecoli
+
+# ─── RUNTIME ──────────────────────────────────────────────────────────
+# Workspace-level defaults for the dashboard run path. Workspaces can
+# opt into XArrayEmitter (multi-generation native, zarr-partitioned)
+# via runtime.default_emitter. Default is sqlite (the dashboard's
+# historical single-generation behaviour). Flip to xarray when the
+# zarr-read viz adapter (task 7.5) lands.
+runtime:
+  default_emitter: sqlite   # 'xarray' | 'sqlite'
+  max_generations: 3        # multi-gen cap (xarray runs only)
 observables: []
 visualizations: []
 simulations: []

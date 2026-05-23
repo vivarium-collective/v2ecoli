@@ -49,31 +49,47 @@ def extract_snapshot(state: dict, t: float) -> dict | None:
 
     rep = unique.get("active_replisome")
     fork_coords: list[int] = []
+    fork_domains: list[int] = []
     if rep is not None and hasattr(rep, "dtype") and "_entryState" in rep.dtype.names:
         active_rep = rep[rep["_entryState"].view(np.bool_)]
         if len(active_rep) > 0 and "coordinates" in rep.dtype.names:
             fork_coords = [int(c) for c in active_rep["coordinates"]]
+            if "domain_index" in active_rep.dtype.names:
+                fork_domains = [int(d) for d in active_rep["domain_index"]]
 
     domains = unique.get("chromosome_domain")
     n_domains = 0
+    domain_children: dict[int, list[int]] = {}
     if domains is not None and hasattr(domains, "dtype") and "_entryState" in domains.dtype.names:
-        n_domains = int(domains["_entryState"].view(np.bool_).sum())
+        active_dom = domains[domains["_entryState"].view(np.bool_)]
+        n_domains = int(len(active_dom))
+        if {"domain_index", "child_domains"}.issubset(set(active_dom.dtype.names)):
+            for entry in active_dom:
+                kids = entry["child_domains"]
+                kids = [int(k) for k in kids if int(k) >= 0]
+                domain_children[int(entry["domain_index"])] = kids
 
     rnap = unique.get("active_RNAP")
     rnap_coords: list[int] = []
+    rnap_domains: list[int] = []
     n_rnap = 0
     if rnap is not None and hasattr(rnap, "dtype") and "_entryState" in rnap.dtype.names:
         active_rnap = rnap[rnap["_entryState"].view(np.bool_)]
         n_rnap = len(active_rnap)
         if n_rnap > 0 and "coordinates" in rnap.dtype.names:
             rnap_coords = [int(c) for c in active_rnap["coordinates"]]
+            if "domain_index" in active_rnap.dtype.names:
+                rnap_domains = [int(d) for d in active_rnap["domain_index"]]
 
     return {
         "time": float(t),
         "n_chromosomes": n_chrom,
         "n_domains": n_domains,
         "fork_coords": fork_coords,
+        "fork_domains": fork_domains,
         "rnap_coords": rnap_coords,
+        "rnap_domains": rnap_domains,
+        "domain_children": domain_children,
         "n_rnap": n_rnap,
         "dna_mass": float(mass.get("dna_mass", 0)),
         "dry_mass": float(mass.get("dry_mass", 0)),

@@ -172,27 +172,62 @@ def _bubble_inset_radii(R, n_pairs):
     return list(np.linspace(R * 0.80, R * 0.50, n_pairs))
 
 
-def _draw_replication_bubbles(ax, cx, cy, R, fork_coords):
+def _descendant_domains(domain_children, root):
+    """All transitive descendants of ``root`` (excluding root itself)."""
+    seen = set()
+    stack = list((domain_children or {}).get(root, []))
+    while stack:
+        d = stack.pop()
+        if d in seen:
+            continue
+        seen.add(d)
+        stack.extend((domain_children or {}).get(d, []))
+    return seen
+
+
+def _draw_replication_bubbles(ax, cx, cy, R, fork_coords, *,
+                              fork_domains=None,
+                              rnap_coords_by_domain=None,
+                              domain_children=None):
     """Draw nested replication bubbles inside the chromosome rim.
 
     Each fork pair → a green arc tracing the newly-replicated portion from
     one fork through oriC (at top, π/2) to the other fork. This is the
     newly-synthesized daughter strand still tethered to the parent
-    chromosome at both fork positions. Returns the inset radii used.
+    chromosome at both fork positions.
+
+    If ``fork_domains`` + ``rnap_coords_by_domain`` + ``domain_children`` are
+    provided, RNAPs whose domain_index descends from the fork-pair's parent
+    domain are plotted ON the bubble arc (they're transcribing the new
+    daughter strand). Returns ``(radii, daughter_rnap_domain_set)`` so the
+    caller can plot the remaining RNAPs on the rim.
     """
     import numpy as np
     pairs = _pair_forks(fork_coords)
     if not pairs:
-        return []
+        return [], set()
     radii = _bubble_inset_radii(R, len(pairs))
     bubble_color = '#10b981'
     a_oric = np.pi / 2
+    fork_domains = fork_domains or []
+    rnap_coords_by_domain = rnap_coords_by_domain or {}
+    domain_children = domain_children or {}
 
-    for (f_lo, f_hi), r_bubble in zip(pairs, radii):
+    # Map each fork pair → the parent domain that's being replicated.
+    fork_to_dom: dict[tuple[int, int], int | None] = {}
+    if len(fork_domains) == len(fork_coords):
+        for p in pairs:
+            for c, d in zip(fork_coords, fork_domains):
+                if int(c) == p[0] or int(c) == p[1]:
+                    fork_to_dom[p] = int(d)
+                    break
+
+    plotted_daughter_doms: set[int] = set()
+    for pair, r_bubble in zip(pairs, radii):
+        f_lo, f_hi = pair
         a_lo = _coord_to_angle(int(f_lo))
         a_hi = _coord_to_angle(int(f_hi))
         a_min, a_max = sorted([a_lo, a_hi])
-        # Pick the arc that passes through oriC (top of the disc).
         if a_min <= a_oric <= a_max:
             theta = np.linspace(a_min, a_max, 120)
         else:
@@ -201,19 +236,41 @@ def _draw_replication_bubbles(ax, cx, cy, R, fork_coords):
                 cy + r_bubble * np.sin(theta),
                 color=bubble_color, lw=3.5, alpha=0.6, zorder=2,
                 solid_capstyle='round')
-        # Faint radial connector from each fork (on the rim) back to its
-        # endpoint on the bubble — visually pairs forks to their bubble.
         for f in (f_lo, f_hi):
             a = _coord_to_angle(int(f))
             ax.plot([cx + r_bubble * np.cos(a), cx + R * np.cos(a)],
                     [cy + r_bubble * np.sin(a), cy + R * np.sin(a)],
                     color=bubble_color, lw=1.0, alpha=0.4, zorder=2)
-    return radii
+
+        # Plot daughter-strand RNAPs ON this bubble. Daughters = the
+        # transitive children of the parent domain replicating in this pair.
+        parent_dom = fork_to_dom.get(pair)
+        if parent_dom is None:
+            continue
+        daughter_doms = _descendant_domains(domain_children, parent_dom)
+        for d in daughter_doms:
+            coords = rnap_coords_by_domain.get(d, [])
+            if not coords:
+                continue
+            plotted_daughter_doms.add(d)
+            angles = [_coord_to_angle(c) for c in coords]
+            rx = [cx + r_bubble * np.cos(a) for a in angles]
+            ry = [cy + r_bubble * np.sin(a) for a in angles]
+            ax.scatter(rx, ry, c='#3b82f6', s=3, alpha=0.45, zorder=3)
+    return radii, plotted_daughter_doms
 
 
-def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
-    """Draw one circular chromosome at (cx, cy) with RNAPs, forks, and
-    replication bubbles (newly-synthesized daughter arcs)."""
+def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords,
+                     *, rnap_domains=None, fork_domains=None,
+                     domain_children=None):
+    """Draw one circular chromosome at (cx, cy).
+
+    Renders: parent rim (gray circle), oriC (green dot, top), Ter (red square,
+    bottom), forks (gold triangles at rim), replication bubbles (green arcs
+    inside the rim), and RNAPs (blue dots). When domain bookkeeping is passed
+    in, daughter-strand RNAPs are plotted on the bubble arcs and parent-strand
+    RNAPs on the rim; otherwise all RNAPs go on the rim.
+    """
     import numpy as np
     theta = np.linspace(0, 2 * np.pi, 200)
     ax.plot(cx + R * np.cos(theta), cy + R * np.sin(theta),
@@ -221,17 +278,35 @@ def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
     ax.plot(cx, cy + R, 'o', color='#10b981', ms=7, zorder=5)
     ax.plot(cx, cy - R, 's', color='#ef4444', ms=5, zorder=5)
 
-    if rnap_coords:
-        angles = [_coord_to_angle(c) for c in rnap_coords]
-        rx = [cx + R * np.cos(a) for a in angles]
-        ry = [cy + R * np.sin(a) for a in angles]
-        ax.scatter(rx, ry, c='#3b82f6', s=3, alpha=0.3, zorder=3)
+    # Group RNAPs by domain so the bubble drawer can pull daughter-strand ones.
+    rnap_by_domain: dict[int, list[int]] = {}
+    if rnap_coords and rnap_domains and len(rnap_coords) == len(rnap_domains):
+        for c, d in zip(rnap_coords, rnap_domains):
+            rnap_by_domain.setdefault(int(d), []).append(int(c))
 
-    # Newly-synthesized daughter arc(s) — drawn INSIDE the rim, between
-    # the two fork triangles. Communicates an incomplete second chromosome
-    # still tethered to the parent at the forks.
+    daughter_doms: set[int] = set()
     if fork_coords:
-        _draw_replication_bubbles(ax, cx, cy, R, fork_coords)
+        _, daughter_doms = _draw_replication_bubbles(
+            ax, cx, cy, R, fork_coords,
+            fork_domains=fork_domains,
+            rnap_coords_by_domain=rnap_by_domain,
+            domain_children=domain_children,
+        )
+
+    # Parent-rim RNAPs = everything not already plotted on a bubble.
+    if rnap_coords:
+        if rnap_by_domain:
+            rim_coords = [
+                c for d, coords in rnap_by_domain.items()
+                for c in coords if d not in daughter_doms
+            ]
+        else:
+            rim_coords = list(rnap_coords)
+        if rim_coords:
+            angles = [_coord_to_angle(c) for c in rim_coords]
+            rx = [cx + R * np.cos(a) for a in angles]
+            ry = [cy + R * np.sin(a) for a in angles]
+            ax.scatter(rx, ry, c='#3b82f6', s=3, alpha=0.3, zorder=3)
 
     for coord in fork_coords:
         angle = _coord_to_angle(coord)
@@ -246,14 +321,20 @@ def _plot_chromosome_map(snapshot, ax, title=''):
     import numpy as np
     n_chrom = max(1, snapshot.get('n_chromosomes', 1))
     rnap_coords = snapshot.get('rnap_coords', [])
+    rnap_domains = snapshot.get('rnap_domains') or []
     fork_coords = snapshot.get('fork_coords', [])
+    fork_domains = snapshot.get('fork_domains') or []
+    domain_children = snapshot.get('domain_children') or {}
 
     rnap_per = len(rnap_coords) // max(n_chrom, 1)
     forks_per = 2
 
     if n_chrom == 1:
         R = 0.9
-        _draw_chromosome(ax, 0, 0, R, rnap_coords, fork_coords)
+        _draw_chromosome(ax, 0, 0, R, rnap_coords, fork_coords,
+                         rnap_domains=rnap_domains,
+                         fork_domains=fork_domains,
+                         domain_children=domain_children)
         ax.set_xlim(-1.3, 1.3)
         ax.set_ylim(-1.3, 1.3)
     else:
@@ -268,9 +349,14 @@ def _plot_chromosome_map(snapshot, ax, title=''):
             f_start = ci * forks_per
             f_end = min(f_start + forks_per, len(fork_coords))
 
-            _draw_chromosome(ax, 0, cy, R,
-                             rnap_coords[r_start:r_end],
-                             fork_coords[f_start:f_end])
+            _draw_chromosome(
+                ax, 0, cy, R,
+                rnap_coords[r_start:r_end],
+                fork_coords[f_start:f_end],
+                rnap_domains=rnap_domains[r_start:r_end] if rnap_domains else None,
+                fork_domains=fork_domains[f_start:f_end] if fork_domains else None,
+                domain_children=domain_children,
+            )
 
         margin = R + 0.3
         ax.set_xlim(-margin, margin)

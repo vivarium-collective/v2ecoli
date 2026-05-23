@@ -6,6 +6,11 @@ package_path: v2ecoli
 references_bib: references/papers.bib
 server:
   enabled: true
+
+# Workspace-level run-path defaults — see worktree workspace.yaml header.
+runtime:
+  default_emitter: sqlite   # 'xarray' | 'sqlite' — flip to xarray when zarr-read viz (task 7.5) lands
+  max_generations: 3
 expert_docs:
 - name: replication_initiation_molecular_info
   path: references/expert/replication_initiation_molecular_info.pdf

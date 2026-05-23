@@ -2165,3 +2165,14 @@ Multi-gen works via **emitter-swap at division** rather than a single multi-agen
 3. **vEcoli daughters can be renamed, not hierarchically extended** — division of `00` produced daughters `00`, `01`, not `000`, `001`. So `followed in agents` keeps being True across some divisions; the "swap at agent-id-disappearance" rule misses these events. Detect division by a content signal (chromosome-count reset, division event from the composite), not agent_id presence.
 
 The emitter-per-generation pattern (one `XArrayEmitter` instance per generation, all writing to the same zarr store) is the validated multi-gen design. `XarrayStoragePartition` is documented as "for a single generation" — this matches: the multi-agent multi-gen layout falls out of multiple emitters writing different generation partitions to the shared store.
+
+### Task 7.2 — VALIDATED 2026-05-22 (`run_multigen_xarray` helper)
+
+The validated pattern is now wrapped as a reusable helper at `v2ecoli/library/xarray_run.py::run_multigen_xarray`. Takes a composite, a view config, metadata, and step/generation caps; handles view-filtering, safe buffer defaults, emitter-per-generation swap. Smoke-tested on `dnaa_00_baseline_with_dnaa_readout`, seed=0, 9000 steps: returns 2 generations with `number_of_oric` traces; gen-1 captures the 2→4 oriC initiation in its tail, gen-2 captures another initiation event after the swap.
+
+**Known limitation (documented at helper):** the default `division_detector` is agent-count growth (1→2 catches the first division). It misses divisions where vEcoli renames daughters back to the parent's id (gen-2 `00` divides into `00`/`01`; colony count stays 2). For full multi-gen-on-a-lineage, pass a custom `division_detector` keyed on a content signal (oriC reset 4→2, or a composite division event).
+
+### Remaining work for the run-path integration
+
+- **7.3 emitter-choice switch in the dashboard run trigger.** The dashboard's `inject_emitter_for_declared_paths` currently always wires `SQLiteEmitter`. Adding an emitter-choice flag (per-study or per-run) to call `run_multigen_xarray` instead routes runs through the zarr store. Implementation: a new branch in `composite_runs.py` that imports `run_multigen_xarray` and computes a zarr `out_uri` per run.
+- **7.5 zarr-read viz.** `comparative_viz.py` / `study_charts` query SQLite; need a parallel reader that opens `xarray.open_datatree` and produces the same Plotly-shaped output for the report. The validated artifact has the read pattern.

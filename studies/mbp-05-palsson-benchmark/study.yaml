@@ -26,18 +26,34 @@ purpose:
     per-metric tolerances, and are residual divergences interpretable
     and categorized?
   mechanism: |
-    Ingest the Palsson 2025 study as a structured knowledge source under
-    `references/papers/palsson-2025/` (raw PDF + supplementary data) and
-    `references/expert/palsson_2025_fed_batch.md` (currently a placeholder
-    stub — see expert doc registered in workspace.yaml). Configure the
-    mbp-03/04 coupled composite to the published operating profile
-    (reactor geometry, aeration, medium, initial conditions). Run; overlay
-    simulated vs. published trajectories; compute end-of-run OD,
-    time-to-target-OD, and acetate-profile comparison metrics. The phase
-    report card is dominated by overlay plots and quantitative comparison
-    metrics. Divergences are categorized in the report card (v2ecoli
-    metabolic deficiency / coupling-adapter limitation / experimental
-    uncertainty / placeholder-induced).
+    The benchmark paper is Beulig et al. 2025 (mSystems 10(7),
+    doi:10.1128/msystems.00323-25; senior author B. Palsson), titled
+    "Trade-off between resistance and persistence in high cell density
+    cultures." Open access, PDF at
+    `references/papers/Beulig_2025_mSystems_high_cell_density.pdf`;
+    extracted metadata + scope notes at
+    `references/expert/palsson_2025_fed_batch.md`.
+
+    Two-stage batch → fed-batch fermentation to 50–80 gDW/L in parallel
+    well-controlled bioreactors; exponential feeding after batch-to-fed-
+    batch transition (t=0 h); >470 transcriptomic samples across five
+    strain groups (WT BW25113, 31 SGKO, TRP, TRPp, MEL) and four
+    fermentation phases (I–IV).
+
+    For mbp-05, scope is WT only and (until fed-batch lands in
+    pbg-bioreactordesign) the BATCH PHASE PREFIX. Configure the mbp-03/04
+    coupled composite to the published operating profile (reactor geometry,
+    aeration, medium, initial conditions). Run; overlay simulated vs.
+    published trajectories; compute end-of-run OD, time-to-target-OD, and
+    acetate-profile comparison metrics. The phase report card is dominated
+    by overlay plots and quantitative comparison metrics. Divergences are
+    categorized in the report card (v2ecoli metabolic deficiency /
+    coupling-adapter limitation / experimental uncertainty / placeholder-
+    induced).
+
+    Transcriptional-state matching against the >470 transcriptomes is a
+    natural extension (v2ecoli outputs transcript counts) — out of mbp-05
+    scope; flagged as a candidate-future-study.
   expected_outcome: |
     End-of-run OD matches the published value within a per-metric tolerance
     (placeholder ±15% until the spec PR sets the real band). Time-to-
@@ -55,9 +71,11 @@ pipeline_gate:
     - mbp-04-multigeneration-runs
   enables: []   # terminal study of the investigation
   gate_status_summary: |
-    Blocked on mbp-04 (multi-generation stability) AND on the Palsson 2025
-    ingestion (currently a placeholder — exact citation not yet confirmed,
-    PDF not in refs yet). Terminal acceptance gate of the investigation.
+    Blocked on mbp-04 (multi-generation stability). Benchmark citation
+    confirmed (Beulig 2025 mSystems; PDF in references/papers/);
+    structured extraction of operating profile + trajectories from the
+    paper is a req-1 prerequisite. Terminal acceptance gate of the
+    investigation.
   proceed_condition: |
     End-of-run-OD and acetate-profile quantitative tests pass within
     tolerances set in the spec PR; divergences categorized in the
@@ -133,7 +151,7 @@ behavior_tests:
   pass_if: {op: relative_to_reference, reference: palsson_2025_final_OD, tolerance: 0.15}
   units: OD600
   requires_simulation: palsson-matched-batch
-  cites: [Palsson2025FedBatch]
+  cites: [Beulig2025mSystems]
 
 - name: time-to-target-od-matches-published
   classification: primary
@@ -142,7 +160,7 @@ behavior_tests:
   pass_if: {op: relative_to_reference, reference: palsson_2025_time_to_target, tolerance: 0.15}
   units: min
   requires_simulation: palsson-matched-batch
-  cites: [Palsson2025FedBatch]
+  cites: [Beulig2025mSystems]
 
 - name: acetate-profile-matches-published-shape
   classification: primary
@@ -151,7 +169,7 @@ behavior_tests:
   pass_if: {op: shape_match_within_band, band: 0.3}
   units: g/L
   requires_simulation: palsson-matched-batch
-  cites: [Palsson2025FedBatch]
+  cites: [Beulig2025mSystems]
 
 - name: divergences-categorized-in-report-card
   classification: supporting
@@ -160,7 +178,7 @@ behavior_tests:
   pass_if: {op: review_complete}
   units: "—"
   requires_simulation: palsson-matched-batch
-  cites: [Palsson2025FedBatch]
+  cites: [Beulig2025mSystems]
 
 
 # ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
@@ -176,13 +194,17 @@ implementation_requirements:
 
 - id: req-1-palsson-ingestion
   kind: knowledge
-  title: Palsson 2025 structured ingestion
-  effort: M
+  title: Beulig 2025 structured ingestion
+  effort: S
   description: |
-    Raw PDF + supplementary materials into references/papers/palsson-2025/;
-    structured extraction (operating conditions, trajectories) into
-    references/expert/palsson_2025_fed_batch.md. Replace the @misc
-    placeholder in references/papers.bib with the real @article entry.
+    PDF + bib entry + expert-doc metadata already in place
+    (references/papers/Beulig_2025_mSystems_high_cell_density.pdf;
+    references/papers.bib @Beulig2025mSystems;
+    references/expert/palsson_2025_fed_batch.md). REMAINING: digitize /
+    extract per-strain (WT) trajectories — OD600, biomass, glucose,
+    acetate, dissolved O2 over the fermentation phases — into a structured
+    CSV under references/papers/palsson-2025-supp/. Source: paper figures
+    + supplementary data (open access).
   unblocks: [all mbp-05 behavior_tests]
 
 - id: req-2-comparison-harness
@@ -198,7 +220,7 @@ implementation_requirements:
 
 bibliography:
   expert: [multiscale_bioprocess_roadmap, palsson_2025_fed_batch]
-  bib_keys: [Palsson2025FedBatch]
+  bib_keys: [Beulig2025mSystems]
 
 
 runs: []

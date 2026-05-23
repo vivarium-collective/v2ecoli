@@ -214,6 +214,39 @@ claims:
       - mbp-04-multigeneration-runs
       - mbp-05-palsson-benchmark
 
+  oxidizeme-engine-available:
+    statement: |
+      OxidizeME (Yang et al. 2019 PNAS), the ME-model used in Beulig 2025,
+      is wrapped as a process-bigraph Step at the sibling repo
+      `~/code/pbg-oxidizeme`. The Step satisfies the cell-side interface
+      contract (inputs: environment.external_concentrations, ros/metal
+      concentrations, mu_fixed; outputs: mu, exchange fluxes, proteome
+      allocations, damaged-proteome fraction). The real-solver path is
+      environment-blocked by the upstream Python 2.7 / qMINOS stack; a
+      labelled non-strict scaffolding path lets the wrapper be wired into
+      a composite without the solver.
+    regime: 'v2ecoli investigation 2026-05-22 onwards'
+    strength: preliminary
+    sources: [Beulig2025mSystems]
+    cited_by:
+      - mbp-06-gap-analysis
+
+  v2ecoli-vs-me-model-comparator-opportunity:
+    statement: |
+      Because BOTH v2ecoli baseline AND pbg-oxidizeme conform to the same
+      cell-side interface contract, a head-to-head comparator study under
+      the unchanged reactor composite (BiRDReactorProcess from
+      pbg-bioreactordesign) is the natural mbp-06-prioritized follow-up.
+      Each engine's predictions for μ, exchange fluxes, and proteome
+      allocations under matched conditions can be compared without re-
+      architecture. This is a v2ecoli-investigation-unique angle that the
+      upstream multiscale-bioprocess roadmap's dFBA path cannot exercise.
+    regime: 'mbp-06 / future iteration'
+    strength: preliminary
+    sources: [Beulig2025mSystems]
+    cited_by:
+      - mbp-06-gap-analysis
+
   bird-biomass-ownership-conflict:
     statement: |
       pbg-bioreactordesign's BiRDReactorProcess carries an internal biomass

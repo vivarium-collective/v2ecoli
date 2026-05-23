@@ -183,6 +183,56 @@ required_knowledge:
       backs: []   # informational — feeds the transcriptional-matching gap (axis D)
     - id: bird-biomass-ownership-conflict
       backs: []   # informational — feeds the coupling-cleanup gap (axis B)
+    - id: oxidizeme-engine-available
+      backs: []   # the wrapper exists — comparator study is now actionable
+    - id: v2ecoli-vs-me-model-comparator-opportunity
+      backs: []   # unique v2ecoli angle vs the upstream dFBA path
+
+  # Concrete candidate-future-studies SEEDED by this evaluation phase. mbp-06
+  # writes its own findings array post-impl, but these are the priors we
+  # bring in based on what the prior commits in this branch already surfaced.
+  candidate_future_studies:
+    - slug: mbp-07-v2ecoli-vs-oxidizeme-comparator
+      axis: B   # coupling layer
+      priority: 1
+      synopsis: |
+        Run the SAME reactor composite (BiRDReactorProcess + ReactorCellCoupler
+        from mbp-03) twice — once with v2ecoli baseline as the cell-side
+        engine, once with pbg-oxidizeme (~/code/pbg-oxidizeme) — and compare
+        μ, exchange fluxes, proteome allocations, and (where v2ecoli emits
+        them) transcript counts. Unique to v2ecoli vs upstream's dFBA path,
+        because both engines expose macromolecular expression state.
+      prereqs:
+        - mbp-03-bird-reactor-coupling impl-merged
+        - pbg-oxidizeme real-solver path running (see wrapper NEXT_STEPS.md item 1)
+      dashboard_pointer: |
+        Both wrappers conform to the cell-side interface contract; the
+        comparator is a one-composite, two-engine swap under the contract.
+    - slug: mbp-08-surrogate-engine-for-high-density
+      axis: A   # v2ecoli biology coverage
+      priority: 1
+      synopsis: |
+        Coarse-grained surrogate engine that scales to Beulig's 50–80 gDW/L
+        (~10^12 – 10^13 cells/L) — single-cell-with-Division is intractable
+        at that population. Surrogate trained against (or distilled from)
+        full-WCM / OxidizeME runs. Under the same cell-side interface
+        contract, so it's wiring-equivalent to v2ecoli baseline.
+      prereqs:
+        - mbp-05-palsson-benchmark impl-merged (shows the intractability concretely)
+      dashboard_pointer: candidate-future-study placeholder; scope in spec PR.
+    - slug: mbp-09-transcriptional-state-matching-beulig
+      axis: D   # Beulig scope
+      priority: 2
+      synopsis: |
+        Compare v2ecoli's transcript counts (and OxidizeME's gene-product
+        translation fluxes) against the >470 Beulig transcriptomes (GEO
+        GSE252784). Stress / persistence / resistance iModulon activities
+        as a benchmark axis distinct from biomass / OD.
+      prereqs:
+        - mbp-07-v2ecoli-vs-oxidizeme-comparator impl-merged
+      dashboard_pointer: |
+        iModulon assignments + transcriptome data live in the upstream
+        febedtu/hd_ecoli/data/transcriptome_data/ (precise / ddb subdirs).
   open_questions:
     - id: gap-analysis-rigor
       question: |

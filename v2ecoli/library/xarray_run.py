@@ -27,6 +27,37 @@ from typing import Any, Callable
 from v2ecoli.library.xarray_emitter import XArrayEmitter
 
 
+def view_from_emit_paths(
+    emit_paths: list[str], *, default_dtype: str = "<f8",
+) -> list[dict]:
+    """Build a v2ecoli-shaped XArray view config from a flat list of dotted emit paths.
+
+    For dashboard-driven runs, each study declares its observables as dotted
+    paths like ``"listeners.replication_data.number_of_oric"``. The XArray
+    view config is nested by root + variable path. This helper builds it.
+
+    Only handles ``listeners.<...>`` paths for v0 (the v2ecoli convention).
+    Drops other roots (``bulk``, etc.) with a warning.
+
+    Default dtype is ``<f8`` (float64); pass an explicit ``dtype_overrides``
+    map at the call site if int dtypes are needed for specific leaves.
+    """
+    variables: dict = {}
+    for p in emit_paths:
+        parts = p.split(".")
+        if len(parts) < 2 or parts[0] != "listeners":
+            continue
+        rest = parts[1:]
+        leaf_name = rest[-1]
+        cursor = variables
+        for k in rest[:-1]:
+            cursor = cursor.setdefault(k, {})
+        cursor[leaf_name] = [{"path": leaf_name, "dtype": default_dtype}]
+    if not variables:
+        return []
+    return [{"root": ("listeners",), "variables": variables}]
+
+
 def _view_leaves(view: list[dict]) -> list[tuple[tuple[str, ...], str]]:
     """Walk a view config; return [(input_path_under_root, output_name), ...]."""
     leaves: list[tuple[tuple[str, ...], str]] = []

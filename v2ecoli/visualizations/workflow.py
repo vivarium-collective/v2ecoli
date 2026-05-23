@@ -443,6 +443,105 @@ def _plot_chromosome_state(snapshots, title=''):
     return _fig_to_b64(fig)
 
 
+def _plot_chromosome_timeline(snapshots, title='', annotate_events: bool = True):
+    """Row of chromosome diagrams at 5 timepoints + bottom step-plot of
+    n_chromosomes / n_oriC / n_replisomes with initiation + chromosome-
+    doubling vertical lines.
+
+    Adapted from PR #28 ``_chromosome_timeline_plot`` (RIDA-flux figure for
+    dnaa-02 / dnaa-06 — the point of the figure is "replisomes drive RIDA").
+    Uses this module's :func:`_draw_chromosome` for the per-snapshot
+    discs (so each disc carries the green replication-bubble arc + the
+    daughter-strand RNAPs we already render).
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    if not snapshots:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, 'No chromosome data', ha='center', va='center')
+        return _fig_to_b64(fig)
+
+    n = len(snapshots)
+    if n >= 5:
+        indices = [0, n // 4, n // 2, 3 * n // 4, n - 1]
+    elif n >= 3:
+        indices = [0, n // 2, n - 1]
+    else:
+        indices = list(range(n))
+    indices = sorted(set(indices))
+
+    n_maps = len(indices)
+    fig = plt.figure(figsize=(max(11, n_maps * 3.2), 9.0))
+    if title:
+        fig.suptitle(title, fontsize=14, y=0.99)
+
+    R = 0.9
+    for i, idx in enumerate(indices):
+        ax = fig.add_subplot(2, n_maps, i + 1)
+        snap = snapshots[idx]
+        _draw_chromosome(
+            ax, 0, 0, R,
+            snap.get('rnap_coords') or [],
+            snap.get('fork_coords') or [],
+            rnap_domains=snap.get('rnap_domains'),
+            fork_domains=snap.get('fork_domains'),
+            domain_children=snap.get('domain_children'),
+        )
+        ax.set_xlim(-1.3, 1.3)
+        ax.set_ylim(-1.3, 1.3)
+        ax.set_aspect('equal')
+        ax.axis('off')
+        n_chrom = int(snap.get('n_chromosomes') or 1)
+        n_fork = len(snap.get('fork_coords') or [])
+        ax.set_title(
+            f't = {snap["time"] / 60:.1f} min\n'
+            f'chromosomes={n_chrom}  replisomes={n_fork}',
+            fontsize=10,
+        )
+
+    ax = fig.add_subplot(2, 1, 2)
+    times = np.array([s['time'] / 60 for s in snapshots])
+    n_chrom_arr = np.array([(s.get('n_chromosomes') or 0) for s in snapshots])
+    n_fork_arr = np.array([len(s.get('fork_coords') or []) for s in snapshots])
+    n_rnap_arr = np.array([(s.get('n_rnap') or len(s.get('rnap_coords') or [])) for s in snapshots])
+
+    ax.step(times, n_chrom_arr, where='post', color='#7c3aed', lw=2.4,
+            label='chromosomes')
+    ax.step(times, n_fork_arr, where='post', color='#f59e0b', lw=2.0,
+            label='active replisomes')
+
+    if annotate_events:
+        for i in range(1, len(n_fork_arr)):
+            # Initiation event = replisome count went UP (new forks fired).
+            if n_fork_arr[i] > n_fork_arr[i - 1]:
+                ax.axvline(times[i], color='#dc2626', ls='--', lw=0.9, alpha=0.5,
+                           label='initiation event' if i == 1 else None)
+        for i in range(1, len(n_chrom_arr)):
+            if n_chrom_arr[i] > n_chrom_arr[i - 1]:
+                ax.axvline(times[i], color='#1d4ed8', ls=':', lw=1.2, alpha=0.7,
+                           label='chromosome doubled' if i == 1 else None)
+
+    for idx in indices:
+        ax.axvline(times[idx], color='#94a3b8', ls=':', lw=1.0, alpha=0.45, zorder=0)
+
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('Count')
+    ax.set_title('Replication timeline (grey dotted = snapshots above; '
+                 'red dashed = initiation; blue dotted = chromosome doubled). '
+                 'RIDA flux is gated on active-replisome count → this is the substrate '
+                 'pool RIDA reads each tick.')
+    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    ax.legend(loc='upper left', fontsize=9)
+    ax.grid(True, alpha=0.2)
+
+    try:
+        fig.tight_layout()
+    except Exception:
+        plt.subplots_adjust(hspace=0.3)
+    return _fig_to_b64(fig)
+
+
 def _plot_single_cell_growth(snapshots, title=''):
     """Plot growth metrics: growth rate, volume, absolute mass, fold change."""
     import numpy as np

@@ -146,7 +146,10 @@ def build_panel(comp: Composite) -> dict:
             rec["category"] = f"bound DnaA-box ({n_bound})"
             bound_pts.append(rec)
         else:
-            rec["category"] = f"unbound ({region}, {n_free} total)"
+            # Single legend entry for all unbound boxes (color-by-region is
+            # still visually present on the chromosome — the legend just doesn't
+            # repeat itself per region or it overflows the SVG width).
+            rec["category"] = f"unbound DnaA-box ({n_free})"
             free_pts.append(rec)
 
     features = {

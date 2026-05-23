@@ -142,8 +142,78 @@ def _coord_to_angle(coord):
     return np.pi / 2 - frac * np.pi
 
 
+def _pair_forks(fork_coords):
+    """Pair signed fork coordinates by sorted-symmetric matching.
+
+    Bidirectional replication runs both forks of a bubble in opposite
+    directions from oriC, so the most-progressed bubble pairs the most
+    extreme negative coord with the most extreme positive coord. Returns
+    pairs sorted from outermost (most progressed) to innermost (just fired).
+    Adapted from PR #28 (`reports/replication_initiation_report.py`).
+    """
+    sorted_forks = sorted(int(c) for c in fork_coords)
+    n_pairs = len(sorted_forks) // 2
+    pairs = [(sorted_forks[i], sorted_forks[-1 - i]) for i in range(n_pairs)]
+    pairs.sort(key=lambda p: -(abs(p[0]) + abs(p[1])) / 2)
+    return pairs
+
+
+def _bubble_inset_radii(R, n_pairs):
+    """Inset radii for replication bubbles — outermost (most-progressed) first.
+
+    Multifork (overlapping rounds) → multiple concentric bubbles at decreasing
+    radii so they're all visible inside the parent chromosome rim.
+    """
+    import numpy as np
+    if n_pairs == 0:
+        return []
+    if n_pairs == 1:
+        return [R * 0.78]
+    return list(np.linspace(R * 0.80, R * 0.50, n_pairs))
+
+
+def _draw_replication_bubbles(ax, cx, cy, R, fork_coords):
+    """Draw nested replication bubbles inside the chromosome rim.
+
+    Each fork pair → a green arc tracing the newly-replicated portion from
+    one fork through oriC (at top, π/2) to the other fork. This is the
+    newly-synthesized daughter strand still tethered to the parent
+    chromosome at both fork positions. Returns the inset radii used.
+    """
+    import numpy as np
+    pairs = _pair_forks(fork_coords)
+    if not pairs:
+        return []
+    radii = _bubble_inset_radii(R, len(pairs))
+    bubble_color = '#10b981'
+    a_oric = np.pi / 2
+
+    for (f_lo, f_hi), r_bubble in zip(pairs, radii):
+        a_lo = _coord_to_angle(int(f_lo))
+        a_hi = _coord_to_angle(int(f_hi))
+        a_min, a_max = sorted([a_lo, a_hi])
+        # Pick the arc that passes through oriC (top of the disc).
+        if a_min <= a_oric <= a_max:
+            theta = np.linspace(a_min, a_max, 120)
+        else:
+            theta = np.linspace(a_max, a_min + 2 * np.pi, 120)
+        ax.plot(cx + r_bubble * np.cos(theta),
+                cy + r_bubble * np.sin(theta),
+                color=bubble_color, lw=3.5, alpha=0.6, zorder=2,
+                solid_capstyle='round')
+        # Faint radial connector from each fork (on the rim) back to its
+        # endpoint on the bubble — visually pairs forks to their bubble.
+        for f in (f_lo, f_hi):
+            a = _coord_to_angle(int(f))
+            ax.plot([cx + r_bubble * np.cos(a), cx + R * np.cos(a)],
+                    [cy + r_bubble * np.sin(a), cy + R * np.sin(a)],
+                    color=bubble_color, lw=1.0, alpha=0.4, zorder=2)
+    return radii
+
+
 def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
-    """Draw one circular chromosome at (cx, cy) with RNAP and forks."""
+    """Draw one circular chromosome at (cx, cy) with RNAPs, forks, and
+    replication bubbles (newly-synthesized daughter arcs)."""
     import numpy as np
     theta = np.linspace(0, 2 * np.pi, 200)
     ax.plot(cx + R * np.cos(theta), cy + R * np.sin(theta),
@@ -156,6 +226,12 @@ def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
         rx = [cx + R * np.cos(a) for a in angles]
         ry = [cy + R * np.sin(a) for a in angles]
         ax.scatter(rx, ry, c='#3b82f6', s=3, alpha=0.3, zorder=3)
+
+    # Newly-synthesized daughter arc(s) — drawn INSIDE the rim, between
+    # the two fork triangles. Communicates an incomplete second chromosome
+    # still tethered to the parent at the forks.
+    if fork_coords:
+        _draw_replication_bubbles(ax, cx, cy, R, fork_coords)
 
     for coord in fork_coords:
         angle = _coord_to_angle(coord)

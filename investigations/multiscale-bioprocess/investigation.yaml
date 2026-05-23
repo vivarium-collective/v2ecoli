@@ -9,44 +9,52 @@ question: |
   bioreactor — specifically: a time-varying external environment hook, a
   population / OD-scale biomass aggregator, and a coupling adapter to
   `pbg-bioreactordesign`'s BiRDReactorProcess — and produce a coupled
-  v2ecoli ↔ reactor trajectory that reproduces the batch (and ultimately
-  fed-batch) fermentation behavior of the 2025 Palsson lab high-density
-  E. coli study within per-metric tolerances?
+  v2ecoli ↔ reactor trajectory that reproduces the high-cell-density
+  fed-batch fermentation behavior of the 2025 Beulig/Palsson lab study
+  (mSystems) within per-metric tolerances?
 
 hypothesis: |
-  Yes. v2ecoli's existing Layer-1 Steps (`media_update`, `exchange_data`)
-  already expose the environment-coupling surface; the metabolism Process
-  already emits `external_exchange_fluxes`. The required enhancements are
-  small and additive: (1) a time-varying-env hook over the existing
-  static-medium plumbing, (2) a population aggregator that derives
-  reactor-scale biomass / OD from per-cell mass listeners, (3) a
-  ReactorCellCoupler Step that bridges to `pbg-bioreactordesign`'s
+  Yes — with explicit scope caveats. v2ecoli's existing Layer-1 Steps
+  (`media_update`, `exchange_data`) already expose the environment-coupling
+  surface; the metabolism Process already emits `external_exchange_fluxes`.
+  The required enhancements are small and additive: (1) a time-varying-env
+  hook over the existing static-medium plumbing, (2) a population aggregator
+  that derives reactor-scale biomass / OD from per-cell mass listeners, (3)
+  a ReactorCellCoupler Step that bridges to `pbg-bioreactordesign`'s
   BiRDReactorProcess (whose internal Monod biomass ODE is disabled in
   favor of v2ecoli's population). Each study's acceptance tests pass
   before the next in the chain begins; the multi-generation coupled run
-  validates that no piece drifts over time; the Palsson benchmark
+  validates that no piece drifts over time; the Beulig benchmark
   validates against published trajectories.
+
+  **Known scope caveat.** Beulig 2025 reached 50–80 gDW/L (~10^12 – 10^13
+  cells/L). v2ecoli's single-cell-with-Division population does not scale
+  to that regime; mbp-05 therefore scopes to the BATCH-PHASE PREFIX of the
+  Beulig dataset, and mbp-06's gap analysis is expected to surface a
+  coarse-grained surrogate engine (under the same cell-side interface
+  contract) as a top-priority follow-up.
 
 description: |
   Investigation in the v2ecoli workspace migrating and enhancing v2ecoli
   for bench-scale bioprocess context, then coupling it to
   `vivarium-collective/pbg-bioreactordesign` for the physical reactor side.
 
-  **Scope.** The work is INTERNAL v2ecoli upgrades, not a reactor wrapper
-  built from scratch. v2ecoli gains a small set of additive features
-  (time-varying environment, population aggregation, reactor coupler);
-  reactor physics comes from `pbg-bioreactordesign` consumed as a
-  dependency. Out of scope here: dynamic-FBA as the cell side (the upstream
-  multiscale-bioprocess roadmap's choice — see references/expert/
-  multiscale_bioprocess_roadmap.md); multi-cell colony composite as the
-  primary path (deferred); CFD / spatial-mixing; WCM-internal mass-balance
-  audits.
+  **Scope.** The work is INTERNAL v2ecoli upgrades + a coupling adapter,
+  not a reactor wrapper built from scratch. v2ecoli gains a small set of
+  additive features (time-varying environment, population aggregation,
+  reactor coupler); reactor physics comes from `pbg-bioreactordesign`
+  consumed as a dependency. Out of scope: dynamic-FBA as the cell side
+  (the upstream multiscale-bioprocess roadmap's choice — see
+  references/expert/multiscale_bioprocess_roadmap.md); multi-cell colony
+  composite as the primary path (deferred); CFD / spatial-mixing; WCM-
+  internal mass-balance audits.
 
   **Fed-batch is deferred.** `pbg-bioreactordesign` does not yet expose
   fed-batch operations (feed schedules, dynamic volume). Until that lands
-  upstream — or a v2ecoli-side feed Step is added — the mbp-05 Palsson
-  benchmark scopes to the BATCH portion of the Palsson dataset; the spec
-  PR makes that scope call explicit.
+  upstream — or a v2ecoli-side feed Step is added — the mbp-05 Beulig
+  benchmark scopes to the BATCH portion of the Beulig dataset; the spec
+  PR makes that scope call explicit. Adding fed-batch is expected to be a
+  top-priority gap from mbp-06.
 
   **Reactor + coupling code lives in `v2ecoli/`** (planned packages:
   `v2ecoli.composites.baseline_time_varying_env`,
@@ -64,12 +72,102 @@ description: |
      per-cell mass into reactor-scale biomass / OD600 / cell-count.
   3. mbp-03-bird-reactor-coupling    — adapter to `pbg-bioreactordesign`'s
      BiRDReactorProcess: BiRD owns transport physics; v2ecoli owns biomass
-     (BiRD's internal Monod ODE disabled). THE keystone coupling.
+     (BiRD's internal Monod ODE disabled). THE keystone coupling. Also
+     the first impl PR to wire a real engine under the cell-side interface
+     contract (`references/expert/cell_side_interface_contract.md`).
   4. mbp-04-multigeneration-runs     — sustained coupled run (≥ 3
      v2ecoli generations); mass-balance audit; regime transition into
      substrate-limited growth.
   5. mbp-05-palsson-benchmark        — quantitative validation against
-     Palsson 2025 (batch-phase scope until fed-batch enhancement lands).
+     Beulig 2025 (mSystems; senior author Palsson); batch-phase scope
+     until fed-batch enhancement lands.
+  6. mbp-06-gap-analysis             — EVALUATION phase, not construction.
+     Walks the mbp-01..05 artifacts, synthesizes gaps across five axes
+     (v2ecoli biology / coupling / BiRD physics / Beulig scope /
+     methodology), and feeds the next investigation iteration.
+
+
+# ─── Methodology discipline ─────────────────────────────────────────────────
+# These fields are descriptive metadata for the investigation, not consumed
+# by the dashboard / lint today — but they make the inherited methodology
+# explicit so future agents can read it off the YAML rather than the prose
+# in `references/expert/multiscale_bioprocess_roadmap.md`.
+
+discipline:
+
+  # The biological-BDD closed loop (inherited from upstream methodology):
+  # CURATE knowledge → translate into structured CLAIMS → generate behavior
+  # TESTS from claims → run SIMULATIONS → COMPARE → TRIAGE divergences →
+  # UPDATE knowledge/claims/tests/model.
+  #
+  # In this investigation:
+  #   - CURATE  : references/papers/ (raw) + references/expert/ (extracted).
+  #               Currently: Beulig 2025 PDF + expert-doc stub; upstream
+  #               roadmap pointer; cell-side interface contract.
+  #   - CLAIMS  : references/claims.yaml (structured, queryable).
+  #   - TESTS   : per-study `behavior_tests[]` with `acceptance_form` tag
+  #               (qualitative_direction | quantitative_range) and `cites`
+  #               linking to claims via bib_keys.
+  #   - RUN     : per-study `simulation_set[]` (planned now, populated as
+  #               runs land).
+  #   - COMPARE : impl-PR self-validation; results in `acceptance_results`
+  #               and `findings[]`.
+  #   - TRIAGE  : per-study `failure_modes[]` (candidate causes + checks);
+  #               mbp-05's `divergences-categorized-in-report-card` test
+  #               enforces the discipline.
+  #   - UPDATE  : within-phase via impl PR; across-phase via test-revision
+  #               PRs (see scope_discovery below).
+  bdd_loop: curate -> claims -> tests -> simulate -> compare -> triage -> update
+
+  # Phase-as-construction-unit (upstream methodology).
+  # Each study has a spec PR (sections 1-9 of upstream's 10-section schema,
+  # mapped onto this workspace's v3 study.yaml shape) and an impl PR (sections
+  # 5d findings + report). Acceptance tests join the regression suite on
+  # impl-PR merge.
+  phase_unit:
+    spec_pr_label: "study-spec"
+    impl_pr_label: "study-impl"
+    regression_discipline: |
+      Every accepted study's acceptance tests join the workspace's permanent
+      regression suite. New studies must not break prior studies' tests
+      (see `regression_tests.inherits_from` in each downstream study).
+      Modifying or retiring a prior acceptance test goes through a separate
+      `test-revision` PR (opened on the investigation's main branch, not on
+      a feature impl branch) — the upstream methodology calls this out
+      explicitly to prevent "relax a test to make a new feature pass."
+
+  # Scope discovery during implementation.
+  scope_discovery:
+    default: defer_and_proceed   # explicitly-marked placeholder + open question + candidate-future-study
+    escalation: halt_and_amend   # only when discovery prevents an in-scope acceptance test from passing
+    rare: rewind                 # original spec PR superseded if the decomposition itself was wrong
+
+  # Substitutability contract (the discipline that makes engine substitution a
+  # named operation rather than ad-hoc rework). See the cell-side interface
+  # contract document for the contract specification.
+  substitutability_contract: references/expert/cell_side_interface_contract.md
+
+  # Beulig-specific axes that distinguish this investigation from the
+  # upstream multiscale-bioprocess plan (which uses dFBA, not a whole-cell
+  # model).
+  beulig_benchmark_axes:
+    - axis: trajectory_match
+      observables: [OD600, biomass_gL, glucose_gL, acetate_gL, dissolved_o2]
+      scope: in_for_mbp_05
+      regime: WT batch-phase prefix
+    - axis: strain_specific
+      observables: per-strain (WT / SGKO×31 / TRP / TRPp / MEL) trajectories
+      scope: deferred_to_mbp_06_or_future
+      regime: full Beulig dataset
+    - axis: transcriptional_state
+      observables: per-strain per-phase transcriptome (>470 samples)
+      scope: deferred_to_mbp_06_or_future
+      regime: unique to v2ecoli — upstream's dFBA path lacks transcripts
+    - axis: resistance_persistence_tradeoff
+      observables: stress / maintenance stimulons; bistable expression states
+      scope: deferred_to_mbp_06_or_future
+      regime: Beulig's headline mechanism — needs v2ecoli's regulation layer
+
 
 # Studies in this investigation, in suggested execution order.
 # The DAG is computed from each study's `pipeline_gate.prerequisites`
@@ -80,13 +178,14 @@ studies:
   - mbp-03-bird-reactor-coupling
   - mbp-04-multigeneration-runs
   - mbp-05-palsson-benchmark
+  - mbp-06-gap-analysis
 
 # Expert docs supporting the investigation. Each name must match a
-# `workspace.yaml.expert_docs[].name` entry. Both currently point at
-# placeholder pages — fill in as the work progresses.
+# `workspace.yaml.expert_docs[].name` entry.
 expert_docs:
-  - multiscale_bioprocess_roadmap
-  - palsson_2025_fed_batch
+  - multiscale_bioprocess_roadmap        # upstream-divergence pointer
+  - cell_side_interface_contract         # substitutability discipline (NEW)
+  - palsson_2025_fed_batch               # Beulig 2025 mSystems summary
 
 # Top-level success criteria. Each maps to a behavioral test in a
 # constituent study; the investigation is "complete" when all pass.
@@ -102,3 +201,5 @@ acceptance_criteria:
   - {study: mbp-04-multigeneration-runs,     behavior: carbon-mass-balance-closes-over-3-generations}
   - {study: mbp-05-palsson-benchmark,        behavior: end-of-run-od-matches-published}
   - {study: mbp-05-palsson-benchmark,        behavior: acetate-profile-matches-published-shape}
+  - {study: mbp-06-gap-analysis,             behavior: all-five-axes-covered}
+  - {study: mbp-06-gap-analysis,             behavior: every-gap-has-candidate-resolution}

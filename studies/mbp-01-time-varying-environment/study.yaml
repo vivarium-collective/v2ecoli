@@ -155,6 +155,7 @@ behavior_tests:
 
 - name: uptake-flux-tracks-external-glucose
   classification: primary
+  acceptance_form: qualitative_direction
   description: "As external glucose declines linearly, v2ecoli's glucose uptake flux declines (positive correlation between external_glucose and metabolism_glucose_uptake_flux)."
   measure: {kind: correlation, x: "environment.external_concentrations.GLC[p]", y: "agents.0.metabolism.external_exchange_fluxes.GLC[p]", window: full}
   pass_if: {op: pearson_at_least, value: 0.7}
@@ -164,6 +165,7 @@ behavior_tests:
 
 - name: mu-drops-when-glucose-depletes
   classification: primary
+  acceptance_form: qualitative_direction
   description: "As external glucose falls below ~0.5 g/L, v2ecoli's growth rate measurably drops."
   measure: {kind: cross_window_delta, path: agents.0.listeners.mass.instantaneous_growth_rate, window_a: first_quarter, window_b: last_quarter}
   pass_if: {op: negative}
@@ -173,6 +175,7 @@ behavior_tests:
 
 - name: cumulative-mass-balance-closes
   classification: primary
+  acceptance_form: quantitative_range
   description: "Cumulative external-glucose decrease (integral over the run) matches cumulative v2ecoli glucose-uptake flux integral within numerical tolerance — the environment hook is wired without leakage."
   measure: {kind: derived_ratio, numerator: cumulative_uptake_mmol, denominator: cumulative_external_drop_mmol}
   pass_if: {op: in_range, low: 0.9, high: 1.1}
@@ -182,6 +185,7 @@ behavior_tests:
 
 - name: low-do-clamp-reduces-o2-uptake
   classification: supporting
+  acceptance_form: qualitative_direction
   description: "Clamping external DO low reduces v2ecoli's O2 uptake flux relative to the no-clamp baseline."
   measure: {kind: cross_run_delta, series: {kind: listener_path, path: "agents.0.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]"}, reduce: mean}
   pass_if: {op: negative}
@@ -191,12 +195,80 @@ behavior_tests:
 
 - name: static-env-baseline-unchanged
   classification: primary
+  acceptance_form: quantitative_range
   description: "With env_driver_mode=static, the composite produces the same baseline trajectory (e.g. DnaA count, growth rate) as the unmodified v2ecoli.composites.baseline. Regression guard."
   measure: {kind: trajectory_match, reference: "v2ecoli.composites.baseline:default-run", series: [dnaA_protein_count, cell_mu_per_h]}
   pass_if: {op: numerical_match, tolerance: 0.01}
   units: "—"
   requires_simulation: static-env-regression
   cites: []
+
+
+# ─── 5b. REQUIRED KNOWLEDGE ─────────────────────────────────────────────────
+# Claims (from references/claims.yaml) whose `regime` matches this study and
+# whose provenance backs the behavior_tests above. The biological-BDD loop
+# reads: this study EXPECTS these claims to hold under its conditions, and
+# its acceptance tests are the operational check.
+required_knowledge:
+  claims:
+    - id: acetate-overflow-low-do
+      backs: [low-do-clamp-reduces-o2-uptake]
+    - id: doubling-time-m9-glucose
+      backs: [mu-drops-when-glucose-depletes]
+  open_questions:
+    - id: env-driver-cadence
+      question: |
+        Is per-timestep external_concentrations update fast enough, or does
+        metabolism need a longer "constant medium" window (e.g. 1 min) to
+        avoid solver-instability artifacts in v2ecoli's FBA inner solve?
+      blocks: [linear-glucose-decline implementation]
+      asked_to: unassigned
+      status: open
+    - id: static-env-default-key
+      question: |
+        Should env_driver_mode default to `static` (preserves existing
+        baseline behavior, opt-in to time-varying) or `external_store`
+        (opt-out)? Preference is `static` for backward compatibility but
+        confirm with v2ecoli baseline maintainer.
+      blocks: [req-2-time-varying-composite spec]
+      asked_to: unassigned
+      status: open
+
+
+# ─── 5c. FAILURE MODES ──────────────────────────────────────────────────────
+# What might go wrong during impl, and what to check.
+failure_modes:
+  - signature: "uptake-flux-tracks-external-glucose fails with r ~ 0"
+    candidate_causes:
+      - "EnvironmentDriver Step writes external_concentrations BEFORE media_update reads (ordering bug)"
+      - "media_update caches the medium definition past one timestep"
+      - "exchange_data constraints recomputed from a stale media object"
+    checks:
+      - "Sample external_glucose and metabolism flux at the same timepoint; both should track monotonic decline"
+      - "Debug listener on metabolism.exchange_data_from_media's output set; verify it updates each step"
+  - signature: "static-env-baseline-unchanged FAILS"
+    candidate_causes:
+      - "EnvironmentDriver runs even with env_driver_mode=static and overwrites the constant medium"
+      - "Composite-build wiring changes Layer-1 Step ordering"
+    checks:
+      - "Diff per-cell observables vs an unmodified baseline run at seed 0 — should be byte-identical"
+      - "Verify EnvironmentDriver short-circuits in static mode"
+  - signature: "cumulative-mass-balance-closes off by >10%"
+    candidate_causes:
+      - "EnvironmentDriver writes concentrations in different units than metabolism reads (mM vs mmol/L vs g/L)"
+      - "Per-cell uptake flux not multiplied by cell mass to get total mmol uptaken"
+      - "Volume not held constant in the batch run"
+    checks:
+      - "Print unit annotations on each store write"
+      - "Verify the integrand: total_uptake = sum_t(flux × cell_mass × dt)"
+
+
+# ─── 5d. REGRESSION ────────────────────────────────────────────────────────
+# Tests from earlier studies that MUST continue to pass once this study's
+# impl PR merges (every accepted study's tests join the permanent regression
+# suite — see investigation.yaml.discipline.regression).
+regression_tests:
+  inherits_from: []   # First study in the chain — no upstream tests yet.
 
 
 # ─── 6. LIMITATIONS ────────────────────────────────────────────────────────

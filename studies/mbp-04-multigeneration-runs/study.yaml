@@ -129,6 +129,7 @@ behavior_tests:
 
 - name: population-grows-then-flattens-at-substrate-limit
   classification: primary
+  acceptance_form: qualitative_direction
   description: "Cell count rises exponentially through the first 2 generations, then growth rate measurably flattens once a limiting substrate (glucose or DO) is exhausted."
   measure: {kind: derived_rate_window, path: population.cell_count, window_a: first_third, window_b: last_third, reduce: fitted_exponential_rate}
   pass_if: {op: ratio_at_most, value: 0.3}   # last-third rate ≤ 30% of first-third rate
@@ -138,6 +139,7 @@ behavior_tests:
 
 - name: carbon-mass-balance-closes-over-3-generations
   classification: primary
+  acceptance_form: quantitative_range
   description: "Total carbon (glucose-C + biomass-C + CO2-C + acetate-C) is conserved across the run within numerical tolerance."
   measure: {kind: series, path: reactor.diagnostics.carbon_residual, reduce: max_abs, window: full}
   pass_if: {op: at_most, value: 0.02}
@@ -147,6 +149,7 @@ behavior_tests:
 
 - name: nitrogen-mass-balance-closes-over-3-generations
   classification: primary
+  acceptance_form: quantitative_range
   description: "Total nitrogen (nitrogen-source-N + biomass-N) is conserved across the run within numerical tolerance."
   measure: {kind: series, path: reactor.diagnostics.nitrogen_residual, reduce: max_abs, window: full}
   pass_if: {op: at_most, value: 0.02}
@@ -156,6 +159,7 @@ behavior_tests:
 
 - name: wall-clock-budget-met
   classification: supporting
+  acceptance_form: quantitative_range
   description: "240-min sim completes in < 30 min wall time at seed 0 (budget placeholder; real budget set in spec PR)."
   measure: {kind: wall_clock, source: run_meta}
   pass_if: {op: at_most, value: 1800}   # seconds
@@ -164,12 +168,94 @@ behavior_tests:
   cites: []
 
 
+# ─── 5b. REQUIRED KNOWLEDGE ─────────────────────────────────────────────────
+required_knowledge:
+  claims:
+    - id: doubling-time-m9-glucose
+      backs: [population-grows-then-flattens-at-substrate-limit]   # 3 generations = ~3 × 60 min
+    - id: high-density-single-cell-intractability
+      backs: []                                # informational — sets the boundary of what's achievable HERE
+                                               # before the surrogate path (mbp-06) is needed
+  open_questions:
+    - id: glucose-pool-sizing
+      question: |
+        4 g/L initial glucose at v2ecoli's yield gives roughly 2 g/L biomass
+        before depletion (~6 generations of single cell). Is that enough to
+        observe the regime transition, or do we need a smaller initial
+        pool / more cells to hit substrate limit at 3 generations?
+      blocks: [three-generation-batch initial_glucose tuning]
+      asked_to: unassigned
+      status: open
+    - id: wall-clock-budget-target
+      question: |
+        Is 30 min wall clock for a 240-min coupled sim a realistic target?
+        v2ecoli single-cell sims at 60-min nominal take 1–2 min wall;
+        coupling overhead + Division Step bookkeeping may push this. If
+        > 1 hour, surrogate strategy (mbp-06 scope) becomes urgent.
+      blocks: [wall-clock-budget-met threshold setting]
+      asked_to: unassigned
+      status: open
+
+
+# ─── 5c. FAILURE MODES ──────────────────────────────────────────────────────
+failure_modes:
+  - signature: "population-grows-then-flattens-at-substrate-limit fails (no flattening)"
+    candidate_causes:
+      - "Initial glucose pool too large — sim ends before depletion"
+      - "v2ecoli's metabolism doesn't reduce μ at low glucose (calibration gap)"
+      - "Coupler not propagating low DO back to v2ecoli's metabolism"
+    checks:
+      - "Plot reactor_glucose_gL and reactor_dissolved_o2 vs time; one should bottom out before the end"
+      - "If glucose drops to ~0 but μ stays high — investigate v2ecoli's metabolism glucose-limited regime"
+
+  - signature: "carbon-mass-balance-closes-over-3-generations off by >2%"
+    candidate_causes:
+      - "Acetate (or other byproduct) carbon not tallied"
+      - "CO2 evolved by metabolism not bookkept (CO2-C lost)"
+      - "Biomass-C coefficient wrong (typical ~0.46 gC/gDW)"
+      - "Volume change not accounted (volume is constant in batch but worth a guard)"
+    checks:
+      - "MassBalanceAuditor's per-species residuals printed at end of run"
+      - "Confirm acetate exchange flux × biomass × dt is summed into a CO2-equivalent C bucket"
+
+  - signature: "wall-clock-budget-met FAILS (sim too slow)"
+    candidate_causes:
+      - "Coupler-emit cadence too high (every step instead of every minute)"
+      - "BiRD's ODE solver re-initializing each call instead of resuming"
+      - "Population grew larger than expected — many agents to walk"
+    checks:
+      - "Profile the run; look at PopulationAggregator and ReactorCellCoupler tick counts"
+      - "If pop > 1000 agents at end, consider downsampling for diagnostics — and flag the surrogate-strategy candidate-future-study (mbp-06)"
+
+
+# ─── 5d. REGRESSION ────────────────────────────────────────────────────────
+regression_tests:
+  inherits_from:
+    - study: mbp-03-bird-reactor-coupling
+      tests:
+        - one-generation-completes-without-divergence
+        - cells-drop-do-below-saturation
+        - reactor-biomass-tracks-population
+        - higher-kla-raises-steady-state-do
+        - no-cells-do-converges-to-henry-saturation
+    - study: mbp-02-population-aggregation
+      tests:
+        - cell-count-doubles-per-generation
+        - per-cell-observables-unchanged-vs-baseline
+    - study: mbp-01-time-varying-environment
+      tests:
+        - uptake-flux-tracks-external-glucose
+        - cumulative-mass-balance-closes
+        - static-env-baseline-unchanged
+
+
 # ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
 limitations:
-  - "Batch only; fed-batch operations require either an upstream pbg-bioreactordesign enhancement or a v2ecoli-side feed Step — deferred."
+  - "Batch only; fed-batch operations require either an upstream pbg-bioreactordesign enhancement or a v2ecoli-side feed Step — deferred (candidate-future-study; see mbp-06)."
   - "Single seed; stochastic variation across seeds not characterized here (a candidate-future-study)."
   - "Bubble column geometry; stirred tank / airlift not validated."
   - "Acetate handling depends on v2ecoli's metabolism; not separately validated this phase."
+  - "Population scales with v2ecoli's single-cell-with-Division — intractable beyond ~1000 cells / ~10 gDW/L. Mass-balance and behavior assertions here are valid in that regime only."
 
 
 # ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────

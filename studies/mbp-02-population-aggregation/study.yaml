@@ -140,6 +140,7 @@ behavior_tests:
 
 - name: cell-count-doubles-per-generation
   classification: primary
+  acceptance_form: quantitative_range
   description: "cell_count doubles approximately every doubling-time (~60 min on M9-glucose); ratio (final/initial) ≈ 2^(duration/doubling_time)."
   measure: {kind: derived_ratio, numerator: population_cell_count_final, denominator: population_cell_count_initial}
   pass_if: {op: in_range, low: 6, high: 24}   # 240 min / 60 min ~ 4 doublings → 16x; band absorbs stochasticity
@@ -149,6 +150,7 @@ behavior_tests:
 
 - name: total-biomass-grows-exponentially
   classification: primary
+  acceptance_form: quantitative_range
   description: "Fitted exponential rate of total_biomass_gDW over the run matches the per-cell μ band (no biomass loss / accounting bug)."
   measure: {kind: series, path: population.total_biomass_gDW, reduce: fitted_exponential_rate, window: full}
   pass_if: {op: in_range, low: 0.3, high: 0.9}   # generous; v2ecoli-calibrated μ ≈ 0.5-0.7 1/h
@@ -158,6 +160,7 @@ behavior_tests:
 
 - name: per-cell-observables-unchanged-vs-baseline
   classification: primary
+  acceptance_form: quantitative_range
   description: "Per-cell DnaA count distribution matches the unaggregated v2ecoli baseline — aggregation is purely additive, doesn't perturb cell state. Regression guard."
   measure: {kind: trajectory_match, reference: "v2ecoli.composites.baseline:default-run", series: dnaA_protein_count}
   pass_if: {op: distribution_match, tolerance: 0.05}
@@ -167,6 +170,7 @@ behavior_tests:
 
 - name: single-cell-aggregation-matches-cell-mass
   classification: supporting
+  acceptance_form: quantitative_range
   description: "With division disabled, population.total_biomass_gDW = agents.0.listeners.mass.cell_mass × 1e-15 every timestep (single cell sanity check)."
   measure: {kind: derived_ratio, numerator: "population.total_biomass_gDW", denominator: "agents.0.listeners.mass.cell_mass * 1e-15"}
   pass_if: {op: in_range, low: 0.99, high: 1.01}
@@ -175,11 +179,74 @@ behavior_tests:
   cites: []
 
 
+# ─── 5b. REQUIRED KNOWLEDGE ─────────────────────────────────────────────────
+required_knowledge:
+  claims:
+    - id: doubling-time-m9-glucose
+      backs: [cell-count-doubles-per-generation, total-biomass-grows-exponentially]
+    - id: od-to-gdw-conversion
+      backs: [cell-count-doubles-per-generation]   # via OD600 derivation
+    - id: ecoli-high-density-ceiling
+      backs: []                                     # informational — sets the eventual target regime
+  open_questions:
+    - id: od-conversion-at-high-density
+      question: |
+        The textbook od-to-gdw-conversion (0.33 gDW/(L·OD600)) holds at
+        exponential-phase low density. Does it hold at the Beulig
+        50–80 gDW/L regime, or do cell-size + scattering shifts (lower
+        per-cell mass under stress) require a regime-dependent factor?
+      blocks: [mbp-05 OD600-based comparisons]
+      asked_to: unassigned
+      status: open
+    - id: stochastic-vs-aggregate
+      question: |
+        At population scale, are stochastic effects on division (cell-cycle
+        skew, daughter-mass partitioning) significant enough to affect the
+        aggregate biomass curve, or can the aggregator treat them as wash?
+        Probably wash at N > ~1000 cells but worth a multi-seed check.
+      blocks: [multi-division-population multi-seed analysis]
+      asked_to: unassigned
+      status: open
+
+
+# ─── 5c. FAILURE MODES ──────────────────────────────────────────────────────
+failure_modes:
+  - signature: "cell-count-doubles-per-generation fails (way off)"
+    candidate_causes:
+      - "PopulationAggregator walks the wrong path (agents.* not enumerable, or agent IDs are non-integer)"
+      - "Division Step splits but new cells aren't registered in the agents store the aggregator walks"
+      - "Doubling time of v2ecoli baseline isn't ~60 min in this run — check medium/seed"
+    checks:
+      - "Print population_cell_count at every emit; should be powers of 2 modulo stochasticity"
+      - "Walk the agents store directly with len(agents.keys()) at end of run"
+      - "Check baseline composite's Division Step trigger condition"
+  - signature: "per-cell-observables-unchanged-vs-baseline FAILS (regression broken)"
+    candidate_causes:
+      - "PopulationAggregator accidentally writes to per-cell state instead of population.* store"
+      - "Aggregator runs at wrong cadence (e.g. ticks per cell, breaking determinism)"
+    checks:
+      - "Diff agents.0.listeners.monomer_counts at every emit vs unmodified baseline"
+      - "Confirm PopulationAggregator's outputs schema only writes to population.*"
+  - signature: "single-cell-aggregation-matches-cell-mass FAILS"
+    candidate_causes:
+      - "fg_per_gram conversion off by orders of magnitude (1e-15 vs 1e-12)"
+      - "reactor_volume_L default not 1.0 in this study (gives biomass_concentration_gL ≠ total_biomass_gDW)"
+    checks:
+      - "Verify the conversion: agents.0.listeners.mass.cell_mass × 1e-15 g/fg should match population.total_biomass_gDW"
+
+
+# ─── 5d. REGRESSION ────────────────────────────────────────────────────────
+regression_tests:
+  # mbp-02 is parallel to mbp-01 (no upstream dependency); inherits nothing.
+  inherits_from: []
+
+
 # ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
 limitations:
   - "All agents share the same external environment in this phase (no per-cell microenvironment heterogeneity)."
-  - "OD600 conversion is a constant factor; physical OD depends on cell size + scattering — calibration may need refinement against Palsson 2025."
+  - "OD600 conversion is a constant factor; physical OD depends on cell size + scattering — may need regime-dependent refit (Beulig 2025 high-density regime)."
   - "Aggregator runs at emit cadence; not suitable as a feedback signal to processes that need sub-step granularity (deferred)."
+  - "Single-cell-with-Division does not scale to reactor densities (~10^13 cells/L at 50–80 gDW/L) — see claim `high-density-single-cell-intractability`; a surrogate engine under the cell-side interface contract is the path forward (mbp-06 scope)."
 
 
 # ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────

@@ -1,0 +1,272 @@
+schema_version: 3
+name: mbp-06-gap-analysis
+created: '2026-05-22'
+phase: Design
+
+# Multi-axis status (Pass A, canonical).
+design_status: drafted
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+expert_review_status: not_requested
+
+# Distinct study TYPE: this is an EVALUATION phase, not a construction phase.
+# Its primary deliverable is a gap-analysis ARTIFACT (a structured findings
+# document under findings.md / per-finding entries in this study's findings:
+# array), NOT a new simulation capability. The upstream multiscale-bioprocess
+# roadmap names this pattern: "construction phases ship new capability;
+# evaluation phases ship findings; iteration ships revised plans" (see
+# references/expert/multiscale_bioprocess_roadmap.md).
+study_kind: evaluation   # construction | evaluation | iteration
+
+baseline:
+- name: no-new-baseline
+  composite: v2ecoli.composites.reactor_bird_coupled   # walks mbp-01..05 artifacts; no new sim composite
+  params: {seed: 0, cache_dir: out/cache}
+
+
+# ─── 1. PURPOSE ────────────────────────────────────────────────────────────
+purpose:
+  question: |
+    After mbp-01..05 have produced their per-study findings, what are the
+    remaining gaps (in v2ecoli's biology coverage, the coupling layer, the
+    pbg-bioreactordesign physics, and the Beulig benchmark scope) that
+    prevent the investigation from answering its overarching question, and
+    how should those gaps be prioritized as the next investigation
+    iteration (mbp-* round 2, or a sibling investigation)?
+  mechanism: |
+    No new simulation. The study WALKS the prior-study artifacts: every
+    behavior_test's outcome, every recorded finding, every limitation /
+    open_question / candidate-future-study pointer. It synthesizes these
+    into a structured gap-analysis covering five named axes:
+
+      A. **v2ecoli biology coverage** — places where v2ecoli's metabolism /
+         regulation / mass machinery is insufficient for the reactor regime
+         (e.g. low-DO acetate overflow strength, high-density maintenance
+         re-allocation per Beulig 2025).
+      B. **Coupling layer** — limitations of the v2ecoli ↔ pbg-bioreactor-
+         design adapter (biomass-ownership disable, timestep mismatch,
+         single-cell-with-Division ceiling).
+      C. **pbg-bioreactordesign physics** — what BiRD doesn't yet model
+         (fed-batch operations, multi-stream feeds, pH-CO2 coupling).
+      D. **Beulig benchmark scope** — what was deferred from mbp-05 (SGKO /
+         TRP / MEL strain extension, transcriptional-state matching against
+         >470 transcriptomes, fed-batch phases I–IV).
+      E. **Methodology** — places where the biological-BDD discipline (claims
+         → tests → triage) didn't catch a gap soon enough, or where the
+         cell-side interface contract needs revision based on what was learned.
+
+    For each gap, the study records: signature, evidence (which test(s) /
+    finding(s) surfaced it), severity (blocks-next-step | reduces-coverage |
+    open-question), candidate-resolution (a new study slug, an upstream PR
+    to pbg-bioreactordesign, an expert elicitation), and priority (1–3).
+  expected_outcome: |
+    A structured findings document (findings.md + this study's
+    findings: array, populated post-impl) that enumerates ≥ 8 named gaps
+    across the five axes, each with a concrete candidate-resolution. The
+    document feeds the next investigation cycle: roadmap-revision PR on
+    references/expert/multiscale_bioprocess_roadmap.md (if upstream)
+    + new study scaffolds for the prioritized gaps.
+
+
+# ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
+pipeline_gate:
+  prerequisites:
+    - mbp-01-time-varying-environment
+    - mbp-02-population-aggregation
+    - mbp-03-bird-reactor-coupling
+    - mbp-04-multigeneration-runs
+    - mbp-05-palsson-benchmark
+  enables: []   # leaf of the investigation; feeds the next iteration
+  gate_status_summary: |
+    Blocked on all 5 construction studies completing their impl PRs so the
+    artifacts (findings, acceptance_results, calibration_logs, limitations,
+    open_questions) are populated. Synthesis-only; no simulation.
+  proceed_condition: |
+    Gap-analysis covers all 5 axes (A–E); each gap has a concrete
+    candidate-resolution; priorities are assigned and reviewed by the
+    expert / user. The document is committed to findings.md and the
+    candidate-resolution slugs are reified as scaffolded follow-up studies
+    OR explicit "deferred" entries in the next roadmap revision.
+
+
+# ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
+# Evaluation phase — no new simulation. The "set" is a synthesis exercise.
+simulation_set: []
+
+
+# ─── 4. MODEL CHANGE ───────────────────────────────────────────────────────
+model_change:
+  base_model: v2ecoli.composites.reactor_bird_coupled
+  new_state_variables: []
+  new_processes: []
+  new_parameters: []
+  modified_processes: []
+  notes: |
+    No simulation-side changes. The deliverable is the gap-analysis
+    document + structured findings entries in this study.yaml.findings.
+
+
+# ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
+key_assumptions:
+  - "All upstream construction studies (mbp-01..05) have shipped their impl PRs and populated their findings + limitations + open_questions arrays."
+  - "The gap-analysis is a snapshot in time; subsequent iterations may revise the categorization or priority of any gap."
+  - "Gaps unique to v2ecoli (e.g. transcriptional-state matching axis) versus shared with the upstream multiscale-bioprocess plan are explicitly distinguished."
+
+
+# ─── 5. READOUTS + BEHAVIOR TESTS ──────────────────────────────────────────
+# Evaluation-phase behavior tests are *about the synthesis itself*, not
+# about simulation outputs. They check that the synthesis is complete,
+# interpretable, and actionable — analogous to mbp-05's
+# divergences-categorized-in-report-card test.
+
+readouts:
+- {name: gap_count_axis_A_v2ecoli_biology,    store_path: findings.summary.axis_A_count, units: integer, status: planned}
+- {name: gap_count_axis_B_coupling,           store_path: findings.summary.axis_B_count, units: integer, status: planned}
+- {name: gap_count_axis_C_bird_physics,       store_path: findings.summary.axis_C_count, units: integer, status: planned}
+- {name: gap_count_axis_D_beulig_scope,       store_path: findings.summary.axis_D_count, units: integer, status: planned}
+- {name: gap_count_axis_E_methodology,        store_path: findings.summary.axis_E_count, units: integer, status: planned}
+- {name: candidate_resolutions_with_owner,    store_path: findings.summary.resolutions_assigned, units: integer, status: planned}
+
+
+behavior_tests:
+
+- name: all-five-axes-covered
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "Each of the five gap axes (v2ecoli biology / coupling / BiRD physics / Beulig scope / methodology) has at least one named gap entry."
+  measure: {kind: structural_count_per_axis, axes: [A, B, C, D, E]}
+  pass_if: {op: all_at_least, value: 1}
+  units: integer
+  requires_simulation: null
+  cites: []
+
+- name: at-least-eight-gaps-total
+  classification: primary
+  acceptance_form: quantitative_range
+  description: "The gap analysis enumerates at least 8 distinct gaps across the five axes (sets a lower bound for synthesis depth)."
+  measure: {kind: structural_count, path: findings.entries}
+  pass_if: {op: at_least, value: 8}
+  units: integer
+  requires_simulation: null
+  cites: []
+
+- name: every-gap-has-candidate-resolution
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "Every gap entry carries a non-empty candidate_resolution field (a follow-up-study slug, an upstream PR pointer, or an expert-elicitation request). No bare placeholder strings — the predicate also rejects 'to be determined', 'figure out later', etc."
+  measure: {kind: structural_check, path: findings.entries, predicate: candidate_resolution_nonempty_and_not_placeholder}
+  pass_if: {op: all_pass}
+  units: "—"
+  requires_simulation: null
+  cites: []
+
+- name: priorities-reviewed
+  classification: supporting
+  acceptance_form: qualitative_direction
+  description: "Each gap entry has an assigned priority (1=highest, 3=lowest) AND a review-by entry recording who approved the prioritization."
+  measure: {kind: structural_check, path: findings.entries, predicate: priority_and_review_set}
+  pass_if: {op: all_pass}
+  units: "—"
+  requires_simulation: null
+  cites: []
+
+
+# ─── 5b. REQUIRED KNOWLEDGE ─────────────────────────────────────────────────
+required_knowledge:
+  claims:
+    - id: high-density-single-cell-intractability
+      backs: []   # informational — likely a top-priority gap under axis A or B
+    - id: v2ecoli-calibration-regime
+      backs: []
+    - id: resistance-persistence-tradeoff-high-density
+      backs: []   # informational — feeds the transcriptional-matching gap (axis D)
+    - id: bird-biomass-ownership-conflict
+      backs: []   # informational — feeds the coupling-cleanup gap (axis B)
+  open_questions:
+    - id: gap-analysis-rigor
+      question: |
+        Are the five axes (A–E) the right partitioning, or are there
+        gap types that don't fit? Re-evaluate after the first impl pass.
+      blocks: [gap-analysis taxonomy lock]
+      asked_to: unassigned
+      status: open
+
+
+# ─── 5c. FAILURE MODES ──────────────────────────────────────────────────────
+failure_modes:
+  - signature: "all-five-axes-covered FAILS (one axis empty)"
+    candidate_causes:
+      - "Synthesis missed that axis (e.g. no methodology gaps surfaced — implausible; revisit)"
+      - "Upstream studies didn't populate findings on that axis (gap-of-gaps)"
+    checks:
+      - "Walk every upstream study's limitations + open_questions; verify nothing axis-relevant was missed"
+
+  - signature: "every-gap-has-candidate-resolution FAILS"
+    candidate_causes:
+      - "A gap was identified but the synthesis owner couldn't articulate a path forward"
+    checks:
+      - "Bring those gaps to the next expert sync for resolution-design"
+
+  - signature: "Gaps proliferate without prioritization → unactionable"
+    candidate_causes:
+      - "Synthesis surfaces too many gaps without clear priority — next iteration paralyzed"
+    checks:
+      - "Apply a hard cap: top 3 priority-1 gaps drive the next iteration; rest are tracked but deferred"
+
+
+# ─── 5d. REGRESSION ────────────────────────────────────────────────────────
+# Evaluation phase consumes prior studies' tests as INPUTS to the synthesis;
+# it doesn't extend the regression suite the same way construction phases do.
+regression_tests:
+  inherits_from:
+    - study: mbp-05-palsson-benchmark
+      tests: [divergences-categorized-in-report-card]   # same triage-discipline guard
+
+
+# ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
+limitations:
+  - "Snapshot synthesis; not a continuous-monitoring artifact. Re-run as a new mbp-06 study at the next iteration milestone."
+  - "Gaps are subjective in framing — different syntheses may partition differently. The 5-axis taxonomy is a working hypothesis; revisable."
+  - "Priority assignment is expert-driven; quantifying gap severity beyond a 1–3 scale is future scope."
+
+
+# ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
+implementation_requirements:
+
+- id: req-1-synthesis-harness
+  kind: tooling
+  title: Cross-study findings/limitations walker
+  effort: S
+  description: |
+    Small script (likely under v2ecoli/scripts/ or as a notebook) that walks
+    studies/mbp-*/study.yaml and collects every `findings:` entry, every
+    `limitations:` bullet, every `open_questions:` item across the chain.
+    Outputs a single JSON / markdown report this study's synthesis builds
+    on. Idempotent.
+  unblocks: [all-five-axes-covered, at-least-eight-gaps-total]
+
+- id: req-2-prioritization-protocol
+  kind: process
+  title: Gap prioritization review protocol
+  effort: XS
+  description: |
+    Document (in the study's findings.md) the protocol for assigning
+    priorities (1–3) and review-by entries. Aligns with the upstream
+    methodology's "test-revision ritual" — distinct from feature work.
+  unblocks: [priorities-reviewed]
+
+
+bibliography:
+  expert: [multiscale_bioprocess_roadmap, cell_side_interface_contract, palsson_2025_fed_batch]
+  bib_keys: [Beulig2025mSystems]
+
+
+runs: []
+
+
+tests:
+  auto_discover: true
+  data_source: latest_run
+  pytest_args: []
+  last_results: null

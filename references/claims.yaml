@@ -1,2 +1,230 @@
-# Maps named claims (e.g., "phase-2.dnaA-fires-at-threshold") to BibTeX keys.
-claims: {}
+# Structured claims layer for the multiscale-bioprocess investigation.
+#
+# Each claim is a named, queryable assertion about E. coli physiology or
+# bioreactor physics that a study's behavior_test can CITE as its
+# expected-value provenance. This is the "knowledge" half of the
+# biological-BDD closed loop (curate → CLAIMS → tests → simulate →
+# compare → triage → update) inherited from the upstream multiscale-
+# bioprocess roadmap.
+#
+# Schema (per claim, all top-level keys):
+#   id          : kebab-case slug, used as a foreign key from study yamls
+#   statement   : one-sentence English predicate
+#   regime      : the operating regime in which the claim holds (medium,
+#                 density, aeration, growth phase)
+#   value       : the value or range (when quantitative); omitted for
+#                 qualitative claims (those use `direction`)
+#   units       : units of `value` (when present)
+#   direction   : sign/shape claim (when qualitative); e.g. "positive_monotonic"
+#   strength    : textbook | paper | expert | preliminary
+#                 - textbook : multi-source consensus, undisputed
+#                 - paper    : single high-quality source, citable
+#                 - expert   : elicited from a named expert (not yet ours)
+#                 - preliminary : provisional / under review
+#   sources     : list of bib_keys in references/papers.bib
+#   cited_by    : (informational) list of study slugs that cite this claim
+#                 — keep in sync with study.yaml.required_knowledge.claims
+
+schema_version: 2
+
+claims:
+
+  # ─── Baseline E. coli physiology (textbook) ─────────────────────────────
+
+  mu-max-m9-glucose-aerobic:
+    statement: |
+      Aerobic batch maximum specific growth rate of E. coli K-12 on glucose
+      minimal medium (M9-glucose, 37°C) is 0.6–0.7 /h.
+    regime: 'M9-glucose, 37°C, aerobic, exponential phase'
+    value: [0.6, 0.7]
+    units: '1/h'
+    strength: textbook
+    sources: [Monk2017NatBiotechnol, Fong2003JBacteriol]
+    cited_by:
+      - mbp-03-bird-reactor-coupling
+
+  doubling-time-m9-glucose:
+    statement: |
+      Doubling time of E. coli K-12 on M9-glucose, 37°C, exponential phase
+      is approximately 60 minutes (consistent with μ_max above).
+    regime: 'M9-glucose, 37°C, exponential phase'
+    value: 60
+    units: 'minutes'
+    strength: textbook
+    sources: [Monk2017NatBiotechnol]
+    cited_by:
+      - mbp-02-population-aggregation
+      - mbp-03-bird-reactor-coupling
+      - mbp-04-multigeneration-runs
+
+  biomass-yield-on-glucose:
+    statement: |
+      Biomass yield Y_xs on glucose under aerobic batch growth is
+      approximately 0.5 g-biomass / g-glucose (mass-balance reference
+      for placeholder cell-process; varies with regime).
+    regime: 'aerobic batch, glucose-replete'
+    value: 0.5
+    units: 'g-biomass/g-glucose'
+    strength: textbook
+    sources: [Monod1949AnnRevMicrobiol]
+    cited_by: []
+
+  od-to-gdw-conversion:
+    statement: |
+      Textbook E. coli OD600 ↔ gDW conversion is approximately 0.33
+      gDW/(L·OD600); regime-dependent (cell size + scattering vary).
+    regime: 'E. coli, exponential phase, 600 nm OD'
+    value: 0.33
+    units: 'gDW/(L·OD600)'
+    strength: textbook
+    sources: []
+    cited_by:
+      - mbp-02-population-aggregation
+
+  # ─── Overflow metabolism (paper-anchored) ────────────────────────────────
+
+  acetate-overflow-low-do:
+    statement: |
+      Under O2-transfer-limited (low dissolved O2) batch growth on glucose,
+      acetate accumulates as overflow metabolism (Pta-AckA pathway).
+    regime: 'M9-glucose, aerobic batch, dissolved O2 below saturation'
+    direction: 'acetate_accumulates'
+    strength: paper
+    sources: [Vemuri2006ApplEnvironMicrobiol, Basan2015Nature]
+    cited_by:
+      - mbp-01-time-varying-environment
+      - mbp-03-bird-reactor-coupling
+
+  acetate-reconsumption-post-glucose:
+    statement: |
+      After glucose depletion under sufficient O2, accumulated acetate is
+      reconsumed (diauxic acetate-uptake phase).
+    regime: 'aerobic batch, post-glucose-depletion'
+    direction: 'acetate_decreases'
+    strength: paper
+    sources: [Enjalbert2017SciRep]
+    cited_by: []
+
+  overflow-proteome-allocation:
+    statement: |
+      Acetate overflow at high glucose-uptake rate is an efficient-proteome-
+      allocation outcome (not a metabolic-capacity limitation): cells
+      choose acetate to free protein for growth.
+    regime: 'aerobic batch, glucose-excess'
+    direction: 'acetate_accumulates_with_glucose_uptake_rate'
+    strength: paper
+    sources: [Basan2015Nature]
+    cited_by: []
+
+  # ─── Gas-liquid transport physics (textbook) ─────────────────────────────
+
+  henry-law-equilibrium-o2-co2:
+    statement: |
+      Under no-cell-consumption aerated steady state, dissolved O2 and CO2
+      converge to Henry's-law saturation given gas-phase partial pressures
+      and temperature.
+    regime: 'aerated reactor, no cells'
+    direction: 'converges_to_henry_saturation'
+    strength: textbook
+    sources: [Sander2015AtmosChemPhys]
+    cited_by:
+      - mbp-03-bird-reactor-coupling
+
+  kla-do-monotonic:
+    statement: |
+      With cells consuming O2, raising kLa (via gas flow, impeller, or
+      bubble-size changes) raises steady-state dissolved O2 monotonically.
+    regime: 'aerated reactor, cells consuming O2'
+    direction: 'positive_monotonic'
+    strength: textbook
+    sources: [GardenGarciaOchoa2009BiotechAdv]
+    cited_by:
+      - mbp-03-bird-reactor-coupling
+
+  # ─── High-density fed-batch regime (Beulig 2025) ─────────────────────────
+
+  ecoli-high-density-ceiling:
+    statement: |
+      E. coli can achieve >100 g_cell_dry_weight/L in fed-batch culture
+      under controlled bioreactor conditions; the Beulig 2025 study reached
+      50–80 gDW/L for the WT and engineered strains.
+    regime: 'controlled bioreactor, two-stage batch-to-fed-batch, exponential feed'
+    value: [50, 80]
+    units: 'gDW/L'
+    strength: paper
+    sources: [Beulig2025mSystems]
+    cited_by:
+      - mbp-02-population-aggregation
+      - mbp-05-palsson-benchmark
+
+  fedbatch-protocol-beulig-2025:
+    statement: |
+      Beulig 2025 used a two-stage batch → fed-batch protocol with
+      exponential feeding strategies, supplying continuous media + O2 +
+      pH-buffering after batch-to-fed-batch transition (t=0 h). Four
+      fermentation phases identified: I/II (transition, 0 h),
+      II/III (changes in melatonin/tryptophan formation, 10 h),
+      III/IV (MEL strain growth arrest, 20 h).
+    regime: 'controlled parallel bioreactors, WT BW25113 + 31 SGKO + TRP + TRPp + MEL'
+    strength: paper
+    sources: [Beulig2025mSystems]
+    cited_by:
+      - mbp-05-palsson-benchmark
+
+  resistance-persistence-tradeoff-high-density:
+    statement: |
+      At high cell density, metabolic burden modulates a trade-off between
+      resistance (constitutive stress readiness) and persistence (bistable
+      expression states allowing post-stress regrowth). Resource re-
+      allocation from resistance toward maintenance is the proposed
+      mechanism for observed growth arrests.
+    regime: 'high cell density (>50 gDW/L) fed-batch with metabolic burden'
+    direction: 'maintenance_burden_increases_persistence_state_prevalence'
+    strength: paper
+    sources: [Beulig2025mSystems]
+    cited_by:
+      - mbp-05-palsson-benchmark
+
+  # ─── Methodology / scope claims ──────────────────────────────────────────
+
+  v2ecoli-calibration-regime:
+    statement: |
+      v2ecoli's existing calibration regime is slow-growth M9-minimal-glucose
+      (single cell, ~60-min doubling). High-density fed-batch regimes (>10
+      gDW/L) are outside the calibration envelope; quantitative tolerances
+      must reflect this. Treat as a preliminary claim until benchmarked.
+    regime: 'v2ecoli baseline composite as of 2026-05-22'
+    strength: preliminary
+    sources: []
+    cited_by:
+      - mbp-03-bird-reactor-coupling
+      - mbp-05-palsson-benchmark
+
+  high-density-single-cell-intractability:
+    statement: |
+      Single-cell-with-Division simulation of E. coli does not scale to
+      reactor-relevant population sizes (10^12 – 10^13 cells/L at
+      50–80 gDW/L). Either a coarse-grained surrogate engine or a
+      population-level abstraction is required for direct comparison
+      against Beulig 2025 trajectories.
+    regime: 'v2ecoli + Division, target density >10 gDW/L'
+    strength: preliminary
+    sources: []
+    cited_by:
+      - mbp-04-multigeneration-runs
+      - mbp-05-palsson-benchmark
+
+  bird-biomass-ownership-conflict:
+    statement: |
+      pbg-bioreactordesign's BiRDReactorProcess carries an internal biomass
+      ODE (Monod kinetics). When coupling to an external cell-side engine
+      (e.g. v2ecoli) that owns biomass via per-cell mass + Division, the
+      two biomass tracks conflict. Resolution: disable BiRD's internal
+      biomass ODE (max_growth_rate_per_h=0), OR fork a transport-only
+      variant. The cell-side interface contract (references/expert/
+      cell_side_interface_contract.md) records the resolution.
+    regime: 'v2ecoli ↔ pbg-bioreactordesign coupling (mbp-03)'
+    strength: preliminary
+    sources: []
+    cited_by:
+      - mbp-03-bird-reactor-coupling

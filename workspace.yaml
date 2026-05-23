@@ -15,6 +15,16 @@ expert_docs:
       Pointer to the upstream vivarium-collective/multiscale-bioprocess
       roadmap (chris/initial-scaffolding) that inspired (but is diverged
       from by) the v2ecoli-workspace multiscale-bioprocess investigation.
+  - name: cell_side_interface_contract
+    title: Cell-side interface contract (substitutability)
+    path: references/expert/cell_side_interface_contract.md
+    description: |
+      The substitutability story made concrete: what an engine wired to
+      the reactor MUST provide (inputs / outputs / lifecycle hooks /
+      identifier scheme). Load-bearing for mbp-03 (Monod → v2ecoli swap)
+      and for future engine comparator studies (dFBA, surrogate, WCM
+      variants). Inherits the upstream multiscale-bioprocess roadmap's
+      "engine substitution as a phase boundary" open question.
   - name: palsson_2025_fed_batch
     title: Beulig et al. 2025 — high-cell-density fed-batch E. coli (mSystems)
     path: references/expert/palsson_2025_fed_batch.md

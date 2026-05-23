@@ -146,6 +146,7 @@ behavior_tests:
 
 - name: end-of-run-od-matches-published
   classification: primary
+  acceptance_form: quantitative_range
   description: "End-of-run OD matches the Palsson 2025 published value within tolerance (placeholder ±15% until spec PR; replace once citation lands)."
   measure: {kind: series, path: population.OD600, reduce: final, window: full}
   pass_if: {op: relative_to_reference, reference: palsson_2025_final_OD, tolerance: 0.15}
@@ -155,6 +156,7 @@ behavior_tests:
 
 - name: time-to-target-od-matches-published
   classification: primary
+  acceptance_form: quantitative_range
   description: "Time to reach the published target OD matches within tolerance."
   measure: {kind: time_to_threshold, path: population.OD600, threshold: palsson_2025_target_OD}
   pass_if: {op: relative_to_reference, reference: palsson_2025_time_to_target, tolerance: 0.15}
@@ -164,6 +166,7 @@ behavior_tests:
 
 - name: acetate-profile-matches-published-shape
   classification: primary
+  acceptance_form: quantitative_range
   description: "Simulated acetate-accumulation profile matches the published trajectory qualitatively (shape) and within a magnitude band."
   measure: {kind: trajectory_compare, series: "environment.external_concentrations.ACET[p]", reference: palsson_2025_acetate_profile}
   pass_if: {op: shape_match_within_band, band: 0.3}
@@ -173,6 +176,7 @@ behavior_tests:
 
 - name: divergences-categorized-in-report-card
   classification: supporting
+  acceptance_form: qualitative_direction
   description: "Divergences categorized in the report card (v2ecoli metabolic deficiency / coupling-adapter limitation / experimental uncertainty / placeholder-induced) — the comparison is interpretable."
   measure: {kind: qualitative_review, artifact: report.md}
   pass_if: {op: review_complete}
@@ -181,12 +185,113 @@ behavior_tests:
   cites: [Beulig2025mSystems]
 
 
+# ─── 5b. REQUIRED KNOWLEDGE ─────────────────────────────────────────────────
+required_knowledge:
+  claims:
+    - id: ecoli-high-density-ceiling
+      backs: [end-of-run-od-matches-published]
+    - id: fedbatch-protocol-beulig-2025
+      backs: [end-of-run-od-matches-published, time-to-target-od-matches-published]
+    - id: resistance-persistence-tradeoff-high-density
+      backs: []                                # informational — flagged as candidate-future-study
+                                               # (transcriptional-state matching against >470 transcriptomes)
+    - id: v2ecoli-calibration-regime
+      backs: []                                # informational — sets tolerance bands
+    - id: high-density-single-cell-intractability
+      backs: []                                # informational — explains why this study is BATCH-PREFIX scope, not full Beulig
+  open_questions:
+    - id: beulig-batch-prefix-duration
+      question: |
+        How long is the batch phase in Beulig 2025 (t < 0 h before feed
+        onset)? Need this from the methods to set duration_min correctly.
+        Currently placeholder 480 min (8 h); paper likely 4–6 h batch.
+      blocks: [palsson-matched-batch duration_min, time-to-target-od-matches-published threshold]
+      asked_to: unassigned (extract from Beulig methods)
+      status: open
+    - id: od-conversion-strain-specific
+      question: |
+        Beulig measured 5 strain groups; OD600 ↔ gDW conversion may differ
+        per strain (especially MEL with growth arrest). For the WT-batch
+        comparison, is textbook 0.33 acceptable or does the paper supply a
+        WT-specific value?
+      blocks: [end-of-run-od-matches-published tolerance band]
+      asked_to: unassigned (extract from Beulig methods/supp)
+      status: open
+    - id: transcriptional-matching-scope
+      question: |
+        Beulig provides >470 transcriptomes across phases I–IV — a unique
+        benchmark axis (v2ecoli outputs transcript counts; the upstream
+        multiscale-bioprocess plan's dFBA path does NOT). Should we open a
+        candidate-future-study now to scope transcriptional-state matching,
+        or defer until mbp-05 OD/biomass tests are at least drafted?
+      blocks: [mbp-06 gap-analysis prioritization]
+      asked_to: unassigned (Chris + Eran on next sync)
+      status: open
+
+
+# ─── 5c. FAILURE MODES ──────────────────────────────────────────────────────
+failure_modes:
+  - signature: "end-of-run-od-matches-published off by >15% (test FAILS)"
+    candidate_causes:
+      - "v2ecoli's μ under matched-Beulig conditions is far from his observed (calibration gap — claim v2ecoli-calibration-regime)"
+      - "Single-cell-with-Division population does not reach Beulig densities in the simulated time (intractability — claim high-density-single-cell-intractability); test compares at simulated-end, not at matched real-time"
+      - "OD conversion factor wrong for this regime"
+      - "Initial conditions (medium, OD0, volume) not matched accurately"
+    checks:
+      - "Per-finding categorization in the report (which of the 4 candidate causes applies)"
+      - "Plot simulated vs. published OD600 trajectory; visualize divergence point"
+      - "If μ-gap is the cause, recommend mbp-06 candidate-future-study on v2ecoli high-density calibration"
+
+  - signature: "acetate-profile-matches-published-shape FAILS"
+    candidate_causes:
+      - "v2ecoli's Pta-AckA wiring doesn't produce overflow at the right glucose/O2 regime"
+      - "Beulig's acetate values are below limit-of-quantification — comparison meaningless"
+      - "Coupler not propagating dissolved O2 low enough to trigger overflow"
+    checks:
+      - "Overlay simulated and published acetate; compare shape (peak timing, decay)"
+      - "Validate v2ecoli's overflow signature independently against mbp-01's low-DO test"
+
+  - signature: "divergences-categorized-in-report-card under-reviewed"
+    candidate_causes:
+      - "Auto-comparison harness output is the only artifact; no expert triage entry recorded"
+    checks:
+      - "Confirm report.md contains a `## Divergence triage` section with explicit categorization per metric"
+
+
+# ─── 5d. REGRESSION ────────────────────────────────────────────────────────
+regression_tests:
+  inherits_from:
+    - study: mbp-04-multigeneration-runs
+      tests:
+        - population-grows-then-flattens-at-substrate-limit
+        - carbon-mass-balance-closes-over-3-generations
+        - nitrogen-mass-balance-closes-over-3-generations
+    - study: mbp-03-bird-reactor-coupling
+      tests:
+        - one-generation-completes-without-divergence
+        - cells-drop-do-below-saturation
+        - reactor-biomass-tracks-population
+        - higher-kla-raises-steady-state-do
+        - no-cells-do-converges-to-henry-saturation
+    - study: mbp-02-population-aggregation
+      tests:
+        - cell-count-doubles-per-generation
+        - per-cell-observables-unchanged-vs-baseline
+    - study: mbp-01-time-varying-environment
+      tests:
+        - uptake-flux-tracks-external-glucose
+        - cumulative-mass-balance-closes
+        - static-env-baseline-unchanged
+
+
 # ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
 limitations:
   - "Single benchmark study; not a multi-dataset validation."
   - "Tolerances are placeholders until the spec PR sets them against the digitized data."
-  - "Fed-batch operations remain a deferred enhancement (pbg-bioreactordesign has no fed-batch yet); if Palsson is fed-batch only, this study scopes to the batch-phase prefix."
-  - "v2ecoli's calibration is slow-growth M9-glucose; high-density regime may stress-test."
+  - "Fed-batch operations remain a deferred enhancement (pbg-bioreactordesign has no fed-batch yet); this study scopes to the BATCH-PHASE PREFIX of the Beulig dataset."
+  - "v2ecoli's calibration is slow-growth M9-glucose (~60-min doubling, single cell); the high-density 50–80 gDW/L regime is OUTSIDE the calibration envelope — quantitative tolerances must reflect this."
+  - "Strain scope: WT BW25113 only. SGKO (31 knockouts) / TRP / TRPp / MEL are deferred — natural candidate-future-studies under v2ecoli's variant scope."
+  - "Transcriptional-state matching against >470 Beulig transcriptomes is a unique benchmark axis (v2ecoli has transcripts; upstream dFBA path does not) — deferred to mbp-06 / future scoping."
 
 
 # ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────

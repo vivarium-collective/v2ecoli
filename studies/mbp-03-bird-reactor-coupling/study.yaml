@@ -167,6 +167,7 @@ behavior_tests:
 
 - name: one-generation-completes-without-divergence
   classification: primary
+  acceptance_form: qualitative_direction
   description: "Coupled sim runs for one v2ecoli doubling time (60 min) without state divergence (no NaN; DO stays in [0, saturation]; cell_count ≥ 1)."
   measure: {kind: completion_check, checks: [no_nan, do_in_range, cell_count_at_least_one]}
   pass_if: {op: all_pass}
@@ -176,6 +177,7 @@ behavior_tests:
 
 - name: cells-drop-do-below-saturation
   classification: primary
+  acceptance_form: qualitative_direction
   description: "With v2ecoli cells consuming O2, steady-state dissolved O2 sits below BiRD's Henry-law saturation."
   measure: {kind: derived_difference, a: reactor.dissolved_o2, b: reactor.o2_saturation, reduce: mean, window: second_half}
   pass_if: {op: at_most, value: 0.0}
@@ -185,6 +187,7 @@ behavior_tests:
 
 - name: reactor-biomass-tracks-population
   classification: primary
+  acceptance_form: quantitative_range
   description: "reactor.biomass equals population.biomass_concentration_gL within numerical tolerance — coupling is wired without drift."
   measure: {kind: derived_ratio, numerator: reactor.biomass, denominator: population.biomass_concentration_gL}
   pass_if: {op: in_range, low: 0.95, high: 1.05}
@@ -194,6 +197,7 @@ behavior_tests:
 
 - name: higher-kla-raises-steady-state-do
   classification: primary
+  acceptance_form: qualitative_direction
   description: "Across the gas-flow sweep (which drives kLa via BiRD's Higbie correlation), steady-state DO increases monotonically with kLa."
   measure: {kind: cross_run_trend, x: reactor.kla_o2, y: reactor.dissolved_o2}
   pass_if: {op: positive_monotonic}
@@ -203,6 +207,7 @@ behavior_tests:
 
 - name: no-cells-do-converges-to-henry-saturation
   classification: supporting
+  acceptance_form: quantitative_range
   description: "With force_zero_population=true (population aggregator returns 0 cells), DO converges to BiRD's Henry-law saturation."
   measure: {kind: derived_difference, a: reactor.dissolved_o2, b: reactor.o2_saturation, reduce: final, window: full}
   pass_if: {op: abs_at_most, value: 0.2}
@@ -211,12 +216,122 @@ behavior_tests:
   cites: [Sander2015AtmosChemPhys]
 
 
+# ─── 5b. REQUIRED KNOWLEDGE ─────────────────────────────────────────────────
+required_knowledge:
+  claims:
+    - id: mu-max-m9-glucose-aerobic
+      backs: []                                # informational — sets the regime expectation but mbp-03 has no μ_max test (intentional; mbp-04 does)
+    - id: doubling-time-m9-glucose
+      backs: [one-generation-completes-without-divergence]
+    - id: acetate-overflow-low-do
+      backs: []                                # informational
+    - id: henry-law-equilibrium-o2-co2
+      backs: [no-cells-do-converges-to-henry-saturation]
+    - id: kla-do-monotonic
+      backs: [higher-kla-raises-steady-state-do]
+    - id: v2ecoli-calibration-regime
+      backs: []                                # informational — tolerance band on μ in mbp-04 reflects this
+    - id: bird-biomass-ownership-conflict
+      backs: [reactor-biomass-tracks-population, cells-drop-do-below-saturation]
+  interface_contract:
+    document: references/expert/cell_side_interface_contract.md
+    role: |
+      This study is the first impl PR to wire a real engine (v2ecoli baseline)
+      under the cell-side interface contract. The substitutability story stands
+      or falls here.
+  open_questions:
+    - id: bird-disable-vs-fork
+      question: |
+        Is disabling BiRD's internal biomass ODE (max_growth_rate_per_h=0)
+        sufficient long-term, or should we fork a `BiRDTransportProcess`
+        upstream in pbg-bioreactordesign that omits the biomass equation?
+        Affects mbp-03's `req-1-bird-dep`: as-is dep vs upstream PR.
+      blocks: [req-1-bird-dep scope decision]
+      asked_to: pbg-bioreactordesign maintainer (Chris)
+      status: open
+    - id: coupler-timestep-mismatch
+      question: |
+        BiRDReactorProcess runs on ~1.0 h interval; v2ecoli emits at ~1 s.
+        The coupler holds last-known BiRD state between BiRD ticks (1-hour
+        lag). At what point does the lag distort the coupling? Likely fine
+        in batch but stresses fed-batch.
+      blocks: [coupler implementation cadence choice]
+      asked_to: unassigned
+      status: open
+    - id: o2-uptake-units-conversion
+      question: |
+        v2ecoli's metabolism emits external_exchange_fluxes in mmol/(gDW·h).
+        BiRD expects o2_uptake_rate in mg_O2/(g_X·h). Conversion factor
+        (32 g/mol O2 × population biomass) — is the coupler the right
+        place for this, or should it be a Step in the interface contract?
+      blocks: [coupler implementation]
+      asked_to: unassigned
+      status: open
+
+
+# ─── 5c. FAILURE MODES ──────────────────────────────────────────────────────
+failure_modes:
+  - signature: "one-generation-completes-without-divergence fails (NaN / unbounded)"
+    candidate_causes:
+      - "Units mismatch on a coupler write (mg/L vs mM, mmol/(gDW·h) vs mg_O2/(g_X·h))"
+      - "BiRD's internal biomass ODE not actually disabled — competing with v2ecoli's biomass"
+      - "Coupler reads stale BiRD state immediately after BiRD's first tick"
+      - "DO going below zero because uptake rate exceeds physical limit (no clamp)"
+    checks:
+      - "Add a hard clamp on dissolved_o2 ≥ 0 in the coupler (with a warning if hit)"
+      - "Confirm BiRDReactorProcess config.max_growth_rate_per_h == 0 at boot"
+      - "Print first 10 emit rows of every coupler-touched store"
+
+  - signature: "reactor-biomass-tracks-population diverges over time"
+    candidate_causes:
+      - "Coupler writes reactor.biomass at a different cadence than BiRD's internal update"
+      - "Unit drift between gDW/L (population side) and g/L (BiRD's biomass port)"
+      - "BiRD's biomass ODE re-enabled by some default in a sub-call"
+    checks:
+      - "Plot reactor.biomass vs population.biomass_concentration_gL — should overlay"
+      - "Inspect BiRD's internal ODE state directly via its _state attribute"
+
+  - signature: "higher-kla-raises-steady-state-do FAILS (no trend or reversed)"
+    candidate_causes:
+      - "Gas flow rate not driving BiRD's Higbie kLa correlation as expected"
+      - "Cell O2 uptake also scaling with gas flow (shouldn't be)"
+      - "Steady state not reached within sim duration"
+    checks:
+      - "Print BiRD's kla_o2 output across the sweep; confirm monotonic in gas_flow_rate"
+      - "Check second-half DO variance — should be small if at steady state"
+
+  - signature: "no-cells-do-converges-to-henry-saturation FAILS"
+    candidate_causes:
+      - "force_zero_population didn't actually zero out cells (aggregator returning >0)"
+      - "Coupler still writing a non-zero o2_uptake_rate to BiRD"
+      - "Initial DO set far from saturation + sim too short to converge"
+    checks:
+      - "Print population.cell_count and reactor.o2_uptake_rate — should both be 0"
+      - "Compare reactor.dissolved_o2 to reactor.o2_saturation final values"
+
+
+# ─── 5d. REGRESSION ────────────────────────────────────────────────────────
+regression_tests:
+  inherits_from:
+    - study: mbp-01-time-varying-environment
+      tests:
+        - uptake-flux-tracks-external-glucose
+        - cumulative-mass-balance-closes
+        - static-env-baseline-unchanged
+    - study: mbp-02-population-aggregation
+      tests:
+        - cell-count-doubles-per-generation
+        - per-cell-observables-unchanged-vs-baseline
+        - single-cell-aggregation-matches-cell-mass
+
+
 # ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
 limitations:
-  - "BiRD's biomass ODE is DISABLED — clean solution would fork a transport-only variant. Tracked as candidate-future-study."
+  - "BiRD's biomass ODE is DISABLED (max_growth_rate_per_h=0) rather than removed; long-term path is a forked BiRDTransportProcess upstream — candidate-future-study (see mbp-06)."
   - "Single v2ecoli generation only; multi-generation stability is mbp-04's scope."
   - "Bubble column geometry default; stirred tank / airlift not validated this phase."
   - "Fed-batch operations not supported (pbg-bioreactordesign has no fed-batch yet) — flagged as a deferred enhancement; mbp-05 may stress this."
+  - "Coupler timestep mismatch (BiRD ~1 h, v2ecoli ~1 s): the coupler holds last-known BiRD state between BiRD ticks. Acceptable for batch; flagged for fed-batch / surrogate paths in mbp-06."
 
 
 # ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────

@@ -443,6 +443,64 @@ def _plot_chromosome_state(snapshots, title=''):
     return _fig_to_b64(fig)
 
 
+def _plot_oric_tier_split(snapshots, title=''):
+    """Load-and-trigger at oriC: per-tier bound-box count over time.
+
+    Adapted from PR #28 ``_oric_tier_split_plot``. Plots the count of
+    occupied high-affinity boxes (3 total — R1/R2/R4, Kd ≈ 1 nM, ATP/ADP)
+    vs low-affinity boxes (8 total — R5M/τ2/I1-3/C1-3, Kd > 100 nM, ATP
+    only, cooperative). Ceiling lines at 3 and 8 mark tier saturation.
+
+    Reads ``oric_high_count`` and ``oric_low_count`` from each snapshot
+    (extracted from ``listeners.dnaA_binding.oric.high_affinity_occupied``
+    and ``low_affinity_occupied`` × tier sizes).
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    if not snapshots:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, 'No data', ha='center', va='center')
+        return _fig_to_b64(fig)
+
+    times = np.array([s['time'] / 60 for s in snapshots])
+    oric_h = np.array([float(s.get('oric_high_count') or 0) for s in snapshots])
+    oric_l = np.array([float(s.get('oric_low_count') or 0) for s in snapshots])
+
+    if not (np.any(oric_h) or np.any(oric_l)):
+        fig, ax = plt.subplots(figsize=(11, 4.0))
+        ax.text(0.5, 0.5,
+                'No per-tier oriC binding data — '
+                'composite needs the box-binding step (dnaa-03 architecture)',
+                ha='center', va='center', fontsize=11, color='#92400e')
+        ax.axis('off')
+        return _fig_to_b64(fig)
+
+    fig, ax = plt.subplots(figsize=(11, 4.0))
+    ax.step(times, oric_h, where='post', color='#10b981', lw=2.2,
+            label='bound_oric_high (3 boxes; R1 / R2 / R4; '
+                  'Kd ≈ 1 nM, both ATP and ADP forms)')
+    ax.step(times, oric_l, where='post', color='#f59e0b', lw=2.2,
+            label='bound_oric_low (8 boxes; R5M / τ2 / I1-3 / C1-3; '
+                  'Kd > 100 nM, ATP-only, cooperative)')
+    ax.axhline(3, color='#10b981', ls=':', lw=1.0, alpha=0.6)
+    ax.axhline(8, color='#f59e0b', ls=':', lw=1.0, alpha=0.6)
+    if len(times):
+        ax.text(times[-1], 3.05, 'high-tier ceiling (3)',
+                fontsize=8, ha='right', va='bottom', color='#065f46')
+        ax.text(times[-1], 8.05, 'low-tier ceiling (8)',
+                fontsize=8, ha='right', va='bottom', color='#92400e')
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('Bound boxes at oriC')
+    ax.set_title(title or 'Load-and-trigger at oriC: high-affinity tier '
+                          'saturates fast, low-affinity tier fills slowly')
+    ax.set_ylim(0, 12)
+    ax.legend(loc='center right', fontsize=9)
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+    return _fig_to_b64(fig)
+
+
 def _plot_chromosome_timeline(snapshots, title='', annotate_events: bool = True):
     """Row of chromosome diagrams at 5 timepoints + bottom step-plot of
     n_chromosomes / n_oriC / n_replisomes with initiation + chromosome-

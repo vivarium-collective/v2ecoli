@@ -81,6 +81,14 @@ def extract_snapshot(state: dict, t: float) -> dict | None:
             if "domain_index" in active_rnap.dtype.names:
                 rnap_domains = [int(d) for d in active_rnap["domain_index"]]
 
+    # dnaA-binding (dnaa-03 / load-and-trigger). Fractions of occupied boxes
+    # at oriC for the high-affinity tier (3 boxes: R1/R2/R4) and low-affinity
+    # tier (8 boxes: R5M/τ2/I1-3/C1-3). Multiply by tier sizes to get counts.
+    dnaa_binding = cell.get("listeners", {}).get("dnaA_binding", {}) or {}
+    oric_binding = dnaa_binding.get("oric", {}) or {}
+    high_frac = float(oric_binding.get("high_affinity_occupied", 0.0) or 0.0)
+    low_frac = float(oric_binding.get("low_affinity_occupied", 0.0) or 0.0)
+
     return {
         "time": float(t),
         "n_chromosomes": n_chrom,
@@ -94,6 +102,11 @@ def extract_snapshot(state: dict, t: float) -> dict | None:
         "dna_mass": float(mass.get("dna_mass", 0)),
         "dry_mass": float(mass.get("dry_mass", 0)),
         "protein_mass": float(mass.get("protein_mass", 0)),
+        # dnaa-03 box-binding fields (may be 0 in other studies' composites).
+        "oric_high_frac": high_frac,
+        "oric_low_frac": low_frac,
+        "oric_high_count": high_frac * 3,
+        "oric_low_count": low_frac * 8,
     }
 
 

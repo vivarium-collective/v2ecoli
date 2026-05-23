@@ -12,3 +12,10 @@ out/
 *.c
 build/
 v2ecoli/processes/parca/**/*.cpython-*.so
+
+# Worktree-local runtime (server, venv symlinks, logs, scheduled-task locks)
+.venv
+.pbg/serve.log
+.pbg/server/
+.pbg/dashboard/
+.pbg/composite-runs.db*

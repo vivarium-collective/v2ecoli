@@ -300,16 +300,21 @@ implementation_requirements:
 - id: req-1-palsson-ingestion
   kind: knowledge
   title: Beulig 2025 structured ingestion
-  effort: S
+  effort: XS
   description: |
-    PDF + bib entry + expert-doc metadata already in place
-    (references/papers/Beulig_2025_mSystems_high_cell_density.pdf;
-    references/papers.bib @Beulig2025mSystems;
-    references/expert/palsson_2025_fed_batch.md). REMAINING: digitize /
-    extract per-strain (WT) trajectories — OD600, biomass, glucose,
-    acetate, dissolved O2 over the fermentation phases — into a structured
-    CSV under references/papers/palsson-2025-supp/. Source: paper figures
-    + supplementary data (open access).
+    RESOLVED 2026-05-22. All artefacts in place:
+    * PDF — references/papers/Beulig_2025_mSystems_high_cell_density.pdf
+    * Bib — references/papers.bib @Beulig2025mSystems
+    * Expert-doc — references/expert/palsson_2025_fed_batch.md
+    * Digitized trajectories — references/papers/palsson-2025-supp/
+      (mirrored from github.com/febedtu/hd_ecoli/data/fermentation_data
+      with attribution; MIT). Includes per-reactor time-series for OD600,
+      glucose, OTR, CTR, feed rate, organic-acid byproducts; plus
+      experiment_mapping.csv (reactor↔strain) and
+      process_summary_interpol.csv (time-aligned interpolated long-format).
+    REMAINING (spec-PR scope, NOT blocking impl): filter to the WT BW25113
+    batch-phase prefix (fed-batch time h < 0) and set per-metric tolerance
+    bands. Note: paper's OD-to-gDW factor is 0.34 (not 0.33).
   unblocks: [all mbp-05 behavior_tests]
 
 - id: req-2-comparison-harness

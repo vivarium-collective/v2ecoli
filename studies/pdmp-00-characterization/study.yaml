@@ -191,3 +191,9 @@ baseline:
 variants: []
 interventions: []
 runs: []
+bibliography:
+  bib_keys:
+    - macklin2020
+    - agmon2022
+    - birch2014
+    - stumpf2021

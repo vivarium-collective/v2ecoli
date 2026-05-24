@@ -228,3 +228,9 @@ baseline:
 variants: []
 interventions: []
 runs: []
+bibliography:
+  bib_keys:
+    - dibaeinia2020
+    - blom2023
+    - kuritz2017
+    - metz1986

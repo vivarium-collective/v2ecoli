@@ -250,3 +250,12 @@ baseline:
 variants: []
 interventions: []
 runs: []
+bibliography:
+  bib_keys:
+    - chirho2024
+    - ahman2020
+    - saa2017
+    - backman2023
+    - talts2018sbc
+    - cook2006posterior
+    - xarray2017

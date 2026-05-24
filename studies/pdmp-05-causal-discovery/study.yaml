@@ -269,3 +269,16 @@ baseline:
 variants: []
 interventions: []
 runs: []
+bibliography:
+  bib_keys:
+    - lyne2015
+    - toth2022
+    - vowels2022
+    - peters2022
+    - bongers2022
+    - blom2023
+    - tejada2025
+    - yang2024
+    - gherman2025
+    - bertin2025
+    - dreyfuss2013

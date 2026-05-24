@@ -238,3 +238,8 @@ baseline:
 variants: []
 interventions: []
 runs: []
+bibliography:
+  bib_keys:
+    - loman2023
+    - jumpprocessesjl
+    - xarray2017

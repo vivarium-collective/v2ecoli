@@ -111,7 +111,7 @@ description: 'Phase 0 of the v2ecoli → PDMP roadmap. The deliverables of this
 
   samples per condition (not single measurements), with separate
 
-  buckets for: (i) tFBA LP solve time, (ii) stochastic-draw RNG
+  buckets for: (i) FBA LP solve time (`wholecell.utils.modular_fba`, glpk-linear), (ii) stochastic-draw RNG
 
   cost, (iii) store↔process marshalling, (iv) topology traversal,
 

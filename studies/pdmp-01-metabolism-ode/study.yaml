@@ -1,6 +1,6 @@
 schema_version: 3
 name: pdmp-01-metabolism-ode
-title: "Phase 1 — Metabolism: tFBA → Kinetic ODE"
+title: "Phase 1 — Metabolism: multi-objective FBA → Kinetic ODE"
 status: planned
 phase: Design
 
@@ -16,43 +16,105 @@ question: |
   Can the Millard et al. 2017 kinetic ODE of E. coli central carbon
   and energy metabolism, wrapped in a linear-quadratic regulator
   (LQR) outer control layer for growth-rate regulation, replace
-  v2ecoli's tFBA metabolism while reproducing the Phase 0 interface
-  statistics within tolerance across ≥3 environmental conditions?
+  v2ecoli's multi-objective FBA metabolism (biomass + homeostatic +
+  kinetic-constraint, via `wholecell.utils.modular_fba`) while
+  reproducing the Phase 0 interface statistics within tolerance
+  across ≥3 environmental conditions?
 
 hypothesis: |
   Substituting the Millard 2017 kinetic ODE (62 metabolites, 68
-  reactions, 255 metabolite–enzyme interactions) for the current
-  tFBA metabolism, with an LQR outer loop that drives the system
-  toward a growth-rate reference trajectory, matches the Phase 0
-  interface datasets within tolerance and admits an explicit
-  causal/teleonomic parameter partition (kinetic constants and
-  enzyme abundances are causal; LQR weights and reference
-  trajectories are teleonomic).
+  reactions, 255 metabolite–enzyme interactions) for v2ecoli's
+  current multi-objective FBA metabolism, with an LQR outer loop
+  driving the system toward a growth-rate reference trajectory,
+  matches the Phase 0 interface datasets within tolerance AND admits
+  an explicit causal/teleonomic parameter partition: kinetic
+  constants and enzyme abundances are causal (inferenceable from
+  data); LQR weights, reference trajectories, and the homeostatic
+  concentration targets v2ecoli's FBA currently encodes are
+  teleonomic (design-driven, fixed).
 
 objective: |
   Run the Millard 2017 ODE as a standalone Process Bigraph process
   by wrapping the published SBML (BioModels MODEL1505110000) with
   pbg-copasi's CopasiUTCProcess (basico / COPASI backend). Build
-  an FBA bridge composite that couples the COPASI-driven kinetic
-  ODE to v2ecoli's existing tFBA flux solver so the ODE can replace
-  tFBA incrementally during the transition (FBA-bridge mode → pure
-  ODE mode). Wrap with an LQR controller that replaces the tFBA
-  optimization objective for growth-rate regulation. Validate
-  against the Phase 0 Xarray interface datasets across ≥3
-  conditions. Partition every introduced parameter as causal or
+  an FBA-bridge composite that couples the COPASI-driven kinetic
+  ODE to v2ecoli's existing multi-objective FBA solver
+  (`wholecell.utils.modular_fba`) so the ODE can take over central-
+  carbon flux predictions incrementally while the FBA covers the
+  rest of the network (homeostatic targets for non-central
+  metabolites, kinetic-constraint coupling to enzyme abundances,
+  NGAM maintenance). Wrap with an LQR controller that replaces the
+  FBA's biomass-production objective for growth-rate regulation.
+  Validate against the Phase 0 Xarray interface datasets across
+  ≥3 conditions. Partition every introduced parameter as causal or
   teleonomic, with written justification per parameter. A
   high-performance backend (DifferentialEquations.jl / Diffrax)
   is deferred to Phase 4 compilation — Phase 1 establishes
   correctness through pbg-copasi, Phase 4 takes over performance.
 
 description: |
-  Phase 1 of the v2ecoli → PDMP roadmap. The current tFBA model
-  (Birch, Udell & Covert 2014) treats metabolism as a sequence of
-  linear programs over a polytope of fluxes; this introduces
-  discontinuities at every step (jumps between polytope facets) and
-  control terms (target concentrations, target fluxes) that are
-  teleonomic rather than mechanistic, breaking likelihood
-  construction.
+  Phase 1 of the v2ecoli → PDMP roadmap.
+
+  ## What v2ecoli's metabolism actually is
+
+  v2ecoli's metabolism lives at `v2ecoli/processes/metabolism.py`
+  (class `Metabolism`, wrapping `FluxBalanceAnalysisModel` →
+  `wholecell.utils.modular_fba.FluxBalanceAnalysis` with the
+  `glpk-linear` solver). Each timestep it solves a SINGLE multi-
+  objective FBA LP that combines:
+
+    1. **Biomass production**: `max c^T v` where `c` is the biomass
+       composition vector derived from the doubling time.
+    2. **Homeostatic concentration targets**: drive metabolite
+       concentrations toward `conc_dict[media + doubling_time]`
+       (with optional ppGpp coupling when `include_ppgpp=True`,
+       linking transcriptional regulation to metabolic capacity).
+    3. **Kinetic-constraint targets** (when `USE_KINETICS=True`):
+       drive enzyme-catalysed reaction flux toward Vmax×[E]
+       computed from per-reaction kinetic parameters and live
+       substrate concentrations — coupling translation demand
+       (which sets enzyme abundance) to metabolic output.
+
+  Constraints: stoichiometric mass balance `S v = 0`, enzyme-
+  catalysis bounds (reactions without catalysts forced to v=0,
+  catalysed reactions bounded by Vmax×[E]), NGAM (non-growth-
+  associated maintenance) ATP demand, and exchange bounds derived
+  from the media. Output fluxes (mmol/g_DCW/h) are converted to
+  molecule count changes via
+  `stochasticRound(flux × dry_mass × dt / (MW × conv))`. The
+  process runs LAST in the timestep (deriver-style, on the
+  post-partition state of all other processes).
+
+  This is structurally distinct from textbook "tFBA" (Birch, Udell
+  & Covert 2014), which is a sequence of LPs tracking target
+  trajectories over time. v2ecoli solves a fresh single LP per
+  timestep with current bounds + the multi-objective coupling
+  above; it does NOT carry the temporal-target-tracking structure
+  Birch et al. describe.
+
+  ## What blocks likelihood-based inference today
+
+  The properties of v2ecoli's metabolism that make it resistant to
+  Bayesian inference + causal discovery:
+
+  - **stochasticRound discretisation** at the LP→counts boundary:
+    a non-smooth, RNG-dependent map applied per timestep.
+  - **Implicit per-timestep "jumps"** when enzyme bounds change
+    (because enzyme abundances change every step via gene
+    expression), so consecutive LP solutions jump between vertices
+    of different polytopes — discontinuous in the FBA state.
+  - **LP-vertex degeneracy**: GLPK returns an arbitrary vertex of
+    the optimum facet, so the chosen flux distribution at the LP
+    solution is degenerate. Re-runs with the same state can yield
+    different flux vectors when the optimum is non-unique.
+  - **Doubling-time as both input AND output** without a
+    separated dynamical equation — the homeostatic targets are
+    parameterised by doubling-time, but doubling-time IS
+    determined by the biomass-production rate the FBA computes.
+  - **Timestep-dependent kinetic-constraint refresh** — the
+    kinetic-constraint terms re-read enzyme abundances each step,
+    so the LP itself is non-autonomous in a way that's tied to
+    the discrete-time loop.
 
   The substitution target is Millard et al. 2017
   ([[millard2017]]) — a curated kinetic ODE of E. coli central
@@ -75,27 +137,31 @@ description: |
   standalone PB process on day one, while keeping the SBML file
   itself as the source of truth.
 
-  FBA-bridge composite. Because pdmp-01 cannot rip out tFBA all at
-  once (the rest of v2ecoli — translation precursors, biomass
-  composition, mass-balance corrections — still expects flux
-  outputs in the v2ecoli store layout), we build a transitional
-  composite that couples the pbg-copasi Millard process to
-  v2ecoli's existing tFBA. The two run side by side, with the ODE
-  driving central-carbon flux predictions and tFBA covering the
-  rest of the metabolic network. The bridge schema is the contract
-  to negotiate: which fluxes does the ODE export, which does tFBA
-  consume, where is the seam between mechanistic-kinetic and
-  optimization-based metabolism. Once the bridge holds interface
-  fidelity across all Phase 0 conditions, the seam can be moved
-  outward in subsequent studies (extend the kinetic ODE coverage,
-  shrink the FBA scope).
+  FBA-bridge composite. Because pdmp-01 cannot rip out v2ecoli's
+  multi-objective FBA all at once (the rest of v2ecoli expects
+  flux outputs in the existing store layout, and the FBA's
+  homeostatic + kinetic-constraint terms couple it to translation
+  + transcription that we're NOT touching in Phase 1), we build a
+  transitional composite that couples the pbg-copasi Millard
+  process to v2ecoli's existing FBA. The two run side by side:
+  the ODE drives central-carbon flux predictions (glycolysis, PPP,
+  TCA, oxidative phosphorylation — the network Millard covers),
+  while v2ecoli's FBA handles the rest (homeostatic targets for
+  non-central metabolites, enzyme-catalysed reactions outside the
+  Millard scope, NGAM maintenance). The bridge schema is the
+  contract to negotiate: which fluxes does the ODE export, which
+  does the FBA consume, where is the seam between mechanistic-
+  kinetic and optimisation-based metabolism. Once the bridge holds
+  interface fidelity across all Phase 0 conditions, the seam can
+  be moved outward in subsequent studies (extend the kinetic ODE
+  coverage, shrink the FBA scope).
 
-  The LQR layer replaces tFBA's optimization objective with an
-  explicit, parameterized controller around a growth-rate target.
-  The risk flagged in the roadmap is that the LQR reference
-  trajectory could reintroduce a teleonomic parameter in disguise —
-  parametrization of the reference trajectory requires careful
-  justification.
+  The LQR layer replaces v2ecoli's FBA biomass-production
+  objective with an explicit, parameterised controller around a
+  growth-rate target. The risk flagged in the roadmap is that the
+  LQR reference trajectory could reintroduce a teleonomic
+  parameter in disguise — parametrization of the reference
+  trajectory requires careful justification.
 
   # Numerical considerations
   Solver. The Millard 2017 system has stiffness from the disparity
@@ -157,7 +223,7 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: fba-bridge-composite-runs
-    en: A composite that wires the pbg-copasi Millard process to v2ecoli's existing tFBA flux solver
+    en: A composite that wires the pbg-copasi Millard process to v2ecoli's existing multi-objective FBA (modular_fba)
       runs end-to-end, with both subsystems exchanging fluxes at a documented seam schema, and the 
       full v2ecoli WCM remains viable across at least one full generation.
     given:
@@ -282,11 +348,12 @@ variants:
     description: |
       Millard 2017 ODE via pbg-copasi, wrapped with an outer LQR
       controller that drives growth rate toward a reference
-      trajectory. Replaces the tFBA optimization objective.
+      trajectory. Replaces v2ecoli's FBA biomass-production objective.
   - name: millard-fba-bridge
     description: |
       Coupled composite — Millard 2017 ODE (pbg-copasi) for
-      central carbon + v2ecoli tFBA for the rest of the metabolic
+      central carbon + v2ecoli's multi-objective FBA
+      (`wholecell.utils.modular_fba`) for the rest of the metabolic
       network; transitional configuration during the incremental
       handover.
 
@@ -304,7 +371,7 @@ report:
   confidence: design-stage
   evidence_quality: scaffold
   conclusion: Predicted — the Millard 2017 kinetic ODE wrapped via pbg-copasi (BioModels 
-    MODEL1505110000) coupled to an LQR outer loop and bridged to v2ecoli tFBA will match Phase 0 
+    MODEL1505110000) coupled to an LQR outer loop and bridged to v2ecoli's multi-objective FBA (modular_fba) will match Phase 0
     interface ensembles within W₂ tolerance across ≥3 conditions.
   main_insight: pbg-copasi gives us the published Millard model as a first-class PB process without 
     re-deriving rate laws — Phase 1 effort goes to the LQR + FBA-bridge, not to ODE 

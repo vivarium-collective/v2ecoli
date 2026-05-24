@@ -15,8 +15,9 @@ question: |
 
 hypothesis: |
   A six-phase incremental replacement — (0) Markov-blanket
-  characterization, (1) tFBA → kinetic ODE metabolism, (2) discrete-time
-  → continuous-time jump processes, (3) observation-likelihood and
+  characterization, (1) v2ecoli's multi-objective FBA → kinetic ODE
+  metabolism, (2) discrete-time → continuous-time jump processes,
+  (3) observation-likelihood and
   Bayesian-interface infrastructure, (4) compiled column-centric runtime,
   (5) Bayesian gene-function annotation — yields a PDMP-class WCM that
   (a) reproduces Phase-0 interface statistics within tolerance at every
@@ -66,7 +67,7 @@ scientific_argument:
     - "Millard et al. 2017 demonstrate that metabolic regulation in E. coli central carbon and energy metabolism is sufficient for coordinated glucose uptake, growth, and energy production via an ODE-only kinetic model — providing the foundational substrate for the Phase-1 reformulation; [[millard2017]]."
     - "Vivarium's algebraic-effect interpretation (DUF Sec. 4.2.2) opens a path to extending it into a probabilistic programming language for observe / intervene effects in Phase 3."
   evidence_against:
-    - "The current tFBA model of metabolism is highly tuned to the rest of the v2ecoli stack; ODE substitution may break interface statistics until LQR control is well-tuned (Phase 1 risk)."
+    - "v2ecoli's current FBA metabolism (multi-objective: biomass + homeostatic + kinetic-constraint, via `wholecell.utils.modular_fba`) is tightly coupled to the rest of the WCM — enzyme abundances feed the kinetic-constraint bounds, doubling-time feeds the homeostatic concentration targets, and ppGpp couples to transcriptional regulation. ODE substitution must reconstruct all three coupling channels before interface statistics will match (Phase 1 risk)."
     - "Continuous-time jump propensities require measured kinetic constants for transcription/translation/division that may not exist at the necessary precision (Phase 2 risk)."
   key_figures: []
   caveats:
@@ -77,14 +78,21 @@ biological_story: |
   E. coli grows by integrating metabolism, gene expression, replication,
   and division — processes that operate on very different timescales
   and admit very different mathematical idealizations. The current
-  v2ecoli WCM fuses these into a fixed-step loop in which a tFBA linear
-  program solves metabolism on each timestep, discrete-time Poisson
-  draws fire transcription and translation events scaled by timestep,
-  a teleonomic doubling-time target triggers division, and a global
-  reallocation step corrects mass-balance violations. This composition
-  reproduces growth across roughly a dozen conditions, but its
-  trajectory is not the trajectory of any well-defined dynamical
-  system — it is the trajectory of an algorithm.
+  v2ecoli WCM fuses these into a fixed-step loop in which a single
+  multi-objective FBA linear program solves metabolism on each
+  timestep (`wholecell.utils.modular_fba` with GLPK-linear: biomass
+  production + homeostatic concentration targets + optional kinetic-
+  constraint targets driving enzyme-catalysed flux toward Vmax×[E];
+  output fluxes converted to molecule count changes via
+  `stochasticRound`), discrete-time Poisson draws fire transcription
+  and translation events scaled by timestep, a teleonomic doubling-
+  time target triggers division, and an allocator step gates each
+  layer's access to shared bulk pools (the allocator computes
+  partition requests; metabolism runs LAST in the timestep, deriver-
+  style, on the post-partition state). This composition reproduces
+  growth across roughly a dozen conditions, but its trajectory is
+  not the trajectory of any well-defined dynamical system — it is
+  the trajectory of an algorithm.
 
   A PDMP separates this composition into two clean parts: deterministic
   evolution between events (ODE flow on continuous state) and discrete
@@ -98,7 +106,7 @@ biological_story: |
 
 at_a_glance:
   - {study: pdmp-00-characterization, role: "Markov-blanket interface extraction + reference Xarray datasets for downstream validation"}
-  - {study: pdmp-01-metabolism-ode,    role: "Replace tFBA with Millard 2017 kinetic ODE + LQR outer control"}
+  - {study: pdmp-01-metabolism-ode,    role: "Replace v2ecoli's multi-objective FBA (`modular_fba`: biomass + homeostatic + kinetic-constraint) with Millard 2017 kinetic ODE + LQR outer control"}
   - {study: pdmp-02-jump-processes,    role: "Replace discrete-time stochastics + teleonomic division with continuous-time jumps; form the full PDMP"}
   - {study: pdmp-03-inference,         role: "Observation likelihoods + likelihood accumulator + Vivarium observe/intervene effects; ABC-SMC baseline"}
   - {study: pdmp-04-compilation,       role: "Catalyst.jl compilation + column-centric tensor runtime + ≥10³ parallel trajectories"}
@@ -114,8 +122,9 @@ how_to_read: |
 
 glossary:
   - {term: "PDMP",            definition: "Piecewise-Deterministic Markov Process — ODE flow between discrete jump events governed by state-dependent probability kernels. Synonym: jump-ODE."}
-  - {term: "tFBA",            definition: "Time-linked Flux Balance Analysis (Birch, Udell & Covert 2014). Current v2ecoli metabolism solver — a sequence of linear programs over fluxes and pseudo-concentrations."}
-  - {term: "LQR",             definition: "Linear-Quadratic Regulator. Outer control layer used in Phase 1 to drive the metabolism ODE toward a growth-rate target, replacing the tFBA optimization objective."}
+  - {term: "v2ecoli metabolism (kFBA)",  definition: "v2ecoli's actual metabolism solver — `v2ecoli/processes/metabolism.py` → `FluxBalanceAnalysisModel` via `wholecell.utils.modular_fba.FluxBalanceAnalysis` (GLPK-linear). One LP per timestep with three coupled objectives: (a) biomass production `max c^T v`, (b) homeostatic concentration targets derived from media + doubling-time (+ optional ppGpp coupling to transcription), (c) kinetic-constraint targets (when USE_KINETICS=True) driving enzyme-catalysed flux toward Vmax×[E]. Constraints: stoichiometric `S v = 0`, enzyme-catalysis bounds, NGAM maintenance, media exchange bounds. Flux → counts via `stochasticRound(flux × dry_mass × dt / (MW × conv))`. Runs LAST in the timestep (deriver-style, on post-partition state). This is what Phase 1 replaces."}
+  - {term: "tFBA (Birch 2014)", definition: "Textbook 'time-linked' FBA: a sequence of LPs tracking target trajectories. Often loosely cited as v2ecoli's approach; the actual v2ecoli implementation is structurally different — see [[v2ecoli metabolism (kFBA)]] above. Keep the distinction when reasoning about what Phase 1 is replacing."}
+  - {term: "LQR",             definition: "Linear-Quadratic Regulator. Outer control layer used in Phase 1 to drive the metabolism ODE toward a growth-rate target, replacing v2ecoli's FBA biomass-production optimization objective."}
   - {term: "Markov blanket",  definition: "Minimal set of variables shielding a subprocess from the rest of the system; defines the typed Process Bigraph interface for that subprocess."}
   - {term: "Causal parameter",   definition: "A parameter mechanistically derivable from physics/chemistry (e.g., kinetic constant, enzyme abundance); the inference target."}
   - {term: "Teleonomic parameter", definition: "A parameter set by design/policy rather than mechanism (e.g., LQR weight, doubling-time reference); fixed and not inferred."}

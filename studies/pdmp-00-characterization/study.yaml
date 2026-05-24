@@ -304,3 +304,11 @@ report:
     - label: replicate ensemble per cond.
       status: stub
       value: N≥64
+visualizations:
+  - name: v2ecoli-baseline-bootstrap
+    address: file:reports/figures/pdmp-00/v2ecoli_baseline_bootstrap.html
+    description: "v2ecoli baseline (55-process WCM) bootstrap run — 10 simulation steps in ~58s wall clock, 11 trajectory
+      timepoints, 31 scalar listener observables. 4-panel chart: cell mass, instantaneous growth rate, RNA synthesis
+      prob, and ribosome elongation rate. Confirms the dashboard's full WCM run path works end-to-end from this
+      worktree's venv. (A short 10-step bootstrap doesn't show much of the 67-min doubling cycle — see follow-up
+      entries for longer runs.)"

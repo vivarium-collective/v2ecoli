@@ -13,7 +13,12 @@ description: |
 tags: [pdmp, phase-1, metabolism, kinetic-ode, millard2017, pbg-copasi, sbml]
 
 requires:
-  processes: [CopasiUTCProcess, RAMEmitter]
+  # Emitter is intentionally NOT in this list — the workspace's
+  # runtime.default_emitter (xarray per investigation convention) is
+  # auto-attached by the dashboard run-runner. Explicitly wiring an
+  # emitter here would override the workspace default and lose the
+  # zarr-persistence Phase 0 requires.
+  processes: [CopasiUTCProcess]
 
 parameters:
   model_source:
@@ -50,15 +55,7 @@ state:
     species_counts: {}
     fluxes: {}
     time: []
-  emitter:
-    _type: step
-    address: "local:RAMEmitter"
-    config:
-      emit:
-        species_concentrations: "map[float]"
-        fluxes: "map[float]"
-        time: "float"
-    inputs:
-      species_concentrations: ["stores", "species_concentrations"]
-      fluxes: ["stores", "fluxes"]
-      time: ["stores", "time"]
+  # NOTE: no `emitter` block — workspace runtime.default_emitter (xarray)
+  # is injected automatically. The dashboard's run-runner will wire an
+  # XArrayEmitter pointing at a zarr store under .pbg/runs/<run_id>/store.zarr/
+  # so the full time series of species_concentrations + fluxes is persisted.

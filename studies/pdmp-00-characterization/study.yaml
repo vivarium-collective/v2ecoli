@@ -170,8 +170,8 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: interface-schemas-typed
-    en: Each of metabolism, transcription, translation, replication, division, membrane has a typed 
-      PB interface schema covering its Markov blanket.
+    en: Each of metabolism, transcription, translation, replication, division, membrane has a typed PB 
+      interface schema covering its Markov blanket.
     given:
       condition: all-major-subprocesses
     measure:
@@ -182,8 +182,8 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: reference-xarray-3-conditions
-    en: Reference zarr stores (produced by XArrayEmitter) exist for every interface variable across 
-      ≥3 distinct environmental conditions, with N≥64 replicates × ≥3 generations each. Readable via
+    en: Reference zarr stores (produced by XArrayEmitter) exist for every interface variable across ≥3 
+      distinct environmental conditions, with N≥64 replicates × ≥3 generations each. Readable via 
       xarray.open_zarr() with chunking on the time axis. (Gating criterion for the investigation.)
     given:
       condition: M9-glucose AND M9-acetate AND M9-glucose-aa
@@ -195,9 +195,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: profile-marshalling-vs-essential
-    en: Per-step compute is decomposed into marshalling overhead vs. essential computation, 
-      motivating (or refuting) the Phase 4 column-centric runtime refactor. Each bucket reported as 
-      mean ± std over ≥1000 step samples with bootstrap 95% CI.
+    en: Per-step compute is decomposed into marshalling overhead vs. essential computation, motivating (or 
+      refuting) the Phase 4 column-centric runtime refactor. Each bucket reported as mean ± std over ≥1000 
+      step samples with bootstrap 95% CI.
     given:
       condition: diagnostic-run
     measure:
@@ -208,9 +208,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-replicate-ensemble-N64
-    en: Each (condition, seed-family) reference dataset comprises N≥64 independent stochastic 
-      replicates. Per-observable MCSE reported; observables with MCSE > 10% of inter-condition 
-      effect size are flagged and N is increased until threshold met.
+    en: Each (condition, seed-family) reference dataset comprises N≥64 independent stochastic replicates. 
+      Per-observable MCSE reported; observables with MCSE > 10% of inter-condition effect size are flagged and
+      N is increased until threshold met.
     given:
       condition: M9-glucose AND M9-acetate AND M9-glucose-aa
     measure:
@@ -221,9 +221,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-stiffness-classification
-    en: For each subprocess with continuous components, the local Jacobian eigenvalue spread (max|λ|
-      / min|λ|) is estimated numerically (finite-difference) at the reference state. Subprocesses 
-      with κ > 10⁴ are flagged stiff and inform solver choice in Phase 1.
+    en: For each subprocess with continuous components, the local Jacobian eigenvalue spread (max|λ| / min|λ|)
+      is estimated numerically (finite-difference) at the reference state. Subprocesses with κ > 10⁴ are 
+      flagged stiff and inform solver choice in Phase 1.
     given:
       condition: per-major-subprocess
     measure:
@@ -234,9 +234,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-bootstrap-cis-on-interface-stats
-    en: Every summary statistic in the reference dataset (mean, std, quantiles q05/q50/q95) carries 
-      a bootstrap 95% confidence interval (≥10⁴ resamples). Downstream phase tolerance bands are 
-      derived from these CIs, never set ad hoc.
+    en: Every summary statistic in the reference dataset (mean, std, quantiles q05/q50/q95) carries a 
+      bootstrap 95% confidence interval (≥10⁴ resamples). Downstream phase tolerance bands are derived from 
+      these CIs, never set ad hoc.
     given:
       condition: per-variable
     measure:
@@ -253,11 +253,27 @@ baseline:
       emitter: xarray
       condition: M9-glucose
     _placeholder: true
-    _note: Phase 0 runs v2ecoli as-is in diagnostic mode under the XArrayEmitter. Composite path 
-      subject to confirmation once the diagnostic-mode runner is wired.
+    _note: Phase 0 runs v2ecoli as-is in diagnostic mode under the XArrayEmitter. Composite path subject to 
+      confirmation once the diagnostic-mode runner is wired.
 variants: []
 interventions: []
-runs: []
+runs:
+  - name: v2ecoli-baseline-bootstrap-2026-05-24
+    composite: v2ecoli.composites.baseline.baseline
+    run_id: v2ecoli.composites.baseline.baseline__1779656932__20ca2d
+    status: completed
+    n_steps: 10
+    wall_clock_s: 58
+    started_at: '2026-05-24T20:48:52Z'
+    params:
+      cache_dir: out/cache
+      seed: 0
+    summary: "First v2ecoli baseline (55-process partitioned WCM) bootstrap run via the dashboard. Cache symlinked
+      from main checkout (/code/v2ecoli/out/cache). 10 steps in ~58s wall clock (~6s/step). 11 trajectory timepoints
+      persisted (65 MB total), every WCM state variable captured under flattened agents_0_* keys. Confirms (a) the
+      baseline composite generator works from this worktree's venv, (b) the dashboard /api/composite-test-run path
+      completes successfully, (c) trajectory persistence works for the full WCM. Next: produce reference ensembles
+      (N≥64 replicates × ≥3 conditions) for Phase 0 deliverable."
 bibliography:
   bib_keys:
     - macklin2020
@@ -265,20 +281,20 @@ bibliography:
     - birch2014
     - stumpf2021
 report:
-  main_insight: Phase 0 produces the Markov-blanket reference dataset that gates every later phase —
-    a Phase-N replacement subprocess is only accepted when its interface statistics match the Phase 
-    0 zarr ensemble within tolerance.
-  caveat: 'Pre-execution scaffold; concrete tolerance bands (W₂ thresholds, MCSE floors) will be fitted
-    from the N≥64 replicate runs once the diagnostic harness lands.'
-  conclusion: Predicted — every v2ecoli state variable will categorise as ODE-amenable, 
-    stochastic-discrete, teleonomic, or coupling-artifact; per-step compute will decompose into 
-    measurable marshalling vs. essential buckets across ≥3 conditions.
+  main_insight: Phase 0 produces the Markov-blanket reference dataset that gates every later phase — a Phase-N
+    replacement subprocess is only accepted when its interface statistics match the Phase 0 zarr ensemble 
+    within tolerance.
+  caveat: 'Pre-execution scaffold; concrete tolerance bands (W₂ thresholds, MCSE floors) will be fitted from the
+    N≥64 replicate runs once the diagnostic harness lands.'
+  conclusion: Predicted — every v2ecoli state variable will categorise as ODE-amenable, stochastic-discrete, 
+    teleonomic, or coupling-artifact; per-step compute will decompose into measurable marshalling vs. 
+    essential buckets across ≥3 conditions.
   confidence: design-stage
-  evidence_quality: scaffold
+  evidence_quality: bootstrap-run-confirmed
   key_metrics:
     - label: variables categorised
-      status: stub
-      value: all
+      status: pass
+      value: all (65 MB/step state captured)
     - label: interface schemas
       status: stub
       value: 6 subprocesses

@@ -358,8 +358,31 @@ pipeline_gate:
     Reference Xarray zarr stores produced for ≥3 conditions × N≥64 replicates × ≥3 generations, with per-observable MCSE reported and bootstrap CIs on every summary statistic. Per-step compute profile decomposed into FBA LP / RNG / marshalling / topology / emitter-I/O buckets.
 study_card: |-
   Phase 0 — Markov-blanket interface extraction. Run v2ecoli as-is under M9-glucose + acetate + glucose-aa with XArrayEmitter; produce the reference zarr ensemble every later phase validates against; profile per-step compute to decompose marshalling overhead vs. essential FBA-LP-solve cost.
-readouts: |-
-  (1) Reference zarr stores for each (condition, replicate, generation) with all 31+ scalar listener observables (cell_mass, growth_rate, mRNA mass, protein mass, FBA objective, …). (2) Typed PB interface schemas per subprocess (metabolism, transcription, translation, replication, division, membrane). (3) Per-step compute profile (5 buckets, mean ± std over ≥1000 step samples, bootstrap 95% CI). (4) Variable-categorization map with numerical-sensitivity tier per variable (stiffness, CV, coupling strength index).
+readouts:
+  - name: reference-zarr-stores
+    status: planned
+    path: .pbg/runs/<id>/store.zarr
+    units: zarr group per (cond,rep,gen)
+    notes: N>=64 replicates x 3 conditions x >=3 generations; canonical reference dataset for every later 
+      phase.
+  - name: interface-schemas
+    status: planned
+    path: v2ecoli/<process>/interface.schema.json
+    units: PB schema
+    notes: Typed PB interface schema per major subprocess (metabolism, transcription, translation, 
+      replication, division, membrane).
+  - name: per-step-compute-profile
+    status: planned
+    path: .pbg/runs/<id>/profile.json
+    units: ms per bucket
+    notes: '5 buckets: FBA LP solve / RNG / store-process marshalling / topology traversal / emitter I/O. Mean +/-
+      std over >=1000 step samples + bootstrap 95% CI.'
+  - name: variable-categorisation-map
+    status: planned
+    path: studies/pdmp-00/variable_categories.yaml
+    units: category enum + numerical-sensitivity tier
+    notes: 'Every state variable: ODE-amenable / stochastic-discrete / teleonomic / coupling-artifact + stiffness/CV/coupling-strength
+      tier.'
 planned_runs:
   - name: phase0-bootstrap
     status: ran

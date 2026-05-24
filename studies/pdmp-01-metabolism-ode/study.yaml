@@ -452,8 +452,35 @@ pipeline_gate:
     Millard 2017 standalone reproduces published reference state via pbg-copasi (DONE 2026-05-24). FBA-bridge composite holds interface statistics across all Phase 0 conditions within W₂ tolerance. LQR weights pass Sobol sensitivity (no free-parameter rot). FIM conditioning κ < 10⁸ on causal parameters.
 study_card: |-
   Phase 1 — substitute v2ecoli's multi-objective FBA (`wholecell.utils.modular_fba`, glpk-linear) with the Millard 2017 kinetic ODE (BioModels MODEL1505110000) wrapped via pbg-copasi, an LQR outer control layer for growth-rate regulation, and an FBA-bridge composite that couples the ODE to the remaining v2ecoli FBA during the incremental handover.
-readouts: |-
-  (1) Millard standalone steady-state values (G6P, F6P, FDP, PEP, PYR, ATP, ADP, NADH, NADPH, MAL, AKG) — measured against BioModels published reference. (2) FBA-bridge interface flux exchange (which fluxes the ODE exports, which the FBA consumes, where the seam is). (3) LQR Sobol sensitivity indices on growth-rate observables. (4) W₂ distance per interface variable vs. Phase 0 ensemble (target: within 5σ of MC fluctuation).
+readouts:
+  - name: millard-standalone-steady-state
+    status: implemented
+    path: out/trajectories/millard_*.csv
+    units: mM
+    notes: G6P, F6P, FDP, PEP, PYR, ATP, ADP, NADH, NADPH, MAL, AKG. Verified 2026-05-24 vs BioModels 
+      MODEL1505110000 initial values.
+  - name: fba-bridge-flux-seam
+    status: planned
+    path: v2ecoli_pdmp/composites/fba_bridge.schema.json
+    units: flux name -> source (ODE or FBA)
+    notes: Which fluxes the Millard ODE exports vs which v2ecoli kFBA consumes. The contract negotiated in 
+      this study.
+  - name: lqr-sobol-indices
+    status: planned
+    path: out/trajectories/lqr_sobol.csv
+    units: dimensionless Sobol index
+    notes: First-order + total Sobol on growth rate, glucose uptake, ATP yield. LQR weights with total < 0.01 
+      are flagged free-parameter rot.
+  - name: w2-per-metabolite
+    status: planned
+    path: out/trajectories/w2_millard_vs_phase0.csv
+    units: Wasserstein-2 distance (mM)
+    notes: 'Per interface variable. Gating: within Phase-0 bootstrap CI of self-replicate spread.'
+  - name: fim-conditioning
+    status: planned
+    path: out/trajectories/fim_kappa.csv
+    units: condition number kappa
+    notes: 'Per causal parameter. Required: kappa(FIM) < 10^8 before inference-ready claim.'
 planned_runs:
   - name: millard-standalone-bootstrap
     status: ran

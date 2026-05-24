@@ -307,8 +307,28 @@ pipeline_gate:
     Catalyst.jl + column-centric runtime achieves ≥10³ parallel single-cell trajectories with W₂(p_compiled, p_phase2) ≤ 5·σ_MC. Marshalling overhead < 10% of per-step compute. 1/√N posterior variance scaling holds on ABC test posteriors. FP summation order deterministic (pairwise/Kahan). Per-step compute orders-of-magnitude above v2ecoli baseline.
 study_card: |-
   Phase 4 — compile the Phase 2 PDMP to Catalyst.jl + ModelingToolkit (symbolic Jacobians, automatic sensitivity equations, LLVM-optimised), replace v2ecoli's row-centric nested-dict state with pre-allocated column-centric tensors, and invert the Vivarium API so processes declare local state + ODE vector fields + jump propensities (runtime handles topology + time-stepping).
-readouts: |-
-  (1) Catalyst.jl round-trip export+simulate. (2) Marshalling fraction of per-step compute (target: <10%). (3) Parallel trajectory throughput (target: ≥10³). (4) ABC posterior variance vs. wall-clock time (the relevant performance metric for inference).
+readouts:
+  - name: catalyst-export-artefact
+    status: planned
+    path: compiled_pdmp.jl
+    units: Julia source + binary
+    notes: Catalyst.jl + ModelingToolkit compiled model with symbolic Jacobian + automatic sensitivity 
+      equations.
+  - name: per-step-profile-compiled
+    status: planned
+    path: out/trajectories/compiled_profile.csv
+    units: ms per bucket
+    notes: 'Same 5 buckets as Phase 0. Gating: marshalling fraction < 10% of total.'
+  - name: parallel-throughput
+    status: planned
+    path: out/trajectories/throughput_vs_n_trajectories.csv
+    units: trajectories per second
+    notes: 'Sweep parallelism N in {10, 100, 1000, 10000}. Gating: >=10^3 parallel.'
+  - name: abc-posterior-variance-vs-walltime
+    status: planned
+    path: out/trajectories/abc_posterior_efficiency.csv
+    units: posterior std * wall-clock-s
+    notes: 'Standard MCMC efficiency metric. Required: 1/sqrt(N) scaling on doubling parallelism.'
 planned_runs:
   - name: catalyst-round-trip
     status: planned

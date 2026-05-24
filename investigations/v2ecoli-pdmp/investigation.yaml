@@ -120,6 +120,116 @@ how_to_read: |
   for every later study: a replacement subprocess is accepted when its
   interface statistics match the reference within tolerance.
 
+how_we_run_pdmps: |
+  This section is the operational complement to the conceptual phase
+  breakdown — concretely, HOW the PDMP runs on a machine.
+
+  ## Phase-by-phase runner topology
+
+  Phase 0–1 (Design-stage runs we have today):
+    - Composites live under `v2ecoli/composites/*.composite.yaml`
+      (declarative state + processes + parameters).
+    - Run via the dashboard's `POST /api/composite-test-run` with
+      spec_id `<pkg>.composites.<name>` + steps + overrides. The
+      run-runner finds the composite (generator first, file second),
+      resolves placeholder parameters, instantiates a
+      `process_bigraph.Composite`, and steps it.
+    - Emitter is auto-attached from workspace.yaml
+      `runtime.default_emitter: xarray` → trajectories land at
+      `<workspace>/.pbg/runs/<run_id>/store.zarr/` (zarr group per
+      study × replicate × generation).
+    - Cache for the v2ecoli WCM is symlinked from a shared ParCa build
+      so we don't pay the ~30 min rebuild on each worktree (see
+      out/cache → /code/v2ecoli/out/cache convention).
+
+  Phase 2 (Design → Build):
+    - Continuous-time jump processes plug in as new PB Processes that
+      declare local state + a `propensities` callback (one rate per
+      jump channel). The runner uses a hybrid exact-SSA / τ-leaping
+      driver: exact next-reaction for rare promoter firings; τ-leaping
+      for high-rate elongation, with the leap condition
+      max(Δλ/λ) < 0.03 monitored every step.
+    - ODE flow between jumps re-uses Phase 1's pbg-copasi process for
+      central metabolism plus any continuous components of the
+      gene-expression machinery (ribosome elongation as a continuous
+      Markov chain when stochastic-discrete isn't needed).
+    - Division event is a first-passage problem solved by stochastic
+      bisection on the cell-volume observable; validated on an OU test
+      problem before being wired in.
+
+  Phase 3 (likelihood substrate):
+    - Likelihood accumulator runs in the same process graph as the
+      PDMP; its `inputs:` block subscribes to ODE-segment + jump-event
+      stores, computes log-likelihood contributions incrementally
+      (log-space + log-sum-exp + pairwise/Kahan summation to keep
+      cross-cell population reductions deterministic), writes to a
+      zarr `log_likelihood` group.
+    - ABC-SMC driver runs OUTSIDE the PB composite — it spawns many
+      PDMP runs in parallel, collects summary statistics, runs the SMC
+      step in numpy/scipy, and feeds the next generation of parameter
+      proposals back to fresh PB runs.
+
+  Phase 4 (compiled):
+    - Catalyst.jl + ModelingToolkit consume a PB → Catalyst export
+      (the new bridge process this study writes). The compiled Julia
+      runner is invoked via the same PB composite interface — its
+      `inputs/outputs` look identical to the Phase 2 Python runner,
+      but the implementation calls into Julia via PythonCall/PyJulia.
+    - Column-centric runtime: instead of nested-dict state, every
+      observable is a pre-allocated numpy array indexed by
+      (trajectory, time). Stepping is a vectorised call across the
+      trajectory axis; downstream emitter writes whole rows to zarr.
+
+  ## RNG, seeds, replicates
+
+  - Each replicate has a unique seed (`overrides.seed = <int>`).
+    The composite's stochastic processes (FBA stochasticRound, jump
+    timing) draw from a numpy `default_rng(seed)`-derived stream.
+  - Ensembles are scheduled as N independent runs with seeds
+    0..N-1 (Phase 0 reference is N=64 per condition × 3 conditions =
+    192 runs). The dashboard's run-runner enforces a CONCURRENCY_CAP
+    so we don't OOM; long ensembles run as a serial queue.
+  - PDMP segments are reproducible bit-identically when re-simulated
+    with the same (state, seed) — this is the Markov-property
+    verification gate.
+
+  ## Storage / persistence
+
+  - Trajectories: zarr stores under `.pbg/runs/<run_id>/store.zarr/`
+    (chunked on time axis, opened downstream via
+    `xarray.open_zarr(..., chunks={'time': -1, 'trajectory': 1})`
+    for streaming per-replicate comparison without loading the whole
+    ensemble in memory).
+  - Run metadata: `.pbg/runs/<run_id>/request.json` (the launch spec),
+    `run.log` (full stderr+stdout), `viz.json` (rendered viz cards),
+    and the run registry in `.pbg/composite-runs.db` (sqlite).
+  - Reference datasets are git-tracked under `out/` for small CSVs
+    (basico-direct experiments) and via DVC / data-mirror for the
+    large WCM zarr stores (TBD when ensemble sizes start mattering).
+
+  ## Wall-clock estimates
+
+  Per-step compute (mean over the bootstrap runs):
+    - v2ecoli WCM baseline (55 partitioned processes):  ~6 s / step
+    - Millard ODE via pbg-copasi (single PB update):     <0.05 s / step
+    - Future Phase 4 compiled PDMP (target):            <0.01 s / step
+                                                        / trajectory
+
+  Per-deliverable estimates:
+    - Phase 0 reference ensemble (3 cond × N=64 × 600 steps):
+      ~3.5 days serial @ 6 s/step; ~3 hr on a 32-core node
+    - Phase 1 standalone Millard validation: minutes (already ran)
+    - Phase 1 FBA-bridge 3-condition validation: ~30 min
+    - Phase 3 ABC-SMC on synthetic (N=1000 particles × 50 SMC
+      iterations × 600-step PDMP runs): ~weeks on a single machine;
+      Phase 4 compilation reduces this to hours
+
+  ## Practical "how to run" recipes
+
+  For an investigator picking this up: see `studies/<slug>/study.yaml`
+  `planned_runs:` blocks for the per-study run-by-run methodology
+  with concrete steps, durations, and gating criteria.
+
 glossary:
   - {term: "PDMP",            definition: "Piecewise-Deterministic Markov Process — ODE flow between discrete jump events governed by state-dependent probability kernels. Synonym: jump-ODE."}
   - {term: "v2ecoli metabolism (kFBA)",  definition: "v2ecoli's actual metabolism solver — `v2ecoli/processes/metabolism.py` → `FluxBalanceAnalysisModel` via `wholecell.utils.modular_fba.FluxBalanceAnalysis` (GLPK-linear). One LP per timestep with three coupled objectives: (a) biomass production `max c^T v`, (b) homeostatic concentration targets derived from media + doubling-time (+ optional ppGpp coupling to transcription), (c) kinetic-constraint targets (when USE_KINETICS=True) driving enzyme-catalysed flux toward Vmax×[E]. Constraints: stoichiometric `S v = 0`, enzyme-catalysis bounds, NGAM maintenance, media exchange bounds. Flux → counts via `stochasticRound(flux × dry_mass × dt / (MW × conv))`. Runs LAST in the timestep (deriver-style, on post-partition state). This is what Phase 1 replaces."}

@@ -301,8 +301,30 @@ pipeline_gate:
     Continuous-time jump propensities (transcription, translation, division, resource competition) pass the Anderson-Darling Exp(1) test (α=0.05, ≥10⁴ inter-event intervals each). OU first-passage analytical validation: KS distance < 0.02. Trajectory-distribution W₂ vs. v2ecoli baseline within tolerance across all Phase 0 conditions. Markov property bit-verified.
 study_card: |-
   Phase 2 — replace v2ecoli's discrete-time scaled-Poisson stochastic layer (transcription, translation), teleonomic division trigger, and global resource reallocation step with continuous-time jump processes driven by propensities from measured kinetic constants. Couple with Phase 1 ODE metabolism to form the full PDMP.
-readouts: |-
-  (1) Anderson-Darling exponential-clock test results per jump process. (2) First-passage time CDF (volume crossing for division). (3) Trajectory-distribution W₂ on summary statistics (growth rate, per-gene mRNA/protein, division-time CV) vs. v2ecoli baseline ensemble. (4) Markov-property bit-equivalence test record.
+readouts:
+  - name: anderson-darling-results
+    status: planned
+    path: out/trajectories/ad_exp1_per_jump.csv
+    units: A-D statistic + p-value
+    notes: 'Per jump process (transcription, translation, division, competition). >=10^4 inter-event intervals each.
+      Gating: p > 0.05.'
+  - name: fpt-distribution
+    status: planned
+    path: out/trajectories/fpt_division.csv
+    units: first-passage time (s)
+    notes: 'Cell-volume threshold crossing. OU analytical validation: KS distance < 0.02 vs analytical CDF.'
+  - name: trajectory-w2
+    status: planned
+    path: out/trajectories/pdmp_w2_vs_baseline.csv
+    units: W2 distance per summary stat
+    notes: Growth rate, mean per-gene mRNA/protein, division-time CV. N>=200 trajectories. Within tolerance 
+      across all Phase 0 conditions = gating.
+  - name: markov-property-record
+    status: planned
+    path: out/trajectories/markov_segments.json
+    units: bit-equivalence result per re-sim
+    notes: Re-simulate jump-segments with same (state, RNG-seed); verify bit-identical deterministic ODE flow 
+      between jumps.
 planned_runs:
   - name: anderson-darling-validation
     status: planned

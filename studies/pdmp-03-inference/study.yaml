@@ -333,8 +333,29 @@ pipeline_gate:
     Likelihood library covers all 4 modalities (RNA-seq, proteomics, growth, metabolomics) with dispersion CIs. Log-likelihood accumulator runs alongside the PDMP with zero underflows over 10⁴ test runs. ABC-SMC posterior recovery: SBC rank-histogram passes χ² uniformity (p > 0.05), 90% credible intervals achieve ≥85% empirical coverage.
 study_card: |-
   Phase 3 — build the Bayesian inference substrate: per-modality observation likelihoods (negative binomial RNA-seq, log-normal proteomics, normal log-growth, normal/log-normal metabolomics), an incremental log-likelihood accumulator over PDMP segments + jump events, Vivarium observe/intervene algebraic effects (à la ChiRho), and a baseline ABC-SMC inference engine validated by Simulation-Based Calibration.
-readouts: |-
-  (1) Per-modality likelihood dispersion fits with 95% bootstrap CIs. (2) ABC-SMC convergence: ESS, proposal acceptance, ε-decay schedule. (3) SBC rank-histogram + 90% CI empirical coverage. (4) Fisher information matrix conditioning per inferred parameter.
+readouts:
+  - name: likelihood-dispersion-fits
+    status: planned
+    path: out/trajectories/likelihood_fits.csv
+    units: MLE +/- 95% CI
+    notes: 'Per modality: NegBin phi (RNA-seq), log-normal sigma (proteomics), normal-on-log sigma_mu (growth),
+      per-metabolite sigma (metabolomics).'
+  - name: log-likelihood-accumulator
+    status: planned
+    path: .pbg/runs/<id>/log_likelihood.zarr
+    units: log-likelihood units
+    notes: 'Time-series of incremental log-L contributions from ODE segments + jump events. Required: zero underflows
+      over 10^4 test runs.'
+  - name: abc-smc-posterior
+    status: planned
+    path: .pbg/runs/<id>/posterior_particles.zarr
+    units: particle samples + weights
+    notes: 'ABC-SMC convergence trace: ESS, proposal acceptance rate, epsilon-decay schedule per SMC step.'
+  - name: sbc-rank-histogram
+    status: planned
+    path: out/trajectories/sbc_ranks.csv
+    units: rank in [0, K]
+    notes: 'K=1000 SBC draws. Gating: chi^2 uniformity p > 0.05 + 90% CI coverage >= 85% empirical.'
 planned_runs:
   - name: likelihood-dispersion-fit
     status: planned

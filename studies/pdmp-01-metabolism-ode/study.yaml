@@ -465,7 +465,7 @@ planned_runs:
     details: completed 2026-05-24; 302 timepoints; recovery dynamics captured
   - name: millard-with-lqr-tuning
     status: planned
-    n_steps: TBD
+    n_steps: '(Sobol sweep, ≥20 LQR-weight samples × baseline length)'
     details: Sobol-driven LQR weight scan; flag weights with total index < 0.01 on growth/glc-uptake/ATP-yield
   - name: millard-fba-bridge-pilot
     status: planned

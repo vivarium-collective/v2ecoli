@@ -122,40 +122,122 @@ description: |
   post-hoc rank-histogram analysis.
 
 expected_behavior:
-  - 'likelihoods-per-modality — Each measurement modality has a documented observation likelihood (neg-binom,
-    log-normal, normal-on-log-growth, normal/log-normal) with explicit dispersion / noise parameters and
-    references to the calibration literature. [observable: likelihood-library; condition: rna-seq AND
-    proteomics AND growth AND metabolomics]'
-  - 'accumulator-runs-alongside-pdmp — The likelihood accumulator computes log-likelihood contributions
-    from ODE segments (continuous-measurement likelihoods) and jump events (discrete-event likelihoods)
-    incrementally during a single PDMP run. [observable: log-likelihood-trace; condition: per-segment
-    AND per-jump]'
-  - "observe-intervene-effects — The Vivarium runner supports observe(variable, likelihood) and intervene(variable,
-    value) as first-class algebraic effects, with the same surface area as ChiRho's primitives. [observable:
-    vivarium-algebraic-effect-set; condition: pdmp-runner]"
-  - 'abc-posterior-recovery-on-synthetic — On synthetic data generated from known parameters, ABC-SMC
-    recovers posteriors that cover the ground truth at the published credible level using summary statistics:
-    growth rate, mean mRNA/protein abundances, metabolite concentrations. (Gating criterion.) [observable:
-    posterior-recovery-metric; condition: synthetic-truth-data]'
-  - 'uq-likelihood-dispersion-fit-with-ci — Per-modality dispersion / noise parameters (NegBin φ for RNA-seq,
-    σ for log-normal proteomics, σ_μ for growth, per-metabolite σ for metabolomics) are MLE-fit on calibration
-    data and reported with 95% bootstrap CIs. [observable: dispersion-parameters-with-95-CI; condition:
-    per-modality]'
-  - 'uq-accumulator-numerical-stability — Log-likelihood accumulation maintains log-space throughout;
-    no underflows recorded across N=10⁴ test runs. log-sum-exp shift used in all mixture terms. Pairwise/Kahan
-    summation in population reductions; result invariant to trajectory ordering. [observable: log-likelihood-underflow-rate;
-    condition: full-run]'
-  - 'uq-abc-ess-and-acceptance — ABC-SMC reports posterior ESS and proposal acceptance rate at every SMC
-    step; runs are terminated cleanly when ESS falls below 0.5·N (resample) or wall-clock cap is hit.
-    No silent degeneracy. [observable: ess-and-acceptance-per-step; condition: per-smc-iteration]'
-  - 'uq-sbc-coverage — Simulation-Based Calibration (K=1000): rank histogram passes χ² uniformity test
-    (p > 0.05); 90% credible intervals achieve ≥85% empirical coverage. Hard requirement before claiming
-    "inference-ready" for Phase 5. [observable: sbc-rank-histogram AND credible-interval-coverage; condition:
-    K1000-sbc-draws]'
-  - 'uq-mahalanobis-distance-justified — Mahalanobis distance uses the empirical summary-statistic covariance
-    from N≥200 PDMP runs at the prior mean. Condition number of the covariance reported; if κ > 10⁶ the
-    summary vector is reduced (drop near-collinear summaries). [observable: summary-statistic-covariance;
-    condition: abc-distance-function]'
+  - name: likelihoods-per-modality
+    en: Each measurement modality has a documented observation likelihood (neg-binom, log-normal, 
+      normal-on-log-growth, normal/log-normal) with explicit dispersion / noise parameters and 
+      references to the calibration literature.
+    given:
+      condition: rna-seq AND proteomics AND growth AND metabolomics
+    measure:
+      kind: observable-comparison
+      observable: likelihood-library
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: accumulator-runs-alongside-pdmp
+    en: The likelihood accumulator computes log-likelihood contributions from ODE segments 
+      (continuous-measurement likelihoods) and jump events (discrete-event likelihoods) 
+      incrementally during a single PDMP run.
+    given:
+      condition: per-segment AND per-jump
+    measure:
+      kind: observable-comparison
+      observable: log-likelihood-trace
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: observe-intervene-effects
+    en: The Vivarium runner supports observe(variable, likelihood) and intervene(variable, value) as
+      first-class algebraic effects, with the same surface area as ChiRho's primitives.
+    given:
+      condition: pdmp-runner
+    measure:
+      kind: observable-comparison
+      observable: vivarium-algebraic-effect-set
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: abc-posterior-recovery-on-synthetic
+    en: 'On synthetic data generated from known parameters, ABC-SMC recovers posteriors that cover the
+      ground truth at the published credible level using summary statistics: growth rate, mean mRNA/protein
+      abundances, metabolite concentrations. (Gating criterion.)'
+    given:
+      condition: synthetic-truth-data
+    measure:
+      kind: observable-comparison
+      observable: posterior-recovery-metric
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-likelihood-dispersion-fit-with-ci
+    en: Per-modality dispersion / noise parameters (NegBin φ for RNA-seq, σ for log-normal 
+      proteomics, σ_μ for growth, per-metabolite σ for metabolomics) are MLE-fit on calibration data
+      and reported with 95% bootstrap CIs.
+    given:
+      condition: per-modality
+    measure:
+      kind: observable-comparison
+      observable: dispersion-parameters-with-95-CI
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-accumulator-numerical-stability
+    en: Log-likelihood accumulation maintains log-space throughout; no underflows recorded across 
+      N=10⁴ test runs. log-sum-exp shift used in all mixture terms. Pairwise/Kahan summation in 
+      population reductions; result invariant to trajectory ordering.
+    given:
+      condition: full-run
+    measure:
+      kind: observable-comparison
+      observable: log-likelihood-underflow-rate
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-abc-ess-and-acceptance
+    en: ABC-SMC reports posterior ESS and proposal acceptance rate at every SMC step; runs are 
+      terminated cleanly when ESS falls below 0.5·N (resample) or wall-clock cap is hit. No silent 
+      degeneracy.
+    given:
+      condition: per-smc-iteration
+    measure:
+      kind: observable-comparison
+      observable: ess-and-acceptance-per-step
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-sbc-coverage
+    en: 'Simulation-Based Calibration (K=1000): rank histogram passes χ² uniformity test (p > 0.05); 90%
+      credible intervals achieve ≥85% empirical coverage. Hard requirement before claiming "inference-ready"
+      for Phase 5.'
+    given:
+      condition: K1000-sbc-draws
+    measure:
+      kind: observable-comparison
+      observable: sbc-rank-histogram AND credible-interval-coverage
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-mahalanobis-distance-justified
+    en: Mahalanobis distance uses the empirical summary-statistic covariance from N≥200 PDMP runs at
+      the prior mean. Condition number of the covariance reported; if κ > 10⁶ the summary vector is 
+      reduced (drop near-collinear summaries).
+    given:
+      condition: abc-distance-function
+    measure:
+      kind: observable-comparison
+      observable: summary-statistic-covariance
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
 baseline:
   - name: pdmp-with-likelihood-accumulator-tbd
     composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood

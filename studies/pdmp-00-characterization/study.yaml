@@ -90,32 +90,95 @@ description: |
   validation in Phase 2 will consume).
 
 expected_behavior:
-  - "variables-categorized — Every state variable in the WCM's process internals + stores is labelled
-    ODE-amenable / stochastic-discrete / teleonomic / coupling-artifact. No \"unknown\" labels remain.
-    [observable: state-variable-category-map; condition: diagnostic-run-M9-glucose]"
-  - 'interface-schemas-typed — Each of metabolism, transcription, translation, replication, division,
-    membrane has a typed PB interface schema covering its Markov blanket. [observable: process-bigraph-interface-schemas;
-    condition: all-major-subprocesses]'
-  - 'reference-xarray-3-conditions — Reference zarr stores (produced by XArrayEmitter) exist for every
-    interface variable across ≥3 distinct environmental conditions, with N≥64 replicates × ≥3 generations
-    each. Readable via xarray.open_zarr() with chunking on the time axis. (Gating criterion for the investigation.)
-    [observable: xarray-interface-dataset; condition: M9-glucose AND M9-acetate AND M9-glucose-aa]'
-  - 'profile-marshalling-vs-essential — Per-step compute is decomposed into marshalling overhead vs. essential
-    computation, motivating (or refuting) the Phase 4 column-centric runtime refactor. Each bucket reported
-    as mean ± std over ≥1000 step samples with bootstrap 95% CI. [observable: per-step-profile-report;
-    condition: diagnostic-run]'
-  - 'uq-replicate-ensemble-N64 — Each (condition, seed-family) reference dataset comprises N≥64 independent
-    stochastic replicates. Per-observable MCSE reported; observables with MCSE > 10% of inter-condition
-    effect size are flagged and N is increased until threshold met. [observable: per-condition-replicate-count;
-    condition: M9-glucose AND M9-acetate AND M9-glucose-aa]'
-  - 'uq-stiffness-classification — For each subprocess with continuous components, the local Jacobian
-    eigenvalue spread (max|λ| / min|λ|) is estimated numerically (finite-difference) at the reference
-    state. Subprocesses with κ > 10⁴ are flagged stiff and inform solver choice in Phase 1. [observable:
-    jacobian-spectrum-summary; condition: per-major-subprocess]'
-  - 'uq-bootstrap-cis-on-interface-stats — Every summary statistic in the reference dataset (mean, std,
-    quantiles q05/q50/q95) carries a bootstrap 95% confidence interval (≥10⁴ resamples). Downstream phase
-    tolerance bands are derived from these CIs, never set ad hoc. [observable: interface-summary-CI; condition:
-    per-variable]'
+  - name: variables-categorized
+    en: Every state variable in the WCM's process internals + stores is labelled ODE-amenable / 
+      stochastic-discrete / teleonomic / coupling-artifact. No "unknown" labels remain.
+    given:
+      condition: diagnostic-run-M9-glucose
+    measure:
+      kind: observable-comparison
+      observable: state-variable-category-map
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: interface-schemas-typed
+    en: Each of metabolism, transcription, translation, replication, division, membrane has a typed 
+      PB interface schema covering its Markov blanket.
+    given:
+      condition: all-major-subprocesses
+    measure:
+      kind: observable-comparison
+      observable: process-bigraph-interface-schemas
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: reference-xarray-3-conditions
+    en: Reference zarr stores (produced by XArrayEmitter) exist for every interface variable across 
+      ≥3 distinct environmental conditions, with N≥64 replicates × ≥3 generations each. Readable via
+      xarray.open_zarr() with chunking on the time axis. (Gating criterion for the investigation.)
+    given:
+      condition: M9-glucose AND M9-acetate AND M9-glucose-aa
+    measure:
+      kind: observable-comparison
+      observable: xarray-interface-dataset
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: profile-marshalling-vs-essential
+    en: Per-step compute is decomposed into marshalling overhead vs. essential computation, 
+      motivating (or refuting) the Phase 4 column-centric runtime refactor. Each bucket reported as 
+      mean ± std over ≥1000 step samples with bootstrap 95% CI.
+    given:
+      condition: diagnostic-run
+    measure:
+      kind: observable-comparison
+      observable: per-step-profile-report
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-replicate-ensemble-N64
+    en: Each (condition, seed-family) reference dataset comprises N≥64 independent stochastic 
+      replicates. Per-observable MCSE reported; observables with MCSE > 10% of inter-condition 
+      effect size are flagged and N is increased until threshold met.
+    given:
+      condition: M9-glucose AND M9-acetate AND M9-glucose-aa
+    measure:
+      kind: observable-comparison
+      observable: per-condition-replicate-count
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-stiffness-classification
+    en: For each subprocess with continuous components, the local Jacobian eigenvalue spread (max|λ|
+      / min|λ|) is estimated numerically (finite-difference) at the reference state. Subprocesses 
+      with κ > 10⁴ are flagged stiff and inform solver choice in Phase 1.
+    given:
+      condition: per-major-subprocess
+    measure:
+      kind: observable-comparison
+      observable: jacobian-spectrum-summary
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-bootstrap-cis-on-interface-stats
+    en: Every summary statistic in the reference dataset (mean, std, quantiles q05/q50/q95) carries 
+      a bootstrap 95% confidence interval (≥10⁴ resamples). Downstream phase tolerance bands are 
+      derived from these CIs, never set ad hoc.
+    given:
+      condition: per-variable
+    measure:
+      kind: observable-comparison
+      observable: interface-summary-CI
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
 baseline:
   - name: v2ecoli-diagnostic
     composite: v2ecoli.composites.diagnostic.diagnostic

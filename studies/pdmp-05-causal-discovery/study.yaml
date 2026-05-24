@@ -129,41 +129,134 @@ description: |
   gene-set level.
 
 expected_behavior:
-  - 'annotation-bayes-model-compare — Marginal likelihoods are estimated via Russian Roulette / doubly-intractable
-    methods with quantified variance bounds; the implementation passes published unit tests on simpler
-    model-comparison benchmarks before being applied to WCM candidates. [observable: marginal-likelihood-estimator;
-    condition: candidate-annotations]'
-  - 'active-causal-discovery-loop — The active-inference loop proposes in-silico interventions (knockouts,
-    overexpression) and selects them by expected information gain over the candidate annotation set; the
-    selection record shows the loop converges in expected number of interventions vs. random selection.
-    [observable: intervention-selection-record; condition: per-annotation]'
-  - 'benchmark-recovery-with-credible-intervals — On a curated benchmark of ≥20 E. coli genes with established
-    functions, the pipeline recovers the correct annotation at the published credible level, with credible-interval
-    widths that shrink predictably as sample size grows. (Gating criterion for the whole investigation.)
-    [observable: posterior-recovery-rate; condition: e-coli-known-function-benchmark]'
-  - 'genome-wide-resource-estimate — Per-annotation compute cost on the benchmark extrapolates to a defensible
-    total compute estimate for genome-wide scaling (≥4000 E. coli genes); the estimate identifies the
-    binding constraint (compute time, memory, or convergence). [observable: compute-cost-extrapolation;
-    condition: benchmark-results]'
-  - 'uq-rr-estimator-ess — Russian Roulette marginal-likelihood estimates carry an ESS-equivalent N_eff;
-    estimates with N_eff < 100 are flagged and either rerun with a tighter proposal or replaced by a documented-bias
-    method (TI / nested sampling). [observable: rr-estimator-N-eff; condition: per-marginal-likelihood]'
-  - 'uq-bayes-factor-CIs — log BF reported with 95% bootstrap CI. Annotation calls only fire when the
-    CI lies entirely above the Jeffreys |log BF| > 1 threshold ("substantial evidence"). [observable:
-    log-bayes-factor-with-95-CI; condition: per-pairwise-comparison]'
-  - 'uq-sbc-at-model-comparison-level — Extended SBC over K=500 synthetic datasets from known true annotations:
-    rank histogram of true-model posterior probability passes χ² uniformity (p > 0.05). Required before
-    trusting the pipeline on real annotations. [observable: model-posterior-rank-uniformity; condition:
-    K500-synthetic-datasets]'
-  - 'uq-eig-MCSE-nonzero — Every intervention proposal carries an EIG estimate ± MCSE; proposals whose
-    EIG CI overlaps zero are not selected. NMC bias bound reported, or DV/DAD variational lower bound
-    used where feasible. [observable: expected-information-gain-with-MCSE; condition: per-intervention-proposal]'
-  - 'uq-fdr-on-benchmark-recoveries — Recoveries on the benchmark gene set are reported with BH-adjusted
-    q-values; success claim requires q ≤ 0.1 at the gene-set level, not just per-gene posterior probability.
-    [observable: benjamini-hochberg-q-value; condition: benchmark-gene-set]'
-  - 'uq-credible-interval-shrinkage-rate — Credible-interval-width-vs-N curves are fit on a log-log scale;
-    expected slope -1/2 for well-identified parameters. Slopes shallower than -0.4 trigger MCMC mixing
-    diagnostics and identifiability re-check. [observable: ci-width-vs-sample-size; condition: per-parameter]'
+  - name: annotation-bayes-model-compare
+    en: Marginal likelihoods are estimated via Russian Roulette / doubly-intractable methods with 
+      quantified variance bounds; the implementation passes published unit tests on simpler 
+      model-comparison benchmarks before being applied to WCM candidates.
+    given:
+      condition: candidate-annotations
+    measure:
+      kind: observable-comparison
+      observable: marginal-likelihood-estimator
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: active-causal-discovery-loop
+    en: The active-inference loop proposes in-silico interventions (knockouts, overexpression) and 
+      selects them by expected information gain over the candidate annotation set; the selection 
+      record shows the loop converges in expected number of interventions vs. random selection.
+    given:
+      condition: per-annotation
+    measure:
+      kind: observable-comparison
+      observable: intervention-selection-record
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: benchmark-recovery-with-credible-intervals
+    en: On a curated benchmark of ≥20 E. coli genes with established functions, the pipeline 
+      recovers the correct annotation at the published credible level, with credible-interval widths
+      that shrink predictably as sample size grows. (Gating criterion for the whole investigation.)
+    given:
+      condition: e-coli-known-function-benchmark
+    measure:
+      kind: observable-comparison
+      observable: posterior-recovery-rate
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: genome-wide-resource-estimate
+    en: Per-annotation compute cost on the benchmark extrapolates to a defensible total compute 
+      estimate for genome-wide scaling (≥4000 E. coli genes); the estimate identifies the binding 
+      constraint (compute time, memory, or convergence).
+    given:
+      condition: benchmark-results
+    measure:
+      kind: observable-comparison
+      observable: compute-cost-extrapolation
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-rr-estimator-ess
+    en: Russian Roulette marginal-likelihood estimates carry an ESS-equivalent N_eff; estimates with
+      N_eff < 100 are flagged and either rerun with a tighter proposal or replaced by a 
+      documented-bias method (TI / nested sampling).
+    given:
+      condition: per-marginal-likelihood
+    measure:
+      kind: observable-comparison
+      observable: rr-estimator-N-eff
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-bayes-factor-CIs
+    en: log BF reported with 95% bootstrap CI. Annotation calls only fire when the CI lies entirely 
+      above the Jeffreys |log BF| > 1 threshold ("substantial evidence").
+    given:
+      condition: per-pairwise-comparison
+    measure:
+      kind: observable-comparison
+      observable: log-bayes-factor-with-95-CI
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-sbc-at-model-comparison-level
+    en: 'Extended SBC over K=500 synthetic datasets from known true annotations: rank histogram of true-model
+      posterior probability passes χ² uniformity (p > 0.05). Required before trusting the pipeline on
+      real annotations.'
+    given:
+      condition: K500-synthetic-datasets
+    measure:
+      kind: observable-comparison
+      observable: model-posterior-rank-uniformity
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-eig-MCSE-nonzero
+    en: Every intervention proposal carries an EIG estimate ± MCSE; proposals whose EIG CI overlaps 
+      zero are not selected. NMC bias bound reported, or DV/DAD variational lower bound used where 
+      feasible.
+    given:
+      condition: per-intervention-proposal
+    measure:
+      kind: observable-comparison
+      observable: expected-information-gain-with-MCSE
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-fdr-on-benchmark-recoveries
+    en: Recoveries on the benchmark gene set are reported with BH-adjusted q-values; success claim 
+      requires q ≤ 0.1 at the gene-set level, not just per-gene posterior probability.
+    given:
+      condition: benchmark-gene-set
+    measure:
+      kind: observable-comparison
+      observable: benjamini-hochberg-q-value
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
+  - name: uq-credible-interval-shrinkage-rate
+    en: Credible-interval-width-vs-N curves are fit on a log-log scale; expected slope -1/2 for 
+      well-identified parameters. Slopes shallower than -0.4 trigger MCMC mixing diagnostics and 
+      identifiability re-check.
+    given:
+      condition: per-parameter
+    measure:
+      kind: observable-comparison
+      observable: ci-width-vs-sample-size
+    expect:
+      op: within-tolerance
+      note: Tolerance / target gate to be defined when this study moves Design → Build.
+    status: stub
 baseline:
   - name: pdmp-annotation-comparison-tbd
     composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare

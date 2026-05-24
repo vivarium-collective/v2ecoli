@@ -392,6 +392,16 @@ planned_runs:
     status: planned
     n_steps: 100
     details: single-condition warm-up; verify cycle dynamics + listener observables ramp correctly
+  - name: fix-per-process-rng-seeding
+    status: blocks-ensemble
+    n_steps: (infrastructure fix, no simulation steps)
+    details: "DISCOVERED 2026-05-24 via 3-seed pilot ensemble: v2ecoli baseline's `seed` parameter only seeds `allocator_rng`
+      (baseline.py:408). All other 55 stochastic processes (transcription, translation, division-threshold, protein-degradation,
+      equilibrium, two-component-system, complexation, RNA-maturation, transcript-initiation, polypeptide-initiation,
+      chromosome-replication, tf-binding, tf-unbinding, chromosome-structure) seed from the cached sim_data — shared
+      across runs. Net: 3 seeds → bit-identical trajectories (CV across seeds: 0.000% on every observable). Fix:
+      each stochastic process seeds its RNG from hash(master_seed, process_name). Until fixed, Phase 0's N≥64 ensemble
+      target is moot. See reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html for the diagnostic."
   - name: phase0-conditions-3
     status: planned
     n_steps: 600

@@ -5,8 +5,8 @@ status: planned
 phase: Design
 
 topic: pdmp
-tags: [pdmp, phase-5, causal-discovery, gene-annotation, bayesian-model-comparison, russian-roulette,
-  active-inference, xarray-emitter]
+tags: [pdmp, phase-5, causal-discovery, gene-annotation, bayesian-model-comparison, russian-roulette, 
+      active-inference, xarray-emitter]
 created: '2026-05-24'
 
 parent_studies:
@@ -130,9 +130,9 @@ description: |
 
 expected_behavior:
   - name: annotation-bayes-model-compare
-    en: Marginal likelihoods are estimated via Russian Roulette / doubly-intractable methods with 
-      quantified variance bounds; the implementation passes published unit tests on simpler 
-      model-comparison benchmarks before being applied to WCM candidates.
+    en: Marginal likelihoods are estimated via Russian Roulette / doubly-intractable methods with quantified 
+      variance bounds; the implementation passes published unit tests on simpler model-comparison benchmarks 
+      before being applied to WCM candidates.
     given:
       condition: candidate-annotations
     measure:
@@ -143,9 +143,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: active-causal-discovery-loop
-    en: The active-inference loop proposes in-silico interventions (knockouts, overexpression) and 
-      selects them by expected information gain over the candidate annotation set; the selection 
-      record shows the loop converges in expected number of interventions vs. random selection.
+    en: The active-inference loop proposes in-silico interventions (knockouts, overexpression) and selects 
+      them by expected information gain over the candidate annotation set; the selection record shows the loop
+      converges in expected number of interventions vs. random selection.
     given:
       condition: per-annotation
     measure:
@@ -156,9 +156,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: benchmark-recovery-with-credible-intervals
-    en: On a curated benchmark of ≥20 E. coli genes with established functions, the pipeline 
-      recovers the correct annotation at the published credible level, with credible-interval widths
-      that shrink predictably as sample size grows. (Gating criterion for the whole investigation.)
+    en: On a curated benchmark of ≥20 E. coli genes with established functions, the pipeline recovers the 
+      correct annotation at the published credible level, with credible-interval widths that shrink 
+      predictably as sample size grows. (Gating criterion for the whole investigation.)
     given:
       condition: e-coli-known-function-benchmark
     measure:
@@ -169,9 +169,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: genome-wide-resource-estimate
-    en: Per-annotation compute cost on the benchmark extrapolates to a defensible total compute 
-      estimate for genome-wide scaling (≥4000 E. coli genes); the estimate identifies the binding 
-      constraint (compute time, memory, or convergence).
+    en: Per-annotation compute cost on the benchmark extrapolates to a defensible total compute estimate for 
+      genome-wide scaling (≥4000 E. coli genes); the estimate identifies the binding constraint (compute time,
+      memory, or convergence).
     given:
       condition: benchmark-results
     measure:
@@ -182,9 +182,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-rr-estimator-ess
-    en: Russian Roulette marginal-likelihood estimates carry an ESS-equivalent N_eff; estimates with
-      N_eff < 100 are flagged and either rerun with a tighter proposal or replaced by a 
-      documented-bias method (TI / nested sampling).
+    en: Russian Roulette marginal-likelihood estimates carry an ESS-equivalent N_eff; estimates with N_eff < 
+      100 are flagged and either rerun with a tighter proposal or replaced by a documented-bias method (TI / 
+      nested sampling).
     given:
       condition: per-marginal-likelihood
     measure:
@@ -195,8 +195,8 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-bayes-factor-CIs
-    en: log BF reported with 95% bootstrap CI. Annotation calls only fire when the CI lies entirely 
-      above the Jeffreys |log BF| > 1 threshold ("substantial evidence").
+    en: log BF reported with 95% bootstrap CI. Annotation calls only fire when the CI lies entirely above the 
+      Jeffreys |log BF| > 1 threshold ("substantial evidence").
     given:
       condition: per-pairwise-comparison
     measure:
@@ -207,9 +207,8 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-sbc-at-model-comparison-level
-    en: 'Extended SBC over K=500 synthetic datasets from known true annotations: rank histogram of true-model
-      posterior probability passes χ² uniformity (p > 0.05). Required before trusting the pipeline on
-      real annotations.'
+    en: 'Extended SBC over K=500 synthetic datasets from known true annotations: rank histogram of true-model posterior
+      probability passes χ² uniformity (p > 0.05). Required before trusting the pipeline on real annotations.'
     given:
       condition: K500-synthetic-datasets
     measure:
@@ -220,9 +219,8 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-eig-MCSE-nonzero
-    en: Every intervention proposal carries an EIG estimate ± MCSE; proposals whose EIG CI overlaps 
-      zero are not selected. NMC bias bound reported, or DV/DAD variational lower bound used where 
-      feasible.
+    en: Every intervention proposal carries an EIG estimate ± MCSE; proposals whose EIG CI overlaps zero are 
+      not selected. NMC bias bound reported, or DV/DAD variational lower bound used where feasible.
     given:
       condition: per-intervention-proposal
     measure:
@@ -233,8 +231,8 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-fdr-on-benchmark-recoveries
-    en: Recoveries on the benchmark gene set are reported with BH-adjusted q-values; success claim 
-      requires q ≤ 0.1 at the gene-set level, not just per-gene posterior probability.
+    en: Recoveries on the benchmark gene set are reported with BH-adjusted q-values; success claim requires q 
+      ≤ 0.1 at the gene-set level, not just per-gene posterior probability.
     given:
       condition: benchmark-gene-set
     measure:
@@ -264,8 +262,8 @@ baseline:
       emitter: xarray
       estimator: russian-roulette
     _placeholder: true
-    _note: Runs candidate-annotation marginal-likelihood comparisons + active-inference loop on top 
-      of the Phase 4 compiled runner.
+    _note: Runs candidate-annotation marginal-likelihood comparisons + active-inference loop on top of the 
+      Phase 4 compiled runner.
 variants: []
 interventions: []
 runs: []
@@ -285,16 +283,16 @@ bibliography:
 report:
   confidence: design-stage
   evidence_quality: scaffold
-  conclusion: Predicted — framing gene-function annotation as Bayesian model comparison with Russian
-    Roulette marginal-likelihood estimators (Lyne et al. 2015) plus an active-inference loop (Toth 
-    et al. 2022) will recover ≥20 benchmark E. coli gene annotations at BH-FDR ≤ 0.1, with 
-    credible-interval widths shrinking at the ≥n⁻¹ᐟ² rate.
-  main_insight: Active causal inference closes the experiment-design loop — instead of passively 
-    observing, the agent selects in-silico knockouts/overexpression by expected information gain. 
-    This is what converts annotation from pattern-matching to hypothesis-driven discovery.
-  caveat: RR estimator variance is unbounded in pathological cases — N_eff ≥ 100 per 
-    marginal-likelihood estimate is the floor; below that, the run is flagged and falls back to 
-    thermodynamic integration / nested sampling with documented bias.
+  conclusion: Predicted — framing gene-function annotation as Bayesian model comparison with Russian Roulette 
+    marginal-likelihood estimators (Lyne et al. 2015) plus an active-inference loop (Toth et al. 2022) will 
+    recover ≥20 benchmark E. coli gene annotations at BH-FDR ≤ 0.1, with credible-interval widths shrinking at
+    the ≥n⁻¹ᐟ² rate.
+  main_insight: Active causal inference closes the experiment-design loop — instead of passively observing, 
+    the agent selects in-silico knockouts/overexpression by expected information gain. This is what converts 
+    annotation from pattern-matching to hypothesis-driven discovery.
+  caveat: RR estimator variance is unbounded in pathological cases — N_eff ≥ 100 per marginal-likelihood 
+    estimate is the floor; below that, the run is flagged and falls back to thermodynamic integration / nested
+    sampling with documented bias.
   key_metrics:
     - label: RR estimator N_eff per Z
       status: stub
@@ -313,3 +311,22 @@ report:
     - label: CI shrinkage rate (log-log slope)
       status: stub
       value: ≤ -0.4
+design_status: in_progress
+implementation_status: not_started
+simulation_status: not_started
+evaluation_status: not_started
+gate_status: blocked
+expert_review_status: not_requested
+pipeline_gate:
+  prerequisites:
+    - study: pdmp-03-inference
+      condition: tests-passed
+    - study: pdmp-04-compilation
+      condition: tests-passed
+  enables: []
+  proceed_condition: |-
+    RR marginal-likelihood estimator achieves N_eff ≥ 100 per estimate. Log BF CIs lie entirely above |log BF| > 1 (Jeffreys substantial-evidence threshold). Model-level SBC χ² uniformity p > 0.05. Active-inference EIG MCSE non-zero per proposal. Benchmark gene-set BH-FDR ≤ 0.1. CI shrinkage rate log-log slope ≤ -0.4.
+study_card: |-
+  Phase 5 — close the loop on the DUF ARC vision: frame gene-function annotation as Bayesian model comparison, estimate marginal likelihoods via Russian Roulette / doubly-intractable methods, drive an active causal inference loop selecting in-silico interventions by expected information gain, validate against ≥20 E. coli benchmark genes.
+readouts: |-
+  (1) RR estimator ESS-equivalent N_eff per Z. (2) log BF CIs vs. Jeffreys threshold. (3) Model-level SBC rank histogram uniformity. (4) EIG MCSE per intervention proposal. (5) Benchmark gene-set recovery rate + BH-FDR. (6) Per-annotation compute cost extrapolated to genome-wide scaling.

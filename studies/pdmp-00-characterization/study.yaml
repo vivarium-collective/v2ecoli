@@ -312,3 +312,19 @@ visualizations:
       prob, and ribosome elongation rate. Confirms the dashboard's full WCM run path works end-to-end from this
       worktree's venv. (A short 10-step bootstrap doesn't show much of the 67-min doubling cycle — see follow-up
       entries for longer runs.)"
+design_status: approved
+implementation_status: prototype
+simulation_status: ran
+evaluation_status: pending_review
+gate_status: pending
+expert_review_status: not_requested
+pipeline_gate:
+  prerequisites: []
+  enables:
+    - pdmp-01-metabolism-ode
+  proceed_condition: |-
+    Reference Xarray zarr stores produced for ≥3 conditions × N≥64 replicates × ≥3 generations, with per-observable MCSE reported and bootstrap CIs on every summary statistic. Per-step compute profile decomposed into FBA LP / RNG / marshalling / topology / emitter-I/O buckets.
+study_card: |-
+  Phase 0 — Markov-blanket interface extraction. Run v2ecoli as-is under M9-glucose + acetate + glucose-aa with XArrayEmitter; produce the reference zarr ensemble every later phase validates against; profile per-step compute to decompose marshalling overhead vs. essential FBA-LP-solve cost.
+readouts: |-
+  (1) Reference zarr stores for each (condition, replicate, generation) with all 31+ scalar listener observables (cell_mass, growth_rate, mRNA mass, protein mass, FBA objective, …). (2) Typed PB interface schemas per subprocess (metabolism, transcription, translation, replication, division, membrane). (3) Per-step compute profile (5 buckets, mean ± std over ≥1000 step samples, bootstrap 95% CI). (4) Variable-categorization map with numerical-sensitivity tier per variable (stiffness, CV, coupling strength index).

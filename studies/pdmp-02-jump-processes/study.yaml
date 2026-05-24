@@ -5,8 +5,8 @@ status: planned
 phase: Design
 
 topic: pdmp
-tags: [pdmp, phase-2, jump-processes, transcription, translation, division, first-passage, gillespie,
-  xarray-emitter]
+tags: [pdmp, phase-2, jump-processes, transcription, translation, division, first-passage, gillespie, 
+      xarray-emitter]
 created: '2026-05-24'
 
 parent_studies:
@@ -115,9 +115,9 @@ description: |
 
 expected_behavior:
   - name: jump-process-from-kinetics
-    en: Every jump process (transcription, translation, division, competition) has a propensity 
-      function derived from measured or curated kinetic constants — no scaling by simulation 
-      timestep, no teleonomic "rates" derived from doubling-time targets.
+    en: Every jump process (transcription, translation, division, competition) has a propensity function 
+      derived from measured or curated kinetic constants — no scaling by simulation timestep, no teleonomic 
+      "rates" derived from doubling-time targets.
     given:
       condition: all-jump-processes
     measure:
@@ -128,8 +128,8 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: division-first-passage
-    en: Division events occur as first-passage crossings of a threshold in cell volume or total 
-      protein mass; the teleonomic doubling-time check is removed from the model.
+    en: Division events occur as first-passage crossings of a threshold in cell volume or total protein mass; 
+      the teleonomic doubling-time check is removed from the model.
     given:
       condition: per-generation
     measure:
@@ -140,9 +140,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: pdmp-trajectory-distribution-match
-    en: Summary statistics over PDMP trajectory ensembles (growth rate distribution, mean 
-      mRNA/protein abundances per gene, division-time CV) match the v2ecoli baseline distributions 
-      within specified tolerance across all ≥3 Phase 0 conditions. (Gating criterion.)
+    en: Summary statistics over PDMP trajectory ensembles (growth rate distribution, mean mRNA/protein 
+      abundances per gene, division-time CV) match the v2ecoli baseline distributions within specified 
+      tolerance across all ≥3 Phase 0 conditions. (Gating criterion.)
     given:
       condition: M9-glucose AND M9-acetate AND M9-glucose-aa
     measure:
@@ -153,9 +153,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: markov-property-verified
-    en: Between any two jump events, state evolves deterministically under the ODE; jump times 
-      follow ∫ λ(s) ds = E for E ~ Exp(1). Verified by re-simulating segments with the same RNG seed
-      and checking bit-identical determinism.
+    en: Between any two jump events, state evolves deterministically under the ODE; jump times follow ∫ λ(s) 
+      ds = E for E ~ Exp(1). Verified by re-simulating segments with the same RNG seed and checking 
+      bit-identical determinism.
     given:
       condition: per-segment
     measure:
@@ -166,9 +166,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-exponential-clock-anderson-darling
-    en: Cumulative hazard ∫λ(s)ds at successive events for each jump process passes an 
-      Anderson-Darling Exp(1) test (α=0.05) over ≥10⁴ inter-event intervals. The smoking-gun 
-      correctness test for a stochastic-jump implementation.
+    en: Cumulative hazard ∫λ(s)ds at successive events for each jump process passes an Anderson-Darling Exp(1)
+      test (α=0.05) over ≥10⁴ inter-event intervals. The smoking-gun correctness test for a stochastic-jump 
+      implementation.
     given:
       condition: per-jump-process
     measure:
@@ -179,9 +179,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-fpt-analytical-validation
-    en: The first-passage implementation, applied to an OU process with analytically known FPT 
-      distribution, recovers the analytical CDF to KS distance < 0.02 over N=10⁴ trajectories before
-      being deployed on the WCM division mechanism.
+    en: The first-passage implementation, applied to an OU process with analytically known FPT distribution, 
+      recovers the analytical CDF to KS distance < 0.02 over N=10⁴ trajectories before being deployed on the 
+      WCM division mechanism.
     given:
       condition: analytical-test-problem
     measure:
@@ -192,9 +192,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-tau-leap-validity
-    en: For every τ-leaping jump process, the leap-condition (max Δλ/λ < 0.03) is monitored; 
-      fraction of timesteps where it is violated must be <0.1% across the run. Above threshold, τ is
-      shrunk or the process is switched to exact SSA.
+    en: For every τ-leaping jump process, the leap-condition (max Δλ/λ < 0.03) is monitored; fraction of 
+      timesteps where it is violated must be <0.1% across the run. Above threshold, τ is shrunk or the process
+      is switched to exact SSA.
     given:
       condition: tau-leaping-processes
     measure:
@@ -205,9 +205,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-trajectory-w2-mcse
-    en: Trajectory-distribution comparison vs v2ecoli baseline uses W₂ on summary distributions over
-      N≥200 PDMP trajectories per condition; the W₂ MCSE is reported and required <10% of the 
-      cross-condition effect size before any tolerance decision is made.
+    en: Trajectory-distribution comparison vs v2ecoli baseline uses W₂ on summary distributions over N≥200 
+      PDMP trajectories per condition; the W₂ MCSE is reported and required <10% of the cross-condition effect
+      size before any tolerance decision is made.
     given:
       condition: N200-per-condition
     measure:
@@ -223,8 +223,8 @@ baseline:
     params:
       emitter: xarray
     _placeholder: true
-    _note: Composite + processes (transcription_jump, translation_jump, division_threshold, 
-      competition_jumps) to be implemented in this study.
+    _note: Composite + processes (transcription_jump, translation_jump, division_threshold, competition_jumps)
+      to be implemented in this study.
 variants: []
 interventions: []
 runs: []
@@ -237,16 +237,14 @@ bibliography:
 report:
   confidence: design-stage
   evidence_quality: scaffold
-  conclusion: Predicted — replacing scaled-Poisson stochastics with continuous-time jumps from 
-    measured kinetic constants (Anderson-Darling Exp(1) verified), plus a first-passage division 
-    trigger, will yield a PDMP whose trajectory ensembles match v2ecoli baseline summaries within W₂
-    tolerance.
+  conclusion: Predicted — replacing scaled-Poisson stochastics with continuous-time jumps from measured 
+    kinetic constants (Anderson-Darling Exp(1) verified), plus a first-passage division trigger, will yield a 
+    PDMP whose trajectory ensembles match v2ecoli baseline summaries within W₂ tolerance.
   main_insight: 'The PDMP contract is the smoking-gun test for stochastic correctness: between-jump deterministic
-    ODE flow + Exp(1) cumulative-hazard distribution. An A-D test on ≥10⁴ inter-event intervals catches
-    every propensity bug.'
-  caveat: τ-leaping for high-rate processes trades unbiasedness for compute — the leap condition 
-    (max Δλ/λ < 0.03) is monitored at every step and processes get switched to exact SSA when 
-    violated >0.1% of the time.
+    ODE flow + Exp(1) cumulative-hazard distribution. An A-D test on ≥10⁴ inter-event intervals catches every propensity
+    bug.'
+  caveat: τ-leaping for high-rate processes trades unbiasedness for compute — the leap condition (max Δλ/λ < 
+    0.03) is monitored at every step and processes get switched to exact SSA when violated >0.1% of the time.
   key_metrics:
     - label: Anderson-Darling Exp(1) per jump
       status: stub
@@ -259,3 +257,22 @@ report:
       value: N≥200
     - label: Markov property (bit-identical)
       status: stub
+design_status: in_progress
+implementation_status: not_started
+simulation_status: not_started
+evaluation_status: not_started
+gate_status: blocked
+expert_review_status: not_requested
+pipeline_gate:
+  prerequisites:
+    - study: pdmp-01-metabolism-ode
+      condition: tests-passed
+  enables:
+    - pdmp-03-inference
+    - pdmp-04-compilation
+  proceed_condition: |-
+    Continuous-time jump propensities (transcription, translation, division, resource competition) pass the Anderson-Darling Exp(1) test (α=0.05, ≥10⁴ inter-event intervals each). OU first-passage analytical validation: KS distance < 0.02. Trajectory-distribution W₂ vs. v2ecoli baseline within tolerance across all Phase 0 conditions. Markov property bit-verified.
+study_card: |-
+  Phase 2 — replace v2ecoli's discrete-time scaled-Poisson stochastic layer (transcription, translation), teleonomic division trigger, and global resource reallocation step with continuous-time jump processes driven by propensities from measured kinetic constants. Couple with Phase 1 ODE metabolism to form the full PDMP.
+readouts: |-
+  (1) Anderson-Darling exponential-clock test results per jump process. (2) First-passage time CDF (volume crossing for division). (3) Trajectory-distribution W₂ on summary statistics (growth rate, per-gene mRNA/protein, division-time CV) vs. v2ecoli baseline ensemble. (4) Markov-property bit-equivalence test record.

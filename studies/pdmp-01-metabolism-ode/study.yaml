@@ -411,3 +411,21 @@ visualizations:
       intermediates (G6P/F6P/FDP/GAP/PEP/PYR), TCA cycle (CIT/ICIT/AKG/SUCCOA/FUM/MAL/OAA), and redox cofactors
       (NAD/NADH/NADP/NADPH). Demonstrates the Millard model recovers ATP to within 1% of steady-state within ~50
       s after a 70% drain — fast because of the tight coupling between glycolytic flux and adenylate energy charge.'
+design_status: approved
+implementation_status: prototype
+simulation_status: ran
+evaluation_status: pending_review
+gate_status: pending
+expert_review_status: not_requested
+pipeline_gate:
+  prerequisites:
+    - study: pdmp-00-characterization
+      condition: tests-passed
+  enables:
+    - pdmp-02-jump-processes
+  proceed_condition: |-
+    Millard 2017 standalone reproduces published reference state via pbg-copasi (DONE 2026-05-24). FBA-bridge composite holds interface statistics across all Phase 0 conditions within W₂ tolerance. LQR weights pass Sobol sensitivity (no free-parameter rot). FIM conditioning κ < 10⁸ on causal parameters.
+study_card: |-
+  Phase 1 — substitute v2ecoli's multi-objective FBA (`wholecell.utils.modular_fba`, glpk-linear) with the Millard 2017 kinetic ODE (BioModels MODEL1505110000) wrapped via pbg-copasi, an LQR outer control layer for growth-rate regulation, and an FBA-bridge composite that couples the ODE to the remaining v2ecoli FBA during the incremental handover.
+readouts: |-
+  (1) Millard standalone steady-state values (G6P, F6P, FDP, PEP, PYR, ATP, ADP, NADH, NADPH, MAL, AKG) — measured against BioModels published reference. (2) FBA-bridge interface flux exchange (which fluxes the ODE exports, which the FBA consumes, where the seam is). (3) LQR Sobol sensitivity indices on growth-rate observables. (4) W₂ distance per interface variable vs. Phase 0 ensemble (target: within 5σ of MC fluctuation).

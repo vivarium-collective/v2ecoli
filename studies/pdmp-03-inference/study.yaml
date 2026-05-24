@@ -124,8 +124,8 @@ description: |
 expected_behavior:
   - name: likelihoods-per-modality
     en: Each measurement modality has a documented observation likelihood (neg-binom, log-normal, 
-      normal-on-log-growth, normal/log-normal) with explicit dispersion / noise parameters and 
-      references to the calibration literature.
+      normal-on-log-growth, normal/log-normal) with explicit dispersion / noise parameters and references to 
+      the calibration literature.
     given:
       condition: rna-seq AND proteomics AND growth AND metabolomics
     measure:
@@ -137,8 +137,8 @@ expected_behavior:
     status: stub
   - name: accumulator-runs-alongside-pdmp
     en: The likelihood accumulator computes log-likelihood contributions from ODE segments 
-      (continuous-measurement likelihoods) and jump events (discrete-event likelihoods) 
-      incrementally during a single PDMP run.
+      (continuous-measurement likelihoods) and jump events (discrete-event likelihoods) incrementally during a
+      single PDMP run.
     given:
       condition: per-segment AND per-jump
     measure:
@@ -149,7 +149,7 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: observe-intervene-effects
-    en: The Vivarium runner supports observe(variable, likelihood) and intervene(variable, value) as
+    en: The Vivarium runner supports observe(variable, likelihood) and intervene(variable, value) as 
       first-class algebraic effects, with the same surface area as ChiRho's primitives.
     given:
       condition: pdmp-runner
@@ -161,9 +161,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: abc-posterior-recovery-on-synthetic
-    en: 'On synthetic data generated from known parameters, ABC-SMC recovers posteriors that cover the
-      ground truth at the published credible level using summary statistics: growth rate, mean mRNA/protein
-      abundances, metabolite concentrations. (Gating criterion.)'
+    en: 'On synthetic data generated from known parameters, ABC-SMC recovers posteriors that cover the ground truth
+      at the published credible level using summary statistics: growth rate, mean mRNA/protein abundances, metabolite
+      concentrations. (Gating criterion.)'
     given:
       condition: synthetic-truth-data
     measure:
@@ -174,9 +174,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-likelihood-dispersion-fit-with-ci
-    en: Per-modality dispersion / noise parameters (NegBin φ for RNA-seq, σ for log-normal 
-      proteomics, σ_μ for growth, per-metabolite σ for metabolomics) are MLE-fit on calibration data
-      and reported with 95% bootstrap CIs.
+    en: Per-modality dispersion / noise parameters (NegBin φ for RNA-seq, σ for log-normal proteomics, σ_μ for
+      growth, per-metabolite σ for metabolomics) are MLE-fit on calibration data and reported with 95% 
+      bootstrap CIs.
     given:
       condition: per-modality
     measure:
@@ -187,9 +187,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-accumulator-numerical-stability
-    en: Log-likelihood accumulation maintains log-space throughout; no underflows recorded across 
-      N=10⁴ test runs. log-sum-exp shift used in all mixture terms. Pairwise/Kahan summation in 
-      population reductions; result invariant to trajectory ordering.
+    en: Log-likelihood accumulation maintains log-space throughout; no underflows recorded across N=10⁴ test 
+      runs. log-sum-exp shift used in all mixture terms. Pairwise/Kahan summation in population reductions; 
+      result invariant to trajectory ordering.
     given:
       condition: full-run
     measure:
@@ -200,9 +200,8 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-abc-ess-and-acceptance
-    en: ABC-SMC reports posterior ESS and proposal acceptance rate at every SMC step; runs are 
-      terminated cleanly when ESS falls below 0.5·N (resample) or wall-clock cap is hit. No silent 
-      degeneracy.
+    en: ABC-SMC reports posterior ESS and proposal acceptance rate at every SMC step; runs are terminated 
+      cleanly when ESS falls below 0.5·N (resample) or wall-clock cap is hit. No silent degeneracy.
     given:
       condition: per-smc-iteration
     measure:
@@ -213,9 +212,8 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-sbc-coverage
-    en: 'Simulation-Based Calibration (K=1000): rank histogram passes χ² uniformity test (p > 0.05); 90%
-      credible intervals achieve ≥85% empirical coverage. Hard requirement before claiming "inference-ready"
-      for Phase 5.'
+    en: 'Simulation-Based Calibration (K=1000): rank histogram passes χ² uniformity test (p > 0.05); 90% credible
+      intervals achieve ≥85% empirical coverage. Hard requirement before claiming "inference-ready" for Phase 5.'
     given:
       condition: K1000-sbc-draws
     measure:
@@ -226,9 +224,9 @@ expected_behavior:
       note: Tolerance / target gate to be defined when this study moves Design → Build.
     status: stub
   - name: uq-mahalanobis-distance-justified
-    en: Mahalanobis distance uses the empirical summary-statistic covariance from N≥200 PDMP runs at
-      the prior mean. Condition number of the covariance reported; if κ > 10⁶ the summary vector is 
-      reduced (drop near-collinear summaries).
+    en: Mahalanobis distance uses the empirical summary-statistic covariance from N≥200 PDMP runs at the prior
+      mean. Condition number of the covariance reported; if κ > 10⁶ the summary vector is reduced (drop 
+      near-collinear summaries).
     given:
       condition: abc-distance-function
     measure:
@@ -245,8 +243,8 @@ baseline:
       emitter: xarray
       summary_only: true
     _placeholder: true
-    _note: Composite wires the Phase 2 PDMP runner to a likelihood-accumulator step + 
-      observe/intervene effects + ABC-SMC driver.
+    _note: Composite wires the Phase 2 PDMP runner to a likelihood-accumulator step + observe/intervene 
+      effects + ABC-SMC driver.
 variants: []
 interventions: []
 runs: []
@@ -262,16 +260,15 @@ bibliography:
 report:
   confidence: design-stage
   evidence_quality: scaffold
-  conclusion: Predicted — per-modality observation likelihoods (neg-binom RNA-seq, log-normal 
-    proteomics, normal log-growth, normal/log-normal metabolomics) feeding an incremental 
-    log-likelihood accumulator + Vivarium observe/intervene effects will let ABC-SMC recover 
-    posteriors on synthetic data with SBC-validated coverage (≥85% on 90% CIs).
+  conclusion: Predicted — per-modality observation likelihoods (neg-binom RNA-seq, log-normal proteomics, 
+    normal log-growth, normal/log-normal metabolomics) feeding an incremental log-likelihood accumulator + 
+    Vivarium observe/intervene effects will let ABC-SMC recover posteriors on synthetic data with 
+    SBC-validated coverage (≥85% on 90% CIs).
   main_insight: Simulation-Based Calibration (Talts et al. 2018) is the gate that converts 'we have 
-    likelihoods' into 'we have INFERENCE-ready likelihoods' — uniformity of the SBC rank histogram 
-    is the only credible test before Phase 5.
-  caveat: ABC-SMC is the BASELINE engine — robust but slow. Gradient-based / VI methods wait on the 
-    Phase 4 compiled runtime; planning ABC compute on Phase 2 PDMP trajectories sets a realistic 
-    wall-clock floor.
+    likelihoods' into 'we have INFERENCE-ready likelihoods' — uniformity of the SBC rank histogram is the only
+    credible test before Phase 5.
+  caveat: ABC-SMC is the BASELINE engine — robust but slow. Gradient-based / VI methods wait on the Phase 4 
+    compiled runtime; planning ABC compute on Phase 2 PDMP trajectories sets a realistic wall-clock floor.
   key_metrics:
     - label: likelihood dispersion fits w/ 95% CI
       status: stub
@@ -288,3 +285,21 @@ report:
     - label: 90% CI empirical coverage
       status: stub
       value: ≥ 85%
+design_status: in_progress
+implementation_status: not_started
+simulation_status: not_started
+evaluation_status: not_started
+gate_status: blocked
+expert_review_status: not_requested
+pipeline_gate:
+  prerequisites:
+    - study: pdmp-02-jump-processes
+      condition: tests-passed
+  enables:
+    - pdmp-05-causal-discovery
+  proceed_condition: |-
+    Likelihood library covers all 4 modalities (RNA-seq, proteomics, growth, metabolomics) with dispersion CIs. Log-likelihood accumulator runs alongside the PDMP with zero underflows over 10⁴ test runs. ABC-SMC posterior recovery: SBC rank-histogram passes χ² uniformity (p > 0.05), 90% credible intervals achieve ≥85% empirical coverage.
+study_card: |-
+  Phase 3 — build the Bayesian inference substrate: per-modality observation likelihoods (negative binomial RNA-seq, log-normal proteomics, normal log-growth, normal/log-normal metabolomics), an incremental log-likelihood accumulator over PDMP segments + jump events, Vivarium observe/intervene algebraic effects (à la ChiRho), and a baseline ABC-SMC inference engine validated by Simulation-Based Calibration.
+readouts: |-
+  (1) Per-modality likelihood dispersion fits with 95% bootstrap CIs. (2) ABC-SMC convergence: ESS, proposal acceptance, ε-decay schedule. (3) SBC rank-histogram + 90% CI empirical coverage. (4) Fisher information matrix conditioning per inferred parameter.

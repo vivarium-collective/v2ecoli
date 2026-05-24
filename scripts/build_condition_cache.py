@@ -159,7 +159,9 @@ def _git_sha() -> str:
 
 
 def build(condition: str, fixture: str, cache_dir: str,
-          transcription_factor: float, te_factor: float) -> None:
+          transcription_factor: float, te_factor: float,
+          media_condition: str | None = None,
+          fixed_media: str | None = None) -> None:
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(repo_root)
     if condition not in PATCHES:
@@ -172,6 +174,16 @@ def build(condition: str, fixture: str, cache_dir: str,
     print(f"[{time.strftime('%H:%M:%S')}] Hydrating sim_data ...")
     sim_data = hydrate_sim_data_from_state(state)
 
+    if media_condition is not None:
+        avail = dict(getattr(sim_data, "condition_to_doubling_time", {}) or {})
+        if media_condition not in avail:
+            raise SystemExit(
+                f"unknown media_condition {media_condition!r}; known: "
+                f"{sorted(avail)}")
+        print(f"[{time.strftime('%H:%M:%S')}] Nutrient condition "
+              f"{media_condition!r} (doubling {avail[media_condition]}), "
+              f"media {fixed_media!r}")
+
     print(f"[{time.strftime('%H:%M:%S')}] Applying '{condition}' patch "
           f"(transcription×{transcription_factor}, te×{te_factor}) ...")
     patch_record = PATCHES[condition](
@@ -179,11 +191,14 @@ def build(condition: str, fixture: str, cache_dir: str,
     print(f"    {json.dumps(patch_record['patched'], indent=2)}")
 
     print(f"[{time.strftime('%H:%M:%S')}] Building bundle at {cache_dir} ...")
-    save_sim_input(sim_data, cache_dir)
+    save_sim_input(sim_data, cache_dir,
+                   condition=media_condition, fixed_media=fixed_media)
     write_cache_version(cache_dir, repo_root=repo_root)
 
     manifest = {
         "condition": condition,
+        "media_condition": media_condition,
+        "fixed_media": fixed_media,
         "created_at": datetime.datetime.now().isoformat(),
         "git_sha": _git_sha(),
         "base_fixture": fixture,
@@ -209,10 +224,17 @@ def main() -> None:
                     help="scale dnaA transcription arrays (calibration finds this)")
     ap.add_argument("--te-factor", type=float, default=1.0,
                     help="scale dnaA translation-efficiency weight")
+    ap.add_argument("--media-condition", default=None,
+                    help="ParCa nutrient condition for the initial state / "
+                         "doubling time (e.g. acetate, succinate; default basal)")
+    ap.add_argument("--fixed-media", default=None,
+                    help="media id pinned for the whole run (e.g. minimal_acetate)")
     args = ap.parse_args()
-    cache_dir = args.cache_dir or f"out/cache-{args.condition}"
+    suffix = f"-{args.media_condition}" if args.media_condition else ""
+    cache_dir = args.cache_dir or f"out/cache-{args.condition}{suffix}"
     build(args.condition, args.fixture, cache_dir,
-          args.transcription_factor, args.te_factor)
+          args.transcription_factor, args.te_factor,
+          media_condition=args.media_condition, fixed_media=args.fixed_media)
 
 
 if __name__ == "__main__":

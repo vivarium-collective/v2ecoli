@@ -47,10 +47,10 @@ class DnaSupercoiling(Step):
         return {
             'listeners': {
                 'dna_supercoiling': {
-                    'segment_left_boundary_coordinates': {'_type': 'array[integer]', '_default': []},
-                    'segment_right_boundary_coordinates': {'_type': 'array[integer]', '_default': []},
-                    'segment_domain_indexes': {'_type': 'array[integer]', '_default': []},
-                    'segment_superhelical_densities': {'_type': 'array[float]', '_default': []},
+                    'segment_left_boundary_coordinates': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'segment_right_boundary_coordinates': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'segment_domain_indexes': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'segment_superhelical_densities': {'_type': 'overwrite[array[float]]', '_default': []},
                 },
             },
         }

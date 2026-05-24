@@ -744,7 +744,30 @@ deferred_biology: True SeqA hemimethylation-state sequestration (currently a ref
   kinetics (currently instantaneous). IHF-mediated oriC bending. DUE opening kinetics. Autorepression feedback on
   dnaA transcription rate (open from dnaa-01).
 
+# The dnaa-04 hero comparison: mechanism trigger (baseline) vs heuristic-
+# only control vs legacy monkey-patch — all three overlaid on the same
+# oriC-count trace. number_of_oric step-ups (2→4) ARE the initiation
+# events; comparing the timing across variants is the head-to-head visual
+# of "is the new mechanism doing what the heuristic used to do, and how
+# similar do they look in practice." Multi-gen (9000 ticks) shows whether
+# each variant fires reliably across cycles.
+comparative_visualizations:
+- name: initiation-mechanism-vs-heuristic
+  title: oriC count over time — mechanism trigger vs heuristic vs legacy
+  observable_path: agents.0.listeners.replication_data.number_of_oric
+  y_label: oriC count
+  runs:
+  - sim_name: dnaa-04-initiation-mechanism   # baseline (dashboard stores baseline under study name)
+    label: 'Mechanism (rida-v0 trigger)'
+  - sim_name: heuristic-only-control
+    label: 'Heuristic control (mass threshold)'
+  - sim_name: mechanism-with-legacy-monkey-patch
+    label: 'Mechanism (legacy monkey-patch)'
+
 post_run_scripts:
 - path: scripts/render_chromosome_timeline.py
   args: [ '--study', 'dnaa-04-initiation-mechanism', '--spec', 'v2ecoli.composites.baseline_recipes.dnaa_04_with_dnaa_initiation_trigger', '--steps', '600',]
   timeout_s: 1800
+- path: scripts/render_initiation_timeline.py
+  args: ['--study', 'dnaa-04-initiation-mechanism']
+  timeout_s: 600

@@ -5,7 +5,8 @@ status: planned
 phase: Design
 
 topic: pdmp
-tags: [pdmp, phase-3, likelihoods, bayesian, abc-smc, observe, intervene, algebraic-effects, chirho, xarray-emitter]
+tags: [pdmp, phase-3, likelihoods, bayesian, abc-smc, observe, intervene, algebraic-effects, chirho, 
+      xarray-emitter]
 created: '2026-05-24'
 
 parent_studies:
@@ -121,83 +122,49 @@ description: |
   post-hoc rank-histogram analysis.
 
 expected_behavior:
-  - name: likelihoods-per-modality
-    observable: likelihood-library
-    condition: rna-seq AND proteomics AND growth AND metabolomics
-    rationale: |
-      Each measurement modality has a documented observation
-      likelihood (neg-binom, log-normal, normal-on-log-growth,
-      normal/log-normal) with explicit dispersion / noise
-      parameters and references to the calibration literature.
-  - name: accumulator-runs-alongside-pdmp
-    observable: log-likelihood-trace
-    condition: per-segment AND per-jump
-    rationale: |
-      The likelihood accumulator computes log-likelihood
-      contributions from ODE segments (continuous-measurement
-      likelihoods) and jump events (discrete-event likelihoods)
-      incrementally during a single PDMP run.
-  - name: observe-intervene-effects
-    observable: vivarium-algebraic-effect-set
-    condition: pdmp-runner
-    rationale: |
-      The Vivarium runner supports observe(variable, likelihood)
-      and intervene(variable, value) as first-class algebraic
-      effects, with the same surface area as ChiRho's primitives.
-  - name: abc-posterior-recovery-on-synthetic
-    observable: posterior-recovery-metric
-    condition: synthetic-truth-data
-    rationale: |
-      On synthetic data generated from known parameters, ABC-SMC
-      recovers posteriors that cover the ground truth at the
-      published credible level using summary statistics: growth
-      rate, mean mRNA/protein abundances, metabolite
-      concentrations. (Gating criterion.)
-
-  # ── UQ-aware tests ────────────────────────────────────────────────
-  - name: uq-likelihood-dispersion-fit-with-ci
-    observable: dispersion-parameters-with-95-CI
-    condition: per-modality
-    rationale: |
-      Per-modality dispersion / noise parameters (NegBin φ for
-      RNA-seq, σ for log-normal proteomics, σ_μ for growth,
-      per-metabolite σ for metabolomics) are MLE-fit on calibration
-      data and reported with 95% bootstrap CIs.
-  - name: uq-accumulator-numerical-stability
-    observable: log-likelihood-underflow-rate
-    condition: full-run
-    rationale: |
-      Log-likelihood accumulation maintains log-space throughout;
-      no underflows recorded across N=10⁴ test runs. log-sum-exp
-      shift used in all mixture terms. Pairwise/Kahan summation
-      in population reductions; result invariant to trajectory
-      ordering.
-  - name: uq-abc-ess-and-acceptance
-    observable: ess-and-acceptance-per-step
-    condition: per-smc-iteration
-    rationale: |
-      ABC-SMC reports posterior ESS and proposal acceptance rate
-      at every SMC step; runs are terminated cleanly when ESS
-      falls below 0.5·N (resample) or wall-clock cap is hit.
-      No silent degeneracy.
-  - name: uq-sbc-coverage
-    observable: sbc-rank-histogram AND credible-interval-coverage
-    condition: K1000-sbc-draws
-    rationale: |
-      Simulation-Based Calibration (K=1000): rank histogram passes
-      χ² uniformity test (p > 0.05); 90% credible intervals achieve
-      ≥85% empirical coverage. Hard requirement before claiming
-      "inference-ready" for Phase 5.
-  - name: uq-mahalanobis-distance-justified
-    observable: summary-statistic-covariance
-    condition: abc-distance-function
-    rationale: |
-      Mahalanobis distance uses the empirical summary-statistic
-      covariance from N≥200 PDMP runs at the prior mean.
-      Condition number of the covariance reported; if κ > 10⁶ the
-      summary vector is reduced (drop near-collinear summaries).
-
-baseline: []
+  - 'likelihoods-per-modality — Each measurement modality has a documented observation likelihood (neg-binom,
+    log-normal, normal-on-log-growth, normal/log-normal) with explicit dispersion / noise parameters and
+    references to the calibration literature. [observable: likelihood-library; condition: rna-seq AND
+    proteomics AND growth AND metabolomics]'
+  - 'accumulator-runs-alongside-pdmp — The likelihood accumulator computes log-likelihood contributions
+    from ODE segments (continuous-measurement likelihoods) and jump events (discrete-event likelihoods)
+    incrementally during a single PDMP run. [observable: log-likelihood-trace; condition: per-segment
+    AND per-jump]'
+  - "observe-intervene-effects — The Vivarium runner supports observe(variable, likelihood) and intervene(variable,
+    value) as first-class algebraic effects, with the same surface area as ChiRho's primitives. [observable:
+    vivarium-algebraic-effect-set; condition: pdmp-runner]"
+  - 'abc-posterior-recovery-on-synthetic — On synthetic data generated from known parameters, ABC-SMC
+    recovers posteriors that cover the ground truth at the published credible level using summary statistics:
+    growth rate, mean mRNA/protein abundances, metabolite concentrations. (Gating criterion.) [observable:
+    posterior-recovery-metric; condition: synthetic-truth-data]'
+  - 'uq-likelihood-dispersion-fit-with-ci — Per-modality dispersion / noise parameters (NegBin φ for RNA-seq,
+    σ for log-normal proteomics, σ_μ for growth, per-metabolite σ for metabolomics) are MLE-fit on calibration
+    data and reported with 95% bootstrap CIs. [observable: dispersion-parameters-with-95-CI; condition:
+    per-modality]'
+  - 'uq-accumulator-numerical-stability — Log-likelihood accumulation maintains log-space throughout;
+    no underflows recorded across N=10⁴ test runs. log-sum-exp shift used in all mixture terms. Pairwise/Kahan
+    summation in population reductions; result invariant to trajectory ordering. [observable: log-likelihood-underflow-rate;
+    condition: full-run]'
+  - 'uq-abc-ess-and-acceptance — ABC-SMC reports posterior ESS and proposal acceptance rate at every SMC
+    step; runs are terminated cleanly when ESS falls below 0.5·N (resample) or wall-clock cap is hit.
+    No silent degeneracy. [observable: ess-and-acceptance-per-step; condition: per-smc-iteration]'
+  - 'uq-sbc-coverage — Simulation-Based Calibration (K=1000): rank histogram passes χ² uniformity test
+    (p > 0.05); 90% credible intervals achieve ≥85% empirical coverage. Hard requirement before claiming
+    "inference-ready" for Phase 5. [observable: sbc-rank-histogram AND credible-interval-coverage; condition:
+    K1000-sbc-draws]'
+  - 'uq-mahalanobis-distance-justified — Mahalanobis distance uses the empirical summary-statistic covariance
+    from N≥200 PDMP runs at the prior mean. Condition number of the covariance reported; if κ > 10⁶ the
+    summary vector is reduced (drop near-collinear summaries). [observable: summary-statistic-covariance;
+    condition: abc-distance-function]'
+baseline:
+  - name: pdmp-with-likelihood-accumulator-tbd
+    composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
+    params:
+      emitter: xarray
+      summary_only: true
+    _placeholder: true
+    _note: Composite wires the Phase 2 PDMP runner to a likelihood-accumulator step + 
+      observe/intervene effects + ABC-SMC driver.
 variants: []
 interventions: []
 runs: []

@@ -5,7 +5,8 @@ status: planned
 phase: Design
 
 topic: pdmp
-tags: [pdmp, phase-4, compilation, catalyst-jl, modelingtoolkit, column-centric, gpu, jumpprocesses-jl, hpc, xarray-emitter]
+tags: [pdmp, phase-4, compilation, catalyst-jl, modelingtoolkit, column-centric, gpu, 
+      jumpprocesses-jl, hpc, xarray-emitter]
 created: '2026-05-24'
 
 parent_studies:
@@ -123,71 +124,41 @@ description: |
   zarr stores directly.
 
 expected_behavior:
-  - name: catalyst-export-works
-    observable: compiled-model-artefact
-    condition: end-to-end-export
-    rationale: |
-      The PDMP exports to a Catalyst.jl / ModelingToolkit model
-      with symbolic Jacobians and automatic sensitivity equations;
-      the compiled artefact runs and reproduces interface
-      statistics of the Phase 2 PDMP runner within tolerance.
-  - name: column-centric-state
-    observable: per-step-marshalling-fraction
-    condition: compiled-runner
-    rationale: |
-      Per-step marshalling overhead is reduced to a small fraction
-      (target <10%) of essential numerical computation, vs. the
-      majority share measured in Phase 0.
-  - name: vivarium-api-inversion
-    observable: declarative-process-spec
-    condition: every-process
-    rationale: |
-      Process definitions consist of (local state schema, ODE
-      vector field, jump propensities) only; the runtime handles
-      topology traversal and time-stepping. No process module
-      contains its own step() loop.
-  - name: 10cubed-parallel-trajectories
-    observable: parallel-throughput-benchmark
-    condition: gpu OR multi-core-cpu
-    rationale: |
-      ≥10³ parallel single-cell trajectories run with throughput
-      at least one order of magnitude above v2ecoli baseline.
-      (Gating criterion.)
-
-  # ── UQ-aware tests ────────────────────────────────────────────────
-  - name: uq-compiled-vs-reference-w2-5sigma
-    observable: w2-compiled-vs-phase2
-    condition: N10000-per-Phase0-condition
-    rationale: |
-      W₂(p_compiled, p_phase2) ≤ 5·σ_MC across N=10⁴ trajectories
-      for every Phase 0 condition. Confirms compilation doesn't
-      change the *distribution* of trajectories within stochastic
-      noise.
-  - name: uq-deterministic-fp-summation
-    observable: parallel-reduction-result-stability
-    condition: repeated-runs-identical-seed
-    rationale: |
-      Parallel reductions (per-trajectory log-likelihoods, summary
-      statistics) use pairwise or Kahan summation and give
-      bit-identical results across runs with the same seed and
-      input. No atomic-add reductions.
-  - name: uq-1-over-sqrt-N-variance-scaling
-    observable: posterior-variance-vs-N
-    condition: abc-on-synthetic
-    rationale: |
-      Doubling trajectory count halves ABC posterior variance
-      (within MC noise) — the 1/√N scaling expected of independent
-      MC. Deviations indicate hidden correlations in the parallel
-      runner that compromise inference validity.
-  - name: uq-precision-mode-validated
-    observable: fp32-vs-fp64-posterior-equivalence
-    condition: where-fp32-claimed
-    rationale: |
-      Any FP32 deployment passes both (a) bit-equivalence test on
-      a held-out trajectory subset vs FP64 reference and (b)
-      ABC posterior KL divergence < 0.01 vs FP64-derived posterior.
-
-baseline: []
+  - 'catalyst-export-works — The PDMP exports to a Catalyst.jl / ModelingToolkit model with symbolic Jacobians
+    and automatic sensitivity equations; the compiled artefact runs and reproduces interface statistics
+    of the Phase 2 PDMP runner within tolerance. [observable: compiled-model-artefact; condition: end-to-end-export]'
+  - 'column-centric-state — Per-step marshalling overhead is reduced to a small fraction (target <10%)
+    of essential numerical computation, vs. the majority share measured in Phase 0. [observable: per-step-marshalling-fraction;
+    condition: compiled-runner]'
+  - 'vivarium-api-inversion — Process definitions consist of (local state schema, ODE vector field, jump
+    propensities) only; the runtime handles topology traversal and time-stepping. No process module contains
+    its own step() loop. [observable: declarative-process-spec; condition: every-process]'
+  - '10cubed-parallel-trajectories — ≥10³ parallel single-cell trajectories run with throughput at least
+    one order of magnitude above v2ecoli baseline. (Gating criterion.) [observable: parallel-throughput-benchmark;
+    condition: gpu OR multi-core-cpu]'
+  - "uq-compiled-vs-reference-w2-5sigma — W₂(p_compiled, p_phase2) ≤ 5·σ_MC across N=10⁴ trajectories
+    for every Phase 0 condition. Confirms compilation doesn't change the *distribution* of trajectories
+    within stochastic noise. [observable: w2-compiled-vs-phase2; condition: N10000-per-Phase0-condition]"
+  - 'uq-deterministic-fp-summation — Parallel reductions (per-trajectory log-likelihoods, summary statistics)
+    use pairwise or Kahan summation and give bit-identical results across runs with the same seed and
+    input. No atomic-add reductions. [observable: parallel-reduction-result-stability; condition: repeated-runs-identical-seed]'
+  - 'uq-1-over-sqrt-N-variance-scaling — Doubling trajectory count halves ABC posterior variance (within
+    MC noise) — the 1/√N scaling expected of independent MC. Deviations indicate hidden correlations in
+    the parallel runner that compromise inference validity. [observable: posterior-variance-vs-N; condition:
+    abc-on-synthetic]'
+  - 'uq-precision-mode-validated — Any FP32 deployment passes both (a) bit-equivalence test on a held-out
+    trajectory subset vs FP64 reference and (b) ABC posterior KL divergence < 0.01 vs FP64-derived posterior.
+    [observable: fp32-vs-fp64-posterior-equivalence; condition: where-fp32-claimed]'
+baseline:
+  - name: pdmp-catalyst-runner-tbd
+    composite: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
+    params:
+      emitter: xarray
+      backend: catalyst-jl
+      precision: fp64
+    _placeholder: true
+    _note: Catalyst.jl-compiled PDMP runner. Bridge process loads the Phase 2 model via 
+      PB-->Catalyst export.
 variants: []
 interventions: []
 runs: []

@@ -5,7 +5,8 @@ status: planned
 phase: Design
 
 topic: pdmp
-tags: [pdmp, phase-1, metabolism, kinetic-ode, lqr, millard2017, copasi, pbg-copasi, fba-bridge, causal-teleonomic, xarray-emitter]
+tags: [pdmp, phase-1, metabolism, kinetic-ode, lqr, millard2017, copasi, pbg-copasi, fba-bridge, 
+      causal-teleonomic, xarray-emitter]
 created: '2026-05-24'
 
 parent_studies:
@@ -141,86 +142,41 @@ description: |
   'replicate': 1}) for streaming per-replicate comparison.
 
 expected_behavior:
-  - name: millard-standalone-via-copasi
-    observable: process-bigraph-process
-    condition: standalone
-    rationale: |
-      The Millard 2017 SBML (BioModels MODEL1505110000) runs as
-      a standalone PB process via pbg-copasi's CopasiUTCProcess;
-      a steady-state solve via CopasiSteadyStateStep reproduces
-      the published reference state (M9-glucose, dilution rate
-      0.1/h, pH 7.0, 37°C) within solver tolerance.
-  - name: fba-bridge-composite-runs
-    observable: bridged-composite
-    condition: copasi-ode-coupled-to-tfba
-    rationale: |
-      A composite that wires the pbg-copasi Millard process to
-      v2ecoli's existing tFBA flux solver runs end-to-end, with
-      both subsystems exchanging fluxes at a documented seam
-      schema, and the full v2ecoli WCM remains viable across at
-      least one full generation.
-  - name: interface-matches-reference
-    observable: interface-statistic-comparison
-    condition: M9-glucose AND M9-acetate AND M9-glucose-aa
-    rationale: |
-      ODE + LQR interface statistics (growth rate, glucose uptake,
-      key intermediate concentrations, ATP/NADH production) match
-      the Phase 0 reference Xarray dataset within specified
-      tolerance across all ≥3 conditions. (Gating criterion.)
-  - name: causal-teleonomic-partition
-    observable: parameter-catalog
-    condition: all-introduced-parameters
-    rationale: |
-      Every parameter introduced in this study is labelled causal
-      (kinetic constant, enzyme abundance, SBML rate-law constant
-      from Millard 2017) or teleonomic (LQR weight, reference
-      trajectory, FBA-bridge seam policy), with a written
-      justification per parameter.
-  - name: predictor-corrector-shim
-    observable: integration-record
-    condition: per-step
-    rationale: |
-      The ODE integrates continuously within each v2ecoli timestep
-      via a predictor-corrector shim; discontinuities are localized
-      and recorded rather than silent.
-
-  # ── UQ-aware tests ────────────────────────────────────────────────
-  - name: uq-solver-convergence-richardson
-    observable: step-doubling-richardson-error
-    condition: reference-initial-condition
-    rationale: |
-      Step-doubling Richardson extrapolation confirms LSODA at
-      (rtol=1e-6, atol=1e-9) attains its claimed order; reported
-      empirical error per variable stays below the Phase 0 MC noise
-      floor [[uq-bootstrap-cis-on-interface-stats]].
-  - name: uq-w2-against-phase0-ensemble
-    observable: wasserstein2-per-variable
-    condition: M9-glucose AND M9-acetate AND M9-glucose-aa
-    rationale: |
-      Per-interface-variable W₂(p_ODE, p_phase0) falls within the
-      bootstrap 95% CI of the Phase 0 self-replicate W₂ spread —
-      i.e., the ODE+LQR output is indistinguishable from a fresh
-      replicate of the same condition. KS distance reported as
-      secondary check.
-  - name: uq-fim-identifiability
-    observable: fim-condition-number
-    condition: causal-parameters
-    rationale: |
-      Fisher Information Matrix at the reference parameter point,
-      computed via automatic differentiation of the likelihood
-      under simulated Phase-3 RNA-seq + metabolomics measurement
-      models, has κ(FIM) < 10⁸. Profile-likelihood widths
-      reported per parameter; non-identifiable parameters are
-      flagged and either reparameterized or moved to teleonomic.
-  - name: uq-lqr-sobol-sensitivity
-    observable: sobol-first-order-and-total
-    condition: lqr-weights
-    rationale: |
-      First-order and total Sobol indices for every LQR weight on
-      (steady-state growth rate, glucose uptake flux, ATP yield).
-      Weights with total index < 0.01 on every observable are
-      flagged free-parameter rot and removed.
-
+  - "millard-standalone-via-copasi — The Millard 2017 SBML (BioModels MODEL1505110000) runs as a standalone
+    PB process via pbg-copasi's CopasiUTCProcess; a steady-state solve via CopasiSteadyStateStep reproduces
+    the published reference state (M9-glucose, dilution rate 0.1/h, pH 7.0, 37°C) within solver tolerance.
+    [observable: process-bigraph-process; condition: standalone]"
+  - "fba-bridge-composite-runs — A composite that wires the pbg-copasi Millard process to v2ecoli's existing
+    tFBA flux solver runs end-to-end, with both subsystems exchanging fluxes at a documented seam schema,
+    and the full v2ecoli WCM remains viable across at least one full generation. [observable: bridged-composite;
+    condition: copasi-ode-coupled-to-tfba]"
+  - 'interface-matches-reference — ODE + LQR interface statistics (growth rate, glucose uptake, key intermediate
+    concentrations, ATP/NADH production) match the Phase 0 reference Xarray dataset within specified tolerance
+    across all ≥3 conditions. (Gating criterion.) [observable: interface-statistic-comparison; condition:
+    M9-glucose AND M9-acetate AND M9-glucose-aa]'
+  - 'causal-teleonomic-partition — Every parameter introduced in this study is labelled causal (kinetic
+    constant, enzyme abundance, SBML rate-law constant from Millard 2017) or teleonomic (LQR weight, reference
+    trajectory, FBA-bridge seam policy), with a written justification per parameter. [observable: parameter-catalog;
+    condition: all-introduced-parameters]'
+  - 'predictor-corrector-shim — The ODE integrates continuously within each v2ecoli timestep via a predictor-corrector
+    shim; discontinuities are localized and recorded rather than silent. [observable: integration-record;
+    condition: per-step]'
+  - 'uq-solver-convergence-richardson — Step-doubling Richardson extrapolation confirms LSODA at (rtol=1e-6,
+    atol=1e-9) attains its claimed order; reported empirical error per variable stays below the Phase
+    0 MC noise floor [[uq-bootstrap-cis-on-interface-stats]]. [observable: step-doubling-richardson-error;
+    condition: reference-initial-condition]'
+  - 'uq-w2-against-phase0-ensemble — Per-interface-variable W₂(p_ODE, p_phase0) falls within the bootstrap
+    95% CI of the Phase 0 self-replicate W₂ spread — i.e., the ODE+LQR output is indistinguishable from
+    a fresh replicate of the same condition. KS distance reported as secondary check. [observable: wasserstein2-per-variable;
+    condition: M9-glucose AND M9-acetate AND M9-glucose-aa]'
+  - 'uq-fim-identifiability — Fisher Information Matrix at the reference parameter point, computed via
+    automatic differentiation of the likelihood under simulated Phase-3 RNA-seq + metabolomics measurement
+    models, has κ(FIM) < 10⁸. Profile-likelihood widths reported per parameter; non-identifiable parameters
+    are flagged and either reparameterized or moved to teleonomic. [observable: fim-condition-number;
+    condition: causal-parameters]'
+  - 'uq-lqr-sobol-sensitivity — First-order and total Sobol indices for every LQR weight on (steady-state
+    growth rate, glucose uptake flux, ATP yield). Weights with total index < 0.01 on every observable
+    are flagged free-parameter rot and removed. [observable: sobol-first-order-and-total; condition: lqr-weights]'
 baseline:
   - name: millard2017-via-pbg-copasi
     composite: pbg_copasi.composites.utc-process

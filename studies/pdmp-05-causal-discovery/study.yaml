@@ -5,11 +5,12 @@ status: planned
 phase: Design
 
 topic: pdmp
-tags: [pdmp, phase-5, causal-discovery, gene-annotation, bayesian-model-comparison, russian-roulette, active-inference, xarray-emitter]
+tags: [pdmp, phase-5, causal-discovery, gene-annotation, bayesian-model-comparison, russian-roulette,
+  active-inference, xarray-emitter]
 created: '2026-05-24'
 
 parent_studies:
-  - {study: pdmp-03-inference,   condition: tests-passed}
+  - {study: pdmp-03-inference, condition: tests-passed}
   - {study: pdmp-04-compilation, condition: tests-passed}
 
 question: |
@@ -128,91 +129,50 @@ description: |
   gene-set level.
 
 expected_behavior:
-  - name: annotation-bayes-model-compare
-    observable: marginal-likelihood-estimator
-    condition: candidate-annotations
-    rationale: |
-      Marginal likelihoods are estimated via Russian Roulette /
-      doubly-intractable methods with quantified variance bounds;
-      the implementation passes published unit tests on simpler
-      model-comparison benchmarks before being applied to WCM
-      candidates.
-  - name: active-causal-discovery-loop
-    observable: intervention-selection-record
-    condition: per-annotation
-    rationale: |
-      The active-inference loop proposes in-silico interventions
-      (knockouts, overexpression) and selects them by expected
-      information gain over the candidate annotation set; the
-      selection record shows the loop converges in expected number
-      of interventions vs. random selection.
-  - name: benchmark-recovery-with-credible-intervals
-    observable: posterior-recovery-rate
-    condition: e-coli-known-function-benchmark
-    rationale: |
-      On a curated benchmark of ≥20 E. coli genes with established
-      functions, the pipeline recovers the correct annotation at
-      the published credible level, with credible-interval widths
-      that shrink predictably as sample size grows.
-      (Gating criterion for the whole investigation.)
-  - name: genome-wide-resource-estimate
-    observable: compute-cost-extrapolation
-    condition: benchmark-results
-    rationale: |
-      Per-annotation compute cost on the benchmark extrapolates
-      to a defensible total compute estimate for genome-wide
-      scaling (≥4000 E. coli genes); the estimate identifies the
-      binding constraint (compute time, memory, or convergence).
-
-  # ── UQ-aware tests ────────────────────────────────────────────────
-  - name: uq-rr-estimator-ess
-    observable: rr-estimator-N-eff
-    condition: per-marginal-likelihood
-    rationale: |
-      Russian Roulette marginal-likelihood estimates carry an
-      ESS-equivalent N_eff; estimates with N_eff < 100 are flagged
-      and either rerun with a tighter proposal or replaced by a
-      documented-bias method (TI / nested sampling).
-  - name: uq-bayes-factor-CIs
-    observable: log-bayes-factor-with-95-CI
-    condition: per-pairwise-comparison
-    rationale: |
-      log BF reported with 95% bootstrap CI. Annotation calls only
-      fire when the CI lies entirely above the Jeffreys
-      |log BF| > 1 threshold ("substantial evidence").
-  - name: uq-sbc-at-model-comparison-level
-    observable: model-posterior-rank-uniformity
-    condition: K500-synthetic-datasets
-    rationale: |
-      Extended SBC over K=500 synthetic datasets from known true
-      annotations: rank histogram of true-model posterior
-      probability passes χ² uniformity (p > 0.05). Required before
-      trusting the pipeline on real annotations.
-  - name: uq-eig-MCSE-nonzero
-    observable: expected-information-gain-with-MCSE
-    condition: per-intervention-proposal
-    rationale: |
-      Every intervention proposal carries an EIG estimate ± MCSE;
-      proposals whose EIG CI overlaps zero are not selected.
-      NMC bias bound reported, or DV/DAD variational lower bound
-      used where feasible.
-  - name: uq-fdr-on-benchmark-recoveries
-    observable: benjamini-hochberg-q-value
-    condition: benchmark-gene-set
-    rationale: |
-      Recoveries on the benchmark gene set are reported with
-      BH-adjusted q-values; success claim requires q ≤ 0.1 at the
-      gene-set level, not just per-gene posterior probability.
-  - name: uq-credible-interval-shrinkage-rate
-    observable: ci-width-vs-sample-size
-    condition: per-parameter
-    rationale: |
-      Credible-interval-width-vs-N curves are fit on a log-log
-      scale; expected slope -1/2 for well-identified parameters.
-      Slopes shallower than -0.4 trigger MCMC mixing diagnostics
-      and identifiability re-check.
-
-baseline: []
+  - 'annotation-bayes-model-compare — Marginal likelihoods are estimated via Russian Roulette / doubly-intractable
+    methods with quantified variance bounds; the implementation passes published unit tests on simpler
+    model-comparison benchmarks before being applied to WCM candidates. [observable: marginal-likelihood-estimator;
+    condition: candidate-annotations]'
+  - 'active-causal-discovery-loop — The active-inference loop proposes in-silico interventions (knockouts,
+    overexpression) and selects them by expected information gain over the candidate annotation set; the
+    selection record shows the loop converges in expected number of interventions vs. random selection.
+    [observable: intervention-selection-record; condition: per-annotation]'
+  - 'benchmark-recovery-with-credible-intervals — On a curated benchmark of ≥20 E. coli genes with established
+    functions, the pipeline recovers the correct annotation at the published credible level, with credible-interval
+    widths that shrink predictably as sample size grows. (Gating criterion for the whole investigation.)
+    [observable: posterior-recovery-rate; condition: e-coli-known-function-benchmark]'
+  - 'genome-wide-resource-estimate — Per-annotation compute cost on the benchmark extrapolates to a defensible
+    total compute estimate for genome-wide scaling (≥4000 E. coli genes); the estimate identifies the
+    binding constraint (compute time, memory, or convergence). [observable: compute-cost-extrapolation;
+    condition: benchmark-results]'
+  - 'uq-rr-estimator-ess — Russian Roulette marginal-likelihood estimates carry an ESS-equivalent N_eff;
+    estimates with N_eff < 100 are flagged and either rerun with a tighter proposal or replaced by a documented-bias
+    method (TI / nested sampling). [observable: rr-estimator-N-eff; condition: per-marginal-likelihood]'
+  - 'uq-bayes-factor-CIs — log BF reported with 95% bootstrap CI. Annotation calls only fire when the
+    CI lies entirely above the Jeffreys |log BF| > 1 threshold ("substantial evidence"). [observable:
+    log-bayes-factor-with-95-CI; condition: per-pairwise-comparison]'
+  - 'uq-sbc-at-model-comparison-level — Extended SBC over K=500 synthetic datasets from known true annotations:
+    rank histogram of true-model posterior probability passes χ² uniformity (p > 0.05). Required before
+    trusting the pipeline on real annotations. [observable: model-posterior-rank-uniformity; condition:
+    K500-synthetic-datasets]'
+  - 'uq-eig-MCSE-nonzero — Every intervention proposal carries an EIG estimate ± MCSE; proposals whose
+    EIG CI overlaps zero are not selected. NMC bias bound reported, or DV/DAD variational lower bound
+    used where feasible. [observable: expected-information-gain-with-MCSE; condition: per-intervention-proposal]'
+  - 'uq-fdr-on-benchmark-recoveries — Recoveries on the benchmark gene set are reported with BH-adjusted
+    q-values; success claim requires q ≤ 0.1 at the gene-set level, not just per-gene posterior probability.
+    [observable: benjamini-hochberg-q-value; condition: benchmark-gene-set]'
+  - 'uq-credible-interval-shrinkage-rate — Credible-interval-width-vs-N curves are fit on a log-log scale;
+    expected slope -1/2 for well-identified parameters. Slopes shallower than -0.4 trigger MCMC mixing
+    diagnostics and identifiability re-check. [observable: ci-width-vs-sample-size; condition: per-parameter]'
+baseline:
+  - name: pdmp-annotation-comparison-tbd
+    composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    params:
+      emitter: xarray
+      estimator: russian-roulette
+    _placeholder: true
+    _note: Runs candidate-annotation marginal-likelihood comparisons + active-inference loop on top 
+      of the Phase 4 compiled runner.
 variants: []
 interventions: []
 runs: []

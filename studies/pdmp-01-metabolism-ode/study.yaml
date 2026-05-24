@@ -300,3 +300,27 @@ bibliography:
     - saa2017
     - choi2023
     - hari2024
+report:
+  confidence: design-stage
+  evidence_quality: scaffold
+  conclusion: Predicted — the Millard 2017 kinetic ODE wrapped via pbg-copasi (BioModels 
+    MODEL1505110000) coupled to an LQR outer loop and bridged to v2ecoli tFBA will match Phase 0 
+    interface ensembles within W₂ tolerance across ≥3 conditions.
+  main_insight: pbg-copasi gives us the published Millard model as a first-class PB process without 
+    re-deriving rate laws — Phase 1 effort goes to the LQR + FBA-bridge, not to ODE 
+    re-implementation.
+  caveat: LQR reference trajectory must not reintroduce a teleonomic parameter in disguise; the 
+    causal/teleonomic partition is enforced per-parameter and audited via FIM conditioning (κ < 10⁸)
+    before the model is declared inference-ready.
+  lit_match: Millard et al. 2017 (PLOS Comp Biol)
+  key_metrics:
+    - label: Millard ODE standalone (pbg-copasi)
+      status: stub
+    - label: FBA-bridge composite
+      status: stub
+    - label: W₂ vs Phase-0 ensemble
+      status: stub
+      value: ≤ 5σ MC
+    - label: FIM κ on causal params
+      status: stub
+      value: < 10⁸

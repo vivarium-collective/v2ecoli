@@ -234,3 +234,28 @@ bibliography:
     - blom2023
     - kuritz2017
     - metz1986
+report:
+  confidence: design-stage
+  evidence_quality: scaffold
+  conclusion: Predicted — replacing scaled-Poisson stochastics with continuous-time jumps from 
+    measured kinetic constants (Anderson-Darling Exp(1) verified), plus a first-passage division 
+    trigger, will yield a PDMP whose trajectory ensembles match v2ecoli baseline summaries within W₂
+    tolerance.
+  main_insight: 'The PDMP contract is the smoking-gun test for stochastic correctness: between-jump deterministic
+    ODE flow + Exp(1) cumulative-hazard distribution. An A-D test on ≥10⁴ inter-event intervals catches
+    every propensity bug.'
+  caveat: τ-leaping for high-rate processes trades unbiasedness for compute — the leap condition 
+    (max Δλ/λ < 0.03) is monitored at every step and processes get switched to exact SSA when 
+    violated >0.1% of the time.
+  key_metrics:
+    - label: Anderson-Darling Exp(1) per jump
+      status: stub
+      value: α=0.05
+    - label: OU first-passage analytical CDF
+      status: stub
+      value: KS < 0.02
+    - label: trajectory W₂ vs baseline
+      status: stub
+      value: N≥200
+    - label: Markov property (bit-identical)
+      status: stub

@@ -259,3 +259,32 @@ bibliography:
     - talts2018sbc
     - cook2006posterior
     - xarray2017
+report:
+  confidence: design-stage
+  evidence_quality: scaffold
+  conclusion: Predicted — per-modality observation likelihoods (neg-binom RNA-seq, log-normal 
+    proteomics, normal log-growth, normal/log-normal metabolomics) feeding an incremental 
+    log-likelihood accumulator + Vivarium observe/intervene effects will let ABC-SMC recover 
+    posteriors on synthetic data with SBC-validated coverage (≥85% on 90% CIs).
+  main_insight: Simulation-Based Calibration (Talts et al. 2018) is the gate that converts 'we have 
+    likelihoods' into 'we have INFERENCE-ready likelihoods' — uniformity of the SBC rank histogram 
+    is the only credible test before Phase 5.
+  caveat: ABC-SMC is the BASELINE engine — robust but slow. Gradient-based / VI methods wait on the 
+    Phase 4 compiled runtime; planning ABC compute on Phase 2 PDMP trajectories sets a realistic 
+    wall-clock floor.
+  key_metrics:
+    - label: likelihood dispersion fits w/ 95% CI
+      status: stub
+      value: 4 modalities
+    - label: log-accumulator underflows in 10⁴ runs
+      status: stub
+      value: '0'
+    - label: ABC-SMC ESS at terminate
+      status: stub
+      value: ≥ 0.5·N
+    - label: SBC rank-uniformity χ²
+      status: stub
+      value: p > 0.05
+    - label: 90% CI empirical coverage
+      status: stub
+      value: ≥ 85%

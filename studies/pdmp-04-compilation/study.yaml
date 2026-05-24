@@ -243,3 +243,27 @@ bibliography:
     - loman2023
     - jumpprocessesjl
     - xarray2017
+report:
+  confidence: design-stage
+  evidence_quality: scaffold
+  conclusion: Predicted — exporting the Phase 2 PDMP to Catalyst.jl + ModelingToolkit with a 
+    column-centric Vivarium runtime will achieve ≥10³ parallel trajectories on GPU or multi-core 
+    CPU, with 1/√N posterior variance scaling and bit-equivalent trajectory distributions vs. the 
+    Phase 2 reference.
+  main_insight: Throughput is downstream of correctness — the gating test is W₂ equivalence to 
+    within 5σ of MC fluctuation between the compiled runner and the Phase 2 Python runner. FP 
+    summation order is the silent-killer bug here; pairwise/Kahan summation is non-negotiable.
+  caveat: FP32 on GPU is tempting for 2× throughput but corrupts long-run ABC posteriors via 
+    catastrophic cancellation in propensity sums — default FP64, FP32 only with explicit 
+    bit-equivalence + ABC-posterior KL < 0.01 vs. FP64.
+  key_metrics:
+    - label: Catalyst.jl export round-trips
+      status: stub
+    - label: marshalling fraction of per-step
+      status: stub
+      value: < 10%
+    - label: parallel trajectories
+      status: stub
+      value: ≥ 10³
+    - label: 1/√N posterior variance scaling
+      status: stub

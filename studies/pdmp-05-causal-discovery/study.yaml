@@ -282,3 +282,34 @@ bibliography:
     - gherman2025
     - bertin2025
     - dreyfuss2013
+report:
+  confidence: design-stage
+  evidence_quality: scaffold
+  conclusion: Predicted — framing gene-function annotation as Bayesian model comparison with Russian
+    Roulette marginal-likelihood estimators (Lyne et al. 2015) plus an active-inference loop (Toth 
+    et al. 2022) will recover ≥20 benchmark E. coli gene annotations at BH-FDR ≤ 0.1, with 
+    credible-interval widths shrinking at the ≥n⁻¹ᐟ² rate.
+  main_insight: Active causal inference closes the experiment-design loop — instead of passively 
+    observing, the agent selects in-silico knockouts/overexpression by expected information gain. 
+    This is what converts annotation from pattern-matching to hypothesis-driven discovery.
+  caveat: RR estimator variance is unbounded in pathological cases — N_eff ≥ 100 per 
+    marginal-likelihood estimate is the floor; below that, the run is flagged and falls back to 
+    thermodynamic integration / nested sampling with documented bias.
+  key_metrics:
+    - label: RR estimator N_eff per Z
+      status: stub
+      value: ≥ 100
+    - label: log Bayes factor CI clears Jeffreys
+      status: stub
+      value: '|log BF| > 1'
+    - label: Model-level SBC χ² uniformity
+      status: stub
+      value: p > 0.05
+    - label: EIG MCSE nonzero per proposal
+      status: stub
+    - label: Benchmark BH-FDR
+      status: stub
+      value: q ≤ 0.1
+    - label: CI shrinkage rate (log-log slope)
+      status: stub
+      value: ≤ -0.4

@@ -232,7 +232,35 @@ baseline:
       precision: fp64
     _placeholder: true
     _note: Catalyst.jl-compiled PDMP runner. Bridge process loads the Phase 2 model via PB-->Catalyst export.
-variants: []
+variants:
+  - name: catalyst-export
+    description: Export Phase 2 PDMP to Catalyst.jl + ModelingToolkit — symbolic Jacobians, automatic 
+      forward-mode sensitivity equations, LLVM-optimised. Bit-equivalent to Phase 2 runner within solver 
+      tolerance.
+    params:
+      backend: catalyst-jl
+      precision: fp64
+  - name: column-centric-runtime
+    description: Replace nested-dict row-centric state with pre-allocated column-centric tensors. Targets 
+      per-step marshalling overhead < 10% of essential compute.
+    params:
+      runtime: column-centric-tensor
+  - name: vivarium-api-inversion
+    description: Invert the Vivarium API so process definitions declare local state + ODE vector fields + jump
+      propensities only; runtime handles topology traversal and time-stepping.
+    params:
+      api: declarative-process-spec
+  - name: gpu-parallel-1000
+    description: ≥10³ parallel single-cell trajectories on GPU. The throughput gating criterion.
+    params:
+      hardware: GPU
+      parallelism: 1000
+      precision: fp64
+  - name: multi-core-cpu-parallel
+    description: Same throughput target on multi-core CPU (fallback for sites without GPU).
+    params:
+      hardware: CPU
+      parallelism: 1000
 interventions: []
 runs: []
 bibliography:
@@ -281,3 +309,25 @@ study_card: |-
   Phase 4 — compile the Phase 2 PDMP to Catalyst.jl + ModelingToolkit (symbolic Jacobians, automatic sensitivity equations, LLVM-optimised), replace v2ecoli's row-centric nested-dict state with pre-allocated column-centric tensors, and invert the Vivarium API so processes declare local state + ODE vector fields + jump propensities (runtime handles topology + time-stepping).
 readouts: |-
   (1) Catalyst.jl round-trip export+simulate. (2) Marshalling fraction of per-step compute (target: <10%). (3) Parallel trajectory throughput (target: ≥10³). (4) ABC posterior variance vs. wall-clock time (the relevant performance metric for inference).
+planned_runs:
+  - name: catalyst-round-trip
+    status: planned
+    n_steps: (export + 1 sim)
+    details: verify Catalyst.jl export reproduces Phase 2 PDMP within solver tolerance
+  - name: marshalling-fraction-probe
+    status: planned
+    n_steps: 1000
+    details: per-step profiling on compiled runner; target marshalling < 10%
+  - name: parallel-1k-throughput
+    status: planned
+    n_steps: 1000
+    details: 10³ parallel trajectories; throughput ≥ 1 order of magnitude above v2ecoli baseline
+  - name: 1-over-sqrt-N-variance-check
+    status: planned
+    n_steps: (scaling)
+    details: doubling N halves ABC posterior variance — verifies parallel independence
+visualizations:
+  - name: phase4-throughput-vs-baseline
+    address: file:reports/figures/planned-comparisons/phase4_throughput.html
+    description: PLANNED — log-log plot of trajectories/sec vs hardware (v2ecoli baseline → Phase 2 Python 
+      PDMP → Phase 4 compiled Catalyst.jl on CPU → GPU). Annotates the order-of-magnitude jumps.

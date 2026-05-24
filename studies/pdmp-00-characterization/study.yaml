@@ -255,7 +255,35 @@ baseline:
     _placeholder: true
     _note: Phase 0 runs v2ecoli as-is in diagnostic mode under the XArrayEmitter. Composite path subject to 
       confirmation once the diagnostic-mode runner is wired.
-variants: []
+variants:
+  - name: v2ecoli-diagnostic-M9-glucose
+    description: 'Canonical reference: M9 minimal + 22 mM glucose, aerobic, 37°C. The baseline against which all
+      other Phase 0 conditions are compared.'
+    params:
+      condition: M9-glucose
+      seed: 0
+      n_steps: 600
+  - name: v2ecoli-diagnostic-M9-acetate
+    description: Slower-growth gluconeogenic regime; same cache, swap nutrient condition to acetate. Tests 
+      interface fidelity when the FBA solution sits on a different polytope facet.
+    params:
+      condition: M9-acetate
+      seed: 0
+      n_steps: 600
+  - name: v2ecoli-diagnostic-M9-glucose-aa
+    description: 'Faster-growth (partial relief on translation): M9 + glucose + 20 amino-acid mix at fully-supplemented
+      concentrations.'
+    params:
+      condition: M9-glucose+aa
+      seed: 0
+      n_steps: 400
+  - name: v2ecoli-diagnostic-ensemble-N64
+    description: 'N=64 stochastic replicates per condition (3 conditions × 64 = 192 runs). The full reference ensemble
+      Phase 1+ phases validate against. Wall-clock estimate: ~30 hr serially, ~1 hr in parallel on a 32-core machine.'
+    params:
+      condition: M9-glucose
+      seed: <replicate>
+      n_steps: 600
 interventions: []
 runs:
   - name: v2ecoli-baseline-bootstrap-2026-05-24
@@ -312,6 +340,10 @@ visualizations:
       prob, and ribosome elongation rate. Confirms the dashboard's full WCM run path works end-to-end from this
       worktree's venv. (A short 10-step bootstrap doesn't show much of the 67-min doubling cycle — see follow-up
       entries for longer runs.)"
+  - name: phase0-growth-rate-ensemble
+    address: file:reports/figures/planned-comparisons/phase0_growth_rate_ensemble.html
+    description: PLANNED — violin plot of steady-state µ over N=64 replicates × 3 conditions. Bound by Phase 0
+      MCSE target (≤ 10% of inter-condition effect size).
 design_status: approved
 implementation_status: prototype
 simulation_status: ran
@@ -328,3 +360,20 @@ study_card: |-
   Phase 0 — Markov-blanket interface extraction. Run v2ecoli as-is under M9-glucose + acetate + glucose-aa with XArrayEmitter; produce the reference zarr ensemble every later phase validates against; profile per-step compute to decompose marshalling overhead vs. essential FBA-LP-solve cost.
 readouts: |-
   (1) Reference zarr stores for each (condition, replicate, generation) with all 31+ scalar listener observables (cell_mass, growth_rate, mRNA mass, protein mass, FBA objective, …). (2) Typed PB interface schemas per subprocess (metabolism, transcription, translation, replication, division, membrane). (3) Per-step compute profile (5 buckets, mean ± std over ≥1000 step samples, bootstrap 95% CI). (4) Variable-categorization map with numerical-sensitivity tier per variable (stiffness, CV, coupling strength index).
+planned_runs:
+  - name: phase0-bootstrap
+    status: ran
+    n_steps: 10
+    details: completed 2026-05-24; bootstrap-run-confirmed
+  - name: phase0-warmup-x1
+    status: planned
+    n_steps: 100
+    details: single-condition warm-up; verify cycle dynamics + listener observables ramp correctly
+  - name: phase0-conditions-3
+    status: planned
+    n_steps: 600
+    details: 1 generation × 3 conditions; first cross-condition interface-statistic comparison
+  - name: phase0-ensemble-3x64
+    status: planned
+    n_steps: 600
+    details: 3 conditions × N=64 replicates; produces the canonical reference zarr ensemble (Gating criterion)

@@ -359,6 +359,27 @@ variants:
       network; transitional configuration during the incremental
       handover.
 
+  - name: millard-standalone
+    description: Standalone Millard 2017 ODE via pbg-copasi CopasiUTCProcess on the published SBML — no 
+      coupling, no LQR. Steady-state recovery confirmed 2026-05-24.
+    params:
+      model_source: v2ecoli/models/sbml/millard2017_central_metabolism.xml
+      time: 100.0
+      intervals: 10
+  - name: millard-atp-drain-perturbation
+    description: ATP drained to 30% of steady state at t=500s (ADP gains the difference, mass-balanced). Tests
+      transient response across all coupled subsystems; ran 2026-05-24.
+    params:
+      perturbation: ATP→0.3×SS at t=500s
+      duration: 3000
+  - name: millard-fba-bridge-3-conditions
+    description: FBA-bridge composite under M9-glucose, M9-acetate, M9-glucose+aa. Tests interface fidelity 
+      across the same conditions as Phase 0.
+    params:
+      conditions:
+        - M9-glucose
+        - M9-acetate
+        - M9-glucose+aa
 interventions: []
 runs:
   - name: millard2017-bootstrap-2026-05-24
@@ -411,6 +432,10 @@ visualizations:
       intermediates (G6P/F6P/FDP/GAP/PEP/PYR), TCA cycle (CIT/ICIT/AKG/SUCCOA/FUM/MAL/OAA), and redox cofactors
       (NAD/NADH/NADP/NADPH). Demonstrates the Millard model recovers ATP to within 1% of steady-state within ~50
       s after a 70% drain — fast because of the tight coupling between glycolytic flux and adenylate energy charge.'
+  - name: phase1-w2-interface-fidelity
+    address: file:reports/figures/planned-comparisons/phase1_w2_interface_fidelity.html
+    description: PLANNED — W₂(Millard ODE, Phase 0 v2ecoli) per central-metabolism intermediate. Green = 
+      within tolerance; amber = discuss; red = reject.
 design_status: approved
 implementation_status: prototype
 simulation_status: ran
@@ -429,3 +454,24 @@ study_card: |-
   Phase 1 — substitute v2ecoli's multi-objective FBA (`wholecell.utils.modular_fba`, glpk-linear) with the Millard 2017 kinetic ODE (BioModels MODEL1505110000) wrapped via pbg-copasi, an LQR outer control layer for growth-rate regulation, and an FBA-bridge composite that couples the ODE to the remaining v2ecoli FBA during the incremental handover.
 readouts: |-
   (1) Millard standalone steady-state values (G6P, F6P, FDP, PEP, PYR, ATP, ADP, NADH, NADPH, MAL, AKG) — measured against BioModels published reference. (2) FBA-bridge interface flux exchange (which fluxes the ODE exports, which the FBA consumes, where the seam is). (3) LQR Sobol sensitivity indices on growth-rate observables. (4) W₂ distance per interface variable vs. Phase 0 ensemble (target: within 5σ of MC fluctuation).
+planned_runs:
+  - name: millard-standalone-bootstrap
+    status: ran
+    n_steps: 30
+    details: completed 2026-05-24; published reference state recovered
+  - name: millard-atp-drain-experiment
+    status: ran
+    n_steps: (direct basico time course)
+    details: completed 2026-05-24; 302 timepoints; recovery dynamics captured
+  - name: millard-with-lqr-tuning
+    status: planned
+    n_steps: TBD
+    details: Sobol-driven LQR weight scan; flag weights with total index < 0.01 on growth/glc-uptake/ATP-yield
+  - name: millard-fba-bridge-pilot
+    status: planned
+    n_steps: 100
+    details: first end-to-end coupled-composite run; verify bridge schema holds
+  - name: millard-fba-bridge-3-conditions
+    status: planned
+    n_steps: 600
+    details: validation against Phase 0 ensemble (W₂ per metabolite, gating criterion)

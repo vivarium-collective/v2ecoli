@@ -245,7 +245,39 @@ baseline:
     _placeholder: true
     _note: Composite wires the Phase 2 PDMP runner to a likelihood-accumulator step + observe/intervene 
       effects + ABC-SMC driver.
-variants: []
+variants:
+  - name: likelihood-library-4-modalities
+    description: "Per-modality observation likelihoods: NegBin(μ,φ) RNA-seq, log-normal proteomics, normal-on-log-growth,
+      normal/log-normal metabolomics. φ MLE'd on held-out calibration data with 95% bootstrap CIs."
+    params:
+      modalities:
+        - rna-seq
+        - proteomics
+        - growth
+        - metabolomics
+  - name: likelihood-accumulator
+    description: Incremental log-likelihood accumulator running alongside the PDMP, log-sum-exp for mixtures, 
+      pairwise/Kahan summation for cross-cell population reductions.
+    params:
+      underflow_protection: log-space + log-sum-exp
+  - name: observe-intervene-effects
+    description: "Vivarium algebraic-effect extensions: observe(variable, likelihood) and intervene(variable, value)
+      — the ChiRho primitives, lifted into Vivarium's discrete-event runtime."
+    params:
+      effect_runtime: vivarium-algebraic-effects
+  - name: abc-smc-baseline
+    description: 'ABC-SMC as the baseline inference engine: adaptive ε-decay at q=0.5 of previous-population distance,
+      N=1000 particles, terminate on ESS < 0.5·N or wall-clock cap.'
+    params:
+      n_particles: 1000
+      epsilon_schedule: adaptive-quantile
+  - name: sbc-validation-K1000
+    description: 'Simulation-Based Calibration (Talts 2018): K=1000 synthetic (θ*, y*) draws from prior + forward
+      model, verify uniformity of rank histogram and 90% CI empirical coverage ≥ 85%.'
+    params:
+      K: 1000
+      n_bins: 20
+      ci_coverage_target: 0.85
 interventions: []
 runs: []
 bibliography:
@@ -303,3 +335,25 @@ study_card: |-
   Phase 3 — build the Bayesian inference substrate: per-modality observation likelihoods (negative binomial RNA-seq, log-normal proteomics, normal log-growth, normal/log-normal metabolomics), an incremental log-likelihood accumulator over PDMP segments + jump events, Vivarium observe/intervene algebraic effects (à la ChiRho), and a baseline ABC-SMC inference engine validated by Simulation-Based Calibration.
 readouts: |-
   (1) Per-modality likelihood dispersion fits with 95% bootstrap CIs. (2) ABC-SMC convergence: ESS, proposal acceptance, ε-decay schedule. (3) SBC rank-histogram + 90% CI empirical coverage. (4) Fisher information matrix conditioning per inferred parameter.
+planned_runs:
+  - name: likelihood-dispersion-fit
+    status: planned
+    n_steps: (MLE)
+    details: fit per-modality dispersion + CIs on held-out calibration data
+  - name: accumulator-numerical-stability
+    status: planned
+    n_steps: 10000
+    details: 10⁴ test runs; zero underflows required
+  - name: abc-smc-synthetic-recovery
+    status: planned
+    n_steps: (SMC)
+    details: ABC-SMC on synthetic data with known parameters; test posterior recovery + ESS + acceptance rate
+  - name: sbc-K1000-validation
+    status: planned
+    n_steps: 1000
+    details: SBC pipeline; rank-histogram χ² uniformity (p > 0.05) + 90% CI ≥ 85% coverage (gating)
+visualizations:
+  - name: phase3-sbc-rank-histogram
+    address: file:reports/figures/planned-comparisons/phase3_sbc_rank_histogram.html
+    description: PLANNED — SBC rank histogram with χ² uniformity test + Poisson 95% confidence band. The gate 
+      for declaring the inference stack INFERENCE-ready.

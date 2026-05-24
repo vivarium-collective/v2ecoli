@@ -225,7 +225,34 @@ baseline:
     _placeholder: true
     _note: Composite + processes (transcription_jump, translation_jump, division_threshold, competition_jumps)
       to be implemented in this study.
-variants: []
+variants:
+  - name: transcription-jump-from-kinetics
+    description: Replace v2ecoli's scaled-Poisson transcription with continuous-time jumps from measured 
+      initiation/elongation rate constants. Propensity λ = k_init × [RNAP_free] × [promoter] for each gene.
+    params:
+      backend: exact-SSA-or-tau-leap
+      leap_condition: Δλ/λ < 0.03
+  - name: translation-jump-from-kinetics
+    description: 'Same treatment for translation: propensity λ = k_elong × [ribosome_bound] × [aa_charged]. τ-leaping
+      for the ribosome-elongation channel; exact next-reaction for rare initiation events.'
+    params:
+      backend: hybrid-tau-leap-plus-exact
+  - name: division-first-passage
+    description: Cell division as a first-passage time on cell volume crossing a threshold under the coupled 
+      ODE+jump dynamics. Validated against the OU-process analytical FPT before deployment.
+    params:
+      threshold_observable: cell_volume
+      validation: OU-FPT-analytical
+  - name: competition-jumps
+    description: Replace v2ecoli's global resource-reallocation correction step with affinity-based 
+      competition jumps. Each shared resource has affinity-weighted propensity to be drawn by each competing 
+      process.
+    params:
+      affinities: from-Michaelis-constants
+  - name: full-pdmp-coupled
+    description: Phase 1 ODE + all 4 jump processes coupled under the PDMP runner. The complete deliverable.
+    params:
+      runner: Vivarium-PDMP-experimental
 interventions: []
 runs: []
 bibliography:
@@ -276,3 +303,21 @@ study_card: |-
   Phase 2 — replace v2ecoli's discrete-time scaled-Poisson stochastic layer (transcription, translation), teleonomic division trigger, and global resource reallocation step with continuous-time jump processes driven by propensities from measured kinetic constants. Couple with Phase 1 ODE metabolism to form the full PDMP.
 readouts: |-
   (1) Anderson-Darling exponential-clock test results per jump process. (2) First-passage time CDF (volume crossing for division). (3) Trajectory-distribution W₂ on summary statistics (growth rate, per-gene mRNA/protein, division-time CV) vs. v2ecoli baseline ensemble. (4) Markov-property bit-equivalence test record.
+planned_runs:
+  - name: anderson-darling-validation
+    status: planned
+    n_steps: 10⁴ inter-event intervals per jump
+    details: exponential-clock A-D test per jump process (α=0.05)
+  - name: ou-fpt-analytical
+    status: planned
+    n_steps: 10⁴ trajectories
+    details: 'first-passage validation: KS distance vs analytical CDF < 0.02'
+  - name: trajectory-distribution-N200
+    status: planned
+    n_steps: 200
+    details: N=200 PDMP trajectories per condition; W₂ summary-distribution match vs v2ecoli baseline ensemble
+visualizations:
+  - name: phase2-jump-clock-anderson-darling
+    address: file:reports/figures/planned-comparisons/phase2_jump_ad_test.html
+    description: PLANNED — Anderson-Darling Exp(1) test on cumulative-hazard ∫λ(s)ds at successive events. 
+      Will render Q-Q plot + p-value per jump process.

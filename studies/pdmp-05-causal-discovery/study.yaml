@@ -264,7 +264,36 @@ baseline:
     _placeholder: true
     _note: Runs candidate-annotation marginal-likelihood comparisons + active-inference loop on top of the 
       Phase 4 compiled runner.
-variants: []
+variants:
+  - name: russian-roulette-marginal-likelihood
+    description: RR estimator (Lyne et al. 2015) for the marginal-likelihood ratio between candidate 
+      gene-function annotations. ESS-equivalent N_eff ≥ 100 per Z estimate.
+    params:
+      estimator: russian-roulette
+      n_eff_floor: 100
+  - name: active-causal-inference-loop
+    description: 'Active Bayesian causal inference (Toth et al. 2022): propose targeted in-silico interventions
+      (knockouts, overexpression), score by expected information gain (EIG) with MCSE-bounded estimates.'
+    params:
+      intervention_menu:
+        - knockout
+        - overexpression
+        - promoter-swap
+  - name: benchmark-gene-set
+    description: ≥20 E. coli genes with literature-established functions across diverse mechanism classes 
+      (kinases, TFs, transporters, structural). The validation target.
+    params:
+      n_genes: 20
+      classes:
+        - kinase
+        - TF
+        - transporter
+        - structural
+  - name: sbc-at-model-comparison-level
+    description: Extended SBC over K=500 synthetic datasets generated under known true annotations; verify 
+      uniformity of posterior model probability ranks.
+    params:
+      K: 500
 interventions: []
 runs: []
 bibliography:
@@ -330,3 +359,25 @@ study_card: |-
   Phase 5 — close the loop on the DUF ARC vision: frame gene-function annotation as Bayesian model comparison, estimate marginal likelihoods via Russian Roulette / doubly-intractable methods, drive an active causal inference loop selecting in-silico interventions by expected information gain, validate against ≥20 E. coli benchmark genes.
 readouts: |-
   (1) RR estimator ESS-equivalent N_eff per Z. (2) log BF CIs vs. Jeffreys threshold. (3) Model-level SBC rank histogram uniformity. (4) EIG MCSE per intervention proposal. (5) Benchmark gene-set recovery rate + BH-FDR. (6) Per-annotation compute cost extrapolated to genome-wide scaling.
+planned_runs:
+  - name: rr-estimator-variance-floor
+    status: planned
+    n_steps: (per Z)
+    details: monitor N_eff ≥ 100; fall back to thermodynamic integration if below
+  - name: model-comparison-sbc-K500
+    status: planned
+    n_steps: 500
+    details: extended SBC at model-comparison level; rank-histogram χ² p > 0.05 required
+  - name: active-inference-loop-pilot
+    status: planned
+    n_steps: (adaptive)
+    details: 10-gene pilot; EIG MCSE non-zero per proposal
+  - name: benchmark-20-gene-recovery
+    status: planned
+    n_steps: (per gene)
+    details: 20 benchmark E. coli genes; BH-FDR ≤ 0.10 (investigation gating)
+visualizations:
+  - name: phase5-benchmark-bh-fdr
+    address: file:reports/figures/planned-comparisons/phase5_benchmark_bh_fdr.html
+    description: PLANNED — Benjamini-Hochberg FDR plot over the 20-gene benchmark. Green-shaded region = 
+      recovered at q ≤ 0.10. Investigation success = ≥80% recovery.

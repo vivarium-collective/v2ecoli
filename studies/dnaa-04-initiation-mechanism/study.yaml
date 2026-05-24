@@ -1,6 +1,9 @@
 schema_version: 4
 name: dnaa-04-initiation-mechanism
 created: '2026-05-16'
+runtime:
+  subprocess_timeout_s: 7200
+  max_generations: 3   # follow daughters past 2 divisions — initiation-event-per-generation claim needs multiple cycles to evidence.
 report:
   title: DnaA-driven initiation trigger
   verdict: preliminary
@@ -116,16 +119,19 @@ conditions:
       cache_dir: out/cache
       mechanism: rida-v0
       initial_dnaA_count_per_cell: 500
+      n_steps: 9000   # ~3 cell cycles — one-initiation-per-gen claim needs multiple cycles
   variants:
   - name: heuristic-only-control
     description: v2ecoli's mass-threshold heuristic, with the DnaaInitiationMechanism observer disabled.
     composite: v2ecoli.composites.baseline_recipes.dnaa_03_with_box_binding
     diff_from_baseline: removes DnaaInitiationMechanism Step
+    parameter_overrides: {n_steps: 9000}
   - name: mechanism-with-legacy-monkey-patch
     description: Pre-dnaa-02f mechanism (option B). Kept for reproducibility of the older verdict.
     composite: v2ecoli.composites.baseline_recipes.dnaa_04_with_dnaa_initiation_trigger
     diff_from_baseline:
       mechanism: monkey-patch
+    parameter_overrides: {mechanism: monkey-patch, n_steps: 9000}
   model_settings:
   - name: oric_high_threshold
     description: 'Fraction of high-affinity oriC sites that must be DnaA-occupied
@@ -737,3 +743,8 @@ scope_boundary: DnaA-occupancy gate only. SeqA sequestration window is a fixed-t
 deferred_biology: True SeqA hemimethylation-state sequestration (currently a refractory timer). DnaB helicase loading
   kinetics (currently instantaneous). IHF-mediated oriC bending. DUE opening kinetics. Autorepression feedback on
   dnaA transcription rate (open from dnaa-01).
+
+post_run_scripts:
+- path: scripts/render_chromosome_timeline.py
+  args: [ '--study', 'dnaa-04-initiation-mechanism', '--spec', 'v2ecoli.composites.baseline_recipes.dnaa_04_with_dnaa_initiation_trigger', '--steps', '600',]
+  timeout_s: 1800

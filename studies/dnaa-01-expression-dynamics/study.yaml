@@ -3,6 +3,7 @@ name: dnaa-01-expression-dynamics
 created: '2026-05-16'
 runtime:
   subprocess_timeout_s: 7200
+  max_generations: 3   # follow daughters past 2 divisions (n_steps=9000 ≈ 3 cycles) — closes the "cross-cycle drift not validated" caveat. Sqlite path now supports this via the updated run_with_division (dashboard PR).
 report:
   title: DnaA expression dynamics
   verdict: passing-with-caveats
@@ -130,6 +131,7 @@ conditions:
       cache_dir: out/cache-stage1-heuristic-acetate
       rate_protein_per_min_per_gene: 1.5
       initial_dnaa_count: 325
+      n_steps: 9000    # ~3 cell cycles — closes the "cross-cycle drift not validated" caveat
   variants: []
   model_settings:
   - name: translation_efficiency_eg10235_scale
@@ -154,6 +156,27 @@ conditions:
     range:
     - 0.5
     - 50.0
+
+# DnaA pool steady-state trajectory — same DnaAStateVisualization that
+# dnaa-02 uses. The stage1_constitutive composite emits the dnaA_cycle
+# listener (apo/atp/adp counts + fractions); at the heuristic stage no
+# active hydrolysis fires, so atp_fraction stays ≈ 1 — that's the
+# pre-mechanism baseline against which dnaa-02..06 are evaluated.
+visualizations:
+- name: dnaa_state
+  address: local:DnaAStateVisualization
+  config:
+    title: dnaa-01 — DnaA pool nucleotide-state trajectory (pre-mechanism baseline)
+    sample_every: 10
+    inputs_map:
+      apo_count: listeners.dnaA_cycle.apo_count
+      atp_count: listeners.dnaA_cycle.atp_count
+      adp_count: listeners.dnaA_cycle.adp_count
+      atp_fraction: listeners.dnaA_cycle.atp_fraction
+      adp_fraction: listeners.dnaA_cycle.adp_fraction
+      apo_fraction: listeners.dnaA_cycle.apo_fraction
+      time: global_time
+
 tests:
 - name: dnaa-count-in-mass-spec-range
   classification: primary

@@ -441,3 +441,8 @@ primary_visualization: 'chromosome_state — full multi-panel cell-cycle figure:
 scope_boundary: Single cell, single generation, minimal glucose, seed 0. No biology is ADDED here — only catalogued.
 deferred_biology: All DnaA mechanism work is deferred to dnaa-01 through dnaa-06. This study does not introduce
   any new listeners, processes, or steps.
+
+post_run_scripts:
+- path: scripts/render_dnaa00_chromosome_viz.py
+  args: [ '--steps', '600',]
+  timeout_s: 1800

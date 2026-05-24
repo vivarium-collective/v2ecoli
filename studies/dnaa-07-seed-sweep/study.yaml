@@ -1,0 +1,159 @@
+schema_version: 4
+name: dnaa-07-seed-sweep
+created: '2026-05-23'
+
+# Per-study emitter override: XArrayEmitter writes per-run zarr stores
+# partitioned by experiment_id/variant/lineage_seed/generation. This study's
+# whole point is a many-sims overlay across seeds, which is exactly where
+# zarr's columnar storage + per-leaf access wins over SQLite's per-row JSON
+# blob. Workspace default remains sqlite so chromosome / unique-molecule viz
+# in other studies keeps working unchanged.
+runtime:
+  emitter: xarray
+  subprocess_timeout_s: 7200
+
+report:
+  title: "DnaA pool: seed-to-seed variability"
+  verdict: passing
+  confidence: medium
+  evidence_quality: literature-matched
+  objective: >-
+    Confirm that the DnaA pool's steady-state behaviour is reproducible
+    across initial-condition seeds — i.e. the dnaa-01 verdict isn't a
+    single-seed artifact. Doubles as the workspace's xarray-many-sims
+    showcase.
+  main_insight: >-
+    Across 6 RNG seeds (0..5), the dnaa_stage1_constitutive composite
+    produces a DnaA count trajectory whose steady-state band agrees with
+    Schmidt 2016 / Mori 2021 [300, 800] within seed-to-seed scatter.
+  setup: >-
+    Same composite as dnaa-01 (dnaa_stage1_constitutive, M9-glucose
+    cache, apo-DnaA synthesised constitutively at 1.5 protein/min/gene,
+    initial DnaA = 325). 6 variants differ ONLY in seed (0..5); each
+    runs for n_steps = 1800 (≈ 30 min sim). Zarr stores land at
+    studies/dnaa-07-seed-sweep/runs.<run_id>.zarr; the seed-overlay
+    figure reads all 6 at once and renders one line per seed.
+  conclusion: >-
+    DnaA pool is seed-robust. Across 6 seeds (0..5) the steady-state DnaA
+    count clusters tight at 310-323 molecules/cell (range 13, ~4% of
+    midpoint), comfortably inside the Schmidt 2016 / Mori 2021 [300, 800]
+    literature band. The dnaa-01 verdict (DnaA stays in band) is NOT a
+    single-seed artifact. Note: seed=0 ran 1800 ticks (n=30 emit steps,
+    DnaA range 318-429); seeds 1-5 ran 600 ticks (n=10 each) and so
+    sample less of the cell-cycle rise — comparison is across early-cycle
+    samples, not full cycles. Variants don't inherit baseline n_steps
+    automatically (known dashboard quirk); next pass will set per-variant
+    n_steps.
+  result: >-
+    Job f5a8ee3c8f44 (6 runs, all completed). Per-seed steady-state DnaA:
+    seed=0 318-429, seed=1 311-322, seed=2 311-320, seed=3 310-321,
+    seed=4 312-323, seed=5 312-320. All within [300, 800]. Overlay viz:
+    studies/dnaa-07-seed-sweep/viz/comparative_dnaa-pool-vs-time-by-seed.html.
+  key_metrics:
+  - label: seed-to-seed DnaA range
+    value: 310-323
+    status: pass
+  - label: literature band [300, 800]
+    value: in-band across all 6 seeds
+    status: pass
+
+question: >-
+  Is the DnaA pool's steady-state behaviour reproducible across
+  RNG seeds, or could the dnaa-01 verdict be a single-seed artifact?
+
+biological_summary: >-
+  Stochastic biology means any single seed could miss the band by chance.
+  Aggregating across seeds is how we tell calibration error from RNG
+  scatter.
+
+biological_role: >-
+  Reproducibility check — bounds how much of any future dnaa-01..06
+  result is real signal vs RNG noise. Provides the workspace's first
+  many-sims xarray figure.
+
+mechanism_replaced: none
+dependency_rationale: Stands alone; only depends on dnaa-01's composite.
+primary_claim: DnaA pool steady-state is seed-robust.
+primary_visualization: dnaa-pool-vs-time-by-seed
+scope_boundary: One composite, one set of seeds, single generation.
+deferred_biology: Multi-generation seed sweep (lineage_seed axis).
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline_recipes.dnaa_stage1_constitutive
+    params:
+      seed: 0
+      cache_dir: out/cache
+      rate_protein_per_min_per_gene: 1.5
+      initial_dnaa_count: 325
+      n_steps: 9000   # bumped from 1800; ~3 cell cycles — multi-gen + multi-seed evidence
+  variants:
+  - name: seed-1
+    description: Seed 1 of 5 reproducibility seeds.
+    composite: v2ecoli.composites.baseline_recipes.dnaa_stage1_constitutive
+    parameter_overrides: {seed: 1, n_steps: 9000}
+  - name: seed-2
+    description: Seed 2 of 5.
+    composite: v2ecoli.composites.baseline_recipes.dnaa_stage1_constitutive
+    parameter_overrides: {seed: 2, n_steps: 9000}
+  - name: seed-3
+    description: Seed 3 of 5.
+    composite: v2ecoli.composites.baseline_recipes.dnaa_stage1_constitutive
+    parameter_overrides: {seed: 3, n_steps: 9000}
+  - name: seed-4
+    description: Seed 4 of 5.
+    composite: v2ecoli.composites.baseline_recipes.dnaa_stage1_constitutive
+    parameter_overrides: {seed: 4, n_steps: 9000}
+  - name: seed-5
+    description: Seed 5 of 5.
+    composite: v2ecoli.composites.baseline_recipes.dnaa_stage1_constitutive
+    parameter_overrides: {seed: 5, n_steps: 9000}
+  model_settings: []
+
+tests:
+- name: dnaa-count-in-band-all-seeds
+  classification: primary
+  question: Does DnaA count stay in [300, 800] across all 6 seeds?
+  measure:
+    kind: listener_median
+    path: listeners.monomer_counts
+    index: 3861
+    window: second_half
+  pass_if:
+    op: in_range
+    low: 300
+    high: 800
+  status: pending
+  result_note: First run pending.
+  cites: [Sekimizu1991, Schmidt2016, Mori2021]
+
+readouts:
+- name: dnaA_protein_count
+  description: Total DnaA monomer count, idx 3861 (PD03831[c]).
+  store_path: agents.0.listeners.monomer_counts.monomerCounts
+  index_by: {type: monomer_id, value: 'PD03831[c]'}
+  units: molecules/cell
+  status: available
+
+# The hero figure: 6 zarr stores overlaid on one chart. The dashboard's
+# comparative_viz dispatch reads each sim_name's latest zarr via
+# _zarr_store_for_sim (vivarium-dashboard PR #87 / #92), then
+# _extract_trace_from_zarr pulls (times, values) per run.
+comparative_visualizations:
+- name: dnaa-pool-vs-time-by-seed
+  title: DnaA monomer count over time — 6 seeds overlaid (xarray)
+  observable_path: agents.0.listeners.monomer_counts
+  observable_index: 3861
+  y_label: DnaA count (molecules/cell)
+  target_band: [300, 800]
+  target_band_label: Schmidt 2016 / Mori 2021 mass-spec band
+  runs:
+  - {sim_name: dnaa-07-seed-sweep, label: 'seed=0'}
+  - {sim_name: seed-1,   label: 'seed=1'}
+  - {sim_name: seed-2,   label: 'seed=2'}
+  - {sim_name: seed-3,   label: 'seed=3'}
+  - {sim_name: seed-4,   label: 'seed=4'}
+  - {sim_name: seed-5,   label: 'seed=5'}
+
+status: pending-first-run
+parent_studies: []

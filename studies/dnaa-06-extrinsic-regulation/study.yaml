@@ -267,3 +267,8 @@ scope_boundary: Constitutive datA + DARS rates (no IHF / Fis cell-cycle gating).
 deferred_biology: IHF-gated DDAH (datA inactivation kinetics depend on IHF presence). Fis modulation of DARS2 (FBS1,
   FBS2-3 binding sites). Hda nucleotide-state cycling (currently assumed always-ADP). Cell-cycle dependence of DARS2
   (currently constant rate).
+
+post_run_scripts:
+- path: scripts/render_chromosome_timeline.py
+  args: [ '--study', 'dnaa-06-extrinsic-regulation', '--spec', 'v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis', '--steps', '600',]
+  timeout_s: 1800

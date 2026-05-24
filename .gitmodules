@@ -1,0 +1,4 @@
+[submodule "external/pbg-bioreactordesign"]
+	path = external/pbg-bioreactordesign
+	url = https://github.com/vivarium-collective/pbg-bioreactordesign.git
+	branch = main

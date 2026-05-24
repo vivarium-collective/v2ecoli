@@ -1,6 +1,9 @@
 schema_version: 4
 name: dnaa-02-atp-hydrolysis
 created: '2026-05-16'
+runtime:
+  subprocess_timeout_s: 7200
+  max_generations: 3   # follow daughters past 2 divisions (n_steps=9000 ≈ 3 cycles) — closes the "single doubling time; multi-generation drift not validated" caveat.
 report:
   title: DnaA ATP/ADP intrinsic hydrolysis
   verdict: failing-bio
@@ -117,15 +120,18 @@ conditions:
       atp_fraction_clamp_low: null
       atp_fraction_clamp_high: null
       stage1_dnaa_expression: true
+      n_steps: 9000   # ~3 cell cycles for multi-gen drift evidence
   variants:
   - name: no-intrinsic-hydrolysis
     description: Disable intrinsic hydrolysis; expect atp_fraction → 1.0 (no DnaA-ADP).
     composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
     diff_from_baseline: hydrolysis_rate_per_min=0.0
+    parameter_overrides: {hydrolysis_rate_per_min: 0.0, n_steps: 9000}
   - name: fast-intrinsic-hydrolysis
     description: 10× intrinsic rate; expect atp_fraction → low edge of band.
     composite: v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis
     diff_from_baseline: hydrolysis_rate_per_min=0.46
+    parameter_overrides: {hydrolysis_rate_per_min: 0.46, n_steps: 9000}
   model_settings:
   - name: hydrolysis_rate_per_min
     description: 'Sekimizu 1987 intrinsic rate, k = ln(2)/15 min ≈ 0.046/min. The run uses the recipe default (0.046);
@@ -576,3 +582,8 @@ scope_boundary: Intrinsic hydrolysis ONLY. No extrinsic mechanisms. ATP-fraction
 deferred_biology: RIDA (Hda-mediated DnaA-ATP hydrolysis at replisome) → dnaa-06. datA-mediated DnaA-ATP inactivation
   (DDAH) → dnaa-06. DARS1/DARS2 ADP→ATP reactivation → dnaa-06. SeqA hemimethylation sequestration → separate study
   (a fixed-timer refractory stand-in is in dnaa-04).
+
+post_run_scripts:
+- path: scripts/render_chromosome_timeline.py
+  args: [ '--study', 'dnaa-02-atp-hydrolysis', '--spec', 'v2ecoli.composites.baseline_recipes.dnaa_02_with_intrinsic_hydrolysis', '--steps', '600',]
+  timeout_s: 1800

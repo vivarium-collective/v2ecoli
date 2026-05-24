@@ -2,7 +2,7 @@ schema_version: 1
 name: dnaa-replication
 title: DnaA / Replication Initiation
 created: '2026-05-16'
-last_baseline_run: '2026-05-22'
+last_baseline_run: '2026-05-23'
 status: executed-round2-addressed-pending-review
 executive:
   what_is_this: Porting the DnaA-driven chromosome-replication-initiation decision into v2ecoli — replacing the
@@ -28,11 +28,12 @@ executive:
       alone can''t reach the [0.2, 0.5] band). dnaa-06 with the full reset network (RIDA + datA + DARS1/2) DOES
       land the band. Choose: (a) accept dnaa-02 failing-bio as the honest scope cut + let dnaa-06 carry; (b) re-absorb
       datA/DARS1/2 into dnaa-02 and retire dnaa-06''s reset-network claim.'
-  - question: When to flip default_emitter to xarray (multi-generation reporting)?
-    context: 'XArrayEmitter is wired through the dashboard run path (PR #85) and validated end-to-end (2 zarr generation
-      partitions per run with real number_of_oric traces). v2ecoli is opt-in via `runtime.default_emitter: xarray`
-      in workspace.yaml. The only blocker for making it the default is Task 7.5: a zarr-read adapter for the report
-      charts (comparative_viz + study_charts currently query SQLite). Flip after 7.5 lands.'
+  - question: 'RESOLVED 2026-05-23: keep workspace default_emitter=sqlite + per-study runtime.emitter override.'
+    context: 'Investigated the xarray-as-default flip on 2026-05-23. Findings: (a) chromosome-state / unique-molecule
+      viz needs the full SQLite state blob (xarray''s fixed-shape buffers can''t encode unique molecules without
+      heavy padding work); (b) xarray''s strength is many-sims aggregation. Per-study `runtime.emitter` override
+      shipped (vivarium-dashboard PR #97); workspace default reverted to sqlite. dnaa-07-seed-sweep is the xarray
+      showcase (6-seed overlay reads zarr); all other studies stay on sqlite.'
   - question: Import the real Olivi 2025 DnaA-box positions into v2ecoli sim_data, or rely on the genome-scan output
       as-is?
     context: The 456 motif positions live data uses (sim_data.process.replication.motif_coordinates["DnaA_box"])
@@ -73,7 +74,8 @@ scientific_argument:
     viz: dnaa_box_occupancy
     caption: 'Box occupancy trajectory: chromosomal boxes saturate before oriC loads.'
   caveats:
-  - 'Coordinated results: 24-run batch on 2026-05-22 (job 67f165475a7c, all unblocked variants across 8 studies).'
+  - 'Coordinated results: 24-run sqlite re-run on 2026-05-23 (job 51849f42144a, all 24 unblocked variants across
+    8 studies completed, ZERO failures), plus 6-run dnaa-07 xarray seed-sweep (job f5a8ee3c8f44, baseline + 5 seeds).'
   - DnaA expression is constitutive — no autorepression at this stage.
   - v2ecoli.data.dnaa_box_catalog ships SYNTHETIC uniform-spaced placeholders for the 307 consensus subset; the
     dnaa_box_landscape figure uses the REAL 456 motif positions from sim_data so the visualization is biologically
@@ -333,6 +335,7 @@ studies:
 - dnaa-04-initiation-mechanism
 - dnaa-05-itv2-comparison
 - dnaa-06-extrinsic-regulation
+- dnaa-07-seed-sweep
 expert_docs:
 - replication_initiation_molecular_info
 - chromosome_replication_plan
@@ -351,17 +354,15 @@ acceptance_criteria:
   behavior: initiation-mass-mean-matches-heuristic
 next_steps:
 - priority: high
-  name: 'Task 7.5: zarr-read adapter for the report'
-  context: 'Last piece blocking default_emitter: xarray. Build a parallel reader for comparative_viz + study_charts
-    that opens the per-run zarr store via xarray.open_datatree and returns the same Plotly-shaped output the existing
-    SQLite path produces. Unlocks multi-generation rendering (Haochen''s ≥1 doubling-time steadiness ask).'
-  unblocks:
-  - multi-generation runs in the report
-  - 'Decision: flip default_emitter to xarray'
-- priority: high
   name: Resolve dnaa-02 verdict (failing-bio vs absorb reset network)
   context: Decision between (a) accept failing-bio + dnaa-06 carries reset network or (b) re-absorb datA/DARS1/2
     into dnaa-02. Affects investigation verdict status.
+- priority: medium
+  name: Land vivarium-dashboard PR #100 (post_run_scripts hook)
+  context: 'Hand-rolled chromosome render scripts (chromosome_state, chromosome_timeline, dnaa_box_landscape, oric_tier_split)
+    currently need manual invocation after each run — they drift stale otherwise. PR #100 adds a `post_run_scripts:`
+    yaml hook + dispatch; affected study yamls already declare the block. Merge unblocks "chromosome viz refreshes
+    automatically on every dashboard-triggered run".'
 - priority: medium
   name: Olivi 2025 DnaA-box position curation
   context: Replace synthetic uniform-spaced placeholders in v2ecoli.data.dnaa_box_catalog with curated Olivi 2025

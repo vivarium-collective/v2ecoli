@@ -73,6 +73,12 @@ class DnaaAtpFractionClamp(Step):
         band = self.parameters.get("band", None)
         self.low: float | None = None
         self.high: float | None = None
+        # At division daughter cells re-realize their Steps; ``band`` arrives
+        # as an empty container ({} or []) when the parent had ``band=None``.
+        # Treat empty containers the same as None — no clamp — so division
+        # doesn't crash for clamp-disabled runs.
+        if isinstance(band, (dict, list, tuple)) and len(band) == 0:
+            band = None
         if band is not None:
             # ``band`` arrives as either:
             #   - a list/tuple ``[low, high]``           (yaml-native)

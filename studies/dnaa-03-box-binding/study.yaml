@@ -659,3 +659,11 @@ scope_boundary: Stage-1 box catalog (307 + 11 + 7 = 325 active sites). Independe
 deferred_biology: Per-position motif preferences (TTWTNCACA position-3 A>T bias). Explicit DnaA filament loading
   kinetics (ordered C1→I3→C2→C3 on the right arm). DnaA-ATP filament-anchor cooperativity beyond the simple Kd gradient.
   Position-specific Hda recruitment.
+
+post_run_scripts:
+- path: scripts/render_dnaa_box_landscape.py
+  args: ['--steps', '600']
+  timeout_s: 1800
+- path: scripts/render_oric_tier_split.py
+  args: ['--study', 'dnaa-03-box-binding', '--spec', 'v2ecoli.composites.baseline_recipes.dnaa_03_with_box_binding', '--steps', '600']
+  timeout_s: 1800

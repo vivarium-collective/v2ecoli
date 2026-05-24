@@ -3,7 +3,8 @@ name: dnaa-01-expression-dynamics
 created: '2026-05-16'
 runtime:
   subprocess_timeout_s: 7200
-  max_generations: 3   # follow daughters past 2 divisions (n_steps=9000 ≈ 3 cycles) — closes the "cross-cycle drift not validated" caveat. Sqlite path now supports this via the updated run_with_division (dashboard PR).
+  max_generations: 3   # follow daughters past 2 divisions (n_steps=9000 ≈ 3 cycles) — closes the "cross-cycle drift not validated" caveat. Sqlite path supports this via run_multigen_sqlite (v2ecoli PR #71/#73).
+  single_daughters: true   # memory guardrail — prune sibling daughters so peak RSS tracks one-cell footprint instead of 2^N at gen N. v2ecoli PR #73 / vivarium-dashboard PR #112.
 report:
   title: DnaA expression dynamics
   verdict: passing-with-caveats

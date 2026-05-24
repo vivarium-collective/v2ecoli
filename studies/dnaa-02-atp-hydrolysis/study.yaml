@@ -4,6 +4,7 @@ created: '2026-05-16'
 runtime:
   subprocess_timeout_s: 7200
   max_generations: 3   # follow daughters past 2 divisions (n_steps=9000 ≈ 3 cycles) — closes the "single doubling time; multi-generation drift not validated" caveat.
+  single_daughters: true   # memory guardrail — load-bearing here: dnaa-02 hit 62 GB RSS without it (composite tracks 2^N cells every tick). v2ecoli PR #73 / dashboard PR #112.
 report:
   title: DnaA ATP/ADP intrinsic hydrolysis
   verdict: failing-bio

@@ -11,6 +11,8 @@ created: '2026-05-23'
 runtime:
   emitter: xarray
   subprocess_timeout_s: 7200
+  max_generations: 3        # multi-gen cap (used by xarray + sqlite paths)
+  single_daughters: true    # memory guardrail — sqlite-side only today (xarray path doesn't read it); harmless here since dnaa_stage1_constitutive doesn't divide, but kept for consistency with the other multi-gen studies + future-proofing if we swap to a replication-capable composite.
 
 report:
   title: "DnaA pool: seed-to-seed variability"

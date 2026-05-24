@@ -4,6 +4,7 @@ created: '2026-05-16'
 runtime:
   subprocess_timeout_s: 7200
   max_generations: 3   # follow daughters past 2 divisions — initiation-event-per-generation claim needs multiple cycles to evidence.
+  single_daughters: true   # memory guardrail — the dnaa-04 9000-tick run that hit 62 GB RSS lived here. v2ecoli PR #73 / dashboard PR #112.
 report:
   title: DnaA-driven initiation trigger
   verdict: preliminary

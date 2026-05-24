@@ -5,17 +5,47 @@ plugin_version: 0.6.1
 package_path: v2ecoli
 
 # ─── RUNTIME ──────────────────────────────────────────────────────────
-# Workspace-level defaults for the dashboard run path. Workspaces can
-# opt into XArrayEmitter (multi-generation native, zarr-partitioned)
-# via runtime.default_emitter. Default is sqlite (the dashboard's
-# historical single-generation behaviour). Flip to xarray when the
-# zarr-read viz adapter (task 7.5) lands.
+# Workspace-level defaults for the dashboard run path. XArrayEmitter
+# (multi-generation native, zarr-partitioned, dashboard-wired as of
+# PR #70 "XArrayEmitter migration — multi-gen helper + dashboard
+# wiring") is the workspace default on the v2ecoli-pdmp branch: every
+# study in the v2ecoli-pdmp investigation produces zarr-partitioned
+# multi-generation reference / validation datasets that Phase 0
+# consumes as the canonical interface-statistic source for all later
+# phases.
 runtime:
-  default_emitter: sqlite   # 'xarray' | 'sqlite'
-  max_generations: 3        # multi-gen cap (xarray runs only)
+  default_emitter: xarray   # 'xarray' | 'sqlite'
+  max_generations: 8        # multi-gen cap (xarray runs only) — bumped for PDMP validation ensembles
 observables: []
 visualizations: []
 simulations: []
 datasets: []
+expert_docs:
+  - name: duf-final-report
+    path: references/expert/duf_final_report_2026.pdf
+    sha256: 145a5c7fac2247036281bf5fb2db49ce9e5e9c8d309aba65e91b937918f61b5f
+    description: |
+      DARPA DUF ARC final report (HR0011-24-3-0372, UConn, PI Agmon,
+      Sep 2024–Sep 2025): "An Integrated Discovery Workflow for an
+      E. coli Whole-Cell Model". Establishes the motivation for the
+      PDMP reformulation of v2ecoli — the current hybrid-algorithmic
+      WCM is not a well-defined dynamical system and resists
+      likelihood-based inference and causal discovery.
+    contributor: eran
+  - name: v2ecoli-pdmp-roadmap
+    path: references/expert/v2ecoli_pdmp_roadmap.pdf
+    sha256: f11aa49dab7ad53dfe78766a49f40b42d745ecba980beac0a8f9e0cbcb2aadb5
+    description: |
+      Six-phase incremental roadmap for transforming v2ecoli into a
+      piecewise-deterministic Markov process (PDMP). Phases 0–5:
+      characterization → kinetic-ODE metabolism → continuous-time
+      jump layer → likelihood/Bayesian interface → compiled runtime →
+      causal discovery / functional annotation. Spine of the
+      v2ecoli-pdmp investigation.
+    contributor: eran
+references_pdfs:
+  - bib_key: millard2017
+    path: references/papers/millard_2017_metabolic_regulation_ecoli.pdf
+    sha256: 39b8c0eba221cd0d156180a66cb0747219a4a3464f9c2b7b40dac2be9bfe4b8e
 server:
   enabled: true

@@ -1,0 +1,172 @@
+# v2ecoli-pdmp/investigation.yaml — schema v2
+schema_version: 2
+name: v2ecoli-pdmp
+title: "v2ecoli → PDMP Whole-Cell Model Reformulation"
+created: '2026-05-24'
+status: planning
+
+# ─── Front matter ─────────────────────────────────────────────────────
+question: |
+  Can v2ecoli's hybrid algorithmic whole-cell model be incrementally
+  transformed into a piecewise-deterministic Markov process (PDMP)
+  suitable for likelihood-based inference and causal discovery, without
+  discarding the biological knowledge encoded in the current WCM, and
+  while maintaining viable E. coli growth at every phase boundary?
+
+hypothesis: |
+  A six-phase incremental replacement — (0) Markov-blanket
+  characterization, (1) tFBA → kinetic ODE metabolism, (2) discrete-time
+  → continuous-time jump processes, (3) observation-likelihood and
+  Bayesian-interface infrastructure, (4) compiled column-centric runtime,
+  (5) Bayesian gene-function annotation — yields a PDMP-class WCM that
+  (a) reproduces Phase-0 interface statistics within tolerance at every
+  later phase, (b) admits well-formed process likelihoods at Phase 3,
+  (c) achieves ≥10³ parallel single-cell trajectories with near-zero
+  marshalling overhead at Phase 4, and (d) recovers known E. coli gene
+  functions with credible intervals on a benchmark set at Phase 5.
+
+lead: |
+  v2ecoli is currently the most comprehensive mechanistic E. coli
+  whole-cell model in production, but as the DUF final report
+  ([[duf-final-report]]) documents, it is best characterized as a hybrid
+  algorithmic simulator rather than a numerical integrator of a
+  mathematically defined dynamical system. This is the load-bearing
+  obstacle to Bayesian parameter inference and computational causal
+  discovery in WCMs. The v2ecoli → PDMP roadmap
+  ([[v2ecoli-pdmp-roadmap]]) prescribes an incremental replacement —
+  one WCM component per phase — that converges on a piecewise-
+  deterministic Markov process while preserving viability at every
+  boundary.
+
+# ─── Narrative spine (filled progressively as phases execute) ──────────
+executive:
+  what_is_this: |
+    A six-phase investigation that incrementally transforms v2ecoli from
+    a hybrid algorithmic WCM into a piecewise-deterministic Markov
+    process. Each phase replaces one component of the WCM (metabolism,
+    stochastics, likelihoods, runtime, inference layer) while leaving
+    the rest intact.
+  verdict: |
+    Status: investigation just scaffolded; no phases executed yet.
+  verdict_status: in-progress
+  decisions_needed:
+    - "Lock the Phase-0 Markov-blanket boundaries and the set of ≥3 environmental conditions for the reference Xarray datasets."
+    - "Confirm DifferentialEquations.jl vs. Diffrax/JAX for the Phase-1 ODE backend."
+    - "Confirm Catalyst.jl + ModelingToolkit as the Phase-4 compilation target."
+
+scientific_argument:
+  main_claim: |
+    The PDMP class — ODE segments interrupted by discrete jump events —
+    is the right mathematical model class for a next-generation E. coli
+    WCM: it has process likelihoods by construction, enforces an
+    explicit causal/teleonomic parameter partition, and aligns with the
+    causal-modelling literature for dynamical systems.
+  evidence_for:
+    - "DUF final report Sec. 4.1.2 identifies PDMPs (a.k.a. jump-ODEs) as the suitable model class for reformulating v2ecoli; [[duf-final-report]]."
+    - "Millard et al. 2017 demonstrate that metabolic regulation in E. coli central carbon and energy metabolism is sufficient for coordinated glucose uptake, growth, and energy production via an ODE-only kinetic model — providing the foundational substrate for the Phase-1 reformulation; [[millard2017]]."
+    - "Vivarium's algebraic-effect interpretation (DUF Sec. 4.2.2) opens a path to extending it into a probabilistic programming language for observe / intervene effects in Phase 3."
+  evidence_against:
+    - "The current tFBA model of metabolism is highly tuned to the rest of the v2ecoli stack; ODE substitution may break interface statistics until LQR control is well-tuned (Phase 1 risk)."
+    - "Continuous-time jump propensities require measured kinetic constants for transcription/translation/division that may not exist at the necessary precision (Phase 2 risk)."
+  key_figures: []
+  caveats:
+    - "Resource estimates in the roadmap assume 2–4 FTE per phase; absent that staffing, phases will run serially over much longer wall time."
+    - "Phases 1–2 are designated parallelizable with Phase 4; Phase 3 strictly depends on Phase 2; Phase 5 depends on all preceding phases."
+
+biological_story: |
+  E. coli grows by integrating metabolism, gene expression, replication,
+  and division — processes that operate on very different timescales
+  and admit very different mathematical idealizations. The current
+  v2ecoli WCM fuses these into a fixed-step loop in which a tFBA linear
+  program solves metabolism on each timestep, discrete-time Poisson
+  draws fire transcription and translation events scaled by timestep,
+  a teleonomic doubling-time target triggers division, and a global
+  reallocation step corrects mass-balance violations. This composition
+  reproduces growth across roughly a dozen conditions, but its
+  trajectory is not the trajectory of any well-defined dynamical
+  system — it is the trajectory of an algorithm.
+
+  A PDMP separates this composition into two clean parts: deterministic
+  evolution between events (ODE flow on continuous state) and discrete
+  jumps at event times (state-dependent probability kernels on
+  countable state). Mass action kinetics for central carbon
+  metabolism, like Millard et al. 2017's curated ODE model, naturally
+  inhabit the deterministic flow. Gene-expression events, division,
+  and resource competition naturally inhabit the jump layer. The
+  PDMP formalism makes both layers inspectable, compilable, and —
+  crucially — likelihood-bearing.
+
+at_a_glance:
+  - {study: pdmp-00-characterization, role: "Markov-blanket interface extraction + reference Xarray datasets for downstream validation"}
+  - {study: pdmp-01-metabolism-ode,    role: "Replace tFBA with Millard 2017 kinetic ODE + LQR outer control"}
+  - {study: pdmp-02-jump-processes,    role: "Replace discrete-time stochastics + teleonomic division with continuous-time jumps; form the full PDMP"}
+  - {study: pdmp-03-inference,         role: "Observation likelihoods + likelihood accumulator + Vivarium observe/intervene effects; ABC-SMC baseline"}
+  - {study: pdmp-04-compilation,       role: "Catalyst.jl compilation + column-centric tensor runtime + ≥10³ parallel trajectories"}
+  - {study: pdmp-05-causal-discovery,  role: "Bayesian gene-function annotation via marginal likelihood + active causal inference"}
+
+how_to_read: |
+  Read studies in order — pdmp-00 → pdmp-05. Each later study presumes
+  the deliverables of the previous one (typed interfaces, ODE metabolism,
+  PDMP runner, likelihood accumulator, compiled runtime). The Phase 0
+  Markov-blanket interface datasets are the canonical validation standard
+  for every later study: a replacement subprocess is accepted when its
+  interface statistics match the reference within tolerance.
+
+glossary:
+  - {term: "PDMP",            definition: "Piecewise-Deterministic Markov Process — ODE flow between discrete jump events governed by state-dependent probability kernels. Synonym: jump-ODE."}
+  - {term: "tFBA",            definition: "Time-linked Flux Balance Analysis (Birch, Udell & Covert 2014). Current v2ecoli metabolism solver — a sequence of linear programs over fluxes and pseudo-concentrations."}
+  - {term: "LQR",             definition: "Linear-Quadratic Regulator. Outer control layer used in Phase 1 to drive the metabolism ODE toward a growth-rate target, replacing the tFBA optimization objective."}
+  - {term: "Markov blanket",  definition: "Minimal set of variables shielding a subprocess from the rest of the system; defines the typed Process Bigraph interface for that subprocess."}
+  - {term: "Causal parameter",   definition: "A parameter mechanistically derivable from physics/chemistry (e.g., kinetic constant, enzyme abundance); the inference target."}
+  - {term: "Teleonomic parameter", definition: "A parameter set by design/policy rather than mechanism (e.g., LQR weight, doubling-time reference); fixed and not inferred."}
+  - {term: "ABC-SMC",         definition: "Approximate Bayesian Computation with Sequential Monte Carlo — baseline likelihood-free inference engine for Phase 3."}
+  - {term: "ChiRho",          definition: "Causal-reasoning library on Pyro/PyTorch. Reference inspiration for the Vivarium observe(variable, likelihood) / intervene(variable, value) algebraic effects."}
+  - {term: "Russian Roulette estimator", definition: "Unbiased Monte Carlo estimator for doubly-intractable Bayesian likelihoods, used in Phase 5 for marginal-likelihood gene-function comparison."}
+
+guidelines:
+  literature_anchors:
+    - "[[millard2017]] — Phase 1 ODE substrate. Use the published rate laws and biomass reaction; calibrate against the strain/condition reported (K-12 MG1655, M9 + glucose, dilution rate 0.1/h)."
+    - "[[duf-final-report]] — All identified bottlenecks and rescoping rationale; ensures we don't reinvent prior conclusions."
+    - "[[v2ecoli-pdmp-roadmap]] — The phase boundaries and per-phase deliverables; deviations from the roadmap should be recorded as decisions on this investigation."
+  parameter_catalog:
+    - "Every parameter introduced after Phase 1 must be labelled causal or teleonomic in the parameter_catalog of its study."
+  calibration_targets:
+    - "Growth rate µ in M9-glucose (0.5–0.8 h⁻¹ depending on dilution rate) — sanity check at every phase boundary."
+    - "Per-step compute time profile — Phase 0 baseline; expect order-of-magnitude improvement by Phase 4."
+  emitter:
+    - "Every run in this investigation uses **XArrayEmitter** (zarr-partitioned, multi-generation native; wired into the dashboard via PR #70). Workspace default flipped on this branch (workspace.yaml.runtime.default_emitter = xarray, max_generations = 8)."
+    - "Phase 0 produces the canonical reference datasets as zarr stores under runs/<run-id>/store.zarr/; later phases consume them via xarray.open_zarr() for distribution comparison (W₂, KS, SBC). sqlite emitter outputs from earlier investigations are not used here — explicit decision to align the validation pipeline on a single time-series format."
+    - "Per-study emitter configuration: any baseline/variant composite that does not auto-pick up the workspace default must declare `emitter: xarray` in its composite YAML. /pbg-run will refuse to run with the wrong emitter on this investigation's studies (lint check at run time)."
+  uq_standards:
+    - "Distribution comparisons across phase boundaries use Wasserstein-2 distance (W₂) on summary statistics with bootstrap 95% CIs; tolerance per variable derived from Phase 0 Monte Carlo replicate spread, NOT chosen ad hoc. KS test as a secondary distribution check."
+    - "Every stochastic deliverable reports a Monte Carlo standard error (MCSE = std / √N_eff) alongside the point estimate. N_eff per phase is sized to push MCSE below 10% of the effect size of interest."
+    - "ODE-class deliverables specify solver, atol, rtol, and a published step-doubling Richardson check confirming the solver converges. Stiffness ratio (max|λ_J| / min|λ_J| of the Jacobian) reported for each major ODE subsystem so the solver choice is justified, not guessed."
+    - "Jump-process deliverables verify the exponential-clock property: empirical hazard ∫λ(s)ds should be Exp(1)-distributed (Anderson–Darling test, α = 0.05) over ≥10⁴ inter-event intervals."
+    - "Bayesian deliverables report posterior recovery via Simulation-Based Calibration (SBC, Talts et al. 2018): rank histograms should be uniform (χ² goodness-of-fit, p > 0.05) over ≥1000 SBC draws before claiming calibration. 90% credible intervals must achieve ≥85% empirical coverage."
+    - "Identifiability of every inferred (causal) parameter is checked via Fisher Information Matrix conditioning (κ(FIM) < 10⁸) or profile-likelihood width before being claimed inference-ready."
+    - "Compiled / parallel deliverables verify numerical equivalence with the reference runner to within 5σ of MC fluctuation; floating-point summation order in parallel reductions is held fixed (pairwise / Kahan summation) so posteriors are reproducible across hardware."
+
+# ─── Member studies ───────────────────────────────────────────────────
+studies:
+  - pdmp-00-characterization
+  - pdmp-01-metabolism-ode
+  - pdmp-02-jump-processes
+  - pdmp-03-inference
+  - pdmp-04-compilation
+  - pdmp-05-causal-discovery
+
+# Names of workspace.yaml.expert_docs entries that are foundational to this investigation.
+expert_docs:
+  - duf-final-report
+  - v2ecoli-pdmp-roadmap
+
+# Per-study gating behaviors. Each entry is the most important
+# expected_behavior[].name on a member study; passing it gates the next
+# phase.
+acceptance_criteria:
+  - {study: pdmp-00-characterization, behavior: reference-xarray-3-conditions}
+  - {study: pdmp-01-metabolism-ode,    behavior: interface-matches-reference}
+  - {study: pdmp-02-jump-processes,    behavior: pdmp-trajectory-distribution-match}
+  - {study: pdmp-03-inference,         behavior: abc-posterior-recovery-on-synthetic}
+  - {study: pdmp-04-compilation,       behavior: 10cubed-parallel-trajectories}
+  - {study: pdmp-05-causal-discovery,  behavior: benchmark-recovery-with-credible-intervals}

@@ -1,0 +1,188 @@
+schema_version: 3
+name: pdmp-02-jump-processes
+title: "Phase 2 — Jump Process Layer: Discrete-Time → Continuous-Time Stochastic"
+status: planned
+phase: Design
+
+topic: pdmp
+tags: [pdmp, phase-2, jump-processes, transcription, translation, division, first-passage, gillespie, xarray-emitter]
+created: '2026-05-24'
+
+parent_studies:
+  - {study: pdmp-01-metabolism-ode, condition: tests-passed}
+
+question: |
+  Can v2ecoli's discrete-time stochastic layer (Poisson gene-
+  expression draws scaled by timestep/doubling time, the teleonomic
+  division trigger, and the globally-acting resource reallocation
+  correction) be replaced by a coherent continuous-time jump
+  process that, coupled with the Phase 1 metabolism ODE, satisfies
+  the Markov property of a piecewise-deterministic Markov process?
+
+hypothesis: |
+  (a) Replacing scaled-Poisson gene-expression draws with continuous-
+  time jump processes governed by explicit propensity functions
+  derived from measured kinetic constants (initiation, elongation,
+  degradation rates) reproduces the v2ecoli baseline trajectory
+  distribution within tolerance. (b) Replacing the teleonomic
+  doubling-time division trigger with a first-passage threshold
+  crossing in cell volume or total protein mass reproduces the
+  observed division-time distribution. (c) Replacing the global
+  resource reallocation step with affinity-based competition jumps
+  conserves mass and yields a clean PDMP — deterministic ODE flow
+  between jumps with state-dependent kernels at jumps.
+
+objective: |
+  Implement transcription_jump, translation_jump, and
+  division_threshold as Process Bigraph processes; replace the
+  global resource correction with jump-based competition reactions;
+  couple all jump processes with the Phase 1 metabolism ODE under
+  an integrated PDMP runner in Vivarium; verify the Markov property
+  (deterministic between jumps, specified kernels at jumps);
+  compare trajectory distributions vs. the v2ecoli baseline across
+  the Phase 0 conditions.
+
+description: |
+  Phase 2 of the v2ecoli → PDMP roadmap. The current discrete-time
+  layer is the most numerically suspect part of v2ecoli:
+  parametrization of stochastic draws depends on the ratio of the
+  fixed timestep to the teleonomic "doubling time" parameter
+  (DUF Sec. 4.1.1), and the global reallocation step exists to
+  paper over mass conservation violations introduced by the
+  composition of independent processes (DUF Sec. 2.1).
+
+  A PDMP-class formulation has neither: events occur at random
+  times drawn from explicit propensity functions, division is a
+  first-passage time of a continuous observable, and competition
+  for shared resources is encoded as state-dependent jump kernels
+  rather than a corrective fix-up step. The mathematical contract
+  to verify is that, between any two jumps, the state evolves
+  deterministically according to the coupled ODE (Phase 1
+  metabolism + any continuous components of expression machinery),
+  and that jumps occur at times specified by ∫ λ(s) ds = E for
+  E ~ Exp(1).
+
+  # Numerical considerations
+  Stochastic integration. Naive Gillespie SSA is exact but slow at
+  the propensity scales of mRNA/protein dynamics in a single cell
+  (10²–10⁴ events / s). The implementation choice (exact SSA vs.
+  τ-leaping vs. hybrid Anderson modified-next-reaction) trades
+  variance against compute and is justified per-process: e.g.,
+  ribosome-elongation events use τ-leaping with τ chosen so the
+  leap-condition (Δλ/λ < 0.03) holds; rare promoter-firing events
+  use exact next-reaction. Each choice carries a documented weak-
+  order and strong-order convergence claim.
+
+  Exponential-clock validation. The fundamental test of correctness
+  for a stochastic-jump implementation is that the cumulative
+  hazard ∫ λ(s) ds at successive events is Exp(1)-distributed.
+  We run this Anderson-Darling test over ≥10⁴ inter-event
+  intervals per jump process (α = 0.05). A failed test is the
+  smoking gun for a propensity bug.
+
+  First-passage validation. Cell division is a first-passage time
+  for volume crossing a threshold under the ODE+jump combined
+  dynamics. Before deploying on the full WCM we validate the
+  first-passage implementation on an analytical test problem
+  (Ornstein-Uhlenbeck process, exact Bessel-function FPT
+  distribution) — the empirical FPT distribution from our
+  integrator must match the analytical CDF to KS distance < 0.02
+  over N=10⁴ trajectories.
+
+  Distribution-match resolution. Comparing trajectory ensembles
+  vs. v2ecoli baseline uses W₂ on summary statistic distributions
+  (growth rate, mean per-gene mRNA, mean per-gene protein,
+  division-time CV). N=200 PDMP trajectories per condition gives
+  W₂ MCSE ≈ σ_W₂/√200 ≈ 0.07 σ_W₂ — fine enough to detect
+  systematic deviations of ≥0.2 σ in the underlying distributions.
+  Sample size revisited if MCSE > 10% of the inter-baseline effect
+  size.
+
+  PDMP integrator validity. The Markov property is a structural
+  claim; we test it by re-simulating individual segments with the
+  same (state, RNG seed) and confirming bit-identical determinism
+  between jumps. Failure = leaky abstraction.
+
+  # Emitter
+  XArrayEmitter records every jump event as a row in a separate
+  zarr group ('jumps') alongside the continuous trajectory group
+  ('continuous'), so the discrete-event time series and the ODE
+  segments can both be queried with xarray. max_generations=8 in
+  workspace.yaml accommodates the multi-generation division-time
+  CV / mother-daughter inheritance distributions that we compare
+  to v2ecoli baseline.
+
+expected_behavior:
+  - name: jump-process-from-kinetics
+    observable: propensity-function-source
+    condition: all-jump-processes
+    rationale: |
+      Every jump process (transcription, translation, division,
+      competition) has a propensity function derived from measured
+      or curated kinetic constants — no scaling by simulation
+      timestep, no teleonomic "rates" derived from doubling-time
+      targets.
+  - name: division-first-passage
+    observable: division-event-record
+    condition: per-generation
+    rationale: |
+      Division events occur as first-passage crossings of a
+      threshold in cell volume or total protein mass; the
+      teleonomic doubling-time check is removed from the model.
+  - name: pdmp-trajectory-distribution-match
+    observable: trajectory-summary-distribution
+    condition: M9-glucose AND M9-acetate AND M9-glucose-aa
+    rationale: |
+      Summary statistics over PDMP trajectory ensembles (growth
+      rate distribution, mean mRNA/protein abundances per gene,
+      division-time CV) match the v2ecoli baseline distributions
+      within specified tolerance across all ≥3 Phase 0 conditions.
+      (Gating criterion.)
+  - name: markov-property-verified
+    observable: between-jump-evolution
+    condition: per-segment
+    rationale: |
+      Between any two jump events, state evolves deterministically
+      under the ODE; jump times follow ∫ λ(s) ds = E for E ~ Exp(1).
+      Verified by re-simulating segments with the same RNG seed
+      and checking bit-identical determinism.
+
+  # ── UQ-aware tests ────────────────────────────────────────────────
+  - name: uq-exponential-clock-anderson-darling
+    observable: cumulative-hazard-distribution
+    condition: per-jump-process
+    rationale: |
+      Cumulative hazard ∫λ(s)ds at successive events for each jump
+      process passes an Anderson-Darling Exp(1) test (α=0.05) over
+      ≥10⁴ inter-event intervals. The smoking-gun correctness test
+      for a stochastic-jump implementation.
+  - name: uq-fpt-analytical-validation
+    observable: ornstein-uhlenbeck-fpt-distribution
+    condition: analytical-test-problem
+    rationale: |
+      The first-passage implementation, applied to an OU process
+      with analytically known FPT distribution, recovers the
+      analytical CDF to KS distance < 0.02 over N=10⁴ trajectories
+      before being deployed on the WCM division mechanism.
+  - name: uq-tau-leap-validity
+    observable: leap-condition-fraction-violated
+    condition: tau-leaping-processes
+    rationale: |
+      For every τ-leaping jump process, the leap-condition
+      (max Δλ/λ < 0.03) is monitored; fraction of timesteps where
+      it is violated must be <0.1% across the run. Above threshold,
+      τ is shrunk or the process is switched to exact SSA.
+  - name: uq-trajectory-w2-mcse
+    observable: w2-with-MCSE
+    condition: N200-per-condition
+    rationale: |
+      Trajectory-distribution comparison vs v2ecoli baseline uses
+      W₂ on summary distributions over N≥200 PDMP trajectories per
+      condition; the W₂ MCSE is reported and required <10% of the
+      cross-condition effect size before any tolerance decision is
+      made.
+
+baseline: []
+variants: []
+interventions: []
+runs: []

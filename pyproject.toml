@@ -12,6 +12,7 @@ dependencies = [
     "bigraph-schema>=0.0.60",
     "process-bigraph>=0.0.38",
     "pbg-superpowers",
+    "pbg-copasi",
     "vivarium-dashboard",
     "vEcoli[dev]>=1.1.0",
     "viva-munk>=0.0.1",
@@ -81,6 +82,7 @@ packages = { find = { where = ["."] } }
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
 pbg-superpowers = { git = "https://github.com/vivarium-collective/pbg-superpowers.git", branch = "main" }
+pbg-copasi = { git = "https://github.com/vivarium-collective/pbg-copasi.git", branch = "main" }
 vivarium-dashboard = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }

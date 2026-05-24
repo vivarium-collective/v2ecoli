@@ -1,0 +1,203 @@
+schema_version: 3
+name: pdmp-03-inference
+title: "Phase 3 — Inference Infrastructure: Likelihoods and Bayesian Interface"
+status: planned
+phase: Design
+
+topic: pdmp
+tags: [pdmp, phase-3, likelihoods, bayesian, abc-smc, observe, intervene, algebraic-effects, chirho, xarray-emitter]
+created: '2026-05-24'
+
+parent_studies:
+  - {study: pdmp-02-jump-processes, condition: tests-passed}
+
+question: |
+  Can the Phase 2 PDMP support well-formed observation likelihoods
+  for the dominant cell-biology measurement modalities (RNA-seq,
+  proteomics, growth rate, metabolomics) and recover posteriors
+  via ABC-SMC on synthetic data — establishing the inference-
+  ready substrate that motivated the DUF rescoping?
+
+hypothesis: |
+  (a) Per-modality observation likelihoods — negative binomial for
+  RNA-seq, log-normal for proteomics, normal-on-log-growth for
+  growth rate, normal/log-normal for metabolite abundances — admit
+  a likelihood accumulator that runs alongside the PDMP and
+  computes log-likelihood contributions incrementally from ODE
+  segments and jump events. (b) Extending Vivarium's algebraic
+  effect system with observe(variable, likelihood) and
+  intervene(variable, value) effects (the ChiRho primitives) gives
+  a tractable interface for inference workflows. (c) A baseline
+  ABC-SMC engine using growth rate, mean mRNA/protein abundances,
+  and metabolite concentrations as summary statistics recovers
+  known parameter values on synthetic data within published
+  precision targets.
+
+objective: |
+  Specify and implement an observation likelihood library covering
+  the four modalities; build a likelihood accumulator that hooks
+  the Phase 2 PDMP runner; extend Vivarium's algebraic effects
+  with observe / intervene; implement a structured-population layer
+  above the single-cell PDMP for population-level omics likelihoods;
+  deploy ABC-SMC as the baseline inference engine; demonstrate
+  posterior recovery on synthetic data with a published
+  uncertainty target.
+
+description: |
+  Phase 3 of the v2ecoli → PDMP roadmap. With the PDMP in place
+  from Phase 2, every simulation trajectory is a sample from a
+  well-defined process measure with a constructible likelihood.
+  The inference-stack additions in this phase make that likelihood
+  observable, computable, and tractable for downstream Bayesian
+  workflows.
+
+  ChiRho (BasisResearch, 2024) is the reference for the algebraic-
+  effect interpretation of observe / intervene. The Vivarium API
+  analysis in the DUF report Sec. 4.2.2 noted that Vivarium can be
+  understood as a domain-specific algebraic effect system for
+  discrete-event simulation, opening a clear path to extending it
+  toward a PPL.
+
+  ABC-SMC is the baseline inference engine because it is robust to
+  highly nonlinear, partially observed dynamics — appropriate for
+  a first pass before more efficient gradient-based methods are
+  attempted in Phase 5. The structured-population layer addresses
+  the practical fact that omics data come from bulk cultures, not
+  single cells; bulk observables are expectations over the single-
+  cell PDMP measure.
+
+  # Numerical considerations
+  Likelihood library. Each modality's likelihood is parameterized
+  with its dispersion / overdispersion / noise scale, fit on
+  calibration data, and the fit reported with its 95% CI:
+   - RNA-seq: NegBin(μ, φ), φ MLE'd on a held-out calibration
+     dataset; expect φ ∈ [0.1, 1.0] for E. coli.
+   - Proteomics: LogNormal(μ, σ²), σ from technical-replicate
+     spread (typical σ_log ≈ 0.2 for SILAC/iBAQ).
+   - Growth: Normal(log μ, σ_μ²) — log-scale because growth
+     rates are bounded below by 0 and dispersion scales
+     multiplicatively.
+   - Metabolomics: Normal/LogNormal per-metabolite depending on
+     dynamic range; explicit per-metabolite choice recorded.
+
+  Accumulator numerics. Log-likelihood contributions are summed
+  in log space throughout to avoid underflow (typical full-run
+  log-likelihood is ≪ -10³). Mixture-likelihood contributions
+  (e.g., zero-inflated NegBin) use log-sum-exp with the standard
+  shift trick. Pairwise / Kahan summation order for cross-cell
+  population reductions so the result is independent of trajectory
+  ordering and reproducible across hardware.
+
+  ABC-SMC schedule. ε-decay set adaptively at the quantile q=0.5
+  of the previous population's distance, with a minimum population
+  size N=1000 and a terminating ESS < 0.5·N (resample) or wall-
+  clock cap. Distance: Mahalanobis on a hand-picked summary vector
+  (growth rate, mean log-mRNA per high-coverage gene, mean
+  log-protein per high-coverage gene, key metabolite log-conc).
+  We report posterior ESS and the proposal acceptance rate at
+  every SMC step.
+
+  Posterior calibration. Simulation-Based Calibration (Talts et
+  al. 2018): for K=1000 SBC draws of (θ*, y*) from the prior +
+  forward model, run ABC-SMC and record the rank of θ* in the
+  posterior sample. The rank histogram must pass a χ² uniformity
+  test (p > 0.05) and 90% credible intervals must achieve ≥85%
+  empirical coverage. SBC at K=1000 has rank-resolution of 1/(K+1)
+  ≈ 10⁻³, fine enough for typical posterior diagnostics.
+
+  Identifiability. We re-run the Phase 1 Fisher-information check
+  for any new parameters introduced here (likelihood dispersions,
+  population-layer parameters) and flag non-identifiable
+  combinations explicitly.
+
+  # Emitter
+  ABC-SMC iterates ~10⁶ PDMP runs; we use XArrayEmitter in a
+  "summary-only" mode that writes only the predeclared summary-
+  statistic vector per trajectory (zarr group 'summary'), skipping
+  full time-series capture. Posterior particles, per-SMC-step
+  ε, ESS, and proposal-acceptance trajectories also written to
+  zarr ('posterior'/'diagnostics' groups). SBC runs (K=1000)
+  produce a separate zarr store keyed by SBC iteration for
+  post-hoc rank-histogram analysis.
+
+expected_behavior:
+  - name: likelihoods-per-modality
+    observable: likelihood-library
+    condition: rna-seq AND proteomics AND growth AND metabolomics
+    rationale: |
+      Each measurement modality has a documented observation
+      likelihood (neg-binom, log-normal, normal-on-log-growth,
+      normal/log-normal) with explicit dispersion / noise
+      parameters and references to the calibration literature.
+  - name: accumulator-runs-alongside-pdmp
+    observable: log-likelihood-trace
+    condition: per-segment AND per-jump
+    rationale: |
+      The likelihood accumulator computes log-likelihood
+      contributions from ODE segments (continuous-measurement
+      likelihoods) and jump events (discrete-event likelihoods)
+      incrementally during a single PDMP run.
+  - name: observe-intervene-effects
+    observable: vivarium-algebraic-effect-set
+    condition: pdmp-runner
+    rationale: |
+      The Vivarium runner supports observe(variable, likelihood)
+      and intervene(variable, value) as first-class algebraic
+      effects, with the same surface area as ChiRho's primitives.
+  - name: abc-posterior-recovery-on-synthetic
+    observable: posterior-recovery-metric
+    condition: synthetic-truth-data
+    rationale: |
+      On synthetic data generated from known parameters, ABC-SMC
+      recovers posteriors that cover the ground truth at the
+      published credible level using summary statistics: growth
+      rate, mean mRNA/protein abundances, metabolite
+      concentrations. (Gating criterion.)
+
+  # ── UQ-aware tests ────────────────────────────────────────────────
+  - name: uq-likelihood-dispersion-fit-with-ci
+    observable: dispersion-parameters-with-95-CI
+    condition: per-modality
+    rationale: |
+      Per-modality dispersion / noise parameters (NegBin φ for
+      RNA-seq, σ for log-normal proteomics, σ_μ for growth,
+      per-metabolite σ for metabolomics) are MLE-fit on calibration
+      data and reported with 95% bootstrap CIs.
+  - name: uq-accumulator-numerical-stability
+    observable: log-likelihood-underflow-rate
+    condition: full-run
+    rationale: |
+      Log-likelihood accumulation maintains log-space throughout;
+      no underflows recorded across N=10⁴ test runs. log-sum-exp
+      shift used in all mixture terms. Pairwise/Kahan summation
+      in population reductions; result invariant to trajectory
+      ordering.
+  - name: uq-abc-ess-and-acceptance
+    observable: ess-and-acceptance-per-step
+    condition: per-smc-iteration
+    rationale: |
+      ABC-SMC reports posterior ESS and proposal acceptance rate
+      at every SMC step; runs are terminated cleanly when ESS
+      falls below 0.5·N (resample) or wall-clock cap is hit.
+      No silent degeneracy.
+  - name: uq-sbc-coverage
+    observable: sbc-rank-histogram AND credible-interval-coverage
+    condition: K1000-sbc-draws
+    rationale: |
+      Simulation-Based Calibration (K=1000): rank histogram passes
+      χ² uniformity test (p > 0.05); 90% credible intervals achieve
+      ≥85% empirical coverage. Hard requirement before claiming
+      "inference-ready" for Phase 5.
+  - name: uq-mahalanobis-distance-justified
+    observable: summary-statistic-covariance
+    condition: abc-distance-function
+    rationale: |
+      Mahalanobis distance uses the empirical summary-statistic
+      covariance from N≥200 PDMP runs at the prior mean.
+      Condition number of the covariance reported; if κ > 10⁶ the
+      summary vector is reduced (drop near-collinear summaries).
+
+baseline: []
+variants: []
+interventions: []
+runs: []

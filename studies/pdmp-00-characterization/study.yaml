@@ -1,0 +1,154 @@
+schema_version: 3
+name: pdmp-00-characterization
+title: "Phase 0 — Characterization and Interface Extraction"
+status: planned
+phase: Design
+
+topic: pdmp
+tags: [pdmp, phase-0, characterization, markov-blanket, interfaces, profiling, xarray, xarray-emitter, zarr, multi-gen]
+created: '2026-05-24'
+
+question: |
+  What is the Markov blanket of every major v2ecoli subprocess
+  (metabolism, transcription, translation, replication, division,
+  membrane), and how should every WCM state variable be categorized
+  (ODE-amenable, stochastic discrete, teleonomic, or coupling
+  artifact) so that subsequent phases have a typed interface
+  contract to validate against?
+
+hypothesis: |
+  Each major v2ecoli subprocess has a well-defined Markov blanket
+  that can be expressed as a typed Process Bigraph interface schema,
+  and per-step compute time is dominated by marshalling overhead
+  (nested-dict state traversal, type-coercion between stores and
+  process internals) rather than essential biological computation —
+  motivating the column-centric runtime refactor in Phase 4.
+
+objective: |
+  Run v2ecoli in diagnostic mode under ≥3 environmental conditions
+  (M9-glucose, M9-acetate, M9-glucose+amino-acid supplementation),
+  categorize every state variable, extract typed PB interface schemas
+  for each major subprocess, deploy the Xarray-format emitter to
+  record full interface time-series, and profile per-step compute to
+  separate marshalling overhead from essential computation.
+
+description: |
+  Phase 0 of the v2ecoli → PDMP roadmap. The deliverables of this
+  study become the validation standard for every subsequent phase:
+  a replacement subprocess (Phase 1 ODE metabolism, Phase 2 jump
+  transcription, etc.) is accepted when its interface statistics
+  match the Phase 0 reference Xarray dataset within tolerance.
+
+  No biological mechanism is changed in this study — v2ecoli is run
+  as-is. The artefacts produced are (a) the typed interface schema
+  library, (b) the reference Xarray datasets across the ≥3 chosen
+  conditions, and (c) the per-step profiling report.
+
+  Conditions are not yet locked; tentative set: aerobic M9 + glucose
+  (the canonical reference), aerobic M9 + acetate (slower growth,
+  gluconeogenic flux), aerobic M9 + glucose + amino-acid mix (faster
+  growth, partial relief on translation). The DUF report Sec. 4.1.1
+  notes "approximately a dozen environmental conditions" exist in
+  the current WCM; we sample three that span the metabolic regime.
+
+  # Numerical considerations
+  The reference Xarray datasets are not single trajectories — they
+  are *ensembles*. For each (condition, seed) pair we run N=64
+  independent stochastic replicates (justification: the standard
+  error of an estimated mean falls as σ/√N ≈ σ/8 = 12.5% of σ, fine
+  enough to set a Wasserstein-2 tolerance band that downstream
+  phases can target without overfitting to MC noise). Replicate
+  count revisited after running pilot N=8 batches and measuring
+  per-observable variance — N is increased per-observable if MCSE
+  exceeds 10% of the inter-condition effect size.
+
+  Per-step compute profiling reports mean ± std over ≥1000 step
+  samples per condition (not single measurements), with separate
+  buckets for: (i) tFBA LP solve time, (ii) stochastic-draw RNG
+  cost, (iii) store↔process marshalling, (iv) topology traversal,
+  (v) emitter I/O. A bootstrap 95% CI on each bucket isolates
+  signal from machine jitter.
+
+  Variable categorization is recorded with a *numerical-sensitivity
+  tier* per variable: ODE-amenable variables carry an estimated
+  contribution to the Jacobian spectral radius (rough stiffness
+  signal); stochastic-discrete variables carry an empirical
+  per-step coefficient of variation; coupling-artifact variables
+  carry a coupling-strength index (the L∞ norm of the partial
+  derivatives across the artificial boundary).
+
+  # Emitter
+  All runs use **XArrayEmitter** (workspace default on this branch;
+  wired in dashboard via PR #70). The reference dataset is a
+  zarr store per (condition, replicate, generation) tuple, opened
+  downstream via xarray.open_zarr() with explicit chunking on the
+  time axis so Phase 1+ phases can stream-compare distributions
+  without loading the whole ensemble into memory. max_generations
+  in workspace.yaml is set to 8 (covers the multi-generation
+  lineage statistics that division-time / inheritance-distribution
+  validation in Phase 2 will consume).
+
+expected_behavior:
+  - name: variables-categorized
+    observable: state-variable-category-map
+    condition: diagnostic-run-M9-glucose
+    rationale: |
+      Every state variable in the WCM's process internals + stores is
+      labelled ODE-amenable / stochastic-discrete / teleonomic /
+      coupling-artifact. No "unknown" labels remain.
+  - name: interface-schemas-typed
+    observable: process-bigraph-interface-schemas
+    condition: all-major-subprocesses
+    rationale: |
+      Each of metabolism, transcription, translation, replication,
+      division, membrane has a typed PB interface schema covering its
+      Markov blanket.
+  - name: reference-xarray-3-conditions
+    observable: xarray-interface-dataset
+    condition: M9-glucose AND M9-acetate AND M9-glucose-aa
+    rationale: |
+      Reference zarr stores (produced by XArrayEmitter) exist for
+      every interface variable across ≥3 distinct environmental
+      conditions, with N≥64 replicates × ≥3 generations each.
+      Readable via xarray.open_zarr() with chunking on the time
+      axis. (Gating criterion for the investigation.)
+  - name: profile-marshalling-vs-essential
+    observable: per-step-profile-report
+    condition: diagnostic-run
+    rationale: |
+      Per-step compute is decomposed into marshalling overhead vs.
+      essential computation, motivating (or refuting) the Phase 4
+      column-centric runtime refactor. Each bucket reported as
+      mean ± std over ≥1000 step samples with bootstrap 95% CI.
+
+  # ── UQ-aware tests ────────────────────────────────────────────────
+  - name: uq-replicate-ensemble-N64
+    observable: per-condition-replicate-count
+    condition: M9-glucose AND M9-acetate AND M9-glucose-aa
+    rationale: |
+      Each (condition, seed-family) reference dataset comprises
+      N≥64 independent stochastic replicates. Per-observable MCSE
+      reported; observables with MCSE > 10% of inter-condition
+      effect size are flagged and N is increased until threshold met.
+  - name: uq-stiffness-classification
+    observable: jacobian-spectrum-summary
+    condition: per-major-subprocess
+    rationale: |
+      For each subprocess with continuous components, the local
+      Jacobian eigenvalue spread (max|λ| / min|λ|) is estimated
+      numerically (finite-difference) at the reference state.
+      Subprocesses with κ > 10⁴ are flagged stiff and inform
+      solver choice in Phase 1.
+  - name: uq-bootstrap-cis-on-interface-stats
+    observable: interface-summary-CI
+    condition: per-variable
+    rationale: |
+      Every summary statistic in the reference dataset (mean, std,
+      quantiles q05/q50/q95) carries a bootstrap 95% confidence
+      interval (≥10⁴ resamples). Downstream phase tolerance bands
+      are derived from these CIs, never set ad hoc.
+
+baseline: []
+variants: []
+interventions: []
+runs: []

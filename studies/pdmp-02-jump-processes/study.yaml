@@ -388,24 +388,24 @@ study_card: Phase 2 — replace v2ecoli's discrete-time scaled-Poisson stochasti
 readouts:
 - name: anderson-darling-results
   status: planned
-  path: out/trajectories/ad_exp1_per_jump.csv
+  path: TBD — planned at out/trajectories/ad_exp1_per_jump.csv
   units: A-D statistic + p-value
   notes: 'Per jump process (transcription, translation, division, competition). >=10^4 inter-event intervals each. Gating:
     p > 0.05.'
 - name: fpt-distribution
   status: planned
-  path: out/trajectories/fpt_division.csv
+  path: TBD — planned at out/trajectories/fpt_division.csv
   units: first-passage time (s)
   notes: 'Cell-volume threshold crossing. OU analytical validation: KS distance < 0.02 vs analytical CDF.'
 - name: trajectory-w2
   status: planned
-  path: out/trajectories/pdmp_w2_vs_baseline.csv
+  path: TBD — planned at out/trajectories/pdmp_w2_vs_baseline.csv
   units: W2 distance per summary stat
   notes: Growth rate, mean per-gene mRNA/protein, division-time CV. N>=200 trajectories. Within tolerance across all Phase
     0 conditions = gating.
 - name: markov-property-record
   status: planned
-  path: out/trajectories/markov_segments.json
+  path: TBD — planned at out/trajectories/markov_segments.json
   units: bit-equivalence result per re-sim
   notes: Re-simulate jump-segments with same (state, RNG-seed); verify bit-identical deterministic ODE flow between jumps.
 planned_runs:
@@ -597,3 +597,28 @@ tests:
   requires_simulation: tauleap-benchmark
   cites:
   - cao2006
+embed_visualizations:
+- name: 'PLANNED: pdmp-02 division-time distribution'
+  url: /reports/figures/pdmp-02/division_time_distribution.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/division_time_distribution.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Gillespie SSA trajectory
+  url: /reports/figures/pdmp-02/gillespie_trajectory.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/gillespie_trajectory.html. Inlined into the downloaded
+    report as iframe srcdoc.
+- name: Inheritance distribution
+  url: /reports/figures/pdmp-02/inheritance_distribution_v2.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/inheritance_distribution_v2.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Phase 2 event rates
+  url: /reports/figures/pdmp-02/phase2_event_rates.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/phase2_event_rates.html. Inlined into the downloaded
+    report as iframe srcdoc.
+- name: 'PLANNED: pdmp-02 stochastic gene-expression trajectories'
+  url: /reports/figures/pdmp-02/stochastic_gene_trajectories.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/stochastic_gene_trajectories.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Waiting-time distribution
+  url: /reports/figures/pdmp-02/waiting_time_distribution.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/waiting_time_distribution.html. Inlined into
+    the downloaded report as iframe srcdoc.

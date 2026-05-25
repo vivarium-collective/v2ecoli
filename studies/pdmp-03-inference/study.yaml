@@ -315,24 +315,24 @@ study_card: 'Phase 3 — build the Bayesian inference substrate: per-modality ob
 readouts:
 - name: likelihood-dispersion-fits
   status: planned
-  path: out/trajectories/likelihood_fits.csv
+  path: TBD — planned at out/trajectories/likelihood_fits.csv
   units: MLE +/- 95% CI
   notes: 'Per modality: NegBin phi (RNA-seq), log-normal sigma (proteomics), normal-on-log sigma_mu (growth), per-metabolite
     sigma (metabolomics).'
 - name: log-likelihood-accumulator
   status: planned
-  path: .pbg/runs/<id>/log_likelihood.zarr
+  path: TBD — planned at .pbg/runs/<id>/log_likelihood.zarr
   units: log-likelihood units
   notes: 'Time-series of incremental log-L contributions from ODE segments + jump events. Required: zero underflows over 10^4
     test runs.'
 - name: abc-smc-posterior
   status: planned
-  path: .pbg/runs/<id>/posterior_particles.zarr
+  path: TBD — planned at .pbg/runs/<id>/posterior_particles.zarr
   units: particle samples + weights
   notes: 'ABC-SMC convergence trace: ESS, proposal acceptance rate, epsilon-decay schedule per SMC step.'
 - name: sbc-rank-histogram
   status: planned
-  path: out/trajectories/sbc_ranks.csv
+  path: TBD — planned at out/trajectories/sbc_ranks.csv
   units: rank in [0, K]
   notes: 'K=1000 SBC draws. Gating: chi^2 uniformity p > 0.05 + 90% CI coverage >= 85% empirical.'
 planned_runs:
@@ -517,3 +517,20 @@ tests:
   requires_simulation: ppc-heldout-100
   cites:
   - gelman2013
+embed_visualizations:
+- name: ABC-SMC posterior shrinkage
+  url: /reports/figures/pdmp-03/abc_posterior_shrinkage.html
+  description: Per-study visualization rendered from reports/figures/pdmp-03/abc_posterior_shrinkage.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: Posterior predictive check
+  url: /reports/figures/pdmp-03/posterior_predictive_check.html
+  description: Per-study visualization rendered from reports/figures/pdmp-03/posterior_predictive_check.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: 'PLANNED: pdmp-03 SBC per-parameter rank histograms'
+  url: /reports/figures/pdmp-03/sbc_per_parameter.html
+  description: Per-study visualization rendered from reports/figures/pdmp-03/sbc_per_parameter.html. Inlined into the downloaded
+    report as iframe srcdoc.
+- name: SBC workflow
+  url: /reports/figures/pdmp-03/sbc_workflow.html
+  description: Per-study visualization rendered from reports/figures/pdmp-03/sbc_workflow.html. Inlined into the downloaded
+    report as iframe srcdoc.

@@ -435,23 +435,23 @@ readouts:
     values.
 - name: fba-bridge-flux-seam
   status: planned
-  path: v2ecoli_pdmp/composites/fba_bridge.schema.json
+  path: TBD — planned at v2ecoli_pdmp/composites/fba_bridge.schema.json
   units: flux name -> source (ODE or FBA)
   notes: Which fluxes the Millard ODE exports vs which v2ecoli kFBA consumes. The contract negotiated in this study.
 - name: lqr-sobol-indices
   status: planned
-  path: out/trajectories/lqr_sobol.csv
+  path: TBD — planned at out/trajectories/lqr_sobol.csv
   units: dimensionless Sobol index
   notes: First-order + total Sobol on growth rate, glucose uptake, ATP yield. LQR weights with total < 0.01 are flagged free-parameter
     rot.
 - name: w2-per-metabolite
   status: planned
-  path: out/trajectories/w2_millard_vs_phase0.csv
+  path: TBD — planned at out/trajectories/w2_millard_vs_phase0.csv
   units: Wasserstein-2 distance (mM)
   notes: 'Per interface variable. Gating: within Phase-0 bootstrap CI of self-replicate spread.'
 - name: fim-conditioning
   status: planned
-  path: out/trajectories/fim_kappa.csv
+  path: TBD — planned at out/trajectories/fim_kappa.csv
   units: condition number kappa
   notes: 'Per causal parameter. Required: kappa(FIM) < 10^8 before inference-ready claim.'
 planned_runs:
@@ -690,3 +690,36 @@ tests:
   requires_simulation: millard-fba-bridge-3-conditions
   cites:
   - villani2008
+embed_visualizations:
+- name: Bridge round-trip residual
+  url: /reports/figures/pdmp-01/bridge_translation_residual.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/bridge_translation_residual.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: FBA-bridge architecture
+  url: /reports/figures/pdmp-01/fba_bridge_architecture.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/fba_bridge_architecture.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: Kinetic flux curves (Millard 2017)
+  url: /reports/figures/pdmp-01/kinetic_constraint_curves.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/kinetic_constraint_curves.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Millard 2017 — ATP drain
+  url: /reports/figures/pdmp-01/millard_atp_drain.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_atp_drain.html. Inlined into the downloaded
+    report as iframe srcdoc.
+- name: Millard 2017 — ATP drain (6-panel)
+  url: /reports/figures/pdmp-01/millard_atp_drain_v2.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_atp_drain_v2.html. Inlined into the downloaded
+    report as iframe srcdoc.
+- name: Millard - multi-perturbation
+  url: /reports/figures/pdmp-01/millard_multi_perturbation.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_multi_perturbation.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Millard reference-state validation
+  url: /reports/figures/pdmp-01/millard_published_ref_state.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_published_ref_state.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Mapping coverage
+  url: /reports/figures/pdmp-01/species_mapping_coverage.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/species_mapping_coverage.html. Inlined into the
+    downloaded report as iframe srcdoc.

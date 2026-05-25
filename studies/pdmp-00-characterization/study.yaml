@@ -384,23 +384,23 @@ study_card: Phase 0 — Markov-blanket interface extraction. Run v2ecoli as-is u
 readouts:
 - name: reference-zarr-stores
   status: planned
-  path: .pbg/runs/<id>/store.zarr
+  path: TBD — planned at .pbg/runs/<id>/store.zarr
   units: zarr group per (cond,rep,gen)
   notes: N>=64 replicates x 3 conditions x >=3 generations; canonical reference dataset for every later phase.
 - name: interface-schemas
   status: planned
-  path: v2ecoli/<process>/interface.schema.json
+  path: TBD — planned at v2ecoli/<process>/interface.schema.json
   units: PB schema
   notes: Typed PB interface schema per major subprocess (metabolism, transcription, translation, replication, division, membrane).
 - name: per-step-compute-profile
   status: planned
-  path: .pbg/runs/<id>/profile.json
+  path: TBD — planned at .pbg/runs/<id>/profile.json
   units: ms per bucket
   notes: '5 buckets: FBA LP solve / RNG / store-process marshalling / topology traversal / emitter I/O. Mean +/- std over
     >=1000 step samples + bootstrap 95% CI.'
 - name: variable-categorisation-map
   status: planned
-  path: studies/pdmp-00/variable_categories.yaml
+  path: TBD — planned at studies/pdmp-00/variable_categories.yaml
   units: category enum + numerical-sensitivity tier
   notes: 'Every state variable: ODE-amenable / stochastic-discrete / teleonomic / coupling-artifact + stiffness/CV/coupling-strength
     tier.'
@@ -626,3 +626,40 @@ tests:
   requires_simulation: phase0-reference-3x64
   cites:
   - macklin2020
+embed_visualizations:
+- name: Markov blanket — v2ecoli metabolism
+  url: /reports/figures/pdmp-00/markov_blanket_metabolism.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/markov_blanket_metabolism.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Per-condition growth rate
+  url: /reports/figures/pdmp-00/per_condition_growth_rate.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/per_condition_growth_rate.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Per-step compute decomposition
+  url: /reports/figures/pdmp-00/profile_decomposition_bars.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/profile_decomposition_bars.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: RNG seeding fix — before / after
+  url: /reports/figures/pdmp-00/rng_seeding_fix_proof.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/rng_seeding_fix_proof.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: v2ecoli baseline 100 steps
+  url: /reports/figures/pdmp-00/v2ecoli_baseline_100step.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/v2ecoli_baseline_100step.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: v2ecoli baseline bootstrap
+  url: /reports/figures/pdmp-00/v2ecoli_baseline_bootstrap.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/v2ecoli_baseline_bootstrap.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: v2ecoli baseline — bootstrap (6-panel)
+  url: /reports/figures/pdmp-00/v2ecoli_baseline_v2.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/v2ecoli_baseline_v2.html. Inlined into the downloaded
+    report as iframe srcdoc.
+- name: v2ecoli 3-seed ensemble — degenerate
+  url: /reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: Variable categorization — illustrative
+  url: /reports/figures/pdmp-00/variable_categorization_bars.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/variable_categorization_bars.html. Inlined into
+    the downloaded report as iframe srcdoc.

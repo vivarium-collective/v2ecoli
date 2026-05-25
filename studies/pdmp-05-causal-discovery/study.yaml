@@ -455,27 +455,27 @@ study_card: 'Phase 5 — close the loop on the DUF ARC vision: frame gene-functi
 readouts:
 - name: rr-estimator-trace
   status: planned
-  path: .pbg/runs/<id>/rr_estimate.zarr
+  path: TBD — planned at .pbg/runs/<id>/rr_estimate.zarr
   units: log-marginal-likelihood + N_eff
   notes: 'Per candidate annotation. Gating: N_eff >= 100 or fallback to thermodynamic integration.'
 - name: log-bayes-factor-cis
   status: planned
-  path: out/trajectories/log_bf_cis.csv
+  path: TBD — planned at out/trajectories/log_bf_cis.csv
   units: log Bayes factor + 95% bootstrap CI
   notes: Per pairwise annotation comparison. Recovery claim requires CI entirely above Jeffreys |log BF| > 1.
 - name: model-comparison-sbc
   status: planned
-  path: out/trajectories/model_sbc_ranks.csv
+  path: TBD — planned at out/trajectories/model_sbc_ranks.csv
   units: model-posterior rank
   notes: 'K=500 synthetic datasets from known true annotations. Gating: chi^2 uniformity p > 0.05.'
 - name: eig-per-intervention
   status: planned
-  path: out/trajectories/eig_proposals.csv
+  path: TBD — planned at out/trajectories/eig_proposals.csv
   units: expected information gain (nats)
   notes: Per active-inference intervention proposal. MCSE-bounded; proposals with CI overlapping zero not selected.
 - name: benchmark-recovery
   status: planned
-  path: out/trajectories/benchmark_recovery.csv
+  path: TBD — planned at out/trajectories/benchmark_recovery.csv
   units: per-gene q-value (BH-adjusted)
   notes: '20-gene benchmark E. coli set. Investigation success: BH-FDR q <= 0.10 + CI shrinkage rate log-log slope <= -0.4.'
 planned_runs:
@@ -653,3 +653,24 @@ tests:
   requires_simulation: phase5-fdr-validation
   cites:
   - benjamini1995
+embed_visualizations:
+- name: 'PLANNED: pdmp-05 active-inference EIG ranking'
+  url: /reports/figures/pdmp-05/active_inference_eig.html
+  description: Per-study visualization rendered from reports/figures/pdmp-05/active_inference_eig.html. Inlined into the downloaded
+    report as iframe srcdoc.
+- name: 'PLANNED: pdmp-05 per-gene Bayes factor'
+  url: /reports/figures/pdmp-05/bayes_factor_per_gene.html
+  description: Per-study visualization rendered from reports/figures/pdmp-05/bayes_factor_per_gene.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: Per-gene Bayes factor
+  url: /reports/figures/pdmp-05/bayes_factor_per_gene_v2.html
+  description: Per-study visualization rendered from reports/figures/pdmp-05/bayes_factor_per_gene_v2.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: Intervention design — EIG comparison
+  url: /reports/figures/pdmp-05/intervention_design_eig.html
+  description: Per-study visualization rendered from reports/figures/pdmp-05/intervention_design_eig.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: PC-algorithm causal DAG
+  url: /reports/figures/pdmp-05/pc_algorithm_dag.html
+  description: Per-study visualization rendered from reports/figures/pdmp-05/pc_algorithm_dag.html. Inlined into the downloaded
+    report as iframe srcdoc.

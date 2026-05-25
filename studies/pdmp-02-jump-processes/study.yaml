@@ -343,3 +343,14 @@ visualizations:
     address: file:reports/figures/planned-comparisons/phase2_jump_ad_test.html
     description: PLANNED — Anderson-Darling Exp(1) test on cumulative-hazard ∫λ(s)ds at successive events. 
       Will render Q-Q plot + p-value per jump process.
+  - name: study-plan-summary
+    address: file:reports/figures/pdmp-02/study_plan_summary.html
+    description: One-page consolidated study card.
+  - name: stochastic-gene-trajectories-PLANNED
+    address: file:reports/figures/pdmp-02/stochastic_gene_trajectories.html
+    description: PLANNED — single-cell stochastic mRNA + protein trajectories per gene, 4 replicates each. The
+      inter-cell variability the Phase 2 PDMP should reproduce within CV [0.2, 0.4].
+  - name: division-time-distribution-PLANNED
+    address: file:reports/figures/pdmp-02/division_time_distribution.html
+    description: PLANNED — first-passage time distribution for cell-volume threshold crossing. Median + CV 
+      gating against literature 67 min.

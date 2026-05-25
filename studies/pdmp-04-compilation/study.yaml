@@ -351,3 +351,10 @@ visualizations:
     address: file:reports/figures/planned-comparisons/phase4_throughput.html
     description: PLANNED — log-log plot of trajectories/sec vs hardware (v2ecoli baseline → Phase 2 Python 
       PDMP → Phase 4 compiled Catalyst.jl on CPU → GPU). Annotates the order-of-magnitude jumps.
+  - name: study-plan-summary
+    address: file:reports/figures/pdmp-04/study_plan_summary.html
+    description: One-page consolidated study card.
+  - name: per-step-compute-decomposition-PLANNED
+    address: file:reports/figures/pdmp-04/per_step_compute_decomposition.html
+    description: 'PLANNED — pie-chart comparison of per-step compute buckets (v2ecoli baseline vs Phase 4 compiled).
+      Headline justification: marshalling drops from ~70% to <10%.'

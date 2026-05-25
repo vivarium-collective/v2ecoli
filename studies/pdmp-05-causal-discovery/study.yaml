@@ -408,3 +408,14 @@ visualizations:
     address: file:reports/figures/planned-comparisons/phase5_benchmark_bh_fdr.html
     description: PLANNED — Benjamini-Hochberg FDR plot over the 20-gene benchmark. Green-shaded region = 
       recovered at q ≤ 0.10. Investigation success = ≥80% recovery.
+  - name: study-plan-summary
+    address: file:reports/figures/pdmp-05/study_plan_summary.html
+    description: One-page consolidated study card.
+  - name: bayes-factor-per-gene-PLANNED
+    address: file:reports/figures/pdmp-05/bayes_factor_per_gene.html
+    description: 'PLANNED — per-gene log Bayes factor with 95% CI. Investigation success: >=80% green at BH-FDR
+      q <= 0.10.'
+  - name: active-inference-eig-PLANNED
+    address: file:reports/figures/pdmp-05/active_inference_eig.html
+    description: PLANNED — active-inference EIG ranking over candidate interventions. Selection threshold 
+      prevents picking proposals whose EIG MCSE overlaps zero.

@@ -378,3 +378,14 @@ visualizations:
     address: file:reports/figures/planned-comparisons/phase3_sbc_rank_histogram.html
     description: PLANNED — SBC rank histogram with χ² uniformity test + Poisson 95% confidence band. The gate 
       for declaring the inference stack INFERENCE-ready.
+  - name: study-plan-summary
+    address: file:reports/figures/pdmp-03/study_plan_summary.html
+    description: One-page consolidated study card.
+  - name: abc-posterior-shrinkage-PLANNED
+    address: file:reports/figures/pdmp-03/abc_posterior_shrinkage.html
+    description: PLANNED — ABC-SMC posterior credible interval per parameter as a function of N. 1/sqrt(N) 
+      shrinkage required (log-log slope <= -0.4).
+  - name: sbc-per-parameter-PLANNED
+    address: file:reports/figures/pdmp-03/sbc_per_parameter.html
+    description: PLANNED — per-parameter SBC rank histograms (K=1000 each). chi^2 uniformity p > 0.05 required
+      on EVERY inferred parameter.

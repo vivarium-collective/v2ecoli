@@ -436,6 +436,17 @@ visualizations:
     address: file:reports/figures/planned-comparisons/phase1_w2_interface_fidelity.html
     description: PLANNED — W₂(Millard ODE, Phase 0 v2ecoli) per central-metabolism intermediate. Green = 
       within tolerance; amber = discuss; red = reject.
+  - name: study-plan-summary
+    address: file:reports/figures/pdmp-01/study_plan_summary.html
+    description: One-page consolidated study card with planned runs / readouts / tests / variants.
+  - name: millard-multi-perturbation
+    address: file:reports/figures/pdmp-01/millard_multi_perturbation.html
+    description: Three perturbation experiments (ATP/PEP/NADH stress) on the same axes, qualitative response 
+      fingerprints.
+  - name: phase1-fba-bridge-pilot-PLANNED
+    address: file:reports/figures/planned-comparisons/phase1_fba_bridge_pilot.html
+    description: PLANNED — Millard ODE PEP vs v2ecoli kFBA PEP on same axes with W2 acceptance band; the 
+      FBA-bridge interface-fidelity chart.
 design_status: approved
 implementation_status: prototype
 simulation_status: ran

@@ -344,6 +344,18 @@ visualizations:
     address: file:reports/figures/planned-comparisons/phase0_growth_rate_ensemble.html
     description: PLANNED — violin plot of steady-state µ over N=64 replicates × 3 conditions. Bound by Phase 0
       MCSE target (≤ 10% of inter-condition effect size).
+  - name: study-plan-summary
+    address: file:reports/figures/pdmp-00/study_plan_summary.html
+    description: One-page consolidated study card — planned runs Gantt, readouts table, tests table, variants 
+      table, proceed-condition. Critique-able by an expert in one read.
+  - name: v2ecoli-baseline-100step
+    address: file:reports/figures/pdmp-00/v2ecoli_baseline_100step.html
+    description: 100-step run via dashboard, 612 MB trajectory, 6-panel viz showing ~14% of one doubling 
+      cycle.
+  - name: v2ecoli-ensemble-3seeds-DEGENERATE
+    address: file:reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html
+    description: First ensemble attempt — 3 seeds produced bit-identical trajectories. Surfaces the 
+      per-process RNG seeding bug. Banner-flagged red. Blocks the Phase 0 N>=64 target until fixed.
 design_status: approved
 implementation_status: prototype
 simulation_status: ran

@@ -1,0 +1,73 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>Phase 4 — Compilation and Performance — study plan summary</title>
+<style>
+body{font-family:system-ui;max-width:1280px;margin:1em auto;padding:0 1em;color:#0f172a}
+h1{font-size:1.5em;border-bottom:2px solid #e2e8f0;padding-bottom:0.4em}
+h2{font-size:1.2em;color:#1e40af;margin-top:1.8em}
+h3{font-size:1.0em;color:#334155;margin-top:1.3em}
+.meta{color:#64748b;font-size:0.9em;margin-top:-0.3em}
+.cap{color:#475569;font-size:0.94em;line-height:1.6}
+table{border-collapse:collapse;width:100%;margin:0.7em 0;font-size:0.9em}
+table th,table td{border:1px solid #e2e8f0;padding:7px 11px;text-align:left;vertical-align:top}
+table th{background:#f8fafc;color:#475569;font-size:0.85em;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+table tr:nth-child(even) td{background:#fcfcfd}
+code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:0.92em;color:#334155}
+.section{background:#fafbfc;border-left:4px solid #3b82f6;padding:0.5em 1em;margin:1em 0}
+.section h2{margin-top:0.5em}
+.dim{color:#94a3b8;font-style:italic;font-size:0.92em}
+.gantt{font-family:ui-monospace,monospace;font-size:0.83em;color:#475569;background:#fafbfc;padding:9px 13px;border-radius:6px;overflow-x:auto;white-space:pre}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:6px 14px;margin:0.5em 0}
+.kv .k{color:#64748b;font-size:0.85em}
+.kv .v{color:#0f172a}
+</style></head>
+<body>
+<h1>Phase 4 — Compilation and Performance</h1>
+<p class='meta'>pdmp-04-compilation</p>
+
+
+    <div class='kv'>
+      <span class='k'>Phase</span><span class='v'>Design</span>
+      <span class='k'>Status</span><span class='v'><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></span>
+      <span class='k'>Depends on</span><span class='v'><code>pdmp-02-jump-processes</code></span>
+      <span class='k'>Enables</span><span class='v'><code>pdmp-05-causal-discovery</code></span>
+      <span class='k'># planned runs</span><span class='v'>4</span>
+      <span class='k'># readouts</span><span class='v'>4</span>
+      <span class='k'># tests (predictions)</span><span class='v'>8</span>
+      <span class='k'># variants</span><span class='v'>5</span>
+    </div>
+
+<div class='section'>
+<h2>Simulation plan</h2>
+<p class='cap'>Planned + completed runs for this study, in execution order. [##] = ran/completed; [--] = planned; [!!] = blocked.</p>
+<div class='gantt'>[--]  catalyst-round-trip                         n_steps=(export + 1 sim)  status=planned
+[--]  marshalling-fraction-probe                  n_steps=1000      status=planned
+[--]  parallel-1k-throughput                      n_steps=1000      status=planned
+[--]  1-over-sqrt-N-variance-check                n_steps=(scaling)  status=planned</div>
+<h3>Per-run detail</h3>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>n_steps</th><th>details</th></tr></thead><tbody><tr><td>catalyst-round-trip</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>(export + 1 sim)</code></td><td>verify Catalyst.jl export reproduces Phase 2 PDMP within solver tolerance</td></tr><tr><td>marshalling-fraction-probe</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>1000</code></td><td>per-step profiling on compiled runner; target marshalling &lt; 10%</td></tr><tr><td>parallel-1k-throughput</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>1000</code></td><td>10³ parallel trajectories; throughput ≥ 1 order of magnitude above v2ecoli baseline</td></tr><tr><td>1-over-sqrt-N-variance-check</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>(scaling)</code></td><td>doubling N halves ABC posterior variance — verifies parallel independence</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Readouts — what we measure</h2>
+<p class='cap'>The observables this study captures + the on-disk path where they land.</p>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>path</th><th>units</th><th>notes</th></tr></thead><tbody><tr><td><code>catalyst-export-artefact</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>compiled_pdmp.jl</code></td><td>Julia source + binary</td><td>Catalyst.jl + ModelingToolkit compiled model with symbolic Jacobian + automatic sensitivity equations.</td></tr><tr><td><code>per-step-profile-compiled</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/compiled_profile.csv</code></td><td>ms per bucket</td><td>Same 5 buckets as Phase 0. Gating: marshalling fraction &lt; 10% of total.</td></tr><tr><td><code>parallel-throughput</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/throughput_vs_n_trajectories.csv</code></td><td>trajectories per second</td><td>Sweep parallelism N in {10, 100, 1000, 10000}. Gating: &gt;=10^3 parallel.</td></tr><tr><td><code>abc-posterior-variance-vs-walltime</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/abc_posterior_efficiency.csv</code></td><td>posterior std * wall-clock-s</td><td>Standard MCMC efficiency metric. Required: 1/sqrt(N) scaling on doubling parallelism.</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Tests — what passes / fails</h2>
+<p class='cap'>The structured predictions this study evaluates. Each test maps to a measurement + a decision criterion.</p>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>given</th><th>prediction (en)</th></tr></thead><tbody><tr><td><code>catalyst-export-works</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>end-to-end-export</td><td>The PDMP exports to a Catalyst.jl / ModelingToolkit model with symbolic Jacobians and automatic sensitivity equations; the compiled artefact runs and reproduces interface statistics of the Phase 2 PDMP runner within tolerance.</td></tr><tr><td><code>column-centric-state</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>compiled-runner</td><td>Per-step marshalling overhead is reduced to a small fraction (target &lt;10%) of essential numerical computation, vs. the majority share measured in Phase 0.</td></tr><tr><td><code>vivarium-api-inversion</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>every-process</td><td>Process definitions consist of (local state schema, ODE vector field, jump propensities) only; the runtime handles topology traversal and time-stepping. No process module contains its own step() loop.</td></tr><tr><td><code>10cubed-parallel-trajectories</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>gpu OR multi-core-cpu</td><td>≥10³ parallel single-cell trajectories run with throughput at least one order of magnitude above v2ecoli baseline. (Gating criterion.)</td></tr><tr><td><code>uq-compiled-vs-reference-w2-5sigma</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>N10000-per-Phase0-condition</td><td>W₂(p_compiled, p_phase2) ≤ 5·σ_MC across N=10⁴ trajectories for every Phase 0 condition. Confirms compilation doesn&#x27;t change the *distribution* of trajectories within stochastic noise.</td></tr><tr><td><code>uq-deterministic-fp-summation</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>repeated-runs-identical-seed</td><td>Parallel reductions (per-trajectory log-likelihoods, summary statistics) use pairwise or Kahan summation and give bit-identical results across runs with the same seed and input. No atomic-add reductions.</td></tr><tr><td><code>uq-1-over-sqrt-N-variance-scaling</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>abc-on-synthetic</td><td>Doubling trajectory count halves ABC posterior variance (within MC noise) — the 1/√N scaling expected of independent MC. Deviations indicate hidden correlations in the parallel runner that compromise inference validity.</td></tr><tr><td><code>uq-precision-mode-validated</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>where-fp32-claimed</td><td>Any FP32 deployment passes both (a) bit-equivalence test on a held-out trajectory subset vs FP64 reference and (b) ABC posterior KL divergence &lt; 0.01 vs FP64-derived posterior.</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Variants — planned configurations</h2>
+<p class='cap'>Distinct parameterisations / perturbations to be run.</p>
+<table class='ut'><thead><tr><th>name</th><th>description</th><th>params</th></tr></thead><tbody><tr><td><code>catalyst-export</code></td><td>Export Phase 2 PDMP to Catalyst.jl + ModelingToolkit — symbolic Jacobians, automatic forward-mode sensitivity equations, LLVM-optimised. Bit-equivalent to Phase 2 runner within solver tolerance.</td><td><code>{&#x27;backend&#x27;: &#x27;catalyst-jl&#x27;, &#x27;precision&#x27;: &#x27;fp64&#x27;}</code></td></tr><tr><td><code>column-centric-runtime</code></td><td>Replace nested-dict row-centric state with pre-allocated column-centric tensors. Targets per-step marshalling overhead &lt; 10% of essential compute.</td><td><code>{&#x27;runtime&#x27;: &#x27;column-centric-tensor&#x27;}</code></td></tr><tr><td><code>vivarium-api-inversion</code></td><td>Invert the Vivarium API so process definitions declare local state + ODE vector fields + jump propensities only; runtime handles topology traversal and time-stepping.</td><td><code>{&#x27;api&#x27;: &#x27;declarative-process-spec&#x27;}</code></td></tr><tr><td><code>gpu-parallel-1000</code></td><td>≥10³ parallel single-cell trajectories on GPU. The throughput gating criterion.</td><td><code>{&#x27;hardware&#x27;: &#x27;GPU&#x27;, &#x27;parallelism&#x27;: 1000, &#x27;precision&#x27;: &#x27;fp64&#x27;}</code></td></tr><tr><td><code>multi-core-cpu-parallel</code></td><td>Same throughput target on multi-core CPU (fallback for sites without GPU).</td><td><code>{&#x27;hardware&#x27;: &#x27;CPU&#x27;, &#x27;parallelism&#x27;: 1000}</code></td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Proceed condition (gate to next phase)</h2>
+<p class='cap' style='white-space:pre-wrap'>Catalyst.jl + column-centric runtime achieves ≥10³ parallel single-cell trajectories with W₂(p_compiled, p_phase2) ≤ 5·σ_MC. Marshalling overhead &lt; 10% of per-step compute. 1/√N posterior variance scaling holds on ABC test posteriors. FP summation order deterministic (pairwise/Kahan). Per-step compute orders-of-magnitude above v2ecoli baseline.</p>
+</div>
+
+</body></html>

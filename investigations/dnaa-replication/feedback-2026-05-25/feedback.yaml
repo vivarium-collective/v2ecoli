@@ -1,0 +1,41 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260525030415"
+  generated_at: "2026-05-25T15:42:17.805Z"
+  page_title: "Investigation: DnaA / Replication Initiation"
+  source_url: "file:///Users/haochen/Documents/Data/WCM/investigation-dnaa-replication-2026-05-25-5.html"
+annotations:
+  "studies-heading":
+    - ts: "2026-05-25T04:28:08.204Z"
+      author: "Haochen"
+      text: "I realize that it is not efficient to let it run many studies each time, because if the first study has serious problems, results in later studies are unlikely to make any sense. For the next run, can we just run the first study and make sure it's doing exactly what we want?"
+  "study-dnaa-00-parameter-foundation":
+    - ts: "2026-05-25T15:41:38.864Z"
+      author: "Haochen"
+      text: "My simplest request for Study 1: can we impose 150 min doubling time, 70 min C period, and 30 min D period (as provided by heuristic parameter set), and let it also run at least one doubling time?"
+  "study-dnaa-00-parameter-foundation-embeds":
+    - ts: "2026-05-25T04:09:17.757Z"
+      author: "Haochen"
+      text: "The chromosome state simulation lasts for 600s = 10min. Is this just a sanity check, or is it supposed to cover a whole cell cycle (150 min)? I'm confused by the purpose of this visualization."
+  "study-dnaa-00-parameter-foundation-review":
+    - ts: "2026-05-25T04:07:39.111Z"
+      author: "Haochen"
+      text: "Is there some pre-set limitation on the total time of configured run? Why it is still 60 min, rather than one doubling time (150 mins) or more?"
+  "study-dnaa-01-expression-dynamics-embeds":
+    - ts: "2026-05-25T04:14:01.093Z"
+      author: "Haochen"
+      text: "Why does the simulation stop at ~3800s? What's going on?"
+    - ts: "2026-05-25T04:22:13.404Z"
+      author: "Haochen"
+      text: "We need to add a plot to show the concentration of DnaA, namely, number of DnaA molecules / cell mass."
+  "study-dnaa-01-expression-dynamics-review":
+    - ts: "2026-05-25T04:10:59.171Z"
+      author: "Haochen"
+      text: "I don't know where the value 2.48 comes from. Why not simply set to 1?"
+  "study-dnaa-07-seed-sweep-embeds":
+    - ts: "2026-05-25T04:17:46.837Z"
+      author: "Haochen"
+      text: "This plot suggests that cell cycle time is not set to 150 min (9000s), but still 60 min (2400s). However, the simulation lasts for 9000s. I'm very confused by different durations of the simulation in different plots."

@@ -336,6 +336,24 @@ studies:
 - dnaa-05-itv2-comparison
 - dnaa-06-extrinsic-regulation
 - dnaa-07-seed-sweep
+# One study at a time per Haochen 2026-05-25. Focus study is the only
+# study run-all will execute; others must reach `approved` upstream
+# before they're unblocked. See memory: haochen-one-study-at-a-time.
+focus_study: dnaa-00-parameter-foundation
+# Lifecycle state per study (5 states): not-started, in-progress,
+# awaiting-expert-review, approved, blocked-by-prerequisite. Only one
+# study should be `in-progress` (the focus_study). Advancing the focus
+# study requires the prior one to be `approved`.
+study_lifecycle:
+  dnaa-00-parameter-foundation: in-progress
+  dnaa-01-expression-dynamics: blocked-by-prerequisite
+  dnaa-02-atp-hydrolysis: blocked-by-prerequisite
+  dnaa-02f-equilibrium-cleanup: blocked-by-prerequisite
+  dnaa-03-box-binding: blocked-by-prerequisite
+  dnaa-04-initiation-mechanism: blocked-by-prerequisite
+  dnaa-05-itv2-comparison: blocked-by-prerequisite
+  dnaa-06-extrinsic-regulation: blocked-by-prerequisite
+  dnaa-07-seed-sweep: blocked-by-prerequisite
 expert_docs:
 - replication_initiation_molecular_info
 - chromosome_replication_plan

@@ -380,9 +380,6 @@ visualizations:
   address: file:reports/figures/planned-comparisons/phase1_w2_interface_fidelity.html
   description: PLANNED — W₂(Millard ODE, Phase 0 v2ecoli) per central-metabolism intermediate. Green = within tolerance; amber
     = discuss; red = reject.
-- name: study-plan-summary
-  address: file:reports/figures/pdmp-01/study_plan_summary.html
-  description: One-page consolidated study card with planned runs / readouts / tests / variants.
 - name: millard-multi-perturbation
   address: file:reports/figures/pdmp-01/millard_multi_perturbation.html
   description: Three perturbation experiments (ATP/PEP/NADH stress) on the same axes, qualitative response fingerprints.
@@ -396,9 +393,6 @@ visualizations:
 - name: fba-bridge-architecture
   address: file:reports/figures/pdmp-01/fba_bridge_architecture.html
   description: FBA-bridge architecture
-- name: kinetic-constraint-curves
-  address: file:reports/figures/pdmp-01/kinetic_constraint_curves.html
-  description: Kinetic flux curves (Millard 2017)
 - name: millard-atp-drain-v2
   address: file:reports/figures/pdmp-01/millard_atp_drain_v2.html
   description: Millard 2017 — ATP drain (6-panel)
@@ -765,10 +759,6 @@ embed_visualizations:
   url: /reports/figures/pdmp-01/fba_bridge_architecture.html
   description: Per-study visualization rendered from reports/figures/pdmp-01/fba_bridge_architecture.html. Inlined into the
     downloaded report as iframe srcdoc.
-- name: Kinetic flux curves (Millard 2017)
-  url: /reports/figures/pdmp-01/kinetic_constraint_curves.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/kinetic_constraint_curves.html. Inlined into
-    the downloaded report as iframe srcdoc.
 - name: Millard 2017 — ATP drain
   url: /reports/figures/pdmp-01/millard_atp_drain.html
   description: Per-study visualization rendered from reports/figures/pdmp-01/millard_atp_drain.html. Inlined into the downloaded

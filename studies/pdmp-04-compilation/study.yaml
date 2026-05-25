@@ -347,22 +347,15 @@ visualizations:
   address: file:reports/figures/planned-comparisons/phase4_throughput.html
   description: PLANNED — log-log plot of trajectories/sec vs hardware (v2ecoli baseline → Phase 2 Python PDMP → Phase 4 compiled
     Catalyst.jl on CPU → GPU). Annotates the order-of-magnitude jumps.
-- name: study-plan-summary
-  address: file:reports/figures/pdmp-04/study_plan_summary.html
-  description: One-page consolidated study card.
-- name: per-step-compute-decomposition-PLANNED
-  address: file:reports/figures/pdmp-04/per_step_compute_decomposition.html
-  description: 'PLANNED — pie-chart comparison of per-step compute buckets (v2ecoli baseline vs Phase 4 compiled). Headline
-    justification: marshalling drops from ~70% to <10%.'
-- name: jax-julia-speedup
-  address: file:reports/figures/pdmp-04/jax_julia_speedup.html
-  description: Backend speedup projection
-- name: jit-compile-cost
-  address: file:reports/figures/pdmp-04/jit_compile_cost.html
-  description: JIT compile cost
-- name: memory-footprint
-  address: file:reports/figures/pdmp-04/memory_footprint.html
-  description: Per-cell memory footprint
+- name: jax-julia-speedup-real
+  address: file:reports/figures/pdmp-04/jax_julia_speedup_real.html
+  description: Backend throughput speedup vs v2ecoli baseline
+- name: jit-compile-cost-real
+  address: file:reports/figures/pdmp-04/jit_compile_cost_real.html
+  description: JIT compile cost amortization
+- name: memory-footprint-real
+  address: file:reports/figures/pdmp-04/memory_footprint_real.html
+  description: Per-cell memory footprint by bucket
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
@@ -552,19 +545,15 @@ tests:
   requires_simulation: phase4-memory-1024
   cites: []
 embed_visualizations:
-- name: Backend speedup projection
-  url: /reports/figures/pdmp-04/jax_julia_speedup.html
-  description: Per-study visualization rendered from reports/figures/pdmp-04/jax_julia_speedup.html. Inlined into the downloaded
-    report as iframe srcdoc.
-- name: JIT compile cost
-  url: /reports/figures/pdmp-04/jit_compile_cost.html
-  description: Per-study visualization rendered from reports/figures/pdmp-04/jit_compile_cost.html. Inlined into the downloaded
-    report as iframe srcdoc.
-- name: Per-cell memory footprint
-  url: /reports/figures/pdmp-04/memory_footprint.html
-  description: Per-study visualization rendered from reports/figures/pdmp-04/memory_footprint.html. Inlined into the downloaded
-    report as iframe srcdoc.
-- name: 'PLANNED: pdmp-04 per-step compute decomposition'
-  url: /reports/figures/pdmp-04/per_step_compute_decomposition.html
-  description: Per-study visualization rendered from reports/figures/pdmp-04/per_step_compute_decomposition.html. Inlined
-    into the downloaded report as iframe srcdoc.
+- name: Backend throughput speedup vs v2ecoli baseline
+  url: /reports/figures/pdmp-04/jax_julia_speedup_real.html
+  description: Per-study visualization rendered from reports/figures/pdmp-04/jax_julia_speedup_real.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: JIT compile cost amortization
+  url: /reports/figures/pdmp-04/jit_compile_cost_real.html
+  description: Per-study visualization rendered from reports/figures/pdmp-04/jit_compile_cost_real.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: Per-cell memory footprint by bucket
+  url: /reports/figures/pdmp-04/memory_footprint_real.html
+  description: Per-study visualization rendered from reports/figures/pdmp-04/memory_footprint_real.html. Inlined into the
+    downloaded report as iframe srcdoc.

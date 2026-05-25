@@ -1,0 +1,86 @@
+# Staged viz specs for pdmp-00-characterization.
+# Each viz declares (1) what it WILL show + (2) where its data lives.
+# The renderer auto-pulls available data OR renders an explicit skeleton.
+
+viz:
+  - name: phase0_cell_mass_ensemble_AUTO
+    study: pdmp-00
+    title: Phase 0 — ensemble cell mass(t)
+    caption: >-
+      Real cell-mass(t) trajectories across all replicates of the Phase 0
+      trajectory ensemble. Spaghetti shows individual seeds; thick line is
+      ensemble mean ± 1 SD band. Auto-pulled from .pbg/runs/phase0-traj/.
+    data:
+      loader: json-trajectory
+      source_glob: [".pbg/runs/phase0-traj/seed_*/trajectory.json"]
+      keys: ["listeners.mass.cell_mass"]
+    plot:
+      kind: ensemble-band
+      x_label: "Time (model seconds)"
+      y_label: "Cell mass (fg)"
+    awaits:
+      run_name: phase0-trajectory-ensemble-N64
+      fallback: skeleton
+    pinned_h: 760
+
+  - name: phase0_growth_rate_ensemble_AUTO
+    study: pdmp-00
+    title: Phase 0 — ensemble growth rate(t)
+    caption: >-
+      Instantaneous growth rate dμ/dt = (1/m) dm/dt across replicates.
+      Auto-pulled from the Phase 0 trajectory ensemble.
+    data:
+      loader: json-trajectory
+      source_glob: [".pbg/runs/phase0-traj/seed_*/trajectory.json"]
+      keys: ["listeners.mass.instantaneous_growth_rate"]
+    plot:
+      kind: ensemble-band
+      x_label: "Time (model seconds)"
+      y_label: "Instantaneous growth rate (1/s)"
+    awaits:
+      run_name: phase0-trajectory-ensemble-N64
+      fallback: skeleton
+    pinned_h: 760
+
+  - name: phase0_cv_growth_AUTO
+    study: pdmp-00
+    title: Phase 0 — cross-seed CV(t)
+    caption: >-
+      Coefficient of variation across replicates as a function of time.
+      Diagnostic for how fast the ensemble decoheres. Direct evidence about
+      the stochasticity budget Phase 1+ replacements must match.
+    data:
+      loader: json-trajectory
+      source_glob: [".pbg/runs/phase0-traj/seed_*/trajectory.json"]
+      keys:
+        - listeners.mass.cell_mass
+        - listeners.mass.dry_mass
+        - listeners.mass.protein_mass
+        - listeners.mass.volume
+    plot:
+      kind: cv-growth
+      x_label: "Time (model seconds)"
+      y_label: "Cross-seed CV (%)"
+    awaits:
+      run_name: phase0-trajectory-ensemble-N64
+      fallback: skeleton
+    pinned_h: 760
+
+  - name: phase0_endpoint_ATP_AUTO
+    study: pdmp-00
+    title: Phase 0 — ATP[c] endpoint per seed
+    caption: >-
+      ATP[c] count at the end of each replicate's 600 s run. Endpoint stats
+      summary auto-pulled from the per-seed summary JSON files.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/phase0-traj/seed_*/summary.json"]
+      keys: ["ATP[c]_count"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Master seed"
+      y_label: "ATP[c] count at t=600 s"
+    awaits:
+      run_name: phase0-trajectory-ensemble-N64
+      fallback: skeleton
+    pinned_h: 760

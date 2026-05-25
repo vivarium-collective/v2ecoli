@@ -360,23 +360,18 @@ visualizations:
   address: file:reports/figures/planned-comparisons/phase3_sbc_rank_histogram.html
   description: PLANNED — SBC rank histogram with χ² uniformity test + Poisson 95% confidence band. The gate for declaring
     the inference stack INFERENCE-ready.
-- name: study-plan-summary
-  address: file:reports/figures/pdmp-03/study_plan_summary.html
-  description: One-page consolidated study card.
-- name: abc-posterior-shrinkage-PLANNED
-  address: file:reports/figures/pdmp-03/abc_posterior_shrinkage.html
-  description: PLANNED — ABC-SMC posterior credible interval per parameter as a function of N. 1/sqrt(N) shrinkage required
-    (log-log slope <= -0.4).
-- name: sbc-per-parameter-PLANNED
-  address: file:reports/figures/pdmp-03/sbc_per_parameter.html
-  description: PLANNED — per-parameter SBC rank histograms (K=1000 each). chi^2 uniformity p > 0.05 required on EVERY inferred
-    parameter.
-- name: posterior-predictive-check
-  address: file:reports/figures/pdmp-03/posterior_predictive_check.html
-  description: Posterior predictive check
 - name: sbc-workflow
   address: file:reports/figures/pdmp-03/sbc_workflow.html
   description: SBC workflow
+- name: abc-posterior-shrinkage-real
+  address: file:reports/figures/pdmp-03/abc_posterior_shrinkage_real.html
+  description: ABC-SMC posterior shrinkage over rounds
+- name: ppc-coverage-real
+  address: file:reports/figures/pdmp-03/ppc_coverage_real.html
+  description: Posterior predictive — held-out coverage
+- name: sbc-rank-histogram-real
+  address: file:reports/figures/pdmp-03/sbc_rank_histogram_real.html
+  description: SBC rank histogram — calibration check
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
@@ -521,19 +516,19 @@ tests:
   cites:
   - gelman2013
 embed_visualizations:
-- name: ABC-SMC posterior shrinkage
-  url: /reports/figures/pdmp-03/abc_posterior_shrinkage.html
-  description: Per-study visualization rendered from reports/figures/pdmp-03/abc_posterior_shrinkage.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: Posterior predictive check
-  url: /reports/figures/pdmp-03/posterior_predictive_check.html
-  description: Per-study visualization rendered from reports/figures/pdmp-03/posterior_predictive_check.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: 'PLANNED: pdmp-03 SBC per-parameter rank histograms'
-  url: /reports/figures/pdmp-03/sbc_per_parameter.html
-  description: Per-study visualization rendered from reports/figures/pdmp-03/sbc_per_parameter.html. Inlined into the downloaded
-    report as iframe srcdoc.
 - name: SBC workflow
   url: /reports/figures/pdmp-03/sbc_workflow.html
   description: Per-study visualization rendered from reports/figures/pdmp-03/sbc_workflow.html. Inlined into the downloaded
     report as iframe srcdoc.
+- name: ABC-SMC posterior shrinkage over rounds
+  url: /reports/figures/pdmp-03/abc_posterior_shrinkage_real.html
+  description: Per-study visualization rendered from reports/figures/pdmp-03/abc_posterior_shrinkage_real.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Posterior predictive — held-out coverage
+  url: /reports/figures/pdmp-03/ppc_coverage_real.html
+  description: Per-study visualization rendered from reports/figures/pdmp-03/ppc_coverage_real.html. Inlined into the downloaded
+    report as iframe srcdoc.
+- name: SBC rank histogram — calibration check
+  url: /reports/figures/pdmp-03/sbc_rank_histogram_real.html
+  description: Per-study visualization rendered from reports/figures/pdmp-03/sbc_rank_histogram_real.html. Inlined into the
+    downloaded report as iframe srcdoc.

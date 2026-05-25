@@ -336,10 +336,6 @@ visualizations:
   address: file:reports/figures/planned-comparisons/phase0_growth_rate_ensemble.html
   description: PLANNED — violin plot of steady-state µ over N=64 replicates × 3 conditions. Bound by Phase 0 MCSE target (≤
     10% of inter-condition effect size).
-- name: study-plan-summary
-  address: file:reports/figures/pdmp-00/study_plan_summary.html
-  description: One-page consolidated study card — planned runs Gantt, readouts table, tests table, variants table, proceed-condition.
-    Critique-able by an expert in one read.
 - name: v2ecoli-baseline-100step
   address: file:reports/figures/pdmp-00/v2ecoli_baseline_100step.html
   description: 100-step run via dashboard, 612 MB trajectory, 6-panel viz showing ~14% of one doubling cycle.
@@ -350,21 +346,9 @@ visualizations:
 - name: markov-blanket-metabolism
   address: file:reports/figures/pdmp-00/markov_blanket_metabolism.html
   description: Markov blanket — v2ecoli metabolism
-- name: per-condition-growth-rate
-  address: file:reports/figures/pdmp-00/per_condition_growth_rate.html
-  description: Per-condition growth rate
-- name: profile-decomposition-bars
-  address: file:reports/figures/pdmp-00/profile_decomposition_bars.html
-  description: Per-step compute decomposition
-- name: rng-seeding-fix-proof
-  address: file:reports/figures/pdmp-00/rng_seeding_fix_proof.html
-  description: RNG seeding fix — before / after
 - name: v2ecoli-baseline-v2
   address: file:reports/figures/pdmp-00/v2ecoli_baseline_v2.html
   description: v2ecoli baseline — bootstrap (6-panel)
-- name: variable-categorization-bars
-  address: file:reports/figures/pdmp-00/variable_categorization_bars.html
-  description: Variable categorization — illustrative
 - name: phase0-pilot-single-condition-real
   address: file:reports/figures/pdmp-00/phase0_pilot_single_condition_REAL.html
   description: Phase 0 pilot — single condition × N=8 endpoint
@@ -386,6 +370,18 @@ visualizations:
 - name: phase0-growth-rate-ensemble-real
   address: file:reports/figures/pdmp-00/phase0_growth_rate_ensemble_REAL.html
   description: Phase 0 growth rate ensemble (real, N=64)
+- name: phase0-cell-mass-ensemble-auto
+  address: file:reports/figures/pdmp-00/phase0_cell_mass_ensemble_AUTO.html
+  description: Phase 0 — ensemble cell mass(t)
+- name: phase0-cv-growth-auto
+  address: file:reports/figures/pdmp-00/phase0_cv_growth_AUTO.html
+  description: Phase 0 — cross-seed CV(t)
+- name: phase0-endpoint-atp-auto
+  address: file:reports/figures/pdmp-00/phase0_endpoint_ATP_AUTO.html
+  description: Phase 0 — ATP[c] endpoint per seed
+- name: phase0-growth-rate-ensemble-auto
+  address: file:reports/figures/pdmp-00/phase0_growth_rate_ensemble_AUTO.html
+  description: Phase 0 — ensemble growth rate(t)
 design_status: approved
 implementation_status: prototype
 simulation_status: ran
@@ -681,18 +677,6 @@ embed_visualizations:
   url: /reports/figures/pdmp-00/markov_blanket_metabolism.html
   description: Per-study visualization rendered from reports/figures/pdmp-00/markov_blanket_metabolism.html. Inlined into
     the downloaded report as iframe srcdoc.
-- name: Per-condition growth rate
-  url: /reports/figures/pdmp-00/per_condition_growth_rate.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/per_condition_growth_rate.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Per-step compute decomposition
-  url: /reports/figures/pdmp-00/profile_decomposition_bars.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/profile_decomposition_bars.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: RNG seeding fix — before / after
-  url: /reports/figures/pdmp-00/rng_seeding_fix_proof.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/rng_seeding_fix_proof.html. Inlined into the
-    downloaded report as iframe srcdoc.
 - name: v2ecoli baseline 100 steps
   url: /reports/figures/pdmp-00/v2ecoli_baseline_100step.html
   description: Per-study visualization rendered from reports/figures/pdmp-00/v2ecoli_baseline_100step.html. Inlined into the
@@ -709,10 +693,6 @@ embed_visualizations:
   url: /reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html
   description: Per-study visualization rendered from reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html. Inlined into the
     downloaded report as iframe srcdoc.
-- name: Variable categorization — illustrative
-  url: /reports/figures/pdmp-00/variable_categorization_bars.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/variable_categorization_bars.html. Inlined into
-    the downloaded report as iframe srcdoc.
 - name: Phase 0 pilot — single condition × N=8 endpoint
   url: /reports/figures/pdmp-00/phase0_pilot_single_condition_REAL.html
   description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_pilot_single_condition_REAL.html. Inlined
@@ -740,4 +720,20 @@ embed_visualizations:
 - name: Phase 0 growth rate ensemble (real, N=64)
   url: /reports/figures/pdmp-00/phase0_growth_rate_ensemble_REAL.html
   description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_growth_rate_ensemble_REAL.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Phase 0 — ensemble cell mass(t)
+  url: /reports/figures/pdmp-00/phase0_cell_mass_ensemble_AUTO.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_cell_mass_ensemble_AUTO.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Phase 0 — cross-seed CV(t)
+  url: /reports/figures/pdmp-00/phase0_cv_growth_AUTO.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_cv_growth_AUTO.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: Phase 0 — ATP[c] endpoint per seed
+  url: /reports/figures/pdmp-00/phase0_endpoint_ATP_AUTO.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_endpoint_ATP_AUTO.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: Phase 0 — ensemble growth rate(t)
+  url: /reports/figures/pdmp-00/phase0_growth_rate_ensemble_AUTO.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_growth_rate_ensemble_AUTO.html. Inlined
     into the downloaded report as iframe srcdoc.

@@ -440,29 +440,21 @@ visualizations:
   address: file:reports/figures/planned-comparisons/phase2_jump_ad_test.html
   description: PLANNED — Anderson-Darling Exp(1) test on cumulative-hazard ∫λ(s)ds at successive events. Will render Q-Q plot
     + p-value per jump process.
-- name: study-plan-summary
-  address: file:reports/figures/pdmp-02/study_plan_summary.html
-  description: One-page consolidated study card.
-- name: stochastic-gene-trajectories-PLANNED
-  address: file:reports/figures/pdmp-02/stochastic_gene_trajectories.html
-  description: PLANNED — single-cell stochastic mRNA + protein trajectories per gene, 4 replicates each. The inter-cell variability
-    the Phase 2 PDMP should reproduce within CV [0.2, 0.4].
-- name: division-time-distribution-PLANNED
-  address: file:reports/figures/pdmp-02/division_time_distribution.html
-  description: PLANNED — first-passage time distribution for cell-volume threshold crossing. Median + CV gating against literature
-    67 min.
-- name: gillespie-trajectory
-  address: file:reports/figures/pdmp-02/gillespie_trajectory.html
-  description: Gillespie SSA trajectory
-- name: inheritance-distribution-v2
-  address: file:reports/figures/pdmp-02/inheritance_distribution_v2.html
-  description: Inheritance distribution
-- name: phase2-event-rates
-  address: file:reports/figures/pdmp-02/phase2_event_rates.html
-  description: Phase 2 event rates
-- name: waiting-time-distribution
-  address: file:reports/figures/pdmp-02/waiting_time_distribution.html
-  description: Waiting-time distribution
+- name: jump-division-time-distribution-real
+  address: file:reports/figures/pdmp-02/jump_division_time_distribution_real.html
+  description: Jump-process division time distribution — multi-gen
+- name: jump-event-rates-real
+  address: file:reports/figures/pdmp-02/jump_event_rates_real.html
+  description: Per-cell event rates — spans 6+ OOM
+- name: jump-gillespie-trajectory-real
+  address: file:reports/figures/pdmp-02/jump_gillespie_trajectory_real.html
+  description: Jump-process — single-cell mRNA/protein trajectory
+- name: jump-inheritance-distribution-real
+  address: file:reports/figures/pdmp-02/jump_inheritance_distribution_real.html
+  description: Jump-process inheritance — daughter1 − daughter2 distribution
+- name: jump-inter-event-waiting-times
+  address: file:reports/figures/pdmp-02/jump_inter_event_waiting_times.html
+  description: Jump-process inter-event waiting times — exponentiality test
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
@@ -647,27 +639,23 @@ tests:
   cites:
   - cao2006
 embed_visualizations:
-- name: 'PLANNED: pdmp-02 division-time distribution'
-  url: /reports/figures/pdmp-02/division_time_distribution.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/division_time_distribution.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Gillespie SSA trajectory
-  url: /reports/figures/pdmp-02/gillespie_trajectory.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/gillespie_trajectory.html. Inlined into the downloaded
-    report as iframe srcdoc.
-- name: Inheritance distribution
-  url: /reports/figures/pdmp-02/inheritance_distribution_v2.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/inheritance_distribution_v2.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Phase 2 event rates
-  url: /reports/figures/pdmp-02/phase2_event_rates.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/phase2_event_rates.html. Inlined into the downloaded
-    report as iframe srcdoc.
-- name: 'PLANNED: pdmp-02 stochastic gene-expression trajectories'
-  url: /reports/figures/pdmp-02/stochastic_gene_trajectories.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/stochastic_gene_trajectories.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Waiting-time distribution
-  url: /reports/figures/pdmp-02/waiting_time_distribution.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/waiting_time_distribution.html. Inlined into
-    the downloaded report as iframe srcdoc.
+- name: Jump-process division time distribution — multi-gen
+  url: /reports/figures/pdmp-02/jump_division_time_distribution_real.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_division_time_distribution_real.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Per-cell event rates — spans 6+ OOM
+  url: /reports/figures/pdmp-02/jump_event_rates_real.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_event_rates_real.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: Jump-process — single-cell mRNA/protein trajectory
+  url: /reports/figures/pdmp-02/jump_gillespie_trajectory_real.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_gillespie_trajectory_real.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Jump-process inheritance — daughter1 − daughter2 distribution
+  url: /reports/figures/pdmp-02/jump_inheritance_distribution_real.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_inheritance_distribution_real.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Jump-process inter-event waiting times — exponentiality test
+  url: /reports/figures/pdmp-02/jump_inter_event_waiting_times.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_inter_event_waiting_times.html. Inlined
+    into the downloaded report as iframe srcdoc.

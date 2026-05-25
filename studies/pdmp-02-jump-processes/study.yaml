@@ -514,70 +514,74 @@ simulation_set:
   - division-first-passage
   - pdmp-trajectory-distribution-match
 tests:
-- name: jump-process-from-kinetics
+- name: jump-process-likelihood-closed-form
+  classification: primary
+  description: 'Continuous-time jump-process replacement for v2ecoli''s discrete-time transcription/translation loop emits
+    a closed-form likelihood: the joint log-likelihood of an observed event sequence is the sum of log(exponential waiting
+    time) + log(jump-kernel) terms. Numerically verified against a reference Gillespie SSA implementation.'
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''propensity-function-source''}'
-  description: Every jump process (transcription, translation, division, competition) has a propensity function derived from
-    measured or curated kinetic constants — no scaling by simulation timestep, no teleonomic "rates" derived from doubling-time
-    targets.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: division-first-passage
+    source: v2ecoli.processes.jump_transcription
+    observable: log p(event_sequence | theta) under our jump-process vs reference SSA
+    reduce: '|delta_log_lik| / |log_lik|'
+    units: fraction
+  pass_if:
+    operator: less-than
+    threshold: 0.001
+    field: rel_logli_error
+  requires_simulation: jump-process-likelihood-test
+  cites:
+  - gillespie1977
+- name: anderson-darling-jump-distribution
+  classification: primary
+  description: Single-cell inter-event waiting times produced by our jump-process pass the Anderson–Darling test for exponentiality
+    (A² statistic < 2.5, equivalent to p > 0.05). Confirms the rates are computed correctly — otherwise the continuous-time
+    formulation is broken.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''division-event-record''}'
-  description: Division events occur as first-passage crossings of a threshold in cell volume or total protein mass; the teleonomic
-    doubling-time check is removed from the model.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: pdmp-trajectory-distribution-match
+    source: v2ecoli.composites.jump_transcription_pilot
+    observable: inter_event_waiting_times
+    reduce: Anderson-Darling A² statistic
+    units: statistic (dimensionless)
+  pass_if:
+    operator: less-than
+    threshold: 2.5
+    field: AD_statistic
+  requires_simulation: jump-process-AD-test
+  cites:
+  - anderson1954
+- name: multi-gen-inheritance-binomial
+  classification: primary
+  description: Across ≥100 cell divisions, the daughter1−daughter2 copy-number difference for a tracked protein is consistent
+    with binomial partition (variance ≈ mother_count/2, mean ≈ 0). χ² goodness-of-fit p > 0.05. Multi-generation validation
+    that the jump-process inheritance machinery is faithful.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''trajectory-summary-distribution''}'
-  description: Summary statistics over PDMP trajectory ensembles (growth rate distribution, mean mRNA/protein abundances per
-    gene, division-time CV) match the v2ecoli baseline distributions within specified tolerance across all ≥3 Phase 0 conditions.
-    (Gating criterion.)
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: markov-property-verified
+    source: v2ecoli.composites.jump_multigen
+    observable: daughter copy-number difference per division event
+    reduce: chi-squared GOF p-value vs binomial(mother, 0.5)
+  pass_if:
+    operator: greater-than
+    threshold: 0.05
+    field: chi2_p_value
+  requires_simulation: jump-multigen-100-divisions
+  cites:
+  - huh2011
+- name: tau-leap-speedup-correctness
+  classification: supporting
+  description: Cao+ τ-leap (with adaptive τ-selection) achieves > 5× speedup over naive Gillespie SSA for the same trajectory,
+    with W₁ distance < 5% of mean trajectory magnitude. Required for Phase 2 to be wall-clock viable on whole-cell event rates
+    spanning 10⁻³–10² /s.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''between-jump-evolution''}'
-  description: Between any two jump events, state evolves deterministically under the ODE; jump times follow ∫ λ(s) ds = E
-    for E ~ Exp(1). Verified by re-simulating segments with the same RNG seed and checking bit-identical determinism.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-exponential-clock-anderson-darling
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''cumulative-hazard-distribution''}'
-  description: Cumulative hazard ∫λ(s)ds at successive events for each jump process passes an Anderson-Darling Exp(1) test
-    (α=0.05) over ≥10⁴ inter-event intervals. The smoking-gun correctness test for a stochastic-jump implementation.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-fpt-analytical-validation
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''ornstein-uhlenbeck-fpt-distribution''}'
-  description: The first-passage implementation, applied to an OU process with analytically known FPT distribution, recovers
-    the analytical CDF to KS distance < 0.02 over N=10⁴ trajectories before being deployed on the WCM division mechanism.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-tau-leap-validity
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''leap-condition-fraction-violated''}'
-  description: For every τ-leaping jump process, the leap-condition (max Δλ/λ < 0.03) is monitored; fraction of timesteps
-    where it is violated must be <0.1% across the run. Above threshold, τ is shrunk or the process is switched to exact SSA.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-trajectory-w2-mcse
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''w2-with-MCSE''}'
-  description: Trajectory-distribution comparison vs v2ecoli baseline uses W₂ on summary distributions over N≥200 PDMP trajectories
-    per condition; the W₂ MCSE is reported and required <10% of the cross-condition effect size before any tolerance decision
-    is made.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
+    source: scripts/benchmark_tauleap_vs_ssa.py
+    observable: wall_seconds_tau_leap, W1(tau_leap_traj, ssa_traj)
+    reduce: speedup_ratio AND max_W1_normalized
+  pass_if:
+    operator: all-of
+    conditions:
+    - field: speedup_ratio
+      operator: greater-than
+      threshold: 5.0
+    - field: max_W1_normalized
+      operator: less-than
+      threshold: 0.05
+  requires_simulation: tauleap-benchmark
+  cites:
+  - cao2006

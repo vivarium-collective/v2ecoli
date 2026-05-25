@@ -598,86 +598,49 @@ simulation_set:
   - active-causal-discovery-loop
   - benchmark-recovery-with-credible-intervals
 tests:
-- name: annotation-bayes-model-compare
+- name: pc-recovers-known-edges
+  classification: primary
+  description: PC algorithm, given the Phase 0 reference ensemble + simulated knockouts of ≥5 genes, recovers ≥80% of the
+    known causal edges in the v2ecoli ground-truth graph (the edges we put in by construction when designing the model). Confirms
+    the discovery machinery is working on a problem where the answer is known.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''marginal-likelihood-estimator''}'
-  description: Marginal likelihoods are estimated via Russian Roulette / doubly-intractable methods with quantified variance
-    bounds; the implementation passes published unit tests on simpler model-comparison benchmarks before being applied to
-    WCM candidates.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: active-causal-discovery-loop
+    source: scripts/run_pc_discovery.py
+    observable: recovered DAG edges vs ground-truth WCM graph
+    reduce: Recall = |recovered ∩ truth| / |truth|
+  pass_if:
+    operator: greater-than
+    threshold: 0.8
+    field: recall
+  requires_simulation: pc-recovery-ground-truth
+  cites:
+  - spirtes2000
+- name: intervention-eig-beats-observational
+  classification: primary
+  description: Expected information gain (EIG) per run with interventional gene-knockout design is ≥10× the EIG of pure-observational
+    baseline. Observational alone cannot distinguish Markov-equivalent DAGs; interventions are the gain.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''intervention-selection-record''}'
-  description: The active-inference loop proposes in-silico interventions (knockouts, overexpression) and selects them by
-    expected information gain over the candidate annotation set; the selection record shows the loop converges in expected
-    number of interventions vs. random selection.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: benchmark-recovery-with-credible-intervals
+    source: scripts/compute_eig.py
+    observable: EIG_interventional / EIG_observational
+    reduce: ratio
+  pass_if:
+    operator: greater-than
+    threshold: 10.0
+    field: eig_ratio
+  requires_simulation: phase5-eig-comparison
+  cites:
+  - lindley1956
+- name: bh-fdr-discovery-calibrated
+  classification: supporting
+  description: With BH-FDR correction at α=0.05 on per-gene Bayes factors, the false discovery rate over a held-out null subset
+    stays below the nominal α (measured by including ≥10 known-null genes as positive controls).
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''posterior-recovery-rate''}'
-  description: On a curated benchmark of ≥20 E. coli genes with established functions, the pipeline recovers the correct annotation
-    at the published credible level, with credible-interval widths that shrink predictably as sample size grows. (Gating criterion
-    for the whole investigation.)
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: genome-wide-resource-estimate
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''compute-cost-extrapolation''}'
-  description: Per-annotation compute cost on the benchmark extrapolates to a defensible total compute estimate for genome-wide
-    scaling (≥4000 E. coli genes); the estimate identifies the binding constraint (compute time, memory, or convergence).
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-rr-estimator-ess
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''rr-estimator-N-eff''}'
-  description: Russian Roulette marginal-likelihood estimates carry an ESS-equivalent N_eff; estimates with N_eff < 100 are
-    flagged and either rerun with a tighter proposal or replaced by a documented-bias method (TI / nested sampling).
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-bayes-factor-CIs
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''log-bayes-factor-with-95-CI''}'
-  description: log BF reported with 95% bootstrap CI. Annotation calls only fire when the CI lies entirely above the Jeffreys
-    |log BF| > 1 threshold ("substantial evidence").
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-sbc-at-model-comparison-level
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''model-posterior-rank-uniformity''}'
-  description: 'Extended SBC over K=500 synthetic datasets from known true annotations: rank histogram of true-model posterior
-    probability passes χ² uniformity (p > 0.05). Required before trusting the pipeline on real annotations.'
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-eig-MCSE-nonzero
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''expected-information-gain-with-MCSE''}'
-  description: Every intervention proposal carries an EIG estimate ± MCSE; proposals whose EIG CI overlaps zero are not selected.
-    NMC bias bound reported, or DV/DAD variational lower bound used where feasible.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-fdr-on-benchmark-recoveries
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''benjamini-hochberg-q-value''}'
-  description: Recoveries on the benchmark gene set are reported with BH-adjusted q-values; success claim requires q ≤ 0.1
-    at the gene-set level, not just per-gene posterior probability.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-credible-interval-shrinkage-rate
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''ci-width-vs-sample-size''}'
-  description: Credible-interval-width-vs-N curves are fit on a log-log scale; expected slope -1/2 for well-identified parameters.
-    Slopes shallower than -0.4 trigger MCMC mixing diagnostics and identifiability re-check.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
+    source: scripts/run_per_gene_inference.py
+    observable: fraction of declared-discoveries that are known-null
+    reduce: empirical FDR
+  pass_if:
+    operator: less-than
+    threshold: 0.05
+    field: empirical_FDR
+  requires_simulation: phase5-fdr-validation
+  cites:
+  - benjamini1995

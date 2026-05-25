@@ -432,67 +432,47 @@ simulation_set:
   - column-centric-state
   - vivarium-api-inversion
 tests:
-- name: catalyst-export-works
+- name: jax-compiled-throughput-10x
+  classification: primary
+  description: JAX + Diffrax compilation of the Phase 3 PDMP achieves ≥10× wall-clock throughput vs the v2ecoli Python+glpk
+    baseline on a single CPU, for the canonical 600-step M9-glucose trajectory. Floor for HPC viability.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''compiled-model-artefact''}'
-  description: The PDMP exports to a Catalyst.jl / ModelingToolkit model with symbolic Jacobians and automatic sensitivity
-    equations; the compiled artefact runs and reproduces interface statistics of the Phase 2 PDMP runner within tolerance.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: column-centric-state
+    source: scripts/benchmark_compiled.py --backend jax
+    observable: wall_seconds_per_trajectory
+    reduce: v2ecoli_baseline_seconds / jax_seconds
+  pass_if:
+    operator: greater-than
+    threshold: 10.0
+    field: speedup_ratio
+  requires_simulation: phase4-jax-benchmark
+  cites:
+  - bradbury2018
+  - kidger2021
+- name: numerical-equivalence-with-phase3
+  classification: primary
+  description: JAX-compiled trajectory and Phase 3 reference trajectory at the same seed agree on all interface observables
+    to L∞ error < 1e-4 after one full doubling cycle. Confirms the compilation didn't introduce numerical drift.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''per-step-marshalling-fraction''}'
-  description: Per-step marshalling overhead is reduced to a small fraction (target <10%) of essential numerical computation,
-    vs. the majority share measured in Phase 0.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: vivarium-api-inversion
+    source: compare jax vs python-reference trajectories at seed=0
+    observable: all interface observables(t)
+    reduce: L_inf relative error
+  pass_if:
+    operator: less-than
+    threshold: 0.0001
+    field: L_inf_error
+  requires_simulation: phase4-equivalence-test
+  cites: []
+- name: memory-fits-1024-cells-per-node
+  classification: supporting
+  description: Steady-state RAM footprint of N=1024 cells × full PDMP state stays under 256 GB on a single HPC node. Currently
+    projected from per-cell sizing in colonies-01; Phase 4 must verify directly with a 1024-cell ensemble.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''declarative-process-spec''}'
-  description: Process definitions consist of (local state schema, ODE vector field, jump propensities) only; the runtime
-    handles topology traversal and time-stepping. No process module contains its own step() loop.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: 10cubed-parallel-trajectories
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''parallel-throughput-benchmark''}'
-  description: ≥10³ parallel single-cell trajectories run with throughput at least one order of magnitude above v2ecoli baseline.
-    (Gating criterion.)
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-compiled-vs-reference-w2-5sigma
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''w2-compiled-vs-phase2''}'
-  description: W₂(p_compiled, p_phase2) ≤ 5·σ_MC across N=10⁴ trajectories for every Phase 0 condition. Confirms compilation
-    doesn't change the *distribution* of trajectories within stochastic noise.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-deterministic-fp-summation
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''parallel-reduction-result-stability''}'
-  description: Parallel reductions (per-trajectory log-likelihoods, summary statistics) use pairwise or Kahan summation and
-    give bit-identical results across runs with the same seed and input. No atomic-add reductions.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-1-over-sqrt-N-variance-scaling
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''posterior-variance-vs-N''}'
-  description: Doubling trajectory count halves ABC posterior variance (within MC noise) — the 1/√N scaling expected of independent
-    MC. Deviations indicate hidden correlations in the parallel runner that compromise inference validity.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-precision-mode-validated
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''fp32-vs-fp64-posterior-equivalence''}'
-  description: Any FP32 deployment passes both (a) bit-equivalence test on a held-out trajectory subset vs FP64 reference
-    and (b) ABC posterior KL divergence < 0.01 vs FP64-derived posterior.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
+    source: scripts/profile_memory.py --n-cells 1024
+    observable: RSS at end of 600-step run
+    reduce: GB
+  pass_if:
+    operator: less-than
+    threshold: 256.0
+    field: RSS_GB
+  requires_simulation: phase4-memory-1024
+  cites: []

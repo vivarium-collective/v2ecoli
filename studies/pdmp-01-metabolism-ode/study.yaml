@@ -584,80 +584,91 @@ simulation_set:
   - fba-bridge-composite-runs
   - interface-matches-reference
 tests:
-- name: millard-standalone-via-copasi
+- name: millard-published-ref-state-reproduced
+  classification: primary
+  description: Running the standalone Millard 2017 SBML (BioModels MODEL1505110000) via pbg-copasi's CopasiUTCProcess from
+    t=0 to steady-state (~10⁴ s simulated) reproduces the published Fig 2 reference concentrations within 5% relative error
+    across all 17 central-carbon metabolites (ATP, ADP, NAD, NADH, NADP, NADPH, G6P, F6P, FDP, PEP, PYR, AKG, CIT, MAL, FUM,
+    COA, ACCOA). Without this, every Phase 1 result is suspect.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''process-bigraph-process''}'
-  description: The Millard 2017 SBML (BioModels MODEL1505110000) runs as a standalone PB process via pbg-copasi's CopasiUTCProcess;
-    a steady-state solve via CopasiSteadyStateStep reproduces the published reference state (M9-glucose, dilution rate 0.1/h,
-    pH 7.0, 37°C) within solver tolerance.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: implemented
-- name: fba-bridge-composite-runs
+    source: v2ecoli.composites.millard2017_metabolism (long run)
+    observable: species_concentrations at steady-state
+    reduce: max relative-error vs Millard 2017 Fig 2 table
+    units: fraction (dimensionless)
+    reference: references/papers.bib#millard2017
+  pass_if:
+    operator: less-than
+    threshold: 0.05
+    field: max_rel_error
+  requires_simulation: millard-standalone-steady-state
+  cites:
+  - millard2017
+- name: fba-bridge-round-trip-residual
+  classification: primary
+  description: The FBABridge unit conversion (mM concentration → molecule count → back to mM) preserves the value within machine
+    precision (residual < 1e-9 mM) across all 25 shared central-carbon metabolites. Verified by tests/test_fba_bridge.py::test_mM_count_roundtrip
+    — currently green.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''bridged-composite''}'
-  description: A composite that wires the pbg-copasi Millard process to v2ecoli's existing multi-objective FBA (modular_fba)
-    runs end-to-end, with both subsystems exchanging fluxes at a documented seam schema, and the full v2ecoli WCM remains
-    viable across at least one full generation.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: interface-matches-reference
+    source: tests/test_fba_bridge.py::test_mM_count_roundtrip
+    observable: '|mM -> count -> mM residual|'
+    reduce: max across {ATP, NAD, G6P, PEP, FUM} at concentrations {0.001, 0.1, 1.0, 2.5, 100.0}
+    units: mM
+  pass_if:
+    operator: less-than
+    threshold: 1.0e-09
+    field: max_residual_mM
+  requires_simulation: none (pure-function test)
+  cites: []
+- name: fba-bridge-coupled-pilot-runs
+  classification: primary
+  description: 'millard_fba_bridge composite runs for 100 model-seconds without COPASI emitting NaN. ATP[c] (Millard side)
+    stays within ±20% of the published 2.57 mM, and the v2ecoli bulk pool receives the bridge-pushed ATP[c] count within the
+    same tolerance. Currently FAILING — bridge fires before Millard initializes, COPASI hits ''invalid state at t=0.2s'';
+    follow-up: convert FBABridge Step→Process with explicit interval.'
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''interface-statistic-comparison''}'
-  description: ODE + LQR interface statistics (growth rate, glucose uptake, key intermediate concentrations, ATP/NADH production)
-    match the Phase 0 reference Xarray dataset within specified tolerance across all ≥3 conditions. (Gating criterion.)
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: causal-teleonomic-partition
+    source: v2ecoli.composites.millard_fba_bridge
+    observable: central_metabolites.ATP at t=100
+    reduce: '|simulated - 2.57|/2.57'
+    units: fraction
+  pass_if:
+    operator: less-than
+    threshold: 0.2
+    field: rel_err_ATP
+  requires_simulation: millard-fba-bridge-pilot
+  cites:
+  - millard2017
+- name: lqr-growth-rate-tracking
+  classification: primary
+  description: Outer LQR controller drives Millard's biomass-production rate toward a reference growth-rate trajectory (Phase
+    0's mean μ(t) under M9-glucose) with RMS tracking error < 10% across the full doubling cycle. Tests whether the kinetic-ODE
+    + LQR composite can replace v2ecoli's multi-objective FBA biomass objective without sacrificing growth-rate control.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''parameter-catalog''}'
-  description: Every parameter introduced in this study is labelled causal (kinetic constant, enzyme abundance, SBML rate-law
-    constant from Millard 2017) or teleonomic (LQR weight, reference trajectory, FBA-bridge seam policy), with a written justification
-    per parameter.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: predictor-corrector-shim
+    source: v2ecoli.composites.millard_lqr
+    observable: biomass_production_rate(t)
+    reduce: RMS(simulated - reference) / mean(reference)
+    units: fraction
+  pass_if:
+    operator: less-than
+    threshold: 0.1
+    field: rms_tracking_error
+  requires_simulation: lqr-tracking-3-conditions
+  cites:
+  - millard2017
+  - kwakernaak1972
+- name: interface-statistics-match-phase0-W2
+  classification: primary
+  description: After Phase 1 substitution, the W₂ (2-Wasserstein) distance per interface observable between Phase 1's N=64
+    ensemble and Phase 0's reference ensemble stays below 5% of the inter-condition effect size for ≥3 environmental conditions.
+    Gating criterion for Phase 2.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''integration-record''}'
-  description: The ODE integrates continuously within each v2ecoli timestep via a predictor-corrector shim; discontinuities
-    are localized and recorded rather than silent.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-solver-convergence-richardson
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''step-doubling-richardson-error''}'
-  description: Step-doubling Richardson extrapolation confirms LSODA at (rtol=1e-6, atol=1e-9) attains its claimed order;
-    reported empirical error per variable stays below the Phase 0 MC noise floor [[uq-bootstrap-cis-on-interface-stats]].
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-w2-against-phase0-ensemble
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''wasserstein2-per-variable''}'
-  description: Per-interface-variable W₂(p_ODE, p_phase0) falls within the bootstrap 95% CI of the Phase 0 self-replicate
-    W₂ spread — i.e., the ODE+LQR output is indistinguishable from a fresh replicate of the same condition. KS distance reported
-    as secondary check.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-fim-identifiability
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''fim-condition-number''}'
-  description: Fisher Information Matrix at the reference parameter point, computed via automatic differentiation of the likelihood
-    under simulated Phase-3 RNA-seq + metabolomics measurement models, has κ(FIM) < 10⁸. Profile-likelihood widths reported
-    per parameter; non-identifiable parameters are flagged and either reparameterized or moved to teleonomic.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-lqr-sobol-sensitivity
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''sobol-first-order-and-total''}'
-  description: First-order and total Sobol indices for every LQR weight on (steady-state growth rate, glucose uptake flux,
-    ATP yield). Weights with total index < 0.01 on every observable are flagged free-parameter rot and removed.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
+    source: compare .pbg/runs/phase0-reference vs .pbg/runs/phase1-millard
+    observable: all interface observables
+    reduce: W2_distance / inter_condition_effect_size
+    units: fraction
+  pass_if:
+    operator: less-than
+    threshold: 0.05
+    field: max_W2_ratio
+  requires_simulation: millard-fba-bridge-3-conditions
+  cites:
+  - villani2008

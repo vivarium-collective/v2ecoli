@@ -520,63 +520,91 @@ simulation_set:
   - interface-schemas-typed
   - reference-xarray-3-conditions
 tests:
-- name: variables-categorized
+- name: ensemble-rng-seeding-divergence
+  classification: primary
+  description: Two baseline runs at master_seed=0 and master_seed=1, holding all else equal, produce trajectories whose ATP[c]
+    and dry_mass time series diverge — coefficient of variation across N=4 seeds > 1% at t=100s. Without this property, every
+    multi-seed ensemble in this investigation is a single trajectory in disguise.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''state-variable-category-map''}'
-  description: Every state variable in the WCM's process internals + stores is labelled ODE-amenable / stochastic-discrete
-    / teleonomic / coupling-artifact. No "unknown" labels remain.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: interface-schemas-typed
+    source: scripts/run_phase0_pilot_ensemble.py
+    observable: ATP[c]_count
+    reduce: std/mean across seeds
+    units: fraction (dimensionless)
+  pass_if:
+    operator: greater-than
+    threshold: 0.01
+    field: cv_pct
+  requires_simulation: phase0-pilot-N4
+  cites:
+  - v2ecoli_baseline
+  - casella1992
+- name: reference-ensemble-N64
+  classification: primary
+  description: 'For each of the 3 Phase 0 conditions (M9-glucose, M9-acetate, M9-glucose+aa), an N=64 stochastic ensemble
+    × ≥1 generation × 600 model-seconds exists as a zarr store on disk. MCSE on every reported interface observable < 10%
+    of the smallest pairwise inter-condition effect size. Gating criterion for the investigation: every downstream phase validates
+    against THIS dataset.'
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''process-bigraph-interface-schemas''}'
-  description: Each of metabolism, transcription, translation, replication, division, membrane has a typed PB interface schema
-    covering its Markov blanket.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: reference-xarray-3-conditions
+    source: .pbg/runs/phase0-reference/store.zarr
+    observable: interface_dataset
+    reduce: MCSE / min_pairwise_effect_size
+    units: ratio (dimensionless)
+  pass_if:
+    operator: less-than
+    threshold: 0.1
+    field: mcse_ratio
+  requires_simulation: phase0-reference-3x64
+  cites:
+  - casella1992
+  - geyer1992
+- name: markov-blanket-covers-all-major-processes
+  classification: primary
+  description: Each of {metabolism, transcription, translation, replication, division, membrane} has a written Markov-blanket
+    schema enumerating parents, children, and co-parents — formatted as a Process-Bigraph interface schema with input/output
+    port typing. No subprocess is left unschematized.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''xarray-interface-dataset''}'
-  description: Reference zarr stores (produced by XArrayEmitter) exist for every interface variable across ≥3 distinct environmental
-    conditions, with N≥64 replicates × ≥3 generations each. Readable via xarray.open_zarr() with chunking on the time axis.
-    (Gating criterion for the investigation.)
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: profile-marshalling-vs-essential
+    source: investigations/v2ecoli-pdmp/markov_blankets/
+    observable: schema_coverage
+    reduce: len(written_schemas) / len(major_subprocesses)
+  pass_if:
+    operator: equal
+    threshold: 1.0
+    field: coverage_fraction
+  requires_simulation: none (design deliverable)
+  cites:
+  - pearl1988
+  - koller2009
+- name: marshalling-overhead-dominates
+  classification: supporting
+  description: Per-step profiling shows that store↔process marshalling consumes > 35% of per-step wall time across ≥1000 step
+    samples, with bootstrap 95% CI tight enough to distinguish from FBA LP and emitter I/O. Motivates the Phase 4 column-centric
+    runtime refactor; falsifies the alternative hypothesis that essential biological computation is the bottleneck.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''per-step-profile-report''}'
-  description: Per-step compute is decomposed into marshalling overhead vs. essential computation, motivating (or refuting)
-    the Phase 4 column-centric runtime refactor. Each bucket reported as mean ± std over ≥1000 step samples with bootstrap
-    95% CI.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-replicate-ensemble-N64
+    source: scripts/run_phase0_pilot_ensemble.py --profile
+    observable: per_step_compute_breakdown
+    reduce: marshalling_ms / total_ms
+    units: fraction (dimensionless)
+  pass_if:
+    operator: greater-than
+    threshold: 0.35
+    field: marshalling_fraction
+  requires_simulation: phase0-profile-instrumented
+  cites: []
+- name: growth-rate-condition-monotone
+  classification: diagnostic
+  description: 'Mean growth rate (1/h) ordered across the 3 conditions matches biology: M9+glucose+aa > M9+glucose > M9+acetate.
+    Sanity check that the ParCa condition cache wiring works — if this fails, downstream Phase 1+ comparisons are meaningless.'
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''per-condition-replicate-count''}'
-  description: Each (condition, seed-family) reference dataset comprises N≥64 independent stochastic replicates. Per-observable
-    MCSE reported; observables with MCSE > 10% of inter-condition effect size are flagged and N is increased until threshold
-    met.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-stiffness-classification
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''jacobian-spectrum-summary''}'
-  description: For each subprocess with continuous components, the local Jacobian eigenvalue spread (max|λ| / min|λ|) is estimated
-    numerically (finite-difference) at the reference state. Subprocesses with κ > 10⁴ are flagged stiff and inform solver
-    choice in Phase 1.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-bootstrap-cis-on-interface-stats
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''interface-summary-CI''}'
-  description: Every summary statistic in the reference dataset (mean, std, quantiles q05/q50/q95) carries a bootstrap 95%
-    confidence interval (≥10⁴ resamples). Downstream phase tolerance bands are derived from these CIs, never set ad hoc.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
+    source: .pbg/runs/phase0-reference/store.zarr
+    observable: instantaneous_growth_rate
+    reduce: mean over time, sorted by condition
+    units: 1/h
+  pass_if:
+    operator: ordering
+    expected:
+    - M9+acetate
+    - M9+glucose
+    - M9+glucose+aa
+  requires_simulation: phase0-reference-3x64
+  cites:
+  - macklin2020

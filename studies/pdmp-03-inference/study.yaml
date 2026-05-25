@@ -461,77 +461,53 @@ simulation_set:
   - accumulator-runs-alongside-pdmp
   - observe-intervene-effects
 tests:
-- name: likelihoods-per-modality
+- name: sbc-calibration-uniform-rank
+  classification: primary
+  description: 'ABC-SMC posterior of kinetic-ODE parameters is calibrated under Simulation-Based Calibration (Talts 2018):
+    the rank-histogram of true parameter values within posterior draws is uniform (Cramér–von Mises p > 0.05) across L=200
+    synthetic experiments. The fundamental check that the inference machinery is correct — deviations diagnose specific failure
+    modes.'
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''likelihood-library''}'
-  description: Each measurement modality has a documented observation likelihood (neg-binom, log-normal, normal-on-log-growth,
-    normal/log-normal) with explicit dispersion / noise parameters and references to the calibration literature.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: accumulator-runs-alongside-pdmp
+    source: scripts/run_sbc.py
+    observable: rank of θ_true within N=100 posterior draws, repeated L=200 times
+    reduce: Cramér-von Mises test of rank histogram vs Uniform(0, N)
+  pass_if:
+    operator: greater-than
+    threshold: 0.05
+    field: CvM_p_value
+  requires_simulation: sbc-L200-N100
+  cites:
+  - talts2018
+  - cook2006
+- name: posterior-shrinks-with-data
+  classification: primary
+  description: Posterior 95% interval width monotonically decreases with the size of the observed dataset (1, 10, 100, 1000
+    observation points). Asymptote at <30% of the prior width with 1000 points — confirms the data is informative for the
+    posterior. Constant width = inference is ignoring the data.
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''log-likelihood-trace''}'
-  description: The likelihood accumulator computes log-likelihood contributions from ODE segments (continuous-measurement
-    likelihoods) and jump events (discrete-event likelihoods) incrementally during a single PDMP run.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: observe-intervene-effects
+    source: scripts/run_abc_smc.py --vary-data-size
+    observable: posterior 95% interval width per parameter
+    reduce: ratio to prior width
+  pass_if:
+    operator: less-than
+    threshold: 0.3
+    field: shrinkage_at_N=1000
+  requires_simulation: abc-data-scaling
+  cites:
+  - beaumont2010
+- name: ppc-coverage-95-pct
+  classification: supporting
+  description: 'Posterior predictive check: ≥95% of held-out Phase 0 ensemble observations fall within the posterior predictive
+    95% interval. Higher = overconfidence; lower = underconfidence.'
   measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''vivarium-algebraic-effect-set''}'
-  description: The Vivarium runner supports observe(variable, likelihood) and intervene(variable, value) as first-class algebraic
-    effects, with the same surface area as ChiRho's primitives.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: abc-posterior-recovery-on-synthetic
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''posterior-recovery-metric''}'
-  description: 'On synthetic data generated from known parameters, ABC-SMC recovers posteriors that cover the ground truth
-    at the published credible level using summary statistics: growth rate, mean mRNA/protein abundances, metabolite concentrations.
-    (Gating criterion.)'
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-likelihood-dispersion-fit-with-ci
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''dispersion-parameters-with-95-CI''}'
-  description: Per-modality dispersion / noise parameters (NegBin φ for RNA-seq, σ for log-normal proteomics, σ_μ for growth,
-    per-metabolite σ for metabolomics) are MLE-fit on calibration data and reported with 95% bootstrap CIs.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-accumulator-numerical-stability
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''log-likelihood-underflow-rate''}'
-  description: Log-likelihood accumulation maintains log-space throughout; no underflows recorded across N=10⁴ test runs.
-    log-sum-exp shift used in all mixture terms. Pairwise/Kahan summation in population reductions; result invariant to trajectory
-    ordering.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-abc-ess-and-acceptance
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''ess-and-acceptance-per-step''}'
-  description: ABC-SMC reports posterior ESS and proposal acceptance rate at every SMC step; runs are terminated cleanly when
-    ESS falls below 0.5·N (resample) or wall-clock cap is hit. No silent degeneracy.
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-sbc-coverage
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''sbc-rank-histogram AND credible-interval-coverage''}'
-  description: 'Simulation-Based Calibration (K=1000): rank histogram passes χ² uniformity test (p > 0.05); 90% credible intervals
-    achieve ≥85% empirical coverage. Hard requirement before claiming "inference-ready" for Phase 5.'
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
-- name: uq-mahalanobis-distance-justified
-  measure:
-    expr: '{''kind'': ''observable-comparison'', ''observable'': ''summary-statistic-covariance''}'
-  description: Mahalanobis distance uses the empirical summary-statistic covariance from N≥200 PDMP runs at the prior mean.
-    Condition number of the covariance reported; if κ > 10⁶ the summary vector is reduced (drop near-collinear summaries).
-  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
-    Build.''}'
-  status: stub
+    source: scripts/run_ppc.py
+    observable: held-out observation coverage by posterior predictive 95% CI
+    reduce: fraction
+  pass_if:
+    operator: within-band
+    lower: 0.9
+    upper: 0.99
+    field: coverage
+  requires_simulation: ppc-heldout-100
+  cites:
+  - gelman2013

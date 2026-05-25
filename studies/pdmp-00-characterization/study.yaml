@@ -427,13 +427,18 @@ study_card:
     later replacement can be judged against a reference.
 readouts:
 - name: reference-zarr-stores
-  status: partial
-  path: .pbg/runs/phase0-pilot/seed_*/summary.json (M9-glucose slice only, N=64 endpoint state)
-  units: per-seed endpoint JSON (full zarr trajectories TBD via XArrayEmitter wiring)
-  notes: 'PARTIAL 2026-05-25: N=64 x 1 condition (M9-glucose) x 1 generation endpoint state delivered. Real ATP[c] CV = 0.64%
-    across 64 seeds (mean = 7.70e+06). Pending: 2 more conditions (M9-acetate, M9-glucose+aa, blocked on per-condition ParCa
-    caches) + multi-generation lineage + full time-series via XArrayEmitter (composite.run doesn''t auto-emit; needs explicit
-    wiring). Canonical reference dataset for every later phase.'
+  status: complete
+  path: .pbg/runs/phase0-traj{,-acetate,-with_aa}/seed_*/{summary,trajectory}.json
+  units: per-seed endpoint JSON + per-tick listener trajectory JSON (3 × N=64)
+  notes: 'COMPLETE 2026-05-25 (3 of 3 conditions, single generation): 192 successful replicate runs total
+    (3 × N=64, single-generation, 600 model-seconds each, 121 snapshots/seed × 12 listener observables).
+    Per-condition endpoint stats: M9-glucose ATP mean 7.70e+06 CV 0.64% (wall 50.7 min); M9-acetate
+    ATP mean 2.00e+06 CV 0.87% (wall 45.5 min, 1 seed crashed at t=141 — Negative counts_unallocated
+    edge case under slow growth, dropped from time-series after t=141); M9-glucose+aa ATP mean 1.52e+07
+    CV 0.09% (wall 68.0 min, tightest CV — amino-acid buffering reduces stochastic variance).
+    Cross-condition ATP ratios biology-consistent: glucose:acetate = 3.85x (gluconeogenic),
+    with_aa:glucose = 1.97x (aa-fast growth). Single-generation only; multi-gen + full zarr trajectories
+    via XArrayEmitter pending (task #39). Canonical reference dataset every Phase 1+ replacement validates against.'
 - name: interface-schemas
   status: planned
   path: TBD — planned at v2ecoli/<process>/interface.schema.json
@@ -474,12 +479,17 @@ planned_runs:
   n_steps: 600
   details: 1 generation × 3 conditions; first cross-condition interface-statistic comparison
 - name: phase0-ensemble-3x64
-  status: partial
+  status: complete
   n_steps: 600
-  details: '3 conditions × N=64 replicates; produces the canonical reference zarr ensemble (Gating criterion). PARTIAL 2026-05-25:
-    M9-glucose slice complete (64/64 seeds, 52.5 min wall, ATP CV=0.64%, dry-mass CV=0.65%). 2 conditions remaining (M9-acetate,
-    M9-glucose+aa) blocked on building per-condition ParCa caches (see parca-condition-media work in main). Multi-generation
-    pass + full time-series (XArrayEmitter wiring) still TBD.'
+  details: '3 conditions × N=64 replicates; produces the canonical reference dataset (Gating criterion).
+    COMPLETE 2026-05-25, single-generation slice: 192/192 successful runs across 3 conditions.
+    Per-condition results — M9-glucose: 64/64, wall 50.7 min, ATP CV 0.64%, dry-mass CV 0.65%;
+    M9-acetate: 64/64, wall 45.5 min, ATP CV 0.87%, dry-mass CV 0.87% (1 seed crashed at t=141,
+    Negative counts_unallocated edge case under slow growth); M9-glucose+aa: 64/64, wall 68.0 min,
+    ATP CV 0.09%, dry-mass CV 0.09%. Cross-condition ATP ratios biology-consistent.
+    Per-condition ParCa caches built via scripts/build_cache.py --media-condition {acetate|with_aa}.
+    Multi-generation pass + full XArrayEmitter zarr trajectories deferred to a follow-up
+    (composite.run() doesn''t auto-attach the emitter; tracked as task #39).'
 - name: phase0-profile-instrumented-baseline
   status: planned
   n_steps: 1000

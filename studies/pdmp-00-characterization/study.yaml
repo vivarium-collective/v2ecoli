@@ -374,6 +374,18 @@ visualizations:
 - name: rng-seeding-fix-proof-real
   address: file:reports/figures/pdmp-00/rng_seeding_fix_proof_REAL.html
   description: Per-process RNG fix — real N=8 pilot (CV ≈ 0.5%)
+- name: phase0-4panel-spaghetti-real
+  address: file:reports/figures/pdmp-00/phase0_4panel_spaghetti_REAL.html
+  description: Phase 0 — 4-panel observable spaghetti (real, N=64)
+- name: phase0-cell-mass-ensemble-real
+  address: file:reports/figures/pdmp-00/phase0_cell_mass_ensemble_REAL.html
+  description: Phase 0 cell mass ensemble (real, N=64)
+- name: phase0-cv-growth-diagnostic-real
+  address: file:reports/figures/pdmp-00/phase0_cv_growth_diagnostic_REAL.html
+  description: Phase 0 — cross-seed CV(t) (real, N=64)
+- name: phase0-growth-rate-ensemble-real
+  address: file:reports/figures/pdmp-00/phase0_growth_rate_ensemble_REAL.html
+  description: Phase 0 growth rate ensemble (real, N=64)
 design_status: approved
 implementation_status: prototype
 simulation_status: ran
@@ -398,10 +410,10 @@ readouts:
   status: partial
   path: .pbg/runs/phase0-pilot/seed_*/summary.json (M9-glucose slice only, N=64 endpoint state)
   units: per-seed endpoint JSON (full zarr trajectories TBD via XArrayEmitter wiring)
-  notes: 'PARTIAL 2026-05-25: N=64 x 1 condition (M9-glucose) x 1 generation endpoint state delivered.
-    Real ATP[c] CV = 0.64% across 64 seeds (mean = 7.70e+06). Pending: 2 more conditions (M9-acetate, M9-glucose+aa,
-    blocked on per-condition ParCa caches) + multi-generation lineage + full time-series via XArrayEmitter (composite.run
-    doesn''t auto-emit; needs explicit wiring). Canonical reference dataset for every later phase.'
+  notes: 'PARTIAL 2026-05-25: N=64 x 1 condition (M9-glucose) x 1 generation endpoint state delivered. Real ATP[c] CV = 0.64%
+    across 64 seeds (mean = 7.70e+06). Pending: 2 more conditions (M9-acetate, M9-glucose+aa, blocked on per-condition ParCa
+    caches) + multi-generation lineage + full time-series via XArrayEmitter (composite.run doesn''t auto-emit; needs explicit
+    wiring). Canonical reference dataset for every later phase.'
 - name: interface-schemas
   status: planned
   path: TBD — planned at v2ecoli/<process>/interface.schema.json
@@ -444,10 +456,10 @@ planned_runs:
 - name: phase0-ensemble-3x64
   status: partial
   n_steps: 600
-  details: '3 conditions × N=64 replicates; produces the canonical reference zarr ensemble (Gating criterion).
-    PARTIAL 2026-05-25: M9-glucose slice complete (64/64 seeds, 52.5 min wall, ATP CV=0.64%, dry-mass CV=0.65%).
-    2 conditions remaining (M9-acetate, M9-glucose+aa) blocked on building per-condition ParCa caches (see
-    parca-condition-media work in main). Multi-generation pass + full time-series (XArrayEmitter wiring) still TBD.'
+  details: '3 conditions × N=64 replicates; produces the canonical reference zarr ensemble (Gating criterion). PARTIAL 2026-05-25:
+    M9-glucose slice complete (64/64 seeds, 52.5 min wall, ATP CV=0.64%, dry-mass CV=0.65%). 2 conditions remaining (M9-acetate,
+    M9-glucose+aa) blocked on building per-condition ParCa caches (see parca-condition-media work in main). Multi-generation
+    pass + full time-series (XArrayEmitter wiring) still TBD.'
 - name: phase0-profile-instrumented-baseline
   status: planned
   n_steps: 1000
@@ -713,3 +725,19 @@ embed_visualizations:
   url: /reports/figures/pdmp-00/rng_seeding_fix_proof_REAL.html
   description: Per-study visualization rendered from reports/figures/pdmp-00/rng_seeding_fix_proof_REAL.html. Inlined into
     the downloaded report as iframe srcdoc.
+- name: Phase 0 — 4-panel observable spaghetti (real, N=64)
+  url: /reports/figures/pdmp-00/phase0_4panel_spaghetti_REAL.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_4panel_spaghetti_REAL.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Phase 0 cell mass ensemble (real, N=64)
+  url: /reports/figures/pdmp-00/phase0_cell_mass_ensemble_REAL.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_cell_mass_ensemble_REAL.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Phase 0 — cross-seed CV(t) (real, N=64)
+  url: /reports/figures/pdmp-00/phase0_cv_growth_diagnostic_REAL.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_cv_growth_diagnostic_REAL.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Phase 0 growth rate ensemble (real, N=64)
+  url: /reports/figures/pdmp-00/phase0_growth_rate_ensemble_REAL.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_growth_rate_ensemble_REAL.html. Inlined
+    into the downloaded report as iframe srcdoc.

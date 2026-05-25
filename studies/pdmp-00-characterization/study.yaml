@@ -378,9 +378,12 @@ pipeline_gate:
   proceed_condition: Reference Xarray zarr stores produced for ≥3 conditions × N≥64 replicates × ≥3 generations, with per-observable
     MCSE reported and bootstrap CIs on every summary statistic. Per-step compute profile decomposed into FBA LP / RNG / marshalling
     / topology / emitter-I/O buckets.
-study_card: Phase 0 — Markov-blanket interface extraction. Run v2ecoli as-is under M9-glucose + acetate + glucose-aa with
-  XArrayEmitter; produce the reference zarr ensemble every later phase validates against; profile per-step compute to decompose
-  marshalling overhead vs. essential FBA-LP-solve cost.
+study_card:
+  goal: Phase 0 — Markov-blanket interface extraction. Run v2ecoli as-is under M9-glucose + acetate + glucose-aa with XArrayEmitter;
+    produce the reference zarr ensemble every later phase validates against; profile per-step compute to decompose marshalling
+    overhead vs. essential FBA-LP-solve cost.
+  why_before_next: Before changing the model, we need to measure what the current model passes between subprocesses, so every
+    later replacement can be judged against a reference.
 readouts:
 - name: reference-zarr-stores
   status: planned

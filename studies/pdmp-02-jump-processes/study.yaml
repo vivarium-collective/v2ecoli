@@ -382,9 +382,12 @@ pipeline_gate:
     the Anderson-Darling Exp(1) test (α=0.05, ≥10⁴ inter-event intervals each). OU first-passage analytical validation: KS
     distance < 0.02. Trajectory-distribution W₂ vs. v2ecoli baseline within tolerance across all Phase 0 conditions. Markov
     property bit-verified.'
-study_card: Phase 2 — replace v2ecoli's discrete-time scaled-Poisson stochastic layer (transcription, translation), teleonomic
-  division trigger, and global resource reallocation step with continuous-time jump processes driven by propensities from
-  measured kinetic constants. Couple with Phase 1 ODE metabolism to form the full PDMP.
+study_card:
+  goal: Phase 2 — replace v2ecoli's discrete-time scaled-Poisson stochastic layer (transcription, translation), teleonomic
+    division trigger, and global resource reallocation step with continuous-time jump processes driven by propensities from
+    measured kinetic constants. Couple with Phase 1 ODE metabolism to form the full PDMP.
+  why_before_next: This converts random biological events — transcription, translation, division — from timestep-based draws
+    into event-based stochastic dynamics.
 readouts:
 - name: anderson-darling-results
   status: planned

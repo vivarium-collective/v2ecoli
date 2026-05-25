@@ -287,10 +287,13 @@ pipeline_gate:
   proceed_condition: Catalyst.jl + column-centric runtime achieves ≥10³ parallel single-cell trajectories with W₂(p_compiled,
     p_phase2) ≤ 5·σ_MC. Marshalling overhead < 10% of per-step compute. 1/√N posterior variance scaling holds on ABC test
     posteriors. FP summation order deterministic (pairwise/Kahan). Per-step compute orders-of-magnitude above v2ecoli baseline.
-study_card: Phase 4 — compile the Phase 2 PDMP to Catalyst.jl + ModelingToolkit (symbolic Jacobians, automatic sensitivity
-  equations, LLVM-optimised), replace v2ecoli's row-centric nested-dict state with pre-allocated column-centric tensors, and
-  invert the Vivarium API so processes declare local state + ODE vector fields + jump propensities (runtime handles topology
-  + time-stepping).
+study_card:
+  goal: Phase 4 — compile the Phase 2 PDMP to Catalyst.jl + ModelingToolkit (symbolic Jacobians, automatic sensitivity equations,
+    LLVM-optimised), replace v2ecoli's row-centric nested-dict state with pre-allocated column-centric tensors, and invert
+    the Vivarium API so processes declare local state + ODE vector fields + jump propensities (runtime handles topology +
+    time-stepping).
+  why_before_next: This asks whether the cleaner mathematical structure can be compiled into a much faster simulator for large
+    ensembles of cells.
 readouts:
 - name: catalyst-export-artefact
   status: planned

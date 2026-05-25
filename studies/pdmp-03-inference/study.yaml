@@ -308,10 +308,13 @@ pipeline_gate:
   proceed_condition: 'Likelihood library covers all 4 modalities (RNA-seq, proteomics, growth, metabolomics) with dispersion
     CIs. Log-likelihood accumulator runs alongside the PDMP with zero underflows over 10⁴ test runs. ABC-SMC posterior recovery:
     SBC rank-histogram passes χ² uniformity (p > 0.05), 90% credible intervals achieve ≥85% empirical coverage.'
-study_card: 'Phase 3 — build the Bayesian inference substrate: per-modality observation likelihoods (negative binomial RNA-seq,
-  log-normal proteomics, normal log-growth, normal/log-normal metabolomics), an incremental log-likelihood accumulator over
-  PDMP segments + jump events, Vivarium observe/intervene algebraic effects (à la ChiRho), and a baseline ABC-SMC inference
-  engine validated by Simulation-Based Calibration.'
+study_card:
+  goal: 'Phase 3 — build the Bayesian inference substrate: per-modality observation likelihoods (negative binomial RNA-seq,
+    log-normal proteomics, normal log-growth, normal/log-normal metabolomics), an incremental log-likelihood accumulator over
+    PDMP segments + jump events, Vivarium observe/intervene algebraic effects (à la ChiRho), and a baseline ABC-SMC inference
+    engine validated by Simulation-Based Calibration.'
+  why_before_next: This asks whether the new model can assign probabilities to observations, which is what makes parameter
+    fitting and Bayesian inference possible.
 readouts:
 - name: likelihood-dispersion-fits
   status: planned

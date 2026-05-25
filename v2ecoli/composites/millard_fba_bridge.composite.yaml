@@ -61,18 +61,17 @@ state:
     interval: 1.0
 
   # 2. FBABridge — translates central_metabolites <-> v2ecoli bulk.
-  # NOTE: scheduling — bridge fires reactively when its inputs update;
-  # the open-issue NaN at t=0.2s suggests the bridge should be a Process
-  # with interval >= Millard's interval, not a Step. Track via the study's
-  # planned_runs.millard-fba-bridge-pilot[status: bridge-schedule-fix].
+  # Scheduled as a Process (NOT a reactive Step) with interval matching
+  # Millard's update interval. This guarantees the bridge fires AFTER the
+  # COPASI process has populated central_metabolites for the current tick,
+  # eliminating the original t=0.2s NaN.
   bridge:
-    _type: step
+    _type: process
     address: "local:FBABridge"
     config:
       mapping_file: "${bridge_mapping}"
       direction: "${bridge_direction}"
       cell_volume_L: "${cell_volume_L}"
-      time_step: 1
     inputs:
       central_metabolites_millard: ["shared", "central_metabolites"]
       v2ecoli_bulk: ["v2ecoli", "bulk"]
@@ -80,6 +79,7 @@ state:
       central_metabolites_millard: ["shared", "central_metabolites"]
       v2ecoli_bulk: ["v2ecoli", "bulk"]
       bridge_diagnostics: ["shared", "bridge_diagnostics"]
+    interval: 1.0
 
   shared:
     central_metabolites: {}    # mM, Millard convention; populated by COPASI on tick 1

@@ -1,9 +1,17 @@
-"""FBABridge Step — translates between Millard 2017 ODE and v2ecoli WCM namespaces.
+"""FBABridge Process — translates between Millard 2017 ODE and v2ecoli WCM namespaces.
 
-v2ecoli-pdmp Phase 1 milestone: this Step is the seam where the kinetic ODE
+v2ecoli-pdmp Phase 1 milestone: this Process is the seam where the kinetic ODE
 (central carbon, ~30 metabolites in mM) hands off concentrations to the
 v2ecoli WCM bulk store (BioCyc IDs, ~16k metabolites in molecule counts)
 and vice versa.
+
+Originally implemented as a reactive Step (fired whenever inputs changed).
+That caused COPASI to NaN at t=0.2s during the first integration step —
+the Step fired at t=0 with empty central_metabolites before Millard had
+populated them. Converted to a scheduled Process with explicit interval
+matching Millard's update interval (1.0 s by convention) so the bridge
+always fires AFTER the COPASI process has populated its outputs for
+the current tick.
 
 Scope of this implementation (intentionally minimal):
   - Reads a `mapping_file` (YAML, see v2ecoli/data/millard_v2ecoli_species_map.yaml)
@@ -28,7 +36,7 @@ from typing import Any
 
 import yaml
 
-from v2ecoli.steps.base import V2Step as Step
+from process_bigraph import Process
 from v2ecoli.types.stores import InPlaceDict
 
 
@@ -102,8 +110,14 @@ def count_to_mM(count: float, cell_volume_L: float) -> float:
     return count / (cell_volume_L * AVOGADRO) * 1e3
 
 
-class FBABridge(Step):
+class FBABridge(Process):
     """Translate metabolite state between Millard ODE and v2ecoli bulk stores.
+
+    Scheduled Process (NOT a reactive Step) — the composite must declare an
+    explicit `interval` matching the upstream Millard process's interval
+    (typically 1.0 s). This guarantees the bridge fires AFTER Millard has
+    populated its outputs for the current tick, avoiding the t=0.2s NaN
+    that bit the original Step-based implementation.
 
     Topology (composite-side):
         inputs:
@@ -128,7 +142,6 @@ class FBABridge(Step):
         "mapping_file": {"_default": "v2ecoli/data/millard_v2ecoli_species_map.yaml"},
         "direction": {"_default": "millard_to_v2ecoli"},
         "cell_volume_L": {"_default": DEFAULT_CELL_VOLUME_L},
-        "time_step": {"_default": 1},
     }
 
     topology = {
@@ -160,6 +173,11 @@ class FBABridge(Step):
         self.v2m = self._mapping["v2ecoli_to_millard"]
         self.millard_only = set(self._mapping["millard_only"])
 
+    def __init__(self, config=None, core=None):
+        """Process expects __init__; route to initialize for our config setup."""
+        super().__init__(config or {}, core)
+        self.initialize(config or {})
+
     def inputs(self):
         return {
             "central_metabolites_millard": InPlaceDict(),
@@ -173,8 +191,10 @@ class FBABridge(Step):
             "bridge_diagnostics": InPlaceDict(),
         }
 
-    def update(self, state):
-        return self.next_update(self.parameters.get("time_step", 1), state)
+    def update(self, state, interval):
+        """Process API entry point — Composite scheduler calls this once per
+        scheduled tick with the time interval since last fire."""
+        return self.next_update(interval, state)
 
     def next_update(self, timestep, states):
         millard_state = dict(states.get("central_metabolites_millard", {}) or {})

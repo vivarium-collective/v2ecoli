@@ -507,14 +507,18 @@ planned_runs:
   n_steps: (Sobol sweep, ≥20 LQR-weight samples × baseline length)
   details: Sobol-driven LQR weight scan; flag weights with total index < 0.01 on growth/glc-uptake/ATP-yield
 - name: millard-fba-bridge-pilot
-  status: bridge-schedule-fix
-  n_steps: 5
-  details: 'BRIDGE BUILT + UNIT-TESTED 2026-05-24. v2ecoli/steps/fba_bridge.py: FBABridge Step translates Millard concentrations
-    (mM) <-> v2ecoli bulk counts via mM_to_count = conc * 1e-3 * V_cell_L * N_avogadro. 8 unit tests pass (tests/test_fba_bridge.py:
-    round-trip, mapping load, both directions, diagnostics). Coupled pilot (Millard + Bridge, 5s) reaches end-to-end and pushes
-    25 shared metabolites to v2ecoli.bulk on each step, but COPASI produces NaN at t=0.2s when the bridge fires before Millard''s
-    first integration. Open follow-up: convert bridge from Step to Process with explicit interval >= Millard''s. Mapping curated
-    for ~25 central-carbon metabolites — see v2ecoli/data/millard_v2ecoli_species_map.yaml.'
+  status: copasi-nan-investigation
+  n_steps: 10
+  details: 'BRIDGE BUILT + UNIT-TESTED + REFACTORED Step→Process 2026-05-25. Bridge as a scheduled
+    Process with interval=1.0 fires correctly after each Millard tick (8/8 unit tests pass, 25 species
+    pushed per step in coupled run). HOWEVER: COPASI''s internal integrator still NaN-traps at t=0.1s
+    in the coupled context — turns out the t=0.2s issue wasn''t bridge scheduling but a deeper PB
+    composite integration issue (possibly schema reconciliation when central_metabolites is both
+    Millard''s output AND the bridge''s input/output declaration). Bridge pushes 2.88e+07 to v2ecoli
+    ATP[c] from the few non-NaN reads. Standalone Millard composite runs cleanly — issue is specifically
+    when the bridge is wired in. Next step: diagnose whether removing central_metabolites from bridge
+    OUTPUTS (millard_to_v2ecoli direction never writes there anyway) avoids the conflict, or whether
+    PB Composite needs different topology wiring.'
 - name: millard-fba-bridge-3-conditions
   status: planned
   n_steps: 600

@@ -5,26 +5,48 @@ runtime:
   subprocess_timeout_s: 3600
 report:
   title: DnaA parameter foundation
-  verdict: passing
-  confidence: high
+  verdict: passing-with-caveats
+  confidence: medium
   evidence_quality: literature-matched
   objective: Establish the parameter-pinned v2ecoli baseline the whole investigation calibrates against, before
     any new mechanism lands.
-  conclusion: The unmodified cell already fires one replication round per cycle and holds DnaA at ~325 (literature
-    band 300-800); adding RIDA is what brings the DnaA-ATP fraction into the physiological range.
-  main_insight: The legacy mass-per-oriC heuristic, not the ported layer, fires replication, so it is a valid reference;
-    the hydrolysis/RIDA mechanism governs the ATP fraction.
-  caveat: Replication still fires via the legacy mass-per-oriC heuristic, not the DnaA mechanism under test.
+  conclusion: 'Round 3 (2026-05-25, Haochen ask): Stage-1 cell-cycle parameters τ=150 / C=70 / D=30 are now
+    IMPOSED via the new minimal_glycerol ParCa cache + composite knobs. Mass-listener reports cell_cycle_len=9000s,
+    chromosome_replication reports D_period=1800s + basal_elongation_rate=554 nt/s (C≈70 min). BUT the cell
+    actually divides at t=5000s (83 min), not 150 min: ParCa fit dry_mass_inc[minimal_glycerol]=82 fg (small
+    threshold from slow-growth bacterial-growth-law fit), and glycerol synthesis was fast enough to hit that
+    threshold in 83 min. The 150 min target controls cell_cycle_len (used for expected_mass_fold_change
+    reference) but not division (driven by dry_mass ≥ threshold). Open biology question for next round —
+    see "decision needed" below.'
+  main_insight: 'Two new findings worth Haochen review:
+    (1) τ-divergence: declared 150, emergent 83 min (cell-cycle/division uses different signals).
+    (2) DnaA concentration NOT stable: drops from 1.03 /fg → 0.42 /fg over the first cycle, dropping further
+    to 0.33 /fg by t=10000s. Glycerol ParCa fit may not produce enough DnaA expression to track cell-mass
+    growth in this condition.'
+  caveat: 'Cell divides at 83 min, not the declared 150 min. DnaA count drops from 329 (in band) to 222
+    (below the literature 300-800 band) by run end. These are the focus questions for Round 4.'
   lit_match: Boesen 2024 / Fu-Xiao-Jun 2023
   key_metrics:
-  - label: DnaA count
-    value: ~325
+  - label: τ declared / emergent
+    value: 150 / 83 min
+    status: caveat
+  - label: C-period (replisome elongation 554 nt/s × 2.32 Mbp replichore)
+    value: 69.94 min
     status: pass
-  - band [300, 800]
-  - oriC 2->4 within one cycle
-  - label: RIDA-active ATP fraction
-    value: 0.15-0.44
+  - label: D-period
+    value: 30 min
     status: pass
+  - label: DnaA count (start / division / end)
+    value: 329 / 234 / 222
+    status: caveat
+  - label: DnaA concentration (start / division / end)
+    value: 1.03 / 0.42 / 0.33 mol/fg
+    status: caveat
+  decisions_needed:
+  - question: 'τ-gap: cell divides at 83 min not 150. Three paths — (a) accept emergent; (b) hand-tune
+      dry_mass_inc; (c) rebuild ParCa with hand-calibrated glycerol kinetics. Which?'
+  - question: 'DnaA concentration drops 3× over one cycle. Is this real biology (glycerol-fitted synthesis)
+      or an artifact (translation_efficiency scale needs recalibration)?'
   purpose: Establish the baseline the whole investigation calibrates against, and show how the same v2ecoli code
     behaves when its surfaced parameters are pinned to the Fu/Xiao/Jun (2023) Stage-1 heuristic values — before
     any new mechanism lands.
@@ -443,6 +465,26 @@ readouts:
   units: molecules/cell (vector indexed by monomer)
   status: available
   description: Full per-monomer count vector. DnaA monomer is at index 3861 (MONOMER0-160).
+- name: cell_mass
+  store_path: agents.0.listeners.mass.cell_mass
+  units: fg
+  status: available
+  description: Total cell mass in fg. Required to compute DnaA concentration (count
+    / mass) — Haochen 2026-05-25 Round-3 ask. Also lets the report show actual
+    mass-doubling time vs the declared cell_cycle_len target.
+- name: dry_mass
+  store_path: agents.0.listeners.mass.dry_mass
+  units: fg
+  status: available
+  description: Cell dry mass in fg. This is what the division trigger compares against
+    the ParCa-fitted threshold (division_threshold = dry_mass + dry_mass_inc[media_id]).
+- name: expected_mass_fold_change
+  store_path: agents.0.listeners.mass.expected_mass_fold_change
+  units: dimensionless
+  status: available
+  description: 2^(t/cell_cycle_len) — the mass listener's REFERENCE curve under the
+    declared τ=150 min. Diverges from actual mass when ParCa's fitted synthesis
+    rate disagrees with the declared cycle length.
 biological_role: Defines the BASELINE every other study calibrates against — the v2ecoli single-cell composite running
   on minimal glucose, before any DnaA mechanism is ported. Catalogs the Fu/Xiao/Jun (2023) Stage-1 parameter set
   with explicit wiring status (which parameters v2ecoli already exposes vs which need new listeners).

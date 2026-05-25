@@ -239,12 +239,6 @@ tests:
   run_ids: []
 status: count-passing-verdict-refresh-pending
 last_run: gen-20260522T003700Z-9fcb58
-embed_visualizations:
-- name: dnaa-01 baseline preview (cross-seed)
-  url: /reports/baseline_preview/index.html
-  description: 'Four Plotly charts from the 2026-05-17 baseline rerun (seeds 0/1/2, 600s, M9-glucose): pool composition,
-    DnaA trajectory vs literature band [300, 800], cell mass + chromosome state, and a placeholder for dnaa-03 box
-    occupancy. Self-contained — opens without the dashboard.'
 biological_summary: 'Before we can model how DnaA decides when to fire replication, we need to
 
   confirm that v2ecoli already maintains a steady, realistic pool of DnaA

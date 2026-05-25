@@ -263,14 +263,6 @@ tests:
   run_ids: []
 status: evaluate-partial-pass-known-gaps
 last_run: '2026-05-17'
-embed_visualizations:
-- name: dnaa-03 PRIOR run preview (2026-05-17, seed 0, 30 min, initial DnaA = 500) — pending refresh
-  url: /reports/dnaa_03_preview/index.html
-  description: 'PRIOR recorded analysis, pending refresh under the current 307-consensus + occupancy-affinity config
-    — NOT current coordinated-generation output. Four Plotly charts from the 2026-05-17 run: chromosomal occupancy
-    over time, oriC high vs low affinity fill, free vs bound DnaA pools, and dnaa-02 cycle ATP fraction with the
-    Boesen band overlay. Generated from out/dnaa-03/seed0_v1_500dnaa.json. The current-generation box_occupancy
-    figure (see visualizations.dnaa_box_occupancy) rendered and shows the chromosomal boxes filling before oriC.'
 biological_summary: 'E. coli''s chromosome holds ~322 catalogued DnaA-binding sites (DnaA
 
   boxes). 307 of them are scattered along the chromosome and act as a

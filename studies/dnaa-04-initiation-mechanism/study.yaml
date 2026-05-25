@@ -271,12 +271,6 @@ tests:
   run_ids: []
 status: evaluate-shadow-observer-verdict-refresh-pending
 status_overwritten: 2026-05-17T09:30Z
-embed_visualizations:
-- name: dnaa-04 planning-phase preview (placeholders + expected shapes)
-  url: /reports/dnaa_04_preview/index.html
-  description: 'No runs yet — this preview shows the four PLANNED charts with the expected shape annotated on each:
-    initiation-mass distribution (heuristic vs mechanism), inter-initiation CV, box-count titration scan, and growth-rate
-    sweep. Will populate with real data once the DnaaInitiationMechanism Process + SeqA_v0 timer are implemented.'
 biological_summary: 'The current v2ecoli decides when to fire chromosome replication using
 
   a single rule: cell-mass-per-oriC must exceed a critical threshold

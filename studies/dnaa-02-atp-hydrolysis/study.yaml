@@ -284,6 +284,7 @@ visualizations:
       adp_fraction: listeners.dnaA_cycle.adp_fraction
       apo_fraction: listeners.dnaA_cycle.apo_fraction
       time: global_time
+      number_of_oric: listeners.replication_data.number_of_oric   # drives event-overlay vertical lines (dnaa viz classes auto-detect init/division from oriC step changes)
 pipeline_gate:
   prerequisites:
   - dnaa-01-expression-dynamics

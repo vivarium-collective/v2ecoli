@@ -43,6 +43,7 @@ from v2ecoli.visualizations.dnaa import (
     _plotly_div,
     _empty_note,
     _PALETTE,
+    _detect_events_from_inputs,
 )
 
 
@@ -100,11 +101,13 @@ class DnaAInitiationGate(Visualization):
             "oric_high_obs":          "list[float]",
             "atp_fraction_obs":       "list[float]",
             "time":                   "list[float]",
+            "number_of_oric":         "list[float]",  # event overlay (optional)
             "_run_labels":            "list[string]",
         }
 
     def update(self, state: dict[str, Any]) -> dict:
         title = self.config.get("title") or "DnaA initiation gate"
+        events = _detect_events_from_inputs(state)
         oric_t = float(self.config.get("oric_high_threshold", 0.8))
         atp_t  = float(self.config.get("atp_fraction_threshold", 0.3))
 
@@ -161,7 +164,7 @@ class DnaAInitiationGate(Visualization):
             "yaxis": {"title": {"text": "fire count"}},
             "margin": {"l": 60, "r": 20, "t": 50, "b": 50},
             "legend": {"orientation": "h", "y": -0.25},
-        }) if p1_traces else _empty_note(
+        }, events=events) if p1_traces else _empty_note(
             "No would_fire / cumulative_fires data; missing inputs_map?")
 
         # Panel 2: refractory window + t_since_last_fire
@@ -184,7 +187,7 @@ class DnaAInitiationGate(Visualization):
             "yaxis": {"title": {"text": "s (or 0/1 indicator)"}},
             "margin": {"l": 60, "r": 20, "t": 50, "b": 50},
             "legend": {"orientation": "h", "y": -0.25},
-        }) if p2_traces else _empty_note(
+        }, events=events) if p2_traces else _empty_note(
             "No refractory / time-since-fire data.")
 
         # Panel 3: trigger inputs with thresholds
@@ -223,7 +226,7 @@ class DnaAInitiationGate(Visualization):
             "yaxis": {"title": {"text": "fraction (0–1)"}, "range": [0, 1.05]},
             "margin": {"l": 60, "r": 20, "t": 50, "b": 50},
             "legend": {"orientation": "h", "y": -0.25},
-        }) if p3_traces else _empty_note(
+        }, events=events) if p3_traces else _empty_note(
             "No oric_high / atp_fraction observables.")
 
         body = (
@@ -274,11 +277,13 @@ class DnaACycleSummary(Visualization):
             "cell_mass_fg":   "list[float]",
             "mass_at_oric":   "list[float]",
             "time":           "list[float]",
+            "number_of_oric": "list[float]",   # event overlay (optional)
             "_run_labels":    "list[string]",
         }
 
     def update(self, state: dict[str, Any]) -> dict:
         title = self.config.get("title") or "DnaA cycle — trajectory summary"
+        events = _detect_events_from_inputs(state)
 
         apo = _to_runs(state.get("apo_count"))
         atp = _to_runs(state.get("atp_count"))
@@ -329,7 +334,7 @@ class DnaACycleSummary(Visualization):
             "yaxis": {"title": {"text": "molecules / cell"}},
             "margin": {"l": 60, "r": 20, "t": 50, "b": 50},
             "legend": {"orientation": "h", "y": -0.25},
-        }) if p1_traces else _empty_note("No pool data.")
+        }, events=events) if p1_traces else _empty_note("No pool data.")
 
         # Panel 2: box occupancy
         p2_traces: list[dict] = []
@@ -351,7 +356,7 @@ class DnaACycleSummary(Visualization):
             "yaxis": {"title": {"text": "fraction"}, "range": [0, 1.05]},
             "margin": {"l": 60, "r": 20, "t": 50, "b": 50},
             "legend": {"orientation": "h", "y": -0.25},
-        }) if p2_traces else _empty_note(
+        }, events=events) if p2_traces else _empty_note(
             "No DnaA-box occupancy data (dnaa-03 not in this run?).")
 
         # Panel 3: replication state
@@ -372,7 +377,7 @@ class DnaACycleSummary(Visualization):
             "yaxis": {"title": {"text": "count"}},
             "margin": {"l": 60, "r": 20, "t": 50, "b": 50},
             "legend": {"orientation": "h", "y": -0.25},
-        }) if p3_traces else _empty_note(
+        }, events=events) if p3_traces else _empty_note(
             "No replication-state data (unique.active_replisome not wired?).")
 
         # Panel 4: mass
@@ -393,7 +398,7 @@ class DnaACycleSummary(Visualization):
             "yaxis": {"title": {"text": "mass (fg)"}},
             "margin": {"l": 60, "r": 20, "t": 50, "b": 50},
             "legend": {"orientation": "h", "y": -0.25},
-        }) if p4_traces else _empty_note(
+        }, events=events) if p4_traces else _empty_note(
             "No mass data (listeners.mass.* not wired?).")
 
         body = (
@@ -432,11 +437,13 @@ class DnaAFluxContributions(Visualization):
             "intrinsic_events": "list[float]",
             "rida_events":      "list[float]",
             "time":             "list[float]",
+            "number_of_oric":   "list[float]",   # event overlay (optional)
             "_run_labels":      "list[string]",
         }
 
     def update(self, state: dict[str, Any]) -> dict:
         title = self.config.get("title") or "DnaA hydrolysis flux contributors"
+        events = _detect_events_from_inputs(state)
 
         intr = _to_runs(state.get("intrinsic_events"))
         rida = _to_runs(state.get("rida_events"))
@@ -489,7 +496,7 @@ class DnaAFluxContributions(Visualization):
             "yaxis": {"title": {"text": "events / tick"}},
             "margin": {"l": 60, "r": 20, "t": 50, "b": 50},
             "legend": {"orientation": "h", "y": -0.25},
-        }) if traces else _empty_note("No flux series.")
+        }, events=events) if traces else _empty_note("No flux series.")
 
         body = (
             f"{_PLOTLY_CDN}\n"

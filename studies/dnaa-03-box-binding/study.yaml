@@ -336,6 +336,7 @@ visualizations:
       free_adp: listeners.dnaA_binding.free_adp
       bound_total: listeners.dnaA_binding.bound_total
       time: global_time
+      number_of_oric: listeners.replication_data.number_of_oric   # drives event-overlay vertical lines (dnaa viz classes auto-detect init/division from oriC step changes)
 - name: dnaa_state
   address: local:DnaAStateVisualization
   config:
@@ -349,6 +350,7 @@ visualizations:
       adp_fraction: listeners.dnaA_cycle.adp_fraction
       apo_fraction: listeners.dnaA_cycle.apo_fraction
       time: global_time
+      number_of_oric: listeners.replication_data.number_of_oric   # drives event-overlay vertical lines (dnaa viz classes auto-detect init/division from oriC step changes)
 pipeline_gate:
   prerequisites:
   - dnaa-02-atp-hydrolysis

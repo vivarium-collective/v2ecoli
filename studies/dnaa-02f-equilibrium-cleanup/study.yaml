@@ -260,6 +260,7 @@ visualizations:
       adp_fraction: listeners.dnaA_cycle.adp_fraction
       apo_fraction: listeners.dnaA_cycle.apo_fraction
       time: global_time
+      number_of_oric: listeners.replication_data.number_of_oric   # drives event-overlay vertical lines (dnaa viz classes auto-detect init/division from oriC step changes)
 - name: dnaa_flux_contributions
   address: local:DnaAFluxContributions
   config:
@@ -268,6 +269,7 @@ visualizations:
       intrinsic_events: listeners.dnaA_cycle.intrinsic_hydrolysis_events
       rida_events: listeners.dnaA_cycle.rida_events
       time: global_time
+      number_of_oric: listeners.replication_data.number_of_oric   # drives event-overlay vertical lines (dnaa viz classes auto-detect init/division from oriC step changes)
 pipeline_gate:
   prerequisites:
   - dnaa-02-atp-hydrolysis

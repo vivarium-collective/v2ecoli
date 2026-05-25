@@ -59,6 +59,8 @@ class LoadSimData:
         aa_supply_in_charging: bool = True,
         disable_ppgpp_elongation_inhibition: bool = False,
         emit_unique: bool = False,
+        c_period_minutes: Optional[float] = None,
+        d_period_seconds: Optional[float] = None,
         **kwargs,
     ):
         """
@@ -164,6 +166,11 @@ class LoadSimData:
         self.disable_ppgpp_elongation_inhibition = disable_ppgpp_elongation_inhibition
         self.recycle_stalled_elongation = recycle_stalled_elongation
         self.emit_unique = emit_unique
+        # Stage-1 cycle-period overrides — when set, get_chromosome_replication_config
+        # computes basal_elongation_rate from c_period_minutes + replichore lengths
+        # and overrides the sim_data-derived D_period. Both None → use sim_data defaults.
+        self.c_period_minutes = c_period_minutes
+        self.d_period_seconds = d_period_seconds
 
         # NEW to vivarium-ecoli: Whether to lump miscRNA with mRNAs
         # when calculating degradation
@@ -708,10 +715,23 @@ class LoadSimData:
             "replication_coordinate": self.sim_data.process.transcription.rna_data[
                 "replication_coordinate"
             ],
-            "D_period": unum_to_pint(self.sim_data.process.replication.d_period).to(units.s).magnitude,
+            "D_period": (
+                float(self.d_period_seconds)
+                if self.d_period_seconds is not None
+                else unum_to_pint(self.sim_data.process.replication.d_period).to(units.s).magnitude
+            ),
             "replisome_protein_mass": replisome_mass_array.sum(),
             "no_child_place_holder": self.sim_data.process.replication.no_child_place_holder,
-            "basal_elongation_rate": self.sim_data.process.replication.basal_elongation_rate,
+            "basal_elongation_rate": (
+                # C[min] = replichore_length / (basal_elongation_rate × 60 s/min)
+                # → basal_elongation_rate[nt/s] = replichore_length[nt] / (C[min] × 60)
+                int(round(
+                    int(self.sim_data.process.replication.replichore_lengths.max())
+                    / (float(self.c_period_minutes) * 60.0)
+                ))
+                if self.c_period_minutes is not None
+                else self.sim_data.process.replication.basal_elongation_rate
+            ),
             "make_elongation_rates": {
                 "_function": "replication.make_elongation_rates",
             },

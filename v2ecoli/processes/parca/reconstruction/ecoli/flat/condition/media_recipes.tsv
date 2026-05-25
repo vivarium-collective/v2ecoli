@@ -5,6 +5,7 @@
 "minimal_plus_amino_acids"	"MIX0-57"	0.8	"5X_supplement_EZ"	0.2	[]	[]	[]	[]
 "minimal_no_glucose"	"MIX0-55"	1.0	""	0	[]	[]	[]	[]
 "minimal_acetate"	"MIX0-58"	1.0	""	0	[]	[]	[]	[]
+"minimal_glycerol"	"MIX0-845"	1.0	""	0	[]	[]	[]	[]
 "minimal_fumarate"	"MIX0-55"	1.0	""	0	["FUM"]	[Infinity]	[]	[]
 "minimal_malate"	"MIX0-55"	1.0	""	0	["MAL"]	[Infinity]	[]	[]
 "minimal_succinate"	"MIX0-844"	1.0	""	0	[]	[]	[]	[]

@@ -117,6 +117,7 @@ LIST_OF_DICT_FILENAMES = [
     os.path.join("condition", "media", "MIX0-57.tsv"),
     os.path.join("condition", "media", "MIX0-58.tsv"),
     os.path.join("condition", "media", "MIX0-844.tsv"),
+    os.path.join("condition", "media", "MIX0-845.tsv"),
     os.path.join("base_codes", "amino_acids.tsv"),
     os.path.join("base_codes", "dntp.tsv"),
     os.path.join("base_codes", "nmp.tsv"),

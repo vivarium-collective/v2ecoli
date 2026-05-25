@@ -161,7 +161,8 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
 
 
 def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
-                   condition=None, fixed_media=None):
+                   condition=None, fixed_media=None,
+                   c_period_minutes=None, d_period_seconds=None):
     """Generate the simulation-input bundle from a live ``SimulationDataEcoli``.
 
     Skips the ~300 MB dill round-trip that ``save_cache`` performs to load
@@ -182,5 +183,9 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
         kwargs["condition"] = condition
     if fixed_media is not None:
         kwargs["fixed_media"] = fixed_media
+    if c_period_minutes is not None:
+        kwargs["c_period_minutes"] = c_period_minutes
+    if d_period_seconds is not None:
+        kwargs["d_period_seconds"] = d_period_seconds
     loader = LoadSimData(**kwargs)
     _write_sim_input_bundle(loader, bundle_dir)

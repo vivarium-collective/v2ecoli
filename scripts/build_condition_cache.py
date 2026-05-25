@@ -161,7 +161,9 @@ def _git_sha() -> str:
 def build(condition: str, fixture: str, cache_dir: str,
           transcription_factor: float, te_factor: float,
           media_condition: str | None = None,
-          fixed_media: str | None = None) -> None:
+          fixed_media: str | None = None,
+          c_period_minutes: float | None = None,
+          d_period_seconds: float | None = None) -> None:
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(repo_root)
     if condition not in PATCHES:
@@ -190,15 +192,27 @@ def build(condition: str, fixture: str, cache_dir: str,
         sim_data, transcription_factor, te_factor)
     print(f"    {json.dumps(patch_record['patched'], indent=2)}")
 
+    if c_period_minutes is not None:
+        print(f"[{time.strftime('%H:%M:%S')}] C-period override: "
+              f"{c_period_minutes} min (basal_elongation_rate will be "
+              f"computed from replichore length)")
+    if d_period_seconds is not None:
+        print(f"[{time.strftime('%H:%M:%S')}] D-period override: "
+              f"{d_period_seconds} s ({d_period_seconds/60} min)")
+
     print(f"[{time.strftime('%H:%M:%S')}] Building bundle at {cache_dir} ...")
     save_sim_input(sim_data, cache_dir,
-                   condition=media_condition, fixed_media=fixed_media)
+                   condition=media_condition, fixed_media=fixed_media,
+                   c_period_minutes=c_period_minutes,
+                   d_period_seconds=d_period_seconds)
     write_cache_version(cache_dir, repo_root=repo_root)
 
     manifest = {
         "condition": condition,
         "media_condition": media_condition,
         "fixed_media": fixed_media,
+        "c_period_minutes": c_period_minutes,
+        "d_period_seconds": d_period_seconds,
         "created_at": datetime.datetime.now().isoformat(),
         "git_sha": _git_sha(),
         "base_fixture": fixture,
@@ -229,12 +243,23 @@ def main() -> None:
                          "doubling time (e.g. acetate, succinate; default basal)")
     ap.add_argument("--fixed-media", default=None,
                     help="media id pinned for the whole run (e.g. minimal_acetate)")
+    ap.add_argument("--c-period-min", type=float, default=None,
+                    dest="c_period_minutes",
+                    help="Stage-1 C-period override (e.g. 70). Forwarded to "
+                         "LoadSimData; computes basal_elongation_rate from "
+                         "the cached replichore length.")
+    ap.add_argument("--d-period-min", type=float, default=None,
+                    help="Stage-1 D-period override in MINUTES (e.g. 30). "
+                         "Converted to seconds before forwarding.")
     args = ap.parse_args()
     suffix = f"-{args.media_condition}" if args.media_condition else ""
     cache_dir = args.cache_dir or f"out/cache-{args.condition}{suffix}"
+    d_period_seconds = args.d_period_min * 60.0 if args.d_period_min is not None else None
     build(args.condition, args.fixture, cache_dir,
           args.transcription_factor, args.te_factor,
-          media_condition=args.media_condition, fixed_media=args.fixed_media)
+          media_condition=args.media_condition, fixed_media=args.fixed_media,
+          c_period_minutes=args.c_period_minutes,
+          d_period_seconds=d_period_seconds)
 
 
 if __name__ == "__main__":

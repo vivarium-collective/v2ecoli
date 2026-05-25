@@ -29,24 +29,30 @@ plt.rcParams.update({"figure.dpi": 110, "savefig.dpi": 110, "font.size": 10})
 
 TEMPLATE = """<!DOCTYPE html>
 <html><head><meta charset='utf-8'><title>{title}</title>
-<style>body{{font-family:system-ui;max-width:1200px;margin:1em auto;padding:0 1em;color:#0f172a}}
-h1{{font-size:1.25em;border-bottom:1px solid #e2e8f0;padding-bottom:0.3em}}
-p.caption{{color:#475569;font-size:0.9em;line-height:1.45}}
-img{{max-width:100%;border:1px solid #e2e8f0;border-radius:4px;background:#fff}}
-.tag{{display:inline-block;background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:4px;font-size:0.75em;margin-right:6px}}
+<style>
+html,body{{height:{pinned_h}px;overflow:hidden;margin:0;padding:0;font-family:system-ui;color:#0f172a;background:#fff}}
+.wrap{{box-sizing:border-box;height:{pinned_h}px;padding:14px 18px;display:flex;flex-direction:column;gap:8px}}
+h1{{font-size:1.15em;margin:0;border-bottom:1px solid #e2e8f0;padding-bottom:6px}}
+p{{margin:0}}
+p.caption{{color:#475569;font-size:0.85em;line-height:1.4}}
+.fig{{flex:1 1 auto;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}}
+.fig img{{max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain}}
+.tag{{display:inline-block;background:#e0e7ff;color:#3730a3;padding:2px 8px;border-radius:4px;font-size:0.7em;margin-right:6px}}
 .tag.synth{{background:#fef3c7;color:#92400e}}
 .tag.real{{background:#d1fae5;color:#065f46}}
 .tag.diag{{background:#dbeafe;color:#1e40af}}
 </style></head>
 <body>
-<h1>{title}</h1>
-<p>{tags}</p>
-<img src='data:image/png;base64,{png_b64}' alt='{title}' />
-<p class="caption">{caption}</p>
+<div class="wrap">
+  <h1>{title}</h1>
+  <p>{tags}</p>
+  <div class="fig"><img src='data:image/png;base64,{png_b64}' alt='{title}' /></div>
+  <p class="caption">{caption}</p>
+</div>
 </body></html>"""
 
 
-def _fig_to_html(title: str, caption: str, tags: list[str]) -> str:
+def _fig_to_html(title: str, caption: str, tags: list[str], pinned_h: int = 720) -> str:
     buf = io.BytesIO()
     plt.savefig(buf, format="png", bbox_inches="tight")
     plt.close()
@@ -56,7 +62,8 @@ def _fig_to_html(title: str, caption: str, tags: list[str]) -> str:
         f'<span class="tag {t.split(":")[0]}">{t.split(":")[1] if ":" in t else t}</span>'
         for t in tags
     )
-    return TEMPLATE.format(title=title, caption=caption, tags=tag_html, png_b64=png_b64)
+    return TEMPLATE.format(title=title, caption=caption, tags=tag_html,
+                           png_b64=png_b64, pinned_h=pinned_h)
 
 
 def _write(study: str, name: str, html: str):

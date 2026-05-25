@@ -105,6 +105,7 @@ def run_multigen_sqlite(
     initial_agent_id: str = "0",
     division_detector: Callable[[set[str], set[str]], tuple[bool, str | None]] | None = None,
     core: Any = None,
+    single_daughters: bool = False,
 ) -> dict:
     """Run a v2ecoli composite past divisions, externally-driven SQLiteEmitter.
 
@@ -130,6 +131,18 @@ def run_multigen_sqlite(
         :func:`v2ecoli.library.xarray_run.run_multigen_xarray`'s rule).
       core: process-bigraph core for the SQLiteEmitter. Defaults to
         ``composite.core``.
+      single_daughters: if True (default False), after each division
+        drop the sibling daughter(s) from ``composite.state['agents']``
+        so only the followed lineage continues. Bounds peak memory at
+        ~one-cell footprint regardless of ``max_generations``. Without
+        this, every cell tracked by the composite ticks independently;
+        v2ecoli's composite is single-cell-by-design so after N
+        divisions you have 2^N cells in state and the composite runs
+        ALL of them every tick — observed at 62 GB RSS during the
+        2026-05-24 multi-gen sqlite shakedown. With ``single_daughters=True``
+        peak memory tracks one cell, not 2^N. Trade-off: throwing away
+        the unfollowed lineage means no cross-lineage comparison; for
+        single-cell-trajectory studies that's the desired behaviour.
 
     Returns: ``{"steps": int, "generations": list[int]}``.
 
@@ -166,12 +179,31 @@ def run_multigen_sqlite(
         "batch_size": 1,
     }, core=core or composite.core)
 
+    import gc
+
     max_steps = int(max_steps)
     followed = initial_agent_id
     gen = 1
     done = 0
     gens_seen = [gen]
     prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
+
+    def _prune_to_followed_lineage(state: dict, followed_id: str) -> int:
+        """Drop all agents from state['agents'] except the followed one.
+
+        Only invoked when ``single_daughters=True``. See the
+        run_multigen_sqlite docstring for the rationale (bounds peak
+        memory at one-cell footprint instead of 2^N at generation N).
+        Returns count of dropped agents.
+        """
+        agents = (state or {}).get("agents") or {}
+        to_drop = [aid for aid in list(agents.keys()) if aid != followed_id]
+        for aid in to_drop:
+            try:
+                del agents[aid]
+            except KeyError:
+                pass
+        return len(to_drop)
 
     while done < max_steps:
         n = min(chunk, max_steps - done)
@@ -210,8 +242,19 @@ def run_multigen_sqlite(
             followed = daughter
             gen += 1
             gens_seen.append(gen)
-            print(f"[multigen_sqlite] gen {gen} → following agent "
-                  f"{followed!r} at tick {done}")
+            # MEMORY guard: optional sibling prune. Off by default so
+            # the runner mirrors the xarray-runner's "keep everything"
+            # semantics; opt in via `single_daughters=True` when memory
+            # bounds matter (single-lineage multi-gen studies).
+            if single_daughters:
+                dropped = _prune_to_followed_lineage(composite.state or {}, followed)
+                gc.collect()
+                print(f"[multigen_sqlite] gen {gen} → following agent "
+                      f"{followed!r} at tick {done} (single_daughters: "
+                      f"dropped {dropped} sibling agent(s) + ran gc)")
+            else:
+                print(f"[multigen_sqlite] gen {gen} → following agent "
+                      f"{followed!r} at tick {done}")
             # Emit immediately so the gen handoff has a marker row.
             if followed in agents:
                 payload = _filter_agent_state(agents[followed], leaves)
@@ -224,5 +267,10 @@ def run_multigen_sqlite(
                 except Exception:
                     pass
         prev_ids = curr_ids
+        # Light gc per chunk only when single_daughters is on — that's
+        # the mode with memory pressure to fight. Cheap insurance
+        # against cyclic refs in composite scheduler queues.
+        if single_daughters and n >= 50:
+            gc.collect()
 
     return {"steps": done, "generations": gens_seen}

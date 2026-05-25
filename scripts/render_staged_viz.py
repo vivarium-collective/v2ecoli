@@ -96,6 +96,11 @@ def load_trajectory_dir(source_glob: list[str], keys: list[str]) -> dict | None:
     source_glob like [".pbg/runs/phase0-traj/seed_*/trajectory.json"].
     Returns {key: array (n_replicates, n_t), time: array (n_t,)} or None
     if zero files match.
+
+    Robust to early-terminated replicates (seed crashed mid-run, returned a
+    short trajectory): pad short series with NaN up to the longest, so the
+    array is regular and downstream nanmean/nanstd handle the missing tail.
+    Records the per-replicate-completion vector in out["completed_steps"].
     """
     files = []
     for pattern in source_glob:
@@ -103,29 +108,43 @@ def load_trajectory_dir(source_glob: list[str], keys: list[str]) -> dict | None:
     if not files:
         return None
     series_lists: dict[str, list[list[float]]] = {k: [] for k in keys}
+    completed: list[int] = []
     time_arr = None
     for f in files:
         try:
             d = json.loads(Path(f).read_text())
         except Exception:
             continue
-        if time_arr is None and "time" in d:
-            time_arr = np.array(d["time"], dtype=float)
+        # Pick the longest time vector seen as the canonical timeline.
+        if "time" in d:
+            t = np.array(d["time"], dtype=float)
+            if time_arr is None or len(t) > len(time_arr):
+                time_arr = t
         for k in keys:
             if k in d:
                 series_lists[k].append([
                     (v if v is not None else np.nan) for v in d[k]
                 ])
+        completed.append(len(d.get("time", [])))
     if time_arr is None or not any(series_lists[k] for k in keys):
         return None
-    out: dict = {"time": time_arr, "n_replicates": len(files)}
+    n_t = len(time_arr)
+    # Pad short series with NaN to length n_t so the array is regular.
+    padded: dict[str, np.ndarray] = {}
     for k in keys:
-        if series_lists[k]:
-            arr = np.array(series_lists[k], dtype=float)
-            # truncate to shortest if jagged
-            min_t = arr.shape[1]
-            out[k] = arr[:, :min_t]
-            out["time"] = out["time"][:min_t]
+        if not series_lists[k]:
+            continue
+        rows = []
+        for s in series_lists[k]:
+            if len(s) < n_t:
+                s = list(s) + [np.nan] * (n_t - len(s))
+            elif len(s) > n_t:
+                s = s[:n_t]
+            rows.append(s)
+        padded[k] = np.array(rows, dtype=float)
+    out: dict = {"time": time_arr, "n_replicates": len(files),
+                 "completed_steps": np.array(completed)}
+    out.update(padded)
     return out
 
 

@@ -84,3 +84,78 @@ viz:
       run_name: phase0-trajectory-ensemble-N64
       fallback: skeleton
     pinned_h: 760
+
+  # M9-acetate condition slice
+  - name: phase0_acetate_cell_mass_AUTO
+    study: pdmp-00
+    title: Phase 0 (M9-acetate) — ensemble cell mass(t)
+    caption: >-
+      Real cell-mass(t) under M9-acetate (gluconeogenic, doubling 136 min).
+      Auto-pulled from .pbg/runs/phase0-traj-acetate/. Slower growth + smaller
+      cells than M9-glucose, as biology dictates.
+    data:
+      loader: json-trajectory
+      source_glob: [".pbg/runs/phase0-traj-acetate/seed_*/trajectory.json"]
+      keys: ["listeners.mass.cell_mass"]
+    plot:
+      kind: ensemble-band
+      x_label: "Time (model seconds)"
+      y_label: "Cell mass (fg)"
+    awaits:
+      run_name: phase0-trajectory-ensemble-acetate
+      fallback: skeleton
+    pinned_h: 760
+
+  - name: phase0_acetate_endpoint_ATP_AUTO
+    study: pdmp-00
+    title: Phase 0 (M9-acetate) — ATP[c] endpoint per seed
+    caption: Endpoint state per replicate under M9-acetate condition.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/phase0-traj-acetate/seed_*/summary.json"]
+      keys: ["ATP[c]_count"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Master seed"
+      y_label: "ATP[c] count at t=600 s"
+    awaits:
+      run_name: phase0-trajectory-ensemble-acetate
+      fallback: skeleton
+    pinned_h: 760
+
+  # M9-glucose+aa condition slice
+  - name: phase0_with_aa_cell_mass_AUTO
+    study: pdmp-00
+    title: Phase 0 (M9-glucose+aa) — ensemble cell mass(t)
+    caption: >-
+      Real cell-mass(t) under M9-glucose + amino acids (fast growth, doubling
+      25 min). Auto-pulled from .pbg/runs/phase0-traj-with_aa/.
+    data:
+      loader: json-trajectory
+      source_glob: [".pbg/runs/phase0-traj-with_aa/seed_*/trajectory.json"]
+      keys: ["listeners.mass.cell_mass"]
+    plot:
+      kind: ensemble-band
+      x_label: "Time (model seconds)"
+      y_label: "Cell mass (fg)"
+    awaits:
+      run_name: phase0-trajectory-ensemble-with_aa
+      fallback: skeleton
+    pinned_h: 760
+
+  - name: phase0_with_aa_endpoint_ATP_AUTO
+    study: pdmp-00
+    title: Phase 0 (M9-glucose+aa) — ATP[c] endpoint per seed
+    caption: Endpoint state per replicate under M9-glucose+amino-acids condition.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/phase0-traj-with_aa/seed_*/summary.json"]
+      keys: ["ATP[c]_count"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Master seed"
+      y_label: "ATP[c] count at t=600 s"
+    awaits:
+      run_name: phase0-trajectory-ensemble-with_aa
+      fallback: skeleton
+    pinned_h: 760

@@ -1,20 +1,20 @@
-schema_version: 3
+schema_version: 4
 name: pdmp-00-characterization
 title: Phase 0 — Characterization and Interface Extraction
 status: planned
 phase: Design
 topic: pdmp
 tags:
-  - pdmp
-  - phase-0
-  - characterization
-  - markov-blanket
-  - interfaces
-  - profiling
-  - xarray
-  - xarray-emitter
-  - zarr
-  - multi-gen
+- pdmp
+- phase-0
+- characterization
+- markov-blanket
+- interfaces
+- profiling
+- xarray
+- xarray-emitter
+- zarr
+- multi-gen
 created: '2026-05-24'
 question: 'What is the Markov blanket of every major v2ecoli subprocess
 
@@ -157,205 +157,196 @@ description: 'Phase 0 of the v2ecoli → PDMP roadmap. The deliverables of this
 
   '
 expected_behavior:
-  - name: variables-categorized
-    en: Every state variable in the WCM's process internals + stores is labelled ODE-amenable / 
-      stochastic-discrete / teleonomic / coupling-artifact. No "unknown" labels remain.
-    given:
-      condition: diagnostic-run-M9-glucose
-    measure:
-      kind: observable-comparison
-      observable: state-variable-category-map
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: interface-schemas-typed
-    en: Each of metabolism, transcription, translation, replication, division, membrane has a typed PB 
-      interface schema covering its Markov blanket.
-    given:
-      condition: all-major-subprocesses
-    measure:
-      kind: observable-comparison
-      observable: process-bigraph-interface-schemas
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: reference-xarray-3-conditions
-    en: Reference zarr stores (produced by XArrayEmitter) exist for every interface variable across ≥3 
-      distinct environmental conditions, with N≥64 replicates × ≥3 generations each. Readable via 
-      xarray.open_zarr() with chunking on the time axis. (Gating criterion for the investigation.)
-    given:
-      condition: M9-glucose AND M9-acetate AND M9-glucose-aa
-    measure:
-      kind: observable-comparison
-      observable: xarray-interface-dataset
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: profile-marshalling-vs-essential
-    en: Per-step compute is decomposed into marshalling overhead vs. essential computation, motivating (or 
-      refuting) the Phase 4 column-centric runtime refactor. Each bucket reported as mean ± std over ≥1000 
-      step samples with bootstrap 95% CI.
-    given:
-      condition: diagnostic-run
-    measure:
-      kind: observable-comparison
-      observable: per-step-profile-report
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: uq-replicate-ensemble-N64
-    en: Each (condition, seed-family) reference dataset comprises N≥64 independent stochastic replicates. 
-      Per-observable MCSE reported; observables with MCSE > 10% of inter-condition effect size are flagged and
-      N is increased until threshold met.
-    given:
-      condition: M9-glucose AND M9-acetate AND M9-glucose-aa
-    measure:
-      kind: observable-comparison
-      observable: per-condition-replicate-count
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: uq-stiffness-classification
-    en: For each subprocess with continuous components, the local Jacobian eigenvalue spread (max|λ| / min|λ|)
-      is estimated numerically (finite-difference) at the reference state. Subprocesses with κ > 10⁴ are 
-      flagged stiff and inform solver choice in Phase 1.
-    given:
-      condition: per-major-subprocess
-    measure:
-      kind: observable-comparison
-      observable: jacobian-spectrum-summary
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: uq-bootstrap-cis-on-interface-stats
-    en: Every summary statistic in the reference dataset (mean, std, quantiles q05/q50/q95) carries a 
-      bootstrap 95% confidence interval (≥10⁴ resamples). Downstream phase tolerance bands are derived from 
-      these CIs, never set ad hoc.
-    given:
-      condition: per-variable
-    measure:
-      kind: observable-comparison
-      observable: interface-summary-CI
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
+- name: variables-categorized
+  en: Every state variable in the WCM's process internals + stores is labelled ODE-amenable / stochastic-discrete / teleonomic
+    / coupling-artifact. No "unknown" labels remain.
+  given:
+    condition: diagnostic-run-M9-glucose
+  measure:
+    kind: observable-comparison
+    observable: state-variable-category-map
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: interface-schemas-typed
+  en: Each of metabolism, transcription, translation, replication, division, membrane has a typed PB interface schema covering
+    its Markov blanket.
+  given:
+    condition: all-major-subprocesses
+  measure:
+    kind: observable-comparison
+    observable: process-bigraph-interface-schemas
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: reference-xarray-3-conditions
+  en: Reference zarr stores (produced by XArrayEmitter) exist for every interface variable across ≥3 distinct environmental
+    conditions, with N≥64 replicates × ≥3 generations each. Readable via xarray.open_zarr() with chunking on the time axis.
+    (Gating criterion for the investigation.)
+  given:
+    condition: M9-glucose AND M9-acetate AND M9-glucose-aa
+  measure:
+    kind: observable-comparison
+    observable: xarray-interface-dataset
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: profile-marshalling-vs-essential
+  en: Per-step compute is decomposed into marshalling overhead vs. essential computation, motivating (or refuting) the Phase
+    4 column-centric runtime refactor. Each bucket reported as mean ± std over ≥1000 step samples with bootstrap 95% CI.
+  given:
+    condition: diagnostic-run
+  measure:
+    kind: observable-comparison
+    observable: per-step-profile-report
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: uq-replicate-ensemble-N64
+  en: Each (condition, seed-family) reference dataset comprises N≥64 independent stochastic replicates. Per-observable MCSE
+    reported; observables with MCSE > 10% of inter-condition effect size are flagged and N is increased until threshold met.
+  given:
+    condition: M9-glucose AND M9-acetate AND M9-glucose-aa
+  measure:
+    kind: observable-comparison
+    observable: per-condition-replicate-count
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: uq-stiffness-classification
+  en: For each subprocess with continuous components, the local Jacobian eigenvalue spread (max|λ| / min|λ|) is estimated
+    numerically (finite-difference) at the reference state. Subprocesses with κ > 10⁴ are flagged stiff and inform solver
+    choice in Phase 1.
+  given:
+    condition: per-major-subprocess
+  measure:
+    kind: observable-comparison
+    observable: jacobian-spectrum-summary
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: uq-bootstrap-cis-on-interface-stats
+  en: Every summary statistic in the reference dataset (mean, std, quantiles q05/q50/q95) carries a bootstrap 95% confidence
+    interval (≥10⁴ resamples). Downstream phase tolerance bands are derived from these CIs, never set ad hoc.
+  given:
+    condition: per-variable
+  measure:
+    kind: observable-comparison
+    observable: interface-summary-CI
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
 baseline:
-  - name: v2ecoli-diagnostic
-    composite: v2ecoli.composites.diagnostic.diagnostic
-    params: &id001
-      emitter: xarray
-      condition: M9-glucose
-    _placeholder: true
-    _note: Phase 0 runs v2ecoli as-is in diagnostic mode under the XArrayEmitter. Composite path subject to 
-      confirmation once the diagnostic-mode runner is wired.
+- name: v2ecoli-diagnostic
+  composite: v2ecoli.composites.diagnostic.diagnostic
+  params: &id001
+    emitter: xarray
+    condition: M9-glucose
+  _placeholder: true
+  _note: Phase 0 runs v2ecoli as-is in diagnostic mode under the XArrayEmitter. Composite path subject to confirmation once
+    the diagnostic-mode runner is wired.
 variants:
-  - name: v2ecoli-diagnostic-M9-glucose
-    description: 'Canonical reference: M9 minimal + 22 mM glucose, aerobic, 37°C. The baseline against which all
-      other Phase 0 conditions are compared.'
-    params: &id002
-      condition: M9-glucose
-      seed: 0
-      n_steps: 600
-  - name: v2ecoli-diagnostic-M9-acetate
-    description: Slower-growth gluconeogenic regime; same cache, swap nutrient condition to acetate. Tests 
-      interface fidelity when the FBA solution sits on a different polytope facet.
-    params: &id003
-      condition: M9-acetate
-      seed: 0
-      n_steps: 600
-  - name: v2ecoli-diagnostic-M9-glucose-aa
-    description: 'Faster-growth (partial relief on translation): M9 + glucose + 20 amino-acid mix at fully-supplemented
-      concentrations.'
-    params: &id004
-      condition: M9-glucose+aa
-      seed: 0
-      n_steps: 400
-  - name: v2ecoli-diagnostic-ensemble-N64
-    description: 'N=64 stochastic replicates per condition (3 conditions × 64 = 192 runs). The full reference ensemble
-      Phase 1+ phases validate against. Wall-clock estimate: ~30 hr serially, ~1 hr in parallel on a 32-core machine.'
-    params: &id005
-      condition: M9-glucose
-      seed: <replicate>
-      n_steps: 600
+- name: v2ecoli-diagnostic-M9-glucose
+  description: 'Canonical reference: M9 minimal + 22 mM glucose, aerobic, 37°C. The baseline against which all other Phase
+    0 conditions are compared.'
+  params: &id002
+    condition: M9-glucose
+    seed: 0
+    n_steps: 600
+- name: v2ecoli-diagnostic-M9-acetate
+  description: Slower-growth gluconeogenic regime; same cache, swap nutrient condition to acetate. Tests interface fidelity
+    when the FBA solution sits on a different polytope facet.
+  params: &id003
+    condition: M9-acetate
+    seed: 0
+    n_steps: 600
+- name: v2ecoli-diagnostic-M9-glucose-aa
+  description: 'Faster-growth (partial relief on translation): M9 + glucose + 20 amino-acid mix at fully-supplemented concentrations.'
+  params: &id004
+    condition: M9-glucose+aa
+    seed: 0
+    n_steps: 400
+- name: v2ecoli-diagnostic-ensemble-N64
+  description: 'N=64 stochastic replicates per condition (3 conditions × 64 = 192 runs). The full reference ensemble Phase
+    1+ phases validate against. Wall-clock estimate: ~30 hr serially, ~1 hr in parallel on a 32-core machine.'
+  params: &id005
+    condition: M9-glucose
+    seed: <replicate>
+    n_steps: 600
 interventions: []
 runs:
-  - name: v2ecoli-baseline-bootstrap-2026-05-24
-    composite: v2ecoli.composites.baseline.baseline
-    run_id: v2ecoli.composites.baseline.baseline__1779656932__20ca2d
-    status: completed
-    n_steps: 10
-    wall_clock_s: 58
-    started_at: '2026-05-24T20:48:52Z'
-    params:
-      cache_dir: out/cache
-      seed: 0
-    summary: "First v2ecoli baseline (55-process partitioned WCM) bootstrap run via the dashboard. Cache symlinked
-      from main checkout (/code/v2ecoli/out/cache). 10 steps in ~58s wall clock (~6s/step). 11 trajectory timepoints
-      persisted (65 MB total), every WCM state variable captured under flattened agents_0_* keys. Confirms (a) the
-      baseline composite generator works from this worktree's venv, (b) the dashboard /api/composite-test-run path
-      completes successfully, (c) trajectory persistence works for the full WCM. Next: produce reference ensembles
-      (N≥64 replicates × ≥3 conditions) for Phase 0 deliverable."
+- name: v2ecoli-baseline-bootstrap-2026-05-24
+  composite: v2ecoli.composites.baseline.baseline
+  run_id: v2ecoli.composites.baseline.baseline__1779656932__20ca2d
+  status: completed
+  n_steps: 10
+  wall_clock_s: 58
+  started_at: '2026-05-24T20:48:52Z'
+  params:
+    cache_dir: out/cache
+    seed: 0
+  summary: 'First v2ecoli baseline (55-process partitioned WCM) bootstrap run via the dashboard. Cache symlinked from main
+    checkout (/code/v2ecoli/out/cache). 10 steps in ~58s wall clock (~6s/step). 11 trajectory timepoints persisted (65 MB
+    total), every WCM state variable captured under flattened agents_0_* keys. Confirms (a) the baseline composite generator
+    works from this worktree''s venv, (b) the dashboard /api/composite-test-run path completes successfully, (c) trajectory
+    persistence works for the full WCM. Next: produce reference ensembles (N≥64 replicates × ≥3 conditions) for Phase 0 deliverable.'
 bibliography:
   bib_keys:
-    - macklin2020
-    - agmon2022
-    - birch2014
-    - stumpf2021
+  - macklin2020
+  - agmon2022
+  - birch2014
+  - stumpf2021
 report:
-  main_insight: Phase 0 produces the Markov-blanket reference dataset that gates every later phase — a Phase-N
-    replacement subprocess is only accepted when its interface statistics match the Phase 0 zarr ensemble 
-    within tolerance.
-  caveat: 'Pre-execution scaffold; concrete tolerance bands (W₂ thresholds, MCSE floors) will be fitted from the
-    N≥64 replicate runs once the diagnostic harness lands.'
-  conclusion: Predicted — every v2ecoli state variable will categorise as ODE-amenable, stochastic-discrete, 
-    teleonomic, or coupling-artifact; per-step compute will decompose into measurable marshalling vs. 
-    essential buckets across ≥3 conditions.
+  main_insight: Phase 0 produces the Markov-blanket reference dataset that gates every later phase — a Phase-N replacement
+    subprocess is only accepted when its interface statistics match the Phase 0 zarr ensemble within tolerance.
+  caveat: Pre-execution scaffold; concrete tolerance bands (W₂ thresholds, MCSE floors) will be fitted from the N≥64 replicate
+    runs once the diagnostic harness lands.
+  conclusion: Predicted — every v2ecoli state variable will categorise as ODE-amenable, stochastic-discrete, teleonomic, or
+    coupling-artifact; per-step compute will decompose into measurable marshalling vs. essential buckets across ≥3 conditions.
   confidence: design-stage
   evidence_quality: bootstrap-run-confirmed
   key_metrics:
-    - label: variables categorised
-      status: pass
-      value: all (65 MB/step state captured)
-    - label: interface schemas
-      status: stub
-      value: 6 subprocesses
-    - label: reference zarr conditions
-      status: stub
-      value: ≥3
-    - label: replicate ensemble per cond.
-      status: stub
-      value: N≥64
+  - label: variables categorised
+    status: pass
+    value: all (65 MB/step state captured)
+  - label: interface schemas
+    status: stub
+    value: 6 subprocesses
+  - label: reference zarr conditions
+    status: stub
+    value: ≥3
+  - label: replicate ensemble per cond.
+    status: stub
+    value: N≥64
 visualizations:
-  - name: v2ecoli-baseline-bootstrap
-    address: file:reports/figures/pdmp-00/v2ecoli_baseline_bootstrap.html
-    description: "v2ecoli baseline (55-process WCM) bootstrap run — 10 simulation steps in ~58s wall clock, 11 trajectory
-      timepoints, 31 scalar listener observables. 4-panel chart: cell mass, instantaneous growth rate, RNA synthesis
-      prob, and ribosome elongation rate. Confirms the dashboard's full WCM run path works end-to-end from this
-      worktree's venv. (A short 10-step bootstrap doesn't show much of the 67-min doubling cycle — see follow-up
-      entries for longer runs.)"
-  - name: phase0-growth-rate-ensemble
-    address: file:reports/figures/planned-comparisons/phase0_growth_rate_ensemble.html
-    description: PLANNED — violin plot of steady-state µ over N=64 replicates × 3 conditions. Bound by Phase 0
-      MCSE target (≤ 10% of inter-condition effect size).
-  - name: study-plan-summary
-    address: file:reports/figures/pdmp-00/study_plan_summary.html
-    description: One-page consolidated study card — planned runs Gantt, readouts table, tests table, variants 
-      table, proceed-condition. Critique-able by an expert in one read.
-  - name: v2ecoli-baseline-100step
-    address: file:reports/figures/pdmp-00/v2ecoli_baseline_100step.html
-    description: 100-step run via dashboard, 612 MB trajectory, 6-panel viz showing ~14% of one doubling 
-      cycle.
-  - name: v2ecoli-ensemble-3seeds-DEGENERATE
-    address: file:reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html
-    description: First ensemble attempt — 3 seeds produced bit-identical trajectories. Surfaces the 
-      per-process RNG seeding bug. Banner-flagged red. Blocks the Phase 0 N>=64 target until fixed.
+- name: v2ecoli-baseline-bootstrap
+  address: file:reports/figures/pdmp-00/v2ecoli_baseline_bootstrap.html
+  description: 'v2ecoli baseline (55-process WCM) bootstrap run — 10 simulation steps in ~58s wall clock, 11 trajectory timepoints,
+    31 scalar listener observables. 4-panel chart: cell mass, instantaneous growth rate, RNA synthesis prob, and ribosome
+    elongation rate. Confirms the dashboard''s full WCM run path works end-to-end from this worktree''s venv. (A short 10-step
+    bootstrap doesn''t show much of the 67-min doubling cycle — see follow-up entries for longer runs.)'
+- name: phase0-growth-rate-ensemble
+  address: file:reports/figures/planned-comparisons/phase0_growth_rate_ensemble.html
+  description: PLANNED — violin plot of steady-state µ over N=64 replicates × 3 conditions. Bound by Phase 0 MCSE target (≤
+    10% of inter-condition effect size).
+- name: study-plan-summary
+  address: file:reports/figures/pdmp-00/study_plan_summary.html
+  description: One-page consolidated study card — planned runs Gantt, readouts table, tests table, variants table, proceed-condition.
+    Critique-able by an expert in one read.
+- name: v2ecoli-baseline-100step
+  address: file:reports/figures/pdmp-00/v2ecoli_baseline_100step.html
+  description: 100-step run via dashboard, 612 MB trajectory, 6-panel viz showing ~14% of one doubling cycle.
+- name: v2ecoli-ensemble-3seeds-DEGENERATE
+  address: file:reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html
+  description: First ensemble attempt — 3 seeds produced bit-identical trajectories. Surfaces the per-process RNG seeding
+    bug. Banner-flagged red. Blocks the Phase 0 N>=64 target until fixed.
 design_status: approved
 implementation_status: prototype
 simulation_status: ran
@@ -365,171 +356,227 @@ expert_review_status: not_requested
 pipeline_gate:
   prerequisites: []
   enables:
-    - pdmp-01-metabolism-ode
-  proceed_condition: |-
-    Reference Xarray zarr stores produced for ≥3 conditions × N≥64 replicates × ≥3 generations, with per-observable MCSE reported and bootstrap CIs on every summary statistic. Per-step compute profile decomposed into FBA LP / RNG / marshalling / topology / emitter-I/O buckets.
-study_card: |-
-  Phase 0 — Markov-blanket interface extraction. Run v2ecoli as-is under M9-glucose + acetate + glucose-aa with XArrayEmitter; produce the reference zarr ensemble every later phase validates against; profile per-step compute to decompose marshalling overhead vs. essential FBA-LP-solve cost.
+  - pdmp-01-metabolism-ode
+  proceed_condition: Reference Xarray zarr stores produced for ≥3 conditions × N≥64 replicates × ≥3 generations, with per-observable
+    MCSE reported and bootstrap CIs on every summary statistic. Per-step compute profile decomposed into FBA LP / RNG / marshalling
+    / topology / emitter-I/O buckets.
+study_card: Phase 0 — Markov-blanket interface extraction. Run v2ecoli as-is under M9-glucose + acetate + glucose-aa with
+  XArrayEmitter; produce the reference zarr ensemble every later phase validates against; profile per-step compute to decompose
+  marshalling overhead vs. essential FBA-LP-solve cost.
 readouts:
-  - name: reference-zarr-stores
-    status: planned
-    path: .pbg/runs/<id>/store.zarr
-    units: zarr group per (cond,rep,gen)
-    notes: N>=64 replicates x 3 conditions x >=3 generations; canonical reference dataset for every later 
-      phase.
-  - name: interface-schemas
-    status: planned
-    path: v2ecoli/<process>/interface.schema.json
-    units: PB schema
-    notes: Typed PB interface schema per major subprocess (metabolism, transcription, translation, 
-      replication, division, membrane).
-  - name: per-step-compute-profile
-    status: planned
-    path: .pbg/runs/<id>/profile.json
-    units: ms per bucket
-    notes: '5 buckets: FBA LP solve / RNG / store-process marshalling / topology traversal / emitter I/O. Mean +/-
-      std over >=1000 step samples + bootstrap 95% CI.'
-  - name: variable-categorisation-map
-    status: planned
-    path: studies/pdmp-00/variable_categories.yaml
-    units: category enum + numerical-sensitivity tier
-    notes: 'Every state variable: ODE-amenable / stochastic-discrete / teleonomic / coupling-artifact + stiffness/CV/coupling-strength
-      tier.'
+- name: reference-zarr-stores
+  status: planned
+  path: .pbg/runs/<id>/store.zarr
+  units: zarr group per (cond,rep,gen)
+  notes: N>=64 replicates x 3 conditions x >=3 generations; canonical reference dataset for every later phase.
+- name: interface-schemas
+  status: planned
+  path: v2ecoli/<process>/interface.schema.json
+  units: PB schema
+  notes: Typed PB interface schema per major subprocess (metabolism, transcription, translation, replication, division, membrane).
+- name: per-step-compute-profile
+  status: planned
+  path: .pbg/runs/<id>/profile.json
+  units: ms per bucket
+  notes: '5 buckets: FBA LP solve / RNG / store-process marshalling / topology traversal / emitter I/O. Mean +/- std over
+    >=1000 step samples + bootstrap 95% CI.'
+- name: variable-categorisation-map
+  status: planned
+  path: studies/pdmp-00/variable_categories.yaml
+  units: category enum + numerical-sensitivity tier
+  notes: 'Every state variable: ODE-amenable / stochastic-discrete / teleonomic / coupling-artifact + stiffness/CV/coupling-strength
+    tier.'
 planned_runs:
-  - name: phase0-bootstrap
-    status: ran
-    n_steps: 10
-    details: completed 2026-05-24; bootstrap-run-confirmed
-  - name: phase0-warmup-x1
-    status: planned
-    n_steps: 100
-    details: single-condition warm-up; verify cycle dynamics + listener observables ramp correctly
-  - name: fix-per-process-rng-seeding
-    status: fixed
-    n_steps: (infrastructure fix, no simulation steps)
-    details: "FIXED 2026-05-24. Per-process RNG seed derivation added in v2ecoli/composites/baseline.py
-      via _derive_process_seed(master_seed, base_name) = crc32(process_name, master_seed).
-      Mirrors the pattern already used in v2ecoli/steps/division.py:CellDivision. Verified by
-      tests/test_seed_diversity.py — seed=0 vs seed=1 produces divergent trajectories while
-      per-(seed) reproducibility is preserved (test_seed_determinism still passes). Unblocks
-      Phase 0 N≥64 ensemble. Original bug: baseline's `seed` parameter only seeded `allocator_rng`
-      (baseline.py:408); the other 14 stochastic processes (TranscriptInitiation, Metabolism,
-      Complexation, etc.) inherited a single cache-derived seed from the ParCa cache, so multi-seed
-      ensembles collapsed to bit-identical trajectories."
-  - name: phase0-conditions-3
-    status: planned
-    n_steps: 600
-    details: 1 generation × 3 conditions; first cross-condition interface-statistic comparison
-  - name: phase0-ensemble-3x64
-    status: planned
-    n_steps: 600
-    details: 3 conditions × N=64 replicates; produces the canonical reference zarr ensemble (Gating criterion)
+- name: phase0-bootstrap
+  status: ran
+  n_steps: 10
+  details: completed 2026-05-24; bootstrap-run-confirmed
+- name: phase0-warmup-x1
+  status: planned
+  n_steps: 100
+  details: single-condition warm-up; verify cycle dynamics + listener observables ramp correctly
+- name: fix-per-process-rng-seeding
+  status: fixed
+  n_steps: (infrastructure fix, no simulation steps)
+  details: 'FIXED 2026-05-24. Per-process RNG seed derivation added in v2ecoli/composites/baseline.py via _derive_process_seed(master_seed,
+    base_name) = crc32(process_name, master_seed). Mirrors the pattern already used in v2ecoli/steps/division.py:CellDivision.
+    Verified by tests/test_seed_diversity.py — seed=0 vs seed=1 produces divergent trajectories while per-(seed) reproducibility
+    is preserved (test_seed_determinism still passes). Unblocks Phase 0 N≥64 ensemble. Original bug: baseline''s `seed` parameter
+    only seeded `allocator_rng` (baseline.py:408); the other 14 stochastic processes (TranscriptInitiation, Metabolism, Complexation,
+    etc.) inherited a single cache-derived seed from the ParCa cache, so multi-seed ensembles collapsed to bit-identical trajectories.'
+- name: phase0-conditions-3
+  status: planned
+  n_steps: 600
+  details: 1 generation × 3 conditions; first cross-condition interface-statistic comparison
+- name: phase0-ensemble-3x64
+  status: planned
+  n_steps: 600
+  details: 3 conditions × N=64 replicates; produces the canonical reference zarr ensemble (Gating criterion)
 conditions:
   baseline:
     composite: v2ecoli.composites.diagnostic.diagnostic
     params: *id001
   variants:
-    - name: v2ecoli-diagnostic-M9-glucose
-      base_composite: v2ecoli.composites.diagnostic.diagnostic
-      parameter_overrides: *id002
-      description: 'Canonical reference: M9 minimal + 22 mM glucose, aerobic, 37°C. The baseline against which all
-        other Phase 0 conditions are compared.'
-    - name: v2ecoli-diagnostic-M9-acetate
-      base_composite: v2ecoli.composites.diagnostic.diagnostic
-      parameter_overrides: *id003
-      description: Slower-growth gluconeogenic regime; same cache, swap nutrient condition to acetate. Tests 
-        interface fidelity when the FBA solution sits on a different polytope facet.
-    - name: v2ecoli-diagnostic-M9-glucose-aa
-      base_composite: v2ecoli.composites.diagnostic.diagnostic
-      parameter_overrides: *id004
-      description: 'Faster-growth (partial relief on translation): M9 + glucose + 20 amino-acid mix at fully-supplemented
-        concentrations.'
-    - name: v2ecoli-diagnostic-ensemble-N64
-      base_composite: v2ecoli.composites.diagnostic.diagnostic
-      parameter_overrides: *id005
-      description: 'N=64 stochastic replicates per condition (3 conditions × 64 = 192 runs). The full reference
-        ensemble Phase 1+ phases validate against. Wall-clock estimate: ~30 hr serially, ~1 hr in parallel on a
-        32-core machine.'
+  - name: v2ecoli-diagnostic-M9-glucose
+    base_composite: v2ecoli.composites.diagnostic.diagnostic
+    parameter_overrides: *id002
+    description: 'Canonical reference: M9 minimal + 22 mM glucose, aerobic, 37°C. The baseline against which all other Phase
+      0 conditions are compared.'
+  - name: v2ecoli-diagnostic-M9-acetate
+    base_composite: v2ecoli.composites.diagnostic.diagnostic
+    parameter_overrides: *id003
+    description: Slower-growth gluconeogenic regime; same cache, swap nutrient condition to acetate. Tests interface fidelity
+      when the FBA solution sits on a different polytope facet.
+  - name: v2ecoli-diagnostic-M9-glucose-aa
+    base_composite: v2ecoli.composites.diagnostic.diagnostic
+    parameter_overrides: *id004
+    description: 'Faster-growth (partial relief on translation): M9 + glucose + 20 amino-acid mix at fully-supplemented concentrations.'
+  - name: v2ecoli-diagnostic-ensemble-N64
+    base_composite: v2ecoli.composites.diagnostic.diagnostic
+    parameter_overrides: *id005
+    description: 'N=64 stochastic replicates per condition (3 conditions × 64 = 192 runs). The full reference ensemble Phase
+      1+ phases validate against. Wall-clock estimate: ~30 hr serially, ~1 hr in parallel on a 32-core machine.'
   model_settings: []
 simulation_set:
-  - name: phase0-bootstrap
-    kind: single
-    status: ran
-    base_model: v2ecoli.composites.diagnostic.diagnostic
-    duration_steps: 10
-    details: completed 2026-05-24; bootstrap-run-confirmed
-    metrics:
-      - reference-zarr-stores
-      - interface-schemas
-      - per-step-compute-profile
-      - variable-categorisation-map
-    pass_fail_tests:
-      - variables-categorized
-      - interface-schemas-typed
-      - reference-xarray-3-conditions
-  - name: phase0-warmup-x1
-    kind: single
-    status: planned
-    base_model: v2ecoli.composites.diagnostic.diagnostic
-    duration_steps: 100
-    details: single-condition warm-up; verify cycle dynamics + listener observables ramp correctly
-    metrics:
-      - reference-zarr-stores
-      - interface-schemas
-      - per-step-compute-profile
-      - variable-categorisation-map
-    pass_fail_tests:
-      - variables-categorized
-      - interface-schemas-typed
-      - reference-xarray-3-conditions
-  - name: fix-per-process-rng-seeding
-    kind: single
-    status: blocks-ensemble
-    base_model: v2ecoli.composites.diagnostic.diagnostic
-    duration_steps: (infrastructure fix, no simulation steps)
-    details: "DISCOVERED 2026-05-24 via 3-seed pilot ensemble: v2ecoli baseline's `seed` parameter only seeds `allocator_rng`
-      (baseline.py:408). All other 55 stochastic processes (transcription, translation, division-threshold, protein-degradation,
-      equilibrium, two-component-system, complexation, RNA-maturation, transcript-initiation, polypeptide-initiation,
-      chromosome-replication, tf-binding, tf-unbinding, chromosome-structure) seed from the cached sim_data — shared
-      across runs. Net: 3 seeds → bit-identical trajectories (CV across seeds: 0.000% on every observable). Fix:
-      each stochastic process seeds its RNG from hash(master_seed, process_name). Until fixed, Phase 0's N≥64 ensemble
-      target is moot. See reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html for the diagnostic."
-    metrics:
-      - reference-zarr-stores
-      - interface-schemas
-      - per-step-compute-profile
-      - variable-categorisation-map
-    pass_fail_tests:
-      - variables-categorized
-      - interface-schemas-typed
-      - reference-xarray-3-conditions
-  - name: phase0-conditions-3
-    kind: single
-    status: planned
-    base_model: v2ecoli.composites.diagnostic.diagnostic
-    duration_steps: 600
-    details: 1 generation × 3 conditions; first cross-condition interface-statistic comparison
-    metrics:
-      - reference-zarr-stores
-      - interface-schemas
-      - per-step-compute-profile
-      - variable-categorisation-map
-    pass_fail_tests:
-      - variables-categorized
-      - interface-schemas-typed
-      - reference-xarray-3-conditions
-  - name: phase0-ensemble-3x64
-    kind: single
-    status: planned
-    base_model: v2ecoli.composites.diagnostic.diagnostic
-    duration_steps: 600
-    details: 3 conditions × N=64 replicates; produces the canonical reference zarr ensemble (Gating criterion)
-    metrics:
-      - reference-zarr-stores
-      - interface-schemas
-      - per-step-compute-profile
-      - variable-categorisation-map
-    pass_fail_tests:
-      - variables-categorized
-      - interface-schemas-typed
-      - reference-xarray-3-conditions
+- name: phase0-bootstrap
+  kind: single
+  status: ran
+  base_model: v2ecoli.composites.diagnostic.diagnostic
+  duration_steps: 10
+  details: completed 2026-05-24; bootstrap-run-confirmed
+  metrics:
+  - reference-zarr-stores
+  - interface-schemas
+  - per-step-compute-profile
+  - variable-categorisation-map
+  pass_fail_tests:
+  - variables-categorized
+  - interface-schemas-typed
+  - reference-xarray-3-conditions
+- name: phase0-warmup-x1
+  kind: single
+  status: planned
+  base_model: v2ecoli.composites.diagnostic.diagnostic
+  duration_steps: 100
+  details: single-condition warm-up; verify cycle dynamics + listener observables ramp correctly
+  metrics:
+  - reference-zarr-stores
+  - interface-schemas
+  - per-step-compute-profile
+  - variable-categorisation-map
+  pass_fail_tests:
+  - variables-categorized
+  - interface-schemas-typed
+  - reference-xarray-3-conditions
+- name: fix-per-process-rng-seeding
+  kind: single
+  status: blocks-ensemble
+  base_model: v2ecoli.composites.diagnostic.diagnostic
+  duration_steps: (infrastructure fix, no simulation steps)
+  details: 'DISCOVERED 2026-05-24 via 3-seed pilot ensemble: v2ecoli baseline''s `seed` parameter only seeds `allocator_rng`
+    (baseline.py:408). All other 55 stochastic processes (transcription, translation, division-threshold, protein-degradation,
+    equilibrium, two-component-system, complexation, RNA-maturation, transcript-initiation, polypeptide-initiation, chromosome-replication,
+    tf-binding, tf-unbinding, chromosome-structure) seed from the cached sim_data — shared across runs. Net: 3 seeds → bit-identical
+    trajectories (CV across seeds: 0.000% on every observable). Fix: each stochastic process seeds its RNG from hash(master_seed,
+    process_name). Until fixed, Phase 0''s N≥64 ensemble target is moot. See reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html
+    for the diagnostic.'
+  metrics:
+  - reference-zarr-stores
+  - interface-schemas
+  - per-step-compute-profile
+  - variable-categorisation-map
+  pass_fail_tests:
+  - variables-categorized
+  - interface-schemas-typed
+  - reference-xarray-3-conditions
+- name: phase0-conditions-3
+  kind: single
+  status: planned
+  base_model: v2ecoli.composites.diagnostic.diagnostic
+  duration_steps: 600
+  details: 1 generation × 3 conditions; first cross-condition interface-statistic comparison
+  metrics:
+  - reference-zarr-stores
+  - interface-schemas
+  - per-step-compute-profile
+  - variable-categorisation-map
+  pass_fail_tests:
+  - variables-categorized
+  - interface-schemas-typed
+  - reference-xarray-3-conditions
+- name: phase0-ensemble-3x64
+  kind: single
+  status: planned
+  base_model: v2ecoli.composites.diagnostic.diagnostic
+  duration_steps: 600
+  details: 3 conditions × N=64 replicates; produces the canonical reference zarr ensemble (Gating criterion)
+  metrics:
+  - reference-zarr-stores
+  - interface-schemas
+  - per-step-compute-profile
+  - variable-categorisation-map
+  pass_fail_tests:
+  - variables-categorized
+  - interface-schemas-typed
+  - reference-xarray-3-conditions
+tests:
+- name: variables-categorized
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''state-variable-category-map''}'
+  description: Every state variable in the WCM's process internals + stores is labelled ODE-amenable / stochastic-discrete
+    / teleonomic / coupling-artifact. No "unknown" labels remain.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: interface-schemas-typed
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''process-bigraph-interface-schemas''}'
+  description: Each of metabolism, transcription, translation, replication, division, membrane has a typed PB interface schema
+    covering its Markov blanket.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: reference-xarray-3-conditions
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''xarray-interface-dataset''}'
+  description: Reference zarr stores (produced by XArrayEmitter) exist for every interface variable across ≥3 distinct environmental
+    conditions, with N≥64 replicates × ≥3 generations each. Readable via xarray.open_zarr() with chunking on the time axis.
+    (Gating criterion for the investigation.)
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: profile-marshalling-vs-essential
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''per-step-profile-report''}'
+  description: Per-step compute is decomposed into marshalling overhead vs. essential computation, motivating (or refuting)
+    the Phase 4 column-centric runtime refactor. Each bucket reported as mean ± std over ≥1000 step samples with bootstrap
+    95% CI.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: uq-replicate-ensemble-N64
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''per-condition-replicate-count''}'
+  description: Each (condition, seed-family) reference dataset comprises N≥64 independent stochastic replicates. Per-observable
+    MCSE reported; observables with MCSE > 10% of inter-condition effect size are flagged and N is increased until threshold
+    met.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: uq-stiffness-classification
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''jacobian-spectrum-summary''}'
+  description: For each subprocess with continuous components, the local Jacobian eigenvalue spread (max|λ| / min|λ|) is estimated
+    numerically (finite-difference) at the reference state. Subprocesses with κ > 10⁴ are flagged stiff and inform solver
+    choice in Phase 1.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: uq-bootstrap-cis-on-interface-stats
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''interface-summary-CI''}'
+  description: Every summary statistic in the reference dataset (mean, std, quantiles q05/q50/q95) carries a bootstrap 95%
+    confidence interval (≥10⁴ resamples). Downstream phase tolerance bands are derived from these CIs, never set ad hoc.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub

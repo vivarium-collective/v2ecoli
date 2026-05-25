@@ -1,452 +1,395 @@
-schema_version: 3
+schema_version: 4
 name: pdmp-01-metabolism-ode
-title: "Phase 1 — Metabolism: multi-objective FBA → Kinetic ODE"
+title: 'Phase 1 — Metabolism: multi-objective FBA → Kinetic ODE'
 status: planned
 phase: Design
-
 topic: pdmp
-tags: [pdmp, phase-1, metabolism, kinetic-ode, lqr, millard2017, copasi, pbg-copasi, fba-bridge, 
-      causal-teleonomic, xarray-emitter]
+tags:
+- pdmp
+- phase-1
+- metabolism
+- kinetic-ode
+- lqr
+- millard2017
+- copasi
+- pbg-copasi
+- fba-bridge
+- causal-teleonomic
+- xarray-emitter
 created: '2026-05-24'
-
 parent_studies:
-  - {study: pdmp-00-characterization, condition: tests-passed}
+- study: pdmp-00-characterization
+  condition: tests-passed
+question: 'Can the Millard et al. 2017 kinetic ODE of E. coli central carbon
 
-question: |
-  Can the Millard et al. 2017 kinetic ODE of E. coli central carbon
   and energy metabolism, wrapped in a linear-quadratic regulator
+
   (LQR) outer control layer for growth-rate regulation, replace
-  v2ecoli's multi-objective FBA metabolism (biomass + homeostatic +
+
+  v2ecoli''s multi-objective FBA metabolism (biomass + homeostatic +
+
   kinetic-constraint, via `wholecell.utils.modular_fba`) while
+
   reproducing the Phase 0 interface statistics within tolerance
+
   across ≥3 environmental conditions?
 
-hypothesis: |
-  Substituting the Millard 2017 kinetic ODE (62 metabolites, 68
-  reactions, 255 metabolite–enzyme interactions) for v2ecoli's
+  '
+hypothesis: 'Substituting the Millard 2017 kinetic ODE (62 metabolites, 68
+
+  reactions, 255 metabolite–enzyme interactions) for v2ecoli''s
+
   current multi-objective FBA metabolism, with an LQR outer loop
+
   driving the system toward a growth-rate reference trajectory,
+
   matches the Phase 0 interface datasets within tolerance AND admits
+
   an explicit causal/teleonomic parameter partition: kinetic
+
   constants and enzyme abundances are causal (inferenceable from
+
   data); LQR weights, reference trajectories, and the homeostatic
-  concentration targets v2ecoli's FBA currently encodes are
+
+  concentration targets v2ecoli''s FBA currently encodes are
+
   teleonomic (design-driven, fixed).
 
-objective: |
-  Run the Millard 2017 ODE as a standalone Process Bigraph process
+  '
+objective: 'Run the Millard 2017 ODE as a standalone Process Bigraph process
+
   by wrapping the published SBML (BioModels MODEL1505110000) with
-  pbg-copasi's CopasiUTCProcess (basico / COPASI backend). Build
+
+  pbg-copasi''s CopasiUTCProcess (basico / COPASI backend). Build
+
   an FBA-bridge composite that couples the COPASI-driven kinetic
-  ODE to v2ecoli's existing multi-objective FBA solver
+
+  ODE to v2ecoli''s existing multi-objective FBA solver
+
   (`wholecell.utils.modular_fba`) so the ODE can take over central-
+
   carbon flux predictions incrementally while the FBA covers the
+
   rest of the network (homeostatic targets for non-central
+
   metabolites, kinetic-constraint coupling to enzyme abundances,
+
   NGAM maintenance). Wrap with an LQR controller that replaces the
-  FBA's biomass-production objective for growth-rate regulation.
+
+  FBA''s biomass-production objective for growth-rate regulation.
+
   Validate against the Phase 0 Xarray interface datasets across
+
   ≥3 conditions. Partition every introduced parameter as causal or
+
   teleonomic, with written justification per parameter. A
+
   high-performance backend (DifferentialEquations.jl / Diffrax)
+
   is deferred to Phase 4 compilation — Phase 1 establishes
+
   correctness through pbg-copasi, Phase 4 takes over performance.
 
-description: |
-  Phase 1 of the v2ecoli → PDMP roadmap.
-
-  ## What v2ecoli's metabolism actually is
-
-  v2ecoli's metabolism lives at `v2ecoli/processes/metabolism.py`
-  (class `Metabolism`, wrapping `FluxBalanceAnalysisModel` →
-  `wholecell.utils.modular_fba.FluxBalanceAnalysis` with the
-  `glpk-linear` solver). Each timestep it solves a SINGLE multi-
-  objective FBA LP that combines:
-
-    1. **Biomass production**: `max c^T v` where `c` is the biomass
-       composition vector derived from the doubling time.
-    2. **Homeostatic concentration targets**: drive metabolite
-       concentrations toward `conc_dict[media + doubling_time]`
-       (with optional ppGpp coupling when `include_ppgpp=True`,
-       linking transcriptional regulation to metabolic capacity).
-    3. **Kinetic-constraint targets** (when `USE_KINETICS=True`):
-       drive enzyme-catalysed reaction flux toward Vmax×[E]
-       computed from per-reaction kinetic parameters and live
-       substrate concentrations — coupling translation demand
-       (which sets enzyme abundance) to metabolic output.
-
-  Constraints: stoichiometric mass balance `S v = 0`, enzyme-
-  catalysis bounds (reactions without catalysts forced to v=0,
-  catalysed reactions bounded by Vmax×[E]), NGAM (non-growth-
-  associated maintenance) ATP demand, and exchange bounds derived
-  from the media. Output fluxes (mmol/g_DCW/h) are converted to
-  molecule count changes via
-  `stochasticRound(flux × dry_mass × dt / (MW × conv))`. The
-  process runs LAST in the timestep (deriver-style, on the
-  post-partition state of all other processes).
-
-  This is structurally distinct from textbook "tFBA" (Birch, Udell
-  & Covert 2014), which is a sequence of LPs tracking target
-  trajectories over time. v2ecoli solves a fresh single LP per
-  timestep with current bounds + the multi-objective coupling
-  above; it does NOT carry the temporal-target-tracking structure
-  Birch et al. describe.
-
-  ## What blocks likelihood-based inference today
-
-  The properties of v2ecoli's metabolism that make it resistant to
-  Bayesian inference + causal discovery:
-
-  - **stochasticRound discretisation** at the LP→counts boundary:
-    a non-smooth, RNG-dependent map applied per timestep.
-  - **Implicit per-timestep "jumps"** when enzyme bounds change
-    (because enzyme abundances change every step via gene
-    expression), so consecutive LP solutions jump between vertices
-    of different polytopes — discontinuous in the FBA state.
-  - **LP-vertex degeneracy**: GLPK returns an arbitrary vertex of
-    the optimum facet, so the chosen flux distribution at the LP
-    solution is degenerate. Re-runs with the same state can yield
-    different flux vectors when the optimum is non-unique.
-  - **Doubling-time as both input AND output** without a
-    separated dynamical equation — the homeostatic targets are
-    parameterised by doubling-time, but doubling-time IS
-    determined by the biomass-production rate the FBA computes.
-  - **Timestep-dependent kinetic-constraint refresh** — the
-    kinetic-constraint terms re-read enzyme abundances each step,
-    so the LP itself is non-autonomous in a way that's tied to
-    the discrete-time loop.
-
-  The substitution target is Millard et al. 2017
-  ([[millard2017]]) — a curated kinetic ODE of E. coli central
-  carbon and energy metabolism covering glycolysis (EMP),
-  gluconeogenesis, PPP, Entner-Doudoroff, anaplerotic reactions,
-  TCA, glyoxylate shunt, acetate metabolism, nucleotide
-  interconversion, and oxidative phosphorylation. The published
-  model is calibrated for K-12 MG1655 on M9 + glucose at dilution
-  rate 0.1 h⁻¹, pH 7.0, 37 °C, pO₂ > 20%. Calibration to other
-  Phase 0 conditions (acetate, glucose+aa) is part of this study.
-
-  Infrastructure: rather than re-implement the Millard 2017 rate
-  laws from scratch, we wrap the published SBML (BioModels
-  MODEL1505110000) with **pbg-copasi**
-  (https://github.com/vivarium-collective/pbg-copasi) — a
-  process-bigraph adapter that exposes any SBML kinetic model as
-  a `CopasiUTCProcess` (Uniform Time Course Process) or
-  `CopasiSteadyStateStep` via the COPASI/basico simulation
-  backend. This lets Phase 1 run the original Millard model as a
-  standalone PB process on day one, while keeping the SBML file
-  itself as the source of truth.
-
-  FBA-bridge composite. Because pdmp-01 cannot rip out v2ecoli's
-  multi-objective FBA all at once (the rest of v2ecoli expects
-  flux outputs in the existing store layout, and the FBA's
-  homeostatic + kinetic-constraint terms couple it to translation
-  + transcription that we're NOT touching in Phase 1), we build a
-  transitional composite that couples the pbg-copasi Millard
-  process to v2ecoli's existing FBA. The two run side by side:
-  the ODE drives central-carbon flux predictions (glycolysis, PPP,
-  TCA, oxidative phosphorylation — the network Millard covers),
-  while v2ecoli's FBA handles the rest (homeostatic targets for
-  non-central metabolites, enzyme-catalysed reactions outside the
-  Millard scope, NGAM maintenance). The bridge schema is the
-  contract to negotiate: which fluxes does the ODE export, which
-  does the FBA consume, where is the seam between mechanistic-
-  kinetic and optimisation-based metabolism. Once the bridge holds
-  interface fidelity across all Phase 0 conditions, the seam can
-  be moved outward in subsequent studies (extend the kinetic ODE
-  coverage, shrink the FBA scope).
-
-  The LQR layer replaces v2ecoli's FBA biomass-production
-  objective with an explicit, parameterised controller around a
-  growth-rate target. The risk flagged in the roadmap is that the
-  LQR reference trajectory could reintroduce a teleonomic
-  parameter in disguise — parametrization of the reference
-  trajectory requires careful justification.
-
-  # Numerical considerations
-  Solver. The Millard 2017 system has stiffness from the disparity
-  between fast equilibration of pool intermediates (sub-second
-  timescales for some PPP/EMP metabolites) and slow growth-rate
-  dynamics (>10² s). COPASI/basico defaults to LSODA (Hindmarsh
-  adaptive BDF/Adams), which auto-switches between stiff and
-  non-stiff modes; we keep this default. Tolerances: rtol=1e-6,
-  atol=1e-9 (one order tighter than basico defaults) to ensure the
-  numerical solution error stays below the Phase 0 MC noise floor
-  per [[uq-bootstrap-cis-on-interface-stats]]. A Richardson
-  step-doubling check at fresh initial conditions confirms the
-  solver achieves the claimed order before any LQR tuning starts.
-
-  Distribution comparison. ODE+LQR is a deterministic process given
-  its initial condition; comparison with the stochastic v2ecoli
-  baseline goes through the Phase 0 *ensemble* of trajectories.
-  The acceptance criterion uses Wasserstein-2 distance W₂(p_ODE,
-  p_ref) per interface variable, with tolerance derived from
-  Phase 0 bootstrap CIs (we accept ODE output if W₂ falls within
-  the 95% CI of the Phase 0 self-MC W₂ spread — i.e., the ODE
-  must be indistinguishable from a fresh Phase 0 replicate of the
-  same condition).
-
-  Identifiability. Before declaring the model "inference-ready"
-  for Phase 3, we run a Fisher Information Matrix conditioning
-  check on the causal parameters (κ(FIM) < 10⁸ required) and a
-  profile-likelihood width estimate per parameter. Parameters that
-  fail are flagged non-identifiable and either re-parameterized
-  (lump rate constants into effective Vmax/Km pairs) or moved to
-  the teleonomic catalog with explicit justification.
-
-  LQR sensitivity. Sobol indices (first-order + total) on LQR
-  weights with respect to steady-state growth rate and key flux
-  ratios. A LQR weight that the system is insensitive to is "free
-  parameter" rot — flagged and removed.
-
-  # Emitter
-  All Phase 1 runs use XArrayEmitter; output zarr stores conform
-  to the Phase 0 reference schema (same variable names, same time-
-  axis convention) so xarray.align()-based comparison is
-  trivial. The W₂ tolerance check loads paired Phase 0 + Phase 1
-  zarr stores via xarray.open_zarr(..., chunks={'time': -1,
-  'replicate': 1}) for streaming per-replicate comparison.
-
+  '
+description: "Phase 1 of the v2ecoli → PDMP roadmap.\n\n## What v2ecoli's metabolism actually is\n\nv2ecoli's metabolism lives\
+  \ at `v2ecoli/processes/metabolism.py`\n(class `Metabolism`, wrapping `FluxBalanceAnalysisModel` →\n`wholecell.utils.modular_fba.FluxBalanceAnalysis`\
+  \ with the\n`glpk-linear` solver). Each timestep it solves a SINGLE multi-\nobjective FBA LP that combines:\n\n  1. **Biomass\
+  \ production**: `max c^T v` where `c` is the biomass\n     composition vector derived from the doubling time.\n  2. **Homeostatic\
+  \ concentration targets**: drive metabolite\n     concentrations toward `conc_dict[media + doubling_time]`\n     (with optional\
+  \ ppGpp coupling when `include_ppgpp=True`,\n     linking transcriptional regulation to metabolic capacity).\n  3. **Kinetic-constraint\
+  \ targets** (when `USE_KINETICS=True`):\n     drive enzyme-catalysed reaction flux toward Vmax×[E]\n     computed from per-reaction\
+  \ kinetic parameters and live\n     substrate concentrations — coupling translation demand\n     (which sets enzyme abundance)\
+  \ to metabolic output.\n\nConstraints: stoichiometric mass balance `S v = 0`, enzyme-\ncatalysis bounds (reactions without\
+  \ catalysts forced to v=0,\ncatalysed reactions bounded by Vmax×[E]), NGAM (non-growth-\nassociated maintenance) ATP demand,\
+  \ and exchange bounds derived\nfrom the media. Output fluxes (mmol/g_DCW/h) are converted to\nmolecule count changes via\n\
+  `stochasticRound(flux × dry_mass × dt / (MW × conv))`. The\nprocess runs LAST in the timestep (deriver-style, on the\npost-partition\
+  \ state of all other processes).\n\nThis is structurally distinct from textbook \"tFBA\" (Birch, Udell\n& Covert 2014),\
+  \ which is a sequence of LPs tracking target\ntrajectories over time. v2ecoli solves a fresh single LP per\ntimestep with\
+  \ current bounds + the multi-objective coupling\nabove; it does NOT carry the temporal-target-tracking structure\nBirch\
+  \ et al. describe.\n\n## What blocks likelihood-based inference today\n\nThe properties of v2ecoli's metabolism that make\
+  \ it resistant to\nBayesian inference + causal discovery:\n\n- **stochasticRound discretisation** at the LP→counts boundary:\n\
+  \  a non-smooth, RNG-dependent map applied per timestep.\n- **Implicit per-timestep \"jumps\"** when enzyme bounds change\n\
+  \  (because enzyme abundances change every step via gene\n  expression), so consecutive LP solutions jump between vertices\n\
+  \  of different polytopes — discontinuous in the FBA state.\n- **LP-vertex degeneracy**: GLPK returns an arbitrary vertex\
+  \ of\n  the optimum facet, so the chosen flux distribution at the LP\n  solution is degenerate. Re-runs with the same state\
+  \ can yield\n  different flux vectors when the optimum is non-unique.\n- **Doubling-time as both input AND output** without\
+  \ a\n  separated dynamical equation — the homeostatic targets are\n  parameterised by doubling-time, but doubling-time IS\n\
+  \  determined by the biomass-production rate the FBA computes.\n- **Timestep-dependent kinetic-constraint refresh** — the\n\
+  \  kinetic-constraint terms re-read enzyme abundances each step,\n  so the LP itself is non-autonomous in a way that's tied\
+  \ to\n  the discrete-time loop.\n\nThe substitution target is Millard et al. 2017\n([[millard2017]]) — a curated kinetic\
+  \ ODE of E. coli central\ncarbon and energy metabolism covering glycolysis (EMP),\ngluconeogenesis, PPP, Entner-Doudoroff,\
+  \ anaplerotic reactions,\nTCA, glyoxylate shunt, acetate metabolism, nucleotide\ninterconversion, and oxidative phosphorylation.\
+  \ The published\nmodel is calibrated for K-12 MG1655 on M9 + glucose at dilution\nrate 0.1 h⁻¹, pH 7.0, 37 °C, pO₂ > 20%.\
+  \ Calibration to other\nPhase 0 conditions (acetate, glucose+aa) is part of this study.\n\nInfrastructure: rather than re-implement\
+  \ the Millard 2017 rate\nlaws from scratch, we wrap the published SBML (BioModels\nMODEL1505110000) with **pbg-copasi**\n\
+  (https://github.com/vivarium-collective/pbg-copasi) — a\nprocess-bigraph adapter that exposes any SBML kinetic model as\n\
+  a `CopasiUTCProcess` (Uniform Time Course Process) or\n`CopasiSteadyStateStep` via the COPASI/basico simulation\nbackend.\
+  \ This lets Phase 1 run the original Millard model as a\nstandalone PB process on day one, while keeping the SBML file\n\
+  itself as the source of truth.\n\nFBA-bridge composite. Because pdmp-01 cannot rip out v2ecoli's\nmulti-objective FBA all\
+  \ at once (the rest of v2ecoli expects\nflux outputs in the existing store layout, and the FBA's\nhomeostatic + kinetic-constraint\
+  \ terms couple it to translation\n+ transcription that we're NOT touching in Phase 1), we build a\ntransitional composite\
+  \ that couples the pbg-copasi Millard\nprocess to v2ecoli's existing FBA. The two run side by side:\nthe ODE drives central-carbon\
+  \ flux predictions (glycolysis, PPP,\nTCA, oxidative phosphorylation — the network Millard covers),\nwhile v2ecoli's FBA\
+  \ handles the rest (homeostatic targets for\nnon-central metabolites, enzyme-catalysed reactions outside the\nMillard scope,\
+  \ NGAM maintenance). The bridge schema is the\ncontract to negotiate: which fluxes does the ODE export, which\ndoes the\
+  \ FBA consume, where is the seam between mechanistic-\nkinetic and optimisation-based metabolism. Once the bridge holds\n\
+  interface fidelity across all Phase 0 conditions, the seam can\nbe moved outward in subsequent studies (extend the kinetic\
+  \ ODE\ncoverage, shrink the FBA scope).\n\nThe LQR layer replaces v2ecoli's FBA biomass-production\nobjective with an explicit,\
+  \ parameterised controller around a\ngrowth-rate target. The risk flagged in the roadmap is that the\nLQR reference trajectory\
+  \ could reintroduce a teleonomic\nparameter in disguise — parametrization of the reference\ntrajectory requires careful\
+  \ justification.\n\n# Numerical considerations\nSolver. The Millard 2017 system has stiffness from the disparity\nbetween\
+  \ fast equilibration of pool intermediates (sub-second\ntimescales for some PPP/EMP metabolites) and slow growth-rate\n\
+  dynamics (>10² s). COPASI/basico defaults to LSODA (Hindmarsh\nadaptive BDF/Adams), which auto-switches between stiff and\n\
+  non-stiff modes; we keep this default. Tolerances: rtol=1e-6,\natol=1e-9 (one order tighter than basico defaults) to ensure\
+  \ the\nnumerical solution error stays below the Phase 0 MC noise floor\nper [[uq-bootstrap-cis-on-interface-stats]]. A Richardson\n\
+  step-doubling check at fresh initial conditions confirms the\nsolver achieves the claimed order before any LQR tuning starts.\n\
+  \nDistribution comparison. ODE+LQR is a deterministic process given\nits initial condition; comparison with the stochastic\
+  \ v2ecoli\nbaseline goes through the Phase 0 *ensemble* of trajectories.\nThe acceptance criterion uses Wasserstein-2 distance\
+  \ W₂(p_ODE,\np_ref) per interface variable, with tolerance derived from\nPhase 0 bootstrap CIs (we accept ODE output if\
+  \ W₂ falls within\nthe 95% CI of the Phase 0 self-MC W₂ spread — i.e., the ODE\nmust be indistinguishable from a fresh Phase\
+  \ 0 replicate of the\nsame condition).\n\nIdentifiability. Before declaring the model \"inference-ready\"\nfor Phase 3,\
+  \ we run a Fisher Information Matrix conditioning\ncheck on the causal parameters (κ(FIM) < 10⁸ required) and a\nprofile-likelihood\
+  \ width estimate per parameter. Parameters that\nfail are flagged non-identifiable and either re-parameterized\n(lump rate\
+  \ constants into effective Vmax/Km pairs) or moved to\nthe teleonomic catalog with explicit justification.\n\nLQR sensitivity.\
+  \ Sobol indices (first-order + total) on LQR\nweights with respect to steady-state growth rate and key flux\nratios. A LQR\
+  \ weight that the system is insensitive to is \"free\nparameter\" rot — flagged and removed.\n\n# Emitter\nAll Phase 1 runs\
+  \ use XArrayEmitter; output zarr stores conform\nto the Phase 0 reference schema (same variable names, same time-\naxis\
+  \ convention) so xarray.align()-based comparison is\ntrivial. The W₂ tolerance check loads paired Phase 0 + Phase 1\nzarr\
+  \ stores via xarray.open_zarr(..., chunks={'time': -1,\n'replicate': 1}) for streaming per-replicate comparison.\n"
 expected_behavior:
-  - name: millard-standalone-via-copasi
-    en: The Millard 2017 SBML (BioModels MODEL1505110000) runs as a standalone PB process via pbg-copasi's 
-      CopasiUTCProcess; a steady-state solve via CopasiSteadyStateStep reproduces the published reference 
-      state (M9-glucose, dilution rate 0.1/h, pH 7.0, 37°C) within solver tolerance.
-    given:
-      condition: standalone
-    measure:
-      kind: observable-comparison
-      observable: process-bigraph-process
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: implemented
-    note: 'Verified 2026-05-24: Millard 2017 SBML (BioModels MODEL1505110000) loads + simulates via pbg-copasi CopasiUTCProcess;
-      published reference state recovered (G6P=0.86mM, F6P=0.26mM, FDP=0.28mM, PEP=1.0mM, PYR=0.24mM, ATP=2.57mM,
-      ADP=0.60mM, NADH=0.16mM, NADPH=0.09mM, MAL=1.03mM, AKG=0.60mM). Dashboard run-id: v2ecoli.composites.millard2017_metabolism__1779656618__525838.'
-  - name: fba-bridge-composite-runs
-    en: A composite that wires the pbg-copasi Millard process to v2ecoli's existing multi-objective FBA 
-      (modular_fba) runs end-to-end, with both subsystems exchanging fluxes at a documented seam schema, and 
-      the full v2ecoli WCM remains viable across at least one full generation.
-    given:
-      condition: copasi-ode-coupled-to-tfba
-    measure:
-      kind: observable-comparison
-      observable: bridged-composite
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: interface-matches-reference
-    en: ODE + LQR interface statistics (growth rate, glucose uptake, key intermediate concentrations, ATP/NADH
-      production) match the Phase 0 reference Xarray dataset within specified tolerance across all ≥3 
-      conditions. (Gating criterion.)
-    given:
-      condition: M9-glucose AND M9-acetate AND M9-glucose-aa
-    measure:
-      kind: observable-comparison
-      observable: interface-statistic-comparison
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: causal-teleonomic-partition
-    en: Every parameter introduced in this study is labelled causal (kinetic constant, enzyme abundance, SBML 
-      rate-law constant from Millard 2017) or teleonomic (LQR weight, reference trajectory, FBA-bridge seam 
-      policy), with a written justification per parameter.
-    given:
-      condition: all-introduced-parameters
-    measure:
-      kind: observable-comparison
-      observable: parameter-catalog
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: predictor-corrector-shim
-    en: The ODE integrates continuously within each v2ecoli timestep via a predictor-corrector shim; 
-      discontinuities are localized and recorded rather than silent.
-    given:
-      condition: per-step
-    measure:
-      kind: observable-comparison
-      observable: integration-record
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: uq-solver-convergence-richardson
-    en: Step-doubling Richardson extrapolation confirms LSODA at (rtol=1e-6, atol=1e-9) attains its claimed 
-      order; reported empirical error per variable stays below the Phase 0 MC noise floor 
-      [[uq-bootstrap-cis-on-interface-stats]].
-    given:
-      condition: reference-initial-condition
-    measure:
-      kind: observable-comparison
-      observable: step-doubling-richardson-error
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: uq-w2-against-phase0-ensemble
-    en: Per-interface-variable W₂(p_ODE, p_phase0) falls within the bootstrap 95% CI of the Phase 0 
-      self-replicate W₂ spread — i.e., the ODE+LQR output is indistinguishable from a fresh replicate of the 
-      same condition. KS distance reported as secondary check.
-    given:
-      condition: M9-glucose AND M9-acetate AND M9-glucose-aa
-    measure:
-      kind: observable-comparison
-      observable: wasserstein2-per-variable
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: uq-fim-identifiability
-    en: Fisher Information Matrix at the reference parameter point, computed via automatic differentiation of 
-      the likelihood under simulated Phase-3 RNA-seq + metabolomics measurement models, has κ(FIM) < 10⁸. 
-      Profile-likelihood widths reported per parameter; non-identifiable parameters are flagged and either 
-      reparameterized or moved to teleonomic.
-    given:
-      condition: causal-parameters
-    measure:
-      kind: observable-comparison
-      observable: fim-condition-number
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
-  - name: uq-lqr-sobol-sensitivity
-    en: First-order and total Sobol indices for every LQR weight on (steady-state growth rate, glucose uptake 
-      flux, ATP yield). Weights with total index < 0.01 on every observable are flagged free-parameter rot and
-      removed.
-    given:
-      condition: lqr-weights
-    measure:
-      kind: observable-comparison
-      observable: sobol-first-order-and-total
-    expect:
-      op: within-tolerance
-      note: Tolerance / target gate to be defined when this study moves Design → Build.
-    status: stub
+- name: millard-standalone-via-copasi
+  en: The Millard 2017 SBML (BioModels MODEL1505110000) runs as a standalone PB process via pbg-copasi's CopasiUTCProcess;
+    a steady-state solve via CopasiSteadyStateStep reproduces the published reference state (M9-glucose, dilution rate 0.1/h,
+    pH 7.0, 37°C) within solver tolerance.
+  given:
+    condition: standalone
+  measure:
+    kind: observable-comparison
+    observable: process-bigraph-process
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: implemented
+  note: 'Verified 2026-05-24: Millard 2017 SBML (BioModels MODEL1505110000) loads + simulates via pbg-copasi CopasiUTCProcess;
+    published reference state recovered (G6P=0.86mM, F6P=0.26mM, FDP=0.28mM, PEP=1.0mM, PYR=0.24mM, ATP=2.57mM, ADP=0.60mM,
+    NADH=0.16mM, NADPH=0.09mM, MAL=1.03mM, AKG=0.60mM). Dashboard run-id: v2ecoli.composites.millard2017_metabolism__1779656618__525838.'
+- name: fba-bridge-composite-runs
+  en: A composite that wires the pbg-copasi Millard process to v2ecoli's existing multi-objective FBA (modular_fba) runs end-to-end,
+    with both subsystems exchanging fluxes at a documented seam schema, and the full v2ecoli WCM remains viable across at
+    least one full generation.
+  given:
+    condition: copasi-ode-coupled-to-tfba
+  measure:
+    kind: observable-comparison
+    observable: bridged-composite
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: interface-matches-reference
+  en: ODE + LQR interface statistics (growth rate, glucose uptake, key intermediate concentrations, ATP/NADH production) match
+    the Phase 0 reference Xarray dataset within specified tolerance across all ≥3 conditions. (Gating criterion.)
+  given:
+    condition: M9-glucose AND M9-acetate AND M9-glucose-aa
+  measure:
+    kind: observable-comparison
+    observable: interface-statistic-comparison
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: causal-teleonomic-partition
+  en: Every parameter introduced in this study is labelled causal (kinetic constant, enzyme abundance, SBML rate-law constant
+    from Millard 2017) or teleonomic (LQR weight, reference trajectory, FBA-bridge seam policy), with a written justification
+    per parameter.
+  given:
+    condition: all-introduced-parameters
+  measure:
+    kind: observable-comparison
+    observable: parameter-catalog
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: predictor-corrector-shim
+  en: The ODE integrates continuously within each v2ecoli timestep via a predictor-corrector shim; discontinuities are localized
+    and recorded rather than silent.
+  given:
+    condition: per-step
+  measure:
+    kind: observable-comparison
+    observable: integration-record
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: uq-solver-convergence-richardson
+  en: Step-doubling Richardson extrapolation confirms LSODA at (rtol=1e-6, atol=1e-9) attains its claimed order; reported
+    empirical error per variable stays below the Phase 0 MC noise floor [[uq-bootstrap-cis-on-interface-stats]].
+  given:
+    condition: reference-initial-condition
+  measure:
+    kind: observable-comparison
+    observable: step-doubling-richardson-error
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: uq-w2-against-phase0-ensemble
+  en: Per-interface-variable W₂(p_ODE, p_phase0) falls within the bootstrap 95% CI of the Phase 0 self-replicate W₂ spread
+    — i.e., the ODE+LQR output is indistinguishable from a fresh replicate of the same condition. KS distance reported as
+    secondary check.
+  given:
+    condition: M9-glucose AND M9-acetate AND M9-glucose-aa
+  measure:
+    kind: observable-comparison
+    observable: wasserstein2-per-variable
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: uq-fim-identifiability
+  en: Fisher Information Matrix at the reference parameter point, computed via automatic differentiation of the likelihood
+    under simulated Phase-3 RNA-seq + metabolomics measurement models, has κ(FIM) < 10⁸. Profile-likelihood widths reported
+    per parameter; non-identifiable parameters are flagged and either reparameterized or moved to teleonomic.
+  given:
+    condition: causal-parameters
+  measure:
+    kind: observable-comparison
+    observable: fim-condition-number
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
+- name: uq-lqr-sobol-sensitivity
+  en: First-order and total Sobol indices for every LQR weight on (steady-state growth rate, glucose uptake flux, ATP yield).
+    Weights with total index < 0.01 on every observable are flagged free-parameter rot and removed.
+  given:
+    condition: lqr-weights
+  measure:
+    kind: observable-comparison
+    observable: sobol-first-order-and-total
+  expect:
+    op: within-tolerance
+    note: Tolerance / target gate to be defined when this study moves Design → Build.
+  status: stub
 baseline:
-  - name: millard2017-via-pbg-copasi
-    composite: pbg_copasi.composites.utc-process
-    params: &id001
-      # pbg-copasi accepts any SBML/COPASI model_source. Fetch the
-      # Millard 2017 model from BioModels and store it under
-      # v2ecoli/models/sbml/millard2017_central_metabolism.xml at
-      # study-build time.
-      model_source: v2ecoli/models/sbml/millard2017_central_metabolism.xml
-      step_dt: 1.0          # COPASI timestep (s) — provisional
-      # Reference condition from Millard 2017 paper (Sec. Results /
-      # Model development): K-12 MG1655 on M9 + glucose.
-      condition: M9-glucose
-      dilution_rate: 0.1    # h⁻¹
-      pH: 7.0
-      temperature_C: 37.0
-
+- name: millard2017-via-pbg-copasi
+  composite: pbg_copasi.composites.utc-process
+  params: &id001
+    model_source: v2ecoli/models/sbml/millard2017_central_metabolism.xml
+    step_dt: 1.0
+    condition: M9-glucose
+    dilution_rate: 0.1
+    pH: 7.0
+    temperature_C: 37.0
 variants:
-  - name: millard-with-lqr
-    description: |
-      Millard 2017 ODE via pbg-copasi, wrapped with an outer LQR
-      controller that drives growth rate toward a reference
-      trajectory. Replaces v2ecoli's FBA biomass-production objective.
-  - name: millard-fba-bridge
-    description: |
-      Coupled composite — Millard 2017 ODE (pbg-copasi) for
-      central carbon + v2ecoli's multi-objective FBA
-      (`wholecell.utils.modular_fba`) for the rest of the metabolic
-      network; transitional configuration during the incremental
-      handover.
+- name: millard-with-lqr
+  description: 'Millard 2017 ODE via pbg-copasi, wrapped with an outer LQR
 
-  - name: millard-standalone
-    description: Standalone Millard 2017 ODE via pbg-copasi CopasiUTCProcess on the published SBML — no 
-      coupling, no LQR. Steady-state recovery confirmed 2026-05-24.
-    params: &id002
-      model_source: v2ecoli/models/sbml/millard2017_central_metabolism.xml
-      time: 100.0
-      intervals: 10
-  - name: millard-atp-drain-perturbation
-    description: ATP drained to 30% of steady state at t=500s (ADP gains the difference, mass-balanced). Tests
-      transient response across all coupled subsystems; ran 2026-05-24.
-    params: &id003
-      perturbation: ATP→0.3×SS at t=500s
-      duration: 3000
-  - name: millard-fba-bridge-3-conditions
-    description: FBA-bridge composite under M9-glucose, M9-acetate, M9-glucose+aa. Tests interface fidelity 
-      across the same conditions as Phase 0.
-    params: &id004
-      conditions:
-        - M9-glucose
-        - M9-acetate
-        - M9-glucose+aa
+    controller that drives growth rate toward a reference
+
+    trajectory. Replaces v2ecoli''s FBA biomass-production objective.
+
+    '
+- name: millard-fba-bridge
+  description: 'Coupled composite — Millard 2017 ODE (pbg-copasi) for
+
+    central carbon + v2ecoli''s multi-objective FBA
+
+    (`wholecell.utils.modular_fba`) for the rest of the metabolic
+
+    network; transitional configuration during the incremental
+
+    handover.
+
+    '
+- name: millard-standalone
+  description: Standalone Millard 2017 ODE via pbg-copasi CopasiUTCProcess on the published SBML — no coupling, no LQR. Steady-state
+    recovery confirmed 2026-05-24.
+  params: &id002
+    model_source: v2ecoli/models/sbml/millard2017_central_metabolism.xml
+    time: 100.0
+    intervals: 10
+- name: millard-atp-drain-perturbation
+  description: ATP drained to 30% of steady state at t=500s (ADP gains the difference, mass-balanced). Tests transient response
+    across all coupled subsystems; ran 2026-05-24.
+  params: &id003
+    perturbation: ATP→0.3×SS at t=500s
+    duration: 3000
+- name: millard-fba-bridge-3-conditions
+  description: FBA-bridge composite under M9-glucose, M9-acetate, M9-glucose+aa. Tests interface fidelity across the same
+    conditions as Phase 0.
+  params: &id004
+    conditions:
+    - M9-glucose
+    - M9-acetate
+    - M9-glucose+aa
 interventions: []
 runs:
-  - name: millard2017-bootstrap-2026-05-24
-    composite: v2ecoli.composites.millard2017_metabolism
-    run_id: v2ecoli.composites.millard2017_metabolism__1779656618__525838
-    status: completed
-    n_steps: 20
-    started_at: '2026-05-24T20:43:38Z'
-    summary: First standalone run of the Millard 2017 SBML via pbg-copasi. 20 steps × 100s = 2000s simulated 
-      time, ~6s wall clock. Recovered published reference state for central metabolism intermediates. Confirms
-      (a) pbg-copasi works end-to-end with this SBML, (b) the COPASI/basico backend produces correct numerical
-      values, (c) the v2ecoli composite catalog correctly resolves v2ecoli.composites.millard2017_metabolism.
+- name: millard2017-bootstrap-2026-05-24
+  composite: v2ecoli.composites.millard2017_metabolism
+  run_id: v2ecoli.composites.millard2017_metabolism__1779656618__525838
+  status: completed
+  n_steps: 20
+  started_at: '2026-05-24T20:43:38Z'
+  summary: First standalone run of the Millard 2017 SBML via pbg-copasi. 20 steps × 100s = 2000s simulated time, ~6s wall
+    clock. Recovered published reference state for central metabolism intermediates. Confirms (a) pbg-copasi works end-to-end
+    with this SBML, (b) the COPASI/basico backend produces correct numerical values, (c) the v2ecoli composite catalog correctly
+    resolves v2ecoli.composites.millard2017_metabolism.
 bibliography:
   bib_keys:
-    - millard2017
-    - birch2014
-    - uygun2006
-    - saa2017
-    - choi2023
-    - hari2024
+  - millard2017
+  - birch2014
+  - uygun2006
+  - saa2017
+  - choi2023
+  - hari2024
 report:
   confidence: design-stage
   evidence_quality: first-run-confirmed
-  conclusion: 'First run confirmed (2026-05-24): Millard 2017 SBML loads + simulates via pbg-copasi and recovers
-    the published reference steady state for central carbon + energy metabolites (G6P, F6P, FDP, PEP, PYR, ATP/ADP,
-    NADH/NADPH, MAL, AKG all match BioModels MODEL1505110000 initial values to solver tolerance). FBA-bridge composite
-    and LQR control layer not yet built; Phase 0 ensemble comparison pending the v2ecoli baseline run.'
-  main_insight: pbg-copasi gives us the published Millard model as a first-class PB process without 
-    re-deriving rate laws — Phase 1 effort goes to the LQR + FBA-bridge, not to ODE re-implementation.
-  caveat: LQR reference trajectory must not reintroduce a teleonomic parameter in disguise; the 
-    causal/teleonomic partition is enforced per-parameter and audited via FIM conditioning (κ < 10⁸) before 
-    the model is declared inference-ready.
+  conclusion: 'First run confirmed (2026-05-24): Millard 2017 SBML loads + simulates via pbg-copasi and recovers the published
+    reference steady state for central carbon + energy metabolites (G6P, F6P, FDP, PEP, PYR, ATP/ADP, NADH/NADPH, MAL, AKG
+    all match BioModels MODEL1505110000 initial values to solver tolerance). FBA-bridge composite and LQR control layer not
+    yet built; Phase 0 ensemble comparison pending the v2ecoli baseline run.'
+  main_insight: pbg-copasi gives us the published Millard model as a first-class PB process without re-deriving rate laws
+    — Phase 1 effort goes to the LQR + FBA-bridge, not to ODE re-implementation.
+  caveat: LQR reference trajectory must not reintroduce a teleonomic parameter in disguise; the causal/teleonomic partition
+    is enforced per-parameter and audited via FIM conditioning (κ < 10⁸) before the model is declared inference-ready.
   lit_match: Millard et al. 2017 (PLOS Comp Biol)
   key_metrics:
-    - label: Millard ODE standalone (pbg-copasi)
-      status: pass
-    - label: FBA-bridge composite
-      status: stub
-    - label: W₂ vs Phase-0 ensemble
-      status: stub
-      value: ≤ 5σ MC
-    - label: FIM κ on causal params
-      status: stub
-      value: < 10⁸
+  - label: Millard ODE standalone (pbg-copasi)
+    status: pass
+  - label: FBA-bridge composite
+    status: stub
+  - label: W₂ vs Phase-0 ensemble
+    status: stub
+    value: ≤ 5σ MC
+  - label: FIM κ on causal params
+    status: stub
+    value: < 10⁸
 visualizations:
-  - name: millard-atp-drain
-    address: file:reports/figures/pdmp-01/millard_atp_drain.html
-    description: 'Millard 2017 ATP-drain perturbation experiment: steady-state baseline (t=0–500s) → ATP cut to
-      30% of steady state at t=500s → recovery transient. 4-panel matplotlib chart: nucleotides (ATP/ADP/AMP), glycolysis
-      intermediates (G6P/F6P/FDP/GAP/PEP/PYR), TCA cycle (CIT/ICIT/AKG/SUCCOA/FUM/MAL/OAA), and redox cofactors
-      (NAD/NADH/NADP/NADPH). Demonstrates the Millard model recovers ATP to within 1% of steady-state within ~50
-      s after a 70% drain — fast because of the tight coupling between glycolytic flux and adenylate energy charge.'
-  - name: phase1-w2-interface-fidelity
-    address: file:reports/figures/planned-comparisons/phase1_w2_interface_fidelity.html
-    description: PLANNED — W₂(Millard ODE, Phase 0 v2ecoli) per central-metabolism intermediate. Green = 
-      within tolerance; amber = discuss; red = reject.
-  - name: study-plan-summary
-    address: file:reports/figures/pdmp-01/study_plan_summary.html
-    description: One-page consolidated study card with planned runs / readouts / tests / variants.
-  - name: millard-multi-perturbation
-    address: file:reports/figures/pdmp-01/millard_multi_perturbation.html
-    description: Three perturbation experiments (ATP/PEP/NADH stress) on the same axes, qualitative response 
-      fingerprints.
-  - name: phase1-fba-bridge-pilot-PLANNED
-    address: file:reports/figures/planned-comparisons/phase1_fba_bridge_pilot.html
-    description: PLANNED — Millard ODE PEP vs v2ecoli kFBA PEP on same axes with W2 acceptance band; the 
-      FBA-bridge interface-fidelity chart.
+- name: millard-atp-drain
+  address: file:reports/figures/pdmp-01/millard_atp_drain.html
+  description: 'Millard 2017 ATP-drain perturbation experiment: steady-state baseline (t=0–500s) → ATP cut to 30% of steady
+    state at t=500s → recovery transient. 4-panel matplotlib chart: nucleotides (ATP/ADP/AMP), glycolysis intermediates (G6P/F6P/FDP/GAP/PEP/PYR),
+    TCA cycle (CIT/ICIT/AKG/SUCCOA/FUM/MAL/OAA), and redox cofactors (NAD/NADH/NADP/NADPH). Demonstrates the Millard model
+    recovers ATP to within 1% of steady-state within ~50 s after a 70% drain — fast because of the tight coupling between
+    glycolytic flux and adenylate energy charge.'
+- name: phase1-w2-interface-fidelity
+  address: file:reports/figures/planned-comparisons/phase1_w2_interface_fidelity.html
+  description: PLANNED — W₂(Millard ODE, Phase 0 v2ecoli) per central-metabolism intermediate. Green = within tolerance; amber
+    = discuss; red = reject.
+- name: study-plan-summary
+  address: file:reports/figures/pdmp-01/study_plan_summary.html
+  description: One-page consolidated study card with planned runs / readouts / tests / variants.
+- name: millard-multi-perturbation
+  address: file:reports/figures/pdmp-01/millard_multi_perturbation.html
+  description: Three perturbation experiments (ATP/PEP/NADH stress) on the same axes, qualitative response fingerprints.
+- name: phase1-fba-bridge-pilot-PLANNED
+  address: file:reports/figures/planned-comparisons/phase1_fba_bridge_pilot.html
+  description: PLANNED — Millard ODE PEP vs v2ecoli kFBA PEP on same axes with W2 acceptance band; the FBA-bridge interface-fidelity
+    chart.
 design_status: approved
 implementation_status: prototype
 simulation_status: ran
@@ -455,182 +398,266 @@ gate_status: pending
 expert_review_status: not_requested
 pipeline_gate:
   prerequisites:
-    - study: pdmp-00-characterization
-      condition: tests-passed
+  - study: pdmp-00-characterization
+    condition: tests-passed
   enables:
-    - pdmp-02-jump-processes
-  proceed_condition: |-
-    Millard 2017 standalone reproduces published reference state via pbg-copasi (DONE 2026-05-24). FBA-bridge composite holds interface statistics across all Phase 0 conditions within W₂ tolerance. LQR weights pass Sobol sensitivity (no free-parameter rot). FIM conditioning κ < 10⁸ on causal parameters.
-study_card: |-
-  Phase 1 — substitute v2ecoli's multi-objective FBA (`wholecell.utils.modular_fba`, glpk-linear) with the Millard 2017 kinetic ODE (BioModels MODEL1505110000) wrapped via pbg-copasi, an LQR outer control layer for growth-rate regulation, and an FBA-bridge composite that couples the ODE to the remaining v2ecoli FBA during the incremental handover.
+  - pdmp-02-jump-processes
+  proceed_condition: Millard 2017 standalone reproduces published reference state via pbg-copasi (DONE 2026-05-24). FBA-bridge
+    composite holds interface statistics across all Phase 0 conditions within W₂ tolerance. LQR weights pass Sobol sensitivity
+    (no free-parameter rot). FIM conditioning κ < 10⁸ on causal parameters.
+study_card: Phase 1 — substitute v2ecoli's multi-objective FBA (`wholecell.utils.modular_fba`, glpk-linear) with the Millard
+  2017 kinetic ODE (BioModels MODEL1505110000) wrapped via pbg-copasi, an LQR outer control layer for growth-rate regulation,
+  and an FBA-bridge composite that couples the ODE to the remaining v2ecoli FBA during the incremental handover.
 readouts:
-  - name: millard-standalone-steady-state
-    status: implemented
-    path: out/trajectories/millard_*.csv
-    units: mM
-    notes: G6P, F6P, FDP, PEP, PYR, ATP, ADP, NADH, NADPH, MAL, AKG. Verified 2026-05-24 vs BioModels 
-      MODEL1505110000 initial values.
-  - name: fba-bridge-flux-seam
-    status: planned
-    path: v2ecoli_pdmp/composites/fba_bridge.schema.json
-    units: flux name -> source (ODE or FBA)
-    notes: Which fluxes the Millard ODE exports vs which v2ecoli kFBA consumes. The contract negotiated in 
-      this study.
-  - name: lqr-sobol-indices
-    status: planned
-    path: out/trajectories/lqr_sobol.csv
-    units: dimensionless Sobol index
-    notes: First-order + total Sobol on growth rate, glucose uptake, ATP yield. LQR weights with total < 0.01 
-      are flagged free-parameter rot.
-  - name: w2-per-metabolite
-    status: planned
-    path: out/trajectories/w2_millard_vs_phase0.csv
-    units: Wasserstein-2 distance (mM)
-    notes: 'Per interface variable. Gating: within Phase-0 bootstrap CI of self-replicate spread.'
-  - name: fim-conditioning
-    status: planned
-    path: out/trajectories/fim_kappa.csv
-    units: condition number kappa
-    notes: 'Per causal parameter. Required: kappa(FIM) < 10^8 before inference-ready claim.'
+- name: millard-standalone-steady-state
+  status: implemented
+  path: out/trajectories/millard_*.csv
+  units: mM
+  notes: G6P, F6P, FDP, PEP, PYR, ATP, ADP, NADH, NADPH, MAL, AKG. Verified 2026-05-24 vs BioModels MODEL1505110000 initial
+    values.
+- name: fba-bridge-flux-seam
+  status: planned
+  path: v2ecoli_pdmp/composites/fba_bridge.schema.json
+  units: flux name -> source (ODE or FBA)
+  notes: Which fluxes the Millard ODE exports vs which v2ecoli kFBA consumes. The contract negotiated in this study.
+- name: lqr-sobol-indices
+  status: planned
+  path: out/trajectories/lqr_sobol.csv
+  units: dimensionless Sobol index
+  notes: First-order + total Sobol on growth rate, glucose uptake, ATP yield. LQR weights with total < 0.01 are flagged free-parameter
+    rot.
+- name: w2-per-metabolite
+  status: planned
+  path: out/trajectories/w2_millard_vs_phase0.csv
+  units: Wasserstein-2 distance (mM)
+  notes: 'Per interface variable. Gating: within Phase-0 bootstrap CI of self-replicate spread.'
+- name: fim-conditioning
+  status: planned
+  path: out/trajectories/fim_kappa.csv
+  units: condition number kappa
+  notes: 'Per causal parameter. Required: kappa(FIM) < 10^8 before inference-ready claim.'
 planned_runs:
-  - name: millard-standalone-bootstrap
-    status: ran
-    n_steps: 30
-    details: completed 2026-05-24; published reference state recovered
-  - name: millard-atp-drain-experiment
-    status: ran
-    n_steps: (direct basico time course)
-    details: completed 2026-05-24; 302 timepoints; recovery dynamics captured
-  - name: millard-with-lqr-tuning
-    status: planned
-    n_steps: '(Sobol sweep, ≥20 LQR-weight samples × baseline length)'
-    details: Sobol-driven LQR weight scan; flag weights with total index < 0.01 on growth/glc-uptake/ATP-yield
-  - name: millard-fba-bridge-pilot
-    status: bridge-schedule-fix
-    n_steps: 5
-    details: "BRIDGE BUILT + UNIT-TESTED 2026-05-24. v2ecoli/steps/fba_bridge.py: FBABridge Step
-      translates Millard concentrations (mM) <-> v2ecoli bulk counts via mM_to_count =
-      conc * 1e-3 * V_cell_L * N_avogadro. 8 unit tests pass (tests/test_fba_bridge.py:
-      round-trip, mapping load, both directions, diagnostics). Coupled pilot (Millard + Bridge,
-      5s) reaches end-to-end and pushes 25 shared metabolites to v2ecoli.bulk on each step,
-      but COPASI produces NaN at t=0.2s when the bridge fires before Millard's first
-      integration. Open follow-up: convert bridge from Step to Process with explicit interval
-      >= Millard's. Mapping curated for ~25 central-carbon metabolites — see
-      v2ecoli/data/millard_v2ecoli_species_map.yaml."
-  - name: millard-fba-bridge-3-conditions
-    status: planned
-    n_steps: 600
-    details: validation against Phase 0 ensemble (W₂ per metabolite, gating criterion)
+- name: millard-standalone-bootstrap
+  status: ran
+  n_steps: 30
+  details: completed 2026-05-24; published reference state recovered
+- name: millard-atp-drain-experiment
+  status: ran
+  n_steps: (direct basico time course)
+  details: completed 2026-05-24; 302 timepoints; recovery dynamics captured
+- name: millard-with-lqr-tuning
+  status: planned
+  n_steps: (Sobol sweep, ≥20 LQR-weight samples × baseline length)
+  details: Sobol-driven LQR weight scan; flag weights with total index < 0.01 on growth/glc-uptake/ATP-yield
+- name: millard-fba-bridge-pilot
+  status: bridge-schedule-fix
+  n_steps: 5
+  details: 'BRIDGE BUILT + UNIT-TESTED 2026-05-24. v2ecoli/steps/fba_bridge.py: FBABridge Step translates Millard concentrations
+    (mM) <-> v2ecoli bulk counts via mM_to_count = conc * 1e-3 * V_cell_L * N_avogadro. 8 unit tests pass (tests/test_fba_bridge.py:
+    round-trip, mapping load, both directions, diagnostics). Coupled pilot (Millard + Bridge, 5s) reaches end-to-end and pushes
+    25 shared metabolites to v2ecoli.bulk on each step, but COPASI produces NaN at t=0.2s when the bridge fires before Millard''s
+    first integration. Open follow-up: convert bridge from Step to Process with explicit interval >= Millard''s. Mapping curated
+    for ~25 central-carbon metabolites — see v2ecoli/data/millard_v2ecoli_species_map.yaml.'
+- name: millard-fba-bridge-3-conditions
+  status: planned
+  n_steps: 600
+  details: validation against Phase 0 ensemble (W₂ per metabolite, gating criterion)
 conditions:
   baseline:
     composite: pbg_copasi.composites.utc-process
     params: *id001
   variants:
-    - name: millard-with-lqr
-      base_composite: pbg_copasi.composites.utc-process
-      parameter_overrides: {}
-      description: |
-        Millard 2017 ODE via pbg-copasi, wrapped with an outer LQR
-        controller that drives growth rate toward a reference
-        trajectory. Replaces v2ecoli's FBA biomass-production objective.
-    - name: millard-fba-bridge
-      base_composite: pbg_copasi.composites.utc-process
-      parameter_overrides: {}
-      description: |
-        Coupled composite — Millard 2017 ODE (pbg-copasi) for
-        central carbon + v2ecoli's multi-objective FBA
-        (`wholecell.utils.modular_fba`) for the rest of the metabolic
-        network; transitional configuration during the incremental
-        handover.
-    - name: millard-standalone
-      base_composite: pbg_copasi.composites.utc-process
-      parameter_overrides: *id002
-      description: Standalone Millard 2017 ODE via pbg-copasi CopasiUTCProcess on the published SBML — no 
-        coupling, no LQR. Steady-state recovery confirmed 2026-05-24.
-    - name: millard-atp-drain-perturbation
-      base_composite: pbg_copasi.composites.utc-process
-      parameter_overrides: *id003
-      description: ATP drained to 30% of steady state at t=500s (ADP gains the difference, mass-balanced). 
-        Tests transient response across all coupled subsystems; ran 2026-05-24.
-    - name: millard-fba-bridge-3-conditions
-      base_composite: pbg_copasi.composites.utc-process
-      parameter_overrides: *id004
-      description: FBA-bridge composite under M9-glucose, M9-acetate, M9-glucose+aa. Tests interface fidelity 
-        across the same conditions as Phase 0.
+  - name: millard-with-lqr
+    base_composite: pbg_copasi.composites.utc-process
+    parameter_overrides: {}
+    description: 'Millard 2017 ODE via pbg-copasi, wrapped with an outer LQR
+
+      controller that drives growth rate toward a reference
+
+      trajectory. Replaces v2ecoli''s FBA biomass-production objective.
+
+      '
+  - name: millard-fba-bridge
+    base_composite: pbg_copasi.composites.utc-process
+    parameter_overrides: {}
+    description: 'Coupled composite — Millard 2017 ODE (pbg-copasi) for
+
+      central carbon + v2ecoli''s multi-objective FBA
+
+      (`wholecell.utils.modular_fba`) for the rest of the metabolic
+
+      network; transitional configuration during the incremental
+
+      handover.
+
+      '
+  - name: millard-standalone
+    base_composite: pbg_copasi.composites.utc-process
+    parameter_overrides: *id002
+    description: Standalone Millard 2017 ODE via pbg-copasi CopasiUTCProcess on the published SBML — no coupling, no LQR.
+      Steady-state recovery confirmed 2026-05-24.
+  - name: millard-atp-drain-perturbation
+    base_composite: pbg_copasi.composites.utc-process
+    parameter_overrides: *id003
+    description: ATP drained to 30% of steady state at t=500s (ADP gains the difference, mass-balanced). Tests transient response
+      across all coupled subsystems; ran 2026-05-24.
+  - name: millard-fba-bridge-3-conditions
+    base_composite: pbg_copasi.composites.utc-process
+    parameter_overrides: *id004
+    description: FBA-bridge composite under M9-glucose, M9-acetate, M9-glucose+aa. Tests interface fidelity across the same
+      conditions as Phase 0.
   model_settings: []
 simulation_set:
-  - name: millard-standalone-bootstrap
-    kind: single
-    status: ran
-    base_model: pbg_copasi.composites.utc-process
-    duration_steps: 30
-    details: completed 2026-05-24; published reference state recovered
-    metrics:
-      - millard-standalone-steady-state
-      - fba-bridge-flux-seam
-      - lqr-sobol-indices
-      - w2-per-metabolite
-    pass_fail_tests:
-      - millard-standalone-via-copasi
-      - fba-bridge-composite-runs
-      - interface-matches-reference
-  - name: millard-atp-drain-experiment
-    kind: single
-    status: ran
-    base_model: pbg_copasi.composites.utc-process
-    duration_steps: (direct basico time course)
-    details: completed 2026-05-24; 302 timepoints; recovery dynamics captured
-    metrics:
-      - millard-standalone-steady-state
-      - fba-bridge-flux-seam
-      - lqr-sobol-indices
-      - w2-per-metabolite
-    pass_fail_tests:
-      - millard-standalone-via-copasi
-      - fba-bridge-composite-runs
-      - interface-matches-reference
-  - name: millard-with-lqr-tuning
-    kind: single
-    status: planned
-    base_model: pbg_copasi.composites.utc-process
-    duration_steps: '(Sobol sweep, ≥20 LQR-weight samples × baseline length)'
-    details: Sobol-driven LQR weight scan; flag weights with total index < 0.01 on growth/glc-uptake/ATP-yield
-    metrics:
-      - millard-standalone-steady-state
-      - fba-bridge-flux-seam
-      - lqr-sobol-indices
-      - w2-per-metabolite
-    pass_fail_tests:
-      - millard-standalone-via-copasi
-      - fba-bridge-composite-runs
-      - interface-matches-reference
-  - name: millard-fba-bridge-pilot
-    kind: single
-    status: planned
-    base_model: pbg_copasi.composites.utc-process
-    duration_steps: 100
-    details: first end-to-end coupled-composite run; verify bridge schema holds
-    metrics:
-      - millard-standalone-steady-state
-      - fba-bridge-flux-seam
-      - lqr-sobol-indices
-      - w2-per-metabolite
-    pass_fail_tests:
-      - millard-standalone-via-copasi
-      - fba-bridge-composite-runs
-      - interface-matches-reference
-  - name: millard-fba-bridge-3-conditions
-    kind: single
-    status: planned
-    base_model: pbg_copasi.composites.utc-process
-    duration_steps: 600
-    details: validation against Phase 0 ensemble (W₂ per metabolite, gating criterion)
-    metrics:
-      - millard-standalone-steady-state
-      - fba-bridge-flux-seam
-      - lqr-sobol-indices
-      - w2-per-metabolite
-    pass_fail_tests:
-      - millard-standalone-via-copasi
-      - fba-bridge-composite-runs
-      - interface-matches-reference
+- name: millard-standalone-bootstrap
+  kind: single
+  status: ran
+  base_model: pbg_copasi.composites.utc-process
+  duration_steps: 30
+  details: completed 2026-05-24; published reference state recovered
+  metrics:
+  - millard-standalone-steady-state
+  - fba-bridge-flux-seam
+  - lqr-sobol-indices
+  - w2-per-metabolite
+  pass_fail_tests:
+  - millard-standalone-via-copasi
+  - fba-bridge-composite-runs
+  - interface-matches-reference
+- name: millard-atp-drain-experiment
+  kind: single
+  status: ran
+  base_model: pbg_copasi.composites.utc-process
+  duration_steps: (direct basico time course)
+  details: completed 2026-05-24; 302 timepoints; recovery dynamics captured
+  metrics:
+  - millard-standalone-steady-state
+  - fba-bridge-flux-seam
+  - lqr-sobol-indices
+  - w2-per-metabolite
+  pass_fail_tests:
+  - millard-standalone-via-copasi
+  - fba-bridge-composite-runs
+  - interface-matches-reference
+- name: millard-with-lqr-tuning
+  kind: single
+  status: planned
+  base_model: pbg_copasi.composites.utc-process
+  duration_steps: (Sobol sweep, ≥20 LQR-weight samples × baseline length)
+  details: Sobol-driven LQR weight scan; flag weights with total index < 0.01 on growth/glc-uptake/ATP-yield
+  metrics:
+  - millard-standalone-steady-state
+  - fba-bridge-flux-seam
+  - lqr-sobol-indices
+  - w2-per-metabolite
+  pass_fail_tests:
+  - millard-standalone-via-copasi
+  - fba-bridge-composite-runs
+  - interface-matches-reference
+- name: millard-fba-bridge-pilot
+  kind: single
+  status: planned
+  base_model: pbg_copasi.composites.utc-process
+  duration_steps: 100
+  details: first end-to-end coupled-composite run; verify bridge schema holds
+  metrics:
+  - millard-standalone-steady-state
+  - fba-bridge-flux-seam
+  - lqr-sobol-indices
+  - w2-per-metabolite
+  pass_fail_tests:
+  - millard-standalone-via-copasi
+  - fba-bridge-composite-runs
+  - interface-matches-reference
+- name: millard-fba-bridge-3-conditions
+  kind: single
+  status: planned
+  base_model: pbg_copasi.composites.utc-process
+  duration_steps: 600
+  details: validation against Phase 0 ensemble (W₂ per metabolite, gating criterion)
+  metrics:
+  - millard-standalone-steady-state
+  - fba-bridge-flux-seam
+  - lqr-sobol-indices
+  - w2-per-metabolite
+  pass_fail_tests:
+  - millard-standalone-via-copasi
+  - fba-bridge-composite-runs
+  - interface-matches-reference
+tests:
+- name: millard-standalone-via-copasi
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''process-bigraph-process''}'
+  description: The Millard 2017 SBML (BioModels MODEL1505110000) runs as a standalone PB process via pbg-copasi's CopasiUTCProcess;
+    a steady-state solve via CopasiSteadyStateStep reproduces the published reference state (M9-glucose, dilution rate 0.1/h,
+    pH 7.0, 37°C) within solver tolerance.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: implemented
+- name: fba-bridge-composite-runs
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''bridged-composite''}'
+  description: A composite that wires the pbg-copasi Millard process to v2ecoli's existing multi-objective FBA (modular_fba)
+    runs end-to-end, with both subsystems exchanging fluxes at a documented seam schema, and the full v2ecoli WCM remains
+    viable across at least one full generation.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: interface-matches-reference
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''interface-statistic-comparison''}'
+  description: ODE + LQR interface statistics (growth rate, glucose uptake, key intermediate concentrations, ATP/NADH production)
+    match the Phase 0 reference Xarray dataset within specified tolerance across all ≥3 conditions. (Gating criterion.)
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: causal-teleonomic-partition
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''parameter-catalog''}'
+  description: Every parameter introduced in this study is labelled causal (kinetic constant, enzyme abundance, SBML rate-law
+    constant from Millard 2017) or teleonomic (LQR weight, reference trajectory, FBA-bridge seam policy), with a written justification
+    per parameter.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: predictor-corrector-shim
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''integration-record''}'
+  description: The ODE integrates continuously within each v2ecoli timestep via a predictor-corrector shim; discontinuities
+    are localized and recorded rather than silent.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: uq-solver-convergence-richardson
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''step-doubling-richardson-error''}'
+  description: Step-doubling Richardson extrapolation confirms LSODA at (rtol=1e-6, atol=1e-9) attains its claimed order;
+    reported empirical error per variable stays below the Phase 0 MC noise floor [[uq-bootstrap-cis-on-interface-stats]].
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: uq-w2-against-phase0-ensemble
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''wasserstein2-per-variable''}'
+  description: Per-interface-variable W₂(p_ODE, p_phase0) falls within the bootstrap 95% CI of the Phase 0 self-replicate
+    W₂ spread — i.e., the ODE+LQR output is indistinguishable from a fresh replicate of the same condition. KS distance reported
+    as secondary check.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: uq-fim-identifiability
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''fim-condition-number''}'
+  description: Fisher Information Matrix at the reference parameter point, computed via automatic differentiation of the likelihood
+    under simulated Phase-3 RNA-seq + metabolomics measurement models, has κ(FIM) < 10⁸. Profile-likelihood widths reported
+    per parameter; non-identifiable parameters are flagged and either reparameterized or moved to teleonomic.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub
+- name: uq-lqr-sobol-sensitivity
+  measure:
+    expr: '{''kind'': ''observable-comparison'', ''observable'': ''sobol-first-order-and-total''}'
+  description: First-order and total Sobol indices for every LQR weight on (steady-state growth rate, glucose uptake flux,
+    ATP yield). Weights with total index < 0.01 on every observable are flagged free-parameter rot and removed.
+  expect: '{''op'': ''within-tolerance'', ''note'': ''Tolerance / target gate to be defined when this study moves Design →
+    Build.''}'
+  status: stub

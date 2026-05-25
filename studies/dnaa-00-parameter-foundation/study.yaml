@@ -194,10 +194,18 @@ assumptions:
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline_recipes.dnaa_00_baseline_with_dnaa_readout
+    # Round 3 (Haochen 2026-05-25): Stage-1 ABT minimal glycerol cache
+    # imposes τ=150 / C=70 / D=30. Cache built via:
+    #   scripts/build_condition_cache.py --condition stage1-heuristic
+    #     --fixture out/parca-glycerol-rebuild/parca_state.pkl.gz
+    #     --media-condition glycerol --fixed-media minimal_glycerol
+    #     --c-period-min 70 --d-period-min 30
+    #     --cache out/cache-stage1-glycerol
+    # n_steps=10000 covers > 1 doubling time (150 min × 60 = 9000 s).
     params:
       seed: 0
-      cache_dir: out/cache
-      n_steps: 3600
+      cache_dir: out/cache-stage1-glycerol
+      n_steps: 10000
   variants:
   - name: baseline-stage1-modified
     composite: v2ecoli.composites.baseline_recipes.dnaa_04_with_dnaa_initiation_trigger
@@ -242,30 +250,39 @@ conditions:
       n_steps: 3600
   model_settings:
   - name: tau_min_stage1
-    description: 'Mass-doubling time τ at Stage 1: 150 min (ABT minimal-glycerol). EXPERT TARGET, NOT YET APPLIED
-      — these runs use minimal-glucose (media_id "minimal", τ≈44 min); the glycerol media-level override is a TODO
-      (see references/data/stage1_parameters.yaml). `current` records the target, not the value the model runs at.'
+    description: 'Mass-doubling time τ at Stage 1: 150 min (ABT minimal-glycerol).
+      Applied in Round 3 (2026-05-25) via the new `minimal_glycerol` ParCa
+      condition (commit 0a3c36d). Mass-listener reports cell_cycle_len=9000s
+      verified at composite-build time.'
     type: number
     default: 150.0
     current: 150.0
-    gate: optional
-    status: target-not-applied
+    gate: required
+    status: applied
     cites:
     - wcm_stage1_parameters
   - name: c_period_min_stage1
-    description: 'Replication period C at Stage 1: 70 min.'
+    description: 'Replication period C at Stage 1: 70 min. Applied in Round 3
+      via the LoadSimData `c_period_minutes` override: basal_elongation_rate
+      = replichore_length / (C × 60) = 2,324,960 nt / 4200 s ≈ 554 nt/s,
+      yielding C ≈ 69.94 min on the WCM E. coli genome. Verified at
+      composite-build time.'
     type: number
     default: 70.0
     current: 70.0
-    gate: optional
+    gate: required
+    status: applied
     cites:
     - wcm_stage1_parameters
   - name: d_period_min_stage1
-    description: 'Termination → division delay D at Stage 1: 30 min.'
+    description: 'Termination → division delay D at Stage 1: 30 min. Applied in
+      Round 3 via the LoadSimData `d_period_seconds` override (1800 s).
+      Verified at composite-build time.'
     type: number
     default: 30.0
     current: 30.0
-    gate: optional
+    gate: required
+    status: applied
     cites:
     - wcm_stage1_parameters
   - name: dnaa_intrinsic_hydrolysis_per_min_stage1

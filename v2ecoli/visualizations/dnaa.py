@@ -188,10 +188,19 @@ def _plotly_div(div_id: str, traces: list[dict], layout: dict,
     """
     n_traces = max(1, len(traces) if traces else 1)
     legend_rows = max(1, math.ceil(n_traces / 4))
-    chart_h = max(340, 280 + 28 * legend_rows)
+    # Empirically Plotly's horizontal legend renders at ~36 px per row
+    # (font + symbol + padding); 28 px undershot for ≥40-trace cases
+    # (legend overlapped the x-axis label — Haochen 2026-05-25 screenshot).
+    # Also force an explicit bottom margin sized for the legend rather
+    # than relying on Plotly's auto-margin (which under-allocates when
+    # `legend.y` is set to a negative offset below the plot area).
+    chart_h = max(340, 320 + 36 * legend_rows)
     layout_with_h = {**layout}
     layout_with_h.setdefault("height", chart_h)
     layout_with_h.setdefault("autosize", True)
+    layout_with_h.setdefault("margin", {})
+    if isinstance(layout_with_h.get("margin"), dict):
+        layout_with_h["margin"].setdefault("b", 60 + 36 * legend_rows)
     if events:
         shapes = list(layout_with_h.get("shapes") or [])
         shapes.extend(_event_shapes(events))

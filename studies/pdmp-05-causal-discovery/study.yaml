@@ -258,7 +258,7 @@ expected_behavior:
 baseline:
   - name: pdmp-annotation-comparison-tbd
     composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
-    params:
+    params: &id001
       emitter: xarray
       estimator: russian-roulette
     _placeholder: true
@@ -268,13 +268,13 @@ variants:
   - name: russian-roulette-marginal-likelihood
     description: RR estimator (Lyne et al. 2015) for the marginal-likelihood ratio between candidate 
       gene-function annotations. ESS-equivalent N_eff ≥ 100 per Z estimate.
-    params:
+    params: &id002
       estimator: russian-roulette
       n_eff_floor: 100
   - name: active-causal-inference-loop
     description: 'Active Bayesian causal inference (Toth et al. 2022): propose targeted in-silico interventions
       (knockouts, overexpression), score by expected information gain (EIG) with MCSE-bounded estimates.'
-    params:
+    params: &id003
       intervention_menu:
         - knockout
         - overexpression
@@ -282,7 +282,7 @@ variants:
   - name: benchmark-gene-set
     description: ≥20 E. coli genes with literature-established functions across diverse mechanism classes 
       (kinases, TFs, transporters, structural). The validation target.
-    params:
+    params: &id004
       n_genes: 20
       classes:
         - kinase
@@ -292,7 +292,7 @@ variants:
   - name: sbc-at-model-comparison-level
     description: Extended SBC over K=500 synthetic datasets generated under known true annotations; verify 
       uniformity of posterior model probability ranks.
-    params:
+    params: &id005
       K: 500
 interventions: []
 runs: []
@@ -419,3 +419,90 @@ visualizations:
     address: file:reports/figures/pdmp-05/active_inference_eig.html
     description: PLANNED — active-inference EIG ranking over candidate interventions. Selection threshold 
       prevents picking proposals whose EIG MCSE overlaps zero.
+conditions:
+  baseline:
+    composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    params: *id001
+  variants:
+    - name: russian-roulette-marginal-likelihood
+      base_composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+      parameter_overrides: *id002
+      description: RR estimator (Lyne et al. 2015) for the marginal-likelihood ratio between candidate 
+        gene-function annotations. ESS-equivalent N_eff ≥ 100 per Z estimate.
+    - name: active-causal-inference-loop
+      base_composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+      parameter_overrides: *id003
+      description: 'Active Bayesian causal inference (Toth et al. 2022): propose targeted in-silico interventions
+        (knockouts, overexpression), score by expected information gain (EIG) with MCSE-bounded estimates.'
+    - name: benchmark-gene-set
+      base_composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+      parameter_overrides: *id004
+      description: ≥20 E. coli genes with literature-established functions across diverse mechanism classes 
+        (kinases, TFs, transporters, structural). The validation target.
+    - name: sbc-at-model-comparison-level
+      base_composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+      parameter_overrides: *id005
+      description: Extended SBC over K=500 synthetic datasets generated under known true annotations; verify 
+        uniformity of posterior model probability ranks.
+  model_settings: []
+simulation_set:
+  - name: rr-estimator-variance-floor
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    duration_steps: (per Z)
+    details: monitor N_eff ≥ 100; fall back to thermodynamic integration if below
+    metrics:
+      - rr-estimator-trace
+      - log-bayes-factor-cis
+      - model-comparison-sbc
+      - eig-per-intervention
+    pass_fail_tests:
+      - annotation-bayes-model-compare
+      - active-causal-discovery-loop
+      - benchmark-recovery-with-credible-intervals
+  - name: model-comparison-sbc-K500
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    duration_steps: 500
+    details: extended SBC at model-comparison level; rank-histogram χ² p > 0.05 required
+    metrics:
+      - rr-estimator-trace
+      - log-bayes-factor-cis
+      - model-comparison-sbc
+      - eig-per-intervention
+    pass_fail_tests:
+      - annotation-bayes-model-compare
+      - active-causal-discovery-loop
+      - benchmark-recovery-with-credible-intervals
+  - name: active-inference-loop-pilot
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    duration_steps: (adaptive)
+    details: 10-gene pilot; EIG MCSE non-zero per proposal
+    metrics:
+      - rr-estimator-trace
+      - log-bayes-factor-cis
+      - model-comparison-sbc
+      - eig-per-intervention
+    pass_fail_tests:
+      - annotation-bayes-model-compare
+      - active-causal-discovery-loop
+      - benchmark-recovery-with-credible-intervals
+  - name: benchmark-20-gene-recovery
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.annotation.bayes_model_compare
+    duration_steps: (per gene)
+    details: 20 benchmark E. coli genes; BH-FDR ≤ 0.10 (investigation gating)
+    metrics:
+      - rr-estimator-trace
+      - log-bayes-factor-cis
+      - model-comparison-sbc
+      - eig-per-intervention
+    pass_fail_tests:
+      - annotation-bayes-model-compare
+      - active-causal-discovery-loop
+      - benchmark-recovery-with-credible-intervals

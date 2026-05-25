@@ -331,7 +331,7 @@ expected_behavior:
 baseline:
   - name: millard2017-via-pbg-copasi
     composite: pbg_copasi.composites.utc-process
-    params:
+    params: &id001
       # pbg-copasi accepts any SBML/COPASI model_source. Fetch the
       # Millard 2017 model from BioModels and store it under
       # v2ecoli/models/sbml/millard2017_central_metabolism.xml at
@@ -362,20 +362,20 @@ variants:
   - name: millard-standalone
     description: Standalone Millard 2017 ODE via pbg-copasi CopasiUTCProcess on the published SBML — no 
       coupling, no LQR. Steady-state recovery confirmed 2026-05-24.
-    params:
+    params: &id002
       model_source: v2ecoli/models/sbml/millard2017_central_metabolism.xml
       time: 100.0
       intervals: 10
   - name: millard-atp-drain-perturbation
     description: ATP drained to 30% of steady state at t=500s (ADP gains the difference, mass-balanced). Tests
       transient response across all coupled subsystems; ran 2026-05-24.
-    params:
+    params: &id003
       perturbation: ATP→0.3×SS at t=500s
       duration: 3000
   - name: millard-fba-bridge-3-conditions
     description: FBA-bridge composite under M9-glucose, M9-acetate, M9-glucose+aa. Tests interface fidelity 
       across the same conditions as Phase 0.
-    params:
+    params: &id004
       conditions:
         - M9-glucose
         - M9-acetate
@@ -513,3 +513,116 @@ planned_runs:
     status: planned
     n_steps: 600
     details: validation against Phase 0 ensemble (W₂ per metabolite, gating criterion)
+conditions:
+  baseline:
+    composite: pbg_copasi.composites.utc-process
+    params: *id001
+  variants:
+    - name: millard-with-lqr
+      base_composite: pbg_copasi.composites.utc-process
+      parameter_overrides: {}
+      description: |
+        Millard 2017 ODE via pbg-copasi, wrapped with an outer LQR
+        controller that drives growth rate toward a reference
+        trajectory. Replaces v2ecoli's FBA biomass-production objective.
+    - name: millard-fba-bridge
+      base_composite: pbg_copasi.composites.utc-process
+      parameter_overrides: {}
+      description: |
+        Coupled composite — Millard 2017 ODE (pbg-copasi) for
+        central carbon + v2ecoli's multi-objective FBA
+        (`wholecell.utils.modular_fba`) for the rest of the metabolic
+        network; transitional configuration during the incremental
+        handover.
+    - name: millard-standalone
+      base_composite: pbg_copasi.composites.utc-process
+      parameter_overrides: *id002
+      description: Standalone Millard 2017 ODE via pbg-copasi CopasiUTCProcess on the published SBML — no 
+        coupling, no LQR. Steady-state recovery confirmed 2026-05-24.
+    - name: millard-atp-drain-perturbation
+      base_composite: pbg_copasi.composites.utc-process
+      parameter_overrides: *id003
+      description: ATP drained to 30% of steady state at t=500s (ADP gains the difference, mass-balanced). 
+        Tests transient response across all coupled subsystems; ran 2026-05-24.
+    - name: millard-fba-bridge-3-conditions
+      base_composite: pbg_copasi.composites.utc-process
+      parameter_overrides: *id004
+      description: FBA-bridge composite under M9-glucose, M9-acetate, M9-glucose+aa. Tests interface fidelity 
+        across the same conditions as Phase 0.
+  model_settings: []
+simulation_set:
+  - name: millard-standalone-bootstrap
+    kind: single
+    status: ran
+    base_model: pbg_copasi.composites.utc-process
+    duration_steps: 30
+    details: completed 2026-05-24; published reference state recovered
+    metrics:
+      - millard-standalone-steady-state
+      - fba-bridge-flux-seam
+      - lqr-sobol-indices
+      - w2-per-metabolite
+    pass_fail_tests:
+      - millard-standalone-via-copasi
+      - fba-bridge-composite-runs
+      - interface-matches-reference
+  - name: millard-atp-drain-experiment
+    kind: single
+    status: ran
+    base_model: pbg_copasi.composites.utc-process
+    duration_steps: (direct basico time course)
+    details: completed 2026-05-24; 302 timepoints; recovery dynamics captured
+    metrics:
+      - millard-standalone-steady-state
+      - fba-bridge-flux-seam
+      - lqr-sobol-indices
+      - w2-per-metabolite
+    pass_fail_tests:
+      - millard-standalone-via-copasi
+      - fba-bridge-composite-runs
+      - interface-matches-reference
+  - name: millard-with-lqr-tuning
+    kind: single
+    status: planned
+    base_model: pbg_copasi.composites.utc-process
+    duration_steps: '(Sobol sweep, ≥20 LQR-weight samples × baseline length)'
+    details: Sobol-driven LQR weight scan; flag weights with total index < 0.01 on growth/glc-uptake/ATP-yield
+    metrics:
+      - millard-standalone-steady-state
+      - fba-bridge-flux-seam
+      - lqr-sobol-indices
+      - w2-per-metabolite
+    pass_fail_tests:
+      - millard-standalone-via-copasi
+      - fba-bridge-composite-runs
+      - interface-matches-reference
+  - name: millard-fba-bridge-pilot
+    kind: single
+    status: planned
+    base_model: pbg_copasi.composites.utc-process
+    duration_steps: 100
+    details: first end-to-end coupled-composite run; verify bridge schema holds
+    metrics:
+      - millard-standalone-steady-state
+      - fba-bridge-flux-seam
+      - lqr-sobol-indices
+      - w2-per-metabolite
+    pass_fail_tests:
+      - millard-standalone-via-copasi
+      - fba-bridge-composite-runs
+      - interface-matches-reference
+  - name: millard-fba-bridge-3-conditions
+    kind: single
+    status: planned
+    base_model: pbg_copasi.composites.utc-process
+    duration_steps: 600
+    details: validation against Phase 0 ensemble (W₂ per metabolite, gating criterion)
+    metrics:
+      - millard-standalone-steady-state
+      - fba-bridge-flux-seam
+      - lqr-sobol-indices
+      - w2-per-metabolite
+    pass_fail_tests:
+      - millard-standalone-via-copasi
+      - fba-bridge-composite-runs
+      - interface-matches-reference

@@ -249,7 +249,7 @@ expected_behavior:
 baseline:
   - name: v2ecoli-diagnostic
     composite: v2ecoli.composites.diagnostic.diagnostic
-    params:
+    params: &id001
       emitter: xarray
       condition: M9-glucose
     _placeholder: true
@@ -259,28 +259,28 @@ variants:
   - name: v2ecoli-diagnostic-M9-glucose
     description: 'Canonical reference: M9 minimal + 22 mM glucose, aerobic, 37°C. The baseline against which all
       other Phase 0 conditions are compared.'
-    params:
+    params: &id002
       condition: M9-glucose
       seed: 0
       n_steps: 600
   - name: v2ecoli-diagnostic-M9-acetate
     description: Slower-growth gluconeogenic regime; same cache, swap nutrient condition to acetate. Tests 
       interface fidelity when the FBA solution sits on a different polytope facet.
-    params:
+    params: &id003
       condition: M9-acetate
       seed: 0
       n_steps: 600
   - name: v2ecoli-diagnostic-M9-glucose-aa
     description: 'Faster-growth (partial relief on translation): M9 + glucose + 20 amino-acid mix at fully-supplemented
       concentrations.'
-    params:
+    params: &id004
       condition: M9-glucose+aa
       seed: 0
       n_steps: 400
   - name: v2ecoli-diagnostic-ensemble-N64
     description: 'N=64 stochastic replicates per condition (3 conditions × 64 = 192 runs). The full reference ensemble
       Phase 1+ phases validate against. Wall-clock estimate: ~30 hr serially, ~1 hr in parallel on a 32-core machine.'
-    params:
+    params: &id005
       condition: M9-glucose
       seed: <replicate>
       n_steps: 600
@@ -422,3 +422,112 @@ planned_runs:
     status: planned
     n_steps: 600
     details: 3 conditions × N=64 replicates; produces the canonical reference zarr ensemble (Gating criterion)
+conditions:
+  baseline:
+    composite: v2ecoli.composites.diagnostic.diagnostic
+    params: *id001
+  variants:
+    - name: v2ecoli-diagnostic-M9-glucose
+      base_composite: v2ecoli.composites.diagnostic.diagnostic
+      parameter_overrides: *id002
+      description: 'Canonical reference: M9 minimal + 22 mM glucose, aerobic, 37°C. The baseline against which all
+        other Phase 0 conditions are compared.'
+    - name: v2ecoli-diagnostic-M9-acetate
+      base_composite: v2ecoli.composites.diagnostic.diagnostic
+      parameter_overrides: *id003
+      description: Slower-growth gluconeogenic regime; same cache, swap nutrient condition to acetate. Tests 
+        interface fidelity when the FBA solution sits on a different polytope facet.
+    - name: v2ecoli-diagnostic-M9-glucose-aa
+      base_composite: v2ecoli.composites.diagnostic.diagnostic
+      parameter_overrides: *id004
+      description: 'Faster-growth (partial relief on translation): M9 + glucose + 20 amino-acid mix at fully-supplemented
+        concentrations.'
+    - name: v2ecoli-diagnostic-ensemble-N64
+      base_composite: v2ecoli.composites.diagnostic.diagnostic
+      parameter_overrides: *id005
+      description: 'N=64 stochastic replicates per condition (3 conditions × 64 = 192 runs). The full reference
+        ensemble Phase 1+ phases validate against. Wall-clock estimate: ~30 hr serially, ~1 hr in parallel on a
+        32-core machine.'
+  model_settings: []
+simulation_set:
+  - name: phase0-bootstrap
+    kind: single
+    status: ran
+    base_model: v2ecoli.composites.diagnostic.diagnostic
+    duration_steps: 10
+    details: completed 2026-05-24; bootstrap-run-confirmed
+    metrics:
+      - reference-zarr-stores
+      - interface-schemas
+      - per-step-compute-profile
+      - variable-categorisation-map
+    pass_fail_tests:
+      - variables-categorized
+      - interface-schemas-typed
+      - reference-xarray-3-conditions
+  - name: phase0-warmup-x1
+    kind: single
+    status: planned
+    base_model: v2ecoli.composites.diagnostic.diagnostic
+    duration_steps: 100
+    details: single-condition warm-up; verify cycle dynamics + listener observables ramp correctly
+    metrics:
+      - reference-zarr-stores
+      - interface-schemas
+      - per-step-compute-profile
+      - variable-categorisation-map
+    pass_fail_tests:
+      - variables-categorized
+      - interface-schemas-typed
+      - reference-xarray-3-conditions
+  - name: fix-per-process-rng-seeding
+    kind: single
+    status: blocks-ensemble
+    base_model: v2ecoli.composites.diagnostic.diagnostic
+    duration_steps: (infrastructure fix, no simulation steps)
+    details: "DISCOVERED 2026-05-24 via 3-seed pilot ensemble: v2ecoli baseline's `seed` parameter only seeds `allocator_rng`
+      (baseline.py:408). All other 55 stochastic processes (transcription, translation, division-threshold, protein-degradation,
+      equilibrium, two-component-system, complexation, RNA-maturation, transcript-initiation, polypeptide-initiation,
+      chromosome-replication, tf-binding, tf-unbinding, chromosome-structure) seed from the cached sim_data — shared
+      across runs. Net: 3 seeds → bit-identical trajectories (CV across seeds: 0.000% on every observable). Fix:
+      each stochastic process seeds its RNG from hash(master_seed, process_name). Until fixed, Phase 0's N≥64 ensemble
+      target is moot. See reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html for the diagnostic."
+    metrics:
+      - reference-zarr-stores
+      - interface-schemas
+      - per-step-compute-profile
+      - variable-categorisation-map
+    pass_fail_tests:
+      - variables-categorized
+      - interface-schemas-typed
+      - reference-xarray-3-conditions
+  - name: phase0-conditions-3
+    kind: single
+    status: planned
+    base_model: v2ecoli.composites.diagnostic.diagnostic
+    duration_steps: 600
+    details: 1 generation × 3 conditions; first cross-condition interface-statistic comparison
+    metrics:
+      - reference-zarr-stores
+      - interface-schemas
+      - per-step-compute-profile
+      - variable-categorisation-map
+    pass_fail_tests:
+      - variables-categorized
+      - interface-schemas-typed
+      - reference-xarray-3-conditions
+  - name: phase0-ensemble-3x64
+    kind: single
+    status: planned
+    base_model: v2ecoli.composites.diagnostic.diagnostic
+    duration_steps: 600
+    details: 3 conditions × N=64 replicates; produces the canonical reference zarr ensemble (Gating criterion)
+    metrics:
+      - reference-zarr-stores
+      - interface-schemas
+      - per-step-compute-profile
+      - variable-categorisation-map
+    pass_fail_tests:
+      - variables-categorized
+      - interface-schemas-typed
+      - reference-xarray-3-conditions

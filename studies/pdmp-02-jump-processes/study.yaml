@@ -220,7 +220,7 @@ expected_behavior:
 baseline:
   - name: pdmp-jump-runner-tbd
     composite: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
-    params:
+    params: &id001
       emitter: xarray
     _placeholder: true
     _note: Composite + processes (transcription_jump, translation_jump, division_threshold, competition_jumps)
@@ -229,29 +229,29 @@ variants:
   - name: transcription-jump-from-kinetics
     description: Replace v2ecoli's scaled-Poisson transcription with continuous-time jumps from measured 
       initiation/elongation rate constants. Propensity λ = k_init × [RNAP_free] × [promoter] for each gene.
-    params:
+    params: &id002
       backend: exact-SSA-or-tau-leap
       leap_condition: Δλ/λ < 0.03
   - name: translation-jump-from-kinetics
     description: 'Same treatment for translation: propensity λ = k_elong × [ribosome_bound] × [aa_charged]. τ-leaping
       for the ribosome-elongation channel; exact next-reaction for rare initiation events.'
-    params:
+    params: &id003
       backend: hybrid-tau-leap-plus-exact
   - name: division-first-passage
     description: Cell division as a first-passage time on cell volume crossing a threshold under the coupled 
       ODE+jump dynamics. Validated against the OU-process analytical FPT before deployment.
-    params:
+    params: &id004
       threshold_observable: cell_volume
       validation: OU-FPT-analytical
   - name: competition-jumps
     description: Replace v2ecoli's global resource-reallocation correction step with affinity-based 
       competition jumps. Each shared resource has affinity-weighted propensity to be drawn by each competing 
       process.
-    params:
+    params: &id005
       affinities: from-Michaelis-constants
   - name: full-pdmp-coupled
     description: Phase 1 ODE + all 4 jump processes coupled under the PDMP runner. The complete deliverable.
-    params:
+    params: &id006
       runner: Vivarium-PDMP-experimental
 interventions: []
 runs: []
@@ -354,3 +354,80 @@ visualizations:
     address: file:reports/figures/pdmp-02/division_time_distribution.html
     description: PLANNED — first-passage time distribution for cell-volume threshold crossing. Median + CV 
       gating against literature 67 min.
+conditions:
+  baseline:
+    composite: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
+    params: *id001
+  variants:
+    - name: transcription-jump-from-kinetics
+      base_composite: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
+      parameter_overrides: *id002
+      description: Replace v2ecoli's scaled-Poisson transcription with continuous-time jumps from measured 
+        initiation/elongation rate constants. Propensity λ = k_init × [RNAP_free] × [promoter] for each gene.
+    - name: translation-jump-from-kinetics
+      base_composite: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
+      parameter_overrides: *id003
+      description: 'Same treatment for translation: propensity λ = k_elong × [ribosome_bound] × [aa_charged]. τ-leaping
+        for the ribosome-elongation channel; exact next-reaction for rare initiation events.'
+    - name: division-first-passage
+      base_composite: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
+      parameter_overrides: *id004
+      description: Cell division as a first-passage time on cell volume crossing a threshold under the coupled
+        ODE+jump dynamics. Validated against the OU-process analytical FPT before deployment.
+    - name: competition-jumps
+      base_composite: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
+      parameter_overrides: *id005
+      description: Replace v2ecoli's global resource-reallocation correction step with affinity-based 
+        competition jumps. Each shared resource has affinity-weighted propensity to be drawn by each competing
+        process.
+    - name: full-pdmp-coupled
+      base_composite: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
+      parameter_overrides: *id006
+      description: Phase 1 ODE + all 4 jump processes coupled under the PDMP runner. The complete deliverable.
+  model_settings: []
+simulation_set:
+  - name: anderson-darling-validation
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
+    duration_steps: 10⁴ inter-event intervals per jump
+    details: exponential-clock A-D test per jump process (α=0.05)
+    metrics:
+      - anderson-darling-results
+      - fpt-distribution
+      - trajectory-w2
+      - markov-property-record
+    pass_fail_tests:
+      - jump-process-from-kinetics
+      - division-first-passage
+      - pdmp-trajectory-distribution-match
+  - name: ou-fpt-analytical
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
+    duration_steps: 10⁴ trajectories
+    details: 'first-passage validation: KS distance vs analytical CDF < 0.02'
+    metrics:
+      - anderson-darling-results
+      - fpt-distribution
+      - trajectory-w2
+      - markov-property-record
+    pass_fail_tests:
+      - jump-process-from-kinetics
+      - division-first-passage
+      - pdmp-trajectory-distribution-match
+  - name: trajectory-distribution-N200
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
+    duration_steps: 200
+    details: N=200 PDMP trajectories per condition; W₂ summary-distribution match vs v2ecoli baseline ensemble
+    metrics:
+      - anderson-darling-results
+      - fpt-distribution
+      - trajectory-w2
+      - markov-property-record
+    pass_fail_tests:
+      - jump-process-from-kinetics
+      - division-first-passage
+      - pdmp-trajectory-distribution-match

@@ -226,7 +226,7 @@ expected_behavior:
 baseline:
   - name: pdmp-catalyst-runner-tbd
     composite: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
-    params:
+    params: &id001
       emitter: xarray
       backend: catalyst-jl
       precision: fp64
@@ -237,28 +237,28 @@ variants:
     description: Export Phase 2 PDMP to Catalyst.jl + ModelingToolkit — symbolic Jacobians, automatic 
       forward-mode sensitivity equations, LLVM-optimised. Bit-equivalent to Phase 2 runner within solver 
       tolerance.
-    params:
+    params: &id002
       backend: catalyst-jl
       precision: fp64
   - name: column-centric-runtime
     description: Replace nested-dict row-centric state with pre-allocated column-centric tensors. Targets 
       per-step marshalling overhead < 10% of essential compute.
-    params:
+    params: &id003
       runtime: column-centric-tensor
   - name: vivarium-api-inversion
     description: Invert the Vivarium API so process definitions declare local state + ODE vector fields + jump
       propensities only; runtime handles topology traversal and time-stepping.
-    params:
+    params: &id004
       api: declarative-process-spec
   - name: gpu-parallel-1000
     description: ≥10³ parallel single-cell trajectories on GPU. The throughput gating criterion.
-    params:
+    params: &id005
       hardware: GPU
       parallelism: 1000
       precision: fp64
   - name: multi-core-cpu-parallel
     description: Same throughput target on multi-core CPU (fallback for sites without GPU).
-    params:
+    params: &id006
       hardware: CPU
       parallelism: 1000
 interventions: []
@@ -358,3 +358,94 @@ visualizations:
     address: file:reports/figures/pdmp-04/per_step_compute_decomposition.html
     description: 'PLANNED — pie-chart comparison of per-step compute buckets (v2ecoli baseline vs Phase 4 compiled).
       Headline justification: marshalling drops from ~70% to <10%.'
+conditions:
+  baseline:
+    composite: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
+    params: *id001
+  variants:
+    - name: catalyst-export
+      base_composite: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
+      parameter_overrides: *id002
+      description: Export Phase 2 PDMP to Catalyst.jl + ModelingToolkit — symbolic Jacobians, automatic 
+        forward-mode sensitivity equations, LLVM-optimised. Bit-equivalent to Phase 2 runner within solver 
+        tolerance.
+    - name: column-centric-runtime
+      base_composite: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
+      parameter_overrides: *id003
+      description: Replace nested-dict row-centric state with pre-allocated column-centric tensors. Targets 
+        per-step marshalling overhead < 10% of essential compute.
+    - name: vivarium-api-inversion
+      base_composite: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
+      parameter_overrides: *id004
+      description: Invert the Vivarium API so process definitions declare local state + ODE vector fields + 
+        jump propensities only; runtime handles topology traversal and time-stepping.
+    - name: gpu-parallel-1000
+      base_composite: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
+      parameter_overrides: *id005
+      description: ≥10³ parallel single-cell trajectories on GPU. The throughput gating criterion.
+    - name: multi-core-cpu-parallel
+      base_composite: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
+      parameter_overrides: *id006
+      description: Same throughput target on multi-core CPU (fallback for sites without GPU).
+  model_settings: []
+simulation_set:
+  - name: catalyst-round-trip
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
+    duration_steps: (export + 1 sim)
+    details: verify Catalyst.jl export reproduces Phase 2 PDMP within solver tolerance
+    metrics:
+      - catalyst-export-artefact
+      - per-step-profile-compiled
+      - parallel-throughput
+      - abc-posterior-variance-vs-walltime
+    pass_fail_tests:
+      - catalyst-export-works
+      - column-centric-state
+      - vivarium-api-inversion
+  - name: marshalling-fraction-probe
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
+    duration_steps: 1000
+    details: per-step profiling on compiled runner; target marshalling < 10%
+    metrics:
+      - catalyst-export-artefact
+      - per-step-profile-compiled
+      - parallel-throughput
+      - abc-posterior-variance-vs-walltime
+    pass_fail_tests:
+      - catalyst-export-works
+      - column-centric-state
+      - vivarium-api-inversion
+  - name: parallel-1k-throughput
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
+    duration_steps: 1000
+    details: 10³ parallel trajectories; throughput ≥ 1 order of magnitude above v2ecoli baseline
+    metrics:
+      - catalyst-export-artefact
+      - per-step-profile-compiled
+      - parallel-throughput
+      - abc-posterior-variance-vs-walltime
+    pass_fail_tests:
+      - catalyst-export-works
+      - column-centric-state
+      - vivarium-api-inversion
+  - name: 1-over-sqrt-N-variance-check
+    kind: single
+    status: planned
+    base_model: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst
+    duration_steps: (scaling)
+    details: doubling N halves ABC posterior variance — verifies parallel independence
+    metrics:
+      - catalyst-export-artefact
+      - per-step-profile-compiled
+      - parallel-throughput
+      - abc-posterior-variance-vs-walltime
+    pass_fail_tests:
+      - catalyst-export-works
+      - column-centric-state
+      - vivarium-api-inversion

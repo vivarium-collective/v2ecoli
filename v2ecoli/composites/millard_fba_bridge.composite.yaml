@@ -45,26 +45,32 @@ parameters:
 
 state:
   # 1. Millard ODE — populates central_metabolites with the 77 SBML species.
+  # CRITICAL: inputs is EMPTY (no species_concentrations feedback). Feeding the
+  # composite store back to COPASI triggers an "Invalid state at t=0.1s" NaN
+  # (COPASI's integrator can't reconcile an empty dict against its internal
+  # initial conditions). COPASI keeps its own integration state across ticks;
+  # the composite reads ONLY the outputs.
   millard_ode:
     _type: process
     address: "local:CopasiUTCProcess"
     config:
       model_source: "${millard_sbml}"
-      time: 1.0
+      time: 100.0
       intervals: 10
-    inputs:
-      species_concentrations: ["shared", "central_metabolites"]
+    inputs: {}
     outputs:
       species_concentrations: ["shared", "central_metabolites"]
       fluxes: ["shared", "central_fluxes"]
       time: ["shared", "time"]
-    interval: 1.0
+    interval: 100.0
 
   # 2. FBABridge — translates central_metabolites <-> v2ecoli bulk.
   # Scheduled as a Process (NOT a reactive Step) with interval matching
-  # Millard's update interval. This guarantees the bridge fires AFTER the
-  # COPASI process has populated central_metabolites for the current tick,
-  # eliminating the original t=0.2s NaN.
+  # Millard's update interval. Bridge fires AFTER COPASI has populated
+  # central_metabolites for the current tick. In millard_to_v2ecoli direction
+  # (default), bridge does NOT declare central_metabolites_millard as an
+  # output (only v2ecoli_bulk + bridge_diagnostics) — see outputs() in
+  # v2ecoli/steps/fba_bridge.py for direction-conditional output declaration.
   bridge:
     _type: process
     address: "local:FBABridge"
@@ -76,10 +82,9 @@ state:
       central_metabolites_millard: ["shared", "central_metabolites"]
       v2ecoli_bulk: ["v2ecoli", "bulk"]
     outputs:
-      central_metabolites_millard: ["shared", "central_metabolites"]
       v2ecoli_bulk: ["v2ecoli", "bulk"]
       bridge_diagnostics: ["shared", "bridge_diagnostics"]
-    interval: 1.0
+    interval: 100.0
 
   shared:
     central_metabolites: {}    # mM, Millard convention; populated by COPASI on tick 1

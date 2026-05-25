@@ -185,11 +185,19 @@ class FBABridge(Process):
         }
 
     def outputs(self):
-        return {
-            "central_metabolites_millard": InPlaceDict(),
+        """Outputs are direction-conditional. Declaring an output makes PB
+        composite treat the store as a write target — if Millard ALSO outputs
+        to that same store, schema reconciliation between two writers triggers
+        the COPASI integrator NaN at t=0.1s. The bridge in millard_to_v2ecoli
+        direction never writes central_metabolites_millard, so don't declare
+        it as an output for that direction."""
+        out = {
             "v2ecoli_bulk": InPlaceDict(),
             "bridge_diagnostics": InPlaceDict(),
         }
+        if self.direction in ("v2ecoli_to_millard", "bidirectional"):
+            out["central_metabolites_millard"] = InPlaceDict()
+        return out
 
     def update(self, state, interval):
         """Process API entry point — Composite scheduler calls this once per

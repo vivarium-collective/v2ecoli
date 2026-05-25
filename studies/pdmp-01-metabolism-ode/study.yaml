@@ -507,18 +507,18 @@ planned_runs:
   n_steps: (Sobol sweep, ≥20 LQR-weight samples × baseline length)
   details: Sobol-driven LQR weight scan; flag weights with total index < 0.01 on growth/glc-uptake/ATP-yield
 - name: millard-fba-bridge-pilot
-  status: copasi-nan-investigation
-  n_steps: 10
-  details: 'BRIDGE BUILT + UNIT-TESTED + REFACTORED Step→Process 2026-05-25. Bridge as a scheduled
-    Process with interval=1.0 fires correctly after each Millard tick (8/8 unit tests pass, 25 species
-    pushed per step in coupled run). HOWEVER: COPASI''s internal integrator still NaN-traps at t=0.1s
-    in the coupled context — turns out the t=0.2s issue wasn''t bridge scheduling but a deeper PB
-    composite integration issue (possibly schema reconciliation when central_metabolites is both
-    Millard''s output AND the bridge''s input/output declaration). Bridge pushes 2.88e+07 to v2ecoli
-    ATP[c] from the few non-NaN reads. Standalone Millard composite runs cleanly — issue is specifically
-    when the bridge is wired in. Next step: diagnose whether removing central_metabolites from bridge
-    OUTPUTS (millard_to_v2ecoli direction never writes there anyway) avoids the conflict, or whether
-    PB Composite needs different topology wiring.'
+  status: completed
+  n_steps: 5
+  details: 'COMPLETED 2026-05-25. End-to-end coupled-pilot run works: Millard ODE + FBABridge for 500s
+    (5 chunks × 100s), ATP_millard=15.4 mM, 25 shared species translated to v2ecoli bulk, ATP[c]_v2ecoli=
+    7.74e+06 (matches real v2ecoli baseline ~7.7M). NaN diagnosis: root cause was NOT bridge scheduling
+    but CopasiUTCProcess input feedback — declaring species_concentrations as both INPUT and OUTPUT of
+    the COPASI process caused the integrator to NaN-trap at t=0.1s (composite''s empty-dict store
+    overrode COPASI''s internal initial conditions). Fix: inputs:{} on the COPASI process, outputs-only
+    for species_concentrations. COPASI keeps integration state across ticks; composite reads its
+    outputs. Bridge ALSO drops central_metabolites_millard from outputs in millard_to_v2ecoli direction
+    (direction-conditional outputs() method) since it never writes there. Eight unit tests pass +
+    coupled pilot green.'
 - name: millard-fba-bridge-3-conditions
   status: planned
   n_steps: 600

@@ -73,3 +73,10 @@
 "rpsU-dnaG-rpoD"	"TU00352"	"PC00010__inactive"	0.244	"derived: rpsUp1 LexA-independent; basal capacity preserved"
 "rpsU-dnaG-rpoD"	"TU00434"	"PC00010__inactive"	0.094	"derived: rpsUp2 LexA-independent; basal capacity preserved"
 "rpsU-dnaG-rpoD"	"TU00435"	"PC00010__inactive"	0.662	"derived: rpsUp3 carries residual expression under LexA-off"
+# serA — Thomason 2015 M63_0.4 stepHeights, b2913 positions corrected by +~2000 bp offset (see report).
+"serA"	"TU00224"	"basal"	0.974	"Thomason 2015 M63_0.4 stepH=103.95 (Primary, serAp1)"
+"serA"	"TU0-2342"	"basal"	0.026	"Thomason 2015 M63_0.4 stepH=2.84 (serAp2)"
+"serA"	"TU00224"	"MONOMER0-155__active"	0.974	"= basal"
+"serA"	"TU0-2342"	"MONOMER0-155__active"	0.026	"= basal"
+"serA"	"TU00224"	"MONOMER0-155__inactive"	0.974	"placeholder, no per-TU data for Lrp-KO"
+"serA"	"TU0-2342"	"MONOMER0-155__inactive"	0.026	"placeholder"

@@ -15,7 +15,6 @@
 "crp"	"rpsR"	"Remove to get expression in ppGpp"
 "lrp"	"ilvA"	"Remove to get stable growth with ppGpp regulation and amino acid supply especially with Leu added (regulation reduced Ile synthesis rate to near 0)"
 "lrp"	"glnA"	"Remove to get stable growth with ppGpp regulation and amino acid supply especially with Leu added (regulation reduced Gln synthesis rate to near 0)"
-"lrp"	"serA"	"Remove to get stable growth with ppGpp regulation and amino acid supply especially with Leu added (regulation reduced Ser synthesis rate to near 0)"
 "lrp"	"aspC"	"Remove to get stable growth with ppGpp regulation and amino acid supply especially with Leu added (regulation reduced Asp synthesis rate to near 0)"
 "lrp"	"can"	"Remove to get stable growth with ppGpp regulation and amino acid supply especially with Leu added (shut down Arg synthesis)"
 "lrp"	"ilvD"	"Remove to get stable growth with ppGpp regulation and amino acid supply especially with Leu added (shut down Val synthesis)"

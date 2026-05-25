@@ -2027,6 +2027,10 @@ class Transcription(object):
         # Map expression levels of cistrons to those of TUs through NNLS
         self.exp_ppgpp, _ = self.fit_rna_expression(cistron_exp_ppgpp)
         self.exp_free, _ = self.fit_rna_expression(cistron_exp_free)
+        # Re-apply per-promoter ratios — NNLS above is degenerate for dedup-exempt operons
+        # (zeros out the non-survivor TUs); per_promoter_ratios.tsv ratios reflect biology.
+        self.exp_ppgpp = self._apply_per_promoter_ratios(self.exp_ppgpp, self.rna_data['id'], 'basal')
+        self.exp_free = self._apply_per_promoter_ratios(self.exp_free, self.rna_data['id'], 'basal')
         self._normalize_ppgpp_expression()
 
         self._ppgpp_expression_set = True

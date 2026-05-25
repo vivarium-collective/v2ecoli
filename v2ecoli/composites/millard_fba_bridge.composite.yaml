@@ -1,58 +1,50 @@
 name: millard_fba_bridge
 description: |
-  v2ecoli-pdmp Phase 1 FBA-BRIDGE composite — the transitional configuration that
-  couples the Millard 2017 kinetic ODE (central carbon + energy metabolism, wrapped
-  via pbg-copasi) with v2ecoli's multi-objective FBA (`wholecell.utils.modular_fba`,
-  the rest of the metabolic network). Two solvers in one PB composite, exchanging
-  fluxes at a documented seam.
+  v2ecoli-pdmp Phase 1 FBA-BRIDGE composite — couples the Millard 2017 kinetic
+  ODE (central carbon + energy metabolism, via pbg-copasi CopasiUTCProcess) with
+  v2ecoli's bulk store (via v2ecoli.steps.fba_bridge.FBABridge). Two solvers
+  in one PB composite, exchanging state at a documented seam.
 
-  STATUS: SCAFFOLD — not yet runnable. The bridge requires:
-    1. A species-name mapping table (Millard IDs ↔ v2ecoli bulk_mol_ids).
-       Millard uses simple metabolite IDs (G6P, F6P, PEP, ACCOA, …) while v2ecoli
-       uses BioCyc-style IDs (PD-ID / MONOMER-NUMBER / etc.). The mapping is
-       authored manually for the ~30 central-carbon shared metabolites.
-    2. A bridge process that:
-         - Reads Millard species_concentrations after each PB step
-         - Translates to v2ecoli bulk-store updates (with unit conversion:
-           Millard is mM, v2ecoli is molecule counts via cell volume)
-         - Reads v2ecoli's FBA flux outputs for non-central reactions
-         - Decides which flux contributions go to v2ecoli's mass-balance vs
-           Millard's ODE rate-law (the seam schema)
-    3. Run-order: Millard ODE step → bridge translate → v2ecoli FBA step →
-       bridge translate back → next iteration.
+  STATUS: BRIDGE PROCESS BUILT + UNIT-TESTED. Standalone bridge works (see
+  tests/test_fba_bridge.py — 8 passing tests: mM<->count round-trip, mapping
+  load, direction modes, diagnostics). A coupled-pilot RUN of Millard + Bridge
+  reaches end-to-end (25 shared metabolites translated each step) but the
+  COPASI solver currently produces NaN at t=0.2s when the bridge fires before
+  Millard's first integration step. Open follow-up: ensure bridge interval >
+  Millard interval, or convert bridge from Step to Process with a defined
+  schedule. See planned_runs.millard-fba-bridge-pilot for the workaround.
 
-  The Phase 1 study's planned_runs.millard-fba-bridge-pilot will be the first
-  end-to-end attempt; until then, this YAML is the design contract for an
-  expert reviewer to critique BEFORE implementation cost.
+  Full coupling to v2ecoli's Metabolism process (the kFBA solver consuming the
+  bridge-translated bulk pool) remains DEFERRED — Metabolism requires the full
+  WCM context (cache, partition allocator, bulk loaders, unique stores) and is
+  a substantially larger lift than the bridge itself. The bridge is the
+  prerequisite; integration is the next Phase 1 milestone.
 
-tags: [pdmp, phase-1, fba-bridge, scaffold, expert-review-needed]
+tags: [pdmp, phase-1, fba-bridge, millard2017, pbg-copasi]
 
 requires:
-  # Will need both pbg-copasi (Millard) AND v2ecoli's Metabolism process
-  # (kFBA). The PB composite engine wires them; we declare both here.
-  processes: [CopasiUTCProcess, Metabolism]
+  processes: [CopasiUTCProcess, FBABridge]
 
 parameters:
   millard_sbml:
     type: string
     default: "v2ecoli/models/sbml/millard2017_central_metabolism.xml"
     description: "Millard 2017 SBML (BioModels MODEL1505110000)."
-  v2ecoli_cache:
-    type: string
-    default: "out/cache"
-    description: "Path to ParCa cache (initial_state.json + sim_data_cache.dill)."
   bridge_mapping:
     type: string
-    default: "v2ecoli_pdmp/bridge/millard_v2ecoli_species_map.yaml"
-    description: "Species-name mapping table — Millard ID → v2ecoli bulk_mol_id, with unit-conversion factor. SCAFFOLD: this file does not exist yet."
+    default: "v2ecoli/data/millard_v2ecoli_species_map.yaml"
+    description: "Millard <-> v2ecoli species name mapping (curated for ~25 shared central-carbon metabolites)."
+  cell_volume_L:
+    type: float
+    default: 1.0e-15
+    description: "E. coli cell volume in liters used for mM <-> molecule-count conversion."
+  bridge_direction:
+    type: string
+    default: "millard_to_v2ecoli"
+    description: "millard_to_v2ecoli | v2ecoli_to_millard | bidirectional."
 
 state:
-  # SCAFFOLD: the wiring below is the INTENDED shape; running it today fails
-  # because (a) the bridge process doesn't exist, (b) the mapping file doesn't
-  # exist, (c) v2ecoli's Metabolism process needs the full WCM context (cache +
-  # other processes feeding bulk pools).
-
-  # 1. Millard ODE — runs on shared species_concentrations
+  # 1. Millard ODE — populates central_metabolites with the 77 SBML species.
   millard_ode:
     _type: process
     address: "local:CopasiUTCProcess"
@@ -65,50 +57,36 @@ state:
     outputs:
       species_concentrations: ["shared", "central_metabolites"]
       fluxes: ["shared", "central_fluxes"]
+      time: ["shared", "time"]
+    interval: 1.0
 
-  # 2. v2ecoli Metabolism (kFBA) — runs on bulk pools + boundary
-  v2ecoli_fba:
-    _type: process
-    address: "local:Metabolism"
-    config:
-      cache_dir: "${v2ecoli_cache}"
-      # Subset: only the non-central reactions (those NOT covered by Millard)
-      reaction_subset: "non_central_carbon"
-    inputs:
-      bulk:    ["v2ecoli", "bulk"]
-      unique:  ["v2ecoli", "unique"]
-      boundary: ["v2ecoli", "boundary"]
-    outputs:
-      bulk:    ["v2ecoli", "bulk"]
-      fluxes:  ["shared", "non_central_fluxes"]
-
-  # 3. Bridge — translates between Millard and v2ecoli namespaces
+  # 2. FBABridge — translates central_metabolites <-> v2ecoli bulk.
+  # NOTE: scheduling — bridge fires reactively when its inputs update;
+  # the open-issue NaN at t=0.2s suggests the bridge should be a Process
+  # with interval >= Millard's interval, not a Step. Track via the study's
+  # planned_runs.millard-fba-bridge-pilot[status: bridge-schedule-fix].
   bridge:
     _type: step
-    address: "local:FBABridge"   # SCAFFOLD: process to be implemented
+    address: "local:FBABridge"
     config:
       mapping_file: "${bridge_mapping}"
-      direction: "bidirectional"  # Millard ↔ v2ecoli
+      direction: "${bridge_direction}"
+      cell_volume_L: "${cell_volume_L}"
+      time_step: 1
     inputs:
       central_metabolites_millard: ["shared", "central_metabolites"]
-      central_fluxes_millard:      ["shared", "central_fluxes"]
-      v2ecoli_bulk:                ["v2ecoli", "bulk"]
-      non_central_fluxes:          ["shared", "non_central_fluxes"]
+      v2ecoli_bulk: ["v2ecoli", "bulk"]
     outputs:
-      # Bridge pushes the translated state to both namespaces
       central_metabolites_millard: ["shared", "central_metabolites"]
-      v2ecoli_bulk:                ["v2ecoli", "bulk"]
-      bridge_log:                  ["shared", "bridge_diagnostics"]
+      v2ecoli_bulk: ["v2ecoli", "bulk"]
+      bridge_diagnostics: ["shared", "bridge_diagnostics"]
 
   shared:
-    central_metabolites: {}     # mM, Millard convention
-    central_fluxes: {}          # mM/s, Millard convention
-    non_central_fluxes: {}      # mmol/g_DCW/h, v2ecoli convention
-    bridge_diagnostics: {}      # mass-balance residuals, unit-conversion factors
+    central_metabolites: {}    # mM, Millard convention; populated by COPASI on tick 1
+    central_fluxes: {}         # mM/s, Millard convention
+    bridge_diagnostics: {}     # per-step: shared_pool_count, mass_balance_residual_mM, etc.
+    time: 0.0
 
   v2ecoli:
-    bulk: {}                    # full v2ecoli bulk pool (molecules)
-    unique: {}                  # unique molecules (RNA polymerases, ribosomes, ...)
-    boundary: {}                # exchange (extracellular concentrations + uptake bounds)
-
+    bulk: {}                   # bridge-pushed counts for the ~25 shared metabolites
   # emitter: auto-attached from workspace runtime.default_emitter: xarray

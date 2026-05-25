@@ -405,15 +405,17 @@ planned_runs:
     n_steps: 100
     details: single-condition warm-up; verify cycle dynamics + listener observables ramp correctly
   - name: fix-per-process-rng-seeding
-    status: blocks-ensemble
+    status: fixed
     n_steps: (infrastructure fix, no simulation steps)
-    details: "DISCOVERED 2026-05-24 via 3-seed pilot ensemble: v2ecoli baseline's `seed` parameter only seeds `allocator_rng`
-      (baseline.py:408). All other 55 stochastic processes (transcription, translation, division-threshold, protein-degradation,
-      equilibrium, two-component-system, complexation, RNA-maturation, transcript-initiation, polypeptide-initiation,
-      chromosome-replication, tf-binding, tf-unbinding, chromosome-structure) seed from the cached sim_data — shared
-      across runs. Net: 3 seeds → bit-identical trajectories (CV across seeds: 0.000% on every observable). Fix:
-      each stochastic process seeds its RNG from hash(master_seed, process_name). Until fixed, Phase 0's N≥64 ensemble
-      target is moot. See reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html for the diagnostic."
+    details: "FIXED 2026-05-24. Per-process RNG seed derivation added in v2ecoli/composites/baseline.py
+      via _derive_process_seed(master_seed, base_name) = crc32(process_name, master_seed).
+      Mirrors the pattern already used in v2ecoli/steps/division.py:CellDivision. Verified by
+      tests/test_seed_diversity.py — seed=0 vs seed=1 produces divergent trajectories while
+      per-(seed) reproducibility is preserved (test_seed_determinism still passes). Unblocks
+      Phase 0 N≥64 ensemble. Original bug: baseline's `seed` parameter only seeded `allocator_rng`
+      (baseline.py:408); the other 14 stochastic processes (TranscriptInitiation, Metabolism,
+      Complexation, etc.) inherited a single cache-derived seed from the ParCa cache, so multi-seed
+      ensembles collapsed to bit-identical trajectories."
   - name: phase0-conditions-3
     status: planned
     n_steps: 600

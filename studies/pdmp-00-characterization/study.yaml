@@ -365,6 +365,15 @@ visualizations:
 - name: variable-categorization-bars
   address: file:reports/figures/pdmp-00/variable_categorization_bars.html
   description: Variable categorization — illustrative
+- name: phase0-pilot-single-condition-real
+  address: file:reports/figures/pdmp-00/phase0_pilot_single_condition_REAL.html
+  description: Phase 0 pilot — single condition × N=8 endpoint
+- name: phase0-pilot-summary-table
+  address: file:reports/figures/pdmp-00/phase0_pilot_summary_table.html
+  description: Phase 0 pilot — per-seed summary table
+- name: rng-seeding-fix-proof-real
+  address: file:reports/figures/pdmp-00/rng_seeding_fix_proof_REAL.html
+  description: Per-process RNG fix — real N=8 pilot (CV ≈ 0.5%)
 design_status: approved
 implementation_status: prototype
 simulation_status: ran
@@ -685,4 +694,16 @@ embed_visualizations:
 - name: Variable categorization — illustrative
   url: /reports/figures/pdmp-00/variable_categorization_bars.html
   description: Per-study visualization rendered from reports/figures/pdmp-00/variable_categorization_bars.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Phase 0 pilot — single condition × N=8 endpoint
+  url: /reports/figures/pdmp-00/phase0_pilot_single_condition_REAL.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_pilot_single_condition_REAL.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Phase 0 pilot — per-seed summary table
+  url: /reports/figures/pdmp-00/phase0_pilot_summary_table.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_pilot_summary_table.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Per-process RNG fix — real N=8 pilot (CV ≈ 0.5%)
+  url: /reports/figures/pdmp-00/rng_seeding_fix_proof_REAL.html
+  description: Per-study visualization rendered from reports/figures/pdmp-00/rng_seeding_fix_proof_REAL.html. Inlined into
     the downloaded report as iframe srcdoc.

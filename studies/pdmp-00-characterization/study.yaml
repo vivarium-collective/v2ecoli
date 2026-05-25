@@ -430,6 +430,12 @@ planned_runs:
   status: planned
   n_steps: 600
   details: 3 conditions × N=64 replicates; produces the canonical reference zarr ensemble (Gating criterion)
+- name: phase0-profile-instrumented-baseline
+  status: planned
+  n_steps: 1000
+  details: Profile-instrumented single-cell baseline. Wraps every process invocation with timeit + tracemalloc so per-step
+    compute is decomposed into FBA-LP / RNG-draw / store-marshalling / topology-traversal / emitter-I/O buckets. Produces
+    reports/figures/pdmp-00/profile_decomposition_bars.html with real means ± std over ≥1000 step samples.
 conditions:
   baseline:
     composite: v2ecoli.composites.diagnostic.diagnostic
@@ -537,6 +543,20 @@ simulation_set:
   - variables-categorized
   - interface-schemas-typed
   - reference-xarray-3-conditions
+- name: phase0-profile-instrumented-baseline
+  kind: single
+  status: planned
+  base_model: v2ecoli.composites.baseline
+  duration_steps: 1000
+  seeds:
+  - 0
+  metrics:
+  - per_step_wall_ms_by_bucket
+  - tracemalloc_peak
+  pass_fail_tests:
+  - marshalling-overhead-dominates
+  details: Produces the per-step compute decomposition viz. Required by the marshalling-overhead-dominates primary test in
+    this study's tests[].
 tests:
 - name: ensemble-rng-seeding-divergence
   classification: primary

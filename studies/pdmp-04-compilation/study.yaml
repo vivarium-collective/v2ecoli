@@ -329,6 +329,16 @@ planned_runs:
   status: planned
   n_steps: (scaling)
   details: doubling N halves ABC posterior variance — verifies parallel independence
+- name: jax-jit-cold-warm-bench
+  status: planned
+  n_steps: (20 sequential single-step runs)
+  details: JAX backend cold-start cost amortization bench. Run 20 sequential single-trajectory invocations; the FIRST pays
+    JIT compilation, runs 2-20 are warm-cache. Compares wall time per run. Produces jit_compile_cost viz.
+- name: ram-profile-per-cell-N1024
+  status: planned
+  n_steps: 600
+  details: RSS profile of N=1024 cells × 600 steps using tracemalloc + psutil. Decomposes RAM into bulk[], unique[], process_state,
+    listeners, emitter buffer. Produces memory_footprint viz with real measurements.
 visualizations:
 - name: phase4-throughput-vs-baseline
   address: file:reports/figures/planned-comparisons/phase4_throughput.html
@@ -440,6 +450,59 @@ simulation_set:
   - catalyst-export-works
   - column-centric-state
   - vivarium-api-inversion
+- name: jax-jit-cold-warm-bench
+  kind: sweep
+  status: planned
+  base_model: v2ecoli.compiled.jax_pdmp
+  axes:
+  - parameter: run_index
+    values:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    - 19
+  metrics:
+  - wall_seconds_per_run
+  - compile_seconds_first
+  pass_fail_tests: []
+  details: JIT amortization measurement. Produces jit_compile_cost viz.
+- name: ram-profile-per-cell-N1024
+  kind: single
+  status: planned
+  base_model: v2ecoli.composites.baseline_ensemble
+  duration_steps: 600
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  metrics:
+  - RSS_GB
+  - RAM_by_bucket_MB
+  pass_fail_tests:
+  - memory-fits-1024-cells-per-node
+  details: Required by memory-fits-1024-cells-per-node supporting test. Produces memory_footprint viz with real per-bucket
+    RAM.
 tests:
 - name: jax-compiled-throughput-10x
   classification: primary

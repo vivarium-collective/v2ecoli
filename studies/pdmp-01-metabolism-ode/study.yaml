@@ -408,6 +408,21 @@ visualizations:
 - name: species-mapping-coverage
   address: file:reports/figures/pdmp-01/species_mapping_coverage.html
   description: Mapping coverage
+- name: millard-real-4panel-trajectory
+  address: file:reports/figures/pdmp-01/millard_real_4panel_trajectory.html
+  description: Millard 2017 — 4-panel trajectory (real)
+- name: millard-real-energy-charge
+  address: file:reports/figures/pdmp-01/millard_real_energy_charge.html
+  description: Millard 2017 — adenylate energy charge (real)
+- name: millard-real-full-species-heatmap
+  address: file:reports/figures/pdmp-01/millard_real_full_species_heatmap.html
+  description: Millard 2017 — full 67-species heatmap (real)
+- name: millard-real-phase-plane-atp-pep
+  address: file:reports/figures/pdmp-01/millard_real_phase_plane_atp_pep.html
+  description: Millard 2017 — ATP vs PEP phase plane (real)
+- name: millard-real-redox-balance
+  address: file:reports/figures/pdmp-01/millard_real_redox_balance.html
+  description: Millard 2017 — redox balance (real)
 design_status: approved
 implementation_status: prototype
 simulation_status: ran
@@ -480,6 +495,12 @@ planned_runs:
   status: planned
   n_steps: 600
   details: validation against Phase 0 ensemble (W₂ per metabolite, gating criterion)
+- name: millard-steady-state-10000s
+  status: ran
+  n_steps: 500
+  details: '10,000 s standalone Millard 2017 ODE via basico (LSODA). 500 sampled timepoints. CSV at out/trajectories/millard_steady_approach_10000s.csv.
+    Source for millard_real_4panel_trajectory, millard_real_energy_charge, millard_real_phase_plane_atp_pep, millard_real_full_species_heatmap,
+    millard_real_redox_balance viz. Wall: 0.1 s.'
 conditions:
   baseline:
     composite: pbg_copasi.composites.utc-process
@@ -601,6 +622,21 @@ simulation_set:
   - millard-standalone-via-copasi
   - fba-bridge-composite-runs
   - interface-matches-reference
+- name: millard-steady-state-10000s
+  kind: single
+  status: completed
+  base_model: v2ecoli.composites.millard2017_metabolism
+  duration_steps: 500
+  seeds:
+  - 0
+  metrics:
+  - species_concentrations(t)
+  - AEC(t)
+  - NAD/NADH(t)
+  - NADPH/NADP(t)
+  pass_fail_tests:
+  - millard-published-ref-state-reproduced
+  details: Completed 2026-05-25. Trajectory drives the 5 millard_real_* viz that replace the kinetic_constraint_curves placeholder.
 tests:
 - name: millard-published-ref-state-reproduced
   classification: primary
@@ -723,3 +759,23 @@ embed_visualizations:
   url: /reports/figures/pdmp-01/species_mapping_coverage.html
   description: Per-study visualization rendered from reports/figures/pdmp-01/species_mapping_coverage.html. Inlined into the
     downloaded report as iframe srcdoc.
+- name: Millard 2017 — 4-panel trajectory (real)
+  url: /reports/figures/pdmp-01/millard_real_4panel_trajectory.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_4panel_trajectory.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Millard 2017 — adenylate energy charge (real)
+  url: /reports/figures/pdmp-01/millard_real_energy_charge.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_energy_charge.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Millard 2017 — full 67-species heatmap (real)
+  url: /reports/figures/pdmp-01/millard_real_full_species_heatmap.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_full_species_heatmap.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Millard 2017 — ATP vs PEP phase plane (real)
+  url: /reports/figures/pdmp-01/millard_real_phase_plane_atp_pep.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_phase_plane_atp_pep.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Millard 2017 — redox balance (real)
+  url: /reports/figures/pdmp-01/millard_real_redox_balance.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_redox_balance.html. Inlined into
+    the downloaded report as iframe srcdoc.

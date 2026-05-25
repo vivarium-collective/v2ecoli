@@ -423,6 +423,33 @@ visualizations:
 - name: millard-real-redox-balance
   address: file:reports/figures/pdmp-01/millard_real_redox_balance.html
   description: Millard 2017 — redox balance (real)
+- name: millard-real-pert-anoxia
+  address: file:reports/figures/pdmp-01/millard_real_pert_anoxia.html
+  description: Millard 2017 — anoxia (real)
+- name: millard-real-pert-atp-drop-50pct
+  address: file:reports/figures/pdmp-01/millard_real_pert_atp_drop_50pct.html
+  description: Millard 2017 — atp_drop_50pct (real)
+- name: millard-real-pert-baseline-long
+  address: file:reports/figures/pdmp-01/millard_real_pert_baseline_long.html
+  description: Millard 2017 — baseline_long (real)
+- name: millard-real-pert-coa-drain
+  address: file:reports/figures/pdmp-01/millard_real_pert_coa_drain.html
+  description: Millard 2017 — coa_drain (real)
+- name: millard-real-pert-glc-starve
+  address: file:reports/figures/pdmp-01/millard_real_pert_glc_starve.html
+  description: Millard 2017 — glc_starve (real)
+- name: millard-real-pert-glc-uptake-2x
+  address: file:reports/figures/pdmp-01/millard_real_pert_glc_uptake_2x.html
+  description: Millard 2017 — glc_uptake_2x (real)
+- name: millard-real-pert-nadh-overflow
+  address: file:reports/figures/pdmp-01/millard_real_pert_nadh_overflow.html
+  description: Millard 2017 — nadh_overflow (real)
+- name: millard-real-pert-phosphate-drop
+  address: file:reports/figures/pdmp-01/millard_real_pert_phosphate_drop.html
+  description: Millard 2017 — phosphate_drop (real)
+- name: millard-real-perturbation-matrix
+  address: file:reports/figures/pdmp-01/millard_real_perturbation_matrix.html
+  description: Millard 2017 — perturbation × species matrix (real)
 design_status: approved
 implementation_status: prototype
 simulation_status: ran
@@ -779,3 +806,39 @@ embed_visualizations:
   url: /reports/figures/pdmp-01/millard_real_redox_balance.html
   description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_redox_balance.html. Inlined into
     the downloaded report as iframe srcdoc.
+- name: Millard 2017 — anoxia (real)
+  url: /reports/figures/pdmp-01/millard_real_pert_anoxia.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_anoxia.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: Millard 2017 — atp_drop_50pct (real)
+  url: /reports/figures/pdmp-01/millard_real_pert_atp_drop_50pct.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_atp_drop_50pct.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Millard 2017 — baseline_long (real)
+  url: /reports/figures/pdmp-01/millard_real_pert_baseline_long.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_baseline_long.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Millard 2017 — coa_drain (real)
+  url: /reports/figures/pdmp-01/millard_real_pert_coa_drain.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_coa_drain.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Millard 2017 — glc_starve (real)
+  url: /reports/figures/pdmp-01/millard_real_pert_glc_starve.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_glc_starve.html. Inlined into
+    the downloaded report as iframe srcdoc.
+- name: Millard 2017 — glc_uptake_2x (real)
+  url: /reports/figures/pdmp-01/millard_real_pert_glc_uptake_2x.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_glc_uptake_2x.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Millard 2017 — nadh_overflow (real)
+  url: /reports/figures/pdmp-01/millard_real_pert_nadh_overflow.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_nadh_overflow.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Millard 2017 — phosphate_drop (real)
+  url: /reports/figures/pdmp-01/millard_real_pert_phosphate_drop.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_phosphate_drop.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Millard 2017 — perturbation × species matrix (real)
+  url: /reports/figures/pdmp-01/millard_real_perturbation_matrix.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_perturbation_matrix.html. Inlined
+    into the downloaded report as iframe srcdoc.

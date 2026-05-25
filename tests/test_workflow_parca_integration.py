@@ -76,7 +76,7 @@ def test_workflow_has_no_external_vecoli_paths():
     """Structural smoke test — the rewritten workflow_report.py must not
     import from bare ``reconstruction`` / ``wholecell`` (the vEcoli top-
     level) and must not path-join into ``../vEcoli/``."""
-    src = (REPO_ROOT / 'reports' / 'workflow_report.py').read_text()
+    src = (REPO_ROOT / 'reports' / 'workflow_report.py').read_text(encoding='utf-8')
     assert not re.search(
         r"^from (reconstruction|wholecell)\.", src, re.MULTILINE), \
         'workflow_report.py still imports bare vEcoli modules — should use ' \

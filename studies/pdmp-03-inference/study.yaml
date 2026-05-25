@@ -368,6 +368,12 @@ visualizations:
   address: file:reports/figures/pdmp-03/sbc_per_parameter.html
   description: PLANNED — per-parameter SBC rank histograms (K=1000 each). chi^2 uniformity p > 0.05 required on EVERY inferred
     parameter.
+- name: posterior-predictive-check
+  address: file:reports/figures/pdmp-03/posterior_predictive_check.html
+  description: Posterior predictive check
+- name: sbc-workflow
+  address: file:reports/figures/pdmp-03/sbc_workflow.html
+  description: SBC workflow
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood

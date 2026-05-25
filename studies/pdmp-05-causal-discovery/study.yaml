@@ -510,6 +510,15 @@ visualizations:
   address: file:reports/figures/pdmp-05/active_inference_eig.html
   description: PLANNED — active-inference EIG ranking over candidate interventions. Selection threshold prevents picking proposals
     whose EIG MCSE overlaps zero.
+- name: bayes-factor-per-gene-v2
+  address: file:reports/figures/pdmp-05/bayes_factor_per_gene_v2.html
+  description: Per-gene Bayes factor
+- name: intervention-design-eig
+  address: file:reports/figures/pdmp-05/intervention_design_eig.html
+  description: Intervention design — EIG comparison
+- name: pc-algorithm-dag
+  address: file:reports/figures/pdmp-05/pc_algorithm_dag.html
+  description: PC-algorithm causal DAG
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare

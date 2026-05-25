@@ -437,6 +437,18 @@ visualizations:
   address: file:reports/figures/pdmp-02/division_time_distribution.html
   description: PLANNED — first-passage time distribution for cell-volume threshold crossing. Median + CV gating against literature
     67 min.
+- name: gillespie-trajectory
+  address: file:reports/figures/pdmp-02/gillespie_trajectory.html
+  description: Gillespie SSA trajectory
+- name: inheritance-distribution-v2
+  address: file:reports/figures/pdmp-02/inheritance_distribution_v2.html
+  description: Inheritance distribution
+- name: phase2-event-rates
+  address: file:reports/figures/pdmp-02/phase2_event_rates.html
+  description: Phase 2 event rates
+- name: waiting-time-distribution
+  address: file:reports/figures/pdmp-02/waiting_time_distribution.html
+  description: Waiting-time distribution
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner

@@ -347,6 +347,24 @@ visualizations:
   address: file:reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html
   description: First ensemble attempt — 3 seeds produced bit-identical trajectories. Surfaces the per-process RNG seeding
     bug. Banner-flagged red. Blocks the Phase 0 N>=64 target until fixed.
+- name: markov-blanket-metabolism
+  address: file:reports/figures/pdmp-00/markov_blanket_metabolism.html
+  description: Markov blanket — v2ecoli metabolism
+- name: per-condition-growth-rate
+  address: file:reports/figures/pdmp-00/per_condition_growth_rate.html
+  description: Per-condition growth rate
+- name: profile-decomposition-bars
+  address: file:reports/figures/pdmp-00/profile_decomposition_bars.html
+  description: Per-step compute decomposition
+- name: rng-seeding-fix-proof
+  address: file:reports/figures/pdmp-00/rng_seeding_fix_proof.html
+  description: RNG seeding fix — before / after
+- name: v2ecoli-baseline-v2
+  address: file:reports/figures/pdmp-00/v2ecoli_baseline_v2.html
+  description: v2ecoli baseline — bootstrap (6-panel)
+- name: variable-categorization-bars
+  address: file:reports/figures/pdmp-00/variable_categorization_bars.html
+  description: Variable categorization — illustrative
 design_status: approved
 implementation_status: prototype
 simulation_status: ran

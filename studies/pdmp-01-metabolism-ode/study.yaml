@@ -390,6 +390,24 @@ visualizations:
   address: file:reports/figures/planned-comparisons/phase1_fba_bridge_pilot.html
   description: PLANNED — Millard ODE PEP vs v2ecoli kFBA PEP on same axes with W2 acceptance band; the FBA-bridge interface-fidelity
     chart.
+- name: bridge-translation-residual
+  address: file:reports/figures/pdmp-01/bridge_translation_residual.html
+  description: Bridge round-trip residual
+- name: fba-bridge-architecture
+  address: file:reports/figures/pdmp-01/fba_bridge_architecture.html
+  description: FBA-bridge architecture
+- name: kinetic-constraint-curves
+  address: file:reports/figures/pdmp-01/kinetic_constraint_curves.html
+  description: Kinetic flux curves (Millard 2017)
+- name: millard-atp-drain-v2
+  address: file:reports/figures/pdmp-01/millard_atp_drain_v2.html
+  description: Millard 2017 — ATP drain (6-panel)
+- name: millard-published-ref-state
+  address: file:reports/figures/pdmp-01/millard_published_ref_state.html
+  description: Millard reference-state validation
+- name: species-mapping-coverage
+  address: file:reports/figures/pdmp-01/species_mapping_coverage.html
+  description: Mapping coverage
 design_status: approved
 implementation_status: prototype
 simulation_status: ran

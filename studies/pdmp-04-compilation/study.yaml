@@ -341,6 +341,15 @@ visualizations:
   address: file:reports/figures/pdmp-04/per_step_compute_decomposition.html
   description: 'PLANNED — pie-chart comparison of per-step compute buckets (v2ecoli baseline vs Phase 4 compiled). Headline
     justification: marshalling drops from ~70% to <10%.'
+- name: jax-julia-speedup
+  address: file:reports/figures/pdmp-04/jax_julia_speedup.html
+  description: Backend speedup projection
+- name: jit-compile-cost
+  address: file:reports/figures/pdmp-04/jit_compile_cost.html
+  description: JIT compile cost
+- name: memory-footprint
+  address: file:reports/figures/pdmp-04/memory_footprint.html
+  description: Per-cell memory footprint
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.catalyst.pdmp_catalyst

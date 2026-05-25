@@ -43,8 +43,8 @@ import numpy as np
 from v2ecoli import build_composite
 
 
-CACHE_DIR = "out/cache"
-OUT_ROOT = Path(".pbg/runs/phase0-traj")
+DEFAULT_CACHE_DIR = "out/cache"
+DEFAULT_OUT_ROOT = Path(".pbg/runs/phase0-traj")
 
 # Listener observables captured per snapshot.
 LISTENER_PATHS = [
@@ -119,12 +119,13 @@ def _endpoint_summary(state: dict, seed: int, wall: float, n_steps: int) -> dict
     return summary
 
 
-def run_one(seed: int, n_steps: int, stride: int) -> dict:
-    out_dir = OUT_ROOT / f"seed_{seed:02d}"
+def run_one(seed: int, n_steps: int, stride: int,
+            cache_dir: str, out_root: Path) -> dict:
+    out_dir = out_root / f"seed_{seed:02d}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     t0 = time.time()
-    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=seed)
+    composite = build_composite("baseline", cache_dir=cache_dir, seed=seed)
 
     trajectory: list[dict] = []
     # Warm-up tick so listeners materialize.
@@ -171,19 +172,25 @@ def main():
     p.add_argument("--n-steps", type=int, default=600)
     p.add_argument("--stride", type=int, default=5,
                    help="snapshot interval in model seconds (default: 5)")
+    p.add_argument("--cache-dir", default=DEFAULT_CACHE_DIR,
+                   help="ParCa cache dir (default: out/cache, M9-glucose basal)")
+    p.add_argument("--out-root", default=str(DEFAULT_OUT_ROOT),
+                   help="output dir (default: .pbg/runs/phase0-traj)")
     args = p.parse_args()
 
-    if not Path(CACHE_DIR).is_dir():
-        sys.exit(f"cache dir {CACHE_DIR!r} not found")
-    OUT_ROOT.mkdir(parents=True, exist_ok=True)
+    if not Path(args.cache_dir).is_dir():
+        sys.exit(f"cache dir {args.cache_dir!r} not found")
+    out_root = Path(args.out_root)
+    out_root.mkdir(parents=True, exist_ok=True)
 
     print(f"Phase 0 trajectory ensemble: N={args.n_seeds} × {args.n_steps} steps "
-          f"(snapshot every {args.stride}s)")
+          f"(snapshot every {args.stride}s, cache={args.cache_dir}, out={out_root})")
     t0 = time.time()
     results = []
     for seed in range(args.n_seeds):
         try:
-            results.append(run_one(seed, args.n_steps, args.stride))
+            results.append(run_one(seed, args.n_steps, args.stride,
+                                   args.cache_dir, out_root))
         except Exception as e:
             print(f"  seed={seed:02d}: FAILED -- {type(e).__name__}: {e}")
             results.append({"seed": seed, "error": str(e), "type": type(e).__name__})
@@ -214,7 +221,8 @@ def main():
             "cv_pct": float(m.std() / m.mean() * 100) if m.mean() > 0 else None,
         }
 
-    (OUT_ROOT / "summary.json").write_text(json.dumps(ensemble, indent=2))
+    ensemble["cache_dir"] = args.cache_dir
+    (out_root / "summary.json").write_text(json.dumps(ensemble, indent=2))
     print()
     print(f"Done: {len(successful)}/{args.n_seeds} runs, total wall {total_wall/60:.1f} min")
     if "ATP[c]_count_stats" in ensemble:

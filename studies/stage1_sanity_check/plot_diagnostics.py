@@ -471,7 +471,7 @@ CONDITIONS_5 = [
     ("basal",      "out/basal_canonical_runs.db",             "out/cache_basal_canonical",        "#ff7f0e",  44.0),
     ("succinate",  "out/succinate_canonical_runs.db",         "out/cache_succinate_canonical",    "#bcbd22",  82.0),
     ("no_oxygen",  "out/no_oxygen_canonical_runs.db",         "out/cache_no_oxygen_canonical",    "#17becf", 100.0),
-    ("acetate",    "out/acetate_canonical_runs.db",           "out/cache_acetate_canonical",      "#2ca02c", 136.0),   # slowest
+    ("acetate",    "out/acetate_apr24_test.db",               "out/cache_acetate_apr24",          "#2ca02c", 136.0),   # slowest
 ]
 
 # Stage 1 PDF — a model-override scenario, not a peer canonical

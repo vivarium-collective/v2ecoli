@@ -1,0 +1,10 @@
+{
+    "experiment_id": "vecoli_basal_compare",
+    "max_duration": 5400.0,
+    "condition": "basal",
+    "fixed_media": "minimal",
+    "emitter": "parquet",
+    "emitter_arg": {"out_dir": "out/vecoli_basal_compare_parquet"},
+    "sim_data_path": "/Users/rashmidissasekara/Documents/code/vEcoli/out/kb_default/simData.cPickle",
+    "has_plasmid": false
+}

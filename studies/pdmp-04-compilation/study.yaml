@@ -333,10 +333,16 @@ planned_runs:
   n_steps: (scaling)
   details: doubling N halves ABC posterior variance — verifies parallel independence
 - name: jax-jit-cold-warm-bench
-  status: planned
-  n_steps: (20 sequential single-step runs)
-  details: JAX backend cold-start cost amortization bench. Run 20 sequential single-trajectory invocations; the FIRST pays
-    JIT compilation, runs 2-20 are warm-cache. Compares wall time per run. Produces jit_compile_cost viz.
+  status: scaffold-pilot-done
+  n_steps: 21 sequential calls (1 cold + 20 warm)
+  details: 'PILOT 2026-05-25. scripts/run_jax_pilot.py implements a 4-state lumped Millard
+    subset (G6P, F6P, PEP, PYR via PGI-glycolysis-PYK-drain) in JAX/Diffrax. Real timings on this
+    hardware: cold compile = 221ms (one-time XLA JIT), warm-cache mean = 4.11 ± 0.08 ms (N=20),
+    cold→warm speedup = 53.7×. Apples-to-oranges vs basico full-Millard: basico-full 288.5 ms vs
+    JAX-subset warm 4.11 ms = 70× — promising signal for the full 77-state JAX port (the actual
+    jax-compiled-throughput-10x test target). SCAFFOLD honestly: 4 states out of 77, lumped rate
+    laws (not faithful Millard kinetics), single-CPU. Full port is the legitimate test, this pilot
+    proves the toolchain works end-to-end.'
 - name: ram-profile-per-cell-N1024
   status: planned
   n_steps: 600

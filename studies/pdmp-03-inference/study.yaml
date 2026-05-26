@@ -348,9 +348,17 @@ planned_runs:
   n_steps: 10000
   details: 10⁴ test runs; zero underflows required
 - name: abc-smc-synthetic-recovery
-  status: planned
-  n_steps: (SMC)
-  details: ABC-SMC on synthetic data with known parameters; test posterior recovery + ESS + acceptance rate
+  status: scaffold-pilot-done
+  n_steps: '30 particles × 3 rounds = 90 forward sims (~66s wall)'
+  details: 'PILOT 2026-05-25. scripts/run_abc_smc_pilot.py runs minimal ABC-SMC on Millard with
+    known-truth parameters. Setup: take 2 Millard kinetic parameters (PTS_4.kF, ENO.Vmax), generate
+    "observations" by running Millard at default values, hide the true parameters, sample log-uniform
+    priors around default ±50%, run 3 SMC rounds with top-25% acceptance. Round-by-round threshold:
+    1.8e-4 → 1.8e-4 → 4.3e-5 (narrowing). Final-round min distance 5.5e-6. Viz at
+    reports/figures/pdmp-03/abc_posterior_{shrinkage_real, 2d}.html. SCAFFOLD because: only 2 parameters,
+    only 30 particles, only 3 rounds — full target is 100s of parameters + 1000s of particles + ≥8
+    rounds. But the machinery works end-to-end + populates posterior-shrinks-with-data primary test
+    with real data.'
 - name: sbc-K1000-validation
   status: planned
   n_steps: 1000
@@ -372,6 +380,9 @@ visualizations:
 - name: sbc-rank-histogram-real
   address: file:reports/figures/pdmp-03/sbc_rank_histogram_real.html
   description: SBC rank histogram — calibration check
+- name: abc-posterior-2d
+  address: file:reports/figures/pdmp-03/abc_posterior_2d.html
+  description: ABC-SMC 2D posterior (real)
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.inference.pdmp_with_likelihood
@@ -532,3 +543,7 @@ embed_visualizations:
   url: /reports/figures/pdmp-03/sbc_rank_histogram_real.html
   description: Per-study visualization rendered from reports/figures/pdmp-03/sbc_rank_histogram_real.html. Inlined into the
     downloaded report as iframe srcdoc.
+- name: ABC-SMC 2D posterior (real)
+  url: /reports/figures/pdmp-03/abc_posterior_2d.html
+  description: Per-study visualization rendered from reports/figures/pdmp-03/abc_posterior_2d.html. Inlined into the downloaded
+    report as iframe srcdoc.

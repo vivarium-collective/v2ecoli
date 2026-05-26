@@ -34,6 +34,17 @@ report:
     the new glycerol cache to find the proper converged value. Only 1 generation captured (n_steps=10000
     but multi-gen single_daughters terminated after first division at 5000s); cross-cycle steadiness
     over ≥3 generations still pending.'
+  round_3_5_addendum: '2026-05-26 (post-Round-3-send): re-ran dnaa-01 after fixing a silent
+    composite-cache bug in run_multigen_sqlite (PR #77 against main; commit on this branch
+    7f3d0a2/f099e96). Multi-gen single_daughters now correctly traverses past first division
+    instead of silently terminating. Run captured 100 emit rows (vs Round-3''s 50), covering
+    2 full cycles. New finding: in gen-2 (t=5100-10000s = 85-167 min), DnaA count drops to 151
+    at midpoint (below the [300, 800] literature band) before recovering to 222 — the concentration
+    decline observed in gen-1 PERSISTS across generations. This directly addresses Haochen''s
+    recurring "≥1 doubling time / cross-cycle steadiness" ask, but with a negative answer
+    under current parameters: DnaA pool is NOT steady across generations. Likely tied to the
+    glycerol-fit synthesis rate vs the (uncalibrated) constitutive Step rate. Holds until
+    Haochen R3 feedback lands; will fold into R4.'
   lit_match: Schmidt 2016 / Mori 2021 mass-spec abundance band [300, 800]
   key_metrics:
   - label: DnaA count (start / peak / division)

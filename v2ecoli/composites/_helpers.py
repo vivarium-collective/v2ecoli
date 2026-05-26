@@ -323,6 +323,53 @@ def sqlite_emitter(*, file_path: str | None = None,
         set_emitter_override(None)
 
 
+@contextlib.contextmanager
+def parquet_emitter(*, out_dir: str,
+                    experiment_id: str = "default",
+                    variant: int = 0,
+                    lineage_seed: int = 0,
+                    agent_id: str = "0",
+                    generation: int = 1,
+                    batch_size: int = 400,
+                    threaded: bool = False,
+                    extra_metadata: dict | None = None):
+    """Context manager: build composite with a ParquetEmitter step.
+
+    Writes hive-partitioned parquet files under ``out_dir`` using the
+    ``parquet_vecoli()`` preset (vEcoli-compatible layout, with the same
+    dtype overrides for compact counts). Drop-in alternative to
+    ``sqlite_emitter()`` when the all-tick SQLite emit volume is too large
+    — parquet typically compresses 30-50× over the JSON-blob SQLite path.
+
+    Usage::
+
+        with parquet_emitter(out_dir='out/parquet/run1',
+                             experiment_id='dnaa-study1',
+                             generation=1):
+            doc = baseline(cache_dir='out/cache')
+            comp = Composite(doc, core=core)
+            comp.update({}, 60 * 60)
+    """
+    from v2ecoli.library.emitter_presets import parquet_vecoli
+    cfg = parquet_vecoli(
+        out_dir=out_dir,
+        experiment_id=experiment_id,
+        variant=variant,
+        lineage_seed=lineage_seed,
+        agent_id=agent_id,
+        generation=generation,
+        batch_size=batch_size,
+        threaded=threaded,
+        extra_metadata=extra_metadata,
+    )
+    cfg['_emitter_type'] = 'parquet'
+    set_emitter_override(cfg)
+    try:
+        yield cfg
+    finally:
+        set_emitter_override(None)
+
+
 # ---------------------------------------------------------------------------
 # Wiring helpers
 # ---------------------------------------------------------------------------
@@ -696,8 +743,18 @@ def _get_special_step(loader, step_name, core):
         }
 
         if override is not None:
-            cfg = {'emit': emit_schema, **override}
-            instance = SQLiteEmitter(cfg, core)
+            # Allow callers to opt into ParquetEmitter via _emitter_type;
+            # default remains SQLiteEmitter so existing callers are unaffected.
+            emitter_type = override.get('_emitter_type', 'sqlite')
+            cfg = {k: v for k, v in override.items() if k != '_emitter_type'}
+            cfg = {'emit': emit_schema, **cfg}
+            if emitter_type == 'parquet':
+                from v2ecoli.library.parquet_emitter_v2ecoli import (
+                    V2EcoliParquetEmitter,
+                )
+                instance = V2EcoliParquetEmitter(cfg, core)
+            else:
+                instance = SQLiteEmitter(cfg, core)
         else:
             instance = RAMEmitter({'emit': emit_schema}, core)
 
@@ -806,6 +863,8 @@ def _get_special_step(loader, step_name, core):
             'global_time': ('global_time',),
             'division_threshold': ('division_threshold',),
             'media_id': ('environment', 'media_id'),
+            # NEW: D-period trigger from MarkDPeriod
+            'divide': ('divide',),
             'agents': ('..',),
         }
         return instance, topo, 'step'

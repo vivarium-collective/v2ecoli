@@ -160,7 +160,11 @@ def _write_sim_input_bundle(loader, bundle_dir):
 
 
 def save_cache(sim_data_path, cache_dir='out/cache', seed=0,
-               has_plasmid=False, mechanistic_replisome=False):
+               has_plasmid=False, mechanistic_replisome=False,
+               condition=None, critical_mass_scale=1.0,
+               c_period_minutes=None, d_period_minutes=None,
+               dnaa_txn_scale=1.0, dnaa_constitutive=False,
+               dnaa_stable=False, dnaa_translation_efficiency=None):
     """Generate the simulation-input bundle from a dilled SimulationDataEcoli.
 
     Prefer ``save_sim_input(sim_data, ...)`` when the SimulationDataEcoli is
@@ -171,17 +175,31 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0,
     (used by scripts/build_plasmid_cache.py). ``mechanistic_replisome=True``
     requires the full replisome subunit complement before chromosome /
     plasmid replication will initiate (matches LoadSimData's stricter
-    initiation gate).
+    initiation gate). Pass ``condition`` to bake a non-basal growth
+    condition (e.g. ``"acetate"``) into the cache; if omitted, the bundle
+    inherits whatever ``sim_data.condition`` is already set to.
     """
     from v2ecoli.library.sim_data import LoadSimData
     loader = LoadSimData(sim_data_path=sim_data_path, seed=seed,
+                         condition=condition,
                          has_plasmid=has_plasmid,
-                         mechanistic_replisome=mechanistic_replisome)
+                         mechanistic_replisome=mechanistic_replisome,
+                         critical_mass_scale=critical_mass_scale,
+                         c_period_minutes=c_period_minutes,
+                         d_period_minutes=d_period_minutes,
+                         dnaa_txn_scale=dnaa_txn_scale,
+                         dnaa_constitutive=dnaa_constitutive,
+                         dnaa_stable=dnaa_stable,
+                         dnaa_translation_efficiency=dnaa_translation_efficiency)
     _write_sim_input_bundle(loader, cache_dir)
 
 
 def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
-                   has_plasmid=False, mechanistic_replisome=False):
+                   has_plasmid=False, mechanistic_replisome=False,
+                   condition=None, critical_mass_scale=1.0,
+                   c_period_minutes=None, d_period_minutes=None,
+                   dnaa_txn_scale=1.0, dnaa_constitutive=False,
+                   dnaa_stable=False, dnaa_translation_efficiency=None):
     """Generate the simulation-input bundle from a live ``SimulationDataEcoli``.
 
     Skips the ~300 MB dill round-trip that ``save_cache`` performs to load
@@ -190,10 +208,19 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
     its fixture) — the resulting bundle is byte-for-byte equivalent to what
     ``save_cache`` would produce from the same sim_data dilled to a file.
 
-    See ``save_cache`` for ``has_plasmid`` / ``mechanistic_replisome``.
+    See ``save_cache`` for ``has_plasmid`` / ``mechanistic_replisome`` /
+    ``condition``.
     """
     from v2ecoli.library.sim_data import LoadSimData
     loader = LoadSimData(sim_data=sim_data, seed=seed,
+                         condition=condition,
                          has_plasmid=has_plasmid,
-                         mechanistic_replisome=mechanistic_replisome)
+                         mechanistic_replisome=mechanistic_replisome,
+                         critical_mass_scale=critical_mass_scale,
+                         c_period_minutes=c_period_minutes,
+                         d_period_minutes=d_period_minutes,
+                         dnaa_txn_scale=dnaa_txn_scale,
+                         dnaa_constitutive=dnaa_constitutive,
+                         dnaa_stable=dnaa_stable,
+                         dnaa_translation_efficiency=dnaa_translation_efficiency)
     _write_sim_input_bundle(loader, bundle_dir)

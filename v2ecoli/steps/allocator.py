@@ -164,6 +164,20 @@ class Allocator(Step):
         counts_unallocated = original_totals - np.sum(partitioned_counts, axis=-1)
 
         if ASSERT_POSITIVE_COUNTS and np.any(counts_unallocated < 0):
+            # Print per-process request breakdown before raising so we can
+            # see which step over-requested the offending molecule(s).
+            lines = []
+            for molIndex in np.where(counts_unallocated < 0)[0]:
+                mol = self.mol_idx_to_name[molIndex]
+                total = int(original_totals[molIndex])
+                ua = int(counts_unallocated[molIndex])
+                lines.append(f"  {mol}: total={total}, unallocated={ua}")
+                for procIdx, name in self.proc_idx_to_name.items():
+                    req = int(counts_requested[molIndex, procIdx])
+                    alloc = int(partitioned_counts[molIndex, procIdx])
+                    if req != 0 or alloc != 0:
+                        lines.append(f"    {name}: requested={req}, allocated={alloc}")
+            print("[ALLOCATOR over-allocation diagnostic]\n" + "\n".join(lines))
             raise NegativeCountsError(
                 "Negative value(s) in counts_unallocated:\n"
                 + "\n".join(

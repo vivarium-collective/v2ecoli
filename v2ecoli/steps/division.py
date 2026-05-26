@@ -74,8 +74,21 @@ class MarkDPeriod(V2Step):
 class Division(V2Step):
     """Detect division and produce daughter cells via _add/_remove.
 
-    When the division condition is met (dry mass >= threshold with 2+
-    chromosomes), this step:
+    Trigger modes (selected by ``use_d_period_trigger`` config):
+
+    - ``True`` (default, matches vEcoli): divide when ``MarkDPeriod`` has
+      set ``divide=True`` (chromosome terminated + D-period elapsed) AND
+      chromosomes >= 2.
+    - ``False``: divide when ``dry_mass >= threshold`` AND
+      chromosomes >= 2 (legacy mass-threshold behavior).
+
+    Background: vEcoli's default uses ``division_variable=["divide"]``
+    which makes its ``Division`` step listen to the boolean set by
+    ``MarkDPeriod``. v2ecoli previously gated on mass + chromosomes only,
+    which caused fast-growth conditions like ``with_aa`` to take ~2× the
+    expected cycle time. See division.py audit 2026-05-23.
+
+    Once the trigger fires, this step:
     1. Divides the mother cell's state (bulk binomial, unique by domain)
     2. Builds complete daughter cell states with fresh process instances
     3. Returns structural update to remove mother and add daughters
@@ -96,7 +109,12 @@ class Division(V2Step):
         self._seed = self.parameters.get('seed', 0)
         self._cache_dir = self.parameters.get('cache_dir', 'out/cache')
 
-        # Division mass multiplier
+        # Trigger mode — default to vEcoli's D-period semantics
+        self.use_d_period_trigger = self.parameters.get(
+            'use_d_period_trigger', True)
+
+        # Division mass multiplier (only consulted under the legacy
+        # mass-threshold trigger, but always computed for backward compat)
         seed = self._seed
         self.division_mass_multiplier = 1
         if self.parameters.get('division_threshold') == 'mass_distribution':
@@ -114,6 +132,8 @@ class Division(V2Step):
             "global_time": Float(_default=0.0),
             "division_threshold": Overwrite(),
             "media_id": InPlaceDict(),
+            # boolean set by MarkDPeriod when the D-period has elapsed
+            "divide": Overwrite(),
         }
 
     def outputs(self):
@@ -158,8 +178,22 @@ class Division(V2Step):
             if '_entryState' in full_chrom.dtype.names:
                 n_chromosomes = full_chrom['_entryState'].sum()
 
-        if dry_mass < threshold or n_chromosomes < 2:
+        # Chromosome count is required in BOTH trigger modes
+        if n_chromosomes < 2:
             return {}
+
+        # Trigger selection
+        if self.use_d_period_trigger:
+            # vEcoli-style: MarkDPeriod sets divide=True when chromosome
+            # has terminated AND D-period has elapsed
+            if not states.get('divide', False):
+                return {}
+            trigger_str = "D-period elapsed"
+        else:
+            # Legacy mass-threshold path
+            if dry_mass < threshold:
+                return {}
+            trigger_str = f"dry_mass {dry_mass:.1f} fg >= threshold {threshold:.1f} fg"
 
         if self.division_detected:
             return {}
@@ -168,7 +202,8 @@ class Division(V2Step):
         self.division_detected = True
         division_time = states.get("global_time", 0)
         print(f'DIVISION at t={division_time:.0f}s '
-              f'(dry_mass={dry_mass:.1f} fg, '
+              f'(trigger: {trigger_str}, '
+              f'dry_mass={dry_mass:.1f} fg, '
               f'threshold={threshold:.1f} fg, '
               f'chromosomes={n_chromosomes})')
 

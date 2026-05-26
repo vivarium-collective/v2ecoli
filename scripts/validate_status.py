@@ -18,6 +18,11 @@ Read-only. Checks:
      prerequisite` study has a per-study status of `passing` or similar
      terminal-good value (suggests stale: prior results recorded, but
      orchestration says "don't re-run because upstream not approved").
+  7. Each study yaml passes the dashboard's strict `load_spec` parse.
+     Surfaces schema-validation errors (e.g. invalid enum values in
+     model_settings.gate) that the dashboard's detail endpoint would
+     otherwise silently map to `status: invalid` → aggregate `failed`
+     badge. Hard error — these break the dashboard render.
 
 Exit code: 0 on clean, 1 on errors, 2 on warnings only.
 
@@ -122,13 +127,36 @@ def validate_investigation(inv_yaml: Path, ws_root: Path) -> tuple[list[str], li
                     f"are NOT approved: {unapproved_upstream} (linear-chain "
                     "convention — verify each is intentionally not yet approved)")
 
-    # 6. per-study status consistency (soft)
+    # 6. per-study status consistency (soft) + 7. strict load_spec parse (hard)
+    # Try to import the dashboard's strict parser; fall back gracefully so
+    # this script still runs without the dashboard install (just skips rule 7).
+    try:
+        import importlib
+        _inv_mod = importlib.import_module("vivarium_dashboard.lib.investigations")
+        _load_spec = _inv_mod.load_spec
+        _InvErr = _inv_mod.InvestigationSpecError
+    except Exception:  # noqa: BLE001
+        _load_spec = None
+        _InvErr = None
+
     for slug in studies:
         sp = ws_root / "studies" / slug / "study.yaml"
         if not sp.is_file():
             warnings.append(f"{inv_name}: study yaml missing: {sp}")
             continue
         sd = _load(sp)
+        # 7. strict-parse: matches what _get_iset_detail / _build_iset_detail_for_test
+        # call. If it raises, the dashboard tags status='invalid' which then
+        # rolls up to a "failed" aggregate badge. Hard error.
+        if _load_spec is not None:
+            try:
+                _load_spec(sp)
+            except _InvErr as e:  # type: ignore[misc]
+                errors.append(
+                    f"{inv_name}/{slug}: study.yaml fails dashboard's strict "
+                    f"load_spec parse — dashboard will tag this study "
+                    f"status='invalid' and the investigation badge will go "
+                    f"red. Error: {e}")
         per_study_status = sd.get("status") or ""
         lc = lifecycle.get(slug, "")
         # Heuristic: a study that's blocked-by-prerequisite shouldn't have

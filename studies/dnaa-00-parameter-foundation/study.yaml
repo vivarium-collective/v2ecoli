@@ -297,7 +297,7 @@ conditions:
     type: number
     default: 150.0
     current: 150.0
-    gate: required
+    gate: required-before-run
     status: applied
     cites:
     - wcm_stage1_parameters
@@ -310,7 +310,7 @@ conditions:
     type: number
     default: 70.0
     current: 70.0
-    gate: required
+    gate: required-before-run
     status: applied
     cites:
     - wcm_stage1_parameters
@@ -321,7 +321,7 @@ conditions:
     type: number
     default: 30.0
     current: 30.0
-    gate: required
+    gate: required-before-run
     status: applied
     cites:
     - wcm_stage1_parameters

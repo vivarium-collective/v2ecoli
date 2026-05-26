@@ -5,14 +5,24 @@ plugin_version: 0.6.1
 package_path: v2ecoli
 
 # ─── RUNTIME ──────────────────────────────────────────────────────────
-# Workspace-level defaults for the dashboard run path. Workspaces can
-# opt into XArrayEmitter (multi-generation native, zarr-partitioned)
-# via runtime.default_emitter. Default is sqlite (the dashboard's
-# historical single-generation behaviour). Flip to xarray when the
-# zarr-read viz adapter (task 7.5) lands.
+# Workspace-level emitter preference. The dashboard and v2ecoli scaffolds
+# read this to decide which emitter to construct for new study runs.
+# Allowed values: 'parquet' | 'sqlite' | 'xarray'.
+#
+# Current preference: **parquet** — column-oriented, hive-partitioned,
+# typically 3–5× smaller on disk than the equivalent sqlite run for
+# v2ecoli-shaped sims. Use v2ecoli.composites._helpers.parquet_emitter()
+# and v2ecoli.library.parquet_run.run_multigen_parquet for the runtime
+# wiring; tests live at tests/test_parquet_emitter_ported.py.
+#
+# Dashboard support note: vivarium-dashboard currently auto-injects sqlite
+# for any value it does not recognise; the parquet auto-inject + Registry-
+# tab "default" badge land in a follow-up vivarium-dashboard PR. Until then
+# the dashboard's Simulations-DB tab continues to read sqlite-shaped runs;
+# parquet runs are queried via DuckDB/Polars directly off the hive dir.
 runtime:
-  default_emitter: sqlite   # 'xarray' | 'sqlite'
-  max_generations: 3        # multi-gen cap (xarray runs only)
+  default_emitter: parquet  # 'parquet' | 'sqlite' | 'xarray'
+  max_generations: 3        # multi-gen cap (xarray + parquet runs)
 observables: []
 visualizations: []
 simulations: []

@@ -425,11 +425,17 @@ planned_runs:
   n_steps: 200
   details: N=200 PDMP trajectories per condition; W₂ summary-distribution match vs v2ecoli baseline ensemble
 - name: jump-process-multigen-100-divisions
-  status: planned
-  n_steps: (multi-gen — ≥100 divisions per replicate)
-  details: Multi-generation jump-process pilot. Produces the inheritance distribution + division-time-distribution viz from
-    real division events. ≥100 divisions per replicate to get reliable variance estimates on daughter1−daughter2 binomial-partition
-    test.
+  status: scaffold-data-real
+  n_steps: (8000 simulated seconds per replicate; 100 divisions target needs ~50 replicates)
+  details: 'SCAFFOLD DATA REAL 2026-05-25 (NOT YET JUMP-PROCESS; uses v2ecoli baseline as the data
+    source for the inheritance machinery the test needs). Phase 0 N=4 × 8000-step multi-gen baseline
+    ensemble complete (.pbg/runs/phase0-multigen/), wall 74 min total. 9 real division events observed
+    across 4 replicates. First-division times match M9-glucose τ ≈ 2640s (within ±5%); daughter/mother
+    mass ratio centers near 0.5 with binomial-consistent spread. Real-data viz at
+    reports/figures/pdmp-02/multigen_{cell_mass_trajectories, division_time_distribution,
+    inheritance_mass_split}.html. ACTUAL jump-process implementation still TBD; this Phase-0 data
+    proves the inheritance machinery + division detection work for the test contract, ready to be
+    repointed at jump-process output when that lands.'
 - name: jump-process-event-rate-profile
   status: planned
   n_steps: 1000
@@ -455,6 +461,15 @@ visualizations:
 - name: jump-inter-event-waiting-times
   address: file:reports/figures/pdmp-02/jump_inter_event_waiting_times.html
   description: Jump-process inter-event waiting times — exponentiality test
+- name: multigen-cell-mass-trajectories
+  address: file:reports/figures/pdmp-02/multigen_cell_mass_trajectories.html
+  description: Phase 0 multi-gen — cell mass(t) with division events
+- name: multigen-division-time-distribution
+  address: file:reports/figures/pdmp-02/multigen_division_time_distribution.html
+  description: Phase 0 multi-gen — division time distribution
+- name: multigen-inheritance-mass-split
+  address: file:reports/figures/pdmp-02/multigen_inheritance_mass_split.html
+  description: Phase 0 multi-gen — inheritance distribution
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.pdmp_runner.pdmp_runner
@@ -658,4 +673,16 @@ embed_visualizations:
 - name: Jump-process inter-event waiting times — exponentiality test
   url: /reports/figures/pdmp-02/jump_inter_event_waiting_times.html
   description: Per-study visualization rendered from reports/figures/pdmp-02/jump_inter_event_waiting_times.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Phase 0 multi-gen — cell mass(t) with division events
+  url: /reports/figures/pdmp-02/multigen_cell_mass_trajectories.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/multigen_cell_mass_trajectories.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Phase 0 multi-gen — division time distribution
+  url: /reports/figures/pdmp-02/multigen_division_time_distribution.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/multigen_division_time_distribution.html. Inlined
+    into the downloaded report as iframe srcdoc.
+- name: Phase 0 multi-gen — inheritance distribution
+  url: /reports/figures/pdmp-02/multigen_inheritance_mass_split.html
+  description: Per-study visualization rendered from reports/figures/pdmp-02/multigen_inheritance_mass_split.html. Inlined
     into the downloaded report as iframe srcdoc.

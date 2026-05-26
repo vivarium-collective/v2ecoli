@@ -140,11 +140,17 @@ class LQRController(Process):
         m = states.get("central_metabolites_millard", {}) or {}
         proxy = proxy_from_state(m)
         # Estimate μ via finite difference of proxy across ticks.
-        if self._prev_proxy is None or proxy <= 0:
+        # Skip on first tick (no prev) AND on the SECOND tick if prev_proxy
+        # was effectively zero (composite-store initialised empty; first
+        # tick reads {} and computes proxy=0 → next tick's finite diff
+        # would explode by dividing by ~0).
+        MIN_PROXY = 1e-3  # mM-scale floor; below this we consider proxy uninitialised
+        if (self._prev_proxy is None or proxy <= 0
+                or self._prev_proxy < MIN_PROXY):
             mu_est = 0.0
         else:
             # Relative growth rate (1/s): d(log proxy)/dt = (Δproxy/proxy)/Δt
-            mu_est = (proxy - self._prev_proxy) / max(self._prev_proxy, 1e-12) / timestep
+            mu_est = (proxy - self._prev_proxy) / self._prev_proxy / timestep
         # Reference μ at current time (last value if past end).
         if self._have_ref and self.ref_t is not None:
             idx = min(int(self._t / max(self.ref_t[1] - self.ref_t[0], 1.0)),

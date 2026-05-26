@@ -16,7 +16,7 @@ runtime:
 
 report:
   title: "DnaA pool: seed-to-seed variability"
-  verdict: passing
+  verdict: preliminary
   confidence: medium
   evidence_quality: literature-matched
   objective: >-

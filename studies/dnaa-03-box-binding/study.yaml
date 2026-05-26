@@ -3,7 +3,7 @@ name: dnaa-03-box-binding
 created: '2026-05-16'
 report:
   title: DnaA-box binding and titration
-  verdict: passing-with-caveats
+  verdict: preliminary
   confidence: medium
   evidence_quality: calibrated
   objective: 'Test whether explicit DnaA binding to the 307-box chromosomal consensus (plus oriC and dnaAp) reproduces

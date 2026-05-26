@@ -3,7 +3,7 @@ name: dnaa-02f-equilibrium-cleanup
 created: '2026-05-17'
 report:
   title: DnaA nucleotide-cycle equilibrium cleanup
-  verdict: passing
+  verdict: preliminary
   confidence: high
   evidence_quality: calibrated
   objective: Find a real-biology alternative to dnaa-02's monkey-patch that gives a defensible DnaA-ATP-fraction

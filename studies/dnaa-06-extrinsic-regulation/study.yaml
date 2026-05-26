@@ -3,7 +3,7 @@ name: dnaa-06-extrinsic-regulation
 created: '2026-05-22'
 report:
   title: Extrinsic DnaA-ATP reset network
-  verdict: passing
+  verdict: preliminary
   confidence: medium
   evidence_quality: calibrated
   objective: Test whether the extrinsic reset network (RIDA/Hda, datA/DDAH, DARS1&2) holds the DnaA-ATP fraction

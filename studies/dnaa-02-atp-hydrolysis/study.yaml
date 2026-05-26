@@ -7,7 +7,7 @@ runtime:
   single_daughters: true   # memory guardrail — load-bearing here: dnaa-02 hit 62 GB RSS without it (composite tracks 2^N cells every tick). v2ecoli PR #73 / dashboard PR #112.
 report:
   title: DnaA ATP/ADP intrinsic hydrolysis
-  verdict: failing-bio
+  verdict: preliminary
   confidence: high
   evidence_quality: calibrated
   objective: Test whether a minimal intrinsic-hydrolysis Step alone can hold the DnaA-ATP fraction inside the physiological

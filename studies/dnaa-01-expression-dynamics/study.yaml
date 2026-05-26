@@ -7,7 +7,7 @@ runtime:
   single_daughters: true   # memory guardrail — prune sibling daughters so peak RSS tracks one-cell footprint instead of 2^N at gen N. v2ecoli PR #73 / vivarium-dashboard PR #112.
 report:
   title: DnaA expression dynamics
-  verdict: passing-with-caveats
+  verdict: preliminary
   confidence: medium
   evidence_quality: literature-matched
   objective: Certify that v2ecoli's existing transcription/translation chain produces a steady, physiological DnaA

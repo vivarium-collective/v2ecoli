@@ -192,6 +192,30 @@ def _find_workspace_root(start: Path | None = None) -> Path | None:
     return None
 
 
+def _workspace_default_emitter() -> str | None:
+    """Read ``runtime.default_emitter`` from workspace.yaml. Returns one of
+    'parquet' / 'sqlite' / 'xarray' / 'ram' / None (no workspace or unset).
+
+    ``V2ECOLI_DEFAULT_EMITTER`` env var overrides workspace.yaml — set it to
+    'ram' in test environments to force the in-memory RAMEmitter even when
+    workspace.yaml says parquet.
+    """
+    env = os.environ.get('V2ECOLI_DEFAULT_EMITTER')
+    if env:
+        return env.strip().lower() or None
+    ws = _find_workspace_root()
+    if ws is None:
+        return None
+    try:
+        import yaml
+        with open(ws / 'workspace.yaml') as f:
+            doc = yaml.safe_load(f) or {}
+        pref = (doc.get('runtime') or {}).get('default_emitter')
+        return str(pref).strip().lower() if pref else None
+    except Exception:
+        return None
+
+
 def _ensure_study_columns(db_path: str) -> None:
     """Idempotently add study_slug / investigation_slug columns to ``simulations``.
 
@@ -847,9 +871,10 @@ def _get_special_step(loader, step_name, core):
             cfg = {'emit': emit_schema, **override}
             instance = SQLiteEmitter(cfg, core)
         else:
-            # In-memory RAMEmitter: no disk cost, so keep the full capture
-            # (bulk + chromosome/replisome structures) for callers that
-            # want the complete state tree in RAM.
+            # No explicit override — consult workspace.yaml's
+            # runtime.default_emitter. Full schema is used in either branch
+            # (bulk + chromosome/replisome structures) so the on-disk parquet
+            # output is the persistent equivalent of RAMEmitter capture.
             emit_schema = {
                 'global_time': 'float',
                 'bulk': 'array',
@@ -868,7 +893,32 @@ def _get_special_step(loader, step_name, core):
                 'active_RNAP': ('unique', 'active_RNAP'),
                 'chromosome_domain': ('unique', 'chromosome_domain'),
             }
-            instance = RAMEmitter({'emit': emit_schema}, core)
+            ws_pref = _workspace_default_emitter()
+            if ws_pref == 'parquet' and ParquetEmitter is not None:
+                # Auto-build workspace-default ParquetEmitter (full schema).
+                # out_dir: <workspace>/.pbg/parquet-runs/
+                # experiment_id: auto-generated; partitioned hive layout.
+                ws_root = _find_workspace_root()
+                if ws_root is None:
+                    # workspace.yaml found earlier but not now? Defensive
+                    # fallback to RAM.
+                    instance = RAMEmitter({'emit': emit_schema}, core)
+                else:
+                    from v2ecoli.library.emitter_presets import parquet_vecoli
+                    out_dir = str(ws_root / '.pbg' / 'parquet-runs')
+                    experiment_id = 'default-' + uuid.uuid4().hex[:8]
+                    parquet_cfg = parquet_vecoli(
+                        out_dir=out_dir,
+                        experiment_id=experiment_id,
+                        variant=0, lineage_seed=0, agent_id='1',
+                        generation=0,
+                    )
+                    cfg = {'emit': emit_schema, **parquet_cfg}
+                    instance = ParquetEmitter(cfg, core)
+            else:
+                # In-memory RAMEmitter: no disk cost. Default when workspace
+                # default_emitter is 'ram' / unset, or no workspace found.
+                instance = RAMEmitter({'emit': emit_schema}, core)
 
         return instance, topo, 'step'
 

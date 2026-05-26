@@ -374,7 +374,7 @@ focus_study: dnaa-00-parameter-foundation
 # study requires the prior one to be `approved`.
 study_lifecycle:
   dnaa-00-parameter-foundation: awaiting-expert-review
-  dnaa-01-expression-dynamics: blocked-by-prerequisite
+  dnaa-01-expression-dynamics: in-progress
   dnaa-02-atp-hydrolysis: blocked-by-prerequisite
   dnaa-02f-equilibrium-cleanup: blocked-by-prerequisite
   dnaa-03-box-binding: blocked-by-prerequisite

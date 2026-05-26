@@ -127,12 +127,17 @@ assumptions:
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline_recipes.dnaa_stage1_constitutive
+    # Round 3 (2026-05-25, Haochen ask): point at the new Stage-1 glycerol
+    # cache that dnaa-00 also uses, so dnaa-01's expression dynamics are
+    # evaluated under the IMPOSED τ=150 / C=70 / D=30 cycle (not the
+    # earlier minimal-glucose / minimal-acetate caches). n_steps=10000
+    # covers >1 emergent cycle (83 min observed on dnaa-00).
     params:
       seed: 0
-      cache_dir: out/cache-stage1-heuristic-acetate
+      cache_dir: out/cache-stage1-glycerol
       rate_protein_per_min_per_gene: 1.5
       initial_dnaa_count: 325
-      n_steps: 9000    # ~3 cell cycles — closes the "cross-cycle drift not validated" caveat
+      n_steps: 10000   # ~2 emergent cycles on the glycerol cache
   variants: []
   model_settings:
   - name: translation_efficiency_eg10235_scale
@@ -237,7 +242,7 @@ tests:
   - Saggioro2013
   - Katayama2017
   run_ids: []
-status: blocked-pending-dnaa00-approval-prior-results-superseded-by-stage1-glycerol-cache
+status: round3-in-progress-on-stage1-glycerol-cache
 last_run: gen-20260522T003700Z-9fcb58
 biological_summary: 'Before we can model how DnaA decides when to fire replication, we need to
 
@@ -415,6 +420,28 @@ readouts:
   status: derived-needed
   blocked_by_requirements:
   - req-1-concentration-listener
+# Round 3 additions — needed for the DnaA count / cell mass concentration
+# viz Haochen asked for, and for the τ-vs-emergent gap diagnostic.
+- name: cell_mass
+  store_path: agents.0.listeners.mass.cell_mass
+  units: fg
+  status: available
+  description: Total cell mass. Used by scripts/render_dnaa_concentration.py to
+    compute DnaA / mass; also lets the report show actual mass-doubling time
+    vs the declared cell_cycle_len target.
+- name: dry_mass
+  store_path: agents.0.listeners.mass.dry_mass
+  units: fg
+  status: available
+  description: Cell dry mass — what division actually compares against the
+    ParCa-fitted threshold.
+- name: expected_mass_fold_change
+  store_path: agents.0.listeners.mass.expected_mass_fold_change
+  units: dimensionless
+  status: available
+  description: 2^(t/cell_cycle_len) — mass listener's REFERENCE under the
+    declared τ=150 min. Comparing this to the actual mass-fold-change
+    surfaces the same τ-gap the dnaa-00 study flagged.
 autorepression_test_suite:
 - name: lagged_binding_mrna_cross_correlation
   kind: lagged_binding_mrna_cross_correlation

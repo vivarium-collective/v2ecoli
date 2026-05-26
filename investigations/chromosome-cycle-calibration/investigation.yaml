@@ -9,6 +9,7 @@ description: >
   ~80 min cycle vs declared 136 min on acetate), and scaffolds the new glycerol medium
   (MIX0-845, tau=150 min, CRP-cAMP active). Lives on feat/aim2-dnaa-oric @ b8d0d1e.
 studies:
+- dnaa-00-stage1-baseline
 - dnaa-01-expression-dynamics
 - dnaa-02-atp-hydrolysis
 - dnaa-03-box-binding
@@ -19,8 +20,12 @@ studies:
 - dnaa-08-validation
 
 at_a_glance:
+- study: dnaa-00-stage1-baseline
+  role: ABT minimal glycerol media (τ=150) + Stage 1 parameter overrides (C=70, D=30, DnaA TE=1,
+    DnaA stable, DARS/datA locations). Prerequisite for Study 1.
 - study: dnaa-01-expression-dynamics
-  role: dnaA transcription + mRNA + translation + protein-abundance dynamics. Foundational. Active phase.
+  role: dnaA transcription + mRNA + translation + protein-abundance dynamics (new mechanism on
+    top of Study 0's baseline). Active phase once Study 0 closes.
 - study: dnaa-02-atp-hydrolysis
   role: DnaA-ATP intrinsic hydrolysis at 0.046 /min. Boesen 2024 ratio check (0.2-0.5).
 - study: dnaa-03-box-binding

@@ -72,7 +72,15 @@ pipeline_gate:
     This study does NOT gate anything in the strict sense — it's reference material. The
     `enables` link to Study 0 is structural (so the DAG renders with this study in front) but
     Study 0 doesn't actually wait on this study's tests to pass.
-baseline: []
+baseline:
+- name: nominal-baseline-only
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+  notes: 'Schema-required nominal baseline entry. This context study runs no simulations of its
+    own — all the per-condition observables in the embedded comparison HTML come from earlier
+    baseline runs in this worktree''s out/ directory.'
 variants: []
 interventions: []
 simulation_set: []

@@ -6,6 +6,64 @@ package_path: v2ecoli
 observables: []
 visualizations: []
 simulations: []
-datasets: []
+
+datasets:
+- name: acetate-gen1-canonical
+  path: out/acetate_apr24_test.db
+  kind: simulation_db
+  size: ~9.1 GB
+  description: v2ecoli acetate gen 1 run (~80 min observed cycle). Canonical cache, no overrides.
+    Anchor for the v2ecoli-vs-vEcoli comparison.
+  claims_supported:
+  - chromosome-cycle-calibration
+- name: glycerol-stage1-gen1
+  path: out/glycerol_stage1_1gen.db
+  kind: simulation_db
+  size: ~14 GB
+  description: v2ecoli Stage 1 glycerol gen 1 (121 min cycle). C=70, D=30, τ=150, dnaA TE=1.0,
+    DARS1+DARS2 widened. Source for reports/meeting_20260526/glycerol_dynamics.png.
+  claims_supported:
+  - chromosome-cycle-calibration
+- name: acetate-5gen-lineage
+  path: out/acetate_multigen/acetate_multigen_timeseries.json
+  kind: simulation_db
+  size: ~164 KB
+  description: 5-gen acetate lineage (chromosome-only, no plasmid, canonical cache, no overrides).
+    Cycles 81 / 42 / 61 / 82 / 60 min — refutes monotonic equilibration toward declared τ=136.
+  claims_supported:
+  - chromosome-cycle-calibration
+- name: vecoli-acetate-compare
+  path: out/vecoli_acetate_compare_parquet/
+  kind: simulation_db
+  size: ~677 MB
+  description: vEcoli acetate run on the same kb_default simData. ~80 min cycle. Side-by-side
+    counterpart to acetate-gen1-canonical for the v2ecoli↔vEcoli match.
+  claims_supported:
+  - chromosome-cycle-calibration
+
+expert_docs:
+- name: chromosome-replication-plan
+  path: chromosome-replication-plan.pdf
+  kind: workflow_plan
+  description: Multi-phase Study 1-8 plan for the DnaA / replication-initiation arc. Study 1 =
+    DnaA expression dynamics (currently active). Source for the 8 phase-study scaffolds.
+  claims_supported:
+  - chromosome-cycle-calibration
+- name: molecular-info-replication-initiation
+  path: Molecular information for simulating replication initiation.pdf
+  kind: biology_reference
+  description: oriC structure (DUE + DOR, 11 DnaA boxes); dnaA promoter (p1 / p2 + boxes 1-4 +
+    a-c); RIDA, DDAH, DARS1, DARS2; DnaA-ATP intrinsic hydrolysis 0.046 /min.
+  claims_supported:
+  - chromosome-cycle-calibration
+- name: parameters-wcm-stage1
+  path: Parameters for WCM (Stage 1_ heuristic values) - Stage 1.pdf
+  kind: parameter_table
+  description: 'Stage 1 heuristic parameters for ABT minimal glycerol MG1655 wildtype: τ=150,
+    C=70, D=30, replication speed 66.31 kbp/min, DnaA TE=1, DnaA Kd_ATP=30 nM, DnaA Kd_ADP=100
+    nM, DARS1+DARS2 locations.'
+  claims_supported:
+  - chromosome-cycle-calibration
+
 server:
   enabled: true

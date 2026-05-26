@@ -9,35 +9,34 @@ simulation_status: planned
 evaluation_status: not_run
 gate_status: pending
 expert_review_status: pending
-objective: Add dnaA transcription, mRNA dynamics, translation, and DnaA protein abundance dynamics
-  sufficient to maintain realistic DnaA levels during steady growth.
-description: Foundational study for the DnaA / replication-initiation arc. Wires the dnaA promoter
-  + mRNA + protein layer so that DnaA copy number tracks the mass-spec / EcoCyc range (~300-800
-  per cell, or ~200 per oriC by western blots) during steady-state slow growth. Includes promoter
-  occupancy state for dnaAp DnaA boxes and a placeholder autorepression rule (DnaA-bound dnaAp
-  → lower transcription rate, exposed as a tunable parameter). The full structural model of dnaAp
-  (two consensus DnaA boxes + two DnaA-ATP-specific boxes) is deferred to Study 2 / 3.
+objective: Add dnaA transcription, mRNA dynamics, translation, and DnaA protein abundance dynamics sufficient
+  to maintain realistic DnaA levels during steady growth.
+description: Foundational study for the DnaA / replication-initiation arc. Wires the dnaA promoter + mRNA
+  + protein layer so that DnaA copy number tracks the mass-spec / EcoCyc range (~300-800 per cell, or
+  ~200 per oriC by western blots) during steady-state slow growth. Includes promoter occupancy state for
+  dnaAp DnaA boxes and a placeholder autorepression rule (DnaA-bound dnaAp → lower transcription rate,
+  exposed as a tunable parameter). The full structural model of dnaAp (two consensus DnaA boxes + two
+  DnaA-ATP-specific boxes) is deferred to Study 2 / 3.
 purpose:
-  question: Can v2ecoli reproduce realistic DnaA mRNA and protein dynamics under steady slow growth
-    — DnaA count in the mass-spec / EcoCyc range, mRNA + protein concentrations stable within
-    ~10%, and autorepression behaviour when DnaA is artificially over-supplied?
-  mechanism: dnaA transcription proportional to active-RNAP-on-dnaAp × autorepression factor;
-    mRNA degradation at standard E. coli rate; translation per ribosome-on-dnaA-mRNA; DnaA dilution
-    follows cell-volume growth. Autorepression as a soft placeholder — DnaA box occupancy on dnaAp
-    above a threshold reduces transcription rate by a tunable factor.
-  expected_outcome: DnaA copy in [300, 800] per cell at steady state. Concentration drift within
-    ±10% across a gen. When synthesized DnaA is set to zero mid-gen, the concentration measurably
-    decreases (dilution + degradation visible). After a replication initiation, DnaA count adjusts
-    up due to increased dnaA gene dosage AND down due to increased boxes-to-fill; net effect needs
-    empirical check.
+  question: Can v2ecoli reproduce realistic DnaA mRNA and protein dynamics under steady slow growth —
+    DnaA count in the mass-spec / EcoCyc range, mRNA + protein concentrations stable within ~10%, and
+    autorepression behaviour when DnaA is artificially over-supplied?
+  mechanism: dnaA transcription proportional to active-RNAP-on-dnaAp × autorepression factor; mRNA degradation
+    at standard E. coli rate; translation per ribosome-on-dnaA-mRNA; DnaA dilution follows cell-volume
+    growth. Autorepression as a soft placeholder — DnaA box occupancy on dnaAp above a threshold reduces
+    transcription rate by a tunable factor.
+  expected_outcome: DnaA copy in [300, 800] per cell at steady state. Concentration drift within ±10%
+    across a gen. When synthesized DnaA is set to zero mid-gen, the concentration measurably decreases
+    (dilution + degradation visible). After a replication initiation, DnaA count adjusts up due to increased
+    dnaA gene dosage AND down due to increased boxes-to-fill; net effect needs empirical check.
 seeded_from:
   study: (foundational — first study in this investigation)
   proposal_id: chromosome-replication-plan-study-1
   finding: null
   evidence:
     from_run: null
-    observed: Investigation-level prerequisites (D-period trigger fix, vEcoli match, glycerol medium
-      scaffold) are in place. This study is the first that ADDS new mechanism on top.
+    observed: Investigation-level prerequisites (D-period trigger fix, vEcoli match, glycerol medium scaffold)
+      are in place. This study is the first that ADDS new mechanism on top.
 pipeline_gate:
   prerequisites:
   - study: dnaa-00-stage1-baseline
@@ -45,39 +44,39 @@ pipeline_gate:
   enables:
   - study: dnaa-02-atp-hydrolysis
     condition: tests-passed
-  proceed_condition: DnaA mRNA + protein dynamics stable; copy in expected range; autorepression
-    placeholder responds to perturbation. Then unblock Study 2 (DnaA-ATP intrinsic hydrolysis)
-    + Study 3 (DnaA-box binding).
-  notes: 'Per the plan PDF — "maybe considered after Phase 2" for the role of the two consensus
-    DnaA boxes and two DnaA-ATP boxes in the dnaA promoter region. This study scaffolds the promoter
-    state with a placeholder autorepression; the full mechanism arrives with Study 3. Stage 1
-    baseline parameters (τ, C, D, DnaA TE, DnaA stability, glycerol media, locus locations) are
-    owned by Study 0 (dnaa-00-stage1-baseline) — this study adds the NEW mechanism on top.'
+  proceed_condition: DnaA mRNA + protein dynamics stable; copy in expected range; autorepression placeholder
+    responds to perturbation. Then unblock Study 2 (DnaA-ATP intrinsic hydrolysis) + Study 3 (DnaA-box
+    binding).
+  notes: Per the plan PDF — "maybe considered after Phase 2" for the role of the two consensus DnaA boxes
+    and two DnaA-ATP boxes in the dnaA promoter region. This study scaffolds the promoter state with a
+    placeholder autorepression; the full mechanism arrives with Study 3. Stage 1 baseline parameters (τ,
+    C, D, DnaA TE, DnaA stability, glycerol media, locus locations) are owned by Study 0 (dnaa-00-stage1-baseline)
+    — this study adds the NEW mechanism on top.
 baseline:
 - name: baseline-slow-growth
   composite: v2ecoli.composites.baseline.baseline
   params:
     seed: 0
     cache_dir: out/cache
-  notes: Acetate slow-growth condition (τ=136 declared, ~80 min observed per investigation-level
-    acceptance criterion v2ecoli_matches_vecoli_acetate_dynamics).
+  notes: Acetate slow-growth condition (τ=136 declared, ~80 min observed per investigation-level acceptance
+    criterion v2ecoli_matches_vecoli_acetate_dynamics).
 variants:
 - name: knockout-dnaA-synthesis-mid-gen
   base_composite: baseline-slow-growth
   parameter_overrides:
     dnaA_synthesis_off_at: 1800
-  notes: Stop synthesized DnaA mid-gen; look for measurable concentration decrease (dilution +
-    degradation visible).
+  notes: Stop synthesized DnaA mid-gen; look for measurable concentration decrease (dilution + degradation
+    visible).
 - name: dnaA-promoter-moved-from-oriC
   base_composite: baseline-slow-growth
   parameter_overrides:
     dnaA_genome_position: null
-  notes: Move dnaA promoter region further from oriC; isolates the gene-dosage effect from any
-    oriC-proximity coupling.
+  notes: Move dnaA promoter region further from oriC; isolates the gene-dosage effect from any oriC-proximity
+    coupling.
 interventions:
 - name: synthesis-off-mid-gen
-  description: At t=1800 s, force dnaA mRNA synthesis rate to zero. Observe how fast the DnaA
-    protein pool decreases (proxy for the dilution + degradation timescale).
+  description: At t=1800 s, force dnaA mRNA synthesis rate to zero. Observe how fast the DnaA protein
+    pool decreases (proxy for the dilution + degradation timescale).
 simulation_set:
 - name: steady-state-baseline
   status: planned
@@ -87,8 +86,8 @@ simulation_set:
   - 0
   - 1
   - 2
-  condition: 'Acetate cache; 1 gen each; readouts include: transcription events, mRNA count,
-    DnaA count + concentration, DnaA-box occupancy on dnaAp.'
+  condition: 'Acetate cache; 1 gen each; readouts include: transcription events, mRNA count, DnaA count
+    + concentration, DnaA-box occupancy on dnaAp.'
   readouts:
   - dnaA_transcription_events
   - dnaA_mRNA_count
@@ -105,8 +104,7 @@ simulation_set:
   duration_min: 15
   seeds:
   - 0
-  condition: Synthesis off at t=1800 s; observe drop in DnaA concentration over the remaining
-    cell cycle.
+  condition: Synthesis off at t=1800 s; observe drop in DnaA concentration over the remaining cell cycle.
   readouts:
   - dnaA_protein_concentration
   - dnaA_protein_count
@@ -120,9 +118,8 @@ simulation_set:
   - 0
   - 1
   - 2
-  condition: Run past a replication initiation event; check DnaA pool response to (a) increased
-    dnaA gene dosage (replication has copied dnaA), (b) increased autorepression strength (more
-    DnaA boxes to fill).
+  condition: Run past a replication initiation event; check DnaA pool response to (a) increased dnaA gene
+    dosage (replication has copied dnaA), (b) increased autorepression strength (more DnaA boxes to fill).
   readouts:
   - dnaA_protein_count
   - dnaA_box_occupancy_dnaAp
@@ -172,68 +169,66 @@ model_change:
   modified_processes:
   - transcription_regulation (dnaA rate now depends on DnaA-box occupancy on dnaAp)
   notes: 'Six implementation tasks per the plan PDF: add dnaA transcription events, mRNA degradation,
-    translation, protein dilution/degradation, promoter occupancy state for dnaAp DnaA boxes,
-    placeholder autorepression with tunable strength.'
+    translation, protein dilution/degradation, promoter occupancy state for dnaAp DnaA boxes, placeholder
+    autorepression with tunable strength.'
 implementation_requirements:
 - id: REQ-1
   title: dnaA transcription events
   kind: model
   effort: M
   status: open
-  why: Active-RNAP-on-dnaAp drives mRNA synthesis. Ensure rate scales with active RNAP count
-    and is logged as an event stream.
+  description: Active-RNAP-on-dnaAp drives mRNA synthesis. Ensure rate scales with active RNAP count and
+    is logged as an event stream.
 - id: REQ-2
   title: dnaA mRNA degradation
   kind: model
   effort: S
   status: open
-  why: Standard E. coli mRNA half-life applied to dnaA mRNA in unique store.
+  description: Standard E. coli mRNA half-life applied to dnaA mRNA in unique store.
 - id: REQ-3
   title: DnaA translation
   kind: model
   effort: M
   status: open
-  why: Ribosome-on-dnaA-mRNA produces DnaA monomers at the standard ribosome elongation rate.
+  description: Ribosome-on-dnaA-mRNA produces DnaA monomers at the standard ribosome elongation rate.
 - id: REQ-4
   title: DnaA protein dilution / degradation
   kind: model
   effort: S
   status: open
-  why: Dilution follows cell volume; degradation rate placeholder from DnaA-stability literature.
+  description: Dilution follows cell volume; degradation rate placeholder from DnaA-stability literature.
 - id: REQ-5
   title: Promoter occupancy state for dnaAp DnaA boxes
   kind: model
   effort: M
   status: open
-  why: New unique-store entry for dnaAp DnaA-box occupancy. Drives the placeholder autorepression.
+  description: New unique-store entry for dnaAp DnaA-box occupancy. Drives the placeholder autorepression.
 - id: REQ-6
   title: Placeholder autorepression
   kind: model
   effort: S
   status: open
-  why: dnaAp occupancy → transcription-rate multiplier. Strength exposed as a tunable parameter.
+  description: dnaAp occupancy → transcription-rate multiplier. Strength exposed as a tunable parameter.
 - id: REQ-7
   title: molecule_lookup entry for DnaA monomer + dnaA mRNA
   kind: tooling
   effort: XS
   status: open
-  why: 'Follow [[feedback_no_hardcoded_molecule_ids]]: don''t hardcode PD00352 / DNAA-MONOMER /
-    EG10239 in study runners; resolve via studies/_lib/molecule_lookup.protein_by_synonym("DnaA").'
-# REQ-8 (--dnaa-txn-rate absolute-rate flag) moved to Study 0 as REQ-6 — it's a Stage 1
-# baseline knob, not a Study-1-mechanism requirement.
+  description: 'Follow [[feedback_no_hardcoded_molecule_ids]]: don''t hardcode PD00352 / DNAA-MONOMER
+    / EG10239 in study runners; resolve via studies/_lib/molecule_lookup.protein_by_synonym("DnaA").'
 key_assumptions:
-- DnaA mass-spec / EcoCyc abundance is 300-800 per cell (or ~200 per oriC by western blot per
-  Boesen 2024). v2ecoli should land somewhere in that range.
-- Autorepression at this phase is a SOFT placeholder. The full mechanism — two consensus DnaA
-  boxes + two DnaA-ATP boxes 1-4 + a-c per "Molecular information for simulating replication initiation"
-  — is deferred to Study 3 (DnaA box binding).
-- mRNA dynamics use the standard E. coli mRNA-degradation rate; dnaA-specific stability data may
-  refine this in a later iteration.
+- DnaA mass-spec / EcoCyc abundance is 300-800 per cell (or ~200 per oriC by western blot per Boesen 2024).
+  v2ecoli should land somewhere in that range.
+- Autorepression at this phase is a SOFT placeholder. The full mechanism — two consensus DnaA boxes +
+  two DnaA-ATP boxes 1-4 + a-c per "Molecular information for simulating replication initiation" — is
+  deferred to Study 3 (DnaA box binding).
+- mRNA dynamics use the standard E. coli mRNA-degradation rate; dnaA-specific stability data may refine
+  this in a later iteration.
 behavior_tests:
 - name: dnaA_count_in_mass_spec_range
   classification: primary
-  description: DnaA protein count at steady state is within the mass-spec / EcoCyc range [300, 800]
-    per cell.
+  description: DnaA protein count at steady state is within the mass-spec / EcoCyc range [300, 800] per
+    cell.
   measure:
     kind: snapshot_window
     field: dnaA_protein_count
@@ -256,8 +251,8 @@ behavior_tests:
   requires_simulation: steady-state-baseline
 - name: dnaA_decreases_when_synthesis_stops
   classification: primary
-  description: After dnaA_synthesis_off_at = 1800 s, DnaA concentration measurably decreases
-    over the remaining cycle (at least 15% drop relative to pre-knockout steady state).
+  description: After dnaA_synthesis_off_at = 1800 s, DnaA concentration measurably decreases over the
+    remaining cycle (at least 15% drop relative to pre-knockout steady state).
   measure:
     kind: derived_scalar
     field: dnaA_concentration_drop_post_knockout
@@ -267,9 +262,9 @@ behavior_tests:
   requires_simulation: knockout-perturbation
 - name: dnaA_responds_to_gene_dosage
   classification: secondary
-  description: After replication initiation, DnaA count exhibits a measurable response to the
-    combined gene-dosage + autorepression-strength effect. Direction is exploratory — the test
-    asserts only that the post-initiation count differs from the pre-initiation steady state.
+  description: After replication initiation, DnaA count exhibits a measurable response to the combined
+    gene-dosage + autorepression-strength effect. Direction is exploratory — the test asserts only that
+    the post-initiation count differs from the pre-initiation steady state.
   measure:
     kind: derived_scalar
     field: dnaA_post_initiation_count_change_pct
@@ -279,8 +274,8 @@ behavior_tests:
   requires_simulation: gene-dosage-after-initiation
 - name: gene_dosage_effect_separable
   classification: secondary
-  description: Moving the dnaA promoter further from oriC reduces the gene-dosage effect; expect
-    a smaller DnaA-count response after initiation than the unperturbed baseline.
+  description: Moving the dnaA promoter further from oriC reduces the gene-dosage effect; expect a smaller
+    DnaA-count response after initiation than the unperturbed baseline.
   measure:
     kind: derived_scalar
     field: dnaA_count_change_pct_vs_baseline
@@ -304,4 +299,4 @@ runs: []
 tests:
   data_source: all_runs
 visualizations: []
-embed_visualizations: []  # Stage 1 parameter audit now lives on dnaa-00-stage1-baseline.
+embed_visualizations: []

@@ -147,9 +147,13 @@ def render_html(b64_png: str, title: str) -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--steps", type=int, default=3600,
-                    help="how many sim ticks to run (default 3600 = ~one cell cycle)")
+    ap.add_argument("--steps", type=int, default=5000,
+                    help="how many sim ticks to run (default 5000 = one emergent "
+                         "cycle on the Stage-1 glycerol cache; bumped from 600 "
+                         "per Haochen 2026-05-25 ask to cover a full cell cycle)")
     ap.add_argument("--chunk", type=int, default=60, help="snapshot interval (default 60s)")
+    ap.add_argument("--cache-dir", default="out/cache-stage1-glycerol",
+                    help="composite cache dir (default: Stage-1 glycerol)")
     ap.add_argument(
         "--out",
         default="studies/dnaa-00-parameter-foundation/viz/chromosome_state.html",
@@ -164,7 +168,7 @@ def main() -> None:
 
     core = allocate_core()
     entry = _REGISTRY[args.spec]
-    doc = build_generator(entry, overrides={"seed": 0, "cache_dir": "out/cache"})
+    doc = build_generator(entry, overrides={"seed": 0, "cache_dir": args.cache_dir})
     comp = Composite({"state": doc.get("state", doc)}, core=core)
 
     snapshots: list[dict] = []

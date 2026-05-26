@@ -521,5 +521,11 @@ deferred_biology: All DnaA mechanism work is deferred to dnaa-01 through dnaa-06
 
 post_run_scripts:
 - path: scripts/render_dnaa00_chromosome_viz.py
-  args: [ '--steps', '600',]
-  timeout_s: 1800
+  # Round 3 (Haochen 2026-05-25): bumped --steps 600 → 5000 to cover the
+  # full emergent cell cycle on the new Stage-1 glycerol cache (division
+  # at ~83 min = 5000 s). The 600-s default left Haochen confused about
+  # the panel's scope ("is this a sanity check or a full cell cycle?").
+  # 5 timepoints across the cycle now span the actual cycle, not just
+  # the first 10 minutes. Explicitly point at the glycerol cache.
+  args: ['--steps', '5000', '--cache-dir', 'out/cache-stage1-glycerol']
+  timeout_s: 3600

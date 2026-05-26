@@ -58,6 +58,30 @@ report:
   - label: literature band [300, 800]
     value: in-band across all 6 seeds
     status: pass
+  caveat: >-
+    Haochen R3 (2026-05-25) question on the comparative_dnaa-pool-vs-time-by-seed
+    viz: "cycle time is not set to 150 min (9000s), but still 60 min (2400s);
+    however the simulation lasts for 9000s — I'm very confused by different
+    durations in different plots."
+
+    EXPLANATION: the viz he saw was rendered against the PRE-ROUND-3 minimal-glucose
+    ParCa cache (out/cache). On that cache the cell's natural cycle is ~44 min
+    (≈2640 s, which is what he saw rounded to ~2400s). Each seed ran for
+    n_steps=9000 (= 9000 s sim time = ~3.4 cycles), so the overlay shows the
+    DnaA pool across multiple cycles per seed — that's the 9000 s viz x-axis.
+    The 2400-s figure isn't a "set cycle" but the cell's emergent doubling time
+    on glucose.
+
+    Round 3 (2026-05-25) wired the new minimal_glycerol Stage-1 cache where
+    τ is declared 150 min but emergent 83 min (see dnaa-00 + dnaa-01 reports
+    for the cell_cycle_len-vs-dry_mass-threshold decoupling). When dnaa-07 is
+    unblocked in Round 4, re-running the 6-seed sweep on the glycerol cache
+    will yield a single, consistent cycle length (whatever Haochen's chosen
+    path from dnaa-00 decisions_needed converges on) across the viz x-axis.
+
+    The prior dnaa-07 numeric verdict (in-band across all 6 seeds) is RECORDED
+    against the old glucose cache and is superseded — see lifecycle blocked-
+    pending-dnaa00-approval-prior-results-superseded-by-stage1-glycerol-cache.
 
 question: >-
   Is the DnaA pool's steady-state behaviour reproducible across

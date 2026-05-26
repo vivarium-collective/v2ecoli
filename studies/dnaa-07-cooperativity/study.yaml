@@ -1,0 +1,54 @@
+schema_version: 4
+name: dnaa-07-cooperativity
+created: '2026-05-26'
+phase: Design
+status: planned
+design_status: stub
+implementation_status: planned
+simulation_status: planned
+evaluation_status: not_run
+gate_status: pending
+expert_review_status: pending
+objective: Broaden the cooperative-binding treatment beyond Study 6's SeqA-specific case. Models DnaA-DnaA
+  cooperativity at oriC (well-documented filament-formation behaviour) and DnaA-DnaA-box cooperativity
+  at the dnaA promoter.
+description: Stub-level per the plan PDF (all sections empty in the source PDF). Full design happens when
+  this study activates.
+purpose:
+  question: Designed when this study activates after prerequisites close.
+  mechanism: Designed when this study activates after prerequisites close.
+  expected_outcome: Designed when this study activates after prerequisites close.
+seeded_from:
+  study: dnaa-06-seqa-sequestration
+  proposal_id: chromosome-replication-plan-study-7
+pipeline_gate:
+  prerequisites:
+  - study: dnaa-06-seqa-sequestration
+    condition: tests-passed
+  enables:
+  - study: dnaa-08-validation
+    condition: tests-passed
+  proceed_condition: Designed when this study activates after prerequisites close.
+baseline:
+- name: baseline-slow-growth
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+variants: []
+interventions: []
+simulation_set: []
+readouts: []
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  notes: Stub. Design pending.
+implementation_requirements: []
+key_assumptions: []
+behavior_tests: []
+findings: []
+followup_proposals: []
+runs: []
+tests:
+  data_source: all_runs
+visualizations: []
+embed_visualizations: []

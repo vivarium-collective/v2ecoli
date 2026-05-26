@@ -1055,7 +1055,16 @@ class ParquetEmitter(Emitter):
                             self.buffered_emits[k][:emit_idx].tolist()
                             + [None] * (self.batch_size - emit_idx)
                         )
-            # Polars fallback
+            # Polars fallback. If we previously locked in a numpy dtype for
+            # this field, cast the value first so the Polars inner-type
+            # stays consistent across rows — otherwise int32 vs int64 (or
+            # similar) bounces between emits and union_pl_dtypes raises.
+            np_type = self.np_types.get(k)
+            if np_type is not None and isinstance(v, np.ndarray):
+                try:
+                    v = v.astype(np_type, copy=False)
+                except (TypeError, ValueError):
+                    pass
             ser = pl.Series([v])
             curr_type = self.pl_types.setdefault(k, pl.Null)
             if ser.dtype != curr_type:

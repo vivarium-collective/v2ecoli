@@ -1,0 +1,134 @@
+schema_version: 1
+name: chromosome-cycle-calibration
+title: v2ecoli chromosome cycle-time calibration on slow-growth conditions (acetate + glycerol)
+status: running
+description: >
+  Carefree investigation tracking v2ecoli chromosome dynamics on slow-growth media.
+  Validates the architectural port (PartitionedProcess -> layered process-bigraph) against
+  vEcoli on acetate, surfaces the upstream FBA-over-supply calibration gap (observed
+  ~80 min cycle vs declared 136 min on acetate), and scaffolds the new glycerol medium
+  (MIX0-845, tau=150 min, CRP-cAMP active). Lives on feat/aim2-dnaa-oric @ b8d0d1e.
+studies: []
+question: >
+  Does v2ecoli reproduce vEcoli chromosome cycle dynamics on slow conditions, and at
+  what point in the simulator stack does the observed-vs-declared cycle-time gap originate?
+hypothesis: >
+  Confirmed today: v2ecoli reproduces vEcoli's acetate dynamics within ~15 uM ppGpp and
+  ~3% charged-fraction across gen 1. The gap (observed ~80 min vs declared 136 min) is
+  wcEcoli-inherited (FBA over-supplies AAs in early gen -> tRNA stays 97-98% charged ->
+  SpoT degrades ppGpp -> ribosomes elongate fast). Rejected: multi-gen does NOT
+  equilibrate to tau=136 (5-gen lineage cycles 42-82 min, no monotonic trend).
+acceptance_criteria:
+- behavior: d_period_division_trigger_wired
+  status: passed
+  note: Division step now uses MarkDPeriod.divide; with_aa cycle 45 -> 22.5 min, matching vEcoli.
+- behavior: v2ecoli_matches_vecoli_acetate_dynamics
+  status: passed
+  note: ppGpp / charged-fraction / elongation rate / cell mass track vEcoli within 15% on gen 1.
+- behavior: multi_gen_equilibrates_toward_declared_tau
+  status: failed
+  note: 5-gen lineage cycles 42 / 81 / 61 / 82 / 60 min. No trend toward 136. Upstream FBA gap is not transient.
+- behavior: tf_coverage_audit
+  status: open
+  note: GlpR has fold-change entries but is not in tr.tf_ids 23-TF runtime set; regulation silently dropped.
+- behavior: glycerol_medium_added
+  status: passed
+  note: MIX0-845 (AB + 0.2% glycerol), tau=150, CRP-cAMP active TF, C=70 / D=30 / dnaA TE=1.0 / DARS1+DARS2 widened.
+
+biological_story: >
+  E. coli MG1655 on ABT minimal glycerol (tau=150 min target per Fu/Xiao/Jun 2023 heuristic)
+  and minimal acetate (tau=136 per condition_defs.tsv) is supposed to grow slowly with
+  non-overlapping cell cycles. v2ecoli + vEcoli both run these conditions at ~80 min cycle
+  with multi-fork replication (4 oriCs, 3 active forks at division for glycerol). Cause:
+  FBA over-supplies amino acids in early gen -> tRNAs stay 97-98% charged -> SpoT degrades
+  ppGpp -> ribosomes elongate at 21 aa/s -> mass grows ~3x in 80 min -> D-period trigger
+  fires early. Multi-gen does not wash this out. The cell cycle bouncing is upstream of
+  the v2ecoli port (wcEcoli-inherited) and downstream of the FBA biomass objective
+  calibration.
+
+references:
+- path: chromosome-replication-plan.pdf
+  kind: workflow_plan
+  description: Multi-phase Study 1-8 plan. Study 1 = DnaA expression dynamics (active here).
+- path: Molecular information for simulating replication initiation.pdf
+  kind: biology_reference
+  description: oriC structure (DUE + DOR, 11 DnaA boxes), dnaA promoter (p1/p2 + boxes 1-4 + a-c), RIDA, DDAH, DARS1/2, DnaA-ATP intrinsic hydrolysis (0.046 /min).
+- path: Parameters for WCM (Stage 1_ heuristic values) - Stage 1.pdf
+  kind: parameter_table
+  description: Stage 1 heuristic parameters. ABT minimal glycerol MG1655 wildtype. tau=150, C=70, D=30, replication speed 66.31 kbp/min, DnaA TE=1, DnaA Kd_ATP=30 nM, DnaA Kd_ADP=100 nM, DARS1+DARS2 locations.
+
+artifacts:
+- path: reports/meeting_20260526/report.html
+  kind: report
+  description: Meeting brief covering D-period trigger fix, acetate cycle gap, multi-gen equilibration test, TF coverage gap, glycerol medium, comparison vs upstream 0a3c36d.
+- path: reports/meeting_20260526/glycerol_dynamics.png
+  kind: figure
+  description: Glycerol gen 1 dynamics (mass / replication / DnaA species / DnaA-box occupancy).
+- path: reports/meeting_20260526/plot_glycerol_dynamics.py
+  kind: figure_script
+  description: Reproduces the glycerol dynamics PNG from out/glycerol_stage1_1gen.db.
+- path: out/acetate_apr24_test.db
+  kind: simulation_db
+  description: v2ecoli acetate gen 1 (~80 min cycle). Used for vEcoli comparison.
+- path: out/glycerol_stage1_1gen.db
+  kind: simulation_db
+  description: v2ecoli Stage 1 glycerol gen 1 (121 min cycle, C=70 D=30 tau=150 + dnaA-TE + DARS overrides).
+- path: out/acetate_multigen/acetate_multigen_timeseries.json
+  kind: simulation_db
+  description: 5-gen acetate lineage (canonical cache, no overrides). Cycles 81 / 42 / 61 / 82 / 60 min.
+- path: out/vecoli_acetate_compare_parquet/
+  kind: simulation_db
+  description: vEcoli acetate run with same kb_default simData. ~80 min cycle. Used for v2ecoli-vEcoli match.
+
+code_pointers:
+- path: v2ecoli/steps/division.py
+  description: D-period division trigger fix (division_variable -> MarkDPeriod.divide).
+- path: v2ecoli/composites/_helpers.py
+  description: Wires the D-period divide boolean into the Division step.
+- path: v2ecoli/processes/parca/reconstruction/ecoli/flat/condition/condition_defs.tsv
+  description: Added glycerol row (tau=150, active TFs [CPLX0-226]).
+- path: v2ecoli/processes/parca/reconstruction/ecoli/flat/condition/media/MIX0-845.tsv
+  description: AB + 0.2% glycerol media (13 mM GLYCEROL).
+- path: v2ecoli/processes/parca/reconstruction/ecoli/flat/condition/media_recipes.tsv
+  description: Added minimal_glycerol -> MIX0-845 row.
+- path: v2ecoli/processes/parca/reconstruction/ecoli/knowledge_base_raw.py
+  description: Registered MIX0-845.tsv in LIST_OF_DICT_FILENAMES.
+- path: studies/stage1_sanity_check/overrides.py
+  description: Untracked, locally authored. Applies replisome_rate (C=70), dnaA TE=1.0, DARS1/DARS2 window widening at pre-ParCa stage. Skips d_period to avoid with_aa guard trip.
+- path: scripts/build_cache.py
+  description: Cache builder with --c-period-minutes / --d-period-minutes / --dnaa-* runtime knobs. D=30 applied via --d-period-minutes here.
+- path: scripts/run_acetate_multigen.py
+  description: 5-gen multigen runner (chromosome-only, no plasmid). Used for the multi-gen equilibration test.
+
+decision_log:
+- step: 1
+  phase: Discovery
+  what_we_did: Validated D-period division trigger fix; ran v2ecoli + vEcoli acetate side-by-side; ran Stage 1 glycerol sim with C=70 / D=30 / dnaA-TE=1.0 / DARS-widening overrides; ran 5-gen acetate lineage to test multi-gen equilibration.
+  findings_produced:
+  - D-period trigger wired (with_aa cycle 45 -> 22.5 min).
+  - v2ecoli matches vEcoli on acetate within ~15%.
+  - Acetate cycle 81 min vs declared 136 min; FBA over-supply mechanism.
+  - Multi-gen does NOT equilibrate (5 gens, no trend).
+  - TF coverage gap (GlpR has data but not in 23-TF runtime set).
+  - Glycerol medium added; setup compared to upstream 0a3c36d.
+  feedback_source: null
+
+upstream_comparison:
+  commit: 0a3c36d
+  branch: dnaa-replication-studies
+  diffs:
+  - element: condition_defs.tsv glycerol active TFs
+    upstream: '[]'
+    ours: '["CPLX0-226"] (CRP-cAMP)'
+  - element: C period
+    upstream: 70 min (post-ParCa via LoadSimData c_period_minutes)
+    ours: 70 min (pre-ParCa via replisome_elongation_rate override)
+  - element: D period
+    upstream: 30 min (post-ParCa via LoadSimData d_period_seconds)
+    ours: 30 min (post-ParCa via build_cache.py --d-period-minutes; pre-ParCa skipped to dodge with_aa guard)
+  - element: dnaA translation efficiency
+    upstream: not modified in 0a3c36d
+    ours: 0.35 -> 1.0 (Hansen & Atlung 2018, pre-ParCa)
+  - element: DARS1+DARS2 windows
+    upstream: not modified in 0a3c36d
+    ours: widened (pre-ParCa)

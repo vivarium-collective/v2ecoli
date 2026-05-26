@@ -6,6 +6,7 @@ __pycache__/
 out/
 *.cPickle
 *.dill
+*.pickle
 
 # Cython / C-extension build artifacts (parca Cython extensions)
 *.so
@@ -13,14 +14,31 @@ out/
 build/
 v2ecoli/processes/parca/**/*.cpython-*.so
 
-# Worktree-local runtime (server, venv symlinks, logs, scheduled-task locks,
-# per-run dashboard artefacts). Schemas under .pbg/schemas/ stay tracked.
+# Worktree-local runtime + workspace / investigation runtime artefacts
+# (regenerable; not source). Blanket `.pbg/` covers every dashboard-
+# authored runtime file (composite-runs.db, dashboard/ pid+log+info,
+# runs/ per-run logs, server/, state.json, study-test-results/, …) so
+# the dashboard's dirty-tree gate doesn't block on its own writes.
+# Schemas under .pbg/schemas/ stay tracked.
 .venv
-.pbg/*
+.pbg/
 !.pbg/schemas/
+**/runs.db
+**/runs.db-shm
+**/runs.db-wal
 investigations/*/runs.db
 investigations/*/viz/
 investigations/*/.run.lock
+studies/*/sims/*.subprocess.py
+studies/*/viz/
+reports/
+.dashboard.log
 # Dashboard re-render targets (regenerated on demand by /api/render)
 reports/assets/*
 !reports/assets/.keep
+
+# Per-session agent notes (friction logs, overnight summaries, internal
+# observations meant for the pbg-superpowers improvement-cycle agent).
+# These are local-only working notes — not part of the investigation's
+# published artefacts.
+docs/superpowers/notes/

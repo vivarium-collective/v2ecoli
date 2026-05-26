@@ -117,3 +117,30 @@ jobs:
           --ignore=tests/test_unit_bridge.py
           -n auto --dist=loadfile
           -v --tb=short
+
+  validate-status:
+    # Lightweight read-only consistency check on investigation.yaml +
+    # study yamls (single-study cadence enum, focus_study existence,
+    # upstream-approval ordering, per-study status alignment). See
+    # scripts/validate_status.py for the 7 rules. Runs in parallel with
+    # the test jobs; ~1s total — no uv sync needed, just PyYAML.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install PyYAML
+        run: pip install --quiet pyyaml
+
+      - name: Validate status fields
+        # exit 0 = clean, 1 = errors (fail CI), 2 = warnings only (don't fail).
+        run: |
+          set +e
+          python scripts/validate_status.py
+          code=$?
+          if [ "$code" -eq 1 ]; then exit 1; fi
+          exit 0

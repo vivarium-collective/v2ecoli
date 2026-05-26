@@ -34,9 +34,9 @@ class MassListener(Step):
     config_schema = {
         'cellDensity': {'_type': 'float', '_default': 1100.0},
         'bulk_ids': 'list[string]',
-        'bulk_masses': {'_type': 'array[float]', '_default': None},
+        'bulk_masses': {'_type': 'overwrite[array[float]]', '_default': None},
         'unique_ids': 'list[string]',
-        'unique_masses': {'_type': 'array[float]', '_default': None},
+        'unique_masses': {'_type': 'overwrite[array[float]]', '_default': None},
         'submass_to_idx': {'_type': 'map[integer]', '_default': {
             "rRNA": 0,
             "tRNA": 1,
@@ -245,6 +245,13 @@ class MassListener(Step):
         unique_compartment_masses = np.zeros_like(bulk_compartment_masses)
         for unique_id, unique_mass in zip(self.unique_ids, self.unique_masses):
             molecules = states["unique"].get(unique_id)
+            # self.unique_ids comes from the cache, which lists every
+            # unique-molecule type the ParCa fixture defines (incl. plasmid
+            # molecules baked in by --mode full). State from a non-plasmid
+            # sim (e.g. the pre-division checkpoint, or any daughter built
+            # from it) omits those keys — treat absent == zero count.
+            if molecules is None:
+                continue
             n_molecules = molecules["_entryState"].sum()
 
             if n_molecules == 0:

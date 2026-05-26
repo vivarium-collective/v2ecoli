@@ -147,6 +147,9 @@ behavior_tests:
     op: '>='
     value: 5.0
   requires_simulation: nucleotide-bound-pool-steady-state
+cites:
+- intrinsic-activity-sciencedirect-0092867487902212
+- pnas-pnas-2322772121
 findings: []
 followup_proposals: []
 runs: []

@@ -282,6 +282,16 @@ behavior_tests:
     op: <
     value: dnaA_responds_to_gene_dosage.observed
   requires_simulation: promoter-moved-from-oriC
+cites:
+- pnas-pnas-2322772121
+- mass-spec-nbt-3418
+- mass-spec-cell-2014-00232-3
+- mass-spec-msb-20209536
+- liu-nature-microbiology-s41564-020-0717-x
+- dnaa-abundance-jb-1991
+- dnaa-stability-jb-1999
+- dnaa-stability-frontiers-2021-fmolb-629953
+- dnaa-review-frontiers-2018-fmicb-00319
 findings: []
 followup_proposals: []
 runs: []

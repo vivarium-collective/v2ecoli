@@ -201,6 +201,10 @@ behavior_tests:
     op: '>='
     value: 0.3
   requires_simulation: high-dnaA-autorepression-check
+cites:
+- initiator-titration-nat-comm-s41467-022-33886-6
+- initiator-titration-prxlife-1-013011
+- initiator-titration-sciencedirect-0923250891900256
 findings: []
 followup_proposals: []
 runs: []

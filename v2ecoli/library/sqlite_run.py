@@ -112,6 +112,55 @@ def _build_emit_schema(leaves: list[tuple[str, ...]]) -> dict:
     return schema
 
 
+def prune_to_followed_lineage(composite: Any, followed_id: str) -> int:
+    """Drop all agents from ``composite.state['agents']`` except ``followed_id``.
+
+    Used by :func:`run_multigen_sqlite` when ``single_daughters=True`` to
+    bound peak memory at the one-cell footprint instead of 2^N at
+    generation N (v2ecoli's composite is single-cell-by-design but
+    follows all daughters in state by default).
+
+    CRITICAL behaviour: process-bigraph's Composite caches
+    ``process_paths`` / ``step_paths`` / ``front`` /
+    ``_active_protocol_runtimes`` from the most recent
+    :meth:`find_instance_paths` call. Simply deleting
+    ``state['agents']['01']`` leaves those caches with dangling entries
+    that resolve to ``None`` on the next tick — ``composite.run_process``
+    then crashes with::
+
+        TypeError: 'NoneType' object is not subscriptable
+        at process_bigraph/composite.py:2834
+            state_interval = process['interval']
+
+    The fix: call ``composite.find_instance_paths(composite.state)``
+    after the agent deletes. That rebuilds ``process_paths`` /
+    ``step_paths`` against the pruned state, and also pops stale entries
+    from ``self.front`` (composite.py:1789–1791).
+
+    Args:
+        composite: process-bigraph Composite. Must expose ``state`` (a dict
+            with optional ``"agents"`` key) and ``find_instance_paths(state)``.
+        followed_id: agent key to keep. All other agents are deleted.
+
+    Returns:
+        Number of sibling agents dropped.
+
+    Bug history: 2026-05-25 multi-gen sqlite reproduction (commit 7f3d0a2)
+    captured the dangling-ref crash. Memory note:
+    ``multigen-sqlite-daughter-run-crashes``.
+    """
+    state = composite.state or {}
+    agents = state.get("agents") or {}
+    to_drop = [aid for aid in list(agents.keys()) if aid != followed_id]
+    for aid in to_drop:
+        try:
+            del agents[aid]
+        except KeyError:
+            pass
+    composite.find_instance_paths(composite.state)
+    return len(to_drop)
+
+
 def run_multigen_sqlite(
     composite: Any,
     *,
@@ -207,39 +256,6 @@ def run_multigen_sqlite(
     gens_seen = [gen]
     prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
 
-    def _prune_to_followed_lineage(composite: Any, followed_id: str) -> int:
-        """Drop all agents from state['agents'] except the followed one.
-
-        Only invoked when ``single_daughters=True``. See the
-        run_multigen_sqlite docstring for the rationale (bounds peak
-        memory at one-cell footprint instead of 2^N at generation N).
-        Returns count of dropped agents.
-
-        IMPORTANT: process-bigraph's Composite caches `process_paths` /
-        `step_paths` / `front` / `_active_protocol_runtimes` from when
-        the composite was last built. Deleting `state['agents']['01']`
-        leaves those caches with dangling entries that resolve to None
-        on the next tick — composite.run_process then crashes with
-        ``TypeError: 'NoneType' object is not subscriptable`` at
-        ``state_interval = process['interval']`` (process_bigraph
-        composite.py:2834). We MUST call
-        ``composite.find_instance_paths(composite.state)`` after the
-        prune to rebuild those caches, which also pops stale entries
-        from ``self.front`` (composite.py:1789-1791).
-        """
-        state = composite.state or {}
-        agents = state.get("agents") or {}
-        to_drop = [aid for aid in list(agents.keys()) if aid != followed_id]
-        for aid in to_drop:
-            try:
-                del agents[aid]
-            except KeyError:
-                pass
-        # Rebuild composite's internal path caches against the now-pruned
-        # state. Without this, the next composite.run(n) crashes.
-        composite.find_instance_paths(composite.state)
-        return len(to_drop)
-
     while done < max_steps:
         n = min(chunk, max_steps - done)
         try:
@@ -282,7 +298,7 @@ def run_multigen_sqlite(
             # semantics; opt in via `single_daughters=True` when memory
             # bounds matter (single-lineage multi-gen studies).
             if single_daughters:
-                dropped = _prune_to_followed_lineage(composite, followed)
+                dropped = prune_to_followed_lineage(composite, followed)
                 gc.collect()
                 print(f"[multigen_sqlite] gen {gen} → following agent "
                       f"{followed!r} at tick {done} (single_daughters: "

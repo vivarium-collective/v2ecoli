@@ -221,7 +221,7 @@ tests:
   note: 'gen-20260522T003700Z-9fcb58, fast-intrinsic-hydrolysis variant: atp_fraction = 0.997, not <= 0.1. Same
     intrinsic-insufficiency signal — even a 10x intrinsic rate cannot suppress the ATP form against ATP-loading
     without the extrinsic network.'
-status: done-band-fails-as-expected-intrinsic-only
+status: blocked-pending-dnaa00-approval-prior-results-superseded-by-stage1-glycerol-cache
 runs: []
 last_run: '2026-05-17'
 biological_summary: 'In a real cell, DnaA exists in three nucleotide states: apo (empty),

@@ -202,7 +202,7 @@ tests:
   current_verdict: Verdict refresh pending (measure kind cv not auto-evaluable by the scalar evaluator). Recorded
     analysis retained.
   run_ids: []
-status: done-variant-E-wins
+status: blocked-pending-dnaa00-approval-prior-results-superseded-by-stage1-glycerol-cache
 last_run: '2026-05-18'
 follow_up_of: dnaa-02-atp-hydrolysis
 parent_studies:

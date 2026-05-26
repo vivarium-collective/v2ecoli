@@ -234,7 +234,7 @@ follow_up_studies:
 - name: dnaa-07-seqA-sequestration
   rationale: With the ATP/ADP reset network in place, add SeqA origin sequestration (the post-firing refractory)
     to prevent re-initiation.
-status: ran-full-network-in-band
+status: blocked-pending-dnaa00-approval-prior-results-superseded-by-stage1-glycerol-cache
 phase: Mechanism
 bibliography:
 - key: wcm_stage1_parameters

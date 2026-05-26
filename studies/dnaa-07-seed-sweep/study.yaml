@@ -157,5 +157,5 @@ comparative_visualizations:
   - {sim_name: seed-4,   label: 'seed=4'}
   - {sim_name: seed-5,   label: 'seed=5'}
 
-status: pending-first-run
+status: blocked-pending-dnaa00-approval-prior-results-superseded-by-stage1-glycerol-cache
 parent_studies: []

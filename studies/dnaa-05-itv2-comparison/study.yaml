@@ -280,7 +280,7 @@ comparative_visualizations:
     label: v2ecoli default
   - sim_name: v2ecoli-with-fxj-params
     label: v2ecoli + FXJ params
-status: ran-inconclusive
+status: blocked-pending-dnaa00-approval-prior-results-superseded-by-stage1-glycerol-cache
 parent_studies:
 - study: dnaa-04-initiation-mechanism
   reason: dnaa-04 lands v2ecoli's initiation mechanism; this study validates it against an external analytical reference

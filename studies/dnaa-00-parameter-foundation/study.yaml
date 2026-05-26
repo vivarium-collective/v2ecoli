@@ -418,8 +418,8 @@ comparative_visualizations:
     label: Baseline (v2ecoli default)
   - sim_name: baseline-stage1-modified
     label: Baseline + Stage 1 params
-status: ran-baseline-confirmed
-last_run: gen-20260522T003700Z-9fcb58
+status: round3-tau-c-d-imposed-emergent-tau-divergence-awaiting-expert-review
+last_run: '2026-05-25'
 phase: Foundation
 parent_studies: []
 expert_docs:

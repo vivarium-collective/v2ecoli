@@ -269,7 +269,7 @@ tests:
     value: 0.1
   status: refresh pending (measure kind not auto-evaluable in the current evaluator)
   run_ids: []
-status: evaluate-shadow-observer-verdict-refresh-pending
+status: blocked-pending-dnaa00-approval-prior-results-superseded-by-stage1-glycerol-cache
 status_overwritten: 2026-05-17T09:30Z
 biological_summary: 'The current v2ecoli decides when to fire chromosome replication using
 

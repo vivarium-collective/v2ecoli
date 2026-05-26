@@ -2,26 +2,48 @@ schema_version: 1
 name: dnaa-replication
 title: DnaA / Replication Initiation
 created: '2026-05-16'
-last_baseline_run: '2026-05-23'
-status: executed-round2-addressed-pending-review
+last_baseline_run: '2026-05-25'
+status: round3-dnaa00-shipped-awaiting-expert-review
 executive:
   what_is_this: Porting the DnaA-driven chromosome-replication-initiation decision into v2ecoli — replacing the
     legacy "cell mass per oriC ≥ critical mass" heuristic with the actual mechanism (DnaA expression → ATP/ADP exchange
     → DnaA-box titration across the chromosome → oriC loading → initiation).
-  verdict: 'Round 2 addressed; round 3 ready. All round-1 + round-2 expert feedback is integrated: hydrolysis rate
-    corrected (0.046, not 0.001), RIDA demoted to intrinsic-only for dnaa-02 (datA + DARS1/2 land in dnaa-06''s
-    reset network), DnaA-box catalog constrained to the 307 consensus subset with occupancy-affinity replacing the
-    Hill model. The 24-run refresh batch on 2026-05-22 produced post-correction runs for every unblocked variant.
-    Each study now declares its emitter-path readouts (no more "No observables declared yet"), and the report ships
-    four new chromosome figures ported from the prior replication-initiation report: chromosome state with replication
-    bubbles + RNAPs (dnaa-00), replication timeline + RIDA-flux story (dnaa-02 + dnaa-06), oriC tier-split load-and-trigger
-    (dnaa-03), DnaA-box landscape at real chromosomal coordinates from sim_data (dnaa-03), and the initiation-events
-    timeline (dnaa-04). Open biology decision: dnaa-02 verdict (failing-bio without datA/DARS1/2 — accept it as
-    the honest scope-cut to dnaa-06, or absorb the reset network back into dnaa-02). Open infrastructure: multi-generation
-    runs (≥1 doubling time, Haochen''s recurring ask) — the XArrayEmitter migration is wired through the dashboard
-    but the zarr-read viz adapter is the last piece blocking the report from rendering multigen data.'
-  verdict_status: in-progress
+  verdict: 'Round 3 (2026-05-25) addresses Haochen''s workflow shift to one-study-at-a-time + his specific dnaa-00
+    asks (impose τ=150 / C=70 / D=30, run ≥1 doubling time, add DnaA-concentration viz). Wiring landed end-to-end:
+    new `minimal_glycerol` ParCa condition (MIX0-845 media + rebuilt cache); C-period + D-period overrides surfaced
+    through LoadSimData + get_chromosome_replication_config; n_steps bumped to 10000 (>1 cycle). Verification at
+    composite-build time: mass-listener reports cell_cycle_len=9000s (τ=150) ✓, chromosome_replication reports
+    D_period=1800s ✓ and basal_elongation_rate=554 nt/s → C≈69.94 min ✓. BUT the cell actually divides at t=5000s
+    (83 min, not 150) — division fires on dry_mass ≥ threshold, not on cell_cycle_len; ParCa''s glycerol fit gave
+    dry_mass_inc[minimal_glycerol]=82 fg (small) and glycerol-fast synthesis hit it in 83 min. DnaA count drops
+    329 → 222 (below the literature 300-800 band); DnaA concentration drops 3× (1.03 → 0.33 mol/fg). Two open
+    questions for Haochen recorded in decisions_needed below. Deliverable: single-study HTML report (rendered via
+    dashboard PR #124). Investigation now in single-study cadence: only dnaa-00 ran this round; dnaa-01 → dnaa-07
+    blocked-by-prerequisite until dnaa-00 is approved.'
+  verdict_status: awaiting-expert-review
   decisions_needed:
+  - question: 'Round 3 τ-gap: dnaa-00 cell divides at 83 min, not the declared 150 min. Three paths — (a) accept
+      emergent 83 min as ParCa''s honest fit for minimal_glycerol; (b) hand-tune dry_mass_inc[minimal_glycerol]
+      to ~144 fg so division fires at 150; (c) deeper ParCa rebuild with literature-calibrated glycerol kinetics
+      (slower synthesis, larger threshold). Which does the science demand?'
+    context: 'Division triggers on dry_mass ≥ threshold (where threshold = ParCa-fitted dry_mass_inc[media_id]),
+      NOT on cell_cycle_len. We imposed cell_cycle_len=9000s correctly, but ParCa fit dry_mass_inc[minimal_glycerol]
+      to 82 fg from the bacterial-growth-law fit (slow growth → small cell), and glycerol synthesis (also ParCa-fit)
+      hit that threshold in 83 min. This is the same class of issue as prior memory `growth_rate_not_condition_driven`.
+      Surfacing for science decision because (b) and (c) involve unphysical or expensive moves.'
+  - question: 'Round 3 DnaA concentration drop: count/mass falls 3× over one cycle (1.03 → 0.42 → 0.33 mol/fg).
+      Real biology (glycerol-fit synthesis can''t keep pace with mass growth) or artifact (translation_efficiency
+      scale needs recalibration for glycerol)?'
+    context: 'NEW finding from the requested concentration viz. DnaA count goes 329 → 234 (at division) → 222 (end),
+      dropping below the literature [300, 800] band. With glycerol-fit synthesis rates, the cell may simply not
+      produce enough DnaA to track the slower growth — that''s arguably correct biology. OR ParCa''s glycerol fit
+      under-fits dnaA expression and a calibration scale factor is needed (analogous to the existing
+      translation_efficiency_eg10235_scale=2.48 calibration in dnaa-01).'
+  - question: 'RESOLVED 2026-05-25: workflow shift to one-study-at-a-time for dnaa-replication. Only the focus study
+      (currently dnaa-00) runs per round; others stay blocked-by-prerequisite until upstream is approved.'
+    context: 'Haochen 2026-05-25: "if the first study has serious problems, results in later studies are unlikely
+      to make any sense." Investigation yaml now has focus_study + study_lifecycle map. Single-study report endpoint
+      shipped as vivarium-dashboard PR #124.'
   - question: Should dnaa-02 absorb datA + DARS1/2, or accept failing-bio + let dnaa-06 carry the full reset network?
     context: 'Haochen round-2: "RIDA shouldn''t be considered in dnaa-02 step" — we demoted to intrinsic-only as
       instructed. Result: dnaa-02 verdict is failing-bio (DnaA-ATP fraction sits at ~1.0 because intrinsic hydrolysis

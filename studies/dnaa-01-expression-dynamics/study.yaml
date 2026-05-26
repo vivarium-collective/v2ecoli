@@ -237,7 +237,7 @@ tests:
   - Saggioro2013
   - Katayama2017
   run_ids: []
-status: count-passing-verdict-refresh-pending
+status: blocked-pending-dnaa00-approval-prior-results-superseded-by-stage1-glycerol-cache
 last_run: gen-20260522T003700Z-9fcb58
 biological_summary: 'Before we can model how DnaA decides when to fire replication, we need to
 

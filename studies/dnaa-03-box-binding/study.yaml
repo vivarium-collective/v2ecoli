@@ -261,7 +261,7 @@ tests:
   - Kawakami2005
   - Schaper2000
   run_ids: []
-status: evaluate-partial-pass-known-gaps
+status: blocked-pending-dnaa00-approval-prior-results-superseded-by-stage1-glycerol-cache
 last_run: '2026-05-17'
 biological_summary: 'E. coli''s chromosome holds ~322 catalogued DnaA-binding sites (DnaA
 

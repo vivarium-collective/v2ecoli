@@ -90,3 +90,10 @@
 "gltX"	"TU0-6409"	"CPLX0-7705__inactive"	0.946	"placeholder: no per-TU data for Fis-KO"
 "gltX"	"TU0-6550"	"CPLX0-7705__inactive"	0.030	"= basal: gltXp2 Fis-independent"
 "gltX"	"TU0-6551"	"CPLX0-7705__inactive"	0.024	"= basal: gltXp1 Fis-independent"
+# leuLABCD operon — Thomason 2015 M63_0.4 (b0075/leuL primary TSS at 83735, UTR 27, stepH 981.52). leuLp1 dominates ~99%; leuLp2 (Thomason 83894, UTR 186, stepH 9.59) is the minor distal TSS.
+"leuLABCD"	"TU00179"	"basal"	0.990	"Thomason 2015 M63_0.4 stepH=981.52 (Primary, leuLp1)"
+"leuLABCD"	"TU0-42478"	"basal"	0.010	"Thomason 2015 M63_0.4 stepH=9.59 (leuLp2 distal, proxy)"
+"leuLABCD"	"TU00179"	"PD00519__active"	0.990	"placeholder: leuLp1 — LeuO-regulated"
+"leuLABCD"	"TU0-42478"	"PD00519__active"	0.010	"= basal: leuLp2 LeuO-independent"
+"leuLABCD"	"TU00179"	"PD00519__inactive"	0.990	"placeholder: no per-TU data for LeuO-KO"
+"leuLABCD"	"TU0-42478"	"PD00519__inactive"	0.010	"= basal: leuLp2 LeuO-independent"

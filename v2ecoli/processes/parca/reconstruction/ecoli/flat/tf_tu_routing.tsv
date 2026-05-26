@@ -33,3 +33,8 @@
 "lexA"	"rpoD"	"TU00435"	"true"	"Janion 2008; rpsUp3 SOS promoter"
 "lrp"	"serA"	"TU0-2342"	"true"	"EcoCyc: Lrp-Leu represses serAp2; serAp1 activation FC not in v2ecoli data"
 "fis"	"gltX"	"TU0-6409"	"true"	"EcoCyc: Fis only regulates gltXp3 (dominant 94.7% primary); Thomason TSS=2520730, UTR 58"
+"leuO"	"leuA"	"TU00179"	"true"	"EcoCyc: LeuO binds only leuLp1 (dominant ~99% primary); Thomason TSS=83735, UTR 27"
+"leuO"	"leuL"	"TU00179"	"true"	"EcoCyc: LeuO at leuLp1 drives the whole leuLABCD transcript"
+"leuO"	"leuB"	"TU00179"	"true"	"EcoCyc: LeuO at leuLp1 drives the whole leuLABCD transcript"
+"leuO"	"leuC"	"TU00179"	"true"	"EcoCyc: LeuO at leuLp1 drives the whole leuLABCD transcript"
+"leuO"	"leuD"	"TU00179"	"true"	"EcoCyc: LeuO at leuLp1 drives the whole leuLABCD transcript"

@@ -25,7 +25,7 @@ report:
     growth in this condition.'
   caveat: 'Cell divides at 83 min, not the declared 150 min. DnaA count drops from 329 (in band) to 222
     (below the literature 300-800 band) by run end. These are the focus questions for Round 4.'
-  lit_match: Boesen 2024 / Fu-Xiao-Jun 2023
+  lit_match: Fu-Xiao-Jun 2023 Stage-1 heuristic table (τ=150, C=70, D=30)
   key_metrics:
   - label: τ declared / emergent
     value: 150 / 83 min
@@ -50,17 +50,35 @@ report:
   purpose: Establish the baseline the whole investigation calibrates against, and show how the same v2ecoli code
     behaves when its surfaced parameters are pinned to the Fu/Xiao/Jun (2023) Stage-1 heuristic values — before
     any new mechanism lands.
-  setup: 'v2ecoli baseline + a read-only DnaA-cycle listener on minimal-glucose (seed 0), run to division (~2640
-    s). Two comparators overlay it: a RIDA-active variant (dnaa-04 mechanism, Stage-1 parameters) and the Fu/Xiao/Jun
-    ITv2 analytical mean-field model.'
-  result: The baseline initiates a round of replication within one cell cycle (oriC count 2→4) and holds DnaA at
-    ~325 (literature band 300-800). The RIDA-active variant keeps DnaA-ATP fraction at ~0.15-0.44 (near Boesen 2024's
-    [0.2, 0.5]); the no-RIDA baseline sits at ~1.0.
-  interpretation: The unmodified cell already fires replication via the legacy mass-per-oriC heuristic, so it is
-    a valid reference. Adding the hydrolysis/RIDA layer is what brings DnaA-ATP into the physiological band — evidence
-    that the ported mechanism, not the heuristic, governs the ATP fraction.
-  decision: Baseline confirmed and parameter-pinned. Proceed to the mechanism studies.
-  next_action: dnaa-01 (expression dynamics) and dnaa-02 (intrinsic hydrolysis) build on these two composites.
+  setup: 'Round 3 (2026-05-25): v2ecoli baseline + the read-only DnaA-cycle listener on the new
+    minimal_glycerol Stage-1 ParCa cache (seed 0, n_steps=10000 = 167 min wall-clock; covers >1
+    declared cycle). The cache was built by adding a glycerol media row to condition_defs.tsv
+    (τ=150), a new MIX0-845 media file (AB + 0.2% glycerol = 13 mM), running the ParCa pipeline
+    fast-mode (~94s), and threading c_period_minutes=70 + d_period_seconds=1800 through
+    save_sim_input → LoadSimData → get_chromosome_replication_config. Mass listener also emits
+    cell_mass / dry_mass / expected_mass_fold_change so the new DnaA concentration viz can compute
+    count/mass.'
+  result: 'Imposed knobs verified at composite-build time: cell_cycle_len=9000s (τ=150 min) ✓,
+    D_period=1800s ✓, basal_elongation_rate=554 nt/s → implied C=69.94 min on the 2.32 Mbp
+    replichore ✓. But emergent behaviour diverges: cell divides at t=5000s (83 min), not 150;
+    DnaA count drops 329 → 234 (at division) → 222 (end), falling below the literature 300-800
+    band; DnaA concentration drops 3× across the run (1.03 → 0.42 → 0.33 mol/fg). One full
+    division event captured (agent 0 → 00). Replication initiation fired (number_of_oric 2→4).'
+  interpretation: 'The declared cycle length (cell_cycle_len) controls the mass listener’s
+    expected_mass_fold_change REFERENCE curve, but division actually fires on dry_mass ≥ threshold
+    where the threshold comes from ParCa-fitted dry_mass_inc[media_id]. ParCa fit
+    dry_mass_inc[minimal_glycerol]=82 fg (small, per bacterial growth law: slow growth → small cell)
+    and synthesis was glycerol-fast enough to hit that in 83 min. The two signals (declared τ vs
+    emergent τ) are not coupled, so imposing one without re-tuning the other produces this gap.
+    The DnaA concentration drop is the second-order consequence of the same fit: synthesis can not
+    keep pace with growing mass under glycerol fit parameters.'
+  decision: 'Round 3 IMPOSES the Stage-1 knobs end-to-end (one of Haochen R3 asks). Verdict
+    passing-with-caveats because the wiring works but the emergent biology diverges from
+    the declared targets. Awaiting Haochen review of the two open questions in decisions_needed.'
+  next_action: 'Pending Haochen ok on Round 3 + answers to the two decisions_needed entries
+    (τ-gap path; concentration drop attribution). After that, unblock dnaa-01 and re-run it on
+    the new Stage-1 glycerol cache (its prior results are on glucose / pre-Round-3 config and
+    are superseded).'
 question: 'What baseline does the dnaa-replication investigation calibrate
 
   against, and how does the same v2ecoli code respond when its key

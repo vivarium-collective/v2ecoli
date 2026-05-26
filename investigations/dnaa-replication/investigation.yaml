@@ -81,13 +81,19 @@ scientific_argument:
   - 'Chromosome state visualization (dnaa-00) reads live composite state: replisomes at real fork coordinates, replication
     bubbles between forks, RNAPs partitioned between parent and daughter strands by domain_index.'
   evidence_against:
+  - 'Round 3 (2026-05-25): dnaa-00 imposed Stage-1 τ=150 / C=70 / D=30 via the new minimal_glycerol
+    cache. Emergent cycle = 83 min (not 150) because division fires on dry_mass ≥ ParCa-fitted
+    threshold, not on cell_cycle_len; ParCa''s glycerol fit dry_mass_inc=82 fg + glycerol-fast
+    synthesis hit it early. DnaA count drops below the literature [300, 800] band over the run
+    (329 → 222). Open biology: see investigation decisions_needed.'
   - dnaa-02 (intrinsic-hydrolysis only) cannot reach the [0.2, 0.5] DnaA-ATP fraction band — failing-bio verdict
     is honest; reset network (RIDA + datA + DARS1/2) is needed (lands in dnaa-06).
-  - Runs are single-generation (~44 min, divides at first oriC initiation). Haochen's "≥1 doubling time" steadiness
-    ask needs multi-generation runs — XArrayEmitter is wired but the zarr-read viz adapter (Task 7.5) is needed
-    for report rendering.
-  - Growth condition is minimal-glucose (~44 min). Stage-1 glycerol (τ=150 min) would need a synthesis re-fit; nutrient-condition
-    swap alone doesn't change growth rate (verified 2026-05-22).
+  - 'PRIOR (Round 2) findings below are recorded against the minimal-glucose ParCa cache; they will
+    need re-validation against the new minimal_glycerol Stage-1 cache once dnaa-00 is approved and
+    dnaa-01 → dnaa-07 are unblocked (per Haochen one-study-at-a-time).'
+  - Runs were single-generation (~44 min, divides at first oriC initiation). Haochen's "≥1 doubling
+    time" steadiness ask is now structurally addressable (n_steps=10000 + glycerol-cycle 83 min →
+    ~2 cycles per run); validation per study still pending.
   key_figures:
   - study: dnaa-00-parameter-foundation
     viz: dnaa-atp-fraction-foundation

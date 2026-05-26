@@ -192,6 +192,31 @@ def _find_workspace_root(start: Path | None = None) -> Path | None:
     return None
 
 
+def _ram_full_schema(listeners_schema: dict) -> tuple[dict, dict]:
+    """The full state-tree schema RAMEmitter captures: bulk + listeners +
+    chromosome/replisome unique-nodes. Returns (emit_schema, topology).
+    """
+    emit_schema = {
+        'global_time': 'float',
+        'bulk': 'array',
+        'listeners': listeners_schema,
+        'full_chromosome': 'node',
+        'active_replisome': 'node',
+        'active_RNAP': 'node',
+        'chromosome_domain': 'node',
+    }
+    topo = {
+        'global_time': ('global_time',),
+        'bulk': ('bulk',),
+        'listeners': ('listeners',),
+        'full_chromosome': ('unique', 'full_chromosome'),
+        'active_replisome': ('unique', 'active_replisome'),
+        'active_RNAP': ('unique', 'active_RNAP'),
+        'chromosome_domain': ('unique', 'chromosome_domain'),
+    }
+    return emit_schema, topo
+
+
 def _workspace_default_emitter() -> str | None:
     """Read ``runtime.default_emitter`` from workspace.yaml. Returns one of
     'parquet' / 'sqlite' / 'xarray' / 'ram' / None (no workspace or unset).
@@ -872,36 +897,30 @@ def _get_special_step(loader, step_name, core):
             instance = SQLiteEmitter(cfg, core)
         else:
             # No explicit override — consult workspace.yaml's
-            # runtime.default_emitter. Full schema is used in either branch
-            # (bulk + chromosome/replisome structures) so the on-disk parquet
-            # output is the persistent equivalent of RAMEmitter capture.
-            emit_schema = {
-                'global_time': 'float',
-                'bulk': 'array',
-                'listeners': listeners_schema,
-                'full_chromosome': 'node',
-                'active_replisome': 'node',
-                'active_RNAP': 'node',
-                'chromosome_domain': 'node',
-            }
-            topo = {
-                'global_time': ('global_time',),
-                'bulk': ('bulk',),
-                'listeners': ('listeners',),
-                'full_chromosome': ('unique', 'full_chromosome'),
-                'active_replisome': ('unique', 'active_replisome'),
-                'active_RNAP': ('unique', 'active_RNAP'),
-                'chromosome_domain': ('unique', 'chromosome_domain'),
-            }
+            # runtime.default_emitter. ParquetEmitter can only write
+            # flat-column data (global_time + listener leaves); the
+            # `bulk` store is a list of (id, count, ...) tuples and the
+            # chromosome/replisome unique-nodes are variable-shape tree
+            # structures — Polars can't cast either into parquet columns.
+            # RAMEmitter has no disk cost so it keeps the full state tree.
             ws_pref = _workspace_default_emitter()
             if ws_pref == 'parquet' and ParquetEmitter is not None:
-                # Auto-build workspace-default ParquetEmitter (full schema).
+                # Auto-build workspace-default ParquetEmitter (listeners
+                # only — same lightweight schema as the explicit
+                # parquet_emitter() context manager).
                 # out_dir: <workspace>/.pbg/parquet-runs/
                 # experiment_id: auto-generated; partitioned hive layout.
+                emit_schema = {
+                    'global_time': 'float',
+                    'listeners': listeners_schema,
+                }
+                topo = {
+                    'global_time': ('global_time',),
+                    'listeners': ('listeners',),
+                }
                 ws_root = _find_workspace_root()
                 if ws_root is None:
-                    # workspace.yaml found earlier but not now? Defensive
-                    # fallback to RAM.
+                    emit_schema, topo = _ram_full_schema(listeners_schema)
                     instance = RAMEmitter({'emit': emit_schema}, core)
                 else:
                     from v2ecoli.library.emitter_presets import parquet_vecoli
@@ -916,8 +935,9 @@ def _get_special_step(loader, step_name, core):
                     cfg = {'emit': emit_schema, **parquet_cfg}
                     instance = ParquetEmitter(cfg, core)
             else:
-                # In-memory RAMEmitter: no disk cost. Default when workspace
-                # default_emitter is 'ram' / unset, or no workspace found.
+                # In-memory RAMEmitter: no disk cost so keep the full
+                # capture (bulk + chromosome/replisome unique-nodes).
+                emit_schema, topo = _ram_full_schema(listeners_schema)
                 instance = RAMEmitter({'emit': emit_schema}, core)
 
         return instance, topo, 'step'

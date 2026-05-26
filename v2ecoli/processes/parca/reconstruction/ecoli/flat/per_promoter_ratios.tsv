@@ -80,3 +80,13 @@
 "serA"	"TU0-2342"	"MONOMER0-155__active"	0.026	"= basal"
 "serA"	"TU00224"	"MONOMER0-155__inactive"	0.974	"placeholder, no per-TU data for Lrp-KO"
 "serA"	"TU0-2342"	"MONOMER0-155__inactive"	0.026	"placeholder"
+# gltX — Thomason 2015 M63_0.4 stepHeights (b2400 coords +1977 offset → v2ecoli). gltXp3 (UTR 58, proximal) is the dominant 95% Primary; gltXp1/p2 are minor distal TSSs.
+"gltX"	"TU0-6409"	"basal"	0.946	"Thomason 2015 M63_0.4 stepH=72.75 (Primary, gltXp3)"
+"gltX"	"TU0-6550"	"basal"	0.030	"Thomason 2015 M63_0.4 stepH=2.31 (gltXp2)"
+"gltX"	"TU0-6551"	"basal"	0.024	"Thomason 2015 M63_0.4 stepH=1.80 (gltXp1, distal minor)"
+"gltX"	"TU0-6409"	"CPLX0-7705__active"	0.946	"placeholder: gltXp3 Fis-regulated"
+"gltX"	"TU0-6550"	"CPLX0-7705__active"	0.030	"= basal: gltXp2 Fis-independent"
+"gltX"	"TU0-6551"	"CPLX0-7705__active"	0.024	"= basal: gltXp1 Fis-independent"
+"gltX"	"TU0-6409"	"CPLX0-7705__inactive"	0.946	"placeholder: no per-TU data for Fis-KO"
+"gltX"	"TU0-6550"	"CPLX0-7705__inactive"	0.030	"= basal: gltXp2 Fis-independent"
+"gltX"	"TU0-6551"	"CPLX0-7705__inactive"	0.024	"= basal: gltXp1 Fis-independent"

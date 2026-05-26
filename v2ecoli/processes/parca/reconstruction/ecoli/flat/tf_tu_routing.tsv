@@ -32,3 +32,4 @@
 "lexA"	"rpsU"	"TU00435"	"true"	"Janion 2008; rpsUp3 SOS promoter"
 "lexA"	"rpoD"	"TU00435"	"true"	"Janion 2008; rpsUp3 SOS promoter"
 "lrp"	"serA"	"TU0-2342"	"true"	"EcoCyc: Lrp-Leu represses serAp2; serAp1 activation FC not in v2ecoli data"
+"fis"	"gltX"	"TU0-6409"	"true"	"EcoCyc: Fis only regulates gltXp3 (dominant 94.7% primary); Thomason TSS=2520730, UTR 58"

@@ -61,18 +61,17 @@ expert_docs:
   - chromosome-cycle-calibration
 
 how_to_read:
-- title: Acceptance criteria — current status
-  body: 'Five lifecycle checkpoints: D-period wiring (passed), v2ecoli↔vEcoli match (passed),
-    multi-gen equilibration to declared τ (failed, upstream FBA gap), TF coverage audit (open,
-    GlpR gap), glycerol medium added (passed). The failed criterion is the active research question.'
-- title: How the per-phase studies fit
-  body: 'The chromosome-replication-plan.pdf breaks this work into Studies 1-8. Study 1 (DnaA
-    expression dynamics) is the active phase. Subsequent studies follow only after Study 1 closes
-    the cycle-time gap.'
-- title: Where the heavy artifacts live
-  body: 'Sim DBs (out/acetate_apr24_test.db, out/glycerol_stage1_1gen.db, out/vecoli_acetate_compare_parquet/)
-    are committed to this worktree only. They total ~23 GB and are not duplicated to the
-    v2ecoli-dashboard worktree.'
+- '**Acceptance criteria — current status:** five lifecycle checkpoints. D-period wiring (passed),
+  v2ecoli↔vEcoli match (passed), multi-gen equilibration to declared τ (**failed**, upstream FBA
+  gap), TF coverage audit (open, GlpR gap), glycerol medium added (passed). The failed criterion
+  is the active research question — Study 4 (`dnaa-04-mechanistic-initiation`) is what closes it.'
+- '**How the per-phase studies fit:** `chromosome-replication-plan.pdf` breaks this work into
+  Studies 1-8 with a linear dependency chain. Study 1 (DnaA expression dynamics) is the active
+  phase. Subsequent studies activate as each prerequisite closes its primary tests.'
+- '**Where the heavy artifacts live:** Sim DBs (`out/acetate_apr24_test.db` 9.1 GB,
+  `out/glycerol_stage1_1gen.db` 14 GB, `out/vecoli_acetate_compare_parquet/` 677 MB) are in this
+  worktree only (~23 GB total). Not duplicated to v2ecoli-dashboard. See the Inputs tab for
+  the full dataset catalog.'
 
 glossary:
 - term: D-period

@@ -500,16 +500,27 @@ planned_runs:
   details: 20 benchmark E. coli genes; BH-FDR ≤ 0.10 (investigation gating)
 - name: pc-recovery-pilot-millard
   status: scaffold-pilot-done
-  n_steps: 40 obs + 6 interventions = 46 Millard forward sims
-  details: 'PILOT 2026-05-25. scripts/run_causal_pc_pilot.py runs minimal PC-style causal discovery
-    on Millard with KNOWN ground truth (Millard reaction adjacency). 40 obs runs (±10% IC perturbations)
-    + 6 reaction-knockout interventions over 9 central metabolites. Skeleton via Pearson |r|>0.4 +
-    p<0.05; orientation via interventional shift comparison. RESULT: recall = 55.6% (5 of 9 ground-truth
-    edges recovered), precision = 13.9% (over-eager — correlation-only skeleton picks up many spurious
-    edges). For pdmp-05.tests.pc-recovers-known-edges (80% recall threshold): pilot shows the discovery
-    machinery works but needs conditional independence tests (proper PC, not skeleton-via-correlation)
-    to reach 80% recall. Viz at reports/figures/pdmp-05/pc_recovered_edges_real.html +
-    pc_recall_vs_threshold_real.html.'
+  n_steps: 40 obs + 6 interventions (v1) or 80 obs at mixed times (v2)
+  details: 'PILOT 2026-05-25/26. TWO iterations:
+
+    v1 (scripts/run_causal_pc_pilot.py, 2026-05-25): correlation-only skeleton + interventional
+    orientation. 40 obs + 6 knockouts at steady state. Result: 55.6% recall, 13.9% precision —
+    but the "recall" was deceptive. Diagnosis (during v2): Millard reaches a UNIQUE deterministic
+    steady state regardless of IC perturbation; marginal pairwise |r| ≈ 1.0 across all metabolites
+    (rank-1 observation matrix). v1 "matched" by chance on rank-1 data, not real causal structure.
+
+    v2 (scripts/run_causal_pc_v2.py, 2026-05-26): proper PC algorithm — partial-correlation
+    conditional-independence tests (Fisher z-transform p-values) at |S| up to 2, v-structure
+    orientation via sepsets. Data-generation fix: capture at MIXED transient timepoints (200/500/1000s)
+    + larger per-species IC perturbations (3x noise) so the observation matrix is genuinely
+    multi-dimensional. Result on 80 obs: 33% directed recall (3/9), 16% precision.
+
+    Honest finding: PC algorithm DOES work on Millard, but requires transient-state observations.
+    Steady-state observations are rank-1 garbage for deterministic systems. For pdmp-05.tests.
+    pc-recovers-known-edges (80% recall): path forward is either (a) richer time-course observations
+    (multiple snapshots per replicate, not just one) or (b) more aggressive interventions that drive
+    the system to truly distinct attractors. Viz at reports/figures/pdmp-05/pc_v2_vs_v1_real.html +
+    pc_v2_dag_vs_groundtruth_real.html.'
 visualizations:
 - name: phase5-benchmark-bh-fdr
   address: file:reports/figures/planned-comparisons/phase5_benchmark_bh_fdr.html

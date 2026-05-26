@@ -81,11 +81,30 @@ def _build_emit_schema(leaves: list[tuple[str, ...]]) -> dict:
     `'any'` for the leaf type since the captured values are
     JSON-serialised; the schema's job here is structural, not type-
     checking.
+
+    Conflict handling: when a leaf is a strict prefix of another leaf
+    (e.g. `agents/0/listeners/monomer_counts` AND
+    `agents/0/listeners/monomer_counts/monomerCounts`), drop the
+    shorter one and keep the more specific. Mixing them yields a
+    'str does not support item assignment' crash on `cursor.setdefault`
+    when the second-pass walks into a key that was already set to 'any'.
+    Surfaced 2026-05-25 wiring dnaa-01's `agents/0/listeners/monomer_counts`
+    readout alongside an existing `monomer_counts/monomerCounts` test
+    measure path.
     """
+    leaf_set = {tuple(l) for l in leaves if l}
+    # Drop any leaf that is a strict prefix of a longer leaf in the set.
+    keep: list[tuple[str, ...]] = []
+    for leaf in leaf_set:
+        is_prefix_of_other = any(
+            other != leaf and len(other) > len(leaf) and other[:len(leaf)] == leaf
+            for other in leaf_set
+        )
+        if not is_prefix_of_other:
+            keep.append(leaf)
+
     schema: dict = {}
-    for leaf in leaves:
-        if not leaf:
-            continue
+    for leaf in keep:
         cursor = schema
         for k in leaf[:-1]:
             cursor = cursor.setdefault(k, {})

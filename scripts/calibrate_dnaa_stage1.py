@@ -134,10 +134,23 @@ def main() -> int:
     ap.add_argument("--fixture", default=None,
                     help="parca_state.pkl.gz path; pass when calibrating "
                          "against a fresh-rebuild fixture (e.g. glycerol).")
+    ap.add_argument("--start-tx-factor", type=float, default=1.0,
+                    help="bootstrap transcription factor (default 1.0). Set to "
+                         "the prior-converged value when recalibrating a "
+                         "different condition — at 1.0, ParCa's basal dnaA "
+                         "rate is so low (~0.05/min/gene) that a 15-min sim "
+                         "sees 0 events and the rescale loop divides by zero.")
+    ap.add_argument("--start-te-factor", type=float, default=1.0,
+                    help="bootstrap translation efficiency factor (default 1.0). "
+                         "Same zero-realized concern as --start-tx-factor.")
+    ap.add_argument("--zero-fallback-multiplier", type=float, default=10.0,
+                    help="when realized rate is zero (no events), multiply the "
+                         "factor by this to bootstrap upward instead of dividing "
+                         "by zero. Default 10 = order-of-magnitude jump.")
     args = ap.parse_args()
 
     import subprocess
-    tx_factor, te_factor = 1.0, 1.0
+    tx_factor, te_factor = float(args.start_tx_factor), float(args.start_te_factor)
     suffix = f"-{args.media_condition}" if args.media_condition else ""
     cache_dir = f"out/cache-{args.condition}{suffix}"
     history = []
@@ -163,13 +176,26 @@ def main() -> int:
         print(f"  realized: {m['mrna_rate_per_min_per_gene']:.4g} mRNA/min/gene "
               f"(target {TARGET_MRNA_RATE}), TE {m['realized_te_protein_per_mrna']:.4g} "
               f"(target {TARGET_TE}); mean_copy={m['mean_gene_copy']:.3g}", flush=True)
-        # Rescale for next iteration.
+        # Rescale for next iteration. Zero-realized → multiply by the
+        # zero-fallback factor (bootstrap upward) instead of skipping the
+        # update (which would stall the loop at the cold-start factor).
         rate = m["mrna_rate_per_min_per_gene"]
         te = m["realized_te_protein_per_mrna"]
         if rate and rate > 0:
             tx_factor *= TARGET_MRNA_RATE / rate
+        else:
+            print(f"  ⚠ realized mRNA rate is 0 (no events in {args.sim_minutes} min); "
+                  f"multiplying tx_factor by {args.zero_fallback_multiplier} to bootstrap upward")
+            tx_factor *= args.zero_fallback_multiplier
         if te and te == te and te > 0:  # not NaN
             te_factor *= TARGET_TE / te
+        else:
+            # Don't update te_factor if we have no mRNA events (te is meaningless).
+            # Only fall back when mRNA fires but ribosomes don't (rare).
+            if rate and rate > 0:
+                print(f"  ⚠ realized TE is NaN/0 (events: {m['protein_events']} protein / "
+                      f"{m['mrna_events']} mRNA); multiplying te_factor by {args.zero_fallback_multiplier}")
+                te_factor *= args.zero_fallback_multiplier
         within = (abs(rate - TARGET_MRNA_RATE) / TARGET_MRNA_RATE < args.tol
                   if rate else False)
         if within and it > 0:

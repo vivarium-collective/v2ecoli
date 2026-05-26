@@ -215,6 +215,19 @@ implementation_requirements:
   status: open
   why: 'Follow [[feedback_no_hardcoded_molecule_ids]]: don''t hardcode PD00352 / DNAA-MONOMER /
     EG10239 in study runners; resolve via studies/_lib/molecule_lookup.protein_by_synonym("DnaA").'
+- id: REQ-8
+  title: Add --dnaa-txn-rate absolute-rate flag to build_cache.py
+  kind: tooling
+  effort: M
+  status: open
+  why: Stage 1 PDF prescribes dnaA transcription rate = 1.5 mRNA/min/gene (constitutive). build_cache.py
+    currently exposes --dnaa-txn-scale (multiplier) and --dnaa-constitutive (zeros delta_prob_matrix)
+    but no absolute-rate target. Needs (a) baseline-rate measurement or analytical formula in
+    v2ecoli/library/sim_data.py:923, (b) new CLI flag in scripts/build_cache.py mapping target
+    rate → scale factor. Blocks Study 1's quantitative test dnaA_count_in_mass_spec_range.
+  files:
+  - v2ecoli/library/sim_data.py
+  - scripts/build_cache.py
 key_assumptions:
 - DnaA mass-spec / EcoCyc abundance is 300-800 per cell (or ~200 per oriC by western blot per
   Boesen 2024). v2ecoli should land somewhere in that range.
@@ -298,4 +311,15 @@ runs: []
 tests:
   data_source: all_runs
 visualizations: []
-embed_visualizations: []
+embed_visualizations:
+- name: stage1-parameter-audit
+  url: /docs/stage1_parameter_comparison.html
+  description: 'Stage 1 parameter spec from Parameters for WCM (Stage 1_ heuristic values).pdf
+    mapped against v2ecoli defaults — 23 parameters, parameter-by-parameter, with implementation-location
+    citations (parameters.tsv:32, dna_sites.tsv, translation_efficiency.tsv, etc.). Status: 8
+    of 23 already aligned (cell volume, τ-via-glycerol-condition, C-period via replisome_rate,
+    DnaA TE, DnaA degradation, datA/DARS1/DARS2 locations); 1 gap blocking Study 1 (absolute dnaA
+    transcription rate = 1.5 mRNA/min/gene — multiplier flag exists but no absolute-rate flag);
+    14 deferred to Studies 2/3/5 (Kd_ATP, Kd_ADP, intrinsic hydrolysis, consensus box Kd, oriC
+    low-affinity ladder, Hda rate, DARS conversion rates) because they parameterise mechanism
+    those studies introduce.'

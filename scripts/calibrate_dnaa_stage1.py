@@ -125,21 +125,37 @@ def main() -> int:
     ap.add_argument("--sim-minutes", type=float, default=15.0)
     ap.add_argument("--tol", type=float, default=0.15, help="rel. tolerance")
     ap.add_argument("--condition", default="stage1-heuristic")
+    ap.add_argument("--media-condition", default=None,
+                    help="ParCa nutrient condition (e.g. glycerol). Forwarded "
+                         "to build_condition_cache.py. Cache dir gets the "
+                         "matching -{media} suffix.")
+    ap.add_argument("--fixed-media", default=None,
+                    help="media id (e.g. minimal_glycerol). Forwarded.")
+    ap.add_argument("--fixture", default=None,
+                    help="parca_state.pkl.gz path; pass when calibrating "
+                         "against a fresh-rebuild fixture (e.g. glycerol).")
     args = ap.parse_args()
 
     import subprocess
     tx_factor, te_factor = 1.0, 1.0
-    cache_dir = f"out/cache-{args.condition}"
+    suffix = f"-{args.media_condition}" if args.media_condition else ""
+    cache_dir = f"out/cache-{args.condition}{suffix}"
     history = []
     for it in range(args.iterations + 1):  # iteration 0 = baseline measurement
         print(f"\n=== iteration {it}: tx_factor={tx_factor:.4g} te_factor={te_factor:.4g} ===",
               flush=True)
         t0 = time.time()
-        subprocess.run([sys.executable, "scripts/build_condition_cache.py",
-                        "--condition", args.condition,
-                        "--transcription-factor", str(tx_factor),
-                        "--te-factor", str(te_factor)],
-                       check=True, capture_output=True)
+        build_cmd = [sys.executable, "scripts/build_condition_cache.py",
+                     "--condition", args.condition,
+                     "--transcription-factor", str(tx_factor),
+                     "--te-factor", str(te_factor)]
+        if args.media_condition:
+            build_cmd += ["--media-condition", args.media_condition]
+        if args.fixed_media:
+            build_cmd += ["--fixed-media", args.fixed_media]
+        if args.fixture:
+            build_cmd += ["--fixture", args.fixture]
+        subprocess.run(build_cmd, check=True, capture_output=True)
         m = measure(cache_dir, args.sim_minutes)
         m.update({"iteration": it, "tx_factor": tx_factor, "te_factor": te_factor,
                   "wall_s": round(time.time() - t0, 1)})

@@ -81,16 +81,84 @@ def _build_emit_schema(leaves: list[tuple[str, ...]]) -> dict:
     `'any'` for the leaf type since the captured values are
     JSON-serialised; the schema's job here is structural, not type-
     checking.
+
+    Conflict handling: when a leaf is a strict prefix of another leaf
+    (e.g. `agents/0/listeners/monomer_counts` AND
+    `agents/0/listeners/monomer_counts/monomerCounts`), drop the
+    shorter one and keep the more specific. Mixing them yields a
+    'str does not support item assignment' crash on `cursor.setdefault`
+    when the second-pass walks into a key that was already set to 'any'.
+    Surfaced 2026-05-25 wiring dnaa-01's `agents/0/listeners/monomer_counts`
+    readout alongside an existing `monomer_counts/monomerCounts` test
+    measure path.
     """
+    leaf_set = {tuple(l) for l in leaves if l}
+    # Drop any leaf that is a strict prefix of a longer leaf in the set.
+    keep: list[tuple[str, ...]] = []
+    for leaf in leaf_set:
+        is_prefix_of_other = any(
+            other != leaf and len(other) > len(leaf) and other[:len(leaf)] == leaf
+            for other in leaf_set
+        )
+        if not is_prefix_of_other:
+            keep.append(leaf)
+
     schema: dict = {}
-    for leaf in leaves:
-        if not leaf:
-            continue
+    for leaf in keep:
         cursor = schema
         for k in leaf[:-1]:
             cursor = cursor.setdefault(k, {})
         cursor[leaf[-1]] = "any"
     return schema
+
+
+def prune_to_followed_lineage(composite: Any, followed_id: str) -> int:
+    """Drop all agents from ``composite.state['agents']`` except ``followed_id``.
+
+    Used by :func:`run_multigen_sqlite` when ``single_daughters=True`` to
+    bound peak memory at the one-cell footprint instead of 2^N at
+    generation N (v2ecoli's composite is single-cell-by-design but
+    follows all daughters in state by default).
+
+    CRITICAL behaviour: process-bigraph's Composite caches
+    ``process_paths`` / ``step_paths`` / ``front`` /
+    ``_active_protocol_runtimes`` from the most recent
+    :meth:`find_instance_paths` call. Simply deleting
+    ``state['agents']['01']`` leaves those caches with dangling entries
+    that resolve to ``None`` on the next tick — ``composite.run_process``
+    then crashes with::
+
+        TypeError: 'NoneType' object is not subscriptable
+        at process_bigraph/composite.py:2834
+            state_interval = process['interval']
+
+    The fix: call ``composite.find_instance_paths(composite.state)``
+    after the agent deletes. That rebuilds ``process_paths`` /
+    ``step_paths`` against the pruned state, and also pops stale entries
+    from ``self.front`` (composite.py:1789–1791).
+
+    Args:
+        composite: process-bigraph Composite. Must expose ``state`` (a dict
+            with optional ``"agents"`` key) and ``find_instance_paths(state)``.
+        followed_id: agent key to keep. All other agents are deleted.
+
+    Returns:
+        Number of sibling agents dropped.
+
+    Bug history: 2026-05-25 multi-gen sqlite reproduction (commit 7f3d0a2)
+    captured the dangling-ref crash. Memory note:
+    ``multigen-sqlite-daughter-run-crashes``.
+    """
+    state = composite.state or {}
+    agents = state.get("agents") or {}
+    to_drop = [aid for aid in list(agents.keys()) if aid != followed_id]
+    for aid in to_drop:
+        try:
+            del agents[aid]
+        except KeyError:
+            pass
+    composite.find_instance_paths(composite.state)
+    return len(to_drop)
 
 
 def run_multigen_sqlite(
@@ -105,6 +173,7 @@ def run_multigen_sqlite(
     initial_agent_id: str = "0",
     division_detector: Callable[[set[str], set[str]], tuple[bool, str | None]] | None = None,
     core: Any = None,
+    single_daughters: bool = False,
 ) -> dict:
     """Run a v2ecoli composite past divisions, externally-driven SQLiteEmitter.
 
@@ -130,6 +199,18 @@ def run_multigen_sqlite(
         :func:`v2ecoli.library.xarray_run.run_multigen_xarray`'s rule).
       core: process-bigraph core for the SQLiteEmitter. Defaults to
         ``composite.core``.
+      single_daughters: if True (default False), after each division
+        drop the sibling daughter(s) from ``composite.state['agents']``
+        so only the followed lineage continues. Bounds peak memory at
+        ~one-cell footprint regardless of ``max_generations``. Without
+        this, every cell tracked by the composite ticks independently;
+        v2ecoli's composite is single-cell-by-design so after N
+        divisions you have 2^N cells in state and the composite runs
+        ALL of them every tick — observed at 62 GB RSS during the
+        2026-05-24 multi-gen sqlite shakedown. With ``single_daughters=True``
+        peak memory tracks one cell, not 2^N. Trade-off: throwing away
+        the unfollowed lineage means no cross-lineage comparison; for
+        single-cell-trajectory studies that's the desired behaviour.
 
     Returns: ``{"steps": int, "generations": list[int]}``.
 
@@ -165,6 +246,8 @@ def run_multigen_sqlite(
         "subsample": 1,
         "batch_size": 1,
     }, core=core or composite.core)
+
+    import gc
 
     max_steps = int(max_steps)
     followed = initial_agent_id
@@ -210,8 +293,19 @@ def run_multigen_sqlite(
             followed = daughter
             gen += 1
             gens_seen.append(gen)
-            print(f"[multigen_sqlite] gen {gen} → following agent "
-                  f"{followed!r} at tick {done}")
+            # MEMORY guard: optional sibling prune. Off by default so
+            # the runner mirrors the xarray-runner's "keep everything"
+            # semantics; opt in via `single_daughters=True` when memory
+            # bounds matter (single-lineage multi-gen studies).
+            if single_daughters:
+                dropped = prune_to_followed_lineage(composite, followed)
+                gc.collect()
+                print(f"[multigen_sqlite] gen {gen} → following agent "
+                      f"{followed!r} at tick {done} (single_daughters: "
+                      f"dropped {dropped} sibling agent(s) + ran gc)")
+            else:
+                print(f"[multigen_sqlite] gen {gen} → following agent "
+                      f"{followed!r} at tick {done}")
             # Emit immediately so the gen handoff has a marker row.
             if followed in agents:
                 payload = _filter_agent_state(agents[followed], leaves)
@@ -224,5 +318,10 @@ def run_multigen_sqlite(
                 except Exception:
                     pass
         prev_ids = curr_ids
+        # Light gc per chunk only when single_daughters is on — that's
+        # the mode with memory pressure to fight. Cheap insurance
+        # against cyclic refs in composite scheduler queues.
+        if single_daughters and n >= 50:
+            gc.collect()
 
     return {"steps": done, "generations": gens_seen}

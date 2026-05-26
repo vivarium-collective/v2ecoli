@@ -76,7 +76,15 @@ def measure(cache_dir: str, sim_minutes: float, seed: int = 0) -> dict:
     comp = Composite({"state": doc["state"]}, core=core)
 
     total_s = sim_minutes * 60.0
-    chunk = 60.0
+    # CRITICAL: chunk must be 1.0. rnap_data.rna_init_event_per_cistron is
+    # OVERWRITTEN per tick (it's the events that fired in the most recent
+    # update_period — see v2ecoli/steps/listeners/rnap_data.py). Reading at
+    # chunk=60 captures only the last tick's events, missing 59 ticks of
+    # events per chunk. dnaA-specific rate is low (<<1 event/tick) so this
+    # bias makes the sum round to 0 even when the actual rate is fine.
+    # Same for ribosome_data.ribosome_init_event_per_monomer.
+    # (Original chunk=60 silently undercounted by ~60x.)
+    chunk = 1.0
     done = 0.0
     mrna_events = 0.0          # dnaA mRNA initiation events (RNAP)
     protein_events = 0.0       # dnaA ribosome initiation events

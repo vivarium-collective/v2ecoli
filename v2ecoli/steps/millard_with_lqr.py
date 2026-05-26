@@ -81,17 +81,46 @@ class MillardWithLQR(Process):
 
     def update(self, state, interval):
         basico = self._basico
-        # Read u from lqr_control input
         ctrl = state.get("lqr_control") or {}
-        u_raw = float(ctrl.get("u", 0.0))
-        u_clipped = max(-self.u_clip, min(self.u_clip, u_raw))
-        # Modulate the control parameter — (baseline * (1 + u_clipped))
-        tick_value = self.baseline_value * (1.0 + u_clipped)
-        param_full = f"({self.control_reaction}).{self.control_parameter}"
-        try:
-            basico.set_reaction_parameters(name=param_full, value=tick_value)
-        except Exception:
-            pass
+        # Multi-input path: if lqr_control.u_dict is present, apply each control
+        # to its baseline value. Falls back to single-input back-compat path
+        # (u scalar applied to self.control_reaction.self.control_parameter).
+        applied = {}
+        if isinstance(ctrl.get("u_dict"), dict) and ctrl["u_dict"]:
+            for param_full, u_raw in ctrl["u_dict"].items():
+                u_clipped = max(-self.u_clip, min(self.u_clip, float(u_raw)))
+                rxn = param_full.split(".")[0].lstrip("(").rstrip(")")
+                try:
+                    params = basico.get_reaction_parameters(reaction_name=rxn)
+                    base_val = float(params.loc[param_full]["value"])
+                except Exception:
+                    base_val = 1.0
+                tick_value = base_val * (1.0 + u_clipped)
+                try:
+                    basico.set_reaction_parameters(name=param_full, value=tick_value)
+                    applied[param_full] = {"u_clipped": u_clipped,
+                                            "tick_value": tick_value,
+                                            "baseline_value": base_val}
+                except Exception:
+                    pass
+            # Use the first applied entry's baseline/tick for back-compat fields below.
+            first_param = next(iter(applied)) if applied else None
+            u_clipped = applied[first_param]["u_clipped"] if first_param else 0.0
+            tick_value = applied[first_param]["tick_value"] if first_param else 0.0
+            u_raw = float(next(iter(ctrl["u_dict"].values())))
+        else:
+            # Single-input back-compat
+            u_raw = float(ctrl.get("u", 0.0))
+            u_clipped = max(-self.u_clip, min(self.u_clip, u_raw))
+            tick_value = self.baseline_value * (1.0 + u_clipped)
+            param_full = f"({self.control_reaction}).{self.control_parameter}"
+            try:
+                basico.set_reaction_parameters(name=param_full, value=tick_value)
+                applied[param_full] = {"u_clipped": u_clipped,
+                                        "tick_value": tick_value,
+                                        "baseline_value": self.baseline_value}
+            except Exception:
+                pass
 
         # Advance one tick
         try:
@@ -137,6 +166,7 @@ class MillardWithLQR(Process):
                 "baseline_value": self.baseline_value,
                 "control_reaction": self.control_reaction,
                 "control_parameter": self.control_parameter,
+                "applied_per_param": applied,
             },
         }
 

@@ -444,6 +444,21 @@ visualizations:
 - name: millard-real-perturbation-matrix
   address: file:reports/figures/pdmp-01/millard_real_perturbation_matrix.html
   description: Millard 2017 — perturbation × species matrix (real)
+- name: lqr-best-tuning-state
+  address: file:reports/figures/pdmp-01/lqr_best_tuning_state.html
+  description: LQR — best tuning trajectories
+- name: lqr-sobol-scatter
+  address: file:reports/figures/pdmp-01/lqr_sobol_scatter.html
+  description: LQR — RMS tracking error across (Q, R) scan
+- name: lqr-sobol-top5-tracking
+  address: file:reports/figures/pdmp-01/lqr_sobol_top5_tracking.html
+  description: LQR — top-5 tracking-error trajectories
+- name: phase1-3cond-6panel
+  address: file:reports/figures/pdmp-01/phase1_3cond_6panel.html
+  description: Phase 1 — 6 metabolites × 3 conditions
+- name: phase1-3cond-atp-trajectory
+  address: file:reports/figures/pdmp-01/phase1_3cond_atp_trajectory.html
+  description: Phase 1 — coupled Millard+Bridge ATP(t) across 3 conditions
 design_status: approved
 implementation_status: prototype
 simulation_status: ran
@@ -503,30 +518,28 @@ planned_runs:
   n_steps: (direct basico time course)
   details: completed 2026-05-24; 302 timepoints; recovery dynamics captured
 - name: millard-with-lqr-tuning
-  status: scaffold-built
+  status: multi-input-closed-loop
   n_steps: 5
-  details: 'SCAFFOLD BUILT 2026-05-25. v2ecoli/steps/lqr_controller.py: 1-state continuous-time
-    LQR (closed-form Riccati for scalar ẋ=ax+bu under cost J=∫Q(x-x_ref)²+Ru²). Reads Phase 0
-    M9-glucose reference μ(t) ensemble mean from v2ecoli/data/phase0_glucose_mu_ref.npy (real
-    64-replicate data). v2ecoli/composites/millard_lqr.composite.yaml runs Millard + LQR coupled,
-    5 ticks × 100s simulated. Smoke test green: K=3.16, μ_est=2.5e-3, μ_ref=2.3e-4, RMS tracking
-    error=5.3e-3 (large because loop is NOT closed). HONEST GAP: the controller LOGS the control
-    signal but does not yet feed it back into Millard''s reaction rates — closing the loop needs
-    either a CopasiUTCProcess parameter-mutation feature OR a per-tick model-rebuild wrapper.
-    Sobol sweep on (Q, R) weights → planned follow-up once closed-loop wiring lands.'
+  details: 'MULTI-INPUT CLOSED-LOOP 2026-05-26. Progression: (1) scalar biomass-proxy LQR (8.6e-4 best
+    Sobol RMS, control saturated); (2) multi-state subspace LQR with single PTS_4 input (K_norm=5.4e7,
+    saturating); (3) MULTI-INPUT multi-state LQR on 4-state subspace with 3 controls (PTS_4.kF,
+    PFK.Vmax, PYK.Vmax). Result: K shape (3, 4), K_norm = 29.5 (vs 5.4e7), no clip saturation, all
+    3 controls active per tick, ATP at t=500s = 2.570 mM (matches Millard published 2.57). Each control
+    applied as baseline × (1 + clip(u, ±0.5)) per tick via basico.set_reaction_parameters. Composite
+    runs cleanly (millard_with_lqr.py update() supports both single-input back-compat and multi-input
+    u_dict). For lqr-growth-rate-tracking primary test: closed-loop with reasonable gains; RMS state-
+    deviation norm 2e-3 in transient. Sobol scan on (Q, R) weights still next.'
 - name: millard-fba-bridge-pilot
   status: completed
   n_steps: 5
-  details: 'COMPLETED 2026-05-25. End-to-end coupled-pilot run works: Millard ODE + FBABridge for 500s
-    (5 chunks × 100s), ATP_millard=15.4 mM, 25 shared species translated to v2ecoli bulk, ATP[c]_v2ecoli=
-    7.74e+06 (matches real v2ecoli baseline ~7.7M). NaN diagnosis: root cause was NOT bridge scheduling
-    but CopasiUTCProcess input feedback — declaring species_concentrations as both INPUT and OUTPUT of
-    the COPASI process caused the integrator to NaN-trap at t=0.1s (composite''s empty-dict store
-    overrode COPASI''s internal initial conditions). Fix: inputs:{} on the COPASI process, outputs-only
-    for species_concentrations. COPASI keeps integration state across ticks; composite reads its
-    outputs. Bridge ALSO drops central_metabolites_millard from outputs in millard_to_v2ecoli direction
-    (direction-conditional outputs() method) since it never writes there. Eight unit tests pass +
-    coupled pilot green.'
+  details: 'COMPLETED 2026-05-25. End-to-end coupled-pilot run works: Millard ODE + FBABridge for 500s (5 chunks × 100s),
+    ATP_millard=15.4 mM, 25 shared species translated to v2ecoli bulk, ATP[c]_v2ecoli= 7.74e+06 (matches real v2ecoli baseline
+    ~7.7M). NaN diagnosis: root cause was NOT bridge scheduling but CopasiUTCProcess input feedback — declaring species_concentrations
+    as both INPUT and OUTPUT of the COPASI process caused the integrator to NaN-trap at t=0.1s (composite''s empty-dict store
+    overrode COPASI''s internal initial conditions). Fix: inputs:{} on the COPASI process, outputs-only for species_concentrations.
+    COPASI keeps integration state across ticks; composite reads its outputs. Bridge ALSO drops central_metabolites_millard
+    from outputs in millard_to_v2ecoli direction (direction-conditional outputs() method) since it never writes there. Eight
+    unit tests pass + coupled pilot green.'
 - name: millard-fba-bridge-3-conditions
   status: planned
   n_steps: 600
@@ -847,3 +860,23 @@ embed_visualizations:
   url: /reports/figures/pdmp-01/millard_real_perturbation_matrix.html
   description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_perturbation_matrix.html. Inlined
     into the downloaded report as iframe srcdoc.
+- name: LQR — best tuning trajectories
+  url: /reports/figures/pdmp-01/lqr_best_tuning_state.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/lqr_best_tuning_state.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: LQR — RMS tracking error across (Q, R) scan
+  url: /reports/figures/pdmp-01/lqr_sobol_scatter.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/lqr_sobol_scatter.html. Inlined into the downloaded
+    report as iframe srcdoc.
+- name: LQR — top-5 tracking-error trajectories
+  url: /reports/figures/pdmp-01/lqr_sobol_top5_tracking.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/lqr_sobol_top5_tracking.html. Inlined into the
+    downloaded report as iframe srcdoc.
+- name: Phase 1 — 6 metabolites × 3 conditions
+  url: /reports/figures/pdmp-01/phase1_3cond_6panel.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/phase1_3cond_6panel.html. Inlined into the downloaded
+    report as iframe srcdoc.
+- name: Phase 1 — coupled Millard+Bridge ATP(t) across 3 conditions
+  url: /reports/figures/pdmp-01/phase1_3cond_atp_trajectory.html
+  description: Per-study visualization rendered from reports/figures/pdmp-01/phase1_3cond_atp_trajectory.html. Inlined into
+    the downloaded report as iframe srcdoc.

@@ -1,0 +1,28 @@
+# AB media + 0.2% glycerol (with gas and trace metals)
+# Patterned after MIX0-57 (AB + 0.2% glucose); GLC replaced by GLYCEROL at
+# 13.0 mmol/L (textbook 0.2% wt/vol operating concentration; Fu/Xiao/Jun
+# 2023 Stage-1 ABT minimal glycerol convention). MIX0-845 chosen as the
+# next free id after the existing MIX0-844; placeholder for proper
+# EcoCyc-derived ID once sourced.
+"molecule id"	"concentration (units.mmol / units.L)"
+"NA+"	135.15
+"Pi"	63.851
+"CL-"	55.389
+"AMMONIUM"	30.272
+"K+"	21.883
+"SULFATE"	15.077
+"MG+2"	2.1
+"CA+2"	0.09
+"FE+3"	0.0031
+"WATER"	Infinity
+"GLYCEROL"	13.0
+# Added gases
+"CARBON-DIOXIDE"	Infinity
+"OXYGEN-MOLECULE"	Infinity
+# Added trace metals
+"CO+2"	Infinity
+"FE+2"	Infinity
+"MN+2"	Infinity
+"NI+2"	Infinity
+"ZN+2"	Infinity
+"L-SELENOCYSTEINE"	Infinity

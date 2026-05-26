@@ -498,6 +498,18 @@ planned_runs:
   status: planned
   n_steps: (per gene)
   details: 20 benchmark E. coli genes; BH-FDR ≤ 0.10 (investigation gating)
+- name: pc-recovery-pilot-millard
+  status: scaffold-pilot-done
+  n_steps: 40 obs + 6 interventions = 46 Millard forward sims
+  details: 'PILOT 2026-05-25. scripts/run_causal_pc_pilot.py runs minimal PC-style causal discovery
+    on Millard with KNOWN ground truth (Millard reaction adjacency). 40 obs runs (±10% IC perturbations)
+    + 6 reaction-knockout interventions over 9 central metabolites. Skeleton via Pearson |r|>0.4 +
+    p<0.05; orientation via interventional shift comparison. RESULT: recall = 55.6% (5 of 9 ground-truth
+    edges recovered), precision = 13.9% (over-eager — correlation-only skeleton picks up many spurious
+    edges). For pdmp-05.tests.pc-recovers-known-edges (80% recall threshold): pilot shows the discovery
+    machinery works but needs conditional independence tests (proper PC, not skeleton-via-correlation)
+    to reach 80% recall. Viz at reports/figures/pdmp-05/pc_recovered_edges_real.html +
+    pc_recall_vs_threshold_real.html.'
 visualizations:
 - name: phase5-benchmark-bh-fdr
   address: file:reports/figures/planned-comparisons/phase5_benchmark_bh_fdr.html
@@ -512,6 +524,9 @@ visualizations:
 - name: pc-recovered-edges-real
   address: file:reports/figures/pdmp-05/pc_recovered_edges_real.html
   description: PC algorithm — edge recovery vs ground truth
+- name: pc-recall-vs-threshold-real
+  address: file:reports/figures/pdmp-05/pc_recall_vs_threshold_real.html
+  description: PC pilot — recall vs threshold sweep
 conditions:
   baseline:
     composite: v2ecoli_pdmp.composites.annotation.bayes_model_compare
@@ -659,3 +674,7 @@ embed_visualizations:
   url: /reports/figures/pdmp-05/pc_recovered_edges_real.html
   description: Per-study visualization rendered from reports/figures/pdmp-05/pc_recovered_edges_real.html. Inlined into the
     downloaded report as iframe srcdoc.
+- name: PC pilot — recall vs threshold sweep
+  url: /reports/figures/pdmp-05/pc_recall_vs_threshold_real.html
+  description: Per-study visualization rendered from reports/figures/pdmp-05/pc_recall_vs_threshold_real.html. Inlined into
+    the downloaded report as iframe srcdoc.

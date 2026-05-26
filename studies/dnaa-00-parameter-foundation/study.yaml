@@ -8,23 +8,25 @@ report:
   verdict: passing-with-caveats
   confidence: medium
   evidence_quality: literature-matched
-  objective: Establish the parameter-pinned v2ecoli baseline the whole investigation calibrates against, before
-    any new mechanism lands.
-  conclusion: 'Round 3 (2026-05-25, Haochen ask): Stage-1 cell-cycle parameters τ=150 / C=70 / D=30 are now
-    IMPOSED via the new minimal_glycerol ParCa cache + composite knobs. Mass-listener reports cell_cycle_len=9000s,
-    chromosome_replication reports D_period=1800s + basal_elongation_rate=554 nt/s (C≈70 min). BUT the cell
-    actually divides at t=5000s (83 min), not 150 min: ParCa fit dry_mass_inc[minimal_glycerol]=82 fg (small
-    threshold from slow-growth bacterial-growth-law fit), and glycerol synthesis was fast enough to hit that
-    threshold in 83 min. The 150 min target controls cell_cycle_len (used for expected_mass_fold_change
-    reference) but not division (driven by dry_mass ≥ threshold). Open biology question for next round —
-    see "decision needed" below.'
-  main_insight: 'Two new findings worth Haochen review:
-    (1) τ-divergence: declared 150, emergent 83 min (cell-cycle/division uses different signals).
-    (2) DnaA concentration NOT stable: drops from 1.03 /fg → 0.42 /fg over the first cycle, dropping further
-    to 0.33 /fg by t=10000s. Glycerol ParCa fit may not produce enough DnaA expression to track cell-mass
-    growth in this condition.'
-  caveat: 'Cell divides at 83 min, not the declared 150 min. DnaA count drops from 329 (in band) to 222
-    (below the literature 300-800 band) by run end. These are the focus questions for Round 4.'
+  objective: Establish the parameter-pinned v2ecoli baseline the whole investigation
+    calibrates against, before any new mechanism lands.
+  conclusion: 'Round 3 (2026-05-25, Haochen ask): Stage-1 cell-cycle parameters τ=150
+    / C=70 / D=30 are now IMPOSED via the new minimal_glycerol ParCa cache + composite
+    knobs. Mass-listener reports cell_cycle_len=9000s, chromosome_replication reports
+    D_period=1800s + basal_elongation_rate=554 nt/s (C≈70 min). BUT the cell actually
+    divides at t=5000s (83 min), not 150 min: ParCa fit dry_mass_inc[minimal_glycerol]=82
+    fg (small threshold from slow-growth bacterial-growth-law fit), and glycerol synthesis
+    was fast enough to hit that threshold in 83 min. The 150 min target controls cell_cycle_len
+    (used for expected_mass_fold_change reference) but not division (driven by dry_mass
+    ≥ threshold). Open biology question for next round — see "decision needed" below.'
+  main_insight: 'Two new findings worth Haochen review: (1) τ-divergence: declared
+    150, emergent 83 min (cell-cycle/division uses different signals). (2) DnaA concentration
+    NOT stable: drops from 1.03 /fg → 0.42 /fg over the first cycle, dropping further
+    to 0.33 /fg by t=10000s. Glycerol ParCa fit may not produce enough DnaA expression
+    to track cell-mass growth in this condition.'
+  caveat: Cell divides at 83 min, not the declared 150 min. DnaA count drops from
+    329 (in band) to 222 (below the literature 300-800 band) by run end. These are
+    the focus questions for Round 4.
   lit_match: Fu-Xiao-Jun 2023 Stage-1 heuristic table (τ=150, C=70, D=30)
   key_metrics:
   - label: τ declared / emergent
@@ -43,42 +45,47 @@ report:
     value: 1.03 / 0.42 / 0.33 mol/fg
     status: caveat
   decisions_needed:
-  - question: 'τ-gap: cell divides at 83 min not 150. Three paths — (a) accept emergent; (b) hand-tune
-      dry_mass_inc; (c) rebuild ParCa with hand-calibrated glycerol kinetics. Which?'
-  - question: 'DnaA concentration drops 3× over one cycle. Is this real biology (glycerol-fitted synthesis)
-      or an artifact (translation_efficiency scale needs recalibration)?'
-  purpose: Establish the baseline the whole investigation calibrates against, and show how the same v2ecoli code
-    behaves when its surfaced parameters are pinned to the Fu/Xiao/Jun (2023) Stage-1 heuristic values — before
-    any new mechanism lands.
-  setup: 'Round 3 (2026-05-25): v2ecoli baseline + the read-only DnaA-cycle listener on the new
-    minimal_glycerol Stage-1 ParCa cache (seed 0, n_steps=10000 = 167 min wall-clock; covers >1
-    declared cycle). The cache was built by adding a glycerol media row to condition_defs.tsv
-    (τ=150), a new MIX0-845 media file (AB + 0.2% glycerol = 13 mM), running the ParCa pipeline
-    fast-mode (~94s), and threading c_period_minutes=70 + d_period_seconds=1800 through
-    save_sim_input → LoadSimData → get_chromosome_replication_config. Mass listener also emits
-    cell_mass / dry_mass / expected_mass_fold_change so the new DnaA concentration viz can compute
-    count/mass.'
-  result: 'Imposed knobs verified at composite-build time: cell_cycle_len=9000s (τ=150 min) ✓,
-    D_period=1800s ✓, basal_elongation_rate=554 nt/s → implied C=69.94 min on the 2.32 Mbp
-    replichore ✓. But emergent behaviour diverges: cell divides at t=5000s (83 min), not 150;
-    DnaA count drops 329 → 234 (at division) → 222 (end), falling below the literature 300-800
-    band; DnaA concentration drops 3× across the run (1.03 → 0.42 → 0.33 mol/fg). One full
-    division event captured (agent 0 → 00). Replication initiation fired (number_of_oric 2→4).'
+  - question: 'τ-gap: cell divides at 83 min not 150. Three paths — (a) accept emergent;
+      (b) hand-tune dry_mass_inc; (c) rebuild ParCa with hand-calibrated glycerol
+      kinetics. Which?'
+  - question: DnaA concentration drops 3× over one cycle. Is this real biology (glycerol-fitted
+      synthesis) or an artifact (translation_efficiency scale needs recalibration)?
+  purpose: Establish the baseline the whole investigation calibrates against, and
+    show how the same v2ecoli code behaves when its surfaced parameters are pinned
+    to the Fu/Xiao/Jun (2023) Stage-1 heuristic values — before any new mechanism
+    lands.
+  setup: 'Round 3 (2026-05-25): v2ecoli baseline + the read-only DnaA-cycle listener
+    on the new minimal_glycerol Stage-1 ParCa cache (seed 0, n_steps=10000 = 167 min
+    wall-clock; covers >1 declared cycle). The cache was built by adding a glycerol
+    media row to condition_defs.tsv (τ=150), a new MIX0-845 media file (AB + 0.2%
+    glycerol = 13 mM), running the ParCa pipeline fast-mode (~94s), and threading
+    c_period_minutes=70 + d_period_seconds=1800 through save_sim_input → LoadSimData
+    → get_chromosome_replication_config. Mass listener also emits cell_mass / dry_mass
+    / expected_mass_fold_change so the new DnaA concentration viz can compute count/mass.'
+  result: 'Imposed knobs verified at composite-build time: cell_cycle_len=9000s (τ=150
+    min) ✓, D_period=1800s ✓, basal_elongation_rate=554 nt/s → implied C=69.94 min
+    on the 2.32 Mbp replichore ✓. But emergent behaviour diverges: cell divides at
+    t=5000s (83 min), not 150; DnaA count drops 329 → 234 (at division) → 222 (end),
+    falling below the literature 300-800 band; DnaA concentration drops 3× across
+    the run (1.03 → 0.42 → 0.33 mol/fg). One full division event captured (agent 0
+    → 00). Replication initiation fired (number_of_oric 2→4).'
   interpretation: 'The declared cycle length (cell_cycle_len) controls the mass listener’s
-    expected_mass_fold_change REFERENCE curve, but division actually fires on dry_mass ≥ threshold
-    where the threshold comes from ParCa-fitted dry_mass_inc[media_id]. ParCa fit
-    dry_mass_inc[minimal_glycerol]=82 fg (small, per bacterial growth law: slow growth → small cell)
-    and synthesis was glycerol-fast enough to hit that in 83 min. The two signals (declared τ vs
-    emergent τ) are not coupled, so imposing one without re-tuning the other produces this gap.
-    The DnaA concentration drop is the second-order consequence of the same fit: synthesis can not
-    keep pace with growing mass under glycerol fit parameters.'
-  decision: 'Round 3 IMPOSES the Stage-1 knobs end-to-end (one of Haochen R3 asks). Verdict
-    passing-with-caveats because the wiring works but the emergent biology diverges from
-    the declared targets. Awaiting Haochen review of the two open questions in decisions_needed.'
-  next_action: 'Pending Haochen ok on Round 3 + answers to the two decisions_needed entries
-    (τ-gap path; concentration drop attribution). After that, unblock dnaa-01 and re-run it on
-    the new Stage-1 glycerol cache (its prior results are on glucose / pre-Round-3 config and
-    are superseded).'
+    expected_mass_fold_change REFERENCE curve, but division actually fires on dry_mass
+    ≥ threshold where the threshold comes from ParCa-fitted dry_mass_inc[media_id].
+    ParCa fit dry_mass_inc[minimal_glycerol]=82 fg (small, per bacterial growth law:
+    slow growth → small cell) and synthesis was glycerol-fast enough to hit that in
+    83 min. The two signals (declared τ vs emergent τ) are not coupled, so imposing
+    one without re-tuning the other produces this gap. The DnaA concentration drop
+    is the second-order consequence of the same fit: synthesis can not keep pace with
+    growing mass under glycerol fit parameters.'
+  decision: Round 3 IMPOSES the Stage-1 knobs end-to-end (one of Haochen R3 asks).
+    Verdict passing-with-caveats because the wiring works but the emergent biology
+    diverges from the declared targets. Awaiting Haochen review of the two open questions
+    in decisions_needed.
+  next_action: Pending Haochen ok on Round 3 + answers to the two decisions_needed
+    entries (τ-gap path; concentration drop attribution). After that, unblock dnaa-01
+    and re-run it on the new Stage-1 glycerol cache (its prior results are on glucose
+    / pre-Round-3 config and are superseded).
 question: 'What baseline does the dnaa-replication investigation calibrate
 
   against, and how does the same v2ecoli code respond when its key
@@ -99,14 +106,17 @@ assumptions:
   cites:
   - wcm_stage1_parameters
   verified_in_v2ecoli: true
-- text: Mass-doubling time τ is 150 min in ABT minimal-glycerol (non-overlapping cell cycle).
+- text: Mass-doubling time τ is 150 min in ABT minimal-glycerol (non-overlapping cell
+    cycle).
   cites:
   - wcm_stage1_parameters
   verified_in_v2ecoli: false
-  note: Expert target, NOT applied. v2ecoli's τ is implicit in the media composition; these runs use minimal-glucose
-    (τ≈44 min, cell divides ~2640 s), not the glycerol Stage-1 condition. Switching to 150 min needs a media-level
-    override / ParCa fit for ABT minimal-glycerol (TODO).
-- text: C period (replication duration) is 70 min — sets replication speed at ≈ 66.31 kbp/min.
+  note: Expert target, NOT applied. v2ecoli's τ is implicit in the media composition;
+    these runs use minimal-glucose (τ≈44 min, cell divides ~2640 s), not the glycerol
+    Stage-1 condition. Switching to 150 min needs a media-level override / ParCa fit
+    for ABT minimal-glycerol (TODO).
+- text: C period (replication duration) is 70 min — sets replication speed at ≈ 66.31
+    kbp/min.
   cites:
   - wcm_stage1_parameters
   verified_in_v2ecoli: false
@@ -115,7 +125,8 @@ assumptions:
   cites:
   - wcm_stage1_parameters
   verified_in_v2ecoli: false
-- text: dnaA transcription rate is 1.5 mRNA/min/gene (constitutive expression at Stage 1).
+- text: dnaA transcription rate is 1.5 mRNA/min/gene (constitutive expression at Stage
+    1).
   cites:
   - wcm_stage1_parameters
   verified_in_v2ecoli: false
@@ -160,7 +171,8 @@ assumptions:
   cites:
   - wcm_stage1_parameters
   verified_in_v2ecoli: false
-  note: dnaa-rida-v0 Step exists; default rate (4.6) is ~10× below Stage 1's 40. Variant overrides.
+  note: dnaa-rida-v0 Step exists; default rate (4.6) is ~10× below Stage 1's 40. Variant
+    overrides.
 - text: datA (DDAH) hydrolyses DnaA-ATP at 12 /min per locus. Artificial heuristic.
   cites:
   - wcm_stage1_parameters
@@ -176,11 +188,13 @@ assumptions:
   - wcm_stage1_parameters
   verified_in_v2ecoli: false
   note: DARS Step doesn't exist yet — deferred.
-- text: SeqA sequestration time is 0 min — origin sequestration not modelled at Stage 1.
+- text: SeqA sequestration time is 0 min — origin sequestration not modelled at Stage
+    1.
   cites:
   - wcm_stage1_parameters
   verified_in_v2ecoli: true
-  note: dnaa-04 ships SeqA_v0 fixed-timer stand-in; set refractory_seconds = 0 to recover Stage 1.
+  note: dnaa-04 ships SeqA_v0 fixed-timer stand-in; set refractory_seconds = 0 to
+    recover Stage 1.
 - text: apo-DnaA monomer = bulk ID PD03831[c] — newly translated, not yet nucleotide-bound.
   cites:
   - v2ecoli_replication_initiation_report
@@ -193,55 +207,50 @@ assumptions:
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: true
-- text: apo-DnaA + ATP ⇌ DnaA-ATP equilibrium runs through reaction MONOMER0-160_RXN (mass-action driven, ParCa-fitted
-    Kd ≈ 30 nM).
+- text: apo-DnaA + ATP ⇌ DnaA-ATP equilibrium runs through reaction MONOMER0-160_RXN
+    (mass-action driven, ParCa-fitted Kd ≈ 30 nM).
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: true
-- text: apo-DnaA + ADP ⇌ DnaA-ADP equilibrium runs through reaction MONOMER0-4565_RXN (mass-action driven, ParCa-fitted
-    Kd ≈ 100 nM).
+- text: apo-DnaA + ADP ⇌ DnaA-ADP equilibrium runs through reaction MONOMER0-4565_RXN
+    (mass-action driven, ParCa-fitted Kd ≈ 100 nM).
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: true
-- text: RIDA (DnaA-ATP → DnaA-ADP, replisome-coupled) is encoded in v2ecoli's metabolism as reaction RXN0-7444.
-    Flux is currently zero (not wired through dnaa-02f); dnaa-rida-v0 Step is the workaround.
+- text: RIDA (DnaA-ATP → DnaA-ADP, replisome-coupled) is encoded in v2ecoli's metabolism
+    as reaction RXN0-7444. Flux is currently zero (not wired through dnaa-02f); dnaa-rida-v0
+    Step is the workaround.
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: false
   note: Reaction exists in flat data and FBA, but no flux until dnaa-rida-v0 fires.
-- text: 307 consensus chromosomal DnaA boxes are partitioned by a region classifier into chromosomal-titration /
-    oriC / dnaAp / datA / DARS regions.
+- text: 307 consensus chromosomal DnaA boxes are partitioned by a region classifier
+    into chromosomal-titration / oriC / dnaAp / datA / DARS regions.
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: true
-  note: Box catalog at v2ecoli/data/dnaa_box_catalog.py; region partitioning matches the report's classifier.
-- text: oriC carries 11 DnaA boxes — 3 high-affinity + 8 low-affinity (cooperative). DnaA-ATP only binds the 8 low-affinity
-    sites; both ATP- and ADP-forms can bind the 3 high-affinity sites.
+  note: Box catalog at v2ecoli/data/dnaa_box_catalog.py; region partitioning matches
+    the report's classifier.
+- text: oriC carries 11 DnaA boxes — 3 high-affinity + 8 low-affinity (cooperative).
+    DnaA-ATP only binds the 8 low-affinity sites; both ATP- and ADP-forms can bind
+    the 3 high-affinity sites.
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: false
   note: v2ecoli's catalog ships 7 (not 8) oriC low-affinity boxes today.
-- text: DDAH (DnaA-ATP hydrolysis at datA) is gated by IHF binding at the datA locus — not currently represented
-    in v2ecoli.
+- text: DDAH (DnaA-ATP hydrolysis at datA) is gated by IHF binding at the datA locus
+    — not currently represented in v2ecoli.
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: false
-- text: DARS1 + DARS2 reactivate DnaA-ADP → apo → DnaA-ATP (nucleotide release at the DARS loci, with DARS2 additionally
-    modulated by IHF + Fis). Not yet represented.
+- text: DARS1 + DARS2 reactivate DnaA-ADP → apo → DnaA-ATP (nucleotide release at
+    the DARS loci, with DARS2 additionally modulated by IHF + Fis). Not yet represented.
   cites:
   - v2ecoli_replication_initiation_report
   verified_in_v2ecoli: false
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline_recipes.dnaa_00_baseline_with_dnaa_readout
-    # Round 3 (Haochen 2026-05-25): Stage-1 ABT minimal glycerol cache
-    # imposes τ=150 / C=70 / D=30. Cache built via:
-    #   scripts/build_condition_cache.py --condition stage1-heuristic
-    #     --fixture out/parca-glycerol-rebuild/parca_state.pkl.gz
-    #     --media-condition glycerol --fixed-media minimal_glycerol
-    #     --c-period-min 70 --d-period-min 30
-    #     --cache out/cache-stage1-glycerol
-    # n_steps=10000 covers > 1 doubling time (150 min × 60 = 9000 s).
     params:
       seed: 0
       cache_dir: out/cache-stage1-glycerol
@@ -249,12 +258,15 @@ conditions:
   variants:
   - name: baseline-stage1-modified
     composite: v2ecoli.composites.baseline_recipes.dnaa_04_with_dnaa_initiation_trigger
-    description: "v2ecoli baseline + dnaa-04 mechanism, with the surfaced parameters\npinned to the Fu/Xiao/Jun\
-      \ (2023) Stage 1 heuristic table:\n  hydrolysis_rate_per_min = 0.046  (Sekimizu 1987)\n  rida_rate_per_min\
-      \       = 40.0   (Hda heuristic)\n  kd_high_nM              = 1.0    (consensus chromosomal Kd)\n  kd_low_nM\
-      \               = 50.0   (oriC weak-box upper end)\n  atp_fraction_clamp_*    = null   (no clamp — let RIDA\
-      \ do the work)\n  oric_high_threshold     = 0.8    (~80 % saturation gates firing)\n  refractory_seconds \
-      \     = 0.0    (Stage 1 disables SeqA)\n  initial_dnaA_count_per_cell = 300  (anchor to literature band)\n"
+    description: "v2ecoli baseline + dnaa-04 mechanism, with the surfaced parameters\n\
+      pinned to the Fu/Xiao/Jun (2023) Stage 1 heuristic table:\n  hydrolysis_rate_per_min\
+      \ = 0.046  (Sekimizu 1987)\n  rida_rate_per_min       = 40.0   (Hda heuristic)\n\
+      \  kd_high_nM              = 1.0    (consensus chromosomal Kd)\n  kd_low_nM\
+      \               = 50.0   (oriC weak-box upper end)\n  atp_fraction_clamp_* \
+      \   = null   (no clamp — let RIDA do the work)\n  oric_high_threshold     =\
+      \ 0.8    (~80 % saturation gates firing)\n  refractory_seconds      = 0.0  \
+      \  (Stage 1 disables SeqA)\n  initial_dnaA_count_per_cell = 300  (anchor to\
+      \ literature band)\n"
     params:
       seed: 0
       cache_dir: out/cache-stage1-heuristic
@@ -291,9 +303,9 @@ conditions:
   model_settings:
   - name: tau_min_stage1
     description: 'Mass-doubling time τ at Stage 1: 150 min (ABT minimal-glycerol).
-      Applied in Round 3 (2026-05-25) via the new `minimal_glycerol` ParCa
-      condition (commit 0a3c36d). Mass-listener reports cell_cycle_len=9000s
-      verified at composite-build time.'
+      Applied in Round 3 (2026-05-25) via the new `minimal_glycerol` ParCa condition
+      (commit 0a3c36d). Mass-listener reports cell_cycle_len=9000s verified at composite-build
+      time.'
     type: number
     default: 150.0
     current: 150.0
@@ -302,11 +314,10 @@ conditions:
     cites:
     - wcm_stage1_parameters
   - name: c_period_min_stage1
-    description: 'Replication period C at Stage 1: 70 min. Applied in Round 3
-      via the LoadSimData `c_period_minutes` override: basal_elongation_rate
-      = replichore_length / (C × 60) = 2,324,960 nt / 4200 s ≈ 554 nt/s,
-      yielding C ≈ 69.94 min on the WCM E. coli genome. Verified at
-      composite-build time.'
+    description: 'Replication period C at Stage 1: 70 min. Applied in Round 3 via
+      the LoadSimData `c_period_minutes` override: basal_elongation_rate = replichore_length
+      / (C × 60) = 2,324,960 nt / 4200 s ≈ 554 nt/s, yielding C ≈ 69.94 min on the
+      WCM E. coli genome. Verified at composite-build time.'
     type: number
     default: 70.0
     current: 70.0
@@ -315,9 +326,9 @@ conditions:
     cites:
     - wcm_stage1_parameters
   - name: d_period_min_stage1
-    description: 'Termination → division delay D at Stage 1: 30 min. Applied in
-      Round 3 via the LoadSimData `d_period_seconds` override (1800 s).
-      Verified at composite-build time.'
+    description: 'Termination → division delay D at Stage 1: 30 min. Applied in Round
+      3 via the LoadSimData `d_period_seconds` override (1800 s). Verified at composite-build
+      time.'
     type: number
     default: 30.0
     current: 30.0
@@ -353,8 +364,8 @@ conditions:
 tests:
 - name: baseline-initiates-replication
   classification: primary
-  question: Does the v2ecoli baseline initiate a round of chromosome replication (oriC count at least doubles) within
-    the run window?
+  question: Does the v2ecoli baseline initiate a round of chromosome replication (oriC
+    count at least doubles) within the run window?
   measure:
     kind: listener_path
     path: listeners.replication_data.number_of_oric
@@ -370,7 +381,8 @@ tests:
   run_ids: []
 - name: stage1-variant-dnaa-fraction-in-band
   classification: primary
-  question: Does the Stage 1-parameterised variant maintain DnaA-ATP fraction inside Boesen 2024's [0.2, 0.5] band?
+  question: Does the Stage 1-parameterised variant maintain DnaA-ATP fraction inside
+    Boesen 2024's [0.2, 0.5] band?
   measure:
     kind: listener_median
     path: listeners.dnaA_cycle.atp_fraction
@@ -387,7 +399,8 @@ tests:
   run_ids: []
 - name: stage1-parameters-catalogued
   classification: secondary
-  question: Have all 17+ Stage 1 parameter rows been catalogued with their literature anchor + v2ecoli wiring status?
+  question: Have all 17+ Stage 1 parameter rows been catalogued with their literature
+    anchor + v2ecoli wiring status?
   measure:
     kind: count_assumptions
   pass_if:
@@ -453,26 +466,31 @@ bibliography:
   - Boesen2024PNAS
   - Schmidt2016
   - Mori2021
-biological_summary: "This is the parameter-foundation study for the dnaa-replication\ninvestigation. It establishes\
-  \ the two composites every downstream\nstudy calibrates against:\n\n  1. baseline                 — v2ecoli's\
-  \ default whole-cell composite\n                                at ParCa-fitted parameters (no overrides).\n \
-  \ 2. baseline-stage1-modified — the same v2ecoli code with the surfaced\n                                parameters\
-  \ pinned to the Fu/Xiao/Jun\n                                (2023) Stage 1 heuristic-values table.\n\nAn optional\
-  \ itv2-reference variant runs the analytical Fu/Xiao/Jun\nmean-field model standalone, for an apples-to-apples\
-  \ external check.\n\nThe Stage 1 parameter table is the single source of truth for what\n\"Stage 1\" means. 17+\
-  \ parameter rows are catalogued in assumptions[]\nwith their literature anchor (Sekimizu 1987, Kawakami 2006,\
-  \ Hansen\n& Atlung 2018) or \"artificial setup\" flag for the heuristic\nplaceholders (Hda, datA, DARS). Each\
-  \ downstream study (dnaa-01\nexpression, dnaa-02 hydrolysis, dnaa-03 box-binding, dnaa-04\ninitiation-mechanism)\
-  \ calibrates a subset of these; dnaa-00 surfaces\nthe spec-vs-model gap centrally.\n\nGoing forward, every investigation\
-  \ should start with a study-00 of\nthis shape: the canonical foundation composites + a parameter\ncatalog + an\
-  \ optional external analytical comparator. Downstream\nstudies are perturbations over this baseline.\n"
+biological_summary: "This is the parameter-foundation study for the dnaa-replication\n\
+  investigation. It establishes the two composites every downstream\nstudy calibrates\
+  \ against:\n\n  1. baseline                 — v2ecoli's default whole-cell composite\n\
+  \                                at ParCa-fitted parameters (no overrides).\n  2.\
+  \ baseline-stage1-modified — the same v2ecoli code with the surfaced\n         \
+  \                       parameters pinned to the Fu/Xiao/Jun\n                 \
+  \               (2023) Stage 1 heuristic-values table.\n\nAn optional itv2-reference\
+  \ variant runs the analytical Fu/Xiao/Jun\nmean-field model standalone, for an apples-to-apples\
+  \ external check.\n\nThe Stage 1 parameter table is the single source of truth for\
+  \ what\n\"Stage 1\" means. 17+ parameter rows are catalogued in assumptions[]\n\
+  with their literature anchor (Sekimizu 1987, Kawakami 2006, Hansen\n& Atlung 2018)\
+  \ or \"artificial setup\" flag for the heuristic\nplaceholders (Hda, datA, DARS).\
+  \ Each downstream study (dnaa-01\nexpression, dnaa-02 hydrolysis, dnaa-03 box-binding,\
+  \ dnaa-04\ninitiation-mechanism) calibrates a subset of these; dnaa-00 surfaces\n\
+  the spec-vs-model gap centrally.\n\nGoing forward, every investigation should start\
+  \ with a study-00 of\nthis shape: the canonical foundation composites + a parameter\n\
+  catalog + an optional external analytical comparator. Downstream\nstudies are perturbations\
+  \ over this baseline.\n"
 readouts:
 - name: number_of_oric
   store_path: agents.0.listeners.replication_data.number_of_oric
   units: count
   status: available
-  description: oriC copy number — counts the replication initiation events across the cell cycle (the baseline observable
-    for replication-initiation work).
+  description: oriC copy number — counts the replication initiation events across
+    the cell cycle (the baseline observable for replication-initiation work).
 - name: dnaa_atp_fraction
   store_path: agents.0.listeners.dnaA_cycle.atp_fraction
   units: fraction
@@ -488,8 +506,8 @@ readouts:
   units: fg
   status: available
   description: Total cell mass in fg. Required to compute DnaA concentration (count
-    / mass) — Haochen 2026-05-25 Round-3 ask. Also lets the report show actual
-    mass-doubling time vs the declared cell_cycle_len target.
+    / mass) — Haochen 2026-05-25 Round-3 ask. Also lets the report show actual mass-doubling
+    time vs the declared cell_cycle_len target.
 - name: dry_mass
   store_path: agents.0.listeners.mass.dry_mass
   units: fg
@@ -501,31 +519,34 @@ readouts:
   units: dimensionless
   status: available
   description: 2^(t/cell_cycle_len) — the mass listener's REFERENCE curve under the
-    declared τ=150 min. Diverges from actual mass when ParCa's fitted synthesis
-    rate disagrees with the declared cycle length.
-biological_role: Defines the BASELINE every other study calibrates against — the v2ecoli single-cell composite running
-  on minimal glucose, before any DnaA mechanism is ported. Catalogs the Fu/Xiao/Jun (2023) Stage-1 parameter set
-  with explicit wiring status (which parameters v2ecoli already exposes vs which need new listeners).
-dependency_rationale: Foundation — nothing else can run until the baseline composite + parameter catalog exist.
-  Every downstream study composes on top of this composite and compares its observables back to this baseline.
-mechanism_replaced: Nothing yet — this study establishes WHAT the v2ecoli baseline does (mass-per-oriC heuristic
-  intact) so the downstream studies have a concrete "before" reference.
-primary_claim: The baseline initiates replication within one cell cycle (number_of_oric 2→4) on a glucose ParCa
-  cache, and the Stage-1 parameter set composes cleanly into the v2ecoli composite without breaking core behaviour.
-primary_visualization: 'chromosome_state — full multi-panel cell-cycle figure: 5 circular chromosome maps across
-  the cycle with replication bubbles + RNAPs, plus replication-fork progress + mass growth timeseries. This is the
-  biological reference picture every other study calibrates against.'
-scope_boundary: Single cell, single generation, minimal glucose, seed 0. No biology is ADDED here — only catalogued.
-deferred_biology: All DnaA mechanism work is deferred to dnaa-01 through dnaa-06. This study does not introduce
-  any new listeners, processes, or steps.
-
+    declared τ=150 min. Diverges from actual mass when ParCa's fitted synthesis rate
+    disagrees with the declared cycle length.
+biological_role: Defines the BASELINE every other study calibrates against — the v2ecoli
+  single-cell composite running on minimal glucose, before any DnaA mechanism is ported.
+  Catalogs the Fu/Xiao/Jun (2023) Stage-1 parameter set with explicit wiring status
+  (which parameters v2ecoli already exposes vs which need new listeners).
+dependency_rationale: Foundation — nothing else can run until the baseline composite
+  + parameter catalog exist. Every downstream study composes on top of this composite
+  and compares its observables back to this baseline.
+mechanism_replaced: Nothing yet — this study establishes WHAT the v2ecoli baseline
+  does (mass-per-oriC heuristic intact) so the downstream studies have a concrete
+  "before" reference.
+primary_claim: The baseline initiates replication within one cell cycle (number_of_oric
+  2→4) on a glucose ParCa cache, and the Stage-1 parameter set composes cleanly into
+  the v2ecoli composite without breaking core behaviour.
+primary_visualization: 'chromosome_state — full multi-panel cell-cycle figure: 5 circular
+  chromosome maps across the cycle with replication bubbles + RNAPs, plus replication-fork
+  progress + mass growth timeseries. This is the biological reference picture every
+  other study calibrates against.'
+scope_boundary: Single cell, single generation, minimal glucose, seed 0. No biology
+  is ADDED here — only catalogued.
+deferred_biology: All DnaA mechanism work is deferred to dnaa-01 through dnaa-06.
+  This study does not introduce any new listeners, processes, or steps.
 post_run_scripts:
 - path: scripts/render_dnaa00_chromosome_viz.py
-  # Round 3 (Haochen 2026-05-25): bumped --steps 600 → 5000 to cover the
-  # full emergent cell cycle on the new Stage-1 glycerol cache (division
-  # at ~83 min = 5000 s). The 600-s default left Haochen confused about
-  # the panel's scope ("is this a sanity check or a full cell cycle?").
-  # 5 timepoints across the cycle now span the actual cycle, not just
-  # the first 10 minutes. Explicitly point at the glycerol cache.
-  args: ['--steps', '5000', '--cache-dir', 'out/cache-stage1-glycerol']
+  args:
+  - --steps
+  - '5000'
+  - --cache-dir
+  - out/cache-stage1-glycerol
   timeout_s: 3600

@@ -6,18 +6,24 @@ package_path: v2ecoli
 references_bib: references/papers.bib
 
 # ─── RUNTIME ──────────────────────────────────────────────────────────
-# Workspace-level defaults for the dashboard run path. v2ecoli prefers
-# XArrayEmitter (multi-generation native; zarr partitioned by
-# experiment_id/variant/lineage_seed/generation) over the
-# single-generation SQLiteEmitter that the dashboard ships as default.
+# Workspace-level emitter preference. The dashboard and v2ecoli scaffolds
+# read this to decide which emitter to construct for new study runs.
+# Allowed values: 'parquet' | 'sqlite' | 'xarray'.
+#
+# Current preference: **parquet** — column-oriented, hive-partitioned,
+# typically 3–5× smaller on disk than the equivalent sqlite run for
+# v2ecoli-shaped sims. Use v2ecoli.composites._helpers.parquet_emitter()
+# and v2ecoli.library.parquet_run.run_multigen_parquet for the runtime
+# wiring; tests live at tests/test_parquet_emitter_ported.py.
+#
+# Dashboard support note: vivarium-dashboard currently auto-injects sqlite
+# for any value it does not recognise; the parquet auto-inject + Registry-
+# tab "default" badge land in a follow-up vivarium-dashboard PR. Until then
+# the dashboard's Simulations-DB tab continues to read sqlite-shaped runs;
+# parquet runs are queried via DuckDB/Polars directly off the hive dir.
 runtime:
-  # 'sqlite' is the workspace default — it captures unstructured state (unique
-  # molecules, structured arrays) the chromosome / replication-fork viz needs.
-  # 'xarray' is opt-in per study via `runtime.emitter: xarray` in the study
-  # yaml — best for many-sims aggregation (seed sweeps, variant overlays)
-  # where the observables are fixed-shape vectors XArrayEmitter can buffer.
-  default_emitter: sqlite
-  max_generations: 3        # multi-gen cap (xarray runs only)
+  default_emitter: parquet  # 'parquet' | 'sqlite' | 'xarray'
+  max_generations: 3        # multi-gen cap (xarray + parquet runs)
   default_n_steps: 3600     # ≥1 cell cycle floor (glucose cycle ≈ 44 min ≈ 2640 ticks; 3600 = 1.4 cycles for safety). Studies needing multigen set baseline params.n_steps explicitly (9000 = ~3 cycles). The legacy 5-tick + 600-tick defaults produced single-data-point runs that were confusing to evaluate.
 
 # ─── DEFAULT BASELINE ─────────────────────────────────────────────────

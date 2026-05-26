@@ -864,6 +864,52 @@ def flatten_dict(d: dict, separator: str = "__", prefix: str = "") -> dict:
     return out
 
 
+def _is_bookkeeping_field(name: str) -> bool:
+    """Predicate for structured-array fields that aren't analysis-interesting:
+
+    - ``*_submass`` — per-molecule mass deltas tracked on the ``bulk`` store
+    - ``massDiff_*`` — per-instance mass deltas tracked on every v2ecoli
+      unique-molecule MetadataArray
+    - ``_entryState`` — internal allocator tombstone flag on unique molecules
+
+    These are useful for the in-process mass balance but not for analysis,
+    and they explode per-row size when projected as list columns.
+    """
+    return (
+        name.endswith("_submass")
+        or name.startswith("massDiff_")
+        or name == "_entryState"
+    )
+
+
+def _split_structured_arrays(flat: dict) -> dict:
+    """Project numpy structured-record arrays into separate flat columns.
+
+    Polars can't write a record-array column directly, but handles
+    ``list[T]`` per-row just fine — so each non-bookkeeping field becomes
+    its own ``<key>__<field>`` entry. Used by ParquetEmitter for the
+    v2ecoli ``bulk`` store (``id`` + ``count``) and every unique-molecule
+    MetadataArray (``coordinates``, ``unique_index``, type-specific
+    state, ...). Bookkeeping fields (see :func:`_is_bookkeeping_field`)
+    are dropped.
+
+    Example: ``{'bulk': structured_array}`` →
+    ``{'bulk__id': id_array, 'bulk__count': count_array}``.
+
+    Non-structured values pass through unchanged.
+    """
+    out: dict = {}
+    for k, v in flat.items():
+        if isinstance(v, np.ndarray) and v.dtype.fields is not None:
+            for f in (v.dtype.names or ()):
+                if _is_bookkeeping_field(f):
+                    continue
+                out[f"{k}__{f}"] = v[f]
+            continue
+        out[k] = v
+    return out
+
+
 def pl_dtype_from_ndarray(arr: np.ndarray) -> pl.DataType:
     """
     Get Polars data type for a Numpy array, including nested lists.
@@ -1024,6 +1070,14 @@ class ParquetEmitter(Emitter):
           collapse to ``pl.Null``.
         """
         flat = flatten_dict(state, separator=self.flatten_separator)
+        # Pre-split structured numpy arrays with named 'id' and 'count'
+        # fields (e.g. the v2ecoli `bulk` store of (id, count, mass...11
+        # fields)) into separate flat columns. Polars can't write a record
+        # array directly — but it handles list[str] / list[i64] just fine.
+        # Other fields of the structured record (mass deltas, etc.) are
+        # dropped to keep history compact; analyses that need them can
+        # extend this in the future.
+        flat = _split_structured_arrays(flat)
         overrides = self.dtype_overrides
         emit_idx = self.num_emits % self.batch_size
 

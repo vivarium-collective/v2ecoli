@@ -905,19 +905,34 @@ def _get_special_step(loader, step_name, core):
             # RAMEmitter has no disk cost so it keeps the full state tree.
             ws_pref = _workspace_default_emitter()
             if ws_pref == 'parquet' and ParquetEmitter is not None:
-                # Auto-build workspace-default ParquetEmitter (listeners
-                # only — same lightweight schema as the explicit
-                # parquet_emitter() context manager).
+                # Auto-build workspace-default ParquetEmitter.
+                # Both `bulk` and each unique-molecule MetadataArray are
+                # numpy structured ndarrays; the ParquetEmitter's
+                # _split_structured_arrays splitter projects each field
+                # into its own list column (skipping mass-balance
+                # bookkeeping fields).
                 # out_dir: <workspace>/.pbg/parquet-runs/
                 # experiment_id: auto-generated; partitioned hive layout.
+                unique_types = (
+                    'full_chromosome', 'oriC', 'chromosome_domain', 'oriV',
+                    'plasmid_domain', 'plasmid_active_replisome',
+                    'active_replisome', 'promoter', 'gene', 'DnaA_box',
+                    'active_RNAP', 'RNA', 'chromosomal_segment',
+                    'active_ribosome', 'full_plasmid',
+                )
                 emit_schema = {
                     'global_time': 'float',
+                    'bulk': 'array',
                     'listeners': listeners_schema,
                 }
                 topo = {
                     'global_time': ('global_time',),
+                    'bulk': ('bulk',),
                     'listeners': ('listeners',),
                 }
+                for ut in unique_types:
+                    emit_schema[ut] = 'array'
+                    topo[ut] = ('unique', ut)
                 ws_root = _find_workspace_root()
                 if ws_root is None:
                     emit_schema, topo = _ram_full_schema(listeners_schema)

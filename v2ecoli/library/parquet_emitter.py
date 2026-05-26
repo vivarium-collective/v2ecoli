@@ -1055,16 +1055,28 @@ class ParquetEmitter(Emitter):
                             self.buffered_emits[k][:emit_idx].tolist()
                             + [None] * (self.batch_size - emit_idx)
                         )
-            # Polars fallback. If we previously locked in a numpy dtype for
-            # this field, cast the value first so the Polars inner-type
-            # stays consistent across rows — otherwise int32 vs int64 (or
-            # similar) bounces between emits and union_pl_dtypes raises.
+            # Polars fallback. Two normalisations before wrapping in a
+            # pl.Series so the Polars path handles real cell-sim values:
+            #
+            # 1. Cast to the remembered numpy dtype (if any) so int32 vs
+            #    int64 doesn't bounce inner types across rows. Without this
+            #    union_pl_dtypes raises "Incompatible inner types".
+            # 2. Convert multi-D ndarrays to nested Python lists. Polars's
+            #    Series constructor can't parse a 2+D numpy array (errors
+            #    out with "cannot parse numpy data type dtype('O')"), but
+            #    happily reads a Python list-of-lists into a List(List(...))
+            #    column. Common in v2ecoli for fields like
+            #    listeners__rna_synth_prob__n_bound_TF_per_TU whose first
+            #    tick is shape (0, 0) (locks buffer to that 2D shape) and
+            #    later ticks are (M, N).
             np_type = self.np_types.get(k)
             if np_type is not None and isinstance(v, np.ndarray):
                 try:
                     v = v.astype(np_type, copy=False)
                 except (TypeError, ValueError):
                     pass
+            if isinstance(v, np.ndarray) and v.ndim > 1:
+                v = v.tolist()
             ser = pl.Series([v])
             curr_type = self.pl_types.setdefault(k, pl.Null)
             if ser.dtype != curr_type:
@@ -1142,6 +1154,52 @@ class ParquetEmitter(Emitter):
             self.filesystem.makedirs(os.path.dirname(success_file))
             pl.DataFrame({"success": [True]}).write_parquet(success_file)
         self._closed = True
+
+    @staticmethod
+    def flush_all_in_composite(composite: Any, success: bool = True) -> int:
+        """Walk a composite's state, call close() on every ParquetEmitter step.
+
+        v2ecoli composites construct the ParquetEmitter inside their step
+        factory; the driver script never sees the instance and so cannot
+        call close() directly. Without an explicit close, a partial last
+        batch (rows after the most recent batch_size flush) stays in
+        memory and never lands on disk. Call this helper after the
+        simulation loop ends to make the trailing batch durable.
+
+        Returns the number of ParquetEmitter instances closed.
+        """
+        closed = 0
+        def _walk(node: Any) -> None:
+            nonlocal closed
+            if isinstance(node, dict):
+                inst = node.get("instance")
+                if isinstance(inst, ParquetEmitter) and not inst._closed:
+                    inst.close(success=success)
+                    closed += 1
+                for v in node.values():
+                    _walk(v)
+        _walk(getattr(composite, "state", None) or {})
+        return closed
+
+    def __del__(self) -> None:
+        """Defensive flush on garbage collection.
+
+        When the emitter is wired into a process-bigraph composite step, no
+        explicit ``close()`` call happens at composite end-of-life — the step
+        instance gets garbage-collected and any trailing partial batch is
+        lost. ``__del__`` calls ``close(success=False)`` so the trailing
+        rows land on disk. Interpreter-shutdown ordering is undefined, so
+        callers that care about the success sentinel or about durable
+        flushes during normal operation should still call ``close()``
+        explicitly.
+        """
+        try:
+            if not getattr(self, "_closed", True):
+                self.close(success=False)
+        except Exception:
+            # Never raise from __del__ — Python emits "Exception ignored in"
+            # warnings for that and it pollutes test output / logs.
+            pass
 
     def query(self, paths=None, query=None) -> Any:
         """Read back what was emitted. Returns a polars DataFrame."""

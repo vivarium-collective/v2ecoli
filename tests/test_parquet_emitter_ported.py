@@ -1089,15 +1089,18 @@ class TestParquetEmitterEdgeCases:
                 ],
             })
 
-        # Variable-shape 3D NumPy array — Polars can't reconcile np-array fallback.
-        with pytest.raises(
-            ValueError,
-            match=re.escape("cannot parse numpy data type dtype('O')"),
-        ):
-            emitter.update({
-                "time": 3.0,
-                "another_3d_array": np.zeros((10, 10, 10)),
-            })
+        # Variable-shape 3D NumPy array — v2ecoli's Polars fallback converts
+        # multi-D ndarrays to nested Python lists, so this now succeeds where
+        # vEcoli's upstream raises a dtype('O') error. Behavior improvement
+        # added so real cell composites (which emit fields like
+        # listeners__rna_synth_prob__n_bound_TF_per_TU with shape transitions
+        # (0, 0) → (M, N)) don't crash on first non-empty tick.
+        emitter.update({
+            "time": 3.0,
+            "another_3d_array": np.zeros((10, 10, 10)),
+        })
+        # The 3D field now lives on the Polars list path.
+        assert "another_3d_array" in emitter.pl_serialized
 
     def test_nested_nullable(self, temp_dir, core):
         """Nullable nested types that grow deeper across rows reconcile."""

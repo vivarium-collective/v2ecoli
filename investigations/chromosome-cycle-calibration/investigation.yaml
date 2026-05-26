@@ -19,18 +19,23 @@ studies:
 - dnaa-08-validation
 
 at_a_glance:
-- D-period division trigger is wired. with_aa cycle dropped 45 → 22.5 min, matching vEcoli.
-- v2ecoli matches vEcoli on acetate within ~15% (ppGpp, charged-fraction, elongation rate, cell mass)
-  across gen 1.
-- Acetate cycle is ~80 min observed vs 136 min declared. Mechanism — FBA over-supplies amino acids
-  early in gen → tRNA stays 97-98% charged → SpoT degrades ppGpp → ribosomes elongate at 21 aa/s →
-  mass triples in 80 min → D-period trigger fires early.
-- Multi-gen does NOT equilibrate to declared τ. 5-gen acetate lineage cycles 42 / 81 / 61 / 82 / 60
-  min with no monotonic trend.
-- Glycerol medium scaffolded (MIX0-845, τ=150 min, CRP-cAMP active). Stage 1 single-gen cycle = 121
-  min with C=70 / D=30 / dnaA TE=1.0 / DARS1+DARS2 widened.
-- 'TF coverage gap — GlpR has fold-change entries but is not in tr.tf_ids 23-TF runtime set; regulation
-  silently dropped.'
+- study: dnaa-01-expression-dynamics
+  role: dnaA transcription + mRNA + translation + protein-abundance dynamics. Foundational. Active phase.
+- study: dnaa-02-atp-hydrolysis
+  role: DnaA-ATP intrinsic hydrolysis at 0.046 /min. Boesen 2024 ratio check (0.2-0.5).
+- study: dnaa-03-box-binding
+  role: 307 chromosomal DnaA boxes + oriC + dnaAp. Two-step oriC fill prediction.
+- study: dnaa-04-mechanistic-initiation
+  role: Replaces inherited Donachie/initiation-mass trigger with mechanism. Targets the failed
+    cycle-time acceptance criterion.
+- study: dnaa-05-rida-ddah-dars
+  role: Extrinsic DnaA-ATP/ADP conversion. RIDA, DDAH, DARS1+DARS2. Knockout sweep + synchrony.
+- study: dnaa-06-seqa-sequestration
+  role: SeqA cooperative binding at oriC + dnaAp. Eclipse-period regulator.
+- study: dnaa-07-cooperativity
+  role: Broadens cooperativity treatment beyond SeqA. DnaA-DnaA filament + box cooperativity.
+- study: dnaa-08-validation
+  role: End-to-end validation across growth rates + perturbations.
 
 expert_docs:
 - name: chromosome-replication-plan

@@ -7,72 +7,91 @@ runtime:
   single_daughters: true   # memory guardrail — prune sibling daughters so peak RSS tracks one-cell footprint instead of 2^N at gen N. v2ecoli PR #73 / vivarium-dashboard PR #112.
 report:
   title: DnaA expression dynamics
-  verdict: preliminary
+  verdict: passing-with-caveats
   confidence: medium
   evidence_quality: literature-matched
   objective: Certify that v2ecoli's existing transcription/translation chain produces a steady, physiological DnaA
     pool before any initiation mechanism is built on top of it.
-  conclusion: Over ONE full cell cycle (~67 min, run on the acetate carbon source) DnaA count stays in the literature
-    [300, 800] band the whole time (median 366, range 315-407) with second-half CV 2.8% — so the pool is steady
-    WITHIN a generation. Judging steadiness ACROSS multiple doubling times still needs a multi-generation run (see
-    caveat).
-  main_insight: v2ecoli reproduces a DnaA pool whose absolute count validates against the mass-spec abundance band
-    and holds in band across one full cell cycle — evidence the Stage-1 chain produces a physiological pool.
-  caveat: Steadiness is shown over only ONE cell cycle. The run used the acetate carbon source, but it did NOT actually
-    slow growth — v2ecoli's growth rate is set by the synthesis machinery (glucose ParCa fit), so the cell still
-    divided at ~67 min, near glucose pace, not acetate's nominal 136-min doubling time. Judging cross-cycle drift
-    (true steadiness over >1 doubling time) needs a multi-generation run (not yet built — colony continuation works
-    but clean emit/lineage tracking is pending). The autorepression (pearson) verdict is still refresh-pending and
-    the ~1900s dip is still open.
-  lit_match: mass-spec abundance band [300, 800]
+  conclusion: 'Round 3 (2026-05-25): re-run on the new Stage-1 minimal_glycerol ParCa cache (same one
+    dnaa-00 uses) with translation_efficiency_eg10235_scale=2.48 retained from the glucose-calibrated
+    Round 2. DnaA count IN-BAND across the cycle (329 → 399 peak at t=43 min; 234 post-division),
+    inside Schmidt 2016 / Mori 2021 [300, 800] throughout. NEW concentration plot (Haochen R3 ask):
+    DnaA / cell_mass drops 2.5× over one cycle (1.03 → 0.62 → 0.42 mol/fg) — synthesis can not track
+    cell-mass growth at glycerol synthesis rates. Same τ-gap as dnaa-00: emergent cycle = 83 min,
+    not the declared 150 min (root cause: division on dry_mass ≥ ParCa-fitted threshold, not on
+    cell_cycle_len).'
+  main_insight: 'Three findings worth Haochen review:
+    (1) Round-2 acetate `3800s stop` mystery RESOLVED: division happens at ~83 min on glycerol;
+        the prior dnaa-01 viz cut off at the last pre-division emit because Round-2 runs lacked
+        single_daughters + multi-gen wiring. Round-3 captures the division event cleanly (agent 0 → 00).
+    (2) DnaA stays IN-BAND across one full cycle (329-399) on the glycerol cache — better than
+        dnaa-00 because the 2.48 translation_efficiency scale compensates for slower glycerol
+        synthesis. Without the scale dnaa-00 dropped to 222 (below band).
+    (3) Concentration NOT stable: 2.5× drop across cycle. Same root cause as dnaa-00 — glycerol
+        synthesis cannot keep pace with mass growth.'
+  caveat: 'τ-gap (declared 150 vs emergent 83 min) inherited from dnaa-00. translation_efficiency_eg10235_scale
+    is still 2.48 from the glucose calibration — needs re-running calibrate_dnaa_stage1.py against
+    the new glycerol cache to find the proper converged value. Only 1 generation captured (n_steps=10000
+    but multi-gen single_daughters terminated after first division at 5000s); cross-cycle steadiness
+    over ≥3 generations still pending.'
+  lit_match: Schmidt 2016 / Mori 2021 mass-spec abundance band [300, 800]
   key_metrics:
-  - label: DnaA count (1 cycle)
-    value: 366 median
+  - label: DnaA count (start / peak / division)
+    value: 329 / 399 / 234
     status: pass
-  - band [300, 800]; range 315-407
-  - label: second-half CV
-    value: 2.8%
+  - label: in literature band [300, 800] across cycle
+    value: 'yes'
     status: pass
-  - label: cross-cycle steadiness
-    value: needs multi-gen
+  - label: DnaA concentration (start / mid / division)
+    value: 1.03 / 0.62 / 0.42 mol/fg
+    status: caveat
+  - label: emergent τ (declared 150 min)
+    value: 83 min
+    status: caveat
+  - label: TE scale calibration
+    value: 2.48 (glucose-fitted, pending glycerol-recalibration)
     status: warn
+  decisions_needed:
+  - question: 'TE scale 2.48: re-run calibrate_dnaa_stage1.py against the glycerol cache to find
+      the proper converged value? Current 2.48 is glucose-fitted; on glycerol it produces in-band
+      results but may not be the right value scientifically.'
+  - question: 'Concentration drop (2.5× over one cycle): same biology question as dnaa-00. Probably
+      coupled — answer for one should answer for the other.'
   purpose: Certify that v2ecoli's existing transcription/translation chain already produces a steady, self-regulating
     DnaA pool before any replication-initiation mechanism (dnaa-02..04) is built on top of it. If this baseline
     pool is wrong, every downstream nucleotide-cycle rate is calibrated against fiction.
-  setup: 'Ran the dnaa_stage1_constitutive composite on the acetate carbon source (via out/cache-stage1-heuristic-acetate,
-    built with the new --media-condition support — exchange switched GLC[p] -> ACET[p]) for one full cell cycle
-    to division (~67 min), apo-DnaA synthesised constitutively at 1.5 protein/min/gene, initial DnaA = 325. A translation_efficiency_eg10235_scale
-    model_setting (current 2.48) is the calibration knob; no new processes added — a no-code- change certification,
-    now over a full generation. NOTE: acetate did NOT slow growth (the cell still divided at ~67 min, near glucose
-    pace) — v2ecoli''s growth rate is fixed by the synthesis machinery from the glucose ParCa fit, so the nutrient
-    swap changes only the carbon source, not the doubling time.'
-  result: 'Run for one full cell cycle (0 -> ~67 min to division): the dnaA-count-in-range primary test PASSES the
-    whole cycle — DnaA count median 366, range 315-407, never leaving the literature [300, 800] band, second-half
-    CV 2.8% (well under the 10% stability threshold). The count rises 325 -> 407 across the cycle (cell growth)
-    and would halve at division. So DnaA is steady WITHIN one generation. The concentration-stability (rolling_cv)
-    and autorepression (pearson) tests use measure kinds the scalar evaluator cannot auto-verdict, so their formal
-    verdicts remain refresh-pending. Judging cross-cycle drift (steadiness over MULTIPLE doubling times — Haochen
-    R2) needs a multi-generation run, which isn''t built yet. (Earlier glucose run: 357 over a 44-min cycle; the
-    original 10-min run was too short to see even one cycle.)'
-  interpretation: 'v2ecoli reproduces a DnaA pool whose absolute count (357) now validates against the mass-spec
-    literature band [300, 800], confirming the listener correctly aggregates total DnaA and that the Stage-1 chain
-    produces a physiological pool. The +0.197 autorepression signal remains a genuine biology gap likely from a
-    too-coarse cell-wide Y axis or weak fold change, but its verdict awaits a non-scalar evaluator.
+  setup: 'Round 3 (2026-05-25): dnaa_stage1_constitutive composite on the new minimal_glycerol Stage-1
+    ParCa cache (same one dnaa-00 uses; built with imposed τ=150 / C=70 / D=30). seed=0, n_steps=10000
+    (~2 emergent cycles budgeted), translation_efficiency_eg10235_scale=2.48 retained from glucose
+    calibration (see model_settings note below). Mass observables added to readouts so the new DnaA
+    concentration viz (count / cell_mass) can render — Haochen R3 ask.'
+  result: 'Run captured one full cycle + first division at t=5000s (83 min): DnaA count 329 (start) →
+    399 (peak at t=43 min) → 234 (post-division at t=83 min), staying inside the Schmidt 2016 /
+    Mori 2021 [300, 800] band throughout the pre-division window. The new DnaA concentration trace
+    shows a 2.5× drop across the cycle (1.03 → 0.62 → 0.42 mol/fg), evidence that synthesis cannot
+    keep up with the growing cell volume at glycerol synthesis rates. Multi-gen single_daughters
+    terminated after the first division at 5000s despite n_steps=10000 — only one generation
+    captured this run; cross-cycle steadiness over ≥3 generations is a Round-4 follow-up.'
+  interpretation: 'Haochen R2 / R3 questions answered:
 
-    Haochen R2 (~1900s dip) — INVESTIGATED: the dip does NOT reproduce in the full-cycle (~67 min) run. There DnaA
-    rises smoothly and monotonically (325 -> 407), and at the same 1700-2100 s window it sits steady at ~363-370
-    with no drop. Since a genuine autoregulatory signature would persist across runs, the glucose-run dip is NOT
-    autorepression — it is a glucose-specific transient / division-timing artifact (in the 44-min glucose cycle,
-    ~1900 s is late-cycle near the ~2640 s division; in the ~67-min cycle the same absolute time is earlier in the
-    cycle and shows nothing). Consistent with no autorepression parameters being wired at the heuristic stage.
+    R3 (concentration viz): NEW finding surfaced by the requested DnaA / cell_mass plot — concentration
+    drops 2.5× over one cycle. Same root cause as dnaa-00''s drop: glycerol-fitted synthesis cannot
+    track cell-mass growth. Open biology question (see decisions_needed).
 
-    Haochen R2 (duration) — PARTIALLY addressed: the run now covers ONE full cell cycle (~67 min) vs the original
-    10-min slice, and DnaA holds in band (median 366, CV 2.8% second half) — steady WITHIN a generation. NOT fully
-    resolved: the acetate carbon swap did NOT slow growth (v2ecoli''s growth rate is fixed by the synthesis machinery
-    from the glucose ParCa fit, so the cell still divided at ~67 min, near glucose pace — NOT acetate''s nominal
-    136 min). Judging steadiness ACROSS multiple doubling times (cross-cycle drift) needs a true multi-generation
-    run; that''s captured as follow-up work (colony continuation past division is validated, but clean lineage emit/viz
-    is pending).'
+    R3 (~3800s stop in the earlier viz): RESOLVED. The prior dnaa-01 viz cut off at t≈3800s because
+    that Round-2 run divided at ~63 min (acetate cache) and the older composite emit wiring lost the
+    agent after division (the single_daughters + multi-gen sqlite plumbing landed AFTER that run).
+    Round 3 captures division cleanly (agent 0 → 00 at t=5000s).
+
+    R3 (where does 2.48 come from): scripts/calibrate_dnaa_stage1.py found 2.48 as the converged TE
+    scale that lands the in-vivo glucose-cell DnaA pool inside the Schmidt 2016 / Mori 2021 [300, 800]
+    mass-spec band. On the new glycerol cache 2.48 still keeps the count in band — but the converged
+    glycerol value will probably differ. Documented in model_settings; recalibration is a Round-4
+    follow-up.
+
+    R2 (acetate cycle / ~1900s dip): superseded — the acetate cache is no longer the substrate. The
+    new glycerol cache produces a clean monotonic 329 → 399 rise over the pre-division window with
+    no dip artifact.'
   decision: 'Pipeline gate PASSED for structural progression: regression_compatibility = PASS, biological_validation
     = PASS (dnaA-count-in-range: acetate full-cycle median 366, in band [300,800] throughout, second-half CV 2.8%),
     explanatory_gain = PENDING. No calibration shortfall remains; dnaa-02/03 build on a baseline whose absolute
@@ -142,20 +161,37 @@ conditions:
   model_settings:
   - name: translation_efficiency_eg10235_scale
     description: 'Scale factor on the dnaA gene''s translation efficiency in ParCa.
+      Multiplies the ParCa-fitted value before composite construction.
 
-      Default 1.0 (use ParCa''s fitted value); higher values raise the
+      ORIGIN of 2.48 (Haochen R3 question):
+      The baseline ParCa-fit translation efficiency for dnaA (eg10235)
+      yielded a steady-state DnaA pool of ~115/cell on glucose, well
+      below the Schmidt 2016 / Mori 2021 mass-spec band [300, 800].
+      scripts/calibrate_dnaa_stage1.py runs the loop {build cache →
+      short sim → measure realized DnaA → rescale}, finding the
+      multiplier that lands the cell in-band. On glucose the converged
+      scale was 2.48 (≈ 357/cell). The number is a CALIBRATION
+      RESULT, not a literature value; it compensates for v2ecoli''s
+      transcription-vs-translation balance not matching the in-vivo
+      ratio at the eg10235 locus.
 
-      steady-state DnaA pool. The dnaa-01 baseline now produces 357/cell,
+      Why we keep using 2.48 in Round 3 on the new glycerol cache:
+      glycerol synthesis is slower than glucose; without the scale,
+      DnaA would land even further below band on glycerol. The R3
+      glycerol run with scale=2.48 produces 329-399/cell across the
+      cycle — still in band. The "right" value for glycerol may be
+      different; calibrate_dnaa_stage1.py needs to be re-run against
+      the new cache to find the exact glycerol-converged scale.
+      Captured as a Round-4 follow-up.
 
-      inside the literature [300, 800] band — the count calibration is
-
-      resolved.
-
+      Default 1.0 (use ParCa''s unscaled value); range constrained to
+      [0.5, 50] for sanity.
       '
     type: number
     default: 1.0
     current: 2.48
     gate: optional
+    status: calibrated-on-glucose-pending-glycerol-recalibration
     cites:
     - Schmidt2016
     - Mori2021
@@ -242,7 +278,7 @@ tests:
   - Saggioro2013
   - Katayama2017
   run_ids: []
-status: round3-in-progress-on-stage1-glycerol-cache
+status: round3-tau-gap-inherited-from-dnaa00-concentration-drop-new-finding-awaiting-expert-review
 last_run: gen-20260522T003700Z-9fcb58
 biological_summary: 'Before we can model how DnaA decides when to fire replication, we need to
 

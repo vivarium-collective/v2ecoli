@@ -144,11 +144,23 @@ ALLOCATOR_LAYERS = {
 # ensures the override is cleared even on exceptions.
 _EMITTER_OVERRIDE: dict | None = None
 
+# Parallel override for the ParquetEmitter path. When set, the 'emitter' step
+# materialises as a v2ecoli ParquetEmitter writing to a hive-partitioned dir,
+# independent of the SQLite override above. Both may be set simultaneously
+# (parquet wins — sqlite stays available for dashboard's Simulations-DB tab).
+_PARQUET_EMITTER_OVERRIDE: dict | None = None
+
 
 def set_emitter_override(config: dict | None) -> None:
-    """Set the module-level emitter override. Pass None to clear."""
+    """Set the module-level SQLite emitter override. Pass None to clear."""
     global _EMITTER_OVERRIDE
     _EMITTER_OVERRIDE = config
+
+
+def set_parquet_emitter_override(config: dict | None) -> None:
+    """Set the module-level Parquet emitter override. Pass None to clear."""
+    global _PARQUET_EMITTER_OVERRIDE
+    _PARQUET_EMITTER_OVERRIDE = config
 
 
 import contextlib  # noqa: E402
@@ -324,6 +336,84 @@ def sqlite_emitter(*, file_path: str | None = None,
         except sqlite3.OperationalError:
             pass
         set_emitter_override(None)
+
+
+@contextlib.contextmanager
+def parquet_emitter(*, out_dir: str | None = None,
+                    experiment_id: str | None = None,
+                    variant: int = 0,
+                    lineage_seed: int = 0,
+                    generation: int | None = None,
+                    agent_id: str = "1",
+                    batch_size: int = 400,
+                    threaded: bool = True,
+                    study_slug: str | None = None,
+                    investigation_slug: str | None = None,
+                    extra_metadata: dict | None = None):
+    """Context manager: build composite with a ParquetEmitter step.
+
+    Workspace-default ``out_dir`` is ``<workspace_root>/.pbg/parquet-runs/``.
+    Hive partitioning matches vEcoli's layout
+    (``experiment_id=.../variant=.../lineage_seed=.../generation=.../agent_id=...``),
+    so anyone with a vEcoli analysis pipeline can point at the output dir
+    directly.
+
+    Usage::
+
+        with parquet_emitter(experiment_id='baseline-seed0',
+                             study_slug='dnaa-01-expression-dynamics'):
+            doc = baseline(cache_dir='out/cache')
+            comp = Composite(doc, core=core)
+            comp.update({}, 60.0 * 60)
+
+    Storage trade-off vs ``sqlite_emitter()``: Parquet is column-oriented and
+    typically 3-5x smaller on disk for v2ecoli-shaped runs (sparse arrays,
+    listener-heavy schema). The dashboard's Simulations-DB tab does not yet
+    read parquet — for now use ``sqlite_emitter()`` if dashboard inspection
+    is required.
+    """
+    if out_dir is None:
+        ws_root = _find_workspace_root()
+        if ws_root is None:
+            raise RuntimeError(
+                "parquet_emitter(): no out_dir given and no workspace.yaml "
+                "found walking up from cwd; either run from inside a "
+                "workspace or pass out_dir explicitly.")
+        out_dir = str(ws_root / ".pbg" / "parquet-runs")
+
+    if experiment_id is None:
+        experiment_id = "default-" + uuid.uuid4().hex[:8]
+
+    # Build the emitter config dict via the vEcoli-shaped preset so the
+    # hive layout + dtype overrides match upstream conventions exactly.
+    from v2ecoli.library.emitter_presets import parquet_vecoli
+    cfg = parquet_vecoli(
+        out_dir=out_dir,
+        experiment_id=experiment_id,
+        variant=variant,
+        lineage_seed=lineage_seed,
+        agent_id=agent_id,
+        generation=generation,
+        batch_size=batch_size,
+        threaded=threaded,
+        extra_metadata=extra_metadata,
+    )
+    # Carry the study/investigation slugs in metadata so downstream readers
+    # can group hive-partitioned runs by study without crossing into the
+    # SQLite simulations-table convention.
+    if study_slug or investigation_slug:
+        meta = dict(cfg.get("metadata") or {})
+        if study_slug:
+            meta["study_slug"] = study_slug
+        if investigation_slug:
+            meta["investigation_slug"] = investigation_slug
+        cfg["metadata"] = meta
+
+    set_parquet_emitter_override(cfg)
+    try:
+        yield cfg
+    finally:
+        set_parquet_emitter_override(None)
 
 
 # ---------------------------------------------------------------------------
@@ -649,6 +739,12 @@ def _get_special_step(loader, step_name, core):
 
     if step_name == 'emitter':
         from process_bigraph.emitter import RAMEmitter, SQLiteEmitter
+        # ParquetEmitter is optional — the import lives behind an extra so
+        # workspaces without the [parquet] extra still build composites.
+        try:
+            from v2ecoli.library.parquet_emitter import ParquetEmitter
+        except ImportError:
+            ParquetEmitter = None  # type: ignore[assignment]
         # Mass listener fields — always emitted, used by the workflow report.
         mass_schema = {
             'cell_mass': 'float',
@@ -671,8 +767,10 @@ def _get_special_step(loader, step_name, core):
         # the dnaa-investigation readouts: monomer_counts / rna_counts /
         # rna_synth_prob / rnap_data. Cheap to add — they're already in the
         # per-step state tree.
+        # Parquet override wins over SQLite — see set_parquet_emitter_override.
+        parquet_override = _PARQUET_EMITTER_OVERRIDE
         override = _EMITTER_OVERRIDE
-        if override is not None:
+        if (parquet_override is not None or override is not None):
             # Only the leaves the dnaa-investigation readouts actually consume.
             # NB: ``monomer_counts`` is a flat array store (not nested under
             # a ``monomerCounts`` key) — confirmed at runtime via the
@@ -698,7 +796,26 @@ def _get_special_step(loader, step_name, core):
                 },
             })
 
-        if override is not None:
+        if parquet_override is not None:
+            # Parquet path — column-oriented hive-partitioned output. Same
+            # lightweight schema as SQLite (global_time + listeners only) for
+            # the same reasons documented in the SQLite branch below.
+            if ParquetEmitter is None:
+                raise ImportError(
+                    "ParquetEmitter override set but [parquet] extra not "
+                    "installed. Run: pip install 'v2ecoli[parquet]'"
+                )
+            emit_schema = {
+                'global_time': 'float',
+                'listeners': listeners_schema,
+            }
+            topo = {
+                'global_time': ('global_time',),
+                'listeners': ('listeners',),
+            }
+            cfg = {'emit': emit_schema, **parquet_override}
+            instance = ParquetEmitter(cfg, core)
+        elif override is not None:
             # Persistent SQLite path (default-baseline + per-study run
             # scripts). Capture ONLY global_time + listeners. The raw
             # ``bulk`` store (~25k molecules) and the unique-node structures

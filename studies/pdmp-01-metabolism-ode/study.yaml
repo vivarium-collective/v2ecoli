@@ -503,9 +503,17 @@ planned_runs:
   n_steps: (direct basico time course)
   details: completed 2026-05-24; 302 timepoints; recovery dynamics captured
 - name: millard-with-lqr-tuning
-  status: planned
-  n_steps: (Sobol sweep, ≥20 LQR-weight samples × baseline length)
-  details: Sobol-driven LQR weight scan; flag weights with total index < 0.01 on growth/glc-uptake/ATP-yield
+  status: scaffold-built
+  n_steps: 5
+  details: 'SCAFFOLD BUILT 2026-05-25. v2ecoli/steps/lqr_controller.py: 1-state continuous-time
+    LQR (closed-form Riccati for scalar ẋ=ax+bu under cost J=∫Q(x-x_ref)²+Ru²). Reads Phase 0
+    M9-glucose reference μ(t) ensemble mean from v2ecoli/data/phase0_glucose_mu_ref.npy (real
+    64-replicate data). v2ecoli/composites/millard_lqr.composite.yaml runs Millard + LQR coupled,
+    5 ticks × 100s simulated. Smoke test green: K=3.16, μ_est=2.5e-3, μ_ref=2.3e-4, RMS tracking
+    error=5.3e-3 (large because loop is NOT closed). HONEST GAP: the controller LOGS the control
+    signal but does not yet feed it back into Millard''s reaction rates — closing the loop needs
+    either a CopasiUTCProcess parameter-mutation feature OR a per-tick model-rebuild wrapper.
+    Sobol sweep on (Q, R) weights → planned follow-up once closed-loop wiring lands.'
 - name: millard-fba-bridge-pilot
   status: completed
   n_steps: 5

@@ -5,9 +5,9 @@ phase: Design
 status: complete
 design_status: complete
 implementation_status: not_applicable
-simulation_status: ran
-evaluation_status: evaluated
-gate_status: passed
+simulation_status: not_applicable
+evaluation_status: not_applicable
+gate_status: not_applicable
 expert_review_status: pending
 objective: |
   Background context — answer "why glycerol, why acetate?" in one place. This is a documentation
@@ -113,8 +113,11 @@ findings:
     the closest non-multi-fork existing condition AND has an established vEcoli implementation
     for side-by-side comparison; glycerol is the Stage 1 deliverable.
   evidence:
-    from_run: (analysis-only)
     artifact: docs/canonical_acetate_vs_stage1.html
+    note: Documentary finding — no underlying simulation. The artifact is hand-authored from
+      earlier baseline simulations in this worktree's out/ directory.
+  provenance:
+    run_ids: []
 conclusion_logic:
   if_primary_tests_pass: |
     Context surfaced. Reader can answer "why glycerol, why acetate" in under five minutes from

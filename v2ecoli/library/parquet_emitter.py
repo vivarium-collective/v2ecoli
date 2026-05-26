@@ -752,13 +752,51 @@ def _lookup_dtype_override(field_name: str, overrides: dict[str, str]) -> Option
     return None
 
 
+def _polars_dtype_from_override(field_name: str, overrides: dict[str, str]) -> Optional[Any]:
+    """Resolve ``field_name``'s override to a polars dtype instance, or None."""
+    if not overrides:
+        return None
+    hit = _lookup_dtype_override(field_name, overrides)
+    if hit is None:
+        return None
+    pl_cls = _POLARS_DTYPE_BY_NAME.get(hit)
+    return pl_cls() if pl_cls is not None else None
+
+
 def np_dtype(val: Any, field_name: str, overrides: Optional[dict[str, str]] = None) -> Any:
-    """Choose a NumPy dtype for ``val``, consulting ``overrides`` first."""
+    """Choose a NumPy dtype for ``val`` for the column named ``field_name``.
+
+    Resolution order: (1) ``overrides`` (exact name, then fnmatch glob), (2)
+    deep dispatch by value type. The deep dispatch raises ``ValueError`` on
+    None / empty list / unsupported types so that ``ParquetEmitter.update``
+    can fall back to Polars serialization. Bytes and datetime values also
+    raise — Polars handles them more robustly than NumPy.
+    """
     if overrides:
         hit = _lookup_dtype_override(field_name, overrides)
         if hit is not None:
-            return _NUMPY_DTYPE_BY_POLARS_NAME.get(hit, np.asarray(val).dtype)
-    return np.asarray(val).dtype
+            mapped = _NUMPY_DTYPE_BY_POLARS_NAME.get(hit)
+            if mapped is not None:
+                return mapped
+    # Order matters: bool is a subclass of int in Python.
+    if isinstance(val, float):
+        return np.float64
+    if isinstance(val, bool):
+        return np.bool_
+    if isinstance(val, int):
+        return np.int64
+    if isinstance(val, (str, np.str_)):
+        return np.dtypes.StringDType
+    if isinstance(val, np.generic):
+        return val.dtype
+    if isinstance(val, np.ndarray):
+        return val.dtype
+    if isinstance(val, (list, tuple)):
+        if len(val) > 0:
+            for inner_val in val:
+                if inner_val is not None:
+                    return np_dtype(inner_val, field_name, overrides)
+    raise ValueError(f"{field_name} has unsupported type {type(val)}.")
 
 
 def union_pl_dtypes(
@@ -967,58 +1005,136 @@ class ParquetEmitter(Emitter):
             pass
 
     def update(self, state: dict[str, Any]) -> dict:
-        """Buffer one history row; flush to parquet when ``batch_size`` reached."""
+        """Buffer one history row; flush to parquet when ``batch_size`` reached.
+
+        Each field takes one of two paths:
+
+        * **NumPy path** (efficient, default for first encounter): the dtype
+          is fixed from the first value, and rows are buffered into a
+          ``(batch_size,) + shape`` ndarray. Subsequent emits with a
+          different shape or that introduce a new field mid-batch raise
+          ``ValueError``, which triggers a per-field fallback to the Polars
+          path. The buffer is recreated at the start of each batch.
+
+        * **Polars path** (fallback for ragged / nullable / object data): the
+          field value becomes a ``pl.Series``; rows are buffered in a
+          ``list[pl.Series | None]`` and the polars dtype is reconciled
+          across rows via :py:func:`union_pl_dtypes`. ``dtype_overrides``
+          provide a ``force_inner`` hint so e.g. all-null prefixes don't
+          collapse to ``pl.Null``.
+        """
         flat = flatten_dict(state, separator=self.flatten_separator)
+        overrides = self.dtype_overrides
+        emit_idx = self.num_emits % self.batch_size
+
         for k, v in flat.items():
-            override = self.dtype_overrides
-            try:
-                v_np = np.asarray(v, dtype=np_dtype(v, k, override))
-                self.buffered_emits.setdefault(k, [None] * self.batch_size)
-                self.buffered_emits[k][self.num_emits % self.batch_size] = v_np
-                if k not in self.pl_types:
-                    self.pl_types[k] = pl_dtype_from_ndarray(v_np)
-            except (ValueError, TypeError):
-                self.buffered_emits.setdefault(k, [None] * self.batch_size)
-                ser = pl.Series([v])
-                self.buffered_emits[k][self.num_emits % self.batch_size] = ser
-                self.pl_types[k] = ser.dtype
-                self.pl_serialized.add(k)
+            if k not in self.pl_serialized:
+                try:
+                    if k not in self.np_types:
+                        self.np_types[k] = np_dtype(v, k, overrides)
+                    v_np = np.asarray(v, dtype=self.np_types[k])
+                    if k not in self.buffered_emits:
+                        if emit_idx == 0:
+                            self.buffered_emits[k] = np.zeros(
+                                (self.batch_size,) + v_np.shape, dtype=v_np.dtype
+                            )
+                        else:
+                            raise ValueError(f"Field {k} added mid-batch.")
+                    if k not in self.pl_types:
+                        self.pl_types[k] = pl_dtype_from_ndarray(v_np)
+                    if v_np.shape != self.buffered_emits[k].shape[1:]:
+                        raise ValueError(f"Shape mismatch for {k}.")
+                    self.buffered_emits[k][emit_idx] = v_np
+                    continue
+                except (ValueError, TypeError):
+                    self.pl_serialized.add(k)
+                    if k in self.buffered_emits and isinstance(
+                        self.buffered_emits[k], np.ndarray
+                    ):
+                        self.buffered_emits[k] = (
+                            self.buffered_emits[k][:emit_idx].tolist()
+                            + [None] * (self.batch_size - emit_idx)
+                        )
+            # Polars fallback. Two normalisations before wrapping in a
+            # pl.Series so the Polars path handles real cell-sim values:
+            #
+            # 1. Cast to the remembered numpy dtype (if any) so int32 vs
+            #    int64 doesn't bounce inner types across rows. Without this
+            #    union_pl_dtypes raises "Incompatible inner types".
+            # 2. Convert multi-D ndarrays to nested Python lists. Polars's
+            #    Series constructor can't parse a 2+D numpy array (errors
+            #    out with "cannot parse numpy data type dtype('O')"), but
+            #    happily reads a Python list-of-lists into a List(List(...))
+            #    column. Common in v2ecoli for fields like
+            #    listeners__rna_synth_prob__n_bound_TF_per_TU whose first
+            #    tick is shape (0, 0) (locks buffer to that 2D shape) and
+            #    later ticks are (M, N).
+            np_type = self.np_types.get(k)
+            if np_type is not None and isinstance(v, np.ndarray):
+                try:
+                    v = v.astype(np_type, copy=False)
+                except (TypeError, ValueError):
+                    pass
+            if isinstance(v, np.ndarray) and v.ndim > 1:
+                v = v.tolist()
+            ser = pl.Series([v])
+            curr_type = self.pl_types.setdefault(k, pl.Null)
+            if ser.dtype != curr_type:
+                force_inner = _polars_dtype_from_override(k, overrides)
+                self.pl_types[k] = union_pl_dtypes(
+                    curr_type, ser.dtype, k, force_inner
+                )
+            if k not in self.buffered_emits:
+                self.buffered_emits[k] = [None] * self.batch_size
+            self.buffered_emits[k][emit_idx] = ser[0]
 
         self.num_emits += 1
         if self.num_emits % self.batch_size == 0:
-            self._flush_batch()
+            # If last batch failed, that exception surfaces here.
+            self.last_batch_future.result()
+            outfile = os.path.join(
+                self.out_uri,
+                self.experiment_id or "default",
+                "history",
+                self.partitioning_path,
+                f"{self.num_emits}.pq",
+            )
+            self.filesystem.makedirs(os.path.dirname(outfile), exist_ok=True)
+            self.last_batch_future = self.executor.submit(
+                json_to_parquet,
+                self.buffered_emits,
+                outfile,
+                self.pl_types,
+                self.filesystem,
+            )
+            # Clear buffers so the background writer can't be racing with
+            # the next batch's writes into the same arrays.
+            if self.threaded:
+                self.buffered_emits = {}
         return {}
-
-    def _flush_batch(self) -> None:
-        """Flush the in-memory batch to a parquet file in the history dir."""
-        if not self.buffered_emits or self.num_emits == 0:
-            return
-        # Wait for the previous flush so we don't pile up futures.
-        self.last_batch_future.result()
-        outfile = os.path.join(
-            self.out_uri,
-            self.experiment_id or "default",
-            "history",
-            self.partitioning_path,
-            f"{self.num_emits}.pq",
-        )
-        self.filesystem.makedirs(os.path.dirname(outfile), exist_ok=True)
-        # Truncate the buffer to actually-written rows.
-        rows_in_batch = self.num_emits if self.num_emits % self.batch_size == 0 \
-            else self.num_emits % self.batch_size
-        batch = {k: v[:rows_in_batch] for k, v in self.buffered_emits.items()}
-        self.last_batch_future = self.executor.submit(
-            json_to_parquet, batch, outfile, self.pl_types, self.filesystem,
-        )
-        self.buffered_emits = {}
 
     def close(self, success: bool = False) -> None:
         """Flush remaining buffer; write success sentinel when partitioned + success."""
         if self._closed:
             return
         # Flush any unflushed rows.
-        if self.num_emits % self.batch_size != 0:
-            self._flush_batch()
+        if self.num_emits % self.batch_size != 0 and self.buffered_emits:
+            # Wait for any in-flight batch first.
+            self.last_batch_future.result()
+            rows_in_batch = self.num_emits % self.batch_size
+            trimmed = {k: v[:rows_in_batch] for k, v in self.buffered_emits.items()}
+            outfile = os.path.join(
+                self.out_uri,
+                self.experiment_id or "default",
+                "history",
+                self.partitioning_path,
+                f"{self.num_emits}.pq",
+            )
+            self.filesystem.makedirs(os.path.dirname(outfile), exist_ok=True)
+            self.last_batch_future = self.executor.submit(
+                json_to_parquet, trimmed, outfile, self.pl_types, self.filesystem,
+            )
+            self.buffered_emits = {}
         # Wait for the executor's last in-flight write.
         self.last_batch_future.result()
         if isinstance(self.executor, ThreadPoolExecutor):
@@ -1038,6 +1154,52 @@ class ParquetEmitter(Emitter):
             self.filesystem.makedirs(os.path.dirname(success_file))
             pl.DataFrame({"success": [True]}).write_parquet(success_file)
         self._closed = True
+
+    @staticmethod
+    def flush_all_in_composite(composite: Any, success: bool = True) -> int:
+        """Walk a composite's state, call close() on every ParquetEmitter step.
+
+        v2ecoli composites construct the ParquetEmitter inside their step
+        factory; the driver script never sees the instance and so cannot
+        call close() directly. Without an explicit close, a partial last
+        batch (rows after the most recent batch_size flush) stays in
+        memory and never lands on disk. Call this helper after the
+        simulation loop ends to make the trailing batch durable.
+
+        Returns the number of ParquetEmitter instances closed.
+        """
+        closed = 0
+        def _walk(node: Any) -> None:
+            nonlocal closed
+            if isinstance(node, dict):
+                inst = node.get("instance")
+                if isinstance(inst, ParquetEmitter) and not inst._closed:
+                    inst.close(success=success)
+                    closed += 1
+                for v in node.values():
+                    _walk(v)
+        _walk(getattr(composite, "state", None) or {})
+        return closed
+
+    def __del__(self) -> None:
+        """Defensive flush on garbage collection.
+
+        When the emitter is wired into a process-bigraph composite step, no
+        explicit ``close()`` call happens at composite end-of-life — the step
+        instance gets garbage-collected and any trailing partial batch is
+        lost. ``__del__`` calls ``close(success=False)`` so the trailing
+        rows land on disk. Interpreter-shutdown ordering is undefined, so
+        callers that care about the success sentinel or about durable
+        flushes during normal operation should still call ``close()``
+        explicitly.
+        """
+        try:
+            if not getattr(self, "_closed", True):
+                self.close(success=False)
+        except Exception:
+            # Never raise from __del__ — Python emits "Exception ignored in"
+            # warnings for that and it pollutes test output / logs.
+            pass
 
     def query(self, paths=None, query=None) -> Any:
         """Read back what was emitted. Returns a polars DataFrame."""

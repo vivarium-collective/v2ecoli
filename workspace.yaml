@@ -5,6 +5,16 @@ plugin_version: 0.6.1
 package_path: v2ecoli
 references_bib: references/papers.bib
 
+# ─── RUNTIME ──────────────────────────────────────────────────────────
+# Workspace-level defaults for the dashboard run path. Workspaces can
+# opt into XArrayEmitter (multi-generation native, zarr-partitioned)
+# via runtime.default_emitter. Default is sqlite (the dashboard's
+# historical single-generation behaviour). Flip to xarray when the
+# zarr-read viz adapter (task 7.5) lands.
+runtime:
+  default_emitter: sqlite   # 'xarray' | 'sqlite'
+  max_generations: 3        # multi-gen cap (xarray runs only)
+
 # ─── DEFAULT BASELINE ─────────────────────────────────────────────────
 # A workspace-wide "before any study runs" snapshot. The dashboard and
 # downloaded pre-simulation reports use this to pre-fill visualizations

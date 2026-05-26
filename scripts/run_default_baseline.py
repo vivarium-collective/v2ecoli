@@ -113,6 +113,14 @@ def main():
             name=args.sim_name,
             study_slug="__workspace_default__",
             investigation_slug="__workspace_default__",
+            # Record ~1 row per interval_s. The SQLiteEmitter fires per
+            # composite apply (~1/sim-second); subsample keeps every Nth and
+            # preserves the true tick time on each kept row. A reference
+            # baseline doesn't need per-second resolution — at interval_s=60
+            # this is ~40 rows over a 2400 s cell cycle vs 2461 at
+            # subsample=1. Combined with the slim emit schema (listeners
+            # only, no raw bulk store), keeps the db in the low-MB range.
+            subsample=max(1, int(interval_s)),
         ):
             t0 = time.time()
             composite = build_composite(recipe_name, **params)

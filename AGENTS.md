@@ -207,3 +207,41 @@ pytest -m sim tests/test_model_behavior.py   # behavior tests
 
 If you changed a process, also run the relevant report script and attach the
 output HTML (or the diff against `main`) to the PR.
+
+## PR conventions
+
+Two distinct PR types live in this repo, and they look different on GitHub:
+
+### Feature / fix PRs (merge candidates)
+
+Standard `gh pr create`. Conventional-commit-style title
+(`feat(...)`, `fix(...)`, `chore(...)`). Opens as ready-for-review (not
+draft). Target `main`. CI must pass before merge. Live examples: most
+PRs on `main`'s log.
+
+### Investigation PRs (living integration branches)
+
+A long-running branch hosting an investigation (a collection of related
+studies under a shared research question). NOT a merge target — the
+branch lives indefinitely; infrastructure carved out of it gets shipped
+via separate feature PRs against `main`.
+
+Two conventions:
+
+1. **Title prefix `investigation:`** — e.g.
+   `investigation: DnaA-driven replication initiation — mechanistic vs heuristic`.
+   Visually distinguishes from feature PRs in the PR list.
+
+2. **Draft state** — open with `gh pr create --draft ...` (or, when
+   creating from the vivarium-dashboard GitHub tab, the `draft=True`
+   default applies automatically). Draft signals "don't merge me" to
+   both reviewers and to GitHub's auto-merge / branch-policy machinery.
+
+Live examples on this repo: #59 (dnaa-replication), #69 (multiscale-
+bioprocess), #72 (PDMP whole-cell reformulation).
+
+Body should call out:
+- That this branch is NOT a merge target.
+- Companion feature PRs (already merged) that ship the infrastructure
+  this investigation depends on, vs. content that stays on this branch.
+- The investigation's primary research question + headline figures.

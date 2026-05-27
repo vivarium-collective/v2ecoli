@@ -54,6 +54,7 @@ INPUT_FILES: tuple[str, ...] = (
     # document shape and silently invalidate a cache built against the
     # old architecture.
     "v2ecoli/composites/baseline.py",
+    "v2ecoli/composites/baseline_population.py",
     "v2ecoli/composites/baseline_time_varying_env.py",
     "v2ecoli/composites/colony.py",
     "v2ecoli/composites/departitioned.py",

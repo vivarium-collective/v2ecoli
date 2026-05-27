@@ -7,6 +7,7 @@ in ``pbg_superpowers.composite_generator._REGISTRY``.
 
 from v2ecoli.composites import (  # noqa: F401
     baseline,
+    baseline_population,
     baseline_time_varying_env,
     colony,
     departitioned,
@@ -15,6 +16,7 @@ from v2ecoli.composites import (  # noqa: F401
 
 __all__ = [
     "baseline",
+    "baseline_population",
     "baseline_time_varying_env",
     "colony",
     "departitioned",

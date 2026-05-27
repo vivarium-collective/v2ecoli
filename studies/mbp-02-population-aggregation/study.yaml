@@ -1,10 +1,15 @@
 schema_version: 3
 name: mbp-02-population-aggregation
 created: '2026-05-22'
-phase: Design
+phase: Build
 
+# Advanced to Build phase 2026-05-26 (parallel to mbp-01, no prereq blocker):
+# PopulationAggregator Step + baseline_population composite + 8 pytest stubs
+# scaffolded with TODO markers, all behavior tests skipped with reason
+# "Build-phase scaffold — PopulationAggregator wire-up TODO" until the actual
+# wire-up lands.
 design_status: drafted
-implementation_status: not_started
+implementation_status: in_progress
 simulation_status: not_run
 evaluation_status: not_evaluated
 expert_review_status: not_requested

@@ -42,7 +42,10 @@ parquet = [
     # Pulls in duckdb / polars / pyarrow / fsspec / tqdm transitively
     # via pbg-emitters[parquet]. The ParquetEmitter implementation now
     # lives in pbg-emitters; v2ecoli.library.parquet_emitter is a shim.
-    "pbg-emitters[parquet]",
+    # PEP 508 direct-URL since pbg-emitters is not yet on PyPI — works
+    # with both pip (CI) and uv. Mirrored in [tool.uv.sources] for
+    # uv-native resolution.
+    "pbg-emitters[parquet] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
 ]
 xarray = [
     "xarray>=2026.04",

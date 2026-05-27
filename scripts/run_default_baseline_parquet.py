@@ -45,6 +45,7 @@ sys.path.insert(0, str(REPO_ROOT))
 
 from v2ecoli import build_composite
 from v2ecoli.composites._helpers import parquet_emitter
+from v2ecoli.library.parquet_emitter import ParquetEmitter
 from pbg_superpowers.runner import pbg_runner
 
 
@@ -145,6 +146,16 @@ def main():
                 stop_reason = f"max_duration_s reached ({max_duration_s}s without division)"
             wall_time = time.time() - t_run
             run.n_steps = n_snapshots
+
+            # Composite's ParquetEmitter step holds a partial last batch
+            # (rows since the most recent batch_size flush) in memory. The
+            # parquet_emitter() context manager only manages the override
+            # flag, not the step instance — without an explicit flush the
+            # trailing batch never lands on disk.
+            n_flushed = ParquetEmitter.flush_all_in_composite(
+                composite, success=not divided or stop_reason.startswith("division"),
+            )
+            print(f"  flushed {n_flushed} ParquetEmitter instance(s) at end-of-run")
 
             summary = {
                 "composite":       recipe_name,

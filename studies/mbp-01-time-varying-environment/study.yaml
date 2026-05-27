@@ -11,7 +11,7 @@ phase: Build
 # the actual wire-up lands.
 design_status: drafted
 implementation_status: in_progress
-simulation_status: not_run
+simulation_status: ran   # first tracked run landed 2026-05-27 (see runs[] below)
 evaluation_status: not_evaluated
 expert_review_status: not_requested
 
@@ -405,7 +405,30 @@ bibliography:
   bib_keys: []   # Vemuri2006 removed — backed only the deleted low-DO-clamp test
 
 
-runs: []
+# Captured runs in the workspace-shared registry (.pbg/composite-runs.db).
+# The dashboard's Simulations DB tab groups these under
+# investigation: multiscale-bioprocess, study: mbp-01-time-varying-environment.
+# All current entries are stopped at the canonical first-division event
+# (sim_seconds ≈ 2534) — the sqlite_emitter post-division daughter-write
+# raises UNIQUE-constraint, known issue in
+# feedback_multigen_sqlite_daughter_run_crashes.md. Pre-division
+# trajectory is valid through the listed sim_seconds; for full multi-
+# doubling runs, switch to run_multigen_sqlite (also has issues —
+# candidate-future-study).
+runs:
+  - simulation:      static-env-baseline-60min
+    simulation_id:   a1d9c493-ebdd-4e25-b9d3-5e7437bd4353
+    seed:            0
+    started_at:      '2026-05-27 04:21:19'
+    sim_seconds:     2534     # crashed at division ~42 min in
+    n_history_rows:  2535
+    db:              .pbg/composite-runs.db
+    investigation:   multiscale-bioprocess
+    outcome:         crashed_at_division
+    note:            Validates the static-env-baseline-unchanged behavior_test —
+                     env-driver in static mode produces byte-identical per-cell
+                     trajectory to the unmodified baseline. Pre-division data
+                     captured cleanly through 2534 sim-seconds.
 
 
 tests:

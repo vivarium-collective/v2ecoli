@@ -10,7 +10,7 @@ phase: Build
 # wire-up lands.
 design_status: drafted
 implementation_status: in_progress
-simulation_status: not_run
+simulation_status: ran   # first tracked runs landed 2026-05-27 (see runs[] below)
 evaluation_status: not_evaluated
 expert_review_status: not_requested
 
@@ -447,7 +447,70 @@ bibliography:
   bib_keys: []
 
 
-runs: []
+# Captured runs in the workspace-shared registry (.pbg/composite-runs.db).
+# The dashboard's Simulations DB tab groups these under
+# investigation: multiscale-bioprocess, study: mbp-02-population-aggregation.
+# All three entries are the scaling-factor sweep at cells_per_agent ∈
+# {1, 1e6, 1e9} — the architectural decision adopted from
+# chris_feedback_2026_05_26 §4 (representative-sampling over literal-sum).
+# All stopped at the canonical first-division event (sim_seconds ≈ 2534)
+# — sqlite_emitter post-division daughter-write hits UNIQUE-constraint;
+# known issue in feedback_multigen_sqlite_daughter_run_crashes.md.
+# Pre-division trajectory is valid through the listed sim_seconds.
+#
+# Cross-investigation reference for comparison: the unmodified v2ecoli
+# baseline ran as `baseline-reference-60min` under study_slug
+# `multiscale-bioprocess-reference` (also in .pbg/composite-runs.db); query
+# the registry to overlay per-cell observables against any cpa* entry
+# below — they must be byte-identical at cpa=1.0
+# (per-cell-observables-unchanged-vs-baseline test).
+runs:
+  - simulation:      aggregator-cpa1-60min
+    simulation_id:   5fc647f7-3986-4268-9e3c-ed1b12aedc34
+    seed:            0
+    cells_per_agent: 1.0
+    started_at:      '2026-05-27 04:08:51'
+    sim_seconds:     2534
+    n_history_rows:  2535
+    db:              .pbg/composite-runs.db
+    investigation:   multiscale-bioprocess
+    outcome:         crashed_at_division
+    note:            Literal-sum aggregation (cpa=1.0). At this scale the
+                     aggregator's output should be byte-identical to summing
+                     the per-cell mass directly; population.cell_count = 1.0
+                     pre-division.
+
+  - simulation:      aggregator-cpa1e6-60min
+    simulation_id:   61ec2ef3-3225-46a0-8615-4e8daaefe00b
+    seed:            0
+    cells_per_agent: 1.0e6
+    started_at:      '2026-05-27 04:13:00'
+    sim_seconds:     2534
+    n_history_rows:  2535
+    db:              .pbg/composite-runs.db
+    investigation:   multiscale-bioprocess
+    outcome:         crashed_at_division
+    note:            Representative-sampling at cpa=1e6 (one simulated agent
+                     stands in for 1 million real cells). Per-cell observables
+                     MUST match the cpa=1.0 run (regression-guarded by
+                     per-cell-observables-invariant-under-scaling); aggregator
+                     outputs scale linearly with cpa
+                     (aggregator-output-scales-linearly-with-cells-per-agent).
+
+  - simulation:      aggregator-cpa1e9-60min
+    simulation_id:   0bac033f-fcc9-4ef3-8291-71c3f72d7083
+    seed:            0
+    cells_per_agent: 1.0e9
+    started_at:      '2026-05-27 04:17:11'
+    sim_seconds:     2534
+    n_history_rows:  2535
+    db:              .pbg/composite-runs.db
+    investigation:   multiscale-bioprocess
+    outcome:         crashed_at_division
+    note:            Representative-sampling at cpa=1e9 — corresponds to
+                     ~10^12-10^13 cells/L at typical reactor inocula.
+                     Demonstrates the scaling factor reaches Beulig-regime
+                     densities without literal-N intractability.
 
 
 tests:

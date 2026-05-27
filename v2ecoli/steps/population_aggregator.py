@@ -52,11 +52,16 @@ class PopulationAggregator(Step):
     """
 
     name = "population_aggregator"
+    # NOTE on schema syntax: bigraph-schema's `core.fill` resolves
+    # `{"_default": <val>}` as an opaque scalar (no type → user overrides
+    # are discarded, only the default flows through). Use bare type names
+    # ("float", "integer") so user overrides actually take effect. See
+    # `_make_instance` in composites/_helpers.py for the v2ecoli init path.
     config_schema = {
-        "cells_per_agent": {"_default": DEFAULT_CELLS_PER_AGENT},
-        "od_to_gdw":       {"_default": DEFAULT_OD_TO_GDW},
-        "reactor_volume_L": {"_default": DEFAULT_REACTOR_VOLUME_L},
-        "time_step":       {"_default": 1.0},
+        "cells_per_agent":   "float",
+        "od_to_gdw":         "float",
+        "reactor_volume_L":  "float",
+        "time_step":         "float",
     }
     topology = {
         "agents":     ("agents",),
@@ -65,9 +70,9 @@ class PopulationAggregator(Step):
 
     def initialize(self, config: dict | None = None) -> None:
         cfg = config or {}
-        self.cells_per_agent = float(cfg.get("cells_per_agent", DEFAULT_CELLS_PER_AGENT))
-        self.od_to_gdw = float(cfg.get("od_to_gdw", DEFAULT_OD_TO_GDW))
-        self.reactor_volume_L = float(cfg.get("reactor_volume_L", DEFAULT_REACTOR_VOLUME_L))
+        self.cells_per_agent = float(cfg.get("cells_per_agent") or DEFAULT_CELLS_PER_AGENT)
+        self.od_to_gdw = float(cfg.get("od_to_gdw") or DEFAULT_OD_TO_GDW)
+        self.reactor_volume_L = float(cfg.get("reactor_volume_L") or DEFAULT_REACTOR_VOLUME_L)
 
     def inputs(self) -> dict[str, Any]:
         return {"agents": InPlaceDict()}

@@ -61,15 +61,13 @@ class EnvironmentDriver(Step):
     """
 
     name = "environment_driver"
+    # See PopulationAggregator config_schema for the type-vs-_default note.
+    # synthetic_trajectory_spec is a free-form dict keyed by molecule ID, so
+    # leave it as "map" (or empty mapping); see initialize() for the read.
     config_schema = {
-        "env_driver_mode": {"_default": ENV_DRIVER_MODE_STATIC},
-        # Synthetic-trajectory params (only used when env_driver_mode == synthetic).
-        # Shape: {<molecule_id>: {"kind": <traj kind>, ...}, ...}.
-        # Examples:
-        #   {"GLC[p]": {"kind": "linear_decline", "start_gL": 5.0, "end_gL": 0.0, "duration_min": 60}}
-        #   {"GLC[p]": {"kind": "clamp_to_value", "value_gL": 5.0}}
-        "synthetic_trajectory_spec": {"_default": {}},
-        "time_step": {"_default": 1.0},
+        "env_driver_mode":           "string",
+        "synthetic_trajectory_spec": "map",
+        "time_step":                 "float",
     }
     topology = {
         "environment": ("environment",),
@@ -78,8 +76,8 @@ class EnvironmentDriver(Step):
 
     def initialize(self, config: dict | None = None) -> None:
         cfg = config or {}
-        self.env_driver_mode = cfg.get("env_driver_mode", ENV_DRIVER_MODE_STATIC)
-        self.synthetic_spec = cfg.get("synthetic_trajectory_spec", {})
+        self.env_driver_mode = cfg.get("env_driver_mode") or ENV_DRIVER_MODE_STATIC
+        self.synthetic_spec = cfg.get("synthetic_trajectory_spec") or {}
 
     def inputs(self) -> dict[str, Any]:
         return {

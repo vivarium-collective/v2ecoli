@@ -1113,28 +1113,37 @@ class ParquetEmitter(Emitter):
                 self.buffered_emits = {}
         return {}
 
+    def _flush_partial_batch(self) -> None:
+        """Write the trailing partial batch (rows after the last batch_size flush).
+
+        No-op when there are no unflushed rows. Used by both ``close()``
+        (for end-of-run durability) and ``query()`` (so a query on an open
+        emitter sees in-memory rows).
+        """
+        if self.num_emits % self.batch_size == 0 or not self.buffered_emits:
+            return
+        # Wait for any in-flight batch first.
+        self.last_batch_future.result()
+        rows_in_batch = self.num_emits % self.batch_size
+        trimmed = {k: v[:rows_in_batch] for k, v in self.buffered_emits.items()}
+        outfile = os.path.join(
+            self.out_uri,
+            self.experiment_id or "default",
+            "history",
+            self.partitioning_path,
+            f"{self.num_emits}.pq",
+        )
+        self.filesystem.makedirs(os.path.dirname(outfile), exist_ok=True)
+        self.last_batch_future = self.executor.submit(
+            json_to_parquet, trimmed, outfile, self.pl_types, self.filesystem,
+        )
+        self.buffered_emits = {}
+
     def close(self, success: bool = False) -> None:
         """Flush remaining buffer; write success sentinel when partitioned + success."""
         if self._closed:
             return
-        # Flush any unflushed rows.
-        if self.num_emits % self.batch_size != 0 and self.buffered_emits:
-            # Wait for any in-flight batch first.
-            self.last_batch_future.result()
-            rows_in_batch = self.num_emits % self.batch_size
-            trimmed = {k: v[:rows_in_batch] for k, v in self.buffered_emits.items()}
-            outfile = os.path.join(
-                self.out_uri,
-                self.experiment_id or "default",
-                "history",
-                self.partitioning_path,
-                f"{self.num_emits}.pq",
-            )
-            self.filesystem.makedirs(os.path.dirname(outfile), exist_ok=True)
-            self.last_batch_future = self.executor.submit(
-                json_to_parquet, trimmed, outfile, self.pl_types, self.filesystem,
-            )
-            self.buffered_emits = {}
+        self._flush_partial_batch()
         # Wait for the executor's last in-flight write.
         self.last_batch_future.result()
         if isinstance(self.executor, ThreadPoolExecutor):
@@ -1204,8 +1213,8 @@ class ParquetEmitter(Emitter):
     def query(self, paths=None, query=None) -> Any:
         """Read back what was emitted. Returns a polars DataFrame."""
         # Flush so unwritten rows are visible.
-        if not self._closed and self.num_emits % self.batch_size != 0:
-            self._flush_batch()
+        if not self._closed:
+            self._flush_partial_batch()
             self.last_batch_future.result()
         history_dir = os.path.join(
             self.out_uri, self.experiment_id or "default", "history",
@@ -1230,9 +1239,3 @@ class ParquetEmitter(Emitter):
             cols = [sep.join(p) if isinstance(p, list) else p for p in select]
             df = df.select([c for c in cols if c in df.columns])
         return df
-
-    def __del__(self) -> None:
-        try:
-            self.close()
-        except Exception:
-            pass

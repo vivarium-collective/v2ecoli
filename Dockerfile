@@ -29,7 +29,8 @@ ENV PYTHONUNBUFFERED=1 \
     MKL_NUM_THREADS=1 \
     OPENBLAS_NUM_THREADS=1 \
     V2ECOLI_OUT=/app/out \
-    V2ECOLI_RESULTS=/app/results
+    V2ECOLI_RESULTS=/app/results \
+    UV_PYTHON_INSTALL_DIR=/opt/uv/python
 
 WORKDIR /app
 COPY . .

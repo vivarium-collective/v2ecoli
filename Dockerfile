@@ -40,6 +40,12 @@ COPY . .
 RUN uv python install 3.12.12 && \
     (uv sync --python 3.12.12 --no-install-project || uv sync --python 3.12.12)
 
+# Compile the three Cython extensions vendored under
+# v2ecoli/processes/parca/wholecell/utils/ (mc_complexation, _build_sequences,
+# _fastsums).  These are required by the ParCa pipeline and must be built
+# in-place against the installed numpy/Python before the image is sealed.
+RUN PYTHON=/app/.venv/bin/python bash scripts/parca_cython_build.sh
+
 # Pre-create bind-mount targets so Singularity/Apptainer can mount them at
 # runtime without needing write access to create them.
 RUN mkdir -p /app/results /app/out

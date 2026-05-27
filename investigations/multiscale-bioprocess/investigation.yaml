@@ -235,46 +235,43 @@ expert_docs:
   - cell_side_interface_contract         # substitutability discipline (NEW)
   - palsson_2025_fed_batch               # Beulig 2025 mSystems summary
 
-# Top-level success criteria.
+# Top-level success criteria. FLAT LIST (dashboard renderer expects
+# `.map`-iterable; the prior nested {investigation_terminal,per_study_gating}
+# shape broke report generation).
 #
-# Per chris_feedback_2026_05_26 §1: criteria are split into
-# `investigation_terminal` (gate the entire investigation; mbp-06's terminal
-# checks, which by construction subsume mbp-01..05 having shipped) and
-# `per_study_gating` (each study's tests gate its own impl PR but are not
-# investigation-success conditions). The investigation success definition is
-# now "comparison harness built and applied; structured gap inventory
-# produced," NOT "Palsson benchmark achieved" (mbp-05 was reframed to an
-# evaluation phase — see chris_feedback_2026_05_26 §10).
+# Per chris_feedback_2026_05_26 §1: each entry is tagged with `gating:` to
+# preserve Chris's distinction between criteria that gate "investigation
+# complete" (gating: investigation_terminal — mbp-06's terminal checks,
+# which subsume mbp-01..05 having shipped) and criteria that gate only
+# their owning study's impl PR (gating: per_study).
+#
+# Investigation success definition: "comparison harness built and applied;
+# structured gap inventory produced," NOT "Palsson benchmark achieved"
+# (mbp-05 was reframed to an evaluation phase — see
+# chris_feedback_2026_05_26 §10). The three `investigation_terminal`
+# entries below are the load-bearing ones; the rest are per_study.
 acceptance_criteria:
+  # ─── investigation_terminal (gate investigation complete) ───
+  - {study: mbp-06-gap-analysis,             behavior: all-five-axes-covered,                        gating: investigation_terminal}
+  - {study: mbp-06-gap-analysis,             behavior: every-gap-has-candidate-resolution,           gating: investigation_terminal}
+  - {study: mbp-05-palsson-benchmark,        behavior: divergences-categorized-in-report-card,       gating: investigation_terminal}
 
-  # Terminal — these gate "investigation complete." mbp-06's two checks
-  # subsume the upstream studies (mbp-06 cannot pass without mbp-01..05
-  # having shipped their impl PRs and populated findings/limitations).
-  investigation_terminal:
-    - {study: mbp-06-gap-analysis, behavior: all-five-axes-covered}
-    - {study: mbp-06-gap-analysis, behavior: every-gap-has-candidate-resolution}
-    - {study: mbp-05-palsson-benchmark, behavior: divergences-categorized-in-report-card}
-
-  # Per-study gating — each test gates its own study's impl PR. Listed here
-  # for visibility but NOT load-bearing for investigation success (the
-  # terminal block above is). All renamed from biology-tolerance to
-  # comparison-rendered for mbp-05 (per §10).
-  per_study_gating:
-    - {study: mbp-01-time-varying-environment, behavior: external_glucose_updates_propagate_within_one_step}
-    - {study: mbp-01-time-varying-environment, behavior: cumulative-mass-balance-closes}
-    - {study: mbp-01-time-varying-environment, behavior: zero-substrate-blocks-uptake}
-    - {study: mbp-01-time-varying-environment, behavior: saturating-substrate-respects-vmax}
-    - {study: mbp-01-time-varying-environment, behavior: plateau-across-saturating-range}
-    - {study: mbp-02-population-aggregation,   behavior: cell-count-doubles-per-generation}
-    - {study: mbp-02-population-aggregation,   behavior: per-cell-observables-unchanged-vs-baseline}
-    - {study: mbp-02-population-aggregation,   behavior: population_count_equals_len_agents}
-    - {study: mbp-02-population-aggregation,   behavior: total_biomass_equals_sum_cell_mass_times_scale}
-    - {study: mbp-03-bird-reactor-coupling,    behavior: one-generation-completes-without-divergence}
-    - {study: mbp-03-bird-reactor-coupling,    behavior: cells-drop-do-below-saturation}
-    - {study: mbp-03-bird-reactor-coupling,    behavior: higher-kla-raises-steady-state-do}
-    - {study: mbp-03-bird-reactor-coupling,    behavior: cells-raise-dissolved-co2-above-saturation}
-    - {study: mbp-03-bird-reactor-coupling,    behavior: o2-mass-balance-closes}
-    - {study: mbp-04-multigeneration-runs,     behavior: population-grows-then-flattens-at-substrate-limit}
-    - {study: mbp-04-multigeneration-runs,     behavior: carbon-mass-balance-closes-over-3-generations}
-    - {study: mbp-05-palsson-benchmark,        behavior: end-of-run-od-comparison-rendered}
-    - {study: mbp-05-palsson-benchmark,        behavior: acetate-profile-comparison-rendered}
+  # ─── per_study_gating (gate the owning study's impl PR only) ───
+  - {study: mbp-01-time-varying-environment, behavior: external_glucose_updates_propagate_within_one_step, gating: per_study}
+  - {study: mbp-01-time-varying-environment, behavior: cumulative-mass-balance-closes,               gating: per_study}
+  - {study: mbp-01-time-varying-environment, behavior: zero-substrate-blocks-uptake,                 gating: per_study}
+  - {study: mbp-01-time-varying-environment, behavior: saturating-substrate-respects-vmax,           gating: per_study}
+  - {study: mbp-01-time-varying-environment, behavior: plateau-across-saturating-range,              gating: per_study}
+  - {study: mbp-02-population-aggregation,   behavior: cell-count-doubles-per-generation,            gating: per_study}
+  - {study: mbp-02-population-aggregation,   behavior: per-cell-observables-unchanged-vs-baseline,   gating: per_study}
+  - {study: mbp-02-population-aggregation,   behavior: population_count_equals_len_agents,           gating: per_study}
+  - {study: mbp-02-population-aggregation,   behavior: total_biomass_equals_sum_cell_mass_times_scale, gating: per_study}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: one-generation-completes-without-divergence,  gating: per_study}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: cells-drop-do-below-saturation,               gating: per_study}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: higher-kla-raises-steady-state-do,            gating: per_study}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: cells-raise-dissolved-co2-above-saturation,   gating: per_study}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: o2-mass-balance-closes,                       gating: per_study}
+  - {study: mbp-04-multigeneration-runs,     behavior: population-grows-then-flattens-at-substrate-limit, gating: per_study}
+  - {study: mbp-04-multigeneration-runs,     behavior: carbon-mass-balance-closes-over-3-generations, gating: per_study}
+  - {study: mbp-05-palsson-benchmark,        behavior: end-of-run-od-comparison-rendered,            gating: per_study}
+  - {study: mbp-05-palsson-benchmark,        behavior: acetate-profile-comparison-rendered,          gating: per_study}

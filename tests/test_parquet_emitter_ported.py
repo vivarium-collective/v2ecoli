@@ -32,13 +32,19 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from queue import Queue
 from unittest.mock import Mock, patch
 
-import duckdb
 import numpy as np
-import polars as pl
 import pytest
 
-from v2ecoli.library.emitter_presets import VECOLI_PARQUET_DTYPE_OVERRIDES
-from v2ecoli.library.parquet_emitter import (
+# Skip the whole module if the [parquet] extra isn't installed.
+pytest.importorskip("duckdb")
+pytest.importorskip("polars")
+pytest.importorskip("pbg_emitters")
+
+import duckdb  # noqa: E402
+import polars as pl  # noqa: E402
+
+from v2ecoli.library.emitter_presets import VECOLI_PARQUET_DTYPE_OVERRIDES  # noqa: E402
+from v2ecoli.library.parquet_emitter import (  # noqa: E402
     ParquetEmitter,
     create_duckdb_conn,
     flatten_dict,
@@ -822,7 +828,11 @@ class TestParquetEmitterEdgeCases:
         yield tmp
         shutil.rmtree(tmp)
 
-    @patch("v2ecoli.library.parquet_emitter.ThreadPoolExecutor")
+    # Patch the executor where ParquetEmitter looks it up (upstream
+    # pbg_emitters module). v2ecoli.library.parquet_emitter is now a
+    # re-export shim and patching its attribute would not intercept
+    # the running emitter.
+    @patch("pbg_emitters.parquet_emitter.ThreadPoolExecutor")
     def test_multithreaded_buffer_clearing(self, mock_executor_class, temp_dir, core):
         """Clearing the buffer in the main thread doesn't race with the writer."""
         real_executor = ThreadPoolExecutor(max_workers=1)
@@ -1089,15 +1099,18 @@ class TestParquetEmitterEdgeCases:
                 ],
             })
 
-        # Variable-shape 3D NumPy array — Polars can't reconcile np-array fallback.
-        with pytest.raises(
-            ValueError,
-            match=re.escape("cannot parse numpy data type dtype('O')"),
-        ):
-            emitter.update({
-                "time": 3.0,
-                "another_3d_array": np.zeros((10, 10, 10)),
-            })
+        # Variable-shape 3D NumPy array — v2ecoli's Polars fallback converts
+        # multi-D ndarrays to nested Python lists, so this now succeeds where
+        # vEcoli's upstream raises a dtype('O') error. Behavior improvement
+        # added so real cell composites (which emit fields like
+        # listeners__rna_synth_prob__n_bound_TF_per_TU with shape transitions
+        # (0, 0) → (M, N)) don't crash on first non-empty tick.
+        emitter.update({
+            "time": 3.0,
+            "another_3d_array": np.zeros((10, 10, 10)),
+        })
+        # The 3D field now lives on the Polars list path.
+        assert "another_3d_array" in emitter.pl_serialized
 
     def test_nested_nullable(self, temp_dir, core):
         """Nullable nested types that grow deeper across rows reconcile."""

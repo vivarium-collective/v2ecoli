@@ -61,6 +61,35 @@ def test_roundtrip_no_partitioning(tmp_path, core):
 
 
 @pytest.mark.fast
+def test_query_on_open_emitter_flushes_partial_batch(tmp_path, core):
+    """query() on an emitter before close() flushes in-memory rows first."""
+    # Regression: pre-fix, query() called a non-existent _flush_batch() and
+    # crashed on any open emitter with rows still in the buffer.
+    from v2ecoli.library.parquet_emitter import ParquetEmitter
+
+    emitter = ParquetEmitter(
+        config={
+            "emit": {"x": "node"},
+            "out_dir": str(tmp_path / "out"),
+            "batch_size": 4,  # > 3 emits below → partial batch in memory
+            "threaded": False,
+        },
+        core=core,
+    )
+    for i in range(3):
+        emitter.update({"x": float(i)})
+
+    df = emitter.query()
+    assert len(df) == 3, "open-emitter query must include unflushed rows"
+    assert df["x"].to_list() == [0.0, 1.0, 2.0]
+
+    # close() after partial-batch flush must not double-write
+    emitter.close()
+    df2 = emitter.query()
+    assert len(df2) == 3, "row count must not double after close"
+
+
+@pytest.mark.fast
 def test_dtype_overrides_exact_name(tmp_path, core):
     from v2ecoli.library.parquet_emitter import ParquetEmitter
 

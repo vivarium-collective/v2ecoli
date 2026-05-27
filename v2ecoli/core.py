@@ -196,7 +196,8 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0,
 
 def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
                    has_plasmid=False, mechanistic_replisome=False,
-                   condition=None, critical_mass_scale=1.0,
+                   condition=None, fixed_media=None,
+                   critical_mass_scale=1.0,
                    c_period_minutes=None, d_period_minutes=None,
                    dnaa_txn_scale=1.0, dnaa_constitutive=False,
                    dnaa_stable=False, dnaa_translation_efficiency=None):
@@ -209,18 +210,29 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
     ``save_cache`` would produce from the same sim_data dilled to a file.
 
     See ``save_cache`` for ``has_plasmid`` / ``mechanistic_replisome`` /
-    ``condition``.
+    ``condition`` and the Stage-1 override kwargs.
+
+    ``fixed_media`` (e.g. "minimal_acetate") pins the nutrient environment to
+    a saved media spec; combined with ``condition`` it selects a non-default
+    growth rate / doubling time from the ParCa state's
+    ``condition_to_doubling_time``.
     """
     from v2ecoli.library.sim_data import LoadSimData
-    loader = LoadSimData(sim_data=sim_data, seed=seed,
-                         condition=condition,
-                         has_plasmid=has_plasmid,
-                         mechanistic_replisome=mechanistic_replisome,
-                         critical_mass_scale=critical_mass_scale,
-                         c_period_minutes=c_period_minutes,
-                         d_period_minutes=d_period_minutes,
-                         dnaa_txn_scale=dnaa_txn_scale,
-                         dnaa_constitutive=dnaa_constitutive,
-                         dnaa_stable=dnaa_stable,
-                         dnaa_translation_efficiency=dnaa_translation_efficiency)
+    kwargs = {
+        "sim_data": sim_data, "seed": seed,
+        "has_plasmid": has_plasmid,
+        "mechanistic_replisome": mechanistic_replisome,
+        "critical_mass_scale": critical_mass_scale,
+        "c_period_minutes": c_period_minutes,
+        "d_period_minutes": d_period_minutes,
+        "dnaa_txn_scale": dnaa_txn_scale,
+        "dnaa_constitutive": dnaa_constitutive,
+        "dnaa_stable": dnaa_stable,
+        "dnaa_translation_efficiency": dnaa_translation_efficiency,
+    }
+    if condition is not None:
+        kwargs["condition"] = condition
+    if fixed_media is not None:
+        kwargs["fixed_media"] = fixed_media
+    loader = LoadSimData(**kwargs)
     _write_sim_input_bundle(loader, bundle_dir)

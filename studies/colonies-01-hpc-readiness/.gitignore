@@ -1,0 +1,5 @@
+runs.db
+runs.db-shm
+runs.db-wal
+sims/*.log
+sims/__pycache__/

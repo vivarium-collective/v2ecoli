@@ -40,6 +40,7 @@ DEFAULT_CACHE_DIR = "out/cache"
 
 def build_cache(fixture: str, cache_dir: str,
                 condition: str | None = None,
+                fixed_media: str | None = None,
                 critical_mass_scale: float = 1.0,
                 c_period_minutes: float | None = None,
                 d_period_minutes: float | None = None,
@@ -60,13 +61,13 @@ def build_cache(fixture: str, cache_dir: str,
     sim_data = hydrate_sim_data_from_state(state)
     print(f"    hydrated in {time.time()-t1:.1f}s")
 
-    if condition is not None and condition not in sim_data.conditions:
-        raise SystemExit(
-            f"--condition {condition!r} not in sim_data.conditions "
-            f"({sorted(sim_data.conditions.keys())})"
-        )
     if condition is not None:
-        print(f"    overriding condition: {sim_data.condition!r} → {condition!r}")
+        avail = dict(getattr(sim_data, "condition_to_doubling_time", {}) or {})
+        if condition not in avail:
+            raise SystemExit(f"unknown condition {condition!r}; "
+                             f"known: {sorted(avail)}")
+        print(f"    nutrient condition {condition!r} "
+              f"(doubling {avail[condition]}), media {fixed_media!r}")
     if critical_mass_scale != 1.0:
         print(f"    scaling critical initiation mass M* by {critical_mass_scale:g}")
     if c_period_minutes is not None:
@@ -84,7 +85,8 @@ def build_cache(fixture: str, cache_dir: str,
 
     t2 = time.time()
     print(f"[{time.strftime('%H:%M:%S')}] Building bundle at {cache_dir} ...")
-    save_sim_input(sim_data, cache_dir, condition=condition,
+    save_sim_input(sim_data, cache_dir,
+                   condition=condition, fixed_media=fixed_media,
                    critical_mass_scale=critical_mass_scale,
                    c_period_minutes=c_period_minutes,
                    d_period_minutes=d_period_minutes,
@@ -111,10 +113,13 @@ def main() -> None:
                         help=f"ParCa fixture pickle (default: {DEFAULT_FIXTURE})")
     parser.add_argument("--cache", default=DEFAULT_CACHE_DIR, dest="cache_dir",
                         help=f"output bundle dir (default: {DEFAULT_CACHE_DIR})")
-    parser.add_argument("--condition", default=None,
-                        help="Override sim_data.condition before saving the "
-                             "bundle (e.g. 'acetate'). Default: leave as-is "
-                             "('basal' for a stock ParCa rerun).")
+    parser.add_argument("--condition", "--media-condition", dest="condition",
+                        default=None,
+                        help="ParCa nutrient condition for the initial state / "
+                             "doubling time (e.g. acetate; default basal). "
+                             "Validated against sim_data.condition_to_doubling_time.")
+    parser.add_argument("--fixed-media", default=None,
+                        help="media id pinned for the run (e.g. minimal_acetate)")
     parser.add_argument("--critical-mass-scale", type=float, default=1.0,
                         help="Multiplier applied to the critical initiation "
                              "mass M* in the chromosome_replication config. "
@@ -147,7 +152,8 @@ def main() -> None:
                              "protein/mRNA, Hansen & Atlung 2018). "
                              "Default: leave at ParCa / overrides.py value.")
     args = parser.parse_args()
-    build_cache(args.fixture, args.cache_dir, condition=args.condition,
+    build_cache(args.fixture, args.cache_dir,
+                condition=args.condition, fixed_media=args.fixed_media,
                 critical_mass_scale=args.critical_mass_scale,
                 c_period_minutes=args.c_period_minutes,
                 d_period_minutes=args.d_period_minutes,

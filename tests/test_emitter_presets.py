@@ -121,6 +121,7 @@ def test_parquet_vecoli_preset_drives_emitter(tmp_path, core):
     dtype-override behavior."""
     pytest.importorskip("duckdb")
     pytest.importorskip("polars")
+    pytest.importorskip("pbg_emitters")
 
     from v2ecoli.library.emitter_presets import parquet_vecoli
     from v2ecoli.library.parquet_emitter import ParquetEmitter

@@ -198,6 +198,20 @@ def main():
     print(f"Store keys:  {sorted(state.keys())}")
     print(f"{'=' * 60}\n")
 
+    # Build the colony simulation-input bundle from the freshly-written
+    # parca_state.pkl so `v2ecoli-colony --cache-dir <cache_dir>` works
+    # immediately after this step without a separate save_cache call.
+    #
+    # Writes to <cache_dir>:
+    #   initial_state.json   — serialised initial cell state
+    #   sim_data_cache.dill  — process configs + unique molecule names
+    #   cache_version.json   — version marker for staleness checks
+    print(f"Building colony cache bundle → {cache_dir} ...")
+    t_cache = time.time()
+    from v2ecoli.core import save_cache  # noqa: PLC0415 — deferred to avoid circular import at module load
+    save_cache(out_path, cache_dir)
+    print(f"Colony cache bundle complete ({time.time() - t_cache:.1f}s): {cache_dir}/")
+
 
 if __name__ == "__main__":
     main()

@@ -1,0 +1,81 @@
+Bootstrap: docker
+From: python:3.12-slim-bookworm
+
+# Singularity definition for the HPC compute backend (compute_backend: hpc:ccam).
+#
+# Built on the cluster by the dashboard's submit_build_job():
+#   apptainer build --fakeroot --force --disable-cache v2ecoli.sif Singularity.def
+#
+# Two-step dispatch (ParCa cache must exist before colony runs):
+#   Step 1 — ParCa:  singularity exec -B {ws}/out:/app/out {sif} uv run v2ecoli-parca --cache-dir out/cache
+#   Step 2 — Colony: singularity exec -B {ws}/out:/app/out -B {ws}/results:/app/results {sif} \
+#                        uv run v2ecoli-colony --n-cells 4 --duration-min 50 --cache-dir out/cache
+#
+# requires-python = "==3.12.12" in pyproject.toml.
+# We use python:3.12-slim-bookworm as the base and pin via uv python install
+# to guarantee exactly 3.12.12 is used for the virtual environment.
+
+%files
+    . /app
+
+%post
+    set -eux
+
+    apt-get update && \
+        apt-get install -y --no-install-recommends \
+            build-essential \
+            gcc \
+            g++ \
+            gfortran \
+            cmake \
+            git \
+            curl \
+            ca-certificates \
+            libopenblas-dev \
+            liblapack-dev \
+            libffi-dev \
+            python3-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+    # Install uv (same installer path as hpc-demo-ws; pinned to /bin).
+    curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/bin sh
+
+    # Pin to exactly 3.12.12 — matches requires-python = "==3.12.12".
+    uv python install 3.12.12
+
+    # Pre-create bind-mount targets so Singularity can mount them without
+    # needing write access to create them at runtime.
+    mkdir -p /app/results /app/out
+
+    cd /app
+    # --python 3.12.12: use the exact pinned interpreter installed above.
+    # Fallback omits --no-install-project in case the workspace pyproject
+    # uses a build backend that rejects that flag.
+    uv sync --python 3.12.12 --no-install-project \
+        || uv sync --python 3.12.12
+
+%environment
+    export PYTHONUNBUFFERED=1
+    export OMP_NUM_THREADS=1
+    export MKL_NUM_THREADS=1
+    export OPENBLAS_NUM_THREADS=1
+    # Tell vEcoli/ParCa where to write cache and results inside the container.
+    # These paths are bind-mounted from {remote_ws}/out and {remote_ws}/results
+    # by the dispatch layer so data persists on the cluster filesystem.
+    export V2ECOLI_OUT=/app/out
+    export V2ECOLI_RESULTS=/app/results
+
+%runscript
+    # Generic entry point — works for both CLI tools dispatched via the dashboard:
+    #   singularity run {sif} v2ecoli-parca --cache-dir out/cache
+    #   singularity run {sif} v2ecoli-colony --n-cells 4 ...
+    # The dispatch layer uses `singularity exec` which overrides this, so
+    # %runscript is mainly useful for direct interactive runs.
+    cd /app
+    exec uv run "$@"
+
+%labels
+    org.vivarium.workspace v2ecoli
+    org.vivarium.python 3.12.12
+    org.vivarium.entrypoints "v2ecoli-parca, v2ecoli-colony, vivarium-dashboard"
+    org.vivarium.parca-prerequisite "run v2ecoli-parca before v2ecoli-colony"

@@ -58,13 +58,16 @@ from v2ecoli.composites._helpers import (
 )
 from v2ecoli.core import build_core
 from v2ecoli.library.sqlite_run import run_multigen_sqlite
+from v2ecoli.library.parquet_run import run_multigen_parquet
 
 
 INVESTIGATION_SLUG = "multiscale-bioprocess"
 DEFAULT_DURATION_SEC = 120 * 60   # 120 sim-min (~2 doublings)
 DEFAULT_MAX_GENERATIONS = 3
 DEFAULT_CHUNK = 1   # per-tick emission (~80 ms/tick on this machine)
+DEFAULT_EMITTER = "parquet"   # workspace default (see workspace.yaml.runtime.default_emitter)
 DB_PATH = REPO_ROOT / ".pbg" / "composite-runs.db"
+PARQUET_OUT_ROOT = REPO_ROOT / ".pbg" / "composite-runs-parquet"
 
 # Agent-rooted emit paths (under agents/<id>/) shared by all variants.
 COMMON_AGENT_PATHS = [
@@ -184,20 +187,33 @@ def _register_simulation_row(
         conn.close()
 
 
+def _count_parquet_rows(out_dir: Path, experiment_id: str) -> int:
+    """Count rows emitted under one experiment_id by scanning the
+    hive-partitioned parquet tree. Cheap polars scan; column not needed."""
+    try:
+        import polars as pl
+        hive_root = out_dir / experiment_id / "history"
+        if not hive_root.exists():
+            return 0
+        # Lazy scan + count; doesn't materialise data.
+        return int(pl.scan_parquet(str(hive_root / "**" / "*.pq")).select(
+            pl.len()
+        ).collect().item())
+    except Exception:
+        return 0
+
+
 def _run_one_variant(
     *, sim_name, study_slug, builder_fn, builder_kwargs, extra_root_paths,
-    duration_sec, max_generations, chunk, cache_dir, core,
+    duration_sec, max_generations, chunk, cache_dir, core, emitter,
 ) -> dict:
     print(f"\n=== {sim_name} ({study_slug}) ===")
+    print(f"  emitter: {emitter}")
     print(f"  duration: {duration_sec}s ({duration_sec/60:.0f} sim-min)")
     print(f"  max_generations: {max_generations}")
     print(f"  kwargs: {builder_kwargs}")
 
     simulation_id = str(uuid.uuid4())
-
-    # Ensure the workspace-shared simulations table has the study/
-    # investigation columns + tag this run before any rows land.
-    _ensure_study_columns(str(DB_PATH))
 
     t_build = time.time()
     doc = builder_fn(core, cache_dir, **builder_kwargs)
@@ -206,44 +222,84 @@ def _run_one_variant(
     build_time = time.time() - t_build
 
     t_start = time.time()
-    _register_simulation_row(
-        DB_PATH, simulation_id=simulation_id, name=sim_name,
-        study_slug=study_slug, investigation_slug=INVESTIGATION_SLUG,
-        started_at=t_start,
-    )
-    _stamp_study_metadata(str(DB_PATH), simulation_id, study_slug, INVESTIGATION_SLUG)
 
-    t_run = time.time()
-    result = run_multigen_sqlite(
-        composite,
-        run_id=simulation_id,
-        db_file=str(DB_PATH),
-        emit_paths=COMMON_AGENT_PATHS,
-        extra_root_paths=extra_root_paths,
-        max_steps=duration_sec,
-        max_generations=max_generations,
-        chunk=chunk,
-        single_daughters=True,
-        core=core,
-    )
-    wall_time = time.time() - t_run
+    if emitter == "sqlite":
+        # Workspace-shared sqlite registry; tag for dashboard grouping.
+        _ensure_study_columns(str(DB_PATH))
+        _register_simulation_row(
+            DB_PATH, simulation_id=simulation_id, name=sim_name,
+            study_slug=study_slug, investigation_slug=INVESTIGATION_SLUG,
+            started_at=t_start,
+        )
+        _stamp_study_metadata(str(DB_PATH), simulation_id, study_slug, INVESTIGATION_SLUG)
 
-    # Inspect what landed in the DB.
-    conn = sqlite3.connect(str(DB_PATH))
-    n_rows, max_step = conn.execute(
-        "SELECT COUNT(*), COALESCE(MAX(step), 0) FROM history WHERE simulation_id = ?",
-        (simulation_id,),
-    ).fetchone()
-    conn.close()
+        t_run = time.time()
+        result = run_multigen_sqlite(
+            composite,
+            run_id=simulation_id,
+            db_file=str(DB_PATH),
+            emit_paths=COMMON_AGENT_PATHS,
+            extra_root_paths=extra_root_paths,
+            max_steps=duration_sec,
+            max_generations=max_generations,
+            chunk=chunk,
+            single_daughters=True,
+            core=core,
+        )
+        wall_time = time.time() - t_run
+
+        conn = sqlite3.connect(str(DB_PATH))
+        n_rows, max_step = conn.execute(
+            "SELECT COUNT(*), COALESCE(MAX(step), 0) FROM history WHERE simulation_id = ?",
+            (simulation_id,),
+        ).fetchone()
+        conn.close()
+
+        artifact = str(DB_PATH.relative_to(REPO_ROOT))
+
+    elif emitter == "parquet":
+        # Workspace-default emitter (workspace.yaml.runtime.default_emitter).
+        # Hive-partitioned per experiment_id/variant/lineage_seed/generation/agent_id.
+        # No central registry write — discovery happens by scanning the hive.
+        PARQUET_OUT_ROOT.mkdir(parents=True, exist_ok=True)
+
+        t_run = time.time()
+        result = run_multigen_parquet(
+            composite,
+            experiment_id=simulation_id,
+            out_dir=str(PARQUET_OUT_ROOT),
+            emit_paths=COMMON_AGENT_PATHS,
+            extra_root_paths=extra_root_paths,
+            max_steps=duration_sec,
+            max_generations=max_generations,
+            chunk=chunk,
+            single_daughters=True,
+            core=core,
+            study_slug=study_slug,
+            investigation_slug=INVESTIGATION_SLUG,
+        )
+        wall_time = time.time() - t_run
+
+        n_rows = _count_parquet_rows(PARQUET_OUT_ROOT, simulation_id)
+        max_step = n_rows - 1 if n_rows > 0 else 0
+        artifact = str(
+            (PARQUET_OUT_ROOT / simulation_id).relative_to(REPO_ROOT)
+        )
+
+    else:
+        raise ValueError(f"unknown emitter {emitter!r}; expected sqlite|parquet")
 
     print(f"  build: {build_time:.1f}s  run: {wall_time:.1f}s")
     print(f"  result: {result}")
-    print(f"  DB: n_history_rows={n_rows} max_step={max_step}")
+    print(f"  artifact: {artifact}")
+    print(f"  rows: {n_rows}  max_step: {max_step}")
 
     return {
         "simulation_id":   simulation_id,
         "sim_name":        sim_name,
         "study_slug":      study_slug,
+        "emitter":         emitter,
+        "artifact":        artifact,
         "duration_sec":    duration_sec,
         "build_wall_s":    build_time,
         "run_wall_s":      wall_time,
@@ -258,6 +314,9 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--variant", default=None,
                    help="Run only the named variant (default: all).")
+    p.add_argument("--emitter", choices=["parquet", "sqlite"], default=DEFAULT_EMITTER,
+                   help=(f"Emitter to capture history with (default: {DEFAULT_EMITTER}, "
+                         "the workspace default per workspace.yaml.runtime.default_emitter)."))
     p.add_argument("--duration-sec", type=int, default=DEFAULT_DURATION_SEC)
     p.add_argument("--max-generations", type=int, default=DEFAULT_MAX_GENERATIONS)
     p.add_argument("--chunk", type=int, default=DEFAULT_CHUNK,
@@ -274,9 +333,13 @@ def main():
             sys.exit(f"unknown variant {args.variant!r}; available: {available}")
 
     print(f"Running {len(variants)} variant(s) under investigation={INVESTIGATION_SLUG}")
-    print(f"Workspace DB: {DB_PATH.relative_to(REPO_ROOT)}")
-    print(f"Per-variant: max_steps={args.duration_sec}s ({args.duration_sec/60:.0f} min), "
-          f"max_generations={args.max_generations}, chunk={args.chunk}")
+    if args.emitter == "sqlite":
+        print(f"Workspace DB: {DB_PATH.relative_to(REPO_ROOT)}")
+    else:
+        print(f"Parquet root: {PARQUET_OUT_ROOT.relative_to(REPO_ROOT)}/<simulation_id>/history/...")
+    print(f"Per-variant: emitter={args.emitter}  max_steps={args.duration_sec}s "
+          f"({args.duration_sec/60:.0f} min), max_generations={args.max_generations}, "
+          f"chunk={args.chunk}")
 
     core = build_core()
     results = []
@@ -289,6 +352,7 @@ def main():
             duration_sec=args.duration_sec,
             max_generations=args.max_generations,
             chunk=args.chunk,
+            emitter=args.emitter,
             cache_dir=args.cache_dir, core=core,
         )
         results.append(result)

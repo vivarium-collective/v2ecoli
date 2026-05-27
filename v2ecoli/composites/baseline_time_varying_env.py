@@ -1,25 +1,24 @@
 """baseline_time_varying_env — baseline composite with EnvironmentDriver hook.
 
-Build-phase scaffold for mbp-01-time-varying-environment
-(req-2-time-varying-composite). Thin wrapper around ``v2ecoli.composites.baseline``
-that injects the ``EnvironmentDriver`` Step and the
-``environment.external_concentrations`` store. Backward-compatible default:
-``env_driver_mode = "static"`` — the composite must produce a byte-identical
-trajectory to ``v2ecoli.composites.baseline`` in that mode (regression
+Build-phase wire-up for mbp-01-time-varying-environment
+(req-2-time-varying-composite). Adds a top-level ``environment`` data store
+(with ``external_concentrations`` and ``media_id``) and an
+``EnvironmentDriver`` Step alongside the existing ``agents`` /
+``global_time`` top-level keys.
+
+Default ``env_driver_mode = "static"`` preserves baseline parity — in
+static mode the Step is a no-op, so the composite must produce a
+byte-identical trajectory to ``v2ecoli.composites.baseline`` (regression
 guarded by mbp-01's ``static-env-baseline-unchanged`` test).
 
-See ``studies/mbp-01-time-varying-environment/study.yaml`` for the full spec.
-
-TODO (Build phase):
-  - Wire EnvironmentDriver into the existing baseline document. Inject the
-    Step into the Layer-1 step layer (where media_update lives — see
-    v2ecoli/composites/_helpers.py for layer constants).
-  - Modify media_update / exchange_data to read from
-    environment.external_concentrations when env_driver_mode != static. The
-    AGENTS.md convention is "do not modify a process in one architecture
-    without a plan for the other two" — this hook lands across all three.
-  - Confirm the cache fingerprint picks up this file (add to INPUT_FILES
-    in v2ecoli/library/cache_version.py).
+In ``synthetic_trajectory`` mode the Step writes to
+``environment.external_concentrations.<mol>`` per the spec — but the
+existing media_update / exchange_data path does NOT yet consume from that
+store. Driving metabolism from external_concentrations requires modifying
+media_update (a PartitionedProcess in 3 architectures per AGENTS.md) and
+re-running ParCa cache — tracked as a follow-up TODO. Until that lands,
+the synthetic-mode plumbing tests in
+``tests/test_mbp_01_time_varying_environment.py`` remain @pytest.mark.skip.
 """
 
 from __future__ import annotations
@@ -28,8 +27,23 @@ from typing import Any
 
 from pbg_superpowers.composite_generator import composite_generator
 
-# Reuse the partitioned-baseline builder.
+from v2ecoli.composites._helpers import _make_instance, make_edge
 from v2ecoli.composites.baseline import baseline as _baseline_builder
+from v2ecoli.steps.environment_driver import (
+    ENV_DRIVER_MODE_STATIC,
+    EnvironmentDriver,
+)
+
+
+ENVIRONMENT_DRIVER_STEP_NAME = "environment_driver"
+
+
+def _empty_environment_store() -> dict[str, Any]:
+    """Top-level environment store (in static mode, never written to)."""
+    return {
+        "external_concentrations": {},
+        "media_id":                "minimal",
+    }
 
 
 @composite_generator(
@@ -48,27 +62,46 @@ from v2ecoli.composites.baseline import baseline as _baseline_builder
     },
 )
 def baseline_time_varying_env(
-    core: Any,
+    core: Any = None,
     *,
     seed: int = 0,
     cache_dir: str = "out/cache",
-    env_driver_mode: str = "static",
+    env_driver_mode: str = ENV_DRIVER_MODE_STATIC,
     synthetic_trajectory_spec: dict | None = None,
 ) -> dict:
     """Build the baseline_time_varying_env document.
 
-    Build-phase scaffold: today this just delegates to the unmodified
-    baseline. The TODO above tracks the actual wire-up work.
+    Returns a process-bigraph document dict with the same shape as
+    ``v2ecoli.composites.baseline.baseline`` plus an added top-level
+    ``environment`` store and ``environment_driver`` Step.
+
+    In ``static`` mode (default) the driver is a no-op so the composite is
+    a byte-equivalent superset of the baseline.
     """
     document = _baseline_builder(core, seed=seed, cache_dir=cache_dir)
 
-    # TODO: inject EnvironmentDriver Step into document["composition"][...]
-    # and wire its outputs to environment.external_concentrations.
-    # Add a regression assertion: at env_driver_mode="static", the resulting
-    # document is byte-identical to the unmodified baseline document.
+    if core is None:
+        from v2ecoli.core import build_core
+        core = build_core()
 
-    # Stash config on the document for downstream wiring once the hook lands.
-    document.setdefault("_v2ecoli_meta", {})["env_driver_mode"] = env_driver_mode
-    document["_v2ecoli_meta"]["synthetic_trajectory_spec"] = synthetic_trajectory_spec or {}
+    state = document["state"]
+
+    # Top-level environment store. The driver owns the
+    # external_concentrations write path; pre-seed with empty dict so the
+    # document is structurally complete before the first tick.
+    state.setdefault("environment", _empty_environment_store())
+
+    driver_config = {
+        "env_driver_mode":           env_driver_mode,
+        "synthetic_trajectory_spec": synthetic_trajectory_spec or {},
+    }
+    driver = _make_instance(EnvironmentDriver, driver_config, core)
+    state[ENVIRONMENT_DRIVER_STEP_NAME] = make_edge(
+        driver, EnvironmentDriver.topology, edge_type="step",
+        config=driver_config,
+    )
+
+    # Register in flow_order so the executor knows about the new step.
+    document.setdefault("flow_order", []).append(ENVIRONMENT_DRIVER_STEP_NAME)
 
     return document

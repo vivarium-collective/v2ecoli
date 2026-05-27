@@ -71,19 +71,26 @@ class EnvironmentDriver(Step):
     }
     topology = {
         "environment": ("environment",),
-        "global_time": ("global", "time"),
+        # NOTE on global_time: the baseline composite uses a top-level flat
+        # `global_time` float, not a nested `("global", "time")` dict.
+        # Wiring a topology port to a path whose terminal value is a bare
+        # float trips bigraph-schema's link-path realizer
+        # ("argument of type 'float' is not iterable"). For now we DROP the
+        # global_time port and have synthetic-trajectory mode read a
+        # local-tick counter that EnvironmentDriver maintains in self.
+        # When synthetic-mode behavior tests light up (currently skipped
+        # pending media_update modification), revisit this.
     }
 
     def initialize(self, config: dict | None = None) -> None:
         cfg = config or {}
         self.env_driver_mode = cfg.get("env_driver_mode") or ENV_DRIVER_MODE_STATIC
         self.synthetic_spec = cfg.get("synthetic_trajectory_spec") or {}
+        # Tick counter for synthetic-trajectory mode (see topology note).
+        self._elapsed_sec: float = 0.0
 
     def inputs(self) -> dict[str, Any]:
-        return {
-            "environment": InPlaceDict(),
-            "global_time": 0.0,
-        }
+        return {"environment": InPlaceDict()}
 
     def outputs(self) -> dict[str, Any]:
         return {"environment": InPlaceDict()}
@@ -105,7 +112,11 @@ class EnvironmentDriver(Step):
             return {}
 
         if self.env_driver_mode == ENV_DRIVER_MODE_SYNTHETIC_TRAJECTORY:
-            t_min = float(states.get("global_time", 0.0)) / 60.0
+            # See topology note: we maintain a local tick counter instead of
+            # wiring a global_time port (the latter trips bigraph-schema
+            # link-path realization on the flat baseline state).
+            self._elapsed_sec += float(timestep or 1.0)
+            t_min = self._elapsed_sec / 60.0
             updates: dict[str, Any] = {}
             for mol_id, spec in self.synthetic_spec.items():
                 val = self._evaluate_trajectory(spec, t_min)

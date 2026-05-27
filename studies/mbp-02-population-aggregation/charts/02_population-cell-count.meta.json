@@ -1,0 +1,6 @@
+{
+  "title": "Cell count across 2 generations",
+  "caption": "population.cell_count(t) at cpa=1 \u2014 division events at t \u2248 42 min and t \u2248 49 min",
+  "simulations": "aggregator-cpa1-multigen (v2 runner, single_daughters=True so we follow one daughter through 2 generations rather than 2^N branching).",
+  "interpretation": "single_daughters=True drops the sibling daughter at each division; cell_count stays at 1 because we follow a single lineage. The division ticks are visible in the underlying agent-id changes (`'0'` \u2192 `'00'` \u2192 `'000'`) \u2014 see the staticfile for the raw sequence. Captures the canonical first-division event the v1 runner crashed at."
+}

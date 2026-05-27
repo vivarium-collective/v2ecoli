@@ -1,0 +1,6 @@
+{
+  "title": "Per-cell mass invariant under cells_per_agent scaling",
+  "caption": "cell_mass(t) for cpa \u2208 {1, 1e6, 1e9} \u2014 three identical curves prove the aggregator never touches per-cell state",
+  "simulations": "aggregator-cpa1-multigen, aggregator-cpa1e6-multigen, aggregator-cpa1e9-multigen (all v2 runner, 120 sim-min, 2 generations).",
+  "interpretation": "All three traces overlap exactly. The cells_per_agent scaling factor is applied ONLY to the aggregator's population.* outputs and NEVER to per-cell stores \u2014 visual regression-guard for the `per-cell-observables-invariant-under-scaling` behavior test (chris_feedback_2026_05_26 \u00a74)."
+}

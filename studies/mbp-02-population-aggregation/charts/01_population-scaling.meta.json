@@ -1,0 +1,6 @@
+{
+  "title": "Population biomass scales linearly with cells_per_agent",
+  "caption": "log-y population.total_biomass_gDW(t) across cpa values \u2014 9 orders of magnitude separation, exact at every emit",
+  "simulations": "aggregator-cpa1-multigen, aggregator-cpa1e6-multigen, aggregator-cpa1e9-multigen.",
+  "interpretation": "Curves are perfectly parallel on log-y (constant ratio 1 : 1e6 : 1e9) \u2014 proves `aggregator-output-scales-linearly-with-cells-per-agent`. The representative-sampling architectural decision (chris_feedback_2026_05_26 \u00a74) reaches Beulig-regime densities (~10^12-10^13 cells/L at cpa=1e9) from a single-cell-with-Division simulation without literal-N intractability."
+}

@@ -32,13 +32,19 @@ from concurrent.futures import Future, ThreadPoolExecutor
 from queue import Queue
 from unittest.mock import Mock, patch
 
-import duckdb
 import numpy as np
-import polars as pl
 import pytest
 
-from v2ecoli.library.emitter_presets import VECOLI_PARQUET_DTYPE_OVERRIDES
-from v2ecoli.library.parquet_emitter import (
+# Skip the whole module if the [parquet] extra isn't installed.
+pytest.importorskip("duckdb")
+pytest.importorskip("polars")
+pytest.importorskip("pbg_emitters")
+
+import duckdb  # noqa: E402
+import polars as pl  # noqa: E402
+
+from v2ecoli.library.emitter_presets import VECOLI_PARQUET_DTYPE_OVERRIDES  # noqa: E402
+from v2ecoli.library.parquet_emitter import (  # noqa: E402
     ParquetEmitter,
     create_duckdb_conn,
     flatten_dict,

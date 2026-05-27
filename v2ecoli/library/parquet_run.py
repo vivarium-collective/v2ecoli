@@ -77,7 +77,9 @@ def run_multigen_parquet(
     write — the per-generation rotation is what lets ``read_parquet(out_dir/
     experiment_id/history/**/*.pq)`` pick up all generations in one read.
     """
-    from v2ecoli.library.parquet_emitter import ParquetEmitter
+    # Imported directly from pbg-emitters (the upstream library);
+    # ``v2ecoli.library.parquet_emitter`` is just a re-export shim.
+    from pbg_emitters import ParquetEmitter
 
     if division_detector is None:
         def division_detector(prev: set[str], curr: set[str]) -> tuple[bool, str | None]:

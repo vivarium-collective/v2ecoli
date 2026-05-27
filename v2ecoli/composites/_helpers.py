@@ -821,8 +821,10 @@ def _get_special_step(loader, step_name, core):
         from process_bigraph.emitter import RAMEmitter, SQLiteEmitter
         # ParquetEmitter is optional — the import lives behind an extra so
         # workspaces without the [parquet] extra still build composites.
+        # Imported directly from pbg-emitters (the upstream library);
+        # ``v2ecoli.library.parquet_emitter`` is just a re-export shim.
         try:
-            from v2ecoli.library.parquet_emitter import ParquetEmitter
+            from pbg_emitters import ParquetEmitter
         except ImportError:
             ParquetEmitter = None  # type: ignore[assignment]
         # Mass listener fields — always emitted, used by the workflow report.

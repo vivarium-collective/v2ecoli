@@ -192,12 +192,32 @@ class Division(V2Step):
             # baseline() loads wiring from the cache; we then overlay the
             # daughter's divided biological state on top.
             from v2ecoli.composites.baseline import baseline, seed_mass_listener
+            from v2ecoli.composites._helpers import (
+                _PARQUET_EMITTER_OVERRIDE, set_parquet_emitter_override)
             d1_seed = (self._seed + 1) % (2**31)
             d2_seed = (self._seed + 2) % (2**31)
 
-            def _build_daughter_doc(d_data, seed):
-                doc = baseline(
-                    core=self.core, seed=seed, cache_dir=self._cache_dir)
+            def _build_daughter_doc(d_data, seed, daughter_id):
+                # Mirror vEcoli's per-cell partitioning: each daughter's
+                # emitter writes under its own agent_id, with generation
+                # derived from len(agent_id). Without this the daughter
+                # ParquetEmitter inherits the parent's metadata and clobbers
+                # the parent's history partition (see project memory
+                # parquet-division-partition-bug).
+                saved_override = _PARQUET_EMITTER_OVERRIDE
+                if saved_override is not None and saved_override.get("metadata"):
+                    daughter_meta = {
+                        **saved_override["metadata"],
+                        "agent_id": daughter_id,
+                        "generation": len(daughter_id),
+                    }
+                    set_parquet_emitter_override(
+                        {**saved_override, "metadata": daughter_meta})
+                try:
+                    doc = baseline(
+                        core=self.core, seed=seed, cache_dir=self._cache_dir)
+                finally:
+                    set_parquet_emitter_override(saved_override)
                 agent = doc['state']['agents']['0']
                 for key in ('bulk', 'unique', 'environment', 'boundary'):
                     if key in d_data:
@@ -206,14 +226,27 @@ class Division(V2Step):
                 seed_mass_listener(agent, self.core)
                 return doc
 
-            d1_doc = _build_daughter_doc(d1_data, d1_seed)
-            d2_doc = _build_daughter_doc(d2_data, d2_seed)
+            d1_doc = _build_daughter_doc(d1_data, d1_seed, d1_id)
+            d2_doc = _build_daughter_doc(d2_data, d2_seed, d2_id)
 
             d1_cell = d1_doc['state']['agents']['0']
             d2_cell = d2_doc['state']['agents']['0']
 
             print(f'  DAUGHTERS: {d1_id} (bulk={d1_data["bulk"]["count"].sum()}) '
                   f'+ {d2_id} (bulk={d2_data["bulk"]["count"].sum()})')
+
+            # Mirror vEcoli's pre-divide ``self.emitter.finalize()`` hook
+            # (ecoli/processes/engine_process.py: divide branch). The parent
+            # ParquetEmitter has rows buffered since its last batch flush;
+            # without an explicit close() they vanish when this _remove
+            # update tears the agent subtree down. Lookup is by self.agent_id
+            # via the per-agent registry populated at emitter construction.
+            from v2ecoli.composites._helpers import (
+                get_parquet_emitter, unregister_parquet_emitter)
+            parent_emitter = get_parquet_emitter(self.agent_id)
+            if parent_emitter is not None:
+                parent_emitter.close(success=True)
+                unregister_parquet_emitter(self.agent_id)
 
             return {
                 'agents': {

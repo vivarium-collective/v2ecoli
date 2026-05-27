@@ -19,30 +19,71 @@ baseline:
 purpose:
   question: |
     Can v2ecoli aggregate single-cell-plus-Division output into population-
-    level biomass observables (total gDW, cell count, OD600) that are
-    physically meaningful at the reactor scale (OD ≫ 1) — and consume
-    population-level signals (e.g. reactor liquid volume) to maintain
-    correct per-cell concentrations as the population grows?
+    level biomass observables (total gDW, cell count) that are physically
+    meaningful at the reactor scale (OD ≫ 1) — using a **representative-
+    sampling scaling factor (`cells_per_agent`)** so the simulated lineage
+    legitimately stands in for an N-cell population under the 0D
+    well-mixed assumption — and consume population-level signals (e.g.
+    reactor liquid volume) to maintain correct concentrations?
   mechanism: |
     v2ecoli currently tracks `agents.<id>.listeners.mass.cell_mass` per cell
     and grows the population via the Division Step. There is no built-in
     aggregation of the population into reactor-scale observables. This study
     adds a `PopulationAggregator` Step that, each emit step, walks
     `agents.*.listeners.mass.cell_mass` and writes:
-      - `population.total_biomass_gDW`     (sum × 1e-15 g/fg)
-      - `population.cell_count`            (n agents)
-      - `population.OD600`                 (= total_biomass_gDW / od_to_gdw)
-      - `population.biomass_concentration_gL` (= total_biomass_gDW / reactor_volume_L)
+
+      population.total_biomass_gDW =
+          sum(agents.*.cell_mass) × cells_per_agent × 1e-15 g/fg
+      population.cell_count        = len(agents) × cells_per_agent
+      population.biomass_concentration_gL =
+          total_biomass_gDW / reactor_volume_L
+      population.OD600             = biomass_concentration_gL / od_to_gdw
+          (COSMETIC — for plotting / cross-referencing OD-only published data)
+
+    The `cells_per_agent` factor is the load-bearing architectural decision
+    in this study (adopted 2026-05-26 per chris_feedback_2026_05_26 §4,
+    Eran's choice between literal-sum and representative-sampling). Under
+    the 0D well-mixed assumption (already a key_assumption), every cell
+    sees the same environment, so simulating N representative cells and
+    scaling by k = cells_per_agent is mathematically equivalent to
+    simulating N × k cells. You downsample for compute tractability.
+    Cost: per-cell stochastic variance washes out at the bulk mean as k
+    grows — at high density this is correct biology (population averages
+    dominate over per-cell variance). At low density (small k = 1.0,
+    default), behavior is identical to literal-sum.
+
+    Production runs choose `cells_per_agent` such that
+    `n_simulated_agents × cells_per_agent ≈ target_population_density
+    × reactor_volume`. Default 1.0 preserves literal-sum so existing
+    single-cell sims and the unaggregated baseline regression test remain
+    byte-identical.
+
     A `ReactorVolume` external store (read-only here, written by mbp-03's
     BiRD coupling) determines concentration units. Concentration-to-count
     conversions in metabolism stay per-cell; only the AGGREGATE view is new.
+
+    **`population.OD600` is COSMETIC** — derived from biomass_concentration_gL
+    for plotting and for comparisons against published OD-only data (e.g.
+    Beulig 2025 OD traces). The canonical biomass observable is
+    `population.biomass_concentration_gL` (or `total_biomass_gDW`); downstream
+    studies should NOT reach for OD as the primary biomass currency. Static
+    od_to_gdw = 0.34 (Beulig's value, not the textbook 0.33) is acceptable
+    under this framing; regime-dependence applies to OD interpretation, not
+    to the model's internal biomass accounting.
   expected_outcome: |
     cell_count tracks Division events (1 → 2 → 4 → … on a generational
-    cadence ≈ 60 min). total_biomass_gDW grows exponentially during
-    glucose-replete growth. OD600 derived from total_biomass_gDW yields
-    OD ~ 0.01 at the start (single cell in 1 L) and rises with population
-    growth. Per-cell observables (e.g. DnaA count) remain unchanged from
-    the unaggregated baseline — aggregation is a read-only view.
+    cadence ≈ 60 min), scaled by cells_per_agent. total_biomass_gDW grows
+    exponentially during glucose-replete growth, scaled by cells_per_agent.
+    Per-cell observables (e.g. DnaA count) remain unchanged from the
+    unaggregated baseline — aggregation is a read-only view.
+
+    Pure consistency invariants hold at every emit step:
+      population.cell_count == len(agents.*) × cells_per_agent
+      population.total_biomass_gDW ==
+          sum(agents.*.listeners.mass.cell_mass) × cells_per_agent × 1e-15
+
+    These checks are decoupled from doubling-time calibration — they
+    isolate aggregator bugs from biology drift.
 
 
 # ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
@@ -56,9 +97,14 @@ pipeline_gate:
     demand, kLa, etc.; v2ecoli needs a time-varying env (mbp-01) to consume
     BiRD's dissolved-phase concentrations.
   proceed_condition: |
-    cell_count and total_biomass_gDW track Division events; OD600 derivation
-    works; per-cell observables match the unaggregated baseline (regression
-    guard); single-cell-only sim (1 division disabled) still works.
+    cell_count and total_biomass_gDW track Division events (with
+    cells_per_agent=1.0 default); per-cell observables match the
+    unaggregated baseline (regression guard); single-cell-only sim
+    (Division disabled) still works; pure consistency invariants hold at
+    every emit step (population_count_equals_len_agents,
+    total_biomass_equals_sum_cell_mass_times_scale); scaling-factor sweep
+    sim at cells_per_agent ∈ {1, 1e6, 1e9} confirms aggregator output
+    scales linearly and per-cell observables remain unchanged.
 
 
 # ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
@@ -92,6 +138,24 @@ simulation_set:
   readouts: [population_cell_count, population_total_biomass_gDW, cell_mu_per_h]
   applies_tests:
     - single-cell-aggregation-matches-cell-mass
+    - population_count_equals_len_agents
+    - total_biomass_equals_sum_cell_mass_times_scale
+  status: planned
+
+# Sweep cells_per_agent to verify the scaling factor behaves linearly and
+# does NOT perturb per-cell observables. Tests the architectural decision
+# adopted from chris_feedback_2026_05_26 §4.
+- name: scaling-factor-sweep
+  base_model: v2ecoli.composites.baseline_population
+  perturbation:
+    cells_per_agent: [1.0, 1.0e6, 1.0e9]
+  condition: M9-minimal-glucose
+  duration_min: 60
+  seeds: [0]
+  readouts: [population_cell_count, population_total_biomass_gDW, population_biomass_concentration_gL, dnaA_protein_count]
+  applies_tests:
+    - aggregator-output-scales-linearly-with-cells-per-agent
+    - per-cell-observables-invariant-under-scaling
   status: planned
 
 
@@ -100,13 +164,18 @@ model_change:
   base_model: v2ecoli.composites.baseline
   new_state_variables:
     - "population.total_biomass_gDW (float)"
-    - "population.cell_count (int)"
-    - "population.OD600 (float)"
-    - "population.biomass_concentration_gL (float)"
+    - "population.cell_count (float)   # float, not int — cells_per_agent scaling can be non-integer"
+    - "population.biomass_concentration_gL (float)   # CANONICAL biomass observable"
+    - "population.OD600 (float)        # COSMETIC — derived from biomass_concentration_gL for plotting / OD-only comparisons"
   new_processes:
     - {name: PopulationAggregator, kind: Step, requirement_id: req-1-population-aggregator}
   new_parameters:
-    - {name: od_to_gdw,            default: 0.33,  units: "gDW/(L·OD600)"}
+    # Load-bearing architectural decision (chris_feedback_2026_05_26 §4):
+    # representative-sampling scaling under the 0D well-mixed assumption.
+    # Default 1.0 preserves literal-sum; production runs override to scale
+    # the simulated lineage to a target population size.
+    - {name: cells_per_agent,      default: 1.0,   units: "real cells per simulated agent"}
+    - {name: od_to_gdw,            default: 0.34,  units: "gDW/(L·OD600)"}   # Beulig 2025 value (was textbook 0.33)
     - {name: reactor_volume_L,     default: 1.0,   units: "L"}
     - {name: fg_per_gram,          default: 1e-15, units: "g/fg"}
   modified_processes: []
@@ -116,13 +185,21 @@ model_change:
     this phase; mbp-03 will replace it with the reactor composite's
     dynamic volume store.
 
+    cells_per_agent is the load-bearing knob; see purpose.mechanism for
+    the rationale. The cell-side interface contract will be amended
+    (followup TODO) to reference the scaling discipline as part of the
+    interface — engines either operate at literal scale or declare an
+    explicit cells_per_agent factor.
+
 
 # ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
 key_assumptions:
-  - "Population is well-mixed (all agents see the same reactor liquid)."
-  - "od_to_gdw = 0.33 gDW/(L·OD600) is the textbook E. coli conversion; refit if Palsson 2025 specifies a different one."
+  - "Population is well-mixed (all agents see the same reactor liquid). This assumption is what makes the cells_per_agent representative-sampling factor mathematically equivalent to literal-N simulation."
+  - "Per-cell stochastic variance becomes negligible at large cells_per_agent (correct biology at high density; explicit cost of the representative-sampling choice — see chris_feedback_2026_05_26 §4)."
+  - "od_to_gdw = 0.34 gDW/(L·OD600) per Beulig 2025 (was textbook 0.33)."
   - "cell_mass listener units are fg (femtograms) per v2ecoli convention."
   - "PopulationAggregator runs as a Step at emit cadence; no need for inter-process synchronization."
+  - "OD600 is a COSMETIC observable (for plotting / OD-only data comparison); biomass_concentration_gL is canonical."
 
 
 # ─── 5. READOUTS + BEHAVIOR TESTS ──────────────────────────────────────────
@@ -138,10 +215,16 @@ readouts:
 
 behavior_tests:
 
+# ─── Calibration-dependent tests (assume v2ecoli baseline μ as a fixed prior) ───
+# Per chris_feedback_2026_05_26 §4: v2ecoli's basal μ on M9 glucose is a
+# strong prior (calibrated against decades of E. coli literature). The
+# acceptable band is narrow and well-supported. If these tests ever fail,
+# first investigate baseline-composite drift, NOT just the aggregator.
+
 - name: cell-count-doubles-per-generation
   classification: primary
   acceptance_form: quantitative_range
-  description: "cell_count doubles approximately every doubling-time (~60 min on M9-glucose); ratio (final/initial) ≈ 2^(duration/doubling_time)."
+  description: "cell_count doubles approximately every doubling-time (~60 min on M9-glucose); ratio (final/initial) ≈ 2^(duration/doubling_time). Implicitly assumes calibrated v2ecoli baseline μ as a fixed prior — drift in this test should first prompt a baseline-composite drift check, not just an aggregator check."
   measure: {kind: derived_ratio, numerator: population_cell_count_final, denominator: population_cell_count_initial}
   pass_if: {op: in_range, low: 6, high: 24}   # 240 min / 60 min ~ 4 doublings → 16x; band absorbs stochasticity
   units: "—"
@@ -171,11 +254,58 @@ behavior_tests:
 - name: single-cell-aggregation-matches-cell-mass
   classification: supporting
   acceptance_form: quantitative_range
-  description: "With division disabled, population.total_biomass_gDW = agents.0.listeners.mass.cell_mass × 1e-15 every timestep (single cell sanity check)."
+  description: "With division disabled (cells_per_agent=1.0 default), population.total_biomass_gDW = agents.0.listeners.mass.cell_mass × 1e-15 every timestep (single cell sanity check; identity at default scale)."
   measure: {kind: derived_ratio, numerator: "population.total_biomass_gDW", denominator: "agents.0.listeners.mass.cell_mass * 1e-15"}
   pass_if: {op: in_range, low: 0.99, high: 1.01}
   units: fraction
   requires_simulation: single-cell-no-division
+  cites: []
+
+# ─── Pure consistency invariants (chris_feedback_2026_05_26 §4) ───
+# Decoupled from doubling-time / μ calibration. These isolate aggregator
+# bugs from biology drift if the calibration-dependent tests above ever
+# start failing.
+
+- name: population_count_equals_len_agents
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "At every emit step: population.cell_count == len(agents.*) × cells_per_agent. Pure aggregator-only check; independent of doubling-time calibration."
+  measure: {kind: per_step_identity, lhs: population.cell_count, rhs: "len(agents.*) * cells_per_agent"}
+  pass_if: {op: identity_at_every_step}
+  units: "—"
+  requires_simulation: single-cell-no-division   # and multi-division-population and scaling-factor-sweep
+  cites: []
+
+- name: total_biomass_equals_sum_cell_mass_times_scale
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "At every emit step: population.total_biomass_gDW == sum(agents.*.listeners.mass.cell_mass) × cells_per_agent × 1e-15. Pure aggregator-only check; isolates aggregation bugs from biology drift."
+  measure: {kind: per_step_identity, lhs: population.total_biomass_gDW, rhs: "sum(agents.*.listeners.mass.cell_mass) * cells_per_agent * 1e-15"}
+  pass_if: {op: identity_at_every_step, rtol: 1e-9}
+  units: "—"
+  requires_simulation: single-cell-no-division   # and multi-division-population and scaling-factor-sweep
+  cites: []
+
+# ─── cells_per_agent scaling-factor checks (the architectural decision) ───
+
+- name: aggregator-output-scales-linearly-with-cells-per-agent
+  classification: primary
+  acceptance_form: quantitative_range
+  description: "Across cells_per_agent ∈ {1, 1e6, 1e9}, population.total_biomass_gDW and population.cell_count at matched simulation time scale linearly with cells_per_agent (no off-by-k error, no clipping). Validates the representative-sampling architectural decision (chris_feedback_2026_05_26 §4)."
+  measure: {kind: cross_run_linear_scaling, x: cells_per_agent, ys: [population.total_biomass_gDW, population.cell_count], at_time: end_of_run}
+  pass_if: {op: linear_within_tolerance, rtol: 1e-9}
+  units: "—"
+  requires_simulation: scaling-factor-sweep
+  cites: []
+
+- name: per-cell-observables-invariant-under-scaling
+  classification: primary
+  acceptance_form: quantitative_range
+  description: "Across cells_per_agent ∈ {1, 1e6, 1e9}, per-cell DnaA count and per-cell μ are byte-identical (cells_per_agent only affects aggregator output, never per-cell state). Regression guard against the aggregator leaking the scaling factor into per-cell processes."
+  measure: {kind: cross_run_match, runs: scaling-factor-sweep, series: [dnaA_protein_count, cell_mu_per_h], reduce: per_step}
+  pass_if: {op: numerical_match, tolerance: 1e-12}
+  units: "—"
+  requires_simulation: scaling-factor-sweep
   cites: []
 
 
@@ -184,18 +314,23 @@ required_knowledge:
   claims:
     - id: doubling-time-m9-glucose
       backs: [cell-count-doubles-per-generation, total-biomass-grows-exponentially]
-    - id: od-to-gdw-conversion
-      backs: [cell-count-doubles-per-generation]   # via OD600 derivation
+    # od-to-gdw-conversion FK linkage REMOVED — chris_feedback_2026_05_26 §4
+    # minor: cell-count-doubles-per-generation measures cell_count directly,
+    # not OD600 (claim was miscategorized; harmless but worth catching).
     - id: ecoli-high-density-ceiling
       backs: []                                     # informational — sets the eventual target regime
+    - id: well-mixed-representative-sampling-equivalence
+      backs: [aggregator-output-scales-linearly-with-cells-per-agent]   # TODO claims.yaml: under 0D well-mixed, simulating N representative cells × scaling factor is mathematically equivalent to simulating N×k cells
   open_questions:
     - id: od-conversion-at-high-density
       question: |
-        The textbook od-to-gdw-conversion (0.33 gDW/(L·OD600)) holds at
-        exponential-phase low density. Does it hold at the Beulig
-        50–80 gDW/L regime, or do cell-size + scattering shifts (lower
+        The Beulig 2025 od-to-gdw-conversion (0.34 gDW/(L·OD600)) holds at
+        their batch-phase density. Does it hold at the full 50–80 gDW/L
+        fed-batch regime, or do cell-size + scattering shifts (lower
         per-cell mass under stress) require a regime-dependent factor?
-      blocks: [mbp-05 OD600-based comparisons]
+        Less load-bearing now that OD600 is COSMETIC and biomass_concentration_gL
+        is canonical — affects only OD-only published-data comparisons.
+      blocks: [mbp-05 OD600 overlay panel band-width]
       asked_to: unassigned
       status: open
     - id: stochastic-vs-aggregate
@@ -203,9 +338,24 @@ required_knowledge:
         At population scale, are stochastic effects on division (cell-cycle
         skew, daughter-mass partitioning) significant enough to affect the
         aggregate biomass curve, or can the aggregator treat them as wash?
-        Probably wash at N > ~1000 cells but worth a multi-seed check.
+        With cells_per_agent scaling, the simulated agents themselves cover
+        the variance; the scaling factor washes per-cell variance further.
+        Probably wash at effective N > ~1000 cells but worth a multi-seed check.
       blocks: [multi-division-population multi-seed analysis]
       asked_to: unassigned
+      status: open
+    - id: scaling-factor-sets-stochastic-floor
+      question: |
+        cells_per_agent shifts the simulation from "literal N cells" toward
+        "ensemble of representatives × scale" — explicit cost is that
+        per-cell stochastic variance washes out at the bulk mean as scale
+        grows. At high density this matches reality (population averages
+        dominate), but in the transition regime (k ~ 10-100), what's the
+        right N_simulated × k tradeoff to preserve enough variance for
+        biologically-interesting heterogeneity (e.g. Beulig's bistable
+        expression states)? Candidate-future-study territory.
+      blocks: [mbp-07 cells_per_agent calibration for Beulig regime]
+      asked_to: Chris on next sync
       status: open
 
 
@@ -244,9 +394,10 @@ regression_tests:
 # ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
 limitations:
   - "All agents share the same external environment in this phase (no per-cell microenvironment heterogeneity)."
-  - "OD600 conversion is a constant factor; physical OD depends on cell size + scattering — may need regime-dependent refit (Beulig 2025 high-density regime)."
+  - "OD600 conversion is a constant factor; physical OD depends on cell size + scattering — may need regime-dependent refit (Beulig 2025 high-density regime). Less load-bearing now that OD600 is cosmetic."
   - "Aggregator runs at emit cadence; not suitable as a feedback signal to processes that need sub-step granularity (deferred)."
-  - "Single-cell-with-Division does not scale to reactor densities (~10^13 cells/L at 50–80 gDW/L) — see claim `high-density-single-cell-intractability`; a surrogate engine under the cell-side interface contract is the path forward (mbp-06 scope)."
+  - "cells_per_agent scaling washes per-cell stochastic variance at large k — correct biology at high density (population averages dominate), but at k ~ 10-100 may obscure biologically-interesting per-cell heterogeneity (e.g. Beulig 2025's bistable expression states). Setting k is a calibration decision per investigation; see open_question scaling-factor-sets-stochastic-floor."
+  - "Single-cell-with-Division at small cells_per_agent does not scale to reactor densities (~10^13 cells/L at 50–80 gDW/L) by literal-N simulation. The scaling factor lets the SIMULATED N stand in for a larger M = N × k, sufficient for batch-phase work but with the stochastic-floor caveat above. A coarse-grained surrogate engine under the cell-side interface contract remains the path forward for the full high-density regime (mbp-06 scope; see candidate-future-study `mbp-08-surrogate-engine-for-high-density`)."
 
 
 # ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
@@ -257,10 +408,22 @@ implementation_requirements:
   title: PopulationAggregator Step
   effort: S
   description: |
-    PBG Step that walks `agents.*.listeners.mass.cell_mass`, sums, and writes
-    `population.{total_biomass_gDW,cell_count,OD600,biomass_concentration_gL}`.
-    No mutation of agent state. Hooks into the emit cycle so it runs once per
-    emit interval.
+    PBG Step that walks `agents.*.listeners.mass.cell_mass`, sums, and writes:
+
+      population.total_biomass_gDW =
+          sum(agents.*.cell_mass) × cells_per_agent × 1e-15
+      population.cell_count        = len(agents) × cells_per_agent   (float, not int)
+      population.biomass_concentration_gL =
+          total_biomass_gDW / reactor_volume_L
+      population.OD600 =
+          biomass_concentration_gL / od_to_gdw
+
+    NO mutation of agent state (regression-guarded by
+    per-cell-observables-unchanged-vs-baseline and
+    per-cell-observables-invariant-under-scaling). The cells_per_agent
+    scaling factor is applied ONLY to the population.* outputs — never to
+    per-cell stores. Hooks into the emit cycle so it runs once per emit
+    interval.
   unblocks: [all mbp-02 behavior_tests]
 
 - id: req-2-population-composite
@@ -275,7 +438,7 @@ implementation_requirements:
 
 
 bibliography:
-  expert: [multiscale_bioprocess_roadmap]
+  expert: [multiscale_bioprocess_roadmap, chris_feedback_2026_05_26]
   bib_keys: []
 
 

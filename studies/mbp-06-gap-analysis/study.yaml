@@ -25,6 +25,72 @@ baseline:
   params: {seed: 0, cache_dir: out/cache}
 
 
+# ─── 0. CARRIED-FORWARD PRIORS ────────────────────────────────────────────
+# Per chris_feedback_2026_05_26 §11 (concern 1): mbp-06's synthesis walks
+# mbp-01..05 artifacts → discovers gaps. Known-prior gaps that AREN'T
+# exercised by mbp-01..05 risk going undocumented. This block pre-seeds
+# them so the synthesis MUST address each.
+#
+# Synthesis discipline: either (a) incorporate the prior with new evidence
+# from this investigation, or (b) explicitly justify dropping it (recorded
+# in findings as resolution_type=scope_decision).
+mandatory_findings_to_consider:
+
+  - signature: v2ecoli-transport-kinetics-functional-form
+    source: chris_feedback_2026_05_26 §3 + mbp-01 limitations
+    why_still_load_bearing: |
+      mbp-01 was reframed to plumbing-only because v2ecoli's PTS transport
+      functional form (saturable / constant-bound / linear) is unknown and
+      out of scope for that study. The downstream `transport-kinetics-
+      fidelity` candidate-future-study addresses it. If mbp-05 simulation
+      doesn't reach a glucose regime where this bites, it won't surface as
+      a divergence — but the gap is still load-bearing for the next
+      iteration (any benchmark in the glucose-decline regime stresses it).
+    what_resolves_it: transport-kinetics-fidelity candidate-future-study
+    expected_priority: 1
+    expected_axis: A
+
+  - signature: v2ecoli-mass-balance-at-low-gur
+    source: Eran (carried from prior work)
+    why_still_load_bearing: |
+      Not exercised by any mbp-01..05 test specifically. mbp-04's
+      MassBalanceAuditor closes C/N at the population level, but doesn't
+      stress what happens when individual cell GUR drops to near-zero
+      (e.g. during substrate depletion). Eran's prior work identified this
+      as an open question; this investigation doesn't resolve it.
+    what_resolves_it: scoped v2ecoli low-GUR mass-balance test (candidate-future-study)
+    expected_priority: 2
+    expected_axis: A
+
+  - signature: pbg-bioreactor-fed-batch-support
+    source: mbp-05 scope notes + chris_feedback_2026_05_26 §10
+    why_still_load_bearing: |
+      Touched by mbp-05's batch-prefix scoping, but the gap itself exists
+      in the upstream `pbg-bioreactordesign` package. mbp-06's discovery
+      framing might position it as a Beulig-scope deferral (axis D) rather
+      than the upstream-contribution-needed it actually is (axis C +
+      cross-investigation work). Categorization matters for routing.
+    what_resolves_it: upstream PR to pbg-bioreactordesign adding fed-batch operations
+    expected_priority: 1
+    expected_axis: C
+    expected_resolution_type: upstream_PR
+    expected_resolution_venue: pbg-bioreactordesign
+
+  - signature: cells_per_agent-scaling-stochastic-floor
+    source: chris_feedback_2026_05_26 §4 + mbp-02 open_question scaling-factor-sets-stochastic-floor
+    why_still_load_bearing: |
+      Eran adopted cells_per_agent scaling in mbp-02 (resolves the
+      single-cell-inoculation sparsity for mbp-03/04/05). The choice's
+      cost is that per-cell stochastic variance washes out at large
+      scaling factors — correct biology at high density, but obscures
+      heterogeneity that may matter for Beulig's bistable expression
+      states. mbp-05's evaluation phase doesn't stress this directly;
+      mbp-09 transcriptional-state matching would.
+    what_resolves_it: scaling-factor-multi-density-validation candidate-future-study
+    expected_priority: 2
+    expected_axis: A
+
+
 # ─── 1. PURPOSE ────────────────────────────────────────────────────────────
 purpose:
   question: |
@@ -62,11 +128,57 @@ purpose:
     to pbg-bioreactordesign, an expert elicitation), and priority (1–3).
   expected_outcome: |
     A structured findings document (findings.md + this study's
-    findings: array, populated post-impl) that enumerates ≥ 8 named gaps
-    across the five axes, each with a concrete candidate-resolution. The
-    document feeds the next investigation cycle: roadmap-revision PR on
-    references/expert/multiscale_bioprocess_roadmap.md (if upstream)
-    + new study scaffolds for the prioritized gaps.
+    `findings.entries[]`, populated post-impl) that enumerates ≥ 8 named
+    gaps across the five axes (with per-axis floors: ≥ 3 on axes A and D
+    based on prior known limitations), each with a concrete
+    candidate_resolution AND with the extended schema fields below
+    (chris_feedback_2026_05_26 §11 concern 2):
+
+      - resolution_type:      model_improvement | scope_decision | upstream_PR | expert_elicitation | further_investigation
+      - resolution_venue:     <repo / sibling investigation / program-level decision>
+      - decision_authority:   <who decides — especially for scope_decision>
+      - provenance:           this_investigation | carried_prior | external_input | expert_elicitation
+      - priority:             1 (top) | 2 | 3
+      - evidence:             [list of upstream test results / limitations / open_questions / mandatory_findings_to_consider entries]
+
+    Priorities are assigned INDEPENDENTLY of provenance — a carried prior
+    can be priority 1 even if mbp-05 didn't surface it fresh.
+
+    The document feeds the next investigation cycle: roadmap-revision PR
+    on references/expert/multiscale_bioprocess_roadmap.md (if upstream) +
+    new study scaffolds for the prioritized gaps.
+
+
+# ─── 5a. FINDINGS SCHEMA ─────────────────────────────────────────────────
+# Per chris_feedback_2026_05_26 §11 tactical items: behavior tests reference
+# `findings.entries` and `findings.summary.axis_X_count`, but the schema
+# was unspecified. Specifying it here so structural-check predicates have
+# shape to validate against.
+findings_schema:
+  entries:
+    - signature: string             # short slug
+      description: string           # one paragraph
+      axis: A | B | C | D | E
+      provenance: this_investigation | carried_prior | external_input | expert_elicitation
+      evidence:
+        - source_kind: behavior_test_result | limitation | open_question | mandatory_findings_to_consider | external
+          source_ref: "<study>:<name>"
+      candidate_resolution:
+        type: model_improvement | scope_decision | upstream_PR | expert_elicitation | further_investigation
+        venue: string               # repo / sibling investigation / program-level
+        decision_authority: string  # who decides
+        target_slug: string         # follow-up study / PR slug, if any
+        notes: string
+      priority: 1 | 2 | 3
+      review_by: string             # who approved the prioritization
+  summary:
+    axis_A_count: int
+    axis_B_count: int
+    axis_C_count: int
+    axis_D_count: int
+    axis_E_count: int
+    resolutions_assigned: int       # entries with non-empty candidate_resolution
+    carried_priors_addressed: int   # entries with provenance=carried_prior
 
 
 # ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
@@ -82,6 +194,15 @@ pipeline_gate:
     Blocked on all 5 construction studies completing their impl PRs so the
     artifacts (findings, acceptance_results, calibration_logs, limitations,
     open_questions) are populated. Synthesis-only; no simulation.
+
+    Additional timing constraint (chris_feedback_2026_05_26 §11 concern 5):
+    mbp-02's architectural decision (cells_per_agent scaling, adopted
+    2026-05-26) and mbp-05's reframe (evaluation-phase / comparison-rendered,
+    adopted 2026-05-26) both materially shape what mbp-01..05 impl PRs
+    produce. mbp-06 synthesizing against the PRE-reframe baseline would
+    miss the point. The reframes are now reflected in the upstream spec
+    PRs themselves so the impl PRs respect them; this note exists to
+    document the dependency for future re-evaluations.
   proceed_condition: |
     Gap-analysis covers all 5 axes (A–E); each gap has a concrete
     candidate-resolution; priorities are assigned and reviewed by the
@@ -127,6 +248,7 @@ readouts:
 - {name: gap_count_axis_D_beulig_scope,       store_path: findings.summary.axis_D_count, units: integer, status: planned}
 - {name: gap_count_axis_E_methodology,        store_path: findings.summary.axis_E_count, units: integer, status: planned}
 - {name: candidate_resolutions_with_owner,    store_path: findings.summary.resolutions_assigned, units: integer, status: planned}
+- {name: carried_priors_addressed,            store_path: findings.summary.carried_priors_addressed, units: integer, status: planned}
 
 
 behavior_tests:
@@ -134,28 +256,64 @@ behavior_tests:
 - name: all-five-axes-covered
   classification: primary
   acceptance_form: qualitative_direction
-  description: "Each of the five gap axes (v2ecoli biology / coupling / BiRD physics / Beulig scope / methodology) has at least one named gap entry."
-  measure: {kind: structural_count_per_axis, axes: [A, B, C, D, E]}
-  pass_if: {op: all_at_least, value: 1}
+  description: "Each of the five gap axes (v2ecoli biology / coupling / BiRD physics / Beulig scope / methodology) has at least one named gap entry. Per-axis floors (chris_feedback_2026_05_26 §11 tactical): axes A and D ≥ 3 each (based on prior known limitations); axes B, C, E ≥ 1 each."
+  measure: {kind: structural_count_per_axis, axes: [A, B, C, D, E], floors: {A: 3, B: 1, C: 1, D: 3, E: 1}}
+  pass_if: {op: per_axis_at_least}
   units: integer
   requires_simulation: null
   cites: []
 
-- name: at-least-eight-gaps-total
-  classification: primary
-  acceptance_form: quantitative_range
-  description: "The gap analysis enumerates at least 8 distinct gaps across the five axes (sets a lower bound for synthesis depth)."
-  measure: {kind: structural_count, path: findings.entries}
-  pass_if: {op: at_least, value: 8}
-  units: integer
-  requires_simulation: null
-  cites: []
+# at-least-eight-gaps-total REMOVED — per chris_feedback_2026_05_26 §11
+# tactical: "8-gap lower bound is arbitrary. Better as a per-axis floor."
+# The per-axis floors in all-five-axes-covered (3+3+1+1+1 = 9 minimum)
+# subsume this.
 
 - name: every-gap-has-candidate-resolution
   classification: primary
   acceptance_form: qualitative_direction
-  description: "Every gap entry carries a non-empty candidate_resolution field (a follow-up-study slug, an upstream PR pointer, or an expert-elicitation request). No bare placeholder strings — the predicate also rejects 'to be determined', 'figure out later', etc."
-  measure: {kind: structural_check, path: findings.entries, predicate: candidate_resolution_nonempty_and_not_placeholder}
+  description: |
+    Every gap entry carries a non-empty `candidate_resolution.target_slug`
+    OR `candidate_resolution.venue` (for resolution_types where no follow-up
+    slug applies: scope_decision, expert_elicitation). Banned placeholder
+    strings (case-insensitive) explicitly listed below for auditability:
+    "TBD", "to be determined", "figure out later", "TODO", "tbd",
+    "placeholder", "fixme", "?", "unclear", "n/a", "na".
+  measure:
+    kind: structural_check
+    path: findings.entries
+    predicate: candidate_resolution_nonempty_and_not_in_banned_list
+    banned_strings: [TBD, "to be determined", "figure out later", TODO, tbd, placeholder, FIXME, "?", unclear, "n/a", "na"]
+    case_sensitive: false
+  pass_if: {op: all_pass}
+  units: "—"
+  requires_simulation: null
+  cites: []
+
+- name: every-gap-has-resolution-type-and-venue
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "Every gap entry carries a `resolution_type` from the enum (model_improvement | scope_decision | upstream_PR | expert_elicitation | further_investigation) and a `resolution_venue` string. For scope_decision entries, `decision_authority` is also required (chris_feedback_2026_05_26 §11 concern 2)."
+  measure: {kind: structural_check, path: findings.entries, predicate: resolution_type_venue_set_and_decision_authority_if_scope_decision}
+  pass_if: {op: all_pass}
+  units: "—"
+  requires_simulation: null
+  cites: []
+
+- name: every-gap-has-provenance
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "Every gap entry carries a `provenance` from the enum (this_investigation | carried_prior | external_input | expert_elicitation). Required so the synthesis distinguishes new discovery from carried-forward priors (chris_feedback_2026_05_26 §11 concern 1)."
+  measure: {kind: structural_check, path: findings.entries, predicate: provenance_set_to_valid_enum}
+  pass_if: {op: all_pass}
+  units: "—"
+  requires_simulation: null
+  cites: []
+
+- name: all-mandatory-findings-addressed
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "Every entry in `mandatory_findings_to_consider` (above) is either incorporated as a findings.entries[] entry with provenance=carried_prior, OR explicitly justified as dropped via a scope_decision entry. No silent omissions."
+  measure: {kind: structural_check, path: mandatory_findings_to_consider, predicate: each_signature_addressed_in_findings}
   pass_if: {op: all_pass}
   units: "—"
   requires_simulation: null
@@ -233,6 +391,103 @@ required_knowledge:
       dashboard_pointer: |
         iModulon assignments + transcriptome data live in the upstream
         febedtu/hd_ecoli/data/transcriptome_data/ (precise / ddb subdirs).
+
+    # Pre-seeded 2026-05-26 per chris_feedback_2026_05_26 §11 concern 3:
+    - slug: pbg-bioreactor-transport-fork
+      axis: C   # pbg-bioreactordesign physics / structure
+      priority: 1
+      synopsis: |
+        Upstream PR to `vivarium-collective/pbg-bioreactordesign`:
+        extract the shared transport module (kLa / Henry / Wilke-Chang)
+        into a sub-module, with `BiRDReactorProcess` and a new
+        `BiRDTransportProcess` (transport-only, no internal biomass ODE)
+        as two consumers. Resolves the "biomass-ownership conflict" the
+        current disable-flag approach (Option A) papers over.
+        Cross-investigation coordination raised in chris_feedback_2026_05_26
+        §5; Eran adopted Option B 2026-05-26. **This study is a HARD
+        PREREQUISITE of mbp-03 entering Build** (now in mbp-03
+        pipeline_gate.prerequisites).
+      prereqs:
+        - mbp-03-bird-reactor-coupling spec adopting Option B (DONE 2026-05-26)
+      resolution_type: upstream_PR
+      resolution_venue: vivarium-collective/pbg-bioreactordesign
+      decision_authority: pbg-bioreactordesign maintainer (Chris)
+      dashboard_pointer: |
+        Coordinate with the parallel pbg-bioreactordesign investigation arc;
+        a focused first study on that side may be the right scope for the
+        refactor.
+
+    - slug: scaling-factor-multi-density-validation
+      axis: A   # v2ecoli biology coverage
+      priority: 2
+      synopsis: |
+        Validate the mbp-02 cells_per_agent scaling decision against a
+        multi-density real-comparison: confirm that simulating k cells
+        × cells_per_agent reproduces (within stochastic noise) the
+        observable behavior of a literal-N simulation at the same target
+        density, across at least 3 densities (low / mid / high). Stresses
+        the chris_feedback_2026_05_26 §4 cost ("per-cell stochastic
+        variance washes out at large k"). Also addresses mbp-02
+        open_question scaling-factor-sets-stochastic-floor.
+      prereqs:
+        - mbp-02-population-aggregation impl-merged (scaling implemented)
+      resolution_type: further_investigation
+      resolution_venue: v2ecoli
+      dashboard_pointer: |
+        Foundational — informs mbp-08 (surrogate engine) design: the
+        scaling factor's stochastic-floor caveat is one of the constraints
+        the surrogate has to address explicitly.
+
+  # Framework-axis-E pre-seeded gaps (chris_feedback_2026_05_26 §2 +
+  # §11 concern 4). These belong upstream in pbg-superpowers; mbp-06's
+  # synthesis should reify them as upstream PR candidates.
+  framework_axis_e_gaps:
+    - signature: study_kind-evaluation-framework-hoist
+      synopsis: |
+        Introduce `study_kind: evaluation | construction | iteration` as a
+        first-class schema field in pbg-superpowers. The linter learns
+        about it; the dashboard renders evaluation phases distinctly;
+        status aggregation differentiates construction vs evaluation.
+      resolution_type: upstream_PR
+      resolution_venue: pbg-superpowers
+    - signature: comparison_overlays-schema-hoist
+      synopsis: |
+        Hoist `comparison_overlays` (currently in mbp-05) into
+        pbg-superpowers schema so any benchmark study can reuse the
+        generic comparison harness without re-rolling the loader.
+      resolution_type: upstream_PR
+      resolution_venue: pbg-superpowers
+    - signature: functional_form-on-claims
+      synopsis: |
+        Add a `functional_form: saturable | step | linear | threshold`
+        field to claims, so tests pick the right measure shape and
+        lint-time validation flags mismatched bindings (saturable claim
+        backing a Pearson-correlation test is a category error).
+      resolution_type: upstream_PR
+      resolution_venue: pbg-superpowers
+    - signature: scope_decisions-as-first-class-artifact
+      synopsis: |
+        Add a `scope_decisions` register as an investigation- or
+        workspace-level artifact distinct from findings — each entry
+        records what wasn't modeled, why, what comparison data showed
+        divergence, who decided. Methodology pages need vocabulary for
+        intentional non-modeling.
+      resolution_type: upstream_PR
+      resolution_venue: pbg-superpowers + upstream methodology concept pages
+    - signature: unit-typed-stores
+      synopsis: |
+        Process-bigraph / pbg-superpowers extension — unit-typed stores
+        that catch unit-mismatch bugs at compose time rather than via
+        documentation. Raised in mbp-01 failure_modes.
+      resolution_type: upstream_PR
+      resolution_venue: process-bigraph
+    - signature: claim-kind-typing
+      synopsis: |
+        Add a `kind` field to claims: biological_fact | design_constraint
+        | regime_assumption | …. The claims linker can then refuse to
+        back behavior-tests with constraint-claims. Raised in mbp-03.
+      resolution_type: upstream_PR
+      resolution_venue: pbg-superpowers
   open_questions:
     - id: gap-analysis-rigor
       question: |
@@ -308,7 +563,7 @@ implementation_requirements:
 
 
 bibliography:
-  expert: [multiscale_bioprocess_roadmap, cell_side_interface_contract, palsson_2025_fed_batch]
+  expert: [multiscale_bioprocess_roadmap, cell_side_interface_contract, palsson_2025_fed_batch, chris_feedback_2026_05_26]
   bib_keys: [Beulig2025mSystems]
 
 

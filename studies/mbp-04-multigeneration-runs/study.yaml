@@ -70,6 +70,7 @@ simulation_set:
   perturbation:
     initial_glucose_gL: 4.0
     bird_reactor_config: {reactor_type: bubble_column, volume_L: 1.0, gas_flow_rate_Lpm: 2.0, temperature_K: 310.15}
+    cells_per_agent: 1.0e9   # scale so initial biomass is in the glucose-depletion-feasible regime (~0.003 gDW/L); calibrated per open_question glucose-pool-sizing
   condition: M9-minimal-glucose-aerated-batch
   duration_min: 240
   seeds: [0]
@@ -103,6 +104,16 @@ model_change:
     Pure extension of mbp-03 — no new physics, just longer runs and a
     mass-balance diagnostic Step. Fed-batch is OUT of scope here; this
     study validates the BATCH regime over multiple generations.
+
+    Population sparsity (chris_feedback_2026_05_26 §10 mbp-04 specifics):
+    mbp-04 inherits the cells_per_agent scaling from mbp-02 (Eran's choice
+    2026-05-26). Production runs of three-generation-batch should set
+    cells_per_agent such that initial biomass concentration is in the
+    glucose-depletion-feasible range (target ~0.01-0.1 gDW/L initial so
+    4 g/L glucose depletes within the 240-min sim window). At literal-sum
+    (cells_per_agent=1.0), the population cannot deplete a 4 g/L pool in
+    240 min — the regime-transition test premise wouldn't resolve. See
+    open_question glucose-pool-sizing for the calibration discipline.
 
 
 # ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
@@ -180,11 +191,15 @@ required_knowledge:
     - id: glucose-pool-sizing
       question: |
         4 g/L initial glucose at v2ecoli's yield gives roughly 2 g/L biomass
-        before depletion (~6 generations of single cell). Is that enough to
-        observe the regime transition, or do we need a smaller initial
-        pool / more cells to hit substrate limit at 3 generations?
-      blocks: [three-generation-batch initial_glucose tuning]
-      asked_to: unassigned
+        before depletion (~6 generations at literal-sum population). With
+        the cells_per_agent scaling factor adopted in mbp-02, what's the
+        right (initial_glucose_gL, cells_per_agent) pairing so the
+        population depletes the pool within the 240-min sim window? Default
+        proposal: cells_per_agent=1e9 → initial biomass ~0.003 gDW/L →
+        ~3-4 generations to deplete 4 g/L. Confirm against v2ecoli's
+        actual yield once a real run lands.
+      blocks: [three-generation-batch (initial_glucose, cells_per_agent) tuning]
+      asked_to: unassigned (calibrate from first real run)
       status: open
     - id: wall-clock-budget-target
       question: |
@@ -210,13 +225,16 @@ failure_modes:
 
   - signature: "carbon-mass-balance-closes-over-3-generations off by >2%"
     candidate_causes:
-      - "Acetate (or other byproduct) carbon not tallied"
-      - "CO2 evolved by metabolism not bookkept (CO2-C lost)"
-      - "Biomass-C coefficient wrong (typical ~0.46 gC/gDW)"
-      - "Volume change not accounted (volume is constant in batch but worth a guard)"
+      # CO2-C and acetate-C are now EXPLICIT auditor requirements (req-1
+      # rewritten per chris_feedback_2026_05_26 §9), not candidate causes —
+      # if the audit fails, these were the ones to wire correctly. Causes
+      # listed here are residual:
+      - "Biomass-C coefficient drift (target ~0.46 gC/gDW)"
+      - "Volume change not accounted (constant in batch but worth a guard)"
+      - "Additional byproduct (lactate / formate / ethanol / pyruvate / succinate) not in the ledger when v2ecoli's metabolism produces it under the regime — extend req-1 species list"
     checks:
       - "MassBalanceAuditor's per-species residuals printed at end of run"
-      - "Confirm acetate exchange flux × biomass × dt is summed into a CO2-equivalent C bucket"
+      - "Verify req-1 species coverage matches the actual exchange-flux outputs from this run"
 
   - signature: "wall-clock-budget-met FAILS (sim too slow)"
     candidate_causes:
@@ -252,10 +270,10 @@ regression_tests:
 # ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
 limitations:
   - "Batch only; fed-batch operations require either an upstream pbg-bioreactordesign enhancement or a v2ecoli-side feed Step — deferred (candidate-future-study; see mbp-06)."
-  - "Single seed; stochastic variation across seeds not characterized here (a candidate-future-study)."
+  - "Single seed; stochastic variation across seeds not characterized here (a candidate-future-study). Cells_per_agent scaling further washes per-seed stochastic variance — explicit cost of the mbp-02 architectural choice."
   - "Bubble column geometry; stirred tank / airlift not validated."
-  - "Acetate handling depends on v2ecoli's metabolism; not separately validated this phase."
-  - "Population scales with v2ecoli's single-cell-with-Division — intractable beyond ~1000 cells / ~10 gDW/L. Mass-balance and behavior assertions here are valid in that regime only."
+  - "Acetate (+ lactate / formate / ethanol / pyruvate / succinate) handling depends on v2ecoli's metabolism; the MassBalanceAuditor explicitly tracks each species (req-1) but biological correctness of the production rates is not separately validated this phase."
+  - "Population uses cells_per_agent scaling (mbp-02) to make 240-min batch dynamics resolvable. At scaling factors k ≥ ~1e6, per-cell stochastic variance washes out at the bulk mean — correct biology at high density, but obscures per-cell heterogeneity that may matter for Beulig's bistable-expression regimes. Surrogate engine remains the path for the full high-density regime (mbp-06)."
 
 
 # ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
@@ -267,14 +285,48 @@ implementation_requirements:
   effort: S
   description: |
     PBG Step that integrates external-pool decrements, biomass accumulation,
-    and metabolism flux outputs to compute carbon/nitrogen mass-balance
-    residuals. Reads cumulative trackers exposed by EnvironmentDriver and
+    metabolism exchange-flux outputs, and gas-phase transfer (via the BiRD
+    coupler diagnostics) to compute carbon/nitrogen mass-balance residuals.
+    Reads cumulative trackers exposed by EnvironmentDriver and
     PopulationAggregator. Writes reactor.diagnostics.{carbon,nitrogen}_residual.
+
+    **EXPLICIT required-tracked species (chris_feedback_2026_05_26 §9 — must
+    be in the auditor design, not just in failure_modes as candidate causes):**
+
+      Carbon ledger (target tolerance 2% — only tractable if CO2 + acetate
+      explicitly bookkept):
+        - Glucose decrement (external pool, via EnvironmentDriver cumulative tracker)
+        - Biomass carbon accumulation (∫ μ × biomass × C_coefficient × dt;
+          C_coefficient ≈ 0.46 gC/gDW for E. coli)
+        - **CO2-C** evolved by metabolism (∫ metabolism CO2 exchange flux
+          × biomass × dt; flows out via gas-liquid transfer per BiRD
+          coupler). Roughly half of glucose-C consumed under aerobic growth;
+          missing it is a guaranteed 50% C-balance failure, NOT a small
+          error mode.
+        - **Acetate-C** and other byproduct organic acids (∫ metabolism
+          ACET/LAC/FOR/PYR/SUCC exchange fluxes × biomass × dt). v2ecoli
+          produces acetate under aerobic overflow per Vemuri 2006; the
+          C-balance must track it.
+
+      Nitrogen ledger (target tolerance 2% — pool defined narrowly so the
+      tolerance is achievable):
+        - **N-pool definition:** NH4+ exchange flux + biomass-N. EXCLUDES
+          intermediate amino acids / peptides / nucleotides (which sum to
+          << 2% under steady-state turnover).
+        - NH4+ decrement (external pool, via EnvironmentDriver)
+        - Biomass nitrogen accumulation (∫ μ × biomass × N_coefficient × dt;
+          N_coefficient ≈ 0.12 gN/gDW for E. coli)
+
+    Residual computation:
+      carbon_residual = (Σ inputs - Σ outputs - Δ biomass-C) / Σ inputs
+      nitrogen_residual = (Σ inputs - Σ outputs - Δ biomass-N) / Σ inputs
+
+    Both should be |residual| < 0.02 at every emit step over the run.
   unblocks: [carbon-mass-balance-closes-over-3-generations, nitrogen-mass-balance-closes-over-3-generations]
 
 
 bibliography:
-  expert: [multiscale_bioprocess_roadmap]
+  expert: [multiscale_bioprocess_roadmap, chris_feedback_2026_05_26]
   bib_keys: []
 
 

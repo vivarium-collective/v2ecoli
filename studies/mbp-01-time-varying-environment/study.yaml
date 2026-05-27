@@ -1,11 +1,16 @@
 schema_version: 3
 name: mbp-01-time-varying-environment
 created: '2026-05-22'
-phase: Design
+phase: Build
 
 # Multi-axis status (Pass A, canonical).
+# Advanced to Build phase 2026-05-26 (post chris_feedback_2026_05_26 §3 reframe):
+# spec edits committed, EnvironmentDriver Step + baseline_time_varying_env
+# composite + tests scaffolded with TODO markers, all behavior tests skipped
+# with reason "Build-phase scaffold — EnvironmentDriver wire-up TODO" until
+# the actual wire-up lands.
 design_status: drafted
-implementation_status: not_started
+implementation_status: in_progress
 simulation_status: not_run
 evaluation_status: not_evaluated
 expert_review_status: not_requested
@@ -37,13 +42,29 @@ purpose:
     BiRD coupling (mbp-03) writes to that store; this study verifies the
     plumbing in isolation by driving it with synthetic trajectories.
   expected_outcome: |
-    With external glucose declining linearly from 5 g/L → 0 g/L over the
-    run, v2ecoli's glucose uptake flux declines proportionally and growth
-    rate drops as glucose approaches zero (glucose-limited regime). With
-    external DO clamped low, metabolism shifts (e.g. acetate exchange flux
-    increases — overflow signature, if v2ecoli's metabolism handles this).
-    Mass-balance over the run: cumulative external-glucose decrease ≈
-    cumulative v2ecoli glucose-uptake flux integral.
+    **mbp-01 is a PLUMBING study only** (per chris_feedback_2026_05_26 §3
+    + investigation `discipline.scope_discipline`). It verifies that the
+    store→constraint wire works under extreme/saturating inputs that are
+    robust to v2ecoli's internal transport-kinetics functional form
+    (saturable MM / constant-bound / linear). Quantitative biological-
+    fidelity (gradient shape, μ response to glucose decline near Km,
+    acetate flux shift at sub-Vmax DO) is DEFERRED to a downstream
+    `transport-kinetics-fidelity` study — a candidate-future-study under
+    mbp-06 axis A.
+
+    Concretely under this study:
+      - External-concentration changes propagate to metabolism's exchange
+        constraint within one timestep (plumbing wire).
+      - Cumulative mass balance closes (no leakage in the env-driver wire).
+      - With external glucose held at 0, glucose exchange flux ≈ 0. Same
+        for DO at zero. Universal biological floor; plumbing-confirming.
+      - With external glucose at 5 g/L vs 50 g/L (both far above PTS Km),
+        glucose uptake plateaus within ratio 0.9–1.1 (discriminates
+        physical saturable/constant-bound implementations from unphysical
+        linear scaling).
+      - With external glucose at saturating 50 g/L, glucose uptake ≤
+        published Vmax ceiling for E. coli glucose-PTS (~10–12 mmol/gDW/h).
+      - Static-medium regression unchanged.
 
 
 # ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
@@ -56,14 +77,68 @@ pipeline_gate:
     reactor-coupling work — until the environment hook exists, BiRD's
     dissolved O2 cannot drive v2ecoli's metabolism.
   proceed_condition: |
-    External-concentration changes propagate to metabolism flux within one
-    timestep; the time-varying-env mass-balance test closes; the static-env
-    regression test (baseline composite with constant medium still works
-    unchanged) passes — no break of existing baseline.
+    All plumbing tests pass (external_glucose_updates_propagate_within_one_step;
+    cumulative-mass-balance-closes; static-env-baseline-unchanged) AND all
+    qualitative-extreme tests pass (zero-substrate-blocks-uptake;
+    saturating-substrate-respects-vmax; plateau-across-saturating-range).
+    Gradient-shape / quantitative-biology tests are explicitly OUT of scope
+    (deferred to `transport-kinetics-fidelity` candidate-future-study).
 
 
 # ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
+# Per chris_feedback_2026_05_26 §3: linear-glucose-decline and do-clamp-low
+# REMOVED. Their tests assumed a transport-kinetics functional form (linear
+# response, sub-µM DO clamp below terminal-oxidase Km) that v2ecoli does not
+# necessarily provide. Replaced with extreme/saturating-input sims that are
+# robust to whichever form metabolism_redux implements internally.
 simulation_set:
+
+- name: zero-substrate-clamp
+  base_model: v2ecoli.composites.baseline_time_varying_env
+  perturbation:
+    external_glucose_clamp_gL: 0.0
+    external_DO_clamp_mmolL:   0.0
+  condition: glucose-minimal
+  duration_min: 30
+  seeds: [0]
+  readouts:
+    - external_glucose
+    - external_DO
+    - metabolism_glucose_uptake_flux
+    - metabolism_o2_uptake_flux
+  applies_tests:
+    - zero-substrate-blocks-uptake
+  status: planned
+
+- name: saturating-glucose-low
+  base_model: v2ecoli.composites.baseline_time_varying_env
+  perturbation:
+    external_glucose_clamp_gL: 5.0   # ~28 mM, well above PTS Km ~3-10 µM
+  condition: glucose-minimal
+  duration_min: 30
+  seeds: [0]
+  readouts:
+    - external_glucose
+    - metabolism_glucose_uptake_flux
+  applies_tests:
+    - saturating-substrate-respects-vmax
+    - plateau-across-saturating-range   # joint with saturating-glucose-high
+  status: planned
+
+- name: saturating-glucose-high
+  base_model: v2ecoli.composites.baseline_time_varying_env
+  perturbation:
+    external_glucose_clamp_gL: 50.0   # ~280 mM, ~30,000x PTS Km
+  condition: glucose-minimal
+  duration_min: 30
+  seeds: [0]
+  readouts:
+    - external_glucose
+    - metabolism_glucose_uptake_flux
+  applies_tests:
+    - saturating-substrate-respects-vmax
+    - plateau-across-saturating-range   # joint with saturating-glucose-low
+  status: planned
 
 - name: linear-glucose-decline
   base_model: v2ecoli.composites.baseline_time_varying_env
@@ -77,27 +152,10 @@ simulation_set:
   readouts:
     - external_glucose
     - metabolism_glucose_uptake_flux
-    - cell_mu_per_h
     - cell_mass
   applies_tests:
-    - uptake-flux-tracks-external-glucose
-    - mu-drops-when-glucose-depletes
+    - external_glucose_updates_propagate_within_one_step
     - cumulative-mass-balance-closes
-  status: planned
-
-- name: do-clamp-low
-  base_model: v2ecoli.composites.baseline_time_varying_env
-  perturbation:
-    external_DO_clamp_mmolL: 0.005
-  condition: glucose-minimal
-  duration_min: 60
-  seeds: [0]
-  readouts:
-    - external_DO
-    - metabolism_o2_uptake_flux
-    - metabolism_acetate_flux
-  applies_tests:
-    - low-do-clamp-reduces-o2-uptake
   status: planned
 
 - name: static-env-regression
@@ -153,23 +211,17 @@ readouts:
 
 behavior_tests:
 
-- name: uptake-flux-tracks-external-glucose
-  classification: primary
-  acceptance_form: qualitative_direction
-  description: "As external glucose declines linearly, v2ecoli's glucose uptake flux declines (positive correlation between external_glucose and metabolism_glucose_uptake_flux)."
-  measure: {kind: correlation, x: "environment.external_concentrations.GLC[p]", y: "agents.0.metabolism.external_exchange_fluxes.GLC[p]", window: full}
-  pass_if: {op: pearson_at_least, value: 0.7}
-  units: "—"
-  requires_simulation: linear-glucose-decline
-  cites: []
+# Plumbing (mechanism, no biology invoked) — these tests verify the
+# store→constraint wire works. They do NOT make claims about v2ecoli's
+# internal transport-kinetics functional form.
 
-- name: mu-drops-when-glucose-depletes
+- name: external_glucose_updates_propagate_within_one_step
   classification: primary
   acceptance_form: qualitative_direction
-  description: "As external glucose falls below ~0.5 g/L, v2ecoli's growth rate measurably drops."
-  measure: {kind: cross_window_delta, path: agents.0.listeners.mass.instantaneous_growth_rate, window_a: first_quarter, window_b: last_quarter}
-  pass_if: {op: negative}
-  units: "1/h"
+  description: "An external_glucose store update is reflected in metabolism's GLC[p] exchange constraint within one timestep. Direct wire check — replaces the removed `uptake-flux-tracks-external-glucose` Pearson test (which assumed linear response between concentration and uptake; v2ecoli's PTS is saturable)."
+  measure: {kind: one_step_propagation, source_path: "environment.external_concentrations.GLC[p]", sink_path: "agents.0.metabolism.exchange_constraints.GLC[p]"}
+  pass_if: {op: propagates_within, value: 1}
+  units: timesteps
   requires_simulation: linear-glucose-decline
   cites: []
 
@@ -183,16 +235,6 @@ behavior_tests:
   requires_simulation: linear-glucose-decline
   cites: []
 
-- name: low-do-clamp-reduces-o2-uptake
-  classification: supporting
-  acceptance_form: qualitative_direction
-  description: "Clamping external DO low reduces v2ecoli's O2 uptake flux relative to the no-clamp baseline."
-  measure: {kind: cross_run_delta, series: {kind: listener_path, path: "agents.0.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]"}, reduce: mean}
-  pass_if: {op: negative}
-  units: "mmol/(gDW·h)"
-  requires_simulation: do-clamp-low
-  cites: [Vemuri2006ApplEnvironMicrobiol]
-
 - name: static-env-baseline-unchanged
   classification: primary
   acceptance_form: quantitative_range
@@ -203,6 +245,42 @@ behavior_tests:
   requires_simulation: static-env-regression
   cites: []
 
+# Qualitative extreme-case (biology floor + ceiling, robust to functional
+# form). At the extremes (S = 0; S >> Km), all plausible transport
+# implementations agree on what should happen. That's where these tests
+# work — robust to functional-form uncertainty, cheap to author,
+# biology-grounded.
+
+- name: zero-substrate-blocks-uptake
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "external_glucose held at 0 → glucose exchange flux ≈ 0 (numerical tolerance). Same for DO: zero external DO → O2 exchange flux ≈ 0. Universal biological floor; also confirms plumbing."
+  measure: {kind: multi_path_max_abs, paths: ["agents.0.metabolism.external_exchange_fluxes.GLC[p]", "agents.0.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]"], window: full}
+  pass_if: {op: at_most, value: 0.01}
+  units: "mmol/(gDW·h)"
+  requires_simulation: zero-substrate-clamp
+  cites: []
+
+- name: saturating-substrate-respects-vmax
+  classification: primary
+  acceptance_form: quantitative_range
+  description: "external_glucose held at 50 g/L (~30,000× PTS Km) → glucose exchange flux ≤ published Vmax for E. coli glucose-PTS (~10–12 mmol/gDW/h). Catches the unphysical linear-scaling implementation case."
+  measure: {kind: series, path: "agents.0.metabolism.external_exchange_fluxes.GLC[p]", reduce: max_abs, window: full}
+  pass_if: {op: at_most, value: 12.0}
+  units: "mmol/(gDW·h)"
+  requires_simulation: saturating-glucose-high
+  cites: []   # TODO claims.yaml: glucose-pts-vmax-ecoli (~10-12 mmol/gDW/h)
+
+- name: plateau-across-saturating-range
+  classification: primary
+  acceptance_form: quantitative_range
+  description: "Two runs at 5 g/L and 50 g/L (both far above PTS Km) → GUR within a tight ratio tolerance. Both above Km, so saturable and constant-bound models predict matching GUR; linear scaling would predict ~10× difference. Direct discriminator between physical and unphysical implementations."
+  measure: {kind: cross_run_ratio, runs: [saturating-glucose-low, saturating-glucose-high], path: "agents.0.metabolism.external_exchange_fluxes.GLC[p]", reduce: mean, window: full}
+  pass_if: {op: in_range, low: 0.9, high: 1.1}
+  units: fraction
+  requires_simulation: saturating-glucose-low   # joint with saturating-glucose-high
+  cites: []
+
 
 # ─── 5b. REQUIRED KNOWLEDGE ─────────────────────────────────────────────────
 # Claims (from references/claims.yaml) whose `regime` matches this study and
@@ -211,10 +289,16 @@ behavior_tests:
 # its acceptance tests are the operational check.
 required_knowledge:
   claims:
-    - id: acetate-overflow-low-do
-      backs: [low-do-clamp-reduces-o2-uptake]
-    - id: doubling-time-m9-glucose
-      backs: [mu-drops-when-glucose-depletes]
+    # Note (chris_feedback_2026_05_26 §3): mbp-01 is plumbing-only. Claims
+    # about transport kinetics (saturable PTS, terminal-oxidase Km, acetate-
+    # overflow-at-low-DO) are not backed by mbp-01 tests — they back the
+    # downstream `transport-kinetics-fidelity` candidate-future-study.
+    - id: glucose-pts-vmax-ecoli   # TODO add to claims.yaml; ~10-12 mmol/gDW/h
+      backs: [saturating-substrate-respects-vmax]
+    - id: substrate-floor-zero-blocks-uptake   # TODO add to claims.yaml; mass-action floor at S=0
+      backs: [zero-substrate-blocks-uptake]
+    - id: saturable-transport-plateau   # TODO add to claims.yaml; Michaelis-Menten-style transport saturates above ~10x Km
+      backs: [plateau-across-saturating-range]
   open_questions:
     - id: env-driver-cadence
       question: |
@@ -232,6 +316,16 @@ required_knowledge:
         confirm with v2ecoli baseline maintainer.
       blocks: [req-2-time-varying-composite spec]
       asked_to: unassigned
+      status: open
+    - id: functional-form-metadata-on-claims
+      question: |
+        Should claims carry a `functional_form` field (saturable / step /
+        linear / threshold) so tests can pick the right measure shape and
+        lint-time validation can flag mismatched bindings? Raised in
+        chris_feedback_2026_05_26 §2 as a pbg-superpowers schema extension.
+        Tracked as an upstream PR candidate via mbp-06 axis-E.
+      blocks: [pbg-superpowers PR scope]
+      asked_to: pbg-superpowers maintainer
       status: open
 
 
@@ -273,6 +367,8 @@ regression_tests:
 
 # ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
 limitations:
+  - "PLUMBING-ONLY scope (per chris_feedback_2026_05_26 §3). Gradient-shape and quantitative-biological-fidelity tests (e.g. μ response to glucose decline near Km, acetate flux shift at sub-Vmax DO, GUR-vs-[glucose] curve) are deferred to a `transport-kinetics-fidelity` candidate-future-study under mbp-06 axis A."
+  - "REMOVED tests with rationale (kept here so future agents don't re-add them by reflex): `uptake-flux-tracks-external-glucose` (Pearson ≥ 0.7 assumed linear response; real PTS is saturable, ~3 orders of magnitude above the sweep range — test fails on every realistic implementation). `low-do-clamp-reduces-o2-uptake` (5 µM DO clamp is 25-200× above cytochrome bd/bo3 Km, so OUR shouldn't reduce at this clamp; Vemuri 2006 supports acetate-RISE under low DO, not OUR-drop — citation/test mismatch). `mu-drops-when-glucose-depletes` (kinetics-dependent; defer to transport-kinetics-fidelity study)."
   - "Single cell only; population aggregation is mbp-02's job."
   - "Reactor physics (kLa, gas transport) not coupled here — that is mbp-03."
   - "Time-varying-medium support assumes the same exchange-molecule set as static medium; new species require ParCa regeneration."
@@ -305,8 +401,8 @@ implementation_requirements:
 
 
 bibliography:
-  expert: [multiscale_bioprocess_roadmap]
-  bib_keys: [Vemuri2006ApplEnvironMicrobiol]
+  expert: [multiscale_bioprocess_roadmap, chris_feedback_2026_05_26]
+  bib_keys: []   # Vemuri2006 removed — backed only the deleted low-DO-clamp test
 
 
 runs: []

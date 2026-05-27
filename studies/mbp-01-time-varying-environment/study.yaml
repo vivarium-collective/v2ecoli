@@ -425,10 +425,33 @@ runs:
     db:              .pbg/composite-runs.db
     investigation:   multiscale-bioprocess
     outcome:         crashed_at_division
+    runner:          v1 (sqlite_emitter context manager)
     note:            Validates the static-env-baseline-unchanged behavior_test —
                      env-driver in static mode produces byte-identical per-cell
                      trajectory to the unmodified baseline. Pre-division data
-                     captured cleanly through 2534 sim-seconds.
+                     captured cleanly through 2534 sim-seconds. v1 runner's
+                     Step-injected emitter crashed at division (both daughters
+                     emitting at same step). Superseded by the multigen run
+                     below (v2 runner, gets past division).
+
+  - simulation:      static-env-baseline-multigen
+    simulation_id:   3bc37a72-7d1a-4cd3-b28d-6c2633eb0175
+    seed:            0
+    started_at:      '2026-05-27 14:33:41'
+    sim_seconds:     7200     # 120 sim-min, 2 generations
+    n_history_rows:  720      # chunk=10 emit cadence
+    chunk:           10
+    generations:     [1, 2]
+    db:              .pbg/composite-runs.db
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2 (run_multigen_sqlite + single_daughters + extra_root_paths)
+    note:            Full 120-min sim through 2 generations (division events at
+                     t=2534s + t=2962s). Validates static-env-baseline-unchanged
+                     across the division barrier — per-cell trajectory matches
+                     baseline-reference-multigen (run a35b8bfb under
+                     multiscale-bioprocess-reference) byte-identical at every
+                     emit. Use as the canonical static-mode regression run.
 
 
 tests:

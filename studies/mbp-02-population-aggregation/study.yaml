@@ -512,6 +512,70 @@ runs:
                      Demonstrates the scaling factor reaches Beulig-regime
                      densities without literal-N intractability.
 
+  # ─── v2 multigen runs (2026-05-27): same scaling sweep, past division ───
+  # The v1 runs above stopped at 42 sim-min (first-division crash). The v2
+  # runner (scripts/run_mbp_tracked.py rewritten on top of run_multigen_sqlite
+  # with extra_root_paths) takes each variant through 2 full generations.
+  # chunk=10 trades 1-Hz emit cadence for 0.083-Hz (12-sec resolution) to
+  # halve emit overhead — full per-tick cadence is available via --chunk 1.
+
+  - simulation:      aggregator-cpa1-multigen
+    simulation_id:   7e93cbd5-cc87-4d35-8ed5-eaef8cd2530d
+    seed:            0
+    cells_per_agent: 1.0
+    started_at:      '2026-05-27 13:54:23'
+    sim_seconds:     7200      # 120 sim-min
+    n_history_rows:  720
+    chunk:           10
+    generations:     [1, 2]
+    db:              .pbg/composite-runs.db
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2 (run_multigen_sqlite + single_daughters + extra_root_paths)
+    note:            Literal-sum aggregation across 2 generations. Per-cell
+                     observables MUST be byte-identical to baseline-reference-multigen
+                     (run a35b8bfb under multiscale-bioprocess-reference) —
+                     this run is the canonical regression-guard data for
+                     per-cell-observables-unchanged-vs-baseline.
+
+  - simulation:      aggregator-cpa1e6-multigen
+    simulation_id:   81c54ff5-82ff-4116-971e-2fdf488865cb
+    seed:            0
+    cells_per_agent: 1.0e6
+    started_at:      '2026-05-27 14:07:22'
+    sim_seconds:     7200
+    n_history_rows:  720
+    chunk:           10
+    generations:     [1, 2]
+    db:              .pbg/composite-runs.db
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2 (run_multigen_sqlite + single_daughters + extra_root_paths)
+    note: |
+      Representative-sampling at cpa=1e6. population.* outputs
+      should scale exactly 1e6 vs aggregator-cpa1-multigen at
+      every emit step (regression-guard
+      aggregator-output-scales-linearly-with-cells-per-agent).
+
+  - simulation:      aggregator-cpa1e9-multigen
+    simulation_id:   fff01fe9-ac00-457a-9abc-978d6e7017a8
+    seed:            0
+    cells_per_agent: 1.0e9
+    started_at:      '2026-05-27 14:20:28'
+    sim_seconds:     7200
+    n_history_rows:  720
+    chunk:           10
+    generations:     [1, 2]
+    db:              .pbg/composite-runs.db
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2 (run_multigen_sqlite + single_daughters + extra_root_paths)
+    note:            Representative-sampling at cpa=1e9 — Beulig-regime
+                     density via scaling factor. Closes the scaling-factor
+                     sweep through 2 generations. Per-cell cell_mass identical
+                     across all three cpa runs (cells_per_agent only acts on
+                     population.* outputs).
+
 
 tests:
   auto_discover: true

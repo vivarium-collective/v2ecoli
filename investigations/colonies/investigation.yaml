@@ -2,7 +2,12 @@ schema_version: 1
 name: colonies
 title: Colony Composite — HPC Scaling Readiness
 created: '2026-05-16'
-status: in_progress
+# colonies-01-hpc-readiness shipped via PR #63 (merged 2026-05-17).
+# This branch is the long-running investigation tracker (no merge target,
+# per the v2ecoli investigation-PR convention) — it hosts colonies-02-
+# hpc-deployment when scaffolded, plus any iteration on the colony
+# composite that follows from colonies-01's Decide-phase findings.
+status: active
 
 question: |
   How many whole-cell E. coli agents can we fit per HPC node, and at

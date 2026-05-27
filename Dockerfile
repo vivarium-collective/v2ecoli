@@ -44,7 +44,20 @@ RUN uv python install 3.12.12 && \
 # v2ecoli/processes/parca/wholecell/utils/ (mc_complexation, _build_sequences,
 # _fastsums).  These are required by the ParCa pipeline and must be built
 # in-place against the installed numpy/Python before the image is sealed.
-RUN PYTHON=/app/.venv/bin/python bash scripts/parca_cython_build.sh
+# We use `uv run --with cython` rather than the helper shell script because
+# cython is only in [build-system] (not project deps), so it is absent from
+# .venv and `python -m pip` is unavailable in uv-managed environments.
+RUN uv run --with cython python -c "\
+import numpy as np, sys; \
+from Cython.Build import cythonize; \
+from setuptools import Extension; \
+from distutils.core import setup as dsetup; \
+base = 'v2ecoli/processes/parca/wholecell/utils'; \
+mods = ('_build_sequences', 'mc_complexation', '_fastsums'); \
+exts = [Extension('v2ecoli.processes.parca.wholecell.utils.' + m, [base + '/' + m + '.pyx'], include_dirs=[np.get_include()], define_macros=[('NPY_NO_DEPRECATED_API','NPY_1_7_API_VERSION')]) for m in mods]; \
+sys.argv = ['build', 'build_ext', '--inplace']; \
+dsetup(name='v2ecoli-parca-cython', ext_modules=cythonize(exts, language_level=3)) \
+"
 
 # Pre-create bind-mount targets so Singularity/Apptainer can mount them at
 # runtime without needing write access to create them.

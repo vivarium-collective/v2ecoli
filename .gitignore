@@ -36,3 +36,6 @@ investigations/*/viz/
 # These are local-only working notes — not part of the investigation's
 # published artefacts.
 docs/superpowers/notes/
+
+# Claude Code worktrees — local scratch directories, never source
+.claude/worktrees/

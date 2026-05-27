@@ -1,0 +1,32 @@
+# Build artifacts and caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.egg
+dist/
+build/
+
+# Local dev state — not needed inside the container
+.git/
+.gitignore
+out/
+results/
+.pbg/
+*.log
+
+# Workspace reports (pre-rendered HTML, rebuilt by the server)
+reports/
+
+# Non-runtime content (docs, notebooks, PDFs)
+docs/
+references/
+experiments/
+tests/
+models/
+
+# Python virtual envs (uv creates .venv; we use uv sync in the build)
+.venv/
+
+# macOS
+.DS_Store

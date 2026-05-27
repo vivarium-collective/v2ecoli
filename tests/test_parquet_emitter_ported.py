@@ -822,7 +822,11 @@ class TestParquetEmitterEdgeCases:
         yield tmp
         shutil.rmtree(tmp)
 
-    @patch("v2ecoli.library.parquet_emitter.ThreadPoolExecutor")
+    # Patch the executor where ParquetEmitter looks it up (upstream
+    # pbg_emitters module). v2ecoli.library.parquet_emitter is now a
+    # re-export shim and patching its attribute would not intercept
+    # the running emitter.
+    @patch("pbg_emitters.parquet_emitter.ThreadPoolExecutor")
     def test_multithreaded_buffer_clearing(self, mock_executor_class, temp_dir, core):
         """Clearing the buffer in the main thread doesn't race with the writer."""
         real_executor = ThreadPoolExecutor(max_workers=1)

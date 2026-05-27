@@ -39,10 +39,10 @@ dependencies = [
 # Test-only deps. `uv sync --extra dev` pulls these in.
 dev = ["pytest-timeout>=2.3", "pytest-xdist>=3.6"]
 parquet = [
-    "duckdb",
-    "polars",
-    "fsspec",
-    "tqdm",
+    # Pulls in duckdb / polars / pyarrow / fsspec / tqdm transitively
+    # via pbg-emitters[parquet]. The ParquetEmitter implementation now
+    # lives in pbg-emitters; v2ecoli.library.parquet_emitter is a shim.
+    "pbg-emitters[parquet]",
 ]
 xarray = [
     "xarray>=2026.04",
@@ -81,6 +81,7 @@ packages = { find = { where = ["."] } }
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
 pbg-superpowers = { git = "https://github.com/vivarium-collective/pbg-superpowers.git", branch = "main" }
+pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }
 vivarium-dashboard = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }

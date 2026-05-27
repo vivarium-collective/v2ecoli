@@ -73,10 +73,88 @@ claims:
     statement: |
       Textbook E. coli OD600 ↔ gDW conversion is approximately 0.33
       gDW/(L·OD600); regime-dependent (cell size + scattering vary).
+      Note: mbp-02 adopts 0.34 (the Beulig 2025 paper's value) as the
+      composite default; difference is within experimental scatter.
     regime: 'E. coli, exponential phase, 600 nm OD'
     value: 0.33
     units: 'gDW/(L·OD600)'
     strength: textbook
+    sources: []
+    cited_by:
+      - mbp-02-population-aggregation
+
+  # ─── Transport kinetics extreme-cases (mbp-01 plumbing-only set) ─────────
+  # Added 2026-05-26 to back mbp-01's reframed test set
+  # (chris_feedback_2026_05_26 §3). These are EXTREMES claims — they hold
+  # at S=0 and S>>Km regardless of which functional form (saturable /
+  # constant-bound / linear) v2ecoli's metabolism_redux implements
+  # internally. The gradient regime between extremes is deferred to a
+  # downstream `transport-kinetics-fidelity` candidate-future-study.
+
+  glucose-pts-vmax-ecoli:
+    statement: |
+      The Vmax of E. coli's glucose phosphotransferase (PTS) transport
+      system on glucose-replete medium is approximately 10–12 mmol_glucose
+      per gDW per hour. Used as the ceiling that mbp-01's
+      `saturating-substrate-respects-vmax` test asserts the simulated GUR
+      stays below; ceiling rather than equality because the simulated GUR
+      depends on v2ecoli's downstream metabolism solver's demand, not just
+      transport capacity.
+    regime: 'E. coli K-12, glucose-replete (S >> PTS Km ~3-10 µM), aerobic'
+    value: [10, 12]
+    units: 'mmol/(gDW·h)'
+    strength: textbook
+    sources: [Monk2017NatBiotechnol]
+    cited_by:
+      - mbp-01-time-varying-environment
+
+  substrate-floor-zero-blocks-uptake:
+    statement: |
+      Mass-action floor: with external substrate concentration held at zero,
+      net transport flux across PTS or terminal oxidases is also zero
+      (modulo numerical tolerance). Holds regardless of the implementation's
+      kinetic functional form. Used by mbp-01's
+      `zero-substrate-blocks-uptake` test as a universal biological floor +
+      plumbing-confirming check.
+    regime: 'any kinetic form (saturable / constant-bound / linear); S=0'
+    direction: 'flux_approaches_zero_at_zero_substrate'
+    strength: textbook
+    sources: []
+    cited_by:
+      - mbp-01-time-varying-environment
+
+  saturable-transport-plateau:
+    statement: |
+      Physical (Michaelis-Menten-style) substrate transport saturates above
+      roughly 10× its Km. Two operating points both ≥ 10× Km should yield
+      matching uptake within tight tolerance (~ ±10%). Linear-scaling
+      implementations DO NOT saturate, predicting a substrate-ratio drift
+      proportional to the concentration ratio. Used by mbp-01's
+      `plateau-across-saturating-range` test as a direct discriminator
+      between physical and unphysical implementations.
+    regime: 'any saturable / constant-bound transport at S >> Km; comparison of two such operating points'
+    direction: 'plateau_within_10pct_ratio'
+    strength: textbook
+    sources: []
+    cited_by:
+      - mbp-01-time-varying-environment
+
+  # ─── Population scaling under well-mixed assumption (mbp-02) ─────────────
+
+  well-mixed-representative-sampling-equivalence:
+    statement: |
+      Under the 0D well-mixed assumption (every cell sees the same external
+      environment), simulating N representative cells with a scaling factor
+      cells_per_agent=k is mathematically equivalent to simulating N×k cells
+      for any population-aggregate observable (total biomass, mean μ,
+      bulk-mean exchange-flux × biomass). Explicit cost: per-cell stochastic
+      variance washes out at the bulk mean as k grows — correct biology at
+      high density where averages dominate, but obscures heterogeneity that
+      may matter in regimes with bistable expression states. Adopted by
+      mbp-02's PopulationAggregator design (chris_feedback_2026_05_26 §4).
+    regime: '0D well-mixed reactor; aggregate-mean observables; k modulates stochastic floor'
+    direction: 'simulated_aggregate_scales_linearly_with_cells_per_agent'
+    strength: preliminary
     sources: []
     cited_by:
       - mbp-02-population-aggregation

@@ -325,7 +325,7 @@ required_knowledge:
     - id: ecoli-high-density-ceiling
       backs: []                                     # informational — sets the eventual target regime
     - id: well-mixed-representative-sampling-equivalence
-      backs: [aggregator-output-scales-linearly-with-cells-per-agent]   # TODO claims.yaml: under 0D well-mixed, simulating N representative cells × scaling factor is mathematically equivalent to simulating N×k cells
+      backs: [aggregator-output-scales-linearly-with-cells-per-agent]
   open_questions:
     - id: od-conversion-at-high-density
       question: |

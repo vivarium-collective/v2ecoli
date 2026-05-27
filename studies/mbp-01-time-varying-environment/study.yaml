@@ -293,11 +293,11 @@ required_knowledge:
     # about transport kinetics (saturable PTS, terminal-oxidase Km, acetate-
     # overflow-at-low-DO) are not backed by mbp-01 tests — they back the
     # downstream `transport-kinetics-fidelity` candidate-future-study.
-    - id: glucose-pts-vmax-ecoli   # TODO add to claims.yaml; ~10-12 mmol/gDW/h
+    - id: glucose-pts-vmax-ecoli
       backs: [saturating-substrate-respects-vmax]
-    - id: substrate-floor-zero-blocks-uptake   # TODO add to claims.yaml; mass-action floor at S=0
+    - id: substrate-floor-zero-blocks-uptake
       backs: [zero-substrate-blocks-uptake]
-    - id: saturable-transport-plateau   # TODO add to claims.yaml; Michaelis-Menten-style transport saturates above ~10x Km
+    - id: saturable-transport-plateau
       backs: [plateau-across-saturating-range]
   open_questions:
     - id: env-driver-cadence

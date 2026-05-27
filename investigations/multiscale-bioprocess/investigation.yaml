@@ -2,16 +2,26 @@ schema_version: 1
 name: multiscale-bioprocess
 title: v2ecoli — Bioprocess Migration & Reactor Coupling
 created: '2026-05-22'
-status: planning
+status: active
 
 question: |
   Can v2ecoli be migrated and enhanced to operate inside a bench-scale
   bioreactor — specifically: a time-varying external environment hook, a
-  population / OD-scale biomass aggregator, and a coupling adapter to
-  `pbg-bioreactordesign`'s BiRDReactorProcess — and produce a coupled
-  v2ecoli ↔ reactor trajectory that reproduces the high-cell-density
-  fed-batch fermentation behavior of the 2025 Beulig/Palsson lab study
-  (mSystems) within per-metric tolerances?
+  population aggregator with representative-sampling scaling, and a
+  coupling adapter to `pbg-bioreactordesign`'s BiRDTransportProcess — such
+  that a structured sim-vs-published COMPARISON REPORT (overlay panels +
+  divergence triage feeding mbp-06 gap analysis) can be rendered against
+  the WT batch-phase prefix of the 2025 Beulig/Palsson lab study
+  (mSystems)?
+
+  **Reframed 2026-05-26** per chris_feedback_2026_05_26 §1 + §10. The
+  original framing ("reproduces ... within per-metric tolerances")
+  structurally encoded an open-ended menu of model knobs to turn — even
+  with "no silent tuning" discipline, the impulse to tune-to-tolerance was
+  built into the test design. Investigation success is now defined as
+  "comparison harness built and applied; structured gap inventory
+  produced," NOT "Palsson benchmark achieved." All biological divergences
+  feed mbp-06 as evidence-producing inputs.
 
 hypothesis: |
   Yes — with explicit scope caveats. v2ecoli's existing Layer-1 Steps
@@ -19,13 +29,15 @@ hypothesis: |
   surface; the metabolism Process already emits `external_exchange_fluxes`.
   The required enhancements are small and additive: (1) a time-varying-env
   hook over the existing static-medium plumbing, (2) a population aggregator
-  that derives reactor-scale biomass / OD from per-cell mass listeners, (3)
-  a ReactorCellCoupler Step that bridges to `pbg-bioreactordesign`'s
-  BiRDReactorProcess (whose internal Monod biomass ODE is disabled in
-  favor of v2ecoli's population). Each study's acceptance tests pass
-  before the next in the chain begins; the multi-generation coupled run
-  validates that no piece drifts over time; the Beulig benchmark
-  validates against published trajectories.
+  with `cells_per_agent` representative-sampling scaling that derives
+  reactor-scale biomass / OD from per-cell mass listeners, (3) a
+  ReactorCellCoupler Step that bridges to `pbg-bioreactordesign`'s
+  **BiRDTransportProcess** (transport-only fork; no internal biomass ODE
+  by construction, per the Option-B decision in
+  chris_feedback_2026_05_26 §5). Each study's acceptance tests gate its
+  impl PR; the multi-generation coupled run validates that no piece
+  drifts over time; mbp-05's evaluation phase renders the comparison
+  report against Beulig batch-phase trajectories.
 
   **Known scope caveat.** Beulig 2025 reached 50–80 gDW/L (~10^12 – 10^13
   cells/L). v2ecoli's single-cell-with-Division population does not scale
@@ -69,13 +81,21 @@ description: |
   `v2ecoli.composites.baseline` (single cell + Division Step).
   `pbg-bioreactordesign` is added as a workspace dependency in mbp-03.
 
-  Studies, in dependency order:
+  Studies, in dependency order (with current `phase` shown — multi-axis
+  status is canonical, see each study.yaml):
 
-  1. mbp-01-time-varying-environment — v2ecoli enhancement: media /
-     environment becomes externally driven (time-varying nutrient pool
-     consumed by the existing Layer-1 Steps).
-  2. mbp-02-population-aggregation   — v2ecoli enhancement: aggregate
-     per-cell mass into reactor-scale biomass / OD600 / cell-count.
+  1. mbp-01-time-varying-environment — **Build phase** — v2ecoli
+     enhancement: media / environment becomes externally driven (time-
+     varying nutrient pool consumed by the existing Layer-1 Steps). PLUMBING
+     + qualitative-extreme tests only (per chris_feedback_2026_05_26 §3);
+     gradient-shape / quantitative-biology defer to
+     `transport-kinetics-fidelity` candidate-future-study.
+  2. mbp-02-population-aggregation   — **Build phase** — v2ecoli
+     enhancement: aggregate per-cell mass into reactor-scale biomass /
+     OD600 / cell-count via `cells_per_agent` representative-sampling
+     scaling (chris_feedback_2026_05_26 §4; Eran's choice over literal-sum
+     to make 240-min batch dynamics resolvable). OD600 is COSMETIC;
+     `biomass_concentration_gL` is canonical.
   3. mbp-03-bird-reactor-coupling    — adapter to `pbg-bioreactordesign`'s
      **BiRDTransportProcess** (a transport-only sibling of
      `BiRDReactorProcess` with no internal biomass ODE; see

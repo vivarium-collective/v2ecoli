@@ -42,6 +42,39 @@ The engine MUST (when applicable):
 - Run without modification under either a **static** or **driven**
   environment driver (mbp-01's `env_driver_mode` parameter).
 
+### Population scale (added 2026-05-26)
+
+Per chris_feedback_2026_05_26 §4 (Eran's adoption of representative-sampling
+over literal-sum 2026-05-26): the cell-side interface treats `cells_per_agent`
+as part of the contract.
+
+The engine MUST EITHER:
+
+- **Operate at literal scale** — every simulated agent represents exactly
+  one real cell; `cells_per_agent` is implicitly 1.0. The
+  PopulationAggregator simply sums per-cell mass. Appropriate when the
+  simulated lineage is small AND the reactor density is small enough that
+  the literal population is tractable. Default for v2ecoli baseline at
+  single-cell inoculation.
+- **OR declare an explicit `cells_per_agent` factor** — each simulated
+  agent represents `cells_per_agent` real cells under the 0D well-mixed
+  assumption (which makes the scaling mathematically equivalent to a
+  literal-N simulation for any aggregate observable; see claim
+  `well-mixed-representative-sampling-equivalence`). Required when the
+  reactor density and the simulation budget would otherwise make literal-N
+  intractable (e.g. Beulig 50–80 gDW/L → 10^12–10^13 cells/L). Cost: per-
+  cell stochastic variance washes out at the bulk mean as k grows —
+  correct biology at high density (population averages dominate), but
+  obscures heterogeneity that may matter in regimes with bistable
+  expression states.
+
+The PopulationAggregator (mbp-02) consumes `cells_per_agent` and applies
+the factor ONLY at the population-aggregate boundary; per-cell observables
+are invariant under scaling (regression-guarded by
+`per-cell-observables-invariant-under-scaling`). Engines that declare a
+non-1.0 scaling factor MUST NOT apply it inside the cell-side state
+themselves — the aggregator owns that math.
+
 ### Identifiers
 
 External molecule keys use **EcoCyc-style compartment-tagged IDs** (matching
@@ -71,7 +104,7 @@ engine against the contract.
 |---|---|---|---|
 | Monod placeholder | planned | mbp-01 | The first study's interface-baseline engine; intentionally trivial — its role is to make the contract concrete. |
 | v2ecoli baseline (single cell + Division) | planned | mbp-03 | Already exposes the contract's surface via `media_update` / `exchange_data` / `metabolism.external_exchange_fluxes`; only the reactor-side coupler is new. |
-| pbg-bioreactordesign internal Monod | DISABLED in mbp-03 | — | BiRDReactorProcess's built-in biomass ODE is disabled (`max_growth_rate_per_h=0`); reactor physics only. NOT a cell-side engine under this contract. |
+| pbg-bioreactordesign `BiRDTransportProcess` | upstream-PR pending | mbp-03 | Per chris_feedback_2026_05_26 §5 + Eran's Option-B decision 2026-05-26: a transport-only sibling of `BiRDReactorProcess` (no internal biomass ODE by construction, NOT a flag-disabled variant). Tracked as candidate-future-study `pbg-bioreactor-transport-fork` in mbp-06; HARD PREREQ of mbp-03 entering Build. NOT a cell-side engine — it's the REACTOR side under this contract. |
 | **pbg-oxidizeme** (OxidizeME ME-model) | **imported** 2026-05-22 | mbp-06 candidate-future | Wrapper at [vivarium-collective/pbg-oxidizeme](https://github.com/vivarium-collective/pbg-oxidizeme) (live demo: [vivarium-collective.github.io/pbg-oxidizeme](https://vivarium-collective.github.io/pbg-oxidizeme/)). Process-bigraph Step bridging Yang et al. 2019 OxidizeME / cobrame / qminospy. **Now installed in this workspace's venv** and registered in `workspace.yaml.imports`; `OxidizeMEStep` is auto-discovered via `allocate_core()`. Real solver gated by upstream stack install (Python 2.7 / proprietary qMINOS — see wrapper README). **THE comparator engine for the v2ecoli-vs-ME-model study in mbp-06.** |
 | dFBA (iML1515) | candidate-future | mbp-06 / future | The upstream multiscale-bioprocess roadmap's Phase 3 engine. A comparator study under this contract. |
 | Population-coarse-grained surrogate | candidate-future | mbp-06 / future | For high-density (50–80 gDW/L; Beulig 2025) where single-cell-with-Division is intractable. |

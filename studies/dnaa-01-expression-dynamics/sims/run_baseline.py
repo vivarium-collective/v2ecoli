@@ -36,7 +36,7 @@ if os.environ.get("DNAA01_QUIET"):
     os.dup2(_fd, 2)
 
 from v2ecoli import build_composite
-from v2ecoli.composites._helpers import sqlite_emitter
+from v2ecoli.composites._helpers import flush_parquet, parquet_emitter
 from pbg_superpowers.runner import pbg_runner
 
 STUDY_SLUG = "dnaa-01-expression-dynamics"
@@ -166,15 +166,13 @@ def main():
     }
 
     # Open runs.db, log a 'running' row, get a run_id that doubles as the
-    # SQLiteEmitter simulation_id. Then wrap build_composite in the
-    # workspace's sqlite_emitter() so per-tick state lands in the same db's
-    # history table — feeds the dashboard's "Latest-run visualizations" panel.
+    # parquet experiment_id. Then wrap build_composite in parquet_emitter()
+    # so per-tick state lands in studies/<slug>/parquet-runs/<run_id>/ —
+    # rendered by v2ecoli.library.parquet_viz (see scripts/render_study_viz.py).
     with pbg_runner(study=STUDY_SLUG, name=sim_name, params=params) as run:
-        with sqlite_emitter(
-            file_path=str(run.db_path.parent),
-            db_file=run.db_path.name,
-            simulation_id=run.run_id,
-            name=sim_name,
+        with parquet_emitter(
+            out_dir=f"studies/{STUDY_SLUG}/parquet-runs",
+            experiment_id=run.run_id,
             study_slug=STUDY_SLUG,
             investigation_slug=INVESTIGATION_SLUG,
         ):
@@ -228,6 +226,8 @@ def main():
                 run.heartbeat(len(snapshots))
 
             wall_time = time.time() - t_run
+
+            flush_parquet(composite, success=True)
 
             summary = _summarize(snapshots)
             run.n_steps = len(snapshots)

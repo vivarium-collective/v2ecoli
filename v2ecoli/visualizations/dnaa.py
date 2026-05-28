@@ -10,11 +10,14 @@ Two classes referenced by ``studies/dnaa-0{2,3,4}/study.yaml``:
     (chromosomal vs oriC vs dnaAp; high- vs low-affinity oriC). Used by
     dnaa-03 + dnaa-04.
 
-Inputs are bound from the run's SQLiteEmitter history via the study yaml's
-``visualizations[].config.inputs_map`` block (port → observable path). The
-classes are tolerant of partial data: missing ports render as empty traces
-so a study still shows *something* even when only a subset of observables
-exist.
+Inputs are bound from the run's emitter history via the study yaml's
+``visualizations[].config.inputs_map`` block (port → observable path).
+Sqlite-emitted runs are resolved through the dashboard's history-table
+reader; parquet-emitted runs go through
+:mod:`v2ecoli.library.parquet_viz`. The classes themselves are
+emitter-agnostic and tolerant of partial data: missing ports render as
+empty traces so a study still shows *something* even when only a subset
+of observables exist.
 
 Rendering uses Plotly via CDN — produces self-contained interactive HTML
 that drops into the dashboard's Visualizations tab and also into the
@@ -280,7 +283,7 @@ class DnaAStateVisualization(Visualization):
     """DnaA nucleotide-state pool composition + ATP-fraction trajectory.
 
     Wire via ``inputs_map`` in the study yaml so the dashboard pulls the
-    right observables out of the SQLiteEmitter history. Example::
+    right observables out of the run's history (sqlite or parquet). Example::
 
         visualizations:
           - name: dnaa_state
@@ -339,8 +342,8 @@ class DnaAStateVisualization(Visualization):
         if n_runs == 0:
             body = _empty_note(
                 "No dnaA_cycle observables in this run's history yet. "
-                "Re-run the study with the SQLiteEmitter wired through "
-                "pbg_runner to populate this chart.")
+                "Re-run the study so the emitter populates "
+                "listeners.dnaA_cycle.{apo,atp,adp}_count.")
             return {"html": render_document(title=title, body_html=body)}
 
         run_labels = _coerce_labels(state.get("_run_labels"), n_runs)
@@ -513,8 +516,8 @@ class DnaABoxOccupancyVisualization(Visualization):
         if n_runs == 0:
             body = _empty_note(
                 "No dnaA_binding observables in this run's history yet. "
-                "Re-run with the SQLiteEmitter wired up (pbg_runner) and "
-                "with dnaa_box_binding active in the composite.")
+                "Re-run with dnaa_box_binding active in the composite so "
+                "the emitter captures listeners.dnaA_binding.*.")
             return {"html": render_document(title=title, body_html=body)}
 
         run_labels = _coerce_labels(state.get("_run_labels"), n_runs)

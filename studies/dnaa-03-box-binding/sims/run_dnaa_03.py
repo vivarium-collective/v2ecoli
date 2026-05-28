@@ -36,7 +36,7 @@ if os.environ.get("DNAA03_QUIET"):
     os.dup2(_fd, 2)
 
 from v2ecoli import build_composite
-from v2ecoli.composites._helpers import sqlite_emitter
+from v2ecoli.composites._helpers import flush_parquet, parquet_emitter
 from pbg_superpowers.runner import pbg_runner
 
 STUDY_SLUG = "dnaa-03-box-binding"
@@ -141,11 +141,9 @@ def main():
     }
 
     with pbg_runner(study=STUDY_SLUG, name=sim_name, params=params) as run:
-        with sqlite_emitter(
-            file_path=str(run.db_path.parent),
-            db_file=run.db_path.name,
-            simulation_id=run.run_id,
-            name=sim_name,
+        with parquet_emitter(
+            out_dir=f"studies/{STUDY_SLUG}/parquet-runs",
+            experiment_id=run.run_id,
             study_slug=STUDY_SLUG,
             investigation_slug=INVESTIGATION_SLUG,
         ):
@@ -188,6 +186,7 @@ def main():
                 snapshots.append(snap(total, cell, bulk_idx))
                 run.heartbeat(len(snapshots))
             wall_time = time.time() - t_run
+            flush_parquet(composite, success=True)
             run.n_steps = len(snapshots)
 
     # ─── Test evaluation ────────────────────────────────────────────────

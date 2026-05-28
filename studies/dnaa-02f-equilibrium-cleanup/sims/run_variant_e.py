@@ -9,8 +9,10 @@ equilibrium's MONOMER0-4565_RXN reverse flux on its own.
 Outputs:
   - JSON: per-tick DnaA bulk counts + listener emit (apo/atp/adp counts,
     fractions, intrinsic_events, rida_events, rida_active, n_replisomes).
-  - SQLite: studies/dnaa-02f-equilibrium-cleanup/runs.db is auto-populated
-    with runs_meta + history + simulations via pbg_runner + sqlite_emitter.
+  - Parquet: studies/dnaa-02f-equilibrium-cleanup/parquet-runs/<run_id>/
+    (configuration + history + success), via pbg_runner + parquet_emitter.
+    The pbg_runner side still writes runs.db.runs_meta for run-registry
+    bookkeeping (status, params, heartbeat).
 
 Usage:
     python studies/dnaa-02f-equilibrium-cleanup/sims/run_variant_e.py \\
@@ -35,7 +37,7 @@ sys.path.insert(0, REPO_ROOT)
 import numpy as np
 
 from v2ecoli import build_composite
-from v2ecoli.composites._helpers import sqlite_emitter
+from v2ecoli.composites._helpers import flush_parquet, parquet_emitter
 from pbg_superpowers.runner import pbg_runner
 
 STUDY_SLUG = "dnaa-02f-equilibrium-cleanup"
@@ -117,11 +119,9 @@ def main():
     }
 
     with pbg_runner(study=STUDY_SLUG, name=sim_name, params=params) as run:
-        with sqlite_emitter(
-            file_path=str(run.db_path.parent),
-            db_file=run.db_path.name,
-            simulation_id=run.run_id,
-            name=sim_name,
+        with parquet_emitter(
+            out_dir=f"studies/{STUDY_SLUG}/parquet-runs",
+            experiment_id=run.run_id,
             study_slug=STUDY_SLUG,
             investigation_slug=INVESTIGATION_SLUG,
         ):
@@ -159,6 +159,7 @@ def main():
                 snapshots.append(snap(total, cell, bulk_idx))
                 run.heartbeat(len(snapshots))
             wall_time = time.time() - t_run
+            flush_parquet(composite, success=True)
             run.n_steps = len(snapshots)
 
             # Quick second-half medians for the gate fields.

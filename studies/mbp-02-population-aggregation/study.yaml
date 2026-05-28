@@ -14,6 +14,35 @@ simulation_status: ran   # first tracked runs landed 2026-05-27 (see runs[] belo
 evaluation_status: not_evaluated
 expert_review_status: not_requested
 
+# ─── Redesigned-v4 spine ───
+# Top-level question, conditions, and status are required by the
+# vivarium-dashboard "redesigned" v4 validator
+# (vivarium_dashboard/lib/investigations.py::_validate_study_v4_redesign).
+# Their presence flips the loader away from the legacy "v3 + extras"
+# validator (which required `tests:` to be a mapping). Hybrid mirror
+# of the pdmp-* pattern: keep the rich v3 spec body intact + add the
+# v4 spine fields so both the validator and chart-renderer pass.
+question: |
+  Can v2ecoli aggregate single-cell-plus-Division output into
+  population-level biomass observables (total gDW, cell count) that
+  are physically meaningful at the reactor scale (OD ≫ 1) — using a
+  representative-sampling scaling factor (`cells_per_agent`) so the
+  simulated lineage legitimately stands in for an N-cell population
+  under the 0D well-mixed assumption?
+status: in-progress
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline_population
+    params: {seed: 0, cache_dir: out/cache}
+  variants:
+    - name: cells-per-agent-1
+      cells_per_agent: 1.0
+    - name: cells-per-agent-1e6
+      cells_per_agent: 1.0e6
+    - name: cells-per-agent-1e9
+      cells_per_agent: 1.0e9
+  model_settings: []
+
 baseline:
 - name: population-aggregation-baseline
   composite: v2ecoli.composites.baseline_population   # TODO — see implementation_requirements

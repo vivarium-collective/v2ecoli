@@ -15,6 +15,30 @@ simulation_status: ran   # first tracked run landed 2026-05-27 (see runs[] below
 evaluation_status: not_evaluated
 expert_review_status: not_requested
 
+# ─── Redesigned-v4 spine ───
+# Top-level question, conditions, and status are required by the
+# vivarium-dashboard "redesigned" v4 validator
+# (vivarium_dashboard/lib/investigations.py::_validate_study_v4_redesign).
+# Their presence flips the loader away from the legacy "v3 + extras"
+# validator (which required `tests:` to be a mapping rather than a
+# list of test specs). Without them, the dashboard marked the study
+# `invalid` with `tests must be a mapping`. The hybrid mirror is the
+# pdmp-* pattern: keep the rich v3 spec body intact + add the v4 spine
+# fields so both the validator and chart-renderer pass.
+question: |
+  Can v2ecoli's `media_update` / `exchange_data` Layer-1 Steps consume
+  an externally-driven, time-varying nutrient pool — instead of the
+  static media configuration baked into ParCa — such that metabolic
+  exchange fluxes and growth rate respond correctly to declining
+  glucose, declining DO, and other dynamic external concentrations?
+status: in-progress
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline_time_varying_env
+    params: {seed: 0, cache_dir: out/cache}
+  variants: []          # cells_per_agent + env_driver_mode sweeps in mbp-02/03
+  model_settings: []
+
 baseline:
 - name: time-varying-env-baseline
   composite: v2ecoli.composites.baseline_time_varying_env   # TODO — see implementation_requirements

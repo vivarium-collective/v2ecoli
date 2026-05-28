@@ -30,6 +30,7 @@ investigations/*/runs.db
 investigations/*/viz/
 investigations/*/.run.lock
 studies/*/sims/*.subprocess.py
+studies/*/sims/parquet-rerun-*/
 studies/*/viz/
 # ParquetEmitter hive-partitioned per-study runs (workspace-default
 # emitter per workspace.yaml.runtime.default_emitter). Each experiment_id

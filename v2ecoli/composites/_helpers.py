@@ -338,6 +338,42 @@ def sqlite_emitter(*, file_path: str | None = None,
         set_emitter_override(None)
 
 
+class ParquetEmitterContext:
+    """Yielded from ``parquet_emitter()``. Bind the composite via
+    :meth:`bind` so its accumulated rows flush on context exit; this
+    closes the friction-#3 hole where the context manager couldn't
+    enforce its own lifecycle correctness (only ``configuration/`` landed,
+    no ``history/`` or ``success/``).
+
+    .cfg holds the emitter config dict (back-compat with the dict that
+    pre-2026-05-28 ``parquet_emitter()`` yielded directly).
+    """
+
+    def __init__(self, cfg: dict):
+        self.cfg = cfg
+        self._composite = None
+        self._flushed = False
+
+    def bind(self, composite) -> None:
+        """Register the composite for auto-flush on context exit."""
+        self._composite = composite
+
+    def flush(self, composite=None, *, success: bool = True) -> int:
+        """Flush now. Uses the bound composite if ``composite`` is None.
+
+        Returns the number of ParquetEmitter instances flushed. Safe to
+        call multiple times — ``flush_all_in_composite`` skips already-
+        closed instances."""
+        target = composite if composite is not None else self._composite
+        if target is None:
+            raise ValueError(
+                "ParquetEmitterContext.flush(): no composite given and "
+                "none bound; call .bind(composite) first.")
+        n = flush_parquet(target, success=success)
+        self._flushed = True
+        return n
+
+
 @contextlib.contextmanager
 def parquet_emitter(*, out_dir: str | None = None,
                     experiment_id: str | None = None,
@@ -358,13 +394,28 @@ def parquet_emitter(*, out_dir: str | None = None,
     so anyone with a vEcoli analysis pipeline can point at the output dir
     directly.
 
-    Usage::
+    Usage (auto-flush — recommended, since 2026-05-28)::
 
         with parquet_emitter(experiment_id='baseline-seed0',
-                             study_slug='dnaa-01-expression-dynamics'):
+                             study_slug='dnaa-01-expression-dynamics') as emit:
             doc = baseline(cache_dir='out/cache')
             comp = Composite(doc, core=core)
+            emit.bind(comp)             # <- enables auto-flush on exit
             comp.update({}, 60.0 * 60)
+        # ParquetEmitter.close(success=True) called automatically; if an
+        # exception fired in the with-block, close(success=False) instead.
+
+    Legacy usage (still works for callers that already manage the flush)::
+
+        with parquet_emitter(...):
+            comp = ...
+            comp.update(...)
+            flush_parquet(comp, success=True)   # explicit, no .bind()
+
+    If you neither call .bind() nor flush_parquet(), the context manager
+    silently degrades to the pre-2026-05-28 behaviour: the override
+    clears but the trailing partial batch + success sentinel are lost.
+    Friction note 2026-05-27 #3 for the original incident.
 
     Storage trade-off vs ``sqlite_emitter()``: Parquet is column-oriented and
     typically 3-5x smaller on disk for v2ecoli-shaped runs (sparse arrays,
@@ -409,11 +460,53 @@ def parquet_emitter(*, out_dir: str | None = None,
             meta["investigation_slug"] = investigation_slug
         cfg["metadata"] = meta
 
+    ctx = ParquetEmitterContext(cfg)
     set_parquet_emitter_override(cfg)
+    exc_fired = False
     try:
-        yield cfg
+        yield ctx
+    except BaseException:
+        exc_fired = True
+        raise
     finally:
+        # Auto-flush if bound but not explicitly flushed. On exception,
+        # close with success=False so the sentinel honestly reflects the
+        # failed run. Swallow auto-flush errors so they can't mask the
+        # caller's original exception.
+        if ctx._composite is not None and not ctx._flushed:
+            try:
+                ctx.flush(success=not exc_fired)
+            except Exception:
+                pass
         set_parquet_emitter_override(None)
+
+
+def flush_parquet(composite, *, success: bool = True) -> int:
+    """Flush all ParquetEmitter steps inside ``composite`` to disk.
+
+    The ``parquet_emitter()`` context manager only sets / clears the global
+    override — it never sees the composite, so it cannot trigger ``close()``
+    on the emitter step. Without an explicit flush the trailing partial
+    batch (rows after the last batch_size flush) stays in memory; only the
+    ``configuration/`` parquet lands, no ``history/`` or ``success/``.
+
+    Call this right before the runner exits its ``with parquet_emitter(...)``
+    block, after the simulation loop completes::
+
+        with parquet_emitter(out_dir=..., experiment_id=...):
+            composite = build_composite(...)
+            ... sim loop ...
+            flush_parquet(composite, success=True)
+
+    Returns the number of ParquetEmitter instances flushed (0 when the
+    [parquet] extra is not installed or the composite has no parquet
+    emitter step).
+    """
+    try:
+        from pbg_emitters import ParquetEmitter
+    except ImportError:
+        return 0
+    return ParquetEmitter.flush_all_in_composite(composite, success=success)
 
 
 # ---------------------------------------------------------------------------

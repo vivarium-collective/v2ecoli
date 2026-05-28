@@ -60,14 +60,14 @@ class RNACounts(Step):
         return {
             'listeners': {
                 'rna_counts': {
-                    'mRNA_counts': {'_type': f'array[{self.n_mRNA_TU},integer]', '_default': []},
-                    'full_mRNA_counts': {'_type': f'array[{self.n_mRNA_TU},integer]', '_default': []},
-                    'partial_mRNA_counts': {'_type': f'array[{self.n_mRNA_TU},integer]', '_default': []},
-                    'mRNA_cistron_counts': {'_type': f'array[{self.n_mRNA_cistron},integer]', '_default': []},
-                    'full_mRNA_cistron_counts': {'_type': f'array[{self.n_mRNA_cistron},integer]', '_default': []},
-                    'partial_mRNA_cistron_counts': {'_type': f'array[{self.n_mRNA_cistron},integer]', '_default': []},
-                    'partial_rRNA_counts': {'_type': f'array[{self.n_rRNA_TU},integer]', '_default': []},
-                    'partial_rRNA_cistron_counts': {'_type': f'array[{self.n_rRNA_cistron},integer]', '_default': []},
+                    'mRNA_counts': {'_type': f'overwrite[array[{self.n_mRNA_TU},integer]]', '_default': []},
+                    'full_mRNA_counts': {'_type': f'overwrite[array[{self.n_mRNA_TU},integer]]', '_default': []},
+                    'partial_mRNA_counts': {'_type': f'overwrite[array[{self.n_mRNA_TU},integer]]', '_default': []},
+                    'mRNA_cistron_counts': {'_type': f'overwrite[array[{self.n_mRNA_cistron},integer]]', '_default': []},
+                    'full_mRNA_cistron_counts': {'_type': f'overwrite[array[{self.n_mRNA_cistron},integer]]', '_default': []},
+                    'partial_mRNA_cistron_counts': {'_type': f'overwrite[array[{self.n_mRNA_cistron},integer]]', '_default': []},
+                    'partial_rRNA_counts': {'_type': f'overwrite[array[{self.n_rRNA_TU},integer]]', '_default': []},
+                    'partial_rRNA_cistron_counts': {'_type': f'overwrite[array[{self.n_rRNA_cistron},integer]]', '_default': []},
                 },
             },
         }

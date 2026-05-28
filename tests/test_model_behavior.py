@@ -173,29 +173,30 @@ def test_daughters_build_and_grow(predivision_state, sim_data_cache):
     least 0.5 fg of dry mass — the single strongest evidence that the
     full machinery (metabolism, translation, transcription) is wired
     through division, not just that division itself succeeded."""
-    import dill
     import os
     from process_bigraph import Composite
     from v2ecoli.library.division import divide_cell
-    from v2ecoli.composite import _build_core
-    from v2ecoli.generate import build_document
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.baseline import baseline, seed_mass_listener
 
     cell = predivision_state
     d1_state, d2_state = divide_cell(cell)
 
-    with open(os.path.join(sim_data_cache, 'sim_data_cache.dill'), 'rb') as f:
-        cache = dill.load(f)
-    configs = cache.get('configs')
-    unique_names = cache.get('unique_names')
-    dry_mass_inc = cache.get('dry_mass_inc_dict')
-    assert configs, 'sim_data_cache.dill missing configs — regenerate cache'
-
-    core = _build_core()
+    core = build_core()
 
     def _run_one(state, seed):
-        doc = build_document(
-            state, configs, unique_names,
-            dry_mass_inc_dict=dry_mass_inc, seed=seed)
+        # Build the full document from the cache (wires all process edges).
+        doc = baseline(core=core, seed=seed, cache_dir=sim_data_cache)
+        # Replace the biological data stores with the daughter's divided state.
+        agent = doc['state']['agents']['0']
+        for key in ('bulk', 'unique', 'environment', 'boundary'):
+            if key in state:
+                agent[key] = state[key]
+        # Re-seed the mass listener against the daughter's bulk so the initial
+        # dry_mass reading (m0) reflects the daughter state, not the cache's
+        # initial state (which baseline() used internally).
+        agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
+        seed_mass_listener(agent, core)
         comp = Composite(doc, core=core)
         agent = comp.state['agents']['0']
         m0 = float(agent['listeners']['mass']['dry_mass'])

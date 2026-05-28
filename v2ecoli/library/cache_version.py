@@ -48,8 +48,15 @@ INPUT_FILES: tuple[str, ...] = (
     "v2ecoli/types/quantity.py",
     # Seeds bulk/unique molecules into initial_state.json.
     "v2ecoli/library/initial_conditions.py",
-    # save_cache writes both files.
-    "v2ecoli/composite.py",
+    # save_cache + shared composite infrastructure.
+    "v2ecoli/core.py",
+    # Per-architecture document builders. A change here can shift the
+    # document shape and silently invalidate a cache built against the
+    # old architecture.
+    "v2ecoli/composites/baseline.py",
+    "v2ecoli/composites/colony.py",
+    "v2ecoli/composites/departitioned.py",
+    "v2ecoli/composites/reconciled.py",
 )
 
 

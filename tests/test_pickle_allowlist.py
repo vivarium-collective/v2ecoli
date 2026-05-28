@@ -33,10 +33,8 @@ BANNED = frozenset({'pickle', 'dill', 'cloudpickle'})
 
 # File-level allowlist (paths relative to v2ecoli/). Value explains why.
 ALLOWLIST: dict[str, str] = {
-    'composite.py':
-        'loads ParCa sim_data_cache.dill (ParCa cache — AGENTS.md:114 exception)',
-    'bridge.py':
-        'loads ParCa sim_data_cache.dill',
+    'core.py':
+        'shared cache helpers extracted from composite.py — same ParCa dill exception',
     'library/sim_data.py':
         'loads ParCa-produced sim_data pickle; dill for compiled rate fns',
     'library/ecoli_step.py':

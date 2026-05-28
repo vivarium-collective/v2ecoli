@@ -1,0 +1,102 @@
+# Skeleton Investigation spec for v2ecoli — vEcoli 1.0/2.0 parity Study.
+#
+# Runs the v2ecoli baseline, then renders it alongside frozen reference
+# trajectories from upstream vEcoli 1.0 and 2.0. Catches drift between
+# v2ecoli's process-bigraph port and either upstream reference.
+#
+# Unlike the other Studies, V1V2Visualization consumes THREE histories —
+# only one is a fresh v2ecoli run; `history_v1` and `history_v2` must be
+# pre-recorded datasets the workspace ships in `data/`.
+
+name: v1-v2-parity
+question: |
+  Do v2ecoli baseline trajectories agree with upstream vEcoli 1.0 and 2.0
+  reference runs on mass + growth + RNAP dynamics?
+hypothesis: |
+  v2ecoli ≈ vEcoli 2.0 within 5 % on cell_mass over a full cycle; v2ecoli
+  may diverge from vEcoli 1.0 by up to 10 % due to known model updates.
+status: draft
+tags: [parity, regression-gate, requires-vecoli-datasets]
+
+baseline: baseline
+
+variants:
+  - name: baseline
+    source: local:baseline
+    parameters: {seed: 0, cache_dir: ${V2ECOLI_CACHE}}
+
+observables:
+  - {path: [agents, "0", listeners, mass, cell_mass]}
+  - {path: [agents, "0", listeners, mass, dry_mass]}
+  - {path: [agents, "0", listeners, mass, instantaneous_growth_rate]}
+  - {path: [agents, "0", listeners, mass, protein_mass]}
+  - {path: [agents, "0", listeners, mass, rRna_mass]}
+  - {path: [agents, "0", listeners, mass, tRna_mass]}
+  - {path: [agents, "0", listeners, mass, mRna_mass]}
+  - {path: [agents, "0", listeners, mass, dna_mass]}
+
+runs:
+  - {composite: baseline, params: {seed: 0}, steps: 2520}
+
+# External reference trajectories. These files MUST exist in
+# investigations/v1-v2-parity/data/ before running the Study. Format is a
+# pickled list-of-snapshot-dicts in the v2ecoli history shape (one dict per
+# emit tick with `listeners.mass.*` keys). See v2ecoli/reports/v1_v2_report.py
+# for the canonical loader.
+datasets:
+  - name: vecoli-1.0-baseline
+    path: ./data/vecoli_1_0_baseline_history.pkl.gz
+    description: "Upstream vEcoli 1.0 baseline run, seed 0, full cycle."
+  - name: vecoli-2.0-baseline
+    path: ./data/vecoli_2_0_baseline_history.pkl.gz
+    description: "Upstream vEcoli 2.0 baseline run, seed 0, full cycle."
+
+visualizations:
+  # V1V2Visualization expects three history streams + metadata. The v2ecoli
+  # history comes from the live run; the v1/v2 histories must be bound from
+  # the `datasets:` block above.
+  - name: v1-v2-parity
+    address: "local:V1V2Visualization"
+    inputs:
+      history_v1:      {source: dataset, dataset: vecoli-1.0-baseline}
+      history_v2:      {source: dataset, dataset: vecoli-2.0-baseline}
+      history_v2ecoli: {source: run,     run: baseline-0}
+      metadata:        {source: run-meta, run: baseline-0}
+    config:
+      title: "vEcoli 1.0 vs 2.0 vs v2ecoli — full cycle"
+
+  # BenchmarkVisualization just needs v2ecoli + one vEcoli reference for the
+  # speed/throughput comparison plot (legacy benchmark_report).
+  - name: benchmark
+    address: "local:BenchmarkVisualization"
+    inputs:
+      history_v2ecoli: {source: run,     run: baseline-0}
+      history_vecoli:  {source: dataset, dataset: vecoli-2.0-baseline}
+      metadata:        {source: run-meta, run: baseline-0}
+    config:
+      title: "v2ecoli vs vEcoli 2.0 — performance"
+
+  # A bare v2ecoli timeseries (useful even without the reference datasets).
+  - name: v2ecoli-mass
+    address: "local:TimeSeriesPlot"
+    config:
+      observable: cell_mass
+      sources: [baseline]
+      title: "v2ecoli baseline — cell mass"
+
+# ── Notes ───────────────────────────────────────────────────────────────────
+# - The `datasets:` block is a proposed extension. The current spec.yaml
+#   schema supports `overlays:` (experimental-points, reference-range,
+#   cross-investigation-series); pre-recorded trajectories don't fit those
+#   shapes cleanly. Two paths forward:
+#     a) Extend the schema with a `datasets:` block (preferred — preserves
+#        the explicit binding shown above).
+#     b) Convert the v1/v2 histories to CSV summaries and feed via
+#        experimental-points overlays on a TimeSeriesPlot.
+# - The reference dataset files do NOT ship with the workspace. Generate
+#   them once with a v1/v2 vEcoli install and place under data/ before
+#   running this Study; document the regeneration command in the Study's
+#   notes.md.
+# - V1V2Visualization handles missing histories defensively (renders the
+#   present streams + a banner), so the Study still produces useful output
+#   if only one of the two references is on disk.

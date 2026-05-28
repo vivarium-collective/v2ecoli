@@ -12,7 +12,7 @@ slipped past the existing test suite during the unum→pint migration:
 
 2. Cache-version guard: ``cache_version.json`` must exist and match the
    current inputs hash.  If someone removes ``write_cache_version`` from
-   ``save_cache`` or the verification call from ``make_composite``, the
+   ``save_cache`` or the verification call from ``build_composite``, the
    stale-cache footgun returns.  We test the guard both ways: a fresh
    cache passes, a tampered fixture field fails with ``StaleCacheError``.
 """
@@ -84,7 +84,7 @@ def test_cache_version_file_exists_and_matches(sim_data_cache):
 
 
 def test_verify_cache_version_passes_on_current_cache(sim_data_cache):
-    """Smoke test: the verify call that make_composite makes should be
+    """Smoke test: the verify call that build_composite makes should be
     silent on a just-built cache."""
     verify_cache_version(sim_data_cache)  # no raise
 

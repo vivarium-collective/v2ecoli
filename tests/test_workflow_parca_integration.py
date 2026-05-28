@@ -76,7 +76,7 @@ def test_workflow_has_no_external_vecoli_paths():
     """Structural smoke test — the rewritten workflow_report.py must not
     import from bare ``reconstruction`` / ``wholecell`` (the vEcoli top-
     level) and must not path-join into ``../vEcoli/``."""
-    src = (REPO_ROOT / 'reports' / 'workflow_report.py').read_text()
+    src = (REPO_ROOT / 'reports' / 'workflow_report.py').read_text(encoding='utf-8')
     assert not re.search(
         r"^from (reconstruction|wholecell)\.", src, re.MULTILINE), \
         'workflow_report.py still imports bare vEcoli modules — should use ' \
@@ -129,10 +129,11 @@ def test_step_parca_hydrates_fixture(tmp_path, monkeypatch):
     monkeypatch.setattr(workflow, 'CACHE_DIR', str(tmp_path / 'cache'))
     monkeypatch.setattr(workflow, 'load_meta', lambda _n: None)
     monkeypatch.setattr(workflow, 'save_meta', lambda _n, _m: None)
-    # Stub save_cache — we don't want to generate the full initial
-    # state JSON during this test (that's a separate step with its own
-    # coverage).  We assert the dill file is well-formed instead.
+    # Stub the bundle writers — we don't want to generate the full
+    # initial state JSON during this test (that's a separate step with
+    # its own coverage).  We assert the dill file is well-formed instead.
     monkeypatch.setattr(workflow, 'save_cache', lambda *a, **k: None)
+    monkeypatch.setattr(workflow, 'save_sim_input', lambda *a, **k: None)
 
     # Force the fixture path (not a composite rerun)
     assert workflow._OPTIONS.get('parca_rerun') is not True
@@ -174,6 +175,7 @@ def test_step_parca_fixture_is_fast(tmp_path, monkeypatch):
     monkeypatch.setattr(workflow, 'load_meta', lambda _n: None)
     monkeypatch.setattr(workflow, 'save_meta', lambda _n, _m: None)
     monkeypatch.setattr(workflow, 'save_cache', lambda *a, **k: None)
+    monkeypatch.setattr(workflow, 'save_sim_input', lambda *a, **k: None)
 
     cwd = os.getcwd()
     os.chdir(REPO_ROOT)

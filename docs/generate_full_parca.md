@@ -65,7 +65,7 @@ sys.path.insert(0, '.')
 from v2ecoli.processes.parca.data_loader import (
     hydrate_sim_data_from_state, load_parca_state,
 )
-from v2ecoli.composite import save_cache
+from v2ecoli.core import save_cache
 
 # Hydrate the fixture → simData.cPickle.  ``hydrate_sim_data_from_state``
 # copies sibling composite stores (expected_dry_mass_increase_dict,
@@ -85,8 +85,8 @@ save_cache(sd_path, 'out/cache')
 ### 5. Verify with a short simulation
 
 ```python
-from v2ecoli.composite import make_composite
-composite = make_composite(cache_dir='out/cache')
+from v2ecoli import build_composite
+composite = build_composite("baseline", cache_dir='out/cache')
 composite.run(10)  # 10 timesteps, ~30s
 print('OK')
 ```

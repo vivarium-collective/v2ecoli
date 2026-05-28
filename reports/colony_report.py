@@ -32,13 +32,13 @@ warnings.filterwarnings('ignore')
 from process_bigraph import Composite, gather_emitter_results
 from process_bigraph.emitter import emitter_from_wires
 
-from multi_cell import core_import
-from multi_cell.processes.multibody import (
+from viva_munk import core_import
+from viva_munk.processes.multibody import (
     make_initial_state, make_rng, build_microbe)
-from multi_cell.processes.grow_divide import (
+from viva_munk.processes.grow_divide import (
     add_adder_grow_divide_to_agents, make_adder_grow_divide_process,
     make_grow_divide_process)
-from multi_cell.plots.multibody_plots import simulation_to_gif
+from viva_munk.plots.multibody_plots import simulation_to_gif
 
 from v2ecoli.bridge import EcoliWCM
 from v2ecoli.types import ECOLI_TYPES
@@ -412,9 +412,29 @@ def _get_reproducibility_info():
     return info
 
 
+def _gif_to_b64(gif_path):
+    """Encode a GIF/image file as a base64 string, or return None on failure."""
+    import base64
+    if not gif_path or not os.path.exists(gif_path):
+        return None
+    try:
+        with open(gif_path, 'rb') as f:
+            return base64.b64encode(f.read()).decode('ascii')
+    except Exception:
+        return None
+
+
 def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
-               from_cache=None):
-    """Run the colony simulation and generate report."""
+               from_cache=None, out_path=None, viz_config=None):
+    """Run the colony simulation and generate report.
+
+    Orchestration (simulation, GIF generation) lives here.
+    HTML rendering is delegated to ColonyVisualization.update().
+
+    ``viz_config`` (when provided) overrides the ColonyVisualization
+    config dict at render time. Defaults to
+    ``{"title": "E. coli Colony Simulation"}``.
+    """
     duration = duration_min * 60
     repro = _get_reproducibility_info()
 
@@ -470,6 +490,9 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
         # Seed mother_wcm_history with a mutable list so later code can extend it
         mother_wcm_history = list(cached_mother_history)
 
+    # Collect per-tick rows for the history fed to the visualization Step
+    history_rows = []  # list of {agent_id, time, x, y, length, mass}
+
     while total < duration:
         # Before running, grab the mother's chromosome history reference
         colony_cells_pre = sim.state.get('cells', {})
@@ -520,6 +543,21 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
 
         if chrom_snap:
             chromosome_history.append((total, chrom_snap))
+
+        # Collect per-agent snapshot rows for ColonyVisualization
+        for aid, cell in colony_cells.items():
+            if isinstance(cell, dict):
+                loc = cell.get('location', (0.0, 0.0))
+                x = float(loc[0]) if loc else 0.0
+                y = float(loc[1]) if len(loc) > 1 else 0.0
+                history_rows.append({
+                    'agent_id': aid,
+                    'time': float(total),
+                    'x': x,
+                    'y': y,
+                    'length': float(cell.get('length', 0.0)),
+                    'mass': float(cell.get('mass', 0.0)),
+                })
 
         n_cells = len(colony_cells)
         ecoli_alive = ecoli_id in colony_cells
@@ -737,136 +775,46 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
         print(f"Chromosome GIF failed: {e}")
         chrom_gif_path = None
 
-    # Generate HTML report
-    report_path = os.path.join(REPORT_DIR, 'colony_report.html')
+    # Encode GIFs as base64 for embedding in the HTML report
+    colony_gif_b64  = _gif_to_b64(gif_path)
+    chrom_gif_b64   = _gif_to_b64(chrom_gif_path)
 
-    from v2ecoli.library.repro_banner import banner_html
-    repro_banner = banner_html()
+    # ---------------------------------------------------------------------------
+    # Dispatch to ColonyVisualization for HTML rendering
+    # ---------------------------------------------------------------------------
+    from bigraph_schema import allocate_core as _allocate_core
+    from v2ecoli.visualizations.colony import ColonyVisualization
 
+    viz_core = _allocate_core()
+    viz = ColonyVisualization(
+        config=viz_config or {'title': 'E. coli Colony Simulation'},
+        core=viz_core,
+    )
+
+    viz_result = viz.update({
+        'history': history_rows,
+        'metadata': {
+            'n_initial': n_initial,
+            'n_final': n_final,
+            'duration_min': duration_min,
+            'env_size': env_size,
+            'n_adder': n_adder,
+            'build_time': build_time,
+            'wall_time': wall_time,
+            'seed': seed,
+            'repro': repro,
+            'n_emitter_frames': len(results),
+            'colony_gif_b64': colony_gif_b64,
+            'chrom_gif_b64': chrom_gif_b64,
+        },
+    })
+    html_content = viz_result['html']
+
+    # Write HTML report
+    report_path = out_path or os.path.join(REPORT_DIR, 'colony_report.html')
+    os.makedirs(os.path.dirname(os.path.abspath(report_path)), exist_ok=True)
     with open(report_path, 'w') as f:
-        f.write(f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<title>E. coli Colony Simulation</title>
-<style>
-body {{ font-family: -apple-system, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f8fafc; color: #1e293b; }}
-h1 {{ color: #0f172a; border-bottom: 3px solid #16a34a; padding-bottom: 8px; }}
-h2 {{ color: #166534; margin-top: 2em; }}
-h3 {{ color: #334155; }}
-p {{ line-height: 1.6; }}
-table {{ border-collapse: collapse; margin: 1em 0; }}
-th, td {{ padding: 6px 16px; border: 1px solid #e2e8f0; }}
-th {{ background: #f1f5f9; }}
-.media {{ text-align: center; margin: 1.5em 0; }}
-.media img {{ max-width: 100%; border: 2px solid #e2e8f0; border-radius: 8px; }}
-.media-label {{ font-size: 0.85em; color: #64748b; margin-top: 0.5em; }}
-.legend {{ display: flex; gap: 2em; justify-content: center; margin: 1em 0; flex-wrap: wrap; }}
-.legend-item {{ display: flex; align-items: center; gap: 0.5em; }}
-.legend-swatch {{ width: 16px; height: 16px; border-radius: 3px; border: 1px solid #ccc; }}
-.section {{ background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 1.5em; margin: 1em 0; }}
-</style>
-</head><body>
-
-{repro_banner}
-
-<h1>E. coli Colony Simulation</h1>
-
-<div class="section">
-<p>This simulation places a <strong>whole-cell <em>E. coli</em> model</strong> — with 55 biological
-processes including metabolism, transcription, translation, DNA replication, and chromosome
-segregation — inside a <strong>2D colony</strong> alongside simpler surrogate cells.</p>
-
-<p>Each whole-cell <em>E. coli</em> is implemented as an <code>EcoliWCM</code> process — a
-process-bigraph <code>Process</code> that holds an internal <code>Composite</code> connected
-via a bridge. The bridge maps external colony ports (mass, length, volume) to internal
-whole-cell stores. The whole-cell model (v2ecoli) runs the full mechanistic simulation of
-intracellular biology, while the colony framework (pymunk-process) handles spatial physics:
-cell body collisions, growth-driven elongation, and division mechanics.</p>
-
-<p>The <strong style="color:rgb(51,191,77);">green cell</strong> is the whole-cell
-<em>E. coli</em> — its length and mass are driven by the internal biological simulation. The
-<span style="color:#999;">grey cells</span> are surrogate cells using a simple adder growth model.
-When the whole-cell model reaches its division threshold (~702 fg dry mass, ~42 min), the bridge
-removes the mother cell and adds two daughter cells, each with a fresh copy of the whole-cell
-model. Daughters are shown with color-shifted variants of the mother&rsquo;s green.</p>
-</div>
-
-<h2>Colony Dynamics</h2>
-<div class="legend">
-  <div class="legend-item"><div class="legend-swatch" style="background:rgb(51,191,77)"></div> Whole-cell <em>E. coli</em> (v2ecoli, 55 processes)</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#b0b0b0"></div> Surrogate cell (adder growth/division)</div>
-</div>
-""")
-
-        if gif_path and os.path.exists(gif_path):
-            f.write(f"""
-<div class="media">
-  <img src="colony.gif" alt="Colony simulation — spatial view">
-  <div class="media-label">Colony spatial view: {n_initial} initial cells → {n_final} final cells over {duration_min} min.
-  Colored cell = whole-cell <em>E. coli</em>; grey = surrogates.</div>
-</div>
-""")
-
-        if chrom_gif_path and os.path.exists(chrom_gif_path):
-            f.write(f"""
-<h2>Chromosome State</h2>
-<div class="legend">
-  <div class="legend-item"><div class="legend-swatch" style="background:#10b981; border-radius:50%"></div> OriC (origin of replication)</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#ef4444"></div> Ter (terminus)</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#3b82f6; border-radius:50%"></div> RNA polymerase</div>
-  <div class="legend-item"><div class="legend-swatch" style="background:#f59e0b"></div> Replication fork</div>
-</div>
-<p>The circular chromosome of each whole-cell <em>E. coli</em>, synchronized with the colony
-animation above. Chromosome replication initiates around ~23 min, producing 2 chromosomes
-visible as separate circles. Each frame shows the current number of chromosomes, replication
-forks, and active RNA polymerases.</p>
-<div class="media">
-  <img src="chromosome.gif" alt="Chromosome state over time">
-  <div class="media-label">Chromosome state: replication forks traverse the circular genome,
-  RNA polymerases transcribe genes along the chromosome.</div>
-</div>
-""")
-
-        f.write(f"""
-<h2>Simulation Parameters</h2>
-<table>
-<tr><th>Parameter</th><th>Value</th></tr>
-<tr><td>Duration</td><td>{duration_min} min ({duration}s)</td></tr>
-<tr><td>Whole-cell <em>E. coli</em></td><td>1 cell (EcoliWCM bridge, 55 steps)</td></tr>
-<tr><td>Surrogate cells</td><td>{n_adder} (AdderGrowDivide)</td></tr>
-<tr><td>Environment</td><td>{env_size} × {env_size} µm</td></tr>
-<tr><td>Physics interval</td><td>{10}s</td></tr>
-<tr><td>WCM update interval</td><td>{60}s</td></tr>
-</table>
-
-<h2>Results</h2>
-<table>
-<tr><th>Metric</th><th>Value</th></tr>
-<tr><td>Build time</td><td>{build_time:.1f}s</td></tr>
-<tr><td>Wall time</td><td>{wall_time:.0f}s ({wall_time/60:.1f} min)</td></tr>
-<tr><td>Speed</td><td>{duration/wall_time:.1f}× realtime</td></tr>
-<tr><td>Initial cells</td><td>{n_initial}</td></tr>
-<tr><td>Final cells</td><td>{n_final}</td></tr>
-<tr><td>Emitter frames</td><td>{len(results)}</td></tr>
-</table>
-
-
-<h2>Reproducibility</h2>
-<table style="font-size:0.85em;">
-<tr><th>Field</th><th>Value</th></tr>
-<tr><td>Date</td><td>{repro['date']}</td></tr>
-<tr><td>Git commit</td><td><code>{repro['commit']}</code> ({repro['branch']})</td></tr>
-<tr><td>Python</td><td>{repro['python']}</td></tr>
-<tr><td>Platform</td><td>{repro['platform']}</td></tr>
-<tr><td>process-bigraph</td><td>{repro['process_bigraph']}</td></tr>
-<tr><td>bigraph-schema</td><td>{repro['bigraph_schema']}</td></tr>
-<tr><td>Seed</td><td>{seed}</td></tr>
-<tr><td>Command</td><td><code>python3 reports/colony_report.py --duration {duration_min} --n-adder {n_adder} --env-size {env_size}</code></td></tr>
-</table>
-
-<footer style="margin-top:2em; padding-top:1em; border-top:1px solid #e2e8f0; color:#94a3b8; font-size:0.85em;">
-v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-collective/v2ecoli">github</a>
-</footer>
-</body></html>""")
+        f.write(html_content)
 
     # Mirror to docs/ so GitHub Pages stays in sync. Also copies the GIFs
     # so the rendered report can resolve its relative <img> paths.
@@ -884,23 +832,105 @@ v2ecoli colony · pure process-bigraph · <a href="https://github.com/vivarium-c
     return report_path
 
 
+def _load_study(study_path):
+    """Load + lightly validate a v3-shape study.yaml driving this report.
+
+    Expected shape::
+
+        baseline:
+        - name: <any>
+          composite: v2ecoli.composites.colony.colony
+          params: {seed?, n_adder?, env_size?, duration?, from_cache?}
+        visualizations:
+        - name: <any>
+          address: local:ColonyVisualization
+          config: {title: str, ...}
+
+    Reject:
+      - more than one ``baseline`` entry (colony has one canonical composite),
+      - a composite ref other than ``...colony.colony``,
+      - a ``lineage`` block (colony evolves in real time, not by chained
+        generations; use multigeneration_report for the lineage pattern).
+    """
+    import yaml as _yaml
+    with open(study_path) as fh:
+        spec = _yaml.safe_load(fh) or {}
+
+    baseline_entries = spec.get("baseline") or []
+    if len(baseline_entries) != 1:
+        raise ValueError(
+            f"study {study_path!r}: colony_report needs exactly one "
+            f"`baseline:` entry; got {len(baseline_entries)}"
+        )
+    composite_ref = baseline_entries[0].get("composite") or ""
+    if not composite_ref.endswith(".colony.colony"):
+        raise ValueError(
+            f"study {study_path!r}: colony_report only handles the "
+            f"colony composite (e.g. v2ecoli.composites.colony.colony); "
+            f"got {composite_ref!r}"
+        )
+    if spec.get("lineage"):
+        raise ValueError(
+            f"study {study_path!r}: colony_report has no generation "
+            f"chain; the `lineage:` block belongs to multigeneration_report"
+        )
+    return spec
+
+
 def main():
     parser = argparse.ArgumentParser(description='E. coli colony report')
-    parser.add_argument('--duration', type=int, default=60,
-                        help='Duration in minutes (default: 60)')
-    parser.add_argument('--n-adder', type=int, default=9,
-                        help='Number of adder cells (default: 9)')
-    parser.add_argument('--env-size', type=int, default=40,
-                        help='Environment size in µm (default: 40)')
+    parser.add_argument('--study', default=None,
+                        help='Path to a v3-shape study.yaml driving the report. '
+                             'baseline[0].params seeds n_adder / env_size / '
+                             'duration / seed / from_cache; visualizations[0].config '
+                             'seeds the ColonyVisualization title. CLI flags below '
+                             'still override.')
+    parser.add_argument('--duration', type=int, default=None,
+                        help='Duration in minutes (default: 60, or study param)')
+    parser.add_argument('--n-adder', type=int, default=None,
+                        help='Number of adder cells (default: 9, or study param)')
+    parser.add_argument('--env-size', type=int, default=None,
+                        help='Environment size in µm (default: 40, or study param)')
+    parser.add_argument('--seed', type=int, default=None,
+                        help='RNG seed (default: 0, or study param)')
     parser.add_argument('--from-cache', type=str, default=None,
                         help='Resume from cached pre-division state (dill pickle)')
+    parser.add_argument('--out', default=None,
+                        help='Output HTML path (default: out/colony/colony_report.html)')
     args = parser.parse_args()
 
+    # Resolve study-derived defaults before CLI overrides land on top.
+    study_spec = _load_study(args.study) if args.study else None
+    study_params = ((study_spec or {}).get('baseline') or [{}])[0].get('params') or {}
+    study_viz_config = None
+    if study_spec is not None:
+        for v in (study_spec.get('visualizations') or []):
+            if isinstance(v, dict) and 'ColonyVisualization' in (v.get('address') or ''):
+                study_viz_config = dict(v.get('config') or {})
+                break
+
+    # CLI > study > built-in defaults.
+    duration = args.duration if args.duration is not None \
+        else int(study_params.get('duration', 60))
+    n_adder = args.n_adder if args.n_adder is not None \
+        else int(study_params.get('n_adder', 9))
+    env_size = args.env_size if args.env_size is not None \
+        else int(study_params.get('env_size', 40))
+    seed = args.seed if args.seed is not None \
+        else int(study_params.get('seed', 0))
+    from_cache = args.from_cache if args.from_cache is not None \
+        else study_params.get('from_cache')
+
+    if study_spec is not None:
+        print(f"Study: {study_spec.get('name', '(unnamed)')}")
     report = run_colony(
-        duration_min=args.duration,
-        n_adder=args.n_adder,
-        env_size=args.env_size,
-        from_cache=args.from_cache,
+        duration_min=duration,
+        n_adder=n_adder,
+        env_size=env_size,
+        seed=seed,
+        from_cache=from_cache,
+        out_path=args.out,
+        viz_config=study_viz_config,
     )
 
     import subprocess

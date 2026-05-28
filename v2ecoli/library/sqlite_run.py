@@ -161,6 +161,59 @@ def prune_to_followed_lineage(composite: Any, followed_id: str) -> int:
     return len(to_drop)
 
 
+def _normalize_root_paths(root_paths: list[str]) -> list[tuple[str, ...]]:
+    """Like :func:`_normalize_emit_paths` but does NOT strip an
+    ``agents/<id>/`` prefix — these paths are rooted at the composite
+    state root (e.g. ``population/total_biomass_gDW``,
+    ``environment/external_concentrations/GLC[p]``).
+    """
+    out: set[tuple[str, ...]] = set()
+    for p in root_paths or []:
+        parts = [x for x in str(p).replace(".", "/").split("/") if x]
+        if parts:
+            out.add(tuple(parts))
+    return sorted(out)
+
+
+def _filter_root_state(state: dict, leaves: list[tuple[str, ...]]) -> dict:
+    """Pull declared leaves out of the composite state root into a nested dict.
+
+    Mirror of :func:`_filter_agent_state` but rooted at the composite
+    state (not at one agent). Missing leaves are skipped so the
+    SQLiteEmitter records JSON ``null`` rather than crashing.
+    """
+    out: dict = {}
+    for leaf in leaves:
+        if not leaf:
+            continue
+        value: Any = state
+        for k in leaf:
+            value = (value or {}).get(k) if isinstance(value, dict) else None
+            if value is None:
+                break
+        if value is None:
+            continue
+        cursor = out
+        for k in leaf[:-1]:
+            cursor = cursor.setdefault(k, {})
+        cursor[leaf[-1]] = value
+    return out
+
+
+def _merge_into(target: dict, addition: dict) -> dict:
+    """Recursively merge `addition` into `target` (target wins on conflict).
+
+    Used to union the agent payload and the root-paths payload before
+    passing to em.update().
+    """
+    for k, v in addition.items():
+        if isinstance(v, dict) and isinstance(target.get(k), dict):
+            _merge_into(target[k], v)
+        elif k not in target:
+            target[k] = v
+    return target
+
+
 def run_multigen_sqlite(
     composite: Any,
     *,
@@ -174,6 +227,7 @@ def run_multigen_sqlite(
     division_detector: Callable[[set[str], set[str]], tuple[bool, str | None]] | None = None,
     core: Any = None,
     single_daughters: bool = False,
+    extra_root_paths: list[str] | None = None,
 ) -> dict:
     """Run a v2ecoli composite past divisions, externally-driven SQLiteEmitter.
 
@@ -211,6 +265,14 @@ def run_multigen_sqlite(
         peak memory tracks one cell, not 2^N. Trade-off: throwing away
         the unfollowed lineage means no cross-lineage comparison; for
         single-cell-trajectory studies that's the desired behaviour.
+      extra_root_paths: optional dotted/slash paths rooted at the
+        composite state (NOT under any agent) to also emit at each chunk.
+        Examples: ``"population/total_biomass_gDW"``,
+        ``"environment/external_concentrations/GLC[p]"``. Used by mbp-*
+        studies whose composites (baseline_population,
+        baseline_time_varying_env) inject top-level data stores alongside
+        ``agents``. The captured values appear as additional keys in the
+        emitted JSON state column. Missing paths are skipped (no crash).
 
     Returns: ``{"steps": int, "generations": list[int]}``.
 
@@ -235,7 +297,16 @@ def run_multigen_sqlite(
             return False, None
 
     leaves = _normalize_emit_paths(emit_paths)
+    root_leaves = _normalize_root_paths(extra_root_paths or [])
     emit_schema = _build_emit_schema(leaves)
+
+    # Merge top-level paths into emit_schema. _build_emit_schema's
+    # prefix-conflict dedup is per-tree, so building a separate root
+    # schema and merging it in is safer than passing root_leaves through
+    # the agent-rooted path that strips prefixes.
+    if root_leaves:
+        _merge_into(emit_schema, _build_emit_schema(root_leaves))
+
     db_path = Path(db_file)
 
     em = SQLiteEmitter(config={
@@ -270,12 +341,18 @@ def run_multigen_sqlite(
 
         if followed in agents:
             payload = _filter_agent_state(agents[followed], leaves)
+            update_state = {
+                "time": float(done),
+                "global_time": float(done),
+                "agents": {followed: payload},
+            }
+            if root_leaves:
+                _merge_into(
+                    update_state,
+                    _filter_root_state(composite.state or {}, root_leaves),
+                )
             try:
-                em.update({
-                    "time": float(done),
-                    "global_time": float(done),
-                    "agents": {followed: payload},
-                })
+                em.update(update_state)
             except Exception as e:
                 print(f"[multigen_sqlite] emit failed at tick {done}: "
                       f"{type(e).__name__}: {str(e)[:120]}")
@@ -309,12 +386,18 @@ def run_multigen_sqlite(
             # Emit immediately so the gen handoff has a marker row.
             if followed in agents:
                 payload = _filter_agent_state(agents[followed], leaves)
+                update_state = {
+                    "time": float(done),
+                    "global_time": float(done),
+                    "agents": {followed: payload},
+                }
+                if root_leaves:
+                    _merge_into(
+                        update_state,
+                        _filter_root_state(composite.state or {}, root_leaves),
+                    )
                 try:
-                    em.update({
-                        "time": float(done),
-                        "global_time": float(done),
-                        "agents": {followed: payload},
-                    })
+                    em.update(update_state)
                 except Exception:
                     pass
         prev_ids = curr_ids

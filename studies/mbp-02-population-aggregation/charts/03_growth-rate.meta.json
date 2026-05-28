@@ -1,6 +1,6 @@
 {
   "title": "Per-cell growth rate (biological-floor regression)",
   "caption": "instantaneous_growth_rate(t) \u2014 three identical curves across cpa \u2208 {1, 1e6, 1e9}",
-  "simulations": "aggregator-cpa1-multigen, aggregator-cpa1e6-multigen, aggregator-cpa1e9-multigen.",
-  "interpretation": "Per-cell \u03bc is invariant under the scaling factor (same agent state, same metabolism). This is the biology-side counterpart to the mass invariance in chart 00 \u2014 both together prove the aggregator is a pure read-only view."
+  "simulations": "aggregator-cpa1/1e6/1e9-multigen (v2-parquet).",
+  "interpretation": "Per-cell \u03bc is invariant under the scaling factor (same agent state, same metabolism). Biology-side counterpart to chart 00 \u2014 both prove the aggregator is a pure read-only view. Read from parquet."
 }

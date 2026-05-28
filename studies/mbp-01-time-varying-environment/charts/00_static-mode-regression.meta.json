@@ -1,6 +1,6 @@
 {
   "title": "Static-mode env-driver: regression guard against baseline",
   "caption": "cell_mass(t) overlay of baseline_time_varying_env (static mode) vs unmodified baseline \u2014 curves byte-identical",
-  "simulations": "static-env-baseline-multigen (mbp-01 captured run) overlaid against baseline-reference-multigen (cross-investigation reference run). Both v2 runner, 120 sim-min, 2 generations, seed=0.",
-  "interpretation": "The two trajectories overlap exactly across both generations including across the division event at t \u2248 42 min. Proves the env-driver Step is a true no-op in static mode \u2014 visual regression-guard for the `static-env-baseline-unchanged` behavior test (mbp-01 study.yaml). Once mbp-01 advances to its plumbing+extreme tests, the synthetic-trajectory mode will diverge here intentionally."
+  "simulations": "static-env-baseline-multigen (mbp-01 v2-parquet) overlaid against baseline-reference-multigen (multiscale-bioprocess-reference v2-parquet). Both 120 sim-min, 2 generations, seed=0.",
+  "interpretation": "The two trajectories overlap exactly across both generations including across the division event at t \u2248 42 min. Proves the env-driver Step is a true no-op in static mode \u2014 visual regression-guard for the `static-env-baseline-unchanged` behavior test (mbp-01 study.yaml). Once mbp-01 advances to its plumbing+extreme tests, the synthetic-trajectory mode will diverge here intentionally. End-to-end parquet (read from per-study hives)."
 }

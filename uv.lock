@@ -2447,9 +2447,28 @@ wheels = [
 ]
 
 [[package]]
+name = "pbg-emitters"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#4c7560b30c6cb18057a096ab469b76dd6532d8a7" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "numpy" },
+    { name = "process-bigraph" },
+]
+
+[package.optional-dependencies]
+parquet = [
+    { name = "duckdb" },
+    { name = "fsspec" },
+    { name = "polars" },
+    { name = "pyarrow" },
+    { name = "tqdm" },
+]
+
+[[package]]
 name = "pbg-superpowers"
-version = "0.9.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#1d028c4d3c114a6561900f5aa53017b185742939" }
+version = "0.10.0"
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#ce96a8e389b86c9a674dbab593469a38382c16a6" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
@@ -3849,19 +3868,13 @@ dev = [
     { name = "pytest-xdist" },
 ]
 emitters = [
-    { name = "duckdb" },
-    { name = "fsspec" },
-    { name = "polars" },
-    { name = "tqdm" },
+    { name = "pbg-emitters", extra = ["parquet"] },
     { name = "xarray" },
     { name = "zarr" },
     { name = "zarrs" },
 ]
 parquet = [
-    { name = "duckdb" },
-    { name = "fsspec" },
-    { name = "polars" },
-    { name = "tqdm" },
+    { name = "pbg-emitters", extra = ["parquet"] },
 ]
 xarray = [
     { name = "xarray" },
@@ -3875,14 +3888,12 @@ requires-dist = [
     { name = "biopython" },
     { name = "cvxpy" },
     { name = "dill", specifier = ">=0.3" },
-    { name = "duckdb", marker = "extra == 'parquet'" },
-    { name = "fsspec", marker = "extra == 'parquet'" },
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
+    { name = "pbg-emitters", extras = ["parquet"], marker = "extra == 'parquet'", git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-superpowers", git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main" },
     { name = "plum-dispatch", specifier = ">=2.5" },
-    { name = "polars", marker = "extra == 'parquet'" },
     { name = "process-bigraph", git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main" },
     { name = "pymunk" },
     { name = "pytest-timeout", marker = "extra == 'dev'", specifier = ">=2.3" },
@@ -3891,7 +3902,6 @@ requires-dist = [
     { name = "scipy" },
     { name = "spatio-flux", git = "https://github.com/vivarium-collective/spatio-flux.git?branch=main" },
     { name = "sympy" },
-    { name = "tqdm", marker = "extra == 'parquet'" },
     { name = "unum" },
     { name = "v2ecoli", extras = ["parquet", "xarray"], marker = "extra == 'emitters'" },
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },

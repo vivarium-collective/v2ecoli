@@ -4097,7 +4097,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#7c06cb2650ac02352f0295f869a9e1521432bff6" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#1fda9ad4572c50f7c0354a3af7a895b1961f47c1" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "jinja2" },

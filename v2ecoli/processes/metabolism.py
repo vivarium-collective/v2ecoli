@@ -258,6 +258,12 @@ class Metabolism(Step):
         # rather than every tick (called from update() into
         # get_import_constraints, an upstream-Unum-native API).
         self._gdcw_basis_unum = pint_to_unum(GDCW_BASIS)
+        # Module-level Unit composites — pint constructs the composite
+        # `units.mmol / units.g / units.h` afresh on every multiplication.
+        # Build them once at init; the unit instances are immutable and
+        # safe to share across ticks.
+        self._constraint_unit = units.mmol / units.g / units.h
+        self._fg_unit = units.fg
 
         # Track updated AA concentration targets with tRNA charging
         self.aa_targets = {}
@@ -386,8 +392,8 @@ class Metabolism(Step):
         kinetic_substrate_counts = counts(states["bulk"], self.kinetics_substrates_idx)
 
         translation_gtp = states["polypeptide_elongation"]["gtp_to_hydrolyze"]
-        cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
-        dry_mass = states["listeners"]["mass"]["dry_mass"] * units.fg
+        cell_mass = states["listeners"]["mass"]["cell_mass"] * self._fg_unit
+        dry_mass = states["listeners"]["mass"]["dry_mass"] * self._fg_unit
 
         # Calculate state values
         cellVolume = cell_mass / self.cellDensity
@@ -405,12 +411,12 @@ class Metabolism(Step):
         # Quantities; anything already unit-bearing is normalized through
         # the bridge.
         unconstrained = set(states["environment"]["exchange_data"]["unconstrained"])
-        _constraint_unit = units.mmol / units.g / units.h
+        constraint_unit = self._constraint_unit
         constrained = {}
         for mol, val in states["environment"]["exchange_data"]["constrained"].items():
             q = unum_to_pint(val)
             if not hasattr(q, "magnitude"):
-                q = q * _constraint_unit
+                q = q * constraint_unit
             constrained[mol] = q
 
         # Determine updates to concentrations depending on the current state

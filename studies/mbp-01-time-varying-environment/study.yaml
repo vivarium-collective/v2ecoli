@@ -1,4 +1,4 @@
-schema_version: 3
+schema_version: 4
 name: mbp-01-time-varying-environment
 created: '2026-05-22'
 phase: Build
@@ -416,42 +416,11 @@ bibliography:
 # doubling runs, switch to run_multigen_sqlite (also has issues —
 # candidate-future-study).
 runs:
-  - simulation:      static-env-baseline-60min
-    simulation_id:   a1d9c493-ebdd-4e25-b9d3-5e7437bd4353
-    seed:            0
-    started_at:      '2026-05-27 04:21:19'
-    sim_seconds:     2534     # crashed at division ~42 min in
-    n_history_rows:  2535
-    db:              .pbg/composite-runs.db
-    investigation:   multiscale-bioprocess
-    outcome:         crashed_at_division
-    runner:          v1 (sqlite_emitter context manager)
-    note:            Validates the static-env-baseline-unchanged behavior_test —
-                     env-driver in static mode produces byte-identical per-cell
-                     trajectory to the unmodified baseline. Pre-division data
-                     captured cleanly through 2534 sim-seconds. v1 runner's
-                     Step-injected emitter crashed at division (both daughters
-                     emitting at same step). Superseded by the multigen run
-                     below (v2 runner, gets past division).
-
-  - simulation:      static-env-baseline-multigen
-    simulation_id:   3bc37a72-7d1a-4cd3-b28d-6c2633eb0175
-    seed:            0
-    started_at:      '2026-05-27 14:33:41'
-    sim_seconds:     7200     # 120 sim-min, 2 generations
-    n_history_rows:  720      # chunk=10 emit cadence
-    chunk:           10
-    generations:     [1, 2]
-    db:              .pbg/composite-runs.db
-    investigation:   multiscale-bioprocess
-    outcome:         completed
-    runner:          v2 (run_multigen_sqlite + single_daughters + extra_root_paths)
-    note:            Full 120-min sim through 2 generations (division events at
-                     t=2534s + t=2962s). Validates static-env-baseline-unchanged
-                     across the division barrier — per-cell trajectory matches
-                     baseline-reference-multigen (run a35b8bfb under
-                     multiscale-bioprocess-reference) byte-identical at every
-                     emit. Use as the canonical static-mode regression run.
+  # Historical sqlite captures (4 v1-crashed + 1 v2-multigen entries from
+  # 2026-05-27) were deleted from .pbg/composite-runs.db on 2026-05-28 as
+  # part of the everything-parquet migration. Git history preserves the
+  # full audit trail; the runs.yaml entries below reflect what's actually
+  # findable post-migration (parquet hives under studies/<study>/parquet-runs/).
 
   - simulation:      static-env-baseline-multigen
     simulation_id:   15166838-67b2-45f7-960f-4f4d66e49421
@@ -475,8 +444,64 @@ runs:
       on parquet workspace-wide.
 
 
+# ─── v4 tests[] (hand-authored 2026-05-28) ────────────────────────────────
+# Schema-version 4 declares first-class `tests:` with `measure.path` so
+# the dashboard's render_v4_test_charts pipeline can render per-test
+# charts directly from the parquet hive (read paths flattened with the
+# ParquetEmitter `__` separator).
+#
+# These 2 entries are hand-curated representatives of the load-bearing
+# claims in `behavior_tests:` above — NOT a wholesale auto-projection
+# (the no-machine-projected-tests rule applies). The behavior_tests
+# block remains the authoritative spec; this block is what the
+# dashboard renders to surface the trajectory + criterion in the
+# Charts tab.
+
 tests:
+  - name:           cell-mass-monotone-pre-division
+    classification: primary
+    description:    "Per-cell cell_mass must grow monotonically through
+                    the first generation under env_driver_mode=static.
+                    Validates that the static-mode env-driver is a
+                    no-op against the unmodified baseline."
+    measure:
+      path:         listeners__mass__cell_mass
+      source:       static-env-baseline-multigen parquet hive
+      observable:   per-cell dry mass over the lineage trajectory (fg)
+      units:        fg
+    pass_if:
+      operator:     in-range
+      low:          400.0     # smallest legitimate cell_mass at the
+      high:         1500.0    # M9-glucose seed; bracket covers division
+    requires_simulation: static-env-baseline-multigen
+    cites: []
+    backs:
+      # Cross-reference to the v3 behavior_test this surfaces.
+      behavior_test: static-env-baseline-unchanged
+
+  - name:           growth-rate-positive
+    classification: supporting
+    description:    "Instantaneous growth rate stays positive throughout
+                    the run — confirms metabolism is producing mass
+                    under the static env driver."
+    measure:
+      path:         listeners__mass__instantaneous_growth_rate
+      source:       static-env-baseline-multigen parquet hive
+      observable:   per-cell μ instantaneous from mass listener
+      units:        '1/s'
+    pass_if:
+      operator:     greater-than
+      threshold:    0.0
+      field:        min_value
+    requires_simulation: static-env-baseline-multigen
+    cites: []
+    backs:
+      behavior_test: static-env-baseline-unchanged
+
+# Pytest discovery metadata (v3 holdover; kept for tooling compatibility
+# while v4 chart-rendering reads the tests[] block above).
+pytest:
   auto_discover: true
-  data_source: latest_run
-  pytest_args: []
-  last_results: null
+  data_source:   latest_run
+  pytest_args:   []
+  last_results:  null

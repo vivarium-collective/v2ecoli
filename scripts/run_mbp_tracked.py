@@ -67,7 +67,16 @@ DEFAULT_MAX_GENERATIONS = 3
 DEFAULT_CHUNK = 1   # per-tick emission (~80 ms/tick on this machine)
 DEFAULT_EMITTER = "parquet"   # workspace default (see workspace.yaml.runtime.default_emitter)
 DB_PATH = REPO_ROOT / ".pbg" / "composite-runs.db"
-PARQUET_OUT_ROOT = REPO_ROOT / ".pbg" / "composite-runs-parquet"
+# Per-study parquet roots: studies/<study_slug>/parquet-runs/<experiment_id>/...
+# This is the convention vivarium-dashboard's _latest_parquet_for_study reads
+# from (vivarium_dashboard/lib/study_charts.py:_latest_parquet_for_study).
+# The cross-investigation reference variant (study_slug not a real study)
+# also gets a per-slug directory so the dashboard can still discover it via
+# the same code path, even though no study.yaml lives there.
+STUDIES_ROOT = REPO_ROOT / "studies"
+
+def _parquet_root_for(study_slug: str) -> Path:
+    return STUDIES_ROOT / study_slug / "parquet-runs"
 
 # Agent-rooted emit paths (under agents/<id>/) shared by all variants.
 COMMON_AGENT_PATHS = [
@@ -260,14 +269,16 @@ def _run_one_variant(
     elif emitter == "parquet":
         # Workspace-default emitter (workspace.yaml.runtime.default_emitter).
         # Hive-partitioned per experiment_id/variant/lineage_seed/generation/agent_id.
-        # No central registry write — discovery happens by scanning the hive.
-        PARQUET_OUT_ROOT.mkdir(parents=True, exist_ok=True)
+        # Written under studies/<study_slug>/parquet-runs/ so vivarium-dashboard's
+        # _latest_parquet_for_study can discover them per-study.
+        parquet_root = _parquet_root_for(study_slug)
+        parquet_root.mkdir(parents=True, exist_ok=True)
 
         t_run = time.time()
         result = run_multigen_parquet(
             composite,
             experiment_id=simulation_id,
-            out_dir=str(PARQUET_OUT_ROOT),
+            out_dir=str(parquet_root),
             emit_paths=COMMON_AGENT_PATHS,
             extra_root_paths=extra_root_paths,
             max_steps=duration_sec,
@@ -280,10 +291,10 @@ def _run_one_variant(
         )
         wall_time = time.time() - t_run
 
-        n_rows = _count_parquet_rows(PARQUET_OUT_ROOT, simulation_id)
+        n_rows = _count_parquet_rows(parquet_root, simulation_id)
         max_step = n_rows - 1 if n_rows > 0 else 0
         artifact = str(
-            (PARQUET_OUT_ROOT / simulation_id).relative_to(REPO_ROOT)
+            (parquet_root / simulation_id).relative_to(REPO_ROOT)
         )
 
     else:
@@ -336,7 +347,7 @@ def main():
     if args.emitter == "sqlite":
         print(f"Workspace DB: {DB_PATH.relative_to(REPO_ROOT)}")
     else:
-        print(f"Parquet root: {PARQUET_OUT_ROOT.relative_to(REPO_ROOT)}/<simulation_id>/history/...")
+        print(f"Parquet roots: studies/<study_slug>/parquet-runs/<simulation_id>/history/...")
     print(f"Per-variant: emitter={args.emitter}  max_steps={args.duration_sec}s "
           f"({args.duration_sec/60:.0f} min), max_generations={args.max_generations}, "
           f"chunk={args.chunk}")

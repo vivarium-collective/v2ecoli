@@ -31,6 +31,11 @@ investigations/*/viz/
 investigations/*/.run.lock
 studies/*/sims/*.subprocess.py
 studies/*/viz/
+# ParquetEmitter hive-partitioned per-study runs (workspace-default
+# emitter per workspace.yaml.runtime.default_emitter). Each experiment_id
+# is its own hive subtree under studies/<study>/parquet-runs/ —
+# regenerable by re-running scripts/run_mbp_tracked.py --emitter parquet.
+studies/*/parquet-runs/
 reports/
 .dashboard.log
 # Dashboard re-render targets (regenerated on demand by /api/render)

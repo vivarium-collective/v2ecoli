@@ -576,6 +576,67 @@ runs:
                      across all three cpa runs (cells_per_agent only acts on
                      population.* outputs).
 
+  # ─── v2-parquet runs (2026-05-27): same sweep, workspace-default emitter ───
+  # Mirror of the v2-sqlite block above, captured via run_multigen_parquet
+  # under the workspace-default parquet emitter (workspace.yaml.runtime
+  # .default_emitter). Same 5 sims, same 120 sim-min, same 2-generation
+  # depth, same chunk=10 emit cadence. Hive partitioned per
+  # ParquetEmitter convention under studies/<study>/parquet-runs/.
+
+  - simulation:      aggregator-cpa1-multigen
+    simulation_id:   c0e3a175-25fc-49cf-8d72-b6168c2db9b1
+    seed:            0
+    cells_per_agent: 1.0
+    started_at:      '2026-05-27 19:37:50'
+    sim_seconds:     7200
+    n_history_rows:  720
+    chunk:           10
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/c0e3a175-25fc-49cf-8d72-b6168c2db9b1
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Parquet capture of the literal-sum aggregation. Pairs with the
+      v2-sqlite cpa1 run above (simulation_id 7e93cbd5) — both written
+      from identical composite + seed; row-level overlay should be
+      byte-identical (modulo emit-cadence float repr differences).
+
+  - simulation:      aggregator-cpa1e6-multigen
+    simulation_id:   f92d7e66-8f71-4fd0-8280-abe2aa98a495
+    seed:            0
+    cells_per_agent: 1.0e6
+    started_at:      '2026-05-27 19:50:25'
+    sim_seconds:     7200
+    n_history_rows:  720
+    chunk:           10
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/f92d7e66-8f71-4fd0-8280-abe2aa98a495
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Parquet capture of cpa=1e6. Pairs with v2-sqlite run 81c54ff5.
+
+  - simulation:      aggregator-cpa1e9-multigen
+    simulation_id:   7b4a5b5f-6d4e-4a06-9a6c-3ff0f335c7cc
+    seed:            0
+    cells_per_agent: 1.0e9
+    started_at:      '2026-05-27 20:03:17'
+    sim_seconds:     7200
+    n_history_rows:  720
+    chunk:           10
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/7b4a5b5f-6d4e-4a06-9a6c-3ff0f335c7cc
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Parquet capture of cpa=1e9 (Beulig-regime density via scaling).
+      Pairs with v2-sqlite run fff01fe9. Closes the scaling-factor
+      sweep under the workspace-default emitter — DuckDB / polars
+      analysis paths consume this set directly from the hive.
+
 
 tests:
   auto_discover: true

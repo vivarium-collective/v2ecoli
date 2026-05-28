@@ -453,6 +453,27 @@ runs:
                      multiscale-bioprocess-reference) byte-identical at every
                      emit. Use as the canonical static-mode regression run.
 
+  - simulation:      static-env-baseline-multigen
+    simulation_id:   15166838-67b2-45f7-960f-4f4d66e49421
+    seed:            0
+    started_at:      '2026-05-27 20:15:53'
+    sim_seconds:     7200
+    n_history_rows:  720
+    chunk:           10
+    generations:     [1, 2]
+    artifact:        studies/mbp-01-time-varying-environment/parquet-runs/15166838-67b2-45f7-960f-4f4d66e49421
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Workspace-default-emitter (parquet) version of the v2-sqlite run
+      above. Hive partitioned per ParquetEmitter convention
+      (experiment_id/variant/lineage_seed/generation/agent_id). Same
+      120-min sim, same 2 generations, same division events. Used to
+      sanity-check that the parquet emit path produces byte-equivalent
+      trajectory data to the sqlite path before colonies + mbp standardize
+      on parquet workspace-wide.
+
 
 tests:
   auto_discover: true

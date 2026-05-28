@@ -407,7 +407,7 @@ conclusion_verdicts:
       build cleanly and run in the dnaa_02_with_intrinsic_hydrolysis composite. Total DnaA pool sits at ~120-130/cell
       (close to the 115 dnaa-01 baseline) — no regression, slight growth-related drift over 30 min. '
   biological_validation:
-    result: MIXED
+    result: PENDING
     basis: 'CURRENT result — re-evaluated against coordinated generation gen-20260522T003700Z-9fcb58 (minimal-glucose,
       intrinsic-only: mechanism=intrinsic, clamp disabled, RIDA/datA/DARS deferred). Second-half medians: apo-dnaa-fraction-is-small
       : apo_frac = 0.000 <= 0.05 PASS; dnaa-atp-fraction-in-physiological-range : atp_frac = 0.997, NOT in [0.2,
@@ -427,7 +427,7 @@ conclusion_verdicts:
     - atp-pool-much-greater-than-adp test (need to capture bulk[ATP[c]] / bulk[ADP[c]] in the runner — pending)
     - 3-seed cross-seed confirmation (currently seed 0 only)
   explanatory_gain:
-    result: POSITIVE
+    result: PASS
     basis: 'Three findings worth keeping:
 
       1. The audit-resolved REUSE plan (dnaa-02-EQ-02) was incomplete: it accounted for STATIC species presence

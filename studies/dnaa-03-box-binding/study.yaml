@@ -472,7 +472,7 @@ conclusion_verdicts:
       nM, not a Hill coefficient). Composite recipe dnaa_03_with_box_binding builds cleanly on top of dnaa-02 and
       runs to division without regressions to the baseline cell biology. '
   biological_validation:
-    result: REFRESH PENDING
+    result: PENDING
     basis: 'No refreshed numeric verdict from the coordinated generation (gen-20260522T003700Z-9fcb58, minimal-GLUCOSE).
       All four behavior tests use measure kinds — monotonic_increasing, conditional_check, ratio, time_lag — that
       the current scalar evaluator cannot auto-verdict, so each test is marked "refresh pending (measure kind not
@@ -492,7 +492,7 @@ conclusion_verdicts:
     - free-dnaa-rises-after-titration validation via multi-generation run
     - site-mutation perturbation (remove subset, observe oriC fill shift)
   explanatory_gain:
-    result: POSITIVE
+    result: PASS
     basis: 'Three findings worth keeping:
 
       1. dnaa-01 calibration shortfall has downstream consequences. With 115 DnaA / cell, the chromosome''s 307

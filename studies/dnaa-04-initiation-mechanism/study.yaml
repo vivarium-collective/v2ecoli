@@ -439,7 +439,7 @@ pipeline_gate:
     '
 conclusion_verdicts:
   regression_compatibility:
-    result: refresh pending (measure kind not auto-evaluable in the current evaluator)
+    result: PENDING
     prior_recorded_result: PASS
     note: Prior recorded analysis pending verdict refresh. The coordinated generation gen-20260522T003700Z-9fcb58
       produced no refreshed numeric verdict for this study.
@@ -457,7 +457,7 @@ conclusion_verdicts:
 
       '
   biological_validation:
-    result: refresh pending (measure kind not auto-evaluable in the current evaluator)
+    result: PENDING
     prior_recorded_result: PASS-WITH-CHARACTERISED-OFFSET
     note: Prior recorded analysis pending verdict refresh. The coordinated generation gen-20260522T003700Z-9fcb58
       produced no refreshed numeric verdict; the delta_t / count measures behind this offset are not auto-evaluable
@@ -479,7 +479,7 @@ conclusion_verdicts:
       \ and stable across seeds (TBD —\nneed multi-seed rerun with the gate) is a positive validation\nsignal for\
       \ the mechanism.\n"
   explanatory_gain:
-    result: refresh pending (measure kind not auto-evaluable in the current evaluator)
+    result: PENDING
     prior_recorded_result: POSITIVE
     note: Prior recorded analysis pending verdict refresh. The shadow-observer mechanism description below is current;
       the cross-seed CV and refractory-sweep numbers are prior recorded analysis, not current coordinated-generation

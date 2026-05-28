@@ -362,7 +362,7 @@ conclusion_verdicts:
       \ RIDA\ncontribution shifts the steady-state balance enough for the\nclamp's transfers to stick.\n"
     blocking_evidence_needed: []
   explanatory_gain:
-    result: POSITIVE
+    result: PASS
     basis: "Three findings worth keeping:\n\n1. The original dnaa-02 PASS comes from the CLAMP, not the\n   biology.\
       \ The intrinsic-only rate (Sekimizu 0.046/min) is too\n   slow to produce any meaningful DnaA-ADP accumulation\
       \ against\n   v2ecoli's equilibrium reverse flux. The clamp Step is the\n   actor; the monkey-patch was a\

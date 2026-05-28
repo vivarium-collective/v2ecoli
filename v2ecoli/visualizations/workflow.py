@@ -142,8 +142,135 @@ def _coord_to_angle(coord):
     return np.pi / 2 - frac * np.pi
 
 
-def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
-    """Draw one circular chromosome at (cx, cy) with RNAP and forks."""
+def _pair_forks(fork_coords):
+    """Pair signed fork coordinates by sorted-symmetric matching.
+
+    Bidirectional replication runs both forks of a bubble in opposite
+    directions from oriC, so the most-progressed bubble pairs the most
+    extreme negative coord with the most extreme positive coord. Returns
+    pairs sorted from outermost (most progressed) to innermost (just fired).
+    Adapted from PR #28 (`reports/replication_initiation_report.py`).
+    """
+    sorted_forks = sorted(int(c) for c in fork_coords)
+    n_pairs = len(sorted_forks) // 2
+    pairs = [(sorted_forks[i], sorted_forks[-1 - i]) for i in range(n_pairs)]
+    pairs.sort(key=lambda p: -(abs(p[0]) + abs(p[1])) / 2)
+    return pairs
+
+
+def _bubble_inset_radii(R, n_pairs):
+    """Inset radii for replication bubbles — outermost (most-progressed) first.
+
+    Multifork (overlapping rounds) → multiple concentric bubbles at decreasing
+    radii so they're all visible inside the parent chromosome rim.
+    """
+    import numpy as np
+    if n_pairs == 0:
+        return []
+    if n_pairs == 1:
+        return [R * 0.78]
+    return list(np.linspace(R * 0.80, R * 0.50, n_pairs))
+
+
+def _descendant_domains(domain_children, root):
+    """All transitive descendants of ``root`` (excluding root itself)."""
+    seen = set()
+    stack = list((domain_children or {}).get(root, []))
+    while stack:
+        d = stack.pop()
+        if d in seen:
+            continue
+        seen.add(d)
+        stack.extend((domain_children or {}).get(d, []))
+    return seen
+
+
+def _draw_replication_bubbles(ax, cx, cy, R, fork_coords, *,
+                              fork_domains=None,
+                              rnap_coords_by_domain=None,
+                              domain_children=None):
+    """Draw nested replication bubbles inside the chromosome rim.
+
+    Each fork pair → a green arc tracing the newly-replicated portion from
+    one fork through oriC (at top, π/2) to the other fork. This is the
+    newly-synthesized daughter strand still tethered to the parent
+    chromosome at both fork positions.
+
+    If ``fork_domains`` + ``rnap_coords_by_domain`` + ``domain_children`` are
+    provided, RNAPs whose domain_index descends from the fork-pair's parent
+    domain are plotted ON the bubble arc (they're transcribing the new
+    daughter strand). Returns ``(radii, daughter_rnap_domain_set)`` so the
+    caller can plot the remaining RNAPs on the rim.
+    """
+    import numpy as np
+    pairs = _pair_forks(fork_coords)
+    if not pairs:
+        return [], set()
+    radii = _bubble_inset_radii(R, len(pairs))
+    bubble_color = '#10b981'
+    a_oric = np.pi / 2
+    fork_domains = fork_domains or []
+    rnap_coords_by_domain = rnap_coords_by_domain or {}
+    domain_children = domain_children or {}
+
+    # Map each fork pair → the parent domain that's being replicated.
+    fork_to_dom: dict[tuple[int, int], int | None] = {}
+    if len(fork_domains) == len(fork_coords):
+        for p in pairs:
+            for c, d in zip(fork_coords, fork_domains):
+                if int(c) == p[0] or int(c) == p[1]:
+                    fork_to_dom[p] = int(d)
+                    break
+
+    plotted_daughter_doms: set[int] = set()
+    for pair, r_bubble in zip(pairs, radii):
+        f_lo, f_hi = pair
+        a_lo = _coord_to_angle(int(f_lo))
+        a_hi = _coord_to_angle(int(f_hi))
+        a_min, a_max = sorted([a_lo, a_hi])
+        if a_min <= a_oric <= a_max:
+            theta = np.linspace(a_min, a_max, 120)
+        else:
+            theta = np.linspace(a_max, a_min + 2 * np.pi, 120)
+        ax.plot(cx + r_bubble * np.cos(theta),
+                cy + r_bubble * np.sin(theta),
+                color=bubble_color, lw=3.5, alpha=0.6, zorder=2,
+                solid_capstyle='round')
+        for f in (f_lo, f_hi):
+            a = _coord_to_angle(int(f))
+            ax.plot([cx + r_bubble * np.cos(a), cx + R * np.cos(a)],
+                    [cy + r_bubble * np.sin(a), cy + R * np.sin(a)],
+                    color=bubble_color, lw=1.0, alpha=0.4, zorder=2)
+
+        # Plot daughter-strand RNAPs ON this bubble. Daughters = the
+        # transitive children of the parent domain replicating in this pair.
+        parent_dom = fork_to_dom.get(pair)
+        if parent_dom is None:
+            continue
+        daughter_doms = _descendant_domains(domain_children, parent_dom)
+        for d in daughter_doms:
+            coords = rnap_coords_by_domain.get(d, [])
+            if not coords:
+                continue
+            plotted_daughter_doms.add(d)
+            angles = [_coord_to_angle(c) for c in coords]
+            rx = [cx + r_bubble * np.cos(a) for a in angles]
+            ry = [cy + r_bubble * np.sin(a) for a in angles]
+            ax.scatter(rx, ry, c='#3b82f6', s=3, alpha=0.45, zorder=3)
+    return radii, plotted_daughter_doms
+
+
+def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords,
+                     *, rnap_domains=None, fork_domains=None,
+                     domain_children=None):
+    """Draw one circular chromosome at (cx, cy).
+
+    Renders: parent rim (gray circle), oriC (green dot, top), Ter (red square,
+    bottom), forks (gold triangles at rim), replication bubbles (green arcs
+    inside the rim), and RNAPs (blue dots). When domain bookkeeping is passed
+    in, daughter-strand RNAPs are plotted on the bubble arcs and parent-strand
+    RNAPs on the rim; otherwise all RNAPs go on the rim.
+    """
     import numpy as np
     theta = np.linspace(0, 2 * np.pi, 200)
     ax.plot(cx + R * np.cos(theta), cy + R * np.sin(theta),
@@ -151,11 +278,32 @@ def _draw_chromosome(ax, cx, cy, R, rnap_coords, fork_coords):
     ax.plot(cx, cy + R, 'o', color='#10b981', ms=7, zorder=5)
     ax.plot(cx, cy - R, 's', color='#ef4444', ms=5, zorder=5)
 
+    # Group RNAPs by domain so the bubble drawer can pull daughter-strand ones.
+    rnap_by_domain: dict[int, list[int]] = {}
+    if rnap_coords and rnap_domains and len(rnap_coords) == len(rnap_domains):
+        for c, d in zip(rnap_coords, rnap_domains):
+            rnap_by_domain.setdefault(int(d), []).append(int(c))
+
+    # Rim RNAPs: ALL of them, regardless of domain. The parent rim
+    # represents one of the daughter chromosomes (or the parent before
+    # initiation); after a region is replicated, that physical location
+    # still carries RNAPs from one of the two daughter strands. The
+    # bubble below represents the OTHER daughter strand.
     if rnap_coords:
         angles = [_coord_to_angle(c) for c in rnap_coords]
         rx = [cx + R * np.cos(a) for a in angles]
         ry = [cy + R * np.sin(a) for a in angles]
-        ax.scatter(rx, ry, c='#3b82f6', s=3, alpha=0.3, zorder=3)
+        ax.scatter(rx, ry, c='#3b82f6', s=6, alpha=0.55, zorder=3)
+
+    # Bubble RNAPs: descendant-domain RNAPs ALSO plotted at the bubble
+    # radius to show the second daughter strand carries its own RNAPs.
+    if fork_coords:
+        _draw_replication_bubbles(
+            ax, cx, cy, R, fork_coords,
+            fork_domains=fork_domains,
+            rnap_coords_by_domain=rnap_by_domain,
+            domain_children=domain_children,
+        )
 
     for coord in fork_coords:
         angle = _coord_to_angle(coord)
@@ -170,14 +318,20 @@ def _plot_chromosome_map(snapshot, ax, title=''):
     import numpy as np
     n_chrom = max(1, snapshot.get('n_chromosomes', 1))
     rnap_coords = snapshot.get('rnap_coords', [])
+    rnap_domains = snapshot.get('rnap_domains') or []
     fork_coords = snapshot.get('fork_coords', [])
+    fork_domains = snapshot.get('fork_domains') or []
+    domain_children = snapshot.get('domain_children') or {}
 
     rnap_per = len(rnap_coords) // max(n_chrom, 1)
     forks_per = 2
 
     if n_chrom == 1:
         R = 0.9
-        _draw_chromosome(ax, 0, 0, R, rnap_coords, fork_coords)
+        _draw_chromosome(ax, 0, 0, R, rnap_coords, fork_coords,
+                         rnap_domains=rnap_domains,
+                         fork_domains=fork_domains,
+                         domain_children=domain_children)
         ax.set_xlim(-1.3, 1.3)
         ax.set_ylim(-1.3, 1.3)
     else:
@@ -192,9 +346,14 @@ def _plot_chromosome_map(snapshot, ax, title=''):
             f_start = ci * forks_per
             f_end = min(f_start + forks_per, len(fork_coords))
 
-            _draw_chromosome(ax, 0, cy, R,
-                             rnap_coords[r_start:r_end],
-                             fork_coords[f_start:f_end])
+            _draw_chromosome(
+                ax, 0, cy, R,
+                rnap_coords[r_start:r_end],
+                fork_coords[f_start:f_end],
+                rnap_domains=rnap_domains[r_start:r_end] if rnap_domains else None,
+                fork_domains=fork_domains[f_start:f_end] if fork_domains else None,
+                domain_children=domain_children,
+            )
 
         margin = R + 0.3
         ax.set_xlim(-margin, margin)
@@ -281,6 +440,156 @@ def _plot_chromosome_state(snapshots, title=''):
         plt.tight_layout()
     except Exception:
         plt.subplots_adjust(hspace=0.3, wspace=0.3)
+    return _fig_to_b64(fig)
+
+
+def _plot_oric_tier_split(snapshots, title=''):
+    """Load-and-trigger at oriC: per-tier bound-box count over time.
+
+    Adapted from PR #28 ``_oric_tier_split_plot``. Plots the count of
+    occupied high-affinity boxes (3 total — R1/R2/R4, Kd ≈ 1 nM, ATP/ADP)
+    vs low-affinity boxes (8 total — R5M/τ2/I1-3/C1-3, Kd > 100 nM, ATP
+    only, cooperative). Ceiling lines at 3 and 8 mark tier saturation.
+
+    Reads ``oric_high_count`` and ``oric_low_count`` from each snapshot
+    (extracted from ``listeners.dnaA_binding.oric.high_affinity_occupied``
+    and ``low_affinity_occupied`` × tier sizes).
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    if not snapshots:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, 'No data', ha='center', va='center')
+        return _fig_to_b64(fig)
+
+    times = np.array([s['time'] / 60 for s in snapshots])
+    oric_h = np.array([float(s.get('oric_high_count') or 0) for s in snapshots])
+    oric_l = np.array([float(s.get('oric_low_count') or 0) for s in snapshots])
+
+    if not (np.any(oric_h) or np.any(oric_l)):
+        fig, ax = plt.subplots(figsize=(11, 4.0))
+        ax.text(0.5, 0.5,
+                'No per-tier oriC binding data — '
+                'composite needs the box-binding step (dnaa-03 architecture)',
+                ha='center', va='center', fontsize=11, color='#92400e')
+        ax.axis('off')
+        return _fig_to_b64(fig)
+
+    fig, ax = plt.subplots(figsize=(11, 4.0))
+    ax.step(times, oric_h, where='post', color='#10b981', lw=2.2,
+            label='bound_oric_high (3 boxes; R1 / R2 / R4; '
+                  'Kd ≈ 1 nM, both ATP and ADP forms)')
+    ax.step(times, oric_l, where='post', color='#f59e0b', lw=2.2,
+            label='bound_oric_low (8 boxes; R5M / τ2 / I1-3 / C1-3; '
+                  'Kd > 100 nM, ATP-only, cooperative)')
+    ax.axhline(3, color='#10b981', ls=':', lw=1.0, alpha=0.6)
+    ax.axhline(8, color='#f59e0b', ls=':', lw=1.0, alpha=0.6)
+    if len(times):
+        ax.text(times[-1], 3.05, 'high-tier ceiling (3)',
+                fontsize=8, ha='right', va='bottom', color='#065f46')
+        ax.text(times[-1], 8.05, 'low-tier ceiling (8)',
+                fontsize=8, ha='right', va='bottom', color='#92400e')
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('Bound boxes at oriC')
+    ax.set_title(title or 'Load-and-trigger at oriC: high-affinity tier '
+                          'saturates fast, low-affinity tier fills slowly')
+    ax.set_ylim(0, 12)
+    ax.legend(loc='center right', fontsize=9)
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+    return _fig_to_b64(fig)
+
+
+def _plot_chromosome_timeline(snapshots, title='', annotate_events: bool = True):
+    """Row of chromosome diagrams at 5 timepoints + bottom step-plot of
+    n_chromosomes / n_oriC / n_replisomes with initiation + chromosome-
+    doubling vertical lines.
+
+    Adapted from PR #28 ``_chromosome_timeline_plot`` (RIDA-flux figure for
+    dnaa-02 / dnaa-06 — the point of the figure is "replisomes drive RIDA").
+    Uses this module's :func:`_draw_chromosome` for the per-snapshot
+    discs (so each disc carries the green replication-bubble arc + the
+    daughter-strand RNAPs we already render).
+    """
+    import numpy as np
+    import matplotlib.pyplot as plt
+
+    if not snapshots:
+        fig, ax = plt.subplots(figsize=(6, 4))
+        ax.text(0.5, 0.5, 'No chromosome data', ha='center', va='center')
+        return _fig_to_b64(fig)
+
+    n = len(snapshots)
+    if n >= 5:
+        indices = [0, n // 4, n // 2, 3 * n // 4, n - 1]
+    elif n >= 3:
+        indices = [0, n // 2, n - 1]
+    else:
+        indices = list(range(n))
+    indices = sorted(set(indices))
+
+    n_maps = len(indices)
+    fig = plt.figure(figsize=(max(11, n_maps * 3.2), 9.0))
+    if title:
+        fig.suptitle(title, fontsize=14, y=0.99)
+
+    for i, idx in enumerate(indices):
+        ax = fig.add_subplot(2, n_maps, i + 1)
+        snap = snapshots[idx]
+        # Route through _plot_chromosome_map so n_chromosomes > 1 stacks
+        # SEPARATE chromosome circles (each with its own bubble), rather
+        # than nesting both bubbles inside one rim — the post-division /
+        # multifork case is otherwise visually wrong.
+        _plot_chromosome_map(snap, ax)
+        ax.axis('off')
+        n_chrom = int(snap.get('n_chromosomes') or 1)
+        n_fork = len(snap.get('fork_coords') or [])
+        ax.set_title(
+            f't = {snap["time"] / 60:.1f} min\n'
+            f'chromosomes={n_chrom}  replisomes={n_fork}',
+            fontsize=10,
+        )
+
+    ax = fig.add_subplot(2, 1, 2)
+    times = np.array([s['time'] / 60 for s in snapshots])
+    n_chrom_arr = np.array([(s.get('n_chromosomes') or 0) for s in snapshots])
+    n_fork_arr = np.array([len(s.get('fork_coords') or []) for s in snapshots])
+    n_rnap_arr = np.array([(s.get('n_rnap') or len(s.get('rnap_coords') or [])) for s in snapshots])
+
+    ax.step(times, n_chrom_arr, where='post', color='#7c3aed', lw=2.4,
+            label='chromosomes')
+    ax.step(times, n_fork_arr, where='post', color='#f59e0b', lw=2.0,
+            label='active replisomes')
+
+    if annotate_events:
+        for i in range(1, len(n_fork_arr)):
+            # Initiation event = replisome count went UP (new forks fired).
+            if n_fork_arr[i] > n_fork_arr[i - 1]:
+                ax.axvline(times[i], color='#dc2626', ls='--', lw=0.9, alpha=0.5,
+                           label='initiation event' if i == 1 else None)
+        for i in range(1, len(n_chrom_arr)):
+            if n_chrom_arr[i] > n_chrom_arr[i - 1]:
+                ax.axvline(times[i], color='#1d4ed8', ls=':', lw=1.2, alpha=0.7,
+                           label='chromosome doubled' if i == 1 else None)
+
+    for idx in indices:
+        ax.axvline(times[idx], color='#94a3b8', ls=':', lw=1.0, alpha=0.45, zorder=0)
+
+    ax.set_xlabel('Time (min)')
+    ax.set_ylabel('Count')
+    ax.set_title('Replication timeline (grey dotted = snapshots above; '
+                 'red dashed = initiation; blue dotted = chromosome doubled). '
+                 'RIDA flux is gated on active-replisome count → this is the substrate '
+                 'pool RIDA reads each tick.')
+    ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+    ax.legend(loc='upper left', fontsize=9)
+    ax.grid(True, alpha=0.2)
+
+    try:
+        fig.tight_layout()
+    except Exception:
+        plt.subplots_adjust(hspace=0.3)
     return _fig_to_b64(fig)
 
 

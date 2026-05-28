@@ -22,6 +22,7 @@ Exported names (all are considered semi-private implementation details):
 from __future__ import annotations
 
 import copy
+import warnings
 
 import numpy as np
 
@@ -81,15 +82,17 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # ---------------------------------------------------------------------------
 # Shared by baseline / departitioned / reconciled — all three resolve to the
 # same observables.mass / unique-molecule layout so the same viz tiles apply.
-# Surfaced via ``@composite_generator(visualizations=...)`` so any Study
-# built on one of these architectures inherits the v2ecoli simulation report
-# panels without having to hand-author them in spec.yaml.
-#
-# Coverage:
-#   - workflow: integrated WorkflowVisualization (chromosome state + replication
-#     forks + ppGpp dynamics + mass fold change + division — the full legacy
-#     simulation report)
-#   - topology: NetworkVisualization of the process wiring
+# Opt-in: every study built on one of the v2ecoli single-cell composites
+# (baseline / reconciled / departitioned) that wants the legacy
+# WorkflowVisualization + NetworkVisualization panels must declare them
+# explicitly in its study.yaml `visualizations:` block. Auto-attaching them
+# here used to be the default, but the panels rendered confusingly empty for
+# planning-not-yet-run studies and for any study whose runs.db wasn't
+# populated yet — see docs/superpowers/notes/2026-05-19-dashboard-runner-friction.md
+# item #17. Re-enable per study by copying the two-entry list below into
+# the study's spec, OR opt back into project-wide auto-attach by setting
+# ``visualizations=v2ecoli_default_single_cell_visualizations()`` on the
+# specific @composite_generator call.
 #
 # Note: the cell-mass / cell-volume / growth-rate / absolute-mass-components /
 # mass-fold-change TimeSeriesPlots that previously lived here used a
@@ -99,18 +102,27 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # those plots came out with empty y-data even though the emitter recorded
 # them. They will land back here once the dashboard grows a short-name /
 # leaf-name resolver for canonical viz wiring.
-DEFAULT_SINGLE_CELL_VISUALIZATIONS = [
-    {
-        'name': 'workflow',
-        'address': 'local:WorkflowVisualization',
-        'config': {'title': 'v2ecoli — single-cell lifecycle'},
-    },
-    {
-        'name': 'topology',
-        'address': 'local:NetworkVisualization',
-        'config': {'title': 'Process topology'},
-    },
-]
+DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = []
+
+
+def v2ecoli_default_single_cell_visualizations() -> list[dict]:
+    """The legacy workflow + topology viz spec, available for explicit opt-in.
+
+    Returns a fresh list each call so the consumer can mutate without
+    polluting other studies' specs.
+    """
+    return [
+        {
+            'name': 'workflow',
+            'address': 'local:WorkflowVisualization',
+            'config': {'title': 'v2ecoli — single-cell lifecycle'},
+        },
+        {
+            'name': 'topology',
+            'address': 'local:NetworkVisualization',
+            'config': {'title': 'Process topology'},
+        },
+    ]
 
 ALLOCATOR_LAYERS = {
     # RNA degradation + chromosome + plasmid replication share allocator_2.
@@ -141,11 +153,23 @@ ALLOCATOR_LAYERS = {
 # ensures the override is cleared even on exceptions.
 _EMITTER_OVERRIDE: dict | None = None
 
+# Parallel override for the ParquetEmitter path. When set, the 'emitter' step
+# materialises as a v2ecoli ParquetEmitter writing to a hive-partitioned dir,
+# independent of the SQLite override above. Both may be set simultaneously
+# (parquet wins — sqlite stays available for dashboard's Simulations-DB tab).
+_PARQUET_EMITTER_OVERRIDE: dict | None = None
+
 
 def set_emitter_override(config: dict | None) -> None:
-    """Set the module-level emitter override. Pass None to clear."""
+    """Set the module-level SQLite emitter override. Pass None to clear."""
     global _EMITTER_OVERRIDE
     _EMITTER_OVERRIDE = config
+
+
+def set_parquet_emitter_override(config: dict | None) -> None:
+    """Set the module-level Parquet emitter override. Pass None to clear."""
+    global _PARQUET_EMITTER_OVERRIDE
+    _PARQUET_EMITTER_OVERRIDE = config
 
 
 import contextlib  # noqa: E402
@@ -323,6 +347,112 @@ def sqlite_emitter(*, file_path: str | None = None,
         set_emitter_override(None)
 
 
+@contextlib.contextmanager
+def parquet_emitter(*, out_dir: str | None = None,
+                    experiment_id: str | None = None,
+                    variant: int = 0,
+                    lineage_seed: int = 0,
+                    generation: int | None = None,
+                    agent_id: str = "1",
+                    batch_size: int = 400,
+                    threaded: bool = True,
+                    study_slug: str | None = None,
+                    investigation_slug: str | None = None,
+                    extra_metadata: dict | None = None):
+    """Context manager: build composite with a ParquetEmitter step.
+
+    Workspace-default ``out_dir`` is ``<workspace_root>/.pbg/parquet-runs/``.
+    Hive partitioning matches vEcoli's layout
+    (``experiment_id=.../variant=.../lineage_seed=.../generation=.../agent_id=...``),
+    so anyone with a vEcoli analysis pipeline can point at the output dir
+    directly.
+
+    Usage::
+
+        with parquet_emitter(experiment_id='baseline-seed0',
+                             study_slug='dnaa-01-expression-dynamics'):
+            doc = baseline(cache_dir='out/cache')
+            comp = Composite(doc, core=core)
+            comp.update({}, 60.0 * 60)
+
+    Storage trade-off vs ``sqlite_emitter()``: Parquet is column-oriented and
+    typically 3-5x smaller on disk for v2ecoli-shaped runs (sparse arrays,
+    listener-heavy schema). The dashboard's Simulations-DB tab does not yet
+    read parquet — for now use ``sqlite_emitter()`` if dashboard inspection
+    is required.
+    """
+    if out_dir is None:
+        ws_root = _find_workspace_root()
+        if ws_root is None:
+            raise RuntimeError(
+                "parquet_emitter(): no out_dir given and no workspace.yaml "
+                "found walking up from cwd; either run from inside a "
+                "workspace or pass out_dir explicitly.")
+        out_dir = str(ws_root / ".pbg" / "parquet-runs")
+
+    if experiment_id is None:
+        experiment_id = "default-" + uuid.uuid4().hex[:8]
+
+    # Build the emitter config dict via the vEcoli-shaped preset so the
+    # hive layout + dtype overrides match upstream conventions exactly.
+    from v2ecoli.library.emitter_presets import parquet_vecoli
+    cfg = parquet_vecoli(
+        out_dir=out_dir,
+        experiment_id=experiment_id,
+        variant=variant,
+        lineage_seed=lineage_seed,
+        agent_id=agent_id,
+        generation=generation,
+        batch_size=batch_size,
+        threaded=threaded,
+        extra_metadata=extra_metadata,
+    )
+    # Carry the study/investigation slugs in metadata so downstream readers
+    # can group hive-partitioned runs by study without crossing into the
+    # SQLite simulations-table convention.
+    if study_slug or investigation_slug:
+        meta = dict(cfg.get("metadata") or {})
+        if study_slug:
+            meta["study_slug"] = study_slug
+        if investigation_slug:
+            meta["investigation_slug"] = investigation_slug
+        cfg["metadata"] = meta
+
+    set_parquet_emitter_override(cfg)
+    try:
+        yield cfg
+    finally:
+        set_parquet_emitter_override(None)
+
+
+def flush_parquet(composite, *, success: bool = True) -> int:
+    """Flush all ParquetEmitter steps inside ``composite`` to disk.
+
+    The ``parquet_emitter()`` context manager only sets / clears the global
+    override — it never sees the composite, so it cannot trigger ``close()``
+    on the emitter step. Without an explicit flush the trailing partial
+    batch (rows after the last batch_size flush) stays in memory; only the
+    ``configuration/`` parquet lands, no ``history/`` or ``success/``.
+
+    Call this right before the runner exits its ``with parquet_emitter(...)``
+    block, after the simulation loop completes::
+
+        with parquet_emitter(out_dir=..., experiment_id=...):
+            composite = build_composite(...)
+            ... sim loop ...
+            flush_parquet(composite, success=True)
+
+    Returns the number of ParquetEmitter instances flushed (0 when the
+    [parquet] extra is not installed or the composite has no parquet
+    emitter step).
+    """
+    try:
+        from pbg_emitters import ParquetEmitter
+    except ImportError:
+        return 0
+    return ParquetEmitter.flush_all_in_composite(composite, success=success)
+
+
 # ---------------------------------------------------------------------------
 # Wiring helpers
 # ---------------------------------------------------------------------------
@@ -453,8 +583,18 @@ def seed_mass_listener(cell_state, core):
             if delta and 'listeners' in delta:
                 mass = delta['listeners'].get('mass', {})
                 cell_state['listeners']['mass'].update(mass)
-        except Exception:
-            pass
+        except Exception as exc:
+            # Don't crash composite construction if the mass listener fails
+            # on partial state — but surface the failure. A silent miss here
+            # leaves cell_mass=0, which surfaces several layers downstream
+            # as a non-finite y_init in Equilibrium's ODE solver.
+            warnings.warn(
+                f"seed_mass_listener({name}) failed: "
+                f"{type(exc).__name__}: {exc}. "
+                f"cell_mass / dry_mass left unset.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
         break
 
 
@@ -636,6 +776,14 @@ def _get_special_step(loader, step_name, core):
 
     if step_name == 'emitter':
         from process_bigraph.emitter import RAMEmitter, SQLiteEmitter
+        # ParquetEmitter is optional — the import lives behind an extra so
+        # workspaces without the [parquet] extra still build composites.
+        # Imported directly from pbg-emitters (the upstream library);
+        # ``v2ecoli.library.parquet_emitter`` is just a re-export shim.
+        try:
+            from pbg_emitters import ParquetEmitter
+        except ImportError:
+            ParquetEmitter = None  # type: ignore[assignment]
         # Mass listener fields — always emitted, used by the workflow report.
         mass_schema = {
             'cell_mass': 'float',
@@ -658,8 +806,10 @@ def _get_special_step(loader, step_name, core):
         # the dnaa-investigation readouts: monomer_counts / rna_counts /
         # rna_synth_prob / rnap_data. Cheap to add — they're already in the
         # per-step state tree.
+        # Parquet override wins over SQLite — see set_parquet_emitter_override.
+        parquet_override = _PARQUET_EMITTER_OVERRIDE
         override = _EMITTER_OVERRIDE
-        if override is not None:
+        if (parquet_override is not None or override is not None):
             # Only the leaves the dnaa-investigation readouts actually consume.
             # NB: ``monomer_counts`` is a flat array store (not nested under
             # a ``monomerCounts`` key) — confirmed at runtime via the
@@ -685,31 +835,71 @@ def _get_special_step(loader, step_name, core):
                 },
             })
 
-        emit_schema = {
-            'global_time': 'float',
-            'bulk': 'array',
-            'listeners': listeners_schema,
-            'full_chromosome': 'node',
-            'active_replisome': 'node',
-            'active_RNAP': 'node',
-            'chromosome_domain': 'node',
-        }
-
-        if override is not None:
+        if parquet_override is not None:
+            # Parquet path — column-oriented hive-partitioned output. Same
+            # lightweight schema as SQLite (global_time + listeners only) for
+            # the same reasons documented in the SQLite branch below.
+            if ParquetEmitter is None:
+                raise ImportError(
+                    "ParquetEmitter override set but [parquet] extra not "
+                    "installed. Run: pip install 'v2ecoli[parquet]'"
+                )
+            emit_schema = {
+                'global_time': 'float',
+                'listeners': listeners_schema,
+            }
+            topo = {
+                'global_time': ('global_time',),
+                'listeners': ('listeners',),
+            }
+            cfg = {'emit': emit_schema, **parquet_override}
+            instance = ParquetEmitter(cfg, core)
+        elif override is not None:
+            # Persistent SQLite path (default-baseline + per-study run
+            # scripts). Capture ONLY global_time + listeners. The raw
+            # ``bulk`` store (~25k molecules) and the unique-node structures
+            # (full_chromosome / active_replisome / active_RNAP /
+            # chromosome_domain) are MULTI-MB PER ROW — emitting them every
+            # tick produced a 5.5 GB default-baseline db (1.75 MB × 2461
+            # rows) that timed out the dashboard's post-hoc chart extraction
+            # (blank study pages). No viz/test reads them: study yamls
+            # declare listeners.* paths, and raw bulk-id paths aren't even
+            # json_extract-able. The bulk-derived observable studies DO use
+            # (monomer_counts) lives under listeners and is kept.
+            emit_schema = {
+                'global_time': 'float',
+                'listeners': listeners_schema,
+            }
+            topo = {
+                'global_time': ('global_time',),
+                'listeners': ('listeners',),
+            }
             cfg = {'emit': emit_schema, **override}
             instance = SQLiteEmitter(cfg, core)
         else:
+            # In-memory RAMEmitter: no disk cost, so keep the full capture
+            # (bulk + chromosome/replisome structures) for callers that
+            # want the complete state tree in RAM.
+            emit_schema = {
+                'global_time': 'float',
+                'bulk': 'array',
+                'listeners': listeners_schema,
+                'full_chromosome': 'node',
+                'active_replisome': 'node',
+                'active_RNAP': 'node',
+                'chromosome_domain': 'node',
+            }
+            topo = {
+                'global_time': ('global_time',),
+                'bulk': ('bulk',),
+                'listeners': ('listeners',),
+                'full_chromosome': ('unique', 'full_chromosome'),
+                'active_replisome': ('unique', 'active_replisome'),
+                'active_RNAP': ('unique', 'active_RNAP'),
+                'chromosome_domain': ('unique', 'chromosome_domain'),
+            }
             instance = RAMEmitter({'emit': emit_schema}, core)
 
-        topo = {
-            'global_time': ('global_time',),
-            'bulk': ('bulk',),
-            'listeners': ('listeners',),
-            'full_chromosome': ('unique', 'full_chromosome'),
-            'active_replisome': ('unique', 'active_replisome'),
-            'active_RNAP': ('unique', 'active_RNAP'),
-            'chromosome_domain': ('unique', 'chromosome_domain'),
-        }
         return instance, topo, 'step'
 
     if step_name == 'ppgpp-initiation':

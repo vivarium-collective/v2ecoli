@@ -18,10 +18,24 @@ Architecture-specific helpers (``build_execution_layers``, ``DEFAULT_FEATURES``,
 
 from __future__ import annotations
 
+import binascii
 import copy
 from typing import Any
 
 import numpy as np
+
+
+def _derive_process_seed(master_seed: int, process_name: str) -> int:
+    """Derive a per-process RNG seed from (master_seed, process_name).
+
+    Without this, all stochastic processes inherit the same cache-derived seed,
+    so multi-seed ensembles collapse to bit-identical trajectories. CRC32 with
+    master_seed as the initial state, keyed by process name, gives each process
+    its own 32-bit positive seed that varies across master_seeds (ensemble
+    diversity) but is stable per (master_seed, process_name) pair (reproducibility).
+    Mirrors the pattern already used in v2ecoli/steps/division.py.
+    """
+    return binascii.crc32(process_name.encode("utf-8"), master_seed) & 0x7FFFFFFF
 
 from pbg_superpowers.composite_generator import composite_generator
 
@@ -166,8 +180,13 @@ FLOW_ORDER = [step for layer in build_execution_layers(DEFAULT_FEATURES) for ste
 # Step instantiation (partitioned / baseline architecture)
 # ---------------------------------------------------------------------------
 
-def _get_step_config(loader, step_name, core, process_cache=None):
-    """Get (instance, topology, edge_type[, in_topo, out_topo]) for a step."""
+def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0):
+    """Get (instance, topology, edge_type[, in_topo, out_topo]) for a step.
+
+    master_seed: investigation-level seed; per-process seeds are derived via
+    _derive_process_seed(master_seed, base_name) so each stochastic process
+    gets a distinct, reproducible seed across an ensemble.
+    """
     from v2ecoli.processes.equilibrium import Equilibrium
     from v2ecoli.processes.two_component_system import TwoComponentSystem
     from v2ecoli.processes.rna_maturation import RnaMaturation
@@ -259,6 +278,9 @@ def _get_step_config(loader, step_name, core, process_cache=None):
 
     from v2ecoli.library.config_resolver import resolve_config
     config = resolve_config(config) if config else config
+
+    if isinstance(config, dict) and "seed" in config:
+        config["seed"] = _derive_process_seed(master_seed, base_name)
 
     # Partitioned processes: wrap with generic Requester/Evolver
     if base_name in PARTITIONED_PROCESSES:
@@ -496,7 +518,7 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     _process_cache = {}
     for step_name in flow_order:
         config = _get_step_config(
-            loader, step_name, core, _process_cache)
+            loader, step_name, core, _process_cache, master_seed=seed)
         if config is not None:
             if len(config) == 5:
                 instance, topology, edge_type, in_topo, out_topo = config

@@ -396,9 +396,9 @@ behavior_tests:
 required_knowledge:
   claims:
     - id: ecoli-high-density-ceiling
-      backs: [end-of-run-od-matches-published]
+      backs: [end-of-run-od-comparison-rendered]
     - id: fedbatch-protocol-beulig-2025
-      backs: [end-of-run-od-matches-published, time-to-target-od-matches-published]
+      backs: [end-of-run-od-comparison-rendered, time-to-target-od-comparison-rendered]
     - id: resistance-persistence-tradeoff-high-density
       backs: []                                # informational — flagged as candidate-future-study
                                                # (transcriptional-state matching against >470 transcriptomes)
@@ -412,7 +412,7 @@ required_knowledge:
         How long is the batch phase in Beulig 2025 (t < 0 h before feed
         onset)? Need this from the methods to set duration_min correctly.
         Currently placeholder 480 min (8 h); paper likely 4–6 h batch.
-      blocks: [palsson-matched-batch duration_min, time-to-target-od-matches-published threshold]
+      blocks: [palsson-matched-batch duration_min, time-to-target-od-comparison-rendered threshold]
       asked_to: unassigned (extract from Beulig methods)
       status: open
     - id: od-conversion-strain-specific
@@ -421,7 +421,7 @@ required_knowledge:
         per strain (especially MEL with growth arrest). For the WT-batch
         comparison, is textbook 0.33 acceptable or does the paper supply a
         WT-specific value?
-      blocks: [end-of-run-od-matches-published tolerance band]
+      blocks: [end-of-run-od-comparison-rendered tolerance band]
       asked_to: unassigned (extract from Beulig methods/supp)
       status: open
     - id: transcriptional-matching-scope

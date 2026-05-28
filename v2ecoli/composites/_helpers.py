@@ -416,6 +416,34 @@ def parquet_emitter(*, out_dir: str | None = None,
         set_parquet_emitter_override(None)
 
 
+def flush_parquet(composite, *, success: bool = True) -> int:
+    """Flush all ParquetEmitter steps inside ``composite`` to disk.
+
+    The ``parquet_emitter()`` context manager only sets / clears the global
+    override — it never sees the composite, so it cannot trigger ``close()``
+    on the emitter step. Without an explicit flush the trailing partial
+    batch (rows after the last batch_size flush) stays in memory; only the
+    ``configuration/`` parquet lands, no ``history/`` or ``success/``.
+
+    Call this right before the runner exits its ``with parquet_emitter(...)``
+    block, after the simulation loop completes::
+
+        with parquet_emitter(out_dir=..., experiment_id=...):
+            composite = build_composite(...)
+            ... sim loop ...
+            flush_parquet(composite, success=True)
+
+    Returns the number of ParquetEmitter instances flushed (0 when the
+    [parquet] extra is not installed or the composite has no parquet
+    emitter step).
+    """
+    try:
+        from pbg_emitters import ParquetEmitter
+    except ImportError:
+        return 0
+    return ParquetEmitter.flush_all_in_composite(composite, success=success)
+
+
 # ---------------------------------------------------------------------------
 # Wiring helpers
 # ---------------------------------------------------------------------------

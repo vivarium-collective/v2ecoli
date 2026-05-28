@@ -294,7 +294,8 @@ def main() -> None:
     status_counts = Counter(study_statuses)
     status_summary = ", ".join(f"{v} {k}" for k, v in sorted(status_counts.items()))
 
-    # Count runs (by checking for runs.db files)
+    # Count runs from both emitter paths: runs.db (sqlite history) +
+    # parquet-runs/ (per-study hive tree).
     n_active_runs = 0
     n_completed_runs = 0
     for runs_db in (WS_ROOT / "studies").glob("*/runs.db"):
@@ -314,6 +315,16 @@ def main() -> None:
                 conn.close()
         except Exception:
             pass
+    # Each studies/<slug>/parquet-runs/<run_id>/ with a success/ sentinel
+    # counts as one completed run.
+    for parquet_root in (WS_ROOT / "studies").glob("*/parquet-runs"):
+        for run_dir in parquet_root.iterdir():
+            if not run_dir.is_dir():
+                continue
+            if (run_dir / "success").exists():
+                n_completed_runs += 1
+            else:
+                n_active_runs += 1
 
     # Print summary
     ws_name = ws.get("name", "?")

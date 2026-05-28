@@ -32,7 +32,8 @@ def test_workspace_default_resolves_to_pbg_parquet_runs(tmp_path, monkeypatch):
         experiment_id="smoke-run",
         study_slug="dnaa-01-expression-dynamics",
         investigation_slug="dnaa-replication",
-    ) as cfg:
+    ) as emit:
+        cfg = emit.cfg
         assert cfg["out_dir"] == str(tmp_path / ".pbg" / "parquet-runs")
         assert cfg["metadata"]["study_slug"] == "dnaa-01-expression-dynamics"
         assert cfg["metadata"]["investigation_slug"] == "dnaa-replication"
@@ -49,8 +50,8 @@ def test_explicit_out_dir_preserves_backcompat(tmp_path, monkeypatch):
     target.mkdir(parents=True)
     monkeypatch.chdir(tmp_path)
 
-    with parquet_emitter(out_dir=str(target), experiment_id="legacy") as cfg:
-        assert cfg["out_dir"] == str(target)
+    with parquet_emitter(out_dir=str(target), experiment_id="legacy") as emit:
+        assert emit.cfg["out_dir"] == str(target)
 
 
 @pytest.mark.fast
@@ -79,6 +80,78 @@ def test_override_is_cleared_on_exit(tmp_path, monkeypatch):
 
 
 @pytest.mark.fast
+def test_bind_auto_flushes_on_clean_exit(tmp_path, monkeypatch):
+    """Auto-flush fires on clean exit when composite is bound. Closes
+    friction-#3 (parquet context manager couldn't enforce lifecycle).
+    Uses a stub composite + monkeypatched flush_parquet so we don't need
+    to spin up a real ParquetEmitter for the lifecycle check."""
+    (tmp_path / "workspace.yaml").write_text("name: test-ws\n")
+    monkeypatch.chdir(tmp_path)
+
+    calls = []
+    monkeypatch.setattr(_h, "flush_parquet",
+                        lambda comp, *, success=True: (calls.append(("clean", comp, success)) or 1))
+
+    stub = object()
+    with parquet_emitter(experiment_id="bind-clean") as emit:
+        emit.bind(stub)
+    assert calls == [("clean", stub, True)]
+
+
+@pytest.mark.fast
+def test_bind_auto_flushes_with_failure_on_exception(tmp_path, monkeypatch):
+    """Exception inside the with-block → auto-flush with success=False so
+    the sentinel honestly reflects the failed run."""
+    (tmp_path / "workspace.yaml").write_text("name: test-ws\n")
+    monkeypatch.chdir(tmp_path)
+
+    calls = []
+    monkeypatch.setattr(_h, "flush_parquet",
+                        lambda comp, *, success=True: (calls.append(("exc", comp, success)) or 1))
+
+    stub = object()
+    with pytest.raises(RuntimeError, match="kapow"):
+        with parquet_emitter(experiment_id="bind-exc") as emit:
+            emit.bind(stub)
+            raise RuntimeError("kapow")
+    assert calls == [("exc", stub, False)]
+
+
+@pytest.mark.fast
+def test_no_bind_no_auto_flush(tmp_path, monkeypatch):
+    """Legacy behaviour preserved: without .bind(), no auto-flush fires.
+    Callers that already invoke flush_parquet() explicitly keep working."""
+    (tmp_path / "workspace.yaml").write_text("name: test-ws\n")
+    monkeypatch.chdir(tmp_path)
+
+    calls = []
+    monkeypatch.setattr(_h, "flush_parquet",
+                        lambda comp, *, success=True: (calls.append("never") or 1))
+
+    with parquet_emitter(experiment_id="no-bind") as _emit:
+        pass
+    assert calls == []
+
+
+@pytest.mark.fast
+def test_explicit_flush_skips_auto_flush(tmp_path, monkeypatch):
+    """Calling .flush() inside the with-block sets _flushed; exit auto-flush
+    skips. Prevents a double-close."""
+    (tmp_path / "workspace.yaml").write_text("name: test-ws\n")
+    monkeypatch.chdir(tmp_path)
+
+    calls = []
+    monkeypatch.setattr(_h, "flush_parquet",
+                        lambda comp, *, success=True: (calls.append(success) or 1))
+
+    stub = object()
+    with parquet_emitter(experiment_id="explicit-flush") as emit:
+        emit.bind(stub)
+        emit.flush(success=True)
+    assert calls == [True]  # only the explicit call, no second from exit
+
+
+@pytest.mark.fast
 def test_extra_metadata_merges_through(tmp_path, monkeypatch):
     """Caller-supplied extra_metadata lands alongside the preset's keys."""
     (tmp_path / "workspace.yaml").write_text("name: test-ws\n")
@@ -87,8 +160,8 @@ def test_extra_metadata_merges_through(tmp_path, monkeypatch):
     with parquet_emitter(
         experiment_id="enrich",
         extra_metadata={"description": "from a tiny test", "seed_strategy": "fixed"},
-    ) as cfg:
-        meta = cfg["metadata"]
+    ) as emit:
+        meta = emit.cfg["metadata"]
         assert meta["description"] == "from a tiny test"
         assert meta["seed_strategy"] == "fixed"
         # Preset's required partition keys still present

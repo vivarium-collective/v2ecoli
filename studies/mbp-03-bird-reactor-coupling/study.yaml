@@ -447,8 +447,11 @@ regression_tests:
   inherits_from:
     - study: mbp-01-time-varying-environment
       tests:
-        - uptake-flux-tracks-external-glucose
+        - external_glucose_updates_propagate_within_one_step
         - cumulative-mass-balance-closes
+        - zero-substrate-blocks-uptake
+        - saturating-substrate-respects-vmax
+        - plateau-across-saturating-range
         - static-env-baseline-unchanged
     - study: mbp-02-population-aggregation
       tests:

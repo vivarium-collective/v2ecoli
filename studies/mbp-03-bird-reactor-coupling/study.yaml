@@ -406,12 +406,12 @@ failure_modes:
   - signature: "one-generation-completes-without-divergence fails (NaN / unbounded)"
     candidate_causes:
       - "Units mismatch on a coupler write (mg/L vs mM, mmol/(gDW·h) vs mg_O2/(g_X·h))"
-      - "BiRD's internal biomass ODE not actually disabled — competing with v2ecoli's biomass"
+      - "BiRD's internal biomass ODE not actually disabled — competing with v2ecoli's biomass (Option-A fallback only — under Option-B BiRDTransportProcess has no internal biomass ODE by construction)"
       - "Coupler reads stale BiRD state immediately after BiRD's first tick"
       - "DO going below zero because uptake rate exceeds physical limit (no clamp)"
     checks:
       - "Add a hard clamp on dissolved_o2 ≥ 0 in the coupler (with a warning if hit)"
-      - "Confirm BiRDReactorProcess config.max_growth_rate_per_h == 0 at boot"
+      - "Confirm BiRDReactorProcess config.max_growth_rate_per_h == 0 at boot (Option-A fallback only)"
       - "Print first 10 emit rows of every coupler-touched store"
 
   - signature: "reactor-biomass-tracks-population diverges over time"

@@ -35,7 +35,21 @@ report:
     variant E + clamp landing at ~0.496 across seeds 0/1/2 with CV under 1% and total DnaA 113-114; variant B (control)
     at the low band edge (0.208-0.270, CV ~16%, DnaA growth to 121-144); and variant B'' failing (intrinsic-only
     steady state stuck near 0.92 regardless of equilibrium scaling). A rate sweep (50x-500x) showed atp_fraction
-    is insensitive to RIDA rate once the clamp dominates.'
+    is insensitive to RIDA rate once the clamp dominates.
+
+
+    PARQUET RERUN 2026-05-27 (default out/cache, seed 0, 30-min sims, two
+    variants, parquet emitter, via studies/<slug>/parquet-runs/):
+    Variant B'' (recalibrated equilibrium, scale=0.01, intrinsic_rate=0.046):
+    atp_fraction = 0.270 — IN BAND ∈ [0.2, 0.5] ✓; counts atp=34, adp=92,
+    apo=0, total=126; intrinsic_events=0 (steady state without firing).
+    Band-recovery via equilibrium recalibration re-confirmed.
+    Variant E (RIDA-v0 at default rate 4.6/min, intrinsic_rate=0.046):
+    atp_fraction = 0.975 — band failure at this rate without the clamp;
+    counts atp=139, adp=3, total=146; rida_active=0.5, rida_n_replisomes=1,
+    rida_events=2.5. The clamp that brought E to ~0.496 in the original is
+    now DISABLED on this branch; this rerun adds the honest unclamped
+    reference. Original-clamp values stand historically.'
   interpretation: The original dnaa-02 PASS comes from the clamp, not the biology; the intrinsic Sekimizu rate is
     too slow to compete with equilibrium recovery. Variant E adds enough fork-active ATP-to-ADP flux for the clamp's
     transfers to stick while keeping the equilibrium reaction intact, with no stoichMatrix mutation or fictional

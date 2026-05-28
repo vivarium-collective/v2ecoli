@@ -82,7 +82,29 @@ report:
     shows a 2.5× drop across the cycle (1.03 → 0.62 → 0.42 mol/fg), evidence that synthesis cannot
     keep up with the growing cell volume at glycerol synthesis rates. Multi-gen single_daughters
     terminated after the first division at 5000s despite n_steps=10000 — only one generation
-    captured this run; cross-cycle steadiness over ≥3 generations is a Round-4 follow-up.'
+    captured this run; cross-cycle steadiness over ≥3 generations is a Round-4 follow-up.
+
+
+    PARQUET RERUN 2026-05-28 (dnaa_stage1_constitutive composite +
+    freshly-built out/cache-stage1-heuristic-acetate via build_condition_cache.py
+    with tx_factor=30 / te_factor=2.48 bootstrap, seed 0, 4020-s sim, parquet
+    emitter; via studies/<slug>/parquet-runs/): DnaA monomer total median 396
+    (range 373-418, IN BAND [300, 800] ✓), DnaA-ATP-complex median 395.5
+    (range 372-418), apo monomer median 0 (max 2). Band-membership claim
+    re-confirmed under parquet. Two honest deltas vs the Round-3 glycerol run
+    above: (1) acetate cycle did NOT divide within 67 min (cell_mass ended ~872
+    fg vs the ~960 fg division threshold) — cell_mass median 695 fg vs the
+    glycerol counterpart''s higher values; (2) iterative recalibration of
+    tx_factor/te_factor was attempted (calibrate_dnaa_stage1.py --iterations 3
+    --media-condition acetate) but the measurement loop is BROKEN on the
+    merged-main branch: rna_init_event_per_cistron[dnaA] reads 0 in
+    dnaa_00_baseline_with_dnaa_readout''s 15-min sim across all iterations
+    (tx_factor cranked 30 → 300 → 3000 → 30000 by zero-fallback ×10 each
+    step). The actual run produces DnaA, so the synthesis Step works — only
+    the calibrate-time measurement listener path is wrong. Filed as
+    follow-up (out of scope for this rerun): fix
+    calibrate_dnaa_stage1.measure() OR have it use the same composite the
+    actual run uses.'
   interpretation: 'Haochen R2 / R3 questions answered:
 
     R3 (concentration viz): NEW finding surfaced by the requested DnaA / cell_mass plot — concentration

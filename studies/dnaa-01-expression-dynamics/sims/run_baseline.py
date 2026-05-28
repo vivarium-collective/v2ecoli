@@ -152,6 +152,13 @@ def main():
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--cache-dir", default="out/cache")
     p.add_argument(
+        "--composite", default="baseline",
+        help="Composite name to build. Default 'baseline' is the basic "
+        "v2ecoli baseline. Pass 'dnaa_stage1_constitutive' to use the "
+        "Stage-1 constitutive DnaA source (matches the historical study "
+        "setup; pair with the out/cache-stage1-heuristic[-<media>] cache).",
+    )
+    p.add_argument(
         "--sim-name",
         default=None,
         help="Label for the dashboard's Simulations tab (defaults to "
@@ -178,7 +185,7 @@ def main():
         ):
             t0 = time.time()
             composite = build_composite(
-                "baseline", cache_dir=args.cache_dir, seed=args.seed)
+                args.composite, cache_dir=args.cache_dir, seed=args.seed)
             load_time = time.time() - t0
 
             cell = composite.state["agents"]["0"]

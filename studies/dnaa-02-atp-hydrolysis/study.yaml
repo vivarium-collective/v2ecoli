@@ -43,7 +43,15 @@ report:
     fast-hydrolysis diagnostic FAILS (atp_fraction = 0.997, not <= 0.1). The two FAILs are the expected, informative
     signal: intrinsic hydrolysis ALONE cannot pull the DnaA-ATP fraction into the physiological band. Earlier recorded
     PASSES at ~0.21-0.50 used the clamp / monkey-patch / RIDA-v0 mechanisms, all now DISABLED; those are historical,
-    not the current result.'
+    not the current result.
+
+
+    PARQUET RERUN 2026-05-27 (default out/cache, seed 0, 30-min sim, parquet
+    emitter, via studies/<slug>/parquet-runs/): intrinsic-only atp_fraction =
+    0.975 (was 0.997) — same qualitative band failure, still far above
+    [0.2, 0.5]. Counts atp_count_bulk = 139, adp_count_bulk = 3, apo_count_bulk
+    = 0, total = 146. Verdict failing-bio re-confirmed; the diagnostic
+    variants (no-hydrolysis, fast-hydrolysis) were not re-executed.'
   interpretation: 'Biologically, only DnaA-ATP drives replication initiation, and the cell keeps its fraction in
     a tight band by balancing slow intrinsic ATP hydrolysis against ATP-loading. This study adds the explicit three-state
     pool plus the slow hydrolysis sink. With the extrinsic regulators disabled, atp_fraction sits at 0.997 — the

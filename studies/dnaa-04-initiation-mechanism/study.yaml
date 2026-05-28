@@ -40,7 +40,18 @@ report:
     seeds, and a ~-300s offset vs the heuristic; those figures are prior recorded analysis pending verdict refresh,
     not current results. Known limitations: tests framed as multigeneration cannot be satisfied by the single-cell
     run (it self-terminates at division), and the dnaa_flux_contributions figure renders empty because the intrinsic/RIDA
-    hydrolysis-event observables are not yet emitted.'
+    hydrolysis-event observables are not yet emitted.
+
+
+    PARQUET RERUN 2026-05-27 (default out/cache, seed 0, 30-min sim, parquet
+    emitter, via studies/<slug>/parquet-runs/): the mechanism would_fire count
+    is 1 over the 30-min window (would_fire_event_times list captured but
+    empty in this single-seed run); the heuristic estimate ≈ Δn_replisomes / 2
+    is 2 (n_replisomes 2→4). Rate: fires_per_min_mechanism = 0.033.
+    Single-seed reproduction; the multi-seed sweep (seeds 0/1/2) was not
+    re-executed in this pass — the mechanism vs heuristic offset, determinism
+    across seeds, and per-seed timing claims are therefore not freshly
+    verified, only the single-seed firing-rate is.'
   interpretation: v2ecoli currently decides initiation by a single mass-per-oriC threshold; this study substitutes
     the DnaA mechanism built up across dnaa-01 to 03 (oriC boxes occupied by DnaA-ATP open the origin) plus a SeqA-v0
     fixed-timer placeholder so the model does not immediately re-fire. The mechanism description (the dnaa_04 initiation

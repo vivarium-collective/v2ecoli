@@ -254,6 +254,10 @@ class Metabolism(Step):
 
         self.nAvogadro = self.parameters["avogadro"]
         self.cellDensity = self.parameters["cell_density"]
+        # GDCW_BASIS is a module-level constant — convert once at init
+        # rather than every tick (called from update() into
+        # get_import_constraints, an upstream-Unum-native API).
+        self._gdcw_basis_unum = pint_to_unum(GDCW_BASIS)
 
         # Track updated AA concentration targets with tRNA charging
         self.aa_targets = {}
@@ -524,10 +528,11 @@ class Metabolism(Step):
         )
 
         # get_import_constraints is upstream Unum-native; convert constrained
-        # values back to Unum at the boundary.
+        # values back to Unum at the boundary. GDCW_BASIS is a constant —
+        # use the converted instance cached in initialize().
         constrained_unum = {k: pint_to_unum(v) for k, v in constrained.items()}
         unconstrained, constrained, uptake_constraints = self.get_import_constraints(
-            unconstrained, constrained_unum, pint_to_unum(GDCW_BASIS)
+            unconstrained, constrained_unum, self._gdcw_basis_unum
         )
 
         reaction_fluxes = fba.getReactionFluxes() / timestep
@@ -944,15 +949,36 @@ class FluxBalanceAnalysisModel(object):
         )
 
         # Set hard upper bounds constraints based on enzyme presence
-        # (infinite upper bound) or absence (upper bound of zero)
-        reaction_bounds = np.inf * np.ones(len(self.reactions_with_catalyst))
+        # (infinite upper bound) or absence (upper bound of zero).
+        # Catalyst presence flips for <0.1% of reactions per second of sim
+        # time; the previous implementation pushed all ~9k bounds through
+        # the GLPK Python wrapper every step (5.7M setFlowBounds calls per
+        # 600s sim). Cache the prior mask and forward only the diff —
+        # setFlowBounds is already a value-keyed no-op when value is
+        # unchanged, so this just removes redundant Python dispatch.
         no_rxn_mask = self.catalysis_matrix.dot(catalyst_counts) == 0
-        reaction_bounds[no_rxn_mask] = 0
-        self.fba.setReactionFluxBounds(
-            self.reactions_with_catalyst,
-            upperBounds=reaction_bounds,
-            raiseForReversible=False,
-        )
+        prev_mask = getattr(self, "_prev_no_rxn_mask", None)
+        if prev_mask is None or prev_mask.shape != no_rxn_mask.shape:
+            reaction_bounds = np.where(no_rxn_mask, 0.0, np.inf)
+            self.fba.setReactionFluxBounds(
+                self.reactions_with_catalyst,
+                upperBounds=reaction_bounds,
+                raiseForReversible=False,
+            )
+        else:
+            changed = no_rxn_mask != prev_mask
+            if changed.any():
+                rxn_ids = [
+                    self.reactions_with_catalyst[i]
+                    for i in np.flatnonzero(changed)
+                ]
+                upper = np.where(no_rxn_mask[changed], 0.0, np.inf)
+                self.fba.setReactionFluxBounds(
+                    rxn_ids,
+                    upperBounds=upper,
+                    raiseForReversible=False,
+                )
+        self._prev_no_rxn_mask = no_rxn_mask
 
     def set_reaction_targets(
         self,

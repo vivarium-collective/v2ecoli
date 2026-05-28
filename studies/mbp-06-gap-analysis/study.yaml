@@ -488,6 +488,19 @@ required_knowledge:
         back behavior-tests with constraint-claims. Raised in mbp-03.
       resolution_type: upstream_PR
       resolution_venue: pbg-superpowers
+    - signature: study-yaml-rename-walks-internal-fks
+      synopsis: |
+        Lint rule that, on any `behavior_tests[].name` or `simulations[].name`
+        rename or removal within `studies/*/study.yaml`, reports every
+        still-stale `backs[]` / `regression_tests.inherits_from[].tests[]` /
+        `unblocks[]` / `open_questions[].blocks[]` / `failure_modes[].signature`
+        reference within the study and across the investigation. Raised by
+        chris_feedback_2026_05_28 §11 — three reframes (§3 mbp-01,
+        §10 mbp-05, §11 mbp-06) each left stale FKs that the 2026-05-28
+        review caught only by pattern-matching. Without this rule, every
+        reframe leaks drift.
+      resolution_type: upstream_PR
+      resolution_venue: pbg-superpowers
   open_questions:
     - id: gap-analysis-rigor
       question: |

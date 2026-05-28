@@ -356,7 +356,7 @@ required_knowledge:
 # ─── 5c. FAILURE MODES ──────────────────────────────────────────────────────
 # What might go wrong during impl, and what to check.
 failure_modes:
-  - signature: "uptake-flux-tracks-external-glucose fails with r ~ 0"
+  - signature: "external_glucose_updates_propagate_within_one_step fails (write not visible to media_update)"
     candidate_causes:
       - "EnvironmentDriver Step writes external_concentrations BEFORE media_update reads (ordering bug)"
       - "media_update caches the medium definition past one timestep"
@@ -411,7 +411,7 @@ implementation_requirements:
     or (b) a synthetic trajectory function (for unit testing this phase).
     Hooks the existing media_update to read from this store when
     env_driver_mode != static.
-  unblocks: [linear-glucose-decline, do-clamp-low, all primary tests]
+  unblocks: [linear-glucose-decline, zero-substrate-clamp, saturating-glucose-low, saturating-glucose-high, all primary tests]
 
 - id: req-2-time-varying-composite
   kind: composite

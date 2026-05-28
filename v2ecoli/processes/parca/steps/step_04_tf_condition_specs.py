@@ -132,9 +132,18 @@ class TfConditionSpecsStep(Step):
                       tf_conditions, working, cpus)
 
         # 2. Update transcription's per-condition expression dicts.
+        # Reapply per-promoter ratios (Phase 2b of Path 3) for any condition
+        # that has rows in per_promoter_ratios.tsv (e.g. PC00010__inactive).
+        # The helper is a no-op for conditions without rows. See
+        # reports/regulation_data_pipeline_v2ecoli.html §10.
         for ckey in working:
-            sd.process.transcription.rna_expression[ckey] = working[ckey]["expression"]
-            sd.process.transcription.rna_synth_prob[ckey] = working[ckey]["synthProb"]
+            _rna_ids = sd.process.transcription.rna_data["id"]
+            _expr = sd.process.transcription._apply_per_promoter_ratios(
+                working[ckey]["expression"], _rna_ids, ckey)
+            _synth = sd.process.transcription._apply_per_promoter_ratios(
+                working[ckey]["synthProb"], _rna_ids, ckey)
+            sd.process.transcription.rna_expression[ckey] = _expr
+            sd.process.transcription.rna_synth_prob[ckey] = _synth
             sd.process.transcription.cistron_expression[ckey] = (
                 working[ckey]["cistron_expression"])
             sd.process.transcription.fit_cistron_expression[ckey] = (
@@ -308,6 +317,11 @@ def buildCombinedConditionCellSpecifications(
             "bulkContainer":              bulkContainer,
         })
 
+        _rna_ids = sim_data.process.transcription.rna_data["id"]
+        expression = sim_data.process.transcription._apply_per_promoter_ratios(
+            expression, _rna_ids, conditionKey)
+        synthProb = sim_data.process.transcription._apply_per_promoter_ratios(
+            synthProb, _rna_ids, conditionKey)
         sim_data.process.transcription.rna_expression[conditionKey] = expression
         sim_data.process.transcription.rna_synth_prob[conditionKey] = synthProb
         sim_data.process.transcription.cistron_expression[conditionKey] = cistron_expression

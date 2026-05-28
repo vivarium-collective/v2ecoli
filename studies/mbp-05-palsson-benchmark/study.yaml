@@ -276,7 +276,7 @@ comparison_overlays:
 # ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
 key_assumptions:
   - "Published trajectories are digitizable / available at sufficient resolution to overlay."
-  - "OD600 ↔ gDW conversion factor (od_to_gdw, default 0.33) holds at Palsson's cell-density regime, or is refit from the paper."
+  - "OD600 ↔ gDW conversion factor (od_to_gdw, default 0.34 — Beulig 2025 value; was textbook 0.33; matches mbp-02 default) holds at Palsson's cell-density regime, or is refit from the paper."
   - "If Palsson is fed-batch only, this study scopes to the batch-phase prefix until pbg-bioreactordesign gains fed-batch (deferred enhancement)."
   - "0D well-mixed assumption holds at the paper's reactor scale (bench)."
 

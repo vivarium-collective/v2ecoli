@@ -53,6 +53,25 @@
 </header>
 <main>
 
+<div class="panel" style="background:#fef3c7;border-color:#f59e0b">
+<h2 style="border:0;margin:0 0 8px 0;color:#7c2d12;font-size:1.05em">Latest: PDMP now BEATS the kFBA baseline (2026-05-28)</h2>
+<p style="margin:6px 0 0 0">
+Single-line fix in <code>v2ecoli/steps/millard_pdmp_metabolism.py:_apply_control</code> —
+cache the last LQR-applied value per parameter, skip the
+<code>basico.set_reaction_parameters</code> call when the value hasn't changed.
+Eliminates a per-tick <b>COPASI <code>CModel_compileIfNecessary</code> spike</b>
+(184 ms × 600 = 110 s wall, 71% of the previous 156 s run). Verified with cProfile.
+</p>
+<ul style="margin:8px 0 0 0;padding-left:22px;line-height:1.5">
+<li><b>600 s sim wall: 156 s → 29.2 s (5.3× faster).</b></li>
+<li><b>Real-time factor: 3.85× → 20.5×</b> (vs kFBA baseline's 14.6×).</li>
+<li><b>PDMP is now 1.41× FASTER than kFBA baseline.</b></li>
+<li>Biology identical to the previous PDMP run (cell_mass = 1274.50 fg both).
+    The skipped param-set was a no-op (LQR is u=0 because Riccati keeps failing),
+    so the fix is bit-equivalent.</li>
+</ul>
+</div>
+
 <div class="panel" style="background:#eef9ec;border-color:#7cc66f">
 <h2 style="border:0;margin:0 0 8px 0;color:#13602d;font-size:1.05em">Overnight session — what landed (2026-05-27 → 28)</h2>
 <ul style="margin:6px 0 0 0;padding-left:22px;line-height:1.6">
@@ -349,11 +368,22 @@ demonstrates the lever exists, with caveats.
     <td class="num">4.13×</td>
     <td class="num delta">3.53× slower</td>
   </tr>
+  <tr class="row-better">
+    <td><b>millard_pdmp_baseline (post-recompile-skip)</b></td>
+    <td class="num">5.8 s</td>
+    <td class="num">1.5 s / 1 s</td>
+    <td class="num"><b>29.2 s</b></td>
+    <td class="num"><b>20.5×</b></td>
+    <td class="num delta"><b>1.41× FASTER</b></td>
+  </tr>
 </table>
 <p class="caption">Original baseline measured fresh in this worktree
 (.venv, same seed). real-time factor = simulated_seconds / wall_seconds.
-The 7% gain from live-V is essentially noise — the calibration is for
-biological correctness, not performance.</p>
+The breakthrough row caches LQR parameter values and skips
+<code>basico.set_reaction_parameters</code> when the value didn't change —
+each redundant call dirties COPASI's model and triggers a
+<code>compileIfNecessary</code> (184 ms × 600 = 110 s of wasted work per
+run). With u=0 LQR, the cached path makes every call a no-op.</p>
 </div>
 
 <div class="panel">

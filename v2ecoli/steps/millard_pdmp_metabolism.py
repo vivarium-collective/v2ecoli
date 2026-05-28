@@ -149,14 +149,23 @@ class MillardPDMPMetabolism(Process):
         }
 
     def _apply_control(self, ctrl: dict) -> tuple[float, dict]:
-        """Read lqr_control, set basico parameters, return (tick_value, applied)."""
+        """Read lqr_control, set basico parameters, return (tick_value, applied).
+
+        Skip set_reaction_parameters when the new value equals the previously
+        applied one — every call dirties COPASI's model, triggering a
+        full recompile on the next run_time_course (measured at ~184 ms/tick,
+        71% of the WCM tick). Cache last-applied values in self._last_applied
+        and short-circuit unchanged values.
+        """
         basico = self._basico
         applied: dict[str, float] = {}
+        if not hasattr(self, "_last_applied"):
+            self._last_applied: dict[str, float] = {}
+
         # Multi-input path: u_dict maps full param names to deltas.
         if isinstance(ctrl.get("u_dict"), dict) and ctrl["u_dict"]:
             for param_full, u_raw in ctrl["u_dict"].items():
                 u_clipped = max(-self.u_clip, min(self.u_clip, float(u_raw)))
-                # Resolve (reaction).parameter
                 if "." in param_full and param_full.startswith("("):
                     reaction = param_full.split(")", 1)[0][1:]
                     param = param_full.split(".", 1)[-1]
@@ -167,7 +176,9 @@ class MillardPDMPMetabolism(Process):
                     continue
                 base = float(ps.loc[param_full]["value"])
                 target = base * (1.0 + u_clipped)
-                basico.set_reaction_parameters(name=param_full, value=target)
+                if abs(target - self._last_applied.get(param_full, float("nan"))) > 1e-12:
+                    basico.set_reaction_parameters(name=param_full, value=target)
+                    self._last_applied[param_full] = target
                 applied[param_full] = target
             tick_value = self.baseline_value  # observability only
             return tick_value, applied
@@ -177,7 +188,9 @@ class MillardPDMPMetabolism(Process):
         u_clipped = max(-self.u_clip, min(self.u_clip, u_raw))
         tick_value = self.baseline_value * (1.0 + u_clipped)
         param_full = f"({self.control_reaction}).{self.control_parameter}"
-        basico.set_reaction_parameters(name=param_full, value=tick_value)
+        if abs(tick_value - self._last_applied.get(param_full, float("nan"))) > 1e-12:
+            basico.set_reaction_parameters(name=param_full, value=tick_value)
+            self._last_applied[param_full] = tick_value
         applied[param_full] = tick_value
         return tick_value, applied
 

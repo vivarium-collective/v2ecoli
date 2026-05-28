@@ -549,7 +549,7 @@ implementation_requirements:
     `limitations:` bullet, every `open_questions:` item across the chain.
     Outputs a single JSON / markdown report this study's synthesis builds
     on. Idempotent.
-  unblocks: [all-five-axes-covered, at-least-eight-gaps-total]
+  unblocks: [all-five-axes-covered, every-gap-has-resolution-type-and-venue]
 
 - id: req-2-prioritization-protocol
   kind: process

@@ -226,6 +226,25 @@ def ppgpp_metabolite_changes(
     )
 
 
+def _negative_check(
+    trna1: npt.NDArray[np.float64], trna2: npt.NDArray[np.float64]
+) -> None:
+    """Clamp floating-point negatives in tRNA concentrations to zero.
+
+    A solve_ivp step can leave a tiny negative slack on one tRNA species
+    (charged or uncharged) due to FP rounding. Move that slack into the
+    other species so the total stays conserved, then zero the negative
+    slot. Used by `calculate_trna_charging` after the BDF solve.
+
+    Pulled out of the closure to a module-level pure function: it doesn't
+    close over anything from the caller, so wrapping it inside
+    calculate_trna_charging just rebuilt a function object on every call.
+    """
+    mask = trna1 < 0
+    trna2[mask] = trna1[mask] + trna2[mask]
+    trna1[mask] = 0
+
+
 def calculate_trna_charging(
     synthetase_conc: pint.Quantity,
     uncharged_trna_conc: pint.Quantity,
@@ -281,21 +300,6 @@ def calculate_trna_charging(
         - **total_export**: the total amount of amino acids exported during charging
           in units of MICROMOLAR_UNITS. Will be zeros if supply function is not given.
     """
-
-    def negative_check(trna1: npt.NDArray[np.float64], trna2: npt.NDArray[np.float64]):
-        """
-        Check for floating point precision issues that can lead to small
-        negative numbers instead of 0. Adjusts both species of tRNA to
-        bring concentration of trna1 to 0 and keep the same total concentration.
-
-        Args:
-            trna1: concentration of one tRNA species (charged or uncharged)
-            trna2: concentration of another tRNA species (charged or uncharged)
-        """
-
-        mask = trna1 < 0
-        trna2[mask] = trna1[mask] + trna2[mask]
-        trna1[mask] = 0
 
     # Pre-bind params lookups to closure-local names. solve_ivp calls
     # `dcdt` hundreds of times per outer BDF step (187k calls per 600 s
@@ -401,8 +405,8 @@ def calculate_trna_charging(
         -1, 2 * n_aas_masked + 3 * n_aas : 2 * n_aas_masked + 4 * n_aas
     ]
 
-    negative_check(final_uncharged_trna_conc, final_charged_trna_conc)
-    negative_check(final_charged_trna_conc, final_uncharged_trna_conc)
+    _negative_check(final_uncharged_trna_conc, final_charged_trna_conc)
+    _negative_check(final_charged_trna_conc, final_uncharged_trna_conc)
 
     fraction_charged = final_charged_trna_conc / (
         final_uncharged_trna_conc + final_charged_trna_conc

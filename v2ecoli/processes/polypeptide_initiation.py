@@ -260,12 +260,13 @@ class PolypeptideInitiation(Step):
             self.variable_elongation,
         ), 1)
         # Calculate number of ribosomes that could potentially be initialized
-        # based on counts of free 30S and 50S subunits
-        inactive_ribosome_count = np.min(
-            [
-                counts(states["bulk"], self.ribosome30S_idx),
-                counts(states["bulk"], self.ribosome50S_idx),
-            ]
+        # based on counts of free 30S and 50S subunits. The `counts(...)` calls
+        # each return a 0-d ndarray for a scalar index; Python's `min` over
+        # two scalars is faster than np.min over a 2-element list (which
+        # builds the list + converts to ndarray).
+        inactive_ribosome_count = min(
+            counts(states["bulk"], self.ribosome30S_idx),
+            counts(states["bulk"], self.ribosome50S_idx),
         )
 
         # Calculate actual number of ribosomes that should be activated based

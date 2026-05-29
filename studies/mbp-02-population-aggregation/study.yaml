@@ -641,6 +641,27 @@ runs:
       Full 3 cpa × 3 seed grid now populated — chart 04 renders with
       visible ribbons at every cpa.
 
+  - simulation:      aggregator-cpa1e9-batch-prefix-multigen
+    simulation_id:   ee0a02b0-5fd1-4844-8f06-5baae429835e
+    seed:            0
+    cells_per_agent: 1.0e9
+    sim_seconds:     10500   # 175 sim-min salvaged; targeted 21600 (6h)
+    n_history_rows:  10500
+    chunk:           1
+    max_generations: 12
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/ee0a02b0-5fd1-4844-8f06-5baae429835e
+    investigation:   multiscale-bioprocess
+    outcome:         partial-killed-at-memory-ceiling
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Long-duration batch-prefix run targeting 6h sim — terminated at
+      sim_min=175 (29% of target) when the sim's RSS reached ~72 GB and
+      the system's 128 GB physical memory was effectively exhausted.
+      Salvaged trajectory is more than sufficient for the plateau
+      diagnostic that mbp-05 chart 02 surfaces; reaching 6h would not
+      change the architectural story (biomass plateau ≈ 4.3 mg/L,
+      bounded by single_daughters × cell_mass × cpa, not by duration).
+
 
 # ─── v4 tests[] (hand-authored 2026-05-28) ────────────────────────────────
 # Hand-curated representatives of the load-bearing claims in

@@ -590,6 +590,18 @@ preliminary_findings:
       cell_mass × cpa for ONE lineage; to match Beulig's batch peak at
       cpa=1e9 each agent would need to be ~10 mg dry mass (vs the ~1 fg
       v2ecoli simulates) — an architectural cap, not a tuning gap.
+
+      EMPIRICAL CONFIRMATION (2026-05-29): the
+      aggregator-cpa1e9-batch-prefix-multigen run targeted 6h but was
+      terminated at sim_min=175 (memory ceiling); the salvaged
+      trajectory shows v2ecoli's biomass OSCILLATING between ~1.2 mg/L
+      and ~4.3 mg/L across the division cycle, with NO accumulation
+      across generations. Chart 02 visualizes this plateau against
+      Beulig's batch climb to ~9.6 g/L — a 3.3-order gap that duration
+      cannot close. mbp-05 will surface this diagnostically; closing
+      it requires architectural moves (population composite with
+      counter-rather-than-single-daughters lineage tracking, or a
+      surrogate engine — both mbp-06 candidate-future-studies).
     consequences:
       - mbp-05 comparison harness will produce a DIAGNOSTIC report
         first (where v2ecoli sits relative to Beulig) BEFORE it produces

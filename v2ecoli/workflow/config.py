@@ -17,20 +17,29 @@ LIST_KEYS_TO_MERGE = {
     "add_processes",
     "exclude_processes",
     "engine_process_reports",
+    "processes",
+    "initial_state_overrides",
 }
 
 
-def load_config_with_inheritance(config_path: str, config_dir: str | None = None) -> dict:
+def load_config_with_inheritance(config_path: str, config_dir: str | None = None,
+                                 _seen: frozenset[str] | None = None) -> dict:
     """Load a config file, recursively resolving ``inherit_from`` chains.
 
     ``config_dir`` is the directory inherited paths are resolved against
     (defaults to the directory of ``config_path``).
     """
+    abs_path = os.path.abspath(config_path)
+    _seen = _seen or frozenset()
+    if abs_path in _seen:
+        raise ValueError(
+            f"circular inherit_from chain detected at {config_path!r}")
+
     with open(config_path) as f:
         config = json.load(f)
 
     if config_dir is None:
-        config_dir = os.path.dirname(os.path.abspath(config_path))
+        config_dir = os.path.dirname(abs_path)
 
     if "inherit_from" not in config:
         return config
@@ -38,7 +47,8 @@ def load_config_with_inheritance(config_path: str, config_dir: str | None = None
     inherit_chain = []
     for inherit_path in reversed(config["inherit_from"]):
         inherited = load_config_with_inheritance(
-            os.path.join(config_dir, inherit_path), config_dir=config_dir)
+            os.path.join(config_dir, inherit_path), config_dir=config_dir,
+            _seen=_seen | {abs_path})
         inherit_chain.append(inherited)
 
     result: dict = {}

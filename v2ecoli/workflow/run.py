@@ -38,6 +38,14 @@ def run_workflow(config: dict[str, Any], *, max_sim_time: float = 1e9,
                        completed.
       ``branches``   – per-branch summary dicts.
     """
+    analysis_options = config.get("analysis_options") or {}
+    if any(analysis_options.values()):
+        import warnings
+        warnings.warn(
+            "analysis_options is set but post-sweep analysis Steps are not yet "
+            "wired into the meta-composite (deferred follow-up); these analyses "
+            "will NOT run. Emitted parquet is still written for later analysis.")
+
     core = build_core()
     register_workflow_processes(core)
 

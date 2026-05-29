@@ -351,6 +351,93 @@ required_knowledge:
       blocks: [pbg-superpowers PR scope]
       asked_to: pbg-superpowers maintainer
       status: open
+    - id: env-store-topology-mismatch
+      question: |
+        Surfaced 2026-05-28 while implementing the media_update consumption
+        path: baseline_time_varying_env adds `state["environment"]` at the
+        TOP LEVEL of the composite, but MediaUpdate (and ExchangeData) live
+        inside `agents.0` and resolve their topology port `("environment",)`
+        to `state["agents"]["0"]["environment"]` — a DIFFERENT store. The
+        two are never wired together, so EnvironmentDriver writes to the
+        top-level store and MediaUpdate sees nothing. Three resolution
+        options (none yet picked):
+
+          (a) Make EnvironmentDriver per-agent — every cell gets its own
+              driver. Loses the "one driver feeds the population" semantic
+              that mbp-02 + mbp-03 rely on (reactor coupler is one source
+              of truth feeding all cells); reject unless we add a separate
+              coordination mechanism on top.
+
+          (b) Widen MediaUpdate's class-level topology to read top-level
+              environment via an absolute path (or `("..", "..",
+              "environment")` upward traversal). Smallest code change but
+              touches every architecture (baseline, departitioned,
+              reconciled) — regression risk on the baseline composite that
+              has no top-level environment store. Would need careful
+              conditional topology.
+
+          (c) Add a small tick-leading mirror Step inside
+              baseline_time_varying_env that, each tick, copies
+              `state["environment"]["external_concentrations"]` into each
+              `state["agents"][i]["environment"]["external_concentrations"]`.
+              Most additive — no class-level changes; localized to this one
+              composite. Doubles as the natural place to resolve the
+              molecule-ID convention gap below (see
+              `env-driver-molecule-id-convention`). RECOMMENDED.
+
+        Resolution gates the 5 mbp-01 plumbing/extreme tests
+        (test_external_glucose_updates_propagate_within_one_step,
+        test_cumulative_mass_balance_closes, test_zero_substrate_blocks_uptake,
+        test_saturating_substrate_respects_vmax,
+        test_plateau_across_saturating_range) — all currently @pytest.mark.skip.
+      blocks:
+        - test_external_glucose_updates_propagate_within_one_step
+        - test_cumulative_mass_balance_closes
+        - test_zero_substrate_blocks_uptake
+        - test_saturating_substrate_respects_vmax
+        - test_plateau_across_saturating_range
+        - mbp-01 entering Evaluate phase
+      asked_to: v2ecoli baseline maintainer (composite architecture decision)
+      status: open
+    - id: env-driver-molecule-id-convention
+      question: |
+        Surfaced 2026-05-28 alongside `env-store-topology-mismatch`: the
+        EnvironmentDriver emits compartment-tagged molecule IDs (e.g.
+        "GLC[p]" per the synthetic_trajectory_spec convention used in
+        mbp-01 sims), but `boundary.external` (the store ExchangeData
+        reads) uses BARE names — "GLC", "ACET", "FUM", "MAL", "SUC", ...
+        across all 87 entries, no compartment suffix. So even if the
+        topology gap above is closed, MediaUpdate would look up
+        `boundary_ext.get("GLC[p]")`, miss, and skip silently.
+
+        Three resolution options (none yet picked):
+
+          (a) Have the driver use bare names. Cleanest if the convention
+              isn't load-bearing elsewhere — needs audit of where else
+              compartment-tagged IDs are used (e.g. emit paths, parquet
+              hive schemas).
+
+          (b) Have MediaUpdate strip the compartment suffix at read time.
+              Hides the convention difference inside the consumer; cheap
+              but every other consumer would need the same logic.
+
+          (c) Have the mirror Step (see `env-store-topology-mismatch`
+              option c) do both the copy AND the ID normalization in one
+              place. Pairs cleanly with the recommended topology fix.
+              RECOMMENDED.
+
+        Resolution gates the same 5 tests as the topology question above
+        — both gaps must close before mbp-01's plumbing/extreme suite can
+        run.
+      blocks:
+        - test_external_glucose_updates_propagate_within_one_step
+        - test_cumulative_mass_balance_closes
+        - test_zero_substrate_blocks_uptake
+        - test_saturating_substrate_respects_vmax
+        - test_plateau_across_saturating_range
+        - mbp-01 entering Evaluate phase
+      asked_to: v2ecoli baseline maintainer (joint with env-store-topology-mismatch)
+      status: open
 
 
 # ─── 5c. FAILURE MODES ──────────────────────────────────────────────────────

@@ -559,6 +559,41 @@ bibliography:
 runs: []
 
 
+# Preliminary findings landed 2026-05-29 — diagnostic data computed from
+# mbp-02's existing multigen runs (cpa ∈ {1, 1e6, 1e9}, seed=0). Surfaces
+# the v2ecoli vs Beulig biomass-density gap BEFORE the comparison harness
+# is built, so reviewers can calibrate expectations. Not a substitute for
+# the full comparison overlays above — these will land once req-1-palsson-
+# ingestion (digitized Beulig CSVs) + req-2-comparison-harness ship.
+preliminary_findings:
+  - id: v2ecoli-vs-beulig-density-gap
+    chart: studies/mbp-05-palsson-benchmark/charts/00_preliminary_v2ecoli_vs_beulig_gap.svg
+    summary: |
+      At v2ecoli's current 60-sim-min / 2-generation batch duration, the
+      Beulig 2025 target band (50-80 gDW/L) sits 4-5 orders of magnitude
+      ABOVE the highest cpa run (cpa=1e9 → 3.26e-3 g/L). The residual gap
+      is NOT a cpa-scaling problem (chart 04 confirms cpa scaling is
+      exact across n=3 seeds); it's a BATCH-DURATION problem — v2ecoli
+      doesn't accumulate enough per-cell mass in 60 sim-min to reach
+      Beulig's regime, regardless of cpa.
+    consequences:
+      - mbp-05 comparison harness will produce a DIAGNOSTIC report
+        first (where v2ecoli sits relative to Beulig) BEFORE it produces
+        an EVALUATIVE report (does v2ecoli reproduce Beulig). The
+        diagnostic-first framing matches Chris's 2026-05-26 §10 reframe.
+      - Closing the residual gap requires (a) longer batch duration,
+        (b) impossibly-large cpa (~1e14), OR (c) fed-batch operations
+        (deferred upstream pbg-bioreactor-transport-fork blocker).
+      - The investigation's `cells_per_agent` representative-sampling
+        architecture is necessary but not sufficient to reach Beulig
+        density; the OD-only chart for low-OD runs makes that visible.
+    follow_ups:
+      - long-duration-batch-multigen
+        (run baseline at sim_seconds=21600 / 6-h batch-phase prefix to
+        see how far cell-mass-per-agent climbs before the single_daughters
+        lineage chain saturates)
+
+
 tests:
   auto_discover: true
   data_source: latest_run

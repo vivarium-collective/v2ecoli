@@ -373,13 +373,38 @@ executive:
         `pbg-bioreactor-transport-fork` PR. With mbp-01 now Build-
         complete and mbp-02 already validated, the critical path
         forward sits on the upstream side.
-    - text: |
-        mbp-02 multi-seed scaling sweep (cpa × seed) — Chris's §1.a
-        observation confirmed seed-0 scaling at three orders of
-        magnitude. A 3-seed × 3-cpa sweep would add variance bands
-        across replicates and answer "is this a single-seed
-        coincidence, or robust across stochasticity?" Scaffold lands
-        in the same changeset as this verdict block.
+
+  # 2026-05-29 new empirical evidence — landed AFTER the 2026-05-28
+  # changeset above and shipped in commits a1b3f25..07e57f4. Surfaced
+  # here so the report's headline panel reflects what's actually in the
+  # per-study Charts tabs the reviewer will open next.
+  new_empirical_evidence:
+    - title: Multi-seed mbp-02 cpa-scaling sweep (3 cpa × 3 seeds = 9 runs)
+      chart: studies/mbp-02-population-aggregation/charts/04_population-scaling-variance-bands.svg
+      finding: |
+        log-y population.total_biomass_gDW(t) mean ± std across seeds
+        {0, 1, 2} at every cpa ∈ {1, 1e6, 1e9}. Ribbons are narrow on
+        log-y at every cpa. Empirically answers the question implicit
+        in Chris's 2026-05-28 §1.a confirmation: the perfect cpa
+        scaling he validated at seed=0 holds across 3 stochastic
+        replicates per cpa — robust, not coincidence.
+      simulations: |
+        aggregator-cpa{1,1e6,1e9}-seed{1,2}-multigen +
+        aggregator-cpa{1,1e6,1e9}-multigen (seed=0). 9 runs at 60 sim-
+        min each, 2 generations each, single_daughters; parquet hives
+        under studies/mbp-02-population-aggregation/parquet-runs/.
+    - title: First env-driven multigen trajectories (mbp-01)
+      chart: studies/mbp-01-time-varying-environment/charts/01_driven-env-glc-trajectory.svg
+      finding: |
+        boundary.external.GLC(t) under two synthetic-trajectory specs.
+        Demonstrates the EnvironmentDriver → EnvironmentMirror →
+        boundary.external propagation chain (60cdbd3 unblock) running
+        at multi-generation scale — Chris's 2026-05-28 review predated
+        any env-driven trajectory; these are the first.
+      simulations: |
+        linear-decline-glc-multigen (GLC 5 mM → 0 over 60 sim-min) and
+        zero-clamp-glc-multigen (GLC clamped at 0). Parquet hives
+        under studies/mbp-01-time-varying-environment/parquet-runs/.
 
 
 # Studies in this investigation, in suggested execution order.

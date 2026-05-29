@@ -70,6 +70,16 @@ DNTP_BULK_IDS = ("DATP[c]", "DGTP[c]", "DCTP[c]", "TTP[c]")
 # feedback controller emit *negative* injection to drain over-production.
 BYPRODUCT_BULK_IDS = ("AMP[c]", "PPI[c]", "ADP[c]")
 
+# Water tracking — kFBA reference grows cell water by ~138 fg over 600 s of
+# M9-glucose (cell_mass grows 1274.5 → 1461.85 fg, dry_mass grows 388.93
+# → 438.84 fg, balance is water). At 18 Da per water, that's ~7.7×10⁶
+# H2O molecules per second of net production. With the same
+# consumption_matched feedback as the AAs/NTPs, this keeps cell-mass
+# trajectory in step with dry-mass trajectory (otherwise dry_mass
+# converges to Phase-0 but cell_mass undershoots by the missing water).
+WATER_BULK_IDS = ("WATER[c]",)
+WATER_RATE_PER_S = 7.7e6
+
 # Default location of the measured-kFBA-flux JSON (relative to repo root).
 DEFAULT_MEASURED_FLUX_PATH = ".pbg/runs/kfba-precursor-fluxes.json"
 
@@ -131,7 +141,8 @@ class RefGrowthDriver(Step):
         # the recycling that kFBA's metabolism does in Phase-0.
         if self.flux_source == "consumption_matched":
             self._precursor_ids = (
-                AA_BULK_IDS + NTP_BULK_IDS + DNTP_BULK_IDS + BYPRODUCT_BULK_IDS
+                AA_BULK_IDS + NTP_BULK_IDS + DNTP_BULK_IDS
+                + BYPRODUCT_BULK_IDS + WATER_BULK_IDS
             )
         else:
             self._precursor_ids = AA_BULK_IDS + NTP_BULK_IDS + DNTP_BULK_IDS
@@ -175,6 +186,11 @@ class RefGrowthDriver(Step):
                 continue
             if self.flux_source in ("measured_kfba", "consumption_matched"):
                 rate = self._measured_rates_by_id.get(vid, 0.0)
+                # WATER isn't in the kfba-precursor-fluxes JSON (the
+                # sampler script only walked the AA/NTP/dNTP list).
+                # Inject the hardcoded Phase-0 water-growth rate for it.
+                if vid in WATER_BULK_IDS:
+                    rate = WATER_RATE_PER_S
                 if self.flux_source == "measured_kfba" and rate <= 0.0:
                     # measured_kfba mode skips non-positive rates entirely.
                     continue

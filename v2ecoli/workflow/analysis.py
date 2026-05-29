@@ -17,6 +17,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from process_bigraph.composite import SyncUpdate
+
 from v2ecoli.steps.base import V2Step
 
 
@@ -58,6 +60,13 @@ class AnalysisStep(V2Step):
     def analyze(self, rows: list[dict[str, Any]]) -> dict[str, Any]:
         raise NotImplementedError
 
+    def invoke(self, state, interval=None):
+        # Analyses should fail loudly: unlike the simulation Steps (whose
+        # V2Step.invoke swallows errors to keep the step cascade alive), a
+        # broken or unimplemented analyze() must surface, not silently
+        # return {}.
+        return SyncUpdate(self.update(state))
+
     def update(self, state, interval=None):
         rows = state.get("results") or []
         return {"analysis": self.analyze(rows)}
@@ -70,9 +79,12 @@ class MassFractionSummary(AnalysisStep):
     scale = "single"
 
     def analyze(self, rows):
+        fraction_keys = ("protein", "rRna", "dna")
+        empty = {"n_rows": 0, "n_valid_rows": 0,
+                 **{f"{k}_fraction_mean": 0.0 for k in fraction_keys}}
         if not rows:
-            return {"n_rows": 0}
-        fractions = {"protein": [], "rRna": [], "dna": []}
+            return empty
+        fractions = {k: [] for k in fraction_keys}
         for r in rows:
             mass = (r.get("listeners", {}) or {}).get("mass", {}) or {}
             dry = float(mass.get("dry_mass", 0.0)) or 0.0
@@ -81,7 +93,8 @@ class MassFractionSummary(AnalysisStep):
             fractions["protein"].append(float(mass.get("protein_mass", 0.0)) / dry)
             fractions["rRna"].append(float(mass.get("rRna_mass", 0.0)) / dry)
             fractions["dna"].append(float(mass.get("dna_mass", 0.0)) / dry)
-        out: dict[str, Any] = {"n_rows": len(rows)}
+        n_valid = len(fractions["protein"])
+        out = {"n_rows": len(rows), "n_valid_rows": n_valid}
         for name, vals in fractions.items():
             out[f"{name}_fraction_mean"] = (sum(vals) / len(vals)) if vals else 0.0
         return out

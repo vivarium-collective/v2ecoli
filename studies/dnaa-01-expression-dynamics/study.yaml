@@ -3,48 +3,51 @@ name: dnaa-01-expression-dynamics
 created: '2026-05-16'
 runtime:
   subprocess_timeout_s: 7200
-  max_generations: 3   # follow daughters past 2 divisions (n_steps=9000 ≈ 3 cycles) — closes the "cross-cycle drift not validated" caveat. Sqlite path supports this via run_multigen_sqlite (v2ecoli PR #71/#73).
-  single_daughters: true   # memory guardrail — prune sibling daughters so peak RSS tracks one-cell footprint instead of 2^N at gen N. v2ecoli PR #73 / vivarium-dashboard PR #112.
+  max_generations: 3
+  single_daughters: true
 report:
   title: DnaA expression dynamics
   verdict: passing-with-caveats
   confidence: medium
   evidence_quality: literature-matched
-  objective: Certify that v2ecoli's existing transcription/translation chain produces a steady, physiological DnaA
-    pool before any initiation mechanism is built on top of it.
-  conclusion: 'Round 3 (2026-05-25): re-run on the new Stage-1 minimal_glycerol ParCa cache (same one
-    dnaa-00 uses) with translation_efficiency_eg10235_scale=2.48 retained from the glucose-calibrated
-    Round 2. DnaA count IN-BAND across the cycle (329 → 399 peak at t=43 min; 234 post-division),
-    inside Schmidt 2016 / Mori 2021 [300, 800] throughout. NEW concentration plot (Haochen R3 ask):
-    DnaA / cell_mass drops 2.5× over one cycle (1.03 → 0.62 → 0.42 mol/fg) — synthesis can not track
-    cell-mass growth at glycerol synthesis rates. Same τ-gap as dnaa-00: emergent cycle = 83 min,
-    not the declared 150 min (root cause: division on dry_mass ≥ ParCa-fitted threshold, not on
-    cell_cycle_len).'
-  main_insight: 'Three findings worth Haochen review:
-    (1) Round-2 acetate `3800s stop` mystery RESOLVED: division happens at ~83 min on glycerol;
-        the prior dnaa-01 viz cut off at the last pre-division emit because Round-2 runs lacked
-        single_daughters + multi-gen wiring. Round-3 captures the division event cleanly (agent 0 → 00).
-    (2) DnaA stays IN-BAND across one full cycle (329-399) on the glycerol cache — better than
-        dnaa-00 because the 2.48 translation_efficiency scale compensates for slower glycerol
-        synthesis. Without the scale dnaa-00 dropped to 222 (below band).
-    (3) Concentration NOT stable: 2.5× drop across cycle. Same root cause as dnaa-00 — glycerol
-        synthesis cannot keep pace with mass growth.'
-  caveat: 'τ-gap (declared 150 vs emergent 83 min) inherited from dnaa-00. translation_efficiency_eg10235_scale
-    is still 2.48 from the glucose calibration — needs re-running calibrate_dnaa_stage1.py against
-    the new glycerol cache to find the proper converged value. Only 1 generation captured (n_steps=10000
-    but multi-gen single_daughters terminated after first division at 5000s); cross-cycle steadiness
-    over ≥3 generations still pending.'
-  round_3_5_addendum: '2026-05-26 (post-Round-3-send): re-ran dnaa-01 after fixing a silent
-    composite-cache bug in run_multigen_sqlite (PR #77 against main; commit on this branch
-    7f3d0a2/f099e96). Multi-gen single_daughters now correctly traverses past first division
-    instead of silently terminating. Run captured 100 emit rows (vs Round-3''s 50), covering
-    2 full cycles. New finding: in gen-2 (t=5100-10000s = 85-167 min), DnaA count drops to 151
-    at midpoint (below the [300, 800] literature band) before recovering to 222 — the concentration
-    decline observed in gen-1 PERSISTS across generations. This directly addresses Haochen''s
-    recurring "≥1 doubling time / cross-cycle steadiness" ask, but with a negative answer
-    under current parameters: DnaA pool is NOT steady across generations. Likely tied to the
-    glycerol-fit synthesis rate vs the (uncalibrated) constitutive Step rate. Holds until
-    Haochen R3 feedback lands; will fold into R4.'
+  objective: Certify that v2ecoli's existing transcription/translation chain produces
+    a steady, physiological DnaA pool before any initiation mechanism is built on
+    top of it.
+  conclusion: 'Round 3 (2026-05-25): re-run on the new Stage-1 minimal_glycerol ParCa
+    cache (same one dnaa-00 uses) with translation_efficiency_eg10235_scale=2.48 retained
+    from the glucose-calibrated Round 2. DnaA count IN-BAND across the cycle (329
+    → 399 peak at t=43 min; 234 post-division), inside Schmidt 2016 / Mori 2021 [300,
+    800] throughout. NEW concentration plot (Haochen R3 ask): DnaA / cell_mass drops
+    2.5× over one cycle (1.03 → 0.62 → 0.42 mol/fg) — synthesis can not track cell-mass
+    growth at glycerol synthesis rates. Same τ-gap as dnaa-00: emergent cycle = 83
+    min, not the declared 150 min (root cause: division on dry_mass ≥ ParCa-fitted
+    threshold, not on cell_cycle_len).'
+  main_insight: 'Three findings worth Haochen review: (1) Round-2 acetate `3800s stop`
+    mystery RESOLVED: division happens at ~83 min on glycerol; the prior dnaa-01 viz
+    cut off at the last pre-division emit because Round-2 runs lacked single_daughters
+    + multi-gen wiring. Round-3 captures the division event cleanly (agent 0 → 00).
+    (2) DnaA stays IN-BAND across one full cycle (329-399) on the glycerol cache —
+    better than dnaa-00 because the 2.48 translation_efficiency scale compensates
+    for slower glycerol synthesis. Without the scale dnaa-00 dropped to 222 (below
+    band). (3) Concentration NOT stable: 2.5× drop across cycle. Same root cause as
+    dnaa-00 — glycerol synthesis cannot keep pace with mass growth.'
+  caveat: τ-gap (declared 150 vs emergent 83 min) inherited from dnaa-00. translation_efficiency_eg10235_scale
+    is still 2.48 from the glucose calibration — needs re-running calibrate_dnaa_stage1.py
+    against the new glycerol cache to find the proper converged value. Only 1 generation
+    captured (n_steps=10000 but multi-gen single_daughters terminated after first
+    division at 5000s); cross-cycle steadiness over ≥3 generations still pending.
+  round_3_5_addendum: '2026-05-26 (post-Round-3-send): re-ran dnaa-01 after fixing
+    a silent composite-cache bug in run_multigen_sqlite (PR #77 against main; commit
+    on this branch 7f3d0a2/f099e96). Multi-gen single_daughters now correctly traverses
+    past first division instead of silently terminating. Run captured 100 emit rows
+    (vs Round-3''s 50), covering 2 full cycles. New finding: in gen-2 (t=5100-10000s
+    = 85-167 min), DnaA count drops to 151 at midpoint (below the [300, 800] literature
+    band) before recovering to 222 — the concentration decline observed in gen-1 PERSISTS
+    across generations. This directly addresses Haochen''s recurring "≥1 doubling
+    time / cross-cycle steadiness" ask, but with a negative answer under current parameters:
+    DnaA pool is NOT steady across generations. Likely tied to the glycerol-fit synthesis
+    rate vs the (uncalibrated) constitutive Step rate. Holds until Haochen R3 feedback
+    lands; will fold into R4.'
   lit_match: Schmidt 2016 / Mori 2021 mass-spec abundance band [300, 800]
   key_metrics:
   - label: DnaA count (start / peak / division)
@@ -63,76 +66,98 @@ report:
     value: 2.48 (glucose-fitted, pending glycerol-recalibration)
     status: warn
   decisions_needed:
-  - question: 'TE scale 2.48: re-run calibrate_dnaa_stage1.py against the glycerol cache to find
-      the proper converged value? Current 2.48 is glucose-fitted; on glycerol it produces in-band
-      results but may not be the right value scientifically.'
-  - question: 'Concentration drop (2.5× over one cycle): same biology question as dnaa-00. Probably
-      coupled — answer for one should answer for the other.'
-  purpose: Certify that v2ecoli's existing transcription/translation chain already produces a steady, self-regulating
-    DnaA pool before any replication-initiation mechanism (dnaa-02..04) is built on top of it. If this baseline
-    pool is wrong, every downstream nucleotide-cycle rate is calibrated against fiction.
-  setup: 'Round 3 (2026-05-25): dnaa_stage1_constitutive composite on the new minimal_glycerol Stage-1
-    ParCa cache (same one dnaa-00 uses; built with imposed τ=150 / C=70 / D=30). seed=0, n_steps=10000
-    (~2 emergent cycles budgeted), translation_efficiency_eg10235_scale=2.48 retained from glucose
-    calibration (see model_settings note below). Mass observables added to readouts so the new DnaA
-    concentration viz (count / cell_mass) can render — Haochen R3 ask.'
-  result: 'Run captured one full cycle + first division at t=5000s (83 min): DnaA count 329 (start) →
-    399 (peak at t=43 min) → 234 (post-division at t=83 min), staying inside the Schmidt 2016 /
-    Mori 2021 [300, 800] band throughout the pre-division window. The new DnaA concentration trace
-    shows a 2.5× drop across the cycle (1.03 → 0.62 → 0.42 mol/fg), evidence that synthesis cannot
-    keep up with the growing cell volume at glycerol synthesis rates. Multi-gen single_daughters
-    terminated after the first division at 5000s despite n_steps=10000 — only one generation
+  - question: 'TE scale 2.48: re-run calibrate_dnaa_stage1.py against the glycerol
+      cache to find the proper converged value? Current 2.48 is glucose-fitted; on
+      glycerol it produces in-band results but may not be the right value scientifically.'
+  - question: 'Concentration drop (2.5× over one cycle): same biology question as
+      dnaa-00. Probably coupled — answer for one should answer for the other.'
+  purpose: Certify that v2ecoli's existing transcription/translation chain already
+    produces a steady, self-regulating DnaA pool before any replication-initiation
+    mechanism (dnaa-02..04) is built on top of it. If this baseline pool is wrong,
+    every downstream nucleotide-cycle rate is calibrated against fiction.
+  setup: 'Round 3 (2026-05-25): dnaa_stage1_constitutive composite on the new minimal_glycerol
+    Stage-1 ParCa cache (same one dnaa-00 uses; built with imposed τ=150 / C=70 /
+    D=30). seed=0, n_steps=10000 (~2 emergent cycles budgeted), translation_efficiency_eg10235_scale=2.48
+    retained from glucose calibration (see model_settings note below). Mass observables
+    added to readouts so the new DnaA concentration viz (count / cell_mass) can render
+    — Haochen R3 ask.'
+  result: 'Run captured one full cycle + first division at t=5000s (83 min): DnaA
+    count 329 (start) → 399 (peak at t=43 min) → 234 (post-division at t=83 min),
+    staying inside the Schmidt 2016 / Mori 2021 [300, 800] band throughout the pre-division
+    window. The new DnaA concentration trace shows a 2.5× drop across the cycle (1.03
+    → 0.62 → 0.42 mol/fg), evidence that synthesis cannot keep up with the growing
+    cell volume at glycerol synthesis rates. Multi-gen single_daughters terminated
+    after the first division at 5000s despite n_steps=10000 — only one generation
     captured this run; cross-cycle steadiness over ≥3 generations is a Round-4 follow-up.
 
 
-    PARQUET RERUN 2026-05-28 (dnaa_stage1_constitutive composite +
-    freshly-built out/cache-stage1-heuristic-acetate via build_condition_cache.py
-    with tx_factor=30 / te_factor=2.48 bootstrap, seed 0, 4020-s sim, parquet
-    emitter; via studies/<slug>/parquet-runs/): DnaA monomer total median 396
-    (range 373-418, IN BAND [300, 800] ✓), DnaA-ATP-complex median 395.5
-    (range 372-418), apo monomer median 0 (max 2). Band-membership claim
-    re-confirmed under parquet. Two honest deltas vs the Round-3 glycerol run
-    above: (1) acetate cycle did NOT divide within 67 min (cell_mass ended ~872
-    fg vs the ~960 fg division threshold) — cell_mass median 695 fg vs the
-    glycerol counterpart''s higher values; (2) iterative recalibration of
-    tx_factor/te_factor was attempted (calibrate_dnaa_stage1.py --iterations 3
-    --media-condition acetate) but the measurement loop is BROKEN on the
-    merged-main branch: rna_init_event_per_cistron[dnaA] reads 0 in
-    dnaa_00_baseline_with_dnaa_readout''s 15-min sim across all iterations
-    (tx_factor cranked 30 → 300 → 3000 → 30000 by zero-fallback ×10 each
-    step). The actual run produces DnaA, so the synthesis Step works — only
-    the calibrate-time measurement listener path is wrong. Filed as
-    follow-up (out of scope for this rerun): fix
-    calibrate_dnaa_stage1.measure() OR have it use the same composite the
-    actual run uses.'
+    PARQUET RERUN 2026-05-28 (dnaa_stage1_constitutive composite + freshly-built out/cache-stage1-heuristic-acetate
+    via build_condition_cache.py with tx_factor=30 / te_factor=2.48 bootstrap, seed
+    0, 4020-s sim, parquet emitter; via studies/<slug>/parquet-runs/): DnaA monomer
+    total median 396 (range 373-418, IN BAND [300, 800] ✓), DnaA-ATP-complex median
+    395.5 (range 372-418), apo monomer median 0 (max 2). Band-membership claim re-confirmed
+    under parquet. Two honest deltas vs the Round-3 glycerol run above: (1) acetate
+    cycle did NOT divide within 67 min (cell_mass ended ~872 fg vs the ~960 fg division
+    threshold) — cell_mass median 695 fg vs the glycerol counterpart''s higher values;
+    (2) iterative recalibration of tx_factor/te_factor was attempted (calibrate_dnaa_stage1.py
+    --iterations 3 --media-condition acetate) but the measurement loop is BROKEN on
+    the merged-main branch: rna_init_event_per_cistron[dnaA] reads 0 in dnaa_00_baseline_with_dnaa_readout''s
+    15-min sim across all iterations (tx_factor cranked 30 → 300 → 3000 → 30000 by
+    zero-fallback ×10 each step). The actual run produces DnaA, so the synthesis Step
+    works — only the calibrate-time measurement listener path is wrong. Filed as follow-up
+    (out of scope for this rerun): fix calibrate_dnaa_stage1.measure() OR have it
+    use the same composite the actual run uses.
+
+
+    MULTI-SEED ADDENDUM 2026-05-29 (3-seed sweep of the Stage-1 acetate
+    methodology above; closes the Round 3.6 "single-seed reproduction"
+    caveat): re-ran seeds 1 and 2 against the SAME setup (dnaa_stage1_constitutive
+    + out/cache-stage1-heuristic-acetate + tx=30 / te=2.48 bootstrap + 4020-s
+    sim + parquet emitter):
+      seed 0: DnaA monomer total median 396 (range 373-418), divided=False
+      seed 1: DnaA monomer total median 377 (range 361-401), divided=False
+      seed 2: DnaA monomer total median 374.5 (range 358-398), divided at 63 min
+    Across-seed median = 382, range 374.5-396, CV ~3% — the in-band claim is
+    deterministic to a small stochastic spread. ALL THREE seeds sit in the
+    Schmidt 2016 / Mori 2021 [300, 800] band the entire cycle. Division
+    behaviour DOES vary stochastically: seed 2 divides within the 67-min window,
+    seeds 0 and 1 don''t reach the dry_mass threshold by then — same
+    acetate-slow-growth observation as the single-seed Round 3.6 finding,
+    now reproduced. Outputs:
+    studies/dnaa-01-expression-dynamics/sims/multi-seed-2026-05-29/{seed1,seed2}.json.'
   interpretation: 'Haochen R2 / R3 questions answered:
 
-    R3 (concentration viz): NEW finding surfaced by the requested DnaA / cell_mass plot — concentration
-    drops 2.5× over one cycle. Same root cause as dnaa-00''s drop: glycerol-fitted synthesis cannot
-    track cell-mass growth. Open biology question (see decisions_needed).
+    R3 (concentration viz): NEW finding surfaced by the requested DnaA / cell_mass
+    plot — concentration drops 2.5× over one cycle. Same root cause as dnaa-00''s
+    drop: glycerol-fitted synthesis cannot track cell-mass growth. Open biology question
+    (see decisions_needed).
 
-    R3 (~3800s stop in the earlier viz): RESOLVED. The prior dnaa-01 viz cut off at t≈3800s because
-    that Round-2 run divided at ~63 min (acetate cache) and the older composite emit wiring lost the
-    agent after division (the single_daughters + multi-gen sqlite plumbing landed AFTER that run).
-    Round 3 captures division cleanly (agent 0 → 00 at t=5000s).
+    R3 (~3800s stop in the earlier viz): RESOLVED. The prior dnaa-01 viz cut off at
+    t≈3800s because that Round-2 run divided at ~63 min (acetate cache) and the older
+    composite emit wiring lost the agent after division (the single_daughters + multi-gen
+    sqlite plumbing landed AFTER that run). Round 3 captures division cleanly (agent
+    0 → 00 at t=5000s).
 
-    R3 (where does 2.48 come from): scripts/calibrate_dnaa_stage1.py found 2.48 as the converged TE
-    scale that lands the in-vivo glucose-cell DnaA pool inside the Schmidt 2016 / Mori 2021 [300, 800]
-    mass-spec band. On the new glycerol cache 2.48 still keeps the count in band — but the converged
-    glycerol value will probably differ. Documented in model_settings; recalibration is a Round-4
-    follow-up.
+    R3 (where does 2.48 come from): scripts/calibrate_dnaa_stage1.py found 2.48 as
+    the converged TE scale that lands the in-vivo glucose-cell DnaA pool inside the
+    Schmidt 2016 / Mori 2021 [300, 800] mass-spec band. On the new glycerol cache
+    2.48 still keeps the count in band — but the converged glycerol value will probably
+    differ. Documented in model_settings; recalibration is a Round-4 follow-up.
 
-    R2 (acetate cycle / ~1900s dip): superseded — the acetate cache is no longer the substrate. The
-    new glycerol cache produces a clean monotonic 329 → 399 rise over the pre-division window with
-    no dip artifact.'
-  decision: 'Pipeline gate PASSED for structural progression: regression_compatibility = PASS, biological_validation
-    = PASS (dnaA-count-in-range: acetate full-cycle median 366, in band [300,800] throughout, second-half CV 2.8%),
-    explanatory_gain = PENDING. No calibration shortfall remains; dnaa-02/03 build on a baseline whose absolute
-    count is validated.'
-  next_action: Add a non-scalar evaluator so the rolling_cv stability and pearson autorepression tests can be auto-verdicted;
-    raise the expert question of which DnaA pool (free / total / ATP-form) the literature band targets; investigate
-    the weak autorepression signature by slicing the Y axis to the dnaA-specific TU; and proceed to dnaa-02-atp-hydrolysis
-    (count calibration is resolved — acetate full-cycle median 366, in band, steady at CV 2.8%).
+    R2 (acetate cycle / ~1900s dip): superseded — the acetate cache is no longer the
+    substrate. The new glycerol cache produces a clean monotonic 329 → 399 rise over
+    the pre-division window with no dip artifact.'
+  decision: 'Pipeline gate PASSED for structural progression: regression_compatibility
+    = PASS, biological_validation = PASS (dnaA-count-in-range: acetate full-cycle
+    median 366, in band [300,800] throughout, second-half CV 2.8%), explanatory_gain
+    = PENDING. No calibration shortfall remains; dnaa-02/03 build on a baseline whose
+    absolute count is validated.'
+  next_action: Add a non-scalar evaluator so the rolling_cv stability and pearson
+    autorepression tests can be auto-verdicted; raise the expert question of which
+    DnaA pool (free / total / ATP-form) the literature band targets; investigate the
+    weak autorepression signature by slicing the Y axis to the dnaA-specific TU; and
+    proceed to dnaa-02-atp-hydrolysis (count calibration is resolved — acetate full-cycle
+    median 366, in band, steady at CV 2.8%).
 question: 'Does v2ecoli reproduce the steady DnaA pool + autorepression baseline
 
   expected from the literature? Before we can mechanise replication
@@ -147,7 +172,8 @@ question: 'Does v2ecoli reproduce the steady DnaA pool + autorepression baseline
 
   '
 assumptions:
-- text: The literature mass-spec band [300, 800] DnaA/cell measures TOTAL DnaA — both free and chromosomally-bound.
+- text: The literature mass-spec band [300, 800] DnaA/cell measures TOTAL DnaA — both
+    free and chromosomally-bound.
   cites:
   - Schmidt2016
   - Mori2021
@@ -170,7 +196,8 @@ assumptions:
   - Katayama2017
   verified_in_v2ecoli: false
   note: Test infrastructure exists but heavy_tf_listener arg not enabled in baseline.
-- text: Stopping DnaA synthesis drains the cellular pool by ~30% over one doubling time.
+- text: Stopping DnaA synthesis drains the cellular pool by ~30% over one doubling
+    time.
   cites:
   - Li2014
   - Hansen1999
@@ -179,47 +206,36 @@ assumptions:
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline_recipes.dnaa_stage1_constitutive
-    # Round 3 (2026-05-25, Haochen ask): point at the new Stage-1 glycerol
-    # cache that dnaa-00 also uses, so dnaa-01's expression dynamics are
-    # evaluated under the IMPOSED τ=150 / C=70 / D=30 cycle (not the
-    # earlier minimal-glucose / minimal-acetate caches). n_steps=10000
-    # covers >1 emergent cycle (83 min observed on dnaa-00).
     params:
       seed: 0
       cache_dir: out/cache-stage1-glycerol
       rate_protein_per_min_per_gene: 1.5
       initial_dnaa_count: 325
-      n_steps: 10000   # ~2 emergent cycles on the glycerol cache
+      n_steps: 10000
   variants: []
   model_settings:
   - name: translation_efficiency_eg10235_scale
     description: 'Scale factor on the dnaA gene''s translation efficiency in ParCa.
       Multiplies the ParCa-fitted value before composite construction.
 
-      ORIGIN of 2.48 (Haochen R3 question):
-      The baseline ParCa-fit translation efficiency for dnaA (eg10235)
-      yielded a steady-state DnaA pool of ~115/cell on glucose, well
-      below the Schmidt 2016 / Mori 2021 mass-spec band [300, 800].
-      scripts/calibrate_dnaa_stage1.py runs the loop {build cache →
-      short sim → measure realized DnaA → rescale}, finding the
-      multiplier that lands the cell in-band. On glucose the converged
-      scale was 2.48 (≈ 357/cell). The number is a CALIBRATION
-      RESULT, not a literature value; it compensates for v2ecoli''s
-      transcription-vs-translation balance not matching the in-vivo
-      ratio at the eg10235 locus.
+      ORIGIN of 2.48 (Haochen R3 question): The baseline ParCa-fit translation efficiency
+      for dnaA (eg10235) yielded a steady-state DnaA pool of ~115/cell on glucose,
+      well below the Schmidt 2016 / Mori 2021 mass-spec band [300, 800]. scripts/calibrate_dnaa_stage1.py
+      runs the loop {build cache → short sim → measure realized DnaA → rescale}, finding
+      the multiplier that lands the cell in-band. On glucose the converged scale was
+      2.48 (≈ 357/cell). The number is a CALIBRATION RESULT, not a literature value;
+      it compensates for v2ecoli''s transcription-vs-translation balance not matching
+      the in-vivo ratio at the eg10235 locus.
 
-      Why we keep using 2.48 in Round 3 on the new glycerol cache:
-      glycerol synthesis is slower than glucose; without the scale,
-      DnaA would land even further below band on glycerol. The R3
-      glycerol run with scale=2.48 produces 329-399/cell across the
-      cycle — still in band. The "right" value for glycerol may be
-      different; calibrate_dnaa_stage1.py needs to be re-run against
-      the new cache to find the exact glycerol-converged scale.
-      Captured as a Round-4 follow-up.
+      Why we keep using 2.48 in Round 3 on the new glycerol cache: glycerol synthesis
+      is slower than glucose; without the scale, DnaA would land even further below
+      band on glycerol. The R3 glycerol run with scale=2.48 produces 329-399/cell
+      across the cycle — still in band. The "right" value for glycerol may be different;
+      calibrate_dnaa_stage1.py needs to be re-run against the new cache to find the
+      exact glycerol-converged scale. Captured as a Round-4 follow-up.
 
-      Default 1.0 (use ParCa''s unscaled value); range constrained to
-      [0.5, 50] for sanity.
-      '
+      Default 1.0 (use ParCa''s unscaled value); range constrained to [0.5, 50] for
+      sanity. '
     type: number
     default: 1.0
     current: 2.48
@@ -231,12 +247,6 @@ conditions:
     range:
     - 0.5
     - 50.0
-
-# DnaA pool steady-state trajectory — same DnaAStateVisualization that
-# dnaa-02 uses. The stage1_constitutive composite emits the dnaA_cycle
-# listener (apo/atp/adp counts + fractions); at the heuristic stage no
-# active hydrolysis fires, so atp_fraction stays ≈ 1 — that's the
-# pre-mechanism baseline against which dnaa-02..06 are evaluated.
 visualizations:
 - name: dnaa_state
   address: local:DnaAStateVisualization
@@ -251,8 +261,7 @@ visualizations:
       adp_fraction: listeners.dnaA_cycle.adp_fraction
       apo_fraction: listeners.dnaA_cycle.apo_fraction
       time: global_time
-      number_of_oric: listeners.replication_data.number_of_oric   # drives event-overlay vertical lines (dnaa viz classes auto-detect init/division from oriC step changes)
-
+      number_of_oric: listeners.replication_data.number_of_oric
 tests:
 - name: dnaa-count-in-mass-spec-range
   classification: primary
@@ -267,8 +276,8 @@ tests:
     low: 300
     high: 800
   status: pass
-  result_note: 'PASS against gen-20260522T003700Z-9fcb58 (minimal-GLUCOSE, ~44 min): current DnaA count = 357, inside
-    [300, 800].'
+  result_note: 'PASS against gen-20260522T003700Z-9fcb58 (minimal-GLUCOSE, ~44 min):
+    current DnaA count = 357, inside [300, 800].'
   cites:
   - Sekimizu1991
   - Schmidt2016
@@ -286,8 +295,9 @@ tests:
     op: at_most
     value: 0.1
   status: verdict-refresh-pending
-  result_note: 'Verdict refresh pending (measure kind rolling_cv not auto-evaluable by the scalar evaluator). Recorded
-    analysis: rolling CV historically < 1%, well under the 10% threshold.'
+  result_note: 'Verdict refresh pending (measure kind rolling_cv not auto-evaluable
+    by the scalar evaluator). Recorded analysis: rolling CV historically < 1%, well
+    under the 10% threshold.'
   cites:
   - Hansen2018
   - Hansen1999
@@ -304,8 +314,9 @@ tests:
     op: at_most
     value: -0.3
   status: verdict-refresh-pending
-  result_note: 'Verdict refresh pending (measure kind pearson not auto-evaluable by the scalar evaluator). Recorded
-    analysis: Pearson r = +0.197 (weak positive, not the predicted strong negative).'
+  result_note: 'Verdict refresh pending (measure kind pearson not auto-evaluable by
+    the scalar evaluator). Recorded analysis: Pearson r = +0.197 (weak positive, not
+    the predicted strong negative).'
   cites:
   - Speck1999
   - Saggioro2013
@@ -313,7 +324,8 @@ tests:
   run_ids: []
 status: round3-tau-gap-inherited-from-dnaa00-concentration-drop-new-finding-awaiting-expert-review
 last_run: gen-20260522T003700Z-9fcb58
-biological_summary: 'Before we can model how DnaA decides when to fire replication, we need to
+biological_summary: 'Before we can model how DnaA decides when to fire replication,
+  we need to
 
   confirm that v2ecoli already maintains a steady, realistic pool of DnaA
 
@@ -324,18 +336,23 @@ biological_summary: 'Before we can model how DnaA decides when to fire replicati
   '
 study_card:
   goal: Confirm v2ecoli maintains a steady, realistic DnaA pool with working autorepression.
-  mechanism: Uses the EXISTING v2ecoli transcription + translation chain — no new processes added.
-  why_before_next: dnaa-02 (DnaA-ATP/ADP/apo cycle) tunes nucleotide-state rates against a "total DnaA" baseline.
-    If that baseline is wrong, every rate downstream is calibrated against a fiction.
-  expected_result: Total DnaA in [300, 800]/cell (mass-spec band); concentration CV ≤ 10% over the second half of
-    one doubling time; bound-DnaA at promoters anticorrelates with dnaA transcription events.
-  main_expert_question: Does the literature mass-spec measurement [300, 800] DnaA/cell include chromosomally-bound
-    DnaA, or just soluble DnaA? Affects how we interpret v2ecoli's observed 357/cell.
+  mechanism: Uses the EXISTING v2ecoli transcription + translation chain — no new
+    processes added.
+  why_before_next: dnaa-02 (DnaA-ATP/ADP/apo cycle) tunes nucleotide-state rates against
+    a "total DnaA" baseline. If that baseline is wrong, every rate downstream is calibrated
+    against a fiction.
+  expected_result: Total DnaA in [300, 800]/cell (mass-spec band); concentration CV
+    ≤ 10% over the second half of one doubling time; bound-DnaA at promoters anticorrelates
+    with dnaA transcription events.
+  main_expert_question: Does the literature mass-spec measurement [300, 800] DnaA/cell
+    include chromosomally-bound DnaA, or just soluble DnaA? Affects how we interpret
+    v2ecoli's observed 357/cell.
 literature_anchors:
 - expectation: About 300-800 DnaA molecules per cell during slow growth
   model_observable: listeners.monomer_counts.monomerCounts[3861] (DnaA)
   source: Sekimizu 1991 / Schmidt 2016 / Mori 2021 / Liu 2020
-  status_in_v2ecoli: 357/cell observed (gen-20260522T003700Z-9fcb58) — PASS, inside [300, 800]
+  status_in_v2ecoli: 357/cell observed (gen-20260522T003700Z-9fcb58) — PASS, inside
+    [300, 800]
 - expectation: DnaA concentration is stable over one doubling time (no drift)
   model_observable: rolling CV of monomer_counts[3861] over the second half
   source: Hansen 2018 (DnaA tale) / Hansen 1999
@@ -354,13 +371,15 @@ pipeline_gate:
   - dnaa-02-atp-hydrolysis
   - dnaa-03-box-binding
   gate_status: passed
-  gate_status_summary: 'Re-evaluated against gen-20260522T003700Z-9fcb58 (minimal-GLUCOSE, ~44 min): dnaA-count-in-range
-    PASSES with current DnaA count = 357, inside the literature band [300, 800] — the Stage-1 transcription/translation
-    wiring works. The dnaa-01 stability + autorepression-infrastructure gate is cleared; dnaa-02 has been built
-    and run on top of this baseline successfully.
+  gate_status_summary: 'Re-evaluated against gen-20260522T003700Z-9fcb58 (minimal-GLUCOSE,
+    ~44 min): dnaA-count-in-range PASSES with current DnaA count = 357, inside the
+    literature band [300, 800] — the Stage-1 transcription/translation wiring works.
+    The dnaa-01 stability + autorepression-infrastructure gate is cleared; dnaa-02
+    has been built and run on top of this baseline successfully.
 
-    Count calibration is now resolved (no shortfall). The rolling-CV stability and pearson autorepression verdicts
-    are refresh-pending because their measure kinds are not auto-evaluable by the scalar evaluator — see tests. '
+    Count calibration is now resolved (no shortfall). The rolling-CV stability and
+    pearson autorepression verdicts are refresh-pending because their measure kinds
+    are not auto-evaluable by the scalar evaluator — see tests. '
   proceed_condition: 'All primary tests pass; the supporting autorepression-correlation
 
     test passes; calibration discrepancies (if any) are annotated and
@@ -368,7 +387,8 @@ pipeline_gate:
     expert-reviewed.
 
     '
-  blocks_until_resolved: 'If the DnaA-count primary test fails because v2ecoli''s simulated
+  blocks_until_resolved: 'If the DnaA-count primary test fails because v2ecoli''s
+    simulated
 
     count is far outside the literature band, downstream studies should
 
@@ -489,28 +509,26 @@ readouts:
   status: derived-needed
   blocked_by_requirements:
   - req-1-concentration-listener
-# Round 3 additions — needed for the DnaA count / cell mass concentration
-# viz Haochen asked for, and for the τ-vs-emergent gap diagnostic.
 - name: cell_mass
   store_path: agents.0.listeners.mass.cell_mass
   units: fg
   status: available
-  description: Total cell mass. Used by scripts/render_dnaa_concentration.py to
-    compute DnaA / mass; also lets the report show actual mass-doubling time
-    vs the declared cell_cycle_len target.
+  description: Total cell mass. Used by scripts/render_dnaa_concentration.py to compute
+    DnaA / mass; also lets the report show actual mass-doubling time vs the declared
+    cell_cycle_len target.
 - name: dry_mass
   store_path: agents.0.listeners.mass.dry_mass
   units: fg
   status: available
-  description: Cell dry mass — what division actually compares against the
-    ParCa-fitted threshold.
+  description: Cell dry mass — what division actually compares against the ParCa-fitted
+    threshold.
 - name: expected_mass_fold_change
   store_path: agents.0.listeners.mass.expected_mass_fold_change
   units: dimensionless
   status: available
-  description: 2^(t/cell_cycle_len) — mass listener's REFERENCE under the
-    declared τ=150 min. Comparing this to the actual mass-fold-change
-    surfaces the same τ-gap the dnaa-00 study flagged.
+  description: 2^(t/cell_cycle_len) — mass listener's REFERENCE under the declared
+    τ=150 min. Comparing this to the actual mass-fold-change surfaces the same τ-gap
+    the dnaa-00 study flagged.
 autorepression_test_suite:
 - name: lagged_binding_mrna_cross_correlation
   kind: lagged_binding_mrna_cross_correlation
@@ -669,43 +687,51 @@ abstraction_level:
 conclusion_verdicts:
   regression_compatibility:
     result: PASS
-    basis: 'Re-evaluated against gen-20260522T003700Z-9fcb58 (minimal-GLUCOSE, ~44 min): dnaA-count-in-range now
-      PASSES with current DnaA count = 357, inside the literature [300, 800] band — the Stage-1 transcription/translation
-      wiring works. The dnaA-concentration-stable rolling-CV verdict is refresh-pending (measure kind not auto-evaluable);
-      recorded analysis showed CV < 1%. '
+    basis: 'Re-evaluated against gen-20260522T003700Z-9fcb58 (minimal-GLUCOSE, ~44
+      min): dnaA-count-in-range now PASSES with current DnaA count = 357, inside the
+      literature [300, 800] band — the Stage-1 transcription/translation wiring works.
+      The dnaA-concentration-stable rolling-CV verdict is refresh-pending (measure
+      kind not auto-evaluable); recorded analysis showed CV < 1%. '
     caveat: The recipe parameters are model_implied (fits, not measured biology).
   biological_validation:
     result: PASS
-    basis: 'dnaA-count-in-range PRIMARY test PASSES — current DnaA count = 357 vs literature [300, 800]. The listener
-      correctly aggregates total DnaA and the Stage-1 chain produces a physiological pool; no calibration shortfall
-      remains. '
+    basis: 'dnaA-count-in-range PRIMARY test PASSES — current DnaA count = 357 vs
+      literature [300, 800]. The listener correctly aggregates total DnaA and the
+      Stage-1 chain produces a physiological pool; no calibration shortfall remains. '
     blocking_evidence_needed:
-    - perturbation_panel runs (dnaA-overexpression, dnaA-knockdown, autorepression-ablation, ATP-cycle-ablation,
-      titration-site-removal)
+    - perturbation_panel runs (dnaA-overexpression, dnaA-knockdown, autorepression-ablation,
+      ATP-cycle-ablation, titration-site-removal)
     - autorepression_test_suite runs (4 tests beyond Pearson r)
-    - 'measurement_mapping resolution: does Schmidt 2016 mass-spec include DNA-bound DnaA?'
+    - 'measurement_mapping resolution: does Schmidt 2016 mass-spec include DNA-bound
+      DnaA?'
     - ParCa audit of translation_efficiency[EG10235] (open question dnaa-01-EQ-03)
   explanatory_gain:
     result: PENDING
-    basis: 'New finding: essentially ALL DnaA sits in MONOMER0-160[c] (DnaA-ATP complex form via the existing equilibrium
-      reaction). Free monomer pool ≈ 0. This is a previously-implicit fact about the baseline that materially affects
-      dnaa-02 and dnaa-03 design — see downstream_design_implications below. '
+    basis: 'New finding: essentially ALL DnaA sits in MONOMER0-160[c] (DnaA-ATP complex
+      form via the existing equilibrium reaction). Free monomer pool ≈ 0. This is
+      a previously-implicit fact about the baseline that materially affects dnaa-02
+      and dnaa-03 design — see downstream_design_implications below. '
 downstream_design_implications:
 - target_study: dnaa-02-atp-hydrolysis
-  finding: Essentially all DnaA at steady state lives in MONOMER0-160[c]; free pool ≈ 0.
-  implication: 'The apo/ATP/ADP split (dnaa-02 req-1) must decompose the EXISTING ATP-complex pool, not just route
-    freshly translated monomer into the three species. Without explicit handling of MONOMER0-160_RXN (the existing
-    equilibrium), the split risks double-modeling the same binding event. Either disable MONOMER0-160_RXN when dnaa-02
-    lands or have dnaa-02 reuse it as the ATP-binding rate source. '
+  finding: Essentially all DnaA at steady state lives in MONOMER0-160[c]; free pool
+    ≈ 0.
+  implication: 'The apo/ATP/ADP split (dnaa-02 req-1) must decompose the EXISTING
+    ATP-complex pool, not just route freshly translated monomer into the three species.
+    Without explicit handling of MONOMER0-160_RXN (the existing equilibrium), the
+    split risks double-modeling the same binding event. Either disable MONOMER0-160_RXN
+    when dnaa-02 lands or have dnaa-02 reuse it as the ATP-binding rate source. '
 - target_study: dnaa-03-box-binding
   finding: Free-DnaA pool is ≈ 0 in baseline (everything is ATP-complexed).
-  implication: 'The box-binding Process needs free DnaA to titrate. After dnaa-02 splits the pool, the apo and free
-    pools become non-zero — so dnaa-03 must come AFTER dnaa-02 in dependency order (already does) AND must read
-    from the new explicit species (DnaA_ATP, DnaA_ADP), not bulk[PD03831[c]] which will continue to be ~0. '
+  implication: 'The box-binding Process needs free DnaA to titrate. After dnaa-02
+    splits the pool, the apo and free pools become non-zero — so dnaa-03 must come
+    AFTER dnaa-02 in dependency order (already does) AND must read from the new explicit
+    species (DnaA_ATP, DnaA_ADP), not bulk[PD03831[c]] which will continue to be ~0. '
 conclusion_logic:
   if_primary_tests_pass:
-    implementation_status: v2ecoli baseline is functional at the layer-1 (total DnaA pool) abstraction.
-    biological_validation: 'v2ecoli reproduces a DnaA pool whose per-cell count (357) NOW
+    implementation_status: v2ecoli baseline is functional at the layer-1 (total DnaA
+      pool) abstraction.
+    biological_validation: 'v2ecoli reproduces a DnaA pool whose per-cell count (357)
+      NOW
 
       validates against the mass-spec band [300, 800] (Schmidt2016 et al.).
 
@@ -716,23 +742,28 @@ conclusion_logic:
       '
     pipeline_unblocks:
     - dnaa-02 (DnaA-ATP/ADP/apo nucleotide-state split) becomes safe to start.
-    - Calibration_anchor.v2ecoli_observed gets locked in as the baseline reference for dnaa-02.
+    - Calibration_anchor.v2ecoli_observed gets locked in as the baseline reference
+      for dnaa-02.
   if_primary_tests_fail:
     diagnose:
-    - 'If dnaA-count-in-range fails: check calibration_anchor.divergence_alarm_factor — likely concept mismatch
-      (monomer_counts vs bulk vs complex form).'
-    - 'If dnaA-concentration-stable fails: check whether translation rate + dilution balance reached steady state
-      in the time window (try multi-generation).'
-    - 'If autorepression-correlation fails: tf_binding wiring may be broken or fold-change too weak.'
+    - 'If dnaA-count-in-range fails: check calibration_anchor.divergence_alarm_factor
+      — likely concept mismatch (monomer_counts vs bulk vs complex form).'
+    - 'If dnaA-concentration-stable fails: check whether translation rate + dilution
+      balance reached steady state in the time window (try multi-generation).'
+    - 'If autorepression-correlation fails: tf_binding wiring may be broken or fold-change
+      too weak.'
     block_downstream: dnaa-02..06 should not start until primary failures are resolved.
 limitations:
-- Single doubling time; multi-generation drift not validated (see dnaa-04 mechanism for that).
+- Single doubling time; multi-generation drift not validated (see dnaa-04 mechanism
+  for that).
 - Total DnaA pool only; no ATP/ADP/apo split (dnaa-02).
 - Slow non-overlapping growth on M9; rich-media + fast growth not validated here.
 - dnaAp-specific box-by-box occupancy NOT validated (dnaa-03 covers the box catalog).
-- Absolute DnaA count vs literature now PASSES the dnaA-count-in-range test (count = 357, in [300, 800]); the open
-  expert question is whether the literature band includes chromosome-bound DnaA.
-- Coarse autorepression proxy sums TF binding across ALL DnaA TF targets, not just dnaAp.
+- Absolute DnaA count vs literature now PASSES the dnaA-count-in-range test (count
+  = 357, in [300, 800]); the open expert question is whether the literature band includes
+  chromosome-bound DnaA.
+- Coarse autorepression proxy sums TF binding across ALL DnaA TF targets, not just
+  dnaAp.
 implementation_requirements:
 - id: req-1-concentration-listener
   kind: listener
@@ -756,7 +787,8 @@ implementation_requirements:
   kind: parameter_hook
   title: translation_efficiency_override composite parameter
   effort: S
-  description: 'Composite-level param `translation_efficiency_override: dict[gene_id, float]`
+  description: 'Composite-level param `translation_efficiency_override: dict[gene_id,
+    float]`
 
     that patches sim_data.process.translation.translation_efficiency
 
@@ -825,11 +857,12 @@ implementation_requirements:
   title: Resolve EG10235_RNA mRNA-counts index from sim_data
   effort: XS
   status: open
-  description: 'The 2026-05-17 baseline rerun (sims/run_baseline.py) tried to look up dnaA mRNA via listeners.rna_counts.mRNA_counts[idx]
-    where idx = sim_data.process.transcription.cistron_data["id"].index("EG10235_RNA"). The path raised silently
-    (mrna_idx ended up None). The runner falls back to reporting None for dnaa_mrna_count, which means autorepression-correlation
-    cannot be evaluated until this path is fixed. Likely fix: walk sim_data via composite.state["agents"]["0"] or
-    via the loader/_CachedLoader path. '
+  description: 'The 2026-05-17 baseline rerun (sims/run_baseline.py) tried to look
+    up dnaA mRNA via listeners.rna_counts.mRNA_counts[idx] where idx = sim_data.process.transcription.cistron_data["id"].index("EG10235_RNA").
+    The path raised silently (mrna_idx ended up None). The runner falls back to reporting
+    None for dnaa_mrna_count, which means autorepression-correlation cannot be evaluated
+    until this path is fixed. Likely fix: walk sim_data via composite.state["agents"]["0"]
+    or via the loader/_CachedLoader path. '
   steps:
   - Confirm the correct sim_data accessor for mRNA_TU_ids.
   - Update sims/run_baseline.py and tests/_behaviors.py (when scaffolded).
@@ -855,9 +888,11 @@ implementation_requirements:
 
     '
   steps:
-  - 'DONE: looked up DnaA''s TF axis index in tf_binding.tf_ids -> idx 12 (MONOMER0-160 = DnaA-ATP).'
+  - 'DONE: looked up DnaA''s TF axis index in tf_binding.tf_ids -> idx 12 (MONOMER0-160
+    = DnaA-ATP).'
   - 'DONE: added tf_axis_sum measure kind to _behaviors.py.'
-  - 'DONE: updated autorepression-correlation test to use tf_axis_sum with tf_index: 12.'
+  - 'DONE: updated autorepression-correlation test to use tf_axis_sum with tf_index:
+    12.'
   unblocks:
   - readouts.dnaA_bound_to_promoters
   - tests.autorepression-correlation
@@ -937,7 +972,8 @@ follow_up_studies:
 
     '
   unblocks_when: 'DONE: dnaa-01 count calibration is resolved (above).'
-- title: 'Expert question for the dashboard: which DnaA pool does the literature target match?'
+- title: 'Expert question for the dashboard: which DnaA pool does the literature target
+    match?'
   kind: expert_question
   effort: XS
   why: 'Literature numbers [300, 800] may refer to: (a) free DnaA in cytosol,
@@ -986,7 +1022,8 @@ follow_up_studies:
   - readouts.dnaA_bound_to_promoters in dnaa-01
   - dnaa-03's DnaA-box-occupancy readouts (n_bound_TF_per_TU is the source)
   acceptance:
-  - 'DONE: listeners.rna_synth_prob.n_bound_TF_per_TU has shape (3277, 23) each tick after t=1.'
+  - 'DONE: listeners.rna_synth_prob.n_bound_TF_per_TU has shape (3277, 23) each tick
+    after t=1.'
   - 'DONE: autorepression-correlation now produces r=+0.197 (real result, not insufficient-variance).'
 - title: Investigate v2ecoli's lack of dnaA autorepression signature
   kind: new
@@ -1003,18 +1040,21 @@ follow_up_studies:
     This is a real biology gap, not an infrastructure issue.
 
     '
-  hypothesized_mechanism: "Three candidates, in priority order:\n(1) The Y axis is still too coarse — summing all\
-    \ 3277 TU init events\n    instead of slicing to the dnaA promoter's TU index. dnaA init\n    events are a tiny\
-    \ fraction of cell-wide events, so cell-wide Y\n    is dominated by other transcription.\n(2) The autorepression\
-    \ model in v2ecoli (tf_binding's dnaA→EG10235\n    fold change) may not be strong enough to register over the\
-    \ noise.\n(3) The 10-minute window may be too short — autorepression operates\n    on cell-cycle timescales\
-    \ (~60 min). Try multi-generation runs.\n"
+  hypothesized_mechanism: "Three candidates, in priority order:\n(1) The Y axis is\
+    \ still too coarse — summing all 3277 TU init events\n    instead of slicing to\
+    \ the dnaA promoter's TU index. dnaA init\n    events are a tiny fraction of cell-wide\
+    \ events, so cell-wide Y\n    is dominated by other transcription.\n(2) The autorepression\
+    \ model in v2ecoli (tf_binding's dnaA→EG10235\n    fold change) may not be strong\
+    \ enough to register over the noise.\n(3) The 10-minute window may be too short\
+    \ — autorepression operates\n    on cell-cycle timescales (~60 min). Try multi-generation\
+    \ runs.\n"
   unblocks:
   - autorepression-correlation may flip PASS once Y is dnaA-specific
   - Validates / falsifies v2ecoli's autorepression model
   acceptance:
   - Y axis sliced to dnaA TU index (needs sim_data mRNA_TU_ids lookup)
-  - Re-evaluate; if still positive, escalate to expert review of fold_changes.tsv parameter for dnaA→EG10235
+  - Re-evaluate; if still positive, escalate to expert review of fold_changes.tsv
+    parameter for dnaA→EG10235
 parent_studies: []
 tests_config:
   auto_discover: true
@@ -1022,18 +1062,24 @@ tests_config:
   pytest_args: []
   last_results: null
 conclusions: ''
-biological_role: Establishes that v2ecoli's stochastic transcription/translation pipeline can hold a steady DnaA
-  pool inside the literature [300, 800]-molecules/cell band — the prerequisite for everything downstream (you can't
-  test DnaA-box titration before the DnaA pool is the right size + variability).
-dependency_rationale: Must precede the nucleotide-cycle work (dnaa-02). If the pool is wrong, every ATP/ADP fraction
-  the later studies measure is unreliable.
-mechanism_replaced: Adjusts existing ParCa-fit transcription / translation efficiency for the dnaA gene (EG10235)
-  so the pool sits in band. Doesn't replace any mechanism; tunes the existing one.
-primary_claim: Stage-1-parameterised expression holds DnaA count ≈ 325-450 across the cycle (median 366, CV < 5%
-  in second half), inside the Schmidt 2016 / Mori 2021 [300, 800] band, with no autoregulation needed at this stage.
-primary_visualization: 'DnaA abundance trajectory with literature band overlaid + small inset showing nucleotide-state
-  partitioning (apo vs ATP vs ADP). Visual answer to: "is the DnaA pool the right size and stable enough?"'
-scope_boundary: Stage-1 constitutive expression (no autorepression). One cell cycle, minimal glucose (~44 min) —
-  acetate variant available for slower cycle (~67 min) cross-check.
-deferred_biology: Autoregulation of dnaA via DnaA binding at its own promoter (deferred to a future autorepression
-  study). RpoH-mediated heat-shock DnaA induction (out of scope for steady-state work).
+biological_role: Establishes that v2ecoli's stochastic transcription/translation pipeline
+  can hold a steady DnaA pool inside the literature [300, 800]-molecules/cell band
+  — the prerequisite for everything downstream (you can't test DnaA-box titration
+  before the DnaA pool is the right size + variability).
+dependency_rationale: Must precede the nucleotide-cycle work (dnaa-02). If the pool
+  is wrong, every ATP/ADP fraction the later studies measure is unreliable.
+mechanism_replaced: Adjusts existing ParCa-fit transcription / translation efficiency
+  for the dnaA gene (EG10235) so the pool sits in band. Doesn't replace any mechanism;
+  tunes the existing one.
+primary_claim: Stage-1-parameterised expression holds DnaA count ≈ 325-450 across
+  the cycle (median 366, CV < 5% in second half), inside the Schmidt 2016 / Mori 2021
+  [300, 800] band, with no autoregulation needed at this stage.
+primary_visualization: 'DnaA abundance trajectory with literature band overlaid +
+  small inset showing nucleotide-state partitioning (apo vs ATP vs ADP). Visual answer
+  to: "is the DnaA pool the right size and stable enough?"'
+scope_boundary: Stage-1 constitutive expression (no autorepression). One cell cycle,
+  minimal glucose (~44 min) — acetate variant available for slower cycle (~67 min)
+  cross-check.
+deferred_biology: Autoregulation of dnaA via DnaA binding at its own promoter (deferred
+  to a future autorepression study). RpoH-mediated heat-shock DnaA induction (out
+  of scope for steady-state work).

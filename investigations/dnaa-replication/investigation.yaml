@@ -48,26 +48,47 @@ executive:
         DIFFERENT core via core_extensions that doesn''t include it. Blocks multi-gen runs
         of dnaa_stage1_constitutive.
       - C-period imposition only sets the mass-listener reference curve, not the chromosomal
-        elongation rate itself — surfaces in the τ-gap finding above.'
+        elongation rate itself — surfaces in the τ-gap finding above. (REVISED 2026-05-29: actually
+        the D-period that is unenforced, not C. See caveats and decisions_needed for the corrected
+        trace.)'
   verdict_status: awaiting-expert-review
   decisions_needed:
-  - question: 'Round 3 τ-gap: dnaa-00 cell divides at 83 min, not the declared 150 min. UPDATED 2026-05-28
-      after the A/B experiment below: two live paths remain — (a) accept emergent 83 min as ParCa''s honest
-      fit for minimal_glycerol; (c) deeper ParCa rebuild with literature-calibrated glycerol kinetics that
-      genuinely slow chromosomal elongation. Option (b) hand-tune dry_mass_inc was tested and REFUTED.'
-    context: 'Division gates on `dry_mass >= threshold AND n_chromosomes >= 2`
-      (v2ecoli/steps/division.py:161). We imposed cell_cycle_len=9000s correctly, but cell_cycle_len only
-      drives the mass-listener reference curve, not the gate. EXPERIMENT 2026-05-28: built
-      out/cache-stage1-glycerol-tau150 with dry_mass_inc[minimal_glycerol] hand-tuned 81.67 fg → 144 fg
-      (Haochen option (b) value) and ran dnaa_00_baseline_with_dnaa_readout on it for 12000 s alongside
-      the baseline cache. BOTH divided at exactly t=4989s ≈ 83 min with byte-identical DnaA + cell_mass
-      trajectories (script: scripts/run_dnaa00_tau_compare.py, outputs:
-      studies/dnaa-00-parameter-foundation/sims/tau-compare/{optionA-baseline,optionB-handtuned}.json).
-      Why option (b) fails: chromosome replication completion (~83 min on this cache) is the dominant
-      gating constraint, not mass — mass threshold is hit much earlier in BOTH runs. The 70-min C-period
-      imposed in the cache only sets the mass-listener reference; the chromosome-replication step uses
-      an effective elongation rate that ignores it. Option (c) is the only path that could close the gap
-      — needs literature-calibrated glycerol kinetics + a ParCa refit that genuinely slows elongation.'
+  - question: 'Round 3 τ-gap: dnaa-00 cell divides at 83 min, not the declared 150 min. UPDATED
+      2026-05-29 with the root-cause trace: τ-gap is a CODE-PATH BUG, not a kinetics problem.
+      Concrete fix is small and well-scoped (see context). Haochen options (a), (b), (c) are mostly
+      moot — option (b) refuted; option (c) (deeper ParCa rebuild) is the wrong instrument because
+      the C-period IS honored at the elongation step. The actually-dead lever is the D-period.'
+    context: 'EXPERIMENT 2026-05-28 (option-b test): built out/cache-stage1-glycerol-tau150 with
+      dry_mass_inc[minimal_glycerol] hand-tuned 81.67 fg → 144 fg and ran dnaa_00_baseline_with_dnaa_readout
+      on it for 12000 s alongside the baseline. BOTH divided at exactly t=4989s ≈ 83 min with
+      byte-identical DnaA + cell_mass trajectories (script: scripts/run_dnaa00_tau_compare.py;
+      outputs: studies/dnaa-00-parameter-foundation/sims/tau-compare/{optionA-baseline,optionB-handtuned}.json).
+      Mass-threshold tuning has no effect on division time.
+
+      TRACE 2026-05-29 (root cause): the τ-gap is a wiring bug, not a kinetics problem.
+      C-period IS honored: v2ecoli/library/sim_data.py:725-734 computes basal_elongation_rate from
+      c_period_minutes (replichore_length / (C × 60)) and the chromosome-replication step reads it —
+      verified by the cache manifest (basal_elongation_rate=554 nt/s → C ≈ 69.94 min on the
+      2.32 Mbp replichore ✓).
+      D-period is COMPUTED but UNENFORCED: v2ecoli/processes/chromosome_replication.py:568 correctly
+      sets `division_time = global_time + D_period` on each new full_chromosome record at
+      replication-termination; v2ecoli/steps/division.py MarkDPeriod step (lines 24-71) correctly
+      detects `global_time >= division_time` and writes `divide=True` to cell_state. But the
+      Division step (v2ecoli/steps/division.py:74-238) does NOT include `divide` in its input topology
+      (v2ecoli/composites/_helpers.py:1046-1056) — nothing reads the flag. Division.next_update gates
+      on `dry_mass >= threshold AND n_chromosomes >= 2` only; the D-period is dead code.
+      So the cell divides as soon as both mass and chromosome-count are met, ignoring the D-period
+      delay (83 min in our run = C ≈ 70 min + ~13 min for mass-threshold to catch up, with no D-period
+      contribution).
+
+      CONCRETE FIX (replaces the vague "deeper ParCa rebuild" option (c)): add
+      `''divide'': (''divide'',)` to Division''s topo dict in v2ecoli/composites/_helpers.py:1046
+      and update Division.inputs() + Division.next_update to also require `divide == True`
+      (alongside the mass+chromosome gate). This makes the D-period genuinely enforce the
+      replication-termination → division delay. Estimated impact on τ at imposed C=70 + D=30: division
+      pushes from 83 min → 100 min (C + D). The remaining gap to Haochen''s declared 150 min would
+      then be the initiation-timing question (when the cell''s first round of replication initiates
+      relative to t=0), which is a separate concern.'
   - question: 'Round 3 DnaA concentration drop: count/mass falls 3× over one cycle (1.03 → 0.42 → 0.33 mol/fg).
       Real biology (glycerol-fit synthesis can''t keep pace with mass growth) or artifact (translation_efficiency
       scale needs recalibration for glycerol)?'
@@ -121,9 +142,14 @@ scientific_argument:
     dnaa-02f variant B'' atp_fraction 0.270 ∈ [0.2, 0.5] ✓ (band-recovery via equilibrium recalibration
     re-confirmed), dnaa-03 all 4 declarative tests pass, dnaa-04 mechanism fires 1× in 30 min (single-seed).
     Every verdict survives the emitter migration on the prior-round caches — no biology regression.'
-  - 'Round 3.6 (2026-05-28) dnaa-01 Stage-1 acetate rerun on freshly-rebuilt out/cache-stage1-heuristic-acetate
-    (tx=30 / te=2.48 bootstrap): DnaA monomer total median 396 (range 373-418) IN BAND [300, 800] ✓ —
-    Stage-1 constitutive expression delivers an in-band DnaA pool under the parquet emitter.'
+  - 'Round 3.6 (2026-05-28/29) dnaa-01 Stage-1 acetate rerun on freshly-rebuilt
+    out/cache-stage1-heuristic-acetate (tx=30 / te=2.48 bootstrap, 3-seed sweep): DnaA monomer
+    total median per seed 396 / 377 / 374.5 (across-seed median 382, CV ~3%); per-seed ranges
+    373-418, 361-401, 358-398 — ALL THREE IN BAND [300, 800] ✓. Stage-1 constitutive expression
+    delivers an in-band DnaA pool deterministically under the parquet emitter. Division behaviour
+    varies stochastically across seeds (seed 2 divides at 63 min; seeds 0 and 1 don''t reach
+    threshold within 67 min) — same acetate-slow-growth observation as the single-seed Round 3.6
+    finding, now reproduced.'
   evidence_against:
   - 'Round 3 (2026-05-25): dnaa-00 imposed Stage-1 τ=150 / C=70 / D=30 via the new minimal_glycerol
     cache. Emergent cycle = 83 min (not 150) because division fires on dry_mass ≥ ParCa-fitted
@@ -160,11 +186,18 @@ scientific_argument:
     full cell cycle, but the post-division daughter hydration fails (dnaa-00 and dnaa-01 multi-gen runs
     of dnaa_stage1_constitutive observe this). build_core() itself registers the Step correctly. Fix is
     in the dashboard''s daughter-hydration core registry; filed, not yet fixed.'
-  - 'Round 3.6 finding (drives the τ-gap experiment outcome): the C-period imposition via LoadSimData
-    only sets the mass-listener reference curve, not the chromosomal elongation step itself. So
-    "C=70 min" appears at the listener but the replication step uses an effective elongation rate that
-    completes the chromosome at ~83 min. This is why Haochen option (b) mass-threshold tuning has no
-    effect on division time, and is the gap option (c) would have to close.'
+  - 'Round 3.7 (2026-05-29) finding — REVISES the prior Round 3.6 C-period claim:
+    after tracing the imposition path end-to-end, the C-period IS honored (basal_elongation_rate
+    computed correctly from c_period_minutes in v2ecoli/library/sim_data.py:725-734; the
+    chromosome-replication step reads it). The τ-gap is actually a D-PERIOD wiring bug:
+    chromosome_replication.py:568 sets `division_time = global_time + D_period` on each new
+    full_chromosome at termination, MarkDPeriod (v2ecoli/steps/division.py:24-71) correctly fires
+    `divide=True` at that scheduled time, but the Division step''s topology
+    (v2ecoli/composites/_helpers.py:1046-1056) omits `divide` from its inputs and Division.next_update
+    gates on `dry_mass >= threshold AND n_chromosomes >= 2` only. The D-period is computed but
+    unenforced; the cell divides as soon as mass + chromosomes are met, ignoring the C+D delay.
+    Concrete fix tracked in decisions_needed[0] — small, well-scoped, replaces the vague
+    "deeper ParCa rebuild" option (c).'
   interpretation_ref: biological_story
 biological_story: "In a real E. coli cell, the decision to start a new round of chromosome\nreplication is made\
   \ by the protein DnaA. The cycle goes like this:\n\n1. DnaA is continuously produced from its own gene (the dnaA\

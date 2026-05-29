@@ -233,15 +233,22 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         dry_mass = states["listeners"]["mass"]["dry_mass"] * units.fg
         cell_volume = cell_mass / self.cellDensity
         self.counts_to_molar = 1 / (self.process.n_avogadro * cell_volume)
+        # Strip counts_to_molar to a plain float in MICROMOLAR_UNITS once
+        # per tick. All downstream uses that feed calculate_trna_charging /
+        # ppgpp_metabolite_changes / get_charging_supply_function (which
+        # now accept μM magnitudes directly) multiply this float instead
+        # of constructing a fresh pint Quantity per concentration.
+        counts_to_uM_mag = self.counts_to_molar.to(MICROMOLAR_UNITS).magnitude
+        self._counts_to_uM_mag = counts_to_uM_mag  # for evolve() reuse
 
-        # ppGpp related concentrations
-        ppgpp_conc = self.counts_to_molar * counts(
+        # ppGpp related concentrations (now μM-magnitude numpy arrays).
+        ppgpp_conc = counts_to_uM_mag * counts(
             states["bulk_total"], self.process.ppgpp_idx
         )
-        rela_conc = self.counts_to_molar * counts(
+        rela_conc = counts_to_uM_mag * counts(
             states["bulk_total"], self.process.rela_idx
         )
-        spot_conc = self.counts_to_molar * counts(
+        spot_conc = counts_to_uM_mag * counts(
             states["bulk_total"], self.process.spot_idx
         )
 
@@ -259,13 +266,19 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         charged_trna_counts = np.dot(self.process.aa_from_trna, charged_trna_array)
         ribosome_counts = states["active_ribosome"]["_entryState"].sum()
 
-        # Get concentration
+        # Get concentration. calculate_trna_charging and
+        # ppgpp_metabolite_changes both accept numpy magnitude arrays in
+        # MICROMOLAR_UNITS — convert the per-tick counts_to_molar to μM
+        # once and multiply through. Skips per-input pint Quantity
+        # construction + downstream .to(MICROMOLAR_UNITS).magnitude stripping
+        # inside those functions.
         f = aasInSequences / aasInSequences.sum()
-        synthetase_conc = self.counts_to_molar * synthetase_counts
-        aa_conc = self.counts_to_molar * aa_counts
-        uncharged_trna_conc = self.counts_to_molar * uncharged_trna_counts
-        charged_trna_conc = self.counts_to_molar * charged_trna_counts
-        ribosome_conc = self.counts_to_molar * ribosome_counts
+        counts_to_uM_mag = self.counts_to_molar.to(MICROMOLAR_UNITS).magnitude
+        synthetase_conc = counts_to_uM_mag * synthetase_counts
+        aa_conc = counts_to_uM_mag * aa_counts
+        uncharged_trna_conc = counts_to_uM_mag * uncharged_trna_counts
+        charged_trna_conc = counts_to_uM_mag * charged_trna_counts
+        ribosome_conc = counts_to_uM_mag * ribosome_counts
 
         # Calculate amino acid supply
         aa_in_media = np.array(
@@ -309,7 +322,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             self.amino_acid_import,
             self.amino_acid_export,
             self.aa_supply_scaling,
-            self.counts_to_molar,
+            counts_to_uM_mag,
             self.process.aa_supply,
             fwd_enzyme_counts,
             rev_enzyme_counts,
@@ -342,9 +355,9 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
 
         # Use the supply calculated from each sub timestep while solving the charging steady state
         if self.process.aa_supply_in_charging:
-            conversion = (
-                1 / self.counts_to_molar.to(MICROMOLAR_UNITS).magnitude / states["timestep"]
-            )
+            # counts_to_uM_mag is the μM-magnitude float computed above;
+            # 1/counts_to_uM_mag/timestep is the per-timestep conversion.
+            conversion = 1 / counts_to_uM_mag / states["timestep"]
             synthesis = conversion * synthesis_in_charging
             import_rates = conversion * import_in_charging
             export_rates = conversion * export_in_charging
@@ -356,11 +369,11 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         else:
             # Adjust aa_supply higher if amino acid concentrations are low
             # Improves stability of charging and mimics amino acid synthesis
-            # inhibition and export
-            # Polypeptide elongation operates using concentration units of CONC_UNITS (uM)
-            # but aa_supply_scaling uses M units, so convert using unit_conversion (1e-6)
+            # inhibition and export.
+            # aa_conc is in μM (MICROMOLAR_UNITS = CONC_UNITS); pass
+            # magnitude directly to aa_supply_scaling.
             self.process.aa_supply *= self.aa_supply_scaling(
-                self.charging_params["unit_conversion"] * aa_conc.to(CONC_UNITS).magnitude,
+                self.charging_params["unit_conversion"] * aa_conc,
                 aa_in_media,
             )
 
@@ -420,7 +433,9 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             (self.process.water_idx, int(aa_counts_for_translation.sum())),
         ]
         if self.process.ppgpp_regulation:
-            total_trna_conc = self.counts_to_molar * (
+            # Compute total_trna_conc in μM-magnitude form, matching the
+            # ppgpp_metabolite_changes contract (numpy magnitudes).
+            total_trna_conc = counts_to_uM_mag * (
                 uncharged_trna_counts + charged_trna_counts
             )
             updated_charged_trna_conc = total_trna_conc * fraction_charged
@@ -433,7 +448,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
                 rela_conc,
                 spot_conc,
                 ppgpp_conc,
-                self.counts_to_molar,
+                counts_to_uM_mag,
                 v_rib,
                 self.charging_params,
                 self.ppgpp_params,
@@ -461,15 +476,16 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
                     "growth_limits": {
                         "original_aa_supply": self.process.aa_supply,
                         "aa_in_media": aa_in_media,
-                        "synthetase_conc": synthetase_conc.to(MICROMOLAR_UNITS).magnitude,
-                        "uncharged_trna_conc": uncharged_trna_conc.to(
-                            MICROMOLAR_UNITS
-                        ).magnitude,
-                        "charged_trna_conc": charged_trna_conc.to(
-                            MICROMOLAR_UNITS
-                        ).magnitude,
-                        "aa_conc": aa_conc.to(MICROMOLAR_UNITS).magnitude,
-                        "ribosome_conc": ribosome_conc.to(MICROMOLAR_UNITS).magnitude,
+                        # These five concentrations are now plain μM-
+                        # magnitude numpy arrays (see counts_to_uM_mag
+                        # above). The listener output basis is unchanged
+                        # — μM directly, no per-tick .to().magnitude
+                        # round-trip needed.
+                        "synthetase_conc": synthetase_conc,
+                        "uncharged_trna_conc": uncharged_trna_conc,
+                        "charged_trna_conc": charged_trna_conc,
+                        "aa_conc": aa_conc,
+                        "ribosome_conc": ribosome_conc,
                         "fraction_aa_to_elongate": f,
                         "aa_supply": self.process.aa_supply,
                         "aa_synthesis": synthesis * states["timestep"],
@@ -479,7 +495,9 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
                         "aa_supply_enzymes_rev": rev_enzyme_counts,
                         "aa_importers": importer_counts,
                         "aa_exporters": exporter_counts,
-                        "aa_supply_aa_conc": aa_conc.to(units.mmol / units.L).magnitude,
+                        # aa_conc is in μM (MICROMOLAR_UNITS); convert to
+                        # mM (mmol/L) for this listener field — × 1e-3.
+                        "aa_supply_aa_conc": aa_conc * 1e-3,
                         "aa_supply_fraction_fwd": fwd_saturation,
                         "aa_supply_fraction_rev": rev_saturation,
                         "ppgpp_conc": ppgpp_conc.to(MICROMOLAR_UNITS).magnitude,
@@ -580,11 +598,14 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         # This should come after all countInc/countDec calls since it shares some molecules with
         # other views and those counts should be updated to get the proper limits on ppGpp reactions
         if self.process.ppgpp_regulation:
-            v_rib = (nElongations * self.counts_to_molar).to(
-                MICROMOLAR_UNITS
-            ).magnitude / states["timestep"]
+            # Use the same μM-magnitude conversion factor request() cached
+            # for this tick — see request() for the derivation. evolve()
+            # runs in the same tick as request() so self._counts_to_uM_mag
+            # is set.
+            counts_to_uM_mag = self._counts_to_uM_mag
+            v_rib = (nElongations * counts_to_uM_mag) / states["timestep"]
             ribosome_conc = (
-                self.counts_to_molar * states["active_ribosome"]["_entryState"].sum()
+                counts_to_uM_mag * states["active_ribosome"]["_entryState"].sum()
             )
             updated_uncharged_trna_counts = (
                 counts(states["bulk_total"], self.process.uncharged_trna_idx)
@@ -594,19 +615,19 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
                 counts(states["bulk_total"], self.process.charged_trna_idx)
                 + net_charged
             )
-            uncharged_trna_conc = self.counts_to_molar * np.dot(
+            uncharged_trna_conc = counts_to_uM_mag * np.dot(
                 self.process.aa_from_trna, updated_uncharged_trna_counts
             )
-            charged_trna_conc = self.counts_to_molar * np.dot(
+            charged_trna_conc = counts_to_uM_mag * np.dot(
                 self.process.aa_from_trna, updated_charged_trna_counts
             )
-            ppgpp_conc = self.counts_to_molar * counts(
+            ppgpp_conc = counts_to_uM_mag * counts(
                 states["bulk_total"], self.process.ppgpp_idx
             )
-            rela_conc = self.counts_to_molar * counts(
+            rela_conc = counts_to_uM_mag * counts(
                 states["bulk_total"], self.process.rela_idx
             )
-            spot_conc = self.counts_to_molar * counts(
+            spot_conc = counts_to_uM_mag * counts(
                 states["bulk_total"], self.process.spot_idx
             )
 
@@ -631,7 +652,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
                 rela_conc,
                 spot_conc,
                 ppgpp_conc,
-                self.counts_to_molar,
+                counts_to_uM_mag,
                 v_rib,
                 self.charging_params,
                 self.ppgpp_params,

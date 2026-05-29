@@ -577,9 +577,69 @@ runs:
     runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
     note: |
       Variance-band replicate at cpa=1.0, seed=2 (60 sim-min, 2 gen).
-      With seed=0 and seed=1 above, gives n=3 replicates at cpa=1 —
-      enough for std bands at this cpa. cpa=1e6 + cpa=1e9 multi-seed
-      variants follow (4 sims in flight at write time).
+      With seed=0 and seed=1 above, gives n=3 replicates at cpa=1.
+
+  - simulation:      aggregator-cpa1e6-seed1-multigen
+    simulation_id:   9f771d79-edcb-4c6f-a1ce-8c1bdf4b1a89
+    seed:            1
+    cells_per_agent: 1.0e6
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/9f771d79-edcb-4c6f-a1ce-8c1bdf4b1a89
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Variance-band replicate at cpa=1e6, seed=1.
+
+  - simulation:      aggregator-cpa1e6-seed2-multigen
+    simulation_id:   5b50fd2a-0d32-48e5-b279-744a9d0c8a48
+    seed:            2
+    cells_per_agent: 1.0e6
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/5b50fd2a-0d32-48e5-b279-744a9d0c8a48
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Variance-band replicate at cpa=1e6, seed=2. Closes cpa=1e6 row at n=3.
+
+  - simulation:      aggregator-cpa1e9-seed1-multigen
+    simulation_id:   1a83355f-2881-4509-8aa1-b63c6a97881e
+    seed:            1
+    cells_per_agent: 1.0e9
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/1a83355f-2881-4509-8aa1-b63c6a97881e
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Variance-band replicate at cpa=1e9 (Beulig-regime), seed=1.
+
+  - simulation:      aggregator-cpa1e9-seed2-multigen
+    simulation_id:   16ca86c7-79a8-4e07-9c6f-bda0b1209842
+    seed:            2
+    cells_per_agent: 1.0e9
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/16ca86c7-79a8-4e07-9c6f-bda0b1209842
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Variance-band replicate at cpa=1e9, seed=2. Closes cpa=1e9 row at n=3.
+      Full 3 cpa × 3 seed grid now populated — chart 04 renders with
+      visible ribbons at every cpa.
 
 
 # ─── v4 tests[] (hand-authored 2026-05-28) ────────────────────────────────

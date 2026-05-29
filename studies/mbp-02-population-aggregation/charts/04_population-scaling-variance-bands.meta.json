@@ -5,7 +5,7 @@
   "interpretation": "Bands are narrow on log-y because the underlying agent is deterministic per-seed and cpa is a pure scaling factor on the aggregator output. Confirms the cpa-equivalence claim holds across stochastic replicates \u2014 addresses the question implicit in Chris's seed-0 confirmation: 'is single-seed scaling a coincidence or a robust property?' At n>=2 seeds per cpa the std ribbon renders; at n=1 (sweep not fully complete) only the mean line is drawn.",
   "seed_counts": {
     "1.0": 3,
-    "1000000.0": 1,
-    "1000000000.0": 1
+    "1000000.0": 3,
+    "1000000000.0": 3
   }
 }

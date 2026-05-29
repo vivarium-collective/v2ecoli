@@ -476,7 +476,7 @@ conclusion_verdicts:
       \ boxes saturated + ATP-\nfraction OK + no active replication) are met sooner than the\nmass threshold.\n\n\
       This is the expected biological difference between a\nRESOURCE-AVAILABILITY trigger (the mechanism) and a\
       \ TIMING\ntrigger (the mass heuristic). The fact that the offset is small\n(300s = ~10% of doubling time)\
-      \ and stable across seeds (TBD —\nneed multi-seed rerun with the gate) is a positive validation\nsignal for\
+      \ and stable across seeds (multi-seed rerun with the gate pending — single-\nseed parquet rerun 2026-05-27 confirmed 1 fire over 30 min, see result block)\nis a positive validation signal for\
       \ the mechanism.\n"
   explanatory_gain:
     result: PENDING

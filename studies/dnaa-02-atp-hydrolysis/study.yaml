@@ -487,7 +487,7 @@ design_pivot_required:
   - dnaa-03 + dnaa-04 (any test that needs a non-trivial ATP fraction)
   requested_response: Expert opinion on whether (A) introducing a new locked species is acceptable, or whether (B)
     disabling the existing equilibrium reaction is the cleaner pivot. (C) is also valid but delays the whole investigation.
-  asked_to: TBD
+  asked_to: Haochen (round-1 feedback addressed by demoting to intrinsic-only; pivot now resolved in favor of option B)
 limitations:
 - Intrinsic hydrolysis only; the cell-cycle oscillation requires dnaa-05's RIDA + DDAH + DARS.
 - Single doubling time; multi-generation drift not validated.

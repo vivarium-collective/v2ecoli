@@ -111,10 +111,12 @@ assumptions:
   cites:
   - wcm_stage1_parameters
   verified_in_v2ecoli: false
-  note: Expert target, NOT applied. v2ecoli's τ is implicit in the media composition;
-    these runs use minimal-glucose (τ≈44 min, cell divides ~2640 s), not the glycerol
-    Stage-1 condition. Switching to 150 min needs a media-level override / ParCa fit
-    for ABT minimal-glycerol (TODO).
+  note: Expert target, NOT applied for the prior Round-2 runs. v2ecoli's τ is implicit
+    in the media composition; those runs used minimal-glucose (τ≈44 min, cell divides
+    ~2640 s), not the glycerol Stage-1 condition. Round-3 landed the minimal_glycerol
+    cache + LoadSimData C/D-period overrides; the residual τ-gap (emergent 83 vs
+    declared 150 min) is the open biology question recorded in
+    investigation.yaml.decisions_needed.
 - text: C period (replication duration) is 70 min — sets replication speed at ≈ 66.31
     kbp/min.
   cites:

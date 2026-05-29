@@ -19,7 +19,7 @@ import numpy as np
 
 @dataclass
 class BranchSpec:
-    variant_index: int
+    variant_index: int  # position in the full ordered branch list (baseline=0 when included)
     variant_name: str
     overrides: dict[str, Any]
     seed: int
@@ -62,6 +62,8 @@ def parse_variant_params(variant_config: dict[str, Any]) -> list[dict[str, Any]]
             parsed[param_name] = np_func(**pvals).tolist()
 
     names = list(parsed.keys())
+    if not names:
+        return []
     if operation == "prod":
         combos = itertools.product(*(parsed[k] for k in names))
         dicts = [dict(zip(names, combo)) for combo in combos]
@@ -98,6 +100,10 @@ def expand_branches(config: dict[str, Any]) -> list[BranchSpec]:
     variant_entries: list[tuple[str, dict[str, Any]]] = []
     if not skip_baseline:
         variant_entries.append(("baseline", {}))
+    # A variant block is either single-param shorthand (the block itself
+    # carries "target", e.g. {"target": "p.k", "value": [...]}) or the
+    # multi-param form (named sub-params + an "op" key). Dispatch on the
+    # presence of a top-level "target".
     for vname, vconf in variants_block.items():
         for overrides in parse_variant_params({vname: vconf} if "target" in vconf
                                               else dict(vconf)):

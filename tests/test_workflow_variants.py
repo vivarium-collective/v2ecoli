@@ -1,3 +1,5 @@
+import pytest
+
 from v2ecoli.workflow.variants import parse_variant_params, expand_branches, BranchSpec
 
 
@@ -26,6 +28,8 @@ def test_prod_of_two_params():
     assert {"p.a": 1, "p.b": 10} in params
     assert {"p.a": 2, "p.b": 20} in params
     assert len(params) == 4
+    assert {"p.a": 1, "p.b": 20} in params
+    assert {"p.a": 2, "p.b": 10} in params
 
 
 def test_expand_branches_grid():
@@ -69,3 +73,29 @@ def test_different_seeds_per_variant_non_overlapping():
     seed_sets = list(by_variant.values())
     # No seed shared between the two variants
     assert seed_sets[0].isdisjoint(seed_sets[1])
+
+
+def test_add_op_concatenates_single_key_dicts():
+    params = parse_variant_params({
+        "a": {"target": "p.a", "value": [1, 2]},
+        "b": {"target": "p.b", "value": [10]},
+        "op": "add",
+    })
+    # add = concatenate each param's values as separate single-key override dicts
+    assert {"p.a": 1} in params
+    assert {"p.a": 2} in params
+    assert {"p.b": 10} in params
+    assert len(params) == 3
+
+
+def test_zip_length_mismatch_raises():
+    with pytest.raises(ValueError):
+        parse_variant_params({
+            "a": {"target": "p.a", "value": [1, 2]},
+            "b": {"target": "p.b", "value": [10]},
+            "op": "zip",
+        })
+
+
+def test_empty_variant_block_returns_empty():
+    assert parse_variant_params({}) == []

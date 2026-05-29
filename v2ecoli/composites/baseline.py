@@ -375,10 +375,16 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
             "default": "out/cache",
             "description": "Path to ParCa cache directory",
         },
+        "config_overrides": {
+            "type": "map",
+            "default": {},
+            "description": "Declarative '<process>.<key>': value config overrides (variants)",
+        },
     },
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
 )
-def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -> dict:
+def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
+             config_overrides: dict | None = None) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
     Migrated from ``v2ecoli/generate.py:build_document`` +
@@ -405,6 +411,17 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -
     bundle = load_cache_bundle(cache_dir)
     initial_state = bundle["initial_state"]
     configs = bundle["configs"]
+    if config_overrides:
+        # Deep-copy before patching: load_cache_bundle returns the cache dict
+        # by reference (lru_cache-shared); mutating it would corrupt other runs.
+        configs = copy.deepcopy(configs)
+        for path, value in config_overrides.items():
+            proc, _, key = path.partition(".")
+            if not key:
+                raise ValueError(f"override path {path!r} must be '<process>.<key>'.")
+            if proc not in configs:
+                raise KeyError(f"override target process {proc!r} not in cache configs.")
+            configs[proc][key] = value
     unique_names = bundle["unique_names"]
     dry_mass_inc_dict = bundle.get("dry_mass_inc_dict", {})
 

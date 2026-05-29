@@ -389,16 +389,21 @@ required_knowledge:
         (test_external_glucose_updates_propagate_within_one_step,
         test_cumulative_mass_balance_closes, test_zero_substrate_blocks_uptake,
         test_saturating_substrate_respects_vmax,
-        test_plateau_across_saturating_range) — all currently @pytest.mark.skip.
-      blocks:
-        - test_external_glucose_updates_propagate_within_one_step
-        - test_cumulative_mass_balance_closes
-        - test_zero_substrate_blocks_uptake
-        - test_saturating_substrate_respects_vmax
-        - test_plateau_across_saturating_range
-        - mbp-01 entering Evaluate phase
+        test_plateau_across_saturating_range).
+      blocks: []
       asked_to: v2ecoli baseline maintainer (composite architecture decision)
-      status: open
+      status: resolved
+      resolution: |
+        Adopted option (c) — added EnvironmentMirror Step that runs each tick
+        BEFORE the FLUSH barrier preceding `media_update`'s layer. The mirror
+        reads top-level state['environment']['external_concentrations'] and
+        writes the driver-derived delta DIRECTLY to each agent's
+        boundary.external (which has a typed schema; bypasses the
+        per-agent environment store the original gap was about). PBG's FLUSH
+        commits the mirror's writes before exchange_data reads boundary —
+        propagation completes same-tick. Landed in commit <to-fill on push>;
+        all 5 previously-blocked tests now pass alongside the static-mode
+        regression.
     - id: env-driver-molecule-id-convention
       question: |
         Surfaced 2026-05-28 alongside `env-store-topology-mismatch`: the
@@ -429,15 +434,17 @@ required_knowledge:
         Resolution gates the same 5 tests as the topology question above
         — both gaps must close before mbp-01's plumbing/extreme suite can
         run.
-      blocks:
-        - test_external_glucose_updates_propagate_within_one_step
-        - test_cumulative_mass_balance_closes
-        - test_zero_substrate_blocks_uptake
-        - test_saturating_substrate_respects_vmax
-        - test_plateau_across_saturating_range
-        - mbp-01 entering Evaluate phase
+      blocks: []
       asked_to: v2ecoli baseline maintainer (joint with env-store-topology-mismatch)
-      status: open
+      status: resolved
+      resolution: |
+        Bare-name convention adopted — driver synthetic_trajectory_spec keys
+        match boundary.external keys directly ('GLC', 'ACET', ...). The
+        EnvironmentMirror Step (closes env-store-topology-mismatch above)
+        looks up `boundary.external[mol]` per driver-supplied key; any
+        unmatched name (e.g. compartment-tagged 'GLC[p]') is silently
+        skipped — fails closed without crashing. Bundled with the
+        topology fix in the same commit.
 
 
 # ─── 5c. FAILURE MODES ──────────────────────────────────────────────────────

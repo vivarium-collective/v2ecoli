@@ -52,7 +52,7 @@ import warnings
 # Engine removed
 
 from wholecell.utils.random import stochasticRound
-from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
+from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 from v2ecoli.types.quantity import ureg as units
 
 from v2ecoli.library.schema import (

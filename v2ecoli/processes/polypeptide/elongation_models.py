@@ -15,7 +15,7 @@ from typing import Any, Callable
 
 import numpy as np
 import numpy.typing as npt
-from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
+from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 from wholecell.utils.random import stochasticRound
 from v2ecoli.types.quantity import ureg as units
 from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum

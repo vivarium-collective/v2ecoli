@@ -10,6 +10,7 @@ when ``generations`` cells have been run.
 
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 from process_bigraph import Process
@@ -32,7 +33,6 @@ class LineageProcess(Process):
 
     def initialize(self, config):
         self._composite = None
-        self._core = None
         self._generation = 0          # 0-based current generation
         self._agent_id = "0"
         self._gen_elapsed = 0.0
@@ -82,7 +82,6 @@ class LineageProcess(Process):
             agent["listeners"]["mass"] = {"dry_mass": 0.0, "cell_mass": 0.0}
             seed_mass_listener(agent, core)
 
-        self._core = core
         self._composite = Composite(doc, core=core)
         self._gen_elapsed = 0.0
 
@@ -93,15 +92,22 @@ class LineageProcess(Process):
         divided = False
         try:
             self._composite.run(interval)
-        except Exception as e:  # process-bigraph surfaces division as _add/_remove
+        except Exception as e:
             msg = str(e).lower()
-            if "divi" in msg or "_add" in str(e) or "_remove" in str(e):
+            # Division surfaces as a structural update; the message mentions it.
+            # Non-division exceptions must propagate.
+            if "divide" in msg or "division" in msg:
                 divided = True
             else:
                 raise
         self._gen_elapsed += interval
         agents_after = set((self._composite.state.get("agents") or {}).keys())
         if agents_before and agents_after != agents_before:
+            divided = True
+        # MarkDPeriod sets a divide flag without changing the agents map; honor it
+        # too (mirrors the three-signal detection in v2ecoli/bridge.py).
+        cur_cell = (self._composite.state.get("agents", {}) or {}).get(self._agent_id, {})
+        if isinstance(cur_cell, dict) and cur_cell.get("divide"):
             divided = True
 
         cell = (self._composite.state.get("agents", {}).get(self._agent_id)
@@ -144,8 +150,9 @@ class LineageProcess(Process):
         from v2ecoli.composites._helpers import flush_parquet
         try:
             flush_parquet(self._composite, success=True)
-        except Exception:
-            pass
+        except Exception as e:
+            warnings.warn(f"LineageProcess: parquet flush failed for "
+                          f"generation {self._generation} ({self._agent_id}): {e}")
         self._summaries.append({
             "generation": self._generation,
             "agent_id": self._agent_id,
@@ -161,8 +168,9 @@ class LineageProcess(Process):
             return {"complete": True, "summary": {"generations": self._summaries}}
 
         # Carry daughter 0 forward; rebuild a fresh composite next tick.
+        from v2ecoli.steps.division import daughter_phylogeny_id
         self._carry_state = daughter
-        self._agent_id = self._agent_id + "0"
+        self._agent_id = daughter_phylogeny_id(self._agent_id)[0]
         self._composite = None
         self._needs_build = True
         return {"summary": {"generations": self._summaries}}

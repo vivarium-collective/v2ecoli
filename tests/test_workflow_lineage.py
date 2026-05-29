@@ -22,7 +22,9 @@ def _make(monkeypatch, generations, divide_after=2):
 
     def fake_run_until_division(interval):
         lp._gen_elapsed += interval
-        return lp._gen_elapsed >= divide_after, {"bulk": {}, "unique": {}}, 100.0 + lp._generation
+        divided = lp._gen_elapsed >= divide_after
+        daughter = {"bulk": {}, "unique": {}} if divided else None
+        return divided, daughter, 100.0 + lp._generation
 
     monkeypatch.setattr(lp, "_build_generation", fake_build)
     monkeypatch.setattr(lp, "_run_until_division", fake_run_until_division)
@@ -39,6 +41,9 @@ def test_completes_after_generations(monkeypatch):
     assert out["complete"] is True
     assert len(lp._summaries) == 3            # 3 generations recorded
     assert [s["generation"] for s in lp._summaries] == [0, 1, 2]
+    # agent_id advanced one phylogeny step per completed generation: 0 -> 00 -> 000
+    assert [s["agent_id"] for s in lp._summaries] == ["0", "00", "000"]
+    assert all(s["divided"] for s in lp._summaries)
 
 
 def test_single_daughters_false_not_implemented(monkeypatch):

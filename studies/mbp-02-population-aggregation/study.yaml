@@ -1,7 +1,7 @@
 schema_version: 4
 name: mbp-02-population-aggregation
 created: '2026-05-22'
-phase: Build
+phase: Evaluate
 
 # Advanced to Build phase 2026-05-26 (parallel to mbp-01, no prereq blocker):
 # PopulationAggregator Step + baseline_population composite + 8 pytest stubs
@@ -29,7 +29,7 @@ question: |
   representative-sampling scaling factor (`cells_per_agent`) so the
   simulated lineage legitimately stands in for an N-cell population
   under the 0D well-mixed assumption?
-status: in-progress
+status: build-complete
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline_population

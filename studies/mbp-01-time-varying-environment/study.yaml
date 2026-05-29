@@ -1,7 +1,7 @@
 schema_version: 4
 name: mbp-01-time-varying-environment
 created: '2026-05-22'
-phase: Build
+phase: Evaluate
 
 # Multi-axis status (Pass A, canonical).
 # Advanced to Build phase 2026-05-26 (post chris_feedback_2026_05_26 §3 reframe):
@@ -31,7 +31,7 @@ question: |
   static media configuration baked into ParCa — such that metabolic
   exchange fluxes and growth rate respond correctly to declining
   glucose, declining DO, and other dynamic external concentrations?
-status: in-progress (Build complete 2026-05-29 via 60cdbd3 — all 6 behavior_tests passing; ready for Evaluate-phase tooling)
+status: build-complete
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline_time_varying_env

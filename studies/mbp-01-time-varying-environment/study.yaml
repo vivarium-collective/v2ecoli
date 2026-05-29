@@ -31,7 +31,7 @@ question: |
   static media configuration baked into ParCa — such that metabolic
   exchange fluxes and growth rate respond correctly to declining
   glucose, declining DO, and other dynamic external concentrations?
-status: in-progress
+status: in-progress (Build complete 2026-05-29 via 60cdbd3 — all 6 behavior_tests passing; ready for Evaluate-phase tooling)
 conditions:
   baseline:
     composite: v2ecoli.composites.baseline_time_varying_env
@@ -401,9 +401,9 @@ required_knowledge:
         boundary.external (which has a typed schema; bypasses the
         per-agent environment store the original gap was about). PBG's FLUSH
         commits the mirror's writes before exchange_data reads boundary —
-        propagation completes same-tick. Landed in commit <to-fill on push>;
-        all 5 previously-blocked tests now pass alongside the static-mode
-        regression.
+        propagation completes same-tick. Landed in commit 60cdbd3; all 5
+        previously-blocked tests now pass alongside the static-mode
+        regression (full sim suite: 32 passed, 15 skipped).
     - id: env-driver-molecule-id-convention
       question: |
         Surfaced 2026-05-28 alongside `env-store-topology-mismatch`: the

@@ -87,21 +87,21 @@ COMMON_AGENT_PATHS = [
 ]
 
 
-def _build_baseline(core, cache_dir, **_):
+def _build_baseline(core, cache_dir, *, seed=0):
     from v2ecoli.composites.baseline import baseline
-    return baseline(core=core, seed=0, cache_dir=cache_dir)
+    return baseline(core=core, seed=seed, cache_dir=cache_dir)
 
-def _build_baseline_population(core, cache_dir, *, cells_per_agent):
+def _build_baseline_population(core, cache_dir, *, cells_per_agent, seed=0):
     from v2ecoli.composites.baseline_population import baseline_population
     return baseline_population(
-        core=core, seed=0, cache_dir=cache_dir,
+        core=core, seed=seed, cache_dir=cache_dir,
         cells_per_agent=cells_per_agent,
     )
 
-def _build_baseline_time_varying_env(core, cache_dir, **_):
+def _build_baseline_time_varying_env(core, cache_dir, *, seed=0):
     from v2ecoli.composites.baseline_time_varying_env import baseline_time_varying_env
     return baseline_time_varying_env(
-        core=core, seed=0, cache_dir=cache_dir,
+        core=core, seed=seed, cache_dir=cache_dir,
         env_driver_mode="static",
     )
 
@@ -162,6 +162,43 @@ VARIANTS = [
         [],   # static mode: env-driver doesn't write external_concentrations
     ),
 ]
+
+
+# Multi-seed sweep over the cpa scaling axis. Chris's 2026-05-28 Pass 2
+# §1.a confirmation validated cpa scaling AT seed=0; this sweep extends
+# the evidence to seeds {0, 1, 2} so the report can show variance bands
+# across stochastic replicates and answer "is single-seed scaling a
+# coincidence or a robust property of representative-sampling under the
+# 0D well-mixed assumption?"
+#
+# 3 cpa × 3 seeds = 9 runs. Each run targets ~120 sim-min (2 doublings)
+# and writes into studies/mbp-02-population-aggregation/parquet-runs/
+# alongside the existing 3 single-seed runs. Sim names follow
+# `aggregator-cpa<N>-seed<S>-multigen` for unambiguous artifact grouping.
+_MBP_02_MULTISEED_CPA_VALUES = (1.0, 1.0e6, 1.0e9)
+_MBP_02_MULTISEED_SEEDS = (0, 1, 2)
+
+for _cpa in _MBP_02_MULTISEED_CPA_VALUES:
+    for _seed in _MBP_02_MULTISEED_SEEDS:
+        # Skip the (cpa, seed=0) triple since those already live as the
+        # single-seed `aggregator-cpa<N>-multigen` runs above — re-running
+        # would duplicate without adding signal.
+        if _seed == 0:
+            continue
+        _cpa_label = "1" if _cpa == 1.0 else ("1e6" if _cpa == 1.0e6 else "1e9")
+        VARIANTS.append((
+            f"aggregator-cpa{_cpa_label}-seed{_seed}-multigen",
+            "mbp-02-population-aggregation",
+            _build_baseline_population,
+            {"cells_per_agent": _cpa, "seed": _seed},
+            [
+                "population/total_biomass_gDW",
+                "population/cell_count",
+                "population/biomass_concentration_gL",
+                "population/OD600",
+            ],
+        ))
+del _cpa, _seed, _cpa_label  # housekeeping
 
 
 def _register_simulation_row(

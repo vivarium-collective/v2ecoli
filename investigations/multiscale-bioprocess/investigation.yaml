@@ -217,6 +217,171 @@ discipline:
       regime: Beulig's headline mechanism — needs v2ecoli's regulation layer
 
 
+# Narrative-spine executive panel — rendered at the top of the
+# investigation report's Overview. Captures (a) the current verdict for a
+# reviewer scanning at the top of the page, (b) Chris's 2026-05-28
+# verification-pass affirmative observations, (c) the changeset closing
+# his nine inline review items + the §11 framework root cause, and
+# (d) the 2026-05-29 architecture work that advanced mbp-01 from Build
+# to Evaluate-ready.
+executive:
+  what_is_this: |
+    A v2ecoli investigation putting the single-cell whole-cell model into
+    a bench-scale bioreactor: time-varying environment hook (mbp-01),
+    population aggregation with representative-sampling scaling (mbp-02),
+    BiRD reactor coupling (mbp-03), multigeneration coupled runs (mbp-04),
+    a structured sim-vs-Beulig comparison report (mbp-05, EVALUATION
+    phase), and gap analysis feeding the next iteration (mbp-06).
+
+  verdict: |
+    **Build phase complete for mbp-01 and mbp-02; ready for Evaluate
+    tooling.** Reviewer feedback through 2026-05-28 has been processed
+    end-to-end (digest + raw export under `references/expert/`); all 9
+    inline cleanup items closed in source, the §11 framework root cause
+    seeded as an upstream pbg-superpowers gap, and the two architectural
+    blockers Chris's first-pass review left open (env-store-topology +
+    env-driver-molecule-id) resolved 2026-05-29 by the EnvironmentMirror
+    Step (commit `60cdbd3`). mbp-01 went from 1 passing / 5 skipped to
+    **6 passing / 0 skipped**.
+
+  verdict_status: in-progress
+
+  reviewer_verification_observations:
+    # Chris Long's 2026-05-28 Pass 2 review confirmed three substantive
+    # observations from the existing artifacts BEFORE the mbp-01
+    # advancement landed. Recorded verbatim per chris_feedback_2026_05_28
+    # §1.a so the report surfaces them where reviewers look.
+    - source: cplong90 (2026-05-28 Pass 2)
+      observation: |
+        cells_per_agent scaling validated empirically.
+        `studies/mbp-02-population-aggregation/charts/01_population-scaling.svg`
+        shows perfect log-y parallelism across cpa ∈ {1, 1e6, 1e9} —
+        9 orders of magnitude scaling, reaches Beulig regime
+        (~10^12-10^13 cells/L at cpa=1e9) from a single-cell-with-
+        Division simulation. `00_per-cell-mass-invariant.svg` shows
+        three overlapping traces — aggregator never touches per-cell
+        state. The architectural decision is not just adopted in YAML;
+        it has been validated with sim output.
+    - source: cplong90 (2026-05-28 Pass 2)
+      observation: |
+        mbp-06 schema extensions fully adopted.
+        `mandatory_findings_to_consider` (4 priors including the
+        Eran-flagged low-GUR mass balance + `cells_per_agent-scaling-
+        stochastic-floor`); `findings_schema`; `resolution_type` /
+        `resolution_venue` / `decision_authority` / `provenance`
+        fields; per-axis floors A=3 D=3 B=C=E=1; three new behavior
+        tests enforcing the schema. The `framework_axis_e_gaps` block
+        operationalized 2026-05-26 Comment B as 6 concrete upstream PR
+        candidates with explicit `resolution_type: upstream_PR` routing.
+    - source: cplong90 (2026-05-28 Pass 2)
+      observation: |
+        Cross-investigation hook fully wired.
+        `pbg-bioreactor-transport-fork` named as hard prerequisite in
+        `mbp-03.pipeline_gate.prerequisites`; mbp-06 lists it as a
+        pre-seeded candidate-future-study with `decision_authority:
+        pbg-bioreactordesign maintainer (Chris)`. The Track 2
+        pbg-bioreactor investigation has explicit routing from this side.
+
+  changeset_summary:
+    # 2026-05-28..29 changeset closing the 2026-05-28 review + mbp-01
+    # architecture work. Grouped by intent so a reviewer can verify
+    # each closure pass with one click per row.
+    - intent: ci unblock
+      commits: [9b5c18c]
+      note: |
+        Cache key + INPUT_FILES sync — busted the stale ParCa cache
+        that was producing StaleCacheError on every behavior test.
+    - intent: §10 reframe walked through claim FKs (mbp-05)
+      commits: [a722e01]
+      note: |
+        `*-matches-published` → `*-comparison-rendered` across
+        `backs[]` (L399, L401) and `open_questions.blocks[]` (L415,
+        L424). Chris flagged L399; same root cause produced L401,
+        L415, L424 — fixed adjacent.
+    - intent: §3 inherits_from refresh across mbp-03/04/05
+      commits: [6dc5216]
+      note: |
+        `uptake-flux-tracks-external-glucose` → 6 post-§3 mbp-01
+        test names. One shared edit pattern across three files.
+    - intent: od_to_gdw alignment (mbp-05 ↔ mbp-02)
+      commits: [e36d115]
+      note: |
+        0.33 → 0.34 (Beulig 2025; mbp-02 had this already).
+    - intent: mbp-03 Option-A-only failure-mode tagging
+      commits: [2990631]
+      note: |
+        L409, L414 tagged as Option-A fallback only — under Option-B
+        (BiRDTransportProcess upstream fork) the checks aren't
+        reachable on the primary path. Kept for fallback diagnostic
+        coverage if the upstream PR slips.
+    - intent: mbp-01 failure_mode + unblocks refresh
+      commits: [04cf8e5]
+      note: |
+        L359 failure_mode signature repurposed to the closest current
+        test (propagation lag); L414 unblocks refreshed to post-§3
+        sim names.
+    - intent: mbp-06 stale unblocks → new schema-enforcement test
+      commits: [08a29dd]
+      note: |
+        `at-least-eight-gaps-total` → `every-gap-has-resolution-type-
+        and-venue` (L292 of the same study).
+    - intent: §11 framework root cause seeded as upstream PR gap
+      commits: [0c29333]
+      note: |
+        `study-yaml-rename-walks-internal-fks` added to mbp-06's
+        `framework_axis_e_gaps`; routed to pbg-superpowers. Catches
+        exactly the rename-drift pattern these 9 items represent.
+    - intent: mbp-02 prose TODO cleanup (lint blocker)
+      commits: [b50bcab]
+      note: |
+        Rephrased `(followup TODO)` → `in a follow-up edit` so
+        /pbg-report renders without --force.
+    - intent: media_update + flow_order preconditions
+      commits: [93f4ffd]
+      note: |
+        MediaUpdate consumes environment.external_concentrations when
+        non-empty; flow_order places environment_driver BEFORE
+        media_update. Set up the unblock landed later by the mirror.
+        (Mirror commit superseded this consumption path; media_update
+        reverted to original media_id-only behavior in 60cdbd3.)
+    - intent: env-topology + molecule-id gaps captured as open_questions
+      commits: [5941789]
+      note: |
+        Documented the two architectural blockers with three
+        resolution options each; recommended option (c) — tick-leading
+        mirror Step bundling both fixes.
+    - intent: main perf merge (3.4% baseline speedup)
+      commits: [1931128]
+      note: |
+        `04c44b8` + `cbf9d48` from main: BDF Jacobian sparsity hint +
+        params-lookup hoist + catalyst-mask diff. Disjoint files from
+        mbp-* work; clean merge.
+    - intent: EnvironmentMirror unblocks 5 mbp-01 plumbing tests
+      commits: [60cdbd3]
+      note: |
+        Adopted option (c) from the open_questions: mirror Step
+        reads top-level env.external_concentrations and writes per-
+        agent boundary.external delta directly; correct FLUSH
+        placement (BEFORE the unique_update_1 barrier) gates the
+        layer separation. All 5 previously-blocked mbp-01 tests now
+        pass; static-mode regression intact; full sim suite +5
+        (27→32 passing).
+
+  decisions_needed:
+    - text: |
+        mbp-03 entry into Build: still gated by upstream
+        `pbg-bioreactor-transport-fork` PR. With mbp-01 now Build-
+        complete and mbp-02 already validated, the critical path
+        forward sits on the upstream side.
+    - text: |
+        mbp-02 multi-seed scaling sweep (cpa × seed) — Chris's §1.a
+        observation confirmed seed-0 scaling at three orders of
+        magnitude. A 3-seed × 3-cpa sweep would add variance bands
+        across replicates and answer "is this a single-seed
+        coincidence, or robust across stochasticity?" Scaffold lands
+        in the same changeset as this verdict block.
+
+
 # Studies in this investigation, in suggested execution order.
 # The DAG is computed from each study's `pipeline_gate.prerequisites`
 # field at render time; this list determines visibility / grouping only.

@@ -154,9 +154,15 @@ class PolypeptideInitiation(Step):
         ]
         self.tu_ids = self.parameters["tu_ids"]
         self.n_TUs = len(self.tu_ids)
-        # Convert ribosome footprint size from nucleotides to amino acids
-        self.active_ribosome_footprint_size = (
-            self.parameters["active_ribosome_footprint_size"] / 3
+        # The ribosome footprint is stored as a quantity[nt] in the config
+        # (default 24 nt) and divided by 3 to get the "amino-acid-coded
+        # length" the model actually uses inside max-p calculations. Strip
+        # to a plain float here — the per-tick max_p computation that
+        # consumes this value treats it as a dimensionless divisor and
+        # always calls .magnitude on the result, so carrying pint metadata
+        # just buys per-tick Quantity arithmetic for no semantic gain.
+        self.active_ribosome_footprint_size = float(
+            (self.parameters["active_ribosome_footprint_size"] / 3).magnitude
         )
 
         # Get mapping from cistrons to protein monomers and TUs
@@ -254,12 +260,13 @@ class PolypeptideInitiation(Step):
             self.variable_elongation,
         ), 1)
         # Calculate number of ribosomes that could potentially be initialized
-        # based on counts of free 30S and 50S subunits
-        inactive_ribosome_count = np.min(
-            [
-                counts(states["bulk"], self.ribosome30S_idx),
-                counts(states["bulk"], self.ribosome50S_idx),
-            ]
+        # based on counts of free 30S and 50S subunits. The `counts(...)` calls
+        # each return a 0-d ndarray for a scalar index; Python's `min` over
+        # two scalars is faster than np.min over a 2-element list (which
+        # builds the list + converts to ndarray).
+        inactive_ribosome_count = min(
+            counts(states["bulk"], self.ribosome30S_idx),
+            counts(states["bulk"], self.ribosome50S_idx),
         )
 
         # Calculate actual number of ribosomes that should be activated based
@@ -338,14 +345,16 @@ class PolypeptideInitiation(Step):
 
         # Cap the initiation probabilities at the maximum level physically
         # allowed from the known ribosome footprint sizes based on the
-        # number of mRNAs
+        # number of mRNAs. With the elongation rate and footprint both held
+        # as plain floats (aa/s and aa, respectively) and timestep in s,
+        # the expression is dimensionless count, so do the math directly in
+        # float form — the previous Quantity chain (units.s * timestep) re-
+        # attached and then stripped a unit per tick for the same result.
         max_p = (
             self.ribosomeElongationRate
-            / self.active_ribosome_footprint_size
-            * (units.s)
             * states["timestep"]
-            / n_ribosomes_to_activate
-        ).magnitude
+            / (self.active_ribosome_footprint_size * n_ribosomes_to_activate)
+        )
         max_p_per_protein = max_p * cistron_counts[self.cistron_to_monomer_mapping]
         is_overcrowded = protein_init_prob > max_p_per_protein
 
@@ -376,26 +385,22 @@ class PolypeptideInitiation(Step):
                 associated_cistron_counts = cistron_counts[
                     self.cistron_to_monomer_mapping
                 ][is_overcrowded][max_index]
+                # Same float-only arithmetic as the initial max_p, with
+                # an extra associated_cistron_counts factor in the numerator.
                 n_ribosomes_to_activate = np.int64(
-                    (
-                        self.ribosomeElongationRate
-                        / self.active_ribosome_footprint_size
-                        * (units.s)
-                        * states["timestep"]
-                        / max_init_prob
-                        * associated_cistron_counts
-                    ).magnitude
+                    self.ribosomeElongationRate
+                    * states["timestep"]
+                    * associated_cistron_counts
+                    / (self.active_ribosome_footprint_size * max_init_prob)
                 )
 
                 # Update maximum probabilities based on new number of activated
                 # ribosomes.
                 max_p = (
                     self.ribosomeElongationRate
-                    / self.active_ribosome_footprint_size
-                    * (units.s)
                     * states["timestep"]
-                    / n_ribosomes_to_activate
-                ).magnitude
+                    / (self.active_ribosome_footprint_size * n_ribosomes_to_activate)
+                )
                 max_p_per_protein = (
                     max_p * cistron_counts[self.cistron_to_monomer_mapping]
                 )

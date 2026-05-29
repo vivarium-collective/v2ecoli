@@ -131,6 +131,20 @@ conditions:
   # Required by v4 schema even when empty.
   model_settings: []
 
+visualizations:
+  - name: dnaa_steady_state
+    address: local:DnaaSteadyStateVisualization
+    config:
+      title: dnaa-0 — succinate steady state (oriC, cell_mass, DnaA monomer)
+      sample_every: 10
+      dnaa_band_low: 300.0
+      dnaa_band_high: 800.0
+      inputs_map:
+        oric_count:         listeners.replication_data.number_of_oric
+        cell_mass:          listeners.mass.cell_mass
+        dnaa_monomer_total: listeners.monomer_counts
+        time:               global_time
+
 tests:
   - name: succinate-10gen-oric-periodic-1-or-2-never-4
     classification: primary

@@ -150,6 +150,21 @@ conditions:
   # Required by v4 schema even when empty.
   model_settings: []
 
+visualizations:
+  - name: dnaa_expression
+    address: local:DnaaExpressionVisualization
+    config:
+      title: dnaa-1 — Mechanism A V=2e-3 (succinate)
+      sample_every: 10
+      dnaa_band_low: 300.0
+      dnaa_band_high: 800.0
+      inputs_map:
+        dnaa_monomer_total: listeners.monomer_counts
+        cell_mass:          listeners.mass.cell_mass
+        dnaa_mrna_count:    listeners.rna_counts.mRNA_counts
+        dnaa_init_events:   listeners.rnap_data.rna_init_event_per_cistron
+        time:               global_time
+
 tests:
   - name: dnaa-monomer-count-in-band-300-800-across-generations
     classification: primary

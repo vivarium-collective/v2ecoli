@@ -426,19 +426,28 @@ executive:
         and have been demoted to companion-charts; chart 02 is now
         load-bearing.
 
-        v2ecoli at cpa=1e9 PLATEAUS at ~4.3 mg/L. The biomass
-        oscillates 1.17–4.31 mg/L following the division cycle
-        (cell_mass 1097→2338 fg → halve at division) but does NOT
-        accumulate across generations. The 175-min run confirmed this
-        empirically. Gap to Beulig batch peak: 3.3 orders of magnitude,
-        and DURATION CANNOT CLOSE IT — the single_daughters lineage
-        convention caps total biomass at cell_mass × cpa for ONE
-        lineage. Closing requires architectural moves: a population
-        composite with counter-rather-than-single-daughters lineage
-        tracking, OR a surrogate engine — both mbp-06 candidate-
-        future-studies. mbp-05's comparison harness surfaces this
-        diagnostically; it does NOT try to tune the gap away
-        (Chris's 2026-05-26 §10 execute-and-report reframe).
+        v2ecoli at cpa=1e9 under single_daughters PLATEAUS at ~4.3 mg/L.
+        The biomass oscillates 1.17–4.31 mg/L following the division
+        cycle (cell_mass 1097→2338 fg → halve at division) but does NOT
+        accumulate across generations under this configuration. The
+        175-min run confirmed this empirically. Gap to Beulig batch
+        peak under single_daughters: 3.3 orders of magnitude, NOT
+        closable by duration alone.
+
+        IMPORTANT CONFIGURATION CAVEAT: the chart-02 plateau is
+        empirically valid FOR single_daughters (the v2ecoli default).
+        Under --no-single-daughters (both daughters tracked) the
+        population doubles each generation; biomass DOES accumulate
+        exponentially. Companion chart 03 from a 90-sim-min
+        --no-single-daughters run quantifies the both-daughters
+        trajectory — preliminary estimates put it ~1.2 orders below
+        Beulig batch instead of 3.3 orders. Full closure to Beulig
+        batch (~9.6 g/L) still requires fed-batch operations + the
+        architectural decisions in mbp-06.
+
+        mbp-05's comparison harness will surface both configurations
+        diagnostically; it does NOT try to tune the gap away (Chris's
+        2026-05-26 §10 execute-and-report reframe).
       simulations: |
         v2ecoli: aggregator-cpa1e9-multigen (60 sim-min reference)
         + aggregator-cpa1e9-batch-prefix-multigen (175 sim-min

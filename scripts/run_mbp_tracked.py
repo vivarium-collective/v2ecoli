@@ -324,6 +324,7 @@ def _count_parquet_rows(out_dir: Path, experiment_id: str) -> int:
 def _run_one_variant(
     *, sim_name, study_slug, builder_fn, builder_kwargs, extra_root_paths,
     duration_sec, max_generations, chunk, cache_dir, core, emitter,
+    single_daughters=True,
 ) -> dict:
     print(f"\n=== {sim_name} ({study_slug}) ===")
     print(f"  emitter: {emitter}")
@@ -361,7 +362,7 @@ def _run_one_variant(
             max_steps=duration_sec,
             max_generations=max_generations,
             chunk=chunk,
-            single_daughters=True,
+            single_daughters=single_daughters,
             core=core,
         )
         wall_time = time.time() - t_run
@@ -393,7 +394,7 @@ def _run_one_variant(
             max_steps=duration_sec,
             max_generations=max_generations,
             chunk=chunk,
-            single_daughters=True,
+            single_daughters=single_daughters,
             core=core,
             study_slug=study_slug,
             investigation_slug=INVESTIGATION_SLUG,
@@ -443,6 +444,18 @@ def main():
                    help=(f"Composite-tick chunk (default {DEFAULT_CHUNK} → "
                          "per-tick emit; larger = sparser emit, faster runtime)."))
     p.add_argument("--cache-dir", default="out/cache")
+    # Lineage-following toggle. Default True (preserves existing variant
+    # behavior); --no-single-daughters lets BOTH daughters continue at
+    # each division, producing exponentially-growing populations (2^N
+    # cells after N generations). Memory grows roughly linearly with
+    # active agents; cap max_generations to control RSS.
+    p.add_argument("--single-daughters", action="store_true", default=True,
+                   help="Follow one daughter per division (default).")
+    p.add_argument("--no-single-daughters", action="store_false",
+                   dest="single_daughters",
+                   help=("Continue BOTH daughters at each division. Memory "
+                         "scales with active agents; cap --max-generations "
+                         "to bound RSS."))
     args = p.parse_args()
 
     variants = VARIANTS
@@ -474,6 +487,7 @@ def main():
             chunk=args.chunk,
             emitter=args.emitter,
             cache_dir=args.cache_dir, core=core,
+            single_daughters=args.single_daughters,
         )
         results.append(result)
     total_wall = time.time() - t_all

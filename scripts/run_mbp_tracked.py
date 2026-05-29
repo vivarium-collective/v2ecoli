@@ -98,11 +98,17 @@ def _build_baseline_population(core, cache_dir, *, cells_per_agent, seed=0):
         cells_per_agent=cells_per_agent,
     )
 
-def _build_baseline_time_varying_env(core, cache_dir, *, seed=0):
+def _build_baseline_time_varying_env(
+    core, cache_dir, *,
+    seed=0,
+    env_driver_mode="static",
+    synthetic_trajectory_spec=None,
+):
     from v2ecoli.composites.baseline_time_varying_env import baseline_time_varying_env
     return baseline_time_varying_env(
         core=core, seed=seed, cache_dir=cache_dir,
-        env_driver_mode="static",
+        env_driver_mode=env_driver_mode,
+        synthetic_trajectory_spec=synthetic_trajectory_spec or {},
     )
 
 
@@ -199,6 +205,52 @@ for _cpa in _MBP_02_MULTISEED_CPA_VALUES:
             ],
         ))
 del _cpa, _seed, _cpa_label  # housekeeping
+
+
+# mbp-01 driven-env multigen variants — first time the EnvironmentDriver /
+# EnvironmentMirror path runs at multigen scale (unblocked by 60cdbd3).
+# Chris's 2026-05-28 review didn't see any env-driven trajectory; these
+# produce two: linear-decline (glucose drops over the run) and zero-clamp
+# (instant deprivation). Each goes into mbp-01's parquet-runs/ and feeds
+# the per-study Charts panel.
+_MBP_01_DRIVEN_EXTRA_PATHS = [
+    # Per-agent boundary.external.GLC captures the leaf-level GLC
+    # trajectory the driver writes through the mirror. A parent-path
+    # ("boundary/external") doesn't expand into per-molecule columns —
+    # the emitter only captures explicit leaves.
+    "boundary/external/GLC",
+]
+VARIANTS.extend([
+    (
+        "linear-decline-glc-multigen",
+        "mbp-01-time-varying-environment",
+        _build_baseline_time_varying_env,
+        {
+            "env_driver_mode": "synthetic_trajectory",
+            "synthetic_trajectory_spec": {
+                # 5 mM -> 0 over 60 sim-min (~1 doubling). Bare-name
+                # convention per chris_feedback_2026_05_28 §11 resolution.
+                "GLC": {
+                    "kind": "linear_decline",
+                    "start_gL": 5.0, "end_gL": 0.0, "duration_min": 60.0,
+                },
+            },
+        },
+        _MBP_01_DRIVEN_EXTRA_PATHS,
+    ),
+    (
+        "zero-clamp-glc-multigen",
+        "mbp-01-time-varying-environment",
+        _build_baseline_time_varying_env,
+        {
+            "env_driver_mode": "synthetic_trajectory",
+            "synthetic_trajectory_spec": {
+                "GLC": {"kind": "clamp_to_value", "value_mmolL": 0.0},
+            },
+        },
+        _MBP_01_DRIVEN_EXTRA_PATHS,
+    ),
+])
 
 
 def _register_simulation_row(

@@ -561,6 +561,16 @@ runs:
       trajectory data to the sqlite path before colonies + mbp standardize
       on parquet workspace-wide.
 
+  # ─── First driven-env multigen runs (2026-05-29) ─────────────────────
+  # First time the EnvironmentDriver / EnvironmentMirror path runs at
+  # multigen scale (unblocked by 60cdbd3). Two runs queued (linear-decline
+  # 5 mM→0 over 60 sim-min, and zero-clamp at GLC=0); both use
+  # extra_root_paths = ["boundary/external/GLC"] so the leaf-level GLC
+  # trajectory at the cell boundary lands in the parquet hive and feeds
+  # chart 01_driven-env-glc-trajectory.svg. Entries will land in this
+  # block once the runs complete; the runner script's variant list is
+  # already wired (scripts/run_mbp_tracked.py).
+
 
 # ─── v4 tests[] (hand-authored 2026-05-28) ────────────────────────────────
 # Schema-version 4 declares first-class `tests:` with `measure.path` so

@@ -542,6 +542,45 @@ runs:
       sweep under the workspace-default emitter — DuckDB / polars
       analysis paths consume this set directly from the hive.
 
+  # ─── Multi-seed sweep (started 2026-05-29) ──────────────────────────
+  # Extends Chris's 2026-05-28 §1.a seed-0 confirmation to a 3-seed
+  # variance band per cpa. Answers "is the single-seed cpa-scaling
+  # linearity a coincidence or a robust property under the 0D well-
+  # mixed assumption?" Render variance-bands chart at chart 04.
+  - simulation:      aggregator-cpa1-seed1-multigen
+    simulation_id:   7d3e55c8-a4f4-42a0-89aa-99110348f2c2
+    seed:            1
+    cells_per_agent: 1.0
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/7d3e55c8-a4f4-42a0-89aa-99110348f2c2
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Variance-band replicate at cpa=1.0, seed=1 (60 sim-min, 2 gen).
+      Pairs with the seed=0 cpa1 run above + seed=2 cpa1 below.
+
+  - simulation:      aggregator-cpa1-seed2-multigen
+    simulation_id:   19ee7b8b-399f-446a-a768-073780956466
+    seed:            2
+    cells_per_agent: 1.0
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/19ee7b8b-399f-446a-a768-073780956466
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Variance-band replicate at cpa=1.0, seed=2 (60 sim-min, 2 gen).
+      With seed=0 and seed=1 above, gives n=3 replicates at cpa=1 —
+      enough for std bands at this cpa. cpa=1e6 + cpa=1e9 multi-seed
+      variants follow (4 sims in flight at write time).
+
 
 # ─── v4 tests[] (hand-authored 2026-05-28) ────────────────────────────────
 # Hand-curated representatives of the load-bearing claims in

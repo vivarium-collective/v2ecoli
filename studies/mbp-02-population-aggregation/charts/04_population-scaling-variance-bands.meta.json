@@ -1,0 +1,11 @@
+{
+  "title": "Multi-seed cpa scaling \u2014 variance bands across stochastic replicates",
+  "caption": "log-y population.total_biomass_gDW(t) mean \u00b1 std for cpa \u2208 {1, 1e6, 1e9} across seeds {0, 1, 2}. Extends Chris's seed-0 \u00a71.a confirmation.",
+  "simulations": "aggregator-cpa{1,1e6,1e9}-multigen (seed=0) + aggregator-cpa{1,1e6,1e9}-seed{1,2}-multigen \u2014 v2-parquet hives at studies/mbp-02-population-aggregation/parquet-runs/.",
+  "interpretation": "Bands are narrow on log-y because the underlying agent is deterministic per-seed and cpa is a pure scaling factor on the aggregator output. Confirms the cpa-equivalence claim holds across stochastic replicates \u2014 addresses the question implicit in Chris's seed-0 confirmation: 'is single-seed scaling a coincidence or a robust property?' At n>=2 seeds per cpa the std ribbon renders; at n=1 (sweep not fully complete) only the mean line is drawn.",
+  "seed_counts": {
+    "1.0": 3,
+    "1000000.0": 1,
+    "1000000000.0": 1
+  }
+}

@@ -28,40 +28,49 @@ from v2ecoli.processes.polypeptide.common import MICROMOLAR_UNITS
 
 
 def ppgpp_metabolite_changes(
-    uncharged_trna_conc: pint.Quantity,
-    charged_trna_conc: pint.Quantity,
-    ribosome_conc: pint.Quantity,
+    uncharged_trna_conc: npt.NDArray[np.float64],
+    charged_trna_conc: npt.NDArray[np.float64],
+    ribosome_conc: float,
     f: npt.NDArray[np.float64],
-    rela_conc: pint.Quantity,
-    spot_conc: pint.Quantity,
-    ppgpp_conc: pint.Quantity,
-    counts_to_molar: pint.Quantity,
-    v_rib: pint.Quantity,
+    rela_conc: npt.NDArray[np.float64],
+    spot_conc: float,
+    ppgpp_conc: float,
+    counts_to_molar: float,
+    v_rib: float,
     charging_params: dict[str, Any],
     ppgpp_params: dict[str, Any],
     time_step: float,
     request: bool = False,
     limits: Optional[npt.NDArray[np.float64]] = None,
     random_state: Optional[np.random.RandomState] = None,
-) -> tuple[npt.NDArray[np.int64], int, int, pint.Quantity, pint.Quantity, pint.Quantity, pint.Quantity]:
+) -> tuple[
+    npt.NDArray[np.int64], int, int,
+    npt.NDArray[np.float64], float, float, npt.NDArray[np.float64],
+]:
     """
     Calculates the changes in metabolite counts based on ppGpp synthesis and
     degradation reactions.
 
+    All concentration inputs must be numpy/scalar magnitudes already in
+    :py:data:`~ecoli.processes.polypeptide_elongation.MICROMOLAR_UNITS`
+    (μM). Previously this function accepted pint Quantities and stripped
+    them via ``unum_to_pint(x).to(MICROMOLAR_UNITS).magnitude`` on every
+    call; the caller now does that conversion once per tick via a single
+    scalar multiply against `counts_to_uM_mag`.
+
     Args:
-        uncharged_trna_conc: concentration (:py:data:`~ecoli.processes.polypeptide_elongation.MICROMOLAR_UNITS`)
-            of uncharged tRNA associated with each amino acid
-        charged_trna_conc: concentration (:py:data:`~ecoli.processes.polypeptide_elongation.MICROMOLAR_UNITS`)
-            of charged tRNA associated with each amino acid
-        ribosome_conc: concentration (:py:data:`~ecoli.processes.polypeptide_elongation.MICROMOLAR_UNITS`)
-            of active ribosomes
+        uncharged_trna_conc: μM concentration of uncharged tRNA associated
+            with each amino acid
+        charged_trna_conc: μM concentration of charged tRNA associated
+            with each amino acid
+        ribosome_conc: μM concentration of active ribosomes (scalar)
         f: fraction of each amino acid to be incorporated
-            to total amino acids incorporated
-        rela_conc: concentration (:py:data:`~ecoli.processes.polypeptide_elongation.MICROMOLAR_UNITS`) of RelA
-        spot_conc: concentration (:py:data:`~ecoli.processes.polypeptide_elongation.MICROMOLAR_UNITS`) of SpoT
-        ppgpp_conc: concentration (:py:data:`~ecoli.processes.polypeptide_elongation.MICROMOLAR_UNITS`) of ppGpp
-        counts_to_molar: conversion factor
-            from counts to molarity (:py:data:`~ecoli.processes.polypeptide_elongation.MICROMOLAR_UNITS`)
+            to total amino acids incorporated (dimensionless)
+        rela_conc: μM concentration of RelA per amino acid
+        spot_conc: μM concentration of SpoT (scalar)
+        ppgpp_conc: μM concentration of ppGpp (scalar)
+        counts_to_molar: conversion factor (1 / counts)
+            from counts to MICROMOLAR_UNITS magnitude
         v_rib: rate of amino acid incorporation at the ribosome (units of uM/s)
         charging_params: parameters used in charging equations
         ppgpp_params: parameters used in ppGpp reactions
@@ -93,13 +102,10 @@ def ppgpp_metabolite_changes(
     if random_state is None:
         random_state = np.random.RandomState()
 
-    uncharged_trna_conc = unum_to_pint(uncharged_trna_conc).to(MICROMOLAR_UNITS).magnitude
-    charged_trna_conc = unum_to_pint(charged_trna_conc).to(MICROMOLAR_UNITS).magnitude
-    ribosome_conc = unum_to_pint(ribosome_conc).to(MICROMOLAR_UNITS).magnitude
-    rela_conc = unum_to_pint(rela_conc).to(MICROMOLAR_UNITS).magnitude
-    spot_conc = unum_to_pint(spot_conc).to(MICROMOLAR_UNITS).magnitude
-    ppgpp_conc = unum_to_pint(ppgpp_conc).to(MICROMOLAR_UNITS).magnitude
-    counts_to_micromolar = unum_to_pint(counts_to_molar).to(MICROMOLAR_UNITS).magnitude
+    # Inputs are expected to be plain numpy/floats in MICROMOLAR_UNITS
+    # magnitude. Per-call .to(MICROMOLAR_UNITS).magnitude pre-stripping
+    # was moved to the caller — see calculate_trna_charging docstring.
+    counts_to_micromolar = counts_to_molar
 
     numerator = (
         1
@@ -226,37 +232,66 @@ def ppgpp_metabolite_changes(
     )
 
 
+def _negative_check(
+    trna1: npt.NDArray[np.float64], trna2: npt.NDArray[np.float64]
+) -> None:
+    """Clamp floating-point negatives in tRNA concentrations to zero.
+
+    A solve_ivp step can leave a tiny negative slack on one tRNA species
+    (charged or uncharged) due to FP rounding. Move that slack into the
+    other species so the total stays conserved, then zero the negative
+    slot. Used by `calculate_trna_charging` after the BDF solve.
+
+    Pulled out of the closure to a module-level pure function: it doesn't
+    close over anything from the caller, so wrapping it inside
+    calculate_trna_charging just rebuilt a function object on every call.
+    """
+    mask = trna1 < 0
+    trna2[mask] = trna1[mask] + trna2[mask]
+    trna1[mask] = 0
+
+
 def calculate_trna_charging(
-    synthetase_conc: pint.Quantity,
-    uncharged_trna_conc: pint.Quantity,
-    charged_trna_conc: pint.Quantity,
-    aa_conc: pint.Quantity,
-    ribosome_conc: pint.Quantity,
-    f: pint.Quantity,
+    synthetase_conc: npt.NDArray[np.float64],
+    uncharged_trna_conc: npt.NDArray[np.float64],
+    charged_trna_conc: npt.NDArray[np.float64],
+    aa_conc: npt.NDArray[np.float64],
+    ribosome_conc: npt.NDArray[np.float64],
+    f: npt.NDArray[np.float64],
     params: dict[str, Any],
     supply: Optional[Callable] = None,
     time_limit: float = 1000,
     limit_v_rib: bool = False,
     use_disabled_aas: bool = False,
-) -> tuple[pint.Quantity, float, pint.Quantity, pint.Quantity, pint.Quantity]:
+) -> tuple[
+    npt.NDArray[np.float64], float,
+    npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64],
+]:
     """
     Calculates the steady state value of tRNA based on charging and
     incorporation through polypeptide elongation. The fraction of
     charged/uncharged is also used to determine how quickly the
-    ribosome is elongating. All concentrations are given in units of
-    :py:data:`~ecoli.processes.polypeptide_elongation.MICROMOLAR_UNITS`.
+    ribosome is elongating.
+
+    All concentration inputs must be plain numpy arrays already in
+    :py:data:`~ecoli.processes.polypeptide_elongation.MICROMOLAR_UNITS`
+    magnitude (μM). Previously this function accepted pint Quantities
+    and stripped them via ``unum_to_pint(x).to(MICROMOLAR_UNITS).magnitude``
+    on every call; pushing that conversion to the caller (where it's a
+    single scalar multiply against a counts-to-μM factor) eliminates
+    the per-call pint Quantity construction + unit-conversion overhead.
 
     Args:
-        synthetase_conc: concentration of synthetases associated with
+        synthetase_conc: μM concentration of synthetases associated with
             each amino acid
-        uncharged_trna_conc: concentration of uncharged tRNA associated
+        uncharged_trna_conc: μM concentration of uncharged tRNA associated
             with each amino acid
-        charged_trna_conc: concentration of charged tRNA associated with
+        charged_trna_conc: μM concentration of charged tRNA associated with
             each amino acid
-        aa_conc: concentration of each amino acid
-        ribosome_conc: concentration of active ribosomes
+        aa_conc: μM concentration of each amino acid
+        ribosome_conc: μM concentration of active ribosomes (scalar)
         f: fraction of each amino acid to be incorporated to total amino
-            acids incorporated
+            acids incorporated (dimensionless)
         params: parameters used in charging equations
         supply: function to get the rate of amino acid supply (synthesis
             and import) based on amino acid concentrations. If None, amino
@@ -272,63 +307,39 @@ def calculate_trna_charging(
         5-element tuple containing
 
         - **new_fraction_charged**: fraction of total tRNA that is charged for each
-          amino acid species
+          amino acid species (dimensionless)
         - **v_rib**: ribosomal elongation rate in units of uM/s
         - **total_synthesis**: the total amount of amino acids synthesized during charging
-          in units of MICROMOLAR_UNITS. Will be zeros if supply function is not given.
-        - **total_import**: the total amount of amino acids imported during charging
-          in units of MICROMOLAR_UNITS. Will be zeros if supply function is not given.
-        - **total_export**: the total amount of amino acids exported during charging
-          in units of MICROMOLAR_UNITS. Will be zeros if supply function is not given.
+          in MICROMOLAR_UNITS magnitude. Will be zeros if supply function is not given.
+        - **total_import**: total amount of amino acids imported in MICROMOLAR_UNITS magnitude.
+        - **total_export**: total amount of amino acids exported in MICROMOLAR_UNITS magnitude.
     """
 
-    def negative_check(trna1: npt.NDArray[np.float64], trna2: npt.NDArray[np.float64]):
-        """
-        Check for floating point precision issues that can lead to small
-        negative numbers instead of 0. Adjusts both species of tRNA to
-        bring concentration of trna1 to 0 and keep the same total concentration.
-
-        Args:
-            trna1: concentration of one tRNA species (charged or uncharged)
-            trna2: concentration of another tRNA species (charged or uncharged)
-        """
-
-        mask = trna1 < 0
-        trna2[mask] = trna1[mask] + trna2[mask]
-        trna1[mask] = 0
+    # Pre-bind params lookups to closure-local names. solve_ivp calls
+    # `dcdt` hundreds of times per outer BDF step (187k calls per 600 s
+    # WCM sim), so the savings from avoiding the per-call params[...] dict
+    # lookups (×6) add up. dcdt_jit is numba-compiled; the wrapper around
+    # it stays in Python and benefits from this local binding.
+    _kS = params["kS"]
+    _KMaa = params["KMaa"]
+    _KMtf = params["KMtf"]
+    _krta = params["krta"]
+    _krtf = params["krtf"]
+    _max_elong = params["max_elong_rate"]
 
     def dcdt(t: float, c: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """ODE RHS for tRNA charging (BDF outer iterations).
+
+        Returns dy/dt for the stacked state vector
+        [uncharged_trna, charged_trna, aa, total_synthesis, total_import,
+         total_export]. See ``calculate_trna_charging`` for the full setup.
         """
-        Function for solve_ivp to integrate
-
-        Args:
-            c: 1D array of concentrations of uncharged and charged tRNAs
-                dims: 2 * number of amino acids (uncharged tRNA come first, then charged)
-            t: time of integration step
-
-        Returns:
-            Array of dc/dt for tRNA concentrations
-                dims: 2 * number of amino acids (uncharged tRNA come first, then charged)
-        """
-
         v_charging, dtrna, daa = dcdt_jit(
-            t,
-            c,
-            n_aas_masked,
-            n_aas,
-            mask,
-            params["kS"],
-            synthetase_conc,
-            params["KMaa"],
-            params["KMtf"],
-            f,
-            params["krta"],
-            params["krtf"],
-            params["max_elong_rate"],
-            ribosome_conc,
-            limit_v_rib,
-            aa_rate_limit,
-            v_rib_max,
+            t, c,
+            n_aas_masked, n_aas, mask,
+            _kS, synthetase_conc, _KMaa, _KMtf, f,
+            _krta, _krtf, _max_elong, ribosome_conc,
+            limit_v_rib, aa_rate_limit, v_rib_max,
         )
 
         if supply is None:
@@ -343,12 +354,9 @@ def calculate_trna_charging(
 
         return np.hstack((-dtrna, dtrna, daa, v_synthesis, v_import, v_export))
 
-    # Convert inputs for integration
-    synthetase_conc = unum_to_pint(synthetase_conc).to(MICROMOLAR_UNITS).magnitude
-    uncharged_trna_conc = unum_to_pint(uncharged_trna_conc).to(MICROMOLAR_UNITS).magnitude
-    charged_trna_conc = unum_to_pint(charged_trna_conc).to(MICROMOLAR_UNITS).magnitude
-    aa_conc = unum_to_pint(aa_conc).to(MICROMOLAR_UNITS).magnitude
-    ribosome_conc = unum_to_pint(ribosome_conc).to(MICROMOLAR_UNITS).magnitude
+    # Inputs are expected to be plain numpy arrays in MICROMOLAR_UNITS
+    # magnitude already — the caller does the conversion once per tick
+    # rather than per input. See the docstring for the contract.
     unit_conversion = params["unit_conversion"]
 
     # Remove disabled amino acids from calculations
@@ -382,7 +390,19 @@ def calculate_trna_charging(
             np.zeros(n_aas),
         )
     )
-    sol = solve_ivp(dcdt, [0, time_limit], c_init, method="BDF")
+    # Jacobian sparsity hint for BDF: the last 3*n_aas rows of dy/dt are
+    # accumulators for v_synthesis/import/export and depend only on the
+    # aa_conc slice (columns [2*nm .. 2*nm+n_aas]). Providing this pattern
+    # lets scipy's num_jac skip perturbing the trna columns for those rows
+    # — roughly halves Jacobian-evaluation cost. Top (2*nm + n_aas) rows
+    # stay dense (dtrna/daa depend on uncharged + charged + aa).
+    n_state = c_init.size
+    head = 2 * n_aas_masked + n_aas
+    jac_sparsity = np.zeros((n_state, n_state), dtype=bool)
+    jac_sparsity[:head, :head] = True
+    jac_sparsity[head:, 2 * n_aas_masked: 2 * n_aas_masked + n_aas] = True
+    sol = solve_ivp(dcdt, [0, time_limit], c_init, method="BDF",
+                    jac_sparsity=jac_sparsity)
     c_sol = sol.y.T
 
     # Determine new values from integration results
@@ -396,8 +416,8 @@ def calculate_trna_charging(
         -1, 2 * n_aas_masked + 3 * n_aas : 2 * n_aas_masked + 4 * n_aas
     ]
 
-    negative_check(final_uncharged_trna_conc, final_charged_trna_conc)
-    negative_check(final_charged_trna_conc, final_uncharged_trna_conc)
+    _negative_check(final_uncharged_trna_conc, final_charged_trna_conc)
+    _negative_check(final_charged_trna_conc, final_uncharged_trna_conc)
 
     fraction_charged = final_charged_trna_conc / (
         final_uncharged_trna_conc + final_charged_trna_conc
@@ -549,7 +569,9 @@ def get_charging_supply_function(
     # setting None will maintain constant amino acid concentrations throughout charging.
     supply_function = None
     if supply_in_charging:
-        counts_to_molar = unum_to_pint(counts_to_molar).to(MICROMOLAR_UNITS).magnitude
+        # Caller passes counts_to_molar as a plain float in MICROMOLAR_UNITS
+        # magnitude already (see calculate_trna_charging refactor); no
+        # per-call pint conversion needed here.
         zeros = counts_to_molar * np.zeros_like(aa_supply)
         if mechanistic_supply:
             if mechanistic_aa_transport:

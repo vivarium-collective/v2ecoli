@@ -2468,7 +2468,7 @@ parquet = [
 [[package]]
 name = "pbg-superpowers"
 version = "0.10.0"
-source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#69a6c1fd6b4abf2d46f8ae575fa8d2f99d1db0db" }
+source = { git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main#7d8ba3f80d3c55cf39d5fb7414170a071d4e4789" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },

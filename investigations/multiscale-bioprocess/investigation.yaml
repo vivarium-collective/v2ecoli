@@ -434,16 +434,26 @@ executive:
         peak under single_daughters: 3.3 orders of magnitude, NOT
         closable by duration alone.
 
-        IMPORTANT CONFIGURATION CAVEAT: the chart-02 plateau is
-        empirically valid FOR single_daughters (the v2ecoli default).
-        Under --no-single-daughters (both daughters tracked) the
-        population doubles each generation; biomass DOES accumulate
-        exponentially. Companion chart 03 from a 90-sim-min
-        --no-single-daughters run quantifies the both-daughters
-        trajectory — preliminary estimates put it ~1.2 orders below
-        Beulig batch instead of 3.3 orders. Full closure to Beulig
-        batch (~9.6 g/L) still requires fed-batch operations + the
-        architectural decisions in mbp-06.
+        REVISED CAVEAT (2026-05-29, empirically tested):
+        I initially attributed the plateau to single_daughters alone
+        and predicted --no-single-daughters would accumulate
+        exponentially. Chart 03 (90-sim-min --no-single-daughters run)
+        REFUTES that prediction: both runs peak at the same ~4 mg/L
+        plateau. The runner's internal log line `gen 2 → following
+        agent 00 at tick 2501` reveals the actual root cause —
+        `run_multigen_parquet` simulates both daughters at division
+        moments but then follows ONE lineage for continued simulation
+        + parquet emission. The --no-single-daughters flag flips the
+        composite-level division behavior but does NOT change the
+        runner's emit pattern, so the architectural cap persists
+        under either config.
+
+        TRUE both-daughters accumulation (2^N cells after N gens)
+        requires a population-runner architecture distinct from
+        run_multigen_parquet — a new mbp-06 candidate-future-study.
+        Closing the Beulig batch gap (~9.6 g/L) requires that
+        population runner + fed-batch operations together, NOT just
+        a config flip.
 
         mbp-05's comparison harness will surface both configurations
         diagnostically; it does NOT try to tune the gap away (Chris's

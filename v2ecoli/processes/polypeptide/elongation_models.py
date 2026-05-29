@@ -377,11 +377,13 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
                 aa_in_media,
             )
 
+        # counts_to_uM_mag is the cached per-tick conversion factor;
+        # dividing here matches the previous Quantity-stripping path.
         aa_counts_for_translation = (
             v_rib
             * f
             * states["timestep"]
-            / self.counts_to_molar.to(MICROMOLAR_UNITS).magnitude
+            / counts_to_uM_mag
         )
 
         total_trna = charged_trna_array + uncharged_trna_array
@@ -500,9 +502,13 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
                         "aa_supply_aa_conc": aa_conc * 1e-3,
                         "aa_supply_fraction_fwd": fwd_saturation,
                         "aa_supply_fraction_rev": rev_saturation,
-                        "ppgpp_conc": ppgpp_conc.to(MICROMOLAR_UNITS).magnitude,
-                        "rela_conc": rela_conc.to(MICROMOLAR_UNITS).magnitude,
-                        "spot_conc": spot_conc.to(MICROMOLAR_UNITS).magnitude,
+                        # ppgpp_conc / rela_conc / spot_conc are now plain
+                        # μM-magnitude values (computed via counts_to_uM_mag *
+                        # counts earlier in this method); no per-tick
+                        # .to(MICROMOLAR_UNITS).magnitude round-trip needed.
+                        "ppgpp_conc": ppgpp_conc,
+                        "rela_conc": rela_conc,
+                        "spot_conc": spot_conc,
                     }
                 },
                 "polypeptide_elongation": {

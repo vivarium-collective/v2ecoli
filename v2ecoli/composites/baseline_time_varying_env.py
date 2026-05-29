@@ -12,13 +12,28 @@ byte-identical trajectory to ``v2ecoli.composites.baseline`` (regression
 guarded by mbp-01's ``static-env-baseline-unchanged`` test).
 
 In ``synthetic_trajectory`` mode the Step writes to
-``environment.external_concentrations.<mol>`` per the spec — but the
-existing media_update / exchange_data path does NOT yet consume from that
-store. Driving metabolism from external_concentrations requires modifying
-media_update (a PartitionedProcess in 3 architectures per AGENTS.md) and
-re-running ParCa cache — tracked as a follow-up TODO. Until that lands,
-the synthetic-mode plumbing tests in
-``tests/test_mbp_01_time_varying_environment.py`` remain @pytest.mark.skip.
+``environment.external_concentrations.<mol>``. ``MediaUpdate`` consumes
+a non-empty external_concentrations dict each tick (landed 2026-05-28);
+``flow_order`` places ``environment_driver`` ahead of ``media_update``
+so the propagation is same-tick.
+
+Two architectural gaps remain before the plumbing tests in
+``tests/test_mbp_01_time_varying_environment.py`` can light up:
+
+  1. Topology: this composite adds ``environment`` at the top level of
+     state, but ``MediaUpdate`` lives inside ``agents.0`` and its
+     ``("environment",)`` port resolves to ``state["agents"]["0"]
+     ["environment"]`` — a different store. Either (a) move the driver
+     per-agent, (b) widen ``MediaUpdate``'s topology to read top-level
+     via an absolute path, or (c) add a tick-leading mirror Step.
+  2. Molecule-ID convention: the driver writes compartment-tagged
+     ``"GLC[p]"``; ``boundary.external`` keys are bare ``"GLC"``,
+     ``"ACET"``, etc. across all 87 entries. A reconciliation rule must
+     land before the driver-supplied concentrations can match anything
+     in ``boundary.external``.
+
+Until both are resolved, the synthetic-mode plumbing tests remain
+@pytest.mark.skip with skip reasons that name the specific gap.
 """
 
 from __future__ import annotations
@@ -101,7 +116,14 @@ def baseline_time_varying_env(
         config=driver_config,
     )
 
-    # Register in flow_order so the executor knows about the new step.
-    document.setdefault("flow_order", []).append(ENVIRONMENT_DRIVER_STEP_NAME)
+    # Register in flow_order. Insert BEFORE media_update so the driver's
+    # writes to environment.external_concentrations are visible to
+    # media_update within the same tick — the propagate-within-one-step
+    # invariant mbp-01's plumbing tests assert.
+    flow_order = document.setdefault("flow_order", [])
+    if "media_update" in flow_order:
+        flow_order.insert(flow_order.index("media_update"), ENVIRONMENT_DRIVER_STEP_NAME)
+    else:
+        flow_order.append(ENVIRONMENT_DRIVER_STEP_NAME)
 
     return document

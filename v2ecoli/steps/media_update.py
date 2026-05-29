@@ -37,6 +37,35 @@ class MediaUpdate(Step):
         return {"boundary": InPlaceDict(), "environment": InPlaceDict()}
 
     def next_update(self, timestep, states):
+        # Driver-supplied path: when EnvironmentDriver (or a reactor coupler in
+        # mbp-03) populates environment.external_concentrations, propagate to
+        # boundary.external each step regardless of media_id. The driver path
+        # is opt-in by composition — empty (or absent) dict means "no driver,
+        # fall through to media_id semantics" and the baseline composite is
+        # byte-identical to pre-mbp-01 (regression-guarded by
+        # static-env-baseline-unchanged).
+        driver_concs = states["environment"].get("external_concentrations") or {}
+        if driver_concs:
+            boundary_ext = states["boundary"]["external"]
+            conc_update = {}
+            for mol, conc in driver_concs.items():
+                # Driver writes pint mM Quantities (see EnvironmentDriver);
+                # tolerate bare floats by promoting to mM.
+                if not hasattr(conc, "magnitude"):
+                    conc = conc * units.mM
+                curr = boundary_ext.get(mol)
+                if curr is None:
+                    # metabolism doesn't track this molecule — skip silently
+                    continue
+                diff = conc - curr
+                if np.isnan(diff):
+                    diff = self.zero_diff
+                conc_update[mol] = diff
+            if conc_update:
+                return {"boundary": {"external": conc_update}}
+            return {}
+
+        # Static / media-id-transition path (original behavior).
         if states["environment"]["media_id"] == self.curr_media_id:
             return {}
 

@@ -31,9 +31,11 @@ pytestmark = pytest.mark.sim
 
 
 _NEEDS_MEDIA_UPDATE_MOD = (
-    "Needs media_update modification to consume environment.external_concentrations "
-    "(PartitionedProcess across 3 architectures + ParCa cache regen — see TODO in "
-    "v2ecoli/composites/baseline_time_varying_env.py)"
+    "media_update consumption of environment.external_concentrations landed "
+    "2026-05-28; two wiring gaps remain (see baseline_time_varying_env.py docstring): "
+    "(1) top-level state['environment'] is a different store than per-cell "
+    "state['agents'][i]['environment'] that MediaUpdate reads; (2) driver writes "
+    "compartment-tagged 'GLC[p]' but boundary.external uses bare 'GLC'."
 )
 
 

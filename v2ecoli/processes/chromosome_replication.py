@@ -61,7 +61,7 @@ from v2ecoli.library.schema import (
 )
 
 from v2ecoli.types.quantity import ureg as units
-from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
+from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 
 # topology_registry removed
 from v2ecoli.library.ecoli_step import EcoliStep as Step

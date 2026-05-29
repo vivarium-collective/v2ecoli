@@ -77,7 +77,7 @@ from v2ecoli.library.schema_types import (
     CHROMOSOMAL_SEGMENT_ARRAY,
 )
 # from ecoli.library.json_state import get_state_from_file
-from wholecell.utils.polymerize import buildSequences
+from v2ecoli.library.polymerize import buildSequences
 
 # Register default topology for this process, associating it with process name
 NAME = "ecoli-chromosome-structure"

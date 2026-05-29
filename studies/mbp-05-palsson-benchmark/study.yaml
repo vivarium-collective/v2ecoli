@@ -573,22 +573,23 @@ preliminary_findings:
       - studies/mbp-05-palsson-benchmark/charts/01_preliminary_biomass_trajectories_vs_beulig.svg
     summary: |
       REFINED 2026-05-29 after pulling the Beulig batch trajectories from
-      references/papers/palsson-2025-supp/. The Beulig BATCH PHASE reaches
-      ~4.5 gDW/L (max OD ~13, OD×0.34 = 4.5 g/L); the 50-80 gDW/L figure
-      from the paper's abstract is the FED-BATCH endpoint, not the batch
-      endpoint. Charts 00 and 01 used the fed-batch figure as the target
-      band — that was an over-statement and chart 02 (which uses the
-      actual sampled batch trajectories) is the load-bearing comparison
-      from now on.
+      references/papers/palsson-2025-supp/. The Beulig BATCH PHASE peaks
+      at ~9.6 g/L (max OD ~28, OD×0.34) at ~13 h batch elapsed —
+      empirically from chart 10 (5 best-sampled reactors). The 50-80
+      gDW/L figure from the paper's abstract is the FED-BATCH endpoint,
+      not the batch endpoint. Charts 00 and 01 used the fed-batch figure
+      as the target band — that was an over-statement; charts 02 + 10
+      (which use the actual sampled batch trajectories) are the load-
+      bearing comparisons from now on.
 
       At the actual scope (batch-phase prefix only), v2ecoli's cpa=1e9
       run reaches 3.26e-3 g/L after 60 sim-min — about 1.5-2 orders of
       magnitude below Beulig's actual batch trajectory at the same real
-      time. And v2ecoli CANNOT reach Beulig batch density even at
-      extended duration, because the single_daughters lineage convention
-      caps total biomass at cell_mass × cpa for ONE lineage — to match
-      Beulig's ~4.5 g/L at cpa=1e9, each agent would need to be ~5 mg
-      dry mass (vs the ~1 fg v2ecoli simulates).
+      time, and ~3-4 orders below Beulig's batch peak (~9.6 g/L). The
+      single_daughters lineage convention caps total biomass at
+      cell_mass × cpa for ONE lineage; to match Beulig's batch peak at
+      cpa=1e9 each agent would need to be ~10 mg dry mass (vs the ~1 fg
+      v2ecoli simulates) — an architectural cap, not a tuning gap.
     consequences:
       - mbp-05 comparison harness will produce a DIAGNOSTIC report
         first (where v2ecoli sits relative to Beulig) BEFORE it produces

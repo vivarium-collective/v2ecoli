@@ -4,6 +4,18 @@ title: DnaA expression — Mechanism A tuning to in-band, generation-stable pool
 created: '2026-05-29'
 status: planning-blocked-by-prerequisite
 
+# v4 schema (vivarium_dashboard.lib.investigations._validate_study_v4_redesign):
+#   REQUIRED top-level: schema_version, name, question, conditions, tests, status
+#   REQUIRED in conditions: baseline {composite, params}, variants [...], model_settings [...]
+# Missing any of these → dashboard marks study as "invalid".
+question: |
+  Does Mechanism A — runtime overwrite of
+  sim_data.genetic_perturbations["TU00259[c]"] = 2e-3 — reproduce the PDF
+  feedback exemplar: DnaA monomer count (summed across all DnaA forms)
+  stably in the literature [300, 800] band across a 7+ generation
+  succinate lineage starting from dnaa-0's saved steady-state initial
+  condition? If V = 2e-3 doesn't reproduce, what value does?
+
 runtime:
   subprocess_timeout_s: 7200
   max_generations: 7
@@ -126,15 +138,17 @@ conditions:
       initial_state_path: (to be filled in from dnaa-0 saved steady state)
       perturbations:
         "TU00259[c]": 2.0e-3   # Mechanism A: dnaA per-promoter init_prob
-  variants:
-    # If V = 2e-3 fails, sweep these as fallback. Out of scope until baseline
-    # is run.
+  variants: []
+    # If V = 2e-3 fails to reproduce the PDF exemplar, sweep these as
+    # fallback (uncomment and re-validate). Out of scope until baseline runs.
     # - name: V-1e-3
     #   diff_from_baseline: perturbations["TU00259[c]"] = 1.0e-3
     # - name: V-3e-3
     #   diff_from_baseline: perturbations["TU00259[c]"] = 3.0e-3
     # - name: V-5e-3
     #   diff_from_baseline: perturbations["TU00259[c]"] = 5.0e-3
+  # Required by v4 schema even when empty.
+  model_settings: []
 
 tests:
   - name: dnaa-monomer-count-in-band-300-800-across-generations

@@ -1052,6 +1052,11 @@ def _get_special_step(loader, step_name, core):
             'global_time': ('global_time',),
             'division_threshold': ('division_threshold',),
             'media_id': ('environment', 'media_id'),
+            # Wire the divide flag MarkDPeriod sets at
+            # chromosome_complete + D_period. Without this, Division
+            # never sees the flag and the D-period is unenforced
+            # (Round 3.7 root cause of the τ-gap).
+            'divide': ('divide',),
             'agents': ('..',),
         }
         return instance, topo, 'step'

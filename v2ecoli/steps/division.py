@@ -114,6 +114,14 @@ class Division(V2Step):
             "global_time": Float(_default=0.0),
             "division_threshold": Overwrite(),
             "media_id": InPlaceDict(),
+            # `divide` is set to True by MarkDPeriod at
+            # chromosome_complete_time + D_period. Reading it here makes
+            # the D-period delay actually enforced; before this input was
+            # added (Round 3.7 trace), MarkDPeriod fired divide=True but
+            # nothing read it, so the D-period was dead code and the cell
+            # divided as soon as mass + chromosome conditions met
+            # (~83 min on the glycerol cache instead of C+D ≈ 100 min).
+            "divide": Overwrite(),
         }
 
     def outputs(self):
@@ -158,7 +166,17 @@ class Division(V2Step):
             if '_entryState' in full_chrom.dtype.names:
                 n_chromosomes = full_chrom['_entryState'].sum()
 
-        if dry_mass < threshold or n_chromosomes < 2:
+        # D-period enforcement: MarkDPeriod sets divide=True at
+        # chromosome_complete_time + D_period; without reading this flag
+        # the D-period delay is dead code and division fires as soon as
+        # mass + chromosomes are met. ALL THREE conditions must hold:
+        # mass threshold (cell big enough), 2+ chromosomes (replication
+        # complete, kept as a defensive check even though MarkDPeriod
+        # already enforces it before setting divide=True), and divide=True
+        # (D-period elapsed since replication termination).
+        d_period_elapsed = bool(states.get("divide", False))
+        if (dry_mass < threshold or n_chromosomes < 2
+                or not d_period_elapsed):
             return {}
 
         if self.division_detected:
@@ -170,7 +188,8 @@ class Division(V2Step):
         print(f'DIVISION at t={division_time:.0f}s '
               f'(dry_mass={dry_mass:.1f} fg, '
               f'threshold={threshold:.1f} fg, '
-              f'chromosomes={n_chromosomes})')
+              f'chromosomes={n_chromosomes}, '
+              f'd_period_elapsed=True)')
 
         try:
             cell_data = {

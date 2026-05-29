@@ -107,7 +107,33 @@ report:
           level). Out of scope for an in-session experiment; needs
           literature-calibrated glycerol kinetics + a ParCa refit.
     Outputs: studies/dnaa-00-parameter-foundation/sims/tau-compare/
-    {optionA-baseline,optionB-handtuned}.json.'
+    {optionA-baseline,optionB-handtuned}.json.
+
+
+    D-PERIOD FIX VERIFICATION 2026-05-29 (validates the Round 3.7 root-cause
+    trace; the concrete fix that replaced Haochen option (c) actually
+    works): patched two files — added "divide": Overwrite() to
+    Division.inputs() in v2ecoli/steps/division.py, added "divide":
+    ("divide",) to Division''s topology in v2ecoli/composites/_helpers.py,
+    and extended Division.next_update''s gate from (dry_mass >= threshold
+    AND n_chromosomes >= 2) to ALSO require divide == True (the flag
+    MarkDPeriod sets at chromosome_complete_time + D_period). Re-ran
+    dnaa_00_baseline_with_dnaa_readout on the unchanged
+    out/cache-stage1-glycerol cache (script:
+    scripts/run_dnaa00_tau_compare.py --cache-dir out/cache-stage1-glycerol):
+    DIVISION at t=6789s = 113.2 min (up from 83.2 min pre-fix); print
+    line confirms d_period_elapsed=True; cell_mass 317 → 1970 fg;
+    DnaA pre-division median 417 (range 327-482, IN BAND [300, 800] ✓).
+    The +30-min shift exactly matches D_period=30 min — D-period is now
+    enforced.
+    Δ to declared τ=150 min: now 36.8 min, down from 67 min pre-fix.
+    Residual gap = effective C-period (~83 min) vs declared 70 min plus
+    initiation-timing-from-t=0, both separate concerns not addressed
+    here. Decisions_needed #1 has been advanced from "vague option (c)
+    requires expensive ParCa rebuild" to "this code-path fix lands the
+    D-period contribution; the remaining 36.8 min gap needs a separate
+    C-period / initiation trace."
+    Outputs: studies/dnaa-00-parameter-foundation/sims/dperiod-fix-2026-05-29/post-fix.json.'
   interpretation: 'The declared cycle length (cell_cycle_len) controls the mass listener’s
     expected_mass_fold_change REFERENCE curve, but division actually fires on dry_mass
     ≥ threshold where the threshold comes from ParCa-fitted dry_mass_inc[media_id].

@@ -19,18 +19,55 @@ executive:
     329 → 222 (below the literature 300-800 band); DnaA concentration drops 3× (1.03 → 0.33 mol/fg). Two open
     questions for Haochen recorded in decisions_needed below. Deliverable: single-study HTML report (rendered via
     dashboard PR #124). Investigation now in single-study cadence: only dnaa-00 ran this round; dnaa-01 → dnaa-07
-    blocked-by-prerequisite until dnaa-00 is approved.'
+    blocked-by-prerequisite until dnaa-00 is approved.
+
+
+    ROUND 3.6 (2026-05-27 / 2026-05-28) — incremental work toward Haochen review:
+    (1) PARQUET REGRESSION CHECK — migrated dnaa-01..04 sim runners + the dnaa-replication
+    viz infrastructure to parquet_emitter (PR #85 landed the workspace-level infrastructure;
+    PR #59 carries the dnaa-specific runner edits). Re-ran each study''s baseline on the
+    default minimal-glucose cache: dnaa-02 atp_fraction = 0.975 (was 0.997, same intrinsic-only
+    band failure verdict); dnaa-02f variant B'' atp_fraction = 0.270 ∈ [0.2, 0.5] ✓ band-recovery
+    re-confirmed; dnaa-03 all 4 declarative tests pass under the imperative runner; dnaa-04
+    mechanism would_fire = 1 over 30 min (single-seed). dnaa-01 re-run on the existing
+    out/cache-stage1-heuristic-acetate (rebuilt with tx=30 / te=2.48 bootstrap factors): DnaA
+    monomer total median 396 (range 373-418) IN BAND [300, 800] ✓. NET: every verdict survives
+    the parquet path on the prior-round caches — no biology regression from the emitter change.
+    (2) τ-GAP EXPERIMENT (the substantive new finding for Haochen) — see decisions_needed #1.
+    Option (b) hand-tune dry_mass_inc was tested with a clone of the glycerol cache at 144 fg
+    and is REFUTED (division still fires at 83 min because chromosome replication completion
+    is the dominant gate, not mass). Option (c) deeper ParCa rebuild is the only path that
+    could close the gap.
+    (3) THREE OPEN BUGS surfaced (filed, not yet fixed):
+      - calibrate_dnaa_stage1.measure() reads 0 mRNA events on the merged-main branch even
+        though the sim produces DnaA fine — calibrate-time listener path is wrong. Blocks
+        re-converging the te-factor on glycerol (Haochen R2: "Why TE=2.48?").
+      - Daughter-process hydration error on dnaa_stage1_constitutive: ''no link found at
+        address: ...DnaaConstitutiveExpression''. build_core() DOES register the Step (it''s
+        in core.link_registry); the dashboard''s daughter-composite reconstitutor builds a
+        DIFFERENT core via core_extensions that doesn''t include it. Blocks multi-gen runs
+        of dnaa_stage1_constitutive.
+      - C-period imposition only sets the mass-listener reference curve, not the chromosomal
+        elongation rate itself — surfaces in the τ-gap finding above.'
   verdict_status: awaiting-expert-review
   decisions_needed:
-  - question: 'Round 3 τ-gap: dnaa-00 cell divides at 83 min, not the declared 150 min. Three paths — (a) accept
-      emergent 83 min as ParCa''s honest fit for minimal_glycerol; (b) hand-tune dry_mass_inc[minimal_glycerol]
-      to ~144 fg so division fires at 150; (c) deeper ParCa rebuild with literature-calibrated glycerol kinetics
-      (slower synthesis, larger threshold). Which does the science demand?'
-    context: 'Division triggers on dry_mass ≥ threshold (where threshold = ParCa-fitted dry_mass_inc[media_id]),
-      NOT on cell_cycle_len. We imposed cell_cycle_len=9000s correctly, but ParCa fit dry_mass_inc[minimal_glycerol]
-      to 82 fg from the bacterial-growth-law fit (slow growth → small cell), and glycerol synthesis (also ParCa-fit)
-      hit that threshold in 83 min. This is the same class of issue as prior memory `growth_rate_not_condition_driven`.
-      Surfacing for science decision because (b) and (c) involve unphysical or expensive moves.'
+  - question: 'Round 3 τ-gap: dnaa-00 cell divides at 83 min, not the declared 150 min. UPDATED 2026-05-28
+      after the A/B experiment below: two live paths remain — (a) accept emergent 83 min as ParCa''s honest
+      fit for minimal_glycerol; (c) deeper ParCa rebuild with literature-calibrated glycerol kinetics that
+      genuinely slow chromosomal elongation. Option (b) hand-tune dry_mass_inc was tested and REFUTED.'
+    context: 'Division gates on `dry_mass >= threshold AND n_chromosomes >= 2`
+      (v2ecoli/steps/division.py:161). We imposed cell_cycle_len=9000s correctly, but cell_cycle_len only
+      drives the mass-listener reference curve, not the gate. EXPERIMENT 2026-05-28: built
+      out/cache-stage1-glycerol-tau150 with dry_mass_inc[minimal_glycerol] hand-tuned 81.67 fg → 144 fg
+      (Haochen option (b) value) and ran dnaa_00_baseline_with_dnaa_readout on it for 12000 s alongside
+      the baseline cache. BOTH divided at exactly t=4989s ≈ 83 min with byte-identical DnaA + cell_mass
+      trajectories (script: scripts/run_dnaa00_tau_compare.py, outputs:
+      studies/dnaa-00-parameter-foundation/sims/tau-compare/{optionA-baseline,optionB-handtuned}.json).
+      Why option (b) fails: chromosome replication completion (~83 min on this cache) is the dominant
+      gating constraint, not mass — mass threshold is hit much earlier in BOTH runs. The 70-min C-period
+      imposed in the cache only sets the mass-listener reference; the chromosome-replication step uses
+      an effective elongation rate that ignores it. Option (c) is the only path that could close the gap
+      — needs literature-calibrated glycerol kinetics + a ParCa refit that genuinely slows elongation.'
   - question: 'Round 3 DnaA concentration drop: count/mass falls 3× over one cycle (1.03 → 0.42 → 0.33 mol/fg).
       Real biology (glycerol-fit synthesis can''t keep pace with mass growth) or artifact (translation_efficiency
       scale needs recalibration for glycerol)?'
@@ -80,6 +117,13 @@ scientific_argument:
     mass-threshold heuristic).
   - 'Chromosome state visualization (dnaa-00) reads live composite state: replisomes at real fork coordinates, replication
     bubbles between forks, RNAPs partitioned between parent and daughter strands by domain_index.'
+  - 'Round 3.6 (2026-05-27/28) parquet rerun: dnaa-02 atp_fraction 0.975 (band-failure verdict re-confirmed),
+    dnaa-02f variant B'' atp_fraction 0.270 ∈ [0.2, 0.5] ✓ (band-recovery via equilibrium recalibration
+    re-confirmed), dnaa-03 all 4 declarative tests pass, dnaa-04 mechanism fires 1× in 30 min (single-seed).
+    Every verdict survives the emitter migration on the prior-round caches — no biology regression.'
+  - 'Round 3.6 (2026-05-28) dnaa-01 Stage-1 acetate rerun on freshly-rebuilt out/cache-stage1-heuristic-acetate
+    (tx=30 / te=2.48 bootstrap): DnaA monomer total median 396 (range 373-418) IN BAND [300, 800] ✓ —
+    Stage-1 constitutive expression delivers an in-band DnaA pool under the parquet emitter.'
   evidence_against:
   - 'Round 3 (2026-05-25): dnaa-00 imposed Stage-1 τ=150 / C=70 / D=30 via the new minimal_glycerol
     cache. Emergent cycle = 83 min (not 150) because division fires on dry_mass ≥ ParCa-fitted
@@ -108,6 +152,19 @@ scientific_argument:
   - v2ecoli.data.dnaa_box_catalog ships SYNTHETIC uniform-spaced placeholders for the 307 consensus subset; the
     dnaa_box_landscape figure uses the REAL 456 motif positions from sim_data so the visualization is biologically
     accurate.
+  - 'Round 3.6 open bug: calibrate_dnaa_stage1.measure() reads 0 mRNA events on the merged-main branch
+    even though the actual sim produces DnaA fine — calibrate-time listener path is wrong. Blocks
+    re-converging the te-factor on glycerol (Haochen R2 "Why TE=2.48?"). Filed; not yet fixed.'
+  - 'Round 3.6 open bug: the dashboard''s daughter-composite reconstitutor builds a core via core_extensions
+    that doesn''t include DnaaConstitutiveExpression. Composites that USE the Step still build and run a
+    full cell cycle, but the post-division daughter hydration fails (dnaa-00 and dnaa-01 multi-gen runs
+    of dnaa_stage1_constitutive observe this). build_core() itself registers the Step correctly. Fix is
+    in the dashboard''s daughter-hydration core registry; filed, not yet fixed.'
+  - 'Round 3.6 finding (drives the τ-gap experiment outcome): the C-period imposition via LoadSimData
+    only sets the mass-listener reference curve, not the chromosomal elongation step itself. So
+    "C=70 min" appears at the listener but the replication step uses an effective elongation rate that
+    completes the chromosome at ~83 min. This is why Haochen option (b) mass-threshold tuning has no
+    effect on division time, and is the gap option (c) would have to close.'
   interpretation_ref: biological_story
 biological_story: "In a real E. coli cell, the decision to start a new round of chromosome\nreplication is made\
   \ by the protein DnaA. The cycle goes like this:\n\n1. DnaA is continuously produced from its own gene (the dnaA\

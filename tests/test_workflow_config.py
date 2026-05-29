@@ -1,6 +1,8 @@
 import json
+import os
 import pytest
 from v2ecoli.workflow.config import load_config_with_inheritance, _merge_configs
+from v2ecoli.workflow.variants import expand_branches
 
 
 def test_merge_overlay_wins(tmp_path):
@@ -38,3 +40,14 @@ def test_circular_inheritance_raises(tmp_path):
     (tmp_path / "B.json").write_text(json.dumps({"inherit_from": ["A.json"]}))
     with pytest.raises(ValueError, match="circular"):
         load_config_with_inheritance(str(tmp_path / "A.json"), config_dir=str(tmp_path))
+
+
+def test_ported_two_generations_config_expands():
+    cfg_dir = os.path.join(os.path.dirname(__file__), "..", "v2ecoli", "configs")
+    cfg = load_config_with_inheritance(os.path.join(cfg_dir, "two_generations.json"))
+    assert cfg["generations"] == 2
+    assert cfg["n_init_sims"] == 2
+    branches = expand_branches(cfg)
+    # no variants block → baseline only × 2 seeds
+    assert len(branches) == 2
+    assert {b.seed for b in branches} == {0, 1}

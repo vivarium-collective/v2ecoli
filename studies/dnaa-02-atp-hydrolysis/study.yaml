@@ -564,11 +564,6 @@ bibliography:
   - Boesen2024PNAS
   - Hansen2018DnaATale
   - Katayama2017Frontiers
-parent_studies:
-- study: dnaa-01-expression-dynamics
-  condition: tests-passed-or-conditional
-- study: dnaa-01f-recalibrate-eg10235-translation-efficiency-in-parca
-  condition: insights-recorded
 tests_config:
   auto_discover: true
   data_source: latest_run

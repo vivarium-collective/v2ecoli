@@ -68,7 +68,46 @@ report:
     t=5000s (83 min), not 150; DnaA count drops 329 → 234 (at division) → 222 (end),
     falling below the literature 300-800 band; DnaA concentration drops 3× across
     the run (1.03 → 0.42 → 0.33 mol/fg). One full division event captured (agent 0
-    → 00). Replication initiation fired (number_of_oric 2→4).'
+    → 00). Replication initiation fired (number_of_oric 2→4).
+
+
+    TAU-GAP A/B EXPERIMENT 2026-05-28 (probes Haochen decisions_needed #1
+    — three paths to close the τ-gap):
+    Built two caches and ran dnaa_00_baseline_with_dnaa_readout on each for
+    12000s (seed 0, 60-s snapshots, scripts/run_dnaa00_tau_compare.py):
+      A) out/cache-stage1-glycerol (existing Round-3 baseline,
+         dry_mass_inc[minimal_glycerol] = 81.67 fg)
+      B) out/cache-stage1-glycerol-tau150 (clone of A with
+         dry_mass_inc[minimal_glycerol] hand-tuned to 144 fg, the value
+         Haochen''s option (b) implied to make division fire at 150 min)
+    Result: BOTH divide at exactly t=4989s ≈ 83 min, with identical DnaA
+    pre-division trajectories (median 397, range 327-440) and identical
+    cell_mass curves (317 → 1192 fg) — Haochen''s option (b) does NOT
+    move the τ. Why: division.py gates on `dry_mass >= threshold AND
+    n_chromosomes >= 2`. Even with B''s higher threshold (233.6 fg vs
+    A''s 173.4 fg), dry_mass crosses both at roughly the same tick
+    because chromosome replication completion (the dominant constraint)
+    fires at ~83 min regardless. The 70-min C-period imposed in
+    the cache appears to not actually slow chromosomal elongation
+    enough — the dnaa-replication step likely uses an effective rate
+    closer to the original ParCa fit. (Both runs also hit a separate
+    post-division daughter-process hydration error: ''no link found at
+    address: ...DnaaConstitutiveExpression'' — the Stage-1 constitutive
+    Step is not in the daughter composite''s core registry. Separate
+    bug; doesn''t affect this τ-gap finding.)
+    What this means for Haochen''s 3 paths:
+      (a) accept emergent 83 min — viable; the data is honest, the gap
+          is documented, the dnaa-01..04 verdicts re-validate against it
+      (b) hand-tune dry_mass_inc — REFUTED by this experiment; mass
+          threshold is not the dominant gating constraint
+      (c) deeper ParCa rebuild — confirmed as the path that could
+          actually close the τ-gap, specifically by genuinely slowing
+          chromosomal replication elongation (or imposing C-period at
+          the elongation-rate level, not just the listener-reference
+          level). Out of scope for an in-session experiment; needs
+          literature-calibrated glycerol kinetics + a ParCa refit.
+    Outputs: studies/dnaa-00-parameter-foundation/sims/tau-compare/
+    {optionA-baseline,optionB-handtuned}.json.'
   interpretation: 'The declared cycle length (cell_cycle_len) controls the mass listener’s
     expected_mass_fold_change REFERENCE curve, but division actually fires on dry_mass
     ≥ threshold where the threshold comes from ParCa-fitted dry_mass_inc[media_id].

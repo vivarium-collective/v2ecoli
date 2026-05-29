@@ -1,0 +1,165 @@
+schema_version: 4
+name: dnaa-0-parameter-foundation
+title: Succinate steady-state validation (10-gen single-daughters)
+created: '2026-05-29'
+status: planning
+
+runtime:
+  subprocess_timeout_s: 7200
+  max_generations: 10
+  single_daughters: true
+
+report:
+  title: dnaa-0 — succinate steady-state foundation
+  verdict: planning
+  confidence: planning
+  evidence_quality: planning
+
+  objective: |
+    Establish that v2ecoli under the ParCa-default succinate condition
+    reaches a periodic per-cell steady state (oriC oscillating 1 ↔ 2 —
+    never 4 — and cell mass periodic) over a 10-generation single-
+    daughters lineage. Save the gen-N state as the canonical succinate
+    initial condition for subsequent studies in this investigation.
+
+  main_insight: |
+    Under the ParCa-fit succinate condition (τ ≈ 82 min, C = 40 min,
+    D = 20 min, B = 22 min), v2ecoli should produce a non-overlapping
+    cell cycle with replication initiating EXACTLY ONCE per generation.
+    The first 1–3 generations are expected to be transient (initial state
+    not yet aligned with the periodic attractor); from generation 3
+    onwards the lineage should match the PDF's exemplar trace shape.
+
+  setup: |
+    PARCA: Run the ParCa pipeline specifying succinate as the growth
+    condition. Succinate already has a saved sim_data state, so this is
+    a fast condition-cache build, not a full ParCa rebuild. Output:
+    out/cache-succinate (or similar).
+
+    SIM: v2ecoli baseline (no DnaA-specific Steps) + read-only DnaA-cycle
+    listener for observability. seed 0, n_steps sized to 10 generations
+    at τ ≈ 82 min per cycle ⇒ 820 min ⇒ 49200 sim seconds.
+    single_daughters=True (one daughter per division — the canonical
+    followed-daughter lineage). max_generations=10.
+
+    DO NOT use baseline-stage1-modified parameters in this study. The
+    Stage-1 dnaA expression scaling will come in dnaa-1.
+
+    PREREQUISITE: Round 3.7 D-period wiring fix must be in place
+    (cherry-pick or re-implement from feat/dnaa-mock-investigation-start
+    commit 8b5d8cd, files v2ecoli/steps/division.py and
+    v2ecoli/composites/_helpers.py). Without it, MarkDPeriod sets
+    divide=True but the Division step never reads it; D-period is dead
+    code and the cell divides at the wrong time. Verify by grep:
+    `grep '"divide"' v2ecoli/steps/division.py` should show the input
+    port in Division.inputs(), AND `grep 'divide.*divide' v2ecoli/composites/_helpers.py`
+    should show the topology entry.
+
+  result: To be populated after the 10-gen run completes.
+
+  interpretation: |
+    Acceptance is biological: the followed-daughter lineage shows the
+    succinate periodic regime the PDF exemplar trace illustrates.
+
+  decision: |
+    Pass ⇒ save the gen-N state as
+    out/cache-succinate-steady-state-init.dill (or equivalent serialised
+    cell state) and unblock dnaa-1.
+    Fail ⇒ investigate why steady state isn't reached. Most likely
+    failure modes:
+    (a) Round 3.7 D-period fix not pulled forward ⇒ division at wrong
+        time ⇒ oriC count diverges. Fix and re-run.
+    (b) ParCa succinate cache built with stale fixture ⇒ τ doesn't
+        match expected 82 min. Rebuild.
+    (c) Genuine biology mismatch ⇒ document and escalate (would
+        contradict the PDF's exemplar trace).
+
+  next_action: |
+    Once passing, save the gen-N state and unblock dnaa-1 (DnaA expression
+    tuning via Mechanism A on the saved initial condition).
+
+  decisions_needed:
+    - question: Did the 10-gen run reach periodic steady state (oriC 1↔2 never 4,
+        cell_mass periodic from gen-3 onwards)?
+
+assumptions:
+  - text: |
+      Succinate is the right baseline media. ParCa default τ ≈ 82 min and
+      C + D = 60 min give B = 22 min > 0, satisfying Rashmi's
+      non-overlapping cycle requirement (replication initiates exactly
+      once per generation).
+    cites:
+      - feedback-2026-05-29-fresh-start/feedback.pdf
+    verified_in_v2ecoli: false
+  - text: |
+      v2ecoli is configured for succinate out of the box (saved sim_data
+      state). No new ParCa rebuild from raw inputs is required — just
+      run ParCa with succinate as the growth condition.
+    cites:
+      - feedback-2026-05-29-fresh-start/feedback.pdf
+    verified_in_v2ecoli: false
+  - text: |
+      single_daughters=True is the correct mode for steady-state checking.
+      Tracks ONE daughter per division through the full 10-gen lineage so
+      per-cell observables can be compared cycle-to-cycle.
+    cites:
+      - feedback-2026-05-29-fresh-start/feedback.pdf
+    verified_in_v2ecoli: false
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 0
+      cache_dir: out/cache-succinate
+      n_steps: 49200    # 10 generations × 82 min/cycle × 60 s/min
+      single_daughters: true
+      max_generations: 10
+  variants: []
+
+tests:
+  - name: succinate-10gen-oric-periodic-1-or-2-never-4
+    classification: primary
+    question: Is oriC count in the followed-daughter lineage periodic 1 → 2 → 1 → 2
+      from generation 3 onwards, never reaching 4?
+    measure:
+      kind: periodicity_check
+      path: listeners.replication_data.number_of_oric
+      window: from_generation_3
+      detail: oriC sequence per cycle is [1, ..., 2, ..., 1] with no 4 anywhere.
+    pass_if:
+      op: periodic_after_generation
+      generation: 3
+      max_observed: 2
+    status: not-yet-run
+
+  - name: succinate-10gen-cell-mass-periodic-after-gen-3
+    classification: primary
+    question: Is per-cell cell_mass periodic from gen-3 onwards (each generation's
+      birth/division values within tolerance of the prior generation's)?
+    measure:
+      kind: periodicity_check
+      path: listeners.mass.cell_mass
+      window: from_generation_3
+    pass_if:
+      op: cv_at_phase_below
+      cv_threshold: 0.05
+    status: not-yet-run
+
+limitations:
+  - First few generations are expected to be transient (initial state not
+    yet aligned with the periodic attractor). Use only gen-3 onwards for
+    steady-state checking.
+  - This study deliberately uses NO DnaA-specific Steps beyond the
+    read-only cycle listener. Stage-1 expression tuning + Mechanism A is
+    dnaa-1's job.
+
+prerequisites:
+  - Round 3.7 D-period wiring fix cherry-picked from
+    feat/dnaa-mock-investigation-start commit 8b5d8cd (see setup).
+
+pipeline_gate:
+  prerequisites: []
+  enables:
+    - dnaa-1-expression-dynamics
+  gate_status: planning

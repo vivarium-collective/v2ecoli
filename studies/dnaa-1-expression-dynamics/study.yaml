@@ -1,0 +1,216 @@
+schema_version: 4
+name: dnaa-1-expression-dynamics
+title: DnaA expression — Mechanism A tuning to in-band, generation-stable pool
+created: '2026-05-29'
+status: planning-blocked-by-prerequisite
+
+runtime:
+  subprocess_timeout_s: 7200
+  max_generations: 7
+  single_daughters: true
+
+report:
+  title: dnaa-1 — DnaA monomer pool tuning (Mechanism A, succinate)
+  verdict: planning
+  confidence: planning
+  evidence_quality: planning
+
+  objective: |
+    Tune dnaA RNA-synthesis probability so that the DnaA monomer count
+    (sum across all DnaA forms via the monomer_counts listener) sits
+    inside the Schmidt 2016 / Mori 2021 literature band [300, 800] AND
+    is stable cross-generation across the 7+ generation succinate
+    lineage that starts from dnaa-0's saved steady-state initial
+    condition.
+
+  main_insight: |
+    Mechanism A — runtime overwrite of
+    sim_data.genetic_perturbations["TU00259[c]"] = 2e-3 — is the PDF
+    feedback's working solution. It overwrites dnaA's per-promoter
+    init_prob at runtime, leaving the baseline TE (0.35), mRNA t½
+    (1.9 min), DnaA protein t½ (280 min), and ParCa C/D periods (40/20
+    min) untouched. Acceptance is biological: the DnaA pool is in band
+    AND stable.
+
+  setup: |
+    INITIAL CONDITION: succinate steady state from dnaa-0 (saved as
+    out/cache-succinate-steady-state-init.dill or equivalent — exact
+    path to be confirmed from dnaa-0's completion artifact).
+
+    MECHANISM A: at composite-build time, after sim_data is hydrated and
+    before the run begins, set
+    sim_data.genetic_perturbations["TU00259[c]"] = 2e-3. This is the
+    runtime overwrite of dnaA's per-promoter init_prob the PDF chart
+    caption identifies as the working solution.
+
+    SIM: v2ecoli baseline + DnaA-cycle listener + monomer_counts listener
+    + rnap_data listener (for the mRNA initiation events plot). seed 0,
+    n_steps sized to 7+ generations from the saved initial condition.
+    single_daughters=True. max_generations=7.
+
+    UNCHANGED vs baseline (per PDF):
+      dnaA TE                 = 0.35
+      dnaA mRNA half-life     = 1.9 min
+      DnaA protein half-life  = 280 min
+      C-period                = 40 min
+      D-period                = 20 min
+      M*/oriC (per PDF)       = 734.8 fg
+      all TF / ppGpp regulation (basal_prob + delta_prob) preserved
+
+  result: To be populated after the 7-gen run completes.
+
+  interpretation: |
+    The PDF exemplar shows V = 2e-3 producing in-band DnaA over 7
+    generations on succinate. Acceptance is whether v2ecoli reproduces
+    that. If not, the per-promoter init_prob value is the dimension to
+    sweep.
+
+  decision: |
+    Pass ⇒ DnaA expression is in-band and cross-generation stable on
+    succinate. Add to the investigation's evidence_for and unblock
+    subsequent studies (mechanism, box binding) — design those in a
+    future round.
+    Fail ⇒ either (a) the 2e-3 value doesn't reproduce the PDF result
+    on this branch ⇒ check that ParCa cache, sim_data perturbation
+    plumbing, and initial condition all match the PDF's setup; (b) a
+    different value is needed ⇒ binary search in [1e-3, 5e-3]; (c)
+    something structurally different from the PDF setup ⇒ document.
+
+  next_action: |
+    Implement the runtime sim_data.genetic_perturbations overwrite hook
+    (composite-build-time, before the cell starts). Probably belongs in
+    a new helper in v2ecoli/library/sim_data.py or as a thin wrapper
+    around build_composite that takes a perturbations dict. Then run
+    the 7-gen succinate lineage from dnaa-0's saved initial condition.
+
+  decisions_needed:
+    - question: Does V = 2e-3 reproduce the PDF exemplar (DnaA monomer
+        in [300, 800] across 7 generations, cross-generation stable)?
+        If not, what value does?
+
+assumptions:
+  - text: |
+      Mechanism A (runtime overwrite of TU00259[c]'s init_prob) is the
+      correct lever for dnaA expression tuning. Targets the dnaA operon
+      directly without touching TE, mRNA half-life, or protein half-life
+      — those stay at their baseline ParCa-fit values.
+    cites:
+      - feedback-2026-05-29-fresh-start/feedback.pdf
+    verified_in_v2ecoli: false
+  - text: |
+      V = 2e-3 is the working value per the PDF chart caption. Provides a
+      starting point; binary search is the fallback if it doesn't
+      reproduce on this branch.
+    cites:
+      - feedback-2026-05-29-fresh-start/feedback.pdf
+    verified_in_v2ecoli: false
+  - text: |
+      DnaA monomer count means TOTAL across all forms — apo-DnaA +
+      DnaA-ATP + DnaA-ADP — read from the monomer_counts listener at
+      the PD03831 (apo) bulk index plus appropriate aggregation for
+      bound forms. Single bulk index won't suffice if any form is
+      bound to a Step's internal state.
+    cites:
+      - feedback-2026-05-29-fresh-start/feedback.pdf
+    verified_in_v2ecoli: false
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 0
+      cache_dir: out/cache-succinate
+      n_steps: 34440    # 7 generations × 82 min/cycle × 60 s/min
+      single_daughters: true
+      max_generations: 7
+      initial_state_path: (to be filled in from dnaa-0 saved steady state)
+      perturbations:
+        "TU00259[c]": 2.0e-3   # Mechanism A: dnaA per-promoter init_prob
+  variants:
+    # If V = 2e-3 fails, sweep these as fallback. Out of scope until baseline
+    # is run.
+    # - name: V-1e-3
+    #   diff_from_baseline: perturbations["TU00259[c]"] = 1.0e-3
+    # - name: V-3e-3
+    #   diff_from_baseline: perturbations["TU00259[c]"] = 3.0e-3
+    # - name: V-5e-3
+    #   diff_from_baseline: perturbations["TU00259[c]"] = 5.0e-3
+
+tests:
+  - name: dnaa-monomer-count-in-band-300-800-across-generations
+    classification: primary
+    question: Is total DnaA monomer count (sum across all DnaA forms) in
+      [300, 800] for every generation of a 7+ gen lineage?
+    measure:
+      kind: range_check_per_generation
+      path: listeners.monomer_counts (aggregated across DnaA forms)
+      window: full_lineage_from_gen_0
+    pass_if:
+      op: in_range_every_generation
+      low: 300
+      high: 800
+    status: not-yet-run
+
+  - name: dnaa-concentration-stable-across-generations
+    classification: primary
+    question: Is DnaA concentration (count / cell_mass, fg⁻¹) stable
+      cross-generation — peak-of-cycle values within CV < 10% across
+      generations 3–7?
+    measure:
+      kind: derived
+      formula: listeners.monomer_counts (DnaA forms aggregated) / listeners.mass.cell_mass
+      window: peak_of_each_cycle_from_gen_3
+    pass_if:
+      op: cv_below
+      cv_threshold: 0.10
+    status: not-yet-run
+
+  - name: dnaa-mrna-count-tracks-V
+    classification: supporting
+    question: Does dnaA mRNA count match the rate Mechanism A's init_prob
+      predicts (steady-state mRNA = init_prob × gene_copies × t½_mRNA /
+      ln(2) ≈ 2.6 mRNA at V = 2e-3 and 1 copy of dnaA)?
+    measure:
+      kind: rate_match
+      path: listeners.rna_counts.mRNA_counts (at dnaA mRNA TU index)
+    pass_if:
+      op: median_within_tolerance
+      target: 2.6
+      tolerance_fraction: 0.5
+    status: not-yet-run
+
+  - name: dnaa-mrna-init-rate-matches-V
+    classification: supporting
+    question: Does the dnaA mRNA initiation event rate (events / min) match V × gene_copies?
+    measure:
+      kind: rate_match
+      path: listeners.rnap_data.rna_init_event_per_cistron (at dnaA cistron)
+      window: per_minute_full_lineage
+    pass_if:
+      op: median_within_tolerance
+      target: 0.12  # 2e-3 init/s × 60 s/min × 1 gene copy = 0.12 events/min
+      tolerance_fraction: 0.5
+    status: not-yet-run
+
+limitations:
+  - The PDF exemplar trace shows mean dnaA init rate of 1.01/min (caption
+    line "total 647 events over 638 min; mean rate = 1.01/min vs PDF
+    target 1.5/min"). That's 8× higher than V × 60 = 0.12 events/min
+    would predict for a single gene copy. The discrepancy suggests
+    either the gene-copy denominator changes (the dnaA gene is replicated
+    early; two copies exist for most of the cycle) OR V is being applied
+    differently than a per-tick Bernoulli. Document the actual rate the
+    run produces and reconcile to the PDF exemplar.
+  - Mechanism A is the simplest dnaA expression-tuning lever. Any
+    autorepression / DnaA-mediated transcription regulation is out of
+    scope for this study.
+
+prerequisites:
+  - dnaa-0-parameter-foundation must pass first (saved succinate steady
+    state is this study's initial condition).
+
+pipeline_gate:
+  prerequisites:
+    - dnaa-0-parameter-foundation
+  enables: []
+  gate_status: blocked-by-prerequisite

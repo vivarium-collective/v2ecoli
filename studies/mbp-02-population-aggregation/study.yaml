@@ -220,8 +220,8 @@ model_change:
     dynamic volume store.
 
     cells_per_agent is the load-bearing knob; see purpose.mechanism for
-    the rationale. The cell-side interface contract will be amended
-    (followup TODO) to reference the scaling discipline as part of the
+    the rationale. The cell-side interface contract will be amended in a
+    follow-up edit to reference the scaling discipline as part of the
     interface — engines either operate at literal scale or declare an
     explicit cells_per_agent factor.
 

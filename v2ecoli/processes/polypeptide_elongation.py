@@ -59,7 +59,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.integrate import solve_ivp
 # wcEcoli imports
-from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
+from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 from wholecell.utils.random import stochasticRound
 from v2ecoli.types.quantity import ureg as units
 

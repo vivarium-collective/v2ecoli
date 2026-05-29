@@ -27,11 +27,12 @@ def _lineage_node(spec: BranchSpec, config: dict[str, Any]) -> dict[str, Any]:
         "lineage": {
             "_type": "process",
             "address": "local:LineageProcess",
-            "interval": float(config.get("time_step", 1.0)),
+            "interval": float(config.get("time_step", 1.0)),  # Composite tick cadence, not the internal sim step
             "config": {
+                # NOTE: keep these keys in sync with LineageProcess.config_schema.
                 "cache_dir": config.get("cache_dir", "out/cache"),
                 "seed": spec.seed,
-                "lineage_seed": spec.seed,
+                "lineage_seed": spec.seed,  # same as seed in MVP: one lineage per seed
                 "variant_index": spec.variant_index,
                 "variant_name": spec.variant_name,
                 "config_overrides": dict(spec.overrides),

@@ -358,6 +358,29 @@ class PolypeptideElongation(PartitionedProcess):
         self.translation_aa_supply = self.parameters["translation_aa_supply"]
         self.import_threshold = self.parameters["import_threshold"]
 
+        # Pre-strip the per-media supply rates to plain numpy arrays in
+        # mol/(fg·s). The original schema declares them as Quantities in
+        # mol/(fg·min); convert and divide by 60 here once instead of
+        # constructing a fresh Quantity chain each tick inside
+        # calculate_request(). Listener output is preserved in the original
+        # mol/(fg·min) basis via _translation_aa_supply_min_mag below.
+        self._translation_aa_supply_per_s = {
+            media: float_arr
+            for media, q in self.translation_aa_supply.items()
+            for float_arr in (
+                np.asarray(
+                    q.to(units.mol / units.fg / units.s).magnitude,
+                    dtype=np.float64),
+            )
+        }
+        self._translation_aa_supply_min_mag = {
+            media: np.asarray(q.magnitude, dtype=np.float64)
+            for media, q in self.translation_aa_supply.items()
+        }
+        # Avogadro as a plain float — used as a count-per-mole multiplier.
+        self._n_avogadro_mag = float(self.n_avogadro.to(
+            (units.mol) ** -1).magnitude)
+
         # Used for figure in publication
         self.trpAIndex = np.where(self.proteinIds == "TRYPSYN-APROTEIN[c]")[0][0]
 
@@ -561,17 +584,23 @@ class PolypeptideElongation(PartitionedProcess):
         sequenceHasAA = sequences != polymerize.PAD_VALUE
         aasInSequences = np.bincount(sequences[sequenceHasAA], minlength=21)
 
-        # Calculate AA supply for expected doubling of protein
-        dryMass = states["listeners"]["mass"]["dry_mass"] * units.fg
+        # Calculate AA supply for expected doubling of protein.
+        # Pure-float path: every input is in known units, no per-tick
+        # Quantity construction. translation_supply_rate_per_s carries
+        # the unit factor (min→s, /60) baked in at init.
         current_media_id = states["environment"]["media_id"]
-        translation_supply_rate = (
-            self.translation_aa_supply[current_media_id] * self.elngRateFactor
+        dry_mass_fg = states["listeners"]["mass"]["dry_mass"]
+        timestep_s = states["timestep"]
+        translation_supply_rate_per_s = (
+            self._translation_aa_supply_per_s[current_media_id]
+            * self.elngRateFactor
         )
-        mol_aas_supplied = (
-            translation_supply_rate * dryMass * states["timestep"] * units.s
+        self.aa_supply = (
+            translation_supply_rate_per_s
+            * dry_mass_fg
+            * timestep_s
+            * self._n_avogadro_mag
         )
-        # mol_aas_supplied has units mol; * n_avogadro (1/mol) gives a count.
-        self.aa_supply = (mol_aas_supplied * self.n_avogadro).to("dimensionless").magnitude
 
         # MODEL SPECIFIC: Calculate AA request
         fraction_charged, aa_counts_for_translation, requests = (
@@ -581,8 +610,12 @@ class PolypeptideElongation(PartitionedProcess):
         # Write to listeners
         listeners = requests.setdefault("listeners", {})
         ribosome_data_listener = listeners.setdefault("ribosome_data", {})
+        # Listener output preserved in the original mol/(fg·min) basis —
+        # use the pre-stripped magnitude rather than reconstructing a
+        # Quantity just to call .magnitude on it.
         ribosome_data_listener["translation_supply"] = (
-            translation_supply_rate.magnitude
+            self._translation_aa_supply_min_mag[current_media_id]
+            * self.elngRateFactor
         )
         growth_limits_listener = requests["listeners"].setdefault("growth_limits", {})
         growth_limits_listener["fraction_trna_charged"] = np.dot(

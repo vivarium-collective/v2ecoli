@@ -84,6 +84,12 @@ COMMON_AGENT_PATHS = [
     "listeners/mass/dry_mass",
     "listeners/mass/instantaneous_growth_rate",
     "listeners/monomer_counts/monomerCounts",
+    # boundary.external.GLC is per-agent (rooted under agents/<id>/),
+    # so it belongs in emit_paths (agent-level), NOT extra_root_paths.
+    # Captures the driver-supplied glucose trajectory at the cell
+    # boundary for mbp-01's driven-env runs; trivial overhead for
+    # other sims (one float per emit).
+    "boundary/external/GLC",
 ]
 
 
@@ -213,13 +219,7 @@ del _cpa, _seed, _cpa_label  # housekeeping
 # produce two: linear-decline (glucose drops over the run) and zero-clamp
 # (instant deprivation). Each goes into mbp-01's parquet-runs/ and feeds
 # the per-study Charts panel.
-_MBP_01_DRIVEN_EXTRA_PATHS = [
-    # Per-agent boundary.external.GLC captures the leaf-level GLC
-    # trajectory the driver writes through the mirror. A parent-path
-    # ("boundary/external") doesn't expand into per-molecule columns —
-    # the emitter only captures explicit leaves.
-    "boundary/external/GLC",
-]
+_MBP_01_DRIVEN_EXTRA_PATHS: list[str] = []  # boundary.external.GLC moved to COMMON_AGENT_PATHS
 VARIANTS.extend([
     (
         "linear-decline-glc-multigen",

@@ -563,13 +563,47 @@ runs:
 
   # ─── First driven-env multigen runs (2026-05-29) ─────────────────────
   # First time the EnvironmentDriver / EnvironmentMirror path runs at
-  # multigen scale (unblocked by 60cdbd3). Two runs queued (linear-decline
-  # 5 mM→0 over 60 sim-min, and zero-clamp at GLC=0); both use
-  # extra_root_paths = ["boundary/external/GLC"] so the leaf-level GLC
-  # trajectory at the cell boundary lands in the parquet hive and feeds
-  # chart 01_driven-env-glc-trajectory.svg. Entries will land in this
-  # block once the runs complete; the runner script's variant list is
-  # already wired (scripts/run_mbp_tracked.py).
+  # multigen scale (unblocked by 60cdbd3). Both emit
+  # boundary.external.GLC per-tick (moved into COMMON_AGENT_PATHS so it
+  # captures the leaf-level driver trajectory at the cell boundary).
+  - simulation:      linear-decline-glc-multigen
+    simulation_id:   e7d53f4d-c796-4429-a37a-ee78c9181cec
+    seed:            0
+    env_driver_mode: synthetic_trajectory
+    trajectory_kind: linear_decline
+    trajectory_params: {molecule: GLC, start_gL: 5.0, end_gL: 0.0, duration_min: 60.0}
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-01-time-varying-environment/parquet-runs/e7d53f4d-c796-4429-a37a-ee78c9181cec
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      GLC drops linearly from 5 mM to 0 over 60 sim-min. First
+      environmental forcing trajectory recorded at multigen scale
+      (60cdbd3 unblock). Feeds chart 01_driven-env-glc-trajectory.svg
+      via boundary__external__GLC column.
+
+  - simulation:      zero-clamp-glc-multigen
+    simulation_id:   58e90ccb-3116-4274-a560-004f8f0ae6e8
+    seed:            0
+    env_driver_mode: synthetic_trajectory
+    trajectory_kind: clamp_to_value
+    trajectory_params: {molecule: GLC, value_mmolL: 0.0}
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-01-time-varying-environment/parquet-runs/58e90ccb-3116-4274-a560-004f8f0ae6e8
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      GLC clamped at 0 from t=0. Multi-tick counterpart to
+      test_zero_substrate_blocks_uptake; demonstrates instant-deprivation
+      extreme at multigen scale.
 
 
 # ─── v4 tests[] (hand-authored 2026-05-28) ────────────────────────────────
@@ -625,6 +659,50 @@ tests:
     cites: []
     backs:
       behavior_test: static-env-baseline-unchanged
+
+  - name:           glc-declines-under-linear-decline-driver
+    classification: primary
+    description:    "Under env_driver_mode=synthetic_trajectory with a
+                    linear_decline spec (GLC 5 mM → 0 over 60 sim-min),
+                    boundary.external.GLC at the cell tracks the driver
+                    trajectory monotonically downward. Multi-tick
+                    counterpart to the 1-tick
+                    test_external_glucose_updates_propagate_within_one_step
+                    plumbing assertion — proves propagation persists
+                    across generations and division boundaries."
+    measure:
+      path:         boundary__external__GLC
+      source:       linear-decline-glc-multigen parquet hive
+      observable:   boundary.external.GLC at the agent over time (mM)
+      units:        mM
+    pass_if:
+      operator:     in-range
+      low:          0.0
+      high:         5.0
+    requires_simulation: linear-decline-glc-multigen
+    cites: []
+    backs:
+      behavior_test: external_glucose_updates_propagate_within_one_step
+
+  - name:           glc-stays-zero-under-zero-clamp-driver
+    classification: primary
+    description:    "Under env_driver_mode=synthetic_trajectory with a
+                    clamp_to_value=0 spec for GLC, boundary.external.GLC
+                    is held at 0 throughout the run. Multi-tick
+                    counterpart to test_zero_substrate_blocks_uptake."
+    measure:
+      path:         boundary__external__GLC
+      source:       zero-clamp-glc-multigen parquet hive
+      observable:   boundary.external.GLC at the agent over time (mM)
+      units:        mM
+    pass_if:
+      operator:     in-range
+      low:          0.0
+      high:         1.0e-6
+    requires_simulation: zero-clamp-glc-multigen
+    cites: []
+    backs:
+      behavior_test: zero-substrate-blocks-uptake
 
 # Pytest discovery metadata (v3 holdover; kept for tooling compatibility
 # while v4 chart-rendering reads the tests[] block above).

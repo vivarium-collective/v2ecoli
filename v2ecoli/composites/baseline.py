@@ -419,6 +419,10 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
             proc, _, key = path.partition(".")
             if not key:
                 raise ValueError(f"override path {path!r} must be '<process>.<key>'.")
+            if "." in key:
+                raise ValueError(
+                    f"override path {path!r}: nested keys not supported; "
+                    "use '<process>.<top-level-key>'.")
             if proc not in configs:
                 raise KeyError(f"override target process {proc!r} not in cache configs.")
             configs[proc][key] = value

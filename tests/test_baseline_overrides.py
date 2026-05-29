@@ -17,8 +17,7 @@ def test_override_patches_process_config():
     cfg = bundle["configs"][proc]
     key = next(k for k, v in cfg.items() if isinstance(v, (int, float)))
     original = copy.deepcopy(cfg[key])
-    sentinel = (original if isinstance(original, int) else 0.0)
-    sentinel = sentinel + 12345 if isinstance(sentinel, int) else 99999.0
+    sentinel = original + 12345 if isinstance(original, int) else 99999.0
 
     core = build_core()
     doc = baseline(core=core, seed=0, cache_dir=CACHE,
@@ -35,3 +34,12 @@ def test_override_patches_process_config():
     # The cached bundle must NOT be mutated (lru_cache shares it).
     bundle2 = load_cache_bundle(CACHE)
     assert bundle2["configs"][proc][key] == original
+
+
+def test_multidot_override_path_raises():
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.baseline import baseline
+    core = build_core()
+    with pytest.raises(ValueError, match="nested keys"):
+        baseline(core=core, seed=0, cache_dir=CACHE,
+                 config_overrides={"ecoli-metabolism.a.b": 1})

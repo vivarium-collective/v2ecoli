@@ -374,7 +374,14 @@ def _build_fba_bridge_edge(core: Any, *, tick_s: float = 1.0):
 # from the standalone-step registry.
 # ---------------------------------------------------------------------------
 
-def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0):
+def _get_step_config(
+    loader,
+    step_name,
+    core,
+    process_cache=None,
+    master_seed=0,
+    ref_growth_flux_source: str | None = None,
+):
     from v2ecoli.processes.equilibrium import Equilibrium
     from v2ecoli.processes.two_component_system import TwoComponentSystem
     from v2ecoli.processes.rna_maturation import RnaMaturation
@@ -428,12 +435,19 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
             'millard-with-lqr', 'fba-bridge'):
         return None
 
-    # ref-growth-driver: teleonomic Phase-0 reference growth driver.
+    # ref-growth-driver: Phase-0 reference growth driver.
+    # flux_source overrides come through master_seed → flux_source extras.
     if step_name == REF_GROWTH_DRIVER:
         from v2ecoli.steps.ref_growth_driver import RefGrowthDriver
+        driver_config = {
+            "seed": _derive_process_seed(master_seed, step_name),
+        }
+        flux_source = ref_growth_flux_source
+        if flux_source:
+            driver_config["flux_source"] = flux_source
         instance = _make_instance(
             RefGrowthDriver,
-            {"seed": _derive_process_seed(master_seed, step_name)},
+            driver_config,
             core,
         )
         # Explicit in/out — only reads and writes bulk, nothing else.
@@ -635,12 +649,24 @@ def _register_millard_pdmp_links(core):
         "with_ref_growth": {
             "type": "boolean", "default": False,
             "description": (
-                "Enable the teleonomic Phase-0 reference growth driver "
-                "(scales amino-acid + NTP + dNTP pools at μ=2.44e-4/s, "
-                "matching M9-glucose). Closes the W₂ gap left by the "
-                "missing biomass equation; clearly labelled as a stub "
-                "until a kinetic biomass-flux Process lands (task #21 "
-                "full form)."
+                "Enable the reference-growth driver — scaffold that drives "
+                "precursor pools to compensate for the Millard ODE's "
+                "missing biomass equation. See `ref_growth_flux_source` "
+                "for the two flux modes."
+            ),
+        },
+        "ref_growth_flux_source": {
+            "type": "string", "default": "proportional",
+            "description": (
+                "Driver flux mode (only used when with_ref_growth=True). "
+                "'proportional' scales pools at μ=2.44e-4/s — teleonomic "
+                "but moves cm_final only ~2 fg of the 187 fg gap because "
+                "precursor turnover (~1.8M ATP/s) is ~1000× larger. "
+                "'measured_kfba' injects at constant per-second rates "
+                "measured from a 600 s kFBA-baseline run "
+                "(scripts/sample_kfba_precursor_fluxes.py → "
+                ".pbg/runs/kfba-precursor-fluxes.json); top rates: "
+                "GLT 5413/s, ATP 1640/s, UTP 803/s, TTP 787/s."
             ),
         },
     },
@@ -655,6 +681,7 @@ def millard_pdmp_baseline(
     tick_s: float = 1.0,
     backend: str = "basico",
     with_ref_growth: bool = False,
+    ref_growth_flux_source: str = "proportional",
 ) -> dict:
     """Build the process-bigraph state document for the Millard-PDMP baseline."""
     if core is None:
@@ -783,7 +810,9 @@ def millard_pdmp_baseline(
                     core, tick_s=tick_s)
             continue
         config = _get_step_config(
-            loader, step_name, core, _process_cache, master_seed=seed)
+            loader, step_name, core, _process_cache, master_seed=seed,
+            ref_growth_flux_source=ref_growth_flux_source,
+        )
         if config is not None:
             if len(config) == 5:
                 instance, topology, edge_type, in_topo, out_topo = config

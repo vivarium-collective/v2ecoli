@@ -405,26 +405,46 @@ executive:
         linear-decline-glc-multigen (GLC 5 mM → 0 over 60 sim-min) and
         zero-clamp-glc-multigen (GLC clamped at 0). Parquet hives
         under studies/mbp-01-time-varying-environment/parquet-runs/.
-    - title: mbp-05 preliminary expectation-setting — v2ecoli vs Beulig density gap
-      chart: studies/mbp-05-palsson-benchmark/charts/00_preliminary_v2ecoli_vs_beulig_gap.svg
+    - title: mbp-05 preliminary expectation-setting — empirical plateau diagnostic
+      chart: studies/mbp-05-palsson-benchmark/charts/02_v2ecoli_vs_beulig_batch_actual.svg
+      companion_charts:
+        - studies/mbp-05-palsson-benchmark/charts/10_beulig_reference_batch_trajectories.svg
+        - studies/mbp-05-palsson-benchmark/charts/00_preliminary_v2ecoli_vs_beulig_gap.svg
+        - studies/mbp-05-palsson-benchmark/charts/01_preliminary_biomass_trajectories_vs_beulig.svg
       finding: |
-        At the current 60-sim-min / 2-generation runs even at cpa=1e9,
-        v2ecoli's final biomass concentration is 3.26e-3 g/L — 4-5
-        orders of magnitude SHORT of Beulig 2025's stated 50-80 g/L
-        batch-phase endpoint. The residual gap is NOT a cpa-scaling
-        problem (chart 04 confirms scaling is exact); it's a
-        batch-DURATION problem. Closing it requires longer batch
-        operation, impossibly-large cpa (~1e14), OR fed-batch
-        operations (deferred upstream blocker). mbp-05's comparison
-        harness will produce a DIAGNOSTIC report first (where v2ecoli
-        sits vs Beulig) BEFORE producing an evaluative report —
-        matches Chris's 2026-05-26 §10 reframe (execute-and-report,
-        not tune-to-tolerance).
+        REFINED + EMPIRICALLY CONFIRMED 2026-05-29 after pulling the
+        digitized Beulig batch trajectories from
+        references/papers/palsson-2025-supp/ (req-1-palsson-ingestion
+        fully resolved) and running v2ecoli cpa=1e9 for 175 sim-min
+        (salvaged from a 6h run killed at the system's 128 GB memory
+        ceiling — sufficient for the architectural diagnostic).
+
+        Beulig BATCH phase peaks at ~9.6 g/L (max OD ~28 × 0.34) at
+        ~13 h batch elapsed. The 50-80 g/L figure from the paper's
+        abstract is the FED-BATCH endpoint, NOT the batch endpoint —
+        the earlier charts 00 and 01 used that as their target band
+        and have been demoted to companion-charts; chart 02 is now
+        load-bearing.
+
+        v2ecoli at cpa=1e9 PLATEAUS at ~4.3 mg/L. The biomass
+        oscillates 1.17–4.31 mg/L following the division cycle
+        (cell_mass 1097→2338 fg → halve at division) but does NOT
+        accumulate across generations. The 175-min run confirmed this
+        empirically. Gap to Beulig batch peak: 3.3 orders of magnitude,
+        and DURATION CANNOT CLOSE IT — the single_daughters lineage
+        convention caps total biomass at cell_mass × cpa for ONE
+        lineage. Closing requires architectural moves: a population
+        composite with counter-rather-than-single-daughters lineage
+        tracking, OR a surrogate engine — both mbp-06 candidate-
+        future-studies. mbp-05's comparison harness surfaces this
+        diagnostically; it does NOT try to tune the gap away
+        (Chris's 2026-05-26 §10 execute-and-report reframe).
       simulations: |
-        Computed from existing mbp-02 multigen runs (aggregator-cpa
-        {1, 1e6, 1e9}-multigen). Companion time-series chart at
-        studies/mbp-05-palsson-benchmark/charts/01_preliminary_biomass
-        _trajectories_vs_beulig.svg.
+        v2ecoli: aggregator-cpa1e9-multigen (60 sim-min reference)
+        + aggregator-cpa1e9-batch-prefix-multigen (175 sim-min
+        salvaged at the memory ceiling). Beulig: 5 best-sampled
+        batch reactors (DDB_PD_006_AMBR_R9 + others) from
+        reactor_OD_data.csv.
 
 
 # Studies in this investigation, in suggested execution order.

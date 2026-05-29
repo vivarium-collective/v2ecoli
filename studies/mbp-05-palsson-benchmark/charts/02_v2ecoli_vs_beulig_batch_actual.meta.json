@@ -1,0 +1,14 @@
+{
+  "title": "v2ecoli vs Beulig 2025 ACTUAL batch-phase biomass trajectories (preliminary)",
+  "caption": "log-y biomass(t) \u2014 top-3 best-sampled Beulig reactors in batch phase (OD\u00d70.34) alongside v2ecoli's cpa=1e9 60-sim-min trajectory. Time-aligned by batch-phase elapsed hours.",
+  "simulations": "v2ecoli: aggregator-cpa1e9-multigen (seed=0). Beulig: DDB_PD_003_AMBR_R9, DDB_PD_005_AMBR_R7, DDB_PD_005_AMBR_R5 from process_summary_interpol.csv, batch phase only (t<0).",
+  "interpretation": "REFINED expectation-setting (corrects chart 00's coarser '50-80 g/L target'): Beulig's BATCH phase reaches ~4.5 g/L (OD ~13) over ~24 h, NOT 50-80 g/L (that's the fed-batch endpoint). v2ecoli's cpa=1e9 trajectory ends at 3.3e-03 g/L after 1 h sim \u2014 about 1.5-2 orders of magnitude below the Beulig batch trajectory AT THE SAME REAL TIME (1 h in). The v2ecoli curve won't reach Beulig batch density even with extended duration because the single_daughters convention caps total biomass at (cell_mass \u00d7 cpa) for one lineage \u2014 to match Beulig's actual batch endpoint (~4.5 g/L) at cpa=1e9, each agent would need to be ~5 mg of dry mass, many orders above the ~1 fg per-cell mass v2ecoli simulates. This isn't a tuning problem; it's an architectural one. The mbp-05 comparison harness's job is to surface this gap diagnostically, not erase it.",
+  "preliminary": true,
+  "beulig_reactors_used": [
+    "DDB_PD_003_AMBR_R9",
+    "DDB_PD_005_AMBR_R7",
+    "DDB_PD_005_AMBR_R5"
+  ],
+  "beulig_batch_max_g_L": 4.522,
+  "v2ecoli_final_g_L": 0.003260317451082294
+}

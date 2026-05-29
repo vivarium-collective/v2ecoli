@@ -221,6 +221,26 @@ del _cpa, _seed, _cpa_label  # housekeeping
 # the per-study Charts panel.
 _MBP_01_DRIVEN_EXTRA_PATHS: list[str] = []  # boundary.external.GLC moved to COMMON_AGENT_PATHS
 VARIANTS.extend([
+    # Long-duration batch-phase prefix sim (2026-05-29). Runs the cpa=1e9
+    # composite at sim_seconds=21600 (6 h, the Beulig batch-phase
+    # endpoint) with single_daughters and max_generations bumped to 12
+    # via the runner's --max-generations flag (default cap is 3).
+    # Produces the data that mbp-05's expectation-setting preliminary
+    # chart needs to know whether v2ecoli's per-cell mass accumulates
+    # enough over 6 h to materially close the Beulig density gap, or
+    # whether even at this duration the residual gap persists.
+    (
+        "aggregator-cpa1e9-batch-prefix-multigen",
+        "mbp-02-population-aggregation",
+        _build_baseline_population,
+        {"cells_per_agent": 1.0e9},
+        [
+            "population/total_biomass_gDW",
+            "population/cell_count",
+            "population/biomass_concentration_gL",
+            "population/OD600",
+        ],
+    ),
     (
         "linear-decline-glc-multigen",
         "mbp-01-time-varying-environment",

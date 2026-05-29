@@ -566,16 +566,29 @@ runs: []
 # the full comparison overlays above — these will land once req-1-palsson-
 # ingestion (digitized Beulig CSVs) + req-2-comparison-harness ship.
 preliminary_findings:
-  - id: v2ecoli-vs-beulig-density-gap
-    chart: studies/mbp-05-palsson-benchmark/charts/00_preliminary_v2ecoli_vs_beulig_gap.svg
+  - id: v2ecoli-vs-beulig-density-gap-refined
+    chart: studies/mbp-05-palsson-benchmark/charts/02_v2ecoli_vs_beulig_batch_actual.svg
+    companion_charts:
+      - studies/mbp-05-palsson-benchmark/charts/00_preliminary_v2ecoli_vs_beulig_gap.svg
+      - studies/mbp-05-palsson-benchmark/charts/01_preliminary_biomass_trajectories_vs_beulig.svg
     summary: |
-      At v2ecoli's current 60-sim-min / 2-generation batch duration, the
-      Beulig 2025 target band (50-80 gDW/L) sits 4-5 orders of magnitude
-      ABOVE the highest cpa run (cpa=1e9 → 3.26e-3 g/L). The residual gap
-      is NOT a cpa-scaling problem (chart 04 confirms cpa scaling is
-      exact across n=3 seeds); it's a BATCH-DURATION problem — v2ecoli
-      doesn't accumulate enough per-cell mass in 60 sim-min to reach
-      Beulig's regime, regardless of cpa.
+      REFINED 2026-05-29 after pulling the Beulig batch trajectories from
+      references/papers/palsson-2025-supp/. The Beulig BATCH PHASE reaches
+      ~4.5 gDW/L (max OD ~13, OD×0.34 = 4.5 g/L); the 50-80 gDW/L figure
+      from the paper's abstract is the FED-BATCH endpoint, not the batch
+      endpoint. Charts 00 and 01 used the fed-batch figure as the target
+      band — that was an over-statement and chart 02 (which uses the
+      actual sampled batch trajectories) is the load-bearing comparison
+      from now on.
+
+      At the actual scope (batch-phase prefix only), v2ecoli's cpa=1e9
+      run reaches 3.26e-3 g/L after 60 sim-min — about 1.5-2 orders of
+      magnitude below Beulig's actual batch trajectory at the same real
+      time. And v2ecoli CANNOT reach Beulig batch density even at
+      extended duration, because the single_daughters lineage convention
+      caps total biomass at cell_mass × cpa for ONE lineage — to match
+      Beulig's ~4.5 g/L at cpa=1e9, each agent would need to be ~5 mg
+      dry mass (vs the ~1 fg v2ecoli simulates).
     consequences:
       - mbp-05 comparison harness will produce a DIAGNOSTIC report
         first (where v2ecoli sits relative to Beulig) BEFORE it produces

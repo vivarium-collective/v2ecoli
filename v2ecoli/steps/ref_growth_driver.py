@@ -5,32 +5,33 @@ has no driver for cell growth — its downstream consumers (transcription,
 translation) deplete substrate pools without replenishment, opening a W₂
 gap to the kFBA reference (see ``scripts/compare_pdmp_vs_phase0.py``).
 
-This Step closes that gap as a scaffold while a true kinetic biomass-flux
-Process is being built (task #21 full form). Two flux modes:
+Three flux modes:
 
 * **``proportional``** (legacy, default): scale precursor counts at a fixed
   reference growth rate, ``precursors[t+1] = precursors[t] · (1 + μ·dt)``.
-  Teleonomic — the rate is a parameter, not derived from cell state. Was
-  shown empirically (``compare_pdmp_vs_phase0.py``) to move cm_final only
-  2 fg of the 187 fg gap because precursor turnover (~1.8M ATP/s from
-  translation alone) is ~1000× larger than ``μ × current``.
+  Teleonomic; moves cm_final only ~2 fg of the 187 fg gap because precursor
+  turnover (~1.8M ATP/s from translation alone) is ~1000× larger than
+  ``μ × current``.
 
-* **``measured_kfba``** (new): inject precursor counts at the constant
-  per-second rates measured from a 600 s kFBA-baseline trajectory
+* **``measured_kfba``**: inject precursor counts at constant per-second
+  rates measured from a 600 s kFBA-baseline trajectory
   (``scripts/sample_kfba_precursor_fluxes.py`` → ``.pbg/runs/
-  kfba-precursor-fluxes.json``). Top rates are GLT 5413/s, ATP 1640/s,
-  UTP 803/s, TTP 787/s — these match the kFBA biosynthesis side of the
-  pool balance and are the only realistic way to keep up with PDMP's
-  consumption side (which is roughly the same as kFBA's, since both run
-  the same translation + transcription processes).
+  kfba-precursor-fluxes.json``). Negative net rates clamp to zero. This
+  matches the **net** kFBA pool growth but UNDERSHOOTS biosynthesis
+  because kFBA's net = biosynthesis − consumption, and PDMP's consumption
+  is comparable to kFBA's (same translation/transcription processes).
+  Empirically: ATP drains to zero by ~t=300 s, translation stalls.
 
-  Negative ``net_rate_per_s`` entries (kFBA was net-consuming these
-  precursors over the sampling window — e.g. GLN, TRP in the M9-glucose
-  reference) are clamped to zero: PDMP's own consumers already drain
-  them at the right rate, so adding negative injection would
-  double-subtract.
+* **``consumption_matched``** (default for closing the W₂ gap): per tick,
+  observe the actual delta in each precursor pool and infer
+  ``other_processes_delta = bulk_delta − my_previous_injection``.
+  Next-tick injection = kfba_net_rate + max(0, -other_processes_delta) —
+  enough to fully compensate for whatever the other processes consumed,
+  plus the small kFBA-net growth on top. This is a one-step feedback
+  controller that tracks the actual per-tick consumption regardless of
+  whether translation is ATP-starved or running flat-out.
 
-Both modes label their emitted updates with ``_source: "ref_growth_driver"``
+All modes label their emitted updates with ``_source: "ref_growth_driver"``
 so downstream tooling can identify them as scaffold, not biology.
 """
 from __future__ import annotations
@@ -113,17 +114,13 @@ class RefGrowthDriver(Step):
         self._factor_minus_one = self.growth_rate * self.tick_s
 
         # Precursor universe — used for both flux sources. The proportional
-        # mode iterates the whole list; the measured-kFBA mode only emits
-        # for IDs that have a measured rate.
+        # mode iterates the whole list; rate-driven modes only emit for
+        # IDs that have a positive measured rate.
         self._precursor_ids = AA_BULK_IDS + NTP_BULK_IDS + DNTP_BULK_IDS
 
-        # Measured-kFBA inputs: load rates once at init. Pre-build the rate
-        # vector aligned with the bulk index order (resolved lazily on the
-        # first update() call, see _bulk_idx below). _measured_rates_by_id
-        # holds the per-precursor-ID rate so the per-tick path is one
-        # numpy multiply.
+        # Measured-kFBA inputs: load rates once at init.
         self._measured_rates_by_id: dict[str, float] = {}
-        if self.flux_source == "measured_kfba":
+        if self.flux_source in ("measured_kfba", "consumption_matched"):
             measured_path = str(self.parameters.get(
                 "measured_flux_path", DEFAULT_MEASURED_FLUX_PATH))
             self._measured_rates_by_id = _load_measured_rates(measured_path)
@@ -137,6 +134,12 @@ class RefGrowthDriver(Step):
         # rounding to 0 every tick (the bug that bit the proportional
         # mode at very small μ × current).
         self._delta_residual: np.ndarray | None = None
+        # consumption_matched mode bookkeeping: pool-count snapshot from
+        # the previous tick + last injection (so we can infer the
+        # consumption rate from other processes).
+        self._prev_counts: np.ndarray | None = None
+        self._prev_injection: np.ndarray | None = None
+        self._first_tick_done: bool = False
 
     def inputs(self):
         return {"bulk": "bulk_array"}
@@ -152,17 +155,22 @@ class RefGrowthDriver(Step):
             idx = bulk_name_to_idx(vid, bulk_ids, strict=False)
             if idx is None or (isinstance(idx, np.ndarray) and idx.size == 0):
                 continue
-            if self.flux_source == "measured_kfba":
+            if self.flux_source in ("measured_kfba", "consumption_matched"):
                 rate = self._measured_rates_by_id.get(vid, 0.0)
-                if rate <= 0.0:
-                    # Skip non-positive rates entirely — no injection.
+                if self.flux_source == "measured_kfba" and rate <= 0.0:
+                    # measured_kfba mode skips non-positive rates entirely.
                     continue
-                rates.append(rate)
+                # consumption_matched mode keeps every precursor (even
+                # zero-rate ones) so we can still match consumption on
+                # them.
+                rates.append(max(0.0, rate))
             resolved.append(int(idx))
         self._bulk_idx = np.asarray(resolved, dtype=np.int64)
-        if self.flux_source == "measured_kfba":
+        if self.flux_source in ("measured_kfba", "consumption_matched"):
             self._rate_per_s = np.asarray(rates, dtype=np.float64)
             self._delta_residual = np.zeros_like(self._rate_per_s)
+            self._prev_counts = np.zeros_like(self._rate_per_s)
+            self._prev_injection = np.zeros_like(self._rate_per_s)
 
     def update(self, states, interval=None):
         if not self.enabled:
@@ -185,6 +193,49 @@ class RefGrowthDriver(Step):
             raw_delta = self._rate_per_s * self.tick_s + self._delta_residual
             delta_int = np.floor(raw_delta).astype(np.int64)
             self._delta_residual = raw_delta - delta_int.astype(np.float64)
+            if not delta_int.any():
+                return {}
+            return {"bulk": [(self._bulk_idx, delta_int)]}
+
+        if self.flux_source == "consumption_matched":
+            # One-step feedback controller — tracks what the OTHER processes
+            # did to each pool during the previous tick, and compensates.
+            #
+            # Between tick t (where we read self._prev_counts) and tick t+1
+            # (where we read `current`):
+            #   current = self._prev_counts + self._prev_injection + other_delta
+            #     where other_delta = sum of all OTHER per-tick deltas applied
+            #     to these bulk indices between the two reads.
+            #   => other_delta = current - self._prev_counts - self._prev_injection
+            #
+            # We want THIS tick's emitted change (my_injection + concurrent
+            # other_delta) to track target_delta = kfba_net_rate · tick_s.
+            # Assuming the per-tick consumption pattern is roughly steady-
+            # state (other processes don't change abruptly):
+            #   my_injection = target_delta - other_delta
+            # Floor at 0 so we never push pools down.
+            current = counts(bulk, self._bulk_idx).astype(np.float64, copy=False)
+            if self._first_tick_done:
+                other_delta = (
+                    current - self._prev_counts
+                    - self._prev_injection.astype(np.float64)
+                )
+                target_delta = self._rate_per_s * self.tick_s
+                desired_injection = target_delta - other_delta
+                raw_delta = np.maximum(0.0, desired_injection) + self._delta_residual
+            else:
+                # No history yet — fall back to constant-rate seed for
+                # the first tick.
+                raw_delta = self._rate_per_s * self.tick_s + self._delta_residual
+
+            delta_int = np.floor(raw_delta).astype(np.int64)
+            self._delta_residual = raw_delta - delta_int.astype(np.float64)
+            # For next tick, remember the bulk reading we just observed
+            # (pre-injection from this tick's perspective) plus this tick's
+            # injection so we can recover other_delta next time.
+            self._prev_counts = current
+            self._prev_injection = delta_int
+            self._first_tick_done = True
             if not delta_int.any():
                 return {}
             return {"bulk": [(self._bulk_idx, delta_int)]}

@@ -426,6 +426,20 @@ class PolypeptideInitiation(Step):
         nonzero_count = n_new_proteins > 0
         start_index = 0
 
+        # Pre-bucket mRNA attribute indices by TU_index so the inner loop is an
+        # O(1) dict fetch instead of an O(N) np.where scan over TU_index_mRNAs
+        # per (protein × TU) pair (the previous hot path: ~580 np.where calls
+        # per tick, ~1k list.extend per tick).
+        TU_index_to_attribute_indices: dict[int, np.ndarray] = {}
+        if TU_index_mRNAs.size:
+            sort_order = np.argsort(TU_index_mRNAs, kind="stable")
+            sorted_TUs = TU_index_mRNAs[sort_order]
+            # Group boundaries: where TU changes.
+            unique_TUs, group_starts = np.unique(sorted_TUs, return_index=True)
+            group_ends = np.append(group_starts[1:], sorted_TUs.size)
+            for tu, s, e in zip(unique_TUs, group_starts, group_ends):
+                TU_index_to_attribute_indices[int(tu)] = sort_order[s:e]
+
         for protein_index, protein_counts in zip(
             np.arange(n_new_proteins.size)[nonzero_count], n_new_proteins[nonzero_count]
         ):
@@ -434,27 +448,39 @@ class PolypeptideInitiation(Step):
 
             cistron_index = self.monomer_index_to_cistron_index[protein_index]
 
-            attribute_indexes = []
-            cistron_start_positions = []
-
-            for TU_index in self.monomer_index_to_tu_indexes[protein_index]:
-                attribute_indexes_this_TU = np.where(TU_index_mRNAs == TU_index)[0]
+            # Collect per-TU contributions; pre-allocated as numpy arrays once
+            # we know the per-TU sizes (one append loop, no Python-list extend).
+            tu_indices_iter = self.monomer_index_to_tu_indexes[protein_index]
+            per_TU_attr_arrays: list[np.ndarray] = []
+            per_TU_starts: list[int] = []
+            per_TU_sizes: list[int] = []
+            for TU_index in tu_indices_iter:
+                attribute_indexes_this_TU = TU_index_to_attribute_indices.get(
+                    int(TU_index)
+                )
+                if attribute_indexes_this_TU is None or attribute_indexes_this_TU.size == 0:
+                    continue
                 cistron_start_position = self.cistron_start_end_pos_in_tu[
                     (cistron_index, TU_index)
                 ][0]
-                is_transcript_long_enough = (
+                is_long_enough = (
                     length_mRNAs[attribute_indexes_this_TU] >= cistron_start_position
                 )
+                kept = attribute_indexes_this_TU[is_long_enough]
+                if kept.size == 0:
+                    continue
+                per_TU_attr_arrays.append(kept)
+                per_TU_starts.append(cistron_start_position)
+                per_TU_sizes.append(kept.size)
 
-                attribute_indexes.extend(
-                    attribute_indexes_this_TU[is_transcript_long_enough]
-                )
-                cistron_start_positions.extend(
-                    [cistron_start_position]
-                    * len(attribute_indexes_this_TU[is_transcript_long_enough])
-                )
+            if per_TU_attr_arrays:
+                attribute_indexes = np.concatenate(per_TU_attr_arrays)
+                cistron_start_positions = np.repeat(per_TU_starts, per_TU_sizes)
+            else:
+                attribute_indexes = np.empty(0, dtype=np.int64)
+                cistron_start_positions = np.empty(0, dtype=np.int64)
 
-            n_mRNAs = len(attribute_indexes)
+            n_mRNAs = attribute_indexes.size
 
             # Distribute ribosomes among these mRNAs
             n_ribosomes_per_RNA = self.random_state.multinomial(

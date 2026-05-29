@@ -77,12 +77,21 @@ def load_phase0_ensemble(root: Path = Path(".pbg/runs/phase0-traj")):
 
 # -------------------------- PDMP run + capture ------------------------------
 
-def run_pdmp(duration_s: int, sample_every_s: int, with_ref_growth: bool = False):
+def run_pdmp(
+    duration_s: int,
+    sample_every_s: int,
+    with_ref_growth: bool = False,
+    ref_growth_flux_source: str = "proportional",
+):
     """Run the millard_pdmp_baseline composite and sample at sample_every_s."""
     from v2ecoli import build_composite
 
     t0 = time.perf_counter()
-    c = build_composite("millard_pdmp_baseline", with_ref_growth=with_ref_growth)
+    c = build_composite(
+        "millard_pdmp_baseline",
+        with_ref_growth=with_ref_growth,
+        ref_growth_flux_source=ref_growth_flux_source,
+    )
     build_wall = time.perf_counter() - t0
     print(f"  PDMP build: {build_wall:.1f}s", flush=True)
 
@@ -292,8 +301,13 @@ def main():
     p.add_argument("--phase0-root", default=".pbg/runs/phase0-traj")
     p.add_argument("--out-dir", default=".pbg/runs/pdmp-vs-phase0")
     p.add_argument("--with-ref-growth", action="store_true",
-                   help="Enable the teleonomic Phase-0 reference growth driver "
-                        "in the PDMP composite (task #21 stub).")
+                   help="Enable the reference growth driver in the PDMP composite.")
+    p.add_argument(
+        "--ref-growth-flux-source", default="proportional",
+        choices=["proportional", "measured_kfba", "consumption_matched"],
+        help=("Driver flux mode (only used with --with-ref-growth). "
+              "Default 'proportional' for backward compatibility."),
+    )
     p.add_argument(
         "--viz-out",
         default="reports/figures/pdmp-01/pdmp_vs_phase0.html")
@@ -308,11 +322,16 @@ def main():
     print(f"  Phase-0: N={cm_p0.shape[0]} replicates × {cm_p0.shape[1]} timepoints "
           f"({t_p0[0]:.0f}..{t_p0[-1]:.0f}s)")
 
-    feat_tag = " (+ref_growth_driver)" if args.with_ref_growth else ""
+    feat_tag = ""
+    if args.with_ref_growth:
+        feat_tag = f" (+ref_growth_driver:{args.ref_growth_flux_source})"
     print(f"\nRunning PDMP{feat_tag} for {args.duration}s, "
           f"sample every {args.sample_every}s...")
     t_pdmp, cm_pdmp, dm_pdmp, build_wall, run_wall = run_pdmp(
-        args.duration, args.sample_every, with_ref_growth=args.with_ref_growth)
+        args.duration, args.sample_every,
+        with_ref_growth=args.with_ref_growth,
+        ref_growth_flux_source=args.ref_growth_flux_source,
+    )
 
     fig, summary = make_viz(
         t_p0, cm_p0, dm_p0, t_pdmp, cm_pdmp, dm_pdmp,

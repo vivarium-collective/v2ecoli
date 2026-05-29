@@ -61,6 +61,15 @@ AA_BULK_IDS = (
 NTP_BULK_IDS = ("ATP[c]", "GTP[c]", "CTP[c]", "UTP[c]")
 DNTP_BULK_IDS = ("DATP[c]", "DGTP[c]", "DCTP[c]", "TTP[c]")
 
+# Byproducts that translation + tRNA-charging produce as side effects
+# (every NTP → NMP + PPi during peptide-bond formation, etc.). In Phase-0
+# these are recycled by metabolism (adenylate kinase, pyrophosphatase,
+# OxPhos); in PDMP nothing consumes them, so they accumulate as bulk
+# mass. The ``consumption_matched`` mode targets a per-tick net delta of
+# zero for these (i.e. tracks consumption AND production), letting the
+# feedback controller emit *negative* injection to drain over-production.
+BYPRODUCT_BULK_IDS = ("AMP[c]", "PPI[c]", "ADP[c]")
+
 # Default location of the measured-kFBA-flux JSON (relative to repo root).
 DEFAULT_MEASURED_FLUX_PATH = ".pbg/runs/kfba-precursor-fluxes.json"
 
@@ -113,10 +122,19 @@ class RefGrowthDriver(Step):
         # Per-tick scaling factor: precursors[t+1] = precursors[t] * (1 + μ·dt).
         self._factor_minus_one = self.growth_rate * self.tick_s
 
-        # Precursor universe — used for both flux sources. The proportional
-        # mode iterates the whole list; rate-driven modes only emit for
-        # IDs that have a positive measured rate.
-        self._precursor_ids = AA_BULK_IDS + NTP_BULK_IDS + DNTP_BULK_IDS
+        # Precursor universe — used for all flux sources.
+        #
+        # Proportional and measured_kfba modes only add positive injections;
+        # they track precursors only. consumption_matched also tracks the
+        # translation byproducts (AMP, PPi, ADP) at zero target rate so the
+        # feedback can emit *negative* injection to drain them, mimicking
+        # the recycling that kFBA's metabolism does in Phase-0.
+        if self.flux_source == "consumption_matched":
+            self._precursor_ids = (
+                AA_BULK_IDS + NTP_BULK_IDS + DNTP_BULK_IDS + BYPRODUCT_BULK_IDS
+            )
+        else:
+            self._precursor_ids = AA_BULK_IDS + NTP_BULK_IDS + DNTP_BULK_IDS
 
         # Measured-kFBA inputs: load rates once at init.
         self._measured_rates_by_id: dict[str, float] = {}
@@ -213,7 +231,13 @@ class RefGrowthDriver(Step):
             # Assuming the per-tick consumption pattern is roughly steady-
             # state (other processes don't change abruptly):
             #   my_injection = target_delta - other_delta
-            # Floor at 0 so we never push pools down.
+            #
+            # For precursors (target_delta > 0): floor at 0 — never drive
+            #   pools negative.
+            # For byproducts (target_delta == 0): allow negative — that's
+            #   the whole point, drain pool of translation byproducts
+            #   (AMP / PPi / ADP) that no PDMP process recycles. Clip the
+            #   removal to current pool size so we never overdraw.
             current = counts(bulk, self._bulk_idx).astype(np.float64, copy=False)
             if self._first_tick_done:
                 other_delta = (
@@ -222,13 +246,24 @@ class RefGrowthDriver(Step):
                 )
                 target_delta = self._rate_per_s * self.tick_s
                 desired_injection = target_delta - other_delta
-                raw_delta = np.maximum(0.0, desired_injection) + self._delta_residual
+                # Precursors keep their non-negative floor; byproducts
+                # (rate==0) are allowed to go negative down to -current
+                # (drain to zero, never below).
+                is_byproduct = self._rate_per_s == 0.0
+                desired_injection = np.where(
+                    is_byproduct,
+                    np.maximum(desired_injection, -current),
+                    np.maximum(desired_injection, 0.0),
+                )
+                raw_delta = desired_injection + self._delta_residual
             else:
                 # No history yet — fall back to constant-rate seed for
-                # the first tick.
+                # the first tick (byproducts get 0, which is harmless).
                 raw_delta = self._rate_per_s * self.tick_s + self._delta_residual
 
-            delta_int = np.floor(raw_delta).astype(np.int64)
+            # Floor toward zero rather than negative infinity so the
+            # residual carries the correct sign for the next tick.
+            delta_int = np.trunc(raw_delta).astype(np.int64)
             self._delta_residual = raw_delta - delta_int.astype(np.float64)
             # For next tick, remember the bulk reading we just observed
             # (pre-injection from this tick's perspective) plus this tick's

@@ -1,0 +1,18 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260529112704"
+  generated_at: "2026-05-29T12:47:02.191Z"
+  page_title: "Investigation: DnaA / Replication Initiation"
+  source_url: "file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-05-29-2.html"
+annotations:
+  "study-dnaa-00-parameter-foundation":
+    - ts: "2026-05-29T12:42:21.909Z"
+      author: "Rashmi"
+      text: "the goal was to get a simulation where the total doubling time was greater than C+D period. So succinate might be a better media to use for the baseline simulation."
+  "study-dnaa-00-parameter-foundation-embeds":
+    - ts: "2026-05-29T12:46:17.923Z"
+      author: "Rashmi"
+      text: "if the cell cycle time is longer than C+D, replication initiation should happen only once. So running the cell for one generation might not be enough. Need to run it for multiple generations to see if steady state has been achieved. By steady state, it means quantities (ori number, cell mass) per cell is periodic"

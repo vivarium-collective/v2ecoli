@@ -54,14 +54,21 @@ report:
     show how the same v2ecoli code behaves when its surfaced parameters are pinned
     to the Fu/Xiao/Jun (2023) Stage-1 heuristic values — before any new mechanism
     lands.
-  setup: 'Round 3 (2026-05-25): v2ecoli baseline + the read-only DnaA-cycle listener
-    on the new minimal_glycerol Stage-1 ParCa cache (seed 0, n_steps=10000 = 167 min
-    wall-clock; covers >1 declared cycle). The cache was built by adding a glycerol
-    media row to condition_defs.tsv (τ=150), a new MIX0-845 media file (AB + 0.2%
-    glycerol = 13 mM), running the ParCa pipeline fast-mode (~94s), and threading
-    c_period_minutes=70 + d_period_seconds=1800 through save_sim_input → LoadSimData
-    → get_chromosome_replication_config. Mass listener also emits cell_mass / dry_mass
-    / expected_mass_fold_change so the new DnaA concentration viz can compute count/mass.'
+  setup: 'Round 3.8 (2026-05-29, METHODOLOGY PIVOT per Rashmi): v2ecoli baseline +
+    read-only DnaA-cycle listener on the ParCa-default succinate condition cache
+    (out/cache-stage1-heuristic-succinate, built via build_condition_cache.py with
+    --media-condition succinate --fixed-media minimal_succinate, NO --c-period-min
+    / --d-period-min overrides). ParCa defaults under succinate: τ=82 min, C=40 min,
+    D=20 min, B=22 min (B = τ - C - D > 0, exactly the non-overlapping regime needed
+    for steady-state validation). Seed 0, n_steps ≥ 15000 (~250 min, ≥ 3 generations)
+    so per-cell observables (n_oric, cell_mass, DnaA) can be checked for periodicity.
+    Mass listener emits cell_mass / dry_mass / expected_mass_fold_change so the DnaA
+    concentration viz still works. Round 3.7 D-period wiring fix (commit 8b5d8cd) is
+    in place so D=20 min is enforced. PRIOR Round 3 setup (minimal_glycerol cache with
+    imposed τ=150 / C=70 / D=30) is RETIRED — see
+    investigations/dnaa-replication/feedback-2026-05-29/PLAN.md for the full pivot
+    rationale; result block below preserves the Round 3 / 3.5 / 3.6 / 3.7 prose as
+    history.'
   result: 'Imposed knobs verified at composite-build time: cell_cycle_len=9000s (τ=150
     min) ✓, D_period=1800s ✓, basal_elongation_rate=554 nt/s → implied C=69.94 min
     on the 2.32 Mbp replichore ✓. But emergent behaviour diverges: cell divides at

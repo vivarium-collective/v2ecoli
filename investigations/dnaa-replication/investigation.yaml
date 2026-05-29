@@ -50,16 +50,34 @@ executive:
       - C-period imposition only sets the mass-listener reference curve, not the chromosomal
         elongation rate itself — surfaces in the τ-gap finding above. (REVISED 2026-05-29: actually
         the D-period that is unenforced, not C. See caveats and decisions_needed for the corrected
-        trace.)'
+        trace.)
+
+
+    ROUND 3.8 (2026-05-29) — METHODOLOGY PIVOT (Rashmi feedback). Decision: switch the dnaa-00
+    baseline from minimal_glycerol with imposed τ=150 / C=70 / D=30 to the ParCa-default
+    succinate condition with NO C/D-period overrides. Rashmi: "the goal was to get a simulation
+    where the total doubling time was greater than C+D period. So succinate might be a better
+    media to use for the baseline simulation."  AND "if the cell cycle time is longer than
+    C+D, replication initiation should happen only once. So running the cell for one generation
+    might not be enough. Need to run it for multiple generations to see if steady state has
+    been achieved. By steady state, it means quantities (ori number, cell mass) per cell is
+    periodic." Under default succinate: τ=82 min, C=40 min, D=20 min, B=22 min (B = τ − C − D > 0),
+    exactly the non-overlapping cell-cycle regime needed. Baseline runs go to ≥3 generations
+    (n_steps ≈ 15000) to verify per-cell periodicity of n_oric / cell_mass / DnaA. The Round 3
+    imposed-knobs framing and the entire τ-gap question are retired. The Round 3.7 D-period
+    wiring fix is PRESERVED — separate bug, still useful regardless of media. Action plan in
+    investigations/dnaa-replication/feedback-2026-05-29/PLAN.md.'
   verdict_status: awaiting-expert-review
   decisions_needed:
-  - question: 'Round 3 τ-gap: dnaa-00 cell divides at 83 min, not the declared 150 min. UPDATED
-      2026-05-29 with the root-cause trace AND the fix landing: τ-gap was a CODE-PATH BUG, not
-      a kinetics problem. Concrete fix landed (3-line patch); D-period is now enforced; emergent
-      τ shifts 83 → 113 min (Δ = 30 min, exactly D_period). Remaining 36.8-min gap to Haochen''s
-      declared 150 min is the effective C-period (~83 vs 70 min) plus initiation-timing-from-t=0
-      — separate concerns. Haochen options (a) (accept emergent), (b) (REFUTED 2026-05-28), and
-      (c) (deeper ParCa rebuild — was the WRONG instrument) are now mostly moot.'
+  - question: 'Round 3 τ-gap — SUPERSEDED 2026-05-29 by a methodology pivot (Rashmi feedback,
+      see investigations/dnaa-replication/feedback-2026-05-29/{feedback.yaml,PLAN.md}). Decision:
+      switch the dnaa-00 baseline from minimal_glycerol with imposed τ=150 / C=70 / D=30 to the
+      ParCa-default succinate condition with NO C/D-period overrides. Under default succinate:
+      τ=82 min, C=40 min, D=20 min, B=22 min (B = τ - C - D > 0 ✓), exactly the non-overlapping
+      cell-cycle regime Rashmi recommended for proper steady-state validation. The τ-gap question
+      ("why doesn''t cell cycle = 150 min?") becomes irrelevant because we no longer declare 150.
+      Round 3.7 D-period wiring fix (commit 8b5d8cd) is PRESERVED — the bug was real and the fix
+      still applies under any media. Round 3 imposed-τ/C/D framing is retired.'
     context: 'EXPERIMENT 2026-05-28 (option-b test): built out/cache-stage1-glycerol-tau150 with
       dry_mass_inc[minimal_glycerol] hand-tuned 81.67 fg → 144 fg and ran dnaa_00_baseline_with_dnaa_readout
       on it for 12000 s alongside the baseline. BOTH divided at exactly t=4989s ≈ 83 min with

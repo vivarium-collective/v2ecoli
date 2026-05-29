@@ -217,6 +217,15 @@ class MassListener(Step):
             self.bulk_idx = bulk_name_to_idx(self.bulk_ids, bulk_ids)
             if self.match_wcecoli:
                 self.bulk_addon = np.zeros((len(self.bulk_idx), 16))
+            # Per-molecule mass fields are constant for the simulation —
+            # cache the unstructured (n_molecules, n_submasses) array on
+            # first tick rather than re-slicing + re-converting the
+            # structured array via rfn.structured_to_unstructured every
+            # tick. ParCa-derived masses do not change at runtime.
+            bulk_masses_struct = states["bulk"][self.ordered_submasses][
+                self.bulk_idx]
+            self._bulk_masses_cached = rfn.structured_to_unstructured(
+                bulk_masses_struct)
 
         mass_update = {}
 
@@ -225,8 +234,7 @@ class MassListener(Step):
 
         # get submasses from bulk and unique
         bulk_counts = counts(states["bulk"], self.bulk_idx)
-        bulk_masses = states["bulk"][self.ordered_submasses][self.bulk_idx]
-        bulk_masses = rfn.structured_to_unstructured(bulk_masses)
+        bulk_masses = self._bulk_masses_cached
         bulk_submasses = np.dot(bulk_counts, bulk_masses)
         bulk_compartment_masses = np.dot(
             bulk_counts * self._bulk_molecule_by_compartment, bulk_masses

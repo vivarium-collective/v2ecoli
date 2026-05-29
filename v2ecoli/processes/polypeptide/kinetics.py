@@ -226,6 +226,25 @@ def ppgpp_metabolite_changes(
     )
 
 
+def _negative_check(
+    trna1: npt.NDArray[np.float64], trna2: npt.NDArray[np.float64]
+) -> None:
+    """Clamp floating-point negatives in tRNA concentrations to zero.
+
+    A solve_ivp step can leave a tiny negative slack on one tRNA species
+    (charged or uncharged) due to FP rounding. Move that slack into the
+    other species so the total stays conserved, then zero the negative
+    slot. Used by `calculate_trna_charging` after the BDF solve.
+
+    Pulled out of the closure to a module-level pure function: it doesn't
+    close over anything from the caller, so wrapping it inside
+    calculate_trna_charging just rebuilt a function object on every call.
+    """
+    mask = trna1 < 0
+    trna2[mask] = trna1[mask] + trna2[mask]
+    trna1[mask] = 0
+
+
 def calculate_trna_charging(
     synthetase_conc: pint.Quantity,
     uncharged_trna_conc: pint.Quantity,
@@ -282,53 +301,31 @@ def calculate_trna_charging(
           in units of MICROMOLAR_UNITS. Will be zeros if supply function is not given.
     """
 
-    def negative_check(trna1: npt.NDArray[np.float64], trna2: npt.NDArray[np.float64]):
-        """
-        Check for floating point precision issues that can lead to small
-        negative numbers instead of 0. Adjusts both species of tRNA to
-        bring concentration of trna1 to 0 and keep the same total concentration.
-
-        Args:
-            trna1: concentration of one tRNA species (charged or uncharged)
-            trna2: concentration of another tRNA species (charged or uncharged)
-        """
-
-        mask = trna1 < 0
-        trna2[mask] = trna1[mask] + trna2[mask]
-        trna1[mask] = 0
+    # Pre-bind params lookups to closure-local names. solve_ivp calls
+    # `dcdt` hundreds of times per outer BDF step (187k calls per 600 s
+    # WCM sim), so the savings from avoiding the per-call params[...] dict
+    # lookups (×6) add up. dcdt_jit is numba-compiled; the wrapper around
+    # it stays in Python and benefits from this local binding.
+    _kS = params["kS"]
+    _KMaa = params["KMaa"]
+    _KMtf = params["KMtf"]
+    _krta = params["krta"]
+    _krtf = params["krtf"]
+    _max_elong = params["max_elong_rate"]
 
     def dcdt(t: float, c: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        """ODE RHS for tRNA charging (BDF outer iterations).
+
+        Returns dy/dt for the stacked state vector
+        [uncharged_trna, charged_trna, aa, total_synthesis, total_import,
+         total_export]. See ``calculate_trna_charging`` for the full setup.
         """
-        Function for solve_ivp to integrate
-
-        Args:
-            c: 1D array of concentrations of uncharged and charged tRNAs
-                dims: 2 * number of amino acids (uncharged tRNA come first, then charged)
-            t: time of integration step
-
-        Returns:
-            Array of dc/dt for tRNA concentrations
-                dims: 2 * number of amino acids (uncharged tRNA come first, then charged)
-        """
-
         v_charging, dtrna, daa = dcdt_jit(
-            t,
-            c,
-            n_aas_masked,
-            n_aas,
-            mask,
-            params["kS"],
-            synthetase_conc,
-            params["KMaa"],
-            params["KMtf"],
-            f,
-            params["krta"],
-            params["krtf"],
-            params["max_elong_rate"],
-            ribosome_conc,
-            limit_v_rib,
-            aa_rate_limit,
-            v_rib_max,
+            t, c,
+            n_aas_masked, n_aas, mask,
+            _kS, synthetase_conc, _KMaa, _KMtf, f,
+            _krta, _krtf, _max_elong, ribosome_conc,
+            limit_v_rib, aa_rate_limit, v_rib_max,
         )
 
         if supply is None:
@@ -382,7 +379,19 @@ def calculate_trna_charging(
             np.zeros(n_aas),
         )
     )
-    sol = solve_ivp(dcdt, [0, time_limit], c_init, method="BDF")
+    # Jacobian sparsity hint for BDF: the last 3*n_aas rows of dy/dt are
+    # accumulators for v_synthesis/import/export and depend only on the
+    # aa_conc slice (columns [2*nm .. 2*nm+n_aas]). Providing this pattern
+    # lets scipy's num_jac skip perturbing the trna columns for those rows
+    # — roughly halves Jacobian-evaluation cost. Top (2*nm + n_aas) rows
+    # stay dense (dtrna/daa depend on uncharged + charged + aa).
+    n_state = c_init.size
+    head = 2 * n_aas_masked + n_aas
+    jac_sparsity = np.zeros((n_state, n_state), dtype=bool)
+    jac_sparsity[:head, :head] = True
+    jac_sparsity[head:, 2 * n_aas_masked: 2 * n_aas_masked + n_aas] = True
+    sol = solve_ivp(dcdt, [0, time_limit], c_init, method="BDF",
+                    jac_sparsity=jac_sparsity)
     c_sol = sol.y.T
 
     # Determine new values from integration results
@@ -396,8 +405,8 @@ def calculate_trna_charging(
         -1, 2 * n_aas_masked + 3 * n_aas : 2 * n_aas_masked + 4 * n_aas
     ]
 
-    negative_check(final_uncharged_trna_conc, final_charged_trna_conc)
-    negative_check(final_charged_trna_conc, final_uncharged_trna_conc)
+    _negative_check(final_uncharged_trna_conc, final_charged_trna_conc)
+    _negative_check(final_charged_trna_conc, final_uncharged_trna_conc)
 
     fraction_charged = final_charged_trna_conc / (
         final_uncharged_trna_conc + final_charged_trna_conc

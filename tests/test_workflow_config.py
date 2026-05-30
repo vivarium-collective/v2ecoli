@@ -51,3 +51,13 @@ def test_ported_two_generations_config_expands():
     # no variants block → baseline only × 2 seeds
     assert len(branches) == 2
     assert {b.seed for b in branches} == {0, 1}
+
+
+def test_two_generations_config_has_multiscale_analyses():
+    import os
+    cfg_dir = os.path.join(os.path.dirname(__file__), "..", "v2ecoli", "configs")
+    cfg = load_config_with_inheritance(os.path.join(cfg_dir, "two_generations.json"))
+    opts = cfg["analysis_options"]
+    assert "mass_fraction_summary" in opts["single"]
+    assert "mass_growth_across_generations" in opts["multigeneration"]
+    assert "doubling_time_distribution" in opts["multiseed"]

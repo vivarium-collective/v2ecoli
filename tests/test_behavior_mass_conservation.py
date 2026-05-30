@@ -55,15 +55,16 @@ def _read(comp):
 
 
 @pytest.mark.sim
-def test_baseline_conserves_mass(sim_data_cache):
+@pytest.mark.parametrize("seed", [0, 1])
+def test_baseline_conserves_mass(sim_data_cache, seed):
     """Over a steady-state window, the cell's mass gain matches the net
-    metabolic boundary exchange to within a few percent."""
+    metabolic boundary exchange to within a few percent — across seeds."""
     import v2ecoli
     from v2ecoli.composites.baseline import enable_features
 
     enable_features("mass_conservation")
     try:
-        comp = v2ecoli.build_composite("baseline", seed=0, cache_dir=sim_data_cache)
+        comp = v2ecoli.build_composite("baseline", seed=seed, cache_dir=sim_data_cache)
         comp.run(WARMUP_TICKS + 1)            # +1: first tick is the listener baseline
         m_start, resid_start = _read(comp)
         comp.run(WINDOW_TICKS)
@@ -81,8 +82,50 @@ def test_baseline_conserves_mass(sim_data_cache):
         f"conservation drift is not meaningful on a stalled run.")
 
     assert rel < CONSERVATION_TOLERANCE, (
-        f"baseline steady-state mass-conservation drift {rel:.3f} exceeds "
-        f"{CONSERVATION_TOLERANCE:.0%} over {WINDOW_TICKS} ticks: a process is "
-        f"creating or destroying mass without a justified source/sink. "
-        f"window residual = {window_residual:.3g} fg over {growth:.1f} fg of "
-        f"cell-mass gain.")
+        f"[seed {seed}] baseline steady-state mass-conservation drift {rel:.3f} "
+        f"exceeds {CONSERVATION_TOLERANCE:.0%} over {WINDOW_TICKS} ticks: a process "
+        f"is creating or destroying mass without a justified source/sink. window "
+        f"residual = {window_residual:.3g} fg over {growth:.1f} fg of cell-mass gain.")
+
+
+# Division conserves mass to within this fraction (it is a count partition with
+# no environment exchange, so total mass should be essentially exact).
+DIVISION_TOLERANCE = 0.02
+
+
+@pytest.mark.sim
+def test_division_conserves_mass(predivision_state, sim_data_cache):
+    """Division is a partition of the mother cell into two daughters with NO
+    environment exchange — so total cell mass must be conserved:
+    mother_cell_mass ≈ daughter1 + daughter2. Complements the growth-phase
+    conservation test (this is the division-event invariant)."""
+    from process_bigraph import Composite
+    from v2ecoli.library.division import divide_cell
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.baseline import baseline, seed_mass_listener
+
+    core = build_core()
+
+    def _cell_mass(state):
+        # Build the full document, swap in the given biological state, re-seed
+        # the mass listener against it, and read the resulting cell mass.
+        doc = baseline(core=core, seed=0, cache_dir=sim_data_cache)
+        agent = doc["state"]["agents"]["0"]
+        for key in ("bulk", "unique", "environment", "boundary"):
+            if key in state:
+                agent[key] = state[key]
+        agent["listeners"]["mass"] = {"dry_mass": 0.0, "cell_mass": 0.0}
+        seed_mass_listener(agent, core)
+        comp = Composite(doc, core=core)
+        return fg_magnitude(comp.state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
+
+    mother = _cell_mass(predivision_state)
+    d1_state, d2_state = divide_cell(predivision_state)
+    m1, m2 = _cell_mass(d1_state), _cell_mass(d2_state)
+    total = m1 + m2
+    rel = abs(total - mother) / mother if mother else float("inf")
+
+    assert rel < DIVISION_TOLERANCE, (
+        f"division did not conserve mass: mother={mother:.1f} fg vs "
+        f"daughters {m1:.1f}+{m2:.1f}={total:.1f} fg (rel {rel:.3f}). Division is "
+        f"a count partition with no exchange — total mass must be preserved.")

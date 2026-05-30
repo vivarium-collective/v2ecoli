@@ -1,98 +1,60 @@
-"""Regression test: polypeptide/kinetics functions accept Unum or pint
-inputs interchangeably and produce the same numeric outputs.
+"""Regression test: ``ppgpp_metabolite_changes`` runs on the current
+plain-float (µM-magnitude) input contract.
 
-The hot loops in kinetics.py (ppgpp_metabolite_changes,
-calculate_trna_charging) historically required Unum-typed concentrations.
-After migration they accept pint Quantities too. This test asserts that
-the two input forms produce identical numeric output (within 1e-9
-relative tolerance), which is the regression guard the migration spec
-mandates for hot-loop edits.
+History: kinetics' hot loops once accepted unit-bearing (Unum/pint)
+concentrations, and this test guarded Unum↔pint interchangeability. That
+contract was **removed** — per-call ``.to(MICROMOLAR_UNITS).magnitude``
+pre-stripping moved to the caller (see ``elongation_models.py`` ~line 441 and
+the ``ppgpp_metabolite_changes`` docstring), so the hot loops now take plain
+numpy/float magnitudes and ``counts_to_molar: float``. Feeding unit-bearing
+values now (correctly) raises. This test guards the current contract: the
+function runs on plain-float inputs and returns finite metabolite changes.
 """
 
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
-from wholecell.utils import units as wc_units
-from v2ecoli.types.quantity import ureg
-from v2ecoli.processes.polypeptide.kinetics import (
-    ppgpp_metabolite_changes,
-)
+from v2ecoli.processes.polypeptide.kinetics import ppgpp_metabolite_changes
 
 
-def _ppgpp_inputs(builder):
-    """Build representative inputs for ppgpp_metabolite_changes using the
-    given unit builder (wc_units for Unum, ureg for pint). The numeric
-    values are arbitrary but match shape/scale of the production system."""
+def _ppgpp_inputs():
+    """Representative plain-float (µM-magnitude) inputs — the production
+    contract (caller strips units before calling)."""
     n_aa = 21
     rng = np.random.RandomState(seed=42)
-    uM = builder.umol / builder.L if builder is wc_units else builder.umol / builder.L
-
-    # Unit-on-the-left so numpy doesn't take operator precedence.
-    uncharged = uM * rng.uniform(0.5, 5.0, n_aa)
-    charged = uM * rng.uniform(0.5, 5.0, n_aa)
-    f = rng.dirichlet(np.ones(n_aa))
-    rela = 0.5 * uM
-    spot = 0.5 * uM
-    ppgpp = 50.0 * uM
-    ribosome = 30.0 * uM
-    counts_to_molar = 1e-3 * uM  # arbitrary
-    v_rib = 10.0  # plain scalar; matches production usage
-
-    charging_params = {
-        "krta": 1.0,
-        "krtf": 0.5,
-        "max_elong_rate": 22.0,
-    }
-    n_reactions = 4
     reaction_stoich = np.array(
-        [
-            [-1, 1],
-            [+1, -1],
-            [-1, 0],
-            [0, +1],
-        ],
-        dtype=float,
-    )
-    ppgpp_params = {
-        "KD_RelA": 0.1,
-        "KI_SpoT": 0.1,
-        "k_RelA": 75.0,
-        "k_SpoT_syn": 0.1,
-        "k_SpoT_deg": 0.001,
-        "ppgpp_reaction_stoich": reaction_stoich,
-        "synthesis_index": 0,
-        "degradation_index": 1,
-    }
+        [[-1, 1], [+1, -1], [-1, 0], [0, +1]], dtype=float)
     return dict(
-        uncharged_trna_conc=uncharged,
-        charged_trna_conc=charged,
-        ribosome_conc=ribosome,
-        f=f,
-        rela_conc=rela,
-        spot_conc=spot,
-        ppgpp_conc=ppgpp,
-        counts_to_molar=counts_to_molar,
-        v_rib=v_rib,
-        charging_params=charging_params,
-        ppgpp_params=ppgpp_params,
+        uncharged_trna_conc=rng.uniform(0.5, 5.0, n_aa),   # µM magnitudes
+        charged_trna_conc=rng.uniform(0.5, 5.0, n_aa),
+        ribosome_conc=30.0,
+        f=rng.dirichlet(np.ones(n_aa)),
+        rela_conc=0.5,
+        spot_conc=0.5,
+        ppgpp_conc=50.0,
+        counts_to_molar=1e-3,
+        v_rib=10.0,
+        charging_params={"krta": 1.0, "krtf": 0.5, "max_elong_rate": 22.0},
+        ppgpp_params={
+            "KD_RelA": 0.1,
+            "KI_SpoT": 0.1,
+            "k_RelA": 75.0,
+            "k_SpoT_syn": 0.1,
+            "k_SpoT_deg": 0.001,
+            "ppgpp_reaction_stoich": reaction_stoich,
+            "synthesis_index": 0,
+            "degradation_index": 1,
+        },
         time_step=1.0,
         random_state=np.random.RandomState(seed=0),
     )
 
 
-def _close(a, b, rtol=1e-9):
-    return np.allclose(np.asarray(a), np.asarray(b), rtol=rtol)
-
-
-def test_ppgpp_metabolite_changes_unum_pint_match():
-    unum_inputs = _ppgpp_inputs(wc_units)
-    pint_inputs = _ppgpp_inputs(ureg)
-
-    out_unum = ppgpp_metabolite_changes(**unum_inputs)
-    out_pint = ppgpp_metabolite_changes(**pint_inputs)
-
-    assert len(out_unum) == len(out_pint)
-    for a, b in zip(out_unum, out_pint):
-        assert _close(a, b), f"output mismatch: {a} vs {b}"
+def test_ppgpp_metabolite_changes_runs_on_plain_floats():
+    out = ppgpp_metabolite_changes(**_ppgpp_inputs())
+    # Returns a tuple; the first element is the metabolite-count delta vector.
+    assert len(out) >= 1
+    delta = np.asarray(out[0])
+    assert delta.size > 0
+    assert np.all(np.isfinite(delta)), f"non-finite metabolite changes: {delta}"

@@ -86,13 +86,26 @@ executive:
     the rest intact.
 
     '
-  verdict: 'Status: investigation just scaffolded; no phases executed yet.
+  verdict: 'Phase 1 closed (PR #72, merged 2026-05-30). Phase 2 mechanical
+    deliverables (sprints 1–5) landed: per-promoter and per-protein Poisson
+    tau-leap samplers, composite wiring, sampler-comparison visualizations,
+    data-driven water rate. Sprint 4 confirms the Poisson signal exists at
+    the rnap_data listener (peak |Δcm| = 150 fg). Sprints 6–9 explored
+    whether the same signal also closes the N=8 ensemble W₂ gap at the
+    cell_mass listener — all three controller-knob attempts (tau, open-loop,
+    sparse) showed cell_mass is the wrong observable: the consumption_matched
+    ref-growth driver is a homeostat that washes per-tick variance out of
+    bulk pools by construction. Phase 2 architectural goal therefore reached
+    a clean closeout; gate Phase 3 likelihood inference on count-level
+    listeners (rnap_data, ribosome_data, monomer_counts) rather than mass.
+    See investigations/v2ecoli-pdmp/reports/pdmp-02-jump-processes.html.
 
     '
   verdict_status: in-progress
   decisions_needed:
-  - Lock the Phase-0 Markov-blanket boundaries and the set of ≥3 environmental conditions for the reference Xarray datasets.
-  - Confirm DifferentialEquations.jl vs. Diffrax/JAX for the Phase-1 ODE backend.
+  - Confirm Phase 3 observation likelihoods will anchor on count-level
+    listeners (rnap_data / ribosome_data / monomer_counts), not cell_mass —
+    closeout finding from Phase 2 sprints 6–9.
   - Confirm Catalyst.jl + ModelingToolkit as the Phase-4 compilation target.
 scientific_argument:
   main_claim: 'The PDMP class — ODE segments interrupted by discrete jump events —
@@ -121,7 +134,10 @@ scientific_argument:
     all three coupling channels before interface statistics will match (Phase 1 risk).'
   - Continuous-time jump propensities require measured kinetic constants for transcription/translation/division that may not
     exist at the necessary precision (Phase 2 risk).
-  key_figures: []
+  key_figures:
+  - investigations/v2ecoli-pdmp/reports/pdmp-02-jump-processes.html
+  - reports/figures/pdmp-02/trajectory_divergence.html
+  - reports/figures/pdmp-02/ensemble_validation_period60.html
   caveats:
   - Resource estimates in the roadmap assume 2–4 FTE per phase; absent that staffing, phases will run serially over much longer
     wall time.

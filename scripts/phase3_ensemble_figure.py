@@ -89,13 +89,61 @@ PANEL_VARS = [
 ]
 
 
+def _drop_trailing_nan(ds):
+    valid_mask = ~np.isnan(ds["total"]).any(dim="replicate")
+    return ds.where(valid_mask, drop=True)
+
+
+def compute_noise_floor(ds) -> dict:
+    """Pairwise per-replicate sum-of-squares distance on ``total``.
+
+    Sets the ABC-SMC threshold reference: the within-ensemble distance
+    distribution under the null hypothesis "all replicates are
+    independent draws from the same generative model". Future inference
+    must pick ε such that proposed-vs-observed distance < ε implies
+    "indistinguishable from the noise floor".
+
+    Returns dict with: matrix (N×N), pairs (1D, upper triangle, N choose 2),
+    median, p05, p95, max, intra_only_max (distance of any rep to itself
+    using the leave-one-out mean — sanity check, should be small).
+    """
+    arr = ds["total"].values  # shape (replicate, time)
+    n_rep, n_t = arr.shape
+    dist = np.zeros((n_rep, n_rep))
+    for i in range(n_rep):
+        for j in range(n_rep):
+            if i == j:
+                dist[i, j] = 0.0
+            else:
+                # SSE between two replicate timeseries — same units as
+                # log P², which is fine as a distance.
+                dist[i, j] = float(np.sum((arr[i] - arr[j]) ** 2))
+    iu = np.triu_indices(n_rep, k=1)
+    pairs = dist[iu]
+    # Leave-one-out: each rep's distance to mean-of-others.
+    loo = np.zeros(n_rep)
+    for k in range(n_rep):
+        others = np.delete(arr, k, axis=0).mean(axis=0)
+        loo[k] = float(np.sum((arr[k] - others) ** 2))
+    return {
+        "matrix": dist,
+        "pairs": pairs,
+        "median": float(np.median(pairs)),
+        "p05": float(np.percentile(pairs, 5)),
+        "p95": float(np.percentile(pairs, 95)),
+        "min": float(pairs.min()),
+        "max": float(pairs.max()),
+        "loo": loo,
+        "loo_median": float(np.median(loo)),
+    }
+
+
 def make_figure(ds) -> str:
     """Render the 3-panel ensemble figure. Returns a data: URI."""
     # The sprint-4 buffer-quirk leaves the trailing 2 timesteps as NaN.
     # Drop them so the plotted means/σ don't dip artificially at the
     # right edge.
-    valid_mask = ~np.isnan(ds["total"]).any(dim="replicate")
-    ds = ds.where(valid_mask, drop=True)
+    ds = _drop_trailing_nan(ds)
     t = ds["time"].values if "time" in ds.coords else np.arange(ds.sizes["time"])
 
     fig, axes = plt.subplots(3, 1, figsize=(11, 9), sharex=True)
@@ -134,7 +182,57 @@ def make_figure(ds) -> str:
             + base64.b64encode(buf.getvalue()).decode("ascii"))
 
 
-def write_html(out_path: Path, ds, plot_uri: str) -> None:
+def make_noise_floor_figure(ds, nf) -> str:
+    """Render the inference noise-floor figure: distance matrix + hist."""
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5),
+                             gridspec_kw={"width_ratios": [1, 1.2]})
+
+    # Panel 1: pairwise distance matrix.
+    ax = axes[0]
+    im = ax.imshow(nf["matrix"], cmap="magma", origin="lower")
+    ax.set_xticks(range(nf["matrix"].shape[0]))
+    ax.set_yticks(range(nf["matrix"].shape[0]))
+    ax.set_xlabel("replicate (seed)")
+    ax.set_ylabel("replicate (seed)")
+    ax.set_title("Pairwise SSE distance on total log-likelihood",
+                 fontsize=10, loc="left")
+    cb = fig.colorbar(im, ax=ax, shrink=0.85)
+    cb.set_label("SSE (log P)²")
+
+    # Panel 2: histogram of pairwise distances.
+    ax = axes[1]
+    ax.hist(nf["pairs"], bins=15, color="#7c3aed", alpha=0.7,
+            edgecolor="#3b0764")
+    ax.axvline(nf["median"], color="#dc2626", lw=2, ls="--",
+               label=f"median = {nf['median']:.1f}")
+    ax.axvline(nf["p05"], color="#f59e0b", lw=1.5, ls=":",
+               label=f"p05 = {nf['p05']:.1f}")
+    ax.axvline(nf["p95"], color="#f59e0b", lw=1.5, ls=":",
+               label=f"p95 = {nf['p95']:.1f}")
+    ax.set_xlabel("Pairwise SSE distance")
+    ax.set_ylabel("count of replicate pairs")
+    ax.set_title(
+        f"Within-ensemble distance distribution "
+        f"({len(nf['pairs'])} pairs from {nf['matrix'].shape[0]} replicates)",
+        fontsize=10, loc="left")
+    ax.legend(loc="upper right", fontsize=9)
+    ax.grid(alpha=0.3)
+
+    fig.suptitle(
+        "Phase-3 sprint 6: intra-ensemble inference noise floor "
+        "(sets ε for ABC-SMC acceptance)",
+        fontsize=12, fontweight="bold")
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=110, bbox_inches="tight")
+    plt.close(fig)
+    return ("data:image/png;base64,"
+            + base64.b64encode(buf.getvalue()).decode("ascii"))
+
+
+def write_html(out_path: Path, ds, plot_uri: str,
+               noise_floor: dict, noise_floor_uri: str) -> None:
     prov = collect_provenance()
     dirty_badge = (
         '<span style="color:#dc2626;font-weight:600">  · DIRTY TREE</span>'
@@ -234,6 +332,39 @@ def write_html(out_path: Path, ds, plot_uri: str) -> None:
   {table_rows}
 </table>
 
+<h2>Sprint 6 — inference noise floor on <code>total</code></h2>
+<p>
+  ABC-SMC needs an acceptance threshold ε such that proposed-vs-observed
+  distance &lt; ε implies the proposed parameter is indistinguishable
+  from the observation under the model's intrinsic noise. The within-
+  ensemble pairwise distance distribution below — computed under the
+  null hypothesis that all {n} replicates are independent draws from the
+  same generative model — sets that floor.
+</p>
+<img class="plot" src="{noise_floor_uri}" alt="pairwise distance matrix + histogram">
+<table>
+  <tr><th>quantity</th><th>value</th><th>interpretation</th></tr>
+  <tr><td>median pairwise distance</td>
+      <td class="num">{noise_floor['median']:.1f}</td>
+      <td>typical within-null distance — the natural ε scale</td></tr>
+  <tr><td>p05 / p95</td>
+      <td class="num">{noise_floor['p05']:.1f} / {noise_floor['p95']:.1f}</td>
+      <td>5th and 95th percentile of within-null pairs</td></tr>
+  <tr><td>min / max</td>
+      <td class="num">{noise_floor['min']:.1f} / {noise_floor['max']:.1f}</td>
+      <td>extreme within-null pairs</td></tr>
+  <tr><td>median LOO distance</td>
+      <td class="num">{noise_floor['loo_median']:.1f}</td>
+      <td>typical replicate-to-ensemble-mean distance</td></tr>
+</table>
+<p>
+  Reading: <strong>any proposed parameter whose simulated trajectory
+  sits within ~{noise_floor['p95']:.0f} of the observed</strong> is
+  indistinguishable from the noise floor at this ensemble size. A real
+  ABC-SMC posterior should converge to a region whose pairwise distance
+  to the observed sits within roughly the p05–p95 band shown above.
+</p>
+
 <h2>Pipeline status</h2>
 <p>
   Phase 3 sprints 1–4 are landed: per-process Poisson likelihoods are
@@ -268,7 +399,14 @@ def main():
     print(f"  vars: {list(ds.data_vars)}")
 
     plot_uri = make_figure(ds)
-    write_html(args.out, ds, plot_uri)
+    nf = compute_noise_floor(_drop_trailing_nan(ds))
+    print(f"\nNoise floor on `total` log-likelihood (pairwise SSE):")
+    print(f"  median = {nf['median']:.1f}")
+    print(f"  p05    = {nf['p05']:.1f}")
+    print(f"  p95    = {nf['p95']:.1f}")
+    print(f"  range  = {nf['min']:.1f} → {nf['max']:.1f}")
+    nf_uri = make_noise_floor_figure(ds, nf)
+    write_html(args.out, ds, plot_uri, nf, nf_uri)
 
 
 if __name__ == "__main__":

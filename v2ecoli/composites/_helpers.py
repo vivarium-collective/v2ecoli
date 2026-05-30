@@ -222,12 +222,30 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
     if address == "ParquetEmitter":
         try:
             from pbg_emitters import ParquetEmitter
-        except ImportError as e:
-            raise ImportError(
-                "generator declared a ParquetEmitter default but the "
-                "[parquet] extra is not installed. Run: "
-                "pip install 'v2ecoli[parquet]'"
-            ) from e
+        except ImportError:
+            # A generator-declared *default* must not hard-fail the build when
+            # the optional [parquet] extra is absent (e.g. CI behavior-tests
+            # install only the dev extra). Degrade to the historical full-capture
+            # in-memory RAMEmitter — the pre-declaration default — and warn.
+            warnings.warn(
+                "generator declared a ParquetEmitter default but the [parquet] "
+                "extra is not installed; falling back to in-memory RAMEmitter. "
+                "Install with: pip install 'v2ecoli[parquet]' to persist parquet.")
+            emit_schema = {
+                "global_time": "float", "bulk": "array",
+                "listeners": listeners_schema,
+                "full_chromosome": "node", "active_replisome": "node",
+                "active_RNAP": "node", "chromosome_domain": "node",
+            }
+            topo = {
+                "global_time": ("global_time",), "bulk": ("bulk",),
+                "listeners": ("listeners",),
+                "full_chromosome": ("unique", "full_chromosome"),
+                "active_replisome": ("unique", "active_replisome"),
+                "active_RNAP": ("unique", "active_RNAP"),
+                "chromosome_domain": ("unique", "chromosome_domain"),
+            }
+            return RAMEmitter({"emit": emit_schema}, core), topo
         # Reuse the vEcoli-shaped preset so the hive layout + dtype overrides
         # match upstream, seeded by whatever the declaration provided.
         from v2ecoli.library.emitter_presets import parquet_vecoli

@@ -1,8 +1,8 @@
 schema_version: 4
 name: pdmp-00-characterization
 title: Phase 0 — Characterization and Interface Extraction
-status: planned
-phase: Design
+status: complete
+phase: Decide
 topic: pdmp
 tags:
 - pdmp

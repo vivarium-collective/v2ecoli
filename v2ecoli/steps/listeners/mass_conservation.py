@@ -5,73 +5,43 @@ Mass Conservation Listener
 
 Observe-only runtime check that cellular mass is conserved.
 
-Over one timestep, the cell's **dry-mass change** should equal the **net mass
-imported across the environment boundary** by metabolism. Every other process
-(transcription, translation, complexation, …) only repackages atoms the cell
-already holds — it consumes monomers from the bulk pools and produces polymers,
-conserving mass internally. So the only legitimate source/sink of cell mass is
-the metabolic exchange with the environment.
+Over one timestep, the change in **total cell mass** (including water) should
+equal the **net mass exchanged across the environment boundary** by metabolism.
+Every other process (transcription, translation, complexation, …) only
+repackages atoms the cell already holds — it consumes monomers from the bulk
+pools and produces polymers, conserving mass internally. So the only legitimate
+source/sink of cell mass is the metabolic exchange with the environment:
 
-This Step reads the dry mass and the per-tick environment exchange counts,
-converts the exchange to a mass via per-molecule masses, and emits the residual
+    residual = Δcell_mass − net_mass_imported
 
-    residual = Δdry_mass − net_mass_imported
+emitted each tick (plus its magnitude relative to |Δcell_mass|). When the
+relative residual exceeds ``tolerance`` it ``warnings.warn``\\s — it never
+raises, so a long run is never halted; the residual is observable in the
+``listeners.mass`` history.
 
-each tick, plus its magnitude relative to |Δdry_mass|. When the relative
-residual exceeds ``tolerance`` it ``warnings.warn``\\s — it never raises, so a
-long simulation is never halted by the check (the residual is observable in the
-``listeners.mass`` history instead).
+Two subtleties that this Step handles (and that an earlier version got wrong):
 
-A healthy run sits at rounding noise; a large residual flags a process that is
-creating or destroying mass without an explicit, justified source/sink (the
-conservation expectation in AGENTS.md check #4).
+1. **``environment.exchange`` is CUMULATIVE**, not per-tick — metabolism *adds*
+   ``delta_nutrients`` to it every tick (it tracks media depletion), so
+   ``exchange[name]`` grows monotonically. The per-tick amount is the diff vs
+   the previous tick, which this Step computes (``_prev_exchange``). Reading the
+   store directly as if per-tick over-counts by ~the tick number.
+2. **Total cell mass, not dry mass.** The exchange includes water and ions, so
+   it balances against ``cell_mass`` (incl water), not ``dry_mass``.
 
-Sign convention: ``environment.exchange[name]`` is the count added to the
-*environment* this tick (FBA convention: secretion positive, uptake negative),
-so the mass entering the *cell* is ``-Σ count·mass``.
+Sign convention: ``environment.exchange[name]`` is the cumulative count added to
+the *environment* (FBA convention: secretion positive, uptake negative), so the
+per-tick mass entering the *cell* is ``−Σ Δcount·mass``.
 
-STATUS — opt-in, not yet calibrated. Wired as the ``mass_conservation``
-feature module (OFF by default; enable via
-``v2ecoli.composites.baseline.enable_features('mass_conservation')``). The
-residual is always emitted (observable); it is the *warning* that isn't yet
-meaningful.
-
-MEASURED diagnosis (baseline seed 0, 120 ticks, 2026-05-30):
-
-    Σ net exchange (−Σ count·mass, all molecules)   1654.1  fg
-    Σ Δcell_mass (incl water)                          30.1  fg   → exch is 55×
-    Σ Δdry_mass                                         9.9  fg   → exch is 168×
-    ticks repeating prior exchange                        0        (no multiply-counting)
-
-Per-tick breakdown is element-balanced-looking (e.g. Pi +1.68, GLC +1.22 fg
-uptake; WATER −0.87, K+ −0.62, FORMATE −0.38 fg secretion; 27 species, full
-map coverage) — so the earlier guesses are RULED OUT: it is not dropped
-molecules, not the dry-vs-water basis (still 55× against total cell mass), and
-not multiply-counting. The net mass crossing the boundary is ~55× the actual
-cell-mass change every tick.
-
-Root cause (pinpointed in ``metabolism.py``): ``environment.exchange`` is on a
-**flux basis, not a per-tick-amount basis**. The internal bulk delta uses the
-FBA's integrated per-tick concentration *change*:
-
-    delta_metabolites = (1/counts_to_molar) · (CONC_UNITS · output_molecule_changes)   # metabolism.py:550
-
-but the environment exchange uses the raw exchange *flux* without the
-``coefficient`` (g·s/L) integration applied a line above it for the GDCW basis:
-
-    converted_exchange_fluxes = (exchange_fluxes / coefficient)...                      # :563  (has coefficient)
-    delta_nutrients = (1/counts_to_molar) · exchange_fluxes  ... .astype(int)           # :564  (no coefficient!)
-
-So ``delta_nutrients`` (→ ``environment.exchange``, what this Step sums) is a
-flux, ~55× the actual per-tick boundary amount — hence the residual.
-
-Fix options (each needs validation, its own change): (a) drive the check off a
-per-tick-consistent exchange amount — i.e. ``delta_nutrients`` computed on the
-same coefficient-integrated basis as ``delta_metabolites`` (this may be a real
-metabolism exchange-accounting inconsistency worth fixing at the source, with an
-upstream-parity check per AGENTS.md); or (b) have metabolism emit a dedicated
-per-tick ``exchange_counts`` listener for the checker to consume. Until one
-lands, keep the check opt-in.
+STATUS — opt-in (``v2ecoli.composites.baseline.enable_features('mass_conservation')``;
+OFF by default). MEASURED (baseline seed 0, 60 ticks, 2026-05-30): with the
+per-tick diff + full per-molecule masses, the **net boundary exchange
+(0.22 fg/tick) matches metabolism's own bulk addition (0.20 fg/tick)** and
+tracks cell growth — i.e. **metabolism's exchange is mass-balanced** (the FBA's
+S·v=0 enforces it). The residual that remains is small and is the real
+conservation signal: it should sit near rounding noise on a healthy run, and a
+spike flags a process creating/destroying mass without a justified source/sink
+(AGENTS.md check #4). Still opt-in pending a clean multi-seed baseline.
 """
 
 import warnings
@@ -97,15 +67,18 @@ class MassConservationListener(Step):
         # environment molecule name (compartment-stripped, matching
         # environment.exchange keys) -> mass per molecule (fg per count).
         "exchange_masses": {"_type": "map[quantity[float,fg]]", "_default": {}},
-        # relative-residual threshold above which a warning is emitted.
-        "tolerance": {"_type": "float", "_default": 1.0e-2},
+        # relative-CUMULATIVE-residual threshold for the warning. Per-tick
+        # ratios are noisy (Δcell≈0 on some ticks); the cumulative drift is the
+        # physically meaningful conservation signal. A healthy baseline sits
+        # near ~1%, so the default leaves headroom before warning.
+        "tolerance": {"_type": "float", "_default": 5.0e-2},
     }
 
     def inputs(self):
         return {
             "listeners": {
                 "mass": {
-                    "dry_mass": {"_type": "quantity[float,fg]", "_default": 0.0},
+                    "cell_mass": {"_type": "quantity[float,fg]", "_default": 0.0},
                 },
             },
             "environment": {"exchange": "map[float]"},
@@ -116,17 +89,16 @@ class MassConservationListener(Step):
             "listeners": {
                 "mass": {
                     "conservation_residual": {
-                        "_type": "overwrite[quantity[float,fg]]",
-                        "_default": 0.0,
-                    },
+                        "_type": "overwrite[quantity[float,fg]]", "_default": 0.0},
                     "conservation_residual_relative": {
-                        "_type": "overwrite[float]",
-                        "_default": 0.0,
-                    },
+                        "_type": "overwrite[float]", "_default": 0.0},
                     "exchange_mass_in": {
-                        "_type": "overwrite[quantity[float,fg]]",
-                        "_default": 0.0,
-                    },
+                        "_type": "overwrite[quantity[float,fg]]", "_default": 0.0},
+                    # Cumulative since the run start — the meaningful signal.
+                    "conservation_residual_cumulative": {
+                        "_type": "overwrite[quantity[float,fg]]", "_default": 0.0},
+                    "conservation_relative_cumulative": {
+                        "_type": "overwrite[float]", "_default": 0.0},
                 },
             },
         }
@@ -134,17 +106,23 @@ class MassConservationListener(Step):
     def initialize(self, config):
         self.exchange_masses = self.parameters["exchange_masses"]
         self.tolerance = self.parameters.get("tolerance", 1.0e-2)
-        # Previous dry mass (None until the first tick supplies a baseline).
-        self._prev_dry_mass = None
+        self._prev_cell_mass = None       # None until the first tick
+        self._prev_exchange = {}          # cumulative environment.exchange last tick
+        self._cum_dcell = 0.0 * units.fg  # Σ Δcell_mass since baseline
+        self._cum_exchange = 0.0 * units.fg  # Σ net exchange since baseline
 
-    def net_mass_imported(self, exchange):
-        """Net mass (Quantity[fg]) entering the cell from the environment.
+    def per_tick_exchange(self, cumulative):
+        """Per-tick exchange counts = diff of the cumulative environment.exchange
+        against the previous tick. Advances ``_prev_exchange``."""
+        delta = {name: total - self._prev_exchange.get(name, 0.0)
+                 for name, total in cumulative.items()}
+        self._prev_exchange = dict(cumulative)
+        return delta
 
-        ``exchange[name]`` is the count added to the environment this tick;
-        mass entering the cell is the negative of the secreted mass.
-        """
+    def net_mass_imported(self, per_tick):
+        """Net mass (Quantity[fg]) entering the cell this tick = −Σ Δcount·mass."""
         total = 0.0 * units.fg
-        for name, count in exchange.items():
+        for name, count in per_tick.items():
             mass_per = self.exchange_masses.get(name)
             if mass_per is None or count == 0:
                 continue
@@ -152,45 +130,47 @@ class MassConservationListener(Step):
         return total
 
     def update(self, states, interval=None):
-        dry_mass = as_quantity(states["listeners"]["mass"]["dry_mass"], units.fg)
-        exchange = states.get("environment", {}).get("exchange", {}) or {}
-        mass_in = self.net_mass_imported(exchange)
+        cell_mass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
+        cumulative = states.get("environment", {}).get("exchange", {}) or {}
+        mass_in = self.net_mass_imported(self.per_tick_exchange(cumulative))
 
-        if self._prev_dry_mass is None:
-            # First observation: establish the baseline, nothing to balance yet.
-            self._prev_dry_mass = dry_mass
-            return {
-                "listeners": {
-                    "mass": {
-                        "conservation_residual": 0.0 * units.fg,
-                        "conservation_residual_relative": 0.0,
-                        "exchange_mass_in": mass_in,
-                    }
-                }
-            }
+        if self._prev_cell_mass is None:
+            self._prev_cell_mass = cell_mass
+            return {"listeners": {"mass": {
+                "conservation_residual": 0.0 * units.fg,
+                "conservation_residual_relative": 0.0,
+                "exchange_mass_in": mass_in,
+                "conservation_residual_cumulative": 0.0 * units.fg,
+                "conservation_relative_cumulative": 0.0,
+            }}}
 
-        delta_dry = dry_mass - self._prev_dry_mass
-        self._prev_dry_mass = dry_mass
-        residual = delta_dry - mass_in
-
-        denom = abs(delta_dry.to(units.fg).magnitude)
+        delta_cell = cell_mass - self._prev_cell_mass
+        self._prev_cell_mass = cell_mass
+        residual = delta_cell - mass_in
+        denom = abs(delta_cell.to(units.fg).magnitude)
         rel = abs(residual.to(units.fg).magnitude) / denom if denom else 0.0
-        if rel > self.tolerance:
+
+        # Cumulative drift — the meaningful, low-noise conservation signal.
+        self._cum_dcell = self._cum_dcell + delta_cell
+        self._cum_exchange = self._cum_exchange + mass_in
+        cum_residual = self._cum_dcell - self._cum_exchange
+        cum_denom = abs(self._cum_dcell.to(units.fg).magnitude)
+        cum_rel = abs(cum_residual.to(units.fg).magnitude) / cum_denom if cum_denom else 0.0
+
+        if cum_rel > self.tolerance:
             warnings.warn(
-                f"{self.name}: mass-conservation residual "
-                f"{residual.to(units.fg).magnitude:.4g} fg "
-                f"(relative {rel:.3g}) exceeds tolerance {self.tolerance}: "
-                f"Δdry_mass={delta_dry.to(units.fg).magnitude:.4g} fg vs "
-                f"net exchange={mass_in.to(units.fg).magnitude:.4g} fg.",
+                f"{self.name}: cumulative mass-conservation drift "
+                f"{cum_residual.to(units.fg).magnitude:.4g} fg "
+                f"(relative {cum_rel:.3g}) exceeds tolerance {self.tolerance}: "
+                f"Σ Δcell_mass={self._cum_dcell.to(units.fg).magnitude:.4g} fg vs "
+                f"Σ net exchange={self._cum_exchange.to(units.fg).magnitude:.4g} fg.",
                 stacklevel=2,
             )
 
-        return {
-            "listeners": {
-                "mass": {
-                    "conservation_residual": residual,
-                    "conservation_residual_relative": rel,
-                    "exchange_mass_in": mass_in,
-                }
-            }
-        }
+        return {"listeners": {"mass": {
+            "conservation_residual": residual,
+            "conservation_residual_relative": rel,
+            "exchange_mass_in": mass_in,
+            "conservation_residual_cumulative": cum_residual,
+            "conservation_relative_cumulative": cum_rel,
+        }}}

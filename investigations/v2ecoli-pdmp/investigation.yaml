@@ -86,24 +86,27 @@ executive:
     the rest intact.
 
     '
-  verdict: 'Phase 1 closed (PR #72, merged 2026-05-30). Phase 2 mechanical
-    deliverables (sprints 1–5) landed and Phase-2 controller-tuning chapter
-    closed via sprints 6–9 with structural finding: cell_mass is the wrong
-    observable, the consumption_matched homeostat washes per-tick variance
-    out by construction. Phase 3 mechanically complete (sprints 1–9, PR
-    #100): per-process Poisson likelihoods emitted by TranscriptInitiation
-    and PolypeptideInitiation, aggregate LikelihoodCollector step, per-tick
-    state persisted via XArrayEmitter to zarr stores per replicate, loaded
-    back as xarray.Dataset(replicate × time × observable), inference noise
-    floor calibrated empirically (sprint 8 mean-to-mean ε), one-parameter
-    forward-model ABC stub on transcript_init_prob_scale validated, SMC
-    sequential ε tightening demonstrated posterior concentrating around the
-    truth (scale=1.0 retained at every ε level, posterior collapses to {1.0}
-    at p25). The full Phase-3 deliverable scope ("observation likelihoods +
-    likelihood accumulator + ABC-SMC baseline") is now mechanically present
-    and validated on synthetic data. See investigations/v2ecoli-pdmp/reports/
-    pdmp-02-jump-processes.html for Phase 2 and reports/figures/pdmp-03/
-    likelihood_ensemble.html + abc_smc_sequential.html for Phase 3.
+  verdict: 'Phase 1 closed (PR #72, merged 2026-05-30). Phase 2
+    controller-tuning closeout: cell_mass is the wrong observable for
+    jump-process variance — the consumption_matched homeostat washes
+    per-tick variance out by construction (sprints 1–9). Phase 3
+    inference infrastructure fully closed (13 sprints, PR #100): per-
+    process Poisson likelihoods emitted, aggregate LikelihoodCollector,
+    XArrayEmitter persistence, xarray.Dataset(replicate × time ×
+    observable) readback, empirically-calibrated mean-to-mean ε, 1D
+    ABC stub with sequential SMC refinement (posterior collapses to
+    truth at tight ε), 2D multi-parameter sweep showing anti-diagonal
+    ridge under aggregate log-likelihood metric, multi-observable
+    analysis confirming the pipeline emits self-calibrated likelihoods,
+    architectural pivot to count-based ABC distances giving 100×
+    sharper Ts identification, and combined count vector (sqrt(d_rna² +
+    d_ribosome²)) reaching 3.06× truth-vs-next-nearest separation —
+    28% better than log-likelihood, the Phase-3-canonical ABC distance
+    for jump-process WCM inference. Phase 3 is end-to-end mature. Next
+    natural milestone: Phase 4 compiled runtime. See reports/figures/
+    pdmp-03/abc_count_metric.html for the headline finding;
+    investigations/v2ecoli-pdmp/reports/pdmp-03-inference.html for the
+    sprint narrative.
 
     '
   verdict_status: in-progress
@@ -146,6 +149,9 @@ scientific_argument:
   - reports/figures/pdmp-02/ensemble_validation_period60.html
   - reports/figures/pdmp-03/likelihood_ensemble.html
   - reports/figures/pdmp-03/abc_smc_sequential.html
+  - reports/figures/pdmp-03/abc_smc_2d.html
+  - reports/figures/pdmp-03/abc_multi_observable.html
+  - reports/figures/pdmp-03/abc_count_metric.html
   caveats:
   - Resource estimates in the roadmap assume 2–4 FTE per phase; absent that staffing, phases will run serially over much longer
     wall time.

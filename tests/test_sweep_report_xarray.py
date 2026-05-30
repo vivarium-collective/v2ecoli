@@ -76,6 +76,8 @@ def test_build_report_from_real_xarray_sweep(tmp_path):
     out = tmp_path / "report.html"
     latest, archive = sx.build_report(zarr_dir, out=str(out))
     assert latest.exists() and archive.exists()
-    html = latest.read_text()
+    # build_report writes UTF-8 (it embeds unit symbols, em-dashes, etc.);
+    # read it back as UTF-8 rather than the locale default (ASCII on CI).
+    html = latest.read_text(encoding="utf-8")
     assert 'class="provenance"' in html and "xarray / zarr" in html
     assert "data:image/png;base64" in html

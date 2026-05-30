@@ -95,22 +95,28 @@ report:
     chromosomes=2 at the split (replication initiated exactly once per
     cycle).
 
-    From the high-resolution parquet hive (dnaa0-6gen-multigen, snapshot
-    interval = 60 s, one record per simulated minute, 492 ticks):
+    From the clean full-series parquet hive (dnaa0-5gen-clean-2026-05-30,
+    5 generations laid out sequentially, ~20,150 ticks at 1 row/s, rendered
+    with the division-time emitter-partition fix so every generation
+    persists in full):
 
-      oriC count: reaches 4 during the gen-1 transient (≈9 ticks at 4),
-        then settles to periodic 1 ↔ 2 from gen 2/3 onwards.
-        Distribution over the whole trace: {1, 2, 4} — the 4 appears
-        ONLY in the early transient, exactly as the steady-state-
-        convergence picture predicts (overlapping cycles before the
-        lineage relaxes onto the periodic attractor).
-        ⚠ Correction (2026-05-30): an earlier draft of this result
-        claimed "NEVER 4", read off the coarser dnaa0_succinate_5gen
-        run that under-sampled the within-cycle oriC peaks. Rashmi's
-        review of the actual chart caught the transient 4 — the
-        corrected criterion is "periodic 1 ↔ 2 AT STEADY STATE
+      oriC count — the canonical transient → steady-state shape:
+        gen 1: {1, 2, 4}  (374 ticks at 4 — the early overshoot)
+        gen 2: {2}        (still relaxing)
+        gen 3: {1, 2}     periodic, NO 4   ← steady state
+        gen 4: {1, 2}     periodic, NO 4
+        gen 5: {1, 2}     periodic, NO 4
+        So oriC overshoots to 4 only during the gens-1–2 transient and
+        settles to periodic 1 ↔ 2 from generation 3 onwards — exactly the
+        pattern Rashmi described (2026-05-30). The chart now SHOWS this:
+        five generations sequential on a cumulative minutes axis with
+        generation separators + labels.
+        ⚠ Correction (2026-05-30): an earlier draft claimed "NEVER 4",
+        read off a coarser run that under-sampled the within-cycle oriC
+        peaks. The corrected criterion is "periodic 1 ↔ 2 AT STEADY STATE
         (gen 3+), transient overshoot to 4 allowed".
-      cell_mass range: 586 – 828 fg  (periodic, fluctuating ~1.4×)
+      cell_mass: periodic sawtooth, ~2× doubling per cycle from birth to
+        division across all five generations.
       DnaA monomer total: range 0 – 60  (low baseline; mean ≈ 12)
 
     The DnaA monomer baseline (mean ≈ 12, range 5–20) is exactly the

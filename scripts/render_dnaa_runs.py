@@ -41,50 +41,56 @@ import dill
 DNAA_MONOMER_INDEX = 3861
 
 
-def _load_history(run_dir: Path) -> pl.DataFrame:
-    # Match history parquet at ANY depth — run_condition_multigen_parquet
-    # writes <out_dir>/<experiment_id>/history/... so when run_dir is the
-    # out_dir the data is one level deeper than <run_dir>/history.
-    files = sorted(
-        (f for f in glob.glob(str(run_dir / "**" / "*.pq"), recursive=True)
-         if f"{os.sep}history{os.sep}" in f),
-        key=lambda p: int(p.rsplit("/", 1)[1].split(".")[0]),
-    )
-    if not files:
-        raise FileNotFoundError(f"no history pq files under {run_dir}")
-    df = pl.concat([pl.read_parquet(f) for f in files],
-                   how="diagonal_relaxed")
-    if "global_time" in df.columns:
-        df = df.sort("global_time")
-    return df
+def _load_history(run_dir: Path) -> tuple[pl.DataFrame, list[float], int]:
+    """Load the run's history with generations laid out SEQUENTIALLY in time.
 
+    ``global_time`` resets to 0 at the start of each generation (every gen is
+    a freshly-built composite resuming from the prior daughter), so a naive
+    concat-and-sort would stack all generations on the same 0–τ range and the
+    lineage would look like a single overlapping band. Instead, offset each
+    generation's ``global_time`` by the cumulative duration of the prior
+    generations, producing a monotonic lineage clock.
 
-def _generation_boundaries(run_dir: Path) -> tuple[list[float], int]:
-    """Division times (s) and generation count, from the parquet hive.
+    Matches history parquet at ANY depth — run_condition_multigen_parquet
+    writes ``<out_dir>/<experiment_id>/history/...``, so when ``run_dir`` is
+    the out_dir the data is one level deeper than ``<run_dir>/history``.
 
-    global_time is cumulative across the single-daughter lineage, so each
-    generation's boundary is the max global_time in its ``generation=N``
-    partition. We return all boundaries except the final generation's
-    (there is no division after the last followed daughter) — these feed
-    the viz's vertical separator lines + generation-number labels per
-    Rashmi's 2026-05-30 chart feedback.
+    Returns ``(df, boundaries, n_gens)``: ``df`` carries the cumulative
+    ``global_time``; ``boundaries`` are the cumulative generation-end times
+    (s), one per generation except the last — the viz draws the vertical
+    separator lines + generation-number labels from them (Rashmi's 2026-05-30
+    chart feedback).
     """
     files = [f for f in glob.glob(str(run_dir / "**" / "*.pq"), recursive=True)
              if f"{os.sep}history{os.sep}" in f]
-    gen_max: dict[int, float] = defaultdict(float)
+    if not files:
+        raise FileNotFoundError(f"no history pq files under {run_dir}")
+    by_gen: dict[int, list[str]] = defaultdict(list)
     for f in files:
         m = re.search(r"generation=(\d+)", f)
-        if not m:
-            continue
-        g = int(m.group(1))
-        d = pl.read_parquet(f, columns=["global_time"])
-        if d.height:
-            gen_max[g] = max(gen_max[g], float(d["global_time"].max()))
-    gens = sorted(gen_max)
-    if not gens:
-        return [], 0
-    boundaries = [gen_max[g] for g in gens[:-1]]
-    return boundaries, len(gens)
+        if m:
+            by_gen[int(m.group(1))].append(f)
+    gens = sorted(by_gen)
+    parts: list[pl.DataFrame] = []
+    boundaries: list[float] = []
+    offset = 0.0
+    for i, g in enumerate(gens):
+        gfiles = sorted(by_gen[g],
+                        key=lambda p: int(p.rsplit("/", 1)[1].split(".")[0]))
+        d = pl.concat([pl.read_parquet(f) for f in gfiles],
+                      how="diagonal_relaxed")
+        gmax = 0.0
+        if "global_time" in d.columns and d.height:
+            d = d.sort("global_time")
+            gmax = float(d["global_time"].max())
+            d = d.with_columns(
+                (pl.col("global_time") + offset).alias("global_time"))
+        parts.append(d)
+        offset += gmax
+        if i < len(gens) - 1:
+            boundaries.append(offset)  # cumulative end of this gen = boundary
+    df = pl.concat(parts, how="diagonal_relaxed")
+    return df, boundaries, len(gens)
 
 
 def _resolve_dnaa_indices(cache_dir: str) -> dict:
@@ -154,7 +160,7 @@ def _series_at_idx(df: pl.DataFrame, col: str, idx: int | None) -> list[float] |
 
 def render_dnaa0(run_dir: Path, cache_dir: str, out_path: Path,
                  title: str | None = None) -> int:
-    df = _load_history(run_dir)
+    df, div_times, n_gens = _load_history(run_dir)
     idx = _resolve_dnaa_indices(cache_dir)
 
     times = df["global_time"].to_list()
@@ -164,7 +170,6 @@ def render_dnaa0(run_dir: Path, cache_dir: str, out_path: Path,
         if "listeners__mass__cell_mass" in df.columns else []
     dnaa = _series_at_idx(df, "listeners__monomer_counts",
                           idx.get("dnaa_monomer_idx")) or []
-    div_times, n_gens = _generation_boundaries(run_dir)
 
     from v2ecoli.visualizations.dnaa_succinate import DnaaSteadyStateVisualization
     from v2ecoli.core import build_core
@@ -196,7 +201,7 @@ def render_dnaa0(run_dir: Path, cache_dir: str, out_path: Path,
 
 def render_dnaa1(run_dir: Path, cache_dir: str, out_path: Path,
                  title: str | None = None) -> int:
-    df = _load_history(run_dir)
+    df, div_times, n_gens = _load_history(run_dir)
     idx = _resolve_dnaa_indices(cache_dir)
 
     times = df["global_time"].to_list()
@@ -208,7 +213,6 @@ def render_dnaa1(run_dir: Path, cache_dir: str, out_path: Path,
                           idx.get("dnaa_mrna_tu_idx")) or []
     init_ev = _series_at_idx(df, "listeners__rnap_data__rna_init_event_per_cistron",
                              idx.get("dnaa_cistron_idx")) or []
-    div_times, n_gens = _generation_boundaries(run_dir)
 
     from v2ecoli.visualizations.dnaa_succinate import DnaaExpressionVisualization
     from v2ecoli.core import build_core

@@ -1,0 +1,61 @@
+name: millard2017_metabolism
+description: |
+  Standalone Millard et al. 2017 kinetic ODE of E. coli central carbon and energy
+  metabolism (BioModels MODEL1505110000), wrapped as a process-bigraph composite
+  via pbg-copasi's CopasiUTCProcess. The model has 77 species, 68 reactions, 3
+  compartments. Baseline composite for the v2ecoli-pdmp Phase 1 study
+  (pdmp-01-metabolism-ode); first investigation-side use of pbg-copasi.
+
+  Calibrated reference state (per Millard 2017 Fig 2): K-12 MG1655 on M9
+  minimal medium + glucose, dilution rate 0.1 h^-1, pH 7.0, 37C, pO2 > 20%.
+  Steady-state should match the published reference fluxes within solver
+  tolerance.
+tags: [pdmp, phase-1, metabolism, kinetic-ode, millard2017, pbg-copasi, sbml]
+
+requires:
+  # Emitter is intentionally NOT in this list — the workspace's
+  # runtime.default_emitter (xarray per investigation convention) is
+  # auto-attached by the dashboard run-runner. Explicitly wiring an
+  # emitter here would override the workspace default and lose the
+  # zarr-persistence Phase 0 requires.
+  processes: [CopasiUTCProcess]
+
+parameters:
+  model_source:
+    type: string
+    default: "v2ecoli/models/sbml/millard2017_central_metabolism.xml"
+    description: "Path to the Millard 2017 SBML (relative to workspace root)."
+  time:
+    type: float
+    default: 100.0
+    description: "Duration per process update in model time units (seconds)."
+  intervals:
+    type: int
+    default: 10
+    description: "Internal integration intervals per update."
+
+state:
+  copasi_utc_process:
+    _type: process
+    address: "local:CopasiUTCProcess"
+    config:
+      model_source: "${model_source}"
+      time: "${time}"
+      intervals: "${intervals}"
+    inputs:
+      species_concentrations: ["stores", "species_concentrations"]
+      species_counts: ["stores", "species_counts"]
+    outputs:
+      species_concentrations: ["stores", "species_concentrations"]
+      fluxes: ["stores", "fluxes"]
+      time: ["stores", "time"]
+    interval: "${time}"
+  stores:
+    species_concentrations: {}
+    species_counts: {}
+    fluxes: {}
+    time: []
+  # NOTE: no `emitter` block — workspace runtime.default_emitter (xarray)
+  # is injected automatically. The dashboard's run-runner will wire an
+  # XArrayEmitter pointing at a zarr store under .pbg/runs/<run_id>/store.zarr/
+  # so the full time series of species_concentrations + fluxes is persisted.

@@ -21,17 +21,30 @@ v2ecoli/processes/parca/**/*.cpython-*.so
 # study-test-results/, default-baseline/, …) so the dashboard's
 # dirty-tree gate stops blocking Install / Workstream Commit on its own
 # writes.
+.venv
 .pbg/
+# schemas under .pbg/schemas/ are source — keep them tracked
+!.pbg/schemas/
 **/runs.db
 **/runs.db-shm
 **/runs.db-wal
+investigations/*/runs.db
+investigations/*/.run.lock
 studies/*/sims/*.subprocess.py
 studies/*/sims/parquet-rerun-*/
 studies/*/viz/
 studies/*/parquet-runs/
 reports/
+# dashboard re-render targets (regenerated on demand by /api/render)
+reports/assets/*
+!reports/assets/.keep
 investigations/*/viz/
 .dashboard.log
+
+# Local git-worktree checkouts created under .claude/worktrees/ — these are
+# per-session working trees, never part of the repo (the previously-committed
+# departition-compare entry stays tracked; this only ignores new ones).
+.claude/worktrees/
 
 # Per-session agent notes (friction logs, overnight summaries, internal
 # observations meant for the pbg-superpowers improvement-cycle agent).

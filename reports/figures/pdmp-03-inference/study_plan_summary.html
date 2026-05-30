@@ -1,0 +1,73 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>Phase 3 — Inference Infrastructure: Likelihoods and Bayesian Interface — study plan summary</title>
+<style>
+body{font-family:system-ui;max-width:1280px;margin:1em auto;padding:0 1em;color:#0f172a}
+h1{font-size:1.5em;border-bottom:2px solid #e2e8f0;padding-bottom:0.4em}
+h2{font-size:1.2em;color:#1e40af;margin-top:1.8em}
+h3{font-size:1.0em;color:#334155;margin-top:1.3em}
+.meta{color:#64748b;font-size:0.9em;margin-top:-0.3em}
+.cap{color:#475569;font-size:0.94em;line-height:1.6}
+table{border-collapse:collapse;width:100%;margin:0.7em 0;font-size:0.9em}
+table th,table td{border:1px solid #e2e8f0;padding:7px 11px;text-align:left;vertical-align:top}
+table th{background:#f8fafc;color:#475569;font-size:0.85em;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+table tr:nth-child(even) td{background:#fcfcfd}
+code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:0.92em;color:#334155}
+.section{background:#fafbfc;border-left:4px solid #3b82f6;padding:0.5em 1em;margin:1em 0}
+.section h2{margin-top:0.5em}
+.dim{color:#94a3b8;font-style:italic;font-size:0.92em}
+.gantt{font-family:ui-monospace,monospace;font-size:0.83em;color:#475569;background:#fafbfc;padding:9px 13px;border-radius:6px;overflow-x:auto;white-space:pre}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:6px 14px;margin:0.5em 0}
+.kv .k{color:#64748b;font-size:0.85em}
+.kv .v{color:#0f172a}
+</style></head>
+<body>
+<h1>Phase 3 — Inference Infrastructure: Likelihoods and Bayesian Interface</h1>
+<p class='meta'>pdmp-03-inference</p>
+
+
+    <div class='kv'>
+      <span class='k'>Phase</span><span class='v'>Design</span>
+      <span class='k'>Status</span><span class='v'><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></span>
+      <span class='k'>Depends on</span><span class='v'><code>pdmp-02-jump-processes</code></span>
+      <span class='k'>Enables</span><span class='v'><code>pdmp-05-causal-discovery</code></span>
+      <span class='k'># planned runs</span><span class='v'>4</span>
+      <span class='k'># readouts</span><span class='v'>4</span>
+      <span class='k'># tests (predictions)</span><span class='v'>9</span>
+      <span class='k'># variants</span><span class='v'>5</span>
+    </div>
+
+<div class='section'>
+<h2>Simulation plan</h2>
+<p class='cap'>Planned + completed runs for this study, in execution order. [##] = ran/completed; [--] = planned; [!!] = blocked.</p>
+<div class='gantt'>[--]  likelihood-dispersion-fit                   n_steps=(MLE)     status=planned
+[--]  accumulator-numerical-stability             n_steps=10000     status=planned
+[--]  abc-smc-synthetic-recovery                  n_steps=(SMC)     status=planned
+[--]  sbc-K1000-validation                        n_steps=1000      status=planned</div>
+<h3>Per-run detail</h3>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>n_steps</th><th>details</th></tr></thead><tbody><tr><td>likelihood-dispersion-fit</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>(MLE)</code></td><td>fit per-modality dispersion + CIs on held-out calibration data</td></tr><tr><td>accumulator-numerical-stability</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>10000</code></td><td>10⁴ test runs; zero underflows required</td></tr><tr><td>abc-smc-synthetic-recovery</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>(SMC)</code></td><td>ABC-SMC on synthetic data with known parameters; test posterior recovery + ESS + acceptance rate</td></tr><tr><td>sbc-K1000-validation</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>1000</code></td><td>SBC pipeline; rank-histogram χ² uniformity (p &gt; 0.05) + 90% CI ≥ 85% coverage (gating)</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Readouts — what we measure</h2>
+<p class='cap'>The observables this study captures + the on-disk path where they land.</p>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>path</th><th>units</th><th>notes</th></tr></thead><tbody><tr><td><code>likelihood-dispersion-fits</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/likelihood_fits.csv</code></td><td>MLE +/- 95% CI</td><td>Per modality: NegBin phi (RNA-seq), log-normal sigma (proteomics), normal-on-log sigma_mu (growth), per-metabolite sigma (metabolomics).</td></tr><tr><td><code>log-likelihood-accumulator</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>.pbg/runs/&lt;id&gt;/log_likelihood.zarr</code></td><td>log-likelihood units</td><td>Time-series of incremental log-L contributions from ODE segments + jump events. Required: zero underflows over 10^4 test runs.</td></tr><tr><td><code>abc-smc-posterior</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>.pbg/runs/&lt;id&gt;/posterior_particles.zarr</code></td><td>particle samples + weights</td><td>ABC-SMC convergence trace: ESS, proposal acceptance rate, epsilon-decay schedule per SMC step.</td></tr><tr><td><code>sbc-rank-histogram</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/sbc_ranks.csv</code></td><td>rank in [0, K]</td><td>K=1000 SBC draws. Gating: chi^2 uniformity p &gt; 0.05 + 90% CI coverage &gt;= 85% empirical.</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Tests — what passes / fails</h2>
+<p class='cap'>The structured predictions this study evaluates. Each test maps to a measurement + a decision criterion.</p>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>given</th><th>prediction (en)</th></tr></thead><tbody><tr><td><code>likelihoods-per-modality</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>rna-seq AND proteomics AND growth AND metabolomics</td><td>Each measurement modality has a documented observation likelihood (neg-binom, log-normal, normal-on-log-growth, normal/log-normal) with explicit dispersion / noise parameters and references to the calibration literature.</td></tr><tr><td><code>accumulator-runs-alongside-pdmp</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-segment AND per-jump</td><td>The likelihood accumulator computes log-likelihood contributions from ODE segments (continuous-measurement likelihoods) and jump events (discrete-event likelihoods) incrementally during a single PDMP run.</td></tr><tr><td><code>observe-intervene-effects</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>pdmp-runner</td><td>The Vivarium runner supports observe(variable, likelihood) and intervene(variable, value) as first-class algebraic effects, with the same surface area as ChiRho&#x27;s primitives.</td></tr><tr><td><code>abc-posterior-recovery-on-synthetic</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>synthetic-truth-data</td><td>On synthetic data generated from known parameters, ABC-SMC recovers posteriors that cover the ground truth at the published credible level using summary statistics: growth rate, mean mRNA/protein abundances, metabolite concentrations. (Gati</td></tr><tr><td><code>uq-likelihood-dispersion-fit-with-ci</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-modality</td><td>Per-modality dispersion / noise parameters (NegBin φ for RNA-seq, σ for log-normal proteomics, σ_μ for growth, per-metabolite σ for metabolomics) are MLE-fit on calibration data and reported with 95% bootstrap CIs.</td></tr><tr><td><code>uq-accumulator-numerical-stability</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>full-run</td><td>Log-likelihood accumulation maintains log-space throughout; no underflows recorded across N=10⁴ test runs. log-sum-exp shift used in all mixture terms. Pairwise/Kahan summation in population reductions; result invariant to trajectory orderi</td></tr><tr><td><code>uq-abc-ess-and-acceptance</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-smc-iteration</td><td>ABC-SMC reports posterior ESS and proposal acceptance rate at every SMC step; runs are terminated cleanly when ESS falls below 0.5·N (resample) or wall-clock cap is hit. No silent degeneracy.</td></tr><tr><td><code>uq-sbc-coverage</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>K1000-sbc-draws</td><td>Simulation-Based Calibration (K=1000): rank histogram passes χ² uniformity test (p &gt; 0.05); 90% credible intervals achieve ≥85% empirical coverage. Hard requirement before claiming &quot;inference-ready&quot; for Phase 5.</td></tr><tr><td><code>uq-mahalanobis-distance-justified</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>abc-distance-function</td><td>Mahalanobis distance uses the empirical summary-statistic covariance from N≥200 PDMP runs at the prior mean. Condition number of the covariance reported; if κ &gt; 10⁶ the summary vector is reduced (drop near-collinear summaries).</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Variants — planned configurations</h2>
+<p class='cap'>Distinct parameterisations / perturbations to be run.</p>
+<table class='ut'><thead><tr><th>name</th><th>description</th><th>params</th></tr></thead><tbody><tr><td><code>likelihood-library-4-modalities</code></td><td>Per-modality observation likelihoods: NegBin(μ,φ) RNA-seq, log-normal proteomics, normal-on-log-growth, normal/log-normal metabolomics. φ MLE&#x27;d on held-out calibration data with 95% bootstrap CIs.</td><td><code>{&#x27;modalities&#x27;: [&#x27;rna-seq&#x27;, &#x27;proteomics&#x27;, &#x27;growth&#x27;, &#x27;metabolomics&#x27;]}</code></td></tr><tr><td><code>likelihood-accumulator</code></td><td>Incremental log-likelihood accumulator running alongside the PDMP, log-sum-exp for mixtures, pairwise/Kahan summation for cross-cell population reductions.</td><td><code>{&#x27;underflow_protection&#x27;: &#x27;log-space + log-sum-exp&#x27;}</code></td></tr><tr><td><code>observe-intervene-effects</code></td><td>Vivarium algebraic-effect extensions: observe(variable, likelihood) and intervene(variable, value) — the ChiRho primitives, lifted into Vivarium&#x27;s discrete-event runtime.</td><td><code>{&#x27;effect_runtime&#x27;: &#x27;vivarium-algebraic-effects&#x27;}</code></td></tr><tr><td><code>abc-smc-baseline</code></td><td>ABC-SMC as the baseline inference engine: adaptive ε-decay at q=0.5 of previous-population distance, N=1000 particles, terminate on ESS &lt; 0.5·N or wall-clock cap.</td><td><code>{&#x27;n_particles&#x27;: 1000, &#x27;epsilon_schedule&#x27;: &#x27;adaptive-quantile&#x27;}</code></td></tr><tr><td><code>sbc-validation-K1000</code></td><td>Simulation-Based Calibration (Talts 2018): K=1000 synthetic (θ*, y*) draws from prior + forward model, verify uniformity of rank histogram and 90% CI empirical coverage ≥ 85%.</td><td><code>{&#x27;K&#x27;: 1000, &#x27;n_bins&#x27;: 20, &#x27;ci_coverage_target&#x27;: 0.85}</code></td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Proceed condition (gate to next phase)</h2>
+<p class='cap' style='white-space:pre-wrap'>Likelihood library covers all 4 modalities (RNA-seq, proteomics, growth, metabolomics) with dispersion CIs. Log-likelihood accumulator runs alongside the PDMP with zero underflows over 10⁴ test runs. ABC-SMC posterior recovery: SBC rank-histogram passes χ² uniformity (p &gt; 0.05), 90% credible intervals achieve ≥85% empirical coverage.</p>
+</div>
+
+</body></html>

@@ -62,6 +62,15 @@ EMIT_PATHS = [
     "listeners.likelihood.transcript_init",
     "listeners.likelihood.polypeptide_init",
     "listeners.likelihood.total",
+    # Sprint-12 count observables — total events per tick on each
+    # initiation channel. The ABC-correct distance lives here:
+    # SSE between proposed and observed count timeseries reflects the
+    # actual jump-process realization, not the self-calibrated model
+    # log-likelihood. `total_rna_init` lives under rna_synth_prob (a
+    # quirk of how TranscriptInitiation emits; sprint 1 documented
+    # this) and `did_initialize` lives under ribosome_data.
+    "listeners.rna_synth_prob.total_rna_init",
+    "listeners.ribosome_data.did_initialize",
     # Reference observables for cross-comparison with Phase 2's
     # cell_mass-based ensemble validation.
     "listeners.mass.cell_mass",

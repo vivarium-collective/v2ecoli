@@ -50,13 +50,28 @@ molecules, not the dry-vs-water basis (still 55× against total cell mass), and
 not multiply-counting. The net mass crossing the boundary is ~55× the actual
 cell-mass change every tick.
 
-Most likely cause: a **units / timestep basis mismatch** in metabolism's
-``delta_nutrients`` (FBA exchange fluxes are ``mmol/g/h``; the
-flux→count→``environment.exchange`` conversion may not be on the same per-global-
-tick basis as Δmass). Next experiment: confirm the dt/dry-weight basis of
-``delta_nutrients`` vs the global tick, and check that ``environment.exchange``
-equals the bulk metabolite delta actually applied to the cell. Until then,
-keep the check opt-in.
+Root cause (pinpointed in ``metabolism.py``): ``environment.exchange`` is on a
+**flux basis, not a per-tick-amount basis**. The internal bulk delta uses the
+FBA's integrated per-tick concentration *change*:
+
+    delta_metabolites = (1/counts_to_molar) · (CONC_UNITS · output_molecule_changes)   # metabolism.py:550
+
+but the environment exchange uses the raw exchange *flux* without the
+``coefficient`` (g·s/L) integration applied a line above it for the GDCW basis:
+
+    converted_exchange_fluxes = (exchange_fluxes / coefficient)...                      # :563  (has coefficient)
+    delta_nutrients = (1/counts_to_molar) · exchange_fluxes  ... .astype(int)           # :564  (no coefficient!)
+
+So ``delta_nutrients`` (→ ``environment.exchange``, what this Step sums) is a
+flux, ~55× the actual per-tick boundary amount — hence the residual.
+
+Fix options (each needs validation, its own change): (a) drive the check off a
+per-tick-consistent exchange amount — i.e. ``delta_nutrients`` computed on the
+same coefficient-integrated basis as ``delta_metabolites`` (this may be a real
+metabolism exchange-accounting inconsistency worth fixing at the source, with an
+upstream-parity check per AGENTS.md); or (b) have metabolism emit a dedicated
+per-tick ``exchange_counts`` listener for the checker to consume. Until one
+lands, keep the check opt-in.
 """
 
 import warnings

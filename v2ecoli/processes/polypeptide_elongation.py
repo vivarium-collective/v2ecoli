@@ -398,41 +398,54 @@ class PolypeptideElongation(PartitionedProcess):
             }
         )
 
-    def calculate_request(self, timestep, states):
+    def _init_bulk_indices(self, bulk_ids):
+        """Resolve every molecule-name -> bulk-array-index map this process uses.
+
+        Called once, on the first tick, when the bulk store's id ordering is
+        first available. Cached on ``self`` (guarded by ``self.proton_idx is
+        None``) so it never runs on the per-tick hot path.
         """
-        Set ribosome elongation rate based on simulation medium environment and elongation rate factor
-        which is used to create single-cell variability in growth rate
-        The maximum number of amino acids that can be elongated in a single timestep is set to 22
-        intentionally as the minimum number of padding values on the protein sequence matrix is set to 22.
-        If timesteps longer than 1.0s are used, this feature will lead to errors in the effective ribosome
+        self.proton_idx = bulk_name_to_idx(self.proton, bulk_ids)
+        self.water_idx = bulk_name_to_idx(self.water, bulk_ids)
+        self.rela_idx = bulk_name_to_idx(self.rela, bulk_ids)
+        self.spot_idx = bulk_name_to_idx(self.spot, bulk_ids)
+        self.ppgpp_idx = bulk_name_to_idx(self.ppgpp, bulk_ids)
+        self.monomer_idx = bulk_name_to_idx(self.proteinIds, bulk_ids)
+        self.amino_acid_idx = bulk_name_to_idx(self.amino_acids, bulk_ids)
+        self.aa_enzyme_idx = bulk_name_to_idx(self.aa_enzymes, bulk_ids)
+        self.ppgpp_rxn_metabolites_idx = bulk_name_to_idx(
+            self.ppgpp_reaction_metabolites, bulk_ids
+        )
+        self.uncharged_trna_idx = bulk_name_to_idx(self.uncharged_trna_names, bulk_ids)
+        self.charged_trna_idx = bulk_name_to_idx(self.charged_trna_names, bulk_ids)
+        self.charging_molecule_idx = bulk_name_to_idx(
+            self.charging_molecule_names, bulk_ids
+        )
+        self.synthetase_idx = bulk_name_to_idx(self.synthetase_names, bulk_ids)
+        self.ribosome30S_idx = bulk_name_to_idx(self.ribosome30S, bulk_ids)
+        self.ribosome50S_idx = bulk_name_to_idx(self.ribosome50S, bulk_ids)
+        self.aa_importer_idx = bulk_name_to_idx(self.aa_importers, bulk_ids)
+        self.aa_exporter_idx = bulk_name_to_idx(self.aa_exporters, bulk_ids)
+
+    def calculate_request(self, timestep, states):
+        """Phase 1 of the partitioned step: REQUEST resources for this tick.
+
+        Computes the ribosome elongation rate (model-specific, possibly ppGpp- or
+        tRNA-charging-modulated), builds the per-ribosome amino-acid sequences for
+        the coming timestep, and from them requests the amino acids (and, for the
+        charging model, tRNAs/ATP) needed to elongate. The partitioner then
+        allocates the cell's actual pools against all processes' requests; the
+        granted counts arrive in ``evolve_state``.
+
+        Elongation is capped at 22 aa/tick: the protein-sequence matrix is padded
+        with 22 PAD_VALUEs, so timesteps > 1.0 s would under-count the effective
         elongation rate.
         """
 
+        # One-time, on the first tick once the bulk layout is known: resolve the
+        # molecule-name -> bulk-array-index maps used throughout request/evolve.
         if self.proton_idx is None:
-            bulk_ids = states["bulk"]["id"]
-            self.proton_idx = bulk_name_to_idx(self.proton, bulk_ids)
-            self.water_idx = bulk_name_to_idx(self.water, bulk_ids)
-            self.rela_idx = bulk_name_to_idx(self.rela, bulk_ids)
-            self.spot_idx = bulk_name_to_idx(self.spot, bulk_ids)
-            self.ppgpp_idx = bulk_name_to_idx(self.ppgpp, bulk_ids)
-            self.monomer_idx = bulk_name_to_idx(self.proteinIds, bulk_ids)
-            self.amino_acid_idx = bulk_name_to_idx(self.amino_acids, bulk_ids)
-            self.aa_enzyme_idx = bulk_name_to_idx(self.aa_enzymes, bulk_ids)
-            self.ppgpp_rxn_metabolites_idx = bulk_name_to_idx(
-                self.ppgpp_reaction_metabolites, bulk_ids
-            )
-            self.uncharged_trna_idx = bulk_name_to_idx(
-                self.uncharged_trna_names, bulk_ids
-            )
-            self.charged_trna_idx = bulk_name_to_idx(self.charged_trna_names, bulk_ids)
-            self.charging_molecule_idx = bulk_name_to_idx(
-                self.charging_molecule_names, bulk_ids
-            )
-            self.synthetase_idx = bulk_name_to_idx(self.synthetase_names, bulk_ids)
-            self.ribosome30S_idx = bulk_name_to_idx(self.ribosome30S, bulk_ids)
-            self.ribosome50S_idx = bulk_name_to_idx(self.ribosome50S, bulk_ids)
-            self.aa_importer_idx = bulk_name_to_idx(self.aa_importers, bulk_ids)
-            self.aa_exporter_idx = bulk_name_to_idx(self.aa_exporters, bulk_ids)
+            self._init_bulk_indices(states["bulk"]["id"])
 
         # MODEL SPECIFIC: get ribosome elongation rate
         self.ribosomeElongationRate = self.elongation_model.elongation_rate(states)
@@ -511,13 +524,19 @@ class PolypeptideElongation(PartitionedProcess):
         return requests
 
     def evolve_state(self, timestep, states):
-        """
-        Set ribosome elongation rate based on simulation medium environment and elongation rate factor
-        which is used to create single-cell variability in growth rate
-        The maximum number of amino acids that can be elongated in a single timestep is set to 22
-        intentionally as the minimum number of padding values on the protein sequence matrix is set to 22.
-        If timesteps longer than 1.0s are used, this feature will lead to errors in the effective ribosome
-        elongation rate.
+        """Phase 2 of the partitioned step: EVOLVE under the allocated resources.
+
+        Runs the ``polymerize`` algorithm over the per-ribosome sequences using
+        the amino acids the partitioner actually granted (model-specific
+        ``final_amino_acids``), then applies the universal ribosome mechanics:
+        advance each ribosome's peptide length and mRNA position by the elongation
+        it achieved, add the incorporated amino-acid mass, terminate ribosomes that
+        reached the end of their protein (dissociating them into 30S/50S subunits
+        and releasing the finished monomer), and report GTP to hydrolyze. The
+        model-specific ``evolve`` then settles tRNA charging / ppGpp / AA supply,
+        and the results are written to the growth_limits and ribosome_data
+        listeners (incl. the effective elongation rate read by
+        polypeptide_initiation next tick).
         """
 
         update = {

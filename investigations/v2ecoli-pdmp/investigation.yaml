@@ -2,7 +2,16 @@ schema_version: 2
 name: v2ecoli-pdmp
 title: v2ecoli → PDMP Whole-Cell Model Reformulation
 created: '2026-05-24'
-status: planning
+status: in_progress
+# Phase 1 closed via PR #72 (merged 2026-05-30 as 3af8bb5): MillardPDMPMetabolism
+# Process, JAX/Diffrax backend wired (in-WCM debug pending, task #20),
+# consumption_matched ref-growth driver closing the cell_mass + dry_mass W₂
+# gap to Phase-0 ensemble within ±σ at t=600 s on M9-glucose. Investigation
+# resumes off main with Phase 2 (discrete-time → continuous-time jump
+# processes for transcription / translation / replication) as the next
+# acceptance gate; tracking issues #14 (pbg wiring quirk) and #20 (in-WCM
+# JAX failure) remain open from Phase 1.
+phase: 2
 question: 'Can v2ecoli''s hybrid algorithmic whole-cell model be incrementally
 
   transformed into a piecewise-deterministic Markov process (PDMP)

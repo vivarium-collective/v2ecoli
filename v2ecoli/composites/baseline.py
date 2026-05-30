@@ -130,9 +130,19 @@ FEATURE_MODULES = {
         'insert_before': 'ecoli-transcript-elongation_requester',
         'steps': ['trna-attenuation-config'],
     },
+    # Opt-in runtime mass-conservation check. Runs after the mass listener
+    # (dry_mass) and metabolism (environment.exchange). OFF by default: the
+    # residual is not yet calibrated (the exchange molecule set / water basis
+    # need reconciling), so on a healthy run it currently reports a large
+    # residual and would warn every tick. Enable per investigation with
+    # features=['mass_conservation'] to surface the signal.
+    'mass_conservation': {
+        'insert_after': 'ecoli-mass-listener',
+        'steps': ['ecoli-mass-conservation'],
+    },
 }
 
-DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation disabled to match v1 default
+DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation + mass_conservation off by default
 
 
 def build_execution_layers(features=None):

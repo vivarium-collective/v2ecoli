@@ -945,6 +945,32 @@ def _get_special_step(loader, step_name, core):
         instance = _make_instance(UniqueUpdate, config, core)
         return instance, unique_topo_v1, 'step'
 
+    if step_name == 'ecoli-mass-conservation':
+        from v2ecoli.steps.listeners.mass_conservation import MassConservationListener
+        from v2ecoli.types.quantity import ureg as units
+        # Per-molecule masses (fg/count) of the metabolic exchange molecules,
+        # keyed by their environment name (compartment-stripped), so the
+        # listener can convert per-tick exchange counts into a mass.
+        exchange_masses = {}
+        try:
+            from v2ecoli.library.unit_bridge import unum_to_pint
+            from v2ecoli.library.config_resolver import resolve_config
+            # resolve_config realizes the method specs (get_masses) into callables.
+            met_cfg = resolve_config(loader.get_config_by_name('ecoli-metabolism'))
+            exchange_molecules = list(met_cfg['exchange_molecules'])
+            mws = unum_to_pint(met_cfg['get_masses'](exchange_molecules))
+            n_avogadro = 6.02214076e23  # molecules / mol
+            for mol, mw in zip(exchange_molecules, mws):
+                g_per_molecule = mw.to(units.g / units.mol).magnitude / n_avogadro
+                exchange_masses[mol[:-3]] = (g_per_molecule * units.g).to(units.fg)
+        except Exception:
+            # Listener still runs (residual == Δdry_mass) if masses are
+            # unavailable; better an observable signal than a build failure.
+            exchange_masses = {}
+        config = {'exchange_masses': exchange_masses, 'tolerance': 1.0e-2}
+        instance = _make_instance(MassConservationListener, config, core)
+        return instance, instance.topology, 'step'
+
     if step_name == 'global_clock':
         from v2ecoli.steps.global_clock import GlobalClock
         instance = GlobalClock(config={}, core=core)

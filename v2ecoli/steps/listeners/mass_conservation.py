@@ -29,6 +29,17 @@ conservation expectation in AGENTS.md check #4).
 Sign convention: ``environment.exchange[name]`` is the count added to the
 *environment* this tick (FBA convention: secretion positive, uptake negative),
 so the mass entering the *cell* is ``-Σ count·mass``.
+
+STATUS — opt-in, not yet calibrated. Wired as the ``mass_conservation``
+feature module (OFF by default). On a healthy baseline run the residual is
+currently large (net exchange ≫ Δdry_mass), most likely because (a) the
+``environment.exchange`` molecule set (from ``fba.getExternalMoleculeIDs()``)
+does not fully match the ``exchange_molecules``-derived mass map, so secretion
+terms (CO2/acetate) are dropped and the "net" inflates toward gross uptake, and
+(b) the dry-mass basis vs water/total-mass exchange needs reconciling.
+Calibrating so a healthy run sits near zero — match the exact emitted exchange
+molecule set, decide the dry-vs-total basis — is the next step before enabling
+by default. The residual is always emitted (observable) regardless.
 """
 
 import warnings

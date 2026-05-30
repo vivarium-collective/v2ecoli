@@ -52,6 +52,35 @@ def _git(*args: str) -> str:
         return ""
 
 
+def _git_dirty() -> bool:
+    """True iff there are uncommitted edits to *tracked* files.
+
+    ``git status --porcelain`` reports untracked files too — but newly-
+    written report HTML, ``.venv`` symlinks, scratch logs, etc. show up
+    there even on an otherwise pristine checkout. Use ``git diff --quiet``
+    against HEAD (covers both staged and unstaged), which ignores
+    untracked entirely.
+    """
+    # Refresh the index so stat-only diffs (mtime updates without content
+    # changes — common after a fresh checkout) don't false-trigger.
+    try:
+        subprocess.run(
+            ["git", "update-index", "--refresh"],
+            cwd=REPO_ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    except Exception:
+        pass
+    try:
+        rc = subprocess.call(
+            ["git", "diff", "--quiet", "HEAD", "--"],
+            cwd=REPO_ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        )
+        return rc != 0
+    except Exception:
+        return False
+
+
 def collect_provenance(extra: dict | None = None) -> dict:
     """Collect identifying metadata about this run for the report header.
 
@@ -63,7 +92,7 @@ def collect_provenance(extra: dict | None = None) -> dict:
     sha = _git("rev-parse", "HEAD")
     short = sha[:8] if sha else ""
     branch = _git("rev-parse", "--abbrev-ref", "HEAD")
-    dirty = bool(_git("status", "--porcelain"))
+    dirty = _git_dirty()
     last_msg = _git("log", "-1", "--format=%s")
     last_author = _git("log", "-1", "--format=%an")
     last_when = _git("log", "-1", "--format=%ai")

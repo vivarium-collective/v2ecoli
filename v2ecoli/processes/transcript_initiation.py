@@ -215,6 +215,13 @@ class TranscriptInitiation(Step):
         # branch treats each promoter as an independent jump process,
         # which is what Phase 3's likelihood machinery integrates over.
         'pdmp_initiation_mode': {'_type': 'string', '_default': 'discrete'},
+        # Phase-3 sprint-7 ABC-SMC knob. In poisson mode, multiplies
+        # the per-promoter initiation rate by this scalar BEFORE
+        # drawing Poisson samples. Default 1.0 reproduces the
+        # unperturbed sampler; sweeping {0.7, 0.85, 1.0, 1.15, 1.3}
+        # generates ensembles at distinguishable parameter values
+        # for the ABC-SMC stub script.
+        'transcript_init_prob_scale': {'_type': 'float', '_default': 1.0},
         'synth_prob': {'_type': 'array[float]', '_default': None},
         'transcription_direction': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'trna_attenuation': {'_type': 'boolean', '_default': False},
@@ -345,6 +352,12 @@ class TranscriptInitiation(Step):
 
         self.pdmp_initiation_mode = str(
             self.parameters.get("pdmp_initiation_mode", "discrete"))
+        self.transcript_init_prob_scale = float(
+            self.parameters.get("transcript_init_prob_scale", 1.0))
+        if self.transcript_init_prob_scale <= 0:
+            raise ValueError(
+                f"transcript_init_prob_scale must be > 0; got "
+                f"{self.transcript_init_prob_scale!r}")
         if self.pdmp_initiation_mode not in ("discrete", "poisson"):
             raise ValueError(
                 f"pdmp_initiation_mode must be 'discrete' or 'poisson'; "
@@ -632,7 +645,9 @@ class TranscriptInitiation(Step):
             #     λ_i · dt = n_RNAPs_to_activate · p_i
             # which is the same expected count as the multinomial mode but
             # with Poisson (independent) marginals.
-            poisson_means = n_RNAPs_to_activate * self.promoter_init_probs
+            poisson_means = (self.transcript_init_prob_scale
+                             * n_RNAPs_to_activate
+                             * self.promoter_init_probs)
             n_initiations = self.random_state.poisson(poisson_means).astype(np.int64)
             # Hard cap: total activations cannot exceed the *actual*
             # inactive-RNAP pool (the resource constraint). Capping at

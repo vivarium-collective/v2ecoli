@@ -69,8 +69,11 @@ EMIT_PATHS = [
 ]
 
 
-def run_one(seed: int, duration_s: int, chunk: int = 30) -> dict:
-    out_dir = OUT_ROOT / f"seed_{seed:02d}"
+def run_one(seed: int, duration_s: int, chunk: int = 30,
+            transcript_scale: float = 1.0,
+            out_root: Path | None = None) -> dict:
+    root = out_root or OUT_ROOT
+    out_dir = root / f"seed_{seed:02d}"
     out_dir.mkdir(parents=True, exist_ok=True)
     store_path = out_dir / "store.zarr"
     if store_path.exists():
@@ -85,10 +88,11 @@ def run_one(seed: int, duration_s: int, chunk: int = 30) -> dict:
         ref_growth_flux_source="consumption_matched",
         transcript_initiation_mode="poisson",
         polypeptide_initiation_mode="poisson",
+        transcript_init_prob_scale=transcript_scale,
     )
     view = view_from_emit_paths(EMIT_PATHS, include_vectors=False)
     metadata_base = {
-        "experiment_id": f"pdmp-03-likelihood-seed{seed:02d}",
+        "experiment_id": f"pdmp-03-scale{transcript_scale:.3f}-seed{seed:02d}",
         "variant": 0,
         "lineage_seed": seed,
         "time_step": 1.0,

@@ -390,6 +390,7 @@ def _get_step_config(
     ref_growth_feedback_tau_s: float | None = None,
     ref_growth_feedback_period_ticks: int | None = None,
     transcript_initiation_mode: str | None = None,
+    transcript_init_prob_scale: float | None = None,
     polypeptide_initiation_mode: str | None = None,
 ):
     from v2ecoli.processes.equilibrium import Equilibrium
@@ -560,6 +561,13 @@ def _get_step_config(
         and base_name == 'ecoli-transcript-initiation'
     ):
         config["pdmp_initiation_mode"] = transcript_initiation_mode
+    if (
+        transcript_init_prob_scale is not None
+        and isinstance(config, dict)
+        and base_name == 'ecoli-transcript-initiation'
+    ):
+        config["transcript_init_prob_scale"] = float(
+            transcript_init_prob_scale)
     if (
         polypeptide_initiation_mode
         and isinstance(config, dict)
@@ -767,6 +775,18 @@ def _register_millard_pdmp_links(core):
                 "Bypasses the EMA when > 1 (one knob at a time)."
             ),
         },
+        "transcript_init_prob_scale": {
+            "type": "number", "default": 1.0,
+            "description": (
+                "Phase-3 sprint-7 ABC-SMC knob. In poisson mode, "
+                "multiplies the per-promoter initiation rate by this "
+                "scalar before sampling. Default 1.0 reproduces the "
+                "unperturbed sampler; values away from 1.0 produce "
+                "ensembles at distinguishable parameter settings for "
+                "the ABC-SMC inference stub. Only effective when "
+                "transcript_initiation_mode='poisson'."
+            ),
+        },
     },
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
     core_extensions=[_register_millard_pdmp_links],
@@ -784,6 +804,7 @@ def millard_pdmp_baseline(
     polypeptide_initiation_mode: str = "discrete",
     ref_growth_feedback_tau_s: float = 1.0,
     ref_growth_feedback_period_ticks: int = 1,
+    transcript_init_prob_scale: float = 1.0,
 ) -> dict:
     """Build the process-bigraph state document for the Millard-PDMP baseline."""
     if core is None:
@@ -917,6 +938,7 @@ def millard_pdmp_baseline(
             ref_growth_feedback_tau_s=ref_growth_feedback_tau_s,
             ref_growth_feedback_period_ticks=ref_growth_feedback_period_ticks,
             transcript_initiation_mode=transcript_initiation_mode,
+            transcript_init_prob_scale=transcript_init_prob_scale,
             polypeptide_initiation_mode=polypeptide_initiation_mode,
         )
         if config is not None:

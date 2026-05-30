@@ -69,7 +69,8 @@ def _generation_boundaries(run_dir: Path) -> tuple[list[float], int]:
     the viz's vertical separator lines + generation-number labels per
     Rashmi's 2026-05-30 chart feedback.
     """
-    files = glob.glob(str(run_dir / "history" / "**" / "*.pq"), recursive=True)
+    files = [f for f in glob.glob(str(run_dir / "**" / "*.pq"), recursive=True)
+             if f"{os.sep}history{os.sep}" in f]
     gen_max: dict[int, float] = defaultdict(float)
     for f in files:
         m = re.search(r"generation=(\d+)", f)

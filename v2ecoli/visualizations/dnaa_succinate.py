@@ -700,99 +700,106 @@ class DnaaChromosomeMapVisualization(Visualization):
                 "No chromosome snapshots. Wire fork_coordinates + "
                 "active_rnap_coordinates from the run."))}
 
-        # unit-circle backbone
-        ring_x, ring_y = [], []
-        for k in range(0, 361, 4):
-            a = math.radians(k)
-            ring_x.append(math.cos(a)); ring_y.append(math.sin(a))
+        def _one_circle_traces(forks, rnaps):
+            """Trace list for ONE chromosome circle at origin (radius 1).
+            Backbone + replication bubbles (one green arc per fork pair,
+            from a fork through oriC to its partner, inset + nested for
+            multifork, with radial tethers) + RNAP/replisome/oriC/Ter."""
+            ring_x, ring_y = [], []
+            for k in range(0, 361, 5):
+                a = math.radians(k)
+                ring_x.append(math.cos(a)); ring_y.append(math.sin(a))
+            tr = [{"type": "scatter", "mode": "lines", "x": ring_x, "y": ring_y,
+                   "line": {"color": "#cbd5e1", "width": 1.5},
+                   "hoverinfo": "skip", "showlegend": False}]
+            sf = sorted(forks); npr = len(sf) // 2
+            prs = [(sf[i], sf[-1 - i]) for i in range(npr)]
+            prs.sort(key=lambda p: -(abs(p[0]) + abs(p[1])) / 2.0)
+            ins = ([0.80] * npr if npr <= 1
+                   else [0.82 - 0.34 * j / (npr - 1) for j in range(npr)])
+            for (f_lo, f_hi), r_b in zip(prs, ins):
+                a_hi = math.radians(90.0 - (f_hi / half) * 180.0)
+                a_lo = math.radians(90.0 - (f_lo / half) * 180.0)
+                bx, by = [], []
+                for k in range(81):
+                    a = a_hi + (a_lo - a_hi) * k / 80.0
+                    bx.append(r_b * math.cos(a)); by.append(r_b * math.sin(a))
+                tr.append({"type": "scatter", "mode": "lines", "x": bx, "y": by,
+                           "line": {"color": "#10b981", "width": 4}, "opacity": 0.65,
+                           "hoverinfo": "skip", "showlegend": False})
+                for f in (f_lo, f_hi):
+                    a = math.radians(90.0 - (f / half) * 180.0)
+                    tr.append({"type": "scatter", "mode": "lines",
+                               "x": [r_b * math.cos(a), math.cos(a)],
+                               "y": [r_b * math.sin(a), math.sin(a)],
+                               "line": {"color": "#10b981", "width": 1}, "opacity": 0.4,
+                               "hoverinfo": "skip", "showlegend": False})
+            rxs = [self._xy(c, half)[0] for c in rnaps]
+            rys = [self._xy(c, half)[1] for c in rnaps]
+            fxs = [self._xy(c, half)[0] for c in forks]
+            fys = [self._xy(c, half)[1] for c in forks]
+            ox, oy = self._xy(0.0, half); tx, ty = self._xy(half, half)
+            tr += [
+                {"type": "scatter", "mode": "markers", "x": rxs, "y": rys,
+                 "marker": {"color": "#2563eb", "size": 4, "opacity": 0.55},
+                 "hoverinfo": "skip", "showlegend": False},
+                {"type": "scatter", "mode": "markers", "x": fxs, "y": fys,
+                 "marker": {"color": "#f59e0b", "size": 11, "symbol": "triangle-up",
+                            "line": {"color": "#b45309", "width": 1}},
+                 "hoverinfo": "skip", "showlegend": False},
+                {"type": "scatter", "mode": "markers", "x": [ox], "y": [oy],
+                 "marker": {"color": "#16a34a", "size": 14},
+                 "hoverinfo": "skip", "showlegend": False},
+                {"type": "scatter", "mode": "markers", "x": [tx], "y": [ty],
+                 "marker": {"color": "#dc2626", "size": 11, "symbol": "square"},
+                 "hoverinfo": "skip", "showlegend": False},
+            ]
+            return tr
 
         divs = []
         for s in snaps:
             forks = s.get("forks") or []
             rnaps = s.get("rnaps") or []
-            ori_x, ori_y = self._xy(0.0, half)
-            ter_x, ter_y = self._xy(half, half)  # f=1 → bottom
-            fxs = [self._xy(c, half)[0] for c in forks]
-            fys = [self._xy(c, half)[1] for c in forks]
-            rxs = [self._xy(c, half)[0] for c in rnaps]
-            rys = [self._xy(c, half)[1] for c in rnaps]
-
-            # Replication bubbles (ported from v1 _draw_replication_bubbles):
-            # each fork pair → a green arc tracing the newly-replicated daughter
-            # strand from one fork through oriC (top) to its partner, at an
-            # inset radius (nested + shrinking for multifork rounds), with thin
-            # radial connectors tethering the bubble to the rim at each fork.
+            n_chr = max(1, int(s.get("n_chr", 1) or 1))
+            npr = len(sorted(forks)) // 2
+            # One full_chromosome → one circle. Distribute each fork pair (and
+            # its two forks) and the RNAPs across the chromosomes, so after
+            # termination the cell shows TWO chromosomes — each able to carry
+            # its own replication bubble if it has re-initiated.
             sf = sorted(forks)
-            n_pairs = len(sf) // 2
-            pairs = [(sf[i], sf[-1 - i]) for i in range(n_pairs)]
-            pairs.sort(key=lambda p: -(abs(p[0]) + abs(p[1])) / 2.0)  # outermost first
-            if n_pairs <= 1:
-                insets = [0.80] * n_pairs
-            else:
-                insets = [0.82 - 0.34 * j / (n_pairs - 1) for j in range(n_pairs)]
-            bubble_traces = []
-            for (f_lo, f_hi), r_b in zip(pairs, insets):
-                a_hi = math.radians(90.0 - (f_hi / half) * 180.0)  # f_hi>0 → <90
-                a_lo = math.radians(90.0 - (f_lo / half) * 180.0)  # f_lo<0 → >90
-                bx, by = [], []
-                for k in range(81):
-                    a = a_hi + (a_lo - a_hi) * k / 80.0  # arc through oriC (top)
-                    bx.append(r_b * math.cos(a)); by.append(r_b * math.sin(a))
-                bubble_traces.append(
-                    {"type": "scatter", "mode": "lines", "x": bx, "y": by,
-                     "line": {"color": "#10b981", "width": 4}, "opacity": 0.65,
-                     "hoverinfo": "skip", "showlegend": False})
-                for f in (f_lo, f_hi):
-                    a = math.radians(90.0 - (f / half) * 180.0)
-                    bubble_traces.append(
-                        {"type": "scatter", "mode": "lines",
-                         "x": [r_b * math.cos(a), math.cos(a)],
-                         "y": [r_b * math.sin(a), math.sin(a)],
-                         "line": {"color": "#10b981", "width": 1}, "opacity": 0.4,
-                         "hoverinfo": "skip", "showlegend": False})
+            fork_pairs = [(sf[i], sf[-1 - i]) for i in range(npr)]
+            per_forks = [[] for _ in range(n_chr)]
+            for pi, (lo, hi) in enumerate(fork_pairs):
+                per_forks[pi % n_chr].extend([lo, hi])
+            per_rnaps = [rnaps[i::n_chr] for i in range(n_chr)]
 
-            traces = [
-                {"type": "scatter", "mode": "lines", "x": ring_x, "y": ring_y,
-                 "line": {"color": "#cbd5e1", "width": 1.5}, "hoverinfo": "skip",
-                 "showlegend": False},
-            ] + bubble_traces + [
-                {"type": "scatter", "mode": "markers", "x": rxs, "y": rys,
-                 "marker": {"color": "#2563eb", "size": 4, "opacity": 0.55},
-                 "name": f"RNAP ({len(rnaps)})", "hoverinfo": "skip",
-                 "showlegend": False},
-                {"type": "scatter", "mode": "markers", "x": fxs, "y": fys,
-                 "marker": {"color": "#f59e0b", "size": 12,
-                            "symbol": "triangle-up",
-                            "line": {"color": "#b45309", "width": 1}},
-                 "name": f"replisome ({len(forks)})", "hoverinfo": "skip",
-                 "showlegend": False},
-                {"type": "scatter", "mode": "markers", "x": [ori_x], "y": [ori_y],
-                 "marker": {"color": "#16a34a", "size": 16},
-                 "name": "oriC", "hoverinfo": "skip", "showlegend": False},
-                {"type": "scatter", "mode": "markers", "x": [ter_x], "y": [ter_y],
-                 "marker": {"color": "#dc2626", "size": 12, "symbol": "square"},
-                 "name": "Ter", "hoverinfo": "skip", "showlegend": False},
-            ]
-            layout = {
-                "title": {"text": f"t = {s.get('t_min', 0):.0f} min "
-                                  f"({int(s.get('n_chr', 1))} chr · "
-                                  f"{len(forks)//2 if forks else 0} fork pair)",
-                          "font": {"size": 12}},
-                "xaxis": {"visible": False, "range": [-1.25, 1.25],
-                          "scaleanchor": "y", "scaleratio": 1},
-                "yaxis": {"visible": False, "range": [-1.25, 1.25]},
-                "margin": {"l": 6, "r": 6, "t": 30, "b": 6},
-                "showlegend": False, "plot_bgcolor": "#ffffff",
-            }
-            data_json = json.dumps(traces)
-            layout_json = json.dumps(layout)
-            div_id = f"chrmap-{s.get('t_min', 0):.0f}"
+            size = 230 if n_chr == 1 else max(120, int(230 / n_chr))
+            circle_divs = []
+            for i in range(n_chr):
+                traces = _one_circle_traces(per_forks[i], per_rnaps[i])
+                layout = {
+                    "xaxis": {"visible": False, "range": [-1.18, 1.18],
+                              "scaleanchor": "y", "scaleratio": 1},
+                    "yaxis": {"visible": False, "range": [-1.18, 1.18]},
+                    "margin": {"l": 2, "r": 2, "t": 2, "b": 2},
+                    "showlegend": False, "plot_bgcolor": "#ffffff",
+                }
+                cid = f"chrmap-{s.get('t_min', 0):.0f}-{i}"
+                circle_divs.append(
+                    f'<div id="{escape(cid)}" style="display:inline-block;'
+                    f'width:{size}px;height:{size}px"></div>'
+                    f'<script>Plotly.newPlot("{escape(cid)}", '
+                    f'{json.dumps(traces)}, {json.dumps(layout)}, '
+                    f'{{responsive:true, displayModeBar:false}});</script>')
+            title = (f"t = {s.get('t_min', 0):.0f} min · {n_chr} chromosome"
+                     f"{'s' if n_chr != 1 else ''} · "
+                     f"{npr} fork pair{'s' if npr != 1 else ''}")
             divs.append(
-                f'<div style="display:inline-block;width:250px;height:270px;'
-                f'vertical-align:top">'
-                f'<div id="{escape(div_id)}" style="width:100%;height:100%"></div>'
-                f'<script>Plotly.newPlot("{escape(div_id)}", {data_json}, '
-                f'{layout_json}, {{responsive:true, displayModeBar:false}});</script>'
+                f'<div style="display:inline-block;vertical-align:top;'
+                f'text-align:center;margin:0 6px">'
+                f'<div style="font-weight:600;font-size:12px;color:#334155;'
+                f'margin-bottom:2px">{escape(title)}</div>'
+                f'<div style="white-space:nowrap">{"".join(circle_divs)}</div>'
                 f'</div>')
 
         legend = (

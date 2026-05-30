@@ -70,13 +70,19 @@ DNTP_BULK_IDS = ("DATP[c]", "DGTP[c]", "DCTP[c]", "TTP[c]")
 # feedback controller emit *negative* injection to drain over-production.
 BYPRODUCT_BULK_IDS = ("AMP[c]", "PPI[c]", "ADP[c]")
 
-# Water tracking — kFBA reference grows cell water by ~138 fg over 600 s of
-# M9-glucose (cell_mass grows 1274.5 → 1461.85 fg, dry_mass grows 388.93
-# → 438.84 fg, balance is water). At 18 Da per water, that's ~7.7×10⁶
-# H2O molecules per second of net production. With the same
-# consumption_matched feedback as the AAs/NTPs, this keeps cell-mass
-# trajectory in step with dry-mass trajectory (otherwise dry_mass
-# converges to Phase-0 but cell_mass undershoots by the missing water).
+# Water tracking — the kFBA reference grows cell water by ~138 fg over 600 s
+# of M9-glucose (cell_mass grows 1274.5 → 1461.85 fg, dry_mass grows 388.93
+# → 438.84 fg, balance is water). At 18 Da per water that's ~7.7×10⁶ H2O
+# molecules per second of net production. The driver injects water at this
+# rate via the same consumption_matched feedback as the AAs / NTPs, so that
+# cell_mass tracks dry_mass; without water injection cell_mass undershoots
+# by exactly the missing growth.
+#
+# The rate now lives in ``.pbg/runs/kfba-precursor-fluxes.json`` next to
+# the AAs/NTPs/dNTPs — sampled by ``scripts/sample_kfba_precursor_fluxes.py``
+# from a live baseline trajectory rather than hardcoded. ``WATER_RATE_PER_S``
+# below stays as a fallback when the JSON doesn't include ``WATER[c]`` (back-
+# compat with pre-water sampler runs).
 WATER_BULK_IDS = ("WATER[c]",)
 WATER_RATE_PER_S = 7.7e6
 
@@ -186,10 +192,13 @@ class RefGrowthDriver(Step):
                 continue
             if self.flux_source in ("measured_kfba", "consumption_matched"):
                 rate = self._measured_rates_by_id.get(vid, 0.0)
-                # WATER isn't in the kfba-precursor-fluxes JSON (the
-                # sampler script only walked the AA/NTP/dNTP list).
-                # Inject the hardcoded Phase-0 water-growth rate for it.
-                if vid in WATER_BULK_IDS:
+                # Water — prefer the rate from the kFBA fluxes JSON (the
+                # sampler in scripts/sample_kfba_precursor_fluxes.py now
+                # walks WATER[c] alongside the AAs / NTPs). Fall back to
+                # the in-source ``WATER_RATE_PER_S`` constant when the JSON
+                # predates the water column (back-compat with pre-water
+                # sampler runs).
+                if vid in WATER_BULK_IDS and rate <= 0.0:
                     rate = WATER_RATE_PER_S
                 if self.flux_source == "measured_kfba" and rate <= 0.0:
                     # measured_kfba mode skips non-positive rates entirely.

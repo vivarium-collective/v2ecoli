@@ -296,7 +296,7 @@ class PolypeptideElongation(PartitionedProcess):
                 },
                 'ribosome_data': {
                     # Read by polypeptide_initiation next timestep
-                    'effective_elongation_rate': {'_type': 'overwrite[float[aa/s]]', '_default': 0.0},
+                    'effective_elongation_rate': {'_type': 'overwrite[quantity[float,amino_acid/s]]', '_default': 0.0},
                     'translation_supply': {'_type': 'overwrite[array[float]]', '_default': []},
                     'aa_count_in_sequence': {'_type': 'overwrite[array[integer]]', '_default': []},
                     'aa_counts': {'_type': 'overwrite[array[float]]', '_default': []},
@@ -499,7 +499,7 @@ class PolypeptideElongation(PartitionedProcess):
                         'ntp_used': {'_type': 'overwrite[array[integer]]', '_default': []},
                     },
                     'ribosome_data':                     {
-                        'effective_elongation_rate': {'_type': 'overwrite[float[aa/s]]', '_default': 0.0},
+                        'effective_elongation_rate': {'_type': 'overwrite[quantity[float,amino_acid/s]]', '_default': 0.0},
                         'translation_supply': {'_type': 'overwrite[array[float]]', '_default': []},
                         'aa_count_in_sequence': {'_type': 'overwrite[array[integer]]', '_default': []},
                         'aa_counts': {'_type': 'overwrite[array[float]]', '_default': []},
@@ -800,7 +800,12 @@ class PolypeptideElongation(PartitionedProcess):
         update["listeners"]["growth_limits"]["aa_count_diff"] = aa_count_diff
 
         ribosome_data_listener = update["listeners"].setdefault("ribosome_data", {})
-        ribosome_data_listener["effective_elongation_rate"] = currElongRate
+        # Emit as a pint Quantity[amino_acid/s] so the unit travels through the
+        # store and serialization (read back by polypeptide_initiation, and
+        # serialized to {units, magnitude} columns by the emitter).
+        ribosome_data_listener["effective_elongation_rate"] = (
+            currElongRate * units.amino_acid / units.s
+        )
         ribosome_data_listener["aa_count_in_sequence"] = aaCountInSequence
         ribosome_data_listener["aa_counts"] = aa_counts_for_translation
         ribosome_data_listener["actual_elongations"] = sequence_elongations.sum()

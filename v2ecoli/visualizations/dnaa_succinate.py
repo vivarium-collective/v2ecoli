@@ -94,6 +94,18 @@ def _trace(name: str, x: Sequence[float], y: Sequence[float],
     }
 
 
+_SEC_PER_MIN = 60.0
+
+
+def _to_minutes(runs: list[list[float]]) -> list[list[float]]:
+    """Convert per-run time axes from seconds to minutes (Rashmi 2026-05-30:
+    'mark the x axis time in minutes')."""
+    out: list[list[float]] = []
+    for run in runs:
+        out.append([(_num(t) or 0.0) / _SEC_PER_MIN for t in (run or [])])
+    return out
+
+
 def _generation_shapes(division_times: Sequence[float] | None) -> list[dict]:
     """Vertical dashed lines at each division time (generation boundary)."""
     if not division_times:
@@ -111,6 +123,33 @@ def _generation_shapes(division_times: Sequence[float] | None) -> list[dict]:
             "opacity": 0.6, "layer": "below",
         })
     return out
+
+
+def _generation_annotations(division_times: Sequence[float] | None,
+                            x_max: float | None) -> list[dict]:
+    """'gen 1', 'gen 2', ... labels centered in each inter-division span
+    (Rashmi 2026-05-30: 'label the number of generations'). division_times
+    are the generation boundaries; the span [0, first], [first, second], …,
+    [last, x_max] is one generation each."""
+    if not division_times or x_max is None:
+        return []
+    edges: list[float] = [0.0]
+    for t in division_times:
+        try:
+            edges.append(float(t))
+        except (TypeError, ValueError):
+            continue
+    edges.append(float(x_max))
+    anns: list[dict] = []
+    for k in range(len(edges) - 1):
+        mid = (edges[k] + edges[k + 1]) / 2.0
+        anns.append({
+            "xref": "x", "yref": "paper", "x": mid, "y": 1.0,
+            "yanchor": "bottom", "showarrow": False,
+            "text": f"gen {k + 1}",
+            "font": {"size": 10, "color": "#64748b"},
+        })
+    return anns
 
 
 def _plotly_div(div_id: str, traces: list[dict], layout: dict) -> str:
@@ -191,12 +230,15 @@ class DnaaSteadyStateVisualization(Visualization):
         oric_runs = _to_runs(state.get("oric_count"))
         mass_runs = _to_runs(state.get("cell_mass"))
         dnaa_runs = _to_runs(state.get("dnaa_monomer_total"))
-        time_runs = _to_runs(state.get("time"))
+        time_runs = _to_minutes(_to_runs(state.get("time")))  # x axis in minutes
         div_times = state.get("division_times") or []
         # division_times may be a flat list (single run) or per-run; flatten the
         # single-run case for the shapes overlay
         if div_times and isinstance(div_times[0], (list, tuple)):
             div_times = div_times[0] if div_times else []
+        # boundaries arrive in seconds; render in minutes to match the x axis
+        div_times = [(_num(t) or 0.0) / 60.0 for t in div_times]
+        x_max = max((max(r) for r in time_runs if r), default=None)
 
         n_runs = max(len(oric_runs), len(mass_runs), len(dnaa_runs), 0)
         if n_runs == 0:
@@ -211,6 +253,7 @@ class DnaaSteadyStateVisualization(Visualization):
 
         run_labels = _coerce_labels(state.get("_run_labels"), n_runs)
         shapes = _generation_shapes(div_times)
+        gen_anns = _generation_annotations(div_times, x_max)
 
         # --- Panel 1: oriC count -------------------------------------------
         oric_traces: list[dict] = []
@@ -221,11 +264,14 @@ class DnaaSteadyStateVisualization(Visualization):
             oric_traces.append(_trace(run_labels[i], xs, ys, color=color))
 
         oric_layout = {
-            "title": {"text": "(1) oriC count — should oscillate 1 ↔ 2 (never 4)"},
-            "xaxis": {"title": "time (s)"},
-            "yaxis": {"title": "oriC count", "rangemode": "tozero"},
+            "title": {"text": "(1) oriC count — periodic 1 ↔ 2 at steady state "
+                              "(transient may reach 4 before gen 3)"},
+            "xaxis": {"title": "time (min)"},
+            "yaxis": {"title": "oriC count (copies)", "rangemode": "tozero",
+                      "dtick": 1},
             "shapes": shapes,
-            "margin": {"l": 60, "r": 20, "t": 36, "b": 40},
+            "annotations": gen_anns,
+            "margin": {"l": 60, "r": 20, "t": 48, "b": 40},
         }
 
         # --- Panel 2: cell mass -------------------------------------------
@@ -237,11 +283,12 @@ class DnaaSteadyStateVisualization(Visualization):
             mass_traces.append(_trace(run_labels[i], xs, ys, color=color))
 
         mass_layout = {
-            "title": {"text": "(2) cell mass (fg) — sawtooth periodic from gen-3 onwards"},
-            "xaxis": {"title": "time (s)"},
+            "title": {"text": "(2) cell mass — sawtooth periodic from gen-3 onwards"},
+            "xaxis": {"title": "time (min)"},
             "yaxis": {"title": "cell mass (fg)"},
             "shapes": shapes,
-            "margin": {"l": 60, "r": 20, "t": 36, "b": 40},
+            "annotations": gen_anns,
+            "margin": {"l": 60, "r": 20, "t": 48, "b": 40},
         }
 
         # --- Panel 3: DnaA monomer total ----------------------------------
@@ -262,10 +309,11 @@ class DnaaSteadyStateVisualization(Visualization):
         dnaa_layout = {
             "title": {"text": f"(3) DnaA monomer count — band [{int(band_low)}, "
                               f"{int(band_high)}] shaded"},
-            "xaxis": {"title": "time (s)"},
-            "yaxis": {"title": "count"},
+            "xaxis": {"title": "time (min)"},
+            "yaxis": {"title": "DnaA monomer (count)"},
             "shapes": dnaa_shapes,
-            "margin": {"l": 60, "r": 20, "t": 36, "b": 40},
+            "annotations": gen_anns,
+            "margin": {"l": 60, "r": 20, "t": 48, "b": 40},
         }
 
         body = (
@@ -323,14 +371,18 @@ class DnaaExpressionVisualization(Visualization):
         band_low = float(self.config.get("dnaa_band_low", 300.0))
         band_high = float(self.config.get("dnaa_band_high", 800.0))
 
+        band_target_rate = float(self.config.get("target_init_rate_per_min", 1.5))
+
         mono_runs = _to_runs(state.get("dnaa_monomer_total"))
         mass_runs = _to_runs(state.get("cell_mass"))
         mrna_runs = _to_runs(state.get("dnaa_mrna_count"))
         init_runs = _to_runs(state.get("dnaa_init_events"))
-        time_runs = _to_runs(state.get("time"))
+        time_runs = _to_minutes(_to_runs(state.get("time")))  # x axis in minutes
         div_times = state.get("division_times") or []
         if div_times and isinstance(div_times[0], (list, tuple)):
             div_times = div_times[0] if div_times else []
+        div_times = [(_num(t) or 0.0) / 60.0 for t in div_times]
+        x_max = max((max(r) for r in time_runs if r), default=None)
 
         n_runs = max(len(mono_runs), len(mass_runs), len(mrna_runs),
                      len(init_runs), 0)
@@ -348,6 +400,7 @@ class DnaaExpressionVisualization(Visualization):
 
         run_labels = _coerce_labels(state.get("_run_labels"), n_runs)
         shapes = _generation_shapes(div_times)
+        gen_anns = _generation_annotations(div_times, x_max)
 
         # --- Panel 1: DnaA monomer count (band-shaded) --------------------
         mono_traces = []
@@ -365,10 +418,11 @@ class DnaaExpressionVisualization(Visualization):
         mono_layout = {
             "title": {"text": f"(1) DnaA monomer count — band [{int(band_low)}, "
                               f"{int(band_high)}] shaded"},
-            "xaxis": {"title": "time (s)"},
-            "yaxis": {"title": "count"},
+            "xaxis": {"title": "time (min)"},
+            "yaxis": {"title": "DnaA monomer (count)"},
             "shapes": mono_shapes,
-            "margin": {"l": 60, "r": 20, "t": 36, "b": 40},
+            "annotations": gen_anns,
+            "margin": {"l": 60, "r": 20, "t": 48, "b": 40},
         }
 
         # --- Panel 2: DnaA concentration (count / cell_mass) --------------
@@ -385,11 +439,12 @@ class DnaaExpressionVisualization(Visualization):
             conc_traces.append(_trace(run_labels[i], xs, ys,
                                        color=_PALETTE[i % len(_PALETTE)]))
         conc_layout = {
-            "title": {"text": "(2) DnaA concentration (count / cell_mass, per fg)"},
-            "xaxis": {"title": "time (s)"},
-            "yaxis": {"title": "DnaA / cell_mass (fg⁻¹)"},
+            "title": {"text": "(2) DnaA concentration (count / cell mass)"},
+            "xaxis": {"title": "time (min)"},
+            "yaxis": {"title": "DnaA / cell mass (count · fg⁻¹)"},
             "shapes": shapes,
-            "margin": {"l": 60, "r": 20, "t": 36, "b": 40},
+            "annotations": gen_anns,
+            "margin": {"l": 60, "r": 20, "t": 48, "b": 40},
         }
 
         # --- Panel 3: dnaA mRNA count ------------------------------------
@@ -402,10 +457,11 @@ class DnaaExpressionVisualization(Visualization):
                                        mode="lines+markers"))
         mrna_layout = {
             "title": {"text": "(3) dnaA mRNA count"},
-            "xaxis": {"title": "time (s)"},
-            "yaxis": {"title": "count", "rangemode": "tozero"},
+            "xaxis": {"title": "time (min)"},
+            "yaxis": {"title": "dnaA mRNA (count)", "rangemode": "tozero"},
             "shapes": shapes,
-            "margin": {"l": 60, "r": 20, "t": 36, "b": 40},
+            "annotations": gen_anns,
+            "margin": {"l": 60, "r": 20, "t": 48, "b": 40},
         }
 
         # --- Panel 4: dnaA mRNA initiation events ------------------------
@@ -415,12 +471,25 @@ class DnaaExpressionVisualization(Visualization):
             xs = _times_for(init_runs, time_runs, i)
             init_traces.append(_trace(run_labels[i], xs, ys,
                                        color=_PALETTE[i % len(_PALETTE)]))
+        # Rashmi 2026-05-30: the PDF target is the biologically-expected dnaA
+        # RNA-synthesis RATE; Mechanism A V=2e-3 landed ~1.01 events/min, close
+        # to expectation, which in turn put the DnaA pool in band. Draw the
+        # target rate as a reference line so the chart reads as a rate check.
+        init_shapes = list(shapes) + [
+            {"type": "line", "xref": "paper", "yref": "y", "x0": 0, "x1": 1,
+             "y0": band_target_rate, "y1": band_target_rate,
+             "line": {"color": "#dc2626", "width": 1, "dash": "dot"},
+             "opacity": 0.7, "layer": "below"},
+        ]
         init_layout = {
-            "title": {"text": "(4) dnaA mRNA initiation events (per tick)"},
-            "xaxis": {"title": "time (s)"},
-            "yaxis": {"title": "init events", "rangemode": "tozero"},
-            "shapes": shapes,
-            "margin": {"l": 60, "r": 20, "t": 36, "b": 40},
+            "title": {"text": f"(4) dnaA mRNA initiation events — target "
+                              f"≈ {band_target_rate:g} event/min (biological rate)"},
+            "xaxis": {"title": "time (min)"},
+            "yaxis": {"title": "dnaA init events (per emit window)",
+                      "rangemode": "tozero"},
+            "shapes": init_shapes,
+            "annotations": gen_anns,
+            "margin": {"l": 60, "r": 20, "t": 48, "b": 40},
         }
 
         body = (

@@ -21,7 +21,9 @@ from __future__ import annotations
 import argparse
 import glob
 import os
+import re
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -40,8 +42,12 @@ DNAA_MONOMER_INDEX = 3861
 
 
 def _load_history(run_dir: Path) -> pl.DataFrame:
+    # Match history parquet at ANY depth — run_condition_multigen_parquet
+    # writes <out_dir>/<experiment_id>/history/... so when run_dir is the
+    # out_dir the data is one level deeper than <run_dir>/history.
     files = sorted(
-        glob.glob(str(run_dir / "history" / "**" / "*.pq"), recursive=True),
+        (f for f in glob.glob(str(run_dir / "**" / "*.pq"), recursive=True)
+         if f"{os.sep}history{os.sep}" in f),
         key=lambda p: int(p.rsplit("/", 1)[1].split(".")[0]),
     )
     if not files:
@@ -51,6 +57,33 @@ def _load_history(run_dir: Path) -> pl.DataFrame:
     if "global_time" in df.columns:
         df = df.sort("global_time")
     return df
+
+
+def _generation_boundaries(run_dir: Path) -> tuple[list[float], int]:
+    """Division times (s) and generation count, from the parquet hive.
+
+    global_time is cumulative across the single-daughter lineage, so each
+    generation's boundary is the max global_time in its ``generation=N``
+    partition. We return all boundaries except the final generation's
+    (there is no division after the last followed daughter) — these feed
+    the viz's vertical separator lines + generation-number labels per
+    Rashmi's 2026-05-30 chart feedback.
+    """
+    files = glob.glob(str(run_dir / "history" / "**" / "*.pq"), recursive=True)
+    gen_max: dict[int, float] = defaultdict(float)
+    for f in files:
+        m = re.search(r"generation=(\d+)", f)
+        if not m:
+            continue
+        g = int(m.group(1))
+        d = pl.read_parquet(f, columns=["global_time"])
+        if d.height:
+            gen_max[g] = max(gen_max[g], float(d["global_time"].max()))
+    gens = sorted(gen_max)
+    if not gens:
+        return [], 0
+    boundaries = [gen_max[g] for g in gens[:-1]]
+    return boundaries, len(gens)
 
 
 def _resolve_dnaa_indices(cache_dir: str) -> dict:
@@ -77,17 +110,26 @@ def _resolve_dnaa_indices(cache_dir: str) -> dict:
                     break
         except Exception:
             pass
-    # cistron index for rnap_data.rna_init_event_per_cistron
+    # cistron index for rnap_data.rna_init_event_per_cistron — the index
+    # space is the rnap_data_listener's `cistron_ids` list (NOT a structured
+    # cistron_data table, which is None in the succinate caches). dnaA's
+    # cistron id is "EG10235_RNA" (substring match on the gene id EG10235).
     try:
-        cistron_data = cache["configs"]["ecoli-transcript-initiation"].get("cistron_data")
-        if cistron_data is None:
-            # alt path
-            cistron_data = cache["configs"].get("rnap_data_listener", {}).get("cistron_data")
-        if cistron_data is not None:
-            for i, gid in enumerate(cistron_data["gene_id"]):
-                if str(gid) == "EG10235":  # dnaA gene id
+        rdl = cache["configs"].get("rnap_data_listener", {})
+        cistron_ids = rdl.get("cistron_ids")
+        if cistron_ids is not None:
+            for i, cid in enumerate(cistron_ids):
+                if "EG10235" in str(cid):  # dnaA cistron (EG10235_RNA)
                     out["dnaa_cistron_idx"] = i
                     break
+        # legacy fallback: structured cistron_data with a gene_id field
+        if "dnaa_cistron_idx" not in out:
+            cistron_data = cache["configs"]["ecoli-transcript-initiation"].get("cistron_data")
+            if cistron_data is not None:
+                for i, gid in enumerate(cistron_data["gene_id"]):
+                    if str(gid) == "EG10235":
+                        out["dnaa_cistron_idx"] = i
+                        break
     except Exception:
         pass
     return out
@@ -121,6 +163,7 @@ def render_dnaa0(run_dir: Path, cache_dir: str, out_path: Path,
         if "listeners__mass__cell_mass" in df.columns else []
     dnaa = _series_at_idx(df, "listeners__monomer_counts",
                           idx.get("dnaa_monomer_idx")) or []
+    div_times, n_gens = _generation_boundaries(run_dir)
 
     from v2ecoli.visualizations.dnaa_succinate import DnaaSteadyStateVisualization
     from v2ecoli.core import build_core
@@ -136,7 +179,8 @@ def render_dnaa0(run_dir: Path, cache_dir: str, out_path: Path,
         "cell_mass":          mass,
         "dnaa_monomer_total": dnaa,
         "time":               times,
-        "_run_labels":        ["dnaa-0 succinate 6-gen"],
+        "division_times":     div_times,
+        "_run_labels":        [f"dnaa-0 succinate {n_gens}-gen"],
     }
     result = viz.update(state)
     html = result.get("html", "")
@@ -163,6 +207,7 @@ def render_dnaa1(run_dir: Path, cache_dir: str, out_path: Path,
                           idx.get("dnaa_mrna_tu_idx")) or []
     init_ev = _series_at_idx(df, "listeners__rnap_data__rna_init_event_per_cistron",
                              idx.get("dnaa_cistron_idx")) or []
+    div_times, n_gens = _generation_boundaries(run_dir)
 
     from v2ecoli.visualizations.dnaa_succinate import DnaaExpressionVisualization
     from v2ecoli.core import build_core
@@ -179,7 +224,8 @@ def render_dnaa1(run_dir: Path, cache_dir: str, out_path: Path,
         "dnaa_mrna_count":    mrna,
         "dnaa_init_events":   init_ev,
         "time":               times,
-        "_run_labels":        ["dnaa-1 Mechanism A 7-gen"],
+        "division_times":     div_times,
+        "_run_labels":        [f"dnaa-1 Mechanism A {n_gens}-gen"],
     }
     result = viz.update(state)
     html = result.get("html", "")

@@ -214,9 +214,49 @@ class Division(V2Step):
             d1_seed = (self._seed + 1) % (2**31)
             d2_seed = (self._seed + 2) % (2**31)
 
-            def _build_daughter_doc(d_data, seed):
-                doc = baseline(
-                    core=self.core, seed=seed, cache_dir=self._cache_dir)
+            def _build_daughter_doc(d_data, seed, daughter_id):
+                # When a parquet-emitter override is active, the daughter's
+                # emitter would otherwise inherit the PARENT's static partition
+                # metadata (generation, agent_id) from the global override, and
+                # its _write_configuration (run in __init__) would DELETE the
+                # parent's fully-written history partition at division — the
+                # parent emits its whole life to generation=N/agent_id=<id>, the
+                # daughter spawns on the SAME path and wipes it, leaving only
+                # the daughter's birth rows. Re-point the override to the
+                # daughter's OWN slot (generation=len(id), agent_id=id) for the
+                # duration of the build so the daughter partitions to
+                # generation=N+1/agent_id=<id>0/<id>1 and never touches the
+                # parent's data. The next runner-driven generation re-wipes and
+                # rewrites that daughter slot cleanly.
+                from v2ecoli.composites import _helpers as _emit_helpers
+                import copy as _copy
+                _saved = _emit_helpers._PARQUET_EMITTER_OVERRIDE
+                if _saved is not None:
+                    _ovr = _copy.deepcopy(_saved)
+                    _meta = _ovr.setdefault('metadata', {})
+                    # Derive the daughter slot from the PARENT's override
+                    # metadata (which the runner sets per generation), NOT from
+                    # self.agent_id — inside a composite the cell is always the
+                    # 'agents/0' key, so self.agent_id is "0" for every runner
+                    # generation. Using it gives generation=2/agent_id=00 for
+                    # ALL gens, which collides with (and wipes) runner gen 2.
+                    # Parent slot generation=N/agent_id=P → daughters
+                    # generation=N+1/agent_id=P0|P1, matching the next
+                    # runner-driven generation's own partition.
+                    _parent_aid = str(_meta.get('agent_id', self.agent_id))
+                    _parent_gen = _meta.get('generation')
+                    if _parent_gen is None:
+                        _parent_gen = len(_parent_aid)
+                    _suffix = daughter_id[len(str(self.agent_id)):] or '0'
+                    _meta['agent_id'] = _parent_aid + _suffix
+                    _meta['generation'] = int(_parent_gen) + 1
+                    _emit_helpers.set_parquet_emitter_override(_ovr)
+                try:
+                    doc = baseline(
+                        core=self.core, seed=seed, cache_dir=self._cache_dir)
+                finally:
+                    if _saved is not None:
+                        _emit_helpers.set_parquet_emitter_override(_saved)
                 agent = doc['state']['agents']['0']
                 for key in ('bulk', 'unique', 'environment', 'boundary'):
                     if key in d_data:
@@ -225,8 +265,8 @@ class Division(V2Step):
                 seed_mass_listener(agent, self.core)
                 return doc
 
-            d1_doc = _build_daughter_doc(d1_data, d1_seed)
-            d2_doc = _build_daughter_doc(d2_data, d2_seed)
+            d1_doc = _build_daughter_doc(d1_data, d1_seed, d1_id)
+            d2_doc = _build_daughter_doc(d2_data, d2_seed, d2_id)
 
             d1_cell = d1_doc['state']['agents']['0']
             d2_cell = d2_doc['state']['agents']['0']

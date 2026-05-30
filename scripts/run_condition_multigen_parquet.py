@@ -119,6 +119,15 @@ def main() -> None:
     ap.add_argument("--dill-dir", default=None,
                     help="Optional dir to dump per-gen daughter dills "
                          "(default: out/<experiment-id>/gen_dills)")
+    ap.add_argument("--resume-dill", default=None,
+                    help="Resume the lineage from a previously-dumped "
+                         "gen{N}.dill instead of cold-starting gen 1 from "
+                         "the cache. The dill is divided to seed this run's "
+                         "first generation. Used by dnaa-1 to start from "
+                         "dnaa-0's saved succinate steady-state init.")
+    ap.add_argument("--start-gen", type=int, default=1,
+                    help="Generation index (and agent_id length) for the "
+                         "first gen of THIS run. Default 1.")
     args = ap.parse_args()
 
     max_duration = int(args.max_min * 60)
@@ -151,7 +160,21 @@ def main() -> None:
     summary = []
     prev_cell_data = None
 
-    for gen_idx in range(1, args.generations + 1):
+    # Resume mode: seed prev_cell_data from a saved dill so the first gen of
+    # this run is a daughter of that state (divide path), not a cold cache
+    # start. dnaa-1 uses this to resume from dnaa-0's saved gen-3 succinate
+    # steady-state init while running under the Mechanism-A cache.
+    if args.resume_dill:
+        with open(args.resume_dill, "rb") as f:
+            prev_cell_data = dill.load(f)
+        try:
+            from v2ecoli.library.unit_bridge import rebind_cache_quantities  # noqa
+        except ImportError:
+            pass
+        print(f"  resume_dill:  {args.resume_dill} "
+              f"(first gen seeded from this state)")
+
+    for gen_idx in range(args.start_gen, args.start_gen + args.generations):
         agent_id = "0" * gen_idx
         gen_label = f"gen {gen_idx} (agent_id={agent_id})"
         print(f"\n[{time.strftime('%H:%M:%S')}] {gen_label}")
@@ -165,7 +188,7 @@ def main() -> None:
             generation=gen_idx,
         ):
             t_build = time.time()
-            if gen_idx == 1:
+            if prev_cell_data is None:
                 comp = build_composite("baseline", cache_dir=args.cache_dir)
             else:
                 d1_state, _d2_state = divide_cell(prev_cell_data)

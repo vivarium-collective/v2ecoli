@@ -378,7 +378,8 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
     },
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
 )
-def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -> dict:
+def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
+             bundle: dict | None = None) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
     Migrated from ``v2ecoli/generate.py:build_document`` +
@@ -402,7 +403,8 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -
     if core is None:
         core = build_core()
 
-    bundle = load_cache_bundle(cache_dir)
+    if bundle is None:
+        bundle = load_cache_bundle(cache_dir)
     initial_state = bundle["initial_state"]
     configs = bundle["configs"]
     unique_names = bundle["unique_names"]

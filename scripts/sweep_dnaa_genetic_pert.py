@@ -114,7 +114,7 @@ def run_one(value: float, generations: int, resume_dill: str,
 
     # 2) run sim from burned-in dill
     cmd = [
-        ".venv/bin/python", "scripts/extend_multigen_from_dill.py",
+        sys.executable, "scripts/extend_multigen_from_dill.py",
         "--cache-dir", cache_dir,
         "--out-dir", out_dir,
         "--experiment-id", exp_id,

@@ -1,0 +1,3973 @@
+{
+  "study": "dnaa-0-parameter-foundation",
+  "investigation": "dnaa-replication",
+  "sim_name": "dnaa0-6gen-2026-05-29",
+  "cache_dir": "out/cache-succinate",
+  "seed": 0,
+  "load_time": 5.7202019691467285,
+  "wall_time": 3341.5096831321716,
+  "sim_time_completed": 29520.0,
+  "summary": {
+    "n_snapshots": 493,
+    "n_divisions_detected": 1,
+    "division_times_s": [
+      4620.0
+    ],
+    "oric_range": [
+      0,
+      4
+    ],
+    "cell_mass_range_fg": [
+      593.459359604303,
+      1617.1916649206091
+    ],
+    "dnaa_monomer_range": null
+  },
+  "snapshots": [
+    {
+      "phase": "initial",
+      "t": 0.0,
+      "agent_present": true,
+      "oric_count": 0,
+      "cell_mass": 593.459359604303,
+      "dry_mass": 178.03777085500582,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 60.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 596.2848553641612,
+      "dry_mass": 178.94546472667798,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 120.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 601.5775742193263,
+      "dry_mass": 180.53713055184875,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 180.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 607.4331988781628,
+      "dry_mass": 182.3052731294378,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 240.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 614.0163139777455,
+      "dry_mass": 184.2828962129223,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 300.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 621.114184343866,
+      "dry_mass": 186.41990067737123,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 360.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 628.5208830255123,
+      "dry_mass": 188.64503488259203,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 420.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 636.1689938118948,
+      "dry_mass": 190.9414179091189,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 480.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 644.1559961807036,
+      "dry_mass": 193.34473671611244,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 540.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 652.3856382375227,
+      "dry_mass": 195.8111278807355,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 600.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 660.7522845540395,
+      "dry_mass": 198.32488198854384,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 660.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 671.0188624898913,
+      "dry_mass": 201.45672093791427,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 720.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 683.9943599305905,
+      "dry_mass": 205.34256385169903,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 780.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 696.4839440031105,
+      "dry_mass": 209.0866183719341,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 840.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 709.107621226713,
+      "dry_mass": 212.88488302251665,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 900.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 722.0006475807451,
+      "dry_mass": 216.749738051083,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 960.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 735.4331121805943,
+      "dry_mass": 220.78015800495155,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1020.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 748.7021086085622,
+      "dry_mass": 224.78377103905802,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1080.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 761.7016722769114,
+      "dry_mass": 228.64252697295797,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1140.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 774.6680000067918,
+      "dry_mass": 232.55780390487428,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1200.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 788.9340325064022,
+      "dry_mass": 236.8529091254286,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1260.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 803.2427492939836,
+      "dry_mass": 241.13920463916713,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1320.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 816.8216949598983,
+      "dry_mass": 245.21443926714028,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1380.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 831.9057048663225,
+      "dry_mass": 249.7535986494296,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1440.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 847.0904345512544,
+      "dry_mass": 254.2963008236411,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1500.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 862.0426879248836,
+      "dry_mass": 258.78302636328624,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1560.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 878.4320181978593,
+      "dry_mass": 263.72306574995105,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1620.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 894.234309601108,
+      "dry_mass": 268.4778599411368,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1680.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 911.1386452709819,
+      "dry_mass": 273.52804955921704,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1740.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 928.1869604301961,
+      "dry_mass": 278.6686844355313,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1800.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 944.3762064153528,
+      "dry_mass": 283.4979908885623,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1860.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 960.464552376436,
+      "dry_mass": 288.3258170025139,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1920.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 975.8776469219497,
+      "dry_mass": 292.9335136441516,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 1980.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 992.3777767212869,
+      "dry_mass": 297.9274426416746,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2040.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1010.1660516476354,
+      "dry_mass": 303.2454498828487,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2100.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1024.935189822999,
+      "dry_mass": 307.6492730353117,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2160.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1038.9089021258415,
+      "dry_mass": 311.82434387394323,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2220.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1052.2957317207993,
+      "dry_mass": 315.83482888428864,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2280.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1065.8004891669916,
+      "dry_mass": 319.8914707301077,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2340.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1079.3348743280455,
+      "dry_mass": 323.96447025896157,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2400.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1093.6371977134156,
+      "dry_mass": 328.2671580606808,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2460.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1107.9642545379277,
+      "dry_mass": 332.5479278242026,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2520.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1122.4824289723595,
+      "dry_mass": 336.90525991591903,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2580.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1136.2393102766284,
+      "dry_mass": 341.03135775963176,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2640.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1150.3986561557554,
+      "dry_mass": 345.2859771850964,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2700.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1164.7857070338043,
+      "dry_mass": 349.5963323211398,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2760.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1178.207984036808,
+      "dry_mass": 353.6186328547293,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2820.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1191.4149599169932,
+      "dry_mass": 357.5819735326961,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2880.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1204.1266912073986,
+      "dry_mass": 361.391795892406,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 2940.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1217.969692731704,
+      "dry_mass": 365.53799650732844,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3000.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1230.8550266474374,
+      "dry_mass": 369.4009480834301,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3060.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1243.5815401720201,
+      "dry_mass": 373.2258598704607,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3120.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1256.8283629558305,
+      "dry_mass": 377.20769179993897,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3180.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1269.7647058531406,
+      "dry_mass": 381.09259877857926,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3240.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1283.3182755458192,
+      "dry_mass": 385.14518729117003,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3300.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1297.0028148698702,
+      "dry_mass": 389.26645029130464,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3360.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1310.9097251261471,
+      "dry_mass": 393.4292502787275,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3420.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1323.9837161919227,
+      "dry_mass": 397.3571930787033,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3480.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1338.275665204159,
+      "dry_mass": 401.66125122300014,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3540.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1352.4713761566131,
+      "dry_mass": 405.89873891386446,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3600.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1366.1139468157703,
+      "dry_mass": 409.99297550770336,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3660.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1379.8213958553588,
+      "dry_mass": 414.1227689876765,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3720.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1394.6640683374153,
+      "dry_mass": 418.58057757741176,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3780.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1409.5611033364275,
+      "dry_mass": 423.0463029295453,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3840.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1424.441971637593,
+      "dry_mass": 427.5211287807747,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3900.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1438.9944225008355,
+      "dry_mass": 431.8681269876349,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 3960.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1453.6701106740427,
+      "dry_mass": 436.2547206529864,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4020.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1468.147865335679,
+      "dry_mass": 440.6213775003962,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4080.0,
+      "agent_present": true,
+      "oric_count": 4,
+      "cell_mass": 1482.8999860905362,
+      "dry_mass": 445.0587922631935,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4140.0,
+      "agent_present": true,
+      "oric_count": 4,
+      "cell_mass": 1499.080761895702,
+      "dry_mass": 449.9127090407567,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4200.0,
+      "agent_present": true,
+      "oric_count": 4,
+      "cell_mass": 1514.8368038242204,
+      "dry_mass": 454.64606167512784,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4260.0,
+      "agent_present": true,
+      "oric_count": 4,
+      "cell_mass": 1531.7732877940953,
+      "dry_mass": 459.7216043396802,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4320.0,
+      "agent_present": true,
+      "oric_count": 4,
+      "cell_mass": 1548.576965215199,
+      "dry_mass": 464.76967605398545,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4380.0,
+      "agent_present": true,
+      "oric_count": 4,
+      "cell_mass": 1565.6077804779247,
+      "dry_mass": 469.88978828199834,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4440.0,
+      "agent_present": true,
+      "oric_count": 4,
+      "cell_mass": 1583.2587861476406,
+      "dry_mass": 475.1835156081074,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4500.0,
+      "agent_present": true,
+      "oric_count": 4,
+      "cell_mass": 1600.5376992728745,
+      "dry_mass": 480.36026443845526,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4560.0,
+      "agent_present": true,
+      "oric_count": 4,
+      "cell_mass": 1617.1916649206091,
+      "dry_mass": 485.3609352517378,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4620.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 810.0938400704256,
+      "dry_mass": 243.10504123672808,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4680.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 816.7095932444529,
+      "dry_mass": 245.08966991039586,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4740.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 823.4035998822254,
+      "dry_mass": 247.10116398066066,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4800.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 831.3610643534926,
+      "dry_mass": 249.51376110254694,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4860.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 840.5006865996886,
+      "dry_mass": 252.25440433820415,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4920.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 848.5965738283342,
+      "dry_mass": 254.66960778388716,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 4980.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 857.2694761064603,
+      "dry_mass": 257.29100448820463,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5040.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 866.4352136807012,
+      "dry_mass": 260.0428725455862,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5100.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 875.4528335511291,
+      "dry_mass": 262.73779781812993,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5160.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 883.8079679819326,
+      "dry_mass": 265.2444007230281,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5220.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 892.6397888848068,
+      "dry_mass": 267.90717624942886,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5280.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 902.1151655804623,
+      "dry_mass": 270.73858316977476,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5340.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 911.0910772708178,
+      "dry_mass": 273.4374230957616,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5400.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 920.9099107667904,
+      "dry_mass": 276.39635468626125,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5460.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 930.4629617722421,
+      "dry_mass": 279.249677174972,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5520.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 939.7731366682319,
+      "dry_mass": 282.0479541079359,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5580.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 949.2259743397861,
+      "dry_mass": 284.8706953838024,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5640.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 958.9308771589541,
+      "dry_mass": 287.79688257818805,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5700.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 968.9548831538888,
+      "dry_mass": 290.80718245863795,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5760.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 979.4236162991134,
+      "dry_mass": 293.9530696825726,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5820.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 989.5759566129987,
+      "dry_mass": 296.9858174657114,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5880.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 999.9164644654654,
+      "dry_mass": 300.088859197534,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 5940.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1010.373115002641,
+      "dry_mass": 303.247564795691,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6000.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1021.9534417537265,
+      "dry_mass": 306.7234954736929,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6060.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1032.425692070537,
+      "dry_mass": 309.84393726050826,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6120.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1043.7073433984829,
+      "dry_mass": 313.2381183490919,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6180.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1054.4050887016017,
+      "dry_mass": 316.4576802185924,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6240.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1065.7743059508393,
+      "dry_mass": 319.8649071197582,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6300.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1076.921215703985,
+      "dry_mass": 323.20079925605546,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6360.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1088.4450059649255,
+      "dry_mass": 326.6658140039175,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6420.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1100.7368541473215,
+      "dry_mass": 330.3565152960423,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6480.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1111.6482849583147,
+      "dry_mass": 333.61622926970756,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6540.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1122.771347109205,
+      "dry_mass": 336.95443843903126,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6600.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1133.4562061430795,
+      "dry_mass": 340.15046132654675,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6660.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1144.6160153244894,
+      "dry_mass": 343.51802706184026,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6720.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1157.891022313688,
+      "dry_mass": 347.5956011881859,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6780.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1177.752283951121,
+      "dry_mass": 353.56332706768865,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6840.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1197.9151056065202,
+      "dry_mass": 359.6127707260664,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6900.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1218.2747590811093,
+      "dry_mass": 365.72138613255834,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 6960.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1239.0497718263498,
+      "dry_mass": 371.95942801047386,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7020.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1258.9954295447108,
+      "dry_mass": 377.86268541208267,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7080.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1272.6936821851139,
+      "dry_mass": 381.9627147916183,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7140.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1286.075520527082,
+      "dry_mass": 385.97651873824805,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7200.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1300.2556908938654,
+      "dry_mass": 390.25341703994104,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7260.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1313.9217818441693,
+      "dry_mass": 394.3467765850511,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7320.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1328.2688071041232,
+      "dry_mass": 398.6420721794649,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7380.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1341.522171132521,
+      "dry_mass": 402.60357386589874,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7440.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1355.5243802776376,
+      "dry_mass": 406.8262253935926,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7500.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1370.141030226565,
+      "dry_mass": 411.20088345425654,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7560.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1384.524430801267,
+      "dry_mass": 415.5219772748153,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7620.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1399.1948215212042,
+      "dry_mass": 419.93613842673085,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7680.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 704.9859109716176,
+      "dry_mass": 211.5639607072817,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7740.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 711.6252558136867,
+      "dry_mass": 213.58513081498938,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7800.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 719.0686337161256,
+      "dry_mass": 215.80489025052947,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7860.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 725.8606880319152,
+      "dry_mass": 217.8481322757126,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7920.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 733.2292974227094,
+      "dry_mass": 220.06001517218112,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 7980.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 740.863621608549,
+      "dry_mass": 222.34931450528893,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8040.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 748.3911836272157,
+      "dry_mass": 224.61220216758932,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8100.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 756.496991669826,
+      "dry_mass": 227.05978302679023,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8160.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 765.2332785767333,
+      "dry_mass": 229.66126838115122,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8220.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 773.8469239398465,
+      "dry_mass": 232.25489721765814,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8280.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 782.8508074124358,
+      "dry_mass": 234.96280010948124,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8340.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 792.2244518699823,
+      "dry_mass": 237.7884337450755,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8400.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 801.7842823126272,
+      "dry_mass": 240.64368037999316,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8460.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 811.2610909877105,
+      "dry_mass": 243.49499580011638,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8520.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 821.4592664213615,
+      "dry_mass": 246.5606178387019,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8580.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 832.3215655117997,
+      "dry_mass": 249.82582767204678,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8640.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 842.8691829944871,
+      "dry_mass": 252.9741724571545,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8700.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 852.9932628262743,
+      "dry_mass": 256.02231504789654,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8760.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 863.4335680230711,
+      "dry_mass": 259.1600088656295,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8820.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 874.0073988806964,
+      "dry_mass": 262.32488833267826,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8880.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 884.3513266509948,
+      "dry_mass": 265.4251655253372,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 8940.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 893.6494789863115,
+      "dry_mass": 268.2139441822727,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9000.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 903.9859688472724,
+      "dry_mass": 271.3186034464676,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9060.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 914.598310965639,
+      "dry_mass": 274.5112873459851,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9120.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 925.3154040976851,
+      "dry_mass": 277.71563965553014,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9180.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 935.4710191128012,
+      "dry_mass": 280.76471307711324,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9240.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 945.7355899327786,
+      "dry_mass": 283.84301857812784,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9300.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 956.0952175949039,
+      "dry_mass": 286.9431147732571,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9360.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 965.5927954673348,
+      "dry_mass": 289.7985378197602,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9420.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 975.9315969933041,
+      "dry_mass": 292.8976228984508,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9480.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 986.2634343337833,
+      "dry_mass": 295.99571064976396,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9540.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 997.3280009400146,
+      "dry_mass": 299.32871227836927,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9600.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1008.9172987150768,
+      "dry_mass": 302.8058423139065,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9660.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1019.8337195970423,
+      "dry_mass": 306.08088583539006,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9720.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1031.312208625343,
+      "dry_mass": 309.5153508138194,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9780.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1041.7358194470783,
+      "dry_mass": 312.6388433401962,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9840.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1052.725846323652,
+      "dry_mass": 315.944445281915,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9900.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1064.1500279798095,
+      "dry_mass": 319.38055039082985,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 9960.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1075.8006123973628,
+      "dry_mass": 322.87756569554506,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10020.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1087.7789628553733,
+      "dry_mass": 326.4738326455556,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10080.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1099.5311835201942,
+      "dry_mass": 330.0023750580933,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10140.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1111.160906603578,
+      "dry_mass": 333.48859182524495,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10200.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1123.7085669687917,
+      "dry_mass": 337.254076012838,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10260.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1135.2288087445172,
+      "dry_mass": 340.7072165306131,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10320.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1146.830045579559,
+      "dry_mass": 344.19449006141633,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10380.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1158.7687811143196,
+      "dry_mass": 347.76847470370524,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10440.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1170.177397683946,
+      "dry_mass": 351.1730780758969,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10500.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1181.6246652887387,
+      "dry_mass": 354.61199393726395,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10560.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1192.927959570613,
+      "dry_mass": 358.0211091495594,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10620.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1203.949389870673,
+      "dry_mass": 361.3186411082345,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10680.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1215.3996979949804,
+      "dry_mass": 364.75945938772963,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10740.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1227.9462873896257,
+      "dry_mass": 368.52021084692956,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10800.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1239.5523258761227,
+      "dry_mass": 372.00262304136197,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10860.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1251.072385730474,
+      "dry_mass": 375.45600307480686,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10920.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1263.0092301150316,
+      "dry_mass": 379.0497678181556,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 10980.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1275.2810461227543,
+      "dry_mass": 382.7350300009474,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11040.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1288.1456269433531,
+      "dry_mass": 386.6040309864528,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11100.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1300.5964855949298,
+      "dry_mass": 390.3275398232355,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11160.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1313.9946212225534,
+      "dry_mass": 394.34878372800597,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11220.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1327.1609847762409,
+      "dry_mass": 398.30585548914325,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11280.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1340.9504427183533,
+      "dry_mass": 402.4353286433959,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11340.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1354.1429719535136,
+      "dry_mass": 406.38676410205505,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11400.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1366.1027413030097,
+      "dry_mass": 409.9646792689614,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11460.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1378.8444881094624,
+      "dry_mass": 413.8032856200008,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11520.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 690.5274537454369,
+      "dry_mass": 207.30026426651642,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11580.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 698.41703281365,
+      "dry_mass": 209.58816771969464,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11640.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 704.3496146288634,
+      "dry_mass": 211.38106343557473,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11700.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 711.1719011622357,
+      "dry_mass": 213.4246329388672,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11760.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 717.2236419718411,
+      "dry_mass": 215.23078549779206,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11820.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 723.4222212377864,
+      "dry_mass": 217.0991223212227,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11880.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 729.6939338926411,
+      "dry_mass": 218.97854828357902,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 11940.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 736.6246917670005,
+      "dry_mass": 221.07384230681612,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12000.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 744.3558761156822,
+      "dry_mass": 223.39493584798083,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12060.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 751.3641681848401,
+      "dry_mass": 225.47782964614237,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12120.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 759.0736378860863,
+      "dry_mass": 227.82127324094301,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12180.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 767.0363405619432,
+      "dry_mass": 230.18542284872126,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12240.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 774.3513432788577,
+      "dry_mass": 232.40182950295412,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12300.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 782.0842664775093,
+      "dry_mass": 234.71333762823906,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12360.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 790.3728050630406,
+      "dry_mass": 237.2045786947648,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12420.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 798.1762637994815,
+      "dry_mass": 239.53896224955054,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12480.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 806.035910662691,
+      "dry_mass": 241.90305486334398,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12540.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 814.4666304228797,
+      "dry_mass": 244.43739892473548,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12600.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 822.9306424033022,
+      "dry_mass": 246.97930526029586,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12660.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 831.2049478290807,
+      "dry_mass": 249.45586399918022,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12720.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 839.5831385726044,
+      "dry_mass": 251.97749667786888,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12780.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 847.8531001493145,
+      "dry_mass": 254.44780768216367,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12840.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 856.5019840907969,
+      "dry_mass": 257.05148086183385,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12900.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 864.6720823423145,
+      "dry_mass": 259.50537193887817,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 12960.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 874.2533667999135,
+      "dry_mass": 262.4029053633727,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13020.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 883.3550230173396,
+      "dry_mass": 265.11051516060195,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13080.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 892.6307058620646,
+      "dry_mass": 267.9018289633452,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13140.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 901.6506452021407,
+      "dry_mass": 270.6339417277436,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13200.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 917.0561151355586,
+      "dry_mass": 275.30323245841066,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13260.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 933.3920927718932,
+      "dry_mass": 280.20996795100973,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13320.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 949.5779767808068,
+      "dry_mass": 285.0642532313924,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13380.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 965.7694023544643,
+      "dry_mass": 289.87581458624175,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13440.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 975.9986274768394,
+      "dry_mass": 292.907694586008,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13500.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 985.8492696509787,
+      "dry_mass": 295.87369203095307,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13560.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 995.9233793812485,
+      "dry_mass": 298.90225540199924,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13620.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1006.005307352826,
+      "dry_mass": 301.9185488144054,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13680.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1016.3558227957396,
+      "dry_mass": 305.0360393795263,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13740.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1027.0657019971932,
+      "dry_mass": 308.2387823207341,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13800.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1037.8479906917903,
+      "dry_mass": 311.4755198770762,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13860.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1047.9668022336066,
+      "dry_mass": 314.4967954994315,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13920.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1057.9152405403142,
+      "dry_mass": 317.4951724032569,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 13980.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1068.174688500911,
+      "dry_mass": 320.57767341639476,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14040.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1078.7342680676716,
+      "dry_mass": 323.734541002715,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14100.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1088.6186902513884,
+      "dry_mass": 326.69827628653775,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14160.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1098.9282507747841,
+      "dry_mass": 329.798323021742,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14220.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1109.6340251318852,
+      "dry_mass": 333.00861635970625,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14280.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1120.8462973646053,
+      "dry_mass": 336.3888424995682,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14340.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1131.2928995448854,
+      "dry_mass": 339.52453011152954,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14400.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1142.0169142880611,
+      "dry_mass": 342.7403353180355,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14460.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1152.8825040436502,
+      "dry_mass": 345.9801830334551,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14520.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1163.525544685096,
+      "dry_mass": 349.1871102061583,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14580.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1175.5438395028116,
+      "dry_mass": 352.8187456273572,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14640.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1186.810793217648,
+      "dry_mass": 356.1591864667042,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14700.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1197.510715390781,
+      "dry_mass": 359.37843352849995,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14760.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1208.5183399823288,
+      "dry_mass": 362.6892174847503,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14820.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1219.755747010261,
+      "dry_mass": 366.05562160871693,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14880.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1230.955531974824,
+      "dry_mass": 369.4053995683124,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 14940.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1241.318972153688,
+      "dry_mass": 372.52121585103555,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15000.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1252.0086519677466,
+      "dry_mass": 375.7332831518323,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15060.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1262.732596369453,
+      "dry_mass": 378.944685094825,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15120.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1273.4880603558079,
+      "dry_mass": 382.1699526641835,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15180.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1284.404968365348,
+      "dry_mass": 385.46412340668564,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15240.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1295.6465000552744,
+      "dry_mass": 388.8309235457508,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15300.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1306.495086721407,
+      "dry_mass": 392.07690951671964,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15360.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1316.0698923400091,
+      "dry_mass": 394.92436894088473,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15420.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1326.5884387525593,
+      "dry_mass": 398.1029265649962,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15480.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1337.0979375427519,
+      "dry_mass": 401.26135051095014,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15540.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 676.0647543236649,
+      "dry_mass": 202.9522406857987,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15600.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 682.3514338848981,
+      "dry_mass": 204.77444917867382,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15660.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 687.6008112371023,
+      "dry_mass": 206.33205618425626,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15720.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 692.5263689682022,
+      "dry_mass": 207.8186095298708,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15780.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 698.0469897011292,
+      "dry_mass": 209.48537369745407,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15840.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 703.7119574632493,
+      "dry_mass": 211.17279383978888,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15900.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 709.6492197944922,
+      "dry_mass": 212.96560383651013,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 15960.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 715.1636983181941,
+      "dry_mass": 214.6109328771966,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16020.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 720.3027301642497,
+      "dry_mass": 216.15114191581262,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16080.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 725.9085782460238,
+      "dry_mass": 217.84283778103338,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16140.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 731.7442210810611,
+      "dry_mass": 219.59827367854643,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16200.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 737.3345149459906,
+      "dry_mass": 221.26520381041018,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16260.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 743.4193841537506,
+      "dry_mass": 223.10481942224635,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16320.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 749.615446747002,
+      "dry_mass": 224.96405515763468,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16380.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 756.2227840651566,
+      "dry_mass": 226.93484714871693,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16440.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 762.6845802322031,
+      "dry_mass": 228.8797001944023,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16500.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 769.4308622089928,
+      "dry_mass": 230.90806183214636,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16560.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 775.4166210674524,
+      "dry_mass": 232.6949271438782,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16620.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 781.5575124950284,
+      "dry_mass": 234.53861487266522,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16680.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 787.9081812086138,
+      "dry_mass": 236.43920581345878,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16740.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 794.2322271517213,
+      "dry_mass": 238.3581470420179,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16800.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 801.5562698938011,
+      "dry_mass": 240.5536195202153,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16860.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 808.0756684070382,
+      "dry_mass": 242.4929463771067,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16920.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 814.9201866123551,
+      "dry_mass": 244.55378103883277,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 16980.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 821.798917355668,
+      "dry_mass": 246.61132225618042,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17040.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 828.5797145306581,
+      "dry_mass": 248.67187230374373,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17100.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 835.6003232876959,
+      "dry_mass": 250.74952997280332,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17160.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 841.8996696211399,
+      "dry_mass": 252.64590025560938,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17220.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 848.88604786516,
+      "dry_mass": 254.74729453943235,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17280.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 856.3241578906584,
+      "dry_mass": 256.97808453553307,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17340.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 863.2121277450794,
+      "dry_mass": 259.03206861977594,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17400.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 870.0983456904037,
+      "dry_mass": 261.11030891695725,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17460.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 876.6850838632904,
+      "dry_mass": 263.0847925168872,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17520.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 884.415262581541,
+      "dry_mass": 265.42458799405426,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17580.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 893.023063697671,
+      "dry_mass": 267.9991927742187,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17640.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 900.0318156153794,
+      "dry_mass": 270.0854882537203,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17700.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 906.72960307146,
+      "dry_mass": 272.0956392779268,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17760.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 914.1520200499216,
+      "dry_mass": 274.3240447888368,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17820.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 921.7276320768048,
+      "dry_mass": 276.6006884686234,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17880.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 928.9779537733887,
+      "dry_mass": 278.79170278633103,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 17940.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 937.2952895578732,
+      "dry_mass": 281.2902004376547,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18000.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 944.3768068516105,
+      "dry_mass": 283.40823780124174,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18060.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 951.8564732651399,
+      "dry_mass": 285.63181301850693,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18120.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 959.3971445640954,
+      "dry_mass": 287.92250835578284,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18180.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 967.2045045190657,
+      "dry_mass": 290.2433949108273,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18240.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 974.9693733915148,
+      "dry_mass": 292.5817851833141,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18300.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 982.8585026794725,
+      "dry_mass": 294.95703073182074,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18360.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 991.5333668692012,
+      "dry_mass": 297.54666119188323,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18420.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 999.0096881299735,
+      "dry_mass": 299.79205091030633,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18480.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1006.8092477009089,
+      "dry_mass": 302.138007944243,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18540.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1014.456211677241,
+      "dry_mass": 304.4367373497096,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18600.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1022.4504927992418,
+      "dry_mass": 306.81022445851136,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18660.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1030.2858489116172,
+      "dry_mass": 309.18387679817386,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18720.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1038.0519128858525,
+      "dry_mass": 311.50536523860023,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18780.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1045.9218385957474,
+      "dry_mass": 313.85650680682386,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18840.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1053.2803974438336,
+      "dry_mass": 316.06611860482485,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18900.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1060.3563601048197,
+      "dry_mass": 318.1831461129816,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 18960.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1067.7991317196677,
+      "dry_mass": 320.42835252411453,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19020.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1075.3913951807845,
+      "dry_mass": 322.7051331573109,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19080.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1083.7345038578408,
+      "dry_mass": 325.20916568888526,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19140.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1092.068381600647,
+      "dry_mass": 327.7148951834596,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19200.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1100.0454340021754,
+      "dry_mass": 330.1081427194239,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19260.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1108.933192778955,
+      "dry_mass": 332.7954340214279,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19320.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1117.922472676308,
+      "dry_mass": 335.4643871820392,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19380.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1125.8028481598562,
+      "dry_mass": 337.8300814325139,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19440.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1134.468818994146,
+      "dry_mass": 340.4505271921705,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19500.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1142.9057428434785,
+      "dry_mass": 342.97678794486364,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19560.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1151.7752059454153,
+      "dry_mass": 345.63457441759954,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19620.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1160.2879772474068,
+      "dry_mass": 348.1903508131485,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19680.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1170.252378769003,
+      "dry_mass": 351.1948494734654,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19740.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1180.473860116578,
+      "dry_mass": 354.2484203297885,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19800.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 595.0796459810781,
+      "dry_mass": 178.57694901292382,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19860.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 599.644342012401,
+      "dry_mass": 179.93876054469877,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19920.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 603.9375776926046,
+      "dry_mass": 181.2244505473583,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 19980.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 607.8727402211088,
+      "dry_mass": 182.40769678604795,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20040.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 612.1396114546135,
+      "dry_mass": 183.69140792544187,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20100.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 616.968359521628,
+      "dry_mass": 185.1434416054865,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20160.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 621.1907059384923,
+      "dry_mass": 186.41451920730572,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20220.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 625.7775615202972,
+      "dry_mass": 187.79385307609272,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20280.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 630.5456543095365,
+      "dry_mass": 189.2181355764224,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20340.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 634.807434124959,
+      "dry_mass": 190.49262519675477,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20400.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 639.7029645137837,
+      "dry_mass": 191.96543363327834,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20460.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 645.1941374343432,
+      "dry_mass": 193.62009552713448,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20520.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 649.6646935471483,
+      "dry_mass": 194.94461441469872,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20580.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 654.1558032634064,
+      "dry_mass": 196.30043169563015,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20640.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 658.538421345525,
+      "dry_mass": 197.61533172710824,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20700.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 662.6954769278226,
+      "dry_mass": 198.8618744599354,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20760.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 667.2907180521518,
+      "dry_mass": 200.23339753231386,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20820.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 671.7332082139178,
+      "dry_mass": 201.57663285251755,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20880.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 676.0883061538419,
+      "dry_mass": 202.88713748419758,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 20940.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 681.39086344781,
+      "dry_mass": 204.47268098680257,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21000.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 685.808402449346,
+      "dry_mass": 205.79566383477226,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21060.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 690.7499302827124,
+      "dry_mass": 207.29445989217135,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21120.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 695.6032734049178,
+      "dry_mass": 208.7440311307219,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21180.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 700.6233761783127,
+      "dry_mass": 210.24953314203663,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21240.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 705.7154969530402,
+      "dry_mass": 211.76106224011755,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21300.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 710.7243029870825,
+      "dry_mass": 213.27427435865832,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21360.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 716.4093109462772,
+      "dry_mass": 214.98868179816338,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21420.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 721.8443171608977,
+      "dry_mass": 216.61572632443074,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21480.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 727.09444734236,
+      "dry_mass": 218.1965523913293,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21540.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 732.4033767670468,
+      "dry_mass": 219.78253117089537,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21600.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 738.0751751641186,
+      "dry_mass": 221.4831736236896,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21660.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 744.6170621789068,
+      "dry_mass": 223.47353123071957,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21720.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 750.8500708532889,
+      "dry_mass": 225.33157487938377,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21780.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 757.2439922448026,
+      "dry_mass": 227.2346346521132,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21840.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 762.9570336689357,
+      "dry_mass": 228.9605535372507,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21900.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 769.3691834752328,
+      "dry_mass": 230.87584219989537,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 21960.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 775.4994281223624,
+      "dry_mass": 232.73079153262245,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22020.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 782.5165707904857,
+      "dry_mass": 234.84475312266852,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22080.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 789.3402503938448,
+      "dry_mass": 236.87088606352643,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22140.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 795.8647779778264,
+      "dry_mass": 238.84132884390908,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22200.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 803.3101238382443,
+      "dry_mass": 241.0757123915165,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22260.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 810.435395546691,
+      "dry_mass": 243.2163493344848,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22320.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 816.8316268484579,
+      "dry_mass": 245.12739453718086,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22380.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 823.3176034329841,
+      "dry_mass": 247.08042239697488,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22440.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 830.1443223834807,
+      "dry_mass": 249.11684975598928,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22500.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 836.6238926294491,
+      "dry_mass": 251.06643055023324,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22560.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 842.6919262772378,
+      "dry_mass": 252.93798332452445,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22620.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 856.1240135790613,
+      "dry_mass": 256.985607904266,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22680.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 865.3411064390281,
+      "dry_mass": 259.6828611300293,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22740.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 872.7758912432029,
+      "dry_mass": 261.92173491874985,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22800.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 881.0363936075848,
+      "dry_mass": 264.40483770714616,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22860.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 889.0332730528039,
+      "dry_mass": 266.8069970434317,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22920.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 896.9329350743222,
+      "dry_mass": 269.17653273857707,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 22980.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 905.6502751048282,
+      "dry_mass": 271.7904532292598,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23040.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 914.2630147282973,
+      "dry_mass": 274.3878736679611,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23100.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 922.7145212333162,
+      "dry_mass": 276.9075127323308,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23160.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 930.7817859237317,
+      "dry_mass": 279.31596878903724,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23220.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 938.6866267835343,
+      "dry_mass": 281.7010072437147,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23280.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 946.0606407763258,
+      "dry_mass": 283.9072484428991,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23340.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 953.4948701715666,
+      "dry_mass": 286.1277546759384,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23400.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 961.3063576852993,
+      "dry_mass": 288.4822979213591,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23460.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 969.3856292024599,
+      "dry_mass": 290.91483170944343,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23520.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 977.4210617044262,
+      "dry_mass": 293.3257349102713,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23580.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 985.9563160483001,
+      "dry_mass": 295.8971805471149,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23640.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 994.130058605593,
+      "dry_mass": 298.32104532978906,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23700.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1001.7557304082894,
+      "dry_mass": 300.6260792691735,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23760.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1009.5454409217248,
+      "dry_mass": 302.9480959679595,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23820.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1017.6061989176155,
+      "dry_mass": 305.3808336574883,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23880.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1026.128396471706,
+      "dry_mass": 307.9262095588913,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 23940.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1034.0672593314923,
+      "dry_mass": 310.3103028842388,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24000.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1042.2945047583012,
+      "dry_mass": 312.77630821919365,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24060.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1056.8262316266869,
+      "dry_mass": 317.24076795242024,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24120.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1073.5197102466402,
+      "dry_mass": 322.2519143426882,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24180.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1089.4419231551888,
+      "dry_mass": 327.00268575754774,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24240.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1100.9855664249287,
+      "dry_mass": 330.3838551124468,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24300.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1108.7950919711798,
+      "dry_mass": 332.7285049500056,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24360.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1116.163804159689,
+      "dry_mass": 334.92704982984674,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24420.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1124.0948689071927,
+      "dry_mass": 337.3418734767853,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24480.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1132.4852101836593,
+      "dry_mass": 339.8472452564247,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24540.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1140.988394326014,
+      "dry_mass": 342.3914694015208,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24600.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1149.4569305838977,
+      "dry_mass": 344.9355637432295,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24660.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1157.2640221594706,
+      "dry_mass": 347.276034481431,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24720.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1164.9348125456554,
+      "dry_mass": 349.5673875922074,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24780.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1172.5923354832928,
+      "dry_mass": 351.8795952660664,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24840.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1180.9197639762779,
+      "dry_mass": 354.37593499427305,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24900.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1189.0487861333668,
+      "dry_mass": 356.79710799962606,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 24960.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1196.2948580326263,
+      "dry_mass": 358.9722113558073,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25020.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1203.0597924217836,
+      "dry_mass": 360.99694877266734,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25080.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1209.7984212460278,
+      "dry_mass": 363.02288857551605,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25140.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 1216.6506431650298,
+      "dry_mass": 365.06699386309117,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25200.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 609.3658696262058,
+      "dry_mass": 182.77429356238923,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25260.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 611.8095251680899,
+      "dry_mass": 183.57631412122618,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25320.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 614.6078235393007,
+      "dry_mass": 184.41304498946323,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25380.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 617.410884960766,
+      "dry_mass": 185.25797014378486,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25440.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 620.318744153403,
+      "dry_mass": 186.1268337253744,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25500.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 623.084051959121,
+      "dry_mass": 186.95872894231888,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25560.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 625.9754819038238,
+      "dry_mass": 187.8264795569574,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25620.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 628.7867291965408,
+      "dry_mass": 188.66825940640587,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25680.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 631.6697791931354,
+      "dry_mass": 189.53444195898868,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25740.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 634.4296393308133,
+      "dry_mass": 190.36257029024335,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25800.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 637.1871083926292,
+      "dry_mass": 191.18762324890258,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25860.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 640.1361916467444,
+      "dry_mass": 192.07605115783286,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25920.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 643.172947363361,
+      "dry_mass": 192.98781949955293,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 25980.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 646.1702201596248,
+      "dry_mass": 193.8866547367369,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26040.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 649.5725674278991,
+      "dry_mass": 194.90774617654392,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26100.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 652.773089419964,
+      "dry_mass": 195.86852487468917,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26160.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 656.2831639891143,
+      "dry_mass": 196.92501744425505,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26220.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 659.7126702446127,
+      "dry_mass": 197.96063478136318,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26280.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 663.2318015021821,
+      "dry_mass": 199.0137169755178,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26340.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 666.5880594251271,
+      "dry_mass": 200.01422818639992,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26400.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 670.9466699156034,
+      "dry_mass": 201.33727736756197,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26460.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 675.63662492255,
+      "dry_mass": 202.74273178113492,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26520.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 679.7100481067549,
+      "dry_mass": 203.96196355113915,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26580.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 683.5013962580808,
+      "dry_mass": 205.09098147687598,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26640.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 687.1765883091547,
+      "dry_mass": 206.20081728839392,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26700.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 690.7794420447341,
+      "dry_mass": 207.28068042531117,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26760.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 698.0808332447847,
+      "dry_mass": 209.53573949973241,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26820.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 702.5093857236293,
+      "dry_mass": 210.80001387037987,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26880.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 707.9422861180547,
+      "dry_mass": 212.45119896836633,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 26940.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 712.666068108966,
+      "dry_mass": 213.84779203609816,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27000.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 716.6082788447193,
+      "dry_mass": 215.0253974817054,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27060.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 721.0092342396445,
+      "dry_mass": 216.3447459206849,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27120.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 725.441745899146,
+      "dry_mass": 217.69598118069558,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27180.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 729.7622852146336,
+      "dry_mass": 218.9732514180373,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27240.0,
+      "agent_present": true,
+      "oric_count": 1,
+      "cell_mass": 733.9726481863818,
+      "dry_mass": 220.24263500444147,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27300.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 738.8792313415387,
+      "dry_mass": 221.71496822294455,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27360.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 743.9984599341961,
+      "dry_mass": 223.2499576204857,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27420.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 748.4009877348367,
+      "dry_mass": 224.57576394000955,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27480.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 753.3283551513317,
+      "dry_mass": 226.05915890194842,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27540.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 757.877223174335,
+      "dry_mass": 227.42288101212182,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27600.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 763.0767346985045,
+      "dry_mass": 228.9841038009746,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27660.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 768.9403473943574,
+      "dry_mass": 230.7574862200696,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27720.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 774.4427716054531,
+      "dry_mass": 232.38750884101216,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27780.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 779.6077362627356,
+      "dry_mass": 233.9430472773937,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27840.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 784.8587817002453,
+      "dry_mass": 235.5218972634142,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27900.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 790.4188197730736,
+      "dry_mass": 237.1870595866593,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 27960.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 796.414567780317,
+      "dry_mass": 238.99876748929228,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28020.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 801.8065582775683,
+      "dry_mass": 240.60918843409092,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28080.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 807.2277179490536,
+      "dry_mass": 242.22834325394103,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28140.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 813.0393713668808,
+      "dry_mass": 243.9888811552654,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28200.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 818.7688669543021,
+      "dry_mass": 245.6899989034248,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28260.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 823.9426286222576,
+      "dry_mass": 247.2607068806359,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28320.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 830.233459863248,
+      "dry_mass": 249.14018918068916,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28380.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 836.075694416012,
+      "dry_mass": 250.8966052037398,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28440.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 842.3206372782524,
+      "dry_mass": 252.772739467267,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28500.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 848.2020669718471,
+      "dry_mass": 254.53439359859965,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28560.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 854.6519614074928,
+      "dry_mass": 256.4734040575729,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28620.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 860.7163851819099,
+      "dry_mass": 258.2836635109704,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28680.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 867.0973499277524,
+      "dry_mass": 260.2115775101212,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28740.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 873.1292099313732,
+      "dry_mass": 262.0079375469163,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28800.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 879.5611211151927,
+      "dry_mass": 263.95084854863944,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28860.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 885.474522935304,
+      "dry_mass": 265.70932806984877,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28920.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 891.9270620999864,
+      "dry_mass": 267.6680274666195,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 28980.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 898.3362049403175,
+      "dry_mass": 269.5678037788508,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 29040.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 904.5705575441914,
+      "dry_mass": 271.4423496589276,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 29100.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 911.4730722143896,
+      "dry_mass": 273.51640851416244,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 29160.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 917.9565078991592,
+      "dry_mass": 275.4583247286615,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 29220.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 924.1935852440021,
+      "dry_mass": 277.3363527876653,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 29280.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 930.6063144639015,
+      "dry_mass": 279.2541720743486,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 29340.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 936.8890266841604,
+      "dry_mass": 281.1267856348495,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 29400.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 942.6425753774661,
+      "dry_mass": 282.86905083454246,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 29460.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 949.2333525986712,
+      "dry_mass": 284.8549611951962,
+      "dnaa_monomer": null
+    },
+    {
+      "t": 29520.0,
+      "agent_present": true,
+      "oric_count": 2,
+      "cell_mass": 955.4867727853856,
+      "dry_mass": 286.71587296231337,
+      "dnaa_monomer": null
+    }
+  ]
+}

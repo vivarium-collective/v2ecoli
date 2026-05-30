@@ -208,6 +208,13 @@ class TranscriptInitiation(Step):
         'rnaSynthProbRnaPolymerase': {'_type': 'map[float]', '_default': {}},
         'rna_data': {'_type': 'units_array', '_default': {}},
         'seed': {'_type': 'integer', '_default': 0},
+        # PDMP / Phase 2 — switch between the legacy discrete-time
+        # multinomial event-distribution (``"discrete"``, default) and
+        # per-promoter Poisson tau-leap (``"poisson"``). Both produce the
+        # same expected number of initiations per tick; the Poisson
+        # branch treats each promoter as an independent jump process,
+        # which is what Phase 3's likelihood machinery integrates over.
+        'pdmp_initiation_mode': {'_type': 'string', '_default': 'discrete'},
         'synth_prob': {'_type': 'array[float]', '_default': None},
         'transcription_direction': {'_type': 'array[integer]', '_default': np.array([], dtype=float)},
         'trna_attenuation': {'_type': 'boolean', '_default': False},
@@ -328,6 +335,14 @@ class TranscriptInitiation(Step):
 
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)
+
+        self.pdmp_initiation_mode = str(
+            self.parameters.get("pdmp_initiation_mode", "discrete"))
+        if self.pdmp_initiation_mode not in ("discrete", "poisson"):
+            raise ValueError(
+                f"pdmp_initiation_mode must be 'discrete' or 'poisson'; "
+                f"got {self.pdmp_initiation_mode!r}"
+            )
 
         # Helper indices for Numpy indexing
         self.ppgpp_idx = None
@@ -583,11 +598,67 @@ class TranscriptInitiation(Step):
         )
         update["listeners"]["rna_synth_prob"]["tu_is_overcrowded"] = tu_is_overcrowded
 
-        # Sample a multinomial distribution of initiation probabilities to
-        # determine what promoters are initialized
-        n_initiations = self.random_state.multinomial(
-            n_RNAPs_to_activate, self.promoter_init_probs
-        )
+        # Sample per-promoter initiation counts. Two modes:
+        #
+        # - ``"discrete"`` (legacy): one multinomial(n_RNAPs_to_activate,
+        #   promoter_init_probs) draw — enforces the exact sum constraint
+        #   Σ N_i = n_RNAPs_to_activate but couples promoters through that
+        #   constraint.
+        # - ``"poisson"`` (Phase 2 PDMP semantics): per-promoter
+        #   Poisson(n_RNAPs_to_activate · p_i) — each promoter is an
+        #   independent jump process with rate n·p_i; Σ N_i fluctuates
+        #   around n_RNAPs_to_activate but each promoter's per-tick count
+        #   has the correct marginal distribution for a continuous-time
+        #   inhomogeneous Poisson process tau-leaped over the tick.
+        #
+        #   We then truncate Σ N_i down to ``n_RNAPs_to_activate`` if the
+        #   Poisson sum exceeded the available RNAP pool (rejection
+        #   resampling weighted by N_i / Σ N_i) — preserves the resource
+        #   constraint without breaking marginal distributions on tau-leap
+        #   timescales where p_i × n is small.
+        if self.pdmp_initiation_mode == "poisson":
+            # Per-promoter Poisson tau-leap. Rates: each promoter i is an
+            # independent jump process with rate
+            #     λ_i = activationProb · n_inactive_RNAPs · p_i / dt
+            # so in window dt the per-promoter event count has expectation
+            #     λ_i · dt = n_RNAPs_to_activate · p_i
+            # which is the same expected count as the multinomial mode but
+            # with Poisson (independent) marginals.
+            poisson_means = n_RNAPs_to_activate * self.promoter_init_probs
+            n_initiations = self.random_state.poisson(poisson_means).astype(np.int64)
+            # Hard cap: total activations cannot exceed the *actual*
+            # inactive-RNAP pool (the resource constraint). Capping at
+            # ``n_RNAPs_to_activate`` instead would introduce an
+            # asymmetric truncation that systematically undercounts —
+            # Poisson variance pushes some ticks above the target and
+            # some below, but the cap only kills the highs.
+            n_inactive_RNAPs = int(counts(states["bulk"], self.inactive_RNAP_idx))
+            total_drawn = int(n_initiations.sum())
+            if total_drawn > n_inactive_RNAPs:
+                # Resource cap: subsample n_inactive_RNAPs events from
+                # the inflated draw pool, weighted by per-promoter counts.
+                event_promoters = np.repeat(
+                    np.arange(n_initiations.size), n_initiations,
+                )
+                keep_idx = self.random_state.choice(
+                    event_promoters.size,
+                    size=n_inactive_RNAPs,
+                    replace=False,
+                )
+                n_initiations = np.bincount(
+                    event_promoters[keep_idx], minlength=n_initiations.size,
+                ).astype(np.int64)
+        else:
+            n_initiations = self.random_state.multinomial(
+                n_RNAPs_to_activate, self.promoter_init_probs
+            )
+
+        # After sampling, the actual count of events may differ from
+        # n_RNAPs_to_activate (Poisson tau-leap fluctuates around the target;
+        # the multinomial path always equals the target). Rebind to the
+        # observed sum so downstream array allocations + the unique-RNAP-id
+        # range match the events we'll actually emit.
+        n_RNAPs_to_activate = int(n_initiations.sum())
 
         # Build array of transcription unit indexes for partially transcribed
         # RNAs and domain indexes for RNAPs

@@ -73,6 +73,16 @@ class LineageProcess(Process):
         # baseline emitter step then falls back to RAM (not read).
         "emitter": {"_type": "string", "_default": "parquet"},
         "emitter_arg": {"_default": {}},
+        # Optional: opt-in baseline feature modules (replaces DEFAULT_FEATURES
+        # when non-empty). dnaa-2 passes
+        # ["ppgpp_regulation", "dnaa_nucleotide"] to add the DnaA intrinsic
+        # hydrolysis step + nucleotide-state listener. Empty → baseline default.
+        "features": {"_default": []},
+        # Optional: seed generation 0 from a saved cell dill (divided once)
+        # instead of cold-starting from the cache. Lets every seed in a
+        # multiseed sweep start from the SAME steady-state init (e.g. dnaa-0's
+        # saved succinate gen-3 state), then diverge stochastically by seed.
+        "resume_dill": {"_type": "string", "_default": ""},
     }
 
     def initialize(self, config):
@@ -84,6 +94,19 @@ class LineageProcess(Process):
         self._complete = False
         self._summaries: list[dict] = []
         self._needs_build = True      # True → call _build_generation on next tick
+        # Optional resume-from-dill: seed gen 0's carry-state from a saved
+        # mother cell (divided once), so every seed starts from the same
+        # steady-state init. Carries the same biological keys the daughter walk
+        # uses; the inner build re-seeds the mass listener (see _build_generation).
+        resume_dill = (config.get("resume_dill") or "").strip()
+        if resume_dill:
+            import dill
+            from v2ecoli.library.division import divide_cell
+            with open(resume_dill, "rb") as f:
+                mother = dill.load(f)
+            d1, _d2 = divide_cell(mother)
+            self._carry_state = {k: d1.get(k) for k in
+                                 ("bulk", "unique", "environment", "boundary")}
         # xarray emitter state (only used when config["emitter"] == "xarray")
         self._xarray_em = None        # live XArrayEmitter for the current gen
         self._xarray_pending = False  # True → open on first populated emit tick
@@ -109,6 +132,7 @@ class LineageProcess(Process):
         core = build_core()
         gen_seed = (int(self.config["seed"]) + self._generation) % (2 ** 31)
         overrides = dict(self.config.get("config_overrides") or {})
+        features = list(self.config.get("features") or []) or None
 
         if self._is_xarray():
             # External XArrayEmitter path. The internal baseline emitter step is
@@ -122,7 +146,7 @@ class LineageProcess(Process):
             try:
                 doc = baseline(core=core, seed=gen_seed,
                                cache_dir=self.config["cache_dir"],
-                               config_overrides=overrides)
+                               config_overrides=overrides, features=features)
             finally:
                 set_null_emitter_override(False)
             self._xarray_pending = True
@@ -141,7 +165,7 @@ class LineageProcess(Process):
             try:
                 doc = baseline(core=core, seed=gen_seed,
                                cache_dir=self.config["cache_dir"],
-                               config_overrides=overrides)
+                               config_overrides=overrides, features=features)
             finally:
                 set_parquet_emitter_override(None)
 

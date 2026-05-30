@@ -111,14 +111,20 @@ class LineageProcess(Process):
         overrides = dict(self.config.get("config_overrides") or {})
 
         if self._is_xarray():
-            # External XArrayEmitter path: no internal-emitter override (the
-            # baseline emitter step falls back to RAM). The XArrayEmitter is
+            # External XArrayEmitter path. The internal baseline emitter step is
+            # minimised to global_time only (set_null_emitter_override) so it
+            # doesn't waste memory — we emit out of band. The XArrayEmitter is
             # opened lazily on the first populated emit tick (see _emit_xarray),
             # so the view can be filtered against real state — xarray is strict
             # about missing emit paths.
-            doc = baseline(core=core, seed=gen_seed,
-                           cache_dir=self.config["cache_dir"],
-                           config_overrides=overrides)
+            from v2ecoli.composites._helpers import set_null_emitter_override
+            set_null_emitter_override(True)
+            try:
+                doc = baseline(core=core, seed=gen_seed,
+                               cache_dir=self.config["cache_dir"],
+                               config_overrides=overrides)
+            finally:
+                set_null_emitter_override(False)
             self._xarray_pending = True
         else:
             from v2ecoli.composites._helpers import set_parquet_emitter_override
@@ -164,8 +170,11 @@ class LineageProcess(Process):
         arg = dict(self.config.get("emitter_arg") or {})
         raw_view = arg.get("view") or DEFAULT_XARRAY_VIEW
         raw_view = [dict(e, root=tuple(e["root"])) for e in raw_view]
-        buf = (((arg.get("transducer") or {}).get("buffer") or {}).get("size"))
+        transducer = arg.get("transducer") or {}
+        buf = ((transducer.get("buffer") or {}).get("size"))
         buf = max(3, int(buf or 4))  # transducer requires buffer.size > 2
+        predicate = transducer.get("predicate")
+        writer = arg.get("writer")
         out_dir = arg.get("out_dir") or self.config["out_dir"]
 
         wrapped = {"agents": {"0": emit_cell}}
@@ -198,7 +207,7 @@ class LineageProcess(Process):
             core=self._core, store_path=self._xarray_store, view=view,
             metadata_base=metadata_base, generation=self._generation,
             agent_id=self._agent_id, buffer_size=buf,
-            output_metadata=output_metadata)
+            output_metadata=output_metadata, writer=writer, predicate=predicate)
         self._xarray_pending = False
 
     def _emit_xarray(self, agents_now):

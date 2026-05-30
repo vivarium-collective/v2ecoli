@@ -150,6 +150,13 @@ _EMITTER_OVERRIDE: dict | None = None
 # (parquet wins — sqlite stays available for dashboard's Simulations-DB tab).
 _PARQUET_EMITTER_OVERRIDE: dict | None = None
 
+# When True (and no parquet/sqlite override is set), the 'emitter' step
+# materialises as a minimal RAMEmitter capturing ONLY global_time — instead of
+# the default full-state RAMEmitter (bulk + chromosome + listeners, multi-MB
+# per row). Used by callers that emit out-of-band (e.g. the workflow's external
+# XArrayEmitter) and don't want the internal emitter wasting memory.
+_NULL_EMITTER_OVERRIDE: bool = False
+
 
 def set_emitter_override(config: dict | None) -> None:
     """Set the module-level SQLite emitter override. Pass None to clear."""
@@ -161,6 +168,13 @@ def set_parquet_emitter_override(config: dict | None) -> None:
     """Set the module-level Parquet emitter override. Pass None to clear."""
     global _PARQUET_EMITTER_OVERRIDE
     _PARQUET_EMITTER_OVERRIDE = config
+
+
+def set_null_emitter_override(flag: bool) -> None:
+    """Minimise the internal 'emitter' step to global_time only (see
+    ``_NULL_EMITTER_OVERRIDE``). Pass False to restore the full-state default."""
+    global _NULL_EMITTER_OVERRIDE
+    _NULL_EMITTER_OVERRIDE = bool(flag)
 
 
 import contextlib  # noqa: E402
@@ -938,6 +952,13 @@ def _get_special_step(loader, step_name, core):
             }
             cfg = {'emit': emit_schema, **override}
             instance = SQLiteEmitter(cfg, core)
+        elif _NULL_EMITTER_OVERRIDE:
+            # Minimal RAMEmitter (global_time only): the caller emits out of
+            # band (e.g. the workflow's external XArrayEmitter), so the internal
+            # emitter must not waste memory capturing full state every tick.
+            emit_schema = {'global_time': 'float'}
+            topo = {'global_time': ('global_time',)}
+            instance = RAMEmitter({'emit': emit_schema}, core)
         else:
             # In-memory RAMEmitter: no disk cost, so keep the full capture
             # (bulk + chromosome/replisome structures) for callers that

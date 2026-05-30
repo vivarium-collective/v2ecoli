@@ -280,9 +280,8 @@ def _filter_agent_state(agent_state: dict, view: list[dict]) -> dict:
     return out
 
 
-def _build_emitter(
+def build_emitter_config(
     *,
-    core: Any,
     store_path: Path,
     view: list[dict],
     metadata_base: dict,
@@ -290,31 +289,51 @@ def _build_emitter(
     agent_id: str,
     buffer_size: int = 4,
     output_metadata: dict | None = None,
-) -> XArrayEmitter:
+    writer: dict | None = None,
+    predicate: list | None = None,
+) -> dict:
+    """Pure builder for an XArrayEmitter config dict (no IO).
+
+    ``writer`` settings (buffers_per_chunk, backend_config, ...) merge over the
+    zarr defaults — the store path is always forced. ``predicate`` overrides the
+    default subsample(1). Leaf-spec ``unit`` / ``codecs`` keys in ``view`` pass
+    through verbatim to LeafView.
+    """
     md = dict(metadata_base)
     md["agent_id"] = agent_id
     md["generation"] = generation
-    cfg = {
+    writer_cfg = {
+        "backend": "zarr",
+        "store": str(store_path),
+        "buffers_per_chunk": 1,
+        "backend_config": {"format": 3},
+    }
+    if writer:
+        merged = {**writer_cfg, **writer}
+        if isinstance(writer.get("backend_config"), dict):
+            merged["backend_config"] = {
+                **writer_cfg["backend_config"], **writer["backend_config"]}
+        merged["store"] = str(store_path)
+        writer_cfg = merged
+    return {
         "emit": {"global_time": "node"},
         "out_uri": str(store_path),
         "transducer": {
-            "predicate": [[{"subsample": {"interval": 1}}]],
+            "predicate": predicate or [[{"subsample": {"interval": 1}}]],
             "buffer": {"size": buffer_size},
         },
         "view": view,
-        "writer": {
-            "backend": "zarr",
-            "store": str(store_path),
-            "buffers_per_chunk": 1,
-            "backend_config": {"format": 3},
-        },
+        "writer": writer_cfg,
         "metadata": md,
         "metadata_keys": [],
         "metadata_validators": {},
         "output_metadata": output_metadata or {},
         "debug": False,
     }
-    return XArrayEmitter(config=cfg, core=core)
+
+
+def _build_emitter(*, core: Any, **kwargs) -> XArrayEmitter:
+    return XArrayEmitter(config=build_emitter_config(**kwargs), core=core)
 
 
 def run_multigen_xarray(

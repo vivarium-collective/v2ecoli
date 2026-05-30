@@ -1,179 +1,161 @@
-<!doctype html>
-<meta charset='utf-8'>
-<title>Phase 3 inference — v2ecoli-pdmp closeout</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>pdmp-03-inference — single-study report</title>
 <style>
-  body { font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-         color: #1f2937; max-width: 1500px; margin: 24px auto; padding: 0 18px;
-         line-height: 1.55; }
-  h1 { margin: 0 0 6px 0; color:#1e3a8a; }
-  h2 { margin-top: 28px; border-bottom: 1px solid #e2e8f0;
-        padding-bottom: 4px; color:#1e3a8a; }
-  h3 { margin-top: 18px; color:#334155; }
-  .meta { color: #6b7280; font-size: 0.9em; }
-  .provenance { background:#f8fafc; border:1px solid #e2e8f0;
-                 border-radius:8px; padding:10px 14px; margin:14px 0 22px;
-                 font-size:0.85em; }
-  .provenance dt { display:inline-block; min-width:110px; color:#475569;
-                    font-weight:600; }
-  .provenance dd { display:inline; margin:0;
-                    font-family: ui-monospace, Menlo, monospace; }
-  .provenance .row { margin: 1px 0; }
-  table { border-collapse: collapse; margin: 12px 0; width: 100%;
-           font-size: 0.92em; }
-  th, td { padding: 6px 12px; border: 1px solid #e5e7eb;
-            text-align: left; vertical-align: top; }
-  th { background: #f3f4f6; font-weight: 600; }
-  td.num { text-align: right;
-            font-family: ui-monospace, Menlo, monospace; }
-  .takeaway { background:#dcfce7; border-left:4px solid #16a34a;
-               padding:14px 18px; margin:18px 0; }
-  .takeaway h3 { margin-top: 0; color:#15803d; }
-  .next { background:#eff6ff; border-left:4px solid #3b82f6;
-           padding:14px 18px; margin:18px 0; }
-  .next h3 { margin-top: 0; color:#1e40af; }
-  code { background: rgba(0,0,0,0.04); padding: 1px 6px;
-          border-radius: 3px; font-size: 0.9em; }
+body{font-family:system-ui,-apple-system,sans-serif;max-width:1200px;margin:1.5em auto;padding:0 1.2em;color:#0f172a;line-height:1.55}
+header{border-bottom:2px solid #1e3a8a;padding-bottom:0.8em;margin-bottom:1.5em}
+header h1{font-size:1.8em;margin:0 0 0.3em 0;color:#1e3a8a}
+header .meta{color:#64748b;font-size:0.92em}
+h2{font-size:1.35em;margin-top:1.8em;border-bottom:1px solid #e2e8f0;padding-bottom:0.3em;color:#1e3a8a}
+h3{font-size:1.08em;margin-top:1.2em}
+section{margin-bottom:1.5em}
+table{border-collapse:collapse;margin:0.6em 0;width:100%}
+th,td{padding:6px 12px;border:1px solid #e2e8f0;text-align:left;vertical-align:top;font-size:0.92em}
+th{background:#f1f5f9;font-weight:600}
+blockquote{border-left:4px solid #3b82f6;background:#eff6ff;padding:0.6em 1em;margin:0.6em 0;font-style:italic}
+code{background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.88em}
+.tag{display:inline-block;padding:2px 10px;border-radius:9999px;font-size:0.72em;margin-right:6px;font-weight:600;letter-spacing:0.02em}
+.tag.real{background:#d1fae5;color:#065f46}
+.tag.skeleton{background:#fef3c7;color:#92400e}
+.tag.complete{background:#d1fae5;color:#065f46}
+.tag.partial{background:#fef3c7;color:#92400e}
+.tag.planned{background:#e5e7eb;color:#475569}
+.tag.primary{background:#10b981;color:white}
+.tag.supporting{background:#3b82f6;color:white}
+.tag.diagnostic{background:#f59e0b;color:white}
+.tag.regression{background:#94a3b8;color:white}
+.test-card{border-left:4px solid #94a3b8;padding:0.6em 1em;margin:0.8em 0;background:#fafafa}
+.test-card.primary{border-left-color:#10b981}
+.test-card.supporting{border-left-color:#3b82f6}
+.test-card.diagnostic{border-left-color:#f59e0b}
+.test-card .claim{font-weight:500;margin:0.2em 0}
+.test-card .id{font-family:monospace;color:#64748b;font-size:0.85em}
+details.tech{margin-top:0.3em;color:#475569;font-size:0.88em}
+details.tech summary{cursor:pointer}
+details.tech pre{background:#f8fafc;padding:8px 12px;border-radius:4px;overflow-x:auto;font-size:0.85em}
+.viz-card{border:1px solid #e2e8f0;border-radius:6px;background:#fff;margin:1em 0;overflow:hidden}
+.viz-card.missing{padding:1em;background:#fef2f2;color:#991b1b}
+.viz-header{padding:8px 12px;background:#f1f5f9;border-bottom:1px solid #e5e7eb}
+.viz-card .cap{padding:0 12px;color:#475569;font-size:0.9em}
+.gap{background:#fffbeb;border:1px solid #fbbf24;padding:0.7em 1.1em;border-radius:6px;margin:0.6em 0}
+.gap .gap-label{color:#92400e;font-weight:600;display:inline-block;margin-right:0.4em}
+.expert-question{background:#eff6ff;border-left:4px solid #3b82f6;padding:0.7em 1.1em;margin:0.8em 0}
+.expert-question .q{font-weight:600;color:#1e3a8a}
+ol.expert li{margin-bottom:0.8em}
 </style>
 
-<h1>Phase 3 — Inference Infrastructure (closeout)</h1>
-<p class="meta">
-  Investigation <code>v2ecoli-pdmp</code> · Phase 3 of 6
-  · PR <a href="https://github.com/vivarium-collective/v2ecoli/pull/100">#100</a>
-  · 9 sprints landed
-</p>
+<script>
+window._fitEmbed=function(f){try{var d=f.contentDocument||(f.contentWindow&&f.contentWindow.document);if(!d)return;
+var b=d.body,e=d.documentElement;
+var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;
+var pinnedH=0;
+if(bStyle&&(bStyle.overflow||"").indexOf("hidden")>=0){
+  var hm=(bStyle.height||"").match(/^(\d+(?:\.\d+)?)px$/);
+  if(hm)pinnedH=Math.round(parseFloat(hm[1]));
+}
+var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);
+if(h>0)f.style.height=(h+24)+"px";}catch(e){}};
+window.addEventListener('load',function(){
+  setTimeout(function(){document.querySelectorAll('iframe.embed-frame').forEach(window._fitEmbed);},150);
+  setTimeout(function(){document.querySelectorAll('iframe.embed-frame').forEach(window._fitEmbed);},800);
+  setTimeout(function(){document.querySelectorAll('iframe.embed-frame').forEach(window._fitEmbed);},2500);
+});
+</script>
 
-<div class="provenance">
-  <div class="row"><dt>generated</dt><dd>2026-05-30T17:47:07</dd></div>
-  <div class="row"><dt>git commit</dt>
-    <dd><a href="https://github.com/vivarium-collective/v2ecoli/commit/652036c1fb2ca99b02e4c9dc775fd3221825378e"
-       style="color:#0369a1;text-decoration:none">652036c1</a>
-       &nbsp;<code>652036c1fb2ca99b02e4c9dc775fd3221825378e</code><span style="color:#dc2626;font-weight:600">  · DIRTY TREE</span></dd></div>
-  <div class="row"><dt>git branch</dt><dd>v2ecoli-pdmp</dd></div>
-  <div class="row"><dt>host</dt><dd>LT-0919936 &nbsp;
-    <span style="color:#94a3b8">Python 3.12.12</span></dd></div>
-</div>
+</head>
+<body>
+<header>
+  <h1>Phase 3 — Inference Infrastructure: Likelihoods and Bayesian Interface</h1>
+  <p class="meta">Single-study report · investigation <code>v2ecoli-pdmp</code> · rendered 2026-05-30</p>
+</header>
 
-<h2>Where Phase 3 stands</h2>
-<p>
-  Phase 3's stated scope is "observation likelihoods + likelihood
-  accumulator + Vivarium observe/intervene effects; ABC-SMC baseline".
-  Sprints 1–9 deliver the full mechanical loop and validate it on
-  synthetic data:
-</p>
-<ul>
-  <li><strong>Likelihoods</strong> per Phase-2 jump process (sprints 1, 2).</li>
-  <li><strong>Aggregate collector</strong> step writing
-      <code>listeners.likelihood.total</code> (sprint 2).</li>
-  <li><strong>Persistence</strong> via XArrayEmitter to per-replicate
-      zarr stores (sprint 4, after sprint 3's SQLite misstep).</li>
-  <li><strong>Ensemble-shaped readback</strong> as
-      <code>xarray.Dataset(replicate × time × observable)</code> —
-      the canonical inference data shape (sprint 4).</li>
-  <li><strong>Reviewable figure</strong> with provenance banner (sprint 5).</li>
-  <li><strong>Calibrated noise floor</strong> — pairwise (sprint 6) and
-      mean-to-mean (sprint 8) — setting the ABC acceptance ε empirically.</li>
-  <li><strong>One-parameter forward-model ABC stub</strong> on
-      <code>transcript_init_prob_scale</code>, distinguishing truth
-      from perturbations (sprint 7).</li>
-  <li><strong>SMC sequential refinement</strong> showing posterior
-      concentration around the truth as ε tightens (sprint 9).</li>
-</ul>
+<section id="executive">
+  <h2>Executive summary</h2>
+  <p>This is a <strong>single-study</strong> report on <code>pdmp-03-inference</code>, scoped for
+     focused expert review per the &quot;one study at a time&quot; workflow. The parent
+     investigation is <em>v2ecoli → PDMP Whole-Cell Model Reformulation</em>; the other studies are deferred until
+     this one returns approved.</p>
+  <p><strong>Question:</strong> <p>Can the Phase 2 PDMP support well-formed observation likelihoods
+for the dominant cell-biology measurement modalities (RNA-seq,
+proteomics, growth rate, metabolomics) and recover posteriors
+via ABC-SMC on synthetic data — establishing the inference-
+ready substrate that motivated the DUF rescoping?</p></p>
+  <p><strong>Hypothesis:</strong> <p>(a) Per-modality observation likelihoods — negative binomial for
+RNA-seq, log-normal for proteomics, normal-on-log-growth for
+growth rate, normal/log-normal for metabolite abundances — admit
+a likelihood accumulator that runs alongside the PDMP and
+computes log-likelihood contributions incrementally from ODE
+segments and jump events. (b) Extending Vivarium&#x27;s algebraic
+effect system with observe(variable, likelihood) and
+intervene(variable, value) effects (the ChiRho primitives) gives
+a tractable interface for inference workflows. (c) A baseline
+ABC-SMC engine using growth rate, mean mRNA/protein abundances,
+and metabolite concentrations as summary statistics recovers
+known parameter values on synthetic data within published
+precision targets.</p></p>
+  <p><strong>Objective:</strong> <p>Specify and implement an observation likelihood library covering
+the four modalities; build a likelihood accumulator that hooks
+the Phase 2 PDMP runner; extend Vivarium&#x27;s algebraic effects
+with observe / intervene; implement a structured-population layer
+above the single-cell PDMP for population-level omics likelihoods;
+deploy ABC-SMC as the baseline inference engine; demonstrate
+posterior recovery on synthetic data with a published
+uncertainty target.</p></p>
+</section>
+<section id="study-card"><h2>Study card</h2><table><tr><th>Goal</th><td><p>Phase 3 — build the Bayesian inference substrate: per-modality observation likelihoods (negative binomial RNA-seq, log-normal proteomics, normal log-growth, normal/log-normal metabolomics), an incremental log-likelihood accumulator over PDMP segments + jump events, Vivarium observe/intervene algebraic effects (à la ChiRho), and a baseline ABC-SMC inference engine validated by Simulation-Based Calibration.</p></td></tr><tr><th>Why before next</th><td><p>This asks whether the new model can assign probabilities to observations, which is what makes parameter fitting and Bayesian inference possible.</p></td></tr></table></section><section id="tests"><h2>Tests (3)</h2><p class="cap">Each test makes a specific falsifiable scientific claim with a measurable pass criterion.</p><div class="test-card primary">  <span class="tag primary">primary</span>  <div class="claim">ABC-SMC posterior of kinetic-ODE parameters is calibrated under Simulation-Based Calibration (Talts 2018): the rank-histogram of true parameter values within posterior draws is uniform (Cramér–von Mises p &gt; 0.05) across L=200 synthetic experiments. The fundamental check that the inference machinery is correct — deviations diagnose specific failure modes.</div>  <div class="id">test id: <code>sbc-calibration-uniform-rank</code></div>  <details class='tech'><summary>Technical details</summary><strong>Measure:</strong> <code>{observable: &quot;rank of \u03B8_true within N=100 posterior draws, repeated L=200 times&quot;,
+  reduce: &quot;Cram\xE9r-von Mises test of rank histogram vs Uniform(0, N)&quot;, source: scripts/run_sbc.py}</code><br><strong>Pass condition:</strong> <code>{field: CvM_p_value, operator: greater-than, threshold: 0.05}</code><br><strong>Requires simulation:</strong> <code>sbc-L200-N100</code><br><strong>Cites:</strong> <code>talts2018</code>, <code>cook2006</code></details></div><div class="test-card primary">  <span class="tag primary">primary</span>  <div class="claim">Posterior 95% interval width monotonically decreases with the size of the observed dataset (1, 10, 100, 1000 observation points). Asymptote at &lt;30% of the prior width with 1000 points — confirms the data is informative for the posterior. Constant width = inference is ignoring the data.</div>  <div class="id">test id: <code>posterior-shrinks-with-data</code></div>  <details class='tech'><summary>Technical details</summary><strong>Measure:</strong> <code>{observable: posterior 95% interval width per parameter, reduce: ratio to prior width,
+  source: scripts/run_abc_smc.py --vary-data-size}</code><br><strong>Pass condition:</strong> <code>{field: shrinkage_at_N=1000, operator: less-than, threshold: 0.3}</code><br><strong>Requires simulation:</strong> <code>abc-data-scaling</code><br><strong>Cites:</strong> <code>beaumont2010</code></details></div><div class="test-card supporting">  <span class="tag supporting">supporting</span>  <div class="claim">Posterior predictive check: ≥95% of held-out Phase 0 ensemble observations fall within the posterior predictive 95% interval. Higher = overconfidence; lower = underconfidence.</div>  <div class="id">test id: <code>ppc-coverage-95-pct</code></div>  <details class='tech'><summary>Technical details</summary><strong>Measure:</strong> <code>{observable: held-out observation coverage by posterior predictive 95% CI, reduce: fraction,
+  source: scripts/run_ppc.py}</code><br><strong>Pass condition:</strong> <code>{field: coverage, lower: 0.9, operator: within-band, upper: 0.99}</code><br><strong>Requires simulation:</strong> <code>ppc-heldout-100</code><br><strong>Cites:</strong> <code>gelman2013</code></details></div></section><section id="conditions"><h2>Conditions (Build)</h2><h3>Baseline composite</h3><p>Composite: <code>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</code></p><details class='tech'><summary>Baseline params</summary><pre>emitter: xarray
+summary_only: true
+</pre></details><h3>Variants (5)</h3><table><tr><th>Name</th><th>Base composite</th><th>Description</th></tr><tr><td><code>likelihood-library-4-modalities</code></td><td>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</td><td>Per-modality observation likelihoods: NegBin(μ,φ) RNA-seq, log-normal proteomics, normal-on-log-growth, normal/log-normal metabolomics. φ MLE&#x27;d on held-out calibration data with 95% bootstrap CIs.</td></tr><tr><td><code>likelihood-accumulator</code></td><td>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</td><td>Incremental log-likelihood accumulator running alongside the PDMP, log-sum-exp for mixtures, pairwise/Kahan summation for cross-cell population reductions.</td></tr><tr><td><code>observe-intervene-effects</code></td><td>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</td><td>Vivarium algebraic-effect extensions: observe(variable, likelihood) and intervene(variable, value) — the ChiRho primitives, lifted into Vivarium&#x27;s discrete-event runtime.</td></tr><tr><td><code>abc-smc-baseline</code></td><td>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</td><td>ABC-SMC as the baseline inference engine: adaptive ε-decay at q=0.5 of previous-population distance, N=1000 particles, terminate on ESS &lt; 0.5·N or wall-clock cap.</td></tr><tr><td><code>sbc-validation-K1000</code></td><td>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</td><td>Simulation-Based Calibration (Talts 2018): K=1000 synthetic (θ*, y*) draws from prior + forward model, verify uniformity of rank histogram and 90% CI empirical coverage ≥ 85%.</td></tr></table></section><section id="sims"><h2>Simulations</h2><h3>Planned runs</h3><table><tr><th>Name</th><th>Status</th><th>n_steps</th><th>Details</th></tr><tr><td><code>likelihood-dispersion-fit</code></td><td><span class='tag planned'>planned</span></td><td>(MLE)</td><td>fit per-modality dispersion + CIs on held-out calibration data</td></tr><tr><td><code>accumulator-numerical-stability</code></td><td><span class='tag planned'>planned</span></td><td>10000</td><td>10⁴ test runs; zero underflows required</td></tr><tr><td><code>abc-smc-synthetic-recovery</code></td><td><span class='tag scaffold-pilot-done'>scaffold-pilot-done</span></td><td>30 particles × 3 rounds = 90 forward sims (~66s wall)</td><td>PILOT 2026-05-25. scripts/run_abc_smc_pilot.py runs minimal ABC-SMC on Millard with known-truth parameters. Setup: take 2 Millard kinetic parameters (PTS_4.kF, ENO.Vmax), generate &quot;observations&quot; by running Millard at default values, hide the true parameters, sample log-uniform priors around default ±50%, run 3 SMC rounds with top-25% acceptance. Round-by-round threshold: 1.8e-4 → 1.8e-4 → 4.3e-5 (narrowing). Final-round min distance 5.5e-6. Viz at reports/figures/pdmp-03/abc_posterior_{shrinkage_real, 2d}.html. SCAFFOLD because: only 2 parameters, only 30 particles, only 3 rounds — full target is 100s of parameters + 1000s of particles + ≥8 rounds. But the machinery works end-to-end + populates posterior-shrinks-with-data primary test with real data.</td></tr><tr><td><code>sbc-K1000-validation</code></td><td><span class='tag planned'>planned</span></td><td>1000</td><td>SBC pipeline; rank-histogram χ² uniformity (p &gt; 0.05) + 90% CI ≥ 85% coverage (gating)</td></tr></table><h3>Simulation set (v4)</h3><table><tr><th>Name</th><th>Kind</th><th>Status</th><th>Base model</th><th>Duration / metrics</th></tr><tr><td><code>likelihood-dispersion-fit</code></td><td>single</td><td><span class='tag planned'>planned</span></td><td>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</td><td>(MLE) · metrics: likelihood-dispersion-fits, log-likelihood-accumulator, abc-smc-posterior, sbc-rank-histogram</td></tr><tr><td><code>accumulator-numerical-stability</code></td><td>single</td><td><span class='tag planned'>planned</span></td><td>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</td><td>10000 · metrics: likelihood-dispersion-fits, log-likelihood-accumulator, abc-smc-posterior, sbc-rank-histogram</td></tr><tr><td><code>abc-smc-synthetic-recovery</code></td><td>single</td><td><span class='tag planned'>planned</span></td><td>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</td><td>(SMC) · metrics: likelihood-dispersion-fits, log-likelihood-accumulator, abc-smc-posterior, sbc-rank-histogram</td></tr><tr><td><code>sbc-K1000-validation</code></td><td>single</td><td><span class='tag planned'>planned</span></td><td>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</td><td>1000 · metrics: likelihood-dispersion-fits, log-likelihood-accumulator, abc-smc-posterior, sbc-rank-histogram</td></tr></table></section><section id="readouts"><h2>Readouts</h2><table><tr><th>Name</th><th>Status</th><th>Path</th><th>Units</th><th>Notes</th></tr><tr><td><strong>likelihood-dispersion-fits</strong></td><td><span class='tag planned'>planned</span></td><td><code>TBD — planned at out/trajectories/likelihood_fits.csv</code></td><td>MLE +/- 95% CI</td><td>Per modality: NegBin phi (RNA-seq), log-normal sigma (proteomics), normal-on-log sigma_mu (growth), per-metabolite sigma (metabolomics).</td></tr><tr><td><strong>log-likelihood-accumulator</strong></td><td><span class='tag planned'>planned</span></td><td><code>TBD — planned at .pbg/runs/&lt;id&gt;/log_likelihood.zarr</code></td><td>log-likelihood units</td><td>Time-series of incremental log-L contributions from ODE segments + jump events. Required: zero underflows over 10^4 test runs.</td></tr><tr><td><strong>abc-smc-posterior</strong></td><td><span class='tag planned'>planned</span></td><td><code>TBD — planned at .pbg/runs/&lt;id&gt;/posterior_particles.zarr</code></td><td>particle samples + weights</td><td>ABC-SMC convergence trace: ESS, proposal acceptance rate, epsilon-decay schedule per SMC step.</td></tr><tr><td><strong>sbc-rank-histogram</strong></td><td><span class='tag planned'>planned</span></td><td><code>TBD — planned at out/trajectories/sbc_ranks.csv</code></td><td>rank in [0, K]</td><td>K=1000 SBC draws. Gating: chi^2 uniformity p &gt; 0.05 + 90% CI coverage &gt;= 85% empirical.</td></tr></table></section><section id="viz"><h2>Visualizations</h2><p class="cap">Real-data charts auto-pulled from .pbg/runs/. Skeletons clearly marked "Awaiting &lt;run&gt;" — never synthesised data.</p><div class="viz-card missing"><h3>SBC workflow</h3><p>(file missing: /Users/eranagmon/code/v2ecoli/.pbg/worktrees/v2ecoli-pdmp/reports/figures/pdmp-03/sbc_workflow.html)</p></div><div class="viz-card missing"><h3>ABC-SMC posterior shrinkage over rounds</h3><p>(file missing: /Users/eranagmon/code/v2ecoli/.pbg/worktrees/v2ecoli-pdmp/reports/figures/pdmp-03/abc_posterior_shrinkage_real.html)</p></div><div class="viz-card missing"><h3>Posterior predictive — held-out coverage</h3><p>(file missing: /Users/eranagmon/code/v2ecoli/.pbg/worktrees/v2ecoli-pdmp/reports/figures/pdmp-03/ppc_coverage_real.html)</p></div><div class="viz-card missing"><h3>SBC rank histogram — calibration check</h3><p>(file missing: /Users/eranagmon/code/v2ecoli/.pbg/worktrees/v2ecoli-pdmp/reports/figures/pdmp-03/sbc_rank_histogram_real.html)</p></div><div class="viz-card missing"><h3>ABC-SMC 2D posterior (real)</h3><p>(file missing: /Users/eranagmon/code/v2ecoli/.pbg/worktrees/v2ecoli-pdmp/reports/figures/pdmp-03/abc_posterior_2d.html)</p></div></section>
+<section id="tbd"><h2>Honest TBD / known gaps</h2>
+  <div class="gap"><span class="gap-label">Multi-generation:</span>
+    Current Phase 0 deliverable is single-generation. Phase 2's inheritance tests need ≥3 generations per replicate; multi-gen runs are a separate planned-but-not-launched effort.</div>
+  <div class="gap"><span class="gap-label">Full XArrayEmitter zarr:</span>
+    Current trajectories are stored as per-seed JSON (same scientific content). XArrayEmitter's
+    async writer drops the trailing buffer on close() for runs &lt;2000 steps — wiring is task #39.
+    For Phase 1 validation the JSON capture is sufficient.</div>
+  <div class="gap"><span class="gap-label">One acetate seed crashed:</span>
+    seed_58 hit "Negative value(s) in counts_unallocated" at t=141 (known slow-growth edge
+    case in v2ecoli). Kept in endpoint stats, dropped from time-series after t=141. 63 of 64
+    seeds intact.</div>
+  <div class="gap"><span class="gap-label">Profile-instrumented baseline NOT run:</span>
+    The phase0-profile-instrumented-baseline planned_run (decomposes per-step compute into
+    FBA-LP / RNG / marshalling buckets) is needed to populate profile_decomposition_bars viz.
+    Currently the viz is a skeleton.</div>
+  <div class="gap"><span class="gap-label">Variable-categorization map NOT authored:</span>
+    The "every state variable labelled ODE-amenable / stochastic-discrete / teleonomic /
+    coupling-artifact" deliverable is a design artifact (no run produces it) and is still TBD.</div>
+</section>
 
-<h2>Sprint timeline</h2>
-<table>
-  <tr><th>#</th><th>sprint</th><th>verdict</th><th>finding</th></tr>
-  <tr><td>1</td><td>TranscriptInitiation log-likelihood emission</td><td>✅</td><td>Per-tick log P(observed | rates) emitted to listeners.rnap_data. Discrete mode emits 0.0 sentinel; poisson mode emits the Σ_i log P(k_i | λ_i) under the rates the sampler used. Surfaces the pbg pruning quirk (task #14): scalar listener fields with no downstream consumer are dropped from the merged state.</td></tr>
-<tr><td>2</td><td>PolypeptideInitiation likelihood + LikelihoodCollector</td><td>✅</td><td>Mirror of sprint 1 on the translation side. New LikelihoodCollector step reads both per-process likelihoods (pinning them in the merged state) and writes listeners.likelihood.{transcript_init, polypeptide_init, total}. Translation contributes ~88% of total magnitude — many more events per tick than transcription.</td></tr>
-<tr><td>3</td><td>Likelihood persistence + readback (SQLite, then dropped)</td><td>❌→✅</td><td>First persistence attempt used SQLiteEmitter (wrong choice for PDMP per investigation YAML). Replaced by sprint 4.</td></tr>
-<tr><td>4</td><td>XArrayEmitter ensemble (replaces sprint 3)</td><td>✅</td><td>N=8 PDMP+poisson sims, each writing per-tick observables to .pbg/runs/pdmp-03-likelihood/seed_NN/store.zarr/ via XArrayEmitter. DataTree readback into xarray.Dataset(replicate × time × observable) — the canonical inference shape. Σ_t cross-replicate σ on total = 488 fg, matching sprint 2's in-memory ensemble within MC noise. Documented trailing-buffer NaN quirk (buf_size ≥ 3 minimum).</td></tr>
-<tr><td>5</td><td>Per-tick ensemble figure</td><td>✅</td><td>3-panel matplotlib figure: per-tick log-likelihood for transcript_init, polypeptide_init, total. Faded individual replicate traces + bold mean line + ±σ band. HTML report with provenance banner, Σ_t summary table, and trailing-NaN warning.</td></tr>
-<tr><td>6</td><td>Intra-ensemble inference noise floor</td><td>✅</td><td>Pairwise per-replicate SSE distance distribution on `total`. median = 158,294, p95 = 207,432. Initial ε estimate for ABC-SMC acceptance — later corrected by sprint 8.</td></tr>
-<tr><td>7</td><td>ABC-SMC stub on transcript_init_prob_scale</td><td>⚠️→✅</td><td>Added tunable parameter (multiplies Poisson rate). 5 scales × N=4 sims. Distance metric IS sensitive (truth=1.0 is 7× closer than extremes) but sprint-6 ε was over-generous; all 5 scales accepted. Honest finding led directly to sprint 8 correction.</td></tr>
-<tr><td>8</td><td>Mean-to-mean noise floor — corrected ε</td><td>✅</td><td>Subsamples sprint-4's N=8 into 4+4 splits, computes mean-to-mean SSE distribution. ε = p95 = 58,883 (3.5× tighter than sprint-6, matching theoretical √8 ≈ 2.83×). Sprint 7 re-verdict: scale=0.7 correctly REJECTED; posterior tightens to {0.85, 1.0, 1.15, 1.3}. Added per-seed caching for fast analysis iteration.</td></tr>
-<tr><td>9</td><td>Sequential ε tightening — SMC refinement</td><td>✅</td><td>Iterates ε ∈ {p95, p75, p50, p25, p05} of the sprint-8 null. Posterior monotonically concentrates: p95 → {0.85, 1.0, 1.15, 1.3}; p50 → {1.0, 1.15}; p25 and p05 → {1.0}. Truth retained at every ε level. Acceptance staircase visualization.</td></tr>
-</table>
-
-<h2>Headline result — posterior concentration on synthetic data</h2>
-<p>
-  Sprint 7 added <code>transcript_init_prob_scale</code> to
-  <code>TranscriptInitiation</code> (multiplies the per-promoter
-  Poisson rate). 5 proposed scales × N=4 forward sims each. The
-  "observed" trajectory is the sprint-4 N=8 scale=1.0 ensemble mean.
-  Distance metric: SSE between proposed-ensemble-mean and
-  observed-ensemble-mean per-tick <code>total</code> log-likelihood.
-</p>
-
-<h3>Per-scale forward-model distances</h3>
-<table>
-  <tr><th>proposed scale</th><th>SSE</th><th>SMC behavior</th></tr>
-  <tr><td class='num'>0.70</td><td class='num'>68,884.7</td><td>REJECT at all ε ≤ p95</td></tr>
-<tr><td class='num'>0.85</td><td class='num'>42,419.4</td><td>REJECT at p50 and below</td></tr>
-<tr><td class='num'>1.00</td><td class='num'>9,793.1</td><td>ACCEPT at every ε — the truth</td></tr>
-<tr><td class='num'>1.15</td><td class='num'>34,532.5</td><td>REJECT at p25 and below</td></tr>
-<tr><td class='num'>1.30</td><td class='num'>47,459.0</td><td>REJECT at p75 and below</td></tr>
-</table>
-
-<p>
-  The truth (scale = 1.0) sits 4× below the next-closest proposal —
-  the forward model is meaningfully sensitive to the parameter.
-</p>
-
-<h3>Sequential ε refinement</h3>
-<p>
-  Sprint 8 calibrated ε from the mean-to-mean null distribution
-  (4+4 random splits of the sprint-4 reference, 200 resamples).
-  Sprint 9 iterates ε through {p95, p75, p50, p25, p05}:
-</p>
-<table>
-  <tr><th>ε percentile</th><th>ε value</th>
-      <th>accepted posterior</th><th>accept</th></tr>
-  <tr><td>p95</td><td class='num'>53037.3</td><td>{0.85, 1.0, 1.15, 1.3}</td><td class='num'>4/5</td></tr>
-<tr><td>p75</td><td class='num'>44440.3</td><td>{0.85, 1.0, 1.15}</td><td class='num'>3/5</td></tr>
-<tr><td>p50</td><td class='num'>38968.2</td><td>{1.0, 1.15}</td><td class='num'>2/5</td></tr>
-<tr><td>p25</td><td class='num'>33748.5</td><td>**{1.0}**</td><td class='num'>1/5</td></tr>
-<tr><td>p05</td><td class='num'>29868.1</td><td>**{1.0}**</td><td class='num'>1/5</td></tr>
-</table>
-
-<div class="takeaway">
-  <h3>Closeout — SMC posterior collapses to the truth</h3>
-  <p>
-    At p25 and p05 the posterior contains only <strong>scale = 1.0</strong>,
-    the synthetic truth. Each ε step monotonically eliminates the most
-    extreme remaining proposal — classic SMC refinement. The
-    Phase-2 closeout finding (cell_mass is the wrong observable; count-
-    level listeners carry the jump-process signal) is now operationally
-    actionable: a real ABC-SMC driver can read the persisted per-tick
-    <code>likelihood.total</code> directly from disk and invert
-    transcript-side parameters with no further infrastructure changes.
-  </p>
-</div>
-
-<div class="next">
-  <h3>Remaining ABC-SMC nice-to-haves (deferrable)</h3>
-  <ol>
-    <li>Proposal-perturbation kernel (Gaussian random walk around the
-        accepted region) for real SMC propagation between rounds.</li>
-    <li>Importance reweighting between rounds.</li>
-    <li>Multi-parameter inference — extend the one-parameter
-        infrastructure to (rate_scale, elongation_rate, ...) tuples.</li>
-    <li>Bonus: fix the XArrayEmitter trailing-NaN at the source
-        (loosen <code>buf_size ≥ 3</code> minimum).</li>
+<section id="expert-questions"><h2>For expert review</h2>
+  <ol class="expert">
+    <li class="expert-question"><span class="q">Are the 3 nutrient conditions sufficient as the Phase 0 reference?</span>
+      DUF report Sec 4.1.1 notes "~a dozen conditions" exist; we sampled glucose/acetate/glucose+aa
+      spanning the metabolic regime. Adequate for Phase 1+ Wasserstein-2 acceptance, or should we
+      cover more (succinate, no_oxygen)?</li>
+    <li class="expert-question"><span class="q">Is N=64 replicates adequate?</span>
+      Justification given in study: σ/√64 = σ/8 ≈ 12.5% SE. Phase 1+ acceptance threshold is W₂ &lt;
+      5% of inter-condition effect size — does that target make sense, or should we scale to N=256?</li>
+    <li class="expert-question"><span class="q">The with_aa CV (0.09%) is much tighter than glucose (0.64%) or acetate (0.87%) — real biology or artifact?</span>
+      Possible: amino-acid supplementation buffers stochastic variance in translation initiation
+      (one of the loudest stochastic sources). Alternative: faster growth + larger pools → smaller
+      relative noise. Both? Worth probing in Phase 2's jump-process formulation.</li>
+    <li class="expert-question"><span class="q">Is the per-process RNG seeding fix the right pattern?</span>
+      Implementation: <code>seed = crc32(process_name, master_seed)</code> per process, same
+      pattern as v2ecoli/steps/division.py:CellDivision. Result: real divergence (0.09–0.87% CV).
+      Concern: does this introduce structured correlations across processes?</li>
+    <li class="expert-question"><span class="q">Is the single-generation ensemble enough for Phase 1 validation, or do we need multi-gen first?</span>
+      Phase 1's metabolism-ODE replacement only changes intracellular dynamics within a generation
+      (no division). Multi-gen testing is Phase 2 territory (inheritance, division-time). Can we
+      proceed to Phase 1 with single-gen reference?</li>
+    <li class="expert-question"><span class="q">profile_decomposition_bars + variable_categorization_map are not yet delivered — block the study, or accept as Phase 0.5 follow-ups?</span>
+      Both inform Phase 4 (compilation) more than Phases 1-3. Recommend: accept this study as
+      complete-for-Phase-1-handoff, file the two as Phase-4-input follow-ups.</li>
   </ol>
-  <p>
-    All four build directly on the persisted per-scale zarrs and the
-    pipeline plumbing already in place; none block declaring Phase 3
-    mechanically complete.
-  </p>
-</div>
-
-<h2>Evidence — individual figures</h2>
-<ul>
-  <li><a href="../../../reports/figures/pdmp-03/likelihood_ensemble.html">
-      Sprint 5+6 ensemble figure + intra-ensemble pairwise noise floor</a></li>
-  <li><a href="../../../reports/figures/pdmp-03/abc_smc_stub.html">
-      Sprint 7+8 ABC stub + mean-to-mean ε correction</a></li>
-  <li><a href="../../../reports/figures/pdmp-03/abc_smc_sequential.html">
-      Sprint 9 SMC acceptance staircase</a></li>
-  <li><a href="pdmp-02-jump-processes.html">
-      Phase-2 closeout report — why count-level observables matter</a></li>
-</ul>
+</section>
+<section id="bib"><h2>References</h2><ul><li><code>chirho2024</code> — {ChiRho ({BasisResearch, 2024)</li><li><code>ahman2020</code> — Runners in Action (Ahman, Danel and Bauer, Andrej, 2020)</li><li><code>saa2017</code> — Formulation, construction and analysis of kinetic models of metabolism: A review of modelling frameworks (Saa, Pedro A. and Nielsen, Lars K., 2017)</li><li><code>backman2023</code> — {BayFlux (Backman, Tyler W. H. and Schenk, Christina and Radivojevic, Tijana and Ando, David and Singh, Jahnavi and Czajka, Jeffrey J. and others, 2023)</li><li><code>talts2018sbc</code> — Validating {Bayesian (Talts, Sean and Betancourt, Michael and Simpson, Daniel and Vehtari, Aki and Gelman, Andrew, 2018)</li><li><code>cook2006posterior</code> — Validation of Software for {Bayesian (Cook, Samantha R. and Gelman, Andrew and Rubin, Donald B., 2006)</li><li><code>xarray2017</code> — xarray: N-D labeled Arrays and Datasets in {Python (Hoyer, Stephan and Hamman, Joseph, 2017)</li></ul></section>
+</body>
+</html>

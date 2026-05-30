@@ -92,3 +92,46 @@ def test_daughter_carry_forward_orchestration(monkeypatch):
     assert builds[1][0] == 1
     assert builds[1][1] == "00"            # agent_id advanced via daughter_phylogeny_id
     assert builds[1][2] is daughter        # carry_state handed to the next build
+
+
+def test_select_carry_daughter_uses_inner_daughter_unchanged():
+    """Regression: when the inner Division step has already produced daughters
+    (…0 / …1), carry the …0 daughter's state DIRECTLY — do NOT re-divide it
+    (re-dividing an already-divided daughter yielded quarter-mass cells)."""
+    from v2ecoli.workflow.lineage import select_carry_daughter
+
+    bulk00 = ["sentinel-bulk-00"]          # identity-checked: must pass through
+    agents_now = {
+        "00": {"bulk": bulk00, "unique": {"u": 1}, "environment": {"e": 2}, "boundary": {}},
+        "01": {"bulk": ["other"], "unique": {}, "environment": {}, "boundary": {}},
+    }
+    carry = select_carry_daughter({"0"}, agents_now, mother_snapshot=None)
+    assert carry["bulk"] is bulk00         # the …0 daughter's bulk, unmodified
+    assert carry["unique"] == {"u": 1}
+    assert carry["environment"] == {"e": 2}
+
+
+def test_select_carry_daughter_fallback_divides_mother_once(monkeypatch):
+    """When no structural daughter surfaced (divide-flag / exception signal,
+    agents map unchanged), fall back to dividing the pre-run mother snapshot
+    exactly ONCE."""
+    import v2ecoli.library.division as division_mod
+    calls = []
+
+    def fake_divide(cell_data):
+        calls.append(cell_data)
+        return {"bulk": "D1", "unique": {}}, {"bulk": "D2", "unique": {}}
+
+    monkeypatch.setattr(division_mod, "divide_cell", fake_divide)
+    from v2ecoli.workflow.lineage import select_carry_daughter
+
+    mother = {"bulk": "MOTHER_BULK", "unique": {}, "environment": {}, "boundary": {}}
+    carry = select_carry_daughter({"0"}, {"0": {}}, mother_snapshot=mother)
+    assert len(calls) == 1                  # divided exactly once
+    assert calls[0] == mother               # divided the MOTHER snapshot
+    assert carry["bulk"] == "D1"
+
+
+def test_select_carry_daughter_none_when_nothing_to_carry():
+    from v2ecoli.workflow.lineage import select_carry_daughter
+    assert select_carry_daughter({"0"}, {"0": {}}, mother_snapshot=None) is None

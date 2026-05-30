@@ -16,6 +16,30 @@ from typing import Any
 from process_bigraph import Process
 
 
+def select_carry_daughter(agents_before, agents_now, mother_snapshot):
+    """State to seed the next generation (single-daughter lineage), or None.
+
+    The inner baseline composite's Division step already splits the mother
+    into ``…0`` / ``…1`` daughters and adds them to its agents map. Carry the
+    ``…0`` daughter's biological state DIRECTLY — re-dividing it would halve an
+    already-halved cell, producing quarter-mass, slow-growing daughters (the
+    multigeneration bug this guards against). Only when no structural daughter
+    surfaced (a divide-flag / exception signal with no agents-map change) fall
+    back to dividing the pre-run mother snapshot exactly once.
+    """
+    keys = ("bulk", "unique", "environment", "boundary")
+    new_ids = set(agents_now) - set(agents_before)
+    d0_id = next((i for i in sorted(new_ids) if i.endswith("0")), None)
+    if d0_id is not None:
+        dcell = agents_now.get(d0_id, {}) or {}
+        return {k: dcell.get(k) for k in keys}
+    if mother_snapshot and mother_snapshot.get("bulk") is not None:
+        from v2ecoli.library.division import divide_cell
+        d1, _d2 = divide_cell(mother_snapshot)
+        return d1
+    return None
+
+
 class LineageProcess(Process):
     config_schema = {
         "cache_dir": {"_type": "string", "_default": "out/cache"},
@@ -88,7 +112,17 @@ class LineageProcess(Process):
     def _run_until_division(self, interval):
         """Run the internal composite for ``interval`` seconds. Returns
         ``(divided, daughter_cell_data_or_None, final_dry_mass)``."""
-        agents_before = set((self._composite.state.get("agents") or {}).keys())
+        agents = self._composite.state.get("agents") or {}
+        agents_before = set(agents.keys())
+        # Snapshot the mother's divisible state BEFORE running: the inner
+        # Division step removes the mother mid-run (and adds daughters), so
+        # reading after the run samples an already-divided daughter. Only the
+        # snapshot is used for the exception/divide-flag fallback path.
+        mother = agents.get(self._agent_id) or next(iter(agents.values()), {})
+        mother_snapshot = (
+            {k: mother.get(k) for k in ("bulk", "unique", "environment", "boundary")}
+            if isinstance(mother, dict) else None)
+
         divided = False
         try:
             self._composite.run(interval)
@@ -101,31 +135,23 @@ class LineageProcess(Process):
             else:
                 raise
         self._gen_elapsed += interval
-        agents_after = set((self._composite.state.get("agents") or {}).keys())
+
+        agents_now = self._composite.state.get("agents") or {}
+        agents_after = set(agents_now.keys())
         if agents_before and agents_after != agents_before:
             divided = True
         # MarkDPeriod sets a divide flag without changing the agents map; honor it
         # too (mirrors the three-signal detection in v2ecoli/bridge.py).
-        cur_cell = (self._composite.state.get("agents", {}) or {}).get(self._agent_id, {})
-        if isinstance(cur_cell, dict) and cur_cell.get("divide"):
+        survivor = agents_now.get(self._agent_id, {})
+        if isinstance(survivor, dict) and survivor.get("divide"):
             divided = True
 
-        cell = (self._composite.state.get("agents", {}).get(self._agent_id)
-                or next(iter(self._composite.state.get("agents", {}).values()), {}))
+        cell = agents_now.get(self._agent_id) or next(iter(agents_now.values()), {})
         dry_mass = float(cell.get("listeners", {}).get("mass", {}).get("dry_mass", 0.0))
 
         daughter = None
         if divided:
-            from v2ecoli.library.division import divide_cell
-            cell_data = {
-                "bulk": cell.get("bulk"),
-                "unique": cell.get("unique", {}),
-                "environment": cell.get("environment", {}),
-                "boundary": cell.get("boundary", {}),
-            }
-            if cell_data["bulk"] is not None:
-                d1, _d2 = divide_cell(cell_data)
-                daughter = d1
+            daughter = select_carry_daughter(agents_before, agents_now, mother_snapshot)
         return divided, daughter, dry_mass
 
     # --- main tick -------------------------------------------------------

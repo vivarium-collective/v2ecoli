@@ -105,6 +105,56 @@ chromosome_*, equilibrium, tcs. Per-field, gated.
 | `cell_mass` | mass listener | ~all (volume calc) | T1 |
 | concentration listeners | metabolism / polypeptide_elongation | (emitted only) | T3/T4 |
 
+## T1 execution detail (discovered scope)
+
+Converting `cell_mass` is a **full mass-listener Quantity refactor**, not a few edits —
+the fields interlock:
+
+- **`cellDensity`** is a bare `float` (1100.0) config → must become `quantity[g/L]` (or be
+  wrapped tolerantly in `initialize`), since `volume = cell_mass / cellDensity`.
+- **`volume`** (`float[fL]`) → `quantity[float,fL]` (`(cell_mass/cellDensity).to(units.fL)`).
+- **`old_dry_mass`** is read back from the `dry_mass` store each tick → becomes a Quantity,
+  so `growth = dry_mass − old_dry_mass` must be Quantity arithmetic.
+- **`growth`** (`float[fg/s]` — note: value is a per-tick Δmass in fg, a pre-existing
+  mislabel) and **`instantaneous_growth_rate`** (`1/s`) → Quantities.
+- **`*_fold_change` / `*_mass_fraction`** (dimensionless `float` ports) → the ratios become
+  dimensionless Quantities; `.magnitude`-strip on assignment.
+- **stored `*Initial` attrs** (`dryMassInitial`, …) → Quantities (used in the ratios).
+- **~10 process readers** do `states[...]["cell_mass"] * units.fg` → drop the `* units.fg`
+  (value is already a Quantity).
+- **live-state consumers** (`reports/multigeneration_report.py`, `benchmark_report.py`,
+  `steps/division.py` defaults, `steps/millard_pdmp_metabolism.py` `float(...)`) → use a
+  tolerant `fg_magnitude(x)` helper (accepts float **or** Quantity[fg]).
+
+Execution order (each gated): (1) add tolerant helpers `as_fg_quantity(x)` / `fg_magnitude(x)`
+to `v2ecoli/library`; (2) migrate live-state consumers to `fg_magnitude`; (3) convert the
+mass listener to Quantity arithmetic (strip ratios with `.magnitude`); (4) convert process
+readers; (5) gate: build baseline+departitioned+reconciled, run, behavior suite, + run the
+report scripts.
+
+## Runtime mass-conservation check (design — chosen: balance-vs-exchange, emit+warn)
+
+New observe-only Step `MassConservationListener` (wired after metabolism + mass listener):
+
+- **Law:** over one tick, total cell dry-mass change equals net mass imported across the
+  environment boundary by metabolism. Everything else (transcription/translation/etc.) only
+  repackages existing atoms → internally mass-conserving.
+- **Inputs:** `listeners.mass.dry_mass` (Quantity[fg] after T1), the metabolism exchange
+  (`environment.exchange` counts, or `fba_results.external_exchange_fluxes` × `coefficient`),
+  and exchange-molecule **molecular weights** (from sim_data bulk masses).
+- **Residual:** `residual = Δdry_mass − exchange_mass_in` (both in fg). Emit
+  `listeners.mass.conservation_residual_fg` and a relative `…_rel` each tick.
+- **Reaction:** `warnings.warn(...)` when `|relative residual| > tol` (configurable, e.g.
+  1e-3). **Never raises** — observable only.
+- **Unit safety:** with T1 done, the residual is Quantity arithmetic (fg vs MW×counts),
+  so pint catches a wrong-unit MW or flux at the point of subtraction — the enforcement
+  the check is meant to provide.
+- **Validation:** on a healthy baseline run the relative residual should sit near machine/
+  rounding noise; a large residual flags a leaking process (ties back to the math-audit
+  conservation findings).
+
+These two are the next focused builds; both gate on the emitter PR (#2) for the durable env.
+
 ## Notes
 
 - Durable env: the venv currently resolves `pbg_emitters` to the source repo via a hand-added

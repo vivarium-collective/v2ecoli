@@ -5,6 +5,8 @@
     "n_init_sims": 2,
     "single_daughters": true,
     "analysis_options": {
-        "single": {"mass_fraction_summary": {}}
+        "single": {"mass_fraction_summary": {}},
+        "multigeneration": {"mass_growth_across_generations": {}},
+        "multiseed": {"doubling_time_distribution": {}}
     }
 }

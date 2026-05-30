@@ -38,14 +38,6 @@ def run_workflow(config: dict[str, Any], *, max_sim_time: float = 1e9,
                        completed.
       ``branches``   – per-branch summary dicts.
     """
-    analysis_options = config.get("analysis_options") or {}
-    if any(analysis_options.values()):
-        import warnings
-        warnings.warn(
-            "analysis_options is set but post-sweep analysis Steps are not yet "
-            "wired into the meta-composite (deferred follow-up); these analyses "
-            "will NOT run. Emitted parquet is still written for later analysis.")
-
     core = build_core()
     register_workflow_processes(core)
 
@@ -77,18 +69,34 @@ def run_workflow(config: dict[str, Any], *, max_sim_time: float = 1e9,
                 branch_key = path_tuple[1]
                 proc_summaries[branch_key] = {"generations": list(inst._summaries)}
 
-    return {
+    branch_result = {
+        k: {
+            "complete": v.get("complete"),
+            "summary": proc_summaries.get(k, v.get("summary") or {}),
+        }
+        for k, v in branches.items()
+    }
+
+    out_dir = config.get("out_dir") or "out/workflow"
+    os.makedirs(out_dir, exist_ok=True)
+    import json
+    with open(os.path.join(out_dir, "summary.json"), "w") as f:
+        json.dump({k: rv["summary"] for k, rv in branch_result.items()},
+                  f, indent=2, default=str)
+
+    result = {
         "complete": complete,
         "elapsed": elapsed,
         "timed_out": not complete,
-        "branches": {
-            k: {
-                "complete": v.get("complete"),
-                "summary": proc_summaries.get(k, v.get("summary") or {}),
-            }
-            for k, v in branches.items()
-        },
+        "branches": branch_result,
     }
+
+    analysis_options = config.get("analysis_options") or {}
+    if any((analysis_options or {}).values()):
+        from v2ecoli.workflow.analysis_runner import run_analyses
+        run_analyses(out_dir, analysis_options)
+        result["analysis"] = os.path.join(out_dir, "analysis.json")
+    return result
 
 
 def main() -> None:

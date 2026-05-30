@@ -28,7 +28,9 @@ def group_for_scale(scale: str, records: list[dict]) -> dict[tuple, list[dict]]:
         if scale == "single":
             key = (v, s, g, a)
         elif scale == "multidaughter":
-            parent = a[:-1] if len(a) > 1 else a   # sisters share the parent id
+            # sisters share the parent id (phylogeny "00"/"01" -> parent "0");
+            # the root cell "0" has no parent char to strip, so it keys to itself.
+            parent = a[:-1] if len(a) > 1 else a
             key = (v, s, g, parent)
         elif scale == "multigeneration":
             key = (v, s)
@@ -153,7 +155,9 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
             for gkey, grp in groups.items():
                 try:
                     # single-scale Steps consume a cell's timeseries; cross-scale
-                    # Steps consume the list of per-cell summary records.
+                    # Steps consume the list of per-cell summary records. (A single
+                    # group is exactly one cell by construction — group_for_scale
+                    # keys single by the full cell id — so grp[0] is that cell.)
                     rows = grp[0].get("timeseries") if scale == "single" else grp
                     per_group[_group_key_str(scale, gkey)] = step.analyze(rows or [])
                 except Exception as e:

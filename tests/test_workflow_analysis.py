@@ -75,3 +75,69 @@ def test_unimplemented_analyze_propagates():
     step = Incomplete({}, core=allocate_core())
     with pytest.raises(NotImplementedError):
         step.invoke({"results": []})
+
+
+def test_analysis_registry_maps_names_to_steps():
+    from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY, MassFractionSummary
+    assert ANALYSIS_REGISTRY["mass_fraction_summary"] is MassFractionSummary
+    from v2ecoli.workflow.analysis import AnalysisStep
+    for name, cls in ANALYSIS_REGISTRY.items():
+        assert issubclass(cls, AnalysisStep)
+        assert cls.name == name
+
+
+def test_daughter_mass_symmetry():
+    from v2ecoli.workflow.analysis import DaughterMassSymmetry
+    from bigraph_schema import allocate_core
+    step = DaughterMassSymmetry({}, core=allocate_core())
+    out = step.analyze([{"newborn_dry_mass": 300.0}, {"newborn_dry_mass": 360.0}])
+    assert out["n_sisters"] == 2
+    assert abs(out["mass_asymmetry"] - (60.0 / 660.0)) < 1e-9
+    one = step.analyze([{"newborn_dry_mass": 300.0}])
+    assert one["n_sisters"] == 1 and "skipped" in one
+
+
+def test_mass_growth_across_generations():
+    from v2ecoli.workflow.analysis import MassGrowthAcrossGenerations
+    from bigraph_schema import allocate_core
+    step = MassGrowthAcrossGenerations({}, core=allocate_core())
+    rows = [
+        {"generation": 1, "newborn_dry_mass": 350.0, "final_dry_mass": 700.0, "division_time": 2500.0},
+        {"generation": 0, "newborn_dry_mass": 380.0, "final_dry_mass": 702.0, "division_time": 2400.0},
+    ]
+    out = step.analyze(rows)
+    assert out["n_generations"] == 2
+    assert [g["generation"] for g in out["per_generation"]] == [0, 1]
+    assert abs(out["per_generation"][0]["fold_change"] - (702.0 / 380.0)) < 1e-9
+    assert abs(out["mean_division_time"] - 2450.0) < 1e-9
+
+
+def test_doubling_time_distribution():
+    from v2ecoli.workflow.analysis import DoublingTimeDistribution
+    from bigraph_schema import allocate_core
+    step = DoublingTimeDistribution({}, core=allocate_core())
+    rows = [
+        {"divided": True, "division_time": 2400.0, "final_dry_mass": 700.0},
+        {"divided": True, "division_time": 2600.0, "final_dry_mass": 720.0},
+        {"divided": False, "division_time": 4000.0, "final_dry_mass": 500.0},
+    ]
+    out = step.analyze(rows)
+    assert out["n_cells"] == 3 and out["n_divided"] == 2
+    assert abs(out["doubling_time_mean"] - 2500.0) < 1e-9
+    assert out["doubling_time_std"] > 0
+    assert abs(out["final_dry_mass_mean"] - (700.0 + 720.0 + 500.0) / 3) < 1e-6
+
+
+def test_metric_across_variants():
+    from v2ecoli.workflow.analysis import MetricAcrossVariants
+    from bigraph_schema import allocate_core
+    step = MetricAcrossVariants({}, core=allocate_core())
+    rows = [
+        {"variant": 0, "divided": True, "division_time": 2400.0, "final_dry_mass": 700.0},
+        {"variant": 0, "divided": True, "division_time": 2600.0, "final_dry_mass": 720.0},
+        {"variant": 1, "divided": True, "division_time": 3000.0, "final_dry_mass": 650.0},
+    ]
+    out = step.analyze(rows)
+    pv = out["per_variant"]
+    assert pv[0]["n_cells"] == 2 and abs(pv[0]["mean_division_time"] - 2500.0) < 1e-9
+    assert pv[1]["n_cells"] == 1 and abs(pv[1]["mean_final_dry_mass"] - 650.0) < 1e-9

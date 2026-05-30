@@ -31,6 +31,10 @@ ANALYSIS_SCALES: dict[str, str] = {
     "multivariant": "cells across all variants",
 }
 
+# analysis name -> AnalysisStep subclass. Populated by __init_subclass__ for any
+# subclass that defines its own ``name``; analysis_options entries resolve here.
+ANALYSIS_REGISTRY: dict[str, type] = {}
+
 
 class AnalysisStep(V2Step):
     """Base for result-consuming analysis Steps.
@@ -50,6 +54,9 @@ class AnalysisStep(V2Step):
         if cls.scale not in ANALYSIS_SCALES:
             raise ValueError(
                 f"{cls.__name__}.scale={cls.scale!r} not in {sorted(ANALYSIS_SCALES)}")
+        # Register concrete analyses (those declaring their own ``name``).
+        if "name" in cls.__dict__:
+            ANALYSIS_REGISTRY[cls.name] = cls
 
     def inputs(self):
         return {"results": "list"}
@@ -98,3 +105,95 @@ class MassFractionSummary(AnalysisStep):
         for name, vals in fractions.items():
             out[f"{name}_fraction_mean"] = (sum(vals) / len(vals)) if vals else 0.0
         return out
+
+
+class DaughterMassSymmetry(AnalysisStep):
+    """Multidaughter: birth-mass asymmetry |m1-m0|/(m1+m0) of sister cells.
+
+    Dormant for single-lineage sweeps (only one daughter is carried); produces
+    a value once binary-tree lineages (single_daughters=false) land.
+    """
+
+    name = "daughter_mass_symmetry"
+    scale = "multidaughter"
+
+    def analyze(self, rows):
+        masses = [float(r.get("newborn_dry_mass", 0.0)) for r in rows]
+        if len(masses) < 2:
+            return {"n_sisters": len(masses),
+                    "skipped": "needs >=2 daughters (single_daughters=false)"}
+        m0, m1 = masses[0], masses[1]
+        total = m0 + m1
+        return {"n_sisters": len(masses),
+                "mass_asymmetry": (abs(m1 - m0) / total) if total > 0 else 0.0}
+
+
+class MassGrowthAcrossGenerations(AnalysisStep):
+    """Multigeneration: per-generation newborn/final mass, cycle time, fold change
+    across one lineage."""
+
+    name = "mass_growth_across_generations"
+    scale = "multigeneration"
+
+    def analyze(self, rows):
+        cells = sorted(rows, key=lambda r: int(r.get("generation", 0)))
+        per_gen = []
+        for c in cells:
+            nb = float(c.get("newborn_dry_mass", 0.0))
+            fn = float(c.get("final_dry_mass", 0.0))
+            per_gen.append({
+                "generation": int(c.get("generation", 0)),
+                "newborn_dry_mass": nb, "final_dry_mass": fn,
+                "division_time": float(c.get("division_time", 0.0)),
+                "fold_change": (fn / nb) if nb > 0 else 0.0,
+            })
+        dts = [g["division_time"] for g in per_gen if g["division_time"] > 0]
+        return {"n_generations": len(per_gen), "per_generation": per_gen,
+                "mean_division_time": (sum(dts) / len(dts)) if dts else 0.0}
+
+
+class DoublingTimeDistribution(AnalysisStep):
+    """Multiseed: division-time mean/std over divided cells across seeds, plus
+    mean final dry mass over all cells."""
+
+    name = "doubling_time_distribution"
+    scale = "multiseed"
+
+    def analyze(self, rows):
+        import statistics
+        times = [float(r.get("division_time", 0.0)) for r in rows
+                 if r.get("divided") is not False and float(r.get("division_time", 0.0)) > 0]
+        finals = [float(r.get("final_dry_mass", 0.0)) for r in rows
+                  if float(r.get("final_dry_mass", 0.0)) > 0]
+        return {
+            "n_cells": len(rows),
+            "n_divided": len(times),
+            "doubling_time_mean": statistics.mean(times) if times else 0.0,
+            "doubling_time_std": statistics.pstdev(times) if len(times) > 1 else 0.0,
+            "final_dry_mass_mean": statistics.mean(finals) if finals else 0.0,
+        }
+
+
+class MetricAcrossVariants(AnalysisStep):
+    """Multivariant: mean division time + final dry mass per variant."""
+
+    name = "metric_across_variants"
+    scale = "multivariant"
+
+    def analyze(self, rows):
+        import statistics
+        by_variant: dict[int, list] = {}
+        for r in rows:
+            by_variant.setdefault(int(r.get("variant", 0)), []).append(r)
+        per_variant = {}
+        for v, cells in sorted(by_variant.items()):
+            dts = [float(c.get("division_time", 0.0)) for c in cells
+                   if c.get("divided") is not False and float(c.get("division_time", 0.0)) > 0]
+            fms = [float(c.get("final_dry_mass", 0.0)) for c in cells
+                   if float(c.get("final_dry_mass", 0.0)) > 0]
+            per_variant[v] = {
+                "n_cells": len(cells),
+                "mean_division_time": statistics.mean(dts) if dts else 0.0,
+                "mean_final_dry_mass": statistics.mean(fms) if fms else 0.0,
+            }
+        return {"per_variant": per_variant}

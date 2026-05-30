@@ -26,7 +26,9 @@ from typing import Any, Callable
 
 import numpy as np
 
-from v2ecoli.library.xarray_emitter import XArrayEmitter
+# NB: XArrayEmitter is imported lazily inside _build_emitter — it requires the
+# [xarray] extra, but build_emitter_config (a pure dict builder) and the
+# view/coord helpers must remain importable without it (e.g. in CI fast-tests).
 
 
 #: v2ecoli observables known to be vectors/arrays.
@@ -332,7 +334,8 @@ def build_emitter_config(
     }
 
 
-def _build_emitter(*, core: Any, **kwargs) -> XArrayEmitter:
+def _build_emitter(*, core: Any, **kwargs):
+    from v2ecoli.library.xarray_emitter import XArrayEmitter  # requires [xarray]
     return XArrayEmitter(config=build_emitter_config(**kwargs), core=core)
 
 

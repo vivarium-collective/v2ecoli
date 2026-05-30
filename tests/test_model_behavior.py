@@ -19,6 +19,7 @@ If the checkpoint is absent, tests skip. CI should either:
   - pull a blessed checkpoint from release assets / LFS.
 """
 import pytest
+from v2ecoli.library.quantity_helpers import fg_magnitude
 
 
 pytestmark = pytest.mark.behavior
@@ -199,10 +200,10 @@ def test_daughters_build_and_grow(predivision_state, sim_data_cache):
         seed_mass_listener(agent, core)
         comp = Composite(doc, core=core)
         agent = comp.state['agents']['0']
-        m0 = float(agent['listeners']['mass']['dry_mass'])
+        m0 = fg_magnitude(agent['listeners']['mass']['dry_mass'])
         comp.run(DAUGHTER_RUN_SECONDS)
         agent = comp.state['agents']['0']
-        m1 = float(agent['listeners']['mass']['dry_mass'])
+        m1 = fg_magnitude(agent['listeners']['mass']['dry_mass'])
         return m0, m1
 
     m0_1, m1_1 = _run_one(d1_state, seed=1)

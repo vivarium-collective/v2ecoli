@@ -60,6 +60,7 @@ from v2ecoli.library.schema import (
 )
 
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.quantity_helpers import as_quantity
 
 # topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
@@ -131,7 +132,7 @@ class RnaDegradation(PartitionedProcess):
             'bulk': 'bulk_array',
             'RNAs': RNA_ARRAY,
             'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
-            'listeners': {'mass': {'cell_mass': 'float[fg]'}},
+            'listeners': {'mass': {'cell_mass': 'quantity[float,fg]'}},
             'timestep': 'integer',
         }
 
@@ -239,7 +240,7 @@ class RnaDegradation(PartitionedProcess):
                 'active_ribosome': {'_type': ACTIVE_RIBOSOME_ARRAY, '_default': []},
                 'listeners':                 {
                     'mass':                     {
-                        'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
+                        'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                     },
                 },
                 'timestep': {'_type': 'integer[s]', '_default': 1},
@@ -322,7 +323,7 @@ class RnaDegradation(PartitionedProcess):
         # cell_mass/cell_density as `femtogram·liter/gram` (fg/g = 1e-15
         # dimensionless but pint doesn't simplify mass/mass across prefixes),
         # which cascades to wrong magnitudes in rna_conc_molar/Kms.
-        cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
+        cell_mass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
         cell_volume = (cell_mass / self.cell_density).to(units.L)
         counts_to_molar = (1 / (self.n_avogadro * cell_volume)).to(units.mol / units.L)
 

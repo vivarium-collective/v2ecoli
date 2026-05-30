@@ -222,7 +222,7 @@ class TranscriptInitiation(Step):
             'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
             'promoters': {'_type': PROMOTER_ARRAY, '_default': []},
             'bulk': {'_type': 'bulk_array', '_default': []},
-            'listeners': {'mass': {'cell_mass': {'_type': 'float[fg]', '_default': 0.0}}},
+            'listeners': {'mass': {'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0}}},
             'timestep': {'_type': 'integer', '_default': 1.0},
         }
 
@@ -344,7 +344,7 @@ class TranscriptInitiation(Step):
             'bulk': {'_type': 'bulk_array', '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
+                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                 },
             },
             'timestep': {'_type': 'integer', '_default': 1.0},

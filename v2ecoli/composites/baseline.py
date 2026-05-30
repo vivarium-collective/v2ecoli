@@ -130,9 +130,32 @@ FEATURE_MODULES = {
         'insert_before': 'ecoli-transcript-elongation_requester',
         'steps': ['trna-attenuation-config'],
     },
+    # Opt-in runtime mass-conservation check. Runs after the mass listener
+    # (dry_mass) and metabolism (environment.exchange). OFF by default: the
+    # residual is not yet calibrated (net boundary exchange measures ~55x the
+    # cell-mass change — see mass_conservation.py STATUS), so on a healthy run
+    # it warns every tick. Enable per investigation via
+    # enable_features('mass_conservation') before build_composite.
+    'mass_conservation': {
+        'insert_after': 'ecoli-mass-listener',
+        'steps': ['ecoli-mass-conservation'],
+    },
 }
 
-DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation disabled to match v1 default
+DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation + mass_conservation off by default
+
+# Opt-in feature modules enabled by a caller for the NEXT build (the generator
+# itself fixes the base set to DEFAULT_FEATURES). Mirrors the emitter-override
+# pattern. Use enable_features('mass_conservation', ...) before build_composite.
+_EXTRA_FEATURES: list = []
+
+
+def enable_features(*names: str) -> None:
+    """Enable opt-in feature modules (e.g. 'mass_conservation') for the next
+    baseline build. Call before ``build_composite('baseline', ...)``; pass no
+    args to clear."""
+    global _EXTRA_FEATURES
+    _EXTRA_FEATURES = list(names)
 
 
 def build_execution_layers(features=None):
@@ -449,7 +472,8 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     unique_names = bundle["unique_names"]
     dry_mass_inc_dict = bundle.get("dry_mass_inc_dict", {})
 
-    features = DEFAULT_FEATURES
+    features = list(DEFAULT_FEATURES) + [
+        f for f in _EXTRA_FEATURES if f not in DEFAULT_FEATURES]
 
     cell_state = {}
     cell_state.update(initial_state)

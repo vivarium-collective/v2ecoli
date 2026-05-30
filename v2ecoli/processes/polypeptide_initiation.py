@@ -203,7 +203,7 @@ class PolypeptideInitiation(Step):
                 },
                 'listeners':                 {
                     'ribosome_data':                     {
-                        'effective_elongation_rate': {'_type': 'float', '_default': 0.0},
+                        'effective_elongation_rate': {'_type': 'quantity[float,amino_acid/s]', '_default': 0.0},
                     },
                 },
                 'active_ribosome': {'_type': ACTIVE_RIBOSOME_ARRAY, '_default': []},
@@ -244,15 +244,15 @@ class PolypeptideInitiation(Step):
         current_media_id = states["environment"]["media_id"]
         self.fracActiveRibosome = self.active_ribosome_fraction[current_media_id]
 
-        # Use last timestep's effective elongation rate; fall back to
-        # media-dependent default on first timestep (when it reads as 0)
-        self.ribosomeElongationRate = states["listeners"]["ribosome_data"][
-            "effective_elongation_rate"
-        ]
-        if self.ribosomeElongationRate == 0:
-            self.ribosomeElongationRate = self.ribosome_elongation_rates_dict[
-                current_media_id
-            ].to(units.aa / units.s).magnitude
+        # effective_elongation_rate is a pint Quantity[amino_acid/s] carried
+        # from the previous timestep's polypeptide_elongation listener. On the
+        # first tick (before elongation has run) it reads as the default 0, so
+        # fall back to the media-dependent rate. Strip to a bare aa/s magnitude
+        # for make_elongation_rates, which operates on plain floats.
+        eff_rate = states["listeners"]["ribosome_data"]["effective_elongation_rate"]
+        if eff_rate == 0:
+            eff_rate = self.ribosome_elongation_rates_dict[current_media_id]
+        self.ribosomeElongationRate = eff_rate.to(units.aa / units.s).magnitude
         self.elongation_rates = np.fmax(self.make_elongation_rates(
             self.random_state,
             self.ribosomeElongationRate,
@@ -628,7 +628,7 @@ def test_polypeptide_initiation():
 
     state = {
         "environment": {"media_id": "minimal"},
-        "listeners": {"ribosome_data": {"effective_elongation_rate": 25}},
+        "listeners": {"ribosome_data": {"effective_elongation_rate": 25 * units.aa / units.s}},
         "bulk": np.array(
             [
                 ("30S", 2000),

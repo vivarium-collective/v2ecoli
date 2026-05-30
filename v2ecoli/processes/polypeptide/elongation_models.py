@@ -18,6 +18,7 @@ import numpy.typing as npt
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 from wholecell.utils.random import stochasticRound
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.quantity_helpers import as_quantity
 from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
 
 from v2ecoli.library.schema import counts, attrs, bulk_name_to_idx
@@ -211,7 +212,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             self.process.ppgpp_regulation
             and not self.process.disable_ppgpp_elongation_inhibition
         ):
-            cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
+            cell_mass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
             cell_volume = cell_mass / self.cellDensity
             counts_to_molar = 1 / (self.process.n_avogadro * cell_volume)
             ppgpp_count = counts(states["bulk"], self.process.ppgpp_idx)
@@ -229,8 +230,8 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         self, states: dict, aasInSequences: npt.NDArray[np.int64]
     ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], dict]:
         # Conversion from counts to molarity
-        cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
-        dry_mass = states["listeners"]["mass"]["dry_mass"] * units.fg
+        cell_mass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
+        dry_mass = as_quantity(states["listeners"]["mass"]["dry_mass"], units.fg)
         cell_volume = cell_mass / self.cellDensity
         self.counts_to_molar = 1 / (self.process.n_avogadro * cell_volume)
         # Strip counts_to_molar to a plain float in MICROMOLAR_UNITS once

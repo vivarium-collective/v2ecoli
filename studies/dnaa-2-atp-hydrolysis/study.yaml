@@ -112,7 +112,20 @@ report:
         GLP_NOFEAS retry storm). summary.json + analysis.json were
         reconstructed from the complete history parquet; cycle-stability
         claims rest on the 12 COMPLETE gens (gens 0-2, all seeds). gen-3 for
-        seeds 0,3 is truncated and excluded from cycle stats.
+        seeds 0,3 is truncated and excluded from cycle stats. A hardened
+        re-run (one workflow subprocess PER seed, concurrency 2) is in
+        progress to complete gen-3 for all seeds without the single-process
+        OOM (dnaa2-multiseed-v2/).
+      - ⚠ CONCENTRATION DRIFT (6-panel trajectory, charts/dnaa2_step2_six
+        panel_seed{0,3}.svg): DnaA total and DnaA/cell-mass concentration
+        climb gen-over-gen (concentration ~0.3 → ~1.3 counts/fg over 4 gens;
+        total ~200 → ~1000), rather than holding a flat steady state. The
+        lineage has NOT fully equilibrated from the resume-from-gen3 init
+        under the mechA cache — it is still accumulating DnaA. The DnaA-ATP
+        FRACTION is unaffected (~0.997 throughout), but the "DnaA
+        concentration CV < 10%" acceptance criterion is NOT met on this
+        4-gen window. Needs either more generations to asymptote or a re-
+        equilibrated init; flag alongside the K_d inconsistency.
 
   interpretation: |
     Steps 1 AND 2 agree across 4 seeds: the baseline equilibrium pins DnaA at

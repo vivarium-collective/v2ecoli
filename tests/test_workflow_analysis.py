@@ -137,7 +137,6 @@ def test_metric_across_variants():
         {"variant": 0, "divided": True, "division_time": 2600.0, "final_dry_mass": 720.0},
         {"variant": 1, "divided": True, "division_time": 3000.0, "final_dry_mass": 650.0},
     ]
-    out = step.analyze(rows)
-    pv = out["per_variant"]
+    pv = {d["variant"]: d for d in step.analyze(rows)["per_variant"]}
     assert pv[0]["n_cells"] == 2 and abs(pv[0]["mean_division_time"] - 2500.0) < 1e-9
     assert pv[1]["n_cells"] == 1 and abs(pv[1]["mean_final_dry_mass"] - 650.0) < 1e-9

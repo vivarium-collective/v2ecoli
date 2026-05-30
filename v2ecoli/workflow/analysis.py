@@ -15,6 +15,7 @@ Porting the full vEcoli analysis library onto this base is a follow-up spec.
 
 from __future__ import annotations
 
+import statistics
 from typing import Any
 
 from process_bigraph.composite import SyncUpdate
@@ -160,9 +161,10 @@ class DoublingTimeDistribution(AnalysisStep):
     scale = "multiseed"
 
     def analyze(self, rows):
-        import statistics
         times = [float(r.get("division_time", 0.0)) for r in rows
-                 if r.get("divided") is not False and float(r.get("division_time", 0.0)) > 0]
+                 # only confirmed divisions: a non-divided cell's division_time is
+                 # the run cap, not a doubling time (divided None/False excluded)
+                 if r.get("divided") is True and float(r.get("division_time", 0.0)) > 0]
         finals = [float(r.get("final_dry_mass", 0.0)) for r in rows
                   if float(r.get("final_dry_mass", 0.0)) > 0]
         return {
@@ -181,19 +183,21 @@ class MetricAcrossVariants(AnalysisStep):
     scale = "multivariant"
 
     def analyze(self, rows):
-        import statistics
         by_variant: dict[int, list] = {}
         for r in rows:
             by_variant.setdefault(int(r.get("variant", 0)), []).append(r)
-        per_variant = {}
+        per_variant = []
         for v, cells in sorted(by_variant.items()):
             dts = [float(c.get("division_time", 0.0)) for c in cells
-                   if c.get("divided") is not False and float(c.get("division_time", 0.0)) > 0]
+                   # only confirmed divisions: a non-divided cell's division_time is
+                   # the run cap, not a doubling time (divided None/False excluded)
+                   if c.get("divided") is True and float(c.get("division_time", 0.0)) > 0]
             fms = [float(c.get("final_dry_mass", 0.0)) for c in cells
                    if float(c.get("final_dry_mass", 0.0)) > 0]
-            per_variant[v] = {
+            per_variant.append({
+                "variant": v,
                 "n_cells": len(cells),
                 "mean_division_time": statistics.mean(dts) if dts else 0.0,
                 "mean_final_dry_mass": statistics.mean(fms) if fms else 0.0,
-            }
+            })
         return {"per_variant": per_variant}

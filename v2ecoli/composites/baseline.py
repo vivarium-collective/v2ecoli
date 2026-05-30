@@ -421,7 +421,8 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
     ],
 )
 def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
-             config_overrides: dict | None = None) -> dict:
+             config_overrides: dict | None = None,
+             bundle: dict | None = None) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
     Migrated from ``v2ecoli/generate.py:build_document`` +
@@ -437,6 +438,10 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
         seed: Random seed for stochastic initialisation.
         cache_dir: Path to the ParCa cache directory (must contain
             ``initial_state.json`` and ``sim_data_cache.dill``).
+        bundle: optional pre-loaded cache bundle (as returned by
+            ``load_cache_bundle``). When given, the cache is not re-read from
+            ``cache_dir`` — lets callers building many composites from the same
+            cache (ensembles, sweeps) load it once and reuse it.
 
     Returns:
         Process-bigraph document dict with keys ``state``,
@@ -445,7 +450,8 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     if core is None:
         core = build_core()
 
-    bundle = load_cache_bundle(cache_dir)
+    if bundle is None:
+        bundle = load_cache_bundle(cache_dir)
     initial_state = bundle["initial_state"]
     configs = bundle["configs"]
     if config_overrides:

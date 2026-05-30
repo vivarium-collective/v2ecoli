@@ -1,4 +1,7 @@
+import json
 import os
+
+import pytest
 
 from v2ecoli.workflow.analysis_runner import group_for_scale
 
@@ -70,6 +73,32 @@ def test_run_analyses_unknown_name_skips(monkeypatch):
     import tempfile
     out = ar.run_analyses(tempfile.mkdtemp(), {"single": {"nope_not_real": {}}})
     assert out["single"] == {}
+
+
+_CACHE = os.environ.get("V2ECOLI_CACHE", "out/cache")
+
+
+@pytest.mark.skipif(not os.path.isdir(_CACHE), reason="ParCa cache not present")
+def test_run_workflow_runs_analyses_end_to_end(tmp_path):
+    from v2ecoli.workflow.run import run_workflow
+    out = str(tmp_path / "parquet")
+    config = {
+        "experiment_id": "anlz", "n_init_sims": 2, "generations": 1,
+        "single_daughters": True, "cache_dir": _CACHE, "out_dir": out,
+        "variants": {}, "max_duration_per_gen": 5.0, "time_step": 1.0,
+        "analysis_options": {
+            "single": {"mass_fraction_summary": {}},
+            "multiseed": {"doubling_time_distribution": {}},
+        },
+    }
+    result = run_workflow(config, max_sim_time=30.0)
+    assert result["complete"] is True
+    assert os.path.isfile(os.path.join(out, "summary.json"))
+    assert os.path.isfile(os.path.join(out, "analysis.json"))
+    with open(os.path.join(out, "analysis.json")) as f:
+        analysis = json.load(f)
+    assert len(analysis["single"]["mass_fraction_summary"]) == 2
+    assert analysis["multiseed"]["doubling_time_distribution"]
 
 
 def test_cli_main_runs(monkeypatch, tmp_path, capsys):

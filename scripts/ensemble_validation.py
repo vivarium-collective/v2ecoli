@@ -331,6 +331,11 @@ def main():
                         "1.0 reproduces the legacy tight per-tick controller. "
                         "Try 60.0 to let per-tick jump-process variance "
                         "manifest in the PDMP ensemble.")
+    p.add_argument("--feedback-period-ticks", type=int, default=1,
+                   help="Sprint-8 sparse-injection controller period. "
+                        "Default 1 = act every tick. Try 60 to let "
+                        "60 s of open-loop consumption accumulate "
+                        "between corrections.")
     p.add_argument("--flux-source", default="consumption_matched",
                    choices=("consumption_matched", "measured_kfba",
                             "proportional"),
@@ -363,6 +368,7 @@ def main():
             with_ref_growth=True,
             ref_growth_flux_source=args.flux_source,
             ref_growth_feedback_tau_s=args.feedback_tau_s,
+            ref_growth_feedback_period_ticks=args.feedback_period_ticks,
             transcript_initiation_mode=mode,
             polypeptide_initiation_mode=mode,
         )

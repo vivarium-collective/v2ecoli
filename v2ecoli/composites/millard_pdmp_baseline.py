@@ -382,6 +382,7 @@ def _get_step_config(
     master_seed=0,
     ref_growth_flux_source: str | None = None,
     ref_growth_feedback_tau_s: float | None = None,
+    ref_growth_feedback_period_ticks: int | None = None,
     transcript_initiation_mode: str | None = None,
     polypeptide_initiation_mode: str | None = None,
 ):
@@ -450,6 +451,9 @@ def _get_step_config(
             driver_config["flux_source"] = flux_source
         if ref_growth_feedback_tau_s is not None:
             driver_config["feedback_tau_s"] = float(ref_growth_feedback_tau_s)
+        if ref_growth_feedback_period_ticks is not None:
+            driver_config["feedback_period_ticks"] = int(
+                ref_growth_feedback_period_ticks)
         instance = _make_instance(
             RefGrowthDriver,
             driver_config,
@@ -729,6 +733,19 @@ def _register_millard_pdmp_links(core):
                 "for a 1-minute-window controller."
             ),
         },
+        "ref_growth_feedback_period_ticks": {
+            "type": "integer", "default": 1,
+            "description": (
+                "Sprint-8 sparse-injection knob for the "
+                "consumption_matched ref-growth driver. ``1`` (default) "
+                "acts every tick. Larger values decimate the controller — "
+                "it acts every Nth tick, compensating the cumulative "
+                "consumption with a period-scaled target injection. "
+                "Pools drift open-loop between corrections, letting per-"
+                "tick Poisson variance manifest in the PDMP ensemble. "
+                "Bypasses the EMA when > 1 (one knob at a time)."
+            ),
+        },
     },
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
     core_extensions=[_register_millard_pdmp_links],
@@ -745,6 +762,7 @@ def millard_pdmp_baseline(
     transcript_initiation_mode: str = "discrete",
     polypeptide_initiation_mode: str = "discrete",
     ref_growth_feedback_tau_s: float = 1.0,
+    ref_growth_feedback_period_ticks: int = 1,
 ) -> dict:
     """Build the process-bigraph state document for the Millard-PDMP baseline."""
     if core is None:
@@ -876,6 +894,7 @@ def millard_pdmp_baseline(
             loader, step_name, core, _process_cache, master_seed=seed,
             ref_growth_flux_source=ref_growth_flux_source,
             ref_growth_feedback_tau_s=ref_growth_feedback_tau_s,
+            ref_growth_feedback_period_ticks=ref_growth_feedback_period_ticks,
             transcript_initiation_mode=transcript_initiation_mode,
             polypeptide_initiation_mode=polypeptide_initiation_mode,
         )

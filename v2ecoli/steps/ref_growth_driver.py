@@ -133,12 +133,19 @@ class RefGrowthDriver(Step):
         # only. Sprint-7 ensemble validation (N=8, 600 s) found that
         # tau=60 leaves PDMP+cm σ near-pinned (0.42 → 0.59 fg) because
         # ``target_delta = rate · tick_s`` still hard-clamps each tick.
-        # Reported here for completeness; loosening the controller
-        # enough to let jump-process variance through requires either
-        # open-looping (flux_source="measured_kfba"), a lower injection
-        # frequency, or stochastic target perturbation. See
-        # reports/figures/pdmp-02/ensemble_validation_tau60.html.
         "feedback_tau_s": {"_default": 1.0},
+        # Sprint-8 alternative: decimate the controller in time. Acts
+        # only every Nth tick; on idle ticks emits nothing and lets the
+        # bulk pools drift under the other processes' consumption.
+        # On action ticks compensates the full period's accumulated
+        # consumption against a `period · rate · tick_s` target. With
+        # period=60, precursors drift open-loop for 60 s between
+        # corrections, letting per-tick Poisson variance accumulate at
+        # the listener level. When `feedback_period_ticks > 1`, the EMA
+        # is bypassed (use one knob at a time). Open-loop sprint-8
+        # showed ATP zeros at t≈240 s under full open-loop, so periods
+        # should stay much shorter than 240 s.
+        "feedback_period_ticks": {"_default": 1},
     }
 
     def initialize(self, config):
@@ -201,6 +208,14 @@ class RefGrowthDriver(Step):
                 f"feedback_tau_s must be > 0; got {self.feedback_tau_s!r}"
             )
         self._other_delta_ema: np.ndarray | None = None
+        self.feedback_period_ticks = int(self.parameters.get(
+            "feedback_period_ticks", 1))
+        if self.feedback_period_ticks < 1:
+            raise ValueError(
+                f"feedback_period_ticks must be >= 1; got "
+                f"{self.feedback_period_ticks!r}"
+            )
+        self._tick_count = 0
 
     def inputs(self):
         return {"bulk": "bulk_array"}
@@ -267,6 +282,19 @@ class RefGrowthDriver(Step):
             return {"bulk": [(self._bulk_idx, delta_int)]}
 
         if self.flux_source == "consumption_matched":
+            # Sparse-injection (sprint 8): if `feedback_period_ticks > 1`,
+            # only act every Nth tick. On idle ticks the precursor pools
+            # drift open-loop under the other processes' consumption, and
+            # `_prev_counts` / `_prev_injection` are NOT updated — so on
+            # the next action tick `other_delta_inst` measures the full
+            # cumulative consumption over the period.
+            self._tick_count += 1
+            if (self.feedback_period_ticks > 1
+                    and (self._tick_count - 1)
+                        % self.feedback_period_ticks != 0):
+                return {}
+            period = self.feedback_period_ticks
+
             # One-step feedback controller — tracks what the OTHER processes
             # did to each pool during the previous tick, and compensates.
             #
@@ -303,15 +331,23 @@ class RefGrowthDriver(Step):
                 # mean response correct over a minute but lets per-tick
                 # jump-process variance manifest in the bulk pools (and
                 # downstream in mass).
-                alpha = 1.0 - np.exp(-self.tick_s / self.feedback_tau_s)
-                if self._other_delta_ema is None:
-                    self._other_delta_ema = other_delta_inst.copy()
+                if period > 1:
+                    # Sparse-injection bypasses EMA (use one knob at a
+                    # time). Compensate the full period's accumulated
+                    # consumption against a period-scaled target.
+                    other_delta_used = other_delta_inst
                 else:
-                    self._other_delta_ema += alpha * (
-                        other_delta_inst - self._other_delta_ema
-                    )
-                target_delta = self._rate_per_s * self.tick_s
-                desired_injection = target_delta - self._other_delta_ema
+                    alpha = 1.0 - np.exp(
+                        -self.tick_s / self.feedback_tau_s)
+                    if self._other_delta_ema is None:
+                        self._other_delta_ema = other_delta_inst.copy()
+                    else:
+                        self._other_delta_ema += alpha * (
+                            other_delta_inst - self._other_delta_ema
+                        )
+                    other_delta_used = self._other_delta_ema
+                target_delta = self._rate_per_s * self.tick_s * period
+                desired_injection = target_delta - other_delta_used
                 # Precursors keep their non-negative floor; byproducts
                 # (rate==0) are allowed to go negative down to -current
                 # (drain to zero, never below).

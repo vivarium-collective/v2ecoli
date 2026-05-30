@@ -816,3 +816,107 @@ class DnaaChromosomeMapVisualization(Visualization):
                 + '<div style="white-space:nowrap;overflow-x:auto;text-align:center">'
                 + "".join(divs) + '</div>' + legend)
         return {"html": render_document(title=title, body_html=body)}
+
+
+class DnaaFormsVisualization(Visualization):
+    """dnaa-2 viz — DnaA nucleotide-state partitioning across the lineage.
+
+    Three panels (per-generation, from the lineage's cell states):
+      (1) DnaA forms — apo, DnaA-ATP, DnaA-ADP, and total, with the
+          [300, 800] total-DnaA band shaded.
+      (2) DnaA-ATP fraction — DnaA-ATP / (apo+ATP+ADP), with the Boesen 2024
+          [0.2, 0.5] biological band shaded.
+      (3) cellular ATP / ADP bulk pools (and their ratio).
+
+    State (built by the renderer):
+      gens, apo, atp, adp (DnaA-form counts per gen),
+      atp_pool, adp_pool (bulk ATP[c]/ADP[c] per gen).
+    """
+
+    config_schema = {
+        **Visualization.config_schema,
+        "atp_band_low":  {"_type": "float", "_default": 0.2},
+        "atp_band_high": {"_type": "float", "_default": 0.5},
+        "dnaa_band_low":  {"_type": "float", "_default": 300.0},
+        "dnaa_band_high": {"_type": "float", "_default": 800.0},
+    }
+
+    def inputs(self) -> dict[str, Any]:
+        return {
+            "gens": "list[float]", "apo": "list[float]", "atp": "list[float]",
+            "adp": "list[float]", "atp_pool": "list[float]",
+            "adp_pool": "list[float]", "_caption": "string",
+        }
+
+    def update(self, state: dict[str, Any]) -> dict:
+        title = self.config.get("title") or "DnaA-form distribution"
+        lo = float(self.config.get("atp_band_low", 0.2))
+        hi = float(self.config.get("atp_band_high", 0.5))
+        dlo = float(self.config.get("dnaa_band_low", 300.0))
+        dhi = float(self.config.get("dnaa_band_high", 800.0))
+        gens = [_num(g) for g in (state.get("gens") or [])]
+        apo = [_num(v) or 0.0 for v in (state.get("apo") or [])]
+        atp = [_num(v) or 0.0 for v in (state.get("atp") or [])]
+        adp = [_num(v) or 0.0 for v in (state.get("adp") or [])]
+        atp_pool = [_num(v) for v in (state.get("atp_pool") or [])]
+        adp_pool = [_num(v) for v in (state.get("adp_pool") or [])]
+        caption = state.get("_caption") or ""
+        if not gens:
+            return {"html": render_document(title=title, body_html=_empty_note(
+                "No DnaA-form data. Provide per-generation apo / DnaA-ATP / "
+                "DnaA-ADP counts and ATP[c]/ADP[c] pools."))}
+
+        total = [apo[i] + atp[i] + adp[i] for i in range(len(gens))]
+        frac = [(atp[i] / total[i] if total[i] else None) for i in range(len(gens))]
+
+        def _xax():
+            return {"title": "generation", "dtick": 1}
+
+        forms_band = [{"type": "rect", "xref": "paper", "yref": "y", "x0": 0, "x1": 1,
+                       "y0": dlo, "y1": dhi, "fillcolor": "#22c55e", "opacity": 0.08,
+                       "line": {"width": 0}, "layer": "below"}]
+        forms_traces = [
+            _trace("total DnaA", gens, total, color="#111827", mode="lines+markers"),
+            _trace("DnaA-ATP", gens, atp, color="#2563eb", mode="lines+markers"),
+            _trace("DnaA-ADP", gens, adp, color="#dc2626", mode="lines+markers"),
+            _trace("apo-DnaA", gens, apo, color="#9333ea", mode="lines+markers"),
+        ]
+        forms_layout = {
+            "title": {"text": f"(1) DnaA forms — total band [{int(dlo)}, {int(dhi)}] shaded"},
+            "xaxis": _xax(), "yaxis": {"title": "count", "rangemode": "tozero"},
+            "shapes": forms_band, "margin": {"l": 60, "r": 20, "t": 40, "b": 40}}
+
+        atp_band = [{"type": "rect", "xref": "paper", "yref": "y", "x0": 0, "x1": 1,
+                     "y0": lo, "y1": hi, "fillcolor": "#22c55e", "opacity": 0.12,
+                     "line": {"width": 0}, "layer": "below"}]
+        valid_fr = [f for f in frac if f is not None]
+        mean_fr = sum(valid_fr) / len(valid_fr) if valid_fr else 0.0
+        frac_layout = {
+            "title": {"text": f"(2) DnaA-ATP fraction — Boesen band [{lo}, {hi}] "
+                              f"shaded (lineage mean ≈ {mean_fr:.3f})"},
+            "xaxis": _xax(),
+            "yaxis": {"title": "DnaA-ATP / total", "range": [0, 1.05]},
+            "shapes": atp_band, "margin": {"l": 60, "r": 20, "t": 40, "b": 40}}
+        frac_traces = [_trace("DnaA-ATP fraction", gens, frac, color="#2563eb",
+                              mode="lines+markers")]
+
+        pool_traces = []
+        if any(v is not None for v in atp_pool):
+            pool_traces.append(_trace("ATP[c]", gens, atp_pool, color="#0891b2",
+                                      mode="lines+markers"))
+        if any(v is not None for v in adp_pool):
+            pool_traces.append(_trace("ADP[c]", gens, adp_pool, color="#f59e0b",
+                                      mode="lines+markers"))
+        pool_layout = {
+            "title": {"text": "(3) cellular nucleotide pools — ATP[c], ADP[c]"},
+            "xaxis": _xax(),
+            "yaxis": {"title": "molecules / cell", "rangemode": "tozero"},
+            "margin": {"l": 70, "r": 20, "t": 40, "b": 40}}
+
+        cap = (f'<div style="text-align:center;font-size:0.82em;color:#64748b;'
+               f'margin:4px 0 10px">{escape(caption)}</div>' if caption else "")
+        body = (_PLOTLY_CDN + cap
+                + _plotly_div("dnaa2-forms", forms_traces, forms_layout)
+                + _plotly_div("dnaa2-frac", frac_traces, frac_layout)
+                + _plotly_div("dnaa2-pools", pool_traces, pool_layout))
+        return {"html": render_document(title=title, body_html=body)}

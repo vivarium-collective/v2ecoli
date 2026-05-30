@@ -1,0 +1,187 @@
+schema_version: 4
+name: dnaa-2-atp-hydrolysis
+title: DnaA-ATP / DnaA-ADP nucleotide equilibria + intrinsic hydrolysis
+created: '2026-05-30'
+status: in-progress   # Step 1 (baseline) done; Steps 2-3 pending
+
+question: |
+  Starting from dnaa-1's V-tuned succinate lineage (total DnaA in [300, 800],
+  clean cell cycle), how does the DnaA pool partition across forms
+  (apo-DnaA / DnaA-ATP / DnaA-ADP) under (1) the current equilibria alone,
+  and (2) Haochen's nucleotide-binding equilibria + DnaA-ATP intrinsic
+  hydrolysis? Does the DnaA-ATP fraction land in the biological [0.2, 0.5]
+  band, and if not, which parameter (K_d, cellular [ATP]:[ADP], or the
+  expected fraction) is inconsistent?
+
+runtime:
+  subprocess_timeout_s: 7200
+  max_generations: 7
+  single_daughters: true
+
+# Reactions & parameters (Haochen's set) — for reference; the equilibria
+# already exist in v2ecoli's baseline `ecoli-equilibrium` step:
+#   apo-DnaA + ATP ⇌ DnaA-ATP   K_d ≈ 29-30 nM   (MONOMER0-160_RXN)
+#   apo-DnaA + ADP ⇌ DnaA-ADP   K_d ≈ 100 nM     (MONOMER0-4565_RXN)
+#   DnaA-ATP → DnaA-ADP intrinsic hydrolysis, k = 0.046/min  (to be ADDED in Step 2)
+# Bulk species: PD03831[c] apo · MONOMER0-160[c] DnaA-ATP · MONOMER0-4565[c] DnaA-ADP
+#               ATP[c] / ADP[c] cellular pools.
+
+report:
+  title: dnaa-2 — DnaA nucleotide-state partitioning (succinate)
+  verdict: in-progress
+  confidence: pending
+  evidence_quality: empirical
+
+  objective: |
+    Add the DnaA nucleotide-binding equilibria and DnaA-ATP intrinsic
+    hydrolysis to the V-tuned succinate lineage and observe how the DnaA
+    pool partitions across forms. Acceptance is biological: DnaA-ATP
+    fraction in [0.2, 0.5], stable across the lineage, with total DnaA still
+    in [300, 800], a clean cell cycle (oriC 1↔2, never 4), and DnaA
+    concentration CV < 10%.
+
+  main_insight: |
+    The DnaA nucleotide-binding equilibria ALREADY exist in v2ecoli's
+    baseline (that is why DnaA-ATP is non-zero under V-only tuning). The
+    question is the steady-state partitioning. ⚠ Per the instructions, at
+    Haochen's K_d values and v2ecoli's current cellular [ATP]:[ADP], the
+    thermodynamic equilibrium is expected to push the DnaA-ATP fraction
+    well ABOVE the biological [0.2, 0.5] band — one of {K_d, [ATP]:[ADP],
+    expected fraction} is inconsistent with the other two. Flag for
+    Haochen before tuning his stated K_d's.
+
+  result: |
+    STEP 1 — baseline DnaA-form distribution under V-only tuning (no
+    mechanism change), read from the dnaa-1 pristine lineage's per-generation
+    cell states (out/dnaa1-mechA-7gen-pristine-2026-05-30/gen_dills/gen{1..7}):
+
+      gen   apo  DnaA-ATP  DnaA-ADP  total  %DnaA-ATP  ATP[c]:ADP[c]
+        1     0       478         1    479    0.998        20.3
+        2     0       908         1    909    0.999        20.3
+        3     0      1020         1   1021    0.999        20.3
+        4     0       863         1    864    0.999        20.3
+        5     1      1083         1   1085    0.998        20.3
+        6     0       972         1    973    0.999        20.3
+        7     0       870         1    871    0.999        20.3
+
+    Findings:
+      - The DnaA pool is ~99.8-99.9% DnaA-ATP across EVERY generation —
+        essentially no apo-DnaA (free pool ≈ 0) and ~1 DnaA-ADP. This is
+        FAR above the Boesen 2024 biological band [0.2, 0.5].
+      - ⚠ INCONSISTENCY (as the instructions predicted): with K_d(ATP)≈30 nM,
+        K_d(ADP)≈100 nM, and v2ecoli's [ATP]:[ADP] ≈ 20.3, the equilibrium
+        ATP:ADP-bound ratio ≈ ([ATP]:[ADP])·(K_d,ADP/K_d,ATP) ≈ 20.3·3.3 ≈
+        68, and [ATP] ≫ K_d,ATP leaves almost no apo → ~99.8% DnaA-ATP. The
+        three stated quantities (K_d, [ATP]:[ADP], expected 0.2-0.5 fraction)
+        cannot all be right. FLAG FOR HAOCHEN which to revise.
+      - NOTE: monomer_counts[3861] (PD03831[c]) used in dnaa-0/dnaa-1 is the
+        TOTAL DnaA across forms (the listener aggregates apo + DnaA-ATP +
+        DnaA-ADP), NOT the free apo pool — confirmed: bulk PD03831[c] (free
+        apo) ≈ 0 while monomer_counts[3861] ≈ total ≈ 480-1080. So the
+        dnaa-1 "[300, 800]" result is total DnaA, which is correct.
+      - Intrinsic hydrolysis alone (k=0.046/min, Step 2) is unlikely to move
+        this: the equilibrium re-binds ATP far faster than 0.046/min
+        hydrolysis drains it (v1 evidence + the K_d/[ATP] imbalance above).
+
+  interpretation: |
+    Step 1 already surfaces the core issue: the baseline equilibrium pins
+    DnaA at ~99.8% ATP-bound, not 0.2-0.5. Step 2 (adding intrinsic
+    hydrolysis at Haochen's value, no parameter tuning) is expected to leave
+    this essentially unchanged. The resolution (Step 3) requires deciding
+    WHICH of K_d / [ATP]:[ADP] / expected-fraction to revise — Haochen's
+    call.
+
+  next_action: |
+    Step 2: wire DnaaIntrinsicHydrolysis (k=0.046/min) + a DnaA-form listener
+    (port v1 DnaaCycleListener) into the V-tuned composite, re-run the
+    lineage (multiple seeds), and replot the same panels UNTUNED. Then
+    Step 3 if the DnaA-ATP fraction is still out of band — flag the
+    inconsistency to Haochen and, if approved, sweep the lever they choose.
+
+  decisions_needed:
+    - question: Which of {K_d(ATP/ADP), cellular [ATP]:[ADP], expected
+        DnaA-ATP fraction [0.2,0.5]} should be revised to reconcile the
+        ~99.8%-ATP baseline? (Haochen's input.)
+
+assumptions:
+  - text: |
+      The DnaA nucleotide-binding equilibria are already present in the
+      baseline ecoli-equilibrium step at the current ParCa-fit K_d's
+      (≈29-30 nM ATP, ≈100 nM ADP); Step 1 only OBSERVES them, no change.
+    cites:
+      - claude-instructions-dnaa-hydrolysis-study.md
+    verified_in_v2ecoli: true
+  - text: |
+      DnaA-form counts read from bulk: PD03831[c] (apo), MONOMER0-160[c]
+      (DnaA-ATP), MONOMER0-4565[c] (DnaA-ADP); cellular pools ATP[c], ADP[c].
+    cites:
+      - claude-instructions-dnaa-hydrolysis-study.md
+    verified_in_v2ecoli: true
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 0
+      cache_dir: out/cache-succinate-mechA-2e-3
+      single_daughters: true
+      max_generations: 7
+      # Step 1: V-only (Mechanism A) — no hydrolysis added yet.
+      perturbations:
+        "TU00259[c]": 2.0e-3
+  # Step 2 (to be run) will add a variant:
+  #   intrinsic-hydrolysis-0.046 → DnaaIntrinsicHydrolysis(0.046/min) + DnaaCycleListener
+  variants: []
+  model_settings: []
+
+visualizations:
+  - name: dnaa_forms_baseline
+    address: local:DnaaFormsVisualization
+    config:
+      title: dnaa-2 Step 1 — DnaA-form distribution (V-only baseline)
+      atp_band_low: 0.2
+      atp_band_high: 0.5
+
+tests:
+  - name: dnaa-atp-fraction-in-band-0.2-0.5
+    classification: primary
+    question: Is the DnaA-ATP fraction in [0.2, 0.5], stable across the lineage?
+    measure:
+      kind: range_check_per_generation
+      path: DnaA-ATP / (apo + DnaA-ATP + DnaA-ADP)
+    pass_if:
+      op: in_range_every_generation
+      low: 0.2
+      high: 0.5
+    status: failed
+    result: ~0.998 across gens 1-7 (Step-1 baseline) — far above band
+    notes: |
+      Step-1 baseline FAILS the band: the equilibrium pins DnaA at ~99.8%
+      ATP-bound. This is the flagged inconsistency, not a tuning miss yet —
+      Step 3 / Haochen decides which parameter to revise.
+
+  - name: total-dnaa-in-band-300-800
+    classification: secondary
+    question: Does total DnaA stay in [300, 800] (dnaa-1 result preserved)?
+    measure:
+      kind: range_check_per_generation
+      path: apo + DnaA-ATP + DnaA-ADP
+    pass_if:
+      op: in_range_every_generation
+      low: 300
+      high: 800
+    status: partial
+    notes: |
+      Per-gen totals 479/909/1021/864/1085/973/871 — gens 3,5 slightly
+      exceed 800 at the birth snapshot (these are single-point birth states,
+      not cycle means; dnaa-1's cycle-mean result stands). Re-confirm on the
+      Step-2 trajectory.
+
+prerequisites:
+  - dnaa-1-expression-dynamics must pass (V-tuned lineage is the starting point).
+
+pipeline_gate:
+  prerequisites:
+    - dnaa-1-expression-dynamics
+  enables: []
+  gate_status: passed

@@ -400,6 +400,59 @@ def render_chromosome_map(run_dir: Path, out_path: Path, gen: int = 3,
     return 0
 
 
+def render_dnaa_forms(dills_dir: Path, out_path: Path,
+                      title: str | None = None) -> int:
+    """Render the dnaa-2 DnaA-form baseline (apo / DnaA-ATP / DnaA-ADP +
+    ATP[c]/ADP[c]) per generation, read from a lineage's gen{N}.dill cell
+    states. No re-run needed — the nucleotide-binding equilibria already
+    populate these bulk species under V-only tuning."""
+    import numpy as np
+    BULK = {"apo": "PD03831[c]", "atp": "MONOMER0-160[c]", "adp": "MONOMER0-4565[c]",
+            "atp_pool": "ATP[c]", "adp_pool": "ADP[c]"}
+    files = sorted(glob.glob(str(dills_dir / "gen*.dill")),
+                   key=lambda p: int(re.search(r"gen(\d+)", p).group(1)))
+    if not files:
+        raise FileNotFoundError(f"no gen*.dill under {dills_dir}")
+    series = {k: [] for k in BULK}
+    gens = []
+    for f in files:
+        g = int(re.search(r"gen(\d+)", f).group(1))
+        st = dill.load(open(f, "rb"))
+        bulk = st.get("bulk")
+        if bulk is None or not hasattr(bulk, "dtype"):
+            continue
+        ids = np.array([str(x) for x in bulk["id"]]); cnt = bulk["count"]
+        gens.append(g)
+        for k, name in BULK.items():
+            w = np.where(ids == name)[0]
+            series[k].append(int(cnt[w[0]]) if len(w) else 0)
+
+    from v2ecoli.visualizations.dnaa_succinate import DnaaFormsVisualization
+    from v2ecoli.core import build_core
+    core = build_core()
+    viz = DnaaFormsVisualization(
+        config={"title": title or "dnaa-2 Step 1 — DnaA-form baseline (V-only)",
+                "atp_band_low": 0.2, "atp_band_high": 0.5,
+                "dnaa_band_low": 300.0, "dnaa_band_high": 800.0}, core=core)
+    html = viz.update({
+        "gens": gens, "apo": series["apo"], "atp": series["atp"],
+        "adp": series["adp"], "atp_pool": series["atp_pool"],
+        "adp_pool": series["adp_pool"],
+        "_caption": ("Per-generation birth-state DnaA forms from the V-tuned "
+                     "succinate lineage (no mechanism change). The pool is "
+                     "~99.8% DnaA-ATP — far above the Boesen [0.2,0.5] band: "
+                     "the flagged K_d / [ATP]:[ADP] / expected-fraction "
+                     "inconsistency."),
+    }).get("html", "")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(html, encoding="utf-8")
+    fr = [series["atp"][i] / max(1, series["apo"][i] + series["atp"][i] + series["adp"][i])
+          for i in range(len(gens))]
+    print(f"  ok dnaa-forms: {out_path} ({len(html)} chars)")
+    print(f"    gens {gens}, DnaA-ATP fraction {[round(x,3) for x in fr]}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("study_slug")
@@ -420,6 +473,10 @@ def main() -> int:
                      else "out/cache-succinate")
     cache = args.cache_dir or default_cache
 
+    if args.viz == "dnaa-forms":
+        # run_dir is reused as the gen_dills dir for this viz.
+        out = args.out or Path(f"studies/{args.study_slug}/viz/dnaa_forms_baseline.html")
+        return render_dnaa_forms(args.run_dir, out, title=args.title)
     if args.viz == "chromosome-map":
         out = args.out or Path(f"studies/{args.study_slug}/viz/chromosome_map.html")
         return render_chromosome_map(args.run_dir, out, gen=args.gen, title=args.title)

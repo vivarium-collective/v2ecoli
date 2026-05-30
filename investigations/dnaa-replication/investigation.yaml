@@ -280,6 +280,7 @@ feedback_rounds:
 studies:
   - dnaa-0-parameter-foundation
   - dnaa-1-expression-dynamics
+  - dnaa-2-atp-hydrolysis   # added 2026-05-30 (dnaa-0/dnaa-1 passed); Step 1 baseline done
 
 acceptance_criteria:
   - {study: dnaa-0-parameter-foundation, behavior: succinate-oric-periodic-1-or-2-at-steady-state}

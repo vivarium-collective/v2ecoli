@@ -37,7 +37,7 @@ def _derive_process_seed(master_seed: int, process_name: str) -> int:
     """
     return binascii.crc32(process_name.encode("utf-8"), master_seed) & 0x7FFFFFFF
 
-from pbg_superpowers.composite_generator import composite_generator
+from pbg_superpowers.composite_generator import composite_generator, emitter_defaults
 
 from v2ecoli.core import build_core, load_cache_bundle
 
@@ -53,6 +53,7 @@ from v2ecoli.composites._helpers import (
     _make_instance,
     _get_special_step,
     _expand_flushes,
+    set_default_emitter_decl,
     FLUSH,
     PARTITIONED_PROCESSES,
     ALL_PARTITIONED,
@@ -382,6 +383,19 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
         },
     },
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
+    emitters=[
+        {
+            # Default observation sink for standalone builds: a vEcoli-shaped
+            # ParquetEmitter (hive-partitioned, column-oriented — captures the
+            # raw bulk count array + listeners that downstream/vEcoli-parity
+            # analyses need). out_dir is omitted on purpose: the emitter step
+            # resolves it to <workspace>/.pbg/parquet-runs. External overrides
+            # (set_parquet_emitter_override / set_emitter_override) still win.
+            "address": "local:ParquetEmitter",
+            "config": {},
+            "paths": ["global_time", "bulk", "listeners"],
+        },
+    ],
 )
 def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
              config_overrides: dict | None = None) -> dict:
@@ -517,20 +531,30 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     execution_layers = build_execution_layers(features)
     flow_order = [step for layer in execution_layers for step in layer]
 
+    # Publish this generator's declared default emitter (parquet — see the
+    # @composite_generator(emitters=[...]) below) so the 'emitter' step picks
+    # it up when no external override is set. Cleared in finally so it never
+    # leaks into a later composite built in the same process. External
+    # parquet/sqlite/null overrides still win — see set_default_emitter_decl.
+    _emitter_decls = emitter_defaults(baseline)
+    set_default_emitter_decl(_emitter_decls[0] if _emitter_decls else None)
     _process_cache = {}
-    for step_name in flow_order:
-        config = _get_step_config(
-            loader, step_name, core, _process_cache, master_seed=seed)
-        if config is not None:
-            if len(config) == 5:
-                instance, topology, edge_type, in_topo, out_topo = config
-                cell_state[step_name] = make_edge(
-                    instance, topology, input_topology=in_topo,
-                    output_topology=out_topo, edge_type=edge_type)
-            else:
-                instance, topology, edge_type = config
-                cell_state[step_name] = make_edge(
-                    instance, topology, edge_type=edge_type)
+    try:
+        for step_name in flow_order:
+            config = _get_step_config(
+                loader, step_name, core, _process_cache, master_seed=seed)
+            if config is not None:
+                if len(config) == 5:
+                    instance, topology, edge_type, in_topo, out_topo = config
+                    cell_state[step_name] = make_edge(
+                        instance, topology, input_topology=in_topo,
+                        output_topology=out_topo, edge_type=edge_type)
+                else:
+                    instance, topology, edge_type = config
+                    cell_state[step_name] = make_edge(
+                        instance, topology, edge_type=edge_type)
+    finally:
+        set_default_emitter_decl(None)
 
     # Place shared PartitionedProcess instances in the process store
     for proc_name, proc_instance in _process_cache.items():

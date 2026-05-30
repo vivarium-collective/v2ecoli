@@ -331,6 +331,18 @@ def main():
                         "1.0 reproduces the legacy tight per-tick controller. "
                         "Try 60.0 to let per-tick jump-process variance "
                         "manifest in the PDMP ensemble.")
+    p.add_argument("--flux-source", default="consumption_matched",
+                   choices=("consumption_matched", "measured_kfba",
+                            "proportional"),
+                   help="ref_growth_driver flux source. "
+                        "`consumption_matched` (default) compensates per-tick "
+                        "consumption — tight clamp on PDMP variance. "
+                        "`measured_kfba` injects at constant per-second rates "
+                        "measured from a kFBA baseline — open-loop, so "
+                        "jump-process variance flows through to cell_mass. "
+                        "Pre-Phase-2 this drained ATP to 0 by t=300s; sprint 8 "
+                        "re-tests it now that Poisson sampling reduces "
+                        "consumption burstiness.")
     p.add_argument("--out",
                    default="reports/figures/pdmp-02/ensemble_validation.html")
     args = p.parse_args()
@@ -349,7 +361,7 @@ def main():
             "millard_pdmp_baseline", args.n, args.duration, args.sample_every,
             f"pdmp_{mode}",
             with_ref_growth=True,
-            ref_growth_flux_source="consumption_matched",
+            ref_growth_flux_source=args.flux_source,
             ref_growth_feedback_tau_s=args.feedback_tau_s,
             transcript_initiation_mode=mode,
             polypeptide_initiation_mode=mode,

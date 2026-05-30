@@ -138,6 +138,7 @@ scientific_argument:
   - investigations/v2ecoli-pdmp/reports/pdmp-02-jump-processes.html
   - reports/figures/pdmp-02/trajectory_divergence.html
   - reports/figures/pdmp-02/ensemble_validation_period60.html
+  - reports/figures/pdmp-03/likelihood_ensemble.html
   caveats:
   - Resource estimates in the roadmap assume 2–4 FTE per phase; absent that staffing, phases will run serially over much longer
     wall time.

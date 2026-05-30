@@ -251,13 +251,34 @@ PR_HTML = """
 """.replace("{pr}", PR)
 
 
-def render_html(provenance, plot1, plot2, frac, div_rows):
-    """Assemble the standalone HTML document (pure: no IO)."""
+# Shared report CSS (single-brace; substituted verbatim, not f-string source).
+# Reused by scripts/sweep_report_xarray.py so both variants look identical.
+REPORT_CSS = """
+ body{font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#1f2937;line-height:1.55}
+ h1{font-size:1.5rem;margin:0 0 6px} h2{font-size:1.15rem;margin-top:2.2rem;border-bottom:1px solid #e5e7eb;padding-bottom:.3rem}
+ h3{font-size:1rem;margin-top:1.4rem}
+ .meta{color:#6b7280;font-size:.9rem} img{max-width:100%;border:1px solid #e5e7eb;border-radius:6px}
+ .provenance{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin:14px 0 20px;font-size:.85em;line-height:1.55}
+ .provenance dt{display:inline-block;min-width:120px;color:#475569;font-weight:600}
+ .provenance dd{display:inline;margin:0;font-family:ui-monospace,Menlo,monospace}
+ .provenance .row{margin:1px 0}
+ table{border-collapse:collapse;width:100%;font-size:.9rem;margin-top:.5rem}
+ th,td{border:1px solid #e5e7eb;padding:.35rem .6rem;text-align:left;vertical-align:top} th{background:#f3f4f6}
+ td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,monospace}
+ .doc tr td:first-child{width:230px;white-space:nowrap}
+ pre{background:#0f172a;color:#e2e8f0;padding:.7rem .9rem;border-radius:6px;overflow-x:auto;font-size:.82rem;line-height:1.4}
+ code{background:rgba(0,0,0,.04);padding:1px 5px;border-radius:3px;font-size:.88em} pre code{background:none;padding:0}
+ .note{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:.6rem .9rem;font-size:.9rem;margin-top:1rem}
+ ul{font-size:.93rem} li{margin:.25rem 0}
+"""
+
+
+def provenance_banner(provenance) -> str:
+    """The shared git/run provenance banner ``<div>`` (AGENTS.md convention)."""
     dirty_badge = ('<span style="color:#dc2626;font-weight:600">  · DIRTY TREE</span>'
                    if provenance.get("git_dirty") else "")
     sha, short = provenance.get("git_sha", ""), provenance.get("git_short", "")
-    has_variant = provenance.get("n_variants", 1) > 1
-    prov = f"""<div class="provenance">
+    return f"""<div class="provenance">
   <div class="row"><dt>generated</dt><dd>{provenance.get('generated_at','')}</dd></div>
   <div class="row"><dt>git commit</dt>
     <dd><a href="{GITHUB_REPO}/commit/{sha}" style="color:#0369a1;text-decoration:none">{short}</a>
@@ -268,6 +289,13 @@ def render_html(provenance, plot1, plot2, frac, div_rows):
   <div class="row"><dt>host</dt><dd>{provenance.get('host','')} &nbsp;<span style="color:#94a3b8">{provenance.get('platform','')}, Python {provenance.get('python','')}</span></dd></div>
   <div class="row"><dt>sweep</dt><dd>{provenance.get('n_variants','?')} variant(s) &times; {provenance.get('n_seeds','?')} seed(s) &times; {provenance.get('n_gens','?')} generation(s) = {provenance.get('n_cells','?')} cells &middot; <code>{provenance.get('sweep_dir','')}</code></dd></div>
 </div>"""
+
+
+def render_html(provenance, plot1, plot2, frac, div_rows):
+    """Assemble the standalone HTML document (pure: no IO)."""
+    short = provenance.get("git_short", "")
+    has_variant = provenance.get("n_variants", 1) > 1
+    prov = provenance_banner(provenance)
 
     rows = ""
     for (v, s, g, m0, m1, t1) in div_rows:
@@ -281,24 +309,7 @@ def render_html(provenance, plot1, plot2, frac, div_rows):
 
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <title>v2ecoli workflow sweep — {short or 'report'}</title>
-<style>
- body{{font-family:ui-sans-serif,system-ui,-apple-system,sans-serif;max-width:1000px;margin:24px auto;padding:0 16px;color:#1f2937;line-height:1.55}}
- h1{{font-size:1.5rem;margin:0 0 6px}} h2{{font-size:1.15rem;margin-top:2.2rem;border-bottom:1px solid #e5e7eb;padding-bottom:.3rem}}
- h3{{font-size:1rem;margin-top:1.4rem}}
- .meta{{color:#6b7280;font-size:.9rem}} img{{max-width:100%;border:1px solid #e5e7eb;border-radius:6px}}
- .provenance{{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;margin:14px 0 20px;font-size:.85em;line-height:1.55}}
- .provenance dt{{display:inline-block;min-width:120px;color:#475569;font-weight:600}}
- .provenance dd{{display:inline;margin:0;font-family:ui-monospace,Menlo,monospace}}
- .provenance .row{{margin:1px 0}}
- table{{border-collapse:collapse;width:100%;font-size:.9rem;margin-top:.5rem}}
- th,td{{border:1px solid #e5e7eb;padding:.35rem .6rem;text-align:left;vertical-align:top}} th{{background:#f3f4f6}}
- td.num{{text-align:right;font-variant-numeric:tabular-nums;font-family:ui-monospace,Menlo,monospace}}
- .doc tr td:first-child{{width:230px;white-space:nowrap}}
- pre{{background:#0f172a;color:#e2e8f0;padding:.7rem .9rem;border-radius:6px;overflow-x:auto;font-size:.82rem;line-height:1.4}}
- code{{background:rgba(0,0,0,.04);padding:1px 5px;border-radius:3px;font-size:.88em}} pre code{{background:none;padding:0}}
- .note{{background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:.6rem .9rem;font-size:.9rem;margin-top:1rem}}
- ul{{font-size:.93rem}} li{{margin:.25rem 0}}
-</style></head><body>
+<style>{REPORT_CSS}</style></head><body>
 <h1>v2ecoli workflow sweep report</h1>
 <p class="meta">Pure process-bigraph meta-composite sweep</p>
 {prov}

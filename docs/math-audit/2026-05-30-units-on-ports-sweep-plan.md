@@ -8,10 +8,19 @@ and units are tracked through stores, computation, and serialization.
 
 ## Foundation (done)
 
-- **Emitter** (`pbg-emitters#2`): `coerce_rich_values` serializes `Quantity` leaves
-  through the core on emit → `{units, magnitude}` → `…__magnitude` + `…__units__<sym>`
-  Parquet columns. Without this, a Quantity on any emitted port crashes the
-  ParquetEmitter (`pl.Series` object dtype). **Prerequisite for everything below.**
+- **Emitter** (`pbg-emitters#2`): unit-bearing (`Quantity`) ports are supported on emit.
+  `strip_quantities` replaces each Quantity leaf with its `.magnitude` **under the same
+  column name** (plain-float column — downstream name-based queries/reports keep working)
+  and records `column → unit` as file-level Parquet metadata (`column_units` JSON). This
+  *supersedes* the first cut (which split into `…__magnitude`/`…__units__` columns and
+  thereby renamed the column). Without this, a Quantity on any emitted port crashes the
+  ParquetEmitter (`pl.Series` object dtype). **Prerequisite for converting emitted ports.**
+  - **Still open for widely-read fields:** reports that read the *live composite state*
+    and call `float(value)` (e.g. `reports/multigeneration_report.py`,
+    `benchmark_report.py` on `cell_mass`/`dry_mass`) break on a real Quantity —
+    `float()` on a dimensioned Quantity raises. The emitter fix only covers *emitted*
+    data; live-state `float()` consumers must be migrated to `.to(unit).magnitude` before
+    a widely-read field is converted. See T1.
 - **Pilot wire** (committed): `effective_elongation_rate`
   (`polypeptide_elongation` → `polypeptide_initiation`), now `quantity[float,amino_acid/s]`
   on both ends. Verified: composite builds + runs through the emitter; round-trip green.
@@ -57,11 +66,19 @@ Ordered by value × containment. Each is gated independently.
 
 **T0 — pilot (done):** `effective_elongation_rate`.
 
-**T1 — `cell_mass` functional wire (`float[fg]`, ~21 read sites).** Written by the mass
-listener, read by many processes to compute `V = mass/density`. Highest-value functional
-conversion (mass/volume/concentration math is where unit bugs hide), but the widest
-blast radius (every reader's volume calc). Convert writer + all readers; readers that do
-`mass/density` become unit-clean (`.to(units.fg)` or keep Quantity through the division).
+**T1 — mass subsystem (`cell_mass` + siblings) — its own project, NOT a tranche.**
+Bigger than first scoped: the mass listener computes ~18 interlocking `float[fg]` fields
+(`dry_mass = cell_mass − water_mass`, `volume = cell_mass/density`, submasses), so
+converting `cell_mass` drags in the whole subsystem. Readers (~10 processes) do
+`mass * units.fg` — converting the port means *dropping* that reconstruction (parity-
+preserving). BUT it also touches **~111 report/viz references** to `cell_mass`/`dry_mass`:
+- *emitted-data* consumers: fixed by the emitter foundation (column name preserved). ✓
+- *live-state* consumers doing `float(value)`: **still break** — must migrate to
+  `.to(units.fg).magnitude` first.
+Plus `division.py` (bare `0.0` mass defaults → `0.0*units.fg`) and the PDMP step
+(`float(mass_in...)`). Treat as a dedicated project: migrate live-state `float()`
+consumers → convert the mass subsystem → gate (build all 3 architectures + behavior +
+the report scripts).
 
 **T2 — config straggler params.** Bare-typed dimensioned config fields not yet
 `quantity[...]`. Read-once in `initialize`; contained per process. (Inventory per process

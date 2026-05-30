@@ -205,6 +205,8 @@ def render_dnaa1(run_dir: Path, cache_dir: str, out_path: Path,
     idx = _resolve_dnaa_indices(cache_dir)
 
     times = df["global_time"].to_list()
+    oric = df["listeners__replication_data__number_of_oric"].to_list() \
+        if "listeners__replication_data__number_of_oric" in df.columns else []
     mass = df["listeners__mass__cell_mass"].to_list() \
         if "listeners__mass__cell_mass" in df.columns else []
     dnaa = _series_at_idx(df, "listeners__monomer_counts",
@@ -219,13 +221,20 @@ def render_dnaa1(run_dir: Path, cache_dir: str, out_path: Path,
 
     core = build_core()
     viz = DnaaExpressionVisualization(
-        config={"title": title or "dnaa-1 — Mechanism A V=2e-3 (succinate)",
-                "dnaa_band_low": 300.0, "dnaa_band_high": 800.0},
+        config={"title": title or "dnaa-1 — V=2e-3 — 7-gen lineage on succinate",
+                "dnaa_band_low": 300.0, "dnaa_band_high": 800.0,
+                "target_init_rate_per_min": 1.0,
+                "subtitle": "Mechanism A — runtime overwrite of dnaA's "
+                            "per-promoter init_prob: "
+                            "sim_data.genetic_perturbations[\"TU00259[c]\"] = 2e-3 "
+                            "(baseline unchanged: dnaA TE 0.35, mRNA t½ 1.9 min, "
+                            "DnaA protein t½ 280 min, C 40 min, D 20 min)"},
         core=core,
     )
     state = {
-        "dnaa_monomer_total": dnaa,
+        "oric_count":         oric,
         "cell_mass":          mass,
+        "dnaa_monomer_total": dnaa,
         "dnaa_mrna_count":    mrna,
         "dnaa_init_events":   init_ev,
         "time":               times,
@@ -245,6 +254,60 @@ def render_dnaa1(run_dir: Path, cache_dir: str, out_path: Path,
     return 0
 
 
+def render_chromosome(run_dir: Path, cache_dir: str, out_path: Path,
+                      title: str | None = None) -> int:
+    """Render the chromosome-state viz (cycle counts, fork map, DnaA-box
+    occupancy) from a run's parquet hive."""
+    df, div_times, n_gens = _load_history(run_dir)
+    times = df["global_time"].to_list()
+
+    def _col(name):
+        return df[name].to_list() if name in df.columns else []
+    oric = _col("listeners__replication_data__number_of_oric")
+    chrom = _col("listeners__unique_molecule_counts__full_chromosome")
+    repl = _col("listeners__unique_molecule_counts__active_replisome")
+    free_boxes = _col("listeners__replication_data__free_DnaA_boxes")
+    total_boxes = _col("listeners__replication_data__total_DnaA_boxes")
+
+    # Flatten fork_coordinates (array-per-tick) into parallel (time, position).
+    fork_times: list[float] = []
+    fork_positions: list[float] = []
+    fc = _col("listeners__replication_data__fork_coordinates")
+    for t, coords in zip(times, fc):
+        if coords is None:
+            continue
+        for c in coords:
+            if c is not None:
+                fork_times.append(float(t))
+                fork_positions.append(float(c))
+
+    from v2ecoli.visualizations.dnaa_succinate import DnaaChromosomeVisualization
+    from v2ecoli.core import build_core
+    core = build_core()
+    viz = DnaaChromosomeVisualization(
+        config={"title": title or "chromosome state (succinate)"}, core=core)
+    state = {
+        "oric_count":       oric,
+        "chromosome_count": chrom,
+        "replisome_count":  repl,
+        "fork_times":       fork_times,
+        "fork_positions":   fork_positions,
+        "free_dnaa_boxes":  free_boxes,
+        "total_dnaa_boxes": total_boxes,
+        "time":             times,
+        "division_times":   div_times,
+        "_run_labels":      [f"{n_gens}-gen lineage"],
+    }
+    html = viz.update(state).get("html", "")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(html, encoding="utf-8")
+    print(f"  ok chromosome: {out_path} ({len(html)} chars)")
+    print(f"    n_ticks: {len(times)}, forks plotted: {len(fork_times)}, "
+          f"chromosomes: {sorted(set(c for c in chrom if c is not None))[:6]}, "
+          f"replisomes: {sorted(set(r for r in repl if r is not None))[:6]}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("study_slug")
@@ -253,14 +316,23 @@ def main() -> int:
                     help="ParCa cache dir (defaults per study)")
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--title", default=None)
+    ap.add_argument("--viz", default=None,
+                    help="Override which viz to render: 'chromosome' renders "
+                         "the chromosome-state panels for either study.")
     args = ap.parse_args()
 
+    default_cache = ("out/cache-succinate-mechA-2e-3"
+                     if "expression" in args.study_slug
+                     else "out/cache-succinate")
+    cache = args.cache_dir or default_cache
+
+    if args.viz == "chromosome":
+        out = args.out or Path(f"studies/{args.study_slug}/viz/chromosome_state.html")
+        return render_chromosome(args.run_dir, cache, out, title=args.title)
     if args.study_slug == "dnaa-0-parameter-foundation":
-        cache = args.cache_dir or "out/cache-succinate"
         out = args.out or Path(f"studies/{args.study_slug}/viz/dnaa_steady_state.html")
         return render_dnaa0(args.run_dir, cache, out, title=args.title)
     if args.study_slug == "dnaa-1-expression-dynamics":
-        cache = args.cache_dir or "out/cache-succinate-mechA-2e-3"
         out = args.out or Path(f"studies/{args.study_slug}/viz/dnaa_expression.html")
         return render_dnaa1(args.run_dir, cache, out, title=args.title)
     print(f"ERROR: unknown study {args.study_slug!r}", file=sys.stderr)

@@ -326,11 +326,14 @@ class DnaaSteadyStateVisualization(Visualization):
 
 
 class DnaaExpressionVisualization(Visualization):
-    """dnaa-1 acceptance viz — four panels per Rashmi's PDF ask.
+    """dnaa-1 acceptance viz — six panels reproducing Rashmi's PDF figure
+    ("V=2e-3 seed=1 — 7-gen lineage on succinate"):
 
-    Panels: (1) DnaA monomer count (all forms via monomer_counts listener),
-    (2) DnaA concentration (count / cell_mass), (3) dnaA mRNA count,
-    (4) dnaA mRNA initiation events.
+      (1) oriC number          (2) cell mass
+      (3) DnaA monomer count (all forms; [300,800] band shaded)
+      (4) DnaA concentration (count / cell_mass)
+      (5) dnaA mRNA count      (6) dnaA mRNA initiation events (per-tick
+                                    barcode + biological-rate reference)
 
     Example study-yaml wiring::
 
@@ -340,8 +343,9 @@ class DnaaExpressionVisualization(Visualization):
             config:
               title: "dnaa-1 — Mechanism A V=2e-3 (succinate)"
               inputs_map:
-                dnaa_monomer_total: listeners.monomer_counts  # at dnaA index
+                oric_count:         listeners.replication_data.number_of_oric
                 cell_mass:          listeners.mass.cell_mass
+                dnaa_monomer_total: listeners.monomer_counts  # at dnaA index
                 dnaa_mrna_count:    listeners.rna_counts.mRNA_counts  # at dnaA mRNA index
                 dnaa_init_events:   listeners.rnap_data.rna_init_event_per_cistron  # at dnaA cistron
                 time:               global_time
@@ -352,13 +356,15 @@ class DnaaExpressionVisualization(Visualization):
         **Visualization.config_schema,
         "dnaa_band_low":  {"_type": "float", "_default": 300.0},
         "dnaa_band_high": {"_type": "float", "_default": 800.0},
-        "target_init_rate_per_min": {"_type": "float", "_default": 1.5},
+        "target_init_rate_per_min": {"_type": "float", "_default": 1.0},
+        "subtitle": {"_type": "string", "_default": ""},
     }
 
     def inputs(self) -> dict[str, Any]:
         return {
-            "dnaa_monomer_total": "list[float]",
+            "oric_count":         "list[float]",
             "cell_mass":          "list[float]",
+            "dnaa_monomer_total": "list[float]",
             "dnaa_mrna_count":    "list[float]",
             "dnaa_init_events":   "list[float]",
             "time":               "list[float]",
@@ -371,10 +377,12 @@ class DnaaExpressionVisualization(Visualization):
         band_low = float(self.config.get("dnaa_band_low", 300.0))
         band_high = float(self.config.get("dnaa_band_high", 800.0))
 
-        band_target_rate = float(self.config.get("target_init_rate_per_min", 1.5))
+        band_target_rate = float(self.config.get("target_init_rate_per_min", 1.0))
+        subtitle = self.config.get("subtitle") or ""
 
-        mono_runs = _to_runs(state.get("dnaa_monomer_total"))
+        oric_runs = _to_runs(state.get("oric_count"))
         mass_runs = _to_runs(state.get("cell_mass"))
+        mono_runs = _to_runs(state.get("dnaa_monomer_total"))
         mrna_runs = _to_runs(state.get("dnaa_mrna_count"))
         init_runs = _to_runs(state.get("dnaa_init_events"))
         time_runs = _to_minutes(_to_runs(state.get("time")))  # x axis in minutes
@@ -384,16 +392,17 @@ class DnaaExpressionVisualization(Visualization):
         div_times = [(_num(t) or 0.0) / 60.0 for t in div_times]
         x_max = max((max(r) for r in time_runs if r), default=None)
 
-        n_runs = max(len(mono_runs), len(mass_runs), len(mrna_runs),
-                     len(init_runs), 0)
+        n_runs = max(len(oric_runs), len(mass_runs), len(mono_runs),
+                     len(mrna_runs), len(init_runs), 0)
         if n_runs == 0:
             return {"html": render_document(
                 title=title,
                 body_html=_empty_note(
                     "No DnaA expression observables yet. Wire the emitter to "
-                    "capture listeners.monomer_counts (at dnaA index), "
-                    "listeners.mass.cell_mass, listeners.rna_counts.mRNA_counts "
-                    "(at dnaA mRNA TU index), and "
+                    "capture listeners.replication_data.number_of_oric, "
+                    "listeners.mass.cell_mass, listeners.monomer_counts (at "
+                    "dnaA index), listeners.rna_counts.mRNA_counts (at dnaA "
+                    "mRNA TU index), and "
                     "listeners.rnap_data.rna_init_event_per_cistron (at dnaA "
                     "cistron index).")
             )}
@@ -402,30 +411,44 @@ class DnaaExpressionVisualization(Visualization):
         shapes = _generation_shapes(div_times)
         gen_anns = _generation_annotations(div_times, x_max)
 
-        # --- Panel 1: DnaA monomer count (band-shaded) --------------------
-        mono_traces = []
-        for i in range(n_runs):
-            ys = mono_runs[i] if i < len(mono_runs) else []
-            xs = _times_for(mono_runs, time_runs, i)
-            mono_traces.append(_trace(run_labels[i], xs, ys,
-                                       color=_PALETTE[i % len(_PALETTE)]))
-        mono_shapes = list(shapes) + [
-            {"type": "rect", "xref": "paper", "yref": "y", "x0": 0, "x1": 1,
-             "y0": band_low, "y1": band_high,
-             "fillcolor": "#22c55e", "opacity": 0.08,
-             "line": {"width": 0}, "layer": "below"},
-        ]
-        mono_layout = {
-            "title": {"text": f"(1) DnaA monomer count — band [{int(band_low)}, "
-                              f"{int(band_high)}] shaded"},
-            "xaxis": {"title": "time (min)"},
-            "yaxis": {"title": "DnaA monomer (count)"},
-            "shapes": mono_shapes,
-            "annotations": gen_anns,
-            "margin": {"l": 60, "r": 20, "t": 48, "b": 40},
-        }
+        def _panel(runs, mode="lines"):
+            tr = []
+            for i in range(n_runs):
+                ys = runs[i] if i < len(runs) else []
+                xs = _times_for(runs, time_runs, i)
+                tr.append(_trace(run_labels[i], xs, ys,
+                                 color=_PALETTE[i % len(_PALETTE)], mode=mode))
+            return tr
 
-        # --- Panel 2: DnaA concentration (count / cell_mass) --------------
+        def _layout(title_text, yaxis, extra_shapes=None, **yaxis_extra):
+            yax = {"title": yaxis}
+            yax.update(yaxis_extra)
+            return {
+                "title": {"text": title_text},
+                "xaxis": {"title": "time (min)"},
+                "yaxis": yax,
+                "shapes": list(shapes) + list(extra_shapes or []),
+                "annotations": gen_anns,
+                "margin": {"l": 60, "r": 20, "t": 44, "b": 38},
+            }
+
+        # --- Panel 1: oriC number -----------------------------------------
+        oric_layout = _layout(
+            "(1) oriC number — periodic 1 ↔ 2 (never 4 at steady state)",
+            "oriC count (copies)", rangemode="tozero", dtick=1)
+
+        # --- Panel 2: cell mass -------------------------------------------
+        mass_layout = _layout("(2) cell mass", "cell mass (fg)")
+
+        # --- Panel 3: DnaA monomer count (band-shaded) --------------------
+        band = [{"type": "rect", "xref": "paper", "yref": "y", "x0": 0, "x1": 1,
+                 "y0": band_low, "y1": band_high, "fillcolor": "#22c55e",
+                 "opacity": 0.08, "line": {"width": 0}, "layer": "below"}]
+        mono_layout = _layout(
+            f"(3) DnaA monomer count — band [{int(band_low)}, {int(band_high)}] shaded",
+            "DnaA monomer (count)", extra_shapes=band)
+
+        # --- Panel 4: DnaA concentration (count / cell_mass) --------------
         conc_traces = []
         for i in range(n_runs):
             mono = mono_runs[i] if i < len(mono_runs) else []
@@ -438,65 +461,198 @@ class DnaaExpressionVisualization(Visualization):
                 ys.append(m / cm if (m is not None and cm and cm > 0) else None)
             conc_traces.append(_trace(run_labels[i], xs, ys,
                                        color=_PALETTE[i % len(_PALETTE)]))
-        conc_layout = {
-            "title": {"text": "(2) DnaA concentration (count / cell mass)"},
-            "xaxis": {"title": "time (min)"},
-            "yaxis": {"title": "DnaA / cell mass (count · fg⁻¹)"},
-            "shapes": shapes,
-            "annotations": gen_anns,
-            "margin": {"l": 60, "r": 20, "t": 48, "b": 40},
-        }
+        conc_layout = _layout("(4) DnaA concentration (count / cell mass)",
+                              "DnaA / cell mass (count · fg⁻¹)")
 
-        # --- Panel 3: dnaA mRNA count ------------------------------------
-        mrna_traces = []
-        for i in range(n_runs):
-            ys = mrna_runs[i] if i < len(mrna_runs) else []
-            xs = _times_for(mrna_runs, time_runs, i)
-            mrna_traces.append(_trace(run_labels[i], xs, ys,
-                                       color=_PALETTE[i % len(_PALETTE)],
-                                       mode="lines+markers"))
-        mrna_layout = {
-            "title": {"text": "(3) dnaA mRNA count"},
-            "xaxis": {"title": "time (min)"},
-            "yaxis": {"title": "dnaA mRNA (count)", "rangemode": "tozero"},
-            "shapes": shapes,
-            "annotations": gen_anns,
-            "margin": {"l": 60, "r": 20, "t": 48, "b": 40},
-        }
+        # --- Panel 5: dnaA mRNA count ------------------------------------
+        mrna_layout = _layout("(5) dnaA mRNA count", "dnaA mRNA (count)",
+                              rangemode="tozero")
 
-        # --- Panel 4: dnaA mRNA initiation events ------------------------
+        # --- Panel 6: dnaA mRNA initiation events (per-tick barcode) ------
+        # Rashmi's figure shows each transcription-initiation event as a
+        # vertical line, with a caption "total N events over T min; mean
+        # rate = R/min". Render as a bar barcode + biological-rate ref line.
         init_traces = []
         for i in range(n_runs):
-            ys = init_runs[i] if i < len(init_runs) else []
+            ys = [(_num(v) or 0.0) for v in (init_runs[i] if i < len(init_runs) else [])]
             xs = _times_for(init_runs, time_runs, i)
-            init_traces.append(_trace(run_labels[i], xs, ys,
-                                       color=_PALETTE[i % len(_PALETTE)]))
-        # Rashmi 2026-05-30: the PDF target is the biologically-expected dnaA
-        # RNA-synthesis RATE; Mechanism A V=2e-3 landed ~1.01 events/min, close
-        # to expectation, which in turn put the DnaA pool in band. Draw the
-        # target rate as a reference line so the chart reads as a rate check.
-        init_shapes = list(shapes) + [
+            init_traces.append({
+                "type": "bar", "name": run_labels[i],
+                "x": list(xs), "y": ys,
+                "marker": {"color": _PALETTE[i % len(_PALETTE)],
+                           "line": {"width": 0}},
+            })
+        # caption from the followed run (run 0)
+        primary = [(_num(v) or 0.0) for v in (init_runs[0] if init_runs else [])]
+        total_ev = sum(primary)
+        mean_rate = (total_ev / x_max) if (x_max and x_max > 0) else 0.0
+        init_shapes = [
             {"type": "line", "xref": "paper", "yref": "y", "x0": 0, "x1": 1,
              "y0": band_target_rate, "y1": band_target_rate,
              "line": {"color": "#dc2626", "width": 1, "dash": "dot"},
-             "opacity": 0.7, "layer": "below"},
-        ]
-        init_layout = {
-            "title": {"text": f"(4) dnaA mRNA initiation events — target "
-                              f"≈ {band_target_rate:g} event/min (biological rate)"},
-            "xaxis": {"title": "time (min)"},
-            "yaxis": {"title": "dnaA init events (per emit window)",
-                      "rangemode": "tozero"},
-            "shapes": init_shapes,
-            "annotations": gen_anns,
-            "margin": {"l": 60, "r": 20, "t": 48, "b": 40},
-        }
+             "opacity": 0.7, "layer": "below"}]
+        init_layout = _layout(
+            f"(6) dnaA mRNA initiation events — {int(total_ev)} events over "
+            f"{int(x_max or 0)} min; mean {mean_rate:.2f}/min "
+            f"(target ≈ {band_target_rate:g}/min)",
+            "init events (per tick)", extra_shapes=init_shapes,
+            rangemode="tozero")
+        init_layout["bargap"] = 0
+
+        subtitle_html = (
+            f'<div style="text-align:center;color:#dc2626;font-size:0.85em;'
+            f'margin:2px 0 8px">{escape(subtitle)}</div>' if subtitle else "")
 
         body = (
             _PLOTLY_CDN
-            + _plotly_div("dnaa1-monomer", mono_traces, mono_layout)
+            + subtitle_html
+            + _plotly_div("dnaa1-oric", _panel(oric_runs), oric_layout)
+            + _plotly_div("dnaa1-mass", _panel(mass_runs), mass_layout)
+            + _plotly_div("dnaa1-monomer", _panel(mono_runs), mono_layout)
             + _plotly_div("dnaa1-conc", conc_traces, conc_layout)
-            + _plotly_div("dnaa1-mrna", mrna_traces, mrna_layout)
+            + _plotly_div("dnaa1-mrna", _panel(mrna_runs, mode="lines+markers"), mrna_layout)
             + _plotly_div("dnaa1-init", init_traces, init_layout)
+        )
+        return {"html": render_document(title=title, body_html=body)}
+
+
+class DnaaChromosomeVisualization(Visualization):
+    """Chromosome-state viz — replication-cycle structure for the succinate
+    DnaA investigation. Three panels:
+
+      (1) Cell-cycle counts — oriC, full chromosomes, active replisomes over
+          time. The signature cycle: 1 chromosome + 1 oriC → initiation
+          (oriC → 2, a replisome pair appears) → replication → termination
+          (chromosome → 2) → division back to 1.
+      (2) Replication fork map — each active fork's genomic position (signed,
+          as a fraction of the half-genome; 0 = oriC, ±1 = terminus) plotted
+          vs time. Fork pairs spring from oriC at initiation and travel
+          outward to ter.
+      (3) DnaA-box occupancy — bound fraction (total − free)/total, with the
+          free and total box counts.
+
+    Built from observables every succinate run already emits:
+    listeners.replication_data.{number_of_oric, fork_coordinates,
+    free_DnaA_boxes, total_DnaA_boxes} and
+    listeners.unique_molecule_counts.{full_chromosome, active_replisome}.
+    """
+
+    config_schema = {**Visualization.config_schema}
+
+    def inputs(self) -> dict[str, Any]:
+        return {
+            "oric_count":        "list[float]",
+            "chromosome_count":  "list[float]",
+            "replisome_count":   "list[float]",
+            "fork_times":        "list[float]",   # flat: one entry per fork-tick
+            "fork_positions":    "list[float]",   # flat: matching genomic coords
+            "free_dnaa_boxes":   "list[float]",
+            "total_dnaa_boxes":  "list[float]",
+            "time":              "list[float]",
+            "division_times":    "list[float]",
+            "_run_labels":       "list[string]",
+        }
+
+    def update(self, state: dict[str, Any]) -> dict:
+        title = self.config.get("title") or "chromosome state (succinate)"
+
+        oric_runs = _to_runs(state.get("oric_count"))
+        chrom_runs = _to_runs(state.get("chromosome_count"))
+        repl_runs = _to_runs(state.get("replisome_count"))
+        free_runs = _to_runs(state.get("free_dnaa_boxes"))
+        total_runs = _to_runs(state.get("total_dnaa_boxes"))
+        time_runs = _to_minutes(_to_runs(state.get("time")))
+        div_times = state.get("division_times") or []
+        if div_times and isinstance(div_times[0], (list, tuple)):
+            div_times = div_times[0] if div_times else []
+        div_times = [(_num(t) or 0.0) / 60.0 for t in div_times]
+        x_max = max((max(r) for r in time_runs if r), default=None)
+
+        n_runs = max(len(oric_runs), len(chrom_runs), len(repl_runs), 0)
+        if n_runs == 0:
+            return {"html": render_document(
+                title=title,
+                body_html=_empty_note(
+                    "No chromosome-state observables yet. Wire the emitter to "
+                    "listeners.replication_data.{number_of_oric, "
+                    "fork_coordinates, free_DnaA_boxes, total_DnaA_boxes} and "
+                    "listeners.unique_molecule_counts.{full_chromosome, "
+                    "active_replisome}.")
+            )}
+
+        run_labels = _coerce_labels(state.get("_run_labels"), n_runs)
+        shapes = _generation_shapes(div_times)
+        gen_anns = _generation_annotations(div_times, x_max)
+
+        def _layout(title_text, yaxis, extra_shapes=None, **yax_extra):
+            yax = {"title": yaxis}
+            yax.update(yax_extra)
+            return {
+                "title": {"text": title_text},
+                "xaxis": {"title": "time (min)"},
+                "yaxis": yax,
+                "shapes": list(shapes) + list(extra_shapes or []),
+                "annotations": gen_anns,
+                "margin": {"l": 60, "r": 20, "t": 44, "b": 38},
+            }
+
+        # --- Panel 1: cell-cycle counts -----------------------------------
+        count_traces = []
+        series = [("oriC", oric_runs, "#2563eb"),
+                  ("chromosomes", chrom_runs, "#16a34a"),
+                  ("active replisomes", repl_runs, "#dc2626")]
+        for name, runs, color in series:
+            if not runs:
+                continue
+            xs = _times_for(runs, time_runs, 0)
+            count_traces.append(_trace(name, xs, runs[0], color=color,
+                                       mode="lines"))
+        count_layout = _layout(
+            "(1) cell-cycle counts — oriC · chromosomes · replisomes",
+            "count", rangemode="tozero", dtick=1)
+
+        # --- Panel 2: replication fork map --------------------------------
+        ft = [(_num(t) or 0.0) / 60.0 for t in (state.get("fork_times") or [])]
+        fp = [_num(p) for p in (state.get("fork_positions") or [])]
+        # normalise positions to ±1 (fraction of half-genome) by the max |pos|
+        scale = max((abs(p) for p in fp if p is not None), default=1.0) or 1.0
+        fp_norm = [(p / scale) if p is not None else None for p in fp]
+        fork_traces = [{
+            "type": "scatter", "mode": "markers", "name": "fork position",
+            "x": ft, "y": fp_norm,
+            "marker": {"color": "#9333ea", "size": 3, "opacity": 0.5},
+        }]
+        fork_layout = _layout(
+            "(2) replication fork map — 0 = oriC, ±1 = terminus",
+            "fork position (fraction of half-genome)",
+            extra_shapes=[{"type": "line", "xref": "paper", "yref": "y",
+                           "x0": 0, "x1": 1, "y0": 0, "y1": 0,
+                           "line": {"color": "#94a3b8", "width": 1},
+                           "layer": "below"}])
+        fork_layout["yaxis"]["range"] = [-1.1, 1.1]
+
+        # --- Panel 3: DnaA-box occupancy ----------------------------------
+        occ_traces = []
+        if free_runs and total_runs:
+            free = free_runs[0]
+            total = total_runs[0]
+            n = min(len(free), len(total))
+            xs = _times_for(total_runs, time_runs, 0)[:n]
+            bound_frac = []
+            for j in range(n):
+                f, t = _num(free[j]), _num(total[j])
+                bound_frac.append(((t - f) / t) if (t and t > 0 and f is not None) else None)
+            occ_traces.append(_trace("bound fraction", xs, bound_frac,
+                                     color="#0891b2", mode="lines"))
+        occ_layout = _layout(
+            "(3) DnaA-box occupancy — bound fraction (total − free)/total",
+            "bound fraction", rangemode="tozero")
+        occ_layout["yaxis"]["range"] = [0, 1.05]
+
+        body = (
+            _PLOTLY_CDN
+            + _plotly_div("chrom-counts", count_traces, count_layout)
+            + _plotly_div("chrom-forks", fork_traces, fork_layout)
+            + _plotly_div("chrom-boxocc", occ_traces, occ_layout)
         )
         return {"html": render_document(title=title, body_html=body)}

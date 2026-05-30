@@ -1,0 +1,74 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>Phase 0 — Characterization and Interface Extraction — study plan summary</title>
+<style>
+body{font-family:system-ui;max-width:1280px;margin:1em auto;padding:0 1em;color:#0f172a}
+h1{font-size:1.5em;border-bottom:2px solid #e2e8f0;padding-bottom:0.4em}
+h2{font-size:1.2em;color:#1e40af;margin-top:1.8em}
+h3{font-size:1.0em;color:#334155;margin-top:1.3em}
+.meta{color:#64748b;font-size:0.9em;margin-top:-0.3em}
+.cap{color:#475569;font-size:0.94em;line-height:1.6}
+table{border-collapse:collapse;width:100%;margin:0.7em 0;font-size:0.9em}
+table th,table td{border:1px solid #e2e8f0;padding:7px 11px;text-align:left;vertical-align:top}
+table th{background:#f8fafc;color:#475569;font-size:0.85em;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+table tr:nth-child(even) td{background:#fcfcfd}
+code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:0.92em;color:#334155}
+.section{background:#fafbfc;border-left:4px solid #3b82f6;padding:0.5em 1em;margin:1em 0}
+.section h2{margin-top:0.5em}
+.dim{color:#94a3b8;font-style:italic;font-size:0.92em}
+.gantt{font-family:ui-monospace,monospace;font-size:0.83em;color:#475569;background:#fafbfc;padding:9px 13px;border-radius:6px;overflow-x:auto;white-space:pre}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:6px 14px;margin:0.5em 0}
+.kv .k{color:#64748b;font-size:0.85em}
+.kv .v{color:#0f172a}
+</style></head>
+<body>
+<h1>Phase 0 — Characterization and Interface Extraction</h1>
+<p class='meta'>pdmp-00-characterization</p>
+
+
+    <div class='kv'>
+      <span class='k'>Phase</span><span class='v'>Design</span>
+      <span class='k'>Status</span><span class='v'><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></span>
+      <span class='k'>Depends on</span><span class='v'><code>(root — no dependencies)</code></span>
+      <span class='k'>Enables</span><span class='v'><code>pdmp-01-metabolism-ode</code></span>
+      <span class='k'># planned runs</span><span class='v'>5</span>
+      <span class='k'># readouts</span><span class='v'>4</span>
+      <span class='k'># tests (predictions)</span><span class='v'>7</span>
+      <span class='k'># variants</span><span class='v'>4</span>
+    </div>
+
+<div class='section'>
+<h2>Simulation plan</h2>
+<p class='cap'>Planned + completed runs for this study, in execution order. [##] = ran/completed; [--] = planned; [!!] = blocked.</p>
+<div class='gantt'>[##]  phase0-bootstrap                            n_steps=10        status=ran
+[--]  phase0-warmup-x1                            n_steps=100       status=planned
+[!!]  fix-per-process-rng-seeding                 n_steps=(infrastructure fix, no simulation steps)  status=blocks-ensemble
+[--]  phase0-conditions-3                         n_steps=600       status=planned
+[--]  phase0-ensemble-3x64                        n_steps=600       status=planned</div>
+<h3>Per-run detail</h3>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>n_steps</th><th>details</th></tr></thead><tbody><tr><td>phase0-bootstrap</td><td><span style='background:#16a34a;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>ran</span></td><td><code>10</code></td><td>completed 2026-05-24; bootstrap-run-confirmed</td></tr><tr><td>phase0-warmup-x1</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>100</code></td><td>single-condition warm-up; verify cycle dynamics + listener observables ramp correctly</td></tr><tr><td>fix-per-process-rng-seeding</td><td><span style='background:#dc2626;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>blocks-ensemble</span></td><td><code>(infrastructure fix, no simulation steps)</code></td><td>DISCOVERED 2026-05-24 via 3-seed pilot ensemble: v2ecoli baseline&#x27;s `seed` parameter only seeds `allocator_rng` (baseline.py:408). All other 55 stochastic processes (transcription, translation, division-threshold, protein-degradation, equilibrium, two-component-system, complexation, RNA-maturat</td></tr><tr><td>phase0-conditions-3</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>600</code></td><td>1 generation × 3 conditions; first cross-condition interface-statistic comparison</td></tr><tr><td>phase0-ensemble-3x64</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>600</code></td><td>3 conditions × N=64 replicates; produces the canonical reference zarr ensemble (Gating criterion)</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Readouts — what we measure</h2>
+<p class='cap'>The observables this study captures + the on-disk path where they land.</p>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>path</th><th>units</th><th>notes</th></tr></thead><tbody><tr><td><code>reference-zarr-stores</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>.pbg/runs/&lt;id&gt;/store.zarr</code></td><td>zarr group per (cond,rep,gen)</td><td>N&gt;=64 replicates x 3 conditions x &gt;=3 generations; canonical reference dataset for every later phase.</td></tr><tr><td><code>interface-schemas</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>v2ecoli/&lt;process&gt;/interface.schema.json</code></td><td>PB schema</td><td>Typed PB interface schema per major subprocess (metabolism, transcription, translation, replication, division, membrane).</td></tr><tr><td><code>per-step-compute-profile</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>.pbg/runs/&lt;id&gt;/profile.json</code></td><td>ms per bucket</td><td>5 buckets: FBA LP solve / RNG / store-process marshalling / topology traversal / emitter I/O. Mean +/- std over &gt;=1000 step samples + bootstrap 95% CI.</td></tr><tr><td><code>variable-categorisation-map</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>studies/pdmp-00/variable_categories.yaml</code></td><td>category enum + numerical-sensitivity tier</td><td>Every state variable: ODE-amenable / stochastic-discrete / teleonomic / coupling-artifact + stiffness/CV/coupling-strength tier.</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Tests — what passes / fails</h2>
+<p class='cap'>The structured predictions this study evaluates. Each test maps to a measurement + a decision criterion.</p>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>given</th><th>prediction (en)</th></tr></thead><tbody><tr><td><code>variables-categorized</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>diagnostic-run-M9-glucose</td><td>Every state variable in the WCM&#x27;s process internals + stores is labelled ODE-amenable / stochastic-discrete / teleonomic / coupling-artifact. No &quot;unknown&quot; labels remain.</td></tr><tr><td><code>interface-schemas-typed</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>all-major-subprocesses</td><td>Each of metabolism, transcription, translation, replication, division, membrane has a typed PB interface schema covering its Markov blanket.</td></tr><tr><td><code>reference-xarray-3-conditions</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>M9-glucose AND M9-acetate AND M9-glucose-aa</td><td>Reference zarr stores (produced by XArrayEmitter) exist for every interface variable across ≥3 distinct environmental conditions, with N≥64 replicates × ≥3 generations each. Readable via xarray.open_zarr() with chunking on the time axis. (G</td></tr><tr><td><code>profile-marshalling-vs-essential</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>diagnostic-run</td><td>Per-step compute is decomposed into marshalling overhead vs. essential computation, motivating (or refuting) the Phase 4 column-centric runtime refactor. Each bucket reported as mean ± std over ≥1000 step samples with bootstrap 95% CI.</td></tr><tr><td><code>uq-replicate-ensemble-N64</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>M9-glucose AND M9-acetate AND M9-glucose-aa</td><td>Each (condition, seed-family) reference dataset comprises N≥64 independent stochastic replicates. Per-observable MCSE reported; observables with MCSE &gt; 10% of inter-condition effect size are flagged and N is increased until threshold met</td></tr><tr><td><code>uq-stiffness-classification</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-major-subprocess</td><td>For each subprocess with continuous components, the local Jacobian eigenvalue spread (max|λ| / min|λ|) is estimated numerically (finite-difference) at the reference state. Subprocesses with κ &gt; 10⁴ are flagged stiff and inform solver cho</td></tr><tr><td><code>uq-bootstrap-cis-on-interface-stats</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-variable</td><td>Every summary statistic in the reference dataset (mean, std, quantiles q05/q50/q95) carries a bootstrap 95% confidence interval (≥10⁴ resamples). Downstream phase tolerance bands are derived from these CIs, never set ad hoc.</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Variants — planned configurations</h2>
+<p class='cap'>Distinct parameterisations / perturbations to be run.</p>
+<table class='ut'><thead><tr><th>name</th><th>description</th><th>params</th></tr></thead><tbody><tr><td><code>v2ecoli-diagnostic-M9-glucose</code></td><td>Canonical reference: M9 minimal + 22 mM glucose, aerobic, 37°C. The baseline against which all other Phase 0 conditions are compared.</td><td><code>{&#x27;condition&#x27;: &#x27;M9-glucose&#x27;, &#x27;seed&#x27;: 0, &#x27;n_steps&#x27;: 600}</code></td></tr><tr><td><code>v2ecoli-diagnostic-M9-acetate</code></td><td>Slower-growth gluconeogenic regime; same cache, swap nutrient condition to acetate. Tests interface fidelity when the FBA solution sits on a different polytope facet.</td><td><code>{&#x27;condition&#x27;: &#x27;M9-acetate&#x27;, &#x27;seed&#x27;: 0, &#x27;n_steps&#x27;: 600}</code></td></tr><tr><td><code>v2ecoli-diagnostic-M9-glucose-aa</code></td><td>Faster-growth (partial relief on translation): M9 + glucose + 20 amino-acid mix at fully-supplemented concentrations.</td><td><code>{&#x27;condition&#x27;: &#x27;M9-glucose+aa&#x27;, &#x27;seed&#x27;: 0, &#x27;n_steps&#x27;: 400}</code></td></tr><tr><td><code>v2ecoli-diagnostic-ensemble-N64</code></td><td>N=64 stochastic replicates per condition (3 conditions × 64 = 192 runs). The full reference ensemble Phase 1+ phases validate against. Wall-clock estimate: ~30 hr serially, ~1 hr in parallel on a 32-core machine.</td><td><code>{&#x27;condition&#x27;: &#x27;M9-glucose&#x27;, &#x27;seed&#x27;: &#x27;&lt;replicate&gt;&#x27;, &#x27;n_steps&#x27;: 600}</code></td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Proceed condition (gate to next phase)</h2>
+<p class='cap' style='white-space:pre-wrap'>Reference Xarray zarr stores produced for ≥3 conditions × N≥64 replicates × ≥3 generations, with per-observable MCSE reported and bootstrap CIs on every summary statistic. Per-step compute profile decomposed into FBA LP / RNG / marshalling / topology / emitter-I/O buckets.</p>
+</div>
+
+</body></html>

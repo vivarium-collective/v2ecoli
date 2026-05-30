@@ -25,13 +25,15 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 os.chdir(REPO_ROOT)
 
 
-# Pick a pinned-height per detected content type. Slightly generous so 6-panel
-# figures, multi-row layouts and long captions all fit.
-HEIGHT_MATPLOTLIB = 760     # data:image/png base64 - one panel + caption
-HEIGHT_MATPLOTLIB_TALL = 900  # 6-panel / tall figures
-HEIGHT_PLOTLY = 820          # plotly.js charts
-HEIGHT_STUDY_PLAN = 1200     # study_plan_summary cards (long table layout)
-HEIGHT_DEFAULT = 780
+# Pick a pinned-height per detected content type. Generous so 4+ panel
+# matplotlib figures, multi-row layouts, and long captions all fit without
+# cutoff. The cost of over-tall is some empty whitespace below the figure;
+# the cost of cutoff is the reader misses chart content. Prefer the former.
+HEIGHT_MATPLOTLIB = 900       # data:image/png — covers 1- and 2-panel
+HEIGHT_MATPLOTLIB_MULTI = 1100 # ≥4 panels (described as "panels" in caption)
+HEIGHT_PLOTLY = 820            # plotly.js charts
+HEIGHT_STUDY_PLAN = 1200       # study_plan_summary cards (long table layout)
+HEIGHT_DEFAULT = 900
 
 
 CLAMP_RE = re.compile(r"html\s*,\s*body\s*\{\s*height\s*:\s*(\d+)px", re.I)
@@ -44,9 +46,14 @@ def _detect_height(html: str, filename: str) -> int:
         return HEIGHT_STUDY_PLAN
     if "plotly" in html.lower() or "plot.ly" in html.lower():
         return HEIGHT_PLOTLY
-    if "v2.html" in name or "6-panel" in html or "6 panel" in html or "_v2." in name:
-        return HEIGHT_MATPLOTLIB_TALL
-    if "data:image/png;base64" in html or "<img " in html.lower():
+    # Detect ≥4 panel matplotlib figures via the caption text — authors
+    # routinely say "four panels", "6-panel", "2x2", "3-panel" etc.
+    low = html.lower()
+    multi_signals = ["6-panel", "6 panel", "_v2.", "four panels", "4 panels",
+                     "4-panel", "3-panel", "3 panel", "2x2", "2×2"]
+    if any(sig in low for sig in multi_signals) or "v2.html" in name:
+        return HEIGHT_MATPLOTLIB_MULTI
+    if "data:image/png;base64" in html or "<img " in low:
         return HEIGHT_MATPLOTLIB
     return HEIGHT_DEFAULT
 

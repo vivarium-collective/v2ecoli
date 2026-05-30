@@ -1,0 +1,82 @@
+<!DOCTYPE html><html><head><meta charset='utf-8'>
+<title>Phase 1 — Metabolism: multi-objective FBA → Kinetic ODE — study plan summary</title>
+<style>
+body{font-family:system-ui;max-width:1280px;margin:1em auto;padding:0 1em;color:#0f172a}
+h1{font-size:1.5em;border-bottom:2px solid #e2e8f0;padding-bottom:0.4em}
+h2{font-size:1.2em;color:#1e40af;margin-top:1.8em}
+h3{font-size:1.0em;color:#334155;margin-top:1.3em}
+.meta{color:#64748b;font-size:0.9em;margin-top:-0.3em}
+.cap{color:#475569;font-size:0.94em;line-height:1.6}
+table{border-collapse:collapse;width:100%;margin:0.7em 0;font-size:0.9em}
+table th,table td{border:1px solid #e2e8f0;padding:7px 11px;text-align:left;vertical-align:top}
+table th{background:#f8fafc;color:#475569;font-size:0.85em;font-weight:600;text-transform:uppercase;letter-spacing:0.04em}
+table tr:nth-child(even) td{background:#fcfcfd}
+code{background:#f1f5f9;padding:1px 5px;border-radius:3px;font-size:0.92em;color:#334155}
+.section{background:#fafbfc;border-left:4px solid #3b82f6;padding:0.5em 1em;margin:1em 0}
+.section h2{margin-top:0.5em}
+.dim{color:#94a3b8;font-style:italic;font-size:0.92em}
+.gantt{font-family:ui-monospace,monospace;font-size:0.83em;color:#475569;background:#fafbfc;padding:9px 13px;border-radius:6px;overflow-x:auto;white-space:pre}
+.kv{display:grid;grid-template-columns:140px 1fr;gap:6px 14px;margin:0.5em 0}
+.kv .k{color:#64748b;font-size:0.85em}
+.kv .v{color:#0f172a}
+</style></head>
+<body>
+<h1>Phase 1 — Metabolism: multi-objective FBA → Kinetic ODE</h1>
+<p class='meta'>pdmp-01-metabolism-ode</p>
+
+
+    <div class='kv'>
+      <span class='k'>Phase</span><span class='v'>Design</span>
+      <span class='k'>Status</span><span class='v'><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></span>
+      <span class='k'>Depends on</span><span class='v'><code>pdmp-00-characterization</code></span>
+      <span class='k'>Enables</span><span class='v'><code>pdmp-02-jump-processes</code></span>
+      <span class='k'># planned runs</span><span class='v'>5</span>
+      <span class='k'># readouts</span><span class='v'>5</span>
+      <span class='k'># tests (predictions)</span><span class='v'>9</span>
+      <span class='k'># variants</span><span class='v'>5</span>
+    </div>
+
+<div class='section'>
+<h2>Simulation plan</h2>
+<p class='cap'>Planned + completed runs for this study, in execution order. [##] = ran/completed; [--] = planned; [!!] = blocked.</p>
+<div class='gantt'>[##]  millard-standalone-bootstrap                n_steps=30        status=ran
+[##]  millard-atp-drain-experiment                n_steps=(direct basico time course)  status=ran
+[--]  millard-with-lqr-tuning                     n_steps=(Sobol sweep, ≥20 LQR-weight samples × baseline length)  status=planned
+[--]  millard-fba-bridge-pilot                    n_steps=100       status=planned
+[--]  millard-fba-bridge-3-conditions             n_steps=600       status=planned</div>
+<h3>Per-run detail</h3>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>n_steps</th><th>details</th></tr></thead><tbody><tr><td>millard-standalone-bootstrap</td><td><span style='background:#16a34a;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>ran</span></td><td><code>30</code></td><td>completed 2026-05-24; published reference state recovered</td></tr><tr><td>millard-atp-drain-experiment</td><td><span style='background:#16a34a;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>ran</span></td><td><code>(direct basico time course)</code></td><td>completed 2026-05-24; 302 timepoints; recovery dynamics captured</td></tr><tr><td>millard-with-lqr-tuning</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>(Sobol sweep, ≥20 LQR-weight samples × baseline length)</code></td><td>Sobol-driven LQR weight scan; flag weights with total index &lt; 0.01 on growth/glc-uptake/ATP-yield</td></tr><tr><td>millard-fba-bridge-pilot</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>100</code></td><td>first end-to-end coupled-composite run; verify bridge schema holds</td></tr><tr><td>millard-fba-bridge-3-conditions</td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>600</code></td><td>validation against Phase 0 ensemble (W₂ per metabolite, gating criterion)</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Readouts — what we measure</h2>
+<p class='cap'>The observables this study captures + the on-disk path where they land.</p>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>path</th><th>units</th><th>notes</th></tr></thead><tbody><tr><td><code>millard-standalone-steady-state</code></td><td><span style='background:#16a34a;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>implemented</span></td><td><code>out/trajectories/millard_*.csv</code></td><td>mM</td><td>G6P, F6P, FDP, PEP, PYR, ATP, ADP, NADH, NADPH, MAL, AKG. Verified 2026-05-24 vs BioModels MODEL1505110000 initial values.</td></tr><tr><td><code>fba-bridge-flux-seam</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>v2ecoli_pdmp/composites/fba_bridge.schema.json</code></td><td>flux name -&gt; source (ODE or FBA)</td><td>Which fluxes the Millard ODE exports vs which v2ecoli kFBA consumes. The contract negotiated in this study.</td></tr><tr><td><code>lqr-sobol-indices</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/lqr_sobol.csv</code></td><td>dimensionless Sobol index</td><td>First-order + total Sobol on growth rate, glucose uptake, ATP yield. LQR weights with total &lt; 0.01 are flagged free-parameter rot.</td></tr><tr><td><code>w2-per-metabolite</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/w2_millard_vs_phase0.csv</code></td><td>Wasserstein-2 distance (mM)</td><td>Per interface variable. Gating: within Phase-0 bootstrap CI of self-replicate spread.</td></tr><tr><td><code>fim-conditioning</code></td><td><span style='background:#3b82f6;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>planned</span></td><td><code>out/trajectories/fim_kappa.csv</code></td><td>condition number kappa</td><td>Per causal parameter. Required: kappa(FIM) &lt; 10^8 before inference-ready claim.</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Tests — what passes / fails</h2>
+<p class='cap'>The structured predictions this study evaluates. Each test maps to a measurement + a decision criterion.</p>
+<table class='ut'><thead><tr><th>name</th><th>status</th><th>given</th><th>prediction (en)</th></tr></thead><tbody><tr><td><code>millard-standalone-via-copasi</code></td><td><span style='background:#16a34a;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>implemented</span></td><td>standalone</td><td>The Millard 2017 SBML (BioModels MODEL1505110000) runs as a standalone PB process via pbg-copasi&#x27;s CopasiUTCProcess; a steady-state solve via CopasiSteadyStateStep reproduces the published reference state (M9-glucose, dilution rate 0.1</td></tr><tr><td><code>fba-bridge-composite-runs</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>copasi-ode-coupled-to-tfba</td><td>A composite that wires the pbg-copasi Millard process to v2ecoli&#x27;s existing multi-objective FBA (modular_fba) runs end-to-end, with both subsystems exchanging fluxes at a documented seam schema, and the full v2ecoli WCM remains viable </td></tr><tr><td><code>interface-matches-reference</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>M9-glucose AND M9-acetate AND M9-glucose-aa</td><td>ODE + LQR interface statistics (growth rate, glucose uptake, key intermediate concentrations, ATP/NADH production) match the Phase 0 reference Xarray dataset within specified tolerance across all ≥3 conditions. (Gating criterion.)</td></tr><tr><td><code>causal-teleonomic-partition</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>all-introduced-parameters</td><td>Every parameter introduced in this study is labelled causal (kinetic constant, enzyme abundance, SBML rate-law constant from Millard 2017) or teleonomic (LQR weight, reference trajectory, FBA-bridge seam policy), with a written justificatio</td></tr><tr><td><code>predictor-corrector-shim</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>per-step</td><td>The ODE integrates continuously within each v2ecoli timestep via a predictor-corrector shim; discontinuities are localized and recorded rather than silent.</td></tr><tr><td><code>uq-solver-convergence-richardson</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>reference-initial-condition</td><td>Step-doubling Richardson extrapolation confirms LSODA at (rtol=1e-6, atol=1e-9) attains its claimed order; reported empirical error per variable stays below the Phase 0 MC noise floor [[uq-bootstrap-cis-on-interface-stats]].</td></tr><tr><td><code>uq-w2-against-phase0-ensemble</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>M9-glucose AND M9-acetate AND M9-glucose-aa</td><td>Per-interface-variable W₂(p_ODE, p_phase0) falls within the bootstrap 95% CI of the Phase 0 self-replicate W₂ spread — i.e., the ODE+LQR output is indistinguishable from a fresh replicate of the same condition. KS distance reported as secon</td></tr><tr><td><code>uq-fim-identifiability</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>causal-parameters</td><td>Fisher Information Matrix at the reference parameter point, computed via automatic differentiation of the likelihood under simulated Phase-3 RNA-seq + metabolomics measurement models, has κ(FIM) &lt; 10⁸. Profile-likelihood widths reported </td></tr><tr><td><code>uq-lqr-sobol-sensitivity</code></td><td><span style='background:#94a3b8;color:white;padding:2px 9px;border-radius:9999px;font-size:0.78em;font-weight:600'>stub</span></td><td>lqr-weights</td><td>First-order and total Sobol indices for every LQR weight on (steady-state growth rate, glucose uptake flux, ATP yield). Weights with total index &lt; 0.01 on every observable are flagged free-parameter rot and removed.</td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Variants — planned configurations</h2>
+<p class='cap'>Distinct parameterisations / perturbations to be run.</p>
+<table class='ut'><thead><tr><th>name</th><th>description</th><th>params</th></tr></thead><tbody><tr><td><code>millard-with-lqr</code></td><td>Millard 2017 ODE via pbg-copasi, wrapped with an outer LQR
+controller that drives growth rate toward a reference
+trajectory. Replaces v2ecoli&#x27;s FBA biomass-production objective.
+</td><td><code>{}</code></td></tr><tr><td><code>millard-fba-bridge</code></td><td>Coupled composite — Millard 2017 ODE (pbg-copasi) for
+central carbon + v2ecoli&#x27;s multi-objective FBA
+(`wholecell.utils.modular_fba`) for the rest of the metabolic
+network; transitional configuration during the incremental
+handover.
+</td><td><code>{}</code></td></tr><tr><td><code>millard-standalone</code></td><td>Standalone Millard 2017 ODE via pbg-copasi CopasiUTCProcess on the published SBML — no coupling, no LQR. Steady-state recovery confirmed 2026-05-24.</td><td><code>{&#x27;model_source&#x27;: &#x27;v2ecoli/models/sbml/millard2017_central_metabolism.xml&#x27;, &#x27;time&#x27;: 100.0, &#x27;intervals&#x27;: 10}</code></td></tr><tr><td><code>millard-atp-drain-perturbation</code></td><td>ATP drained to 30% of steady state at t=500s (ADP gains the difference, mass-balanced). Tests transient response across all coupled subsystems; ran 2026-05-24.</td><td><code>{&#x27;perturbation&#x27;: &#x27;ATP→0.3×SS at t=500s&#x27;, &#x27;duration&#x27;: 3000}</code></td></tr><tr><td><code>millard-fba-bridge-3-conditions</code></td><td>FBA-bridge composite under M9-glucose, M9-acetate, M9-glucose+aa. Tests interface fidelity across the same conditions as Phase 0.</td><td><code>{&#x27;conditions&#x27;: [&#x27;M9-glucose&#x27;, &#x27;M9-acetate&#x27;, &#x27;M9-glucose+aa&#x27;]}</code></td></tr></tbody></table>
+</div>
+
+<div class='section'>
+<h2>Proceed condition (gate to next phase)</h2>
+<p class='cap' style='white-space:pre-wrap'>Millard 2017 standalone reproduces published reference state via pbg-copasi (DONE 2026-05-24). FBA-bridge composite holds interface statistics across all Phase 0 conditions within W₂ tolerance. LQR weights pass Sobol sensitivity (no free-parameter rot). FIM conditioning κ &lt; 10⁸ on causal parameters.</p>
+</div>
+
+</body></html>

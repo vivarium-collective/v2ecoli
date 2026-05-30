@@ -146,6 +146,12 @@ BASE_EXECUTION_LAYERS = [
      'monomer_counts_listener', 'replication_data_listener', 'ribosome_data_listener',
      'rna_synth_prob_listener', 'rnap_data_listener', 'unique_molecule_counts'], FLUSH,
 
+    # Layer 7b (Phase-3): per-process likelihood collector. Must run
+    # AFTER the listener layer so the per-process log_likelihood
+    # writes from TranscriptInitiation + PolypeptideInitiation are
+    # already in the merged state when the collector reads them.
+    ['likelihood_collector'], FLUSH,
+
     # Emitter + clock
     ['emitter'],
     ['global_clock'],
@@ -410,6 +416,7 @@ def _get_step_config(
     from v2ecoli.steps.listeners.rnap_data import RnapData
     from v2ecoli.steps.listeners.unique_molecule_counts import UniqueMoleculeCounts
     from v2ecoli.steps.listeners.ribosome_data import RibosomeData
+    from v2ecoli.steps.listeners.likelihood_collector import LikelihoodCollector
     from v2ecoli.steps.media_update import MediaUpdate
     from v2ecoli.steps.exchange_data import ExchangeData
 
@@ -470,6 +477,19 @@ def _get_step_config(
     # make_edge behavior of reusing topology for both directions would
     # declare it as a central_metabolites writer too, conflicting with
     # millard-with-lqr and silently dropping the latter's update.
+    # Phase-3 likelihood collector: no ParCa config, no special-step
+    # registration. Instantiate directly with the minimal tick config so
+    # we don't fall through to loader.get_config_by_name (which raises
+    # → _get_special_step → silently returns None and the step is
+    # dropped from the composite).
+    if step_name == 'likelihood_collector':
+        from v2ecoli.steps.listeners.likelihood_collector import LikelihoodCollector
+        instance = _make_instance(LikelihoodCollector, {}, core)
+        topo = getattr(instance, 'topology', {})
+        if callable(topo):
+            topo = topo()
+        return instance, topo, 'step'
+
     if step_name == MILLARD_BULK_INDEXER:
         from v2ecoli.steps.millard_bulk_indexer import MillardBulkIndexer
         instance = _make_instance(
@@ -521,6 +541,7 @@ def _get_step_config(
         'rnap_data_listener': RnapData,
         'unique_molecule_counts': UniqueMoleculeCounts,
         'ribosome_data_listener': RibosomeData,
+        'likelihood_collector': LikelihoodCollector,
         'media_update': MediaUpdate,
         'exchange_data': ExchangeData,
     }

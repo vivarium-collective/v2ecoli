@@ -38,6 +38,7 @@ Mathematical Model
 """
 
 import numpy as np
+from scipy.stats import poisson as scipy_poisson
 
 # simulate_process removed
 from v2ecoli.library.schema import (
@@ -138,6 +139,12 @@ class PolypeptideInitiation(Step):
                     # Written by empty_update path
                     'ribosomes_initialized': 'overwrite[integer]',
                     'prob_translation_per_transcript': 'overwrite[float]',
+                    # Phase-3 sprint-2: per-tick log-likelihood of the
+                    # observed n_new_proteins under the Poisson rates
+                    # that drove the sampler. Mirrors the TranscriptInit
+                    # rnap_data.log_likelihood pattern. Pinned in the
+                    # merged state by LikelihoodCollector reading it.
+                    'log_likelihood': 'overwrite[float]',
                 },
             },
         }
@@ -244,6 +251,7 @@ class PolypeptideInitiation(Step):
                         'is_n_ribosomes_to_activate_reduced': 'overwrite[boolean]',
                         'ribosomes_initialized': 'overwrite[integer]',
                         'prob_translation_per_transcript': 'overwrite[float]',
+                        'log_likelihood': {'_type': 'overwrite[float]', '_default': 0.0},
                     },
                 },
             }
@@ -578,6 +586,16 @@ class PolypeptideInitiation(Step):
                 }
             },
         }
+
+        # Phase-3 sprint-2: per-tick log-likelihood of the observed
+        # n_new_proteins under the Poisson rates that drove the
+        # sampler. Mirrors TranscriptInitiation's pattern.
+        if self.pdmp_initiation_mode == "poisson":
+            log_lik = float(
+                scipy_poisson.logpmf(n_new_proteins, poisson_means).sum())
+        else:
+            log_lik = 0.0
+        update["listeners"]["ribosome_data"]["log_likelihood"] = log_lik
 
         return update
 

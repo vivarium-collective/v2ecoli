@@ -69,7 +69,7 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
                       recursive=True)
     if not files:
         return {}
-    flist = "[" + ",".join("'" + f + "'" for f in files) + "]"
+    flist = "[" + ",".join("'" + f.replace("'", "''") + "'" for f in files) + "]"
     sel = ("variant, lineage_seed, generation, agent_id, global_time, "
            + ", ".join(_MASS_COLS))
     rows = duckdb.sql(
@@ -99,6 +99,9 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
         records[ck] = {
             "variant": ck[0], "lineage_seed": ck[1], "generation": ck[2], "agent_id": ck[3],
             "divided": div.get("divided"),
+            # division_time from summary.json (per-generation elapsed duration);
+            # fallback to last global_time, which is ~the generation duration
+            # because each generation runs a fresh composite (global_time resets).
             "division_time": div.get("division_time", float(rs[-1][0])),
             "newborn_dry_mass": rs[0][1], "final_dry_mass": rs[-1][1],
             "protein_fraction_mean": (sum(fr["protein"]) / len(fr["protein"])) if fr["protein"] else 0.0,
@@ -149,6 +152,8 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
             per_group: dict[str, Any] = {}
             for gkey, grp in groups.items():
                 try:
+                    # single-scale Steps consume a cell's timeseries; cross-scale
+                    # Steps consume the list of per-cell summary records.
                     rows = grp[0].get("timeseries") if scale == "single" else grp
                     per_group[_group_key_str(scale, gkey)] = step.analyze(rows or [])
                 except Exception as e:
@@ -169,6 +174,8 @@ def main() -> None:
     p.add_argument("--config", default=None,
                    help="config JSON with analysis_options (with inherit_from)")
     args = p.parse_args()
+    if not os.path.isdir(args.sweep_dir):
+        raise SystemExit(f"sweep_dir not found: {args.sweep_dir!r}")
 
     analysis_options: dict = {}
     if args.config:

@@ -28,8 +28,8 @@ report:
   # emit-truncation bug). Demoted to in-progress 2026-05-30, root-caused the
   # division-time emitter partition-wipe (see result), fixed it, and re-ran
   # on the full-series runner. Verdict re-asserted PASS on REAL full-cycle
-  # data: dnaA init rate median 0.98/min (≈ target 1/min), DnaA cycle-mean
-  # 707 in band [300,800] with CV 7.2%, oriC periodic 1↔2 never 4.
+  # data: dnaA init rate median 0.99/min (≈ target 1/min), DnaA cycle-mean
+  # 706 in band [300,800] with CV 7.2%, oriC periodic 1↔2 never 4.
   verdict: pass
   confidence: high
   evidence_quality: empirical
@@ -153,22 +153,22 @@ report:
     Verified on a single dividing generation: parent generation=1 now keeps
     4800 rows with cell_mass 628→1175 (full doubling) instead of 33.
 
-    FULL-CYCLE RESULTS (dnaa1-mechA-7gen-fixed-2026-05-30, 7 gens, ~30,900
-    ticks at 1 row/s; gens 1 + 3–7 clean, gen 2 truncated by the first
-    iteration of the fix — the corrected division.py derivation makes
-    daughters partition to generation=N+1/agent_id=P0|P1 and is in place
-    for future runs; the verdict rests on the 5 clean steady-state gens):
+    FULL-CYCLE RESULTS (dnaa1-mechA-7gen-pristine-2026-05-30, 7 gens,
+    ~36,000 ticks at 1 row/s; ALL 7 generations clean — gen 2 now keeps
+    5233 rows with full cell-mass doubling and oriC 1↔2, confirming the
+    corrected division.py daughter-partition derivation. Numbers below are
+    on the steady-state gens 3–7; gen 1 is the ramp, gen 2 is clean too):
 
       PRIMARY — dnaA mRNA initiation rate (target ≈1 event/min):
-        gen 3: 1.19/min  gen 4: 0.92/min  gen 5: 1.33/min
-        gen 6: 0.98/min  gen 7: 0.95/min
-        → steady-state MEDIAN 0.98/min, MEAN 1.07/min — squarely on the
+        gen 3: 1.19/min  gen 4: 0.93/min  gen 5: 1.33/min
+        gen 6: 0.99/min  gen 7: 0.95/min
+        → steady-state MEDIAN 0.99/min, MEAN 1.08/min — squarely on the
           biologically-expected ≈1 event/min (Rashmi's exemplar: 1.01/min).
           ✓ PASS. V=2e-3 reproduces the PDF rate.
 
       CONSEQUENCE — DnaA monomer pool [300, 800], generation-stable:
         per-generation CYCLE-MEAN DnaA monomer (gens 3–7):
-        692, 625, 745, 775, 699 → mean 707, cross-gen CV 7.2%, every gen's
+        691, 625, 744, 774, 698 → mean 706, cross-gen CV 7.2%, every gen's
         cycle-mean IN BAND [300, 800]. ✓ PASS. (Within each cycle the pool
         OSCILLATES — accumulates to a pre-division peak ≈1000 then halves at
         division — so instantaneous values range ≈440–1022; the band is the
@@ -184,7 +184,7 @@ report:
       VERDICT: PASS. Mechanism A (TU00259[c]=2e-3) lands the dnaA mRNA
       initiation rate at the biological ≈1 event/min and, as the
       consequence, holds the DnaA monomer pool in the [300, 800] band with
-      a stable cycle-mean (707, CV 7.2%) across the succinate lineage,
+      a stable cycle-mean (706, CV 7.2%) across the succinate lineage,
       while preserving the oriC 1↔2 periodic cycle.
 
       monomer_counts listener question (Rashmi build note): the dnaA index
@@ -321,14 +321,14 @@ tests:
       low: 300
       high: 800
     status: passed
-    result: gens 3–7 cycle-mean 692/625/745/775/699 → mean 707, all in [300,800]
+    result: gens 3–7 cycle-mean 691/625/744/774/698 → mean 706, all in [300,800]
     notes: |
       PASS at the cycle-mean level — every steady-state generation's
       mean DnaA monomer is in band. NB the instantaneous pool OSCILLATES
       within each cycle (accumulate to a pre-division peak ≈1000, then
       halve at division), so per-tick values range ≈440–1022; the
       [300,800] band is the cycle-typical level, which the cycle-mean
-      (707) sits mid-of. gen 1 is the ramp from dnaa-0's low baseline
+      (706) sits mid-of. gen 1 is the ramp from dnaa-0's low baseline
       (12 → 475).
 
   - name: dnaa-concentration-stable-across-generations
@@ -347,7 +347,7 @@ tests:
     result: cross-gen CV of cycle-mean DnaA = 7.2% (gens 3–7) < 10%
     notes: |
       PASS — cross-generation CV of the per-cycle MEAN DnaA monomer is
-      7.2% over gens 3–7 (means 692/625/745/775/699), below the 10%
+      7.2% over gens 3–7 (means 691/625/744/774/698), below the 10%
       threshold. (Computed on the cycle-mean rather than a single peak
       snapshot, since the full trace is now available.) The earlier
       "253-547 across 5 snapshots" provisional figure is withdrawn.
@@ -374,7 +374,7 @@ tests:
       This SUPPORTING test is therefore inconclusive as written, but it does
       not affect the verdict: it was only ever a proxy for the synthesis
       rate, and the PRIMARY criterion (dnaA init rate, measured directly)
-      passes at 0.98/min. The low standing mRNA pool is consistent with
+      passes at 0.99/min. The low standing mRNA pool is consistent with
       ~1 init/min feeding a ~1.9-min-half-life transcript.
 
   - name: dnaa-mrna-init-rate-near-biological-rate
@@ -396,10 +396,10 @@ tests:
       target: 1.0   # biologically-expected dnaA mRNA-synthesis rate (events/min)
       tolerance_fraction: 0.5
     status: passed
-    result: median 0.98 events/min, mean 1.07 (gens 3–7 of dnaa1-mechA-7gen-fixed-2026-05-30)
+    result: median 0.99 events/min, mean 1.08 (gens 3–7 of dnaa1-mechA-7gen-pristine-2026-05-30)
     notes: |
       PASS on real full-cycle data: dnaA init events per generation
-      1.19/0.92/1.33/0.98/0.95 per min (gens 3–7) → median 0.98/min, on
+      1.19/0.93/1.33/0.99/0.95 per min (gens 3–7) → median 0.99/min, on
       the biological ≈1 event/min target (Rashmi's exemplar 1.01/min).
       Index: rnap_data_listener.cistron_ids[227] = "EG10235_RNA"
       (cistron_data is None in the succinate cache; resolve via cistron_ids).

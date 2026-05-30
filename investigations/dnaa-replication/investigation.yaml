@@ -114,11 +114,12 @@ scientific_argument:
       the expected pre-steady-state transient. Gen-3 state saved as the
       canonical succinate initial condition.'
     - 'dnaa-1 (PASS 2026-05-30, real full-cycle data,
-      dnaa1-mechA-7gen-fixed): Mechanism A (TU00259[c]=2e-3) lands the dnaA
-      mRNA initiation rate at median 0.98 events/min — on the biological
-      ≈1/min target (Rashmi exemplar 1.01/min) — and, as the consequence,
-      holds the DnaA monomer pool cycle-mean in band [300,800] (mean 707,
-      cross-gen CV 7.2% over gens 3–7). oriC stays periodic 1↔2 (never 4)
+      dnaa1-mechA-7gen-pristine, all 7 gens clean): Mechanism A
+      (TU00259[c]=2e-3) lands the dnaA mRNA initiation rate at median 0.99
+      events/min — on the biological ≈1/min target (Rashmi exemplar
+      1.01/min) — and, as the consequence, holds the DnaA monomer pool
+      cycle-mean in band [300,800] (mean 706, cross-gen CV 7.2% over gens
+      3–7). oriC stays periodic 1↔2 (never 4)
       under the lifted expression, so the cell cycle from dnaa-0 is
       preserved. (Required fixing a division-time parquet-emitter
       partition-wipe bug — daughters were deleting the parent generation''s
@@ -273,7 +274,7 @@ feedback_rounds:
       caused the truncation to a division-time emitter partition-wipe
       (daughter cells' emitters deleting the parent generation's history),
       fixed it in v2ecoli/steps/division.py, and re-ran on real full-cycle
-      data → dnaa-1 PASS (init rate 0.98/min, DnaA cycle-mean 707 in band,
+      data → dnaa-1 PASS (init rate 0.99/min, DnaA cycle-mean 706 in band,
       CV 7.2%, oriC periodic 1↔2). Verdict re-asserted on evidence.
 
 studies:

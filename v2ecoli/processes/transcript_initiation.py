@@ -65,7 +65,7 @@ from wholecell.utils.random import stochasticRound
 from wholecell.utils.unit_struct_array import UnitStructArray
 
 from v2ecoli.library.data_predicates import monotonically_decreasing, all_nonnegative
-from scipy.stats import chisquare
+from scipy.stats import chisquare, poisson
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema_types import (
@@ -256,6 +256,13 @@ class TranscriptInitiation(Step):
                 'rnap_data': {
                     'did_initialize': {'_type': 'overwrite[integer]', '_default': 0},
                     'rna_init_event': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    # Phase-3 sprint-1: per-tick log-likelihood of the
+                    # observed rna_init_event vector under the Poisson
+                    # rates that drove the sampler. The pbg merger
+                    # prunes scalar listener fields with no downstream
+                    # consumer, so RnapData listener step must declare
+                    # this as an input to pin it in the merged state.
+                    'log_likelihood': {'_type': 'overwrite[float]', '_default': 0.0},
                 },
             },
         }
@@ -391,6 +398,7 @@ class TranscriptInitiation(Step):
                     'rnap_data':                     {
                         'did_initialize': {'_type': 'overwrite[integer]', '_default': 0},
                         'rna_init_event': {'_type': 'overwrite[array[integer]]', '_default': []},
+                        'log_likelihood': {'_type': 'overwrite[float]', '_default': 0.0},
                     },
                 },
             }
@@ -712,9 +720,23 @@ class TranscriptInitiation(Step):
             "total_rna_init": n_RNAPs_to_activate,
         }
 
+        # Phase-3 sprint-1: per-tick log-likelihood of the observed
+        # n_initiations under the Poisson rates that drove the sampler.
+        # When the resource cap fired (rare), this is the likelihood of
+        # the post-cap counts under the uncapped rates — an
+        # approximation that's exact in the cap-doesn't-fire limit.
+        # In discrete (multinomial) mode, emit 0.0 as a sentinel until
+        # the multinomial-log-likelihood is wired (Phase 3 sprint 2).
+        if self.pdmp_initiation_mode == "poisson":
+            log_lik = float(poisson.logpmf(
+                n_initiations, poisson_means).sum())
+        else:
+            log_lik = 0.0
+
         update["listeners"]["rnap_data"] = {
             "did_initialize": n_RNAPs_to_activate,
             "rna_init_event": rna_init_event.astype(np.int64),
+            "log_likelihood": log_lik,
         }
 
         update["listeners"]["rna_synth_prob"]["total_rna_init"] = n_RNAPs_to_activate

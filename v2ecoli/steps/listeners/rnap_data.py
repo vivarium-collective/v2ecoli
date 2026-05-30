@@ -48,6 +48,12 @@ class RnapData(Step):
             'listeners': {
                 'rnap_data': {
                     'rna_init_event': {'_type': f'overwrite[array[{self.n_TUs},integer]]', '_default': []},
+                    # Declared-but-unused: pins the field in the merged
+                    # state so the upstream TranscriptInitiation write
+                    # survives pbg's scalar-pruning quirk (task #14).
+                    # Consumed by Phase-3 likelihood-collector
+                    # downstream of the listener layer.
+                    'log_likelihood': {'_type': 'overwrite[float]', '_default': 0.0},
                 },
             },
             'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},

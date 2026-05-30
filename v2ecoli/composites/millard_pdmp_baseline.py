@@ -391,6 +391,7 @@ def _get_step_config(
     ref_growth_feedback_period_ticks: int | None = None,
     transcript_initiation_mode: str | None = None,
     transcript_init_prob_scale: float | None = None,
+    polypeptide_init_prob_scale: float | None = None,
     polypeptide_initiation_mode: str | None = None,
 ):
     from v2ecoli.processes.equilibrium import Equilibrium
@@ -568,6 +569,13 @@ def _get_step_config(
     ):
         config["transcript_init_prob_scale"] = float(
             transcript_init_prob_scale)
+    if (
+        polypeptide_init_prob_scale is not None
+        and isinstance(config, dict)
+        and base_name == 'ecoli-polypeptide-initiation'
+    ):
+        config["polypeptide_init_prob_scale"] = float(
+            polypeptide_init_prob_scale)
     if (
         polypeptide_initiation_mode
         and isinstance(config, dict)
@@ -787,6 +795,15 @@ def _register_millard_pdmp_links(core):
                 "transcript_initiation_mode='poisson'."
             ),
         },
+        "polypeptide_init_prob_scale": {
+            "type": "number", "default": 1.0,
+            "description": (
+                "Phase-3 sprint-10 ABC-SMC knob, mirror of "
+                "transcript_init_prob_scale on the translation side. "
+                "Only effective when polypeptide_initiation_mode="
+                "'poisson'."
+            ),
+        },
     },
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
     core_extensions=[_register_millard_pdmp_links],
@@ -805,6 +822,7 @@ def millard_pdmp_baseline(
     ref_growth_feedback_tau_s: float = 1.0,
     ref_growth_feedback_period_ticks: int = 1,
     transcript_init_prob_scale: float = 1.0,
+    polypeptide_init_prob_scale: float = 1.0,
 ) -> dict:
     """Build the process-bigraph state document for the Millard-PDMP baseline."""
     if core is None:
@@ -940,6 +958,7 @@ def millard_pdmp_baseline(
             transcript_initiation_mode=transcript_initiation_mode,
             transcript_init_prob_scale=transcript_init_prob_scale,
             polypeptide_initiation_mode=polypeptide_initiation_mode,
+            polypeptide_init_prob_scale=polypeptide_init_prob_scale,
         )
         if config is not None:
             if len(config) == 5:

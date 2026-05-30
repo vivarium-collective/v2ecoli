@@ -71,6 +71,7 @@ EMIT_PATHS = [
 
 def run_one(seed: int, duration_s: int, chunk: int = 30,
             transcript_scale: float = 1.0,
+            polypeptide_scale: float = 1.0,
             out_root: Path | None = None) -> dict:
     root = out_root or OUT_ROOT
     out_dir = root / f"seed_{seed:02d}"
@@ -89,10 +90,11 @@ def run_one(seed: int, duration_s: int, chunk: int = 30,
         transcript_initiation_mode="poisson",
         polypeptide_initiation_mode="poisson",
         transcript_init_prob_scale=transcript_scale,
+        polypeptide_init_prob_scale=polypeptide_scale,
     )
     view = view_from_emit_paths(EMIT_PATHS, include_vectors=False)
     metadata_base = {
-        "experiment_id": f"pdmp-03-scale{transcript_scale:.3f}-seed{seed:02d}",
+        "experiment_id": f"pdmp-03-ts{transcript_scale:.3f}-ps{polypeptide_scale:.3f}-seed{seed:02d}",
         "variant": 0,
         "lineage_seed": seed,
         "time_step": 1.0,

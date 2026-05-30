@@ -101,6 +101,11 @@ class PolypeptideInitiation(Step):
         # coding-monomer slot as an independent Poisson jump process
         # with rate n_ribosomes_to_activate · p_i and tau-leaps the tick.
         'pdmp_initiation_mode': {'_type': 'string', '_default': 'discrete'},
+        # Phase-3 sprint-10 ABC-SMC knob, mirror of
+        # transcript_init_prob_scale on TranscriptInitiation. In poisson
+        # mode, multiplies the per-protein initiation rate by this
+        # scalar before Poisson sampling. Default 1.0 = unperturbed.
+        'polypeptide_init_prob_scale': {'_type': 'float', '_default': 1.0},
         'time_step': {'_type': 'integer[s]', '_default': 1},
         'translation_efficiencies': {'_type': 'array[float]', '_default': []},
         'tu_ids': {'_type': 'list[string]', '_default': []},
@@ -194,6 +199,12 @@ class PolypeptideInitiation(Step):
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)
 
+        self.polypeptide_init_prob_scale = float(
+            self.parameters.get("polypeptide_init_prob_scale", 1.0))
+        if self.polypeptide_init_prob_scale <= 0:
+            raise ValueError(
+                f"polypeptide_init_prob_scale must be > 0; got "
+                f"{self.polypeptide_init_prob_scale!r}")
         self.pdmp_initiation_mode = str(
             self.parameters.get("pdmp_initiation_mode", "discrete"))
         if self.pdmp_initiation_mode not in ("discrete", "poisson"):
@@ -447,7 +458,8 @@ class PolypeptideInitiation(Step):
         #   v2ecoli/processes/transcript_initiation.py for the asymmetric-
         #   truncation undercount rationale).
         if self.pdmp_initiation_mode == "poisson":
-            poisson_means = n_ribosomes_to_activate * protein_init_prob
+            poisson_means = (self.polypeptide_init_prob_scale
+                             * n_ribosomes_to_activate * protein_init_prob)
             n_new_proteins = self.random_state.poisson(poisson_means).astype(np.int64)
             total_drawn = int(n_new_proteins.sum())
             if total_drawn > inactive_ribosome_count:

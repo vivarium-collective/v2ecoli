@@ -107,9 +107,12 @@ report:
         doubling time 84 ± 12 min (gens 0-2). Total DnaA climbs gen-over-gen
         (gen0 ~230 → gen2 ~630, cycle-mean), straddling the [300,800] band;
         gen-0 birth values dip low (post-resume transient) as expected.
-      - RUN NOTE: the 4-seed sweep was OOM-killed during finalize after seeds
-        0,3 completed 4 gens and seeds 1,2 completed 3 (one cell hit an FBA
-        GLP_NOFEAS retry storm). summary.json + analysis.json were
+      - RUN NOTE: the 4-seed single-process sweep died without a traceback
+        during finalize after seeds 0,3 completed 4 gens and seeds 1,2
+        completed 3. Cause undetermined but NOT memory (box has 128 GB, was
+        93% free; each sim ~5-7 GB) — most likely one branch's unrecoverable
+        FBA GLP_NOFEAS retry storm tipping the shared meta-composite process.
+        summary.json + analysis.json were
         reconstructed from the complete history parquet; cycle-stability
         claims rest on the 12 COMPLETE gens (gens 0-2, all seeds). gen-3 for
         seeds 0,3 is truncated and excluded from cycle stats. A hardened

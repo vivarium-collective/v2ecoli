@@ -1176,8 +1176,13 @@ def _get_special_step(loader, step_name, core):
 
     if step_name == 'dnaa-intrinsic-hydrolysis':
         # dnaa-2: DnaA-ATP -> DnaA-ADP intrinsic hydrolysis (k=0.046/min).
+        # Rate overridable via env var for the rate study: DNAA_INTRINSIC_
+        # HYDROLYSIS_RATE=0 reproduces the Step-1 V-only baseline (listener on,
+        # mechanism off); >0.046 sweeps the rate clamp (Step 3).
+        import os
+        rate = float(os.environ.get('DNAA_INTRINSIC_HYDROLYSIS_RATE', '0.046'))
         from v2ecoli.steps.dnaa_intrinsic_hydrolysis import DnaaIntrinsicHydrolysis
-        instance = DnaaIntrinsicHydrolysis(config={'rate_per_min': 0.046}, core=core)
+        instance = DnaaIntrinsicHydrolysis(config={'rate_per_min': rate}, core=core)
         topology = getattr(instance, 'topology', {})
         return instance, topology, 'step'
 

@@ -105,7 +105,12 @@ def load_ensemble_at(root: Path, n: int):
 
 
 def compute_noise_floor_max(ds):
-    """Pairwise SSE on `total` — copies sprint 6's compute_noise_floor."""
+    """Pairwise SSE on `total` — copies sprint 6's compute_noise_floor.
+
+    Sprint 6's ε scale: distance between two SINGLE replicate
+    timeseries. Overstates the threshold for sprint 7's experiment by
+    ~√(N_a · N_b) — the actual experiment compares ENSEMBLE MEANS.
+    """
     arr = ds["total"].values
     n_rep = arr.shape[0]
     iu = np.triu_indices(n_rep, k=1)
@@ -121,12 +126,60 @@ def compute_noise_floor_max(ds):
     }
 
 
+def compute_mean_to_mean_noise_floor(
+    ds, n_per_split: int = 4, n_resamples: int = 100, seed: int = 42,
+):
+    """Mean-to-mean SSE: the correct ε scale for sprint 7's ABC experiment.
+
+    Subsamples the reference ensemble into two disjoint halves of
+    ``n_per_split`` replicates each, computes per-half ensemble mean
+    timeseries, then the SSE between them. Repeats ``n_resamples`` times
+    with a fixed RNG for reproducibility. This is the null distribution
+    sprint 7's distance (mean-of-proposed vs mean-of-observed) should
+    be compared against.
+    """
+    arr = ds["total"].values  # (n_rep, n_t)
+    n_rep = arr.shape[0]
+    if n_rep < 2 * n_per_split:
+        raise ValueError(
+            f"need >= {2*n_per_split} replicates for "
+            f"{n_per_split}+{n_per_split} split; got {n_rep}")
+    rng = np.random.default_rng(seed)
+    distances = []
+    for _ in range(n_resamples):
+        perm = rng.permutation(n_rep)
+        a_idx = perm[:n_per_split]
+        b_idx = perm[n_per_split:2 * n_per_split]
+        mean_a = arr[a_idx].mean(axis=0)
+        mean_b = arr[b_idx].mean(axis=0)
+        distances.append(float(np.sum((mean_a - mean_b) ** 2)))
+    distances = np.asarray(distances)
+    return {
+        "median": float(np.median(distances)),
+        "p05": float(np.percentile(distances, 5)),
+        "p95": float(np.percentile(distances, 95)),
+        "min": float(distances.min()),
+        "max": float(distances.max()),
+        "distances": distances,
+        "n_per_split": n_per_split,
+        "n_resamples": n_resamples,
+    }
+
+
 def run_scale_ensemble(scale: float, n: int, duration: int, chunk: int):
-    """Run N forward sims at the given scale; persist to per-scale dir."""
+    """Run N forward sims at the given scale; persist to per-scale dir.
+
+    Skips a seed if its zarr store already exists — allows iterating
+    on the analysis without re-running expensive sims.
+    """
     out_dir = ABC_OUT_ROOT / f"scale_{scale:.3f}"
     out_dir.mkdir(parents=True, exist_ok=True)
     print(f"  scale={scale:.3f}: N={n} sims of {duration}s...", flush=True)
     for seed in range(n):
+        cached = out_dir / f"seed_{seed:02d}" / "store.zarr"
+        if cached.is_dir():
+            print(f"    seed={seed:02d}: cached ✓", flush=True)
+            continue
         s = run_one(seed, duration_s=duration, chunk=chunk,
                     transcript_scale=scale, out_root=out_dir)
         if "error" in s:
@@ -208,7 +261,8 @@ def make_figure(results: list[dict], noise_floor: dict,
 
 
 def write_html(out_path: Path, results: list[dict],
-               noise_floor: dict, eps: float, plot_uri: str) -> None:
+               noise_floor: dict, eps: float, plot_uri: str,
+               nf_pair: dict | None = None) -> None:
     prov = collect_provenance()
     dirty_badge = (
         '<span style="color:#dc2626;font-weight:600">  · DIRTY TREE</span>'
@@ -291,8 +345,13 @@ def write_html(out_path: Path, results: list[dict],
       log-likelihood timeseries from the sprint-4 N=8 ensemble at scale=1.0.</li>
   <li><strong>Distance metric:</strong> SSE between proposed ensemble mean
       and observed mean over time.</li>
-  <li><strong>Acceptance threshold ε:</strong> sprint-6's p95 of the
-      within-null pairwise distance distribution = <code>{eps:.1f}</code>.</li>
+  <li><strong>Acceptance threshold ε:</strong> sprint-8 p95 of the
+      MEAN-TO-MEAN null distribution (4+4 random splits of the
+      sprint-4 N=8 ensemble, 100 resamples) =
+      <code>{eps:.1f}</code>. Sprint-6's pairwise ε
+      ({nf_pair['p95']:.0f}) was over-generous by ~{nf_pair['p95']/eps:.1f}×
+      because mean-to-mean variance scales as ~1/N, not 1× as the
+      single-rep pairwise null assumed.</li>
 </ul>
 
 <h2>Sweep result</h2>
@@ -349,10 +408,18 @@ def main():
         sys.exit(1)
     print(f"Loading sprint-4 noise-floor ensemble from {NOISE_FLOOR_RUNS}...")
     ref_ds = _drop_trailing_nan(load_ensemble_at(NOISE_FLOOR_RUNS, 8))
-    nf = compute_noise_floor_max(ref_ds)
+    nf_pair = compute_noise_floor_max(ref_ds)
+    print(f"  sprint-6 pairwise noise floor (single-rep vs single-rep): "
+          f"median={nf_pair['median']:.1f}, p95={nf_pair['p95']:.1f}")
+    nf = compute_mean_to_mean_noise_floor(ref_ds, n_per_split=4,
+                                          n_resamples=100)
     eps = nf["p95"]
-    print(f"  noise floor: median={nf['median']:.1f}, "
-          f"p05={nf['p05']:.1f}, p95={nf['p95']:.1f} (= ε)")
+    print(f"  sprint-8 mean-to-mean noise floor (4+4 splits, {nf['n_resamples']} resamples): "
+          f"median={nf['median']:.1f}, p05={nf['p05']:.1f}, "
+          f"p95={nf['p95']:.1f} (= ε)")
+    print(f"  ratio: pairwise ε / mean-to-mean ε "
+          f"= {nf_pair['p95'] / nf['p95']:.1f}× "
+          f"(theoretical 4+4 split = √8 ≈ 2.8×)")
 
     # "Observed" trajectory: cross-replicate mean at scale=1.0.
     observed_mean = ref_ds["total"].mean(dim="replicate").values
@@ -386,7 +453,7 @@ def main():
         })
 
     plot_uri = make_figure(results, nf, eps)
-    write_html(args.out, results, nf, eps, plot_uri)
+    write_html(args.out, results, nf, eps, plot_uri, nf_pair=nf_pair)
     print(f"\nDone. Wrote {args.out}")
 
 

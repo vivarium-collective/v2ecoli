@@ -1,4 +1,4 @@
-"""dnaa-0 smoke-test runner — succinate baseline, 2-gen single_daughters.
+"""dnaa-1 expression-dynamics runner (Mechanism A V=2e-3, succinate) — succinate baseline, 2-gen single_daughters.
 
 Confirms that the fresh dnaa-replication scaffold works end-to-end before
 committing to the heavy 10-generation acceptance run:
@@ -16,7 +16,7 @@ committing to the heavy 10-generation acceptance run:
 
 Usage::
 
-    python scripts/run_dnaa0_smoke.py [--duration 9900] [--seed 0]
+    python scripts/run_dnaa0_smoke.py [--duration 34440] [--seed 0]
 """
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ import numpy as np  # noqa: E402
 from v2ecoli import build_composite  # noqa: E402
 from v2ecoli.composites._helpers import flush_parquet, parquet_emitter  # noqa: E402
 
-STUDY_SLUG = "dnaa-0-parameter-foundation"
+STUDY_SLUG = "dnaa-1-expression-dynamics"
 INVESTIGATION_SLUG = "dnaa-replication"
 
 # dnaA monomer is PD03831[c] in v2ecoli bulk — the index is conventionally 3861
@@ -90,12 +90,12 @@ def _snap(t: float, cell, dnaa_idx):
 
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--duration", type=int, default=9900,
+    p.add_argument("--duration", type=int, default=34440,
                    help="Sim seconds (default 9900 ≈ 2 cycles at τ=82 min)")
     p.add_argument("--interval", type=int, default=60,
                    help="Snapshot interval in sim seconds (default 60)")
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--cache-dir", default="out/cache-succinate")
+    p.add_argument("--cache-dir", default="out/cache-succinate-mechA-2e-3")
     p.add_argument("--out", default=None,
                    help="JSON output path (default: studies/<slug>/sims/smoke/run.json)")
     p.add_argument("--sim-name", default=None)

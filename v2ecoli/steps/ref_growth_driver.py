@@ -124,6 +124,21 @@ class RefGrowthDriver(Step):
         "enabled": {"_default": True},
         "tick_s": {"_default": 1.0},
         "seed": {"_default": 0},
+        # Feedback smoothing time-constant for ``consumption_matched`` mode.
+        # ``1.0`` (default) keeps the legacy tight per-tick controller —
+        # the driver fully compensates for whatever the other processes
+        # did to each pool last tick, so the PDMP ensemble's per-tick
+        # variance is invisible at the cell_mass listener. Larger values
+        # apply an EMA (time-constant ``tau``) to the *correction* term
+        # only. Sprint-7 ensemble validation (N=8, 600 s) found that
+        # tau=60 leaves PDMP+cm σ near-pinned (0.42 → 0.59 fg) because
+        # ``target_delta = rate · tick_s`` still hard-clamps each tick.
+        # Reported here for completeness; loosening the controller
+        # enough to let jump-process variance through requires either
+        # open-looping (flux_source="measured_kfba"), a lower injection
+        # frequency, or stochastic target perturbation. See
+        # reports/figures/pdmp-02/ensemble_validation_tau60.html.
+        "feedback_tau_s": {"_default": 1.0},
     }
 
     def initialize(self, config):
@@ -175,6 +190,17 @@ class RefGrowthDriver(Step):
         self._prev_counts: np.ndarray | None = None
         self._prev_injection: np.ndarray | None = None
         self._first_tick_done: bool = False
+        # EMA-smoothed other_delta — populated lazily on the first tick.
+        # The alpha used per update is ``1 - exp(-tick_s / tau)``; tau=1
+        # gives alpha≈0.63 (essentially the legacy tight controller),
+        # tau→inf gives alpha→0 (no update, frozen at initial value).
+        self.feedback_tau_s = float(self.parameters.get(
+            "feedback_tau_s", 1.0))
+        if self.feedback_tau_s <= 0.0:
+            raise ValueError(
+                f"feedback_tau_s must be > 0; got {self.feedback_tau_s!r}"
+            )
+        self._other_delta_ema: np.ndarray | None = None
 
     def inputs(self):
         return {"bulk": "bulk_array"}
@@ -265,12 +291,27 @@ class RefGrowthDriver(Step):
             #   removal to current pool size so we never overdraw.
             current = counts(bulk, self._bulk_idx).astype(np.float64, copy=False)
             if self._first_tick_done:
-                other_delta = (
+                other_delta_inst = (
                     current - self._prev_counts
                     - self._prev_injection.astype(np.float64)
                 )
+                # Exponential-moving-average smoothing with time constant
+                # ``feedback_tau_s``. tau=1s reproduces the legacy tight
+                # controller (alpha≈0.63 → driver responds nearly fully
+                # to last tick's variance, which damps Poisson stochasticity
+                # at the cell_mass listener). tau=60s keeps the driver's
+                # mean response correct over a minute but lets per-tick
+                # jump-process variance manifest in the bulk pools (and
+                # downstream in mass).
+                alpha = 1.0 - np.exp(-self.tick_s / self.feedback_tau_s)
+                if self._other_delta_ema is None:
+                    self._other_delta_ema = other_delta_inst.copy()
+                else:
+                    self._other_delta_ema += alpha * (
+                        other_delta_inst - self._other_delta_ema
+                    )
                 target_delta = self._rate_per_s * self.tick_s
-                desired_injection = target_delta - other_delta
+                desired_injection = target_delta - self._other_delta_ema
                 # Precursors keep their non-negative floor; byproducts
                 # (rate==0) are allowed to go negative down to -current
                 # (drain to zero, never below).

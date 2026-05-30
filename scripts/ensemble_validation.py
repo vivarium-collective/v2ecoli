@@ -325,6 +325,12 @@ def main():
                    help="Replicates per ensemble (default 8).")
     p.add_argument("--duration", type=int, default=600)
     p.add_argument("--sample-every", type=int, default=30)
+    p.add_argument("--feedback-tau-s", type=float, default=1.0,
+                   help="ref_growth_driver feedback smoothing time constant "
+                        "(see ref_growth_driver.py:feedback_tau_s). Default "
+                        "1.0 reproduces the legacy tight per-tick controller. "
+                        "Try 60.0 to let per-tick jump-process variance "
+                        "manifest in the PDMP ensemble.")
     p.add_argument("--out",
                    default="reports/figures/pdmp-02/ensemble_validation.html")
     args = p.parse_args()
@@ -344,6 +350,7 @@ def main():
             f"pdmp_{mode}",
             with_ref_growth=True,
             ref_growth_flux_source="consumption_matched",
+            ref_growth_feedback_tau_s=args.feedback_tau_s,
             transcript_initiation_mode=mode,
             polypeptide_initiation_mode=mode,
         )

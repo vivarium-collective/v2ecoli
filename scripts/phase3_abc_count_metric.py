@@ -397,6 +397,12 @@ def main():
                             for k in dist_grids)
             print(f"  (ts={ts:.2f}, ps={ps:.2f}): {row}{tag}")
 
+    # Combined count metric: Euclidean norm on (rna, ribosome).
+    if (not np.any(np.isnan(dist_grids["rna"]))
+            and not np.any(np.isnan(dist_grids["ribosome"]))):
+        dist_grids["count_vec"] = np.sqrt(
+            dist_grids["rna"] ** 2 + dist_grids["ribosome"] ** 2)
+
     # Truth is at (1.0, 1.0) = (i=1, j=1).
     ratios = {}
     for key, grid in dist_grids.items():

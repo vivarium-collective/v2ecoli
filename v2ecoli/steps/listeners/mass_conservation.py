@@ -31,15 +31,32 @@ Sign convention: ``environment.exchange[name]`` is the count added to the
 so the mass entering the *cell* is ``-Σ count·mass``.
 
 STATUS — opt-in, not yet calibrated. Wired as the ``mass_conservation``
-feature module (OFF by default). On a healthy baseline run the residual is
-currently large (net exchange ≫ Δdry_mass), most likely because (a) the
-``environment.exchange`` molecule set (from ``fba.getExternalMoleculeIDs()``)
-does not fully match the ``exchange_molecules``-derived mass map, so secretion
-terms (CO2/acetate) are dropped and the "net" inflates toward gross uptake, and
-(b) the dry-mass basis vs water/total-mass exchange needs reconciling.
-Calibrating so a healthy run sits near zero — match the exact emitted exchange
-molecule set, decide the dry-vs-total basis — is the next step before enabling
-by default. The residual is always emitted (observable) regardless.
+feature module (OFF by default; enable via
+``v2ecoli.composites.baseline.enable_features('mass_conservation')``). The
+residual is always emitted (observable); it is the *warning* that isn't yet
+meaningful.
+
+MEASURED diagnosis (baseline seed 0, 120 ticks, 2026-05-30):
+
+    Σ net exchange (−Σ count·mass, all molecules)   1654.1  fg
+    Σ Δcell_mass (incl water)                          30.1  fg   → exch is 55×
+    Σ Δdry_mass                                         9.9  fg   → exch is 168×
+    ticks repeating prior exchange                        0        (no multiply-counting)
+
+Per-tick breakdown is element-balanced-looking (e.g. Pi +1.68, GLC +1.22 fg
+uptake; WATER −0.87, K+ −0.62, FORMATE −0.38 fg secretion; 27 species, full
+map coverage) — so the earlier guesses are RULED OUT: it is not dropped
+molecules, not the dry-vs-water basis (still 55× against total cell mass), and
+not multiply-counting. The net mass crossing the boundary is ~55× the actual
+cell-mass change every tick.
+
+Most likely cause: a **units / timestep basis mismatch** in metabolism's
+``delta_nutrients`` (FBA exchange fluxes are ``mmol/g/h``; the
+flux→count→``environment.exchange`` conversion may not be on the same per-global-
+tick basis as Δmass). Next experiment: confirm the dt/dry-weight basis of
+``delta_nutrients`` vs the global tick, and check that ``environment.exchange``
+equals the bulk metabolite delta actually applied to the cell. Until then,
+keep the check opt-in.
 """
 
 import warnings

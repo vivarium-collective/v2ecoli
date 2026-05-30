@@ -1,5 +1,15 @@
+# Legacy sqlite (pre-2026-05-27 migration to parquet); kept ignored for
+# any local re-runs of an older script revision.
 runs.db
 runs.db-shm
 runs.db-wal
+
+# Parquet runs (workspace-default emitter post-2026-05-27 migration).
+# runs.parquet (per-run totals) and ticks.parquet (per-tick profiling)
+# are written by sims/run.py and NOT checked in — the canonical
+# captured runs are recorded in study.yaml.runs[] with simulation_id
+# pointers, and re-running the sim regenerates the parquet locally.
+runs/
+
 sims/*.log
 sims/__pycache__/

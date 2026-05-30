@@ -659,3 +659,116 @@ class DnaaChromosomeVisualization(Visualization):
             + _plotly_div("chrom-boxocc", occ_traces, occ_layout)
         )
         return {"html": render_document(title=title, body_html=body)}
+
+
+class DnaaChromosomeMapVisualization(Visualization):
+    """Circular chromosome map — multi-timepoint snapshots of the 4.6 Mb
+    circular chromosome showing oriC (top), Ter (bottom), replication-fork
+    replisomes, and RNAP positions, laid out as a row of circles (the v1
+    dnaa 'chromosome timeline' diagram).
+
+    Each genomic coordinate (signed nt, 0 = oriC) maps to an angle around the
+    circle: oriC at 12 o'clock, both arms running down to Ter at 6 o'clock.
+    Replisome forks (orange ▲) spring from oriC at initiation and travel out
+    to Ter; RNAP (blue ·) dot the backbone by transcription density.
+
+    State (built by the renderer):
+      snapshots: list of dicts, each
+        {t_min: float, n_chr: int, forks: [coord,...], rnaps: [coord,...]}
+      half_genome: float (nt; default 2.32e6 → 4.64 Mb genome)
+    """
+
+    config_schema = {**Visualization.config_schema}
+
+    def inputs(self) -> dict[str, Any]:
+        return {"snapshots": "list", "half_genome": "float", "_caption": "string"}
+
+    @staticmethod
+    def _xy(coord: float, half: float, r: float = 1.0):
+        # f in [-1,1]; angle 90° (top, oriC) → -90°/270° (bottom, Ter)
+        f = max(-1.0, min(1.0, (coord or 0.0) / half))
+        ang = math.radians(90.0 - f * 180.0)
+        return r * math.cos(ang), r * math.sin(ang)
+
+    def update(self, state: dict[str, Any]) -> dict:
+        title = self.config.get("title") or "chromosome map (succinate)"
+        snaps = state.get("snapshots") or []
+        half = float(state.get("half_genome") or 2.32e6)
+        caption = state.get("_caption") or ""
+        if not snaps:
+            return {"html": render_document(title=title, body_html=_empty_note(
+                "No chromosome snapshots. Wire fork_coordinates + "
+                "active_rnap_coordinates from the run."))}
+
+        # unit-circle backbone
+        ring_x, ring_y = [], []
+        for k in range(0, 361, 4):
+            a = math.radians(k)
+            ring_x.append(math.cos(a)); ring_y.append(math.sin(a))
+
+        divs = []
+        for s in snaps:
+            forks = s.get("forks") or []
+            rnaps = s.get("rnaps") or []
+            ori_x, ori_y = self._xy(0.0, half)
+            ter_x, ter_y = self._xy(half, half)  # f=1 → bottom
+            fxs = [self._xy(c, half)[0] for c in forks]
+            fys = [self._xy(c, half)[1] for c in forks]
+            rxs = [self._xy(c, half)[0] for c in rnaps]
+            rys = [self._xy(c, half)[1] for c in rnaps]
+            traces = [
+                {"type": "scatter", "mode": "lines", "x": ring_x, "y": ring_y,
+                 "line": {"color": "#cbd5e1", "width": 1.5}, "hoverinfo": "skip",
+                 "showlegend": False},
+                {"type": "scatter", "mode": "markers", "x": rxs, "y": rys,
+                 "marker": {"color": "#2563eb", "size": 4, "opacity": 0.55},
+                 "name": f"RNAP ({len(rnaps)})", "hoverinfo": "skip",
+                 "showlegend": False},
+                {"type": "scatter", "mode": "markers", "x": fxs, "y": fys,
+                 "marker": {"color": "#f59e0b", "size": 12,
+                            "symbol": "triangle-up",
+                            "line": {"color": "#b45309", "width": 1}},
+                 "name": f"replisome ({len(forks)})", "hoverinfo": "skip",
+                 "showlegend": False},
+                {"type": "scatter", "mode": "markers", "x": [ori_x], "y": [ori_y],
+                 "marker": {"color": "#16a34a", "size": 16},
+                 "name": "oriC", "hoverinfo": "skip", "showlegend": False},
+                {"type": "scatter", "mode": "markers", "x": [ter_x], "y": [ter_y],
+                 "marker": {"color": "#dc2626", "size": 12, "symbol": "square"},
+                 "name": "Ter", "hoverinfo": "skip", "showlegend": False},
+            ]
+            layout = {
+                "title": {"text": f"t = {s.get('t_min', 0):.0f} min "
+                                  f"({int(s.get('n_chr', 1))} chr · "
+                                  f"{len(forks)//2 if forks else 0} fork pair)",
+                          "font": {"size": 12}},
+                "xaxis": {"visible": False, "range": [-1.25, 1.25],
+                          "scaleanchor": "y", "scaleratio": 1},
+                "yaxis": {"visible": False, "range": [-1.25, 1.25]},
+                "margin": {"l": 6, "r": 6, "t": 30, "b": 6},
+                "showlegend": False, "plot_bgcolor": "#ffffff",
+            }
+            data_json = json.dumps(traces)
+            layout_json = json.dumps(layout)
+            div_id = f"chrmap-{s.get('t_min', 0):.0f}"
+            divs.append(
+                f'<div style="display:inline-block;width:250px;height:270px;'
+                f'vertical-align:top">'
+                f'<div id="{escape(div_id)}" style="width:100%;height:100%"></div>'
+                f'<script>Plotly.newPlot("{escape(div_id)}", {data_json}, '
+                f'{layout_json}, {{responsive:true, displayModeBar:false}});</script>'
+                f'</div>')
+
+        legend = (
+            '<div style="text-align:center;font-size:0.85em;color:#475569;'
+            'margin:6px 0">'
+            '<span style="color:#16a34a">● oriC</span> &nbsp; '
+            '<span style="color:#dc2626">■ Ter</span> &nbsp; '
+            '<span style="color:#f59e0b">▲ replisome fork</span> &nbsp; '
+            '<span style="color:#2563eb">· RNAP</span></div>')
+        cap = (f'<div style="text-align:center;font-size:0.8em;color:#64748b;'
+               f'margin-bottom:6px">{escape(caption)}</div>' if caption else "")
+        body = (_PLOTLY_CDN + cap
+                + '<div style="white-space:nowrap;overflow-x:auto;text-align:center">'
+                + "".join(divs) + '</div>' + legend)
+        return {"html": render_document(title=title, body_html=body)}

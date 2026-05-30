@@ -336,6 +336,70 @@ def render_chromosome(run_dir: Path, cache_dir: str, out_path: Path,
     return 0
 
 
+def render_chromosome_map(run_dir: Path, out_path: Path, gen: int = 3,
+                          n_snaps: int = 5, title: str | None = None) -> int:
+    """Render the circular chromosome-map viz — a row of snapshots of one
+    generation's chromosome showing oriC, Ter, replication-fork replisomes,
+    and RNAP positions around the 4.6 Mb circle (the v1 'chromosome timeline'
+    diagram). Reads ONE generation's partition directly (raw per-gen
+    global_time) and samples ``n_snaps`` evenly-spaced timepoints."""
+    files = [f for f in glob.glob(str(run_dir / "**" / "*.pq"), recursive=True)
+             if f"{os.sep}history{os.sep}" in f and f"generation={gen}/" in f]
+    if not files:  # fall back to the first available generation
+        allf = [f for f in glob.glob(str(run_dir / "**" / "*.pq"), recursive=True)
+                if f"{os.sep}history{os.sep}" in f]
+        gens = sorted(set(int(re.search(r"generation=(\d+)", f).group(1)) for f in allf))
+        gen = gens[len(gens)//2] if gens else gen
+        files = [f for f in allf if f"generation={gen}/" in f]
+    if not files:
+        raise FileNotFoundError(f"no history pq under {run_dir}")
+    d = pl.concat([pl.read_parquet(f) for f in files],
+                  how="diagonal_relaxed").sort("global_time")
+    n = d.height
+    idxs = [min(n - 1, int(round((i + 0.5) / n_snaps * n))) for i in range(n_snaps)]
+
+    def _arr(col, i):
+        if col not in d.columns:
+            return []
+        v = d[col].to_list()[i]
+        return [float(x) for x in v if x is not None] if v is not None else []
+
+    gt = d["global_time"].to_list()
+    chrom_col = "listeners__unique_molecule_counts__full_chromosome"
+    snaps = []
+    half = 2.32e6
+    for i in idxs:
+        forks = _arr("listeners__replication_data__fork_coordinates", i)
+        rnaps = _arr("listeners__rnap_data__active_rnap_coordinates", i)
+        if len(rnaps) > 150:  # thin RNAP for a light SVG
+            stride = len(rnaps) // 150
+            rnaps = rnaps[::stride]
+        n_chr = d[chrom_col].to_list()[i] if chrom_col in d.columns else 1
+        snaps.append({"t_min": gt[i] / 60.0, "n_chr": int(n_chr or 1),
+                      "forks": forks, "rnaps": rnaps})
+        half = max(half, max((abs(x) for x in forks + rnaps), default=half))
+
+    from v2ecoli.visualizations.dnaa_succinate import DnaaChromosomeMapVisualization
+    from v2ecoli.core import build_core
+    core = build_core()
+    viz = DnaaChromosomeMapVisualization(
+        config={"title": title or f"chromosome map — generation {gen}"}, core=core)
+    html = viz.update({
+        "snapshots": snaps, "half_genome": half,
+        "_caption": (f"oriC (green), Ter (red), replisome forks (orange ▲), and "
+                     f"RNAP positions (blue ·) along the {2*half/1e6:.1f} Mb "
+                     f"circular chromosome — {n_snaps} snapshots through "
+                     f"generation {gen}."),
+    }).get("html", "")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(html, encoding="utf-8")
+    print(f"  ok chromosome-map: {out_path} ({len(html)} chars)")
+    print(f"    gen {gen}, {n_snaps} snaps at min "
+          f"{[round(s['t_min'],1) for s in snaps]}, "
+          f"forks/snap {[len(s['forks']) for s in snaps]}")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("study_slug")
@@ -345,8 +409,10 @@ def main() -> int:
     ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--title", default=None)
     ap.add_argument("--viz", default=None,
-                    help="Override which viz to render: 'chromosome' renders "
-                         "the chromosome-state panels for either study.")
+                    help="Override which viz: 'chromosome' (state panels) or "
+                         "'chromosome-map' (circular snapshots).")
+    ap.add_argument("--gen", type=int, default=3,
+                    help="Generation to snapshot for --viz chromosome-map.")
     args = ap.parse_args()
 
     default_cache = ("out/cache-succinate-mechA-2e-3"
@@ -354,6 +420,9 @@ def main() -> int:
                      else "out/cache-succinate")
     cache = args.cache_dir or default_cache
 
+    if args.viz == "chromosome-map":
+        out = args.out or Path(f"studies/{args.study_slug}/viz/chromosome_map.html")
+        return render_chromosome_map(args.run_dir, out, gen=args.gen, title=args.title)
     if args.viz == "chromosome":
         out = args.out or Path(f"studies/{args.study_slug}/viz/chromosome_state.html")
         return render_chromosome(args.run_dir, cache, out, title=args.title)

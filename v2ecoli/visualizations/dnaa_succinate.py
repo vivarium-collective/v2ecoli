@@ -716,10 +716,46 @@ class DnaaChromosomeMapVisualization(Visualization):
             fys = [self._xy(c, half)[1] for c in forks]
             rxs = [self._xy(c, half)[0] for c in rnaps]
             rys = [self._xy(c, half)[1] for c in rnaps]
+
+            # Replication bubbles (ported from v1 _draw_replication_bubbles):
+            # each fork pair → a green arc tracing the newly-replicated daughter
+            # strand from one fork through oriC (top) to its partner, at an
+            # inset radius (nested + shrinking for multifork rounds), with thin
+            # radial connectors tethering the bubble to the rim at each fork.
+            sf = sorted(forks)
+            n_pairs = len(sf) // 2
+            pairs = [(sf[i], sf[-1 - i]) for i in range(n_pairs)]
+            pairs.sort(key=lambda p: -(abs(p[0]) + abs(p[1])) / 2.0)  # outermost first
+            if n_pairs <= 1:
+                insets = [0.80] * n_pairs
+            else:
+                insets = [0.82 - 0.34 * j / (n_pairs - 1) for j in range(n_pairs)]
+            bubble_traces = []
+            for (f_lo, f_hi), r_b in zip(pairs, insets):
+                a_hi = math.radians(90.0 - (f_hi / half) * 180.0)  # f_hi>0 → <90
+                a_lo = math.radians(90.0 - (f_lo / half) * 180.0)  # f_lo<0 → >90
+                bx, by = [], []
+                for k in range(81):
+                    a = a_hi + (a_lo - a_hi) * k / 80.0  # arc through oriC (top)
+                    bx.append(r_b * math.cos(a)); by.append(r_b * math.sin(a))
+                bubble_traces.append(
+                    {"type": "scatter", "mode": "lines", "x": bx, "y": by,
+                     "line": {"color": "#10b981", "width": 4}, "opacity": 0.65,
+                     "hoverinfo": "skip", "showlegend": False})
+                for f in (f_lo, f_hi):
+                    a = math.radians(90.0 - (f / half) * 180.0)
+                    bubble_traces.append(
+                        {"type": "scatter", "mode": "lines",
+                         "x": [r_b * math.cos(a), math.cos(a)],
+                         "y": [r_b * math.sin(a), math.sin(a)],
+                         "line": {"color": "#10b981", "width": 1}, "opacity": 0.4,
+                         "hoverinfo": "skip", "showlegend": False})
+
             traces = [
                 {"type": "scatter", "mode": "lines", "x": ring_x, "y": ring_y,
                  "line": {"color": "#cbd5e1", "width": 1.5}, "hoverinfo": "skip",
                  "showlegend": False},
+            ] + bubble_traces + [
                 {"type": "scatter", "mode": "markers", "x": rxs, "y": rys,
                  "marker": {"color": "#2563eb", "size": 4, "opacity": 0.55},
                  "name": f"RNAP ({len(rnaps)})", "hoverinfo": "skip",
@@ -765,6 +801,7 @@ class DnaaChromosomeMapVisualization(Visualization):
             '<span style="color:#16a34a">● oriC</span> &nbsp; '
             '<span style="color:#dc2626">■ Ter</span> &nbsp; '
             '<span style="color:#f59e0b">▲ replisome fork</span> &nbsp; '
+            '<span style="color:#10b981">▬ replication bubble</span> &nbsp; '
             '<span style="color:#2563eb">· RNAP</span></div>')
         cap = (f'<div style="text-align:center;font-size:0.8em;color:#64748b;'
                f'margin-bottom:6px">{escape(caption)}</div>' if caption else "")

@@ -358,6 +358,7 @@ class DnaaExpressionVisualization(Visualization):
         "dnaa_band_high": {"_type": "float", "_default": 800.0},
         "target_init_rate_per_min": {"_type": "float", "_default": 1.0},
         "subtitle": {"_type": "string", "_default": ""},
+        "init_caption": {"_type": "string", "_default": ""},
     }
 
     def inputs(self) -> dict[str, Any]:
@@ -491,9 +492,11 @@ class DnaaExpressionVisualization(Visualization):
              "y0": band_target_rate, "y1": band_target_rate,
              "line": {"color": "#dc2626", "width": 1, "dash": "dot"},
              "opacity": 0.7, "layer": "below"}]
+        init_caption = self.config.get("init_caption") or (
+            f"{int(total_ev)} events over {int(x_max or 0)} min; "
+            f"mean {mean_rate:.2f}/min")
         init_layout = _layout(
-            f"(6) dnaA mRNA initiation events — {int(total_ev)} events over "
-            f"{int(x_max or 0)} min; mean {mean_rate:.2f}/min "
+            f"(6) dnaA mRNA initiation events — {init_caption} "
             f"(target ≈ {band_target_rate:g}/min)",
             "init events (per tick)", extra_shapes=init_shapes,
             rangemode="tozero")

@@ -142,6 +142,18 @@ def _resolve_dnaa_indices(cache_dir: str) -> dict:
     return out
 
 
+def _subsample(df: pl.DataFrame, target: int = 2500) -> pl.DataFrame:
+    """Take ~``target`` evenly-spaced rows so the embedded viz HTML stays
+    small enough for the dashboard to render inline. A full multi-gen run is
+    ~20–40k ticks; plotting every one bloats the HTML to multiple MB (which
+    the SPA can't embed). Stride-sampling preserves the cycle shape."""
+    n = df.height
+    if n <= target:
+        return df
+    stride = max(1, n // target)
+    return df.gather_every(stride)
+
+
 def _series_at_idx(df: pl.DataFrame, col: str, idx: int | None) -> list[float] | None:
     """Pull values at `idx` from a column that is a list-of-arrays."""
     if col not in df.columns or idx is None:
@@ -162,6 +174,7 @@ def render_dnaa0(run_dir: Path, cache_dir: str, out_path: Path,
                  title: str | None = None) -> int:
     df, div_times, n_gens = _load_history(run_dir)
     idx = _resolve_dnaa_indices(cache_dir)
+    df = _subsample(df)
 
     times = df["global_time"].to_list()
     oric = df["listeners__replication_data__number_of_oric"].to_list() \
@@ -204,6 +217,19 @@ def render_dnaa1(run_dir: Path, cache_dir: str, out_path: Path,
     df, div_times, n_gens = _load_history(run_dir)
     idx = _resolve_dnaa_indices(cache_dir)
 
+    # Compute the init-rate caption from the FULL (un-subsampled) series so the
+    # "N events / mean rate" number stays exact even though the plotted
+    # barcode is downsampled for embed size.
+    _full_init = _series_at_idx(df, "listeners__rnap_data__rna_init_event_per_cistron",
+                                idx.get("dnaa_cistron_idx")) or []
+    _total_ev = sum(v for v in _full_init if v is not None)
+    _dur_min = (float(df["global_time"].max()) / 60.0) \
+        if ("global_time" in df.columns and df.height) else 0.0
+    _rate = (_total_ev / _dur_min) if _dur_min > 0 else 0.0
+    init_caption = (f"{int(_total_ev)} events over {int(_dur_min)} min; "
+                    f"mean {_rate:.2f}/min")
+
+    df = _subsample(df)
     times = df["global_time"].to_list()
     oric = df["listeners__replication_data__number_of_oric"].to_list() \
         if "listeners__replication_data__number_of_oric" in df.columns else []
@@ -224,6 +250,7 @@ def render_dnaa1(run_dir: Path, cache_dir: str, out_path: Path,
         config={"title": title or "dnaa-1 — V=2e-3 — 7-gen lineage on succinate",
                 "dnaa_band_low": 300.0, "dnaa_band_high": 800.0,
                 "target_init_rate_per_min": 1.0,
+                "init_caption": init_caption,
                 "subtitle": "Mechanism A — runtime overwrite of dnaA's "
                             "per-promoter init_prob: "
                             "sim_data.genetic_perturbations[\"TU00259[c]\"] = 2e-3 "
@@ -259,6 +286,7 @@ def render_chromosome(run_dir: Path, cache_dir: str, out_path: Path,
     """Render the chromosome-state viz (cycle counts, fork map, DnaA-box
     occupancy) from a run's parquet hive."""
     df, div_times, n_gens = _load_history(run_dir)
+    df = _subsample(df)
     times = df["global_time"].to_list()
 
     def _col(name):

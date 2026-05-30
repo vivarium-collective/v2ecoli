@@ -72,6 +72,11 @@ class MassConservationListener(Step):
         # physically meaningful conservation signal. A healthy baseline sits
         # near ~1%, so the default leaves headroom before warning.
         "tolerance": {"_type": "float", "_default": 5.0e-2},
+        # Ticks to skip before accumulating: cell initialization carries a fixed
+        # one-time mass offset (first metabolic solves / listener spin-up) that
+        # is not a leak. Accumulate from steady state so the cumulative drift
+        # and its warning reflect ongoing conservation, not the transient.
+        "warmup_ticks": {"_type": "integer", "_default": 10},
     }
 
     def inputs(self):
@@ -105,11 +110,13 @@ class MassConservationListener(Step):
 
     def initialize(self, config):
         self.exchange_masses = self.parameters["exchange_masses"]
-        self.tolerance = self.parameters.get("tolerance", 1.0e-2)
+        self.tolerance = self.parameters.get("tolerance", 5.0e-2)
+        self.warmup_ticks = self.parameters.get("warmup_ticks", 10)
+        self._tick = 0                    # post-baseline tick counter
         self._prev_cell_mass = None       # None until the first tick
         self._prev_exchange = {}          # cumulative environment.exchange last tick
-        self._cum_dcell = 0.0 * units.fg  # Σ Δcell_mass since baseline
-        self._cum_exchange = 0.0 * units.fg  # Σ net exchange since baseline
+        self._cum_dcell = 0.0 * units.fg  # Σ Δcell_mass since warmup
+        self._cum_exchange = 0.0 * units.fg  # Σ net exchange since warmup
 
     def per_tick_exchange(self, cumulative):
         """Per-tick exchange counts = diff of the cumulative environment.exchange
@@ -150,14 +157,27 @@ class MassConservationListener(Step):
         denom = abs(delta_cell.to(units.fg).magnitude)
         rel = abs(residual.to(units.fg).magnitude) / denom if denom else 0.0
 
-        # Cumulative drift — the meaningful, low-noise conservation signal.
+        # Skip the cell-initialization transient; accumulate from steady state.
+        self._tick += 1
+        if self._tick <= self.warmup_ticks:
+            return {"listeners": {"mass": {
+                "conservation_residual": residual,
+                "conservation_residual_relative": rel,
+                "exchange_mass_in": mass_in,
+                "conservation_residual_cumulative": 0.0 * units.fg,
+                "conservation_relative_cumulative": 0.0,
+            }}}
+
+        # Cumulative drift (since warmup) — the meaningful, low-noise signal.
         self._cum_dcell = self._cum_dcell + delta_cell
         self._cum_exchange = self._cum_exchange + mass_in
         cum_residual = self._cum_dcell - self._cum_exchange
         cum_denom = abs(self._cum_dcell.to(units.fg).magnitude)
         cum_rel = abs(cum_residual.to(units.fg).magnitude) / cum_denom if cum_denom else 0.0
 
-        if cum_rel > self.tolerance:
+        # Only warn once enough cell-mass has accumulated for the ratio to be
+        # meaningful (avoids a small-denominator transient right after warmup).
+        if cum_denom > 5.0 and cum_rel > self.tolerance:
             warnings.warn(
                 f"{self.name}: cumulative mass-conservation drift "
                 f"{cum_residual.to(units.fg).magnitude:.4g} fg "

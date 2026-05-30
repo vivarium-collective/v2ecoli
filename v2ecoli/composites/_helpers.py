@@ -967,7 +967,9 @@ def _get_special_step(loader, step_name, core):
             # Listener still runs (residual == Δdry_mass) if masses are
             # unavailable; better an observable signal than a build failure.
             exchange_masses = {}
-        config = {'exchange_masses': exchange_masses, 'tolerance': 1.0e-2}
+        # tolerance + warmup_ticks fall back to the Step's schema defaults
+        # (5% cumulative drift, 10-tick warmup).
+        config = {'exchange_masses': exchange_masses}
         instance = _make_instance(MassConservationListener, config, core)
         return instance, instance.topology, 'step'
 

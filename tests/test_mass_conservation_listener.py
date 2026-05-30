@@ -17,6 +17,8 @@ def _make_step(tolerance=1.0e-2):
     step = MassConservationListener({}, build_core())
     step.exchange_masses = {"GLC": 0.5 * units.fg}   # 0.5 fg per GLC molecule
     step.tolerance = tolerance
+    step.warmup_ticks = 0          # accumulate immediately in unit tests
+    step._tick = 0
     step._prev_cell_mass = None
     step._prev_exchange = {}
     return step

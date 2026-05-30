@@ -14,6 +14,7 @@ simulation ran but produced no proteins, so dry_mass stayed flat at ~386 fg.
 import os
 
 import pytest
+from v2ecoli.library.quantity_helpers import fg_magnitude
 
 
 CACHE_DIR = 'out/cache'
@@ -38,9 +39,9 @@ pytestmark = [
 def _run_and_measure(arch, duration=DURATION):
     from v2ecoli import build_composite
     composite = build_composite(arch, cache_dir=CACHE_DIR, seed=0)
-    m0 = float(composite.state['agents']['0']['listeners']['mass']['dry_mass'])
+    m0 = fg_magnitude(composite.state['agents']['0']['listeners']['mass']['dry_mass'])
     composite.run(duration)
-    m1 = float(composite.state['agents']['0']['listeners']['mass']['dry_mass'])
+    m1 = fg_magnitude(composite.state['agents']['0']['listeners']['mass']['dry_mass'])
     return m0, m1
 
 

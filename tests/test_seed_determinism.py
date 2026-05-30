@@ -43,6 +43,13 @@ def _run_baseline(duration: float):
     return composite.state
 
 
+# Two full baseline sims (2 x DURATION s) + a deep state compare. Locally ~22 s
+# wall, but the CI behavior-tests runner is ~14x slower (see test_sustained_growth),
+# so this lands at several minutes — over the global 120 s pytest-timeout cap.
+# That cap's thread method calls os._exit(1), which kills the WHOLE pytest run
+# (reported as "operation was canceled"), so this legitimately-long test needs
+# the same 600 s override the other multi-sim behavior tests carry.
+@pytest.mark.timeout(600)
 def test_baseline_is_deterministic_under_fixed_seed():
     """Two fresh baseline runs with seed=0 produce identical state after
     the same duration. Localizes the first divergent leaf so the failure

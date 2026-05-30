@@ -124,7 +124,9 @@ def _find(d, key, depth=0):
 
 SCALAR_FIELDS = ["cell_mass", "dry_mass", "protein_mass", "rna_mass", "volume",
                  "growth", "conservation_residual", "exchange_mass_in",
-                 "conservation_residual_relative"]
+                 "conservation_residual_relative",
+                 "conservation_residual_cumulative",
+                 "conservation_relative_cumulative"]
 
 
 def capture(out_path, steps, seed, cache_dir, enable_conservation):
@@ -226,15 +228,28 @@ def conservation_section(after):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(figsize=(11, 3.6))
-    tx, ry = _clean(s["time"], s.get("conservation_residual", []))
-    ax.plot(tx, ry, color="#c0392b", lw=1.2, label="conservation_residual (fg)")
+    fig, axes = plt.subplots(1, 2, figsize=(12, 3.8))
+
+    # Left: per-tick exchange vs Δcell vs residual.
+    ax = axes[0]
     ex, ey = _clean(s["time"], s.get("exchange_mass_in", []))
-    ax.plot(ex, ey, color="#2980b9", lw=1.0, alpha=0.7, label="exchange_mass_in (fg)")
+    ax.plot(ex, ey, color="#2980b9", lw=1.0, label="net exchange / tick (fg)")
     gx, gy = _clean(s["time"], s.get("growth", []))
-    ax.plot(gx, gy, color="#27ae60", lw=1.0, alpha=0.7, label="Δdry_mass / tick (fg)")
-    ax.set_xlabel("time (s)"); ax.set_ylabel("fg"); ax.grid(alpha=0.3); ax.legend(fontsize=8)
-    ax.set_title("Mass-conservation residual (opt-in feature, not yet calibrated)")
+    ax.plot(gx, gy, color="#27ae60", lw=1.0, alpha=0.8, label="Δdry_mass / tick (fg)")
+    tx, ry = _clean(s["time"], s.get("conservation_residual", []))
+    ax.plot(tx, ry, color="#c0392b", lw=1.0, alpha=0.7, label="residual / tick (fg)")
+    ax.set_xlabel("time (s)"); ax.set_ylabel("fg"); ax.grid(alpha=0.3)
+    ax.legend(fontsize=8); ax.set_title("Per-tick mass flux")
+
+    # Right: cumulative relative drift converging to the steady-state value.
+    ax = axes[1]
+    cx, cy = _clean(s["time"], s.get("conservation_relative_cumulative", []))
+    cy = [v * 100 for v in cy]
+    ax.plot(cx, cy, color="#8e44ad", lw=1.6, label="cumulative |drift| (%)")
+    ax.axhline(3.0, color="#c0392b", ls="--", lw=1.0, label="3% gate")
+    ax.set_xlabel("time (s)"); ax.set_ylabel("cumulative drift (%)")
+    ax.grid(alpha=0.3); ax.legend(fontsize=8)
+    ax.set_title("Conservation drift — converges to ~1%")
     fig.tight_layout()
     img = _png(fig); plt.close(fig)
     return img

@@ -230,8 +230,8 @@ class PolypeptideElongation(PartitionedProcess):
             'boundary': 'node',
             'listeners': {
                 'mass': {
-                    'cell_mass': 'float[fg]',
-                    'dry_mass': 'float[fg]',
+                    'cell_mass': 'quantity[float,fg]',
+                    'dry_mass': 'quantity[float,fg]',
                 },
             },
             'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
@@ -438,8 +438,8 @@ class PolypeptideElongation(PartitionedProcess):
                 'boundary': 'node',
                 'listeners':                 {
                     'mass':                     {
-                        'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
-                        'dry_mass': {'_type': 'float[fg]', '_default': 0.0},
+                        'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
+                        'dry_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                     },
                 },
                 'active_ribosome': {'_type': ACTIVE_RIBOSOME_ARRAY, '_default': []},

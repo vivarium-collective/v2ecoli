@@ -54,6 +54,7 @@ import warnings
 from wholecell.utils.random import stochasticRound
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.quantity_helpers import as_quantity
 
 from v2ecoli.library.schema import (
     counts,
@@ -159,7 +160,7 @@ class TranscriptElongation(PartitionedProcess):
             'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
             'bulk': {'_type': 'bulk_array', '_default': []},
             'bulk_total': {'_type': 'bulk_array', '_default': []},
-            'listeners': {'mass': {'cell_mass': {'_type': 'float[fg]', '_default': 0.0}}},
+            'listeners': {'mass': {'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0}}},
             'timestep': {'_type': 'integer[s]', '_default': 1},
         }
 
@@ -248,7 +249,7 @@ class TranscriptElongation(PartitionedProcess):
             'bulk_total': {'_type': 'bulk_array', '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
+                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                 },
             },
             'timestep': {'_type': 'integer[s]', '_default': 1},
@@ -419,7 +420,7 @@ class TranscriptElongation(PartitionedProcess):
 
         if has_attenuation:
             cell_mass = states["listeners"]["mass"]["cell_mass"]
-            cellVolume = cell_mass * units.fg / self.cell_density
+            cellVolume = as_quantity(cell_mass, units.fg) / self.cell_density
             counts_to_molar = 1 / (self.n_avogadro * cellVolume)
             stop_probs_fn = att_cfg.get(
                 "stop_probabilities", self.parameters.get(

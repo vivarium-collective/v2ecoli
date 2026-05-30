@@ -68,6 +68,7 @@ from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.fba_fast import extract_results, precompute_indices
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.quantity_helpers import as_quantity
 from v2ecoli.library.unit_bridge import unum_magnitude_in, unum_to_pint, pint_to_unum
 from wholecell.utils.random import stochasticRound
 from wholecell.utils.modular_fba import FluxBalanceAnalysis
@@ -153,10 +154,10 @@ class Metabolism(Step):
             'bulk_total': {'_type': 'bulk_array', '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
-                    'dry_mass': {'_type': 'float[fg]', '_default': 0.0},
-                    'rna_mass': {'_type': 'float[fg]', '_default': 0.0},
-                    'protein_mass': {'_type': 'float[fg]', '_default': 0.0},
+                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
+                    'dry_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
+                    'rna_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
+                    'protein_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                 },
             },
             'environment': {
@@ -416,8 +417,8 @@ class Metabolism(Step):
         kinetic_substrate_counts = counts(states["bulk"], self.kinetics_substrates_idx)
 
         translation_gtp = states["polypeptide_elongation"]["gtp_to_hydrolyze"]
-        cell_mass = states["listeners"]["mass"]["cell_mass"] * self._fg_unit
-        dry_mass = states["listeners"]["mass"]["dry_mass"] * self._fg_unit
+        cell_mass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
+        dry_mass = as_quantity(states["listeners"]["mass"]["dry_mass"], units.fg)
 
         # Calculate state values
         cellVolume = cell_mass / self.cellDensity

@@ -44,6 +44,7 @@ from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, liste
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from wholecell.utils.random import stochasticRound
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.quantity_helpers import as_quantity
 
 
 # Register default topology for this process, associating it with process name
@@ -120,7 +121,7 @@ class Equilibrium(Step):
             'bulk': {'_type': 'bulk_array', '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': {'_type': 'float[fg]', '_default': 0},
+                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0},
                 },
             },
             'timestep': {'_type': 'integer[s]', '_default': 1},
@@ -202,7 +203,7 @@ class Equilibrium(Step):
 
         # cell_volume = cell_mass / cell_density  [g / (g/L) = L]
         cell_mass_g = (
-            states["listeners"]["mass"]["cell_mass"] * units.fg
+            as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
         ).to(units.g).magnitude
         cell_volume = cell_mass_g / self.cell_density
 

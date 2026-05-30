@@ -32,6 +32,7 @@ from v2ecoli.composites._helpers import parquet_emitter
 from v2ecoli.composites.baseline import baseline as baseline_doc
 from v2ecoli.core import build_core
 from v2ecoli.library.division import divide_cell
+from v2ecoli.library.parquet_emitter import ParquetEmitter
 from process_bigraph import Composite
 
 
@@ -56,6 +57,10 @@ def _run_gen(comp, max_duration, gen_idx):
             break
         agent_id = next(iter(agents))
         last_state = agents[agent_id]
+
+    n_closed = ParquetEmitter.flush_all_in_composite(comp, success=divided)
+    if n_closed:
+        print(f"    gen {gen_idx}: flushed {n_closed} ParquetEmitter instance(s)")
     return t_sim, divided, last_state
 
 

@@ -164,6 +164,43 @@ touches processes, steps, or composite wiring.
 
 Published at https://vivarium-collective.github.io/v2ecoli/.
 
+### HTML reports with provenance banners — attach to substantial PRs
+
+When a PR makes a substantial change to a Process / Step / composite /
+biology behaviour, generate an HTML report that captures the change and
+attach it to the PR as committed evidence.
+
+The HTML must include a **provenance banner** at the top so it stays
+self-describing once the file is months old. Capture, at minimum:
+
+- ISO-8601 generated timestamp
+- Git SHA (full + short), linked to the GitHub commit URL
+- Git branch + a `DIRTY TREE` badge if `git status --porcelain` is non-empty
+- Last commit message + author + date (so the reader can see what code
+  produced the artefact without leaving the page)
+- Path to the generator script (relative to repo root)
+- Host name + OS + Python version
+
+Pattern: see `scripts/compare_pdmp_vs_baseline.py::collect_provenance`.
+
+Save TWO copies per run:
+
+1. `reports/figures/<study>/<short_name>.html` — overwritten each render;
+   the "latest" entry the PR description / README links to.
+2. `reports/figures/<study>/<short_name>_<YYYYMMDDTHHMMSS>_<git_short>.html`
+   — archival, never overwritten. Add a `git add -f` for this file
+   (`reports/` is gitignored so new artefacts need `-f`), then commit and
+   reference it in a PR comment so the artefact is versioned alongside
+   the code that produced it.
+
+PR comment template (when posting the archive link):
+
+> Evidence: [pdmp_vs_baseline_20260530T103045_aa7a2de.html](…)
+> Generated from `aa7a2de` on `v2ecoli-pdmp`, 600 s sim, seed=0.
+
+This makes every substantive review easier — the reviewer can open the
+HTML and see the exact state of the simulation the PR is claiming.
+
 ## Tests you must know about
 
 - `tests/test_model_behavior.py` — 7 definitive behavior tests. Gate every

@@ -65,6 +65,7 @@ import numpy.typing as npt
 from scipy.sparse import csr_matrix
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 # topology_registry removed
+from v2ecoli.library.fba_fast import extract_results, precompute_indices
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
 from v2ecoli.types.quantity import ureg as units
 from v2ecoli.library.unit_bridge import unum_magnitude_in, unum_to_pint, pint_to_unum
@@ -352,6 +353,17 @@ class Metabolism(Step):
             (v, (base_rxn_indexes, fba_rxn_indexes)), shape=shape
         )
 
+        # Pre-resolve name → solver-index mappings. Replaces per-tick
+        # list-comps over reactionIDs / externalExchangeIDs / shadow IDs
+        # in upstream getReducedCosts / getReactionFluxes / getShadowPrices
+        # with single numpy slices into the cached col_primals / col_duals
+        # / row_duals vectors. See v2ecoli/library/fba_fast.py.
+        self.fba_extract_indices = precompute_indices(
+            self.model.fba,
+            self.model.metaboliteNamesFromNutrients,
+            self.model.kinetics_constrained_reactions,
+        )
+
     def __getstate__(self):
         return self.parameters
 
@@ -526,9 +538,16 @@ class Metabolism(Step):
         fba = self.model.fba
         fba.solve(n_retries)
 
+        # Pull all per-tick LP result arrays in one pass — batched numpy
+        # slices into the solver's cached col_primals / col_duals / row_duals
+        # vectors, plus a tight Python loop for the per-output-molecule sum
+        # over the live _outputMoleculeCoeffs (mutated each tick).
+        # See v2ecoli/library/fba_fast.py.
+        fba_out = extract_results(fba, self.fba_extract_indices)
+
         # Internal molecule changes
         delta_metabolites = (1 / counts_to_molar) * (
-            CONC_UNITS * fba.getOutputMoleculeLevelsChange()
+            CONC_UNITS * fba_out["output_molecule_changes"]
         )
         metabolite_counts_final = np.fmax(
             stochasticRound(
@@ -539,7 +558,7 @@ class Metabolism(Step):
         delta_metabolites_final = metabolite_counts_final - metabolite_counts_init
 
         # Environmental changes
-        exchange_fluxes = CONC_UNITS * fba.getExternalExchangeFluxes()
+        exchange_fluxes = CONC_UNITS * fba_out["external_exchange_fluxes"]
         converted_exchange_fluxes = (exchange_fluxes / coefficient).to(GDCW_BASIS).magnitude
         delta_nutrients = (
             ((1 / counts_to_molar) * exchange_fluxes).magnitude.astype(int)
@@ -553,7 +572,7 @@ class Metabolism(Step):
             unconstrained, constrained_unum, self._gdcw_basis_unum
         )
 
-        reaction_fluxes = fba.getReactionFluxes() / timestep
+        reaction_fluxes = fba_out["reaction_fluxes"] / timestep
         update = {
             "bulk": [(self.metabolite_idx, delta_metabolites_final)],
             "environment": {
@@ -578,10 +597,8 @@ class Metabolism(Step):
                     "reaction_fluxes": reaction_fluxes,
                     "external_exchange_fluxes": converted_exchange_fluxes,
                     "objective_value": fba.getObjectiveValue(),
-                    "shadow_prices": fba.getShadowPrices(
-                        self.model.metaboliteNamesFromNutrients
-                    ),
-                    "reduced_costs": fba.getReducedCosts(fba.getReactionIDs()),
+                    "shadow_prices": fba_out["shadow_prices"],
+                    "reduced_costs": fba_out["reduced_costs"],
                     "target_concentrations": [
                         self.model.homeostatic_objective[mol]
                         for mol in fba.getHomeostaticTargetMolecules()
@@ -597,10 +614,7 @@ class Metabolism(Step):
                     "metabolite_counts_final": metabolite_counts_final,
                     "enzyme_counts_init": kinetic_enzyme_counts,
                     "counts_to_molar": counts_to_molar.to(CONC_UNITS).magnitude,
-                    "actual_fluxes": fba.getReactionFluxes(
-                        self.model.kinetics_constrained_reactions
-                    )
-                    / timestep,
+                    "actual_fluxes": fba_out["kinetics_constrained_fluxes"] / timestep,
                     "target_fluxes": targets / timestep,
                     "target_fluxes_upper": upper_targets / timestep,
                     "target_fluxes_lower": lower_targets / timestep,

@@ -892,9 +892,13 @@ def _get_special_step(loader, step_name, core):
             })
 
         if parquet_override is not None:
-            # Parquet path — column-oriented hive-partitioned output. Same
-            # lightweight schema as SQLite (global_time + listeners only) for
-            # the same reasons documented in the SQLite branch below.
+            # Parquet path — column-oriented hive-partitioned output. Unlike
+            # the SQLite path, this captures the raw ``bulk`` count array
+            # (~25k molecules) in addition to global_time + listeners. Parquet
+            # is column-oriented and compresses the wide bulk vector far better
+            # than SQLite's row store, so the disk-cost concern documented in
+            # the SQLite branch below does not apply here — and downstream
+            # analyses (and vEcoli parity) need per-molecule counts.
             if ParquetEmitter is None:
                 raise ImportError(
                     "ParquetEmitter override set but [parquet] extra not "
@@ -902,10 +906,12 @@ def _get_special_step(loader, step_name, core):
                 )
             emit_schema = {
                 'global_time': 'float',
+                'bulk': 'array[integer]',
                 'listeners': listeners_schema,
             }
             topo = {
                 'global_time': ('global_time',),
+                'bulk': ('bulk',),
                 'listeners': ('listeners',),
             }
             cfg = {'emit': emit_schema, **parquet_override}

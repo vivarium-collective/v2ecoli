@@ -265,6 +265,18 @@ class Metabolism(Step):
         # safe to share across ticks.
         self._constraint_unit = units.mmol / units.g / units.h
         self._fg_unit = units.fg
+        # Pre-strip the dimensional constants to magnitudes in documented
+        # unit bases, used by _do_update for pure-float arithmetic. The
+        # pint Quantity copies above remain for the upstream-Unum boundary
+        # functions (exchange_constraints, get_import_constraints,
+        # get_kinetic_constraints) that demand them — those are the only
+        # places we rebuild Quantities.
+        #
+        # Dimensional bookkeeping (see docs/refactors/metabolism_magnitude_arithmetic.md):
+        #   self._n_avogadro_per_mol  = 6.022e23 (1/mol)
+        #   self._cell_density_g_per_L = 1100.0  (g/L)
+        self._n_avogadro_per_mol = float(self.nAvogadro.magnitude)
+        self._cell_density_g_per_L = float(self.cellDensity.magnitude)
 
         # Track updated AA concentration targets with tRNA charging
         self.aa_targets = {}

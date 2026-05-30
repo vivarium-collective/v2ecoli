@@ -33,6 +33,11 @@ reports/
 investigations/*/viz/
 .dashboard.log
 
+# Local git-worktree checkouts created under .claude/worktrees/ — these are
+# per-session working trees, never part of the repo (the previously-committed
+# departition-compare entry stays tracked; this only ignores new ones).
+.claude/worktrees/
+
 # Per-session agent notes (friction logs, overnight summaries, internal
 # observations meant for the pbg-superpowers improvement-cycle agent).
 # These are local-only working notes — not part of the investigation's

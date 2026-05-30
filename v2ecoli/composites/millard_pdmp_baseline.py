@@ -382,6 +382,7 @@ def _get_step_config(
     master_seed=0,
     ref_growth_flux_source: str | None = None,
     transcript_initiation_mode: str | None = None,
+    polypeptide_initiation_mode: str | None = None,
 ):
     from v2ecoli.processes.equilibrium import Equilibrium
     from v2ecoli.processes.two_component_system import TwoComponentSystem
@@ -524,13 +525,19 @@ def _get_step_config(
         config["seed"] = _derive_process_seed(master_seed, base_name)
 
     # Phase-2 jump-process opt-ins. Merge mode overrides into the ParCa-
-    # generated config so TranscriptInitiation.initialize() picks them up.
+    # generated config so each Process's initialize() picks them up.
     if (
         transcript_initiation_mode
         and isinstance(config, dict)
         and base_name == 'ecoli-transcript-initiation'
     ):
         config["pdmp_initiation_mode"] = transcript_initiation_mode
+    if (
+        polypeptide_initiation_mode
+        and isinstance(config, dict)
+        and base_name == 'ecoli-polypeptide-initiation'
+    ):
+        config["pdmp_initiation_mode"] = polypeptide_initiation_mode
 
     if base_name in PARTITIONED_PROCESSES:
         proc_cls = PARTITIONED_PROCESSES[base_name]
@@ -693,6 +700,17 @@ def _register_millard_pdmp_links(core):
                 "truncation undercount)."
             ),
         },
+        "polypeptide_initiation_mode": {
+            "type": "string", "default": "discrete",
+            "description": (
+                "Phase-2 jump-process opt-in for translation initiation. "
+                "Same dispatch as transcript_initiation_mode but for "
+                "PolypeptideInitiation; ribosome activation per protein "
+                "becomes per-protein Poisson(n_target · p_i) tau-leap "
+                "with the resource cap pinned to min(30S, 50S) instead "
+                "of the discrete-time target."
+            ),
+        },
     },
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
     core_extensions=[_register_millard_pdmp_links],
@@ -707,6 +725,7 @@ def millard_pdmp_baseline(
     with_ref_growth: bool = False,
     ref_growth_flux_source: str = "proportional",
     transcript_initiation_mode: str = "discrete",
+    polypeptide_initiation_mode: str = "discrete",
 ) -> dict:
     """Build the process-bigraph state document for the Millard-PDMP baseline."""
     if core is None:
@@ -838,6 +857,7 @@ def millard_pdmp_baseline(
             loader, step_name, core, _process_cache, master_seed=seed,
             ref_growth_flux_source=ref_growth_flux_source,
             transcript_initiation_mode=transcript_initiation_mode,
+            polypeptide_initiation_mode=polypeptide_initiation_mode,
         )
         if config is not None:
             if len(config) == 5:

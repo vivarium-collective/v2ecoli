@@ -179,6 +179,7 @@ def _get_step_config(
     process_cache=None,
     master_seed=0,
     transcript_initiation_mode: str | None = None,
+    polypeptide_initiation_mode: str | None = None,
 ):
     """Get (instance, topology, edge_type[, in_topo, out_topo]) for a step.
 
@@ -186,10 +187,11 @@ def _get_step_config(
     _derive_process_seed(master_seed, base_name) so each stochastic process
     gets a distinct, reproducible seed across an ensemble.
 
-    transcript_initiation_mode: Phase-2 opt-in for the TranscriptInitiation
-    jump-process kinetics. ``"discrete"`` (default) → legacy multinomial
-    sampling; ``"poisson"`` → per-promoter Poisson tau-leap. See
-    ``v2ecoli/processes/transcript_initiation.py:pdmp_initiation_mode``.
+    transcript_initiation_mode / polypeptide_initiation_mode: Phase-2 opt-in
+    for the respective Process's jump-process kinetics. ``"discrete"``
+    (default) → legacy multinomial sampling; ``"poisson"`` → per-target
+    Poisson tau-leap. See the respective ``pdmp_initiation_mode`` config
+    on each Process.
     """
     from v2ecoli.processes.equilibrium import Equilibrium
     from v2ecoli.processes.two_component_system import TwoComponentSystem
@@ -287,15 +289,21 @@ def _get_step_config(
     if isinstance(config, dict) and "seed" in config:
         config["seed"] = _derive_process_seed(master_seed, base_name)
 
-    # Phase-2: thread transcript_initiation_mode override into the
-    # ParCa-generated config so TranscriptInitiation.initialize() picks
-    # up the jump-process mode.
+    # Phase-2: thread {transcript,polypeptide}_initiation_mode overrides
+    # into the ParCa-generated config so each Process's initialize()
+    # picks up the jump-process mode.
     if (
         transcript_initiation_mode
         and isinstance(config, dict)
         and base_name == 'ecoli-transcript-initiation'
     ):
         config["pdmp_initiation_mode"] = transcript_initiation_mode
+    if (
+        polypeptide_initiation_mode
+        and isinstance(config, dict)
+        and base_name == 'ecoli-polypeptide-initiation'
+    ):
+        config["pdmp_initiation_mode"] = polypeptide_initiation_mode
 
     # Partitioned processes: wrap with generic Requester/Evolver
     if base_name in PARTITIONED_PROCESSES:
@@ -402,11 +410,18 @@ def _get_step_config(
             "description": (
                 "Phase-2 jump-process opt-in for transcription initiation. "
                 "'discrete' (default, legacy): multinomial event distribution "
-                "with exact Σ N_i = n_target — bit-identical to pre-Phase-2 "
-                "behaviour. 'poisson': per-promoter Poisson(n_target · p_i) "
-                "tau-leap; each promoter is an independent jump process "
-                "whose per-tick marginal Phase-3 inference can integrate "
-                "against."
+                "with exact Σ N_i = n_target. 'poisson': per-promoter "
+                "Poisson(n_target · p_i) tau-leap."
+            ),
+        },
+        "polypeptide_initiation_mode": {
+            "type": "string", "default": "discrete",
+            "description": (
+                "Phase-2 jump-process opt-in for translation initiation. "
+                "Same dispatch as transcript_initiation_mode but for "
+                "PolypeptideInitiation; ribosome activation per protein "
+                "becomes per-protein Poisson(n_target · p_i) tau-leap "
+                "instead of one global multinomial draw."
             ),
         },
     },
@@ -418,6 +433,7 @@ def baseline(
     seed: int = 0,
     cache_dir: str = "out/cache",
     transcript_initiation_mode: str = "discrete",
+    polypeptide_initiation_mode: str = "discrete",
 ) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
@@ -541,6 +557,7 @@ def baseline(
         config = _get_step_config(
             loader, step_name, core, _process_cache, master_seed=seed,
             transcript_initiation_mode=transcript_initiation_mode,
+            polypeptide_initiation_mode=polypeptide_initiation_mode,
         )
         if config is not None:
             if len(config) == 5:

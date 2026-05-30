@@ -889,6 +889,18 @@ def _get_special_step(loader, step_name, core):
                     'free_DnaA_boxes': 'integer',
                     'total_DnaA_boxes': 'integer',
                 },
+                # dnaa-2: DnaA nucleotide-state partitioning (emitted only when
+                # the dnaa_nucleotide feature wires the DnaaCycleListener).
+                'dnaA_cycle': {
+                    'apo_count': 'integer',
+                    'atp_count': 'integer',
+                    'adp_count': 'integer',
+                    'total': 'integer',
+                    'atp_fraction': 'float',
+                    'adp_fraction': 'float',
+                    'apo_fraction': 'float',
+                    'intrinsic_hydrolysis_events': 'integer',
+                },
             })
 
         if parquet_override is not None:
@@ -1012,6 +1024,20 @@ def _get_special_step(loader, step_name, core):
         from v2ecoli.steps.listeners.replication_data import ReplicationData
         config = {'time_step': 1}
         instance = ReplicationData(config=config, core=core)
+        topology = getattr(instance, 'topology', {})
+        return instance, topology, 'step'
+
+    if step_name == 'dnaa-intrinsic-hydrolysis':
+        # dnaa-2: DnaA-ATP -> DnaA-ADP intrinsic hydrolysis (k=0.046/min).
+        from v2ecoli.steps.dnaa_intrinsic_hydrolysis import DnaaIntrinsicHydrolysis
+        instance = DnaaIntrinsicHydrolysis(config={'rate_per_min': 0.046}, core=core)
+        topology = getattr(instance, 'topology', {})
+        return instance, topology, 'step'
+
+    if step_name == 'dnaa-cycle-listener':
+        # dnaa-2: DnaA nucleotide-state listener (apo/ATP/ADP counts+fractions).
+        from v2ecoli.steps.dnaa_cycle_listener import DnaaCycleListener
+        instance = DnaaCycleListener(config={'time_step': 1}, core=core)
         topology = getattr(instance, 'topology', {})
         return instance, topology, 'step'
 

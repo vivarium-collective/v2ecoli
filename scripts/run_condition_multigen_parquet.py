@@ -128,6 +128,11 @@ def main() -> None:
     ap.add_argument("--start-gen", type=int, default=1,
                     help="Generation index (and agent_id length) for the "
                          "first gen of THIS run. Default 1.")
+    ap.add_argument("--features", default=None,
+                    help="Comma-separated baseline feature modules (replaces "
+                         "DEFAULT_FEATURES). dnaa-2 uses "
+                         "'ppgpp_regulation,dnaa_nucleotide' to add the DnaA "
+                         "intrinsic hydrolysis + nucleotide-state listener.")
     args = ap.parse_args()
 
     max_duration = int(args.max_min * 60)
@@ -198,8 +203,10 @@ def main() -> None:
                     "unique_names": unique_names,
                     "dry_mass_inc_dict": dry_mass_inc,
                 }
+                _feat = (args.features.split(",") if args.features else None)
                 doc = baseline_doc(core=core, seed=args.seed + gen_idx,
-                                   cache_dir=args.cache_dir, bundle=bundle)
+                                   cache_dir=args.cache_dir, bundle=bundle,
+                                   features=_feat)
                 comp = Composite(doc, core=core)
             print(f"    composite built in {time.time()-t_build:.1f}s")
 

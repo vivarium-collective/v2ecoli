@@ -280,6 +280,40 @@ findings:
       from_run: dnaa2-multiseed-v2
     provenance:
       run_ids: [dnaa2-multiseed-v2]
+  - id: within-cycle-reinitiation-seed2-gen3
+    kind: computational
+    summary: |
+      One stochastic lineage shows a within-cycle RE-INITIATION at its 4th
+      generation (gen index 3): oriC rises 1→2→4 before division — two
+      initiation up-transitions in a single cycle, max oriC = 4 — instead of
+      the clean periodic 1↔2 cycle. Verified from the multiseed-v2 oriC traces
+      (2026-05-31): this occurs in SEED 2 (the 4th displayed lineage); seeds 0
+      and 3 stay periodic 1↔2 across all 4 generations, and seed 1 failed
+      earlier at gen 3 on the unrelated allocator edge case. Flagged by Rashmi
+      (2026-05-31) as seed instability — analysis proceeds with seed 0 as the
+      canonical lineage. The DnaA-ATP fraction result is unaffected (seed 0 and
+      the across-seed means already exclude this as a cell-cycle artefact).
+    evidence:
+      from_run: dnaa2-multiseed-v2
+    provenance:
+      run_ids: [dnaa2-multiseed-v2]
+      verified_by: per-seed oriC trace recomputation 2026-05-31
+
+reviewer_feedback:
+  - round: '2026-05-31'
+    reviewer: Rashmi
+    source: feedback-dnaa-replication-2026-05-31-03-23-19.yaml (study-dnaa-2-atp-hydrolysis-summary)
+    verdict_effect: selects-canonical-seed
+    notes: |
+      "seed 4 doesn't seem stable because there is a reinitiation happening
+      within the cell cycle at generation 4 again. For now, let's move forward
+      with seed 0." Verified against the multiseed-v2 oriC traces: seed 2 (the
+      4th displayed lineage) re-initiates within its 4th-generation cycle
+      (oriC 1→2→4); seeds 0 and 3 remain periodic 1↔2 across all 4 gens.
+      → Canonical lineage for dnaa-2 figures/analysis pinned to SEED 0
+        (finding within-cycle-reinitiation-seed2-gen3). This does NOT change
+        the Step-3 gate, which stays blocked on Haochen's K_d decision; it only
+        fixes which seed the trajectory figures display.
 
 assumptions:
   - text: |
@@ -360,6 +394,7 @@ runs:
       allocator.NegativeCountsError(PROTON[c]) at gen 3 (base-model edge case).
     parquet: studies/dnaa-2-atp-hydrolysis/parquet-runs/dnaa2-multiseed-v2/parquet
     seeds: [0, 1, 2, 3]
+    canonical_seed: 0   # Rashmi 2026-05-31: seed 2 reinitiates within-cycle at gen 3; use seed 0
     result: DnaA-ATP fraction 0.997 across all seeds; 13 complete lineage-gens.
   - name: dnaa2-step1-k0
     status: completed

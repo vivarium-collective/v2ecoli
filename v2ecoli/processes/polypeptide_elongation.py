@@ -1062,7 +1062,7 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
             self.aa_supply,
             fwd_enzyme_counts,
             rev_enzyme_counts,
-            pint_to_unum(dry_mass),
+            dry_mass_unum,  # = pint_to_unum(dry_mass), already computed above
             importer_counts,
             exporter_counts,
             aa_in_media,
@@ -1152,7 +1152,8 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
         # construction + downstream .to(MICROMOLAR_UNITS).magnitude stripping
         # inside those functions.
         f = aasInSequences / aasInSequences.sum()
-        counts_to_uM_mag = self.counts_to_molar.to(MICROMOLAR_UNITS).magnitude
+        # counts_to_uM_mag already computed once above (self.counts_to_molar is
+        # not reassigned in between) — reuse it instead of recomputing.
         synthetase_conc = counts_to_uM_mag * synthetase_counts
         aa_conc = counts_to_uM_mag * aa_counts
         uncharged_trna_conc = counts_to_uM_mag * uncharged_trna_counts

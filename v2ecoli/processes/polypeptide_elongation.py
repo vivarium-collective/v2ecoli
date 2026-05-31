@@ -1172,6 +1172,61 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
             "ribosome_conc": ribosome_conc,
         }
 
+    def _select_aa_supply(
+        self,
+        states,
+        counts_to_uM_mag,
+        synthesis,
+        import_rates,
+        export_rates,
+        exchange_rates,
+        synthesis_in_charging,
+        import_in_charging,
+        export_in_charging,
+        aa_conc,
+        aa_in_media,
+    ):
+        """Reconcile ``self.aa_supply`` after the charging solve (one of 3 modes).
+
+        * ``aa_supply_in_charging``: use the supply realized over the charging
+          sub-steps, converted back to counts/timestep::
+
+              rate = in_charging / counts_to_uM_mag / dt
+              aa_supply = synthesis + import - export
+        * ``mechanistic_translation_supply``: use the start-of-tick mechanistic
+          rates::  ``aa_supply = dt * (synthesis + exchange)``
+        * else: scale the prior supply up when amino acid concentrations are low
+          (mimics synthesis inhibition / export)::
+          ``aa_supply *= aa_supply_scaling(unit_conversion * aa_conc, aa_in_media)``
+
+        Sets ``self.aa_supply`` as a side effect and returns the (possibly
+        updated) ``(synthesis, import_rates, export_rates)`` for the listeners.
+        """
+        # Use the supply calculated from each sub timestep while solving the charging steady state
+        if self.aa_supply_in_charging:
+            # counts_to_uM_mag is the μM-magnitude float computed above;
+            # 1/counts_to_uM_mag/timestep is the per-timestep conversion.
+            conversion = 1 / counts_to_uM_mag / states["timestep"]
+            synthesis = conversion * synthesis_in_charging
+            import_rates = conversion * import_in_charging
+            export_rates = conversion * export_in_charging
+            self.aa_supply = synthesis + import_rates - export_rates
+        # Use the supply calculated from the starting amino acid concentrations only
+        elif self.mechanistic_translation_supply:
+            # Set supply based on mechanistic synthesis and supply
+            self.aa_supply = states["timestep"] * (synthesis + exchange_rates)
+        else:
+            # Adjust aa_supply higher if amino acid concentrations are low
+            # Improves stability of charging and mimics amino acid synthesis
+            # inhibition and export.
+            # aa_conc is in μM (MICROMOLAR_UNITS = CONC_UNITS); pass
+            # magnitude directly to aa_supply_scaling.
+            self.aa_supply *= self.aa_supply_scaling(
+                self.charging_params["unit_conversion"] * aa_conc,
+                aa_in_media,
+            )
+        return synthesis, import_rates, export_rates
+
     def request(
         self, states: dict, aasInSequences: npt.NDArray[np.int64]
     ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], dict]:
@@ -1254,29 +1309,19 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
             time_limit=states["timestep"],
         )
 
-        # Use the supply calculated from each sub timestep while solving the charging steady state
-        if self.aa_supply_in_charging:
-            # counts_to_uM_mag is the μM-magnitude float computed above;
-            # 1/counts_to_uM_mag/timestep is the per-timestep conversion.
-            conversion = 1 / counts_to_uM_mag / states["timestep"]
-            synthesis = conversion * synthesis_in_charging
-            import_rates = conversion * import_in_charging
-            export_rates = conversion * export_in_charging
-            self.aa_supply = synthesis + import_rates - export_rates
-        # Use the supply calculated from the starting amino acid concentrations only
-        elif self.mechanistic_translation_supply:
-            # Set supply based on mechanistic synthesis and supply
-            self.aa_supply = states["timestep"] * (synthesis + exchange_rates)
-        else:
-            # Adjust aa_supply higher if amino acid concentrations are low
-            # Improves stability of charging and mimics amino acid synthesis
-            # inhibition and export.
-            # aa_conc is in μM (MICROMOLAR_UNITS = CONC_UNITS); pass
-            # magnitude directly to aa_supply_scaling.
-            self.aa_supply *= self.aa_supply_scaling(
-                self.charging_params["unit_conversion"] * aa_conc,
-                aa_in_media,
-            )
+        synthesis, import_rates, export_rates = self._select_aa_supply(
+            states,
+            counts_to_uM_mag,
+            synthesis,
+            import_rates,
+            export_rates,
+            exchange_rates,
+            synthesis_in_charging,
+            import_in_charging,
+            export_in_charging,
+            aa_conc,
+            aa_in_media,
+        )
 
         # counts_to_uM_mag is the cached per-tick conversion factor;
         # dividing here matches the previous Quantity-stripping path.

@@ -11,14 +11,42 @@ evaluation_status: evaluated
 gate_status: in_progress          # NOT passed — Step 3 (tuning) blocked on Haochen
 expert_review_status: pending     # awaiting Haochen on the K_d inconsistency
 
-readouts: |
-  Per-tick (history parquet) over the lineage: DnaA-form counts
-  (listeners.dnaA_cycle.{apo,atp,adp}_count + total + {apo,atp,adp}_fraction),
-  intrinsic_hydrolysis_events; cell mass (listeners.mass.cell_mass);
-  oriC count (listeners.replication_data.number_of_oric); cellular bulk
-  ATP[c]/ADP[c] (bulk__count). Derived: DnaA concentration (total/cell_mass),
-  DnaA-ATP fraction (primary readout vs the Boesen [0.2,0.5] band), doubling
-  time per generation. Six-panel trajectory figure assembles all of these.
+readouts:
+  - name: DnaA-ATP fraction
+    status: primary
+    identifier: listeners.dnaA_cycle.atp_fraction
+    units: fraction
+    notes: DnaA-ATP / (apo + DnaA-ATP + DnaA-ADP); evaluated vs the Boesen 2024 [0.2, 0.5] band.
+  - name: DnaA-form counts
+    status: measured
+    identifier: listeners.dnaA_cycle.{apo,atp,adp}_count + total
+    units: molecules/cell
+    notes: apo-DnaA / DnaA-ATP / DnaA-ADP and their total; total vs the [300, 800] band.
+  - name: intrinsic hydrolysis events
+    status: measured
+    identifier: listeners.dnaA_cycle.intrinsic_hydrolysis_events
+    units: cumulative count
+    notes: DnaA-ATP→DnaA-ADP conversions; 0 in the k=0 control, 3-6/gen at k=0.046.
+  - name: DnaA concentration
+    status: derived
+    identifier: listeners.dnaA_cycle.total / listeners.mass.cell_mass
+    units: counts/fg
+    notes: Drifts up over the lineage (not equilibrated from the resume-init).
+  - name: cell mass
+    status: measured
+    identifier: listeners.mass.cell_mass
+    units: fg
+    notes: Periodic sawtooth; doubling time per generation derived from divisions.
+  - name: oriC count
+    status: measured
+    identifier: listeners.replication_data.number_of_oric
+    units: count
+    notes: Cell-cycle integrity — oscillates 1↔2, no runaway to 4.
+  - name: cellular bulk ATP[c] / ADP[c]
+    status: measured
+    identifier: bulk__count[ATP[c], ADP[c]]
+    units: molecules/cell
+    notes: Sets the [ATP]:[ADP] ratio (~20) that drives the equilibrium partitioning.
 
 question: |
   Starting from dnaa-1's V-tuned succinate lineage (total DnaA in [300, 800],

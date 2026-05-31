@@ -25,6 +25,12 @@ from __future__ import annotations
 import argparse
 import glob
 import os
+import sys
+
+# Worktree's v2ecoli must win over the editable install (which points at the
+# main checkout and lacks this worktree's visualization classes).
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _ROOT)
 
 import polars as pl
 
@@ -132,14 +138,65 @@ def render(run_dir: str, seed: int, step: int, out_dir: str) -> str:
     return base + ".svg"
 
 
+def render_html(run_dir: str, seed: int, step: int, out_path: str,
+                title: str | None = None) -> str:
+    """Interactive Plotly 6-panel via DnaaSixPanelVisualization → HTML file
+    (the dashboard surfaces reports/figures/<study>/<name>.html by name)."""
+    from v2ecoli.visualizations.dnaa_succinate import DnaaSixPanelVisualization
+    from v2ecoli.core import build_core
+
+    df, bounds = _load_seed(run_dir, seed)
+    col = lambda c: [float(v) for v in df[c].to_list()]
+    conc = (df["listeners__dnaA_cycle__total"] / df["listeners__mass__cell_mass"]).to_list()
+    mech = "ON" if step >= 2 else "OFF"
+    state = {
+        "t": col("t_min"),
+        "cell_mass": col("listeners__mass__cell_mass"),
+        "oric": col("listeners__replication_data__number_of_oric"),
+        "total": col("listeners__dnaA_cycle__total"),
+        "atp": col("listeners__dnaA_cycle__atp_count"),
+        "adp": col("listeners__dnaA_cycle__adp_count"),
+        "apo": col("listeners__dnaA_cycle__apo_count"),
+        "conc": [float(v) for v in conc],
+        "atp_frac": col("listeners__dnaA_cycle__atp_fraction"),
+        "adp_frac": col("listeners__dnaA_cycle__adp_fraction"),
+        "apo_frac": col("listeners__dnaA_cycle__apo_fraction"),
+        "atp_pool": col("bulk_atp"),
+        "adp_pool": col("bulk_adp"),
+        "division_times": bounds,
+        "_caption": (f"succinate, seed {seed}, mechanism {mech} "
+                     f"(k={'0.046' if step >= 2 else '0'} /min); "
+                     f"{len(bounds) + 1} generations; dashed = division boundaries"),
+    }
+    core = build_core()
+    viz = DnaaSixPanelVisualization(config={
+        "title": title or f"dnaa-2 Step {step} — DnaA nucleotide-state trajectory (seed {seed})",
+    }, core=core)
+    html = viz.update(state).get("html", "")
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(html)
+    print(f"wrote {out_path}  ({len(html)/1024:.0f} KB)")
+    return out_path
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", required=True)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--step", type=int, default=2)
     ap.add_argument("--out-dir", default="studies/dnaa-2-atp-hydrolysis/charts")
+    ap.add_argument("--format", choices=["svg", "html", "both"], default="both")
+    ap.add_argument("--html-out", default=None,
+                    help="HTML output path (default: reports/figures/"
+                         "dnaa-2-atp-hydrolysis/dnaa2_step<N>_sixpanel_seed<S>.html)")
     a = ap.parse_args()
-    render(a.run, a.seed, a.step, a.out_dir)
+    if a.format in ("svg", "both"):
+        render(a.run, a.seed, a.step, a.out_dir)
+    if a.format in ("html", "both"):
+        html_out = a.html_out or (f"reports/figures/dnaa-2-atp-hydrolysis/"
+                                  f"dnaa2_step{a.step}_sixpanel_seed{a.seed}.html")
+        render_html(a.run, a.seed, a.step, html_out)
 
 
 if __name__ == "__main__":

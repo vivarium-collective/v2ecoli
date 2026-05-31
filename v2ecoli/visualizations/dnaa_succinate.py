@@ -920,3 +920,121 @@ class DnaaFormsVisualization(Visualization):
                 + _plotly_div("dnaa2-frac", frac_traces, frac_layout)
                 + _plotly_div("dnaa2-pools", pool_traces, pool_layout))
         return {"html": render_document(title=title, body_html=body)}
+
+
+def _band_shape(y0: float, y1: float, color: str = "#22c55e",
+                opacity: float = 0.10) -> dict:
+    return {"type": "rect", "xref": "paper", "yref": "y", "x0": 0, "x1": 1,
+            "y0": y0, "y1": y1, "fillcolor": color, "opacity": opacity,
+            "line": {"width": 0}, "layer": "below"}
+
+
+class DnaaSixPanelVisualization(Visualization):
+    """dnaa-2 spec-deliverable 6-panel minutes-axis lineage trajectory.
+
+    Interactive Plotly (via the HTML helpers — no python plotly dep). One
+    lineage_seed, x-axis cumulative minutes with generation boundaries marked,
+    six stacked panels:
+      (1) cell mass (fg)
+      (2) oriC count
+      (3) DnaA forms (total/ATP/ADP/apo) + total [300, 800] band
+      (4) DnaA concentration (total / cell mass)
+      (5) DnaA-form fractions (%ATP/%ADP/%apo) + ATP [0.2, 0.5] band
+      (6) cellular bulk ATP[c] / ADP[c]
+
+    State (built by the renderer from history parquet): t (minutes),
+    cell_mass, oric, total, atp, adp, apo, conc, atp_frac, adp_frac,
+    apo_frac, atp_pool, adp_pool, division_times, _caption.
+    """
+
+    config_schema = {
+        **Visualization.config_schema,
+        "atp_band_low":  {"_type": "float", "_default": 0.2},
+        "atp_band_high": {"_type": "float", "_default": 0.5},
+        "dnaa_band_low":  {"_type": "float", "_default": 300.0},
+        "dnaa_band_high": {"_type": "float", "_default": 800.0},
+    }
+
+    def inputs(self) -> dict[str, Any]:
+        return {
+            "t": "list[float]", "cell_mass": "list[float]", "oric": "list[float]",
+            "total": "list[float]", "atp": "list[float]", "adp": "list[float]",
+            "apo": "list[float]", "conc": "list[float]", "atp_frac": "list[float]",
+            "adp_frac": "list[float]", "apo_frac": "list[float]",
+            "atp_pool": "list[float]", "adp_pool": "list[float]",
+            "division_times": "list[float]", "_caption": "string",
+        }
+
+    def update(self, state: dict[str, Any]) -> dict:
+        title = self.config.get("title") or "DnaA nucleotide-state trajectory"
+        lo = float(self.config.get("atp_band_low", 0.2))
+        hi = float(self.config.get("atp_band_high", 0.5))
+        dlo = float(self.config.get("dnaa_band_low", 300.0))
+        dhi = float(self.config.get("dnaa_band_high", 800.0))
+        t = [_num(v) or 0.0 for v in (state.get("t") or [])]
+        if not t:
+            return {"html": render_document(title=title, body_html=_empty_note(
+                "No trajectory data. Provide per-tick t (min) + cell_mass / "
+                "oric / DnaA forms / fractions / bulk pools."))}
+        div_t = [_num(v) for v in (state.get("division_times") or [])]
+        div_t = [v for v in div_t if v is not None]
+        x_max = max(t) if t else None
+        shapes = _generation_shapes(div_t)
+        anns = _generation_annotations(div_t, x_max)
+        cap = state.get("_caption") or ""
+
+        def panel(div_id, traces, ytitle, extra_shapes=None, yrange=None,
+                  band_note=None):
+            layout = {
+                "xaxis": {"title": "lineage time (min)"},
+                "yaxis": {"title": ytitle},
+                "shapes": (shapes + (extra_shapes or [])),
+                "annotations": anns,
+                "margin": {"l": 65, "r": 20, "t": 24, "b": 36},
+                "showlegend": True,
+                "legend": {"orientation": "h", "y": 1.18, "x": 0, "font": {"size": 9}},
+            }
+            if yrange:
+                layout["yaxis"]["range"] = yrange
+            if band_note:
+                layout["annotations"] = anns + [{
+                    "xref": "paper", "yref": "paper", "x": 1.0, "y": 0.02,
+                    "xanchor": "right", "showarrow": False, "text": band_note,
+                    "font": {"size": 9, "color": "#94a3b8"}}]
+            return _plotly_div(div_id, traces, layout)
+
+        forms = [
+            _trace("total DnaA", t, state.get("total") or [], color="#111827"),
+            _trace("DnaA-ATP", t, state.get("atp") or [], color="#2563eb"),
+            _trace("DnaA-ADP", t, state.get("adp") or [], color="#dc2626"),
+            _trace("apo-DnaA", t, state.get("apo") or [], color="#9333ea"),
+        ]
+        fracs = [
+            _trace("%DnaA-ATP", t, state.get("atp_frac") or [], color="#2563eb"),
+            _trace("%DnaA-ADP", t, state.get("adp_frac") or [], color="#dc2626"),
+            _trace("%apo", t, state.get("apo_frac") or [], color="#9333ea"),
+        ]
+        pools = [
+            _trace("ATP[c]", t, state.get("atp_pool") or [], color="#0891b2"),
+            _trace("ADP[c]", t, state.get("adp_pool") or [], color="#f59e0b"),
+        ]
+        cap_html = (f'<div style="text-align:center;font-size:0.82em;color:#64748b;'
+                    f'margin:4px 0 10px">{escape(cap)}</div>' if cap else "")
+        body = (
+            _PLOTLY_CDN + cap_html
+            + "<h4 style='margin:6px 0 0'>(1) cell mass</h4>"
+            + panel("d2-mass", [_trace("cell mass", t, state.get("cell_mass") or [], color="#111827")], "fg")
+            + "<h4 style='margin:6px 0 0'>(2) oriC count</h4>"
+            + panel("d2-oric", [_trace("oriC", t, state.get("oric") or [], color="#9333ea", mode="lines")], "count")
+            + "<h4 style='margin:6px 0 0'>(3) DnaA forms</h4>"
+            + panel("d2-forms", forms, "counts", extra_shapes=[_band_shape(dlo, dhi)],
+                    band_note=f"band = total [{int(dlo)}, {int(dhi)}]")
+            + "<h4 style='margin:6px 0 0'>(4) DnaA concentration</h4>"
+            + panel("d2-conc", [_trace("DnaA / cell mass", t, state.get("conc") or [], color="#ea580c")], "counts/fg")
+            + "<h4 style='margin:6px 0 0'>(5) DnaA-form fractions</h4>"
+            + panel("d2-frac", fracs, "fraction", extra_shapes=[_band_shape(lo, hi, color="#2563eb")],
+                    yrange=[-0.03, 1.06], band_note=f"band = DnaA-ATP [{lo}, {hi}]")
+            + "<h4 style='margin:6px 0 0'>(6) cellular bulk ATP[c] / ADP[c]</h4>"
+            + panel("d2-pools", pools, "counts")
+        )
+        return {"html": render_document(title=title, body_html=body)}

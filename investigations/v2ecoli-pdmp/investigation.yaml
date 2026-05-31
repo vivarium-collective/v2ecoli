@@ -119,10 +119,19 @@ executive:
     '
   verdict_status: in-progress
   decisions_needed:
-  - Confirm Phase 3 observation likelihoods will anchor on count-level
-    listeners (rnap_data / ribosome_data / monomer_counts), not cell_mass —
-    closeout finding from Phase 2 sprints 6–9.
-  - Confirm Catalyst.jl + ModelingToolkit as the Phase-4 compilation target.
+  - 'RESOLVED — Phase 3 inference anchors on count-level listeners. Closeout finding from Phase 2 sprints 6–9 confirmed
+    by Phase 3 sprints 12-13: count-based ABC distance gives 100× sharper Ts identification than aggregate log-likelihood.
+    Combined count vector is the Phase-3-canonical distance.'
+  - 'RESOLVED — Phase 4 architectural direction is column-centric runtime, NOT Catalyst.jl per-Process JIT. Sprint 1-2
+    profile shows ~76% framework overhead and ~14K isinstance/tick + 4K __array_finalize__/tick dominate, so per-Process
+    compilation buys at most ~10% of per-tick time. Sprints 3-4-6 prototypes validate 1.5× per-tick × N-way parallel
+    lockstep = ~1500× total speedup at N=10³.'
+  - 'OPEN — Phase 5 (Bayesian gene-function annotation) gate. Depends on Phase 4 implementation; per-particle wall budget
+    must drop to <0.05 sec/tick before ABC-SMC at the gene-function scale is tractable.'
+  - 'OPEN — Task #14 root-cause fix for the pbg scalar-pruning quirk. Worked around in Phase 3 sprints 1 and 13 via
+    pin-via-consumer declarations; real fix lives at the pbg merger layer.'
+  - 'OPEN — Task #20 in-WCM JAX backend failure. Works standalone, fails inside the WCM composite. Phase 1 perf #4
+    follow-up.'
 scientific_argument:
   main_claim: 'The PDMP class — ODE segments interrupted by discrete jump events —
 
@@ -143,6 +152,43 @@ scientific_argument:
     substrate for the Phase-1 reformulation; [[millard2017]].
   - Vivarium's algebraic-effect interpretation (DUF Sec. 4.2.2) opens a path to extending it into a probabilistic programming
     language for observe / intervene effects in Phase 3.
+  - 'PHASE-1 EMPIRICAL — `MillardPDMPMetabolism` Process + JAX/Diffrax backend + `consumption_matched` ref-growth driver
+    closes the W₂ cell_mass + dry_mass gap to the Phase-0 ensemble within ±σ at t=600 s on M9-glucose (PR #72 merged
+    2026-05-30). Establishes that the FBA → ODE substitution is mechanistically viable; the kinetic ODE plus a
+    consumption-matching biomass driver reproduces the kFBA reference trajectory in distribution, not just at endpoints.'
+  - 'PHASE-2 EMPIRICAL — Per-promoter Poisson tau-leap (`TranscriptInitiation`) and per-protein Poisson tau-leap
+    (`PolypeptideInitiation`) replace the legacy multinomial samplers in `poisson` mode (composite knob: `transcript_initiation_mode`
+    / `polypeptide_initiation_mode`). Resource cap pinned to actual inactive pool, not the discrete-time target, avoiding
+    asymmetric truncation undercount. Phase-2 architectural goal mechanically present; jump-process variance demonstrably
+    reaches the listener level (peak |Δcm| = 150 fg at the rnap_data listener at t=600 s, sprint 4).'
+  - 'PHASE-3 EMPIRICAL — Per-tick log-likelihood emission landed for both initiation Processes (sprints 1-2) and aggregated
+    by a `LikelihoodCollector` Step. The XArrayEmitter pipeline persists every Phase-3 observable to per-replicate zarr
+    stores; readback gives the canonical `xarray.Dataset(replicate × time × channel)` shape ABC drivers consume (sprint 4).
+    Inference noise floor empirically calibrated via mean-to-mean split (sprint 8); 1D ABC stub with sequential SMC ε
+    tightening collapses the posterior to {truth} at p25/p05 (sprint 9). The full Phase-3 "observation likelihoods +
+    likelihood accumulator + ABC-SMC baseline" scope is end-to-end working on synthetic data.'
+  - 'PHASE-3 ARCHITECTURAL FINDING (sprints 11-12-13) — The pipeline''s emitted log-likelihood is SELF-CALIBRATED under
+    the model''s own rates: `log P(simulated_data | simulated_parameter)`. For ABC, the right quantity is `log P(observed
+    | proposed)`. Switching to SSE distance on count observables (`total_rna_init`, `did_initialize`) sharpens identifiability
+    dramatically. The transcript count metric alone gives ~150× row-separation along the Ts axis. Combined count vector
+    `sqrt(d_rna² + d_ribosome²)` reaches 3.06× truth-vs-next-nearest separation (vs 2.39× for aggregate log-likelihood) —
+    Phase-3-canonical ABC distance for jump-process WCM inference.'
+  - 'PHASE-3 IDENTIFIABILITY FINDING (sprint 10) — 2D parameter sweep on (Ts, Ps) shows an ANTI-DIAGONAL RIDGE under the
+    aggregate `total` log-likelihood metric: reducing transcription rate while raising translation rate partially cancels
+    at the aggregate level (fewer mRNAs, more ribosome activations per mRNA → similar total log P per tick). Per-channel
+    distance correctly identifies the truth; aggregate-only metrics cannot distinguish opposing parameter shifts on
+    coupled processes. Sprint-13 combined count vector breaks the ridge.'
+  - 'PHASE-4 EMPIRICAL — Production composite per-tick wall = 52 ms (sprint 5 measured) / 74 ms (sprint 1 single-tick),
+    of which 76% lives in framework overhead (Python internals + numpy + v2ecoli library + other site-packages — sprint
+    1). Function-level hotspots: 13,817 `isinstance` calls per tick, 4,213 `__array_finalize__` calls per tick, 52
+    `process_update` calls per tick (sprint 2). Marshalling dominates over per-Process compute.'
+  - 'PHASE-4 ARCHITECTURAL ANSWER (sprints 3-4-6) — Column-centric runtime gives constant per-trajectory wall regardless
+    of N (vector ops across the trajectory dimension don''t pay per-trajectory overhead). Per-tick speedup factor: 3.1×
+    on a pure-Poisson toy (sprint 3), 2.8× on a 3-step toy (sprint 4), and 1.5× on a realistic TranscriptInitiation-shaped
+    workload that includes the TF-binding matrix-vec product (sprint 6 — the honest recalibration). Combined with N-way
+    parallel lockstep vs pbg sequential: ~1500× total speedup at N=10³ × 30 ticks (sprint 5 projection × sprint 6
+    recalibration). Per-Process Catalyst.jl JIT buys ≤10% — wrong attack; column-centric is the right architectural
+    direction.'
   evidence_against:
   - 'v2ecoli''s current FBA metabolism (multi-objective: biomass + homeostatic + kinetic-constraint, via `wholecell.utils.modular_fba`)
     is tightly coupled to the rest of the WCM — enzyme abundances feed the kinetic-constraint bounds, doubling-time feeds
@@ -172,6 +218,24 @@ scientific_argument:
     wall time.
   - Phases 1–2 are designated parallelizable with Phase 4; Phase 3 strictly depends on Phase 2; Phase 5 depends on all preceding
     phases.
+  - 'PHASE-2 OBSERVABLE-CHOICE CAVEAT — cell_mass is the WRONG observable for jump-process variance. The
+    `consumption_matched` ref-growth driver is by construction a homeostat: any version that closes the consumption loop
+    flattens per-tick variance at the bulk-pool level and therefore at cell_mass. Three attempts to loosen it (tau-EMA
+    smoothing sprint 7, open-loop measured_kfba sprint 8, sparse injection sprint 9) all failed to surface Poisson
+    variance at cell_mass. The signal exists at the rnap_data listener (peak |Δcm| = 150 fg, sprint 4) — Phase-3 inference
+    correctly anchored on count-level listeners, not mass.'
+  - 'PHASE-3 SELF-CALIBRATION CAVEAT — The pipeline''s emitted log-likelihood is `log P(simulated_data | simulated_parameter)`,
+    NOT `log P(observed | proposed)` — it is self-calibrated under the model''s own rates and weakens identifiability.
+    The architecturally correct ABC distance is on count observables; the log-likelihood metric works (sprints 7-10) but
+    is the strictly weaker tool. Sprint-12-13 establish the per-channel count metric as the Phase-3 standard.'
+  - 'PHASE-4 RECALIBRATION CAVEAT — The sprint-5 projection of ~3000× total speedup at N=10³ was based on toy calibration
+    (3× per-tick CC speedup). Sprint 6''s realistic TI-shaped workload (matrix-vec + clip + normalize + Poisson) gives
+    1.5× per-tick speedup instead. Recalibrated projection: ~1500× at N=10³, ~15000× at N=10⁴. Still enormous; the
+    parallel-lockstep structural advantage dominates over the per-tick multiplier.'
+  - 'PBG WIRING QUIRK (task #14) — Scalar listener fields with no downstream consumer get pruned from the merged state
+    silently. Bit sprint 1 (log_likelihood lost), bit sprint 12 (did_initialize lost), worked around by declaring the
+    field as an unused input on the corresponding listener Step (RnapData / RibosomeData). Real fix lives at the
+    pbg merger layer and remains pending.'
 biological_story: 'E. coli grows by integrating metabolism, gene expression, replication,
 
   and division — processes that operate on very different timescales
@@ -230,18 +294,33 @@ biological_story: 'E. coli grows by integrating metabolism, gene expression, rep
   '
 at_a_glance:
 - study: pdmp-00-characterization
-  role: Markov-blanket interface extraction + reference Xarray datasets for downstream validation
+  role: Markov-blanket interface extraction + reference Xarray datasets for downstream validation. COMPLETE.
 - study: pdmp-01-metabolism-ode
   role: 'Replace v2ecoli''s multi-objective FBA (`modular_fba`: biomass + homeostatic + kinetic-constraint) with Millard 2017
-    kinetic ODE + LQR outer control'
+    kinetic ODE + LQR outer control. COMPLETE (PR #72 merged 2026-05-30): MillardPDMPMetabolism Process + JAX/Diffrax
+    backend + consumption_matched ref-growth driver close the W₂ cell_mass + dry_mass gap to the Phase-0 ensemble within
+    ±σ at t=600 s on M9-glucose.'
 - study: pdmp-02-jump-processes
-  role: Replace discrete-time stochastics + teleonomic division with continuous-time jumps; form the full PDMP
+  role: 'Replace discrete-time stochastics with continuous-time jumps. RUNNING/DECIDE: per-promoter and per-protein
+    Poisson tau-leap samplers landed in `poisson` mode; closeout finding is structural — the consumption_matched homeostat
+    washes per-tick variance out of cell_mass. Phase-3 inference must anchor on count-level listeners (rnap_data,
+    ribosome_data, monomer_counts), not mass. 9 sprints on PR #100.'
 - study: pdmp-03-inference
-  role: Observation likelihoods + likelihood accumulator + Vivarium observe/intervene effects; ABC-SMC baseline
+  role: 'Observation likelihoods + likelihood accumulator + ABC-SMC baseline. RUNNING/DECIDE (13 sprints, PR #100):
+    per-tick emission for both initiation Processes, aggregate LikelihoodCollector, XArrayEmitter persistence to per-
+    replicate zarr stores, mean-to-mean ε calibration, sequential SMC refinement, 2D multi-parameter sweep,
+    architectural pivot from self-calibrated log-likelihood metric to count-based ABC distances. Phase-3-canonical
+    distance is the combined count vector sqrt(d_rna² + d_ribosome²) — 3.06× truth-vs-next-nearest separation, 28%
+    better than aggregate log-likelihood.'
 - study: pdmp-04-compilation
-  role: Catalyst.jl compilation + column-centric tensor runtime + ≥10³ parallel trajectories
+  role: 'Compiled column-centric runtime for ≥10³ parallel trajectories. RUNNING/DECIDE (6 sprints, PR #100): real
+    per-tick profile (76% framework overhead, no single Process dominates), marshalling hotspots identified
+    (13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick), column-centric prototype
+    validated (1.5× per-tick speedup × N-way parallel lockstep = ~1500× at N=10³). Architectural direction is
+    column-centric runtime, NOT per-Process Catalyst.jl JIT. Implementation work remaining is engineering.'
 - study: pdmp-05-causal-discovery
-  role: Bayesian gene-function annotation via marginal likelihood + active causal inference
+  role: Bayesian gene-function annotation via marginal likelihood + active causal inference. PLANNED — depends on
+    Phase 4 implementation for the per-particle wall budget.
 how_to_read: '**The story of the six phases.** The phases move from diagnosis to replacement to inference. Phase 0 defines
   what v2ecoli currently does. Phases 1 and 2 replace the two major dynamical layers: metabolism and stochastic events. Phase
   3 adds likelihoods so the model can be fit to data. Phase 4 makes the model fast enough to run many trajectories. Phase

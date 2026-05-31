@@ -684,9 +684,15 @@ class BasePolypeptideElongation(PartitionedProcess):
     # ------------------------------------------------------------------
 
     def elongation_rate(self, states):
-        """
-        Sets ribosome elongation rate accordint to the media; returns
-        max value of 22 amino acids/second.
+        """Media-set ribosome elongation rate (Base/Supply model).
+
+        Governing relation::
+
+            v_elong = min(basal_elongation_rate,
+                          elngRateFactor * rate(media_id))   [aa/s]
+
+        Looks up the per-media basal rate and scales it by ``elngRateFactor``,
+        then caps it at the model's ``basal_elongation_rate`` (~22 aa/s).
         """
         current_media_id = states["environment"]["media_id"]
         rate = (
@@ -697,11 +703,24 @@ class BasePolypeptideElongation(PartitionedProcess):
         return np.min([self.basal_elongation_rate, rate])
 
     def amino_acid_counts(self, aasInSequences):
+        """Amino acids to request for translation (Base model).
+
+        ``aa = aasInSequences`` — request exactly the amino acids implied by
+        the upcoming sequence at the max ribosome elongation rate. (Supply and
+        SteadyState subclasses override to cap this by the synthesis supply.)
+        """
         return aasInSequences
 
     def request(
         self, states: dict, aasInSequences: npt.NDArray[np.int64]
     ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], dict]:
+        """Request side (Base model): ask for the amino acids + water needed.
+
+        Requests ``aa_counts_for_translation = amino_acid_counts(aasInSequences)``
+        from the bulk store (cast to int, as wcEcoli does). Not modelling
+        charging here, so ``fraction_charged`` is zero for every tRNA. Returns
+        ``(fraction_charged, aa_counts_for_translation, requests)``.
+        """
         aa_counts_for_translation = self.amino_acid_counts(aasInSequences)
 
         # Bulk requests have to be integers (wcEcoli implicitly casts floats to ints)
@@ -720,6 +739,12 @@ class BasePolypeptideElongation(PartitionedProcess):
         return fraction_charged, aa_counts_for_translation.astype(float), requests
 
     def final_amino_acids(self, total_aa_counts, charged_trna_counts):
+        """Amino acids available to elongate (Base model).
+
+        ``final_aa = total_aa_counts`` — without charging, the allocated free
+        amino acid counts are exactly what is available for polymerization.
+        (SteadyState overrides to add charged-tRNA-bound amino acids.)
+        """
         return total_aa_counts
 
     def evolve(
@@ -731,6 +756,18 @@ class BasePolypeptideElongation(PartitionedProcess):
         nElongations,
         nInitialized,
     ):
+        """Evolve side (Base model): apply polymerization mass balance.
+
+        Consumes the amino acids actually used and adjusts water for peptide
+        bonds::
+
+            d[aa]   = -aas_used
+            d[H2O]  =  nElongations - nInitialized
+
+        (One water released per peptide bond formed; none for the first residue
+        of each newly initialized polypeptide.) No charging here, so
+        ``net_charged`` is all zeros.
+        """
         # Update counts of amino acids and water to reflect polymerization
         # reactions
         net_charged = np.zeros(
@@ -760,13 +797,22 @@ class TranslationSupplyPolypeptideElongation(BasePolypeptideElongation):
     topology = TOPOLOGY
 
     def elongation_rate(self, states):
-        """
-        Sets ribosome elongation rate accordint to the media; returns
-        max value of 22 amino acids/second.
+        """Fixed basal elongation rate (Translation Supply model).
+
+        ``v_elong = basal_elongation_rate`` — unlike the Base model this does
+        not rescale by media; the supply cap in ``amino_acid_counts`` is what
+        limits elongation here.
         """
         return self.basal_elongation_rate
 
     def amino_acid_counts(self, aasInSequences):
+        """Amino acids to request, capped by supply (Translation Supply model).
+
+        ``aa = min(aa_supply, aasInSequences)`` elementwise — request the
+        smaller of the proteome-doubling supply estimate (from the Parca) and
+        the amino acids implied by the upcoming sequence. A tighter request
+        than the Base model, though it may yield fewer elongations.
+        """
         # Check if this is required. It is a better request but there may be
         # fewer elongations.
         return np.fmin(self.aa_supply, aasInSequences)
@@ -919,6 +965,19 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
         )
 
     def elongation_rate(self, states):
+        """Elongation rate, ppGpp-throttled (SteadyState model).
+
+        When ppGpp regulation is on (and inhibition not disabled), the rate is
+        the fitted ppGpp response evaluated at the current ppGpp concentration::
+
+            [ppGpp] = ppgpp_count / (N_A * V_cell),  V_cell = cell_mass / rho
+            v_elong = f_ppgpp([ppGpp], basal_elongation_rate)   [aa/s]
+
+        Otherwise it falls back to the media-set rate of the superclass. This
+        is then handed to ``calculate_trna_charging`` as ``max_elong_rate`` and
+        further throttled there by the minimum charged-tRNA fraction across the
+        amino acids.
+        """
         if (
             self.ppgpp_regulation
             and not self.disable_ppgpp_elongation_inhibition
@@ -945,6 +1004,18 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
         and builds the supply closure that the tRNA-charging solve integrates
         over the timestep. Pure read of ``states`` — returns a bundle consumed
         by ``request`` (supply reconciliation + listeners); makes no updates.
+
+        Governing relation::
+
+            synthesis = amino_acid_synthesis(fwd_enzymes, rev_enzymes, [aa])
+            import    = amino_acid_import([aa], dry_mass, [aa], importers, ...)
+            export    = amino_acid_export(exporters, [aa], ...)
+            exchange  = import - export
+            supply    = synthesis + import - export
+
+        ``aa_in_media`` flags amino acids whose external concentration exceeds
+        ``import_constraint_threshold``. ``supply_function`` is the closure the
+        charging solve re-evaluates at each sub-timestep.
         """
         aa_in_media = np.array(
             [
@@ -1014,6 +1085,28 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
     def request(
         self, states: dict, aasInSequences: npt.NDArray[np.int64]
     ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], dict]:
+        """Request side (SteadyState model): solve charging, request reactants.
+
+        Orchestrates the three growth-control modules per tick:
+
+        1. Convert all counts to μM concentrations
+           (``conc = counts / (N_A * V_cell)``, ``V_cell = cell_mass / rho``).
+        2. Amino-acid supply (``_amino_acid_supply``) → synthesis/import/export
+           rates + the supply closure.
+        3. tRNA charging (``calculate_trna_charging``) → steady-state charged
+           fraction, elongation rate ``v_rib`` and the supply realized during
+           the sub-stepped solve; reconcile ``self.aa_supply`` from it.
+        4. Translate the charged fraction into charged/uncharged tRNA and
+           charging-reaction requests.
+        5. ppGpp request side (``_ppgpp_request``).
+
+        Amino acids requested for translation::
+
+            aa_counts_for_translation = v_rib * f * dt / counts_to_uM_mag
+
+        where ``f`` is the per-amino-acid fraction of the upcoming sequence.
+        Returns ``(fraction_charged, aa_counts_for_translation, update)``.
+        """
         # Conversion from counts to molarity
         cell_mass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
         dry_mass = as_quantity(states["listeners"]["mass"]["dry_mass"], units.fg)
@@ -1252,6 +1345,14 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
         )
 
     def final_amino_acids(self, total_aa_counts, charged_trna_counts):
+        """Amino acids available to elongate (SteadyState model).
+
+        Adds the amino acids carried on charged tRNAs (which can be transferred
+        onto the polypeptide) to the free pool, capped by the per-tick request::
+
+            final_aa = min(total_aa_counts + aa_from_trna @ charged_trna_counts,
+                           aa_counts_for_translation)
+        """
         charged_counts_to_uncharge = self.aa_from_trna @ charged_trna_counts
         return np.fmin(
             total_aa_counts + charged_counts_to_uncharge, self.aa_counts_for_translation
@@ -1267,6 +1368,17 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
         RelA/SpoT-driven ppGpp metabolite turnover and return the extra bulk
         requests it implies (ppGpp itself + the ppGpp-reaction metabolites).
         Returns an empty list when ppGpp regulation is off.
+
+        The underlying continuous ODE (integrated to discrete reaction counts
+        by ``ppgpp_metabolite_changes``) is::
+
+            d[ppGpp]/dt = k_RelA * [RelA] * [uncharged_tRNA]/(KD + [uncharged_tRNA])
+                        - k_SpoT_deg * [SpoT] * [ppGpp]/(KI + [ppGpp])
+                        + k_SpoT_syn * [SpoT]
+
+        Here the predicted post-charging tRNA split is
+        ``charged = total_trna_conc * fraction_charged`` and
+        ``uncharged = total_trna_conc - charged``.
         """
         if not self.ppgpp_regulation:
             return []
@@ -1310,6 +1422,15 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
         tRNA charging state. Mutates ``update`` (the ppGpp-reaction bulk delta +
         the rela/spot synthesis/degradation listener fields) and the in-place
         ``states['bulk']`` working copy. No-op when ppGpp regulation is off.
+
+        Same RelA/SpoT ODE as ``_ppgpp_request`` (see there), but evaluated at
+        the *realized* post-elongation tRNA concentrations
+        (``net_charged``-adjusted counts) and clamped by the allocated
+        ppGpp-reaction metabolite ``limits``::
+
+            d[ppGpp]/dt = k_RelA * [RelA] * [uncharged_tRNA]/(KD + [uncharged_tRNA])
+                        - k_SpoT_deg * [SpoT] * [ppGpp]/(KI + [ppGpp])
+                        + k_SpoT_syn * [SpoT]
         """
         if not self.ppgpp_regulation:
             return
@@ -1399,6 +1520,23 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
         nElongations,
         nInitialized,
     ):
+        """Evolve side (SteadyState model): realize charging + ppGpp + balance.
+
+        From the amino acids actually used, work out the charging/uncharging
+        reactions that occurred, apply the charging stoichiometry, uncharge
+        tRNA during elongation, update proton/water for peptide bonds, then run
+        the ppGpp evolve module. Key relations::
+
+            charged_and_elongated = max(0, aas_used - aa_from_trna @ charged_trna)
+            net_charged           = total_charging_rxns - total_uncharging_rxns
+            d[charging_mols]      = charging_stoich @ total_charging_rxns
+            d[H+]                 =  nElongations
+            d[H2O]                = -nInitialized
+            aa_diff               = aa_supply - aa_from_trna @ total_charging_rxns
+
+        ``aa_diff`` feeds the metabolism concentration target next timestep.
+        Returns ``(net_charged, aa_diff, update)``.
+        """
         update = {
             "bulk": [],
             "listeners": {"growth_limits": {}},
@@ -1497,6 +1635,15 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
         each amino acid. Uses self.aa_from_trna mapping to distribute
         from amino acids to tRNA based on the fraction that each tRNA species
         makes up for all tRNA species that code for the same amino acid.
+
+        Governing relation (per tRNA species i with amino acid a(i))::
+
+            f_trna_i = n_trna_i / sum_{j: a(j)=a(i)} n_trna_j
+            n_per_trna_i = round(n_aa_{a(i)} * f_trna_i)
+
+        i.e. each amino acid's count is split across its tRNA isoacceptors in
+        proportion to their abundance. With ``limited=True`` the per-tRNA result
+        is additionally capped at the available ``n_trna``.
 
         Args:
             n_aa: counts of each amino acid to distribute to each tRNA

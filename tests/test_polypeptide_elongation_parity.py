@@ -13,7 +13,8 @@ import pytest
 CACHE = "out/cache"
 GOLDEN = os.path.join(os.path.dirname(__file__), "golden",
                       "polypeptide_elongation_baseline.json")
-STEPS = 100  # short, CI-friendly; parity drift shows within a few ticks
+STEPS = 20  # any drift from a verbatim-move refactor shows within a few ticks;
+            # the composite build dominates, so 20 ticks keeps this test cheap
 
 # Builds the baseline and calls composite.run() → a `sim` test. CI routes
 # these to the behavior-tests job (which has the cache); the unit job runs

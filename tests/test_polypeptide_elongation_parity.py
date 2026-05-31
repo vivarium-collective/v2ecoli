@@ -3,6 +3,15 @@
 The default-wired elongation variant (SteadyState) must reproduce the
 baseline trajectory bit-for-bit. Regenerate the golden ONLY intentionally:
     V2_WRITE_GOLDEN=1 .venv/bin/pytest tests/test_polypeptide_elongation_parity.py
+
+LOCAL / nightly only (marked `slow`). The golden is bit-for-bit and is
+generated from the developer's `out/cache`; CI rebuilds the ParCa cache from
+scratch and a fresh build (different machine / float ordering) drifts from a
+bit-for-bit golden even with identical model code. So this gate runs where the
+golden's cache matches (local dev, pre/post-refactor on the same cache). On CI,
+behavioral drift in SteadyState elongation is caught by
+`tests/test_growth_parity.py` (the baseline it runs *is* SteadyState
+elongation, compared to vEcoli reference values with tolerance).
 """
 import json
 import os
@@ -16,10 +25,11 @@ GOLDEN = os.path.join(os.path.dirname(__file__), "golden",
 STEPS = 20  # any drift from a verbatim-move refactor shows within a few ticks;
             # the composite build dominates, so 20 ticks keeps this test cheap
 
-# Builds the baseline and calls composite.run() → a `sim` test. CI routes
-# these to the behavior-tests job (which has the cache); the unit job runs
-# `-m "not slow and not sim"` and must not pick this up.
+# `slow` => excluded from BOTH CI jobs (fast: `-m "not slow and not sim"`,
+# behavior: `-m "sim and not slow"`). Runs locally / nightly, where the golden's
+# cache matches. `sim` is kept for intent; `skipif` guards a missing local cache.
 pytestmark = [
+    pytest.mark.slow,
     pytest.mark.sim,
     pytest.mark.skipif(
         not os.path.isdir(CACHE) and not os.environ.get("CI"),

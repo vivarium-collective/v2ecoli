@@ -1,0 +1,15 @@
+{
+    "experiment_id": "default",
+    "generations": 1,
+    "n_init_sims": 1,
+    "single_daughters": true,
+    "lineage_seed": 0,
+    "different_seeds_per_variant": false,
+    "skip_baseline": false,
+    "cache_dir": "out/cache",
+    "out_dir": "out/workflow",
+    "time_step": 1.0,
+    "max_duration_per_gen": 3600.0,
+    "variants": {},
+    "analysis_options": {}
+}

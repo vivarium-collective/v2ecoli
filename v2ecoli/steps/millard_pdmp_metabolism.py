@@ -34,6 +34,7 @@ import yaml
 from process_bigraph import Process
 
 from v2ecoli.library.schema import bulk_name_to_idx, counts
+from v2ecoli.library.quantity_helpers import fg_magnitude
 from v2ecoli.types.stores import InPlaceDict
 
 
@@ -254,7 +255,7 @@ class MillardPDMPMetabolism(Process):
                 conc_to_count = self._conc_to_count_static
                 if self.use_live_volume:
                     mass_in = state.get("listeners_mass") or {}
-                    cell_mass_fg = float(mass_in.get("cell_mass", 0.0) or 0.0)
+                    cell_mass_fg = fg_magnitude(mass_in.get("cell_mass", 0.0))
                     if cell_mass_fg > 0.0:
                         live_volume_L = (cell_mass_fg * FG_PER_G
                                          / self.cell_density_g_per_L)

@@ -61,6 +61,7 @@ from v2ecoli.library.schema import (
 )
 
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.quantity_helpers import as_quantity
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 
 # topology_registry removed
@@ -129,7 +130,7 @@ class ChromosomeReplication(Step):
             'full_chromosomes': {'_type': FULL_CHROMOSOME_ARRAY, '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
+                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                 },
             },
             'environment': {
@@ -216,7 +217,7 @@ class ChromosomeReplication(Step):
             return
 
         # Get current cell mass
-        cellMass = states["listeners"]["mass"]["cell_mass"] * units.fg
+        cellMass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
 
         # Get critical initiation mass for current simulation environment
         current_media_id = states["environment"]["media_id"]

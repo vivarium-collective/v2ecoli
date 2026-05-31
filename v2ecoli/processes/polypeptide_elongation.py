@@ -60,13 +60,9 @@ import numpy.typing as npt
 from scipy.integrate import solve_ivp
 # wcEcoli imports
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
-from wholecell.utils.random import stochasticRound
 from v2ecoli.types.quantity import ureg as units
 
-# vivarium imports
-# simulate_process removed
 from bigraph_schema import deep_merge
-# plot_variables removed
 
 # vivarium-ecoli imports
 from v2ecoli.library.schema import (
@@ -112,30 +108,6 @@ TOPOLOGY = {
     "bulk_total": ("bulk",),
     "timestep": ("timestep",),
 }
-
-DEFAULT_AA_NAMES = [
-    "L-ALPHA-ALANINE[c]",
-    "ARG[c]",
-    "ASN[c]",
-    "L-ASPARTATE[c]",
-    "CYS[c]",
-    "GLT[c]",
-    "GLN[c]",
-    "GLY[c]",
-    "HIS[c]",
-    "ILE[c]",
-    "LEU[c]",
-    "LYS[c]",
-    "MET[c]",
-    "PHE[c]",
-    "PRO[c]",
-    "SER[c]",
-    "THR[c]",
-    "TRP[c]",
-    "TYR[c]",
-    "L-SELENOCYSTEINE[c]",
-    "VAL[c]",
-]
 
 
 class PolypeptideElongation(PartitionedProcess):
@@ -223,100 +195,6 @@ class PolypeptideElongation(PartitionedProcess):
         'variable_elongation': {'_type': 'boolean', '_default': False},
         'water': {'_type': 'string', '_default': 'H2O'},
     }
-
-    def inputs(self):
-        return {
-            'environment': {'media_id': 'string'},
-            'boundary': 'node',
-            'listeners': {
-                'mass': {
-                    'cell_mass': 'float[fg]',
-                    'dry_mass': 'float[fg]',
-                },
-            },
-            'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
-            'bulk': 'bulk_array',
-            'bulk_total': 'bulk_array',
-            'polypeptide_elongation': {
-                'gtp_to_hydrolyze': 'float',
-                'aa_count_diff': 'array[float]',
-                'aa_exchange_rates': 'array[float]',
-            },
-            'timestep': 'integer',
-        }
-
-    def outputs(self):
-        return {
-            'bulk': 'bulk_array',
-            'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
-            'listeners': {
-                'growth_limits': {
-                    # Concentrations — micromolar (uM = umol/L)
-                    'synthetase_conc': {'_type': 'overwrite[array[float[uM]]]', '_default': []},
-                    'uncharged_trna_conc': {'_type': 'overwrite[array[float[uM]]]', '_default': []},
-                    'charged_trna_conc': {'_type': 'overwrite[array[float[uM]]]', '_default': []},
-                    'aa_conc': {'_type': 'overwrite[array[float[uM]]]', '_default': []},
-                    'ribosome_conc': {'_type': 'overwrite[float[uM]]', '_default': 0.0},
-                    'ppgpp_conc': {'_type': 'overwrite[float[uM]]', '_default': 0.0},
-                    'rela_conc': {'_type': 'overwrite[float[uM]]', '_default': 0.0},
-                    'spot_conc': {'_type': 'overwrite[float[uM]]', '_default': 0.0},
-                    # Concentration — millimolar (mM = mmol/L)
-                    'aa_supply_aa_conc': {'_type': 'overwrite[array[float[mM]]]', '_default': []},
-                    # Count deltas and pool sizes
-                    'aa_count_diff': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'aas_used': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'net_charged': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'aa_allocated': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'aa_pool_size': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'aa_request_size': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'active_ribosome_allocated': {'_type': 'overwrite[integer]', '_default': 0},
-                    # Saturation fractions and supply
-                    'fraction_trna_charged': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'fraction_aa_to_elongate': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'aa_supply_fraction_fwd': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'aa_supply_fraction_rev': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'original_aa_supply': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'aa_in_media': {'_type': 'overwrite[array[boolean]]', '_default': []},
-                    'aa_supply': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'aa_synthesis': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'aa_import': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'aa_export': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'aa_supply_enzymes_fwd': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'aa_supply_enzymes_rev': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'aa_importers': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'aa_exporters': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    # ppGpp synthesis/degradation rates (umol/L/s)
-                    'rela_syn': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'spot_syn': {'_type': 'overwrite[float]', '_default': 0.0},
-                    'spot_deg': {'_type': 'overwrite[float]', '_default': 0.0},
-                    'spot_deg_inhibited': {'_type': 'overwrite[array[float]]', '_default': []},
-                    # Charging
-                    'trna_charged': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'ntp_used': {'_type': 'overwrite[array[integer]]', '_default': []},  # written by transcript_elongation but lives here too
-                },
-                'ribosome_data': {
-                    # Read by polypeptide_initiation next timestep
-                    'effective_elongation_rate': {'_type': 'overwrite[float[aa/s]]', '_default': 0.0},
-                    'translation_supply': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'aa_count_in_sequence': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'aa_counts': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'actual_elongations': {'_type': 'overwrite[integer]', '_default': 0},
-                    'actual_elongation_hist': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'elongations_non_terminating_hist': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'did_terminate': {'_type': 'overwrite[integer]', '_default': 0},
-                    'termination_loss': {'_type': 'overwrite[integer]', '_default': 0},
-                    'num_trpA_terminated': {'_type': 'overwrite[integer]', '_default': 0},
-                    'process_elongation_rate': {'_type': 'overwrite[float[aa/s]]', '_default': 0.0},
-                },
-            },
-            'polypeptide_elongation': {
-                'gtp_to_hydrolyze': {'_type': 'overwrite[float]', '_default': 0.0},
-                'aa_count_diff': {'_type': 'overwrite[array[float]]', '_default': []},
-                'aa_exchange_rates': {'_type': 'overwrite[array[float]]', '_default': []},
-            },
-        }
-
-
 
     def initialize(self, config):
 
@@ -438,8 +316,8 @@ class PolypeptideElongation(PartitionedProcess):
                 'boundary': 'node',
                 'listeners':                 {
                     'mass':                     {
-                        'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
-                        'dry_mass': {'_type': 'float[fg]', '_default': 0.0},
+                        'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
+                        'dry_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                     },
                 },
                 'active_ribosome': {'_type': ACTIVE_RIBOSOME_ARRAY, '_default': []},
@@ -499,7 +377,7 @@ class PolypeptideElongation(PartitionedProcess):
                         'ntp_used': {'_type': 'overwrite[array[integer]]', '_default': []},
                     },
                     'ribosome_data':                     {
-                        'effective_elongation_rate': {'_type': 'overwrite[float[aa/s]]', '_default': 0.0},
+                        'effective_elongation_rate': {'_type': 'overwrite[quantity[float,amino_acid/s]]', '_default': 0.0},
                         'translation_supply': {'_type': 'overwrite[array[float]]', '_default': []},
                         'aa_count_in_sequence': {'_type': 'overwrite[array[integer]]', '_default': []},
                         'aa_counts': {'_type': 'overwrite[array[float]]', '_default': []},
@@ -520,41 +398,54 @@ class PolypeptideElongation(PartitionedProcess):
             }
         )
 
-    def calculate_request(self, timestep, states):
+    def _init_bulk_indices(self, bulk_ids):
+        """Resolve every molecule-name -> bulk-array-index map this process uses.
+
+        Called once, on the first tick, when the bulk store's id ordering is
+        first available. Cached on ``self`` (guarded by ``self.proton_idx is
+        None``) so it never runs on the per-tick hot path.
         """
-        Set ribosome elongation rate based on simulation medium environment and elongation rate factor
-        which is used to create single-cell variability in growth rate
-        The maximum number of amino acids that can be elongated in a single timestep is set to 22
-        intentionally as the minimum number of padding values on the protein sequence matrix is set to 22.
-        If timesteps longer than 1.0s are used, this feature will lead to errors in the effective ribosome
+        self.proton_idx = bulk_name_to_idx(self.proton, bulk_ids)
+        self.water_idx = bulk_name_to_idx(self.water, bulk_ids)
+        self.rela_idx = bulk_name_to_idx(self.rela, bulk_ids)
+        self.spot_idx = bulk_name_to_idx(self.spot, bulk_ids)
+        self.ppgpp_idx = bulk_name_to_idx(self.ppgpp, bulk_ids)
+        self.monomer_idx = bulk_name_to_idx(self.proteinIds, bulk_ids)
+        self.amino_acid_idx = bulk_name_to_idx(self.amino_acids, bulk_ids)
+        self.aa_enzyme_idx = bulk_name_to_idx(self.aa_enzymes, bulk_ids)
+        self.ppgpp_rxn_metabolites_idx = bulk_name_to_idx(
+            self.ppgpp_reaction_metabolites, bulk_ids
+        )
+        self.uncharged_trna_idx = bulk_name_to_idx(self.uncharged_trna_names, bulk_ids)
+        self.charged_trna_idx = bulk_name_to_idx(self.charged_trna_names, bulk_ids)
+        self.charging_molecule_idx = bulk_name_to_idx(
+            self.charging_molecule_names, bulk_ids
+        )
+        self.synthetase_idx = bulk_name_to_idx(self.synthetase_names, bulk_ids)
+        self.ribosome30S_idx = bulk_name_to_idx(self.ribosome30S, bulk_ids)
+        self.ribosome50S_idx = bulk_name_to_idx(self.ribosome50S, bulk_ids)
+        self.aa_importer_idx = bulk_name_to_idx(self.aa_importers, bulk_ids)
+        self.aa_exporter_idx = bulk_name_to_idx(self.aa_exporters, bulk_ids)
+
+    def calculate_request(self, timestep, states):
+        """Phase 1 of the partitioned step: REQUEST resources for this tick.
+
+        Computes the ribosome elongation rate (model-specific, possibly ppGpp- or
+        tRNA-charging-modulated), builds the per-ribosome amino-acid sequences for
+        the coming timestep, and from them requests the amino acids (and, for the
+        charging model, tRNAs/ATP) needed to elongate. The partitioner then
+        allocates the cell's actual pools against all processes' requests; the
+        granted counts arrive in ``evolve_state``.
+
+        Elongation is capped at 22 aa/tick: the protein-sequence matrix is padded
+        with 22 PAD_VALUEs, so timesteps > 1.0 s would under-count the effective
         elongation rate.
         """
 
+        # One-time, on the first tick once the bulk layout is known: resolve the
+        # molecule-name -> bulk-array-index maps used throughout request/evolve.
         if self.proton_idx is None:
-            bulk_ids = states["bulk"]["id"]
-            self.proton_idx = bulk_name_to_idx(self.proton, bulk_ids)
-            self.water_idx = bulk_name_to_idx(self.water, bulk_ids)
-            self.rela_idx = bulk_name_to_idx(self.rela, bulk_ids)
-            self.spot_idx = bulk_name_to_idx(self.spot, bulk_ids)
-            self.ppgpp_idx = bulk_name_to_idx(self.ppgpp, bulk_ids)
-            self.monomer_idx = bulk_name_to_idx(self.proteinIds, bulk_ids)
-            self.amino_acid_idx = bulk_name_to_idx(self.amino_acids, bulk_ids)
-            self.aa_enzyme_idx = bulk_name_to_idx(self.aa_enzymes, bulk_ids)
-            self.ppgpp_rxn_metabolites_idx = bulk_name_to_idx(
-                self.ppgpp_reaction_metabolites, bulk_ids
-            )
-            self.uncharged_trna_idx = bulk_name_to_idx(
-                self.uncharged_trna_names, bulk_ids
-            )
-            self.charged_trna_idx = bulk_name_to_idx(self.charged_trna_names, bulk_ids)
-            self.charging_molecule_idx = bulk_name_to_idx(
-                self.charging_molecule_names, bulk_ids
-            )
-            self.synthetase_idx = bulk_name_to_idx(self.synthetase_names, bulk_ids)
-            self.ribosome30S_idx = bulk_name_to_idx(self.ribosome30S, bulk_ids)
-            self.ribosome50S_idx = bulk_name_to_idx(self.ribosome50S, bulk_ids)
-            self.aa_importer_idx = bulk_name_to_idx(self.aa_importers, bulk_ids)
-            self.aa_exporter_idx = bulk_name_to_idx(self.aa_exporters, bulk_ids)
+            self._init_bulk_indices(states["bulk"]["id"])
 
         # MODEL SPECIFIC: get ribosome elongation rate
         self.ribosomeElongationRate = self.elongation_model.elongation_rate(states)
@@ -633,13 +524,19 @@ class PolypeptideElongation(PartitionedProcess):
         return requests
 
     def evolve_state(self, timestep, states):
-        """
-        Set ribosome elongation rate based on simulation medium environment and elongation rate factor
-        which is used to create single-cell variability in growth rate
-        The maximum number of amino acids that can be elongated in a single timestep is set to 22
-        intentionally as the minimum number of padding values on the protein sequence matrix is set to 22.
-        If timesteps longer than 1.0s are used, this feature will lead to errors in the effective ribosome
-        elongation rate.
+        """Phase 2 of the partitioned step: EVOLVE under the allocated resources.
+
+        Runs the ``polymerize`` algorithm over the per-ribosome sequences using
+        the amino acids the partitioner actually granted (model-specific
+        ``final_amino_acids``), then applies the universal ribosome mechanics:
+        advance each ribosome's peptide length and mRNA position by the elongation
+        it achieved, add the incorporated amino-acid mass, terminate ribosomes that
+        reached the end of their protein (dissociating them into 30S/50S subunits
+        and releasing the finished monomer), and report GTP to hydrolyze. The
+        model-specific ``evolve`` then settles tRNA charging / ppGpp / AA supply,
+        and the results are written to the growth_limits and ribosome_data
+        listeners (incl. the effective elongation rate read by
+        polypeptide_initiation next tick).
         """
 
         update = {
@@ -800,7 +697,12 @@ class PolypeptideElongation(PartitionedProcess):
         update["listeners"]["growth_limits"]["aa_count_diff"] = aa_count_diff
 
         ribosome_data_listener = update["listeners"].setdefault("ribosome_data", {})
-        ribosome_data_listener["effective_elongation_rate"] = currElongRate
+        # Emit as a pint Quantity[amino_acid/s] so the unit travels through the
+        # store and serialization (read back by polypeptide_initiation, and
+        # serialized to {units, magnitude} columns by the emitter).
+        ribosome_data_listener["effective_elongation_rate"] = (
+            currElongRate * units.amino_acid / units.s
+        )
         ribosome_data_listener["aa_count_in_sequence"] = aaCountInSequence
         ribosome_data_listener["aa_counts"] = aa_counts_for_translation
         ribosome_data_listener["actual_elongations"] = sequence_elongations.sum()
@@ -822,516 +724,3 @@ class PolypeptideElongation(PartitionedProcess):
         )
 
         return update
-
-
-
-def test_polypeptide_elongation(return_data=False):
-    def make_elongation_rates(random, base, time_step, variable_elongation=False):
-        size = 1
-        lengths = time_step * np.full(size, base, dtype=np.int64)
-        lengths = stochasticRound(random, lengths) if random else np.round(lengths)
-        return lengths.astype(np.int64)
-
-    test_config = {
-        "time_step": 2,
-        "proteinIds": np.array(["TRYPSYN-APROTEIN[c]"]),
-        "ribosome30S": "CPLX0-3953[c]",
-        "ribosome50S": "CPLX0-3962[c]",
-        "make_elongation_rates": make_elongation_rates,
-        "proteinLengths": np.array(
-            [245]
-        ),  # this is the length of proteins in proteinSequences
-        "translation_aa_supply": {
-            "minimal": (units.mol / units.fg / units.min)
-            * np.array(
-                [
-                    6.73304301e-21,
-                    3.63835219e-21,
-                    2.89772671e-21,
-                    3.88086822e-21,
-                    5.04645651e-22,
-                    4.45295877e-21,
-                    2.64600664e-21,
-                    5.35711230e-21,
-                    1.26817689e-21,
-                    3.81168405e-21,
-                    5.66834531e-21,
-                    4.30576056e-21,
-                    1.70428208e-21,
-                    2.24878356e-21,
-                    2.49335033e-21,
-                    3.47019761e-21,
-                    3.83858460e-21,
-                    6.34564026e-22,
-                    1.86880523e-21,
-                    1.40959498e-27,
-                    5.20884460e-21,
-                ]
-            )
-        },
-        "proteinSequences": np.array(
-            [
-                [
-                    12,
-                    10,
-                    18,
-                    9,
-                    13,
-                    1,
-                    10,
-                    9,
-                    9,
-                    16,
-                    20,
-                    9,
-                    18,
-                    15,
-                    9,
-                    10,
-                    20,
-                    4,
-                    20,
-                    13,
-                    7,
-                    15,
-                    9,
-                    18,
-                    4,
-                    10,
-                    13,
-                    15,
-                    14,
-                    1,
-                    2,
-                    14,
-                    11,
-                    8,
-                    20,
-                    0,
-                    16,
-                    13,
-                    7,
-                    8,
-                    12,
-                    13,
-                    7,
-                    1,
-                    10,
-                    0,
-                    14,
-                    10,
-                    13,
-                    7,
-                    10,
-                    11,
-                    20,
-                    5,
-                    4,
-                    1,
-                    11,
-                    14,
-                    16,
-                    3,
-                    0,
-                    5,
-                    15,
-                    18,
-                    7,
-                    2,
-                    0,
-                    9,
-                    18,
-                    9,
-                    0,
-                    2,
-                    8,
-                    6,
-                    2,
-                    2,
-                    18,
-                    3,
-                    12,
-                    20,
-                    16,
-                    0,
-                    15,
-                    2,
-                    9,
-                    20,
-                    6,
-                    14,
-                    14,
-                    16,
-                    20,
-                    16,
-                    20,
-                    7,
-                    11,
-                    11,
-                    15,
-                    10,
-                    10,
-                    17,
-                    9,
-                    14,
-                    13,
-                    13,
-                    7,
-                    6,
-                    10,
-                    18,
-                    17,
-                    10,
-                    16,
-                    7,
-                    2,
-                    10,
-                    10,
-                    9,
-                    3,
-                    1,
-                    2,
-                    2,
-                    1,
-                    16,
-                    11,
-                    0,
-                    8,
-                    7,
-                    16,
-                    9,
-                    0,
-                    5,
-                    20,
-                    20,
-                    2,
-                    8,
-                    13,
-                    11,
-                    11,
-                    1,
-                    1,
-                    9,
-                    15,
-                    9,
-                    17,
-                    12,
-                    13,
-                    14,
-                    5,
-                    7,
-                    16,
-                    1,
-                    15,
-                    1,
-                    7,
-                    1,
-                    7,
-                    10,
-                    10,
-                    14,
-                    13,
-                    11,
-                    16,
-                    7,
-                    0,
-                    13,
-                    8,
-                    0,
-                    0,
-                    9,
-                    0,
-                    0,
-                    7,
-                    20,
-                    14,
-                    9,
-                    9,
-                    14,
-                    20,
-                    4,
-                    20,
-                    15,
-                    16,
-                    16,
-                    15,
-                    2,
-                    11,
-                    9,
-                    2,
-                    10,
-                    2,
-                    1,
-                    10,
-                    8,
-                    2,
-                    7,
-                    10,
-                    20,
-                    9,
-                    20,
-                    5,
-                    12,
-                    10,
-                    14,
-                    14,
-                    9,
-                    3,
-                    20,
-                    15,
-                    6,
-                    18,
-                    7,
-                    11,
-                    3,
-                    6,
-                    20,
-                    1,
-                    5,
-                    10,
-                    0,
-                    0,
-                    8,
-                    4,
-                    1,
-                    15,
-                    9,
-                    12,
-                    5,
-                    6,
-                    11,
-                    9,
-                    0,
-                    5,
-                    10,
-                    3,
-                    11,
-                    5,
-                    20,
-                    0,
-                    5,
-                    1,
-                    5,
-                    0,
-                    0,
-                    7,
-                    11,
-                    20,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                    -1,
-                ]
-            ]
-        ).astype(np.int8),
-    }
-
-    polypep_elong = PolypeptideElongation(test_config)
-
-    initial_state = {
-        "environment": {"media_id": "minimal"},
-        "bulk": np.array(
-            [
-                ("CPLX0-3953[c]", 100),
-                ("CPLX0-3962[c]", 100),
-                ("TRYPSYN-APROTEIN[c]", 0),
-                ("RELA", 0),
-                ("SPOT", 0),
-                ("H2O", 0),
-                ("PROTON", 0),
-                ("ppGpp", 0),
-            ]
-            + [(aa, 100) for aa in DEFAULT_AA_NAMES],
-            dtype=[("id", "U40"), ("count", int)],
-        ),
-        "unique": {
-            "active_ribosome": np.array(
-                [(1, 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0)],
-                dtype=[
-                    ("_entryState", np.bool_),
-                    ("unique_index", int),
-                    ("protein_index", int),
-                    ("peptide_length", int),
-                    ("pos_on_mRNA", int),
-                    ("massDiff_DNA", "<f8"),
-                    ("massDiff_mRNA", "<f8"),
-                    ("massDiff_metabolite", "<f8"),
-                    ("massDiff_miscRNA", "<f8"),
-                    ("massDiff_nonspecific_RNA", "<f8"),
-                    ("massDiff_protein", "<f8"),
-                    ("massDiff_rRNA", "<f8"),
-                    ("massDiff_tRNA", "<f8"),
-                    ("massDiff_water", "<f8"),
-                ],
-            )
-        },
-        "listeners": {"mass": {"dry_mass": 350.0}},
-    }
-
-    settings = {"total_time": 200, "initial_state": initial_state, "topology": TOPOLOGY}
-    data = simulate_process(polypep_elong, settings)
-
-    if return_data:
-        return data, test_config
-
-
-def run_plot(data, config):
-    # plot a list of variables
-    bulk_ids = [
-        "CPLX0-3953[c]",
-        "CPLX0-3962[c]",
-        "TRYPSYN-APROTEIN[c]",
-        "RELA",
-        "SPOT",
-        "H2O",
-        "PROTON",
-        "ppGpp",
-    ] + [aa for aa in DEFAULT_AA_NAMES]
-    variables = [(bulk_id,) for bulk_id in bulk_ids]
-
-    # format data
-    bulk_timeseries = np.array(data["bulk"])
-    for i, bulk_id in enumerate(bulk_ids):
-        data[bulk_id] = bulk_timeseries[:, i]
-
-    plot_variables(
-        data,
-        variables=variables,
-        out_dir="out/processes/polypeptide_elongation",
-        filename="variables",
-    )
-
-
-def main():
-    data, config = test_polypeptide_elongation(return_data=True)
-    run_plot(data, config)
-
-
-if __name__ == "__main__":
-    main()

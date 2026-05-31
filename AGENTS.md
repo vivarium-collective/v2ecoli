@@ -183,6 +183,24 @@ self-describing once the file is months old. Capture, at minimum:
 
 Pattern: see `scripts/compare_pdmp_vs_baseline.py::collect_provenance`.
 
+**Standard tool — `scripts/pr_session_report.py`.** For a PR/session report,
+use this reusable generator rather than hand-rolling one — it produces the
+provenance banner *and* before/after parity plots:
+
+```bash
+python scripts/pr_session_report.py capture --out /tmp/after.json --steps 60
+cp scripts/pr_session_report.py /tmp/prr.py          # so it exists on the base ref
+git checkout main && python /tmp/prr.py capture --out /tmp/before.json --steps 60
+git checkout -
+python scripts/pr_session_report.py render --before /tmp/before.json \
+  --after /tmp/after.json --out reports/figures/<study>/report.html \
+  --title "..." --summary-file <summary.html>
+```
+
+`capture` is self-contained (no branch-only imports) so the same file runs on
+any ref; the before/after overlay is how a refactor shows it preserved behavior
+(curves coincide, final-step rel diff ~0).
+
 Save TWO copies per run:
 
 1. `reports/figures/<study>/<short_name>.html` — overwritten each render;

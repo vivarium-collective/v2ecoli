@@ -29,6 +29,13 @@ TOPOLOGY = {
 class MassDeriver(Step):
     """MassDeriver"""
 
+    description = (
+        "Aggregates total cell mass and submasses (protein, RNA by class, "
+        "DNA, small molecules, water) from bulk and unique molecule counts. "
+        "Derives cell volume and the counts→molar conversion factor, plus "
+        "growth rate and mass fold-changes over the cell cycle."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

@@ -10,6 +10,19 @@ fits `sim_data` — is decomposed into nine process-bigraph Steps and ships
 pre-computed at `models/parca/parca_state.pkl.gz`, so a fresh clone can
 simulate end-to-end without rebuilding.
 
+## 🔬 Interactive model viewer
+
+Explore the model's bigraph structure in your browser — processes, stores,
+wiring, input/output port schemas (with units), and a formal mathematical
+description for each process:
+
+- **[▶ Baseline composite](https://vivarium-collective.github.io/v2ecoli/bigraph_baseline.html)** — the whole-cell *E. coli* model
+- **[▶ ParCa pipeline](https://vivarium-collective.github.io/v2ecoli/bigraph_parca.html)** — the nine-Step parameter calculator
+
+Pan/zoom, expand store chips, toggle nodes on/off, and click a process to see
+its inputs/outputs and governing equations. Regenerate locally with
+`python scripts/viz_baseline_interactive.py` (or `viz_parca_interactive.py`).
+
 ## Install
 
 Requires [`uv`](https://docs.astral.sh/uv/) and a C compiler (Xcode CLI

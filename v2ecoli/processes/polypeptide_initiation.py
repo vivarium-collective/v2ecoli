@@ -74,6 +74,15 @@ class PolypeptideInitiation(Step):
     process competes for them. Runs as a plain Step.
     """
 
+    description = (
+        "Polypeptide Initiation — assembles 30S+50S → 70S ribosomes on mRNAs.\n\n"
+        "    n_activate = round(f·n_total) − n_active;   n_total = n_70S + min(n_30S, n_50S)\n"
+        "    p_k = ηₖ·n_copiesₖ / ∑ⱼ ηⱼ·n_copiesⱼ        (per-mRNA initiation prob)\n"
+        "    overcrowded ⟺ mRNA_len/(n_ribos+1) < footprint (≈24 nt) → p_k := 0\n"
+        "    n_new ~ Multinomial(n_activate, p);  each consumes one 30S + one 50S.\n"
+        "  f = media-dependent active fraction; ηₖ = translation efficiency."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

@@ -96,6 +96,16 @@ class ChromosomeReplication(Step):
     competes for them. Runs as a plain Step.
     """
 
+    description = (
+        "Chromosome Replication — initiate, elongate, and terminate replication forks.\n\n"
+        "1. Initiation: fire when  M_cell / n_oriC ≥ M_critical(τ);  +2 replisomes·oriC, +2 domains.\n"
+        "2. Elongation: seqs = buildSequences(template, pos, ν·dt); polymerize(seqs, dNTPs, limit);\n"
+        "   Δm_DNA = ∑ᵢ (elongated_ntᵢ · weightᵢ);  PPi released = dNTP polymerized.\n"
+        "3. Termination: fork ends when |coordinate| = L_replichore; domain splits, subunits recycled.\n"
+        "  M_cell: cell mass (fg); n_oriC: oriC count; M_critical(τ): mass/oriC threshold at doubling time τ;\n"
+        "  ν: stochastic elongation rate (nt/s); dt: timestep; L_replichore: replichore length (nt)."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

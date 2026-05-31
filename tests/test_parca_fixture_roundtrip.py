@@ -125,7 +125,7 @@ def test_hydrate_installs_sibling_stores_on_sim_data_root(state):
     tsr = sim_data.translation_supply_rate
     assert isinstance(tsr, dict) and len(tsr) > 0, (
         'hydrate_sim_data_from_state must populate translation_supply_rate '
-        '— an empty dict causes KeyError("minimal") in PolypeptideElongation.')
+        '— an empty dict causes KeyError("minimal") in SteadyStatePolypeptideElongation.')
 
     # The ghost '' key from an old condition_defs.tsv trailing row must
     # not reach the online sim (would AttributeError in

@@ -2,7 +2,7 @@
 Polypeptide elongation kinetics: ppGpp synthesis/degradation, tRNA
 charging, and amino acid supply functions.
 
-These module-level free functions are used by the SteadyStateElongationModel
+These module-level free functions are used by SteadyStatePolypeptideElongation
 to implement the ppGpp-regulated translation model with explicit
 aminoacyl-tRNA synthetase kinetics. Separated from the main
 ``polypeptide_elongation`` module purely for file-size manageability;

@@ -60,6 +60,14 @@ class Equilibrium(Step):
     resources and runs as a plain Step (no request/allocate/evolve cycle).
     """
 
+    description = (
+        "Equilibrium — ligand–TF binding driven to steady state.\n\n"
+        "1. ODE solve for integer reaction fluxes ν:  x_ss, ν = fluxesAndMoleculesToSS(x, V, N_A).\n"
+        "2. Greedy correction under allocation: while any(S·ν + x_alloc < 0),\n"
+        "   decrement offending forward/reverse fluxes (clamp ≥ 0).\n"
+        "Δx = S·ν;  S = stoichiometry matrix (molecules × reactions)."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

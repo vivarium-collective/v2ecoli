@@ -49,6 +49,15 @@ TOPOLOGY = {
 class CountsDeriver(Step):
     """Single deriver for RNA, monomer, and unique-molecule counts."""
 
+    description = (
+        "Tallies molecule counts for downstream readouts: mRNA/rRNA "
+        "transcription-unit and cistron counts (partial + full transcripts), "
+        "protein monomer counts (including monomers sequestered in complexes "
+        "and in active ribosomes/RNAPs/replisomes), and per-type active "
+        "unique-molecule totals. Consolidates the former RNACounts, "
+        "MonomerCounts, and UniqueMoleculeCounts listeners into one step."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

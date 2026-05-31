@@ -152,43 +152,29 @@ scientific_argument:
     substrate for the Phase-1 reformulation; [[millard2017]].
   - Vivarium's algebraic-effect interpretation (DUF Sec. 4.2.2) opens a path to extending it into a probabilistic programming
     language for observe / intervene effects in Phase 3.
-  - 'PHASE-1 EMPIRICAL — `MillardPDMPMetabolism` Process + JAX/Diffrax backend + `consumption_matched` ref-growth driver
-    closes the W₂ cell_mass + dry_mass gap to the Phase-0 ensemble within ±σ at t=600 s on M9-glucose (PR #72 merged
-    2026-05-30). Establishes that the FBA → ODE substitution is mechanistically viable; the kinetic ODE plus a
-    consumption-matching biomass driver reproduces the kFBA reference trajectory in distribution, not just at endpoints.'
-  - 'PHASE-2 EMPIRICAL — Per-promoter Poisson tau-leap (`TranscriptInitiation`) and per-protein Poisson tau-leap
-    (`PolypeptideInitiation`) replace the legacy multinomial samplers in `poisson` mode (composite knob: `transcript_initiation_mode`
-    / `polypeptide_initiation_mode`). Resource cap pinned to actual inactive pool, not the discrete-time target, avoiding
-    asymmetric truncation undercount. Phase-2 architectural goal mechanically present; jump-process variance demonstrably
-    reaches the listener level (peak |Δcm| = 150 fg at the rnap_data listener at t=600 s, sprint 4).'
-  - 'PHASE-3 EMPIRICAL — Per-tick log-likelihood emission landed for both initiation Processes (sprints 1-2) and aggregated
-    by a `LikelihoodCollector` Step. The XArrayEmitter pipeline persists every Phase-3 observable to per-replicate zarr
-    stores; readback gives the canonical `xarray.Dataset(replicate × time × channel)` shape ABC drivers consume (sprint 4).
-    Inference noise floor empirically calibrated via mean-to-mean split (sprint 8); 1D ABC stub with sequential SMC ε
-    tightening collapses the posterior to {truth} at p25/p05 (sprint 9). The full Phase-3 "observation likelihoods +
-    likelihood accumulator + ABC-SMC baseline" scope is end-to-end working on synthetic data.'
-  - 'PHASE-3 ARCHITECTURAL FINDING (sprints 11-12-13) — The pipeline''s emitted log-likelihood is SELF-CALIBRATED under
-    the model''s own rates: `log P(simulated_data | simulated_parameter)`. For ABC, the right quantity is `log P(observed
-    | proposed)`. Switching to SSE distance on count observables (`total_rna_init`, `did_initialize`) sharpens identifiability
-    dramatically. The transcript count metric alone gives ~150× row-separation along the Ts axis. Combined count vector
-    `sqrt(d_rna² + d_ribosome²)` reaches 3.06× truth-vs-next-nearest separation (vs 2.39× for aggregate log-likelihood) —
-    Phase-3-canonical ABC distance for jump-process WCM inference.'
-  - 'PHASE-3 IDENTIFIABILITY FINDING (sprint 10) — 2D parameter sweep on (Ts, Ps) shows an ANTI-DIAGONAL RIDGE under the
-    aggregate `total` log-likelihood metric: reducing transcription rate while raising translation rate partially cancels
-    at the aggregate level (fewer mRNAs, more ribosome activations per mRNA → similar total log P per tick). Per-channel
-    distance correctly identifies the truth; aggregate-only metrics cannot distinguish opposing parameter shifts on
-    coupled processes. Sprint-13 combined count vector breaks the ridge.'
-  - 'PHASE-4 EMPIRICAL — Production composite per-tick wall = 52 ms (sprint 5 measured) / 74 ms (sprint 1 single-tick),
-    of which 76% lives in framework overhead (Python internals + numpy + v2ecoli library + other site-packages — sprint
-    1). Function-level hotspots: 13,817 `isinstance` calls per tick, 4,213 `__array_finalize__` calls per tick, 52
-    `process_update` calls per tick (sprint 2). Marshalling dominates over per-Process compute.'
-  - 'PHASE-4 ARCHITECTURAL ANSWER (sprints 3-4-6) — Column-centric runtime gives constant per-trajectory wall regardless
-    of N (vector ops across the trajectory dimension don''t pay per-trajectory overhead). Per-tick speedup factor: 3.1×
-    on a pure-Poisson toy (sprint 3), 2.8× on a 3-step toy (sprint 4), and 1.5× on a realistic TranscriptInitiation-shaped
-    workload that includes the TF-binding matrix-vec product (sprint 6 — the honest recalibration). Combined with N-way
-    parallel lockstep vs pbg sequential: ~1500× total speedup at N=10³ × 30 ticks (sprint 5 projection × sprint 6
-    recalibration). Per-Process Catalyst.jl JIT buys ≤10% — wrong attack; column-centric is the right architectural
-    direction.'
+  - 'Phase 1 empirical — MillardPDMPMetabolism + JAX/Diffrax + consumption_matched ref-growth driver close the W₂ cell_mass
+    + dry_mass gap to the Phase-0 ensemble within ±σ at t=600 s on M9-glucose. PR #72 merged 2026-05-30.'
+  - 'Phase 2 empirical — per-promoter and per-protein Poisson tau-leap landed in `poisson` mode. Jump-process variance
+    reaches the listener level: peak |Δcm| = 150 fg at the rnap_data listener at t=600 s (sprint 4).'
+  - 'Phase 3 pipeline empirical — emission → LikelihoodCollector → XArrayEmitter zarr → xarray.Dataset(replicate × time
+    × channel) readback → mean-to-mean ε calibration → SMC sequential refinement → posterior collapses to {truth} at p25/p05.'
+  - 'Phase 3 architectural finding (sprints 11-13) — pipeline emits self-calibrated `log P(simulated | simulated_param)`,
+    not the ABC-correct `log P(observed | proposed)`. Switching to count-based ABC distances is the architectural fix.'
+  - 'Phase 3 identifiability win — combined count vector `sqrt(d_rna² + d_ribosome²)` reaches 3.06× truth-vs-next-nearest
+    separation (vs 2.39× for aggregate log-likelihood). The Phase-3-canonical ABC distance.'
+  - 'Phase 3 transcript-count signal — `total_rna_init` alone gives ~150× row-separation along the Ts axis (truth row at
+    27K vs off-truth rows at 3.8M). Confirms the count metric identifies the parameter channel it''s causally linked to.'
+  - 'Phase 3 anti-diagonal ridge (sprint 10) — 2D (Ts, Ps) sweep under aggregate log-likelihood: reducing transcription
+    while raising translation partially cancels (fewer mRNAs × more activations per mRNA → similar total log P/tick).
+    Per-channel distance breaks the ridge.'
+  - 'Phase 4 hot-path empirical — production composite per-tick wall = 52 ms (sprint 5) / 74 ms (sprint 1 single-tick).
+    76% lives in framework overhead (Python internals + numpy + v2ecoli library + other site-packages).'
+  - 'Phase 4 marshalling hotspots (sprint 2) — 13,817 `isinstance` + 4,213 `__array_finalize__` + 52 `process_update`
+    calls per tick. Marshalling dominates over per-Process compute.'
+  - 'Phase 4 column-centric speedup (sprints 3-4-6) — 3.1× on pure-Poisson toy, 2.8× on 3-step toy, 1.5× on realistic
+    TranscriptInitiation-shaped workload. Honest calibration after the recalibration: 1.5× per-tick.'
+  - 'Phase 4 architectural answer — column-centric runtime × N-way parallel lockstep gives ~1500× total speedup at N=10³
+    × 30 ticks vs pbg sequential. Per-Process Catalyst.jl JIT buys ≤10% — wrong attack.'
   evidence_against:
   - 'v2ecoli''s current FBA metabolism (multi-objective: biomass + homeostatic + kinetic-constraint, via `wholecell.utils.modular_fba`)
     is tightly coupled to the rest of the WCM — enzyme abundances feed the kinetic-constraint bounds, doubling-time feeds
@@ -197,45 +183,55 @@ scientific_argument:
   - Continuous-time jump propensities require measured kinetic constants for transcription/translation/division that may not
     exist at the necessary precision (Phase 2 risk).
   key_figures:
-  - investigations/v2ecoli-pdmp/reports/pdmp-02-jump-processes.html
-  - investigations/v2ecoli-pdmp/reports/pdmp-03-inference.html
-  - investigations/v2ecoli-pdmp/reports/pdmp-04-compilation.html
-  - reports/figures/pdmp-02/trajectory_divergence.html
-  - reports/figures/pdmp-02/ensemble_validation_period60.html
-  - reports/figures/pdmp-03/likelihood_ensemble.html
-  - reports/figures/pdmp-03/abc_smc_sequential.html
-  - reports/figures/pdmp-03/abc_smc_2d.html
-  - reports/figures/pdmp-03/abc_multi_observable.html
-  - reports/figures/pdmp-03/abc_count_metric.html
-  - reports/figures/pdmp-04/per_step_compute_decomposition.html
-  - reports/figures/pdmp-04/marshalling_hotspots.html
-  - reports/figures/pdmp-04/column_centric_prototype.html
-  - reports/figures/pdmp-04/multistep_prototype.html
-  - reports/figures/pdmp-04/wcm_baseline_projection.html
-  - reports/figures/pdmp-04/ti_shaped_prototype.html
+  - chart: investigations/v2ecoli-pdmp/reports/pdmp-02-jump-processes.html
+    caption: 'Phase 2 closeout report — cell_mass is the wrong observable for jump-process variance.'
+  - chart: investigations/v2ecoli-pdmp/reports/pdmp-03-inference.html
+    caption: 'Phase 3 closeout report — count-based ABC at 3.06× truth identifiability.'
+  - chart: investigations/v2ecoli-pdmp/reports/pdmp-04-compilation.html
+    caption: 'Phase 4 closeout report — column-centric runtime gives ~1500× speedup at N=10³.'
+  - chart: reports/figures/pdmp-03/abc_count_metric.html
+    caption: 'Count-based ABC distance: 100× sharper Ts identification than aggregate log-likelihood.'
+  - chart: reports/figures/pdmp-03/abc_smc_sequential.html
+    caption: 'SMC sequential ε refinement collapses posterior to {truth} at tight ε.'
+  - chart: reports/figures/pdmp-03/abc_smc_2d.html
+    caption: '2D parameter sweep reveals anti-diagonal ridge under aggregate log-likelihood.'
+  - chart: reports/figures/pdmp-03/abc_multi_observable.html
+    caption: 'Per-channel vs aggregate ABC — diagnoses the self-calibration issue.'
+  - chart: reports/figures/pdmp-03/likelihood_ensemble.html
+    caption: 'Phase-3 ensemble figure with intra-ensemble noise floor.'
+  - chart: reports/figures/pdmp-04/marshalling_hotspots.html
+    caption: 'Phase 4 hotspots: 13,817 isinstance + 4,213 __array_finalize__ + 52 process_update/tick.'
+  - chart: reports/figures/pdmp-04/per_step_compute_decomposition.html
+    caption: 'Per-tick decomposition: 76% framework overhead, no single Process dominates.'
+  - chart: reports/figures/pdmp-04/column_centric_prototype.html
+    caption: 'Column-centric prototype: constant per-trajectory wall regardless of N.'
+  - chart: reports/figures/pdmp-04/wcm_baseline_projection.html
+    caption: 'Real WCM baseline + projection: ~1500× speedup at N=10³.'
+  - chart: reports/figures/pdmp-04/ti_shaped_prototype.html
+    caption: 'TI-shaped recalibration: 1.5× per-tick (vs toys'' 3×) under realistic per-tick work.'
+  - chart: reports/figures/pdmp-04/multistep_prototype.html
+    caption: '3-step composite: speedup does not compound — pbg overhead is per-process.'
+  - chart: reports/figures/pdmp-02/trajectory_divergence.html
+    caption: 'Phase-2 trajectory-shape divergence: |Δcm| peaks at 150 fg at rnap_data listener.'
+  - chart: reports/figures/pdmp-02/ensemble_validation_period60.html
+    caption: 'Phase-2 sparse-injection ensemble — homeostat washes per-tick variance.'
   caveats:
   - Resource estimates in the roadmap assume 2–4 FTE per phase; absent that staffing, phases will run serially over much longer
     wall time.
   - Phases 1–2 are designated parallelizable with Phase 4; Phase 3 strictly depends on Phase 2; Phase 5 depends on all preceding
     phases.
-  - 'PHASE-2 OBSERVABLE-CHOICE CAVEAT — cell_mass is the WRONG observable for jump-process variance. The
-    `consumption_matched` ref-growth driver is by construction a homeostat: any version that closes the consumption loop
-    flattens per-tick variance at the bulk-pool level and therefore at cell_mass. Three attempts to loosen it (tau-EMA
-    smoothing sprint 7, open-loop measured_kfba sprint 8, sparse injection sprint 9) all failed to surface Poisson
-    variance at cell_mass. The signal exists at the rnap_data listener (peak |Δcm| = 150 fg, sprint 4) — Phase-3 inference
-    correctly anchored on count-level listeners, not mass.'
-  - 'PHASE-3 SELF-CALIBRATION CAVEAT — The pipeline''s emitted log-likelihood is `log P(simulated_data | simulated_parameter)`,
-    NOT `log P(observed | proposed)` — it is self-calibrated under the model''s own rates and weakens identifiability.
-    The architecturally correct ABC distance is on count observables; the log-likelihood metric works (sprints 7-10) but
-    is the strictly weaker tool. Sprint-12-13 establish the per-channel count metric as the Phase-3 standard.'
-  - 'PHASE-4 RECALIBRATION CAVEAT — The sprint-5 projection of ~3000× total speedup at N=10³ was based on toy calibration
-    (3× per-tick CC speedup). Sprint 6''s realistic TI-shaped workload (matrix-vec + clip + normalize + Poisson) gives
-    1.5× per-tick speedup instead. Recalibrated projection: ~1500× at N=10³, ~15000× at N=10⁴. Still enormous; the
-    parallel-lockstep structural advantage dominates over the per-tick multiplier.'
-  - 'PBG WIRING QUIRK (task #14) — Scalar listener fields with no downstream consumer get pruned from the merged state
-    silently. Bit sprint 1 (log_likelihood lost), bit sprint 12 (did_initialize lost), worked around by declaring the
-    field as an unused input on the corresponding listener Step (RnapData / RibosomeData). Real fix lives at the
-    pbg merger layer and remains pending.'
+  - 'Phase 2 observable-choice — cell_mass is the WRONG observable for jump-process variance. The consumption_matched
+    homeostat washes per-tick variance out by construction. Three controller-tuning attempts (tau-EMA, open-loop, sparse)
+    all failed; Phase 3 correctly pivoted to count-level listeners.'
+  - 'Phase 3 self-calibration — emitted log-likelihood is `log P(simulated | simulated_param)`, not the ABC-correct
+    `log P(observed | proposed)`. Log-likelihood-based ABC works but is the strictly weaker tool vs the count-based
+    metric Phase 3 sprints 12-13 established.'
+  - 'Phase 4 recalibration — sprint-5''s 3000× projection used toy calibration (3× per-tick). Sprint-6 realistic TI-shaped
+    workload recalibrates to 1.5× per-tick. Recalibrated projection: ~1500× at N=10³, ~15000× at N=10⁴. Parallel-lockstep
+    structural advantage dominates over the per-tick multiplier.'
+  - 'Pbg wiring quirk (task #14) — scalar listener fields with no downstream consumer get silently pruned from the merged
+    state. Bit sprints 1 and 12; worked around via pin-via-consumer input declarations. Real fix lives at the pbg merger
+    layer.'
 biological_story: 'E. coli grows by integrating metabolism, gene expression, replication,
 
   and division — processes that operate on very different timescales

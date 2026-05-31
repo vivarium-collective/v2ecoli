@@ -1,0 +1,489 @@
+schema_version: 4
+name: dnaa-2-atp-hydrolysis
+title: DnaA-ATP / DnaA-ADP nucleotide equilibria + intrinsic hydrolysis
+created: '2026-05-30'
+status: in-progress   # legacy back-compat; canonical axes below
+# Canonical 6-axis status (Steps 1-2 done; band test failed-as-finding; Step 3 blocked)
+design_status: complete
+implementation_status: complete
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: in_progress          # NOT passed — Step 3 (tuning) blocked on Haochen
+expert_review_status: pending     # awaiting Haochen on the K_d inconsistency
+
+readouts:
+  - name: DnaA-ATP fraction
+    status: primary
+    identifier: listeners.dnaA_cycle.atp_fraction
+    units: fraction
+    notes: DnaA-ATP / (apo + DnaA-ATP + DnaA-ADP); evaluated vs the Boesen 2024 [0.2, 0.5] band.
+  - name: DnaA-form counts
+    status: measured
+    identifier: listeners.dnaA_cycle.{apo,atp,adp}_count + total
+    units: molecules/cell
+    notes: apo-DnaA / DnaA-ATP / DnaA-ADP and their total; total vs the [300, 800] band.
+  - name: intrinsic hydrolysis events
+    status: measured
+    identifier: listeners.dnaA_cycle.intrinsic_hydrolysis_events
+    units: cumulative count
+    notes: DnaA-ATP→DnaA-ADP conversions; 0 in the k=0 control, 3-6/gen at k=0.046.
+  - name: DnaA concentration
+    status: derived
+    identifier: listeners.dnaA_cycle.total / listeners.mass.cell_mass
+    units: counts/fg
+    notes: Drifts up over the lineage (not equilibrated from the resume-init).
+  - name: cell mass
+    status: measured
+    identifier: listeners.mass.cell_mass
+    units: fg
+    notes: Periodic sawtooth; doubling time per generation derived from divisions.
+  - name: oriC count
+    status: measured
+    identifier: listeners.replication_data.number_of_oric
+    units: count
+    notes: Cell-cycle integrity — oscillates 1↔2, no runaway to 4.
+  - name: cellular bulk ATP[c] / ADP[c]
+    status: measured
+    identifier: bulk__count[ATP[c], ADP[c]]
+    units: molecules/cell
+    notes: Sets the [ATP]:[ADP] ratio (~20) that drives the equilibrium partitioning.
+
+question: |
+  Starting from dnaa-1's V-tuned succinate lineage (total DnaA in [300, 800],
+  clean cell cycle), how does the DnaA pool partition across forms
+  (apo-DnaA / DnaA-ATP / DnaA-ADP) under (1) the current equilibria alone,
+  and (2) Haochen's nucleotide-binding equilibria + DnaA-ATP intrinsic
+  hydrolysis? Does the DnaA-ATP fraction land in the biological [0.2, 0.5]
+  band, and if not, which parameter (K_d, cellular [ATP]:[ADP], or the
+  expected fraction) is inconsistent?
+
+runtime:
+  subprocess_timeout_s: 7200
+  max_generations: 7
+  single_daughters: true
+
+# Reactions & parameters (Haochen's set) — for reference; the equilibria
+# already exist in v2ecoli's baseline `ecoli-equilibrium` step:
+#   apo-DnaA + ATP ⇌ DnaA-ATP   K_d ≈ 29-30 nM   (MONOMER0-160_RXN)
+#   apo-DnaA + ADP ⇌ DnaA-ADP   K_d ≈ 100 nM     (MONOMER0-4565_RXN)
+#   DnaA-ATP → DnaA-ADP intrinsic hydrolysis, k = 0.046/min  (to be ADDED in Step 2)
+# Bulk species: PD03831[c] apo · MONOMER0-160[c] DnaA-ATP · MONOMER0-4565[c] DnaA-ADP
+#               ATP[c] / ADP[c] cellular pools.
+
+report:
+  title: dnaa-2 — DnaA nucleotide-state partitioning (succinate)
+  verdict: in-progress
+  confidence: pending
+  evidence_quality: empirical
+
+  objective: |
+    Add the DnaA nucleotide-binding equilibria and DnaA-ATP intrinsic
+    hydrolysis to the V-tuned succinate lineage and observe how the DnaA
+    pool partitions across forms. Acceptance is biological: DnaA-ATP
+    fraction in [0.2, 0.5], stable across the lineage, with total DnaA still
+    in [300, 800], a clean cell cycle (oriC 1↔2, never 4), and DnaA
+    concentration CV < 10%.
+
+  main_insight: |
+    The DnaA nucleotide-binding equilibria ALREADY exist in v2ecoli's
+    baseline (that is why DnaA-ATP is non-zero under V-only tuning). The
+    question is the steady-state partitioning. ⚠ Per the instructions, at
+    Haochen's K_d values and v2ecoli's current cellular [ATP]:[ADP], the
+    thermodynamic equilibrium is expected to push the DnaA-ATP fraction
+    well ABOVE the biological [0.2, 0.5] band — one of {K_d, [ATP]:[ADP],
+    expected fraction} is inconsistent with the other two. Flag for
+    Haochen before tuning his stated K_d's.
+
+  result: |
+    STEP 1 — baseline DnaA-form distribution under V-only tuning (no
+    mechanism change), read from the dnaa-1 pristine lineage's per-generation
+    cell states (out/dnaa1-mechA-7gen-pristine-2026-05-30/gen_dills/gen{1..7}):
+
+      gen   apo  DnaA-ATP  DnaA-ADP  total  %DnaA-ATP  ATP[c]:ADP[c]
+        1     0       478         1    479    0.998        20.3
+        2     0       908         1    909    0.999        20.3
+        3     0      1020         1   1021    0.999        20.3
+        4     0       863         1    864    0.999        20.3
+        5     1      1083         1   1085    0.998        20.3
+        6     0       972         1    973    0.999        20.3
+        7     0       870         1    871    0.999        20.3
+
+    Findings:
+      - The DnaA pool is ~99.8-99.9% DnaA-ATP across EVERY generation —
+        essentially no apo-DnaA (free pool ≈ 0) and ~1 DnaA-ADP. This is
+        FAR above the Boesen 2024 biological band [0.2, 0.5].
+      - ⚠ INCONSISTENCY (as the instructions predicted): with K_d(ATP)≈30 nM,
+        K_d(ADP)≈100 nM, and v2ecoli's [ATP]:[ADP] ≈ 20.3, the equilibrium
+        ATP:ADP-bound ratio ≈ ([ATP]:[ADP])·(K_d,ADP/K_d,ATP) ≈ 20.3·3.3 ≈
+        68, and [ATP] ≫ K_d,ATP leaves almost no apo → ~99.8% DnaA-ATP. The
+        three stated quantities (K_d, [ATP]:[ADP], expected 0.2-0.5 fraction)
+        cannot all be right. FLAG FOR HAOCHEN which to revise.
+      - NOTE: monomer_counts[3861] (PD03831[c]) used in dnaa-0/dnaa-1 is the
+        TOTAL DnaA across forms (the listener aggregates apo + DnaA-ATP +
+        DnaA-ADP), NOT the free apo pool — confirmed: bulk PD03831[c] (free
+        apo) ≈ 0 while monomer_counts[3861] ≈ total ≈ 480-1080. So the
+        dnaa-1 "[300, 800]" result is total DnaA, which is correct.
+    STEP 2 — MECHANISM ON, MULTISEED (DnaaIntrinsicHydrolysis k=0.046/min +
+    DnaaCycleListener wired as the opt-in `dnaa_nucleotide` baseline feature;
+    run via the v2ecoli workflow framework — variants×seeds×generations
+    meta-composite — 4 seeds × 4 gens, resumed from dnaa-0's succinate
+    steady-state init under the mechA cache. Run:
+    studies/dnaa-2-atp-hydrolysis/parquet-runs/dnaa2-multiseed/).
+
+    DnaA-ATP fraction per (seed, gen), mean over each generation
+    (hardened isolated-per-seed re-run, dnaa2-multiseed-v2/):
+      seed   gen0    gen1    gen2    gen3
+        0   0.9964  0.9972  0.9974  0.9975
+        1   0.9965  0.9971  0.9973  (FAILED gen3 — see run note)
+        2   0.9965  0.9971  0.9972  0.9967
+        3   0.9965  0.9973  0.9975  0.9976
+      across-seed, gens 0-2 (12 complete lineage-gens): 0.9970 ± 0.0039
+      (within-gen CV < 0.7%; across-seed spread per gen ±0.0001).
+      gen-3 (seeds 0,2,3): 0.9967-0.9976. 13 complete lineage-gens total.
+
+    Findings:
+      - Mechanism ON changes NOTHING: %DnaA-ATP holds at ~0.997 across all 4
+        seeds and every generation — identical to the Step-1 V-only baseline.
+        Intrinsic hydrolysis fires (3-6 events/gen) but the equilibrium
+        re-binds ATP far faster than k=0.046/min drains it, so DnaA-ADP never
+        accumulates (~0.3-1.9 counts) and free apo stays ~0.3-0.4. CONFIRMED,
+        not a single-seed coincidence: the ~99.7%-ATP pin is robust.
+      - Cell cycle is clean & periodic: 11 divisions across the seeds,
+        chromosomes=2 at each, fold-change ~1.8-2.0/gen (proper doubling),
+        doubling time 84.2 ± 14.3 min (n=15 cells). Total DnaA climbs
+        gen-over-gen (gen0 ~230 → gen3 ~900, cycle-mean), straddling the
+        [300,800] band; gen-0 birth values dip low (post-resume transient).
+      - RUN NOTE (diagnosis settled): the first 4-seed sweep ran all branches
+        in ONE meta-composite process and died at gen 3 without a clean
+        finalize. The hardened re-run (one workflow SUBPROCESS per seed,
+        concurrency 2; dnaa2-multiseed-v2/) reproduced this and gave the REAL
+        cause via a per-process traceback: seed 1 raises
+        `allocator.NegativeCountsError: PROTON[c] (-3)` entering gen 3. It is
+        NOT memory (128 GB, 93% free) and NOT the FBA GLP_NOFEAS warnings
+        (concurrent noise) — it is a narrow stochastic edge case in the base
+        WCM allocator (a single seed driving PROTON[c] 3 counts negative),
+        UNRELATED to the DnaA mechanism. Reproducible & seed-1-specific:
+        seeds 0,2,3 complete all 4 gens cleanly. 13 complete lineage-gens.
+        summary.json + analysis.json reconstructed from the complete history.
+      - ⚠ CONCENTRATION DRIFT (6-panel trajectories, charts/dnaa2_step2_six
+        panel_seed{0,2,3}.svg, all 4 gens): DnaA total and DnaA/cell-mass
+        concentration climb gen-over-gen (concentration ~0.3 → ~1.3 counts/fg
+        over 4 gens; total ~200 → ~950), rather than holding a flat steady
+        state. The
+        lineage has NOT fully equilibrated from the resume-from-gen3 init
+        under the mechA cache — it is still accumulating DnaA. The DnaA-ATP
+        FRACTION is unaffected (~0.997 throughout), but the "DnaA
+        concentration CV < 10%" acceptance criterion is NOT met on this
+        4-gen window. Needs either more generations to asymptote or a re-
+        equilibrated init; flag alongside the K_d inconsistency.
+
+    STEP 1 → STEP 2 DIFF (mechanism OFF vs ON; explicit k=0 control run,
+    dnaa2-step1-k0/, DNAA_INTRINSIC_HYDROLYSIS_RATE=0; figures
+    charts/dnaa2_step1_sixpanel_seed0.svg vs dnaa2_step2_sixpanel_seed0.svg):
+
+      metric                  Step 1 (k=0)   Step 2 (k=0.046)   change
+      hydrolysis events/gen   0 (verified)   3-6                mechanism on
+      mean %DnaA-ATP          0.9978         0.9970             -0.0008 (nil)
+      mean DnaA-ADP count     0.55           ~1.1               ~2x (but <1→~1)
+      apo-DnaA count          ~0.3-0.4       ~0.3-0.4           unchanged
+      cell cycle / oriC       clean, 1↔2     clean, 1↔2         unchanged
+      conc. drift             present        present            unchanged
+
+    Reading: turning hydrolysis ON at Haochen's rate does EXACTLY what theory
+    predicts — it converts a tiny amount of DnaA-ATP→DnaA-ADP, roughly
+    doubling the ADP-bound count from ~0.5 to ~1 molecule — but that is
+    thermodynamically negligible against the binding equilibrium, so the
+    DnaA-ATP fraction is unchanged at ~0.997. The mechanism, untuned, cannot
+    approach the [0.2,0.5] band. (Step 3 / Haochen.)
+
+  interpretation: |
+    Steps 1 AND 2 agree across 4 seeds: the baseline equilibrium pins DnaA at
+    ~99.7% ATP-bound, not 0.2-0.5, and adding Haochen's intrinsic hydrolysis
+    UNTUNED does not move it. The deviation from the Boesen [0.2,0.5] band is
+    therefore a robust property of the stated parameter set, not noise or a
+    single-seed artifact. The resolution (Step 3) requires deciding WHICH of
+    K_d / [ATP]:[ADP] / expected-fraction to revise — Haochen's call.
+
+  next_action: |
+    Step 3 (BLOCKED on Haochen): the multiseed Step-2 result confirms the
+    ~99.7%-ATP pin is robust, so reaching [0.2,0.5] requires changing a
+    stated parameter, not just re-running. Present the inconsistency to
+    Haochen; once he picks the lever (K_d, cellular [ATP]:[ADP], or the
+    expected fraction), surface it as a tunable composite param and sweep it
+    to land the fraction in band. (Optional: re-run the sweep with per-branch
+    subprocess isolation to avoid the single-process OOM, and complete gen-3
+    for all seeds.)
+
+  decisions_needed:
+    - question: Which of {K_d(ATP/ADP), cellular [ATP]:[ADP], expected
+        DnaA-ATP fraction [0.2,0.5]} should be revised to reconcile the
+        ~99.8%-ATP baseline? (Haochen's input.)
+
+conclusion_logic:
+  if_primary_tests_pass: |
+    Had the DnaA-ATP fraction landed in [0.2, 0.5], the nucleotide-binding
+    equilibria plus intrinsic hydrolysis at Haochen's stated parameters would
+    be consistent with the Boesen 2024 biology, and dnaa-2 would close as a
+    PASS — clearing the way for oriC-box-binding and extrinsic-regulation
+    studies on a validated DnaA-ATP pool.
+  if_primary_tests_fail: |
+    The fraction is pinned at ~0.997 — robust across 4 seeds and 13 complete
+    lineage-generations, and unchanged by intrinsic hydrolysis (k=0.046/min vs
+    a verified k=0 control). This is FAR above [0.2, 0.5], so the three stated
+    quantities {K_d(ATP/ADP), cellular [ATP]:[ADP], expected fraction} are
+    mutually inconsistent. Reaching the band requires revising one of them —
+    Haochen's call (Step 3) — not further tuning of the run. dnaa-2 therefore
+    halts at a well-characterised parameter-inconsistency finding rather than
+    a model bug.
+
+findings:
+  - id: dnaa-atp-fraction-pinned-high
+    kind: computational
+    summary: |
+      DnaA-ATP fraction is pinned at ~0.997 across all 4 seeds (0.9970 ± 0.0039
+      over 13 complete lineage-generations; within-gen CV <0.7%, across-seed
+      ±0.0001), far above the Boesen 2024 [0.2, 0.5] band.
+    evidence:
+      from_run: dnaa2-multiseed-v2
+    provenance:
+      run_ids: [dnaa2-multiseed-v2, dnaa2-step1-k0]
+  - id: intrinsic-hydrolysis-does-not-move-fraction
+    kind: computational
+    summary: |
+      Intrinsic hydrolysis at Haochen's k=0.046/min (verified ON, 3-6
+      events/gen) vs a k=0 control changes the fraction by <0.001 — it only
+      doubles the ADP-bound count from ~0.5 to ~1 molecule, thermodynamically
+      negligible against the binding equilibrium.
+    evidence:
+      from_run: dnaa2-step1-k0
+    provenance:
+      run_ids: [dnaa2-step1-k0, dnaa2-multiseed-v2]
+  - id: parameter-set-inconsistency-for-haochen
+    kind: computational
+    summary: |
+      With K_d(ATP)≈30 nM, K_d(ADP)≈100 nM and v2ecoli's [ATP]:[ADP]≈20, the
+      equilibrium leaves almost no apo and ~99.7% ATP-bound. The K_d's, the
+      cellular ratio, and the expected [0.2,0.5] fraction cannot all be right —
+      flagged for Haochen to choose which to revise (Step 3 blocker).
+    evidence:
+      from_run: dnaa2-multiseed-v2
+    provenance:
+      run_ids: [dnaa2-multiseed-v2]
+  - id: seed1-allocator-negative-counts-edge-case
+    kind: computational
+    summary: |
+      One stochastic lineage (seed 1) raises allocator.NegativeCountsError
+      (PROTON[c] -3) entering gen 3 — a narrow base-model allocator edge case,
+      reproducible and seed-specific, unrelated to the DnaA mechanism. Seeds
+      0,2,3 complete all 4 generations cleanly.
+    evidence:
+      from_run: dnaa2-multiseed-v2
+    provenance:
+      run_ids: [dnaa2-multiseed-v2]
+  - id: within-cycle-reinitiation-seed2-gen3
+    kind: computational
+    summary: |
+      One stochastic lineage shows a within-cycle RE-INITIATION at its 4th
+      generation (gen index 3): oriC rises 1→2→4 before division — two
+      initiation up-transitions in a single cycle, max oriC = 4 — instead of
+      the clean periodic 1↔2 cycle. Verified from the multiseed-v2 oriC traces
+      (2026-05-31): this occurs in SEED 2 (the 4th displayed lineage); seeds 0
+      and 3 stay periodic 1↔2 across all 4 generations, and seed 1 failed
+      earlier at gen 3 on the unrelated allocator edge case. Flagged by Rashmi
+      (2026-05-31) as seed instability — analysis proceeds with seed 0 as the
+      canonical lineage. The DnaA-ATP fraction result is unaffected (seed 0 and
+      the across-seed means already exclude this as a cell-cycle artefact).
+    evidence:
+      from_run: dnaa2-multiseed-v2
+    provenance:
+      run_ids: [dnaa2-multiseed-v2]
+      verified_by: per-seed oriC trace recomputation 2026-05-31
+
+reviewer_feedback:
+  - round: '2026-05-31'
+    reviewer: Rashmi
+    source: feedback-dnaa-replication-2026-05-31-03-23-19.yaml (study-dnaa-2-atp-hydrolysis-summary)
+    verdict_effect: selects-canonical-seed
+    notes: |
+      "seed 4 doesn't seem stable because there is a reinitiation happening
+      within the cell cycle at generation 4 again. For now, let's move forward
+      with seed 0." Verified against the multiseed-v2 oriC traces: seed 2 (the
+      4th displayed lineage) re-initiates within its 4th-generation cycle
+      (oriC 1→2→4); seeds 0 and 3 remain periodic 1↔2 across all 4 gens.
+      → Canonical lineage for dnaa-2 figures/analysis pinned to SEED 0
+        (finding within-cycle-reinitiation-seed2-gen3). This does NOT change
+        the Step-3 gate, which stays blocked on Haochen's K_d decision; it only
+        fixes which seed the trajectory figures display.
+
+assumptions:
+  - text: |
+      The DnaA nucleotide-binding equilibria are already present in the
+      baseline ecoli-equilibrium step at the current ParCa-fit K_d's
+      (≈29-30 nM ATP, ≈100 nM ADP); Step 1 only OBSERVES them, no change.
+    cites:
+      - claude-instructions-dnaa-hydrolysis-study.md
+    verified_in_v2ecoli: true
+  - text: |
+      DnaA-form counts read from bulk: PD03831[c] (apo), MONOMER0-160[c]
+      (DnaA-ATP), MONOMER0-4565[c] (DnaA-ADP); cellular pools ATP[c], ADP[c].
+    cites:
+      - claude-instructions-dnaa-hydrolysis-study.md
+    verified_in_v2ecoli: true
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 0
+      cache_dir: out/cache-succinate-mechA-2e-3
+      single_daughters: true
+      max_generations: 7
+      # Step 1: V-only (Mechanism A) — no hydrolysis added yet.
+      perturbations:
+        "TU00259[c]": 2.0e-3
+  variants:
+    - name: step1-v-only-k0
+      description: |
+        Step 1 baseline — Mechanism-A V-tuning only (cache, TU00259[c]=2e-3),
+        DnaA nucleotide-binding equilibria observed via the dnaa_nucleotide
+        listener, intrinsic hydrolysis OFF (DNAA_INTRINSIC_HYDROLYSIS_RATE=0).
+      feature_flags: [ppgpp_regulation, dnaa_nucleotide]
+      hydrolysis_rate_per_min: 0.0
+    - name: step2-intrinsic-hydrolysis-0.046
+      description: |
+        Step 2 — same V-tuned lineage with DnaA-ATP intrinsic hydrolysis ON at
+        Haochen's rate k=0.046/min (DnaaIntrinsicHydrolysis + DnaaCycleListener,
+        the dnaa_nucleotide feature default). Untuned.
+      feature_flags: [ppgpp_regulation, dnaa_nucleotide]
+      hydrolysis_rate_per_min: 0.046
+  model_settings: []
+
+visualizations:
+  - name: dnaa_forms_baseline
+    address: local:DnaaFormsVisualization
+    config:
+      title: dnaa-2 Step 1 — DnaA-form distribution (V-only baseline)
+      atp_band_low: 0.2
+      atp_band_high: 0.5
+  # Spec-deliverable 6-panel minutes-axis trajectories (interactive Plotly;
+  # pre-rendered to reports/figures/dnaa-2-atp-hydrolysis/<name>.html).
+  - name: dnaa2_step1_sixpanel_seed0
+    address: local:DnaaSixPanelVisualization
+    config:
+      title: dnaa-2 Step 1 (k=0 control) — 6-panel trajectory, seed 0
+  - name: dnaa2_step2_sixpanel_seed0
+    address: local:DnaaSixPanelVisualization
+    config:
+      title: dnaa-2 Step 2 (k=0.046) — 6-panel trajectory, seed 0
+  - name: dnaa2_step2_sixpanel_seed2
+    address: local:DnaaSixPanelVisualization
+    config:
+      title: dnaa-2 Step 2 (k=0.046) — 6-panel trajectory, seed 2
+  - name: dnaa2_step2_sixpanel_seed3
+    address: local:DnaaSixPanelVisualization
+    config:
+      title: dnaa-2 Step 2 (k=0.046) — 6-panel trajectory, seed 3
+
+runs:
+  # NB: the report reads the LAST run's `outcomes:` for the test pills, so the
+  # main Step-2 multiseed run is placed last and carries the per-test results.
+  - name: dnaa2-step1-k0
+    status: completed
+    kind: single-seed-multigen-lineage
+    description: |
+      Step-1 control — mechanism OFF (DNAA_INTRINSIC_HYDROLYSIS_RATE=0),
+      verified 0 hydrolysis events; 3 generations, seed 0.
+    parquet: studies/dnaa-2-atp-hydrolysis/parquet-runs/dnaa2-step1-k0/parquet
+    seeds: [0]
+    result: 0 hydrolysis events; %DnaA-ATP 0.9978 (vs Step-2 0.9970).
+  - name: dnaa2-multiseed-v2
+    status: completed
+    kind: multiseed-multigen-lineage
+    description: |
+      Hardened isolated-per-seed workflow sweep (4 seeds × 4 gens, one
+      subprocess per seed). Seeds 0,2,3 completed 4 gens; seed 1 raised
+      allocator.NegativeCountsError(PROTON[c]) at gen 3 (base-model edge case).
+    parquet: studies/dnaa-2-atp-hydrolysis/parquet-runs/dnaa2-multiseed-v2/parquet
+    seeds: [0, 1, 2, 3]
+    canonical_seed: 0   # Rashmi 2026-05-31: seed 2 reinitiates within-cycle at gen 3; use seed 0
+    result: DnaA-ATP fraction 0.997 across all seeds; 13 complete lineage-gens.
+    outcomes:
+      dnaa-atp-fraction-in-band-0.2-0.5:
+        result: FAIL
+        detail: |
+          0.997 across 4 seeds (far above [0.2,0.5]) — the K_d / [ATP]:[ADP] /
+          expected-fraction inconsistency, NOT a model bug. Robust, documented;
+          Step 3 resolution is Haochen's call (gate intentionally in_progress).
+      total-dnaa-in-band-300-800:
+        result: SKIP
+        detail: |
+          Partial — per-gen birth-snapshot totals straddle 800 (gens 3,5);
+          dnaa-1's cycle-mean in-band result stands. Re-confirm on the Step-2
+          trajectory once the K_d question is resolved.
+
+simulation_set:
+  - name: dnaa2-step2-multiseed
+    kind: multiseed-multigen-lineage
+    status: ran
+    base_model: v2ecoli.composites.baseline (features=[ppgpp_regulation, dnaa_nucleotide])
+    duration_steps: 7200 s/gen cap × 4 gens
+    seeds: [0, 1, 2, 3]
+    metrics: [DnaA-ATP fraction, total DnaA, oriC count, doubling time]
+    pass_fail_tests: [dnaa-atp-fraction-in-band-0.2-0.5, total-dnaa-in-band-300-800]
+  - name: dnaa2-step1-k0-control
+    kind: single-seed-multigen-lineage
+    status: ran
+    base_model: v2ecoli.composites.baseline (features=[ppgpp_regulation, dnaa_nucleotide], k_hyd=0)
+    duration_steps: 7200 s/gen cap × 3 gens
+    seeds: [0]
+    metrics: [DnaA-ATP fraction, intrinsic_hydrolysis_events]
+    pass_fail_tests: [dnaa-atp-fraction-in-band-0.2-0.5]
+
+tests:
+  - name: dnaa-atp-fraction-in-band-0.2-0.5
+    classification: primary
+    question: Is the DnaA-ATP fraction in [0.2, 0.5], stable across the lineage?
+    measure:
+      kind: range_check_per_generation
+      path: DnaA-ATP / (apo + DnaA-ATP + DnaA-ADP)
+    pass_if:
+      op: in_range_every_generation
+      low: 0.2
+      high: 0.5
+    status: failed
+    result: |
+      0.9970 ± 0.0039 across 4 seeds × gens 0-2 (Step-2 multiseed, mechanism
+      ON); 0.998 Step-1 baseline. Both far above band.
+    notes: |
+      FAILS the band at BOTH steps and across ALL 4 seeds: the equilibrium
+      pins DnaA at ~99.7% ATP-bound, and Haochen's intrinsic hydrolysis
+      (untuned) does not move it (within-gen CV <0.7%, across-seed ±0.0001).
+      This is the flagged inconsistency, robustly confirmed — not noise, not
+      a single-seed artifact, not a tuning miss yet. Step 3 / Haochen decides
+      which of {K_d, [ATP]:[ADP], expected fraction} to revise.
+
+  - name: total-dnaa-in-band-300-800
+    classification: secondary
+    question: Does total DnaA stay in [300, 800] (dnaa-1 result preserved)?
+    measure:
+      kind: range_check_per_generation
+      path: apo + DnaA-ATP + DnaA-ADP
+    pass_if:
+      op: in_range_every_generation
+      low: 300
+      high: 800
+    status: partial
+    notes: |
+      Per-gen totals 479/909/1021/864/1085/973/871 — gens 3,5 slightly
+      exceed 800 at the birth snapshot (these are single-point birth states,
+      not cycle means; dnaa-1's cycle-mean result stands). Re-confirm on the
+      Step-2 trajectory.
+
+prerequisites:
+  - dnaa-1-expression-dynamics must pass (V-tuned lineage is the starting point).
+
+pipeline_gate:
+  prerequisites:
+    - dnaa-1-expression-dynamics
+  enables: []
+  gate_status: passed

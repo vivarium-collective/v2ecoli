@@ -131,6 +131,15 @@ FEATURE_MODULES = {
         'insert_before': 'ecoli-transcript-elongation_requester',
         'steps': ['trna-attenuation-config'],
     },
+    # dnaa-2: DnaA-ATP intrinsic hydrolysis (DnaA-ATP -> DnaA-ADP, k=0.046/min)
+    # runs after metabolism (bulk settled); the DnaA-form listener emits the
+    # apo/ATP/ADP partitioning. Opt-in — NOT in DEFAULT_FEATURES, so dnaa-0/
+    # dnaa-1 are unaffected.
+    'dnaa_nucleotide': {
+        'insert_after': 'ecoli-metabolism',
+        'steps': ['dnaa-intrinsic-hydrolysis'],
+        'listeners': ['dnaa-cycle-listener'],
+    },
     # Opt-in runtime mass-conservation check. Runs after the mass listener
     # (dry_mass) and metabolism (environment.exchange). OFF by default: the
     # residual is not yet calibrated (net boundary exchange measures ~55x the
@@ -229,6 +238,8 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
     from v2ecoli.steps.listeners.rnap_data import RnapData
     from v2ecoli.steps.listeners.unique_molecule_counts import UniqueMoleculeCounts
     from v2ecoli.steps.listeners.ribosome_data import RibosomeData
+    from v2ecoli.steps.dnaa_intrinsic_hydrolysis import DnaaIntrinsicHydrolysis
+    from v2ecoli.steps.dnaa_cycle_listener import DnaaCycleListener
     from v2ecoli.steps.media_update import MediaUpdate
     from v2ecoli.steps.exchange_data import ExchangeData
 
@@ -292,6 +303,9 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
         'ribosome_data_listener': RibosomeData,
         'media_update': MediaUpdate,
         'exchange_data': ExchangeData,
+        # dnaa-2 (opt-in via the 'dnaa_nucleotide' feature):
+        'dnaa-intrinsic-hydrolysis': DnaaIntrinsicHydrolysis,
+        'dnaa-cycle-listener': DnaaCycleListener,
     }
 
     from v2ecoli.library.config_resolver import resolve_config
@@ -423,7 +437,7 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
 )
 def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
              config_overrides: dict | None = None,
-             bundle: dict | None = None) -> dict:
+             bundle: dict | None = None, features: list | None = None) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
     Migrated from ``v2ecoli/generate.py:build_document`` +
@@ -473,8 +487,13 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     unique_names = bundle["unique_names"]
     dry_mass_inc_dict = bundle.get("dry_mass_inc_dict", {})
 
-    features = list(DEFAULT_FEATURES) + [
-        f for f in _EXTRA_FEATURES if f not in DEFAULT_FEATURES]
+    # Explicit `features` (e.g. dnaa-2's runner passing
+    # ['ppgpp_regulation','dnaa_nucleotide']) wins; otherwise default to
+    # DEFAULT_FEATURES plus any opt-in modules enabled via enable_features().
+    features = (
+        list(DEFAULT_FEATURES) + [f for f in _EXTRA_FEATURES if f not in DEFAULT_FEATURES]
+        if features is None else features
+    )
 
     cell_state = {}
     cell_state.update(initial_state)

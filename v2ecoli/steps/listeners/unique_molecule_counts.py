@@ -33,6 +33,9 @@ class UniqueMoleculeCounts(Step):
     }
 
 
+    def initialize(self, config):
+        self.unique_ids = self.parameters["unique_ids"]
+
     def inputs(self):
         return {
             'unique': {'_type': 'map[node]', '_default': {}},
@@ -41,15 +44,21 @@ class UniqueMoleculeCounts(Step):
         }
 
     def outputs(self):
+        # One concrete overwrite[integer] field per unique-molecule type.
+        # The bare 'map[integer]' that lived here from commit 967f638 had
+        # broken apply semantics: bigraph Map.apply only updates keys
+        # already in state (so first-tick adds of fresh keys were dropped),
+        # and Integer.apply is additive (so repeated updates would
+        # accumulate instead of overwrite). Mirrors the per-field
+        # overwrite[...] pattern already used by mass_listener.
         return {
             'listeners': {
-                'unique_molecule_counts': 'map[integer]',
+                'unique_molecule_counts': {
+                    str(uid): {'_type': 'overwrite[integer]', '_default': 0}
+                    for uid in self.unique_ids
+                },
             },
         }
-
-
-    def initialize(self, config):
-        self.unique_ids = self.parameters["unique_ids"]
 
 
     def update_condition(self, timestep, states):

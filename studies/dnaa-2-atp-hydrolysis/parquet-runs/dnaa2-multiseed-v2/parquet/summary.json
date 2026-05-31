@@ -1,0 +1,123 @@
+{
+  "variant=0/seed=0": {
+    "generations": [
+      {
+        "generation": 0,
+        "agent_id": "0",
+        "duration": 4399.0,
+        "dry_mass": 330.83667782754924,
+        "divided": true
+      },
+      {
+        "generation": 1,
+        "agent_id": "00",
+        "duration": 5199.0,
+        "dry_mass": 313.60265519965367,
+        "divided": true
+      },
+      {
+        "generation": 2,
+        "agent_id": "000",
+        "duration": 4799.0,
+        "dry_mass": 299.27137598361753,
+        "divided": true
+      },
+      {
+        "generation": 3,
+        "agent_id": "0000",
+        "duration": 7200.0,
+        "dry_mass": 245.72916840402456,
+        "divided": false
+      }
+    ]
+  },
+  "variant=0/seed=1": {
+    "generations": [
+      {
+        "generation": 0,
+        "agent_id": "0",
+        "duration": 4799.0,
+        "dry_mass": 313.8899737933855,
+        "divided": true
+      },
+      {
+        "generation": 1,
+        "agent_id": "00",
+        "duration": 5599.0,
+        "dry_mass": 322.2583796246756,
+        "divided": true
+      },
+      {
+        "generation": 2,
+        "agent_id": "000",
+        "duration": 5999.0,
+        "dry_mass": 328.6108632442647,
+        "divided": false
+      }
+    ]
+  },
+  "variant=0/seed=2": {
+    "generations": [
+      {
+        "generation": 0,
+        "agent_id": "0",
+        "duration": 4399.0,
+        "dry_mass": 332.2162929321514,
+        "divided": true
+      },
+      {
+        "generation": 1,
+        "agent_id": "00",
+        "duration": 5999.0,
+        "dry_mass": 329.3642094512219,
+        "divided": true
+      },
+      {
+        "generation": 2,
+        "agent_id": "000",
+        "duration": 7200.0,
+        "dry_mass": 272.0488833147981,
+        "divided": true
+      },
+      {
+        "generation": 3,
+        "agent_id": "0000",
+        "duration": 4399.0,
+        "dry_mass": 447.0515057971479,
+        "divided": false
+      }
+    ]
+  },
+  "variant=0/seed=3": {
+    "generations": [
+      {
+        "generation": 0,
+        "agent_id": "0",
+        "duration": 4399.0,
+        "dry_mass": 338.8813018013062,
+        "divided": true
+      },
+      {
+        "generation": 1,
+        "agent_id": "00",
+        "duration": 4399.0,
+        "dry_mass": 346.08961189542526,
+        "divided": true
+      },
+      {
+        "generation": 2,
+        "agent_id": "000",
+        "duration": 4399.0,
+        "dry_mass": 331.39735047311797,
+        "divided": true
+      },
+      {
+        "generation": 3,
+        "agent_id": "0000",
+        "duration": 4799.0,
+        "dry_mass": 337.16163249470287,
+        "divided": false
+      }
+    ]
+  }
+}

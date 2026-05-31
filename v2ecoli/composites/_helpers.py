@@ -1087,6 +1087,18 @@ def _get_special_step(loader, step_name, core):
                     'free_DnaA_boxes': 'integer',
                     'total_DnaA_boxes': 'integer',
                 },
+                # dnaa-2: DnaA nucleotide-state partitioning (emitted only when
+                # the dnaa_nucleotide feature wires the DnaaCycleListener).
+                'dnaA_cycle': {
+                    'apo_count': 'integer',
+                    'atp_count': 'integer',
+                    'adp_count': 'integer',
+                    'total': 'integer',
+                    'atp_fraction': 'float',
+                    'adp_fraction': 'float',
+                    'apo_fraction': 'float',
+                    'intrinsic_hydrolysis_events': 'integer',
+                },
             })
 
         if parquet_override is not None:
@@ -1234,6 +1246,25 @@ def _get_special_step(loader, step_name, core):
         topology = getattr(instance, 'topology', {})
         return instance, topology, 'step'
 
+    if step_name == 'dnaa-intrinsic-hydrolysis':
+        # dnaa-2: DnaA-ATP -> DnaA-ADP intrinsic hydrolysis (k=0.046/min).
+        # Rate overridable via env var for the rate study: DNAA_INTRINSIC_
+        # HYDROLYSIS_RATE=0 reproduces the Step-1 V-only baseline (listener on,
+        # mechanism off); >0.046 sweeps the rate clamp (Step 3).
+        import os
+        rate = float(os.environ.get('DNAA_INTRINSIC_HYDROLYSIS_RATE', '0.046'))
+        from v2ecoli.steps.dnaa_intrinsic_hydrolysis import DnaaIntrinsicHydrolysis
+        instance = DnaaIntrinsicHydrolysis(config={'rate_per_min': rate}, core=core)
+        topology = getattr(instance, 'topology', {})
+        return instance, topology, 'step'
+
+    if step_name == 'dnaa-cycle-listener':
+        # dnaa-2: DnaA nucleotide-state listener (apo/ATP/ADP counts+fractions).
+        from v2ecoli.steps.dnaa_cycle_listener import DnaaCycleListener
+        instance = DnaaCycleListener(config={'time_step': 1}, core=core)
+        topology = getattr(instance, 'topology', {})
+        return instance, topology, 'step'
+
     if step_name == 'mark_d_period':
         from v2ecoli.steps.division import MarkDPeriod
         instance = MarkDPeriod(config={}, core=core)
@@ -1271,6 +1302,11 @@ def _get_special_step(loader, step_name, core):
             'global_time': ('global_time',),
             'division_threshold': ('division_threshold',),
             'media_id': ('environment', 'media_id'),
+            # Wire the divide flag MarkDPeriod sets at
+            # chromosome_complete + D_period. Without this, Division
+            # never sees the flag and the D-period is unenforced
+            # (Round 3.7 root cause of the τ-gap).
+            'divide': ('divide',),
             'agents': ('..',),
         }
         return instance, topo, 'step'

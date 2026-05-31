@@ -249,32 +249,76 @@ class ChromosomeStructure(Step):
             return True
         return False
 
+    def _init_bulk_indices(self, bulk_ids):
+        """Resolve every molecule-name -> bulk-array-index map this Step uses.
+        Called once (guarded by ``self.inactive_RNAPs_idx is None``), so it
+        never runs on the per-tick path."""
+        self.fragmentBasesIdx = bulk_name_to_idx(self.fragmentBases, bulk_ids)
+        self.active_tfs_idx = bulk_name_to_idx(self.active_tfs, bulk_ids)
+        self.ribosome_30S_subunit_idx = bulk_name_to_idx(
+            self.ribosome_30S_subunit, bulk_ids)
+        self.ribosome_50S_subunit_idx = bulk_name_to_idx(
+            self.ribosome_50S_subunit, bulk_ids)
+        self.amino_acids_idx = bulk_name_to_idx(self.amino_acids, bulk_ids)
+        self.water_idx = bulk_name_to_idx(self.water, bulk_ids)
+        self.ppi_idx = bulk_name_to_idx(self.ppi, bulk_ids)
+        self.inactive_RNAPs_idx = bulk_name_to_idx(self.inactive_RNAPs, bulk_ids)
+        self.mature_rna_idx = bulk_name_to_idx(self.mature_rna_ids, bulk_ids)
+
+    def _removed_molecules_mask(self, domain_indexes, coordinates,
+                                replisome_coords_by_domain, child_domains,
+                                all_domain_indexes, mother_domain_indexes):
+        """Boolean mask of unique molecules the replication forks have passed
+        (and so must be removed from the mother strand).
+
+        For each chromosome domain:
+          * if it carries active replisomes, a molecule is removed when its
+            coordinate lies within [min, max] of those replisome coordinates
+            (>=/<= so molecules exactly at a fork are also removed);
+          * if it has no replisomes but its children are full chromosomes
+            (replication finished), every molecule on it is removed;
+          * otherwise (un-replicated / interrupted) nothing is removed.
+        """
+        mask = np.zeros_like(domain_indexes, dtype=np.bool_)
+        for domain_index in np.unique(domain_indexes):
+            if domain_index in replisome_coords_by_domain:
+                domain_replisome_coordinates = replisome_coords_by_domain[
+                    domain_index]
+                domain_mask = np.logical_and.reduce((
+                    domain_indexes == domain_index,
+                    coordinates >= domain_replisome_coordinates.min(),
+                    coordinates <= domain_replisome_coordinates.max(),
+                ))
+            else:
+                children_of_domain = child_domains[
+                    all_domain_indexes == domain_index]
+                if np.all(np.isin(children_of_domain, mother_domain_indexes)):
+                    domain_mask = domain_indexes == domain_index
+                else:
+                    continue
+            mask[domain_mask] = True
+        return mask
+
+    def _replicated_motif_attributes(self, old_coordinates, old_domain_indexes,
+                                     child_domains, all_domain_indexes):
+        """Attributes for a chromosomal motif (promoter/gene/DnaA box) after a
+        replication fork passes it: the motif is duplicated onto the two child
+        domains. Coordinates are repeated; each domain index is replaced by its
+        two child-domain indexes."""
+        new_coordinates = np.repeat(old_coordinates, 2)
+        new_domain_indexes = child_domains[
+            np.array([
+                np.where(all_domain_indexes == idx)[0][0]
+                for idx in old_domain_indexes
+            ]),
+            :,
+        ].flatten()
+        return new_coordinates, new_domain_indexes
+
     def update(self, states, interval=None):
-        # At t=0, convert all strings to indices
+        # At t=0, resolve molecule-name -> bulk-index maps (runs once).
         if self.inactive_RNAPs_idx is None:
-            self.fragmentBasesIdx = bulk_name_to_idx(
-                self.fragmentBases, states["bulk"]["id"]
-            )
-            self.active_tfs_idx = bulk_name_to_idx(
-                self.active_tfs, states["bulk"]["id"]
-            )
-            self.ribosome_30S_subunit_idx = bulk_name_to_idx(
-                self.ribosome_30S_subunit, states["bulk"]["id"]
-            )
-            self.ribosome_50S_subunit_idx = bulk_name_to_idx(
-                self.ribosome_50S_subunit, states["bulk"]["id"]
-            )
-            self.amino_acids_idx = bulk_name_to_idx(
-                self.amino_acids, states["bulk"]["id"]
-            )
-            self.water_idx = bulk_name_to_idx(self.water, states["bulk"]["id"])
-            self.ppi_idx = bulk_name_to_idx(self.ppi, states["bulk"]["id"])
-            self.inactive_RNAPs_idx = bulk_name_to_idx(
-                self.inactive_RNAPs, states["bulk"]["id"]
-            )
-            self.mature_rna_idx = bulk_name_to_idx(
-                self.mature_rna_ids, states["bulk"]["id"]
-            )
+            self._init_bulk_indices(states["bulk"]["id"])
 
         # Read unique molecule attributes
         (replisome_domain_indexes, replisome_coordinates, replisome_unique_indexes) = (
@@ -342,64 +386,18 @@ class ChromosomeStructure(Step):
             for domain_index in np.unique(replisome_domain_indexes)
         }
 
-        def get_removed_molecules_mask(domain_indexes, coordinates):
-            """
-            Computes the boolean mask of unique molecules that should be
-            removed based on the progression of the replication forks.
-            """
-            mask = np.zeros_like(domain_indexes, dtype=np.bool_)
-
-            # Loop through all domains
-            for domain_index in np.unique(domain_indexes):
-                # Domain has active replisomes
-                if domain_index in replisome_coordinates_from_domains:
-                    domain_replisome_coordinates = replisome_coordinates_from_domains[
-                        domain_index
-                    ]
-
-                    # Get mask for molecules on this domain that are out of range
-                    # It's rare but we have to remove molecules at the exact same
-                    # coordinates as the replisomes as well so that they do not break
-                    # the chromosome segment calculations if they are removed by a
-                    # different process (hence, >= and <= instead of > and <)
-                    domain_mask = np.logical_and.reduce(
-                        (
-                            domain_indexes == domain_index,
-                            coordinates >= domain_replisome_coordinates.min(),
-                            coordinates <= domain_replisome_coordinates.max(),
-                        )
-                    )
-
-                # Domain has no active replisomes
-                else:
-                    children_of_domain = child_domains[
-                        all_chromosome_domain_indexes == domain_index
-                    ]
-                    # Child domains are full chromosomes (domain has finished replicating)
-                    if np.all(np.isin(children_of_domain, mother_domain_indexes)):
-                        # Remove all molecules on this domain
-                        domain_mask = domain_indexes == domain_index
-                    # Domain has not started replication or replication was interrupted
-                    else:
-                        continue
-
-                mask[domain_mask] = True
-
-            return mask
-
-        # Build mask for molecules that should be removed
-        removed_RNAPs_mask = get_removed_molecules_mask(
-            RNAP_domain_indexes, RNAP_coordinates
-        )
-        removed_promoters_mask = get_removed_molecules_mask(
-            promoter_domain_indexes, promoter_coordinates
-        )
-        removed_genes_mask = get_removed_molecules_mask(
-            gene_domain_indexes, gene_coordinates
-        )
-        removed_DnaA_boxes_mask = get_removed_molecules_mask(
-            DnaA_box_domain_indexes, DnaA_box_coordinates
-        )
+        # Build masks for molecules the replication forks have passed (removed
+        # from the mother strand) — see _removed_molecules_mask.
+        _rm_args = (replisome_coordinates_from_domains, child_domains,
+                    all_chromosome_domain_indexes, mother_domain_indexes)
+        removed_RNAPs_mask = self._removed_molecules_mask(
+            RNAP_domain_indexes, RNAP_coordinates, *_rm_args)
+        removed_promoters_mask = self._removed_molecules_mask(
+            promoter_domain_indexes, promoter_coordinates, *_rm_args)
+        removed_genes_mask = self._removed_molecules_mask(
+            gene_domain_indexes, gene_coordinates, *_rm_args)
+        removed_DnaA_boxes_mask = self._removed_molecules_mask(
+            DnaA_box_domain_indexes, DnaA_box_coordinates, *_rm_args)
 
         # Build masks for head-on and co-directional collisions between RNAPs
         # and replication forks
@@ -590,26 +588,8 @@ class ChromosomeStructure(Step):
         # Write to listener
         update["listeners"]["rnap_data"]["n_removed_ribosomes"] = n_removed_ribosomes
 
-        def get_replicated_motif_attributes(old_coordinates, old_domain_indexes):
-            """
-            Computes the attributes of replicated motifs on the chromosome,
-            given the old coordinates and domain indexes of the original motifs.
-            """
-            # Coordinates are simply repeated
-            new_coordinates = np.repeat(old_coordinates, 2)
-
-            # Domain indexes are set to the child indexes of the original index
-            new_domain_indexes = child_domains[
-                np.array(
-                    [
-                        np.where(all_chromosome_domain_indexes == idx)[0][0]
-                        for idx in old_domain_indexes
-                    ]
-                ),
-                :,
-            ].flatten()
-
-            return new_coordinates, new_domain_indexes
+        # On fork passage, promoters/genes/DnaA boxes are duplicated onto the
+        # two child domains — see _replicated_motif_attributes.
 
         #######################
         # Replicate promoters #
@@ -633,9 +613,10 @@ class ChromosomeStructure(Step):
                 promoter_TU_indexes[removed_promoters_mask], 2
             )
             (promoter_coordinates_new, promoter_domain_indexes_new) = (
-                get_replicated_motif_attributes(
+                self._replicated_motif_attributes(
                     promoter_coordinates[removed_promoters_mask],
                     promoter_domain_indexes[removed_promoters_mask],
+                    child_domains, all_chromosome_domain_indexes,
                 )
             )
 
@@ -665,9 +646,10 @@ class ChromosomeStructure(Step):
                 gene_cistron_indexes[removed_genes_mask], 2
             )
             gene_coordinates_new, gene_domain_indexes_new = (
-                get_replicated_motif_attributes(
+                self._replicated_motif_attributes(
                     gene_coordinates[removed_genes_mask],
                     gene_domain_indexes[removed_genes_mask],
+                    child_domains, all_chromosome_domain_indexes,
                 )
             )
 
@@ -696,9 +678,10 @@ class ChromosomeStructure(Step):
 
             # Set up attributes for the replicated boxes
             (DnaA_box_coordinates_new, DnaA_box_domain_indexes_new) = (
-                get_replicated_motif_attributes(
+                self._replicated_motif_attributes(
                     DnaA_box_coordinates[removed_DnaA_boxes_mask],
                     DnaA_box_domain_indexes[removed_DnaA_boxes_mask],
+                    child_domains, all_chromosome_domain_indexes,
                 )
             )
 

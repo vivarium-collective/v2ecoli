@@ -24,10 +24,21 @@ TOPOLOGY = {
 }
 
 
-class RibosomeData(Step):
+class TranslationDeriver(Step):
     """
-    Listener for ribosome data.
+    Deriver for translation / ribosome data (elongation, termination, rRNA init).
+
+    Renamed from ``RibosomeData`` in the Listeners→Derivers consolidation; the
+    ``ribosome_data_listener`` step-key and ``listeners.ribosome_data`` wire
+    path are preserved for emitter/dashboard/parity compatibility.
     """
+
+    description = (
+        "Derives per-tick translation readouts from the active-ribosome pool: "
+        "effective elongation rate, actual elongations and termination events, "
+        "rRNA initiation by class, and ribosomes-per-transcript / polysome "
+        "occupancy."
+    )
 
     name = NAME
     topology = TOPOLOGY
@@ -232,3 +243,7 @@ class RibosomeData(Step):
             "next_update_time": states["global_time"] + states["timestep"],
         }
         return update
+
+
+# Back-compat alias for the pre-consolidation class name.
+RibosomeData = TranslationDeriver

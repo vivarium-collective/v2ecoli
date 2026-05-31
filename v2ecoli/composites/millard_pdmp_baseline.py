@@ -402,7 +402,7 @@ def _get_step_config(
     from v2ecoli.steps.derivers.dna_supercoiling import DnaSupercoiling
     from v2ecoli.steps.derivers.replication_data import ReplicationData
     from v2ecoli.steps.derivers.rnap_data import RnapData
-    from v2ecoli.steps.derivers.ribosome_data import RibosomeData
+    from v2ecoli.steps.derivers.translation_deriver import TranslationDeriver
     from v2ecoli.steps.media_update import MediaUpdate
     from v2ecoli.steps.exchange_data import ExchangeData
 
@@ -523,7 +523,7 @@ def _get_step_config(
         'dna_supercoiling_listener': DnaSupercoiling,
         'replication_data_listener': ReplicationData,
         'rnap_data_listener': RnapData,
-        'ribosome_data_listener': RibosomeData,
+        'ribosome_data_listener': TranslationDeriver,
         'media_update': MediaUpdate,
         'exchange_data': ExchangeData,
     }

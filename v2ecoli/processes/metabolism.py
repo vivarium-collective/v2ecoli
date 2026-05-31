@@ -66,7 +66,7 @@ from scipy.sparse import csr_matrix
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 # topology_registry removed
 from v2ecoli.library.fba_fast import extract_results, precompute_indices
-from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
+from v2ecoli.library.schema import bulk_name_to_idx, counts
 from v2ecoli.types.quantity import ureg as units
 from v2ecoli.library.quantity_helpers import as_quantity
 from v2ecoli.library.unit_bridge import unum_magnitude_in, unum_to_pint, pint_to_unum

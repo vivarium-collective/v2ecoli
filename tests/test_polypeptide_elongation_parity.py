@@ -42,6 +42,11 @@ def _trajectory():
     return {"dry_mass": rec, "bulk_total_at_end": bulk_sum}
 
 
+# Hard signal-based timeout: under CI memory pressure build_composite can
+# thrash, and pytest-timeout's default *thread* method can't interrupt a hang
+# in native code — a single stuck test wedged the whole behavior job for ~43
+# min once. SIGALRM kills it in minutes so a hang fails fast instead.
+@pytest.mark.timeout(360, method="signal")
 def test_baseline_elongation_trajectory_matches_golden():
     traj = _trajectory()
     if os.environ.get("V2_WRITE_GOLDEN"):

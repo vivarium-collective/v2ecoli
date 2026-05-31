@@ -51,6 +51,13 @@ VARIANTS = [
 ]
 
 
+# `slow` (not just `sim`) so CI's behavior job (`-m "sim and not slow"`) skips
+# these — each case is a full baseline build, and piling extra builds onto the
+# memory-marginal behavior job is what tips it into a runner reclaim / hang.
+# These still run locally and in any slow/nightly job. The default (SteadyState)
+# path is gated bit-for-bit by test_polypeptide_elongation_parity; the variants'
+# wiring/ports are gated by the (build-free) tests above.
+@pytest.mark.slow
 @pytest.mark.sim
 @_needs_cache
 @pytest.mark.parametrize("variant", VARIANTS)

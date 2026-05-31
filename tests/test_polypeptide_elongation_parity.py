@@ -15,10 +15,16 @@ GOLDEN = os.path.join(os.path.dirname(__file__), "golden",
                       "polypeptide_elongation_baseline.json")
 STEPS = 100  # short, CI-friendly; parity drift shows within a few ticks
 
-pytestmark = pytest.mark.skipif(
-    not os.path.isdir(CACHE) and not os.environ.get("CI"),
-    reason=f"cache dir {CACHE!r} not present",
-)
+# Builds the baseline and calls composite.run() → a `sim` test. CI routes
+# these to the behavior-tests job (which has the cache); the unit job runs
+# `-m "not slow and not sim"` and must not pick this up.
+pytestmark = [
+    pytest.mark.sim,
+    pytest.mark.skipif(
+        not os.path.isdir(CACHE) and not os.environ.get("CI"),
+        reason=f"cache dir {CACHE!r} not present",
+    ),
+]
 
 
 def _trajectory():

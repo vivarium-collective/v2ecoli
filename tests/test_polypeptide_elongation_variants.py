@@ -2,7 +2,11 @@ import os
 import pytest
 
 CACHE = "out/cache"
-pytestmark = pytest.mark.skipif(
+# Cache+run() tests are `sim` (CI routes them to the behavior-tests job that
+# has the cache; the unit job runs `-m "not slow and not sim"`). The pure
+# import/subclass test below needs no cache and stays in the fast unit job, so
+# there is no module-level pytestmark — gating is per-test via `_needs_cache`.
+_needs_cache = pytest.mark.skipif(
     not os.path.isdir(CACHE) and not os.environ.get("CI"),
     reason=f"cache dir {CACHE!r} not present",
 )
@@ -21,6 +25,8 @@ def test_three_variants_importable_and_subclassed():
                       TranslationSupplyPolypeptideElongation)
 
 
+@pytest.mark.sim
+@_needs_cache
 def test_steadystate_declares_charging_ports_base_does_not():
     """The payoff: only SteadyState exposes the charging/ppGpp port surface."""
     from v2ecoli.core import load_cache_bundle
@@ -42,6 +48,8 @@ VARIANTS = [
 ]
 
 
+@pytest.mark.sim
+@_needs_cache
 @pytest.mark.parametrize("variant", VARIANTS)
 def test_variant_elongates_protein(variant, monkeypatch):
     import v2ecoli.composites._helpers as H
@@ -59,6 +67,8 @@ def test_variant_elongates_protein(variant, monkeypatch):
 
 
 @pytest.mark.slow
+@pytest.mark.sim
+@_needs_cache
 def test_baseline_divides_unchanged():
     """Full-cycle parity: the cell still divides, in the expected time band."""
     from v2ecoli import build_composite

@@ -56,3 +56,19 @@ def test_variant_elongates_protein(variant, monkeypatch):
     c.run(20)
     m1 = float(fg_magnitude(a["listeners"]["mass"]["protein_mass"]))
     assert m1 > m0, f"{variant}: protein mass did not increase ({m0:.1f}->{m1:.1f})"
+
+
+@pytest.mark.slow
+def test_baseline_divides_unchanged():
+    """Full-cycle parity: the cell still divides, in the expected time band."""
+    from v2ecoli import build_composite
+    c = build_composite("baseline", cache_dir="out/cache", seed=0)
+    for _ in range(3000):
+        c.run(1)
+        agents = c.state["agents"]
+        if set(agents.keys()) != {"0"} or (
+                isinstance(agents.get("0"), dict) and agents["0"].get("divide")):
+            t = float(c.state["global_time"])
+            assert 2400 <= t <= 2700, f"division time {t}s outside expected band"
+            return
+    pytest.fail("no division within 3000s")

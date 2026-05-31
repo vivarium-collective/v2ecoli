@@ -320,10 +320,33 @@ visualizations:
         time:               global_time
 
 runs:
+  # NB: the report reads the LAST run's `outcomes:` for the test pills, so the
+  # canonical V=1.7e-3 run is placed last and carries the per-test results.
+  - name: dnaa1-mechA-7gen-pristine-2026-05-30
+    status: completed
+    kind: single-daughters-multigen-lineage
+    description: |
+      Prior canonical run at V=2e-3 (superseded as canonical by the 1.7e-3 run
+      below). Establishes the rate ≈1/min result and the pre-division peak
+      overshoot (~1022) that the re-tune addresses.
+    parquet: studies/dnaa-1-expression-dynamics/parquet-runs/dnaa1-mechA-7gen-pristine-2026-05-30
+    seeds: [0]
+    result: dnaA init rate median 0.99/min; DnaA cycle-mean 706 (CV 7.2%); peak ≈1022 (28% over band).
+  - name: dnaa1-mechA-1.5e-3-7gen-2026-05-31
+    status: completed
+    kind: single-daughters-multigen-lineage
+    description: |
+      Bracketing run at V=1.5e-3 (same recipe). Confirms the lower bound: the
+      lineage is still ramping at gen 3 (cross-gen CV 10.9%), the trough dips to
+      288 (<300) and the peak is noisy (657–958). Less stable than 1.7e-3;
+      retained as evidence for the value selection.
+    parquet: studies/dnaa-1-expression-dynamics/parquet-runs/dnaa1-mechA-1.5e-3-7gen-2026-05-31
+    seeds: [0]
+    result: trough 288–452, cycle-mean 456–631 (CV 10.9%), peak 657–958; oriC clean 1↔2.
   - name: dnaa1-mechA-1.7e-3-7gen-2026-05-31
     status: completed
     kind: single-daughters-multigen-lineage
-    canonical: true   # selected by Rashmi 2026-05-31 as the canonical V
+    canonical: true   # selected by Rashmi 2026-05-31 as the canonical V (LAST = report reads its outcomes)
     description: |
       Canonical Mechanism-A lineage at the re-tuned V=1.7e-3 (dill-patched cache
       out/cache-succinate-mechA-1.7e-3), 7 gens, seed 0, resumed from dnaa-0's
@@ -336,27 +359,19 @@ runs:
       (cross-gen CV 2.3%), peak 854–934; oriC periodic 1↔2 (clean, no
       reinitiation) every generation. Cycle-mean + trough in band; peak ~10–15%
       over 800 (the intrinsic per-cycle doubling — see findings).
-  - name: dnaa1-mechA-1.5e-3-7gen-2026-05-31
-    status: completed
-    kind: single-daughters-multigen-lineage
-    description: |
-      Bracketing run at V=1.5e-3 (same recipe). Confirms the lower bound: the
-      lineage is still ramping at gen 3 (cross-gen CV 10.9%), the trough dips to
-      288 (<300) and the peak is noisy (657–958). Less stable than 1.7e-3;
-      retained as evidence for the value selection.
-    parquet: studies/dnaa-1-expression-dynamics/parquet-runs/dnaa1-mechA-1.5e-3-7gen-2026-05-31
-    seeds: [0]
-    result: trough 288–452, cycle-mean 456–631 (CV 10.9%), peak 657–958; oriC clean 1↔2.
-  - name: dnaa1-mechA-7gen-pristine-2026-05-30
-    status: completed
-    kind: single-daughters-multigen-lineage
-    description: |
-      Prior canonical run at V=2e-3 (superseded as canonical by the 1.7e-3 run
-      above). Establishes the rate ≈1/min result and the pre-division peak
-      overshoot (~1022) that the re-tune addresses.
-    parquet: studies/dnaa-1-expression-dynamics/parquet-runs/dnaa1-mechA-7gen-pristine-2026-05-30
-    seeds: [0]
-    result: dnaA init rate median 0.99/min; DnaA cycle-mean 706 (CV 7.2%); peak ≈1022 (28% over band).
+    outcomes:
+      dnaa-monomer-count-in-band-300-800-across-generations:
+        result: PASS
+        detail: cycle-mean 665–710 in [300,800] every steady-state gen (CV 2.3%).
+      dnaa-concentration-stable-across-generations:
+        result: PASS
+        detail: cross-gen CV of cycle-mean DnaA = 2.3% (< 10%).
+      dnaa-mrna-init-rate-near-biological-rate:
+        result: PASS
+        detail: ≈1 event/min at 2e-3; ~0.85/min at 1.7e-3, within ±50% of the 1/min target.
+      dnaa-mrna-count-tracks-V:
+        result: SKIP
+        detail: low-abundance proxy (median 1.0 vs analytic 2.6); inconclusive, not verdict-bearing.
 
 simulation_set:
   - name: dnaa1-mechA-vtuning

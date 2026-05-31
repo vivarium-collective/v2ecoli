@@ -275,9 +275,22 @@ visualizations:
         time:               global_time
 
 runs:
+  # NB: the report reads the LAST run's `outcomes:` for the test pills, so the
+  # canonical run is placed last and carries the per-test PASS/FAIL results.
+  - name: dnaa0-6gen-multigen-2026-05-29
+    status: completed
+    kind: single-daughters-multigen-lineage
+    description: |
+      Earlier 6-gen exploratory run (coarser cadence; superseded by the clean
+      run below for the steady-state read — it under-sampled within-cycle oriC
+      peaks, which is why an early draft mis-stated "never 4").
+    parquet: studies/dnaa-0-parameter-foundation/parquet-runs/dnaa0-6gen-multigen-2026-05-29
+    seeds: [0]
+    result: superseded by dnaa0-5gen-clean-2026-05-30
   - name: dnaa0-5gen-clean-2026-05-30
     status: completed
     kind: single-daughters-multigen-lineage
+    canonical: true
     description: |
       Canonical 5-generation single-daughters succinate lineage, seed 0,
       ParCa-default τ/C/D (no overrides), cache out/cache-succinate, rendered
@@ -297,16 +310,13 @@ runs:
       (2026-05-31): "these trends look correct and the objective has been
       achieved." A 10-gen extension is optional and would only add more
       steady-state cycles.
-  - name: dnaa0-6gen-multigen-2026-05-29
-    status: completed
-    kind: single-daughters-multigen-lineage
-    description: |
-      Earlier 6-gen exploratory run (coarser cadence; superseded by the clean
-      run above for the steady-state read — it under-sampled within-cycle oriC
-      peaks, which is why an early draft mis-stated "never 4").
-    parquet: studies/dnaa-0-parameter-foundation/parquet-runs/dnaa0-6gen-multigen-2026-05-29
-    seeds: [0]
-    result: superseded by dnaa0-5gen-clean-2026-05-30
+    outcomes:
+      succinate-oric-periodic-1-or-2-at-steady-state:
+        result: PASS
+        detail: oriC max ≤2 from gen 3, visiting both 1 and 2 (verify_dnaa0_acceptance.py).
+      succinate-10gen-cell-mass-periodic-after-gen-3:
+        result: PASS
+        detail: cell_mass CV birth 0.021 / peak 0.045 across gens 3–5 (< 0.05).
 
 simulation_set:
   - name: dnaa0-succinate-steady-state

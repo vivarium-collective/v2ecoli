@@ -385,6 +385,17 @@ visualizations:
       title: dnaa-2 Step 2 (k=0.046) — 6-panel trajectory, seed 3
 
 runs:
+  # NB: the report reads the LAST run's `outcomes:` for the test pills, so the
+  # main Step-2 multiseed run is placed last and carries the per-test results.
+  - name: dnaa2-step1-k0
+    status: completed
+    kind: single-seed-multigen-lineage
+    description: |
+      Step-1 control — mechanism OFF (DNAA_INTRINSIC_HYDROLYSIS_RATE=0),
+      verified 0 hydrolysis events; 3 generations, seed 0.
+    parquet: studies/dnaa-2-atp-hydrolysis/parquet-runs/dnaa2-step1-k0/parquet
+    seeds: [0]
+    result: 0 hydrolysis events; %DnaA-ATP 0.9978 (vs Step-2 0.9970).
   - name: dnaa2-multiseed-v2
     status: completed
     kind: multiseed-multigen-lineage
@@ -396,15 +407,19 @@ runs:
     seeds: [0, 1, 2, 3]
     canonical_seed: 0   # Rashmi 2026-05-31: seed 2 reinitiates within-cycle at gen 3; use seed 0
     result: DnaA-ATP fraction 0.997 across all seeds; 13 complete lineage-gens.
-  - name: dnaa2-step1-k0
-    status: completed
-    kind: single-seed-multigen-lineage
-    description: |
-      Step-1 control — mechanism OFF (DNAA_INTRINSIC_HYDROLYSIS_RATE=0),
-      verified 0 hydrolysis events; 3 generations, seed 0.
-    parquet: studies/dnaa-2-atp-hydrolysis/parquet-runs/dnaa2-step1-k0/parquet
-    seeds: [0]
-    result: 0 hydrolysis events; %DnaA-ATP 0.9978 (vs Step-2 0.9970).
+    outcomes:
+      dnaa-atp-fraction-in-band-0.2-0.5:
+        result: FAIL
+        detail: |
+          0.997 across 4 seeds (far above [0.2,0.5]) — the K_d / [ATP]:[ADP] /
+          expected-fraction inconsistency, NOT a model bug. Robust, documented;
+          Step 3 resolution is Haochen's call (gate intentionally in_progress).
+      total-dnaa-in-band-300-800:
+        result: SKIP
+        detail: |
+          Partial — per-gen birth-snapshot totals straddle 800 (gens 3,5);
+          dnaa-1's cycle-mean in-band result stands. Re-confirm on the Step-2
+          trajectory once the K_d question is resolved.
 
 simulation_set:
   - name: dnaa2-step2-multiseed

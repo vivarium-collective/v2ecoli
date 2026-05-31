@@ -102,22 +102,22 @@ def main():
     out_path = args.out or os.path.join(base, REPORT_DIR, "comparison.html")
 
     print("=" * 60)
-    print(f"Three-Way Comparison ({args.duration}s)")
+    print(f"vEcoli vs v2ecoli Comparison ({args.duration}s)")
     print("=" * 60)
 
     t0 = time.time()
     datasets: dict = {}
     result_paths: dict = {}
 
-    # Phase 1: composite + v2ecoli in parallel (both use composite branch).
-    print("  Launching composite + v2ecoli in parallel...")
-    p_comp = _launch("vecoli_composite", args.duration, base, result_paths)
-    p_v2   = _launch("v2ecoli",          args.duration, base, result_paths)
-    _collect("vecoli_composite", p_comp, result_paths, datasets)
-    _collect("v2ecoli",          p_v2,   result_paths, datasets)
+    # v2ecoli (current process-bigraph baseline). The vEcoli 2.0 composite
+    # engine is intentionally omitted: it targets an older bigraph-schema and
+    # is not part of this vEcoli-vs-v2ecoli comparison.
+    print("  Launching v2ecoli (current baseline)...")
+    p_v2 = _launch("v2ecoli", args.duration, base, result_paths)
+    _collect("v2ecoli", p_v2, result_paths, datasets)
 
-    # Phase 2: v1 sequentially (switches vEcoli to master branch).
-    print("  Launching v1 (vivarium engine)...")
+    # vEcoli (vivarium engine) — sequential (it switches vEcoli to master).
+    print("  Launching vEcoli (vivarium engine)...")
     p_v1 = _launch("vecoli_v1", args.duration, base, result_paths)
     _collect("vecoli_v1", p_v1, result_paths, datasets)
 
@@ -147,13 +147,15 @@ def main():
     # is driven by this single metadata pass-through for now.
     meta = {
         "duration_sec": args.duration,
-        # Performance for the overview table is embedded in the snapshot
-        # lists by the runner scripts.  Pass wall-time totals for reference.
         "total_wall_sec": total,
+        # Per-engine runtime (wall/sim/load/speed) so the performance table is
+        # populated. The viz merges runtime[key] into each engine's metadata.
+        "runtime": {key: _meta(key)
+                    for key in ("vecoli_v1", "vecoli_composite", "v2ecoli")},
     }
 
     viz = V1V2Visualization(
-        config={"title": "E. coli Whole-Cell Simulation Comparison"},
+        config={"title": "vEcoli vs v2ecoli — Runtime & Behavior"},
         core=allocate_core(),
     )
     result = viz.update({
@@ -165,7 +167,7 @@ def main():
     html = result["html"]
 
     os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-    with open(out_path, "w") as f:
+    with open(out_path, "w", encoding="utf-8") as f:
         f.write(html)
 
     print(f"\nReport: {out_path}")

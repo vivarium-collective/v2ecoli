@@ -108,6 +108,15 @@ class BasePolypeptideElongation(PartitionedProcess):
         proteinIds: array length n of protein names
     """
 
+    description = (
+        "Polypeptide Elongation — ribosomes extend polypeptides by amino-acid polymerization.\n\n"
+        "    seqs = buildSequences(protSeqs, ribo_pos, ν·dt);  Δlen = polymerize(seqs, aa, limit)\n"
+        "    GTP_consumed = n_elongations · gtpPerElongation  (≈4.2 GTP/aa, EF-Tu/EF-G)\n"
+        "  ppGpp regulation (optional): ν = f_ppgpp([ppGpp]) [aa/s], with\n"
+        "    d[ppGpp]/dt = RelA synth([uncharged_tRNA]) − SpoT deg([ppGpp]) + SpoT basal synth.\n"
+        "  ν = elongation rate (aa/s); dt = timestep."
+    )
+
     name = NAME
     topology = TOPOLOGY
 
@@ -839,6 +848,15 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
     ``request`` and ``evolve`` orchestrate these three in sequence per the
     partitioned request→allocate→evolve contract.
     """
+
+    description = (
+        "Steady-State Polypeptide Elongation — elongation rate emerges from tRNA charging.\n\n"
+        "    f_charged_a = [charged_tRNA_a] / ([charged_tRNA_a] + [uncharged_tRNA_a])\n"
+        "    ν_eff ∝ min_a f_charged_a   (Michaelis–Menten competitive inhibition)\n"
+        "  Charging (aminoacyl-tRNA synthetase): aa + ATP + tRNA → charged_tRNA + AMP + PPi.\n"
+        "  Composes tRNA charging + ppGpp (RelA/SpoT) + amino-acid supply (synth/import/export).\n"
+        "  ν_eff = effective elongation rate (aa/s); a indexes amino-acid species."
+    )
 
     name = NAME
     topology = TOPOLOGY

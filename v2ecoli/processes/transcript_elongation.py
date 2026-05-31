@@ -120,6 +120,16 @@ class TranscriptElongation(PartitionedProcess):
             form: lambda random, rates, timestep, variable: rates
     """
 
+    description = (
+        "Transcript Elongation — RNAPs extend transcripts by NTP polymerization.\n\n"
+        "    seqs = buildSequences(rnaSeqs, RNAP_pos, ν·dt);  Δlen = polymerize(seqs, NTP, limit)\n"
+        "    NTP → NMP_incorporated + PPi;   Δmass = ∑ᵢ Δntᵢ·wᵢ  [fg]\n"
+        "  Termination: transcript len = TU_len → full transcript; RNAP recycled.\n"
+        "  tRNA attenuation (optional): p_stop = f([charged_tRNA]/[total_tRNA]),\n"
+        "    early-terminated RNAPs recycled and partial transcripts discarded.\n"
+        "  ν = elongation rate (nt/s); dt = timestep; wᵢ = nucleotide weights."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

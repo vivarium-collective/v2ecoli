@@ -83,6 +83,18 @@ class SimplifiedMetabolism(Step):
     stoichiometric mass balance, nutrient availability, and enzyme capacity.
     """
 
+    description = (
+        "Simplified metabolism — homeostatic FBA via scipy linprog (HiGHS).\n\n"
+        "Each timestep solve for flux v and slacks s⁺,s⁻:\n"
+        "    min Σ(sᵢ⁺ + sᵢ⁻)\n"
+        "    s.t.  S·v = 0,   M·v + s⁺ − s⁻ = target/κ,\n"
+        "          v_lb ≤ v ≤ v_ub,   s⁺,s⁻ ≥ 0\n"
+        "  S: stoichiometry; M: tracked-output rows; target: homeostatic\n"
+        "  concentration targets (mM); κ: conversion factor (g·s/L).\n"
+        "  bounds from nutrient exchange, enzyme presence, NGAM maintenance.\n"
+        "Flux→counts: Δn = stochasticRound(Δconc / counts_to_molar)."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

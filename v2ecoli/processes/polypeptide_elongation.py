@@ -33,7 +33,7 @@ ppGpp synthesis/degradation is modeled via RelA and SpoT enzymes:
                 - k_SpoT * [SpoT] * [ppGpp] / (KI + [ppGpp])
                 + k_SpoT_syn * [SpoT]
 
-**tRNA charging** (optional, via ``steady_state_trna_charging``)
+**tRNA charging** (modelled by ``SteadyStatePolypeptideElongation``)
 
 For each amino acid species a, the fraction of charged tRNA is tracked:
 
@@ -52,25 +52,19 @@ degradation. Export rates are also tracked. Supply rates inform the
 metabolism process via kinetic constraints.
 """
 
-from typing import Any, Callable, Optional, Tuple
-
-from numba import njit
 import numpy as np
 import numpy.typing as npt
-from scipy.integrate import solve_ivp
 # wcEcoli imports
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 from wholecell.utils.random import stochasticRound
 from v2ecoli.types.quantity import ureg as units
 from v2ecoli.library.quantity_helpers import as_quantity, fg_magnitude
-from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
+from v2ecoli.library.unit_bridge import pint_to_unum
 
 from bigraph_schema import deep_merge
 
 # vivarium-ecoli imports
 from v2ecoli.library.schema import (
-    listener_schema,
-    numpy_schema,
     counts,
     attrs,
     bulk_name_to_idx,
@@ -88,7 +82,6 @@ from v2ecoli.processes.polypeptide.common import (
 from v2ecoli.processes.polypeptide.kinetics import (
     ppgpp_metabolite_changes,
     calculate_trna_charging,
-    dcdt_jit,
     get_charging_supply_function,
 )
 

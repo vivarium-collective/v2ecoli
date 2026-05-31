@@ -20,6 +20,15 @@ GOLDEN = json.load(open("tests/golden/polypeptide_elongation_baseline.json"))
 OUT = "docs/superpowers/elongation-refactor-report.html"
 esc = html.escape
 
+# Provenance banner — repo convention (date · git SHA · user@host · python ·
+# platform). Reuse the canonical implementation so every generated report
+# carries the same traceability footer.
+try:
+    from v2ecoli.visualizations._helpers import render_repro_banner
+    REPRO_BANNER = render_repro_banner()
+except Exception as _e:  # keep the report generatable even if the import fails
+    REPRO_BANNER = f'<div class="repro-banner">provenance unavailable: {esc(str(_e))}</div>'
+
 VARIANTS = [
     ("BasePolypeptideElongation", "Base", "#2563eb"),
     ("TranslationSupplyPolypeptideElongation", "TranslationSupply", "#16a34a"),
@@ -252,6 +261,7 @@ tests/test_polypeptide_elongation_variants.py ....... <span class="g">PASS</span
 tests/test_kinetics_units.py / test_parca_fixture_roundtrip.py <span class="g">PASS</span>
 regression: test_sustained_growth / test_model_behavior ....... <span class="g">PASS</span>
   </div>
+  {REPRO_BANNER}
 </main></body></html>"""
 
 os.makedirs(os.path.dirname(OUT), exist_ok=True)

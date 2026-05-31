@@ -111,8 +111,22 @@ executive:
     Catalyst.jl JIT — framework marshalling dominates over per-Process
     compute and per-Process compilation buys at most ~10% of per-tick
     time. Phase 4 implementation work remaining is engineering, not
-    investigation. See reports/figures/pdmp-03/abc_count_metric.html
-    and reports/figures/pdmp-04/wcm_baseline_projection.html for the
+    investigation. Phase 5 opened with sprints 1-3 on the Phase-3 ABC
+    pipeline: sprint 1''s Bayes-factor stub (biased distance-of-mean
+    estimator) appeared to show weak signal at truth (28.8%, log BF
+    +0.32); sprint 2''s unbiased pseudo-marginal estimator collapsed
+    it to truth posterior 24.4% (vs 20% uniform baseline) and log BF
+    +0.01; sprint 3''s N-scaling projection showed N alone cannot
+    rescue the signal — the kernel-mean gap (Δlog=+0.011) sets an
+    information-theoretic ceiling that no N exceeds (substantial
+    Jeffreys threshold never reached even at N=1024). The Phase-5
+    bottleneck is wider hypothesis spacing or richer observable, NOT
+    replicate budget. Sprint-4 target: wider hypothesis spacing on
+    transcript_init_prob_scale OR adopt Phase-3 sprint-13''s combined
+    count-vector observable, then re-run sprints 1-3 against the new
+    setup. See reports/figures/pdmp-03/abc_count_metric.html,
+    reports/figures/pdmp-04/wcm_baseline_projection.html, and
+    reports/figures/pdmp-05/n_scaling_projection.html for the
     headline findings; investigations/v2ecoli-pdmp/reports/ for the
     sprint narratives.
 
@@ -175,6 +189,30 @@ scientific_argument:
     TranscriptInitiation-shaped workload. Honest calibration after the recalibration: 1.5× per-tick.'
   - 'Phase 4 architectural answer — column-centric runtime × N-way parallel lockstep gives ~1500× total speedup at N=10³
     × 30 ticks vs pbg sequential. Per-Process Catalyst.jl JIT buys ≤10% — wrong attack.'
+  - 'Phase 5 sprint 1 (Bayes-factor stub) — model-comparison shape works on Phase-3 ABC infrastructure: 5-hypothesis sweep
+    of transcript_init_prob_scale, exp(-d/2σ²) marginal-likelihood proxy with σ=sprint-8 noise floor, posterior peaks at
+    truth (28.8%). Honest weak signal — log BF +0.32 vs runner-up θ=1.15 (within Jeffreys "weak" band). Confirms identifiability
+    floor: posterior cannot peak sharper than the noise-floor σ allows.'
+  - 'Phase 5 sprint 2 (pseudo-marginal + bias diagnostic) — sprint 1''s biased "distance-of-the-mean" estimator overstated
+    the signal. Unbiased per-replicate kernel average shrinks truth posterior from 28.8% → 24.4% (essentially the 20% uniform
+    baseline over 5 hypotheses); log BF (truth vs runner-up) collapses from +0.32 → +0.01. Bootstrap 95% CI on truth posterior:
+    [22.4%, 26.8%]. Per-θ Jensen bias was heterogeneous (Δlog 0.47–0.87), so sprint 1 was systematically wrong, not just
+    noisily wrong. The unbiased estimator confirms: at N=4 with sprint-7 ensembles, the data have essentially zero power
+    to discriminate ±15% scale variation.'
+  - 'Phase 5 sprint 3 (N-scaling projection) — sharpens the Phase-5 bottleneck diagnosis. CLT + parametric projection from
+    sprint-2''s per-θ kernel statistics to N ∈ {4...1024} shows that N alone CANNOT rescue the signal: the kernel-mean
+    gap between truth (log k̄=-0.998) and runner-up θ=1.15 (log k̄=-1.009) is only Δlog=+0.011, so as N→∞ the log-BF CI
+    tightens AROUND that near-zero gap. Substantial/decisive Jeffreys thresholds never reached even at N=1024. The bottleneck
+    is information-theoretic (observable + σ + hypothesis spacing), not statistical-power. Reclassifies the Phase-5 levers:
+    (1) wider hypothesis spacing, (2) richer observable (sprint-3-canonical count vector), (3) tighter ε; N is the LEAST
+    useful lever.'
+  - 'Phase 5 sprint 4 (hypothesis-spacing sweep, no new sims) — tests sprint 3''s diagnosis by computing the unbiased
+    pseudo-marginal posterior over progressively-wider SUBSETS of the existing sprint-7 grid. Truth posterior climbs from
+    24% (5-way ±15%) → 43% (3-way ±30%) → 61% (2-way truth vs θ=1.3), confirming spacing IS a lever for the within-grid
+    1/n_H dilution effect. But log BF maxes at +0.45 even in the most favorable 2-way subset — STILL BELOW Jeffreys substantial
+    threshold of 1. Sprint 4 separates two identifiability effects: within-grid dilution (spacing fixes) vs per-pair kernel-mean
+    ceiling (only observable or σ can fix). After sprints 1-4, the SINGLE remaining Phase-5 lever in the current design
+    space is observable choice.'
   evidence_against:
   - 'v2ecoli''s current FBA metabolism (multi-objective: biomass + homeostatic + kinetic-constraint, via `wholecell.utils.modular_fba`)
     is tightly coupled to the rest of the WCM — enzyme abundances feed the kinetic-constraint bounds, doubling-time feeds
@@ -211,6 +249,19 @@ scientific_argument:
     caption: 'TI-shaped recalibration: 1.5× per-tick (vs toys'' 3×) under realistic per-tick work.'
   - chart: reports/figures/pdmp-04/multistep_prototype.html
     caption: '3-step composite: speedup does not compound — pbg overhead is per-process.'
+  - chart: reports/figures/pdmp-05/bayes_factor_stub.html
+    caption: 'Phase-5 sprint-1 Bayes factor stub — model-comparison shape works; posterior weakly peaked at truth; identifiability
+      floor is the noise-floor σ.'
+  - chart: reports/figures/pdmp-05/pseudo_marginal_diagnostic.html
+    caption: 'Phase-5 sprint-2 pseudo-marginal — unbiased estimator nearly erases sprint 1''s signal; log BF collapses to
+      +0.01, truth posterior 24.4% (essentially uniform baseline). At N=4 the data have essentially zero discriminating
+      power.'
+  - chart: reports/figures/pdmp-05/n_scaling_projection.html
+    caption: 'Phase-5 sprint-3 N-scaling projection — even at N=1024 the truth posterior stays at 24.4% and log BF at +0.01.
+      The kernel-mean gap (Δlog=+0.011) sets an information-theoretic ceiling that more replicates cannot exceed.'
+  - chart: reports/figures/pdmp-05/hypothesis_spacing_sweep.html
+    caption: 'Phase-5 sprint-4 hypothesis-spacing sweep — wider hypothesis subsets lift truth posterior 24% → 61% but log
+      BF tops out at +0.45 (below substantial). Spacing fixes within-grid dilution but cannot overcome the kernel-mean ceiling.'
   - chart: reports/figures/pdmp-02/trajectory_divergence.html
     caption: 'Phase-2 trajectory-shape divergence: |Δcm| peaks at 150 fg at rnap_data listener.'
   - chart: reports/figures/pdmp-02/ensemble_validation_period60.html
@@ -232,6 +283,12 @@ scientific_argument:
   - 'Pbg wiring quirk (task #14) — scalar listener fields with no downstream consumer get silently pruned from the merged
     state. Bit sprints 1 and 12; worked around via pin-via-consumer input declarations. Real fix lives at the pbg merger
     layer.'
+  - 'Phase 5 information-theoretic ceiling — sprints 2-3 together reclassify the Phase-5 bottleneck. Sprint 2 confirmed
+    at N=4 the unbiased posterior is essentially uniform (log BF +0.01, truth 24.4% vs baseline 20%). Sprint 3 projected
+    to N=1024 and found N CANNOT rescue the signal — the kernel-mean gap between truth and runner-up θ=1.15 is only
+    Δlog=+0.011 nats; as N→∞, the log BF CI tightens around that near-zero gap, not toward a decisive threshold. Levers
+    in order of impact: (1) wider hypothesis spacing, (2) richer observable (Phase-3 sprint 13 combined count vector),
+    (3) tighter ε; (4) N — last and least useful at the current setup.'
 biological_story: 'E. coli grows by integrating metabolism, gene expression, replication,
 
   and division — processes that operate on very different timescales
@@ -315,8 +372,13 @@ at_a_glance:
     validated (1.5× per-tick speedup × N-way parallel lockstep = ~1500× at N=10³). Architectural direction is
     column-centric runtime, NOT per-Process Catalyst.jl JIT. Implementation work remaining is engineering.'
 - study: pdmp-05-causal-discovery
-  role: Bayesian gene-function annotation via marginal likelihood + active causal inference. PLANNED — depends on
-    Phase 4 implementation for the per-particle wall budget.
+  role: 'Bayesian gene-function annotation via marginal likelihood + active causal inference. RUNNING/DECIDE (sprints
+    1-4 landed): sprint 1 stood up the Bayes-factor shape on Phase-3 ABC; sprint 2 replaced its biased estimator with the
+    unbiased per-replicate pseudo-marginal (signal collapsed: log BF +0.32 → +0.01); sprint 3 projected N-scaling and
+    showed N alone CANNOT rescue the signal; sprint 4''s hypothesis-spacing sweep on existing data confirmed spacing fixes
+    within-grid dilution (truth posterior 24%→61% as we drop close neighbors) but log BF maxes at +0.45 — STILL below
+    substantial. After 4 sprints the single remaining Phase-5 lever in the current design space is observable choice.
+    Sprint-5 target: re-run sprints 1-3 with Phase-3 sprint-13''s combined count-vector observable.'
 how_to_read: '**The story of the six phases.** The phases move from diagnosis to replacement to inference. Phase 0 defines
   what v2ecoli currently does. Phases 1 and 2 replace the two major dynamical layers: metabolism and stochastic events. Phase
   3 adds likelihoods so the model can be fit to data. Phase 4 makes the model fast enough to run many trajectories. Phase

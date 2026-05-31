@@ -654,35 +654,46 @@ tests:
   cites:
   - cao2006
 embed_visualizations:
-- name: Jump-process division time distribution — multi-gen
-  url: /reports/figures/pdmp-02/jump_division_time_distribution_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_division_time_distribution_real.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Per-cell event rates — spans 6+ OOM
-  url: /reports/figures/pdmp-02/jump_event_rates_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_event_rates_real.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: Jump-process — single-cell mRNA/protein trajectory
-  url: /reports/figures/pdmp-02/jump_gillespie_trajectory_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_gillespie_trajectory_real.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Jump-process inheritance — daughter1 − daughter2 distribution
-  url: /reports/figures/pdmp-02/jump_inheritance_distribution_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_inheritance_distribution_real.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Jump-process inter-event waiting times — exponentiality test
-  url: /reports/figures/pdmp-02/jump_inter_event_waiting_times.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/jump_inter_event_waiting_times.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 multi-gen — cell mass(t) with division events
-  url: /reports/figures/pdmp-02/multigen_cell_mass_trajectories.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/multigen_cell_mass_trajectories.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 multi-gen — division time distribution
-  url: /reports/figures/pdmp-02/multigen_division_time_distribution.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/multigen_division_time_distribution.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 multi-gen — inheritance distribution
-  url: /reports/figures/pdmp-02/multigen_inheritance_mass_split.html
-  description: Per-study visualization rendered from reports/figures/pdmp-02/multigen_inheritance_mass_split.html. Inlined
-    into the downloaded report as iframe srcdoc.
+- name: Phase 2 — division time distribution
+  url: /reports/figures/pdmp-02/division_time_distribution.html
+  description: First-passage division-time distribution from the stochastic bisection driver.
+- name: Phase 2 — initial ensemble validation
+  url: /reports/figures/pdmp-02/ensemble_validation.html
+  description: Phase-2 baseline ensemble vs Phase-0 reference before homeostat tuning landed.
+- name: Phase 2 sprint 9 — sparse-injection ensemble validation
+  url: /reports/figures/pdmp-02/ensemble_validation_period60.html
+  description: '60-tick injection period: homeostat washes per-tick variance, confirming the closeout finding.'
+- name: Phase 2 sprint 9 — τ=60 ensemble validation
+  url: /reports/figures/pdmp-02/ensemble_validation_tau60.html
+  description: Same sparse-injection experiment with τ=60 averaging window.
+- name: Phase 2 — Gillespie single-cell trajectory
+  url: /reports/figures/pdmp-02/gillespie_trajectory.html
+  description: Single-cell exact-SSA mRNA/protein trajectory diagnostic.
+- name: Phase 2 — inheritance distribution
+  url: /reports/figures/pdmp-02/inheritance_distribution_v2.html
+  description: Daughter1 − daughter2 mass-split distribution at division — validates the partitioning mechanism.
+- name: Phase 2 sprint 2 — discrete vs Poisson trajectory overlay
+  url: /reports/figures/pdmp-02/initiation_modes_comparison.html
+  description: Side-by-side trajectories under the two initiation modes for TranscriptInitiation and PolypeptideInitiation.
+- name: Phase 2 — per-cell event rates across processes
+  url: /reports/figures/pdmp-02/phase2_event_rates.html
+  description: Per-cell event-rate magnitudes spanning 6+ orders of magnitude — motivates the hybrid exact-SSA / τ-leaping
+    topology.
+- name: Phase 2 — stochastic gene trajectories
+  url: /reports/figures/pdmp-02/stochastic_gene_trajectories.html
+  description: Per-gene RNA-init + ribosome-init event-stream diagnostic.
+- name: Phase 2 sprint 4 — trajectory-shape divergence
+  url: /reports/figures/pdmp-02/trajectory_divergence.html
+  description: '|Δcell_mass| peaks at 150 fg at the rnap_data listener at t=600 s. Closeout finding: cell_mass is the WRONG
+    observable for jump-process variance — consumption_matched homeostat washes per-tick variance out by construction.'
+- name: Phase 2 — trajectory divergence in `discrete` mode
+  url: /reports/figures/pdmp-02/trajectory_divergence_discrete.html
+  description: Same as the aggregate trajectory divergence, restricted to the original discrete-time stochastic branch — for
+    side-by-side comparison with the Poisson mode.
+- name: Phase 2 — trajectory divergence in `poisson` mode
+  url: /reports/figures/pdmp-02/trajectory_divergence_poisson.html
+  description: Same as the aggregate trajectory divergence, restricted to the per-promoter / per-protein Poisson tau-leap
+    branch.
+- name: Phase 2 — inter-event waiting-time distribution
+  url: /reports/figures/pdmp-02/waiting_time_distribution.html
+  description: Inter-event waiting times — diagnostic for exponentiality under the Poisson tau-leap mode.

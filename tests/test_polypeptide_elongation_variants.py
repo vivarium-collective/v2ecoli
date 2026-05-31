@@ -61,7 +61,7 @@ def test_variant_elongates_protein(variant, monkeypatch):
     c = build_composite("baseline", cache_dir="out/cache", seed=0)
     a = c.state["agents"]["0"]
     m0 = float(fg_magnitude(a["listeners"]["mass"]["protein_mass"]))
-    c.run(20)
+    c.run(8)  # protein mass rises within a few ticks; keep the behavior job lean
     m1 = float(fg_magnitude(a["listeners"]["mass"]["protein_mass"]))
     assert m1 > m0, f"{variant}: protein mass did not increase ({m0:.1f}->{m1:.1f})"
 

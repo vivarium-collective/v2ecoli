@@ -13,6 +13,7 @@ from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema import numpy_schema, counts, attrs, bulk_name_to_idx
 # topology_registry removed — topology defined as class attribute
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.quantity_helpers import fg_magnitude
 
 # Register default topology for this process, associating it with process name
 NAME = "ecoli-mass-listener"
@@ -76,7 +77,7 @@ class MassListener(Step):
             'unique': 'map[node]',
             'listeners': {
                 'mass': {
-                    'dry_mass': {'_type': 'float[fg]', '_default': 0.0},
+                    'dry_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                 },
             },
             'global_time': {'_type': 'float', '_default': 0.0},
@@ -88,31 +89,31 @@ class MassListener(Step):
             'listeners': {
                 'mass': {
                     # Cell + submass compartments — femtograms
-                    'cell_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'water_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'dry_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'rna_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'rRna_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'tRna_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'mRna_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'dna_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'protein_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'smallMolecule_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'cell_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'water_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'dry_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'rna_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'rRna_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'tRna_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'mRna_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'dna_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'protein_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'smallMolecule_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
                     # Compartment masses — also femtograms
-                    'projection_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'cytosol_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'extracellular_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'flagellum_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'membrane_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'outer_membrane_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'periplasm_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'pilus_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
-                    'inner_membrane_mass': {'_type': 'overwrite[float[fg]]', '_default': 0.0},
+                    'projection_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'cytosol_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'extracellular_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'flagellum_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'membrane_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'outer_membrane_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'periplasm_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'pilus_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'inner_membrane_mass': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
                     # Volume — femtoliters
-                    'volume': {'_type': 'overwrite[float[fL]]', '_default': 0.0},
+                    'volume': {'_type': 'overwrite[quantity[float,fL]]', '_default': 0.0},
                     # Growth — fg per second
-                    'growth': {'_type': 'overwrite[float[fg/s]]', '_default': 0.0},
-                    'instantaneous_growth_rate': {'_type': 'overwrite[float[1/s]]', '_default': 0.0},
+                    'growth': {'_type': 'overwrite[quantity[float,fg]]', '_default': 0.0},
+                    'instantaneous_growth_rate': {'_type': 'overwrite[quantity[float,1/s]]', '_default': 0.0},
                     # Dimensionless ratios and fractions
                     'protein_mass_fraction': {'_type': 'overwrite[float]', '_default': 0.0},
                     'rna_mass_fraction': {'_type': 'overwrite[float]', '_default': 0.0},
@@ -229,8 +230,10 @@ class MassListener(Step):
 
         mass_update = {}
 
-        # Get previous dry mass, for calculating growth later
-        old_dry_mass = states["listeners"]["mass"]["dry_mass"]
+        # Get previous dry mass, for calculating growth later. Read tolerantly
+        # (the store now holds a Quantity[fg]); internal math below stays in
+        # bare fg magnitudes and the emitted fields are wrapped at the end.
+        old_dry_mass = fg_magnitude(states["listeners"]["mass"]["dry_mass"])
 
         # get submasses from bulk and unique
         bulk_counts = counts(states["bulk"], self.bulk_idx)
@@ -370,6 +373,21 @@ class MassListener(Step):
             )
 
         self.first_time_step = False
+
+        # --- Units-on-ports: emit dimensioned fields as pint Quantities so the
+        # unit travels through the store + serialization. Internal arithmetic
+        # above stays in bare fg magnitudes; wrap only here, at the emit
+        # boundary. Dimensionless ratios (*_fraction, *_fold_change) stay float.
+        for _field in list(mass_update):
+            if _field.endswith("_mass"):
+                mass_update[_field] = mass_update[_field] * units.fg
+        mass_update["volume"] = mass_update["volume"] * units.fL
+        mass_update["growth"] = mass_update["growth"] * units.fg
+        if "instantaneous_growth_rate" in mass_update:
+            # bare value is already the 1/s magnitude; `/ units.s` tags it 1/s
+            mass_update["instantaneous_growth_rate"] = (
+                mass_update["instantaneous_growth_rate"] / units.s
+            )
 
         update = {"listeners": {"mass": mass_update}}
         return update

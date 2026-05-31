@@ -18,6 +18,7 @@ These tests enforce:
 
 import os
 import pytest
+from v2ecoli.library.quantity_helpers import fg_magnitude
 
 
 CACHE_DIR = 'out/cache'
@@ -33,7 +34,7 @@ pytestmark = [
 
 
 def _dry_mass(composite):
-    return float(composite.state['agents']['0']['listeners']['mass']['dry_mass'])
+    return fg_magnitude(composite.state['agents']['0']['listeners']['mass']['dry_mass'])
 
 
 def _n_oric(composite):

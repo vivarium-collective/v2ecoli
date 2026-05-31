@@ -44,6 +44,50 @@ from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
 FLUSH = '__unique_flush__'
 
 
+# --- Cache-driven config loader -------------------------------------------
+# Composite generators build from a cache bundle (pre-resolved configs) rather
+# than a live ParCa sim_data object. CachedConfigLoader is the small stand-in
+# they pass to step builders: it serves configs by name and exposes the few
+# sim_data attributes those builders read (unique-molecule definitions +
+# expected dry-mass increase). Previously each generator (baseline,
+# departitioned, reconciled, millard_pdmp_baseline) defined its own nested
+# _CachedLoader with a 4-level inner-class mock; this is the single flattened,
+# module-level version.
+
+class _MockUniqueMolecule:
+    def __init__(self, names):
+        self.unique_molecule_definitions = {n: {} for n in names}
+
+
+class _MockInternalState:
+    def __init__(self, names):
+        self.unique_molecule = _MockUniqueMolecule(names)
+
+
+class _MockSimData:
+    def __init__(self, unique_names, dry_mass_inc_dict):
+        self.internal_state = _MockInternalState(unique_names)
+        self.expectedDryMassIncreaseDict = dry_mass_inc_dict or {}
+
+
+class CachedConfigLoader:
+    """Serve pre-resolved configs from the cache bundle + a minimal sim_data
+    stand-in. Replaces the per-generator nested ``_CachedLoader``."""
+
+    def __init__(self, configs, unique_names, dry_mass_inc_dict,
+                 cache_dir='out/cache'):
+        self._configs = configs
+        self.unique_names = unique_names
+        self.cache_dir = cache_dir
+        self.sim_data = _MockSimData(unique_names, dry_mass_inc_dict)
+
+    def get_config_by_name(self, name):
+        try:
+            return self._configs[name]
+        except KeyError:
+            raise KeyError(f'Unknown: {name}')
+
+
 def _expand_flushes(layers):
     """Replace each FLUSH sentinel with a real [unique_update_N] sub-layer.
 
@@ -944,6 +988,34 @@ def _get_special_step(loader, step_name, core):
         config = {'unique_names': unique_names_v1, 'unique_topo': unique_topo_v1}
         instance = _make_instance(UniqueUpdate, config, core)
         return instance, unique_topo_v1, 'step'
+
+    if step_name == 'ecoli-mass-conservation':
+        from v2ecoli.steps.listeners.mass_conservation import MassConservationListener
+        from v2ecoli.types.quantity import ureg as units
+        # Per-molecule masses (fg/count) of the metabolic exchange molecules,
+        # keyed by their environment name (compartment-stripped), so the
+        # listener can convert per-tick exchange counts into a mass.
+        exchange_masses = {}
+        try:
+            from v2ecoli.library.unit_bridge import unum_to_pint
+            from v2ecoli.library.config_resolver import resolve_config
+            # resolve_config realizes the method specs (get_masses) into callables.
+            met_cfg = resolve_config(loader.get_config_by_name('ecoli-metabolism'))
+            exchange_molecules = list(met_cfg['exchange_molecules'])
+            mws = unum_to_pint(met_cfg['get_masses'](exchange_molecules))
+            n_avogadro = 6.02214076e23  # molecules / mol
+            for mol, mw in zip(exchange_molecules, mws):
+                g_per_molecule = mw.to(units.g / units.mol).magnitude / n_avogadro
+                exchange_masses[mol[:-3]] = (g_per_molecule * units.g).to(units.fg)
+        except Exception:
+            # Listener still runs (residual == Δdry_mass) if masses are
+            # unavailable; better an observable signal than a build failure.
+            exchange_masses = {}
+        # tolerance + warmup_ticks fall back to the Step's schema defaults
+        # (5% cumulative drift, 10-tick warmup).
+        config = {'exchange_masses': exchange_masses}
+        instance = _make_instance(MassConservationListener, config, core)
+        return instance, instance.topology, 'step'
 
     if step_name == 'global_clock':
         from v2ecoli.steps.global_clock import GlobalClock

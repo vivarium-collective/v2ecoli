@@ -19,6 +19,12 @@ os.dup2(fd, 2)
 from v2ecoli import build_composite
 
 
+def mag(x):
+    # Mass/volume/rate listeners are now pint Quantities (units-on-ports work);
+    # strip to the stored-unit magnitude (same numbers as the pre-units floats).
+    return float(getattr(x, 'magnitude', x))
+
+
 def snap(t, cell):
     mass = cell.get('listeners', {}).get('mass', {})
     unique = cell.get('unique', {})
@@ -32,22 +38,30 @@ def snap(t, cell):
         n_forks = int(rep['_entryState'].sum())
     return {
         'time': t,
-        'dry_mass': float(mass.get('dry_mass', 0)),
-        'cell_mass': float(mass.get('cell_mass', 0)),
-        'protein_mass': float(mass.get('protein_mass', 0)),
-        'rna_mass': float(mass.get('rRna_mass', 0)) + float(mass.get('tRna_mass', 0)) + float(mass.get('mRna_mass', 0)),
-        'rRna_mass': float(mass.get('rRna_mass', 0)),
-        'tRna_mass': float(mass.get('tRna_mass', 0)),
-        'mRna_mass': float(mass.get('mRna_mass', 0)),
-        'dna_mass': float(mass.get('dna_mass', 0)),
-        'smallMolecule_mass': float(mass.get('smallMolecule_mass', 0)),
-        'water_mass': float(mass.get('water_mass', 0)),
-        'volume': float(mass.get('volume', 0)),
-        'instantaneous_growth_rate': float(mass.get('instantaneous_growth_rate', 0)),
+        'dry_mass': mag(mass.get('dry_mass', 0)),
+        'cell_mass': mag(mass.get('cell_mass', 0)),
+        'protein_mass': mag(mass.get('protein_mass', 0)),
+        'rna_mass': mag(mass.get('rRna_mass', 0)) + mag(mass.get('tRna_mass', 0)) + mag(mass.get('mRna_mass', 0)),
+        'rRna_mass': mag(mass.get('rRna_mass', 0)),
+        'tRna_mass': mag(mass.get('tRna_mass', 0)),
+        'mRna_mass': mag(mass.get('mRna_mass', 0)),
+        'dna_mass': mag(mass.get('dna_mass', 0)),
+        'smallMolecule_mass': mag(mass.get('smallMolecule_mass', 0)),
+        'water_mass': mag(mass.get('water_mass', 0)),
+        'volume': mag(mass.get('volume', 0)),
+        'instantaneous_growth_rate': mag(mass.get('instantaneous_growth_rate', 0)),
         'n_chromosomes': n_chrom,
         'n_forks': n_forks,
     }
 
+
+# Use a minimal in-memory emitter instead of the default ParquetEmitter: this
+# runner reads composite.state directly (never the on-disk history), and the
+# Parquet emitter intermittently crashes writing post-division partitions
+# (FileNotFoundError on .pq.tmp), which the loop below would mis-report as an
+# early division — truncating the trajectory well before the requested duration.
+from v2ecoli.composites._helpers import set_null_emitter_override
+set_null_emitter_override(True)
 
 t0 = time.time()
 composite = build_composite("baseline", cache_dir='out/cache', seed=0)

@@ -100,44 +100,6 @@ class PolypeptideInitiation(Step):
         'variable_elongation': {'_type': 'boolean', '_default': False},
     }
 
-    def inputs(self):
-        return {
-            'environment': {'media_id': 'string'},
-            'listeners': {
-                'ribosome_data': {
-                    # Read back the previous timestep's effective rate
-                    'effective_elongation_rate': 'float',
-                },
-            },
-            'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
-            'RNA': RNA_ARRAY,
-            'bulk': 'bulk_array',
-            'timestep': {'_type': 'integer[s]', '_default': 1},
-        }
-
-    def outputs(self):
-        return {
-            'bulk': 'bulk_array',
-            'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
-            'listeners': {
-                'ribosome_data': {
-                    'did_initialize': 'overwrite[integer]',
-                    'ribosome_init_event_per_monomer': 'overwrite[array[integer]]',
-                    'target_prob_translation_per_transcript': 'overwrite[array[float]]',
-                    'actual_prob_translation_per_transcript': 'overwrite[array[float]]',
-                    'mRNA_is_overcrowded': 'overwrite[array[boolean]]',
-                    'max_p': 'overwrite[float]',
-                    'max_p_per_protein': 'overwrite[array[float]]',
-                    'is_n_ribosomes_to_activate_reduced': 'overwrite[boolean]',
-                    # Written by empty_update path
-                    'ribosomes_initialized': 'overwrite[integer]',
-                    'prob_translation_per_transcript': 'overwrite[float]',
-                },
-            },
-        }
-
-
-
     def initialize(self, config):
 
         # Load parameters
@@ -203,7 +165,7 @@ class PolypeptideInitiation(Step):
                 },
                 'listeners':                 {
                     'ribosome_data':                     {
-                        'effective_elongation_rate': {'_type': 'float', '_default': 0.0},
+                        'effective_elongation_rate': {'_type': 'quantity[float,amino_acid/s]', '_default': 0.0},
                     },
                 },
                 'active_ribosome': {'_type': ACTIVE_RIBOSOME_ARRAY, '_default': []},
@@ -244,15 +206,15 @@ class PolypeptideInitiation(Step):
         current_media_id = states["environment"]["media_id"]
         self.fracActiveRibosome = self.active_ribosome_fraction[current_media_id]
 
-        # Use last timestep's effective elongation rate; fall back to
-        # media-dependent default on first timestep (when it reads as 0)
-        self.ribosomeElongationRate = states["listeners"]["ribosome_data"][
-            "effective_elongation_rate"
-        ]
-        if self.ribosomeElongationRate == 0:
-            self.ribosomeElongationRate = self.ribosome_elongation_rates_dict[
-                current_media_id
-            ].to(units.aa / units.s).magnitude
+        # effective_elongation_rate is a pint Quantity[amino_acid/s] carried
+        # from the previous timestep's polypeptide_elongation listener. On the
+        # first tick (before elongation has run) it reads as the default 0, so
+        # fall back to the media-dependent rate. Strip to a bare aa/s magnitude
+        # for make_elongation_rates, which operates on plain floats.
+        eff_rate = states["listeners"]["ribosome_data"]["effective_elongation_rate"]
+        if eff_rate == 0:
+            eff_rate = self.ribosome_elongation_rates_dict[current_media_id]
+        self.ribosomeElongationRate = eff_rate.to(units.aa / units.s).magnitude
         self.elongation_rates = np.fmax(self.make_elongation_rates(
             self.random_state,
             self.ribosomeElongationRate,
@@ -592,76 +554,3 @@ class PolypeptideInitiation(Step):
             activationProb = 1
 
         return activationProb
-
-
-def test_polypeptide_initiation():
-    def make_elongation_rates(self, random, base, time_step, variable_elongation=False):
-        return base
-
-    all_mRNA_ids = ["wRNA", "xRNA", "yRNA", "zRNA"]
-    protein_lengths = np.array([25, 9, 12, 29])
-    test_config = {
-        "protein_lengths": protein_lengths,
-        "translation_efficiencies": normalize(np.array([0.1, 0.2, 0.3, 0.4])),
-        "active_ribosome_fraction": {"minimal": 0.05},
-        "variable_elongation": False,
-        "make_elongation_rates": make_elongation_rates,
-        "rna_id_to_cistron_indexes": lambda rna_id: all_mRNA_ids.index(rna_id),
-        "cistron_start_end_pos_in_tu": {
-            (idx, idx): (0, protein_length * 3 + 3)
-            for idx, protein_length in enumerate(protein_lengths)
-        },
-        "tu_ids": all_mRNA_ids,
-        "cistron_to_monomer_mapping": np.arange(4),
-        "cistron_tu_mapping_matrix": np.identity(4),
-        "monomer_index_to_cistron_index": {i: i for i in range(4)},
-        "monomer_index_to_tu_indexes": {i: (i,) for i in range(4)},
-        "protein_index_to_TU_index": np.arange(4),
-        "all_TU_ids": ["wRNA", "xRNA", "yRNA", "zRNA"],
-        "all_mRNA_ids": ["wRNA", "xRNA", "yRNA", "zRNA"],
-        "ribosome30S": "30S",
-        "ribosome50S": "50S",
-        "seed": 0,
-    }
-
-    polypeptide_initiation = PolypeptideInitiation(test_config)
-
-    state = {
-        "environment": {"media_id": "minimal"},
-        "listeners": {"ribosome_data": {"effective_elongation_rate": 25}},
-        "bulk": np.array(
-            [
-                ("30S", 2000),
-                ("50S", 3000),
-            ],
-            dtype=[("id", "U40"), ("count", int)],
-        ),
-        "RNA": np.array(
-            [
-                (1, 0, True, 0, 103, True),
-                (1, 0, True, 1, 103, True),
-                (1, 1, True, 2, 39, True),
-                (1, 2, True, 3, 51, True),
-                (1, 2, True, 4, 51, True),
-                (1, 3, True, 4, 119, True),
-            ],
-            dtype=[
-                ("_entryState", np.bool_),
-                ("TU_index", int),
-                ("can_translate", np.bool_),
-                ("unique_index", int),
-                ("transcript_length", int),
-                ("is_full_transcript", np.bool_),
-            ],
-        ),
-    }
-
-    settings = {"total_time": 10, "initial_state": state}
-
-    data = simulate_process(polypeptide_initiation, settings)
-
-    print(data)
-
-
-if __name__ == "__main__":
-    test_polypeptide_initiation()

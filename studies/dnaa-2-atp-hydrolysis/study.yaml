@@ -133,6 +133,25 @@ report:
         4-gen window. Needs either more generations to asymptote or a re-
         equilibrated init; flag alongside the K_d inconsistency.
 
+    STEP 1 → STEP 2 DIFF (mechanism OFF vs ON; explicit k=0 control run,
+    dnaa2-step1-k0/, DNAA_INTRINSIC_HYDROLYSIS_RATE=0; figures
+    charts/dnaa2_step1_sixpanel_seed0.svg vs dnaa2_step2_sixpanel_seed0.svg):
+
+      metric                  Step 1 (k=0)   Step 2 (k=0.046)   change
+      hydrolysis events/gen   0 (verified)   3-6                mechanism on
+      mean %DnaA-ATP          0.9978         0.9970             -0.0008 (nil)
+      mean DnaA-ADP count     0.55           ~1.1               ~2x (but <1→~1)
+      apo-DnaA count          ~0.3-0.4       ~0.3-0.4           unchanged
+      cell cycle / oriC       clean, 1↔2     clean, 1↔2         unchanged
+      conc. drift             present        present            unchanged
+
+    Reading: turning hydrolysis ON at Haochen's rate does EXACTLY what theory
+    predicts — it converts a tiny amount of DnaA-ATP→DnaA-ADP, roughly
+    doubling the ADP-bound count from ~0.5 to ~1 molecule — but that is
+    thermodynamically negligible against the binding equilibrium, so the
+    DnaA-ATP fraction is unchanged at ~0.997. The mechanism, untuned, cannot
+    approach the [0.2,0.5] band. (Step 3 / Haochen.)
+
   interpretation: |
     Steps 1 AND 2 agree across 4 seeds: the baseline equilibrium pins DnaA at
     ~99.7% ATP-bound, not 0.2-0.5, and adding Haochen's intrinsic hydrolysis

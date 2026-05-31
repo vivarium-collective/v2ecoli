@@ -18,8 +18,8 @@ from v2ecoli.library.quantity_helpers import fg_magnitude
 
 
 CACHE_DIR = 'out/cache'
-DURATION = 60.0
-MIN_GROWTH_FG = 1.0  # over 60s a healthy cell adds several fg
+DURATION = 30.0  # growth is clearly detectable in 30s
+MIN_GROWTH_FG = 1.0  # over 30s a healthy cell adds several fg
 
 
 # These tests call composite.run() — mark them 'sim' so CI routes them to

@@ -31,7 +31,7 @@ import numpy as np
 # ---------------------------------------------------------------------------
 from v2ecoli.processes.rna_degradation import RnaDegradation
 from v2ecoli.processes.transcript_elongation import TranscriptElongation
-from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
+from v2ecoli.processes.polypeptide_elongation import SteadyStatePolypeptideElongation
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +111,7 @@ def _expand_flushes(layers):
 PARTITIONED_PROCESSES = {
     'ecoli-rna-degradation': RnaDegradation,
     'ecoli-transcript-elongation': TranscriptElongation,
-    'ecoli-polypeptide-elongation': PolypeptideElongation,
+    'ecoli-polypeptide-elongation': SteadyStatePolypeptideElongation,
 }
 
 ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())

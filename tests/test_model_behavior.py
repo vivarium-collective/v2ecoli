@@ -163,7 +163,7 @@ def test_division_conserves_unique_molecules(predivision_state):
 # 4. Daughters are viable and grow
 # ---------------------------------------------------------------------------
 
-DAUGHTER_RUN_SECONDS = 60.0
+DAUGHTER_RUN_SECONDS = 30.0  # daughters gain well over the 0.5 fg floor in 30s
 DAUGHTER_MIN_GROWTH_FG = 0.5
 
 

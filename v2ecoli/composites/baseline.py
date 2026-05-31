@@ -104,9 +104,9 @@ BASE_EXECUTION_LAYERS = [
     ['ecoli-metabolism'], FLUSH,
 
     # Layer 7: listeners (parallel)
-    ['RNA_counts_listener', 'ecoli-mass-listener',
-     'monomer_counts_listener', 'replication_data_listener', 'ribosome_data_listener',
-     'rna_synth_prob_listener', 'rnap_data_listener', 'unique_molecule_counts'], FLUSH,
+    ['counts_deriver', 'ecoli-mass-listener',
+     'replication_data_listener', 'ribosome_data_listener',
+     'rna_synth_prob_listener', 'rnap_data_listener'], FLUSH,
 
     # Emitter + clock
     ['emitter'],
@@ -220,15 +220,12 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
     from v2ecoli.processes.chromosome_structure import ChromosomeStructure
     from v2ecoli.processes.metabolism import Metabolism
     from v2ecoli.steps.partition import Requester, Evolver
-    from v2ecoli.steps.listeners.mass_listener import MassListener, PostDivisionMassListener
-    from v2ecoli.steps.listeners.rna_counts import RNACounts
-    from v2ecoli.steps.listeners.rna_synth_prob import RnaSynthProb
-    from v2ecoli.steps.listeners.monomer_counts import MonomerCounts
-    from v2ecoli.steps.listeners.dna_supercoiling import DnaSupercoiling
-    from v2ecoli.steps.listeners.replication_data import ReplicationData
-    from v2ecoli.steps.listeners.rnap_data import RnapData
-    from v2ecoli.steps.listeners.unique_molecule_counts import UniqueMoleculeCounts
-    from v2ecoli.steps.listeners.ribosome_data import RibosomeData
+    from v2ecoli.steps.derivers.mass_deriver import MassDeriver, PostDivisionMassDeriver
+    from v2ecoli.steps.derivers.rna_synth_prob import RnaSynthProb
+    from v2ecoli.steps.derivers.dna_supercoiling import DnaSupercoiling
+    from v2ecoli.steps.derivers.replication_data import ReplicationData
+    from v2ecoli.steps.derivers.rnap_data import RnapData
+    from v2ecoli.steps.derivers.ribosome_data import RibosomeData
     from v2ecoli.steps.media_update import MediaUpdate
     from v2ecoli.steps.exchange_data import ExchangeData
 
@@ -251,6 +248,26 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
         instance = _make_instance(Allocator, alloc_config, core)
         topo = instance.topology
         return instance, topo, 'step'
+
+    # Consolidated counts deriver: one step computing the RNA / monomer /
+    # unique-molecule count readouts (byte-identical to the three former
+    # listeners). Assemble its config from the three former config names.
+    if step_name == 'counts_deriver':
+        from v2ecoli.steps.derivers.counts_deriver import CountsDeriver
+        # Flat merge of the three former configs. Order matters: unique's
+        # unique_ids (the one actually used) overwrites monomer's unused copy.
+        merged_cfg = {}
+        for cfg_name in ('RNA_counts_listener', 'monomer_counts_listener',
+                         'unique_molecule_counts'):
+            try:
+                merged_cfg.update(loader.get_config_by_name(cfg_name) or {})
+            except (KeyError, AttributeError):
+                pass
+        instance = _make_instance(CountsDeriver, merged_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
 
     try:
         config = loader.get_config_by_name(base_name)
@@ -280,15 +297,12 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
     }
 
     SIMPLE_STEPS = {
-        'ecoli-mass-listener': MassListener,
-        'post-division-mass-listener': PostDivisionMassListener,
-        'RNA_counts_listener': RNACounts,
+        'ecoli-mass-listener': MassDeriver,
+        'post-division-mass-listener': PostDivisionMassDeriver,
         'rna_synth_prob_listener': RnaSynthProb,
-        'monomer_counts_listener': MonomerCounts,
         'dna_supercoiling_listener': DnaSupercoiling,
         'replication_data_listener': ReplicationData,
         'rnap_data_listener': RnapData,
-        'unique_molecule_counts': UniqueMoleculeCounts,
         'ribosome_data_listener': RibosomeData,
         'media_update': MediaUpdate,
         'exchange_data': ExchangeData,
@@ -431,8 +445,7 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     suitable for ``Composite(doc, core=core)``; does NOT wrap in Composite.
 
     Note: ``features`` is fixed to ``DEFAULT_FEATURES`` and is not a caller-
-    visible parameter.  To run with a different feature set, use the
-    departitioned or reconciled generator.
+    visible parameter.
 
     Args:
         core: bigraph-schema core.  If None, one is created via build_core().

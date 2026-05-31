@@ -120,12 +120,12 @@ biological name.
 - **ParCa** (Parameter Calculator) builds `sim_data` from raw EcoCyc-derived
   knowledge bases. It's expensive (minutes to hours). Never run ParCa in CI —
   CI uses a frozen gzipped cache at `tests/fixtures/cache/`.
-- **Three architectures** all simulate the same cell:
-  - `baseline` — partitioned, 55 processes, upstream-parity.
-  - `departitioned` — 41 steps, requester+evolver halves fused.
-  - `reconciled` — hybrid.
-  A change to a process must work across all three, or the PR must explain
-  why it's scoped. Use the architecture comparison report to verify.
+- **Architectures**:
+  - `baseline` — partitioned, 55 processes, upstream-parity (the reference).
+  - `colony` — many baseline cells in a shared environment (multi-agent).
+  - `millard_pdmp_baseline` — piecewise-deterministic Markov-process variant.
+  A change to a process must work across all of them, or the PR must explain
+  why it's scoped.
 
 ### Adding a new composite architecture
 
@@ -155,8 +155,6 @@ touches processes, steps, or composite wiring.
   lineage with mass trajectories and fold-change.
 - `reports/colony_report.py` → `colony_report.html` — mixed colony with pymunk
   physics, growth, and division.
-- `reports/compare_report.py` → `comparison_report.html` — baseline vs departitioned
-  vs reconciled, 42-min side-by-side.
 - `reports/network_report.py` → `network_*.html` — per-architecture Cytoscape
   topology. Click a process to see ports, schemas, config, docstring, math.
 - `reports/v1_v2_report.py` → `v1_v2_comparison.html` — vEcoli 1.0 vs 2.0 vs v2ecoli.

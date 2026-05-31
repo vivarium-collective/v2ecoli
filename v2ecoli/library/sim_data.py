@@ -1092,8 +1092,6 @@ class LoadSimData:
             "ppgpp_regulation": self.ppgpp_regulation,
             "disable_ppgpp_elongation_inhibition": self.disable_ppgpp_elongation_inhibition,
             "variable_elongation": self.variable_elongation_translation,
-            "translation_supply": self.translation_supply,
-            "trna_charging": self.trna_charging,
             # base parameters
             "n_avogadro": unum_to_pint(constants.n_avogadro),
             "proteinIds": translation.monomer_data["id"],

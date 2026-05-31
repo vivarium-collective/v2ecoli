@@ -186,8 +186,6 @@ class BasePolypeptideElongation(PartitionedProcess):
         'synthetase_names': {'_type': 'list[string]', '_default': []},
         'time_step': {'_type': 'integer', '_default': 1},
         'translation_aa_supply': {'_type': 'map[quantity[array[float],mol/fg/min]]', '_default': {}},
-        'translation_supply': {'_type': 'boolean', '_default': False},
-        'trna_charging': {'_type': 'boolean', '_default': False},
         'uncharged_trna_names': {'_type': 'array[string]', '_default': np.array([], dtype=float)},
         'unit_conversion': {'_type': 'float', '_default': 0},
         'variable_elongation': {'_type': 'boolean', '_default': False},

@@ -59,6 +59,7 @@ from v2ecoli.composites._helpers import (
     _normalize_boundary_units,
     _make_instance,
     _get_special_step,
+    CachedConfigLoader,
     _expand_flushes,
     FLUSH,
     PARTITIONED_PROCESSES,
@@ -760,34 +761,8 @@ def millard_pdmp_baseline(
     # a top-level dict, but identical wiring through 'shared/' works).
     cell_state['shared'].setdefault('central_metabolite_counts', {})
 
-    class _CachedLoader:
-        def __init__(self, configs, unique_names, dry_mass_inc_dict, cache_dir='out/cache'):
-            self._configs = configs
-            self.unique_names = unique_names
-            self.cache_dir = cache_dir
-
-            class _SimData:
-                class _InternalState:
-                    class _UniqueMolecule:
-                        def __init__(self, names):
-                            self.unique_molecule_definitions = {
-                                n: {} for n in names}
-                    unique_molecule = None
-                    def __init__(self, names):
-                        self.unique_molecule = self._UniqueMolecule(names)
-                internal_state = None
-                expectedDryMassIncreaseDict = {}
-
-            self.sim_data = _SimData()
-            self.sim_data.internal_state = _SimData._InternalState(unique_names)
-            self.sim_data.expectedDryMassIncreaseDict = dry_mass_inc_dict or {}
-
-        def get_config_by_name(self, name):
-            if name in self._configs:
-                return self._configs[name]
-            raise KeyError(f'Unknown: {name}')
-
-    loader = _CachedLoader(configs, unique_names, dry_mass_inc_dict, cache_dir=cache_dir)
+    # Mock loader: cache configs + minimal sim_data (see _helpers.CachedConfigLoader).
+    loader = CachedConfigLoader(configs, unique_names, dry_mass_inc_dict, cache_dir=cache_dir)
 
     execution_layers = build_execution_layers(features)
     flow_order = [step for layer in execution_layers for step in layer]

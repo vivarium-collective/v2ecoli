@@ -54,6 +54,7 @@ from v2ecoli.composites._helpers import (
     _get_special_step,
     _expand_flushes,
     set_default_emitter_decl,
+    CachedConfigLoader,
     FLUSH,
     PARTITIONED_PROCESSES,
     ALL_PARTITIONED,
@@ -526,35 +527,10 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
         'aa_count_diff': np.zeros(21),
     })
 
-    # Create a mock loader that returns configs from the cache
-    class _CachedLoader:
-        def __init__(self, configs, unique_names, dry_mass_inc_dict, cache_dir='out/cache'):
-            self._configs = configs
-            self.unique_names = unique_names
-            self.cache_dir = cache_dir
-
-            class _SimData:
-                class _InternalState:
-                    class _UniqueMolecule:
-                        def __init__(self, names):
-                            self.unique_molecule_definitions = {
-                                n: {} for n in names}
-                    unique_molecule = None
-                    def __init__(self, names):
-                        self.unique_molecule = self._UniqueMolecule(names)
-                internal_state = None
-                expectedDryMassIncreaseDict = {}
-
-            self.sim_data = _SimData()
-            self.sim_data.internal_state = _SimData._InternalState(unique_names)
-            self.sim_data.expectedDryMassIncreaseDict = dry_mass_inc_dict or {}
-
-        def get_config_by_name(self, name):
-            if name in self._configs:
-                return self._configs[name]
-            raise KeyError(f'Unknown: {name}')
-
-    loader = _CachedLoader(configs, unique_names, dry_mass_inc_dict, cache_dir=cache_dir)
+    # Mock loader: serves cache configs + a minimal sim_data stand-in (see
+    # CachedConfigLoader in _helpers — replaces the old nested _CachedLoader).
+    loader = CachedConfigLoader(
+        configs, unique_names, dry_mass_inc_dict, cache_dir=cache_dir)
 
     # Build execution layers for the requested feature set
     execution_layers = build_execution_layers(features)

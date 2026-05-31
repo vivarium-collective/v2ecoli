@@ -44,6 +44,50 @@ from v2ecoli.processes.polypeptide_elongation import SteadyStatePolypeptideElong
 FLUSH = '__unique_flush__'
 
 
+# --- Cache-driven config loader -------------------------------------------
+# Composite generators build from a cache bundle (pre-resolved configs) rather
+# than a live ParCa sim_data object. CachedConfigLoader is the small stand-in
+# they pass to step builders: it serves configs by name and exposes the few
+# sim_data attributes those builders read (unique-molecule definitions +
+# expected dry-mass increase). Previously each generator (baseline,
+# departitioned, reconciled, millard_pdmp_baseline) defined its own nested
+# _CachedLoader with a 4-level inner-class mock; this is the single flattened,
+# module-level version.
+
+class _MockUniqueMolecule:
+    def __init__(self, names):
+        self.unique_molecule_definitions = {n: {} for n in names}
+
+
+class _MockInternalState:
+    def __init__(self, names):
+        self.unique_molecule = _MockUniqueMolecule(names)
+
+
+class _MockSimData:
+    def __init__(self, unique_names, dry_mass_inc_dict):
+        self.internal_state = _MockInternalState(unique_names)
+        self.expectedDryMassIncreaseDict = dry_mass_inc_dict or {}
+
+
+class CachedConfigLoader:
+    """Serve pre-resolved configs from the cache bundle + a minimal sim_data
+    stand-in. Replaces the per-generator nested ``_CachedLoader``."""
+
+    def __init__(self, configs, unique_names, dry_mass_inc_dict,
+                 cache_dir='out/cache'):
+        self._configs = configs
+        self.unique_names = unique_names
+        self.cache_dir = cache_dir
+        self.sim_data = _MockSimData(unique_names, dry_mass_inc_dict)
+
+    def get_config_by_name(self, name):
+        try:
+            return self._configs[name]
+        except KeyError:
+            raise KeyError(f'Unknown: {name}')
+
+
 def _expand_flushes(layers):
     """Replace each FLUSH sentinel with a real [unique_update_N] sub-layer.
 

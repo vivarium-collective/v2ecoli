@@ -2,7 +2,7 @@ schema_version: 2
 name: dnaa-replication
 title: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)
 created: '2026-05-29'
-status: active   # 2026-05-30: both foundational studies (dnaa-0, dnaa-1) PASS
+status: active   # 2026-05-30: dnaa-0, dnaa-1 PASS; dnaa-2 (hydrolysis) Steps 1-2 done, Step 3 blocked on Haochen
 
 question: |
   Can v2ecoli reproduce DnaA-driven replication initiation in succinate at
@@ -52,7 +52,38 @@ executive:
     The two-study foundation for succinate DnaA-driven replication
     initiation is established; mechanism / box-binding / extrinsic studies
     can now be designed on top in a future round.
+
+    dnaa-2 (DnaA-ATP/ADP nucleotide equilibria + intrinsic hydrolysis) was
+    added on top and is IN PROGRESS — Steps 1-2 done, Step 3 blocked on
+    Haochen. Result: across a 4-seed × 4-gen workflow sweep (resumed from
+    dnaa-0's saved succinate steady state, mechA cache), the DnaA-ATP
+    fraction is pinned at ~0.997 (0.9970 ± 0.0039 over 13 complete
+    lineage-generations; within-gen CV <0.7%, across-seed ±0.0001) — FAR
+    above the Boesen 2024 biological band [0.2, 0.5]. Adding Haochen's
+    intrinsic hydrolysis at k=0.046/min (verified ON vs a k=0 control) does
+    NOT move it: the binding equilibrium re-binds ATP far faster than
+    hydrolysis drains it. The deviation is therefore a ROBUST property of
+    the stated parameter set, not noise or a single-seed artifact —
+    reconciling it requires revising one of {K_d, cellular [ATP]:[ADP],
+    expected fraction}, which is Haochen's call (see decisions_needed).
+    Six-panel trajectory figures (Step 1 k=0 + Step 2 ×3 seeds) in
+    studies/dnaa-2-atp-hydrolysis/charts/.
   decisions_needed:
+    - question: dnaa-2 — at v2ecoli's current cellular [ATP]:[ADP] (≈20) and
+        Haochen's K_d's (≈30 nM ATP, ≈100 nM ADP), the DnaA-ATP fraction is
+        ~0.997, not the expected [0.2, 0.5]. Which of {K_d(ATP/ADP), cellular
+        [ATP]:[ADP], expected fraction} should be revised to reconcile them?
+      status: OPEN — blocks dnaa-2 Step 3 (parameter tuning); needs Haochen.
+      context: |
+        Confirmed robust across 4 seeds × 13 complete lineage-generations and
+        unchanged by intrinsic hydrolysis (k=0.046/min vs k=0 control). The
+        three stated quantities are mutually inconsistent; tuning K_d's before
+        Haochen picks the lever would be premature. Secondary observations to
+        resolve alongside: (a) DnaA concentration drifts UP over the lineage
+        (not equilibrated from the resume-init; the "concentration CV<10%"
+        criterion is unmet on the 4-gen window); (b) one stochastic lineage
+        (seed 1) hits a base-model allocator NegativeCountsError(PROTON[c] -3)
+        entering gen 3 — unrelated to DnaA, but a model-robustness edge case.
     - question: dnaa-0 succinate run reaches per-cell periodic steady state with
         oriC oscillating 1 ↔ 2 at steady state (transient overshoot to 4 in
         early gens allowed) — pass or fail?

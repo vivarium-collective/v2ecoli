@@ -55,6 +55,22 @@ For deeper questions about either framework, invoke the `pbg-expert` skill.
    that runs the process inside a composite and asserts on an outcome
    (growth rate, molecule count, concentration, etc.). A unit test of a
    helper function does not substitute.
+6. **Parity gate (behavior-preserving refactors).** Any change claiming to
+   preserve behavior (deriver/flow consolidation, port-schema edits, renames)
+   must pass the committed gate before commit — never claim "byte-identical"
+   from memory:
+
+   ```
+   PYTHONPATH=$PWD .venv/bin/python scripts/parity_check.py \
+       --seconds 120 --compare tests/golden/baseline_parity_signature.json \
+       --build-check
+   ```
+
+   Two gates: a deep null-emitter signature vs the committed golden, AND a
+   real-emitter `build_composite` (the second catches emitter-schema resolve
+   failures the null emitter hides). Exit 0 = both pass. Re-capture the golden
+   (`--out`) only from a clean `origin/main` worktree when main's behavior
+   intentionally changes.
 
 ## E. coli domain details
 

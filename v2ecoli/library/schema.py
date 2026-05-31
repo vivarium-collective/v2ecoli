@@ -409,10 +409,16 @@ def attrs(states: MetadataArray, attributes: List[str]) -> List[np.ndarray]:
         corresponds to the value of that attribute for the nth active
         unique molecule in ``states``
     """
+    # Drop the MetadataArray subclass to its plain ndarray base once. Each
+    # field read on a MetadataArray (``states[attr]``, ``states["_entryState"]``)
+    # otherwise triggers ``__array_finalize__`` to propagate ``.metadata`` —
+    # ~431k calls / 100 ticks of pure overhead, since the returned active-row
+    # slices are read-only numeric consumers that never touch ``.metadata``.
+    base = states.view(np.ndarray) if isinstance(states, np.ndarray) else states
     # _entryState has dtype int8 — view as bool avoids copy
-    mol_mask = states["_entryState"].view(np.bool_)
+    mol_mask = base["_entryState"].view(np.bool_)
     # Use direct field access (avoids np.asarray overhead for contiguous fields)
-    return [states[attribute][mol_mask] for attribute in attributes]
+    return [base[attribute][mol_mask] for attribute in attributes]
 
 
 def get_free_indices(

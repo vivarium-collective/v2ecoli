@@ -52,9 +52,6 @@ import warnings
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 # Composer removed
 # Engine removed
-
-from ecoli.processes.global_clock import GlobalClock
-from ecoli.processes.unique_update import UniqueUpdate
 # topology_registry removed
 from v2ecoli.library.schema import (
     listener_schema,

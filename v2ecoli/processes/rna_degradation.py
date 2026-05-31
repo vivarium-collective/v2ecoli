@@ -127,34 +127,6 @@ class RnaDegradation(PartitionedProcess):
         'emit_per_rna_degradation_counts': {'_type': 'boolean', '_default': False},
     }
 
-    def inputs(self):
-        return {
-            'bulk': 'bulk_array',
-            'RNAs': RNA_ARRAY,
-            'active_ribosome': ACTIVE_RIBOSOME_ARRAY,
-            'listeners': {'mass': {'cell_mass': 'quantity[float,fg]'}},
-            'timestep': 'integer',
-        }
-
-    def outputs(self):
-        return {
-            'bulk': 'bulk_array',
-            'RNAs': RNA_ARRAY,
-            'listeners': {
-                'rna_degradation_listener': {
-                    'count_rna_degraded': 'overwrite[array[integer]]',
-                    'nucleotides_from_degradation': 'overwrite[integer]',
-                    'count_RNA_degraded_per_cistron': 'overwrite[array[integer]]',
-                    'fraction_active_endoRNases': 'overwrite[float]',
-                    'diff_relative_first_order_decay': 'overwrite[float]',
-                    'fract_endo_rrna_counts': 'overwrite[array[float]]',
-                    'fragment_bases_digested': 'overwrite[integer]',
-                },
-            },
-        }
-
-
-
     def initialize(self, config):
         self.rna_ids = self.parameters["rna_ids"]
         self.mature_rna_ids = self.parameters["mature_rna_ids"]

@@ -41,10 +41,13 @@ def test_steadystate_declares_charging_ports_base_does_not():
 
 import numpy as np
 
+# Only the two NON-default variants are exercised here — each is a full
+# baseline build, so we keep the PR-gating behavior job lean. SteadyState (the
+# baseline default) is covered bit-for-bit by test_polypeptide_elongation_parity
+# and by every other baseline behavior test in the suite.
 VARIANTS = [
     "BasePolypeptideElongation",
     "TranslationSupplyPolypeptideElongation",
-    "SteadyStatePolypeptideElongation",
 ]
 
 

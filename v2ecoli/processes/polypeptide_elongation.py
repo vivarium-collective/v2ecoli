@@ -1082,30 +1082,22 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
             "supply_function": supply_function,
         }
 
-    def request(
-        self, states: dict, aasInSequences: npt.NDArray[np.int64]
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], dict]:
-        """Request side (SteadyState model): solve charging, request reactants.
+    def _species_concentrations(self, states, aasInSequences):
+        """Convert this tick's bulk counts into μM concentrations.
 
-        Orchestrates the three growth-control modules per tick:
+        ``conc = counts / (N_A * V_cell)``, ``V_cell = cell_mass / rho_cell``.
 
-        1. Convert all counts to μM concentrations
-           (``conc = counts / (N_A * V_cell)``, ``V_cell = cell_mass / rho``).
-        2. Amino-acid supply (``_amino_acid_supply``) → synthesis/import/export
-           rates + the supply closure.
-        3. tRNA charging (``calculate_trna_charging``) → steady-state charged
-           fraction, elongation rate ``v_rib`` and the supply realized during
-           the sub-stepped solve; reconcile ``self.aa_supply`` from it.
-        4. Translate the charged fraction into charged/uncharged tRNA and
-           charging-reaction requests.
-        5. ppGpp request side (``_ppgpp_request``).
+        The per-tick scalar ``counts_to_uM_mag`` (the μM magnitude of
+        ``counts_to_molar``) is computed once and multiplied through every
+        species, so downstream kinetics helpers receive plain μM-magnitude
+        numpy arrays. Synthetase and tRNA counts are first projected onto a
+        per-amino-acid basis via ``aa_from_synthetase`` / ``aa_from_trna``.
+        ``f`` is the per-amino-acid fraction of the upcoming sequence.
 
-        Amino acids requested for translation::
-
-            aa_counts_for_translation = v_rib * f * dt / counts_to_uM_mag
-
-        where ``f`` is the per-amino-acid fraction of the upcoming sequence.
-        Returns ``(fraction_charged, aa_counts_for_translation, update)``.
+        Side effects: caches ``self.counts_to_molar`` and
+        ``self._counts_to_uM_mag`` (reused by ``evolve``/``_ppgpp_evolve``).
+        Returns a dict of the cell masses, the conversion scalar, ``f``, the
+        raw tRNA arrays, and all the μM concentration arrays.
         """
         # Conversion from counts to molarity
         cell_mass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
@@ -1159,6 +1151,70 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
         uncharged_trna_conc = counts_to_uM_mag * uncharged_trna_counts
         charged_trna_conc = counts_to_uM_mag * charged_trna_counts
         ribosome_conc = counts_to_uM_mag * ribosome_counts
+
+        return {
+            "cell_mass": cell_mass,
+            "dry_mass": dry_mass,
+            "counts_to_uM_mag": counts_to_uM_mag,
+            "f": f,
+            "ppgpp_conc": ppgpp_conc,
+            "rela_conc": rela_conc,
+            "spot_conc": spot_conc,
+            "aa_counts": aa_counts,
+            "uncharged_trna_array": uncharged_trna_array,
+            "charged_trna_array": charged_trna_array,
+            "uncharged_trna_counts": uncharged_trna_counts,
+            "charged_trna_counts": charged_trna_counts,
+            "synthetase_conc": synthetase_conc,
+            "aa_conc": aa_conc,
+            "uncharged_trna_conc": uncharged_trna_conc,
+            "charged_trna_conc": charged_trna_conc,
+            "ribosome_conc": ribosome_conc,
+        }
+
+    def request(
+        self, states: dict, aasInSequences: npt.NDArray[np.int64]
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], dict]:
+        """Request side (SteadyState model): solve charging, request reactants.
+
+        Orchestrates the three growth-control modules per tick:
+
+        1. Convert all counts to μM concentrations
+           (``conc = counts / (N_A * V_cell)``, ``V_cell = cell_mass / rho``).
+        2. Amino-acid supply (``_amino_acid_supply``) → synthesis/import/export
+           rates + the supply closure.
+        3. tRNA charging (``calculate_trna_charging``) → steady-state charged
+           fraction, elongation rate ``v_rib`` and the supply realized during
+           the sub-stepped solve; reconcile ``self.aa_supply`` from it.
+        4. Translate the charged fraction into charged/uncharged tRNA and
+           charging-reaction requests.
+        5. ppGpp request side (``_ppgpp_request``).
+
+        Amino acids requested for translation::
+
+            aa_counts_for_translation = v_rib * f * dt / counts_to_uM_mag
+
+        where ``f`` is the per-amino-acid fraction of the upcoming sequence.
+        Returns ``(fraction_charged, aa_counts_for_translation, update)``.
+        """
+        # Convert all the bulk species this tick needs into μM concentrations.
+        sc = self._species_concentrations(states, aasInSequences)
+        dry_mass = sc["dry_mass"]
+        counts_to_uM_mag = sc["counts_to_uM_mag"]
+        f = sc["f"]
+        ppgpp_conc = sc["ppgpp_conc"]
+        rela_conc = sc["rela_conc"]
+        spot_conc = sc["spot_conc"]
+        aa_counts = sc["aa_counts"]
+        uncharged_trna_array = sc["uncharged_trna_array"]
+        charged_trna_array = sc["charged_trna_array"]
+        uncharged_trna_counts = sc["uncharged_trna_counts"]
+        charged_trna_counts = sc["charged_trna_counts"]
+        synthetase_conc = sc["synthetase_conc"]
+        aa_conc = sc["aa_conc"]
+        uncharged_trna_conc = sc["uncharged_trna_conc"]
+        charged_trna_conc = sc["charged_trna_conc"]
+        ribosome_conc = sc["ribosome_conc"]
 
         # GROWTH-CONTROL MODULE: amino-acid supply (synthesis / import / export
         # rates + the supply closure threaded into the charging solve).

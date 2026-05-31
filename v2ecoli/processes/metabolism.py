@@ -112,6 +112,17 @@ class Metabolism(Step):
     Runs as a time-driven process (not partitioned).
     """
 
+    # Formal description (standardized via Edge.describe()).
+    description = (
+        "Metabolism — flux-balance analysis (FBA).\n\n"
+        "Each timestep solve for the reaction flux vector v:\n"
+        "    max cᵀv   s.t.  S·v = 0,   v_lb ≤ v ≤ v_ub\n"
+        "  S: stoichiometry (metabolites×reactions); c: biomass objective;\n"
+        "  bounds from nutrient uptake, enzyme kcat capacity, NGAM maintenance.\n"
+        "Flux→counts: Δn = stochasticRound(v · m_dry · dt / (MW · κ)).\n"
+        "Optional ppGpp growth coupling and kinetic (kcat) flux constraints."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

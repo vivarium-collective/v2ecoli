@@ -113,6 +113,15 @@ TOPOLOGY = {
 class ChromosomeStructure(Step):
     """Chromosome Structure Process"""
 
+    description = (
+        "Chromosome Structure — resolve fork collisions, replicate promoters, repartition segments.\n\n"
+        "1. Collision: fork passing a bound molecule either removes it (fork wins) or stalls (molecule wins).\n"
+        "2. Promoter replication: duplicate promoter when  pos_prev < c ≤ pos_new  (TF state + mass preserved).\n"
+        "3. Segment supercoiling: linking number  Lk = Tw + Wr;  on split, Lk partitioned ∝ new segment lengths.\n"
+        "4. Recycling: collided RNAPs/ribosomes removed; RNA transcripts + subunits returned to bulk (mass conserved).\n"
+        "  c: promoter coordinate; pos_prev/pos_new: fork position before/after step; Tw: twist; Wr: writhe."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

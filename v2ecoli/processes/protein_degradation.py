@@ -78,6 +78,16 @@ class ProteinDegradation(Step):
     Poisson degradation draws and applies stoichiometric updates.
     """
 
+    description = (
+        "Protein Degradation — first-order Poisson hydrolysis of protein monomers.\n\n"
+        "    nᵢ_deg ~ min(Poisson(kᵢ · dt · nᵢ), nᵢ)\n"
+        "    Δmetabolites = S · n_deg\n"
+        "    Proteinᵢ + (Lᵢ−1) H2O → ∑ⱼ aᵢⱼ · AAⱼ\n"
+        "  kᵢ: first-order degradation rate (1/s); nᵢ: copies of protein i;\n"
+        "  aᵢⱼ: count of AA j per protein i; Lᵢ = ∑ⱼ aᵢⱼ (residues);\n"
+        "  S: stoichiometry (metabolites × proteins), +AA release, −(Lᵢ−1) H2O."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

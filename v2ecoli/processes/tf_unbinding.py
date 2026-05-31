@@ -47,6 +47,14 @@ TOPOLOGY = {
 class TfUnbinding(Step):
     """TfUnbinding"""
 
+    description = (
+        "TfUnbinding — deterministic release of all DNA-bound TFs to the free active pool.\n\n"
+        "    n_released_j = ∑_i bound_TF[i,j]     (sum over promoters i)\n"
+        "    bound_TF ← 0     (reset promoter occupancy matrix)\n"
+        "    Δmass_i = -∑_j bound_TF[i,j] · m_j   (mass moved promoter submass → bulk)\n"
+        "  bound_TF: promoters × TF species;  m_j: mass (fg) of active TF j."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

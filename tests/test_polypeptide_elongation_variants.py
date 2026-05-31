@@ -31,3 +31,28 @@ def test_steadystate_declares_charging_ports_base_does_not():
     ss_in = set(SteadyStatePolypeptideElongation(dict(cfg)).inputs().keys())
     # SteadyState reads at least as much as Base.
     assert base_in <= ss_in
+
+
+import numpy as np
+
+VARIANTS = [
+    "BasePolypeptideElongation",
+    "TranslationSupplyPolypeptideElongation",
+    "SteadyStatePolypeptideElongation",
+]
+
+
+@pytest.mark.parametrize("variant", VARIANTS)
+def test_variant_elongates_protein(variant, monkeypatch):
+    import v2ecoli.composites._helpers as H
+    import v2ecoli.processes.polypeptide_elongation as PE
+    cls = getattr(PE, variant)
+    monkeypatch.setitem(H.PARTITIONED_PROCESSES, "ecoli-polypeptide-elongation", cls)
+    from v2ecoli import build_composite
+    from v2ecoli.library.quantity_helpers import fg_magnitude
+    c = build_composite("baseline", cache_dir="out/cache", seed=0)
+    a = c.state["agents"]["0"]
+    m0 = float(fg_magnitude(a["listeners"]["mass"]["protein_mass"]))
+    c.run(20)
+    m1 = float(fg_magnitude(a["listeners"]["mass"]["protein_mass"]))
+    assert m1 > m0, f"{variant}: protein mass did not increase ({m0:.1f}->{m1:.1f})"

@@ -62,7 +62,7 @@ from scipy.integrate import solve_ivp
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 from wholecell.utils.random import stochasticRound
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.quantity_helpers import as_quantity
+from v2ecoli.library.quantity_helpers import as_quantity, fg_magnitude
 from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
 
 from bigraph_schema import deep_merge
@@ -436,8 +436,11 @@ class BasePolypeptideElongation(PartitionedProcess):
         # Pure-float path: every input is in known units, no per-tick
         # Quantity construction. translation_supply_rate_per_s carries
         # the unit factor (min→s, /60) baked in at init.
+        # dry_mass may be a pint Quantity (quantity[float,fg] port) or a
+        # bare float; strip to a plain float so the product stays a plain
+        # numpy array even when pint Quantities are flowing through the store.
         current_media_id = states["environment"]["media_id"]
-        dry_mass_fg = states["listeners"]["mass"]["dry_mass"]
+        dry_mass_fg = fg_magnitude(states["listeners"]["mass"]["dry_mass"])
         timestep_s = states["timestep"]
         translation_supply_rate_per_s = (
             self._translation_aa_supply_per_s[current_media_id]

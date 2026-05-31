@@ -1,8 +1,8 @@
 schema_version: 4
 name: pdmp-04-compilation
 title: Phase 4 — Compilation and Performance
-status: planned
-phase: Design
+status: running
+phase: Decide
 topic: pdmp
 tags:
 - pdmp

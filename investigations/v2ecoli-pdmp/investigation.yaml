@@ -91,22 +91,30 @@ executive:
     jump-process variance — the consumption_matched homeostat washes
     per-tick variance out by construction (sprints 1–9). Phase 3
     inference infrastructure fully closed (13 sprints, PR #100): per-
-    process Poisson likelihoods emitted, aggregate LikelihoodCollector,
-    XArrayEmitter persistence, xarray.Dataset(replicate × time ×
-    observable) readback, empirically-calibrated mean-to-mean ε, 1D
-    ABC stub with sequential SMC refinement (posterior collapses to
-    truth at tight ε), 2D multi-parameter sweep showing anti-diagonal
-    ridge under aggregate log-likelihood metric, multi-observable
-    analysis confirming the pipeline emits self-calibrated likelihoods,
-    architectural pivot to count-based ABC distances giving 100×
-    sharper Ts identification, and combined count vector (sqrt(d_rna² +
-    d_ribosome²)) reaching 3.06× truth-vs-next-nearest separation —
-    28% better than log-likelihood, the Phase-3-canonical ABC distance
-    for jump-process WCM inference. Phase 3 is end-to-end mature. Next
-    natural milestone: Phase 4 compiled runtime. See reports/figures/
-    pdmp-03/abc_count_metric.html for the headline finding;
-    investigations/v2ecoli-pdmp/reports/pdmp-03-inference.html for the
-    sprint narrative.
+    process Poisson likelihoods, aggregate LikelihoodCollector,
+    XArrayEmitter persistence, calibrated mean-to-mean ε, SMC sequential
+    refinement, 2D multi-parameter sweep, architectural pivot from
+    self-calibrated log-likelihoods to count-based ABC distances giving
+    100× sharper Ts identification, and combined count vector reaching
+    3.06× truth-vs-next-nearest separation as the Phase-3-canonical ABC
+    distance. Phase 4 architectural direction validated and closed via
+    6 sprints (also on PR #100): real per-tick compute profile showed
+    76% framework overhead (sprint 1), function-level hotspots
+    identified 13,817 isinstance + 4,213 __array_finalize__ + 52
+    process_update calls per tick as the marshalling dominant cost
+    (sprint 2), column-centric prototypes demonstrated constant-in-N
+    per-trajectory wall + 1.5×–3× per-tick speedup depending on
+    workload (sprints 3, 4, 6), real WCM benchmark + projection: pbg
+    sequential at N=10³ × 30 ticks = 26 minutes, column-centric
+    parallel projects to ~1 sec = ~1500× total speedup (sprints 5, 6).
+    Architectural answer is the column-centric runtime, NOT per-Process
+    Catalyst.jl JIT — framework marshalling dominates over per-Process
+    compute and per-Process compilation buys at most ~10% of per-tick
+    time. Phase 4 implementation work remaining is engineering, not
+    investigation. See reports/figures/pdmp-03/abc_count_metric.html
+    and reports/figures/pdmp-04/wcm_baseline_projection.html for the
+    headline findings; investigations/v2ecoli-pdmp/reports/ for the
+    sprint narratives.
 
     '
   verdict_status: in-progress
@@ -145,6 +153,7 @@ scientific_argument:
   key_figures:
   - investigations/v2ecoli-pdmp/reports/pdmp-02-jump-processes.html
   - investigations/v2ecoli-pdmp/reports/pdmp-03-inference.html
+  - investigations/v2ecoli-pdmp/reports/pdmp-04-compilation.html
   - reports/figures/pdmp-02/trajectory_divergence.html
   - reports/figures/pdmp-02/ensemble_validation_period60.html
   - reports/figures/pdmp-03/likelihood_ensemble.html
@@ -152,6 +161,12 @@ scientific_argument:
   - reports/figures/pdmp-03/abc_smc_2d.html
   - reports/figures/pdmp-03/abc_multi_observable.html
   - reports/figures/pdmp-03/abc_count_metric.html
+  - reports/figures/pdmp-04/per_step_compute_decomposition.html
+  - reports/figures/pdmp-04/marshalling_hotspots.html
+  - reports/figures/pdmp-04/column_centric_prototype.html
+  - reports/figures/pdmp-04/multistep_prototype.html
+  - reports/figures/pdmp-04/wcm_baseline_projection.html
+  - reports/figures/pdmp-04/ti_shaped_prototype.html
   caveats:
   - Resource estimates in the roadmap assume 2–4 FTE per phase; absent that staffing, phases will run serially over much longer
     wall time.

@@ -178,7 +178,7 @@ ALLOCATOR_LAYERS = {
 # ---------------------------------------------------------------------------
 # When a Study runner needs persistent time-series history, it can set
 # ``_EMITTER_OVERRIDE`` to a dict of SQLiteEmitter-config kwargs (e.g.
-# ``{'file_path': '.../studies/<name>', 'db_file': 'runs.db',
+# ``{'file_path': '.../workspace/studies/<name>', 'db_file': 'runs.db',
 #   'name': 'baseline-steady-state'}``) BEFORE building the composite.
 # When set, the special 'emitter' step in baseline / departitioned /
 # reconciled swaps RAMEmitter for SQLiteEmitter and expands the emit

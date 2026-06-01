@@ -18,7 +18,6 @@ import numpy.typing as npt
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 from wholecell.utils.random import stochasticRound
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.quantity_helpers import as_quantity
 from v2ecoli.library.unit_bridge import unum_to_pint, pint_to_unum
 
 from v2ecoli.library.schema import counts, attrs, bulk_name_to_idx
@@ -133,25 +132,9 @@ class TranslationSupplyElongationModel(BaseElongationModel):
 
 
 class SteadyStateElongationModel(TranslationSupplyElongationModel):
-    """Steady-state tRNA-charging elongation model (Michaelis-Menten competitive
-    inhibition). This is the growth-rate-control model: the ribosome elongation
-    rate emerges from amino-acid availability rather than being imposed.
-
-    It composes three growth-rate-control modules, each a focused unit:
-
-    * **tRNA charging** — the steady-state charged-fraction / elongation-rate
-      solve (``kinetics.calculate_trna_charging``), plus the per-tRNA
-      distribution bookkeeping (``distribution_from_aa``) applied in
-      ``request`` (charge requests) and ``evolve`` (realized charging reactions).
-    * **ppGpp (RelA/SpoT)** — ``elongation_rate`` (ppGpp-modulated rate),
-      ``_ppgpp_request`` (predicted ppGpp turnover → bulk requests) and
-      ``_ppgpp_evolve`` (realized ppGpp synthesis/degradation), over
-      ``kinetics.ppgpp_metabolite_changes``.
-    * **amino-acid supply** — ``_amino_acid_supply`` (synthesis / import / export
-      rates + the supply closure the charging solve integrates).
-
-    ``request`` and ``evolve`` orchestrate these three in sequence per the
-    partitioned request→allocate→evolve contract.
+    """
+    Steady State Charging Model: Requests amino acids based on the
+    Michaelis-Menten competitive inhibition model.
     """
 
     def __init__(self, parameters, process):
@@ -228,7 +211,7 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             self.process.ppgpp_regulation
             and not self.process.disable_ppgpp_elongation_inhibition
         ):
-            cell_mass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
+            cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
             cell_volume = cell_mass / self.cellDensity
             counts_to_molar = 1 / (self.process.n_avogadro * cell_volume)
             ppgpp_count = counts(states["bulk"], self.process.ppgpp_idx)
@@ -242,15 +225,62 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             rate = super().elongation_rate(states)
         return rate
 
-    def _amino_acid_supply(self, states, aa_conc, dry_mass, counts_to_uM_mag):
-        """Growth-control module: amino-acid supply.
+    def request(
+        self, states: dict, aasInSequences: npt.NDArray[np.int64]
+    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], dict]:
+        # Conversion from counts to molarity
+        cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
+        dry_mass = states["listeners"]["mass"]["dry_mass"] * units.fg
+        cell_volume = cell_mass / self.cellDensity
+        self.counts_to_molar = 1 / (self.process.n_avogadro * cell_volume)
+        # Strip counts_to_molar to a plain float in MICROMOLAR_UNITS once
+        # per tick. All downstream uses that feed calculate_trna_charging /
+        # ppgpp_metabolite_changes / get_charging_supply_function (which
+        # now accept μM magnitudes directly) multiply this float instead
+        # of constructing a fresh pint Quantity per concentration.
+        counts_to_uM_mag = self.counts_to_molar.to(MICROMOLAR_UNITS).magnitude
+        self._counts_to_uM_mag = counts_to_uM_mag  # for evolve() reuse
 
-        Computes per-amino-acid synthesis / import / export rates from the
-        current enzyme, importer and exporter counts and the boundary media,
-        and builds the supply closure that the tRNA-charging solve integrates
-        over the timestep. Pure read of ``states`` — returns a bundle consumed
-        by ``request`` (supply reconciliation + listeners); makes no updates.
-        """
+        # ppGpp related concentrations (now μM-magnitude numpy arrays).
+        ppgpp_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.process.ppgpp_idx
+        )
+        rela_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.process.rela_idx
+        )
+        spot_conc = counts_to_uM_mag * counts(
+            states["bulk_total"], self.process.spot_idx
+        )
+
+        # Get counts and convert synthetase and tRNA to a per AA basis
+        synthetase_counts = np.dot(
+            self.aa_from_synthetase,
+            counts(states["bulk_total"], self.process.synthetase_idx),
+        )
+        aa_counts = counts(states["bulk_total"], self.process.amino_acid_idx)
+        uncharged_trna_array = counts(
+            states["bulk_total"], self.process.uncharged_trna_idx
+        )
+        charged_trna_array = counts(states["bulk_total"], self.process.charged_trna_idx)
+        uncharged_trna_counts = np.dot(self.process.aa_from_trna, uncharged_trna_array)
+        charged_trna_counts = np.dot(self.process.aa_from_trna, charged_trna_array)
+        ribosome_counts = states["active_ribosome"]["_entryState"].sum()
+
+        # Get concentration. calculate_trna_charging and
+        # ppgpp_metabolite_changes both accept numpy magnitude arrays in
+        # MICROMOLAR_UNITS — convert the per-tick counts_to_molar to μM
+        # once and multiply through. Skips per-input pint Quantity
+        # construction + downstream .to(MICROMOLAR_UNITS).magnitude stripping
+        # inside those functions.
+        f = aasInSequences / aasInSequences.sum()
+        counts_to_uM_mag = self.counts_to_molar.to(MICROMOLAR_UNITS).magnitude
+        synthetase_conc = counts_to_uM_mag * synthetase_counts
+        aa_conc = counts_to_uM_mag * aa_counts
+        uncharged_trna_conc = counts_to_uM_mag * uncharged_trna_counts
+        charged_trna_conc = counts_to_uM_mag * charged_trna_counts
+        ribosome_conc = counts_to_uM_mag * ribosome_counts
+
+        # Calculate amino acid supply
         aa_in_media = np.array(
             [
                 states["boundary"]["external"][aa] > self.import_constraint_threshold
@@ -301,94 +331,8 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             exporter_counts,
             aa_in_media,
         )
-        return {
-            "aa_in_media": aa_in_media,
-            "fwd_enzyme_counts": fwd_enzyme_counts,
-            "rev_enzyme_counts": rev_enzyme_counts,
-            "importer_counts": importer_counts,
-            "exporter_counts": exporter_counts,
-            "synthesis": synthesis,
-            "import_rates": import_rates,
-            "export_rates": export_rates,
-            "exchange_rates": exchange_rates,
-            "fwd_saturation": fwd_saturation,
-            "rev_saturation": rev_saturation,
-            "supply_function": supply_function,
-        }
 
-    def request(
-        self, states: dict, aasInSequences: npt.NDArray[np.int64]
-    ) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], dict]:
-        # Conversion from counts to molarity
-        cell_mass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
-        dry_mass = as_quantity(states["listeners"]["mass"]["dry_mass"], units.fg)
-        cell_volume = cell_mass / self.cellDensity
-        self.counts_to_molar = 1 / (self.process.n_avogadro * cell_volume)
-        # Strip counts_to_molar to a plain float in MICROMOLAR_UNITS once
-        # per tick. All downstream uses that feed calculate_trna_charging /
-        # ppgpp_metabolite_changes / get_charging_supply_function (which
-        # now accept μM magnitudes directly) multiply this float instead
-        # of constructing a fresh pint Quantity per concentration.
-        counts_to_uM_mag = self.counts_to_molar.to(MICROMOLAR_UNITS).magnitude
-        self._counts_to_uM_mag = counts_to_uM_mag  # for evolve() reuse
-
-        # ppGpp related concentrations (now μM-magnitude numpy arrays).
-        ppgpp_conc = counts_to_uM_mag * counts(
-            states["bulk_total"], self.process.ppgpp_idx
-        )
-        rela_conc = counts_to_uM_mag * counts(
-            states["bulk_total"], self.process.rela_idx
-        )
-        spot_conc = counts_to_uM_mag * counts(
-            states["bulk_total"], self.process.spot_idx
-        )
-
-        # Get counts and convert synthetase and tRNA to a per AA basis
-        synthetase_counts = np.dot(
-            self.aa_from_synthetase,
-            counts(states["bulk_total"], self.process.synthetase_idx),
-        )
-        aa_counts = counts(states["bulk_total"], self.process.amino_acid_idx)
-        uncharged_trna_array = counts(
-            states["bulk_total"], self.process.uncharged_trna_idx
-        )
-        charged_trna_array = counts(states["bulk_total"], self.process.charged_trna_idx)
-        uncharged_trna_counts = np.dot(self.process.aa_from_trna, uncharged_trna_array)
-        charged_trna_counts = np.dot(self.process.aa_from_trna, charged_trna_array)
-        ribosome_counts = states["active_ribosome"]["_entryState"].sum()
-
-        # Get concentration. calculate_trna_charging and
-        # ppgpp_metabolite_changes both accept numpy magnitude arrays in
-        # MICROMOLAR_UNITS — convert the per-tick counts_to_molar to μM
-        # once and multiply through. Skips per-input pint Quantity
-        # construction + downstream .to(MICROMOLAR_UNITS).magnitude stripping
-        # inside those functions.
-        f = aasInSequences / aasInSequences.sum()
-        counts_to_uM_mag = self.counts_to_molar.to(MICROMOLAR_UNITS).magnitude
-        synthetase_conc = counts_to_uM_mag * synthetase_counts
-        aa_conc = counts_to_uM_mag * aa_counts
-        uncharged_trna_conc = counts_to_uM_mag * uncharged_trna_counts
-        charged_trna_conc = counts_to_uM_mag * charged_trna_counts
-        ribosome_conc = counts_to_uM_mag * ribosome_counts
-
-        # GROWTH-CONTROL MODULE: amino-acid supply (synthesis / import / export
-        # rates + the supply closure threaded into the charging solve).
-        sup = self._amino_acid_supply(states, aa_conc, dry_mass, counts_to_uM_mag)
-        aa_in_media = sup["aa_in_media"]
-        fwd_enzyme_counts = sup["fwd_enzyme_counts"]
-        rev_enzyme_counts = sup["rev_enzyme_counts"]
-        importer_counts = sup["importer_counts"]
-        exporter_counts = sup["exporter_counts"]
-        synthesis = sup["synthesis"]
-        import_rates = sup["import_rates"]
-        export_rates = sup["export_rates"]
-        exchange_rates = sup["exchange_rates"]
-        fwd_saturation = sup["fwd_saturation"]
-        rev_saturation = sup["rev_saturation"]
-        supply_function = sup["supply_function"]
-
-        # GROWTH-CONTROL MODULE: tRNA charging — calculate steady state tRNA
-        # levels and the resulting elongation rate (see kinetics.calculate_trna_charging)
+        # Calculate steady state tRNA levels and resulting elongation rate
         self.charging_params["max_elong_rate"] = self.elongation_rate(states)
         (
             fraction_charged,
@@ -490,21 +434,40 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
             # shouldn't matter though.
             (self.process.water_idx, int(aa_counts_for_translation.sum())),
         ]
-        # GROWTH-CONTROL MODULE: ppGpp (request side) — RelA/SpoT-driven ppGpp
-        # turnover given the charging solve's predicted charged fraction.
-        bulk_request += self._ppgpp_request(
-            states,
-            counts_to_uM_mag,
-            uncharged_trna_counts,
-            charged_trna_counts,
-            fraction_charged,
-            ribosome_conc,
-            f,
-            rela_conc,
-            spot_conc,
-            ppgpp_conc,
-            v_rib,
-        )
+        if self.process.ppgpp_regulation:
+            # Compute total_trna_conc in μM-magnitude form, matching the
+            # ppgpp_metabolite_changes contract (numpy magnitudes).
+            total_trna_conc = counts_to_uM_mag * (
+                uncharged_trna_counts + charged_trna_counts
+            )
+            updated_charged_trna_conc = total_trna_conc * fraction_charged
+            updated_uncharged_trna_conc = total_trna_conc - updated_charged_trna_conc
+            delta_metabolites, *_ = ppgpp_metabolite_changes(
+                updated_uncharged_trna_conc,
+                updated_charged_trna_conc,
+                ribosome_conc,
+                f,
+                rela_conc,
+                spot_conc,
+                ppgpp_conc,
+                counts_to_uM_mag,
+                v_rib,
+                self.charging_params,
+                self.ppgpp_params,
+                states["timestep"],
+                request=True,
+                random_state=self.process.random_state,
+            )
+
+            request_ppgpp_metabolites = -delta_metabolites.astype(int)
+            ppgpp_request = counts(states["bulk"], self.process.ppgpp_idx)
+            bulk_request.append((self.process.ppgpp_idx, ppgpp_request))
+            bulk_request.append(
+                (
+                    self.process.ppgpp_rxn_metabolites_idx,
+                    request_ppgpp_metabolites,
+                )
+            )
 
         return (
             fraction_charged,
@@ -560,139 +523,6 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         charged_counts_to_uncharge = self.process.aa_from_trna @ charged_trna_counts
         return np.fmin(
             total_aa_counts + charged_counts_to_uncharge, self.aa_counts_for_translation
-        )
-
-    def _ppgpp_request(
-        self, states, counts_to_uM_mag, uncharged_trna_counts, charged_trna_counts,
-        fraction_charged, ribosome_conc, f, rela_conc, spot_conc, ppgpp_conc, v_rib,
-    ):
-        """Growth-control module: ppGpp (request side).
-
-        From the charging solve's predicted charged fraction, estimate the
-        RelA/SpoT-driven ppGpp metabolite turnover and return the extra bulk
-        requests it implies (ppGpp itself + the ppGpp-reaction metabolites).
-        Returns an empty list when ppGpp regulation is off.
-        """
-        if not self.process.ppgpp_regulation:
-            return []
-        # Compute total_trna_conc in μM-magnitude form, matching the
-        # ppgpp_metabolite_changes contract (numpy magnitudes).
-        total_trna_conc = counts_to_uM_mag * (
-            uncharged_trna_counts + charged_trna_counts
-        )
-        updated_charged_trna_conc = total_trna_conc * fraction_charged
-        updated_uncharged_trna_conc = total_trna_conc - updated_charged_trna_conc
-        delta_metabolites, *_ = ppgpp_metabolite_changes(
-            updated_uncharged_trna_conc,
-            updated_charged_trna_conc,
-            ribosome_conc,
-            f,
-            rela_conc,
-            spot_conc,
-            ppgpp_conc,
-            counts_to_uM_mag,
-            v_rib,
-            self.charging_params,
-            self.ppgpp_params,
-            states["timestep"],
-            request=True,
-            random_state=self.process.random_state,
-        )
-        request_ppgpp_metabolites = -delta_metabolites.astype(int)
-        ppgpp_request = counts(states["bulk"], self.process.ppgpp_idx)
-        return [
-            (self.process.ppgpp_idx, ppgpp_request),
-            (self.process.ppgpp_rxn_metabolites_idx, request_ppgpp_metabolites),
-        ]
-
-    def _ppgpp_evolve(
-        self, states, update, net_charged, nElongations, aas_used,
-        next_amino_acid_count,
-    ):
-        """Growth-control module: ppGpp (evolve side).
-
-        Create/degrade ppGpp via RelA/SpoT from the realized post-elongation
-        tRNA charging state. Mutates ``update`` (the ppGpp-reaction bulk delta +
-        the rela/spot synthesis/degradation listener fields) and the in-place
-        ``states['bulk']`` working copy. No-op when ppGpp regulation is off.
-        """
-        if not self.process.ppgpp_regulation:
-            return
-        # Use the same μM-magnitude conversion factor request() cached
-        # for this tick — see request() for the derivation. evolve()
-        # runs in the same tick as request() so self._counts_to_uM_mag
-        # is set.
-        counts_to_uM_mag = self._counts_to_uM_mag
-        v_rib = (nElongations * counts_to_uM_mag) / states["timestep"]
-        ribosome_conc = (
-            counts_to_uM_mag * states["active_ribosome"]["_entryState"].sum()
-        )
-        updated_uncharged_trna_counts = (
-            counts(states["bulk_total"], self.process.uncharged_trna_idx)
-            - net_charged
-        )
-        updated_charged_trna_counts = (
-            counts(states["bulk_total"], self.process.charged_trna_idx)
-            + net_charged
-        )
-        uncharged_trna_conc = counts_to_uM_mag * np.dot(
-            self.process.aa_from_trna, updated_uncharged_trna_counts
-        )
-        charged_trna_conc = counts_to_uM_mag * np.dot(
-            self.process.aa_from_trna, updated_charged_trna_counts
-        )
-        ppgpp_conc = counts_to_uM_mag * counts(
-            states["bulk_total"], self.process.ppgpp_idx
-        )
-        rela_conc = counts_to_uM_mag * counts(
-            states["bulk_total"], self.process.rela_idx
-        )
-        spot_conc = counts_to_uM_mag * counts(
-            states["bulk_total"], self.process.spot_idx
-        )
-
-        # Need to include the next amino acid the ribosome sees for certain
-        # cases where elongation does not occur, otherwise f will be NaN
-        aa_at_ribosome = aas_used + next_amino_acid_count
-        f = aa_at_ribosome / aa_at_ribosome.sum()
-        limits = counts(states["bulk"], self.process.ppgpp_rxn_metabolites_idx)
-        (
-            delta_metabolites,
-            ppgpp_syn,
-            ppgpp_deg,
-            rela_syn,
-            spot_syn,
-            spot_deg,
-            spot_deg_inhibited,
-        ) = ppgpp_metabolite_changes(
-            uncharged_trna_conc,
-            charged_trna_conc,
-            ribosome_conc,
-            f,
-            rela_conc,
-            spot_conc,
-            ppgpp_conc,
-            counts_to_uM_mag,
-            v_rib,
-            self.charging_params,
-            self.ppgpp_params,
-            states["timestep"],
-            random_state=self.process.random_state,
-            limits=limits,
-        )
-
-        update["listeners"]["growth_limits"] = {
-            "rela_syn": rela_syn,
-            "spot_syn": spot_syn,
-            "spot_deg": spot_deg,
-            "spot_deg_inhibited": spot_deg_inhibited,
-        }
-
-        update["bulk"].append(
-            (self.process.ppgpp_rxn_metabolites_idx, delta_metabolites.astype(int))
-        )
-        states["bulk"][self.process.ppgpp_rxn_metabolites_idx] += (
-            delta_metabolites.astype(int)
         )
 
     def evolve(
@@ -770,12 +600,86 @@ class SteadyStateElongationModel(TranslationSupplyElongationModel):
         states["bulk"][self.process.proton_idx] += nElongations
         states["bulk"][self.process.water_idx] += -nInitialized
 
-        # GROWTH-CONTROL MODULE: ppGpp (evolve side) — create/degrade ppGpp from
-        # the realized post-elongation tRNA state. Runs after all bulk updates
-        # above so the ppGpp reaction limits see current counts.
-        self._ppgpp_evolve(
-            states, update, net_charged, nElongations, aas_used, next_amino_acid_count
-        )
+        # Create or degrade ppGpp
+        # This should come after all countInc/countDec calls since it shares some molecules with
+        # other views and those counts should be updated to get the proper limits on ppGpp reactions
+        if self.process.ppgpp_regulation:
+            # Use the same μM-magnitude conversion factor request() cached
+            # for this tick — see request() for the derivation. evolve()
+            # runs in the same tick as request() so self._counts_to_uM_mag
+            # is set.
+            counts_to_uM_mag = self._counts_to_uM_mag
+            v_rib = (nElongations * counts_to_uM_mag) / states["timestep"]
+            ribosome_conc = (
+                counts_to_uM_mag * states["active_ribosome"]["_entryState"].sum()
+            )
+            updated_uncharged_trna_counts = (
+                counts(states["bulk_total"], self.process.uncharged_trna_idx)
+                - net_charged
+            )
+            updated_charged_trna_counts = (
+                counts(states["bulk_total"], self.process.charged_trna_idx)
+                + net_charged
+            )
+            uncharged_trna_conc = counts_to_uM_mag * np.dot(
+                self.process.aa_from_trna, updated_uncharged_trna_counts
+            )
+            charged_trna_conc = counts_to_uM_mag * np.dot(
+                self.process.aa_from_trna, updated_charged_trna_counts
+            )
+            ppgpp_conc = counts_to_uM_mag * counts(
+                states["bulk_total"], self.process.ppgpp_idx
+            )
+            rela_conc = counts_to_uM_mag * counts(
+                states["bulk_total"], self.process.rela_idx
+            )
+            spot_conc = counts_to_uM_mag * counts(
+                states["bulk_total"], self.process.spot_idx
+            )
+
+            # Need to include the next amino acid the ribosome sees for certain
+            # cases where elongation does not occur, otherwise f will be NaN
+            aa_at_ribosome = aas_used + next_amino_acid_count
+            f = aa_at_ribosome / aa_at_ribosome.sum()
+            limits = counts(states["bulk"], self.process.ppgpp_rxn_metabolites_idx)
+            (
+                delta_metabolites,
+                ppgpp_syn,
+                ppgpp_deg,
+                rela_syn,
+                spot_syn,
+                spot_deg,
+                spot_deg_inhibited,
+            ) = ppgpp_metabolite_changes(
+                uncharged_trna_conc,
+                charged_trna_conc,
+                ribosome_conc,
+                f,
+                rela_conc,
+                spot_conc,
+                ppgpp_conc,
+                counts_to_uM_mag,
+                v_rib,
+                self.charging_params,
+                self.ppgpp_params,
+                states["timestep"],
+                random_state=self.process.random_state,
+                limits=limits,
+            )
+
+            update["listeners"]["growth_limits"] = {
+                "rela_syn": rela_syn,
+                "spot_syn": spot_syn,
+                "spot_deg": spot_deg,
+                "spot_deg_inhibited": spot_deg_inhibited,
+            }
+
+            update["bulk"].append(
+                (self.process.ppgpp_rxn_metabolites_idx, delta_metabolites.astype(int))
+            )
+            states["bulk"][self.process.ppgpp_rxn_metabolites_idx] += (
+                delta_metabolites.astype(int)
+            )
 
         # Use the difference between (expected AA supply based on expected
         # doubling time and current DCW) and AA used to charge tRNA to update

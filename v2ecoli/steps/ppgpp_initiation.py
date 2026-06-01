@@ -11,7 +11,6 @@ to media-dependent defaults (environment-dependent rescaling).
 
 import numpy as np
 from v2ecoli.types.quantity import ureg as units
-from v2ecoli.library.quantity_helpers import as_quantity
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema import bulk_name_to_idx, counts
@@ -84,7 +83,7 @@ class PpgppInitiation(Step):
             'bulk': {'_type': 'bulk_array', '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
+                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
                 },
             },
         }
@@ -101,7 +100,7 @@ class PpgppInitiation(Step):
         if self.ppgpp_idx is None:
             self.ppgpp_idx = bulk_name_to_idx(self.ppgpp, states["bulk"]["id"])
 
-        cell_mass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
+        cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
         cell_volume = cell_mass / self.cell_density
         counts_to_molar = 1 / (self.n_avogadro * cell_volume)
         ppgpp_conc = counts(states["bulk"], self.ppgpp_idx) * counts_to_molar

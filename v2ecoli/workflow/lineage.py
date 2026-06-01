@@ -13,7 +13,6 @@ reports ``complete`` when ``generations`` cells have been run.
 from __future__ import annotations
 
 import warnings
-from v2ecoli.library.quantity_helpers import fg_magnitude
 from typing import Any
 
 from process_bigraph import Process
@@ -295,7 +294,7 @@ class LineageProcess(Process):
             divided = True
 
         cell = agents_now.get(self._agent_id) or next(iter(agents_now.values()), {})
-        dry_mass = fg_magnitude(cell.get("listeners", {}).get("mass", {}).get("dry_mass", 0.0))
+        dry_mass = float(cell.get("listeners", {}).get("mass", {}).get("dry_mass", 0.0))
 
         if self._is_xarray():
             self._emit_xarray(agents_now)

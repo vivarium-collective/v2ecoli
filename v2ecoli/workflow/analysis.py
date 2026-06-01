@@ -16,7 +16,6 @@ Porting the full vEcoli analysis library onto this base is a follow-up spec.
 from __future__ import annotations
 
 import statistics
-from v2ecoli.library.quantity_helpers import fg_magnitude
 from typing import Any
 
 from process_bigraph.composite import SyncUpdate
@@ -96,12 +95,12 @@ class MassFractionSummary(AnalysisStep):
         fractions = {k: [] for k in fraction_keys}
         for r in rows:
             mass = (r.get("listeners", {}) or {}).get("mass", {}) or {}
-            dry = fg_magnitude(mass.get("dry_mass", 0.0)) or 0.0
+            dry = float(mass.get("dry_mass", 0.0)) or 0.0
             if dry <= 0:
                 continue
-            fractions["protein"].append(fg_magnitude(mass.get("protein_mass", 0.0)) / dry)
-            fractions["rRna"].append(fg_magnitude(mass.get("rRna_mass", 0.0)) / dry)
-            fractions["dna"].append(fg_magnitude(mass.get("dna_mass", 0.0)) / dry)
+            fractions["protein"].append(float(mass.get("protein_mass", 0.0)) / dry)
+            fractions["rRna"].append(float(mass.get("rRna_mass", 0.0)) / dry)
+            fractions["dna"].append(float(mass.get("dna_mass", 0.0)) / dry)
         n_valid = len(fractions["protein"])
         out = {"n_rows": len(rows), "n_valid_rows": n_valid}
         for name, vals in fractions.items():

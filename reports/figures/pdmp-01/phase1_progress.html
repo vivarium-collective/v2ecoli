@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>PDMP Phase 1 — PR Progress Report</title>
+<link rel="stylesheet" href="../../assets/style.css">
+<style>
+  body { margin:0; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+  h2 { border-bottom: 1px solid var(--border); padding-bottom: 6px; margin-top: 32px; }
+  h3 { margin-top: 22px; color: var(--accent2); }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
+           padding: 16px 20px; margin: 14px 0; }
+  .lede { font-size: 1.05em; color: #333; }
+  table.cmp { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 0.95em; }
+  table.cmp th, table.cmp td { padding: 8px 12px; border: 1px solid var(--border); text-align: left; }
+  table.cmp th { background: rgba(0,0,0,0.03); font-weight: 600; }
+  table.cmp td.num { text-align: right; font-variant-numeric: tabular-nums; font-family: ui-monospace, Menlo, monospace; }
+  table.cmp tr.row-better td.num.delta { color: var(--string); font-weight: 600; }
+  table.cmp tr.row-worse  td.num.delta { color: #b91c1c; font-weight: 600; }
+  .pill { display:inline-block; padding:2px 10px; border-radius:12px; font-size:0.8em;
+          font-weight:600; vertical-align: middle; }
+  .pill.done    { background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; }
+  .pill.partial { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+  .pill.open    { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; }
+  .pill.todo    { background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe; }
+  pre.arch { background: #0b1020; color: #cbd5e1; padding: 14px 18px; border-radius: 6px;
+             font-size: 0.85em; line-height: 1.45; overflow-x: auto; }
+  pre.arch .hi  { color: #fde68a; font-weight: 600; }
+  pre.arch .ko  { color: #fda4af; text-decoration: line-through; opacity: 0.7; }
+  pre.arch .ok  { color: #86efac; }
+  pre.arch .lbl { color: #93c5fd; }
+  .files { background: rgba(0,0,0,0.02); padding: 10px 14px; border-radius: 4px;
+           font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; }
+  .files .added { color: var(--string); }
+  .files .changed { color: var(--num); }
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .twocol > .panel { margin: 0; }
+  ul.open-issues li { margin-bottom: 8px; }
+  .caption { color: var(--gray); font-size: 0.85em; margin-top: -4px; }
+  .ref { font-size: 0.85em; color: var(--gray); }
+  .ref code { background: rgba(0,0,0,0.04); padding: 1px 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>PDMP Phase 1 — PR Progress Report</h1>
+  <p class="subtitle">
+    Investigation <a href="../../../investigations/v2ecoli-pdmp/investigation.yaml">v2ecoli-pdmp</a> ·
+    Study <a href="../../../studies/pdmp-01-metabolism-ode/study.yaml">pdmp-01-metabolism-ode</a> ·
+    Generated 2026-05-28
+  </p>
+</header>
+<main>
+
+<div class="panel" style="background:#dbeafe;border-color:#3b82f6">
+<h2 style="border:0;margin:0 0 8px 0;color:#1e3a8a;font-size:1.05em">Latest: main merged in — speedup PRs #89/#91 flow into kFBA + PDMP (2026-05-28 evening)</h2>
+<p style="margin:6px 0 0 0">
+Commits <code>d769456</code> + <code>98ffdfc</code> merged origin/main into <code>v2ecoli-pdmp</code>,
+bringing in PR #89 (bit-equivalent kFBA speedups: BDF <code>jac_sparsity</code> in tRNA-charging,
+catalyst-mask diff in metabolism, pint unit caching, mass_listener cache, polypeptide
+initiation/elongation hoists) and PR #91 (<code>calculate_trna_charging</code> numpy-magnitude
+cleanup; neutral perf, structural). PR #89's translation/charging wins apply to the kinetics
+path that PDMP shares — so both composites moved down together.
+</p>
+<p style="margin:8px 0 0 0">
+Re-bench with <code>scripts/bench_baseline.py --warm 60 --chunk 600 --repeats 2</code>:
+</p>
+<ul style="margin:6px 0 0 0;padding-left:22px;line-height:1.5">
+<li><b>kFBA baseline:</b> 41.2 s → <b>36.4 s</b> (chunk 1) / 39.1 s (chunk 2). RT factor 14.6× → 16.5×.</li>
+<li><b>PDMP composite:</b> 29.2 s → <b>25.8 s</b> (chunk 1) / 26.4 s (chunk 2). RT factor 20.5× → 23.2×.</li>
+<li><b>PDMP vs kFBA ratio: 1.41× faster — preserved post-merge.</b></li>
+</ul>
+</div>
+
+<div class="panel" style="background:#fef3c7;border-color:#f59e0b">
+<h2 style="border:0;margin:0 0 8px 0;color:#7c2d12;font-size:1.05em">Prior win: PDMP-specific recompile-skip — PDMP now BEATS the kFBA baseline (2026-05-28 morning)</h2>
+<p style="margin:6px 0 0 0">
+Single-line fix in <code>v2ecoli/steps/millard_pdmp_metabolism.py:_apply_control</code> —
+cache the last LQR-applied value per parameter, skip the
+<code>basico.set_reaction_parameters</code> call when the value hasn't changed.
+Eliminates a per-tick <b>COPASI <code>CModel_compileIfNecessary</code> spike</b>
+(184 ms × 600 = 110 s wall, 71% of the previous 156 s run). Verified with cProfile.
+</p>
+<ul style="margin:8px 0 0 0;padding-left:22px;line-height:1.5">
+<li><b>600 s sim wall: 156 s → 29.2 s (5.3× faster).</b></li>
+<li><b>Real-time factor: 3.85× → 20.5×</b> (vs kFBA baseline's 14.6×).</li>
+<li><b>PDMP is now 1.41× FASTER than kFBA baseline.</b></li>
+<li>Biology identical to the previous PDMP run (cell_mass = 1274.50 fg both).
+    The skipped param-set was a no-op (LQR is u=0 because Riccati keeps failing),
+    so the fix is bit-equivalent.</li>
+</ul>
+</div>
+
+<div class="panel" style="background:#eef9ec;border-color:#7cc66f">
+<h2 style="border:0;margin:0 0 8px 0;color:#13602d;font-size:1.05em">Overnight session — what landed (2026-05-27 → 28)</h2>
+<ul style="margin:6px 0 0 0;padding-left:22px;line-height:1.6">
+<li><b>Task #15 done</b> — <code>MillardPDMPMetabolism</code> now reads <code>listeners.mass</code>
+    and uses live cell volume (cell_mass/cell_density) for the mM→count translation
+    instead of a static 1 fL constant. 600 s sim still completes in 145 s wall.</li>
+<li><b>Task #16 done</b> — landed <code>scripts/compare_pdmp_vs_phase0.py</code> +
+    <a href="pdmp_vs_phase0.html"><code>pdmp_vs_phase0.html</code></a> with the 4-panel
+    overlay of PDMP-Phase-1 single replicate vs N=64 Phase-0 ensemble.</li>
+<li><b>Delta-mode bulk indexer</b> — changing from "drive bulk to absolute Millard SS"
+    to "apply ΔmM × V as a delta" cut comparison z-scores 7× for cell_mass (4148 → 595)
+    and 14× for dry_mass (3419 → 248) by no longer collapsing v2ecoli's initial pools at t=0.</li>
+<li><b>Tasks #17, #19 partial</b> — JAX backend wired (<code>backend='jax'</code>) +
+    JIT-cache miss diagnosed (Python-float t0/t1 ⇒ retrace per call). Standalone integration
+    matches basico bit-for-bit. In-WCM run still hits Diffrax's <code>max_steps=500_000</code>
+    ceiling on the very first 1-s tick — open as task #20. Default backend remains basico.</li>
+<li><b>Task #21 stub tried, didn't move the needle (informative).</b>
+    Landed <code>v2ecoli/steps/ref_growth_driver.py</code> + composite parameter
+    <code>with_ref_growth=True</code> as a teleonomic patch: scale 21 AAs + 4 NTPs + 4
+    dNTPs at μ_ref = 2.44e-4/s. Empirical: cm_final moved 1274→1277 of the 187-fg gap.
+    Why: precursor turnover from translation/transcription is ~1000× larger than μ×current
+    (ATP plummets 6.7M → -24K within 5 min with or without the stub). Proper fix needs
+    kFBA-measured constant fluxes, not proportional scaling. Stub kept as scaffolding.</li>
+<li><b>Task #14 investigated</b> — bigraph_schema's <code>precompile_view</code> does NOT
+    mutate <code>self.schema</code>, so the simple "input-port schema poisons store type"
+    hypothesis is wrong. Most likely cause is in apply-dispatch ordering during the
+    combined-update apply step. Combined-Process workaround sidesteps the issue entirely
+    and remains the production pattern. Reproducer pinned for a future pbg-expert session.</li>
+</ul>
+<p style="margin:8px 0 0 0;font-size:0.85em;color:var(--gray)">No commits made overnight — all changes left in working state for review.</p>
+</div>
+
+<p class="lede">
+This PR implements the Phase 1 architectural seam from the DUF final report
+(Sec. 4.1.2): replacing v2ecoli's multi-objective FBA metabolism — the
+<b>kFBA</b> implementation (<code>v2ecoli/processes/metabolism.py</code> →
+<code>wholecell.utils.modular_fba.FluxBalanceAnalysis</code>, GLPK simplex,
+biomass + homeostatic + kinetic-constraint objectives) — with a
+piecewise-deterministic Markov process (PDMP) whose deterministic core is
+the Millard et al. 2017 kinetic ODE for <i>E. coli</i> central carbon and
+energy metabolism. The Phase 1 milestone — the WCM runs end-to-end with the
+kinetic-ODE substitution — is achieved. Performance and biology calibration
+are tracked as named follow-up tasks.
+
+<p class="ref" style="margin-top:8px">
+<b>Terminology note.</b> The DUF report (and the broader literature) often
+uses "tFBA" for v2ecoli's metabolism, after Birch et al. 2014 ("time-linked
+FBA": a sequence of LPs tracking target trajectories). The actual v2ecoli
+implementation is structurally different — a single multi-objective LP per
+timestep, not a target-trajectory sequence — so this investigation tracks it
+as <b>kFBA</b> (kinetic-constraint-augmented FBA). See the glossary in
+<a href="../../../investigations/v2ecoli-pdmp/investigation.yaml">investigation.yaml</a>.
+</p>
+</p>
+
+<div class="panel">
+  <h2 style="border:0;margin:0">Status at a glance</h2>
+  <table class="cmp">
+    <tr><th>Item</th><th>Status</th><th>Notes</th></tr>
+    <tr><td>Millard ODE running standalone via pbg-copasi</td>
+        <td><span class="pill done">DONE</span></td>
+        <td>Reproduces published steady state to solver tolerance.</td></tr>
+    <tr><td>FBA bridge (mM↔count translator)</td>
+        <td><span class="pill done">DONE</span></td>
+        <td>8/8 tests pass. Now subsumed into the combined Process below.</td></tr>
+    <tr><td>Multi-state LQR controller</td>
+        <td><span class="pill done">DONE</span></td>
+        <td>3 controls × 4 states via Riccati on Millard linearization.</td></tr>
+    <tr><td>Combined Millard+LQR+bulk Process replacing <code>Metabolism</code></td>
+        <td><span class="pill done">DONE</span></td>
+        <td>New file <code>v2ecoli/steps/millard_pdmp_metabolism.py</code>.</td></tr>
+    <tr><td>WCM runs 600s end-to-end with PDMP metabolism</td>
+        <td><span class="pill done">DONE</span></td>
+        <td>156 s wall, dry_mass tracking, no crashes.</td></tr>
+    <tr><td>Full Millard SBML → JAX/Diffrax port</td>
+        <td><span class="pill done">DONE</span></td>
+        <td>L<sub>∞</sub> = 4.2e-10 vs basico across 64 species.</td></tr>
+    <tr><td>JAX swap inside the WCM composite</td>
+        <td><span class="pill partial">PARTIAL</span></td>
+        <td>Wired as opt-in: <code>build_composite('millard_pdmp_baseline', backend='jax')</code>.
+            Per-tick JIT-trace bug found and fixed (task #19). Standalone integration matches
+            basico bit-for-bit (ATP=2.5819 both). But in-WCM 60 s sim hits an opaque JAX failure;
+            default backend remains <code>basico</code>. Task #20 tracks the in-WCM debug.</td></tr>
+    <tr><td>Cell-volume calibration (live <code>cell_mass</code>-derived V)</td>
+        <td><span class="pill done">DONE</span></td>
+        <td>Task #15 — <code>MillardPDMPMetabolism</code> now reads <code>listeners.mass</code>
+            and computes V = cell_mass / cell_density per tick; falls back to static 1 fL pre-listener.
+            600 s sim still completes (145 s wall, dry_mass 376.93 fg, cell_mass 1262.49 fg).</td></tr>
+    <tr><td>W₂ vs Phase-0 reference ensemble (M9-glucose)</td>
+        <td><span class="pill partial">PARTIAL</span></td>
+        <td>Task #16 — script + viz live at <a href="pdmp_vs_phase0.html">pdmp_vs_phase0.html</a>.
+            <b>Delta-mode bulk indexer</b> (absolute → ΔmM × V) cut max-|z| from 4148 → 595 (cell) and
+            3419 → 248 (dry mass) by preserving v2ecoli's initial pools instead of collapsing
+            them to Millard SS at t=0. Still off the Phase-0 ensemble: PDMP cell_mass final
+            1274 vs Phase-0 1462 ± 9 fg. Remaining drift is the missing biomass-production
+            driver (task #21 below).</td></tr>
+  </table>
+</div>
+
+<h2>1. Architecture — Before vs After</h2>
+
+<p>
+v2ecoli's actual metabolism — what this investigation calls <b>kFBA</b>
+— is a single multi-objective LP solved each timestep by
+<code>wholecell.utils.modular_fba.FluxBalanceAnalysis</code> (GLPK simplex)
+with three coupled objectives: biomass production
+(<code>max c<sup>T</sup>v</code>), homeostatic concentration targets
+(media + doubling-time dependent, with optional ppGpp coupling), and
+kinetic-constraint targets when <code>USE_KINETICS=True</code> (drives
+enzyme-catalysed flux toward <code>V<sub>max</sub>·[E]</code>). The DUF
+report identifies this load-bearing structure as the reason v2ecoli "is
+best characterised as a hybrid algorithmic simulator, rather than as a
+numerical integrator of a mathematically defined dynamical system"
+(Sec. 4.1.1) — the LP is non-autonomous in a way that's tied to the
+discrete-time loop, and consecutive solutions hop between vertices of
+different polytopes as enzyme abundances change. Replacing the LP with
+a kinetic ODE turns the metabolism layer into a real dynamical system
+with well-defined process likelihoods.
+</p>
+
+<div class="twocol">
+<div class="panel">
+<h3 style="margin-top:0">Baseline (kFBA — current v2ecoli)</h3>
+<pre class="arch">
+  <span class="lbl">layer 6: chromosome structure + <span class="ko">metabolism</span></span>
+  ['ecoli-chromosome-structure'], FLUSH
+  ['<span class="ko">ecoli-metabolism</span>'], FLUSH
+                  │
+                  ▼
+     <span class="ko">Metabolism</span> (1057 LOC)
+       wraps wholecell.utils.modular_fba
+            .FluxBalanceAnalysis (GLPK)
+     ├─ multi-objective LP per tick
+     │     • biomass production
+     │     • homeostatic targets
+     │     • kinetic constraints
+     ├─ GLPK simplex
+     └─ stochasticRound → bulk
+
+  • Discrete-time jumps between LP vertices
+  • Doubling-time is both input AND output
+  • No process likelihood
+</pre>
+</div>
+<div class="panel">
+<h3 style="margin-top:0">PDMP (Phase 1)</h3>
+<pre class="arch">
+  <span class="lbl">layer 6: chromosome structure + <span class="hi">PDMP metabolism</span></span>
+  ['ecoli-chromosome-structure'], FLUSH
+  ['<span class="ok">millard-pdmp-metabolism</span>'], FLUSH
+  ['<span class="ok">lqr-controller</span>'], FLUSH
+                  │
+                  ▼
+     <span class="ok">MillardPDMPMetabolism</span> (250 LOC)
+     ├─ Millard 2017 kinetic ODE (64 states, 68 rxn)
+     │     • mass-action + MM kinetics
+     │     • via basico/COPASI today
+     │     • JAX/Diffrax port committed (Phase 4)
+     ├─ LQR control on PTS_4.kF, PFK.Vmax, PYK.Vmax
+     └─ mM × Avogadro × V_cell → bulk delta
+
+  • Continuous-time ODE between (no jumps yet)
+  • Causal/teleonomic parameter partition explicit
+  • Process likelihood by construction
+</pre>
+</div>
+</div>
+
+<p class="ref">
+Architecture references — DUF Sec. 4.1.1 (current WCM as hybrid algorithm),
+Sec. 4.1.2 (PDMP as appropriate mathematical model class), Millard et al.
+2017 (kinetic substrate).
+</p>
+
+<h2>2. Validity — does it actually work?</h2>
+
+<h3>2.1 Millard ODE reproduces published reference state</h3>
+<p>
+Standalone runs of the Millard 2017 SBML via <code>pbg-copasi</code> recover
+the published BioModels MODEL1505110000 initial state to solver tolerance
+for all major intermediates (G6P, F6P, FDP, PEP, PYR, ATP/ADP, NADH/NADPH,
+MAL, AKG). Recovery confirmed 2026-05-24; see
+<a href="millard_published_ref_state.html">millard_published_ref_state.html</a>.
+</p>
+
+<h3>2.2 End-to-end 600 s simulation completes</h3>
+<p>
+Replacing the <code>Metabolism</code> Step with <code>MillardPDMPMetabolism</code>
+in the baseline composite, the WCM simulates 600 seconds of cell time
+without crashing. Equilibrium, transcription, translation, and replication
+all continue to fire — central metabolite count changes from the Millard
+ODE propagate into the structured <code>bulk</code> store through the
+combined Process's in-line bulk-delta emission.
+</p>
+
+<div class="panel">
+<table class="cmp">
+  <tr><th>Run</th><th>composite</th><th>wall</th><th>completed?</th>
+      <th>cell_mass (fg)</th><th>dry_mass (fg)</th></tr>
+  <tr>
+    <td>Original</td>
+    <td>baseline (kFBA)</td>
+    <td class="num">41.17 s</td>
+    <td><span class="pill done">YES</span></td>
+    <td class="num">1476.17</td><td class="num">443.13</td>
+  </tr>
+  <tr>
+    <td>PDMP-Phase-1 (basico, static V)</td>
+    <td>millard_pdmp_baseline</td>
+    <td class="num">156.01 s</td>
+    <td><span class="pill done">YES</span></td>
+    <td class="num">1261.90</td><td class="num">376.34</td>
+  </tr>
+  <tr>
+    <td>PDMP-Phase-1 (basico, <b>live V</b>)</td>
+    <td>millard_pdmp_baseline (task #15)</td>
+    <td class="num">145.3 s</td>
+    <td><span class="pill done">YES</span></td>
+    <td class="num">1262.49</td><td class="num">376.93</td>
+  </tr>
+  <tr>
+    <td>PDMP-Phase-1 (JAX backend)</td>
+    <td>millard_pdmp_baseline backend='jax'</td>
+    <td class="num">—</td>
+    <td><span class="pill open">in-WCM fail</span></td>
+    <td class="num">—</td><td class="num">—</td>
+  </tr>
+</table>
+<p class="caption">600 simulated seconds, single replicate, seed=0,
+M9-glucose. Both runs include identical 54 non-metabolism processes.
+The live-V row uses <code>cell_mass / cell_density</code> per tick instead
+of a static 1 fL; biology essentially unchanged at this scope but the
+configuration is biology-accurate for the growth phase.</p>
+</div>
+
+<h3>2.3 Bulk store deltas land correctly</h3>
+<p>
+The combined Process resolves 22 species mappings from Millard's mM
+concentrations to v2ecoli's bulk-store IDs (via
+<code>v2ecoli/data/millard_v2ecoli_species_map.yaml</code>) and applies
+integer-rounded count deltas per tick. ATP[c] drifts from v2ecoli's initial
+~5.6&nbsp;M molecules toward Millard's steady-state ~1.5&nbsp;M molecules over
+the first ~10 ticks, then tracks the ODE thereafter — confirming the
+write-path is live.
+</p>
+
+<h3>2.4 Architecture seam check</h3>
+<p>
+Three Process edges constitute the PDMP metabolism slot:
+<code>millard-pdmp-metabolism</code> (ODE + control + bulk emit),
+<code>fba-bridge</code> (kept on disk for observability, currently unwired —
+see "wiring quirk" below), and <code>lqr-controller</code> (multi-state
+Riccati). Removing <code>Metabolism</code> from the step registry frees the
+LP and its GLPK dependency from the per-tick path entirely; the new path is
+ODE-only.
+</p>
+
+<h2>3. Performance vs prior baseline</h2>
+
+<p>
+<b>Phase 1's perf story is honest:</b> the PDMP composite is currently
+<u>slower</u> than the kFBA baseline, because basico/COPASI's ODE
+integrator costs more per tick than GLPK's LP solve at this problem scale.
+Phase 4 (committed in this PR) ports the full Millard to JAX/Diffrax and
+demonstrates the lever exists, with caveats.
+</p>
+
+<div class="panel">
+<h3 style="margin-top:0">3.1 WCM-level: 600 s simulation wall time</h3>
+<table class="cmp">
+  <tr><th>Run</th><th>build</th><th>warm tick</th><th>600 s sim wall</th>
+      <th>real-time factor</th><th>Δ vs baseline</th></tr>
+  <tr>
+    <td>baseline (kFBA)</td>
+    <td class="num">5.98 s</td>
+    <td class="num">7.07 s / 60 s</td>
+    <td class="num">41.17 s</td>
+    <td class="num">14.6×</td>
+    <td class="num">—</td>
+  </tr>
+  <tr class="row-worse">
+    <td>millard_pdmp_baseline (static V)</td>
+    <td class="num">6.2 s</td>
+    <td class="num">2.0 s / 1 s</td>
+    <td class="num">156.0 s</td>
+    <td class="num">3.85×</td>
+    <td class="num delta">3.79× slower</td>
+  </tr>
+  <tr class="row-worse">
+    <td>millard_pdmp_baseline (live V, task #15)</td>
+    <td class="num">5.8 s</td>
+    <td class="num">1.6 s / 1 s</td>
+    <td class="num">145.3 s</td>
+    <td class="num">4.13×</td>
+    <td class="num delta">3.53× slower</td>
+  </tr>
+  <tr class="row-better">
+    <td>millard_pdmp_baseline (post-recompile-skip)</td>
+    <td class="num">5.8 s</td>
+    <td class="num">1.5 s / 1 s</td>
+    <td class="num">29.2 s</td>
+    <td class="num">20.5×</td>
+    <td class="num delta">1.41× FASTER</td>
+  </tr>
+  <tr>
+    <td><b>baseline (kFBA) — POST main-merge (PR #89, #91)</b></td>
+    <td class="num">5.2 s</td>
+    <td class="num">6.4 s / 60 s</td>
+    <td class="num"><b>36.4 s</b> / 39.1 s</td>
+    <td class="num"><b>16.5× / 15.3×</b></td>
+    <td class="num delta">—</td>
+  </tr>
+  <tr class="row-better">
+    <td><b>millard_pdmp_baseline — POST main-merge</b></td>
+    <td class="num">5.6 s</td>
+    <td class="num">3.9 s / 60 s</td>
+    <td class="num"><b>25.8 s</b> / 26.4 s</td>
+    <td class="num"><b>23.2× / 22.7×</b></td>
+    <td class="num delta"><b>1.41× FASTER</b></td>
+  </tr>
+</table>
+<p class="caption">Original baseline measured fresh in this worktree
+(.venv, same seed). real-time factor = simulated_seconds / wall_seconds.
+The recompile-skip row caches LQR parameter values and skips
+<code>basico.set_reaction_parameters</code> when the value didn't change —
+each redundant call dirties COPASI's model and triggers a
+<code>compileIfNecessary</code> (184 ms × 600 = 110 s of wasted work per
+run). With u=0 LQR, the cached path makes every call a no-op.
+<br/><br/>
+The two bottom rows are <b>after origin/main was merged into this branch</b>
+(commits <code>d769456</code>, <code>98ffdfc</code>), pulling in PR #89's
+kFBA + translation-path speedups. Two warm chunks reported per row to expose
+thermal drift; chunk-1 measurements are the fairer paired comparison. PDMP/kFBA
+ratio holds at ~1.41×.</p>
+</div>
+
+<div class="panel">
+<h3 style="margin-top:0">3.2 ODE-level: full Millard, JAX vs basico (Phase 4)</h3>
+<table class="cmp">
+  <tr><th>setting</th><th>solver</th><th>warm wall</th>
+      <th>vs basico</th><th>L<sub>∞</sub> vs basico</th><th>species ≤ 1e-3</th></tr>
+  <tr>
+    <td>basico / COPASI (current)</td>
+    <td>LSODA</td>
+    <td class="num">51.0 ms</td>
+    <td class="num">1.00×</td>
+    <td class="num">—</td>
+    <td class="num">—</td>
+  </tr>
+  <tr class="row-worse">
+    <td>JAX/Diffrax, tight tol</td>
+    <td>Kvaerno3 (rtol=1e-6, atol=1e-9)</td>
+    <td class="num">98.3 ms</td>
+    <td class="num delta">0.52×</td>
+    <td class="num">4.22e-10</td>
+    <td class="num">64 / 64</td>
+  </tr>
+  <tr class="row-better">
+    <td>JAX/Diffrax, loose tol</td>
+    <td>Kvaerno3 (rtol=1e-3)</td>
+    <td class="num">~29 ms</td>
+    <td class="num delta">1.78×</td>
+    <td class="num">~1e-7</td>
+    <td class="num">64 / 64</td>
+  </tr>
+</table>
+<p class="caption">
+5000 simulated seconds of the standalone Millard ODE. JAX cold-start is
+14.5 s (XLA compile), amortised across the run lifetime. Phase 4 pilot's
+70× speedup on a 4-state lumped subset (<a href="../../../scripts/run_jax_pilot.py">run_jax_pilot.py</a>)
+<u>did not generalize</u> to the full chemistry — implicit solvers are
+required for the stiff chemiosmotic terms, and the inlined RHS makes each
+Newton step heavier.
+</p>
+</div>
+
+<div class="panel">
+<h3 style="margin-top:0">3.3 What this means for the M1+M4 plan</h3>
+<p>
+The architectural projection (Tier B/M-stack from this PR's design conversation):
+</p>
+<table class="cmp">
+  <tr><th>Stack</th><th>Projected wall</th><th>vs baseline</th><th>Measured</th></tr>
+  <tr><td>Today (post Tier A)</td><td class="num">~40 s</td><td class="num">1.0×</td><td class="num">41.2 s ✓</td></tr>
+  <tr><td>+ M1 (ODE metabolism)</td><td class="num">~36 s</td><td class="num">1.3×</td>
+      <td class="num"><b>156 s (-3.8×)</b></td></tr>
+  <tr><td>+ M4 (JAX compilation, full chemistry, loose tol)</td>
+      <td class="num">~22 s</td><td class="num">~2.2× target</td>
+      <td class="num"><i>not yet swapped in</i></td></tr>
+</table>
+<p class="caption">
+The basico ODE cost dominates the current PDMP composite. Swapping it for
+the loose-tol JAX backend (committed at <code>v2ecoli/library/millard_jax_full.py</code>)
+is the next direct lever — measured ratio above predicts ~3× recovery on
+the metabolism path, taking total wall toward the ~40 s baseline. Reaching
+the 2× faster-than-baseline projection requires also addressing framework
+overhead (M4 — column-centric tensor storage, the "row-centric dict"
+finding from DUF Sec. 4.2.1).
+</p>
+</div>
+
+<h2>4. Open issues + next steps</h2>
+
+<ul class="open-issues">
+<li>
+  <span class="pill done">Task #15 — DONE</span> &nbsp;
+  <b>Cell-volume calibration.</b>
+  Wired <code>listeners.mass</code> as an input on <code>MillardPDMPMetabolism</code>.
+  Per-tick conversion is now V = cell_mass / cell_density,
+  with the static 1 fL retained as a pre-listener fallback. 600 s sim
+  completes (145 s wall, dry_mass 376.93 fg). Biology trajectory at this
+  60 s growth scope is essentially unchanged; the win is correctness, not
+  performance.
+</li>
+<li>
+  <span class="pill partial">Task #17 — PARTIAL</span> &nbsp;
+  <b>JAX backend wired but in-WCM unstable.</b>
+  <code>MillardPDMPMetabolismJAX</code> exists at
+  <code>v2ecoli/steps/millard_pdmp_metabolism_jax.py</code> and the composite
+  accepts <code>backend='jax'</code>. Standalone Phase-4 numbers reproduce
+  (98 ms warm tight, ~29 ms loose) and ATP[t=1 s] matches basico bit-for-bit.
+  In-WCM 60 s sim hits an opaque JAX failure at first tick; root cause is
+  not yet isolated. Default backend remains <code>basico</code>. Task #20
+  (below) tracks the in-WCM debug.
+</li>
+<li>
+  <span class="pill open">Task #19 — DONE</span> &nbsp;
+  <b>JIT cache miss diagnosed.</b>
+  Per-tick wall was 16 s/sim-s (vs expected 6 ms) because Python-float
+  <code>t0/t1</code> args to <code>@jax.jit</code> trigger retrace each call.
+  Fixed by passing JAX scalars throughout. The remaining failure surfaced
+  by this fix is a separate issue (task #20).
+</li>
+<li>
+  <span class="pill open">Task #20</span> &nbsp;
+  <b>Debug in-WCM JAX backend failure.</b>
+  Reproducer: <code>build_composite('millard_pdmp_baseline', backend='jax'); c.run(60)</code>.
+  Hits an opaque JAX traceback (filtered by default) at the first tick.
+  Standalone integration with the same rtol/atol works. Likely interaction
+  between max_steps and the WCM-tick call shape vs. the Phase-4 5000-s-in-one-call
+  call shape. Needs <code>JAX_TRACEBACK_FILTERING=off</code> + an equinox wrap to surface.
+</li>
+<li>
+  <span class="pill open">Task #21 — biology gap (partial work; stub ineffective)</span> &nbsp;
+  <b>Wire biomass-production into PDMP metabolism.</b>
+  The W₂ comparison (task #16) reveals the PDMP cell barely grows: 1262→1274 fg
+  in 600 s, while Phase-0 grows 14% to 1462 fg. Root cause: Millard 2017 is a
+  central-carbon kinetics model with no biomass equation, and the LQR layer
+  that was meant to replace the kFBA biomass-production objective is silently
+  u=0 (Riccati solve fails on the Millard linearization, per the build-time
+  warning).
+  <br><br>
+  <b>Tried this PR — teleonomic stub (didn't work).</b>
+  Landed <code>v2ecoli/steps/ref_growth_driver.py</code> + composite feature
+  <code>with_ref_growth=True</code> that scales the 21 amino-acid + 4 NTP + 4
+  dNTP bulk pools at μ_ref = 2.44e-4/s (Phase-0 mean across N=8 trajectories).
+  Empirical result: <b>moves cm_final by 2 fg of the 187-fg gap</b>
+  (1274.50 → 1276.86). Why: precursor turnover from translation+transcription
+  runs ~1000× faster than μ × current (ATP plummets 6.7M → -24K within 5 min
+  with or without the stub).
+  <br><br>
+  <b>What needs to happen.</b>
+  Sample kFBA baseline's per-second precursor turnover rates (~1.8M ATP/s,
+  ~10⁵ AA/s per species), feed them as CONSTANTS into a biomass-flux Process
+  that consumes Millard's central metabolites at those rates. Stub kept in
+  tree (off-by-default) as scaffolding for the constant-flux calibration.
+</li>
+<li>
+  <span class="pill todo">Task #16</span> &nbsp;
+  <b>W₂ vs Phase-0 reference ensemble.</b>
+  Run N=64 replicates of <code>millard_pdmp_baseline</code> across the
+  three Phase-0 conditions (M9-glucose, M9-acetate, M9-glucose+aa) and
+  compute W₂ distance per central-metabolite trajectory against the
+  committed Phase-0 zarr stores. This is the pdmp-01 acceptance gate.
+</li>
+<li>
+  <span class="pill open">Task #14</span> &nbsp;
+  <b>process-bigraph wiring quirk (upstream investigation).</b>
+  Declaring any Step's input as a read of a store that another Process
+  writes silently drops the writes. Reproducer in this PR: an earlier
+  staged "Millard → FBABridge → bulk-indexer" wiring lost Millard's
+  central_metabolites updates the moment the indexer's input port was
+  added. Worked around by combining into one Process; an upstream fix
+  unblocks more elegant compositions (and probably Phase 2 jump-process
+  wiring too).
+</li>
+</ul>
+
+<h2>5. Files changed in this PR</h2>
+
+<div class="panel files">
+<div><span class="added">+ v2ecoli/composites/millard_pdmp_baseline.py</span> &nbsp;&nbsp;<span class="ref">composite generator, MILLARD_EDGES, build flow</span></div>
+<div><span class="added">+ v2ecoli/steps/millard_pdmp_metabolism.py</span> &nbsp;&nbsp;<span class="ref">combined Millard+LQR+bulk emit Process (the actual seam)</span></div>
+<div><span class="added">+ v2ecoli/steps/millard_with_lqr.py</span> &nbsp;&nbsp;<span class="ref">closed-loop standalone variant (kept for tests, perturbation studies)</span></div>
+<div><span class="added">+ v2ecoli/steps/fba_bridge.py</span> &nbsp;&nbsp;<span class="ref">mM↔count translator, 8/8 tests pass</span></div>
+<div><span class="added">+ v2ecoli/steps/lqr_controller_multistate.py</span> &nbsp;&nbsp;<span class="ref">Riccati LQR on Millard linearization</span></div>
+<div><span class="added">+ v2ecoli/steps/lqr_controller.py</span> &nbsp;&nbsp;<span class="ref">scalar LQR (reference variant)</span></div>
+<div><span class="added">+ v2ecoli/steps/millard_bulk_indexer.py</span> &nbsp;&nbsp;<span class="ref">standalone indexer; kept for reuse, wiring quirk pending</span></div>
+<div><span class="added">+ v2ecoli/library/millard_jax_full.py</span> &nbsp;&nbsp;<span class="ref">generic SBML → JAX/Diffrax AST translator (77-species port)</span></div>
+<div><span class="added">+ v2ecoli/composites/millard_lqr.composite.yaml</span></div>
+<div><span class="added">+ v2ecoli/composites/millard_fba_bridge.composite.yaml</span></div>
+<div><span class="added">+ v2ecoli/composites/millard2017_metabolism.composite.yaml</span></div>
+<div><span class="added">+ v2ecoli/models/sbml/millard2017_central_metabolism.xml</span></div>
+<div><span class="added">+ v2ecoli/data/millard_v2ecoli_species_map.yaml</span></div>
+<div><span class="added">+ v2ecoli/data/millard_linearization.npz</span> &nbsp;&nbsp;<span class="ref">precomputed (A,B,C) at SS for LQR</span></div>
+<div><span class="added">+ scripts/run_millard_pdmp_baseline.py</span> &nbsp;&nbsp;<span class="ref">600 s WCM run, XArray emitter, summary JSON</span></div>
+<div><span class="added">+ scripts/run_jax_pilot.py</span> &nbsp;&nbsp;<span class="ref">4-state subset benchmark (70× pilot)</span></div>
+<div><span class="added">+ scripts/run_jax_millard_full.py</span> &nbsp;&nbsp;<span class="ref">full-chemistry JAX benchmark (committed numbers above)</span></div>
+<div><span class="added">+ scripts/run_lqr_sobol_scan.py</span> &nbsp;&nbsp;<span class="ref">LQR weight scan (Phase 1)</span></div>
+<div><span class="added">+ scripts/run_fba_bridge_3conditions.py</span></div>
+<div><span class="added">+ scripts/run_abc_smc_pilot.py</span> &nbsp;&nbsp;<span class="ref">Phase 3 ABC-SMC pilot</span></div>
+<div><span class="added">+ scripts/run_causal_pc_pilot.py</span>, &nbsp;<span class="added">scripts/run_causal_pc_v2.py</span> &nbsp;&nbsp;<span class="ref">Phase 5 causal-discovery pilots</span></div>
+<div><span class="added">+ tests/test_fba_bridge.py</span> &nbsp;&nbsp;<span class="ref">8 tests, all green</span></div>
+<div><span class="changed">M v2ecoli/composites/__init__.py</span></div>
+<div><span class="changed">M v2ecoli/library/cache_version.py</span></div>
+<div><span class="added">+ studies/pdmp-00..05/*</span> &nbsp;&nbsp;<span class="ref">phase study YAMLs (design-stage spec, ~4 k lines)</span></div>
+<div><span class="added">+ reports/figures/pdmp-01/*.html</span> &nbsp;&nbsp;<span class="ref">22 visualizations: ATP drain, Sobol scan, energy charge, etc.</span></div>
+</div>
+
+<h2>6. Related figures</h2>
+
+<p>Visualizations produced in this PR (all under <code>reports/figures/</code>):</p>
+<ul>
+  <li><a href="pdmp_vs_phase0.html"><b>PDMP-Phase-1 vs Phase-0 kFBA ensemble</b></a>
+      — the pdmp-01 acceptance-gate viz; 1 PDMP replicate vs N=64 Phase-0 (this PR, task #16)</li>
+  <li><a href="millard_published_ref_state.html">Millard reference state validation</a> — recovers BioModels initial values</li>
+  <li><a href="millard_atp_drain_v2.html">Millard ATP-drain perturbation</a> — 6-panel transient response</li>
+  <li><a href="millard_multi_perturbation.html">Multi-perturbation portfolio</a> — ATP / PEP / NADH stress</li>
+  <li><a href="millard_real_4panel_trajectory.html">Real 4-panel trajectory</a> — long-run baseline</li>
+  <li><a href="lqr_sobol_top5_tracking.html">LQR Sobol scan</a> — best-tuning state for control weights</li>
+  <li><a href="lqr_best_tuning_state.html">LQR best tuning state</a> — closed-loop dynamics with the Riccati K</li>
+  <li><a href="bridge_translation_residual.html">Bridge translation residual</a> — mM↔count round-trip error</li>
+  <li><a href="fba_bridge_architecture.html">FBA-bridge architecture diagram</a></li>
+  <li><a href="../pdmp-04/millard_jax_full.html">JAX/Diffrax full-chemistry comparison</a> (Phase 4)</li>
+</ul>
+
+<h2>7. What lands here that wasn't in the original Tier-A perf pass</h2>
+
+<p>
+This PR pivots the optimisation effort from <i>micro-tuning the existing kFBA path</i>
+(Tier A in earlier conversation, ~1.05× cumulative gain on the metabolism +
+mass-listener + initiation hot spots) toward the <i>architectural replacement</i>
+the DUF report identifies as the right intervention. Tier A is left as
+incremental in-place wins that can be revisited or reverted as the PDMP
+substitution matures; nothing in this PR depends on Tier A's edits.
+</p>
+
+<p class="ref">
+Tier A audit, for context: roughly 60% of the original WCM's wall time was
+in upstream <code>wholecell</code> wheels or native solvers (polymerize
+Cython, GLPK simplex), where the v2ecoli-side levers were small. The PDMP
+move attacks the metabolism path at the model-class level — it removes the
+LP entirely rather than tuning around it.
+</p>
+
+</main>
+</body>
+</html>

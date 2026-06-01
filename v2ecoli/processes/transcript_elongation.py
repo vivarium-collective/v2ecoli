@@ -52,8 +52,9 @@ import warnings
 # Engine removed
 
 from wholecell.utils.random import stochasticRound
-from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
+from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.quantity_helpers import as_quantity
 
 from v2ecoli.library.schema import (
     counts,
@@ -119,6 +120,16 @@ class TranscriptElongation(PartitionedProcess):
             form: lambda random, rates, timestep, variable: rates
     """
 
+    description = (
+        "Transcript Elongation — RNAPs extend transcripts by NTP polymerization.\n\n"
+        "    seqs = buildSequences(rnaSeqs, RNAP_pos, ν·dt);  Δlen = polymerize(seqs, NTP, limit)\n"
+        "    NTP → NMP_incorporated + PPi;   Δmass = ∑ᵢ Δntᵢ·wᵢ  [fg]\n"
+        "  Termination: transcript len = TU_len → full transcript; RNAP recycled.\n"
+        "  tRNA attenuation (optional): p_stop = f([charged_tRNA]/[total_tRNA]),\n"
+        "    early-terminated RNAPs recycled and partial transcripts discarded.\n"
+        "  ν = elongation rate (nt/s); dt = timestep; wᵢ = nucleotide weights."
+    )
+
     name = NAME
     topology = TOPOLOGY
 
@@ -151,46 +162,6 @@ class TranscriptElongation(PartitionedProcess):
         'time_step': {'_type': 'integer[s]', '_default': 1},
         'variable_elongation': {'_type': 'boolean', '_default': False},
     }
-
-    def inputs(self):
-        return {
-            'environment': {'media_id': {'_type': 'string', '_default': ''}},
-            'RNAs': {'_type': RNA_ARRAY, '_default': []},
-            'active_RNAPs': {'_type': ACTIVE_RNAP_ARRAY, '_default': []},
-            'bulk': {'_type': 'bulk_array', '_default': []},
-            'bulk_total': {'_type': 'bulk_array', '_default': []},
-            'listeners': {'mass': {'cell_mass': {'_type': 'float[fg]', '_default': 0.0}}},
-            'timestep': {'_type': 'integer[s]', '_default': 1},
-        }
-
-    def outputs(self):
-        return {
-            'bulk': 'bulk_array',
-            'RNAs': RNA_ARRAY,
-            'active_RNAPs': ACTIVE_RNAP_ARRAY,
-            'listeners': {
-                'transcript_elongation_listener': {
-                    'count_rna_synthesized': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'count_NTPs_used': {'_type': 'overwrite[integer]', '_default': 0},
-                    'attenuation_probability': {'_type': 'overwrite[array[float]]', '_default': []},
-                    'counts_attenuated': {'_type': 'overwrite[array[integer]]', '_default': []},
-                },
-                'growth_limits': {
-                    'ntp_used': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'ntp_pool_size': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'ntp_request_size': {'_type': 'overwrite[array[integer]]', '_default': []},
-                    'ntp_allocated': {'_type': 'overwrite[array[integer]]', '_default': []},
-                },
-                'rnap_data': {
-                    'actual_elongations': {'_type': 'overwrite[integer]', '_default': 0},
-                    'did_terminate': {'_type': 'overwrite[integer]', '_default': 0},
-                    'termination_loss': {'_type': 'overwrite[integer]', '_default': 0},
-                    'did_stall': {'_type': 'overwrite[integer]', '_default': 0},
-                },
-            },
-        }
-
-
 
     def initialize(self, config):
 
@@ -248,7 +219,7 @@ class TranscriptElongation(PartitionedProcess):
             'bulk_total': {'_type': 'bulk_array', '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
+                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                 },
             },
             'timestep': {'_type': 'integer[s]', '_default': 1},
@@ -419,7 +390,7 @@ class TranscriptElongation(PartitionedProcess):
 
         if has_attenuation:
             cell_mass = states["listeners"]["mass"]["cell_mass"]
-            cellVolume = cell_mass * units.fg / self.cell_density
+            cellVolume = as_quantity(cell_mass, units.fg) / self.cell_density
             counts_to_molar = 1 / (self.n_avogadro * cellVolume)
             stop_probs_fn = att_cfg.get(
                 "stop_probabilities", self.parameters.get(
@@ -678,381 +649,3 @@ def get_mapping_arrays(x, y):
     y_to_x = y_argsort[argsort_unique(x_argsort)]
 
     return x_to_y, y_to_x
-
-
-def format_data(data, bulk_ids, rna_dtypes, rnap_dtypes, submass_dtypes):
-    # Format unique and bulk data for assertions
-    data["unique"]["RNA"] = [
-        np.array(list(map(tuple, zip(*val))), dtype=rna_dtypes + submass_dtypes)
-        for val in data["unique"]["RNA"]
-    ]
-    data["unique"]["active_RNAP"] = [
-        np.array(list(map(tuple, zip(*val))), dtype=rnap_dtypes + submass_dtypes)
-        for val in data["unique"]["active_RNAP"]
-    ]
-    bulk_timeseries = np.array(data["bulk"])
-    data["bulk"] = {
-        bulk_id: bulk_timeseries[:, i] for i, bulk_id in enumerate(bulk_ids)
-    }
-    return data
-
-
-def test_transcript_elongation():
-    def make_elongation_rates(random, base, time_step, variable_elongation=False):
-        size = 9  # number of TUs
-        lengths = time_step * np.full(size, base, dtype=np.int64)
-        lengths = stochasticRound(random, lengths) if random else np.round(lengths)
-
-        return lengths.astype(np.int64)
-
-    test_config = TranscriptElongation.defaults
-
-    with open("data/elongation_sequences.npy", "rb") as f:
-        sequences = np.load(f)
-
-    rna_schema = numpy_schema("RNAs", emit=True)
-    rnap_schema = numpy_schema("active_RNAPs", emit=True)
-
-    test_config = {
-        "max_time_step": 2.0,
-        "rnaPolymeraseElongationRateDict": {"minimal": 49.24 * units.nt / units.s},
-        "rnaIds": np.array(["16S rRNA", "23S rRNA", "5S rRNA", "mRNA"]),
-        "rnaLengths": np.array([1542, 2905, 120, 1080]),
-        "rnaSequences": sequences,
-        "ntWeights": np.array(
-            [5.44990582e-07, 5.05094471e-07, 5.71557547e-07, 5.06728441e-07]
-        ),
-        "endWeight": np.array([2.90509649e-07]),
-        "replichore_lengths": np.array([2322985, 2316690]),
-        "idx_16S_rRNA": np.array([0]),
-        "idx_23S_rRNA": np.array([1]),
-        "idx_5S_rRNA": np.array([2]),
-        "is_mRNA": np.array([False, False, False, True]),
-        "ppi": "PPI[c]",
-        "inactive_RNAP": "APORNAP-CPLX[c]",
-        "ntp_ids": ["ATP[c]", "CTP[c]", "GTP[c]", "UTP[c]"],
-        "variable_elongation": False,
-        "make_elongation_rates": make_elongation_rates,
-        "seed": 0,
-        # Make sure to emit RNA and RNAP data
-        "_schema": {"RNAs": rna_schema, "active_RNAPs": rnap_schema},
-    }
-
-    transcript_elongation = TranscriptElongation(test_config)
-    # Need to add UniqueUpdate Step so unique molecule are updated each timestep
-    unique_topo = {"RNAs": ("unique", "RNA"), "active_RNAPs": ("unique", "active_RNAP")}
-    unique_update = UniqueUpdate({"unique_topo": unique_topo})
-
-    submass_dtypes = [
-        ("massDiff_DNA", "<f8"),
-        ("massDiff_mRNA", "<f8"),
-        ("massDiff_metabolite", "<f8"),
-        ("massDiff_miscRNA", "<f8"),
-        ("massDiff_nonspecific_RNA", "<f8"),
-        ("massDiff_protein", "<f8"),
-        ("massDiff_rRNA", "<f8"),
-        ("massDiff_tRNA", "<f8"),
-        ("massDiff_water", "<f8"),
-    ]
-    rna_dtypes = [
-        ("_entryState", np.bool_),
-        ("unique_index", int),
-        ("TU_index", int),
-        ("transcript_length", int),
-        ("is_mRNA", np.bool_),
-        ("is_full_transcript", np.bool_),
-        ("can_translate", np.bool_),
-        ("RNAP_index", int),
-    ]
-    rnap_dtypes = [
-        ("_entryState", np.bool_),
-        ("unique_index", int),
-        ("domain_index", int),
-        ("coordinates", int),
-        ("is_forward", np.bool_),
-    ]
-    initial_state = {
-        "environment": {"media_id": "minimal"},
-        "unique": {
-            "RNA": np.array(
-                [
-                    (1, i, i, 0, test_config["is_mRNA"][i], False, True, i) + (0,) * 9
-                    for i in range(len(test_config["rnaIds"]))
-                ],
-                dtype=rna_dtypes + submass_dtypes,
-            ),
-            "active_RNAP": np.array(
-                [(1, i, 2, i * 1000, True) + (0,) * 9 for i in range(4)],
-                dtype=rnap_dtypes + submass_dtypes,
-            ),
-        },
-        "bulk": np.array(
-            [
-                ("16S rRNA", 0),
-                ("23S rRNA", 0),
-                ("5S rRNA", 0),
-                ("mRNA", 0),
-                ("ATP[c]", 6178058),
-                ("CTP[c]", 1152211),
-                ("GTP[c]", 1369694),
-                ("UTP[c]", 3024874),
-                ("PPI[c]", 320771),
-                ("APORNAP-CPLX[c]", 2768),
-            ],
-            dtype=[("id", "U40"), ("count", int)],
-        ),
-    }
-
-    settings = {
-        "processes": {
-            "unique-update": unique_update,
-            "ecoli-transcript-elongation": transcript_elongation,
-        },
-        "topology": {
-            "unique-update": unique_topo,
-            "ecoli-transcript-elongation": TOPOLOGY,
-        },
-    }
-
-    # Since unique numpy updater is an class method, internal
-    # deepcopying in vivarium-core causes this warning to appear
-    warnings.filterwarnings(
-        "ignore",
-        message="Incompatible schema "
-        "assignment at .+ Trying to assign the value <bound method "
-        r"UniqueNumpyUpdater\.updater .+ to key updater, which already "
-        r"has the value <bound method UniqueNumpyUpdater\.updater",
-    )
-    engine = Engine(**settings, initial_state=deepcopy(initial_state))
-    engine.run_for(100)
-    data = engine.emitter.get_timeseries()
-    bulk_ids = initial_state["bulk"]["id"]
-    data = format_data(data, bulk_ids, rna_dtypes, rnap_dtypes, submass_dtypes)
-
-    plots(data)
-    assertions(test_config, data)
-
-    # Test running out of ntps
-
-    initial_state["bulk"] = np.array(
-        [
-            ("16S rRNA", 0),
-            ("23S rRNA", 0),
-            ("5S rRNA", 0),
-            ("mRNA", 0),
-            ("ATP[c]", 100),
-            ("CTP[c]", 100),
-            ("GTP[c]", 100),
-            ("UTP[c]", 100),
-            ("PPI[c]", 320771),
-            ("APORNAP-CPLX[c]", 2768),
-        ],
-        dtype=[("id", "U40"), ("count", int)],
-    )
-
-    engine = Engine(**settings, initial_state=deepcopy(initial_state))
-    engine.run_for(100)
-    data = engine.emitter.get_timeseries()
-    data = format_data(data, bulk_ids, rna_dtypes, rnap_dtypes, submass_dtypes)
-
-    plots(data, "transcript_elongation_toymodel_100_ntps.png")
-    assertions(test_config, data)
-
-    # Test no ntps
-
-    initial_state["bulk"] = np.array(
-        [
-            ("16S rRNA", 0),
-            ("23S rRNA", 0),
-            ("5S rRNA", 0),
-            ("mRNA", 0),
-            ("ATP[c]", 0),
-            ("CTP[c]", 0),
-            ("GTP[c]", 0),
-            ("UTP[c]", 0),
-            ("PPI[c]", 320771),
-            ("APORNAP-CPLX[c]", 2768),
-        ],
-        dtype=[("id", "U40"), ("count", int)],
-    )
-
-    # Since unique numpy updater is an class method, internal
-    # deepcopying in vivarium-core causes this warning to appear
-    warnings.filterwarnings(
-        "ignore",
-        message="Incompatible schema "
-        "assignment at .+ Trying to assign the value <bound method "
-        r"UniqueNumpyUpdater\.updater .+ to key updater, which already "
-        r"has the value <bound method UniqueNumpyUpdater\.updater",
-    )
-    engine = Engine(**settings, initial_state=deepcopy(initial_state))
-    engine.run_for(100)
-    data = engine.emitter.get_timeseries()
-    data = format_data(data, bulk_ids, rna_dtypes, rnap_dtypes, submass_dtypes)
-
-    plots(data, "transcript_elongation_toymodel_no_ntps.png")
-    assertions(test_config, data)
-
-
-def plots(actual_update, filename="transcript_elongation_toymodel.png"):
-    import matplotlib.pyplot as plt
-
-    # unpack update
-    rnas_synthesized = actual_update["listeners"]["transcript_elongation_listener"][
-        "count_rna_synthesized"
-    ]
-    ntps_used = actual_update["listeners"]["growth_limits"]["ntp_used"]
-
-    plt.figure()
-
-    plt.subplot(2, 1, 1)
-    plt.plot(range(len(rnas_synthesized)), rnas_synthesized)
-    plt.xlabel("TU")
-    plt.ylabel("Count")
-    plt.title("Counts synthesized")
-
-    plt.subplot(2, 1, 2)
-    t = np.array(actual_update["time"])
-    width = 0.25
-    for i, ntp in enumerate(np.array(ntps_used).transpose()):
-        plt.bar(t + (i - 2) * width, ntp, width, label=str(i))
-    plt.ylabel("Count")
-    plt.title("NTP Counts Used")
-    plt.legend()
-
-    plt.subplots_adjust(hspace=0.5)
-    plt.gcf().set_size_inches(10, 6)
-    makedirs("out/migration", exist_ok=True)
-    plt.savefig(f"out/migration/{filename}")
-
-
-def assertions(config, actual_update):
-    # unpack update
-    trans_lengths = np.array(
-        [r["transcript_length"] for r in actual_update["unique"]["RNA"]]
-    ).T
-    rnas_synthesized = actual_update["listeners"]["transcript_elongation_listener"][
-        "count_rna_synthesized"
-    ]
-    bulk_16SrRNA = actual_update["bulk"]["16S rRNA"]
-    bulk_5SrRNA = actual_update["bulk"]["5S rRNA"]
-    bulk_23SrRNA = actual_update["bulk"]["23S rRNA"]
-    bulk_mRNA = actual_update["bulk"]["mRNA"]
-
-    ntps_used = actual_update["listeners"]["growth_limits"]["ntp_used"]
-    total_ntps_used = actual_update["listeners"]["transcript_elongation_listener"][
-        "count_NTPs_used"
-    ]
-
-    RNAP_coordinates = np.array(
-        [v["coordinates"] for v in actual_update["unique"]["active_RNAP"]]
-    ).T
-    RNAP_elongations = actual_update["listeners"]["rnap_data"]["actual_elongations"]
-    terminations = actual_update["listeners"]["rnap_data"]["did_terminate"]
-
-    ppi = actual_update["bulk"]["PPI[c]"]
-    inactive_RNAP = actual_update["bulk"]["APORNAP-CPLX[c]"]
-
-    # transcript lengths are monotonically increasing
-    assert np.all(
-        list(map(lambda x: monotonically_increasing(x[x != 0]), trans_lengths))
-    )
-
-    # RNAP positions are monotonically increasing
-    assert np.all(
-        list(map(lambda x: monotonically_increasing(x[x != 0]), RNAP_coordinates))
-    )
-
-    # RNAP positions match transcript lengths?
-    RNAP_coordinates_realigned = []
-    for v in RNAP_coordinates:
-        diff = np.array(v) - v[0]
-        RNAP_coordinates_realigned.append(diff[diff >= 0])
-    for t_length, expect, mRNA in zip(
-        trans_lengths, RNAP_coordinates_realigned, config["is_mRNA"]
-    ):
-        t_length = t_length[: len(expect)]
-        np.testing.assert_array_equal(t_length, expect)
-
-    # bulk RNAs monotonically increasing?
-    assert monotonically_increasing(bulk_16SrRNA)
-    assert monotonically_increasing(bulk_5SrRNA)
-    assert monotonically_increasing(bulk_23SrRNA)
-    assert monotonically_increasing(bulk_mRNA)
-
-    # Change in PPI matches #elongations - #initiations
-    d_ppi = np.array(ppi)[1:] - ppi[:-1]
-    expected_d_ppi = RNAP_elongations[1:]
-    # Hacky way to find number of initiations
-    # Assuming initiations only happen in the first time step (valid for toy model,
-    # where there is no initiation process)
-    expected_d_ppi[0] -= np.sum(
-        (np.array([t[0] for t in trans_lengths]) == 0)
-        & (np.array([t[1] for t in trans_lengths]) > 0)
-    )
-
-    np.testing.assert_array_equal(d_ppi, expected_d_ppi)
-
-    # Change in APORNAP-CPLX matches terminations
-    d_inactive_RNAP = np.array(inactive_RNAP[1:]) - inactive_RNAP[:-1]
-    np.testing.assert_array_equal(d_inactive_RNAP, terminations[1:])
-
-    # RNAP elongations matches total ntps used at each timestep
-    np.testing.assert_array_equal(RNAP_elongations, [sum(v) for v in ntps_used])
-
-    # terminations match rnas_synthesized
-    assert all(np.array([sum(v) for v in rnas_synthesized]) == terminations)
-    d_16SrRNA = np.array(bulk_16SrRNA)[1:] - bulk_16SrRNA[:-1]
-    d_5SrRNA = np.array(bulk_5SrRNA)[1:] - bulk_5SrRNA[:-1]
-    d_23SrRNA = np.array(bulk_23SrRNA)[1:] - bulk_23SrRNA[:-1]
-    np.testing.assert_array_equal(
-        d_16SrRNA,
-        np.array(rnas_synthesized)[:, config["idx_16S_rRNA"]].transpose()[0, 1:],
-    )
-    np.testing.assert_array_equal(
-        d_5SrRNA,
-        np.array(rnas_synthesized)[:, config["idx_5S_rRNA"]].transpose()[0, 1:],
-    )
-    np.testing.assert_array_equal(
-        d_23SrRNA,
-        np.array(rnas_synthesized)[:, config["idx_23S_rRNA"]].transpose()[0, 1:],
-    )
-
-    # bulk NTP counts decrease by numbers used
-    ntps_arr = np.array(
-        [actual_update["bulk"][ntp] for ntp in ["ATP[c]", "CTP[c]", "GTP[c]", "UTP[c]"]]
-    )
-    d_ntps = ntps_arr[:, 1:] - ntps_arr[:, :-1]
-
-    np.testing.assert_array_equal(d_ntps, -np.array(ntps_used[1:]).transpose())
-
-    # total NTPS used matches sum of ntps_used,
-    # total of each type of NTP used matches rna sequences
-    assert np.all(np.sum(ntps_used, axis=1) == np.array(total_ntps_used))
-    actual = np.sum(ntps_used, axis=0)
-    n_term = np.sum(rnas_synthesized, axis=0)
-    sequence_ntps = np.array(
-        [
-            [sum(seq == 0), sum(seq == 1), sum(seq == 2), sum(seq == 3)]
-            for seq in config["rnaSequences"]
-        ]
-    )
-    expect = np.array([np.array(seq) * n for seq, n in zip(sequence_ntps, n_term)]).sum(
-        axis=0
-    )
-    partial = np.array(
-        [
-            0 < t_length[-1] < final_length  # length > 0 and not completed
-            for t_length, final_length in zip(trans_lengths, config["rnaLengths"])
-        ]
-    )
-
-    for a, e, is_partial in zip(actual, expect, partial):
-        if is_partial:
-            assert a >= e
-        else:
-            assert a == e
-
-
-if __name__ == "__main__":
-    test_transcript_elongation()

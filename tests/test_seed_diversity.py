@@ -25,7 +25,7 @@ from _state_equal import deep_equal
 
 
 CACHE_DIR = 'out/cache'
-DURATION = 60.0
+DURATION = 40.0  # seed divergence appears within tens of seconds
 
 
 pytestmark = [

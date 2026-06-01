@@ -12,6 +12,7 @@ dependencies = [
     "bigraph-schema>=0.0.60",
     "process-bigraph>=0.0.38",
     "pbg-superpowers",
+    "pbg-copasi",
     "vivarium-dashboard",
     "vEcoli[dev]>=1.1.0",
     "viva-munk>=0.0.1",
@@ -58,6 +59,8 @@ emitters = ["v2ecoli[parquet,xarray]"]
 [project.scripts]
 v2ecoli-parca = "v2ecoli.cli.parca:main"
 v2ecoli-colony = "v2ecoli.cli.colony:main"
+v2ecoli-workflow = "v2ecoli.workflow.run:main"
+v2ecoli-analyze = "v2ecoli.workflow.analysis_runner:main"
 
 [tool.setuptools.package-data]
 # Ship the flat-file knowledge base with the package (~12.9 MB, 133 files).
@@ -85,6 +88,7 @@ packages = { find = { where = ["."] } }
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
 pbg-superpowers = { git = "https://github.com/vivarium-collective/pbg-superpowers.git", branch = "main" }
+pbg-copasi = { git = "https://github.com/vivarium-collective/pbg-copasi.git", branch = "main" }
 pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }
 vivarium-dashboard = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }

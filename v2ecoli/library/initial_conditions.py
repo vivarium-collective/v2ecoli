@@ -37,7 +37,7 @@ except ImportError as exc:
     raise RuntimeError(
         "Failed to import Cython module. Try running 'make clean compile'."
     ) from exc
-from wholecell.utils.polymerize import computeMassIncrease
+from v2ecoli.library.polymerize import computeMassIncrease
 from wholecell.utils.random import stochasticRound
 
 RAND_MAX = 2**31

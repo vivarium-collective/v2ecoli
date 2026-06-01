@@ -82,12 +82,12 @@ For deeper questions about either framework, invoke the `pbg-expert` skill.
 
 The IDs are scattered across many places. Search in roughly this order:
 
-1. **Workspace expert docs first.** `references/expert/*.html` or `.pdf` —
+1. **Workspace expert docs first.** `workspace/references/expert/*.html` or `.pdf` —
    for the DnaA investigation, the May 2026 prior-art HTML report
    (`v2ecoli_replication_initiation_report`) enumerates every relevant
    bulk ID + reaction ID with biological context. Check
    `workspace.yaml.expert_docs[]` for the registered set, plus
-   `references/notes/*.md` for the per-paper digests.
+   `workspace/references/notes/*.md` for the per-paper digests.
 
 2. **Existing process modules.** Many processes hardcode the IDs they
    touch as module-level constants — `grep -rn 'PD0\|MONOMER0\|CPLX0\|RXN0' v2ecoli/processes/` finds them fast.

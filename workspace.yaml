@@ -4,6 +4,15 @@ created: '2026-05-16'
 plugin_version: 0.6.1
 package_path: v2ecoli
 
+# Directory layout: the pbg research dirs are grouped under workspace/ to keep
+# the repo root tidy. Unset keys (e.g. reports, .pbg) default to their flat
+# top-level name. Resolved via the shared WorkspacePaths resolver.
+layout:
+  studies: workspace/studies
+  investigations: workspace/investigations
+  references: workspace/references
+  experiments: workspace/experiments
+
 # ─── RUNTIME ──────────────────────────────────────────────────────────
 # Workspace-level emitter preference. The dashboard and v2ecoli scaffolds
 # read this to decide which emitter to construct for new study runs.
@@ -29,7 +38,7 @@ simulations: []
 datasets: []
 expert_docs:
   - name: duf-final-report
-    path: references/expert/duf_final_report_2026.pdf
+    path: workspace/references/expert/duf_final_report_2026.pdf
     sha256: 145a5c7fac2247036281bf5fb2db49ce9e5e9c8d309aba65e91b937918f61b5f
     description: |
       DARPA DUF ARC final report (HR0011-24-3-0372, UConn, PI Agmon,
@@ -40,7 +49,7 @@ expert_docs:
       likelihood-based inference and causal discovery.
     contributor: eran
   - name: v2ecoli-pdmp-roadmap
-    path: references/expert/v2ecoli_pdmp_roadmap.pdf
+    path: workspace/references/expert/v2ecoli_pdmp_roadmap.pdf
     sha256: f11aa49dab7ad53dfe78766a49f40b42d745ecba980beac0a8f9e0cbcb2aadb5
     description: |
       Six-phase incremental roadmap for transforming v2ecoli into a
@@ -52,7 +61,7 @@ expert_docs:
     contributor: eran
 references_pdfs:
   - bib_key: millard2017
-    path: references/papers/millard_2017_metabolic_regulation_ecoli.pdf
+    path: workspace/references/papers/millard_2017_metabolic_regulation_ecoli.pdf
     sha256: 39b8c0eba221cd0d156180a66cb0747219a4a3464f9c2b7b40dac2be9bfe4b8e
 server:
   enabled: true

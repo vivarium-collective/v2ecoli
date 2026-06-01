@@ -73,7 +73,7 @@ PER_STUDY_WHY = {
 
 
 def edit_investigation():
-    yaml_path = Path("investigations/v2ecoli-pdmp/investigation.yaml")
+    yaml_path = Path("workspace/investigations/v2ecoli-pdmp/investigation.yaml")
     spec = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
 
     # 1. Prepend "What this is" to the lead.
@@ -97,7 +97,7 @@ def edit_investigation():
 
 def edit_studies():
     for slug, why in PER_STUDY_WHY.items():
-        yaml_path = Path("studies") / slug / "study.yaml"
+        yaml_path = Path("workspace/studies") / slug / "study.yaml"
         if not yaml_path.exists():
             print(f"  SKIP {slug}: yaml missing"); continue
         spec = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))

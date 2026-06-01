@@ -18,6 +18,7 @@ import os
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -150,23 +151,22 @@ def main() -> None:
     # --- AUTO-REFRESH the canonical figure FROM THIS RUN -----------------
     # Prevents the recurring "verdict updated but plots stale" problem: the
     # figure is re-rendered from the run that just finished, so it can never lag
-    # the data. Renders the canonical seed only (compact, per reviewer). The
-    # bespoke sixpanel renderer is used because this viz reads parquet directly
-    # (no inputs_map), so the generic render_study_visualizations can't.
+    # the data. Delegated to the framework convention
+    # (pbg_superpowers.figure_refresh) — the study declares HOW to render in its
+    # study.yaml `figure_refresh:` block; we just tell it WHICH run finished.
+    # No per-study render code lives here anymore.
     try:
-        import importlib.util as _ilu
-        _spec = _ilu.spec_from_file_location(
-            "render_dnaa2_sixpanel", os.path.join(HERE, "render_dnaa2_sixpanel.py"))
-        _r = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_r)
-        canonical = SEEDS[0]
-        step = int(os.environ.get("DNAA2_STEP", "3"))
-        figdir = "reports/figures/dnaa-2-atp-hydrolysis"
-        os.makedirs(figdir, exist_ok=True)
-        _r.render(OUT_DIR, canonical, step, "studies/dnaa-2-atp-hydrolysis/charts")
-        _r.render_html(OUT_DIR, canonical, step,
-                       f"{figdir}/dnaa2_step{step}_sixpanel_seed{canonical}.html")
-        print(f"  auto-refreshed figure: dnaa2_step{step}_sixpanel_seed{canonical} "
-              f"(from this run, canonical seed {canonical})")
+        from pbg_superpowers.figure_refresh import (
+            find_workspace_root, refresh_study_figures)
+        ws = find_workspace_root(Path(HERE))
+        res = refresh_study_figures(ws, "dnaa-2-atp-hydrolysis", run_dir=OUT_DIR)
+        if res["skipped"]:
+            print(f"  figure refresh skipped: {res['skipped']}")
+        else:
+            print(f"  auto-refreshed figures from this run "
+                  f"({len(res['ran'])} ran, {len(res['failed'])} failed)")
+            for c in res["failed"]:
+                print(f"    FAILED: {c}")
     except Exception as e:  # noqa: BLE001 — viz refresh must never fail the run
         print(f"  WARNING: figure auto-refresh failed: {type(e).__name__}: {e}")
 

@@ -413,6 +413,17 @@ conditions:
       hydrolysis_rate_per_min: 0.046
   model_settings: []
 
+# How to re-render this study's figures from its canonical run. The framework
+# (pbg_superpowers.figure_refresh) substitutes {run} = newest parquet-runs/<id>,
+# {study}, {figdir} = reports/figures/<study>, {ws} and runs each on
+# run-completion — so the figure can never lag the data (the recurring
+# "verdict updated but plots stale" gap). The sixpanel reads parquet directly
+# (no inputs_map), so the generic render_study_visualizations can't render it;
+# this declares the bespoke renderer instead. --format both writes the SVG to
+# charts/ and the HTML to reports/figures/<study>/ (CLI default path).
+figure_refresh:
+  - "{py} scripts/render_dnaa2_sixpanel.py --run {run} --seed 0 --step 3 --format both"
+
 visualizations:
   # ONE compact figure for the canonical Step-3 result (Rashmi 2026-06-01:
   # "just one seed is enough; drop seed 2; the section was too long"). The prior

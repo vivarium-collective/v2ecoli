@@ -211,7 +211,11 @@ class Evolver(Step):
         return False
 
     def update(self, states, interval=None):
-        allocations = states.pop("allocate")
+        # The allocate store may not be present in the states view if the
+        # process-bigraph version doesn't auto-include stores that haven't
+        # been written to yet. Use get() with a fallback to an empty dict
+        # containing the expected 'bulk' key so the evolver still runs.
+        allocations = states.pop("allocate", {"bulk": {}})
         for key, value in allocations.items():
             if isinstance(value, list):
                 value = np.array(value)

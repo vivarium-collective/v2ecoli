@@ -1,0 +1,59 @@
+viz:
+  - name: pc_recovered_edges_real
+    study: pdmp-05
+    title: PC algorithm — edge recovery vs ground truth
+    caption: >-
+      Recall of known causal edges from the PC algorithm given Phase 0
+      observational + interventional knockout data. Real-data once the
+      benchmark recovery run lands.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/pc-discovery/run_*/summary.json"]
+      keys: ["recall_recovered_edges"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Run index"
+      y_label: "Recall (fraction of true edges)"
+    awaits:
+      run_name: pc-recovery-ground-truth
+      fallback: skeleton
+    pinned_h: 720
+
+  - name: bayes_factor_per_gene_real
+    study: pdmp-05
+    title: Per-gene Bayes factor — discovery list
+    caption: >-
+      Bayes factor K per candidate gene. K > 10 = strong evidence,
+      K > 100 = decisive. BH-FDR correction applied at α=0.05.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/per-gene-inference/gene_*/summary.json"]
+      keys: ["bayes_factor"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Gene index"
+      y_label: "Bayes factor K"
+    awaits:
+      run_name: benchmark-20-gene-recovery
+      fallback: skeleton
+    pinned_h: 720
+
+  - name: intervention_eig_real
+    study: pdmp-05
+    title: Intervention design — expected information gain
+    caption: >-
+      EIG per intervention design (observational, +5 knockouts, +15
+      knockouts, active adaptive). Real-data once Phase 5 EIG comparison
+      run completes.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/phase5-eig/design_*/summary.json"]
+      keys: ["eig_per_run"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Design"
+      y_label: "Expected information gain (nats / run)"
+    awaits:
+      run_name: phase5-eig-comparison
+      fallback: skeleton
+    pinned_h: 720

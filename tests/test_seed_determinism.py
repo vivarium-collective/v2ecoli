@@ -24,7 +24,14 @@ from _state_equal import deep_equal
 
 
 CACHE_DIR = 'out/cache'
-DURATION = 60.0
+# Nondeterminism (unseeded RNG, dict/set iteration order, hash-dependent
+# ordering) diverges within the first few ticks, so a short run surfaces it
+# just as well as a long one. Kept short deliberately: this test builds TWO
+# full composites and holds both states for the deep compare, so on the
+# memory-constrained CI behavior-tests runner a long duration inflates peak
+# RAM (now real pint.Quantity leaves in the mass state) enough to OOM the
+# worker mid-run — surfacing as a whole-job "operation was canceled".
+DURATION = 15.0  # a determinism break shows in the first few ticks
 
 
 pytestmark = [
@@ -43,6 +50,13 @@ def _run_baseline(duration: float):
     return composite.state
 
 
+# Two full baseline sims (2 x DURATION s) + a deep state compare. The CI
+# behavior-tests runner is ~14x slower than local (see test_sustained_growth),
+# so this can approach the global 120 s pytest-timeout cap. That cap's thread
+# method calls os._exit(1), which kills the WHOLE pytest run (reported as
+# "operation was canceled"), so carry the same 600 s override the other
+# multi-sim behavior tests use.
+@pytest.mark.timeout(600)
 def test_baseline_is_deterministic_under_fixed_seed():
     """Two fresh baseline runs with seed=0 produce identical state after
     the same duration. Localizes the first divergent leaf so the failure

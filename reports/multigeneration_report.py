@@ -20,6 +20,8 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
+from v2ecoli.library.quantity_helpers import fg_magnitude
+
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -81,14 +83,16 @@ def _snapshots_from_history(history) -> list[dict]:
         snaps.append(
             {
                 "time": float(t),
-                "dry_mass": float(mass.get("dry_mass", 0)),
-                "cell_mass": float(mass.get("cell_mass", 0)),
-                "protein_mass": float(mass.get("protein_mass", 0)),
-                "dna_mass": float(mass.get("dna_mass", 0)),
-                "rRna_mass": float(mass.get("rRna_mass", 0)),
-                "tRna_mass": float(mass.get("tRna_mass", 0)),
-                "mRna_mass": float(mass.get("mRna_mass", 0)),
-                "smallMolecule_mass": float(mass.get("smallMolecule_mass", 0)),
+                # fg_magnitude tolerates both legacy float[fg] values and
+                # quantity[...] Quantities (units-on-ports migration).
+                "dry_mass": fg_magnitude(mass.get("dry_mass", 0)),
+                "cell_mass": fg_magnitude(mass.get("cell_mass", 0)),
+                "protein_mass": fg_magnitude(mass.get("protein_mass", 0)),
+                "dna_mass": fg_magnitude(mass.get("dna_mass", 0)),
+                "rRna_mass": fg_magnitude(mass.get("rRna_mass", 0)),
+                "tRna_mass": fg_magnitude(mass.get("tRna_mass", 0)),
+                "mRna_mass": fg_magnitude(mass.get("mRna_mass", 0)),
+                "smallMolecule_mass": fg_magnitude(mass.get("smallMolecule_mass", 0)),
             }
         )
     return snaps
@@ -115,7 +119,7 @@ def _run_generation(
     the last observed cell_data snapshot (for carrying into the next
     generation)."""
     cell = composite.state["agents"]["0"]
-    initial_dry = float(cell["listeners"]["mass"].get("dry_mass", 0))
+    initial_dry = fg_magnitude(cell["listeners"]["mass"].get("dry_mass", 0))
 
     # Grab the emitter instance NOW — the agent node (and our edge handle)
     # gets detached from composite.state once the Division step fires.
@@ -200,7 +204,7 @@ def run_multigeneration(
     composite = build_composite("baseline", cache_dir=cache_dir)
     cell0 = composite.state["agents"]["0"]
     print(
-        f"    initial dry_mass={cell0['listeners']['mass'].get('dry_mass', 0):.1f} fg"
+        f"    initial dry_mass={fg_magnitude(cell0['listeners']['mass'].get('dry_mass', 0)):.1f} fg"
     )
 
     gen = _run_generation(composite, 1, max_duration_per_gen)

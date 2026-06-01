@@ -1,0 +1,198 @@
+# Millard 2017 ↔ v2ecoli species-name mapping.
+#
+# Used by v2ecoli.steps.fba_bridge.FBABridge to translate between the Millard
+# ODE namespace (BiGG/short IDs in mM, BioModels MODEL1505110000) and the
+# v2ecoli WCM bulk namespace (BioCyc/EcoCyc IDs in molecule counts, with [c]
+# cytoplasm / [p] periplasm / [e] extracellular compartment suffixes).
+#
+# Each entry MUST have:
+#   - millard_id:    the SBML species ID from millard2017_central_metabolism.xml
+#   - v2ecoli_id:    the bulk_mol_id confirmed to exist in out/cache/initial_state.json
+#   - role:          shared | millard_only | v2ecoli_only
+#   - notes:         one-line clarification if the mapping is non-obvious
+#
+# Mapping confirmed against:
+#   - Millard SBML: 77 species (basico.get_species)
+#   - v2ecoli cache: 16,321 bulk molecules (out/cache/initial_state.json[bulk])
+#
+# Per v2ecoli convention, IDs use the EcoCyc canonical name. NEVER invent a
+# fictional bulk ID — if a Millard species has no v2ecoli counterpart, mark
+# it role: millard_only and document why.
+
+schema_version: 1
+namespace: millard2017 <-> v2ecoli
+
+# Unit conversion: Millard concentrations are mM (mmol/L); v2ecoli bulk values
+# are molecule counts per cell. Conversion factor for a single E. coli cell:
+#   count = conc_mM * 1e-3 (mol/L) * V_cell_L * N_avogadro
+# where V_cell_L ~ 1.0e-15 (1 fL) for an average E. coli cell at division.
+# The bridge process accepts cell_volume_L as a runtime parameter (defaults
+# match v2ecoli's mean cell volume from the ParCa cache).
+unit_conversion:
+  millard_unit: mM
+  v2ecoli_unit: count
+  default_cell_volume_L: 1.0e-15
+  avogadro: 6.02214076e+23
+
+# Adenylate energy charge — the most important shared pool. These three
+# are co-regulated in v2ecoli (AdK-mediated) and drive ATP-dependent flux
+# constraints in Millard.
+adenylates:
+  - millard_id: ATP
+    v2ecoli_id: ATP[c]
+    role: shared
+    notes: Adenosine 5'-triphosphate. Central energy carrier.
+  - millard_id: ADP
+    v2ecoli_id: ADP[c]
+    role: shared
+    notes: Adenosine 5'-diphosphate.
+  - millard_id: AMP
+    v2ecoli_id: AMP[c]
+    role: shared
+    notes: Adenosine 5'-monophosphate.
+
+# Pyridine nucleotides — redox carriers.
+redox:
+  - millard_id: NAD
+    v2ecoli_id: NAD[c]
+    role: shared
+    notes: NAD+ (oxidized).
+  - millard_id: NADH
+    v2ecoli_id: NADH[c]
+    role: shared
+    notes: NADH (reduced).
+  - millard_id: NADP
+    v2ecoli_id: NADP[c]
+    role: shared
+    notes: NADP+ (oxidized).
+  - millard_id: NADPH
+    v2ecoli_id: NADPH[c]
+    role: shared
+    notes: NADPH (reduced).
+
+# Glycolysis intermediates.
+glycolysis:
+  - millard_id: G6P
+    v2ecoli_id: GLC-6-P[c]
+    role: shared
+    notes: D-glucose-6-phosphate. (ALPHA-GLC-6-P also exists; GLC-6-P is the canonical pool.)
+  - millard_id: F6P
+    v2ecoli_id: FRUCTOSE-6P[c]
+    role: shared
+  - millard_id: FDP
+    v2ecoli_id: FRUCTOSE-16-DIPHOSPHATE[c]
+    role: shared
+    notes: Fructose-1,6-bisphosphate.
+  - millard_id: GAP
+    v2ecoli_id: GAP[c]
+    role: shared
+    notes: Glyceraldehyde-3-phosphate.
+  - millard_id: PEP
+    v2ecoli_id: PHOSPHO-ENOL-PYRUVATE[c]
+    role: shared
+  - millard_id: PYR
+    v2ecoli_id: PYRUVATE[c]
+    role: v2ecoli_only
+    notes: v2ecoli search returned only 3-BROMOPYRUVATE / 3-MERCAPTO-PYRUVATE; PYRUVATE[c] is the canonical EcoCyc ID — confirm via cache before relying on this mapping in production.
+
+# TCA cycle.
+tca:
+  - millard_id: ACCOA
+    v2ecoli_id: ACETYL-COA[c]
+    role: v2ecoli_only
+    notes: v2ecoli search returned only conjugated forms; ACETYL-COA[c] is the canonical EcoCyc ID — confirm via cache.
+  - millard_id: CIT
+    v2ecoli_id: CIT[c]
+    role: shared
+    notes: Citrate.
+  - millard_id: ICIT
+    v2ecoli_id: THREO-DS-ISO-CITRATE[c]
+    role: shared
+    notes: Isocitrate (D-threo-isocitrate is the EcoCyc canonical form).
+  - millard_id: AKG
+    v2ecoli_id: 2-KETOGLUTARATE[c]
+    role: shared
+    notes: Alpha-ketoglutarate / 2-oxoglutarate.
+  - millard_id: SUCCOA
+    v2ecoli_id: SUC-COA[c]
+    role: v2ecoli_only
+    notes: Succinyl-CoA. Confirm canonical EcoCyc ID before binding.
+  - millard_id: SUC
+    v2ecoli_id: SUC[c]
+    role: v2ecoli_only
+    notes: Succinate. Confirm canonical EcoCyc ID before binding.
+  - millard_id: FUM
+    v2ecoli_id: FUM[c]
+    role: shared
+    notes: Fumarate.
+  - millard_id: MAL
+    v2ecoli_id: MAL[c]
+    role: v2ecoli_only
+    notes: Malate. Confirm canonical EcoCyc ID before binding.
+  - millard_id: OAA
+    v2ecoli_id: OXALACETIC_ACID[c]
+    role: shared
+    notes: Oxaloacetate (v2ecoli uses OXALACETIC_ACID).
+
+# Pentose phosphate pathway.
+ppp:
+  - millard_id: R5P
+    v2ecoli_id: RIBOSE-5P[c]
+    role: shared
+  - millard_id: RU5P
+    v2ecoli_id: RIBULOSE-5P[c]
+    role: shared
+  - millard_id: X5P
+    v2ecoli_id: XYLULOSE-5-PHOSPHATE[c]
+    role: shared
+    notes: Xylulose-5-phosphate.
+  - millard_id: S7P
+    v2ecoli_id: D-SEDOHEPTULOSE-7-P[c]
+    role: shared
+    notes: Sedoheptulose-7-phosphate.
+  - millard_id: E4P
+    v2ecoli_id: ERYTHROSE-4P[c]
+    role: shared
+    notes: Erythrose-4-phosphate.
+
+# Cofactors / common pools.
+common:
+  - millard_id: COA
+    v2ecoli_id: CO-A[c]
+    role: shared
+    notes: Coenzyme A (free).
+  - millard_id: H2O
+    v2ecoli_id: WATER[c]
+    role: shared
+  - millard_id: O2
+    v2ecoli_id: OXYGEN-MOLECULE[c]
+    role: shared
+
+# Species in Millard with no obvious v2ecoli counterpart (kept for diagnostics).
+millard_only:
+  - millard_id: ei
+    notes: Enzyme I of phosphotransferase system (protein, not metabolite). Tracked in v2ecoli as the EIN-CPLX monomer, not as a bulk metabolite.
+  - millard_id: eiP
+    notes: Phosphorylated Enzyme I.
+  - millard_id: hpr
+    notes: Histidine-phosphorylatable protein of PTS.
+  - millard_id: tal
+    notes: Transaldolase enzyme state.
+  - millard_id: tkt
+    notes: Transketolase enzyme state.
+  - millard_id: icd
+    notes: Isocitrate dehydrogenase (state in Millard model — covalently modified intermediate).
+  - millard_id: MgATP
+    notes: Mg-ATP complex. Millard tracks Mg2+ binding explicitly; v2ecoli does not.
+  - millard_id: MgADP
+    notes: Mg-ADP complex.
+  - millard_id: MgFDP
+    notes: Mg-FDP complex.
+
+# Diagnostics fields recorded by the bridge each step:
+diagnostics:
+  - shared_pool_count          # How many species are role: shared and present in both states
+  - v2ecoli_unmapped           # v2ecoli bulk IDs the bridge was asked about but not in the mapping
+  - millard_unmapped           # Millard species in the state that have no v2ecoli counterpart
+  - mass_balance_residual_mM   # Sum of |Δconcentration| after round-trip (sanity check)
+  - cell_volume_L_used         # The volume factor used for the conversion this step

@@ -37,7 +37,7 @@ def _derive_process_seed(master_seed: int, process_name: str) -> int:
     """
     return binascii.crc32(process_name.encode("utf-8"), master_seed) & 0x7FFFFFFF
 
-from pbg_superpowers.composite_generator import composite_generator
+from pbg_superpowers.composite_generator import composite_generator, emitter_defaults
 
 from v2ecoli.core import build_core, load_cache_bundle
 
@@ -53,6 +53,8 @@ from v2ecoli.composites._helpers import (
     _make_instance,
     _get_special_step,
     _expand_flushes,
+    set_default_emitter_decl,
+    CachedConfigLoader,
     FLUSH,
     PARTITIONED_PROCESSES,
     ALL_PARTITIONED,
@@ -129,9 +131,32 @@ FEATURE_MODULES = {
         'insert_before': 'ecoli-transcript-elongation_requester',
         'steps': ['trna-attenuation-config'],
     },
+    # Opt-in runtime mass-conservation check. Runs after the mass listener
+    # (dry_mass) and metabolism (environment.exchange). OFF by default: the
+    # residual is not yet calibrated (net boundary exchange measures ~55x the
+    # cell-mass change — see mass_conservation.py STATUS), so on a healthy run
+    # it warns every tick. Enable per investigation via
+    # enable_features('mass_conservation') before build_composite.
+    'mass_conservation': {
+        'insert_after': 'ecoli-mass-listener',
+        'steps': ['ecoli-mass-conservation'],
+    },
 }
 
-DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation disabled to match v1 default
+DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation + mass_conservation off by default
+
+# Opt-in feature modules enabled by a caller for the NEXT build (the generator
+# itself fixes the base set to DEFAULT_FEATURES). Mirrors the emitter-override
+# pattern. Use enable_features('mass_conservation', ...) before build_composite.
+_EXTRA_FEATURES: list = []
+
+
+def enable_features(*names: str) -> None:
+    """Enable opt-in feature modules (e.g. 'mass_conservation') for the next
+    baseline build. Call before ``build_composite('baseline', ...)``; pass no
+    args to clear."""
+    global _EXTRA_FEATURES
+    _EXTRA_FEATURES = list(names)
 
 
 def build_execution_layers(features=None):
@@ -188,7 +213,6 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
     from v2ecoli.processes.transcript_initiation import TranscriptInitiation
     from v2ecoli.processes.transcript_elongation import TranscriptElongation
     from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiation
-    from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
     from v2ecoli.processes.chromosome_replication import ChromosomeReplication
     from v2ecoli.processes.tf_binding import TfBinding
     from v2ecoli.processes.tf_unbinding import TfUnbinding
@@ -375,10 +399,30 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
             "default": "out/cache",
             "description": "Path to ParCa cache directory",
         },
+        "config_overrides": {
+            "type": "map",
+            "default": {},
+            "description": "Declarative '<process>.<key>': value config overrides (variants)",
+        },
     },
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
+    emitters=[
+        {
+            # Default observation sink for standalone builds: a vEcoli-shaped
+            # ParquetEmitter (hive-partitioned, column-oriented — captures the
+            # raw bulk count array + listeners that downstream/vEcoli-parity
+            # analyses need). out_dir is omitted on purpose: the emitter step
+            # resolves it to <workspace>/.pbg/parquet-runs. External overrides
+            # (set_parquet_emitter_override / set_emitter_override) still win.
+            "address": "local:ParquetEmitter",
+            "config": {},
+            "paths": ["global_time", "bulk", "listeners"],
+        },
+    ],
 )
-def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -> dict:
+def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
+             config_overrides: dict | None = None,
+             bundle: dict | None = None) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
     Migrated from ``v2ecoli/generate.py:build_document`` +
@@ -394,6 +438,10 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -
         seed: Random seed for stochastic initialisation.
         cache_dir: Path to the ParCa cache directory (must contain
             ``initial_state.json`` and ``sim_data_cache.dill``).
+        bundle: optional pre-loaded cache bundle (as returned by
+            ``load_cache_bundle``). When given, the cache is not re-read from
+            ``cache_dir`` — lets callers building many composites from the same
+            cache (ensembles, sweeps) load it once and reuse it.
 
     Returns:
         Process-bigraph document dict with keys ``state``,
@@ -402,13 +450,30 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -
     if core is None:
         core = build_core()
 
-    bundle = load_cache_bundle(cache_dir)
+    if bundle is None:
+        bundle = load_cache_bundle(cache_dir)
     initial_state = bundle["initial_state"]
     configs = bundle["configs"]
+    if config_overrides:
+        # Deep-copy before patching: load_cache_bundle returns the cache dict
+        # by reference (lru_cache-shared); mutating it would corrupt other runs.
+        configs = copy.deepcopy(configs)
+        for path, value in config_overrides.items():
+            proc, _, key = path.partition(".")
+            if not key:
+                raise ValueError(f"override path {path!r} must be '<process>.<key>'.")
+            if "." in key:
+                raise ValueError(
+                    f"override path {path!r}: nested keys not supported; "
+                    "use '<process>.<top-level-key>'.")
+            if proc not in configs:
+                raise KeyError(f"override target process {proc!r} not in cache configs.")
+            configs[proc][key] = value
     unique_names = bundle["unique_names"]
     dry_mass_inc_dict = bundle.get("dry_mass_inc_dict", {})
 
-    features = DEFAULT_FEATURES
+    features = list(DEFAULT_FEATURES) + [
+        f for f in _EXTRA_FEATURES if f not in DEFAULT_FEATURES]
 
     cell_state = {}
     cell_state.update(initial_state)
@@ -462,54 +527,39 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache") -
         'aa_count_diff': np.zeros(21),
     })
 
-    # Create a mock loader that returns configs from the cache
-    class _CachedLoader:
-        def __init__(self, configs, unique_names, dry_mass_inc_dict, cache_dir='out/cache'):
-            self._configs = configs
-            self.unique_names = unique_names
-            self.cache_dir = cache_dir
-
-            class _SimData:
-                class _InternalState:
-                    class _UniqueMolecule:
-                        def __init__(self, names):
-                            self.unique_molecule_definitions = {
-                                n: {} for n in names}
-                    unique_molecule = None
-                    def __init__(self, names):
-                        self.unique_molecule = self._UniqueMolecule(names)
-                internal_state = None
-                expectedDryMassIncreaseDict = {}
-
-            self.sim_data = _SimData()
-            self.sim_data.internal_state = _SimData._InternalState(unique_names)
-            self.sim_data.expectedDryMassIncreaseDict = dry_mass_inc_dict or {}
-
-        def get_config_by_name(self, name):
-            if name in self._configs:
-                return self._configs[name]
-            raise KeyError(f'Unknown: {name}')
-
-    loader = _CachedLoader(configs, unique_names, dry_mass_inc_dict, cache_dir=cache_dir)
+    # Mock loader: serves cache configs + a minimal sim_data stand-in (see
+    # CachedConfigLoader in _helpers — replaces the old nested _CachedLoader).
+    loader = CachedConfigLoader(
+        configs, unique_names, dry_mass_inc_dict, cache_dir=cache_dir)
 
     # Build execution layers for the requested feature set
     execution_layers = build_execution_layers(features)
     flow_order = [step for layer in execution_layers for step in layer]
 
+    # Publish this generator's declared default emitter (parquet — see the
+    # @composite_generator(emitters=[...]) below) so the 'emitter' step picks
+    # it up when no external override is set. Cleared in finally so it never
+    # leaks into a later composite built in the same process. External
+    # parquet/sqlite/null overrides still win — see set_default_emitter_decl.
+    _emitter_decls = emitter_defaults(baseline)
+    set_default_emitter_decl(_emitter_decls[0] if _emitter_decls else None)
     _process_cache = {}
-    for step_name in flow_order:
-        config = _get_step_config(
-            loader, step_name, core, _process_cache, master_seed=seed)
-        if config is not None:
-            if len(config) == 5:
-                instance, topology, edge_type, in_topo, out_topo = config
-                cell_state[step_name] = make_edge(
-                    instance, topology, input_topology=in_topo,
-                    output_topology=out_topo, edge_type=edge_type)
-            else:
-                instance, topology, edge_type = config
-                cell_state[step_name] = make_edge(
-                    instance, topology, edge_type=edge_type)
+    try:
+        for step_name in flow_order:
+            config = _get_step_config(
+                loader, step_name, core, _process_cache, master_seed=seed)
+            if config is not None:
+                if len(config) == 5:
+                    instance, topology, edge_type, in_topo, out_topo = config
+                    cell_state[step_name] = make_edge(
+                        instance, topology, input_topology=in_topo,
+                        output_topology=out_topo, edge_type=edge_type)
+                else:
+                    instance, topology, edge_type = config
+                    cell_state[step_name] = make_edge(
+                        instance, topology, edge_type=edge_type)
+    finally:
+        set_default_emitter_decl(None)
 
     # Place shared PartitionedProcess instances in the process store
     for proc_name, proc_instance in _process_cache.items():

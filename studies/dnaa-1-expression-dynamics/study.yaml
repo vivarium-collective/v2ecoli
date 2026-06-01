@@ -94,6 +94,18 @@ report:
       all TF / ppGpp regulation (basal_prob + delta_prob) preserved
 
   result: |
+    CANONICAL (V=1.7e-3, run dnaa1-mechA-1.7e-3-7gen-2026-05-31): the DnaA
+    monomer pool holds in [300,800] across the 7-gen succinate lineage —
+    cycle-mean 665–710 (cross-gen CV 2.3%), trough ≥417, oriC periodic 1↔2.
+    This is the CURRENT result (figure:
+    reports/figures/dnaa-1-expression-dynamics/dnaa_expression.html). V was
+    lowered 2e-3 → 1.7e-3 (Rashmi 2026-05-31) to pull the pre-division peak
+    toward the band — see finding v-retune-1.7e-3-reduces-overshoot.
+
+    ── Below: the earlier V=2e-3 tuning + the debugging history that led here
+       (kept for provenance; the 2e-3 numbers are the PRIOR tuning, NOT the
+       current result) ──
+
     STATUS 2026-05-30: NO VALID RUN YET — re-running. The "pass" reported
     earlier was not backed by data on disk. What actually happened:
 

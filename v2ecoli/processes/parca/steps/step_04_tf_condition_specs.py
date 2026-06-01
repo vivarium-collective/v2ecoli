@@ -92,6 +92,19 @@ OUTPUT_PORTS = {
 class TfConditionSpecsStep(Step):
     """Step 4 — tf_condition_specs.  See module docstring for port wiring."""
 
+    description = (
+        "Step 4 — tf_condition_specs.  Re-fit per TF state + growth condition.\n\n"
+        "For each (TF, active/inactive) state and each combined medium\n"
+        "(with_aa, acetate, succinate, no_oxygen), apply the literature\n"
+        "fold-changes to the TF's target RNAs then rerun the Step-3 converge:\n"
+        "    rna_expression[targets] *= 2^(log2_fc)\n"
+        "    rna_synth_prob = expressionConverge(rna_expression)\n"
+        "Produces condition-specific synthesis probabilities and bulk\n"
+        "distributions — transcription tables and cell_specs now carry one\n"
+        "entry per fitted condition, not just 'basal'. Runs conditions in a\n"
+        "multiprocessing pool of size cpus."
+    )
+
     config_schema = {
         'variable_elongation_transcription':
             {'_type': 'boolean', '_default': True},

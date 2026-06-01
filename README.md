@@ -10,6 +10,24 @@ fits `sim_data` — is decomposed into nine process-bigraph Steps and ships
 pre-computed at `models/parca/parca_state.pkl.gz`, so a fresh clone can
 simulate end-to-end without rebuilding.
 
+## 🔬 Interactive model viewer
+
+Explore the model's bigraph structure in your browser — processes, stores,
+wiring, input/output port schemas (with units), and a formal mathematical
+description for each process:
+
+- **[▶ Baseline composite](https://vivarium-collective.github.io/v2ecoli/bigraph_baseline.html)** — the whole-cell *E. coli* model
+- **[▶ ParCa pipeline](https://vivarium-collective.github.io/v2ecoli/bigraph_parca.html)** — the nine-Step parameter calculator
+
+Pan/zoom, expand store chips, toggle nodes on/off, and click a process to see
+its inputs/outputs and governing equations. Regenerate locally with
+`python scripts/viz_baseline_interactive.py` (or `viz_parca_interactive.py`).
+
+For the equations on their own — every process's governing math grouped by
+subsystem, plus the per-tick execution flow and the partition→allocate→evolve
+contract — see the **[Mathematical structure report](https://vivarium-collective.github.io/v2ecoli/math_structure.html)**
+(`python reports/math_structure_report.py`).
+
 ## Install
 
 Requires [`uv`](https://docs.astral.sh/uv/) and a C compiler (Xcode CLI
@@ -34,9 +52,6 @@ python reports/workflow_report.py
 # Three-cell colony with N adder-grow-divide surrogates
 python reports/colony_report.py --duration 45 --n-adder 5
 
-# Baseline vs departitioned vs reconciled architectures
-python reports/compare_report.py
-
 # vEcoli ↔ v2ecoli benchmark
 python reports/benchmark_report.py
 ```
@@ -46,10 +61,8 @@ Each script writes a self-contained HTML report under `out/` and opens it.
 ## Published reports
 
 [vivarium-collective.github.io/v2ecoli](https://vivarium-collective.github.io/v2ecoli/)
-— cell lifecycle, colony, architecture comparison, ParCa pipeline,
-multi-generation lineage, and per-architecture composition graphs
-(baseline / [departitioned](https://vivarium-collective.github.io/v2ecoli/network_departitioned.html)
-/ [reconciled](https://vivarium-collective.github.io/v2ecoli/network_reconciled.html)).
+— cell lifecycle, colony, ParCa pipeline,
+multi-generation lineage, and the baseline composition graph.
 Regenerated from the corresponding `reports/*.py` scripts.
 
 ## Performance
@@ -85,8 +98,6 @@ differ in how they're scheduled.
 | Architecture | Composite generator | What it is |
 |---|---|---|
 | baseline | `v2ecoli.composites.baseline` | Partitioned (requester/allocator/evolver) — vEcoli-parity |
-| departitioned | `v2ecoli.composites.departitioned` | Flat process layout, no allocator |
-| reconciled | `v2ecoli.composites.reconciled` | Hybrid — partitioned where required, flat elsewhere |
 
 Each whole cell is wrapped by `EcoliWCM`, a process-bigraph `Process`
 that holds an internal `Composite` and a bridge:
@@ -139,7 +150,7 @@ core = allocate_core()
 
 ```
 v2ecoli/
-  composites/    baseline · departitioned · reconciled · colony
+  composites/    baseline · colony · millard_pdmp_baseline
   processes/     15 biological processes + parca/ (9-step pipeline)
   steps/         infrastructure + 9 listeners
   visualizations/ Visualization Steps backing each report

@@ -76,7 +76,7 @@ PDMP_00_TESTS = [
             "output port typing. No subprocess is left unschematized."
         ),
         "measure": {
-            "source": "investigations/v2ecoli-pdmp/markov_blankets/",
+            "source": "workspace/investigations/v2ecoli-pdmp/markov_blankets/",
             "observable": "schema_coverage",
             "reduce": "len(written_schemas) / len(major_subprocesses)",
         },
@@ -143,7 +143,7 @@ PDMP_01_TESTS = [
             "observable": "species_concentrations at steady-state",
             "reduce": "max relative-error vs Millard 2017 Fig 2 table",
             "units": "fraction (dimensionless)",
-            "reference": "references/papers.bib#millard2017",
+            "reference": "workspace/references/papers.bib#millard2017",
         },
         "pass_if": {"operator": "less-than", "threshold": 0.05, "field": "max_rel_error"},
         "requires_simulation": "millard-standalone-steady-state",
@@ -495,7 +495,7 @@ TESTS_BY_STUDY = {
 
 def main():
     for slug, tests in TESTS_BY_STUDY.items():
-        yaml_path = Path("studies") / slug / "study.yaml"
+        yaml_path = Path("workspace/studies") / slug / "study.yaml"
         if not yaml_path.exists():
             print(f"  SKIP {slug}: yaml not found"); continue
         spec = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))

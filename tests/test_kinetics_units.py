@@ -4,7 +4,7 @@ plain-float (µM-magnitude) input contract.
 History: kinetics' hot loops once accepted unit-bearing (Unum/pint)
 concentrations, and this test guarded Unum↔pint interchangeability. That
 contract was **removed** — per-call ``.to(MICROMOLAR_UNITS).magnitude``
-pre-stripping moved to the caller (see ``elongation_models.py`` ~line 441 and
+pre-stripping moved to the caller (see ``polypeptide_elongation.py`` (SteadyState.request) and
 the ``ppgpp_metabolite_changes`` docstring), so the hot loops now take plain
 numpy/float magnitudes and ``counts_to_molar: float``. Feeding unit-bearing
 values now (correctly) raises. This test guards the current contract: the

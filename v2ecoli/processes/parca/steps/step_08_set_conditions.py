@@ -89,6 +89,18 @@ OUTPUT_PORTS = {
 class SetConditionsStep(Step):
     """Step 8 — set_conditions.  See module docstring."""
 
+    description = (
+        "Step 8 — set_conditions.  Flatten per-condition cell_specs into the\n"
+        "lookup tables the online model reads each timestep.\n\n"
+        "  • avgCellDryMassInit[c] — rescaled so expected growth over τ\n"
+        "    reproduces observed dry mass\n"
+        "  • fitAvgSolublePoolMass = avgCellDryMassInit − macromolecule mass\n"
+        "  • bulkContainer[c]      — canonical t=0 bulk counts per condition\n"
+        "  • expected_dry_mass_increase[nutrient]\n"
+        "        = avgCellDryMass · (2^(t/τ) − 1) / t   over one cycle\n"
+        "  • per-nutrient transcription / tRNA-supply emphasis tables"
+    )
+
     config_schema = {'verbose': {'_type': 'integer', '_default': 1}}
 
     def inputs(self):

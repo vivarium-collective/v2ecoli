@@ -173,6 +173,16 @@ class TranscriptInitiation(Step):
     - **seed** (``int``): random seed to initialize PRNG
     """
 
+    description = (
+        "TranscriptInitiation — distributes activated RNAPs across TUs by weighted multinomial sampling.\n\n"
+        "    n_to_activate = round(f_active · n_total_RNAP) - n_active\n"
+        "    p_i = max(0, basal_prob_i + ∑_j delta_prob[i,j] · bound_TF_j)\n"
+        "    initiations ~ Multinomial(n_to_activate, p_i / ∑_i p_i)\n"
+        "  with p_i ← 0 for TUs that are footprint-crowded (~24 nt) or lack a chromosomal promoter.\n"
+        "  f_active: media-dependent active RNAP fraction;  delta_prob: sparse (COO→CSR) TF effect matrix.\n"
+        "  ppGpp (optional) modulates basal_prob and f_active via fitted functions."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

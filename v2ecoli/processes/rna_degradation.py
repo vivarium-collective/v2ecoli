@@ -81,6 +81,15 @@ TOPOLOGY = {
 class RnaDegradation(PartitionedProcess):
     """RNA Degradation PartitionedProcess"""
 
+    description = (
+        "RNA Degradation — endo cleavage (competitive Michaelis–Menten) then exo digestion.\n\n"
+        "    fᵢ = ([rᵢ]/Kmᵢ) / (1 + ∑ⱼ [rⱼ]/Kmⱼ);   νᵢ = kcat_endo · [EndoRNase] · fᵢ\n"
+        "    per class c: n_deg_c = Draw(∑_{i∈c} νᵢ · dt · V · N_A), multinomial∝fᵢ, ≤ supply\n"
+        "    Δfragments = S_endo · n_deg;   exo: C_exo = ∑n_exo · kcat_exo · dt\n"
+        "    FragmentBase + H2O → NMP + H⁺   (full digest if C_exo ≥ Σbases, else multinomial)\n"
+        "  [rᵢ]: RNA conc (mol/L); Kmᵢ: MM constant; νᵢ: endo flux; S_endo: cleavage stoich (NMP+PPi)."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

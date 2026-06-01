@@ -1,4 +1,4 @@
-"""MassConservationListener: per-tick Δcell_mass vs net environment exchange.
+"""MassConservationDeriver: per-tick Δcell_mass vs net environment exchange.
 
 environment.exchange is CUMULATIVE (monotonic media depletion); the Step diffs
 it to recover the per-tick exchange. Balance is against total cell_mass.
@@ -9,12 +9,12 @@ import warnings
 import pytest
 
 from v2ecoli.core import build_core
-from v2ecoli.steps.listeners.mass_conservation import MassConservationListener
+from v2ecoli.steps.derivers.mass_conservation_deriver import MassConservationDeriver
 from v2ecoli.types.quantity import ureg as units
 
 
 def _make_step(tolerance=1.0e-2):
-    step = MassConservationListener({}, build_core())
+    step = MassConservationDeriver({}, build_core())
     step.exchange_masses = {"GLC": 0.5 * units.fg}   # 0.5 fg per GLC molecule
     step.tolerance = tolerance
     step.warmup_ticks = 0          # accumulate immediately in unit tests

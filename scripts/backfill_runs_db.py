@@ -2,13 +2,13 @@
 wrote to ``out/<study>/``.
 
 The dashboard's Simulations DB indexes runs by walking
-``.pbg/composite-runs.db`` and every ``studies/<name>/runs.db``. My
+``.pbg/composite-runs.db`` and every ``workspace/studies/<name>/runs.db``. My
 hand-rolled runners wrote raw JSON to ``out/`` and never touched those
 SQLite files, so the dashboard correctly reports zero simulations even
 though three studies have produced real output.
 
 This script reads each ``out/<study>/<run_name>.json`` and inserts an
-equivalent ``runs_meta`` row into ``studies/<study>/runs.db``. The
+equivalent ``runs_meta`` row into ``workspace/studies/<study>/runs.db``. The
 per-step ``history`` table (which SQLiteEmitter normally owns) is left
 empty — the dashboard's auto-viz panel from runs.db will still be
 missing chart data, but the Simulations DB will at least show that
@@ -108,7 +108,7 @@ def backfill_study(study_slug: str, entries: list[tuple[str, str, str]]) -> int:
     short = "-".join(study_slug.split("-")[:2])
     out_dir = REPO_ROOT / "out" / short
 
-    runs_db = REPO_ROOT / "studies" / study_slug / "runs.db"
+    runs_db = REPO_ROOT / "workspace" / "studies" / study_slug / "runs.db"
     runs_db.parent.mkdir(parents=True, exist_ok=True)
 
     conn = connect(runs_db)
@@ -149,7 +149,7 @@ def backfill_study(study_slug: str, entries: list[tuple[str, str, str]]) -> int:
 
 def main() -> None:
     print(f"Backfilling runs.db for {len(RUNS_TO_BACKFILL)} studies under "
-          f"{REPO_ROOT}/studies/")
+          f"{REPO_ROOT}/workspace/studies/")
     total = 0
     for study_slug, entries in RUNS_TO_BACKFILL.items():
         print(f"\n{study_slug}:")

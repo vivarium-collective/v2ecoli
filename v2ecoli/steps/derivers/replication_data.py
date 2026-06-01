@@ -1,0 +1,87 @@
+"""
+=========================
+Replication Data Listener
+=========================
+"""
+
+import numpy as np
+from v2ecoli.library.schema import numpy_schema, listener_schema, attrs
+from v2ecoli.library.schema_types import ORIC_ARRAY, DNAA_BOX_ARRAY, ACTIVE_REPLISOME_ARRAY
+from v2ecoli.library.ecoli_step import EcoliStep as Step
+
+# topology_registry removed — topology defined as class attribute
+
+
+NAME = "replication_data_listener"
+TOPOLOGY = {
+    "listeners": ("listeners",),
+    "oriCs": ("unique", "oriC"),
+    "DnaA_boxes": ("unique", "DnaA_box"),
+    "active_replisomes": ("unique", "active_replisome"),
+    "global_time": ("global_time",),
+    "timestep": ("timestep",),
+}
+
+
+class ReplicationData(Step):
+    """
+    Listener for replication data.
+    """
+
+    name = NAME
+    topology = TOPOLOGY
+
+    config_schema = {
+        'time_step': 'float{1.0}',
+        'emit_unique': 'boolean{false}',
+    }
+
+
+    def inputs(self):
+        return {
+            'oriCs': {'_type': ORIC_ARRAY, '_default': []},
+            'DnaA_boxes': {'_type': DNAA_BOX_ARRAY, '_default': []},
+            'active_replisomes': {'_type': ACTIVE_REPLISOME_ARRAY, '_default': []},
+            'global_time': {'_type': 'float', '_default': 0.0},
+            'timestep': {'_type': 'float', '_default': 1},
+        }
+
+    def outputs(self):
+        return {
+            'listeners': {
+                'replication_data': {
+                    'fork_coordinates': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'fork_domains': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'fork_unique_index': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    'number_of_oric': {'_type': 'overwrite[integer]', '_default': []},
+                    'free_DnaA_boxes': {'_type': 'overwrite[integer]', '_default': []},
+                    'total_DnaA_boxes': {'_type': 'overwrite[integer]', '_default': []},
+                },
+            },
+        }
+
+
+    def update_condition(self, timestep, states):
+        return (states["global_time"] % states["timestep"]) == 0
+
+    def update(self, states, interval=None):
+        # Guard: return empty on first tick if data not yet populated
+        fork_coordinates, fork_domains, fork_unique_index = attrs(
+            states["active_replisomes"], ["coordinates", "domain_index", "unique_index"]
+        )
+
+        (DnaA_box_bound,) = attrs(states["DnaA_boxes"], ["DnaA_bound"])
+
+        update = {
+            "listeners": {
+                "replication_data": {
+                    "fork_coordinates": fork_coordinates,
+                    "fork_domains": fork_domains,
+                    "fork_unique_index": fork_unique_index,
+                    "number_of_oric": states["oriCs"]["_entryState"].sum(),
+                    "total_DnaA_boxes": len(DnaA_box_bound),
+                    "free_DnaA_boxes": np.count_nonzero(np.logical_not(DnaA_box_bound)),
+                }
+            }
+        }
+        return update

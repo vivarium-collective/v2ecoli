@@ -9,8 +9,8 @@ reproducibility claim downstream.
 
 Skipped if `out/cache` is not present, matching test_architectures_grow.py.
 
-Only the baseline architecture is checked here; extend to departitioned /
-reconciled if determinism in those variants also becomes a concern.
+Only the baseline architecture is checked here; extend to other
+architectures if determinism in those variants also becomes a concern.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ CACHE_DIR = 'out/cache'
 # memory-constrained CI behavior-tests runner a long duration inflates peak
 # RAM (now real pint.Quantity leaves in the mass state) enough to OOM the
 # worker mid-run — surfacing as a whole-job "operation was canceled".
-DURATION = 30.0
+DURATION = 15.0  # a determinism break shows in the first few ticks
 
 
 pytestmark = [

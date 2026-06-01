@@ -58,6 +58,15 @@ class TwoComponentSystem(Step):
     these, so runs as a plain Step.
     """
 
+    description = (
+        "TwoComponentSystem — phosphotransfer signaling kinetics (ODE integration).\n\n"
+        "Solve molecule-count ODEs over the timestep:\n"
+        "    dx/dt = f(x);   integrate t: 0→dt (scipy solve_ivp, BDF);   Δx = x(dt) − x(0).\n"
+        "Under-allocation: re-solve to long-horizon steady state (10000 s), extract\n"
+        "this timestep's Δx to stay physically consistent with reduced counts.\n"
+        "x: counts of histidine kinases, response regulators, and their phospho-forms."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

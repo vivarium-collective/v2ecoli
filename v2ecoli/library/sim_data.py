@@ -81,8 +81,8 @@ class LoadSimData:
                 second element is a string corresponding to one of the media
                 options in ``self.sim_data.external_state.saved_media``
             trna_charging: Use steady-state charging model
-                (:py:class:`~ecoli.processes.polypeptide_elongation.SteadyStateElongationModel`)
-                in :py:class:`~ecoli.processes.polypeptide_elongation.PolypeptideElongation`
+                (:py:class:`~ecoli.processes.polypeptide_elongation.SteadyStatePolypeptideElongation`)
+                in :py:class:`~ecoli.processes.polypeptide_elongation.SteadyStatePolypeptideElongation`
             ppgpp_regulation: Enable growth rate control using ppGpp in
                 polypeptide elongation and transcript initiation
             mar_regulon: Enable tetracycline-related transcriptional regulation
@@ -121,20 +121,20 @@ class LoadSimData:
             mechanistic_translation_supply: Calculate charged tRNA supply using
                 starting amino acid concentration only based on mechanistic
                 synthesis and supply in
-                :py:class:`~ecoli.processes.polypeptide_elongation.PolypeptideElongation`
+                :py:class:`~ecoli.processes.polypeptide_elongation.SteadyStatePolypeptideElongation`
                 when ``trna_charging`` is ``True``
             mechanistic_aa_transport: Constrain amino acid uptake based on
                 external concentrations and exchange rates in
                 :py:class:`~ecoli.processes.metabolism.Metabolism`
-            translation_supply: Use :py:class:`~ecoli.processes.polypeptide_elongation.TranslationSupplyElongationModel`
-                in :py:class:`~ecoli.processes.polypeptide_elongation.PolypeptideElongation`.
+            translation_supply: Use :py:class:`~ecoli.processes.polypeptide_elongation.TranslationSupplyPolypeptideElongation`
+                instead of :py:class:`~ecoli.processes.polypeptide_elongation.SteadyStatePolypeptideElongation`.
                 Superseded by ``trna_charging``
             aa_supply_in_charging: Calculate charged tRNA supply from each sub
                 time step while solving the charging steady state in
-                :py:class:`~ecoli.processes.polypeptide_elongation.PolypeptideElongation`
+                :py:class:`~ecoli.processes.polypeptide_elongation.SteadyStatePolypeptideElongation`
                 when ``trna_charging`` is ``True``
             disable_ppgpp_elongation_inhibition: Turn off ppGpp-mediated
-                inhibition in :py:class:`~ecoli.processes.polypeptide_elongation.PolypeptideElongation`
+                inhibition in :py:class:`~ecoli.processes.polypeptide_elongation.SteadyStatePolypeptideElongation`
                 when ``trna_charging`` is ``True``
         """
         self.seed = seed
@@ -1092,8 +1092,6 @@ class LoadSimData:
             "ppgpp_regulation": self.ppgpp_regulation,
             "disable_ppgpp_elongation_inhibition": self.disable_ppgpp_elongation_inhibition,
             "variable_elongation": self.variable_elongation_translation,
-            "translation_supply": self.translation_supply,
-            "trna_charging": self.trna_charging,
             # base parameters
             "n_avogadro": unum_to_pint(constants.n_avogadro),
             "proteinIds": translation.monomer_data["id"],

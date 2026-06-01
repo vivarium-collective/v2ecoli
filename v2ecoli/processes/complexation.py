@@ -54,6 +54,14 @@ TOPOLOGY = {"bulk": ("bulk",), "listeners": ("listeners",), "timestep": ("timest
 class Complexation(Step):
     """Complexation Step (Gillespie)"""
 
+    description = (
+        "Complexation — spontaneous monomer→complex assembly (Gillespie SSA).\n\n"
+        "Continuous-time Markov chain over reactions (stoichiometry S, rates k):\n"
+        "    x(t+dt) = StochasticSystem.evolve(dt, x(t), k)\n"
+        "    propensity a_j = k_j · ∏_i C(x_i, |S_ij|);   Δx = S·occurrences.\n"
+        "Reactants are complex-specific (no shared-resource competition)."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

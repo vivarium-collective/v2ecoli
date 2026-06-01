@@ -26,6 +26,7 @@ from process_bigraph import Composite
 from v2ecoli.composites.baseline import baseline
 from v2ecoli.composites.baseline_population import baseline_population
 from v2ecoli.core import build_core
+from v2ecoli.library.quantity_helpers import fg_magnitude
 from v2ecoli.steps.population_aggregator import FG_PER_GRAM
 
 
@@ -88,8 +89,8 @@ def test_per_cell_observables_unchanged_vs_baseline(baseline_state, aggregated_s
     perturb cell state. Backs study.yaml behavior_test
     ``per-cell-observables-unchanged-vs-baseline``.
     """
-    cell_mass_base = float(baseline_state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
-    cell_mass_agg = float(aggregated_state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
+    cell_mass_base = fg_magnitude(baseline_state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
+    cell_mass_agg = fg_magnitude(aggregated_state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
     assert cell_mass_agg == pytest.approx(cell_mass_base, rel=1e-12), (
         f"baseline cell_mass={cell_mass_base!r}, baseline_population cell_mass={cell_mass_agg!r}"
     )
@@ -100,7 +101,7 @@ def test_single_cell_aggregation_matches_cell_mass(aggregated_state):
     population.total_biomass_gDW == agents.0.listeners.mass.cell_mass × 1e-15.
     Backs study.yaml behavior_test ``single-cell-aggregation-matches-cell-mass``.
     """
-    cell_mass_fg = float(aggregated_state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
+    cell_mass_fg = fg_magnitude(aggregated_state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
     pop_gdw = aggregated_state["population"]["total_biomass_gDW"]
     expected = cell_mass_fg * FG_PER_GRAM
     assert pop_gdw == pytest.approx(expected, rel=1e-9)
@@ -124,7 +125,7 @@ def test_total_biomass_equals_sum_cell_mass_times_scale(aggregated_state):
     ``total_biomass_equals_sum_cell_mass_times_scale``.
     """
     sum_cell_mass_fg = sum(
-        float(agent["listeners"]["mass"]["cell_mass"])
+        fg_magnitude(agent["listeners"]["mass"]["cell_mass"])
         for agent in aggregated_state["agents"].values()
     )
     expected = sum_cell_mass_fg * 1.0 * FG_PER_GRAM   # cells_per_agent=1.0 default
@@ -146,7 +147,7 @@ def test_aggregator_output_scales_linearly_with_cells_per_agent(core, cells_per_
     propagate from the composite parameter to the Step instance config.
     """
     state = _run_one_second(core, cells_per_agent=cells_per_agent)
-    cell_mass_fg = float(state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
+    cell_mass_fg = fg_magnitude(state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
     expected_gdw = cell_mass_fg * cells_per_agent * FG_PER_GRAM
     assert state["population"]["total_biomass_gDW"] == pytest.approx(expected_gdw, rel=1e-9)
     assert state["population"]["cell_count"] == pytest.approx(cells_per_agent, rel=1e-12)
@@ -159,8 +160,8 @@ def test_per_cell_observables_invariant_under_scaling(core):
     """
     s1 = _run_one_second(core, cells_per_agent=1.0)
     s2 = _run_one_second(core, cells_per_agent=1.0e6)
-    m1 = float(s1["agents"]["0"]["listeners"]["mass"]["cell_mass"])
-    m2 = float(s2["agents"]["0"]["listeners"]["mass"]["cell_mass"])
+    m1 = fg_magnitude(s1["agents"]["0"]["listeners"]["mass"]["cell_mass"])
+    m2 = fg_magnitude(s2["agents"]["0"]["listeners"]["mass"]["cell_mass"])
     assert m1 == m2, (
         f"per-cell cell_mass changed when cells_per_agent was scaled "
         f"(1.0: {m1!r}, 1e6: {m2!r}) — aggregator is leaking the scaling "

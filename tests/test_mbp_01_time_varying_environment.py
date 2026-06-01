@@ -23,6 +23,7 @@ from process_bigraph import Composite
 
 from v2ecoli.composites.baseline import baseline
 from v2ecoli.composites.baseline_time_varying_env import baseline_time_varying_env
+from v2ecoli.library.quantity_helpers import fg_magnitude
 from v2ecoli.core import build_core
 from v2ecoli.steps.environment_driver import (
     ENV_DRIVER_MODE_SYNTHETIC_TRAJECTORY,
@@ -198,8 +199,8 @@ def test_static_env_baseline_unchanged(core):
     comp_a.run(1)
     comp_b.run(1)
 
-    cell_mass_a = float(comp_a.state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
-    cell_mass_b = float(comp_b.state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
+    cell_mass_a = fg_magnitude(comp_a.state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
+    cell_mass_b = fg_magnitude(comp_b.state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
     assert cell_mass_a == cell_mass_b, (
         f"static-mode env-driver perturbed per-cell state "
         f"(baseline: {cell_mass_a!r}, baseline_time_varying_env: {cell_mass_b!r})"

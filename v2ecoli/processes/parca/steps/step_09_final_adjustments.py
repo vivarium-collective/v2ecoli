@@ -99,6 +99,21 @@ OUTPUT_PORTS = {
 class FinalAdjustmentsStep(Step):
     """Step 9 — final_adjustments.  See module docstring."""
 
+    description = (
+        "Step 9 — final_adjustments.  Fit the last kinetic constants the\n"
+        "online model needs, then a final expression-consistency pass.\n\n"
+        "  • set_mechanistic_supply_constants — solve aa kcat + synthase conc\n"
+        "    so each amino acid's net flux matches translation demand per\n"
+        "    condition\n"
+        "  • set_mechanistic_uptake/export_constants — transporter / exporter\n"
+        "    kcats by the same balance\n"
+        "  • set_ppgpp_kinetics_parameters — fit RelA/SpoT synthase + hydrolase\n"
+        "    rates so steady-state [ppGpp] tracks the growth-rate-dependent pool\n"
+        "  • adjust_final_expression — cross-condition consistency check\n"
+        "Each mechanistic fit is wrapped in try/except (a CYS[c] kcat corner\n"
+        "case can fail in debug) so the sim_data pickle still lands."
+    )
+
     def inputs(self):
         return dict(INPUT_PORTS)
 

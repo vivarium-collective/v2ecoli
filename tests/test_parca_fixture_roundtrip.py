@@ -116,7 +116,7 @@ def test_hydrate_installs_sibling_stores_on_sim_data_root(state):
         'hydrate_sim_data_from_state must install '
         'expectedDryMassIncreaseDict; an empty/missing dict causes '
         'get_mass_listener_config to AttributeError and the cache to '
-        'silently ship without MassListener.')
+        'silently ship without MassDeriver.')
     assert 'minimal' in edm, (
         f'expectedDryMassIncreaseDict missing "minimal" key (got: {sorted(edm)[:5]}…)')
 

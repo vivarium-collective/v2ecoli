@@ -55,6 +55,22 @@ For deeper questions about either framework, invoke the `pbg-expert` skill.
    that runs the process inside a composite and asserts on an outcome
    (growth rate, molecule count, concentration, etc.). A unit test of a
    helper function does not substitute.
+6. **Parity gate (behavior-preserving refactors).** Any change claiming to
+   preserve behavior (deriver/flow consolidation, port-schema edits, renames)
+   must pass the committed gate before commit — never claim "byte-identical"
+   from memory:
+
+   ```
+   PYTHONPATH=$PWD .venv/bin/python scripts/parity_check.py \
+       --seconds 120 --compare tests/golden/baseline_parity_signature.json \
+       --build-check
+   ```
+
+   Two gates: a deep null-emitter signature vs the committed golden, AND a
+   real-emitter `build_composite` (the second catches emitter-schema resolve
+   failures the null emitter hides). Exit 0 = both pass. Re-capture the golden
+   (`--out`) only from a clean `origin/main` worktree when main's behavior
+   intentionally changes.
 
 ## E. coli domain details
 
@@ -82,12 +98,12 @@ For deeper questions about either framework, invoke the `pbg-expert` skill.
 
 The IDs are scattered across many places. Search in roughly this order:
 
-1. **Workspace expert docs first.** `references/expert/*.html` or `.pdf` —
+1. **Workspace expert docs first.** `workspace/references/expert/*.html` or `.pdf` —
    for the DnaA investigation, the May 2026 prior-art HTML report
    (`v2ecoli_replication_initiation_report`) enumerates every relevant
    bulk ID + reaction ID with biological context. Check
    `workspace.yaml.expert_docs[]` for the registered set, plus
-   `references/notes/*.md` for the per-paper digests.
+   `workspace/references/notes/*.md` for the per-paper digests.
 
 2. **Existing process modules.** Many processes hardcode the IDs they
    touch as module-level constants — `grep -rn 'PD0\|MONOMER0\|CPLX0\|RXN0' v2ecoli/processes/` finds them fast.
@@ -120,12 +136,12 @@ biological name.
 - **ParCa** (Parameter Calculator) builds `sim_data` from raw EcoCyc-derived
   knowledge bases. It's expensive (minutes to hours). Never run ParCa in CI —
   CI uses a frozen gzipped cache at `tests/fixtures/cache/`.
-- **Three architectures** all simulate the same cell:
-  - `baseline` — partitioned, 55 processes, upstream-parity.
-  - `departitioned` — 41 steps, requester+evolver halves fused.
-  - `reconciled` — hybrid.
-  A change to a process must work across all three, or the PR must explain
-  why it's scoped. Use the architecture comparison report to verify.
+- **Architectures**:
+  - `baseline` — partitioned, 55 processes, upstream-parity (the reference).
+  - `colony` — many baseline cells in a shared environment (multi-agent).
+  - `millard_pdmp_baseline` — piecewise-deterministic Markov-process variant.
+  A change to a process must work across all of them, or the PR must explain
+  why it's scoped.
 
 ### Adding a new composite architecture
 
@@ -155,8 +171,6 @@ touches processes, steps, or composite wiring.
   lineage with mass trajectories and fold-change.
 - `reports/colony_report.py` → `colony_report.html` — mixed colony with pymunk
   physics, growth, and division.
-- `reports/compare_report.py` → `comparison_report.html` — baseline vs departitioned
-  vs reconciled, 42-min side-by-side.
 - `reports/network_report.py` → `network_*.html` — per-architecture Cytoscape
   topology. Click a process to see ports, schemas, config, docstring, math.
 - `reports/v1_v2_report.py` → `v1_v2_comparison.html` — vEcoli 1.0 vs 2.0 vs v2ecoli.

@@ -213,7 +213,7 @@ def merge_unique(existing: list, additions: list, key: str = "name") -> tuple[li
 
 def main():
     for slug, blocks in ADDITIONS.items():
-        yaml_path = Path("studies") / slug / "study.yaml"
+        yaml_path = Path("workspace/studies") / slug / "study.yaml"
         if not yaml_path.exists():
             print(f"  SKIP {slug}: yaml missing"); continue
         spec = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))

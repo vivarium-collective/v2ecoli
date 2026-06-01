@@ -6,7 +6,7 @@ each run for the same duration, must produce DIFFERENT simulation state.
 A failure means stochastic processes aren't picking up the master_seed
 override — every process is sharing a single cache-derived seed, so a
 multi-seed "ensemble" collapses to bit-identical trajectories (the bug
-documented in studies/pdmp-00 planned_runs[fix-per-process-rng-seeding]).
+documented in workspace/studies/pdmp-00 planned_runs[fix-per-process-rng-seeding]).
 
 Skipped if `out/cache` is not present, matching test_seed_determinism.py.
 

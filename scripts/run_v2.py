@@ -1,4 +1,9 @@
-"""Run v2ecoli and collect snapshots. Called as subprocess by reports/v1_v2_report.py."""
+"""Run a v2ecoli composite and collect snapshots. Called as a subprocess by
+reports/v1_v2_report.py and reports/composite_comparison.py.
+
+Args: <duration> <interval> <result_path> [composite_name] [seed]
+The optional 4th arg selects which registered composite to build (default
+'baseline'); the optional 5th is the RNG seed (default 0)."""
 import os, sys, json, time, warnings
 import numpy as np
 
@@ -7,6 +12,8 @@ warnings.filterwarnings('ignore')
 duration = int(sys.argv[1])
 interval = int(sys.argv[2])
 result_path = sys.argv[3]
+composite_name = sys.argv[4] if len(sys.argv) > 4 else "baseline"
+seed = int(sys.argv[5]) if len(sys.argv) > 5 else 0
 
 v2ecoli_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
 os.chdir(v2ecoli_dir)
@@ -25,18 +32,35 @@ def mag(x):
     return float(getattr(x, 'magnitude', x))
 
 
+def _unique_counts(unique):
+    """Active-molecule count for every unique-molecule type present."""
+    out = {}
+    for name, arr in (unique or {}).items():
+        if hasattr(arr, 'dtype') and getattr(arr.dtype, 'names', None) \
+                and '_entryState' in arr.dtype.names:
+            out[name] = int(arr['_entryState'].sum())
+    return out
+
+
+def _bulk_summary(cell):
+    """Total bulk molecule count + number of distinct bulk species (>0)."""
+    bulk = cell.get('bulk')
+    if bulk is None or not hasattr(bulk, 'dtype'):
+        return {'bulk_total': 0, 'bulk_species_nonzero': 0, 'bulk_n_species': 0}
+    counts = bulk['count'] if (bulk.dtype.names and 'count' in bulk.dtype.names) else bulk
+    counts = np.asarray(counts)
+    return {
+        'bulk_total': int(counts.sum()),
+        'bulk_species_nonzero': int((counts > 0).sum()),
+        'bulk_n_species': int(counts.size),
+    }
+
+
 def snap(t, cell):
     mass = cell.get('listeners', {}).get('mass', {})
     unique = cell.get('unique', {})
-    fc = unique.get('full_chromosome')
-    n_chrom = 0
-    if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
-        n_chrom = int(fc['_entryState'].sum())
-    rep = unique.get('active_replisome')
-    n_forks = 0
-    if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
-        n_forks = int(rep['_entryState'].sum())
-    return {
+    uc = _unique_counts(unique)
+    s = {
         'time': t,
         'dry_mass': mag(mass.get('dry_mass', 0)),
         'cell_mass': mag(mass.get('cell_mass', 0)),
@@ -50,9 +74,14 @@ def snap(t, cell):
         'water_mass': mag(mass.get('water_mass', 0)),
         'volume': mag(mass.get('volume', 0)),
         'instantaneous_growth_rate': mag(mass.get('instantaneous_growth_rate', 0)),
-        'n_chromosomes': n_chrom,
-        'n_forks': n_forks,
+        # legacy convenience keys (kept for the older v1_v2 report)
+        'n_chromosomes': uc.get('full_chromosome', 0),
+        'n_forks': uc.get('active_replisome', 0),
+        # rich molecular-species detail
+        'unique_counts': uc,                  # per-type active unique molecules
     }
+    s.update(_bulk_summary(cell))
+    return s
 
 
 # Use a minimal in-memory emitter instead of the default ParquetEmitter: this
@@ -64,7 +93,7 @@ from v2ecoli.composites._helpers import set_null_emitter_override
 set_null_emitter_override(True)
 
 t0 = time.time()
-composite = build_composite("baseline", cache_dir='out/cache', seed=0)
+composite = build_composite(composite_name, cache_dir='out/cache', seed=seed)
 load_time = time.time() - t0
 
 cell = composite.state['agents']['0']
@@ -93,7 +122,8 @@ while total < duration:
 wall_time = time.time() - t0
 
 result = {
-    'engine': 'v2ecoli (process-bigraph)',
+    'engine': f'v2ecoli:{composite_name} (process-bigraph)',
+    'composite': composite_name,
     'load_time': load_time,
     'wall_time': wall_time,
     'sim_time': total,

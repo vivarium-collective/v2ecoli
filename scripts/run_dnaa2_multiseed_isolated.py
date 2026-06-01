@@ -146,6 +146,30 @@ def main() -> None:
     print(f"  n_cells={md.get('n_cells')}  n_divided={md.get('n_divided')}  "
           f"doubling={md.get('doubling_time_mean', 0)/60:.1f}min "
           f"+/- {md.get('doubling_time_std', 0)/60:.1f}min")
+
+    # --- AUTO-REFRESH the canonical figure FROM THIS RUN -----------------
+    # Prevents the recurring "verdict updated but plots stale" problem: the
+    # figure is re-rendered from the run that just finished, so it can never lag
+    # the data. Renders the canonical seed only (compact, per reviewer). The
+    # bespoke sixpanel renderer is used because this viz reads parquet directly
+    # (no inputs_map), so the generic render_study_visualizations can't.
+    try:
+        import importlib.util as _ilu
+        _spec = _ilu.spec_from_file_location(
+            "render_dnaa2_sixpanel", os.path.join(HERE, "render_dnaa2_sixpanel.py"))
+        _r = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_r)
+        canonical = SEEDS[0]
+        step = int(os.environ.get("DNAA2_STEP", "3"))
+        figdir = "reports/figures/dnaa-2-atp-hydrolysis"
+        os.makedirs(figdir, exist_ok=True)
+        _r.render(OUT_DIR, canonical, step, "studies/dnaa-2-atp-hydrolysis/charts")
+        _r.render_html(OUT_DIR, canonical, step,
+                       f"{figdir}/dnaa2_step{step}_sixpanel_seed{canonical}.html")
+        print(f"  auto-refreshed figure: dnaa2_step{step}_sixpanel_seed{canonical} "
+              f"(from this run, canonical seed {canonical})")
+    except Exception as e:  # noqa: BLE001 — viz refresh must never fail the run
+        print(f"  WARNING: figure auto-refresh failed: {type(e).__name__}: {e}")
+
     print("\n=== DONE ===")
 
 

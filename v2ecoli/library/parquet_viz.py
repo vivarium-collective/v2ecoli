@@ -77,15 +77,24 @@ def load_run_history(parquet_run_dir: Path) -> pl.DataFrame:
     them in arbitrary order.
     """
     history_root = parquet_run_dir / "history"
-    if not history_root.exists():
-        raise FileNotFoundError(
-            f"no history/ directory under {parquet_run_dir}"
-        )
-    pq_files = sorted(history_root.rglob("*.pq"),
-                      key=lambda p: int(p.stem) if p.stem.isdigit() else 0)
+    if history_root.exists():
+        search_roots = [history_root]
+    else:
+        # The workflow meta-composite nests the hive one or more levels deep
+        # (<run>/parquet/<experiment_id>/history/...), so a flat
+        # ``<run>/history`` doesn't exist. Find the history/ dir(s) anywhere
+        # under the run dir.
+        search_roots = [d for d in parquet_run_dir.rglob("history") if d.is_dir()]
+        if not search_roots:
+            raise FileNotFoundError(
+                f"no history/ directory under {parquet_run_dir} (searched recursively)"
+            )
+    pq_files = sorted(
+        (f for root in search_roots for f in root.rglob("*.pq")),
+        key=lambda p: int(p.stem) if p.stem.isdigit() else 0)
     if not pq_files:
         raise FileNotFoundError(
-            f"no .pq history files under {history_root}"
+            f"no .pq history files under {parquet_run_dir}"
         )
     frames = [pl.read_parquet(p) for p in pq_files]
     # ``diagonal_relaxed`` (not ``vertical_relaxed``) is required because the

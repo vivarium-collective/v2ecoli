@@ -76,5 +76,29 @@ Item 2 (figure-staleness audit) is the cheapest high-value guard: it turns this
 recurring silent failure into a loud pre-send finding, without changing the run
 pipeline. Item 1 (auto-refresh on run) is the durable fix that prevents it.
 
+## Progress (2026-06-01, this session)
+
+- **Item 2 SHIPPED** — `figure_stale_vs_run` lint check (pbg-superpowers#91).
+  Already earned its keep: caught dnaa-1's stale figure during this round.
+- **Item 1 PARTIAL:**
+  - Fixed `v2ecoli.library.parquet_viz.load_run_history` to find the hive in the
+    workflow meta-composite's NESTED layout (`<run>/parquet/<exp>/history/`),
+    which previously raised "no history/ directory" — the generic renderer no
+    longer crashes on workflow output.
+  - Added a post-sweep AUTO-RENDER hook to the workflow driver
+    (`run_dnaa2_multiseed_isolated.py`): after a run it re-renders the canonical
+    seed's figure from THAT run via the bespoke sixpanel renderer, so the plot
+    can't lag the data.
+- **Architectural finding that scopes the REAL framework fix:** the generic
+  `render_study_visualizations` is **inputs_map-based** (wires named ports to
+  parquet columns, calls the Visualization). Viz that read parquet directly
+  (the dnaa sixpanel/forms — no `inputs_map`) can't be rendered by it, and a
+  multiseed hive would mix seeds. So a fully-general auto-refresh-on-run needs
+  (a) seed-awareness in the generic renderer and (b) a study-declared
+  **`figure_refresh:`** command list that the framework run-completion
+  (`/pbg-study run-*`, `v2ecoli.workflow.run`) invokes for bespoke viz. That
+  convention + hook is the remaining framework work; the per-driver hook above
+  is the concrete stop-gap.
+
 See also: [[pbg-editable-install-gap]], pbg-superpowers
 `docs/conventions/handling-investigation-feedback.md` (verify-the-rendered-artifact).

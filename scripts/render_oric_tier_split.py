@@ -95,7 +95,7 @@ def main() -> None:
     b64 = _plot_oric_tier_split(snapshots, title=title)
     html = render_html(b64, title)
 
-    out = Path("studies") / args.study / "viz" / "oric_tier_split.html"
+    out = Path("workspace/studies") / args.study / "viz" / "oric_tier_split.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html)
     print(f"[oric_tier_split] wrote {out} ({out.stat().st_size:,} bytes)")

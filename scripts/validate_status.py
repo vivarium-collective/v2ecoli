@@ -140,7 +140,7 @@ def validate_investigation(inv_yaml: Path, ws_root: Path) -> tuple[list[str], li
         _InvErr = None
 
     for slug in studies:
-        sp = ws_root / "studies" / slug / "study.yaml"
+        sp = ws_root / "workspace" / "studies" / slug / "study.yaml"
         if not sp.is_file():
             warnings.append(f"{inv_name}: study yaml missing: {sp}")
             continue
@@ -189,7 +189,7 @@ def main() -> int:
     args = ap.parse_args()
 
     ws_root = Path(__file__).resolve().parent.parent
-    inv_dir = ws_root / "investigations"
+    inv_dir = ws_root / "workspace" / "investigations"
     if not inv_dir.is_dir():
         raise SystemExit(f"no investigations dir at {inv_dir}")
 

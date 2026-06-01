@@ -61,7 +61,7 @@ def _slugify(name: str) -> str:
 def main():
     for fig_dir_name, study_slug in PDMP_STUDIES.items():
         fig_dir = Path("reports/figures") / fig_dir_name
-        yaml_path = Path("studies") / study_slug / "study.yaml"
+        yaml_path = Path("workspace/studies") / study_slug / "study.yaml"
         if not yaml_path.exists():
             print(f"  SKIP {study_slug}: yaml missing"); continue
         if not fig_dir.is_dir():

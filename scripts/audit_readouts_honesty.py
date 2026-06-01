@@ -47,7 +47,7 @@ def _path_exists(path_str: str) -> bool:
 
 
 def main():
-    for yaml_path in sorted(Path("studies").glob("pdmp-*/study.yaml")):
+    for yaml_path in sorted(Path("workspace/studies").glob("pdmp-*/study.yaml")):
         slug = yaml_path.parent.name
         spec = yaml.safe_load(yaml_path.read_text(encoding="utf-8"))
         readouts = spec.get("readouts") or []

@@ -1,0 +1,369 @@
+% Add references via /pbg-data <model> or by hand.
+
+% ====================================================================
+% Bibliography for v2ecoli — entries extracted from the DUF ARC final
+% report (HR0011-24-3-0372, UConn, Sep 2024–Sep 2025) and the v2ecoli
+% → PDMP roadmap. BibTeX keys are referenced by:
+%   - investigation.yaml `expert_docs` and study `expected_behavior[i].cites`
+%   - references/claims.yaml mappings
+%   - inline [[bibkey]] links in study descriptions
+% ====================================================================
+
+% ─── Whole-cell model & framework ──────────────────────────────────
+@article{macklin2020,
+  title   = {Simultaneous cross-evaluation of heterogeneous {E. coli} datasets via mechanistic simulation},
+  author  = {Macklin, Derek N. and Ahn-Horst, Travis A. and Choi, Heejo and Ruggero, Nicholas A. and Carrera, Javier and Mason, John C. and others},
+  journal = {Science},
+  volume  = {369},
+  number  = {6502},
+  pages   = {eaav3751},
+  year    = {2020},
+  doi     = {10.1126/science.aav3751},
+  note    = {The v2ecoli (Covert-lab) WCM. DUF ref [1].}
+}
+
+@article{agmon2022,
+  title   = {Vivarium: an interface and engine for integrative multiscale modeling in computational biology},
+  author  = {Agmon, Eran and Spangler, Ryan K. and Skalnik, Christopher J. and Poole, William and Peirce, Shayn M. and Morrison, James H. and Covert, Markus W.},
+  journal = {Bioinformatics},
+  volume  = {38},
+  number  = {7},
+  pages   = {1972--1979},
+  year    = {2022},
+  doi     = {10.1093/bioinformatics/btac049},
+  note    = {Vivarium framework — the discrete-event composition engine that hosts v2ecoli. DUF ref [2].}
+}
+
+@article{birch2014,
+  title   = {Incorporation of flexible objectives and time-linked simulation with flux balance analysis},
+  author  = {Birch, Elsa W. and Udell, Madeleine and Covert, Markus W.},
+  journal = {Journal of Theoretical Biology},
+  volume  = {345},
+  pages   = {12--21},
+  year    = {2014},
+  doi     = {10.1016/j.jtbi.2013.12.009},
+  note    = {tFBA — the time-linked FBA formulation that v2ecoli currently uses for metabolism. The Phase 1 substitution target. DUF ref [3].}
+}
+
+@article{millard2017,
+  title   = {Metabolic regulation is sufficient for global and robust coordination of glucose uptake, catabolism, energy production and growth in {Escherichia coli}},
+  author  = {Millard, Pierre and Smallbone, Kieran and Mendes, Pedro},
+  journal = {PLOS Computational Biology},
+  volume  = {13},
+  number  = {2},
+  pages   = {e1005396},
+  year    = {2017},
+  doi     = {10.1371/journal.pcbi.1005396},
+  note    = {Kinetic ODE of E. coli central carbon + energy metabolism; substrate for the v2ecoli-pdmp Phase 1 ODE substitution. BioModels MODEL1505110000. DUF ref [4]. PDF in references/papers/.}
+}
+
+% ─── Inference for metabolic models ──────────────────────────────────
+@article{saa2017,
+  title   = {Formulation, construction and analysis of kinetic models of metabolism: A review of modelling frameworks},
+  author  = {Saa, Pedro A. and Nielsen, Lars K.},
+  journal = {Biotechnology Advances},
+  volume  = {35},
+  number  = {8},
+  pages   = {981--1003},
+  year    = {2017},
+  doi     = {10.1016/j.biotechadv.2017.09.005},
+  note    = {Survey of kinetic-model inference for metabolism. DUF ref [5].}
+}
+
+@article{backman2023,
+  title   = {{BayFlux}: A Bayesian method to quantify metabolic fluxes and their uncertainty at the genome scale},
+  author  = {Backman, Tyler W. H. and Schenk, Christina and Radivojevic, Tijana and Ando, David and Singh, Jahnavi and Czajka, Jeffrey J. and others},
+  journal = {PLOS Computational Biology},
+  volume  = {19},
+  number  = {11},
+  pages   = {e1011111},
+  year    = {2023},
+  doi     = {10.1371/journal.pcbi.1011111},
+  note    = {MCMC for genome-scale bulk-flux inference. DUF ref [6].}
+}
+
+% ─── Causal modelling & inference ────────────────────────────────────
+@misc{chirho2024,
+  title        = {{ChiRho}: Causal reasoning with {Python}},
+  author       = {{BasisResearch}},
+  year         = {2024},
+  howpublished = {Software},
+  url          = {https://github.com/BasisResearch/chirho},
+  note         = {Reference inspiration for the Vivarium observe(variable, likelihood) / intervene(variable, value) algebraic effects in Phase 3. DUF ref [7].}
+}
+
+@article{vowels2022,
+  title   = {{D'ya Like DAGs?} A Survey on Structure Learning and Causal Discovery},
+  author  = {Vowels, Matthew J. and Camgoz, Necati Cihan and Bowden, Richard},
+  journal = {ACM Computing Surveys},
+  volume  = {55},
+  number  = {4},
+  pages   = {82:1--82:36},
+  year    = {2022},
+  doi     = {10.1145/3527154},
+  note    = {DUF ref [8].}
+}
+
+@inproceedings{toth2022,
+  title     = {Active Bayesian Causal Inference},
+  author    = {Toth, Christian and Lorch, Lars and Knoll, Christian and Krause, Andreas and Pernkopf, Franz and Peharz, Robert and others},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume    = {35},
+  pages     = {16261--16275},
+  year      = {2022},
+  note      = {Active causal inference framework for Phase 5's intervention-selection loop. DUF ref [9].}
+}
+
+@incollection{peters2022,
+  title     = {Causal Models for Dynamical Systems},
+  author    = {Peters, Jonas and Bauer, Stefan and Pfister, Niklas},
+  booktitle = {Probabilistic and Causal Inference: The Works of Judea Pearl},
+  edition   = {1st},
+  publisher = {Association for Computing Machinery},
+  pages     = {671--690},
+  year      = {2022},
+  doi       = {10.1145/3501714.3501752},
+  note      = {DUF ref [10].}
+}
+
+@misc{bongers2022,
+  title  = {Causal Modeling of Dynamical Systems},
+  author = {Bongers, Stephan and Blom, Tineke and Mooij, Joris M.},
+  year   = {2022},
+  eprint = {2206.13675},
+  archivePrefix = {arXiv},
+  primaryClass  = {stat.ML},
+  note   = {DUF ref [11].}
+}
+
+@article{tejada2025,
+  title   = {Causal machine learning for single-cell genomics},
+  author  = {Tejada-Lapuerta, Alejandro and Bertin, Paul and Bauer, Stefan and Aliee, Hananeh and Bengio, Yoshua and Theis, Fabian J.},
+  journal = {Nature Genetics},
+  volume  = {57},
+  number  = {4},
+  pages   = {797--808},
+  year    = {2025},
+  doi     = {10.1038/s41588-025-02124-2},
+  note    = {DUF ref [12].}
+}
+
+% ─── WCM statistics / inference theory ───────────────────────────────
+@article{stumpf2021,
+  title   = {Statistical and computational challenges for whole cell modelling},
+  author  = {Stumpf, Michael P. H.},
+  journal = {Current Opinion in Systems Biology},
+  volume  = {26},
+  pages   = {58--63},
+  year    = {2021},
+  doi     = {10.1016/j.coisb.2021.04.005},
+  note    = {DUF ref [13].}
+}
+
+@article{yang2024,
+  title   = {Improved enzyme functional annotation prediction using contrastive learning with structural inference},
+  author  = {Yang, Yang and Jerger, Alexander and Feng, Sihao and Wang, Ziqiang and Brasfield, Christian and others},
+  journal = {Communications Biology},
+  volume  = {7},
+  number  = {1},
+  pages   = {1690},
+  year    = {2024},
+  doi     = {10.1038/s42003-024-07434-5},
+  note    = {DUF ref [14].}
+}
+
+@article{dreyfuss2013,
+  title   = {Reconstruction and Validation of a Genome-Scale Metabolic Model for the Filamentous Fungus {Neurospora crassa} Using {FARM}},
+  author  = {Dreyfuss, Jonathan M. and Zucker, Jeremy D. and Hood, Heather M. and Ocasio, Loretta R. and Sachs, Matthew S. and Galagan, James E.},
+  journal = {PLOS Computational Biology},
+  volume  = {9},
+  number  = {7},
+  pages   = {e1003126},
+  year    = {2013},
+  doi     = {10.1371/journal.pcbi.1003126},
+  note    = {DUF ref [15].}
+}
+
+@article{choi2023,
+  title   = {Mitigating biomass composition uncertainties in flux balance analysis using ensemble representations},
+  author  = {Choi, Yoon Mi and Choi, Dong Hyun and Lee, Yi Qing and Koduru, Lokanand and Lewis, Nathan E. and Lakshmanan, Meiyappan and others},
+  journal = {Computational and Structural Biotechnology Journal},
+  volume  = {21},
+  pages   = {3736--3745},
+  year    = {2023},
+  doi     = {10.1016/j.csbj.2023.07.017},
+  note    = {DUF ref [16].}
+}
+
+% ─── Population dynamics ─────────────────────────────────────────────
+@book{metz1986,
+  title     = {The Dynamics of Physiologically Structured Populations},
+  editor    = {Metz, Johan A. J. and Diekmann, Odo},
+  series    = {Lecture Notes in Biomathematics},
+  volume    = {68},
+  publisher = {Springer},
+  address   = {Berlin, Heidelberg},
+  year      = {1986},
+  note      = {Reference for Phase 3 structured-population layer. DUF ref [17].}
+}
+
+@article{kuritz2017,
+  title   = {On the relationship between cell cycle analysis with ergodic principles and age-structured cell population models},
+  author  = {Kuritz, Karsten and St{\"o}hr, Daniela and Pollak, Nadine and Allg{\"o}wer, Frank},
+  journal = {Journal of Theoretical Biology},
+  volume  = {414},
+  pages   = {91--102},
+  year    = {2017},
+  doi     = {10.1016/j.jtbi.2016.11.024},
+  note    = {DUF ref [18].}
+}
+
+% ─── Single-cell stochastic gene regulation ──────────────────────────
+@article{dibaeinia2020,
+  title   = {{SERGIO}: A Single-Cell Expression Simulator Guided by Gene Regulatory Networks},
+  author  = {Dibaeinia, Payam and Sinha, Saurabh},
+  journal = {Cell Systems},
+  volume  = {11},
+  number  = {3},
+  pages   = {252--271.e11},
+  year    = {2020},
+  doi     = {10.1016/j.cels.2020.08.003},
+  note    = {DUF ref [19].}
+}
+
+@article{blom2023,
+  title   = {Causality and independence in perfectly adapted dynamical systems},
+  author  = {Blom, Tineke and Mooij, Joris M.},
+  journal = {Journal of Causal Inference},
+  volume  = {11},
+  number  = {1},
+  year    = {2023},
+  doi     = {10.1515/jci-2022-0019},
+  note    = {DUF ref [20].}
+}
+
+@article{uygun2006,
+  title   = {{DFBA-LQR}: An Optimal Control Approach to Flux Balance Analysis},
+  author  = {Uygun, Korkut and Matthew, Howard W. T. and Huang, Yinlun},
+  journal = {Industrial \& Engineering Chemistry Research},
+  volume  = {45},
+  number  = {25},
+  pages   = {8554--8564},
+  year    = {2006},
+  doi     = {10.1021/ie050979g},
+  note    = {Reference design for the Phase 1 LQR control layer. DUF ref [21].}
+}
+
+@article{gherman2025,
+  title   = {Accelerated design of {Escherichia coli} reduced genomes using a whole-cell model and machine learning},
+  author  = {Gherman, Iuliana M. and Sharma, Kavya and Rees-Garbutt, Joshua and Pang, Wei and Abdallah, Zahraa S. and Gorochowski, Thomas E. and others},
+  journal = {Cell Systems},
+  volume  = {16},
+  number  = {10},
+  pages   = {101392},
+  year    = {2025},
+  doi     = {10.1016/j.cels.2025.101392},
+  note    = {DUF ref [22].}
+}
+
+% ─── PL / numerical infrastructure ───────────────────────────────────
+@inproceedings{ahman2020,
+  title     = {Runners in Action},
+  author    = {Ahman, Danel and Bauer, Andrej},
+  booktitle = {Programming Languages and Systems: 29th European Symposium on Programming, {ESOP} 2020},
+  year      = {2020},
+  doi       = {10.1007/978-3-030-44914-8\_2},
+  note      = {Algebraic-effect runners — the PL-theoretic framing for the Phase 3 Vivarium runtime extension. DUF ref [23].}
+}
+
+@article{xarray2017,
+  title   = {xarray: N-D labeled Arrays and Datasets in {Python}},
+  author  = {Hoyer, Stephan and Hamman, Joseph},
+  journal = {Journal of Open Research Software},
+  volume  = {5},
+  number  = {1},
+  pages   = {10},
+  year    = {2017},
+  doi     = {10.5334/jors.148},
+  note    = {The N-D labelled-array library underpinning XArrayEmitter. DUF ref [24].}
+}
+
+@misc{jumpprocessesjl,
+  title        = {{JumpProcesses.jl}: Stochastic Simulation Algorithms for Jump Processes, Jump-{ODE}s, and Jump-Diffusions},
+  author       = {{SciML community}},
+  howpublished = {Software},
+  url          = {https://github.com/SciML/JumpProcesses.jl},
+  note         = {Reference target for Phase 4 PDMP compilation. DUF ref [25].}
+}
+
+@article{loman2023,
+  title   = {{Catalyst}: Fast and flexible modeling of reaction networks},
+  author  = {Loman, Torkel E. and Ma, Yingbo and Ilin, Vasily and Gowda, Shashi and Korsbo, Niklas and Yewale, Nikhil and others},
+  journal = {PLOS Computational Biology},
+  volume  = {19},
+  number  = {10},
+  pages   = {e1011530},
+  year    = {2023},
+  doi     = {10.1371/journal.pcbi.1011530},
+  note    = {Phase 4 compilation target. DUF ref [26].}
+}
+
+@misc{bertin2025,
+  title         = {A scalable gene network model of regulatory dynamics in single cells},
+  author        = {Bertin, Paul and Viviano, Joseph D. and Tejada-Lapuerta, Alejandro and Wang, Wendy and Bauer, Stefan and Theis, Fabian J. and others},
+  year          = {2025},
+  eprint        = {2503.17078},
+  archivePrefix = {arXiv},
+  primaryClass  = {q-bio.MN},
+  note          = {DUF ref [27].}
+}
+
+% ─── Bayesian estimation theory ──────────────────────────────────────
+@article{lyne2015,
+  title   = {On {Russian Roulette} Estimates for {Bayesian} Inference with Doubly-Intractable Likelihoods},
+  author  = {Lyne, Anne-Marie and Girolami, Mark and Atchad{\'e}, Yves and Strathmann, Heiko and Simpson, Daniel},
+  journal = {Statistical Science},
+  volume  = {30},
+  number  = {4},
+  pages   = {443--467},
+  year    = {2015},
+  doi     = {10.1214/15-STS523},
+  note    = {Foundational reference for Phase 5 marginal-likelihood estimation. DUF ref [28].}
+}
+
+% ─── Ontology / model alignment ──────────────────────────────────────
+@article{hari2024,
+  title   = {{mergem}: merging, comparing, and translating genome-scale metabolic models using universal identifiers},
+  author  = {Hari, Archana and Zarrabi, Ali and Lobo, Daniel},
+  journal = {NAR Genomics and Bioinformatics},
+  volume  = {6},
+  number  = {1},
+  pages   = {lqae010},
+  year    = {2024},
+  doi     = {10.1093/nargab/lqae010},
+  note    = {DUF ref [29].}
+}
+
+% ─── Beyond the DUF report: additional anchors for v2ecoli-pdmp ──────
+@article{talts2018sbc,
+  title   = {Validating {Bayesian} inference algorithms with simulation-based calibration},
+  author  = {Talts, Sean and Betancourt, Michael and Simpson, Daniel and Vehtari, Aki and Gelman, Andrew},
+  year    = {2018},
+  eprint  = {1804.06788},
+  archivePrefix = {arXiv},
+  primaryClass  = {stat.ME},
+  note    = {SBC — the rank-histogram uniformity check used for the UQ acceptance criteria in pdmp-03-inference and pdmp-05-causal-discovery.}
+}
+
+@article{cook2006posterior,
+  title   = {Validation of Software for {Bayesian} Models Using Posterior Quantiles},
+  author  = {Cook, Samantha R. and Gelman, Andrew and Rubin, Donald B.},
+  journal = {Journal of Computational and Graphical Statistics},
+  volume  = {15},
+  number  = {3},
+  pages   = {675--692},
+  year    = {2006},
+  doi     = {10.1198/106186006X136976},
+  note    = {Precursor to Talts et al. 2018; cited in pdmp-05 for the model-comparison-level SBC extension.}
+}
+

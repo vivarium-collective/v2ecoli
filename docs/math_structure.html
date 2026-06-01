@@ -1,0 +1,145 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>v2ecoli — Mathematical Structure</title><style>
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, system-ui, sans-serif; color: #1e293b;
+       background: #f8fafc; line-height: 1.55; }
+header { background: #0f172a; color: #f1f5f9; padding: 28px 40px; }
+header h1 { margin: 0 0 6px; font-size: 24px; }
+header p { margin: 0; color: #94a3b8; font-size: 14px; max-width: 70ch; }
+main { max-width: 1000px; margin: 0 auto; padding: 32px 40px 80px; }
+.toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 28px; }
+.toc a { text-decoration: none; font-size: 12px; padding: 4px 10px; border-radius: 12px;
+         color: #0f172a; border: 1px solid #cbd5e1; }
+h2 { font-size: 18px; margin: 34px 0 4px; padding: 6px 12px; border-radius: 6px; }
+h2 .count { font-size: 12px; color: #475569; font-weight: 400; }
+.proc { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+        padding: 16px 20px; margin: 14px 0; }
+.proc h3 { margin: 0 0 2px; font-size: 16px; }
+.proc .meta { font-size: 12px; color: #64748b; margin: 0 0 10px;
+              font-family: ui-monospace, monospace; }
+.proc p { margin: 8px 0; font-size: 14px; }
+pre.eq { background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 6px;
+         overflow-x: auto; font-size: 13px; font-family: ui-monospace, "SF Mono", monospace;
+         margin: 8px 0; }
+section.flow { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+               padding: 16px 20px; margin: 14px 0; }
+.layer { font-family: ui-monospace, monospace; font-size: 12px; padding: 2px 0;
+         border-bottom: 1px dashed #e2e8f0; }
+.layer .n { color: #94a3b8; display: inline-block; width: 34px; }
+.tag { display: inline-block; background: #eef2ff; color: #3730a3; border-radius: 4px;
+       padding: 1px 6px; margin: 1px 3px 1px 0; font-size: 11px; }
+.note { font-size: 13px; color: #475569; }
+</style></head>
+<body>
+<header>
+  <h1>v2ecoli — Mathematical Structure</h1>
+  <p>The governing equations of the whole-cell <i>E. coli</i> model, by subsystem.
+     Each entry is the formal description declared on its process/deriver class.
+     24 processes carry formal math.</p>
+</header>
+<main>
+  <div class="toc"><a href='#replication' style='background:#F4A7A133'>DNA replication</a><a href='#transcription' style='background:#9CC8E333'>Transcription</a><a href='#rna' style='background:#B5D9F033'>RNA metabolism</a><a href='#translation' style='background:#A4D4A433'>Translation</a><a href='#regulation' style='background:#D9B8E033'>Regulation (TFs, ppGpp)</a><a href='#signaling' style='background:#FFD58C33'>Signaling / equilibrium</a><a href='#metabolism' style='background:#F7D48833'>Metabolism (FBA)</a><a href='#counts' style='background:#D5D5D533'>Derived properties</a></div>
+  <h2 id='replication' style='background:#F4A7A155'>DNA replication <span class='count'>· 3 processes</span></h2><div class='proc'><h3>ChromosomeReplication</h3><p class='meta'>chromosome_replication.py · <code>ecoli-chromosome-replication</code></p><p>Chromosome Replication — initiate, elongate, and terminate replication forks.</p>
+<p>1. Initiation: fire when  M_cell / n_oriC ≥ M_critical(τ);  +2 replisomes·oriC, +2 domains. 2. Elongation: seqs = buildSequences(template, pos, ν·dt); polymerize(seqs, dNTPs, limit);</p>
+<pre class='eq'>   Δm_DNA = ∑ᵢ (elongated_ntᵢ · weightᵢ);  PPi released = dNTP polymerized.</pre>
+<p>3. Termination: fork ends when |coordinate| = L_replichore; domain splits, subunits recycled.</p>
+<pre class='eq'>  M_cell: cell mass (fg); n_oriC: oriC count; M_critical(τ): mass/oriC threshold at doubling time τ;
+  ν: stochastic elongation rate (nt/s); dt: timestep; L_replichore: replichore length (nt).</pre></div><div class='proc'><h3>ChromosomeStructure</h3><p class='meta'>chromosome_structure.py · <code>ecoli-chromosome-structure</code></p><p>Chromosome Structure — resolve fork collisions, replicate promoters, repartition segments.</p>
+<p>1. Collision: fork passing a bound molecule either removes it (fork wins) or stalls (molecule wins). 2. Promoter replication: duplicate promoter when  pos_prev &lt; c ≤ pos_new  (TF state + mass preserved). 3. Segment supercoiling: linking number  Lk = Tw + Wr;  on split, Lk partitioned ∝ new segment lengths. 4. Recycling: collided RNAPs/ribosomes removed; RNA transcripts + subunits returned to bulk (mass conserved).</p>
+<pre class='eq'>  c: promoter coordinate; pos_prev/pos_new: fork position before/after step; Tw: twist; Wr: writhe.</pre></div><div class='proc'><h3>DnaABinder</h3><p class='meta'>chromosome_initiation.py</p><p>DnaA Binder — DnaA-ATP occupancy of oriC gating replication initiation.</p>
+<pre class='eq'>  free_DnaA evolves under binding/unbinding rates (k_on, k_off);
+  oriC_state: &#x27;free&#x27; → &#x27;bound&#x27; once DnaA occupancy ≥ threshold.</pre>
+<p>free_DnaA: free DnaA-ATP level; k_on/k_off: binding/unbinding rate constants. (Skeleton: update currently returns a no-op placeholder; kinetics TBD.)</p></div><h2 id='transcription' style='background:#9CC8E355'>Transcription <span class='count'>· 2 processes</span></h2><div class='proc'><h3>TranscriptElongation</h3><p class='meta'>transcript_elongation.py · <code>ecoli-transcript-elongation</code></p><p>Transcript Elongation — RNAPs extend transcripts by NTP polymerization.</p>
+<pre class='eq'>  seqs = buildSequences(rnaSeqs, RNAP_pos, ν·dt);  Δlen = polymerize(seqs, NTP, limit)
+  NTP → NMP_incorporated + PPi;   Δmass = ∑ᵢ Δntᵢ·wᵢ  [fg]</pre>
+<p>Termination: transcript len = TU_len → full transcript; RNAP recycled. tRNA attenuation (optional): p_stop = f([charged_tRNA]/[total_tRNA]),</p>
+<pre class='eq'>  early-terminated RNAPs recycled and partial transcripts discarded.</pre>
+<p>ν = elongation rate (nt/s); dt = timestep; wᵢ = nucleotide weights.</p></div><div class='proc'><h3>TranscriptInitiation</h3><p class='meta'>transcript_initiation.py · <code>ecoli-transcript-initiation</code></p><p>TranscriptInitiation — distributes activated RNAPs across TUs by weighted multinomial sampling.</p>
+<pre class='eq'>  n_to_activate = round(f_active · n_total_RNAP) - n_active
+  p_i = max(0, basal_prob_i + ∑_j delta_prob[i,j] · bound_TF_j)
+  initiations ~ Multinomial(n_to_activate, p_i / ∑_i p_i)</pre>
+<p>with p_i ← 0 for TUs that are footprint-crowded (~24 nt) or lack a chromosomal promoter. f_active: media-dependent active RNAP fraction;  delta_prob: sparse (COO→CSR) TF effect matrix. ppGpp (optional) modulates basal_prob and f_active via fitted functions.</p></div><h2 id='rna' style='background:#B5D9F055'>RNA metabolism <span class='count'>· 2 processes</span></h2><div class='proc'><h3>RnaDegradation</h3><p class='meta'>rna_degradation.py · <code>ecoli-rna-degradation</code></p><p>RNA Degradation — endo cleavage (competitive Michaelis–Menten) then exo digestion.</p>
+<pre class='eq'>  fᵢ = ([rᵢ]/Kmᵢ) / (1 + ∑ⱼ [rⱼ]/Kmⱼ);   νᵢ = kcat_endo · [EndoRNase] · fᵢ
+  per class c: n_deg_c = Draw(∑_{i∈c} νᵢ · dt · V · N_A), multinomial∝fᵢ, ≤ supply
+  Δfragments = S_endo · n_deg;   exo: C_exo = ∑n_exo · kcat_exo · dt
+  FragmentBase + H2O → NMP + H⁺   (full digest if C_exo ≥ Σbases, else multinomial)</pre>
+<p>[rᵢ]: RNA conc (mol/L); Kmᵢ: MM constant; νᵢ: endo flux; S_endo: cleavage stoich (NMP+PPi).</p></div><div class='proc'><h3>RnaMaturation</h3><p class='meta'>rna_maturation.py · <code>ecoli-rna-maturation</code></p><p>RNA Maturation — stoichiometric processing of unprocessed tRNA/rRNA into mature forms.</p>
+<pre class='eq'>  reaction_off = (E · enzyme_present) &lt; n_required;   n_unproc[off] = 0
+  n_mature = S · n_unproc;   ppi = ppi_per_rxn · n_unproc
+  rRNA variant consolidation: Δnts = Δnt_countsᵀ · n_variant;  NMP +Δ, H2O −Σ, H⁺ +Σ</pre>
+<p>S: stoich (mature × unprocessed, CSR); E: enzyme-requirement (rxns × enzymes); Δnt_counts: NMP difference variant vs canonical 16S/23S/5S.</p></div><h2 id='translation' style='background:#A4D4A455'>Translation <span class='count'>· 7 processes</span></h2><div class='proc'><h3>BasePolypeptideElongation</h3><p class='meta'>polypeptide_elongation.py · <code>ecoli-polypeptide-elongation</code></p><p>Polypeptide Elongation — ribosomes extend polypeptides by amino-acid polymerization.</p>
+<pre class='eq'>  seqs = buildSequences(protSeqs, ribo_pos, ν·dt);  Δlen = polymerize(seqs, aa, limit)
+  GTP_consumed = n_elongations · gtpPerElongation  (≈4.2 GTP/aa, EF-Tu/EF-G)</pre>
+<p>ppGpp regulation (optional): ν = f_ppgpp([ppGpp]) [aa/s], with</p>
+<pre class='eq'>  d[ppGpp]/dt = RelA synth([uncharged_tRNA]) − SpoT deg([ppGpp]) + SpoT basal synth.</pre>
+<p>ν = elongation rate (aa/s); dt = timestep.</p></div><div class='proc'><h3>PolypeptideInitiation</h3><p class='meta'>polypeptide_initiation.py · <code>ecoli-polypeptide-initiation</code></p><p>Polypeptide Initiation — assembles 30S+50S → 70S ribosomes on mRNAs.</p>
+<pre class='eq'>  n_activate = round(f·n_total) − n_active;   n_total = n_70S + min(n_30S, n_50S)
+  p_k = ηₖ·n_copiesₖ / ∑ⱼ ηⱼ·n_copiesⱼ        (per-mRNA initiation prob)
+  overcrowded ⟺ mRNA_len/(n_ribos+1) &lt; footprint (≈24 nt) → p_k := 0
+  n_new ~ Multinomial(n_activate, p);  each consumes one 30S + one 50S.</pre>
+<p>f = media-dependent active fraction; ηₖ = translation efficiency.</p></div><div class='proc'><h3>ProteinDegradation</h3><p class='meta'>protein_degradation.py · <code>ecoli-protein-degradation</code></p><p>Protein Degradation — first-order Poisson hydrolysis of protein monomers.</p>
+<pre class='eq'>  nᵢ_deg ~ min(Poisson(kᵢ · dt · nᵢ), nᵢ)
+  Δmetabolites = S · n_deg
+  Proteinᵢ + (Lᵢ−1) H2O → ∑ⱼ aᵢⱼ · AAⱼ</pre>
+<p>kᵢ: first-order degradation rate (1/s); nᵢ: copies of protein i; aᵢⱼ: count of AA j per protein i; Lᵢ = ∑ⱼ aᵢⱼ (residues); S: stoichiometry (metabolites × proteins), +AA release, −(Lᵢ−1) H2O.</p></div><div class='proc'><h3>RibosomeData</h3><p class='meta'>translation_deriver.py · <code>ribosome_data_listener</code></p><p>Derives per-tick translation readouts from the active-ribosome pool: effective elongation rate, actual elongations and termination events, rRNA initiation by class, and ribosomes-per-transcript / polysome occupancy.</p></div><div class='proc'><h3>SteadyStatePolypeptideElongation</h3><p class='meta'>polypeptide_elongation.py · <code>ecoli-polypeptide-elongation</code></p><p>Steady-State Polypeptide Elongation — elongation rate emerges from tRNA charging.</p>
+<pre class='eq'>  f_charged_a = [charged_tRNA_a] / ([charged_tRNA_a] + [uncharged_tRNA_a])
+  ν_eff ∝ min_a f_charged_a   (Michaelis–Menten competitive inhibition)</pre>
+<p>Charging (aminoacyl-tRNA synthetase): aa + ATP + tRNA → charged_tRNA + AMP + PPi. Composes tRNA charging + ppGpp (RelA/SpoT) + amino-acid supply (synth/import/export). ν_eff = effective elongation rate (aa/s); a indexes amino-acid species.</p></div><div class='proc'><h3>TranslationDeriver</h3><p class='meta'>translation_deriver.py · <code>ribosome_data_listener</code></p><p>Derives per-tick translation readouts from the active-ribosome pool: effective elongation rate, actual elongations and termination events, rRNA initiation by class, and ribosomes-per-transcript / polysome occupancy.</p></div><div class='proc'><h3>TranslationSupplyPolypeptideElongation</h3><p class='meta'>polypeptide_elongation.py · <code>ecoli-polypeptide-elongation</code></p><p>Polypeptide Elongation — ribosomes extend polypeptides by amino-acid polymerization.</p>
+<pre class='eq'>  seqs = buildSequences(protSeqs, ribo_pos, ν·dt);  Δlen = polymerize(seqs, aa, limit)
+  GTP_consumed = n_elongations · gtpPerElongation  (≈4.2 GTP/aa, EF-Tu/EF-G)</pre>
+<p>ppGpp regulation (optional): ν = f_ppgpp([ppGpp]) [aa/s], with</p>
+<pre class='eq'>  d[ppGpp]/dt = RelA synth([uncharged_tRNA]) − SpoT deg([ppGpp]) + SpoT basal synth.</pre>
+<p>ν = elongation rate (aa/s); dt = timestep.</p></div><h2 id='regulation' style='background:#D9B8E055'>Regulation (TFs, ppGpp) <span class='count'>· 2 processes</span></h2><div class='proc'><h3>TfBinding</h3><p class='meta'>tf_binding.py · <code>ecoli-tf-binding</code></p><p>TfBinding — stochastic occupancy of promoter sites by transcription factors.</p>
+<pre class='eq'>  p_bound_j = p_promoter_bound_tf(n_active_j, n_inactive_j)   (1.0 for 0CS TFs)
+  n_to_bind_j = min(∑ StochasticRound(p_bound_j, N_j), n_available_TF_j)</pre>
+<p>then n_to_bind_j promoter sites are chosen uniformly at random and bound.</p>
+<pre class='eq'>  Δmass_i = ∑_j ΔTF[i,j] · m_j     (mass moved bulk → promoter submass)</pre>
+<p>N_j: available promoter sites for TF j;  m_j: mass (fg) of active TF j. MarA (PD00365): n_active = 34 · [marR-tet]/([marR]+[marR-tet]).</p></div><div class='proc'><h3>TfUnbinding</h3><p class='meta'>tf_unbinding.py · <code>ecoli-tf-unbinding</code></p><p>TfUnbinding — deterministic release of all DNA-bound TFs to the free active pool.</p>
+<pre class='eq'>  n_released_j = ∑_i bound_TF[i,j]     (sum over promoters i)
+  bound_TF ← 0     (reset promoter occupancy matrix)
+  Δmass_i = -∑_j bound_TF[i,j] · m_j   (mass moved promoter submass → bulk)</pre>
+<p>bound_TF: promoters × TF species;  m_j: mass (fg) of active TF j.</p></div><h2 id='signaling' style='background:#FFD58C55'>Signaling / equilibrium <span class='count'>· 3 processes</span></h2><div class='proc'><h3>Complexation</h3><p class='meta'>complexation.py · <code>ecoli-complexation</code></p><p>Complexation — spontaneous monomer→complex assembly (Gillespie SSA).</p>
+<p>Continuous-time Markov chain over reactions (stoichiometry S, rates k):</p>
+<pre class='eq'>    x(t+dt) = StochasticSystem.evolve(dt, x(t), k)
+    propensity a_j = k_j · ∏_i C(x_i, |S_ij|);   Δx = S·occurrences.</pre>
+<p>Reactants are complex-specific (no shared-resource competition).</p></div><div class='proc'><h3>Equilibrium</h3><p class='meta'>equilibrium.py · <code>ecoli-equilibrium</code></p><p>Equilibrium — ligand–TF binding driven to steady state.</p>
+<p>1. ODE solve for integer reaction fluxes ν:  x_ss, ν = fluxesAndMoleculesToSS(x, V, N_A). 2. Greedy correction under allocation: while any(S·ν + x_alloc &lt; 0),</p>
+<pre class='eq'>   decrement offending forward/reverse fluxes (clamp ≥ 0).</pre>
+<p>Δx = S·ν;  S = stoichiometry matrix (molecules × reactions).</p></div><div class='proc'><h3>TwoComponentSystem</h3><p class='meta'>two_component_system.py · <code>ecoli-two-component-system</code></p><p>TwoComponentSystem — phosphotransfer signaling kinetics (ODE integration).</p>
+<p>Solve molecule-count ODEs over the timestep:</p>
+<pre class='eq'>    dx/dt = f(x);   integrate t: 0→dt (scipy solve_ivp, BDF);   Δx = x(dt) − x(0).</pre>
+<p>Under-allocation: re-solve to long-horizon steady state (10000 s), extract this timestep&#x27;s Δx to stay physically consistent with reduced counts. x: counts of histidine kinases, response regulators, and their phospho-forms.</p></div><h2 id='metabolism' style='background:#F7D48855'>Metabolism (FBA) <span class='count'>· 2 processes</span></h2><div class='proc'><h3>Metabolism</h3><p class='meta'>metabolism.py · <code>ecoli-metabolism</code></p><p>Metabolism — flux-balance analysis (FBA).</p>
+<p>Each timestep solve for the reaction flux vector v:</p>
+<pre class='eq'>    max cᵀv   s.t.  S·v = 0,   v_lb ≤ v ≤ v_ub
+  S: stoichiometry (metabolites×reactions); c: biomass objective;
+  bounds from nutrient uptake, enzyme kcat capacity, NGAM maintenance.</pre>
+<p>Flux→counts: Δn = stochasticRound(v · m_dry · dt / (MW · κ)). Optional ppGpp growth coupling and kinetic (kcat) flux constraints.</p></div><div class='proc'><h3>SimplifiedMetabolism</h3><p class='meta'>metabolism_simple.py · <code>ecoli-metabolism-simple</code></p><p>Simplified metabolism — homeostatic FBA via scipy linprog (HiGHS).</p>
+<p>Each timestep solve for flux v and slacks s⁺,s⁻:</p>
+<pre class='eq'>    min Σ(sᵢ⁺ + sᵢ⁻)
+    s.t.  S·v = 0,   M·v + s⁺ − s⁻ = target/κ,
+          v_lb ≤ v ≤ v_ub,   s⁺,s⁻ ≥ 0
+  S: stoichiometry; M: tracked-output rows; target: homeostatic
+  concentration targets (mM); κ: conversion factor (g·s/L).
+  bounds from nutrient exchange, enzyme presence, NGAM maintenance.</pre>
+<p>Flux→counts: Δn = stochasticRound(Δconc / counts_to_molar).</p></div><h2 id='counts' style='background:#D5D5D555'>Derived properties <span class='count'>· 3 processes</span></h2><div class='proc'><h3>CountsDeriver</h3><p class='meta'>counts_deriver.py · <code>counts_deriver</code></p><p>Tallies molecule counts for downstream readouts: mRNA/rRNA transcription-unit and cistron counts (partial + full transcripts), protein monomer counts (including monomers sequestered in complexes and in active ribosomes/RNAPs/replisomes), and per-type active unique-molecule totals. Consolidates the former RNACounts, MonomerCounts, and UniqueMoleculeCounts listeners into one step.</p></div><div class='proc'><h3>MassDeriver</h3><p class='meta'>mass_deriver.py · <code>ecoli-mass-listener</code></p><p>Aggregates total cell mass and submasses (protein, RNA by class, DNA, small molecules, water) from bulk and unique molecule counts. Derives cell volume, plus growth rate and mass fold-changes over the cell cycle.</p></div><div class='proc'><h3>PostDivisionMassDeriver</h3><p class='meta'>mass_deriver.py · <code>post-division-mass-listener</code></p><p>Aggregates total cell mass and submasses (protein, RNA by class, DNA, small molecules, water) from bulk and unique molecule counts. Derives cell volume, plus growth rate and mass fold-changes over the cell cycle.</p></div>
+
+  <h2 id="flow" style="background:#e2e8f0">Per-tick execution flow
+    <span class="count">· 22 ordered layers</span></h2>
+  <section class="flow">
+    <p class="note">Steps in the same layer see the same starting state (per-layer
+    atomicity); each layer's writes are reconciled before the next fires.
+    <code>unique_update</code> flush barriers are omitted for legibility.</p>
+    <div class='layer'><span class='n'>0</span><span class='tag'>post-division-mass-listener</span></div><div class='layer'><span class='n'>1</span><span class='tag'>media_update</span></div><div class='layer'><span class='n'>2</span><span class='tag'>ecoli-tf-unbinding</span></div><div class='layer'><span class='n'>3</span><span class='tag'>exchange_data</span></div><div class='layer'><span class='n'>4</span><span class='tag'>ecoli-equilibrium</span><span class='tag'>ecoli-two-component-system</span><span class='tag'>ecoli-rna-maturation</span></div><div class='layer'><span class='n'>5</span><span class='tag'>ecoli-tf-binding</span></div><div class='layer'><span class='n'>6</span><span class='tag'>ecoli-protein-degradation</span></div><div class='layer'><span class='n'>7</span><span class='tag'>ppgpp-initiation</span></div><div class='layer'><span class='n'>8</span><span class='tag'>ecoli-complexation</span><span class='tag'>ecoli-chromosome-replication</span><span class='tag'>ecoli-polypeptide-initiation</span><span class='tag'>ecoli-transcript-initiation</span></div><div class='layer'><span class='n'>9</span><span class='tag'>ecoli-rna-degradation_requester</span></div><div class='layer'><span class='n'>10</span><span class='tag'>allocator_2</span></div><div class='layer'><span class='n'>11</span><span class='tag'>ecoli-rna-degradation_evolver</span></div><div class='layer'><span class='n'>12</span><span class='tag'>ecoli-polypeptide-elongation_requester</span><span class='tag'>ecoli-transcript-elongation_requester</span></div><div class='layer'><span class='n'>13</span><span class='tag'>allocator_3</span></div><div class='layer'><span class='n'>14</span><span class='tag'>ecoli-polypeptide-elongation_evolver</span><span class='tag'>ecoli-transcript-elongation_evolver</span></div><div class='layer'><span class='n'>15</span><span class='tag'>ecoli-chromosome-structure</span></div><div class='layer'><span class='n'>16</span><span class='tag'>ecoli-metabolism</span></div><div class='layer'><span class='n'>17</span><span class='tag'>counts_deriver</span><span class='tag'>ecoli-mass-listener</span><span class='tag'>replication_data_listener</span><span class='tag'>ribosome_data_listener</span><span class='tag'>rna_synth_prob_listener</span><span class='tag'>rnap_data_listener</span></div><div class='layer'><span class='n'>18</span><span class='tag'>emitter</span></div><div class='layer'><span class='n'>19</span><span class='tag'>global_clock</span></div><div class='layer'><span class='n'>20</span><span class='tag'>mark_d_period</span></div><div class='layer'><span class='n'>21</span><span class='tag'>division</span></div>
+  </section>
+
+  <h2 id="partition" style="background:#FFAE8055">Partition → allocate → evolve
+    <span class="count">· 3 partitioned processes</span></h2>
+  <section class="flow">
+    <p class="note">These processes compete for shared bulk molecules. Each is split
+    into a <b>Requester</b> (computes demand from <code>bulk_total</code>), an
+    <b>Allocator</b> (partitions the shared pool by priority), and an
+    <b>Evolver</b> (acts on its <code>allocate</code>d share):</p>
+    <p><span class='tag'>ecoli-polypeptide-elongation</span><span class='tag'>ecoli-rna-degradation</span><span class='tag'>ecoli-transcript-elongation</span></p>
+  </section>
+</main></body></html>

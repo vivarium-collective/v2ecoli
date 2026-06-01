@@ -30,8 +30,9 @@ trajectories from birth to division — across dry mass, mass composition
 not just a single endpoint. The
 [composite comparison](https://vivarium-collective.github.io/v2ecoli/composite_comparison.html)
 and [vEcoli-vs-v2ecoli](https://vivarium-collective.github.io/v2ecoli/v1_v2_comparison.html)
-reports lay the two engines side by side metric-by-metric; dry mass at 60 s
-agrees to 0.0 % and time-to-division matches at ~42 min.
+reports lay the two engines side by side metric-by-metric. Through the full cell
+cycle the dry-mass trajectories track to within a fraction of a percent
+(707.2 fg vs 705.3 fg at division), with division timing of ~42 min in both.
 
 Under the hood, the biology is **17 biological process modules** plus 8
 listener/deriver steps (`v2ecoli/processes/`, `v2ecoli/steps/derivers/`); the
@@ -62,7 +63,7 @@ end-to-end without the ~70 min knowledge-base rebuild.
 - [Reports & interactive viewers](#reports--interactive-viewers)
 - [ParCa](#parca)
 - [What changed since vEcoli](#what-changed-since-vecoli)
-- [Performance](#performance)
+- [Performance & validation](#performance--validation)
 - [Known limitations](#known-limitations)
 - [Repository layout](#repository-layout)
 - [Dependencies & ecosystem](#dependencies--ecosystem)
@@ -497,15 +498,28 @@ reports.
 
 ---
 
-## Performance
+## Performance & validation
 
-| | vEcoli | v2ecoli |
-|---|---|---|
-| 60 s simulated wall | 6.5 s | 7.3 s |
-| Realtime factor | 9.2× | 8.2× |
-| Dry mass at 60 s | 384.5 fg | 384.6 fg |
-| Time to division | ~42 min | ~42 min |
-| vivarium-core | required | none |
+A single cell runs from birth to division (~42 simulated min) at faster than
+real time. Measured for the baseline composite at a 60 s checkpoint (seed 0):
+
+| Metric (baseline, 60 s sim) | v2ecoli |
+|---|---|
+| Build + cache load | ~5.6 s |
+| Run (60 s simulated) | ~7.0 s |
+| Realtime factor | ~8.5× |
+| Dry mass at 60 s | ~384 fg |
+| `vivarium-core` dependency | none |
+
+**Validated against vEcoli observable-by-observable** — not by a single
+endpoint. The published
+[vEcoli-vs-v2ecoli](https://vivarium-collective.github.io/v2ecoli/v1_v2_comparison.html)
+and [composite comparison](https://vivarium-collective.github.io/v2ecoli/composite_comparison.html)
+reports put the engines side by side across dry mass, mass composition,
+bulk-molecule counts, and replication dynamics; through the full cell cycle the
+dry-mass trajectories agree to within a fraction of a percent (707.2 fg vs
+705.3 fg at division). Regenerate with `reports/v1_v2_report.py` /
+`reports/composite_comparison.py`.
 
 ---
 

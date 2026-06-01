@@ -100,5 +100,24 @@ pipeline. Item 1 (auto-refresh on run) is the durable fix that prevents it.
   convention + hook is the remaining framework work; the per-driver hook above
   is the concrete stop-gap.
 
+- **Item 1 SHIPPED (the durable fix)** — the study-declared **`figure_refresh:`**
+  convention (pbg-superpowers#92). A study declares HOW to render its figures in
+  `study.yaml` (command templates with `{run}`/`{study}`/`{figdir}`/`{ws}`/`{py}`
+  placeholders); `pbg_superpowers.figure_refresh.refresh_study_figures()`
+  substitutes + runs them on run-completion. dnaa-2 adopted it: the workflow
+  driver's hardcoded importlib render hook is gone, replaced by a call that just
+  names the finished run — the study owns the render command. Figures now track
+  runs **by construction**, so #91 (the detector) has nothing to flag.
+  - `{py}` = the invoking interpreter (`sys.executable`) closes the
+    bare-`python`-vs-venv footgun: the subprocess shell otherwise resolves
+    `python` from PATH, which in v2ecoli lacks `polars`/`unum`.
+  - Verified end-to-end: real refresh re-rendered the canonical Step-3 figure
+    from `parquet-runs/dnaa2-step3-mechanism` via the venv interpreter (ran 1,
+    failed 0), mtime advanced, byte-stable content (same run data).
+- **Remaining (smaller, deferred):** wire `refresh_study_figures` into the
+  generic `/pbg-study run-*` + `v2ecoli.workflow.run` completion paths (dnaa-2
+  proves the API; generalizing the call site is the next step), and the
+  reader-facing "figures rendered <date> from run <id>" freshness line (item 4).
+
 See also: [[pbg-editable-install-gap]], pbg-superpowers
 `docs/conventions/handling-investigation-feedback.md` (verify-the-rendered-artifact).

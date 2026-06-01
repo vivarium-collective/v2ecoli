@@ -2,7 +2,7 @@ schema_version: 4
 name: dnaa-0-parameter-foundation
 title: Succinate steady-state validation (10-gen single-daughters)
 created: '2026-05-29'
-status: completed   # legacy back-compat; canonical axes below
+status: complete   # legacy back-compat; canonical axes below
 # Canonical 6-axis status (PASS — both primary tests pass; Rashmi-confirmed 2026-05-31).
 # These drive the reader-facing status panel + the derive-on-read status check;
 # without `runs:` below, simulation_status would derive to not_run and the

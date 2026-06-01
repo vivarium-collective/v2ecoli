@@ -2,7 +2,7 @@ schema_version: 4
 name: dnaa-1-expression-dynamics
 title: DnaA expression — Mechanism A tuning to in-band, generation-stable pool
 created: '2026-05-29'
-status: completed   # legacy back-compat; canonical axes below. PASS; V re-tuned 2e-3→1.7e-3 (2026-05-31)
+status: complete   # legacy back-compat; canonical axes below. PASS; V re-tuned 2e-3→1.7e-3 (2026-05-31)
 # Canonical 6-axis status (PASS — rate + in-band DnaA confirmed; V lowered to
 # 1.7e-3 per Rashmi 2026-05-31 to reduce the pre-division peak overshoot).
 design_status: complete

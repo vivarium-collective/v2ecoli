@@ -2,7 +2,7 @@ schema_version: 4
 name: dnaa-2-atp-hydrolysis
 title: DnaA-ATP / DnaA-ADP nucleotide equilibria + intrinsic hydrolysis
 created: '2026-05-30'
-status: passed   # 2026-06-01: Haochen's bf8b82e mechanism ADOPTED + validated (DnaA-ATP fraction in [0.2,0.5])
+status: complete   # 2026-06-01: Haochen's bf8b82e mechanism ADOPTED + validated (DnaA-ATP fraction in [0.2,0.5])
 # Canonical 6-axis status. 2026-06-01: ADOPTED Haochen's approved approach
 # (commit bf8b82e, vivarium-collective/v2ecoli) — the DnaA + ADP ⇌ DnaA-ADP
 # equilibrium reaction is kept BIDIRECTIONAL and flagged integrate_dt (integrated

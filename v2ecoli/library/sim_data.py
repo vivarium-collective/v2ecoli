@@ -1473,6 +1473,7 @@ class LoadSimData:
                     "stoich_matrix": self.sim_data.process.equilibrium._stoichMatrix.tolist(),
                     "rates_fwd": self.sim_data.process.equilibrium.rates_fwd.tolist(),
                     "rates_rev": self.sim_data.process.equilibrium.rates_rev.tolist(),
+                    "integrate_dt_mask": self.sim_data.process.equilibrium.integrate_dt_mask.tolist(),
                     "mets_to_rxn_fluxes": self.sim_data.process.equilibrium.mets_to_rxn_fluxes.tolist(),
                     "Rp": self.sim_data.process.equilibrium.Rp.tolist(),
                     "Pp": self.sim_data.process.equilibrium.Pp.tolist(),

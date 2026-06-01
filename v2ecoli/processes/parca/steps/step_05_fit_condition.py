@@ -173,6 +173,11 @@ def calculateBulkDistributions(
                 sim_data.constants.n_avogadro.asNumber(1 / units.mol),
                 random_state,
                 jit=False,
+                # The convergence loop only checks that binding equilibria
+                # settle; irreversible kinetic-only reactions (e.g. DnaA-ATP
+                # intrinsic hydrolysis) would prevent metabolite counts from
+                # ever matching the targets.
+                skip_kinetic_phase=True,
             )
             bulkContainer["count"][equilibrium_molecules_idx] += np.dot(
                 sim_data.process.equilibrium.stoich_matrix().astype(np.int64),

@@ -26,6 +26,7 @@ class Equilibrium(object):
         ratesFwd = []
         ratesRev = []
         rxnIds = []
+        integrate_dt_list = []
 
         stoichMatrixI = []
         stoichMatrixJ = []
@@ -65,6 +66,11 @@ class Equilibrium(object):
         MOLECULES_THAT_WILL_EXIST_IN_SIMULATION = (
             [m["Metabolite"] for m in raw_data.metabolite_concentrations]
             + ["LEU", "S-ADENOSYLMETHIONINE", "ARABINOSE", "4FE-4S"]
+            # Bulk metabolites consumed/produced by the DnaA-ATP intrinsic
+            # hydrolysis equilibrium reaction (not in metabolite_concentrations
+            # because they aren't homeostatic targets, but they DO exist in
+            # the bulk pool).
+            + ["WATER", "Pi", "PROTON"]
             + two_component_system_ligands
         )
 
@@ -75,6 +81,13 @@ class Equilibrium(object):
         }
         reverse_rates = {
             rxn["id"]: rxn["reverse_rate"]
+            for rxn in raw_data.equilibrium_reaction_rates
+        }
+        # Per-reaction flag: integrate over the simulation timestep instead of
+        # solving to t -> infinity. Use for slow reactions whose dissociation
+        # rate violates the fast-equilibrium assumption (e.g. DnaA-ADP).
+        integrate_dt_flags = {
+            rxn["id"]: bool(rxn.get("integrate_dt", False))
             for rxn in raw_data.equilibrium_reaction_rates
         }
         median_forward_rate = np.median(np.array(list(forward_rates.values())))
@@ -99,6 +112,7 @@ class Equilibrium(object):
             ratesFwd.append(forward_rates.get(reaction["id"], median_forward_rate))
             ratesRev.append(reverse_rates.get(reaction["id"], median_reverse_rate))
             rxnIds.append(reaction["id"])
+            integrate_dt_list.append(integrate_dt_flags.get(reaction["id"], False))
 
             for mol_id, coeff in reaction["stoichiometry"].items():
                 if mol_id in metabolite_ids:
@@ -164,6 +178,9 @@ class Equilibrium(object):
         self.rxn_ids = rxnIds
         self.rates_fwd = np.array(ratesFwd)
         self.rates_rev = np.array(ratesRev)
+        # Boolean per-reaction mask: True = integrate over dt (kinetic);
+        # False = solve to t -> infinity (fast-equilibrium assumption).
+        self.integrate_dt_mask = np.array(integrate_dt_list, dtype=bool)
 
         # Mass balance matrix
         self._stoichMatrixMass = np.array(stoichMatrixMass)
@@ -366,25 +383,34 @@ class Equilibrium(object):
         self.symbolic_rates = dy
         self.symbolic_rates_jacobian = J
 
-    def derivatives(self, t, y):
-        return self._stoichMatrix.dot(
-            self._rates[0](t, y, self.rates_fwd, self.rates_rev)
-        )
+    def _rates_for_ss(self, skip_kinetic):
+        """Return (rates_fwd, rates_rev) with kinetic-only reactions zeroed
+        out when ``skip_kinetic`` is True. Used by ParCa's equilibrium-SS
+        convergence loop, which only resolves the binding equilibria and
+        must not let irreversible kinetic reactions (e.g. DnaA-ATP intrinsic
+        hydrolysis) keep depleting their substrates each iteration.
+        """
+        if skip_kinetic and getattr(self, "integrate_dt_mask", None) is not None:
+            kf = np.where(self.integrate_dt_mask, 0.0, self.rates_fwd)
+            kr = np.where(self.integrate_dt_mask, 0.0, self.rates_rev)
+            return kf, kr
+        return self.rates_fwd, self.rates_rev
 
-    def derivatives_jacobian(self, t, y):
-        return self._stoichMatrix.dot(
-            self._rates_jacobian[0](t, y, self.rates_fwd, self.rates_rev)
-        )
+    def derivatives(self, t, y, skip_kinetic=False):
+        kf, kr = self._rates_for_ss(skip_kinetic)
+        return self._stoichMatrix.dot(self._rates[0](t, y, kf, kr))
 
-    def derivatives_jit(self, t, y):
-        return self._stoichMatrix.dot(
-            self._rates[1](t, y, self.rates_fwd, self.rates_rev)
-        )
+    def derivatives_jacobian(self, t, y, skip_kinetic=False):
+        kf, kr = self._rates_for_ss(skip_kinetic)
+        return self._stoichMatrix.dot(self._rates_jacobian[0](t, y, kf, kr))
 
-    def derivatives_jacobian_jit(self, t, y):
-        return self._stoichMatrix.dot(
-            self._rates_jacobian[1](t, y, self.rates_fwd, self.rates_rev)
-        )
+    def derivatives_jit(self, t, y, skip_kinetic=False):
+        kf, kr = self._rates_for_ss(skip_kinetic)
+        return self._stoichMatrix.dot(self._rates[1](t, y, kf, kr))
+
+    def derivatives_jacobian_jit(self, t, y, skip_kinetic=False):
+        kf, kr = self._rates_for_ss(skip_kinetic)
+        return self._stoichMatrix.dot(self._rates_jacobian[1](t, y, kf, kr))
 
     def fluxes_and_molecules_to_SS(
         self,
@@ -395,6 +421,7 @@ class Equilibrium(object):
         time_limit=1e20,
         max_iter=100,
         jit=True,
+        skip_kinetic_phase=False,
     ):
         y_init = moleculeCounts / (cellVolume * nAvogadro)
 
@@ -402,11 +429,14 @@ class Equilibrium(object):
         # select the derivatives functions to use. Could be simplified to single
         # functions that take a jit argument from solve_ivp in the future.
         if jit:
-            derivatives = self.derivatives_jit
-            derivatives_jacobian = self.derivatives_jacobian_jit
+            _d = self.derivatives_jit
+            _j = self.derivatives_jacobian_jit
         else:
-            derivatives = self.derivatives
-            derivatives_jacobian = self.derivatives_jacobian
+            _d = self.derivatives
+            _j = self.derivatives_jacobian
+
+        derivatives = lambda t, y: _d(t, y, skip_kinetic=skip_kinetic_phase)
+        derivatives_jacobian = lambda t, y: _j(t, y, skip_kinetic=skip_kinetic_phase)
 
         # Note: odeint has issues solving with a long time step so need to use solve_ivp
         for method in ["LSODA", "BDF"]:

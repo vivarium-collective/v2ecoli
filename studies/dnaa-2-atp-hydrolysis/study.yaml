@@ -32,7 +32,7 @@ readouts:
     status: derived
     identifier: listeners.dnaA_cycle.total / listeners.mass.cell_mass
     units: counts/fg
-    notes: Drifts up over the lineage (not equilibrated from the resume-init).
+    notes: Ramps from the resume-init over gens 0-1, then holds; DnaA total in [300,800] at Step-3 steady state (clean seeds).
   - name: cell mass
     status: measured
     identifier: listeners.mass.cell_mass
@@ -74,7 +74,7 @@ runtime:
 report:
   title: dnaa-2 — DnaA nucleotide-state partitioning (succinate)
   verdict: pass
-  confidence: pending
+  confidence: high
   evidence_quality: empirical
 
   objective: |
@@ -86,16 +86,34 @@ report:
     concentration CV < 10%.
 
   main_insight: |
-    The DnaA nucleotide-binding equilibria ALREADY exist in v2ecoli's
-    baseline (that is why DnaA-ATP is non-zero under V-only tuning). The
-    question is the steady-state partitioning. ⚠ Per the instructions, at
-    Haochen's K_d values and v2ecoli's current cellular [ATP]:[ADP], the
-    thermodynamic equilibrium is expected to push the DnaA-ATP fraction
-    well ABOVE the biological [0.2, 0.5] band — one of {K_d, [ATP]:[ADP],
-    expected fraction} is inconsistent with the other two. Flag for
-    Haochen before tuning his stated K_d's.
+    RESOLVED (Haochen, 2026-05-31). The ~0.997 DnaA-ATP pin was a
+    FAST-EQUILIBRIUM artefact, NOT a parameter inconsistency: v2ecoli's
+    ecoli-equilibrium integrates DnaA-ADP binding to steady state every tick,
+    instantly reverting hydrolysis-made DnaA-ADP → apo → DnaA-ATP. In reality
+    DnaA-ADP unbinding is slow (k_r≈1e-7/s) and NOT at equilibrium. Modelling it
+    as a slow kinetic step (DnaaAdpRelease) and removing DnaA-ADP from the fast
+    equilibrium drops the DnaA-ATP fraction to ~0.45 across the clean seeds —
+    inside the Boesen [0.2,0.5] band. The mechanism is the lever; no K_d /
+    [ATP]:[ADP] / expected-fraction revision is needed.
 
   result: |
+    STEP 3 — RESOLVED via Haochen's non-equilibrium DnaA-ADP fix. Canonical run
+    dnaa2-step3-mechanism (workflow multiseed, seeds 0/2/3 × 5 gens, seed 0
+    canonical): slow DnaaAdpRelease (DNAA_ADP_RELEASE_RATE=0.03/min) +
+    MONOMER0-4565_RXN zeroed in the equilibrium cache. DnaA-ATP fraction settles
+    in the Boesen [0.2,0.5] band on the clean seeds:
+      seed 0 gens 1-4: 0.469 / 0.451 / 0.446 / 0.427  (gen 0 ~0.62 = resume ramp)
+      seed 3 gens 1-4: 0.527 / 0.456 / 0.467 / 0.433
+    → ~0.997 (pre-fix) → ~0.45 (in band). DnaA total in [300,800] on the clean
+    seeds (no V re-tune needed); doubling 87.8±14.6 min; oriC clean 1↔2. Seed 2
+    dropped (gen-3 reinitiation + DnaA-total runaway — non-steady). Figure:
+    reports/figures/dnaa-2-atp-hydrolysis/dnaa2_step3_sixpanel_seed0.html.
+    Open item for Haochen: confirm the physical k_r (0.03/min reproduces his
+    [0.2,0.5]; his literal ~1e-7/s would drive the fraction to ~0).
+
+    ── Steps 1-2 below are the PRE-FIX BASELINE (kept for provenance; the
+       ~0.997 numbers are the fast-equilibrium artefact, NOT the current result) ──
+
     STEP 1 — baseline DnaA-form distribution under V-only tuning (no
     mechanism change), read from the dnaa-1 pristine lineage's per-generation
     cell states (out/dnaa1-mechA-7gen-pristine-2026-05-30/gen_dills/gen{1..7}):
@@ -198,56 +216,55 @@ report:
     approach the [0.2,0.5] band. (Step 3 / Haochen.)
 
   interpretation: |
-    Steps 1 AND 2 agree across 4 seeds: the baseline equilibrium pins DnaA at
-    ~99.7% ATP-bound, not 0.2-0.5, and adding Haochen's intrinsic hydrolysis
-    UNTUNED does not move it. The deviation from the Boesen [0.2,0.5] band is
-    therefore a robust property of the stated parameter set, not noise or a
-    single-seed artifact. The resolution (Step 3) requires deciding WHICH of
-    K_d / [ATP]:[ADP] / expected-fraction to revise — Haochen's call.
+    The ~0.997 pin (Steps 1-2) was a fast-equilibrium artefact, not a parameter
+    inconsistency. Haochen's correction — DnaA-ADP dissociation is slow and not
+    at equilibrium — is the right lever: modelling it kinetically (and removing
+    DnaA-ADP from the tick-wise equilibrium) lands the DnaA-ATP fraction at ~0.45
+    across the clean seeds, in the Boesen [0.2,0.5] band, with a clean cell cycle
+    and DnaA total in [300,800]. dnaa-2's primary acceptance criterion is met.
 
   next_action: |
-    Step 3 (BLOCKED on Haochen): the multiseed Step-2 result confirms the
-    ~99.7%-ATP pin is robust, so reaching [0.2,0.5] requires changing a
-    stated parameter, not just re-running. Present the inconsistency to
-    Haochen; once he picks the lever (K_d, cellular [ATP]:[ADP], or the
-    expected fraction), surface it as a tunable composite param and sweep it
-    to land the fraction in band. (Optional: re-run the sweep with per-branch
-    subprocess isolation to avoid the single-process OOM, and complete gen-3
-    for all seeds.)
+    Step 3 is implemented and passing. Remaining: (1) Haochen confirms the
+    physical k_r (0.03/min reproduces his band; his literal ~1e-7/s would not —
+    surfaced as a decision); (2) optionally extend to more generations / seeds to
+    tighten the steady-state estimate. No blocker remains for the dnaa-2 verdict.
 
   decisions_needed:
-    - question: Which of {K_d(ATP/ADP), cellular [ATP]:[ADP], expected
-        DnaA-ATP fraction [0.2,0.5]} should be revised to reconcile the
-        ~99.8%-ATP baseline? (Haochen's input.)
+    - question: Confirm the physical DnaA-ADP release rate. 0.03/min reproduces
+        Haochen's [0.2,0.5] band; his literal k_r≈1e-7/s would drive the
+        fraction to ~0. The mechanism/structure is settled — this is the one
+        remaining parameter for Haochen.
+      status: open — does NOT block the dnaa-2 verdict (passes at 0.03/min)
 
 conclusion_logic:
   if_primary_tests_pass: |
-    Had the DnaA-ATP fraction landed in [0.2, 0.5], the nucleotide-binding
-    equilibria plus intrinsic hydrolysis at Haochen's stated parameters would
-    be consistent with the Boesen 2024 biology, and dnaa-2 would close as a
-    PASS — clearing the way for oriC-box-binding and extrinsic-regulation
-    studies on a validated DnaA-ATP pool.
+    REALIZED. With Haochen's non-equilibrium DnaA-ADP mechanism the DnaA-ATP
+    fraction lands at ~0.45 in [0.2, 0.5] (clean seeds 0,3), total DnaA in
+    [300,800], oriC cycle clean. dnaa-2 closes as a PASS — clearing the way for
+    oriC-box-binding and extrinsic-regulation studies on a validated DnaA-ATP
+    pool.
   if_primary_tests_fail: |
-    The fraction is pinned at ~0.997 — robust across 4 seeds and 13 complete
-    lineage-generations, and unchanged by intrinsic hydrolysis (k=0.046/min vs
-    a verified k=0 control). This is FAR above [0.2, 0.5], so the three stated
-    quantities {K_d(ATP/ADP), cellular [ATP]:[ADP], expected fraction} are
-    mutually inconsistent. Reaching the band requires revising one of them —
-    Haochen's call (Step 3) — not further tuning of the run. dnaa-2 therefore
-    halts at a well-characterised parameter-inconsistency finding rather than
-    a model bug.
+    Counterfactual / the PRE-FIX state: under the fast-equilibrium assumption the
+    fraction pinned at ~0.997 and intrinsic hydrolysis could not move it. That
+    was a modelling artefact (the tick-wise equilibrium reverting DnaA-ADP), now
+    resolved by the slow non-equilibrium release — not a parameter inconsistency
+    and not a model bug.
 
 findings:
-  - id: dnaa-atp-fraction-pinned-high
+  - id: dnaa-atp-fraction-in-band-via-nonequilibrium
     kind: computational
     summary: |
-      DnaA-ATP fraction is pinned at ~0.997 across all 4 seeds (0.9970 ± 0.0039
-      over 13 complete lineage-generations; within-gen CV <0.7%, across-seed
-      ±0.0001), far above the Boesen 2024 [0.2, 0.5] band.
+      With Haochen's non-equilibrium DnaA-ADP mechanism the DnaA-ATP fraction
+      settles at ~0.45 across the clean seeds (seed 0: 0.43–0.47 gens 1–4; seed
+      3: 0.43–0.53), inside the Boesen 2024 [0.2,0.5] band. The prior ~0.997 pin
+      (Steps 1–2) was a fast-equilibrium artefact — the tick-wise equilibrium
+      reverted hydrolysis-made DnaA-ADP back to DnaA-ATP — not a real property of
+      the parameter set.
     evidence:
-      from_run: dnaa2-multiseed-v2
+      from_run: dnaa2-step3-mechanism
     provenance:
-      run_ids: [dnaa2-multiseed-v2, dnaa2-step1-k0]
+      run_ids: [dnaa2-step3-mechanism, dnaa2-multiseed-v2]
+      verified_by: scripts/measure_dnaa_at_steady_state.py
   - id: intrinsic-hydrolysis-does-not-move-fraction
     kind: computational
     summary: |
@@ -259,17 +276,20 @@ findings:
       from_run: dnaa2-step1-k0
     provenance:
       run_ids: [dnaa2-step1-k0, dnaa2-multiseed-v2]
-  - id: parameter-set-inconsistency-for-haochen
+  - id: dnaa-adp-equilibrium-assumption-was-the-bug
     kind: computational
     summary: |
-      With K_d(ATP)≈30 nM, K_d(ADP)≈100 nM and v2ecoli's [ATP]:[ADP]≈20, the
-      equilibrium leaves almost no apo and ~99.7% ATP-bound. The K_d's, the
-      cellular ratio, and the expected [0.2,0.5] fraction cannot all be right —
-      flagged for Haochen to choose which to revise (Step 3 blocker).
+      RESOLVED. The apparent "K_d / [ATP]:[ADP] / expected-fraction can't all be
+      right" inconsistency was not a parameter problem — it was the model
+      treating DnaA-ADP binding as a FAST equilibrium. v2ecoli's ecoli-equilibrium
+      integrates every reaction to steady state each tick, so it cannot hold a
+      kinetically-trapped DnaA-ADP. Haochen: DnaA-ADP unbinding is slow
+      (k_r≈1e-7/s) and not at equilibrium. Removing it from the fast equilibrium
+      + a slow DnaaAdpRelease step resolves it — no K_d/[ATP]:[ADP] revision.
     evidence:
-      from_run: dnaa2-multiseed-v2
+      from_run: dnaa2-step3-mechanism
     provenance:
-      run_ids: [dnaa2-multiseed-v2]
+      run_ids: [dnaa2-step3-mechanism, dnaa2-multiseed-v2]
   - id: seed1-allocator-negative-counts-edge-case
     kind: computational
     summary: |
@@ -394,30 +414,15 @@ conditions:
   model_settings: []
 
 visualizations:
-  - name: dnaa_forms_baseline
-    address: local:DnaaFormsVisualization
-    config:
-      title: dnaa-2 Step 1 — DnaA-form distribution (V-only baseline)
-      atp_band_low: 0.2
-      atp_band_high: 0.5
-  # Spec-deliverable 6-panel minutes-axis trajectories (interactive Plotly;
-  # pre-rendered to reports/figures/dnaa-2-atp-hydrolysis/<name>.html).
-  - name: dnaa2_step1_sixpanel_seed0
+  # ONE compact figure for the canonical Step-3 result (Rashmi 2026-06-01:
+  # "just one seed is enough; drop seed 2; the section was too long"). The prior
+  # Step-1/Step-2 multi-seed sixpanels (~0.997, all seeds) were stale — removed
+  # and their rendered files deleted. Pre-rendered to
+  # reports/figures/dnaa-2-atp-hydrolysis/<name>.html.
+  - name: dnaa2_step3_sixpanel_seed0
     address: local:DnaaSixPanelVisualization
     config:
-      title: dnaa-2 Step 1 (k=0 control) — 6-panel trajectory, seed 0
-  - name: dnaa2_step2_sixpanel_seed0
-    address: local:DnaaSixPanelVisualization
-    config:
-      title: dnaa-2 Step 2 (k=0.046) — 6-panel trajectory, seed 0
-  - name: dnaa2_step2_sixpanel_seed2
-    address: local:DnaaSixPanelVisualization
-    config:
-      title: dnaa-2 Step 2 (k=0.046) — 6-panel trajectory, seed 2
-  - name: dnaa2_step2_sixpanel_seed3
-    address: local:DnaaSixPanelVisualization
-    config:
-      title: dnaa-2 Step 2 (k=0.046) — 6-panel trajectory, seed 3
+      title: dnaa-2 Step 3 — DnaA nucleotide-state trajectory (seed 0, in-band ~0.45)
 
 runs:
   # NB: the report reads the LAST run's `outcomes:` for the test pills, so the

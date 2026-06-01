@@ -189,10 +189,11 @@ report:
         expression; every generation divides with chromosomes=2 and
         d_period_elapsed=True. ✓
 
-      VERDICT: PASS. Mechanism A (TU00259[c]=2e-3) lands the dnaA mRNA
-      initiation rate at the biological ≈1 event/min and, as the
-      consequence, holds the DnaA monomer pool in the [300, 800] band with
-      a stable cycle-mean (706, CV 7.2%) across the succinate lineage,
+      VERDICT: PASS. Mechanism A holds the DnaA monomer pool in band across the
+      succinate lineage. CANONICAL value re-tuned to TU00259[c]=1.7e-3 (Rashmi
+      2026-05-31) to keep the pre-division peak closer to the band: cycle-mean
+      665–710, CV 2.3% (the 2e-3 numbers below — cycle-mean 706, CV 7.2% — are
+      the prior tuning, kept for provenance),
       while preserving the oriC 1↔2 periodic cycle.
 
       monomer_counts listener question (Rashmi build note): the dnaA index

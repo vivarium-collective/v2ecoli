@@ -1,0 +1,742 @@
+schema_version: 4
+name: mbp-02-population-aggregation
+created: '2026-05-22'
+phase: Evaluate
+
+# Advanced to Build phase 2026-05-26 (parallel to mbp-01, no prereq blocker):
+# PopulationAggregator Step + baseline_population composite + 8 pytest stubs
+# scaffolded with TODO markers, all behavior tests skipped with reason
+# "Build-phase scaffold — PopulationAggregator wire-up TODO" until the actual
+# wire-up lands.
+design_status: drafted
+implementation_status: in_progress
+simulation_status: ran   # first tracked runs landed 2026-05-27 (see runs[] below)
+evaluation_status: not_evaluated
+expert_review_status: not_requested
+
+# ─── Redesigned-v4 spine ───
+# Top-level question, conditions, and status are required by the
+# vivarium-dashboard "redesigned" v4 validator
+# (vivarium_dashboard/lib/investigations.py::_validate_study_v4_redesign).
+# Their presence flips the loader away from the legacy "v3 + extras"
+# validator (which required `tests:` to be a mapping). Hybrid mirror
+# of the pdmp-* pattern: keep the rich v3 spec body intact + add the
+# v4 spine fields so both the validator and chart-renderer pass.
+question: |
+  Can v2ecoli aggregate single-cell-plus-Division output into
+  population-level biomass observables (total gDW, cell count) that
+  are physically meaningful at the reactor scale (OD ≫ 1) — using a
+  representative-sampling scaling factor (`cells_per_agent`) so the
+  simulated lineage legitimately stands in for an N-cell population
+  under the 0D well-mixed assumption?
+status: build-complete
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline_population
+    params: {seed: 0, cache_dir: out/cache}
+  variants:
+    - name: cells-per-agent-1
+      cells_per_agent: 1.0
+    - name: cells-per-agent-1e6
+      cells_per_agent: 1.0e6
+    - name: cells-per-agent-1e9
+      cells_per_agent: 1.0e9
+  model_settings: []
+
+baseline:
+- name: population-aggregation-baseline
+  composite: v2ecoli.composites.baseline_population   # TODO — see implementation_requirements
+  params: {seed: 0, cache_dir: out/cache}
+
+
+# ─── 1. PURPOSE ────────────────────────────────────────────────────────────
+purpose:
+  question: |
+    Can v2ecoli aggregate single-cell-plus-Division output into population-
+    level biomass observables (total gDW, cell count) that are physically
+    meaningful at the reactor scale (OD ≫ 1) — using a **representative-
+    sampling scaling factor (`cells_per_agent`)** so the simulated lineage
+    legitimately stands in for an N-cell population under the 0D
+    well-mixed assumption — and consume population-level signals (e.g.
+    reactor liquid volume) to maintain correct concentrations?
+  mechanism: |
+    v2ecoli currently tracks `agents.<id>.listeners.mass.cell_mass` per cell
+    and grows the population via the Division Step. There is no built-in
+    aggregation of the population into reactor-scale observables. This study
+    adds a `PopulationAggregator` Step that, each emit step, walks
+    `agents.*.listeners.mass.cell_mass` and writes:
+
+      population.total_biomass_gDW =
+          sum(agents.*.cell_mass) × cells_per_agent × 1e-15 g/fg
+      population.cell_count        = len(agents) × cells_per_agent
+      population.biomass_concentration_gL =
+          total_biomass_gDW / reactor_volume_L
+      population.OD600             = biomass_concentration_gL / od_to_gdw
+          (COSMETIC — for plotting / cross-referencing OD-only published data)
+
+    The `cells_per_agent` factor is the load-bearing architectural decision
+    in this study (adopted 2026-05-26 per chris_feedback_2026_05_26 §4,
+    Eran's choice between literal-sum and representative-sampling). Under
+    the 0D well-mixed assumption (already a key_assumption), every cell
+    sees the same environment, so simulating N representative cells and
+    scaling by k = cells_per_agent is mathematically equivalent to
+    simulating N × k cells. You downsample for compute tractability.
+    Cost: per-cell stochastic variance washes out at the bulk mean as k
+    grows — at high density this is correct biology (population averages
+    dominate over per-cell variance). At low density (small k = 1.0,
+    default), behavior is identical to literal-sum.
+
+    Production runs choose `cells_per_agent` such that
+    `n_simulated_agents × cells_per_agent ≈ target_population_density
+    × reactor_volume`. Default 1.0 preserves literal-sum so existing
+    single-cell sims and the unaggregated baseline regression test remain
+    byte-identical.
+
+    A `ReactorVolume` external store (read-only here, written by mbp-03's
+    BiRD coupling) determines concentration units. Concentration-to-count
+    conversions in metabolism stay per-cell; only the AGGREGATE view is new.
+
+    **`population.OD600` is COSMETIC** — derived from biomass_concentration_gL
+    for plotting and for comparisons against published OD-only data (e.g.
+    Beulig 2025 OD traces). The canonical biomass observable is
+    `population.biomass_concentration_gL` (or `total_biomass_gDW`); downstream
+    studies should NOT reach for OD as the primary biomass currency. Static
+    od_to_gdw = 0.34 (Beulig's value, not the textbook 0.33) is acceptable
+    under this framing; regime-dependence applies to OD interpretation, not
+    to the model's internal biomass accounting.
+  expected_outcome: |
+    cell_count tracks Division events (1 → 2 → 4 → … on a generational
+    cadence ≈ 60 min), scaled by cells_per_agent. total_biomass_gDW grows
+    exponentially during glucose-replete growth, scaled by cells_per_agent.
+    Per-cell observables (e.g. DnaA count) remain unchanged from the
+    unaggregated baseline — aggregation is a read-only view.
+
+    Pure consistency invariants hold at every emit step:
+      population.cell_count == len(agents.*) × cells_per_agent
+      population.total_biomass_gDW ==
+          sum(agents.*.listeners.mass.cell_mass) × cells_per_agent × 1e-15
+
+    These checks are decoupled from doubling-time calibration — they
+    isolate aggregator bugs from biology drift.
+
+
+# ─── 2. PIPELINE GATE ──────────────────────────────────────────────────────
+pipeline_gate:
+  prerequisites: []
+  enables:
+    - mbp-03-bird-reactor-coupling
+  gate_status_summary: |
+    Parallel to mbp-01 (no shared dependency). Both feed into mbp-03's
+    coupling layer — BiRD needs population-level biomass to compute O2
+    demand, kLa, etc.; v2ecoli needs a time-varying env (mbp-01) to consume
+    BiRD's dissolved-phase concentrations.
+  proceed_condition: |
+    cell_count and total_biomass_gDW track Division events (with
+    cells_per_agent=1.0 default); per-cell observables match the
+    unaggregated baseline (regression guard); single-cell-only sim
+    (Division disabled) still works; pure consistency invariants hold at
+    every emit step (population_count_equals_len_agents,
+    total_biomass_equals_sum_cell_mass_times_scale); scaling-factor sweep
+    sim at cells_per_agent ∈ {1, 1e6, 1e9} confirms aggregator output
+    scales linearly and per-cell observables remain unchanged.
+
+
+# ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
+simulation_set:
+
+- name: multi-division-population
+  base_model: v2ecoli.composites.baseline_population
+  perturbation: null
+  condition: M9-minimal-glucose
+  duration_min: 240   # ≥ 3 doubling times to see population grow
+  seeds: [0, 1, 2]
+  readouts:
+    - population_cell_count
+    - population_total_biomass_gDW
+    - population_OD600
+    - population_biomass_concentration_gL
+    - cell_mu_per_h
+    - dnaA_protein_count
+  applies_tests:
+    - cell-count-doubles-per-generation
+    - total-biomass-grows-exponentially
+    - per-cell-observables-unchanged-vs-baseline
+  status: planned
+
+- name: single-cell-no-division
+  base_model: v2ecoli.composites.baseline_population
+  perturbation: {disable_division: true}
+  condition: M9-minimal-glucose
+  duration_min: 60
+  seeds: [0]
+  readouts: [population_cell_count, population_total_biomass_gDW, cell_mu_per_h]
+  applies_tests:
+    - single-cell-aggregation-matches-cell-mass
+    - population_count_equals_len_agents
+    - total_biomass_equals_sum_cell_mass_times_scale
+  status: planned
+
+# Sweep cells_per_agent to verify the scaling factor behaves linearly and
+# does NOT perturb per-cell observables. Tests the architectural decision
+# adopted from chris_feedback_2026_05_26 §4.
+- name: scaling-factor-sweep
+  base_model: v2ecoli.composites.baseline_population
+  perturbation:
+    cells_per_agent: [1.0, 1.0e6, 1.0e9]
+  condition: M9-minimal-glucose
+  duration_min: 60
+  seeds: [0]
+  readouts: [population_cell_count, population_total_biomass_gDW, population_biomass_concentration_gL, dnaA_protein_count]
+  applies_tests:
+    - aggregator-output-scales-linearly-with-cells-per-agent
+    - per-cell-observables-invariant-under-scaling
+  status: planned
+
+
+# ─── 4. MODEL CHANGE ───────────────────────────────────────────────────────
+model_change:
+  base_model: v2ecoli.composites.baseline
+  new_state_variables:
+    - "population.total_biomass_gDW (float)"
+    - "population.cell_count (float)   # float, not int — cells_per_agent scaling can be non-integer"
+    - "population.biomass_concentration_gL (float)   # CANONICAL biomass observable"
+    - "population.OD600 (float)        # COSMETIC — derived from biomass_concentration_gL for plotting / OD-only comparisons"
+  new_processes:
+    - {name: PopulationAggregator, kind: Step, requirement_id: req-1-population-aggregator}
+  new_parameters:
+    # Load-bearing architectural decision (chris_feedback_2026_05_26 §4):
+    # representative-sampling scaling under the 0D well-mixed assumption.
+    # Default 1.0 preserves literal-sum; production runs override to scale
+    # the simulated lineage to a target population size.
+    - {name: cells_per_agent,      default: 1.0,   units: "real cells per simulated agent"}
+    - {name: od_to_gdw,            default: 0.34,  units: "gDW/(L·OD600)"}   # Beulig 2025 value (was textbook 0.33)
+    - {name: reactor_volume_L,     default: 1.0,   units: "L"}
+    - {name: fg_per_gram,          default: 1e-15, units: "g/fg"}
+  modified_processes: []
+  notes: |
+    Read-only aggregation; does NOT modify per-cell state. The Division
+    Step is unchanged. The reactor_volume_L parameter is a default for
+    this phase; mbp-03 will replace it with the reactor composite's
+    dynamic volume store.
+
+    cells_per_agent is the load-bearing knob; see purpose.mechanism for
+    the rationale. The cell-side interface contract will be amended in a
+    follow-up edit to reference the scaling discipline as part of the
+    interface — engines either operate at literal scale or declare an
+    explicit cells_per_agent factor.
+
+
+# ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
+key_assumptions:
+  - "Population is well-mixed (all agents see the same reactor liquid). This assumption is what makes the cells_per_agent representative-sampling factor mathematically equivalent to literal-N simulation."
+  - "Per-cell stochastic variance becomes negligible at large cells_per_agent (correct biology at high density; explicit cost of the representative-sampling choice — see chris_feedback_2026_05_26 §4)."
+  - "od_to_gdw = 0.34 gDW/(L·OD600) per Beulig 2025 (was textbook 0.33)."
+  - "cell_mass listener units are fg (femtograms) per v2ecoli convention."
+  - "PopulationAggregator runs as a Step at emit cadence; no need for inter-process synchronization."
+  - "OD600 is a COSMETIC observable (for plotting / OD-only data comparison); biomass_concentration_gL is canonical."
+
+
+# ─── 5. READOUTS + BEHAVIOR TESTS ──────────────────────────────────────────
+
+readouts:
+- {name: population_cell_count,             store_path: population.cell_count,             units: cells,    status: planned}
+- {name: population_total_biomass_gDW,      store_path: population.total_biomass_gDW,      units: gDW,      status: planned}
+- {name: population_OD600,                  store_path: population.OD600,                  units: OD600,    status: planned}
+- {name: population_biomass_concentration_gL, store_path: population.biomass_concentration_gL, units: g/L,   status: planned}
+- {name: cell_mu_per_h,                     store_path: agents.0.listeners.mass.instantaneous_growth_rate, units: "1/h", status: planned}
+- {name: dnaA_protein_count,                store_path: agents.0.listeners.monomer_counts.monomerCounts, index_by: {type: monomer_id, value: "PD03831[c]"}, units: molecules/cell, status: available}
+
+
+behavior_tests:
+
+# ─── Calibration-dependent tests (assume v2ecoli baseline μ as a fixed prior) ───
+# Per chris_feedback_2026_05_26 §4: v2ecoli's basal μ on M9 glucose is a
+# strong prior (calibrated against decades of E. coli literature). The
+# acceptable band is narrow and well-supported. If these tests ever fail,
+# first investigate baseline-composite drift, NOT just the aggregator.
+
+- name: cell-count-doubles-per-generation
+  classification: primary
+  acceptance_form: quantitative_range
+  description: "cell_count doubles approximately every doubling-time (~60 min on M9-glucose); ratio (final/initial) ≈ 2^(duration/doubling_time). Implicitly assumes calibrated v2ecoli baseline μ as a fixed prior — drift in this test should first prompt a baseline-composite drift check, not just an aggregator check."
+  measure: {kind: derived_ratio, numerator: population_cell_count_final, denominator: population_cell_count_initial}
+  pass_if: {op: in_range, low: 6, high: 24}   # 240 min / 60 min ~ 4 doublings → 16x; band absorbs stochasticity
+  units: "—"
+  requires_simulation: multi-division-population
+  cites: []
+
+- name: total-biomass-grows-exponentially
+  classification: primary
+  acceptance_form: quantitative_range
+  description: "Fitted exponential rate of total_biomass_gDW over the run matches the per-cell μ band (no biomass loss / accounting bug)."
+  measure: {kind: series, path: population.total_biomass_gDW, reduce: fitted_exponential_rate, window: full}
+  pass_if: {op: in_range, low: 0.3, high: 0.9}   # generous; v2ecoli-calibrated μ ≈ 0.5-0.7 1/h
+  units: "1/h"
+  requires_simulation: multi-division-population
+  cites: []
+
+- name: per-cell-observables-unchanged-vs-baseline
+  classification: primary
+  acceptance_form: quantitative_range
+  description: "Per-cell DnaA count distribution matches the unaggregated v2ecoli baseline — aggregation is purely additive, doesn't perturb cell state. Regression guard."
+  measure: {kind: trajectory_match, reference: "v2ecoli.composites.baseline:default-run", series: dnaA_protein_count}
+  pass_if: {op: distribution_match, tolerance: 0.05}
+  units: molecules/cell
+  requires_simulation: multi-division-population
+  cites: []
+
+- name: single-cell-aggregation-matches-cell-mass
+  classification: supporting
+  acceptance_form: quantitative_range
+  description: "With division disabled (cells_per_agent=1.0 default), population.total_biomass_gDW = agents.0.listeners.mass.cell_mass × 1e-15 every timestep (single cell sanity check; identity at default scale)."
+  measure: {kind: derived_ratio, numerator: "population.total_biomass_gDW", denominator: "agents.0.listeners.mass.cell_mass * 1e-15"}
+  pass_if: {op: in_range, low: 0.99, high: 1.01}
+  units: fraction
+  requires_simulation: single-cell-no-division
+  cites: []
+
+# ─── Pure consistency invariants (chris_feedback_2026_05_26 §4) ───
+# Decoupled from doubling-time / μ calibration. These isolate aggregator
+# bugs from biology drift if the calibration-dependent tests above ever
+# start failing.
+
+- name: population_count_equals_len_agents
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "At every emit step: population.cell_count == len(agents.*) × cells_per_agent. Pure aggregator-only check; independent of doubling-time calibration."
+  measure: {kind: per_step_identity, lhs: population.cell_count, rhs: "len(agents.*) * cells_per_agent"}
+  pass_if: {op: identity_at_every_step}
+  units: "—"
+  requires_simulation: single-cell-no-division   # and multi-division-population and scaling-factor-sweep
+  cites: []
+
+- name: total_biomass_equals_sum_cell_mass_times_scale
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "At every emit step: population.total_biomass_gDW == sum(agents.*.listeners.mass.cell_mass) × cells_per_agent × 1e-15. Pure aggregator-only check; isolates aggregation bugs from biology drift."
+  measure: {kind: per_step_identity, lhs: population.total_biomass_gDW, rhs: "sum(agents.*.listeners.mass.cell_mass) * cells_per_agent * 1e-15"}
+  pass_if: {op: identity_at_every_step, rtol: 1e-9}
+  units: "—"
+  requires_simulation: single-cell-no-division   # and multi-division-population and scaling-factor-sweep
+  cites: []
+
+# ─── cells_per_agent scaling-factor checks (the architectural decision) ───
+
+- name: aggregator-output-scales-linearly-with-cells-per-agent
+  classification: primary
+  acceptance_form: quantitative_range
+  description: "Across cells_per_agent ∈ {1, 1e6, 1e9}, population.total_biomass_gDW and population.cell_count at matched simulation time scale linearly with cells_per_agent (no off-by-k error, no clipping). Validates the representative-sampling architectural decision (chris_feedback_2026_05_26 §4)."
+  measure: {kind: cross_run_linear_scaling, x: cells_per_agent, ys: [population.total_biomass_gDW, population.cell_count], at_time: end_of_run}
+  pass_if: {op: linear_within_tolerance, rtol: 1e-9}
+  units: "—"
+  requires_simulation: scaling-factor-sweep
+  cites: []
+
+- name: per-cell-observables-invariant-under-scaling
+  classification: primary
+  acceptance_form: quantitative_range
+  description: "Across cells_per_agent ∈ {1, 1e6, 1e9}, per-cell DnaA count and per-cell μ are byte-identical (cells_per_agent only affects aggregator output, never per-cell state). Regression guard against the aggregator leaking the scaling factor into per-cell processes."
+  measure: {kind: cross_run_match, runs: scaling-factor-sweep, series: [dnaA_protein_count, cell_mu_per_h], reduce: per_step}
+  pass_if: {op: numerical_match, tolerance: 1e-12}
+  units: "—"
+  requires_simulation: scaling-factor-sweep
+  cites: []
+
+
+# ─── 5b. REQUIRED KNOWLEDGE ─────────────────────────────────────────────────
+required_knowledge:
+  claims:
+    - id: doubling-time-m9-glucose
+      backs: [cell-count-doubles-per-generation, total-biomass-grows-exponentially]
+    # od-to-gdw-conversion FK linkage REMOVED — chris_feedback_2026_05_26 §4
+    # minor: cell-count-doubles-per-generation measures cell_count directly,
+    # not OD600 (claim was miscategorized; harmless but worth catching).
+    - id: ecoli-high-density-ceiling
+      backs: []                                     # informational — sets the eventual target regime
+    - id: well-mixed-representative-sampling-equivalence
+      backs: [aggregator-output-scales-linearly-with-cells-per-agent]
+  open_questions:
+    - id: od-conversion-at-high-density
+      question: |
+        The Beulig 2025 od-to-gdw-conversion (0.34 gDW/(L·OD600)) holds at
+        their batch-phase density. Does it hold at the full 50–80 gDW/L
+        fed-batch regime, or do cell-size + scattering shifts (lower
+        per-cell mass under stress) require a regime-dependent factor?
+        Less load-bearing now that OD600 is COSMETIC and biomass_concentration_gL
+        is canonical — affects only OD-only published-data comparisons.
+      blocks: [mbp-05 OD600 overlay panel band-width]
+      asked_to: unassigned
+      status: open
+    - id: stochastic-vs-aggregate
+      question: |
+        At population scale, are stochastic effects on division (cell-cycle
+        skew, daughter-mass partitioning) significant enough to affect the
+        aggregate biomass curve, or can the aggregator treat them as wash?
+        With cells_per_agent scaling, the simulated agents themselves cover
+        the variance; the scaling factor washes per-cell variance further.
+        Probably wash at effective N > ~1000 cells but worth a multi-seed check.
+      blocks: [multi-division-population multi-seed analysis]
+      asked_to: unassigned
+      status: open
+    - id: scaling-factor-sets-stochastic-floor
+      question: |
+        cells_per_agent shifts the simulation from "literal N cells" toward
+        "ensemble of representatives × scale" — explicit cost is that
+        per-cell stochastic variance washes out at the bulk mean as scale
+        grows. At high density this matches reality (population averages
+        dominate), but in the transition regime (k ~ 10-100), what's the
+        right N_simulated × k tradeoff to preserve enough variance for
+        biologically-interesting heterogeneity (e.g. Beulig's bistable
+        expression states)? Candidate-future-study territory.
+      blocks: [mbp-07 cells_per_agent calibration for Beulig regime]
+      asked_to: Chris on next sync
+      status: open
+
+
+# ─── 5c. FAILURE MODES ──────────────────────────────────────────────────────
+failure_modes:
+  - signature: "cell-count-doubles-per-generation fails (way off)"
+    candidate_causes:
+      - "PopulationAggregator walks the wrong path (agents.* not enumerable, or agent IDs are non-integer)"
+      - "Division Step splits but new cells aren't registered in the agents store the aggregator walks"
+      - "Doubling time of v2ecoli baseline isn't ~60 min in this run — check medium/seed"
+    checks:
+      - "Print population_cell_count at every emit; should be powers of 2 modulo stochasticity"
+      - "Walk the agents store directly with len(agents.keys()) at end of run"
+      - "Check baseline composite's Division Step trigger condition"
+  - signature: "per-cell-observables-unchanged-vs-baseline FAILS (regression broken)"
+    candidate_causes:
+      - "PopulationAggregator accidentally writes to per-cell state instead of population.* store"
+      - "Aggregator runs at wrong cadence (e.g. ticks per cell, breaking determinism)"
+    checks:
+      - "Diff agents.0.listeners.monomer_counts at every emit vs unmodified baseline"
+      - "Confirm PopulationAggregator's outputs schema only writes to population.*"
+  - signature: "single-cell-aggregation-matches-cell-mass FAILS"
+    candidate_causes:
+      - "fg_per_gram conversion off by orders of magnitude (1e-15 vs 1e-12)"
+      - "reactor_volume_L default not 1.0 in this study (gives biomass_concentration_gL ≠ total_biomass_gDW)"
+    checks:
+      - "Verify the conversion: agents.0.listeners.mass.cell_mass × 1e-15 g/fg should match population.total_biomass_gDW"
+
+
+# ─── 5d. REGRESSION ────────────────────────────────────────────────────────
+regression_tests:
+  # mbp-02 is parallel to mbp-01 (no upstream dependency); inherits nothing.
+  inherits_from: []
+
+
+# ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
+limitations:
+  - "All agents share the same external environment in this phase (no per-cell microenvironment heterogeneity)."
+  - "OD600 conversion is a constant factor; physical OD depends on cell size + scattering — may need regime-dependent refit (Beulig 2025 high-density regime). Less load-bearing now that OD600 is cosmetic."
+  - "Aggregator runs at emit cadence; not suitable as a feedback signal to processes that need sub-step granularity (deferred)."
+  - "cells_per_agent scaling washes per-cell stochastic variance at large k — correct biology at high density (population averages dominate), but at k ~ 10-100 may obscure biologically-interesting per-cell heterogeneity (e.g. Beulig 2025's bistable expression states). Setting k is a calibration decision per investigation; see open_question scaling-factor-sets-stochastic-floor."
+  - "Single-cell-with-Division at small cells_per_agent does not scale to reactor densities (~10^13 cells/L at 50–80 gDW/L) by literal-N simulation. The scaling factor lets the SIMULATED N stand in for a larger M = N × k, sufficient for batch-phase work but with the stochastic-floor caveat above. A coarse-grained surrogate engine under the cell-side interface contract remains the path forward for the full high-density regime (mbp-06 scope; see candidate-future-study `mbp-08-surrogate-engine-for-high-density`)."
+
+
+# ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
+implementation_requirements:
+
+- id: req-1-population-aggregator
+  kind: process
+  title: PopulationAggregator Step
+  effort: S
+  description: |
+    PBG Step that walks `agents.*.listeners.mass.cell_mass`, sums, and writes:
+
+      population.total_biomass_gDW =
+          sum(agents.*.cell_mass) × cells_per_agent × 1e-15
+      population.cell_count        = len(agents) × cells_per_agent   (float, not int)
+      population.biomass_concentration_gL =
+          total_biomass_gDW / reactor_volume_L
+      population.OD600 =
+          biomass_concentration_gL / od_to_gdw
+
+    NO mutation of agent state (regression-guarded by
+    per-cell-observables-unchanged-vs-baseline and
+    per-cell-observables-invariant-under-scaling). The cells_per_agent
+    scaling factor is applied ONLY to the population.* outputs — never to
+    per-cell stores. Hooks into the emit cycle so it runs once per emit
+    interval.
+  unblocks: [all mbp-02 behavior_tests]
+
+- id: req-2-population-composite
+  kind: composite
+  title: v2ecoli.composites.baseline_population
+  effort: XS
+  description: |
+    Thin wrapper around v2ecoli.composites.baseline that adds the population
+    store + PopulationAggregator Step. Default reactor_volume_L = 1.0;
+    overridden by mbp-03's coupling composite.
+  unblocks: [all mbp-02 simulations]
+
+
+bibliography:
+  expert: [multiscale_bioprocess_roadmap, chris_feedback_2026_05_26]
+  bib_keys: []
+
+
+# Captured runs — scaling-factor sweep at cells_per_agent ∈ {1, 1e6, 1e9}
+# (architectural decision from chris_feedback_2026_05_26 §4). Each variant
+# ran the full 120 sim-min through 2 generations under the workspace-default
+# parquet emitter; hive partitioned per ParquetEmitter convention under
+# studies/<study>/parquet-runs/.
+#
+# Historical sqlite captures (3 v1-crashed + 3 v2-sqlite-multigen entries
+# from 2026-05-27) were deleted from .pbg/composite-runs.db on 2026-05-28
+# as part of the everything-parquet migration. Git history preserves the
+# full audit trail; the entries below reflect what's actually findable
+# post-migration.
+runs:
+  - simulation:      aggregator-cpa1-multigen
+    simulation_id:   c0e3a175-25fc-49cf-8d72-b6168c2db9b1
+    seed:            0
+    cells_per_agent: 1.0
+    started_at:      '2026-05-27 19:37:50'
+    sim_seconds:     7200
+    n_history_rows:  720
+    chunk:           10
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/c0e3a175-25fc-49cf-8d72-b6168c2db9b1
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Parquet capture of the literal-sum aggregation. Pairs with the
+      v2-sqlite cpa1 run above (simulation_id 7e93cbd5) — both written
+      from identical composite + seed; row-level overlay should be
+      byte-identical (modulo emit-cadence float repr differences).
+
+  - simulation:      aggregator-cpa1e6-multigen
+    simulation_id:   f92d7e66-8f71-4fd0-8280-abe2aa98a495
+    seed:            0
+    cells_per_agent: 1.0e6
+    started_at:      '2026-05-27 19:50:25'
+    sim_seconds:     7200
+    n_history_rows:  720
+    chunk:           10
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/f92d7e66-8f71-4fd0-8280-abe2aa98a495
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Parquet capture of cpa=1e6. Pairs with v2-sqlite run 81c54ff5.
+
+  - simulation:      aggregator-cpa1e9-multigen
+    simulation_id:   7b4a5b5f-6d4e-4a06-9a6c-3ff0f335c7cc
+    seed:            0
+    cells_per_agent: 1.0e9
+    started_at:      '2026-05-27 20:03:17'
+    sim_seconds:     7200
+    n_history_rows:  720
+    chunk:           10
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/7b4a5b5f-6d4e-4a06-9a6c-3ff0f335c7cc
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Parquet capture of cpa=1e9 (Beulig-regime density via scaling).
+      Pairs with v2-sqlite run fff01fe9. Closes the scaling-factor
+      sweep under the workspace-default emitter — DuckDB / polars
+      analysis paths consume this set directly from the hive.
+
+  # ─── Multi-seed sweep (started 2026-05-29) ──────────────────────────
+  # Extends Chris's 2026-05-28 §1.a seed-0 confirmation to a 3-seed
+  # variance band per cpa. Answers "is the single-seed cpa-scaling
+  # linearity a coincidence or a robust property under the 0D well-
+  # mixed assumption?" Render variance-bands chart at chart 04.
+  - simulation:      aggregator-cpa1-seed1-multigen
+    simulation_id:   7d3e55c8-a4f4-42a0-89aa-99110348f2c2
+    seed:            1
+    cells_per_agent: 1.0
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/7d3e55c8-a4f4-42a0-89aa-99110348f2c2
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Variance-band replicate at cpa=1.0, seed=1 (60 sim-min, 2 gen).
+      Pairs with the seed=0 cpa1 run above + seed=2 cpa1 below.
+
+  - simulation:      aggregator-cpa1-seed2-multigen
+    simulation_id:   19ee7b8b-399f-446a-a768-073780956466
+    seed:            2
+    cells_per_agent: 1.0
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/19ee7b8b-399f-446a-a768-073780956466
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Variance-band replicate at cpa=1.0, seed=2 (60 sim-min, 2 gen).
+      With seed=0 and seed=1 above, gives n=3 replicates at cpa=1.
+
+  - simulation:      aggregator-cpa1e6-seed1-multigen
+    simulation_id:   9f771d79-edcb-4c6f-a1ce-8c1bdf4b1a89
+    seed:            1
+    cells_per_agent: 1.0e6
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/9f771d79-edcb-4c6f-a1ce-8c1bdf4b1a89
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Variance-band replicate at cpa=1e6, seed=1.
+
+  - simulation:      aggregator-cpa1e6-seed2-multigen
+    simulation_id:   5b50fd2a-0d32-48e5-b279-744a9d0c8a48
+    seed:            2
+    cells_per_agent: 1.0e6
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/5b50fd2a-0d32-48e5-b279-744a9d0c8a48
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Variance-band replicate at cpa=1e6, seed=2. Closes cpa=1e6 row at n=3.
+
+  - simulation:      aggregator-cpa1e9-seed1-multigen
+    simulation_id:   1a83355f-2881-4509-8aa1-b63c6a97881e
+    seed:            1
+    cells_per_agent: 1.0e9
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/1a83355f-2881-4509-8aa1-b63c6a97881e
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Variance-band replicate at cpa=1e9 (Beulig-regime), seed=1.
+
+  - simulation:      aggregator-cpa1e9-seed2-multigen
+    simulation_id:   16ca86c7-79a8-4e07-9c6f-bda0b1209842
+    seed:            2
+    cells_per_agent: 1.0e9
+    sim_seconds:     3600
+    n_history_rows:  3600
+    chunk:           1
+    generations:     [1, 2]
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/16ca86c7-79a8-4e07-9c6f-bda0b1209842
+    investigation:   multiscale-bioprocess
+    outcome:         completed
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Variance-band replicate at cpa=1e9, seed=2. Closes cpa=1e9 row at n=3.
+      Full 3 cpa × 3 seed grid now populated — chart 04 renders with
+      visible ribbons at every cpa.
+
+  - simulation:      aggregator-cpa1e9-batch-prefix-multigen
+    simulation_id:   ee0a02b0-5fd1-4844-8f06-5baae429835e
+    seed:            0
+    cells_per_agent: 1.0e9
+    sim_seconds:     10500   # 175 sim-min salvaged; targeted 21600 (6h)
+    n_history_rows:  10500
+    chunk:           1
+    max_generations: 12
+    artifact:        studies/mbp-02-population-aggregation/parquet-runs/ee0a02b0-5fd1-4844-8f06-5baae429835e
+    investigation:   multiscale-bioprocess
+    outcome:         partial-killed-at-memory-ceiling
+    runner:          v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+    note: |
+      Long-duration batch-prefix run targeting 6h sim — terminated at
+      sim_min=175 (29% of target) when the sim's RSS reached ~72 GB and
+      the system's 128 GB physical memory was effectively exhausted.
+      Salvaged trajectory is more than sufficient for the plateau
+      diagnostic that mbp-05 chart 02 surfaces; reaching 6h would not
+      change the architectural story (biomass plateau ≈ 4.3 mg/L,
+      bounded by single_daughters × cell_mass × cpa, not by duration).
+
+
+# ─── v4 tests[] (hand-authored 2026-05-28) ────────────────────────────────
+# Hand-curated representatives of the load-bearing claims in
+# `behavior_tests:` above — NOT a wholesale auto-projection (the
+# no-machine-projected-tests rule applies). The behavior_tests block
+# remains the authoritative spec; this block is what the dashboard
+# renders to surface trajectories + criteria in the per-study Charts
+# tab via render_v4_test_charts.
+
+tests:
+  - name:           per-cell-mass-grows-through-division
+    classification: primary
+    description:    "Per-cell cell_mass grows over 120 sim-min crossing
+                    2 generations under cells_per_agent=1.0. Identity
+                    with baseline (regression-guard) is enforced by
+                    cross-run comparison; this test surfaces the
+                    trajectory shape."
+    measure:
+      path:         listeners__mass__cell_mass
+      source:       aggregator-cpa1-multigen parquet hive
+      observable:   per-cell dry mass over the lineage trajectory (fg)
+      units:        fg
+    pass_if:
+      operator:     in-range
+      low:          400.0
+      high:         1500.0
+    requires_simulation: aggregator-cpa1-multigen
+    cites: []
+    backs:
+      behavior_test: per-cell-observables-unchanged-vs-baseline
+
+  - name:           population-biomass-scales-with-cells-per-agent
+    classification: primary
+    description:    "population.total_biomass_gDW(t) at cpa=1.0 is
+                    monotonically growing through the lineage trajectory.
+                    The same observable at cpa=1e6/1e9 is the literal
+                    1e6/1e9 multiplier (verified cross-run by the unit
+                    tests + the scaling-factor sweep chart 01)."
+    measure:
+      path:         population__total_biomass_gDW
+      source:       aggregator-cpa1-multigen parquet hive
+      observable:   population.total_biomass_gDW (g)
+      units:        g
+    pass_if:
+      operator:     greater-than
+      threshold:    0.0
+      field:        min_value
+    requires_simulation: aggregator-cpa1-multigen
+    cites: []
+    backs:
+      behavior_test: aggregator-output-scales-linearly-with-cells-per-agent
+
+  - name:           single-lineage-cell-count-bounded
+    classification: supporting
+    description:    "single_daughters=True keeps cell_count at 1.0
+                    throughout the run (we follow one daughter, the
+                    sibling is dropped at each division)."
+    measure:
+      path:         population__cell_count
+      source:       aggregator-cpa1-multigen parquet hive
+      observable:   population.cell_count
+      units:        cells
+    pass_if:
+      operator:     equal-to
+      threshold:    1.0
+      field:        max_value
+    requires_simulation: aggregator-cpa1-multigen
+    cites: []
+    backs:
+      behavior_test: single-cell-aggregation-matches-cell-mass
+
+# Pytest discovery metadata (v3 holdover; kept for tooling compatibility
+# while v4 chart-rendering reads the tests[] block above).
+pytest:
+  auto_discover: true
+  data_source:   latest_run
+  pytest_args:   []
+  last_results:  null

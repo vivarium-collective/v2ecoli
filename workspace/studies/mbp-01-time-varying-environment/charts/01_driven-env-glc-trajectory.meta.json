@@ -1,0 +1,6 @@
+{
+  "title": "EnvironmentDriver \u2192 Mirror \u2192 boundary.external propagation",
+  "caption": "boundary.external.GLC(t) under two env_driver_mode=synthetic_trajectory scenarios.",
+  "simulations": "linear-decline-glc-multigen (5 mM \u2192 0 over 60 sim-min) and zero-clamp-glc-multigen (clamped at 0). Both run via baseline_time_varying_env composite with EnvironmentMirror Step landed in commit 60cdbd3.",
+  "interpretation": "Proves the propagation chain driver \u2192 mirror \u2192 media_update (via boundary.external delta) \u2192 exchange_data \u2192 metabolism closes end-to-end. The mirror writes per-tick directly into each agent's boundary.external; FLUSH placement BEFORE media_update's layer guarantees same-tick visibility. Resolution of the env-store-topology-mismatch + env-driver-molecule-id-convention open_questions captured 2026-05-28."
+}

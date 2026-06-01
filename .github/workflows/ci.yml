@@ -91,6 +91,8 @@ jobs:
               'v2ecoli/library/cache_version.py',
               'v2ecoli/core.py',
               'v2ecoli/composites/baseline.py',
+              'v2ecoli/composites/baseline_population.py',
+              'v2ecoli/composites/baseline_time_varying_env.py',
               'v2ecoli/composites/colony.py',
               'v2ecoli/composites/millard_pdmp_baseline.py'
             ) }}

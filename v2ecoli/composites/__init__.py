@@ -5,7 +5,20 @@ fires their ``@composite_generator`` decorators and registers the generators
 in ``pbg_superpowers.composite_generator._REGISTRY``.
 """
 
-from v2ecoli.composites import baseline, colony, parca  # noqa: F401
-from v2ecoli.composites import millard_pdmp_baseline  # noqa: F401
+from v2ecoli.composites import (  # noqa: F401
+    baseline,
+    baseline_population,
+    baseline_time_varying_env,
+    colony,
+    millard_pdmp_baseline,
+    parca,
+)
 
-__all__ = ["baseline", "colony", "parca", "millard_pdmp_baseline"]
+__all__ = [
+    "baseline",
+    "baseline_population",
+    "baseline_time_varying_env",
+    "colony",
+    "millard_pdmp_baseline",
+    "parca",
+]

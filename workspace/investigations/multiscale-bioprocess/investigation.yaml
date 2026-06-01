@@ -1,0 +1,526 @@
+schema_version: 1
+name: multiscale-bioprocess
+title: v2ecoli — Bioprocess Migration & Reactor Coupling
+created: '2026-05-22'
+status: active
+
+question: |
+  Can v2ecoli be migrated and enhanced to operate inside a bench-scale
+  bioreactor — specifically: a time-varying external environment hook, a
+  population aggregator with representative-sampling scaling, and a
+  coupling adapter to `pbg-bioreactordesign`'s BiRDTransportProcess — such
+  that a structured sim-vs-published COMPARISON REPORT (overlay panels +
+  divergence triage feeding mbp-06 gap analysis) can be rendered against
+  the WT batch-phase prefix of the 2025 Beulig/Palsson lab study
+  (mSystems)?
+
+  **Reframed 2026-05-26** per chris_feedback_2026_05_26 §1 + §10. The
+  original framing ("reproduces ... within per-metric tolerances")
+  structurally encoded an open-ended menu of model knobs to turn — even
+  with "no silent tuning" discipline, the impulse to tune-to-tolerance was
+  built into the test design. Investigation success is now defined as
+  "comparison harness built and applied; structured gap inventory
+  produced," NOT "Palsson benchmark achieved." All biological divergences
+  feed mbp-06 as evidence-producing inputs.
+
+hypothesis: |
+  Yes — with explicit scope caveats. v2ecoli's existing Layer-1 Steps
+  (`media_update`, `exchange_data`) already expose the environment-coupling
+  surface; the metabolism Process already emits `external_exchange_fluxes`.
+  The required enhancements are small and additive: (1) a time-varying-env
+  hook over the existing static-medium plumbing, (2) a population aggregator
+  with `cells_per_agent` representative-sampling scaling that derives
+  reactor-scale biomass / OD from per-cell mass listeners, (3) a
+  ReactorCellCoupler Step that bridges to `pbg-bioreactordesign`'s
+  **BiRDTransportProcess** (transport-only fork; no internal biomass ODE
+  by construction, per the Option-B decision in
+  chris_feedback_2026_05_26 §5). Each study's acceptance tests gate its
+  impl PR; the multi-generation coupled run validates that no piece
+  drifts over time; mbp-05's evaluation phase renders the comparison
+  report against Beulig batch-phase trajectories.
+
+  **Known scope caveat.** Beulig 2025 reached 50–80 gDW/L (~10^12 – 10^13
+  cells/L). v2ecoli's single-cell-with-Division population does not scale
+  to that regime by literal-sum aggregation; the investigation adopts a
+  `cells_per_agent` scaling factor (mbp-02; representative-sampling under
+  the 0D well-mixed assumption) so the simulated lineage stands in for a
+  larger population. mbp-05 reframes as an EVALUATION phase that renders a
+  structured comparison report (overlays + categorized divergences) rather
+  than asserting tolerance-based agreement with Beulig — the AI-agent
+  scope is bounded to "execute and report" rather than "tune until match."
+  mbp-06's gap analysis is expected to surface a coarse-grained surrogate
+  engine (under the same cell-side interface contract) as a top-priority
+  follow-up.
+
+description: |
+  Investigation in the v2ecoli workspace migrating and enhancing v2ecoli
+  for bench-scale bioprocess context, then coupling it to
+  `vivarium-collective/pbg-bioreactordesign` for the physical reactor side.
+
+  **Scope.** The work is INTERNAL v2ecoli upgrades + a coupling adapter,
+  not a reactor wrapper built from scratch. v2ecoli gains a small set of
+  additive features (time-varying environment, population aggregation,
+  reactor coupler); reactor physics comes from `pbg-bioreactordesign`
+  consumed as a dependency. Out of scope: dynamic-FBA as the cell side
+  (the upstream multiscale-bioprocess roadmap's choice — see
+  references/expert/multiscale_bioprocess_roadmap.md); multi-cell colony
+  composite as the primary path (deferred); CFD / spatial-mixing; WCM-
+  internal mass-balance audits.
+
+  **Fed-batch is deferred.** `pbg-bioreactordesign` does not yet expose
+  fed-batch operations (feed schedules, dynamic volume). Until that lands
+  upstream — or a v2ecoli-side feed Step is added — the mbp-05 Beulig
+  benchmark scopes to the BATCH portion of the Beulig dataset; the spec
+  PR makes that scope call explicit. Adding fed-batch is expected to be a
+  top-priority gap from mbp-06.
+
+  **Reactor + coupling code lives in `v2ecoli/`** (planned packages:
+  `v2ecoli.composites.baseline_time_varying_env`,
+  `v2ecoli.composites.baseline_population`,
+  `v2ecoli.composites.reactor_bird_coupled`). Cell-side composite stays
+  `v2ecoli.composites.baseline` (single cell + Division Step).
+  `pbg-bioreactordesign` is added as a workspace dependency in mbp-03.
+
+  Studies, in dependency order (with current `phase` shown — multi-axis
+  status is canonical, see each study.yaml):
+
+  1. mbp-01-time-varying-environment — **Build phase** — v2ecoli
+     enhancement: media / environment becomes externally driven (time-
+     varying nutrient pool consumed by the existing Layer-1 Steps). PLUMBING
+     + qualitative-extreme tests only (per chris_feedback_2026_05_26 §3);
+     gradient-shape / quantitative-biology defer to
+     `transport-kinetics-fidelity` candidate-future-study.
+  2. mbp-02-population-aggregation   — **Build phase** — v2ecoli
+     enhancement: aggregate per-cell mass into reactor-scale biomass /
+     OD600 / cell-count via `cells_per_agent` representative-sampling
+     scaling (chris_feedback_2026_05_26 §4; Eran's choice over literal-sum
+     to make 240-min batch dynamics resolvable). OD600 is COSMETIC;
+     `biomass_concentration_gL` is canonical.
+  3. mbp-03-bird-reactor-coupling    — adapter to `pbg-bioreactordesign`'s
+     **BiRDTransportProcess** (a transport-only sibling of
+     `BiRDReactorProcess` with no internal biomass ODE; see
+     `chris_feedback_2026_05_26.md` §5 for the Option-B rationale). BiRD
+     owns transport physics; v2ecoli owns biomass. THE keystone coupling.
+     Also the first impl PR to wire a real engine under the cell-side
+     interface contract (`references/expert/cell_side_interface_contract.md`).
+     **Cross-investigation dependency:** mbp-03 entering Build is gated on
+     the upstream `pbg-bioreactor-transport-fork` PR landing in
+     pbg-bioreactordesign (seeded as a candidate-future-study in mbp-06).
+  4. mbp-04-multigeneration-runs     — sustained coupled run (≥ 3
+     v2ecoli generations); mass-balance audit; regime transition into
+     substrate-limited growth.
+  5. mbp-05-palsson-benchmark        — EVALUATION phase (per
+     `chris_feedback_2026_05_26.md` §10). Renders a structured comparison
+     report (overlay panels + categorized divergences) against the Beulig
+     2025 (mSystems; senior author Palsson) batch-phase prefix. Pass
+     criteria are about whether the comparison was executed and reported
+     coherently, not whether biology matched within tolerance — divergences
+     feed mbp-06's gap analysis as input.
+  6. mbp-06-gap-analysis             — EVALUATION phase, not construction.
+     Walks the mbp-01..05 artifacts, synthesizes gaps across five axes
+     (v2ecoli biology / coupling / BiRD physics / Beulig scope /
+     methodology), and feeds the next investigation iteration.
+
+
+# ─── Methodology discipline ─────────────────────────────────────────────────
+# These fields are descriptive metadata for the investigation, not consumed
+# by the dashboard / lint today — but they make the inherited methodology
+# explicit so future agents can read it off the YAML rather than the prose
+# in `references/expert/multiscale_bioprocess_roadmap.md`.
+
+discipline:
+
+  # The biological-BDD closed loop (inherited from upstream methodology):
+  # CURATE knowledge → translate into structured CLAIMS → generate behavior
+  # TESTS from claims → run SIMULATIONS → COMPARE → TRIAGE divergences →
+  # UPDATE knowledge/claims/tests/model.
+  #
+  # In this investigation:
+  #   - CURATE  : references/papers/ (raw) + references/expert/ (extracted).
+  #               Currently: Beulig 2025 PDF + expert-doc stub; upstream
+  #               roadmap pointer; cell-side interface contract.
+  #   - CLAIMS  : references/claims.yaml (structured, queryable).
+  #   - TESTS   : per-study `behavior_tests[]` with `acceptance_form` tag
+  #               (qualitative_direction | quantitative_range) and `cites`
+  #               linking to claims via bib_keys.
+  #   - RUN     : per-study `simulation_set[]` (planned now, populated as
+  #               runs land).
+  #   - COMPARE : impl-PR self-validation; results in `acceptance_results`
+  #               and `findings[]`.
+  #   - TRIAGE  : per-study `failure_modes[]` (candidate causes + checks);
+  #               mbp-05's `divergences-categorized-in-report-card` test
+  #               enforces the discipline.
+  #   - UPDATE  : within-phase via impl PR; across-phase via test-revision
+  #               PRs (see scope_discovery below).
+  bdd_loop: curate -> claims -> tests -> simulate -> compare -> triage -> update
+
+  # Phase-as-construction-unit (upstream methodology).
+  # Each study has a spec PR (sections 1-9 of upstream's 10-section schema,
+  # mapped onto this workspace's v3 study.yaml shape) and an impl PR (sections
+  # 5d findings + report). Acceptance tests join the regression suite on
+  # impl-PR merge.
+  phase_unit:
+    spec_pr_label: "study-spec"
+    impl_pr_label: "study-impl"
+    regression_discipline: |
+      Every accepted study's acceptance tests join the workspace's permanent
+      regression suite. New studies must not break prior studies' tests
+      (see `regression_tests.inherits_from` in each downstream study).
+      Modifying or retiring a prior acceptance test goes through a separate
+      `test-revision` PR (opened on the investigation's main branch, not on
+      a feature impl branch) — the upstream methodology calls this out
+      explicitly to prevent "relax a test to make a new feature pass."
+
+  # Scope discovery during implementation.
+  scope_discovery:
+    default: defer_and_proceed   # explicitly-marked placeholder + open question + candidate-future-study
+    escalation: halt_and_amend   # only when discovery prevents an in-scope acceptance test from passing
+    rare: rewind                 # original spec PR superseded if the decomposition itself was wrong
+
+  # Substitutability contract (the discipline that makes engine substitution a
+  # named operation rather than ad-hoc rework). See the cell-side interface
+  # contract document for the contract specification.
+  substitutability_contract: references/expert/cell_side_interface_contract.md
+
+  # Methodology rule from chris_feedback_2026_05_26 §12: mechanism (plumbing)
+  # tests and biological-fidelity tests live in SEPARATE studies. They have
+  # different failure semantics and different remediation paths (fix the wire
+  # vs. enhance the model). Bundling them conflates the AI agent's response
+  # when something fails. mbp-01's reframe (plumbing + qualitative-extreme
+  # only; transport-kinetics-fidelity deferred) is the canonical example;
+  # future Henry's-law, kLa-response, and any "biological observable X
+  # responds to driver Y" tests must respect the same split.
+  scope_discipline:
+    rule: mechanism_and_biology_tests_separate_studies
+    applies_to: [mbp-01, mbp-03, mbp-04, every future "X responds to Y" test]
+    rationale_source: references/expert/chris_feedback_2026_05_26.md#12
+
+  # Beulig-specific axes that distinguish this investigation from the
+  # upstream multiscale-bioprocess plan (which uses dFBA, not a whole-cell
+  # model).
+  beulig_benchmark_axes:
+    - axis: trajectory_match
+      observables: [OD600, biomass_gL, glucose_gL, acetate_gL, dissolved_o2]
+      scope: in_for_mbp_05
+      regime: WT batch-phase prefix
+    - axis: strain_specific
+      observables: per-strain (WT / SGKO×31 / TRP / TRPp / MEL) trajectories
+      scope: deferred_to_mbp_06_or_future
+      regime: full Beulig dataset
+    - axis: transcriptional_state
+      observables: per-strain per-phase transcriptome (>470 samples)
+      scope: deferred_to_mbp_06_or_future
+      regime: unique to v2ecoli — upstream's dFBA path lacks transcripts
+    - axis: resistance_persistence_tradeoff
+      observables: stress / maintenance stimulons; bistable expression states
+      scope: deferred_to_mbp_06_or_future
+      regime: Beulig's headline mechanism — needs v2ecoli's regulation layer
+
+
+# Narrative-spine executive panel — rendered at the top of the
+# investigation report's Overview. Captures (a) the current verdict for a
+# reviewer scanning at the top of the page, (b) Chris's 2026-05-28
+# verification-pass affirmative observations, (c) the changeset closing
+# his nine inline review items + the §11 framework root cause, and
+# (d) the 2026-05-29 architecture work that advanced mbp-01 from Build
+# to Evaluate-ready.
+executive:
+  what_is_this: |
+    A v2ecoli investigation putting the single-cell whole-cell model into
+    a bench-scale bioreactor: time-varying environment hook (mbp-01),
+    population aggregation with representative-sampling scaling (mbp-02),
+    BiRD reactor coupling (mbp-03), multigeneration coupled runs (mbp-04),
+    a structured sim-vs-Beulig comparison report (mbp-05, EVALUATION
+    phase), and gap analysis feeding the next iteration (mbp-06).
+
+  verdict: |
+    **Build phase complete for mbp-01 and mbp-02; ready for Evaluate
+    tooling.** Reviewer feedback through 2026-05-28 has been processed
+    end-to-end (digest + raw export under `references/expert/`); all 9
+    inline cleanup items closed in source, the §11 framework root cause
+    seeded as an upstream pbg-superpowers gap, and the two architectural
+    blockers Chris's first-pass review left open (env-store-topology +
+    env-driver-molecule-id) resolved 2026-05-29 by the EnvironmentMirror
+    Step (commit `60cdbd3`). mbp-01 went from 1 passing / 5 skipped to
+    **6 passing / 0 skipped**.
+
+  verdict_status: in-progress
+
+  reviewer_verification_observations:
+    # Chris Long's 2026-05-28 Pass 2 review confirmed three substantive
+    # observations from the existing artifacts BEFORE the mbp-01
+    # advancement landed. Recorded verbatim per chris_feedback_2026_05_28
+    # §1.a so the report surfaces them where reviewers look.
+    - source: cplong90 (2026-05-28 Pass 2)
+      observation: |
+        cells_per_agent scaling validated empirically.
+        `studies/mbp-02-population-aggregation/charts/01_population-scaling.svg`
+        shows perfect log-y parallelism across cpa ∈ {1, 1e6, 1e9} —
+        9 orders of magnitude scaling, reaches Beulig regime
+        (~10^12-10^13 cells/L at cpa=1e9) from a single-cell-with-
+        Division simulation. `00_per-cell-mass-invariant.svg` shows
+        three overlapping traces — aggregator never touches per-cell
+        state. The architectural decision is not just adopted in YAML;
+        it has been validated with sim output.
+    - source: cplong90 (2026-05-28 Pass 2)
+      observation: |
+        mbp-06 schema extensions fully adopted.
+        `mandatory_findings_to_consider` (4 priors including the
+        Eran-flagged low-GUR mass balance + `cells_per_agent-scaling-
+        stochastic-floor`); `findings_schema`; `resolution_type` /
+        `resolution_venue` / `decision_authority` / `provenance`
+        fields; per-axis floors A=3 D=3 B=C=E=1; three new behavior
+        tests enforcing the schema. The `framework_axis_e_gaps` block
+        operationalized 2026-05-26 Comment B as 6 concrete upstream PR
+        candidates with explicit `resolution_type: upstream_PR` routing.
+    - source: cplong90 (2026-05-28 Pass 2)
+      observation: |
+        Cross-investigation hook fully wired.
+        `pbg-bioreactor-transport-fork` named as hard prerequisite in
+        `mbp-03.pipeline_gate.prerequisites`; mbp-06 lists it as a
+        pre-seeded candidate-future-study with `decision_authority:
+        pbg-bioreactordesign maintainer (Chris)`. The Track 2
+        pbg-bioreactor investigation has explicit routing from this side.
+
+  changeset_summary:
+    # 2026-05-28..29 changeset closing the 2026-05-28 review + mbp-01
+    # architecture work. Grouped by intent so a reviewer can verify
+    # each closure pass with one click per row.
+    - intent: ci unblock
+      commits: [9b5c18c]
+      note: |
+        Cache key + INPUT_FILES sync — busted the stale ParCa cache
+        that was producing StaleCacheError on every behavior test.
+    - intent: §10 reframe walked through claim FKs (mbp-05)
+      commits: [a722e01]
+      note: |
+        `*-matches-published` → `*-comparison-rendered` across
+        `backs[]` (L399, L401) and `open_questions.blocks[]` (L415,
+        L424). Chris flagged L399; same root cause produced L401,
+        L415, L424 — fixed adjacent.
+    - intent: §3 inherits_from refresh across mbp-03/04/05
+      commits: [6dc5216]
+      note: |
+        `uptake-flux-tracks-external-glucose` → 6 post-§3 mbp-01
+        test names. One shared edit pattern across three files.
+    - intent: od_to_gdw alignment (mbp-05 ↔ mbp-02)
+      commits: [e36d115]
+      note: |
+        0.33 → 0.34 (Beulig 2025; mbp-02 had this already).
+    - intent: mbp-03 Option-A-only failure-mode tagging
+      commits: [2990631]
+      note: |
+        L409, L414 tagged as Option-A fallback only — under Option-B
+        (BiRDTransportProcess upstream fork) the checks aren't
+        reachable on the primary path. Kept for fallback diagnostic
+        coverage if the upstream PR slips.
+    - intent: mbp-01 failure_mode + unblocks refresh
+      commits: [04cf8e5]
+      note: |
+        L359 failure_mode signature repurposed to the closest current
+        test (propagation lag); L414 unblocks refreshed to post-§3
+        sim names.
+    - intent: mbp-06 stale unblocks → new schema-enforcement test
+      commits: [08a29dd]
+      note: |
+        `at-least-eight-gaps-total` → `every-gap-has-resolution-type-
+        and-venue` (L292 of the same study).
+    - intent: §11 framework root cause seeded as upstream PR gap
+      commits: [0c29333]
+      note: |
+        `study-yaml-rename-walks-internal-fks` added to mbp-06's
+        `framework_axis_e_gaps`; routed to pbg-superpowers. Catches
+        exactly the rename-drift pattern these 9 items represent.
+    - intent: mbp-02 prose TODO cleanup (lint blocker)
+      commits: [b50bcab]
+      note: |
+        Rephrased `(followup TODO)` → `in a follow-up edit` so
+        /pbg-report renders without --force.
+    - intent: media_update + flow_order preconditions
+      commits: [93f4ffd]
+      note: |
+        MediaUpdate consumes environment.external_concentrations when
+        non-empty; flow_order places environment_driver BEFORE
+        media_update. Set up the unblock landed later by the mirror.
+        (Mirror commit superseded this consumption path; media_update
+        reverted to original media_id-only behavior in 60cdbd3.)
+    - intent: env-topology + molecule-id gaps captured as open_questions
+      commits: [5941789]
+      note: |
+        Documented the two architectural blockers with three
+        resolution options each; recommended option (c) — tick-leading
+        mirror Step bundling both fixes.
+    - intent: main perf merge (3.4% baseline speedup)
+      commits: [1931128]
+      note: |
+        `04c44b8` + `cbf9d48` from main: BDF Jacobian sparsity hint +
+        params-lookup hoist + catalyst-mask diff. Disjoint files from
+        mbp-* work; clean merge.
+    - intent: EnvironmentMirror unblocks 5 mbp-01 plumbing tests
+      commits: [60cdbd3]
+      note: |
+        Adopted option (c) from the open_questions: mirror Step
+        reads top-level env.external_concentrations and writes per-
+        agent boundary.external delta directly; correct FLUSH
+        placement (BEFORE the unique_update_1 barrier) gates the
+        layer separation. All 5 previously-blocked mbp-01 tests now
+        pass; static-mode regression intact; full sim suite +5
+        (27→32 passing).
+
+  decisions_needed:
+    - text: |
+        mbp-03 entry into Build: still gated by upstream
+        `pbg-bioreactor-transport-fork` PR. With mbp-01 now Build-
+        complete and mbp-02 already validated, the critical path
+        forward sits on the upstream side.
+
+  # 2026-05-29 new empirical evidence — landed AFTER the 2026-05-28
+  # changeset above and shipped in commits a1b3f25..07e57f4. Surfaced
+  # here so the report's headline panel reflects what's actually in the
+  # per-study Charts tabs the reviewer will open next.
+  new_empirical_evidence:
+    - title: Multi-seed mbp-02 cpa-scaling sweep (3 cpa × 3 seeds = 9 runs)
+      chart: studies/mbp-02-population-aggregation/charts/04_population-scaling-variance-bands.svg
+      finding: |
+        log-y population.total_biomass_gDW(t) mean ± std across seeds
+        {0, 1, 2} at every cpa ∈ {1, 1e6, 1e9}. Ribbons are narrow on
+        log-y at every cpa. Empirically answers the question implicit
+        in Chris's 2026-05-28 §1.a confirmation: the perfect cpa
+        scaling he validated at seed=0 holds across 3 stochastic
+        replicates per cpa — robust, not coincidence.
+      simulations: |
+        aggregator-cpa{1,1e6,1e9}-seed{1,2}-multigen +
+        aggregator-cpa{1,1e6,1e9}-multigen (seed=0). 9 runs at 60 sim-
+        min each, 2 generations each, single_daughters; parquet hives
+        under studies/mbp-02-population-aggregation/parquet-runs/.
+    - title: First env-driven multigen trajectories (mbp-01)
+      chart: studies/mbp-01-time-varying-environment/charts/01_driven-env-glc-trajectory.svg
+      finding: |
+        boundary.external.GLC(t) under two synthetic-trajectory specs.
+        Demonstrates the EnvironmentDriver → EnvironmentMirror →
+        boundary.external propagation chain (60cdbd3 unblock) running
+        at multi-generation scale — Chris's 2026-05-28 review predated
+        any env-driven trajectory; these are the first.
+      simulations: |
+        linear-decline-glc-multigen (GLC 5 mM → 0 over 60 sim-min) and
+        zero-clamp-glc-multigen (GLC clamped at 0). Parquet hives
+        under studies/mbp-01-time-varying-environment/parquet-runs/.
+    - title: mbp-05 preliminary expectation-setting — empirical plateau diagnostic
+      chart: studies/mbp-05-palsson-benchmark/charts/02_v2ecoli_vs_beulig_batch_actual.svg
+      companion_charts:
+        - studies/mbp-05-palsson-benchmark/charts/10_beulig_reference_batch_trajectories.svg
+        - studies/mbp-05-palsson-benchmark/charts/00_preliminary_v2ecoli_vs_beulig_gap.svg
+        - studies/mbp-05-palsson-benchmark/charts/01_preliminary_biomass_trajectories_vs_beulig.svg
+      finding: |
+        REFINED + EMPIRICALLY CONFIRMED 2026-05-29 after pulling the
+        digitized Beulig batch trajectories from
+        references/papers/palsson-2025-supp/ (req-1-palsson-ingestion
+        fully resolved) and running v2ecoli cpa=1e9 for 175 sim-min
+        (salvaged from a 6h run killed at the system's 128 GB memory
+        ceiling — sufficient for the architectural diagnostic).
+
+        Beulig BATCH phase peaks at ~9.6 g/L (max OD ~28 × 0.34) at
+        ~13 h batch elapsed. The 50-80 g/L figure from the paper's
+        abstract is the FED-BATCH endpoint, NOT the batch endpoint —
+        the earlier charts 00 and 01 used that as their target band
+        and have been demoted to companion-charts; chart 02 is now
+        load-bearing.
+
+        v2ecoli at cpa=1e9 under single_daughters PLATEAUS at ~4.3 mg/L.
+        The biomass oscillates 1.17–4.31 mg/L following the division
+        cycle (cell_mass 1097→2338 fg → halve at division) but does NOT
+        accumulate across generations under this configuration. The
+        175-min run confirmed this empirically. Gap to Beulig batch
+        peak under single_daughters: 3.3 orders of magnitude, NOT
+        closable by duration alone.
+
+        REVISED CAVEAT (2026-05-29, empirically tested):
+        I initially attributed the plateau to single_daughters alone
+        and predicted --no-single-daughters would accumulate
+        exponentially. Chart 03 (90-sim-min --no-single-daughters run)
+        REFUTES that prediction: both runs peak at the same ~4 mg/L
+        plateau. The runner's internal log line `gen 2 → following
+        agent 00 at tick 2501` reveals the actual root cause —
+        `run_multigen_parquet` simulates both daughters at division
+        moments but then follows ONE lineage for continued simulation
+        + parquet emission. The --no-single-daughters flag flips the
+        composite-level division behavior but does NOT change the
+        runner's emit pattern, so the architectural cap persists
+        under either config.
+
+        TRUE both-daughters accumulation (2^N cells after N gens)
+        requires a population-runner architecture distinct from
+        run_multigen_parquet — a new mbp-06 candidate-future-study.
+        Closing the Beulig batch gap (~9.6 g/L) requires that
+        population runner + fed-batch operations together, NOT just
+        a config flip.
+
+        mbp-05's comparison harness will surface both configurations
+        diagnostically; it does NOT try to tune the gap away (Chris's
+        2026-05-26 §10 execute-and-report reframe).
+      simulations: |
+        v2ecoli: aggregator-cpa1e9-multigen (60 sim-min reference)
+        + aggregator-cpa1e9-batch-prefix-multigen (175 sim-min
+        salvaged at the memory ceiling). Beulig: 5 best-sampled
+        batch reactors (DDB_PD_006_AMBR_R9 + others) from
+        reactor_OD_data.csv.
+
+
+# Studies in this investigation, in suggested execution order.
+# The DAG is computed from each study's `pipeline_gate.prerequisites`
+# field at render time; this list determines visibility / grouping only.
+studies:
+  - mbp-01-time-varying-environment
+  - mbp-02-population-aggregation
+  - mbp-03-bird-reactor-coupling
+  - mbp-04-multigeneration-runs
+  - mbp-05-palsson-benchmark
+  - mbp-06-gap-analysis
+
+# Expert docs supporting the investigation. Each name must match a
+# `workspace.yaml.expert_docs[].name` entry.
+expert_docs:
+  - multiscale_bioprocess_roadmap        # upstream-divergence pointer
+  - cell_side_interface_contract         # substitutability discipline (NEW)
+  - palsson_2025_fed_batch               # Beulig 2025 mSystems summary
+
+# Top-level success criteria. FLAT LIST (dashboard renderer expects
+# `.map`-iterable; the prior nested {investigation_terminal,per_study_gating}
+# shape broke report generation).
+#
+# Per chris_feedback_2026_05_26 §1: each entry is tagged with `gating:` to
+# preserve Chris's distinction between criteria that gate "investigation
+# complete" (gating: investigation_terminal — mbp-06's terminal checks,
+# which subsume mbp-01..05 having shipped) and criteria that gate only
+# their owning study's impl PR (gating: per_study).
+#
+# Investigation success definition: "comparison harness built and applied;
+# structured gap inventory produced," NOT "Palsson benchmark achieved"
+# (mbp-05 was reframed to an evaluation phase — see
+# chris_feedback_2026_05_26 §10). The three `investigation_terminal`
+# entries below are the load-bearing ones; the rest are per_study.
+acceptance_criteria:
+  # ─── investigation_terminal (gate investigation complete) ───
+  - {study: mbp-06-gap-analysis,             behavior: all-five-axes-covered,                        gating: investigation_terminal}
+  - {study: mbp-06-gap-analysis,             behavior: every-gap-has-candidate-resolution,           gating: investigation_terminal}
+  - {study: mbp-05-palsson-benchmark,        behavior: divergences-categorized-in-report-card,       gating: investigation_terminal}
+
+  # ─── per_study_gating (gate the owning study's impl PR only) ───
+  - {study: mbp-01-time-varying-environment, behavior: external_glucose_updates_propagate_within_one_step, gating: per_study}
+  - {study: mbp-01-time-varying-environment, behavior: cumulative-mass-balance-closes,               gating: per_study}
+  - {study: mbp-01-time-varying-environment, behavior: zero-substrate-blocks-uptake,                 gating: per_study}
+  - {study: mbp-01-time-varying-environment, behavior: saturating-substrate-respects-vmax,           gating: per_study}
+  - {study: mbp-01-time-varying-environment, behavior: plateau-across-saturating-range,              gating: per_study}
+  - {study: mbp-02-population-aggregation,   behavior: cell-count-doubles-per-generation,            gating: per_study}
+  - {study: mbp-02-population-aggregation,   behavior: per-cell-observables-unchanged-vs-baseline,   gating: per_study}
+  - {study: mbp-02-population-aggregation,   behavior: population_count_equals_len_agents,           gating: per_study}
+  - {study: mbp-02-population-aggregation,   behavior: total_biomass_equals_sum_cell_mass_times_scale, gating: per_study}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: one-generation-completes-without-divergence,  gating: per_study}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: cells-drop-do-below-saturation,               gating: per_study}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: higher-kla-raises-steady-state-do,            gating: per_study}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: cells-raise-dissolved-co2-above-saturation,   gating: per_study}
+  - {study: mbp-03-bird-reactor-coupling,    behavior: o2-mass-balance-closes,                       gating: per_study}
+  - {study: mbp-04-multigeneration-runs,     behavior: population-grows-then-flattens-at-substrate-limit, gating: per_study}
+  - {study: mbp-04-multigeneration-runs,     behavior: carbon-mass-balance-closes-over-3-generations, gating: per_study}
+  - {study: mbp-05-palsson-benchmark,        behavior: end-of-run-od-comparison-rendered,            gating: per_study}
+  - {study: mbp-05-palsson-benchmark,        behavior: acetate-profile-comparison-rendered,          gating: per_study}

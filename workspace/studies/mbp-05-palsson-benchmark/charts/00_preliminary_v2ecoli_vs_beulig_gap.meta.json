@@ -1,0 +1,30 @@
+{
+  "title": "v2ecoli vs Beulig 2025 batch-phase biomass-density gap (preliminary)",
+  "caption": "Final biomass concentration (g/L) from existing mbp-02 multigen runs at cpa \u2208 {1, 1e6, 1e9}, overlaid against Beulig 2025 batch-phase target band (50-80 g/L). Star marks the cpa that would close the residual gap at the current 2-gen / 60-sim-min batch duration: ~2e+13.",
+  "simulations": "aggregator-cpa1/1e6/1e9-multigen (mbp-02 v2-parquet hives, seed=0).",
+  "interpretation": "cpa=1 (literal single-cell) reaches ~3.3e-12 g/L at t=2-gen. cpa=1e9 (Beulig-regime representative-sampling) reaches ~3.3e-03 g/L \u2014 still 4.2 orders below Beulig's stated 50-80 g/L target. The residual gap is NOT a cpa-scaling problem (cpa is exact, see chart 04 variance bands); it's a BATCH-DURATION problem. v2ecoli's current 60-sim-min / 2-gen runs are far short of Beulig's ~6 h batch phase. Closing the gap requires (a) longer batch duration to accumulate more cell mass per agent, (b) cpa ~ 2e+13 (near Avogadro-mol scale \u2014 likely impractical), OR (c) fed-batch operations (deferred upstream blocker, pbg-bioreactor-transport-fork). mbp-05's comparison harness can render this gap explicitly BEFORE evaluating whether v2ecoli's biology reproduces Beulig's trajectory \u2014 diagnostic-first, evaluative-second.",
+  "preliminary": true,
+  "beulig_target_gdw_l": [
+    50.0,
+    80.0
+  ],
+  "beulig_batch_duration_hr": 6,
+  "v2ecoli_runs": [
+    {
+      "cpa": 1.0,
+      "final_g_L": 3.260317451082294e-12,
+      "gap_orders": 13.185710115758523
+    },
+    {
+      "cpa": 1000000.0,
+      "final_g_L": 3.2603174510822937e-06,
+      "gap_orders": 7.185710115758522
+    },
+    {
+      "cpa": 1000000000.0,
+      "final_g_L": 0.003260317451082294,
+      "gap_orders": 4.185710115758522
+    }
+  ],
+  "cpa_to_close_gap_at_2gen_duration": 15335929936332.432
+}

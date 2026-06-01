@@ -37,6 +37,47 @@ visualizations: []
 simulations: []
 datasets: []
 expert_docs:
+  - name: multiscale_bioprocess_roadmap
+    title: Multiscale bioprocess upstream roadmap
+    path: workspace/references/expert/multiscale_bioprocess_roadmap.md
+    description: |
+      Pointer to the upstream vivarium-collective/multiscale-bioprocess
+      roadmap (chris/initial-scaffolding) that inspired (but is diverged
+      from by) the v2ecoli-workspace multiscale-bioprocess investigation.
+  - name: cell_side_interface_contract
+    title: Cell-side interface contract (substitutability)
+    path: workspace/references/expert/cell_side_interface_contract.md
+    description: |
+      The substitutability story made concrete: what an engine wired to
+      the reactor MUST provide (inputs / outputs / lifecycle hooks /
+      identifier scheme). Load-bearing for mbp-03 (Monod → v2ecoli swap)
+      and for future engine comparator studies (dFBA, surrogate, WCM
+      variants). Inherits the upstream multiscale-bioprocess roadmap's
+      "engine substitution as a phase boundary" open question.
+  - name: palsson_2025_fed_batch
+    title: Beulig et al. 2025 — high-cell-density fed-batch E. coli (mSystems)
+    path: workspace/references/expert/palsson_2025_fed_batch.md
+    description: |
+      Beulig F, ..., Palsson B. "Trade-off between resistance and persistence
+      in high cell density cultures." mSystems 10(7), 2025.
+      doi:10.1128/msystems.00323-25. Open access; PDF at
+      workspace/references/papers/Beulig_2025_mSystems_high_cell_density.pdf.
+      The quantitative benchmark targeted by study mbp-05. Bib key
+      `Beulig2025mSystems` in workspace/references/papers.bib.
+  - name: chris_feedback_2026_05_26
+    title: Chris Long — multiscale-bioprocess review (2026-05-26)
+    path: workspace/references/expert/chris_feedback_2026_05_26.md
+    description: |
+      Structured digest of Chris Long's inline-feedback review on the
+      multiscale-bioprocess investigation (rpt-20260523011545, exported
+      2026-05-26). Drives the next-round spec revisions: mbp-01 plumbing/
+      biology split, mbp-02 cells_per_agent scaling, mbp-03 Option-B
+      BiRDTransportProcess fork, mbp-04 explicit C/N auditor requirements,
+      mbp-05 reframe as evaluation phase with generic comparison_overlays,
+      mbp-06 carried-forward priors + resolution_type schema. Raw YAML
+      preserved at workspace/references/expert/raw/chris_feedback_2026_05_26.yaml.
+      MUST be read before drafting any further mbp-* spec edits or
+      advancing a study to Build phase.
   - name: duf-final-report
     path: workspace/references/expert/duf_final_report_2026.pdf
     sha256: 145a5c7fac2247036281bf5fb2db49ce9e5e9c8d309aba65e91b937918f61b5f
@@ -63,5 +104,17 @@ references_pdfs:
   - bib_key: millard2017
     path: workspace/references/papers/millard_2017_metabolic_regulation_ecoli.pdf
     sha256: 39b8c0eba221cd0d156180a66cb0747219a4a3464f9c2b7b40dac2be9bfe4b8e
+imports:
+  pbg_oxidizeme:
+    source: https://github.com/vivarium-collective/pbg-oxidizeme
+    ref: '0.1.0'
+    mode: reference
+    description: |
+      OxidizeME ME-model wrapper (Yang et al. 2019 PNAS / Palsson lab).
+      Conforms to the cell-side interface contract — drop-in candidate
+      engine for mbp-03 / mbp-06 comparator studies. Real-solver path is
+      gated by upstream Python 2.7 / qMINOS install; non-strict mode lets
+      the wrapper be browsed in the dashboard without the solver. Live
+      demo report: https://vivarium-collective.github.io/pbg-oxidizeme/
 server:
   enabled: true

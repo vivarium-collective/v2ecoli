@@ -1,0 +1,13 @@
+{
+  "title": "single_daughters vs --no-single-daughters: empirical plateau comparison",
+  "caption": "log-y biomass(t) for two cpa=1e9 runs differing only in the runner's lineage flag: single_daughters (175 sim-min, the v2ecoli default) and --no-single-daughters (90 sim-min). Both peak at ~4.4 mg/L despite the runner config difference.",
+  "simulations": "aggregator-cpa1e9-batch-prefix-multigen (sim_id ee0a02b0, single_daughters=True, 175 sim-min) + aggregator-cpa1e9-multigen --no-single-daughters (sim_id 404f89f0, 90 sim-min, max_gen=3). Both at seed=0, cpa=1e9, baseline_population composite.",
+  "interpretation": "REVISES chart-02's architectural-cap framing with EMPIRICAL evidence. The both-daughters run peaks at 4.39 mg/L (\u0394 +2.1% vs single_daughters' 4.31 mg/L). The runner's INTERNAL log line `gen 2 \u2192 following agent '00' at tick 2501` reveals the root cause: `run_multigen_parquet` (v2ecoli.library.parquet_run) simulates BOTH daughters at division moments but then follows ONE lineage for continued simulation + parquet emission. So `--no-single-daughters` flips the COMPOSITE-LEVEL division behavior but doesn't change the runner's emit pattern, and the plateau persists. The chart 02 architectural claim about single_daughters capping biomass at cell_mass \u00d7 cpa is true for OBSERVED biomass but the actual root cause is the runner's lineage-emit logic, NOT the single_daughters config alone.\n\nFor TRUE both-daughters accumulation (2^N cells after N gens), v2ecoli needs a fundamentally different runner that simulates all agents in parallel \u2014 neither single_daughters=True/False in the current run_multigen_parquet path produces it. This is itself an architectural finding for mbp-06: 'population composite runner' as a candidate-future-study, distinct from the single_daughters lineage convention. Closing the Beulig batch gap (~9.6 g/L) still requires fed-batch + that population-runner architecture, not just a config flip.",
+  "preliminary": true,
+  "single_daughters_max_g_L": 0.004305768550654586,
+  "both_daughters_max_g_L": 0.004394719165555625,
+  "delta_pct": 2.0658475683166055,
+  "single_daughters_run_id": "ee0a02b0-5fd1-4844-8f06-5baae429835e",
+  "both_daughters_run_id": "404f89f0-b549-4a01-a5eb-0617cc839bdf",
+  "note_on_runner_internals": "run_multigen_parquet's internal log line '[multigen_parquet] gen 2 \u2192 following agent 00 at tick 2501' confirms that even when both daughters are produced at division, the runner follows one lineage for emission. The --no-single-daughters flag flips the composite-level division-side behavior; it does NOT change the runner's emit pattern. True both-daughters tracking requires a population-runner architecture (mbp-06 candidate-future-study)."
+}

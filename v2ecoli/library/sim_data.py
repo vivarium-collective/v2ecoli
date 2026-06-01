@@ -40,7 +40,7 @@ class LoadSimData:
         media_timeline: tuple[tuple[int, str]] = (
             (0, "minimal"),
         ),  # have to change both media_timeline and condition
-        condition: str = "basal",
+        condition: Optional[str] = None,
         trna_charging: bool = True,
         ppgpp_regulation: bool = True,
         mar_regulon: bool = False,
@@ -59,6 +59,14 @@ class LoadSimData:
         aa_supply_in_charging: bool = True,
         disable_ppgpp_elongation_inhibition: bool = False,
         emit_unique: bool = False,
+        has_plasmid: bool = False,
+        critical_mass_scale: float = 1.0,
+        c_period_minutes: float | None = None,
+        d_period_minutes: float | None = None,
+        dnaa_txn_scale: float = 1.0,
+        dnaa_constitutive: bool = False,
+        dnaa_stable: bool = False,
+        dnaa_translation_efficiency: float | None = None,
         **kwargs,
     ):
         """
@@ -164,6 +172,47 @@ class LoadSimData:
         self.disable_ppgpp_elongation_inhibition = disable_ppgpp_elongation_inhibition
         self.recycle_stalled_elongation = recycle_stalled_elongation
         self.emit_unique = emit_unique
+        self.has_plasmid = has_plasmid
+        # ------------------------------------------------------------------
+        # Post-ParCa knobs.  These are runtime overrides applied at
+        # config-build time, AFTER ParCa has finished.  They affect only
+        # the in-memory config dicts handed to runtime processes, not any
+        # ParCa fit, so they're safe to flip without rebuilding the
+        # fixture.  All default to no-op.
+        #
+        #   critical_mass_scale   — multiplier on M* (delays per-oriC mass
+        #                           criterion).  Useful when C/D overrides
+        #                           stretch the cycle so the canonical M*
+        #                           fit would trigger a mid-cycle re-init.
+        #   c_period_minutes      — direct C-period override.  Solves to
+        #                           ``basal_elongation_rate = replichore /
+        #                           (C × 60)``.  None = use ParCa value.
+        #   d_period_minutes      — direct D-period override (seconds in
+        #                           chromosome_replication config).  None
+        #                           = use ParCa value.
+        #   dnaa_txn_scale        — multiplier on ``basal_prob[dnaA_TU]``.
+        #                           For target absolute rate r events/min,
+        #                           use ``r / observed_baseline_rate``.
+        #   dnaa_constitutive     — zero out dnaA's row in delta_prob_matrix
+        #                           so its transcription is invariant to TF
+        #                           state (PDF "constitutive" semantics).
+        # ------------------------------------------------------------------
+        self.critical_mass_scale = float(critical_mass_scale)
+        self.c_period_minutes = c_period_minutes
+        self.d_period_minutes = d_period_minutes
+        self.dnaa_txn_scale = float(dnaa_txn_scale)
+        self.dnaa_constitutive = bool(dnaa_constitutive)
+        # ``dnaa_stable``                 — zero DnaA monomer's raw
+        #   degradation rate (PDF row 8: "DnaA degradation rate = 0,
+        #   assuming it is fully stable").
+        # ``dnaa_translation_efficiency`` — direct post-ParCa override
+        #   of DnaA monomer's translation efficiency (PDF row 7).
+        #   None = leave as ParCa fit / overrides.py value.
+        self.dnaa_stable = bool(dnaa_stable)
+        self.dnaa_translation_efficiency = (
+            None if dnaa_translation_efficiency is None
+            else float(dnaa_translation_efficiency)
+        )
 
         # NEW to vivarium-ecoli: Whether to lump miscRNA with mRNAs
         # when calculating degradation
@@ -184,6 +233,16 @@ class LoadSimData:
 
         if condition is not None:
             self.sim_data.condition = condition
+            # The runtime reads ``environment.media_id`` (set from
+            # ``media_timeline[0][1]``) when looking up the per-condition
+            # doubling time for the M* computation. If the caller pinned
+            # ``condition`` but left ``media_timeline`` at its default
+            # ``((0, "minimal"),)``, the cell would silently see basal M*
+            # instead of the new condition's. Auto-derive media_timeline
+            # from the condition's nutrients to keep the two in sync.
+            nutrients = self.sim_data.conditions[condition].get("nutrients")
+            if nutrients:
+                self.media_timeline = ((0, nutrients),)
 
         # Used by processes to apply submass updates to correct unique attr
         self.submass_indices = {
@@ -626,6 +685,7 @@ class LoadSimData:
             "ecoli-metabolism-redux": self.get_metabolism_redux_config,
             "ecoli-metabolism-redux-classic": self.get_metabolism_redux_config,
             "ecoli-chromosome-replication": self.get_chromosome_replication_config,
+            "ecoli-plasmid-replication": self.get_plasmid_replication_config,
             "ecoli-mass": self.get_mass_config,
             "ecoli-mass-listener": self.get_mass_listener_config,
             "post-division-mass-listener": self.get_mass_listener_config,
@@ -693,9 +753,18 @@ class LoadSimData:
                 "_data": {
                     "dry_mass_params": [float(x) for x in self.sim_data.mass._dryMassParams],
                     "cell_dry_mass_fraction": float(self.sim_data.mass.cell_dry_mass_fraction),
+                    # Apply M* scale inside the closure so the runtime
+                    # process gets a scaled value at every tick (the
+                    # ``criticalInitiationMass`` field below is informational;
+                    # chromosome_replication.py re-derives M* per tick from
+                    # this factory via the live media's doubling time).
+                    "critical_mass_scale": float(self.critical_mass_scale),
                 },
             },
-            "criticalInitiationMass": unum_to_pint(get_dna_critical_mass(doubling_time)),
+            "criticalInitiationMass": (
+                unum_to_pint(get_dna_critical_mass(doubling_time))
+                * self.critical_mass_scale
+            ),
             "nutrientToDoublingTime": {
                 k: unum_to_pint(v)
                 for k, v in self.sim_data.nutrient_to_doubling_time.items()
@@ -708,10 +777,22 @@ class LoadSimData:
             "replication_coordinate": self.sim_data.process.transcription.rna_data[
                 "replication_coordinate"
             ],
-            "D_period": unum_to_pint(self.sim_data.process.replication.d_period).to(units.s).magnitude,
+            "D_period": (
+                float(self.d_period_minutes) * 60.0
+                if self.d_period_minutes is not None
+                else unum_to_pint(self.sim_data.process.replication.d_period).to(units.s).magnitude
+            ),
             "replisome_protein_mass": replisome_mass_array.sum(),
             "no_child_place_holder": self.sim_data.process.replication.no_child_place_holder,
-            "basal_elongation_rate": self.sim_data.process.replication.basal_elongation_rate,
+            "basal_elongation_rate": (
+                # C-period override: rate = replichore_length / (C × 60).
+                # ``replichore_lengths`` is a 2-element array (CW/CCW);
+                # both entries are equal for a standard E. coli chromosome.
+                float(self.sim_data.process.replication.replichore_lengths[0])
+                / (float(self.c_period_minutes) * 60.0)
+                if self.c_period_minutes is not None
+                else self.sim_data.process.replication.basal_elongation_rate
+            ),
             "make_elongation_rates": {
                 "_function": "replication.make_elongation_rates",
             },
@@ -728,6 +809,83 @@ class LoadSimData:
         }
 
         return chromosome_replication_config
+
+    def get_plasmid_replication_config(self, time_step=1):
+        n_avogadro = unum_to_pint(
+            self.sim_data.constants.n_avogadro
+        ).to(1 / units.mol).magnitude
+        replisome_trimer_subunit_masses = np.vstack(
+            [
+                unum_to_pint(self.sim_data.getter.get_submass_array(x))
+                .to(units.fg / units.mol).magnitude / n_avogadro
+                for x in self.sim_data.molecule_groups.replisome_trimer_subunits
+            ]
+        )
+        replisome_monomer_subunit_masses = np.vstack(
+            [
+                unum_to_pint(self.sim_data.getter.get_submass_array(x))
+                .to(units.fg / units.mol).magnitude / n_avogadro
+                for x in self.sim_data.molecule_groups.replisome_monomer_subunits
+            ]
+        )
+        replisome_mass_array = 3 * replisome_trimer_subunit_masses.sum(
+            axis=0
+        ) + replisome_monomer_subunit_masses.sum(axis=0)
+
+        plasmid_replication_config = {
+            "time_step": time_step,
+            "replichore_lengths": self.sim_data.process.replication.plasmid_replichore_lengths,
+            "sequences": self.sim_data.process.replication.plasmid_replication_sequences,
+            "polymerized_dntp_weights": self.sim_data.process.replication.replication_monomer_weights,
+            "D_period": unum_to_pint(self.sim_data.process.replication.d_period).to(units.s).magnitude,
+            "replisome_protein_mass": replisome_mass_array.sum(),
+            "no_child_place_holder": self.sim_data.process.replication.no_child_place_holder,
+            "basal_elongation_rate": self.sim_data.process.replication.basal_elongation_rate,
+            "make_elongation_rates": {
+                "_function": "replication.make_elongation_rates",
+            },
+            "mechanistic_replisome": self.mechanistic_replisome,
+            "replisome_trimers_subunits": self.sim_data.molecule_groups.replisome_trimer_subunits,
+            "replisome_monomers_subunits": self.sim_data.molecule_groups.replisome_monomer_subunits,
+            "dntps": self.sim_data.molecule_groups.dntps,
+            "ppi": [self.sim_data.molecule_ids.ppi],
+            # Copy-number control — full BP1993 ODE system (eqns 1a-1j),
+            # pBR322 rom+ parameterization from Brendel & Perelson 1993
+            # (J Mol Biol 229:860-872) Table 1. Rates in BP's native
+            # units (min⁻¹ unimolecular; M⁻¹·min⁻¹ bimolecular k_1, k_3);
+            # plasmid_replication.initialize converts to per-second and
+            # per-count using V_c (BP's fixed cytoplasmic volume,
+            # 6.25e-16 L) and Avogadro. BP Table 2 predicts 28 cpc for
+            # rom+ wild-type with these values. The planned bulk-RNAP
+            # refactor (project memory `plasmid_mechanistic_target`)
+            # eliminates V_c entirely.
+            "use_rna_control": True,
+            "V_c_L": 6.25e-16,
+            "n_avogadro": 6.022e23,
+            "k_1": 1.5e8,
+            "k_3": 1.7e8,
+            "k_neg1": 48.0,
+            "k_2":    44.0,
+            "k_neg2": 0.085,
+            "k_neg3": 0.17,
+            "k_4":    34.0,
+            "k_l":    12.0,
+            "k_negl": 4.3,
+            "k_p":    4.3,
+            "k_D":    5.0,
+            "k_negc": 17.0,
+            "k_I":    6.0,
+            "k_II":   0.25,
+            "k_M":    4.0,
+            "eps_I":  0.35,
+            "eps_II": 0.35,
+            "eps_M":  0.14,
+            "n_substeps": 10,
+            "seed": self._seedFromName("PlasmidReplication"),
+            "submass_indices": self.submass_indices,
+        }
+
+        return plasmid_replication_config
 
     def get_tf_config(self, time_step=1):
         tf_binding_config = {
@@ -765,6 +923,34 @@ class LoadSimData:
         return tf_binding_config
 
     def get_transcript_initiation_config(self, time_step=1):
+        # --- dnaA post-ParCa knobs ---------------------------------------
+        # ``basal_prob`` and ``delta_prob_matrix`` arrive as numpy arrays
+        # that the runtime ``transcript_initiation.py`` reads each tick.
+        # When the dnaA scale or constitutive flag is set, copy them and
+        # rewrite only the rows belonging to dnaA-containing TUs (TU00259,
+        # and any other TU that includes the dnaA gene).
+        basal_prob = self.sim_data.process.transcription_regulation.basal_prob
+        delta_prob_matrix = self.sim_data.process.transcription_regulation.get_delta_prob_matrix(
+            dense=True, ppgpp=self.ppgpp_regulation
+        )
+        if self.dnaa_txn_scale != 1.0 or self.dnaa_constitutive:
+            tu_ids = self.sim_data.process.transcription.rna_data["id"]
+            dnaa_tu_idx = [
+                i for i, t in enumerate(tu_ids) if str(t).startswith("TU00259")
+            ]
+            if not dnaa_tu_idx:
+                raise RuntimeError(
+                    "Cannot apply dnaa_txn_scale / dnaa_constitutive: no TU "
+                    "starting with 'TU00259' found in rna_data['id']."
+                )
+            basal_prob = basal_prob.copy()
+            delta_prob_matrix = delta_prob_matrix.copy()
+            for idx in dnaa_tu_idx:
+                if self.dnaa_txn_scale != 1.0:
+                    basal_prob[idx] *= self.dnaa_txn_scale
+                if self.dnaa_constitutive:
+                    delta_prob_matrix[idx, :] = 0.0
+
         transcript_initiation_config = {
             "time_step": time_step,
             "fracActiveRnapDict": self.sim_data.process.transcription.rnapFractionActiveDict,
@@ -783,14 +969,12 @@ class LoadSimData:
                 },
             },
             "active_rnap_footprint_size": unum_to_pint(self.sim_data.process.transcription.active_rnap_footprint_size),
-            "basal_prob": self.sim_data.process.transcription_regulation.basal_prob,
+            "basal_prob": basal_prob,
             "delta_prob": self.sim_data.process.transcription_regulation.delta_prob,
             # Translation layer: vEcoli processes still expect the bound method.
             "get_delta_prob_matrix": self.sim_data.process.transcription_regulation.get_delta_prob_matrix,
             # Precomputed delta_prob_matrix (replaces get_delta_prob_matrix bound method)
-            "delta_prob_matrix": self.sim_data.process.transcription_regulation.get_delta_prob_matrix(
-                dense=True, ppgpp=self.ppgpp_regulation
-            ),
+            "delta_prob_matrix": delta_prob_matrix,
             "perturbations": getattr(self.sim_data, "genetic_perturbations", {}),
             "rna_data": self.sim_data.process.transcription.rna_data,
             "idx_rRNA": np.where(
@@ -1030,14 +1214,28 @@ class LoadSimData:
         return rna_degradation_config
 
     def get_polypeptide_initiation_config(self, time_step=1):
+        # Translation efficiencies — optionally override DnaA's per-monomer
+        # value (PDF row 7). ``normalize`` runs at the end so the override
+        # scales DnaA's *relative* share of ribosome initiation events.
+        te = self.sim_data.process.translation.translation_efficiencies_by_monomer
+        if self.dnaa_translation_efficiency is not None:
+            ids = list(self.sim_data.process.translation.monomer_data["id"])
+            try:
+                dnaa_idx = ids.index("PD03831[c]")
+            except ValueError:
+                raise RuntimeError(
+                    "dnaa_translation_efficiency: monomer 'PD03831[c]' "
+                    "not in monomer_data['id']"
+                )
+            te = te.copy()
+            te[dnaa_idx] = float(self.dnaa_translation_efficiency)
+
         polypeptide_initiation_config = {
             "time_step": time_step,
             "protein_lengths": unum_to_pint(self.sim_data.process.translation.monomer_data[
                 "length"
             ]).magnitude,
-            "translation_efficiencies": normalize(
-                self.sim_data.process.translation.translation_efficiencies_by_monomer
-            ),
+            "translation_efficiencies": normalize(te),
             "active_ribosome_fraction": self.sim_data.process.translation.ribosomeFractionActiveDict,
             "elongation_rates": {
                 k: unum_to_pint(v)
@@ -1275,6 +1473,7 @@ class LoadSimData:
                     "stoich_matrix": self.sim_data.process.equilibrium._stoichMatrix.tolist(),
                     "rates_fwd": self.sim_data.process.equilibrium.rates_fwd.tolist(),
                     "rates_rev": self.sim_data.process.equilibrium.rates_rev.tolist(),
+                    "integrate_dt_mask": self.sim_data.process.equilibrium.integrate_dt_mask.tolist(),
                     "mets_to_rxn_fluxes": self.sim_data.process.equilibrium.mets_to_rxn_fluxes.tolist(),
                     "Rp": self.sim_data.process.equilibrium.Rp.tolist(),
                     "Pp": self.sim_data.process.equilibrium.Pp.tolist(),
@@ -1296,11 +1495,27 @@ class LoadSimData:
         return equilibrium_config
 
     def get_protein_degradation_config(self, time_step=1):
+        raw_deg_rate = unum_to_pint(
+            self.sim_data.process.translation.monomer_data["deg_rate"]
+        ).to(1 / units.s).magnitude
+        # Apply ``dnaa_stable`` — zero DnaA's degradation rate so the
+        # protein is fully stable (PDF row 8). Look up DnaA monomer by
+        # canonical id ``PD03831[c]``; the runtime config receives a copy
+        # so we don't mutate sim_data.
+        if self.dnaa_stable:
+            ids = list(self.sim_data.process.translation.monomer_data["id"])
+            try:
+                dnaa_idx = ids.index("PD03831[c]")
+            except ValueError:
+                raise RuntimeError(
+                    "dnaa_stable: monomer 'PD03831[c]' not in monomer_data['id']"
+                )
+            raw_deg_rate = raw_deg_rate.copy()
+            raw_deg_rate[dnaa_idx] = 0.0
+
         protein_degradation_config = {
             "time_step": time_step,
-            "raw_degradation_rate": unum_to_pint(self.sim_data.process.translation.monomer_data[
-                "deg_rate"
-            ]).to(1 / units.s).magnitude,
+            "raw_degradation_rate": raw_deg_rate,
             "water_id": self.sim_data.molecule_ids.water,
             "amino_acid_ids": self.sim_data.molecule_groups.amino_acids,
             "amino_acid_counts": unum_to_pint(self.sim_data.process.translation.monomer_data[
@@ -2139,6 +2354,7 @@ class LoadSimData:
             self.ppgpp_regulation,
             self.trna_attenuation,
             self.mechanistic_replisome,
+            self.has_plasmid,
         )
 
         if self.trna_charging:

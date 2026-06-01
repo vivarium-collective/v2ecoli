@@ -1,0 +1,101 @@
+schema_version: 4
+name: dnaa-06-seqa-sequestration
+created: '2026-05-26'
+phase: Design
+status: planned
+design_status: stub
+implementation_status: planned
+simulation_status: planned
+evaluation_status: not_run
+gate_status: pending
+expert_review_status: pending
+objective: Add SeqA sequestration at oriC and the dnaA promoter. SeqA cooperatively binds hemimethylated
+  GATC sites (immediately after replication passes oriC) and prevents re-initiation for ~10 minutes. Same
+  mechanism damps dnaAp activity post-replication.
+description: Adds the eclipse-period regulator that prevents back-to-back initiations on the newly-replicated
+  oriC. SeqA tetramers bind hemimethylated GATC sites cooperatively. Stub-level per the plan PDF (only
+  "Cooperativity" listed under Required knowledge) — full design happens when this study activates.
+purpose:
+  question: Does adding SeqA sequestration prevent the back-to-back re-initiation events that Study 4
+    / 5 might otherwise allow at fast growth rates?
+  mechanism: SeqA tetramer cooperative binding to hemimethylated GATC sites at oriC + dnaAp. Bound state
+    blocks DnaA-box accessibility. Slow dissociation (~10 min effective eclipse period).
+  expected_outcome: Pending — when this study activates. Likely — eclipse period of ~10 min after each
+    initiation; dnaAp activity drops post-initiation.
+seeded_from:
+  study: dnaa-05-rida-ddah-dars
+  proposal_id: chromosome-replication-plan-study-6
+pipeline_gate:
+  prerequisites:
+  - study: dnaa-05-rida-ddah-dars
+    condition: tests-passed
+  enables:
+  - study: dnaa-07-cooperativity
+    condition: tests-passed
+  proceed_condition: Pending — when study activates.
+baseline:
+- name: baseline-slow-growth
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+variants: []
+interventions: []
+simulation_set:
+- name: seqa-eclipse-period
+  status: planned
+  base_model: v2ecoli.composites.baseline.baseline
+  duration_min: 60
+  seeds:
+  - 0
+  - 1
+  condition: Designed when this study activates after prerequisites close.
+  readouts:
+  - seqA_oriC_occupancy
+  - seqA_dnaAp_occupancy
+  - inter_initiation_time
+  applies_tests:
+  - eclipse_period_observed
+readouts:
+- name: seqA_oriC_occupancy
+  store_path: Pending — (new unique-store entry)
+- name: seqA_dnaAp_occupancy
+  store_path: Designed when this study activates after prerequisites close.
+- name: inter_initiation_time
+  store_path: derived
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_processes:
+  - seqa-cooperative-binding
+  new_state_variables:
+  - unique.seqA_site (hemimethylated GATC sites at oriC + dnaAp)
+  notes: Cooperativity here is a placeholder; Study 7 expands the cooperativity treatment globally.
+implementation_requirements:
+- id: REQ-1
+  title: SeqA cooperative binding process at oriC + dnaAp GATC sites
+  kind: model
+  effort: M
+  status: open
+key_assumptions:
+- SeqA acts only at hemimethylated GATC sites (Dam methylation timing).
+- Eclipse period ~10 min effective duration.
+- Cooperativity treated at SeqA level only; broader cooperativity model in Study 7.
+behavior_tests:
+- name: eclipse_period_observed
+  classification: primary
+  description: Inter-initiation intervals at fast growth rate show no events within 10 min of the previous
+    initiation.
+  measure:
+    kind: derived_scalar
+    field: min_inter_initiation_interval_minutes
+  pass_if:
+    op: '>='
+    value: 10
+  requires_simulation: seqa-eclipse-period
+findings: []
+followup_proposals: []
+runs: []
+tests:
+  data_source: all_runs
+visualizations: []
+embed_visualizations: []

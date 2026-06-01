@@ -62,6 +62,11 @@ def main():
                              "(default: <outdir>/cache).")
     parser.add_argument("--no-operons", action="store_true",
                         help="Disable operons in the KB.")
+    parser.add_argument("--overrides-module", type=str, default=None,
+                        help="Dotted path to a study module exposing "
+                             "``apply(raw)`` that mutates raw_data in place "
+                             "after load and before Step 1. Example: "
+                             "``studies.stage1_sanity_check.overrides``.")
     parser.add_argument("--resume-from-step", type=int, default=1,
                         help="Skip steps 1..N-1; load --resume-pickle as the "
                              "initial composite state.  Use to debug late steps "
@@ -93,6 +98,18 @@ def main():
         remove_rrna_operons=False, remove_rrff=False, stable_rrna=False,
     )
     print(f"    raw_data loaded in {time.time() - t0:.1f}s")
+
+    if args.overrides_module:
+        import importlib
+        print(f"[{time.strftime('%H:%M:%S')}] Applying overrides from "
+              f"{args.overrides_module}")
+        mod = importlib.import_module(args.overrides_module)
+        if not hasattr(mod, "apply"):
+            raise SystemExit(
+                f"--overrides-module {args.overrides_module!r} does not "
+                f"define apply(raw)"
+            )
+        mod.apply(raw)
 
     # ---- Per-step disk checkpointing -----------------------------------
     # Wrap each Step class's .update so its output ports are pickled to

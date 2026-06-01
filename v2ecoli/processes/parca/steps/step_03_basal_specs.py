@@ -167,6 +167,16 @@ class BasalSpecsStep(Step):
         sd.mass.fitAvgSolubleTargetMolMass = fit_avg_soluble_target_mol_mass
 
         # --- apply expression updates (needed by set_ppgpp_expression)
+        # Reapply per-promoter ratios (Phase 2b of Path 3) after expressionConverge
+        # re-fits and would otherwise overwrite the apportionment from step 1.
+        # Both expression AND synth_prob need apportionment since synth_prob
+        # drives transcription initiation independently of expression.
+        # See reports/regulation_data_pipeline_v2ecoli.html §10.
+        _rna_ids = sd.process.transcription.rna_data["id"]
+        expression = sd.process.transcription._apply_per_promoter_ratios(
+            expression, _rna_ids, "basal")
+        synth_prob = sd.process.transcription._apply_per_promoter_ratios(
+            synth_prob, _rna_ids, "basal")
         sd.process.transcription.rna_expression["basal"][:] = expression
         sd.process.transcription.rna_synth_prob["basal"][:] = synth_prob
         sd.process.transcription.fit_cistron_expression["basal"] = fit_cistron_expression

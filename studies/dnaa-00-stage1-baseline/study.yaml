@@ -1,0 +1,629 @@
+schema_version: 4
+name: dnaa-00-stage1-baseline
+created: '2026-05-26'
+phase: Build
+status: running
+design_status: complete
+implementation_status: in_progress
+simulation_status: ran
+evaluation_status: not_run
+gate_status: pending
+expert_review_status: pending
+objective: '**Deliverable:** an ABT minimal glycerol (MIX0-845, τ=150 min) baseline cache with every Stage
+  1
+
+  parameter value from the workflow plan PDF applied — C=70 min, D=30 min, replication speed
+
+  66.31 kbp/min, DnaA translation efficiency=1, DnaA degradation=0, and the canonical chromosomal
+
+  locus locations (oriC / datA / DARS1 / DARS2). This is the cell state every downstream study
+
+  (Studies 1-8) starts from.
+
+
+  **Acetate is a diagnostic reference condition only.** It has an established vEcoli implementation
+
+  on the same kb_default simData, so we use single-gen acetate to verify v2ecoli reproduces vEcoli
+
+  within ±15% — that''s the cross-codebase equivalence check. We separately ran 5-gen acetate to
+
+  test whether multi-generation equilibration washes out the wcEcoli-inherited cycle-time gap
+
+  (observed ~80 min vs declared τ=136); it does not. The acetate result is therefore documented
+
+  as upstream context, not as the Stage 1 baseline.
+
+  '
+description: "Foundational prerequisite study. The DnaA / replication-initiation arc is calibrated against\n\
+  the Stage 1 parameter spec in *Parameters for WCM (Stage 1 heuristic values).pdf*, which\nprescribes\
+  \ ABT minimal glycerol as the canonical condition — its τ=150 min puts replication\non non-overlapping\
+  \ cycles and avoids the synchronisation artefacts of faster conditions.\n\nTwo distinct experimental\
+  \ tracks happen here:\n\n- **Glycerol Stage 1 track (the deliverable).** New MIX0-845 media row + glycerol\
+  \ condition_defs\n  entry + the full Stage 1 parameter overrides (C=70 via replisome_rate, D=30 via\
+  \ build_cache.py,\n  DnaA TE=1, DnaA stable, DARS / datA window edits). Output cache at\n  `out/cache_glycerol_stage1`.\
+  \ Single-gen smoke-test confirmed at 121 min cycle.\n\n- **Acetate diagnostic track (reference for vEcoli\
+  \ equivalence + the multi-gen hypothesis test).**\n  Canonical cache, no Stage 1 overrides. Used to\
+  \ (a) verify v2ecoli single-gen acetate matches\n  vEcoli within 15% on ppGpp / charged-fraction / elongation\
+  \ / cell mass — confirms the v2ecoli\n  refactor is faithful, (b) test whether the wcEcoli-inherited\
+  \ observed-vs-declared cycle-time\n  gap (~80 min vs τ=136) is a transient that 5+ generations would\
+  \ wash out — it is not.\n\nThis study is NOT new mechanism (Studies 2-6 do that). It is *getting the\
+  \ dials right* before\nany new process is wired.\n"
+purpose:
+  question: 'Does v2ecoli, with the Stage 1 parameter overrides applied to a glycerol cache, produce a
+
+    stable single-generation cell cycle near τ=150 min with the prescribed C=70 / D=30 timing,
+
+    DnaA TE=1, DnaA fully stable, and the canonical chromosomal locus locations? Separately —
+
+    does the v2ecoli refactor reproduce vEcoli''s behaviour on the established acetate reference
+
+    condition?
+
+    '
+  mechanism: 'Parameter-only changes; no new processes. Pre-ParCa overrides via
+
+    `studies/stage1_sanity_check/overrides.py` mutate raw_data at module load
+
+    (replisome_rate=552.58 nt/s → C=70 min, dnaA TE=1.0, DARS1+DARS2 window widening,
+
+    DATA-locus row). Post-ParCa knobs in `scripts/build_cache.py` apply D period, dnaA
+
+    transcription scale, dnaA stability, condition selection. The new MIX0-845 media row
+
+    and glycerol `condition_defs.tsv` entry register the τ=150 ABT-minimal-glycerol condition.
+
+    '
+  expected_outcome: '**Deliverable** — glycerol Stage 1 single-gen cycle within ±20% of declared τ=150
+    min, all
+
+    six Stage 1 parameter overrides apply cleanly on the glycerol cache.
+
+
+    **Diagnostic** — acetate single-gen tracks vEcoli within 15% (confirms the cross-codebase
+
+    equivalence).
+
+
+    **Hypothesis test** — acetate 5-gen lineage does NOT monotonically converge to τ=136
+
+    (refutes the multi-gen-washout hypothesis; documents the upstream FBA over-supply gap whose
+
+    proposed closure lives at Study 4, mechanistic initiation).
+
+    '
+seeded_from:
+  study: (foundational — first study in the arc, prerequisite to dnaa-01-expression-dynamics)
+  proposal_id: chromosome-replication-plan-study-0
+pipeline_gate:
+  prerequisites: []
+  enables:
+  - study: dnaa-01-expression-dynamics
+    condition: tests-passed
+  proceed_condition: Glycerol Stage 1 cache builds; single-gen cycle within tolerance of τ=150; acetate
+    match to vEcoli closes; 5-gen acetate lineage characterised; TF coverage gap (GlpR) audited.
+  notes: Several of these checkpoints are already passing — D-period trigger fix, vEcoli match, glycerol
+    medium added. The remaining open items are multi-gen equilibration (FAILED — upstream FBA gap) and
+    the TF coverage audit (open).
+baseline:
+- name: baseline-acetate
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+  notes: Canonical cache, no overrides — acetate condition (τ=136 declared, ~80 min observed).
+- name: baseline-glycerol-stage1
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache_glycerol_stage1
+  notes: Glycerol condition (τ=150 declared) with full Stage 1 overrides applied — C=70 (via replisome_rate
+    pre-ParCa), D=30 (via build_cache.py post-ParCa), DnaA TE=1, DnaA stable, DARS1+DARS2 windows widened,
+    DATA row added.
+variants:
+- name: glycerol-no-dperiod
+  base_composite: baseline-glycerol-stage1
+  parameter_overrides:
+    skip_d_period_override: true
+  notes: Stage 1 prescribed D=30 BUT applying both C=70 and D=30 at pre-ParCa breaks Step 6 ECOS promoter-binding
+    solver (see overrides.py header). This variant skips the D-period override pre-ParCa, applies it post-ParCa
+    via build_cache.py.
+interventions: []
+simulation_set:
+- name: acetate-vEcoli-match-gen1
+  status: ran
+  base_model: v2ecoli.composites.baseline.baseline
+  duration_min: 60
+  seeds:
+  - 0
+  condition: Canonical acetate cache, no overrides. Side-by-side against vEcoli on the same kb_default
+    simData. Output at out/acetate_apr24_test.db + out/vecoli_acetate_compare_parquet/.
+  readouts:
+  - ppgpp_concentration
+  - charged_fraction
+  - ribosome_elongation_rate
+  - cell_mass
+  - cycle_time
+  applies_tests:
+  - v2ecoli_matches_vecoli_acetate_dynamics
+- name: glycerol-stage1-gen1
+  status: ran
+  base_model: v2ecoli.composites.baseline.baseline
+  duration_min: 130
+  seeds:
+  - 0
+  condition: Glycerol Stage 1 cache (out/cache_glycerol_stage1) with C=70 / D=30 / dnaA TE=1.0 / DARS1+DARS2
+    widened. Output at out/glycerol_stage1_1gen.db.
+  readouts:
+  - cycle_time
+  - cell_mass
+  - n_active_replisomes
+  - dnaa_species_counts
+  - dnaa_box_occupancy
+  applies_tests:
+  - glycerol_stage1_cycle_within_tolerance
+- name: acetate-5gen-lineage
+  status: ran
+  base_model: v2ecoli.composites.baseline.baseline
+  duration_min: 540
+  seeds:
+  - 0
+  condition: 5-gen acetate lineage (chromosome-only, no plasmid, canonical cache, no overrides). Output
+    at out/acetate_multigen/acetate_multigen_timeseries.json.
+  readouts:
+  - cycle_time_per_gen
+  applies_tests:
+  - multi_gen_equilibrates_toward_declared_tau
+- name: glpr-tf-coverage-audit
+  status: planned
+  base_model: (introspection of sim_data)
+  duration_min: 0
+  seeds: []
+  condition: Walk sim_data.process.transcription_regulation.tf_ids; verify whether GlpR (and others with
+    fold_change entries) made the 23-TF runtime set or got dropped silently.
+  readouts:
+  - tf_ids_runtime_set
+  - tf_with_fold_change_data
+  applies_tests:
+  - tf_coverage_no_silent_drop
+readouts:
+- name: ppgpp_concentration
+  store_path: bulk.<resolved-via-molecule_lookup for "ppGpp">
+- name: charged_fraction
+  store_path: derived
+- name: ribosome_elongation_rate
+  store_path: listeners.ribosome_data.effective_elongation_rate
+- name: cell_mass
+  store_path: listeners.mass.cell_mass
+- name: cycle_time
+  store_path: derived (last_division_time - first_division_time per gen)
+- name: cycle_time_per_gen
+  store_path: derived (per gen, lineage scope)
+- name: n_active_replisomes
+  store_path: unique.active_replisome
+- name: dnaa_species_counts
+  store_path: bulk.<resolved-via-molecule_lookup for "DnaA"> (currently single pool; Study 2 splits into
+    ATP/ADP/apo)
+- name: dnaa_box_occupancy
+  store_path: unique.promoter.bound_TF where TF=DnaA (Study 3 wires the chromosome-wide box set)
+- name: tf_ids_runtime_set
+  store_path: introspection of sim_data.process.transcription_regulation.tf_ids
+- name: tf_with_fold_change_data
+  store_path: introspection of fold_changes_nca.tsv
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_processes: []
+  new_state_variables: []
+  new_parameters: []
+  modified_processes: []
+  notes: 'No new processes. Five categories of parameter / config change wired so far: (1) New glycerol
+    media MIX0-845 (AB + 0.2% glycerol, 13 mM GLYCEROL); (2) New condition_defs.tsv row for glycerol (τ=150
+    min, active TFs CRP-cAMP); (3) Pre-ParCa overrides via overrides.py — replisome_rate=552.58 nt/s (C=70),
+    dnaA TE=1.0, DARS1+DARS2 window widening, DATA row; (4) Post-ParCa knobs via build_cache.py — --d-period-minutes,
+    --dnaa-txn-scale, --dnaa-constitutive, --dnaa-stable, --dnaa-translation-efficiency; (5) D-period
+    trigger fix in v2ecoli/steps/division.py + v2ecoli/composites/_helpers.py.'
+implementation_requirements:
+- id: REQ-1
+  title: ABT minimal glycerol media (MIX0-845)
+  kind: parca
+  effort: M
+  status: done
+  description: New media row in v2ecoli/processes/parca/reconstruction/ecoli/flat/condition/media/MIX0-845.tsv
+    (13 mM GLYCEROL). Registered in knowledge_base_raw.py LIST_OF_DICT_FILENAMES. media_recipes.tsv adds
+    the minimal_glycerol → MIX0-845 row.
+  steps:
+  - 'Edit: `v2ecoli/processes/parca/reconstruction/ecoli/flat/condition/media/MIX0-845.tsv`'
+  - 'Edit: `v2ecoli/processes/parca/reconstruction/ecoli/knowledge_base_raw.py`'
+  - 'Edit: `v2ecoli/processes/parca/reconstruction/ecoli/flat/condition/media_recipes.tsv`'
+- id: REQ-2
+  title: Glycerol condition_defs row (τ=150, CRP-cAMP active)
+  kind: parca
+  effort: S
+  status: done
+  description: Stage 1 prescribes τ=150 for glycerol; condition_defs.tsv glycerol row carries the doubling
+    time + active-TF list.
+  steps:
+  - 'Edit: `v2ecoli/processes/parca/reconstruction/ecoli/flat/condition/condition_defs.tsv`'
+- id: REQ-3
+  title: D-period division trigger wiring
+  kind: model
+  effort: M
+  status: done
+  description: Stage 1 prescribes D=30 min as the period between replication termination and division.
+    Division step now uses MarkDPeriod.divide; with_aa cycle dropped 45 → 22.5 min (matches vEcoli).
+  steps:
+  - 'Edit: `v2ecoli/steps/division.py`'
+  - 'Edit: `v2ecoli/composites/_helpers.py`'
+- id: REQ-4
+  title: Pre-ParCa overrides (stage1_sanity_check.overrides)
+  kind: tooling
+  effort: M
+  status: done
+  description: Mutates raw_data after KnowledgeBaseEcoli load and before ParCa. Applies five Stage 1 overrides
+    (d_period currently SKIPPED per ECOS Step-6 collision; replisome_rate=552.58 nt/s for C=70; dnaA TE=1.0;
+    DARS1+DARS2 window widening; DATA row addition).
+  steps:
+  - 'Edit: `studies/stage1_sanity_check/overrides.py`'
+  - 'Edit: `v2ecoli/cli/parca.py`'
+- id: REQ-5
+  title: build_cache.py post-ParCa knobs (C/D/DnaA scale/constitutive/stable/TE)
+  kind: tooling
+  effort: M
+  status: done
+  description: Post-ParCa parameter mutations don't trip the ECOS solver. CLI flags --c-period-minutes,
+    --d-period-minutes, --dnaa-txn-scale, --dnaa-constitutive, --dnaa-stable, --dnaa-translation-efficiency
+    wire through to save_sim_input → sim_data.StaticSimulationData (sim_data.py:923).
+  steps:
+  - 'Edit: `scripts/build_cache.py`'
+  - 'Edit: `v2ecoli/core.py`'
+  - 'Edit: `v2ecoli/library/sim_data.py`'
+- id: REQ-6
+  title: --dnaa-txn-rate absolute-rate flag (PDF prescribes 1.5 mRNA/min/gene)
+  kind: tooling
+  effort: M
+  status: open
+  description: Last remaining Stage 1 parameter without a wired override. The existing --dnaa-txn-scale
+    is a multiplier; the PDF gives an absolute rate. Requires (a) analytical or empirical baseline-rate
+    calibration in sim_data.py:923, (b) new CLI flag mapping target rate → scale factor. Once landed,
+    all 8 of-Stage-1-baseline knobs are exposed.
+  steps:
+  - 'Edit: `v2ecoli/library/sim_data.py`'
+  - 'Edit: `scripts/build_cache.py`'
+- id: REQ-7
+  title: TF coverage audit (GlpR gap)
+  kind: investigation
+  effort: S
+  status: open
+  description: GlpR has fold_change entries but is reportedly not in tr.tf_ids 23-TF runtime set — regulation
+    silently dropped. Audit other TFs in the same boat before deciding on a structural fix.
+key_assumptions:
+- Stage 1 prescribed C=70 + D=30 cannot both be applied pre-ParCa — the combo trips Step 6 ECOS promoter-binding
+  solver. D=30 is therefore applied post-ParCa via build_cache.py rather than in overrides.py. Effective
+  C+D=90 min (with D=20 default left in raw_data + D=30 swap on the built cache).
+- ABT minimal glycerol matches the upstream Fu/Xiao/Jun 2023 τ=150 heuristic. Aceto is mismatched (~80
+  observed vs 136 declared); this is the wcEcoli-inherited FBA over-supply gap and is documented at the
+  investigation level. Study 4 (mechanistic initiation) is the proposed closure.
+- The stage1_sanity_check folder hosts the runner scripts (overrides.py, run.sh, run_sim.py, plot_diagnostics.py).
+  They are part of THIS study; the slug ``stage1_sanity_check`` is a legacy name from earlier exploration.
+  No need to rename them — code_pointers cite the existing files.
+behavior_tests:
+- name: glycerol_medium_added
+  classification: primary
+  description: New MIX0-845 media + glycerol condition_defs row present in ParCa output.
+  measure:
+    kind: introspection
+    field: sim_data.condition_defs.glycerol exists with tau=150
+  pass_if:
+    op: eq
+    value: true
+  requires_simulation: glycerol-stage1-gen1
+- name: d_period_division_trigger_wired
+  classification: primary
+  description: Division step uses MarkDPeriod.divide. with_aa cycle dropped 45 → 22.5 min, matching vEcoli.
+  measure:
+    kind: derived_scalar
+    field: with_aa_cycle_minutes
+  pass_if:
+    op: <=
+    value: 25
+  requires_simulation: acetate-vEcoli-match-gen1
+- name: v2ecoli_matches_vecoli_acetate_dynamics
+  classification: primary
+  description: ppGpp + charged-fraction + elongation rate + cell-mass tracks vEcoli within 15% on gen
+    1.
+  measure:
+    kind: derived_scalar
+    field: v2ecoli_vs_vecoli_max_deviation_pct
+  pass_if:
+    op: <=
+    value: 0.15
+  requires_simulation: acetate-vEcoli-match-gen1
+- name: glycerol_stage1_cycle_within_tolerance
+  classification: primary
+  description: Glycerol Stage 1 single-gen cycle falls within ±20% of declared τ=150 min.
+  measure:
+    kind: derived_scalar
+    field: glycerol_cycle_minutes
+  pass_if:
+    op: range
+    low: 120
+    high: 180
+  requires_simulation: glycerol-stage1-gen1
+- name: multi_gen_equilibrates_toward_declared_tau
+  classification: primary
+  description: 5-gen acetate lineage cycles trend toward τ=136 declared (slope of cycle-time vs gen index
+    converges to 0 from below).
+  measure:
+    kind: derived_scalar
+    field: lineage_cycle_slope
+  pass_if:
+    op: '>='
+    value: 0
+  requires_simulation: acetate-5gen-lineage
+- name: tf_coverage_no_silent_drop
+  classification: secondary
+  description: All TFs with fold_change_nca.tsv entries appear in the 23-TF runtime set, OR the drop is
+    documented + audited.
+  measure:
+    kind: derived_scalar
+    field: n_tfs_with_data_but_dropped
+  pass_if:
+    op: eq
+    value: 0
+  requires_simulation: glpr-tf-coverage-audit
+cites:
+- pnas-pnas-2322772121
+findings:
+- id: F-S1
+  kind: methodological
+  status: confirms
+  statement: '**[Deliverable]** Glycerol Stage 1 single-gen runs at 121 min — within the ±20% tolerance
+
+    of declared τ=150. All six Stage 1 parameter overrides (C=70 via replisome_rate, D=30 via
+
+    build_cache.py, dnaA TE=1.0, dnaA stable, DARS1+DARS2 windows widened, DATA row added)
+
+    apply cleanly on the glycerol cache. This is the Stage 1 baseline that Study 1 builds on.
+
+    '
+  evidence:
+    from_run: glycerol-stage1-gen1/2026-05-22
+    from_test: glycerol_stage1_cycle_within_tolerance
+    artifact: reports/meeting_20260526/glycerol_dynamics.png
+  provenance:
+    run_ids:
+    - glycerol-stage1-gen1/2026-05-22
+- id: F-S2
+  kind: methodological
+  status: confirms
+  statement: '**[Cross-codebase equivalence]** v2ecoli reproduces vEcoli''s behaviour on the established
+
+    acetate reference condition. Single-gen acetate match is within ~15% on ppGpp, charged-fraction,
+
+    ribosome elongation rate, and cell mass. Acetate is used here for vEcoli equivalence only —
+
+    the actual Stage 1 baseline (glycerol) doesn''t have a side-by-side vEcoli implementation to
+
+    compare against.
+
+    '
+  evidence:
+    from_run: acetate-vEcoli-match-gen1/2026-05-22
+    from_test: v2ecoli_matches_vecoli_acetate_dynamics
+    artifact: reports/meeting_20260526/report.html
+  provenance:
+    run_ids:
+    - acetate-vEcoli-match-gen1/2026-05-22
+- id: F-S3
+  kind: methodological
+  status: confirms
+  statement: '**[Infrastructure fix]** D-period division trigger is correctly wired in v2ecoli. The fast
+
+    `with_aa` condition''s observed cycle dropped 45 → 22.5 min after MarkDPeriod.divide was wired
+
+    in, matching vEcoli within rounding. (`with_aa` is a third condition used as an unrelated
+
+    sanity baseline — neither the deliverable nor the diagnostic; it''s the strongest signal for
+
+    "is the D-period trigger firing on time?" because its short cycle makes the fix highly
+
+    visible.)
+
+    '
+  evidence:
+    from_run: acetate-vEcoli-match-gen1/2026-05-22
+    from_test: d_period_division_trigger_wired
+    artifact: reports/meeting_20260526/report.html
+  provenance:
+    run_ids:
+    - acetate-vEcoli-match-gen1/2026-05-22
+- id: F-S4
+  kind: biological
+  status: refutes
+  statement: '**[Upstream context — refutes a hypothesis]** Multi-gen acetate lineage does NOT monotonically
+
+    equilibrate toward declared τ=136. The 5-gen run cycled 42 / 81 / 61 / 82 / 60 min — no trend.
+
+
+    Why acetate, not glycerol, for this test — acetate is where the observed-vs-declared gap is
+
+    most documented (~80 min observed vs 136 min declared on the canonical cache), inherited from
+
+    wcEcoli. The candidate hypothesis was that the gap is a transient ParCa-initial-state artefact
+
+    that multi-generation propagation would wash out. It isn''t.
+
+
+    Implication — the gap is mechanistically caused (FBA over-supplies amino acids early in gen →
+
+    tRNAs stay 97-98% charged → SpoT degrades ppGpp → ribosomes elongate at 21 aa/s → mass
+
+    triples in 80 min → D-period trigger fires early). This is the wcEcoli-inherited problem the
+
+    chromosome-cycle-calibration investigation surfaces; it does NOT block the glycerol Stage 1
+
+    baseline from being delivered (F-S1), and it does NOT block Study 1 (DnaA expression
+
+    dynamics, parameter-only on top of Study 0). Its proposed closure lives at Study 4
+
+    (mechanistic initiation, replacing the inherited Donachie / initiation-mass trigger).
+
+    '
+  evidence:
+    from_run: acetate-5gen-lineage/2026-05-22
+    from_test: multi_gen_equilibrates_toward_declared_tau
+    artifact: out/acetate_multigen/acetate_multigen_timeseries.json
+  expected: Lineage cycle times should trend toward τ=136 declared as the cell state equilibrates.
+  observed: 42 / 81 / 61 / 82 / 60 min — no monotonic convergence; large gen-to-gen oscillation.
+  next_action: Active research direction — Study 4 (mechanistic initiation). No action required at Study
+    0.
+  provenance:
+    run_ids:
+    - acetate-5gen-lineage/2026-05-22
+conclusion_logic:
+  if_primary_tests_pass: 'Deliverable closed — glycerol Stage 1 baseline is ready, every Stage 1 parameter
+    from the
+
+    PDF that v2ecoli can absorb at this point is wired and verified, cross-codebase v2ecoli ↔
+
+    vEcoli equivalence confirmed on acetate. Promote Study 0 running → complete; unblock Study 1
+
+    via pipeline_gate.enables. The unresolved acetate observed-vs-declared cycle-time gap travels
+
+    forward as documented upstream context, addressed by Study 4.
+
+    '
+  if_primary_tests_fail: 'F-S4 is the one FAILED test (acetate multi-gen). It is a hypothesis test about
+    the
+
+    wcEcoli-inherited cycle-time gap, NOT a Stage 1 baseline gate. The deliverable (glycerol
+
+    Stage 1 baseline, F-S1) is independent and passing. Study 0 → Study 1 transition is not
+
+    blocked by F-S4; F-S4''s closure is the topic of Study 4 (mechanistic initiation) and is
+
+    the through-line motivating the broader investigation.
+
+    '
+  biological_validation: 'Two anchors. (a) Glycerol Stage 1 single-gen cycle within ±20% of declared τ=150
+    (F-S1)
+
+    confirms the parameter overrides land cleanly without unphysical side effects. (b) Single-gen
+
+    acetate within ±15% of vEcoli on ppGpp / charged-fraction / elongation / cell mass (F-S2)
+
+    confirms the v2ecoli refactor is faithful to the upstream codebase. Together they''re
+
+    sufficient ground truth for Studies 1-8 to start from.
+
+    '
+  block_downstream: 'Study 1 is gated on Study 0''s tests-passed condition. Currently 3 of 4 primary tests
+    pass
+
+    (F-S1 deliverable, F-S2 equivalence, F-S3 infrastructure); only F-S4 is FAIL but it does
+
+    not block — see if_primary_tests_fail above. The one open implementation gap that DOES
+
+    affect downstream work is REQ-6 (the absolute dnaA txn rate flag): without it, Study 1''s
+
+    quantitative test `dnaA_count_in_mass_spec_range` cannot be evaluated against the PDF''s
+
+    1.5 mRNA/min/gene target.
+
+    '
+followup_proposals: []
+runs:
+- run_id: acetate-vEcoli-match-gen1/2026-05-22
+  started_at: '2026-05-22T12:00:00'
+  meta_started_at: '2026-05-22T12:00:00'
+  started_at_iso: '2026-05-22T12:00:00'
+  status: ran
+  variant: null
+  composite: v2ecoli.composites.baseline.baseline
+  outcomes:
+    d_period_division_trigger_wired:
+      result: PASS
+      with_aa_cycle_min: 22.5
+      note: with_aa cycle dropped 45 → 22.5 min after MarkDPeriod.divide fix; matches vEcoli.
+    v2ecoli_matches_vecoli_acetate_dynamics:
+      result: PASS
+      max_deviation_pct: 0.15
+      note: ppGpp / charged-fraction / elongation / cell-mass all track vEcoli within 15% on gen 1.
+- run_id: glycerol-stage1-gen1/2026-05-22
+  started_at: '2026-05-22T14:00:00'
+  meta_started_at: '2026-05-22T14:00:00'
+  started_at_iso: '2026-05-22T14:00:00'
+  status: ran
+  variant: null
+  composite: v2ecoli.composites.baseline.baseline
+  outcomes:
+    glycerol_medium_added:
+      result: PASS
+      note: MIX0-845 + glycerol condition_defs row present in ParCa output.
+    glycerol_stage1_cycle_within_tolerance:
+      result: PASS
+      glycerol_cycle_min: 121
+      tolerance: 120-180 (τ=150 ±20%)
+      note: Single-gen Stage 1 glycerol cycle 121 min — within ±20% of declared τ=150.
+- run_id: acetate-5gen-lineage/2026-05-22
+  started_at: '2026-05-22T16:00:00'
+  meta_started_at: '2026-05-22T16:00:00'
+  started_at_iso: '2026-05-22T16:00:00'
+  status: ran
+  variant: null
+  composite: v2ecoli.composites.baseline.baseline
+  outcomes:
+    multi_gen_equilibrates_toward_declared_tau:
+      result: FAIL
+      cycle_minutes_per_gen:
+      - 42
+      - 81
+      - 61
+      - 82
+      - 60
+      lineage_slope: 0.0
+      note: No monotonic trend; large gen-to-gen oscillation. Mechanism — FBA over-supply.
+tests:
+  data_source: all_runs
+  last_results:
+    summary:
+      passed: 4
+      failed: 1
+      errored: 0
+    results:
+    - name: d_period_division_trigger_wired
+      status: passed
+      observed: 22.5 min
+      expected: <= 25
+    - name: v2ecoli_matches_vecoli_acetate_dynamics
+      status: passed
+      observed: 0.15
+      expected: <= 0.15
+    - name: glycerol_medium_added
+      status: passed
+      observed: 'true'
+      expected: 'true'
+    - name: glycerol_stage1_cycle_within_tolerance
+      status: passed
+      observed: 121
+      expected: 120-180
+    - name: multi_gen_equilibrates_toward_declared_tau
+      status: failed
+      observed: '[42, 81, 61, 82, 60] (slope 0)'
+      expected: '>= 0 (monotonic trend toward τ)'
+visualizations: []
+embed_visualizations:
+- name: stage1-parameter-audit
+  url: /docs/stage1_parameter_comparison.html
+  description: Stage 1 parameter spec from Parameters for WCM (Stage 1_ heuristic values).pdf mapped against
+    v2ecoli defaults — 23 parameters, parameter-by-parameter, with implementation-location citations (parameters.tsv:32,
+    dna_sites.tsv, translation_efficiency.tsv, etc.). 8 of 23 Stage 1 parameters already aligned (this
+    study); 1 gap remaining (REQ-6, absolute dnaA txn rate); 14 deferred to Studies 2/3/5 where their
+    mechanism arrives.
+- name: meeting-brief-2026-05-26
+  url: /reports/meeting_20260526/report.html
+  description: Meeting brief covering D-period trigger fix, acetate cycle gap, multi-gen equilibration
+    test result, TF coverage gap, glycerol medium scaffold, comparison vs upstream 0a3c36d.
+- name: glycerol-stage1-dynamics
+  url: /reports/meeting_20260526/glycerol_dynamics.png
+  description: Glycerol Stage 1 single-gen dynamics (mass / replication / DnaA species / DnaA-box occupancy).
+    Source for F-S4.

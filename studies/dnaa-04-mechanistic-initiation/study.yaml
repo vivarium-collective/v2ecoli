@@ -1,0 +1,251 @@
+schema_version: 4
+name: dnaa-04-mechanistic-initiation
+created: '2026-05-26'
+phase: Design
+status: planned
+design_status: complete
+implementation_status: planned
+simulation_status: planned
+evaluation_status: not_run
+gate_status: pending
+expert_review_status: pending
+objective: Replace the inherited replication-initiation heuristic (initiation mass / Donachie
+  trigger) with a mechanistic gate driven by Study 3's oriC DnaA-box occupancy. Initially restrict
+  to slow growth + non-overlapping cell cycles.
+description: 'The keystone study of the arc. Wires the mechanism — instead of "initiate at mass
+  threshold", initiation fires when oriC has the right DnaA-ATP occupancy pattern. Slow growth
+  + constant C / D period (40 min C, 30 min D per the plan) keeps the scope tractable. Generates
+  the result that ultimately closes the gap flagged by the investigation''s acceptance criterion
+  multi_gen_equilibrates_toward_declared_tau (FAILED). If mechanistic initiation produces emergent
+  cycle times closer to declared τ, this study supersedes the FBA-over-supply workaround.'
+purpose:
+  question: Does mechanistic initiation produce stable cell-cycle behaviour (initiation roughly
+    once per generation) with replication times in a narrow distribution? And does it reproduce
+    the upstream observation that fast growth correlates with early replication?
+  mechanism: At each tick, query oriC DnaA-box occupancy (3 high-affinity + 8 low-affinity, populated
+    by Studies 2 + 3). Fire initiation when a threshold pattern is met. As the replisome advances,
+    DnaA is removed from boxes the fork has passed (because binding requires dsDNA). The right
+    nucleotide form (DnaA-ATP or DnaA-ADP) is removed based on what was initially bound.
+  expected_outcome: 'Five expected behaviours per the plan PDF: (a) stable cell-cycle (one initiation
+    per gen on average); (b) DnaA unbinds from chromosome domain when replisome fork passes; new
+    DnaA boxes on the new chromosome domains; (c) narrow distribution of replication times; (d)
+    less inter-initiation-event coordination at this point (synchrony deferred to Study 5); (e)
+    perturbation: faster growth → earlier replication; 1/N scaling of DnaA boxes vs inter-initiation
+    timing.'
+seeded_from:
+  study: dnaa-03-box-binding
+  proposal_id: chromosome-replication-plan-study-4
+pipeline_gate:
+  prerequisites:
+  - study: dnaa-03-box-binding
+    condition: tests-passed
+  enables:
+  - study: dnaa-05-rida-ddah-dars
+    condition: tests-passed
+  proceed_condition: Mechanistic initiation produces stable cell-cycle behaviour on slow growth.
+    Initiation-mass distribution stable over different random seeds. 1/N scaling of DnaA boxes
+    vs inter-initiation timing observable.
+baseline:
+- name: baseline-slow-growth
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+  notes: Slow growth only at this phase. Multi-fork replication scenarios deferred.
+variants:
+- name: faster-growth-glycerol
+  base_composite: baseline-slow-growth
+  parameter_overrides:
+    cache_dir: out/cache_glycerol
+  notes: Glycerol (τ=150 → ~120 min observed). Tests "fast growth → earlier replication" prediction.
+- name: dnaA-boxes-halved
+  base_composite: baseline-slow-growth
+  parameter_overrides:
+    dnaA_box_count_multiplier: 0.5
+  notes: Halve the chromosomal DnaA-box count (set affinity to 0 on half the sites). 1/N scaling
+    test.
+- name: dnaA-boxes-doubled
+  base_composite: baseline-slow-growth
+  parameter_overrides:
+    dnaA_box_count_multiplier: 2.0
+- name: dnaA-boxes-redistributed
+  base_composite: baseline-slow-growth
+  parameter_overrides:
+    dnaA_box_distribution: clustered
+interventions: []
+simulation_set:
+- name: slow-growth-cell-cycle
+  status: planned
+  base_model: v2ecoli.composites.baseline.baseline
+  duration_min: 60
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  condition: 5-gen lineage. Replaces the inherited heuristic with mechanistic gate. Measure observed
+    cycle time, compare to declared τ=136.
+  readouts:
+  - cycle_time_per_gen
+  - initiation_mass
+  - replication_initiation_events
+  - n_active_replisomes
+  - dnaA_box_unbinding_at_fork
+  applies_tests:
+  - stable_one_init_per_gen
+  - narrow_replication_time_distribution
+  - cycle_time_matches_declared_tau
+- name: growth-rate-sweep
+  status: planned
+  base_model: v2ecoli.composites.baseline.baseline
+  duration_min: 90
+  seeds:
+  - 0
+  - 1
+  - 2
+  condition: Compare acetate + glycerol; check whether faster growth → earlier replication.
+  readouts:
+  - cycle_time_per_gen
+  - initiation_mass
+  - growth_rate
+  applies_tests:
+  - faster_growth_earlier_replication
+- name: box-count-perturbation
+  status: planned
+  base_model: v2ecoli.composites.baseline.baseline
+  duration_min: 60
+  seeds:
+  - 0
+  - 1
+  condition: Halved + doubled + redistributed DnaA boxes. Check 1/N scaling.
+  readouts:
+  - inter_initiation_time
+  - n_dnaA_boxes_active
+  applies_tests:
+  - dnaA_box_count_scales_inter_initiation_inversely
+readouts:
+- name: cycle_time_per_gen
+  store_path: derived per-gen scalar
+  description: Time from division to division. Investigation prerequisite (multi_gen_equilibrates_toward_declared_tau)
+    is currently FAILED — this study aims to close that gap.
+- name: initiation_mass
+  store_path: cell_mass at replication-initiation snapshots
+  description: Distribution across seeds. Expected — narrow distribution if mechanistic gate is
+    stable.
+- name: replication_initiation_events
+  store_path: events stream
+- name: n_active_replisomes
+  store_path: unique.active_replisome count
+- name: dnaA_box_unbinding_at_fork
+  store_path: events stream from Study 3's dnaA_box state
+- name: growth_rate
+  store_path: derived from mass trajectory
+- name: inter_initiation_time
+  store_path: derived
+- name: n_dnaA_boxes_active
+  store_path: derived
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_processes:
+  - mechanistic-replication-initiation
+  modified_processes:
+  - chromosome-replication-initiation (replace inherited Donachie trigger)
+  new_parameters:
+  - oriC_initiation_threshold (DnaA-ATP occupancy pattern that fires initiation)
+  notes: Removes the inherited initiation-mass heuristic for this branch. Constant C (40 min)
+    + constant D (30 min) for now.
+implementation_requirements:
+- id: REQ-1
+  title: New mechanistic-replication-initiation process
+  kind: model
+  effort: L
+  status: open
+- id: REQ-2
+  title: DnaA unbinding triggered by replication fork passing
+  kind: model
+  effort: M
+  status: open
+- id: REQ-3
+  title: DnaA re-binding to new DnaA boxes on new chromosome domains (post-fork)
+  kind: model
+  effort: M
+  status: open
+- id: REQ-4
+  title: Replace inherited initiation heuristic in chromosome composite
+  kind: model
+  effort: M
+  status: open
+- id: REQ-5
+  title: Comparison renderer — mechanistic vs heuristic vs vEcoli cycle-time distribution
+  kind: visualization
+  effort: S
+  status: open
+key_assumptions:
+- Constant replication speed matching C=40 min for slow growth (deviates from current 70 min override —
+  may need reconciliation).
+- Constant D period at 30 min.
+- Slow growth only at this study. Multi-fork / overlapping cycles deferred to Study 8 (validation).
+- DnaA box affinity can be set to 0 on a per-site basis for the 1/N scaling perturbation.
+behavior_tests:
+- name: stable_one_init_per_gen
+  classification: primary
+  description: Across 5 gens × 5 seeds, mean initiations per gen is 1.0 ± 0.1.
+  measure:
+    kind: derived_scalar
+    field: mean_initiations_per_gen
+  pass_if:
+    op: range
+    low: 0.9
+    high: 1.1
+  requires_simulation: slow-growth-cell-cycle
+- name: narrow_replication_time_distribution
+  classification: primary
+  description: Initiation-mass coefficient of variation ≤ 0.10 across seeds.
+  measure:
+    kind: derived_scalar
+    field: initiation_mass_cv
+  pass_if:
+    op: <=
+    value: 0.10
+  requires_simulation: slow-growth-cell-cycle
+- name: cycle_time_matches_declared_tau
+  classification: primary
+  description: Mean cycle time on acetate is within 20% of declared τ=136 min. This is the test
+    that closes the investigation's failed acceptance criterion.
+  measure:
+    kind: derived_scalar
+    field: mean_cycle_time_minutes
+  pass_if:
+    op: range
+    low: 108
+    high: 164
+  requires_simulation: slow-growth-cell-cycle
+- name: faster_growth_earlier_replication
+  classification: primary
+  description: Glycerol (faster growth) shows earlier replication-initiation mass than acetate.
+  measure:
+    kind: derived_scalar
+    field: initiation_mass_glycerol_minus_acetate
+  pass_if:
+    op: <
+    value: 0
+  requires_simulation: growth-rate-sweep
+- name: dnaA_box_count_scales_inter_initiation_inversely
+  classification: secondary
+  description: Halving DnaA-box count doubles inter-initiation time (1/N scaling within 30%).
+  measure:
+    kind: derived_scalar
+    field: inter_initiation_time_box_count_slope
+  pass_if:
+    op: range
+    low: -1.3
+    high: -0.7
+  requires_simulation: box-count-perturbation
+findings: []
+followup_proposals: []
+runs: []
+tests:
+  data_source: all_runs
+visualizations: []
+embed_visualizations: []

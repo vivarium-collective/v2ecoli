@@ -57,6 +57,15 @@ GENE_ARRAY = f'unique_array[cistron_index:integer|coordinates:integer|domain_ind
 
 DNAA_BOX_ARRAY = f'unique_array[coordinates:integer|domain_index:integer|DnaA_bound:boolean|{_UNIQUE_TAIL}]'
 
+# Plasmid unique molecule arrays
+FULL_PLASMID_ARRAY = f'unique_array[division_time:float|has_triggered_division:boolean|domain_index:integer|{_UNIQUE_TAIL}]'
+
+PLASMID_DOMAIN_ARRAY = f'unique_array[domain_index:integer|child_domains:array[2,integer]|{_UNIQUE_TAIL}]'
+
+ORIV_ARRAY = f'unique_array[domain_index:integer|{_UNIQUE_TAIL}]'
+
+PLASMID_ACTIVE_REPLISOME_ARRAY = f'unique_array[domain_index:integer|right_replichore:boolean|coordinates:integer|{_UNIQUE_TAIL}]'
+
 # ---------------------------------------------------------------------------
 # Convenience mapping: port name → type expression
 # ---------------------------------------------------------------------------
@@ -83,4 +92,12 @@ UNIQUE_TYPES = {
     'gene': GENE_ARRAY,
     'DnaA_boxes': DNAA_BOX_ARRAY,
     'DnaA_box': DNAA_BOX_ARRAY,
+    'full_plasmids': FULL_PLASMID_ARRAY,
+    'full_plasmid': FULL_PLASMID_ARRAY,
+    'plasmid_domains': PLASMID_DOMAIN_ARRAY,
+    'plasmid_domain': PLASMID_DOMAIN_ARRAY,
+    'oriVs': ORIV_ARRAY,
+    'oriV': ORIV_ARRAY,
+    'plasmid_active_replisomes': PLASMID_ACTIVE_REPLISOME_ARRAY,
+    'plasmid_active_replisome': PLASMID_ACTIVE_REPLISOME_ARRAY,
 }

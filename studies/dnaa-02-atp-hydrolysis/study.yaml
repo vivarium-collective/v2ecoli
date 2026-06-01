@@ -1,0 +1,159 @@
+schema_version: 4
+name: dnaa-02-atp-hydrolysis
+created: '2026-05-26'
+phase: Design
+status: planned
+design_status: complete
+implementation_status: planned
+simulation_status: planned
+evaluation_status: not_run
+gate_status: pending
+expert_review_status: pending
+objective: Add DnaA-ATP intrinsic hydrolysis activity. Track DnaA-ATP / DnaA-ADP / apo-DnaA pools
+  and a background ATP / ADP readout. Simplest assumption — exponential decay DnaA-ATP → DnaA-ADP
+  at the literature-reported intrinsic rate (0.046 /min per the Molecular information PDF).
+description: Second study in the DnaA arc. Splits the DnaA pool from Study 1 into three nucleotide-bound
+  forms (DnaA-ATP, DnaA-ADP, apo-DnaA) and adds intrinsic ATP hydrolysis. Sets up the substrate
+  for Studies 3 (box binding) and 5 (extrinsic ATP/ADP conversion via RIDA/DDAH/DARS).
+purpose:
+  question: With ONLY intrinsic DnaA-ATP hydrolysis (no RIDA / DDAH / DARS), can v2ecoli maintain
+    DnaA-ATP / total-DnaA in the expected 0.2-0.5 range reported by Boesen et al. 2024 (PNAS,
+    Delta4 cells)?
+  mechanism: Exponential decay DnaA-ATP → DnaA-ADP at intrinsic rate 0.046 /min. DnaA binds ATP
+    and ADP with similar affinities (ATP moderately higher). No nucleotide exchange other than
+    the hydrolysis step at this phase.
+  expected_outcome: Most DnaA bound by either ATP or ADP (very little apo-DnaA). If total DnaA
+    is roughly constant from Study 1, DnaA-ATP is roughly constant over time. DnaA-ATP / total-DnaA
+    sits in the 0.2-0.5 range per Boesen 2024. Background ATP much higher than ADP (metabolism-driven).
+  expected_failure_mode: If the ratio is well outside 0.2-0.5 with just intrinsic hydrolysis, a
+    heuristic holds it in range so Study 3 can proceed. Study 5 will replace the heuristic with
+    the mechanistic RIDA / DDAH / DARS conversion.
+seeded_from:
+  study: dnaa-01-expression-dynamics
+  proposal_id: chromosome-replication-plan-study-2
+pipeline_gate:
+  prerequisites:
+  - study: dnaa-01-expression-dynamics
+    condition: tests-passed
+  enables:
+  - study: dnaa-03-box-binding
+    condition: tests-passed
+  proceed_condition: DnaA-ATP / DnaA-ADP / apo split implemented; ratio in 0.2-0.5 (with or without
+    a heuristic clamp).
+baseline:
+- name: baseline-slow-growth
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+variants: []
+interventions: []
+simulation_set:
+- name: nucleotide-bound-pool-steady-state
+  status: planned
+  base_model: v2ecoli.composites.baseline.baseline
+  duration_min: 10
+  seeds:
+  - 0
+  - 1
+  - 2
+  condition: Acetate cache; track three nucleotide pools + background ATP / ADP.
+  readouts:
+  - dnaA_ATP_count
+  - dnaA_ADP_count
+  - dnaA_apo_count
+  - background_ATP
+  - background_ADP
+  - dnaA_ATP_over_total_ratio
+  applies_tests:
+  - most_dnaA_bound
+  - ratio_in_boesen_range
+  - background_ATP_dominates
+readouts:
+- name: dnaA_ATP_count
+  store_path: bulk.<resolved-at-runtime-via-molecule_lookup for "DnaA-ATP">
+- name: dnaA_ADP_count
+  store_path: bulk.<resolved-at-runtime-via-molecule_lookup for "DnaA-ADP">
+- name: dnaA_apo_count
+  store_path: bulk.DNAA-MONOMER (the apo form; existing DnaA monomer id)
+- name: background_ATP
+  store_path: bulk.ATP[c]
+- name: background_ADP
+  store_path: bulk.ADP[c]
+- name: dnaA_ATP_over_total_ratio
+  store_path: derived
+  description: DnaA-ATP / (DnaA-ATP + DnaA-ADP + DnaA-apo). Boesen 2024 — expect 0.2-0.5.
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_processes:
+  - dnaa-atp-intrinsic-hydrolysis
+  new_state_variables:
+  - bulk.DNAA-MONOMER-ATP
+  - bulk.DNAA-MONOMER-ADP
+  new_parameters:
+  - dnaA_atp_hydrolysis_rate (0.046 /min default per Molecular information PDF)
+  modified_processes: []
+implementation_requirements:
+- id: REQ-1
+  title: Split DnaA pool into ATP / ADP / apo forms
+  kind: model
+  effort: M
+  status: open
+- id: REQ-2
+  title: Implement exponential ATP→ADP hydrolysis at 0.046 /min
+  kind: model
+  effort: S
+  status: open
+- id: REQ-3
+  title: Wire background ATP/ADP readout
+  kind: tooling
+  effort: XS
+  status: open
+key_assumptions:
+- Intrinsic hydrolysis is the SIMPLEST first assumption; RIDA / DDAH / DARS arrive in Study 5.
+- ATP and ADP bind DnaA with similar affinities; ATP moderately higher.
+- 'Heuristic fallback acceptable per the plan: "if ratios are not within expected range it may
+  be necessary to add a heuristic that holds them within an expected range, in order to move to
+  the next phase".'
+behavior_tests:
+- name: most_dnaA_bound
+  classification: primary
+  description: Apo-DnaA is a small fraction of total DnaA (<= 20%).
+  measure:
+    kind: snapshot_window
+    field: dnaA_apo_count_fraction
+  pass_if:
+    op: <=
+    value: 0.2
+  requires_simulation: nucleotide-bound-pool-steady-state
+- name: ratio_in_boesen_range
+  classification: primary
+  description: DnaA-ATP / total-DnaA in [0.2, 0.5] (Boesen 2024 PNAS, Delta4 cells).
+  measure:
+    kind: snapshot_window
+    field: dnaA_ATP_over_total_ratio
+  pass_if:
+    op: range
+    low: 0.2
+    high: 0.5
+  requires_simulation: nucleotide-bound-pool-steady-state
+- name: background_ATP_dominates
+  classification: secondary
+  description: Background ATP much higher than ADP (metabolism, not DnaA-specific).
+  measure:
+    kind: derived_scalar
+    field: ATP_to_ADP_ratio
+  pass_if:
+    op: '>='
+    value: 5.0
+  requires_simulation: nucleotide-bound-pool-steady-state
+cites:
+- intrinsic-activity-sciencedirect-0092867487902212
+- pnas-pnas-2322772121
+findings: []
+followup_proposals: []
+runs: []
+tests:
+  data_source: all_runs
+visualizations: []
+embed_visualizations: []

@@ -555,6 +555,14 @@ class Transcription(object):
         Build RNA-associated simulation data from raw data.
         """
         self._basal_rna_fractions = sim_data.mass.get_basal_rna_fractions()
+        # Stash per-promoter ratios for use by _apply_per_promoter_ratios.
+        # Subsequent ParCa steps (2, 3) overwrite rna_expression['basal'] and
+        # must call the helper to preserve the apportionment across those
+        # rewrites; making the ratios self-attached avoids re-plumbing
+        # raw_data through the bigraph state.
+        self._per_promoter_ratios = list(
+            getattr(raw_data, "per_promoter_ratios", []) or []
+        )
 
         # Get list of transcription units used by the model
         all_valid_tus = [
@@ -690,6 +698,11 @@ class Transcription(object):
             self._apply_rnaseq_correction()
 
         expression, _ = self.fit_rna_expression(self.cistron_expression["basal"])
+        # Redistribute fitted per-TU values across dedup-exempted TU groups
+        # using empirical ratios from per_promoter_ratios.tsv (Phase 2b of
+        # Path 3; see reports/regulation_data_pipeline_v2ecoli.html §10).
+        expression = self._apply_per_promoter_ratios(
+            expression, rna_ids, "basal")
 
         # TODO (Albert): should modify more when other types of hybrid RNAs
         #  are introduced (only rRNA-tRNA hybrids are included currently)
@@ -1025,6 +1038,68 @@ class Transcription(object):
         """
         rna_exp, res = fast_nnls(self.cistron_tu_mapping_matrix, cistron_expression)
         return rna_exp, res
+
+    def _apply_per_promoter_ratios(self, rna_exp, rna_ids, condition):
+        """
+        Redistribute fitted per-TU expression according to
+        per_promoter_ratios.tsv data stashed at ``self._per_promoter_ratios``.
+
+        For gene_tuples exempted from dedup (i.e. listed in
+        per_promoter_ratios.tsv), the cistron-TU mapping matrix contains
+        identical columns for the surviving TUs. NNLS produces a valid
+        but biased apportionment (all-or-nothing in column-index order).
+        This helper preserves each group's total expression but
+        redistributes across the TUs using the empirical ratios from the
+        TSV. The matrix's all-1s structure means cistron-level totals
+        are unchanged by the redistribution.
+
+        Operates only on entries with a matching ``condition``;
+        gene_tuples / conditions without a row are left untouched.
+
+        ``rna_ids`` is the parallel list of TU IDs corresponding to
+        ``rna_exp`` (in the same order). Accepts both raw IDs
+        (``TU00352``) and compartment-tagged IDs (``TU00352[c]``).
+
+        ParCa steps 2 and 3 re-fit and overwrite ``rna_expression[basal]``;
+        each such step must call this helper to preserve the per-promoter
+        apportionment.
+        """
+        per_promoter_ratios = getattr(self, "_per_promoter_ratios", None)
+        if not per_promoter_ratios:
+            return rna_exp
+
+        # Group rows by gene_tuple_id for the requested condition
+        groups = {}
+        for row in per_promoter_ratios:
+            if row.get("condition") != condition:
+                continue
+            groups.setdefault(row["gene_tuple_id"], []).append(
+                (row["TU_id"], float(row["ratio"]))
+            )
+        if not groups:
+            return rna_exp
+
+        # TU_id -> index lookup. Strip compartment suffix (e.g. "[c]") so
+        # callers can pass either raw or compartment-tagged IDs.
+        def _strip(rid):
+            s = str(rid)
+            i = s.find("[")
+            return s[:i] if i >= 0 else s
+        id_to_idx = {_strip(rid): i for i, rid in enumerate(rna_ids)}
+
+        rna_exp = rna_exp.copy()
+        for entries in groups.values():
+            idx_ratio = [
+                (id_to_idx[tu_id], ratio)
+                for tu_id, ratio in entries
+                if tu_id in id_to_idx
+            ]
+            if not idx_ratio:
+                continue
+            total = sum(rna_exp[i] for i, _ in idx_ratio)
+            for i, ratio in idx_ratio:
+                rna_exp[i] = total * ratio
+        return rna_exp
 
     def fit_trna_expression(self, tRNA_cistron_expression):
         """

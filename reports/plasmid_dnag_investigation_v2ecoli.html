@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DnaG Investigation in v2ecoli — Parity Check with vEcoli Plasmid Investigation</title>
+  <style>
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --border: #dee2e6;
+      --accent: #2c5f8a;
+      --accent-light: #e8f0f7;
+      --warn: #856404;
+      --warn-bg: #fff3cd;
+      --danger: #721c24;
+      --danger-bg: #f8d7da;
+      --success: #155724;
+      --success-bg: #d4edda;
+      --text: #212529;
+      --muted: #6c757d;
+      --code-bg: #f1f3f5;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      font-size: 15px;
+    }
+    header {
+      background: var(--accent);
+      color: #fff;
+      padding: 2.5rem 2rem 2rem;
+    }
+    header h1 { font-size: 1.9rem; font-weight: 700; margin-bottom: 0.4rem; }
+    header .subtitle { opacity: 0.85; font-size: 1rem; }
+    header .meta { margin-top: 1rem; opacity: 0.75; font-size: 0.85rem; }
+    nav {
+      background: #1d4570;
+      padding: 0.7rem 2rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.2rem;
+    }
+    nav a {
+      color: #cfe2f3;
+      text-decoration: none;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+    nav a:hover { color: #fff; text-decoration: underline; }
+    main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+    section { margin-bottom: 3rem; }
+    h2 {
+      font-size: 1.4rem;
+      color: var(--accent);
+      border-bottom: 2px solid var(--accent-light);
+      padding-bottom: 0.4rem;
+      margin-bottom: 1.2rem;
+      margin-top: 0.5rem;
+    }
+    h3 { font-size: 1.1rem; margin: 1.4rem 0 0.6rem; color: #2c3e50; }
+    h4 { font-size: 0.95rem; margin: 1rem 0 0.4rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    p { margin-bottom: 0.9rem; }
+    ul, ol { margin: 0.5rem 0 0.9rem 1.5rem; }
+    li { margin-bottom: 0.35rem; }
+    code {
+      background: var(--code-bg);
+      padding: 0.15em 0.4em;
+      border-radius: 3px;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.88em;
+    }
+    pre {
+      background: #1e2736;
+      color: #e8edf3;
+      padding: 1.2rem 1.4rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      margin: 0.8rem 0 1.2rem;
+    }
+    pre .comment { color: #6a9fb5; }
+    pre .keyword { color: #c678dd; }
+    pre .string  { color: #98c379; }
+    pre .number  { color: #d19a66; }
+    .callout {
+      border-left: 4px solid;
+      border-radius: 0 6px 6px 0;
+      padding: 0.9rem 1.2rem;
+      margin: 1rem 0;
+    }
+    .callout.info    { border-color: var(--accent); background: var(--accent-light); }
+    .callout.warn    { border-color: #ffc107; background: var(--warn-bg); color: var(--warn); }
+    .callout.danger  { border-color: #dc3545; background: var(--danger-bg); color: var(--danger); }
+    .callout.success { border-color: #28a745; background: var(--success-bg); color: var(--success); }
+    .callout strong  { display: block; margin-bottom: 0.3rem; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0 1.4rem;
+      font-size: 0.9rem;
+    }
+    th {
+      background: var(--accent-light);
+      color: var(--accent);
+      text-align: left;
+      padding: 0.6rem 0.9rem;
+      border: 1px solid var(--border);
+      font-weight: 600;
+    }
+    td {
+      padding: 0.55rem 0.9rem;
+      border: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: #f9fafc; }
+    .pill {
+      display: inline-block;
+      padding: 0.15em 0.6em;
+      border-radius: 12px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      vertical-align: middle;
+    }
+    .pill.confirmed { background: #d4edda; color: #155724; }
+    .pill.present   { background: #cce5ff; color: #004085; }
+    .pill.missing   { background: #f8d7da; color: #721c24; }
+    .pill.partial   { background: #fff3cd; color: #856404; }
+    .pill.blocked   { background: #e9ecef; color: #495057; }
+    .toc { background: var(--accent-light); border-radius: 8px; padding: 1.2rem 1.6rem; margin-bottom: 2.5rem; }
+    .toc h3 { color: var(--accent); margin-top: 0; font-size: 1rem; margin-bottom: 0.7rem; }
+    .toc ol { margin-left: 1.2rem; }
+    .toc li { font-size: 0.9rem; margin-bottom: 0.25rem; }
+    .toc a { color: var(--accent); text-decoration: none; }
+    .toc a:hover { text-decoration: underline; }
+    footer {
+      text-align: center;
+      padding: 1.5rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>DnaG Investigation in v2ecoli</h1>
+  <div class="subtitle">Parity check with the vEcoli plasmid investigation · Which of the four compounding DnaG-depletion causes are present in the v2ecoli port?</div>
+  <div class="meta">Branch: <code style="background:rgba(255,255,255,0.15);color:#fff">plasmids</code> &nbsp;|&nbsp; 2026-04-17 &nbsp;|&nbsp; Rashmi Dissasekara</div>
+</header>
+
+<nav>
+  <a href="#overview">Overview</a>
+  <a href="#cause1">Cause 1 — lexA FC</a>
+  <a href="#cause2">Cause 2 — 0CS always-active</a>
+  <a href="#cause3">Cause 3 — cistron-level FC</a>
+  <a href="#cause4">Cause 4 — TU dedup</a>
+  <a href="#state">Initial state</a>
+  <a href="#gaps">v2ecoli gaps</a>
+  <a href="#nextsteps">Next steps</a>
+</nav>
+
+<main>
+
+  <div class="toc">
+    <h3>Contents</h3>
+    <ol>
+      <li><a href="#overview">Overview &amp; Verdict</a></li>
+      <li><a href="#cause1">Cause 1 — <code>lexA → dnaG = −1.71 log₂</code> from <code>fold_changes_nca.tsv</code></a></li>
+      <li><a href="#cause2">Cause 2 — LexA is a <code>0CS</code> (always-active) TF at runtime</a></li>
+      <li><a href="#cause3">Cause 3 — Fold changes applied at cistron level (via <code>cistron_id_to_rna_indexes</code>)</a></li>
+      <li><a href="#cause4">Cause 4 — <code>_build_rna_sequences</code> silently drops TU00434 &amp; TU00435</a></li>
+      <li><a href="#state">Confirmed initial replisome-subunit counts (seed=0)</a></li>
+      <li><a href="#gaps">v2ecoli-specific gaps relative to the vEcoli investigation</a></li>
+      <li><a href="#nextsteps">Next steps</a></li>
+    </ol>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="overview">
+    <h2>1. Overview &amp; Verdict</h2>
+    <p>
+      The vEcoli plasmid investigation
+      (<code>vEcoli/reports/plasmid_replication_report.html</code>) traced multigenerational DnaG
+      depletion to <strong>four compounding regulatory-pipeline errors</strong>. v2ecoli is a port of the
+      same parca code, so a priori all four are expected to be present. This report confirms each one
+      against the actual parca-built sim&nbsp;data and source code in the v2ecoli <code>plasmids</code>
+      branch, and notes the v2ecoli-specific differences that matter for the next round of work.
+    </p>
+
+    <h3>Summary table</h3>
+    <table>
+      <tr>
+        <th>#</th><th>Cause (from vEcoli investigation)</th><th>Status in v2ecoli</th><th>Evidence</th>
+      </tr>
+      <tr>
+        <td>1</td>
+        <td>Inflated <code>lexA → dnaG = −1.71 log₂</code> fold change (SOS-derived)</td>
+        <td><span class="pill confirmed">confirmed</span></td>
+        <td><code>fold_changes_nca.tsv:2313</code>; ends up in <code>sim_data.tf_to_fold_change["PC00010"]["EG10239_RNA"] = 0.3057</code> (log₂ = −1.710).</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>LexA is modelled as <code>0CS</code> (zero-component system) — always active, never cleaved</td>
+        <td><span class="pill confirmed">confirmed</span></td>
+        <td><code>condition/tf_condition.tsv:17</code>: <code>"lexA"	"PC00010"	"minimal"	…	"0CS"</code>; confirmed in sim_data via <code>tf_to_tf_type["PC00010"] == "0CS"</code>.</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>FCs applied at cistron level (every TU carrying the cistron gets the FC)</td>
+        <td><span class="pill confirmed">confirmed</span></td>
+        <td><code>promoter_fitting.py:696</code> and <code>step_04_tf_condition_specs.py:201</code> wire <code>sim_data.tf_to_fold_change[tf]</code> through <code>cistron_id_to_rna_indexes()</code>.</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td><code>_build_rna_sequences</code> dedup silently drops co-TUs that share a gene set</td>
+        <td><span class="pill confirmed">confirmed</span></td>
+        <td><code>getter_functions.py:260</code> (same <code>gene_tuple_to_tu_index</code> pattern). Only TU00352 survives in <code>getter._sequences</code>; TU00434 and TU00435 are dropped.</td>
+      </tr>
+    </table>
+
+    <div class="callout danger">
+      <strong>Verdict</strong>
+      All four vEcoli root-cause findings reproduce in v2ecoli on <code>plasmids</code>.
+      The regulatory-pipeline code and the raw flat-file inputs were ported verbatim, so the parca
+      output has the same defects. Multigenerational DnaG depletion is therefore expected once the
+      <code>mechanistic_replisome</code> gate is enforced over many generations — but we cannot yet
+      observe that trajectory directly in v2ecoli (see <a href="#gaps">§7</a>).
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="cause1">
+    <h2>2. Cause 1 — <code>lexA → dnaG = −1.71 log₂</code></h2>
+    <p>
+      The NCA-derived fold change is present in the raw TSV and survives the parca fold-change
+      pipeline intact. After TF-ID abbreviation resolution (<code>lexA → PC00010</code>) and
+      gene-symbol resolution (<code>dnaG → EG10239_RNA</code>), it lands in
+      <code>sim_data.tf_to_fold_change</code> with the same magnitude.
+    </p>
+
+    <h3>2.1 Raw TSV row</h3>
+    <pre>
+<span class="comment"># v2ecoli/processes/parca/reconstruction/ecoli/flat/fold_changes_nca.tsv:2313</span>
+<span class="string">"lexA"</span>	<span class="string">"dnaG"</span>	<span class="number">-1.71</span>
+    </pre>
+    <p>
+      The TSV is loaded by <code>knowledge_base_raw.py</code> as part of the default attribute list
+      (line 41: <code>"fold_changes_nca.tsv"</code>). Note that the manually curated
+      <code>fold_changes.tsv</code> does <em>not</em> contain a lexA→dnaG row — the fold change
+      is NCA-only, consistent with the vEcoli finding that it was never manually curated.
+    </p>
+
+    <h3>2.2 Confirmed in the built sim_data</h3>
+    <pre>
+<span class="comment"># out/kb/simData_plasmid_patched.cPickle</span>
+sd.tf_to_fold_change[<span class="string">"PC00010"</span>][<span class="string">"EG10239_RNA"</span>] = <span class="number">0.30566</span>   <span class="comment"># 2^(−1.710)</span>
+len(sd.tf_to_fold_change[<span class="string">"PC00010"</span>]) = <span class="number">53</span>                 <span class="comment"># PC00010 targets 53 RNAs total</span>
+    </pre>
+    <p>
+      53 targets include the whole SOS/DNA-damage regulon (<code>EG10896_RNA</code>/rpoD at −1.80,
+      <code>EG10747_RNA</code>/lexA autoregulation, etc.). The SOS response itself is not modelled
+      (no RecA cleavage of LexA in any v2ecoli process), so all 53 targets sit permanently near full
+      repression at runtime.
+    </p>
+
+    <div class="callout warn">
+      <strong>Biological caveat (inherited from vEcoli analysis)</strong>
+      The −1.71 log₂ is the <em>maximum</em> SOS de-repression signal observed in the EcoMAC
+      expression matrix — dominated by norfloxacin experiments where LexA is fully cleaved. It does
+      not represent constitutive lexA-dependent repression of dnaG during healthy growth. This is
+      the same concern raised in the vEcoli report (§8, Step 1).
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="cause2">
+    <h2>3. Cause 2 — LexA is <code>0CS</code> (always-active)</h2>
+    <p>
+      v2ecoli's TF taxonomy has three categories: <code>0CS</code> (no upstream signal — binding
+      probability driven only by TF abundance), <code>1CS</code> (single metabolite signal via
+      equilibrium), <code>2CS</code> (two-component phosphorelay). LexA is tagged <code>0CS</code>
+      in the condition flat-file and this classification propagates into sim_data unchanged.
+    </p>
+
+    <h3>3.1 Raw condition assignment</h3>
+    <pre>
+<span class="comment"># v2ecoli/processes/parca/reconstruction/ecoli/flat/condition/tf_condition.tsv:17</span>
+<span class="string">"lexA"</span>	<span class="string">"PC00010"</span>	<span class="string">"minimal"</span>	{}	<span class="string">"minimal"</span>	{<span class="string">"EG10533_RNA"</span>: 0}	<span class="string">"0CS"</span>
+    </pre>
+
+    <h3>3.2 0CS binding law in the parca</h3>
+    <p>
+      The 0CS branch in <code>promoter_fitting.py</code> sets <code>p_bound</code> to
+      <code>min(1, TF_count / n_targets) · init_to_average</code>:
+    </p>
+    <pre>
+<span class="comment"># v2ecoli/processes/parca/promoter_fitting.py:744–745</span>
+<span class="keyword">if</span> tfType == <span class="string">"0CS"</span>:
+    pPromoterBound[conditionKey][tf] = limited_tf_counts
+    </pre>
+    <p>
+      At runtime, <code>TF_count</code> for <code>PC00010</code> (the dimeric active LexA form) is
+      bounded away from 0 by the equilibrium process, so LexA sits near-saturated on all 53 targets
+      at every time step. There is no DNA-damage signal path to reduce it.
+    </p>
+
+    <div class="callout warn">
+      <strong>Sim_data consequence</strong>
+      <code>tf_to_tf_type["PC00010"] == "0CS"</code> in the built sim_data. LexA is permanently ON.
+      Every fold change listed in <a href="#cause1">§2</a> is applied at full strength for the whole
+      simulation, over every generation.
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="cause3">
+    <h2>4. Cause 3 — Fold changes applied at cistron level</h2>
+    <p>
+      <code>sim_data.tf_to_fold_change</code> is keyed on <strong>cistron</strong> (i.e. RNA IDs of
+      individual gene products), not on TU. The parca then expands each cistron to every TU
+      containing it via <code>transcription.cistron_id_to_rna_indexes(cistron)</code>. Each of those
+      TUs receives the full fold change — regardless of whether the TF operator actually overlaps
+      the TSS of that particular TU.
+    </p>
+
+    <h3>4.1 Cistron → TU expansion (regulation matrix)</h3>
+    <pre>
+<span class="comment"># v2ecoli/processes/parca/promoter_fitting.py:695–712</span>
+cistron_id_to_tu_indexes = {
+    cistron_id: sim_data.process.transcription.cistron_id_to_rna_indexes(cistron_id)
+    <span class="keyword">for</span> cistron_id <span class="keyword">in</span> sim_data.process.transcription.cistron_data[<span class="string">"id"</span>]
+}
+<span class="keyword">for</span> tf, cistrons <span class="keyword">in</span> sim_data.tf_to_fold_change.items():
+    <span class="keyword">for</span> cistron <span class="keyword">in</span> cistrons:
+        <span class="keyword">for</span> tu_index <span class="keyword">in</span> cistron_id_to_tu_indexes[cistron]:
+            regulation_i.append(tf_idx[tf])
+            regulation_j.append(tu_index)
+            regulation_v.append(<span class="number">1</span>)
+    </pre>
+
+    <h3>4.2 Cistron-level expression update in the condition-spec loop</h3>
+    <pre>
+<span class="comment"># v2ecoli/processes/parca/steps/step_04_tf_condition_specs.py:196–203</span>
+fcData = sim_data.tf_to_fold_change[tf]         <span class="comment"># {cistron_id → FC}</span>
+…
+expression, cistron_expression = expressionFromConditionAndFoldChange(
+    sim_data.process.transcription, conditionValue[<span class="string">"perturbations"</span>], fcData,
+)
+    </pre>
+
+    <div class="callout danger">
+      <strong>What this means for the <em>rpsU-dnaG-rpoD</em> operon</strong>
+      The lexA fold change is keyed on the cistron <code>EG10239_RNA</code> (the dnaG cistron).
+      In vEcoli, the parca expands this to all surviving TUs containing dnaG. In v2ecoli the dedup
+      (see <a href="#cause4">§5</a>) leaves only <code>TU00352</code> in sim_data, so the full
+      <code>−1.71 log₂</code> suppression lands on TU00352 — but v2ecoli's <code>TU00352</code>
+      is <strong>rpsUp1</strong>, a promoter whose TSS is <em>83 bp upstream of the LexA operator</em>
+      and therefore biologically constitutive. The FC is applied to a TU that LexA cannot physically
+      regulate. Same bug class as vEcoli.
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="cause4">
+    <h2>5. Cause 4 — TU deduplication drops TU00434 and TU00435</h2>
+
+    <h3>5.1 Raw flat file — three co-TUs covering the same gene set</h3>
+    <pre>
+<span class="comment"># v2ecoli/processes/parca/reconstruction/ecoli/flat/transcription_units.tsv</span>
+<span class="string">"TU00352"</span>  <span class="string">"rpsU-dnaG-rpoD"</span>  [<span class="string">"EG10920"</span>, <span class="string">"EG10239"</span>, <span class="string">"EG10896"</span>]  <span class="number">3210646</span>  <span class="number">3214962</span>  <span class="string">"+"</span>
+<span class="string">"TU00434"</span>  <span class="string">"rpsU-dnaG-rpoD"</span>  [<span class="string">"EG10920"</span>, <span class="string">"EG10239"</span>, <span class="string">"EG10896"</span>]  <span class="number">3210712</span>  <span class="number">3214962</span>  <span class="string">"+"</span>
+<span class="string">"TU00435"</span>  <span class="string">"rpsU-dnaG-rpoD"</span>  [<span class="string">"EG10920"</span>, <span class="string">"EG10239"</span>, <span class="string">"EG10896"</span>]  <span class="number">3210735</span>  <span class="number">3214962</span>  <span class="string">"+"</span>
+    </pre>
+    <p>
+      All three TUs share the same <code>(gene_list, right_end_pos, direction)</code> — they differ
+      only in their TSS (left end). Biologically these are <strong>three distinct promoters</strong>
+      (rpsUp1, rpsUp2, rpsUp3) with different sensitivities to LexA repression (only rpsUp3 / TU00435
+      has its TSS downstream of the LexA operator).
+    </p>
+
+    <h3>5.2 The dedup code</h3>
+    <pre>
+<span class="comment"># v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/getter_functions.py:247–270</span>
+<span class="keyword">for</span> i, tu <span class="keyword">in</span> enumerate(raw_data.transcription_units):
+    gene_tuple = <span class="keyword">tuple</span>(sorted([
+        gene_id <span class="keyword">for</span> gene_id <span class="keyword">in</span> tu[<span class="string">"genes"</span>] <span class="keyword">if</span> gene_id <span class="keyword">in</span> valid_gene_ids
+    ]))
+
+    <span class="keyword">if</span> len(gene_tuple) == <span class="number">0</span>:
+        <span class="keyword">continue</span>
+
+    <span class="keyword">if</span> gene_tuple <span class="keyword">in</span> gene_tuple_to_tu_index:
+        <span class="comment"># Merge evidence codes into the FIRST TU — then silently skip</span>
+        evidence_list.extend(…)
+        <span class="keyword">continue</span>                 <span class="comment"># ← TU00434, TU00435 are dropped here</span>
+    <span class="keyword">else</span>:
+        gene_tuple_to_tu_index[gene_tuple] = i
+    </pre>
+
+    <h3>5.3 Confirmed in the built sim_data</h3>
+    <table>
+      <tr><th>TU</th><th>Present in raw TSV</th><th>In <code>getter._sequences</code></th><th>In <code>rna_data["id"]</code></th></tr>
+      <tr><td>TU00352</td><td>yes</td><td><span class="pill present">yes</span></td><td><code>TU00352[c]</code></td></tr>
+      <tr><td>TU00434</td><td>yes</td><td><span class="pill missing">no — dropped by dedup</span></td><td>absent</td></tr>
+      <tr><td>TU00435</td><td>yes</td><td><span class="pill missing">no — dropped by dedup</span></td><td>absent</td></tr>
+    </table>
+
+    <div class="callout warn">
+      <strong>Net effect</strong>
+      dnaG has exactly one transcription unit in v2ecoli's sim_data — <code>TU00352</code> — and that
+      TU receives the full lexA suppression from Cause 3, despite being the promoter whose TSS is
+      <em>upstream</em> of the LexA operator (i.e. the one that should be constitutive).
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="state">
+    <h2>6. Confirmed initial replisome-subunit counts (seed=0)</h2>
+    <p>
+      Pulled from <code>out/cache_plasmid/initial_state.json</code> (generated from
+      <code>simData_plasmid_patched.cPickle</code> by <code>LoadSimData.generate_initial_state</code>).
+      Counts are for the fresh mother cell before any simulation step.
+    </p>
+
+    <table>
+      <tr><th>Molecule</th><th>Role</th><th>Count (seed=0)</th><th>Required per oriC</th></tr>
+      <tr><td><code>EG10239-MONOMER[c]</code></td><td><strong>DnaG (DNA primase)</strong></td><td>10</td><td>2</td></tr>
+      <tr><td><code>CPLX0-2361[c]</code></td><td>DNA pol III core (DnaE·DnaQ·HolE)</td><td>319</td><td>6</td></tr>
+      <tr><td><code>CPLX0-3761[c]</code></td><td>β sliding clamp (DnaN dimer)</td><td>124</td><td>6</td></tr>
+      <tr><td><code>CPLX0-3621[c]</code></td><td>DnaB replicative helicase (hexamer)</td><td>192</td><td>2</td></tr>
+      <tr><td><code>EG11412-MONOMER[c]</code></td><td>HolA (δ subunit, clamp loader)</td><td>29</td><td>2</td></tr>
+      <tr><td><code>EG10534-MONOMER[c]</code></td><td>LexA monomer</td><td>140</td><td>—</td></tr>
+      <tr><td><code>PC00010[c]</code></td><td>LexA dimer (active TF form)</td><td>0</td><td>—</td></tr>
+    </table>
+
+    <p>
+      v2ecoli's starting DnaG count is <strong>10 molecules/cell</strong>, slightly above the
+      Schmidt&nbsp;2015 proteomics value (6/cell) and in the same ball-park vEcoli reported
+      (~6–10). The mechanistic gate needs 2 per oriC, so generation 1 is comfortable — the problem
+      is the <em>downward drift</em> across generations that the four causes above produce.
+    </p>
+
+    <p>
+      Note that <code>PC00010[c]</code> (active LexA dimer) starts at 0 in the raw cache, but the
+      parca's 0CS fitting produces an average-cell basal expression that the equilibrium process
+      fills in within the first few timesteps. That's why LexA repression is "always-on" from t≈0
+      onward despite the zero start.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="gaps">
+    <h2>7. v2ecoli-specific gaps relative to the vEcoli investigation</h2>
+
+    <h3>7.1 No <code>tf_tu_exemption</code> variant</h3>
+    <p>
+      The vEcoli partial fix was a post-parca variant at
+      <code>ecoli/variants/tf_tu_exemption.py</code> that absorbs a TF's <code>delta_prob</code>
+      contribution into <code>basal_prob</code> for specified TUs, making them constitutive.
+      v2ecoli currently has <strong>no variants mechanism at all</strong>:
+    </p>
+    <ul>
+      <li><code>grep -r tf_tu_exemption v2ecoli/</code> → 0 matches.</li>
+      <li>No <code>v2ecoli/variants/</code> directory.</li>
+      <li>No variant-selection hook in <code>save_cache</code> / <code>LoadSimData</code>.</li>
+    </ul>
+    <div class="callout info">
+      <strong>Implication</strong>
+      There is no ready mechanism to apply even the vEcoli partial fix in v2ecoli. Either the
+      variants pipeline must be ported, or the exemption must be implemented as an inline
+      <code>sim_data</code> transform inside <code>save_cache</code> (quicker path, no variant
+      registry). See <a href="#nextsteps">§8</a>.
+    </div>
+
+    <h3>7.2 Multigenerational depletion not yet directly observable</h3>
+    <p>
+      v2ecoli's single-cell pipeline completes generation 1 to division successfully and writes
+      <code>out/workflow/pre_division/pre_division_state.json.gz</code>. However, attempts to run
+      multigeneration simulations currently hit a bigraph-schema realize-time failure:
+    </p>
+    <pre>
+ValueError: realize Array at path=('agents', '00', 'listeners', 'growth_limits'):
+  np.array failed. encode type=list, len=39, first_row_type=ndarray,
+  first_row_len=0, dtype=float64.
+    </pre>
+    <p>
+      Cause (from the accompanying workflow investigation): <code>listeners/growth_limits</code> is
+      a nested-dict store whose 39 sub-fields have mixed dtypes (int / float / bool arrays). At
+      daughter <code>_add</code>, the schema resolver picks <code>Array</code> for the parent store,
+      and <code>np.array([...])</code> over the 39 empty per-field ndarrays fails with
+      "inhomogeneous shape".
+    </p>
+    <p>
+      <code>reports/multigeneration_report.py</code> sidesteps this by rebuilding each daughter as a
+      <em>fresh</em> <code>Composite(doc, …)</code> rather than structurally forking via <code>_add</code>.
+      Running the multigen report with the plasmid cache
+      (<code>.venv/bin/python reports/multigeneration_report.py --cache-dir out/cache_plasmid</code>)
+      is therefore the first place the DnaG trajectory over generations can be observed in v2ecoli.
+    </p>
+
+    <h3>7.3 Parca ECOS solver (co-TU restoration) — untested in v2ecoli</h3>
+    <p>
+      In vEcoli, restoring TU00434 / TU00435 by strengthening the dedup key caused
+      <code>fitPromoterBoundProbability</code> to fail with
+      <code>Solver could not find optimal value</code> — the parca's gene-level expression targets
+      become over-constrained when split across three co-TUs of the same gene. The vEcoli report
+      suggests fixing <code>build_vector_k</code> / <code>build_matrix_G</code> in
+      <code>fit_sim_data_1.py</code> to distribute targets across co-TUs. This has not been
+      attempted in v2ecoli yet; the same failure mode is expected because the parca fitting code is
+      a direct port.
+    </p>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <section id="nextsteps">
+    <h2>8. Next steps</h2>
+
+    <ol>
+      <li>
+        <strong>Run <code>multigeneration_report.py</code> on the plasmid cache</strong> to observe
+        the DnaG trajectory across generations in v2ecoli and produce a figure analogous to Fig.&nbsp;10
+        of the vEcoli report. This is the first place we can quantify whether the v2ecoli depletion
+        rate matches vEcoli's (6 → 0–1 over 5–6 generations).
+      </li>
+      <li>
+        <strong>Port the <code>tf_tu_exemption</code> partial fix</strong>. Simplest route:
+        implement it as an inline <code>sim_data</code> transform inside <code>save_cache</code>
+        (in <code>v2ecoli/composite.py</code> near line 174), no variants registry needed. Default
+        exemption: <code>{"PC00010": ["TU00352"]}</code> (v2ecoli only has TU00352 to exempt because
+        of Cause 4).
+      </li>
+      <li>
+        <strong>Fix the <code>growth_limits</code> realize-Array bug</strong> so multigen can run
+        in-place (without fresh-composite rebuild). Shortest fix likely: annotate
+        <code>listeners/growth_limits</code> as <code>listener_store</code> (a subclass of
+        <code>InPlaceDict</code>) so the schema resolver doesn't try to pack its 39 heterogeneous
+        sub-fields into a single <code>np.array</code>. Cross-reference the growth_limits schema in
+        <code>v2ecoli/processes/polypeptide_elongation.py:254–480</code>.
+      </li>
+      <li>
+        <strong>Investigate the <code>build_vector_k</code> / <code>build_matrix_G</code> co-TU
+        distribution.</strong> This is the only fix that actually restores TU00434 and TU00435
+        (rather than merely papering over the symptom with <code>tf_tu_exemption</code> on the
+        surviving TU). Likely blocked behind the variants/fitting pipeline port.
+      </li>
+      <li>
+        <strong>Epistemic note.</strong> Fixes 2 and 3 change different layers: #2 modifies
+        sim_data post-parca (surgical, reversible); #4 modifies the parca fitting (principled).
+        Both deserve to be gated behind a feature flag so we can A/B the effect on DnaG depletion
+        rate and on the broader 773-gene population that Cause 3 is estimated to affect.
+      </li>
+    </ol>
+  </section>
+
+</main>
+
+<footer>
+  Generated 2026-04-17 by Claude Code on branch <code>plasmids</code> · corroborated from
+  <code>out/kb/simData_plasmid_patched.cPickle</code>, <code>out/cache_plasmid/</code> and the
+  source tree under <code>v2ecoli/processes/parca/</code>.
+</footer>
+
+</body>
+</html>

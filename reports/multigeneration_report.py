@@ -144,6 +144,12 @@ def _run_generation(
                 total_run += chunk
                 divided = True
                 break
+            # Post-add realize errors (e.g. growth_limits Array) fire after
+            # the structural divide has already happened. If the mother agent
+            # is gone, treat as divided — don't keep running the broken tree.
+            if composite.state.get("agents", {}).get("0") is None:
+                divided = True
+                break
             raise
         total_run += chunk
 
@@ -352,11 +358,11 @@ def main() -> None:
         "--cache-dir",
         default=None,
         help="Directory holding ParCa cache "
-             "(default: out/cache or out/workflow/cache, or study param).",
+             "(default: out/cache or out/workflow/cache, or study param; "
+             "use e.g. out/cache_plasmid for a plasmid-enabled run).",
     )
     args = parser.parse_args()
 
-    # Resolve effective config: CLI > study > built-in defaults.
     study_spec = _load_study(args.study) if args.study else None
     study_params = ((study_spec or {}).get("baseline") or [{}])[0].get("params") or {}
     study_lineage = (study_spec or {}).get("lineage") or {}
@@ -370,8 +376,6 @@ def main() -> None:
     cache_dir = args.cache_dir or study_params.get("cache_dir") \
         or ("out/cache" if os.path.isdir("out/cache") else "out/workflow/cache")
 
-    # Visualization config: prefer the study's MultigenerationVisualization
-    # entry; otherwise fall back to a default title.
     viz_config = {"title": f"v2ecoli {n_generations}-generation lineage"}
     if study_spec is not None:
         for v in (study_spec.get("visualizations") or []):

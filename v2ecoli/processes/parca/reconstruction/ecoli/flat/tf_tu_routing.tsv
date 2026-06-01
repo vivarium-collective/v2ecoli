@@ -1,0 +1,33 @@
+# Per-TU TF binding overrides.
+#
+# By default, v2ecoli routes a per-gene fold-change row from
+# fold_changes_nca.tsv to the gene's canonical surviving TU (the one
+# that survived the gene_tuple-keyed dedup in getter_functions.py). For
+# operons where biology dictates a specific TF binds only a subset of
+# the operon's promoters, this file overrides that default routing.
+#
+# Used by Phase 3 of the Path 3 implementation in
+# reports/regulation_data_pipeline_v2ecoli.html.
+#
+# Columns:
+#   TF:          TF short name (matches the TF column in
+#                fold_changes_nca.tsv / fold_changes.tsv)
+#   target_gene: gene short name the fold-change is annotated against
+#                (matches the Target column in fold_changes_nca.tsv)
+#   TU_id:       the TU id to route the fold-change to (replaces the
+#                canonical-TU default routing)
+#   route_only:  if "true", apply the fold-change ONLY to the listed
+#                TU (not to the canonical surviving TU). If "false",
+#                apply additively (both this TU AND the canonical).
+#   source:      where the routing decision came from (paper or "manual")
+#
+# Data sources:
+#   (lexA, dnaG) → TU00435 — Janion 2008 and primary characterization
+#   of rpsUp3 as the LexA-responsive SOS promoter; ratio file confirms
+#   rpsUp3 is silent under non-SOS conditions, so the per-gene
+#   (lexA, dnaG, -1.71) fold-change in fold_changes_nca.tsv must
+#   biologically apply to rpsUp3 specifically.
+"TF"	"target_gene"	"TU_id"	"route_only"	"source"
+"lexA"	"dnaG"	"TU00435"	"true"	"Janion 2008; rpsUp3 SOS promoter"
+"lexA"	"rpsU"	"TU00435"	"true"	"Janion 2008; rpsUp3 SOS promoter"
+"lexA"	"rpoD"	"TU00435"	"true"	"Janion 2008; rpsUp3 SOS promoter"

@@ -145,10 +145,17 @@ class GetterFunctions(object):
     def get_genomic_coordinates(self, site_id: str) -> tuple[int, int]:
         """
         Returns the genomic coordinates of the left and right ends of a DNA site
-        given the ID of the site.
+        given the ID of the site. Falls back to plasmid coordinates when the
+        site is not on the chromosome.
         """
         assert isinstance(site_id, str)
-        return self._all_genomic_coordinates[site_id]
+        if site_id in self._all_genomic_coordinates:
+            return self._all_genomic_coordinates[site_id]
+        if site_id in self._all_plasmid_coordinates:
+            return self._all_plasmid_coordinates[site_id]
+        raise KeyError(
+            f"Site ID {site_id} not found in genomic or plasmid coordinates"
+        )
 
     def get_miscrnas_with_singleton_tus(self) -> list[str]:
         """
@@ -237,6 +244,27 @@ class GetterFunctions(object):
         }
         self._miscrna_id_to_singleton_tu_id = {}
 
+        # Build the dedup-exemption set from per_promoter_ratios.tsv. For each
+        # TU listed there, compute the same gene_tuple key used by dedup
+        # (sorted gene IDs filtered to valid_gene_ids). All TUs sharing such a
+        # gene_tuple survive into transcription_units; downstream ParCa code
+        # must then apportion gene-level expression across them.
+        exempt_gene_tuples = set()
+        if hasattr(raw_data, "per_promoter_ratios"):
+            tu_id_to_tu = {tu["id"]: tu for tu in raw_data.transcription_units}
+            for row in raw_data.per_promoter_ratios:
+                tu_id = row.get("TU_id")
+                tu = tu_id_to_tu.get(tu_id)
+                if tu is None:
+                    continue
+                gene_tuple = tuple(
+                    sorted(
+                        [g for g in tu["genes"] if g in valid_gene_ids]
+                    )
+                )
+                if len(gene_tuple) > 0:
+                    exempt_gene_tuples.add(gene_tuple)
+
         for i, tu in enumerate(raw_data.transcription_units):
             # Get list of genes in TU after excluding invalid genes
             gene_tuple = tuple(
@@ -249,8 +277,12 @@ class GetterFunctions(object):
             if len(gene_tuple) == 0:
                 continue
 
-            # Skip duplicate TUs but compile all evidence codes
-            if gene_tuple in gene_tuple_to_tu_index:
+            # Skip duplicate TUs but compile all evidence codes — unless this
+            # gene_tuple is in the per_promoter_ratios.tsv exemption set, in
+            # which case all sharing TUs survive (their distinct promoters
+            # carry biologically different regulation that per_promoter_ratios
+            # apportions for ParCa).
+            if gene_tuple in gene_tuple_to_tu_index and gene_tuple not in exempt_gene_tuples:
                 evidence_list = raw_data.transcription_units[
                     gene_tuple_to_tu_index[gene_tuple]
                 ]["evidence"]
@@ -259,7 +291,7 @@ class GetterFunctions(object):
                 # Add nonduplicate evidence codes to original list
                 evidence_list.extend(list(set(new_evidence) - set(evidence_list)))
                 continue
-            else:
+            elif gene_tuple not in gene_tuple_to_tu_index:
                 gene_tuple_to_tu_index[gene_tuple] = i
 
             # Use gene coordinates if left and right end positions are not given
@@ -367,6 +399,9 @@ class GetterFunctions(object):
         self._all_submass_arrays.update(self._build_protein_masses(raw_data, sim_data))
         self._all_submass_arrays.update(
             self._build_full_chromosome_mass(raw_data, sim_data)
+        )
+        self._all_submass_arrays.update(
+            self._build_full_plasmid_mass(raw_data, sim_data)
         )
 
         # These updates can be dependent on the masses calculated above
@@ -568,6 +603,42 @@ class GetterFunctions(object):
             )
         }
 
+    def _build_full_plasmid_mass(self, raw_data, sim_data):
+        """
+        Calculates the mass of the full plasmid from its sequence and the
+        weights of polymerized dNTPs.
+        """
+        plasmid_seq = raw_data.plasmid_sequence
+        forward_strand_nt_counts = np.array(
+            [
+                plasmid_seq.count(letter)
+                for letter in sim_data.dntp_code_to_id_ordered.keys()
+            ]
+        )
+        reverse_strand_nt_counts = np.array(
+            [
+                plasmid_seq.reverse_complement().count(letter)
+                for letter in sim_data.dntp_code_to_id_ordered.keys()
+            ]
+        )
+        polymerized_dntp_mws = np.array(
+            [
+                self._all_submass_arrays[met_id[:-3]].sum()
+                for met_id in sim_data.molecule_groups.polymerized_dntps
+            ]
+        )
+        mw = float(
+            np.dot(
+                forward_strand_nt_counts + reverse_strand_nt_counts,
+                polymerized_dntp_mws,
+            )
+        )
+        return {
+            sim_data.molecule_ids.full_plasmid[:-3]: self._build_submass_array(
+                mw, "DNA"
+            )
+        }
+
     def _build_modified_rna_masses(self, raw_data):
         """
         Builds dictionary of molecular weights of modified RNAs keyed with
@@ -632,9 +703,18 @@ class GetterFunctions(object):
         # Build mapping from complex ID to its subunit stoichiometry
         complex_id_to_stoich = {}
 
+        # Reactions that aren't assembling a fresh protein complex from
+        # subunits (e.g. DnaA-ATP -> DnaA-ADP intrinsic hydrolysis: both
+        # products and reactants are existing complexes plus metabolites).
+        # Their mass is established by other reactions; skip them here.
+        INTER_CONVERSION_REACTIONS = {"DNAA-INTRINSIC-HYDROLYSIS-RXN"}
+
         for rxn in itertools.chain(
             raw_data.complexation_reactions, raw_data.equilibrium_reactions
         ):
+            if rxn["id"] in INTER_CONVERSION_REACTIONS:
+                continue
+
             # Get the ID of the complex and the stoichiometry of subunits
             complex_ids = []
             subunit_stoich = {}
@@ -980,5 +1060,11 @@ class GetterFunctions(object):
         self._all_genomic_coordinates = {
             site["id"]: (site["left_end_pos"], site["right_end_pos"])
             for site in raw_data.dna_sites
+            if site["type"] not in IGNORED_DNA_SITE_TYPES
+        }
+
+        self._all_plasmid_coordinates = {
+            site["id"]: (site["left_end_pos"], site["right_end_pos"])
+            for site in raw_data.plasmid_dna_sites
             if site["type"] not in IGNORED_DNA_SITE_TYPES
         }

@@ -1,0 +1,75 @@
+# Per-promoter expression ratios for operons whose TUs are exempted from
+# the gene_tuple-keyed dedup in getter_functions.py.
+#
+# Each row apportions a single condition's total gene-level mRNA across
+# the multiple TUs that share a gene_tuple. ParCa uses these as
+# constraints when fitting per-TU basal transcription rates (Phase 2 of
+# the Path 3 implementation in
+# reports/regulation_data_pipeline_v2ecoli.html).
+#
+# Columns:
+#   gene_tuple_id: operon-style label (matches the common_name field in
+#                  transcription_units.tsv; for human readability)
+#   TU_id:         a TU id from transcription_units.tsv that the ratio
+#                  applies to
+#   condition:     v2ecoli condition name (e.g. "basal" for AB + glucose
+#                  minimal medium); should match an entry in
+#                  condition/condition_defs.tsv OR a TF-state condition
+#                  name like "PC00010__inactive" (LexA cleaved / SOS-like)
+#   ratio:         fraction of total gene-level mRNA produced by this TU
+#                  under this condition. Ratios across all TUs of a
+#                  gene_tuple in the same condition should sum to ~1.0
+#   source:        where the value came from (paper, dataset, "manual",
+#                  or "derived: …" — see below for derivation rules)
+#
+# ============================================================
+# How "derived" rows are computed
+# ============================================================
+# Some condition rows are not directly measured but derived from
+# combinations of measured basal ratios + ParCa's fitted per-condition
+# expression. Derivation rules used here:
+#
+#   For LexA-off conditions (e.g. PC00010__inactive — LexA cleaved /
+#   SOS-induced):
+#       1. Assume rpsUp1 (TU00352) and rpsUp2 (TU00434) are LexA-
+#          independent. Their absolute contribution stays at the basal
+#          value (rpsUp1 = 0.721 × T_basal, rpsUp2 = 0.279 × T_basal).
+#       2. The LexA-regulated TU (rpsUp3 = TU00435) absorbs the
+#          remaining expression at this condition. Its contribution is
+#          inferred from ParCa's fitted total at PC00010__inactive minus
+#          the rpsUp1/p2 contributions.
+#       3. Ratios are computed against the per-condition fitted total
+#          (not against T_basal), so the per-condition ratios sum to 1.
+#
+#   This derivation uses the principled biology that the LexA repression
+#   in fold_changes_nca.tsv applies specifically to rpsUp3, not to the
+#   housekeeping rpsUp1 or stationary-phase rpsUp2. Direct measurement
+#   of rpsUp3's intrinsic capacity (e.g. ΔlexA or mitomycin-C-induced
+#   ΔTSS data) would replace these derived values.
+#
+# Data sources:
+#   rpsU-dnaG-rpoD basal — Thomason et al. 2015 (J Bacteriol)
+#   dRNA-seq stepHeight values from M63 minimal glucose condition
+#   (M63_0.4). See §9 of regulation_data_pipeline_v2ecoli.html.
+#
+#   rpsU-dnaG-rpoD PC00010__inactive — DERIVED from the basal Thomason
+#   ratios + fold_changes_nca.tsv's (lexA, dnaG, -1.71) under the
+#   biology assumption above. NOT a direct measurement.
+#
+#   rpsU-dnaG-rpoD PC00010__active — IDENTICAL to basal. PC00010__active
+#   is the synthetic NCA endpoint with LexA forced 100% bound, which
+#   only affects rpsUp3 (TU00435). rpsUp1 and rpsUp2 are LexA-independent,
+#   so their share of the per-condition total is the same as basal
+#   (where LexA is ~0.95 bound, rpsUp3 ~silent). Without this row the
+#   helper is a no-op and NNLS dumps everything onto TU00352, forcing
+#   the NCA fit into an inconsistent three-constraint problem.
+"gene_tuple_id"	"TU_id"	"condition"	"ratio"	"source"
+"rpsU-dnaG-rpoD"	"TU00352"	"basal"	0.721	"Thomason 2015 M63_0.4 stepHeight"
+"rpsU-dnaG-rpoD"	"TU00434"	"basal"	0.279	"Thomason 2015 M63_0.4 stepHeight"
+"rpsU-dnaG-rpoD"	"TU00435"	"basal"	0.000	"Thomason 2015 M63_0.4 stepHeight (silent under non-SOS)"
+"rpsU-dnaG-rpoD"	"TU00352"	"PC00010__active"	0.721	"= basal: rpsUp1 LexA-independent, rpsUp3 fully repressed"
+"rpsU-dnaG-rpoD"	"TU00434"	"PC00010__active"	0.279	"= basal: rpsUp2 LexA-independent, rpsUp3 fully repressed"
+"rpsU-dnaG-rpoD"	"TU00435"	"PC00010__active"	0.000	"= basal: rpsUp3 fully repressed under PC00010 forced active"
+"rpsU-dnaG-rpoD"	"TU00352"	"PC00010__inactive"	0.244	"derived: rpsUp1 LexA-independent; basal capacity preserved"
+"rpsU-dnaG-rpoD"	"TU00434"	"PC00010__inactive"	0.094	"derived: rpsUp2 LexA-independent; basal capacity preserved"
+"rpsU-dnaG-rpoD"	"TU00435"	"PC00010__inactive"	0.662	"derived: rpsUp3 carries residual expression under LexA-off"

@@ -1,0 +1,214 @@
+schema_version: 4
+name: dnaa-03-box-binding
+created: '2026-05-26'
+phase: Design
+status: planned
+design_status: complete
+implementation_status: planned
+simulation_status: planned
+evaluation_status: not_run
+gate_status: pending
+expert_review_status: pending
+objective: Add DnaA binding to DnaA boxes across the chromosome — oriC, chromosomal boxes, and
+  the dnaA promoter. Both DnaA-ATP and DnaA-ADP can bind high-affinity boxes (Kd ~1 nM); only
+  DnaA-ATP binds low-affinity boxes (Kd ~100 nM).
+description: Third study in the DnaA arc. Builds the chromosome-scale DnaA-box occupancy state.
+  Visualizes occupancy at oriC, high-affinity sites, low-affinity sites, and total chromosome.
+  Sets up the substrate for Study 4 (mechanistic initiation gate based on oriC occupancy).
+purpose:
+  question: With DnaA box binding wired in, does v2ecoli show the expected two-step oriC occupancy
+    pattern — chromosomal boxes fill first, then oriC fills once chromosome sites are saturated?
+    Does free DnaA increase after titration completes, just before initiation?
+  mechanism: 307 consensus DnaA boxes (TTWTNCACA) chromosome-wide, all high-affinity (Kd ~1 nM).
+    oriC has 3 high-affinity + 8 low-affinity boxes (Kd ~100 nM low-affinity). dnaA promoter has
+    2 high-affinity + 2 low-affinity boxes. DnaA binding does NOT alter the DnaA-ATP hydrolysis
+    rate from Study 2.
+  expected_outcome: 'Six expected behaviours per the plan PDF: (a) unoccupied chromosome sites
+    decrease over time; (b) unoccupied oriC stays high until chromosome saturates; (c) once
+    unoccupied chromosome sites are ~10 (within order-of-magnitude of unoccupied oriC), oriC
+    binding begins from high-affinity sites; (d) free DnaA increases after titration; (e) oriC
+    occupancy first low, then high — a 2-step process; (f) high-DnaA perturbation shows reduced
+    dnaA promoter activity (autorepression check).'
+seeded_from:
+  study: dnaa-02-atp-hydrolysis
+  proposal_id: chromosome-replication-plan-study-3
+pipeline_gate:
+  prerequisites:
+  - study: dnaa-02-atp-hydrolysis
+    condition: tests-passed
+  enables:
+  - study: dnaa-04-mechanistic-initiation
+    condition: tests-passed
+  proceed_condition: oriC + chromosome + dnaA-promoter occupancy state populated; 2-step oriC
+    fill emerges; titration → oriC binding observable.
+baseline:
+- name: baseline-slow-growth
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+variants:
+- name: high-dnaA-perturbation
+  base_composite: baseline-slow-growth
+  parameter_overrides:
+    dnaA_initial_count_multiplier: 5.0
+  notes: Start with 5x DnaA. Predict — dnaA-promoter occupancy spikes → transcription drops
+    → autorepression behaviour from Study 1's placeholder is now driven by Study 3's mechanistic
+    occupancy.
+interventions: []
+simulation_set:
+- name: titration-and-orient-fill
+  status: planned
+  base_model: v2ecoli.composites.baseline.baseline
+  duration_min: 15
+  seeds:
+  - 0
+  - 1
+  - 2
+  condition: Acetate; track per-snapshot occupancy of all box classes.
+  readouts:
+  - n_unoccupied_chromosome_boxes
+  - n_unoccupied_oriC_boxes
+  - n_unoccupied_dnaAp_boxes
+  - free_dnaA_count
+  - dnaA_ATP_bound_to_oriC
+  - dnaA_ADP_bound_to_oriC
+  - oriC_high_affinity_occupancy
+  - oriC_low_affinity_occupancy
+  - dnaAp_occupancy
+  applies_tests:
+  - chromosome_fills_before_oriC
+  - oriC_two_step_fill
+  - free_dnaA_rises_pre_initiation
+- name: high-dnaA-autorepression-check
+  status: planned
+  base_model: v2ecoli.composites.baseline.baseline
+  duration_min: 15
+  seeds:
+  - 0
+  condition: 5x DnaA initial pool; expect dnaAp occupancy + reduced transcription rate.
+  readouts:
+  - dnaAp_occupancy
+  - dnaA_transcription_events
+  applies_tests:
+  - high_dnaA_suppresses_promoter
+readouts:
+- name: n_unoccupied_chromosome_boxes
+  store_path: derived from unique.dnaA_box.bound
+- name: n_unoccupied_oriC_boxes
+  store_path: derived
+- name: n_unoccupied_dnaAp_boxes
+  store_path: derived
+- name: free_dnaA_count
+  store_path: derived (total DnaA - sum of bound)
+- name: dnaA_ATP_bound_to_oriC
+  store_path: derived
+- name: dnaA_ADP_bound_to_oriC
+  store_path: derived
+- name: oriC_high_affinity_occupancy
+  store_path: derived (3 high-affinity oriC boxes)
+- name: oriC_low_affinity_occupancy
+  store_path: derived (8 low-affinity oriC boxes)
+- name: dnaAp_occupancy
+  store_path: derived
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_processes:
+  - dnaa-box-binding
+  new_state_variables:
+  - unique.dnaA_box (genome-wide, 307 chromosomal + 11 oriC + 4 dnaAp)
+  new_parameters:
+  - Kd_high_affinity (1 nM)
+  - Kd_low_affinity (100 nM)
+  modified_processes: []
+implementation_requirements:
+- id: REQ-1
+  title: Scan genome for 307 consensus DnaA boxes (TTWTNCACA)
+  kind: parca
+  effort: M
+  status: open
+- id: REQ-2
+  title: Add oriC box catalog (3 high + 8 low affinity)
+  kind: parca
+  effort: S
+  status: open
+- id: REQ-3
+  title: Add dnaA-promoter box catalog (2 high + 2 low)
+  kind: parca
+  effort: S
+  status: open
+- id: REQ-4
+  title: Implement DnaA-ATP + DnaA-ADP binding/unbinding with per-site affinities
+  kind: model
+  effort: M
+  status: open
+- id: REQ-5
+  title: Full-chromosome visualization with bound / unbound boxes coloured by DnaA-ATP vs DnaA-ADP
+  kind: visualization
+  effort: M
+  status: open
+key_assumptions:
+- All 307 consensus DnaA boxes are high-affinity Kd~1 nM. Refines if dnaA-stoichiometry mass-spec
+  data (Chenli Liu's Nature Microbiology paper, cited in plan) supports more granular per-site
+  Kd.
+- DnaA binding does NOT modulate intrinsic hydrolysis from Study 2. RIDA modulation arrives in
+  Study 5.
+- Low-affinity boxes ONLY bind DnaA-ATP. The plan PDF is explicit on this.
+- Initial expectation that oriC binding starts when unoccupied chromosome sites drop to ~10 (within
+  order of magnitude of the 11 oriC boxes).
+behavior_tests:
+- name: chromosome_fills_before_oriC
+  classification: primary
+  description: At any pre-initiation snapshot, n_unoccupied_chromosome_boxes < n_unoccupied_oriC_boxes
+    only after chromosome saturation begins. Earlier in the gen, chromosome fills first.
+  measure:
+    kind: derived_scalar
+    field: chromosome_fills_first_indicator
+  pass_if:
+    op: eq
+    value: true
+  requires_simulation: titration-and-orient-fill
+- name: oriC_two_step_fill
+  classification: primary
+  description: oriC occupancy trajectory shows two regimes — low while chromosome fills, then
+    high once unoccupied chromosome sites cross ~10.
+  measure:
+    kind: derived_scalar
+    field: oriC_occupancy_step_signature
+  pass_if:
+    op: eq
+    value: true
+  requires_simulation: titration-and-orient-fill
+- name: free_dnaA_rises_pre_initiation
+  classification: secondary
+  description: Free DnaA count increases monotonically in the ~5 min before initiation (post-titration
+    over-supply).
+  measure:
+    kind: derived_scalar
+    field: free_dnaA_pre_initiation_slope
+  pass_if:
+    op: '>='
+    value: 0
+  requires_simulation: titration-and-orient-fill
+- name: high_dnaA_suppresses_promoter
+  classification: primary
+  description: At 5x DnaA initial pool, dnaA transcription events drop by at least 30% relative
+    to baseline.
+  measure:
+    kind: derived_scalar
+    field: dnaA_transcription_drop_pct
+  pass_if:
+    op: '>='
+    value: 0.3
+  requires_simulation: high-dnaA-autorepression-check
+cites:
+- initiator-titration-nat-comm-s41467-022-33886-6
+- initiator-titration-prxlife-1-013011
+- initiator-titration-sciencedirect-0923250891900256
+findings: []
+followup_proposals: []
+runs: []
+tests:
+  data_source: all_runs
+visualizations: []
+embed_visualizations: []

@@ -1,0 +1,211 @@
+schema_version: 4
+name: dnaa-05-rida-ddah-dars
+created: '2026-05-26'
+phase: Design
+status: planned
+design_status: complete
+implementation_status: planned
+simulation_status: planned
+evaluation_status: not_run
+gate_status: pending
+expert_review_status: pending
+objective: Add extrinsic DnaA-ATP/ADP conversion machinery — RIDA (replisome-dependent inactivation),
+  DDAH (datA-locus-dependent hydrolysis), DARS1, DARS2 (DnaA-Reactivating Sequences). Adds dynamic
+  feedback the intrinsic-only model from Study 2 lacks.
+description: Adds the full DnaA-ATP/ADP conversion cycle that controls initiation synchrony. RIDA
+  activity scales with replication-fork count (more forks → more inactivation). DDAH activity
+  scales with datA copy number. DARS1 + DARS2 activities each scale with their respective loci
+  copy numbers. Replaces any Study-2 heuristic ratio clamp with a mechanism.
+purpose:
+  question: Do the extrinsic conversion mechanisms (RIDA, DDAH, DARS1, DARS2) produce stronger
+    initiation synchrony than the intrinsic-only Study 2 model, and do they reveal DnaA-ATP
+    concentration oscillations across the cell cycle?
+  mechanism: RIDA inactivates DnaA-ATP → DnaA-ADP, rate proportional to active-replisome count.
+    DDAH likewise, rate proportional to datA locus copy number. DARS1 + DARS2 reactivate (DnaA-ADP
+    → DnaA-ATP) at rates proportional to their locus copy numbers.
+  expected_outcome: Potentially increased synchrony of initiation timing. Observable DnaA-ATP
+    concentration oscillations (post-initiation drop via RIDA, mid-cycle rise via DARS). DnaA-ATP
+    vs replisome-count anti-correlation.
+seeded_from:
+  study: dnaa-04-mechanistic-initiation
+  proposal_id: chromosome-replication-plan-study-5
+pipeline_gate:
+  prerequisites:
+  - study: dnaa-04-mechanistic-initiation
+    condition: tests-passed
+  enables:
+  - study: dnaa-06-seqa-sequestration
+    condition: tests-passed
+  proceed_condition: RIDA / DDAH / DARS wired; DnaA-ATP oscillations across cell cycle observable;
+    initiation synchrony either equal-or-improved over Study 4.
+baseline:
+- name: baseline-slow-growth
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+variants:
+- name: rida-knockout
+  base_composite: baseline-slow-growth
+  parameter_overrides:
+    rida_rate_multiplier: 0.0
+- name: dars1-knockout
+  base_composite: baseline-slow-growth
+  parameter_overrides:
+    dars1_rate_multiplier: 0.0
+- name: dars2-knockout
+  base_composite: baseline-slow-growth
+  parameter_overrides:
+    dars2_rate_multiplier: 0.0
+interventions: []
+simulation_set:
+- name: full-conversion-cycle
+  status: planned
+  base_model: v2ecoli.composites.baseline.baseline
+  duration_min: 90
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  condition: 5-gen lineage with all four mechanisms active.
+  readouts:
+  - dnaA_ATP_concentration
+  - dnaA_ADP_concentration
+  - n_active_replisomes
+  - initiation_synchrony_index
+  applies_tests:
+  - dnaA_ATP_oscillates_across_cycle
+  - dnaA_ATP_anticorrelates_with_replisomes
+  - synchrony_improves_or_matches
+- name: knockout-sweep
+  status: planned
+  base_model: v2ecoli.composites.baseline.baseline
+  duration_min: 60
+  seeds:
+  - 0
+  - 1
+  condition: RIDA / DARS1 / DARS2 knockouts individually + combined.
+  readouts:
+  - cycle_time_per_gen
+  - initiation_mass_cv
+  - dnaA_ATP_concentration
+  applies_tests:
+  - rida_knockout_overshoots_dnaA_ATP
+  - dars2_knockout_undershoots_dnaA_ATP
+readouts:
+- name: dnaA_ATP_concentration
+  store_path: derived
+- name: dnaA_ADP_concentration
+  store_path: derived
+- name: n_active_replisomes
+  store_path: unique.active_replisome
+- name: initiation_synchrony_index
+  store_path: derived (spread of inter-initiation intervals)
+- name: cycle_time_per_gen
+  store_path: derived
+- name: initiation_mass_cv
+  store_path: derived
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  new_processes:
+  - rida-replisome-coupled-hydrolysis
+  - ddah-datA-locus-hydrolysis
+  - dars1-reactivation
+  - dars2-reactivation
+  new_state_variables:
+  - replisome_position (already exists; reuse)
+  - datA_locus_copy_number (already exists; reuse via gene_dosage)
+  - DARS1_locus_copy_number
+  - DARS2_locus_copy_number
+  modified_processes:
+  - chromosome-replication (emit replisome-position events that RIDA consumes)
+implementation_requirements:
+- id: REQ-1
+  title: RIDA process (replisome-coupled DnaA-ATP → DnaA-ADP)
+  kind: model
+  effort: M
+  status: open
+- id: REQ-2
+  title: DDAH process (datA-locus-coupled hydrolysis)
+  kind: model
+  effort: M
+  status: open
+- id: REQ-3
+  title: DARS1 + DARS2 reactivation processes
+  kind: model
+  effort: M
+  status: open
+- id: REQ-4
+  title: Synchrony-index metric
+  kind: tooling
+  effort: S
+  status: open
+key_assumptions:
+- RIDA activity strictly proportional to active-replisome count. Hda + β-clamp coupling is implicit
+  in the rate constant.
+- DDAH at the datA locus; rate proportional to datA copy number (gene-dosage effect).
+- DARS1 + DARS2 each at known chromosomal loci; rates proportional to their respective copy numbers.
+- These extrinsic mechanisms operate ON TOP OF Study 2's intrinsic hydrolysis — they don't replace
+  it.
+behavior_tests:
+- name: dnaA_ATP_oscillates_across_cycle
+  classification: primary
+  description: DnaA-ATP concentration shows a measurable oscillation across each cell cycle (drop
+    post-initiation via RIDA, recovery via DARS). Amplitude / mean ≥ 0.15.
+  measure:
+    kind: derived_scalar
+    field: dnaA_ATP_oscillation_amplitude_fraction
+  pass_if:
+    op: '>='
+    value: 0.15
+  requires_simulation: full-conversion-cycle
+- name: dnaA_ATP_anticorrelates_with_replisomes
+  classification: primary
+  description: Spearman rank correlation between DnaA-ATP concentration and active-replisome count
+    is negative across cell cycle.
+  measure:
+    kind: derived_scalar
+    field: spearman_dnaA_ATP_vs_replisomes
+  pass_if:
+    op: <=
+    value: -0.5
+  requires_simulation: full-conversion-cycle
+- name: synchrony_improves_or_matches
+  classification: secondary
+  description: Initiation-mass CV not worse than Study 4 baseline.
+  measure:
+    kind: derived_scalar
+    field: initiation_mass_cv
+  pass_if:
+    op: <=
+    value: 0.10
+  requires_simulation: full-conversion-cycle
+- name: rida_knockout_overshoots_dnaA_ATP
+  classification: secondary
+  description: RIDA-KO shows DnaA-ATP / total ratio above the Boesen 0.2-0.5 range (over-reactivation
+    relative to baseline).
+  measure:
+    kind: derived_scalar
+    field: dnaA_ATP_over_total_in_rida_knockout
+  pass_if:
+    op: '>='
+    value: 0.5
+  requires_simulation: knockout-sweep
+- name: dars2_knockout_undershoots_dnaA_ATP
+  classification: secondary
+  description: DARS2-KO shows DnaA-ATP / total ratio below the Boesen range (under-reactivation).
+  measure:
+    kind: derived_scalar
+    field: dnaA_ATP_over_total_in_dars2_knockout
+  pass_if:
+    op: <=
+    value: 0.2
+  requires_simulation: knockout-sweep
+findings: []
+followup_proposals: []
+runs: []
+tests:
+  data_source: all_runs
+visualizations: []
+embed_visualizations: []

@@ -1,0 +1,10 @@
+{
+    "experiment_id": "vecoli_succinate_compare",
+    "max_duration": 9000.0,
+    "condition": "succinate",
+    "fixed_media": "minimal_succinate",
+    "emitter": "parquet",
+    "emitter_arg": {"out_dir": "out/vecoli_succinate_compare_parquet"},
+    "sim_data_path": "/Users/rashmidissasekara/Documents/code/vEcoli/out/kb_default/simData.cPickle",
+    "has_plasmid": false
+}

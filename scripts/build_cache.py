@@ -39,8 +39,15 @@ DEFAULT_CACHE_DIR = "out/cache"
 
 
 def build_cache(fixture: str, cache_dir: str,
-                media_condition: str | None = None,
-                fixed_media: str | None = None) -> None:
+                condition: str | None = None,
+                fixed_media: str | None = None,
+                critical_mass_scale: float = 1.0,
+                c_period_minutes: float | None = None,
+                d_period_minutes: float | None = None,
+                dnaa_txn_scale: float = 1.0,
+                dnaa_constitutive: bool = False,
+                dnaa_stable: bool = False,
+                dnaa_translation_efficiency: float | None = None) -> None:
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(repo_root)
 
@@ -54,18 +61,39 @@ def build_cache(fixture: str, cache_dir: str,
     sim_data = hydrate_sim_data_from_state(state)
     print(f"    hydrated in {time.time()-t1:.1f}s")
 
-    if media_condition is not None:
+    if condition is not None:
         avail = dict(getattr(sim_data, "condition_to_doubling_time", {}) or {})
-        if media_condition not in avail:
-            raise SystemExit(f"unknown media_condition {media_condition!r}; "
+        if condition not in avail:
+            raise SystemExit(f"unknown condition {condition!r}; "
                              f"known: {sorted(avail)}")
-        print(f"    nutrient condition {media_condition!r} "
-              f"(doubling {avail[media_condition]}), media {fixed_media!r}")
+        print(f"    nutrient condition {condition!r} "
+              f"(doubling {avail[condition]}), media {fixed_media!r}")
+    if critical_mass_scale != 1.0:
+        print(f"    scaling critical initiation mass M* by {critical_mass_scale:g}")
+    if c_period_minutes is not None:
+        print(f"    overriding C period: → {c_period_minutes:g} min")
+    if d_period_minutes is not None:
+        print(f"    overriding D period: → {d_period_minutes:g} min")
+    if dnaa_txn_scale != 1.0:
+        print(f"    scaling dnaA basal_prob by {dnaa_txn_scale:g}")
+    if dnaa_constitutive:
+        print(f"    zeroing dnaA delta_prob_matrix rows (constitutive)")
+    if dnaa_stable:
+        print(f"    zeroing DnaA monomer degradation rate (fully stable)")
+    if dnaa_translation_efficiency is not None:
+        print(f"    overriding DnaA translation efficiency → {dnaa_translation_efficiency:g}")
 
     t2 = time.time()
     print(f"[{time.strftime('%H:%M:%S')}] Building bundle at {cache_dir} ...")
     save_sim_input(sim_data, cache_dir,
-                   condition=media_condition, fixed_media=fixed_media)
+                   condition=condition, fixed_media=fixed_media,
+                   critical_mass_scale=critical_mass_scale,
+                   c_period_minutes=c_period_minutes,
+                   d_period_minutes=d_period_minutes,
+                   dnaa_txn_scale=dnaa_txn_scale,
+                   dnaa_constitutive=dnaa_constitutive,
+                   dnaa_stable=dnaa_stable,
+                   dnaa_translation_efficiency=dnaa_translation_efficiency)
 
     version = write_cache_version(cache_dir, repo_root=repo_root)
     print(f"    bundle built in {time.time()-t2:.1f}s")
@@ -85,14 +113,54 @@ def main() -> None:
                         help=f"ParCa fixture pickle (default: {DEFAULT_FIXTURE})")
     parser.add_argument("--cache", default=DEFAULT_CACHE_DIR, dest="cache_dir",
                         help=f"output bundle dir (default: {DEFAULT_CACHE_DIR})")
-    parser.add_argument("--media-condition", default=None,
+    parser.add_argument("--condition", "--media-condition", dest="condition",
+                        default=None,
                         help="ParCa nutrient condition for the initial state / "
-                             "doubling time (e.g. acetate; default basal)")
+                             "doubling time (e.g. acetate; default basal). "
+                             "Validated against sim_data.condition_to_doubling_time.")
     parser.add_argument("--fixed-media", default=None,
                         help="media id pinned for the run (e.g. minimal_acetate)")
+    parser.add_argument("--critical-mass-scale", type=float, default=1.0,
+                        help="Multiplier applied to the critical initiation "
+                             "mass M* in the chromosome_replication config. "
+                             "Use values >1 to delay the per-oriC mass "
+                             "criterion (helps prevent mid-cycle re-init "
+                             "when C/D are overridden). Default 1.0 = no-op.")
+    parser.add_argument("--c-period-minutes", type=float, default=None,
+                        help="Direct C-period override (minutes). Solves "
+                             "for basal_elongation_rate = replichore_length "
+                             "/ (C × 60). Default: leave at ParCa value.")
+    parser.add_argument("--d-period-minutes", type=float, default=None,
+                        help="Direct D-period override (minutes). Replaces "
+                             "the D_period entry in chromosome_replication "
+                             "config. Default: leave at ParCa value.")
+    parser.add_argument("--dnaa-txn-scale", type=float, default=1.0,
+                        help="Multiplier on basal_prob for dnaA-containing "
+                             "TUs. e.g. 15 ≈ PDF's 1.5/min/gene rate from "
+                             "our observed ~0.1/min baseline. Default 1.0.")
+    parser.add_argument("--dnaa-constitutive", action="store_true",
+                        help="Zero out dnaA's row in delta_prob_matrix so "
+                             "its transcription is invariant to TF state "
+                             "(PDF 'constitutive expression' semantics).")
+    parser.add_argument("--dnaa-stable", action="store_true",
+                        help="Zero DnaA monomer degradation rate (PDF row "
+                             "8: 'DnaA degradation rate = 0, fully stable').")
+    parser.add_argument("--dnaa-translation-efficiency", type=float,
+                        default=None,
+                        help="Direct post-ParCa override of DnaA's "
+                             "translation efficiency (PDF row 7: 1.0 "
+                             "protein/mRNA, Hansen & Atlung 2018). "
+                             "Default: leave at ParCa / overrides.py value.")
     args = parser.parse_args()
     build_cache(args.fixture, args.cache_dir,
-                media_condition=args.media_condition, fixed_media=args.fixed_media)
+                condition=args.condition, fixed_media=args.fixed_media,
+                critical_mass_scale=args.critical_mass_scale,
+                c_period_minutes=args.c_period_minutes,
+                d_period_minutes=args.d_period_minutes,
+                dnaa_txn_scale=args.dnaa_txn_scale,
+                dnaa_constitutive=args.dnaa_constitutive,
+                dnaa_stable=args.dnaa_stable,
+                dnaa_translation_efficiency=args.dnaa_translation_efficiency)
 
 
 if __name__ == "__main__":

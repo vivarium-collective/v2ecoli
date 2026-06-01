@@ -1,0 +1,151 @@
+schema_version: 4
+name: dnaa-context-condition-landscape
+created: '2026-05-26'
+phase: Design
+status: complete
+design_status: complete
+implementation_status: not_applicable
+simulation_status: not_applicable
+evaluation_status: not_applicable
+gate_status: not_applicable
+expert_review_status: pending
+objective: |
+  Background context — answer "why glycerol, why acetate?" in one place. This is a documentation
+  study, not a research unit; no new mechanism, no parameter changes. It surfaces the existing
+  v2ecoli media-condition landscape, the multi-fork-replication constraint that drove the
+  Stage 1 PDF's choice of ABT minimal glycerol, and the reasoning behind using acetate as the
+  v2ecoli ↔ vEcoli equivalence reference. Everything downstream (Studies 0-8) rests on this
+  framing.
+description: |
+  Sits ahead of Study 0 in the investigation. A reader landing on the chromosome-cycle-calibration
+  investigation should read THIS first — five minutes here will save twenty minutes of "wait,
+  why are they running two different conditions?" later.
+
+  Three things to take away:
+
+  1. **v2ecoli ships with 5 canonical conditions, none of which are ABT glycerol.** The set —
+     `with_aa` (τ=25 min), `basal` (τ=44 min), `succinate` (τ=82 min), `no_oxygen` (τ=100 min),
+     `acetate` (τ=136 min). All share C=40 min (replication time) + D=20 min (eclipse), giving
+     C+D=60 min globally. Any condition with τ < C+D = 60 min has overlapping replication cycles
+     (multi-fork) — that's `with_aa` (and arguably `basal` near the boundary).
+
+  2. **The Stage 1 PDF chose ABT minimal glycerol (MIX0-845, τ=150 min) deliberately.** From the
+     PDF: "Growth condition is ABT minimal glycerol for wildtype MG1655. This is to guarantee
+     non-overlapping cell cycle, which avoids synchronization issue." Multi-fork replication
+     creates initiation events that overlap in time and chromosome dosage that's a function of
+     where in the cycle each fork sits — both bury the signal the DnaA / replication-initiation
+     arc is trying to study. Stage 1 also prescribes C=70 + D=30 (C+D=100 min), pushing the
+     multi-fork threshold up too.
+
+  3. **Acetate (τ=136) is the closest analog to glycerol in v2ecoli's existing set.** Both have
+     1 oriC + 0 active forks at t=0 (non-multi-fork). Both are slow enough that C+D fits within
+     τ. Critically — acetate has an established vEcoli implementation on the same kb_default
+     simData, so we can run a side-by-side v2ecoli ↔ vEcoli match to verify the v2ecoli refactor
+     is faithful. Glycerol doesn't have that reference (it's a NEW condition we added). Acetate
+     is therefore the v2ecoli refactor's validation point; glycerol is the Stage 1 deliverable.
+
+  The embedded HTML below carries the full per-condition observable table (τ observed,
+  initial dry mass, mass-fold-change, oriC counts, fork counts, multi-fork yes/no) plus an
+  animation of the 5 baseline simulations side-by-side. Use it to compare the conditions visually.
+purpose:
+  question: |
+    What media conditions exist in v2ecoli, why does ABT minimal glycerol matter for the
+    DnaA arc, and what role does acetate play in our validation pipeline?
+  mechanism: |
+    Documentation-only. No code change, no simulation runs new to this study — the comparison
+    table embedded below comes from 5 baseline simulations already in the worktree's `out/`
+    directory and the cross-condition animation already rendered in `docs/`.
+  expected_outcome: |
+    A reader who lands on the investigation, opens this study first, and reads the description
+    + glances at the embedded table can answer the three "what / why glycerol / why acetate"
+    questions without needing the upstream chat history.
+seeded_from:
+  study: (background — explains the design rationale Study 0 builds on)
+  proposal_id: chromosome-replication-plan-context
+pipeline_gate:
+  prerequisites: []
+  enables:
+  - study: dnaa-00-stage1-baseline
+    condition: ran
+  proceed_condition: Documentation surfaced. Nothing to evaluate beyond "is the framing clear?"
+  notes: |
+    This study does NOT gate anything in the strict sense — it's reference material. The
+    `enables` link to Study 0 is structural (so the DAG renders with this study in front) but
+    Study 0 doesn't actually wait on this study's tests to pass.
+baseline:
+- name: nominal-baseline-only
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+  notes: 'Schema-required nominal baseline entry. This context study runs no simulations of its
+    own — all the per-condition observables in the embedded comparison HTML come from earlier
+    baseline runs in this worktree''s out/ directory.'
+variants: []
+interventions: []
+simulation_set: []
+readouts: []
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  notes: No model change. Context study.
+implementation_requirements: []
+key_assumptions:
+- Stage 1 PDF's stated reason for choosing ABT minimal glycerol ("to guarantee non-overlapping
+  cell cycle, which avoids synchronization issue") is the dispositive rationale, not the τ value
+  itself. Any future condition swap (e.g. another slow medium) must preserve the non-overlapping
+  invariant.
+- Acetate's role as the v2ecoli ↔ vEcoli reference rests on it being the slowest of the established
+  v2ecoli conditions AND having an established vEcoli implementation we can compare against. If
+  vEcoli adds glycerol natively at some point, that reference role can move.
+- C and D are global scalars in v2ecoli (same across all conditions). The Stage 1 PDF's C=70 /
+  D=30 prescription applies uniformly when the glycerol cache is built — it does NOT mean the
+  other conditions get the same C/D values in production.
+behavior_tests: []
+findings:
+- id: F-C1
+  kind: methodological
+  status: confirms
+  statement: |
+    **[Framing established]** Three takeaways now in one place — (1) v2ecoli's 5 canonical
+    conditions max out at acetate τ=136; none are ABT glycerol. (2) The Stage 1 PDF chose ABT
+    glycerol τ=150 specifically to avoid multi-fork replication and the synchronization artefacts
+    that come with it. (3) Acetate is the v2ecoli ↔ vEcoli equivalence reference because it's
+    the closest non-multi-fork existing condition AND has an established vEcoli implementation
+    for side-by-side comparison; glycerol is the Stage 1 deliverable.
+  evidence:
+    artifact: docs/canonical_acetate_vs_stage1.html
+    note: Documentary finding — no underlying simulation. The artifact is hand-authored from
+      earlier baseline simulations in this worktree's out/ directory.
+  provenance:
+    run_ids: []
+conclusion_logic:
+  if_primary_tests_pass: |
+    Context surfaced. Reader can answer "why glycerol, why acetate" in under five minutes from
+    the investigation card.
+  if_primary_tests_fail: |
+    Not applicable — this study has no primary tests. If the framing isn't clear to a fresh
+    reader, expand the description or add a second embed.
+  biological_validation: |
+    The multi-fork constraint (Td < C+D → overlapping replication cycles) is a textbook E. coli
+    fact, not v2ecoli-specific. The choice of ABT glycerol for DnaA studies is consistent with
+    the broader literature (Cooper-Helmstetter, Wold 1994, Boesen 2024) that uses slow
+    non-overlapping conditions for replication-timing work.
+  block_downstream: |
+    Nothing blocked. This study is reference material; the strict prerequisites for Study 0
+    are independent of whether this study is read.
+followup_proposals: []
+runs: []
+tests:
+  data_source: all_runs
+visualizations: []
+embed_visualizations:
+- name: canonical-acetate-vs-stage1
+  url: /docs/canonical_acetate_vs_stage1.html
+  description: |
+    Comprehensive cross-condition comparison HTML hand-authored on this branch. The relevant
+    sections for the conditions-landscape story are (a) the *Per-condition parameter comparison*
+    table (τ, observed τ, initial dry mass, mass fold-change, oriC counts, fork counts, multi-fork
+    yes/no across with_aa / basal / succinate / no_oxygen / acetate with Stage 1 glycerol as the
+    rightmost column), and (b) the theta-replication animation showing chromosome dynamics across
+    the 5 canonical conditions. The doc also contains later-stage content (Stage 1 override
+    simulation, Study 1 read-out panels) that's relevant downstream but not the focus here.

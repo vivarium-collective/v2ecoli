@@ -74,8 +74,21 @@ class MarkDPeriod(V2Step):
 class Division(V2Step):
     """Detect division and produce daughter cells via _add/_remove.
 
-    When the division condition is met (dry mass >= threshold with 2+
-    chromosomes), this step:
+    Trigger modes (selected by ``use_d_period_trigger`` config):
+
+    - ``True`` (default, matches vEcoli): divide when ``MarkDPeriod`` has
+      set ``divide=True`` (chromosome terminated + D-period elapsed) AND
+      chromosomes >= 2.
+    - ``False``: divide when ``dry_mass >= threshold`` AND
+      chromosomes >= 2 (legacy mass-threshold behavior).
+
+    Background: vEcoli's default uses ``division_variable=["divide"]``
+    which makes its ``Division`` step listen to the boolean set by
+    ``MarkDPeriod``. v2ecoli previously gated on mass + chromosomes only,
+    which caused fast-growth conditions like ``with_aa`` to take ~2× the
+    expected cycle time. See division.py audit 2026-05-23.
+
+    Once the trigger fires, this step:
     1. Divides the mother cell's state (bulk binomial, unique by domain)
     2. Builds complete daughter cell states with fresh process instances
     3. Returns structural update to remove mother and add daughters
@@ -96,7 +109,12 @@ class Division(V2Step):
         self._seed = self.parameters.get('seed', 0)
         self._cache_dir = self.parameters.get('cache_dir', 'out/cache')
 
-        # Division mass multiplier
+        # Trigger mode — default to vEcoli's D-period semantics
+        self.use_d_period_trigger = self.parameters.get(
+            'use_d_period_trigger', True)
+
+        # Division mass multiplier (only consulted under the legacy
+        # mass-threshold trigger, but always computed for backward compat)
         seed = self._seed
         self.division_mass_multiplier = 1
         if self.parameters.get('division_threshold') == 'mass_distribution':
@@ -114,6 +132,8 @@ class Division(V2Step):
             "global_time": Float(_default=0.0),
             "division_threshold": Overwrite(),
             "media_id": InPlaceDict(),
+            # boolean set by MarkDPeriod when the D-period has elapsed
+            "divide": Overwrite(),
         }
 
     def outputs(self):
@@ -158,8 +178,22 @@ class Division(V2Step):
             if '_entryState' in full_chrom.dtype.names:
                 n_chromosomes = full_chrom['_entryState'].sum()
 
-        if dry_mass < threshold or n_chromosomes < 2:
+        # Chromosome count is required in BOTH trigger modes
+        if n_chromosomes < 2:
             return {}
+
+        # Trigger selection
+        if self.use_d_period_trigger:
+            # vEcoli-style: MarkDPeriod sets divide=True when chromosome
+            # has terminated AND D-period has elapsed
+            if not states.get('divide', False):
+                return {}
+            trigger_str = "D-period elapsed"
+        else:
+            # Legacy mass-threshold path
+            if dry_mass < threshold:
+                return {}
+            trigger_str = f"dry_mass {dry_mass:.1f} fg >= threshold {threshold:.1f} fg"
 
         if self.division_detected:
             return {}
@@ -168,7 +202,8 @@ class Division(V2Step):
         self.division_detected = True
         division_time = states.get("global_time", 0)
         print(f'DIVISION at t={division_time:.0f}s '
-              f'(dry_mass={dry_mass:.1f} fg, '
+              f'(trigger: {trigger_str}, '
+              f'dry_mass={dry_mass:.1f} fg, '
               f'threshold={threshold:.1f} fg, '
               f'chromosomes={n_chromosomes})')
 
@@ -192,12 +227,32 @@ class Division(V2Step):
             # baseline() loads wiring from the cache; we then overlay the
             # daughter's divided biological state on top.
             from v2ecoli.composites.baseline import baseline, seed_mass_listener
+            from v2ecoli.composites._helpers import (
+                _PARQUET_EMITTER_OVERRIDE, set_parquet_emitter_override)
             d1_seed = (self._seed + 1) % (2**31)
             d2_seed = (self._seed + 2) % (2**31)
 
-            def _build_daughter_doc(d_data, seed):
-                doc = baseline(
-                    core=self.core, seed=seed, cache_dir=self._cache_dir)
+            def _build_daughter_doc(d_data, seed, daughter_id):
+                # Mirror vEcoli's per-cell partitioning: each daughter's
+                # emitter writes under its own agent_id, with generation
+                # derived from len(agent_id). Without this the daughter
+                # ParquetEmitter inherits the parent's metadata and clobbers
+                # the parent's history partition (see project memory
+                # parquet-division-partition-bug).
+                saved_override = _PARQUET_EMITTER_OVERRIDE
+                if saved_override is not None and saved_override.get("metadata"):
+                    daughter_meta = {
+                        **saved_override["metadata"],
+                        "agent_id": daughter_id,
+                        "generation": len(daughter_id),
+                    }
+                    set_parquet_emitter_override(
+                        {**saved_override, "metadata": daughter_meta})
+                try:
+                    doc = baseline(
+                        core=self.core, seed=seed, cache_dir=self._cache_dir)
+                finally:
+                    set_parquet_emitter_override(saved_override)
                 agent = doc['state']['agents']['0']
                 for key in ('bulk', 'unique', 'environment', 'boundary'):
                     if key in d_data:
@@ -206,14 +261,27 @@ class Division(V2Step):
                 seed_mass_listener(agent, self.core)
                 return doc
 
-            d1_doc = _build_daughter_doc(d1_data, d1_seed)
-            d2_doc = _build_daughter_doc(d2_data, d2_seed)
+            d1_doc = _build_daughter_doc(d1_data, d1_seed, d1_id)
+            d2_doc = _build_daughter_doc(d2_data, d2_seed, d2_id)
 
             d1_cell = d1_doc['state']['agents']['0']
             d2_cell = d2_doc['state']['agents']['0']
 
             print(f'  DAUGHTERS: {d1_id} (bulk={d1_data["bulk"]["count"].sum()}) '
                   f'+ {d2_id} (bulk={d2_data["bulk"]["count"].sum()})')
+
+            # Mirror vEcoli's pre-divide ``self.emitter.finalize()`` hook
+            # (ecoli/processes/engine_process.py: divide branch). The parent
+            # ParquetEmitter has rows buffered since its last batch flush;
+            # without an explicit close() they vanish when this _remove
+            # update tears the agent subtree down. Lookup is by self.agent_id
+            # via the per-agent registry populated at emitter construction.
+            from v2ecoli.composites._helpers import (
+                get_parquet_emitter, unregister_parquet_emitter)
+            parent_emitter = get_parquet_emitter(self.agent_id)
+            if parent_emitter is not None:
+                parent_emitter.close(success=True)
+                unregister_parquet_emitter(self.agent_id)
 
             return {
                 'agents': {

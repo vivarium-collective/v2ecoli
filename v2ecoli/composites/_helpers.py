@@ -32,6 +32,8 @@ import numpy as np
 from v2ecoli.processes.rna_degradation import RnaDegradation
 from v2ecoli.processes.transcript_elongation import TranscriptElongation
 from v2ecoli.processes.polypeptide_elongation import SteadyStatePolypeptideElongation
+from v2ecoli.processes.chromosome_replication import ChromosomeReplication
+from v2ecoli.processes.plasmid_replication import PlasmidReplication
 
 
 # ---------------------------------------------------------------------------
@@ -110,6 +112,8 @@ def _expand_flushes(layers):
 
 PARTITIONED_PROCESSES = {
     'ecoli-rna-degradation': RnaDegradation,
+    'ecoli-chromosome-replication': ChromosomeReplication,
+    'ecoli-plasmid-replication': PlasmidReplication,
     'ecoli-transcript-elongation': TranscriptElongation,
     'ecoli-polypeptide-elongation': SteadyStatePolypeptideElongation,
 }
@@ -165,8 +169,13 @@ def v2ecoli_default_single_cell_visualizations() -> list[dict]:
     ]
 
 ALLOCATOR_LAYERS = {
-    # RNA degradation shares water with polymerizations
-    'allocator_2': ['ecoli-rna-degradation'],
+    # RNA degradation + chromosome + plasmid replication share allocator_2.
+    # vEcoli's flow puts chromosome at the same tf-binding dependency
+    # depth as rna-degradation; plasmid joins them so the two replication
+    # processes compete for replisome subunits (DnaG, DnaB, HolA, pol-III
+    # core, β-clamp) and dNTPs via the existing allocator-fairness math.
+    'allocator_2': ['ecoli-rna-degradation', 'ecoli-chromosome-replication',
+                    'ecoli-plasmid-replication'],
     # Elongation processes compete for NTPs / charged tRNAs
     'allocator_3': ['ecoli-polypeptide-elongation',
                     'ecoli-transcript-elongation'],
@@ -193,6 +202,29 @@ _EMITTER_OVERRIDE: dict | None = None
 # independent of the SQLite override above. Both may be set simultaneously
 # (parquet wins — sqlite stays available for dashboard's Simulations-DB tab).
 _PARQUET_EMITTER_OVERRIDE: dict | None = None
+
+# Per-agent registry of live ParquetEmitter step instances. Populated when
+# ``_get_special_step('emitter')`` constructs an emitter under a parquet
+# override; consulted by ``Division.next_update`` so the parent's trailing
+# partial batch can be ``finalize()``-d before the agent is ``_remove``-d
+# (mirrors vEcoli's ``EngineProcess`` pre-divide ``self.emitter.finalize()``
+# hook in ``ecoli/processes/engine_process.py``).
+_PARQUET_EMITTERS_BY_AGENT: dict[str, "Emitter"] = {}
+
+
+def register_parquet_emitter(agent_id: str, emitter) -> None:
+    """Track a live ParquetEmitter so Division can flush it before _remove."""
+    _PARQUET_EMITTERS_BY_AGENT[agent_id] = emitter
+
+
+def get_parquet_emitter(agent_id: str):
+    """Look up the ParquetEmitter for ``agent_id`` (or None)."""
+    return _PARQUET_EMITTERS_BY_AGENT.get(agent_id)
+
+
+def unregister_parquet_emitter(agent_id: str) -> None:
+    _PARQUET_EMITTERS_BY_AGENT.pop(agent_id, None)
+
 
 # When True (and no parquet/sqlite override is set), the 'emitter' step
 # materialises as a minimal RAMEmitter capturing ONLY global_time — instead of
@@ -1114,6 +1146,10 @@ def _get_special_step(loader, step_name, core):
             }
             cfg = {'emit': emit_schema, **parquet_override}
             instance = ParquetEmitter(cfg, core)
+            # Register so Division can flush this emitter before _remove.
+            _agent_id = (parquet_override.get('metadata') or {}).get('agent_id')
+            if _agent_id is not None:
+                register_parquet_emitter(str(_agent_id), instance)
         elif override is not None:
             # Persistent SQLite path (default-baseline + per-study run
             # scripts). Capture ONLY global_time + listeners. The raw
@@ -1271,6 +1307,8 @@ def _get_special_step(loader, step_name, core):
             'global_time': ('global_time',),
             'division_threshold': ('division_threshold',),
             'media_id': ('environment', 'media_id'),
+            # NEW: D-period trigger from MarkDPeriod
+            'divide': ('divide',),
             'agents': ('..',),
         }
         return instance, topo, 'step'

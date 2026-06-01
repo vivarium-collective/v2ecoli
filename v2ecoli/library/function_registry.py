@@ -203,12 +203,18 @@ def get_rnap_active_fraction_factory(fraction_active_rnap_bound,
 
 
 @register("mass.get_dna_critical_mass")
-def get_dna_critical_mass_factory(dry_mass_params, cell_dry_mass_fraction):
+def get_dna_critical_mass_factory(dry_mass_params, cell_dry_mass_fraction,
+                                  critical_mass_scale=1.0):
     """Factory: critical initiation mass for DNA replication.
 
     Closure data from sim_data.mass (GrowthRateParameters):
         dry_mass_params: array of 2 floats (slope, intercept for 1/dryMass vs tau)
         cell_dry_mass_fraction: float
+        critical_mass_scale: post-ParCa multiplier applied to the
+            returned M* (default 1.0 = no scaling). Used by Stage 1
+            sanity-check / Aim 2 work to delay the per-oriC mass criterion
+            when overridden C/D periods stretch the cycle and the
+            ParCa-fit M* would trigger a mid-cycle re-initiation.
     """
     units = _pint_units
     NORMAL_CRITICAL_MASS = 975 * units.fg
@@ -224,7 +230,8 @@ def get_dna_critical_mass_factory(dry_mass_params, cell_dry_mass_fraction):
             raise ValueError(f"Negative inverse mass at tau={tau}")
         avg_dry_mass = units.fg / inverse_mass
         mass = avg_dry_mass / cell_dry_mass_fraction
-        return min(mass * SLOW_GROWTH_FACTOR, NORMAL_CRITICAL_MASS)
+        capped = min(mass * SLOW_GROWTH_FACTOR, NORMAL_CRITICAL_MASS)
+        return capped * critical_mass_scale
 
     return get_dna_critical_mass
 
@@ -289,8 +296,9 @@ def get_attenuation_stop_probabilities_factory(aa_from_trna, attenuation_k):
 @register("equilibrium.ode_solver")
 def equilibrium_ode_solver_factory(stoich_matrix, rates_fwd, rates_rev,
                                     mets_to_rxn_fluxes, Rp, Pp,
-                                    rates_fn_dill, rates_jac_fn_dill):
-    """Factory: equilibrium ODE solver to steady state.
+                                    rates_fn_dill, rates_jac_fn_dill,
+                                    integrate_dt_mask=None):
+    """Factory: equilibrium ODE solver.
 
     Closure data from sim_data.process.equilibrium:
         stoich_matrix: array (n_mets × n_rxns)
@@ -299,6 +307,12 @@ def equilibrium_ode_solver_factory(stoich_matrix, rates_fwd, rates_rev,
         Rp, Pp: arrays (n_mets × n_rxns)
         rates_fn_dill: base64-encoded dill of the (non_jit, jit) rate functions
         rates_jac_fn_dill: base64-encoded dill of the jacobian functions
+        integrate_dt_mask: optional bool array (n_rxns,). Reactions where
+            True are integrated only over the simulation timestep instead
+            of being solved to t -> infinity. Used for slow binding
+            reactions that violate the fast-equilibrium assumption (e.g.
+            DnaA-ADP, whose dissociation rate is much slower than the
+            simulation timestep).
     """
     import base64, dill
     from scipy import integrate
@@ -309,6 +323,13 @@ def equilibrium_ode_solver_factory(stoich_matrix, rates_fwd, rates_rev,
     _mets_to_rxn_fluxes = np.asarray(mets_to_rxn_fluxes)
     _Rp = np.asarray(Rp)
     _Pp = np.asarray(Pp)
+    if integrate_dt_mask is None:
+        _integrate_dt_mask = np.zeros(_rates_fwd.shape, dtype=bool)
+    else:
+        _integrate_dt_mask = np.asarray(integrate_dt_mask, dtype=bool)
+    _rates_fwd_ss = np.where(_integrate_dt_mask, 0.0, _rates_fwd)
+    _rates_rev_ss = np.where(_integrate_dt_mask, 0.0, _rates_rev)
+    _has_kinetic = bool(_integrate_dt_mask.any())
 
     _rates = dill.loads(base64.b64decode(rates_fn_dill))
     _rates_jac = dill.loads(base64.b64decode(rates_jac_fn_dill))
@@ -325,19 +346,63 @@ def equilibrium_ode_solver_factory(stoich_matrix, rates_fwd, rates_rev,
     def derivatives_jacobian_jit(t, y):
         return _stoichMatrix.dot(_rates_jac[1](t, y, _rates_fwd, _rates_rev))
 
+    # SS-only derivatives (kinetic-only reactions zeroed) — used in the
+    # second integration phase so the remaining fast equilibria can settle.
+    def derivatives_ss(t, y):
+        return _stoichMatrix.dot(_rates[0](t, y, _rates_fwd_ss, _rates_rev_ss))
+
+    def derivatives_ss_jit(t, y):
+        return _stoichMatrix.dot(_rates[1](t, y, _rates_fwd_ss, _rates_rev_ss))
+
+    def derivatives_jacobian_ss(t, y):
+        return _stoichMatrix.dot(_rates_jac[0](t, y, _rates_fwd_ss, _rates_rev_ss))
+
+    def derivatives_jacobian_ss_jit(t, y):
+        return _stoichMatrix.dot(_rates_jac[1](t, y, _rates_fwd_ss, _rates_rev_ss))
+
     def fluxes_and_molecules_to_SS(moleculeCounts, cellVolume, nAvogadro,
                                     random_state, time_limit=1e20,
-                                    max_iter=100, jit=True):
+                                    max_iter=100, jit=True,
+                                    timestep=1.0,
+                                    skip_kinetic_phase=False):
+        # skip_kinetic_phase = True is used by ParCa's equilibrium-SS
+        # convergence loop (step 5 fit_condition), which only needs the
+        # binding equilibria to settle and must not advance irreversible
+        # kinetic reactions like the DnaA-ATP intrinsic hydrolysis.
         y_init = moleculeCounts / (cellVolume * nAvogadro)
 
         deriv = derivatives_jit if jit else derivatives
         jac = derivatives_jacobian_jit if jit else derivatives_jacobian
+        deriv_ss = derivatives_ss_jit if jit else derivatives_ss
+        jac_ss = derivatives_jacobian_ss_jit if jit else derivatives_jacobian_ss
 
+        # Phase 1: kinetic integration over `timestep` (only if any
+        # reaction is flagged kinetic-only). The full rate equations
+        # advance toward equilibrium for `timestep` seconds.
+        if _has_kinetic and not skip_kinetic_phase:
+            for method in ["LSODA", "BDF"]:
+                try:
+                    sol1 = integrate.solve_ivp(
+                        deriv, [0, timestep], y_init,
+                        method=method, t_eval=[0, timestep], jac=jac)
+                    break
+                except ValueError as e:
+                    print(f"Warning: switching solver method (phase 1), {e!r}")
+            else:
+                raise RuntimeError("Could not solve equilibrium phase-1 ODE.")
+            y_after_dt = sol1.y[:, -1].copy()
+            y_after_dt[y_after_dt < 0] = 0
+        else:
+            y_after_dt = y_init
+
+        # Phase 2: continue to steady state with kinetic-only reactions
+        # disabled, so the fast equilibria settle around the phase-1
+        # molecule pool without re-equilibrating the slow ones.
         for method in ["LSODA", "BDF"]:
             try:
                 sol = integrate.solve_ivp(
-                    deriv, [0, time_limit], y_init,
-                    method=method, t_eval=[0, time_limit], jac=jac)
+                    deriv_ss, [0, time_limit], y_after_dt,
+                    method=method, t_eval=[0, time_limit], jac=jac_ss)
                 break
             except ValueError as e:
                 print(f"Warning: switching solver method in equilibrium, {e!r}")
@@ -347,12 +412,14 @@ def equilibrium_ode_solver_factory(stoich_matrix, rates_fwd, rates_rev,
         y = sol.y.T
         if np.any(y[-1, :] * (cellVolume * nAvogadro) <= -1):
             raise ValueError("Negative values at equilibrium steady state.")
-        if np.linalg.norm(deriv(0, y[-1, :]), np.inf) * (cellVolume * nAvogadro) > 1:
+        if np.linalg.norm(deriv_ss(0, y[-1, :]), np.inf) * (cellVolume * nAvogadro) > 1:
             raise RuntimeError("Did not reach steady state for equilibrium.")
 
         y[y < 0] = 0
         yMolecules = y * (cellVolume * nAvogadro)
-        dYMolecules = yMolecules[-1, :] - yMolecules[0, :]
+        # Total delta = phase-1 advance + phase-2 advance = y_final - y_init,
+        # so the molecule change captures both phases.
+        dYMolecules = yMolecules[-1, :] - y_init * (cellVolume * nAvogadro)
 
         for i in range(max_iter):
             rxnFluxes = stochasticRound(

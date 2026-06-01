@@ -1,0 +1,55 @@
+schema_version: 4
+name: dnaa-08-validation
+created: '2026-05-26'
+phase: Design
+status: planned
+design_status: stub
+implementation_status: planned
+simulation_status: planned
+evaluation_status: not_run
+gate_status: pending
+expert_review_status: pending
+objective: Validation of the full DnaA / replication-initiation model. End-to-end comparison against experimental
+  data — multi-fork replication at fast growth, initiation-mass invariance across growth rates, response
+  to perturbations (DnaA over-expression, RIDA / DARS knockouts).
+description: Final study in the DnaA arc. Stub-level per the plan PDF. Full design happens when Studies
+  1-7 have closed.
+purpose:
+  question: Designed when this study activates after prerequisites close. Likely — does the integrated
+    DnaA / replication-initiation model reproduce known experimental observations across the cell-cycle
+    phenotype space?
+  mechanism: Comprehensive comparison; no new mechanism added.
+  expected_outcome: Designed when this study activates after prerequisites close.
+seeded_from:
+  study: dnaa-07-cooperativity
+  proposal_id: chromosome-replication-plan-study-8
+pipeline_gate:
+  prerequisites:
+  - study: dnaa-07-cooperativity
+    condition: tests-passed
+  enables: []
+  proceed_condition: Designed when this study activates after prerequisites close.
+baseline:
+- name: baseline-slow-growth
+  composite: v2ecoli.composites.baseline.baseline
+  params:
+    seed: 0
+    cache_dir: out/cache
+variants: []
+interventions: []
+simulation_set: []
+readouts: []
+model_change:
+  base_model: v2ecoli.composites.baseline.baseline
+  notes: Stub. Design pending — likely a meta-validation study comparing against literature curves (e.g.
+    Wold 1994 initiation-mass invariance; Boesen 2024 dispensability data).
+implementation_requirements: []
+key_assumptions: []
+behavior_tests: []
+findings: []
+followup_proposals: []
+runs: []
+tests:
+  data_source: all_runs
+visualizations: []
+embed_visualizations: []

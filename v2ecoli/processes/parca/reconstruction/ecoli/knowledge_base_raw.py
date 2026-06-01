@@ -30,6 +30,7 @@ LIST_OF_DICT_FILENAMES = [
     "complexation_reactions_removed.tsv",
     "disabled_kinetic_reactions.tsv",
     "dna_sites.tsv",
+    "plasmid_dna_sites.tsv",
     "dry_mass_composition.tsv",
     "endoRNases.tsv",
     "equilibrium_reaction_rates.tsv",
@@ -54,6 +55,7 @@ LIST_OF_DICT_FILENAMES = [
     "metabolites_added.tsv",
     "modified_proteins.tsv",
     "molecular_weight_keys.tsv",
+    "per_promoter_ratios.tsv",
     "ppgpp_fc.tsv",
     "ppgpp_regulation.tsv",
     "ppgpp_regulation_added.tsv",
@@ -76,6 +78,7 @@ LIST_OF_DICT_FILENAMES = [
     "transcriptional_attenuation.tsv",
     "transcriptional_attenuation_removed.tsv",
     "tf_one_component_bound.tsv",
+    "tf_tu_routing.tsv",
     "translation_efficiency.tsv",
     "trna_charging_reactions.tsv",
     "trna_charging_reactions_added.tsv",
@@ -117,6 +120,7 @@ LIST_OF_DICT_FILENAMES = [
     os.path.join("condition", "media", "MIX0-57.tsv"),
     os.path.join("condition", "media", "MIX0-58.tsv"),
     os.path.join("condition", "media", "MIX0-844.tsv"),
+    os.path.join("condition", "media", "MIX0-845.tsv"),
     os.path.join("base_codes", "amino_acids.tsv"),
     os.path.join("base_codes", "dntp.tsv"),
     os.path.join("base_codes", "nmp.tsv"),
@@ -130,6 +134,7 @@ LIST_OF_DICT_FILENAMES = [
     os.path.join("adjustments", "relative_metabolite_concentrations_changes.tsv"),
 ]
 SEQUENCE_FILE = "sequence.fasta"
+PLASMID_SEQUENCE_FILE = "plasmidsequence.fasta"
 LIST_OF_PARAMETER_FILENAMES = [
     "dna_supercoiling.tsv",
     "parameters.tsv",
@@ -321,6 +326,9 @@ class KnowledgeBaseEcoli(object):
 
         self.genome_sequence = self._load_sequence(
             os.path.join(FLAT_DIR, SEQUENCE_FILE)
+        )
+        self.plasmid_sequence = self._load_sequence(
+            os.path.join(FLAT_DIR, PLASMID_SEQUENCE_FILE)
         )
 
         self._prune_data()

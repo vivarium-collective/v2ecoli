@@ -1,13 +1,40 @@
 # v2ecoli
 
-A pure [process-bigraph](https://github.com/vivarium-collective/process-bigraph)
-port of the Covert lab's whole-cell *E. coli* model
-([vEcoli](https://github.com/CovertLab/vEcoli)) — the same biology, with **no
-`vivarium-core` dependency**, matching upstream to within 0.0 % dry-mass drift
-at 60 s.
+**vEcoli, reimagined as a composable [process-bigraph](https://github.com/vivarium-collective/process-bigraph)
+model and a research workspace.** v2ecoli takes the Covert lab's whole-cell
+*E. coli* simulation ([vEcoli](https://github.com/CovertLab/vEcoli)) and rebuilds
+it on the process-bigraph engine and the
+[bigraph-schema](https://github.com/vivarium-collective/bigraph-schema) type
+system. The model is no longer a monolithic simulation tied to `vivarium-core` —
+it is a set of typed, independently-wireable processes you **compose** into
+whatever architecture a question needs.
 
-The model's biology is implemented as **17 biological process modules** plus 8
-listener/deriver steps (`v2ecoli/processes/`, `v2ecoli/steps/derivers/`). The
+Two things follow from that:
+
+- **Composition is a first-class operation.** Every process declares typed
+  input/output ports, so building a model is wiring, not patching. A whole cell
+  is one `build_composite("baseline")` call; a colony embeds many cells through a
+  single bridge process; a kinetic-metabolism variant is a *different wiring of
+  the same parts*. Swapping a subsystem is a one-line change, not a fork.
+- **The repository is a pbg research workspace.** Alongside the model code live
+  **investigations** (a research question) and **studies** (the simulations that
+  answer it) — browsable and runnable in the
+  [vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard).
+  The current tree carries the `colonies` and `v2ecoli-pdmp` investigations
+  across seven studies (`workspace/`). New science is added as a study, not a
+  patch to a monolith.
+
+The biology stays faithful to upstream. v2ecoli reproduces vEcoli's cell-cycle
+trajectories from birth to division — across dry mass, mass composition
+(protein / RNA / DNA / water), bulk-molecule counts, and replication dynamics —
+not just a single endpoint. The
+[composite comparison](https://vivarium-collective.github.io/v2ecoli/composite_comparison.html)
+and [vEcoli-vs-v2ecoli](https://vivarium-collective.github.io/v2ecoli/v1_v2_comparison.html)
+reports lay the two engines side by side metric-by-metric; dry mass at 60 s
+agrees to 0.0 % and time-to-division matches at ~42 min.
+
+Under the hood, the biology is **17 biological process modules** plus 8
+listener/deriver steps (`v2ecoli/processes/`, `v2ecoli/steps/derivers/`); the
 partitioned baseline composite schedules these — after splitting some processes
 into requester/evolver halves and adding infrastructure steps — into ~45 steps
 per simulation tick. The Parameter Calculator (ParCa) is decomposed into nine
@@ -44,20 +71,30 @@ end-to-end without the ~70 min knowledge-base rebuild.
 
 ## What v2ecoli is
 
-vEcoli is Stanford's whole-cell *E. coli* model: a mechanistic simulation that
-grows a single cell from birth to division by integrating transcription,
-translation, metabolism, replication, and regulation. v2ecoli re-implements that
-biology on the [process-bigraph](https://github.com/vivarium-collective/process-bigraph)
+vEcoli is a whole-cell *E. coli* model: a mechanistic simulation that grows a
+single cell from birth to division by integrating transcription, translation,
+metabolism, replication, and regulation. v2ecoli re-implements that biology on
+the [process-bigraph](https://github.com/vivarium-collective/process-bigraph)
 engine and [bigraph-schema](https://github.com/vivarium-collective/bigraph-schema)
-type system.
+type system, and wraps it in a research workspace.
 
 What you get over upstream vEcoli:
 
 - **No `vivarium-core`.** The simulation engine is process-bigraph; the model is
   a plain process-bigraph state document.
+- **Composition over configuration.** Architectures are *generated* by
+  `@composite_generator`-decorated functions and reached by name
+  (`build_composite("baseline" | "colony" | "millard_pdmp_baseline")`). A new
+  architecture is a new wiring of existing parts, not a new config flag inside a
+  monolith.
 - **Explicit, typed ports.** Every process declares its `inputs`/`outputs`
   schema with units (`pint.Quantity`), and state round-trips through
   bigraph-schema JSON (no pickle in the save path).
+- **A research workspace.** The repo is a pbg workspace (`workspace.yaml`):
+  biology sits next to **investigations** (a shared research question) and
+  **studies** (the runs that answer it), all browsable and runnable in the
+  vivarium-dashboard. The `colonies` and `v2ecoli-pdmp` investigations live in
+  `workspace/`. Manage them with the `pbg-investigation` / `pbg-study` skills.
 - **A decomposed ParCa.** The monolithic `fitSimData_1()` is broken into nine
   inspectable Steps, and the fitted `sim_data` is shipped pre-computed.
 - **Workflow pipelines.** Multiseed / multigeneration / multivariant sweeps are

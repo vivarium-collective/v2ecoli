@@ -266,9 +266,12 @@ conditions:
         "TU00259[c]": 1.0e-3
   variants: []
   model_settings:
-    - "DnaA + ADP ⇌ DnaA-ADP: integrate_dt=true (kinetic), reverse k_r = 1e-7/s (Haochen literal)"
-    - "DnaA-ATP intrinsic hydrolysis: one-way kinetic reaction, k = 0.046/min"
-    - "DnaA + ATP ⇌ DnaA-ATP: fast equilibrium (integrate_dt=false), K_d ≈ 29 nM"
+    - name: dnaa-adp-kinetic
+      detail: "DnaA + ADP ⇌ DnaA-ADP: integrate_dt=true (kinetic), reverse k_r = 1e-7/s (Haochen literal)"
+    - name: dnaa-atp-hydrolysis
+      detail: "DnaA-ATP intrinsic hydrolysis: one-way kinetic reaction, k = 0.046/min"
+    - name: dnaa-atp-binding
+      detail: "DnaA + ATP ⇌ DnaA-ATP: fast equilibrium (integrate_dt=false), K_d ≈ 29 nM"
 
 # Re-render the (in-house) figure from the canonical run. Rashmi's authoritative
 # chart (charts/dnaa2_rashmi_reproduction_seed0.png) is the clean-cycle figure of

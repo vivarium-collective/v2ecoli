@@ -1,7 +1,7 @@
 """Shared helpers for the v2ecoli composite generators.
 
 These were previously defined in ``v2ecoli/generate.py`` and re-imported by
-``generate_departitioned.py`` and ``generate_reconciled.py``.  Task 14 moves
+``generate_baseline.py``.  Task 14 moves
 them here so the legacy generate*.py files can be deleted.
 
 Exported names (all are considered semi-private implementation details):
@@ -50,7 +50,7 @@ FLUSH = '__unique_flush__'
 # they pass to step builders: it serves configs by name and exposes the few
 # sim_data attributes those builders read (unique-molecule definitions +
 # expected dry-mass increase). Previously each generator (baseline,
-# departitioned, reconciled, millard_pdmp_baseline) defined its own nested
+# millard_pdmp_baseline) defined its own nested
 # _CachedLoader with a 4-level inner-class mock; this is the single flattened,
 # module-level version.
 
@@ -92,7 +92,7 @@ def _expand_flushes(layers):
     """Replace each FLUSH sentinel with a real [unique_update_N] sub-layer.
 
     N is assigned in declaration order so state keys stay stable across
-    architecture variants (baseline, departitioned, reconciled).
+    architecture variants (baseline, colony, millard_pdmp_baseline).
     """
     out, n = [], 0
     for layer in layers:
@@ -120,10 +120,10 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # ---------------------------------------------------------------------------
 # Canonical visualization set for single-cell architectures.
 # ---------------------------------------------------------------------------
-# Shared by baseline / departitioned / reconciled — all three resolve to the
+# Shared by baseline / millard_pdmp_baseline — both resolve to the
 # same observables.mass / unique-molecule layout so the same viz tiles apply.
 # Opt-in: every study built on one of the v2ecoli single-cell composites
-# (baseline / reconciled / departitioned) that wants the legacy
+# (baseline / millard_pdmp_baseline) that wants the legacy
 # WorkflowVisualization + NetworkVisualization panels must declare them
 # explicitly in its study.yaml `visualizations:` block. Auto-attaching them
 # here used to be the default, but the panels rendered confusingly empty for
@@ -180,8 +180,8 @@ ALLOCATOR_LAYERS = {
 # ``_EMITTER_OVERRIDE`` to a dict of SQLiteEmitter-config kwargs (e.g.
 # ``{'file_path': '.../workspace/studies/<name>', 'db_file': 'runs.db',
 #   'name': 'baseline-steady-state'}``) BEFORE building the composite.
-# When set, the special 'emitter' step in baseline / departitioned /
-# reconciled swaps RAMEmitter for SQLiteEmitter and expands the emit
+# When set, the special 'emitter' step in baseline /
+# millard_pdmp_baseline swaps RAMEmitter for SQLiteEmitter and expands the emit
 # schema to cover the per-listener fields the dnaa investigation reads.
 #
 # Use the ``sqlite_emitter()`` context manager below for safety —
@@ -990,7 +990,7 @@ def _get_special_step(loader, step_name, core):
         return instance, unique_topo_v1, 'step'
 
     if step_name == 'ecoli-mass-conservation':
-        from v2ecoli.steps.listeners.mass_conservation import MassConservationListener
+        from v2ecoli.steps.derivers.mass_conservation_deriver import MassConservationDeriver
         from v2ecoli.types.quantity import ureg as units
         # Per-molecule masses (fg/count) of the metabolic exchange molecules,
         # keyed by their environment name (compartment-stripped), so the
@@ -1014,7 +1014,7 @@ def _get_special_step(loader, step_name, core):
         # tolerance + warmup_ticks fall back to the Step's schema defaults
         # (5% cumulative drift, 10-tick warmup).
         config = {'exchange_masses': exchange_masses}
-        instance = _make_instance(MassConservationListener, config, core)
+        instance = _make_instance(MassConservationDeriver, config, core)
         return instance, instance.topology, 'step'
 
     if step_name == 'global_clock':
@@ -1228,7 +1228,7 @@ def _get_special_step(loader, step_name, core):
         return instance, topo, 'step'
 
     if step_name == 'replication_data_listener':
-        from v2ecoli.steps.listeners.replication_data import ReplicationData
+        from v2ecoli.steps.derivers.replication_data import ReplicationData
         config = {'time_step': 1}
         instance = ReplicationData(config=config, core=core)
         topology = getattr(instance, 'topology', {})

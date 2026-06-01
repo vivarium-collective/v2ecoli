@@ -173,11 +173,13 @@ def main():
     print(f"\nReport: {out_path}")
     print(f"Total: {total:.0f}s")
 
-    # Mirror to docs/ for GitHub Pages.
+    # Mirror to docs/ for GitHub Pages — skip if --out already wrote there.
     import shutil
     docs_dir = os.path.join(base, "docs")
-    if os.path.isdir(docs_dir):
-        shutil.copy2(out_path, os.path.join(docs_dir, "v1_v2_comparison.html"))
+    mirror = os.path.join(docs_dir, "v1_v2_comparison.html")
+    already_at_mirror = os.path.exists(mirror) and os.path.samefile(out_path, mirror)
+    if os.path.isdir(docs_dir) and not already_at_mirror:
+        shutil.copy2(out_path, mirror)
 
     # Open in browser if interactive.
     sp.run(["open", out_path], capture_output=True)

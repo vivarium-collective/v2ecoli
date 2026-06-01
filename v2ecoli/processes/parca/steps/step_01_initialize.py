@@ -107,6 +107,18 @@ OUTPUT_PORTS = {
 class InitializeStep(Step):
     """Run ``sim_data.initialize(raw_data=...)`` and scatter its subsystems."""
 
+    description = (
+        "Step 1 — initialize (scatter).\n\n"
+        "Bootstraps the pipeline from the KnowledgeBaseEcoli flat-file tables:\n"
+        "    sim_data = SimulationDataEcoli(); sim_data.initialize(raw_data)\n"
+        "then scatters the nested object into its 9 subsystem dataclasses\n"
+        "(transcription, translation, metabolism, rna_decay, complexation,\n"
+        "equilibrium, two_component_system, transcription_regulation,\n"
+        "replication) and ~20 top-level data dicts on their own store paths.\n"
+        "No monolithic sim_data blob travels downstream — every later step\n"
+        "wires only the ports it reads/writes."
+    )
+
     config_schema = {
         'raw_data':                   'overwrite',
         'basal_expression_condition': {

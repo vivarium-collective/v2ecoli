@@ -78,7 +78,7 @@ These are load-bearing and enforced on review (and, over time, in CI):
    be merged. Unit tests of helpers don't count — the test must run the
    process inside a composite and check an outcome.
 4. **Three architectures.** v2ecoli runs baseline (partitioned, 55 processes),
-   departitioned (41 steps), and reconciled (hybrid). A change to a process
+   plus the colony wrapper and millard_pdmp_baseline variant. A change to a process
    should work across all three, or the PR must explain why it's scoped to
    one.
 
@@ -93,7 +93,7 @@ should regenerate and sanity-check the relevant reports:
   lineage.
 - **Colony report** (`reports/colony_report.py`) — mixed colony with pymunk physics.
 - **Architecture comparison** (`reports/compare_report.py`) — baseline vs
-  departitioned vs reconciled.
+  across architectures.
 - **Network views** (`reports/network_report.py`) — per-architecture Cytoscape
   topology with ports, schemas, and math.
 

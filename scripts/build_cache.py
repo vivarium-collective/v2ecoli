@@ -21,9 +21,11 @@ For a full ParCa re-run (several hours) see docs/generate_full_parca.md.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import time
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -47,9 +49,32 @@ def build_cache(fixture: str, cache_dir: str,
                 dnaa_txn_scale: float = 1.0,
                 dnaa_constitutive: bool = False,
                 dnaa_stable: bool = False,
-                dnaa_translation_efficiency: float | None = None) -> None:
+                dnaa_translation_efficiency: float | None = None,
+                allow_fast_mode: bool = False) -> None:
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(repo_root)
+
+    # GUARD: a ParCa fixture built with --mode fast (debug=True, reduced TF
+    # conditions) is NOT a valid simulation fit — it mis-calibrates regulation
+    # (it over-expressed dnaA ~2x and broke replication initiation in the
+    # dnaa-replication investigation). Caches feed simulations, so refuse a
+    # fast-mode fixture here unless explicitly overridden for dev use. The mode
+    # is stamped by cli/parca.py in <outdir>/parca_state.meta.json; absence
+    # (e.g. the shipped fixture) is treated as unknown/allowed.
+    meta_path = Path(fixture).resolve().parent / "parca_state.meta.json"
+    if meta_path.exists():
+        try:
+            pmode = (json.loads(meta_path.read_text()) or {}).get("mode")
+        except Exception:
+            pmode = None
+        if pmode == "fast" and not allow_fast_mode:
+            raise SystemExit(
+                f"REFUSING to build a simulation cache from {fixture}:\n"
+                f"  it was produced by ParCa --mode fast (debug, reduced TF "
+                f"conditions) per {meta_path.name}, which is NOT a valid\n"
+                f"  simulation fit. Re-run ParCa with --mode full, or pass "
+                f"--allow-fast-mode to override for non-simulation/dev use.")
+        print(f"    ParCa fixture mode: {pmode or 'unknown'}")
 
     t0 = time.time()
     print(f"[{time.strftime('%H:%M:%S')}] Loading fixture {fixture} ...")
@@ -151,6 +176,10 @@ def main() -> None:
                              "translation efficiency (PDF row 7: 1.0 "
                              "protein/mRNA, Hansen & Atlung 2018). "
                              "Default: leave at ParCa / overrides.py value.")
+    parser.add_argument("--allow-fast-mode", action="store_true",
+                        help="Override the guard that refuses ParCa --mode fast "
+                             "(debug) fixtures. Fast fits are NOT valid for "
+                             "simulation; use only for dev/plumbing.")
     args = parser.parse_args()
     build_cache(args.fixture, args.cache_dir,
                 condition=args.condition, fixed_media=args.fixed_media,
@@ -160,7 +189,8 @@ def main() -> None:
                 dnaa_txn_scale=args.dnaa_txn_scale,
                 dnaa_constitutive=args.dnaa_constitutive,
                 dnaa_stable=args.dnaa_stable,
-                dnaa_translation_efficiency=args.dnaa_translation_efficiency)
+                dnaa_translation_efficiency=args.dnaa_translation_efficiency,
+                allow_fast_mode=args.allow_fast_mode)
 
 
 if __name__ == "__main__":

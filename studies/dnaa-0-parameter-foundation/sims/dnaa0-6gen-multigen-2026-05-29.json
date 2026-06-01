@@ -1,0 +1,20 @@
+{
+  "study": "dnaa-0-parameter-foundation",
+  "investigation": "dnaa-replication",
+  "sim_name": "dnaa0-6gen-multigen-2026-05-29",
+  "cache_dir": "out/cache-succinate",
+  "seed": 0,
+  "max_generations": 6,
+  "chunk": 60,
+  "duration_requested": 29520,
+  "load_time": 5.540035724639893,
+  "wall_time": 3336.163975954056,
+  "run_result": {
+    "steps": 29520,
+    "generations": [
+      1,
+      2
+    ],
+    "out_dir": "/Users/eranagmon/code/v2ecoli/.pbg/worktrees/dnaa-replication-v2/studies/dnaa-0-parameter-foundation/parquet-runs"
+  }
+}

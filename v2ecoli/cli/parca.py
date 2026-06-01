@@ -208,6 +208,23 @@ def main():
         pickle.dump(state, f, protocol=pickle.HIGHEST_PROTOCOL)
     size_mb = os.path.getsize(out_path) / (1024 * 1024)
 
+    # Stamp the ParCa mode next to the state so cache builders / simulation
+    # runners can refuse a fast-mode (debug) fit. `fast` reduces the TF
+    # conditions (debug=True) — fine for plumbing/dev, NOT a valid simulation
+    # fit (it mis-calibrates regulation; e.g. it over-expressed dnaA ~2x and
+    # broke replication initiation in the dnaa-replication investigation).
+    meta_path = os.path.join(outdir, "parca_state.meta.json")
+    with open(meta_path, "w") as f:
+        json.dump({"mode": args.mode,
+                   "debug": args.mode == "fast",
+                   "simulation_safe": args.mode == "full"}, f, indent=2)
+    if args.mode == "fast":
+        bar = "!" * 64
+        print(f"\n{bar}\n  WARNING: ParCa --mode fast (debug=True, reduced TF "
+              f"conditions).\n  This sim_data is NOT VALID FOR SIMULATION — "
+              f"dev/plumbing only.\n  build_cache refuses it without "
+              f"--allow-fast-mode.\n{bar}")
+
     total = time.time() - t0
     print(f"\n{'=' * 60}")
     print(f"Total time:  {total:.1f}s ({total / 60:.1f} min)")

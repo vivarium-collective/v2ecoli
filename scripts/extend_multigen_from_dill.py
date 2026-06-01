@@ -35,6 +35,12 @@ from v2ecoli.library.division import divide_cell
 from process_bigraph import Composite
 
 
+def _fg(v) -> float:
+    """Units-safe scalar read: pint Quantity (femtogram) -> magnitude; plain -> float.
+    The new-units model emits mass as a pint Quantity, so a bare float() raises."""
+    return float(getattr(v, "magnitude", v))
+
+
 def _run_gen(comp, max_duration, gen_idx):
     """Lifted from run_condition_multigen_parquet.py."""
     t_sim = 0
@@ -133,7 +139,7 @@ def main():
 
             duration, divided, last_state = _run_gen(comp, max_duration, gen_idx)
 
-        dry_f = float((last_state or {}).get("listeners", {}).get("mass", {}).get("dry_mass", 0))
+        dry_f = _fg((last_state or {}).get("listeners", {}).get("mass", {}).get("dry_mass", 0))
         wall = time.time() - t0
         result = {
             "gen": gen_idx,

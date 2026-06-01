@@ -63,3 +63,5 @@
 "TU0-14533"	"Non-canonical rRNA transcription unit"
 "TU0-4242"	"Transcription unit ends before gene does"
 "TU0-8513"	"Transcription unit ends before gene does"
+"TU00434"	"LexA-fix TU; removed for compatibility with the bundled succinate_default_gen3_start.dill (pre-LexA-fix bulk pool)"
+"TU00435"	"LexA-fix TU; removed for compatibility with the bundled succinate_default_gen3_start.dill (pre-LexA-fix bulk pool)"

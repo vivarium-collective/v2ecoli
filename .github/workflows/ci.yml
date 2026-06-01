@@ -82,7 +82,7 @@ jobs:
         with:
           path: out/cache
           key: >-
-            parca-cache-v2-${{ hashFiles(
+            parca-cache-v3-${{ hashFiles(
               'models/parca/parca_state.pkl.gz',
               'v2ecoli/library/sim_data.py',
               'v2ecoli/library/unit_bridge.py',
@@ -93,7 +93,8 @@ jobs:
               'v2ecoli/composites/baseline.py',
               'v2ecoli/composites/colony.py',
               'v2ecoli/composites/departitioned.py',
-              'v2ecoli/composites/reconciled.py'
+              'v2ecoli/composites/reconciled.py',
+              'v2ecoli/composites/millard_pdmp_baseline.py'
             ) }}
 
       - name: Build ParCa cache on miss

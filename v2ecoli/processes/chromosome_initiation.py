@@ -30,6 +30,14 @@ class DnaABinder(Process):
     (Skeleton — full binding kinetics TBD.)
     """
 
+    description = (
+        "DnaA Binder — DnaA-ATP occupancy of oriC gating replication initiation.\n\n"
+        "    free_DnaA evolves under binding/unbinding rates (k_on, k_off);\n"
+        "    oriC_state: 'free' → 'bound' once DnaA occupancy ≥ threshold.\n"
+        "  free_DnaA: free DnaA-ATP level; k_on/k_off: binding/unbinding rate constants.\n"
+        "  (Skeleton: update currently returns a no-op placeholder; kinetics TBD.)"
+    )
+
     config_schema = {
         'binding_rate': 'float',
         'unbinding_rate': 'float',

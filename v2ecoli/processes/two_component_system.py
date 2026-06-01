@@ -38,6 +38,7 @@ from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.quantity_helpers import as_quantity
 
 
 # Register default topology for this process, associating it with process name
@@ -56,6 +57,15 @@ class TwoComponentSystem(Step):
     response regulators, phosphate donors). No other process competes for
     these, so runs as a plain Step.
     """
+
+    description = (
+        "TwoComponentSystem — phosphotransfer signaling kinetics (ODE integration).\n\n"
+        "Solve molecule-count ODEs over the timestep:\n"
+        "    dx/dt = f(x);   integrate t: 0→dt (scipy solve_ivp, BDF);   Δx = x(dt) − x(0).\n"
+        "Under-allocation: re-solve to long-horizon steady state (10000 s), extract\n"
+        "this timestep's Δx to stay physically consistent with reduced counts.\n"
+        "x: counts of histidine kinases, response regulators, and their phospho-forms."
+    )
 
     name = NAME
     topology = TOPOLOGY
@@ -107,7 +117,7 @@ class TwoComponentSystem(Step):
             'bulk': {'_type': 'bulk_array', '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': {'_type': 'float[fg]', '_default': 0},
+                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0},
                 },
             },
             'timestep': {'_type': 'integer[s]', '_default': 1},
@@ -201,7 +211,7 @@ class TwoComponentSystem(Step):
 
         # cell_volume = cell_mass / cell_density  [g / (g/L) = L]
         cell_mass_g = (
-            states["listeners"]["mass"]["cell_mass"] * units.fg
+            as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
         ).to(units.g).magnitude
         cell_volume = cell_mass_g / self.cell_density
 

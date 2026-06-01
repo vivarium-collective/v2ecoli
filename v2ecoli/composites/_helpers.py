@@ -31,7 +31,7 @@ import numpy as np
 # ---------------------------------------------------------------------------
 from v2ecoli.processes.rna_degradation import RnaDegradation
 from v2ecoli.processes.transcript_elongation import TranscriptElongation
-from v2ecoli.processes.polypeptide_elongation import PolypeptideElongation
+from v2ecoli.processes.polypeptide_elongation import SteadyStatePolypeptideElongation
 from v2ecoli.processes.chromosome_replication import ChromosomeReplication
 from v2ecoli.processes.plasmid_replication import PlasmidReplication
 
@@ -44,6 +44,50 @@ from v2ecoli.processes.plasmid_replication import PlasmidReplication
 # drained before the next layer runs.  Expanded to a real step by
 # _expand_flushes() at build time.
 FLUSH = '__unique_flush__'
+
+
+# --- Cache-driven config loader -------------------------------------------
+# Composite generators build from a cache bundle (pre-resolved configs) rather
+# than a live ParCa sim_data object. CachedConfigLoader is the small stand-in
+# they pass to step builders: it serves configs by name and exposes the few
+# sim_data attributes those builders read (unique-molecule definitions +
+# expected dry-mass increase). Previously each generator (baseline,
+# departitioned, reconciled, millard_pdmp_baseline) defined its own nested
+# _CachedLoader with a 4-level inner-class mock; this is the single flattened,
+# module-level version.
+
+class _MockUniqueMolecule:
+    def __init__(self, names):
+        self.unique_molecule_definitions = {n: {} for n in names}
+
+
+class _MockInternalState:
+    def __init__(self, names):
+        self.unique_molecule = _MockUniqueMolecule(names)
+
+
+class _MockSimData:
+    def __init__(self, unique_names, dry_mass_inc_dict):
+        self.internal_state = _MockInternalState(unique_names)
+        self.expectedDryMassIncreaseDict = dry_mass_inc_dict or {}
+
+
+class CachedConfigLoader:
+    """Serve pre-resolved configs from the cache bundle + a minimal sim_data
+    stand-in. Replaces the per-generator nested ``_CachedLoader``."""
+
+    def __init__(self, configs, unique_names, dry_mass_inc_dict,
+                 cache_dir='out/cache'):
+        self._configs = configs
+        self.unique_names = unique_names
+        self.cache_dir = cache_dir
+        self.sim_data = _MockSimData(unique_names, dry_mass_inc_dict)
+
+    def get_config_by_name(self, name):
+        try:
+            return self._configs[name]
+        except KeyError:
+            raise KeyError(f'Unknown: {name}')
 
 
 def _expand_flushes(layers):
@@ -71,7 +115,7 @@ PARTITIONED_PROCESSES = {
     'ecoli-chromosome-replication': ChromosomeReplication,
     'ecoli-plasmid-replication': PlasmidReplication,
     'ecoli-transcript-elongation': TranscriptElongation,
-    'ecoli-polypeptide-elongation': PolypeptideElongation,
+    'ecoli-polypeptide-elongation': SteadyStatePolypeptideElongation,
 }
 
 ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
@@ -182,6 +226,24 @@ def unregister_parquet_emitter(agent_id: str) -> None:
     _PARQUET_EMITTERS_BY_AGENT.pop(agent_id, None)
 
 
+# When True (and no parquet/sqlite override is set), the 'emitter' step
+# materialises as a minimal RAMEmitter capturing ONLY global_time — instead of
+# the default full-state RAMEmitter (bulk + chromosome + listeners, multi-MB
+# per row). Used by callers that emit out-of-band (e.g. the workflow's external
+# XArrayEmitter) and don't want the internal emitter wasting memory.
+_NULL_EMITTER_OVERRIDE: bool = False
+
+# The generator-declared default emitter (see pbg_superpowers
+# composite_generator's ``emitters=`` convention + ``emitter_defaults``). A
+# ``{address, config, paths?}`` dict that the 'emitter' step materialises when
+# NO external override (parquet / sqlite / null) is set — i.e. the composite's
+# own default sink travels with the generator instead of being toggled by a
+# caller. This is the lowest-priority *declared* source; the RAMEmitter remains
+# the final fallback when even this is None. The baseline generator sets it
+# from its own ``@composite_generator(emitters=[...])`` entry around the build.
+_DEFAULT_EMITTER_DECL: dict | None = None
+
+
 def set_emitter_override(config: dict | None) -> None:
     """Set the module-level SQLite emitter override. Pass None to clear."""
     global _EMITTER_OVERRIDE
@@ -192,6 +254,113 @@ def set_parquet_emitter_override(config: dict | None) -> None:
     """Set the module-level Parquet emitter override. Pass None to clear."""
     global _PARQUET_EMITTER_OVERRIDE
     _PARQUET_EMITTER_OVERRIDE = config
+
+
+def set_null_emitter_override(flag: bool) -> None:
+    """Minimise the internal 'emitter' step to global_time only (see
+    ``_NULL_EMITTER_OVERRIDE``). Pass False to restore the full-state default."""
+    global _NULL_EMITTER_OVERRIDE
+    _NULL_EMITTER_OVERRIDE = bool(flag)
+
+
+def set_default_emitter_decl(decl: dict | None) -> None:
+    """Set the generator-declared default emitter (see ``_DEFAULT_EMITTER_DECL``).
+
+    ``decl`` is a ``{address, config, paths?}`` dict from a generator's
+    ``@composite_generator(emitters=[...])`` declaration (read via
+    ``pbg_superpowers.composite_generator.emitter_defaults``). Pass None to
+    clear. The 'emitter' step uses it only when no external parquet / sqlite /
+    null override is active. A generator should set this around its build and
+    clear it in a ``finally`` so it never leaks into a later composite built in
+    the same process.
+    """
+    global _DEFAULT_EMITTER_DECL
+    _DEFAULT_EMITTER_DECL = decl
+
+
+def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
+    """Materialise the generator-declared default emitter step.
+
+    Maps ``decl['address']`` (the registered emitter link, with or without a
+    ``local:`` prefix) to the right emitter class and an emit-schema/topology
+    appropriate for v2ecoli. ``decl['config']`` is merged in as the base
+    config. Returns ``(instance, topo)``.
+
+    Only the emitters v2ecoli actually ships are recognised; an unknown
+    address raises rather than silently falling back, so a typo in a
+    generator's ``emitters=`` declaration surfaces at build time.
+    """
+    from process_bigraph.emitter import RAMEmitter, SQLiteEmitter
+
+    address = (decl.get("address") or "").split(":", 1)[-1]
+    cfg_in = dict(decl.get("config") or {})
+
+    if address == "ParquetEmitter":
+        try:
+            from pbg_emitters import ParquetEmitter
+        except ImportError:
+            # A generator-declared *default* must not hard-fail the build when
+            # the optional [parquet] extra is absent (e.g. CI behavior-tests
+            # install only the dev extra). Degrade to the historical full-capture
+            # in-memory RAMEmitter — the pre-declaration default — and warn.
+            warnings.warn(
+                "generator declared a ParquetEmitter default but the [parquet] "
+                "extra is not installed; falling back to in-memory RAMEmitter. "
+                "Install with: pip install 'v2ecoli[parquet]' to persist parquet.")
+            emit_schema = {
+                "global_time": "float", "bulk": "array",
+                "listeners": listeners_schema,
+                "full_chromosome": "node", "active_replisome": "node",
+                "active_RNAP": "node", "chromosome_domain": "node",
+            }
+            topo = {
+                "global_time": ("global_time",), "bulk": ("bulk",),
+                "listeners": ("listeners",),
+                "full_chromosome": ("unique", "full_chromosome"),
+                "active_replisome": ("unique", "active_replisome"),
+                "active_RNAP": ("unique", "active_RNAP"),
+                "chromosome_domain": ("unique", "chromosome_domain"),
+            }
+            return RAMEmitter({"emit": emit_schema}, core), topo
+        # Reuse the vEcoli-shaped preset so the hive layout + dtype overrides
+        # match upstream, seeded by whatever the declaration provided.
+        from v2ecoli.library.emitter_presets import parquet_vecoli
+        out_dir = cfg_in.pop("out_dir", None)
+        if out_dir is None:
+            ws_root = _find_workspace_root()
+            out_dir = (str(ws_root / ".pbg" / "parquet-runs")
+                       if ws_root is not None else "out/parquet")
+        preset = parquet_vecoli(out_dir=out_dir,
+                                experiment_id=cfg_in.pop("experiment_id", "default"))
+        emit_schema = {
+            "global_time": "float",
+            "bulk": "array[integer]",
+            "listeners": listeners_schema,
+        }
+        topo = {
+            "global_time": ("global_time",),
+            "bulk": ("bulk",),
+            "listeners": ("listeners",),
+        }
+        cfg = {"emit": emit_schema, **preset, **cfg_in}
+        return ParquetEmitter(cfg, core), topo
+
+    if address == "SQLiteEmitter":
+        emit_schema = {"global_time": "float", "listeners": listeners_schema}
+        topo = {"global_time": ("global_time",), "listeners": ("listeners",)}
+        cfg = {"emit": emit_schema, **cfg_in}
+        return SQLiteEmitter(cfg, core), topo
+
+    if address == "RAMEmitter":
+        emit_schema = {"global_time": "float", "listeners": listeners_schema}
+        topo = {"global_time": ("global_time",), "listeners": ("listeners",)}
+        cfg = {"emit": emit_schema, **cfg_in}
+        return RAMEmitter(cfg, core), topo
+
+    raise ValueError(
+        f"declared default emitter address {decl.get('address')!r} is not "
+        "recognised (expected one of ParquetEmitter, SQLiteEmitter, RAMEmitter)"
+    )
 
 
 import contextlib  # noqa: E402
@@ -369,6 +538,42 @@ def sqlite_emitter(*, file_path: str | None = None,
         set_emitter_override(None)
 
 
+class ParquetEmitterContext:
+    """Yielded from ``parquet_emitter()``. Bind the composite via
+    :meth:`bind` so its accumulated rows flush on context exit; this
+    closes the friction-#3 hole where the context manager couldn't
+    enforce its own lifecycle correctness (only ``configuration/`` landed,
+    no ``history/`` or ``success/``).
+
+    .cfg holds the emitter config dict (back-compat with the dict that
+    pre-2026-05-28 ``parquet_emitter()`` yielded directly).
+    """
+
+    def __init__(self, cfg: dict):
+        self.cfg = cfg
+        self._composite = None
+        self._flushed = False
+
+    def bind(self, composite) -> None:
+        """Register the composite for auto-flush on context exit."""
+        self._composite = composite
+
+    def flush(self, composite=None, *, success: bool = True) -> int:
+        """Flush now. Uses the bound composite if ``composite`` is None.
+
+        Returns the number of ParquetEmitter instances flushed. Safe to
+        call multiple times — ``flush_all_in_composite`` skips already-
+        closed instances."""
+        target = composite if composite is not None else self._composite
+        if target is None:
+            raise ValueError(
+                "ParquetEmitterContext.flush(): no composite given and "
+                "none bound; call .bind(composite) first.")
+        n = flush_parquet(target, success=success)
+        self._flushed = True
+        return n
+
+
 @contextlib.contextmanager
 def parquet_emitter(*, out_dir: str | None = None,
                     experiment_id: str | None = None,
@@ -389,13 +594,28 @@ def parquet_emitter(*, out_dir: str | None = None,
     so anyone with a vEcoli analysis pipeline can point at the output dir
     directly.
 
-    Usage::
+    Usage (auto-flush — recommended, since 2026-05-28)::
 
         with parquet_emitter(experiment_id='baseline-seed0',
-                             study_slug='dnaa-01-expression-dynamics'):
+                             study_slug='dnaa-01-expression-dynamics') as emit:
             doc = baseline(cache_dir='out/cache')
             comp = Composite(doc, core=core)
+            emit.bind(comp)             # <- enables auto-flush on exit
             comp.update({}, 60.0 * 60)
+        # ParquetEmitter.close(success=True) called automatically; if an
+        # exception fired in the with-block, close(success=False) instead.
+
+    Legacy usage (still works for callers that already manage the flush)::
+
+        with parquet_emitter(...):
+            comp = ...
+            comp.update(...)
+            flush_parquet(comp, success=True)   # explicit, no .bind()
+
+    If you neither call .bind() nor flush_parquet(), the context manager
+    silently degrades to the pre-2026-05-28 behaviour: the override
+    clears but the trailing partial batch + success sentinel are lost.
+    Friction note 2026-05-27 #3 for the original incident.
 
     Storage trade-off vs ``sqlite_emitter()``: Parquet is column-oriented and
     typically 3-5x smaller on disk for v2ecoli-shaped runs (sparse arrays,
@@ -440,11 +660,53 @@ def parquet_emitter(*, out_dir: str | None = None,
             meta["investigation_slug"] = investigation_slug
         cfg["metadata"] = meta
 
+    ctx = ParquetEmitterContext(cfg)
     set_parquet_emitter_override(cfg)
+    exc_fired = False
     try:
-        yield cfg
+        yield ctx
+    except BaseException:
+        exc_fired = True
+        raise
     finally:
+        # Auto-flush if bound but not explicitly flushed. On exception,
+        # close with success=False so the sentinel honestly reflects the
+        # failed run. Swallow auto-flush errors so they can't mask the
+        # caller's original exception.
+        if ctx._composite is not None and not ctx._flushed:
+            try:
+                ctx.flush(success=not exc_fired)
+            except Exception:
+                pass
         set_parquet_emitter_override(None)
+
+
+def flush_parquet(composite, *, success: bool = True) -> int:
+    """Flush all ParquetEmitter steps inside ``composite`` to disk.
+
+    The ``parquet_emitter()`` context manager only sets / clears the global
+    override — it never sees the composite, so it cannot trigger ``close()``
+    on the emitter step. Without an explicit flush the trailing partial
+    batch (rows after the last batch_size flush) stays in memory; only the
+    ``configuration/`` parquet lands, no ``history/`` or ``success/``.
+
+    Call this right before the runner exits its ``with parquet_emitter(...)``
+    block, after the simulation loop completes::
+
+        with parquet_emitter(out_dir=..., experiment_id=...):
+            composite = build_composite(...)
+            ... sim loop ...
+            flush_parquet(composite, success=True)
+
+    Returns the number of ParquetEmitter instances flushed (0 when the
+    [parquet] extra is not installed or the composite has no parquet
+    emitter step).
+    """
+    try:
+        from pbg_emitters import ParquetEmitter
+    except ImportError:
+        return 0
+    return ParquetEmitter.flush_all_in_composite(composite, success=success)
 
 
 # ---------------------------------------------------------------------------
@@ -759,6 +1021,34 @@ def _get_special_step(loader, step_name, core):
         instance = _make_instance(UniqueUpdate, config, core)
         return instance, unique_topo_v1, 'step'
 
+    if step_name == 'ecoli-mass-conservation':
+        from v2ecoli.steps.listeners.mass_conservation import MassConservationListener
+        from v2ecoli.types.quantity import ureg as units
+        # Per-molecule masses (fg/count) of the metabolic exchange molecules,
+        # keyed by their environment name (compartment-stripped), so the
+        # listener can convert per-tick exchange counts into a mass.
+        exchange_masses = {}
+        try:
+            from v2ecoli.library.unit_bridge import unum_to_pint
+            from v2ecoli.library.config_resolver import resolve_config
+            # resolve_config realizes the method specs (get_masses) into callables.
+            met_cfg = resolve_config(loader.get_config_by_name('ecoli-metabolism'))
+            exchange_molecules = list(met_cfg['exchange_molecules'])
+            mws = unum_to_pint(met_cfg['get_masses'](exchange_molecules))
+            n_avogadro = 6.02214076e23  # molecules / mol
+            for mol, mw in zip(exchange_molecules, mws):
+                g_per_molecule = mw.to(units.g / units.mol).magnitude / n_avogadro
+                exchange_masses[mol[:-3]] = (g_per_molecule * units.g).to(units.fg)
+        except Exception:
+            # Listener still runs (residual == Δdry_mass) if masses are
+            # unavailable; better an observable signal than a build failure.
+            exchange_masses = {}
+        # tolerance + warmup_ticks fall back to the Step's schema defaults
+        # (5% cumulative drift, 10-tick warmup).
+        config = {'exchange_masses': exchange_masses}
+        instance = _make_instance(MassConservationListener, config, core)
+        return instance, instance.topology, 'step'
+
     if step_name == 'global_clock':
         from v2ecoli.steps.global_clock import GlobalClock
         instance = GlobalClock(config={}, core=core)
@@ -772,8 +1062,10 @@ def _get_special_step(loader, step_name, core):
         from process_bigraph.emitter import RAMEmitter, SQLiteEmitter
         # ParquetEmitter is optional — the import lives behind an extra so
         # workspaces without the [parquet] extra still build composites.
+        # Imported directly from pbg-emitters (the upstream library);
+        # ``v2ecoli.library.parquet_emitter`` is just a re-export shim.
         try:
-            from v2ecoli.library.parquet_emitter import ParquetEmitter
+            from pbg_emitters import ParquetEmitter
         except ImportError:
             ParquetEmitter = None  # type: ignore[assignment]
         # Mass listener fields — always emitted, used by the workflow report.
@@ -801,7 +1093,9 @@ def _get_special_step(loader, step_name, core):
         # Parquet override wins over SQLite — see set_parquet_emitter_override.
         parquet_override = _PARQUET_EMITTER_OVERRIDE
         override = _EMITTER_OVERRIDE
-        if (parquet_override is not None or override is not None):
+        default_decl = _DEFAULT_EMITTER_DECL
+        if (parquet_override is not None or override is not None
+                or default_decl is not None):
             # Only the leaves the dnaa-investigation readouts actually consume.
             # NB: ``monomer_counts`` is a flat array store (not nested under
             # a ``monomerCounts`` key) — confirmed at runtime via the
@@ -828,9 +1122,13 @@ def _get_special_step(loader, step_name, core):
             })
 
         if parquet_override is not None:
-            # Parquet path — column-oriented hive-partitioned output. Same
-            # lightweight schema as SQLite (global_time + listeners only) for
-            # the same reasons documented in the SQLite branch below.
+            # Parquet path — column-oriented hive-partitioned output. Unlike
+            # the SQLite path, this captures the raw ``bulk`` count array
+            # (~25k molecules) in addition to global_time + listeners. Parquet
+            # is column-oriented and compresses the wide bulk vector far better
+            # than SQLite's row store, so the disk-cost concern documented in
+            # the SQLite branch below does not apply here — and downstream
+            # analyses (and vEcoli parity) need per-molecule counts.
             if ParquetEmitter is None:
                 raise ImportError(
                     "ParquetEmitter override set but [parquet] extra not "
@@ -838,10 +1136,12 @@ def _get_special_step(loader, step_name, core):
                 )
             emit_schema = {
                 'global_time': 'float',
+                'bulk': 'array[integer]',
                 'listeners': listeners_schema,
             }
             topo = {
                 'global_time': ('global_time',),
+                'bulk': ('bulk',),
                 'listeners': ('listeners',),
             }
             cfg = {'emit': emit_schema, **parquet_override}
@@ -872,6 +1172,21 @@ def _get_special_step(loader, step_name, core):
             }
             cfg = {'emit': emit_schema, **override}
             instance = SQLiteEmitter(cfg, core)
+        elif _NULL_EMITTER_OVERRIDE:
+            # Minimal RAMEmitter (global_time only): the caller emits out of
+            # band (e.g. the workflow's external XArrayEmitter), so the internal
+            # emitter must not waste memory capturing full state every tick.
+            emit_schema = {'global_time': 'float'}
+            topo = {'global_time': ('global_time',)}
+            instance = RAMEmitter({'emit': emit_schema}, core)
+        elif default_decl is not None:
+            # Generator-declared default sink (e.g. baseline ships a
+            # ParquetEmitter via @composite_generator(emitters=[...])). Lower
+            # priority than every external override above; higher than the bare
+            # RAMEmitter fallback below. The composite's own default emitter
+            # thus travels with the generator for standalone runs.
+            instance, topo = _build_declared_emitter(
+                default_decl, listeners_schema, core)
         else:
             # In-memory RAMEmitter: no disk cost, so keep the full capture
             # (bulk + chromosome/replisome structures) for callers that

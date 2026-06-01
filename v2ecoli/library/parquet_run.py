@@ -29,8 +29,11 @@ from typing import Any, Callable
 
 from v2ecoli.library.sqlite_run import (
     _normalize_emit_paths,
+    _normalize_root_paths,
     _filter_agent_state,
+    _filter_root_state,
     _build_emit_schema,
+    _merge_into,
     prune_to_followed_lineage,
 )
 
@@ -55,6 +58,7 @@ def run_multigen_parquet(
     threaded: bool = True,
     study_slug: str | None = None,
     investigation_slug: str | None = None,
+    extra_root_paths: list[str] | None = None,
 ) -> dict:
     """Run a v2ecoli composite across divisions, externally-driven ParquetEmitter.
 
@@ -77,7 +81,9 @@ def run_multigen_parquet(
     write — the per-generation rotation is what lets ``read_parquet(out_dir/
     experiment_id/history/**/*.pq)`` pick up all generations in one read.
     """
-    from v2ecoli.library.parquet_emitter import ParquetEmitter
+    # Imported directly from pbg-emitters (the upstream library);
+    # ``v2ecoli.library.parquet_emitter`` is just a re-export shim.
+    from pbg_emitters import ParquetEmitter
 
     if division_detector is None:
         def division_detector(prev: set[str], curr: set[str]) -> tuple[bool, str | None]:
@@ -87,7 +93,10 @@ def run_multigen_parquet(
             return False, None
 
     leaves = _normalize_emit_paths(emit_paths)
+    root_leaves = _normalize_root_paths(extra_root_paths or [])
     emit_schema = _build_emit_schema(leaves)
+    if root_leaves:
+        _merge_into(emit_schema, _build_emit_schema(root_leaves))
     out_dir = str(Path(out_dir).resolve())
 
     def _make_emitter(agent_id: str, generation: int) -> ParquetEmitter:
@@ -147,11 +156,14 @@ def run_multigen_parquet(
                 payload = _filter_agent_state(agents[followed], leaves)
                 # ParquetEmitter takes the flat tick state directly — no
                 # `agents/<id>/` wrapper (which is sqlite-only convention).
+                update_state: dict = {"global_time": float(done), **payload}
+                if root_leaves:
+                    _merge_into(
+                        update_state,
+                        _filter_root_state(composite.state or {}, root_leaves),
+                    )
                 try:
-                    em.update({
-                        "global_time": float(done),
-                        **payload,
-                    })
+                    em.update(update_state)
                 except Exception as e:
                     print(f"[multigen_parquet] emit failed at tick {done}: "
                           f"{type(e).__name__}: {str(e)[:120]}")
@@ -188,11 +200,14 @@ def run_multigen_parquet(
                 # Emit the gen-handoff marker.
                 if followed in agents:
                     payload = _filter_agent_state(agents[followed], leaves)
+                    update_state = {"global_time": float(done), **payload}
+                    if root_leaves:
+                        _merge_into(
+                            update_state,
+                            _filter_root_state(composite.state or {}, root_leaves),
+                        )
                     try:
-                        em.update({
-                            "global_time": float(done),
-                            **payload,
-                        })
+                        em.update(update_state)
                     except Exception:
                         pass
             prev_ids = curr_ids

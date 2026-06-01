@@ -61,7 +61,8 @@ from v2ecoli.library.schema import (
 )
 
 from v2ecoli.types.quantity import ureg as units
-from wholecell.utils.polymerize import buildSequences, polymerize, computeMassIncrease
+from v2ecoli.library.quantity_helpers import as_quantity
+from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 
 # topology_registry removed
 from v2ecoli.steps.partition import PartitionedProcess
@@ -109,6 +110,16 @@ class ChromosomeReplication(PartitionedProcess):
     for them.
     """
 
+    description = (
+        "Chromosome Replication — initiate, elongate, and terminate replication forks.\n\n"
+        "1. Initiation: fire when  M_cell / n_oriC ≥ M_critical(τ);  +2 replisomes·oriC, +2 domains.\n"
+        "2. Elongation: seqs = buildSequences(template, pos, ν·dt); polymerize(seqs, dNTPs, limit);\n"
+        "   Δm_DNA = ∑ᵢ (elongated_ntᵢ · weightᵢ);  PPi released = dNTP polymerized.\n"
+        "3. Termination: fork ends when |coordinate| = L_replichore; domain splits, subunits recycled.\n"
+        "  M_cell: cell mass (fg); n_oriC: oriC count; M_critical(τ): mass/oriC threshold at doubling time τ;\n"
+        "  ν: stochastic elongation rate (nt/s); dt: timestep; L_replichore: replichore length (nt)."
+    )
+
     name = NAME
     topology = TOPOLOGY
 
@@ -143,7 +154,7 @@ class ChromosomeReplication(PartitionedProcess):
             'full_chromosomes': {'_type': FULL_CHROMOSOME_ARRAY, '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
+                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                 },
             },
             'environment': {
@@ -225,7 +236,7 @@ class ChromosomeReplication(PartitionedProcess):
             return requests
 
         # Get current cell mass
-        cellMass = states["listeners"]["mass"]["cell_mass"] * units.fg
+        cellMass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
 
         # Get critical initiation mass for current simulation environment
         current_media_id = states["environment"]["media_id"]

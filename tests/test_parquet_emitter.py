@@ -6,8 +6,14 @@ from pathlib import Path
 import pytest
 
 # Skip the entire file if the [parquet] extra isn't installed.
+# CI's default `uv sync --extra dev` doesn't install [parquet] — duckdb /
+# polars may still resolve transitively via vivarium-dashboard, but
+# pbg-emitters (the actual ParquetEmitter implementation) won't, so the
+# v2ecoli.library.parquet_emitter shim's import would raise ImportError.
+# Skip cleanly in that case.
 pytest.importorskip("duckdb")
 pytest.importorskip("polars")
+pytest.importorskip("pbg_emitters")
 
 
 @pytest.mark.fast

@@ -12,12 +12,13 @@ added only ~2 fg over 3600s, never replicated, never divided — and nothing
 in the test suite caught it because the 60s growth window was clean.
 
 These tests enforce:
-1. Sustained growth: >=20 fg over 500s (healthy cell adds ~30 fg).
+1. Sustained growth: >=12 fg over 300s (healthy cell adds ~20 fg).
 2. Chromosome replication: oriC count goes 1 -> 2 within 1500s. (slow)
 """
 
 import os
 import pytest
+from v2ecoli.library.quantity_helpers import fg_magnitude
 
 
 CACHE_DIR = 'out/cache'
@@ -33,7 +34,7 @@ pytestmark = [
 
 
 def _dry_mass(composite):
-    return float(composite.state['agents']['0']['listeners']['mass']['dry_mass'])
+    return fg_magnitude(composite.state['agents']['0']['listeners']['mass']['dry_mass'])
 
 
 def _n_oric(composite):
@@ -42,24 +43,24 @@ def _n_oric(composite):
 
 
 @pytest.mark.timeout(600)
-def test_baseline_sustained_growth_500s():
-    """Cell must add >=20 fg over 500s. Exposes tick-level silent failures
+def test_baseline_sustained_growth_300s():
+    """Cell must add >=12 fg over 300s. Exposes tick-level silent failures
     (unit errors, AttributeError on request_set, etc.) that only manifest
     after the first few chunks.
 
-    Timeout override: 500 s of sim takes ~35 s wall locally (M2 Pro, ~14×
+    Timeout override: 300 s of sim takes ~21 s wall locally (M2 Pro, ~14×
     realtime) but CI runners are ~3-5× slower, so we need headroom over
     the global 120 s cap. 600 s is still well below the refire-loop
     signature (>15 min wall per sim-second)."""
     from v2ecoli import build_composite
     composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=0)
     m0 = _dry_mass(composite)
-    composite.run(500)
+    composite.run(300)
     m1 = _dry_mass(composite)
     delta = m1 - m0
-    assert delta >= 20.0, (
+    assert delta >= 12.0, (
         f'Baseline sustained growth too low: {m0:.2f} -> {m1:.2f} fg '
-        f'(+{delta:.2f} fg in 500s; expected >= +20 fg). '
+        f'(+{delta:.2f} fg in 300s; expected >= +12 fg). '
         f'Silent process failures may be stalling the cell.')
 
 

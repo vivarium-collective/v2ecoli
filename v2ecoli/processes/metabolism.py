@@ -65,8 +65,10 @@ import numpy.typing as npt
 from scipy.sparse import csr_matrix
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 # topology_registry removed
-from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
+from v2ecoli.library.fba_fast import extract_results, precompute_indices
+from v2ecoli.library.schema import bulk_name_to_idx, counts
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.quantity_helpers import as_quantity
 from v2ecoli.library.unit_bridge import unum_magnitude_in, unum_to_pint, pint_to_unum
 from wholecell.utils.random import stochasticRound
 from wholecell.utils.modular_fba import FluxBalanceAnalysis
@@ -110,6 +112,17 @@ class Metabolism(Step):
     Runs as a time-driven process (not partitioned).
     """
 
+    # Formal description (standardized via Edge.describe()).
+    description = (
+        "Metabolism — flux-balance analysis (FBA).\n\n"
+        "Each timestep solve for the reaction flux vector v:\n"
+        "    max cᵀv   s.t.  S·v = 0,   v_lb ≤ v ≤ v_ub\n"
+        "  S: stoichiometry (metabolites×reactions); c: biomass objective;\n"
+        "  bounds from nutrient uptake, enzyme kcat capacity, NGAM maintenance.\n"
+        "Flux→counts: Δn = stochasticRound(v · m_dry · dt / (MW · κ)).\n"
+        "Optional ppGpp growth coupling and kinetic (kcat) flux constraints."
+    )
+
     name = NAME
     topology = TOPOLOGY
 
@@ -152,10 +165,10 @@ class Metabolism(Step):
             'bulk_total': {'_type': 'bulk_array', '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
-                    'dry_mass': {'_type': 'float[fg]', '_default': 0.0},
-                    'rna_mass': {'_type': 'float[fg]', '_default': 0.0},
-                    'protein_mass': {'_type': 'float[fg]', '_default': 0.0},
+                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
+                    'dry_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
+                    'rna_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
+                    'protein_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                 },
             },
             'environment': {
@@ -254,6 +267,28 @@ class Metabolism(Step):
 
         self.nAvogadro = self.parameters["avogadro"]
         self.cellDensity = self.parameters["cell_density"]
+        # GDCW_BASIS is a module-level constant — convert once at init
+        # rather than every tick (called from update() into
+        # get_import_constraints, an upstream-Unum-native API).
+        self._gdcw_basis_unum = pint_to_unum(GDCW_BASIS)
+        # Module-level Unit composites — pint constructs the composite
+        # `units.mmol / units.g / units.h` afresh on every multiplication.
+        # Build them once at init; the unit instances are immutable and
+        # safe to share across ticks.
+        self._constraint_unit = units.mmol / units.g / units.h
+        self._fg_unit = units.fg
+        # Pre-strip the dimensional constants to magnitudes in documented
+        # unit bases, used by _do_update for pure-float arithmetic. The
+        # pint Quantity copies above remain for the upstream-Unum boundary
+        # functions (exchange_constraints, get_import_constraints,
+        # get_kinetic_constraints) that demand them — those are the only
+        # places we rebuild Quantities.
+        #
+        # Dimensional bookkeeping (see docs/refactors/metabolism_magnitude_arithmetic.md):
+        #   self._n_avogadro_per_mol  = 6.022e23 (1/mol)
+        #   self._cell_density_g_per_L = 1100.0  (g/L)
+        self._n_avogadro_per_mol = float(self.nAvogadro.magnitude)
+        self._cell_density_g_per_L = float(self.cellDensity.magnitude)
 
         # Track updated AA concentration targets with tRNA charging
         self.aa_targets = {}
@@ -330,6 +365,17 @@ class Metabolism(Step):
             (v, (base_rxn_indexes, fba_rxn_indexes)), shape=shape
         )
 
+        # Pre-resolve name → solver-index mappings. Replaces per-tick
+        # list-comps over reactionIDs / externalExchangeIDs / shadow IDs
+        # in upstream getReducedCosts / getReactionFluxes / getShadowPrices
+        # with single numpy slices into the cached col_primals / col_duals
+        # / row_duals vectors. See v2ecoli/library/fba_fast.py.
+        self.fba_extract_indices = precompute_indices(
+            self.model.fba,
+            self.model.metaboliteNamesFromNutrients,
+            self.model.kinetics_constrained_reactions,
+        )
+
     def __getstate__(self):
         return self.parameters
 
@@ -355,22 +401,60 @@ class Metabolism(Step):
         timestep = states.get('timestep', 1)
         return self._do_update(timestep, states)
 
+    def _init_bulk_indices(self, bulk_ids):
+        """One-time molecule-name -> bulk-array-index resolution (cold path,
+        guarded by ``self.metabolite_idx is None``)."""
+        self.metabolite_idx = bulk_name_to_idx(
+            self.model.metaboliteNamesFromNutrients, bulk_ids)
+        self.catalyst_idx = bulk_name_to_idx(self.model.catalyst_ids, bulk_ids)
+        self.kinetics_enzymes_idx = bulk_name_to_idx(
+            self.model.kinetic_constraint_enzymes, bulk_ids)
+        self.kinetics_substrates_idx = bulk_name_to_idx(
+            self.model.kinetic_constraint_substrates, bulk_ids)
+        self.aa_idx = bulk_name_to_idx(self.aa_names, bulk_ids)
+
+    def _fba_output_to_deltas(self, fba_out, metabolite_counts_init,
+                              counts_to_molar, coefficient, timestep):
+        """Convert the FBA solution into cell-state changes.
+
+        The FBA returns concentration changes / exchange fluxes (in CONC_UNITS,
+        i.e. mmol/L per timestep). This maps them back to molecule counts:
+
+          * internal metabolites: delta_count = (1/counts_to_molar) * dconc,
+            stochastically rounded and floored at zero;
+          * environmental exchange: delta_count = (1/counts_to_molar) * flux
+            (the cumulative count added to the environment store);
+          * exchange fluxes also reported in gDCW basis (flux/coefficient).
+
+        Returns (delta_metabolites_final, metabolite_counts_final,
+        delta_nutrients, converted_exchange_fluxes, reaction_fluxes).
+        """
+        delta_metabolites = (1 / counts_to_molar) * (
+            CONC_UNITS * fba_out["output_molecule_changes"]
+        )
+        metabolite_counts_final = np.fmax(
+            stochasticRound(
+                self.random_state,
+                metabolite_counts_init + delta_metabolites.magnitude,
+            ),
+            0,
+        ).astype(np.int64)
+        delta_metabolites_final = metabolite_counts_final - metabolite_counts_init
+
+        exchange_fluxes = CONC_UNITS * fba_out["external_exchange_fluxes"]
+        converted_exchange_fluxes = (
+            exchange_fluxes / coefficient).to(GDCW_BASIS).magnitude
+        delta_nutrients = (
+            ((1 / counts_to_molar) * exchange_fluxes).magnitude.astype(int)
+        )
+        reaction_fluxes = fba_out["reaction_fluxes"] / timestep
+        return (delta_metabolites_final, metabolite_counts_final,
+                delta_nutrients, converted_exchange_fluxes, reaction_fluxes)
+
     def _do_update(self, timestep, states):
-        # At t=0, convert all strings to indices
+        # At t=0, resolve molecule-name -> bulk-index maps (runs once).
         if self.metabolite_idx is None:
-            self.metabolite_idx = bulk_name_to_idx(
-                self.model.metaboliteNamesFromNutrients, states["bulk"]["id"]
-            )
-            self.catalyst_idx = bulk_name_to_idx(
-                self.model.catalyst_ids, states["bulk"]["id"]
-            )
-            self.kinetics_enzymes_idx = bulk_name_to_idx(
-                self.model.kinetic_constraint_enzymes, states["bulk"]["id"]
-            )
-            self.kinetics_substrates_idx = bulk_name_to_idx(
-                self.model.kinetic_constraint_substrates, states["bulk"]["id"]
-            )
-            self.aa_idx = bulk_name_to_idx(self.aa_names, states["bulk"]["id"])
+            self._init_bulk_indices(states["bulk"]["id"])
 
         timestep = states["timestep"]
 
@@ -382,8 +466,8 @@ class Metabolism(Step):
         kinetic_substrate_counts = counts(states["bulk"], self.kinetics_substrates_idx)
 
         translation_gtp = states["polypeptide_elongation"]["gtp_to_hydrolyze"]
-        cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
-        dry_mass = states["listeners"]["mass"]["dry_mass"] * units.fg
+        cell_mass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
+        dry_mass = as_quantity(states["listeners"]["mass"]["dry_mass"], units.fg)
 
         # Calculate state values
         cellVolume = cell_mass / self.cellDensity
@@ -401,12 +485,12 @@ class Metabolism(Step):
         # Quantities; anything already unit-bearing is normalized through
         # the bridge.
         unconstrained = set(states["environment"]["exchange_data"]["unconstrained"])
-        _constraint_unit = units.mmol / units.g / units.h
+        constraint_unit = self._constraint_unit
         constrained = {}
         for mol, val in states["environment"]["exchange_data"]["constrained"].items():
             q = unum_to_pint(val)
             if not hasattr(q, "magnitude"):
-                q = q * _constraint_unit
+                q = q * constraint_unit
             constrained[mol] = q
 
         # Determine updates to concentrations depending on the current state
@@ -504,33 +588,28 @@ class Metabolism(Step):
         fba = self.model.fba
         fba.solve(n_retries)
 
-        # Internal molecule changes
-        delta_metabolites = (1 / counts_to_molar) * (
-            CONC_UNITS * fba.getOutputMoleculeLevelsChange()
-        )
-        metabolite_counts_final = np.fmax(
-            stochasticRound(
-                self.random_state, metabolite_counts_init + delta_metabolites.magnitude
-            ),
-            0,
-        ).astype(np.int64)
-        delta_metabolites_final = metabolite_counts_final - metabolite_counts_init
+        # Pull all per-tick LP result arrays in one pass — batched numpy
+        # slices into the solver's cached col_primals / col_duals / row_duals
+        # vectors, plus a tight Python loop for the per-output-molecule sum
+        # over the live _outputMoleculeCoeffs (mutated each tick).
+        # See v2ecoli/library/fba_fast.py.
+        fba_out = extract_results(fba, self.fba_extract_indices)
 
-        # Environmental changes
-        exchange_fluxes = CONC_UNITS * fba.getExternalExchangeFluxes()
-        converted_exchange_fluxes = (exchange_fluxes / coefficient).to(GDCW_BASIS).magnitude
-        delta_nutrients = (
-            ((1 / counts_to_molar) * exchange_fluxes).magnitude.astype(int)
-        )
+        # Map the FBA solution back to molecule-count changes
+        # (see _fba_output_to_deltas for the unit conversions).
+        (delta_metabolites_final, metabolite_counts_final, delta_nutrients,
+         converted_exchange_fluxes, reaction_fluxes) = self._fba_output_to_deltas(
+            fba_out, metabolite_counts_init, counts_to_molar, coefficient,
+            timestep)
 
         # get_import_constraints is upstream Unum-native; convert constrained
-        # values back to Unum at the boundary.
+        # values back to Unum at the boundary. GDCW_BASIS is a constant —
+        # use the converted instance cached in initialize().
         constrained_unum = {k: pint_to_unum(v) for k, v in constrained.items()}
         unconstrained, constrained, uptake_constraints = self.get_import_constraints(
-            unconstrained, constrained_unum, pint_to_unum(GDCW_BASIS)
+            unconstrained, constrained_unum, self._gdcw_basis_unum
         )
 
-        reaction_fluxes = fba.getReactionFluxes() / timestep
         update = {
             "bulk": [(self.metabolite_idx, delta_metabolites_final)],
             "environment": {
@@ -555,10 +634,8 @@ class Metabolism(Step):
                     "reaction_fluxes": reaction_fluxes,
                     "external_exchange_fluxes": converted_exchange_fluxes,
                     "objective_value": fba.getObjectiveValue(),
-                    "shadow_prices": fba.getShadowPrices(
-                        self.model.metaboliteNamesFromNutrients
-                    ),
-                    "reduced_costs": fba.getReducedCosts(fba.getReactionIDs()),
+                    "shadow_prices": fba_out["shadow_prices"],
+                    "reduced_costs": fba_out["reduced_costs"],
                     "target_concentrations": [
                         self.model.homeostatic_objective[mol]
                         for mol in fba.getHomeostaticTargetMolecules()
@@ -574,10 +651,7 @@ class Metabolism(Step):
                     "metabolite_counts_final": metabolite_counts_final,
                     "enzyme_counts_init": kinetic_enzyme_counts,
                     "counts_to_molar": counts_to_molar.to(CONC_UNITS).magnitude,
-                    "actual_fluxes": fba.getReactionFluxes(
-                        self.model.kinetics_constrained_reactions
-                    )
-                    / timestep,
+                    "actual_fluxes": fba_out["kinetics_constrained_fluxes"] / timestep,
                     "target_fluxes": targets / timestep,
                     "target_fluxes_upper": upper_targets / timestep,
                     "target_fluxes_lower": lower_targets / timestep,
@@ -944,15 +1018,36 @@ class FluxBalanceAnalysisModel(object):
         )
 
         # Set hard upper bounds constraints based on enzyme presence
-        # (infinite upper bound) or absence (upper bound of zero)
-        reaction_bounds = np.inf * np.ones(len(self.reactions_with_catalyst))
+        # (infinite upper bound) or absence (upper bound of zero).
+        # Catalyst presence flips for <0.1% of reactions per second of sim
+        # time; the previous implementation pushed all ~9k bounds through
+        # the GLPK Python wrapper every step (5.7M setFlowBounds calls per
+        # 600s sim). Cache the prior mask and forward only the diff —
+        # setFlowBounds is already a value-keyed no-op when value is
+        # unchanged, so this just removes redundant Python dispatch.
         no_rxn_mask = self.catalysis_matrix.dot(catalyst_counts) == 0
-        reaction_bounds[no_rxn_mask] = 0
-        self.fba.setReactionFluxBounds(
-            self.reactions_with_catalyst,
-            upperBounds=reaction_bounds,
-            raiseForReversible=False,
-        )
+        prev_mask = getattr(self, "_prev_no_rxn_mask", None)
+        if prev_mask is None or prev_mask.shape != no_rxn_mask.shape:
+            reaction_bounds = np.where(no_rxn_mask, 0.0, np.inf)
+            self.fba.setReactionFluxBounds(
+                self.reactions_with_catalyst,
+                upperBounds=reaction_bounds,
+                raiseForReversible=False,
+            )
+        else:
+            changed = no_rxn_mask != prev_mask
+            if changed.any():
+                rxn_ids = [
+                    self.reactions_with_catalyst[i]
+                    for i in np.flatnonzero(changed)
+                ]
+                upper = np.where(no_rxn_mask[changed], 0.0, np.inf)
+                self.fba.setReactionFluxBounds(
+                    rxn_ids,
+                    upperBounds=upper,
+                    raiseForReversible=False,
+                )
+        self._prev_no_rxn_mask = no_rxn_mask
 
     def set_reaction_targets(
         self,

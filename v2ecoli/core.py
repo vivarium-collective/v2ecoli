@@ -83,6 +83,14 @@ def load_cache_bundle(cache_dir: str) -> dict[str, Any]:
     """
     verify_cache_version(cache_dir)
     initial_state, cache = _load_cache_bundle_cached(cache_dir)
+    # The translation_supply / trna_charging selector flags were removed from
+    # the elongation process config_schema (model choice is now a wiring
+    # choice). Strip them from pre-existing caches so old caches still build.
+    # Idempotent; safe to mutate the memoized cache once.
+    pe_cfg = cache.get("configs", {}).get("ecoli-polypeptide-elongation")
+    if isinstance(pe_cfg, dict):
+        pe_cfg.pop("translation_supply", None)
+        pe_cfg.pop("trna_charging", None)
     return {"initial_state": copy.deepcopy(initial_state), **cache}
 
 

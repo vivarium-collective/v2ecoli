@@ -78,6 +78,16 @@ class ProteinDegradation(Step):
     Poisson degradation draws and applies stoichiometric updates.
     """
 
+    description = (
+        "Protein Degradation — first-order Poisson hydrolysis of protein monomers.\n\n"
+        "    nᵢ_deg ~ min(Poisson(kᵢ · dt · nᵢ), nᵢ)\n"
+        "    Δmetabolites = S · n_deg\n"
+        "    Proteinᵢ + (Lᵢ−1) H2O → ∑ⱼ aᵢⱼ · AAⱼ\n"
+        "  kᵢ: first-order degradation rate (1/s); nᵢ: copies of protein i;\n"
+        "  aᵢⱼ: count of AA j per protein i; Lᵢ = ∑ⱼ aᵢⱼ (residues);\n"
+        "  S: stoichiometry (metabolites × proteins), +AA release, −(Lᵢ−1) H2O."
+    )
+
     name = NAME
     topology = TOPOLOGY
 
@@ -166,99 +176,3 @@ class ProteinDegradation(Step):
                 (self.protein_idx, -n_to_degrade),
             ]
         }
-
-
-def test_protein_degradation(return_data=False):
-    test_config = {
-        "raw_degradation_rate": np.array([0.05, 0.08, 0.13, 0.21]),
-        "water_id": "H2O",
-        "amino_acid_ids": ["A", "B", "C"],
-        "amino_acid_counts": np.array([[5, 7, 13], [1, 3, 5], [4, 4, 4], [13, 11, 5]]),
-        "protein_ids": ["w", "x", "y", "z"],
-        "protein_lengths": np.array([25, 9, 12, 29]),
-    }
-
-    protein_degradation = ProteinDegradation(test_config)
-
-    state = {
-        "bulk": np.array(
-            [
-                ("A", 10),
-                ("B", 20),
-                ("C", 30),
-                ("w", 50),
-                ("x", 60),
-                ("y", 70),
-                ("z", 80),
-                ("H2O", 10000),
-            ],
-            dtype=[("id", "U40"), ("count", int)],
-        )
-    }
-
-    settings = {"total_time": 100, "initial_state": state}
-
-    data = simulate_process(protein_degradation, settings)
-
-    # Assertions =======================================================
-    bulk_timeseries = np.array(data["bulk"])
-    protein_data = bulk_timeseries[:, 3:7]
-    protein_delta = protein_data[1:] - protein_data[:-1]
-
-    aa_data = bulk_timeseries[:, :3]
-    aa_delta = aa_data[1:] - aa_data[:-1]
-
-    h2o_data = bulk_timeseries[:, 7]
-    h2o_delta = h2o_data[1:] - h2o_data[:-1]
-
-    # Proteins are monotonically decreasing, never <0:
-    for i in range(protein_data.shape[1]):
-        assert monotonically_decreasing(protein_data[:, i]), (
-            f"Protein {test_config['protein_ids'][i]} is not monotonically decreasing."
-        )
-        assert all_nonnegative(protein_data), (
-            f"Protein {test_config['protein_ids'][i]} falls below 0."
-        )
-
-    # Amino acids are monotonically increasing
-    for i in range(aa_data.shape[1]):
-        assert monotonically_increasing(aa_data[:, i]), (
-            f"Amino acid {test_config['amino_acid_ids'][i]} is not monotonically increasing."
-        )
-
-    # H2O is monotonically decreasing, never < 0
-    assert monotonically_decreasing(h2o_data), "H2O is not monotonically decreasing."
-    assert all_nonnegative(h2o_data), "H2O falls below 0."
-
-    # Amino acids are released in specified numbers whenever a protein is degraded
-    aa_delta_expected = map(
-        lambda i: [test_config["amino_acid_counts"].T @ -protein_delta[i, :]],
-        range(protein_delta.shape[0]),
-    )
-    aa_delta_expected = np.concatenate(list(aa_delta_expected))
-    np.testing.assert_array_equal(
-        aa_delta,
-        aa_delta_expected,
-        "Mismatch between expected release of amino acids, and counts actually released.",
-    )
-
-    # N-1 molecules H2O is consumed whenever a protein of length N is degraded
-    h2o_delta_expected = (protein_delta * (test_config["protein_lengths"] - 1)).T
-    h2o_delta_expected = np.sum(h2o_delta_expected, axis=0)
-    np.testing.assert_array_equal(
-        h2o_delta,
-        h2o_delta_expected,
-        (
-            "Mismatch between number of water molecules consumed\n"
-            "and expected to be consumed in degradation."
-        ),
-    )
-
-    print("Passed all tests.")
-
-    if return_data:
-        return data
-
-
-if __name__ == "__main__":
-    test_protein_degradation()

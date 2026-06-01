@@ -313,7 +313,7 @@ runs:
     outcomes:
       succinate-oric-periodic-1-or-2-at-steady-state:
         result: PASS
-        detail: oriC max ≤2 from gen 3, visiting both 1 and 2 (verify_dnaa0_acceptance.py).
+        detail: oriC max ≤2 from gen 3, visiting both 1 and 2 (measure_dnaa_at_steady_state.py).
       succinate-10gen-cell-mass-periodic-after-gen-3:
         result: PASS
         detail: cell_mass CV birth 0.021 / peak 0.045 across gens 3–5 (< 0.05).
@@ -348,11 +348,11 @@ tests:
       max_observed: 2
     status: passed
     result: |
-      PASS — recomputed from parquet (scripts/verify_dnaa0_acceptance.py,
+      PASS — recomputed from parquet (scripts/measure_dnaa_at_steady_state.py,
       2026-05-31): oriC max ≤ 2 from gen 3 onwards, visiting both 1 and 2.
       Per-gen oriC sets: gen1 {1,2,4} (transient overshoot), gen2 {2},
       gen3 {1,2}, gen4 {1,2}, gen5 {1,2}.
-    verified_by: scripts/verify_dnaa0_acceptance.py
+    verified_by: scripts/measure_dnaa_at_steady_state.py
 
   - name: succinate-10gen-cell-mass-periodic-after-gen-3
     classification: primary
@@ -367,11 +367,11 @@ tests:
       cv_threshold: 0.05
     status: passed
     result: |
-      PASS — recomputed from parquet (scripts/verify_dnaa0_acceptance.py,
+      PASS — recomputed from parquet (scripts/measure_dnaa_at_steady_state.py,
       2026-05-31): across gens 3–5, CV of birth cell_mass = 0.021 and CV of
       peak cell_mass = 0.045, both below the 0.05 threshold (birth ≈ 628–658 fg,
       peak ≈ 1131–1250 fg). Periodic sawtooth confirmed.
-    verified_by: scripts/verify_dnaa0_acceptance.py
+    verified_by: scripts/measure_dnaa_at_steady_state.py
 
 conclusion_logic:
   if_primary_tests_pass: |
@@ -417,7 +417,7 @@ findings:
       from_run: dnaa0-5gen-clean-2026-05-30
     provenance:
       run_ids: [dnaa0-5gen-clean-2026-05-30]
-      verified_by: scripts/verify_dnaa0_acceptance.py
+      verified_by: scripts/measure_dnaa_at_steady_state.py
   - id: dnaa-below-band-baseline
     kind: computational
     summary: |
@@ -430,7 +430,7 @@ findings:
       from_run: dnaa0-5gen-clean-2026-05-30
     provenance:
       run_ids: [dnaa0-5gen-clean-2026-05-30]
-      verified_by: scripts/verify_dnaa0_acceptance.py
+      verified_by: scripts/measure_dnaa_at_steady_state.py
 
 limitations:
   - First few generations are expected to be transient (initial state not

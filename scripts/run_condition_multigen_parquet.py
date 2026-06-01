@@ -63,12 +63,18 @@ def _last_cell_state(comp: Composite) -> dict | None:
             if k in keys or k.startswith("request_") or k.startswith("allocate_")}
 
 
+def _fg(q) -> float:
+    """dry_mass in fg as a plain float. Post-merge with origin/main the mass
+    listener emits a pint Quantity (femtogram); strip units if present."""
+    return float(getattr(q, "magnitude", q))
+
+
 def _run_gen(comp: Composite, max_duration: int, gen_idx: int) -> tuple[float, bool, dict | None]:
     total = 0.0
     divided = False
     last_state = _last_cell_state(comp)
     cell0 = comp.state["agents"]["0"]
-    dry0 = float(cell0["listeners"]["mass"].get("dry_mass", 0))
+    dry0 = _fg(cell0["listeners"]["mass"].get("dry_mass", 0))
     print(f"    gen {gen_idx}: initial dry_mass={dry0:.1f} fg")
 
     while total < max_duration:
@@ -92,7 +98,7 @@ def _run_gen(comp: Composite, max_duration: int, gen_idx: int) -> tuple[float, b
             break
         last_state = _last_cell_state(comp)
         if int(total) % 600 == 0 or total >= max_duration - 60:
-            dry = float(cur["listeners"]["mass"].get("dry_mass", 0))
+            dry = _fg(cur["listeners"]["mass"].get("dry_mass", 0))
             print(f"    gen {gen_idx}: t={total/60:5.1f} min  dry_mass={dry:.1f} fg")
 
     # Pre-divide finalize hook (in division.py) already closed the parent
@@ -212,7 +218,7 @@ def main() -> None:
 
             duration, divided, last_state = _run_gen(comp, max_duration, gen_idx)
 
-        dry_f = float((last_state or {}).get("listeners", {}).get("mass", {}).get("dry_mass", 0))
+        dry_f = _fg((last_state or {}).get("listeners", {}).get("mass", {}).get("dry_mass", 0))
         wall = time.time() - t0
         result = {
             "gen": gen_idx,

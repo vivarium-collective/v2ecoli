@@ -445,7 +445,7 @@ findings:
         - dnaa1-mechA-1.7e-3-7gen-2026-05-31
         - dnaa1-mechA-1.5e-3-7gen-2026-05-31
         - dnaa1-mechA-7gen-pristine-2026-05-30
-      verified_by: scripts/analyze_dnaa1_band.py
+      verified_by: scripts/measure_dnaa_at_steady_state.py
   - id: v-retune-1.7e-3-reduces-overshoot
     kind: computational
     summary: |
@@ -458,7 +458,7 @@ findings:
       from_run: dnaa1-mechA-1.7e-3-7gen-2026-05-31
     provenance:
       run_ids: [dnaa1-mechA-1.7e-3-7gen-2026-05-31]
-      verified_by: scripts/analyze_dnaa1_band.py
+      verified_by: scripts/measure_dnaa_at_steady_state.py
 
 tests:
   - name: dnaa-monomer-count-in-band-300-800-across-generations
@@ -476,7 +476,7 @@ tests:
     status: passed
     result: |
       PASS at the cycle-mean level. CANONICAL run V=1.7e-3
-      (dnaa1-mechA-1.7e-3-7gen-2026-05-31, scripts/analyze_dnaa1_band.py):
+      (dnaa1-mechA-1.7e-3-7gen-2026-05-31, scripts/measure_dnaa_at_steady_state.py):
       gens 3–7 cycle-mean 665–710 (CV 2.3%), trough ≥417, all cycle-means in
       [300,800]. (Prior V=2e-3 cycle-mean 706, CV 7.2%.)
     notes: |
@@ -628,7 +628,7 @@ reviewer_feedback:
       "we might have to decrease the rna synthesis probability a little, to get
       to oscillate within the band. Right now, at division it overshoots a
       little." → Re-ran the lineage at V=1.5e-3 and V=1.7e-3 (bracketing 2e-3)
-      and analyzed the full oscillation (scripts/analyze_dnaa1_band.py).
+      and analyzed the full oscillation (scripts/measure_dnaa_at_steady_state.py).
       Finding: the DnaA pool doubles per cycle (peak ≈ 2× trough), so it cannot
       sit entirely within the 2.67×-wide [300,800] band without the trough
       dropping below 300 (V=1.5e-3 dips to 288 and is noisier, CV 10.9%).

@@ -24,17 +24,23 @@ ROOT = os.path.dirname(HERE)
 os.chdir(ROOT)
 sys.path.insert(0, ROOT)
 
-SEEDS = [0, 1, 2, 3]
-CONCURRENCY = 2  # 2 composites max in RAM — well under the 4-branch OOM threshold
-GENERATIONS = 4
-OUT_ROOT = "studies/dnaa-2-atp-hydrolysis/parquet-runs/dnaa2-multiseed-v2"
+# Env-parameterized so the same isolated-per-seed workflow driver serves both
+# the Step-2 canonical run (defaults below) and the Step-3 mechanism run
+# (DnaA-ADP non-equilibrium): pass DNAA2_CACHE / DNAA2_OUT_ROOT / DNAA2_SEEDS /
+# DNAA2_GENS, plus DNAA_ADP_RELEASE_RATE (propagated to each workflow subprocess).
+SEEDS = [int(s) for s in os.environ.get("DNAA2_SEEDS", "0,1,2,3").split(",")]
+CONCURRENCY = int(os.environ.get("DNAA2_CONCURRENCY", "2"))  # composites max in RAM
+GENERATIONS = int(os.environ.get("DNAA2_GENS", "4"))
+OUT_ROOT = os.environ.get(
+    "DNAA2_OUT_ROOT",
+    "studies/dnaa-2-atp-hydrolysis/parquet-runs/dnaa2-multiseed-v2")
 OUT_DIR = os.path.join(OUT_ROOT, "parquet")
 EXPERIMENT_ID = "dnaa2-hydrolysis-multiseed"  # stable -> partitions compose
 PY = sys.executable
 
 BASE = {
     "experiment_id": EXPERIMENT_ID,
-    "cache_dir": "out/cache-succinate-mechA-2e-3",
+    "cache_dir": os.environ.get("DNAA2_CACHE", "out/cache-succinate-mechA-2e-3"),
     "out_dir": OUT_DIR,
     "generations": GENERATIONS,
     "n_init_sims": 1,

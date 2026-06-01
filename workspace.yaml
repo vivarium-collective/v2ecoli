@@ -105,9 +105,10 @@ references_pdfs:
     path: workspace/references/papers/millard_2017_metabolic_regulation_ecoli.pdf
     sha256: 39b8c0eba221cd0d156180a66cb0747219a4a3464f9c2b7b40dac2be9bfe4b8e
 imports:
-  - name: pbg_oxidizeme
+  pbg_oxidizeme:
     source: https://github.com/vivarium-collective/pbg-oxidizeme
-    version: 0.1.0
+    ref: '0.1.0'
+    mode: reference
     description: |
       OxidizeME ME-model wrapper (Yang et al. 2019 PNAS / Palsson lab).
       Conforms to the cell-side interface contract — drop-in candidate

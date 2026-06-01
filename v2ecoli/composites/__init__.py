@@ -10,8 +10,8 @@ from v2ecoli.composites import (  # noqa: F401
     baseline_population,
     baseline_time_varying_env,
     colony,
-    departitioned,
-    reconciled,
+    millard_pdmp_baseline,
+    parca,
 )
 
 __all__ = [
@@ -19,6 +19,6 @@ __all__ = [
     "baseline_population",
     "baseline_time_varying_env",
     "colony",
-    "departitioned",
-    "reconciled",
+    "millard_pdmp_baseline",
+    "parca",
 ]

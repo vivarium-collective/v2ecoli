@@ -14,20 +14,21 @@ out/
 build/
 v2ecoli/processes/parca/**/*.cpython-*.so
 
-# Worktree-local runtime + workspace / investigation runtime artefacts
-# (regenerable; not source). Blanket `.pbg/` covers every dashboard-
-# authored runtime file (composite-runs.db, dashboard/ pid+log+info,
-# runs/ per-run logs, server/, state.json, study-test-results/, …) so
-# the dashboard's dirty-tree gate doesn't block on its own writes.
-# Schemas under .pbg/schemas/ stay tracked.
+# Workspace / investigation runtime artefacts (regenerable; not source)
+# See friction-log session-3 #24 and 2026-05-19 item #15. Blanket `.pbg/`
+# covers every dashboard-authored runtime file (composite-runs.db + shm +
+# wal, dashboard/ pid+log+info, runs/ per-run logs, server/, state.json,
+# study-test-results/, default-baseline/, …) so the dashboard's
+# dirty-tree gate stops blocking Install / Workstream Commit on its own
+# writes.
 .venv
 .pbg/
+# schemas under .pbg/schemas/ are source — keep them tracked
 !.pbg/schemas/
 **/runs.db
 **/runs.db-shm
 **/runs.db-wal
 investigations/*/runs.db
-investigations/*/viz/
 investigations/*/.run.lock
 studies/*/sims/*.subprocess.py
 studies/*/sims/parquet-rerun-*/
@@ -38,10 +39,21 @@ studies/*/viz/
 # regenerable by re-running scripts/run_mbp_tracked.py --emitter parquet.
 studies/*/parquet-runs/
 reports/
+# dashboard re-render targets (regenerated on demand by /api/render)
+reports/assets/*
+!reports/assets/.keep
+investigations/*/viz/
 .dashboard.log
 # Dashboard re-render targets (regenerated on demand by /api/render)
 reports/assets/*
 !reports/assets/.keep
+
+# Local git-worktree checkouts under .claude/worktrees/ — per-session working
+# trees, never part of the repo.
+.claude/worktrees/
+# Project-level Claude skills — use the pbg-superpowers skills instead of
+# committing copies here.
+.claude/skills/
 
 # Per-session agent notes (friction logs, overnight summaries, internal
 # observations meant for the pbg-superpowers improvement-cycle agent).

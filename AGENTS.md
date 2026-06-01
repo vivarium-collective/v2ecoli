@@ -55,6 +55,22 @@ For deeper questions about either framework, invoke the `pbg-expert` skill.
    that runs the process inside a composite and asserts on an outcome
    (growth rate, molecule count, concentration, etc.). A unit test of a
    helper function does not substitute.
+6. **Parity gate (behavior-preserving refactors).** Any change claiming to
+   preserve behavior (deriver/flow consolidation, port-schema edits, renames)
+   must pass the committed gate before commit — never claim "byte-identical"
+   from memory:
+
+   ```
+   PYTHONPATH=$PWD .venv/bin/python scripts/parity_check.py \
+       --seconds 120 --compare tests/golden/baseline_parity_signature.json \
+       --build-check
+   ```
+
+   Two gates: a deep null-emitter signature vs the committed golden, AND a
+   real-emitter `build_composite` (the second catches emitter-schema resolve
+   failures the null emitter hides). Exit 0 = both pass. Re-capture the golden
+   (`--out`) only from a clean `origin/main` worktree when main's behavior
+   intentionally changes.
 
 ## E. coli domain details
 
@@ -82,12 +98,12 @@ For deeper questions about either framework, invoke the `pbg-expert` skill.
 
 The IDs are scattered across many places. Search in roughly this order:
 
-1. **Workspace expert docs first.** `references/expert/*.html` or `.pdf` —
+1. **Workspace expert docs first.** `workspace/references/expert/*.html` or `.pdf` —
    for the DnaA investigation, the May 2026 prior-art HTML report
    (`v2ecoli_replication_initiation_report`) enumerates every relevant
    bulk ID + reaction ID with biological context. Check
    `workspace.yaml.expert_docs[]` for the registered set, plus
-   `references/notes/*.md` for the per-paper digests.
+   `workspace/references/notes/*.md` for the per-paper digests.
 
 2. **Existing process modules.** Many processes hardcode the IDs they
    touch as module-level constants — `grep -rn 'PD0\|MONOMER0\|CPLX0\|RXN0' v2ecoli/processes/` finds them fast.
@@ -120,12 +136,12 @@ biological name.
 - **ParCa** (Parameter Calculator) builds `sim_data` from raw EcoCyc-derived
   knowledge bases. It's expensive (minutes to hours). Never run ParCa in CI —
   CI uses a frozen gzipped cache at `tests/fixtures/cache/`.
-- **Three architectures** all simulate the same cell:
-  - `baseline` — partitioned, 55 processes, upstream-parity.
-  - `departitioned` — 41 steps, requester+evolver halves fused.
-  - `reconciled` — hybrid.
-  A change to a process must work across all three, or the PR must explain
-  why it's scoped. Use the architecture comparison report to verify.
+- **Architectures**:
+  - `baseline` — partitioned, 55 processes, upstream-parity (the reference).
+  - `colony` — many baseline cells in a shared environment (multi-agent).
+  - `millard_pdmp_baseline` — piecewise-deterministic Markov-process variant.
+  A change to a process must work across all of them, or the PR must explain
+  why it's scoped.
 
 ### Adding a new composite architecture
 
@@ -155,14 +171,67 @@ touches processes, steps, or composite wiring.
   lineage with mass trajectories and fold-change.
 - `reports/colony_report.py` → `colony_report.html` — mixed colony with pymunk
   physics, growth, and division.
-- `reports/compare_report.py` → `comparison_report.html` — baseline vs departitioned
-  vs reconciled, 42-min side-by-side.
 - `reports/network_report.py` → `network_*.html` — per-architecture Cytoscape
   topology. Click a process to see ports, schemas, config, docstring, math.
 - `reports/v1_v2_report.py` → `v1_v2_comparison.html` — vEcoli 1.0 vs 2.0 vs v2ecoli.
 - `reports/benchmark_report.py` — v2ecoli vs vEcoli composite subprocess benchmark.
 
 Published at https://vivarium-collective.github.io/v2ecoli/.
+
+### HTML reports with provenance banners — attach to substantial PRs
+
+When a PR makes a substantial change to a Process / Step / composite /
+biology behaviour, generate an HTML report that captures the change and
+attach it to the PR as committed evidence.
+
+The HTML must include a **provenance banner** at the top so it stays
+self-describing once the file is months old. Capture, at minimum:
+
+- ISO-8601 generated timestamp
+- Git SHA (full + short), linked to the GitHub commit URL
+- Git branch + a `DIRTY TREE` badge if `git status --porcelain` is non-empty
+- Last commit message + author + date (so the reader can see what code
+  produced the artefact without leaving the page)
+- Path to the generator script (relative to repo root)
+- Host name + OS + Python version
+
+Pattern: see `scripts/compare_pdmp_vs_baseline.py::collect_provenance`.
+
+**Standard tool — `scripts/pr_session_report.py`.** For a PR/session report,
+use this reusable generator rather than hand-rolling one — it produces the
+provenance banner *and* before/after parity plots:
+
+```bash
+python scripts/pr_session_report.py capture --out /tmp/after.json --steps 60
+cp scripts/pr_session_report.py /tmp/prr.py          # so it exists on the base ref
+git checkout main && python /tmp/prr.py capture --out /tmp/before.json --steps 60
+git checkout -
+python scripts/pr_session_report.py render --before /tmp/before.json \
+  --after /tmp/after.json --out reports/figures/<study>/report.html \
+  --title "..." --summary-file <summary.html>
+```
+
+`capture` is self-contained (no branch-only imports) so the same file runs on
+any ref; the before/after overlay is how a refactor shows it preserved behavior
+(curves coincide, final-step rel diff ~0).
+
+Save TWO copies per run:
+
+1. `reports/figures/<study>/<short_name>.html` — overwritten each render;
+   the "latest" entry the PR description / README links to.
+2. `reports/figures/<study>/<short_name>_<YYYYMMDDTHHMMSS>_<git_short>.html`
+   — archival, never overwritten. Add a `git add -f` for this file
+   (`reports/` is gitignored so new artefacts need `-f`), then commit and
+   reference it in a PR comment so the artefact is versioned alongside
+   the code that produced it.
+
+PR comment template (when posting the archive link):
+
+> Evidence: [pdmp_vs_baseline_20260530T103045_aa7a2de.html](…)
+> Generated from `aa7a2de` on `v2ecoli-pdmp`, 600 s sim, seed=0.
+
+This makes every substantive review easier — the reviewer can open the
+HTML and see the exact state of the simulation the PR is claiming.
 
 ## Tests you must know about
 

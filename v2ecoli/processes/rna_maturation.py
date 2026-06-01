@@ -51,6 +51,15 @@ class RnaMaturation(Step):
     are marginal vs pools), so runs as a plain Step.
     """
 
+    description = (
+        "RNA Maturation — stoichiometric processing of unprocessed tRNA/rRNA into mature forms.\n\n"
+        "    reaction_off = (E · enzyme_present) < n_required;   n_unproc[off] = 0\n"
+        "    n_mature = S · n_unproc;   ppi = ppi_per_rxn · n_unproc\n"
+        "    rRNA variant consolidation: Δnts = Δnt_countsᵀ · n_variant;  NMP +Δ, H2O −Σ, H⁺ +Σ\n"
+        "  S: stoich (mature × unprocessed, CSR); E: enzyme-requirement (rxns × enzymes);\n"
+        "  Δnt_counts: NMP difference variant vs canonical 16S/23S/5S."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

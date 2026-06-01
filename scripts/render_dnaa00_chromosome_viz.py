@@ -8,7 +8,7 @@ multi-panel chromosome figure (circular maps at 5 timepoints + replication-fork
 progress timeseries + mass growth).
 
 Output: a self-contained HTML at
-`studies/dnaa-00-parameter-foundation/viz/chromosome_state.html` that wraps the
+`workspace/studies/dnaa-00-parameter-foundation/viz/chromosome_state.html` that wraps the
 matplotlib PNG (base64) in a small page suitable for the report's iframe embed.
 
 Usage:
@@ -156,7 +156,7 @@ def main() -> None:
                     help="composite cache dir (default: Stage-1 glycerol)")
     ap.add_argument(
         "--out",
-        default="studies/dnaa-00-parameter-foundation/viz/chromosome_state.html",
+        default="workspace/studies/dnaa-00-parameter-foundation/viz/chromosome_state.html",
         help="output HTML path (relative to workspace root)",
     )
     ap.add_argument(

@@ -57,8 +57,7 @@ INPUT_FILES: tuple[str, ...] = (
     "v2ecoli/composites/baseline_population.py",
     "v2ecoli/composites/baseline_time_varying_env.py",
     "v2ecoli/composites/colony.py",
-    "v2ecoli/composites/departitioned.py",
-    "v2ecoli/composites/reconciled.py",
+    "v2ecoli/composites/millard_pdmp_baseline.py",
 )
 
 

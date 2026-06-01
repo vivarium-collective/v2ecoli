@@ -94,6 +94,18 @@ OUTPUT_PORTS = {
 class BasalSpecsStep(Step):
     """Step 3 — build basal cell specifications.  See module docstring."""
 
+    description = (
+        "Step 3 — basal_specs.  Fit the minimal-medium (basal) condition.\n\n"
+        "expressionConverge (fixed-point): iterate rna_synth_prob until the\n"
+        "implied steady-state mRNA / tRNA / rRNA levels reproduce the measured\n"
+        "rna_expression within tolerance. Then calibrate derived constants:\n"
+        "  • setPpGppExpression — ppGpp-regulated expression tables\n"
+        "  • fitRnaDecayKm      — endoRNase K_M so mRNA half-lives match data\n"
+        "  • fitMaintenanceCosts— regress ATP vs dry mass → GAM coefficient\n"
+        "Everything downstream assumes these basal fits hold; writes\n"
+        "cell_specs['basal'] (bulk_average, bulk_distribution, n_avg_copies)."
+    )
+
     config_schema = {
         'variable_elongation_transcription':
             {'_type': 'boolean', '_default': True},

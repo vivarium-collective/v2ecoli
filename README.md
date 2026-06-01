@@ -23,6 +23,11 @@ Pan/zoom, expand store chips, toggle nodes on/off, and click a process to see
 its inputs/outputs and governing equations. Regenerate locally with
 `python scripts/viz_baseline_interactive.py` (or `viz_parca_interactive.py`).
 
+For the equations on their own — every process's governing math grouped by
+subsystem, plus the per-tick execution flow and the partition→allocate→evolve
+contract — see the **[Mathematical structure report](https://vivarium-collective.github.io/v2ecoli/math_structure.html)**
+(`python reports/math_structure_report.py`).
+
 ## Install
 
 Requires [`uv`](https://docs.astral.sh/uv/) and a C compiler (Xcode CLI

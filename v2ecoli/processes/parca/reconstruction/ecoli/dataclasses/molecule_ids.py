@@ -31,6 +31,8 @@ class MoleculeIds(object):
             "proton": "PROTON[c]",
             "ppi": "PPI[c]",
             "full_chromosome": "CHROM_FULL[c]",
+            "plasmid_ori": "P-ori",
+            "full_plasmid": "full_plasmid[c]",
         }
 
         self.__dict__.update(molecule_ids)

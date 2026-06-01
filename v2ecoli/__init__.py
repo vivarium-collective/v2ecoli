@@ -12,6 +12,36 @@ from v2ecoli import composites  # noqa: F401 — forces @composite_generator dec
 from v2ecoli import visualizations  # noqa: F401 — forces Visualization Steps into link_registry
 
 
+def build_document(
+    name: str,
+    *,
+    core: Any = None,
+    **kwargs: Any,
+) -> dict:
+    """Build a composite document (dict) by architecture name.
+
+    Same arguments as :func:`build_composite`, but returns the raw
+    composite document instead of an instantiated ``Composite``. Use this
+    when you need to mutate the document before wrapping (e.g. stripping
+    the emitter step in long-running multigen runners to keep RAM
+    bounded — see ``scripts/run_plasmid_multigen.py``).
+    """
+    if core is None:
+        core = build_core()
+    matches = [e for e in _REGISTRY.values() if e.name == name]
+    if not matches:
+        available = sorted({e.name for e in _REGISTRY.values()})
+        raise ValueError(
+            f"unknown composite architecture {name!r}; available: {available}"
+        )
+    if len(matches) > 1:
+        raise ValueError(
+            f"ambiguous architecture name {name!r}; multiple generators registered: "
+            f"{[e.id for e in matches]}"
+        )
+    return build_generator(matches[0], overrides=kwargs, core=core)
+
+
 def build_composite(
     name: str,
     *,
@@ -39,19 +69,8 @@ def build_composite(
     """
     if core is None:
         core = build_core()
-    matches = [e for e in _REGISTRY.values() if e.name == name]
-    if not matches:
-        available = sorted({e.name for e in _REGISTRY.values()})
-        raise ValueError(
-            f"unknown composite architecture {name!r}; available: {available}"
-        )
-    if len(matches) > 1:
-        raise ValueError(
-            f"ambiguous architecture name {name!r}; multiple generators registered: "
-            f"{[e.id for e in matches]}"
-        )
-    doc = build_generator(matches[0], overrides=kwargs, core=core)
+    doc = build_document(name, core=core, **kwargs)
     return Composite(doc, core=core)
 
 
-__all__ = ["build_composite", "build_core"]
+__all__ = ["build_composite", "build_core", "build_document"]

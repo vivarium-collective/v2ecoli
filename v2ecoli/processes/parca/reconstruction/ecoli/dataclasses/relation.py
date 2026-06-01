@@ -114,20 +114,58 @@ class Relation(object):
         Builds a dictionary that maps RNA IDs to a list of all transcription
         factor IDs that regulate the given RNA. All TFs that target any of the
         constituent cistrons in the RNA are added to each list.
+
+        Phase 3 of Path 3: ``tf_tu_routing.tsv`` entries with
+        ``route_only=true`` restrict a (TF, target_gene) regulation to a
+        specific TU; TFs are removed from other TUs containing the cistron.
+        See reports/regulation_data_pipeline_v2ecoli.html §10.
         """
         cistron_ids = sim_data.process.transcription.cistron_data["id"]
 
+        # Build (tf_active_id, cistron_rna_id) -> set of allowed TU_ids from
+        # tf_tu_routing.tsv. When a (TF, cistron) pair is in this map, only
+        # the listed TUs may inherit the TF; other TUs containing the cistron
+        # are filtered out.
+        restrict = {}
+        if getattr(raw_data, "tf_tu_routing", None):
+            # Map TSV short names -> active complex IDs via
+            # transcription_factors.tsv (column "activeId")
+            tf_short_to_active = {
+                tf["TF"]: tf["activeId"]
+                for tf in raw_data.transcription_factors
+                if tf.get("activeId")
+            }
+            # Map gene short names -> cistron RNA IDs via raw_data.genes
+            gene_short_to_rna = {
+                g["symbol"]: g["rna_ids"][0] for g in raw_data.genes
+            }
+            for row in raw_data.tf_tu_routing:
+                if str(row.get("route_only", "")).lower() not in ("true", "1"):
+                    continue
+                tf_id = tf_short_to_active.get(row["TF"])
+                cistron = gene_short_to_rna.get(row["target_gene"])
+                if not tf_id or not cistron:
+                    continue
+                restrict.setdefault((tf_id, cistron), set()).add(row["TU_id"])
+
         self.rna_id_to_regulating_tfs = {}
         for rna_id in sim_data.process.transcription.rna_data["id"]:
+            tu_id_no_loc = str(rna_id).split("[")[0]
             tf_list = []
             for (
                 cistron_index
             ) in sim_data.process.transcription.rna_id_to_cistron_indexes(rna_id):
-                tf_list.extend(
-                    sim_data.process.transcription_regulation.target_tf.get(
-                        cistron_ids[cistron_index], []
-                    )
-                )
+                cistron = cistron_ids[cistron_index]
+                for tf in sim_data.process.transcription_regulation.target_tf.get(
+                    cistron, []
+                ):
+                    # Apply tf_tu_routing restriction: if a restriction
+                    # exists for this (tf, cistron), skip TUs not in the
+                    # allowed set.
+                    allowed_tus = restrict.get((tf, cistron))
+                    if allowed_tus is not None and tu_id_no_loc not in allowed_tus:
+                        continue
+                    tf_list.append(tf)
 
             # Remove duplicates and sort
             self.rna_id_to_regulating_tfs[rna_id] = sorted(set(tf_list))

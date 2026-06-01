@@ -392,6 +392,61 @@ class InternalState(object):
             "DnaA_box"
         )
 
+        # Plasmid unique molecules (ColE1 / pBR322)
+        full_plasmid_mass = (units.g / units.mol) * np.zeros_like(RNAP_mass)
+        full_plasmid_mass[sim_data.submass_name_to_index["DNA"]] = (
+            sim_data.getter.get_mass(sim_data.molecule_ids.full_plasmid)
+        )
+        full_plasmid_attributes = {
+            "division_time": "f8",
+            "has_triggered_division": "?",
+            "domain_index": "i4",
+        }
+        self.unique_molecule.add_to_unique_state(
+            "full_plasmid", full_plasmid_attributes, full_plasmid_mass
+        )
+        sim_data.molecule_groups.unique_molecules_domain_index_division.append(
+            "full_plasmid"
+        )
+
+        plasmid_domain_mass = (units.g / units.mol) * np.zeros_like(RNAP_mass)
+        plasmid_domain_attributes = {
+            "domain_index": "i4",
+            "child_domains": ("i4", 2),
+        }
+        self.unique_molecule.add_to_unique_state(
+            "plasmid_domain", plasmid_domain_attributes, plasmid_domain_mass
+        )
+        sim_data.molecule_groups.unique_molecules_domain_index_division.append(
+            "plasmid_domain"
+        )
+
+        oriV_mass = (units.g / units.mol) * np.zeros_like(RNAP_mass)
+        oriV_attributes = {
+            "domain_index": "i4",
+        }
+        self.unique_molecule.add_to_unique_state(
+            "oriV", oriV_attributes, oriV_mass
+        )
+        sim_data.molecule_groups.unique_molecules_domain_index_division.append(
+            "oriV"
+        )
+
+        plasmid_replisome_mass = (units.g / units.mol) * np.zeros_like(RNAP_mass)
+        plasmid_replisome_attributes = {
+            "domain_index": "i4",
+            "right_replichore": "?",
+            "coordinates": "i8",
+        }
+        self.unique_molecule.add_to_unique_state(
+            "plasmid_active_replisome",
+            plasmid_replisome_attributes,
+            plasmid_replisome_mass,
+        )
+        sim_data.molecule_groups.unique_molecules_domain_index_division.append(
+            "plasmid_active_replisome"
+        )
+
     def _build_compartments(self, raw_data, sim_data):
         _ = sim_data
         compartmentData = np.empty(

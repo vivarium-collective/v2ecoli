@@ -18,6 +18,7 @@ from bigraph_schema import allocate_core
 from v2ecoli.cache import load_initial_state, save_initial_state, save_json
 from v2ecoli.library.cache_version import (
     StaleCacheError,
+    verify_cache_version,
     write_cache_version,
 )
 # Import at module load so the shared pint UnitRegistry has
@@ -74,7 +75,13 @@ def load_cache_bundle(cache_dir: str) -> dict[str, Any]:
     shared UnitRegistry) is memoized per ``cache_dir``; ``initial_state`` is
     deep-copied because ``build_document`` mutates it, while the cache dict
     is returned by reference (read-only).
+
+    Fails fast with ``StaleCacheError`` if ``cache_version.json`` doesn't
+    match the current sim_data / unit-bridge / composite-wiring inputs —
+    without this, a stale cache surfaces as obscure AttributeErrors deep
+    inside mass_listener / equilibrium.
     """
+    verify_cache_version(cache_dir)
     initial_state, cache = _load_cache_bundle_cached(cache_dir)
     # The translation_supply / trna_charging selector flags were removed from
     # the elongation process config_schema (model choice is now a wiring
@@ -114,9 +121,13 @@ def _write_sim_input_bundle(loader, bundle_dir):
     state = loader.generate_initial_state()
     save_initial_state(state, os.path.join(bundle_dir, 'initial_state.json'))
 
+    config_names = list(_CACHE_CONFIG_NAMES)
+    if getattr(loader, 'has_plasmid', False):
+        config_names.append('ecoli-plasmid-replication')
+
     configs = {}
     failed: list[tuple[str, Exception]] = []
-    for name in _CACHE_CONFIG_NAMES:
+    for name in config_names:
         try:
             configs[name] = loader.get_config_by_name(name)
         except Exception as e:  # noqa: BLE001 — surface the name+error, don't lose it
@@ -156,19 +167,29 @@ def _write_sim_input_bundle(loader, bundle_dir):
     print(f"Sim-input bundle saved to {bundle_dir}")
 
 
-def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
+def save_cache(sim_data_path, cache_dir='out/cache', seed=0,
+               has_plasmid=False, mechanistic_replisome=False):
     """Generate the simulation-input bundle from a dilled SimulationDataEcoli.
 
     Prefer ``save_sim_input(sim_data, ...)`` when the SimulationDataEcoli is
     already in memory — this entry point exists for callers that only have a
     pickle path (legacy vEcoli ``simData.cPickle``).
+
+    Set ``has_plasmid=True`` to bake the ecoli-plasmid-replication config
+    (used by scripts/build_plasmid_cache.py). ``mechanistic_replisome=True``
+    requires the full replisome subunit complement before chromosome /
+    plasmid replication will initiate (matches LoadSimData's stricter
+    initiation gate).
     """
     from v2ecoli.library.sim_data import LoadSimData
-    loader = LoadSimData(sim_data_path=sim_data_path, seed=seed)
+    loader = LoadSimData(sim_data_path=sim_data_path, seed=seed,
+                         has_plasmid=has_plasmid,
+                         mechanistic_replisome=mechanistic_replisome)
     _write_sim_input_bundle(loader, cache_dir)
 
 
 def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
+                   has_plasmid=False, mechanistic_replisome=False,
                    condition=None, fixed_media=None):
     """Generate the simulation-input bundle from a live ``SimulationDataEcoli``.
 
@@ -178,6 +199,8 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
     its fixture) — the resulting bundle is byte-for-byte equivalent to what
     ``save_cache`` would produce from the same sim_data dilled to a file.
 
+    See ``save_cache`` for ``has_plasmid`` / ``mechanistic_replisome``.
+
     ``condition`` (e.g. "acetate") and ``fixed_media`` (e.g. "minimal_acetate")
     select a non-default nutrient condition so the generated initial state
     reflects that condition's growth rate / doubling time — both already live in
@@ -185,7 +208,9 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
     is needed. Omitted → default basal / minimal (glucose).
     """
     from v2ecoli.library.sim_data import LoadSimData
-    kwargs = {"sim_data": sim_data, "seed": seed}
+    kwargs = {"sim_data": sim_data, "seed": seed,
+              "has_plasmid": has_plasmid,
+              "mechanistic_replisome": mechanistic_replisome}
     if condition is not None:
         kwargs["condition"] = condition
     if fixed_media is not None:

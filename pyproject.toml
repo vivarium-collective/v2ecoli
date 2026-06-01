@@ -37,6 +37,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+parca-build = ["cython", "setuptools>=68"]
 # Test-only deps. `uv sync --extra dev` pulls these in.
 dev = ["pytest-timeout>=2.3", "pytest-xdist>=3.6"]
 parquet = [

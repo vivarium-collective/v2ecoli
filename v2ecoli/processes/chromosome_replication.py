@@ -65,7 +65,7 @@ from v2ecoli.library.quantity_helpers import as_quantity
 from v2ecoli.library.polymerize import buildSequences, polymerize, computeMassIncrease
 
 # topology_registry removed
-from v2ecoli.library.ecoli_step import EcoliStep as Step
+from v2ecoli.steps.partition import PartitionedProcess
 from v2ecoli.library.schema_types import (
     ACTIVE_REPLISOME_ARRAY,
     ORIC_ARRAY,
@@ -89,11 +89,25 @@ TOPOLOGY = {
 }
 
 
-class ChromosomeReplication(Step):
-    """Chromosome Replication Step
+class ChromosomeReplication(PartitionedProcess):
+    """Chromosome Replication PartitionedProcess.
 
-    dNTPs are consumed only by chromosome replication; no other process
-    competes for them. Runs as a plain Step.
+    Implements ``calculate_request()`` (mass-gate check + subunit/dNTP
+    request) and ``evolve_state()`` (initiate, elongate, terminate).
+    The class itself is framework-agnostic — wiring in ``generate.py``
+    decides whether it runs:
+
+    1. wrapped in ``DepartitionedStep`` (default, chromosome-only path)
+       — sequential execution on raw bulk; behaviorally equivalent to
+       the previous Step implementation.
+    2. wrapped in ``ReconciledStep`` together with ``PlasmidReplication``
+       (plasmid-aware path with ``reconciled_replication`` feature on)
+       — proportional fairness between the two replication processes.
+
+    Both wrappers are themselves Step subclasses, so process-bigraph
+    sees a Step in layer 4b and dispatches accordingly.  dNTPs are
+    consumed only by chromosome replication; no other process competes
+    for them.
     """
 
     description = (
@@ -204,12 +218,7 @@ class ChromosomeReplication(Step):
 
         self.ppi_idx = None
 
-    def update(self, states, interval=None):
-        self._prepare(states)
-        return self._evolve(states)
-
-    def _prepare(self, states):
-        timestep = states["timestep"]
+    def calculate_request(self, timestep, states):
         if self.ppi_idx is None:
             self.ppi_idx = bulk_name_to_idx(self.ppi, states["bulk"]["id"])
             self.replisome_trimers_idx = bulk_name_to_idx(
@@ -224,7 +233,7 @@ class ChromosomeReplication(Step):
         n_oriC = states["oriCs"]["_entryState"].sum()
         # If there are no origins, return immediately
         if n_oriC == 0:
-            return
+            return requests
 
         # Get current cell mass
         cellMass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
@@ -258,7 +267,7 @@ class ChromosomeReplication(Step):
         # If there are no active forks return
         n_active_replisomes = states["active_replisomes"]["_entryState"].sum()
         if n_active_replisomes == 0:
-            return
+            return requests
 
         # Get current locations of all replication forks
         (fork_coordinates,) = attrs(states["active_replisomes"], ["coordinates"])
@@ -298,11 +307,9 @@ class ChromosomeReplication(Step):
             )
         )
 
-        # requests no longer used in Step form; kept locally for clarity
-        _ = requests
+        return requests
 
-    def _evolve(self, states):
-        timestep = states["timestep"]
+    def evolve_state(self, timestep, states):
         # Initialize the update dictionary
         update = {
             "bulk": [],
@@ -337,9 +344,16 @@ class ChromosomeReplication(Step):
             # 2) If mechanistic replisome option is on, there are enough
             # replisome subunits to assemble two replisomes per existing OriC.
             # Note that we assume asynchronous initiation does not happen.
+            # v2ecoli runs chromosome replication outside the main allocator,
+            # so `counts(states["bulk"], ...)` returns raw total bulk rather
+            # than an allocator-requested slice equal to the per-tick demand.
+            # `==` therefore reads "bulk exactly equals demand" — effectively
+            # never true against counts in the 10s–100s — and silently gates
+            # re-initiation off under mechanistic_replisome=True. `>=` matches
+            # the "enough subunits" intent stated above.
             initiate_replication = not self.mechanistic_replisome or (
-                np.all(n_replisome_trimers == 6 * n_oriC)
-                and np.all(n_replisome_monomers == 2 * n_oriC)
+                np.all(n_replisome_trimers >= 6 * n_oriC)
+                and np.all(n_replisome_monomers >= 2 * n_oriC)
             )
 
         # If all conditions are met, initiate a round of replication on every

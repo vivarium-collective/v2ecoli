@@ -218,6 +218,11 @@ class InputAdjustmentsStep(Step):
             dict(adjustments.rna_expression_adjustments),
             cistron_to_rna_indexes,
         )
+        # Reapply per-promoter ratios (Phase 2b of Path 3) after this step's
+        # re-fit overwrites rna_expression['basal']. See
+        # reports/regulation_data_pipeline_v2ecoli.html §10.
+        new_rna_expr = transcription._apply_per_promoter_ratios(
+            new_rna_expr, rna_ids, "basal")
         transcription.rna_expression['basal'][:] = new_rna_expr
 
         # --- RNA + cistron degradation rates ---

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head>
-<meta charset="UTF-8"><title>v2ecoli:multiscale-bioprocess</title>
-<link rel="stylesheet" href="assets/style.css?v=1779573989_1779497488">
+<meta charset="UTF-8"><title>v2ecoli</title>
+<link rel="stylesheet" href="assets/style.css?v=1780023143_1779982631">
 <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
 <style>
 /* Modal overlay */
@@ -306,7 +306,7 @@
               aria-haspopup="true" aria-expanded="false"
               id="viv-workspace-switcher-trigger">
         <span class="viv-workspace-switcher-glyph">●</span>
-        <strong>v2ecoli:multiscale-bioprocess</strong>
+        <strong>v2ecoli</strong>
         <span class="viv-arrow">▾</span>
       </button>
     </div>
@@ -325,16 +325,20 @@
         </span>
         <span class="viv-rail-link-label">Inputs</span>
       </a>
-      <!-- Registry: 3×2 grid of stores — the type catalog (R_T) -->
+      <!-- Registry: 3×2 grid of stores — the type catalog. Top row of
+           circles (continuous-type stores) over a bottom row of squares
+           (discrete/struct-type stores). The mixed-shape pair reads as
+           "different KINDS of stores" rather than a uniform grid, which
+           better matches the registry's heterogeneous-types semantics. -->
       <a href="#registry"          class="viv-rail-link menu-link" data-page="registry">
         <span class="viv-rail-link-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="viv-rail-link-svg">
-            <circle cx="6" cy="7" r="2.2"/>
+            <circle cx="6"  cy="7" r="2.2"/>
             <circle cx="12" cy="7" r="2.2"/>
             <circle cx="18" cy="7" r="2.2"/>
-            <circle cx="6" cy="17" r="2.2"/>
-            <circle cx="12" cy="17" r="2.2"/>
-            <circle cx="18" cy="17" r="2.2"/>
+            <rect x="3.8"  y="14.8" width="4.4" height="4.4" rx="0.3"/>
+            <rect x="9.8"  y="14.8" width="4.4" height="4.4" rx="0.3"/>
+            <rect x="15.8" y="14.8" width="4.4" height="4.4" rx="0.3"/>
           </svg>
         </span>
         <span class="viv-rail-link-label">Registry</span>
@@ -377,22 +381,34 @@
         </span>
         <span class="viv-rail-link-label">Simulations DB</span>
       </a>
-      <!-- Visualizations: axes + scientific curve + data points -->
+      <!-- Visualizations: axes + line-chart polyline + data points.
+           Polyline style (vs the previous smooth sigmoid) reads more
+           clearly as "scientific plot" at rail-icon size — matches the
+           chart-icon convention common across viz / analytics UIs and
+           the mockup's iconography. -->
       <a href="#visualizations"    class="viv-rail-link menu-link" data-page="visualizations">
         <span class="viv-rail-link-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="viv-rail-link-svg">
             <!-- L-shaped axes -->
             <path d="M4 4 V20 H20"/>
-            <!-- smooth sigmoid-style curve rising left → right -->
-            <path d="M6 17 C 8.5 17, 10 13, 12 11 S 16.5 6.5, 19 6.5"/>
-            <!-- data points on the curve -->
-            <circle cx="9.2" cy="14.8" r="1.1" fill="currentColor" stroke="none"/>
-            <circle cx="14" cy="8.7" r="1.1" fill="currentColor" stroke="none"/>
+            <!-- chart polyline: low-left → peak → dip → higher peak → settle -->
+            <path d="M7 16 L 10 11 L 13 14 L 16 8 L 19 10"/>
+            <!-- data points at each vertex -->
+            <circle cx="7"  cy="16" r="1.05" fill="currentColor" stroke="none"/>
+            <circle cx="10" cy="11" r="1.05" fill="currentColor" stroke="none"/>
+            <circle cx="13" cy="14" r="1.05" fill="currentColor" stroke="none"/>
+            <circle cx="16" cy="8"  r="1.05" fill="currentColor" stroke="none"/>
+            <circle cx="19" cy="10" r="1.05" fill="currentColor" stroke="none"/>
           </svg>
         </span>
         <span class="viv-rail-link-label">Visualizations</span>
       </a>
-      <!-- GitHub: sign-in + org-link controls. Branch + node icon. -->
+      <!-- Branch: workspace branch + remote (formerly "GitHub"). The icon
+           is a branch-and-node glyph; renaming the label to "Branch"
+           better reflects that this tab is about the local branch state,
+           the workspace repo's remote, and PR/merge actions — not just
+           GitHub-the-product. Hash route #github kept for back-compat
+           with bookmarks. -->
       <a href="#github"            class="viv-rail-link menu-link" data-page="github">
         <span class="viv-rail-link-icon">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="viv-rail-link-svg">
@@ -403,7 +419,7 @@
             <path d="M6 8a6 6 0 0 0 6 6h4"/>
           </svg>
         </span>
-        <span class="viv-rail-link-label">GitHub</span>
+        <span class="viv-rail-link-label">Branch</span>
       </a>
     </nav>
 
@@ -454,7 +470,7 @@
 
     <header class="viv-topbar">
       <nav class="viv-topbar-breadcrumbs" id="viv-breadcrumbs">
-        <span>v2ecoli:multiscale-bioprocess dashboard</span>
+        <span>v2ecoli dashboard</span>
       </nav>
       <div class="viv-topbar-actions" id="viv-topbar-actions">
         <!-- Git status strip + Open-PR button were here; moved into the
@@ -497,7 +513,7 @@
     
     <div class="expert-docs-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(440px,1fr));gap:14px;margin-bottom:12px">
     
-      <div class="expert-doc-card" style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px">
+      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
         <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
           <strong style="font-size:1.02em;flex:1">multiscale_bioprocess_roadmap</strong>
           
@@ -518,12 +534,12 @@ from by) the v2ecoli-workspace multiscale-bioprocess investigation.
         
       </div>
     
-      <div class="expert-doc-card" style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px">
+      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
         <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
           <strong style="font-size:1.02em;flex:1">cell_side_interface_contract</strong>
           
             
-              <span class="file-status status-ok" style="font-size:0.78em">✓ 6.9 KB</span>
+              <span class="file-status status-ok" style="font-size:0.78em">✓ 8.8 KB</span>
             
             <a href="/references/expert/cell_side_interface_contract.md" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
           
@@ -542,7 +558,7 @@ variants). Inherits the upstream multiscale-bioprocess roadmap's
         
       </div>
     
-      <div class="expert-doc-card" style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:14px 16px">
+      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
         <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
           <strong style="font-size:1.02em;flex:1">palsson_2025_fed_batch</strong>
           
@@ -560,6 +576,34 @@ doi:10.1128/msystems.00323-25. Open access; PDF at
 references/papers/Beulig_2025_mSystems_high_cell_density.pdf. The
 quantitative benchmark targeted by study mbp-05. Bib key
 `Beulig2025mSystems` in references/papers.bib.
+</p>
+        
+        
+        
+      </div>
+    
+      <div class="expert-doc-card" style="border-radius:8px;padding:14px 16px">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <strong style="font-size:1.02em;flex:1">chris_feedback_2026_05_26</strong>
+          
+            
+              <span class="file-status status-ok" style="font-size:0.78em">✓ 33 KB</span>
+            
+            <a href="/references/expert/chris_feedback_2026_05_26.md" target="_blank" class="file-link" style="font-size:0.85em">Open ↗</a>
+          
+        </div>
+        <div class="muted" style="font-size:0.78em;font-family:ui-monospace,monospace;margin-bottom:8px;overflow:hidden;text-overflow:ellipsis">references/expert/chris_feedback_2026_05_26.md</div>
+        
+        <p style="margin:6px 0 8px 0;font-size:0.92em;white-space:pre-wrap">Structured digest of Chris Long's inline-feedback review on the
+multiscale-bioprocess investigation (rpt-20260523011545, exported
+2026-05-26). Drives the next-round spec revisions: mbp-01 plumbing/
+biology split, mbp-02 cells_per_agent scaling, mbp-03 Option-B
+BiRDTransportProcess fork, mbp-04 explicit C/N auditor requirements,
+mbp-05 reframe as evaluation phase with generic comparison_overlays,
+mbp-06 carried-forward priors + resolution_type schema. Raw YAML
+preserved at references/expert/raw/chris_feedback_2026_05_26.yaml.
+MUST be read before drafting any further mbp-* spec edits or
+advancing a study to Build phase.
 </p>
         
         
@@ -585,63 +629,6 @@ quantitative benchmark targeted by study mbp-05. Bib key
 
     
     
-    
-    
-      
-    
-      
-        
-      
-    
-      
-    
-      
-    
-      
-    
-      
-    
-      
-    
-      
-    
-      
-    
-
-    
-    <details style="margin-bottom:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px">
-      <summary style="cursor:pointer;font-weight:600;color:#1e40af">
-        🤖 Hand off 1 unresolved reference to a Claude Code session
-      </summary>
-      <p style="margin:10px 0 6px 0;font-size:0.88em;color:#1e3a8a">
-        These entries have no committed PDF, no open-access link, and no DOI/publisher URL. Copy the prompt below into <strong>any Claude Code session running in this workspace</strong>; it will search for each paper, download PDFs where openly available, and add DOI / URL fields to <code>references/papers.bib</code>.
-      </p>
-      <textarea id="refs-ai-prompt" readonly
-                style="width:100%;min-height:200px;padding:10px;border:1px solid #cbd5e1;border-radius:4px;font-family:ui-monospace,monospace;font-size:0.82em;background:#fff;resize:vertical">For each of the bib entries listed below in `references/papers.bib`, do the following — work entry by entry, committing as you go:
-
-1. Search the web for the paper using its title + first author + year. Use WebSearch / WebFetch to find the canonical publisher page.
-2. Note the DOI and the publisher URL.
-3. If an open-access PDF is available (publisher, arXiv, bioRxiv, PubMed Central, author's site, institutional repository, etc.), download it to `references/{bib_key}.pdf` and add the entry to `workspace.yaml.references_pdfs` with the sha256 of the downloaded file.
-4. Edit the entry in `references/papers.bib` to add `doi = {...}` and `url = {...}` fields where missing. Preserve the existing entry structure.
-5. If you cannot find a freely-available PDF but can identify a stable URL (publisher page, paywall landing page, indexed search result), just add the `url` / `doi` and skip the PDF download.
-6. After updating papers.bib + workspace.yaml, run `python scripts/lint-workspace.py` to confirm nothing is broken.
-
-You can also short-circuit DOI + Unpaywall lookup by calling the dashboard's existing endpoint:
-    curl -X POST -H 'Content-Type: application/json' -d '{"key":"<bibkey>"}' http://localhost:8765/api/references-fetch
-
-…but treat that as a fallback — manual search usually finds links Unpaywall misses (paywalled DOIs the publisher hosts a free PDF for, preprint servers, etc.).
-
-Entries to research:
-
-- Monod1949AnnRevMicrobiol — "The growth of bacterial cultures" (Monod, Jacques, 1949, Annual Review of Microbiology)
-
-When done, summarize which entries got PDFs vs URLs only vs were unresolvable, and commit the workspace changes on the active workstream branch.</textarea>
-      <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
-        <button class="btn-mini" onclick="_copyRefsAiPrompt(this)" title="Copy prompt to clipboard">📋 Copy prompt</button>
-        <span class="muted" style="font-size:0.78em">Paste into a Claude Code session running in this workspace.</span>
-      </div>
-    </details>
-    
 
     
 
@@ -649,12 +636,14 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
     <div id="bib-entries-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:12px">
     
       <details class="bib-entry" data-key="beulig2025msystems" data-title="trade-off between resistance and persistence in high cell density cultures" data-author="beulig, f. and bafna-r\"uhrer, j. and jensen, p. e. and kim, s. h. and patel, a. and kandasamy, v. and steffen, c. and decker, k. and zielinski, d. and yang, l. and \"ozdemir, e. and sudarsan, s. and palsson, b." data-year="2025"
-               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+               style="border-radius:8px;padding:10px 14px">
         <summary style="cursor:pointer;list-style:none">
           <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
             <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Beulig2025mSystems</code>
             <span class="muted" style="font-size:0.82em">2025</span>
             <span style="font-size:0.85em">mSystems</span>
+            
+            
             
             
             
@@ -677,7 +666,7 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
       </details>
     
       <details class="bib-entry" data-key="monod1949annrevmicrobiol" data-title="the growth of bacterial cultures" data-author="monod, jacques" data-year="1949"
-               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+               style="border-radius:8px;padding:10px 14px">
         <summary style="cursor:pointer;list-style:none">
           <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
             <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Monod1949AnnRevMicrobiol</code>
@@ -685,6 +674,18 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
             <span style="font-size:0.85em">Annual Review of Microbiology</span>
             
             
+            
+            
+            
+            <button class="ref-handoff-btn"
+                    data-bib-key="Monod1949AnnRevMicrobiol"
+                    data-bib-title="The growth of bacterial cultures"
+                    data-bib-author="Monod, Jacques"
+                    data-bib-year="1949"
+                    data-bib-journal="Annual Review of Microbiology"
+                    onclick="event.stopPropagation();event.preventDefault();_handOffRef(this)"
+                    title="Copy a per-entry Claude Code research prompt to your clipboard"
+                    style="font-size:0.72em;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:1px 8px;border-radius:9999px;cursor:pointer;font-family:inherit">🤖 Hand off</button>
             
           </div>
           <div style="margin-top:5px;font-weight:500">The growth of bacterial cultures</div>
@@ -705,12 +706,14 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
       </details>
     
       <details class="bib-entry" data-key="sander2015atmoschemphys" data-title="compilation of henry's law constants (version 4.0) for water as solvent" data-author="sander, r." data-year="2015"
-               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+               style="border-radius:8px;padding:10px 14px">
         <summary style="cursor:pointer;list-style:none">
           <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
             <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Sander2015AtmosChemPhys</code>
             <span class="muted" style="font-size:0.82em">2015</span>
             <span style="font-size:0.85em">Atmospheric Chemistry and Physics</span>
+            
+            
             
             
             
@@ -733,12 +736,14 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
       </details>
     
       <details class="bib-entry" data-key="gardengarciaochoa2009biotechadv" data-title="bioreactor scale-up and oxygen transfer rate in microbial processes: an overview" data-author="garcia-ochoa, felix and gomez, emilio" data-year="2009"
-               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+               style="border-radius:8px;padding:10px 14px">
         <summary style="cursor:pointer;list-style:none">
           <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
             <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">GardenGarciaOchoa2009BiotechAdv</code>
             <span class="muted" style="font-size:0.82em">2009</span>
             <span style="font-size:0.85em">Biotechnology Advances</span>
+            
+            
             
             
             
@@ -761,12 +766,14 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
       </details>
     
       <details class="bib-entry" data-key="vemuri2006applenvironmicrobiol" data-title="overflow metabolism in escherichia coli during steady-state growth: transcriptional regulation and effect of the redox ratio" data-author="vemuri, g. n. and altman, e. and sangurdekar, d. p. and khodursky, a. b. and eiteman, m. a." data-year="2006"
-               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+               style="border-radius:8px;padding:10px 14px">
         <summary style="cursor:pointer;list-style:none">
           <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
             <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Vemuri2006ApplEnvironMicrobiol</code>
             <span class="muted" style="font-size:0.82em">2006</span>
             <span style="font-size:0.85em">Applied and Environmental Microbiology</span>
+            
+            
             
             
             
@@ -789,12 +796,14 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
       </details>
     
       <details class="bib-entry" data-key="basan2015nature" data-title="overflow metabolism in \em escherichia coli results from efficient proteome allocation" data-author="basan, markus and hui, sheng and okano, hiroyuki and zhang, zhongge and shen, yang and williamson, james r. and hwa, terence" data-year="2015"
-               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+               style="border-radius:8px;padding:10px 14px">
         <summary style="cursor:pointer;list-style:none">
           <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
             <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Basan2015Nature</code>
             <span class="muted" style="font-size:0.82em">2015</span>
             <span style="font-size:0.85em">Nature</span>
+            
+            
             
             
             
@@ -817,12 +826,14 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
       </details>
     
       <details class="bib-entry" data-key="enjalbert2017scirep" data-title="acetate fluxes in \em escherichia coli are determined by the thermodynamic control of the pta-acka pathway" data-author="enjalbert, brice and millard, pierre and dinclaux, mickael and portais, jean-charles and letisse, fabien" data-year="2017"
-               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+               style="border-radius:8px;padding:10px 14px">
         <summary style="cursor:pointer;list-style:none">
           <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
             <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Enjalbert2017SciRep</code>
             <span class="muted" style="font-size:0.82em">2017</span>
             <span style="font-size:0.85em">Scientific Reports</span>
+            
+            
             
             
             
@@ -845,12 +856,14 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
       </details>
     
       <details class="bib-entry" data-key="lee1996trendsbiotechnol" data-title="high cell-density culture of \em escherichia coli" data-author="lee, sang yup" data-year="1996"
-               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+               style="border-radius:8px;padding:10px 14px">
         <summary style="cursor:pointer;list-style:none">
           <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
             <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Lee1996TrendsBiotechnol</code>
             <span class="muted" style="font-size:0.82em">1996</span>
             <span style="font-size:0.85em">Trends in Biotechnology</span>
+            
+            
             
             
             
@@ -873,12 +886,14 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
       </details>
     
       <details class="bib-entry" data-key="korz1995jbiotechnol" data-title="simple fed-batch technique for high cell density cultivation of \em escherichia coli" data-author="korz, d. j. and rinas, u. and hellmuth, k. and sanders, e. a. and deckwer, w.-d." data-year="1995"
-               style="background:#fff;border:1px solid #e5e7eb;border-radius:8px;padding:10px 14px">
+               style="border-radius:8px;padding:10px 14px">
         <summary style="cursor:pointer;list-style:none">
           <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
             <code style="background:#f1f5f9;padding:1px 6px;border-radius:3px;font-size:0.82em">Korz1995JBiotechnol</code>
             <span class="muted" style="font-size:0.82em">1995</span>
             <span style="font-size:0.85em">Journal of Biotechnology</span>
+            
+            
             
             
             
@@ -910,29 +925,66 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
         });
       }
 
-      // Copy the "hand off to Claude Code" prompt to the user's clipboard.
-      // The textarea is already on the page (rendered server-side); we just
-      // shovel its value into the clipboard API. Falls back to the
-      // execCommand path for older browsers / non-HTTPS contexts.
-      function _copyRefsAiPrompt(btn) {
-        var ta = document.getElementById('refs-ai-prompt');
-        if (!ta) return;
+      // Per-entry "hand off to Claude" — builds a focused single-entry
+      // research prompt and copies it to the user's clipboard. Pasted into
+      // any Claude Code session running in this workspace, the agent
+      // searches for the paper, downloads an OA PDF if available, and
+      // updates references/papers.bib + workspace.yaml.references_pdfs.
+      // Replaces the previous bulk "hand off N references" banner: users
+      // now triage one paper at a time as they're browsing the
+      // bibliography.
+      function _handOffRef(btn) {
+        var d = btn.dataset;
+        var citation = '- ' + d.bibKey + ' — "' + d.bibTitle + '" (' +
+                       d.bibAuthor + ', ' + d.bibYear +
+                       (d.bibJournal ? ', ' + d.bibJournal : '') + ')';
+        var prompt =
+          'Resolve this reference in `references/papers.bib`:\n\n' +
+          citation + '\n\n' +
+          'Do the following, then commit on the active workstream branch:\n\n' +
+          '1. Search the web for the paper using its title + first author + year.\n' +
+          '   Use WebSearch / WebFetch to find the canonical publisher page.\n' +
+          '2. Note the DOI and the publisher URL.\n' +
+          '3. If an open-access PDF is available (publisher, arXiv, bioRxiv,\n' +
+          '   PubMed Central, author site, institutional repository, …),\n' +
+          '   download it to `references/' + d.bibKey + '.pdf` and add the\n' +
+          '   entry to `workspace.yaml.references_pdfs` with the sha256 of\n' +
+          '   the downloaded file.\n' +
+          '4. Edit the entry in `references/papers.bib` to add `doi = {...}`\n' +
+          '   and `url = {...}` fields where missing. Preserve the existing\n' +
+          '   entry structure.\n' +
+          '5. If you cannot find a freely-available PDF but can identify a\n' +
+          '   stable URL, just add the `url` / `doi` and skip the PDF download.\n' +
+          '6. After updating, run `python scripts/lint-workspace.py` to confirm\n' +
+          '   nothing is broken.\n\n' +
+          'Short-circuit DOI + Unpaywall lookup with:\n' +
+          '    curl -X POST -H \'Content-Type: application/json\' \\\n' +
+          '         -d \'{"key":"' + d.bibKey + '"}\' \\\n' +
+          '         http://localhost:8765/api/references-fetch\n\n' +
+          '…but treat that as a fallback — manual search usually finds links\n' +
+          'Unpaywall misses (paywalled DOIs the publisher hosts a free PDF\n' +
+          'for, preprint servers, etc.).\n';
         var done = function(ok) {
-          if (!btn) return;
           var orig = btn.textContent;
-          btn.textContent = ok ? '✓ Copied' : '⚠ Copy failed — select + Cmd+C';
+          btn.textContent = ok ? '✓ Copied' : '⚠ Copy failed';
           btn.disabled = true;
           setTimeout(function() { btn.textContent = orig; btn.disabled = false; }, 1800);
         };
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(ta.value).then(function() { done(true); },
-                                                       function() { done(false); });
+          navigator.clipboard.writeText(prompt).then(function() { done(true); },
+                                                      function() { done(false); });
         } else {
+          // Fallback: stash in a temporary textarea + execCommand for
+          // older browsers / non-HTTPS contexts.
+          var ta = document.createElement('textarea');
+          ta.value = prompt;
+          document.body.appendChild(ta);
           ta.select();
           try { done(document.execCommand('copy')); } catch (e) { done(false); }
+          document.body.removeChild(ta);
         }
       }
-      window._copyRefsAiPrompt = _copyRefsAiPrompt;
+      window._handOffRef = _handOffRef;
     </script>
     
   </div>
@@ -956,6 +1008,7 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
         <button class="view-btn" data-view="list" onclick="_setCompositeView('list')" title="List view">&#8801;</button>
       </span>
       <select id="composites-sort" class="composites-sort-select" onchange="_setCompositesSort(this.value)" title="Sort composites">
+        <option value="workspace-first">Sort: Workspace first</option>
         <option value="name">Sort: Name</option>
         <option value="module">Sort: Module</option>
         <option value="kind">Sort: Kind</option>
@@ -1017,10 +1070,18 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
   <h2 class="page-title">Registry</h2>
   <p class="page-lead">Simulation modules: browse the catalog, install pbg-* packages, see what processes and types they contribute. Installing a module adds it as a submodule under <code>external/</code>, pip-installs it into the workspace venv, and appends it to <code>pyproject.toml</code> dependencies.</p>
 
-  <!-- Section 1: Available modules (catalog) -->
-  <section class="panel">
-    <h3>Available modules</h3>
-    <p class="panel-lead">Curated catalog of pbg-* packages. Click Install to add one to this workspace.</p>
+  
+  <div class="registry-subtabs" role="tablist">
+    <button class="registry-subtab active" data-subtab="modules"
+            onclick="_setRegistrySubtab('modules')" role="tab">Modules</button>
+    <button class="registry-subtab" data-subtab="discovered"
+            onclick="_setRegistrySubtab('discovered')" role="tab">Discovered registry
+      <span class="count-badge muted" id="registry-total-count"></span></button>
+  </div>
+
+  <!-- Subtab: Modules (catalog grid; workspace + installed entries pinned at top) -->
+  <section class="panel registry-subtab-panel active" data-subtab="modules">
+    <p class="panel-lead">Modules active in this workspace appear at the top (the workspace's own first-party package is pinned first, then installed catalog modules). Click Install on any card below to add it. Each installed card carries an Uninstall affordance + its source / path.</p>
     <div class="card-browse-toolbar" id="catalog-toolbar">
       <input type="search" class="card-browse-search" id="catalog-search" placeholder="Filter modules…">
       <div class="card-browse-chips" id="catalog-tag-chips"></div>
@@ -1037,21 +1098,15 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
     <div id="catalog-modules-grid" class="module-grid">
       <p class="empty-state">Loading catalog&hellip;</p>
     </div>
-  </section>
-
-  <!-- Section 2: Installed modules -->
-  <section class="panel">
-    <h3>Installed modules <span id="installed-modules-count" class="count-badge muted"></span></h3>
-    <p class="panel-lead">Modules currently active in this workspace. Each contributes Processes/Steps and Types to <code>build_core()</code>. The workspace's own first-party package is always pinned at the top. Uninstall (catalog modules only) removes from this workspace's <code>pyproject.toml</code> + <code>workspace.yaml</code> (Available modules above remains in the catalog).</p>
-    <div id="installed-modules-list">
-      <p class="empty-state">Loading&hellip;</p>
-    </div>
+    
     <div id="installed-modules-sync-warning" style="display:none"></div>
+    
+    <div id="installed-modules-list" hidden></div>
+    <span id="installed-modules-count" hidden></span>
   </section>
 
-  <!-- Section 3: Discovered registry (tabbed browser, lazy-loaded) -->
-  <section class="panel">
-    <h3>Discovered registry <span class="count-badge muted" id="registry-total-count"></span></h3>
+  <!-- Subtab: Discovered registry (live build_core() introspection) -->
+  <section class="panel registry-subtab-panel" data-subtab="discovered">
     <p class="panel-lead">Live snapshot of <code>build_core()</code> — every Process, Step, Emitter, Visualization, and Type registered via auto-discovery. Classes from this workspace's own package and declared <code>imports</code> are shown first. Classes discovered from the Python environment but <em>not</em> declared in <code>workspace.yaml</code> appear collapsed under <em>Also available in environment</em>.</p>
 
     <button class="action-btn" onclick="_loadRegistry(true)">Refresh registry</button>
@@ -1237,47 +1292,111 @@ When done, summarize which entries got PDFs vs URLs only vs were unresolvable, a
 <!-- GitHub: in-UI sign-in + (future) org picker. The github-login.js widget
      activates the #viv-gh-chip element on load. No-AI-agent setup path. -->
 <section id="page-github" class="page" data-page="github">
-  <h2 class="page-title">GitHub</h2>
+  <h2 class="page-title">Branch</h2>
 
-  <!-- Row 1: identity + org picker side by side -->
-  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px">
-    <div class="panel" style="margin:0">
-      <h3 style="margin-top:0">Signed in</h3>
-      <div id="viv-gh-chip"
-           class="viv-rail-footer viv-rail-footer-link viv-rail-footer-no-github"
-           data-state="loading"
-           title="Sign in to GitHub from the dashboard"
-           style="cursor:pointer;display:inline-flex;max-width:100%">
-        <div class="viv-avatar viv-avatar-rail" aria-hidden="true">+</div>
-        <div class="viv-rail-footer-text">
-          <strong>Connect GitHub</strong>
-          <small>checking…</small>
+  <!-- Settings-style single panel: three sections (Account, Workspace
+       repository, Actions), each a list of label/value rows. Replaces the
+       three-panel layout — easier to scan, easier to extend. -->
+  <div class="panel github-settings">
+    <style>
+      .github-settings .gh-section { padding:18px 0; border-top:1px solid #e5e7eb }
+      .github-settings .gh-section:first-of-type { padding-top:6px; border-top:none }
+      .github-settings .gh-section-title { margin:0 0 14px; font-size:0.95em; color:#1f2937; font-weight:600; letter-spacing:0.02em }
+      .github-settings .gh-row { display:grid; grid-template-columns:180px 1fr; gap:16px; padding:8px 0; align-items:center }
+      .github-settings .gh-row[hidden] { display:none }
+      .github-settings .gh-label { color:#6b7280; font-size:0.88em }
+      .github-settings .gh-value { color:#111827; font-size:0.92em; min-width:0 }
+      .github-settings .gh-value code { font-size:0.92em }
+      .github-settings .gh-value-hint { color:#6b7280; font-size:0.82em; margin-top:4px }
+      .github-settings select.gh-input { width:100%; max-width:380px; padding:6px 8px; font:inherit; border:1px solid #cbd5e1; border-radius:4px; background:#fff }
+      .github-settings .gh-action-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center }
+    </style>
+
+    <!-- ── Account ──────────────────────────────────────────────── -->
+    <div class="gh-section">
+      <h3 class="gh-section-title">Account</h3>
+
+      <div class="gh-row">
+        <div class="gh-label">Signed in as</div>
+        <div class="gh-value">
+          <div id="viv-gh-chip"
+               class="viv-rail-footer viv-rail-footer-link viv-rail-footer-no-github"
+               data-state="loading"
+               title="Sign in to GitHub from the dashboard"
+               style="cursor:pointer;display:inline-flex">
+            <div class="viv-avatar viv-avatar-rail" aria-hidden="true">+</div>
+            <div class="viv-rail-footer-text">
+              <strong>Connect GitHub</strong>
+              <small>checking…</small>
+            </div>
+          </div>
+          <div class="gh-value-hint">No terminal required. Uses your <code>gh</code> session if present, otherwise OAuth Device Flow (browser code-paste).</div>
+          <noscript>
+            <div class="gh-value-hint">Dashboard JS is disabled — run <code>gh auth login</code> from a terminal.</div>
+          </noscript>
         </div>
       </div>
-      <p class="muted small" style="margin:10px 0 0">No terminal required. Uses your <code>gh</code> session if present, otherwise OAuth Device Flow (browser code-paste).</p>
-      <noscript>
-        <p class="muted small">Dashboard JS is disabled. Run <code>gh auth login</code> from a terminal to connect.</p>
-      </noscript>
+
+      <div class="gh-row">
+        <div class="gh-label">Default org</div>
+        <div class="gh-value">
+          <select id="viv-gh-default-org" class="gh-input">
+            <option value="">Sign in to load orgs…</option>
+          </select>
+          <div id="viv-gh-default-org-hint" class="gh-value-hint">Used to pre-fill <strong>org</strong> for new workspaces and <em>Create GitHub repo</em> actions.</div>
+        </div>
+      </div>
     </div>
 
-    <div class="panel" style="margin:0">
-      <h3 style="margin-top:0">Default GitHub org</h3>
-      <p class="muted small" style="margin:0 0 10px">Used to pre-fill <strong>org</strong> for new workspaces + "Create GitHub repo" actions. Picks from the orgs your account belongs to.</p>
-      <select id="viv-gh-default-org" style="width:100%;padding:6px 8px;font:inherit;border:1px solid #cbd5e1;border-radius:4px;background:#fff">
-        <option value="">Sign in to load orgs…</option>
-      </select>
-      <p id="viv-gh-default-org-hint" class="muted small" style="margin:8px 0 0"></p>
-    </div>
-  </div>
+    <!-- ── Workspace repository — one row per fact, settings-style ── -->
+    <div class="gh-section">
+      <h3 class="gh-section-title">Workspace repository</h3>
 
-  <!-- Row 2: workspace repo state (full width). The status strip is JS-populated
-       (_refreshGitStatus targets #viv-git-status). Action buttons render into
-       #viv-git-actions so they're a clear separate row, not crammed into the strip. -->
-  <div class="panel" style="margin-top:16px">
-    <h3 style="margin-top:0">This workspace's repo</h3>
-    <div id="viv-git-status" class="git-status" hidden></div>
-    <div id="viv-git-actions" class="git-status-actions" style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px">
-      <button id="btn-open-pr" class="action-btn" onclick="_openPRDialog()" title="Open PR for current branch">Open PR ↗</button>
+      <div class="gh-row" id="viv-gh-row-repo">
+        <div class="gh-label">Repository</div>
+        <div class="gh-value" id="viv-gh-repo"><span class="muted">loading…</span></div>
+      </div>
+
+      <div class="gh-row" id="viv-gh-row-branch">
+        <div class="gh-label">Branch</div>
+        <div class="gh-value" id="viv-gh-branch"><span class="muted">loading…</span></div>
+      </div>
+
+      <div class="gh-row" id="viv-gh-row-push-state">
+        <div class="gh-label">Push state</div>
+        <div class="gh-value" id="viv-gh-push-state"><span class="muted">loading…</span></div>
+      </div>
+
+      <div class="gh-row" id="viv-gh-row-ahead">
+        <div class="gh-label">Ahead of base</div>
+        <div class="gh-value" id="viv-gh-ahead"><span class="muted">—</span></div>
+      </div>
+
+      <div class="gh-row" id="viv-gh-row-dirty">
+        <div class="gh-label">Working tree</div>
+        <div class="gh-value" id="viv-gh-dirty"><span class="muted">—</span></div>
+      </div>
+
+      <div class="gh-row" id="viv-gh-row-pr">
+        <div class="gh-label">Pull request</div>
+        <div class="gh-value" id="viv-gh-pr"><span class="muted">—</span></div>
+      </div>
+
+      <!-- Legacy hidden host for any code path that still writes to #viv-git-status.
+           The new field-by-field hooks above are the primary surface. -->
+      <div id="viv-git-status" class="git-status" hidden></div>
+    </div>
+
+    <!-- ── Actions ────────────────────────────────────────────────── -->
+    <div class="gh-section">
+      <h3 class="gh-section-title">Actions</h3>
+
+      <div class="gh-row">
+        <div class="gh-label">Repo &amp; branch</div>
+        <div class="gh-value gh-action-row" id="viv-git-actions">
+          <button id="btn-open-pr" class="action-btn" onclick="_openPRDialog()" title="Open PR for current branch">Open PR ↗</button>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -1864,8 +1983,8 @@ Nothing on <code id="pr-base-display-2">main</code> changes until someone presse
 
 <script src="assets/render-helpers.js"></script>
 <script src="assets/client.js" onerror="/* live mode unavailable */"></script>
-<script src="assets/walkthrough.js?v=1779573989_1779497488" onerror="/* walkthrough unavailable */"></script>
-<script src="assets/github-login.js?v=1779573989_1779497488" onerror="/* github-login unavailable */"></script>
+<script src="assets/walkthrough.js?v=1780023143_1779982631" onerror="/* walkthrough unavailable */"></script>
+<script src="assets/github-login.js?v=1780023143_1779982631" onerror="/* github-login unavailable */"></script>
 <script src="assets/investigations.js" onerror="/* investigations unavailable */"></script>
 <!-- workspace-switcher.js is intentionally not loaded: the left-rail dropdown
      it used to drive has been repurposed into the investigation switcher

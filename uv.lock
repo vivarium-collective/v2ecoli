@@ -3906,7 +3906,7 @@ requires-dist = [
     { name = "v2ecoli", extras = ["parquet", "xarray"], marker = "extra == 'emitters'" },
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
-    { name = "vivarium-dashboard", git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main" },
+    { name = "vivarium-dashboard", editable = "../../../../vivarium-dashboard" },
     { name = "xarray", marker = "extra == 'xarray'", specifier = ">=2026.4" },
     { name = "zarr", marker = "extra == 'xarray'", specifier = "~=3.1.6" },
     { name = "zarrs", marker = "extra == 'xarray'", specifier = ">=0.2" },
@@ -4025,7 +4025,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#7c06cb2650ac02352f0295f869a9e1521432bff6" }
+source = { editable = "../../../../vivarium-dashboard" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "jinja2" },
@@ -4036,6 +4036,25 @@ dependencies = [
     { name = "pypdf" },
     { name = "pyyaml" },
 ]
+
+[package.metadata]
+requires-dist = [
+    { name = "bigraph-schema" },
+    { name = "imageio", marker = "extra == 'viz'" },
+    { name = "jinja2" },
+    { name = "jsonschema", extras = ["format-nongpl"], specifier = ">=4.21" },
+    { name = "matplotlib", marker = "extra == 'viz'" },
+    { name = "numpy" },
+    { name = "numpy", marker = "extra == 'viz'" },
+    { name = "pbg-superpowers" },
+    { name = "process-bigraph" },
+    { name = "pypdf", specifier = ">=4.0" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.4" },
+    { name = "pytest-json-report", marker = "extra == 'dev'", specifier = ">=1.5" },
+    { name = "pytest-timeout", marker = "extra == 'dev'" },
+    { name = "pyyaml" },
+]
+provides-extras = ["viz", "dev"]
 
 [[package]]
 name = "vl-convert-python"

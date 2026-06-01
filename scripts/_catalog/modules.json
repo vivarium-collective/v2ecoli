@@ -188,19 +188,6 @@
     ]
   },
   {
-    "name": "pbg-physicell",
-    "description": "Process-bigraph wrapper for PhysiCell agent-based multicellular simulation",
-    "source": "https://github.com/vivarium-collective/pbg-physicell.git",
-    "ref": "main",
-    "package": "pbg_physicell",
-    "homepage": "https://github.com/vivarium-collective/pbg-physicell",
-    "tags": [
-      "agent-based",
-      "cells",
-      "tissue"
-    ]
-  },
-  {
     "name": "pbg-readdy",
     "description": "Process-bigraph wrapper for the ReaDDy particle-based reaction-diffusion simulator",
     "source": "https://github.com/vivarium-collective/pbg-readdy.git",

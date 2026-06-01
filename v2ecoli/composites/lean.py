@@ -10,25 +10,30 @@ the same process/step classes, the same ``update()`` bodies, the same
     two elongation processes). Lean collapses them into a single ``allocator``
     pass covering all three partitioned processes at once.
 
-  * **No unique-molecule flush barriers.** Baseline interleaves 11
-    ``unique_update`` steps that drain the UniqueNumpyUpdater buffer between
-    layers. Lean drops them; unique-molecule updates reconcile through the
-    composite's normal apply path. This is the parity-relaxing change — flush
-    timing differs, so the trajectory is NOT bit-identical to baseline.
+What lean deliberately KEEPS — three things prototyping proved load-bearing,
+NOT scaffolding (each was removed and broke the model):
 
-What lean deliberately KEEPS (the experiments showed these are load-bearing,
-not scaffolding):
-
+  * **The 11 ``unique_update`` flush steps.** These are NOT cosmetic buffer
+    drains — each emits ``{"update": True}`` to its unique-molecule store,
+    which is what COMMITS the UniqueNumpyUpdater's pending additions/deletions
+    into the array. Dropping them froze every unique-molecule count at its t=0
+    value (no transcription / replication / ribosome creation ever landed) —
+    the −50% species divergence seen in an early lean draft. Kept verbatim.
   * **The requester → allocate → evolve split, and its flow-token ordering.**
-    A fully-fused, allocator-free variant was prototyped and HANGS in the
-    tRNA-charging ODE (``lsoda``): polypeptide elongation only integrates on a
-    *bounded* (partitioned) resource share, so the allocator is a biological
-    precondition. And dropping the flow-token barrier (pure interval+priority
-    scheduling) left the rna-deg evolver reading ``bulk=None`` — the
-    request→allocate→evolve ORDER is a hard dependency the token chain enforces.
+    A fully-fused, allocator-free variant HANGS in the tRNA-charging ODE
+    (``lsoda``): polypeptide elongation only integrates on a *bounded*
+    (partitioned) resource share, so the allocator is a biological
+    precondition. And pure interval+priority scheduling (no flow tokens) left
+    the rna-deg evolver reading ``bulk=None`` — request→allocate→evolve ORDER
+    is a hard dependency the token chain enforces.
 
-Net: baseline's ~45 steps → ~34 edges (one allocator instead of two, the 11
-flush steps removed), same biology, same ordering guarantees where they matter.
+So lean's ONE remaining simplification is collapsing the two staged allocator
+passes (allocator_2 + allocator_3) into a single global allocator over all
+three partitioned processes. With the flushes kept, lean tracks baseline
+closely (gene/promoter/DnaA_box exact; ribosome/RNA/RNAP within ~0.3–2%) —
+the small residual is the single-allocator change, not a structural defect.
+
+Net: baseline's ~45 steps → ~44 (one allocator instead of two), same biology.
 
 NOT a drop-in for baseline (not vEcoli-parity). A research/teaching variant:
 the partition flow with the staging + flush scaffolding pared back to the
@@ -60,16 +65,17 @@ def _lean_layers(raw):
     for layer in raw:
         if not isinstance(layer, list) or not layer:
             continue
-        steps = [s for s in layer if not s.startswith("unique_update")]
-        if not steps:
-            continue  # drop pure-flush layers
-        # rewrite any staged allocator (allocator_2 / allocator_3) to a single
-        # global 'allocator'; keep only the first occurrence.
+        # Keep the unique_update flush layers UNCHANGED — they are NOT
+        # cosmetic buffer drains; they commit the UniqueNumpyUpdater's pending
+        # additions/deletions into the `unique` store. Dropping them froze
+        # lean's unique-molecule counts at their t=0 values (no transcription /
+        # replication / ribosome creation ever landed). The only lean change
+        # is collapsing the two staged allocators into one global pass.
         rewritten = []
-        for s in steps:
+        for s in layer:
             if s.startswith("allocator"):
                 if seen_allocator:
-                    continue
+                    continue  # fold the second staged allocator into the first
                 seen_allocator = True
                 rewritten.append("allocator")
             else:
@@ -82,13 +88,13 @@ def _lean_layers(raw):
 @composite_generator(
     name="lean",
     description=(
-        "Lean whole-cell E. coli — same biology as baseline with the partition "
-        "scaffolding pared back: ONE global allocator instead of two staged "
-        "passes, and the 11 unique-molecule flush barriers removed. The "
-        "requester/allocator/evolver split and its flow-token ordering are kept "
-        "(both proven load-bearing: the allocator bounds the tRNA-charging ODE, "
-        "and the order is a hard dependency). Not vEcoli-parity — validate by "
-        "tolerance, not bit-equality."
+        "Lean whole-cell E. coli — same biology as baseline, with the two "
+        "staged allocator passes collapsed into ONE global allocator over all "
+        "three partitioned processes. The unique-molecule flush steps, the "
+        "requester/allocator/evolver split, and the flow-token ordering are ALL "
+        "kept — prototyping proved each load-bearing (dropping flushes froze "
+        "unique-molecule counts; fusing hangs the tRNA-charging ODE). Tracks "
+        "baseline closely; not bit-identical — validate by tolerance."
     ),
     parameters={
         "seed": {"type": "integer", "default": 0,

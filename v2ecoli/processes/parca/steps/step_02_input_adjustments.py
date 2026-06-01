@@ -152,6 +152,18 @@ OUTPUT_PORTS = {
 class InputAdjustmentsStep(Step):
     """Step 2 — input_adjustments.  See module docstring for port wiring."""
 
+    description = (
+        "Step 2 — input_adjustments.\n\n"
+        "Applies literature-curated per-gene overrides before any fitting,\n"
+        "from the adjustments table {gene_id: multiplier}:\n"
+        "    rna_expression  *= f_expr,   then renormalize Σ = 1\n"
+        "    translation_eff *= f_te,     then renormalize mean = 1\n"
+        "    rna_deg_rates   *= f_deg;    protein_deg_rates *= f_pdeg\n"
+        "Mutates the transcription and translation subsystems in place.\n"
+        "In debug mode also prunes tf_to_active_inactive_conditions to one\n"
+        "TF so Step 4 fits a single condition."
+    )
+
     config_schema = {
         'debug': {'_type': 'boolean', '_default': False},
     }

@@ -4,9 +4,9 @@ Structured composite comparison report
 
 A composite-agnostic comparison harness. Runs any set of engines —
 vEcoli (the vivarium reference) and/or any registered v2ecoli composite by
-name (baseline, lean, …) — each in its own subprocess (to avoid type/registry
-conflicts), then extracts a structured set of metrics and renders a comparison
-table to HTML.
+name (baseline, millard_pdmp_baseline, …) — each in its own subprocess (to
+avoid type/registry conflicts), then extracts a structured set of metrics and
+renders a comparison table to HTML.
 
 Unlike reports/v1_v2_report.py (a fixed 3-way vEcoli-vs-v2ecoli viz), this is
 parameterized: name the engines on the command line and get a metrics table
@@ -20,12 +20,12 @@ Metrics per engine (derived from the shared snapshot schema each runner emits):
 Each metric column also shows Δ% vs the first engine (the reference).
 
 Usage:
-    # vEcoli vs v2ecoli baseline vs lean, full cycle:
+    # vEcoli vs v2ecoli baseline vs millard, full cycle:
     python reports/composite_comparison.py \\
-        --engines vecoli baseline lean --duration 2520
+        --engines vecoli baseline millard_pdmp_baseline --duration 2520
 
     # quick smoke:
-    python reports/composite_comparison.py --engines baseline lean --duration 60
+    python reports/composite_comparison.py --engines baseline millard_pdmp_baseline --duration 60
 
 Engine tokens:
     vecoli                 -> scripts/run_vecoli_v1.py   (vivarium reference)
@@ -306,7 +306,7 @@ def build_html(results, duration, ref_idx=0):
 
 def main():
     ap = argparse.ArgumentParser(description="Structured multi-composite comparison")
-    ap.add_argument("--engines", nargs="+", default=["vecoli", "baseline", "lean"],
+    ap.add_argument("--engines", nargs="+", default=["vecoli", "baseline", "millard_pdmp_baseline"],
                     help="engine tokens (vecoli / vecoli_composite / <v2ecoli composite name>)")
     ap.add_argument("--duration", type=int, default=2520)
     ap.add_argument("--interval", type=int, default=50)

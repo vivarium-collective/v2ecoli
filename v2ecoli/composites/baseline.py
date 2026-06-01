@@ -54,7 +54,6 @@ from v2ecoli.composites._helpers import (
     _get_special_step,
     _expand_flushes,
     set_default_emitter_decl,
-    CachedConfigLoader,
     FLUSH,
     PARTITIONED_PROCESSES,
     ALL_PARTITIONED,
@@ -137,35 +136,18 @@ FEATURE_MODULES = {
     # dnaa-1 are unaffected.
     'dnaa_nucleotide': {
         'insert_after': 'ecoli-metabolism',
-        'steps': ['dnaa-intrinsic-hydrolysis'],
+        # Step 1-2: hydrolysis only (DnaA-ATP -> DnaA-ADP). Step 3 (Haochen
+        # 2026-05-31) adds the slow NON-equilibrium DnaA-ADP -> apo release;
+        # it only changes the steady state when paired with the equilibrium
+        # cache patch that zeroes MONOMER0-4565_RXN (see
+        # scripts/patch_dnaa_adp_nonequilibrium.py), so DnaA-ADP is formed only
+        # by hydrolysis and drained only by the slow release.
+        'steps': ['dnaa-intrinsic-hydrolysis', 'dnaa-adp-release'],
         'listeners': ['dnaa-cycle-listener'],
-    },
-    # Opt-in runtime mass-conservation check. Runs after the mass listener
-    # (dry_mass) and metabolism (environment.exchange). OFF by default: the
-    # residual is not yet calibrated (net boundary exchange measures ~55x the
-    # cell-mass change — see mass_conservation.py STATUS), so on a healthy run
-    # it warns every tick. Enable per investigation via
-    # enable_features('mass_conservation') before build_composite.
-    'mass_conservation': {
-        'insert_after': 'ecoli-mass-listener',
-        'steps': ['ecoli-mass-conservation'],
     },
 }
 
-DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation + mass_conservation off by default
-
-# Opt-in feature modules enabled by a caller for the NEXT build (the generator
-# itself fixes the base set to DEFAULT_FEATURES). Mirrors the emitter-override
-# pattern. Use enable_features('mass_conservation', ...) before build_composite.
-_EXTRA_FEATURES: list = []
-
-
-def enable_features(*names: str) -> None:
-    """Enable opt-in feature modules (e.g. 'mass_conservation') for the next
-    baseline build. Call before ``build_composite('baseline', ...)``; pass no
-    args to clear."""
-    global _EXTRA_FEATURES
-    _EXTRA_FEATURES = list(names)
+DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation disabled to match v1 default
 
 
 def build_execution_layers(features=None):
@@ -487,13 +469,7 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     unique_names = bundle["unique_names"]
     dry_mass_inc_dict = bundle.get("dry_mass_inc_dict", {})
 
-    # Explicit `features` (e.g. dnaa-2's runner passing
-    # ['ppgpp_regulation','dnaa_nucleotide']) wins; otherwise default to
-    # DEFAULT_FEATURES plus any opt-in modules enabled via enable_features().
-    features = (
-        list(DEFAULT_FEATURES) + [f for f in _EXTRA_FEATURES if f not in DEFAULT_FEATURES]
-        if features is None else features
-    )
+    features = DEFAULT_FEATURES if features is None else features
 
     cell_state = {}
     cell_state.update(initial_state)
@@ -547,10 +523,35 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
         'aa_count_diff': np.zeros(21),
     })
 
-    # Mock loader: serves cache configs + a minimal sim_data stand-in (see
-    # CachedConfigLoader in _helpers — replaces the old nested _CachedLoader).
-    loader = CachedConfigLoader(
-        configs, unique_names, dry_mass_inc_dict, cache_dir=cache_dir)
+    # Create a mock loader that returns configs from the cache
+    class _CachedLoader:
+        def __init__(self, configs, unique_names, dry_mass_inc_dict, cache_dir='out/cache'):
+            self._configs = configs
+            self.unique_names = unique_names
+            self.cache_dir = cache_dir
+
+            class _SimData:
+                class _InternalState:
+                    class _UniqueMolecule:
+                        def __init__(self, names):
+                            self.unique_molecule_definitions = {
+                                n: {} for n in names}
+                    unique_molecule = None
+                    def __init__(self, names):
+                        self.unique_molecule = self._UniqueMolecule(names)
+                internal_state = None
+                expectedDryMassIncreaseDict = {}
+
+            self.sim_data = _SimData()
+            self.sim_data.internal_state = _SimData._InternalState(unique_names)
+            self.sim_data.expectedDryMassIncreaseDict = dry_mass_inc_dict or {}
+
+        def get_config_by_name(self, name):
+            if name in self._configs:
+                return self._configs[name]
+            raise KeyError(f'Unknown: {name}')
+
+    loader = _CachedLoader(configs, unique_names, dry_mass_inc_dict, cache_dir=cache_dir)
 
     # Build execution layers for the requested feature set
     execution_layers = build_execution_layers(features)

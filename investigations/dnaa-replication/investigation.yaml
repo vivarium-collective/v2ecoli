@@ -2,7 +2,7 @@ schema_version: 2
 name: dnaa-replication
 title: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)
 created: '2026-05-29'
-status: active   # 2026-05-31: dnaa-0, dnaa-1 PASS (run provenance now recorded; dnaa-1 V re-tuned 2e-3→1.7e-3); dnaa-2 Steps 1-2 done, canonical seed 0, Step 3 blocked on Haochen
+status: active   # 2026-05-31: dnaa-0, dnaa-1 PASS; dnaa-2 PASS — Haochen's non-equilibrium DnaA-ADP mechanism lands the DnaA-ATP fraction in [0.2,0.5] (~0.45) on clean seeds 0,3 (canonical seed 0; seed 2 dropped)
 
 question: |
   Can v2ecoli reproduce DnaA-driven replication initiation in succinate at
@@ -86,7 +86,14 @@ executive:
         Haochen's K_d's (≈30 nM ATP, ≈100 nM ADP), the DnaA-ATP fraction is
         ~0.997, not the expected [0.2, 0.5]. Which of {K_d(ATP/ADP), cellular
         [ATP]:[ADP], expected fraction} should be revised to reconcile them?
-      status: OPEN — blocks dnaa-2 Step 3 (parameter tuning); needs Haochen.
+      status: RESOLVED 2026-05-31 (Haochen) — NOT a parameter choice. The
+        ~0.997 pin was a fast-equilibrium artefact: v2ecoli integrated the
+        DnaA-ADP binding to steady state each tick, instantly reverting
+        hydrolysis-made DnaA-ADP. Fix = model DnaA-ADP dissociation as a SLOW
+        non-equilibrium kinetic step (k_r≈1e-7/s) + remove it from the fast
+        equilibrium. Implemented (DnaaAdpRelease + MONOMER0-4565_RXN zeroed);
+        DnaA-ATP fraction drops to ~0.45 across clean seeds 0,3 (in [0.2,0.5]),
+        matching Haochen's own simulations. dnaa-2 Step 3 PASSES.
       context: |
         Confirmed robust across 4 seeds × 13 complete lineage-generations and
         unchanged by intrinsic hydrolysis (k=0.046/min vs k=0 control). The

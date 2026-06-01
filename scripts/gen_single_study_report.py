@@ -3,7 +3,7 @@
 Per the "one study at a time" workflow shift: ship a focused report on
 a single study, await expert approval, then unblock the next.
 
-Output: investigations/<inv>/reports/<study-slug>.html — self-contained
+Output: workspace/investigations/<inv>/reports/<study-slug>.html — self-contained
 HTML with all viz inlined as <iframe srcdoc>, study spec rendered as the
 familiar walkthrough sections (Question / Hypothesis / Tests / Build /
 Simulations / Readouts / Visualizations / Honest TBD / Expert questions).
@@ -285,7 +285,7 @@ def render_study_card(spec: dict) -> str:
 
 
 def render_bibliography(bib_keys: list, papers_bib_path: Path) -> str:
-    """Render bib entries by matching bib_keys against references/papers.bib."""
+    """Render bib entries by matching bib_keys against workspace/references/papers.bib."""
     if not bib_keys or not papers_bib_path.exists():
         return ""
     bib_raw = papers_bib_path.read_text(encoding="utf-8")
@@ -313,18 +313,18 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--study", default="pdmp-00-characterization")
     p.add_argument("--out", default=None,
-                   help="output HTML path (default: investigations/<inv>/reports/<study>.html)")
+                   help="output HTML path (default: workspace/investigations/<inv>/reports/<study>.html)")
     args = p.parse_args()
 
-    study_path = Path("studies") / args.study / "study.yaml"
+    study_path = Path("workspace/studies") / args.study / "study.yaml"
     if not study_path.exists():
         sys.exit(f"study not found: {study_path}")
     spec = yaml.safe_load(study_path.read_text(encoding="utf-8"))
 
-    inv_path = Path("investigations") / INV_SLUG / "investigation.yaml"
+    inv_path = Path("workspace/investigations") / INV_SLUG / "investigation.yaml"
     inv = yaml.safe_load(inv_path.read_text(encoding="utf-8")) if inv_path.exists() else {}
 
-    out_path = Path(args.out) if args.out else Path("investigations") / INV_SLUG / "reports" / f"{args.study}.html"
+    out_path = Path(args.out) if args.out else Path("workspace/investigations") / INV_SLUG / "reports" / f"{args.study}.html"
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     # ---- Compose the report ----
@@ -468,7 +468,7 @@ def main():
     bib = spec.get("bibliography") or {}
     bib_keys = bib.get("bib_keys") or []
     if bib_keys:
-        bib_html = render_bibliography(bib_keys, Path("references/papers.bib"))
+        bib_html = render_bibliography(bib_keys, Path("workspace/references/papers.bib"))
         sections.append(f'<section id="bib"><h2>References</h2>{bib_html}</section>')
 
     body = "".join(sections)

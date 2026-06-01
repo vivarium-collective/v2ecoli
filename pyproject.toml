@@ -81,8 +81,14 @@ markers = [
 timeout = 120
 timeout_method = "thread"
 
+# Only the real Python packages ship in the v2ecoli distribution. Without an
+# explicit ``include`` the flat-layout finder also picks up sibling research
+# dirs (workspace/, studies/, reports/, …) as top-level packages; the
+# bigraph-schema process-discovery resolver then maps the ``v2ecoli`` dist to
+# whichever bogus top-level name sorts last (e.g. ``workspace``), so it scans
+# the wrong package and registers zero of v2ecoli's Visualization Steps.
 [tool.setuptools]
-packages = { find = { where = ["."] } }
+packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 
 [tool.uv.sources]
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }

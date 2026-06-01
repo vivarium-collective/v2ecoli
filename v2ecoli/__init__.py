@@ -53,13 +53,13 @@ def build_composite(
     Parameters
     ----------
     name:
-        One of ``"baseline"``, ``"departitioned"``, ``"reconciled"``.
+        One of ``"baseline"``, ``"colony"``, ``"millard_pdmp_baseline"``.
     core:
         Optional bigraph-schema core. If omitted, a fresh one is built via
         ``v2ecoli.core.build_core()``.
     **kwargs:
         Passed through to the generator's declared parameters (currently
-        ``seed`` and ``cache_dir`` for all three architectures).
+        ``seed`` and ``cache_dir``).
 
     Raises
     ------

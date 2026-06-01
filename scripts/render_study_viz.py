@@ -4,9 +4,9 @@ Usage:
     python scripts/render_study_viz.py <study_slug> [<study_slug> ...]
     python scripts/render_study_viz.py --all-dnaa
 
-Reads the latest parquet run under ``studies/<slug>/parquet-runs/``, resolves
+Reads the latest parquet run under ``workspace/studies/<slug>/parquet-runs/``, resolves
 each viz registered in ``study.yaml`` against the parquet columns, and writes
-HTML files to ``studies/<slug>/viz/``.
+HTML files to ``workspace/studies/<slug>/viz/``.
 """
 from __future__ import annotations
 
@@ -33,8 +33,8 @@ def main() -> int:
     targets: list[str] = list(args.study_slug)
     if args.all_dnaa:
         import glob
-        for syaml in sorted(glob.glob("studies/dnaa-*/study.yaml")):
-            slug = syaml.split("/")[1]
+        for syaml in sorted(glob.glob("workspace/studies/dnaa-*/study.yaml")):
+            slug = syaml.split("/")[2]
             targets.append(slug)
     targets = list(dict.fromkeys(targets))  # de-dupe, preserve order
     if not targets:

@@ -80,18 +80,26 @@ def apply(schema: SetStore, state, update, path):
 # ---------------------------------------------------------------------------
 
 @dataclass(kw_only=True)
-class ListenerStore(InPlaceDict):
-    """Listener store: in-place dict merge at top level, set at leaves.
+class DerivedProperties(InPlaceDict):
+    """Derived-properties store: in-place dict merge at top level, set at leaves.
 
-    Listeners accumulate data from many steps. Each step writes to its
-    own sub-key. The store merges at the top level but replaces values
-    at the leaf level.
+    Derivers (formerly "listeners") compute derived properties of cell
+    state and write them under their own sub-key. The store merges at the
+    top level but replaces values at the leaf level — which is why the
+    per-leaf ``overwrite[...]`` wrappers are redundant for scalar leaves
+    here (the container already does leaf-replace).
     """
     pass
 
 
+# Back-compat alias: external code / older study specs may still import or
+# reference the "listener" name. The registry exposes both 'derived_properties'
+# (primary) and 'listener_store' (alias) — see v2ecoli/types/__init__.py.
+ListenerStore = DerivedProperties
+
+
 @apply.dispatch
-def apply(schema: ListenerStore, state, update, path):
+def apply(schema: DerivedProperties, state, update, path):
     if update is None:
         return state, []
     if state is None:

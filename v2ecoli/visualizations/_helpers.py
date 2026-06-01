@@ -9,8 +9,7 @@ Public API:
         Convenience: write the JSON + HTML side-by-side.
 
 Architecture-agnostic: accepts any ``Composite`` instance and the list of
-execution layers used to lay out its steps. Feed it the baseline,
-departitioned, or reconciled composite and the matching layers list.
+execution layers used to lay out its steps. Feed it any v2ecoli composite and the matching layers list.
 """
 
 from __future__ import annotations
@@ -50,7 +49,7 @@ BIO_COLORS: list[tuple[str, str, str, Callable[[str], bool]]] = [
         lambda n: any(s in n for s in (
             'unique_update', 'global_clock', 'emitter', 'mark_d_period',
             'division', 'exchange_data', 'media_update', 'post-division',
-            'reconciled_', 'allocator_'))),
+            'allocator_'))),
 ]
 
 

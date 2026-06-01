@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Cross-study consistency validator.
 
-Walks every ``studies/*/study.yaml`` and:
+Walks every ``workspace/studies/*/study.yaml`` and:
 
   1. Validates enum-typed fields against the registered bigraph-schema
      enums in ``v2ecoli/types/biology.py`` (``BIOLOGY_TYPES``):
@@ -299,7 +299,7 @@ def main(argv: list[str] | None = None) -> int:
                     help="treat warnings as errors (non-zero exit)")
     args = ap.parse_args(argv)
 
-    studies_dir = WS_ROOT / "studies"
+    studies_dir = WS_ROOT / "workspace" / "studies"
     study_files = sorted(studies_dir.glob("*/study.yaml")) if studies_dir.exists() else []
     if not study_files:
         # No studies yet — no enums to check. Clean exit so the validator

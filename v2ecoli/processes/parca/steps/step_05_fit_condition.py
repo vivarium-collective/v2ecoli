@@ -351,6 +351,20 @@ OUTPUT_PORTS = {
 class FitConditionStep(Step):
     """Step 5 — fit_condition.  Bulk distributions + translation supply rates."""
 
+    description = (
+        "Step 5 — fit_condition.  Bulk-molecule distributions + translation\n"
+        "supply. The pipeline's heavy step (~60–70 min at cpus=2).\n\n"
+        "Per condition, sample N_SEEDS synthetic cells and propagate each to\n"
+        "steady state through the complexation / equilibrium / two-component\n"
+        "solvers, then aggregate across seeds:\n"
+        "    counts ~ Multinomial(mass | fitted expression)\n"
+        "    StochasticSystem integrates complexation → equilibrium\n"
+        "    record mean_counts, std_counts, n_avg_copies\n"
+        "calculateTranslationSupply: from mean counts + kcats, solve the\n"
+        "per-amino-acid supply rate that hits the condition's target dry-mass\n"
+        "growth → translation_supply_rate[condition] over 21 amino acids."
+    )
+
     config_schema = {'cpus': {'_type': 'integer', '_default': 1}}
 
     def inputs(self):

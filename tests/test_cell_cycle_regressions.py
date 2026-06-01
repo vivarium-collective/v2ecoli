@@ -109,7 +109,7 @@ def test_rna_synth_prob_listener_survives_empty_inputs():
     """Default values for actual/target/n_bound are [] until the
     transcript initiation process populates them. The listener must
     return {} instead of attempting a matmul on mismatched shapes."""
-    from v2ecoli.steps.listeners.rna_synth_prob import RnaSynthProb
+    from v2ecoli.steps.derivers.rna_synth_prob import RnaSynthProb
 
     listener = RnaSynthProb.__new__(RnaSynthProb)
     listener.parameters = {}

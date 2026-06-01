@@ -8,7 +8,7 @@ runtime form of AGENTS.md conservation check #4: a silent leak in any process
 and the net metabolic exchange.
 
 Implementation: enable the opt-in ``mass_conservation`` feature (which wires the
-``MassConservationListener``), run the baseline, and assert the **steady-state**
+``MassConservationDeriver``), run the baseline, and assert the **steady-state**
 relative drift stays small.
 
 Why a window, not the whole run: the cumulative residual carries a fixed

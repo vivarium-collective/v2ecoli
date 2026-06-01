@@ -86,14 +86,15 @@ executive:
         Haochen's K_d's (≈30 nM ATP, ≈100 nM ADP), the DnaA-ATP fraction is
         ~0.997, not the expected [0.2, 0.5]. Which of {K_d(ATP/ADP), cellular
         [ATP]:[ADP], expected fraction} should be revised to reconcile them?
-      status: RESOLVED 2026-05-31 (Haochen) — NOT a parameter choice. The
-        ~0.997 pin was a fast-equilibrium artefact: v2ecoli integrated the
-        DnaA-ADP binding to steady state each tick, instantly reverting
-        hydrolysis-made DnaA-ADP. Fix = model DnaA-ADP dissociation as a SLOW
-        non-equilibrium kinetic step (k_r≈1e-7/s) + remove it from the fast
-        equilibrium. Implemented (DnaaAdpRelease + MONOMER0-4565_RXN zeroed);
-        DnaA-ATP fraction drops to ~0.45 across clean seeds 0,3 (in [0.2,0.5]),
-        matching Haochen's own simulations. dnaa-2 Step 3 PASSES.
+      status: |
+        RESOLVED 2026-05-31 (Haochen) — NOT a parameter choice. The ~0.997 pin
+        was a fast-equilibrium artefact; v2ecoli integrated the DnaA-ADP binding
+        to steady state each tick, instantly reverting hydrolysis-made DnaA-ADP.
+        Fix = model DnaA-ADP dissociation as a SLOW non-equilibrium kinetic step
+        (k_r approx 1e-7/s) plus removing it from the fast equilibrium.
+        Implemented (DnaaAdpRelease + MONOMER0-4565_RXN zeroed); DnaA-ATP
+        fraction drops to ~0.45 across clean seeds 0,3 (in [0.2,0.5]), matching
+        Haochen's own simulations. dnaa-2 Step 3 PASSES.
       context: |
         Confirmed robust across 4 seeds × 13 complete lineage-generations and
         unchanged by intrinsic hydrolysis (k=0.046/min vs k=0 control). The

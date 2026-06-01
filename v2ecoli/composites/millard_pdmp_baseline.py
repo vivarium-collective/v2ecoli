@@ -147,6 +147,12 @@ BASE_EXECUTION_LAYERS = [
      'replication_data_listener', 'ribosome_data_listener',
      'rna_synth_prob_listener', 'rnap_data_listener'], FLUSH,
 
+    # Layer 7b (Phase-3): per-process likelihood collector. Must run
+    # AFTER the listener layer so the per-process log_likelihood
+    # writes from TranscriptInitiation + PolypeptideInitiation are
+    # already in the merged state when the collector reads them.
+    ['likelihood_collector'], FLUSH,
+
     # Emitter + clock
     ['emitter'],
     ['global_clock'],
@@ -382,6 +388,12 @@ def _get_step_config(
     process_cache=None,
     master_seed=0,
     ref_growth_flux_source: str | None = None,
+    ref_growth_feedback_tau_s: float | None = None,
+    ref_growth_feedback_period_ticks: int | None = None,
+    transcript_initiation_mode: str | None = None,
+    transcript_init_prob_scale: float | None = None,
+    polypeptide_init_prob_scale: float | None = None,
+    polypeptide_initiation_mode: str | None = None,
 ):
     from v2ecoli.processes.equilibrium import Equilibrium
     from v2ecoli.processes.two_component_system import TwoComponentSystem
@@ -403,6 +415,7 @@ def _get_step_config(
     from v2ecoli.steps.derivers.replication_data import ReplicationData
     from v2ecoli.steps.derivers.rnap_data import RnapData
     from v2ecoli.steps.derivers.translation_deriver import TranslationDeriver
+    from v2ecoli.steps.derivers.likelihood_collector import LikelihoodCollector
     from v2ecoli.steps.media_update import MediaUpdate
     from v2ecoli.steps.exchange_data import ExchangeData
 
@@ -442,6 +455,11 @@ def _get_step_config(
         flux_source = ref_growth_flux_source
         if flux_source:
             driver_config["flux_source"] = flux_source
+        if ref_growth_feedback_tau_s is not None:
+            driver_config["feedback_tau_s"] = float(ref_growth_feedback_tau_s)
+        if ref_growth_feedback_period_ticks is not None:
+            driver_config["feedback_period_ticks"] = int(
+                ref_growth_feedback_period_ticks)
         instance = _make_instance(
             RefGrowthDriver,
             driver_config,
@@ -458,6 +476,19 @@ def _get_step_config(
     # make_edge behavior of reusing topology for both directions would
     # declare it as a central_metabolites writer too, conflicting with
     # millard-with-lqr and silently dropping the latter's update.
+    # Phase-3 likelihood collector: no ParCa config, no special-step
+    # registration. Instantiate directly with the minimal tick config so
+    # we don't fall through to loader.get_config_by_name (which raises
+    # → _get_special_step → silently returns None and the step is
+    # dropped from the composite).
+    if step_name == 'likelihood_collector':
+        from v2ecoli.steps.listeners.likelihood_collector import LikelihoodCollector
+        instance = _make_instance(LikelihoodCollector, {}, core)
+        topo = getattr(instance, 'topology', {})
+        if callable(topo):
+            topo = topo()
+        return instance, topo, 'step'
+
     if step_name == MILLARD_BULK_INDEXER:
         from v2ecoli.steps.millard_bulk_indexer import MillardBulkIndexer
         instance = _make_instance(
@@ -524,6 +555,7 @@ def _get_step_config(
         'replication_data_listener': ReplicationData,
         'rnap_data_listener': RnapData,
         'ribosome_data_listener': TranslationDeriver,
+        'likelihood_collector': LikelihoodCollector,
         'media_update': MediaUpdate,
         'exchange_data': ExchangeData,
     }
@@ -533,6 +565,35 @@ def _get_step_config(
 
     if isinstance(config, dict) and "seed" in config:
         config["seed"] = _derive_process_seed(master_seed, base_name)
+
+    # Phase-2 jump-process opt-ins. Merge mode overrides into the ParCa-
+    # generated config so each Process's initialize() picks them up.
+    if (
+        transcript_initiation_mode
+        and isinstance(config, dict)
+        and base_name == 'ecoli-transcript-initiation'
+    ):
+        config["pdmp_initiation_mode"] = transcript_initiation_mode
+    if (
+        transcript_init_prob_scale is not None
+        and isinstance(config, dict)
+        and base_name == 'ecoli-transcript-initiation'
+    ):
+        config["transcript_init_prob_scale"] = float(
+            transcript_init_prob_scale)
+    if (
+        polypeptide_init_prob_scale is not None
+        and isinstance(config, dict)
+        and base_name == 'ecoli-polypeptide-initiation'
+    ):
+        config["polypeptide_init_prob_scale"] = float(
+            polypeptide_init_prob_scale)
+    if (
+        polypeptide_initiation_mode
+        and isinstance(config, dict)
+        and base_name == 'ecoli-polypeptide-initiation'
+    ):
+        config["pdmp_initiation_mode"] = polypeptide_initiation_mode
 
     if base_name in PARTITIONED_PROCESSES:
         proc_cls = PARTITIONED_PROCESSES[base_name]
@@ -681,6 +742,80 @@ def _register_millard_pdmp_links(core):
                 "GLT 5413/s, ATP 1640/s, UTP 803/s, TTP 787/s."
             ),
         },
+        "transcript_initiation_mode": {
+            "type": "string", "default": "discrete",
+            "description": (
+                "Phase-2 jump-process opt-in for transcription initiation. "
+                "'discrete' (default, legacy): multinomial event distribution "
+                "with exact Σ N_i = n_target — bit-identical to baseline. "
+                "'poisson': per-promoter Poisson(n_target · p_i) tau-leap; "
+                "each promoter becomes an independent continuous-time jump "
+                "process whose per-tick marginal Phase-3 inference can "
+                "integrate against. Resource cap is the actual inactive-RNAP "
+                "pool, not the discrete-time target (avoids 12% asymmetric-"
+                "truncation undercount)."
+            ),
+        },
+        "polypeptide_initiation_mode": {
+            "type": "string", "default": "discrete",
+            "description": (
+                "Phase-2 jump-process opt-in for translation initiation. "
+                "Same dispatch as transcript_initiation_mode but for "
+                "PolypeptideInitiation; ribosome activation per protein "
+                "becomes per-protein Poisson(n_target · p_i) tau-leap "
+                "with the resource cap pinned to min(30S, 50S) instead "
+                "of the discrete-time target."
+            ),
+        },
+        "ref_growth_feedback_tau_s": {
+            "type": "number", "default": 1.0,
+            "description": (
+                "Feedback smoothing time-constant for the "
+                "consumption_matched ref-growth driver. ``1.0`` (default) "
+                "keeps the legacy tight per-tick controller — the driver "
+                "fully compensates last tick's variance, so the PDMP "
+                "ensemble's per-tick jump-process variance is invisible "
+                "at cell_mass. Larger values smooth the consumption "
+                "estimate (EMA) so per-tick stochasticity manifests in "
+                "pool counts and downstream in mass; the long-run mean "
+                "still tracks the kFBA-measured growth rate. Try 60 s "
+                "for a 1-minute-window controller."
+            ),
+        },
+        "ref_growth_feedback_period_ticks": {
+            "type": "integer", "default": 1,
+            "description": (
+                "Sprint-8 sparse-injection knob for the "
+                "consumption_matched ref-growth driver. ``1`` (default) "
+                "acts every tick. Larger values decimate the controller — "
+                "it acts every Nth tick, compensating the cumulative "
+                "consumption with a period-scaled target injection. "
+                "Pools drift open-loop between corrections, letting per-"
+                "tick Poisson variance manifest in the PDMP ensemble. "
+                "Bypasses the EMA when > 1 (one knob at a time)."
+            ),
+        },
+        "transcript_init_prob_scale": {
+            "type": "number", "default": 1.0,
+            "description": (
+                "Phase-3 sprint-7 ABC-SMC knob. In poisson mode, "
+                "multiplies the per-promoter initiation rate by this "
+                "scalar before sampling. Default 1.0 reproduces the "
+                "unperturbed sampler; values away from 1.0 produce "
+                "ensembles at distinguishable parameter settings for "
+                "the ABC-SMC inference stub. Only effective when "
+                "transcript_initiation_mode='poisson'."
+            ),
+        },
+        "polypeptide_init_prob_scale": {
+            "type": "number", "default": 1.0,
+            "description": (
+                "Phase-3 sprint-10 ABC-SMC knob, mirror of "
+                "transcript_init_prob_scale on the translation side. "
+                "Only effective when polypeptide_initiation_mode="
+                "'poisson'."
+            ),
+        },
     },
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
     core_extensions=[_register_millard_pdmp_links],
@@ -694,6 +829,12 @@ def millard_pdmp_baseline(
     backend: str = "basico",
     with_ref_growth: bool = False,
     ref_growth_flux_source: str = "proportional",
+    transcript_initiation_mode: str = "discrete",
+    polypeptide_initiation_mode: str = "discrete",
+    ref_growth_feedback_tau_s: float = 1.0,
+    ref_growth_feedback_period_ticks: int = 1,
+    transcript_init_prob_scale: float = 1.0,
+    polypeptide_init_prob_scale: float = 1.0,
 ) -> dict:
     """Build the process-bigraph state document for the Millard-PDMP baseline."""
     if core is None:
@@ -798,6 +939,12 @@ def millard_pdmp_baseline(
         config = _get_step_config(
             loader, step_name, core, _process_cache, master_seed=seed,
             ref_growth_flux_source=ref_growth_flux_source,
+            ref_growth_feedback_tau_s=ref_growth_feedback_tau_s,
+            ref_growth_feedback_period_ticks=ref_growth_feedback_period_ticks,
+            transcript_initiation_mode=transcript_initiation_mode,
+            transcript_init_prob_scale=transcript_init_prob_scale,
+            polypeptide_initiation_mode=polypeptide_initiation_mode,
+            polypeptide_init_prob_scale=polypeptide_init_prob_scale,
         )
         if config is not None:
             if len(config) == 5:

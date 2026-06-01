@@ -197,12 +197,26 @@ FLOW_ORDER = [step for layer in build_execution_layers(DEFAULT_FEATURES) for ste
 # Step instantiation (partitioned / baseline architecture)
 # ---------------------------------------------------------------------------
 
-def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0):
+def _get_step_config(
+    loader,
+    step_name,
+    core,
+    process_cache=None,
+    master_seed=0,
+    transcript_initiation_mode: str | None = None,
+    polypeptide_initiation_mode: str | None = None,
+):
     """Get (instance, topology, edge_type[, in_topo, out_topo]) for a step.
 
     master_seed: investigation-level seed; per-process seeds are derived via
     _derive_process_seed(master_seed, base_name) so each stochastic process
     gets a distinct, reproducible seed across an ensemble.
+
+    transcript_initiation_mode / polypeptide_initiation_mode: Phase-2 opt-in
+    for the respective Process's jump-process kinetics. ``"discrete"``
+    (default) → legacy multinomial sampling; ``"poisson"`` → per-target
+    Poisson tau-leap. See the respective ``pdmp_initiation_mode`` config
+    on each Process.
     """
     from v2ecoli.processes.equilibrium import Equilibrium
     from v2ecoli.processes.two_component_system import TwoComponentSystem
@@ -313,6 +327,22 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
     if isinstance(config, dict) and "seed" in config:
         config["seed"] = _derive_process_seed(master_seed, base_name)
 
+    # Phase-2: thread {transcript,polypeptide}_initiation_mode overrides
+    # into the ParCa-generated config so each Process's initialize()
+    # picks up the jump-process mode.
+    if (
+        transcript_initiation_mode
+        and isinstance(config, dict)
+        and base_name == 'ecoli-transcript-initiation'
+    ):
+        config["pdmp_initiation_mode"] = transcript_initiation_mode
+    if (
+        polypeptide_initiation_mode
+        and isinstance(config, dict)
+        and base_name == 'ecoli-polypeptide-initiation'
+    ):
+        config["pdmp_initiation_mode"] = polypeptide_initiation_mode
+
     # Partitioned processes: wrap with generic Requester/Evolver
     if base_name in PARTITIONED_PROCESSES:
         proc_cls = PARTITIONED_PROCESSES[base_name]
@@ -413,6 +443,25 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
             "default": "out/cache",
             "description": "Path to ParCa cache directory",
         },
+        "transcript_initiation_mode": {
+            "type": "string", "default": "discrete",
+            "description": (
+                "Phase-2 jump-process opt-in for transcription initiation. "
+                "'discrete' (default, legacy): multinomial event distribution "
+                "with exact Σ N_i = n_target. 'poisson': per-promoter "
+                "Poisson(n_target · p_i) tau-leap."
+            ),
+        },
+        "polypeptide_initiation_mode": {
+            "type": "string", "default": "discrete",
+            "description": (
+                "Phase-2 jump-process opt-in for translation initiation. "
+                "Same dispatch as transcript_initiation_mode but for "
+                "PolypeptideInitiation; ribosome activation per protein "
+                "becomes per-protein Poisson(n_target · p_i) tau-leap "
+                "instead of one global multinomial draw."
+            ),
+        },
         "config_overrides": {
             "type": "map",
             "default": {},
@@ -434,9 +483,16 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
         },
     ],
 )
-def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
-             config_overrides: dict | None = None,
-             bundle: dict | None = None) -> dict:
+def baseline(
+    core: Any = None,
+    *,
+    seed: int = 0,
+    cache_dir: str = "out/cache",
+    transcript_initiation_mode: str = "discrete",
+    polypeptide_initiation_mode: str = "discrete",
+    config_overrides: dict | None = None,
+    bundle: dict | None = None,
+) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
     Migrated from ``v2ecoli/generate.py:build_document`` +
@@ -560,7 +616,10 @@ def baseline(core: Any = None, *, seed: int = 0, cache_dir: str = "out/cache",
     try:
         for step_name in flow_order:
             config = _get_step_config(
-                loader, step_name, core, _process_cache, master_seed=seed)
+                loader, step_name, core, _process_cache, master_seed=seed,
+                transcript_initiation_mode=transcript_initiation_mode,
+                polypeptide_initiation_mode=polypeptide_initiation_mode,
+            )
             if config is not None:
                 if len(config) == 5:
                     instance, topology, edge_type, in_topo, out_topo = config

@@ -70,13 +70,19 @@ DNTP_BULK_IDS = ("DATP[c]", "DGTP[c]", "DCTP[c]", "TTP[c]")
 # feedback controller emit *negative* injection to drain over-production.
 BYPRODUCT_BULK_IDS = ("AMP[c]", "PPI[c]", "ADP[c]")
 
-# Water tracking — kFBA reference grows cell water by ~138 fg over 600 s of
-# M9-glucose (cell_mass grows 1274.5 → 1461.85 fg, dry_mass grows 388.93
-# → 438.84 fg, balance is water). At 18 Da per water, that's ~7.7×10⁶
-# H2O molecules per second of net production. With the same
-# consumption_matched feedback as the AAs/NTPs, this keeps cell-mass
-# trajectory in step with dry-mass trajectory (otherwise dry_mass
-# converges to Phase-0 but cell_mass undershoots by the missing water).
+# Water tracking — the kFBA reference grows cell water by ~138 fg over 600 s
+# of M9-glucose (cell_mass grows 1274.5 → 1461.85 fg, dry_mass grows 388.93
+# → 438.84 fg, balance is water). At 18 Da per water that's ~7.7×10⁶ H2O
+# molecules per second of net production. The driver injects water at this
+# rate via the same consumption_matched feedback as the AAs / NTPs, so that
+# cell_mass tracks dry_mass; without water injection cell_mass undershoots
+# by exactly the missing growth.
+#
+# The rate now lives in ``.pbg/runs/kfba-precursor-fluxes.json`` next to
+# the AAs/NTPs/dNTPs — sampled by ``scripts/sample_kfba_precursor_fluxes.py``
+# from a live baseline trajectory rather than hardcoded. ``WATER_RATE_PER_S``
+# below stays as a fallback when the JSON doesn't include ``WATER[c]`` (back-
+# compat with pre-water sampler runs).
 WATER_BULK_IDS = ("WATER[c]",)
 WATER_RATE_PER_S = 7.7e6
 
@@ -118,6 +124,28 @@ class RefGrowthDriver(Step):
         "enabled": {"_default": True},
         "tick_s": {"_default": 1.0},
         "seed": {"_default": 0},
+        # Feedback smoothing time-constant for ``consumption_matched`` mode.
+        # ``1.0`` (default) keeps the legacy tight per-tick controller —
+        # the driver fully compensates for whatever the other processes
+        # did to each pool last tick, so the PDMP ensemble's per-tick
+        # variance is invisible at the cell_mass listener. Larger values
+        # apply an EMA (time-constant ``tau``) to the *correction* term
+        # only. Sprint-7 ensemble validation (N=8, 600 s) found that
+        # tau=60 leaves PDMP+cm σ near-pinned (0.42 → 0.59 fg) because
+        # ``target_delta = rate · tick_s`` still hard-clamps each tick.
+        "feedback_tau_s": {"_default": 1.0},
+        # Sprint-8 alternative: decimate the controller in time. Acts
+        # only every Nth tick; on idle ticks emits nothing and lets the
+        # bulk pools drift under the other processes' consumption.
+        # On action ticks compensates the full period's accumulated
+        # consumption against a `period · rate · tick_s` target. With
+        # period=60, precursors drift open-loop for 60 s between
+        # corrections, letting per-tick Poisson variance accumulate at
+        # the listener level. When `feedback_period_ticks > 1`, the EMA
+        # is bypassed (use one knob at a time). Open-loop sprint-8
+        # showed ATP zeros at t≈240 s under full open-loop, so periods
+        # should stay much shorter than 240 s.
+        "feedback_period_ticks": {"_default": 1},
     }
 
     def initialize(self, config):
@@ -169,6 +197,25 @@ class RefGrowthDriver(Step):
         self._prev_counts: np.ndarray | None = None
         self._prev_injection: np.ndarray | None = None
         self._first_tick_done: bool = False
+        # EMA-smoothed other_delta — populated lazily on the first tick.
+        # The alpha used per update is ``1 - exp(-tick_s / tau)``; tau=1
+        # gives alpha≈0.63 (essentially the legacy tight controller),
+        # tau→inf gives alpha→0 (no update, frozen at initial value).
+        self.feedback_tau_s = float(self.parameters.get(
+            "feedback_tau_s", 1.0))
+        if self.feedback_tau_s <= 0.0:
+            raise ValueError(
+                f"feedback_tau_s must be > 0; got {self.feedback_tau_s!r}"
+            )
+        self._other_delta_ema: np.ndarray | None = None
+        self.feedback_period_ticks = int(self.parameters.get(
+            "feedback_period_ticks", 1))
+        if self.feedback_period_ticks < 1:
+            raise ValueError(
+                f"feedback_period_ticks must be >= 1; got "
+                f"{self.feedback_period_ticks!r}"
+            )
+        self._tick_count = 0
 
     def inputs(self):
         return {"bulk": "bulk_array"}
@@ -186,10 +233,13 @@ class RefGrowthDriver(Step):
                 continue
             if self.flux_source in ("measured_kfba", "consumption_matched"):
                 rate = self._measured_rates_by_id.get(vid, 0.0)
-                # WATER isn't in the kfba-precursor-fluxes JSON (the
-                # sampler script only walked the AA/NTP/dNTP list).
-                # Inject the hardcoded Phase-0 water-growth rate for it.
-                if vid in WATER_BULK_IDS:
+                # Water — prefer the rate from the kFBA fluxes JSON (the
+                # sampler in scripts/sample_kfba_precursor_fluxes.py now
+                # walks WATER[c] alongside the AAs / NTPs). Fall back to
+                # the in-source ``WATER_RATE_PER_S`` constant when the JSON
+                # predates the water column (back-compat with pre-water
+                # sampler runs).
+                if vid in WATER_BULK_IDS and rate <= 0.0:
                     rate = WATER_RATE_PER_S
                 if self.flux_source == "measured_kfba" and rate <= 0.0:
                     # measured_kfba mode skips non-positive rates entirely.
@@ -232,6 +282,19 @@ class RefGrowthDriver(Step):
             return {"bulk": [(self._bulk_idx, delta_int)]}
 
         if self.flux_source == "consumption_matched":
+            # Sparse-injection (sprint 8): if `feedback_period_ticks > 1`,
+            # only act every Nth tick. On idle ticks the precursor pools
+            # drift open-loop under the other processes' consumption, and
+            # `_prev_counts` / `_prev_injection` are NOT updated — so on
+            # the next action tick `other_delta_inst` measures the full
+            # cumulative consumption over the period.
+            self._tick_count += 1
+            if (self.feedback_period_ticks > 1
+                    and (self._tick_count - 1)
+                        % self.feedback_period_ticks != 0):
+                return {}
+            period = self.feedback_period_ticks
+
             # One-step feedback controller — tracks what the OTHER processes
             # did to each pool during the previous tick, and compensates.
             #
@@ -256,12 +319,35 @@ class RefGrowthDriver(Step):
             #   removal to current pool size so we never overdraw.
             current = counts(bulk, self._bulk_idx).astype(np.float64, copy=False)
             if self._first_tick_done:
-                other_delta = (
+                other_delta_inst = (
                     current - self._prev_counts
                     - self._prev_injection.astype(np.float64)
                 )
-                target_delta = self._rate_per_s * self.tick_s
-                desired_injection = target_delta - other_delta
+                # Exponential-moving-average smoothing with time constant
+                # ``feedback_tau_s``. tau=1s reproduces the legacy tight
+                # controller (alpha≈0.63 → driver responds nearly fully
+                # to last tick's variance, which damps Poisson stochasticity
+                # at the cell_mass listener). tau=60s keeps the driver's
+                # mean response correct over a minute but lets per-tick
+                # jump-process variance manifest in the bulk pools (and
+                # downstream in mass).
+                if period > 1:
+                    # Sparse-injection bypasses EMA (use one knob at a
+                    # time). Compensate the full period's accumulated
+                    # consumption against a period-scaled target.
+                    other_delta_used = other_delta_inst
+                else:
+                    alpha = 1.0 - np.exp(
+                        -self.tick_s / self.feedback_tau_s)
+                    if self._other_delta_ema is None:
+                        self._other_delta_ema = other_delta_inst.copy()
+                    else:
+                        self._other_delta_ema += alpha * (
+                            other_delta_inst - self._other_delta_ema
+                        )
+                    other_delta_used = self._other_delta_ema
+                target_delta = self._rate_per_s * self.tick_s * period
+                desired_injection = target_delta - other_delta_used
                 # Precursors keep their non-negative floor; byproducts
                 # (rate==0) are allowed to go negative down to -current
                 # (drain to zero, never below).

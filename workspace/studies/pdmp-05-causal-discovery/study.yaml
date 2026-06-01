@@ -1,8 +1,8 @@
 schema_version: 4
 name: pdmp-05-causal-discovery
 title: Phase 5 — Causal Discovery and Functional Annotation
-status: planned
-phase: Design
+status: running
+phase: Decide
 topic: pdmp
 tags:
 - pdmp
@@ -673,19 +673,50 @@ tests:
   cites:
   - benjamini1995
 embed_visualizations:
-- name: Per-gene Bayes factor — discovery list
-  url: /reports/figures/pdmp-05/bayes_factor_per_gene_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-05/bayes_factor_per_gene_real.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Intervention design — expected information gain
-  url: /reports/figures/pdmp-05/intervention_eig_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-05/intervention_eig_real.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: PC algorithm — edge recovery vs ground truth
-  url: /reports/figures/pdmp-05/pc_recovered_edges_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-05/pc_recovered_edges_real.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: PC pilot — recall vs threshold sweep
-  url: /reports/figures/pdmp-05/pc_recall_vs_threshold_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-05/pc_recall_vs_threshold_real.html. Inlined into
-    the downloaded report as iframe srcdoc.
+- name: Sprint 1 — Bayes factor model comparison stub
+  url: /reports/figures/pdmp-05/bayes_factor_stub.html
+  description: 'First Phase-5 deliverable. 5-hypothesis sweep over transcript_init_prob_scale, each hypothesis treated as
+    a candidate gene-function assignment, marginal likelihood via exp(-d/2σ²) where σ is sprint-8 noise floor. Truth at posterior
+    28.8% (1.37× runner-up, log BF +0.32 = weak by Jeffreys). Key insight: noise-floor σ IS the identifiability scale, so
+    posterior cannot peak sharper than data allows. Sets concrete identifiability floor for Phase 5.'
+- name: Sprint 2 — pseudo-marginal estimator + bias diagnostic
+  url: /reports/figures/pdmp-05/pseudo_marginal_diagnostic.html
+  description: 'Replaces sprint 1''s distance-of-the-mean estimator (biased by Jensen) with the per-replicate kernel average
+    (unbiased). Sprint 1''s signal nearly evaporates: truth posterior drops from 28.8% → 24.4% (essentially the 20% uniform
+    baseline over 5 hypotheses); log BF (truth/runner-up) collapses from +0.32 → +0.01. Bootstrap 95% CI on truth posterior
+    under PM: [22.4%, 26.8%]. The bias was per-θ heterogeneous (Δlog ranges 0.47–0.87), so sprint 1 was systematically wrong.
+    Honest conclusion: at N=4 per hypothesis, the data have essentially zero power to discriminate ±15% scale variation; need
+    more replicates, richer observables, or sharper ε.'
+- name: Sprint 3 — N-scaling projection / data-budget table
+  url: /reports/figures/pdmp-05/n_scaling_projection.html
+  description: 'CLT + parametric-draw projection of posterior CI at N ∈ {4, 8, ..., 1024} using sprint-2''s measured per-θ
+    kernel mean and variance. Sharp result that reclassifies the Phase-5 bottleneck: more replicates DO NOT help. The kernel-mean
+    gap between truth (log k̄=-0.998) and runner-up θ=1.15 (log k̄=-1.009) is only Δlog=+0.011 nats; as N→∞, the log-BF CI
+    tightens around this gap, NOT to a decisive threshold. Substantial/decisive Jeffreys thresholds never reached even at
+    N=1024. The bottleneck is information-theoretic (observable + σ + hypothesis spacing), not statistical-power. Sprint-4
+    target: wider hypothesis spacing OR richer observables (Phase-3 sprint 13''s count vector), NOT more replicates.'
+- name: Sprint 4 — hypothesis-spacing sweep on existing data
+  url: /reports/figures/pdmp-05/hypothesis_spacing_sweep.html
+  description: 'Pseudo-marginal posterior over progressively-wider SUBSETS of the sprint-7 grid. Truth posterior climbs from
+    24% (5-way ±15%) → 43% (3-way ±30%) → 61% (2-way truth vs 1.3), demonstrating that hypothesis spacing IS a lever. But
+    log BF maxes at +0.45 even in the most favorable 2-way subset — STILL BELOW Jeffreys substantial threshold of 1. Sprint
+    4 separates within-grid dilution (spacing fixes this) from the per-pair kernel-mean ceiling (only observable choice or
+    σ tightening can fix this). After sprints 1-4, the single remaining Phase-5 lever is observable choice. Sprint-5 target:
+    re-run sprints 1-3 with sprint-13''s combined count-vector observable.'
+- name: Phase 5 — per-gene Bayes factor (planned)
+  url: /reports/figures/pdmp-05/bayes_factor_per_gene.html
+  description: Per-gene Bayes factor against null annotation under the Phase-5 marginal-likelihood pipeline. Planned for sprint
+    4+.
+- name: Phase 5 — active-inference EIG (planned)
+  url: /reports/figures/pdmp-05/active_inference_eig.html
+  description: Expected information gain for in-silico interventions under candidate gene-function hypotheses. Planned for
+    sprint 5+.
+- name: Phase 5 — per-gene Bayes factor (v2 stub)
+  url: /reports/figures/pdmp-05/bayes_factor_per_gene_v2.html
+  description: Earlier hand-coded stub. Superseded by sprint-1 (bayes_factor_stub.html) and sprint-2 (pseudo_marginal_diagnostic.html).
+- name: Phase 5 — intervention design EIG (planned)
+  url: /reports/figures/pdmp-05/intervention_design_eig.html
+  description: 'Companion to active-inference EIG: per-intervention EIG ranking. Planned for sprint 5+.'
+- name: Phase 5 — PC algorithm DAG (planned)
+  url: /reports/figures/pdmp-05/pc_algorithm_dag.html
+  description: Recovered causal DAG via PC algorithm on Phase-3 likelihood summaries. Planned for sprint 5+.

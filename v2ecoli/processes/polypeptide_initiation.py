@@ -38,6 +38,7 @@ Mathematical Model
 """
 
 import numpy as np
+from scipy.stats import poisson as scipy_poisson
 
 # simulate_process removed
 from v2ecoli.library.schema import (
@@ -103,6 +104,17 @@ class PolypeptideInitiation(Step):
         'ribosome50S': {'_type': 'string', '_default': 'ribosome50S'},
         'rna_id_to_cistron_indexes': {'_type': 'method', '_default': {}},
         'seed': {'_type': 'integer', '_default': 0},
+        # Phase 2 — same dispatch as TranscriptInitiation's
+        # ``pdmp_initiation_mode``. ``"discrete"`` (default) keeps the
+        # legacy multinomial sampling; ``"poisson"`` treats each protein-
+        # coding-monomer slot as an independent Poisson jump process
+        # with rate n_ribosomes_to_activate · p_i and tau-leaps the tick.
+        'pdmp_initiation_mode': {'_type': 'string', '_default': 'discrete'},
+        # Phase-3 sprint-10 ABC-SMC knob, mirror of
+        # transcript_init_prob_scale on TranscriptInitiation. In poisson
+        # mode, multiplies the per-protein initiation rate by this
+        # scalar before Poisson sampling. Default 1.0 = unperturbed.
+        'polypeptide_init_prob_scale': {'_type': 'float', '_default': 1.0},
         'time_step': {'_type': 'integer[s]', '_default': 1},
         'translation_efficiencies': {'_type': 'array[float]', '_default': []},
         'tu_ids': {'_type': 'list[string]', '_default': []},
@@ -151,6 +163,20 @@ class PolypeptideInitiation(Step):
 
         self.seed = self.parameters["seed"]
         self.random_state = np.random.RandomState(seed=self.seed)
+
+        self.polypeptide_init_prob_scale = float(
+            self.parameters.get("polypeptide_init_prob_scale", 1.0))
+        if self.polypeptide_init_prob_scale <= 0:
+            raise ValueError(
+                f"polypeptide_init_prob_scale must be > 0; got "
+                f"{self.polypeptide_init_prob_scale!r}")
+        self.pdmp_initiation_mode = str(
+            self.parameters.get("pdmp_initiation_mode", "discrete"))
+        if self.pdmp_initiation_mode not in ("discrete", "poisson"):
+            raise ValueError(
+                f"pdmp_initiation_mode must be 'discrete' or 'poisson'; "
+                f"got {self.pdmp_initiation_mode!r}"
+            )
 
         self.empty_update = {
             "listeners": {
@@ -201,6 +227,7 @@ class PolypeptideInitiation(Step):
                         'is_n_ribosomes_to_activate_reduced': 'overwrite[boolean]',
                         'ribosomes_initialized': 'overwrite[integer]',
                         'prob_translation_per_transcript': 'overwrite[float]',
+                        'log_likelihood': {'_type': 'overwrite[float]', '_default': 0.0},
                     },
                 },
             }
@@ -381,11 +408,51 @@ class PolypeptideInitiation(Step):
         # Compute actual transcription probabilities of each transcript
         actual_protein_init_prob = protein_init_prob.copy()
 
-        # Sample multinomial distribution to determine which mRNAs have full
-        # 70S ribosomes initialized on them
-        n_new_proteins = self.random_state.multinomial(
-            n_ribosomes_to_activate, protein_init_prob
-        )
+        # Sample per-protein new-ribosome counts. Same dispatch as
+        # ``TranscriptInitiation``:
+        #
+        # - ``"discrete"`` (legacy): multinomial(n_target, protein_init_prob).
+        #   Σ N_i = n_ribosomes_to_activate exactly, but each per-protein
+        #   marginal is coupled to all the others through that constraint.
+        # - ``"poisson"`` (Phase 2 PDMP): per-protein Poisson(n_target · p_i)
+        #   independent draws — each protein slot is its own jump process
+        #   in continuous time, with the per-tick marginal Phase 3's
+        #   likelihood machinery can integrate against. Resource cap is
+        #   the actual ``inactive_ribosome_count`` pool (NOT
+        #   n_ribosomes_to_activate — see the equivalent fix in
+        #   v2ecoli/processes/transcript_initiation.py for the asymmetric-
+        #   truncation undercount rationale).
+        if self.pdmp_initiation_mode == "poisson":
+            poisson_means = (self.polypeptide_init_prob_scale
+                             * n_ribosomes_to_activate * protein_init_prob)
+            n_new_proteins = self.random_state.poisson(poisson_means).astype(np.int64)
+            total_drawn = int(n_new_proteins.sum())
+            if total_drawn > inactive_ribosome_count:
+                # Resource cap: subsample inactive_ribosome_count events
+                # from the inflated draw pool, weighted by per-protein
+                # counts.
+                event_proteins = np.repeat(
+                    np.arange(n_new_proteins.size), n_new_proteins,
+                )
+                keep_idx = self.random_state.choice(
+                    event_proteins.size,
+                    size=int(inactive_ribosome_count),
+                    replace=False,
+                )
+                n_new_proteins = np.bincount(
+                    event_proteins[keep_idx], minlength=n_new_proteins.size,
+                ).astype(np.int64)
+        else:
+            n_new_proteins = self.random_state.multinomial(
+                n_ribosomes_to_activate, protein_init_prob
+            )
+
+        # After sampling, the actual count of events may differ from
+        # n_ribosomes_to_activate (Poisson tau-leap fluctuates around the
+        # target; the multinomial path always equals the target). Rebind
+        # to the observed sum so downstream array allocations + the
+        # ribosome-id range match what the sampler actually emitted.
+        n_ribosomes_to_activate = int(n_new_proteins.sum())
 
         # Build attributes for active ribosomes.
         # Each ribosome is assigned a protein index for the protein that
@@ -496,6 +563,16 @@ class PolypeptideInitiation(Step):
                 }
             },
         }
+
+        # Phase-3 sprint-2: per-tick log-likelihood of the observed
+        # n_new_proteins under the Poisson rates that drove the
+        # sampler. Mirrors TranscriptInitiation's pattern.
+        if self.pdmp_initiation_mode == "poisson":
+            log_lik = float(
+                scipy_poisson.logpmf(n_new_proteins, poisson_means).sum())
+        else:
+            log_lik = 0.0
+        update["listeners"]["ribosome_data"]["log_likelihood"] = log_lik
 
         return update
 

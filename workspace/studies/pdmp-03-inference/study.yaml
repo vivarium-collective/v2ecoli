@@ -1,8 +1,8 @@
 schema_version: 4
 name: pdmp-03-inference
 title: 'Phase 3 — Inference Infrastructure: Likelihoods and Bayesian Interface'
-status: planned
-phase: Design
+status: running
+phase: Decide
 topic: pdmp
 tags:
 - pdmp
@@ -531,19 +531,35 @@ embed_visualizations:
   url: /reports/figures/pdmp-03/sbc_workflow.html
   description: Per-study visualization rendered from reports/figures/pdmp-03/sbc_workflow.html. Inlined into the downloaded
     report as iframe srcdoc.
-- name: ABC-SMC posterior shrinkage over rounds
-  url: /reports/figures/pdmp-03/abc_posterior_shrinkage_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-03/abc_posterior_shrinkage_real.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Posterior predictive — held-out coverage
-  url: /reports/figures/pdmp-03/ppc_coverage_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-03/ppc_coverage_real.html. Inlined into the downloaded
-    report as iframe srcdoc.
-- name: SBC rank histogram — calibration check
-  url: /reports/figures/pdmp-03/sbc_rank_histogram_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-03/sbc_rank_histogram_real.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: ABC-SMC 2D posterior (real)
-  url: /reports/figures/pdmp-03/abc_posterior_2d.html
-  description: Per-study visualization rendered from reports/figures/pdmp-03/abc_posterior_2d.html. Inlined into the downloaded
-    report as iframe srcdoc.
+- name: Phase 3 — ABC-SMC posterior shrinkage over rounds
+  url: /reports/figures/pdmp-03/abc_posterior_shrinkage.html
+  description: Posterior shrinkage diagnostic over SMC generations.
+- name: Phase 3 sprint 12 — count-based ABC distance
+  url: /reports/figures/pdmp-03/abc_count_metric.html
+  description: Combined count vector sqrt(d_rna² + d_ribosome²) reaches 3.06× truth-vs-next-nearest separation — the Phase-3-canonical
+    ABC distance, 100× sharper Ts identification than aggregate log-likelihood.
+- name: Phase 3 sprint 11 — multi-observable ABC
+  url: /reports/figures/pdmp-03/abc_multi_observable.html
+  description: Per-channel vs aggregate ABC. Diagnoses the self-calibration issue that motivated the pivot to count-based
+    distances.
+- name: Phase 3 sprint 10 — 2D (Ts, Ps) ABC sweep
+  url: /reports/figures/pdmp-03/abc_smc_2d.html
+  description: 'Reveals the anti-diagonal ridge under aggregate log-likelihood: reducing transcription while raising translation
+    partially cancels. Per-channel distances break the ridge.'
+- name: Phase 3 sprint 9 — sequential ε refinement
+  url: /reports/figures/pdmp-03/abc_smc_sequential.html
+  description: Posterior collapses to {truth} as ε tightens through p95/p75/p50/p25/p05 quantiles.
+- name: Phase 3 sprint 7 — ABC-SMC stub
+  url: /reports/figures/pdmp-03/abc_smc_stub.html
+  description: First ABC stub at scale-vs-distance, before the noise-floor recalibration.
+- name: Phase 3 sprint 5 — ensemble likelihood figure
+  url: /reports/figures/pdmp-03/likelihood_ensemble.html
+  description: Per-replicate log-likelihood trajectories + intra-ensemble noise floor band.
+- name: Posterior Predictive Check
+  url: /reports/figures/pdmp-03/posterior_predictive_check.html
+  description: Auto-wired existing figure at /reports/figures/pdmp-03/posterior_predictive_check.html. Promoted from disk
+    by the embed-wiring sweep — refine the name and description if a richer caption is wanted.
+- name: Sbc Per Parameter
+  url: /reports/figures/pdmp-03/sbc_per_parameter.html
+  description: Auto-wired existing figure at /reports/figures/pdmp-03/sbc_per_parameter.html. Promoted from disk by the embed-wiring
+    sweep — refine the name and description if a richer caption is wanted.

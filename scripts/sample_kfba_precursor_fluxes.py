@@ -46,6 +46,11 @@ AA_BULK_IDS = (
 )
 NTP_BULK_IDS = ("ATP[c]", "GTP[c]", "CTP[c]", "UTP[c]")
 DNTP_BULK_IDS = ("DATP[c]", "DGTP[c]", "DCTP[c]", "TTP[c]")
+# Water is sampled here too so the ref_growth_driver's consumption_matched
+# mode can read its rate from data instead of a hardcoded WATER_RATE_PER_S
+# in source — the value drifts with the live baseline trajectory, so it
+# wants to live with the AAs / NTPs in this JSON.
+WATER_BULK_IDS = ("WATER[c]",)
 
 
 def main():
@@ -60,7 +65,7 @@ def main():
 
     from v2ecoli import build_composite
 
-    precursor_ids = AA_BULK_IDS + NTP_BULK_IDS + DNTP_BULK_IDS
+    precursor_ids = AA_BULK_IDS + NTP_BULK_IDS + DNTP_BULK_IDS + WATER_BULK_IDS
 
     print(f"Building kFBA baseline composite...")
     t0 = time.perf_counter()

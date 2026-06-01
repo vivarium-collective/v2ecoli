@@ -61,6 +61,12 @@ class TranslationDeriver(Step):
                 'ribosome_data': {
                     'rRNA_initiated_TU': {'_type': f'overwrite[array[{self.n_rRNA_TUs},integer]]', '_default': []},
                     'rRNA_init_prob_TU': {'_type': f'overwrite[array[{self.n_rRNA_TUs},float]]', '_default': []},
+                    # Declared-but-unused: pins the field in the merged
+                    # state so the upstream PolypeptideInitiation write
+                    # survives pbg's scalar-pruning quirk (task #14).
+                    # Mirror of the RnapData listener step's
+                    # log_likelihood pin from Phase-3 sprint 1.
+                    'did_initialize': {'_type': 'overwrite[integer]', '_default': 0},
                 },
             },
             'active_ribosomes': {'_type': ACTIVE_RIBOSOME_ARRAY, '_default': []},

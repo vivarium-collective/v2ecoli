@@ -1,8 +1,8 @@
 schema_version: 4
 name: pdmp-01-metabolism-ode
 title: 'Phase 1 — Metabolism: multi-objective FBA → Kinetic ODE'
-status: planned
-phase: Design
+status: complete
+phase: Decide
 topic: pdmp
 tags:
 - pdmp
@@ -804,79 +804,17 @@ embed_visualizations:
   url: /reports/figures/pdmp-01/species_mapping_coverage.html
   description: Per-study visualization rendered from reports/figures/pdmp-01/species_mapping_coverage.html. Inlined into the
     downloaded report as iframe srcdoc.
-- name: Millard 2017 — 4-panel trajectory (real)
-  url: /reports/figures/pdmp-01/millard_real_4panel_trajectory.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_4panel_trajectory.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Millard 2017 — adenylate energy charge (real)
-  url: /reports/figures/pdmp-01/millard_real_energy_charge.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_energy_charge.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Millard 2017 — full 67-species heatmap (real)
-  url: /reports/figures/pdmp-01/millard_real_full_species_heatmap.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_full_species_heatmap.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Millard 2017 — ATP vs PEP phase plane (real)
-  url: /reports/figures/pdmp-01/millard_real_phase_plane_atp_pep.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_phase_plane_atp_pep.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Millard 2017 — redox balance (real)
-  url: /reports/figures/pdmp-01/millard_real_redox_balance.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_redox_balance.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Millard 2017 — anoxia (real)
-  url: /reports/figures/pdmp-01/millard_real_pert_anoxia.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_anoxia.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: Millard 2017 — atp_drop_50pct (real)
-  url: /reports/figures/pdmp-01/millard_real_pert_atp_drop_50pct.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_atp_drop_50pct.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Millard 2017 — baseline_long (real)
-  url: /reports/figures/pdmp-01/millard_real_pert_baseline_long.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_baseline_long.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Millard 2017 — coa_drain (real)
-  url: /reports/figures/pdmp-01/millard_real_pert_coa_drain.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_coa_drain.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Millard 2017 — glc_starve (real)
-  url: /reports/figures/pdmp-01/millard_real_pert_glc_starve.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_glc_starve.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Millard 2017 — glc_uptake_2x (real)
-  url: /reports/figures/pdmp-01/millard_real_pert_glc_uptake_2x.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_glc_uptake_2x.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Millard 2017 — nadh_overflow (real)
-  url: /reports/figures/pdmp-01/millard_real_pert_nadh_overflow.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_nadh_overflow.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Millard 2017 — phosphate_drop (real)
-  url: /reports/figures/pdmp-01/millard_real_pert_phosphate_drop.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_pert_phosphate_drop.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Millard 2017 — perturbation × species matrix (real)
-  url: /reports/figures/pdmp-01/millard_real_perturbation_matrix.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/millard_real_perturbation_matrix.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: LQR — best tuning trajectories
-  url: /reports/figures/pdmp-01/lqr_best_tuning_state.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/lqr_best_tuning_state.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: LQR — RMS tracking error across (Q, R) scan
-  url: /reports/figures/pdmp-01/lqr_sobol_scatter.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/lqr_sobol_scatter.html. Inlined into the downloaded
-    report as iframe srcdoc.
-- name: LQR — top-5 tracking-error trajectories
-  url: /reports/figures/pdmp-01/lqr_sobol_top5_tracking.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/lqr_sobol_top5_tracking.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: Phase 1 — 6 metabolites × 3 conditions
-  url: /reports/figures/pdmp-01/phase1_3cond_6panel.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/phase1_3cond_6panel.html. Inlined into the downloaded
-    report as iframe srcdoc.
-- name: Phase 1 — coupled Millard+Bridge ATP(t) across 3 conditions
-  url: /reports/figures/pdmp-01/phase1_3cond_atp_trajectory.html
-  description: Per-study visualization rendered from reports/figures/pdmp-01/phase1_3cond_atp_trajectory.html. Inlined into
-    the downloaded report as iframe srcdoc.
+- name: Phase 1 — kinetic-constraint curves
+  url: /reports/figures/pdmp-01/kinetic_constraint_curves.html
+  description: Michaelis-Menten kinetic constraint envelopes per substrate.
+- name: Phase 1 — PDMP metabolism vs v2ecoli baseline
+  url: /reports/figures/pdmp-01/pdmp_vs_baseline.html
+  description: 'Trajectory overlay: MillardPDMPMetabolism + consumption_matched ref-growth driver vs the Phase-0 reference
+    ensemble on M9-glucose. PR #72 closeout artifact.'
+- name: Phase 1 — PDMP vs Phase-0 ensemble (W₂)
+  url: /reports/figures/pdmp-01/pdmp_vs_phase0.html
+  description: W₂ distance between PDMP and Phase-0 ensembles on cell_mass + dry_mass. Within ±σ at t=600 s on M9-glucose.
+- name: Phase 1 — PR progress report
+  url: /reports/figures/pdmp-01/phase1_progress.html
+  description: 'Closeout summary for PR #72. Charts: bridge round-trip residual, FBA-bridge architecture, Millard kinetic
+    ATP drain, W₂ gap vs Phase 0, per-condition growth rate.'

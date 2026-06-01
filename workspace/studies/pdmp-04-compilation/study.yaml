@@ -1,8 +1,8 @@
 schema_version: 4
 name: pdmp-04-compilation
 title: Phase 4 — Compilation and Performance
-status: planned
-phase: Design
+status: running
+phase: Decide
 topic: pdmp
 tags:
 - pdmp
@@ -551,15 +551,34 @@ tests:
   requires_simulation: phase4-memory-1024
   cites: []
 embed_visualizations:
-- name: Backend throughput speedup vs v2ecoli baseline
-  url: /reports/figures/pdmp-04/jax_julia_speedup_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-04/jax_julia_speedup_real.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: JIT compile cost amortization
-  url: /reports/figures/pdmp-04/jit_compile_cost_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-04/jit_compile_cost_real.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: Per-cell memory footprint by bucket
-  url: /reports/figures/pdmp-04/memory_footprint_real.html
-  description: Per-study visualization rendered from reports/figures/pdmp-04/memory_footprint_real.html. Inlined into the
-    downloaded report as iframe srcdoc.
+- name: Phase 4 — JAX/Julia backend speedup (Phase 1 wrap-up)
+  url: /reports/figures/pdmp-04/jax_julia_speedup.html
+  description: 'JAX vs basico backend speedup for the Millard ODE on the standalone benchmark (Phase 1 perf #4 closeout).'
+- name: Phase 4 — JIT compile-cost amortization
+  url: /reports/figures/pdmp-04/jit_compile_cost.html
+  description: JAX compile-time vs run-time crossover as a function of trajectory count and trajectory length.
+- name: Phase 4 — per-cell memory footprint by bucket
+  url: /reports/figures/pdmp-04/memory_footprint.html
+  description: Memory budget per WCM cell broken down by listener / state / ParCa cache.
+- name: Phase 4 sprint 3 — column-centric runtime prototype
+  url: /reports/figures/pdmp-04/column_centric_prototype.html
+  description: Constant per-trajectory wall regardless of N — 3.1× speedup on pure-Poisson toy.
+- name: Phase 4 sprint 2 — function-level marshalling hotspots
+  url: /reports/figures/pdmp-04/marshalling_hotspots.html
+  description: 13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick. Marshalling dominates over
+    per-Process compute.
+- name: Phase 4 sprint 4 — 3-step composite prototype
+  url: /reports/figures/pdmp-04/multistep_prototype.html
+  description: Speedup does NOT compound across processes — pbg overhead is per-process, not per-step.
+- name: Phase 4 sprint 1 — per-tick compute decomposition
+  url: /reports/figures/pdmp-04/per_step_compute_decomposition.html
+  description: 76% framework overhead, no single Process dominates. Motivates the column-centric runtime as the architectural
+    answer.
+- name: Phase 4 sprint 6 — TI-shaped column-centric runner
+  url: /reports/figures/pdmp-04/ti_shaped_prototype.html
+  description: 'Realistic TI-shaped workload: honest 1.5× per-tick recalibration (vs toys'' 3×). Final number behind the ~1500×
+    projection.'
+- name: Phase 4 sprint 5 — real WCM baseline + 1500× projection
+  url: /reports/figures/pdmp-04/wcm_baseline_projection.html
+  description: 'Real WCM benchmark: pbg sequential at N=10³ × 30 ticks = 26 min; column-centric parallel projection ≈ 1 sec
+    = ~1500× total speedup. The Phase-4 closeout headline.'

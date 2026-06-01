@@ -1,8 +1,8 @@
 schema_version: 4
 name: pdmp-00-characterization
 title: Phase 0 — Characterization and Interface Extraction
-status: planned
-phase: Design
+status: complete
+phase: Decide
 topic: pdmp
 tags:
 - pdmp
@@ -727,79 +727,18 @@ embed_visualizations:
   url: /reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html
   description: Per-study visualization rendered from reports/figures/pdmp-00/v2ecoli_ensemble_3seeds.html. Inlined into the
     downloaded report as iframe srcdoc.
-- name: Phase 0 pilot — single condition × N=8 endpoint
-  url: /reports/figures/pdmp-00/phase0_pilot_single_condition_REAL.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_pilot_single_condition_REAL.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 pilot — per-seed summary table
-  url: /reports/figures/pdmp-00/phase0_pilot_summary_table.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_pilot_summary_table.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Per-process RNG fix — real N=8 pilot (CV ≈ 0.5%)
-  url: /reports/figures/pdmp-00/rng_seeding_fix_proof_REAL.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/rng_seeding_fix_proof_REAL.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Phase 0 — 4-panel observable spaghetti (real, N=64)
-  url: /reports/figures/pdmp-00/phase0_4panel_spaghetti_REAL.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_4panel_spaghetti_REAL.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Phase 0 cell mass ensemble (real, N=64)
-  url: /reports/figures/pdmp-00/phase0_cell_mass_ensemble_REAL.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_cell_mass_ensemble_REAL.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 — cross-seed CV(t) (real, N=64)
-  url: /reports/figures/pdmp-00/phase0_cv_growth_diagnostic_REAL.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_cv_growth_diagnostic_REAL.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 growth rate ensemble (real, N=64)
-  url: /reports/figures/pdmp-00/phase0_growth_rate_ensemble_REAL.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_growth_rate_ensemble_REAL.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 — ensemble cell mass(t)
-  url: /reports/figures/pdmp-00/phase0_cell_mass_ensemble_AUTO.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_cell_mass_ensemble_AUTO.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 — cross-seed CV(t)
-  url: /reports/figures/pdmp-00/phase0_cv_growth_AUTO.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_cv_growth_AUTO.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: Phase 0 — ATP[c] endpoint per seed
-  url: /reports/figures/pdmp-00/phase0_endpoint_ATP_AUTO.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_endpoint_ATP_AUTO.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: Phase 0 — ensemble growth rate(t)
-  url: /reports/figures/pdmp-00/phase0_growth_rate_ensemble_AUTO.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_growth_rate_ensemble_AUTO.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 — cell mass(t) overlay across 3 conditions
-  url: /reports/figures/pdmp-00/phase0_3cond_cell_mass.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_3cond_cell_mass.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: Phase 0 — 3-condition endpoint boxplots (N=64 each)
-  url: /reports/figures/pdmp-00/phase0_3cond_endpoint_box.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_3cond_endpoint_box.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Phase 0 — growth rate(t) overlay across 3 conditions
-  url: /reports/figures/pdmp-00/phase0_3cond_growth_rate.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_3cond_growth_rate.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: Phase 0 — cross-condition W₁ distance
-  url: /reports/figures/pdmp-00/phase0_3cond_w2_heatmap.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_3cond_w2_heatmap.html. Inlined into the
-    downloaded report as iframe srcdoc.
-- name: Phase 0 (M9-acetate) — ensemble cell mass(t)
-  url: /reports/figures/pdmp-00/phase0_acetate_cell_mass_AUTO.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_acetate_cell_mass_AUTO.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Phase 0 (M9-acetate) — ATP[c] endpoint per seed
-  url: /reports/figures/pdmp-00/phase0_acetate_endpoint_ATP_AUTO.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_acetate_endpoint_ATP_AUTO.html. Inlined
-    into the downloaded report as iframe srcdoc.
-- name: Phase 0 (M9-glucose+aa) — ensemble cell mass(t)
-  url: /reports/figures/pdmp-00/phase0_with_aa_cell_mass_AUTO.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_with_aa_cell_mass_AUTO.html. Inlined into
-    the downloaded report as iframe srcdoc.
-- name: Phase 0 (M9-glucose+aa) — ATP[c] endpoint per seed
-  url: /reports/figures/pdmp-00/phase0_with_aa_endpoint_ATP_AUTO.html
-  description: Per-study visualization rendered from reports/figures/pdmp-00/phase0_with_aa_endpoint_ATP_AUTO.html. Inlined
-    into the downloaded report as iframe srcdoc.
+- name: Phase 0 — RNG seeding fix verification
+  url: /reports/figures/pdmp-00/rng_seeding_fix_proof.html
+  description: Empirical proof that per-process RNG seeding correctly decorrelates seed→trajectory mapping.
+- name: Phase 0 — per-condition growth-rate baseline
+  url: /reports/figures/pdmp-00/per_condition_growth_rate.html
+  description: v2ecoli baseline ensemble growth rates per nutrient condition (M9-glucose, M9-acetate, M9-glucose+aa). Phase
+    0 reference for every subsequent study.
+- name: Phase 0 — per-process compute decomposition
+  url: /reports/figures/pdmp-00/profile_decomposition_bars.html
+  description: Per-tick cost decomposed by Process. Reference profile that Phase 4 sprint 1 replaced with the marshalling-aware
+    version.
+- name: Phase 0 — Markov-blanket variable categorization
+  url: /reports/figures/pdmp-00/variable_categorization_bars.html
+  description: Categorical breakdown of the WCM state into input / sufficient-statistic / output buckets — the interface contract
+    every later study tests against.

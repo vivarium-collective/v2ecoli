@@ -1,0 +1,397 @@
+{
+  "v": 1,
+  "positions": {
+    "agents": {
+      "x": 629.1766806988085,
+      "y": 20.661511022506613
+    },
+    "agents.0": {
+      "x": 619.4612512022733,
+      "y": 190.7805331915607
+    },
+    "agents.0.bulk": {
+      "x": 450.4376930475528,
+      "y": 355.3657780140655
+    },
+    "agents.0.unique": {
+      "x": 920,
+      "y": 360
+    },
+    "agents.0.unique.full_chromosome": {
+      "x": 1400,
+      "y": 500
+    },
+    "agents.0.unique.oriC": {
+      "x": 1520,
+      "y": 500
+    },
+    "agents.0.unique.chromosome_domain": {
+      "x": 320,
+      "y": 500
+    },
+    "agents.0.unique.active_replisome": {
+      "x": 800,
+      "y": 500
+    },
+    "agents.0.unique.promoter": {
+      "x": 1160,
+      "y": 500
+    },
+    "agents.0.unique.gene": {
+      "x": 1280,
+      "y": 500
+    },
+    "agents.0.unique.DnaA_box": {
+      "x": 1040,
+      "y": 500
+    },
+    "agents.0.unique.active_RNAP": {
+      "x": 560,
+      "y": 500
+    },
+    "agents.0.unique.RNA": {
+      "x": 920,
+      "y": 500
+    },
+    "agents.0.unique.chromosomal_segment": {
+      "x": 680,
+      "y": 500
+    },
+    "agents.0.unique.active_ribosome": {
+      "x": 440,
+      "y": 500
+    },
+    "agents.0.environment": {
+      "x": 306.7257936217236,
+      "y": 358.8920530296651
+    },
+    "agents.0.boundary": {
+      "x": 540,
+      "y": 480
+    },
+    "agents.0.listeners": {
+      "x": 1260,
+      "y": 480
+    },
+    "agents.0.process": {
+      "x": 1500,
+      "y": 480
+    },
+    "agents.0.allocator_rng": {
+      "x": 1140,
+      "y": 480
+    },
+    "agents.0.process_state": {
+      "x": 300,
+      "y": 480
+    },
+    "agents.0.exchange": {
+      "x": 780,
+      "y": 480
+    },
+    "agents.0.next_update_time": {
+      "x": 420,
+      "y": 480
+    },
+    "agents.0.global_time": {
+      "x": 180,
+      "y": 480
+    },
+    "agents.0.timestep": {
+      "x": 1020,
+      "y": 480
+    },
+    "agents.0.divide": {
+      "x": 660,
+      "y": 480
+    },
+    "agents.0.division_threshold": {
+      "x": 900,
+      "y": 480
+    },
+    "agents.0.ppgpp_state": {
+      "x": 1740,
+      "y": 480
+    },
+    "agents.0.attenuation_config": {
+      "x": 1860,
+      "y": 480
+    },
+    "agents.0.request": {
+      "x": 1620,
+      "y": 480
+    },
+    "agents.0.allocate": {
+      "x": 1380,
+      "y": 480
+    },
+    "agents.0.post-division-mass-listener": {
+      "x": 3640,
+      "y": 20
+    },
+    "agents.0.unique_update_1": {
+      "x": 3640,
+      "y": 130
+    },
+    "agents.0.media_update": {
+      "x": 3640,
+      "y": 240
+    },
+    "agents.0.unique_update_2": {
+      "x": 3640,
+      "y": 350
+    },
+    "agents.0.ecoli-tf-unbinding": {
+      "x": 1199.9562972832505,
+      "y": -116.75403088041462
+    },
+    "agents.0.exchange_data": {
+      "x": 870.0876696375396,
+      "y": 18.78567472818866
+    },
+    "agents.0.unique_update_3": {
+      "x": 3640,
+      "y": 680
+    },
+    "agents.0.ecoli-two-component-system": {
+      "x": 1196.3817463687724,
+      "y": -46.36149318099084
+    },
+    "agents.0.ecoli-rna-maturation": {
+      "x": 1630.4795117665008,
+      "y": 82.5292076568953
+    },
+    "agents.0.unique_update_4": {
+      "x": 3850,
+      "y": 240
+    },
+    "agents.0.ecoli-tf-binding": {
+      "x": 1204.6603282472554,
+      "y": -186.27580373521488
+    },
+    "agents.0.unique_update_5": {
+      "x": 3850,
+      "y": 460
+    },
+    "agents.0.ecoli-protein-degradation": {
+      "x": 2127.818281503534,
+      "y": -41.85979848797527
+    },
+    "agents.0.ppgpp-initiation": {
+      "x": 1010.5506799276243,
+      "y": 139.64806579044466
+    },
+    "agents.0.ecoli-complexation": {
+      "x": 2126.9184447619937,
+      "y": 24.489337509904594
+    },
+    "agents.0.ecoli-polypeptide-initiation": {
+      "x": 2123.252973368214,
+      "y": -219.12588960437157
+    },
+    "agents.0.ecoli-transcript-initiation": {
+      "x": 1629.6876023792404,
+      "y": -222.74646249934446
+    },
+    "agents.0.ecoli-rna-degradation_requester": {
+      "x": 1633.5149648044392,
+      "y": -40.4108716425045
+    },
+    "agents.0.ecoli-chromosome-replication_requester": {
+      "x": 1457.8471379491918,
+      "y": 249.76213834316616
+    },
+    "agents.0.allocator_2": {
+      "x": 4060,
+      "y": 570
+    },
+    "agents.0.ecoli-rna-degradation_evolver": {
+      "x": 1631.0673390414827,
+      "y": 21.787119867338596
+    },
+    "agents.0.ecoli-chromosome-replication_evolver": {
+      "x": 1459.334801965713,
+      "y": 308.7566244558956
+    },
+    "agents.0.unique_update_6": {
+      "x": 4270,
+      "y": 130
+    },
+    "agents.0.ecoli-polypeptide-elongation_requester": {
+      "x": 2127.266322076625,
+      "y": -161.12185277785454
+    },
+    "agents.0.ecoli-transcript-elongation_requester": {
+      "x": 1630.4974456905372,
+      "y": -162.57077962332536
+    },
+    "agents.0.allocator_3": {
+      "x": 4270,
+      "y": 460
+    },
+    "agents.0.ecoli-polypeptide-elongation_evolver": {
+      "x": 2128.922038452321,
+      "y": -102.8121642451655
+    },
+    "agents.0.ecoli-transcript-elongation_evolver": {
+      "x": 1632.1531620662333,
+      "y": -100.94965833924333
+    },
+    "agents.0.unique_update_7": {
+      "x": 4480,
+      "y": 20
+    },
+    "agents.0.ecoli-chromosome-structure": {
+      "x": 1455.7473895008654,
+      "y": 181.0596739970399
+    },
+    "agents.0.unique_update_8": {
+      "x": 4480,
+      "y": 240
+    },
+    "agents.0.ecoli-metabolism": {
+      "x": 1011.4553844722534,
+      "y": 223.97463330705784
+    },
+    "agents.0.unique_update_9": {
+      "x": 4480,
+      "y": 460
+    },
+    "agents.0.RNA_counts_listener": {
+      "x": 4480,
+      "y": 570
+    },
+    "agents.0.ecoli-mass-listener": {
+      "x": 4480,
+      "y": 680
+    },
+    "agents.0.monomer_counts_listener": {
+      "x": 4690,
+      "y": 20
+    },
+    "agents.0.replication_data_listener": {
+      "x": 4690,
+      "y": 130
+    },
+    "agents.0.ribosome_data_listener": {
+      "x": 4690,
+      "y": 240
+    },
+    "agents.0.rna_synth_prob_listener": {
+      "x": 4690,
+      "y": 350
+    },
+    "agents.0.rnap_data_listener": {
+      "x": 4690,
+      "y": 460
+    },
+    "agents.0.unique_molecule_counts": {
+      "x": 4690,
+      "y": 570
+    },
+    "agents.0.unique_update_10": {
+      "x": 4690,
+      "y": 680
+    },
+    "agents.0.emitter": {
+      "x": 4900,
+      "y": 20
+    },
+    "agents.0.global_clock": {
+      "x": 4900,
+      "y": 130
+    },
+    "agents.0.mark_d_period": {
+      "x": 4900,
+      "y": 240
+    },
+    "agents.0.unique_update_11": {
+      "x": 4900,
+      "y": 350
+    },
+    "agents.0.division": {
+      "x": 871.8534023464781,
+      "y": -50.95590485151062
+    },
+    "global_time": {
+      "x": 20,
+      "y": 20
+    }
+  },
+  "collapsed": [
+    "agents.0.environment",
+    "agents.0.environment.exchange",
+    "agents.0.environment.exchange_data",
+    "agents.0.environment.exchange_data.constrained",
+    "agents.0.boundary",
+    "agents.0.boundary.external",
+    "agents.0.listeners",
+    "agents.0.listeners.mass",
+    "agents.0.listeners.atp",
+    "agents.0.listeners.ribosome_data",
+    "agents.0.listeners.rna_synth_prob",
+    "agents.0.listeners.rnap_data",
+    "agents.0.process",
+    "agents.0.process_state",
+    "agents.0.process_state.polypeptide_elongation",
+    "agents.0.next_update_time",
+    "agents.0.ppgpp_state",
+    "agents.0.attenuation_config",
+    "agents.0.request",
+    "agents.0.request.ecoli-rna-degradation",
+    "agents.0.request.ecoli-chromosome-replication",
+    "agents.0.request.ecoli-plasmid-replication",
+    "agents.0.request.ecoli-transcript-elongation",
+    "agents.0.request.ecoli-polypeptide-elongation",
+    "agents.0.allocate",
+    "agents.0.allocate.ecoli-rna-degradation",
+    "agents.0.allocate.ecoli-chromosome-replication",
+    "agents.0.allocate.ecoli-plasmid-replication",
+    "agents.0.allocate.ecoli-transcript-elongation",
+    "agents.0.allocate.ecoli-polypeptide-elongation"
+  ],
+  "hidden": [
+    "agents.0.boundary",
+    "agents.0.listeners",
+    "agents.0.process",
+    "agents.0.allocator_rng",
+    "agents.0.process_state",
+    "agents.0.exchange",
+    "agents.0.next_update_time",
+    "agents.0.global_time",
+    "agents.0.timestep",
+    "agents.0.divide",
+    "agents.0.division_threshold",
+    "agents.0.ppgpp_state",
+    "agents.0.attenuation_config",
+    "agents.0.request",
+    "agents.0.allocate",
+    "global_time",
+    "agents.0.unique_update_1",
+    "agents.0.post-division-mass-listener",
+    "agents.0.media_update",
+    "agents.0.unique_update_2",
+    "agents.0.unique_update_3",
+    "agents.0.unique_update_4",
+    "agents.0.unique_update_5",
+    "agents.0.allocator_2",
+    "agents.0.allocator_3",
+    "agents.0.unique_update_6",
+    "agents.0.unique_update_8",
+    "agents.0.unique_update_7",
+    "agents.0.unique_update_9",
+    "agents.0.ecoli-mass-listener",
+    "agents.0.RNA_counts_listener",
+    "agents.0.monomer_counts_listener",
+    "agents.0.replication_data_listener",
+    "agents.0.ribosome_data_listener",
+    "agents.0.rna_synth_prob_listener",
+    "agents.0.rnap_data_listener",
+    "agents.0.unique_molecule_counts",
+    "agents.0.unique_update_10",
+    "agents.0.emitter",
+    "agents.0.global_clock",
+    "agents.0.mark_d_period",
+    "agents.0.unique_update_11"
+  ]
+}

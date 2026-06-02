@@ -577,7 +577,12 @@ class Equilibrium(object):
             val = stoichMatrix[i][col]
             species = speciesList[i]
 
-            if val != 0:
+            # Only recurse on REACTANTS (val < 0). For multi-product
+            # reactions like DnaA-ATP intrinsic hydrolysis the column has
+            # multiple +1 entries (DnaA-ADP, Pi, PROTON); recursing on
+            # co-products causes infinite loops when their decomposition
+            # routes back to each other (DnaA-ADP -> Pi -> DnaA-ADP ...).
+            if val < 0:
                 x = self._moleculeRecursiveSearch(species, stoichMatrix, speciesList)
                 for j in x:
                     if j in total:

@@ -202,3 +202,85 @@ class MetricAcrossVariants(AnalysisStep):
                 "mean_final_dry_mass": statistics.mean(fms) if fms else 0.0,
             })
         return {"per_variant": per_variant}
+
+
+def _mean_std_cv(values: list[float]) -> dict[str, float]:
+    """Ensemble central tendency + spread for a list of per-cell scalars.
+
+    ``cv`` is the coefficient of variation (std / mean) — the dimensionless
+    cell-to-cell spread that is the headline number for a growth-rate or
+    composition grade. Undefined (0.0) when the mean is zero or n < 2.
+    """
+    n = len(values)
+    if n == 0:
+        return {"n": 0, "mean": 0.0, "std": 0.0, "cv": 0.0}
+    mean = statistics.mean(values)
+    std = statistics.pstdev(values) if n > 1 else 0.0
+    return {"n": n, "mean": mean, "std": std,
+            "cv": (std / mean) if mean else 0.0}
+
+
+class BasalPhenotypeCard(AnalysisStep):
+    """Multiseed: the v1 *meta-tier report card* measurement.
+
+    Grades the two universally-applicable basal-condition axes over an
+    ensemble of cells (seeds x generations of one variant), reporting each
+    as a cell-to-cell mean / std / CV:
+
+      - **Growth**: doubling time over confirmed divisions.
+      - **Composition**: protein / RNA / DNA mass fractions of dry weight.
+
+    This is the *measurement* half of the report card. The *grade* (pass/fail
+    vs. a pinned reference within tolerance) lives in
+    ``tests/test_basal_phenotype_card.py`` so the reference and tolerances are
+    reviewable artifacts, not buried analysis constants.
+
+    Design notes:
+      - ``generation_lower_bound`` drops early generations as burn-in, so the
+        ensemble reflects steady balanced growth rather than the inoculation
+        transient. The canonical convention is to discard the first few
+        generations of a multi-gen lineage.
+      - The per-cell records this consumes already carry time-averaged
+        ``protein_fraction_mean`` / ``rRna_fraction_mean`` / ``dna_fraction_mean``
+        (see ``analysis_runner.build_cell_records``), so composition is an
+        ensemble reduction over those, not a re-derivation from timeseries.
+      - **RNA == rRna for v1.** ``analysis_runner._MASS_COLS`` only pulls
+        ``rRna_mass`` (rRna is ~80-85% of total RNA). Total-RNA/DW is a
+        documented follow-up (extend ``_MASS_COLS`` with tRna/mRna).
+    """
+
+    name = "basal_phenotype_card"
+    scale = "multiseed"
+    config_schema = {
+        "generation_lower_bound": {"_type": "integer", "_default": 0},
+    }
+
+    def analyze(self, rows):
+        burn_in = int(self.config.get("generation_lower_bound", 0))
+        kept = [r for r in rows if int(r.get("generation", 0)) >= burn_in]
+
+        # Growth: doubling time over confirmed divisions only. A non-divided
+        # cell's division_time is the run cap, not a doubling time.
+        doubling_times = [
+            float(r.get("division_time", 0.0)) for r in kept
+            if r.get("divided") is True and float(r.get("division_time", 0.0)) > 0
+        ]
+
+        # Composition: ensemble reduction over the per-cell time-averaged
+        # fractions. Skip cells with a zero/absent fraction (no valid mass).
+        def _frac(key):
+            return [float(r[key]) for r in kept
+                    if float(r.get(key, 0.0)) > 0]
+
+        return {
+            "n_cells": len(kept),
+            "generation_lower_bound": burn_in,
+            "growth": {
+                "doubling_time": _mean_std_cv(doubling_times),
+            },
+            "composition": {
+                "protein_fraction": _mean_std_cv(_frac("protein_fraction_mean")),
+                "rna_fraction": _mean_std_cv(_frac("rRna_fraction_mean")),
+                "dna_fraction": _mean_std_cv(_frac("dna_fraction_mean")),
+            },
+        }

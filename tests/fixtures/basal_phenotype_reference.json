@@ -1,0 +1,22 @@
+{
+  "$schema_note": "Pinned reference for the v1 meta-tier basal-phenotype report card. v1 pins these values to a BLESSED current-main ensemble run (no biological judgement yet — judgement comes later, from reading drift against the pin). A model 'passes' the card if its basal ensemble reproduces every grade within tol_rel.",
+  "status": "pending_blessed_run",
+  "stimulus": {
+    "config": "v2ecoli/configs/basal_phenotype_card.json",
+    "blessed_model_ref": null,
+    "blessed_run_notes": "Populate from a basal_phenotype_card analysis.json: copy growth.doubling_time.mean and composition.*_fraction.mean into the grades below, set blessed_model_ref to the git sha, and set status to 'populated'."
+  },
+  "grades": {
+    "growth.doubling_time.mean": {"reference": null, "tol_rel": 0.10},
+    "composition.protein_fraction.mean": {"reference": null, "tol_rel": 0.05},
+    "composition.rna_fraction.mean": {"reference": null, "tol_rel": 0.05},
+    "composition.dna_fraction.mean": {"reference": null, "tol_rel": 0.05}
+  },
+  "open_questions": [
+    "Promotion mechanism (phase->meta): how does a phase-tier acceptance test graduate onto this transcript? Reviewer-gated / structural / population-vote — UNRESOLVED, see spec doc.",
+    "CI surface: one tier-tagged suite vs two surfaces vs one surface + promotion hook — UNRESOLVED.",
+    "Spec-vs-card separation: is this reference the 'card' and the config the 'spec', or two readings of one versioned object — UNRESOLVED.",
+    "RNA == rRna for v1 (analysis_runner._MASS_COLS pulls rRna only); extend to total RNA (tRna+mRna) as a follow-up.",
+    "Tolerances are placeholders pending the blessed run's observed cell-to-cell CV; tol_rel should be informed by the pinned ensemble's own spread."
+  ]
+}

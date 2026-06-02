@@ -1,0 +1,201 @@
+"""Tests for the v1 meta-tier report card: basal-condition phenotype.
+
+Three layers, mirroring the card's three artifacts:
+
+  1. **Measurement math** — ``BasalPhenotypeCard.analyze`` over synthetic
+     per-cell records (no ParCa cache needed). Pins burn-in filtering,
+     doubling-time mean/CV, and composition-fraction reduction.
+  2. **Config threading** — the dedicated ``generation_lower_bound`` knob
+     actually reaches the step through ``run_analyses`` (the framework
+     previously discarded per-analysis options).
+  3. **The grade** — ``grade_basal_phenotype`` compares a *measured* ensemble
+     against a *pinned reference* within tolerance. The reference is
+     ``tests/fixtures/basal_phenotype_reference.json``; v1 pins it to a
+     blessed current-main ensemble run (no biological judgement yet — the
+     judgement comes later, from reading drift against the pin). Until that
+     run exists the reference is ``status: pending_blessed_run`` and the
+     grade test skips, exactly like the other behavior tests skip without a
+     checkpoint.
+"""
+import json
+import os
+
+import pytest
+
+from v2ecoli.workflow.analysis import BasalPhenotypeCard
+from v2ecoli.library.report_card import grade_basal_phenotype, card_from_analysis
+
+
+_FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
+_REFERENCE = os.path.join(_FIXTURE_DIR, "basal_phenotype_reference.json")
+
+
+# ---------------------------------------------------------------------------
+# Synthetic ensemble: 2 seeds x 3 generations of one variant.
+# gen 0 is the inoculation transient (dropped by burn-in); gens 1-2 are the
+# steady-balanced-growth window the card grades. seed=1/gen=2 does not divide
+# (its division_time is the run cap) so it is excluded from doubling stats but
+# still counts for composition.
+# ---------------------------------------------------------------------------
+
+def _ensemble():
+    def cell(seed, gen, dt, divided, prot, rrna, dna):
+        return {"variant": 0, "lineage_seed": seed, "generation": gen,
+                "agent_id": "0" * (gen + 1), "divided": divided,
+                "division_time": dt, "final_dry_mass": 700.0,
+                "protein_fraction_mean": prot, "rRna_fraction_mean": rrna,
+                "dna_fraction_mean": dna}
+    return [
+        # gen 0 — burn-in (dropped at generation_lower_bound=1)
+        cell(0, 0, 3000.0, True, 0.40, 0.08, 0.030),
+        cell(1, 0, 3100.0, True, 0.41, 0.08, 0.030),
+        # gen 1
+        cell(0, 1, 2400.0, True, 0.50, 0.10, 0.020),
+        cell(1, 1, 2600.0, True, 0.52, 0.11, 0.020),
+        # gen 2
+        cell(0, 2, 2500.0, True, 0.51, 0.105, 0.021),
+        cell(1, 2, 9999.0, False, 0.53, 0.115, 0.019),  # did not divide
+    ]
+
+
+def _card(generation_lower_bound=0):
+    from bigraph_schema import allocate_core
+    return BasalPhenotypeCard(
+        {"generation_lower_bound": generation_lower_bound},
+        core=allocate_core())
+
+
+@pytest.mark.fast
+def test_burn_in_drops_early_generations():
+    """generation_lower_bound=1 excludes the gen-0 inoculation transient."""
+    out = _card(generation_lower_bound=1).analyze(_ensemble())
+    assert out["generation_lower_bound"] == 1
+    assert out["n_cells"] == 4  # gens 1-2, both seeds
+
+
+@pytest.mark.fast
+def test_doubling_time_over_confirmed_divisions_only():
+    """Doubling stats use divided cells only; the run-cap non-divider is out.
+
+    Kept divided dts (burn-in=1): 2400, 2600, 2500 -> mean 2500, n 3.
+    The seed=1/gen=2 cell (divided=False, dt=9999 run cap) is excluded."""
+    out = _card(generation_lower_bound=1).analyze(_ensemble())
+    dt = out["growth"]["doubling_time"]
+    assert dt["n"] == 3
+    assert dt["mean"] == pytest.approx(2500.0)
+    # CV = pstdev / mean; pstdev of {2400,2500,2600} = 81.6497...
+    assert dt["cv"] == pytest.approx(81.64966 / 2500.0, rel=1e-4)
+
+
+@pytest.mark.fast
+def test_composition_fractions_reduced_across_ensemble():
+    """Composition is the ensemble mean/std/cv of the per-cell fraction means.
+
+    protein over the 4 kept cells: 0.50, 0.52, 0.51, 0.53 -> mean 0.515."""
+    out = _card(generation_lower_bound=1).analyze(_ensemble())
+    comp = out["composition"]
+    assert comp["protein_fraction"]["n"] == 4
+    assert comp["protein_fraction"]["mean"] == pytest.approx(0.515)
+    assert comp["rna_fraction"]["mean"] == pytest.approx((0.10 + 0.11 + 0.105 + 0.115) / 4)
+    assert comp["dna_fraction"]["mean"] == pytest.approx((0.020 + 0.020 + 0.021 + 0.019) / 4)
+    # All three axes present and populated
+    assert set(comp) == {"protein_fraction", "rna_fraction", "dna_fraction"}
+
+
+@pytest.mark.fast
+def test_zero_fraction_cells_excluded_from_composition():
+    """A cell with no valid mass (zero fraction) is skipped, not averaged in."""
+    rows = _ensemble()
+    rows.append({"variant": 0, "lineage_seed": 2, "generation": 1, "agent_id": "00",
+                 "divided": True, "division_time": 2500.0, "final_dry_mass": 700.0,
+                 "protein_fraction_mean": 0.0, "rRna_fraction_mean": 0.0,
+                 "dna_fraction_mean": 0.0})
+    out = _card(generation_lower_bound=1).analyze(rows)
+    # n_cells counts the row (it is in-window) but composition skips the zero
+    assert out["n_cells"] == 5
+    assert out["composition"]["protein_fraction"]["n"] == 4
+
+
+@pytest.mark.fast
+def test_empty_ensemble_is_safe():
+    out = _card().analyze([])
+    assert out["n_cells"] == 0
+    assert out["growth"]["doubling_time"]["mean"] == 0.0
+    assert out["composition"]["protein_fraction"]["mean"] == 0.0
+
+
+@pytest.mark.fast
+def test_generation_lower_bound_threads_through_run_analyses(monkeypatch, tmp_path):
+    """The per-analysis option dict reaches the step (framework gap fixed).
+
+    With generation_lower_bound=1 the gen-0 cells must be excluded; if the
+    config were dropped (the old ``step_cls({})`` behavior) n_cells would be 6."""
+    import v2ecoli.workflow.analysis_runner as ar
+    # build_cell_records returns {cell_key: record}; run_analyses takes .values()
+    recs = {(c["lineage_seed"], c["generation"]): c for c in _ensemble()}
+    monkeypatch.setattr(ar, "build_cell_records", lambda sweep_dir: recs)
+    options = {"multiseed": {"basal_phenotype_card": {"generation_lower_bound": 1}}}
+    results = ar.run_analyses(str(tmp_path), options)
+    card = list(results["multiseed"]["basal_phenotype_card"].values())[0]
+    assert "error" not in card, card
+    assert card["generation_lower_bound"] == 1
+    assert card["n_cells"] == 4
+
+
+# ---------------------------------------------------------------------------
+# The grade — measured ensemble vs. pinned reference within tolerance.
+# (grade_basal_phenotype lives in v2ecoli.library.report_card so the report
+# renderer and this test share one implementation.)
+# ---------------------------------------------------------------------------
+
+def _load_reference():
+    if not os.path.isfile(_REFERENCE):
+        pytest.skip(f"pinned reference not found at {_REFERENCE}")
+    with open(_REFERENCE, encoding="utf-8") as f:
+        return json.load(f)
+
+
+@pytest.mark.fast
+def test_grade_logic_passes_within_tolerance():
+    """Unit-test the grading function itself (no model run)."""
+    reference = {"grades": {
+        "growth.doubling_time.mean": {"reference": 2500.0, "tol_rel": 0.10},
+        "composition.protein_fraction.mean": {"reference": 0.515, "tol_rel": 0.05},
+    }}
+    measured = _card(generation_lower_bound=1).analyze(_ensemble())
+    report = grade_basal_phenotype(measured, reference)
+    assert report["overall"] == "pass"
+    # A 20% drift on doubling time must fail the 10% tolerance
+    reference["grades"]["growth.doubling_time.mean"]["reference"] = 2000.0
+    assert grade_basal_phenotype(measured, reference)["overall"] == "fail"
+    # A null reference is ungraded, not a failure
+    reference["grades"] = {"growth.doubling_time.mean": {"reference": None, "tol_rel": 0.1}}
+    assert grade_basal_phenotype(measured, reference)["overall"] == "ungraded"
+
+
+@pytest.mark.behavior
+def test_basal_phenotype_card_matches_pinned_reference():
+    """META-TIER GRADE: current-model basal ensemble vs the pinned reference.
+
+    Skips until (a) the reference fixture is populated from a blessed main
+    ensemble run (``status: populated``) and (b) a measured analysis.json from
+    a basal_phenotype_card run is available (``V2ECOLI_BASAL_ANALYSIS`` env var
+    pointing at the sweep's analysis.json). Both require the ParCa cache +
+    an ensemble run — the execution layer deferred to the CI/cloud discussion.
+    """
+    reference = _load_reference()
+    if reference.get("status") != "populated":
+        pytest.skip(f"reference {reference.get('status')!r}; "
+                    "populate from a blessed main ensemble run first")
+
+    measured_path = os.environ.get("V2ECOLI_BASAL_ANALYSIS")
+    if not measured_path or not os.path.isfile(measured_path):
+        pytest.skip("set V2ECOLI_BASAL_ANALYSIS to a basal_phenotype_card "
+                    "analysis.json from an ensemble run")
+    with open(measured_path, encoding="utf-8") as f:
+        analysis = json.load(f)
+    card = list(analysis["multiseed"]["basal_phenotype_card"].values())[0]
+
+    report = grade_basal_phenotype(card, reference)
+    failures = {p: g for p, g in report["grades"].items() if not g["passed"]}
+    assert report["passed"], f"basal phenotype drifted from pinned reference: {failures}"

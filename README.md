@@ -34,6 +34,14 @@ reports lay the two engines side by side metric-by-metric. Through the full cell
 cycle the dry-mass trajectories track to within a fraction of a percent
 (707.2 fg vs 705.3 fg at division), with division timing of ~42 min in both.
 
+**Explore the model interactively:**
+[**🔬 the baseline whole-cell composite**](https://vivarium-collective.github.io/v2ecoli/docs/baseline-viewer/?static=1&stateUrl=data/baseline.state.json&viewUrl=data/baseline_default.view.json)
+opens the full process/store wiring in an interactive
+[bigraph-loom](https://github.com/vivarium-collective/bigraph-loom) viewer — pan
+the bigraph, expand stores, and click any process for its formal `describe()`
+description (the mathematics it computes). Runs entirely in-browser from a static
+snapshot; no install.
+
 Under the hood, the biology is **17 biological process modules** plus 8
 listener/deriver steps (`v2ecoli/processes/`, `v2ecoli/steps/derivers/`); the
 partitioned baseline composite schedules these — after splitting some processes

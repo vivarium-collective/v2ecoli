@@ -153,6 +153,9 @@ class Division(V2Step):
                     mass = listeners.get('mass', {})
                     if isinstance(mass, dict):
                         dry_mass = mass.get('dry_mass', 0.0)
+                # pbg-superpowers >=0.10 propagates pint Quantities through state;
+                # strip units so the bare-float arithmetic below works.
+                dry_mass = float(getattr(dry_mass, "magnitude", dry_mass))
                 return {
                     "division_threshold": (
                         dry_mass
@@ -169,6 +172,7 @@ class Division(V2Step):
             mass = listeners.get('mass', {})
             if isinstance(mass, dict):
                 dry_mass = mass.get('dry_mass', 0.0)
+        dry_mass = float(getattr(dry_mass, "magnitude", dry_mass))
 
         threshold = states.get("division_threshold", float('inf'))
 
@@ -233,26 +237,47 @@ class Division(V2Step):
             d2_seed = (self._seed + 2) % (2**31)
 
             def _build_daughter_doc(d_data, seed, daughter_id):
-                # Mirror vEcoli's per-cell partitioning: each daughter's
-                # emitter writes under its own agent_id, with generation
-                # derived from len(agent_id). Without this the daughter
-                # ParquetEmitter inherits the parent's metadata and clobbers
-                # the parent's history partition (see project memory
-                # parquet-division-partition-bug).
-                saved_override = _PARQUET_EMITTER_OVERRIDE
-                if saved_override is not None and saved_override.get("metadata"):
-                    daughter_meta = {
-                        **saved_override["metadata"],
-                        "agent_id": daughter_id,
-                        "generation": len(daughter_id),
-                    }
-                    set_parquet_emitter_override(
-                        {**saved_override, "metadata": daughter_meta})
+                # When a parquet-emitter override is active, the daughter's
+                # emitter would otherwise inherit the PARENT's static partition
+                # metadata (generation, agent_id) from the global override, and
+                # its _write_configuration (run in __init__) would DELETE the
+                # parent's fully-written history partition at division — the
+                # parent emits its whole life to generation=N/agent_id=<id>, the
+                # daughter spawns on the SAME path and wipes it, leaving only
+                # the daughter's birth rows. Re-point the override to the
+                # daughter's OWN slot (generation=len(id), agent_id=id) for the
+                # duration of the build so the daughter partitions to
+                # generation=N+1/agent_id=<id>0/<id>1 and never touches the
+                # parent's data. The next runner-driven generation re-wipes and
+                # rewrites that daughter slot cleanly.
+                import copy as _copy
+                _saved = _PARQUET_EMITTER_OVERRIDE
+                if _saved is not None:
+                    _ovr = _copy.deepcopy(_saved)
+                    _meta = _ovr.setdefault('metadata', {})
+                    # Derive the daughter slot from the PARENT's override
+                    # metadata (which the runner sets per generation), NOT from
+                    # self.agent_id — inside a composite the cell is always the
+                    # 'agents/0' key, so self.agent_id is "0" for every runner
+                    # generation. Using it gives generation=2/agent_id=00 for
+                    # ALL gens, which collides with (and wipes) runner gen 2.
+                    # Parent slot generation=N/agent_id=P → daughters
+                    # generation=N+1/agent_id=P0|P1, matching the next
+                    # runner-driven generation's own partition.
+                    _parent_aid = str(_meta.get('agent_id', self.agent_id))
+                    _parent_gen = _meta.get('generation')
+                    if _parent_gen is None:
+                        _parent_gen = len(_parent_aid)
+                    _suffix = daughter_id[len(str(self.agent_id)):] or '0'
+                    _meta['agent_id'] = _parent_aid + _suffix
+                    _meta['generation'] = int(_parent_gen) + 1
+                    set_parquet_emitter_override(_ovr)
                 try:
                     doc = baseline(
                         core=self.core, seed=seed, cache_dir=self._cache_dir)
                 finally:
-                    set_parquet_emitter_override(saved_override)
+                    if _saved is not None:
+                        set_parquet_emitter_override(_saved)
                 agent = doc['state']['agents']['0']
                 for key in ('bulk', 'unique', 'environment', 'boundary'):
                     if key in d_data:

@@ -39,3 +39,25 @@ curl -s "http://localhost:<port>/api/composite-state?ref=v2ecoli.composites.base
 
 The snapshot is point-in-time: regenerate `baseline.state.json` if the baseline
 composite's structure changes.
+
+## Short URL redirect (re-apply after a rebuild)
+
+`index.html` carries a small inline `<script>` (before the module script) that
+redirects a bare visit to the full query string, so
+`…github.io/v2ecoli/baseline-viewer/` (and the QR built from it) loads the
+featured composite + saved view for **every** visitor. Step 1's `npm run build`
+overwrites `index.html`, so re-add the block:
+
+```html
+<script>
+  if (!location.search) {
+    location.replace(location.pathname +
+      '?static=1&id=v2ecoli.composites.baseline.baseline' +
+      '&stateUrl=data/baseline.state.json&viewUrl=data/baseline_default.view.json');
+  }
+</script>
+```
+
+The default view (`data/baseline_default.view.json`) is committed here, NOT read
+from any visitor's localStorage — so the online viewer shows the saved
+arrangement to everyone.

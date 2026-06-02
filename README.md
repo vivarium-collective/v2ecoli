@@ -35,7 +35,7 @@ cycle the dry-mass trajectories track to within a fraction of a percent
 (707.2 fg vs 705.3 fg at division), with division timing of ~42 min in both.
 
 **Explore the model interactively:**
-[**🔬 the baseline whole-cell composite**](https://vivarium-collective.github.io/v2ecoli/baseline-viewer/?static=1&id=v2ecoli.composites.baseline.baseline&stateUrl=data/baseline.state.json&viewUrl=data/baseline_default.view.json)
+[**🔬 the baseline whole-cell composite**](https://vivarium-collective.github.io/v2ecoli/baseline-viewer/)
 opens the full process/store wiring in an interactive
 [bigraph-loom](https://github.com/vivarium-collective/bigraph-loom) viewer — pan
 the bigraph, expand stores, and click any process for its formal `describe()`

@@ -1,0 +1,14 @@
+{
+    "experiment_id": "dnaa2-step1-k0",
+    "cache_dir": "out/cache-succinate-mechA-2e-3",
+    "out_dir": "studies/dnaa-2-atp-hydrolysis/parquet-runs/dnaa2-step1-k0/parquet",
+    "generations": 3,
+    "n_init_sims": 1,
+    "lineage_seed": 0,
+    "single_daughters": true,
+    "time_step": 1.0,
+    "max_duration_per_gen": 7200.0,
+    "emitter": "parquet",
+    "features": ["ppgpp_regulation", "dnaa_nucleotide"],
+    "resume_dill": "out/steady_state_inputs/succinate_default_gen3_start.dill"
+}

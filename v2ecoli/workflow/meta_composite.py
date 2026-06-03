@@ -44,6 +44,8 @@ def _lineage_node(spec: BranchSpec, config: dict[str, Any]) -> dict[str, Any]:
                 "time_step": float(config.get("time_step", 1.0)),
                 "emitter": config.get("emitter", "parquet"),
                 "emitter_arg": dict(config.get("emitter_arg") or {}),
+                "features": list(config.get("features") or []),
+                "resume_dill": config.get("resume_dill", ""),
             },
             "inputs": {},
             "outputs": {

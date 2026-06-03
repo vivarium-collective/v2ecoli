@@ -43,6 +43,8 @@ ALLOWLIST: dict[str, str] = {
         'base64-dill for compiled rate functions (parameter compilation)',
     'cli/parca.py':
         'ParCa pipeline runner — writes parca_state.pkl + step checkpoints (ParCa cache exception)',
+    'workflow/lineage.py':
+        'resume_dill: loads a saved mother-cell state (pickled Python object) to seed gen-0 of dnaa multigen runs',
 }
 
 # Package-prefix allowlist (paths starting with these are ParCa internal,

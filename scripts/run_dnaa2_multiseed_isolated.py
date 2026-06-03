@@ -1,0 +1,197 @@
+"""Hardened dnaa-2 multiseed sweep: one workflow subprocess PER SEED.
+
+The in-process meta-composite OOM-kills with 4 full-cell branches in a single
+process (one cell's FBA GLP_NOFEAS retry storm tips it over). This driver runs
+each lineage_seed as its OWN `v2ecoli-workflow` subprocess (n_init_sims=1), at
+most CONCURRENCY at a time, all writing to the SAME hive-partitioned out_dir
+(partitions keyed by lineage_seed, so the four runs compose into one dataset).
+Then it reconstructs summary.json from the complete history and runs the
+multiseed + multigeneration analyses.
+
+    python scripts/run_dnaa2_multiseed_isolated.py
+"""
+from __future__ import annotations
+
+import glob
+import json
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(HERE)
+os.chdir(ROOT)
+sys.path.insert(0, ROOT)
+
+# Env-parameterized so the same isolated-per-seed workflow driver serves both
+# the Step-2 canonical run (defaults below) and the Step-3 mechanism run
+# (DnaA-ADP non-equilibrium): pass DNAA2_CACHE / DNAA2_OUT_ROOT / DNAA2_SEEDS /
+# DNAA2_GENS, plus DNAA_ADP_RELEASE_RATE (propagated to each workflow subprocess).
+SEEDS = [int(s) for s in os.environ.get("DNAA2_SEEDS", "0").split(",")]
+CONCURRENCY = int(os.environ.get("DNAA2_CONCURRENCY", "2"))  # composites max in RAM
+GENERATIONS = int(os.environ.get("DNAA2_GENS", "7"))
+OUT_ROOT = os.environ.get(
+    "DNAA2_OUT_ROOT",
+    "studies/dnaa-2-atp-hydrolysis/parquet-runs/dnaa2-bf8b82e-seed0-7gen")
+OUT_DIR = os.path.join(OUT_ROOT, "parquet")
+EXPERIMENT_ID = "dnaa2-bf8b82e-equilibrium"  # stable -> partitions compose
+PY = sys.executable
+
+# Clean baseline (post-bf8b82e): the DnaA nucleotide cycle now lives in the
+# stock equilibrium machinery (integrate_dt), so NO bespoke dnaa_nucleotide
+# feature is wired. By default a cold-start lineage from the Mechanism-A cache;
+# set DNAA2_RESUME_DILL to resume from a saved steady-state cell state (avoids
+# the cold-start transient — the proper way to run these lineages).
+BASE = {
+    "experiment_id": EXPERIMENT_ID,
+    "cache_dir": os.environ.get("DNAA2_CACHE", "out/cache-succinate-mechA-1e-3"),
+    "out_dir": OUT_DIR,
+    "generations": GENERATIONS,
+    "n_init_sims": 1,
+    "single_daughters": True,
+    "time_step": 1.0,
+    "max_duration_per_gen": 7200.0,
+    "emitter": "parquet",
+    "features": ["ppgpp_regulation"],
+}
+_resume = os.environ.get("DNAA2_RESUME_DILL")
+if _resume:
+    BASE["resume_dill"] = _resume
+
+
+def _write_seed_config(seed: int) -> str:
+    cfg = dict(BASE, lineage_seed=seed)
+    path = os.path.join(OUT_ROOT, f"_config_seed{seed}.json")
+    os.makedirs(OUT_ROOT, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(cfg, f, indent=2)
+    return path
+
+
+def _launch(seed: int) -> subprocess.Popen:
+    cfg = _write_seed_config(seed)
+    log = open(os.path.join("out/logs", f"dnaa2-multiseed-v2-s{seed}.log"), "w")
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
+    print(f"[{time.strftime('%H:%M:%S')}] launching seed {seed} -> {cfg}")
+    return subprocess.Popen(
+        [PY, "-m", "v2ecoli.workflow.run", "--config", cfg,
+         "--out", os.path.join(OUT_ROOT, f"run_seed{seed}")],
+        stdout=log, stderr=subprocess.STDOUT, env=env)
+
+
+def main() -> None:
+    os.makedirs("out/logs", exist_ok=True)
+    t0 = time.time()
+    pending = list(SEEDS)
+    running: dict[int, subprocess.Popen] = {}
+    failed: list[int] = []
+    while pending or running:
+        while pending and len(running) < CONCURRENCY:
+            s = pending.pop(0)
+            running[s] = _launch(s)
+        time.sleep(15)
+        for s, p in list(running.items()):
+            rc = p.poll()
+            if rc is not None:
+                del running[s]
+                status = "ok" if rc == 0 else f"FAILED rc={rc}"
+                print(f"[{time.strftime('%H:%M:%S')}] seed {s} done: {status}")
+                if rc != 0:
+                    failed.append(s)
+    print(f"all seeds finished in {(time.time()-t0)/60:.1f} min "
+          f"(failed: {failed or 'none'})")
+
+    # --- reconstruct summary.json from complete history -----------------
+    import polars as pl
+    files = glob.glob(os.path.join(OUT_DIR, "**", "history", "**", "*.pq"),
+                      recursive=True)
+    if not files:
+        print("NO history parquet found — nothing to analyze.")
+        return
+    df = (pl.scan_parquet(files, hive_partitioning=True)
+          .select(["lineage_seed", "generation", "global_time",
+                   "listeners__mass__dry_mass"]).collect())
+    g = (df.group_by(["lineage_seed", "generation"])
+         .agg([pl.col("global_time").max().alias("dur"),
+               pl.col("listeners__mass__dry_mass").last().alias("dry")])
+         .sort(["lineage_seed", "generation"]))
+    present = {(int(r["lineage_seed"]), int(r["generation"]))
+               for r in g.iter_rows(named=True)}
+    seeds: dict[str, dict] = {}
+    for r in g.iter_rows(named=True):
+        s, gen = int(r["lineage_seed"]), int(r["generation"])
+        key = f"variant=0/seed={s}"
+        seeds.setdefault(key, {"generations": []})
+        seeds[key]["generations"].append({
+            "generation": gen, "agent_id": "0" * (gen + 1),
+            "duration": float(r["dur"]), "dry_mass": float(r["dry"]),
+            "divided": (s, gen + 1) in present})
+    with open(os.path.join(OUT_DIR, "summary.json"), "w") as f:
+        json.dump(seeds, f, indent=2)
+
+    # --- per-(seed,gen) DnaA-ATP fraction from the BULK species ----------
+    # No dnaA_cycle listener anymore (bf8b82e adoption): read the three DnaA
+    # nucleotide forms straight from the bulk store and compute the fraction.
+    ids = (pl.scan_parquet(files[0]).select("bulk__id").head(1)
+           .collect()["bulk__id"][0].to_list())
+    apo_i, atp_i, adp_i = (ids.index("PD03831[c]"),
+                           ids.index("MONOMER0-160[c]"),
+                           ids.index("MONOMER0-4565[c]"))
+    bc = pl.col("bulk__count")
+    fr = (pl.scan_parquet(files, hive_partitioning=True)
+          .select(["lineage_seed", "generation",
+                   bc.list.get(atp_i).alias("atp"),
+                   bc.list.get(adp_i).alias("adp"),
+                   bc.list.get(apo_i).alias("apo")])
+          .with_columns((pl.col("atp") + pl.col("adp") + pl.col("apo")).alias("tot"))
+          .with_columns((pl.col("atp") / pl.col("tot")).alias("af"))
+          .collect())
+    fg = (fr.group_by(["lineage_seed", "generation"]).agg([
+        pl.col("af").mean().alias("af"),
+        pl.col("tot").mean().alias("tot"),
+        pl.col("apo").mean().alias("apo")])
+        .sort(["lineage_seed", "generation"]))
+    print("\n=== dnaa-2 (bf8b82e) per-(seed,gen) DnaA-ATP fraction [bulk-derived] ===")
+    for r in fg.iter_rows(named=True):
+        print(f"  seed {int(r['lineage_seed'])} gen {int(r['generation'])}: "
+              f"%ATP={r['af']:.4f}  total={r['tot']:.0f}  apo={r['apo']:.0f}")
+
+    # --- official analyses ---------------------------------------------
+    from v2ecoli.workflow.analysis_runner import run_analyses
+    res = run_analyses(OUT_DIR, {"multiseed": {"doubling_time_distribution": {}},
+                                 "multigeneration": {"mass_growth_across_generations": {}}})
+    md = res.get("multiseed", {}).get("doubling_time_distribution", {}).get("variant=0", {})
+    print("\n=== multiseed doubling-time ===")
+    print(f"  n_cells={md.get('n_cells')}  n_divided={md.get('n_divided')}  "
+          f"doubling={md.get('doubling_time_mean', 0)/60:.1f}min "
+          f"+/- {md.get('doubling_time_std', 0)/60:.1f}min")
+
+    # --- AUTO-REFRESH the canonical figure FROM THIS RUN -----------------
+    # Prevents the recurring "verdict updated but plots stale" problem: the
+    # figure is re-rendered from the run that just finished, so it can never lag
+    # the data. Delegated to the framework convention
+    # (pbg_superpowers.figure_refresh) — the study declares HOW to render in its
+    # study.yaml `figure_refresh:` block; we just tell it WHICH run finished.
+    # No per-study render code lives here anymore.
+    try:
+        from pbg_superpowers.figure_refresh import (
+            find_workspace_root, refresh_study_figures)
+        ws = find_workspace_root(Path(HERE))
+        res = refresh_study_figures(ws, "dnaa-2-atp-hydrolysis", run_dir=OUT_DIR)
+        if res["skipped"]:
+            print(f"  figure refresh skipped: {res['skipped']}")
+        else:
+            print(f"  auto-refreshed figures from this run "
+                  f"({len(res['ran'])} ran, {len(res['failed'])} failed)")
+            for c in res["failed"]:
+                print(f"    FAILED: {c}")
+    except Exception as e:  # noqa: BLE001 — viz refresh must never fail the run
+        print(f"  WARNING: figure auto-refresh failed: {type(e).__name__}: {e}")
+
+    print("\n=== DONE ===")
+
+
+if __name__ == "__main__":
+    main()

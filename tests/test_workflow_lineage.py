@@ -135,3 +135,36 @@ def test_select_carry_daughter_fallback_divides_mother_once(monkeypatch):
 def test_select_carry_daughter_none_when_nothing_to_carry():
     from v2ecoli.workflow.lineage import select_carry_daughter
     assert select_carry_daughter({"0"}, {"0": {}}, mother_snapshot=None) is None
+
+
+def test_divide_flag_detected_when_agent_id_diverges_from_inner_cell():
+    """Regression: gen 0 divides but gens >= 1 run to the duration cap.
+
+    The inner baseline composite always names its single cell "0", while
+    ``self._agent_id`` accumulates phylogeny suffixes across generations
+    ("0" -> "00" -> ...).  MarkDPeriod sets a ``divide`` flag on the inner
+    "0" cell without changing the agents map, so ``_run_until_division`` must
+    look the survivor up by the inner key (falling back to the sole agent),
+    not by ``self._agent_id``.  Before the fix it did ``agents.get("00")`` for
+    generation 1, missed the flag, and the generation never divided.
+    """
+    lp = LineageProcess.__new__(LineageProcess)
+    lp.config = {"emitter": "parquet", "single_daughters": True,
+                 "generations": 3, "max_duration_per_gen": 100.0}
+    lp.initialize(lp.config)
+    lp._agent_id = "00"          # generation >= 1: diverges from the inner "0"
+
+    class _FakeComposite:
+        # Inner composite always names its single cell "0"; MarkDPeriod has set
+        # the divide flag there without adding/removing agents.
+        state = {"agents": {"0": {"divide": True,
+                                  "listeners": {"mass": {"dry_mass": 500.0}}}}}
+
+        def run(self, interval):  # no-op; flag is already set
+            pass
+
+    lp._composite = _FakeComposite()
+    lp._gen_elapsed = 0.0
+
+    divided, _daughter, _dry_mass = lp._run_until_division(1.0)
+    assert divided is True       # False before the fix (looked up agents["00"])

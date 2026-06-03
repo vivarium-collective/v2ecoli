@@ -113,10 +113,38 @@ pipeline_gate:
     and re-design the HPC plan around per-cell processes outside
     the composite.
 
+# ─── HPC dispatch wiring (vivarium-dashboard todo #22) ─────────────────
+# These two fields make the study pbg/dashboard-compliant for spec-driven
+# HPC dispatch. The dashboard is the *consumer* of pbg-compliance; this
+# workspace is the *producer*. See vivarium-dashboard/info/hpc.md for the
+# full schema. (Typically emitted by `/pbg-expert ./` against the repo.)
+#
+# core_bootstrap: dotted path to a no-arg function that returns a
+# configured process_bigraph Core with all type/link registrations the
+# colony composite needs (viva_munk base + ECOLI_TYPES + EcoliWCM link).
+core_bootstrap: pbg_v2ecoli.core:build_core
+
+# report_generator: per-task report script invoked by the HPC array
+# dispatcher. Renders args via Python str.format() per task. Each task
+# writes one HTML file under output_dir; the Visualizations tab
+# auto-discovers them after rsync-back.
+report_generator:
+  script: reports/colony_report.py
+  args:
+    duration: "{steps_clamped:5}"
+    seed: "{overrides[seed]}"
+    n-adder: "{overrides[n_cells]}"
+    out: "/app/out/colony/{run_id}.html"
+  output_dir: out/colony
+
 simulation_set:
 - name: build-smoke-n2
   base_model: v2ecoli.composites.colony.colony
-  perturbation: null
+  # Explicit n_cells=2 (instead of null) so report_generator's
+  # {overrides[n_cells]} template renders cleanly. Matches the entry's
+  # condition: line below; the colony composite would default to n_cells=2
+  # anyway, so this changes nothing at runtime.
+  perturbation: {n_cells: 2}
   condition: pure-WC, 2 cells, env_size=30
   duration_min: 90
   seeds: [0]

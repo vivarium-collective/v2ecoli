@@ -1,0 +1,11 @@
+name: study-colony-d45422
+baseline: colony
+variants:
+- name: colony
+  source: v2ecoli.composites.colony
+  document: ./composites/colony.yaml
+comparisons: []
+conclusions: ''
+question: ''
+hypothesis: ''
+status: draft

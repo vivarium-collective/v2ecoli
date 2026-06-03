@@ -564,7 +564,19 @@ class Equilibrium(object):
                 return i
         return -1  # Flag for monomer
 
+    # Metabolite byproducts of hydrolysis reactions (e.g. bf8b82e's
+    # DnaA-ATP intrinsic hydrolysis: DnaA-ATP + WATER -> DnaA-ADP + Pi
+    # + PROTON). These appear as products with +1 stoich but are not
+    # decomposable binding complexes — without terminating recursion
+    # here, get_monomers(Pi[p]) returns {PD03831, ATP, WATER} and
+    # contaminates monomer_counts[PD03831] by ~bulk[Pi]+bulk[PROTON].
+    _HYDROLYSIS_BYPRODUCTS = frozenset({
+        "Pi[c]", "Pi[p]", "PROTON[c]", "WATER[c]", "WATER[p]",
+    })
+
     def _moleculeRecursiveSearch(self, product, stoichMatrix, speciesList):
+        if product in self._HYDROLYSIS_BYPRODUCTS:
+            return {product: 1.0}
         row = self._findRow(product, speciesList)
         col = self._findColumn(stoichMatrix[row, :])
         if col == -1:

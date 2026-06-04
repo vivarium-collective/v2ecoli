@@ -32,17 +32,29 @@ SIM_REL_TOL = 0.05
 
 
 def _config_section(vecoli_cfg, v2_cfg):
+    # Hide internal adapter bookkeeping keys (e.g. _dropped_vecoli_keys) from
+    # the user-facing schema diff.
+    v2_cfg = {k: v for k, v in v2_cfg.items() if not k.startswith("_")}
     d = schema_diff(vecoli_cfg, v2_cfg)
     rows = []
+    # only_in_* are expected config-SHAPE differences (a key exists in one
+    # config schema but not the other), NOT value divergences — e.g. vEcoli
+    # reads `emitter` from JSON while v2ecoli selects its emitter internally.
+    # Mark them not_compared (informational), reserving drift for shared keys
+    # whose VALUES differ.
     for k in d["only_in_vecoli"]:
         rows.append({"label": k, "left": json.dumps(vecoli_cfg[k]),
-                     "right": "(not used by v2ecoli)", "verdict": "drift"})
+                     "right": "—", "verdict": "not_compared",
+                     "reason": "vEcoli-only config key; v2ecoli has no such "
+                               "field (it configures this internally)"})
     for k in d["only_in_v2"]:
-        rows.append({"label": k, "left": "(added by adapter)",
-                     "right": json.dumps(v2_cfg[k]), "verdict": "drift"})
+        rows.append({"label": k, "left": "—",
+                     "right": json.dumps(v2_cfg[k]), "verdict": "not_compared",
+                     "reason": "v2ecoli-only config key (adapter default)"})
     for k, (lv, rv) in d["different"].items():
         rows.append({"label": k, "left": json.dumps(lv),
-                     "right": json.dumps(rv), "verdict": "drift"})
+                     "right": json.dumps(rv), "verdict": "drift",
+                     "reason": "shared key, differing value"})
     return {"title": "Config & schema diff", "rows": rows}
 
 

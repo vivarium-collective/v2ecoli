@@ -1,6 +1,8 @@
 """Resolve a vEcoli config and translate/diff it against v2ecoli's schema."""
 from __future__ import annotations
 
+import json
+import subprocess
 from typing import Any
 
 
@@ -58,3 +60,23 @@ def translate_vecoli_config(vecoli: dict[str, Any]) -> dict[str, Any]:
     for k, default in _V2_DEFAULTS.items():
         v2.setdefault(k, default)
     return v2
+
+
+VECOLI_REPO = "/Users/eranagmon/code/vEcoli"
+VECOLI_PYTHON = f"{VECOLI_REPO}/.venv/bin/python"
+
+
+def resolve_vecoli_config(config_path: str) -> dict[str, Any]:
+    """Resolve a vEcoli config (honoring ``inherit_from``) using vEcoli's
+    own loader, returning the fully-merged dict."""
+    snippet = (
+        "import json,sys;"
+        "from runscripts.workflow import load_config_with_inheritance;"
+        "json.dump(load_config_with_inheritance(sys.argv[1]), sys.stdout)"
+    )
+    out = subprocess.check_output(
+        [VECOLI_PYTHON, "-c", snippet, config_path],
+        cwd=VECOLI_REPO,
+        text=True,
+    )
+    return json.loads(out)

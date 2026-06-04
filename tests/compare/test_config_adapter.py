@@ -1,4 +1,5 @@
-from scripts._compare.config_adapter import schema_diff, translate_vecoli_config
+import json
+from scripts._compare.config_adapter import resolve_vecoli_config, schema_diff, translate_vecoli_config
 
 
 def test_schema_diff_partitions_keys():
@@ -50,3 +51,22 @@ def test_translate_maps_known_keys_and_drops_vecoli_only():
 def test_translate_sets_lineage_seed_default_when_absent():
     v2 = translate_vecoli_config({"experiment_id": "x", "generations": 1})
     assert v2["lineage_seed"] == 0
+
+
+def test_resolve_vecoli_config_invokes_vecoli_loader(monkeypatch, tmp_path):
+    captured = {}
+
+    def fake_check_output(cmd, cwd=None, text=None):
+        captured["cmd"] = cmd
+        captured["cwd"] = cwd
+        return json.dumps({"experiment_id": "resolved", "generations": 2})
+
+    monkeypatch.setattr(
+        "scripts._compare.config_adapter.subprocess.check_output",
+        fake_check_output,
+    )
+    cfg = resolve_vecoli_config("/some/two_generations.json")
+    assert cfg == {"experiment_id": "resolved", "generations": 2}
+    # runs vEcoli's python from the vEcoli repo
+    assert captured["cwd"].endswith("/vEcoli")
+    assert captured["cmd"][0].endswith("/vEcoli/.venv/bin/python")

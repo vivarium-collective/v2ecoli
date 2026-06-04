@@ -46,6 +46,14 @@ def _config_section(vecoli_cfg, v2_cfg):
     return {"title": "Config & schema diff", "rows": rows}
 
 
+def _error_section(title: str, exc: Exception) -> dict:
+    """A report section that surfaces a stage failure instead of aborting."""
+    return {"title": title, "rows": [{
+        "label": "stage failed", "left": "—", "right": "—",
+        "verdict": "mismatch", "reason": f"{type(exc).__name__}: {exc}",
+    }]}
+
+
 def _load_pickle(path):
     with open(path, "rb") as f:
         return pickle.load(f)
@@ -67,10 +75,7 @@ def main(argv=None):
     work = Path(args.workdir)
     work.mkdir(parents=True, exist_ok=True)
 
-    from ecoli.library.parquet_emitter import read_stacked_columns as v_reader  # noqa: E501
-    from v2ecoli.library.parquet_emitter import read_stacked_columns as v2_reader  # noqa: E501
-
-    # Stage 1 — config
+    # Stage 1 — config (essential; if this raises, nothing downstream is meaningful)
     vecoli_cfg = resolve_vecoli_config(args.config)
     v2_cfg = translate_vecoli_config(vecoli_cfg)
     v2_cfg_path = work / "v2_config.json"
@@ -78,35 +83,49 @@ def main(argv=None):
         {k: v for k, v in v2_cfg.items() if not k.startswith("_")}))
     sections = [_config_section(vecoli_cfg, v2_cfg)]
 
-    # Stage 2 — ParCa (both)
-    v_parca = orchestrator.run_vecoli_parca(
-        config_path=args.config, out_dir=work / "vecoli_parca")
-    v2_parca = orchestrator.run_v2_parca(
-        out_dir=work / "v2_parca", cache_dir=work / "parca_cache", mode=mode)
+    # Stages 2+3 — ParCa (both engines) + sim_data comparison.
+    # These form one fault unit: Stage 3 needs Stage 2's outputs.
+    parca_ok = False
+    v_parca = None
+    try:
+        v_parca = orchestrator.run_vecoli_parca(
+            config_path=args.config, out_dir=work / "vecoli_parca")
+        v2_parca = orchestrator.run_v2_parca(
+            out_dir=work / "v2_parca", cache_dir=work / "parca_cache",
+            mode=mode)
+        v_sim_data = _load_pickle(v_parca / "kb" / "sim_data.cPickle")
+        v2_sim_data = _load_pickle(v2_parca / "checkpoint_step_9.pkl")
+        sections.append({"title": "ParCa / sim_data",
+                         "rows": final_sim_data_diff(v_sim_data, v2_sim_data,
+                                                     rel_tol=PARCA_REL_TOL)})
+        parca_ok = True
+    except Exception as e:
+        sections.append(_error_section("ParCa / sim_data", e))
 
-    # Stage 3 — ParCa / sim_data comparison
-    v_sim_data = _load_pickle(v_parca / "kb" / "sim_data.cPickle")
-    v2_sim_data = _load_pickle(v2_parca / "checkpoint_step_9.pkl")
-    sections.append({"title": "ParCa / sim_data",
-                     "rows": final_sim_data_diff(v_sim_data, v2_sim_data,
-                                                 rel_tol=PARCA_REL_TOL)})
-
-    # Stage 4 — sim (both) + dynamics
-    exp_id = vecoli_cfg.get("experiment_id", "default")
-    v_sim = orchestrator.run_vecoli_sim(
-        config_path=args.config,
-        sim_data_path=str(v_parca / "kb" / "sim_data.cPickle"),
-        out_dir=work / "vecoli_sim",
-        generations=int(vecoli_cfg.get("generations", 2)))
-    v2_sim = orchestrator.run_v2_sim(
-        config_path=str(v2_cfg_path), out_dir=work / "v2_sim")
-
-    keys = [o["key"] for o in OBSERVABLES]
-    left = read_observables(str(v_sim), exp_id, v_reader, keys)
-    right = read_observables(str(v2_sim), exp_id, v2_reader, keys)
-    sections.append({"title": "2-generation sim dynamics",
-                     "rows": compare_observables(left, right, keys=keys,
-                                                 rel_tol=SIM_REL_TOL)})
+    # Stage 4 — sim (both engines) + dynamics comparison.
+    # Depends on ParCa outputs; if ParCa failed, record a dependency error.
+    try:
+        if not parca_ok:
+            raise RuntimeError(
+                "ParCa stage failed — vEcoli sim_data path unavailable")
+        from ecoli.library.parquet_emitter import read_stacked_columns as v_reader  # noqa: E501
+        from v2ecoli.library.parquet_emitter import read_stacked_columns as v2_reader  # noqa: E501
+        exp_id = vecoli_cfg.get("experiment_id", "default")
+        v_sim = orchestrator.run_vecoli_sim(
+            config_path=args.config,
+            sim_data_path=str(v_parca / "kb" / "sim_data.cPickle"),
+            out_dir=work / "vecoli_sim",
+            generations=int(vecoli_cfg.get("generations", 2)))
+        v2_sim = orchestrator.run_v2_sim(
+            config_path=str(v2_cfg_path), out_dir=work / "v2_sim")
+        keys = [o["key"] for o in OBSERVABLES]
+        left = read_observables(str(v_sim), exp_id, v_reader, keys)
+        right = read_observables(str(v2_sim), exp_id, v2_reader, keys)
+        sections.append({"title": "2-generation sim dynamics",
+                         "rows": compare_observables(left, right, keys=keys,
+                                                     rel_tol=SIM_REL_TOL)})
+    except Exception as e:
+        sections.append(_error_section("2-generation sim dynamics", e))
 
     title = "vEcoli vs v2ecoli"
     if mode == "fast":

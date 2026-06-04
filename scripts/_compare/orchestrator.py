@@ -41,17 +41,17 @@ def run_vecoli_parca(*, config_path: str, out_dir: Path) -> Path:
     return out_dir
 
 
-def run_vecoli_sim(*, config_path: str, sim_data_path: str, out_dir: Path,
-                   generations: int = 2) -> Path:
+def run_vecoli_sim(*, config_path: str, out_dir: Path) -> Path:
+    """Run vEcoli's Nextflow workflow for the 2-gen lineage.
+
+    The config is expected to set ``sim_data_path`` (so the workflow copies
+    that kb and skips re-running ParCa) and ``out_dir``/emitter. Reads all
+    run parameters from the config JSON, mirroring run_v2_sim.
+    """
     out_dir = Path(out_dir)
     if not is_stale(out_dir):
         return out_dir
-    _run([VECOLI_PYTHON, "ecoli/experiments/ecoli_master_sim.py",
-          "--config", config_path,
-          "--generations", str(generations),
-          "--emitter", "parquet",
-          "--emitter_arg", f"out_dir={out_dir}",
-          "--sim_data_path", sim_data_path],
+    _run([VECOLI_PYTHON, "-m", "runscripts.workflow", "--config", config_path],
          cwd=VECOLI_REPO)
     mark_done(out_dir)
     return out_dir

@@ -50,3 +50,32 @@ def test_run_vecoli_parca_uses_vecoli_python_and_save_intermediates(
     assert captured["cmd"][0].endswith("/vEcoli/.venv/bin/python")
     assert "--save-intermediates" in captured["cmd"]
     assert captured["cwd"].endswith("/vEcoli")
+
+
+def test_run_vecoli_sim_drives_nextflow_workflow(tmp_path, monkeypatch):
+    out = tmp_path / "vsim"
+    captured = {}
+
+    def fake_run(cmd, cwd=None, **kwargs):
+        captured["cmd"] = cmd
+        captured["cwd"] = cwd
+        out.mkdir(parents=True, exist_ok=True)
+        class R: returncode = 0
+        return R()
+
+    monkeypatch.setattr(orchestrator.subprocess, "run", fake_run)
+    orchestrator.run_vecoli_sim(config_path="/x/vsim_cfg.json", out_dir=out)
+    assert captured["cmd"][0].endswith("/vEcoli/.venv/bin/python")
+    assert captured["cmd"][1:4] == ["-m", "runscripts.workflow", "--config"]
+    assert captured["cwd"].endswith("/vEcoli")
+
+
+def test_run_vecoli_sim_skips_when_fresh(tmp_path, monkeypatch):
+    out = tmp_path / "vsim"
+    out.mkdir()
+    (out / ".done").write_text("ok")
+    called = {"n": 0}
+    monkeypatch.setattr(orchestrator.subprocess, "run",
+                        lambda *a, **k: called.__setitem__("n", called["n"] + 1))
+    assert orchestrator.run_vecoli_sim(config_path="/x.json", out_dir=out) == out
+    assert called["n"] == 0

@@ -93,7 +93,7 @@ def main(argv=None):
         v2_parca = orchestrator.run_v2_parca(
             out_dir=work / "v2_parca", cache_dir=work / "parca_cache",
             mode=mode)
-        v_sim_data = _load_pickle(v_parca / "kb" / "sim_data.cPickle")
+        v_sim_data = _load_pickle(v_parca / "kb" / "simData.cPickle")
         v2_sim_data = _load_pickle(v2_parca / "checkpoint_step_9.pkl")
         sections.append({"title": "ParCa / sim_data",
                          "rows": final_sim_data_diff(v_sim_data, v2_sim_data,
@@ -111,11 +111,18 @@ def main(argv=None):
         from ecoli.library.parquet_emitter import read_stacked_columns as v_reader  # noqa: E501
         from v2ecoli.library.parquet_emitter import read_stacked_columns as v2_reader  # noqa: E501
         exp_id = vecoli_cfg.get("experiment_id", "default")
+        vecoli_sim_out = work / "vecoli_sim"
+        vecoli_sim_cfg = dict(vecoli_cfg)
+        vecoli_sim_cfg["sim_data_path"] = str((v_parca / "kb" / "simData.cPickle").resolve())
+        vecoli_sim_cfg["out_dir"] = str(vecoli_sim_out)
+        _ea = dict(vecoli_sim_cfg.get("emitter_arg") or {})
+        _ea["out_dir"] = str(vecoli_sim_out)
+        vecoli_sim_cfg["emitter_arg"] = _ea
+        vecoli_sim_cfg["emitter"] = "parquet"
+        vecoli_sim_cfg_path = work / "vecoli_sim_config.json"
+        vecoli_sim_cfg_path.write_text(json.dumps(vecoli_sim_cfg))
         v_sim = orchestrator.run_vecoli_sim(
-            config_path=args.config,
-            sim_data_path=str(v_parca / "kb" / "sim_data.cPickle"),
-            out_dir=work / "vecoli_sim",
-            generations=int(vecoli_cfg.get("generations", 2)))
+            config_path=str(vecoli_sim_cfg_path), out_dir=vecoli_sim_out)
         v2_sim = orchestrator.run_v2_sim(
             config_path=str(v2_cfg_path), out_dir=work / "v2_sim")
         keys = [o["key"] for o in OBSERVABLES]

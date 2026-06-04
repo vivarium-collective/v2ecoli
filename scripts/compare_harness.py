@@ -72,7 +72,10 @@ def main(argv=None):
     args = p.parse_args(argv)
     mode = "fast" if args.fast_plumbing else args.mode
 
-    work = Path(args.workdir)
+    # Resolve to an absolute path: vEcoli subprocesses run with cwd=vEcoli, so
+    # a relative workdir would make them write under the vEcoli tree while the
+    # harness reads under v2ecoli. Absolute keeps both sides in agreement.
+    work = Path(args.workdir).resolve()
     work.mkdir(parents=True, exist_ok=True)
 
     # Stage 1 — config (essential; if this raises, nothing downstream is meaningful)

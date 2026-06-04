@@ -32,6 +32,52 @@ question: |
   behaviour intact while exposing the bound/free + per-nucleotide partitioning
   that later regulatory studies need?
 
+report:
+  title: dnaa-3 — DnaA box binding (chromosomal + oriC + dnaA-promoter)
+  verdict: proposed-design   # design complete; awaiting Rashmi/Haochen review before build/run
+  confidence: design-stage
+  evidence_quality: design-only
+
+  objective: |
+    On top of the validated dnaa-2 succinate baseline, distribute the DnaA-ATP /
+    DnaA-ADP pool across the 315 DnaA boxes (chromosomal + oriC + dnaA-promoter)
+    by affinity, in fast equilibrium, WITHOUT disturbing the dnaa-2 cell cycle —
+    exposing the bound/free + per-nucleotide partitioning that the later
+    regulatory studies (RIDA, SeqA, datA) will build on.
+
+  main_insight: |
+    DESIGN (not yet run). Four affinity pools over 315 boxes: chromosomal_high
+    (302 consensus TTWTNCACA boxes), oriC_high (3 — R1/R2/R4), oriC_low (8
+    non-consensus, supplied explicitly), promoter_high (2). Binding is modelled as
+    FAST equilibrium (integrate_dt=false) in the same ecoli-equilibrium machinery
+    as dnaa-2, so the boxes act as an affinity-ordered sink on the free DnaA-ATP /
+    DnaA-ADP pool. The bet: a pure binding sink, with no new regulation, leaves the
+    dnaa-2 behaviour intact (8/8 divisions, oriC 1↔2, 0 re-init, DnaA-ATP fraction
+    in band) while making bound/free occupancy observable for downstream studies.
+    Six-step build plan (partition catalog → low-aff coords → binding equilibria →
+    bound-pool species/state → listener+viz → validate). RIDA/SeqA are OUT of scope
+    here (binding only), per Rashmi.
+
+  result: |
+    NOT YET RUN — proposed design awaiting expert review. The validation run is
+    specified (dnaa3-boxbinding-seed1-8gen-succinate: V=1e-3 succinate, seed 1,
+    8-gen burned-in — the same protocol that passed dnaa-2) with four acceptance
+    tests: 8/8 divisions, oriC 1↔2, zero re-init events, DnaA-ATP fraction in
+    [0.2,0.5] at gen-3. Figures attached for the review: the 307-box chromosome map,
+    the replication animation, and the dnaa-2 baseline starting point.
+
+  review_asks: |
+    For Rashmi / Haochen, before we build:
+    1. POOL PARTITION — are the four affinity pools right (302 chromosomal-high /
+       3 oriC-high R1,R2,R4 / 8 oriC-low / 2 promoter-high), and the per-pool K_d
+       values to use?
+    2. LOW-AFFINITY oriC BOXES — the 8 are non-consensus and supplied explicitly;
+       please confirm the coordinates/sequences (step 2 of the build plan).
+    3. MODELLING CHOICE — is treating box binding as FAST equilibrium
+       (integrate_dt=false) the right call here, or should any pool be kinetic?
+    4. ACCEPTANCE BAR — is "dnaa-2 cell cycle unchanged + DnaA-ATP fraction in band"
+       the correct success criterion for a binding-only study (regulation deferred)?
+
 objective: |
   Add a dynamic DnaA-box occupancy mechanism: distribute the DnaA-ATP / DnaA-ADP
   pool (from dnaa-2) across the 315 chromosomal + oriC + dnaA-promoter DnaA boxes

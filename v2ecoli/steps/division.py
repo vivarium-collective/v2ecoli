@@ -299,14 +299,23 @@ class Division(V2Step):
             # (ecoli/processes/engine_process.py: divide branch). The parent
             # ParquetEmitter has rows buffered since its last batch flush;
             # without an explicit close() they vanish when this _remove
-            # update tears the agent subtree down. Lookup is by self.agent_id
-            # via the per-agent registry populated at emitter construction.
+            # update tears the agent subtree down.
+            #
+            # The emitter is registered under the parquet override's
+            # metadata.agent_id (the runner's per-generation identity:
+            # "0", "00", "000", ...). self.agent_id inside the composite
+            # is always "0" (the agents/0 key), so for gens >= 2 the
+            # naive lookup misses and the trailing batch is silently
+            # dropped. Use the override metadata as the canonical key.
             from v2ecoli.composites._helpers import (
+                _PARQUET_EMITTER_OVERRIDE,
                 get_parquet_emitter, unregister_parquet_emitter)
-            parent_emitter = get_parquet_emitter(self.agent_id)
+            _ovr_meta = (_PARQUET_EMITTER_OVERRIDE or {}).get('metadata') or {}
+            _emitter_key = str(_ovr_meta.get('agent_id', self.agent_id))
+            parent_emitter = get_parquet_emitter(_emitter_key)
             if parent_emitter is not None:
                 parent_emitter.close(success=True)
-                unregister_parquet_emitter(self.agent_id)
+                unregister_parquet_emitter(_emitter_key)
 
             return {
                 'agents': {

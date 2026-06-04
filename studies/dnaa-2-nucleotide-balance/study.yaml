@@ -550,7 +550,10 @@ tests:
       band in later gens (~0.16-0.23); a diagnosis (charts/dnaa2_fraction_vs_totaldnaa
       _diagnosis.png) shows this is a total-DnaA dependence, with the DnaA-ADP
       dissociation rate k_r as the lever — a future-tuning question for Haochen,
-      not a blocker.
+      not a blocker. CONFIRMED by a k_r sweep (mini, 2026-06-04): gen-2 DnaA-ATP
+      fraction k_r=1e-7→0.314, 1e-6→0.314, 1e-5→0.382 — faster k_r does lift the
+      fraction, but it takes ~100× (1e-7≈1e-6; only 1e-5 shifts it ~+0.07). All
+      three stay in band, so the lever works; the exact k_r is Haochen's call.
 
   - name: total-dnaa-in-band-300-800
     classification: secondary

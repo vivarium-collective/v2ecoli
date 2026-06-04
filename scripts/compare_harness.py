@@ -83,16 +83,22 @@ def main(argv=None):
         {k: v for k, v in v2_cfg.items() if not k.startswith("_")}))
     sections = [_config_section(vecoli_cfg, v2_cfg)]
 
+    # Compute a cache token from config + mode so re-runs with different
+    # settings invalidate stale outputs.
+    from scripts._compare.cache import cache_key
+    run_token = cache_key(vecoli_cfg, commit="", mode=mode)
+
     # Stages 2+3 — ParCa (both engines) + sim_data comparison.
     # These form one fault unit: Stage 3 needs Stage 2's outputs.
     parca_ok = False
     v_parca = None
     try:
         v_parca = orchestrator.run_vecoli_parca(
-            config_path=args.config, out_dir=work / "vecoli_parca")
+            config_path=args.config, out_dir=work / "vecoli_parca",
+            token=run_token)
         v2_parca = orchestrator.run_v2_parca(
             out_dir=work / "v2_parca", cache_dir=work / "parca_cache",
-            mode=mode)
+            mode=mode, token=run_token)
         v_sim_data = _load_pickle(v_parca / "kb" / "simData.cPickle")
         v2_sim_data = _load_pickle(v2_parca / "checkpoint_step_9.pkl")
         sections.append({"title": "ParCa / sim_data",
@@ -108,8 +114,6 @@ def main(argv=None):
         if not parca_ok:
             raise RuntimeError(
                 "ParCa stage failed — vEcoli sim_data path unavailable")
-        from ecoli.library.parquet_emitter import read_stacked_columns as v_reader  # noqa: E501
-        from v2ecoli.library.parquet_emitter import read_stacked_columns as v2_reader  # noqa: E501
         exp_id = vecoli_cfg.get("experiment_id", "default")
         vecoli_sim_out = work / "vecoli_sim"
         vecoli_sim_cfg = dict(vecoli_cfg)
@@ -122,12 +126,14 @@ def main(argv=None):
         vecoli_sim_cfg_path = work / "vecoli_sim_config.json"
         vecoli_sim_cfg_path.write_text(json.dumps(vecoli_sim_cfg))
         v_sim = orchestrator.run_vecoli_sim(
-            config_path=str(vecoli_sim_cfg_path), out_dir=vecoli_sim_out)
+            config_path=str(vecoli_sim_cfg_path), out_dir=vecoli_sim_out,
+            token=run_token)
         v2_sim = orchestrator.run_v2_sim(
-            config_path=str(v2_cfg_path), out_dir=work / "v2_sim")
+            config_path=str(v2_cfg_path), out_dir=work / "v2_sim",
+            token=run_token)
         keys = [o["key"] for o in OBSERVABLES]
-        left = read_observables(str(v_sim), exp_id, v_reader, keys)
-        right = read_observables(str(v2_sim), exp_id, v2_reader, keys)
+        left = read_observables(str(v_sim), exp_id, keys)
+        right = read_observables(str(v2_sim), exp_id, keys)
         sections.append({"title": "2-generation sim dynamics",
                          "rows": compare_observables(left, right, keys=keys,
                                                      rel_tol=SIM_REL_TOL)})

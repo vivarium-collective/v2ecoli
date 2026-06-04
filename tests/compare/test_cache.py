@@ -1,4 +1,4 @@
-from scripts._compare.cache import cache_key, is_stale
+from scripts._compare.cache import cache_key, is_stale, mark_done
 
 
 def test_cache_key_is_deterministic_and_sensitive():
@@ -20,4 +20,23 @@ def test_is_stale_false_when_done_marker_present(tmp_path):
     d = tmp_path / "run"
     d.mkdir()
     (d / ".done").write_text("ok")
+    assert is_stale(d) is False
+
+
+def test_is_stale_false_when_token_matches(tmp_path):
+    d = tmp_path / "run"
+    mark_done(d, token="abc123")
+    assert is_stale(d, token="abc123") is False
+
+
+def test_is_stale_true_when_token_differs(tmp_path):
+    d = tmp_path / "run"
+    mark_done(d, token="abc123")
+    assert is_stale(d, token="xyz999") is True
+
+
+def test_mark_done_default_token(tmp_path):
+    d = tmp_path / "run"
+    mark_done(d)
+    assert (d / ".done").read_text() == "ok"
     assert is_stale(d) is False

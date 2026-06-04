@@ -65,7 +65,12 @@ def final_sim_data_diff(left, right, *, rel_tol: float) -> list[dict[str, Any]]:
     both.
     """
     rows = []
-    for label, path in _SCALARS + _DISTRIBUTIONS:
-        rows.append(_row(label, _reach(left, path), _reach(right, path),
-                         rel_tol))
+    for label, path in _SCALARS:
+        row = _row(label, _reach(left, path), _reach(right, path), rel_tol)
+        row["group"] = "scalars"
+        rows.append(row)
+    for label, path in _DISTRIBUTIONS:
+        row = _row(label, _reach(left, path), _reach(right, path), rel_tol)
+        row["group"] = "distributions"
+        rows.append(row)
     return rows

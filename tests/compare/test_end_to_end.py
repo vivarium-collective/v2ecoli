@@ -23,3 +23,7 @@ def test_harness_produces_report(tmp_path):
     assert "ParCa / sim_data" in html
     assert "2-generation sim dynamics" in html
     assert "Config &amp; schema diff" in html or "Config & schema diff" in html
+    # the dynamics section must have at least one real comparison, not
+    # an all-"not compared" section (guards against reader-wiring regressions)
+    assert "verdict-within_tol" in html or "verdict-drift" in html \
+        or "verdict-mismatch" in html

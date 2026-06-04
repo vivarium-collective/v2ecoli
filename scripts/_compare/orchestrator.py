@@ -17,19 +17,21 @@ def _run(cmd, cwd=None):
         raise RuntimeError(f"command failed ({proc.returncode}): {cmd}")
 
 
-def run_v2_parca(*, out_dir: Path, cache_dir: Path, mode: str) -> Path:
+def run_v2_parca(*, out_dir: Path, cache_dir: Path, mode: str,
+                 token: str | None = None) -> Path:
     out_dir = Path(out_dir)
-    if not is_stale(out_dir):
+    if not is_stale(out_dir, token):
         return out_dir
     _run(["v2ecoli-parca", "--mode", mode, "-o", str(out_dir),
           "--cache-dir", str(cache_dir)])
-    mark_done(out_dir)
+    mark_done(out_dir, token or "ok")
     return out_dir
 
 
-def run_vecoli_parca(*, config_path: str, out_dir: Path) -> Path:
+def run_vecoli_parca(*, config_path: str, out_dir: Path,
+                     token: str | None = None) -> Path:
     out_dir = Path(out_dir)
-    if not is_stale(out_dir):
+    if not is_stale(out_dir, token):
         return out_dir
     _run([VECOLI_PYTHON, "runscripts/parca.py",
           "--config", config_path,
@@ -37,11 +39,12 @@ def run_vecoli_parca(*, config_path: str, out_dir: Path) -> Path:
           "--save-intermediates",
           "--intermediates-directory", str(out_dir)],
          cwd=VECOLI_REPO)
-    mark_done(out_dir)
+    mark_done(out_dir, token or "ok")
     return out_dir
 
 
-def run_vecoli_sim(*, config_path: str, out_dir: Path) -> Path:
+def run_vecoli_sim(*, config_path: str, out_dir: Path,
+                   token: str | None = None) -> Path:
     """Run vEcoli's Nextflow workflow for the 2-gen lineage.
 
     The config is expected to set ``sim_data_path`` (so the workflow copies
@@ -49,19 +52,20 @@ def run_vecoli_sim(*, config_path: str, out_dir: Path) -> Path:
     run parameters from the config JSON, mirroring run_v2_sim.
     """
     out_dir = Path(out_dir)
-    if not is_stale(out_dir):
+    if not is_stale(out_dir, token):
         return out_dir
     _run([VECOLI_PYTHON, "-m", "runscripts.workflow", "--config", config_path],
          cwd=VECOLI_REPO)
-    mark_done(out_dir)
+    mark_done(out_dir, token or "ok")
     return out_dir
 
 
-def run_v2_sim(*, config_path: str, out_dir: Path) -> Path:
+def run_v2_sim(*, config_path: str, out_dir: Path,
+               token: str | None = None) -> Path:
     out_dir = Path(out_dir)
-    if not is_stale(out_dir):
+    if not is_stale(out_dir, token):
         return out_dir
     _run([V2_PYTHON, "-m", "v2ecoli.workflow.run",
           "--config", config_path, "--out", str(out_dir)])
-    mark_done(out_dir)
+    mark_done(out_dir, token or "ok")
     return out_dir

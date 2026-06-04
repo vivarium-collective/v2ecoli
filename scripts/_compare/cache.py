@@ -17,11 +17,20 @@ def cache_key(config: dict[str, Any], *, commit: str, mode: str) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()[:16]
 
 
-def is_stale(run_dir: Path) -> bool:
-    """A run dir is fresh only if it exists and holds a ``.done`` marker."""
-    return not (Path(run_dir) / ".done").exists()
+def is_stale(run_dir: Path, token: str | None = None) -> bool:
+    """A run dir is fresh only if it exists and holds a ``.done`` marker.
+
+    If ``token`` is provided, the run is also considered stale when the stored
+    token does not match — so mode/config changes invalidate the cache.
+    """
+    marker = Path(run_dir) / ".done"
+    if not marker.exists():
+        return True
+    if token is not None and marker.read_text().strip() != token:
+        return True
+    return False
 
 
-def mark_done(run_dir: Path) -> None:
+def mark_done(run_dir: Path, token: str = "ok") -> None:
     Path(run_dir).mkdir(parents=True, exist_ok=True)
-    (Path(run_dir) / ".done").write_text("ok")
+    (Path(run_dir) / ".done").write_text(token)

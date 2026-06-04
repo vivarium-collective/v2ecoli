@@ -124,9 +124,18 @@ def _row_html(row: dict[str, Any]) -> str:
     left = _e(row.get("left", ""))
     right = _e(row.get("right", ""))
     reason = row.get("reason", "")
-    max_rel = row.get("max_rel", None)
     meter = ""
-    if isinstance(max_rel, (int, float)):
+    median_rel = row.get("median_rel", None)
+    max_rel = row.get("max_rel", None)
+    if isinstance(median_rel, (int, float)):
+        bits = [f"median rel Δ = {median_rel:.3g}"]
+        if isinstance(max_rel, (int, float)):
+            bits.append(f"max = {max_rel:.3g}")
+        fw = row.get("frac_within", None)
+        if isinstance(fw, (int, float)):
+            bits.append(f"{fw * 100:.0f}% within tol")
+        meter = f'<div class="metersmall">{" · ".join(bits)}</div>'
+    elif isinstance(max_rel, (int, float)):
         meter = f'<div class="metersmall">max rel Δ = {max_rel:.3g}</div>'
     reason_html = f'<div class="reason">{_e(reason)}</div>' if reason else ""
     return (

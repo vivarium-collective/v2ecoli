@@ -34,6 +34,14 @@ reports lay the two engines side by side metric-by-metric. Through the full cell
 cycle the dry-mass trajectories track to within a fraction of a percent
 (707.2 fg vs 705.3 fg at division), with division timing of ~42 min in both.
 
+**Explore the model interactively:**
+[**🔬 the baseline whole-cell composite**](https://vivarium-collective.github.io/v2ecoli/baseline-viewer/)
+opens the full process/store wiring in an interactive
+[bigraph-loom](https://github.com/vivarium-collective/bigraph-loom) viewer — pan
+the bigraph, expand stores, and click any process for its formal `describe()`
+description (the mathematics it computes). Runs entirely in-browser from a static
+snapshot; no install.
+
 Under the hood, the biology is **17 biological process modules** plus 8
 listener/deriver steps (`v2ecoli/processes/`, `v2ecoli/steps/derivers/`); the
 partitioned baseline composite schedules these — after splitting some processes
@@ -166,50 +174,10 @@ type system). Four concepts are enough to read the codebase:
 | **Store** | A named, schema-typed state container addressed by path (`bulk`, `listeners.mass.dry_mass`, `unique.ribosome`). | declared in the composite document |
 | **Composite** | Processes + stores + **wires** (edges from a process port to a store path), assembled into one runnable model. | `v2ecoli/composites/*.py` |
 
-A minimal sketch of a process:
-
-```python
-class MyProcess(Step):
-    def inputs(self):  return {"bulk": "bulk_array", "timestep": "float[s]"}
-    def outputs(self): return {"bulk": "bulk_array"}
-    def update(self, state, interval):
-        # read state["bulk"], compute, return only what you write
-        return {"bulk": delta}
-```
-
 **Types & units.** Project-specific types live in `v2ecoli/types/` (e.g.
 `Quantity`, `CSRMatrix`, `BulkNumpyUpdate`, `ListenerStore`). Dimensioned
 quantities at ports are `pint.Quantity`; the only place `Unum` survives is the
 upstream-interop bridge at `v2ecoli/library/unit_bridge.py`.
-
-**Composite generators.** Each architecture is a function decorated with
-`@composite_generator` (from `pbg_superpowers`). The decorator registers the
-generator under a name, with its parameters, default visualizations, and default
-emitter:
-
-```python
-@composite_generator(
-    name="baseline",
-    description="Partitioned whole-cell E. coli model — upstream-parity",
-    parameters={"seed": {"type": "integer", "default": 0}, ...},
-    emitters=[{"address": "local:ParquetEmitter", "paths": ["global_time", "bulk", "listeners"]}],
-)
-def baseline(core=None, *, seed=0, cache_dir="out/cache", config_overrides=None):
-    return { ... }   # a process-bigraph state document (a dict), not a Composite
-```
-
-Callers reach any registered architecture by name:
-`v2ecoli.build_composite("baseline", seed=42)` looks up the generator, calls it,
-and wraps the returned document in a `Composite`.
-
-**Auto-discovery.** When v2ecoli is installed alongside bigraph-schema and
-process-bigraph, its biological processes register themselves on
-`allocate_core()` — no manual `core.register_link()` calls:
-
-```python
-from process_bigraph import allocate_core
-core = allocate_core()   # core.link_registry now has v2ecoli.processes.*
-```
 
 **The `pbg_v2ecoli/` package** at the repo root is the *workspace* package the
 [vivarium-dashboard](https://github.com/vivarium-collective/vivarium-dashboard)

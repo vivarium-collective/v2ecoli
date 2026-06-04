@@ -266,7 +266,13 @@ class LineageProcess(Process):
             divided = True
         # MarkDPeriod sets a divide flag without changing the agents map; honor it
         # too (mirrors the three-signal detection in v2ecoli/bridge.py).
-        survivor = agents_now.get(self._agent_id, {})
+        # The inner composite always names its single cell "0" (see baseline()
+        # + _emit_xarray), whereas self._agent_id accumulates phylogeny suffixes
+        # ("0" -> "00" -> ...) across generations. Look the survivor up by the
+        # inner key, falling back to the sole agent — otherwise generations >= 1
+        # never see the divide flag and run to max_duration_per_gen without
+        # dividing (matches the resilient lookups above/below).
+        survivor = agents_now.get(self._agent_id) or next(iter(agents_now.values()), {})
         if isinstance(survivor, dict) and survivor.get("divide"):
             divided = True
 

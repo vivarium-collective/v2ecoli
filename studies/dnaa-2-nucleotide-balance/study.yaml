@@ -3,7 +3,7 @@ name: dnaa-2-nucleotide-balance
 investigation: dnaa-replication   # owning investigation (back-reference)
 title: DnaA-ATP / DnaA-ADP nucleotide equilibria + intrinsic hydrolysis
 created: '2026-05-30'
-status: in_progress   # 2026-06-03: mechanism validated, but strict per-gen band NOT clean on the only on-disk run (gens 1,5 OOB); clean 7-gen reproduction needed to claim PASS
+status: in_progress   # 2026-06-04: DIRECTED seed-1 8-gen run (Rashmi) RAN. Mass-doubling + oriC-one-init/gen PASS; DnaA counts + DnaA-ATP fraction in-band REGION (cycle-mean 0.267) but not strict per-gen (gen-1 transient high; gens 5,8 dip low; counts peak >800). Mechanism validated; still QUALIFIED, not strict PASS.
 # Canonical 6-axis status. 2026-06-01: ADOPTED Haochen's approved approach
 # (commit bf8b82e, vivarium-collective/v2ecoli) — the DnaA + ADP ⇌ DnaA-ADP
 # equilibrium reaction is kept BIDIRECTIONAL and flagged integrate_dt (integrated
@@ -102,10 +102,24 @@ report:
   result: |
     QUALIFIED — Haochen's bf8b82e integrate_dt mechanism drives the DnaA-ATP
     fraction off the ~0.997 fast-equilibrium pin and into the Boesen 2024
-    [0.2, 0.5] band region (cycle-mean 0.283 on the on-disk run), using his
-    literal k_r = 1×10⁻⁷/s with no rate override. The MECHANISM is validated.
-    But the strict acceptance test (DnaA-ATP fraction in [0.2,0.5] EVERY
-    generation) is NOT met on the only raw run that exists on this branch.
+    [0.2, 0.5] band region, using his literal k_r = 1×10⁻⁷/s with no rate override.
+    The MECHANISM is validated. But the STRICT per-generation in-band criteria are
+    not perfectly clean — even on Rashmi's directed seed.
+
+    DIRECTED RUN (Rashmi 2026-06-04) — SEED 1 × 8 GENERATIONS (dnaa2-seed1-8gen,
+    out/dnaa2_seed1_8gen; chart charts/dnaa2_seed1_8gen_canonical.png). Of the four
+    must-preserve behaviours: (1) periodic mass doubling PASS (8/8 divisions); (2)
+    oriC 1↔2 one-initiation-per-gen PASS (in {1,2} every gen, never 4); (3) DnaA
+    counts in [300,800] PARTIAL (cycle-typical in band but peaks >800 pre-division,
+    gen-3 → 964); (4) DnaA-ATP fraction in [0.2,0.5] FAIL-strict (per-gen cycle-mean
+    g1 0.527 / g2 0.285 / g3 0.268 / g4 0.212 / g5 0.163 / g6 0.207 / g7 0.227 /
+    g8 0.192; overall mean 0.267 in band, but gen-1 transient high and gens 5,8 dip
+    below 0.2). So the cell cycle + mechanism reproduce on seed 1, but the fraction
+    trends slightly LOW in later generations — a finding for Rashmi/Haochen (it may
+    reflect a difference between this branch's post-#117 code and Rashmi's branch).
+
+    EARLIER on-disk run (seed-0, 6-gen) gave the same qualified picture (cycle-mean
+    0.283, gen-1 0.546 / gen-5 0.191 out of band) — details below for corroboration.
 
     ON-DISK RUN, MEASURED (this branch, feat/aim2-dnaa-oric; seed 0, V=1e-3,
     burned-in resume, 6 generations; out/dnaa2_seed0_parquet; followed all-zeros
@@ -216,6 +230,21 @@ findings:
       verified_by: Haochen's diagnosis + bf8b82e two-phase equilibrium solver; confirmed on out/dnaa2_seed0_parquet
 
 reviewer_feedback:
+  - round: '2026-06-04'
+    reviewer: Rashmi
+    source: feedback-2026-06-04/feedback.yaml
+    verdict_effect: sets-acceptance-criteria + directs-canonical-reproduction
+    notes: |
+      Rashmi (on the dnaa-2 readouts section): the four behaviours that MUST be
+      preserved are (1) periodic mass doubling, (2) oriC 1→2 — exactly one
+      initiation per generation, (3) DnaA counts within the band [300,800], (4)
+      DnaA-ATP fraction within the band [0.2,0.5]. DIRECTIVE: "for now, let us get
+      a seed that reproduces this behaviour. Seed 1 on my branch reproduces it.
+      Run for 8 generations. Then run the tests as well."
+      ACTION: the canonical dnaa-2 reproduction is now SEED 1 × 8 GENERATIONS
+      (V=1e-3 succinate, burned-in) — see planned run dnaa2-seed1-8gen. This
+      supersedes the seed-0 6-gen on-disk run (qualified) as the path to a strict
+      PASS; the four tests above are evaluated on it.
   - round: '2026-05-31-evening'
     reviewer: Haochen (via Rashmi)
     source: feedback-dnaa-replication-2026-05-31-19-12-40.yaml
@@ -303,6 +332,16 @@ figure_refresh:
   - "{py} scripts/render_dnaa2_sixpanel.py --run {run} --seed 0 --step 3 --format both"
 
 visualizations:
+  - name: dnaa2_seed1_8gen_canonical
+    address: image:charts/dnaa2_seed1_8gen_canonical.png
+    config:
+      title: >-
+        CANONICAL — directed seed-1 × 8-generation reproduction (Rashmi 2026-06-04).
+        6-panel succinate trajectory: cell mass (periodic, 8/8 divisions), oriC (1↔2,
+        one init/gen), DnaA forms + [300,800] band, DnaA concentration, DnaA-form
+        fractions + [0.2,0.5] band, bulk ATP/ADP. Mass + oriC PASS; DnaA-ATP fraction
+        in band region (cycle-mean 0.267) but drifts low in later gens (5,8 < 0.2)
+        and counts peak >800 pre-division — qualified, not a strict PASS.
   - name: dnaa2_rashmi_reproduction_seed0
     address: image:charts/dnaa2_rashmi_reproduction_seed0.png
     config:
@@ -312,10 +351,53 @@ visualizations:
         [0.2,0.5], total DnaA in [300,800], clean oriC 1↔2 cycle.
 
 runs:
-  - name: seed0-v1e-3-6gen-ondisk
+  # DIRECTED CANONICAL (Rashmi 2026-06-04): the run that decides dnaa-2 PASS.
+  - name: dnaa2-seed1-8gen
     status: completed
     kind: single-seed-multigen-lineage
     canonical: true
+    canonical_seed: 1
+    run_dir: out/dnaa2_seed1_8gen
+    directed_by: Rashmi 2026-06-04 ("seed 1 reproduces this behaviour; run 8 generations, then run the tests")
+    description: |
+      SEED 1 × 8 GENERATIONS, V=1e-3 succinate, burned-in resume from the succinate
+      steady-state dill — the directed reproduction. RAN 2026-06-04 (8/8 divided,
+      τ 53-79 min, ~40 min wall). Chart: charts/dnaa2_seed1_8gen_canonical.png.
+    seeds: [1]
+    result: |
+      Per-gen DnaA-ATP fraction (cycle-mean): g1 0.527 / g2 0.285 / g3 0.268 /
+      g4 0.212 / g5 0.163 / g6 0.207 / g7 0.227 / g8 0.192 → overall mean 0.267
+      (in band). oriC stays in {1,2} every generation (one initiation per gen, never
+      4). Cell mass periodic, 8/8 divisions. BUT: gen-1 0.527 is the burned-in
+      transient (above band); gens 5 & 8 drift below 0.2 (0.163 / 0.192); and total
+      DnaA peaks ABOVE 800 pre-division (e.g. gen-3 → 964; the pool doubles then
+      halves at division). So the cycle + mechanism reproduce, but the STRICT
+      per-generation in-band criteria (counts and fraction) are not perfectly clean
+      even on Rashmi's directed seed — same qualified picture as seed-0, on this
+      branch's post-#117 code.
+    outcomes:
+      periodic-mass-doubling:
+        result: PASS
+        detail: 8/8 generations divide; cell mass periodic sawtooth (τ 53-79 min).
+      oric-one-initiation-per-generation:
+        result: PASS
+        detail: oriC in {1,2} every generation; one 1→2 initiation per cycle, never 4.
+      total-dnaa-in-band-300-800:
+        result: PARTIAL
+        detail: |
+          Cycle-typical in band but PEAKS ABOVE 800 pre-division (gen-3 → 964; gens
+          6-8 → 820-854) as the DnaA pool doubles then halves. Not in-band every tick.
+      dnaa-atp-fraction-in-band-0.2-0.5:
+        result: FAIL
+        detail: |
+          Strict per-generation NOT met: gen-1 = 0.527 (burned-in transient, above),
+          gen-5 = 0.163 and gen-8 = 0.192 (below 0.2). Overall cycle-mean 0.267 IS in
+          band and the mechanism is validated; the fraction trends slightly low in
+          later generations. Qualified, not a strict PASS.
+  - name: seed0-v1e-3-6gen-ondisk
+    status: completed
+    kind: single-seed-multigen-lineage
+    canonical: false   # superseded by the directed seed-1 8-gen run (Rashmi 2026-06-04); kept as the qualified on-disk evidence
     canonical_seed: 0
     run_dir: out/dnaa2_seed0_parquet
     description: |
@@ -438,6 +520,37 @@ tests:
       the upper end is in [300,800] but early gens start below 300 on this 6-gen
       burned-in window, so not in-band every generation. Rashmi's 7-gen run was
       in band (153 → 804) but has no raw data on this branch to re-verify.
+      → To be re-evaluated on the directed seed-1 8-gen run (Rashmi 2026-06-04).
+
+  # Rashmi 2026-06-04 named FOUR behaviors that must be preserved; the two above
+  # (DnaA counts in band, DnaA-ATP fraction in band) plus the two below (periodic
+  # mass doubling, oriC = exactly one initiation per generation). All four are the
+  # dnaa-2 acceptance set, to be evaluated on the seed-1 8-gen reproduction.
+  - name: periodic-mass-doubling
+    classification: primary
+    question: Does cell mass show periodic doubling (sawtooth) across generations?
+    measure:
+      kind: per_generation_mass_ratio
+      path: listeners.mass.cell_mass
+    pass_if:
+      op: periodic_doubling_every_generation
+      tolerance: 0.15
+    status: passed   # seed-1 8-gen: 8/8 divisions, periodic sawtooth
+    result: |
+      PASS on the directed seed-1 8-gen run (dnaa2-seed1-8gen): 8/8 generations
+      divide, cell mass periodic sawtooth, τ 53-79 min.
+  - name: oric-one-initiation-per-generation
+    classification: primary
+    question: Does oriC go 1→2 exactly once per generation (no re-initiation, never 4)?
+    measure:
+      kind: oric_initiations_per_generation
+      path: listeners.replication_data.number_of_oric
+    pass_if:
+      op: exactly_one_initiation_per_generation   # oriC in {1,2}; one 1→2 transition per cycle
+    status: passed   # seed-1 8-gen: oriC in {1,2} every gen, never 4
+    result: |
+      PASS on the directed seed-1 8-gen run: oriC stays in {1,2} in all 8 generations
+      (one 1→2 initiation per cycle, never reaches 4, no re-initiation).
 
 prerequisites:
   - dnaa-1-expression must pass (V-tuned lineage is the starting point).

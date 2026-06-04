@@ -1144,6 +1144,27 @@ def _get_special_step(loader, step_name, core):
                 'bulk': ('bulk',),
                 'listeners': ('listeners',),
             }
+            # OPT-IN (env V2ECOLI_EMIT_UNIQUE=1): also persist the unique-molecule
+            # coordinate stores — full_chromosome / active_replisome / active_RNAP /
+            # chromosome_domain — so the per-timestep fork + RNAP + domain positions
+            # land in parquet for replication-machinery viz (the chromosome GIF). OFF
+            # by default because these nodes are multi-MB/row (see the SQLite note
+            # below); enable only for short viz runs, not full multi-seed sweeps.
+            if os.environ.get('V2ECOLI_EMIT_UNIQUE'):
+                # NB: chromosome_domain is intentionally EXCLUDED — its
+                # child_domains field is a nested list[list[int]] whose inner
+                # int width varies across batches (Int32 vs Int64), which breaks
+                # the emitter's per-batch dtype union at flush. The domain tree is
+                # recovered from the gen dill instead (it's ~static within a gen).
+                emit_schema.update({
+                    'full_chromosome': 'node', 'active_replisome': 'node',
+                    'active_RNAP': 'node',
+                })
+                topo.update({
+                    'full_chromosome': ('unique', 'full_chromosome'),
+                    'active_replisome': ('unique', 'active_replisome'),
+                    'active_RNAP': ('unique', 'active_RNAP'),
+                })
             cfg = {'emit': emit_schema, **parquet_override}
             instance = ParquetEmitter(cfg, core)
             # Register so Division can flush this emitter before _remove.

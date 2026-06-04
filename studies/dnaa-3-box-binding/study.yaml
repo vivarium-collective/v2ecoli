@@ -26,7 +26,7 @@ seeded_from:
 question: |
   With DnaA binding to its 315 boxes (4 affinity pools: 302 chromosomal-high,
   3 oriC-high, 8 oriC-low, 2 promoter-high) in fast equilibrium on top of the
-  dnaa-2 V=1e-3 succinate baseline, does the cell cycle stay unchanged (6/6
+  dnaa-2 V=1e-3 succinate baseline, does the cell cycle stay unchanged (8/8
   divisions, oriC 1↔2, 0 re-init) and the DnaA-ATP fraction stay in the Boesen
   [0.2,0.5] band — i.e. does adding the binding sink leave the validated dnaa-2
   behaviour intact while exposing the bound/free + per-nucleotide partitioning
@@ -36,12 +36,12 @@ objective: |
   Add a dynamic DnaA-box occupancy mechanism: distribute the DnaA-ATP / DnaA-ADP
   pool (from dnaa-2) across the 315 chromosomal + oriC + dnaA-promoter DnaA boxes
   according to affinity, in fast equilibrium, while preserving the dnaa-2 cell
-  cycle (6/6 divisions, oriC 1↔2, no re-init, DnaA-ATP fraction in band).
+  cycle (8/8 divisions, oriC 1↔2, no re-init, DnaA-ATP fraction in band).
 
 purpose:
   question: |
     With DnaA binding to its 315 boxes (4 affinity pools) in fast equilibrium on
-    top of the dnaa-2 baseline, does the cell cycle stay unchanged (6/6 divisions,
+    top of the dnaa-2 baseline, does the cell cycle stay unchanged (8/8 divisions,
     oriC 1↔2, 0 re-init) and the DnaA-ATP fraction stay in the Boesen [0.2,0.5]
     band — i.e. does adding the binding sink leave the validated dnaa-2 behaviour
     intact while providing the bound/free partitioning later studies need?
@@ -58,7 +58,7 @@ purpose:
     does NOT alter the DnaA-ATP intrinsic hydrolysis rate (bf8b82e k≈0.046/min
     applies uniformly to bound and free DnaA-ATP).
   expected_outcome: |
-    The dnaa-2 cell cycle is preserved (6/6 divisions, oriC 1↔2, 0 re-init) and the
+    The dnaa-2 cell cycle is preserved (8/8 divisions, oriC 1↔2, 0 re-init) and the
     DnaA-ATP fraction stays in [0.2,0.5]. The chromosomal high-affinity pool (302
     sites) is the dominant sink. Box count doubles across replication (315 at birth
     → 630 at termination → 315 per daughter).
@@ -202,7 +202,7 @@ conditions:
       seed: 1                       # spec validation uses seed=1 (dnaa-2 canonical reproduction)
       cache_dir: out/cache_dnaa2    # full-ParCa succinate fit + genetic_perturbations TU00259[c]=1e-3
       single_daughters: true
-      max_generations: 6
+      max_generations: 8
       resume_dill: out/steady_state_inputs/succinate_default_gen3_start.dill
   variants:
     - name: box-binding-reference
@@ -225,7 +225,7 @@ conditions:
 
 runtime:
   subprocess_timeout_s: 7200
-  max_generations: 6
+  max_generations: 8
   single_daughters: true
 
 readouts:
@@ -253,12 +253,12 @@ readouts:
 
 # ── Validation (spec table): dnaa-3 must preserve dnaa-2 behaviour ─────────────
 tests:
-  - name: cycles-divided-6-of-6
+  - name: cycles-divided-8-of-8
     classification: primary
-    description: All 6 generations divide (cell cycle preserved vs dnaa-2 baseline).
+    description: All 8 generations divide (cell cycle preserved vs dnaa-2 baseline).
     measure: {kind: count_over_lineage, field: divisions}
-    pass_if: {op: '==', value: 6}
-    baseline_value: 6
+    pass_if: {op: '==', value: 8}
+    baseline_value: 8
   - name: oric-pattern-1-or-2
     classification: primary
     description: oriC oscillates 1↔2 (unchanged from dnaa-2).
@@ -281,6 +281,18 @@ tests:
 # ── Visualizations — the chromosome box-map is REAL (WCM genome data); the 4 ──
 #    trajectory panels below are PLANNED (built once the mechanism runs).
 visualizations:
+  - name: chromosome_replication_animation
+    address: image:charts/chromosome_replication.gif
+    config:
+      title: >-
+        ANIMATED chromosome replication machinery over one succinate cell cycle
+        (seed 1, ~72 min) — the live context dnaa-3's DnaA boxes sit on. Outer ring
+        = chromosome (oriC green, Ter red); gold triangles = the two replisomes
+        (replication forks); green arcs = the replication bubble (newly-synthesized
+        daughter strands); blue dots = RNA polymerases, BOTH on the mother-strand
+        rim AND on the replication-bubble arcs. Rendered from per-timestep unique-
+        molecule coordinates now persisted to parquet (V2ECOLI_EMIT_UNIQUE) via the
+        existing _draw_replication_bubbles renderer. 96 frames @ ~45 s/frame.
   - name: chromosome_dnaa_boxes
     address: image:charts/chromosome_dnaa_boxes.png
     config:
@@ -294,10 +306,13 @@ visualizations:
     address: image:charts/dnaa2_baseline_starting_point.png
     config:
       title: >-
-        BASELINE (where dnaa-3 starts) — the dnaa-2 V=1e-3 succinate seed-0 6-gen
-        run that dnaa-3 builds box-binding on top of. 6/6 divisions, oriC clean
-        1↔2, DnaA-ATP fraction cycle-mean 0.283 (in Boesen [0.2,0.5] band), total
-        DnaA in [300,800], background [ATP]:[ADP]≈20. dnaa-3 must PRESERVE these.
+        BASELINE (where dnaa-3 starts) — the dnaa-2 succinate run that dnaa-3 builds
+        box-binding on top of. Figure shown = the current on-disk seed-0 6-gen run
+        (divides 6/6, oriC clean 1↔2, DnaA-ATP cycle-mean 0.283 in [0.2,0.5], total
+        DnaA in [300,800], [ATP]:[ADP]≈20). NOTE (Rashmi 2026-06-04): the CANONICAL
+        baseline is moving to SEED 1 × 8 GENERATIONS (her clean reproduction) — dnaa-3
+        validates against that. dnaa-3 must PRESERVE all four behaviours: periodic
+        mass doubling, oriC 1→2 one-init-per-gen, DnaA counts in band, DnaA-ATP in band.
         x-axis in minutes (cumulative), generation boundaries dotted (Rashmi conv).
 
 # ── Visualizations (4, from spec) — PLANNED (built in build-step listener-and-viz) ──
@@ -385,8 +400,8 @@ build_plan:
     touches: [replication_data.py, v2ecoli/visualizations/]
   - step: validate
     detail: |
-      Run V=1e-3 succinate 6-gen seed=1 burned-in (dnaa-2 protocol, ~25 min). Check
-      the 4 tests: 6/6 divisions, oriC 1↔2, 0 re-init, DnaA-ATP fraction gen-3 in
+      Run V=1e-3 succinate 8-gen seed=1 burned-in (Rashmi's directed dnaa-2 reproduction, ~35 min). Check
+      the 4 tests: 8/8 divisions, oriC 1↔2, 0 re-init, DnaA-ATP fraction gen-3 in
       [0.2,0.5]. The 302-site chromosomal_high sink must not over-titrate free DnaA.
 
 # ── Implementation requirements ───────────────────────────────────────────────
@@ -428,7 +443,7 @@ gotchas:
 conclusion_logic:
   if_primary_tests_pass: |
     The DnaA-box binding sink (315 sites, 4 pools, fast equilibrium) leaves the
-    dnaa-2 cell cycle intact (6/6 divisions, oriC 1↔2, 0 re-init) and the DnaA-ATP
+    dnaa-2 cell cycle intact (8/8 divisions, oriC 1↔2, 0 re-init) and the DnaA-ATP
     fraction in [0.2,0.5], while exposing bound/free + per-nucleotide partitioning.
     dnaa-3 passes → unblocks the downstream regulatory + mechanistic-initiation
     studies that act on bound DnaA.
@@ -453,29 +468,29 @@ pipeline_gate:
   gate_status: pending
 
 simulation_set:
-  - name: dnaa3-boxbinding-seed1-6gen-succinate
+  - name: dnaa3-boxbinding-seed1-8gen-succinate
     kind: single-seed-multigen-lineage
     status: planned
     base_model: v2ecoli.composites.baseline.baseline
-    duration_steps: ~5400
+    duration_steps: ~7200
     seeds: [1]
     metrics: [divisions, number_of_oric, reinit_events, dnaA_ATP_over_total_ratio]
-    pass_fail_tests: [cycles-divided-6-of-6, oric-pattern-1-or-2, re-init-events-zero, dnaa-atp-fraction-in-band-gen3]
+    pass_fail_tests: [cycles-divided-8-of-8, oric-pattern-1-or-2, re-init-events-zero, dnaa-atp-fraction-in-band-gen3]
     condition: V=1e-3 succinate burned-in (dnaa-2 baseline) with the 315-box 4-pool binding active
 
 planned_runs:
-  - name: dnaa3-boxbinding-seed1-6gen-succinate
+  - name: dnaa3-boxbinding-seed1-8gen-succinate
     status: planned
     base_model: v2ecoli.composites.baseline.baseline
-    n_steps: ~5400   # 6 generations × ~70 min succinate cycle at 1 s/step (burned-in resume)
+    n_steps: ~7200   # 8 generations × ~70 min succinate cycle at 1 s/step (burned-in resume)
     seeds: [1]
     details: |
-      V=1e-3 succinate 6-gen seed=1 burned-in lineage (dnaa-2 protocol) WITH the
+      V=1e-3 succinate 8-gen seed=1 burned-in lineage (Rashmi's directed dnaa-2 reproduction) WITH the
       315-box 4-pool DnaA binding active. Validates that box binding preserves the
-      dnaa-2 cell cycle: 6/6 divisions, oriC 1↔2, 0 re-init, DnaA-ATP fraction
+      dnaa-2 cell cycle: 8/8 divisions, oriC 1↔2, 0 re-init, DnaA-ATP fraction
       gen-3 in [0.2,0.5]. Run after build-steps 1–5; ~25 min wall + ParCa rebuild.
     pass_fail_tests:
-      - cycles-divided-6-of-6
+      - cycles-divided-8-of-8
       - oric-pattern-1-or-2
       - re-init-events-zero
       - dnaa-atp-fraction-in-band-gen3

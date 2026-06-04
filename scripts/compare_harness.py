@@ -135,8 +135,10 @@ def main(argv=None):
             config_path=str(v2_cfg_path), out_dir=work / "v2_sim",
             token=run_token)
         keys = [o["key"] for o in OBSERVABLES]
+        # vEcoli emits at <v_sim>/<exp_id>/history; v2ecoli nests under a
+        # `parquet/` subdir (<v2_sim>/parquet/<exp_id>/history).
         left = read_observables(str(v_sim), exp_id, keys)
-        right = read_observables(str(v2_sim), exp_id, keys)
+        right = read_observables(str(v2_sim / "parquet"), exp_id, keys)
         sections.append({"title": "2-generation sim dynamics",
                          "rows": compare_observables(left, right, keys=keys,
                                                      rel_tol=SIM_REL_TOL)})

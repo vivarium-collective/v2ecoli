@@ -40,28 +40,57 @@ Run all commands below from `cwd=/Users/eranagmon/code/v2ecoli` unless stated. P
 
 ---
 
-### Task 0: Scaffold package + tests dir
+### Task 0: Scaffold package + import resolution
+
+This repo's `tests/` is NOT a package (existing tests use `sys.path` inserts).
+The harness tests import `from scripts._compare.config_adapter import ...`,
+which needs the repo root on `sys.path`. A root `conftest.py` guarantees that
+(pytest adds a conftest's dir to `sys.path` in the default prepend import mode).
+`scripts` resolves as a namespace package; `scripts/_compare/__init__.py` makes
+`_compare` a real package. Do NOT create `tests/compare/__init__.py` — leaving
+`tests/` non-package matches repo convention, and the harness test basenames
+are unique so prepend mode won't collide.
 
 **Files:**
 - Create: `scripts/_compare/__init__.py`
-- Create: `tests/compare/__init__.py`
+- Create: `conftest.py` (repo root)
 
-- [ ] **Step 1: Create package markers**
+- [ ] **Step 1: Create the package marker**
 
 `scripts/_compare/__init__.py`:
 ```python
 """Internal modules for the vEcoli<->v2ecoli comparison harness."""
 ```
 
-`tests/compare/__init__.py`:
+- [ ] **Step 2: Create the root conftest so `scripts._compare` imports resolve**
+
+`conftest.py` (repo root):
 ```python
+"""Ensure the repo root is importable so `scripts._compare.*` resolves
+during tests (this repo's tests/ dir is intentionally not a package)."""
+import sys
+from pathlib import Path
+
+_ROOT = str(Path(__file__).resolve().parent)
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
 ```
 
-- [ ] **Step 2: Commit**
+- [ ] **Step 3: Verify import resolution with a throwaway test**
+
+Create `tests/compare/test_import_smoke.py`:
+```python
+def test_compare_package_importable():
+    import scripts._compare  # noqa: F401
+```
+Run: `.venv/bin/python -m pytest tests/compare/test_import_smoke.py -v`
+Expected: PASS. Then delete the smoke test: `rm tests/compare/test_import_smoke.py`
+
+- [ ] **Step 4: Commit**
 
 ```bash
-git add scripts/_compare/__init__.py tests/compare/__init__.py
-git commit -m "chore(compare): scaffold comparison-harness package"
+git add scripts/_compare/__init__.py conftest.py
+git commit -m "chore(compare): scaffold harness package + root conftest for imports"
 ```
 
 ---

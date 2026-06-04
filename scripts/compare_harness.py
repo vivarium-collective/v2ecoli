@@ -67,6 +67,9 @@ def main(argv=None):
     work = Path(args.workdir)
     work.mkdir(parents=True, exist_ok=True)
 
+    from ecoli.library.parquet_emitter import read_stacked_columns as v_reader  # noqa: E501
+    from v2ecoli.library.parquet_emitter import read_stacked_columns as v2_reader  # noqa: E501
+
     # Stage 1 — config
     vecoli_cfg = resolve_vecoli_config(args.config)
     v2_cfg = translate_vecoli_config(vecoli_cfg)
@@ -98,8 +101,6 @@ def main(argv=None):
     v2_sim = orchestrator.run_v2_sim(
         config_path=str(v2_cfg_path), out_dir=work / "v2_sim")
 
-    from ecoli.library.parquet_emitter import read_stacked_columns as v_reader  # noqa: E501
-    from v2ecoli.library.parquet_emitter import read_stacked_columns as v2_reader  # noqa: E501
     keys = [o["key"] for o in OBSERVABLES]
     left = read_observables(str(v_sim), exp_id, v_reader, keys)
     right = read_observables(str(v2_sim), exp_id, v2_reader, keys)
@@ -108,8 +109,8 @@ def main(argv=None):
                                                  rel_tol=SIM_REL_TOL)})
 
     title = "vEcoli vs v2ecoli"
-    if args.fast_plumbing:
-        title += "  —  ⚠ NOT SCIENTIFICALLY VALID (fast-plumbing) ⚠"
+    if mode == "fast":
+        title += "  —  ⚠ NOT SCIENTIFICALLY VALID (fast ParCa) ⚠"
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(render_report(sections, title=title))
     print(f"wrote {args.out}")

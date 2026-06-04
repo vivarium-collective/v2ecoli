@@ -115,6 +115,42 @@ expert_docs:
     causal discovery / functional annotation. Spine of the
     v2ecoli-pdmp investigation.
   contributor: eran
+- name: molecular-information-replication-initiation
+  path: workspace/references/dnaa/molecular_information_replication_initiation.pdf
+  sha256: 4c4b85ff4d88b46b816bacc84b494fcdf073ef1d901e77b56329effa92a0dab2
+  kind: biology_reference
+  description: |
+    Curated biology source for the DnaA / replication-initiation arc: oriC
+    (DUE + DOR, 11 DnaA boxes — R1/R2/R4 high-aff bind ATP+ADP, 8 low-aff
+    ATP-preferential), dnaA promoter (boxes 1–4 + a–c), consensus DnaA box
+    (TTWTNCACA; TTATCCACA ~1 nM), RIDA, DDAH/datA, DARS1/DARS2, DnaA intrinsic
+    ATPase (Kd ~30 nM ATP / ~100 nM ADP, hydrolysis 0.046/min).
+  claims_supported:
+  - dnaa-replication
+  contributor: eran
+- name: oric-sequence
+  path: workspace/references/dnaa/oric_sequence.pdf
+  sha256: 68086148d0aacf1f13fb45ef3f66dd0bac563841712ae378a039424eac56ea03
+  kind: sequence_reference
+  description: |
+    Full 462-bp oriC sequence with all 11 DnaA boxes annotated in order
+    (R1, R5M, τ2, I1, I2, R2, C3, C2, I3, C1, R4) plus DUE, IBS1/IBS2. Source
+    for extracting the 8 low-affinity oriC box coordinates (dnaa-3 input).
+  claims_supported:
+  - dnaa-replication
+  contributor: eran
+- name: parameters-wcm-stage1-heuristics
+  path: workspace/references/dnaa/parameters_wcm_stage1_heuristics.pdf
+  sha256: c535cc7c3a3b9d8115e6f37ef5340fe1458f501e7014e2ea48a7a1a3d4492dd4
+  kind: parameter_brief
+  description: |
+    Stage-1 heuristic parameter brief (ABT glycerol τ=150, C=70, D=30). DnaA-box
+    rows: consensus box Kd=1 nM; oriC 3925744–3925989; 8 low-aff ATP-only boxes
+    (brief lists cooperative 50→1 nM — but dnaa-3 first-step uses Kd≈100 nM,
+    cooperativity deferred). Also datA/DARS1/DARS2 loci + heuristic rates.
+  claims_supported:
+  - dnaa-replication
+  contributor: eran
 references_pdfs:
 - bib_key: millard2017
   path: workspace/references/papers/millard_2017_metabolic_regulation_ecoli.pdf

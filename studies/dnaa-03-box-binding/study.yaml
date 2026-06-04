@@ -1,5 +1,6 @@
 schema_version: 4
 name: dnaa-03-box-binding
+investigation: chromosome-cycle-calibration   # owning investigation (back-reference)
 created: '2026-05-26'
 phase: Design
 status: planned

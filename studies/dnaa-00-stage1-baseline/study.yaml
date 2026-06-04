@@ -1,5 +1,6 @@
 schema_version: 4
 name: dnaa-00-stage1-baseline
+investigation: chromosome-cycle-calibration   # owning investigation (back-reference)
 created: '2026-05-26'
 phase: Build
 status: running

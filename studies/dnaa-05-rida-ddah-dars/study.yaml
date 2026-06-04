@@ -1,5 +1,6 @@
 schema_version: 4
 name: dnaa-05-rida-ddah-dars
+investigation: chromosome-cycle-calibration   # owning investigation (back-reference)
 created: '2026-05-26'
 phase: Design
 status: planned

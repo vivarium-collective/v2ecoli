@@ -1,0 +1,484 @@
+schema_version: 4
+name: dnaa-3-box-binding
+investigation: dnaa-replication   # owning investigation (back-reference)
+title: DnaA binding to DnaA boxes (chromosomal + oriC + dnaA-promoter)
+created: '2026-06-03'
+status: planned   # prepared from dnaa-3-spec (Haochen); design complete, not yet implemented/run
+# Build a dynamic DnaA-box occupancy mechanism on top of the dnaa-2 V=1e-3
+# succinate baseline. We are NOT replacing the initiation mechanism yet — this
+# study adds the binding substrate (boxes + occupancy) that later studies
+# (later regulatory + mechanistic-initiation studies) build on.
+# Spec: studies/dnaa-3-box-binding/spec.md (Haochen, supplied 2026-06-03).
+design_status: complete            # mechanism + pools + validation fully specified in spec.md
+implementation_status: in_progress # 2026-06-03: Build started — infra mapped, build_plan below; reactions/pools not yet wired
+simulation_status: not_run
+evaluation_status: not_run
+gate_status: pending
+expert_review_status: pending      # Haochen authored the spec/first-step assumptions (design INPUT), but the implementation + results are not yet expert-reviewed — nothing to approve until it's built and run
+
+seeded_from:
+  study: dnaa-2-nucleotide-balance
+  reason: |
+    Builds directly on the dnaa-2 V=1e-3 succinate baseline (bf8b82e integrate_dt
+    mechanism + DnaA-ATP intrinsic hydrolysis). dnaa-3 adds DnaA-box occupancy on
+    top of that DnaA-ATP/ADP/apo pool without changing initiation.
+
+question: |
+  With DnaA binding to its 315 boxes (4 affinity pools: 302 chromosomal-high,
+  3 oriC-high, 8 oriC-low, 2 promoter-high) in fast equilibrium on top of the
+  dnaa-2 V=1e-3 succinate baseline, does the cell cycle stay unchanged (6/6
+  divisions, oriC 1↔2, 0 re-init) and the DnaA-ATP fraction stay in the Boesen
+  [0.2,0.5] band — i.e. does adding the binding sink leave the validated dnaa-2
+  behaviour intact while exposing the bound/free + per-nucleotide partitioning
+  that later regulatory studies need?
+
+objective: |
+  Add a dynamic DnaA-box occupancy mechanism: distribute the DnaA-ATP / DnaA-ADP
+  pool (from dnaa-2) across the 315 chromosomal + oriC + dnaA-promoter DnaA boxes
+  according to affinity, in fast equilibrium, while preserving the dnaa-2 cell
+  cycle (6/6 divisions, oriC 1↔2, no re-init, DnaA-ATP fraction in band).
+
+purpose:
+  question: |
+    With DnaA binding to its 315 boxes (4 affinity pools) in fast equilibrium on
+    top of the dnaa-2 baseline, does the cell cycle stay unchanged (6/6 divisions,
+    oriC 1↔2, 0 re-init) and the DnaA-ATP fraction stay in the Boesen [0.2,0.5]
+    band — i.e. does adding the binding sink leave the validated dnaa-2 behaviour
+    intact while providing the bound/free partitioning later studies need?
+  mechanism: |
+    DnaA binds 315 boxes in four pools, each a fast equilibrium governed only by
+    K_d (absolute k_fwd/k_rev are degenerate after the steady-state solve):
+      - chromosomal high-affinity (302 sites): K_d ≈ 1 nM, binds DnaA-ATP OR DnaA-ADP
+      - oriC high-affinity (3 sites: R1, R2, R4): K_d ≈ 1 nM, binds DnaA-ATP OR DnaA-ADP
+      - oriC low-affinity (8 sites): K_d ≈ 100 nM, DnaA-ATP ONLY
+      - dnaA-promoter high-affinity (2 sites: box 1, box 2): K_d ≈ 1 nM, ATP OR ADP
+    High-affinity pools track bound-ATP and bound-ADP SEPARATELY (3 counts: free /
+    bound-ATP / bound-ADP) so the correct nucleotide form can be released in later
+    studies. The low-affinity pool tracks 2 counts (free / bound-ATP). DNA binding
+    does NOT alter the DnaA-ATP intrinsic hydrolysis rate (bf8b82e k≈0.046/min
+    applies uniformly to bound and free DnaA-ATP).
+  expected_outcome: |
+    The dnaa-2 cell cycle is preserved (6/6 divisions, oriC 1↔2, 0 re-init) and the
+    DnaA-ATP fraction stays in [0.2,0.5]. The chromosomal high-affinity pool (302
+    sites) is the dominant sink. Box count doubles across replication (315 at birth
+    → 630 at termination → 315 per daughter).
+
+# ── Reference documents (staged under workspace/references/dnaa/) ──────────────
+references:
+  - name: molecular-information-replication-initiation
+    path: ../../workspace/references/dnaa/molecular_information_replication_initiation.pdf
+    role: |
+      Biology source. 11 oriC boxes (3 high-aff R1/R2/R4; 8 low-aff R5M, τ2, I1,
+      I2, C3, C2, I3, C1), affinity ranges (high ≈1 nM; low >100 nM), nucleotide
+      specificity (high bind ATP+ADP; low prefer ATP), dnaA-promoter box layout.
+  - name: oric-sequence
+    path: ../../workspace/references/dnaa/oric_sequence.pdf
+    role: |
+      462-bp oriC sequence with all 11 boxes annotated. Source for the 8
+      low-affinity box coordinates (see inputs_to_supply).
+  - name: parameters-wcm-stage1-heuristics
+    path: ../../workspace/references/dnaa/parameters_wcm_stage1_heuristics.pdf
+    role: |
+      Stage-1 heuristic parameters (rows 13-17 cover DnaA-box params).
+
+# ── Box catalog: the four pools (315 sites total) ─────────────────────────────
+box_catalog:
+  total_sites: 315
+  pools:
+    - name: chromosomal_high
+      n_sites: 302
+      kd_nM: 1
+      binds: [DnaA-ATP, DnaA-ADP]
+      state_counts: [free, bound_ATP, bound_ADP]
+      source: |
+        307 consensus DnaA boxes (TTWTNCACA, Schaper-Messer) computed at
+        ParCa-build time on the K-12 genome, MINUS the 3 oriC high-aff + 2
+        dnaA-promoter high-aff sites broken out into their own pools = 302.
+    - name: oric_high
+      n_sites: 3
+      sites: [R1, R2, R4]
+      kd_nM: 1
+      binds: [DnaA-ATP, DnaA-ADP]
+      state_counts: [free, bound_ATP, bound_ADP]
+      coords_signed: {R1: -55, R2: 50, R4: 124}   # known anchors (spec)
+    - name: oric_low
+      n_sites: 8
+      sites: [R5M, "τ2", I1, I2, C3, C2, I3, C1]
+      kd_nM: 100   # Haochen first-step; cooperativity (and the 50→1 nM range) deferred
+      binds: [DnaA-ATP]
+      state_counts: [free, bound_ATP]
+    - name: promoter_high
+      n_sites: 2
+      sites: [box1, box2]
+      kd_nM: 1
+      binds: [DnaA-ATP, DnaA-ADP]
+      state_counts: [free, bound_ATP, bound_ADP]
+      coords_signed: {box1: -41917, box2: -42883}   # relative to oriC (spec)
+
+# ── Haochen's first-step assumptions (from spec.md) ───────────────────────────
+key_assumptions:
+  - All 307 consensus DnaA boxes (TTWTNCACA) are high-affinity (K_d ≈ 1 nM).
+  - oriC has 3 high-affinity + 8 low-affinity boxes; low-affinity K_d ≈ 100 nM.
+  - DnaA-ATP and DnaA-ADP binding to boxes is FAST EQUILIBRIUM (only K_d matters;
+    absolute k_fwd/k_rev magnitudes degenerate after the steady-state solve).
+  - DNA binding does NOT alter the DnaA-ATP intrinsic hydrolysis rate (bf8b82e
+    k ≈ 0.046/min applies uniformly to bound and free DnaA-ATP).
+  - Cooperativity between low-affinity sites is DEFERRED to a later study.
+  - High-affinity pools track bound-ATP and bound-ADP separately so the correct
+    nucleotide form can be released later by downstream regulatory studies
+      (extrinsic DnaA-ATP/ADP conversion + sequestration; per Haochen's spec).
+  - 'DISCREPANCY (recorded): the Stage-1 parameter brief lists oriC low-affinity
+    K_d as a cooperative 50→1 nM range; dnaa-3 uses Haochen''s first-step
+    K_d ≈ 100 nM with cooperativity deferred. The spec assumption governs.'
+
+# ── Rashmi's review guidance carried forward (feedback 2026-05-30) ────────────
+rashmi_guidance:
+  - topic: DnaA-form readout source
+    note: |
+      Rashmi (dnaa-1 build): "check whether the monomer counts listener provides
+      protein counts in ALL forms; if yes we can use it directly." → For dnaa-3,
+      verify the monomer_counts listener already sums apo/ATP/ADP DnaA before
+      adding a bespoke per-pool listener; reuse it where possible.
+  - topic: chart conventions
+    note: |
+      Rashmi (dnaa-0 charts): x-axis in MINUTES (cumulative), label axes with units,
+      draw lines separating lineages + label the number of generations. The baseline
+      figure already follows this; the 4 planned trajectory viz must too.
+  - topic: gating discipline
+    note: |
+      Rashmi (2026-05-29): "do not attempt next studies until the first two pass and
+      are validated." dnaa-0 + dnaa-1 PASS; dnaa-2 is QUALIFIED (strict per-gen band
+      not clean on the on-disk run). dnaa-3 is being prepared/designed for review, not
+      run — its validation is GATED on dnaa-2's baseline holding (pipeline_gate).
+  - topic: scope — no RIDA
+    note: |
+      Rashmi (2026-05-29): "do not have RIDA in the glossary or in any study." RIDA /
+      DDAH / DARS extrinsic regulation + SeqA are OUT of scope for this investigation.
+      dnaa-3 only PROVIDES the bound/free + per-nucleotide partitioning; it models no
+      such mechanism and declares no downstream study.
+
+inputs_in_place:
+  - 307 high-affinity DnaA box catalog computed at ParCa-build (Schaper-Messer
+    consensus on the K-12 genome). Includes the 3 oriC high-aff (R1 −55, R2 +50,
+    R4 +124) and the 2 high-aff dnaA-promoter sites (box1 −41917, box2 −42883).
+  - Static dnaA autorepression via fold_changes_nca.tsv (dnaA→dnaA = −2.31 log2 FC).
+    The 5 weaker dnaA-promoter boxes are intentionally NOT modeled (autorepression
+    already covers self-regulation — do not double-count).
+  - bf8b82e DnaA-ATP intrinsic hydrolysis (k ≈ 0.046/min) active in the equilibrium.
+
+inputs_to_supply:
+  - id: oric-low-affinity-coordinates
+    title: 8 low-affinity oriC box coordinates (R5M, τ2, I1, I2, C3, C2, I3, C1)
+    status: provisional
+    method: |
+      Extract precise positions from oric_sequence.pdf using R1 (−55), R2 (+50),
+      R4 (+124) as signed-coordinate anchors. Order along oriC (from the sequence
+      map): R1 · R5M · τ2 · I1 · I2 · R2 · C3 · C2 · I3 · C1 · R4 — so 4 low-aff
+      boxes (R5M, τ2, I1, I2) lie between R1 and R2, and 4 (C3, C2, I3, C1)
+      between R2 and R4.
+    provisional_coords_signed:
+      # PROVISIONAL — interpolated from the rendered oric_sequence figure using the
+      # R1/R2/R4 anchors (signed ≈ figure_pos − 255). MUST be confirmed by exact
+      # sequence matching against oriC 3925744–3925989 at ParCa build before use.
+      R5M: -10
+      "τ2": 3
+      I1: 15
+      I2: 30
+      C3: 67
+      C2: 85
+      I3: 97
+      C1: 110
+    note: |
+      Treat the coordinates above as approximate ordering aids, NOT final. The REQ
+      below (extract-low-aff-coords) closes this by pulling exact positions from the
+      raw oriC sequence.
+
+# ── Conditions: reuse the dnaa-2 V=1e-3 succinate baseline ─────────────────────
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    inherited_from: dnaa-2-nucleotide-balance
+    params:
+      seed: 1                       # spec validation uses seed=1 (dnaa-2 canonical reproduction)
+      cache_dir: out/cache_dnaa2    # full-ParCa succinate fit + genetic_perturbations TU00259[c]=1e-3
+      single_daughters: true
+      max_generations: 6
+      resume_dill: out/steady_state_inputs/succinate_default_gen3_start.dill
+  variants:
+    - name: box-binding-reference
+      description: |
+        315-box 4-pool DnaA binding at the spec K_d's (chromosomal-high 302 @1nM,
+        oriC-high 3 @1nM, oriC-low 8 @100nM ATP-only, promoter-high 2 @1nM) on the
+        dnaa-2 V=1e-3 succinate burned-in baseline. The single reference config for
+        this first step; cooperativity + low-aff Kd sweeps are deferred.
+      params:
+        kd_high_nM: 1
+        kd_low_nM: 100
+        seed: 1
+  model_settings:
+    - name: dnaa-box-binding
+      detail: "315 boxes, 4 pools (302 chromosomal_high + 3 oriC_high + 8 oriC_low + 2 promoter_high), fast equilibrium by K_d"
+    - name: nucleotide-form-tracking
+      detail: "High-aff pools track free/bound-ATP/bound-ADP; low-aff pool tracks free/bound-ATP"
+    - name: dnaa-nucleotide-feature
+      detail: "MUST stay disabled — the dormant dnaa_nucleotide opt-in conflicts with bf8b82e"
+
+runtime:
+  subprocess_timeout_s: 7200
+  max_generations: 6
+  single_daughters: true
+
+readouts:
+  - name: DnaA-ATP fraction
+    status: primary
+    identifier: bulk MONOMER0-160[c] / (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])
+    notes: Carried over from dnaa-2; must stay in Boesen [0.2,0.5] (gen-3 ~0.2-0.5).
+  - name: oriC count
+    status: primary
+    identifier: listeners.replication_data.number_of_oric
+    notes: Cell-cycle integrity — 1↔2, unchanged from dnaa-2.
+  - name: DnaA bound (high-aff, ATP)
+    status: measured
+    identifier: sum(chromosomal_high.bound_ATP + oriC_high.bound_ATP + promoter_high.bound_ATP)
+  - name: DnaA bound (high-aff, ADP)
+    status: measured
+    identifier: sum(chromosomal_high.bound_ADP + oriC_high.bound_ADP + promoter_high.bound_ADP)
+  - name: DnaA bound (low-aff, ATP)
+    status: measured
+    identifier: oric_low.bound_ATP
+  - name: total DnaA boxes available
+    status: measured
+    identifier: sum over 4 pools (free + bound)
+    notes: 315 at birth → 630 at replication termination → 315 per daughter (raw count).
+
+# ── Validation (spec table): dnaa-3 must preserve dnaa-2 behaviour ─────────────
+tests:
+  - name: cycles-divided-6-of-6
+    classification: primary
+    description: All 6 generations divide (cell cycle preserved vs dnaa-2 baseline).
+    measure: {kind: count_over_lineage, field: divisions}
+    pass_if: {op: '==', value: 6}
+    baseline_value: 6
+  - name: oric-pattern-1-or-2
+    classification: primary
+    description: oriC oscillates 1↔2 (unchanged from dnaa-2).
+    measure: {kind: snapshot_window, field: number_of_oric}
+    pass_if: {op: in_set, values: [1, 2]}
+    baseline_value: "1↔2"
+  - name: re-init-events-zero
+    classification: primary
+    description: No re-initiation events (unchanged from dnaa-2).
+    measure: {kind: count_over_lineage, field: reinit_events}
+    pass_if: {op: '==', value: 0}
+    baseline_value: 0
+  - name: dnaa-atp-fraction-in-band-gen3
+    classification: primary
+    description: DnaA-ATP fraction at gen 3 in the Boesen [0.2,0.5] band.
+    measure: {kind: snapshot_window, field: dnaA_ATP_over_total_ratio, generation: 3}
+    pass_if: {op: range, low: 0.2, high: 0.5}
+    baseline_value: "~0.26 (dnaa-2)"
+
+# ── Visualizations — the chromosome box-map is REAL (WCM genome data); the 4 ──
+#    trajectory panels below are PLANNED (built once the mechanism runs).
+visualizations:
+  - name: chromosome_dnaa_boxes
+    address: image:charts/chromosome_dnaa_boxes.png
+    config:
+      title: >-
+        E. coli K-12 chromosome — all 307 consensus DnaA boxes (TTWTNCACA,
+        Schaper-Messer 1995), extracted from the v2ecoli whole-cell-model genome
+        exactly as Replication._build_motifs() computes them. oriC, datA, DARS1,
+        DARS2 marked. These 307 are the dnaa-3 chromosomal-high pool substrate;
+        the 8 oriC low-affinity + 2 promoter-high sites are added on top.
+  - name: dnaa2_baseline_starting_point
+    address: image:charts/dnaa2_baseline_starting_point.png
+    config:
+      title: >-
+        BASELINE (where dnaa-3 starts) — the dnaa-2 V=1e-3 succinate seed-0 6-gen
+        run that dnaa-3 builds box-binding on top of. 6/6 divisions, oriC clean
+        1↔2, DnaA-ATP fraction cycle-mean 0.283 (in Boesen [0.2,0.5] band), total
+        DnaA in [300,800], background [ATP]:[ADP]≈20. dnaa-3 must PRESERVE these.
+        x-axis in minutes (cumulative), generation boundaries dotted (Rashmi conv).
+
+# ── Visualizations (4, from spec) — PLANNED (built in build-step listener-and-viz) ──
+# Kept as planned_visualizations (not `visualizations:`) so the dashboard does not
+# try to render unregistered classes — these are specs for viz to be authored.
+planned_visualizations:
+  - name: dnaa-atp-partition-across-cell
+    units: concentration (count / cell_mass)
+    traces:
+      - DnaA-ATP bound to high-affinity boxes (chromosomal_high + oriC_high + promoter_high bound-ATP)
+      - DnaA-ATP bound to low-affinity boxes (oriC_low bound)
+      - DnaA-ATP free in cytoplasm (free bulk pool)
+    invariant: traces sum to total DnaA-ATP concentration at every tick.
+  - name: dnaa-adp-partition-across-cell
+    units: concentration (count / cell_mass)
+    traces:
+      - DnaA-ADP bound to high-affinity boxes (chromosomal_high + oriC_high + promoter_high bound-ADP)
+      - DnaA-ADP free in cytoplasm (free bulk pool)
+    invariant: traces sum to total DnaA-ADP concentration (no low-aff trace — low-aff is ATP-only).
+  - name: total-dnaa-boxes-over-time
+    units: raw count
+    traces: [total boxes = free + bound across all 4 pools]
+    note: 315 at birth → 630 at replication termination → 315 per daughter; raw count so the doubling is visible.
+  - name: total-dnaa-bound-concentration
+    units: concentration (count / cell_mass)
+    traces: [sum of all bound (high-aff ATP+ADP across 3 pools + low-aff ATP) / cell_mass]
+    note: dominated by the chromosomal_high sink across the cycle.
+
+# ── Build plan (codebase map, 2026-06-03) ─────────────────────────────────────
+# What ALREADY exists in v2ecoli (reuse, don't rebuild):
+#   - Equilibrium process + per-reaction integrate_dt two-phase solve:
+#       v2ecoli/processes/equilibrium.py + parca/.../dataclasses/process/equilibrium.py
+#     Reactions in flat/equilibrium_reactions.tsv; rates+integrate_dt in
+#     flat/equilibrium_reaction_rates.tsv (DnaA rows: MONOMER0-160_RXN false,
+#     MONOMER0-4565_RXN true, DNAA-INTRINSIC-HYDROLYSIS-RXN true).
+#   - Consensus DnaA-box catalog: sequence_motifs.tsv "DnaA_box" (TTWTNCACA, 8
+#     variants) → Replication._build_motifs() computes motif_coordinates["DnaA_box"]
+#     by scanning flat/sequence.fasta; boxes instantiated as unique molecules
+#     (schema DNAA_BOX_ARRAY: coordinates|domain_index|DnaA_bound) in
+#     initial_conditions.py. All boxes currently ONE tier, DnaA_bound=false at birth.
+#   - Genome sequence flat/sequence.fasta (len 4,641,652); oriC flat/dna_sites.tsv
+#     G0-10506 = 3925744-3925975 (verified: oriC seq programmatically extractable;
+#     R1 TTATCCACA / R2 TTATACACA anchors locate; signed-coord frame runs OPPOSITE
+#     to genome direction — R1(-55) sits at a HIGHER genome coord than R2(+50)).
+#   - replication_data listener already emits total_DnaA_boxes + free_DnaA_boxes
+#     (v2ecoli/steps/derivers/replication_data.py); no per-pool breakdown yet.
+#
+# What must be CREATED (the dnaa-3 mechanism):
+build_plan:
+  - step: partition-catalog-into-4-pools
+    detail: |
+      Split the single "DnaA_box" catalog into chromosomal_high (302), oriC_high
+      (3: R1/R2/R4), oriC_low (8), promoter_high (2: box1/box2). High-aff = the
+      302 chromosomal consensus matches minus the 5 broken-out sites; oriC_high +
+      promoter_high are the 5 named consensus sites; oriC_low is the 8 supplied
+      coordinates (extract-low-aff-coords). Carry a per-box affinity tier + pool tag.
+    touches: [sequence_motifs.tsv or new dnaa_box_tiers.tsv, replication.py (_build_motifs), DNAA_BOX_ARRAY schema]
+  - step: extract-low-aff-coords
+    detail: |
+      8 low-aff oriC boxes are NON-consensus → not in the consensus catalog; supply
+      explicitly. Align literature box sequences to the oriC window of
+      flat/sequence.fasta (which MATCHES oric_sequence.pdf), using R1/R2/R4 consensus
+      hits to fix the frame. Order: R5M·τ2·I1·I2 (between R1 & R2) · C3·C2·I3·C1
+      (between R2 & R4). Replaces inputs_to_supply.provisional_coords_signed.
+  - step: add-box-binding-equilibria
+    detail: |
+      Add fast-equilibrium binding reactions (integrate_dt=false) to
+      equilibrium_reactions.tsv + _rates.tsv: per pool, DnaA-ATP(+ADP for high-aff)
+      + free-site ⇌ bound-site, K_d = 1 nM (high) / 100 nM (low). Convert K_d →
+      forward/reverse rates (degenerate magnitudes; pick on-rate ~1e8 /M/s scale).
+      Hydrolysis k=0.046/min applies to bound DnaA-ATP too (uniform).
+    touches: [flat/equilibrium_reactions.tsv, flat/equilibrium_reaction_rates.tsv]
+  - step: register-bound-pool-species-and-state
+    detail: |
+      High-aff pools need free/bound-ATP/bound-ADP counts; low-aff free/bound-ATP.
+      Either as bulk species pools or as DnaA_bound→(bound-ATP|bound-ADP) state on
+      the unique boxes. Box count must double across replication (315→630→315) — the
+      existing chromosome_structure.py fork logic already duplicates boxes.
+    touches: [internal_state.py / bulkMolecules.py, chromosome_structure.py]
+  - step: listener-and-viz
+    detail: |
+      Emit per-pool free/bound-ATP/bound-ADP on replication_data; build the 4
+      visualizations (ATP partition, ADP partition, total boxes raw count, total
+      bound conc) with the sum-invariant checks.
+    touches: [replication_data.py, v2ecoli/visualizations/]
+  - step: validate
+    detail: |
+      Run V=1e-3 succinate 6-gen seed=1 burned-in (dnaa-2 protocol, ~25 min). Check
+      the 4 tests: 6/6 divisions, oriC 1↔2, 0 re-init, DnaA-ATP fraction gen-3 in
+      [0.2,0.5]. The 302-site chromosomal_high sink must not over-titrate free DnaA.
+
+# ── Implementation requirements ───────────────────────────────────────────────
+implementation_requirements:
+  - id: REQ-1
+    title: Four-pool DnaA-box binding in the equilibrium process (315 sites)
+    kind: model
+    effort: L
+    status: open
+  - id: REQ-2
+    title: Per-pool nucleotide-form state counts (high-aff free/ATP/ADP; low-aff free/ATP)
+    kind: model
+    effort: M
+    status: open
+  - id: extract-low-aff-coords
+    title: Extract exact 8 low-affinity oriC box coordinates from the raw oriC sequence
+    kind: tooling
+    effort: S
+    status: open
+    detail: |
+      Replace the provisional figure-interpolated coords (inputs_to_supply) with
+      exact positions by matching the low-aff box motifs against oriC
+      3925744–3925989, anchored on R1/R2/R4.
+  - id: REQ-4
+    title: Four box-occupancy visualizations + invariant checks (sums match totals)
+    kind: tooling
+    effort: M
+    status: open
+
+gotchas:
+  - Promoter weak boxes (the 5 of boxes a–c / 3,4) are deliberately EXCLUDED —
+    static autorepression (fold_changes_nca.tsv) handles dnaA self-regulation;
+    modelling them here would double-count.
+  - Cooperativity deliberately DEFERRED (R4-anchored right half; R1+IHF-anchored
+    left half) to a later study.
+  - Do NOT enable the dormant `dnaa_nucleotide` opt-in feature — it is an
+    alternative partitioning implementation that conflicts with bf8b82e.
+
+conclusion_logic:
+  if_primary_tests_pass: |
+    The DnaA-box binding sink (315 sites, 4 pools, fast equilibrium) leaves the
+    dnaa-2 cell cycle intact (6/6 divisions, oriC 1↔2, 0 re-init) and the DnaA-ATP
+    fraction in [0.2,0.5], while exposing bound/free + per-nucleotide partitioning.
+    dnaa-3 passes → unblocks the downstream regulatory + mechanistic-initiation
+    studies that act on bound DnaA.
+  if_primary_tests_fail: |
+    If adding the binding sink perturbs the cycle (divisions <6, oriC ≠ 1↔2,
+    re-init >0) or pushes the DnaA-ATP fraction out of band, the box affinities /
+    pool sizes (esp. the 302-site chromosomal_high sink) are over- or under-titrating
+    free DnaA — revisit K_d / site counts before layering further regulation.
+
+prerequisites:
+  - dnaa-2-nucleotide-balance must hold its baseline (V=1e-3 succinate, DnaA-ATP in band).
+
+pipeline_gate:
+  prerequisites:
+    - study: dnaa-2-nucleotide-balance
+      condition: baseline-holds
+  # No downstream studies wired yet. Per Rashmi's 2026-05-29 directive the
+  # extrinsic-regulation (RIDA/DDAH/DARS) + SeqA studies are OUT of scope for
+  # this investigation; bound/free + per-nucleotide partitioning is provided so
+  # such studies COULD be built later, but none are declared here.
+  enables: []
+  gate_status: pending
+
+simulation_set:
+  - name: dnaa3-boxbinding-seed1-6gen-succinate
+    kind: single-seed-multigen-lineage
+    status: planned
+    base_model: v2ecoli.composites.baseline.baseline
+    duration_steps: ~5400
+    seeds: [1]
+    metrics: [divisions, number_of_oric, reinit_events, dnaA_ATP_over_total_ratio]
+    pass_fail_tests: [cycles-divided-6-of-6, oric-pattern-1-or-2, re-init-events-zero, dnaa-atp-fraction-in-band-gen3]
+    condition: V=1e-3 succinate burned-in (dnaa-2 baseline) with the 315-box 4-pool binding active
+
+planned_runs:
+  - name: dnaa3-boxbinding-seed1-6gen-succinate
+    status: planned
+    base_model: v2ecoli.composites.baseline.baseline
+    n_steps: ~5400   # 6 generations × ~70 min succinate cycle at 1 s/step (burned-in resume)
+    seeds: [1]
+    details: |
+      V=1e-3 succinate 6-gen seed=1 burned-in lineage (dnaa-2 protocol) WITH the
+      315-box 4-pool DnaA binding active. Validates that box binding preserves the
+      dnaa-2 cell cycle: 6/6 divisions, oriC 1↔2, 0 re-init, DnaA-ATP fraction
+      gen-3 in [0.2,0.5]. Run after build-steps 1–5; ~25 min wall + ParCa rebuild.
+    pass_fail_tests:
+      - cycles-divided-6-of-6
+      - oric-pattern-1-or-2
+      - re-init-events-zero
+      - dnaa-atp-fraction-in-band-gen3
+
+findings: []
+runs: []

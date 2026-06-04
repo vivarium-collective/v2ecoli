@@ -1,5 +1,6 @@
 schema_version: 4
 name: dnaa-context-condition-landscape
+investigation: chromosome-cycle-calibration   # owning investigation (back-reference)
 created: '2026-05-26'
 phase: Design
 status: complete

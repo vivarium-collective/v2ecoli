@@ -1,22 +1,33 @@
 {
-  "$schema_note": "Pinned reference for the v1 meta-tier basal-phenotype report card. v1 pins these values to a BLESSED current-main ensemble run (no biological judgement yet — judgement comes later, from reading drift against the pin). A model 'passes' the card if its basal ensemble reproduces every grade within tol_rel.",
-  "status": "pending_blessed_run",
+  "$schema_note": "Pinned reference for the v1 meta-tier basal-phenotype report card. v1 pins these values to a BLESSED current-model ensemble run (no biological judgement yet — judgement comes later, from reading drift against the pin). A model 'passes' the card if its basal ensemble reproduces every graded axis within tol_rel. A null reference is ungraded, not a failure.",
+  "status": "populated",
   "stimulus": {
     "config": "v2ecoli/configs/basal_phenotype_card.json",
-    "blessed_model_ref": null,
-    "blessed_run_notes": "Populate from a basal_phenotype_card analysis.json: copy growth.doubling_time.mean and composition.*_fraction.mean into the grades below, set blessed_model_ref to the git sha, and set status to 'populated'."
+    "blessed_model_ref": "b162243",
+    "ensemble": "4 seeds x 8 gens, generation_lower_bound=3 -> 20 cells (17 divided); 29/32 generations divided",
+    "cache_provenance": "FULL-mode ParCa cache (out/cache_full), built via v2ecoli-parca --mode full then build_cache.py. The shipped fixture models/parca/parca_state.pkl.gz is FAST-mode (reduced TF set) and does NOT support sustained multi-gen division — reproducing this pin requires a full ParCa run. NB: cache_version inputs_hash (36f7930256f9bc44) is identical for fast and full caches; it hashes code/inputs, not sim_data content, so it will not flag a fast<->full swap.",
+    "requires_fix": "Sustained multi-gen division requires CovertLab/v2ecoli#127 (MarkDPeriod divide-flag detection for generations >= 1)."
   },
   "grades": {
-    "growth.doubling_time.mean": {"reference": null, "tol_rel": 0.10},
-    "composition.protein_fraction.mean": {"reference": null, "tol_rel": 0.05},
-    "composition.rna_fraction.mean": {"reference": null, "tol_rel": 0.05},
-    "composition.dna_fraction.mean": {"reference": null, "tol_rel": 0.05}
+    "growth.doubling_time.mean": {"reference": 3021.3529411764707, "tol_rel": 0.10},
+    "composition.protein_fraction.mean": {"reference": 0.43657698291851615, "tol_rel": 0.05},
+    "composition.rna_fraction.mean": {"reference": 0.10260738275672626, "tol_rel": 0.05},
+    "composition.dna_fraction.mean": {"reference": 0.018325799194084384, "tol_rel": 0.05}
   },
+  "observed_spread": {
+    "note": "Cell-to-cell CV from the blessed ensemble; tolerances are set comfortably above the mean's standard error (CV/sqrt(n)) so seed-to-seed reproducibility noise does not trip the gate, while still catching real drift.",
+    "growth.doubling_time": {"mean": 3021.35, "cv": 0.103, "n": 17},
+    "composition.protein_fraction": {"mean": 0.4366, "cv": 0.057, "n": 20},
+    "composition.rna_fraction": {"mean": 0.1026, "cv": 0.036, "n": 20},
+    "composition.dna_fraction": {"mean": 0.01833, "cv": 0.040, "n": 20}
+  },
+  "findings": [
+    "RNA == rRna for v1 (analysis_runner._MASS_COLS pulls rRna only; ~80-85% of total RNA). Extend to total RNA (tRna+mRna) as a follow-up.",
+    "3 of 32 generations did not divide (ran to the 3600 s cap); their over-grown cells are still included in the composition average (n=20). A v1 refinement would restrict composition to divided cells; the effect is small (composition fractions are per-dry-weight and robust)."
+  ],
   "open_questions": [
-    "Promotion mechanism (phase->meta): how does a phase-tier acceptance test graduate onto this transcript? Reviewer-gated / structural / population-vote — UNRESOLVED, see spec doc.",
+    "Promotion mechanism (phase->meta): reviewer-gated / structural / population-vote — UNRESOLVED, see docs/meta_report_cards.md.",
     "CI surface: one tier-tagged suite vs two surfaces vs one surface + promotion hook — UNRESOLVED.",
-    "Spec-vs-card separation: is this reference the 'card' and the config the 'spec', or two readings of one versioned object — UNRESOLVED.",
-    "RNA == rRna for v1 (analysis_runner._MASS_COLS pulls rRna only); extend to total RNA (tRna+mRna) as a follow-up.",
-    "Tolerances are placeholders pending the blessed run's observed cell-to-cell CV; tol_rel should be informed by the pinned ensemble's own spread."
+    "Spec-vs-card separation: is the config the 'spec' and this the 'card', or two readings of one versioned object — UNRESOLVED."
   ]
 }

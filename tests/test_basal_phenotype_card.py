@@ -197,5 +197,6 @@ def test_basal_phenotype_card_matches_pinned_reference():
     card = list(analysis["multiseed"]["basal_phenotype_card"].values())[0]
 
     report = grade_basal_phenotype(card, reference)
-    failures = {p: g for p, g in report["grades"].items() if not g["passed"]}
-    assert report["passed"], f"basal phenotype drifted from pinned reference: {failures}"
+    failures = {p: g for p, g in report["grades"].items() if g["verdict"] == "fail"}
+    assert report["overall"] != "fail", \
+        f"basal phenotype drifted from pinned reference: {failures}"

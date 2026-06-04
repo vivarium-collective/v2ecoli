@@ -4,15 +4,15 @@ A **report card** is an auditable, versioned record of what a model can do,
 graded against a behavioral specification of the organism. This document
 describes the v1 card in v2ecoli and the design decisions behind it.
 
-> **Status (not yet pinned).** The card pipeline is functional end-to-end
-> (measurement → grade → rendered report), but the reference is intentionally
-> left `pending_blessed_run`. The **growth axis** requires sustained
-> multi-generation division, and on current `main` a lineage divides only in
-> generation 0 — later generations grow to the duration cap without dividing
-> (a multi-generation execution issue, under investigation; not the ParCa
-> cache, which was ruled out with a full-mode rebuild). The composition axis
-> is measurable but is not trustworthy until cells divide normally across
-> generations. Pin the reference once sustained multi-gen division is restored.
+> **Status: pinned (v1).** The card is pinned to a blessed 4×8 basal ensemble
+> (`b162243`, full-mode ParCa cache) — see
+> [`report_cards/basal_phenotype/`](report_cards/basal_phenotype/report_card.md).
+> Both axes grade **PASS** against the pin. Two fixes were required to get here:
+> sustained multi-generation division needs `#127` (MarkDPeriod divide-flag
+> detection for gen ≥ 1), and a **full-mode** ParCa cache (the shipped fast-mode
+> fixture leaves metabolite concentrations unpopulated and degrades FBA). The
+> pin therefore requires a full ParCa run to reproduce — recorded in the
+> reference's `cache_provenance`.
 
 ## Three objects, often conflated
 

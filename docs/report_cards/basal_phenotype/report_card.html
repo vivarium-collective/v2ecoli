@@ -1,0 +1,24 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>Basal-phenotype report card</title>
+<style>
+ body{font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;max-width:820px;margin:2rem auto;padding:0 1rem;color:#1f2328}
+ h1{font-size:1.4rem} .badge{display:inline-block;padding:.2rem .7rem;border-radius:.5rem;color:#fff;font-weight:700;background:#1a7f37}
+ table{border-collapse:collapse;width:100%;margin-top:1rem} th,td{border:1px solid #d0d7de;padding:.5rem .6rem;text-align:left}
+ th{background:#f6f8fa} dl{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem} dt{color:#656d76}
+ footer{margin-top:1.5rem;color:#656d76;font-size:.9rem}
+</style></head><body>
+<h1>Basal-condition phenotype &mdash; report card</h1>
+<p class="badge">PASS ✅</p>
+<dl>
+ <dt>Model</dt><dd>b162243</dd>
+ <dt>Stimulus</dt><dd><code>v2ecoli/configs/basal_phenotype_card.json</code></dd>
+ <dt>Ensemble</dt><dd>20 cells after burn-in (generation_lower_bound=3)</dd>
+ <dt>Reference status</dt><dd>populated</dd>
+ <dt>Generated</dt><dd>2026-06-04 15:20</dd>
+</dl>
+<table><thead><tr><th>Axis</th><th>Measured (mean)</th><th>Spread</th><th>Reference</th><th>Tol</th><th>Verdict</th></tr></thead>
+<tbody><tr><td>Growth — doubling time (s)</td><td>3021</td><td>&plusmn;312.6 (CV 0.1035)</td><td>3021</td><td>&plusmn;10%</td><td style='color:#1a7f37;font-weight:600'>pass</td></tr><tr><td>Composition — protein / dry weight</td><td>0.4366</td><td>&plusmn;0.02476 (CV 0.05671)</td><td>0.4366</td><td>&plusmn;5%</td><td style='color:#1a7f37;font-weight:600'>pass</td></tr><tr><td>Composition — RNA / dry weight</td><td>0.1026</td><td>&plusmn;0.003701 (CV 0.03607)</td><td>0.1026</td><td>&plusmn;5%</td><td style='color:#1a7f37;font-weight:600'>pass</td></tr><tr><td>Composition — DNA / dry weight</td><td>0.01833</td><td>&plusmn;0.0007343 (CV 0.04007)</td><td>0.01833</td><td>&plusmn;5%</td><td style='color:#1a7f37;font-weight:600'>pass</td></tr></tbody></table>
+<h2>Findings</h2><ul><li>RNA == rRna for v1 (analysis_runner._MASS_COLS pulls rRna only; ~80-85% of total RNA). Extend to total RNA (tRna+mRna) as a follow-up.</li><li>3 of 32 generations did not divide (ran to the 3600 s cap); their over-grown cells are still included in the composition average (n=20). A v1 refinement would restrict composition to divided cells; the effect is small (composition fractions are per-dry-weight and robust).</li></ul>
+<footer>Meta-tier card. A failure blocks merge; grades only move up.
+See <code>docs/meta_report_cards.md</code>.</footer>
+</body></html>

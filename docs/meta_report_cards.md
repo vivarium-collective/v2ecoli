@@ -4,6 +4,16 @@ A **report card** is an auditable, versioned record of what a model can do,
 graded against a behavioral specification of the organism. This document
 describes the v1 card in v2ecoli and the design decisions behind it.
 
+> **Status (not yet pinned).** The card pipeline is functional end-to-end
+> (measurement → grade → rendered report), but the reference is intentionally
+> left `pending_blessed_run`. The **growth axis** requires sustained
+> multi-generation division, and on current `main` a lineage divides only in
+> generation 0 — later generations grow to the duration cap without dividing
+> (a multi-generation execution issue, under investigation; not the ParCa
+> cache, which was ruled out with a full-mode rebuild). The composition axis
+> is measurable but is not trustworthy until cells divide normally across
+> generations. Pin the reference once sustained multi-gen division is restored.
+
 ## Three objects, often conflated
 
 1. **Behavioral spec** — an implementation-agnostic specification of *E. coli

@@ -85,11 +85,29 @@ def _fmt(x: Any) -> str:
     return "—" if x is None else str(x)
 
 
+def _n_ungraded(report: dict) -> int:
+    return sum(1 for g in report["grades"].values() if g["verdict"] == "ungraded")
+
+
+def _badge_text(report: dict) -> str:
+    """Honest one-line verdict: a clean pass with no ungraded axes reads PASS;
+    a pass with ungraded axes reads PARTIAL so an empty axis can't masquerade
+    as a full pass."""
+    n_ung = _n_ungraded(report)
+    n_graded = len(report["grades"]) - n_ung
+    if report["overall"] == "fail":
+        return "FAIL ❌"
+    if report["overall"] == "ungraded":
+        return "UNGRADED (reference pending)"
+    if n_ung:
+        return f"PARTIAL ⚠️ — {n_graded} graded ✅, {n_ung} ungraded"
+    return "PASS ✅"
+
+
 def render_markdown(card: dict, reference: dict, *, model_ref: str | None = None,
                     generated: str | None = None) -> str:
     """Render the report card as Markdown."""
     report = grade_basal_phenotype(card, reference)
-    badge = {"pass": "PASS ✅", "fail": "FAIL ❌", "ungraded": "UNGRADED (reference pending)"}
     lines = [
         "# Basal-condition phenotype — report card",
         "",
@@ -101,7 +119,7 @@ def render_markdown(card: dict, reference: dict, *, model_ref: str | None = None
     ]
     if generated:
         lines.append(f"- **Generated**: {generated}")
-    lines += ["", f"## Overall: {badge[report['overall']]}", "",
+    lines += ["", f"## Overall: {_badge_text(report)}", "",
               "| Axis | Measured (mean) | spread | Reference | Tol | Verdict |",
               "|---|---|---|---|---|---|"]
     # spread (std / cv) for each measured axis lives next to its mean in the card
@@ -122,6 +140,10 @@ def render_markdown(card: dict, reference: dict, *, model_ref: str | None = None
         tol = f"±{g['tol_rel']:.0%}" if isinstance(g.get("tol_rel"), (int, float)) else "—"
         lines.append(f"| {label} | {_fmt(g['measured'])} | {spread} | "
                      f"{_fmt(g['reference'])} | {tol} | {vbadge[g['verdict']]} |")
+    findings = reference.get("findings") or []
+    if findings:
+        lines += ["", "## Findings", ""]
+        lines += [f"- {f}" for f in findings]
     lines += ["", "_Meta-tier card. A failure blocks merge; grades only move up. "
               "See `docs/meta_report_cards.md`._", ""]
     return "\n".join(lines)
@@ -131,8 +153,8 @@ def render_html(card: dict, reference: dict, *, model_ref: str | None = None,
                 generated: str | None = None) -> str:
     """Render the report card as a standalone HTML page."""
     report = grade_basal_phenotype(card, reference)
-    color = {"pass": "#1a7f37", "fail": "#cf222e", "ungraded": "#9a6700"}
-    label_txt = {"pass": "PASS", "fail": "FAIL", "ungraded": "UNGRADED"}
+    color = {"pass": "#1a7f37", "fail": "#cf222e", "ungraded": "#9a6700",
+             "partial": "#9a6700"}
     spread_of = {
         "growth.doubling_time.mean": ("growth.doubling_time.std", "growth.doubling_time.cv"),
         "composition.protein_fraction.mean": ("composition.protein_fraction.std", "composition.protein_fraction.cv"),
@@ -151,7 +173,12 @@ def render_html(card: dict, reference: dict, *, model_ref: str | None = None,
             f"<tr><td>{GRADE_LABELS.get(path, path)}</td><td>{_fmt(g['measured'])}</td>"
             f"<td>{spread}</td><td>{_fmt(g['reference'])}</td><td>{tol}</td>"
             f"<td style='color:{color[g['verdict']]};font-weight:600'>{g['verdict']}</td></tr>")
-    o = report["overall"]
+    n_ung = _n_ungraded(report)
+    o = "partial" if (report["overall"] == "pass" and n_ung) else report["overall"]
+    badge_txt = _badge_text(report).split(" — ")[0].split(" (")[0]  # short form for the chip
+    findings = reference.get("findings") or []
+    findings_html = ("<h2>Findings</h2><ul>"
+                     + "".join(f"<li>{f}</li>" for f in findings) + "</ul>") if findings else ""
     return f"""<!doctype html><html><head><meta charset="utf-8">
 <title>Basal-phenotype report card</title>
 <style>
@@ -162,7 +189,7 @@ def render_html(card: dict, reference: dict, *, model_ref: str | None = None,
  footer{{margin-top:1.5rem;color:#656d76;font-size:.9rem}}
 </style></head><body>
 <h1>Basal-condition phenotype &mdash; report card</h1>
-<p class="badge">{label_txt[o]}</p>
+<p class="badge">{badge_txt}</p>
 <dl>
  <dt>Model</dt><dd>{model_ref or reference.get('stimulus', {}).get('blessed_model_ref') or '(unspecified)'}</dd>
  <dt>Stimulus</dt><dd><code>{reference.get('stimulus', {}).get('config', 'configs/basal_phenotype_card.json')}</code></dd>
@@ -172,6 +199,7 @@ def render_html(card: dict, reference: dict, *, model_ref: str | None = None,
 </dl>
 <table><thead><tr><th>Axis</th><th>Measured (mean)</th><th>Spread</th><th>Reference</th><th>Tol</th><th>Verdict</th></tr></thead>
 <tbody>{''.join(rows)}</tbody></table>
+{findings_html}
 <footer>Meta-tier card. A failure blocks merge; grades only move up.
 See <code>docs/meta_report_cards.md</code>.</footer>
 </body></html>"""

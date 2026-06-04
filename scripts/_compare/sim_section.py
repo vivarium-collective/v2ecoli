@@ -16,23 +16,29 @@ from scripts._compare.stats import compare_series
 # Tracks columns that could not be read, for visibility in logs.
 _SKIPPED: list[str] = []
 
-# Observables grouped into the four families from the design. ``column`` is
-# the emitter field path (dotted) read via read_stacked_columns.
-OBSERVABLES: list[dict[str, str]] = [
+# Observables grouped into the four families from the design. ``exprs`` is a
+# list of candidate DuckDB SQL expressions tried in order (first that binds
+# wins) — this lets one observable span engine-specific schemas and derived
+# quantities:
+#   * bulk: vEcoli emits one `bulk` BIGINT[]; v2ecoli emits `bulk__count`.
+#     `list_sum(...)` gives the total bulk molecule count per timestep on each.
+#   * active RNAP: both emit `active_rnap_unique_indexes` as an array; the
+#     active-RNAP COUNT is its length.
+OBSERVABLES: list[dict] = [
     {"family": "mass_growth", "key": "dry_mass",
-     "column": "listeners__mass__dry_mass"},
+     "exprs": ["listeners__mass__dry_mass"]},
     {"family": "mass_growth", "key": "cell_mass",
-     "column": "listeners__mass__cell_mass"},
+     "exprs": ["listeners__mass__cell_mass"]},
     {"family": "mass_growth", "key": "growth_rate",
-     "column": "listeners__mass__instantaneous_growth_rate"},
-    {"family": "molecule_counts", "key": "bulk_counts",
-     "column": "bulk"},
-    {"family": "listeners", "key": "active_ribosomes",
-     "column": "listeners__ribosome_data__effective_elongation_rate"},
-    {"family": "listeners", "key": "active_rnap",
-     "column": "listeners__rnap_data__active_rnap_coordinates"},
-    {"family": "division_lineage", "key": "division_time",
-     "column": "listeners__mass__cell_mass"},  # divisions inferred from drops
+     "exprs": ["listeners__mass__instantaneous_growth_rate"]},
+    {"family": "molecule_counts", "key": "bulk_total_count",
+     "exprs": ["list_sum(bulk)", "list_sum(bulk__count)"]},
+    {"family": "listeners", "key": "ribosome_elong_rate",
+     "exprs": ["listeners__ribosome_data__effective_elongation_rate"]},
+    {"family": "listeners", "key": "active_rnap_count",
+     "exprs": ["len(listeners__rnap_data__active_rnap_unique_indexes)"]},
+    {"family": "division_lineage", "key": "cell_mass_for_division",
+     "exprs": ["listeners__mass__cell_mass"]},  # divisions inferred from drops
 ]
 
 
@@ -65,22 +71,20 @@ def read_observables(out_dir: str, experiment_id: str,
         return out
     con = duckdb.connect()
     for key in keys:
-        col = by_key[key]["column"]
-        # `bulk` is a per-molecule vector that differs structurally between the
-        # engines (vEcoli: one `bulk` column; v2ecoli: bulk__id/bulk__count) and
-        # is huge; skip it here so it surfaces as not_compared rather than
-        # forcing a multi-hundred-million-row read.
-        if col == "bulk":
-            continue
-        try:
-            res = con.execute(
-                f'SELECT "{col}" AS v '
-                'FROM read_parquet(?, union_by_name=true)', [files]
-            ).fetchnumpy()
-            out[key] = np.asarray(res["v"], dtype=float).ravel()
-        except Exception as e:
-            _SKIPPED.append(f"{out_dir}:{col}: {type(e).__name__}: {e}")
-            continue
+        last_err = None
+        for expr in by_key[key]["exprs"]:
+            try:
+                res = con.execute(
+                    f"SELECT {expr} AS v "
+                    "FROM read_parquet(?, union_by_name=true)", [files]
+                ).fetchnumpy()
+                out[key] = np.asarray(res["v"], dtype=float).ravel()
+                break
+            except Exception as e:  # try the next candidate expression
+                last_err = e
+        else:
+            _SKIPPED.append(
+                f"{out_dir}:{key}: {type(last_err).__name__}: {last_err}")
     return out
 
 

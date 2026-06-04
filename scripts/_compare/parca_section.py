@@ -23,6 +23,20 @@ _SCALARS = [
 _DISTRIBUTIONS = [
     ("RNA expression — basal",
      ("process", "transcription", "rna_expression", "basal")),
+    ("RNA synthesis prob — basal",
+     ("process", "transcription", "rna_synth_prob", "basal")),
+    ("RNA deg rates",
+     ("process", "transcription", "rna_data", "deg_rate")),
+    ("Cistron deg rates",
+     ("process", "transcription", "cistron_data", "deg_rate")),
+    ("Protein deg rates",
+     ("process", "translation", "monomer_data", "deg_rate")),
+    ("Translation efficiencies",
+     ("process", "translation", "translation_efficiencies_by_monomer")),
+    ("Km endoRNase (transcribed)",
+     ("process", "transcription", "rna_data", "Km_endoRNase")),
+    ("Km endoRNase (mature)",
+     ("process", "transcription", "mature_rna_data", "Km_endoRNase")),
 ]
 
 

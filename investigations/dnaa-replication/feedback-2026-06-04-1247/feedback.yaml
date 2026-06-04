@@ -1,0 +1,18 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260604121555"
+  generated_at: "2026-06-04T12:47:38.262Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-06-04-7.html"
+annotations:
+  "study-dnaa-2-nucleotide-balance-charts":
+    - ts: "2026-06-04T12:25:13.651Z"
+      author: "Rashmi"
+      text: "for this section, remove plots from previous runs because it is confusing. Keep only the latest run."
+  "study-dnaa-2-nucleotide-balance-tests":
+    - ts: "2026-06-04T12:32:25.418Z"
+      author: "Rashmi"
+      text: "initial generations might not strictly fall within band or fraction because simulation is stabilizing, we can consider the generation average"

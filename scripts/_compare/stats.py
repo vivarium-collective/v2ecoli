@@ -18,12 +18,19 @@ def compare_series(
     *,
     rel_tol: float,
     mismatch_rel: float = 0.5,
+    abs_tol: float = 1e-12,
 ) -> dict[str, Any]:
     """Compare two numeric arrays.
 
     Verdicts: ``within_tol`` (max relative error <= rel_tol),
     ``mismatch`` (max relative error >= mismatch_rel), ``drift``
     (between the two), ``not_compared`` (shape mismatch / empty).
+
+    The denominator is symmetric and abs-floored:
+    ``denom = max(|a|, |b|, abs_tol)``.  Element pairs where both
+    values are below *abs_tol* are treated as effectively zero and
+    contribute ~0 relative error, preventing spurious mismatches when
+    one engine returns exactly 0 and the other returns a tiny non-zero.
     """
     a = np.asarray(a, dtype=float).ravel()
     b = np.asarray(b, dtype=float).ravel()
@@ -33,7 +40,7 @@ def compare_series(
     if a.size == 0:
         return {"verdict": "not_compared", "reason": "empty"}
 
-    denom = np.maximum(np.abs(a), 1e-30)
+    denom = np.maximum(np.maximum(np.abs(a), np.abs(b)), abs_tol)
     rel = np.abs(a - b) / denom
     max_rel = float(np.max(rel))
     max_abs = float(np.max(np.abs(a - b)))

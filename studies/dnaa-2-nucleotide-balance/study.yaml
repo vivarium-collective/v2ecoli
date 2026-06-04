@@ -196,6 +196,27 @@ conclusion_logic:
     a parameter inconsistency and not a model bug.
 
 findings:
+  - id: fraction-drift-is-total-dnaa-dependence-not-atp-adp-drift
+    kind: computational
+    summary: |
+      DIAGNOSIS (2026-06-04, seed-1 8-gen) of why the DnaA-ATP fraction drifts low
+      in later generations. The background [ATP]:[ADP] ratio is CONSTANT at 20.3
+      across all 8 gens (pinned by metabolism) — so the drift is NOT a nucleotide-
+      ratio drift. Instead the DnaA-ATP fraction is strongly ANTI-correlated with
+      TOTAL DnaA (r = −0.88): as the pool grows from ~185 (gen-1 transient) to ~640
+      (later gens, in the [300,800] band), the fraction falls from 0.53 to ~0.16-0.23.
+      So at the PROPER DnaA abundance (the [300,800] target dnaa-1 tuning achieves),
+      the kinetic steady state (hydrolysis k=0.046/min draining DnaA-ATP vs slow
+      ADP-dissociation k_r=1e-7/s re-charging) lands the fraction at the LOW EDGE of
+      Boesen [0.2,0.5], dipping below 0.2 in some gens. Implication: lifting it
+      cleanly into the band is a RATE-CONSTANT question (e.g. a modestly faster k_r
+      → more re-charging → higher %ATP) — Haochen's lever — NOT a [ATP]:[ADP] or
+      DnaA-abundance issue. Figure: charts/dnaa2_fraction_vs_totaldnaa_diagnosis.png.
+    evidence:
+      from_run: dnaa2-seed1-8gen (per-tick %DnaA-ATP vs total DnaA, all 8 gens)
+    provenance:
+      run_ids: [dnaa2-seed1-8gen]
+      verified_by: out/dnaa2_seed1_8gen bulk species; corr -0.88, [ATP]:[ADP]=20.3 constant
   - id: dnaa-atp-fraction-in-band-via-integrate-dt
     kind: computational
     summary: |

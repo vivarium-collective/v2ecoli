@@ -105,13 +105,20 @@ def main():
     for i in keep:
         row = df.row(i, named=True)
         snap = _snapshot_from_row(row, domain_children)
-        fig, ax = plt.subplots(figsize=(5.2, 5.2))
+        nch = snap["n_chromosomes"]
+        phase = ("pre-initiation" if not snap["fork_coords"] and nch == 1 else
+                 "two chromosomes — replication complete" if nch >= 2 else
+                 "replication bubble extending")
+        # Fixed canvas (no tight bbox) so every frame is identical pixel size →
+        # a smooth GIF across the 1-chromosome → 2-chromosome transition.
+        fig, ax = plt.subplots(figsize=(6.0, 6.6))
         _plot_chromosome_map(snap, ax,
-                             title=f"t = {snap['time']/60:.0f} min   ·   "
-                                   f"oriC-domains {snap['n_domains']}   ·   "
-                                   f"forks {len(snap['fork_coords'])}   ·   RNAPs {snap['n_rnap']}")
+                             title=f"t = {snap['time']/60:.0f} min   ·   {phase}\n"
+                                   f"forks {len(snap['fork_coords'])}   ·   RNAPs {snap['n_rnap']}"
+                                   f"   ·   chromosomes {nch}")
         ax.set_aspect("equal"); ax.axis("off")
-        buf = io.BytesIO(); fig.savefig(buf, format="png", dpi=90, bbox_inches="tight")
+        fig.subplots_adjust(left=0.02, right=0.98, top=0.90, bottom=0.02)
+        buf = io.BytesIO(); fig.savefig(buf, format="png", dpi=92, facecolor="white")
         plt.close(fig); buf.seek(0); frames.append(Image.open(buf).convert("RGB"))
 
     os.makedirs(os.path.dirname(a.out), exist_ok=True)

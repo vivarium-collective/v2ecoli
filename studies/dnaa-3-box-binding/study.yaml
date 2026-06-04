@@ -285,14 +285,15 @@ visualizations:
     address: image:charts/chromosome_replication.gif
     config:
       title: >-
-        ANIMATED chromosome replication machinery over one succinate cell cycle
-        (seed 1, ~72 min) — the live context dnaa-3's DnaA boxes sit on. Outer ring
-        = chromosome (oriC green, Ter red); gold triangles = the two replisomes
-        (replication forks); green arcs = the replication bubble (newly-synthesized
-        daughter strands); blue dots = RNA polymerases, BOTH on the mother-strand
-        rim AND on the replication-bubble arcs. Rendered from per-timestep unique-
-        molecule coordinates now persisted to parquet (V2ECOLI_EMIT_UNIQUE) via the
-        existing _draw_replication_bubbles renderer. 96 frames @ ~45 s/frame.
+        ANIMATED full succinate cell cycle (seed 1, ~71 min, 123 frames) — the live
+        chromosome context dnaa-3's DnaA boxes sit on. Three phases, labelled per
+        frame: (1) pre-initiation — single chromosome, RNAPs on the rim; (2)
+        replication bubble EXTENDING — green bubble grows from oriC as the two
+        replisomes (gold triangles) travel toward Ter, with RNAPs on both the mother
+        rim AND the bubble arcs; (3) the chromosome DIVIDES INTO TWO complete
+        chromosomes at replication completion. oriC green, Ter red, RNAPs blue.
+        Rendered from per-timestep unique-molecule coordinates persisted to parquet
+        (V2ECOLI_EMIT_UNIQUE) via the existing _draw_replication_bubbles renderer.
   - name: chromosome_dnaa_boxes
     address: image:charts/chromosome_dnaa_boxes.png
     config:

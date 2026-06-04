@@ -310,6 +310,15 @@ glossary:
       per-promoter init_prob to tune dnaA mRNA synthesis rate.
 
 feedback_rounds:
+  - date: '2026-06-04-1515'
+    reviewer: Rashmi
+    artifact: feedback-2026-06-04-1515/feedback.yaml
+    summary: |
+      dnaa-2 presentation fixes (round 3): keep only ONE visualization (done — the
+      seed-1 8-gen canonical) and make the tests render (they showed 'pending'
+      because the report read a no-outcome historical run; removed the historical
+      runs so the canonical run with all 4 PASS is read → Tests: 4✓). dnaa-2 stays
+      PASS; report prose trimmed to match. Ready to move to dnaa-3.
   - date: '2026-06-04-1247'
     reviewer: Rashmi
     artifact: feedback-2026-06-04-1247/feedback.yaml

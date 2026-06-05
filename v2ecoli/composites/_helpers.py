@@ -1119,6 +1119,14 @@ def _get_special_step(loader, step_name, core):
                     'free_DnaA_boxes': 'integer',
                     'total_DnaA_boxes': 'integer',
                 },
+                'dnaA_binding': {
+                    'free_DnaA_ATP_nM': 'float', 'free_DnaA_ADP_nM': 'float',
+                    'oric': {'high_affinity_occupied': 'float', 'low_affinity_occupied': 'float',
+                             'n_bound': 'integer', 'n_total': 'integer'},
+                    'dnaap': {'occupied': 'float', 'n_bound': 'integer', 'n_total': 'integer'},
+                    'chromosome': {'occupied': 'float', 'occupied_count': 'integer', 'n_total': 'integer'},
+                    'total_DnaA_bound': 'integer',
+                },
             })
 
         if parquet_override is not None:

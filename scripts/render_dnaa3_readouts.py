@@ -47,7 +47,8 @@ def load(run, gens):
                    bc.list.get(bi("MONOMER0-160[c]")).alias("atp"),
                    bc.list.get(bi("MONOMER0-4565[c]")).alias("adp"),
                    pl.col("listeners__mass__cell_mass").alias("mass"),
-                   pl.col("listeners__replication_data__number_of_oric").alias("oric")])
+                   pl.col("listeners__replication_data__number_of_oric").alias("oric"),
+                   pl.col("listeners__replication_data__total_DnaA_boxes").alias("boxes")])
           .sort(["generation", "global_time"]).collect())
     return df
 
@@ -76,12 +77,17 @@ def main():
     p_high = c_high / (c_high + KD_HIGH)
     p_low = atp_nM / (atp_nM + KD_LOW)
     frac_atp_of_bound = np.divide(atp_nM, c_high, out=np.zeros_like(atp_nM), where=c_high > 0)
-    # per-pool bound counts
-    high_bound = N_HIGH * p_high
+    # REAL box count: the 307 consensus DnaA boxes (unique molecules) DOUBLE during
+    # replication (Rashmi 2026-06-05). Scale the design pools by that replication factor.
+    boxes_real = df["boxes"].to_numpy().astype(float)   # 307 → 614 → 307/daughter
+    repl = boxes_real / 307.0                            # replication factor (1 → 2)
+    n_high = boxes_real                                  # consensus high-aff (doubles)
+    n_low = N_LOW * repl                                 # design oriC-low (scaled to double)
+    high_bound = n_high * p_high
     high_bound_atp = high_bound * frac_atp_of_bound
     high_bound_adp = high_bound * (1 - frac_atp_of_bound)
-    low_bound = N_LOW * p_low
-    total_boxes = N_HIGH + N_LOW
+    low_bound = n_low * p_low
+    total_boxes = n_high + n_low                         # 315 → 630 across replication
     total_bound = high_bound + low_bound
 
     fig, ax = plt.subplots(3, 2, figsize=(13, 10))
@@ -106,10 +112,10 @@ def main():
     a.set_title("DnaA bound, by pool & nucleotide"); a.set_ylabel("boxes bound"); a.legend(fontsize=7); a.grid(alpha=0.25)
 
     a = ax[2, 0]
+    a.plot(t, total_boxes, color="#0f172a", lw=1.4, label="total (doubles w/ replication)")
     a.plot(t, total_bound, color="#475569", label="bound")
     a.plot(t, total_boxes - total_bound, color="#dc2626", label="FREE")
-    a.axhline(total_boxes, color="#94a3b8", lw=0.7, ls=":")
-    a.set_title(f"DnaA boxes: free vs bound (of {total_boxes})"); a.set_ylabel("boxes")
+    a.set_title("DnaA boxes: total / bound / free (boxes double during replication)"); a.set_ylabel("boxes")
     a.set_xlabel("lineage time (min)"); a.legend(fontsize=8); a.grid(alpha=0.25)
 
     a = ax[2, 1]; a.plot(t, mass, color="#0f172a")

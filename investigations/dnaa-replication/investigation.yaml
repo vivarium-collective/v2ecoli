@@ -310,6 +310,13 @@ glossary:
       per-promoter init_prob to tune dnaA mRNA synthesis rate.
 
 feedback_rounds:
+  - date: '2026-06-05-1244'
+    reviewer: Rashmi
+    artifact: feedback-2026-06-05-1244/feedback.yaml
+    summary: |
+      dnaa-3: fixed the total-DnaA-boxes trend to use the real doubling box count
+      (307→614 with replication, not a constant 315). Started the dnaa-3 run (seed-1
+      8-gen, validated composite, on the mini); plots to be recorded from the run.
   - date: '2026-06-05-0420'
     reviewer: Rashmi
     artifact: feedback-2026-06-05-0420/feedback.yaml

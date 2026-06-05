@@ -290,6 +290,17 @@ runtime:
   single_daughters: true
 
 reviewer_feedback:
+  - round: '2026-06-05-1244'
+    reviewer: Rashmi
+    source: feedback-2026-06-05-1244/feedback.yaml
+    notes: |
+      (1) "total DnaA boxes trend doesn't look right — with replication, boxes double"
+      → FIXED: the readouts figure now uses the REAL total_DnaA_boxes listener (307→614
+      doubling during replication), scaled across all pools, instead of a constant 315.
+      (2) "start the study, run it — I want to see the plots after the study is run"
+      → dnaa-3 seed-1 8-gen RUN launched on the mini (validated composite cache_kr_1em7,
+      which completes; the in-sim binding step is un-wired WIP). On completion: evaluate
+      the 4 acceptance tests + record the run + regenerate plots FROM the run.
   - round: '2026-06-05-0420'
     reviewer: Rashmi
     source: feedback-2026-06-05-0420/feedback.yaml

@@ -138,6 +138,24 @@ def _fmt_value(a: dict) -> str:
     return str(val)
 
 
+def _stationarity(measured: dict) -> tuple[bool, str]:
+    """Read an axis's variance decomposition into (flagged, readout). Flagged =
+    variance is generation-dominated AND monotonic — the ensemble is drifting
+    across generations rather than fluctuating around a steady state. Non-
+    grading: a diagnostic about ensemble quality, not a pass/fail of the axis."""
+    var = measured.get("variance") if isinstance(measured, dict) else None
+    if not var:
+        return False, ""
+    es, eg = var.get("eta_seed", 0.0), var.get("eta_gen", 0.0)
+    rho, p = var.get("rho_gen"), var.get("p_gen")
+    txt = f"seed {es:.0%} · gen {eg:.0%}"
+    if rho is not None:
+        txt += f" · ρ(gen)={rho:+.2f}"
+    flagged = (eg > es and eg > 0.3 and rho is not None
+               and abs(rho) > 0.4 and (p is None or p < 0.1))
+    return flagged, txt
+
+
 def _counts(report: dict) -> dict[str, int]:
     c = {v: 0 for v in _COLOR}
     for a in report["axes"].values():
@@ -175,6 +193,16 @@ def render_markdown(card: dict, reference: dict, *, model_ref=None, generated=No
         lines.append(f"- **Generated**: {generated}")
     lines += ["", f"## Overall: {_overall_label(report)} "
               f"({c['within_tol']} ✓ · {c['drift']} ≈ · {c['mismatch']} ✗ · {c['ungraded']} –)", ""]
+    flagged = [(a.get("label", a["path"]), a["measured"].get("variance", {}))
+               for a in report["axes"].values()
+               if _stationarity(a.get("measured") or {})[0]]
+    if flagged:
+        lines += ["> **⚠ Stationarity:** " + ", ".join(
+            f"`{n}` (gen {v.get('eta_gen', 0):.0%}, ρ={v.get('rho_gen', 0):+.2f})"
+            for n, v in flagged)
+            + " show generation-structured drift — the ensemble may not be at "
+            "steady balanced growth across generations (burn-in insufficient or a "
+            "generational instability). Diagnostic only; does not affect grades.", ""]
     # group axes
     groups: dict[str, list] = {}
     for a in report["axes"].values():
@@ -279,6 +307,7 @@ def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) 
         return f"<span class='chip' style='background:{_COLOR[v]}'>{_GLYPH[v]} {n} {v.replace('_',' ')}</span>"
 
     sections = []
+    flagged_axes = []  # axes whose variance is gen-dominated + monotonic
     for gname, axes in groups.items():
         gc = {v: sum(1 for a in axes if a["verdict"] == v) for v in _COLOR}
         rows = []
@@ -290,12 +319,18 @@ def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) 
             plot = _axis_plot_svg(a)
             detail = (f"<details><summary>plot + detail</summary>"
                       f"<div class='plotwrap'>{plot}</div></details>") if plot else ""
+            flagged, vtext = _stationarity(sp)
+            if flagged:
+                flagged_axes.append(a.get("label", a["path"]))
+            var_html = (f"<div class='var{' varflag' if flagged else ''}'>variance: "
+                        f"{vtext}{' ⚠ generation-drift' if flagged else ''}</div>"
+                        if vtext else "")
             rows.append(
                 f"<tr class='verdict-{a['verdict']}'>"
                 f"<td><div class='axhd'><span class='metric'>{a.get('label', a['path'])}</span>"
                 f"<span class='badge' style='background:{_COLOR[a['verdict']]}'>{_GLYPH[a['verdict']]} {a['verdict'].replace('_',' ')}</span></div>"
                 f"<div class='how'>{a.get('how','')}</div>"
-                f"<div class='crit'><b>criterion:</b> {a['criterion_str']}</div>{detail}</td>"
+                f"<div class='crit'><b>criterion:</b> {a['criterion_str']}</div>{var_html}{detail}</td>"
                 f"<td class='val'>{vals}<div class='spread'>{spread}</div></td>"
                 f"<td class='meter'>{a['meter']}</td></tr>")
         anchor = gname.lower().replace(" ", "-")
@@ -308,6 +343,16 @@ def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) 
 
     nav = "".join(
         f"<a href='#{g.lower().replace(' ','-')}'>{g}</a>" for g in groups)
+    stationarity_html = ("<section class='card stat-callout'><div class='head'>"
+                         "<h2>⚠ Stationarity diagnostic</h2></div>"
+                         "<div class='statbody'>"
+                         f"<b>{len(flagged_axes)}</b> axis(es) show <b>generation-structured "
+                         "drift</b> (variance gen-dominated <i>and</i> monotonic across "
+                         "generations): " + ", ".join(f"<code>{x}</code>" for x in flagged_axes)
+                         + ". The ensemble may not be at steady balanced growth across "
+                         "generations — burn-in may be insufficient or a generational "
+                         "instability. <i>Diagnostic only (does not affect grades).</i>"
+                         "</div></section>") if flagged_axes else ""
     findings = reference.get("findings") or []
     findings_html = ("<section class='card'><div class='head'><h2>Findings</h2></div>"
                      "<ul class='findings'>" + "".join(f"<li>{f}</li>" for f in findings)
@@ -361,13 +406,16 @@ details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}}
 .ftbl tr.flux-lost{{background:#fff3e0}} .ftbl tr.flux-lost .fid{{color:{_COLOR['drift']};font-weight:600}}
 .ftnote{{color:var(--muted);font-size:10.5px;margin-top:6px;max-width:340px;line-height:1.35}}
 .ploterr{{color:var(--muted);font-size:11px}} dl{{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem;margin:0}} dt{{color:#cbd5e1}}
+.var{{font-size:11px;color:var(--muted);margin-top:4px}} .var.varflag{{color:{_COLOR['drift']};font-weight:600}}
+.stat-callout{{border-left:4px solid {_COLOR['drift']}}} .stat-callout .statbody{{padding:12px 18px;font-size:13px;color:#374151;line-height:1.5}}
+.statbody code{{background:#fff3e0;padding:1px 5px;border-radius:4px;font-size:12px}}
 .findings{{margin:0;padding:14px 34px;color:#374151;font-size:13px}} footer{{color:var(--muted);font-size:12px;padding:0 28px 40px;max-width:1100px;margin:0 auto}}
 </style></head><body>
 <header class="top"><h1>{title} — report card</h1>
 <div class="sub">{subtitle}</div>
 <div class="obadge">{overall} &nbsp;·&nbsp; {c['within_tol']} ✓ &nbsp; {c['drift']} ≈ &nbsp; {c['mismatch']} ✗ &nbsp; {c['ungraded']} –</div></header>
 <nav class="sticky">{nav}</nav>
-<main>{''.join(sections)}{findings_html}</main>
+<main>{stationarity_html}{''.join(sections)}{findings_html}</main>
 <footer>{footer}</footer>
 </body></html>"""
 

@@ -1,11 +1,13 @@
 # Basal-condition population phenotype — report card
 
-- **Model**: e11c110
+- **Model**: 2ee3dbb
 - **Stimulus**: 4 seeds x 8 gens, generation_lower_bound=3 -> 20 cells (17 divided); 29/32 generations divided
 - **Reference status**: populated
-- **Generated**: 2026-06-05 14:21
+- **Generated**: 2026-06-05 15:33
 
 ## Overall: PASS (21 ✓ · 0 ≈ · 0 ✗ · 0 –)
+
+> **⚠ Stationarity:** `Doubling time` (gen 51%, ρ=-0.63) show generation-structured drift — the ensemble may not be at steady balanced growth across generations (burn-in insufficient or a generational instability). Diagnostic only; does not affect grades.
 
 ### Physiology
 

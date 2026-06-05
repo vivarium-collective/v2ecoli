@@ -223,6 +223,60 @@ def _mean_std_cv(values: list[float]) -> dict[str, float]:
             "values": [float(v) for v in values]}
 
 
+def _variance_decomposition(labeled: list[tuple]) -> dict:
+    """Two-way (seed × generation) decomposition of the cell-to-cell variance.
+
+    ``labeled`` is ``[(seed, generation, value), ...]``. Returns the fraction of
+    total variance structured by seed (``eta_seed``) and by generation
+    (``eta_gen``) — group-mean sums-of-squares over the grand total — plus a
+    Spearman rank correlation of value vs generation (``rho_gen``). A high
+    ``eta_gen`` that is also *monotonic* (|rho_gen| large) is the signature of a
+    non-stationary lineage (the ensemble is still drifting across generations,
+    not fluctuating around a steady state). Descriptive, not a formal ANOVA:
+    the design is small + unbalanced, so eta's are marginal and need not sum to
+    1. Returns ``{}`` when there's too little data or no variance."""
+    n = len(labeled)
+    if n < 6:
+        return {}
+    seeds = [s for s, _, _ in labeled]
+    gens = [g for _, g, _ in labeled]
+    xs = [v for _, _, v in labeled]
+    mu = sum(xs) / n
+    ss_tot = sum((x - mu) ** 2 for x in xs)
+    if ss_tot == 0:
+        return {}
+
+    def _group_ss(keys):
+        ss = 0.0
+        for k in set(keys):
+            idx = [i for i, kk in enumerate(keys) if kk == k]
+            gm = sum(xs[i] for i in idx) / len(idx)
+            ss += len(idx) * (gm - mu) ** 2
+        return ss
+
+    out = {"eta_seed": _group_ss(seeds) / ss_tot,
+           "eta_gen": _group_ss(gens) / ss_tot,
+           "n_seeds": len(set(seeds)), "n_gens": len(set(gens))}
+    if len(set(gens)) > 1:
+        from scipy import stats
+        rho, p = stats.spearmanr(gens, xs)
+        if rho == rho:  # not nan (constant values give nan)
+            out["rho_gen"] = float(rho)
+            out["p_gen"] = float(p)
+    return out
+
+
+def _stat(labeled: list[tuple]) -> dict:
+    """Per-cell stat node ({n,mean,std,cv,values}) + a ``variance`` sub-dict
+    decomposing the cell-to-cell variance across seeds vs generations.
+    ``labeled`` is ``[(seed, generation, value), ...]``."""
+    node = _mean_std_cv([v for _, _, v in labeled])
+    dec = _variance_decomposition(labeled)
+    if dec:
+        node["variance"] = dec
+    return node
+
+
 class PopulationPhenotypeBasalCard(AnalysisStep):
     """Multiseed: the v1 *meta-tier report card* measurement.
 
@@ -262,48 +316,42 @@ class PopulationPhenotypeBasalCard(AnalysisStep):
         burn_in = int(self.config.get("generation_lower_bound", 0))
         kept = [r for r in rows if int(r.get("generation", 0)) >= burn_in]
 
-        # Growth: doubling time over confirmed divisions only. A non-divided
-        # cell's division_time is the run cap, not a doubling time.
-        doubling_times = [
-            float(r.get("division_time", 0.0)) for r in kept
-            if r.get("divided") is True and float(r.get("division_time", 0.0)) > 0
-        ]
+        # Per-cell values carry their (seed, generation) labels so each axis can
+        # decompose its cell-to-cell variance across seeds vs generations.
+        def _lab(key, keep):
+            out = []
+            for r in kept:
+                v = r.get(key)
+                if v is None or not keep(r, float(v)):
+                    continue
+                out.append((int(r["lineage_seed"]), int(r["generation"]), float(v)))
+            return out
 
-        # Composition: ensemble reduction over the per-cell time-averaged
-        # fractions. Skip cells with a zero/absent fraction (no valid mass).
-        def _frac(key):
-            return [float(r[key]) for r in kept
-                    if float(r.get(key, 0.0)) > 0]
-
-        # Physiology levels: per-cell time-means (skip zero/absent). Event times
-        # (replication initiation/completion) are per-cell and may be absent for
-        # cells that don't experience the event in-cycle -> drop None.
-        def _level(key):
-            return [float(r[key]) for r in kept if float(r.get(key) or 0.0) > 0]
-
-        def _event(key):
-            return [float(r[key]) for r in kept if r.get(key) is not None]
+        # doubling: confirmed divisions only (non-divided cells' time is the cap)
+        _divided = lambda r, v: r.get("divided") is True and v > 0
+        _pos = lambda r, v: v > 0          # fractions / levels: skip zero/absent
+        _any = lambda r, v: True           # event times: already non-None
 
         return {
             "n_cells": len(kept),
             "generation_lower_bound": burn_in,
             "physiology": {
-                "doubling_time": _mean_std_cv(doubling_times),
-                "cell_mass": _mean_std_cv(_level("cell_mass_mean")),
-                "cell_volume": _mean_std_cv(_level("volume_mean")),
-                "oric": _mean_std_cv(_level("oric_mean")),
-                "replication_initiation": _mean_std_cv(_event("replication_initiation_time")),
-                "replication_completion": _mean_std_cv(_event("replication_completion_time")),
+                "doubling_time": _stat(_lab("division_time", _divided)),
+                "cell_mass": _stat(_lab("cell_mass_mean", _pos)),
+                "cell_volume": _stat(_lab("volume_mean", _pos)),
+                "oric": _stat(_lab("oric_mean", _pos)),
+                "replication_initiation": _stat(_lab("replication_initiation_time", _any)),
+                "replication_completion": _stat(_lab("replication_completion_time", _any)),
             },
             "composition": {
-                "protein_fraction": _mean_std_cv(_frac("protein_fraction_mean")),
-                "rna_fraction": _mean_std_cv(_frac("rna_fraction_mean")),
-                "dna_fraction": _mean_std_cv(_frac("dna_fraction_mean")),
+                "protein_fraction": _stat(_lab("protein_fraction_mean", _pos)),
+                "rna_fraction": _stat(_lab("rna_fraction_mean", _pos)),
+                "dna_fraction": _stat(_lab("dna_fraction_mean", _pos)),
             },
             "ribosomes": {
-                "total": _mean_std_cv(_level("ribosome_total_mean")),
-                "active_fraction": _mean_std_cv(_level("ribosome_active_fraction_mean")),
-                "elongation_rate": _mean_std_cv(_level("ribosome_elongation_mean")),
-                "production": _mean_std_cv(_level("ribosome_production_mean")),
+                "total": _stat(_lab("ribosome_total_mean", _pos)),
+                "active_fraction": _stat(_lab("ribosome_active_fraction_mean", _pos)),
+                "elongation_rate": _stat(_lab("ribosome_elongation_mean", _pos)),
+                "production": _stat(_lab("ribosome_production_mean", _pos)),
             },
         }

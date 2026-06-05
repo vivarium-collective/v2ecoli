@@ -98,7 +98,7 @@ for more of the conceptual spec; this file is the map.
 
 | Station | Kind | Stimulus | Analysis | Reference | Test | Output | Updated |
 |---------|------|----------|----------|-----------|------|--------|---------|
-| Foundational behavioral checks | Foundational invariants | pre-division checkpoint (single cell) | `tests/test_model_behavior.py` (assertions) | absolute biological windows (in-test) | `tests/test_model_behavior.py` | — | `5b5bc81` |
+| Foundational behavioral checks | Foundational invariants | pre-division checkpoint (single cell) | `tests/test_model_behavior.py` + `reports/foundational_card_report.py` | `tests/fixtures/foundational_reference.json` | `tests/test_model_behavior.py` | `docs/report_cards/foundational/` | `0c1ee93` |
 | Basal-condition phenotype | Population phenotypes | `configs/basal_phenotype_card.json` | `BasalPhenotypeCard` | `tests/fixtures/basal_phenotype_reference.json` | `tests/test_basal_phenotype_card.py` | `docs/report_cards/basal_phenotype/` | `f3867c2` |
 | v1↔v2 equivalence | Equivalence | *(v1 + v2 runs)* | *(planned — same machinery)* | *(v1 outputs)* | — | `docs/v1_v2_comparison.html` | *planned* |
 
@@ -119,6 +119,15 @@ conserves mass, daughters viable)? Run from a saved pre-division checkpoint
 - **Acceptance**: absolute biological windows baked in the test — these encode
   biology directly (not a pinned number), so they can compose with the
   population cards as a fast pre-merge check or a stable cross-version baseline.
+- **Card** (`reports/foundational_card_report.py`): renders the checks as a
+  **boolean** report card via the *shared* grader/renderer
+  (`tests/fixtures/foundational_reference.json` declares one boolean axis per
+  check). It's **pytest-as-evidence** — runs the `behavior` suite, maps each
+  test's pass/fail/skip onto its axis; a skipped check (missing checkpoint /
+  trajectory) renders `ungraded`. Output:
+  `docs/report_cards/foundational/report_card.{html,md}`. The measurement stays
+  procedural + single-cell (in pytest); only the *result* flows through the
+  shared card — the abstraction shares the output layer, not the measurement.
 
 ### Basal-condition phenotype
 

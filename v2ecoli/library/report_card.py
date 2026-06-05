@@ -22,6 +22,8 @@ _COLOR = {"within_tol": "#1a7f37", "drift": "#ef6c00",
           "mismatch": "#c62828", "ungraded": "#757575"}
 _GLYPH = {"within_tol": "✓", "drift": "≈", "mismatch": "✗", "ungraded": "–"}
 _RANK = {"mismatch": 3, "drift": 2, "within_tol": 1, "ungraded": 0}
+_DEFAULT_FOOTER = ("Behavioral report card — see docs/report_cards/README.md "
+                   "for the index and how the cards compose.")
 
 
 def dig(card: dict, path: str) -> Any:
@@ -127,6 +129,8 @@ def _fmt_value(a: dict) -> str:
     if val is None:
         return "—"
     ctype = a.get("criterion", {}).get("type")
+    if ctype == "boolean":
+        return ""  # the verdict badge + meter (pass/FAIL) carry it
     if ctype in ("r2", "flux_scatter"):
         return f"R² {val:.4g}"
     if isinstance(val, float):
@@ -159,10 +163,12 @@ def _overall_label(report: dict) -> str:
 def render_markdown(card: dict, reference: dict, *, model_ref=None, generated=None) -> str:
     report = grade_card(card, reference)
     c = _counts(report)
+    title = reference.get("title", "Basal-condition phenotype")
+    stim = reference.get("stimulus", {})
     lines = [
-        "# Basal-condition phenotype — report card", "",
-        f"- **Model**: {model_ref or reference.get('stimulus', {}).get('blessed_model_ref') or '(unspecified)'}",
-        f"- **Stimulus**: `{reference.get('stimulus', {}).get('config', '')}`",
+        f"# {title} — report card", "",
+        f"- **Model**: {model_ref or stim.get('blessed_model_ref') or '(unspecified)'}",
+        f"- **Stimulus**: {stim.get('summary') or stim.get('ensemble') or stim.get('config') or stim.get('source') or ''}",
         f"- **Reference status**: {reference.get('status', 'unknown')}",
     ]
     if generated:
@@ -185,8 +191,7 @@ def render_markdown(card: dict, reference: dict, *, model_ref=None, generated=No
     findings = reference.get("findings") or []
     if findings:
         lines += ["## Findings", ""] + [f"- {f}" for f in findings] + [""]
-    lines += ["_Meta-tier card. A failure blocks merge; grades only move up. "
-              "See `docs/meta_report_cards.md`._", ""]
+    lines += [f"_{reference.get('footer', _DEFAULT_FOOTER)}_", ""]
     return "\n".join(lines)
 
 
@@ -264,6 +269,8 @@ def _axis_plot_svg(axis: dict) -> str:
 def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) -> str:
     report = grade_card(card, reference)
     c = _counts(report)
+    title = reference.get("title", "Basal-condition phenotype")
+    footer = reference.get("footer", _DEFAULT_FOOTER)
     groups: dict[str, list] = {}
     for a in report["axes"].values():
         groups.setdefault(a.get("group", "Other"), []).append(a)
@@ -306,13 +313,23 @@ def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) 
                      "<ul class='findings'>" + "".join(f"<li>{f}</li>" for f in findings)
                      + "</ul></section>") if findings else ""
     stim = reference.get("stimulus", {})
+    # one stimulus descriptor for the header, whatever shape the card is:
+    # population cards carry `ensemble` (seeds × gens); others carry `summary`.
+    stim_desc = stim.get("summary") or stim.get("ensemble") or stim.get("source") or ""
+    sub_bits = [f"model <b>{model_ref or stim.get('blessed_model_ref') or '?'}</b>"]
+    if stim_desc:
+        sub_bits.append(stim_desc)
+    sub_bits.append(f"reference {reference.get('status', '?')}")
+    if generated:
+        sub_bits.append(generated)
+    subtitle = " · ".join(sub_bits)
     overall = _overall_label(report)
     ocolor = (_COLOR["mismatch"] if c["mismatch"] else _COLOR["drift"] if c["drift"]
               else _COLOR["within_tol"] if c["within_tol"] else _COLOR["ungraded"])
 
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Basal-phenotype report card</title><style>
+<title>{title} — report card</title><style>
 :root{{--bg:#f6f7f9;--card:#fff;--ink:#1a1d21;--muted:#6b7280;--line:#e5e7eb;}}
 *{{box-sizing:border-box}} body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.45}}
 header.top{{background:linear-gradient(135deg,#1f2937,#111827);color:#fff;padding:22px 28px}}
@@ -346,12 +363,12 @@ details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}}
 .ploterr{{color:var(--muted);font-size:11px}} dl{{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem;margin:0}} dt{{color:#cbd5e1}}
 .findings{{margin:0;padding:14px 34px;color:#374151;font-size:13px}} footer{{color:var(--muted);font-size:12px;padding:0 28px 40px;max-width:1100px;margin:0 auto}}
 </style></head><body>
-<header class="top"><h1>Basal-condition phenotype — report card</h1>
-<div class="sub">model <b>{model_ref or stim.get('blessed_model_ref') or '?'}</b> · {stim.get('ensemble','')} · reference {reference.get('status','?')}{' · '+generated if generated else ''}</div>
+<header class="top"><h1>{title} — report card</h1>
+<div class="sub">{subtitle}</div>
 <div class="obadge">{overall} &nbsp;·&nbsp; {c['within_tol']} ✓ &nbsp; {c['drift']} ≈ &nbsp; {c['mismatch']} ✗ &nbsp; {c['ungraded']} –</div></header>
 <nav class="sticky">{nav}</nav>
 <main>{''.join(sections)}{findings_html}</main>
-<footer>Meta-tier card — a failure blocks merge; grades only move up. Reference pinned via a blessed ensemble ({stim.get('cache_provenance','')[:80]}…). See <code>docs/meta_report_cards.md</code>.</footer>
+<footer>{footer}</footer>
 </body></html>"""
 
 

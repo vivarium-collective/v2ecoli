@@ -78,7 +78,6 @@ BASE_EXECUTION_LAYERS = [
 
     # Layer 2: standalone (no partitioning needed)
     ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation'], FLUSH,
-    ['dnaa_box_binding_listener'], FLUSH,
 
     # Layer 3: TF binding
     ['ecoli-tf-binding'], FLUSH,
@@ -232,7 +231,6 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
     from v2ecoli.steps.derivers.rna_synth_prob import RnaSynthProb
     from v2ecoli.steps.derivers.dna_supercoiling import DnaSupercoiling
     from v2ecoli.steps.derivers.replication_data import ReplicationData
-    from v2ecoli.steps.derivers.dnaa_box_binding import DnaaBoxBinding
     from v2ecoli.steps.derivers.rnap_data import RnapData
     from v2ecoli.steps.derivers.translation_deriver import TranslationDeriver
     from v2ecoli.steps.media_update import MediaUpdate
@@ -310,7 +308,6 @@ def _get_step_config(loader, step_name, core, process_cache=None, master_seed=0)
         'rna_synth_prob_listener': RnaSynthProb,
         'dna_supercoiling_listener': DnaSupercoiling,
         'replication_data_listener': ReplicationData,
-        'dnaa_box_binding_listener': DnaaBoxBinding,
         'rnap_data_listener': RnapData,
         'ribosome_data_listener': TranslationDeriver,
         'media_update': MediaUpdate,

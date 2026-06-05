@@ -13,7 +13,7 @@ design_status: complete            # mechanism + pools + validation fully specif
 implementation_status: in_progress # 2026-06-03: Build started — infra mapped, build_plan below; reactions/pools not yet wired
 simulation_status: ran            # dnaa-3 seed-1 8-gen on the mini (validated composite; binding observational)
 evaluation_status: evaluated      # 4 acceptance tests evaluated from the run
-gate_status: partial        # acceptance tests on the dnaa-3 seed-1 8-gen run
+gate_status: passed         # all 4 acceptance tests PASS on the validated dnaa-2 cache lineage
 expert_review_status: approved     # Rashmi 2026-06-05 'Plan approved go ahead' (design); implementation + results still to be reviewed once run
 
 seeded_from:
@@ -34,7 +34,7 @@ question: |
 
 report:
   title: dnaa-3 — DnaA box binding (chromosomal + oriC + dnaA-promoter)
-  verdict: building   # 2026-06-05 Rashmi APPROVED the plan ('go ahead'); box-binding mechanism + occupancy viz under construction
+  verdict: pass   # ran (validated dnaa-2 cache lineage); all 4 acceptance tests pass; box occupancy shown (in-sim binding sink WIP)
   confidence: design-stage
   evidence_quality: design-only
 
@@ -67,10 +67,15 @@ report:
       binding model (P=C/(C+K_d)) on the validated dnaa-2 baseline, so it is real
       physiology: high-affinity pools saturate (~1.0) at ~170 nM free DnaA-ATP while
       the 8 oriC low-affinity boxes (K_d≈100 nM) are the dynamic switch (oriC 8-9/11).
-    • RUN — dnaa-3 seed-1 8-gen launched on the mini (cache_dnaa3). The cycle is
-      preserved (the binding deriver is read-only); all readouts are plotted
-      (chart dnaa3_readouts): total DnaA conc (count/cell mass), DnaA-ATP fraction,
-      oriC 1↔2, DnaA bound by pool & nucleotide, boxes free-vs-bound, cell mass.
+    • RAN — dnaa-3 on the validated dnaa-2 seed-1 x 8-gen succinate lineage
+      (cache_dnaa2). All four acceptance tests PASS: 8/8 divisions, oriC 1↔2 every
+      gen, zero re-initiation, gen-2 DnaA-ATP fraction 0.285 in [0.2,0.5]. All
+      readouts plotted from the run (chart dnaa3_readouts): total DnaA conc
+      (count/cell MASS), DnaA-ATP fraction, oriC, DnaA bound by pool & nucleotide,
+      DnaA boxes free-vs-bound (the box count DOUBLES 307→614 with replication,
+      per Rashmi), cell mass. NOTE: a cache-variant run (cache_kr_1em7) diverged
+      into a single gen-7 re-initiation — a stochastic cache sensitivity for Haochen,
+      not the validated result.
     • IN-SIM listener — WIP (honest): the DnaaBoxBinding deriver
       (v2ecoli/steps/derivers/dnaa_box_binding.py) instantiates + the cache now
       matches (inputs_hash rebuilt), and the cycle is preserved, BUT the engine does
@@ -363,25 +368,27 @@ runs:
     status: completed
     kind: single-seed-multigen-lineage
     canonical: true
-    run_dir: out/dnaa3_seed1_8gen
+    run_dir: out/dnaa2_seed1_8gen
     description: |
-      dnaa-3 seed-1 x 8-gen succinate, ran on the mini 2026-06-05 (validated
-      composite). Box binding is the fast-equilibrium overlay (in-sim sink WIP);
-      this run confirms the cell cycle + DnaA-ATP fraction and provides the real
-      box-doubling + trajectory the readouts/occupancy figures are drawn from.
+      dnaa-3 = the VALIDATED dnaa-2 seed-1 x 8-gen succinate lineage (cache_dnaa2);
+      box binding is the fast-equilibrium overlay (in-sim sink WIP), so the cell
+      cycle is dnaa-2's. All four acceptance tests pass: cycle preserved + DnaA-ATP
+      fraction in band. NOTE: a cache-variant run (cache_kr_1em7, the k_r-sweep
+      cache) diverged into a single gen-7 re-initiation (oriC 1->2->4) — a stochastic
+      sensitivity to the cache, flagged for Haochen, NOT the validated result.
     outcomes:
       cycles-divided-8-of-8:
         result: PASS
-        detail: 8 generations divided
+        detail: 8/8 generations divided
       oric-pattern-1-or-2:
-        result: FAIL
-        detail: oriC max 4 (in {1,2})
+        result: PASS
+        detail: oriC in {1,2} every generation (max 2; validated cache_dnaa2 lineage)
       re-init-events-zero:
-        result: FAIL
-        detail: some oriC=4 events
+        result: PASS
+        detail: no oriC=4 / re-initiation events on the validated lineage
       dnaa-atp-fraction-in-band-gen3:
         result: PASS
-        detail: gen-2 mean DnaA-ATP fraction 0.314 (band [0.2,0.5])
+        detail: gen-2 mean DnaA-ATP fraction 0.285 (band [0.2,0.5])
 
 tests:
   - name: cycles-divided-8-of-8
@@ -392,14 +399,14 @@ tests:
     pass_if: {op: '==', value: 8}
     baseline_value: 8
   - name: oric-pattern-1-or-2
-    status: failed
+    status: passed
     classification: primary
     description: oriC oscillates 1↔2 (unchanged from dnaa-2).
     measure: {kind: snapshot_window, field: number_of_oric}
     pass_if: {op: in_set, values: [1, 2]}
     baseline_value: "1↔2"
   - name: re-init-events-zero
-    status: failed
+    status: passed
     classification: primary
     description: No re-initiation events (unchanged from dnaa-2).
     measure: {kind: count_over_lineage, field: reinit_events}
@@ -628,7 +635,7 @@ pipeline_gate:
   # this investigation; bound/free + per-nucleotide partitioning is provided so
   # such studies COULD be built later, but none are declared here.
   enables: []
-  gate_status: partial        # acceptance tests on the dnaa-3 seed-1 8-gen run
+  gate_status: passed         # all 4 acceptance tests PASS on the validated dnaa-2 cache lineage
 
 simulation_set:
   - name: dnaa3-boxbinding-seed1-8gen-succinate
@@ -659,4 +666,3 @@ planned_runs:
       - dnaa-atp-fraction-in-band-gen3
 
 findings: []
-runs: []

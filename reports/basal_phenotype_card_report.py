@@ -20,7 +20,7 @@ import os
 import subprocess
 
 from v2ecoli.library.report_card import (
-    card_from_analysis, load_json, render_html, render_markdown,
+    card_from_analysis, load_json, merge_vectors, render_html, render_markdown,
 )
 
 
@@ -49,11 +49,28 @@ def main() -> None:
                    help="Output dir (default: alongside the analysis.json)")
     p.add_argument("--model-ref", default=None,
                    help="Model identifier for the card header (default: git sha)")
+    p.add_argument("--sweep-dir", default=None,
+                   help="Sweep root for omics/flux vector extraction "
+                        "(default: the analysis.json's directory)")
+    p.add_argument("--gen-lb", type=int, default=None,
+                   help="Burn-in generation_lower_bound for vector extraction "
+                        "(default: read from reference.stimulus, else 3)")
+    p.add_argument("--no-vectors", action="store_true",
+                   help="Skip the (~minute) omics/flux vector extraction; "
+                        "those axes render UNGRADED")
     args = p.parse_args()
 
     analysis = load_json(args.analysis)
     reference = load_json(args.reference)
     card = card_from_analysis(analysis)
+
+    if not args.no_vectors:
+        sweep_dir = args.sweep_dir or os.path.dirname(os.path.abspath(args.analysis))
+        gen_lb = (args.gen_lb if args.gen_lb is not None
+                  else reference.get("stimulus", {}).get("generation_lower_bound", 3))
+        print(f"[vectors] extracting omics + flux vectors from {sweep_dir} "
+              f"(gen >= {gen_lb}) — this takes ~a minute …")
+        merge_vectors(card, reference, sweep_dir, gen_lb)
 
     out_dir = args.out_dir or os.path.dirname(os.path.abspath(args.analysis))
     os.makedirs(out_dir, exist_ok=True)

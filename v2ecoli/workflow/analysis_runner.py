@@ -48,6 +48,38 @@ _MASS_COLS = ("listeners__mass__dry_mass", "listeners__mass__protein_mass",
               "listeners__mass__rRna_mass", "listeners__mass__dna_mass",
               "listeners__mass__rna_mass")  # rna_mass = total RNA (rRna+tRna+mRna)
 
+# Per-timestep scalar physiology columns (time-averaged per cell). fork count is
+# an array length expression appended separately.
+_PHYSIO_COLS = ("listeners__mass__cell_mass", "listeners__mass__volume",
+                "listeners__replication_data__number_of_oric")
+_FORK_LEN = "len(listeners__replication_data__fork_coordinates)"
+
+# Ribosome columns. active count + elongation rate + rRNA-initiation (a
+# ribosome-biogenesis-rate proxy; ribosome_data__did_initialize isn't emitted
+# in this build) are clean listeners; the inactive 30S/50S subunit counts have
+# NO listener, so they're pulled from the bulk arrays by molecule id
+# (sim_data.molecule_ids.s30_full_complex / s50_full_complex = the 30S/50S full
+# complexes). Total ribosomes = active + min(30S, 50S), mirroring vEcoli's
+# ecoli/analysis/multigeneration/ribosome_usage.py.
+_RIBO_COLS = ("listeners__growth_limits__active_ribosome_allocated",
+              "listeners__ribosome_data__effective_elongation_rate",
+              "listeners__ribosome_data__total_rRNA_initiated")
+_S30_COUNT = "list_extract(bulk__count, list_position(bulk__id, 'CPLX0-3953[c]'))"
+_S50_COUNT = "list_extract(bulk__count, list_position(bulk__id, 'CPLX0-3962[c]'))"
+
+
+def _replication_events(times, oric, nforks):
+    """Per-cell replication event times (since birth — global_time resets each
+    generation). Initiation = first oriC step-up (a new round fires, origin
+    duplicates). Completion = forks first clear after being active (a round
+    terminates). Either is None if the event doesn't occur within the cell's
+    observed cycle (e.g. a cell born between rounds never re-initiates)."""
+    init = next((times[i] for i in range(1, len(oric)) if oric[i] > oric[i - 1]),
+                None)
+    completion = next((times[i] for i in range(1, len(nforks))
+                       if nforks[i] == 0 and nforks[i - 1] > 0), None)
+    return init, completion
+
 
 def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
     """Build per-cell summary records from the sweep's parquet + summary.json."""
@@ -74,7 +106,9 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
         return {}
     flist = "[" + ",".join("'" + f.replace("'", "''") + "'" for f in files) + "]"
     sel = ("variant, lineage_seed, generation, agent_id, global_time, "
-           + ", ".join(_MASS_COLS))
+           + ", ".join(_MASS_COLS) + ", " + ", ".join(_PHYSIO_COLS)
+           + ", " + _FORK_LEN + ", " + ", ".join(_RIBO_COLS)
+           + ", " + _S30_COUNT + ", " + _S50_COUNT)
     rows = duckdb.sql(
         f"SELECT {sel} FROM read_parquet({flist}, hive_partitioning=true) "
         f"ORDER BY variant, lineage_seed, generation, agent_id, global_time"
@@ -82,27 +116,50 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
 
     by_cell: dict[tuple, list] = {}
     for row in rows:
-        v, ls, g, a, t, dry, prot, rrna, dna, rna = row
+        (v, ls, g, a, t, dry, prot, rrna, dna, rna, cmass, vol, oric, nfork,
+         active, elong, rrna_init, s30, s50) = row
         ck = (int(v), int(ls), int(g), str(a))
         by_cell.setdefault(ck, []).append(
-            (float(t), float(dry), float(prot), float(rrna), float(dna), float(rna)))
+            (float(t), float(dry), float(prot), float(rrna), float(dna), float(rna),
+             float(cmass), float(vol), float(oric), int(nfork),
+             float(active), float(elong), float(rrna_init),
+             float(s30 or 0.0), float(s50 or 0.0)))
 
     records: dict[tuple, dict] = {}
     for ck, rs in by_cell.items():
         fr = {"protein": [], "rRna": [], "rna": [], "dna": []}
         ts = []
-        for (t, dry, prot, rrna, dna, rna) in rs:
+        cmasses, vols, orics, nforks, times = [], [], [], [], []
+        ribo_total, ribo_active_frac, elongs, productions = [], [], [], []
+        for (t, dry, prot, rrna, dna, rna, cmass, vol, oric, nfork,
+             active, elong, rrna_init, s30, s50) in rs:
             ts.append({"listeners": {"mass": {"dry_mass": dry, "protein_mass": prot,
                                               "rRna_mass": rrna, "dna_mass": dna,
                                               "rna_mass": rna}}})
+            times.append(t); cmasses.append(cmass); vols.append(vol)
+            orics.append(oric); nforks.append(nfork)
+            # Ribosomes: total = active + min(free 30S, free 50S) assemblable;
+            # active fraction = translating / total (vEcoli ribosome_usage.py).
+            total = active + min(s30, s50)
+            ribo_total.append(total)
+            if total > 0:
+                ribo_active_frac.append(active / total)
+            if elong > 0:
+                elongs.append(elong)
+            productions.append(rrna_init)
             if dry > 0:
                 fr["protein"].append(prot / dry)
                 fr["rRna"].append(rrna / dry)
                 fr["rna"].append(rna / dry)      # total RNA / dry weight
                 fr["dna"].append(dna / dry)
         div = div_by_cell.get(ck, {})
-        # Per-cell fraction means are the CELL-level statistic (time-average within
-        # the cell -> one value per cell). Population stats live across cells.
+        repl_init, repl_complete = _replication_events(times, orics, nforks)
+
+        def _mean(xs):
+            return (sum(xs) / len(xs)) if xs else 0.0
+
+        # Per-cell means are the CELL-level statistic (time-average within the
+        # cell -> one value per cell). Population stats live across cells.
         records[ck] = {
             "variant": ck[0], "lineage_seed": ck[1], "generation": ck[2], "agent_id": ck[3],
             "divided": div.get("divided"),
@@ -111,10 +168,22 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
             # because each generation runs a fresh composite (global_time resets).
             "division_time": div.get("division_time", float(rs[-1][0])),
             "newborn_dry_mass": rs[0][1], "final_dry_mass": rs[-1][1],
-            "protein_fraction_mean": (sum(fr["protein"]) / len(fr["protein"])) if fr["protein"] else 0.0,
-            "rRna_fraction_mean": (sum(fr["rRna"]) / len(fr["rRna"])) if fr["rRna"] else 0.0,
-            "rna_fraction_mean": (sum(fr["rna"]) / len(fr["rna"])) if fr["rna"] else 0.0,
-            "dna_fraction_mean": (sum(fr["dna"]) / len(fr["dna"])) if fr["dna"] else 0.0,
+            "protein_fraction_mean": _mean(fr["protein"]),
+            "rRna_fraction_mean": _mean(fr["rRna"]),
+            "rna_fraction_mean": _mean(fr["rna"]),
+            "dna_fraction_mean": _mean(fr["dna"]),
+            # Physiology (cell cycle): time-mean level + per-cell event times.
+            "cell_mass_mean": _mean(cmasses),
+            "volume_mean": _mean(vols),
+            "oric_mean": _mean(orics),
+            "replication_initiation_time": repl_init,
+            "replication_completion_time": repl_complete,
+            # Ribosomes: total (components), active fraction + elongation rate
+            # (usage), rRNA-initiation (production proxy).
+            "ribosome_total_mean": _mean(ribo_total),
+            "ribosome_active_fraction_mean": _mean(ribo_active_frac),
+            "ribosome_elongation_mean": _mean(elongs),
+            "ribosome_production_mean": _mean(productions),
             "timeseries": ts,
         }
     return records

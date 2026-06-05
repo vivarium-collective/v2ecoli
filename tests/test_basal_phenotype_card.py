@@ -1,4 +1,4 @@
-"""Tests for the v1 meta-tier report card: basal-condition phenotype.
+"""Tests for the meta-tier report card: basal-condition phenotype.
 
 Three layers, mirroring the card's three artifacts:
 
@@ -8,14 +8,13 @@ Three layers, mirroring the card's three artifacts:
   2. **Config threading** — the dedicated ``generation_lower_bound`` knob
      actually reaches the step through ``run_analyses`` (the framework
      previously discarded per-analysis options).
-  3. **The grade** — ``grade_basal_phenotype`` compares a *measured* ensemble
-     against a *pinned reference* within tolerance. The reference is
-     ``tests/fixtures/basal_phenotype_reference.json``; v1 pins it to a
-     blessed current-main ensemble run (no biological judgement yet — the
-     judgement comes later, from reading drift against the pin). Until that
-     run exists the reference is ``status: pending_blessed_run`` and the
-     grade test skips, exactly like the other behavior tests skip without a
-     checkpoint.
+  3. **The grade** — ``grade_card`` grades a *measured* card against a
+     *pinned reference* whose axes carry typed criteria (``rel_tol`` /
+     ``ttest`` / ``r2`` / ``flux_scatter`` / ``boolean``), each earning a
+     4-state verdict (within_tol / drift / mismatch / ungraded). The reference
+     is ``tests/fixtures/basal_phenotype_reference.json``, pinned to a blessed
+     current-main ensemble (no biological judgement yet — judgement comes later
+     from reading drift against the pin).
 """
 import json
 import os
@@ -23,7 +22,7 @@ import os
 import pytest
 
 from v2ecoli.workflow.analysis import BasalPhenotypeCard
-from v2ecoli.library.report_card import grade_basal_phenotype, card_from_analysis
+from v2ecoli.library.report_card import grade_card, card_from_analysis
 
 
 _FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -39,11 +38,13 @@ _REFERENCE = os.path.join(_FIXTURE_DIR, "basal_phenotype_reference.json")
 # ---------------------------------------------------------------------------
 
 def _ensemble():
-    def cell(seed, gen, dt, divided, prot, rrna, dna):
+    def cell(seed, gen, dt, divided, prot, rna, dna):
+        # composition grades TOTAL RNA / dry weight (rna_fraction_mean), so the
+        # synthetic records carry that key (not the legacy rRna-only fraction).
         return {"variant": 0, "lineage_seed": seed, "generation": gen,
                 "agent_id": "0" * (gen + 1), "divided": divided,
                 "division_time": dt, "final_dry_mass": 700.0,
-                "protein_fraction_mean": prot, "rRna_fraction_mean": rrna,
+                "protein_fraction_mean": prot, "rna_fraction_mean": rna,
                 "dna_fraction_mean": dna}
     return [
         # gen 0 — burn-in (dropped at generation_lower_bound=1)
@@ -65,6 +66,10 @@ def _card(generation_lower_bound=0):
         core=allocate_core())
 
 
+# ---------------------------------------------------------------------------
+# 1. Measurement math
+# ---------------------------------------------------------------------------
+
 @pytest.mark.fast
 def test_burn_in_drops_early_generations():
     """generation_lower_bound=1 excludes the gen-0 inoculation transient."""
@@ -78,9 +83,10 @@ def test_doubling_time_over_confirmed_divisions_only():
     """Doubling stats use divided cells only; the run-cap non-divider is out.
 
     Kept divided dts (burn-in=1): 2400, 2600, 2500 -> mean 2500, n 3.
-    The seed=1/gen=2 cell (divided=False, dt=9999 run cap) is excluded."""
+    The seed=1/gen=2 cell (divided=False, dt=9999 run cap) is excluded.
+    Doubling time now lives under the ``physiology`` group."""
     out = _card(generation_lower_bound=1).analyze(_ensemble())
-    dt = out["growth"]["doubling_time"]
+    dt = out["physiology"]["doubling_time"]
     assert dt["n"] == 3
     assert dt["mean"] == pytest.approx(2500.0)
     # CV = pstdev / mean; pstdev of {2400,2500,2600} = 81.6497...
@@ -98,8 +104,19 @@ def test_composition_fractions_reduced_across_ensemble():
     assert comp["protein_fraction"]["mean"] == pytest.approx(0.515)
     assert comp["rna_fraction"]["mean"] == pytest.approx((0.10 + 0.11 + 0.105 + 0.115) / 4)
     assert comp["dna_fraction"]["mean"] == pytest.approx((0.020 + 0.020 + 0.021 + 0.019) / 4)
-    # All three axes present and populated
     assert set(comp) == {"protein_fraction", "rna_fraction", "dna_fraction"}
+
+
+@pytest.mark.fast
+def test_physiology_and_ribosome_groups_present():
+    """The card emits Physiology + Ribosomes groups; axes for which the
+    synthetic records carry no signal degrade to n=0, not an exception."""
+    out = _card(generation_lower_bound=1).analyze(_ensemble())
+    assert "doubling_time" in out["physiology"]
+    assert "cell_mass" in out["physiology"]  # present, n=0 here (no mass in synth)
+    assert out["physiology"]["cell_mass"]["n"] == 0
+    assert set(out["ribosomes"]) == {"total", "active_fraction",
+                                     "elongation_rate", "production"}
 
 
 @pytest.mark.fast
@@ -108,7 +125,7 @@ def test_zero_fraction_cells_excluded_from_composition():
     rows = _ensemble()
     rows.append({"variant": 0, "lineage_seed": 2, "generation": 1, "agent_id": "00",
                  "divided": True, "division_time": 2500.0, "final_dry_mass": 700.0,
-                 "protein_fraction_mean": 0.0, "rRna_fraction_mean": 0.0,
+                 "protein_fraction_mean": 0.0, "rna_fraction_mean": 0.0,
                  "dna_fraction_mean": 0.0})
     out = _card(generation_lower_bound=1).analyze(rows)
     # n_cells counts the row (it is in-window) but composition skips the zero
@@ -120,7 +137,7 @@ def test_zero_fraction_cells_excluded_from_composition():
 def test_empty_ensemble_is_safe():
     out = _card().analyze([])
     assert out["n_cells"] == 0
-    assert out["growth"]["doubling_time"]["mean"] == 0.0
+    assert out["physiology"]["doubling_time"]["mean"] == 0.0
     assert out["composition"]["protein_fraction"]["mean"] == 0.0
 
 
@@ -143,9 +160,93 @@ def test_generation_lower_bound_threads_through_run_analyses(monkeypatch, tmp_pa
 
 
 # ---------------------------------------------------------------------------
-# The grade — measured ensemble vs. pinned reference within tolerance.
-# (grade_basal_phenotype lives in v2ecoli.library.report_card so the report
-# renderer and this test share one implementation.)
+# 2. The grade — typed criteria, 4-state verdict, worst-axis overall.
+#    (grade_card lives in v2ecoli.library.report_card so the renderer and this
+#    test share one implementation.)
+# ---------------------------------------------------------------------------
+
+def _ref_axis(path, criterion):
+    return {"axes": {path: {"group": "Test", "label": path, "criterion": criterion}}}
+
+
+@pytest.mark.fast
+def test_grade_rel_tol_bands():
+    """rel_tol: within_tol <= tol, drift <= 2*tol, mismatch beyond; the worst
+    axis sets ``overall``; a null reference is ungraded (not a failure)."""
+    measured = {"physiology": {"doubling_time": {"mean": 2500.0}}}
+
+    def grade(ref, tol=0.05):
+        r = _ref_axis("physiology.doubling_time",
+                      {"type": "rel_tol", "reference": ref, "tol_rel": tol})
+        return grade_card(measured, r)
+
+    assert grade(2500.0)["overall"] == "within_tol"          # exact
+    assert grade(2300.0)["overall"] == "drift"               # rel 0.087 in (.05,.10]
+    assert grade(2000.0)["overall"] == "mismatch"            # rel 0.25 > .10
+    assert grade(None)["overall"] == "ungraded"              # no reference
+
+
+@pytest.mark.fast
+def test_grade_ttest_magnitude_with_p_guard():
+    """ttest: tight identical populations pass; a large, significant shift is a
+    mismatch (magnitude past mismatch_pct AND p < p_min)."""
+    base = [2400.0, 2500.0, 2600.0, 2450.0, 2550.0]
+    crit = {"type": "ttest", "ref_values": base, "within_pct": 0.05,
+            "mismatch_pct": 0.10, "p_min": 0.05}
+    ref = _ref_axis("physiology.doubling_time", crit)
+
+    same = {"physiology": {"doubling_time": {"values": base, "mean": 2500.0}}}
+    assert grade_card(same, ref)["overall"] == "within_tol"
+
+    shifted_vals = [v * 1.3 for v in base]  # +30%, tiny spread -> significant
+    shifted = {"physiology": {"doubling_time":
+                              {"values": shifted_vals, "mean": 3250.0}}}
+    assert grade_card(shifted, ref)["overall"] == "mismatch"
+
+
+@pytest.mark.fast
+def test_grade_ttest_inactive_sentinel():
+    """An inactive-reference axis (e.g. acetate ~0): stays inactive -> pass;
+    becomes active -> mismatch (the sentinel tripped)."""
+    crit = {"type": "ttest", "ref_values": [0.0] * 6, "within_pct": 0.05,
+            "mismatch_pct": 0.10, "inactive_eps": 1e-6}
+    ref = _ref_axis("fluxes.acetate", crit)
+    inactive = {"fluxes": {"acetate": {"values": [0.0] * 6, "mean": 0.0}}}
+    assert grade_card(inactive, ref)["overall"] == "within_tol"
+    active = {"fluxes": {"acetate": {"values": [0.5] * 6, "mean": 0.5}}}
+    assert grade_card(active, ref)["overall"] == "mismatch"
+
+
+@pytest.mark.fast
+def test_grade_flux_scatter_qualitative_change_is_mismatch():
+    """flux_scatter: a flux that appears (ref~0 -> active) or disappears is a
+    mismatch regardless of R², and the changed index is reported."""
+    ref_vec = [1.0, 0.0, -2.0]
+    crit = {"type": "flux_scatter", "ref_vector": ref_vec,
+            "r2_min": 0.99, "r2_drift": 0.95}
+    ref = _ref_axis("fluxes.exchange", crit)
+
+    matched = {"fluxes": {"exchange": {"vector": [1.0, 0.0, -2.0]}}}
+    assert grade_card(matched, ref)["overall"] == "within_tol"
+
+    appeared = {"fluxes": {"exchange": {"vector": [1.0, 0.5, -2.0]}}}
+    g = grade_card(appeared, ref)["axes"]["fluxes.exchange"]
+    assert g["verdict"] == "mismatch"
+    assert g["detail"]["appeared"] == [1]
+
+
+@pytest.mark.fast
+def test_grade_r2_vector():
+    """r2: identical vectors -> R²=1 pass; a degraded vector drops the verdict."""
+    ref_vec = [10.0, 100.0, 1000.0, 50.0, 500.0]
+    crit = {"type": "r2", "ref_vector": ref_vec, "r2_min": 0.99, "r2_drift": 0.95}
+    ref = _ref_axis("geneexp.transcriptome", crit)
+    same = {"geneexp": {"transcriptome": {"vector": list(ref_vec)}}}
+    assert grade_card(same, ref)["overall"] == "within_tol"
+
+
+# ---------------------------------------------------------------------------
+# 3. Meta-tier grade against the pinned reference fixture.
 # ---------------------------------------------------------------------------
 
 def _load_reference():
@@ -155,34 +256,16 @@ def _load_reference():
         return json.load(f)
 
 
-@pytest.mark.fast
-def test_grade_logic_passes_within_tolerance():
-    """Unit-test the grading function itself (no model run)."""
-    reference = {"grades": {
-        "growth.doubling_time.mean": {"reference": 2500.0, "tol_rel": 0.10},
-        "composition.protein_fraction.mean": {"reference": 0.515, "tol_rel": 0.05},
-    }}
-    measured = _card(generation_lower_bound=1).analyze(_ensemble())
-    report = grade_basal_phenotype(measured, reference)
-    assert report["overall"] == "pass"
-    # A 20% drift on doubling time must fail the 10% tolerance
-    reference["grades"]["growth.doubling_time.mean"]["reference"] = 2000.0
-    assert grade_basal_phenotype(measured, reference)["overall"] == "fail"
-    # A null reference is ungraded, not a failure
-    reference["grades"] = {"growth.doubling_time.mean": {"reference": None, "tol_rel": 0.1}}
-    assert grade_basal_phenotype(measured, reference)["overall"] == "ungraded"
-
-
 @pytest.mark.behavior
 def test_basal_phenotype_card_matches_pinned_reference():
-    """META-TIER GRADE: current-model basal ensemble vs the pinned reference.
+    """META-TIER GRADE: a measured basal ensemble vs the pinned reference.
 
-    Skips until (a) the reference fixture is populated from a blessed main
-    ensemble run (``status: populated``) and (b) a measured analysis.json from
-    a basal_phenotype_card run is available (``V2ECOLI_BASAL_ANALYSIS`` env var
-    pointing at the sweep's analysis.json). Both require the ParCa cache +
-    an ensemble run — the execution layer deferred to the CI/cloud discussion.
-    """
+    Skips until (a) the reference is ``status: populated`` and (b) a measured
+    analysis.json is available (``V2ECOLI_BASAL_ANALYSIS`` env var pointing at a
+    basal_phenotype_card run's analysis.json). The scalar axes (physiology /
+    composition / ribosomes) grade directly; the vector axes (exchange fluxes /
+    gene expression) render ungraded unless the report's vector merge has run —
+    ungraded never fails, so the gate is honest either way."""
     reference = _load_reference()
     if reference.get("status") != "populated":
         pytest.skip(f"reference {reference.get('status')!r}; "
@@ -193,10 +276,10 @@ def test_basal_phenotype_card_matches_pinned_reference():
         pytest.skip("set V2ECOLI_BASAL_ANALYSIS to a basal_phenotype_card "
                     "analysis.json from an ensemble run")
     with open(measured_path, encoding="utf-8") as f:
-        analysis = json.load(f)
-    card = list(analysis["multiseed"]["basal_phenotype_card"].values())[0]
+        card = card_from_analysis(json.load(f))
 
-    report = grade_basal_phenotype(card, reference)
-    failures = {p: g for p, g in report["grades"].items() if g["verdict"] == "fail"}
-    assert report["overall"] != "fail", \
+    report = grade_card(card, reference)
+    failures = {p: g for p, g in report["axes"].items()
+                if g["verdict"] == "mismatch"}
+    assert report["overall"] != "mismatch", \
         f"basal phenotype drifted from pinned reference: {failures}"

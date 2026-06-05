@@ -102,9 +102,23 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
         within_pct = criterion.get("within_pct", 0.05)
         mismatch_pct = criterion.get("mismatch_pct", 0.10)
         p_min = criterion.get("p_min", 0.05)
+        inactive_eps = criterion.get("inactive_eps", 1e-6)
         cand_vals = measured.get("values") if isinstance(measured, dict) else None
         if not ref_vals or not cand_vals or len(cand_vals) < 2 or len(ref_vals) < 2:
             return _ungraded(f"|Δ| < {within_pct:.0%}")
+        ma, mb = sum(cand_vals) / len(cand_vals), sum(ref_vals) / len(ref_vals)
+        # Near-zero reference (e.g. an acetate sentinel): a relative-shift t-test
+        # is ill-defined (Δrel divides by ~0). Handle by activity instead — if
+        # the reference is inactive (~0), the only question is whether the
+        # candidate stayed inactive (pass) or became active (the sentinel
+        # tripped — overflow onset = mismatch).
+        if abs(mb) < inactive_eps:
+            tripped = abs(ma) >= inactive_eps
+            return {"verdict": "mismatch" if tripped else "within_tol", "value": ma,
+                    "criterion_str": f"stays inactive (|mean| < {inactive_eps:g})",
+                    "meter": (f"became active: {ma:+.3g} (ref ≈ 0)" if tripped
+                              else f"both ≈ 0 (ref {mb:+.2g}, meas {ma:+.2g})"),
+                    "detail": {"inactive_ref": True, "tripped": tripped}}
         w = _welch(cand_vals, ref_vals)
         eff = abs(w["delta_rel"])
         if eff < within_pct:
@@ -132,6 +146,50 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
         return {"verdict": verdict, "value": r2,
                 "criterion_str": f"log-log R² ≥ {r2_min} ({n} genes)",
                 "meter": f"R² = {r2:.4f}", "detail": {"r2": r2, "n": n}}
+
+    if ctype == "flux_scatter":
+        # Whole exchange-flux vector vs the pinned reference. Two failure modes:
+        # (1) QUALITATIVE — an exchange appears (ref~0 -> active) or disappears
+        # (active -> ~0); any such change is a mismatch regardless of R² (the
+        # cell started/stopped using a metabolite). (2) QUANTITATIVE — matched
+        # (both active) fluxes drift; graded by linear R² vs identity.
+        ref_vec = criterion.get("ref_vector")
+        eps = criterion.get("active_eps", 1e-6)
+        r2_min = criterion.get("r2_min", 0.99)
+        r2_drift = criterion.get("r2_drift", 0.95)
+        cand_vec = measured.get("vector") if isinstance(measured, dict) else None
+        if not ref_vec or not cand_vec:
+            return _ungraded(f"R² ≥ {r2_min}, no appeared/disappeared")
+        appeared, disappeared, matched = [], [], []
+        for i, (c, r) in enumerate(zip(cand_vec, ref_vec)):
+            ca, ra = abs(c) > eps, abs(r) > eps
+            if ca and ra:
+                matched.append((c, r))
+            elif ca and not ra:
+                appeared.append(i)
+            elif ra and not ca:
+                disappeared.append(i)
+        # linear R² vs identity on matched (signed) pairs
+        if len(matched) >= 2:
+            ys = [c for c, _ in matched]
+            my = sum(ys) / len(ys)
+            ss_tot = sum((c - my) ** 2 for c, _ in matched)
+            ss_res = sum((c - r) ** 2 for c, r in matched)
+            r2 = 1.0 - ss_res / ss_tot if ss_tot else 1.0
+        else:
+            r2 = 1.0
+        n_qual = len(appeared) + len(disappeared)
+        if n_qual:
+            verdict = "mismatch"
+        else:
+            verdict = _band(r2, r2_min, r2_drift, higher_is_better=True)
+        return {"verdict": verdict, "value": r2,
+                "criterion_str": (f"R² ≥ {r2_min} on matched fluxes; "
+                                  f"0 appeared/disappeared exchanges"),
+                "meter": (f"R² = {r2:.4f} · {len(matched)} matched · "
+                          f"{len(appeared)} appeared · {len(disappeared)} lost"),
+                "detail": {"r2": r2, "appeared": appeared,
+                           "disappeared": disappeared, "n_matched": len(matched)}}
 
     if ctype == "boolean":
         ok = bool(measured) if measured is not None else None

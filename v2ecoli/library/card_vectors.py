@@ -22,9 +22,17 @@ _VECTOR_COLS = {
 
 
 def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
-    """Return ``{group: {name: {"vector": [...], "n_cells": int}}}`` of
-    ensemble-mean vectors, aggregated cell-first (time-mean within cell, then
-    mean across cells)."""
+    """Return ``{group: {name: {...}}}`` of cell-first aggregated vectors
+    (time-mean within cell, then mean across cells).
+
+    Each node carries the ensemble-mean ``vector`` and ``n_cells``. For the
+    ``fluxes`` group it additionally carries ``per_cell`` (the n_cells x
+    n_features matrix of per-cell time-mean vectors) so named flux KPIs can be
+    sliced out and graded with the same ttest/violin path as the scalar axes.
+
+    Ragged/empty array rows are dropped per column: ``external_exchange_fluxes``
+    emits a ``[]`` default on some timesteps, so only rows whose array matches
+    the column's modal length are averaged."""
     import glob
     import os
     from collections import defaultdict
@@ -46,19 +54,31 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
 
     # group timesteps by cell, keep a running list of each vector column
     per_cell: dict[tuple, list] = defaultdict(lambda: [[] for _ in _VECTOR_COLS])
+    col_len = [0] * len(_VECTOR_COLS)  # modal (max) feature length per column
     for r in rows:
         cell = (r[0], r[1], r[2])
         for i, val in enumerate(r[3:]):
             per_cell[cell][i].append(val)
+            if val is not None:
+                col_len[i] = max(col_len[i], len(val))
 
     out: dict[str, dict] = {}
     for i, (col, (group, name)) in enumerate(_VECTOR_COLS.items()):
-        # per-cell time-mean vector -> matrix [n_cells x n_features]
-        per_cell_means = np.array(
-            [np.mean(np.asarray(per_cell[c][i], float), axis=0) for c in per_cell])
+        n = col_len[i]
+        # per-cell time-mean vector over rows whose array is full-length (drops
+        # the [] empties); skip cells with no full-length rows.
+        cell_means = []
+        for c in per_cell:
+            full = [v for v in per_cell[c][i] if v is not None and len(v) == n]
+            if full:
+                cell_means.append(np.asarray(full, float).mean(axis=0))
+        per_cell_means = np.array(cell_means)
         ensemble_mean = per_cell_means.mean(axis=0)
-        out.setdefault(group, {})[name] = {
+        node = {
             "vector": [float(x) for x in ensemble_mean],
-            "n_cells": len(per_cell),
+            "n_cells": len(cell_means),
         }
+        if group == "fluxes":
+            node["per_cell"] = [[float(x) for x in row] for row in per_cell_means]
+        out.setdefault(group, {})[name] = node
     return out

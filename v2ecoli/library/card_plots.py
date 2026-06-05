@@ -63,13 +63,77 @@ def violin_strip(values, ref_values=None, *, label="", units="", scale=1.0,
     ax.set_xticks(positions)
     ax.set_xticklabels([s[0] for s in series], fontsize=8)
     ax.set_xlim(-0.6, max(positions, default=0) + 0.6)
-    if y_from_zero:
-        ax.set_ylim(bottom=0)
     ax.set_ylabel(units or label, fontsize=9)
     ax.tick_params(labelsize=8)
     for s in ("top", "right"):
         ax.spines[s].set_visible(False)
     ax.margins(y=0.12)
+    if y_from_zero:
+        # include zero in range, whichever side the (one-sided) data is on:
+        # positive data -> floor at 0; negative (uptake) -> ceil at 0.
+        lo, hi = ax.get_ylim()
+        ax.set_ylim(min(0.0, lo), max(0.0, hi))
+        ax.axhline(0, color="#d0d4d9", lw=0.6, zorder=0)
+    return _svg(fig)
+
+
+def flux_scatter(cand_vec, ref_vec, *, ids=None, r2=None, active_eps=1e-6,
+                 ref_std=None, cand_std=None, label="", width=3.8,
+                 height=3.4) -> str:
+    """Exchange-flux candidate vs reference on **symlog** signed axes (fluxes
+    span orders of magnitude and are signed: negative=uptake, positive=
+    secretion). Pairs that are inactive in both (|both|<eps) are excluded.
+    Matched pairs are blue (with x/y error bars = cell-to-cell std if given);
+    an exchange that *appeared* (ref~0, cand active) is red and one that
+    *disappeared* (active, cand~0) is orange — both labelled, since a
+    qualitative change is the big regression flag."""
+    plt = _setup()
+    import numpy as np
+    cand = np.asarray(cand_vec, float)
+    ref = np.asarray(ref_vec, float)
+    rstd = np.asarray(ref_std, float) if ref_std is not None else None
+    cstd = np.asarray(cand_std, float) if cand_std is not None else None
+    ids = list(ids) if ids is not None else [str(i) for i in range(len(cand))]
+    ca, ra = np.abs(cand) > active_eps, np.abs(ref) > active_eps
+    matched = ca & ra
+    appeared = ca & ~ra
+    disappeared = ~ca & ra
+    fig, ax = plt.subplots(figsize=(width, height))
+    if rstd is not None and cstd is not None:
+        ax.errorbar(ref[matched], cand[matched], xerr=rstd[matched],
+                    yerr=cstd[matched], fmt="none", ecolor="#1f6feb",
+                    elinewidth=0.6, alpha=0.35, zorder=2)
+    ax.scatter(ref[matched], cand[matched], s=14, alpha=0.6, color="#1f6feb",
+               edgecolor="none", zorder=3)
+    keep = matched | appeared | disappeared
+    if keep.any():
+        vals = np.concatenate([ref[keep], cand[keep]])
+        lo, hi = float(vals.min()), float(vals.max())
+        pad = 0.15 * (hi - lo or 1.0)
+        lo, hi = lo - pad, hi + pad
+        ax.plot([lo, hi], [lo, hi], color="#9aa3af", lw=1, ls="--", zorder=1)
+        ax.axhline(0, color="#d0d4d9", lw=0.6, zorder=0)
+        ax.axvline(0, color="#d0d4d9", lw=0.6, zorder=0)
+        ax.set_xlim(lo, hi); ax.set_ylim(lo, hi)
+    for flag, color, name in ((appeared, "#c62828", "appeared"),
+                              (disappeared, "#ef6c00", "lost")):
+        idxs = np.where(flag)[0]
+        ax.scatter(ref[idxs], cand[idxs], s=26, color=color, edgecolor="white",
+                   linewidth=0.5, zorder=4, label=f"{name} ({len(idxs)})")
+        for i in idxs:
+            ax.annotate(ids[i][:-3] if ids[i].endswith("]") else ids[i],
+                        (ref[i], cand[i]), fontsize=6.5, color=color,
+                        xytext=(3, 3), textcoords="offset points")
+    lin = max(abs(lo), abs(hi)) * 1e-3 if keep.any() else 1e-3
+    ax.set_xscale("symlog", linthresh=lin); ax.set_yscale("symlog", linthresh=lin)
+    ax.set_xlabel("reference flux", fontsize=9)
+    ax.set_ylabel("candidate flux", fontsize=9)
+    ax.tick_params(labelsize=7)
+    if r2 is not None:
+        ax.text(0.04, 0.96, f"R² = {r2:.4f}", transform=ax.transAxes,
+                fontsize=10, va="top", fontweight="bold", color="#1a1d21")
+    if appeared.any() or disappeared.any():
+        ax.legend(fontsize=7, loc="lower right", frameon=False)
     return _svg(fig)
 
 

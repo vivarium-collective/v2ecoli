@@ -275,15 +275,35 @@ class BasalPhenotypeCard(AnalysisStep):
             return [float(r[key]) for r in kept
                     if float(r.get(key, 0.0)) > 0]
 
+        # Physiology levels: per-cell time-means (skip zero/absent). Event times
+        # (replication initiation/completion) are per-cell and may be absent for
+        # cells that don't experience the event in-cycle -> drop None.
+        def _level(key):
+            return [float(r[key]) for r in kept if float(r.get(key) or 0.0) > 0]
+
+        def _event(key):
+            return [float(r[key]) for r in kept if r.get(key) is not None]
+
         return {
             "n_cells": len(kept),
             "generation_lower_bound": burn_in,
-            "growth": {
+            "physiology": {
                 "doubling_time": _mean_std_cv(doubling_times),
+                "cell_mass": _mean_std_cv(_level("cell_mass_mean")),
+                "cell_volume": _mean_std_cv(_level("volume_mean")),
+                "oric": _mean_std_cv(_level("oric_mean")),
+                "replication_initiation": _mean_std_cv(_event("replication_initiation_time")),
+                "replication_completion": _mean_std_cv(_event("replication_completion_time")),
             },
             "composition": {
                 "protein_fraction": _mean_std_cv(_frac("protein_fraction_mean")),
                 "rna_fraction": _mean_std_cv(_frac("rna_fraction_mean")),
                 "dna_fraction": _mean_std_cv(_frac("dna_fraction_mean")),
+            },
+            "ribosomes": {
+                "total": _mean_std_cv(_level("ribosome_total_mean")),
+                "active_fraction": _mean_std_cv(_level("ribosome_active_fraction_mean")),
+                "elongation_rate": _mean_std_cv(_level("ribosome_elongation_mean")),
+                "production": _mean_std_cv(_level("ribosome_production_mean")),
             },
         }

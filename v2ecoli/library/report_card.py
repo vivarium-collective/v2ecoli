@@ -41,6 +41,70 @@ def card_from_analysis(analysis: dict) -> dict:
     return next(iter(cards.values()))
 
 
+def _set_path(card: dict, path: str, value: Any) -> None:
+    node = card
+    parts = path.split(".")
+    for part in parts[:-1]:
+        node = node.setdefault(part, {})
+    node[parts[-1]] = value
+
+
+def _stat_node(values: list[float]) -> dict:
+    """Build a {values, mean, std, cv, n} node from per-cell values — the same
+    shape the ttest/violin axes consume for scalar and KPI axes alike."""
+    import statistics
+    n = len(values)
+    mean = sum(values) / n if n else 0.0
+    std = statistics.pstdev(values) if n > 1 else 0.0
+    cv = (std / abs(mean)) if mean else 0.0
+    return {"values": list(values), "mean": mean, "std": std, "cv": cv, "n": n}
+
+
+def merge_vectors(card: dict, reference: dict, sweep_dir: str,
+                  generation_lower_bound: int = 0) -> dict:
+    """Merge omics + exchange-flux nodes into a measured card by reading the
+    sweep parquet (the array columns aren't in the scalar per-cell records).
+
+    Omics nodes merge straight in (``omics.{transcriptome,proteome}.vector``).
+    The exchange-flux ensemble-mean vector populates the scatter axis; named
+    flux KPIs (declared via ``criterion.flux_id`` on a ttest axis) are sliced
+    per-cell from the flux matrix using the ``flux_ids`` order pinned in the
+    reference's scatter criterion. Heavy (~minute) — call at render time."""
+    from v2ecoli.library.card_vectors import extract_vectors
+    vec = extract_vectors(sweep_dir, generation_lower_bound)
+    if vec.get("omics"):
+        card.setdefault("omics", {}).update(vec["omics"])
+    exch = (vec.get("fluxes") or {}).get("exchange")
+    if not exch:
+        return card
+    per_cell = exch.get("per_cell") or []
+    # per-flux measured std across cells (for scatter error bars + the table)
+    if per_cell:
+        n = len(per_cell)
+        mean = exch["vector"]
+        std = [(sum((row[j] - mean[j]) ** 2 for row in per_cell) / n) ** 0.5
+               for j in range(len(mean))]
+    else:
+        std = [0.0] * len(exch["vector"])
+    card.setdefault("fluxes", {})["exchange"] = {
+        "vector": exch["vector"], "std": std, "n_cells": exch["n_cells"]}
+    # flux_ids order is pinned on whichever axis declares the scatter criterion
+    flux_ids = None
+    for spec in (reference.get("axes") or {}).values():
+        fid = spec.get("criterion", {}).get("flux_ids")
+        if fid:
+            flux_ids = fid
+            break
+    if not (flux_ids and per_cell):
+        return card
+    for path, spec in (reference.get("axes") or {}).items():
+        kpi = spec.get("criterion", {}).get("flux_id")
+        if kpi and kpi in flux_ids:
+            j = flux_ids.index(kpi)
+            _set_path(card, path, _stat_node([row[j] for row in per_cell]))
+    return card
+
+
 def grade_card(card: dict, reference: dict) -> dict:
     """Grade every axis the reference declares. Returns
     ``{overall, axes: {path: {...presentation, ...grade}}}``."""
@@ -53,6 +117,21 @@ def grade_card(card: dict, reference: dict) -> dict:
         if _RANK[g["verdict"]] > _RANK[worst]:
             worst = g["verdict"]
     return {"overall": worst, "axes": axes_out}
+
+
+def _fmt_value(a: dict) -> str:
+    """The headline value cell. For vector axes (r2 / flux_scatter) the graded
+    value is a unitless R² — show it as such; for scalar axes it's a measured
+    quantity with units and an optional display scale."""
+    val = a.get("value")
+    if val is None:
+        return "—"
+    ctype = a.get("criterion", {}).get("type")
+    if ctype in ("r2", "flux_scatter"):
+        return f"R² {val:.4g}"
+    if isinstance(val, float):
+        return f"{val * a.get('scale', 1.0):.4g} {a.get('units', '')}".strip()
+    return str(val)
 
 
 def _counts(report: dict) -> dict[str, int]:
@@ -99,11 +178,7 @@ def render_markdown(card: dict, reference: dict, *, model_ref=None, generated=No
                   "| Axis | Value | Criterion | Summary | Verdict |",
                   "|---|---|---|---|---|"]
         for a in axes:
-            scale = a.get("scale", 1.0)
-            units = a.get("units", "")
-            val = a.get("value")
-            vals = (f"{val * scale:.4g} {units}".strip() if isinstance(val, float)
-                    else ("—" if val is None else str(val)))
+            vals = _fmt_value(a)
             lines.append(f"| {a.get('label', a['path'])} | {vals} | {a['criterion_str']} "
                          f"| {a['meter']} | {_GLYPH[a['verdict']]} {a['verdict']} |")
         lines.append("")
@@ -118,6 +193,44 @@ def render_markdown(card: dict, reference: dict, *, model_ref=None, generated=No
 # ---------------------------------------------------------------------------
 # HTML — rich, grouped, plots embedded, click-to-expand
 # ---------------------------------------------------------------------------
+
+def _flux_table(measured: dict, crit: dict) -> str:
+    """Companion table for the exchange-flux scatter: one row per *active*
+    exchange (nonzero in reference or measured), with reference and measured
+    shown as mean ± std (cell-to-cell). Sorted by |reference flux| so the
+    metabolic majors (glucose, O2, NH4, CO2, …) lead. Appeared/disappeared
+    exchanges are flagged."""
+    ids = crit.get("flux_ids") or []
+    rv = crit.get("ref_vector") or []
+    rs = crit.get("ref_std") or [0.0] * len(rv)
+    cv = measured.get("vector") or []
+    cs = measured.get("std") or [0.0] * len(cv)
+    eps = crit.get("active_eps", 1e-6)
+    rows = []
+    for i, mol in enumerate(ids):
+        r, c = (rv[i] if i < len(rv) else 0.0), (cv[i] if i < len(cv) else 0.0)
+        if abs(r) <= eps and abs(c) <= eps:
+            continue
+        flag = ("appeared" if abs(r) <= eps else
+                "lost" if abs(c) <= eps else "")
+        rsd = rs[i] if i < len(rs) else 0.0
+        csd = cs[i] if i < len(cs) else 0.0
+        ref_s = "—" if abs(r) <= eps else f"{r:+.3g} ± {rsd:.2g}"
+        meas_s = "—" if abs(c) <= eps else f"{c:+.3g} ± {csd:.2g}"
+        rows.append((abs(r), mol, ref_s, meas_s, flag))
+    rows.sort(key=lambda t: t[0], reverse=True)
+    trs = "".join(
+        f"<tr class='{('flux-'+flag) if flag else ''}'>"
+        f"<td class='fid'>{mol}{(' '+chr(0x2009)+'·'+chr(0x2009)+flag) if flag else ''}</td>"
+        f"<td class='fnum'>{ref_s}</td><td class='fnum'>{meas_s}</td></tr>"
+        for _, mol, ref_s, meas_s, flag in rows)
+    return (f"<div class='ftbl'><table><thead><tr><th>Flux</th>"
+            f"<th>Reference</th><th>Measured</th></tr></thead>"
+            f"<tbody>{trs}</tbody></table>"
+            f"<div class='ftnote'>mean ± std over n={measured.get('n_cells','?')} "
+            f"cells · mmol/gDCW/h · neg=uptake, pos=secretion · "
+            f"{len(rows)} active of {len(ids)}</div></div>")
+
 
 def _axis_plot_svg(axis: dict) -> str:
     """Render the axis's plot as inline SVG (or '' if none / no data)."""
@@ -135,6 +248,14 @@ def _axis_plot_svg(axis: dict) -> str:
             return card_plots.loglog_scatter(
                 measured["vector"], crit.get("ref_vector"),
                 r2=axis.get("value"), label=axis.get("label", ""))
+        if kind == "flux_scatter" and isinstance(measured, dict) and measured.get("vector"):
+            svg = card_plots.flux_scatter(
+                measured["vector"], crit.get("ref_vector"),
+                ids=crit.get("flux_ids"), r2=axis.get("value"),
+                active_eps=crit.get("active_eps", 1e-6),
+                ref_std=crit.get("ref_std"), cand_std=measured.get("std"),
+                label=axis.get("label", ""))
+            return f"<div class='fluxwrap'>{svg}{_flux_table(measured, crit)}</div>"
     except Exception as e:  # a plot failure must not blank the report
         return f"<div class='ploterr'>plot unavailable: {type(e).__name__}</div>"
     return ""
@@ -155,13 +276,9 @@ def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) 
         gc = {v: sum(1 for a in axes if a["verdict"] == v) for v in _COLOR}
         rows = []
         for a in axes:
-            scale = a.get("scale", 1.0)
-            units = a.get("units", "")
-            val = a.get("value")
-            vals = (f"{val * scale:.4g} {units}".strip() if isinstance(val, float)
-                    else ("—" if val is None else str(val)))
+            vals = _fmt_value(a)
             sp = a.get("measured") if isinstance(a.get("measured"), dict) else {}
-            spread = (f"±{sp['std'] * scale:.3g} (CV {sp['cv']:.1%}, n={sp['n']})"
+            spread = (f"±{sp['std'] * a.get('scale', 1.0):.3g} (CV {sp['cv']:.1%}, n={sp['n']})"
                       if "std" in sp and "cv" in sp else "")
             plot = _axis_plot_svg(a)
             detail = (f"<details><summary>plot + detail</summary>"
@@ -219,6 +336,13 @@ tbody td{{padding:11px 18px;border-bottom:1px solid #f1f3f5;vertical-align:top;f
 .verdict-within_tol td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['within_tol']}}} .verdict-drift td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['drift']}}}
 .verdict-mismatch td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['mismatch']}}} .verdict-ungraded td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['ungraded']}}}
 details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}} .plotwrap{{margin-top:8px}} .plotwrap svg{{max-width:100%;height:auto}}
+.fluxwrap{{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}} .fluxwrap svg{{flex:0 0 auto;max-width:420px}}
+.ftbl{{flex:1 1 280px;min-width:260px}} .ftbl table{{width:auto}} .ftbl thead th{{padding:5px 10px;font-size:10px}}
+.ftbl tbody td{{padding:4px 10px;border-bottom:1px solid #f1f3f5;font-size:11.5px}} .ftbl .fid{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11px}}
+.ftbl .fnum{{font-family:"SF Mono",ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap}}
+.ftbl tr.flux-appeared{{background:#fdecea}} .ftbl tr.flux-appeared .fid{{color:{_COLOR['mismatch']};font-weight:600}}
+.ftbl tr.flux-lost{{background:#fff3e0}} .ftbl tr.flux-lost .fid{{color:{_COLOR['drift']};font-weight:600}}
+.ftnote{{color:var(--muted);font-size:10.5px;margin-top:6px;max-width:340px;line-height:1.35}}
 .ploterr{{color:var(--muted);font-size:11px}} dl{{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem;margin:0}} dt{{color:#cbd5e1}}
 .findings{{margin:0;padding:14px 34px;color:#374151;font-size:13px}} footer{{color:var(--muted);font-size:12px;padding:0 28px 40px;max-width:1100px;margin:0 auto}}
 </style></head><body>

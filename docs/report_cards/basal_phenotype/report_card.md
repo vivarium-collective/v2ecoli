@@ -1,25 +1,57 @@
 # Basal-condition phenotype — report card
 
-- **Model**: d139b9b
+- **Model**: 0aebf89
 - **Stimulus**: `v2ecoli/configs/basal_phenotype_card.json`
 - **Reference status**: populated
-- **Generated**: 2026-06-04 21:20
+- **Generated**: 2026-06-05 12:23
 
-## Overall: PASS (4 ✓ · 0 ≈ · 0 ✗ · 0 –)
+## Overall: PASS (21 ✓ · 0 ≈ · 0 ✗ · 0 –)
 
-### Growth
+### Physiology
 
 | Axis | Value | Criterion | Summary | Verdict |
 |---|---|---|---|---|
-| Doubling time | 0.8393 h | Welch t-test p ≥ 0.05 (n=17 cells) | p = 1.000 · Δ = +0.0% · d = +0.00 | ✓ within_tol |
+| Doubling time | 0.8393 h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
+| Cell mass | 1538 fg | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -0.0% · p = 1.000 · d = -0.00 | ✓ within_tol |
+| Cell volume | 1.398 fL | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -0.0% · p = 1.000 · d = -0.00 | ✓ within_tol |
+| Replication origins (oriC) | 2.251 origins | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
+| Replication initiation | 34.27 min | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
+| Replication completion | 32.93 min | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
 
 ### Composition
 
 | Axis | Value | Criterion | Summary | Verdict |
 |---|---|---|---|---|
-| Protein / dry weight | 0.4366 g/gDW | Welch t-test p ≥ 0.05 (n=20 cells) | p = 1.000 · Δ = +0.0% · d = +0.00 | ✓ within_tol |
-| Total RNA / dry weight | 0.1281 g/gDW | Welch t-test p ≥ 0.05 (n=20 cells) | p = 1.000 · Δ = +0.0% · d = +0.00 | ✓ within_tol |
-| DNA / dry weight | 0.01833 g/gDW | Welch t-test p ≥ 0.05 (n=20 cells) | p = 1.000 · Δ = +0.0% · d = +0.00 | ✓ within_tol |
+| Protein / dry weight | 0.4366 g/gDW | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
+| Total RNA / dry weight | 0.1281 g/gDW | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
+| DNA / dry weight | 0.01833 g/gDW | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
+
+### Ribosomes
+
+| Axis | Value | Criterion | Summary | Verdict |
+|---|---|---|---|---|
+| Total ribosomes | 2.043e+04 ribosomes | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -0.0% · p = 1.000 · d = -0.00 | ✓ within_tol |
+| Active fraction | 0.8328 fraction | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -0.0% · p = 1.000 · d = -0.00 | ✓ within_tol |
+| Elongation rate | 15.4 aa/s | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
+| Ribosome production (rRNA init) | 4.356 rRNA/s | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
+
+### Exchange fluxes
+
+| Axis | Value | Criterion | Summary | Verdict |
+|---|---|---|---|---|
+| Exchange-flux fingerprint | R² 1 | R² ≥ 0.99 on matched fluxes; 0 appeared/disappeared exchanges | R² = 1.0000 · 36 matched · 0 appeared · 0 lost | ✓ within_tol |
+| Glucose exchange | -5.145 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
+| O₂ exchange | -0.481 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
+| Ammonium (N source) exchange | -7.017 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
+| CO₂ exchange | 1.708 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -0.0% · p = 1.000 · d = -0.00 | ✓ within_tol |
+| Acetate exchange (overflow sentinel) | 0 mmol/gDCW/h | stays inactive (|mean| < 1e-06) | both ≈ 0 (ref +0, meas +0) | ✓ within_tol |
+
+### Gene expression
+
+| Axis | Value | Criterion | Summary | Verdict |
+|---|---|---|---|---|
+| Transcriptome (mRNA cistron counts) | R² 1 | log-log R² ≥ 0.99 (3969 genes) | R² = 1.0000 | ✓ within_tol |
+| Proteome (monomer counts) | R² 1 | log-log R² ≥ 0.99 (4161 genes) | R² = 1.0000 | ✓ within_tol |
 
 ## Findings
 

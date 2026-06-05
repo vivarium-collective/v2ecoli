@@ -118,9 +118,9 @@ report:
           avg 0.527/0.285/0.268/0.212/0.163/0.207/0.227/0.192 → all-gen avg 0.26;
           steady-gen avg excl. the gen-1 transient = 0.222).
     Secondary (not a failure): the per-gen average trends to the low end of the band
-    in later gens; the diagnosis (charts/dnaa2_fraction_vs_totaldnaa_diagnosis.png)
-    shows this is a total-DnaA dependence with k_r as the lever — a future tuning
-    question for Haochen, not a blocker.
+    in later gens; the diagnosis is that this is a total-DnaA dependence (fraction
+    anti-correlated with total DnaA, r=−0.88; [ATP]:[ADP] constant at 20.3) with k_r
+    as the lever — a future tuning question for Haochen, not a blocker.
 
 
   interpretation: |
@@ -179,7 +179,8 @@ findings:
       Boesen [0.2,0.5], dipping below 0.2 in some gens. Implication: lifting it
       cleanly into the band is a RATE-CONSTANT question (e.g. a modestly faster k_r
       → more re-charging → higher %ATP) — Haochen's lever — NOT a [ATP]:[ADP] or
-      DnaA-abundance issue. Figure: charts/dnaa2_fraction_vs_totaldnaa_diagnosis.png.
+      DnaA-abundance issue. Confirmed by a k_r sweep (1e-7→0.314, 1e-6→0.314,
+      1e-5→0.382 at gen-2): faster k_r lifts the fraction, ~100× needed.
     evidence:
       from_run: dnaa2-seed1-8gen (per-tick %DnaA-ATP vs total DnaA, all 8 gens)
     provenance:
@@ -202,7 +203,7 @@ findings:
       from_run: seed0-v1e-3-6gen-ondisk (measured) + rashmi-reproduction-seed0 (chart only)
     provenance:
       run_ids: [seed0-v1e-3-6gen-ondisk]
-      verified_by: out/dnaa2_seed0_parquet bulk-species DnaA-ATP fraction (2026-06-03) + charts/dnaa2_rashmi_reproduction_seed0.png
+      verified_by: out/dnaa2_seed0_parquet bulk-species DnaA-ATP fraction (2026-06-03)
   - id: fast-equilibrium-assumption-was-the-artefact
     kind: computational
     summary: |
@@ -309,7 +310,7 @@ reviewer_feedback:
       derivers/composites + #118 — and the bf8b82e-era extend_multigen path no
       longer runs cleanly on the tip, while the pre-refactor base shows a
       cold-start cell-cycle transient). The clean-cycle figure of record is her
-      authoritative reproduction (charts/dnaa2_rashmi_reproduction_seed0.png).
+      authoritative seed-0 reproduction, now superseded by the canonical seed-1 8-gen run.
 
 assumptions:
   - text: |
@@ -345,9 +346,8 @@ conditions:
     - name: dnaa-atp-binding
       detail: "DnaA + ATP ⇌ DnaA-ATP: fast equilibrium (integrate_dt=false), K_d ≈ 29 nM"
 
-# Re-render the (in-house) figure from the canonical run. Rashmi's authoritative
-# chart (charts/dnaa2_rashmi_reproduction_seed0.png) is the clean-cycle figure of
-# record and is not auto-generated here.
+# Re-render the canonical seed-1 8-gen figure (charts/dnaa2_seed1_8gen_canonical.png)
+# — the single chart of record. Previous-run figures were removed per Rashmi (2026-06-04).
 figure_refresh:
   - "{py} scripts/render_dnaa2_sixpanel.py --run {run} --seed 0 --step 3 --format both"
 
@@ -440,8 +440,8 @@ tests:
       expected-fraction parameter error. Resolved by flagging the DnaA-ADP
       reaction integrate_dt=true (kinetic) while keeping it bidirectional. SECONDARY
       observation (not a failure): the per-gen average trends to the low end of the
-      band in later gens (~0.16-0.23); a diagnosis (charts/dnaa2_fraction_vs_totaldnaa
-      _diagnosis.png) shows this is a total-DnaA dependence, with the DnaA-ADP
+      band in later gens (~0.16-0.23); the diagnosis is that this is a total-DnaA
+      dependence (fraction anti-correlated with total DnaA, r=−0.88), with the DnaA-ADP
       dissociation rate k_r as the lever — a future-tuning question for Haochen,
       not a blocker. CONFIRMED by a k_r sweep (mini, 2026-06-04): gen-2 DnaA-ATP
       fraction k_r=1e-7→0.314, 1e-6→0.314, 1e-5→0.382 — faster k_r does lift the

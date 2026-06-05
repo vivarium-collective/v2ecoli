@@ -256,7 +256,9 @@ def _variance_decomposition(labeled: list[tuple]) -> dict:
 
     out = {"eta_seed": _group_ss(seeds) / ss_tot,
            "eta_gen": _group_ss(gens) / ss_tot,
-           "n_seeds": len(set(seeds)), "n_gens": len(set(gens))}
+           "n_seeds": len(set(seeds)), "n_gens": len(set(gens)),
+           # raw labeled points so a flagged axis can plot metric-vs-generation
+           "by_cell": [[int(s), int(g), float(v)] for s, g, v in labeled]}
     if len(set(gens)) > 1:
         from scipy import stats
         rho, p = stats.spearmanr(gens, xs)

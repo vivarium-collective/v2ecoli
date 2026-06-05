@@ -265,6 +265,23 @@ def _flux_table(measured: dict, crit: dict) -> str:
             f"{len(rows)} active of {len(ids)}</div></div>")
 
 
+def _gen_trend_svg(axis: dict) -> str:
+    """Companion metric-vs-generation plot for a flagged generation-drift axis
+    (or '' if no labeled points). Built from the variance node's `by_cell`."""
+    measured = axis.get("measured") or {}
+    var = measured.get("variance") or {}
+    by_cell = var.get("by_cell")
+    if not by_cell:
+        return ""
+    try:
+        from v2ecoli.library import card_plots
+        return card_plots.generation_trend(
+            by_cell, scale=axis.get("scale", 1.0), units=axis.get("units", ""),
+            label=axis.get("label", ""), rho=var.get("rho_gen"))
+    except Exception as e:
+        return f"<div class='ploterr'>trend plot unavailable: {type(e).__name__}</div>"
+
+
 def _axis_plot_svg(axis: dict) -> str:
     """Render the axis's plot as inline SVG (or '' if none / no data)."""
     kind = axis.get("plot")
@@ -316,12 +333,15 @@ def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) 
             sp = a.get("measured") if isinstance(a.get("measured"), dict) else {}
             spread = (f"±{sp['std'] * a.get('scale', 1.0):.3g} (CV {sp['cv']:.1%}, n={sp['n']})"
                       if "std" in sp and "cv" in sp else "")
-            plot = _axis_plot_svg(a)
-            detail = (f"<details><summary>plot + detail</summary>"
-                      f"<div class='plotwrap'>{plot}</div></details>") if plot else ""
             flagged, vtext = _stationarity(sp)
             if flagged:
                 flagged_axes.append(a.get("label", a["path"]))
+            plot = _axis_plot_svg(a)
+            trend = _gen_trend_svg(a) if flagged else ""
+            summary = "plot + generation trend" if trend else "plot + detail"
+            detail = (f"<details{' open' if flagged else ''}><summary>{summary}</summary>"
+                      f"<div class='plotwrap'>{plot}{trend}</div></details>"
+                      if (plot or trend) else "")
             var_html = (f"<div class='var{' varflag' if flagged else ''}'>variance: "
                         f"{vtext}{' ⚠ generation-drift' if flagged else ''}</div>"
                         if vtext else "")

@@ -137,6 +137,44 @@ def flux_scatter(cand_vec, ref_vec, *, ids=None, r2=None, active_eps=1e-6,
     return _svg(fig)
 
 
+def generation_trend(by_cell, *, scale=1.0, units="", label="", rho=None,
+                     width=4.2, height=2.8) -> str:
+    """Per-cell metric vs generation — the companion plot for a flagged
+    generation-drift. ``by_cell`` is ``[[seed, gen, value], ...]``. Points are
+    colored by seed (so seed vs generation structure is visible); the black
+    line connects per-generation means (the trend the Spearman ρ summarizes)."""
+    plt = _setup()
+    import numpy as np
+    g = np.array([c[1] for c in by_cell], float)
+    y = np.array([c[2] for c in by_cell], float) * scale
+    s = np.array([c[0] for c in by_cell])
+    fig, ax = plt.subplots(figsize=(width, height))
+    seeds = sorted(set(s.tolist()))
+    cmap = plt.get_cmap("tab10")
+    for i, sd in enumerate(seeds):
+        m = s == sd
+        # small deterministic x-offset per seed so points don't overplot
+        off = (i - (len(seeds) - 1) / 2) * 0.08
+        ax.scatter(g[m] + off, y[m], s=22, color=cmap(i % 10), alpha=0.8,
+                   edgecolor="white", linewidth=0.5, label=f"seed {sd}", zorder=3)
+    gens = sorted(set(g.tolist()))
+    means = [y[g == gg].mean() for gg in gens]
+    ax.plot(gens, means, color="#1a1d21", lw=1.6, marker="o", ms=4, zorder=4,
+            label="gen mean")
+    ax.set_xlabel("generation", fontsize=9)
+    ax.set_ylabel(units or label, fontsize=9)
+    ax.set_xticks(gens)
+    ax.tick_params(labelsize=8)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
+    if rho is not None:
+        ax.text(0.04, 0.96, f"ρ(gen) = {rho:+.2f}", transform=ax.transAxes,
+                fontsize=10, va="top", fontweight="bold", color="#ef6c00")
+    ax.legend(fontsize=6.5, loc="best", frameon=False, ncol=2)
+    ax.margins(y=0.15)
+    return _svg(fig)
+
+
 def loglog_scatter(cand_vec, ref_vec, *, r2=None, label="",
                    width=3.4, height=3.2) -> str:
     """Candidate vs reference ensemble-mean vector on log-log axes with the

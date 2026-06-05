@@ -11,9 +11,9 @@ status: in_progress   # 2026-06-05 Rashmi APPROVED the plan ('go ahead') — bui
 # Spec: studies/dnaa-3-box-binding/spec.md (Haochen, supplied 2026-06-03).
 design_status: complete            # mechanism + pools + validation fully specified in spec.md
 implementation_status: in_progress # 2026-06-03: Build started — infra mapped, build_plan below; reactions/pools not yet wired
-simulation_status: not_run
-evaluation_status: not_run
-gate_status: pending
+simulation_status: ran            # dnaa-3 seed-1 8-gen on the mini (validated composite; binding observational)
+evaluation_status: evaluated      # 4 acceptance tests evaluated from the run
+gate_status: partial        # acceptance tests on the dnaa-3 seed-1 8-gen run
 expert_review_status: approved     # Rashmi 2026-06-05 'Plan approved go ahead' (design); implementation + results still to be reviewed once run
 
 seeded_from:
@@ -358,26 +358,55 @@ readouts:
     notes: 315 at birth → 630 at replication termination → 315 per daughter (raw count).
 
 # ── Validation (spec table): dnaa-3 must preserve dnaa-2 behaviour ─────────────
+runs:
+  - name: dnaa3-seed1-8gen
+    status: completed
+    kind: single-seed-multigen-lineage
+    canonical: true
+    run_dir: out/dnaa3_seed1_8gen
+    description: |
+      dnaa-3 seed-1 x 8-gen succinate, ran on the mini 2026-06-05 (validated
+      composite). Box binding is the fast-equilibrium overlay (in-sim sink WIP);
+      this run confirms the cell cycle + DnaA-ATP fraction and provides the real
+      box-doubling + trajectory the readouts/occupancy figures are drawn from.
+    outcomes:
+      cycles-divided-8-of-8:
+        result: PASS
+        detail: 8 generations divided
+      oric-pattern-1-or-2:
+        result: FAIL
+        detail: oriC max 4 (in {1,2})
+      re-init-events-zero:
+        result: FAIL
+        detail: some oriC=4 events
+      dnaa-atp-fraction-in-band-gen3:
+        result: PASS
+        detail: gen-2 mean DnaA-ATP fraction 0.314 (band [0.2,0.5])
+
 tests:
   - name: cycles-divided-8-of-8
+    status: passed
     classification: primary
     description: All 8 generations divide (cell cycle preserved vs dnaa-2 baseline).
     measure: {kind: count_over_lineage, field: divisions}
     pass_if: {op: '==', value: 8}
     baseline_value: 8
   - name: oric-pattern-1-or-2
+    status: failed
     classification: primary
     description: oriC oscillates 1↔2 (unchanged from dnaa-2).
     measure: {kind: snapshot_window, field: number_of_oric}
     pass_if: {op: in_set, values: [1, 2]}
     baseline_value: "1↔2"
   - name: re-init-events-zero
+    status: failed
     classification: primary
     description: No re-initiation events (unchanged from dnaa-2).
     measure: {kind: count_over_lineage, field: reinit_events}
     pass_if: {op: '==', value: 0}
     baseline_value: 0
   - name: dnaa-atp-fraction-in-band-gen3
+    status: passed
     classification: primary
     description: DnaA-ATP fraction at gen 3 in the Boesen [0.2,0.5] band.
     measure: {kind: snapshot_window, field: dnaA_ATP_over_total_ratio, generation: 3}
@@ -599,7 +628,7 @@ pipeline_gate:
   # this investigation; bound/free + per-nucleotide partitioning is provided so
   # such studies COULD be built later, but none are declared here.
   enables: []
-  gate_status: pending
+  gate_status: partial        # acceptance tests on the dnaa-3 seed-1 8-gen run
 
 simulation_set:
   - name: dnaa3-boxbinding-seed1-8gen-succinate

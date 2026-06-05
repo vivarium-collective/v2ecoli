@@ -59,12 +59,25 @@ report:
     here (binding only), per Rashmi.
 
   result: |
-    NOT YET RUN — proposed design awaiting expert review. The validation run is
-    specified (dnaa3-boxbinding-seed1-8gen-succinate: V=1e-3 succinate, seed 1,
-    8-gen burned-in — the same protocol that passed dnaa-2) with four acceptance
-    tests: 8/8 divisions, oriC 1↔2, zero re-init events, DnaA-ATP fraction in
-    [0.2,0.5] at gen-3. Figures attached for the review: the 307-box chromosome map,
-    the replication animation, and the dnaa-2 baseline starting point.
+    APPROVED + BUILD IN PROGRESS (Rashmi 2026-06-05 "plan approved go ahead").
+    STATUS:
+    • DELIVERED — the DnaA-box OCCUPANCY chromosome view (chart dnaa3_box_occupancy):
+      bound/free per box, by region, across the cell cycle, + total-DnaA-concentration
+      panel — the figure Rashmi referenced. It uses the dnaa-3 fast-equilibrium
+      binding model (P=C/(C+K_d)) on the validated dnaa-2 baseline, so it is real
+      physiology: high-affinity pools saturate (~1.0) at ~170 nM free DnaA-ATP while
+      the 8 oriC low-affinity boxes (K_d≈100 nM) are the dynamic switch (oriC 8-9/11).
+    • IN PROGRESS — the IN-SIM version: a read-only DnaaBoxBinding deriver
+      (v2ecoli/steps/derivers/dnaa_box_binding.py) wired next to ecoli-equilibrium.
+      Adding it changed the composite inputs_hash, so a matching ParCa+cache is being
+      rebuilt on the mini (tmux dnaa3-parca) — the validation run at the end confirms
+      the step FIRES, emits the dnaa_binding occupancy listener, and preserves the
+      dnaa-2 cycle. Once green, the occupancy figure switches from predicted to in-sim
+      measured.
+    • NEXT — the four acceptance tests (8/8 divisions, oriC 1↔2, 0 re-init, DnaA-ATP
+      fraction in band) on the seed-1 8-gen run, then the real binding SINK (pool
+      partition). Figures: occupancy view, 307-box map (oriC + dnaA-promoter only),
+      replication animation, dnaa-2 baseline.
 
   review_asks: |
     For Rashmi / Haochen, before we build:

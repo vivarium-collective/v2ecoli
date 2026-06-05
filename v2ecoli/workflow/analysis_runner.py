@@ -45,7 +45,8 @@ def group_for_scale(scale: str, records: list[dict]) -> dict[tuple, list[dict]]:
 
 
 _MASS_COLS = ("listeners__mass__dry_mass", "listeners__mass__protein_mass",
-              "listeners__mass__rRna_mass", "listeners__mass__dna_mass")
+              "listeners__mass__rRna_mass", "listeners__mass__dna_mass",
+              "listeners__mass__rna_mass")  # rna_mass = total RNA (rRna+tRna+mRna)
 
 
 def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
@@ -81,23 +82,27 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
 
     by_cell: dict[tuple, list] = {}
     for row in rows:
-        v, ls, g, a, t, dry, prot, rrna, dna = row
+        v, ls, g, a, t, dry, prot, rrna, dna, rna = row
         ck = (int(v), int(ls), int(g), str(a))
         by_cell.setdefault(ck, []).append(
-            (float(t), float(dry), float(prot), float(rrna), float(dna)))
+            (float(t), float(dry), float(prot), float(rrna), float(dna), float(rna)))
 
     records: dict[tuple, dict] = {}
     for ck, rs in by_cell.items():
-        fr = {"protein": [], "rRna": [], "dna": []}
+        fr = {"protein": [], "rRna": [], "rna": [], "dna": []}
         ts = []
-        for (t, dry, prot, rrna, dna) in rs:
+        for (t, dry, prot, rrna, dna, rna) in rs:
             ts.append({"listeners": {"mass": {"dry_mass": dry, "protein_mass": prot,
-                                              "rRna_mass": rrna, "dna_mass": dna}}})
+                                              "rRna_mass": rrna, "dna_mass": dna,
+                                              "rna_mass": rna}}})
             if dry > 0:
                 fr["protein"].append(prot / dry)
                 fr["rRna"].append(rrna / dry)
+                fr["rna"].append(rna / dry)      # total RNA / dry weight
                 fr["dna"].append(dna / dry)
         div = div_by_cell.get(ck, {})
+        # Per-cell fraction means are the CELL-level statistic (time-average within
+        # the cell -> one value per cell). Population stats live across cells.
         records[ck] = {
             "variant": ck[0], "lineage_seed": ck[1], "generation": ck[2], "agent_id": ck[3],
             "divided": div.get("divided"),
@@ -108,6 +113,7 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
             "newborn_dry_mass": rs[0][1], "final_dry_mass": rs[-1][1],
             "protein_fraction_mean": (sum(fr["protein"]) / len(fr["protein"])) if fr["protein"] else 0.0,
             "rRna_fraction_mean": (sum(fr["rRna"]) / len(fr["rRna"])) if fr["rRna"] else 0.0,
+            "rna_fraction_mean": (sum(fr["rna"]) / len(fr["rna"])) if fr["rna"] else 0.0,
             "dna_fraction_mean": (sum(fr["dna"]) / len(fr["dna"])) if fr["dna"] else 0.0,
             "timeseries": ts,
         }

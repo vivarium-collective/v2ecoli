@@ -1,207 +1,233 @@
-"""Report-card grading + rendering for the meta-tier basal-phenotype card.
+"""Report-card grading + rendering (reference-driven, typed criteria).
 
-One implementation of the grade logic, shared by the grade test
-(``tests/test_basal_phenotype_card.py``) and the report renderer
-(``reports/basal_phenotype_card_report.py``). See ``docs/meta_report_cards.md``
-for the card's design.
+The reference fixture declares **axes** — each with a presentation block
+(group, label, units, how-it's-computed + analysis-script pointer, plot kind)
+and a typed ``criterion`` (see ``card_criteria``). The measured *card* (an
+ensemble analysis, optionally merged with omics/behavioral nodes) supplies the
+value for each axis path. ``grade_card`` digs each path, grades it, and the
+renderers lay it out grouped, with embedded inline-SVG plots and the verdict
+band. One grader + one renderer serve both the organism-behavior card and the
+v1<->v2 equivalence card (different reference sources, same machinery).
 
-A *card* is the measurement emitted by ``BasalPhenotypeCard.analyze`` (under
-``results["multiseed"]["basal_phenotype_card"][<group>]``). A *reference* is
-the pinned blessed-run values + tolerances in
-``tests/fixtures/basal_phenotype_reference.json``. Grading compares the two.
+See ``docs/meta_report_cards.md``.
 """
 from __future__ import annotations
 
 import json
 from typing import Any
 
+from v2ecoli.library.card_criteria import grade_axis
 
-# Human labels for the gradeable paths into a card dict.
-GRADE_LABELS = {
-    "growth.doubling_time.mean": "Growth — doubling time (s)",
-    "composition.protein_fraction.mean": "Composition — protein / dry weight",
-    "composition.rna_fraction.mean": "Composition — RNA / dry weight",
-    "composition.dna_fraction.mean": "Composition — DNA / dry weight",
-}
+_COLOR = {"within_tol": "#1a7f37", "drift": "#ef6c00",
+          "mismatch": "#c62828", "ungraded": "#757575"}
+_GLYPH = {"within_tol": "✓", "drift": "≈", "mismatch": "✗", "ungraded": "–"}
+_RANK = {"mismatch": 3, "drift": 2, "within_tol": 1, "ungraded": 0}
 
 
 def dig(card: dict, path: str) -> Any:
-    """Resolve a dotted path (e.g. ``growth.doubling_time.mean``) into a card."""
     node = card
     for part in path.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
         node = node[part]
     return node
 
 
 def card_from_analysis(analysis: dict) -> dict:
-    """Pull the single basal_phenotype_card result out of an analysis.json dict.
-
-    The runner nests results as ``{scale: {name: {group_key: result}}}``. A
-    basal ensemble has one variant group, so we return that one card.
-    """
+    """Pull the single basal_phenotype_card result out of an analysis.json."""
     cards = (analysis.get("multiseed", {}) or {}).get("basal_phenotype_card", {}) or {}
     if not cards:
         raise KeyError("no multiseed.basal_phenotype_card in analysis")
     return next(iter(cards.values()))
 
 
-def grade_basal_phenotype(card: dict, reference: dict) -> dict:
-    """Grade a measured card against a pinned reference.
-
-    ``reference['grades']`` maps a dotted card path to
-    ``{"reference": <value|None>, "tol_rel": <float>}``. A grade passes if the
-    measured value is within ``tol_rel`` (relative) of a non-null reference. A
-    null reference is *ungraded* (reference not yet pinned), not a failure.
-
-    Returns ``{"overall", "grades": {path: {...}}}`` where overall is one of
-    ``"pass" | "fail" | "ungraded"``.
-    """
-    grades: dict[str, dict] = {}
-    any_graded = False
-    all_pass = True
-    for path, spec in reference.get("grades", {}).items():
-        ref = spec.get("reference")
-        tol = spec.get("tol_rel")
-        try:
-            got = dig(card, path)
-        except (KeyError, TypeError):
-            got = None
-        if ref is None or got is None:
-            grades[path] = {"reference": ref, "measured": got, "tol_rel": tol,
-                            "verdict": "ungraded"}
-            continue
-        any_graded = True
-        ok = ref != 0 and abs(got - ref) <= abs(tol * ref)
-        all_pass = all_pass and ok
-        grades[path] = {"reference": ref, "measured": got, "tol_rel": tol,
-                        "verdict": "pass" if ok else "fail"}
-    overall = "ungraded" if not any_graded else ("pass" if all_pass else "fail")
-    return {"overall": overall, "grades": grades}
+def grade_card(card: dict, reference: dict) -> dict:
+    """Grade every axis the reference declares. Returns
+    ``{overall, axes: {path: {...presentation, ...grade}}}``."""
+    axes_out: dict[str, dict] = {}
+    worst = "ungraded"
+    for path, spec in (reference.get("axes") or {}).items():
+        measured = dig(card, path)
+        g = grade_axis(measured, spec.get("criterion", {}))
+        axes_out[path] = {**spec, **g, "path": path, "measured": measured}
+        if _RANK[g["verdict"]] > _RANK[worst]:
+            worst = g["verdict"]
+    return {"overall": worst, "axes": axes_out}
 
 
-def _fmt(x: Any) -> str:
-    if isinstance(x, float):
-        return f"{x:.4g}"
-    return "—" if x is None else str(x)
+def _counts(report: dict) -> dict[str, int]:
+    c = {v: 0 for v in _COLOR}
+    for a in report["axes"].values():
+        c[a["verdict"]] += 1
+    return c
 
 
-def _n_ungraded(report: dict) -> int:
-    return sum(1 for g in report["grades"].values() if g["verdict"] == "ungraded")
+def _overall_label(report: dict) -> str:
+    c = _counts(report)
+    if c["mismatch"]:
+        return "MISMATCH"
+    if c["drift"]:
+        return "DRIFT"
+    if c["within_tol"]:
+        return "PASS" + (" (partial)" if c["ungraded"] else "")
+    return "UNGRADED"
 
 
-def _badge_text(report: dict) -> str:
-    """Honest one-line verdict: a clean pass with no ungraded axes reads PASS;
-    a pass with ungraded axes reads PARTIAL so an empty axis can't masquerade
-    as a full pass."""
-    n_ung = _n_ungraded(report)
-    n_graded = len(report["grades"]) - n_ung
-    if report["overall"] == "fail":
-        return "FAIL ❌"
-    if report["overall"] == "ungraded":
-        return "UNGRADED (reference pending)"
-    if n_ung:
-        return f"PARTIAL ⚠️ — {n_graded} graded ✅, {n_ung} ungraded"
-    return "PASS ✅"
+# ---------------------------------------------------------------------------
+# Markdown — compact text summary (no plots)
+# ---------------------------------------------------------------------------
 
-
-def render_markdown(card: dict, reference: dict, *, model_ref: str | None = None,
-                    generated: str | None = None) -> str:
-    """Render the report card as Markdown."""
-    report = grade_basal_phenotype(card, reference)
+def render_markdown(card: dict, reference: dict, *, model_ref=None, generated=None) -> str:
+    report = grade_card(card, reference)
+    c = _counts(report)
     lines = [
-        "# Basal-condition phenotype — report card",
-        "",
+        "# Basal-condition phenotype — report card", "",
         f"- **Model**: {model_ref or reference.get('stimulus', {}).get('blessed_model_ref') or '(unspecified)'}",
-        f"- **Stimulus**: `{reference.get('stimulus', {}).get('config', 'configs/basal_phenotype_card.json')}`",
-        f"- **Ensemble**: {card.get('n_cells', 0)} cells after burn-in "
-        f"(generation_lower_bound={card.get('generation_lower_bound', 0)})",
+        f"- **Stimulus**: `{reference.get('stimulus', {}).get('config', '')}`",
         f"- **Reference status**: {reference.get('status', 'unknown')}",
     ]
     if generated:
         lines.append(f"- **Generated**: {generated}")
-    lines += ["", f"## Overall: {_badge_text(report)}", "",
-              "| Axis | Measured (mean) | spread | Reference | Tol | Verdict |",
-              "|---|---|---|---|---|---|"]
-    # spread (std / cv) for each measured axis lives next to its mean in the card
-    spread_of = {
-        "growth.doubling_time.mean": ("growth.doubling_time.std", "growth.doubling_time.cv"),
-        "composition.protein_fraction.mean": ("composition.protein_fraction.std", "composition.protein_fraction.cv"),
-        "composition.rna_fraction.mean": ("composition.rna_fraction.std", "composition.rna_fraction.cv"),
-        "composition.dna_fraction.mean": ("composition.dna_fraction.std", "composition.dna_fraction.cv"),
-    }
-    vbadge = {"pass": "✅ pass", "fail": "❌ FAIL", "ungraded": "— ungraded"}
-    for path, g in report["grades"].items():
-        label = GRADE_LABELS.get(path, path)
-        try:
-            std = dig(card, spread_of[path][0]); cv = dig(card, spread_of[path][1])
-            spread = f"±{_fmt(std)} (CV {_fmt(cv)})"
-        except (KeyError, TypeError):
-            spread = "—"
-        tol = f"±{g['tol_rel']:.0%}" if isinstance(g.get("tol_rel"), (int, float)) else "—"
-        lines.append(f"| {label} | {_fmt(g['measured'])} | {spread} | "
-                     f"{_fmt(g['reference'])} | {tol} | {vbadge[g['verdict']]} |")
+    lines += ["", f"## Overall: {_overall_label(report)} "
+              f"({c['within_tol']} ✓ · {c['drift']} ≈ · {c['mismatch']} ✗ · {c['ungraded']} –)", ""]
+    # group axes
+    groups: dict[str, list] = {}
+    for a in report["axes"].values():
+        groups.setdefault(a.get("group", "Other"), []).append(a)
+    for gname, axes in groups.items():
+        lines += [f"### {gname}", "",
+                  "| Axis | Value | Criterion | Summary | Verdict |",
+                  "|---|---|---|---|---|"]
+        for a in axes:
+            scale = a.get("scale", 1.0)
+            units = a.get("units", "")
+            val = a.get("value")
+            vals = (f"{val * scale:.4g} {units}".strip() if isinstance(val, float)
+                    else ("—" if val is None else str(val)))
+            lines.append(f"| {a.get('label', a['path'])} | {vals} | {a['criterion_str']} "
+                         f"| {a['meter']} | {_GLYPH[a['verdict']]} {a['verdict']} |")
+        lines.append("")
     findings = reference.get("findings") or []
     if findings:
-        lines += ["", "## Findings", ""]
-        lines += [f"- {f}" for f in findings]
-    lines += ["", "_Meta-tier card. A failure blocks merge; grades only move up. "
+        lines += ["## Findings", ""] + [f"- {f}" for f in findings] + [""]
+    lines += ["_Meta-tier card. A failure blocks merge; grades only move up. "
               "See `docs/meta_report_cards.md`._", ""]
     return "\n".join(lines)
 
 
-def render_html(card: dict, reference: dict, *, model_ref: str | None = None,
-                generated: str | None = None) -> str:
-    """Render the report card as a standalone HTML page."""
-    report = grade_basal_phenotype(card, reference)
-    color = {"pass": "#1a7f37", "fail": "#cf222e", "ungraded": "#9a6700",
-             "partial": "#9a6700"}
-    spread_of = {
-        "growth.doubling_time.mean": ("growth.doubling_time.std", "growth.doubling_time.cv"),
-        "composition.protein_fraction.mean": ("composition.protein_fraction.std", "composition.protein_fraction.cv"),
-        "composition.rna_fraction.mean": ("composition.rna_fraction.std", "composition.rna_fraction.cv"),
-        "composition.dna_fraction.mean": ("composition.dna_fraction.std", "composition.dna_fraction.cv"),
-    }
-    rows = []
-    for path, g in report["grades"].items():
-        try:
-            std = dig(card, spread_of[path][0]); cv = dig(card, spread_of[path][1])
-            spread = f"&plusmn;{_fmt(std)} (CV {_fmt(cv)})"
-        except (KeyError, TypeError):
-            spread = "&mdash;"
-        tol = f"&plusmn;{g['tol_rel']:.0%}" if isinstance(g.get("tol_rel"), (int, float)) else "&mdash;"
-        rows.append(
-            f"<tr><td>{GRADE_LABELS.get(path, path)}</td><td>{_fmt(g['measured'])}</td>"
-            f"<td>{spread}</td><td>{_fmt(g['reference'])}</td><td>{tol}</td>"
-            f"<td style='color:{color[g['verdict']]};font-weight:600'>{g['verdict']}</td></tr>")
-    n_ung = _n_ungraded(report)
-    o = "partial" if (report["overall"] == "pass" and n_ung) else report["overall"]
-    badge_txt = _badge_text(report).split(" — ")[0].split(" (")[0]  # short form for the chip
+# ---------------------------------------------------------------------------
+# HTML — rich, grouped, plots embedded, click-to-expand
+# ---------------------------------------------------------------------------
+
+def _axis_plot_svg(axis: dict) -> str:
+    """Render the axis's plot as inline SVG (or '' if none / no data)."""
+    kind = axis.get("plot")
+    measured = axis.get("measured") or {}
+    crit = axis.get("criterion", {})
+    try:
+        from v2ecoli.library import card_plots
+        if kind == "violin" and isinstance(measured, dict) and measured.get("values"):
+            return card_plots.violin_strip(
+                measured["values"], crit.get("ref_values"),
+                label=axis.get("label", ""), units=axis.get("units", ""),
+                scale=axis.get("scale", 1.0), y_from_zero=axis.get("y_from_zero", False))
+        if kind == "loglog" and isinstance(measured, dict) and measured.get("vector"):
+            return card_plots.loglog_scatter(
+                measured["vector"], crit.get("ref_vector"),
+                r2=axis.get("value"), label=axis.get("label", ""))
+    except Exception as e:  # a plot failure must not blank the report
+        return f"<div class='ploterr'>plot unavailable: {type(e).__name__}</div>"
+    return ""
+
+
+def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) -> str:
+    report = grade_card(card, reference)
+    c = _counts(report)
+    groups: dict[str, list] = {}
+    for a in report["axes"].values():
+        groups.setdefault(a.get("group", "Other"), []).append(a)
+
+    def chip(v, n):
+        return f"<span class='chip' style='background:{_COLOR[v]}'>{_GLYPH[v]} {n} {v.replace('_',' ')}</span>"
+
+    sections = []
+    for gname, axes in groups.items():
+        gc = {v: sum(1 for a in axes if a["verdict"] == v) for v in _COLOR}
+        rows = []
+        for a in axes:
+            scale = a.get("scale", 1.0)
+            units = a.get("units", "")
+            val = a.get("value")
+            vals = (f"{val * scale:.4g} {units}".strip() if isinstance(val, float)
+                    else ("—" if val is None else str(val)))
+            sp = a.get("measured") if isinstance(a.get("measured"), dict) else {}
+            spread = (f"±{sp['std'] * scale:.3g} (CV {sp['cv']:.1%}, n={sp['n']})"
+                      if "std" in sp and "cv" in sp else "")
+            plot = _axis_plot_svg(a)
+            detail = (f"<details><summary>plot + detail</summary>"
+                      f"<div class='plotwrap'>{plot}</div></details>") if plot else ""
+            rows.append(
+                f"<tr class='verdict-{a['verdict']}'>"
+                f"<td><div class='axhd'><span class='metric'>{a.get('label', a['path'])}</span>"
+                f"<span class='badge' style='background:{_COLOR[a['verdict']]}'>{_GLYPH[a['verdict']]} {a['verdict'].replace('_',' ')}</span></div>"
+                f"<div class='how'>{a.get('how','')}</div>"
+                f"<div class='crit'><b>criterion:</b> {a['criterion_str']}</div>{detail}</td>"
+                f"<td class='val'>{vals}<div class='spread'>{spread}</div></td>"
+                f"<td class='meter'>{a['meter']}</td></tr>")
+        anchor = gname.lower().replace(" ", "-")
+        sections.append(
+            f"<section class='card' id='{anchor}'><div class='head'><h2>{gname}</h2>"
+            f"<div class='chips'>{chip('within_tol', gc['within_tol'])}{chip('drift', gc['drift'])}"
+            f"{chip('mismatch', gc['mismatch'])}{chip('ungraded', gc['ungraded'])}</div></div>"
+            f"<table><thead><tr><th>axis</th><th>value</th><th>summary</th></tr></thead>"
+            f"<tbody>{''.join(rows)}</tbody></table></section>")
+
+    nav = "".join(
+        f"<a href='#{g.lower().replace(' ','-')}'>{g}</a>" for g in groups)
     findings = reference.get("findings") or []
-    findings_html = ("<h2>Findings</h2><ul>"
-                     + "".join(f"<li>{f}</li>" for f in findings) + "</ul>") if findings else ""
-    return f"""<!doctype html><html><head><meta charset="utf-8">
-<title>Basal-phenotype report card</title>
-<style>
- body{{font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif;max-width:820px;margin:2rem auto;padding:0 1rem;color:#1f2328}}
- h1{{font-size:1.4rem}} .badge{{display:inline-block;padding:.2rem .7rem;border-radius:.5rem;color:#fff;font-weight:700;background:{color[o]}}}
- table{{border-collapse:collapse;width:100%;margin-top:1rem}} th,td{{border:1px solid #d0d7de;padding:.5rem .6rem;text-align:left}}
- th{{background:#f6f8fa}} dl{{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem}} dt{{color:#656d76}}
- footer{{margin-top:1.5rem;color:#656d76;font-size:.9rem}}
+    findings_html = ("<section class='card'><div class='head'><h2>Findings</h2></div>"
+                     "<ul class='findings'>" + "".join(f"<li>{f}</li>" for f in findings)
+                     + "</ul></section>") if findings else ""
+    stim = reference.get("stimulus", {})
+    overall = _overall_label(report)
+    ocolor = (_COLOR["mismatch"] if c["mismatch"] else _COLOR["drift"] if c["drift"]
+              else _COLOR["within_tol"] if c["within_tol"] else _COLOR["ungraded"])
+
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Basal-phenotype report card</title><style>
+:root{{--bg:#f6f7f9;--card:#fff;--ink:#1a1d21;--muted:#6b7280;--line:#e5e7eb;}}
+*{{box-sizing:border-box}} body{{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.45}}
+header.top{{background:linear-gradient(135deg,#1f2937,#111827);color:#fff;padding:22px 28px}}
+header.top h1{{margin:0;font-size:20px;font-weight:650}} header.top .sub{{margin-top:4px;color:#cbd5e1;font-size:13px}}
+.obadge{{display:inline-block;margin-top:12px;padding:4px 12px;border-radius:999px;font-weight:700;background:{ocolor};color:#fff}}
+nav.sticky{{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.95);backdrop-filter:saturate(1.4) blur(6px);border-bottom:1px solid var(--line);padding:10px 28px;display:flex;gap:8px;flex-wrap:wrap}}
+nav.sticky a{{text-decoration:none;color:var(--ink);font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line)}}
+nav.sticky a:hover{{background:var(--bg)}}
+main{{padding:24px 28px 64px;max-width:1100px;margin:0 auto}}
+.card{{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:0 0 22px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04)}}
+.card>.head{{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}}
+.card>.head h2{{margin:0;font-size:16px;font-weight:620}}
+.chips{{display:flex;gap:7px;flex-wrap:wrap}} .chip{{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;color:#fff}}
+table{{border-collapse:collapse;width:100%}} thead th{{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:9px 18px;border-bottom:1px solid var(--line);background:#fafbfc}}
+tbody td{{padding:11px 18px;border-bottom:1px solid #f1f3f5;vertical-align:top;font-size:13px}}
+.axhd{{display:flex;align-items:center;gap:8px;flex-wrap:wrap}} .metric{{font-weight:600}}
+.badge{{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;color:#fff;white-space:nowrap}}
+.how{{color:var(--muted);font-size:11.5px;margin-top:4px;max-width:560px}} .crit{{font-size:12px;margin-top:4px;color:#374151}}
+.val{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:13px;color:#374151;white-space:nowrap}} .spread{{color:var(--muted);font-size:11px;margin-top:2px}}
+.meter{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);white-space:nowrap}}
+.verdict-within_tol td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['within_tol']}}} .verdict-drift td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['drift']}}}
+.verdict-mismatch td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['mismatch']}}} .verdict-ungraded td:first-child{{box-shadow:inset 3px 0 0 {_COLOR['ungraded']}}}
+details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}} .plotwrap{{margin-top:8px}} .plotwrap svg{{max-width:100%;height:auto}}
+.ploterr{{color:var(--muted);font-size:11px}} dl{{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem;margin:0}} dt{{color:#cbd5e1}}
+.findings{{margin:0;padding:14px 34px;color:#374151;font-size:13px}} footer{{color:var(--muted);font-size:12px;padding:0 28px 40px;max-width:1100px;margin:0 auto}}
 </style></head><body>
-<h1>Basal-condition phenotype &mdash; report card</h1>
-<p class="badge">{badge_txt}</p>
-<dl>
- <dt>Model</dt><dd>{model_ref or reference.get('stimulus', {}).get('blessed_model_ref') or '(unspecified)'}</dd>
- <dt>Stimulus</dt><dd><code>{reference.get('stimulus', {}).get('config', 'configs/basal_phenotype_card.json')}</code></dd>
- <dt>Ensemble</dt><dd>{card.get('n_cells', 0)} cells after burn-in (generation_lower_bound={card.get('generation_lower_bound', 0)})</dd>
- <dt>Reference status</dt><dd>{reference.get('status', 'unknown')}</dd>
- {f'<dt>Generated</dt><dd>{generated}</dd>' if generated else ''}
-</dl>
-<table><thead><tr><th>Axis</th><th>Measured (mean)</th><th>Spread</th><th>Reference</th><th>Tol</th><th>Verdict</th></tr></thead>
-<tbody>{''.join(rows)}</tbody></table>
-{findings_html}
-<footer>Meta-tier card. A failure blocks merge; grades only move up.
-See <code>docs/meta_report_cards.md</code>.</footer>
+<header class="top"><h1>Basal-condition phenotype — report card</h1>
+<div class="sub">model <b>{model_ref or stim.get('blessed_model_ref') or '?'}</b> · {stim.get('ensemble','')} · reference {reference.get('status','?')}{' · '+generated if generated else ''}</div>
+<div class="obadge">{overall} &nbsp;·&nbsp; {c['within_tol']} ✓ &nbsp; {c['drift']} ≈ &nbsp; {c['mismatch']} ✗ &nbsp; {c['ungraded']} –</div></header>
+<nav class="sticky">{nav}</nav>
+<main>{''.join(sections)}{findings_html}</main>
+<footer>Meta-tier card — a failure blocks merge; grades only move up. Reference pinned via a blessed ensemble ({stim.get('cache_provenance','')[:80]}…). See <code>docs/meta_report_cards.md</code>.</footer>
 </body></html>"""
 
 

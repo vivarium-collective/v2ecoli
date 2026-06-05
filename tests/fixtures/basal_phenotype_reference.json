@@ -1,33 +1,164 @@
 {
-  "$schema_note": "Pinned reference for the v1 meta-tier basal-phenotype report card. v1 pins these values to a BLESSED current-model ensemble run (no biological judgement yet — judgement comes later, from reading drift against the pin). A model 'passes' the card if its basal ensemble reproduces every graded axis within tol_rel. A null reference is ungraded, not a failure.",
+  "$schema_note": "v2 reference for the basal-phenotype report card. Axes carry presentation + a TYPED criterion. Population-stat axes grade by Welch t-test of candidate per-cell values vs these blessed reference values (cell-level n). A SIGNIFICANT difference (p<p_min) is drift/mismatch. Self-pin => p=1.0 at baseline; future drift / PDMP lowers p. Judgement is deferred: the pin is current main's behavior, not a biological target.",
   "status": "populated",
   "stimulus": {
     "config": "v2ecoli/configs/basal_phenotype_card.json",
     "blessed_model_ref": "b162243",
     "ensemble": "4 seeds x 8 gens, generation_lower_bound=3 -> 20 cells (17 divided); 29/32 generations divided",
-    "cache_provenance": "FULL-mode ParCa cache (out/cache_full), built via v2ecoli-parca --mode full then build_cache.py. The shipped fixture models/parca/parca_state.pkl.gz is FAST-mode (reduced TF set) and does NOT support sustained multi-gen division — reproducing this pin requires a full ParCa run. NB: cache_version inputs_hash (36f7930256f9bc44) is identical for fast and full caches; it hashes code/inputs, not sim_data content, so it will not flag a fast<->full swap.",
-    "requires_fix": "Sustained multi-gen division requires CovertLab/v2ecoli#127 (MarkDPeriod divide-flag detection for generations >= 1)."
+    "cache_provenance": "FULL-mode ParCa cache (out/cache_full). Shipped fixture is fast-mode and won't reproduce it; requires a full ParCa run. cache_version inputs_hash does not distinguish fast/full.",
+    "requires_fix": "Sustained multi-gen division requires CovertLab/v2ecoli#127."
   },
-  "grades": {
-    "growth.doubling_time.mean": {"reference": 3021.3529411764707, "tol_rel": 0.10},
-    "composition.protein_fraction.mean": {"reference": 0.43657698291851615, "tol_rel": 0.05},
-    "composition.rna_fraction.mean": {"reference": 0.10260738275672626, "tol_rel": 0.05},
-    "composition.dna_fraction.mean": {"reference": 0.018325799194084384, "tol_rel": 0.05}
-  },
-  "observed_spread": {
-    "note": "Cell-to-cell CV from the blessed ensemble; tolerances are set comfortably above the mean's standard error (CV/sqrt(n)) so seed-to-seed reproducibility noise does not trip the gate, while still catching real drift.",
-    "growth.doubling_time": {"mean": 3021.35, "cv": 0.103, "n": 17},
-    "composition.protein_fraction": {"mean": 0.4366, "cv": 0.057, "n": 20},
-    "composition.rna_fraction": {"mean": 0.1026, "cv": 0.036, "n": 20},
-    "composition.dna_fraction": {"mean": 0.01833, "cv": 0.040, "n": 20}
+  "axes": {
+    "growth.doubling_time": {
+      "group": "Growth",
+      "label": "Doubling time",
+      "units": "h",
+      "how": "Mean division time over confirmed divisions. One value per cell (gens\u22653); population stats across the 17 cells. Source: v2ecoli/workflow/analysis.py::BasalPhenotypeCard.",
+      "plot": "violin",
+      "criterion": {
+        "type": "ttest",
+        "p_min": 0.05,
+        "ref_values": [
+          3473.0,
+          2528.0,
+          2900.0,
+          3104.0,
+          3458.0,
+          3452.0,
+          2528.0,
+          2845.0,
+          3230.0,
+          2919.0,
+          2868.0,
+          2773.0,
+          3102.0,
+          3271.0,
+          3065.0,
+          3319.0,
+          2528.0
+        ],
+        "within_pct": 0.05,
+        "mismatch_pct": 0.1
+      },
+      "y_from_zero": true,
+      "scale": 0.0002777777777777778
+    },
+    "composition.protein_fraction": {
+      "group": "Composition",
+      "label": "Protein / dry weight",
+      "units": "g/gDW",
+      "how": "Time-mean protein mass fraction of dry weight. One value per cell (gens\u22653); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::BasalPhenotypeCard.",
+      "plot": "violin",
+      "criterion": {
+        "type": "ttest",
+        "p_min": 0.05,
+        "ref_values": [
+          0.4514204199455726,
+          0.46599514509777185,
+          0.4782323433982772,
+          0.45299515869322066,
+          0.4438525407818931,
+          0.42690381327276467,
+          0.42951464617485485,
+          0.4193485778913283,
+          0.4796431353413454,
+          0.463153049075721,
+          0.43626841840103503,
+          0.418259580054952,
+          0.41330519602167726,
+          0.4113362280424944,
+          0.4139187035608954,
+          0.4176770927941805,
+          0.40368739887271304,
+          0.40689572497259996,
+          0.42281075754738573,
+          0.4763217284296406
+        ],
+        "within_pct": 0.05,
+        "mismatch_pct": 0.1
+      },
+      "y_from_zero": true
+    },
+    "composition.rna_fraction": {
+      "group": "Composition",
+      "label": "Total RNA / dry weight",
+      "units": "g/gDW",
+      "how": "Time-mean total-RNA (rRna+tRna+mRna) mass fraction of dry weight. One value per cell (gens\u22653); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::BasalPhenotypeCard.",
+      "plot": "violin",
+      "criterion": {
+        "type": "ttest",
+        "p_min": 0.05,
+        "ref_values": [
+          0.11489444923360849,
+          0.11785681550127979,
+          0.13210700408054463,
+          0.12743468778733472,
+          0.12562439968281477,
+          0.12339847667277962,
+          0.12385925558422406,
+          0.12716952552516936,
+          0.13179001128242054,
+          0.128829832717764,
+          0.12876304670281272,
+          0.13305631645425023,
+          0.13588372734771276,
+          0.13258755145354834,
+          0.13229827566175753,
+          0.1315887921453247,
+          0.1322228502535346,
+          0.12567769638839077,
+          0.12573688359828944,
+          0.1306740112395576
+        ],
+        "within_pct": 0.05,
+        "mismatch_pct": 0.1
+      },
+      "y_from_zero": true
+    },
+    "composition.dna_fraction": {
+      "group": "Composition",
+      "label": "DNA / dry weight",
+      "units": "g/gDW",
+      "how": "Time-mean DNA mass fraction of dry weight. One value per cell (gens\u22653); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::BasalPhenotypeCard.",
+      "plot": "violin",
+      "criterion": {
+        "type": "ttest",
+        "p_min": 0.05,
+        "ref_values": [
+          0.02061699945796105,
+          0.018671349093169688,
+          0.01780090430878661,
+          0.017821795974042487,
+          0.0186470439056463,
+          0.01871712233228542,
+          0.01902662244813163,
+          0.019277928547707244,
+          0.017768120017667456,
+          0.018054864018831697,
+          0.017775718930892997,
+          0.01773748417422366,
+          0.01746558869732219,
+          0.01808771070524085,
+          0.017845435681448335,
+          0.01793432949995979,
+          0.018238738874041552,
+          0.01915018353946168,
+          0.01806123720380234,
+          0.01781680647106471
+        ],
+        "within_pct": 0.05,
+        "mismatch_pct": 0.1
+      },
+      "y_from_zero": true
+    }
   },
   "findings": [
-    "RNA == rRna for v1 (analysis_runner._MASS_COLS pulls rRna only; ~80-85% of total RNA). Extend to total RNA (tRna+mRna) as a follow-up.",
-    "3 of 32 generations did not divide (ran to the 3600 s cap); their over-grown cells are still included in the composition average (n=20). A v1 refinement would restrict composition to divided cells; the effect is small (composition fractions are per-dry-weight and robust)."
+    "Population-stat axes grade by Welch t-test on cell-level values (n=cells, not timepoints). Self-pin => p=1.0; this establishes the baseline. Caveat: a t-test flags DIFFERENCE; 'not significantly different' is not a formal equivalence proof (TOST would be), but it is a sound drift gate for a regression pin.",
+    "3 of 32 generations did not divide (ran to the 3600 s cap); their over-grown cells are still in the composition average (n=20). A refinement would restrict composition to divided cells; effect is small (fractions are per-dry-weight)."
   ],
   "open_questions": [
-    "Promotion mechanism (phase->meta): reviewer-gated / structural / population-vote — UNRESOLVED, see docs/meta_report_cards.md.",
-    "CI surface: one tier-tagged suite vs two surfaces vs one surface + promotion hook — UNRESOLVED.",
-    "Spec-vs-card separation: is the config the 'spec' and this the 'card', or two readings of one versioned object — UNRESOLVED."
+    "Promotion mechanism (phase->meta) \u2014 UNRESOLVED.",
+    "CI surface \u2014 UNRESOLVED.",
+    "Omics + behavioral axes land in Layer 3-4 (transcriptome/proteome R\u00b2; Bucket A boolean assertions)."
   ]
 }

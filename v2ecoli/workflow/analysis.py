@@ -205,19 +205,22 @@ class MetricAcrossVariants(AnalysisStep):
 
 
 def _mean_std_cv(values: list[float]) -> dict[str, float]:
-    """Ensemble central tendency + spread for a list of per-cell scalars.
+    """Population stats over a list of **per-cell** scalars (one value per cell).
 
-    ``cv`` is the coefficient of variation (std / mean) — the dimensionless
-    cell-to-cell spread that is the headline number for a growth-rate or
-    composition grade. Undefined (0.0) when the mean is zero or n < 2.
+    Carries the raw per-cell ``values`` so the renderer can draw a violin/strip
+    and a Welch t-test can compare two ensembles directly from their value
+    lists. ``cv`` is the coefficient of variation (std / mean) — the
+    dimensionless cell-to-cell spread. ``std`` is the population standard
+    deviation (descriptive); inferential comparisons use ``values`` directly.
     """
     n = len(values)
     if n == 0:
-        return {"n": 0, "mean": 0.0, "std": 0.0, "cv": 0.0}
+        return {"n": 0, "mean": 0.0, "std": 0.0, "cv": 0.0, "values": []}
     mean = statistics.mean(values)
     std = statistics.pstdev(values) if n > 1 else 0.0
     return {"n": n, "mean": mean, "std": std,
-            "cv": (std / mean) if mean else 0.0}
+            "cv": (std / mean) if mean else 0.0,
+            "values": [float(v) for v in values]}
 
 
 class BasalPhenotypeCard(AnalysisStep):
@@ -241,12 +244,12 @@ class BasalPhenotypeCard(AnalysisStep):
         transient. The canonical convention is to discard the first few
         generations of a multi-gen lineage.
       - The per-cell records this consumes already carry time-averaged
-        ``protein_fraction_mean`` / ``rRna_fraction_mean`` / ``dna_fraction_mean``
+        ``protein_fraction_mean`` / ``rna_fraction_mean`` / ``dna_fraction_mean``
         (see ``analysis_runner.build_cell_records``), so composition is an
         ensemble reduction over those, not a re-derivation from timeseries.
-      - **RNA == rRna for v1.** ``analysis_runner._MASS_COLS`` only pulls
-        ``rRna_mass`` (rRna is ~80-85% of total RNA). Total-RNA/DW is a
-        documented follow-up (extend ``_MASS_COLS`` with tRna/mRna).
+      - **RNA = total RNA** (``rna_mass`` = rRna+tRna+mRna), per cell.
+      - Each axis carries the raw per-cell ``values`` (one per cell) so the
+        report can draw violin/strip plots and grade with a Welch t-test.
     """
 
     name = "basal_phenotype_card"
@@ -280,7 +283,7 @@ class BasalPhenotypeCard(AnalysisStep):
             },
             "composition": {
                 "protein_fraction": _mean_std_cv(_frac("protein_fraction_mean")),
-                "rna_fraction": _mean_std_cv(_frac("rRna_fraction_mean")),
+                "rna_fraction": _mean_std_cv(_frac("rna_fraction_mean")),
                 "dna_fraction": _mean_std_cv(_frac("dna_fraction_mean")),
             },
         }

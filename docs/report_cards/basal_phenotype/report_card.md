@@ -1,23 +1,29 @@
 # Basal-condition phenotype — report card
 
-- **Model**: b162243
+- **Model**: d139b9b
 - **Stimulus**: `v2ecoli/configs/basal_phenotype_card.json`
-- **Ensemble**: 20 cells after burn-in (generation_lower_bound=3)
 - **Reference status**: populated
-- **Generated**: 2026-06-04 15:20
+- **Generated**: 2026-06-04 21:20
 
-## Overall: PASS ✅
+## Overall: PASS (4 ✓ · 0 ≈ · 0 ✗ · 0 –)
 
-| Axis | Measured (mean) | spread | Reference | Tol | Verdict |
-|---|---|---|---|---|---|
-| Growth — doubling time (s) | 3021 | ±312.6 (CV 0.1035) | 3021 | ±10% | ✅ pass |
-| Composition — protein / dry weight | 0.4366 | ±0.02476 (CV 0.05671) | 0.4366 | ±5% | ✅ pass |
-| Composition — RNA / dry weight | 0.1026 | ±0.003701 (CV 0.03607) | 0.1026 | ±5% | ✅ pass |
-| Composition — DNA / dry weight | 0.01833 | ±0.0007343 (CV 0.04007) | 0.01833 | ±5% | ✅ pass |
+### Growth
+
+| Axis | Value | Criterion | Summary | Verdict |
+|---|---|---|---|---|
+| Doubling time | 0.8393 h | Welch t-test p ≥ 0.05 (n=17 cells) | p = 1.000 · Δ = +0.0% · d = +0.00 | ✓ within_tol |
+
+### Composition
+
+| Axis | Value | Criterion | Summary | Verdict |
+|---|---|---|---|---|
+| Protein / dry weight | 0.4366 g/gDW | Welch t-test p ≥ 0.05 (n=20 cells) | p = 1.000 · Δ = +0.0% · d = +0.00 | ✓ within_tol |
+| Total RNA / dry weight | 0.1281 g/gDW | Welch t-test p ≥ 0.05 (n=20 cells) | p = 1.000 · Δ = +0.0% · d = +0.00 | ✓ within_tol |
+| DNA / dry weight | 0.01833 g/gDW | Welch t-test p ≥ 0.05 (n=20 cells) | p = 1.000 · Δ = +0.0% · d = +0.00 | ✓ within_tol |
 
 ## Findings
 
-- RNA == rRna for v1 (analysis_runner._MASS_COLS pulls rRna only; ~80-85% of total RNA). Extend to total RNA (tRna+mRna) as a follow-up.
-- 3 of 32 generations did not divide (ran to the 3600 s cap); their over-grown cells are still included in the composition average (n=20). A v1 refinement would restrict composition to divided cells; the effect is small (composition fractions are per-dry-weight and robust).
+- Population-stat axes grade by Welch t-test on cell-level values (n=cells, not timepoints). Self-pin => p=1.0; this establishes the baseline. Caveat: a t-test flags DIFFERENCE; 'not significantly different' is not a formal equivalence proof (TOST would be), but it is a sound drift gate for a regression pin.
+- 3 of 32 generations did not divide (ran to the 3600 s cap); their over-grown cells are still in the composition average (n=20). A refinement would restrict composition to divided cells; effect is small (fractions are per-dry-weight).
 
 _Meta-tier card. A failure blocks merge; grades only move up. See `docs/meta_report_cards.md`._

@@ -41,7 +41,7 @@ executive:
     mechanism; all four behaviours in band on Rashmi's generation-average criterion); dnaa-3 (DnaA-box binding) is now PREPARED for Rashmi/Haochen
     review. Each study has an explicit acceptance criterion in biological
     observables (oriC periodicity, DnaA pool steady state, DnaA-ATP fraction band).
-  verdict: foundation + dnaa-2 PASS; dnaa-3 in review
+  verdict: foundation + dnaa-2 PASS; dnaa-3 approved + box-occupancy view built (in-sim binding WIP)
   verdict_status: in-progress
   verdict_detail: |
     Both foundational studies PASS. dnaa-0: v2ecoli reaches the succinate

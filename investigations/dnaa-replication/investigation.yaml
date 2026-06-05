@@ -310,6 +310,15 @@ glossary:
       per-promoter init_prob to tune dnaA mRNA synthesis rate.
 
 feedback_rounds:
+  - date: '2026-06-05-0043'
+    reviewer: Rashmi
+    artifact: feedback-2026-06-05-0043/feedback.yaml
+    summary: |
+      dnaa-3 PLAN APPROVED ('go ahead') — build started. Two design tweaks: remove
+      datA/DARS1/DARS2 from the chromosome chart (out of scope now); add 'total DnaA
+      concentration' (all forms / cell mass) as a readout + occupancy-figure panel.
+      Building the box-binding mechanism + a bound/unbound-per-box chromosome
+      occupancy visualization.
   - date: '2026-06-04-1515'
     reviewer: Rashmi
     artifact: feedback-2026-06-04-1515/feedback.yaml

@@ -3,7 +3,7 @@ name: dnaa-3-box-binding
 investigation: dnaa-replication   # owning investigation (back-reference)
 title: DnaA binding to DnaA boxes (chromosomal + oriC + dnaA-promoter)
 created: '2026-06-03'
-status: planned   # prepared from dnaa-3-spec (Haochen); design complete, not yet implemented/run
+status: in_progress   # 2026-06-05 Rashmi APPROVED the plan ('go ahead') — building the box-binding mechanism + occupancy viz
 # Build a dynamic DnaA-box occupancy mechanism on top of the dnaa-2 V=1e-3
 # succinate baseline. We are NOT replacing the initiation mechanism yet — this
 # study adds the binding substrate (boxes + occupancy) that later studies
@@ -14,7 +14,7 @@ implementation_status: in_progress # 2026-06-03: Build started — infra mapped,
 simulation_status: not_run
 evaluation_status: not_run
 gate_status: pending
-expert_review_status: pending      # Haochen authored the spec/first-step assumptions (design INPUT), but the implementation + results are not yet expert-reviewed — nothing to approve until it's built and run
+expert_review_status: approved     # Rashmi 2026-06-05 'Plan approved go ahead' (design); implementation + results still to be reviewed once run
 
 seeded_from:
   study: dnaa-2-nucleotide-balance
@@ -34,7 +34,7 @@ question: |
 
 report:
   title: dnaa-3 — DnaA box binding (chromosomal + oriC + dnaA-promoter)
-  verdict: proposed-design   # design complete; awaiting Rashmi/Haochen review before build/run
+  verdict: building   # 2026-06-05 Rashmi APPROVED the plan ('go ahead'); box-binding mechanism + occupancy viz under construction
   confidence: design-stage
   evidence_quality: design-only
 
@@ -274,7 +274,30 @@ runtime:
   max_generations: 8
   single_daughters: true
 
+reviewer_feedback:
+  - round: '2026-06-05-0043'
+    reviewer: Rashmi
+    source: feedback-2026-06-05-0043/feedback.yaml
+    verdict_effect: PLAN APPROVED — build started; 2 design tweaks applied
+    notes: |
+      (1) Charts: datA / DARS1 / DARS2 are out of scope at this stage — removed from
+      the chromosome box-map caption + excluded from the new occupancy viz (oriC +
+      dnaA-promoter + chromosomal only). (2) Readouts: added 'total DnaA concentration'
+      = total count (all forms, bound + unbound) / cell mass, as a primary readout +
+      a panel on the occupancy figure. (3) 'Plan approved go ahead' → expert_review_status
+      approved; status in_progress; building the box-binding mechanism + the
+      bound/unbound-per-box chromosome occupancy visualization.
+
 readouts:
+  - name: total DnaA concentration
+    status: primary
+    identifier: (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c] + sum(all bound-box DnaA)) / listeners.mass.cell_mass
+    units: count / fg
+    notes: |
+      Rashmi 2026-06-05: plot total DnaA CONCENTRATION (count / cell mass), where
+      total includes ALL forms of DnaA — free (apo + DnaA-ATP + DnaA-ADP) AND
+      box-bound. Concentration (not raw count) controls binding equilibria, so this
+      is the physiologically meaningful readout across the cycle.
   - name: DnaA-ATP fraction
     status: primary
     identifier: bulk MONOMER0-160[c] / (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])
@@ -327,6 +350,21 @@ tests:
 # ── Visualizations — the chromosome box-map is REAL (WCM genome data); the 4 ──
 #    trajectory panels below are PLANNED (built once the mechanism runs).
 visualizations:
+  - name: dnaa3_box_occupancy
+    address: image:charts/dnaa3_box_occupancy.png
+    config:
+      title: >-
+        DnaA-box OCCUPANCY by region across the succinate cell cycle (Rashmi
+        2026-06-05). Five timepoints around the circular chromosome: each box is
+        filled = DnaA-bound / open = free, with a per-region bound/total fraction;
+        red ■ = ter. Occupancy is the dnaa-3 fast-equilibrium binding model
+        P = C/(C+K_d) on the dnaa-2 baseline trajectory — high-affinity pools
+        (chromosomal, oriC-high R1/R2/R4, promoter; K_d≈1 nM) saturate at the
+        ~170 nM free DnaA-ATP, while the 8 oriC LOW-affinity boxes (K_d≈100 nM) are
+        the dynamic switch (≈0.6 → oriC 8-9/11 over the cycle). Bottom panel: TOTAL
+        DnaA concentration (all forms / cell volume), 670→940 nM. datA / DARS1 /
+        DARS2 out of scope. The in-sim per-box version wires next (DnaA_box.DnaA_bound
+        emission added; mechanism being built).
   - name: chromosome_replication_animation
     address: image:charts/chromosome_replication.gif
     config:
@@ -346,9 +384,10 @@ visualizations:
       title: >-
         E. coli K-12 chromosome — all 307 consensus DnaA boxes (TTWTNCACA,
         Schaper-Messer 1995), extracted from the v2ecoli whole-cell-model genome
-        exactly as Replication._build_motifs() computes them. oriC, datA, DARS1,
-        DARS2 marked. These 307 are the dnaa-3 chromosomal-high pool substrate;
-        the 8 oriC low-affinity + 2 promoter-high sites are added on top.
+        exactly as Replication._build_motifs() computes them. oriC and the dnaA
+        promoter marked (Rashmi 2026-06-05: datA / DARS1 / DARS2 are out of scope
+        at this stage and removed). These 307 are the dnaa-3 chromosomal-high pool
+        substrate; the 8 oriC low-affinity + 2 promoter-high sites are added on top.
   - name: dnaa2_baseline_starting_point
     address: image:charts/dnaa2_baseline_starting_point.png
     config:

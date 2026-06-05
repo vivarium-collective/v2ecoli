@@ -1159,11 +1159,17 @@ def _get_special_step(loader, step_name, core):
                 emit_schema.update({
                     'full_chromosome': 'node', 'active_replisome': 'node',
                     'active_RNAP': 'node',
+                    # DnaA boxes: per-box coordinates + DnaA_bound (occupancy), for
+                    # the dnaa-3 chromosome bound/unbound-per-box occupancy viz.
+                    # NB the unique STORE is 'DnaA_box' (singular) — see
+                    # steps/derivers/replication_data.py:19.
+                    'DnaA_box': 'node',
                 })
                 topo.update({
                     'full_chromosome': ('unique', 'full_chromosome'),
                     'active_replisome': ('unique', 'active_replisome'),
                     'active_RNAP': ('unique', 'active_RNAP'),
+                    'DnaA_box': ('unique', 'DnaA_box'),
                 })
             cfg = {'emit': emit_schema, **parquet_override}
             instance = ParquetEmitter(cfg, core)

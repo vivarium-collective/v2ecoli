@@ -1,0 +1,190 @@
+"""dnaa-3 — DnaA-box OCCUPANCY chromosome view (bound / unbound per box).
+
+The chromosome view Rashmi asked for (2026-06-05): DnaA-box occupancy around the
+circular chromosome at several timepoints across a succinate cell cycle, grouped
+by regulatory region. Each box is a marker — FILLED = DnaA-bound, OPEN = free —
+with a per-region bound/total fraction. Red ■ = ter. A bottom panel plots TOTAL
+DnaA CONCENTRATION (all forms / cell mass) over the cycle (Rashmi 2026-06-05).
+
+Occupancy is the dnaa-3 FAST-EQUILIBRIUM binding model evaluated on the validated
+dnaa-2 baseline trajectory: per timestep, the free DnaA-ATP/ADP CONCENTRATION
+(bulk count / cell volume) drives per-pool occupancy P = C/(C+K_d). This is the
+dnaa-3 mechanism (the in-sim version is being wired); the current WCM leaves the
+DnaA_box.DnaA_bound flag unset, so we compute the design's predicted occupancy
+directly from concentration + the per-pool K_d.
+
+Regions: oriC (3 high-aff R1/R2/R4 + 8 low-aff) + dnaA-promoter (2) + chromosomal
+(302). datA / DARS1 / DARS2 are out of scope at this stage (Rashmi 2026-06-05).
+
+Usage:
+  .venv/bin/python scripts/render_dnaa3_occupancy.py \\
+      --run out/dnaa2_seed1_8gen --generation 2 \\
+      --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
+"""
+from __future__ import annotations
+import argparse, glob
+from pathlib import Path
+import numpy as np
+import polars as pl
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
+
+AVOGADRO = 6.02214076e23
+DENSITY_G_PER_L = 1100.0  # E. coli cell density ≈ 1.1 g/mL
+
+# dnaa-3 box catalog (4 affinity pools, 315 sites). K_d in nM; which nucleotide
+# forms bind. oriC has 3 high + 8 low = 11 boxes (the "oriC k/11" in the ref).
+POOLS = {
+    "oriC_high":       dict(n=3,   kd=1.0,   forms="ATP+ADP", region="oriC"),
+    "oriC_low":        dict(n=8,   kd=100.0, forms="ATP",     region="oriC"),
+    "promoter_high":   dict(n=2,   kd=1.0,   forms="ATP+ADP", region="dnaA_promoter"),
+    "chromosomal_high":dict(n=302, kd=1.0,   forms="ATP+ADP", region="chromosomal"),
+}
+REGION_COLOR = {"oriC": "#16a34a", "dnaA_promoter": "#0891b2", "chromosomal": "#94a3b8"}
+
+
+def load(run: str, generation: int):
+    fs = sorted(glob.glob(f"{run}/**/history/**/generation={generation}/**/*.pq", recursive=True))
+    if not fs:
+        raise SystemExit(f"no parquet for generation={generation} under {run}")
+    # pick the single lineage (agent_id) with the most timesteps for a clean cycle
+    from collections import defaultdict
+    by_agent = defaultdict(list)
+    for f in fs:
+        a = f.split("agent_id=")[1].split("/")[0]
+        by_agent[a].append(f)
+    agent = max(by_agent, key=lambda a: len(by_agent[a]))
+    fs = sorted(by_agent[agent])
+    ids = pl.scan_parquet(fs[0]).select("bulk__id").head(1).collect()["bulk__id"][0].to_list()
+    def bi(m): return ids.index(m)
+    bc = pl.col("bulk__count")
+    df = (pl.scan_parquet(fs, hive_partitioning=True)
+          .select(["global_time",
+                   bc.list.get(bi("PD03831[c]")).alias("apo"),
+                   bc.list.get(bi("MONOMER0-160[c]")).alias("atp"),
+                   bc.list.get(bi("MONOMER0-4565[c]")).alias("adp"),
+                   pl.col("listeners__mass__cell_mass").alias("mass")])
+          .sort("global_time").collect())
+    return df
+
+
+def conc_nM(count, mass_fg):
+    """bulk count + cell mass(fg) → concentration in nM."""
+    volume_L = mass_fg * 1e-15 / DENSITY_G_PER_L
+    return count / (volume_L * AVOGADRO) * 1e9
+
+
+def pool_occupancy(atp_nM, adp_nM):
+    """Expected fractional occupancy P=C/(C+Kd) per pool at one timestep."""
+    out = {}
+    for name, p in POOLS.items():
+        c = atp_nM + adp_nM if p["forms"] == "ATP+ADP" else atp_nM
+        out[name] = c / (c + p["kd"])
+    return out
+
+
+def region_counts(P):
+    """Expected (bound, total) per drawn region from per-pool occupancy."""
+    reg = {"oriC": [0.0, 0], "dnaA_promoter": [0.0, 0], "chromosomal": [0.0, 0]}
+    for name, p in POOLS.items():
+        reg[p["region"]][0] += P[name] * p["n"]
+        reg[p["region"]][1] += p["n"]
+    return {r: (int(round(v[0])), v[1]) for r, v in reg.items()}
+
+
+def _cluster(ax, center_xy, n_total, n_bound, color, cols=3, dr=0.085):
+    """Draw a small stacked cluster of n_total boxes; first n_bound filled."""
+    cx, cy = center_xy
+    for k in range(n_total):
+        r, c = divmod(k, cols)
+        x = cx + (c - (cols - 1) / 2) * dr
+        y = cy + r * dr
+        if k < n_bound:
+            ax.plot(x, y, "o", ms=6, mfc=color, mec=color, zorder=4)
+        else:
+            ax.plot(x, y, "o", ms=6, mfc="white", mec=color, mew=1.3, zorder=3)
+
+
+def draw_circle(ax, P, t_min):
+    rc = region_counts(P)
+    th = np.linspace(0, 2 * np.pi, 400)
+    ax.plot(np.sin(th), np.cos(th), color="#cbd5e1", lw=2, zorder=1)
+    # oriC cluster (top), dnaA_promoter cluster (upper-left)
+    _cluster(ax, (0.0, 1.18), rc["oriC"][1], rc["oriC"][0], REGION_COLOR["oriC"], cols=4)
+    ax.text(0, 1.55, f"oriC\n{rc['oriC'][0]}/{rc['oriC'][1]}", ha="center", va="center",
+            fontsize=9, color=REGION_COLOR["oriC"], fontweight="bold")
+    _cluster(ax, (-1.12, 0.74), rc["dnaA_promoter"][1], rc["dnaA_promoter"][0],
+             REGION_COLOR["dnaA_promoter"], cols=2)
+    ax.text(-1.34, 1.0, f"dnaA_promoter\n{rc['dnaA_promoter'][0]}/{rc['dnaA_promoter'][1]}",
+            ha="center", va="center", fontsize=8, color=REGION_COLOR["dnaA_promoter"], fontweight="bold")
+    # chromosomal: dense ring of small dots, fraction filled (deterministic by angle)
+    nb, nt = rc["chromosomal"]
+    ang = np.linspace(0.18, 2 * np.pi - 0.18, nt)  # skip the oriC/ter poles
+    sel = np.zeros(nt, bool); sel[np.linspace(0, nt - 1, nb).round().astype(int)] = True if nb else False
+    for a, b in zip(ang, sel):
+        x, y = np.sin(a) * 1.0, np.cos(a) * 1.0
+        if b:
+            ax.plot(x, y, "o", ms=2.6, mfc=REGION_COLOR["chromosomal"], mec=REGION_COLOR["chromosomal"], zorder=2)
+        else:
+            ax.plot(x, y, "o", ms=2.6, mfc="white", mec=REGION_COLOR["chromosomal"], mew=0.5, zorder=2)
+    ax.text(1.28, -0.2, f"chromosomal\n{nb}/{nt}", ha="center", va="center",
+            fontsize=8, color="#64748b", fontweight="bold")
+    ax.plot(0, -1, "s", ms=11, mfc="#dc2626", mec="#dc2626", zorder=5)  # ter
+    ax.set_title(f"t = {t_min:.1f} min", fontsize=10)
+    ax.set_xlim(-1.75, 1.75); ax.set_ylim(-1.45, 1.75); ax.set_aspect("equal"); ax.axis("off")
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--run", default="out/dnaa2_seed1_8gen")
+    ap.add_argument("--generation", type=int, default=2)
+    ap.add_argument("--out", default="studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy")
+    ap.add_argument("--n-frames", type=int, default=5)
+    args = ap.parse_args()
+
+    df = load(args.run, args.generation)
+    t0 = df["global_time"][0]
+    tmin = ((df["global_time"] - t0) / 60).to_numpy()
+    apo = df["apo"].to_numpy(); atp = df["atp"].to_numpy(); adp = df["adp"].to_numpy()
+    mass = df["mass"].to_numpy()
+    atp_nM = conc_nM(atp, mass); adp_nM = conc_nM(adp, mass)
+    idx = np.linspace(0, len(df) - 1, args.n_frames).round().astype(int)
+
+    fig = plt.figure(figsize=(3.2 * args.n_frames, 5.4))
+    gs = fig.add_gridspec(2, args.n_frames, height_ratios=[3.0, 1.15], hspace=0.34, wspace=0.04)
+    fig.suptitle("dnaa-3 — DnaA-box occupancy by region across the succinate cell cycle\n"
+                 "predicted fast-equilibrium binding (P = C/(C+K_d)) on the dnaa-2 baseline · "
+                 "filled = DnaA-bound, open = free · red ■ = ter · datA/DARS out of scope",
+                 fontsize=12, y=1.0)
+    for k, i in enumerate(idx):
+        ax = fig.add_subplot(gs[0, k])
+        draw_circle(ax, pool_occupancy(atp_nM[int(i)], adp_nM[int(i)]), tmin[int(i)])
+
+    axc = fig.add_subplot(gs[1, :])
+    conc_total = conc_nM(apo + atp + adp, mass)  # all DnaA forms / cell volume → nM
+    axc.plot(tmin, conc_total, color="#0f172a", lw=1.6)
+    axc.scatter(tmin[idx], conc_total[idx], color="#dc2626", zorder=5, s=28)
+    axc.set_xlabel("cell-cycle time (min)"); axc.set_ylabel("total DnaA\nconc. (nM)")
+    axc.set_title("Total DnaA concentration — all forms (apo + ATP + ADP + bound) / cell volume (Rashmi 2026-06-05)", fontsize=9)
+    axc.grid(alpha=0.25)
+
+    handles = [
+        Line2D([], [], marker="o", ls="", mfc="#475569", mec="#475569", ms=8, label="DnaA-bound box"),
+        Line2D([], [], marker="o", ls="", mfc="white", mec="#475569", mew=1.3, ms=8, label="free box"),
+        Line2D([], [], marker="s", ls="", mfc="#dc2626", mec="#dc2626", ms=9, label="ter"),
+    ]
+    fig.legend(handles=handles, loc="upper right", fontsize=8.5, frameon=True)
+
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    for ext in ("png", "svg"):
+        fig.savefig(f"{args.out}.{ext}", dpi=140, bbox_inches="tight")
+    print(f"wrote {args.out}.png/.svg")
+    P = pool_occupancy(atp_nM[int(idx[len(idx)//2])], adp_nM[int(idx[len(idx)//2])])
+    print("mid-cycle [DnaA-ATP] nM:", round(float(atp_nM[int(idx[len(idx)//2])]), 1),
+          "| occupancy:", {k: round(v, 2) for k, v in P.items()})
+
+
+if __name__ == "__main__":
+    main()

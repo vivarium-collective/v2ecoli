@@ -1,0 +1,22 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260605002507"
+  generated_at: "2026-06-05T00:43:31.776Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-05-2.html"
+annotations:
+  "study-dnaa-3-box-binding-charts":
+    - ts: "2026-06-05T00:35:20.472Z"
+      author: "Rashmi"
+      text: "At this stage, we do not need to mark DARS1, DARS2 and datA. We are going to focus on them later. so remove them."
+  "study-dnaa-3-box-binding-readouts":
+    - ts: "2026-06-05T00:42:15.163Z"
+      author: "Rashmi"
+      text: "Also plot total DnaA concentration (count/cell mass). Total includes all forms of DnaA bound + unbound"
+  "study-dnaa-3-box-binding-reqs":
+    - ts: "2026-06-05T00:43:19.580Z"
+      author: "Rashmi"
+      text: "Plan approved go ahead"

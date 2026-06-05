@@ -1,17 +1,17 @@
-"""Render the foundational behavioral-checks card (pytest-as-evidence).
+"""Render the single-cell mechanics card (pytest-as-evidence).
 
-The foundational invariants (cell grows, replication completes, division
+The single-cell mechanical invariants (cell grows, replication completes, division
 conserves, daughters viable) are single-cell + procedural, so — unlike the
 population cards — their *measurement* stays in pytest. This CLI runs the
 `behavior`-marked checks (or reads a junit XML from a prior run), maps each
 test's pass / fail / skip onto a boolean axis declared in the reference, and
 renders the card through the *shared* grader + renderer.
 
-    python reports/foundational_card_report.py
-    python reports/foundational_card_report.py --junitxml out/behavior.xml
+    python reports/single_cell_mechanics_report.py
+    python reports/single_cell_mechanics_report.py --junitxml out/behavior.xml
 
 A skipped check (missing checkpoint / trajectory) renders ``ungraded`` — honest,
-not a pass. Default output: docs/report_cards/foundational/report_card.{md,html}.
+not a pass. Default output: docs/report_cards/single_cell_mechanics/report_card.{md,html}.
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ from v2ecoli.library.report_card import (
 
 _HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _DEFAULT_REFERENCE = os.path.join(_HERE, "tests", "fixtures",
-                                  "foundational_reference.json")
+                                  "single_cell_mechanics_reference.json")
 
 
 def _git_sha() -> str | None:
@@ -70,7 +70,7 @@ def main() -> None:
                    help="Use an existing junit XML instead of running pytest")
     p.add_argument("--reference", default=_DEFAULT_REFERENCE)
     p.add_argument("--out-dir",
-                   default=os.path.join("docs", "report_cards", "foundational"))
+                   default=os.path.join("docs", "report_cards", "single_cell_mechanics"))
     args = p.parse_args()
 
     reference = load_json(args.reference)

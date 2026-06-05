@@ -1,6 +1,6 @@
 """Re-pin the basal-phenotype report-card reference from a blessed ensemble.
 
-The reference fixture (``tests/fixtures/basal_phenotype_reference.json``) is a
+The reference fixture (``tests/fixtures/population_phenotype_basal_reference.json``) is a
 *generated* pin: it bakes the blessed ensemble's measured values as the grading
 reference so the card self-pins green and gates on drift. This script
 regenerates it, preserving the human-authored presentation/criterion structure
@@ -20,8 +20,8 @@ It adds the Layer-3 axes on top of the existing Growth + Composition axes:
 
 Run (full-mode cache ensemble + its sim_data):
 
-    python scripts/pin_basal_phenotype_reference.py \\
-        --sweep-dir out/basal_phenotype_card \\
+    python scripts/pin_population_phenotype_basal_reference.py \\
+        --sweep-dir out/population_phenotype_basal \\
         --sim-data out/sim_data_full/parca_state.pkl \\
         --gen-lb 3
 
@@ -111,12 +111,12 @@ _OMICS_HOW = ("Cell-level ensemble-mean count vector (time-mean within cell over
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--sweep-dir", default="out/basal_phenotype_card")
+    p.add_argument("--sweep-dir", default="out/population_phenotype_basal")
     p.add_argument("--sim-data", default="out/sim_data_full/parca_state.pkl")
-    p.add_argument("--analysis", default="out/basal_phenotype_card/analysis.json")
+    p.add_argument("--analysis", default="out/population_phenotype_basal/analysis.json")
     p.add_argument("--gen-lb", type=int, default=3)
     p.add_argument("--reference", default=os.path.join(
-        "tests", "fixtures", "basal_phenotype_reference.json"))
+        "tests", "fixtures", "population_phenotype_basal_reference.json"))
     args = p.parse_args()
 
     with open(args.reference, encoding="utf-8") as f:

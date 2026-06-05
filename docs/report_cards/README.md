@@ -55,18 +55,18 @@ for more of the conceptual spec; this file is the map.
   This README is the hub that ties the spokes together.
 
 - **Kinds of behavioral check.** Cards range over different kinds of behavior:
-  - *Foundational invariants* — binary: does the machinery work (cell grows,
+  - *Single-cell invariants* — binary: does the machinery work (cell grows,
     divides, conserves mass, daughters viable)? Run from a single-cell
     checkpoint, in seconds.
   - *Population phenotypes* — quantitative: emergent behaviors measured across a
     large ensemble of simulations (seeds × generations), graded vs a reference
-    within tolerance. (The basal phenotype card.)
+    within tolerance. (the basal population-phenotype card)
   - *Equivalence* — does this model version behave like another (e.g. v1↔v2)?
 
 - **Composed for purpose.** These checks are building blocks; how they're
   combined depends on the use:
   - *Within a dev investigation / PR* — run the relevant checks to gate a change
-    before merge. A common, practical composition runs the fast foundational
+    before merge. A common, practical composition runs the fast single-cell mechanics
     checks before committing compute to a full ensemble, but the ordering is a
     convenience, not a fixed hierarchy.
   - *Longitudinally across the project* — track drift over time and show
@@ -98,11 +98,11 @@ for more of the conceptual spec; this file is the map.
 
 | Station | Kind | Stimulus | Analysis | Reference | Test | Output | Updated |
 |---------|------|----------|----------|-----------|------|--------|---------|
-| Foundational behavioral checks | Foundational invariants | pre-division checkpoint (single cell) | `tests/test_model_behavior.py` + `reports/foundational_card_report.py` | `tests/fixtures/foundational_reference.json` | `tests/test_model_behavior.py` | `docs/report_cards/foundational/` | `0c1ee93` |
-| Basal-condition phenotype | Population phenotypes | `configs/basal_phenotype_card.json` | `BasalPhenotypeCard` | `tests/fixtures/basal_phenotype_reference.json` | `tests/test_basal_phenotype_card.py` | `docs/report_cards/basal_phenotype/` | `f3867c2` |
+| Single-cell mechanics | Single-cell invariants | pre-division checkpoint (single cell) | `tests/test_model_behavior.py` + `reports/single_cell_mechanics_report.py` | `tests/fixtures/single_cell_mechanics_reference.json` | `tests/test_model_behavior.py` | `docs/report_cards/single_cell_mechanics/` | `0c1ee93` |
+| Basal-condition phenotype | Population phenotypes | `configs/population_phenotype_basal.json` | `PopulationPhenotypeBasalCard` | `tests/fixtures/population_phenotype_basal_reference.json` | `tests/test_population_phenotype_basal.py` | `docs/report_cards/population_phenotype_basal/` | `f3867c2` |
 | v1↔v2 equivalence | Equivalence | *(v1 + v2 runs)* | *(planned — same machinery)* | *(v1 outputs)* | — | `docs/v1_v2_comparison.html` | *planned* |
 
-### Foundational behavioral checks
+### Single-cell mechanics
 
 Binary invariants of a single cell — does the machinery work (grows, divides,
 conserves mass, daughters viable)? Run from a saved pre-division checkpoint
@@ -119,13 +119,13 @@ conserves mass, daughters viable)? Run from a saved pre-division checkpoint
 - **Acceptance**: absolute biological windows baked in the test — these encode
   biology directly (not a pinned number), so they can compose with the
   population cards as a fast pre-merge check or a stable cross-version baseline.
-- **Card** (`reports/foundational_card_report.py`): renders the checks as a
+- **Card** (`reports/single_cell_mechanics_report.py`): renders the checks as a
   **boolean** report card via the *shared* grader/renderer
-  (`tests/fixtures/foundational_reference.json` declares one boolean axis per
+  (`tests/fixtures/single_cell_mechanics_reference.json` declares one boolean axis per
   check). It's **pytest-as-evidence** — runs the `behavior` suite, maps each
   test's pass/fail/skip onto its axis; a skipped check (missing checkpoint /
   trajectory) renders `ungraded`. Output:
-  `docs/report_cards/foundational/report_card.{html,md}`. The measurement stays
+  `docs/report_cards/single_cell_mechanics/report_card.{html,md}`. The measurement stays
   procedural + single-cell (in pytest); only the *result* flows through the
   shared card — the abstraction shares the output layer, not the measurement.
 
@@ -138,21 +138,21 @@ aggregated across the whole population, and graded vs a pinned reference within
 tolerance. 21 axes across 5 groups: Physiology · Composition · Ribosomes ·
 Exchange fluxes · Gene expression.
 
-- **Stimulus**: `v2ecoli/configs/basal_phenotype_card.json` (4 seeds × 8
+- **Stimulus**: `v2ecoli/configs/population_phenotype_basal.json` (4 seeds × 8
   generations, burn-in 3) — the seeds × generations are the population the
   phenotypes are computed over.
-- **Measurement**: `v2ecoli/workflow/analysis.py::BasalPhenotypeCard` +
+- **Measurement**: `v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard` +
   `analysis_runner.build_cell_records`. Regenerate over an existing sweep with
-  `v2ecoli-analyze <sweep> --config configs/basal_phenotype_card.json`
+  `v2ecoli-analyze <sweep> --config configs/population_phenotype_basal.json`
   (no re-sim).
-- **Reference**: `tests/fixtures/basal_phenotype_reference.json` (typed criteria
+- **Reference**: `tests/fixtures/population_phenotype_basal_reference.json` (typed criteria
   + baked ref values/vectors). Re-pin with
-  `scripts/pin_basal_phenotype_reference.py` from a blessed ensemble + its
+  `scripts/pin_population_phenotype_basal_reference.py` from a blessed ensemble + its
   sim_data.
-- **Grade test**: `tests/test_basal_phenotype_card.py` (measurement math +
+- **Grade test**: `tests/test_population_phenotype_basal.py` (measurement math +
   criterion dispatch + the meta-tier grade vs the pin).
-- **Render**: `reports/basal_phenotype_card_report.py` →
-  `docs/report_cards/basal_phenotype/report_card.{html,md}` (+
+- **Render**: `reports/population_phenotype_basal_report.py` →
+  `docs/report_cards/population_phenotype_basal/report_card.{html,md}` (+
   `report_card_DRIFT_DEMO.html`, a committed "what a regression looks like").
 - **Provenance**: reference pinned to a full-ParCa blessed ensemble (model ref
   in the reference's `stimulus.blessed_model_ref`); card infrastructure updated

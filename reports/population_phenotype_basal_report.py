@@ -1,13 +1,13 @@
 """Render the basal-condition phenotype report card from a workflow run.
 
-Reads a ``basal_phenotype_card`` analysis.json (produced by
-``v2ecoli-workflow --config configs/basal_phenotype_card.json``) and the pinned
+Reads a ``population_phenotype_basal`` analysis.json (produced by
+``v2ecoli-workflow --config configs/population_phenotype_basal.json``) and the pinned
 reference, grades the measured ensemble, and writes the card as Markdown + HTML.
 
-    python reports/basal_phenotype_card_report.py \\
-        --analysis out/basal_phenotype_card/analysis.json
+    python reports/population_phenotype_basal_report.py \\
+        --analysis out/population_phenotype_basal/analysis.json
 
-Default output: out/basal_phenotype_card/report_card.{md,html}
+Default output: out/population_phenotype_basal/report_card.{md,html}
 
 See docs/meta_report_cards.md for the card design. The grade logic lives in
 v2ecoli.library.report_card (shared with the grade test).
@@ -26,7 +26,7 @@ from v2ecoli.library.report_card import (
 
 _DEFAULT_REFERENCE = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-    "tests", "fixtures", "basal_phenotype_reference.json")
+    "tests", "fixtures", "population_phenotype_basal_reference.json")
 
 
 def _git_sha() -> str | None:

@@ -1,8 +1,9 @@
 {
-  "$schema_note": "v2 reference for the basal-phenotype report card. Axes carry presentation + a TYPED criterion. Population-stat axes grade by Welch t-test of candidate per-cell values vs these blessed reference values (cell-level n). A SIGNIFICANT difference (p<p_min) is drift/mismatch. Self-pin => p=1.0 at baseline; future drift / PDMP lowers p. Judgement is deferred: the pin is current main's behavior, not a biological target.",
+  "$schema_note": "v2 reference for the basal population-phenotype report card. Axes carry presentation + a TYPED criterion. Population-stat axes grade by Welch t-test of candidate per-cell values vs these blessed reference values (cell-level n). A SIGNIFICANT difference (p<p_min) is drift/mismatch. Self-pin => p=1.0 at baseline; future drift / PDMP lowers p. Judgement is deferred: the pin is current main's behavior, not a biological target.",
+  "title": "Basal-condition population phenotype",
   "status": "populated",
   "stimulus": {
-    "config": "v2ecoli/configs/basal_phenotype_card.json",
+    "config": "v2ecoli/configs/population_phenotype_basal.json",
     "blessed_model_ref": "b162243",
     "ensemble": "4 seeds x 8 gens, generation_lower_bound=3 -> 20 cells (17 divided); 29/32 generations divided",
     "cache_provenance": "FULL-mode ParCa cache (out/cache_full). Shipped fixture is fast-mode and won't reproduce it; requires a full ParCa run. cache_version inputs_hash does not distinguish fast/full.",
@@ -231,7 +232,7 @@
       "group": "Composition",
       "label": "Protein / dry weight",
       "units": "g/gDW",
-      "how": "Time-mean protein mass fraction of dry weight. One value per cell (gens≥3); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::BasalPhenotypeCard.",
+      "how": "Time-mean protein mass fraction of dry weight. One value per cell (gens≥3); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard.",
       "plot": "violin",
       "criterion": {
         "type": "ttest",
@@ -267,7 +268,7 @@
       "group": "Composition",
       "label": "Total RNA / dry weight",
       "units": "g/gDW",
-      "how": "Time-mean total-RNA (rRna+tRna+mRna) mass fraction of dry weight. One value per cell (gens≥3); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::BasalPhenotypeCard.",
+      "how": "Time-mean total-RNA (rRna+tRna+mRna) mass fraction of dry weight. One value per cell (gens≥3); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard.",
       "plot": "violin",
       "criterion": {
         "type": "ttest",
@@ -303,7 +304,7 @@
       "group": "Composition",
       "label": "DNA / dry weight",
       "units": "g/gDW",
-      "how": "Time-mean DNA mass fraction of dry weight. One value per cell (gens≥3); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::BasalPhenotypeCard.",
+      "how": "Time-mean DNA mass fraction of dry weight. One value per cell (gens≥3); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard.",
       "plot": "violin",
       "criterion": {
         "type": "ttest",

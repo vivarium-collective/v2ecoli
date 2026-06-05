@@ -1,9 +1,9 @@
-# Basal-condition phenotype — report card
+# Basal-condition population phenotype — report card
 
-- **Model**: e6f8ea7
+- **Model**: e11c110
 - **Stimulus**: 4 seeds x 8 gens, generation_lower_bound=3 -> 20 cells (17 divided); 29/32 generations divided
 - **Reference status**: populated
-- **Generated**: 2026-06-05 13:40
+- **Generated**: 2026-06-05 14:21
 
 ## Overall: PASS (21 ✓ · 0 ≈ · 0 ✗ · 0 –)
 

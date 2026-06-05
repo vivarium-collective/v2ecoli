@@ -36,10 +36,10 @@ def dig(card: dict, path: str) -> Any:
 
 
 def card_from_analysis(analysis: dict) -> dict:
-    """Pull the single basal_phenotype_card result out of an analysis.json."""
-    cards = (analysis.get("multiseed", {}) or {}).get("basal_phenotype_card", {}) or {}
+    """Pull the single population_phenotype_basal result out of an analysis.json."""
+    cards = (analysis.get("multiseed", {}) or {}).get("population_phenotype_basal", {}) or {}
     if not cards:
-        raise KeyError("no multiseed.basal_phenotype_card in analysis")
+        raise KeyError("no multiseed.population_phenotype_basal in analysis")
     return next(iter(cards.values()))
 
 

@@ -10,7 +10,7 @@ the definition of a behavioral test.
 > (Physiology · Composition · Ribosomes · Exchange fluxes · Gene expression)
 > against a blessed 4×8 ensemble (full-mode ParCa cache; model ref in the
 > reference's `stimulus.blessed_model_ref`) — see
-> [`report_cards/basal_phenotype/`](report_cards/basal_phenotype/report_card.md).
+> [`report_cards/population_phenotype_basal/`](report_cards/population_phenotype_basal/report_card.md).
 > All axes grade **PASS** against the pin. Two fixes were required to get here:
 > sustained multi-generation division needs `#127` (MarkDPeriod divide-flag
 > detection for gen ≥ 1), and a **full-mode** ParCa cache (the shipped fast-mode
@@ -102,35 +102,35 @@ indistinguishable within tolerance.
 
 | Artifact | File |
 |---|---|
-| Measurement (multiseed analysis) | `v2ecoli/workflow/analysis.py` → `BasalPhenotypeCard` (+ `analysis_runner.build_cell_records`) |
+| Measurement (multiseed analysis) | `v2ecoli/workflow/analysis.py` → `PopulationPhenotypeBasalCard` (+ `analysis_runner.build_cell_records`) |
 | Grade + render machinery | `v2ecoli/library/{card_criteria,card_plots,card_vectors,report_card}.py` |
-| Stimulus (the canonical ensemble) | `v2ecoli/configs/basal_phenotype_card.json` |
-| Reference (typed criteria) | `tests/fixtures/basal_phenotype_reference.json` |
-| Re-pin script | `scripts/pin_basal_phenotype_reference.py` |
-| Grade test | `tests/test_basal_phenotype_card.py` |
-| Render CLI | `reports/basal_phenotype_card_report.py` |
+| Stimulus (the canonical ensemble) | `v2ecoli/configs/population_phenotype_basal.json` |
+| Reference (typed criteria) | `tests/fixtures/population_phenotype_basal_reference.json` |
+| Re-pin script | `scripts/pin_population_phenotype_basal_reference.py` |
+| Grade test | `tests/test_population_phenotype_basal.py` |
+| Render CLI | `reports/population_phenotype_basal_report.py` |
 
 ```bash
 # 1. Produce a sweep (needs a ParCa cache), then run the analysis over it
 #    (re-runnable with no re-sim):
-v2ecoli-workflow --config v2ecoli/configs/basal_phenotype_card.json
-v2ecoli-analyze out/basal_phenotype_card --config v2ecoli/configs/basal_phenotype_card.json
-#    -> writes out/basal_phenotype_card/analysis.json (card under
-#       results["multiseed"]["basal_phenotype_card"]).
+v2ecoli-workflow --config v2ecoli/configs/population_phenotype_basal.json
+v2ecoli-analyze out/population_phenotype_basal --config v2ecoli/configs/population_phenotype_basal.json
+#    -> writes out/population_phenotype_basal/analysis.json (card under
+#       results["multiseed"]["population_phenotype_basal"]).
 
 # 2. (Re)pin the reference from a blessed ensemble + its sim_data (bakes the
 #    typed-criteria ref values/vectors + the exchange-flux id order):
-python scripts/pin_basal_phenotype_reference.py \
-    --sweep-dir out/basal_phenotype_card \
+python scripts/pin_population_phenotype_basal_reference.py \
+    --sweep-dir out/population_phenotype_basal \
     --sim-data out/sim_data_full/parca_state.pkl --gen-lb 3
 
 # 3. Render the card (md + html; reads omics/flux vectors from the sweep):
-python reports/basal_phenotype_card_report.py \
-    --analysis out/basal_phenotype_card/analysis.json
+python reports/population_phenotype_basal_report.py \
+    --analysis out/population_phenotype_basal/analysis.json
 
 # 4. Grade any model against the pin (grade_card vs the typed-criteria reference):
-V2ECOLI_BASAL_ANALYSIS=out/basal_phenotype_card/analysis.json \
-    pytest tests/test_basal_phenotype_card.py -k matches_pinned_reference
+V2ECOLI_BASAL_ANALYSIS=out/population_phenotype_basal/analysis.json \
+    pytest tests/test_population_phenotype_basal.py -k matches_pinned_reference
 ```
 
 Until the reference is `status: populated`, the grade test **skips** (same

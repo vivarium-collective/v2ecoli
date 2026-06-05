@@ -1,6 +1,6 @@
 {
-  "$schema_note": "Foundational behavioral checks as a boolean report card. Each axis maps to a `behavior`-marked test in tests/test_model_behavior.py (pytest-as-evidence). The measurement is procedural + single-cell (run via pytest); only the pass/fail/skip RESULT flows through the shared grader/renderer. A skipped test (missing checkpoint/trajectory) renders `ungraded`, not a failure.",
-  "title": "Foundational behavioral checks",
+  "$schema_note": "Single-cell mechanics as a boolean report card. Each axis maps to a `behavior`-marked test in tests/test_model_behavior.py (pytest-as-evidence). The measurement is procedural + single-cell (run via pytest); only the pass/fail/skip RESULT flows through the shared grader/renderer. A skipped test (missing checkpoint/trajectory) renders `ungraded`, not a failure.",
+  "title": "Single-cell mechanics",
   "status": "populated",
   "stimulus": {
     "summary": "single cell from a pre-division checkpoint (no ensemble) · 7 invariant checks via pytest -m behavior",
@@ -10,49 +10,49 @@
     "blessed_model_ref": "evidence: pytest -m behavior"
   },
   "axes": {
-    "foundational.mass_doubles": {
+    "single_cell_mechanics.mass_doubles": {
       "group": "Growth",
       "label": "Dry mass roughly doubles",
       "how": "Over a complete cycle the cell accumulates ~1.5-2.5x initial dry mass (rejects both stalls and runaway growth).",
       "criterion": {"type": "boolean"},
       "test": "test_baseline_dry_mass_roughly_doubles"
     },
-    "foundational.monotone_growth": {
+    "single_cell_mechanics.monotone_growth": {
       "group": "Growth",
       "label": "Growth is monotone (no stalls)",
       "how": "No >60s interval where dry mass is non-increasing; a stall means a listener crashed or metabolism shut off.",
       "criterion": {"type": "boolean"},
       "test": "test_baseline_monotone_growth"
     },
-    "foundational.replication_window": {
+    "single_cell_mechanics.replication_window": {
       "group": "Replication",
       "label": "Replication completes in window",
       "how": "First appearance of 2 full chromosomes lands in a biologically reasonable window (~[900, 1800] s).",
       "criterion": {"type": "boolean"},
       "test": "test_replication_completes_in_expected_window"
     },
-    "foundational.forks_persist": {
+    "single_cell_mechanics.forks_persist": {
       "group": "Replication",
       "label": "Forks persist mid-cycle",
       "how": "At least 3 mid-cycle snapshots have active replication forks (protects against forks terminating immediately).",
       "criterion": {"type": "boolean"},
       "test": "test_replication_forks_present_mid_cycle"
     },
-    "foundational.conserves_bulk": {
+    "single_cell_mechanics.conserves_bulk": {
       "group": "Division",
       "label": "Division conserves bulk",
       "how": "Invoking the divide machinery yields two daughters with populated bulk arrays; mother count == d1 + d2.",
       "criterion": {"type": "boolean"},
       "test": "test_division_splits_cell_into_two_daughters"
     },
-    "foundational.conserves_chromosomes": {
+    "single_cell_mechanics.conserves_chromosomes": {
       "group": "Division",
       "label": "Division conserves chromosomes",
       "how": "Full chromosomes split across division without creation/destruction (mother == d1 + d2).",
       "criterion": {"type": "boolean"},
       "test": "test_division_conserves_unique_molecules"
     },
-    "foundational.daughters_grow": {
+    "single_cell_mechanics.daughters_grow": {
       "group": "Daughter viability",
       "label": "Daughters build and grow",
       "how": "Both daughters build from the split state and each gains >=0.5 fg dry mass over a short run — the strongest evidence the full machinery is wired through division.",
@@ -61,7 +61,7 @@
     }
   },
   "findings": [
-    "Foundational invariants, graded as pytest-as-evidence: the result of the `behavior`-marked single-cell checks flows through the shared boolean criterion. A skipped check (missing checkpoint/trajectory) is `ungraded`, not a pass or fail.",
+    "Single-cell mechanical invariants, graded as pytest-as-evidence: the result of the `behavior`-marked single-cell checks flows through the shared boolean criterion. A skipped check (missing checkpoint/trajectory) is `ungraded`, not a pass or fail.",
     "These are preconditions the population (ensemble) cards assume; they compose with those cards (e.g. as a fast pre-merge gate) but are graded as a distinct, single-cell kind of behavioral check."
   ]
 }

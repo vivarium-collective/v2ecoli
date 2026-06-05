@@ -2,7 +2,7 @@
 
 Three layers, mirroring the card's three artifacts:
 
-  1. **Measurement math** — ``BasalPhenotypeCard.analyze`` over synthetic
+  1. **Measurement math** — ``PopulationPhenotypeBasalCard.analyze`` over synthetic
      per-cell records (no ParCa cache needed). Pins burn-in filtering,
      doubling-time mean/CV, and composition-fraction reduction.
   2. **Config threading** — the dedicated ``generation_lower_bound`` knob
@@ -12,7 +12,7 @@ Three layers, mirroring the card's three artifacts:
      *pinned reference* whose axes carry typed criteria (``rel_tol`` /
      ``ttest`` / ``r2`` / ``flux_scatter`` / ``boolean``), each earning a
      4-state verdict (within_tol / drift / mismatch / ungraded). The reference
-     is ``tests/fixtures/basal_phenotype_reference.json``, pinned to a blessed
+     is ``tests/fixtures/population_phenotype_basal_reference.json``, pinned to a blessed
      current-main ensemble (no biological judgement yet — judgement comes later
      from reading drift against the pin).
 """
@@ -21,12 +21,12 @@ import os
 
 import pytest
 
-from v2ecoli.workflow.analysis import BasalPhenotypeCard
+from v2ecoli.workflow.analysis import PopulationPhenotypeBasalCard
 from v2ecoli.library.report_card import grade_card, card_from_analysis
 
 
 _FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
-_REFERENCE = os.path.join(_FIXTURE_DIR, "basal_phenotype_reference.json")
+_REFERENCE = os.path.join(_FIXTURE_DIR, "population_phenotype_basal_reference.json")
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +61,7 @@ def _ensemble():
 
 def _card(generation_lower_bound=0):
     from bigraph_schema import allocate_core
-    return BasalPhenotypeCard(
+    return PopulationPhenotypeBasalCard(
         {"generation_lower_bound": generation_lower_bound},
         core=allocate_core())
 
@@ -151,9 +151,9 @@ def test_generation_lower_bound_threads_through_run_analyses(monkeypatch, tmp_pa
     # build_cell_records returns {cell_key: record}; run_analyses takes .values()
     recs = {(c["lineage_seed"], c["generation"]): c for c in _ensemble()}
     monkeypatch.setattr(ar, "build_cell_records", lambda sweep_dir: recs)
-    options = {"multiseed": {"basal_phenotype_card": {"generation_lower_bound": 1}}}
+    options = {"multiseed": {"population_phenotype_basal": {"generation_lower_bound": 1}}}
     results = ar.run_analyses(str(tmp_path), options)
-    card = list(results["multiseed"]["basal_phenotype_card"].values())[0]
+    card = list(results["multiseed"]["population_phenotype_basal"].values())[0]
     assert "error" not in card, card
     assert card["generation_lower_bound"] == 1
     assert card["n_cells"] == 4
@@ -257,12 +257,12 @@ def _load_reference():
 
 
 @pytest.mark.behavior
-def test_basal_phenotype_card_matches_pinned_reference():
+def test_population_phenotype_basal_matches_pinned_reference():
     """META-TIER GRADE: a measured basal ensemble vs the pinned reference.
 
     Skips until (a) the reference is ``status: populated`` and (b) a measured
     analysis.json is available (``V2ECOLI_BASAL_ANALYSIS`` env var pointing at a
-    basal_phenotype_card run's analysis.json). The scalar axes (physiology /
+    population_phenotype_basal run's analysis.json). The scalar axes (physiology /
     composition / ribosomes) grade directly; the vector axes (exchange fluxes /
     gene expression) render ungraded unless the report's vector merge has run —
     ungraded never fails, so the gate is honest either way."""
@@ -273,7 +273,7 @@ def test_basal_phenotype_card_matches_pinned_reference():
 
     measured_path = os.environ.get("V2ECOLI_BASAL_ANALYSIS")
     if not measured_path or not os.path.isfile(measured_path):
-        pytest.skip("set V2ECOLI_BASAL_ANALYSIS to a basal_phenotype_card "
+        pytest.skip("set V2ECOLI_BASAL_ANALYSIS to a population_phenotype_basal "
                     "analysis.json from an ensemble run")
     with open(measured_path, encoding="utf-8") as f:
         card = card_from_analysis(json.load(f))

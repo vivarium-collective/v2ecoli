@@ -1,9 +1,9 @@
-# Foundational behavioral checks — report card
+# Single-cell mechanics — report card
 
-- **Model**: e6f8ea7
+- **Model**: e11c110
 - **Stimulus**: single cell from a pre-division checkpoint (no ensemble) · 7 invariant checks via pytest -m behavior
 - **Reference status**: populated
-- **Generated**: 2026-06-05 13:39
+- **Generated**: 2026-06-05 13:56
 
 ## Overall: PASS (partial) (3 ✓ · 0 ≈ · 0 ✗ · 4 –)
 
@@ -36,7 +36,7 @@
 
 ## Findings
 
-- Foundational invariants, graded as pytest-as-evidence: the result of the `behavior`-marked single-cell checks flows through the shared boolean criterion. A skipped check (missing checkpoint/trajectory) is `ungraded`, not a pass or fail.
+- Single-cell mechanical invariants, graded as pytest-as-evidence: the result of the `behavior`-marked single-cell checks flows through the shared boolean criterion. A skipped check (missing checkpoint/trajectory) is `ungraded`, not a pass or fail.
 - These are preconditions the population (ensemble) cards assume; they compose with those cards (e.g. as a fast pre-merge gate) but are graded as a distinct, single-cell kind of behavioral check.
 
 _Behavioral report card — see docs/report_cards/README.md for the index and how the cards compose._

@@ -227,7 +227,7 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
                 continue
             # Pass the per-analysis options dict (the value under the analysis
             # name in analysis_options) as the Step's config, so analyses can
-            # be parameterized (e.g. basal_phenotype_card's generation_lower_bound).
+            # be parameterized (e.g. population_phenotype_basal's generation_lower_bound).
             # Analyses with config_schema={} simply ignore a populated config.
             step = step_cls(analyses.get(name) or {}, core=core)
             per_group: dict[str, Any] = {}

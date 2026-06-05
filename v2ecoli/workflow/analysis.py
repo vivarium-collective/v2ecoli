@@ -223,7 +223,7 @@ def _mean_std_cv(values: list[float]) -> dict[str, float]:
             "values": [float(v) for v in values]}
 
 
-class BasalPhenotypeCard(AnalysisStep):
+class PopulationPhenotypeBasalCard(AnalysisStep):
     """Multiseed: the v1 *meta-tier report card* measurement.
 
     Grades the two universally-applicable basal-condition axes over an
@@ -235,7 +235,7 @@ class BasalPhenotypeCard(AnalysisStep):
 
     This is the *measurement* half of the report card. The *grade* (pass/fail
     vs. a pinned reference within tolerance) lives in
-    ``tests/test_basal_phenotype_card.py`` so the reference and tolerances are
+    ``tests/test_population_phenotype_basal.py`` so the reference and tolerances are
     reviewable artifacts, not buried analysis constants.
 
     Design notes:
@@ -252,7 +252,7 @@ class BasalPhenotypeCard(AnalysisStep):
         report can draw violin/strip plots and grade with a Welch t-test.
     """
 
-    name = "basal_phenotype_card"
+    name = "population_phenotype_basal"
     scale = "multiseed"
     config_schema = {
         "generation_lower_bound": {"_type": "integer", "_default": 0},

@@ -1,0 +1,169 @@
+# Behavioral report cards
+
+## What is a behavioral test?
+
+A behavioral test drives the model with a known **stimulus**, records its
+**behavior**, and compares that behavior to an **expectation**. It grades the
+model at the level of its *observable behavior* — phenotypes, dynamics, emergent
+population properties — rather than its implementation (unit tests on code
+paths). Stimulus, recorded behavior, and expectation are the three moving parts;
+different choices of each yield different tests.
+
+Because the same stimulus should produce the same behavior, this one shape is a
+**unifying abstraction across software and science**, at a shared behavioral
+abstraction layer:
+
+- as **software** — development and regression testing: the stimulus is a code
+  change, the expectation is behavioral parity or a sanctioned delta;
+- as **science** — meta-evaluation of the model's performance across a range of
+  conditions and perturbations: the stimulus is an environmental or genetic
+  perturbation, the expectation is experimental data, literature, or a prior
+  model version.
+
+Same shape, different stimulus / expectation / timescale. A **report card** is
+the auditable, comparable, regression-tracked artifact a behavioral test
+produces — the model's graded behavior under a defined stimulus.
+
+> **Under development.** The ontology of behavioral tests and the patterns for
+> applying them are still being worked out. This directory is *one working
+> pattern* for implementing them in v2ecoli; we anticipate a growing **"zoo"** of
+> behavioral tests, built and composed for different purposes, that will refine
+> both the ontology and these conventions.
+
+## This directory
+
+The index + catalog for v2ecoli's behavioral report cards: what each card is and
+**where across the repo the pieces of each card live** (config, analysis,
+reference, test, output). See [`../meta_report_cards.md`](../meta_report_cards.md)
+for more of the conceptual spec; this file is the map.
+
+> Snapshot as of `f3867c2`. Git log is the source of truth for per-file changes;
+> the "updated" notes below are a convenience and may lag.
+
+## Key concepts (brief)
+
+- **Three objects, often conflated.** (1) a *behavioral spec* — the
+  implementation-agnostic "is this an E. coli" protocol; (2) a *report card* —
+  one model's grades against the spec; (3) the *CI/operational substrate* that
+  runs the suite and gates merges. This directory is mostly about (2), with
+  hooks toward (3).
+
+- **A test station = `{stimulus config × analysis × reference × test ×
+  rendered output}`.** No single directory holds a whole station — each *kind*
+  of artifact lives in its conventional home (configs in `configs/`, code in
+  `library/`+`workflow/`, tests in `tests/`, output in `docs/report_cards/`).
+  This README is the hub that ties the spokes together.
+
+- **Kinds of behavioral check.** Cards range over different kinds of behavior:
+  - *Foundational invariants* — binary: does the machinery work (cell grows,
+    divides, conserves mass, daughters viable)? Run from a single-cell
+    checkpoint, in seconds.
+  - *Population phenotypes* — quantitative: emergent behaviors measured across a
+    large ensemble of simulations (seeds × generations), graded vs a reference
+    within tolerance. (The basal phenotype card.)
+  - *Equivalence* — does this model version behave like another (e.g. v1↔v2)?
+
+- **Composed for purpose.** These checks are building blocks; how they're
+  combined depends on the use:
+  - *Within a dev investigation / PR* — run the relevant checks to gate a change
+    before merge. A common, practical composition runs the fast foundational
+    checks before committing compute to a full ensemble, but the ordering is a
+    convenience, not a fixed hierarchy.
+  - *Longitudinally across the project* — track drift over time and show
+    behavioral equivalence across model versions, by re-grading the same cards
+    as the model evolves.
+
+- **Reference-driven, one grader, many references.** One grader + one renderer
+  serve every card; cards differ only by their *reference source* (e.g. pinned
+  current-model "is it E. coli" vs a v1↔v2 equivalence reference). Each axis
+  carries a typed `criterion` (`rel_tol` / `ttest` / `r2` / `flux_scatter` /
+  `boolean`) earning a 4-state verdict (`within_tol` / `drift` / `mismatch` /
+  `ungraded`).
+
+- **Cell-level aggregation.** Population stats aggregate per cell (time-average
+  within a cell → one value/vector per cell) then across the N cells — never raw
+  statistics over timepoints.
+
+## Shared machinery (used by every card)
+
+| Piece | Path |
+|-------|------|
+| Typed criteria (verdict logic) | `v2ecoli/library/card_criteria.py` |
+| Inline-SVG plots (violin / scatter / flux / loglog) | `v2ecoli/library/card_plots.py` |
+| Vector extraction (omics / flux, from parquet) | `v2ecoli/library/card_vectors.py` |
+| Grader + Markdown/HTML renderer | `v2ecoli/library/report_card.py` |
+| Per-cell record builder | `v2ecoli/workflow/analysis_runner.py` |
+
+## Catalog of stations
+
+| Station | Kind | Stimulus | Analysis | Reference | Test | Output | Updated |
+|---------|------|----------|----------|-----------|------|--------|---------|
+| Foundational behavioral checks | Foundational invariants | pre-division checkpoint (single cell) | `tests/test_model_behavior.py` (assertions) | absolute biological windows (in-test) | `tests/test_model_behavior.py` | — | `5b5bc81` |
+| Basal-condition phenotype | Population phenotypes | `configs/basal_phenotype_card.json` | `BasalPhenotypeCard` | `tests/fixtures/basal_phenotype_reference.json` | `tests/test_basal_phenotype_card.py` | `docs/report_cards/basal_phenotype/` | `f3867c2` |
+| v1↔v2 equivalence | Equivalence | *(v1 + v2 runs)* | *(planned — same machinery)* | *(v1 outputs)* | — | `docs/v1_v2_comparison.html` | *planned* |
+
+### Foundational behavioral checks
+
+Binary invariants of a single cell — does the machinery work (grows, divides,
+conserves mass, daughters viable)? Run from a saved pre-division checkpoint
+(seconds, not minutes), suitable to block merges.
+
+- **Stimulus**: pre-division checkpoint `tests/fixtures/pre_division_state.json.gz`
+  + single-cell trajectory (`out/workflow/single_cell_meta.json`, via
+  `reports/workflow_report.py`); base config `v2ecoli/configs/default.json`.
+- **Fixtures**: `tests/conftest.py` (`predivision_state`, `single_cell_trajectory`,
+  `sim_data_cache`).
+- **Assertions** (`tests/test_model_behavior.py`, marker `behavior`): mass
+  roughly doubles · replication completes in window · division splits +
+  conserves bulk/chromosomes · daughters viable + grow.
+- **Acceptance**: absolute biological windows baked in the test — these encode
+  biology directly (not a pinned number), so they can compose with the
+  population cards as a fast pre-merge check or a stable cross-version baseline.
+
+### Basal-condition phenotype
+
+**Population phenotypes** — emergent behaviors of the model measured across a
+large ensemble of simulations (seeds × generations), not properties of any one
+cell. Each axis is a cell-level statistic (time-averaged within a cell) then
+aggregated across the whole population, and graded vs a pinned reference within
+tolerance. 21 axes across 5 groups: Physiology · Composition · Ribosomes ·
+Exchange fluxes · Gene expression.
+
+- **Stimulus**: `v2ecoli/configs/basal_phenotype_card.json` (4 seeds × 8
+  generations, burn-in 3) — the seeds × generations are the population the
+  phenotypes are computed over.
+- **Measurement**: `v2ecoli/workflow/analysis.py::BasalPhenotypeCard` +
+  `analysis_runner.build_cell_records`. Regenerate over an existing sweep with
+  `v2ecoli-analyze <sweep> --config configs/basal_phenotype_card.json`
+  (no re-sim).
+- **Reference**: `tests/fixtures/basal_phenotype_reference.json` (typed criteria
+  + baked ref values/vectors). Re-pin with
+  `scripts/pin_basal_phenotype_reference.py` from a blessed ensemble + its
+  sim_data.
+- **Grade test**: `tests/test_basal_phenotype_card.py` (measurement math +
+  criterion dispatch + the meta-tier grade vs the pin).
+- **Render**: `reports/basal_phenotype_card_report.py` →
+  `docs/report_cards/basal_phenotype/report_card.{html,md}` (+
+  `report_card_DRIFT_DEMO.html`, a committed "what a regression looks like").
+- **Provenance**: reference pinned to a full-ParCa blessed ensemble (model ref
+  in the reference's `stimulus.blessed_model_ref`); card infrastructure updated
+  at `f3867c2`.
+
+### v1↔v2 equivalence (planned)
+
+Same grader + renderer, reference source = v1 outputs ("does v2 match v1").
+Existing comparison: `reports/v1_v2_report.py` → `docs/v1_v2_comparison.html`.
+Folding it onto the shared reference-driven machinery is the divide-and-conquer
+second reference source.
+
+## Adding a station
+
+1. **Stimulus** → a config in `v2ecoli/configs/`.
+2. **Analysis** → an `AnalysisStep` in `v2ecoli/workflow/analysis.py` emitting
+   grouped axis nodes (`group.axis = {values, mean, std, cv, n}` or `{vector}`).
+3. **Reference** → a pinned fixture in `tests/fixtures/`, ideally regenerated by
+   a committed pin script in `scripts/`.
+4. **Test** → a grade test in `tests/` (marker `behavior` for the merge-gating
+   suite).
+5. **Render** → a CLI in `reports/` writing to `docs/report_cards/<station>/`.
+6. **Register it here** (catalog row + a detail subsection).

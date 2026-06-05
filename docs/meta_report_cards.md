@@ -1,13 +1,17 @@
 # Meta-level report cards
 
 A **report card** is an auditable, versioned record of what a model can do,
-graded against a behavioral specification of the organism. This document
-describes the v1 card in v2ecoli and the design decisions behind it.
+graded against a behavioral specification of the organism. This document is the
+design rationale for the basal-condition card; see
+[`report_cards/README.md`](report_cards/README.md) for the cross-card index and
+the definition of a behavioral test.
 
-> **Status: pinned (v1).** The card is pinned to a blessed 4×8 basal ensemble
-> (`b162243`, full-mode ParCa cache) — see
+> **Status: pinned.** The basal-condition card grades **21 axes across 5 groups**
+> (Physiology · Composition · Ribosomes · Exchange fluxes · Gene expression)
+> against a blessed 4×8 ensemble (full-mode ParCa cache; model ref in the
+> reference's `stimulus.blessed_model_ref`) — see
 > [`report_cards/basal_phenotype/`](report_cards/basal_phenotype/report_card.md).
-> Both axes grade **PASS** against the pin. Two fixes were required to get here:
+> All axes grade **PASS** against the pin. Two fixes were required to get here:
 > sustained multi-generation division needs `#127` (MarkDPeriod divide-flag
 > detection for gen ≥ 1), and a **full-mode** ParCa cache (the shipped fast-mode
 > fixture leaves metabolite concentrations unpopulated and degrades FBA). The
@@ -56,18 +60,29 @@ substrate reshape); the composition **meta** grade below asserts submass
 *fractions* match a *pinned reference value* (bucket A — it must survive the
 reshape). Same mass data, opposite tier.
 
-## The v1 card: basal-condition phenotype
+## The card: basal-condition phenotype
 
-The first meta card grades two universally-applicable basal-condition axes
-over an **ensemble** of cells (N seeds × M generations of the baseline, no
-variant), each reported as a cell-to-cell mean / std / CV:
+The basal-condition card grades **population phenotypes** — emergent behaviors
+measured across an **ensemble** of cells (N seeds × M generations of the
+baseline, no variant). Each axis is a cell-level statistic (time-averaged within
+a cell) aggregated across the population, graded against a pinned reference with
+a typed criterion and a 4-state verdict (within_tol / drift / mismatch /
+ungraded). 21 axes across 5 groups:
 
-- **Growth** — doubling time over confirmed divisions.
-- **Composition** — protein / RNA / DNA mass fractions of dry weight.
+- **Physiology** (cell cycle) — doubling time, cell mass, cell volume, oriC,
+  replication initiation + completion.
+- **Composition** — protein / total-RNA / DNA mass fractions of dry weight.
+- **Ribosomes** — total (active + free subunits), active fraction, elongation
+  rate, production (rRNA-initiation proxy).
+- **Exchange fluxes** — 87-flux fingerprint (scatter + appeared/disappeared
+  flag) + glucose / O₂ / NH₄ / CO₂ / acetate KPIs.
+- **Gene expression** — transcriptome + proteome log-log R² vs blessed vectors.
 
 Early generations are dropped as burn-in (`generation_lower_bound`) so the
-ensemble reflects steady balanced growth rather than the inoculation
-transient.
+ensemble reflects steady balanced growth rather than the inoculation transient.
+Criteria are typed per axis (`rel_tol` / `ttest` / `r2` / `flux_scatter` /
+`boolean`); the shared grader + renderer are described in
+[`report_cards/README.md`](report_cards/README.md).
 
 ### v1 reference = a pinned current-model ensemble (not a literature value)
 
@@ -87,29 +102,40 @@ indistinguishable within tolerance.
 
 | Artifact | File |
 |---|---|
-| Measurement (multiseed analysis) | `v2ecoli/workflow/analysis.py` → `BasalPhenotypeCard` |
+| Measurement (multiseed analysis) | `v2ecoli/workflow/analysis.py` → `BasalPhenotypeCard` (+ `analysis_runner.build_cell_records`) |
+| Grade + render machinery | `v2ecoli/library/{card_criteria,card_plots,card_vectors,report_card}.py` |
 | Stimulus (the canonical ensemble) | `v2ecoli/configs/basal_phenotype_card.json` |
-| Grade + reference | `tests/test_basal_phenotype_card.py`, `tests/fixtures/basal_phenotype_reference.json` |
+| Reference (typed criteria) | `tests/fixtures/basal_phenotype_reference.json` |
+| Re-pin script | `scripts/pin_basal_phenotype_reference.py` |
+| Grade test | `tests/test_basal_phenotype_card.py` |
+| Render CLI | `reports/basal_phenotype_card_report.py` |
 
 ```bash
-# 1. Produce a card (needs a ParCa cache):
+# 1. Produce a sweep (needs a ParCa cache), then run the analysis over it
+#    (re-runnable with no re-sim):
 v2ecoli-workflow --config v2ecoli/configs/basal_phenotype_card.json
-#    -> writes out/basal_phenotype_card/analysis.json with the card under
-#       results["multiseed"]["basal_phenotype_card"].
+v2ecoli-analyze out/basal_phenotype_card --config v2ecoli/configs/basal_phenotype_card.json
+#    -> writes out/basal_phenotype_card/analysis.json (card under
+#       results["multiseed"]["basal_phenotype_card"]).
 
-# 2. Populate the pinned reference (once, on blessed main):
-#    copy growth.doubling_time.mean + composition.*_fraction.mean from that
-#    analysis.json into tests/fixtures/basal_phenotype_reference.json,
-#    set blessed_model_ref to the git sha, set status: "populated".
+# 2. (Re)pin the reference from a blessed ensemble + its sim_data (bakes the
+#    typed-criteria ref values/vectors + the exchange-flux id order):
+python scripts/pin_basal_phenotype_reference.py \
+    --sweep-dir out/basal_phenotype_card \
+    --sim-data out/sim_data_full/parca_state.pkl --gen-lb 3
 
-# 3. Grade any model against the pin:
+# 3. Render the card (md + html; reads omics/flux vectors from the sweep):
+python reports/basal_phenotype_card_report.py \
+    --analysis out/basal_phenotype_card/analysis.json
+
+# 4. Grade any model against the pin (grade_card vs the typed-criteria reference):
 V2ECOLI_BASAL_ANALYSIS=out/basal_phenotype_card/analysis.json \
     pytest tests/test_basal_phenotype_card.py -k matches_pinned_reference
 ```
 
-Until the reference is populated, the grade test **skips** (same pattern as the
-other behavior tests skipping without a checkpoint). The measurement-math unit
-tests run without a cache.
+Until the reference is `status: populated`, the grade test **skips** (same
+pattern as the other behavior tests skipping without a checkpoint). The
+measurement-math + criterion unit tests run without a cache.
 
 ## Deliberately open (do not resolve in v1)
 
@@ -121,13 +147,15 @@ tests run without a cache.
 - **Spec-vs-card separation** — is the config the "spec" and the reference the
   "card", or are they two readings of one versioned object?
 
-## Known v1 limitations
+## Known limitations
 
-- **RNA == rRna.** The per-cell mass columns pulled by the analysis runner
-  include rRna but not tRna/mRna (rRna is ~80–85% of total RNA). Total-RNA/DW
-  is a follow-up (extend `analysis_runner._MASS_COLS`).
 - **Execution layer.** Producing the reference and grading a candidate both
   require a ParCa cache and an ensemble run; how that runs in CI (nightly /
   cloud / against a cached summary) is intentionally out of scope here.
-- **Tolerances are placeholders** pending the blessed run's observed
-  cell-to-cell CV.
+- **Vector extraction at render time.** The omics + exchange-flux axes read the
+  sweep parquet directly (~a minute over a 4×8 ensemble); they render
+  `ungraded` if skipped (`--no-vectors`).
+- **Replication event semantics.** Under overlapping rounds (oriC > 1), the
+  per-cell replication initiation and completion times track *different* rounds,
+  so their population means do not pair as one round's start/end (flagged in the
+  axis descriptions).

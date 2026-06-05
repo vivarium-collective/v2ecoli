@@ -28,20 +28,24 @@ def main():
     for a in ang:
         x, y = np.sin(a), np.cos(a)
         ax.plot([0.97 * x, 1.03 * x], [0.97 * y, 1.03 * y], color="#475569", lw=0.6, zorder=2)
-    # region markers — oriC (top) + dnaA promoter only
-    def mark(signed, label, color):
+    # region markers — oriC + dnaA promoter only. oriC (0) and the dnaA promoter
+    # (-44 kb) sit ~adjacent on the circle, so place the labels apart with leader
+    # lines (Rashmi 2026-06-05: the two labels were overlapping).
+    def mark(signed, label, color, label_xy):
         a = 2 * np.pi * ((signed % CHROM_LEN) / CHROM_LEN)
         x, y = np.sin(a), np.cos(a)
-        ax.plot([1.05 * x, 1.18 * x], [1.05 * y, 1.18 * y], color=color, lw=4, zorder=4)
-        ax.text(1.32 * x, 1.32 * y, label, ha="center", va="center", color=color,
-                fontsize=14, fontweight="bold")
-    mark(0, "oriC", "#16a34a")
-    mark(-44_000, "dnaA promoter", "#0891b2")
+        ax.plot([1.04 * x, 1.16 * x], [1.04 * y, 1.16 * y], color=color, lw=4, zorder=4)
+        lx, ly = label_xy
+        ax.plot([1.16 * x, lx], [1.16 * y, ly], color=color, lw=0.8, ls=":", zorder=3)
+        ax.text(lx, ly, label, ha="center", va="center", color=color,
+                fontsize=13, fontweight="bold")
+    mark(0, "oriC", "#16a34a", (0.42, 1.46))            # up-right
+    mark(-44_000, "dnaA promoter", "#0891b2", (-0.92, 1.34))  # up-left
     # ter
     ax.plot(0, -1.0, "s", ms=12, mfc="#dc2626", mec="#dc2626", zorder=5)
     ax.text(0, -1.16, "ter", ha="center", color="#dc2626", fontsize=12, fontweight="bold")
 
-    ax.set_xlim(-1.5, 1.5); ax.set_ylim(-1.5, 1.5); ax.set_aspect("equal"); ax.axis("off")
+    ax.set_xlim(-1.6, 1.6); ax.set_ylim(-1.5, 1.65); ax.set_aspect("equal"); ax.axis("off")
     fig.suptitle("E. coli K-12 chromosome — 307 consensus DnaA boxes (TTWTNCACA)\n"
                  "from the v2ecoli whole-cell-model genome; oriC + dnaA promoter marked",
                  fontsize=13, y=0.97)

@@ -1,0 +1,21 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260605021509"
+  generated_at: "2026-06-05T04:20:43.090Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-05-3.html"
+annotations:
+  "study-dnaa-3-box-binding-charts":
+    - ts: "2026-06-05T04:19:06.011Z"
+      author: "Rashmi"
+      text: "dnaA promoter and oriC label are overlapping."
+  "study-dnaa-3-box-binding-readouts":
+    - ts: "2026-06-05T04:18:30.777Z"
+      author: "Rashmi"
+      text: "run this study. make all the plots in the what we will measure section."
+    - ts: "2026-06-05T04:19:42.252Z"
+      author: "Rashmi"
+      text: "total concentration is count/cell mass not volume"

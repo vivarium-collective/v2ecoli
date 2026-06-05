@@ -94,46 +94,54 @@ def region_counts(P):
     return {r: (int(round(v[0])), v[1]) for r, v in reg.items()}
 
 
-def _cluster(ax, center_xy, n_total, n_bound, color, cols=3, dr=0.085):
-    """Draw a small stacked cluster of n_total boxes; first n_bound filled."""
+def _cluster(ax, center_xy, n_total, n_bound, color, cols=3, dr=0.11):
+    """Draw a stacked cluster of n_total boxes; first n_bound filled (bound),
+    the rest FREE — drawn larger with a bold red ring so they stand out even when
+    most of the pool is saturated (Rashmi 2026-06-05: couldn't see unbound boxes)."""
     cx, cy = center_xy
     for k in range(n_total):
         r, c = divmod(k, cols)
         x = cx + (c - (cols - 1) / 2) * dr
         y = cy + r * dr
         if k < n_bound:
-            ax.plot(x, y, "o", ms=6, mfc=color, mec=color, zorder=4)
+            ax.plot(x, y, "o", ms=8, mfc=color, mec=color, zorder=4)            # BOUND: solid
         else:
-            ax.plot(x, y, "o", ms=6, mfc="white", mec=color, mew=1.3, zorder=3)
+            ax.plot(x, y, "o", ms=9, mfc="white", mec="#dc2626", mew=2.2, zorder=6)  # FREE: bold red ring
 
+
+def _lbl(nb, nt):
+    return f"{nb} bound\n{nt - nb} free"
 
 def draw_circle(ax, P, t_min):
     rc = region_counts(P)
     th = np.linspace(0, 2 * np.pi, 400)
     ax.plot(np.sin(th), np.cos(th), color="#cbd5e1", lw=2, zorder=1)
-    # oriC cluster (top), dnaA_promoter cluster (upper-left)
-    _cluster(ax, (0.0, 1.18), rc["oriC"][1], rc["oriC"][0], REGION_COLOR["oriC"], cols=4)
-    ax.text(0, 1.55, f"oriC\n{rc['oriC'][0]}/{rc['oriC'][1]}", ha="center", va="center",
-            fontsize=9, color=REGION_COLOR["oriC"], fontweight="bold")
-    _cluster(ax, (-1.12, 0.74), rc["dnaA_promoter"][1], rc["dnaA_promoter"][0],
+    # oriC cluster (top) — the regulatory pool where the free boxes live; drawn big
+    _cluster(ax, (0.0, 1.20), rc["oriC"][1], rc["oriC"][0], REGION_COLOR["oriC"], cols=4)
+    ax.text(0, 1.72, f"oriC ({rc['oriC'][0]}/{rc['oriC'][1]})\n{_lbl(*rc['oriC'])}", ha="center",
+            va="center", fontsize=8.5, color=REGION_COLOR["oriC"], fontweight="bold")
+    # dnaA_promoter cluster (upper-left)
+    _cluster(ax, (-1.15, 0.70), rc["dnaA_promoter"][1], rc["dnaA_promoter"][0],
              REGION_COLOR["dnaA_promoter"], cols=2)
-    ax.text(-1.34, 1.0, f"dnaA_promoter\n{rc['dnaA_promoter'][0]}/{rc['dnaA_promoter'][1]}",
-            ha="center", va="center", fontsize=8, color=REGION_COLOR["dnaA_promoter"], fontweight="bold")
-    # chromosomal: dense ring of small dots, fraction filled (deterministic by angle)
+    ax.text(-1.4, 1.08, f"dnaA_promoter\n{_lbl(*rc['dnaA_promoter'])}", ha="center", va="center",
+            fontsize=7.5, color=REGION_COLOR["dnaA_promoter"], fontweight="bold")
+    # chromosomal: ring of dots; FREE ones drawn larger + bold red ring so they pop
     nb, nt = rc["chromosomal"]
-    ang = np.linspace(0.18, 2 * np.pi - 0.18, nt)  # skip the oriC/ter poles
-    sel = np.zeros(nt, bool); sel[np.linspace(0, nt - 1, nb).round().astype(int)] = True if nb else False
+    ang = np.linspace(0.20, 2 * np.pi - 0.20, nt)  # skip the oriC/ter poles
+    sel = np.ones(nt, bool)
+    if nb < nt:  # mark the (nt-nb) free positions, spread around the ring
+        sel[np.linspace(0, nt - 1, nt - nb).round().astype(int)] = False
     for a, b in zip(ang, sel):
-        x, y = np.sin(a) * 1.0, np.cos(a) * 1.0
+        x, y = np.sin(a), np.cos(a)
         if b:
             ax.plot(x, y, "o", ms=2.6, mfc=REGION_COLOR["chromosomal"], mec=REGION_COLOR["chromosomal"], zorder=2)
         else:
-            ax.plot(x, y, "o", ms=2.6, mfc="white", mec=REGION_COLOR["chromosomal"], mew=0.5, zorder=2)
-    ax.text(1.28, -0.2, f"chromosomal\n{nb}/{nt}", ha="center", va="center",
-            fontsize=8, color="#64748b", fontweight="bold")
+            ax.plot(x, y, "o", ms=6, mfc="white", mec="#dc2626", mew=1.8, zorder=6)  # free: bold red ring
+    ax.text(1.32, -0.25, f"chromosomal\n{_lbl(nb, nt)}", ha="center", va="center",
+            fontsize=7.5, color="#64748b", fontweight="bold")
     ax.plot(0, -1, "s", ms=11, mfc="#dc2626", mec="#dc2626", zorder=5)  # ter
     ax.set_title(f"t = {t_min:.1f} min", fontsize=10)
-    ax.set_xlim(-1.75, 1.75); ax.set_ylim(-1.45, 1.75); ax.set_aspect("equal"); ax.axis("off")
+    ax.set_xlim(-1.8, 1.8); ax.set_ylim(-1.45, 1.92); ax.set_aspect("equal"); ax.axis("off")
 
 
 def main():
@@ -163,16 +171,17 @@ def main():
         draw_circle(ax, pool_occupancy(atp_nM[int(i)], adp_nM[int(i)]), tmin[int(i)])
 
     axc = fig.add_subplot(gs[1, :])
-    conc_total = conc_nM(apo + atp + adp, mass)  # all DnaA forms / cell volume → nM
+    # Rashmi 2026-06-05: total DnaA CONCENTRATION = count / cell MASS (not volume).
+    conc_total = (apo + atp + adp) / mass  # all DnaA forms (count) / cell mass (fg)
     axc.plot(tmin, conc_total, color="#0f172a", lw=1.6)
     axc.scatter(tmin[idx], conc_total[idx], color="#dc2626", zorder=5, s=28)
-    axc.set_xlabel("cell-cycle time (min)"); axc.set_ylabel("total DnaA\nconc. (nM)")
-    axc.set_title("Total DnaA concentration — all forms (apo + ATP + ADP + bound) / cell volume (Rashmi 2026-06-05)", fontsize=9)
+    axc.set_xlabel("cell-cycle time (min)"); axc.set_ylabel("total DnaA conc.\n(count / fg)")
+    axc.set_title("Total DnaA concentration — all forms (apo + ATP + ADP + bound) / cell MASS (Rashmi 2026-06-05)", fontsize=9)
     axc.grid(alpha=0.25)
 
     handles = [
-        Line2D([], [], marker="o", ls="", mfc="#475569", mec="#475569", ms=8, label="DnaA-bound box"),
-        Line2D([], [], marker="o", ls="", mfc="white", mec="#475569", mew=1.3, ms=8, label="free box"),
+        Line2D([], [], marker="o", ls="", mfc="#475569", mec="#475569", ms=9, label="DnaA-bound box"),
+        Line2D([], [], marker="o", ls="", mfc="white", mec="#dc2626", mew=2.2, ms=9, label="FREE box (red ring)"),
         Line2D([], [], marker="s", ls="", mfc="#dc2626", mec="#dc2626", ms=9, label="ter"),
     ]
     fig.legend(handles=handles, loc="upper right", fontsize=8.5, frameon=True)

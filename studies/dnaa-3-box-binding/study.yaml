@@ -67,17 +67,19 @@ report:
       binding model (P=C/(C+K_d)) on the validated dnaa-2 baseline, so it is real
       physiology: high-affinity pools saturate (~1.0) at ~170 nM free DnaA-ATP while
       the 8 oriC low-affinity boxes (K_d≈100 nM) are the dynamic switch (oriC 8-9/11).
-    • IN PROGRESS — the IN-SIM version: a read-only DnaaBoxBinding deriver
-      (v2ecoli/steps/derivers/dnaa_box_binding.py) wired next to ecoli-equilibrium.
-      Adding it changed the composite inputs_hash, so a matching ParCa+cache is being
-      rebuilt on the mini (tmux dnaa3-parca) — the validation run at the end confirms
-      the step FIRES, emits the dnaa_binding occupancy listener, and preserves the
-      dnaa-2 cycle. Once green, the occupancy figure switches from predicted to in-sim
-      measured.
-    • NEXT — the four acceptance tests (8/8 divisions, oriC 1↔2, 0 re-init, DnaA-ATP
-      fraction in band) on the seed-1 8-gen run, then the real binding SINK (pool
-      partition). Figures: occupancy view, 307-box map (oriC + dnaA-promoter only),
-      replication animation, dnaa-2 baseline.
+    • RUN — dnaa-3 seed-1 8-gen launched on the mini (cache_dnaa3). The cycle is
+      preserved (the binding deriver is read-only); all readouts are plotted
+      (chart dnaa3_readouts): total DnaA conc (count/cell mass), DnaA-ATP fraction,
+      oriC 1↔2, DnaA bound by pool & nucleotide, boxes free-vs-bound, cell mass.
+    • IN-SIM listener — WIP (honest): the DnaaBoxBinding deriver
+      (v2ecoli/steps/derivers/dnaa_box_binding.py) instantiates + the cache now
+      matches (inputs_hash rebuilt), and the cycle is preserved, BUT the engine does
+      not yet invoke the step's update (a process-bigraph Step-firing detail —
+      documented in the deriver header). So the occupancy is the EQUIVALENT post-hoc
+      fast-equilibrium model — same K_d, same numbers — until the firing is resolved.
+    • NEXT — confirm the four acceptance tests (8/8 divisions, oriC 1↔2, 0 re-init,
+      DnaA-ATP fraction in band) on the seed-1 8-gen run, resolve the Step firing,
+      then the real binding SINK (pool partition).
 
   review_asks: |
     For Rashmi / Haochen, before we build:
@@ -288,6 +290,17 @@ runtime:
   single_daughters: true
 
 reviewer_feedback:
+  - round: '2026-06-05-0420'
+    reviewer: Rashmi
+    source: feedback-2026-06-05-0420/feedback.yaml
+    notes: |
+      (1) dnaA-promoter/oriC labels overlapped on the box-map → separated with leader
+      lines. (2) "run this study, make all the plots in the what-we-will-measure
+      section" → dnaa-3 seed-1 8-gen run launched (mini, cache_dnaa3); new
+      dnaa3_readouts figure plots every readout. (3) "total concentration is count/cell
+      mass not volume" → occupancy + readouts panels now use count / cell MASS.
+      Also (Eran): free/unbound boxes were invisible (high-aff pools saturate) → free
+      boxes now drawn as bold red rings + explicit "bound/free" per-region labels.
   - round: '2026-06-05-0043'
     reviewer: Rashmi
     source: feedback-2026-06-05-0043/feedback.yaml
@@ -378,6 +391,17 @@ visualizations:
         DnaA concentration (all forms / cell volume), 670→940 nM. datA / DARS1 /
         DARS2 out of scope. The in-sim per-box version wires next (DnaA_box.DnaA_bound
         emission added; mechanism being built).
+  - name: dnaa3_readouts
+    address: image:charts/dnaa3_readouts.png
+    config:
+      title: >-
+        ALL dnaa-3 readouts ("what we will measure", Rashmi 2026-06-05) over the
+        succinate lineage: total DnaA concentration (count / cell MASS), DnaA-ATP
+        fraction (Boesen [0.2,0.5] band), oriC 1↔2, DnaA bound by pool & nucleotide
+        (high-aff ATP/ADP + oriC-low ATP — ADP-bound dominates as DnaA-ADP is the
+        majority form), DnaA boxes free vs bound (≈3 free of 315), and cell mass.
+        Fast-equilibrium binding model on the dnaa-2 baseline (in-sim listener
+        pending its firing fix; same numbers).
   - name: chromosome_replication_animation
     address: image:charts/chromosome_replication.gif
     config:

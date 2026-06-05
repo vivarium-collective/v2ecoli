@@ -310,6 +310,14 @@ glossary:
       per-promoter init_prob to tune dnaA mRNA synthesis rate.
 
 feedback_rounds:
+  - date: '2026-06-05-0420'
+    reviewer: Rashmi
+    artifact: feedback-2026-06-05-0420/feedback.yaml
+    summary: |
+      dnaa-3: fixed overlapping box-map labels; ran the study (seed-1 8-gen on the
+      mini) + built the all-readouts figure (total DnaA conc as count/cell MASS,
+      DnaA-ATP fraction, oriC, bound-by-pool, free-vs-bound, mass); made free boxes
+      visible (bold red rings). total concentration corrected to count/cell mass.
   - date: '2026-06-05-0043'
     reviewer: Rashmi
     artifact: feedback-2026-06-05-0043/feedback.yaml

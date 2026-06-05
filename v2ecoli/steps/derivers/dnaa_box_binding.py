@@ -19,12 +19,25 @@ promoter_high (2, K_d≈1 nM, ATP+ADP). The consensus boxes are classified live
 from the DnaA_box unique store by region; the 8 oriC-low are a fixed design pool.
 
 WIP (2026-06-05): the binding model + I/O is complete and the step instantiates
-cleanly, but the engine does NOT yet invoke its ``update`` when registered as a
-layer-7 listener (Step firing/dependency wiring TBD — replication_data, with the
-same DnaA_box topology, fires fine; the difference is this step's bulk +
-cross-listener mass reads). NOT wired into baseline.py yet. Until the firing is
-resolved, the dnaa-3 occupancy figure uses the equivalent fast-equilibrium
-computation post-hoc (scripts/render_dnaa3_occupancy.py) on the dnaa-2 baseline.
+cleanly (params + topology verified), but wiring it into baseline.py hits TWO
+distinct, characterized blockers — NOT yet resolved, so it is NOT registered:
+
+  1. As a LAYER-7 listener (alongside ecoli-mass-listener): the engine never
+     invokes ``update`` (no firing). replication_data — same DnaA_box topology,
+     same layer — fires every tick; the difference is this step's bulk +
+     cross-listener ``listeners.mass`` read. Reading a store written by another
+     step in the SAME parallel layer appears to block scheduling. (equilibrium
+     reads listeners.mass fine, but from an EARLIER layer = prior-tick value.)
+  2. In an EARLY layer (next to ecoli-equilibrium, so mass reads the prior tick
+     like equilibrium does): adding the step changes the composite ``inputs_hash``
+     → the dnaa-2 cache (out/cache_dnaa2) is rejected as stale before the sim
+     even builds. Fixing needs a full ParCa + cache REBUILD for the new composite.
+
+Next session: rebuild ParCa+cache for the composite WITH this step in an early
+layer, then confirm firing + occupancy. Until then the dnaa-3 occupancy figure
+uses the equivalent fast-equilibrium computation post-hoc
+(scripts/render_dnaa3_occupancy.py) on the validated dnaa-2 baseline — same model,
+same numbers.
 """
 import numpy as np
 from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, attrs

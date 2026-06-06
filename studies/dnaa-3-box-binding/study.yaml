@@ -325,6 +325,11 @@ reviewer_feedback:
       (4b) the occupancy illustration now shows oriC DOUBLING at replication
       (11→22 boxes, "×2 replicating"); (5) the model DOES emit cell volume
       (listeners.mass.volume ≈0.9 fL) — concentrations now in nM vs the nM K_d.
+      FOLLOW-UP on the cause (Eran's request): added dnaa3_box_variants — a
+      sequestration-capacity sweep (307/360/400/450 high-aff boxes) showing that a
+      modest increase in genomic DnaA-box count (weak/secondary sites; not K_d) brings
+      free DnaA below 100 nM into Haochen's expected regime. EXPLORATORY only — the
+      canonical default stays 307 (strict consensus); for Haochen to weigh in.
   - round: '2026-06-05-1244'
     reviewer: Rashmi
     source: feedback-2026-06-05-1244/feedback.yaml
@@ -482,6 +487,19 @@ visualizations:
         NOT reach the expected <100 nM regime; modeled DnaA abundance exceeds box
         capacity. CAUSE is an OPEN QUESTION (candidates are ours, NOT raised by
         Haochen): DnaA abundance, box K_d, or unmodeled sinks such as datA (out of scope).
+  - name: dnaa3_box_variants
+    address: image:charts/dnaa3_box_variants.png
+    config:
+      title: >-
+        Sequestration-capacity VARIANTS (for Haochen 2026-06-06) — EXPLORATORY, the
+        canonical model is UNCHANGED (307 consensus boxes). Each variant changes only
+        the high-affinity box count (K_d, DnaA abundance, trajectory all fixed): free
+        DnaA = count/cell VOLUME (nM) over the steady gens, oriC-low occupancy, and
+        mean free DnaA vs box count. At the 307 strict consensus, free DnaA ~186 nM
+        (over-binds oriC-low, as Haochen flagged); a modest increase in genomic DnaA
+        sites (weak/secondary; literature ~300-450) moves free DnaA below 100 nM —
+        ~360 reaches the edge, ~400 sits comfortably in-window (occ ~0.23). Shown so
+        Haochen can judge whether the under-sequestration (not K_d) is the cause.
   - name: dnaa3_readouts
     address: image:charts/dnaa3_readouts.png
     config:

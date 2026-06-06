@@ -1,0 +1,206 @@
+{
+ "$schema_note": "v2 reference for the basal population-phenotype report card. Axes carry presentation + a TYPED criterion. Population-stat axes grade by Welch t-test of candidate per-cell values vs these blessed reference values (cell-level n). A SIGNIFICANT difference (p<p_min) is drift/mismatch. Self-pin => p=1.0 at baseline; future drift / PDMP lowers p. Judgement is deferred: the pin is current main's behavior, not a biological target.",
+ "title": "Basal-condition population phenotype \u2014 v1\u2194v2 equivalence (Physiology + Composition)",
+ "status": "populated",
+ "stimulus": {
+  "reference_model": "vEcoli (v1)",
+  "measured_model": "v2ecoli (v2)",
+  "blessed_model_ref": "6a2d34027546b4fd78f3527bf20bed855814bc46",
+  "ensemble": "2 seeds x 2 gens (smoke); vEcoli master; ParCa fast",
+  "sweep_dir": "/Users/chris/projects/SMS/vecoli-benchmarking/out/v1v2_smoke_2x2"
+ },
+ "findings": [
+  "EQUIVALENCE reference: v2ecoli graded against a vEcoli v1 ensemble (not a self-pin). Welch t-test of v2 cell-level values vs v1 ref_values.",
+  "Phase-1 scope: Physiology + Composition. Ribosomes/fluxes/omics omitted (vEcoli emits bulk positionally, not as bulk__id/bulk__count; needs the bulk-index adapter).",
+  "v1 values read by scripts/pin_vecoli_equivalence_reference.py (self-contained cross-impl reader; shared analysis_runner is untouched).",
+  "tolerance bands (within_pct/mismatch_pct) inherited from the self-pin template; revisit per-axis equivalence margins (delta) for the real run."
+ ],
+ "axes": {
+  "physiology.doubling_time": {
+   "group": "Physiology",
+   "label": "Doubling time",
+   "units": "h",
+   "how": "Cell-cycle time over confirmed divisions (one value per divided cell). Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
+   "plot": "violin",
+   "y_from_zero": true,
+   "scale": 0.0002777777777777778,
+   "criterion": {
+    "type": "ttest",
+    "p_min": 0.05,
+    "within_pct": 0.05,
+    "mismatch_pct": 0.1,
+    "ref_values": [
+     2526.0,
+     3017.0,
+     2574.0,
+     2746.0
+    ]
+   }
+  },
+  "physiology.cell_mass": {
+   "group": "Physiology",
+   "label": "Cell mass",
+   "units": "fg",
+   "how": "Time-mean total cell mass (listeners__mass__cell_mass), one value/cell. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
+   "plot": "violin",
+   "y_from_zero": true,
+   "scale": 1.0,
+   "criterion": {
+    "type": "ttest",
+    "p_min": 0.05,
+    "within_pct": 0.05,
+    "mismatch_pct": 0.1,
+    "ref_values": [
+     1703.4082571935085,
+     1647.6436995439028,
+     1764.9550315504616,
+     1714.3137068649287
+    ]
+   }
+  },
+  "physiology.cell_volume": {
+   "group": "Physiology",
+   "label": "Cell volume",
+   "units": "fL",
+   "how": "Time-mean cell volume (listeners__mass__volume), one value/cell. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
+   "plot": "violin",
+   "y_from_zero": true,
+   "scale": 1.0,
+   "criterion": {
+    "type": "ttest",
+    "p_min": 0.05,
+    "within_pct": 0.05,
+    "mismatch_pct": 0.1,
+    "ref_values": [
+     1.5485529610850077,
+     1.497857908676275,
+     1.6045045741367832,
+     1.558467006240844
+    ]
+   }
+  },
+  "physiology.oric": {
+   "group": "Physiology",
+   "label": "Replication origins (oriC)",
+   "units": "origins",
+   "how": "Time-mean number_of_oric \u2014 >1 indicates overlapping replication rounds. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
+   "plot": "violin",
+   "y_from_zero": true,
+   "scale": 1.0,
+   "criterion": {
+    "type": "ttest",
+    "p_min": 0.05,
+    "within_pct": 0.05,
+    "mismatch_pct": 0.1,
+    "ref_values": [
+     2.4645825089038387,
+     2.457256461232604,
+     2.6664077669902913,
+     2.5424099017109576
+    ]
+   }
+  },
+  "physiology.replication_initiation": {
+   "group": "Physiology",
+   "label": "Replication initiation",
+   "units": "min",
+   "how": "Per-cell time since birth of the first oriC step-up (a new round fires). Absent for cells born between rounds that don't re-initiate in-cycle. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
+   "plot": "violin",
+   "y_from_zero": true,
+   "scale": 0.016666666666666666,
+   "criterion": {
+    "type": "ttest",
+    "p_min": 0.05,
+    "within_pct": 0.05,
+    "mismatch_pct": 0.1,
+    "ref_values": [
+     1940.0,
+     2328.0,
+     1717.0,
+     2002.0
+    ]
+   }
+  },
+  "physiology.replication_completion": {
+   "group": "Physiology",
+   "label": "Replication completion",
+   "units": "min",
+   "how": "Per-cell time since birth when replication forks first clear (a round terminates). NOTE: under overlapping rounds this tracks a DIFFERENT round than initiation above \u2014 they are not one round's start/end. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
+   "plot": "violin",
+   "y_from_zero": true,
+   "scale": 0.016666666666666666,
+   "criterion": {
+    "type": "ttest",
+    "p_min": 0.05,
+    "within_pct": 0.05,
+    "mismatch_pct": 0.1,
+    "ref_values": [
+     1327.0,
+     1818.0,
+     1375.0,
+     1547.0
+    ]
+   }
+  },
+  "composition.protein_fraction": {
+   "group": "Composition",
+   "label": "Protein / dry weight",
+   "units": "g/gDW",
+   "how": "Time-mean protein mass fraction of dry weight. One value per cell (gens\u22653); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard.",
+   "plot": "violin",
+   "criterion": {
+    "type": "ttest",
+    "p_min": 0.05,
+    "ref_values": [
+     0.48029622363033,
+     0.46162974811850027,
+     0.4732304666358999,
+     0.43836132286396345
+    ],
+    "within_pct": 0.05,
+    "mismatch_pct": 0.1
+   },
+   "y_from_zero": true
+  },
+  "composition.rna_fraction": {
+   "group": "Composition",
+   "label": "Total RNA / dry weight",
+   "units": "g/gDW",
+   "how": "Time-mean total-RNA (rRna+tRna+mRna) mass fraction of dry weight. One value per cell (gens\u22653); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard.",
+   "plot": "violin",
+   "criterion": {
+    "type": "ttest",
+    "p_min": 0.05,
+    "ref_values": [
+     0.13204865652631678,
+     0.13220154852285423,
+     0.1341436774435609,
+     0.1376056016253535
+    ],
+    "within_pct": 0.05,
+    "mismatch_pct": 0.1
+   },
+   "y_from_zero": true
+  },
+  "composition.dna_fraction": {
+   "group": "Composition",
+   "label": "DNA / dry weight",
+   "units": "g/gDW",
+   "how": "Time-mean DNA mass fraction of dry weight. One value per cell (gens\u22653); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard.",
+   "plot": "violin",
+   "criterion": {
+    "type": "ttest",
+    "p_min": 0.05,
+    "ref_values": [
+     0.017848644380754865,
+     0.017724190283532296,
+     0.017740732493362936,
+     0.017626709697291573
+    ],
+    "within_pct": 0.05,
+    "mismatch_pct": 0.1
+   },
+   "y_from_zero": true
+  }
+ }
+}

@@ -54,14 +54,25 @@ for more of the conceptual spec; this file is the map.
   `library/`+`workflow/`, tests in `tests/`, output in `docs/report_cards/`).
   This README is the hub that ties the spokes together.
 
-- **Kinds of behavioral check.** Cards range over different kinds of behavior:
-  - *Single-cell invariants* — binary: does the machinery work (cell grows,
-    divides, conserves mass, daughters viable)? Run from a single-cell
-    checkpoint, in seconds.
-  - *Population phenotypes* — quantitative: emergent behaviors measured across a
-    large ensemble of simulations (seeds × generations), graded vs a reference
-    within tolerance. (the basal population-phenotype card)
-  - *Equivalence* — does this model version behave like another (e.g. v1↔v2)?
+- **Two orthogonal axes: card kind × reference mode.** A rendered card is one
+  point in a grid of *what is measured* × *what it is graded against*.
+  - **Card kind** (what is measured):
+    - *Single-cell invariants* — binary: does the machinery work (cell grows,
+      divides, conserves mass, daughters viable)? Run from a single-cell
+      checkpoint, in seconds.
+    - *Population phenotypes* — quantitative: emergent behaviors measured across a
+      large ensemble (seeds × generations), graded vs a reference within tolerance.
+  - **Reference mode** (what it is graded against — the *same* card, a different
+    reference source):
+    - *self-pin (drift)* — graded against this model's own blessed ensemble;
+      catches drift over time ("has v2 changed from its pinned self?").
+    - *equivalence vs a reference model* — graded against another model's
+      ensemble; e.g. **v1↔v2** (vs vEcoli): "is v2 still the same E. coli as v1?"
+      (future: literature targets, vs-PDMP).
+  - **Equivalence is a reference mode, not a card** — any card can be rendered in
+    either mode. Rendered outputs live as subdirs of the card:
+    `docs/report_cards/<card>/report_card.*` (self-pin) and
+    `docs/report_cards/<card>/vs_vecoli/report_card.*` (v1↔v2 equivalence).
 
 - **Composed for purpose.** These checks are building blocks; how they're
   combined depends on the use:
@@ -96,11 +107,20 @@ for more of the conceptual spec; this file is the map.
 
 ## Catalog of stations
 
+Rows are **cards** (what is measured). Each can be rendered in multiple
+**reference modes** (the second table).
+
 | Station | Kind | Stimulus | Analysis | Reference | Test | Output | Updated |
 |---------|------|----------|----------|-----------|------|--------|---------|
 | Single-cell mechanics | Single-cell invariants | pre-division checkpoint (single cell) | `tests/test_model_behavior.py` + `reports/single_cell_mechanics_report.py` | `tests/fixtures/single_cell_mechanics_reference.json` | `tests/test_model_behavior.py` | `docs/report_cards/single_cell_mechanics/` | `0c1ee93` |
 | Basal-condition phenotype | Population phenotypes | `configs/population_phenotype_basal.json` | `PopulationPhenotypeBasalCard` | `tests/fixtures/population_phenotype_basal_reference.json` | `tests/test_population_phenotype_basal.py` | `docs/report_cards/population_phenotype_basal/` | `f3867c2` |
-| v1↔v2 equivalence | Equivalence | *(v1 + v2 runs)* | *(planned — same machinery)* | *(v1 outputs)* | — | `docs/v1_v2_comparison.html` | *planned* |
+
+**Reference modes** (the second axis — same cards, different reference source):
+
+| Mode | Reference source | Rendered under | Status |
+|------|------------------|----------------|--------|
+| self-pin (drift) | the model's own blessed ensemble | `<card>/report_card.*` | live |
+| v1↔v2 equivalence (vs vEcoli) | a vEcoli ("v1") ensemble | `<card>/vs_vecoli/` | **Phase 1 live** for the basal phenotype (Physiology + Composition); single-cell mechanics planned |
 
 ### Single-cell mechanics
 
@@ -158,12 +178,31 @@ Exchange fluxes · Gene expression.
   in the reference's `stimulus.blessed_model_ref`); card infrastructure updated
   at `f3867c2`.
 
-### v1↔v2 equivalence (planned)
+### v1↔v2 equivalence (reference mode — Phase 1 live)
 
-Same grader + renderer, reference source = v1 outputs ("does v2 match v1").
-Existing comparison: `reports/v1_v2_report.py` → `docs/v1_v2_comparison.html`.
-Folding it onto the shared reference-driven machinery is the divide-and-conquer
-second reference source.
+Not a separate card — a **reference mode**: the *same* card graded against a
+vEcoli ("v1") ensemble instead of v2's self-pin. Same grader + renderer; only the
+reference's `ref_values` change ("does v2 still behave like v1?").
+
+- **v1 ensemble**: produced by vEcoli's own Nextflow workflow (it emits the same
+  hive-partitioned `**/history/**/*.pq` schema this card reads). Generated in a
+  dedicated clean checkout (`SMS/vecoli-benchmarking`, vEcoli `master`); the v1
+  commit is stamped in the reference's `stimulus.blessed_model_ref`.
+- **Reference pin**: `scripts/pin_vecoli_equivalence_reference.py` — reuses the
+  self-pin reference as the presentation/criterion *template* and swaps in v1's
+  per-cell distributions. It carries a **self-contained cross-implementation
+  reader** for the two v1↔v2 schema differences (vEcoli emits `time`, cumulative
+  across the lineage, not `global_time`; and positional bulk, not
+  `bulk__id`/`bulk__count`) so the **shared `analysis_runner` stays untouched**.
+- **Scope (Phase 1)**: Physiology + Composition (9 axes), no measurement-code
+  changes. Ribosomes/fluxes/omics need a bulk-index adapter and are omitted (they
+  render absent → not graded).
+- **Render**: `reports/population_phenotype_basal_report.py --reference
+  <card>/vs_vecoli/vecoli_reference.json --no-vectors` →
+  `docs/report_cards/population_phenotype_basal/vs_vecoli/report_card.{html,md}`.
+- **Legacy**: the single-trajectory visual comparison `reports/v1_v2_report.py` →
+  `docs/v1_v2_comparison.html` predates this; the card lifts it to an
+  ensemble/typed-criteria/graded instrument.
 
 ## Adding a station
 

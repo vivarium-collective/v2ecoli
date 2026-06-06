@@ -314,10 +314,10 @@ class KnowledgeBaseEcoli(object):
 
         # Load raw data from TSV files
         for filename in self.list_of_dict_filenames:
-            self._load_tsv(FLAT_DIR, os.path.join(FLAT_DIR, filename))
+            self._load_tsv(filename, os.path.join(FLAT_DIR, filename))
 
         for filename in self.list_of_parameter_filenames:
-            self._load_parameters(FLAT_DIR, os.path.join(FLAT_DIR, filename))
+            self._load_parameters(filename, os.path.join(FLAT_DIR, filename))
 
         self.genome_sequence = self._load_sequence(
             os.path.join(FLAT_DIR, SEQUENCE_FILE)
@@ -348,16 +348,17 @@ class KnowledgeBaseEcoli(object):
             self.added_data = self.new_gene_added_data
             self._join_data()
 
-    def _load_tsv(self, dir_name, file_name):
+    def _load_tsv(self, rel_path, abs_path):
         path = self
-        for sub_path in file_name[len(dir_name) + 1 :].split(os.path.sep)[:-1]:
+        parts = rel_path.replace(os.sep, "/").split("/")
+        for sub_path in parts[:-1]:
             if not hasattr(path, sub_path):
                 setattr(path, sub_path, DataStore())
             path = getattr(path, sub_path)
-        attr_name = file_name.split(os.path.sep)[-1].split(".")[0]
+        attr_name = parts[-1].split(".")[0]
         setattr(path, attr_name, [])
 
-        rows = read_tsv(file_name)
+        rows = read_tsv(str(abs_path))
         setattr(path, attr_name, rows)
 
     def _load_sequence(self, file_path):
@@ -367,24 +368,21 @@ class KnowledgeBaseEcoli(object):
             for record in SeqIO.parse(handle, "fasta"):
                 return record.seq
 
-    def _load_parameters(self, dir_name, file_name):
+    def _load_parameters(self, rel_path, abs_path):
         path = self
-        for sub_path in file_name[len(dir_name) + 1 :].split(os.path.sep)[:-1]:
+        parts = rel_path.replace(os.sep, "/").split("/")
+        for sub_path in parts[:-1]:
             if not hasattr(path, sub_path):
                 setattr(path, sub_path, DataStore())
             path = getattr(path, sub_path)
-        attr_name = file_name.split(os.path.sep)[-1].split(".")[0]
+        attr_name = parts[-1].split(".")[0]
         param_dict = {}
 
-        with io.open(file_name, "rb") as csvfile:
+        with io.open(str(abs_path), "rb") as csvfile:
             reader = tsv.dict_reader(csvfile)
-
             for row in reader:
                 value = json.loads(row["value"])
                 if row["units"] != "":
-                    # `eval()` the units [risky!] then strip it to just a unit
-                    # since `a_list * a_float` (like `1.0 [1/s]`) fails, and
-                    # `a_list * an_int` repeats the list, which is also broken.
                     unit = eval(row["units"])  # risky!
                     unit = units.getUnit(unit)  # strip
                     value = value * unit

@@ -183,6 +183,9 @@ class KnowledgeBaseEcoli(object):
         new_genes_option: str = "off",
         bundle=None,
     ):
+        if bundle is None:
+            from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
+            bundle = SourceBundle()
         self._bundle = bundle
         self.operons_on = operons_on
         self.stable_rrna = stable_rrna
@@ -361,9 +364,7 @@ class KnowledgeBaseEcoli(object):
             self._join_data()
 
     def _resolve(self, rel_path):
-        if self._bundle is not None:
-            return self._bundle.resolve_relpath(rel_path)
-        return os.path.join(FLAT_DIR, rel_path)
+        return self._bundle.resolve_relpath(rel_path)
 
     def _load_tsv(self, rel_path, abs_path):
         path = self

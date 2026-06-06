@@ -1,9 +1,12 @@
+import os
 import pytest
 
 from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import (
     KnowledgeBaseEcoli,
 )
 from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
+
+FLAT = "v2ecoli/processes/parca/reconstruction/ecoli/flat"
 
 
 def _snapshot(kb):
@@ -27,6 +30,7 @@ def _snapshot(kb):
 FLAGS = dict(operons_on=True, remove_rrna_operons=False, remove_rrff=False, stable_rrna=False)
 
 
+@pytest.mark.skipif(not os.path.isdir(FLAT), reason="local flat/ deleted post-migration")
 def test_bundle_kb_matches_legacy_kb():
     legacy = KnowledgeBaseEcoli(**FLAGS)              # reads local flat/
     bundled = KnowledgeBaseEcoli(bundle=SourceBundle(), **FLAGS)

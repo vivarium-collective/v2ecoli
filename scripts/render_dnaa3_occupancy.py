@@ -65,7 +65,9 @@ def load(run: str, generation: int):
                    bc.list.get(bi("PD03831[c]")).alias("apo"),
                    bc.list.get(bi("MONOMER0-160[c]")).alias("atp"),
                    bc.list.get(bi("MONOMER0-4565[c]")).alias("adp"),
-                   pl.col("listeners__mass__cell_mass").alias("mass")])
+                   pl.col("listeners__mass__cell_mass").alias("mass"),
+                   pl.col("listeners__mass__volume").alias("vol_fL"),
+                   pl.col("listeners__replication_data__number_of_oric").alias("oric")])
           .sort("global_time").collect())
     return df
 
@@ -76,21 +78,29 @@ def conc_nM(count, mass_fg):
     return count / (volume_L * AVOGADRO) * 1e9
 
 
-def pool_occupancy(atp_nM, adp_nM):
-    """Expected fractional occupancy P=C/(C+Kd) per pool at one timestep."""
-    out = {}
-    for name, p in POOLS.items():
-        c = atp_nM + adp_nM if p["forms"] == "ATP+ADP" else atp_nM
-        out[name] = c / (c + p["kd"])
-    return out
+from scipy.optimize import brentq
+def pool_occupancy(atp_ct, adp_ct, vol_L, oric=1):
+    """SELF-CONSISTENT occupancy: the high-affinity boxes sequester DnaA, so free
+    DnaA (and thus oriC-low occupancy) is much lower than the naive bulk value
+    (Haochen 2026-06-06). oriC boxes double when oriC has doubled (replication)."""
+    D = float(atp_ct + adp_ct)  # binding-competent DnaA (apo≈0)
+    n = {name: p["n"] * (oric if p["region"] == "oriC" else 1) for name, p in POOLS.items()}
+    Kct = {name: p["kd"] * 1e-9 * vol_L * AVOGADRO for name, p in POOLS.items()}
+    if D <= 0:
+        return {k: 0.0 for k in POOLS}
+    f = lambda F: F + sum(n[k] * F / (F + Kct[k]) for k in POOLS) - D
+    F = brentq(f, 1e-9, D)
+    return {k: F / (F + Kct[k]) for k in POOLS}
 
 
-def region_counts(P):
-    """Expected (bound, total) per drawn region from per-pool occupancy."""
+def region_counts(P, oric=1):
+    """Expected (bound, total) per drawn region. oriC boxes DOUBLE when oriC has
+    doubled at replication (Haochen 2026-06-06)."""
     reg = {"oriC": [0.0, 0], "dnaA_promoter": [0.0, 0], "chromosomal": [0.0, 0]}
     for name, p in POOLS.items():
-        reg[p["region"]][0] += P[name] * p["n"]
-        reg[p["region"]][1] += p["n"]
+        mult = oric if p["region"] == "oriC" else 1
+        reg[p["region"]][0] += P[name] * p["n"] * mult
+        reg[p["region"]][1] += p["n"] * mult
     return {r: (int(round(v[0])), v[1]) for r, v in reg.items()}
 
 
@@ -112,13 +122,14 @@ def _cluster(ax, center_xy, n_total, n_bound, color, cols=3, dr=0.11):
 def _lbl(nb, nt):
     return f"{nb} bound\n{nt - nb} free"
 
-def draw_circle(ax, P, t_min):
-    rc = region_counts(P)
+def draw_circle(ax, P, t_min, oric=1):
+    rc = region_counts(P, oric)
     th = np.linspace(0, 2 * np.pi, 400)
     ax.plot(np.sin(th), np.cos(th), color="#cbd5e1", lw=2, zorder=1)
     # oriC cluster (top) — the regulatory pool where the free boxes live; drawn big
     _cluster(ax, (0.0, 1.20), rc["oriC"][1], rc["oriC"][0], REGION_COLOR["oriC"], cols=4)
-    ax.text(0, 1.72, f"oriC ({rc['oriC'][0]}/{rc['oriC'][1]})\n{_lbl(*rc['oriC'])}", ha="center",
+    repl = "  (×2 replicating)" if oric >= 2 else ""
+    ax.text(0, 1.74, f"oriC{repl} ({rc['oriC'][0]}/{rc['oriC'][1]})\n{_lbl(*rc['oriC'])}", ha="center",
             va="center", fontsize=8.5, color=REGION_COLOR["oriC"], fontweight="bold")
     # dnaA_promoter cluster (upper-left)
     _cluster(ax, (-1.15, 0.70), rc["dnaA_promoter"][1], rc["dnaA_promoter"][0],
@@ -147,7 +158,7 @@ def draw_circle(ax, P, t_min):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", default="out/dnaa2_seed1_8gen")
-    ap.add_argument("--generation", type=int, default=2)
+    ap.add_argument("--generation", type=int, default=5)   # later steady gen (Haochen pt 2)
     ap.add_argument("--out", default="studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy")
     ap.add_argument("--n-frames", type=int, default=5)
     args = ap.parse_args()
@@ -156,19 +167,19 @@ def main():
     t0 = df["global_time"][0]
     tmin = ((df["global_time"] - t0) / 60).to_numpy()
     apo = df["apo"].to_numpy(); atp = df["atp"].to_numpy(); adp = df["adp"].to_numpy()
-    mass = df["mass"].to_numpy()
-    atp_nM = conc_nM(atp, mass); adp_nM = conc_nM(adp, mass)
+    mass = df["mass"].to_numpy(); vol_L = df["vol_fL"].to_numpy() * 1e-15; oric = df["oric"].to_numpy()
     idx = np.linspace(0, len(df) - 1, args.n_frames).round().astype(int)
 
     fig = plt.figure(figsize=(3.2 * args.n_frames, 5.4))
     gs = fig.add_gridspec(2, args.n_frames, height_ratios=[3.0, 1.15], hspace=0.34, wspace=0.04)
     fig.suptitle("dnaa-3 — DnaA-box occupancy by region across the succinate cell cycle\n"
-                 "predicted fast-equilibrium binding (P = C/(C+K_d)) on the dnaa-2 baseline · "
-                 "filled = DnaA-bound, open = free · red ■ = ter · datA/DARS out of scope",
+                 "SELF-CONSISTENT fast-equilibrium binding (boxes sequester free DnaA; later/steady gens) · "
+                 "filled = DnaA-bound, open = free · red ■ = ter · oriC doubles at replication · datA/DARS out of scope",
                  fontsize=12, y=1.0)
     for k, i in enumerate(idx):
         ax = fig.add_subplot(gs[0, k])
-        draw_circle(ax, pool_occupancy(atp_nM[int(i)], adp_nM[int(i)]), tmin[int(i)])
+        ii = int(i)
+        draw_circle(ax, pool_occupancy(atp[ii], adp[ii], vol_L[ii], int(oric[ii])), tmin[ii], int(oric[ii]))
 
     axc = fig.add_subplot(gs[1, :])
     # Rashmi 2026-06-05: total DnaA CONCENTRATION = count / cell MASS (not volume).
@@ -190,9 +201,11 @@ def main():
     for ext in ("png", "svg"):
         fig.savefig(f"{args.out}.{ext}", dpi=140, bbox_inches="tight")
     print(f"wrote {args.out}.png/.svg")
-    P = pool_occupancy(atp_nM[int(idx[len(idx)//2])], adp_nM[int(idx[len(idx)//2])])
-    print("mid-cycle [DnaA-ATP] nM:", round(float(atp_nM[int(idx[len(idx)//2])]), 1),
-          "| occupancy:", {k: round(v, 2) for k, v in P.items()})
+    m = int(idx[len(idx)//2])
+    P = pool_occupancy(atp[m], adp[m], vol_L[m], int(oric[m]))
+    bulk_atp_nM = atp[m] / (vol_L[m] * AVOGADRO) * 1e9
+    print(f"mid-cycle bulk [DnaA-ATP] {bulk_atp_nM:.0f} nM | oriC={int(oric[m])} | self-consistent occupancy:",
+          {k: round(v, 2) for k, v in P.items()})
 
 
 if __name__ == "__main__":

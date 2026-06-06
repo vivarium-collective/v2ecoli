@@ -310,6 +310,17 @@ glossary:
       per-promoter init_prob to tune dnaA mRNA synthesis rate.
 
 feedback_rounds:
+  - date: '2026-06-06-1544'
+    reviewer: Haochen
+    artifact: feedback-2026-06-06-1544/feedback.yaml
+    summary: |
+      dnaa-3 binding analysis (Haochen): new self-consistent binding figure on the
+      steady gens — free DnaA in nM (count/cell VOLUME) vs the 100 nM K_d, oriC-low
+      occupancy zoomed, free-vs-bound DnaA, per-pool occupancy. Occupancy figure now
+      shows oriC DOUBLING at replication. FINDING: free DnaA stays >100 nM because
+      DnaA abundance exceeds the modeled box capacity — the <100 nM regime needs the
+      deferred datA reservoir, so oriC-low over-binding follows from datA being out
+      of scope. Moved onto PR #137 (investigation/dnaa-replication-v3).
   - date: '2026-06-05-1244'
     reviewer: Rashmi
     artifact: feedback-2026-06-05-1244/feedback.yaml

@@ -295,6 +295,21 @@ runtime:
   single_daughters: true
 
 reviewer_feedback:
+  - round: '2026-06-06-1544'
+    reviewer: Haochen
+    source: feedback-2026-06-06-1544/feedback.yaml
+    notes: |
+      Five points, all addressed in the new dnaa3_binding_analysis figure + the
+      updated occupancy figure: (1) oriC low-affinity occupancy on a separate
+      zoomed axis; (2) occupancy/analysis restricted to LATER (steady) generations
+      4-6; (3) free DnaA plotted alongside bound; (4a) made the binding
+      SELF-CONSISTENT — the high-aff boxes sequester free DnaA, and concentrations
+      are now count/cell VOLUME (nM); the oriC over-binding is explained: free DnaA
+      stays ~150-200 nM (>100 nM) because DnaA abundance exceeds the modeled box
+      capacity — needs the deferred datA reservoir (finding flagged for Haochen);
+      (4b) the occupancy illustration now shows oriC DOUBLING at replication
+      (11→22 boxes, "×2 replicating"); (5) the model DOES emit cell volume
+      (listeners.mass.volume ≈0.9 fL) — concentrations now in nM vs the nM K_d.
   - round: '2026-06-05-1244'
     reviewer: Rashmi
     source: feedback-2026-06-05-1244/feedback.yaml
@@ -438,6 +453,19 @@ visualizations:
         DnaA concentration (all forms / cell volume), 670→940 nM. datA / DARS1 /
         DARS2 out of scope. The in-sim per-box version wires next (DnaA_box.DnaA_bound
         emission added; mechanism being built).
+  - name: dnaa3_binding_analysis
+    address: image:charts/dnaa3_binding_analysis.png
+    config:
+      title: >-
+        DnaA-box binding ANALYSIS (Haochen 2026-06-06), self-consistent model on
+        the STEADY (later) generations, concentrations in nM = count / cell VOLUME:
+        (1) free DnaA (nM) vs the 100 nM oriC-low K_d — the high-affinity boxes
+        SEQUESTER DnaA so free DnaA is far below the bulk; (2) oriC LOW-affinity
+        occupancy on its own zoomed axis (the dynamic switch); (3) free vs bound
+        DnaA over time; (4) per-pool occupancy. FINDING: free DnaA stays ~150-200 nM
+        (>100 nM) because DnaA abundance exceeds the modeled box capacity — the
+        <100 nM regime needs the deferred datA reservoir + fuller box set, so the
+        oriC-low over-binding follows from datA/DARS being out of scope.
   - name: dnaa3_readouts
     address: image:charts/dnaa3_readouts.png
     config:

@@ -31,6 +31,7 @@ dependencies = [
     "biopython",
     "sympy",
     "pandas",
+    "ecoli-sources",
     "numba",
     "unum",
     "requests",
@@ -98,3 +99,4 @@ pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git"
 vivarium-dashboard = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }
+ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "8d468b17a56a6b062c06d9f74ffc6bbe7e0ec2e4" }

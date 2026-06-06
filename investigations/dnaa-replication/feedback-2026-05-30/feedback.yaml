@@ -1,0 +1,25 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260530122320"
+  generated_at: "2026-05-30T13:11:10.148Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-05-30-2.html#study-dnaa-1-expression-dynamics-limitations"
+annotations:
+  "study-dnaa-0-parameter-foundation-charts":
+    - ts: "2026-05-30T12:49:26.835Z"
+      author: "Rashmi"
+      text: "this looks correct. For the plot to be more clear, add lines to separate lineages and label the number of generations. The oriC briefly reaching 4 in the early generations indicates it has not yet reached steady state. But, from generation 3 onwards we can see a periodic pattern emerge which is the steady state. For better readability, lets mark the x axis time in minutes. For subsequent analysis, we can select generation 3 state as the initial state."
+    - ts: "2026-05-30T12:50:07.657Z"
+      author: "Rashmi"
+      text: "Label the axes with units"
+  "study-dnaa-1-expression-dynamics-build":
+    - ts: "2026-05-30T13:08:53.564Z"
+      author: "Rashmi"
+      text: "check whether the monomer counts listener provide protein counts in all forms, if yes we can use it directly"
+  "study-dnaa-1-expression-dynamics-limitations":
+    - ts: "2026-05-30T13:06:19.394Z"
+      author: "Rashmi"
+      text: "the pdf target here means the biologically expected rate. Tuning, the RNA synthesis probability resulted in 1.01 events per minutes which is close to the biologically expected value. This also resulted in getting the DnaA counts within expected range."

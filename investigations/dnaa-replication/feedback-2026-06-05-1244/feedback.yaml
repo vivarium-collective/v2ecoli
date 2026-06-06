@@ -1,0 +1,18 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260605115725"
+  generated_at: "2026-06-05T12:44:51.967Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-05-4.html"
+annotations:
+  "study-dnaa-3-box-binding-readouts":
+    - ts: "2026-06-05T12:44:47.517Z"
+      author: "Rashmi"
+      text: "the total DnaA boxes trend doesn't look right. With replication, DnaA boxes also double. But you will be able to see it when you actually run the study."
+  "study-dnaa-3-box-binding-reqs":
+    - ts: "2026-06-05T12:43:52.267Z"
+      author: "Rashmi"
+      text: "i have already approved the plan. Please start the study. I want to see the plots after the study is run."

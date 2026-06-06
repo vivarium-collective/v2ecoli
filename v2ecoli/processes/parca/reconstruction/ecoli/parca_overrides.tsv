@@ -1,0 +1,4 @@
+canonical_key	source_path	description	schema_name
+equilibrium_reactions	flat_overrides/equilibrium_reactions.tsv	v2ecoli DnaA-ATP hydrolysis equilibrium (PR #123)	
+equilibrium_reaction_rates	flat_overrides/equilibrium_reaction_rates.tsv	v2ecoli DnaA-ATP hydrolysis rates (PR #123)	
+metabolic_reactions_added	flat_overrides/metabolic_reactions_added.tsv	v2ecoli metabolic additions (v2parca merge #16)	

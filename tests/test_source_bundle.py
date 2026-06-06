@@ -1,3 +1,4 @@
+import hashlib
 import os
 from pathlib import Path
 
@@ -50,3 +51,37 @@ def test_override_replaces_base_row(tmp_path):
 
     b = SourceBundle(base_manifest=base, overrides=ov, validate=False)
     assert b.path("genes").read_text() == "override"
+
+
+V2_FLAT = Path(__file__).resolve().parents[1] / "v2ecoli/processes/parca/reconstruction/ecoli/flat"
+OVERRIDE_KEYS = {"equilibrium_reactions", "equilibrium_reaction_rates", "metabolic_reactions_added"}
+
+
+def _sha(p):
+    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+
+def test_override_keys_point_to_local_flat_overrides():
+    b = SourceBundle()
+    for key in OVERRIDE_KEYS:
+        p = b.path(key)
+        assert "flat_overrides" in str(p), f"{key} should resolve to a local override"
+        assert p.is_file()
+
+
+@pytest.mark.skipif(not V2_FLAT.exists(), reason="local flat/ deleted post-migration")
+def test_inherited_keys_match_ecoli_sources_content():
+    # For every still-present local flat file NOT overridden, the bundle's
+    # resolved file must be byte-identical (guards against upstream drift).
+    b = SourceBundle()
+    mismatches = []
+    for f in V2_FLAT.rglob("*"):
+        if not f.is_file() or f.name == "sequence.fasta":
+            continue
+        rel = f.relative_to(V2_FLAT)
+        key = relpath_to_key(str(rel))
+        if key in OVERRIDE_KEYS or not b.has_key(key):
+            continue
+        if _sha(f) != _sha(b.path(key)):
+            mismatches.append(key)
+    assert mismatches == [], f"bundle content drifted from local flat for: {mismatches}"

@@ -106,3 +106,52 @@ def test_wrap_vivarium_process_output_ports_restricts_writes():
     assert set(inst.outputs()) == {"counts"}
     # inputs still expose every port for reading
     assert "flag" in inst.inputs()
+
+
+def test_real_vivarium_process_runs_in_composite():
+    """Worked example: a real ``vivarium-core`` Process, wrapped and run on the
+    process-bigraph runtime end-to-end (mirrors docs/converting_vivarium_processes.md).
+    """
+    import pytest
+
+    vivarium_process = pytest.importorskip("vivarium.core.process")
+    from process_bigraph import Composite
+
+    from v2ecoli.library.ecoli_step import set_current_core
+
+    class Counter(vivarium_process.Process):
+        """An ordinary vivarium-1.0 process — unmodified."""
+
+        name = "counter"
+        defaults = {"step_size": 2}
+
+        def ports_schema(self):
+            return {"count": {"_default": 0, "_updater": "accumulate"}}
+
+        def next_update(self, timestep, states):
+            return {"count": self.parameters["step_size"] * timestep}
+
+    core = build_core()
+    set_current_core(core)
+    CounterBridge = wrap_vivarium_process(Counter)
+    core.register_link("CounterBridge", CounterBridge)
+
+    # Ports are derived automatically from Counter.ports_schema().
+    inst = CounterBridge({"step_size": 2}, core=core)
+    assert inst.inputs() == {"count": {"_type": "integer", "_default": 0}}
+
+    doc = {
+        "count": 0,
+        "counter": {
+            "_type": "process",
+            "address": "local:CounterBridge",
+            "config": {"step_size": 2},
+            "inputs": {"count": ["count"]},
+            "outputs": {"count": ["count"]},
+            "interval": 1.0,
+        },
+    }
+    composite = Composite({"state": doc}, core=core)
+    composite.run(4)
+    # 2 per step × 4 steps; next_update delegated through the bridge.
+    assert composite.state["count"] == 8.0

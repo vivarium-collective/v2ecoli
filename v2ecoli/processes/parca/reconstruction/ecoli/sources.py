@@ -31,9 +31,14 @@ def relpath_to_key(rel_path: str) -> str:
     single trailing extension and replaces path separators with ``__``.
     """
     norm = rel_path.replace(os.sep, "/")
-    stem, _, _ext = norm.rpartition(".")
-    norm = stem if stem else norm  # no extension -> keep as-is
-    return norm.replace("/", "__")
+    # Strip a single trailing extension from the BASENAME only, so a dotted
+    # directory component (e.g. ``dir.v2/no_ext``) isn't mangled.
+    slash = norm.rfind("/")
+    head, tail = norm[: slash + 1], norm[slash + 1 :]
+    dot = tail.rfind(".")
+    if dot > 0:  # >0 keeps no-extension names and leading-dot files intact
+        tail = tail[:dot]
+    return (head + tail).replace("/", "__")
 
 
 class SourceBundle:

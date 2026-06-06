@@ -317,10 +317,11 @@ feedback_rounds:
       dnaa-3 binding analysis (Haochen): new self-consistent binding figure on the
       steady gens — free DnaA in nM (count/cell VOLUME) vs the 100 nM K_d, oriC-low
       occupancy zoomed, free-vs-bound DnaA, per-pool occupancy. Occupancy figure now
-      shows oriC DOUBLING at replication. FINDING: free DnaA stays >100 nM because
-      DnaA abundance exceeds the modeled box capacity — the <100 nM regime needs the
-      deferred datA reservoir, so oriC-low over-binding follows from datA being out
-      of scope. Moved onto PR #137 (investigation/dnaa-replication-v3).
+      shows oriC DOUBLING at replication. FINDING (confirms Haochen): even
+      self-consistently the model's free DnaA stays >100 nM — it does NOT reach the
+      expected <100 nM regime; modeled DnaA abundance exceeds box capacity. The CAUSE
+      is an OPEN QUESTION; candidate factors (ours — Haochen did not name a cause):
+      DnaA abundance, box K_d, or unmodeled sinks such as datA (out of scope). On PR #137.
   - date: '2026-06-05-1244'
     reviewer: Rashmi
     artifact: feedback-2026-06-05-1244/feedback.yaml

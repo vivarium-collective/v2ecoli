@@ -129,10 +129,11 @@ def main():
     a.set_title("Per-pool occupancy"); a.set_ylabel("fraction bound"); a.set_ylim(0, 1.05)
     a.set_xlabel("steady-gen time (min)"); a.legend(fontsize=7); a.grid(alpha=0.25)
 
-    note = (f"FINDING (Haochen pt 4): free DnaA ≈ {F_nM.mean():.0f} nM — still > 100 nM even after the "
-            f"{N_HIGH}+{N_LOW} modeled boxes sequester ~{bound.mean():.0f} of ~{Dtot.mean():.0f} DnaA, "
-            f"because DnaA abundance ≫ modeled box capacity. The <100 nM regime needs the deferred "
-            f"datA reservoir (+ fuller box set) — i.e. the oriC-low over-binding follows from datA/DARS being out of scope.")
+    note = (f"FINDING (re Haochen pt 4): free DnaA ≈ {F_nM.mean():.0f} nM — still > 100 nM even after the "
+            f"{N_HIGH}+{N_LOW} modeled boxes sequester ~{bound.mean():.0f} of ~{Dtot.mean():.0f} DnaA. So the model does "
+            f"NOT reach the expected <100 nM free-DnaA regime: modeled DnaA abundance exceeds box capacity. OPEN "
+            f"QUESTION (candidate factors to discuss): DnaA abundance, box K_d values, or unmodeled DnaA-titrating sinks "
+            f"(e.g. datA — OUR hypothesis, NOT raised by Haochen).")
     fig.text(0.5, 0.005, note, ha="center", fontsize=8, color="#7c2d12", wrap=True)
 
     fig.tight_layout(rect=[0, 0.03, 1, 0.96])

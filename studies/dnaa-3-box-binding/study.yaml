@@ -76,6 +76,18 @@ report:
       per Rashmi), cell mass. NOTE: a cache-variant run (cache_kr_1em7) diverged
       into a single gen-7 re-initiation — a stochastic cache sensitivity for Haochen,
       not the validated result.
+    • HAOCHEN 2026-06-06 — point-by-point (chart dnaa3_binding_analysis):
+      (1) oriC low-affinity occupancy now on its OWN zoomed axis; (2) all occupancy
+      analysis restricted to LATER/steady gens (4-6); (3) free DnaA plotted alongside
+      bound; (4a) binding made SELF-CONSISTENT (high-aff boxes sequester free DnaA) +
+      concentrations in nM = count/cell VOLUME — this CONFIRMS his concern: the model
+      does NOT reach the expected <100 nM free-DnaA regime (free DnaA stays ~150-200 nM
+      because modeled DnaA abundance exceeds box capacity). The CAUSE is an OPEN
+      QUESTION — candidate factors are ours (DnaA abundance, box K_d, or unmodeled
+      sinks such as datA, out of scope); Haochen did NOT name a cause; (4b) the
+      occupancy illustration now shows oriC DOUBLING at replication (11→22 boxes);
+      (5) the model DOES emit cell volume (listeners.mass.volume ≈0.9 fL), so all
+      concentrations are now nM, comparable to the nM K_d values.
     • IN-SIM listener — WIP (honest): the DnaaBoxBinding deriver
       (v2ecoli/steps/derivers/dnaa_box_binding.py) instantiates + the cache now
       matches (inputs_hash rebuilt), and the cycle is preserved, BUT the engine does
@@ -304,9 +316,12 @@ reviewer_feedback:
       zoomed axis; (2) occupancy/analysis restricted to LATER (steady) generations
       4-6; (3) free DnaA plotted alongside bound; (4a) made the binding
       SELF-CONSISTENT — the high-aff boxes sequester free DnaA, and concentrations
-      are now count/cell VOLUME (nM); the oriC over-binding is explained: free DnaA
-      stays ~150-200 nM (>100 nM) because DnaA abundance exceeds the modeled box
-      capacity — needs the deferred datA reservoir (finding flagged for Haochen);
+      are now count/cell VOLUME (nM). This CONFIRMS Haochen's concern: even
+      self-consistently the model's free DnaA stays ~150-200 nM (>100 nM), so it does
+      NOT reach the <100 nM regime he expects. OPEN QUESTION on the cause (candidate
+      factors are OURS — Haochen did not name one): modeled DnaA abundance exceeds box
+      capacity, so it could be DnaA abundance, the box K_d values, or unmodeled
+      DnaA-titrating sinks such as datA (out of scope). Flagged to discuss;
       (4b) the occupancy illustration now shows oriC DOUBLING at replication
       (11→22 boxes, "×2 replicating"); (5) the model DOES emit cell volume
       (listeners.mass.volume ≈0.9 fL) — concentrations now in nM vs the nM K_d.
@@ -462,10 +477,11 @@ visualizations:
         (1) free DnaA (nM) vs the 100 nM oriC-low K_d — the high-affinity boxes
         SEQUESTER DnaA so free DnaA is far below the bulk; (2) oriC LOW-affinity
         occupancy on its own zoomed axis (the dynamic switch); (3) free vs bound
-        DnaA over time; (4) per-pool occupancy. FINDING: free DnaA stays ~150-200 nM
-        (>100 nM) because DnaA abundance exceeds the modeled box capacity — the
-        <100 nM regime needs the deferred datA reservoir + fuller box set, so the
-        oriC-low over-binding follows from datA/DARS being out of scope.
+        DnaA over time; (4) per-pool occupancy. FINDING (confirms Haochen): even
+        self-consistently the model's free DnaA stays ~150-200 nM (>100 nM) — it does
+        NOT reach the expected <100 nM regime; modeled DnaA abundance exceeds box
+        capacity. CAUSE is an OPEN QUESTION (candidates are ours, NOT raised by
+        Haochen): DnaA abundance, box K_d, or unmodeled sinks such as datA (out of scope).
   - name: dnaa3_readouts
     address: image:charts/dnaa3_readouts.png
     config:

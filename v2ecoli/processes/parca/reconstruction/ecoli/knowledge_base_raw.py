@@ -14,6 +14,7 @@ import warnings
 from v2ecoli.processes.parca.reconstruction.spreadsheets import read_tsv
 from v2ecoli.processes.parca.wholecell.io import tsv
 from v2ecoli.processes.parca.wholecell.utils import units  # used by eval()
+from v2ecoli.processes.parca.reconstruction.ecoli.sources import relpath_to_key
 
 FLAT_DIR = os.path.join(os.path.dirname(__file__), "flat")
 LIST_OF_DICT_FILENAMES = [
@@ -180,7 +181,9 @@ class KnowledgeBaseEcoli(object):
         remove_rrff: bool,
         stable_rrna: bool,
         new_genes_option: str = "off",
+        bundle=None,
     ):
+        self._bundle = bundle
         self.operons_on = operons_on
         self.stable_rrna = stable_rrna
         self.new_genes_option = new_genes_option
@@ -270,9 +273,14 @@ class KnowledgeBaseEcoli(object):
         if self.new_genes_option != "off":
             new_gene_subdir = new_genes_option
             new_gene_path = os.path.join("new_gene_data", new_gene_subdir)
-            assert os.path.isdir(os.path.join(FLAT_DIR, new_gene_path)), (
-                "This new_genes_data subdirectory is invalid."
-            )
+            if self._bundle is not None:
+                assert self._bundle.keys_with_prefix(
+                    f"new_gene_data__{new_gene_subdir}__"
+                ), "This new_genes_data subdirectory is invalid."
+            else:
+                assert os.path.isdir(os.path.join(FLAT_DIR, new_gene_path)), (
+                    "This new_genes_data subdirectory is invalid."
+                )
             nested_attr = "new_gene_data." + new_gene_subdir + "."
 
             # These files do not need to be joined to existing files
@@ -295,7 +303,11 @@ class KnowledgeBaseEcoli(object):
                 file_path = os.path.join(new_gene_path, f + ".tsv")
                 # If these files are empty, fill in with default values at a
                 # later point
-                assert os.path.isfile(os.path.join(FLAT_DIR, file_path)), (
+                if self._bundle is not None:
+                    present = self._bundle.has_key(relpath_to_key(file_path))
+                else:
+                    present = os.path.isfile(os.path.join(FLAT_DIR, file_path))
+                assert present, (
                     f"File {f}.tsv must be present in the new_genes_data"
                     f" subdirectory {new_gene_subdir}."
                 )
@@ -303,7 +315,9 @@ class KnowledgeBaseEcoli(object):
                 self.new_gene_added_data.update({f: nested_attr + f})
 
             rnaseq_path = os.path.join(new_gene_path, "rnaseq_rsem_tpm_mean.tsv")
-            if os.path.isfile(os.path.join(FLAT_DIR, rnaseq_path)):
+            if (self._bundle.has_key(relpath_to_key(rnaseq_path))
+                    if self._bundle is not None
+                    else os.path.isfile(os.path.join(FLAT_DIR, rnaseq_path))):
                 self.list_of_dict_filenames.append(rnaseq_path)
                 self.new_gene_added_data.update(
                     {
@@ -314,14 +328,12 @@ class KnowledgeBaseEcoli(object):
 
         # Load raw data from TSV files
         for filename in self.list_of_dict_filenames:
-            self._load_tsv(filename, os.path.join(FLAT_DIR, filename))
+            self._load_tsv(filename, self._resolve(filename))
 
         for filename in self.list_of_parameter_filenames:
-            self._load_parameters(filename, os.path.join(FLAT_DIR, filename))
+            self._load_parameters(filename, self._resolve(filename))
 
-        self.genome_sequence = self._load_sequence(
-            os.path.join(FLAT_DIR, SEQUENCE_FILE)
-        )
+        self.genome_sequence = self._load_sequence(self._resolve(SEQUENCE_FILE))
 
         self._prune_data()
 
@@ -347,6 +359,11 @@ class KnowledgeBaseEcoli(object):
 
             self.added_data = self.new_gene_added_data
             self._join_data()
+
+    def _resolve(self, rel_path):
+        if self._bundle is not None:
+            return self._bundle.resolve_relpath(rel_path)
+        return os.path.join(FLAT_DIR, rel_path)
 
     def _load_tsv(self, rel_path, abs_path):
         path = self

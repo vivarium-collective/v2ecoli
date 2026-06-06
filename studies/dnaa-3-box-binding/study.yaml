@@ -84,7 +84,19 @@ report:
       does NOT reach the expected <100 nM free-DnaA regime (free DnaA stays ~150-200 nM
       because modeled DnaA abundance exceeds box capacity). The CAUSE is an OPEN
       QUESTION — candidate factors are ours (DnaA abundance, box K_d, or unmodeled
-      sinks such as datA, out of scope); Haochen did NOT name a cause; (4b) the
+      sinks such as datA, out of scope); Haochen did NOT name a cause.
+      LITERATURE-GROUNDED RESOLUTION (2026-06-06) — two genuine causes, neither a
+      simple "add boxes" fix: (i) ABUNDANCE — the model carries ~581 DnaA/cell
+      (~300-500 per oriC over the cycle) vs the literature ~200 DnaA per oriC
+      (Si/Sekar; Hansen), i.e. ~1.5-2x high; roughly halving DnaA toward ~200/oriC
+      would move free DnaA toward <100 nM on its own. (ii) SEQUESTRATION PHYSICS —
+      genome-wide ChIP-seq finds only ~13 strongly DnaA-bound regions, not the ~300
+      loose-consensus motif sites the model's chromosomal pool approximates (Smith
+      2024 DnaA-binding landscape), and the dominant titration is the datA locus
+      (cooperative, high-capacity; out of scope). So dnaa3_box_variants (more
+      independent boxes) is a crude SENSITIVITY proxy, not the biophysics; the real
+      levers are DnaA abundance (the dnaa-1 expression calibration) and datA
+      cooperative titration (deferred). Canonical model unchanged; flagged for review. (4b) the
       occupancy illustration now shows oriC DOUBLING at replication (11→22 boxes);
       (5) the model DOES emit cell volume (listeners.mass.volume ≈0.9 fL), so all
       concentrations are now nM, comparable to the nM K_d values.
@@ -149,6 +161,20 @@ references:
       Biology source. 11 oriC boxes (3 high-aff R1/R2/R4; 8 low-aff R5M, τ2, I1,
       I2, C3, C2, I3, C1), affinity ranges (high ≈1 nM; low >100 nM), nucleotide
       specificity (high bind ATP+ADP; low prefer ATP), dnaA-promoter box layout.
+  - name: dnaa-abundance-per-oric
+    url: https://pmc.ncbi.nlm.nih.gov/articles/PMC7822741/
+    role: |
+      DnaA abundance reality-check (Haochen 4a): ~200 DnaA molecules per oriC across
+      growth rates 0.6-2.3 dbl/h; total DnaA scales ~100x from ~0.5 to ~3 dbl/h. The
+      model's ~300-500 DnaA/oriC (succinate) is ~1.5-2x this — a contributing cause
+      of the >100 nM free DnaA.
+  - name: dnaa-binding-landscape-chipseq
+    url: https://pmc.ncbi.nlm.nih.gov/articles/PMC11317965/
+    role: |
+      Genome-wide DnaA-binding landscape (Smith 2024): ChIP-seq finds only ~13
+      strongly DnaA-bound regions (32 strict-consensus TTATCCACA sites), with DnaA
+      preferring closely-spaced box PAIRS bound by dimers — i.e. the ~300 loose-motif
+      chromosomal pool is not the in-vivo titration; datA (cooperative) dominates.
   - name: oric-sequence
     path: ../../workspace/references/dnaa/oric_sequence.pdf
     role: |

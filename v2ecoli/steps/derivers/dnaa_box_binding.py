@@ -40,7 +40,7 @@ uses the equivalent fast-equilibrium computation post-hoc
 same numbers.
 """
 import numpy as np
-from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, attrs
+from v2ecoli.library.schema import bulk_name_to_idx, counts, attrs
 from v2ecoli.library.schema_types import DNAA_BOX_ARRAY
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.types.quantity import ureg as units
@@ -105,7 +105,15 @@ class DnaaBoxBinding(Step):
 
     def inputs(self):
         return {
-            "bulk": numpy_schema("bulk"),
+            # Use the registered ``bulk_array`` type (NOT numpy_schema("bulk"))
+            # so the bulk store keeps its BulkNumpyUpdate apply. numpy_schema
+            # returns a typeless dict whose _updater function is dropped on
+            # schema merge — the store then falls back to the generic Array
+            # apply (state[idx] += delta), which crashes when the NEXT step
+            # (Equilibrium) returns a [(idx, delta)] bulk delta against the
+            # structured bulk dtype. This is the same convention counts_deriver
+            # and mass_deriver use for their read-only bulk port.
+            "bulk": {"_type": "bulk_array", "_default": []},
             "DnaA_boxes": {"_type": DNAA_BOX_ARRAY, "_default": []},
             "mass_listener": {"cell_mass": {"_type": "quantity[float,fg]", "_default": 0}},
             "global_time": {"_type": "float", "_default": 0.0},

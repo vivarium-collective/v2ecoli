@@ -260,7 +260,7 @@ conditions:
   model_settings: []
 
 visualizations:
-- name: dnaa_steady_state
+- name: dnaa0_steady_state
   address: image:charts/dnaa0_steady_state.png
   config:
     title: >-
@@ -276,6 +276,9 @@ visualizations:
       dnaa_monomer_total: listeners.monomer_counts
       time: global_time
 
+  chart: charts/dnaa0_steady_state.svg
+  source_run: dnaa0_seed0
+  render: 'cd ../.. && python scripts/measure_dnaa_at_steady_state.py --exp-root out/dnaa0_seed0_parquet/dnaa0_seed0 --experiment-id dnaa0_seed0  # (measure; chart authored)'
 runs:
   # NB: the report reads the LAST run's `outcomes:` for the test pills, so the
   # canonical run is placed last and carries the per-test PASS/FAIL results.

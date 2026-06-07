@@ -539,45 +539,6 @@ visualizations:
   chart: charts/dnaa3_readouts.svg
   source_run: dnaa2_seed1_8gen
   render: cd ../.. && python scripts/render_dnaa3_readouts.py --run out/dnaa2_seed1_8gen --out studies/dnaa-3-box-binding/charts/dnaa3_readouts
-- name: chromosome_replication_animation
-  address: image:charts/chromosome_replication.gif
-  config:
-    title: >-
-      ANIMATED full succinate cell cycle (seed 1, ~71 min, 123 frames) — the live
-      chromosome context dnaa-3's DnaA boxes sit on. Three phases, labelled per
-      frame: (1) pre-initiation — single chromosome, RNAPs on the rim; (2)
-      replication bubble EXTENDING — green bubble grows from oriC as the two
-      replisomes (gold triangles) travel toward Ter, with RNAPs on both the mother
-      rim AND the bubble arcs; (3) the chromosome DIVIDES INTO TWO complete
-      chromosomes at replication completion. oriC green, Ter red, RNAPs blue.
-      Rendered from per-timestep unique-molecule coordinates persisted to parquet
-      (V2ECOLI_EMIT_UNIQUE) via the existing _draw_replication_bubbles renderer.
-- name: chromosome_dnaa_boxes
-  address: image:charts/chromosome_dnaa_boxes.png
-  config:
-    title: >-
-      E. coli K-12 chromosome — all 307 consensus DnaA boxes (TTWTNCACA,
-      Schaper-Messer 1995), extracted from the v2ecoli whole-cell-model genome
-      exactly as Replication._build_motifs() computes them. oriC and the dnaA
-      promoter marked (Rashmi 2026-06-05: datA / DARS1 / DARS2 are out of scope
-      at this stage and removed). These 307 are the dnaa-3 chromosomal-high pool
-      substrate; the 8 oriC low-affinity + 2 promoter-high sites are added on top.
-- name: dnaa2_baseline_starting_point
-  address: image:charts/dnaa2_baseline_starting_point.png
-  config:
-    title: >-
-      BASELINE (where dnaa-3 starts) — the dnaa-2 succinate run that dnaa-3 builds
-      box-binding on top of. Figure shown = the current on-disk seed-0 6-gen run
-      (divides 6/6, oriC clean 1↔2, DnaA-ATP cycle-mean 0.283 in [0.2,0.5], total
-      DnaA in [300,800], [ATP]:[ADP]≈20). NOTE (Rashmi 2026-06-04): the CANONICAL
-      baseline is moving to SEED 1 × 8 GENERATIONS (her clean reproduction) — dnaa-3
-      validates against that. dnaa-3 must PRESERVE all four behaviours: periodic
-      mass doubling, oriC 1→2 one-init-per-gen, DnaA counts in band, DnaA-ATP in band.
-      x-axis in minutes (cumulative), generation boundaries dotted (Rashmi conv).
-
-# ── Visualizations (4, from spec) — PLANNED (built in build-step listener-and-viz) ──
-# Kept as planned_visualizations (not `visualizations:`) so the dashboard does not
-# try to render unregistered classes — these are specs for viz to be authored.
 planned_visualizations:
 - name: dnaa-atp-partition-across-cell
   units: concentration (count / cell_mass)

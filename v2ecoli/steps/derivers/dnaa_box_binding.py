@@ -94,12 +94,17 @@ class DnaaBoxBinding(Step):
         # chromosome.occupied_count) to the strongly-bound count. Default 32 =
         # the ChIP-seq strong-site count (Smith 2024: ~13-32 strongly-bound
         # regions; the ~302 loose-consensus pool is NOT the in-vivo titration).
-        # Chosen from the capacity sweep (caps 302/32/13 -> sink free DnaA-ATP
-        # 0.0/47/98 nM): 302 over-titrates free DnaA to ~0; 13 barely sinks
-        # (~98 nM, ~read-only); 32 lands free DnaA-ATP ~47 nM (out of the >K_d
-        # over-binding regime) with modest t=0 oriC low-aff occupancy (0.31) and
-        # the cell cycle preserved (gen-1 divides). -1 = ALL live boxes (~302,
-        # legacy). Overridable per-run via env var DNAA_N_CHROM_HIGH_CAP.
+        # Chosen from the full-trajectory capacity sweep (55-min observer
+        # artifacts, 3301 ticks, cache_dnaa3 seed 1; caps 302/32/13 -> sink free
+        # DnaA-ATP mean 0.4 / 44.2 / 128.7 nM): 302 over-titrates free DnaA to
+        # ~0; 13 leaves free DnaA ~129 nM (back ABOVE the 100 nM oriC-low K_d,
+        # oriC-low occ ~0.53 — the over-binding Rashmi flagged); 32 lands free
+        # DnaA-ATP ~44 nM (median 14, out of the >K_d over-binding regime) with
+        # LOW early-cycle oriC low-aff occupancy (~0.05, resolving the read-only
+        # listener's t=0 ~0.52) rising to ~0.51 late-cycle toward initiation, and
+        # the gen-1 cell cycle preserved (divides at 60 min, oriC reaches 2, zero
+        # re-init). -1 = ALL live boxes (~302, legacy / read-only listener).
+        # Overridable per-run via env var DNAA_N_CHROM_HIGH_CAP.
         "n_chrom_high_cap": "integer{32}",
         # SINK MODE (dnaa-3 Rashmi item 1). When False (default) the step is a
         # pure read-only OBSERVER: it never returns a ``bulk`` delta, so the

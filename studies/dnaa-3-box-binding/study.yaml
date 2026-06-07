@@ -477,6 +477,68 @@ runs:
     binding-columns-populate:
       result: PASS
       detail: all 13 listeners.dnaA_binding columns emit real per-tick values (no accumulation)
+- name: dnaa3-sink-cap32
+  status: completed
+  kind: single-seed-singlegen-lineage
+  canonical: true
+  run_dir: parquet-runs/dnaa3-sink-cap32
+  cache_dir: out/cache_dnaa3
+  resume_dill: out/steady_state_inputs/succinate_default_gen3_start.dill
+  seed: 1
+  description: |
+    CHOSEN sink setting (Rashmi item 1). dnaa_sink enabled with the chromosomal
+    high-affinity box capacity capped at 32 (DNAA_N_CHROM_HIGH_CAP=32 / the new
+    n_chrom_high_cap default) — the ChIP-seq strong-site count. Two runs: a
+    55-min observer artifact (3301 ticks) for the full per-tick trajectory, and a
+    divided run (out/dnaa3_sink_sweep/cap32) for the cycle. Free DnaA-ATP mean
+    44.2 nM (median 13.7, max 118.4), free DnaA-ADP 21.0 nM, oriC low-affinity
+    occupancy early-2min 0.05 / mean 0.235 / max 0.542 (resolves the read-only
+    listener's t=0 ~0.52 over-occupancy), oriC high-affinity 0.911, total DnaA
+    bound mean 58, chromosomal effective sites max 63 (32 x2 at replication).
+    Cell cycle preserved: divides at 60 min, oriC reaches 2, zero re-initiation.
+  outcomes:
+    sink-free-atp-in-window:
+      result: PASS
+      detail: free DnaA-ATP mean 44.2 nM (median 13.7) — below the 100 nM oriC-low K_d but not collapsed to ~0
+    t0-low-aff-not-over-occupied:
+      result: PASS
+      detail: early-cycle oriC low-affinity occupancy ~0.05 (vs read-only listener's ~0.52), rising to ~0.51 late toward initiation
+    cycle-preserved:
+      result: PASS
+      detail: divided run tau 60 min; oriC reaches 2; zero re-initiation
+- name: dnaa3-sink-cap13
+  status: completed
+  kind: single-seed-singlegen-lineage
+  canonical: false
+  run_dir: parquet-runs/dnaa3-sink-cap13
+  cache_dir: out/cache_dnaa3
+  seed: 1
+  description: |
+    Sink capacity sweep point cap=13 (ChIP-seq lower bound, ~13 strongly-bound
+    regions). UNDER-sinks: free DnaA-ATP mean 128.7 nM (median 149.2) — back
+    ABOVE the 100 nM oriC-low K_d, oriC low-affinity occupancy mean 0.526 (the
+    over-binding Rashmi flagged). Cycle preserved (divides 60 min, oriC->2).
+  outcomes:
+    sink-free-atp-in-window:
+      result: PARTIAL
+      detail: free DnaA-ATP ~129 nM is back above the K_d (under-sinks) — not the chosen window
+- name: dnaa3-sink-cap302
+  status: completed
+  kind: single-seed-singlegen-lineage
+  canonical: false
+  run_dir: parquet-runs/dnaa3-sink-cap302
+  cache_dir: out/cache_dnaa3
+  seed: 1
+  description: |
+    Sink capacity sweep point cap=302 (uncapped, the loose-consensus pool).
+    OVER-titrates: free DnaA-ATP mean 0.4 nM (median 0.0), oriC low-affinity
+    occupancy mean 0.003 — the over-capacity Rashmi/Haochen flagged (the ~302
+    high-affinity boxes out-capacity the free DnaA pool). Cycle still preserved
+    (divides 58 min, oriC->2, zero re-init).
+  outcomes:
+    sink-free-atp-in-window:
+      result: FAIL
+      detail: free DnaA-ATP ~0.4 nM (over-titrates to ~0) — the over-capacity artifact; not the chosen window
 - name: dnaa3-seed1-8gen
   status: superseded
   kind: single-seed-multigen-lineage
@@ -859,7 +921,52 @@ findings:
     verified_by: scripts/render_dnaa3_binding_analysis.py
 - id: sink-capacity-tuned-to-chipseq-resolves-overbinding
   kind: computational
-  summary: "The in-sim DnaA-box SINK over-binds at the model's ~302 loose-consensus chromosomal boxes (free DnaA-ATP titrated to 0). A capacity sweep (chromosomal high-affinity boxes = 302/32/13 -> sink free DnaA-ATP 0.0/47/98 nM, t=0 oriC low-affinity occupancy 0.0/0.31/0.49) shows 302 over-titrates and 13 barely sinks; cap=32 lands free DnaA-ATP ~47 nM (out of the >100 nM-K_d over-binding regime) with modest t=0 low-affinity occupancy (0.31) while the cell cycle is preserved (gen-1 divides at the baseline dry-mass threshold). Default set to 32, grounded in ChIP-seq (Smith 2024: ~13-32 strongly-bound regions; the ~302 loose pool is not the in-vivo titration). Addresses Rashmi 2026-06-07 (\"free DnaA-ATP too high; t=0 low-affinity oriC boxes should not be occupied that much\"). Single-generation validated; multi-generation sink stability pending."
+  status: novel
+  statement: |
+    Capping the chromosomal high-affinity DnaA-box pool the SINK titrates — from
+    the model's ~302 loose-consensus (TTWTNCACA) boxes down toward the ChIP-seq
+    strong-site count (Smith 2024: ~13 strongly DnaA-bound regions / 32 strict
+    consensus) — resolves the sink's over-titration. Sweep over
+    DNAA_N_CHROM_HIGH_CAP = {302, 32, 13}, each as a 55-min observer artifact
+    (full per-tick trajectory, 3301 ticks) plus a divided run (cycle), on the
+    cache_dnaa3 succinate baseline (seed 1, dnaa_sink enabled):
+
+      cap | free DnaA-ATP nM (mean/median) | oriC low-aff occ (early-2min / mean / max) | oriC high-aff | divides (tau) | oriC->2 | reinit
+      302 |  0.4 / 0.0   | 0.05 / 0.003 / 0.40 | 0.69 | yes (58 min) | yes | no   (OVER-titrates: free DnaA ~0)
+       32 | 44.2 / 13.7  | 0.05 / 0.235 / 0.54 | 0.91 | yes (60 min) | yes | no   (CHOSEN — physiological window)
+       13 | 128.7/ 149.2 | 0.09 / 0.526 / 0.67 | 0.99 | yes (60 min) | yes | no   (UNDER-sinks: free DnaA back >K_d)
+
+    cap=302 drains free DnaA-ATP to ~0 (the over-capacity Rashmi/Haochen flagged,
+    inverted); cap=13 leaves free DnaA-ATP ~129 nM, back ABOVE the 100 nM
+    oriC-low K_d with oriC-low occupancy ~0.53 (the over-binding Rashmi flagged).
+    cap=32 is the physiological choice: free DnaA-ATP ~44 nM (median 14) — below
+    the K_d but not collapsed; early-cycle oriC low-affinity occupancy is LOW
+    (~0.05, resolving the t=0 over-occupancy — the read-only listener had ~0.52),
+    rising to ~0.51 late-cycle toward initiation; high-affinity oriC stays
+    saturated (0.91); the gen-1 cell cycle is preserved (divides at 60 min, oriC
+    reaches 2, zero re-initiation). Default set to 32 in DnaaBoxBinding
+    (n_chrom_high_cap), grounded in ChIP-seq — the ~302 loose-motif pool is NOT
+    the in-vivo titration sink (datA, out of scope, dominates). Addresses Rashmi
+    2026-06-07 item 1 ("free DnaA-ATP too high; t=0 low-affinity oriC boxes
+    should not be occupied that much"). The cap is sweepable
+    (config n_chrom_high_cap or env DNAA_N_CHROM_HIGH_CAP); the read-only
+    occupancy LISTENER is unaffected (it reports the true ~302 box catalog) — only
+    the opt-in sink uses the cap. MULTI-GEN STATUS: validated gen-1 only. The
+    sink's _sunk_atp counter resets per composite instance, so across division
+    the daughter does not inherit the mother's held-out DnaA — a fuller multi-gen
+    fix needs bound DnaA modeled as a real bulk species that partitions at
+    division (or a pre-division release hook).
+  evidence:
+    from_run: |
+      dnaa3-sink-cap{302,32,13} observer artifacts (full per-tick trajectory) +
+      dnaa3_sink_sweep divided runs (cycle); summary in
+      parquet-runs/dnaa3_sink_capacity_sweep_summary.json
+  provenance:
+    run_ids:
+    - dnaa3-sink-cap32
+    - dnaa3-sink-cap13
+    - dnaa3-sink-cap302
+    verified_by: scripts/sweep_dnaa_sink_capacity.py (DNAA_N_CHROM_HIGH_CAP) + cache_dnaa3 (ParCa --mode full)
 discovery_implications:
   resolved_uncertainties:
   - DnaA-box binding equilibrium fits the current DnaA concentration range (315 boxes, 4 affinity pools, fast equilibrium).

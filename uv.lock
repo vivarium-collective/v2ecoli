@@ -307,9 +307,14 @@ wheels = [
 ]
 
 [[package]]
+name = "bigraph-loom"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/bigraph-loom.git?rev=main#6edc48044c487d357469e26edf1d7ecdac1dd6b2" }
+
+[[package]]
 name = "bigraph-schema"
-version = "1.3.2"
-source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#d60ee752346f94e143f1639d1ff2fccdf2991236" }
+version = "1.4.1"
+source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#25e78d041f092a273d9c538ceb8b2474f3609fb8" }
 dependencies = [
     { name = "fire" },
     { name = "numpy" },
@@ -4204,8 +4209,9 @@ sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca30
 [[package]]
 name = "vivarium-dashboard"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#7c06cb2650ac02352f0295f869a9e1521432bff6" }
+source = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main#637466f0a6dc03b06cdfe05b81eaf7f169aa469f" }
 dependencies = [
+    { name = "bigraph-loom" },
     { name = "bigraph-schema" },
     { name = "jinja2" },
     { name = "jsonschema", extra = ["format-nongpl"] },

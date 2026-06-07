@@ -1,0 +1,7 @@
+{
+  "source_run_id": "dnaa2_seed1_8gen",
+  "generation_id": null,
+  "rendered_at": 1780810826.226201,
+  "command": "cd ../.. && python scripts/render_dnaa3_box_variants.py --run out/dnaa2_seed1_8gen --out studies/dnaa-3-box-binding/charts/dnaa3_box_variants",
+  "content_hash": "sha256:5b59d8141402fb355b469422a36a94865257adf33c7a6871b6ff24207d843260"
+}

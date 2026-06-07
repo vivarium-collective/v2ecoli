@@ -489,6 +489,9 @@ visualizations:
       DnaA concentration (all forms / cell volume), 670→940 nM. datA / DARS1 /
       DARS2 out of scope. The in-sim per-box version wires next (DnaA_box.DnaA_bound
       emission added; mechanism being built).
+  chart: charts/dnaa3_box_occupancy.svg
+  source_run: dnaa2_seed1_8gen
+  render: cd ../.. && python scripts/render_dnaa3_occupancy.py --run out/dnaa2_seed1_8gen --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
 - name: dnaa3_binding_analysis
   address: image:charts/dnaa3_binding_analysis.png
   config:
@@ -503,6 +506,9 @@ visualizations:
       NOT reach the expected <100 nM regime; modeled DnaA abundance exceeds box
       capacity. CAUSE is an OPEN QUESTION (candidates are ours, NOT raised by
       Haochen): DnaA abundance, box K_d, or unmodeled sinks such as datA (out of scope).
+  chart: charts/dnaa3_binding_analysis.svg
+  source_run: dnaa2_seed1_8gen
+  render: cd ../.. && python scripts/render_dnaa3_binding_analysis.py --run out/dnaa2_seed1_8gen --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
 - name: dnaa3_box_variants
   address: image:charts/dnaa3_box_variants.png
   config:
@@ -516,6 +522,9 @@ visualizations:
       sites (weak/secondary; literature ~300-450) moves free DnaA below 100 nM —
       ~360 reaches the edge, ~400 sits comfortably in-window (occ ~0.23). Shown so
       Haochen can judge whether the under-sequestration (not K_d) is the cause.
+  chart: charts/dnaa3_box_variants.svg
+  source_run: dnaa2_seed1_8gen
+  render: cd ../.. && python scripts/render_dnaa3_box_variants.py --run out/dnaa2_seed1_8gen --out studies/dnaa-3-box-binding/charts/dnaa3_box_variants
 - name: dnaa3_readouts
   address: image:charts/dnaa3_readouts.png
   config:
@@ -527,6 +536,9 @@ visualizations:
       majority form), DnaA boxes free vs bound (≈3 free of 315), and cell mass.
       Fast-equilibrium binding model on the dnaa-2 baseline (in-sim listener
       pending its firing fix; same numbers).
+  chart: charts/dnaa3_readouts.svg
+  source_run: dnaa2_seed1_8gen
+  render: cd ../.. && python scripts/render_dnaa3_readouts.py --run out/dnaa2_seed1_8gen --out studies/dnaa-3-box-binding/charts/dnaa3_readouts
 - name: chromosome_replication_animation
   address: image:charts/chromosome_replication.gif
   config:

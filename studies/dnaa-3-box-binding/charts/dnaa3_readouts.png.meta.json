@@ -1,0 +1,7 @@
+{
+  "source_run_id": "dnaa2_seed1_8gen",
+  "generation_id": null,
+  "rendered_at": 1780810826.226201,
+  "command": "cd ../.. && python scripts/render_dnaa3_readouts.py --run out/dnaa2_seed1_8gen --out studies/dnaa-3-box-binding/charts/dnaa3_readouts",
+  "content_hash": "sha256:e35672cbeaf3c3dc6352c789e940b8b2a64068a44b718381063f5c0a3709ecc0"
+}

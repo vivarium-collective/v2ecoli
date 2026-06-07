@@ -372,6 +372,9 @@ visualizations:
       on the generation-average criterion (DnaA-ATP fraction avg 0.26, total-DnaA
       avg 535). Initial generations stabilize, per Rashmi's note.
 
+  chart: charts/dnaa2_seed1_8gen_canonical.svg
+  source_run: dnaa2_seed1_8gen
+  render: cd ../.. && python scripts/render_dnaa2_sixpanel.py --run out/dnaa2_seed1_8gen
 runs:
   # DIRECTED CANONICAL (Rashmi 2026-06-04): the run that decides dnaa-2 PASS.
 - name: dnaa2-seed1-8gen

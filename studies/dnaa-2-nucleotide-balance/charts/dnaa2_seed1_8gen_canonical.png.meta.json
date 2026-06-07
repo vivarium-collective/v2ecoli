@@ -1,0 +1,7 @@
+{
+  "source_run_id": "dnaa2_seed1_8gen",
+  "generation_id": null,
+  "rendered_at": 1780810954.851129,
+  "command": "cd ../.. && python scripts/render_dnaa2_sixpanel.py --run out/dnaa2_seed1_8gen",
+  "content_hash": "sha256:1fbf1a74e204b16a1697229d4d39d16bc300adcf4a847c9823afd4091a0c9a4c"
+}

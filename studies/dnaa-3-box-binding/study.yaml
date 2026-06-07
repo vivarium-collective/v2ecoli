@@ -604,6 +604,29 @@ tests:
 # ── Visualizations — the chromosome box-map is REAL (WCM genome data); the 4 ──
 #    trajectory panels below are PLANNED (built once the mechanism runs).
 visualizations:
+- name: chromosome_dnaa_boxes
+  address: image:charts/chromosome_dnaa_boxes.png
+  config:
+    title: >-
+      E. coli K-12 chromosome — all 307 consensus DnaA boxes (TTWTNCACA,
+      Schaper-Messer 1995), extracted from the v2ecoli whole-cell-model genome
+      exactly as Replication._build_motifs() computes them. oriC and the dnaA
+      promoter marked (datA / DARS1 / DARS2 out of scope at this stage). These 307
+      are the dnaa-3 chromosomal-high pool substrate; the 8 oriC low-affinity + 2
+      promoter-high sites are added on top.
+  chart: charts/chromosome_dnaa_boxes.svg
+- name: chromosome_replication_animation
+  address: image:charts/chromosome_replication.gif
+  config:
+    title: >-
+      ANIMATED full succinate cell cycle (seed 1, ~71 min, 123 frames) — the live
+      chromosome context dnaa-3's DnaA boxes sit on. Three phases: (1) pre-initiation
+      — single chromosome, RNAPs on the rim; (2) replication bubble EXTENDING — a
+      green bubble grows from oriC as the two replisomes (gold triangles) travel
+      toward Ter, RNAPs on both the mother rim AND the bubble arcs; (3) the chromosome
+      DIVIDES INTO TWO complete chromosomes at replication completion. oriC green,
+      Ter red, RNAPs blue. Rendered from per-timestep unique-molecule coordinates
+      (V2ECOLI_EMIT_UNIQUE) via the _draw_replication_bubbles renderer.
 - name: dnaa3_box_occupancy
   address: image:charts/dnaa3_box_occupancy.png
   config:

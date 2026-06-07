@@ -40,7 +40,7 @@ os.chdir(ROOT)
 
 from process_bigraph import Composite
 
-from v2ecoli import build_composite, build_document
+from v2ecoli import build_composite
 from v2ecoli.composites._helpers import parquet_emitter
 from v2ecoli.composites.baseline import baseline as baseline_doc
 from v2ecoli.core import build_core

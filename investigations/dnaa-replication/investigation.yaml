@@ -41,7 +41,7 @@ executive:
     mechanism; all four behaviours in band on Rashmi's generation-average criterion); dnaa-3 (DnaA-box binding) is now PREPARED for Rashmi/Haochen
     review. Each study has an explicit acceptance criterion in biological
     observables (oriC periodicity, DnaA pool steady state, DnaA-ATP fraction band).
-  verdict: Foundation (dnaa-0/1/2) PASS; dnaa-3 box binding now runs IN-SIM and the over-binding Rashmi flagged is fixed (sink at ChIP-seq capacity cap=32 -> free DnaA-ATP ~47 nM); multi-gen sink validation pending.
+  verdict: Foundation (dnaa-0/1/2) PASS; dnaa-3 box binding now runs IN-SIM and the over-binding Rashmi flagged is fixed (sink at ChIP-seq capacity cap=32 -> free DnaA-ATP ~44 nM (median 14)); multi-gen sink validation pending.
   verdict_status: in-progress
   verdict_detail: |-
     Both foundational studies PASS. dnaa-0: v2ecoli reaches the succinate
@@ -92,7 +92,7 @@ executive:
     chromosome map + the dnaa-2 baseline figure are attached. Not yet built/run;
     gated on dnaa-2's baseline holding. This is the study going back to Rashmi/Haochen.
 
-    dnaa-3 (2026-06-07): the in-sim DnaA-box binding now fires correctly inside the simulation (three wiring fixes: bulk port type, read-only output topology, emitter overwrite-vs-accumulate). As a read-only listener it reports free DnaA-ATP ~110 nM with the dnaa-2 cell cycle preserved exactly. Addressing Rashmi's review (free DnaA-ATP too high; t=0 low-affinity oriC boxes over-occupied; run the actual simulation), the binding was made an opt-in SINK and the chromosomal high-affinity box capacity tuned to the ChIP-seq strong-site count: a sweep (caps 302/32/13 -> sink free DnaA-ATP 0.0/47/98 nM) selected cap=32 (Smith 2024 ~13-32 strong sites; the ~302 loose pool is not the in-vivo titration), landing free DnaA-ATP ~47 nM out of the >100 nM-K_d over-binding regime with modest t=0 low-affinity occupancy (0.31) and the cell cycle preserved (gen-1 divides). Remaining: multi-generation sink stability.
+    dnaa-3 (2026-06-07): the in-sim DnaA-box binding now fires correctly inside the simulation (three wiring fixes: bulk port type, read-only output topology, emitter overwrite-vs-accumulate). As a read-only listener it reports free DnaA-ATP ~110 nM with the dnaa-2 cell cycle preserved exactly. Addressing Rashmi's review (free DnaA-ATP too high; t=0 low-affinity oriC boxes over-occupied; run the actual simulation), the binding was made an opt-in SINK and the chromosomal high-affinity box capacity tuned to the ChIP-seq strong-site count: a sweep (caps 302/32/13 -> sink free DnaA-ATP 0.0/47/98 nM) selected cap=32 (Smith 2024 ~13-32 strong sites; the ~302 loose pool is not the in-vivo titration), landing free DnaA-ATP ~44 nM (median 14) out of the >100 nM-K_d over-binding regime with LOW early-cycle low-affinity occupancy (~0.05, resolving the read-only listener's t=0 ~0.52) rising to ~0.51 toward initiation and the cell cycle preserved (gen-1 divides). Remaining: multi-generation sink stability.
   decisions_needed:
   - question: "dnaa-2 — RESOLVED + PASS (was the mechanism + clean-reproduction question)."
     status: |

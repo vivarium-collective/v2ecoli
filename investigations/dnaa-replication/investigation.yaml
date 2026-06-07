@@ -41,9 +41,9 @@ executive:
     mechanism; all four behaviours in band on Rashmi's generation-average criterion); dnaa-3 (DnaA-box binding) is now PREPARED for Rashmi/Haochen
     review. Each study has an explicit acceptance criterion in biological
     observables (oriC periodicity, DnaA pool steady state, DnaA-ATP fraction band).
-  verdict: foundation + dnaa-2 PASS; dnaa-3 RAN — 4/4 acceptance tests pass (in-sim binding sink WIP)
+  verdict: Foundation (dnaa-0/1/2) PASS; dnaa-3 box binding now runs IN-SIM and the over-binding Rashmi flagged is fixed (sink at ChIP-seq capacity cap=32 -> free DnaA-ATP ~47 nM); multi-gen sink validation pending.
   verdict_status: in-progress
-  verdict_detail: |
+  verdict_detail: |-
     Both foundational studies PASS. dnaa-0: v2ecoli reaches the succinate
     periodic steady state (oriC 1↔2 from gen 3, transient 4 in gens 1–2;
     reviewer-confirmed). Both acceptance tests re-verified from the parquet
@@ -91,6 +91,8 @@ executive:
     changing initiation. Design complete + a 6-step build plan; the 307-box
     chromosome map + the dnaa-2 baseline figure are attached. Not yet built/run;
     gated on dnaa-2's baseline holding. This is the study going back to Rashmi/Haochen.
+
+    dnaa-3 (2026-06-07): the in-sim DnaA-box binding now fires correctly inside the simulation (three wiring fixes: bulk port type, read-only output topology, emitter overwrite-vs-accumulate). As a read-only listener it reports free DnaA-ATP ~110 nM with the dnaa-2 cell cycle preserved exactly. Addressing Rashmi's review (free DnaA-ATP too high; t=0 low-affinity oriC boxes over-occupied; run the actual simulation), the binding was made an opt-in SINK and the chromosomal high-affinity box capacity tuned to the ChIP-seq strong-site count: a sweep (caps 302/32/13 -> sink free DnaA-ATP 0.0/47/98 nM) selected cap=32 (Smith 2024 ~13-32 strong sites; the ~302 loose pool is not the in-vivo titration), landing free DnaA-ATP ~47 nM out of the >100 nM-K_d over-binding regime with modest t=0 low-affinity occupancy (0.31) and the cell cycle preserved (gen-1 divides). Remaining: multi-generation sink stability.
   decisions_needed:
   - question: "dnaa-2 — RESOLVED + PASS (was the mechanism + clean-reproduction question)."
     status: |
@@ -108,7 +110,7 @@ executive:
       Mechanism + in-band fraction REGION validated; the open item is a clean per-gen
       reproduction across a full 8-gen lineage on the seed Rashmi confirmed (seed 1).
   - question: dnaa-3 — DnaA-box binding design (Haochen's spec, 4 affinity pools, 315 boxes, fast equilibrium on the dnaa-2 baseline) is PREPARED. Does the first-step design look right before we build it — esp. low-aff K_d≈100 nM with cooperativity deferred (vs the brief's 50→1 nM range), and tracking bound-ATP/bound-ADP separately on high-aff pools?
-    status: OPEN — awaiting Rashmi/Haochen review of the prepared dnaa-3 study.
+    status: "ADDRESSED 2026-06-07 — Rashmi's review handled: in-sim binding run completes + recorded, and the over-binding is fixed (sink capacity tuned to cap=32, free DnaA-ATP ~47 nM, t=0 low-aff occupancy 0.31, cell cycle preserved). REMAINING: multi-generation sink stability (the _sunk_atp accounting is parent-scoped; daughters reset it)."
     context: |
       dnaa-3 is design-complete with a 6-step build plan, the 307-box chromosome
       map (from the WCM genome), and the dnaa-2 baseline figure attached. The 8

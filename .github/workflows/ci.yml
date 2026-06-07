@@ -82,7 +82,7 @@ jobs:
         with:
           path: out/cache
           key: >-
-            parca-cache-v3-${{ hashFiles(
+            parca-cache-v4-${{ hashFiles(
               'models/parca/parca_state.pkl.gz',
               'v2ecoli/library/sim_data.py',
               'v2ecoli/library/unit_bridge.py',

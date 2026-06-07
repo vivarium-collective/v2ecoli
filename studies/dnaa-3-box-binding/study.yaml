@@ -615,6 +615,7 @@ visualizations:
       are the dnaa-3 chromosomal-high pool substrate; the 8 oriC low-affinity + 2
       promoter-high sites are added on top.
   chart: charts/chromosome_dnaa_boxes.svg
+  render: cd ../.. && python scripts/render_dnaa3_boxmap.py
 - name: chromosome_replication_animation
   address: image:charts/chromosome_replication.gif
   config:
@@ -627,6 +628,7 @@ visualizations:
       DIVIDES INTO TWO complete chromosomes at replication completion. oriC green,
       Ter red, RNAPs blue. Rendered from per-timestep unique-molecule coordinates
       (V2ECOLI_EMIT_UNIQUE) via the _draw_replication_bubbles renderer.
+  render: cd ../.. && python scripts/render_chromosome_gif.py --run out/dnaa_gifdata --seed 1 --every 30 --out studies/dnaa-3-box-binding/charts/chromosome_replication.gif
 - name: dnaa3_box_occupancy
   address: image:charts/dnaa3_box_occupancy.png
   config:

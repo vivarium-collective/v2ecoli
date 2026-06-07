@@ -449,3 +449,5 @@ pipeline_gate:
   enables:
   - dnaa-1-expression
   gate_status: passed
+claim: v2ecoli reaches a periodic succinate steady state with no imposed τ/C/D — a valid baseline for the DnaA cycle.
+confidence: Accepted

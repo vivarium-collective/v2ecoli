@@ -225,6 +225,67 @@ findings:
 
   status: contradicts
   statement: 'The fast-equilibrium assumption was the source of the artefact: with it removed, the spurious ~0.997 pin on the DnaA-ATP fraction disappears and the cycle-mean drops to a realistic 0.283 (run seed0-v1e-3-6gen).'
+
+discovery_implications:
+  resolved_uncertainties:
+  - Haochen's bf8b82e mechanism — DnaA + ADP ⇌ DnaA-ADP kept bidirectional but flagged integrate_dt (kinetic, literal k_r = 1×10⁻⁷/s) plus one-way DnaA-ATP intrinsic hydrolysis (k = 0.046/min) — drives the DnaA-ATP fraction off the ~0.997 fast-equilibrium pin into the Boesen [0.2,0.5] band with no rate override.
+  - The ~0.997 pin was a fast-equilibrium modelling artefact (the tick-wise solve reverting kinetically-trapped DnaA-ADP), not a K_d / [ATP]:[ADP] / expected-fraction parameter inconsistency.
+  - On the directed seed-1 8-gen run, all four must-preserve behaviours pass on Rashmi's generation-average criterion (DnaA-ATP fraction avg 0.26, total DnaA avg 535, periodic mass doubling, one oriC initiation per generation).
+  remaining_uncertainties:
+  - The per-generation average DnaA-ATP fraction trends to the low edge of the band in later gens (~0.16–0.23, dipping below 0.2 in gens 5 & 8); where in the band it sits is a k_r-tuning question left for Haochen.
+  - The strict per-generation in-band reproduction is not perfectly clean even on the directed seed (gen-1 burned-in transient above band; later-gen dips below) — a clean strict per-gen 7-gen run with raw data on this branch is still absent (gate_status pending).
+  alternate_hypotheses:
+  - id: low-edge-drift-is-total-dnaa-dependence
+    statement: The DnaA-ATP fraction's drift to the low edge of the band in later generations is driven by total DnaA abundance (fraction anti-correlated with total DnaA, r=−0.88), not by any [ATP]:[ADP] nucleotide-ratio drift.
+    mechanism_elements_affected:
+    - dnaA-atp-fraction
+    - dnaA-nucleotide-equilibria
+    why_plausible: The background [ATP]:[ADP] ratio is constant at 20.3 across all 8 gens (pinned by metabolism), while the fraction falls from 0.53 to ~0.16–0.23 as the pool grows from ~185 to ~640 — so at the proper [300,800] abundance the kinetic steady state lands at the band's low edge.
+    evidence_for:
+    - r=−0.88 anti-correlation of %DnaA-ATP with total DnaA
+    - "[ATP]:[ADP] constant at 20.3 across all gens"
+    - k_r sweep lifts the fraction (1e-7→0.314, 1e-5→0.382 at gen-2)
+    evidence_against:
+    - only a single seed (seed 1) was evaluated on this branch's post-#117 code
+    discriminating_observables:
+    - dnaA-atp-fraction-vs-total-dnaa
+    - dnaA-atp-fraction-vs-k_r
+  mechanism_update_proposals:
+  - mechanism_node_or_edge: dnaA-adp-dissociation-rate (k_r)
+    update_type: revise
+    confidence_change: Investigating (literal k_r=1e-7/s lands in band but at the low edge; ~100× faster k_r needed to lift mid-band)
+    rationale: A k_r sweep confirms faster DnaA-ADP dissociation re-charges DnaA-ATP and lifts the fraction, but it takes ~100× to shift it meaningfully; the exact k_r is Haochen's call, so the rate is flagged as a tuning lever rather than settled.
+    requires_expert_approval: true
+  followup_study_proposals:
+  - id: dnaa2-k_r-calibration
+    title: Calibrate the DnaA-ADP dissociation rate k_r to center the band
+    study_type: calibration
+    source_trigger: missing_parameter
+    target_mechanism_elements:
+    - dnaA-adp-dissociation-rate
+    - dnaA-atp-fraction
+    proposed_experiment: Sweep k_r (e.g. 1e-7 → 1e-5/s) on the seed-1 8-gen lineage and pick the value that holds the per-generation-average DnaA-ATP fraction mid-band without breaking the cell cycle.
+    expected_information_gain: high
+    required_build_changes:
+    - expose k_r as a sweepable parameter in the DnaA-ADP equilibrium reaction
+    required_inputs:
+    - Haochen's preferred k_r / physiological bound
+    blocks_or_unblocks: []
+    priority: medium
+    expert_gate_required: true
+  - id: dnaa2-clean-strict-pergen-reproduction
+    title: Clean strict per-generation in-band reproduction
+    study_type: rerun
+    source_trigger: contradiction
+    target_mechanism_elements:
+    - dnaA-atp-fraction
+    proposed_experiment: Produce a clean multi-gen succinate run (raw parquet on this branch) where the strict per-generation DnaA-ATP fraction stays in [0.2,0.5], to close the gap between the generation-average PASS and the unmet strict per-gen gate.
+    expected_information_gain: medium
+    required_build_changes: []
+    required_inputs: []
+    blocks_or_unblocks: []
+    priority: medium
+    expert_gate_required: false
 reviewer_feedback:
 - round: '2026-06-04-1515'
   reviewer: Rashmi

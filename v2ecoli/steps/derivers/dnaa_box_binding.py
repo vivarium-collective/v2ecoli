@@ -39,6 +39,7 @@ uses the equivalent fast-equilibrium computation post-hoc
 (scripts/render_dnaa3_occupancy.py) on the validated dnaa-2 baseline — same model,
 same numbers.
 """
+import os
 import numpy as np
 from v2ecoli.library.schema import bulk_name_to_idx, counts, attrs
 from v2ecoli.library.schema_types import DNAA_BOX_ARRAY
@@ -83,6 +84,20 @@ class DnaaBoxBinding(Step):
         "kd_high_nM": "float{1.0}",
         "kd_low_nM": "float{100.0}",
         "n_oric_low": "integer{8}",
+        # CHROMOSOMAL HIGH-AFFINITY CAPACITY (dnaa-3 Rashmi item 1, sweepable).
+        # The DnaA_box unique store carries ~302 loose-consensus (TTWTNCACA)
+        # chromosomal boxes. ChIP-seq (Smith 2024) finds only ~13 STRONGLY
+        # DnaA-bound regions / 32 strict-consensus sites genome-wide — DnaA
+        # prefers closely-spaced box PAIRS bound by dimers, so the ~302
+        # loose-motif pool is NOT the in-vivo titration sink. This cap limits the
+        # chromosomal high-affinity pool that the SINK titrates (and reports as
+        # chromosome.occupied_count) to the strongly-bound count. -1 (default)
+        # = use ALL live chromosomal boxes (the read-only listener's historical
+        # behaviour, ~302); set to a literature value (e.g. 32 or 13) for the
+        # sink so the chromosomal pool does not out-capacity the free DnaA pool.
+        # Overridable per-run via env var DNAA_N_CHROM_HIGH_CAP for sweeps
+        # (avoids editing the composite each variant).
+        "n_chrom_high_cap": "integer{-1}",
         # SINK MODE (dnaa-3 Rashmi item 1). When False (default) the step is a
         # pure read-only OBSERVER: it never returns a ``bulk`` delta, so the
         # validated dnaa-2 cell cycle is preserved exactly. When True it becomes
@@ -101,6 +116,14 @@ class DnaaBoxBinding(Step):
         self.kd_low = self.parameters["kd_low_nM"]
         self.n_oric_low = self.parameters["n_oric_low"]
         self.sink = bool(self.parameters.get("sink", False))
+        # Chromosomal high-affinity capacity cap (sweepable). Env var wins over
+        # the config default so a sweep runner can set it per variant without
+        # rebuilding the composite. -1 means "no cap" (use all live boxes).
+        cap = self.parameters.get("n_chrom_high_cap", -1)
+        env_cap = os.environ.get("DNAA_N_CHROM_HIGH_CAP")
+        if env_cap is not None and env_cap != "":
+            cap = int(env_cap)
+        self.n_chrom_high_cap = int(cap)
         self.molecule_idx = None
         # Sink bookkeeping: how many DnaA-ATP molecules this step has ALREADY
         # removed from the free pool (currently held bound). Each tick we move
@@ -188,9 +211,24 @@ class DnaaBoxBinding(Step):
         oric_high_n, dnaap_n, chrom_n = n["oriC"], n["dnaA_promoter"], n["chromosomal"]
         oric_low_n = self.n_oric_low
 
+        # Effective chromosomal high-affinity capacity. The unique store carries
+        # ~302 loose-consensus boxes, but ChIP-seq finds only ~13-32 strongly
+        # DnaA-bound sites genome-wide. When a cap is set (>=0) the chromosomal
+        # pool that titrates DnaA (occupied_count + the sink) is limited to that
+        # strongly-bound count; the box catalog (n_total) still reports the true
+        # ~302 so the doubling-at-replication readout is unchanged. The cap
+        # scales WITH replication (it tracks chrom_n's fraction) so a 2x box
+        # count → 2x capped sites, preserving the per-genome capacity.
+        chrom_n_eff = chrom_n
+        if self.n_chrom_high_cap >= 0 and chrom_n > 0:
+            # Scale the cap by the per-genome box multiplicity (chrom_n doubles
+            # at replication ~302->604) so the cap stays per-genome.
+            mult = max(1.0, chrom_n / 302.0)
+            chrom_n_eff = min(chrom_n, int(round(self.n_chrom_high_cap * mult)))
+
         oric_bound = int(round(oric_high_n * p_high + oric_low_n * p_low))
         dnaap_bound = int(round(dnaap_n * p_high))
-        chrom_bound = int(round(chrom_n * p_high))
+        chrom_bound = int(round(chrom_n_eff * p_high))
         total_bound = oric_bound + dnaap_bound + chrom_bound
 
         update = {"listeners": {"dnaA_binding": {
@@ -198,7 +236,7 @@ class DnaaBoxBinding(Step):
             "oric": {"high_affinity_occupied": p_high, "low_affinity_occupied": p_low,
                      "n_bound": oric_bound, "n_total": oric_high_n + oric_low_n},
             "dnaap": {"occupied": p_high, "n_bound": dnaap_bound, "n_total": dnaap_n},
-            "chromosome": {"occupied": p_high, "occupied_count": chrom_bound, "n_total": chrom_n},
+            "chromosome": {"occupied": p_high, "occupied_count": chrom_bound, "n_total": chrom_n_eff},
             "total_DnaA_bound": total_bound,
         }}}
 

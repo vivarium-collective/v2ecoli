@@ -1,0 +1,17 @@
+{
+  "experiment_id": "dnaa3_insim_binding",
+  "cache_dir": "out/cache_dnaa3",
+  "generations_requested": 1,
+  "generations_completed": 1,
+  "pipeline_wall_seconds": 224.70534586906433,
+  "gens": [
+    {
+      "gen": 1,
+      "agent_id": "0",
+      "duration_min": 55.0,
+      "divided": false,
+      "final_dry_mass_fg": 328.7824074439435,
+      "wall_seconds": 224.6370439529419
+    }
+  ]
+}

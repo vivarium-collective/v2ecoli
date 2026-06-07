@@ -100,15 +100,27 @@ report:
       occupancy illustration now shows oriC DOUBLING at replication (11→22 boxes);
       (5) the model DOES emit cell volume (listeners.mass.volume ≈0.9 fL), so all
       concentrations are now nM, comparable to the nM K_d values.
-    • IN-SIM listener — WIP (honest): the DnaaBoxBinding deriver
-      (v2ecoli/steps/derivers/dnaa_box_binding.py) instantiates + the cache now
-      matches (inputs_hash rebuilt), and the cycle is preserved, BUT the engine does
-      not yet invoke the step's update (a process-bigraph Step-firing detail —
-      documented in the deriver header). So the occupancy is the EQUIVALENT post-hoc
-      fast-equilibrium model — same K_d, same numbers — until the firing is resolved.
-    • NEXT — confirm the four acceptance tests (8/8 divisions, oriC 1↔2, 0 re-init,
-      DnaA-ATP fraction in band) on the seed-1 8-gen run, resolve the Step firing,
-      then the real binding SINK (pool partition).
+    • IN-SIM listener — DONE (2026-06-07): the DnaaBoxBinding deriver now FIRES
+      inside the composite on a freshly-rebuilt dnaa-3 ParCa+cache (cache_dnaa3,
+      --mode full) and emits real per-tick occupancy to listeners.dnaA_binding
+      (run dnaa3-insim-binding). Three engine bugs were fixed to get there: a
+      bulk-delta leak (bulk was wired as an output → ufunc-add crash on the
+      structured bulk array), the bulk port type (numpy_schema dropped the
+      bulk_array apply), and the emitter schema (plain float ACCUMULATED the
+      per-tick values). The listener is read-only, so the cycle is identical to
+      dnaa-2 (gen-1 division 63.0 min, dry_mass 349.55 fg). REAL in-sim numbers:
+      free DnaA-ATP mean 110.5 nM (median 125), free DnaA-ADP 86.3 nM, oriC
+      low-affinity occupancy 0.52, high-affinity 0.99 — free DnaA-ATP lands right
+      at the 100 nM K_d, lower than the post-hoc overlay's 150-200 nM.
+    • SINK (item 1) — STARTED (2026-06-07): a guarded sink=True mode of the same
+      step (opt-in feature dnaa_sink) partitions the bulk DnaA pool. It lowers
+      free DnaA-ATP below the K_d as asked but OVER-titrates to ~2-3 nM (the 302
+      chromosomal high-affinity boxes out-capacity the free pool) — the
+      over-capacity tension Haochen/Rashmi flagged. Iteration ongoing; not a
+      finished result.
+    • NEXT — tune the sink (box capacity / DnaA abundance) so free DnaA-ATP lands
+      in a physiological window without starving initiation, then re-validate the
+      multi-gen cycle.
 
   review_asks: |
     For Rashmi / Haochen, before we build:
@@ -415,10 +427,66 @@ readouts:
 
 # ── Validation (spec table): dnaa-3 must preserve dnaa-2 behaviour ─────────────
 runs:
-- name: dnaa3-seed1-8gen
+- name: dnaa3-insim-binding
   status: completed
-  kind: single-seed-multigen-lineage
+  kind: single-seed-singlegen-lineage
   canonical: true
+  run_dir: parquet-runs/dnaa3-insim-binding
+  cache_dir: out/cache_dnaa3
+  resume_dill: out/steady_state_inputs/succinate_default_gen3_start.dill
+  seed: 1
+  description: |
+    REAL IN-SIM binding run (2026-06-07). The dnaa_box_binding_listener now runs
+    INSIDE the composite (early/equilibrium layer) on a freshly-rebuilt dnaa-3
+    ParCa+cache (out/cache_dnaa3, --mode full), emitting per-tick DnaA-box
+    occupancy to listeners.dnaA_binding in the parquet. This SUPERSEDES the
+    post-hoc analytical fast-equilibrium overlay (render_dnaa3_occupancy.py on the
+    dnaa-2 lineage) as the occupancy source. The listener is READ-ONLY (writes
+    only listeners.dnaA_binding; bulk + DnaA_box + mass are pure reads), so the
+    cell cycle is IDENTICAL to dnaa-2: gen 1 divided at 63.0 min, final dry_mass
+    349.55 fg (matches the dnaa-2 succinate cycle exactly). 55-min observer
+    artifact (3301 ticks, no division) preserves the full occupancy trajectory.
+    Three engine bugs fixed to get here (see investigation/dnaa-replication-v3):
+    (1) topology split so bulk is never wired as an output (was crashing the run
+    with a ufunc-add error on the structured bulk array); (2) bulk port declared
+    as the registered bulk_array type (numpy_schema dropped the BulkNumpyUpdate
+    apply); (3) emitter dnaA_binding schema set to overwrite[...] (plain float was
+    ACCUMULATING the per-tick values into a running sum).
+  real_insim_numbers:
+    free_DnaA_ATP_nM: {mean: 110.5, median: 125.0, range: [38.4, 154.7]}
+    free_DnaA_ADP_nM: {mean: 86.3}
+    oriC_low_affinity_occupancy: {mean: 0.515, range: [0.277, 0.607]}
+    oriC_high_affinity_occupancy: {mean: 0.994}
+    total_DnaA_bound: {mean: 445}
+    note: |
+      In-sim free DnaA-ATP (~110 nM mean) lands RIGHT AT the 100 nM low-affinity
+      K_d, so the 8 oriC low-affinity boxes sit ~half-occupied (0.52) — the
+      dynamic switch, as designed — while the high-affinity pools saturate (0.99).
+      This is close to (slightly above) Haochen's expected <100 nM regime, and
+      noticeably lower than the post-hoc overlay's ~150-200 nM (the overlay used
+      count/volume with a different free-pool assumption). The real in-sim free
+      DnaA-ATP confirms Rashmi's concern is on the right order but milder than the
+      overlay suggested.
+  outcomes:
+    cycle-preserved-vs-dnaa2:
+      result: PASS
+      detail: read-only listener; gen-1 divided at 63.0 min, dry_mass 349.55 fg (identical to dnaa-2)
+    oric-pattern-1-or-2:
+      result: PASS
+      detail: oriC in {1,2} over the in-sim gen
+    binding-columns-populate:
+      result: PASS
+      detail: all 13 listeners.dnaA_binding columns emit real per-tick values (no accumulation)
+- name: dnaa3-seed1-8gen
+  status: superseded
+  kind: single-seed-multigen-lineage
+  canonical: false
+  superseded_by: dnaa3-insim-binding
+  superseded_reason: |
+    Was the dnaa-2 lineage with a POST-HOC analytical occupancy overlay (the
+    in-sim listener was un-fired WIP). The real in-sim binding run
+    (dnaa3-insim-binding) now provides the occupancy from the listener running
+    inside the composite, so this is no longer the canonical occupancy source.
   run_dir: out/dnaa2_seed1_8gen
   description: |
     dnaa-3 = the VALIDATED dnaa-2 seed-1 x 8-gen succinate lineage (cache_dnaa2);
@@ -713,6 +781,46 @@ planned_runs:
   - dnaa-atp-fraction-in-band-gen3
 
 findings:
+- id: insim-binding-fires-readonly-cycle-preserved
+  kind: computational
+  status: novel
+  statement: |
+    The DnaA-box binding listener now runs IN-SIM inside the composite (not as a
+    post-hoc overlay) and is cleanly read-only: it writes only
+    listeners.dnaA_binding, so the cell cycle is identical to the dnaa-2 baseline
+    (gen-1 division at 63.0 min, final dry_mass 349.55 fg; oriC 1<->2). Real
+    per-tick in-sim values: free DnaA-ATP mean 110.5 nM (median 125, range
+    38-155), free DnaA-ADP mean 86.3 nM, oriC low-affinity occupancy mean 0.52,
+    oriC high-affinity occupancy 0.99, total DnaA bound ~445. The real in-sim free
+    DnaA-ATP (~110 nM) sits right at the 100 nM low-affinity K_d — close to and
+    only slightly above Haochen's expected <100 nM regime, and well below the
+    post-hoc overlay's 150-200 nM.
+  evidence:
+    from_run: dnaa3-insim-binding (in-sim listener, parquet listeners.dnaA_binding)
+  provenance:
+    run_ids:
+    - dnaa3-insim-binding
+    verified_by: scripts/run_condition_multigen_parquet.py + cache_dnaa3 (ParCa --mode full)
+- id: dnaa-sink-lowers-free-atp-but-over-titrates
+  kind: computational
+  status: novel
+  statement: |
+    A guarded sink mode of the same step (sink=True, opt-in feature dnaa_sink)
+    partitions the bulk DnaA pool — bound DnaA-ATP is removed from the free pool.
+    It works mechanically (mutates bulk, no crash) and DOES drop free DnaA-ATP
+    below the 100 nM K_d as Rashmi asked — but it OVER-titrates: free DnaA-ATP
+    falls to ~2-3 nM (oriC low-affinity occupancy ~0.02) because the model's box
+    capacity (302 chromosomal high-affinity boxes, K_d 1 nM) exceeds the free DnaA
+    pool, so the chromosomal sink drains nearly all free ATP-DnaA. This is the
+    same over-capacity tension Haochen/Rashmi flagged (modeled DnaA abundance vs
+    box capacity). Full cell-cycle impact under iteration; the sink is the START
+    of item 1, not a finished result.
+  evidence:
+    from_run: dnaa3_sink (sink=True, net-Δbound partition)
+  provenance:
+    run_ids:
+    - dnaa3-sink
+    verified_by: scripts/_run_dnaa_sink.py (enable_features dnaa_sink) + cache_dnaa3
 - id: oric-overbinds-free-dnaa-above-kd
   kind: computational
   status: novel

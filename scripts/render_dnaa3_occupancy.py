@@ -16,9 +16,22 @@ directly from concentration + the per-pool K_d.
 Regions: oriC (3 high-aff R1/R2/R4 + 8 low-aff) + dnaA-promoter (2) + chromosomal
 (302). datA / DARS1 / DARS2 are out of scope at this stage (Rashmi 2026-06-05).
 
-Usage:
+IN-SIM MODE (--insim-run): instead of the analytical fast-equilibrium overlay,
+read the REAL emitted `listeners.dnaA_binding` occupancy (per-pool occupied
+fractions + n_bound/n_total + free DnaA-ATP/ADP nM) straight from an in-sim
+binding parquet run. This is the validated path — the in-sim binding step now
+fires and emits occupancy. Use the SINK cap=32 run so the figure reflects the
+fixed state (free DnaA-ATP ~44 nM, oriC-low occupancy rises ~0.05 → ~0.51 over
+the cycle).
+
+Usage (analytical, legacy):
   .venv/bin/python scripts/render_dnaa3_occupancy.py \\
       --run out/dnaa2_seed1_8gen --generation 2 \\
+      --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
+
+Usage (in-sim, current verdict):
+  .venv/bin/python scripts/render_dnaa3_occupancy.py \\
+      --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-sink-cap32 \\
       --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
 """
 from __future__ import annotations
@@ -67,6 +80,35 @@ def load(run: str, generation: int):
                    bc.list.get(bi("MONOMER0-4565[c]")).alias("adp"),
                    pl.col("listeners__mass__cell_mass").alias("mass"),
                    pl.col("listeners__mass__volume").alias("vol_fL"),
+                   pl.col("listeners__replication_data__number_of_oric").alias("oric")])
+          .sort("global_time").collect())
+    return df
+
+
+def load_insim(run: str):
+    """Load REAL emitted listeners.dnaA_binding occupancy from an in-sim binding
+    parquet run (single lineage). Returns the emitted per-pool occupied fractions,
+    n_bound/n_total per region, free DnaA-ATP/ADP nM, and total-DnaA-conc inputs."""
+    fs = sorted(glob.glob(f"{run}/**/history/**/*.pq", recursive=True))
+    if not fs:
+        raise SystemExit(f"no in-sim parquet under {run}")
+    L = "listeners__dnaA_binding__"
+    df = (pl.scan_parquet(fs, hive_partitioning=True)
+          .select(["global_time",
+                   pl.col(f"{L}free_DnaA_ATP_nM").alias("free_atp_nM"),
+                   pl.col(f"{L}free_DnaA_ADP_nM").alias("free_adp_nM"),
+                   pl.col(f"{L}oric__high_affinity_occupied").alias("oric_high_occ"),
+                   pl.col(f"{L}oric__low_affinity_occupied").alias("oric_low_occ"),
+                   pl.col(f"{L}oric__n_bound").alias("oric_n_bound"),
+                   pl.col(f"{L}oric__n_total").alias("oric_n_total"),
+                   pl.col(f"{L}dnaap__occupied").alias("dnaap_occ"),
+                   pl.col(f"{L}dnaap__n_bound").alias("dnaap_n_bound"),
+                   pl.col(f"{L}dnaap__n_total").alias("dnaap_n_total"),
+                   pl.col(f"{L}chromosome__occupied").alias("chrom_occ"),
+                   pl.col(f"{L}chromosome__occupied_count").alias("chrom_n_bound"),
+                   pl.col(f"{L}chromosome__n_total").alias("chrom_n_total"),
+                   pl.col(f"{L}total_DnaA_bound").alias("total_bound"),
+                   pl.col("listeners__mass__cell_mass").alias("mass"),
                    pl.col("listeners__replication_data__number_of_oric").alias("oric")])
           .sort("global_time").collect())
     return df
@@ -122,8 +164,9 @@ def _cluster(ax, center_xy, n_total, n_bound, color, cols=3, dr=0.11):
 def _lbl(nb, nt):
     return f"{nb} bound\n{nt - nb} free"
 
-def draw_circle(ax, P, t_min, oric=1):
-    rc = region_counts(P, oric)
+def draw_circle(ax, P, t_min, oric=1, rc=None):
+    if rc is None:
+        rc = region_counts(P, oric)
     th = np.linspace(0, 2 * np.pi, 400)
     ax.plot(np.sin(th), np.cos(th), color="#cbd5e1", lw=2, zorder=1)
     # oriC cluster (top) — the regulatory pool where the free boxes live; drawn big
@@ -155,13 +198,74 @@ def draw_circle(ax, P, t_min, oric=1):
     ax.set_xlim(-1.8, 1.8); ax.set_ylim(-1.45, 1.92); ax.set_aspect("equal"); ax.axis("off")
 
 
+def main_insim(args):
+    """Render the 5-timepoint chromosome box-occupancy snapshots from the REAL
+    emitted in-sim listeners.dnaA_binding occupancy (no analytical recompute)."""
+    df = load_insim(args.insim_run)
+    t0 = df["global_time"][0]
+    tmin = ((df["global_time"] - t0) / 60).to_numpy()
+    oric = df["oric"].to_numpy()
+    idx = np.linspace(0, len(df) - 1, args.n_frames).round().astype(int)
+
+    # emitted per-region (n_bound, n_total) at each frame
+    def rc_at(i):
+        i = int(i)
+        return {
+            "oriC": (int(df["oric_n_bound"][i]), int(df["oric_n_total"][i])),
+            "dnaA_promoter": (int(df["dnaap_n_bound"][i]), int(df["dnaap_n_total"][i])),
+            "chromosomal": (int(df["chrom_n_bound"][i]), int(df["chrom_n_total"][i])),
+        }
+
+    fig = plt.figure(figsize=(3.2 * args.n_frames, 5.4))
+    gs = fig.add_gridspec(2, args.n_frames, height_ratios=[3.0, 1.15], hspace=0.34, wspace=0.04)
+    fig.suptitle("dnaa-3 — DnaA-box occupancy by region across the succinate cell cycle\n"
+                 "IN-SIM emitted occupancy (listeners.dnaA_binding; sink cap=32 — the FIX) · "
+                 "filled = DnaA-bound, open = free · red ■ = ter · oriC doubles at replication · datA/DARS out of scope",
+                 fontsize=12, y=1.0)
+    for k, i in enumerate(idx):
+        ax = fig.add_subplot(gs[0, k])
+        draw_circle(ax, None, tmin[int(i)], int(oric[int(i)]), rc=rc_at(i))
+
+    axc = fig.add_subplot(gs[1, :])
+    free_atp = df["free_atp_nM"].to_numpy()
+    axc.plot(tmin, free_atp, color="#0f172a", lw=1.6)
+    axc.scatter(tmin[idx], free_atp[idx], color="#dc2626", zorder=5, s=28)
+    axc.axhline(100.0, color="#dc2626", ls="--", lw=1, label="K_d(oriC-low)=100 nM")
+    axc.set_xlabel("cell-cycle time (min)"); axc.set_ylabel("free DnaA-ATP\n(nM, emitted)")
+    axc.set_title("In-sim free DnaA-ATP (emitted) — sink cap=32 keeps it BELOW the 100 nM oriC-low K_d "
+                  f"(median {np.median(free_atp):.0f} nM, mean {free_atp.mean():.0f} nM)", fontsize=9)
+    axc.legend(fontsize=8); axc.grid(alpha=0.25)
+
+    handles = [
+        Line2D([], [], marker="o", ls="", mfc="#475569", mec="#475569", ms=9, label="DnaA-bound box"),
+        Line2D([], [], marker="o", ls="", mfc="white", mec="#dc2626", mew=2.2, ms=9, label="FREE box (red ring)"),
+        Line2D([], [], marker="s", ls="", mfc="#dc2626", mec="#dc2626", ms=9, label="ter"),
+    ]
+    fig.legend(handles=handles, loc="upper right", fontsize=8.5, frameon=True)
+
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    for ext in ("png", "svg"):
+        fig.savefig(f"{args.out}.{ext}", dpi=140, bbox_inches="tight")
+    print(f"wrote {args.out}.png/.svg (IN-SIM emitted, from {args.insim_run})")
+    for k, i in enumerate(idx):
+        i = int(i)
+        print(f"  t={tmin[i]:.1f}min oriC={int(oric[i])} | "
+              f"oriC-low occ {df['oric_low_occ'][i]:.2f} high {df['oric_high_occ'][i]:.2f} | "
+              f"free ATP {df['free_atp_nM'][i]:.0f} nM | rc={rc_at(i)}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", default="out/dnaa2_seed1_8gen")
     ap.add_argument("--generation", type=int, default=5)   # later steady gen (Haochen pt 2)
+    ap.add_argument("--insim-run", default=None,
+                    help="read REAL emitted listeners.dnaA_binding occupancy from this in-sim run")
     ap.add_argument("--out", default="studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy")
     ap.add_argument("--n-frames", type=int, default=5)
     args = ap.parse_args()
+
+    if args.insim_run:
+        return main_insim(args)
 
     df = load(args.run, args.generation)
     t0 = df["global_time"][0]

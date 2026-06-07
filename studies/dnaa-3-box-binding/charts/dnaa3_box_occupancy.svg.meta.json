@@ -1,7 +1,7 @@
 {
-  "source_run_id": "dnaa2_seed1_8gen",
+  "source_run_id": "dnaa3-sink-cap32",
   "generation_id": null,
-  "rendered_at": 1780810826.226201,
-  "command": "cd ../.. && python scripts/render_dnaa3_occupancy.py --run out/dnaa2_seed1_8gen --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy",
-  "content_hash": "sha256:7d5a43cdab720135053c64f227de6bd5a918004f2426b627f445d53fc018642b"
+  "rendered_at": 1780873315.13051,
+  "command": "cd ../.. && python scripts/render_dnaa3_occupancy.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-sink-cap32 --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy",
+  "content_hash": "sha256:7b1ad12aeae0b6d92ba10e8a00a33be57e60588a36a2913e972b1dccccab6d6d"
 }

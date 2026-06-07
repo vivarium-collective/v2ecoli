@@ -631,37 +631,41 @@ visualizations:
   address: image:charts/dnaa3_box_occupancy.png
   config:
     title: >-
-      DnaA-box OCCUPANCY by region across the succinate cell cycle (Rashmi
-      2026-06-05). Five timepoints around the circular chromosome: each box is
-      filled = DnaA-bound / open = free, with a per-region bound/total fraction;
-      red ■ = ter. Occupancy is the dnaa-3 fast-equilibrium binding model
-      P = C/(C+K_d) on the dnaa-2 baseline trajectory — high-affinity pools
-      (chromosomal, oriC-high R1/R2/R4, promoter; K_d≈1 nM) saturate at the
-      ~170 nM free DnaA-ATP, while the 8 oriC LOW-affinity boxes (K_d≈100 nM) are
-      the dynamic switch (≈0.6 → oriC 8-9/11 over the cycle). Bottom panel: TOTAL
-      DnaA concentration (all forms / cell volume), 670→940 nM. datA / DARS1 /
-      DARS2 out of scope. The in-sim per-box version wires next (DnaA_box.DnaA_bound
-      emission added; mechanism being built).
+      DnaA-box OCCUPANCY by region across the succinate cell cycle, from the REAL
+      IN-SIM emitted listeners.dnaA_binding occupancy (sink cap=32 — the FIX, now
+      default). Five timepoints around the circular chromosome: each box filled =
+      DnaA-bound / open = free, per-region bound/total from the emitted n_bound /
+      n_total; red ■ = ter; oriC boxes double at replication and the chromosomal
+      box ring grows as the fork copies it. The bottom panel plots the emitted free
+      DnaA-ATP (nM) vs the 100 nM oriC-low K_d: it stays BELOW the K_d for most of
+      the cycle (median 14 nM, mean 44 nM), only crossing toward initiation. oriC
+      high-affinity occupancy ~0.97-0.99 throughout; oriC LOW-affinity occupancy is
+      the dynamic switch — early-cycle ~0.02-0.08, rising to ~0.50 toward initiation
+      (the over-binding regime is RESOLVED at cap=32). datA / DARS1 / DARS2 out of
+      scope. Rendered from the mini's dnaa3-sink-cap32 full 55-min trajectory
+      (gitignored; the 5-timepoint snapshot needs the whole cycle).
   chart: charts/dnaa3_box_occupancy.svg
-  source_run: dnaa2_seed1_8gen
-  render: cd ../.. && python scripts/render_dnaa3_occupancy.py --run out/dnaa2_seed1_8gen --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
+  source_run: dnaa3-sink-cap32
+  render: cd ../.. && python scripts/render_dnaa3_occupancy.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-sink-cap32 --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
 - name: dnaa3_binding_analysis
   address: image:charts/dnaa3_binding_analysis.png
   config:
     title: >-
-      DnaA-box binding ANALYSIS (Haochen 2026-06-06), self-consistent model on
-      the STEADY (later) generations, concentrations in nM = count / cell VOLUME:
-      (1) free DnaA (nM) vs the 100 nM oriC-low K_d — the high-affinity boxes
-      SEQUESTER DnaA so free DnaA is far below the bulk; (2) oriC LOW-affinity
-      occupancy on its own zoomed axis (the dynamic switch); (3) free vs bound
-      DnaA over time; (4) per-pool occupancy. FINDING (confirms Haochen): even
-      self-consistently the model's free DnaA stays ~150-200 nM (>100 nM) — it does
-      NOT reach the expected <100 nM regime; modeled DnaA abundance exceeds box
-      capacity. CAUSE is an OPEN QUESTION (candidates are ours, NOT raised by
-      Haochen): DnaA abundance, box K_d, or unmodeled sinks such as datA (out of scope).
+      DnaA-box binding ANALYSIS from the REAL IN-SIM emitted listeners.dnaA_binding
+      (sink cap=32 — the FIX, now default): (1) emitted free DnaA-ATP/ADP (nM) vs
+      the 100 nM oriC-low K_d; (2) oriC LOW-affinity occupancy on its own zoomed
+      axis (the dynamic switch); (3) oriC bound vs total boxes over time; (4) per-pool
+      occupancy (oriC-high, oriC-low, chromosomal, dnaA-promoter). FINDING — the
+      over-binding is RESOLVED: in-sim free DnaA-ATP lands ~44 nM (median ~14 nM),
+      BELOW the 100 nM oriC-low K_d, out of the over-binding regime, and the cell
+      cycle is preserved. oriC-low occupancy rises ~0.02 (early cycle) → ~0.50
+      (toward initiation) — the dynamic switch initiation needs. Contrast: the
+      read-only listener (no sink, 302 boxes) left free DnaA-ATP ~110 nM (oriC-low
+      occ ~0.52, high ~0.99), and the old analytical fast-equilibrium overlay
+      claimed ~150-200 nM ("over-binds"). The sink at cap=32 is now the default.
   chart: charts/dnaa3_binding_analysis.svg
-  source_run: dnaa2_seed1_8gen
-  render: cd ../.. && python scripts/render_dnaa3_binding_analysis.py --run out/dnaa2_seed1_8gen --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
+  source_run: dnaa3-sink-cap32
+  render: cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-sink-cap32 --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
 - name: dnaa3_box_variants
   address: image:charts/dnaa3_box_variants.png
   config:
@@ -915,9 +919,9 @@ findings:
 - id: oric-overbinds-free-dnaa-above-kd
   kind: computational
   status: novel
-  statement: Solving the oriC box-binding equilibrium self-consistently (concentrations in nM via cell volume), free DnaA settles at ~150-200 nM, above the ~100 nM K_d of the oriC low-affinity boxes, so the modeled oriC stays highly occupied across the cycle. This reproduces Haochen's concern; the cause (DnaA abundance vs K_d vs an unmodeled sink such as datA) is left as an explicit open question rather than asserted.
+  statement: The over-binding flagged by Haochen/Rashmi is RESOLVED in-sim. The historical analytical fast-equilibrium overlay put free DnaA at ~150-200 nM (above the ~100 nM oriC-low K_d), and the read-only in-sim listener (no sink, 302 boxes) at ~110 nM (oriC-low occ ~0.52); both over-bound. With the DnaA sink at cap=32 (the FIX, now default), the REAL emitted listeners.dnaA_binding free DnaA-ATP lands ~44 nM (median ~14 nM) — BELOW the K_d, out of the over-binding regime — with oriC-low occupancy a dynamic ~0.02 (early) -> ~0.50 (toward initiation) and the cell cycle preserved. The dnaa3_binding_analysis figure now renders this in-sim resolution.
   evidence:
-    from_run: dnaa3_binding_analysis (self-consistent brentq solve over steady gens)
+    from_run: dnaa3_binding_analysis (in-sim emitted listeners.dnaA_binding, sink cap=32 run dnaa3-sink-cap32)
   provenance:
     run_ids:
     - dnaa3-seed1-8gen

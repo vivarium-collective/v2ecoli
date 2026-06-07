@@ -14,6 +14,18 @@ Addresses Haochen's points with a self-consistent binding model on the steady
 Panels: (1) free DnaA-ATP/ADP concentration (nM) + 100 nM K_d_low line;
 (2) oriC low-affinity occupancy (zoomed); (3) free vs bound DnaA (count);
 (4) per-pool occupancy (high vs oriC-low).
+
+IN-SIM MODE (--insim-run): read the REAL emitted listeners.dnaA_binding free
+DnaA-ATP/ADP nM + per-pool occupancy from an in-sim binding parquet, instead of
+the analytical self-consistent recompute. This is the validated path. With the
+sink at cap=32 (the FIX, now default) free DnaA-ATP lands ~44 nM (median ~14) —
+BELOW the 100 nM oriC-low K_d, so the over-binding regime is RESOLVED (vs the
+read-only listener's ~110 nM and the old analytical ~150-200 nM).
+
+Usage (in-sim, current verdict):
+  .venv/bin/python scripts/render_dnaa3_binding_analysis.py \\
+      --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-sink-cap32 \\
+      --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
 """
 from __future__ import annotations
 import argparse, glob
@@ -62,12 +74,103 @@ def solve_free(D, V_L, n_high, n_low):
     return out
 
 
+def load_insim(run):
+    """Load REAL emitted listeners.dnaA_binding free DnaA + per-pool occupancy."""
+    fs = sorted(glob.glob(f"{run}/**/history/**/*.pq", recursive=True))
+    if not fs:
+        raise SystemExit(f"no in-sim parquet under {run}")
+    L = "listeners__dnaA_binding__"
+    df = (pl.scan_parquet(fs, hive_partitioning=True)
+          .select(["global_time",
+                   pl.col(f"{L}free_DnaA_ATP_nM").alias("free_atp_nM"),
+                   pl.col(f"{L}free_DnaA_ADP_nM").alias("free_adp_nM"),
+                   pl.col(f"{L}oric__high_affinity_occupied").alias("oric_high_occ"),
+                   pl.col(f"{L}oric__low_affinity_occupied").alias("oric_low_occ"),
+                   pl.col(f"{L}oric__n_bound").alias("oric_n_bound"),
+                   pl.col(f"{L}oric__n_total").alias("oric_n_total"),
+                   pl.col(f"{L}dnaap__occupied").alias("dnaap_occ"),
+                   pl.col(f"{L}chromosome__occupied").alias("chrom_occ"),
+                   pl.col(f"{L}chromosome__occupied_count").alias("chrom_n_bound"),
+                   pl.col(f"{L}chromosome__n_total").alias("chrom_n_total"),
+                   pl.col(f"{L}total_DnaA_bound").alias("total_bound")])
+          .sort("global_time").collect())
+    return df
+
+
+def main_insim(args):
+    df = load_insim(args.insim_run)
+    t = ((df["global_time"] - df["global_time"][0]) / 60).to_numpy()
+    F_nM = df["free_atp_nM"].to_numpy()
+    adp_nM = df["free_adp_nM"].to_numpy()
+    p_low = df["oric_low_occ"].to_numpy()
+    p_high = df["oric_high_occ"].to_numpy()
+    p_chrom = df["chrom_occ"].to_numpy()
+    p_dnaap = df["dnaap_occ"].to_numpy()
+    oric_nb = df["oric_n_bound"].to_numpy(); oric_nt = df["oric_n_total"].to_numpy()
+    bound = df["total_bound"].to_numpy()
+
+    fig, ax = plt.subplots(2, 2, figsize=(13, 8))
+    fig.suptitle("dnaa-3 — DnaA-box binding analysis (IN-SIM emitted listeners.dnaA_binding; "
+                 "sink cap=32 — the FIX) — over-binding RESOLVED", fontsize=12)
+
+    a = ax[0, 0]
+    a.plot(t, F_nM, color="#0f172a", lw=1.6, label="FREE DnaA-ATP (emitted, nM)")
+    a.plot(t, adp_nM, color="#f59e0b", lw=0.9, alpha=0.7, label="free DnaA-ADP (emitted, nM)")
+    a.axhline(KD_LOW_nM, color="#dc2626", ls="--", lw=1, label="K_d(oriC-low)=100 nM")
+    a.set_title(f"Free DnaA-ATP (in-sim) vs the 100 nM oriC-low K_d — median {np.median(F_nM):.0f}, "
+                f"mean {F_nM.mean():.0f} nM (BELOW K_d)")
+    a.set_ylabel("nM"); a.legend(fontsize=7); a.grid(alpha=0.25)
+
+    a = ax[0, 1]
+    a.plot(t, p_low, color="#16a34a", lw=1.6)
+    a.axhline(0.5, color="#94a3b8", ls=":", lw=1)
+    a.set_title("oriC LOW-affinity box occupancy (emitted) — the dynamic switch")
+    a.set_ylabel("fraction bound"); a.set_ylim(0, 1); a.grid(alpha=0.25)
+    n10 = max(1, len(p_low) // 10)
+    a.text(0.02, 0.92, f"early ~{p_low[:n10].mean():.2f} → late ~{p_low[-n10:].mean():.2f} "
+           f"(mean {p_low.mean():.2f})", transform=a.transAxes, fontsize=8, color="#16a34a")
+
+    a = ax[1, 0]
+    a.plot(t, oric_nb, color="#16a34a", lw=1.5, label="oriC boxes bound (emitted)")
+    a.plot(t, oric_nt, color="#0f172a", lw=0.8, ls=":", label="oriC boxes total (emitted)")
+    a.set_title("oriC bound vs total boxes over time (count, in-sim)")
+    a.set_ylabel("oriC box count"); a.set_xlabel("cell-cycle time (min)")
+    a.legend(fontsize=7); a.grid(alpha=0.25)
+
+    a = ax[1, 1]
+    a.plot(t, p_high, color="#2563eb", lw=1.5, label="oriC high-aff (emitted)")
+    a.plot(t, p_low, color="#16a34a", lw=1.5, label="oriC-low (emitted)")
+    a.plot(t, p_chrom, color="#94a3b8", lw=1.2, label="chromosomal (emitted)")
+    a.plot(t, p_dnaap, color="#0891b2", lw=1.2, alpha=0.7, label="dnaA-promoter (emitted)")
+    a.set_title("Per-pool occupancy (in-sim emitted)"); a.set_ylabel("fraction bound")
+    a.set_ylim(0, 1.05); a.set_xlabel("cell-cycle time (min)"); a.legend(fontsize=7); a.grid(alpha=0.25)
+
+    note = (f"FINDING (over-binding RESOLVED at sink cap=32): in-sim free DnaA-ATP lands ~{F_nM.mean():.0f} nM "
+            f"(median ~{np.median(F_nM):.0f} nM) — BELOW the 100 nM oriC-low K_d, out of the over-binding regime. "
+            f"oriC-low occupancy rises ~{p_low[:n10].mean():.2f} (early cycle) → ~{p_low[-n10:].mean():.2f} (toward "
+            f"initiation), the dynamic switch the cycle needs. Contrast: the read-only listener (no sink, 302 boxes) "
+            f"left free DnaA-ATP ~110 nM; the old analytical fast-equilibrium overlay claimed ~150-200 nM ('over-binds').")
+    fig.text(0.5, 0.005, note, ha="center", fontsize=8, color="#14532d", wrap=True)
+
+    fig.tight_layout(rect=[0, 0.03, 1, 0.96])
+    Path(args.out).parent.mkdir(parents=True, exist_ok=True)
+    for ext in ("png", "svg"):
+        fig.savefig(f"{args.out}.{ext}", dpi=130, bbox_inches="tight")
+    print(f"wrote {args.out}.png/.svg (IN-SIM emitted, from {args.insim_run}) | "
+          f"free DnaA-ATP mean {F_nM.mean():.0f} median {np.median(F_nM):.0f} nM | "
+          f"oriC-low early {p_low[:n10].mean():.2f} late {p_low[-n10:].mean():.2f} | oriC-high {p_high.mean():.2f}")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", default="out/dnaa2_seed1_8gen")
     ap.add_argument("--gens", default="4,5,6")   # LATER gens (steady), Haochen pt 2
+    ap.add_argument("--insim-run", default=None,
+                    help="read REAL emitted listeners.dnaA_binding from this in-sim run")
     ap.add_argument("--out", default="studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis")
     args = ap.parse_args()
+    if args.insim_run:
+        return main_insim(args)
     gens = [int(g) for g in args.gens.split(",")]
     df = load(args.run, gens)
 

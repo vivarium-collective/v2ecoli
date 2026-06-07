@@ -476,6 +476,65 @@ findings:
 
   status: novel
   statement: Retuning the DnaA expression rate to v = 1.7e-3 reduces the per-cycle overshoot present at the default rate, bringing the DnaA trajectory closer to the expected once-per-cycle doubling without a transient spike.
+
+discovery_implications:
+  resolved_uncertainties:
+  - Mechanism A (runtime overwrite of TU00259[c]'s per-promoter init_prob) is the right lever for dnaA expression — at V=1.7e-3 it lands the dnaA mRNA initiation rate near the biological ≈1 event/min and holds the DnaA monomer cycle-mean (665–710) in the [300,800] band with a clean oriC 1↔2 cycle.
+  - monomer_counts[3861] (PD03831[c], idx 3861) already aggregates all DnaA forms, so it is usable directly as the DnaA pool observable (Rashmi build-note resolved).
+  - The in-band DnaA pool is the downstream CONSEQUENCE of hitting the initiation-rate target, not an independent knob (the acceptance is reframed as a rate check).
+  remaining_uncertainties:
+  - The pre-division peak still excurses ~10–15% above 800 — the DnaA pool is a per-cycle sawtooth (peak ≈ 2× trough) and the [300,800] band is only a 2.67× window, so the whole oscillation cannot sit inside it without the trough dipping below 300 (V=1.5e-3 dips to 288).
+  - The dnaA init rate was measured directly only on the V=2e-3 run (median 0.99/min); the canonical V=1.7e-3 rate is inferred (~0.85/min) — direct re-measurement is pending the rna_init_event_per_cistron dnaA index resolution.
+  - All runs are single-seed (seed 0); cross-seed stability of the in-band pool is untested.
+  alternate_hypotheses:
+  - id: peak-overshoot-is-intrinsic-not-tunable
+    statement: The pre-division peak excursion above 800 is intrinsic to DnaA's once-per-cycle accumulate-and-halve dynamics and cannot be removed by V-tuning alone without pushing the trough below the band.
+    mechanism_elements_affected:
+    - dnaA-expression
+    - dnaA-monomer-pool
+    why_plausible: Lowering V proportionally lowers peak, trough, and init rate together; below ~1.6e-3 the trough drops under 300 and the lineage equilibrates more slowly (V=1.5e-3 CV 10.9%), so no single V holds the full oscillation in a 2.67×-wide band.
+    evidence_for:
+    - V=1.5e-3 trough 288 (<300), CV 10.9%; V=1.7e-3 cycle-mean in band but peak 854–934
+    - the band spans only 2.67× while the pool doubles per cycle
+    evidence_against:
+    - degradation/regulation levers other than V (e.g. cell-cycle-coupled synthesis) were not explored
+    discriminating_observables:
+    - dnaA-peak-to-trough-ratio-vs-V
+    - cross-generation-CV-vs-V
+  mechanism_update_proposals:
+  - mechanism_node_or_edge: dnaA-expression-rate
+    update_type: strengthen
+    confidence_change: Accepted (canonical V=1.7e-3 selected; rate ≈1/min, pool in band, oriC clean)
+    rationale: Mechanism A at V=1.7e-3 reproduces the PDF exemplar's near-target init rate and in-band, generation-stable DnaA pool, establishing the succinate DnaA-expression foundation.
+    requires_expert_approval: true
+  followup_study_proposals:
+  - id: dnaa1-multi-seed-stability
+    title: Multi-seed stability of the in-band DnaA pool
+    study_type: validation
+    source_trigger: ambiguity
+    target_mechanism_elements:
+    - dnaA-monomer-pool
+    proposed_experiment: Re-run the Mechanism-A V=1.7e-3 lineage at several seeds and confirm the cycle-mean stays in [300,800] with a clean oriC cycle across seeds.
+    expected_information_gain: medium
+    required_build_changes: []
+    required_inputs: []
+    blocks_or_unblocks: []
+    priority: medium
+    expert_gate_required: false
+  - id: dnaa1-init-rate-direct-remeasure
+    title: Direct re-measurement of the dnaA init rate at V=1.7e-3
+    study_type: validation
+    source_trigger: missing_parameter
+    target_mechanism_elements:
+    - dnaA-expression-rate
+    proposed_experiment: Resolve the dnaA cistron index in listeners.rnap_data.rna_init_event_per_cistron and measure the events/min directly on the canonical V=1.7e-3 run (currently only inferred).
+    expected_information_gain: medium
+    required_build_changes: []
+    required_inputs:
+    - dnaA cistron index in the rna_init_event_per_cistron vector
+    blocks_or_unblocks: []
+    priority: low
+    expert_gate_required: false
 tests:
 - name: dnaa-monomer-count-in-band-300-800-across-generations
   classification: primary     # the CONSEQUENCE of hitting the init-rate target

@@ -806,17 +806,25 @@ findings:
   status: novel
   statement: |
     A guarded sink mode of the same step (sink=True, opt-in feature dnaa_sink)
-    partitions the bulk DnaA pool — bound DnaA-ATP is removed from the free pool.
-    It works mechanically (mutates bulk, no crash) and DOES drop free DnaA-ATP
-    below the 100 nM K_d as Rashmi asked — but it OVER-titrates: free DnaA-ATP
-    falls to ~2-3 nM (oriC low-affinity occupancy ~0.02) because the model's box
-    capacity (302 chromosomal high-affinity boxes, K_d 1 nM) exceeds the free DnaA
-    pool, so the chromosomal sink drains nearly all free ATP-DnaA. This is the
-    same over-capacity tension Haochen/Rashmi flagged (modeled DnaA abundance vs
-    box capacity). Full cell-cycle impact under iteration; the sink is the START
-    of item 1, not a finished result.
+    partitions the bulk DnaA pool — bound DnaA-ATP is moved (net Δbound per tick)
+    out of the free pool. It works mechanically (mutates bulk, run completes, no
+    crash) and DOES drop free DnaA-ATP below the 100 nM K_d as Rashmi asked — but
+    it OVER-titrates: free DnaA-ATP falls to ~0.5 nM mean (oriC low-affinity
+    occupancy ~0.004) because the model's box capacity (302 chromosomal
+    high-affinity boxes, K_d 1 nM) exceeds the free DnaA pool, so the chromosomal
+    sink drains nearly all free ATP-DnaA (the high-affinity boxes still sit ~0.70
+    occupied even at ~0.5 nM free, since K_d=1 nM). NOTABLY the cell cycle still
+    FUNCTIONS in gen 1: oriC reaches 2 and the cell DIVIDES at 58.0 min (vs the
+    read-only observer's 63.0 min — an ~8% earlier division), final dry_mass
+    349.55 fg. So the sink does not break the single-gen cycle, only shifts its
+    timing; multi-gen stability is unvalidated. This is the same over-capacity
+    tension Haochen/Rashmi flagged (modeled DnaA abundance vs box capacity). The
+    sink is the START of item 1 — the next iteration must tune box capacity /
+    DnaA abundance so free DnaA-ATP lands in a physiological window (not ~0).
   evidence:
-    from_run: dnaa3_sink (sink=True, net-Δbound partition)
+    from_run: dnaa3_sink (sink=True, net-Δbound partition) — divided at 58.0 min;
+      dnaa3-sink artifact (45 min, no division) preserves the trajectory
+      (free DnaA-ATP mean 0.5 nM, oriC-low occ 0.004, oriC-high occ 0.70, oriC 1<->2)
   provenance:
     run_ids:
     - dnaa3-sink

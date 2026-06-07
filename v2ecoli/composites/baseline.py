@@ -77,7 +77,14 @@ BASE_EXECUTION_LAYERS = [
     ['exchange_data'], FLUSH,
 
     # Layer 2: standalone (no partitioning needed)
-    ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation'], FLUSH,
+    # dnaa_box_binding_listener (dnaa-3) is placed here, next to
+    # ecoli-equilibrium, so its `listeners.mass` read resolves to the PRIOR
+    # tick (an earlier layer than the mass listener that writes it) — the
+    # documented fix for the layer-7 no-fire scheduling blocker. It is a
+    # read-only occupancy observer (does not mutate bulk / DnaA_box flags),
+    # so the validated dnaa-2 cell cycle is preserved exactly.
+    ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation',
+     'dnaa_box_binding_listener'], FLUSH,
 
     # Layer 3: TF binding
     ['ecoli-tf-binding'], FLUSH,

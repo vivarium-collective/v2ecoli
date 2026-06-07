@@ -1087,6 +1087,30 @@ def _get_special_step(loader, step_name, core):
                     'free_DnaA_boxes': 'integer',
                     'total_DnaA_boxes': 'integer',
                 },
+                # dnaa-3 in-sim DnaA-box occupancy observer (dnaa_box_binding
+                # listener). Mirrors DnaaBoxBinding.outputs() leaf-for-leaf so
+                # the parquet emitter captures the occupancy columns.
+                'dnaA_binding': {
+                    'free_DnaA_ATP_nM': 'float',
+                    'free_DnaA_ADP_nM': 'float',
+                    'oric': {
+                        'high_affinity_occupied': 'float',
+                        'low_affinity_occupied': 'float',
+                        'n_bound': 'integer',
+                        'n_total': 'integer',
+                    },
+                    'dnaap': {
+                        'occupied': 'float',
+                        'n_bound': 'integer',
+                        'n_total': 'integer',
+                    },
+                    'chromosome': {
+                        'occupied': 'float',
+                        'occupied_count': 'integer',
+                        'n_total': 'integer',
+                    },
+                    'total_DnaA_bound': 'integer',
+                },
             })
 
         if parquet_override is not None:
@@ -1232,6 +1256,18 @@ def _get_special_step(loader, step_name, core):
         config = {'time_step': 1}
         instance = ReplicationData(config=config, core=core)
         topology = getattr(instance, 'topology', {})
+        return instance, topology, 'step'
+
+    if step_name == 'dnaa_box_binding_listener':
+        # dnaa-3 read-only DnaA-box occupancy observer. Config defaults
+        # (K_d / pool sizes) live in the step's config_schema; an empty
+        # config uses them. Placed in an early layer (see baseline.py) so its
+        # listeners.mass read resolves to the prior tick.
+        from v2ecoli.steps.derivers.dnaa_box_binding import DnaaBoxBinding
+        instance = _make_instance(DnaaBoxBinding, {'time_step': 1}, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
         return instance, topology, 'step'
 
     if step_name == 'mark_d_period':

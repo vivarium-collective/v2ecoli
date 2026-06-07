@@ -1,0 +1,27 @@
+meta:
+  investigation: dnaa-replication
+  report_id: rpt-20260607042905
+  generated_at: '2026-06-07T14:18:32.006Z'
+  page_title: 'Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)'
+  source_url: file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-06-07-13.html#study-dnaa-3-box-binding-reqs
+annotations:
+  study-dnaa-3-box-binding-readouts:
+  - ts: '2026-06-07T13:56:08.292Z'
+    author: Rashmi
+    text: the free DnaA-ATP concentration is too high and at t=0, low affinity oriC boxes should not be occupied that much.
+  study-dnaa-3-box-binding-sims:
+  - ts: '2026-06-07T13:59:48.803Z'
+    author: Rashmi
+    text: run the actual simulation and record results.
+responses:
+  study-dnaa-3-box-binding-readouts:
+    classification: scientific model gap
+    status: in-progress
+    acknowledged_by_finding: oric-overbinds-free-dnaa-above-kd
+    diagnosis: 'The dnaA_box_binding deriver is a READ-ONLY occupancy observer, not a sink: it never removes bound DnaA from the free bulk pool, so free DnaA-ATP stays ~150-200 nM (> the ~100 nM low-affinity K_d) and the low-affinity oriC boxes over-occupy, including at t=0.'
+    action: Promote the deriver to a real SINK that partitions the bulk DnaA pool into bound vs free, so sequestration lowers free DnaA-ATP and the t=0 low-affinity occupancy. Requires re-validating the succinate cell cycle after the bulk pool is partitioned (separately-validated increment).
+  study-dnaa-3-box-binding-sims:
+    classification: sim-execution gap
+    status: in-progress
+    diagnosis: dnaa-3's recorded run reuses the validated dnaa-2 seed-1 8-gen lineage with box binding applied as a fast-equilibrium ANALYTICAL OVERLAY (render_dnaa3_binding_analysis.py) — not an in-sim binding run.
+    action: Wire the dnaa_box_binding step into the composite (early layer), rebuild ParCa+cache for that composite, and run the actual in-sim binding simulation; re-render occupancy/readouts from the real run. Kicked off on the mac mini.

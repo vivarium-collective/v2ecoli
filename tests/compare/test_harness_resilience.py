@@ -17,7 +17,7 @@ def test_harness_writes_report_when_parca_stage_fails(tmp_path, monkeypatch):
     out = tmp_path / "report.html"
     h.main(["--config", "ignored.json", "-o", str(out),
             "--workdir", str(tmp_path / "work")])
-    html = out.read_text()
+    html = out.read_text(encoding="utf-8")
     # report still written, both downstream sections present as errors
     assert "ParCa / sim_data" in html
     assert "2-generation sim dynamics" in html

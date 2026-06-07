@@ -161,7 +161,7 @@ def main(argv=None):
     if mode == "fast":
         title += "  —  ⚠ NOT SCIENTIFICALLY VALID (fast ParCa) ⚠"
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(render_report(sections, title=title))
+    Path(args.out).write_text(render_report(sections, title=title), encoding="utf-8")
     print(f"wrote {args.out}")
 
 

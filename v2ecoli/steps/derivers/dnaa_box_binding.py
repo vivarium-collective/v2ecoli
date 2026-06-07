@@ -102,6 +102,12 @@ class DnaaBoxBinding(Step):
         self.n_oric_low = self.parameters["n_oric_low"]
         self.sink = bool(self.parameters.get("sink", False))
         self.molecule_idx = None
+        # Sink bookkeeping: how many DnaA-ATP molecules this step has ALREADY
+        # removed from the free pool (currently held bound). Each tick we move
+        # only the NET change in bound count (Δbound) — binding removes from
+        # free, release returns to free — instead of re-subtracting the whole
+        # bound amount every tick (which would drain the pool to zero).
+        self._sunk_atp = 0
 
     def inputs(self):
         return {
@@ -196,22 +202,29 @@ class DnaaBoxBinding(Step):
             "total_DnaA_bound": total_bound,
         }}}
 
-        # SINK MODE: partition the free DnaA pool. The molecules we just
-        # computed as bound at boxes are REMOVED from the free bulk pool so they
-        # no longer count toward free DnaA-ATP. We sink from the ATP-bound form
-        # (the active initiator) — all box pools bind ATP-DnaA (the high-affinity
-        # pools also accept ADP, but partitioning the active ATP form is the
-        # physically meaningful lever for lowering free DnaA-ATP and t=0
-        # low-affinity occupancy). Never sink more than the available free pool.
-        # This is the ONLY path that returns a ``bulk`` delta; in observer mode
-        # the step stays read-only.
-        if self.sink and total_bound > 0:
+        # SINK MODE: partition the free DnaA pool. The molecules computed as
+        # bound at boxes are held OUT of the free bulk pool so they no longer
+        # count toward free DnaA-ATP. Binding is an equilibrium, so we move only
+        # the NET change vs what we already hold sunk (Δ = desired_bound −
+        # already_sunk): a rise in occupancy removes more from free, a fall
+        # RETURNS DnaA to free. (Subtracting the full bound amount every tick —
+        # the naive first cut — drained the pool to ~0 nM and starved
+        # initiation.) We sink the ATP-bound form (the active initiator); all box
+        # pools bind ATP-DnaA. Clamp so we never drive free ATP negative and
+        # never hold more sunk than were ever bound. This is the ONLY path that
+        # returns a ``bulk`` delta; in observer mode the step stays read-only.
+        if self.sink:
             atp_count = int(atp)
-            sink_n = min(total_bound, atp_count)
-            if sink_n > 0:
-                # bulk_array updater format: list of (indices, deltas). ATP is
-                # the 2nd entry of self.molecule_idx ([APO, ATP, ADP]).
+            desired_sunk = max(0, total_bound)
+            delta = desired_sunk - self._sunk_atp        # >0 remove, <0 return
+            if delta > 0:
+                delta = min(delta, atp_count)            # don't go negative free
+            new_sunk = self._sunk_atp + delta
+            move = new_sunk - self._sunk_atp
+            if move != 0:
                 atp_idx = int(np.asarray(self.molecule_idx)[1])
-                update["bulk"] = [(np.array([atp_idx]), np.array([-sink_n]))]
+                # bulk_array updater format: list of (indices, deltas).
+                update["bulk"] = [(np.array([atp_idx]), np.array([-move]))]
+                self._sunk_atp = new_sunk
 
         return update

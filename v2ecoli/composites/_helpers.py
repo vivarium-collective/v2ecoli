@@ -1090,26 +1090,35 @@ def _get_special_step(loader, step_name, core):
                 # dnaa-3 in-sim DnaA-box occupancy observer (dnaa_box_binding
                 # listener). Mirrors DnaaBoxBinding.outputs() leaf-for-leaf so
                 # the parquet emitter captures the occupancy columns.
+                #
+                # CRITICAL: these MUST be overwrite[...] (not plain float/integer).
+                # The dnaA_binding store leaves do NOT exist in the resume dill
+                # (unlike replication_data, whose leaves the parent emits), so
+                # the leaf type is established by this emit-schema declaration.
+                # A plain `float` apply ACCUMULATES (state += delta) — the listener
+                # would report a running SUM over every tick (free DnaA-ATP grew
+                # 27k->57k nM, occupancy >1) instead of the per-tick value. The
+                # `overwrite[...]` apply replaces, matching the step's outputs().
                 'dnaA_binding': {
-                    'free_DnaA_ATP_nM': 'float',
-                    'free_DnaA_ADP_nM': 'float',
+                    'free_DnaA_ATP_nM': 'overwrite[float]',
+                    'free_DnaA_ADP_nM': 'overwrite[float]',
                     'oric': {
-                        'high_affinity_occupied': 'float',
-                        'low_affinity_occupied': 'float',
-                        'n_bound': 'integer',
-                        'n_total': 'integer',
+                        'high_affinity_occupied': 'overwrite[float]',
+                        'low_affinity_occupied': 'overwrite[float]',
+                        'n_bound': 'overwrite[integer]',
+                        'n_total': 'overwrite[integer]',
                     },
                     'dnaap': {
-                        'occupied': 'float',
-                        'n_bound': 'integer',
-                        'n_total': 'integer',
+                        'occupied': 'overwrite[float]',
+                        'n_bound': 'overwrite[integer]',
+                        'n_total': 'overwrite[integer]',
                     },
                     'chromosome': {
-                        'occupied': 'float',
-                        'occupied_count': 'integer',
-                        'n_total': 'integer',
+                        'occupied': 'overwrite[float]',
+                        'occupied_count': 'overwrite[integer]',
+                        'n_total': 'overwrite[integer]',
                     },
-                    'total_DnaA_bound': 'integer',
+                    'total_DnaA_bound': 'overwrite[integer]',
                 },
             })
 

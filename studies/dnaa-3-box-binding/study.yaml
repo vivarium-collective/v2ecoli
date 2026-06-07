@@ -822,9 +822,7 @@ findings:
     sink is the START of item 1 — the next iteration must tune box capacity /
     DnaA abundance so free DnaA-ATP lands in a physiological window (not ~0).
   evidence:
-    from_run: dnaa3_sink (sink=True, net-Δbound partition) — divided at 58.0 min;
-      dnaa3-sink artifact (45 min, no division) preserves the trajectory
-      (free DnaA-ATP mean 0.5 nM, oriC-low occ 0.004, oriC-high occ 0.70, oriC 1<->2)
+    from_run: dnaa3_sink (sink=True, net-Δbound partition) — divided at 58.0 min; dnaa3-sink artifact (45 min, no division) preserves the trajectory (free DnaA-ATP mean 0.5 nM, oriC-low occ 0.004, oriC-high occ 0.70, oriC 1<->2)
   provenance:
     run_ids:
     - dnaa3-sink
@@ -859,6 +857,9 @@ findings:
     run_ids:
     - dnaa3-seed1-8gen
     verified_by: scripts/render_dnaa3_binding_analysis.py
+- id: sink-capacity-tuned-to-chipseq-resolves-overbinding
+  kind: computational
+  summary: "The in-sim DnaA-box SINK over-binds at the model's ~302 loose-consensus chromosomal boxes (free DnaA-ATP titrated to 0). A capacity sweep (chromosomal high-affinity boxes = 302/32/13 -> sink free DnaA-ATP 0.0/47/98 nM, t=0 oriC low-affinity occupancy 0.0/0.31/0.49) shows 302 over-titrates and 13 barely sinks; cap=32 lands free DnaA-ATP ~47 nM (out of the >100 nM-K_d over-binding regime) with modest t=0 low-affinity occupancy (0.31) while the cell cycle is preserved (gen-1 divides at the baseline dry-mass threshold). Default set to 32, grounded in ChIP-seq (Smith 2024: ~13-32 strongly-bound regions; the ~302 loose pool is not the in-vivo titration). Addresses Rashmi 2026-06-07 (\"free DnaA-ATP too high; t=0 low-affinity oriC boxes should not be occupied that much\"). Single-generation validated; multi-generation sink stability pending."
 discovery_implications:
   resolved_uncertainties:
   - DnaA-box binding equilibrium fits the current DnaA concentration range (315 boxes, 4 affinity pools, fast equilibrium).

@@ -91,13 +91,16 @@ class DnaaBoxBinding(Step):
         # prefers closely-spaced box PAIRS bound by dimers, so the ~302
         # loose-motif pool is NOT the in-vivo titration sink. This cap limits the
         # chromosomal high-affinity pool that the SINK titrates (and reports as
-        # chromosome.occupied_count) to the strongly-bound count. -1 (default)
-        # = use ALL live chromosomal boxes (the read-only listener's historical
-        # behaviour, ~302); set to a literature value (e.g. 32 or 13) for the
-        # sink so the chromosomal pool does not out-capacity the free DnaA pool.
-        # Overridable per-run via env var DNAA_N_CHROM_HIGH_CAP for sweeps
-        # (avoids editing the composite each variant).
-        "n_chrom_high_cap": "integer{-1}",
+        # chromosome.occupied_count) to the strongly-bound count. Default 32 =
+        # the ChIP-seq strong-site count (Smith 2024: ~13-32 strongly-bound
+        # regions; the ~302 loose-consensus pool is NOT the in-vivo titration).
+        # Chosen from the capacity sweep (caps 302/32/13 -> sink free DnaA-ATP
+        # 0.0/47/98 nM): 302 over-titrates free DnaA to ~0; 13 barely sinks
+        # (~98 nM, ~read-only); 32 lands free DnaA-ATP ~47 nM (out of the >K_d
+        # over-binding regime) with modest t=0 oriC low-aff occupancy (0.31) and
+        # the cell cycle preserved (gen-1 divides). -1 = ALL live boxes (~302,
+        # legacy). Overridable per-run via env var DNAA_N_CHROM_HIGH_CAP.
+        "n_chrom_high_cap": "integer{32}",
         # SINK MODE (dnaa-3 Rashmi item 1). When False (default) the step is a
         # pure read-only OBSERVER: it never returns a ``bulk`` delta, so the
         # validated dnaa-2 cell cycle is preserved exactly. When True it becomes

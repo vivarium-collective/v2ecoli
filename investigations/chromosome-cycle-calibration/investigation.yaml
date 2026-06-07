@@ -1,7 +1,7 @@
 schema_version: 1
 name: chromosome-cycle-calibration
 title: v2ecoli chromosome cycle-time calibration on slow-growth conditions (acetate + glycerol)
-status: running
+status: archived
 description: >
   Carefree investigation tracking v2ecoli chromosome dynamics on slow-growth media.
   Validates the architectural port (PartitionedProcess -> layered process-bigraph) against
@@ -22,22 +22,17 @@ studies:
 
 at_a_glance:
 - study: dnaa-context-condition-landscape
-  role: Background — why ABT glycerol (Stage 1 chose it for non-overlapping cycles) and why
-    acetate (closest existing v2ecoli condition + has vEcoli implementation for v2ecoli↔vEcoli
-    match). Read this first.
+  role: Background — why ABT glycerol (Stage 1 chose it for non-overlapping cycles) and why acetate (closest existing v2ecoli condition + has vEcoli implementation for v2ecoli↔vEcoli match). Read this first.
 - study: dnaa-00-stage1-baseline
-  role: ABT minimal glycerol media (τ=150) + Stage 1 parameter overrides (C=70, D=30, DnaA TE=1,
-    DnaA stable, DARS/datA locations). Prerequisite for Study 1.
+  role: ABT minimal glycerol media (τ=150) + Stage 1 parameter overrides (C=70, D=30, DnaA TE=1, DnaA stable, DARS/datA locations). Prerequisite for Study 1.
 - study: dnaa-01-expression-dynamics
-  role: dnaA transcription + mRNA + translation + protein-abundance dynamics (new mechanism on
-    top of Study 0's baseline). Active phase once Study 0 closes.
+  role: dnaA transcription + mRNA + translation + protein-abundance dynamics (new mechanism on top of Study 0's baseline). Active phase once Study 0 closes.
 - study: dnaa-02-atp-hydrolysis
   role: DnaA-ATP intrinsic hydrolysis at 0.046 /min. Boesen 2024 ratio check (0.2-0.5).
 - study: dnaa-03-box-binding
   role: 307 chromosomal DnaA boxes + oriC + dnaAp. Two-step oriC fill prediction.
 - study: dnaa-04-mechanistic-initiation
-  role: Replaces inherited Donachie/initiation-mass trigger with mechanism. Targets the failed
-    cycle-time acceptance criterion.
+  role: Replaces inherited Donachie/initiation-mass trigger with mechanism. Targets the failed cycle-time acceptance criterion.
 - study: dnaa-05-rida-ddah-dars
   role: Extrinsic DnaA-ATP/ADP conversion. RIDA, DDAH, DARS1+DARS2. Knockout sweep + synchrony.
 - study: dnaa-06-seqa-sequestration
@@ -57,62 +52,40 @@ expert_docs:
 - name: molecular-info-replication-initiation
   path: Molecular information for simulating replication initiation.pdf
   kind: biology_reference
-  description: oriC structure (DUE + DOR, 11 DnaA boxes), dnaA promoter (p1/p2 + boxes 1-4 + a-c),
-    RIDA, DDAH, DARS1/2, DnaA-ATP intrinsic hydrolysis (0.046 /min).
+  description: oriC structure (DUE + DOR, 11 DnaA boxes), dnaA promoter (p1/p2 + boxes 1-4 + a-c), RIDA, DDAH, DARS1/2, DnaA-ATP intrinsic hydrolysis (0.046 /min).
   claims_supported:
   - chromosome-cycle-calibration
 - name: parameters-wcm-stage1
   path: Parameters for WCM (Stage 1_ heuristic values) - Stage 1.pdf
   kind: parameter_table
-  description: Stage 1 heuristic parameters. ABT minimal glycerol MG1655 wildtype. tau=150, C=70,
-    D=30, replication speed 66.31 kbp/min, DnaA TE=1, DnaA Kd_ATP=30 nM, DnaA Kd_ADP=100 nM, DARS1+DARS2
-    locations.
+  description: Stage 1 heuristic parameters. ABT minimal glycerol MG1655 wildtype. tau=150, C=70, D=30, replication speed 66.31 kbp/min, DnaA TE=1, DnaA Kd_ATP=30 nM, DnaA Kd_ADP=100 nM, DARS1+DARS2 locations.
   claims_supported:
   - chromosome-cycle-calibration
 
 how_to_read:
-- '**Acceptance criteria — current status:** five lifecycle checkpoints. D-period wiring (passed),
-  v2ecoli↔vEcoli match (passed), multi-gen equilibration to declared τ (**failed**, upstream FBA
-  gap), TF coverage audit (open, GlpR gap), glycerol medium added (passed). The failed criterion
-  is the active research question — Study 4 (`dnaa-04-mechanistic-initiation`) is what closes it.'
-- '**How the per-phase studies fit:** `chromosome-replication-plan.pdf` breaks this work into
-  Studies 1-8 with a linear dependency chain. Study 1 (DnaA expression dynamics) is the active
-  phase. Subsequent studies activate as each prerequisite closes its primary tests.'
-- '**Where the heavy artifacts live:** Sim DBs (`out/acetate_apr24_test.db` 9.1 GB,
-  `out/glycerol_stage1_1gen.db` 14 GB, `out/vecoli_acetate_compare_parquet/` 677 MB) are in this
-  worktree only (~23 GB total). Not duplicated to v2ecoli-dashboard. See the Inputs tab for
-  the full dataset catalog.'
+- '**Acceptance criteria — current status:** five lifecycle checkpoints. D-period wiring (passed), v2ecoli↔vEcoli match (passed), multi-gen equilibration to declared τ (**failed**, upstream FBA gap), TF coverage audit (open, GlpR gap), glycerol medium added (passed). The failed criterion is the active research question — Study 4 (`dnaa-04-mechanistic-initiation`) is what closes it.'
+- '**How the per-phase studies fit:** `chromosome-replication-plan.pdf` breaks this work into Studies 1-8 with a linear dependency chain. Study 1 (DnaA expression dynamics) is the active phase. Subsequent studies activate as each prerequisite closes its primary tests.'
+- '**Where the heavy artifacts live:** Sim DBs (`out/acetate_apr24_test.db` 9.1 GB, `out/glycerol_stage1_1gen.db` 14 GB, `out/vecoli_acetate_compare_parquet/` 677 MB) are in this worktree only (~23 GB total). Not duplicated to v2ecoli-dashboard. See the Inputs tab for the full dataset catalog.'
 
 glossary:
 - term: D-period
-  definition: The fixed-duration period after replication finishes during which the cell completes
-    septation and divides. In v2ecoli, declared as 30 min for slow growth (matches vEcoli).
+  definition: The fixed-duration period after replication finishes during which the cell completes septation and divides. In v2ecoli, declared as 30 min for slow growth (matches vEcoli).
 - term: C-period
-  definition: The time taken to replicate the chromosome end-to-end. Declared as 70 min for slow
-    growth.
+  definition: The time taken to replicate the chromosome end-to-end. Declared as 70 min for slow growth.
 - term: τ (tau)
-  definition: Mass-doubling time for the medium. ABT minimal acetate τ=136 min (declared);
-    ABT minimal glycerol τ=150 min (declared). Both currently observed to cycle ~80-120 min in
-    practice on this branch.
+  definition: Mass-doubling time for the medium. ABT minimal acetate τ=136 min (declared); ABT minimal glycerol τ=150 min (declared). Both currently observed to cycle ~80-120 min in practice on this branch.
 - term: with_aa
-  definition: A guard / condition variant in v2ecoli that supplies amino acids exogenously. Used
-    as a sanity baseline (cycle ~45 min unfixed → 22.5 min once D-period is wired).
+  definition: A guard / condition variant in v2ecoli that supplies amino acids exogenously. Used as a sanity baseline (cycle ~45 min unfixed → 22.5 min once D-period is wired).
 - term: RIDA
-  definition: Regulatory Inactivation of DnaA. Hda + β-clamp drive DnaA-ATP → DnaA-ADP hydrolysis
-    after replication, preventing re-initiation.
+  definition: Regulatory Inactivation of DnaA. Hda + β-clamp drive DnaA-ATP → DnaA-ADP hydrolysis after replication, preventing re-initiation.
 - term: DDAH
-  definition: Intrinsic DnaA-ATP Hydrolysis (~0.046 /min). DnaA-ATP slowly self-hydrolyzes
-    independently of RIDA.
+  definition: Intrinsic DnaA-ATP Hydrolysis (~0.046 /min). DnaA-ATP slowly self-hydrolyzes independently of RIDA.
 - term: DARS1, DARS2
-  definition: DnaA-Reactivating Sequences at two chromosomal loci. Exchange ADP→ATP on DnaA,
-    counteracting RIDA + DDAH.
+  definition: DnaA-Reactivating Sequences at two chromosomal loci. Exchange ADP→ATP on DnaA, counteracting RIDA + DDAH.
 - term: MIX0-845
-  definition: EcoCyc identifier for ABT minimal + 0.2% glycerol media (13 mM GLYCEROL). Newly
-    added in this branch.
+  definition: EcoCyc identifier for ABT minimal + 0.2% glycerol media (13 mM GLYCEROL). Newly added in this branch.
 - term: upstream 0a3c36d
-  definition: The reference commit on branch dnaa-replication-studies used for comparison. Our
-    overrides (C/D periods, dnaA TE, DARS widening) are applied at a different pipeline stage than
-    upstream.
+  definition: The reference commit on branch dnaa-replication-studies used for comparison. Our overrides (C/D periods, dnaA TE, DARS widening) are applied at a different pipeline stage than upstream.
 
 question: >
   Does v2ecoli reproduce vEcoli chromosome cycle dynamics on slow conditions, and at
@@ -216,7 +189,7 @@ decision_log:
   - Multi-gen does NOT equilibrate (5 gens, no trend).
   - TF coverage gap (GlpR has data but not in 23-TF runtime set).
   - Glycerol medium added; setup compared to upstream 0a3c36d.
-  feedback_source: null
+  feedback_source:
 
 upstream_comparison:
   commit: 0a3c36d

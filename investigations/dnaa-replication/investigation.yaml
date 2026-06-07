@@ -92,73 +92,65 @@ executive:
     chromosome map + the dnaa-2 baseline figure are attached. Not yet built/run;
     gated on dnaa-2's baseline holding. This is the study going back to Rashmi/Haochen.
   decisions_needed:
-    - question: "dnaa-2 — RESOLVED + PASS (was the mechanism + clean-reproduction question)."
-      status: |
-        RESOLVED 2026-06-04 — dnaa-2 PASSES. MECHANISM: Haochen's bf8b82e (DnaA-ADP
-        reaction bidirectional + integrate_dt=true, literal k_r=1×10⁻⁷/s; DnaA-ATP
-        intrinsic hydrolysis one-way), superseding the rejected DnaaAdpRelease/0.03-min
-        workaround. REPRODUCTION: Rashmi directed seed-1 × 8-gen + clarified the
-        acceptance criterion (2026-06-04: "initial generations might not strictly fall
-        in band while stabilizing — consider the generation average"). On the
-        generation-average criterion all four behaviours PASS: mass-doubling, oriC
-        one-init/gen, total-DnaA avg 535 in [300,800], DnaA-ATP fraction avg 0.26 in
-        [0.2,0.5]. SECONDARY (not a blocker): per-gen averages trend to the low edge in
-        later gens — a total-DnaA dependence; k_r is the future-tuning lever for Haochen.
-      context: |
-        Mechanism + in-band fraction REGION validated; the open item is a clean per-gen
-        reproduction across a full 8-gen lineage on the seed Rashmi confirmed (seed 1).
-    - question: dnaa-3 — DnaA-box binding design (Haochen's spec, 4 affinity pools,
-        315 boxes, fast equilibrium on the dnaa-2 baseline) is PREPARED. Does the
-        first-step design look right before we build it — esp. low-aff K_d≈100 nM
-        with cooperativity deferred (vs the brief's 50→1 nM range), and tracking
-        bound-ATP/bound-ADP separately on high-aff pools?
-      status: OPEN — awaiting Rashmi/Haochen review of the prepared dnaa-3 study.
-      context: |
-        dnaa-3 is design-complete with a 6-step build plan, the 307-box chromosome
-        map (from the WCM genome), and the dnaa-2 baseline figure attached. The 8
-        oriC low-affinity coordinates are still provisional (to be extracted exactly
-        from the oriC sequence at build). Gated on dnaa-2's baseline holding.
-    - question: dnaa-0 succinate run reaches per-cell periodic steady state with
-        oriC oscillating 1 ↔ 2 at steady state (transient overshoot to 4 in
-        early gens allowed) — pass or fail?
-      status: RESOLVED 2026-05-30 — PASS (Rashmi review)
-      context: |
-        Initialization task per PDF: run ParCa with succinate as the growth
-        condition, then run v2ecoli single_daughters and check convergence.
-        RESOLUTION (Rashmi 2026-05-30, "this looks correct"): the followed
-        daughter's oriC is periodic 1 → 2 → 1 → 2 FROM GENERATION 3 ONWARDS
-        (the steady state). The brief overshoot to oriC = 4 in the early
-        generations is the expected NOT-YET-STEADY-STATE signature, not a
-        failure — the prior "never reaches 4" framing was corrected. Cell
-        mass is correspondingly periodic. The generation-3 state is saved as
-        the canonical succinate steady-state initial condition
-        (out/steady_state_inputs/succinate_default_gen3_start.dill) and
-        dnaa-1 is unblocked.
-    - question: dnaa-1 RNA-synthesis-probability tuning lands the dnaA mRNA
-        INITIATION RATE near the biologically-expected ≈1 event/min (with the
-        DnaA monomer pool in 300–800 as the consequence) — does V=2e-3 work?
-      status: RESOLVED 2026-05-30 — PASS (after fixing an emitter bug; real full-cycle data)
-      context: |
-        PDF hint (chart caption): set
-        sim_data.genetic_perturbations["TU00259[c]"] = 2e-3 at runtime
-        (Mechanism A — runtime overwrite of dnaA's per-promoter init_prob).
-        Baseline unchanged: dnaA TE = 0.35, dnaA mRNA t½ = 1.9 min, DnaA
-        protein t½ = 280 min.
-        REFRAMED ACCEPTANCE (Rashmi 2026-05-30): the PDF "target" is the
-        BIOLOGICALLY-EXPECTED dnaA RNA-synthesis rate; V=2e-3 produced
-        ≈1.01 events/min, close to it, and THAT is what brought the DnaA
-        counts into range. So the PRIMARY criterion is the init rate near
-        ≈1 event/min; the in-band [300, 800], cross-generation-stable DnaA
-        monomer pool is the downstream consequence.
-        STATUS: the earlier "pass" had no valid run behind it (FBA SUC[p]
-        failure, then a 1-row/gen flush bug); a full-series re-run
-        (dnaa1-mechA-7gen-2026-05-30) is underway.
-        Validation plots required:
-        (1) DnaA monomer count (all forms via monomer_counts listener —
-            verify the listener already sums all DnaA forms),
-        (2) DnaA concentration (count / cell_mass),
-        (3) dnaA mRNA count,
-        (4) dnaA mRNA initiation events (per minute, vs the ≈1/min target).
+  - question: "dnaa-2 — RESOLVED + PASS (was the mechanism + clean-reproduction question)."
+    status: |
+      RESOLVED 2026-06-04 — dnaa-2 PASSES. MECHANISM: Haochen's bf8b82e (DnaA-ADP
+      reaction bidirectional + integrate_dt=true, literal k_r=1×10⁻⁷/s; DnaA-ATP
+      intrinsic hydrolysis one-way), superseding the rejected DnaaAdpRelease/0.03-min
+      workaround. REPRODUCTION: Rashmi directed seed-1 × 8-gen + clarified the
+      acceptance criterion (2026-06-04: "initial generations might not strictly fall
+      in band while stabilizing — consider the generation average"). On the
+      generation-average criterion all four behaviours PASS: mass-doubling, oriC
+      one-init/gen, total-DnaA avg 535 in [300,800], DnaA-ATP fraction avg 0.26 in
+      [0.2,0.5]. SECONDARY (not a blocker): per-gen averages trend to the low edge in
+      later gens — a total-DnaA dependence; k_r is the future-tuning lever for Haochen.
+    context: |
+      Mechanism + in-band fraction REGION validated; the open item is a clean per-gen
+      reproduction across a full 8-gen lineage on the seed Rashmi confirmed (seed 1).
+  - question: dnaa-3 — DnaA-box binding design (Haochen's spec, 4 affinity pools, 315 boxes, fast equilibrium on the dnaa-2 baseline) is PREPARED. Does the first-step design look right before we build it — esp. low-aff K_d≈100 nM with cooperativity deferred (vs the brief's 50→1 nM range), and tracking bound-ATP/bound-ADP separately on high-aff pools?
+    status: OPEN — awaiting Rashmi/Haochen review of the prepared dnaa-3 study.
+    context: |
+      dnaa-3 is design-complete with a 6-step build plan, the 307-box chromosome
+      map (from the WCM genome), and the dnaa-2 baseline figure attached. The 8
+      oriC low-affinity coordinates are still provisional (to be extracted exactly
+      from the oriC sequence at build). Gated on dnaa-2's baseline holding.
+  - question: dnaa-0 succinate run reaches per-cell periodic steady state with oriC oscillating 1 ↔ 2 at steady state (transient overshoot to 4 in early gens allowed) — pass or fail?
+    status: RESOLVED 2026-05-30 — PASS (Rashmi review)
+    context: |
+      Initialization task per PDF: run ParCa with succinate as the growth
+      condition, then run v2ecoli single_daughters and check convergence.
+      RESOLUTION (Rashmi 2026-05-30, "this looks correct"): the followed
+      daughter's oriC is periodic 1 → 2 → 1 → 2 FROM GENERATION 3 ONWARDS
+      (the steady state). The brief overshoot to oriC = 4 in the early
+      generations is the expected NOT-YET-STEADY-STATE signature, not a
+      failure — the prior "never reaches 4" framing was corrected. Cell
+      mass is correspondingly periodic. The generation-3 state is saved as
+      the canonical succinate steady-state initial condition
+      (out/steady_state_inputs/succinate_default_gen3_start.dill) and
+      dnaa-1 is unblocked.
+  - question: dnaa-1 RNA-synthesis-probability tuning lands the dnaA mRNA INITIATION RATE near the biologically-expected ≈1 event/min (with the DnaA monomer pool in 300–800 as the consequence) — does V=2e-3 work?
+    status: RESOLVED 2026-05-30 — PASS (after fixing an emitter bug; real full-cycle data)
+    context: |
+      PDF hint (chart caption): set
+      sim_data.genetic_perturbations["TU00259[c]"] = 2e-3 at runtime
+      (Mechanism A — runtime overwrite of dnaA's per-promoter init_prob).
+      Baseline unchanged: dnaA TE = 0.35, dnaA mRNA t½ = 1.9 min, DnaA
+      protein t½ = 280 min.
+      REFRAMED ACCEPTANCE (Rashmi 2026-05-30): the PDF "target" is the
+      BIOLOGICALLY-EXPECTED dnaA RNA-synthesis rate; V=2e-3 produced
+      ≈1.01 events/min, close to it, and THAT is what brought the DnaA
+      counts into range. So the PRIMARY criterion is the init rate near
+      ≈1 event/min; the in-band [300, 800], cross-generation-stable DnaA
+      monomer pool is the downstream consequence.
+      STATUS: the earlier "pass" had no valid run behind it (FBA SUC[p]
+      failure, then a 1-row/gen flush bug); a full-series re-run
+      (dnaa1-mechA-7gen-2026-05-30) is underway.
+      Validation plots required:
+      (1) DnaA monomer count (all forms via monomer_counts listener —
+          verify the listener already sums all DnaA forms),
+      (2) DnaA concentration (count / cell_mass),
+      (3) dnaA mRNA count,
+      (4) dnaA mRNA initiation events (per minute, vs the ≈1/min target).
 
 scientific_argument:
   main_claim: |
@@ -171,51 +163,15 @@ scientific_argument:
     monomer pool in the Schmidt 2016 / Mori 2021 [300, 800] band stably
     across generations.
   evidence_for:
-    - 'dnaa-0 (CONFIRMED 2026-05-30, Rashmi "this looks correct"):
-      succinate single-daughters lineage is periodic from gen 3 onwards —
-      oriC 1↔2, cell mass sawtooth, every division fires with
-      d_period_elapsed=True and chromosomes=2 at the split (Round 3.7
-      D-period fix in place). The early-generation oriC overshoot to 4 is
-      the expected pre-steady-state transient. Gen-3 state saved as the
-      canonical succinate initial condition.'
-    - 'dnaa-1 (PASS 2026-05-30, real full-cycle data,
-      dnaa1-mechA-7gen-pristine, all 7 gens clean): Mechanism A
-      (TU00259[c]=2e-3) lands the dnaA mRNA initiation rate at median 0.99
-      events/min — on the biological ≈1/min target (Rashmi exemplar
-      1.01/min) — and, as the consequence, holds the DnaA monomer pool
-      cycle-mean in band [300,800] (mean 706, cross-gen CV 7.2% over gens
-      3–7). oriC stays periodic 1↔2 (never 4)
-      under the lifted expression, so the cell cycle from dnaa-0 is
-      preserved. (Required fixing a division-time parquet-emitter
-      partition-wipe bug — daughters were deleting the parent generation''s
-      history; see dnaa-1 report + v2ecoli/steps/division.py.)'
+  - 'dnaa-0 (CONFIRMED 2026-05-30, Rashmi "this looks correct"): succinate single-daughters lineage is periodic from gen 3 onwards — oriC 1↔2, cell mass sawtooth, every division fires with d_period_elapsed=True and chromosomes=2 at the split (Round 3.7 D-period fix in place). The early-generation oriC overshoot to 4 is the expected pre-steady-state transient. Gen-3 state saved as the canonical succinate initial condition.'
+  - 'dnaa-1 (PASS 2026-05-30, real full-cycle data, dnaa1-mechA-7gen-pristine, all 7 gens clean): Mechanism A (TU00259[c]=2e-3) lands the dnaA mRNA initiation rate at median 0.99 events/min — on the biological ≈1/min target (Rashmi exemplar 1.01/min) — and, as the consequence, holds the DnaA monomer pool cycle-mean in band [300,800] (mean 706, cross-gen CV 7.2% over gens 3–7). oriC stays periodic 1↔2 (never 4) under the lifted expression, so the cell cycle from dnaa-0 is preserved. (Required fixing a division-time parquet-emitter partition-wipe bug — daughters were deleting the parent generation''s history; see dnaa-1 report + v2ecoli/steps/division.py.)'
   evidence_against:
-    - 'Within each cycle the DnaA pool OSCILLATES above the [300,800] band
-      at its pre-division peak (≈1000) before halving at division — so the
-      band holds for the cycle-MEAN, not every instantaneous tick. This is
-      the expected accumulate-then-divide behaviour, not a contradiction,
-      but worth stating: "in band" here means cycle-typical, not a hard cap.'
+  - 'Within each cycle the DnaA pool OSCILLATES above the [300,800] band at its pre-division peak (≈1000) before halving at division — so the band holds for the cycle-MEAN, not every instantaneous tick. This is the expected accumulate-then-divide behaviour, not a contradiction, but worth stating: "in band" here means cycle-typical, not a hard cap.'
   caveats:
-    - 'This investigation is a FRESH START as of 2026-05-29. All prior
-      Round 1–3.8 findings, prose, and decisions are retired (see
-      feedback-2026-05-29-fresh-start/feedback.pdf for the directive).
-      Anyone reading the prior dnaa-mock work (PR 59 on
-      feat/dnaa-mock-investigation-start) should treat its content as
-      historical reference only.'
-    - RIDA mechanism is OUT of scope for this investigation. The
-      extrinsic-regulation study (formerly dnaa-06) is removed entirely.
-      Glossary entries for RIDA are likewise removed.
-    - dnaa-2..N are BLOCKED until dnaa-0 and dnaa-1 reach passing
-      verdicts. Do not author further studies in this directory tree
-      until the first two are validated.
-    - Round 3.7 D-period wiring fix (v2ecoli/steps/division.py +
-      v2ecoli/composites/_helpers.py, commit 8b5d8cd on
-      feat/dnaa-mock-investigation-start) is the one upstream artifact
-      worth pulling forward. Under any media, the Division step needs
-      to read MarkDPeriod's `divide` flag to enforce D. Cherry-pick or
-      re-implement before running dnaa-0 — otherwise the 10-gen
-      succinate run will fire division at the wrong time and the
-      periodic-steady-state test will fail for the wrong reason.
+  - 'This investigation is a FRESH START as of 2026-05-29. All prior Round 1–3.8 findings, prose, and decisions are retired (see feedback-2026-05-29-fresh-start/feedback.pdf for the directive). Anyone reading the prior dnaa-mock work (PR 59 on feat/dnaa-mock-investigation-start) should treat its content as historical reference only.'
+  - RIDA mechanism is OUT of scope for this investigation. The extrinsic-regulation study (formerly dnaa-06) is removed entirely. Glossary entries for RIDA are likewise removed.
+  - dnaa-2..N are BLOCKED until dnaa-0 and dnaa-1 reach passing verdicts. Do not author further studies in this directory tree until the first two are validated.
+  - Round 3.7 D-period wiring fix (v2ecoli/steps/division.py + v2ecoli/composites/_helpers.py, commit 8b5d8cd on feat/dnaa-mock-investigation-start) is the one upstream artifact worth pulling forward. Under any media, the Division step needs to read MarkDPeriod's `divide` flag to enforce D. Cherry-pick or re-implement before running dnaa-0 — otherwise the 10-gen succinate run will fire division at the wrong time and the periodic-steady-state test will fail for the wrong reason.
   interpretation_ref: biological_story
 
 biological_story: |
@@ -252,204 +208,204 @@ biological_story: |
 
 at_a_glance:
   studies:
-    - dnaa-0-succinate-baseline: succinate steady-state validation
-        (10-generation single-daughters run; oriC periodicity ⇒ save
-        canonical initial condition)
-    - dnaa-1-expression: DnaA monomer pool tuning via
-        Mechanism A (runtime sim_data.genetic_perturbations overwrite)
-        — gated on dnaa-0 passing
+  - dnaa-0-succinate-baseline: succinate steady-state validation (10-generation single-daughters run; oriC periodicity ⇒ save canonical initial condition)
+  - dnaa-1-expression: DnaA monomer pool tuning via Mechanism A (runtime sim_data.genetic_perturbations overwrite) — gated on dnaa-0 passing
   blocked:
-    - All further studies (mechanism, box binding, extrinsic
-        regulation) are out of scope this round. Do not add until
-        dnaa-0 and dnaa-1 are validated.
+  - All further studies (mechanism, box binding, extrinsic regulation) are out of scope this round. Do not add until dnaa-0 and dnaa-1 are validated.
 
 glossary:
-  - term: B-period
-    definition: |
-      The portion of a cell cycle when no replication is in progress.
-      B = τ − C − D. Under succinate (τ ≈ 82, C = 40, D = 20), B ≈ 22 min.
-      Required > 0 for a non-overlapping cell cycle with single-shot
-      replication initiation per generation.
-  - term: C-period
-    definition: |
-      Replication elongation time — chromosome-completion duration from
-      initiation. ParCa-default for succinate: 40 min.
-  - term: D-period
-    definition: |
-      Post-replication-termination delay before division. ParCa-default:
-      20 min. Enforced by MarkDPeriod + Division step (see Round 3.7
-      D-period wiring fix on feat/dnaa-mock-investigation-start, commit
-      8b5d8cd) — pull forward before running dnaa-0.
-  - term: Mechanism A
-    definition: |
-      Runtime overwrite of dnaA's per-promoter init_prob via
-      sim_data.genetic_perturbations["TU00259[c]"] = 2e-3. PDF feedback's
-      working solution for dnaa-1; leaves baseline dnaA TE (0.35), mRNA
-      t½ (1.9 min), and protein t½ (280 min) unchanged.
-  - term: oriC
-    definition: |
-      Replication origin on the E. coli chromosome. Count goes 1 → 2 when
-      replication initiates, returns to 1 at division when chromosomes
-      segregate to daughters. AT STEADY STATE under succinate (gen 3
-      onwards), oriC oscillates 1 ↔ 2; reaching 4 there would mean
-      re-initiation before division (overlapping cycles). NOTE: during the
-      pre-steady-state transient (gens 1–2) a brief overshoot to 4 is
-      expected and is the signature that the lineage has not yet settled
-      onto the periodic attractor (Rashmi 2026-05-30) — it is not a
-      failure of the succinate regime.
-  - term: steady state
-    definition: |
-      Per-cell observables (oriC, cell_mass, DnaA count) are periodic in
-      the followed-daughter lineage — same value at the same phase of
-      every cycle. Reached after a few generations of transient decay
-      from the initial condition.
-  - term: TU00259[c]
-    definition: |
-      The transcription unit identifier for the dnaA operon
-      (dnaA-dnaN-recF) on the chromosome. Mechanism A targets this TU's
-      per-promoter init_prob to tune dnaA mRNA synthesis rate.
+- term: B-period
+  definition: |
+    The portion of a cell cycle when no replication is in progress.
+    B = τ − C − D. Under succinate (τ ≈ 82, C = 40, D = 20), B ≈ 22 min.
+    Required > 0 for a non-overlapping cell cycle with single-shot
+    replication initiation per generation.
+- term: C-period
+  definition: |
+    Replication elongation time — chromosome-completion duration from
+    initiation. ParCa-default for succinate: 40 min.
+- term: D-period
+  definition: |
+    Post-replication-termination delay before division. ParCa-default:
+    20 min. Enforced by MarkDPeriod + Division step (see Round 3.7
+    D-period wiring fix on feat/dnaa-mock-investigation-start, commit
+    8b5d8cd) — pull forward before running dnaa-0.
+- term: Mechanism A
+  definition: |
+    Runtime overwrite of dnaA's per-promoter init_prob via
+    sim_data.genetic_perturbations["TU00259[c]"] = 2e-3. PDF feedback's
+    working solution for dnaa-1; leaves baseline dnaA TE (0.35), mRNA
+    t½ (1.9 min), and protein t½ (280 min) unchanged.
+- term: oriC
+  definition: |
+    Replication origin on the E. coli chromosome. Count goes 1 → 2 when
+    replication initiates, returns to 1 at division when chromosomes
+    segregate to daughters. AT STEADY STATE under succinate (gen 3
+    onwards), oriC oscillates 1 ↔ 2; reaching 4 there would mean
+    re-initiation before division (overlapping cycles). NOTE: during the
+    pre-steady-state transient (gens 1–2) a brief overshoot to 4 is
+    expected and is the signature that the lineage has not yet settled
+    onto the periodic attractor (Rashmi 2026-05-30) — it is not a
+    failure of the succinate regime.
+- term: steady state
+  definition: |
+    Per-cell observables (oriC, cell_mass, DnaA count) are periodic in
+    the followed-daughter lineage — same value at the same phase of
+    every cycle. Reached after a few generations of transient decay
+    from the initial condition.
+- term: TU00259[c]
+  definition: |
+    The transcription unit identifier for the dnaA operon
+    (dnaA-dnaN-recF) on the chromosome. Mechanism A targets this TU's
+    per-promoter init_prob to tune dnaA mRNA synthesis rate.
 
 feedback_rounds:
-  - date: '2026-06-06-1544'
-    reviewer: Haochen
-    artifact: feedback-2026-06-06-1544/feedback.yaml
-    summary: |
-      dnaa-3 binding analysis (Haochen): new self-consistent binding figure on the
-      steady gens — free DnaA in nM (count/cell VOLUME) vs the 100 nM K_d, oriC-low
-      occupancy zoomed, free-vs-bound DnaA, per-pool occupancy. Occupancy figure now
-      shows oriC DOUBLING at replication. FINDING (confirms Haochen): even
-      self-consistently the model's free DnaA stays >100 nM — it does NOT reach the
-      expected <100 nM regime; modeled DnaA abundance exceeds box capacity. The CAUSE
-      is an OPEN QUESTION; candidate factors (ours — Haochen did not name a cause):
-      DnaA abundance, box K_d, or unmodeled sinks such as datA (out of scope). On PR #137.
-  - date: '2026-06-05-1244'
-    reviewer: Rashmi
-    artifact: feedback-2026-06-05-1244/feedback.yaml
-    summary: |
-      dnaa-3: fixed the total-DnaA-boxes trend to use the real doubling box count
-      (307→614 with replication, not a constant 315). Started the dnaa-3 run (seed-1
-      8-gen, validated composite, on the mini); plots to be recorded from the run.
-  - date: '2026-06-05-0420'
-    reviewer: Rashmi
-    artifact: feedback-2026-06-05-0420/feedback.yaml
-    summary: |
-      dnaa-3: fixed overlapping box-map labels; ran the study (seed-1 8-gen on the
-      mini) + built the all-readouts figure (total DnaA conc as count/cell MASS,
-      DnaA-ATP fraction, oriC, bound-by-pool, free-vs-bound, mass); made free boxes
-      visible (bold red rings). total concentration corrected to count/cell mass.
-  - date: '2026-06-05-0043'
-    reviewer: Rashmi
-    artifact: feedback-2026-06-05-0043/feedback.yaml
-    summary: |
-      dnaa-3 PLAN APPROVED ('go ahead') — build started. Two design tweaks: remove
-      datA/DARS1/DARS2 from the chromosome chart (out of scope now); add 'total DnaA
-      concentration' (all forms / cell mass) as a readout + occupancy-figure panel.
-      Building the box-binding mechanism + a bound/unbound-per-box chromosome
-      occupancy visualization.
-  - date: '2026-06-04-1515'
-    reviewer: Rashmi
-    artifact: feedback-2026-06-04-1515/feedback.yaml
-    summary: |
-      dnaa-2 presentation fixes (round 3): keep only ONE visualization (done — the
-      seed-1 8-gen canonical) and make the tests render (they showed 'pending'
-      because the report read a no-outcome historical run; removed the historical
-      runs so the canonical run with all 4 PASS is read → Tests: 4✓). dnaa-2 stays
-      PASS; report prose trimmed to match. Ready to move to dnaa-3.
-  - date: '2026-06-04-1247'
-    reviewer: Rashmi
-    artifact: feedback-2026-06-04-1247/feedback.yaml
-    summary: |
-      Two dnaa-2 notes. (1) Charts: remove previous-run plots, keep only the latest
-      run — done (seed-0 reproduction removed; charts show the seed-1 8-gen run only).
-      (2) Tests: initial generations may not strictly fall in band while stabilizing,
-      so use the GENERATION AVERAGE. → band tests reframed to generation-average;
-      re-evaluated on seed-1 8-gen all four behaviours PASS (DnaA-ATP avg 0.26,
-      total-DnaA avg 535). dnaa-2 QUALIFIED → PASS. (The earlier strict per-gen FAIL
-      was an over-strict reading on our side; the average is the intended criterion.)
-  - date: '2026-06-04'
-    reviewer: Rashmi
-    artifact: feedback-2026-06-04/feedback.yaml
-    summary: |
-      On dnaa-2 readouts: named the FOUR behaviours that must be preserved —
-      (1) periodic mass doubling, (2) oriC 1→2 = exactly one initiation per
-      generation, (3) DnaA counts in [300,800], (4) DnaA-ATP fraction in
-      [0.2,0.5]. DIRECTIVE: "seed 1 on my branch reproduces this behaviour; run
-      8 generations, then run the tests." → dnaa-2 canonical reproduction is now
-      SEED 1 × 8 GENERATIONS (planned run dnaa2-seed1-8gen); the four become
-      explicit dnaa-2 tests; dnaa-3's validation cascades to seed-1 8-gen. This
-      is the concrete path to flip dnaa-2 QUALIFIED → PASS.
-  - date: '2026-05-29'
-    reviewer: Rashmi
-    artifact: feedback-2026-05-29-fresh-start/feedback.pdf
-    summary: |
-      Directed the fresh start — retire all prior Round 1–3.8 work, switch
-      to succinate, gate the investigation to two studies (dnaa-0 steady
-      state, dnaa-1 DnaA expression via Mechanism A), block everything else.
-  - date: '2026-05-30'
-    reviewer: Rashmi
-    artifact: feedback-2026-05-30/feedback.yaml
-    summary: |
-      Inline chart review of the first report.
-        dnaa-0: "this looks correct." The early-generation oriC overshoot
-          to 4 is the expected pre-steady-state signature, NOT a failure
-          (the prior "never 4" framing was wrong); periodicity emerges from
-          gen 3, which is the state to use as the initial condition. Chart
-          requests: lineage-separator lines, generation-number labels,
-          x-axis in minutes, axis labels with units — all implemented.
-        dnaa-1 (build): check whether the monomer_counts listener already
-          provides DnaA counts in all forms; if so, use it directly.
-        dnaa-1 (limitations): the PDF "target" is the biologically-expected
-          RNA-synthesis rate; V=2e-3 → ≈1.01 events/min, close to it, and
-          that is what put the DnaA counts in range. → acceptance reframed
-          around the ≈1 event/min init rate as the primary target.
-      Also surfaced while integrating: dnaa-1 had no valid run behind its
-      "pass" (FBA SUC[p] failure, then a parquet emit-truncation bug). Root-
-      caused the truncation to a division-time emitter partition-wipe
-      (daughter cells' emitters deleting the parent generation's history),
-      fixed it in v2ecoli/steps/division.py, and re-ran on real full-cycle
-      data → dnaa-1 PASS (init rate 0.99/min, DnaA cycle-mean 706 in band,
-      CV 7.2%, oriC periodic 1↔2). Verdict re-asserted on evidence.
+- date: '2026-06-06-1544'
+  reviewer: Haochen
+  artifact: feedback-2026-06-06-1544/feedback.yaml
+  summary: |
+    dnaa-3 binding analysis (Haochen): new self-consistent binding figure on the
+    steady gens — free DnaA in nM (count/cell VOLUME) vs the 100 nM K_d, oriC-low
+    occupancy zoomed, free-vs-bound DnaA, per-pool occupancy. Occupancy figure now
+    shows oriC DOUBLING at replication. FINDING (confirms Haochen): even
+    self-consistently the model's free DnaA stays >100 nM — it does NOT reach the
+    expected <100 nM regime; modeled DnaA abundance exceeds box capacity. The CAUSE
+    is an OPEN QUESTION; candidate factors (ours — Haochen did not name a cause):
+    DnaA abundance, box K_d, or unmodeled sinks such as datA (out of scope). On PR #137.
+- date: '2026-06-05-1244'
+  reviewer: Rashmi
+  artifact: feedback-2026-06-05-1244/feedback.yaml
+  summary: |
+    dnaa-3: fixed the total-DnaA-boxes trend to use the real doubling box count
+    (307→614 with replication, not a constant 315). Started the dnaa-3 run (seed-1
+    8-gen, validated composite, on the mini); plots to be recorded from the run.
+- date: '2026-06-05-0420'
+  reviewer: Rashmi
+  artifact: feedback-2026-06-05-0420/feedback.yaml
+  summary: |
+    dnaa-3: fixed overlapping box-map labels; ran the study (seed-1 8-gen on the
+    mini) + built the all-readouts figure (total DnaA conc as count/cell MASS,
+    DnaA-ATP fraction, oriC, bound-by-pool, free-vs-bound, mass); made free boxes
+    visible (bold red rings). total concentration corrected to count/cell mass.
+- date: '2026-06-05-0043'
+  reviewer: Rashmi
+  artifact: feedback-2026-06-05-0043/feedback.yaml
+  summary: |
+    dnaa-3 PLAN APPROVED ('go ahead') — build started. Two design tweaks: remove
+    datA/DARS1/DARS2 from the chromosome chart (out of scope now); add 'total DnaA
+    concentration' (all forms / cell mass) as a readout + occupancy-figure panel.
+    Building the box-binding mechanism + a bound/unbound-per-box chromosome
+    occupancy visualization.
+- date: '2026-06-04-1515'
+  reviewer: Rashmi
+  artifact: feedback-2026-06-04-1515/feedback.yaml
+  summary: |
+    dnaa-2 presentation fixes (round 3): keep only ONE visualization (done — the
+    seed-1 8-gen canonical) and make the tests render (they showed 'pending'
+    because the report read a no-outcome historical run; removed the historical
+    runs so the canonical run with all 4 PASS is read → Tests: 4✓). dnaa-2 stays
+    PASS; report prose trimmed to match. Ready to move to dnaa-3.
+- date: '2026-06-04-1247'
+  reviewer: Rashmi
+  artifact: feedback-2026-06-04-1247/feedback.yaml
+  summary: |
+    Two dnaa-2 notes. (1) Charts: remove previous-run plots, keep only the latest
+    run — done (seed-0 reproduction removed; charts show the seed-1 8-gen run only).
+    (2) Tests: initial generations may not strictly fall in band while stabilizing,
+    so use the GENERATION AVERAGE. → band tests reframed to generation-average;
+    re-evaluated on seed-1 8-gen all four behaviours PASS (DnaA-ATP avg 0.26,
+    total-DnaA avg 535). dnaa-2 QUALIFIED → PASS. (The earlier strict per-gen FAIL
+    was an over-strict reading on our side; the average is the intended criterion.)
+- date: '2026-06-04'
+  reviewer: Rashmi
+  artifact: feedback-2026-06-04/feedback.yaml
+  summary: |
+    On dnaa-2 readouts: named the FOUR behaviours that must be preserved —
+    (1) periodic mass doubling, (2) oriC 1→2 = exactly one initiation per
+    generation, (3) DnaA counts in [300,800], (4) DnaA-ATP fraction in
+    [0.2,0.5]. DIRECTIVE: "seed 1 on my branch reproduces this behaviour; run
+    8 generations, then run the tests." → dnaa-2 canonical reproduction is now
+    SEED 1 × 8 GENERATIONS (planned run dnaa2-seed1-8gen); the four become
+    explicit dnaa-2 tests; dnaa-3's validation cascades to seed-1 8-gen. This
+    is the concrete path to flip dnaa-2 QUALIFIED → PASS.
+- date: '2026-05-29'
+  reviewer: Rashmi
+  artifact: feedback-2026-05-29-fresh-start/feedback.pdf
+  summary: |
+    Directed the fresh start — retire all prior Round 1–3.8 work, switch
+    to succinate, gate the investigation to two studies (dnaa-0 steady
+    state, dnaa-1 DnaA expression via Mechanism A), block everything else.
+- date: '2026-05-30'
+  reviewer: Rashmi
+  artifact: feedback-2026-05-30/feedback.yaml
+  summary: |
+    Inline chart review of the first report.
+      dnaa-0: "this looks correct." The early-generation oriC overshoot
+        to 4 is the expected pre-steady-state signature, NOT a failure
+        (the prior "never 4" framing was wrong); periodicity emerges from
+        gen 3, which is the state to use as the initial condition. Chart
+        requests: lineage-separator lines, generation-number labels,
+        x-axis in minutes, axis labels with units — all implemented.
+      dnaa-1 (build): check whether the monomer_counts listener already
+        provides DnaA counts in all forms; if so, use it directly.
+      dnaa-1 (limitations): the PDF "target" is the biologically-expected
+        RNA-synthesis rate; V=2e-3 → ≈1.01 events/min, close to it, and
+        that is what put the DnaA counts in range. → acceptance reframed
+        around the ≈1 event/min init rate as the primary target.
+    Also surfaced while integrating: dnaa-1 had no valid run behind its
+    "pass" (FBA SUC[p] failure, then a parquet emit-truncation bug). Root-
+    caused the truncation to a division-time emitter partition-wipe
+    (daughter cells' emitters deleting the parent generation's history),
+    fixed it in v2ecoli/steps/division.py, and re-ran on real full-cycle
+    data → dnaa-1 PASS (init rate 0.99/min, DnaA cycle-mean 706 in band,
+    CV 7.2%, oriC periodic 1↔2). Verdict re-asserted on evidence.
 
 studies:
-  - dnaa-0-succinate-baseline
-  - dnaa-1-expression
-  - dnaa-2-nucleotide-balance   # added 2026-05-30 (dnaa-0/dnaa-1 passed); Step 1 baseline done
-  - dnaa-3-box-binding      # added 2026-06-03 (DnaA-box occupancy on the dnaa-2 V=1e-3 succinate baseline)
+- dnaa-0-succinate-baseline
+- dnaa-1-expression
+- dnaa-2-nucleotide-balance     # added 2026-05-30 (dnaa-0/dnaa-1 passed); Step 1 baseline done
+- dnaa-3-box-binding        # added 2026-06-03 (DnaA-box occupancy on the dnaa-2 V=1e-3 succinate baseline)
 
 # Reference materials supporting the DnaA arc. Files staged under
 # workspace/references/dnaa/ and registered in workspace.yaml expert_docs.
 expert_docs:
-  - name: molecular-information-replication-initiation
-    path: ../../workspace/references/dnaa/molecular_information_replication_initiation.pdf
-    kind: biology_reference
-    description: >
-      Biology source for the whole arc: oriC (11 DnaA boxes — R1/R2/R4 high-aff
-      bind ATP+ADP, 8 low-aff ATP-preferential), dnaA promoter (boxes 1–4 + a–c),
-      consensus DnaA box (TTWTNCACA; TTATCCACA ~1 nM), RIDA, DDAH/datA, DARS1/2,
-      DnaA intrinsic ATPase (Kd ~30 nM ATP / ~100 nM ADP, hydrolysis 0.046/min).
-    claims_supported: [dnaa-replication]
-  - name: oric-sequence
-    path: ../../workspace/references/dnaa/oric_sequence.pdf
-    kind: sequence_reference
-    description: >
-      Full 462-bp oriC sequence with all 11 boxes annotated in order
-      (R1, R5M, τ2, I1, I2, R2, C3, C2, I3, C1, R4). Source for the 8 low-affinity
-      oriC box coordinates supplied to dnaa-3.
-    claims_supported: [dnaa-replication]
-  - name: parameters-wcm-stage1-heuristics
-    path: ../../workspace/references/dnaa/parameters_wcm_stage1_heuristics.pdf
-    kind: parameter_brief
-    description: >
-      Stage-1 heuristic parameters. DnaA-box rows: consensus box Kd=1 nM; oriC
-      3925744–3925989; 8 low-aff ATP-only boxes (brief lists cooperative 50→1 nM,
-      but dnaa-3 first-step uses Kd≈100 nM with cooperativity deferred per Haochen).
-    claims_supported: [dnaa-replication]
+- name: molecular-information-replication-initiation
+  path: ../../workspace/references/dnaa/molecular_information_replication_initiation.pdf
+  kind: biology_reference
+  description: >
+    Biology source for the whole arc: oriC (11 DnaA boxes — R1/R2/R4 high-aff
+    bind ATP+ADP, 8 low-aff ATP-preferential), dnaA promoter (boxes 1–4 + a–c),
+    consensus DnaA box (TTWTNCACA; TTATCCACA ~1 nM), RIDA, DDAH/datA, DARS1/2,
+    DnaA intrinsic ATPase (Kd ~30 nM ATP / ~100 nM ADP, hydrolysis 0.046/min).
+  claims_supported: [dnaa-replication]
+- name: oric-sequence
+  path: ../../workspace/references/dnaa/oric_sequence.pdf
+  kind: sequence_reference
+  description: >
+    Full 462-bp oriC sequence with all 11 boxes annotated in order
+    (R1, R5M, τ2, I1, I2, R2, C3, C2, I3, C1, R4). Source for the 8 low-affinity
+    oriC box coordinates supplied to dnaa-3.
+  claims_supported: [dnaa-replication]
+- name: parameters-wcm-stage1-heuristics
+  path: ../../workspace/references/dnaa/parameters_wcm_stage1_heuristics.pdf
+  kind: parameter_brief
+  description: >
+    Stage-1 heuristic parameters. DnaA-box rows: consensus box Kd=1 nM; oriC
+    3925744–3925989; 8 low-aff ATP-only boxes (brief lists cooperative 50→1 nM,
+    but dnaa-3 first-step uses Kd≈100 nM with cooperativity deferred per Haochen).
+  claims_supported: [dnaa-replication]
 
 acceptance_criteria:
-  - {study: dnaa-0-succinate-baseline, behavior: succinate-oric-periodic-1-or-2-at-steady-state}
-  - {study: dnaa-0-succinate-baseline, behavior: succinate-10gen-cell-mass-periodic-after-gen-3}
+- {study: dnaa-0-succinate-baseline, behavior: succinate-oric-periodic-1-or-2-at-steady-state}
+- {study: dnaa-0-succinate-baseline, behavior: succinate-10gen-cell-mass-periodic-after-gen-3}
   # dnaa-1 PRIMARY (Rashmi 2026-05-30): the biological rate is the real target;
   # the in-band pool is its consequence.
-  - {study: dnaa-1-expression, behavior: dnaa-mrna-init-rate-near-biological-rate}
-  - {study: dnaa-1-expression, behavior: dnaa-monomer-count-in-band-300-800-across-generations}
-  - {study: dnaa-1-expression, behavior: dnaa-concentration-stable-across-generations}
+- {study: dnaa-1-expression, behavior: dnaa-mrna-init-rate-near-biological-rate}
+- {study: dnaa-1-expression, behavior: dnaa-monomer-count-in-band-300-800-across-generations}
+- {study: dnaa-1-expression, behavior: dnaa-concentration-stable-across-generations}
+inputs:
+# Investigation-owned inputs (demo: dnaa references; curate/extend or run pbg-migrate-inputs)
+  references:
+  - dnaa-abundance-jb-1991
+  - dnaa-stability-jb-1999
+  - dnaa-review-frontiers-2018-fmicb-00319

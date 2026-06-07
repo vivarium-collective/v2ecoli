@@ -3,65 +3,39 @@ name: v2ecoli
 created: '2026-05-16'
 plugin_version: 0.6.1
 package_path: v2ecoli
-
-# Directory layout: the pbg research dirs are grouped under workspace/ to keep
-# the repo root tidy. Unset keys (e.g. reports, .pbg) default to their flat
-# top-level name. Resolved via the shared WorkspacePaths resolver.
 layout:
-  studies: workspace/studies
   investigations: workspace/investigations
   references: workspace/references
   experiments: workspace/experiments
-
-# ─── RUNTIME ──────────────────────────────────────────────────────────
-# Workspace-level emitter preference. The dashboard and v2ecoli scaffolds
-# read this to decide which emitter to construct for new study runs.
-# Allowed values: 'parquet' | 'sqlite' | 'xarray'.
-#
-# Current preference: **parquet** — column-oriented, hive-partitioned,
-# typically 3–5× smaller on disk than the equivalent sqlite run for
-# v2ecoli-shaped sims. Use v2ecoli.composites._helpers.parquet_emitter()
-# and v2ecoli.library.parquet_run.run_multigen_parquet for the runtime
-# wiring; tests live at tests/test_parquet_emitter_ported.py.
-#
-# Dashboard support note: vivarium-dashboard currently auto-injects sqlite
-# for any value it does not recognise; the parquet auto-inject + Registry-
-# tab "default" badge land in a follow-up vivarium-dashboard PR. Until then
-# the dashboard's Simulations-DB tab continues to read sqlite-shaped runs;
-# parquet runs are queried via DuckDB/Polars directly off the hive dir.
 runtime:
-  default_emitter: parquet  # 'parquet' | 'sqlite' | 'xarray'
-  max_generations: 8        # multi-gen cap (xarray + parquet runs) — bumped for PDMP validation ensembles
+  default_emitter: parquet
+  max_generations: 8
 observables: []
 visualizations: []
 simulations: []
 datasets: []
 expert_docs:
-  - name: duf-final-report
-    path: workspace/references/expert/duf_final_report_2026.pdf
-    sha256: 145a5c7fac2247036281bf5fb2db49ce9e5e9c8d309aba65e91b937918f61b5f
-    description: |
-      DARPA DUF ARC final report (HR0011-24-3-0372, UConn, PI Agmon,
-      Sep 2024–Sep 2025): "An Integrated Discovery Workflow for an
-      E. coli Whole-Cell Model". Establishes the motivation for the
-      PDMP reformulation of v2ecoli — the current hybrid-algorithmic
-      WCM is not a well-defined dynamical system and resists
-      likelihood-based inference and causal discovery.
-    contributor: eran
-  - name: v2ecoli-pdmp-roadmap
-    path: workspace/references/expert/v2ecoli_pdmp_roadmap.pdf
-    sha256: f11aa49dab7ad53dfe78766a49f40b42d745ecba980beac0a8f9e0cbcb2aadb5
-    description: |
-      Six-phase incremental roadmap for transforming v2ecoli into a
-      piecewise-deterministic Markov process (PDMP). Phases 0–5:
-      characterization → kinetic-ODE metabolism → continuous-time
-      jump layer → likelihood/Bayesian interface → compiled runtime →
-      causal discovery / functional annotation. Spine of the
-      v2ecoli-pdmp investigation.
-    contributor: eran
+- name: duf-final-report
+  path: workspace/references/expert/duf_final_report_2026.pdf
+  sha256: 145a5c7fac2247036281bf5fb2db49ce9e5e9c8d309aba65e91b937918f61b5f
+  description: "DARPA DUF ARC final report (HR0011-24-3-0372, UConn, PI Agmon,\nSep\
+    \ 2024\u2013Sep 2025): \"An Integrated Discovery Workflow for an\nE. coli Whole-Cell\
+    \ Model\". Establishes the motivation for the\nPDMP reformulation of v2ecoli \u2014\
+    \ the current hybrid-algorithmic\nWCM is not a well-defined dynamical system and\
+    \ resists\nlikelihood-based inference and causal discovery.\n"
+  contributor: eran
+- name: v2ecoli-pdmp-roadmap
+  path: workspace/references/expert/v2ecoli_pdmp_roadmap.pdf
+  sha256: f11aa49dab7ad53dfe78766a49f40b42d745ecba980beac0a8f9e0cbcb2aadb5
+  description: "Six-phase incremental roadmap for transforming v2ecoli into a\npiecewise-deterministic\
+    \ Markov process (PDMP). Phases 0\u20135:\ncharacterization \u2192 kinetic-ODE\
+    \ metabolism \u2192 continuous-time\njump layer \u2192 likelihood/Bayesian interface\
+    \ \u2192 compiled runtime \u2192\ncausal discovery / functional annotation. Spine\
+    \ of the\nv2ecoli-pdmp investigation.\n"
+  contributor: eran
 references_pdfs:
-  - bib_key: millard2017
-    path: workspace/references/papers/millard_2017_metabolic_regulation_ecoli.pdf
-    sha256: 39b8c0eba221cd0d156180a66cb0747219a4a3464f9c2b7b40dac2be9bfe4b8e
+- bib_key: millard2017
+  path: workspace/references/papers/millard_2017_metabolic_regulation_ecoli.pdf
+  sha256: 39b8c0eba221cd0d156180a66cb0747219a4a3464f9c2b7b40dac2be9bfe4b8e
 server:
   enabled: true

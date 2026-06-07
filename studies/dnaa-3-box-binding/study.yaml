@@ -743,3 +743,43 @@ findings:
     run_ids:
     - dnaa3-seed1-8gen
     verified_by: scripts/render_dnaa3_binding_analysis.py
+discovery_implications:
+  resolved_uncertainties:
+  - DnaA-box binding equilibrium fits the current DnaA concentration range (315 boxes, 4 affinity pools, fast equilibrium).
+  remaining_uncertainties:
+  - The oriC initiation threshold — what DnaA-ATP occupancy robustly triggers initiation — remains unresolved.
+  alternate_hypotheses:
+  - id: cooperativity-vs-affinity
+    statement: Cooperativity among DnaA boxes, not affinity alone, determines robust oriC occupancy at initiation.
+    mechanism_elements_affected:
+    - oriC-occupancy
+    - dnaA-box-binding
+    why_plausible: Affinity-only binding reproduces the equilibrium but yields a soft initiation threshold; cooperative occupancy would sharpen it.
+    evidence_for:
+    - binding equilibrium fits but the threshold is soft
+    evidence_against: []
+    discriminating_observables:
+    - oriC-occupancy-vs-DnaA-ATP
+    - initiation-sharpness
+  mechanism_update_proposals:
+  - mechanism_node_or_edge: oriC-occupancy
+    update_type: revise
+    confidence_change: Investigating (affinity-only insufficient for a sharp threshold)
+    rationale: Current affinity-only model cannot explain a robust initiation threshold.
+    requires_expert_approval: true
+  followup_study_proposals:
+  - id: dnaa-box-cooperativity
+    title: DnaA-box cooperativity sensitivity study
+    study_type: mechanism_discrimination
+    source_trigger: ambiguity
+    target_mechanism_elements:
+    - oriC-occupancy
+    - dnaA-box-binding
+    proposed_experiment: Sweep the DnaA-box cooperativity coefficient; compare oriC occupancy vs DnaA-ATP sharpness against the affinity-only baseline.
+    expected_information_gain: high
+    required_build_changes:
+    - cooperative binding term in the DnaA-box process
+    required_inputs: []
+    blocks_or_unblocks: []
+    priority: high
+    expert_gate_required: true

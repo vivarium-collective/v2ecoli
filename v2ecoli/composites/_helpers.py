@@ -1258,17 +1258,43 @@ def _get_special_step(loader, step_name, core):
         topology = getattr(instance, 'topology', {})
         return instance, topology, 'step'
 
-    if step_name == 'dnaa_box_binding_listener':
+    if step_name in ('dnaa_box_binding_listener', 'dnaa_box_binding_sink'):
         # dnaa-3 read-only DnaA-box occupancy observer. Config defaults
         # (K_d / pool sizes) live in the step's config_schema; an empty
         # config uses them. Placed in an early layer (see baseline.py) so its
         # listeners.mass read resolves to the prior tick.
+        #
+        # CRITICAL: this is a READ-ONLY listener. The step reads ``bulk`` (a
+        # structured-array store), the ``DnaA_box`` unique store, and
+        # ``listeners.mass`` — but writes ONLY ``listeners.dnaA_binding``. If we
+        # returned a 3-tuple, make_edge() would mirror the FULL topology onto
+        # both the input AND output wires, wiring ``bulk`` as an updatable
+        # output. The engine then tries to apply an (absent) delta onto the
+        # bulk structured array → ``ufunc 'add' did not contain a loop`` crash.
+        # So we split the topology: ALL ports are inputs; the ONLY output wire
+        # is ``listeners`` (where dnaA_binding lives). Mirrors the partitioned-
+        # step pattern above (in_topo/out_topo split).
+        # SINK variant (dnaa-3 Rashmi item 1): same step with sink=True, which
+        # makes outputs() expose a writable ``bulk`` port so bound DnaA is
+        # subtracted from the free pool. The OBSERVER variant
+        # (dnaa_box_binding_listener) stays read-only.
+        sink = (step_name == 'dnaa_box_binding_sink')
         from v2ecoli.steps.derivers.dnaa_box_binding import DnaaBoxBinding
-        instance = _make_instance(DnaaBoxBinding, {'time_step': 1}, core)
+        instance = _make_instance(
+            DnaaBoxBinding, {'time_step': 1, 'sink': sink}, core)
         topology = getattr(instance, 'topology', {})
         if callable(topology):
             topology = topology()
-        return instance, topology, 'step'
+        # Wire exactly the ports each schema declares: in_topo from inputs()
+        # keys, out_topo from outputs() keys. In observer mode this keeps
+        # ``bulk`` / ``mass_listener`` / ``DnaA_boxes`` as pure reads and
+        # ``listeners`` as the sole write target; in sink mode outputs() also
+        # declares ``bulk`` (a bulk_array delta port), so it is wired writable.
+        in_keys = set(instance.inputs().keys())
+        out_keys = set(instance.outputs().keys())
+        in_topo = {k: v for k, v in topology.items() if k in in_keys}
+        out_topo = {k: v for k, v in topology.items() if k in out_keys}
+        return instance, topology, 'step', in_topo, out_topo
 
     if step_name == 'mark_d_period':
         from v2ecoli.steps.division import MarkDPeriod

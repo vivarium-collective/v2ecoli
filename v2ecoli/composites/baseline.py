@@ -148,6 +148,14 @@ FEATURE_MODULES = {
         'insert_after': 'ecoli-mass-listener',
         'steps': ['ecoli-mass-conservation'],
     },
+    # dnaa-3 Rashmi item 1: swap the read-only occupancy OBSERVER for the real
+    # SINK (partitions the free DnaA pool — bound DnaA is removed from free
+    # bulk, lowering free DnaA-ATP + t=0 low-affinity occupancy). The sink
+    # MUTATES bulk and therefore perturbs the cell cycle, so it is opt-in and
+    # needs separate re-validation. Enable via enable_features('dnaa_sink').
+    'dnaa_sink': {
+        'replace': {'dnaa_box_binding_listener': 'dnaa_box_binding_sink'},
+    },
 }
 
 DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation + mass_conservation off by default
@@ -193,6 +201,11 @@ def build_execution_layers(features=None):
                     if listener not in layer:
                         layer.append(listener)
                     break
+        # Replace an existing step name with another in-place (same layer/order).
+        for old_name, new_name in (feat.get('replace') or {}).items():
+            for layer in layers:
+                if isinstance(layer, list):
+                    layer[:] = [new_name if s == old_name else s for s in layer]
     return _expand_flushes(layers)
 
 

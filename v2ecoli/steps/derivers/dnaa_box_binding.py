@@ -83,6 +83,14 @@ class DnaaBoxBinding(Step):
         "kd_high_nM": "float{1.0}",
         "kd_low_nM": "float{100.0}",
         "n_oric_low": "integer{8}",
+        # SINK MODE (dnaa-3 Rashmi item 1). When False (default) the step is a
+        # pure read-only OBSERVER: it never returns a ``bulk`` delta, so the
+        # validated dnaa-2 cell cycle is preserved exactly. When True it becomes
+        # a real SINK: the DnaA molecules it computes as bound are SUBTRACTED
+        # from the free bulk pool (partition free vs bound), which lowers free
+        # DnaA-ATP and the t=0 low-affinity occupancy. The sink MUTATES bulk and
+        # therefore perturbs the cell cycle — it needs separate re-validation.
+        "sink": "boolean{false}",
     }
 
     def initialize(self, config):
@@ -92,6 +100,7 @@ class DnaaBoxBinding(Step):
         self.kd_high = self.parameters["kd_high_nM"]
         self.kd_low = self.parameters["kd_low_nM"]
         self.n_oric_low = self.parameters["n_oric_low"]
+        self.sink = bool(self.parameters.get("sink", False))
         self.molecule_idx = None
 
     def inputs(self):
@@ -104,8 +113,13 @@ class DnaaBoxBinding(Step):
         }
 
     def outputs(self):
-        return {
-            "listeners": {
+        out = {}
+        # SINK mode adds a writable bulk delta port (bulk_array updater format:
+        # [(idx_array, delta_array)]). In OBSERVER mode bulk is read-only and
+        # absent from outputs(), so no bulk delta is ever produced.
+        if getattr(self, "sink", False):
+            out["bulk"] = "bulk_array"
+        out["listeners"] = {
                 "dnaA_binding": {
                     "free_DnaA_ATP_nM": {"_type": "overwrite[float]", "_default": []},
                     "free_DnaA_ADP_nM": {"_type": "overwrite[float]", "_default": []},
@@ -127,8 +141,8 @@ class DnaaBoxBinding(Step):
                     },
                     "total_DnaA_bound": {"_type": "overwrite[integer]", "_default": []},
                 }
-            }
         }
+        return out
 
     def update_condition(self, timestep, states):
         return (states["global_time"] % states["timestep"]) == 0
@@ -163,12 +177,33 @@ class DnaaBoxBinding(Step):
         oric_bound = int(round(oric_high_n * p_high + oric_low_n * p_low))
         dnaap_bound = int(round(dnaap_n * p_high))
         chrom_bound = int(round(chrom_n * p_high))
+        total_bound = oric_bound + dnaap_bound + chrom_bound
 
-        return {"listeners": {"dnaA_binding": {
+        update = {"listeners": {"dnaA_binding": {
             "free_DnaA_ATP_nM": atp_nM, "free_DnaA_ADP_nM": adp_nM,
             "oric": {"high_affinity_occupied": p_high, "low_affinity_occupied": p_low,
                      "n_bound": oric_bound, "n_total": oric_high_n + oric_low_n},
             "dnaap": {"occupied": p_high, "n_bound": dnaap_bound, "n_total": dnaap_n},
             "chromosome": {"occupied": p_high, "occupied_count": chrom_bound, "n_total": chrom_n},
-            "total_DnaA_bound": oric_bound + dnaap_bound + chrom_bound,
+            "total_DnaA_bound": total_bound,
         }}}
+
+        # SINK MODE: partition the free DnaA pool. The molecules we just
+        # computed as bound at boxes are REMOVED from the free bulk pool so they
+        # no longer count toward free DnaA-ATP. We sink from the ATP-bound form
+        # (the active initiator) — all box pools bind ATP-DnaA (the high-affinity
+        # pools also accept ADP, but partitioning the active ATP form is the
+        # physically meaningful lever for lowering free DnaA-ATP and t=0
+        # low-affinity occupancy). Never sink more than the available free pool.
+        # This is the ONLY path that returns a ``bulk`` delta; in observer mode
+        # the step stays read-only.
+        if self.sink and total_bound > 0:
+            atp_count = int(atp)
+            sink_n = min(total_bound, atp_count)
+            if sink_n > 0:
+                # bulk_array updater format: list of (indices, deltas). ATP is
+                # the 2nd entry of self.molecule_idx ([APO, ATP, ADP]).
+                atp_idx = int(np.asarray(self.molecule_idx)[1])
+                update["bulk"] = [(np.array([atp_idx]), np.array([-sink_n]))]
+
+        return update

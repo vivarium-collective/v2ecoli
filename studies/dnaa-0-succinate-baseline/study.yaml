@@ -437,6 +437,65 @@ findings:
 
   status: novel
   statement: In the unmodified baseline the DnaA-ATP active fraction sits below the Boesen 2024 [0.2, 0.5] target band, quantifying the calibration gap that the expression (dnaa-1) and nucleotide-balance (dnaa-2) studies are designed to close.
+
+discovery_implications:
+  resolved_uncertainties:
+  - Under ParCa-default succinate with no τ/C/D overrides, the single-daughters lineage reaches a periodic steady state by generation 3 (oriC 1↔2, cell-mass sawtooth CV ≤ 4.5%) — establishing a valid baseline cell cycle for the DnaA studies.
+  - The gen-1–2 oriC overshoot to 4 is the expected pre-steady-state relaxation (reviewer-confirmed), not a defect; gen 3 is the correct burned-in state to save as the canonical initial condition.
+  - The unregulated baseline DnaA monomer pool sits far below the literature [300,800] band (per-gen mean declining 44→4), quantifying the calibration gap dnaa-1 must close.
+  remaining_uncertainties:
+  - Whether the gen-1–2 transient overshoot to 4 oriC is purely an initial-condition artefact or has any seed/parameter sensitivity — only seed 0 was run, and the 5-gen lineage was accepted in place of the spec's 10 generations.
+  - How robust the periodic 1↔2 steady state is to seed variation, since the canonical run is a single seed.
+  alternate_hypotheses:
+  - id: transient-overshoot-is-resume-artefact
+    statement: The gen-1–2 oriC overshoot to 4 (and the short gen-2 τ of 52 min) is an artefact of the resume-from-gen-1 daughter initial condition, not an intrinsic property of the succinate attractor.
+    mechanism_elements_affected:
+    - cell-cycle-initiation
+    - oriC-count
+    why_plausible: The overshoot appears only in the first generations and disappears from gen 3 onward; gen 2 also has the shortest τ, both consistent with a state not yet aligned with the periodic attractor.
+    evidence_for:
+    - oriC visits {1,2,4} only in gens 1–2 then settles to {1,2}
+    - gen-2 τ (52 min) is an outlier vs the gen 3–5 regime (73–80 min)
+    evidence_against:
+    - only a single seed was run, so an intrinsic-dynamics explanation cannot be excluded
+    discriminating_observables:
+    - oriC-transient-length-vs-seed
+    - tau-of-early-generations
+  mechanism_update_proposals:
+  - mechanism_node_or_edge: succinate-baseline-cell-cycle
+    update_type: strengthen
+    confidence_change: Accepted (both primary tests pass, Rashmi-confirmed)
+    rationale: The periodic 1↔2 steady state with periodic cell mass validates the succinate baseline as the reference cell cycle for the downstream DnaA studies.
+    requires_expert_approval: true
+  followup_study_proposals:
+  - id: succinate-baseline-multi-seed
+    title: Succinate steady-state robustness across seeds
+    study_type: validation
+    source_trigger: ambiguity
+    target_mechanism_elements:
+    - oriC-count
+    - cell-cycle-initiation
+    proposed_experiment: Re-run the succinate single-daughters lineage at several seeds and confirm the periodic 1↔2 steady state (and the transient-overshoot length) is seed-robust.
+    expected_information_gain: medium
+    required_build_changes: []
+    required_inputs: []
+    blocks_or_unblocks: []
+    priority: low
+    expert_gate_required: false
+  - id: succinate-baseline-10gen-extension
+    title: Extend the succinate baseline to the full 10 generations
+    study_type: rerun
+    source_trigger: ambiguity
+    target_mechanism_elements:
+    - oriC-count
+    - cell-mass
+    proposed_experiment: Run the canonical lineage to the spec's 10 generations to confirm the periodic steady state persists beyond gen 5 (the canonical run stopped at gen 5).
+    expected_information_gain: low
+    required_build_changes: []
+    required_inputs: []
+    blocks_or_unblocks: []
+    priority: low
+    expert_gate_required: false
 limitations:
 - First few generations are expected to be transient (initial state not yet aligned with the periodic attractor). Use only gen-3 onwards for steady-state checking.
 - This study deliberately uses NO DnaA-specific Steps beyond the read-only cycle listener. Stage-1 expression tuning + Mechanism A is dnaa-1's job.

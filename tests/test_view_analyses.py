@@ -8,3 +8,10 @@ def test_mass_fraction_voronoi_registered_single_view():
     from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY, Analysis
     cls = ANALYSIS_REGISTRY["mass_fraction_voronoi"]
     assert issubclass(cls, Analysis) and cls.scale == "single"
+
+
+def test_ccm_scatter_registered_multiseed():
+    from v2ecoli.workflow.analyses import central_carbon_metabolism_scatter  # noqa: F401
+    from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY, Analysis
+    cls = ANALYSIS_REGISTRY["central_carbon_metabolism_scatter"]
+    assert issubclass(cls, Analysis) and cls.scale == "multiseed"

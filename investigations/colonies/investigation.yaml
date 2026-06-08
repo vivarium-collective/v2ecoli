@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 name: colonies
 title: Colony Composite — HPC Scaling Readiness
 created: '2026-05-16'
@@ -47,6 +47,133 @@ description: |
     one HPC node, then across multiple nodes; confirm per-cell wall
     stays within ±20% of the laptop projection and that biology is
     consistent between distributed configurations.
+
+executive:
+  what_is_this: |
+    A two-study investigation certifying the multi-cell colony composite (N
+    EcoliWCMs — each the full 55-process whole-cell model — wired into one
+    pymunk 2D physics environment) for HPC deployment. colonies-01 is the
+    single-machine foundation: fix daughter-process hydration through the
+    composite engine, then sweep N ∈ {1,2,4,8} to extract per-cell wall-time +
+    RSS scaling, name the bottleneck, and project a cells-per-HPC-node budget.
+    colonies-02 (planned) carries that projection to real cross-node HPC.
+  verdict: |
+    colonies-01 PASS — the pure-WC colony composite scales linearly on one
+    machine (per-cell wall flat at ~73 ms/tick across N=1..8, pymunk free,
+    per-cell RSS ~450 MB), and the sole scaling bottleneck is the GIL: HPC
+    scaling means more single-threaded processes, not more cells per process
+    (~384 cells per 64-core/256 GB node). colonies-02 (cross-node HPC
+    deployment) is the remaining, not-yet-scaffolded step.
+  verdict_status: in-progress
+  verdict_detail: |
+    FOUNDATION (colonies-01) — PASS, gate passed, Decide phase. Getting here
+    required fixing three independent build-phase bugs that all blocked
+    daughter hydration through the engine: (1) viva-munk
+    apply_updates_with_realize unpacked 2 values from bigraph_schema
+    core.realize, which now returns 3 (escape_merges) — every structural _add
+    crashed; (2) v2ecoli/colony.py wired only mass/volume/exchange on initial
+    cells, so _handle_division's writes to `agents` had nowhere to land and
+    mothers never divided; (3) v2ecoli/bridge.py hard-coded daughter
+    interval=60 s (not in config_schema) so daughters ticked 60× too slowly.
+    After all three, a pure-WC N=2 colony force-divides to 4 hydrated
+    daughters that all advance — no manual standalone-WCM workaround.
+
+    The N-sweep (N ∈ {1,2,4,8}, 60-tick steady-state windows) then shows
+    per-cell wall FLAT at 70–74 ms/tick (slight DECREASE with N as Python
+    import overhead amortizes), pymunk essentially free (≤0.2 ms/tick at N=8),
+    and RSS growing ~450 MB per added cell atop a ~1 GB baseline. The
+    per-cell-cost-within-2x-reference test passes at every N. Bottleneck: the
+    GIL — process-bigraph composites are single-threaded, so one process uses
+    ~1 core no matter how many cells it holds; total wall crosses realtime
+    around N≈13/process. Practical sizing on a 64-core/256 GB node: 6
+    cells/process × 64 processes ≈ 384 cells/node (≈10% RAM headroom). One
+    open anomaly (F-06): in a long single-cell run RSS climbs monotonically
+    (~5 MB/sim-second, 1126→7016 MB before division) — invisible in the 60-tick
+    sweep windows, flagged for the multi-gen drift follow-up.
+
+    DEPLOYMENT (colonies-02) — PLANNED, not yet scaffolded. It is seeded from
+    colonies-01's measured inputs (73 ms/cell, 450 MB/cell, 6–8 cells/process)
+    and gated on colonies-01.gate_status == passed (satisfied). It will
+    validate the single-machine projection across many processes on one HPC
+    node and across multiple nodes.
+  decisions_needed:
+  - question: |
+      Is the F-06 RSS climb (~5 MB/sim-second within one long pre-division run)
+      a genuine leak or expected inner-composite history accumulation — and does
+      it invalidate the flat ~450 MB/cell projection over many natural divisions?
+    context: |
+      The N-sweep held N static for 60 ticks, so it cannot see drift. F-06 is
+      the only signal that per-cell RSS may NOT stay flat over a growing colony's
+      lifetime. The multi-gen-perf-drift follow-up exists to resolve this; until
+      it runs, the cells/node budget assumes no drift.
+  - question: |
+      For colonies-02, is 6 cells/process × 64 processes = 384 cells/node the
+      right starting shape on a 64-core/256 GB node, or should we push to 8
+      cells/process (512 cells, ~290 GB — just over budget)?
+    context: |
+      6/process fits 256 GB with ~10% headroom at ~2× realtime per-process tick;
+      8/process is faster per node but exceeds the RAM budget. The choice sets
+      the HPC orchestration plan colonies-02 will validate.
+  - question: |
+      Should we invest in making the process-bigraph composite engine GIL-aware
+      (concurrent process invocation) before HPC deployment, or accept
+      process-level scaling and treat the ~13-cells/process realtime ceiling as
+      fixed?
+    context: |
+      Independent cells are embarrassingly parallel, so a GIL-aware engine could
+      lift the per-process ceiling — but it is engine-level work that does not
+      block colonies-02 (gil-aware-engine-research follow-up). Scaling processes
+      is the lower-risk path.
+
+scientific_argument:
+  main_claim: |
+    The multi-cell colony composite (N full EcoliWCMs in one pymunk environment)
+    is HPC-ready on a single machine: after the daughter-hydration fix it grows
+    and divides cleanly, and per-cell cost is flat in N, so HPC sizing reduces to
+    scaling single-threaded processes — RAM_per_node / RAM_per_cell processes,
+    ~6–8 cells each — rather than packing more cells into one GIL-bound process.
+  evidence_for:
+  - 'colonies-01 daughters-hydrated (PASS): after three build fixes a pure-WC N=2
+    colony force-divides into 4 daughters that all advance on the next tick,
+    through the engine''s native structural _add path (no manual hydration).'
+  - 'colonies-01 per-cell-cost-within-2x-reference (PASS at N=1,2,4,8): per-cell
+    wall is flat at 70–74 ms/tick (ratios 0.96–0.99 vs the N=1 reference) — the
+    composite scales linearly on one machine, no super-linear coupling cost.'
+  - 'F-04 — pymunk physics is negligible (≤0.2 ms/tick at N=8): essentially all
+    cost is the inner 55-process EcoliWCM walked sequentially, so the cost model
+    is "cells × per-cell-WCM", clean to extrapolate.'
+  - 'F-03 — per-cell RSS is ~450 MB atop a ~1 GB baseline, linear to N=8: gives a
+    concrete RAM-per-node ceiling for HPC sizing.'
+  evidence_against:
+  - 'F-06 — RSS grows monotonically (~5 MB/sim-second) within a single long
+    pre-division run, invisible in the static 60-tick N-sweep. If this reflects
+    accumulating inner-composite state (not amortized startup), the flat
+    per-cell RSS projection may not hold over many natural divisions — the
+    linear-scaling claim is established for static N, not yet for a growing colony.'
+  - 'two-generations-complete passed only as PASS-narrow — via FORCED same-tick
+    division of both mothers, not a natural 2-generation timeline. Natural
+    multi-generation division at scale is not yet validated.'
+  key_figures:
+  - {study: colonies-01-hpc-readiness, name: perf-per-cell-vs-n, shows: 'per-cell wall flat (≤2× N=1) across N — the core HPC-readiness pass condition'}
+  - {study: colonies-01-hpc-readiness, name: perf-rss-vs-n, shows: 'peak RSS vs N (~450 MB/cell slope) — sets the per-node cell ceiling'}
+  - {study: colonies-01-hpc-readiness, name: perf-tick-trace-largest, shows: 'per-tick wall trace at largest N — warmup, division spikes, steady-state variance'}
+  - {study: colonies-01-hpc-readiness, name: colony-animation, shows: 'pure-WC N=2 colony force-divided into 4 hydrated daughters (daughter-hydration fix working)'}
+  caveats:
+  - Single-machine only; cross-node HPC scaling (network, distributed environment
+    field, filesystem) is entirely colonies-02's job and unvalidated here.
+  - All cells in the sweep share one out/cache ParCa cache. If HPC processes need
+    per-process caches, per-cell RAM extrapolation UNDERESTIMATES the real
+    footprint (parca-cache-contention follow-up).
+  - The 90-min sim window is one doubling + buffer, not an N-generation run; the
+    flat per-cell result is a steady-state-window claim, not a lifetime claim.
+  - Process-bigraph composites are single-threaded by design — GIL contention is
+    the ceiling before any HPC-specific bottleneck appears; the Decide report
+    states this explicitly.
+
+inputs:
+  datasets: []
+  references: []
+  expert_docs: []
 
 studies:
   - colonies-01-hpc-readiness

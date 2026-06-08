@@ -77,7 +77,10 @@ class PtoolsRxns(Analysis):
         output_columns = ["listeners__fba_results__base_reaction_fluxes"]
         output_df = read_outputs(history_sql, conn, output_columns)
 
-        # Drop timestep-0 row where FBA hasn't run yet (empty flux array).
+        # Drop timestep-0 row where FBA hasn't run yet (flux array is empty at
+        # t=0 because metabolism hasn't been called).  v2ecoli deviation: vEcoli
+        # keeps t=0 in the raw table; we drop it so the first column is the
+        # first real FBA timepoint.
         flux_col = "listeners__fba_results__base_reaction_fluxes"
         output_df = output_df[
             output_df[flux_col].apply(len) > 0
@@ -86,11 +89,22 @@ class PtoolsRxns(Analysis):
         rxn_mtx = np.stack(output_df[flux_col].values)
 
         rxn_ids_base = sim_data.process.metabolism.base_reaction_ids
-        # v2ecoli's FBA listener emits one fewer flux than sim_data has reaction
-        # IDs (trailing maintenance/boundary entry absent from the output).
-        # Truncate to match the actual emitted width.
-        n_rxns = rxn_mtx.shape[1]
-        rxn_ids_base = rxn_ids_base[:n_rxns]
+
+        # Sanity-check: v2ecoli's metabolism listener emits
+        #   base_reaction_fluxes = reaction_mapping_matrix.dot(...)
+        # whose length equals len(base_reaction_ids) in the sim_data that
+        # generated this parquet.  They are 1:1 positional — flux column i
+        # corresponds to base_reaction_ids[i].  A mismatch means the caller
+        # passed a sim_data that does NOT pair with this parquet (e.g.
+        # out/kb/simData.cPickle vs out/workflow/simData.cPickle); raise
+        # loudly instead of silently mislabeling reactions via truncation.
+        n_ids = len(rxn_ids_base)
+        flux_width = rxn_mtx.shape[1]
+        if n_ids != flux_width:
+            raise ValueError(
+                f"base_reaction_ids ({n_ids}) != flux width ({flux_width}); "
+                "sim_data does not pair with this parquet"
+            )
 
         n_tp = int(params["n_tp"])
 

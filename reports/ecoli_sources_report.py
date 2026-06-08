@@ -6,7 +6,8 @@ Documents the ecoli-sources data bundle as it is used in v2ecoli:
   1. Bundle inputs — full inventory, download links, override annotations
   2. How ParCa uses them — HTML flow diagram + prose
   3. ParCa output summary — sim_data introspection (requires a real run)
-  4. Multi-ParCa variant comparison — rnaseq dataset swap (requires a real run)
+  4. Multi-ParCa variant comparison — ParCa config variant, operons on/off
+     (requires real runs; one ParCa run per column)
 
 Usage::
 
@@ -19,7 +20,12 @@ Usage::
     # Custom options:
     python reports/ecoli_sources_report.py --skip-runs --out /tmp/report.html
     python reports/ecoli_sources_report.py --cpus 4 --date "2026-06-08"
-    python reports/ecoli_sources_report.py --variants plus_aas=vecoli_m9_glucose_plus_aas.tsv
+
+    # Section 4 variants are config-variant tokens (default: operons_off).
+    # A bundle-override variant can still be requested as name=dataset.tsv,
+    # but note v2ecoli's ParCa ignores the experimental-tpms swap (see the
+    # NOTE box in section 4).
+    python reports/ecoli_sources_report.py --variants operons_off
 """
 from __future__ import annotations
 
@@ -415,8 +421,10 @@ def section_flow() -> str:
   the default ecoli-sources <code>BUNDLE_PATH</code> as the base manifest. Rows in
   the replacement manifest that match a <code>canonical_key</code> from the default
   bundle override its <code>source_path</code>. v2ecoli&#8217;s override manifest is
-  then layered on top as usual. This is the mechanism used in section 4 to swap
-  the <code>rnaseq_experimental_tpms</code> dataset per variant run.
+  then layered on top as usual. This bundle-override path is kept available for
+  future input-dataset variants, but section 4&#8217;s default variant is a ParCa
+  <em>configuration</em> swap (operons on/off) because v2ecoli&#8217;s ParCa
+  ignores an <code>rnaseq_experimental_tpms</code> swap today (see section 4&#8217;s NOTE).
 </p>
 
 <h3>9 pipeline steps</h3>
@@ -598,6 +606,10 @@ def section_parca_output(outdir: Path, cpus: int, skip: bool) -> str:
   ({pkl_size_mb:.1f} MB). Attributes accessed defensively; &mdash; = not reachable.
   {pkl_download}
 </p>
+<p class="note">
+  These are the same metrics used for the multi-ParCa comparison in section 4
+  (one column per independent ParCa run).
+</p>
 <p class="note"><strong>Attribute paths attempted:</strong>
   <code>sd.process.transcription.cistron_data</code>,
   <code>sd.process.transcription.rna_data</code>,
@@ -644,21 +656,54 @@ def _build_variant_manifest(base_key: str, dataset_path: Path, data_dir: Path) -
     return Path(tmp_path)
 
 
-def _run_variant(name: str, dataset_path: Path, data_dir: Path,
-                 outdir: Path, cpus: int) -> dict:
-    """Run ParCa for one rnaseq variant. Returns dict with 'metrics' or 'error'."""
+# Known ParCa *configuration* variants, keyed by the token accepted on
+# --variants. A config variant passes extra CLI args to v2ecoli-parca and
+# produces genuinely different sim_data (v2ecoli responds to these), unlike a
+# bundle experimental-tpms swap (a no-op — see the section-4 NOTE box).
+_CONFIG_VARIANTS: dict[str, dict] = {
+    "operons_off": {"label": "operons off", "parca_args": ["--no-operons"]},
+}
+
+
+def _variant_summary(spec: dict) -> str:
+    """One-line human summary of a variant spec (config or bundle)."""
+    if spec.get("parca_args"):
+        return f"{spec['label']} (parca_args: {' '.join(spec['parca_args'])})"
+    if spec.get("bundle_key"):
+        return f"{spec['label']} (bundle {spec['bundle_key']} = {spec.get('dataset')})"
+    return spec.get("label", "variant")
+
+
+def _run_variant(spec: dict, data_dir: Path, outdir: Path, cpus: int) -> dict:
+    """Run ParCa for one variant spec. Returns dict with 'metrics' or 'error'.
+
+    A spec is EITHER a config variant (``parca_args`` — extra CLI args) OR a
+    bundle-override variant (``bundle_key`` + resolved ``dataset_path`` — swaps
+    a manifest row). Both paths are isolated by try/except so a failed run
+    renders as an error column without aborting the report.
+    """
+    label = spec.get("label", "variant")
     manifest_path = None
     try:
-        manifest_path = _build_variant_manifest(name, dataset_path, data_dir)
-        pkl_path = outdir / "parca_state.pkl"
+        parca_args = list(spec.get("parca_args", []))
         argv = [
             str(_REPO_ROOT / ".venv" / "bin" / "v2ecoli-parca"),
             "--mode", "fast",
             "-o", str(outdir),
             "--cpus", str(cpus),
-            "--bundle-manifest-path", str(manifest_path),
+            *parca_args,
         ]
-        print(f"[parca/variant={name}] Running ParCa → {outdir} ...")
+        if spec.get("bundle_key"):
+            dataset_path = spec["dataset_path"]
+            if not dataset_path.exists():
+                return {"error": f"Dataset not found: {dataset_path}"}
+            manifest_path = _build_variant_manifest(
+                spec["bundle_key"], dataset_path, data_dir
+            )
+            argv += ["--bundle-manifest-path", str(manifest_path)]
+        pkl_path = outdir / "parca_state.pkl"
+        print(f"[parca/variant={label}] Running ParCa → {outdir} "
+              f"(args: {' '.join(parca_args) or 'none'}) ...")
         result = subprocess.run(argv, cwd=str(_REPO_ROOT))
         if result.returncode != 0:
             return {"error": f"ParCa exited {result.returncode}"}
@@ -677,48 +722,69 @@ def _run_variant(name: str, dataset_path: Path, data_dir: Path,
                 pass
 
 
+# NOTE box shared by the skip-placeholder and the rendered section.
+_SECTION4_NOTE = """
+<div class="strategy" style="color:#92400e;background:#fffbeb;border-color:#fde68a">
+  <strong>NOTE.</strong> Input-dataset swaps — running ParCa over different
+  RNA-seq conditions (the issue #130 multi-ParCa vision) — require v2ecoli to
+  adopt the bundle&#8217;s <code>rnaseq_experimental_tpms</code> abstraction.
+  v2ecoli&#8217;s ParCa currently fits the legacy wide-format
+  <code>rna_seq_data__rnaseq_rsem_tpm_mean</code> input, so swapping that
+  experimental-tpms key is a no-op here (verified: identical fitted expression).
+  The variant shown below is a ParCa <em>configuration</em> variant
+  (operons on/off), which v2ecoli does respond to. Per-condition input swaps
+  land with #130.
+</div>
+"""
+
+
 def section_multi_parca(
     default_outdir: Path, cpus: int, skip: bool,
-    variants: dict[str, str],
+    variant_specs: list[dict],
 ) -> str:
     if skip:
-        variant_list = ", ".join(f"{k}={v}" for k, v in variants.items())
+        items = "".join(
+            f"<li><code>{html.escape(_variant_summary(s))}</code></li>"
+            for s in variant_specs
+        ) or "<li><em>(none)</em></li>"
         return f"""
 <h2>4 &nbsp; Multi-ParCa variant comparison</h2>
+{_SECTION4_NOTE}
 <div class="placeholder">
   <strong>Not run</strong> &mdash; pass without <code>--skip-runs</code> to execute.<br><br>
-  Default variants: <code>{html.escape(variant_list)}</code><br>
-  Each run swaps <code>rnaseq_experimental_tpms</code> in a temp copy of the bundle
-  manifest written to <code>DATA_DIR</code>, runs <code>v2ecoli-parca --mode fast</code>,
-  then deletes the temp manifest. A failed variant run is shown as an isolated
+  Column 1 is the default run (<strong>operons on</strong>); each further column
+  is an independent ParCa run for one variant:
+  <ul style="margin:8px 0">{items}</ul>
+  Config variants pass extra CLI args to <code>v2ecoli-parca --mode fast</code>
+  (e.g. <code>--no-operons</code> for <strong>operons off</strong>), producing
+  genuinely different sim_data. A failed variant run is shown as an isolated
   error column rather than aborting the report.
 </div>
 """
 
     from ecoli_sources import DATA_DIR
 
-    # --- resolve variant datasets ---
+    # --- resolve any bundle-variant dataset paths ---
     rnaseq_dir = DATA_DIR / "rnaseq_experimental"
-    resolved_variants: dict[str, Path] = {}
-    for vname, vfile in variants.items():
-        # Accept either bare filename or absolute path
-        p = Path(vfile)
-        if not p.is_absolute():
-            p = rnaseq_dir / vfile
-        resolved_variants[vname] = p
+    for spec in variant_specs:
+        if spec.get("bundle_key") and spec.get("dataset"):
+            p = Path(spec["dataset"])
+            if not p.is_absolute():
+                p = rnaseq_dir / spec["dataset"]
+            spec["dataset_path"] = p
 
-    # --- run default if needed ---
+    # --- run default if needed (operons on) ---
     default_pkl = default_outdir / "parca_state.pkl"
     cols: list[dict] = []
 
     if default_pkl.exists():
-        print("[parca/multi] Loading cached default ...")
+        print("[parca/multi] Loading cached default (operons on) ...")
         try:
             with open(default_pkl, "rb") as f:
                 state = pickle.load(f)
-            cols.append({"name": "default (basal)", "result": {"metrics": _extract_metrics(state)}})
+            cols.append({"name": "default (operons on)", "result": {"metrics": _extract_metrics(state)}})
         except Exception as e:
-            cols.append({"name": "default (basal)", "result": {"error": str(e)}})
+            cols.append({"name": "default (operons on)", "result": {"error": str(e)}})
     else:
         print("[parca/multi] Running default ParCa for comparison baseline ...")
         argv = [
@@ -727,21 +793,20 @@ def section_multi_parca(
         ]
         r = subprocess.run(argv, cwd=str(_REPO_ROOT))
         if r.returncode != 0 or not default_pkl.exists():
-            cols.append({"name": "default (basal)", "result": {"error": f"ParCa exited {r.returncode}"}})
+            cols.append({"name": "default (operons on)", "result": {"error": f"ParCa exited {r.returncode}"}})
         else:
             with open(default_pkl, "rb") as f:
                 state = pickle.load(f)
-            cols.append({"name": "default (basal)", "result": {"metrics": _extract_metrics(state)}})
+            cols.append({"name": "default (operons on)", "result": {"metrics": _extract_metrics(state)}})
 
-    # --- run each variant ---
-    for vname, vpath in resolved_variants.items():
-        if not vpath.exists():
-            cols.append({"name": vname, "result": {"error": f"Dataset not found: {vpath}"}})
-            continue
-        variant_outdir = default_outdir.parent / f"parca_variant_{vname}"
+    # --- run each variant (isolated) ---
+    for spec in variant_specs:
+        label = spec.get("label", "variant")
+        slug = label.replace(" ", "_").replace("/", "_")
+        variant_outdir = default_outdir.parent / f"parca_variant_{slug}"
         variant_outdir.mkdir(parents=True, exist_ok=True)
-        result = _run_variant(vname, vpath, DATA_DIR, variant_outdir, cpus)
-        cols.append({"name": vname, "result": result})
+        result = _run_variant(spec, DATA_DIR, variant_outdir, cpus)
+        cols.append({"name": label, "result": result})
 
     # --- build HTML ---
     header_cols = "".join(
@@ -752,10 +817,13 @@ def section_multi_parca(
     )
     header = f"<tr><th>Metric</th>{header_cols}</tr>"
 
+    # Default column (col 0) values, for diff-bolding.
+    default_metrics = cols[0]["result"].get("metrics", {}) if cols else {}
+
     body_rows = []
     for key, label in _METRIC_LABELS:
         cells = [f"<td class='metric-label'>{html.escape(label)}</td>"]
-        for c in cols:
+        for i, c in enumerate(cols):
             r = c["result"]
             if "error" in r:
                 cells.append(
@@ -764,15 +832,26 @@ def section_multi_parca(
                 )
             else:
                 v = r.get("metrics", {}).get(key, "<span class='metric-na'>&mdash;</span>")
-                cells.append(f"<td class='metric-val'>{v}</td>")
+                # Bold cells that differ from the default column (nice-to-have).
+                differs = (
+                    i > 0
+                    and key in default_metrics
+                    and r.get("metrics", {}).get(key) != default_metrics.get(key)
+                )
+                cell = f"<strong>{v}</strong>" if differs else f"{v}"
+                cells.append(f"<td class='metric-val'>{cell}</td>")
         body_rows.append("<tr>" + "".join(cells) + "</tr>")
 
     return f"""
 <h2>4 &nbsp; Multi-ParCa variant comparison</h2>
+{_SECTION4_NOTE}
 <p class="note">
-  Each column is an independent ParCa run with a different
-  <code>rnaseq_experimental_tpms</code> dataset. Failed runs show as isolated
-  error columns; they do not abort the report.
+  Each column is an independent ParCa run. Column 1 is the default
+  (<strong>operons on</strong>); further columns are ParCa <em>configuration</em>
+  variants (e.g. <strong>operons off</strong> via <code>--no-operons</code>),
+  which change the fitted RNA / transcription-unit structure, so the count
+  metrics differ. Cells that differ from the default column are <strong>bold</strong>.
+  Failed runs show as isolated error columns; they do not abort the report.
 </p>
 <table>
 <thead>{header}</thead>
@@ -841,25 +920,41 @@ def main():
     )
     ap.add_argument(
         "--variants",
-        default="plus_aas=vecoli_m9_glucose_plus_aas.tsv",
+        default="operons_off",
         help=(
-            "Comma-separated name=dataset.tsv pairs for multi-ParCa variants "
-            "(default: plus_aas=vecoli_m9_glucose_plus_aas.tsv). "
-            "Filenames are relative to DATA_DIR/rnaseq_experimental/ unless absolute."
+            "Comma-separated section-4 variant tokens (default: operons_off). "
+            "A bare token is a ParCa *config* variant looked up in "
+            f"_CONFIG_VARIANTS (known: {', '.join(sorted(_CONFIG_VARIANTS))}); "
+            "v2ecoli responds to these. A name=dataset.tsv pair is a bundle "
+            "experimental-tpms override (relative to DATA_DIR/rnaseq_experimental/ "
+            "unless absolute) — kept for future use, but a no-op today "
+            "(see the section-4 NOTE)."
         ),
     )
     args = ap.parse_args()
 
-    # Parse variants
-    variants: dict[str, str] = {}
+    # Parse variants into specs: config-variant tokens OR name=dataset bundle swaps.
+    variant_specs: list[dict] = []
     if args.variants.strip():
         for item in args.variants.split(","):
             item = item.strip()
+            if not item:
+                continue
             if "=" in item:
                 k, v = item.split("=", 1)
-                variants[k.strip()] = v.strip()
+                variant_specs.append({
+                    "label": k.strip(),
+                    "bundle_key": "rnaseq_experimental_tpms",
+                    "dataset": v.strip(),
+                })
+            elif item in _CONFIG_VARIANTS:
+                variant_specs.append(dict(_CONFIG_VARIANTS[item]))
             else:
-                print(f"WARNING: ignoring malformed --variants item: {item!r}", file=sys.stderr)
+                print(
+                    f"WARNING: ignoring unknown --variants token: {item!r} "
+                    f"(known config variants: {', '.join(sorted(_CONFIG_VARIANTS))})",
+                    file=sys.stderr,
+                )
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -878,7 +973,7 @@ def main():
     s3 = section_parca_output(default_outdir, args.cpus, args.skip_runs)
 
     print("Building section 4 (multi-parca variants) ...")
-    s4 = section_multi_parca(default_outdir, args.cpus, args.skip_runs, variants)
+    s4 = section_multi_parca(default_outdir, args.cpus, args.skip_runs, variant_specs)
 
     print("Assembling HTML ...")
     doc = build_html([s1, s2, s3, s4], args.date, args.skip_runs)

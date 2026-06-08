@@ -6,10 +6,18 @@ in `~/code/vivarium-ecoli`) onto v2ecoli's native `Analysis` base.
 ## Summary counts
 
 - Step 0 (compat shim centralization): **DONE**
-- PORTED: 0
+- PORTED: 3
 - SKIPPED: 0
-- BLOCKED: 0
-- Remaining: 25
+- BLOCKED: 3
+- Remaining: 19
+
+## Infrastructure added
+- `v2ecoli/workflow/analyses/_helpers.py` — native `read_stacked_columns`
+  (aliases `global_time` → `time`), `num_cells`, `skip_n_gens`,
+  `available_columns`, `bulk_field_ids`, `bulk_count_idx_expr` (parquet-order
+  bulk indexing, fail-loud), `cumulative_time_history` (absolute time axis for
+  multigeneration), `chart_to_html` (Altair view), and re-exports `named_idx` /
+  `ndidx_to_duckdb_expr`. `tests/test_bulk_analyses.py` registration tests.
 
 ## Step 0 — centralize wholecell↔matplotlib-3.10 compat
 
@@ -34,9 +42,9 @@ Legend: PORTED (sha) / SKIPPED (reason) / BLOCKED (reason) / TODO
 
 ### multigeneration
 - multigeneration/new_gene_counts — TODO
-- multigeneration/ptools_proteins — TODO
-- multigeneration/ptools_rna — TODO
-- multigeneration/ptools_rxns — TODO
+- multigeneration/ptools_proteins — PORTED (multiscale module; abs-time wrapper) — name `ptools_proteins_multigeneration`
+- multigeneration/ptools_rna — PORTED (multiscale module; abs-time wrapper) — name `ptools_rna_multigeneration`
+- multigeneration/ptools_rxns — PORTED (multiscale module; abs-time wrapper) — name `ptools_rxns_multigeneration`
 - multigeneration/replication — TODO
 - multigeneration/ribosome_components — TODO
 - multigeneration/ribosome_crowding — TODO
@@ -47,9 +55,19 @@ Legend: PORTED (sha) / SKIPPED (reason) / BLOCKED (reason) / TODO
 ### multiseed
 - multiseed/ecocyc_table — TODO
 - multiseed/protein_counts_validation — TODO
-- multiseed/ptools_proteins — TODO
-- multiseed/ptools_rna — TODO
-- multiseed/ptools_rxns — TODO
+- multiseed/ptools_proteins — BLOCKED (cross-seed list aggregation; see below)
+- multiseed/ptools_rna — BLOCKED (cross-seed list aggregation; see below)
+- multiseed/ptools_rxns — BLOCKED (cross-seed list aggregation; see below)
+
+  **BLOCKED reason (multiseed ptools ×3):** at multiseed scale multiple seeds
+  share each `(generation, time)`, so vEcoli's `read_outputs` sums the list
+  columns element-wise across seeds (its `time` is absolute and list columns are
+  ndarrays). v2ecoli's pandas `groupby("time").sum()` over the per-row
+  `bulk__id` (string lists) and `bulk__count` / flux (python lists) columns
+  *concatenates* instead of element-wise adding, so the single-scale read path
+  cannot be reused. A faithful port needs a dedicated cross-seed read
+  (`first(bulk__id)` + element-wise ndarray sum of count/flux columns). Deferred;
+  revisit after the distinct analyses.
 - multiseed/ribosome_spacing — TODO
 - multiseed/subgenerational_expression_table — TODO
 

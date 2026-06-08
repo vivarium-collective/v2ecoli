@@ -50,9 +50,12 @@ parquet = [
     "pbg-emitters[parquet] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
 ]
 xarray = [
-    "xarray>=2026.04",
-    "zarr~=3.1.6",
-    "zarrs>=0.2",
+    # Pulls in xarray / zarr / zarrs transitively via pbg-emitters[xarray].
+    # The XArrayEmitter implementation now lives in pbg-emitters;
+    # v2ecoli.library.xarray_emitter is a shim. PEP 508 direct-URL since
+    # pbg-emitters is not yet on PyPI — works with both pip (CI) and uv.
+    # Mirrored in [tool.uv.sources] for uv-native resolution.
+    "pbg-emitters[xarray] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
 ]
 emitters = ["v2ecoli[parquet,xarray]"]
 

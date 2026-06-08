@@ -1,6 +1,13 @@
 schema_version: 4
 name: pdmp-00-characterization
 title: Phase 0 — Characterization and Interface Extraction
+claim: |
+  v2ecoli's `seed` parameter only seeded the allocator, so multi-seed ensembles were bit-identical;
+  fixing per-process RNG seeding (crc32(process_name, master_seed)) unblocked a 192-run reference
+  ensemble (3 conditions × N=64, single-generation) with biology-consistent cross-condition ATP ratios
+  (glucose:acetate 3.85×, +aa:glucose 1.97×) — the canonical Markov-blanket validation standard every
+  later phase matches against.
+confidence: Accepted
 status: complete
 phase: Decide
 topic: pdmp
@@ -742,3 +749,60 @@ embed_visualizations:
   url: /reports/figures/pdmp-00/variable_categorization_bars.html
   description: Categorical breakdown of the WCM state into input / sufficient-statistic / output buckets — the interface contract
     every later study tests against.
+discovery_implications:
+  resolved_uncertainties:
+  - 'The per-process RNG-seeding bug — diagnosed via a 3-seed pilot that produced CV 0.000% across seeds
+    — is fixed (each stochastic process seeds from crc32(process_name, master_seed)); multi-seed
+    ensembles now diverge (CV > 1% at t=100 s), so every downstream ensemble is a genuine sample, not
+    one trajectory in disguise.'
+  - 'The single-generation reference ensemble is delivered for all three conditions (192/192 successful
+    runs, 600 model-seconds, 121 snapshots x 12 listener observables per seed); cross-condition ATP
+    ratios are biology-consistent (gluconeogenic glucose:acetate 3.85x, aa-fast +aa:glucose 1.97x).'
+  remaining_uncertainties:
+  - 'Multi-generation zarr trajectories via XArrayEmitter are not yet produced (composite.run() does not
+    auto-attach the emitter; task #39) — only single-generation endpoint + per-tick listener JSON exists
+    today, so the multi-gen lineage statistics Phase 2 needs are missing.'
+  - 'The typed PB Markov-blanket interface schemas (6 subprocesses) and the per-step marshalling-vs-
+    essential compute profile are specified as planned readouts but not yet emitted as deliverables.'
+  alternate_hypotheses:
+  - id: essential-compute-dominates
+    statement: 'Per-step wall time is dominated by essential biological computation (the FBA LP solve),
+      not by store-process marshalling — which would refute the Phase-4 column-centric motivation.'
+    why_plausible: 'The 55-process WCM runs a multi-objective FBA LP every tick, and LP solves are
+      classically the expensive step in constraint-based metabolic models.'
+    mechanism_elements_affected:
+    - per-step-compute-profile
+    - marshalling-overhead
+    discriminating_observables:
+    - marshalling_ms / total_ms fraction over >=1000 step samples with bootstrap 95% CI
+    - FBA-LP-solve bucket vs marshalling bucket
+    evidence_for: []
+    evidence_against:
+    - 'Phase 4 sprint 2 later measured 13,817 isinstance + 4,213 __array_finalize__ calls/tick (76%
+      framework overhead) — marshalling, not the LP, dominates.'
+  mechanism_update_proposals:
+  - mechanism_node_or_edge: per-process-rng-seeding
+    update_type: revise
+    rationale: 'Each stochastic process must seed its RNG from hash(master_seed, process_name) rather
+      than inheriting a single cache-derived seed; without this the WCM is not a valid stochastic-
+      ensemble generator. Adopted in v2ecoli/composites/baseline.py.'
+    requires_expert_approval: false
+  followup_study_proposals:
+  - id: pdmp-00-multigen-zarr
+    title: Multi-generation XArrayEmitter reference ensemble
+    study_type: data_generation
+    source_trigger: open_deliverable
+    proposed_experiment: 'Wire XArrayEmitter into composite.run() and re-run the 3 x N=64 ensemble over
+      >=3 generations with max_generations=8, emitting per-(condition, replicate, generation) zarr stores
+      for streaming distribution comparison.'
+    expected_information_gain: high
+    expert_gate_required: false
+  - id: pdmp-00-interface-schemas
+    title: Typed PB Markov-blanket interface schemas for all six subprocesses
+    study_type: design_deliverable
+    source_trigger: open_deliverable
+    proposed_experiment: 'Write Process-Bigraph interface schemas (parents/children/co-parents with port
+      typing) for metabolism, transcription, translation, replication, division, membrane; gate on
+      full coverage (no unschematized subprocess).'
+    expected_information_gain: medium
+    expert_gate_required: false

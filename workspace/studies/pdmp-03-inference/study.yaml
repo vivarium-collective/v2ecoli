@@ -1,6 +1,13 @@
 schema_version: 4
 name: pdmp-03-inference
 title: 'Phase 3 — Inference Infrastructure: Likelihoods and Bayesian Interface'
+claim: |
+  A full likelihood → emission → XArrayEmitter(zarr) → ABC-SMC pipeline works end-to-end, and the
+  load-bearing result is the architectural pivot from self-calibrated log-likelihoods to count-based ABC
+  distances: count metrics give ~100× sharper Ts identification, and the combined count vector
+  sqrt(d_rna² + d_ribosome²) reaches 3.06× truth-vs-next-nearest separation — the Phase-3-canonical ABC
+  distance.
+confidence: Accepted
 status: running
 phase: Decide
 topic: pdmp
@@ -19,6 +26,7 @@ created: '2026-05-24'
 parent_studies:
 - study: pdmp-02-jump-processes
   condition: tests-passed
+  relation: leads-to
 question: 'Can the Phase 2 PDMP support well-formed observation likelihoods
 
   for the dominant cell-biology measurement modalities (RNA-seq,
@@ -563,3 +571,60 @@ embed_visualizations:
   url: /reports/figures/pdmp-03/sbc_per_parameter.html
   description: Auto-wired existing figure at /reports/figures/pdmp-03/sbc_per_parameter.html. Promoted from disk by the embed-wiring
     sweep — refine the name and description if a richer caption is wanted.
+discovery_implications:
+  resolved_uncertainties:
+  - 'The inference substrate is built and runs end-to-end: per-tick emission for both initiation
+    Processes, an aggregate LikelihoodCollector, XArrayEmitter persistence to per-replicate zarr,
+    mean-to-mean epsilon calibration, SMC sequential refinement, and a 2D multi-parameter sweep.'
+  - 'The emitted aggregate likelihood is self-calibrated log P(simulated | simulated_param), NOT the
+    ABC-correct log P(observed | proposed); switching to count-based ABC distances is the architectural
+    fix.'
+  - 'Count-based ABC distances identify the parameter channel they are causally linked to: total_rna_init
+    alone gives ~150x row-separation along the Ts axis, and the combined count vector reaches 3.06x
+    truth-vs-next-nearest separation (vs 2.39x for aggregate log-likelihood).'
+  remaining_uncertainties:
+  - 'SBC rank-uniformity (chi^2 p > 0.05 over >=1000 draws) and >=85% empirical coverage of 90% credible
+    intervals — the gate that converts "we have likelihoods" into "inference-ready likelihoods" — have
+    not been demonstrated on the count-based pipeline.'
+  - 'The pbg scalar-pruning quirk (task #14) was only worked around (pin-via-consumer declarations in
+    sprints 1 and 13); the root cause at the merger layer is unresolved.'
+  alternate_hypotheses:
+  - id: aggregate-ll-sufficient
+    statement: 'Aggregate log-likelihood is a sufficient ABC distance, and the apparent superiority of
+      count vectors is an artifact of the 2D sweep''s anti-diagonal ridge rather than a general
+      identifiability win.'
+    why_plausible: 'Under a 1-parameter sweep the aggregate metric still ranks truth highest; the ridge
+      only appears when Ts and Ps trade off.'
+    mechanism_elements_affected:
+    - abc-distance-metric
+    - parameter-identifiability
+    discriminating_observables:
+    - truth-vs-next-nearest separation, aggregate-LL vs combined-count-vector, across 1D and 2D sweeps
+    - presence of the anti-diagonal ridge under per-channel distance
+    evidence_for: []
+    evidence_against:
+    - 'The 2D (Ts, Ps) sweep shows reducing transcription while raising translation partially cancels
+      under aggregate LL (anti-diagonal ridge); per-channel distance breaks the ridge.'
+  mechanism_update_proposals:
+  - mechanism_node_or_edge: abc-distance (aggregate-LL -> count-based)
+    update_type: replace
+    rationale: 'Adopt the combined count vector sqrt(d_rna^2 + d_ribosome^2) as the Phase-3-canonical ABC
+      distance; it is ~100x sharper on Ts and ~28% better-separated than aggregate log-likelihood.'
+    requires_expert_approval: true
+  followup_study_proposals:
+  - id: pdmp-03-sbc-coverage
+    title: SBC rank-uniformity + credible-interval coverage on the count-based pipeline
+    study_type: calibration
+    source_trigger: open_gate
+    proposed_experiment: 'Run >=1000 SBC draws through the count-based ABC-SMC pipeline; gate on chi^2
+      rank-uniformity p > 0.05 and >=85% empirical coverage of the 90% credible intervals.'
+    expected_information_gain: high
+    expert_gate_required: false
+  - id: pdmp-03-pbg-merger-fix
+    title: Root-cause fix for the pbg scalar-pruning merger quirk (task #14)
+    study_type: infrastructure
+    source_trigger: workaround_debt
+    proposed_experiment: 'Fix scalar listener-field pruning at the pbg merger layer so pin-via-consumer
+      workarounds are unnecessary; regression-test against the sprint-1 and sprint-13 cases.'
+    expected_information_gain: medium
+    expert_gate_required: false

@@ -1,6 +1,13 @@
 schema_version: 4
 name: pdmp-01-metabolism-ode
 title: 'Phase 1 — Metabolism: multi-objective FBA → Kinetic ODE'
+claim: |
+  The Millard 2017 kinetic ODE (via pbg-copasi) recovers its published reference state to solver
+  tolerance, and wrapped as MillardPDMPMetabolism with a JAX/Diffrax backend + a consumption_matched
+  ref-growth driver it closes the W₂ cell_mass + dry_mass gap to the Phase-0 ensemble within ±σ at
+  t=600 s on M9-glucose — replacing multi-objective FBA without losing viability (PR #72, merged
+  2026-05-30).
+confidence: Accepted
 status: complete
 phase: Decide
 topic: pdmp
@@ -20,6 +27,7 @@ created: '2026-05-24'
 parent_studies:
 - study: pdmp-00-characterization
   condition: tests-passed
+  relation: leads-to
 question: 'Can the Millard et al. 2017 kinetic ODE of E. coli central carbon
 
   and energy metabolism, wrapped in a linear-quadratic regulator
@@ -818,3 +826,61 @@ embed_visualizations:
   url: /reports/figures/pdmp-01/phase1_progress.html
   description: 'Closeout summary for PR #72. Charts: bridge round-trip residual, FBA-bridge architecture, Millard kinetic
     ATP drain, W₂ gap vs Phase 0, per-condition growth rate.'
+discovery_implications:
+  resolved_uncertainties:
+  - 'The Millard 2017 SBML loads and integrates via pbg-copasi''s CopasiUTCProcess and recovers the
+    BioModels MODEL1505110000 reference steady state to solver tolerance — ODE re-implementation is NOT
+    needed; Phase-1 effort goes to the LQR + FBA-bridge.'
+  - 'MillardPDMPMetabolism + the JAX/Diffrax backend + the consumption_matched ref-growth driver close
+    the cell_mass + dry_mass W2 gap to the Phase-0 ensemble within +/-sigma at t=600 s on M9-glucose
+    (PR #72, merged 2026-05-30).'
+  remaining_uncertainties:
+  - 'The FBA-bridge composite has not been shown to hold interface statistics across ALL three Phase-0
+    conditions (only M9-glucose is closed); the M9-acetate and M9-glucose+aa W2 audits are pending.'
+  - 'The LQR outer-control weights have not passed a Sobol-sensitivity / FIM-conditioning (kappa < 1e8)
+    audit, so the causal/teleonomic parameter partition is asserted but not yet proven free of disguised
+    free parameters.'
+  - 'Task #20 — the JAX/Diffrax backend works standalone but fails inside the WCM composite; the in-WCM
+    path is unresolved.'
+  alternate_hypotheses:
+  - id: lqr-teleonomic-leak
+    statement: 'The LQR consumption_matched driver reintroduces a teleonomic growth target in disguise,
+      so the ODE only "matches" the Phase-0 ensemble because it is steered there, not because the
+      kinetics reproduce it.'
+    why_plausible: 'A driver that tracks a growth-rate reference can absorb model error into its control
+      signal, masking ODE inadequacy; the match is currently demonstrated only with the driver engaged.'
+    mechanism_elements_affected:
+    - lqr-control-layer
+    - causal-teleonomic-partition
+    discriminating_observables:
+    - FIM conditioning kappa on the causal kinetic parameters
+    - Sobol sensitivity indices of interface statistics to LQR weights
+    - open-loop (driver-off) W2 vs the Phase-0 ensemble
+    evidence_for:
+    - The W2 match is shown only with the consumption_matched driver active.
+    evidence_against: []
+  mechanism_update_proposals:
+  - mechanism_node_or_edge: metabolism (multi-objective FBA -> kinetic ODE)
+    update_type: replace
+    rationale: 'Substitute v2ecoli''s multi-objective modular_fba LP with the Millard 2017 kinetic ODE +
+      LQR outer control as the Phase-1-canonical metabolism layer; accepted on M9-glucose, pending the
+      multi-condition FBA-bridge validation.'
+    requires_expert_approval: true
+  followup_study_proposals:
+  - id: pdmp-01-fba-bridge-multicondition
+    title: FBA-bridge interface-statistic validation across all Phase-0 conditions
+    study_type: validation
+    source_trigger: residual_rigor
+    proposed_experiment: 'Run the FBA-bridge composite under M9-acetate and M9-glucose+aa and compute
+      per-intermediate W2 vs the Phase-0 ensemble; gate on within-tolerance (<=5 sigma MC).'
+    expected_information_gain: high
+    expert_gate_required: true
+  - id: pdmp-01-lqr-sobol-fim
+    title: LQR weight Sobol sensitivity + FIM-conditioning audit
+    study_type: identifiability
+    source_trigger: alternate_hypothesis
+    proposed_experiment: 'Compute Sobol indices of interface statistics to the LQR weights and FIM
+      conditioning kappa on causal parameters; confirm kappa < 1e8 and that no teleonomic leak inflates
+      the fit.'
+    expected_information_gain: high
+    expert_gate_required: true

@@ -1,6 +1,13 @@
 schema_version: 4
 name: pdmp-02-jump-processes
 title: 'Phase 2 — Jump Process Layer: Discrete-Time → Continuous-Time Stochastic'
+claim: |
+  Per-promoter and per-protein Poisson tau-leap samplers land in `poisson` mode and jump variance
+  reaches the listener level (peak |Δcm| 150 fg at the rnap_data listener), but the decisive finding is
+  negative: cell_mass is the WRONG observable for jump-process variance — the consumption_matched
+  homeostat washes per-tick variance out by construction, so Phase-3 inference must anchor on
+  count-level listeners, not mass.
+confidence: Investigating
 status: running
 phase: Decide
 topic: pdmp
@@ -18,6 +25,7 @@ created: '2026-05-24'
 parent_studies:
 - study: pdmp-01-metabolism-ode
   condition: tests-passed
+  relation: leads-to
 question: 'Can v2ecoli''s discrete-time stochastic layer (Poisson gene-
 
   expression draws scaled by timestep/doubling time, the teleonomic
@@ -697,3 +705,62 @@ embed_visualizations:
 - name: Phase 2 — inter-event waiting-time distribution
   url: /reports/figures/pdmp-02/waiting_time_distribution.html
   description: Inter-event waiting times — diagnostic for exponentiality under the Poisson tau-leap mode.
+discovery_implications:
+  resolved_uncertainties:
+  - 'Continuous-time per-promoter / per-protein Poisson tau-leap samplers were implemented and land in
+    `poisson` mode; jump-process variance does propagate to the listener level (peak |Delta cm| = 150 fg
+    at the rnap_data listener at t=600 s).'
+  - 'cell_mass is decisively the WRONG observable for jump-process variance: the consumption_matched
+    homeostat (from Phase 1) washes per-tick variance out of cell_mass by construction. Three controller-
+    tuning attempts (tau-EMA, open-loop, sparse injection) all failed to recover mass variance.'
+  remaining_uncertainties:
+  - 'The original Phase-2 gate — trajectory-distribution W2 match to the v2ecoli baseline on cell_mass
+    across all Phase-0 conditions — is NOT met and, per the closeout, is the wrong gate; a count-level
+    trajectory-distribution criterion has not yet been formally specified or passed.'
+  - 'The Anderson-Darling Exp(1) exponential-clock verification (>=1e4 inter-event intervals) and the OU
+    first-passage division-trigger validation (KS < 0.02) remain unrun.'
+  alternate_hypotheses:
+  - id: homeostat-is-the-variance-sink
+    statement: 'It is the consumption_matched homeostat specifically (not jump sampling per se) that
+      erases per-tick variance; loosening or disabling the homeostat would restore cell_mass as a usable
+      variance observable.'
+    why_plausible: 'The homeostat actively tracks a reference growth trajectory, so any per-tick
+      fluctuation it sees is corrected within a tick.'
+    mechanism_elements_affected:
+    - consumption_matched-driver
+    - cell_mass-observable
+    - jump-variance-propagation
+    discriminating_observables:
+    - cell_mass CV with the homeostat on vs off under identical jump seeds
+    - count-listener variance (rnap_data, ribosome_data) vs cell_mass variance
+    evidence_for:
+    - Open-loop (homeostat-off) was one of the three tuning attempts.
+    evidence_against:
+    - 'Even open-loop, cell_mass did not become the right inference channel — pointing to counts, not
+      mass, as the signal carrier.'
+  mechanism_update_proposals:
+  - mechanism_node_or_edge: inference-observable (cell_mass -> count-level listeners)
+    update_type: revise
+    rationale: 'Anchor all downstream variance-based inference on count-level listeners (rnap_data,
+      ribosome_data, monomer_counts) rather than cell_mass; the homeostat makes mass variance-blind.
+      This redirected Phase 3.'
+    requires_expert_approval: true
+  followup_study_proposals:
+  - id: pdmp-02-count-trajectory-gate
+    title: Count-level trajectory-distribution match as the Phase-2 acceptance gate
+    study_type: criterion_redesign
+    source_trigger: negative_finding
+    proposed_experiment: 'Define and run a trajectory-distribution W2/KS criterion on count-level
+      listeners (transcript/protein initiation counts) vs the v2ecoli baseline, replacing the cell_mass
+      gate the closeout invalidated.'
+    expected_information_gain: high
+    expert_gate_required: true
+  - id: pdmp-02-exponential-clock-validation
+    title: Anderson-Darling Exp(1) exponential-clock + OU first-passage division validation
+    study_type: validation
+    source_trigger: open_deliverable
+    proposed_experiment: 'Verify the cumulative hazard integral of lambda is Exp(1)-distributed over
+      >=1e4 inter-event intervals (A-D, alpha=0.05) and validate the first-passage division trigger
+      against an OU analytical CDF (KS < 0.02).'
+    expected_information_gain: medium
+    expert_gate_required: false

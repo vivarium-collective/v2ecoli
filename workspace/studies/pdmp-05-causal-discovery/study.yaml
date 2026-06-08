@@ -1,6 +1,13 @@
 schema_version: 4
 name: pdmp-05-causal-discovery
 title: Phase 5 — Causal Discovery and Functional Annotation
+claim: |
+  At ±15% hypothesis spacing the unbiased pseudo-marginal posterior is essentially uniform (log BF
+  +0.01, truth 24.4% vs 20% baseline) and replicate count cannot rescue it (kernel-mean gap Δlog +0.011
+  sets an information-theoretic ceiling); wider spacing lifts truth posterior to 61% but log BF tops out
+  at +0.45 (< Jeffreys substantial) — the single remaining lever in the current design space is
+  observable choice.
+confidence: Investigating
 status: running
 phase: Decide
 topic: pdmp
@@ -17,8 +24,10 @@ created: '2026-05-24'
 parent_studies:
 - study: pdmp-03-inference
   condition: tests-passed
+  relation: leads-to
 - study: pdmp-04-compilation
   condition: tests-passed
+  relation: leads-to
 question: 'Can the compiled, likelihood-equipped PDMP WCM support Bayesian
 
   model comparison for gene-function annotation — recovering known
@@ -720,3 +729,78 @@ embed_visualizations:
 - name: Phase 5 — PC algorithm DAG (planned)
   url: /reports/figures/pdmp-05/pc_algorithm_dag.html
   description: Recovered causal DAG via PC algorithm on Phase-3 likelihood summaries. Planned for sprint 5+.
+discovery_implications:
+  resolved_uncertainties:
+  - 'The Bayes-factor / model-comparison shape works on the Phase-3 ABC infrastructure (a 5-hypothesis
+    transcript_init_prob_scale sweep).'
+  - 'Sprint 1''s "distance-of-the-mean" estimator was biased and overstated the signal; the unbiased
+    per-replicate pseudo-marginal estimator collapses truth posterior 28.8% -> 24.4% (~ the 20% uniform
+    baseline) and log BF +0.32 -> +0.01.'
+  - 'Replicate count alone cannot rescue the signal: the truth-vs-runner-up kernel-mean gap is only
+    Delta log +0.011 nats, so as N -> infinity the log-BF CI tightens around a near-zero gap (Jeffreys
+    substantial/decisive never reached even at N=1024).'
+  - 'Hypothesis spacing IS a lever for the within-grid 1/n_H dilution (truth posterior 24% -> 43% -> 61%
+    as close neighbors are dropped), but log BF maxes at +0.45 even in the most favorable 2-way subset.'
+  remaining_uncertainties:
+  - 'Whether the Phase-3 sprint-13 combined count-vector observable (or a tighter epsilon) raises log BF
+    past the Jeffreys substantial threshold (>1) is untested — this is the open Phase-5 question.'
+  - 'The full Phase-5 deliverable (>=20 benchmark gene annotations at BH-FDR <= 0.1 with credible
+    intervals) depends on the Phase-4 compiled runtime (per-particle wall < 0.05 s/tick) and is not yet
+    tractable.'
+  - 'Model-comparison-level SBC (chi^2 rank-uniformity p > 0.05) and RR-estimator N_eff >= 100 per
+    marginal-likelihood estimate have not been demonstrated.'
+  alternate_hypotheses:
+  - id: observable-limited
+    statement: 'The Phase-5 identifiability ceiling is set by observable choice (transcript_init counts
+      under the homeostat), and adopting the Phase-3 combined count vector — not more replicates or wider
+      priors — will recover decisive Bayes factors.'
+    why_plausible: 'Sprints 2-4 isolate the ceiling to the per-pair kernel-mean gap, which only
+      observable richness or sigma can move; Phase 3 already showed count vectors give ~100x sharper
+      identification.'
+    mechanism_elements_affected:
+    - inference-observable
+    - marginal-likelihood-separation
+    discriminating_observables:
+    - log BF (truth vs runner-up) under the combined count vector vs distance-of-the-mean
+    - kernel-mean gap Delta log under the richer observable
+    evidence_for:
+    - Phase 3 sprint 13''s combined count vector reached 3.06x truth separation where aggregate metrics plateaued.
+    evidence_against: []
+  - id: spacing-limited
+    statement: 'The ceiling is a hypothesis-spacing artifact, and a coarse-enough grid alone yields
+      decisive evidence.'
+    why_plausible: 'Truth posterior climbs to 61% at 2-way +/-30% spacing.'
+    mechanism_elements_affected:
+    - hypothesis-grid-design
+    discriminating_observables:
+    - log BF vs spacing (does it cross 1 at any spacing?)
+    evidence_for:
+    - Wider spacing does lift the truth posterior.
+    evidence_against:
+    - Even the most favorable 2-way +/-30% subset tops out at log BF +0.45 — below substantial.
+  mechanism_update_proposals:
+  - mechanism_node_or_edge: phase-5-observable
+    update_type: revise
+    rationale: 'Re-run the Bayes-factor sprints against the Phase-3 sprint-13 combined count-vector
+      observable (or a tighter epsilon) before adding replicates or widening priors; N is the least
+      useful lever.'
+    requires_expert_approval: true
+  followup_study_proposals:
+  - id: pdmp-05-count-vector-rerun
+    title: Re-run Bayes-factor sprints on the Phase-3 combined count-vector observable
+    study_type: mechanism_discrimination
+    source_trigger: information_ceiling
+    proposed_experiment: 'Replace the distance-of-the-mean observable with sqrt(d_rna^2 + d_ribosome^2)
+      (or wider transcript_init_prob_scale spacing) and re-compute the unbiased pseudo-marginal log BF;
+      gate on clearing Jeffreys substantial (>1).'
+    expected_information_gain: high
+    expert_gate_required: true
+  - id: pdmp-05-gene-function-benchmark
+    title: Gene-function recovery benchmark on the compiled runtime
+    study_type: validation
+    source_trigger: downstream_gate
+    proposed_experiment: 'Once the Phase-4 column-centric runtime hits <0.05 s/tick, run RR marginal-
+      likelihood model comparison over >=20 benchmark E. coli genes; gate on BH-FDR <= 0.1 with shrinking
+      credible intervals.'
+    expected_information_gain: high
+    expert_gate_required: true

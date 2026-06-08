@@ -1,6 +1,12 @@
 schema_version: 4
 name: pdmp-04-compilation
 title: Phase 4 — Compilation and Performance
+claim: |
+  The real per-tick profile is 76% framework marshalling overhead (13,817 isinstance + 4,213
+  __array_finalize__ + 52 process_update calls/tick), and a column-centric runtime × N-way parallel
+  lockstep projects ~1500× total speedup at N=10³ (26 min → ~1 s), while per-Process Catalyst.jl JIT
+  buys ≤10% — so the architectural answer is a column-centric runtime, NOT per-Process JIT.
+confidence: Accepted
 status: running
 phase: Decide
 topic: pdmp
@@ -19,6 +25,7 @@ created: '2026-05-24'
 parent_studies:
 - study: pdmp-02-jump-processes
   condition: tests-passed
+  relation: leads-to
 question: 'Can the Phase 2 PDMP be exported to a high-performance compiled
 
   representation (Catalyst.jl / ModelingToolkit with symbolic
@@ -582,3 +589,51 @@ embed_visualizations:
   url: /reports/figures/pdmp-04/wcm_baseline_projection.html
   description: 'Real WCM benchmark: pbg sequential at N=10³ × 30 ticks = 26 min; column-centric parallel projection ≈ 1 sec
     = ~1500× total speedup. The Phase-4 closeout headline.'
+discovery_implications:
+  resolved_uncertainties:
+  - 'The production composite per-tick wall is ~52 ms (74 ms single-tick), of which ~76% is framework
+    overhead — and no single Process dominates.'
+  - 'The marshalling hotspots are 13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls
+    per tick; marshalling, not per-Process compute, is the cost driver.'
+  - 'Column-centric prototypes give constant-in-N per-trajectory wall and a per-tick speedup of 1.5x on a
+    realistic TranscriptInitiation-shaped workload (3.1x / 2.8x on toys); combined with N-way lockstep
+    this projects ~1500x at N=1e3 x 30 ticks vs pbg sequential (26 min -> ~1 s).'
+  remaining_uncertainties:
+  - 'The column-centric runtime is validated as prototypes + a projection, NOT as a built runner that
+    reproduces the Phase-2 PDMP trajectory distribution to within 5 sigma MC — numerical equivalence of
+    the vectorized path is unproven.'
+  - 'Whether the column-centric refactor preserves the deterministic (pairwise/Kahan) FP summation order
+    needed for reproducible ABC posteriors across hardware is untested.'
+  alternate_hypotheses:
+  - id: per-process-jit-wins
+    statement: 'Per-Process Catalyst.jl JIT compilation is the right performance attack, recovering most
+      of the per-tick cost.'
+    why_plausible: 'JIT-compiling reaction propensities is the standard speedup for stochastic chemical
+      kinetics.'
+    mechanism_elements_affected:
+    - runtime-architecture
+    - per-tick-compute
+    discriminating_observables:
+    - fraction of per-tick wall in per-Process compute vs framework marshalling
+    - measured speedup of per-Process JIT vs column-centric vectorization
+    evidence_for: []
+    evidence_against:
+    - 'Marshalling is ~76% of per-tick time, so per-Process compilation (which only touches the <=24%
+      compute) buys at most ~10%.'
+  mechanism_update_proposals:
+  - mechanism_node_or_edge: runtime-architecture
+    update_type: replace
+    rationale: 'Adopt a column-centric (pre-allocated per-observable arrays indexed by trajectory x time)
+      vectorized runtime with N-way lockstep stepping; do NOT pursue per-Process Catalyst.jl JIT as the
+      primary lever. Remaining work is engineering, not investigation.'
+    requires_expert_approval: true
+  followup_study_proposals:
+  - id: pdmp-04-column-centric-equivalence
+    title: Numerical-equivalence validation of the column-centric runner vs the Phase-2 PDMP
+    study_type: validation
+    source_trigger: architectural_decision
+    proposed_experiment: 'Build the column-centric runner and verify W2(p_compiled, p_phase2) <= 5 sigma
+      MC with deterministic pairwise/Kahan summation; confirm 1/sqrt(N) posterior variance scaling on an
+      ABC test posterior.'
+    expected_information_gain: high
+    expert_gate_required: true

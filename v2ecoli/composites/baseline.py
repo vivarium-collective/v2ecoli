@@ -148,14 +148,6 @@ FEATURE_MODULES = {
         'insert_after': 'ecoli-mass-listener',
         'steps': ['ecoli-mass-conservation'],
     },
-    # dnaa-3 Rashmi item 1: swap the read-only occupancy OBSERVER for the real
-    # SINK (partitions the free DnaA pool — bound DnaA is removed from free
-    # bulk, lowering free DnaA-ATP + t=0 low-affinity occupancy). The sink
-    # MUTATES bulk and therefore perturbs the cell cycle, so it is opt-in and
-    # needs separate re-validation. Enable via enable_features('dnaa_sink').
-    'dnaa_sink': {
-        'replace': {'dnaa_box_binding_listener': 'dnaa_box_binding_sink'},
-    },
 }
 
 DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation + mass_conservation off by default

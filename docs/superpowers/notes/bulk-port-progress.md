@@ -6,10 +6,10 @@ in `~/code/vivarium-ecoli`) onto v2ecoli's native `Analysis` base.
 ## Summary counts
 
 - Step 0 (compat shim centralization): **DONE**
-- PORTED: 6
+- PORTED: 9
 - SKIPPED: 0
-- BLOCKED: 3
-- Remaining: 16
+- BLOCKED: 4
+- Remaining: 12
 
 ## Infrastructure added
 - `v2ecoli/workflow/analyses/_helpers.py` — native `read_stacked_columns`
@@ -37,7 +37,7 @@ Legend: PORTED (sha) / SKIPPED (reason) / BLOCKED (reason) / TODO
 - multiseed/centralCarbonMetabolismScatter ✓ (pre-existing)
 
 ### single
-- single/blame — TODO
+- single/blame — BLOCKED (upstream plot() is `raise NotImplementedError`; requires --log_updates data + experiment topology, not present in DuckDB output)
 - single/mass_fraction_summary — PORTED (name `mass_fraction_summary_view`; bare name taken by record-based AnalysisStep)
 
 ### multigeneration
@@ -73,9 +73,9 @@ Legend: PORTED (sha) / SKIPPED (reason) / BLOCKED (reason) / TODO
 
 ### multivariant
 - multivariant/average_monomer_counts — TODO
-- multivariant/cell_mass — TODO
-- multivariant/doubling_time_hist — TODO
-- multivariant/doubling_time_line — TODO
+- multivariant/cell_mass — PORTED
+- multivariant/doubling_time_hist — PORTED (skip_n_gens defaults to 0)
+- multivariant/doubling_time_line — PORTED (death-point overlay omitted; no success_sql)
 - multivariant/dummy — PORTED (column-drift canary re-baselined to v2ecoli's 176-col schema)
 - multivariant/new_gene_translation_efficiency_heatmaps — TODO
 

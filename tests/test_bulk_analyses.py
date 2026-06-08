@@ -26,6 +26,9 @@ PORTED = [
     ("dummy", "multivariant"),
     ("mass_fraction_summary_view", "single"),
     ("replication", "multigeneration"),
+    ("cell_mass", "multivariant"),
+    ("doubling_time_hist", "multivariant"),
+    ("doubling_time_line", "multivariant"),
 ]
 
 

@@ -12,3 +12,6 @@ from v2ecoli.workflow.analyses import ptools_multiscale  # noqa: F401
 from v2ecoli.workflow.analyses import dummy  # noqa: F401
 from v2ecoli.workflow.analyses import mass_fraction_summary_view  # noqa: F401
 from v2ecoli.workflow.analyses import replication  # noqa: F401
+from v2ecoli.workflow.analyses import cell_mass  # noqa: F401
+from v2ecoli.workflow.analyses import doubling_time_hist  # noqa: F401
+from v2ecoli.workflow.analyses import doubling_time_line  # noqa: F401

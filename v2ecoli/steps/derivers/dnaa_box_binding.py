@@ -105,7 +105,7 @@ class DnaaBoxBinding(Step):
         # the gen-1 cell cycle preserved (divides at 60 min, oriC reaches 2, zero
         # re-init). -1 = ALL live boxes (~302, legacy / read-only listener).
         # Overridable per-run via env var DNAA_N_CHROM_HIGH_CAP.
-        "n_chrom_high_cap": "integer{32}",
+        "n_chrom_high_cap": "integer{-1}",
         # SINK MODE (dnaa-3 Rashmi item 1). When False (default) the step is a
         # pure read-only OBSERVER: it never returns a ``bulk`` delta, so the
         # validated dnaa-2 cell cycle is preserved exactly. When True it becomes

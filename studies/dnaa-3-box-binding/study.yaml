@@ -85,18 +85,14 @@ report:
       because modeled DnaA abundance exceeds box capacity). The CAUSE is an OPEN
       QUESTION — candidate factors are ours (DnaA abundance, box K_d, or unmodeled
       sinks such as datA, out of scope); Haochen did NOT name a cause.
-      LITERATURE-GROUNDED RESOLUTION (2026-06-06) — two genuine causes, neither a
-      simple "add boxes" fix: (i) ABUNDANCE — the model carries ~581 DnaA/cell
-      (~300-500 per oriC over the cycle) vs the literature ~200 DnaA per oriC
-      (Si/Sekar; Hansen), i.e. ~1.5-2x high; roughly halving DnaA toward ~200/oriC
-      would move free DnaA toward <100 nM on its own. (ii) SEQUESTRATION PHYSICS —
-      genome-wide ChIP-seq finds only ~13 strongly DnaA-bound regions, not the ~300
-      loose-consensus motif sites the model's chromosomal pool approximates (Smith
-      2024 DnaA-binding landscape), and the dominant titration is the datA locus
-      (cooperative, high-capacity; out of scope). So dnaa3_box_variants (more
-      independent boxes) is a crude SENSITIVITY proxy, not the biophysics; the real
-      levers are DnaA abundance (the dnaa-1 expression calibration) and datA
-      cooperative titration (deferred). Canonical model unchanged; flagged for review. (4b) the
+      [WITHDRAWN 2026-06-08 per Rashmi — an earlier agent introduced OUTSIDE references
+      (Smith 2024 ChIP-seq; Si/Sekar; Hansen) and a datA cooperativity mechanism that
+      were NOT provided; "do not use mechanisms/references other than the ones explicitly
+      provided." Strictly only provided mechanisms are modeled. Rashmi's point: with the
+      correct DnaA-ATP fraction (0.2-0.5, from the provided dnaa-2 nucleotide-balance
+      mechanism) the low-affinity sites do not all saturate, so no box cap, added sink,
+      or outside literature is needed — the apparent over-binding was a premise artifact,
+      not a missing mechanism.] (4b) the
       occupancy illustration now shows oriC DOUBLING at replication (11→22 boxes);
       (5) the model DOES emit cell volume (listeners.mass.volume ≈0.9 fL), so all
       concentrations are now nM, comparable to the nM K_d values.
@@ -173,20 +169,6 @@ references:
     Biology source. 11 oriC boxes (3 high-aff R1/R2/R4; 8 low-aff R5M, τ2, I1,
     I2, C3, C2, I3, C1), affinity ranges (high ≈1 nM; low >100 nM), nucleotide
     specificity (high bind ATP+ADP; low prefer ATP), dnaA-promoter box layout.
-- name: dnaa-abundance-per-oric
-  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC7822741/
-  role: |
-    DnaA abundance reality-check (Haochen 4a): ~200 DnaA molecules per oriC across
-    growth rates 0.6-2.3 dbl/h; total DnaA scales ~100x from ~0.5 to ~3 dbl/h. The
-    model's ~300-500 DnaA/oriC (succinate) is ~1.5-2x this — a contributing cause
-    of the >100 nM free DnaA.
-- name: dnaa-binding-landscape-chipseq
-  url: https://pmc.ncbi.nlm.nih.gov/articles/PMC11317965/
-  role: |
-    Genome-wide DnaA-binding landscape (Smith 2024): ChIP-seq finds only ~13
-    strongly DnaA-bound regions (32 strict-consensus TTATCCACA sites), with DnaA
-    preferring closely-spaced box PAIRS bound by dimers — i.e. the ~300 loose-motif
-    chromosomal pool is not the in-vivo titration; datA (cooperative) dominates.
 - name: oric-sequence
   path: ../../workspace/references/dnaa/oric_sequence.pdf
   role: |
@@ -948,54 +930,6 @@ findings:
     run_ids:
     - dnaa3-seed1-8gen
     verified_by: scripts/render_dnaa3_binding_analysis.py
-- id: sink-capacity-tuned-to-chipseq-resolves-overbinding
-  kind: computational
-  status: novel
-  statement: |
-    Capping the chromosomal high-affinity DnaA-box pool the SINK titrates — from
-    the model's ~302 loose-consensus (TTWTNCACA) boxes down toward the ChIP-seq
-    strong-site count (Smith 2024: ~13 strongly DnaA-bound regions / 32 strict
-    consensus) — resolves the sink's over-titration. Sweep over
-    DNAA_N_CHROM_HIGH_CAP = {302, 32, 13}, each as a 55-min observer artifact
-    (full per-tick trajectory, 3301 ticks) plus a divided run (cycle), on the
-    cache_dnaa3 succinate baseline (seed 1, dnaa_sink enabled):
-
-      cap | free DnaA-ATP nM (mean/median) | oriC low-aff occ (early-2min / mean / max) | oriC high-aff | divides (tau) | oriC->2 | reinit
-      302 |  0.4 / 0.0   | 0.05 / 0.003 / 0.40 | 0.69 | yes (58 min) | yes | no   (OVER-titrates: free DnaA ~0)
-       32 | 44.2 / 13.7  | 0.05 / 0.235 / 0.54 | 0.91 | yes (60 min) | yes | no   (CHOSEN — physiological window)
-       13 | 128.7/ 149.2 | 0.09 / 0.526 / 0.67 | 0.99 | yes (60 min) | yes | no   (UNDER-sinks: free DnaA back >K_d)
-
-    cap=302 drains free DnaA-ATP to ~0 (the over-capacity Rashmi/Haochen flagged,
-    inverted); cap=13 leaves free DnaA-ATP ~129 nM, back ABOVE the 100 nM
-    oriC-low K_d with oriC-low occupancy ~0.53 (the over-binding Rashmi flagged).
-    cap=32 is the physiological choice: free DnaA-ATP ~44 nM (median 14) — below
-    the K_d but not collapsed; early-cycle oriC low-affinity occupancy is LOW
-    (~0.05, resolving the t=0 over-occupancy — the read-only listener had ~0.52),
-    rising to ~0.51 late-cycle toward initiation; high-affinity oriC stays
-    saturated (0.91); the gen-1 cell cycle is preserved (divides at 60 min, oriC
-    reaches 2, zero re-initiation). Default set to 32 in DnaaBoxBinding
-    (n_chrom_high_cap), grounded in ChIP-seq — the ~302 loose-motif pool is NOT
-    the in-vivo titration sink (datA, out of scope, dominates). Addresses Rashmi
-    2026-06-07 item 1 ("free DnaA-ATP too high; t=0 low-affinity oriC boxes
-    should not be occupied that much"). The cap is sweepable
-    (config n_chrom_high_cap or env DNAA_N_CHROM_HIGH_CAP); the read-only
-    occupancy LISTENER is unaffected (it reports the true ~302 box catalog) — only
-    the opt-in sink uses the cap. MULTI-GEN STATUS: validated gen-1 only. The
-    sink's _sunk_atp counter resets per composite instance, so across division
-    the daughter does not inherit the mother's held-out DnaA — a fuller multi-gen
-    fix needs bound DnaA modeled as a real bulk species that partitions at
-    division (or a pre-division release hook).
-  evidence:
-    from_run: |
-      dnaa3-sink-cap{302,32,13} observer artifacts (full per-tick trajectory) +
-      dnaa3_sink_sweep divided runs (cycle); summary in
-      parquet-runs/dnaa3_sink_capacity_sweep_summary.json
-  provenance:
-    run_ids:
-    - dnaa3-sink-cap32
-    - dnaa3-sink-cap13
-    - dnaa3-sink-cap302
-    verified_by: scripts/sweep_dnaa_sink_capacity.py (DNAA_N_CHROM_HIGH_CAP) + cache_dnaa3 (ParCa --mode full)
 discovery_implications:
   resolved_uncertainties:
   - DnaA-box binding equilibrium fits the current DnaA concentration range (315 boxes, 4 affinity pools, fast equilibrium).

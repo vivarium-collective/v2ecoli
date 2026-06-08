@@ -2,7 +2,7 @@ schema_version: 2
 name: dnaa-replication
 title: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)
 created: '2026-05-29'
-status: active   # 2026-06-03 (feat/aim2-dnaa-oric): dnaa-0, dnaa-1 PASS (foundation). dnaa-2 PASS (Rashmi's generation-average criterion, seed-1 8-gen). dnaa-2 PASS — on Rashmi's 2026-06-04 generation-average criterion (initial gens stabilize) all four behaviours pass (DnaA-ATP fraction avg 0.26, total-DnaA avg 535, mass-doubling, oriC-one-init).
+status: active   # 2026-06-08: dnaa-0 PASS; dnaa-1 RE-VALIDATED → FAIL (DnaA pool out of band on full per-gen history; prior PASS was a truncated-emit artifact); dnaa-3 over-binding persists. Earlier: dnaa-0, dnaa-1 PASS (foundation). dnaa-2 PASS (Rashmi's generation-average criterion, seed-1 8-gen). dnaa-2 PASS — on Rashmi's 2026-06-04 generation-average criterion (initial gens stabilize) all four behaviours pass (DnaA-ATP fraction avg 0.26, total-DnaA avg 535, mass-doubling, oriC-one-init).
 
 question: |
   Can v2ecoli reproduce DnaA-driven replication initiation in succinate at
@@ -35,25 +35,45 @@ lead: |
 executive:
   what_is_this: |
     v2ecoli + DnaA-driven chromosome replication initiation under the succinate
-    growth condition, built study-by-study. The dnaa-0 + dnaa-1 foundation
-    (succinate periodic steady state + DnaA expression in band) is established and
-    PASSED; dnaa-2 (DnaA-ATP/ADP nucleotide balance) PASSED (Haochen's bf8b82e
-    mechanism; all four behaviours in band on Rashmi's generation-average criterion); dnaa-3 (DnaA-box binding) is now PREPARED for Rashmi/Haochen
-    review. Each study has an explicit acceptance criterion in biological
-    observables (oriC periodicity, DnaA pool steady state, DnaA-ATP fraction band).
-  verdict: Foundation (dnaa-0/1/2) PASS; dnaa-3 box binding runs IN-SIM as the provided read-only occupancy listener (4 pools, fast equilibrium, full box set). Per Rashmi 2026-06-08, the cap=32/Smith-2024 and sink additions were NON-provided and have been withdrawn; the apparent over-binding is governed by the DnaA-ATP fraction (provided dnaa-2 mechanism), not a box cap. Pending — multi-gen read-only run plus the full plot set Rashmi requested.
+    growth condition, built study-by-study. dnaa-0 (succinate periodic steady
+    state) PASSES. A per-generation parquet-emit bug that had been truncating each
+    generation's history to the post-division trough was fixed (2026-06-08); re-running
+    on the full per-gen history overturned two earlier verdicts: dnaa-1 (DnaA
+    expression at V=1.7e-3) is now FAIL — the DnaA pool is not band-stable over a full
+    lineage — and dnaa-3 (DnaA-box binding) shows the over-binding PERSISTS. dnaa-2
+    (DnaA-ATP/ADP nucleotide balance) PASSED on the pre-fix data and shares the same
+    truncation-artifact risk (re-verification pending). Each study has an explicit
+    acceptance criterion in biological observables (oriC periodicity, DnaA pool steady
+    state, DnaA-ATP fraction band).
+  verdict: |-
+    dnaa-0 PASS. dnaa-1 RE-VALIDATED → FAIL on full per-gen history: V=1.7e-3 (genuinely
+    applied — baked into the ParCa cache and confirmed) holds the dnaA init rate elevated
+    (~1.2-1.8/min) and oriC clean (1↔2), but the DnaA monomer pool ramps out of band
+    [300,800] (cycle-mean 196→1131, above band from gen 4 on). The earlier in-band PASS
+    was a TRUNCATED-EMIT ARTIFACT — only the post-division trough (~43 s/gen) was emitted
+    before the now-fixed division history-wipe bug. dnaa-3 box binding runs IN-SIM as the
+    provided read-only occupancy listener; per Rashmi 2026-06-08 the cap=32/Smith-2024 and
+    sink/abundance/datA additions were NON-provided and are WITHDRAWN. The multi-gen
+    read-only run + full plot set are DONE and show the over-binding PERSISTS: free DnaA-ATP
+    ~380-550 nM (≈4× the 100 nM oriC-low K_d) for 100% of every cycle across 7 gens,
+    oriC-low occupancy ~0.8 throughout — NOT resolved by the correct DnaA-ATP fraction
+    (0.23, in band). An honest open question within the provided mechanisms for Rashmi/Haochen.
   verdict_status: in-progress
   verdict_detail: |-
     Both foundational studies PASS. dnaa-0: v2ecoli reaches the succinate
     periodic steady state (oriC 1↔2 from gen 3, transient 4 in gens 1–2;
     reviewer-confirmed). Both acceptance tests re-verified from the parquet
     (2026-05-31, scripts/verify_dnaa0_acceptance.py): oriC max ≤2 from gen 3,
-    cell_mass CV birth 0.021 / peak 0.045. dnaa-1: Mechanism A (TU00259[c])
-    lands the dnaA mRNA init rate near ≈1 event/min and holds the DnaA pool
-    cycle-mean in band [300,800] while preserving the oriC cycle.
-    The two-study foundation for succinate DnaA-driven replication
-    initiation is established; mechanism / box-binding / extrinsic studies
-    can now be designed on top in a future round.
+    cell_mass CV birth 0.021 / peak 0.045. dnaa-1 — RE-VALIDATED 2026-06-08 → FAIL:
+    Mechanism A (TU00259[c]=1.7e-3, baked into the ParCa cache and confirmed applied)
+    lands the dnaA mRNA init rate at ~1.2-1.8 events/min and keeps oriC periodic 1↔2,
+    BUT on the full per-gen history the DnaA monomer pool is NOT band-stable — the
+    cycle-mean ramps 196→1131 and sits above [300,800] from gen 4 on. The earlier
+    "in-band 665-710" was a truncated-emit artifact: only ~43 s/gen (the post-division
+    trough, the lowest point of the sawtooth) was emitted before the now-fixed division
+    history-wipe bug. The cell cycle is preserved; the band test is not met. So dnaa-0
+    holds, but the dnaa-1 foundation does NOT — V=1.7e-3 does not keep the DnaA pool in
+    band over a lineage, and the expression-tuning question is reopened.
 
     2026-05-31 reviewer round (Rashmi): (1) dnaa-0 + dnaa-1 now carry explicit
     `runs:` provenance + canonical 6-axis status, so the report shows them as
@@ -89,10 +109,10 @@ executive:
     binding to 315 boxes in 4 affinity pools (302 chromosomal-high, 3 oriC-high, 8
     oriC-low, 2 promoter-high) in fast equilibrium on the dnaa-2 baseline, without
     changing initiation. Design complete + a 6-step build plan; the 307-box
-    chromosome map + the dnaa-2 baseline figure are attached. Not yet built/run;
-    gated on dnaa-2's baseline holding. This is the study going back to Rashmi/Haochen.
+    chromosome map + the dnaa-2 baseline figure are attached. NOW BUILT + RUN
+    (the read-only listener; see the 2026-06-07/08 update below).
 
-    dnaa-3 (2026-06-07/08): the in-sim DnaA-box binding fires correctly inside the simulation as the PROVIDED read-only occupancy listener (4 affinity pools, fast equilibrium, full box set; three wiring fixes: bulk port type, read-only output topology, emitter overwrite-vs-accumulate). It reports free DnaA-ATP and per-pool occupancy with the dnaa-2 cell cycle preserved exactly. CORRECTION (Rashmi 2026-06-08): an earlier pass had added a box-capacity cap=32 justified by outside ChIP-seq (Smith 2024) plus a DnaA sink and abundance/datA literature — none of which were provided. These have been WITHDRAWN; only the provided mechanisms are modeled. Per Rashmi, with the correct DnaA-ATP fraction (0.2-0.5, from the provided dnaa-2 nucleotide-balance mechanism) the low-affinity sites do not all saturate, so no cap/sink is warranted. Remaining: a multi-generation read-only run plus the full plot set Rashmi requested (oriC, cell mass, all DnaA forms bound+free, concentrations, ATP/ADP fraction across generations; box occupancy shown at a steady-state generation).
+    dnaa-3 (2026-06-07/08): the in-sim DnaA-box binding fires correctly inside the simulation as the PROVIDED read-only occupancy listener (4 affinity pools, fast equilibrium, full box set; three wiring fixes: bulk port type, read-only output topology, emitter overwrite-vs-accumulate). It reports free DnaA-ATP and per-pool occupancy with the dnaa-2 cell cycle preserved exactly. CORRECTION (Rashmi 2026-06-08): an earlier pass had added a box-capacity cap=32 justified by outside ChIP-seq (Smith 2024) plus a DnaA sink and abundance/datA literature — none of which were provided. These have been WITHDRAWN; only the provided mechanisms are modeled. The multi-generation read-only run (7 gens, full per-gen history) and the full plot set Rashmi requested are now DONE (oriC, cell mass, all DnaA forms bound+free, concentrations, ATP/ADP fraction across generations; box occupancy at a steady-state generation). HONEST FINDING: the over-binding PERSISTS within the provided model. The DnaA-ATP fraction is in band (0.23), but free DnaA-ATP stays ~380-550 nM — ≈4× the 100 nM oriC-low K_d — for 100% of every cycle across all 7 generations, so oriC-low occupancy holds ~0.8 throughout (high-affinity pools saturate). So contrary to the 2026-06-08 expectation, the correct DnaA-ATP fraction does NOT by itself leave the low-affinity sites modestly occupied; the over-binding is a real open question within the provided mechanisms (nothing in the provided read-only model lowers free DnaA-ATP), and we are NOT re-introducing a cap/sink to force it down. The withdrawn ideas (Smith ChIP-seq, abundance, datA) are recorded as proposed_inputs for Rashmi to Accept or Decline in the report.
   decisions_needed:
   - question: "dnaa-2 — RESOLVED + PASS (was the mechanism + clean-reproduction question)."
     status: |
@@ -166,7 +186,7 @@ scientific_argument:
     across generations.
   evidence_for:
   - 'dnaa-0 (CONFIRMED 2026-05-30, Rashmi "this looks correct"): succinate single-daughters lineage is periodic from gen 3 onwards — oriC 1↔2, cell mass sawtooth, every division fires with d_period_elapsed=True and chromosomes=2 at the split (Round 3.7 D-period fix in place). The early-generation oriC overshoot to 4 is the expected pre-steady-state transient. Gen-3 state saved as the canonical succinate initial condition.'
-  - 'dnaa-1 (PASS 2026-05-30, real full-cycle data, dnaa1-mechA-7gen-pristine, all 7 gens clean): Mechanism A (TU00259[c]=2e-3) lands the dnaA mRNA initiation rate at median 0.99 events/min — on the biological ≈1/min target (Rashmi exemplar 1.01/min) — and, as the consequence, holds the DnaA monomer pool cycle-mean in band [300,800] (mean 706, cross-gen CV 7.2% over gens 3–7). oriC stays periodic 1↔2 (never 4) under the lifted expression, so the cell cycle from dnaa-0 is preserved. (Required fixing a division-time parquet-emitter partition-wipe bug — daughters were deleting the parent generation''s history; see dnaa-1 report + v2ecoli/steps/division.py.)'
+  - 'dnaa-1 (RE-VALIDATED 2026-06-08 → FAIL — the earlier PASS used truncated-emit data; the in-band numbers below are the post-division TROUGH only. On the full per-gen history the DnaA pool ramps OUT of band, cycle-mean 196→1131, above [300,800] from gen 4. Init rate elevated + oriC clean, but the band test fails): Mechanism A (TU00259[c]=2e-3) lands the dnaA mRNA initiation rate at median 0.99 events/min — on the biological ≈1/min target (Rashmi exemplar 1.01/min) — and, as the consequence, holds the DnaA monomer pool cycle-mean in band [300,800] (mean 706, cross-gen CV 7.2% over gens 3–7). oriC stays periodic 1↔2 (never 4) under the lifted expression, so the cell cycle from dnaa-0 is preserved. (Required fixing a division-time parquet-emitter partition-wipe bug — daughters were deleting the parent generation''s history; see dnaa-1 report + v2ecoli/steps/division.py.)'
   evidence_against:
   - 'Within each cycle the DnaA pool OSCILLATES above the [300,800] band at its pre-division peak (≈1000) before halving at division — so the band holds for the cycle-MEAN, not every instantaneous tick. This is the expected accumulate-then-divide behaviour, not a contradiction, but worth stating: "in band" here means cycle-typical, not a hard cap.'
   caveats:

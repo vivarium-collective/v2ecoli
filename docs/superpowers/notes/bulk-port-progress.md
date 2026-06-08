@@ -6,10 +6,10 @@ in `~/code/vivarium-ecoli`) onto v2ecoli's native `Analysis` base.
 ## Summary counts
 
 - Step 0 (compat shim centralization): **DONE**
-- PORTED: 12
+- PORTED: 13
 - SKIPPED: 0
 - BLOCKED: 4
-- Remaining: 9
+- Remaining: 8
 
 ## Infrastructure added
 - `v2ecoli/workflow/analyses/_helpers.py` — native `read_stacked_columns`
@@ -41,7 +41,7 @@ Legend: PORTED (sha) / SKIPPED (reason) / BLOCKED (reason) / TODO
 - single/mass_fraction_summary — PORTED (name `mass_fraction_summary_view`; bare name taken by record-based AnalysisStep)
 
 ### multigeneration
-- multigeneration/new_gene_counts — TODO
+- multigeneration/new_gene_counts — PORTED (orderings from sim_data; informational view when no new genes present)
 - multigeneration/ptools_proteins — PORTED (multiscale module; abs-time wrapper) — name `ptools_proteins_multigeneration`
 - multigeneration/ptools_rna — PORTED (multiscale module; abs-time wrapper) — name `ptools_rna_multigeneration`
 - multigeneration/ptools_rxns — PORTED (multiscale module; abs-time wrapper) — name `ptools_rxns_multigeneration`

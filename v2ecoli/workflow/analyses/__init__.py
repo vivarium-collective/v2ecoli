@@ -18,3 +18,4 @@ from v2ecoli.workflow.analyses import doubling_time_line  # noqa: F401
 from v2ecoli.workflow.analyses import ribosome_production  # noqa: F401
 from v2ecoli.workflow.analyses import ribosome_components  # noqa: F401
 from v2ecoli.workflow.analyses import ribosome_usage  # noqa: F401
+from v2ecoli.workflow.analyses import new_gene_counts  # noqa: F401

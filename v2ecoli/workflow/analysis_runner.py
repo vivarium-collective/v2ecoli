@@ -91,8 +91,9 @@ def scale_history_sql(scale: str, from_clause: str, key: tuple) -> str:
 def resolve_sim_data(sweep_dir: str):
     """Locate + load the sweep's ParCa sim_data via v2ecoli's loader."""
     from v2ecoli.library.sim_data import LoadSimData
-    for pat in ("sim_data*.cPickle", "sim_data*.pkl", "**/sim_data*.cPickle",
-                "**/kb/simData*.cPickle"):
+    for pat in ("sim_data*.cPickle", "sim_data*.pkl", "simData*.cPickle",
+                "**/sim_data*.cPickle", "**/kb/simData*.cPickle",
+                "**/simData*.cPickle"):
         hits = glob.glob(os.path.join(sweep_dir, pat), recursive=True)
         if hits:
             return LoadSimData(sim_data_path=hits[0]).sim_data

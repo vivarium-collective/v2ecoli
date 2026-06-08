@@ -9,11 +9,21 @@ Agent IDs follow vEcoli's lineage convention: gen N uses agent_id "0"*N
 ("0", "00", "000", ...). This way ``generation = len(agent_id)`` matches
 vEcoli's parquet partitioning semantics.
 
-Transient daughter emitters spawned inside the composite at division time
-write to ``gen=N+1/agent_id=00 or 01/`` partitions (see Division step's
-metadata override). When the next runner-driven gen opens its ctx mgr,
-its ``_write_configuration`` wipes whichever of those partitions matches —
-so the runner-driven sim's history is the source of truth per gen.
+Full per-gen history retention (the vEcoli-aligned mechanism):
+  * The runner-driven cell emits its WHOLE cycle to its own partition
+    ``generation=N/agent_id="0"*N``. The in-composite Division step
+    closes that emitter with ``success=True`` BEFORE it ``_remove``-s the
+    agent (see Division.next_update), so the trailing partial batch + the
+    success sentinel land on disk — mirroring vEcoli's pre-divide
+    ``emitter.finalize()`` hook in ecoli_master_sim.py.
+  * Transient daughter emitters spawned inside the composite at division
+    time are re-pointed to their OWN slot
+    ``generation=N+1/agent_id="0"*N+{0,1}`` (Division re-points the parquet
+    override during the daughter build) so their ``_write_configuration``
+    can NOT wipe the parent's fully-written partition. The d?0 daughter
+    slot is later re-wiped + rewritten cleanly by the next runner-driven
+    generation; the d?1 slot leaves a 1-tick birth stub (ignore it — the
+    canonical lineage is the all-zeros agent_id chain).
 
 Usage:
     python scripts/run_condition_multigen_parquet.py \\
@@ -101,10 +111,12 @@ def _run_gen(comp: Composite, max_duration: int, gen_idx: int) -> tuple[float, b
             dry = _fg(cur["listeners"]["mass"].get("dry_mass", 0))
             print(f"    gen {gen_idx}: t={total/60:5.1f} min  dry_mass={dry:.1f} fg")
 
-    # Pre-divide finalize hook (in division.py) already closed the parent
-    # emitter for us if divided=True, but call flush_all_in_composite as a
-    # belt-and-suspenders no-op for any in-composite daughter emitters or
-    # the non-divided edge case.
+    # When divided=True the Division step already close(success=True)-d the
+    # parent emitter (via the per-agent registry) BEFORE tearing the agent
+    # subtree down, so the full per-gen history + success sentinel are on
+    # disk. flush_all_in_composite is the belt-and-suspenders path for the
+    # non-divided edge case (last gen): it closes any still-live emitter so
+    # the trailing batch is durable. On divide it's a no-op (agent gone).
     n_closed = ParquetEmitter.flush_all_in_composite(comp, success=divided)
     if n_closed:
         print(f"    gen {gen_idx}: flushed {n_closed} ParquetEmitter instance(s)")

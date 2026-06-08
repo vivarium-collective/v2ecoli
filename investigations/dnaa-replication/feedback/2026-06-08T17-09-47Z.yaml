@@ -1,0 +1,21 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260608164837"
+  generated_at: "2026-06-08T17:09:47.851Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-06-08-4.html"
+annotations:
+  "study-dnaa-1-expression-charts":
+  - ts: "2026-06-08T17:09:20.940Z"
+    author: "Rashmi"
+    text: "this v value might be too low. Can you plot the sweep results of all v values, so that we can choose the best one?"
+responses:
+  study-dnaa-1-expression-charts:
+    status: in-progress
+    by: claude
+    at: '2026-06-08'
+    response: |-
+      Agreed — V=0.8e-3 keeps the DnaA pool in band but at a sub-physiological init rate, so it may be too low. Extending the sweep with intermediate V values (0.9e-3, 1.1e-3) around the existing 0.8/1.0/1.7e-3, and building a 'choose-the-V' figure: (top) DnaA-pool steady-state envelope (trough/mean/peak) vs the [300,800] band, (bottom) dnaA init rate vs the ~1/min target — both as a function of V, with the in-band and on-target regions marked. You'll see the band-vs-rate tradeoff across all V and can pick the best. Each run's V is recorded via provenance. Will report the figure + the full sweep table.

@@ -1,0 +1,21 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260608220539"
+  generated_at: "2026-06-08T23:22:09.463Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-08-5.html"
+annotations:
+  "study-dnaa-1-expression-charts":
+  - ts: "2026-06-08T23:22:06.456Z"
+    author: "Rashmi"
+    text: "try 1.2e and 1.3e as well and lets do a multiseed simulation to see if we can find a simulation where DnaA levels oscillate within band maintaining steady state dynamics."
+responses:
+  study-dnaa-1-expression-charts:
+    status: in-progress
+    by: claude
+    at: '2026-06-08'
+    response: |-
+      Running both actions: (1) extending the V sweep to 1.2e-3 and 1.3e-3 (seed 1), added to the choose-the-V figure; (2) a MULTISEED run at V=1.2e-3 across seeds {0,1,2,3} to test whether a different seed lands the DnaA pool oscillating within [300,800] while maintaining steady-state dynamics (periodic mass-doubling, oriC 1↔2). Full per-gen history, sequential on the mini, V recorded via provenance. Will report the extended sweep + the per-seed DnaA-pool envelopes + cell-cycle check — i.e. whether any seed achieves in-band-and-steady at the higher V, or whether the peak/rate tension holds across seeds.

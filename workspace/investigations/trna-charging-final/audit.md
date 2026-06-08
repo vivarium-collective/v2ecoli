@@ -209,3 +209,26 @@ CI workflows (`.github/workflows/*`), Jenkins, Docker, Nextflow, runscripts/, do
 - Other process deltas (Task #4).
 - Composite wiring (new `kinetic_charging_baseline` architecture) and behavior test.
 - `scripts/build_cache.py` rebuild + full ParCa run + behavior tests + reports.
+
+---
+
+## Task #6 progress log
+
+**2026-06-08 — ParCa dataclass deltas (uncommitted at write time).**
+
+### Applied (real tRNA-charging deltas)
+- `dataclasses/process/translation.py`: added `cleavage_of_initial_methionine` column to `monomer_data` struct (bool, no unit). Used downstream by KineticTrnaChargingModel to know which proteins start at M+1.
+- `dataclasses/molecule_groups.py`: added `codons` (generated 4³ minus UAA/UAG stop codons), `initiator_trnas` (4 fMet-tRNAs), `elongator_trnas` (2 elongator Met-tRNAs).
+- `simulation_data.py`: added `self.codon_read_rate = {}` initialization (parallel to `translation_supply_rate`). Used by `Relation._build_trna_charging_kinetics` and the optimization loop.
+- `dataclasses/process/transcription.py`:
+  - Added `anticodon` (`U3`) column to `cistron_data`, populated from `raw_data.rnas[*]["anticodon"]` for tRNAs (empty string for non-tRNAs).
+  - Changed `aa_from_trna` dtype from float to `int` (matches new integer-mapping convention from upstream commit `bf0c2c3e Integer mapping matrix for tRNAs to amino acids`).
+- `dataclasses/growth_rate_dependent_parameters.py`: rewrote `_build_trna_data` from legacy multi-file (`trna_data/trna_ratio_to_16SrRNA_*.tsv`) to anticodon-based mapping from single `trnas.tsv`. Adds `from Bio.Seq import reverse_complement_rna` for sequence-disambiguation of ambiguous Kurland-tRNA → WCM-tRNA matches. Output matrix is now `(n_trnas, n_growth_rates)` — `get_trna_distribution` adjusted accordingly.
+
+### Skipped (upstream-master infra reversion, not tRNA-charging)
+- `dataclasses/process/two_component_system.py` (+103 lines of diff): trna_charging_final **removes** `modified_molecules` attribute + `make_modified_molecule_list`, drops `_buildComplexToMonomer`'s `sim_data` parameter, removes compartment-tag validation. All of that was added on upstream master after trna_charging_final was branched. Reverting it on v2ecoli would be a regression unrelated to tRNA.
+- `scripts/nca/run_all.py` (+45 lines of diff): drops `r"..."` raw-string prefixes on regex literals. Pure upstream-branch noise (master added them; trna_charging_final pre-dates that). Reverting would re-introduce `DeprecationWarning`s under Python 3.12+.
+
+### Verified
+- All 5 modified files pass `py_compile`.
+- `KnowledgeBaseEcoli` instantiates in 1.5 s (44 trnas, 5680 optimization solutions accessible) with the new `anticodon` field present on every `rnas` row.

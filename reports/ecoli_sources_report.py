@@ -38,6 +38,38 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _DOCS_DIR = _REPO_ROOT / "docs"
+_PYPROJECT = _REPO_ROOT / "pyproject.toml"
+
+_ECOLI_SOURCES_RAW_BASE = (
+    "https://raw.githubusercontent.com/vivarium-collective/ecoli-sources"
+)
+
+
+# ---------------------------------------------------------------------------
+# Helper: read the pinned ecoli-sources rev SHA from pyproject.toml
+# ---------------------------------------------------------------------------
+def _ecoli_sources_rev() -> str | None:
+    """Parse the pinned `rev` SHA for ecoli-sources from [tool.uv.sources].
+
+    Returns the SHA string, or None if the dependency is pinned to a branch
+    (or otherwise has no `rev`), in which case the caller should fall back to
+    base64-embedding the file.
+    """
+    try:
+        try:
+            import tomllib  # py3.11+
+        except ModuleNotFoundError:  # pragma: no cover
+            import tomli as tomllib  # type: ignore
+        with open(_PYPROJECT, "rb") as f:
+            data = tomllib.load(f)
+        src = data.get("tool", {}).get("uv", {}).get("sources", {}).get("ecoli-sources")
+        if isinstance(src, dict):
+            rev = src.get("rev")
+            if isinstance(rev, str) and rev.strip():
+                return rev.strip()
+    except Exception:
+        pass
+    return None
 
 # ---------------------------------------------------------------------------
 # CSS
@@ -135,34 +167,58 @@ def _filelink(path: Path, label: str) -> str:
 # ---------------------------------------------------------------------------
 def section_inputs() -> str:
     from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
+    from ecoli_sources import DATA_DIR
 
     b = SourceBundle()
     index = b._index  # {canonical_key: Path}
+    data_dir = Path(DATA_DIR).resolve()
 
-    # Classify each key
+    # Classify each key: overrides live under flat_overrides/ (diverged locally)
     overrides = {k for k, p in index.items() if "flat_overrides" in str(p)}
 
     total_bytes = sum(p.stat().st_size for p in index.values() if p.exists())
     total_mb = total_bytes / 1024 / 1024
 
-    EMBED_THRESHOLD_MB = 25.0
-    embed_all = total_mb <= EMBED_THRESHOLD_MB
-
-    if embed_all:
-        strategy = (
-            f"Embedding strategy: <strong>all {len(index)} files inline</strong> "
-            f"as <code>data:</code> URIs (total {total_mb:.2f} MB ≤ {EMBED_THRESHOLD_MB:.0f} MB threshold)."
-        )
-        print(f"[inputs] Embedding ALL files (total {total_mb:.2f} MB, threshold {EMBED_THRESHOLD_MB} MB)")
+    # Pinned ecoli-sources commit drives the raw.githubusercontent.com links.
+    rev = _ecoli_sources_rev()
+    if rev:
+        print(f"[inputs] ecoli-sources pinned at rev {rev}; "
+              f"inherited files -> raw.githubusercontent.com links")
     else:
-        strategy = (
-            f"Embedding strategy: <strong>partial</strong> — "
-            f"only the 3 v2ecoli overrides + rnaseq datasets are embedded as <code>data:</code> URIs; "
-            f"remaining {len(index) - 3} files are <code>file://</code> links "
-            f"(total {total_mb:.2f} MB exceeds {EMBED_THRESHOLD_MB:.0f} MB threshold)."
+        print("[inputs] WARNING: no `rev` SHA parsed from pyproject.toml "
+              "[tool.uv.sources].ecoli-sources (branch pin?); "
+              "falling back to base64-embedding inherited files")
+
+    n_linked = 0
+    n_embedded_fallback = 0
+
+    def _raw_url(p: Path) -> str | None:
+        """Pinned GitHub raw URL for an inherited file, or None if unmappable."""
+        if not rev:
+            return None
+        try:
+            rel = p.resolve().relative_to(data_dir).as_posix()
+        except Exception as e:
+            print(f"[inputs] WARNING: {p} not under DATA_DIR ({e}); embedding instead")
+            return None
+        return f"{_ECOLI_SOURCES_RAW_BASE}/{rev}/ecoli_sources/data/{rel}"
+
+    strategy = (
+        f"Embedding strategy: <strong>split</strong> — "
+        f"the {len(index) - len(overrides)} inherited files link to the "
+        f"pinned <code>ecoli-sources</code> commit "
+        + (f"(<code>{html.escape(rev[:12])}…</code>) " if rev else "")
+        + f"on GitHub (<code>raw.githubusercontent.com</code>); the "
+        f"{len(overrides)} v2ecoli overrides are embedded inline as "
+        f"<code>data:</code> URIs so the report stays self-contained. "
+        f"This keeps the HTML small (total raw bundle: {total_mb:.2f} MB)."
+    )
+    if not rev:
+        strategy += (
+            " <strong>Note:</strong> no <code>rev</code> SHA could be parsed "
+            "from <code>pyproject.toml</code> (branch pin?), so inherited files "
+            "fall back to inline <code>data:</code> embeds."
         )
-        print(f"[inputs] Partial embed (total {total_mb:.2f} MB > {EMBED_THRESHOLD_MB} MB; "
-              f"embedding overrides + rnaseq only)")
 
     # Sort: overrides first, then by category (key prefix)
     def sort_key(k):
@@ -184,15 +240,22 @@ def section_inputs() -> str:
         )
         size_kb = p.stat().st_size / 1024 if p.exists() else 0
 
-        # Decide whether to embed
-        do_embed = embed_all or is_ov or "rnaseq" in k.lower()
-        if p.exists():
-            if do_embed:
-                link = _download_link(p, "download")
-            else:
-                link = _filelink(p, "file://")
-        else:
+        if not p.exists():
             link = "<span class='metric-na'>missing</span>"
+        elif is_ov:
+            # Diverged local override: embed inline (tiny, self-contained).
+            link = _download_link(p, "download (embedded)")
+        else:
+            # Inherited from ecoli-sources: link to the pinned raw URL.
+            url = _raw_url(p)
+            if url is not None:
+                link = (f'<a class="dl" href="{html.escape(url)}" '
+                        f'target="_blank" rel="noopener">download &#8599;</a>')
+                n_linked += 1
+            else:
+                # No usable rev / unmappable path -> fall back to embed.
+                link = _download_link(p, "download (embedded)")
+                n_embedded_fallback += 1
 
         rows.append(
             f"<tr>"
@@ -207,6 +270,9 @@ def section_inputs() -> str:
     n_ov = len(overrides)
     n_bundle = len(index) - n_ov
 
+    print(f"[inputs] {n_linked} inherited files linked to raw URLs; "
+          f"{n_ov} overrides embedded; {n_embedded_fallback} inherited embedded as fallback")
+
     header_row = (
         "<tr><th>Canonical key</th><th>Source</th>"
         "<th>Filename</th><th style='text-align:right'>Size (KB)</th>"
@@ -215,8 +281,9 @@ def section_inputs() -> str:
 
     summary = (
         f"<p class='note'>{len(index)} keys total &mdash; "
-        f"<strong>{n_ov} v2ecoli overrides</strong> (diverged flat files), "
-        f"<strong>{n_bundle} from ecoli-sources</strong>. "
+        f"<strong>{n_ov} v2ecoli overrides</strong> (diverged flat files, embedded), "
+        f"<strong>{n_bundle} from ecoli-sources</strong> "
+        f"(linked to the pinned commit). "
         f"Total raw size: {total_mb:.2f} MB.</p>"
     )
 

@@ -16,12 +16,14 @@ annotations:
 responses:
   study-dnaa-3-box-binding-readouts:
     classification: scientific model gap
-    status: in-progress
+    status: done-open-finding
     acknowledged_by_finding: oric-overbinds-free-dnaa-above-kd
     diagnosis: 'The dnaA_box_binding deriver is a READ-ONLY occupancy observer, not a sink: it never removes bound DnaA from the free bulk pool, so free DnaA-ATP stays ~150-200 nM (> the ~100 nM low-affinity K_d) and the low-affinity oriC boxes over-occupy, including at t=0.'
-    action: Promote the deriver to a real SINK that partitions the bulk DnaA pool into bound vs free, so sequestration lowers free DnaA-ATP and the t=0 low-affinity occupancy. Requires re-validating the succinate cell cycle after the bulk pool is partitioned (separately-validated increment).
+    action: |-
+      SUPERSEDED. The DnaA-sink proposed here was WITHDRAWN — on 2026-06-08 Rashmi ruled it (and the cap/abundance/datA) NON-provided. With only the provided read-only model, the in-sim 7-gen full-history run CONFIRMS your observation and shows it persists: free DnaA-ATP stays ~380-550 nM (≈4× the 100 nM oriC-low K_d) for 100% of every cycle, so low-affinity occupancy holds ~0.8 throughout — even with the correct DnaA-ATP fraction (0.23, in band). So your t=0 over-occupancy point STANDS; the cause is NOT resolved within the provided mechanisms and is flagged as an honest open question for Rashmi/Haochen (see the 2026-06-08 responses + the dnaa-3 verdict). No cap/sink re-added.
   study-dnaa-3-box-binding-sims:
     classification: sim-execution gap
-    status: in-progress
+    status: done
     diagnosis: dnaa-3's recorded run reuses the validated dnaa-2 seed-1 8-gen lineage with box binding applied as a fast-equilibrium ANALYTICAL OVERLAY (render_dnaa3_binding_analysis.py) — not an in-sim binding run.
-    action: Wire the dnaa_box_binding step into the composite (early layer), rebuild ParCa+cache for that composite, and run the actual in-sim binding simulation; re-render occupancy/readouts from the real run. Kicked off on the mac mini.
+    action: |-
+      DONE. The dnaa_box_binding step is wired into the composite as the provided read-only occupancy listener; the actual in-sim binding simulation ran (read-only, multi-gen full-history lineage, seed 1) and the occupancy/readouts are re-rendered from the REAL run (not the analytical overlay). Full plot set in studies/dnaa-3-box-binding/charts/: oriC, cell mass, DnaA all forms bound+free, concentrations, ATP/ADP fraction across generations, and box occupancy at a steady-state generation.

@@ -872,6 +872,128 @@ findings:
     model_commit_hash: 9addea3
     raw_data_artifact: studies/colonies-01-hpc-readiness/runs.db
 
+# ── Investigation-graph fields (Decide) ────────────────────────────────────
+confidence: Accepted   # status ran + gate passed; all primary acceptance tests PASS
+
+claim: |
+  The pure-WC colony composite scales linearly on one machine — per-cell wall is
+  flat at ~73 ms/tick across N ∈ {1,2,4,8}, pymunk is free, and per-cell RSS is
+  ~450 MB — so the sole scaling bottleneck is the GIL: HPC scaling means more
+  single-threaded processes, not more cells per process (~384 cells per
+  64-core/256 GB node).
+
+discovery_implications:
+  resolved_uncertainties:
+  - Daughter EcoliWCMs DO hydrate through the composite engine's structural _add
+    path after three build-phase fixes (viva-munk 3-tuple realize, colony.py
+    agents-wire, bridge interval pass-through) — the manual standalone-WCM
+    workaround in reports/colony_report.py is no longer required.
+  - Per-cell wall-time is flat (~70–74 ms/tick/cell) across N ∈ {1,2,4,8}; the
+    colony composite scales linearly on one machine with no super-linear
+    coupling/scheduler cost.
+  - pymunk 2D physics is negligible (≤0.2 ms/tick at N=8) — essentially all cost
+    is the inner 55-process EcoliWCM, walked sequentially in one thread.
+  - Steady-state per-cell RSS is ~450 MB atop a ~1 GB Python/ParCa baseline,
+    linear in N to N=8 — a concrete RAM-per-node input for HPC sizing.
+  - The single-process scaling ceiling is the GIL (not physics, not RAM) — one
+    composite process uses ~1 CPU core regardless of cell count; total wall
+    crosses realtime around N≈13/process.
+  remaining_uncertainties:
+  - Whether per-cell wall and RSS stay flat across NATURAL divisions over multiple
+    generations (a growing colony) — only static-N, 60-tick windows were measured.
+    F-06 shows RSS climbing ~5 MB/sim-second in a long single-cell run, hinting at
+    drift the sweep windows cannot see.
+  - Source of the F-06 RSS growth — accumulating dead nodes in the inner EcoliWCM
+    composite vs a genuine leak vs numpy/cache fragmentation — unresolved.
+  - Whether the single-machine projection survives cross-node HPC (network,
+    distributed environment field, filesystem) — colonies-02's job.
+  - Whether ParCa cache contention degrades per-cell perf when many processes
+    share out/cache, or forces per-process caches (which would inflate RAM/cell).
+  alternate_hypotheses:
+  - id: perf-drift-over-generations
+    statement: |
+      Per-cell wall and RSS are NOT actually flat over a colony's lifetime — they
+      drift upward as daughter EcoliWCM internal composites accumulate history
+      across natural divisions; the flat N-sweep result is an artifact of holding
+      N static for only 60 ticks.
+    why_plausible: |
+      F-06 already shows monotonic RSS climb (~5 MB/sim-second, 1126→7016 MB)
+      within one long pre-division run; a growing colony compounds this per daughter.
+    mechanism_elements_affected:
+    - EcoliWCM-internal-composite
+    - daughter-hydration
+    - per-cell-cost-model
+    discriminating_observables:
+    - per-cell-wall-ms-vs-generation
+    - peak-rss-vs-generation
+    - inner-composite-node-count-vs-time
+  - id: gil-vs-ram-ceiling
+    statement: |
+      The practical per-node ceiling is set by the GIL/CPU-realtime bound
+      (~13 cells/process), not RAM — so RAM-based node sizing overcounts and the
+      real lever is process count, not cells/process.
+    why_plausible: |
+      Per-cell wall is flat but total per-process wall crosses realtime near N≈13,
+      while RAM only hits the 256 GB node ceiling near ~570 cells — CPU binds first.
+    mechanism_elements_affected:
+    - process-scheduling
+    - hpc-node-sizing
+    discriminating_observables:
+    - per-process-tick-wall-vs-realtime
+    - cells-per-process-at-realtime
+  mechanism_update_proposals:
+  - mechanism_node_or_edge: daughter-hydration (EcoliWCM._handle_division -> engine structural _add)
+    update_type: revise
+    rationale: |
+      The bridge now emits a structural update the engine hydrates natively (three
+      fixes landed); the manual standalone-WCM workaround in
+      reports/colony_report.py should be retired as the canonical division path.
+    requires_expert_approval: false
+  - mechanism_node_or_edge: process-bigraph composite engine (single-thread / GIL)
+    update_type: extend
+    rationale: |
+      The engine ticks all processes on one thread; a GIL-aware concurrent
+      process-invocation path would unlock free parallelism for independent cells
+      beyond the ~13-cells/process realtime ceiling. Research-level; does NOT block
+      colonies-02.
+    requires_expert_approval: true
+  followup_study_proposals:
+  - id: colonies-02-hpc-deployment
+    title: Cross-node HPC deployment of the colony composite
+    study_type: scaling_validation
+    source_trigger: pipeline-gate-passed
+    proposed_experiment: |
+      Run the recommended 6–8 cells/process across many processes on one HPC node,
+      then across multiple nodes; confirm per-cell wall within ±20% of the
+      73 ms/cell laptop projection and biology consistent across distributed configs.
+    expected_information_gain: high
+  - id: multi-gen-perf-drift
+    title: Multi-generation perf drift study
+    study_type: stress_test
+    source_trigger: F-06-rss-growth-over-time (anomaly)
+    proposed_experiment: |
+      Run a 1-cell natural-division colony through gens 0–4 (~10000 s sim); measure
+      per-cell wall + peak RSS vs generation and isolate the F-06 RSS-growth source
+      (cache, history accumulation, or fragmentation).
+    expected_information_gain: high
+  - id: parca-cache-contention
+    title: Per-cell ParCa cache contention
+    study_type: scaling_validation
+    source_trigger: limitation (shared out/cache cache_dir)
+    proposed_experiment: |
+      Compare shared vs per-process out/cache perf at fixed N; quantify
+      file-system contention and the per-process cache RAM cost.
+    expected_information_gain: medium
+  - id: gil-aware-engine-research
+    title: Make the process-bigraph composite engine GIL-aware (research)
+    study_type: engine_research
+    source_trigger: F-02-gil-bottleneck
+    proposed_experiment: |
+      Prototype concurrent process invocation (multiprocessing or thread-per-process
+      with GIL-friendly bodies) for independent cells; measure speedup beyond the
+      ~13-cells/process realtime ceiling.
+    expected_information_gain: medium
+
 tests:
   auto_discover: true
   data_source: latest_run

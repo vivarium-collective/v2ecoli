@@ -1,7 +1,7 @@
 {
-  "source_run_id": "dnaa3-insim-readonly",
-  "generation_id": null,
-  "rendered_at": 1780886872.9383838,
-  "command": "cd ../.. && python scripts/render_dnaa3_readouts.py --run studies/dnaa-3-box-binding/parquet-runs/dnaa3-insim-readonly --gens all --out studies/dnaa-3-box-binding/charts/dnaa3_readouts",
-  "content_hash": "sha256:3ebcf4037e4d69739296f9cda492c2b269b3433f1ee58c06aed5736015aafc93"
+  "source_run_id": "dnaa3-fullhist",
+  "generation_id": "1-7 (canonical all-zeros lineage, full cycles)",
+  "rendered_at": 1780919458.618747,
+  "command": "python scripts/render_dnaa3_readouts.py --run out/dnaa3_fullhist --gens 1,2,3,4,5,6,7 --out studies/dnaa-3-box-binding/charts/dnaa3_readouts",
+  "content_hash": "sha256:980d00caf8cc1cf0cb24699593bf52e21212765ec9833eb0fe79b54b171cb9b6"
 }

@@ -73,14 +73,43 @@ def solve_free(D, V_L, n_high, n_low):
     return out
 
 
-def load_insim(run):
-    """Load REAL emitted listeners.dnaA_binding free DnaA + per-pool occupancy."""
-    fs = sorted(glob.glob(f"{run}/**/history/**/*.pq", recursive=True))
+def load_insim(run, gens=None):
+    """Load REAL emitted listeners.dnaA_binding free DnaA + per-pool occupancy.
+
+    If ``gens`` is None: single-cycle artifact mode — glob all history and sort by
+    global_time (the original full-cell-cycle single-gen artifact path).
+
+    If ``gens == "all"`` or a list: MULTI-GEN full-history mode — restrict to the
+    CANONICAL all-zeros agent_id lineage (gen N = agent_id "0"*N), drop daughter
+    stubs, and add a cumulative lineage time so the whole multi-generation
+    trajectory is shown end-to-end (each generation restarts global_time at 0)."""
+    L = "listeners__dnaA_binding__"
+    if gens is None:
+        fs = sorted(glob.glob(f"{run}/**/history/**/*.pq", recursive=True))
+        if not fs:
+            raise SystemExit(f"no in-sim parquet under {run}")
+        return _select_insim(pl.scan_parquet(fs, hive_partitioning=True), L).sort("global_time").collect(), False
+    # multi-gen canonical chain
+    if gens == "all" or gens == ["all"]:
+        fs = sorted(glob.glob(f"{run}/**/history/**/*.pq", recursive=True))
+    else:
+        fs = []
+        for g in gens:
+            fs += sorted(glob.glob(
+                f"{run}/**/history/**/generation={g}/**/*.pq", recursive=True))
     if not fs:
         raise SystemExit(f"no in-sim parquet under {run}")
-    L = "listeners__dnaA_binding__"
-    df = (pl.scan_parquet(fs, hive_partitioning=True)
-          .select(["global_time",
+    lf = (pl.scan_parquet(fs, hive_partitioning=True)
+          .filter(pl.col("agent_id").cast(pl.Utf8).str.contains("^0+$")))
+    df = _select_insim(lf, L, with_gen=True).sort(["generation", "global_time"]).collect()
+    return df, True
+
+
+def _select_insim(lf, L, with_gen=False):
+    cols = (["generation"] if with_gen else []) + ["global_time"]
+    return (lf
+          .select([*([pl.col("generation")] if with_gen else []),
+                   "global_time",
                    pl.col(f"{L}free_DnaA_ATP_nM").alias("free_atp_nM"),
                    pl.col(f"{L}free_DnaA_ADP_nM").alias("free_adp_nM"),
                    pl.col(f"{L}oric__high_affinity_occupied").alias("oric_high_occ"),
@@ -92,9 +121,7 @@ def load_insim(run):
                    pl.col(f"{L}chromosome__occupied").alias("chrom_occ"),
                    pl.col(f"{L}chromosome__occupied_count").alias("chrom_n_bound"),
                    pl.col(f"{L}chromosome__n_total").alias("chrom_n_total"),
-                   pl.col(f"{L}total_DnaA_bound").alias("total_bound")])
-          .sort("global_time").collect())
-    return df
+                   pl.col(f"{L}total_DnaA_bound").alias("total_bound")]))
 
 
 def _write_meta(out, run, gen_id, cmd):
@@ -118,8 +145,19 @@ def main_insim(args):
     free DnaA-ATP sits above the K_d and low-affinity occupancy is high, it is
     shown as-is, not hidden.
     """
-    df = load_insim(args.insim_run)
-    t = ((df["global_time"] - df["global_time"][0]) / 60).to_numpy()
+    multigen = args.insim_gens is not None
+    gens_arg = None
+    if multigen:
+        gens_arg = "all" if args.insim_gens == "all" else [int(g) for g in args.insim_gens.split(",")]
+    df, is_multigen = load_insim(args.insim_run, gens_arg)
+    if is_multigen:
+        gt = df["global_time"].to_numpy(); gen = df["generation"].to_numpy()
+        off = np.zeros(len(gt)); acc = 0.0
+        for g in sorted(set(gen.tolist())):
+            m = gen == g; off[m] = acc; acc += gt[m].max() + 1.0
+        t = (gt + off) / 60
+    else:
+        t = ((df["global_time"] - df["global_time"][0]) / 60).to_numpy()
     F_nM = df["free_atp_nM"].to_numpy()
     adp_nM = df["free_adp_nM"].to_numpy()
     p_low = df["oric_low_occ"].to_numpy()
@@ -135,9 +173,13 @@ def main_insim(args):
     frac_above = float((F_nM > KD_LOW_nM).mean())
     lo_min, lo_mean, lo_max = p_low.min(), p_low.mean(), p_low.max()
 
+    span = ("over the FULL multi-generation lineage (full per-tick history retained "
+            "each generation)" if is_multigen
+            else "over a FULL cell cycle (read-only observer; single non-dividing gen)")
+    xlabel = "lineage time (min)" if is_multigen else "cell-cycle time (min)"
     fig, ax = plt.subplots(2, 2, figsize=(13, 8.5))
-    fig.suptitle("dnaa-3 — DnaA-box binding over a FULL cell cycle "
-                 "(read-only observer; single non-dividing gen; emitted listeners.dnaA_binding)\n"
+    fig.suptitle(f"dnaa-3 — DnaA-box binding {span} "
+                 "(emitted listeners.dnaA_binding)\n"
                  "Decontaminated: provided fast-equilibrium binding + dnaa-2 nucleotide balance ONLY "
                  "— no ChIP-seq cap, no sink", fontsize=11)
 
@@ -149,7 +191,7 @@ def main_insim(args):
     a.set_title(f"Free DnaA vs 100 nM K_d — DnaA-ATP min {f_min:.0f} / mean {f_mean:.0f} / max {f_max:.0f} nM\n"
                 f"free DnaA-ATP is ABOVE the K_d for {frac_above*100:.0f}% of the cycle",
                 fontsize=9)
-    a.set_ylabel("nM"); a.set_xlabel("cell-cycle time (min)")
+    a.set_ylabel("nM"); a.set_xlabel(xlabel)
     a.legend(fontsize=7); a.grid(alpha=0.25)
 
     # (2) bound DnaA by pool (count)
@@ -160,7 +202,7 @@ def main_insim(args):
     a.plot(t, bound, color="#0f172a", lw=0.9, ls=":", label="TOTAL DnaA bound")
     a.set_title("Bound DnaA by pool (count, emitted) — boxes duplicate as replication proceeds",
                 fontsize=9)
-    a.set_ylabel("molecules bound"); a.set_xlabel("cell-cycle time (min)")
+    a.set_ylabel("molecules bound"); a.set_xlabel(xlabel)
     a.legend(fontsize=7); a.grid(alpha=0.25)
 
     # (3) oriC LOW-affinity occupancy on its own zoomed axis
@@ -169,7 +211,7 @@ def main_insim(args):
     a.axhline(0.5, color="#94a3b8", ls=":", lw=1)
     a.set_title(f"oriC LOW-affinity (K_d 100 nM) occupancy — min {lo_min:.2f} / mean {lo_mean:.2f} / max {lo_max:.2f}\n"
                 f"HIGH and roughly flat across the whole cycle (no early→late switch)", fontsize=9)
-    a.set_ylabel("fraction bound"); a.set_xlabel("cell-cycle time (min)")
+    a.set_ylabel("fraction bound"); a.set_xlabel(xlabel)
     a.set_ylim(0, 1); a.grid(alpha=0.25)
 
     # (4) per-pool occupancy fraction (low vs high vs chromosomal vs promoter)
@@ -179,7 +221,7 @@ def main_insim(args):
     a.plot(t, p_chrom, color="#94a3b8", lw=1.2, label="chromosomal (K_d 1 nM)")
     a.plot(t, p_dnaap, color="#0891b2", lw=1.2, alpha=0.8, label="dnaA-promoter (K_d 1 nM)")
     a.set_title("Per-pool occupancy fraction (emitted)", fontsize=9)
-    a.set_ylabel("fraction bound"); a.set_xlabel("cell-cycle time (min)")
+    a.set_ylabel("fraction bound"); a.set_xlabel(xlabel)
     a.set_ylim(0, 1.05); a.legend(fontsize=7); a.grid(alpha=0.25)
 
     note = (f"HONEST OPEN OBSERVATION (read-only, provided mechanisms only): over a full ~{t[-1]:.0f}-min cell cycle, "
@@ -210,6 +252,10 @@ def main():
     ap.add_argument("--gens", default="4,5,6")   # LATER gens (steady), Haochen pt 2
     ap.add_argument("--insim-run", default=None,
                     help="read REAL emitted listeners.dnaA_binding from this in-sim run")
+    ap.add_argument("--insim-gens", default=None,
+                    help="MULTI-GEN mode: 'all' or comma-list of generations to "
+                         "concatenate (canonical all-zeros lineage, cumulative time). "
+                         "Omit for the single-cycle artifact path.")
     ap.add_argument("--gen-id", default=None,
                     help="generation_id to record in the chart .meta.json")
     ap.add_argument("--out", default="studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis")

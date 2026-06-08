@@ -1,7 +1,7 @@
 {
-  "source_run_id": "dnaa3-readonly-artifact",
-  "generation_id": "6",
-  "rendered_at": 1780888081.057684,
-  "command": "cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-readonly-artifact --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis",
-  "content_hash": "sha256:fd70f6740edf7914519c27889f8b9c25ed414624ff5fddbe94fc745b9561a853"
+  "source_run_id": "dnaa3_fullhist",
+  "generation_id": "dnaa3-fullhist",
+  "rendered_at": 1780919438.983239,
+  "command": "cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run out/dnaa3_fullhist --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis",
+  "content_hash": "sha256:9ce895de75b8359baef735999c56e6b49ededf574ec2200e6f136785f6220895"
 }

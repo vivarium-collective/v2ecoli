@@ -1,7 +1,7 @@
 {
-  "source_run_id": "dnaa3-insim-readonly",
-  "generation_id": "5",
-  "rendered_at": 1780886872.9383838,
-  "command": "cd ../.. && python scripts/render_dnaa3_occupancy.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-insim-readonly --generation 5 --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy",
-  "content_hash": "sha256:de5fbfefa6aa7c2e616d5024fcedcc05c180ff252ed1ab8628f579605c2223e1"
+  "source_run_id": "dnaa3-fullhist",
+  "generation_id": "5 (steady-state generation)",
+  "rendered_at": 1780919458.619392,
+  "command": "python scripts/render_dnaa3_occupancy.py --insim-run out/dnaa3_fullhist --generation 5 --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy",
+  "content_hash": "sha256:20c52ac5e1622e30ab2e23c15caf30dd12cfe00f0241ca576a43edbbf966bb15"
 }

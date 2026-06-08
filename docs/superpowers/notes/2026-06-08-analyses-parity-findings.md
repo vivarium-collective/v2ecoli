@@ -90,3 +90,26 @@ API-compatible with vEcoli's (it is the same class, fork-evolved in sync).
 | **D — `active_RNAP`** | `len(listeners__rnap_data__active_rnap_unique_indexes)` as an extra derived column (DuckDB: `array_length(...)` or `len(...)`). |
 
 Shims A–D can all be encapsulated in a thin `read_outputs_v2` adapter function in the ported modules (or in a shared helper imported by Tasks 5–7), keeping the main analysis logic unchanged.
+
+---
+
+## CORRECTION (2026-06-08, during Task 6) — sim_data ↔ parquet pairing
+
+The reference parquet `out/compare_harness/v2_sim/parquet/two_generations/` was
+generated with **`out/workflow/simData.cPickle`** (2820 `base_reaction_ids`), **not**
+`out/kb/simData.cPickle` (2821). The two differ: their `base_reaction_ids` diverge at
+index 133 (not a tail drop), though their `bulk_data["id"]` arrays are byte-identical
+(16321 each). Consequences:
+
+- **Use `out/workflow/simData.cPickle` for all smoke tests** against this parquet
+  (Tasks 7–10), and as the paired sim_data generally.
+- ptools_rxns aligns FBA fluxes 1:1 with `base_reaction_ids` (the listener emits one
+  flux per id, in order) and now **asserts** `len(base_reaction_ids) == flux_width`,
+  failing loudly on a mismatched sim_data instead of truncating. The earlier
+  truncation against the 2821-id sim_data would have mislabeled ~2687 reactions.
+- ptools_rna / ptools_proteins are **bulk/RNA-based**; bulk ids are identical across
+  the two sim_datas, so they're unaffected by the reaction-count mismatch.
+- The runner's `resolve_sim_data` must return the sim_data **paired** with the sweep.
+  For a real dashboard sweep the paired parca output is co-located; the compare_harness
+  layout is a test artifact where the paired sim_data is `out/workflow/simData.cPickle`
+  (handle in Task 10).

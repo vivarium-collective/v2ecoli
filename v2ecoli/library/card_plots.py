@@ -79,8 +79,8 @@ def violin_strip(values, ref_values=None, *, label="", units="", scale=1.0,
 
 
 def flux_scatter(cand_vec, ref_vec, *, ids=None, r2=None, active_eps=1e-6,
-                 ref_std=None, cand_std=None, label="", width=3.8,
-                 height=3.4) -> str:
+                 qual_eps=1e-3, ref_std=None, cand_std=None, label="", width=3.8,
+                 height=3.4, ref_label="reference", meas_label="candidate") -> str:
     """Exchange-flux candidate vs reference on **symlog** signed axes (fluxes
     span orders of magnitude and are signed: negative=uptake, positive=
     secretion). Pairs that are inactive in both (|both|<eps) are excluded.
@@ -99,6 +99,12 @@ def flux_scatter(cand_vec, ref_vec, *, ids=None, r2=None, active_eps=1e-6,
     matched = ca & ra
     appeared = ca & ~ra
     disappeared = ~ca & ra
+    # A flip whose active-side magnitude is below qual_eps is near-floor jitter
+    # (shown, not graded as a qualitative change) — draw it muted, not red/orange.
+    sub = ((appeared & (np.abs(cand) < qual_eps)) |
+           (disappeared & (np.abs(ref) < qual_eps)))
+    appeared = appeared & ~sub
+    disappeared = disappeared & ~sub
     fig, ax = plt.subplots(figsize=(width, height))
     if rstd is not None and cstd is not None:
         ax.errorbar(ref[matched], cand[matched], xerr=rstd[matched],
@@ -106,7 +112,7 @@ def flux_scatter(cand_vec, ref_vec, *, ids=None, r2=None, active_eps=1e-6,
                     elinewidth=0.6, alpha=0.35, zorder=2)
     ax.scatter(ref[matched], cand[matched], s=14, alpha=0.6, color="#1f6feb",
                edgecolor="none", zorder=3)
-    keep = matched | appeared | disappeared
+    keep = matched | appeared | disappeared | sub
     if keep.any():
         vals = np.concatenate([ref[keep], cand[keep]])
         lo, hi = float(vals.min()), float(vals.max())
@@ -116,19 +122,24 @@ def flux_scatter(cand_vec, ref_vec, *, ids=None, r2=None, active_eps=1e-6,
         ax.axhline(0, color="#d0d4d9", lw=0.6, zorder=0)
         ax.axvline(0, color="#d0d4d9", lw=0.6, zorder=0)
         ax.set_xlim(lo, hi); ax.set_ylim(lo, hi)
-    for flag, color, name in ((appeared, "#c62828", "appeared"),
-                              (disappeared, "#ef6c00", "lost")):
+    for flag, color, size, ann, name in (
+            (appeared, "#c62828", 26, True, "appeared"),
+            (disappeared, "#ef6c00", 26, True, "lost"),
+            (sub, "#9aa3af", 14, False, "below floor")):
         idxs = np.where(flag)[0]
-        ax.scatter(ref[idxs], cand[idxs], s=26, color=color, edgecolor="white",
+        if not len(idxs):
+            continue
+        ax.scatter(ref[idxs], cand[idxs], s=size, color=color, edgecolor="white",
                    linewidth=0.5, zorder=4, label=f"{name} ({len(idxs)})")
-        for i in idxs:
-            ax.annotate(ids[i][:-3] if ids[i].endswith("]") else ids[i],
-                        (ref[i], cand[i]), fontsize=6.5, color=color,
-                        xytext=(3, 3), textcoords="offset points")
+        if ann:
+            for i in idxs:
+                ax.annotate(ids[i][:-3] if ids[i].endswith("]") else ids[i],
+                            (ref[i], cand[i]), fontsize=6.5, color=color,
+                            xytext=(3, 3), textcoords="offset points")
     lin = max(abs(lo), abs(hi)) * 1e-3 if keep.any() else 1e-3
     ax.set_xscale("symlog", linthresh=lin); ax.set_yscale("symlog", linthresh=lin)
-    ax.set_xlabel("reference flux", fontsize=9)
-    ax.set_ylabel("candidate flux", fontsize=9)
+    ax.set_xlabel(f"{ref_label} flux", fontsize=9)
+    ax.set_ylabel(f"{meas_label} flux", fontsize=9)
     ax.tick_params(labelsize=7)
     if r2 is not None:
         ax.text(0.04, 0.96, f"R² = {r2:.4f}", transform=ax.transAxes,
@@ -193,7 +204,8 @@ def generation_trend(by_cell, ref_by_cell=None, *, scale=1.0, units="", label=""
 
 
 def loglog_scatter(cand_vec, ref_vec, *, r2=None, label="",
-                   width=3.4, height=3.2) -> str:
+                   width=3.4, height=3.2,
+                   ref_label="reference", meas_label="candidate") -> str:
     """Candidate vs reference ensemble-mean vector on log-log axes with the
     identity line. Points are per-gene/protein (ensemble means)."""
     plt = _setup()
@@ -209,7 +221,7 @@ def loglog_scatter(cand_vec, ref_vec, *, r2=None, label="",
         ax.plot([lo, hi], [lo, hi], color="#9aa3af", lw=1, ls="--", zorder=1)
         ax.set_xlim(lo, hi); ax.set_ylim(lo, hi)
     ax.set_xscale("log"); ax.set_yscale("log")
-    ax.set_xlabel("reference", fontsize=9); ax.set_ylabel("candidate", fontsize=9)
+    ax.set_xlabel(ref_label, fontsize=9); ax.set_ylabel(meas_label, fontsize=9)
     ax.tick_params(labelsize=8)
     if r2 is not None:
         ax.text(0.04, 0.95, f"R² = {r2:.4f}", transform=ax.transAxes,

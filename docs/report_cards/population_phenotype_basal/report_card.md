@@ -3,7 +3,7 @@
 - **Model**: 52bbf43
 - **Stimulus**: 4 seeds x 8 gens, generation_lower_bound=3 -> 20 cells (17 divided); 29/32 generations divided
 - **Reference status**: populated
-- **Generated**: 2026-06-07 21:03
+- **Generated**: 2026-06-08 12:33
 
 ## Overall: PASS (21 ✓ · 0 ≈ · 0 ✗ · 0 –)
 
@@ -43,7 +43,7 @@
 
 | Axis | Value | Criterion | Summary | Verdict |
 |---|---|---|---|---|
-| Exchange-flux fingerprint | R² 1 | R² ≥ 0.99 on matched fluxes; 0 appeared/disappeared exchanges | R² = 1.0000 · 36 matched · 0 appeared · 0 lost | ✓ within_tol |
+| Exchange-flux fingerprint | R² 1 | R² ≥ 0.99 on matched fluxes; no appeared/disappeared ≥ 0.001 | R² = 1.0000 · 36 matched · 0 appeared · 0 lost | ✓ within_tol |
 | Glucose exchange | -5.145 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
 | O₂ exchange | -0.481 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |
 | Ammonium (N source) exchange | -7.017 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -0.0% · p = 1.000 · d = +0.00 | ✓ within_tol |

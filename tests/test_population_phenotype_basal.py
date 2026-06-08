@@ -22,7 +22,7 @@ import os
 import pytest
 
 from v2ecoli.workflow.analysis import PopulationPhenotypeBasalCard
-from v2ecoli.library.report_card import grade_card, card_from_analysis
+from v2ecoli.library.report_card import grade_card, card_from_analysis, _omics_table
 
 
 _FIXTURE_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
@@ -233,6 +233,49 @@ def test_grade_flux_scatter_qualitative_change_is_mismatch():
     g = grade_card(appeared, ref)["axes"]["fluxes.exchange"]
     assert g["verdict"] == "mismatch"
     assert g["detail"]["appeared"] == [1]
+
+
+@pytest.mark.fast
+def test_grade_flux_scatter_subfloor_flip_is_not_graded():
+    """A flip whose active-side magnitude is below the significance floor
+    (qual_eps) is reported but does NOT drive the verdict — FBA jitter at the
+    detection floor (~1e-6 with CV>100%) is not a behavioral change."""
+    ref_vec = [1.0, 0.0, -2.0]
+    crit = {"type": "flux_scatter", "ref_vector": ref_vec,
+            "r2_min": 0.99, "r2_drift": 0.95, "qual_eps": 1e-3}
+    ref = _ref_axis("fluxes.exchange", crit)
+
+    # index 1 appears at 5e-6 — above active_eps (1e-6) but below qual_eps (1e-3)
+    near_floor = {"fluxes": {"exchange": {"vector": [1.0, 5e-6, -2.0]}}}
+    g = grade_card(near_floor, ref)["axes"]["fluxes.exchange"]
+    assert g["verdict"] == "within_tol"          # not a mismatch
+    assert g["detail"]["appeared"] == []          # not counted as a real flip
+    assert g["detail"]["sub_floor"] == [1]        # but still reported
+
+
+@pytest.mark.fast
+def test_omics_outlier_table():
+    """The gene-expression outlier table surfaces genes past the log2FC cutoff,
+    gates low-count ratio blow-ups via min_count, shows absolute counts, and
+    marks genes fully off in one model as ±∞."""
+    crit = {
+        "ref_vector": [100.0, 100.0, 0.5, 50.0, 0.0],
+        "ids": ["a_RNA", "b_RNA", "c_RNA", "d_RNA", "e_RNA"],
+        "symbols": ["alpha", "beta", "gamma", "delta", "eps"],
+        "names": ["A desc", "B desc", "C desc", "D desc", "E desc"],
+        "outlier_log2fc": 2.0, "min_count": 10, "outlier_top_n": 20,
+    }
+    #   alpha: 100->800  (+3.0, kept)        beta: 100->100 (0, dropped)
+    #   gamma: 0.5->5    (+3.3 but max<10 → gated by min_count)
+    #   delta: 50->0     (off in v2 → −∞)    eps: 0->40 (on in v2 → +∞)
+    measured = {"vector": [800.0, 100.0, 5.0, 0.0, 40.0]}
+    html = _omics_table(measured, crit, "v1", "v2")
+    assert "alpha" in html and "+3.00" in html      # real over-expression
+    assert "eps" in html and "+∞" in html            # appeared (on in v2)
+    assert "delta" in html and "−∞" in html          # lost (off in v2)
+    assert "gamma" not in html                        # gated by min_count
+    assert "beta" not in html                         # below cutoff
+    assert ">800<" in html and ">50<" in html         # absolute counts shown
 
 
 @pytest.mark.fast

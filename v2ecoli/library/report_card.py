@@ -24,6 +24,17 @@ _GLYPH = {"within_tol": "✓", "drift": "≈", "mismatch": "✗", "ungraded": "�
 _RANK = {"mismatch": 3, "drift": 2, "within_tol": 1, "ungraded": 0}
 _DEFAULT_FOOTER = ("Behavioral report card — see docs/report_cards/README.md "
                    "for the index and how the cards compose.")
+# Canonical group order for the population phenotype card. Independent of the
+# axis insertion order in any given reference (self-pin vs equivalence pin may
+# differ); groups not listed here fall to the end in first-appearance order.
+_GROUP_ORDER = ["Physiology", "Composition", "Ribosomes",
+                "Exchange fluxes", "Gene expression"]
+
+
+def _ordered_groups(groups: dict) -> list:
+    """Group (name, axes) pairs in the canonical order, unknown groups last."""
+    rank = {g: i for i, g in enumerate(_GROUP_ORDER)}
+    return sorted(groups.items(), key=lambda kv: rank.get(kv[0], len(rank)))
 
 
 def dig(card: dict, path: str) -> Any:
@@ -265,7 +276,7 @@ def render_markdown(card: dict, reference: dict, *, model_ref=None, generated=No
     groups: dict[str, list] = {}
     for a in report["axes"].values():
         groups.setdefault(a.get("group", "Other"), []).append(a)
-    for gname, axes in groups.items():
+    for gname, axes in _ordered_groups(groups):
         lines += [f"### {gname}", "",
                   "| Axis | Value | Criterion | Summary | Verdict |",
                   "|---|---|---|---|---|"]
@@ -297,22 +308,28 @@ def _flux_table(measured: dict, crit: dict) -> str:
     cv = measured.get("vector") or []
     cs = measured.get("std") or [0.0] * len(cv)
     eps = crit.get("active_eps", 1e-6)
+    qual_eps = crit.get("qual_eps", 1e-3)
     rows = []
     for i, mol in enumerate(ids):
         r, c = (rv[i] if i < len(rv) else 0.0), (cv[i] if i < len(cv) else 0.0)
         if abs(r) <= eps and abs(c) <= eps:
             continue
-        flag = ("appeared" if abs(r) <= eps else
-                "lost" if abs(c) <= eps else "")
+        if abs(r) <= eps:  # appeared (active in candidate only)
+            flag = "appeared" if abs(c) >= qual_eps else "subfloor"
+        elif abs(c) <= eps:  # lost (active in reference only)
+            flag = "lost" if abs(r) >= qual_eps else "subfloor"
+        else:
+            flag = ""
         rsd = rs[i] if i < len(rs) else 0.0
         csd = cs[i] if i < len(cs) else 0.0
         ref_s = "—" if abs(r) <= eps else f"{r:+.3g} ± {rsd:.2g}"
         meas_s = "—" if abs(c) <= eps else f"{c:+.3g} ± {csd:.2g}"
         rows.append((abs(r), mol, ref_s, meas_s, flag))
     rows.sort(key=lambda t: t[0], reverse=True)
+    _flabel = {"appeared": "appeared", "lost": "lost", "subfloor": "below floor"}
     trs = "".join(
         f"<tr class='{('flux-'+flag) if flag else ''}'>"
-        f"<td class='fid'>{mol}{(' '+chr(0x2009)+'·'+chr(0x2009)+flag) if flag else ''}</td>"
+        f"<td class='fid'>{mol}{(' '+chr(0x2009)+'·'+chr(0x2009)+_flabel[flag]) if flag else ''}</td>"
         f"<td class='fnum'>{ref_s}</td><td class='fnum'>{meas_s}</td></tr>"
         for _, mol, ref_s, meas_s, flag in rows)
     return (f"<div class='ftbl'><table><thead><tr><th>Flux</th>"
@@ -321,6 +338,79 @@ def _flux_table(measured: dict, crit: dict) -> str:
             f"<div class='ftnote'>mean ± std over n={measured.get('n_cells','?')} "
             f"cells · mmol/gDCW/h · neg=uptake, pos=secretion · "
             f"{len(rows)} active of {len(ids)}</div></div>")
+
+
+def _omics_table(measured: dict, crit: dict, ref_label: str, meas_label: str) -> str:
+    """Companion to the gene-expression scatter: genes whose measured/reference
+    ensemble-mean counts disagree most, by log2 fold-change (meas / ref). Split
+    into two tables (over-/under-expressed in the measured model). A min-count
+    floor (`min_count`) gates out low-count ratio blow-ups; genes fully off in
+    one model show as ±∞ (the omics analog of appeared/lost fluxes). Each row
+    carries the absolute counts (ref, meas) alongside the fold-change."""
+    import math
+    ids = crit.get("ids") or []
+    syms = crit.get("symbols") or [""] * len(ids)
+    names = crit.get("names") or [""] * len(ids)
+    ref = crit.get("ref_vector") or []
+    meas = measured.get("vector") or []
+    if not ids or not ref or not meas:
+        return ""
+    cut = crit.get("outlier_log2fc", 2.0)
+    min_count = crit.get("min_count", 10)
+    top_n = crit.get("outlier_top_n", 20)
+    rows = []  # (lfc, i)
+    for i in range(min(len(ids), len(ref), len(meas))):
+        a, b = ref[i], meas[i]
+        if max(a, b) < min_count:
+            continue
+        if a > 0 and b > 0:
+            lfc = math.log2(b / a)
+        elif b > 0:                      # on in measured only
+            lfc = math.inf
+        elif a > 0:                      # off in measured (lost)
+            lfc = -math.inf
+        else:
+            continue
+        if abs(lfc) > cut:
+            rows.append((lfc, i))
+    up = sorted([r for r in rows if r[0] > 0], key=lambda r: -r[0])
+    down = sorted([r for r in rows if r[0] < 0], key=lambda r: r[0])
+
+    def _fc(lfc):
+        if lfc == math.inf:
+            return "+∞"
+        if lfc == -math.inf:
+            return "−∞"
+        return f"{lfc:+.2f}"
+
+    def _table(label, direction):
+        if not direction:
+            return (f"<div class='otcol'><div class='oth'>{label}</div>"
+                    f"<div class='otnone'>none past cutoff</div></div>")
+        shown = direction[:top_n]
+        trs = "".join(
+            f"<tr><td class='ogene'><b>{syms[i] or ids[i]}</b>"
+            f"<span class='odesc'>{names[i]}</span></td>"
+            f"<td class='onum'>{ref[i]:.3g}</td><td class='onum'>{meas[i]:.3g}</td>"
+            f"<td class='ofc'>{_fc(lfc)}</td></tr>"
+            for lfc, i in shown)
+        more = (f"<div class='otmore'>+{len(direction) - top_n} more</div>"
+                if len(direction) > top_n else "")
+        return (f"<div class='otcol'><div class='oth'>{label} "
+                f"<span class='otn'>({len(direction)})</span></div>"
+                f"<table><thead><tr><th class='ohgene'>gene</th>"
+                f"<th class='ohnum'>{ref_label}</th>"
+                f"<th class='ohnum'>{meas_label}</th>"
+                f"<th class='ohnum'>log2FC</th></tr></thead>"
+                f"<tbody>{trs}</tbody></table>{more}</div>")
+
+    up_html = _table(f"↑ over-expressed in {meas_label}", up)
+    down_html = _table(f"↓ under-expressed in {meas_label}", down)
+    return (f"<div class='otbl'><div class='otgrid'>{up_html}{down_html}</div>"
+            f"<div class='ftnote'>log2 fold-change ({meas_label} / {ref_label}) "
+            f"of ensemble-mean counts · |log2FC| > {cut:g}, "
+            f"min {min_count:g} counts · ±∞ = on/off in one model · "
+            f"top {top_n}/direction</div></div>")
 
 
 def _gen_trend_svg(axis: dict, ref_label="reference", meas_label="measured") -> str:
@@ -368,16 +458,21 @@ def _axis_plot_svg(axis: dict, ref_label="reference", meas_label="measured") -> 
                 scale=axis.get("scale", 1.0), y_from_zero=axis.get("y_from_zero", False),
                 ref_label=ref_label, meas_label=meas_label)
         if kind == "loglog" and isinstance(measured, dict) and measured.get("vector"):
-            return card_plots.loglog_scatter(
+            svg = card_plots.loglog_scatter(
                 measured["vector"], crit.get("ref_vector"),
-                r2=axis.get("value"), label=axis.get("label", ""))
+                r2=axis.get("value"), label=axis.get("label", ""),
+                ref_label=ref_label, meas_label=meas_label)
+            tbl = _omics_table(measured, crit, ref_label, meas_label)
+            return f"<div class='omicswrap'>{svg}{tbl}</div>" if tbl else svg
         if kind == "flux_scatter" and isinstance(measured, dict) and measured.get("vector"):
             svg = card_plots.flux_scatter(
                 measured["vector"], crit.get("ref_vector"),
                 ids=crit.get("flux_ids"), r2=axis.get("value"),
                 active_eps=crit.get("active_eps", 1e-6),
+                qual_eps=crit.get("qual_eps", 1e-3),
                 ref_std=crit.get("ref_std"), cand_std=measured.get("std"),
-                label=axis.get("label", ""))
+                label=axis.get("label", ""),
+                ref_label=ref_label, meas_label=meas_label)
             return f"<div class='fluxwrap'>{svg}{_flux_table(measured, crit)}</div>"
     except Exception as e:  # a plot failure must not blank the report
         return f"<div class='ploterr'>plot unavailable: {type(e).__name__}</div>"
@@ -418,7 +513,7 @@ def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) 
 
     sections = []
     flagged_axes = []  # axes whose variance is gen-dominated + monotonic
-    for gname, axes in groups.items():
+    for gname, axes in _ordered_groups(groups):
         gc = {v: sum(1 for a in axes if a["verdict"] == v) for v in _COLOR}
         rows = []
         for a in axes:
@@ -518,7 +613,21 @@ details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}}
 .ftbl .fnum{{font-family:"SF Mono",ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap}}
 .ftbl tr.flux-appeared{{background:#fdecea}} .ftbl tr.flux-appeared .fid{{color:{_COLOR['mismatch']};font-weight:600}}
 .ftbl tr.flux-lost{{background:#fff3e0}} .ftbl tr.flux-lost .fid{{color:{_COLOR['drift']};font-weight:600}}
+.ftbl tr.flux-subfloor .fid{{color:#9aa3af;font-style:italic}}
 .ftnote{{color:var(--muted);font-size:10.5px;margin-top:6px;max-width:340px;line-height:1.35}}
+.omicswrap{{display:flex;flex-direction:column;gap:14px}} .omicswrap svg{{max-width:400px}}
+.otbl{{width:100%}}
+.otgrid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:22px}}
+.otcol{{min-width:0}}
+.oth{{font-size:11.5px;font-weight:600;margin-bottom:3px}} .otn{{color:var(--muted);font-weight:400}}
+.otbl table{{width:100%;table-layout:fixed}} .otbl thead th{{padding:4px 8px;font-size:9.5px}}
+.otbl tbody td{{padding:3px 8px;border-bottom:1px solid #f4f5f7;font-size:11px}}
+.otbl th.ohgene,.ogene{{width:auto}} .otbl th.ohnum,.onum,.ofc{{width:62px}}
+.ogene{{overflow:hidden}} .ogene b{{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11px}}
+.odesc{{display:block;color:var(--muted);font-size:9.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.onum{{font-family:"SF Mono",ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap;color:#374151}}
+.ofc{{font-family:"SF Mono",ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap;font-weight:600}}
+.otmore,.otnone{{color:var(--muted);font-size:10px;margin-top:3px}} .otnone{{font-style:italic}}
 .ploterr{{color:var(--muted);font-size:11px}} dl{{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem;margin:0}} dt{{color:#cbd5e1}}
 .var{{font-size:11px;color:var(--muted);margin-top:4px}} .var.varflag{{color:{_COLOR['drift']};font-weight:600}}
 .simhealth .shbody{{padding:12px 18px;font-size:13.5px}}

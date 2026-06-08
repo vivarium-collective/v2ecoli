@@ -3,9 +3,9 @@
 - **Model**: 52bbf43
 - **Stimulus**: 8 seeds x 16 gens; vEcoli master; fresh ParCa; gen-lb 3
 - **Reference status**: populated
-- **Generated**: 2026-06-07 22:14
+- **Generated**: 2026-06-08 12:31
 
-## Overall: MISMATCH (14 ✓ · 2 ≈ · 5 ✗ · 0 –)
+## Overall: MISMATCH (15 ✓ · 2 ≈ · 4 ✗ · 0 –)
 
 > **⚠ Simulations (v2ecoli (v2)):** 11 of 128 generations hit the duration cap without dividing (117/128 divided).
 
@@ -37,23 +37,23 @@
 | Elongation rate | 15.71 aa/s | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.7% · p = 0.599 · d = +0.07 | ✓ within_tol |
 | Ribosome production (rRNA init) | 4.573 rRNA/s | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +2.5% · p = 0.455 · d = +0.10 | ✓ within_tol |
 
+### Exchange fluxes
+
+| Axis | Value | Criterion | Summary | Verdict |
+|---|---|---|---|---|
+| Exchange-flux fingerprint | R² 1 | R² ≥ 0.99 on matched fluxes; no appeared/disappeared ≥ 0.001 | R² = 1.0000 · 37 matched · 0 appeared · 0 lost · 4 sub-floor | ✓ within_tol |
+| Glucose exchange | -5.257 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -1.3% · p = 0.396 · d = +0.12 | ✓ within_tol |
+| O₂ exchange | -0.4954 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -32.1% · p = 0.000 · d = +0.69 | ✗ mismatch |
+| Ammonium (N source) exchange | -7.179 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.3% · p = 0.850 · d = -0.03 | ✓ within_tol |
+| CO₂ exchange | 1.747 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -15.4% · p = 0.000 · d = -0.63 | ✗ mismatch |
+| Acetate exchange (overflow sentinel) | 2.713e-06 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -76.6% · p = 0.289 · d = -0.14 | ≈ drift |
+
 ### Gene expression
 
 | Axis | Value | Criterion | Summary | Verdict |
 |---|---|---|---|---|
 | Transcriptome (mRNA cistron counts) | R² 0.9337 | log-log R² ≥ 0.99 (4131 genes) | R² = 0.9337 | ✗ mismatch |
 | Proteome (monomer counts) | R² 0.9393 | log-log R² ≥ 0.99 (4165 genes) | R² = 0.9393 | ✗ mismatch |
-
-### Exchange fluxes
-
-| Axis | Value | Criterion | Summary | Verdict |
-|---|---|---|---|---|
-| Exchange-flux fingerprint | R² 1 | R² ≥ 0.99 on matched fluxes; 0 appeared/disappeared exchanges | R² = 1.0000 · 37 matched · 2 appeared · 2 lost | ✗ mismatch |
-| Glucose exchange | -5.257 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -1.3% · p = 0.396 · d = +0.12 | ✓ within_tol |
-| O₂ exchange | -0.4954 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -32.1% · p = 0.000 · d = +0.69 | ✗ mismatch |
-| Ammonium (N source) exchange | -7.179 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.3% · p = 0.850 · d = -0.03 | ✓ within_tol |
-| CO₂ exchange | 1.747 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -15.4% · p = 0.000 · d = -0.63 | ✗ mismatch |
-| Acetate exchange (overflow sentinel) | 2.713e-06 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -76.6% · p = 0.289 · d = -0.14 | ≈ drift |
 
 ## Findings
 

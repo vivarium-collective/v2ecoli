@@ -155,20 +155,27 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
         # (both active) fluxes drift; graded by linear R² vs identity.
         ref_vec = criterion.get("ref_vector")
         eps = criterion.get("active_eps", 1e-6)
+        # Significance floor for the QUALITATIVE appeared/disappeared verdict.
+        # `active_eps` (~1e-6) is the detection floor for pairing/R²; many FBA
+        # exchanges jitter just across it at ~1e-6 with CV > 100% (fitting slack,
+        # not metabolism). A flip whose active-side magnitude is below `qual_eps`
+        # is reported but does NOT count toward mismatch — only a flux that turns
+        # on/off at a metabolically meaningful level is a qualitative change.
+        qual_eps = criterion.get("qual_eps", 1e-3)
         r2_min = criterion.get("r2_min", 0.99)
         r2_drift = criterion.get("r2_drift", 0.95)
         cand_vec = measured.get("vector") if isinstance(measured, dict) else None
         if not ref_vec or not cand_vec:
             return _ungraded(f"R² ≥ {r2_min}, no appeared/disappeared")
-        appeared, disappeared, matched = [], [], []
+        appeared, disappeared, matched, sub_floor = [], [], [], []
         for i, (c, r) in enumerate(zip(cand_vec, ref_vec)):
             ca, ra = abs(c) > eps, abs(r) > eps
             if ca and ra:
                 matched.append((c, r))
-            elif ca and not ra:
-                appeared.append(i)
-            elif ra and not ca:
-                disappeared.append(i)
+            elif ca and not ra:  # appeared: active side is the candidate
+                (appeared if abs(c) >= qual_eps else sub_floor).append(i)
+            elif ra and not ca:  # disappeared: active side is the reference
+                (disappeared if abs(r) >= qual_eps else sub_floor).append(i)
         # linear R² vs identity on matched (signed) pairs
         if len(matched) >= 2:
             ys = [c for c, _ in matched]
@@ -183,13 +190,15 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
             verdict = "mismatch"
         else:
             verdict = _band(r2, r2_min, r2_drift, higher_is_better=True)
+        sub = f" · {len(sub_floor)} sub-floor" if sub_floor else ""
         return {"verdict": verdict, "value": r2,
                 "criterion_str": (f"R² ≥ {r2_min} on matched fluxes; "
-                                  f"0 appeared/disappeared exchanges"),
+                                  f"no appeared/disappeared ≥ {qual_eps:g}"),
                 "meter": (f"R² = {r2:.4f} · {len(matched)} matched · "
-                          f"{len(appeared)} appeared · {len(disappeared)} lost"),
+                          f"{len(appeared)} appeared · {len(disappeared)} lost{sub}"),
                 "detail": {"r2": r2, "appeared": appeared,
-                           "disappeared": disappeared, "n_matched": len(matched)}}
+                           "disappeared": disappeared, "sub_floor": sub_floor,
+                           "n_matched": len(matched), "qual_eps": qual_eps}}
 
     if ctype == "boolean":
         ok = bool(measured) if measured is not None else None

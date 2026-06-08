@@ -37,7 +37,12 @@ import pickle
 import numpy as np
 
 from v2ecoli.library.card_vectors import extract_vectors
+from v2ecoli.library.gene_meta import omics_labels
 from v2ecoli.library.report_card import card_from_analysis
+
+# outlier-table parameters baked into the omics criteria (Chris: min_count
+# adjustable, default 10). The renderer reads these + the gene metadata.
+_OMICS_OUTLIER = {"outlier_log2fc": 2.0, "min_count": 10, "outlier_top_n": 20}
 
 # Physiology (cell-cycle) axes: (card path, label, units, display-scale,
 # how-it's-measured). ref_values are baked from the blessed measured card.
@@ -219,10 +224,14 @@ def main() -> None:
         }
 
     # --- Gene expression group (transcriptome + proteome) -------------------
+    # Gene metadata (ordered ids + symbol + descriptive name) for the outlier
+    # tables — order from sim_data, symbol/name from the reconstruction flats.
+    gene_labels = omics_labels(sd)
     geneexp_axes: dict[str, dict] = {}
     for path, label, _col in _OMICS:
         name = path.split(".")[1]
         node = omics.get(name) or {}
+        meta = gene_labels[name]
         geneexp_axes[path] = {
             "group": "Gene expression",
             "label": label,
@@ -234,6 +243,10 @@ def main() -> None:
                 "r2_min": 0.99,
                 "r2_drift": 0.95,
                 "ref_vector": [round(x, 6) for x in node.get("vector", [])],
+                "ids": meta["ids"],
+                "symbols": meta["symbols"],
+                "names": meta["names"],
+                **_OMICS_OUTLIER,
             },
         }
 

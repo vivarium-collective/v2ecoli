@@ -120,7 +120,7 @@ Rows are **cards** (what is measured). Each can be rendered in multiple
 | Mode | Reference source | Rendered under | Status |
 |------|------------------|----------------|--------|
 | self-pin (drift) | the model's own blessed ensemble | `<card>/report_card.*` | live |
-| v1↔v2 equivalence (vs vEcoli) | a vEcoli ("v1") ensemble | `<card>/vs_vecoli/` | **Phase 1 live** for the basal phenotype (Physiology + Composition); single-cell mechanics planned |
+| v1↔v2 equivalence (vs vEcoli) | a vEcoli ("v1") ensemble | `<card>/vs_vecoli/` | **live** — full 21-axis basal phenotype graded at matched 8×16; single-cell mechanics planned |
 
 ### Single-cell mechanics
 
@@ -178,7 +178,7 @@ Exchange fluxes · Gene expression.
   in the reference's `stimulus.blessed_model_ref`); card infrastructure updated
   at `f3867c2`.
 
-### v1↔v2 equivalence (reference mode — Phase 1 live)
+### v1↔v2 equivalence (reference mode — live, full 21 axes)
 
 Not a separate card — a **reference mode**: the *same* card graded against a
 vEcoli ("v1") ensemble instead of v2's self-pin. Same grader + renderer; only the
@@ -194,9 +194,25 @@ reference's `ref_values` change ("does v2 still behave like v1?").
   reader** for the two v1↔v2 schema differences (vEcoli emits `time`, cumulative
   across the lineage, not `global_time`; and positional bulk, not
   `bulk__id`/`bulk__count`) so the **shared `analysis_runner` stays untouched**.
-- **Scope (Phase 1)**: Physiology + Composition (9 axes), no measurement-code
-  changes. Ribosomes/fluxes/omics need a bulk-index adapter and are omitted (they
-  render absent → not graded).
+- **Scope**: all 21 axes (Physiology · Composition · Ribosomes · Exchange fluxes ·
+  Gene expression), graded at matched **8×16**. Ribosomes read v1's positional
+  bulk via an index adapter (IDs identical, only the access pattern differs);
+  fluxes/omics align positionally (shared reconstruction → same cistron/monomer/
+  flux ordering). All adapters live in the pin script, so the shared
+  `analysis_runner` stays untouched.
+- **Headline result**: Physiology / Composition / Ribosomes equivalent within
+  tolerance; **metabolism (exchange fluxes) is the divergence** (O₂/CO₂
+  respiration deficit; near-floor exchanges that flip on/off are shown but held
+  below a significance floor so FBA jitter doesn't drive the verdict); gene
+  expression is highly correlated (R² ≈ 0.93–0.94) but below the strict self-pin
+  R² band. See the rendered card for the full verdict table.
+- **Outlier-gene tables**: each gene-expression axis carries a companion table
+  of the genes that disagree most between the two models, by log2 fold-change of
+  ensemble-mean counts (over-/under-expressed in the measured model), gated by a
+  min-count floor and labelled with gene symbol + descriptive name. On the v1↔v2
+  card these surface coherent, interpretable divergences (e.g. the threonine
+  operon and cytochrome bd-I up in v2; several transcriptional regulators and
+  two-component sensors down) — turning the single R² into an actionable list.
 - **Render**: `reports/population_phenotype_basal_report.py --reference
   <card>/vs_vecoli/vecoli_reference.json --no-vectors` →
   `docs/report_cards/population_phenotype_basal/vs_vecoli/report_card.{html,md}`.

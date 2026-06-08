@@ -267,7 +267,8 @@ def main() -> None:
         "axes": axes,
     }
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
-    json.dump(out, open(args.out, "w"), indent=1)
+    json.dump(out, open(args.out, "w", encoding="utf-8"), indent=2,
+              ensure_ascii=False)
     print(f"\nwrote {args.out} ({len(axes)} axes)")
 
 

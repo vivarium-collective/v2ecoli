@@ -1,7 +1,7 @@
 {
-  "source_run_id": "dnaa3-sink-cap32",
+  "source_run_id": "dnaa3-insim-readonly",
   "generation_id": null,
-  "rendered_at": 1780873315.179648,
-  "command": "cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-sink-cap32 --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis",
-  "content_hash": "sha256:bbcf07710cc36501cdfa10931f4b65d7452888da7746c5286a353f217707792f"
+  "rendered_at": 1780886872.9383838,
+  "command": "cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-insim-readonly --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis",
+  "content_hash": "sha256:2955d9b9f76c04c2ac363db4dd84e57e21f0b7c427fdc9084fa47ac43f2370d4"
 }

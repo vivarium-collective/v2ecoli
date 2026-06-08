@@ -400,6 +400,38 @@ visualizations:
   chart: charts/dnaa1_decision.svg
   source_run: dnaa1_v0p8e-3
   render: cd ../.. && python scripts/render_dnaa1_decision.py --run out/dnaa1_v0p8e-3/dnaa1_v0p8e-3 --out studies/dnaa-1-expression/charts --v-label 0.8e-3
+- name: dnaa1_v_sweep
+  address: image:charts/dnaa1_v_sweep.png
+  config:
+    title: >-
+      dnaa-1 CHOOSE-THE-V decision figure (5-point sweep V ∈ {0.8, 0.9, 1.0,
+      1.1, 1.7}×1e-3; Mechanism A, seed 1, 7 gens, steady gens 4-7). Two stacked
+      panels share the V (log) x-axis. TOP — DnaA monomer pool per V: marker =
+      steady-gen cycle-mean, error bars = trough→peak envelope, accepted band
+      [300,800] shaded; the in-band region (pool whole-oscillation under 800) is
+      shaded green and contains ONLY V=0.8e-3. BOTTOM — dnaA mRNA init rate per V
+      (mean + min/max bars), ~1/min target with ±50% tolerance [0.5,1.5] shaded;
+      the on-target region (V=0.9–1.1e-3) is shaded blue. RESULT: NO single V
+      satisfies BOTH — the band-stable pool (only 0.8e-3) and the ~1/min rate
+      (0.9–1.1e-3) are in genuine tension because both the pool peak AND the rate
+      rise together with V. Per-V cycle-mean/peak/rate: 0.8e-3 → 362/553/0.60
+      (in band, rate low); 0.9e-3 → 581/1171/0.71; 1.0e-3 → 624/1424/1.01
+      (Rashmi's guess, rate on target but peak way over); 1.1e-3 → 676/1161/1.00;
+      1.7e-3 → 1032/1642/1.59 (both fail). Current pick V=0.8e-3 marked (red).
+    inputs_map:
+      dnaa_pool_per_V: bulk (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c]); steady-gen trough/cycle-mean/peak
+      dnaa_init_rate_per_V: listeners.rnap_data.rna_init_event_per_cistron[227] summed per gen / gen duration
+  chart: charts/dnaa1_v_sweep.svg
+  source_run: dnaa1_v0p8e-3
+  source_runs: [dnaa1_v0p8e-3, dnaa1_v0p9e-3, dnaa1_v1p0e-3, dnaa1_v1p1e-3, dnaa1_v17e3_fullhist]
+  render: >-
+    cd ../.. && python scripts/render_dnaa1_v_sweep.py
+    --run 0.8e-3=out/dnaa1_v0p8e-3/dnaa1_v0p8e-3
+    --run 0.9e-3=out/dnaa1_v0p9e-3/dnaa1_v0p9e-3
+    --run 1.0e-3=out/dnaa1_v1p0e-3/dnaa1_v1p0e-3
+    --run 1.1e-3=out/dnaa1_v1p1e-3/dnaa1_v1p1e-3
+    --run 1.7e-3=out/dnaa1_v17e3_fullhist/dnaa1_v17e3_fullhist
+    --steady-gens 4,5,6,7 --current-pick 0.8e-3 --out studies/dnaa-1-expression/charts
 
 # The full within-cycle dnaa-1 figure (4 panels over LINEAGE TIME, not just per
 # generation) needs the raw run dnaa1-mechA-7gen-pristine, which is NOT on this
@@ -496,6 +528,44 @@ runs:
     biological target. oriC periodic 1↔2 every gen; every gen divides. Closest
     V to hitting BOTH the rate AND the band, but the pool is not yet band-stable
     by gen 7.
+- name: dnaa1-v09e3-2026-06-08
+  status: completed
+  kind: single-daughters-multigen-lineage
+  canonical: false    # SWEEP run (5-point fill, V=0.9e-3). Rate near target; pool peak over band.
+  description: |
+    Sweep fill-in — V=0.9e-3, set at run time via --perturbation
+    'TU00259[c]=0.9e-3' (OVERRODE cache-baked 0.0017). 7 gens, seed 1, FULL
+    per-gen history, resumed from dnaa-0's gen-3 succinate steady-state init,
+    same cache out/cache_dnaa1_mechA_1.7e-3 as the whole sweep. Adds a point
+    between 0.8e-3 and 1.0e-3 for the choose-the-V figure.
+  run_dir: out/dnaa1_v0p9e-3
+  seeds: [1]
+  result: |
+    Steady gens 4-7: DnaA monomer trough/cycle-mean/peak = 216/581/1171. The
+    cycle-mean ramps 281 (gen3) → 415 → 486 → 690 → 731 (gen7); the per-cycle
+    PEAK reaches 1171 by gen 7 — OUT of the [300,800] band on the peak. dnaA init
+    rate 0.58–0.82/min (mean 0.71) — inside the ±50% tolerance [0.5,1.5] around
+    1/min (on target), though below the 1/min center. oriC periodic 1↔2.
+- name: dnaa1-v11e3-2026-06-08
+  status: completed
+  kind: single-daughters-multigen-lineage
+  canonical: false    # SWEEP run (5-point fill, V=1.1e-3). Rate dead-on; pool peak over band.
+  description: |
+    Sweep fill-in — V=1.1e-3, set at run time via --perturbation
+    'TU00259[c]=1.1e-3' (OVERRODE cache-baked 0.0017). 7 gens, seed 1, FULL
+    per-gen history, resumed from dnaa-0's gen-3 succinate steady-state init,
+    same cache out/cache_dnaa1_mechA_1.7e-3 as the whole sweep. Adds a point
+    just above Rashmi's guess (1.0e-3) for the choose-the-V figure.
+  run_dir: out/dnaa1_v1p1e-3
+  seeds: [1]
+  result: |
+    Steady gens 4-7: DnaA monomer trough/cycle-mean/peak = 275/676/1161. The
+    cycle-mean ramps 320 (gen3) → 485 → 573 → 804 → 842 (gen7); the per-cycle
+    PEAK reaches 1161 — OUT of the [300,800] band on the peak (cycle-mean also
+    exits by gen 6). dnaA init rate 0.94–1.05/min (mean 1.00) — squarely ON the
+    ~1/min biological target, the tightest on-target rate of the sweep. oriC
+    periodic 1↔2. The clearest single illustration of the tension: rate dead-on
+    target, pool peak way over band.
 - name: dnaa1-v08e3-2026-06-08
   status: completed
   kind: single-daughters-multigen-lineage
@@ -547,7 +617,7 @@ simulation_set:
   base_model: v2ecoli.composites.baseline (cache out/cache_dnaa1_mechA_1.7e-3, V OVERRIDDEN per run via --perturbation; resume from dnaa-0 gen-3 init)
   duration_steps: 7200 s/gen cap × 7 gens
   seeds: [1]
-  sweep: "TU00259[c] per-promoter init_prob ∈ {0.8e-3 (CANONICAL), 1.0e-3, 1.7e-3} — 2026-06-08 full-history sweep via recorded --perturbation override"
+  sweep: "TU00259[c] per-promoter init_prob ∈ {0.8e-3 (CANONICAL), 0.9e-3, 1.0e-3, 1.1e-3, 1.7e-3} — 2026-06-08 5-point full-history choose-the-V sweep via recorded --perturbation override (see charts/dnaa1_v_sweep)"
   metrics: [DnaA monomer total (trough/mean/peak), dnaA mRNA init rate, oriC count]
   pass_fail_tests:
   - dnaa-monomer-count-in-band-300-800-across-generations
@@ -647,6 +717,56 @@ findings:
     verified_by: scripts/render_dnaa1_decision.py
   status: novel
   statement: Sweeping the dnaA RNA-synthesis probability down to v = 0.8e-3 holds the DnaA monomer pool oscillating band-stable within [300,800] across the steady generations with a clean oriC cycle, at the cost of a sub-physiological mRNA initiation rate — establishing a genuine tension between the in-band pool and the ~1/min rate target at this initial condition.
+- id: v-sweep-5point-choose-the-V
+  kind: computational
+  summary: |
+    5-POINT V-sweep (2026-06-08, for Rashmi's re-review) — the choose-the-V
+    decision figure (charts/dnaa1_v_sweep). Five full-per-gen-history seed-1
+    7-gen lineages on the shared cache out/cache_dnaa1_mechA_1.7e-3, V set at run
+    time via the recorded --perturbation 'TU00259[c]=V' override (each OVERRODE
+    the cache-baked 0.0017; provenance in run_config.perturbations). Steady-gen
+    (4-7) DnaA monomer ENVELOPE [trough, cycle-mean, peak] (counts, sum of bulk
+    forms PD03831[c]+MONOMER0-160[c]+MONOMER0-4565[c]) and dnaA mRNA init rate
+    (cistron 227 events/min, [min, mean, max]):
+
+      V        trough  cyc-mean  peak    in-band?   init rate (min–mean–max)  on-target?
+      0.8e-3   207     362       553     YES         0.46 – 0.60 – 0.71        no  (low)
+      0.9e-3   216     581      1171     no (peak)    0.58 – 0.71 – 0.82        YES
+      1.0e-3   242     624      1424     no (peak)    0.78 – 1.01 – 1.39        YES   ← Rashmi's guess
+      1.1e-3   275     676      1161     no (peak)    0.94 – 1.00 – 1.05        YES
+      1.7e-3   530    1032      1642     no           1.44 – 1.59 – 1.79        no  (high)
+
+    in-band? = steady-gen cycle-means in [300,800] AND per-cycle PEAK ≤ 800
+    (the whole oscillation fits). on-target? = every steady gen's init rate
+    within ±50% of 1/min, i.e. [0.5,1.5].
+
+    READ: the band-stable-pool requirement (whole oscillation under 800) is met
+    ONLY at V=0.8e-3, while the ~1/min init-rate target is met at V ∈
+    {0.9, 1.0, 1.1}e-3. The two regions DO NOT OVERLAP — there is NO single V in
+    the sweep that puts the full DnaA oscillation inside [300,800] AND the init
+    rate near 1/min. Both the pool PEAK and the init rate climb monotonically
+    with V, so any V high enough to lift the rate to ~1/min also pushes the
+    pre-division peak well over 800 (≥1161). Best candidates by criterion:
+      - in-band pool (Rashmi's PRIMARY ask): V=0.8e-3 — the chosen pick.
+      - ~1/min rate, closest to band: V=1.0e-3 (her guess) — rate dead-on (1.01)
+        but cycle-mean 624 with peak 1424; or V=1.1e-3 (rate 1.00, peak 1161,
+        slightly smaller overshoot). Neither is band-stable on the peak.
+    Resolving BOTH would need a different lever than V alone (e.g. cell-cycle-
+    coupled synthesis, faster DnaA turnover, or a higher-DnaA initial condition)
+    — the V knob trades one acceptance layer against the other at the dnaa-0
+    succinate start.
+  evidence:
+    from_run: dnaa1-v08e3-2026-06-08
+  provenance:
+    run_ids:
+    - dnaa1-v08e3-2026-06-08
+    - dnaa1-v09e3-2026-06-08
+    - dnaa1-v10e3-2026-06-08
+    - dnaa1-v11e3-2026-06-08
+    - dnaa1-v17e3-fullhist-2026-06-08
+    verified_by: scripts/render_dnaa1_v_sweep.py
+  status: novel
+  statement: Across a 5-point sweep V ∈ {0.8,0.9,1.0,1.1,1.7}×1e-3, the band-stable DnaA pool (whole oscillation in [300,800], only at V=0.8e-3) and the ~1/min dnaA initiation rate (only at V=0.9–1.1e-3) occupy non-overlapping V regions, so no single value of the dnaA synthesis probability satisfies both acceptance layers at the dnaa-0 succinate initial condition — the in-band pool requires sacrificing the rate, and vice versa.
 
 discovery_implications:
   resolved_uncertainties:

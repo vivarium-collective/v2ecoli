@@ -77,9 +77,12 @@ LIST_OF_DICT_FILENAMES = [
     "transcriptional_attenuation_removed.tsv",
     "tf_one_component_bound.tsv",
     "translation_efficiency.tsv",
+    "trna_charging_kinetics.tsv",
+    "trna_charging_kinetics_curated.tsv",
     "trna_charging_reactions.tsv",
     "trna_charging_reactions_added.tsv",
     "trna_charging_reactions_removed.tsv",
+    "trnas.tsv",
     "two_component_systems.tsv",
     "two_component_system_templates.tsv",
     os.path.join("mass_fractions", "glycogen_fractions.tsv"),
@@ -128,6 +131,9 @@ LIST_OF_DICT_FILENAMES = [
     os.path.join("adjustments", "rna_deg_rates_adjustments.tsv"),
     os.path.join("adjustments", "protein_deg_rates_adjustments.tsv"),
     os.path.join("adjustments", "relative_metabolite_concentrations_changes.tsv"),
+    os.path.join("optimization", "trna_charging_kinetics_constants.tsv"),
+    os.path.join("optimization", "trna_charging_kinetics_solutions.tsv"),
+    os.path.join("optimization", "trna_synthetase_dynamic_range.tsv"),
 ]
 SEQUENCE_FILE = "sequence.fasta"
 LIST_OF_PARAMETER_FILENAMES = [

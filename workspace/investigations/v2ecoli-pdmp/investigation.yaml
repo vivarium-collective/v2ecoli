@@ -132,20 +132,118 @@ executive:
 
     '
   verdict_status: in-progress
+  verdict_detail: |
+    Per-phase rollup — the state a reviewer lands on first, synthesised from the
+    member studies (each phase = one pdmp-NN study):
+
+    • Phase 0 (pdmp-00) — ACCEPTED. Markov-blanket characterization + the canonical
+      reference ensemble are delivered: 192 single-generation replicate runs
+      (3 conditions × N=64), the per-process RNG-seeding bug found and fixed
+      (ensembles were bit-identical before), cross-condition ATP ratios
+      biology-consistent (glucose:acetate 3.85×, +aa:glucose 1.97×). The
+      multi-generation zarr trajectories + the full per-step marshalling profile
+      are the open tail (task #39).
+    • Phase 1 (pdmp-01) — ACCEPTED, closed via PR #72 (merged 2026-05-30).
+      MillardPDMPMetabolism + JAX/Diffrax + a consumption_matched ref-growth driver
+      close the W₂ cell_mass + dry_mass gap to the Phase-0 ensemble within ±σ at
+      t=600 s on M9-glucose; the standalone Millard 2017 ODE recovers its published
+      reference state via pbg-copasi. FBA-bridge + LQR Sobol/FIM audits are the
+      residual rigor items.
+    • Phase 2 (pdmp-02) — INVESTIGATING (structural closeout). Per-promoter /
+      per-protein Poisson tau-leap landed in `poisson` mode and jump variance
+      reaches the listener level (peak |Δcm| 150 fg at the rnap_data listener), but
+      the headline is a negative-and-decisive finding: cell_mass is the WRONG
+      observable for jump-process variance — the consumption_matched homeostat
+      washes per-tick variance out by construction. This redirected Phase 3 onto
+      count-level listeners.
+    • Phase 3 (pdmp-03) — ACCEPTED (infrastructure), 13 sprints on PR #100. Full
+      likelihood→emission→XArrayEmitter→ABC-SMC pipeline; the load-bearing finding
+      is the pivot from self-calibrated log-likelihoods to count-based ABC
+      distances — ~100× sharper Ts identification and a combined count vector at
+      3.06× truth-vs-next-nearest separation (the Phase-3-canonical distance).
+    • Phase 4 (pdmp-04) — ACCEPTED (architectural direction), 6 sprints on PR #100.
+      Real per-tick profile is 76% framework overhead (13,817 isinstance + 4,213
+      __array_finalize__ + 52 process_update calls/tick); column-centric runtime ×
+      N-way lockstep projects ~1500× at N=10³, while per-Process Catalyst.jl JIT
+      buys ≤10%. Remaining work is engineering, not investigation.
+    • Phase 5 (pdmp-05) — INVESTIGATING, sprints 1-4 landed. An information-theoretic
+      ceiling was found: at the current ±15% hypothesis spacing the unbiased
+      pseudo-marginal posterior is essentially uniform (log BF +0.01, truth 24.4%
+      vs 20% baseline) and N cannot rescue it (kernel-mean gap Δlog +0.011). Wider
+      spacing fixes within-grid dilution (truth posterior 24%→61%) but log BF tops
+      out at +0.45 (< Jeffreys substantial). The single remaining lever in the
+      current design space is observable choice — re-run on the Phase-3 combined
+      count vector.
+
+    Net: Phases 0-1 PASS their gates; Phases 2-5 have RUN and produced decisive
+    structural/architectural findings on PR #100, but the end-to-end PDMP gate
+    (Phase 2 trajectory-distribution match → Phase 5 gene-function recovery with
+    credible intervals) is not yet met — so the investigation verdict_status stays
+    in-progress.
   decisions_needed:
-  - 'RESOLVED — Phase 3 inference anchors on count-level listeners. Closeout finding from Phase 2 sprints 6–9 confirmed
-    by Phase 3 sprints 12-13: count-based ABC distance gives 100× sharper Ts identification than aggregate log-likelihood.
-    Combined count vector is the Phase-3-canonical distance.'
-  - 'RESOLVED — Phase 4 architectural direction is column-centric runtime, NOT Catalyst.jl per-Process JIT. Sprint 1-2
-    profile shows ~76% framework overhead and ~14K isinstance/tick + 4K __array_finalize__/tick dominate, so per-Process
-    compilation buys at most ~10% of per-tick time. Sprints 3-4-6 prototypes validate 1.5× per-tick × N-way parallel
-    lockstep = ~1500× total speedup at N=10³.'
-  - 'OPEN — Phase 5 (Bayesian gene-function annotation) gate. Depends on Phase 4 implementation; per-particle wall budget
-    must drop to <0.05 sec/tick before ABC-SMC at the gene-function scale is tractable.'
-  - 'OPEN — Task #14 root-cause fix for the pbg scalar-pruning quirk. Worked around in Phase 3 sprints 1 and 13 via
-    pin-via-consumer declarations; real fix lives at the pbg merger layer.'
-  - 'OPEN — Task #20 in-WCM JAX backend failure. Works standalone, fails inside the WCM composite. Phase 1 perf #4
-    follow-up.'
+  - question: Should Phase-3+ inference anchor on count-level listeners or on aggregate cell_mass / log-likelihood?
+    status: RESOLVED — count-level listeners
+    context: |
+      Closeout finding from Phase 2 sprints 6–9, confirmed by Phase 3 sprints 12-13: count-based ABC
+      distance gives 100× sharper Ts identification than aggregate log-likelihood. The combined count
+      vector sqrt(d_rna² + d_ribosome²) is the Phase-3-canonical distance (3.06× truth-vs-next-nearest
+      separation).
+  - question: Is the Phase-4 performance attack a column-centric runtime or per-Process Catalyst.jl JIT?
+    status: RESOLVED — column-centric runtime
+    context: |
+      Sprint 1-2 profile shows ~76% framework overhead and ~14K isinstance/tick + 4K __array_finalize__/tick
+      dominate, so per-Process compilation buys at most ~10% of per-tick time. Sprints 3-4-6 prototypes
+      validate 1.5× per-tick × N-way parallel lockstep = ~1500× total speedup at N=10³.
+  - question: Can Phase 5 (Bayesian gene-function annotation) reach its gate within the current design space?
+    status: OPEN
+    context: |
+      Depends on Phase 4 implementation; the per-particle wall budget must drop to <0.05 sec/tick before
+      ABC-SMC at the gene-function scale is tractable. Phase-5 sprints 1-4 additionally show the current
+      observable hits an information-theoretic ceiling (log BF +0.45 < Jeffreys substantial even at the
+      widest spacing) — observable choice is the remaining lever, not replicate budget.
+  - question: What is the root-cause fix for the pbg scalar-pruning quirk (task #14)?
+    status: OPEN
+    context: |
+      Scalar listener fields with no downstream consumer get silently pruned from the merged state. Worked
+      around in Phase 3 sprints 1 and 13 via pin-via-consumer input declarations; the real fix lives at the
+      pbg merger layer.
+  - question: Why does the JAX/Diffrax metabolism backend fail in-WCM (task #20)?
+    status: OPEN
+    context: |
+      The backend works standalone but fails inside the WCM composite. Phase 1 perf #4 follow-up; blocks the
+      JAX path for the in-WCM Millard ODE.
+inputs:
+  datasets:
+  - name: millard2017-central-metabolism-sbml
+    path: v2ecoli/models/sbml/millard2017_central_metabolism.xml
+    supports_claims: 'Phase-1 ODE substrate — BioModels MODEL1505110000 (Millard
+      2017), the published kinetic ODE of E. coli central carbon + energy metabolism
+      wrapped via pbg-copasi''s CopasiUTCProcess. Recovered to solver tolerance
+      (pdmp-01, 2026-05-24).'
+  - name: phase0-reference-ensemble
+    path: .pbg/runs/phase0-traj{,-acetate,-with_aa}/seed_*/
+    supports_claims: 'Phase-0 canonical validation dataset — 192 replicate runs
+      (3 conditions × N=64, single-generation, 600 model-seconds, 121 snapshots ×
+      12 listener observables per seed). Every Phase 1+ replacement validates its
+      interface statistics against this ensemble (W₂ within the Phase-0 bootstrap
+      CI). Produced by pdmp-00; multi-generation zarr extension pending (task #39).'
+  references:
+  - millard2017
+  - macklin2020
+  - agmon2022
+  - birch2014
+  - stumpf2021
+  - saa2017
+  - choi2023
+  - hari2024
+  - talts2018sbc
+  - lyne2015
+  - toth2022
+  expert_docs:
+  - name: duf-final-report
+    path: workspace/references/expert/duf_final_report_2026.pdf
+  - name: v2ecoli-pdmp-roadmap
+    path: workspace/references/expert/v2ecoli_pdmp_roadmap.pdf
 scientific_argument:
   main_claim: 'The PDMP class — ODE segments interrupted by discrete jump events —
 

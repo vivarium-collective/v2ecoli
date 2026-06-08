@@ -11,8 +11,8 @@ def _frame_ids(tsv_text):
     return {r.split("\t")[0] for r in rows[1:]}  # skip header ($ row)
 
 
-@pytest.mark.skipif(not os.path.isdir(FIX), reason="sms-api oracle fixtures absent")
 def test_ptools_rna_registered():
+    # No fixture needed — always runs so CI confirms the port imports + registers.
     from v2ecoli.workflow.analyses import ptools_rna  # noqa: F401
     from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY, Analysis
     cls = ANALYSIS_REGISTRY["ptools_rna"]

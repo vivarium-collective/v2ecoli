@@ -6,10 +6,10 @@ in `~/code/vivarium-ecoli`) onto v2ecoli's native `Analysis` base.
 ## Summary counts
 
 - Step 0 (compat shim centralization): **DONE**
-- PORTED: 9
+- PORTED: 12
 - SKIPPED: 0
 - BLOCKED: 4
-- Remaining: 12
+- Remaining: 9
 
 ## Infrastructure added
 - `v2ecoli/workflow/analyses/_helpers.py` — native `read_stacked_columns`
@@ -46,10 +46,10 @@ Legend: PORTED (sha) / SKIPPED (reason) / BLOCKED (reason) / TODO
 - multigeneration/ptools_rna — PORTED (multiscale module; abs-time wrapper) — name `ptools_rna_multigeneration`
 - multigeneration/ptools_rxns — PORTED (multiscale module; abs-time wrapper) — name `ptools_rxns_multigeneration`
 - multigeneration/replication — PORTED (abs-time axis; critical-mass panels absent — columns not emitted by v2ecoli)
-- multigeneration/ribosome_components — TODO
+- multigeneration/ribosome_components — PORTED (bulk→parquet-order; active_ribosome shim; monomer order from sim_data)
 - multigeneration/ribosome_crowding — TODO
-- multigeneration/ribosome_production — TODO
-- multigeneration/ribosome_usage — TODO
+- multigeneration/ribosome_production — PORTED (bulk→parquet-order; active_ribosome shim; agent_id filter dropped)
+- multigeneration/ribosome_usage — PORTED (did_initialize absent → activation panels skipped; decimals cast to float)
 - multigeneration/rna_decay_03_high — TODO
 
 ### multiseed

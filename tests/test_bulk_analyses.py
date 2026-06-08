@@ -29,6 +29,9 @@ PORTED = [
     ("cell_mass", "multivariant"),
     ("doubling_time_hist", "multivariant"),
     ("doubling_time_line", "multivariant"),
+    ("ribosome_production", "multigeneration"),
+    ("ribosome_components", "multigeneration"),
+    ("ribosome_usage", "multigeneration"),
 ]
 
 

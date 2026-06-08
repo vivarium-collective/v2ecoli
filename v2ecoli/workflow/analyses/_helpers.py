@@ -194,6 +194,21 @@ def bulk_count_idx_expr(
     return named_idx("bulk__count", names, [idxs], zero_to_null=zero_to_null)
 
 
+def cast_decimals(df):
+    """Cast any polars ``Decimal`` columns to ``Float64``.
+
+    DuckDB surfaces some numeric columns as ``DECIMAL``; Altair's JSON encoder
+    cannot serialize Python ``Decimal``, so coerce them to float before
+    rendering a chart.
+    """
+    import polars as pl
+
+    dec = [c for c, dt in zip(df.columns, df.dtypes) if dt == pl.Decimal]
+    if dec:
+        df = df.with_columns([pl.col(c).cast(pl.Float64) for c in dec])
+    return df
+
+
 def chart_to_html(chart, title: str = "") -> str:
     """Serialize an Altair chart to a self-contained HTML view fragment.
 

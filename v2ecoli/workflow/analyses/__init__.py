@@ -15,3 +15,6 @@ from v2ecoli.workflow.analyses import replication  # noqa: F401
 from v2ecoli.workflow.analyses import cell_mass  # noqa: F401
 from v2ecoli.workflow.analyses import doubling_time_hist  # noqa: F401
 from v2ecoli.workflow.analyses import doubling_time_line  # noqa: F401
+from v2ecoli.workflow.analyses import ribosome_production  # noqa: F401
+from v2ecoli.workflow.analyses import ribosome_components  # noqa: F401
+from v2ecoli.workflow.analyses import ribosome_usage  # noqa: F401

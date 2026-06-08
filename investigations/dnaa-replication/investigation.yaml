@@ -2,7 +2,7 @@ schema_version: 2
 name: dnaa-replication
 title: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)
 created: '2026-05-29'
-status: active   # 2026-06-08: dnaa-0 PASS; dnaa-1 RE-VALIDATED → FAIL (DnaA pool out of band on full per-gen history; prior PASS was a truncated-emit artifact); dnaa-3 over-binding persists. Earlier: dnaa-0, dnaa-1 PASS (foundation). dnaa-2 PASS (Rashmi's generation-average criterion, seed-1 8-gen). dnaa-2 PASS — on Rashmi's 2026-06-04 generation-average criterion (initial gens stabilize) all four behaviours pass (DnaA-ATP fraction avg 0.26, total-DnaA avg 535, mass-doubling, oriC-one-init).
+status: active   # 2026-06-08: dnaa-0 PASS; dnaa-1 RE-TUNED → PASS (V swept 1.7e-3→0.8e-3 per Rashmi; DnaA pool band-stable in [300,800] for steady gens at V=0.8e-3, full per-gen history — band test FAIL→PASS, with a sub-physiological init-rate tradeoff flagged for re-review); dnaa-3 over-binding persists. dnaa-2 PASS (Rashmi's generation-average criterion, seed-1 8-gen): all four behaviours pass (DnaA-ATP fraction avg 0.26, total-DnaA avg 535, mass-doubling, oriC-one-init).
 
 question: |
   Can v2ecoli reproduce DnaA-driven replication initiation in succinate at
@@ -38,20 +38,25 @@ executive:
     growth condition, built study-by-study. dnaa-0 (succinate periodic steady
     state) PASSES. A per-generation parquet-emit bug that had been truncating each
     generation's history to the post-division trough was fixed (2026-06-08); re-running
-    on the full per-gen history overturned two earlier verdicts: dnaa-1 (DnaA
-    expression at V=1.7e-3) is now FAIL — the DnaA pool is not band-stable over a full
-    lineage — and dnaa-3 (DnaA-box binding) shows the over-binding PERSISTS. dnaa-2
-    (DnaA-ATP/ADP nucleotide balance) PASSED on the pre-fix data and shares the same
-    truncation-artifact risk (re-verification pending). Each study has an explicit
-    acceptance criterion in biological observables (oriC periodicity, DnaA pool steady
-    state, DnaA-ATP fraction band).
+    on the full per-gen history then drove a V-sweep re-tune: dnaa-1 (DnaA expression) is
+    now PASS — at the swept V=0.8e-3 (down from 1.7e-3, per Rashmi's request) the DnaA
+    pool is band-stable in [300,800] for the steady generations — with a documented
+    sub-physiological init-rate tradeoff. dnaa-3 (DnaA-box binding) shows the over-binding
+    PERSISTS. dnaa-2 (DnaA-ATP/ADP nucleotide balance) PASSED on the pre-fix data and
+    shares the same truncation-artifact risk (re-verification pending). Each study has an
+    explicit acceptance criterion in biological observables (oriC periodicity, DnaA pool
+    steady state, DnaA-ATP fraction band).
   verdict: |-
-    dnaa-0 PASS. dnaa-1 RE-VALIDATED → FAIL on full per-gen history: V=1.7e-3 (genuinely
-    applied — baked into the ParCa cache and confirmed) holds the dnaA init rate elevated
-    (~1.2-1.8/min) and oriC clean (1↔2), but the DnaA monomer pool ramps out of band
-    [300,800] (cycle-mean 196→1131, above band from gen 4 on). The earlier in-band PASS
-    was a TRUNCATED-EMIT ARTIFACT — only the post-division trough (~43 s/gen) was emitted
-    before the now-fixed division history-wipe bug. dnaa-3 box binding runs IN-SIM as the
+    dnaa-0 PASS. dnaa-1 RE-TUNED → PASS on full per-gen history: a V-sweep
+    {1.7e-3, 1.0e-3, 0.8e-3} (Rashmi's request, via the recorded --perturbation override on
+    one shared cache) shows the DnaA pool ramps up from dnaa-0's low baseline and where it
+    settles scales with V — out of band at 1.7e-3 (→1131) and 1.0e-3 (→832 by gen 7), but
+    BAND-STABLE at V=0.8e-3 (steady gens 4-7 cycle-mean 337/338/360/415, peaks <800, oriC
+    clean 1↔2). V=0.8e-3 is canonical; the band test flips FAIL→PASS. HONEST TRADEOFF: at
+    0.8e-3 the dnaA init rate (0.46-0.71/min) undershoots the ~1/min target — the rate hits
+    target only at V≈1.0e-3 where the pool is not band-stable, so the in-band-pool and
+    ~1/min-rate layers are in tension at this initial condition (flagged for Rashmi's
+    re-review). dnaa-3 box binding runs IN-SIM as the
     provided read-only occupancy listener; per Rashmi 2026-06-08 the cap=32/Smith-2024 and
     sink/abundance/datA additions were NON-provided and are WITHDRAWN. The multi-gen
     read-only run + full plot set are DONE and show the over-binding PERSISTS: free DnaA-ATP
@@ -64,16 +69,24 @@ executive:
     periodic steady state (oriC 1↔2 from gen 3, transient 4 in gens 1–2;
     reviewer-confirmed). Both acceptance tests re-verified from the parquet
     (2026-05-31, scripts/verify_dnaa0_acceptance.py): oriC max ≤2 from gen 3,
-    cell_mass CV birth 0.021 / peak 0.045. dnaa-1 — RE-VALIDATED 2026-06-08 → FAIL:
-    Mechanism A (TU00259[c]=1.7e-3, baked into the ParCa cache and confirmed applied)
-    lands the dnaA mRNA init rate at ~1.2-1.8 events/min and keeps oriC periodic 1↔2,
-    BUT on the full per-gen history the DnaA monomer pool is NOT band-stable — the
-    cycle-mean ramps 196→1131 and sits above [300,800] from gen 4 on. The earlier
-    "in-band 665-710" was a truncated-emit artifact: only ~43 s/gen (the post-division
-    trough, the lowest point of the sawtooth) was emitted before the now-fixed division
-    history-wipe bug. The cell cycle is preserved; the band test is not met. So dnaa-0
-    holds, but the dnaa-1 foundation does NOT — V=1.7e-3 does not keep the DnaA pool in
-    band over a lineage, and the expression-tuning question is reopened.
+    cell_mass CV birth 0.021 / peak 0.045. dnaa-1 — RE-TUNED 2026-06-08 → PASS:
+    a V-sweep (Rashmi's request — "tune the v value to get the DnaA levels to oscillate
+    between 300-800... my guess would be 1e-3") over {1.7e-3, 1.0e-3, 0.8e-3}, set per-run
+    via the recorded --perturbation 'TU00259[c]=V' override on one shared cache
+    (out/cache_dnaa1_mechA_1.7e-3, each run OVERRODE the baked 0.0017), full per-gen
+    history, seed 1, 7 gens. The DnaA monomer cycle-mean ramps up from dnaa-0's low
+    baseline; lowering V both lowers the plateau and slows the ramp: V=1.7e-3 → 1131,
+    V=1.0e-3 → 832 (gens 3-6 in band, gen 7 exits), V=0.8e-3 PLATEAUS in band (steady gens
+    4-7: 337/338/360/415, per-cycle peaks <800), oriC clean 1↔2 every gen, every gen
+    divides. Canonical V=0.8e-3; the DnaA-pool band test flips FAIL→PASS. HONEST TRADEOFF:
+    at V=0.8e-3 the dnaA mRNA init rate is 0.46-0.71/min — at the low edge of the ±50%
+    tolerance and below the ~1/min target; the rate is on target only at Rashmi's guessed
+    V=1.0e-3, where the pool ramps out of band by gen 7. The two acceptance layers (in-band
+    pool vs ~1/min rate) are in tension at the dnaa-0 succinate initial condition; V was
+    chosen to satisfy the primary (in-band oscillation) ask, with the rate tradeoff flagged
+    for re-review. The prior "in-band 665-710" PASS was a truncated-emit artifact (only
+    ~43 s/gen, the post-division trough, was emitted before the now-fixed division
+    history-wipe bug).
 
     2026-05-31 reviewer round (Rashmi): (1) dnaa-0 + dnaa-1 now carry explicit
     `runs:` provenance + canonical 6-axis status, so the report shows them as
@@ -186,7 +199,7 @@ scientific_argument:
     across generations.
   evidence_for:
   - 'dnaa-0 (CONFIRMED 2026-05-30, Rashmi "this looks correct"): succinate single-daughters lineage is periodic from gen 3 onwards — oriC 1↔2, cell mass sawtooth, every division fires with d_period_elapsed=True and chromosomes=2 at the split (Round 3.7 D-period fix in place). The early-generation oriC overshoot to 4 is the expected pre-steady-state transient. Gen-3 state saved as the canonical succinate initial condition.'
-  - 'dnaa-1 (RE-VALIDATED 2026-06-08 → FAIL — the earlier PASS used truncated-emit data; the in-band numbers below are the post-division TROUGH only. On the full per-gen history the DnaA pool ramps OUT of band, cycle-mean 196→1131, above [300,800] from gen 4. Init rate elevated + oriC clean, but the band test fails): Mechanism A (TU00259[c]=2e-3) lands the dnaA mRNA initiation rate at median 0.99 events/min — on the biological ≈1/min target (Rashmi exemplar 1.01/min) — and, as the consequence, holds the DnaA monomer pool cycle-mean in band [300,800] (mean 706, cross-gen CV 7.2% over gens 3–7). oriC stays periodic 1↔2 (never 4) under the lifted expression, so the cell cycle from dnaa-0 is preserved. (Required fixing a division-time parquet-emitter partition-wipe bug — daughters were deleting the parent generation''s history; see dnaa-1 report + v2ecoli/steps/division.py.)'
+  - 'dnaa-1 (RE-TUNED 2026-06-08 → PASS — V swept down per Rashmi to bring the DnaA pool into band): a full-per-gen-history sweep of the dnaA RNA-synth probability V ∈ {1.7e-3, 1.0e-3, 0.8e-3} (set per-run via the recorded --perturbation override on one shared cache) shows the DnaA monomer cycle-mean scales with V — out of band at 1.7e-3 (→1131) and 1.0e-3 (→832 by gen 7), but BAND-STABLE at the chosen V=0.8e-3: steady gens 4-7 cycle-mean 337/338/360/415, all in [300,800] with the per-cycle peak also <800 (gen-7 envelope [252,553]). oriC stays periodic 1↔2 (never 4) every gen and every gen divides (τ 58-75 min), so the dnaa-0 cell cycle is preserved under the tuned expression. The DnaA-pool band test flips FAIL→PASS. HONEST TRADEOFF: at V=0.8e-3 the dnaA init rate is 0.46-0.71/min — below the ~1/min target; it hits target only at Rashmi''s guessed V=1.0e-3, where the pool ramps out of band, so the in-band-pool and ~1/min-rate layers are in tension at this initial condition (flagged for re-review). Canonical run out/dnaa1_v0p8e-3, seed 1.'
   evidence_against:
   - 'Within each cycle the DnaA pool OSCILLATES above the [300,800] band at its pre-division peak (≈1000) before halving at division — so the band holds for the cycle-MEAN, not every instantaneous tick. This is the expected accumulate-then-divide behaviour, not a contradiction, but worth stating: "in band" here means cycle-typical, not a hard cap.'
   caveats:

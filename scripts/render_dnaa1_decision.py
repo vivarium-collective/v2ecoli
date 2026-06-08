@@ -153,7 +153,7 @@ def _load(run_dir: str):
     return df, bounds[:-1], spans, np.array(rate_x), np.array(rate_y), gen_stats
 
 
-def render(run_dir: str, out_dir: str) -> str:
+def render(run_dir: str, out_dir: str, v_label: str = "1.7e-3") -> str:
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -212,7 +212,7 @@ def render(run_dir: str, out_dir: str) -> str:
                    fontsize=8, fontweight="bold", color="0.30")
 
     fig.suptitle(
-        "dnaa-1 expression tuning — DECISION figure (Mechanism A, V=1.7e-3, seed 1)\n"
+        f"dnaa-1 expression tuning — DECISION figure (Mechanism A, V={v_label}, seed 1)\n"
         "intervention → molecular consequence → preserved cell-cycle phenotype\n"
         "(full within-cycle trajectories; all panels on a shared lineage-time axis)",
         fontsize=11, y=0.997)
@@ -230,7 +230,8 @@ def render(run_dir: str, out_dir: str) -> str:
         "generation_id": None,
         "rendered_at": time.time(),
         "command": (f"python scripts/render_dnaa1_decision.py --run {run_dir} "
-                    f"--out {out_dir}"),
+                    f"--out {out_dir} --v-label {v_label}"),
+        "v_label": v_label,
         "note": ("FULL per-generation history (per-gen-history emit fix, commit "
                  "2cc0ebf). 4 panels on a shared cumulative lineage-time axis: "
                  "(a) dnaA mRNA init events/min (per-min bins, dnaA cistron 227); "
@@ -256,8 +257,10 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", default="out/dnaa1_fullhist/dnaa1_fullhist")
     ap.add_argument("--out", default="studies/dnaa-1-expression/charts")
+    ap.add_argument("--v-label", default="1.7e-3",
+                    help="V (TU00259[c] synth prob) label for the figure title/meta")
     a = ap.parse_args()
-    render(a.run, a.out)
+    render(a.run, a.out, v_label=a.v_label)
 
 
 if __name__ == "__main__":

@@ -1,100 +1,102 @@
 {
-  "source_run_id": "dnaa1_v17e3_fullhist",
+  "run_id": "dnaa1_v0p8e-3",
+  "source_run_id": "dnaa1_v0p8e-3",
   "generation_id": null,
-  "rendered_at": 1780922716.926785,
-  "command": "python scripts/render_dnaa1_decision.py --run out/dnaa1_v17e3_fullhist/dnaa1_v17e3_fullhist --out studies/dnaa-1-expression/charts",
+  "rendered_at": 1780930978.30062,
+  "command": "python scripts/render_dnaa1_decision.py --run out/dnaa1_v0p8e-3/dnaa1_v0p8e-3 --out studies/dnaa-1-expression/charts --v-label 0.8e-3",
+  "v_label": "0.8e-3",
   "note": "FULL per-generation history (per-gen-history emit fix, commit 2cc0ebf). 4 panels on a shared cumulative lineage-time axis: (a) dnaA mRNA init events/min (per-min bins, dnaA cistron 227); (b) total DnaA = sum of bulk forms PD03831[c]+MONOMER0-160[c]+MONOMER0-4565[c], band [300,800]; (c) DnaA conc nM; (d) oriC count. Canonical all-zeros daughter lineage; daughter-stub gens (<5 min) filtered.",
   "per_generation": [
     {
       "gen": 1,
-      "ticks": 3321,
-      "dur_min": 55.3,
-      "dnaa_mean": 195.5,
+      "ticks": 3440,
+      "dur_min": 57.3,
+      "dnaa_mean": 75.3,
       "dnaa_min": 14,
-      "dnaa_max": 396,
+      "dnaa_max": 172,
       "oric_set": [
         1,
         2
       ],
-      "init_per_min": 1.54
+      "init_per_min": 0.8
     },
     {
       "gen": 2,
-      "ticks": 3921,
-      "dur_min": 65.3,
-      "dnaa_mean": 464.1,
-      "dnaa_min": 208,
-      "dnaa_max": 770,
+      "ticks": 4060,
+      "dur_min": 67.7,
+      "dnaa_mean": 193.4,
+      "dnaa_min": 77,
+      "dnaa_max": 313,
       "oric_set": [
         1,
         2
       ],
-      "init_per_min": 1.32
+      "init_per_min": 0.68
     },
     {
       "gen": 3,
-      "ticks": 4324,
-      "dur_min": 72.0,
-      "dnaa_mean": 747.0,
-      "dnaa_min": 397,
-      "dnaa_max": 1045,
+      "ticks": 4359,
+      "dur_min": 72.6,
+      "dnaa_mean": 281.4,
+      "dnaa_min": 150,
+      "dnaa_max": 464,
       "oric_set": [
         1,
         2
       ],
-      "init_per_min": 1.21
+      "init_per_min": 0.66
     },
     {
       "gen": 4,
-      "ticks": 4256,
-      "dur_min": 70.9,
-      "dnaa_mean": 870.3,
-      "dnaa_min": 530,
-      "dnaa_max": 1272,
+      "ticks": 4165,
+      "dur_min": 69.4,
+      "dnaa_mean": 336.5,
+      "dnaa_min": 214,
+      "dnaa_max": 467,
       "oric_set": [
         1,
         2
       ],
-      "init_per_min": 1.48
+      "init_per_min": 0.65
     },
     {
       "gen": 5,
-      "ticks": 3596,
-      "dur_min": 59.9,
-      "dnaa_mean": 935.8,
-      "dnaa_min": 616,
-      "dnaa_max": 1426,
+      "ticks": 4479,
+      "dur_min": 74.6,
+      "dnaa_mean": 337.5,
+      "dnaa_min": 238,
+      "dnaa_max": 433,
       "oric_set": [
         1,
         2
       ],
-      "init_per_min": 1.44
+      "init_per_min": 0.46
     },
     {
       "gen": 6,
-      "ticks": 3489,
-      "dur_min": 58.1,
-      "dnaa_mean": 1189.6,
-      "dnaa_min": 698,
-      "dnaa_max": 1642,
+      "ticks": 4109,
+      "dur_min": 68.5,
+      "dnaa_mean": 359.5,
+      "dnaa_min": 207,
+      "dnaa_max": 507,
       "oric_set": [
         1,
         2
       ],
-      "init_per_min": 1.79
+      "init_per_min": 0.57
     },
     {
       "gen": 7,
-      "ticks": 3632,
-      "dur_min": 60.5,
-      "dnaa_mean": 1131.3,
-      "dnaa_min": 832,
-      "dnaa_max": 1453,
+      "ticks": 3643,
+      "dur_min": 60.7,
+      "dnaa_mean": 414.8,
+      "dnaa_min": 252,
+      "dnaa_max": 553,
       "oric_set": [
         1,
         2
       ],
-      "init_per_min": 1.67
+      "init_per_min": 0.71
     }
   ],
   "oric_max": 2

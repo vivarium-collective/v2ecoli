@@ -1,0 +1,23 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260608125948"
+  generated_at: "2026-06-08T13:17:50.390Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-08.html"
+annotations:
+  "finding-v-retune-1.7e-3-reduces-overshoot":
+  - ts: "2026-06-08T13:12:37.133Z"
+    author: "Rashmi"
+    text: "we need to tune the v value to get the DnaA levels to oscillate between 300-800. You can do a sweep of v values to figure out what the value should be. My guess would be 1e-3."
+responses:
+  _acknowledgments: |-
+    Rashmi (2026-06-08): confirmed the parquet-emitter fix and that the report starts over cleanly; liked the report structure. Noted with thanks.
+  finding-v-retune-1.7e-3-reduces-overshoot:
+    status: in-progress
+    by: claude
+    at: '2026-06-08'
+    response: |-
+      Agreed — running a V sweep to land the DnaA pool in [300,800] over the full lineage, starting at your 1e-3 guess. Using the new run-time --perturbation override (no ParCa rebuild; each run's V is recorded as provenance) on the same cache, full per-gen history. Will report the sweep table (V → per-gen DnaA cycle-mean + oscillation envelope), the chosen V, and the in-band re-validation (cycle-mean in band, oriC 1↔2, init rate ~1/min), then re-render the dnaa-1 figure and flip the verdict back to PASS at the tuned V.

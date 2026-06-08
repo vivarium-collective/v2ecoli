@@ -39,3 +39,12 @@ def test_ptools_rxns_oracle_shape():
     oracle = open(os.path.join(FIX, "ptools_rxns.txt")).read()
     assert oracle.strip().splitlines()[0].split("\t")[0] == "$"
     assert len(_frame_ids(oracle)) > 0
+
+
+def test_ptools_proteins_registered():
+    from v2ecoli.workflow.analyses import ptools_proteins  # noqa: F401
+    from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY, Analysis
+    cls = ANALYSIS_REGISTRY["ptools_proteins"]
+    assert issubclass(cls, Analysis) and cls.scale == "single"
+    from bigraph_schema import allocate_core
+    assert cls({}, core=allocate_core()).outputs() == {"view": "string", "data": "map"}

@@ -1,6 +1,6 @@
 """Shared data shims for native vEcoli analysis ports.
 
-v2ecoli's parquet schema differs from vEcoli in two ways that matter for
+v2ecoli's parquet schema differs from vEcoli in four ways that matter for
 the ptools analyses:
 
     Shim A – bulk count matrix
@@ -16,6 +16,18 @@ the ptools analyses:
         sum of ``listeners__ribosome_data__n_ribosomes_per_transcript``
         (a list per row).  Use the SQL snippet ``ACTIVE_RIBOSOME_SQL`` in
         SELECT lists and read the resulting ``active_ribosome`` column.
+
+    Shim C – oriC count scalar
+        vEcoli emits ``listeners__unique_molecule_counts__oriC`` (scalar).
+        v2ecoli uses ``listeners__replication_data__number_of_oric`` (also
+        scalar).  Use ``ORIC_SQL`` in SELECT lists and read ``oriC``.
+
+    Shim D – active RNAP scalar
+        vEcoli emits ``listeners__unique_molecule_counts__active_RNAP``
+        (scalar).  v2ecoli has no such column; the equivalent is the LENGTH of
+        ``listeners__rnap_data__active_rnap_unique_indexes`` (an INTEGER[]
+        per row).  Use ``ACTIVE_RNAP_SQL`` in SELECT lists and read
+        ``active_RNAP``.
 """
 
 from __future__ import annotations
@@ -33,6 +45,29 @@ ACTIVE_RIBOSOME_SQL = (
 )
 """Drop this into a SELECT column list to synthesise the active-ribosome
 scalar from v2ecoli's per-transcript ribosome count list."""
+
+# ---------------------------------------------------------------------------
+# Shim C — oriC count SQL snippet
+# ---------------------------------------------------------------------------
+
+ORIC_SQL = "listeners__replication_data__number_of_oric AS oriC"
+"""Drop this into a SELECT column list to read the oriC count (scalar).
+
+vEcoli used ``listeners__unique_molecule_counts__oriC``; v2ecoli exposes the
+same value via ``listeners__replication_data__number_of_oric``."""
+
+# ---------------------------------------------------------------------------
+# Shim D — active-RNAP scalar SQL snippet
+# ---------------------------------------------------------------------------
+
+ACTIVE_RNAP_SQL = (
+    "len(listeners__rnap_data__active_rnap_unique_indexes) AS active_RNAP"
+)
+"""Drop this into a SELECT column list to synthesise the active-RNAP scalar.
+
+vEcoli used ``listeners__unique_molecule_counts__active_RNAP``; v2ecoli has
+no such scalar column — the equivalent is the length of
+``listeners__rnap_data__active_rnap_unique_indexes`` (an INTEGER[] per row)."""
 
 
 # ---------------------------------------------------------------------------

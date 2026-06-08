@@ -301,11 +301,15 @@ reviewer_feedback:
     runs[].real_insim_numbers), not assumed.
     NOTE (decontaminated 2026-06-08 per Rashmi): an earlier response to this round
     introduced outside references and a separate-mechanism box-count sweep to argue
-    an over-binding "cause"; those were NOT provided and have been removed. Per
-    Rashmi, with the DnaA-ATP fraction in [0.2,0.5] (from the provided dnaa-2
-    nucleotide-balance mechanism) the low-affinity sites do not all saturate, so no
-    added pool, cap, or outside source is warranted — the apparent over-binding was
-    a premise artifact, not a missing mechanism.
+    an over-binding "cause"; those were NOT provided and have been removed — no cap,
+    no sink, no outside source. UPDATE (full-cycle observer artifact
+    dnaa3-readonly-artifact): when the WHOLE cell cycle is observed (not just the
+    early-cycle slice the multigen run emitted), free DnaA-ATP stays at 342-491 nM —
+    several-fold above the 100 nM oriC-low K_d for 100% of the cycle — so oriC
+    low-affinity occupancy is HIGH (0.77-0.83) throughout, not sub-saturated. This
+    over-binding is reported HONESTLY as an OPEN observation within the provided
+    mechanism; it is not resolved by a cap/sink/added pool, and it is not framed as
+    a mere premise artifact.
 - round: '2026-06-05-1244'
   reviewer: Rashmi
   source: feedback-2026-06-05-1244/feedback.yaml
@@ -437,6 +441,71 @@ runs:
       result: PASS
       detail: listeners.dnaA_binding columns emit real per-tick values
 
+- name: dnaa3-readonly-artifact
+  status: completed
+  kind: single-gen-full-cycle-observer-artifact
+  canonical: true
+  run_dir: parquet-runs/dnaa3-readonly-artifact
+  cache_dir: out/cache_dnaa3
+  resume_dill: out/dnaa3_insim_readonly/gen_dills/gen5.dill
+  seed: 1
+  description: |
+    FULL-WITHIN-CYCLE read-only binding artifact. The multigen run
+    (dnaa3-insim-readonly) wiped the parquet history at each division, so only the
+    first tens of seconds of each generation survived (see that run's emit_caveat).
+    To observe a COMPLETE cell cycle, this run resumes from a steady-state
+    generation's dill (gen5.dill) and runs a SINGLE generation for 55 min with the
+    SAME strictly read-only dnaa_box_binding_listener — long enough that the cell
+    does NOT divide, so the entire per-tick history is retained. Because the
+    listener is read-only (writes only listeners.dnaA_binding), this is a valid
+    observer artifact: it does not perturb the biology, it just lets us watch a
+    whole cycle without division truncating the emit.
+    PROVENANCE: produced on the Mac mini at ~/code/v2e-invest/out/dnaa3_readonly_artifact
+    (1 gen, seed 1, start-gen 6, max-min 55; divided=False; dry mass 182.8 -> 370.2 fg
+    over 55 min). Copied locally to parquet-runs/dnaa3-readonly-artifact/ (gitignored —
+    only this metadata is tracked). 3301 ticks at 1 s cadence, t = 0..3300 s.
+  real_insim_numbers:
+    # FILLED FROM THE REAL RUN — read straight from the emitted parquet
+    # (listeners.dnaA_binding), 3301 ticks over one full ~55-min cycle. NOT fabricated.
+    cycle_minutes: 55.0
+    n_ticks: 3301
+    free_DnaA_ATP_nM: {min: 341.7, mean: 413.8, max: 491.3}
+    free_DnaA_ADP_nM: {min: 1014.3, mean: 1044.3, max: 1069.3}
+    fraction_of_cycle_ATP_above_Kd_low: 1.0   # free DnaA-ATP > 100 nM K_d for 100% of the cycle
+    Kd_low_nM: 100.0
+    ATP_over_Kd_low_ratio: {min: 3.4, mean: 4.1, max: 4.9}
+    oriC_low_affinity_occupancy: {min: 0.774, mean: 0.804, max: 0.831}   # HIGH and flat all cycle
+    oriC_high_affinity_occupancy: {min: 0.999, mean: 0.999, max: 0.999}  # saturated (K_d 1 nM)
+    chromosome_occupancy: {mean: 0.999}
+    dnaA_promoter_occupancy: {mean: 0.999}
+    oriC_n_total: {min: 14, max: 20}   # boxes duplicate as replication proceeds
+    oriC_n_bound: {min: 12, max: 19}
+    total_DnaA_bound: {mean: 425}
+    honest_observation: |
+      Over a full cell cycle, with ONLY the provided fast-equilibrium binding
+      mechanism + the dnaa-2 nucleotide balance (no cap, no sink), free DnaA-ATP
+      sits at 342-491 nM (mean 414) — i.e. ~3.4-4.9x the 100 nM oriC-low K_d —
+      and exceeds the K_d for 100% of the cycle. Consequently oriC LOW-affinity
+      occupancy stays HIGH (0.77-0.83) the WHOLE cycle, not just near initiation;
+      there is no early->late low-affinity switch in this run. This over-binding is
+      an OPEN observation within the provided mechanisms; it is NOT resolved here by
+      a chromosomal box-capacity cap or a DnaA sink (both removed per Rashmi). The
+      earlier multigen run's lower early-cycle figures (free DnaA-ATP ~342 nM, oriC-low
+      ~0.77 at gen 5) were the early-cycle slice; the full cycle reaches higher.
+  outcomes:
+    full-cycle-history-retained:
+      result: PASS
+      detail: single non-dividing gen; 3301 ticks (0..3300 s) of listeners.dnaA_binding retained
+    cycle-preserved-read-only:
+      result: PASS
+      detail: read-only listener; growth (182.8->370.2 fg over 55 min) matches the dnaa-2 baseline
+    over-binding-throughout-cycle:
+      result: PARTIAL
+      detail: |
+        HONEST open observation — free DnaA-ATP > 100 nM K_d for 100% of the cycle and
+        oriC low-affinity occupancy 0.77-0.83 throughout. Within the provided mechanism;
+        not resolved by a cap or sink.
+
 tests:
 - name: cycles-divided-8-of-8
   status: passed
@@ -506,7 +575,9 @@ visualizations:
       emitted n_bound / n_total; red ■ = ter; oriC boxes double at replication and
       the chromosomal box ring grows as the fork copies it. The bottom panel plots
       the emitted free DnaA-ATP (nM) vs the 100 nM oriC-low K_d. oriC high-affinity
-      boxes saturate; oriC LOW-affinity occupancy is the dynamic switch. Only the
+      boxes saturate; oriC LOW-affinity occupancy is high (~0.8) — see the full-cycle
+      binding analysis (dnaa3-readonly-artifact), where free DnaA-ATP stays above the
+      K_d the whole cycle. Only the
       provided pools (oriC + dnaA-promoter + chromosomal) are shown. Numbers are
       read straight from the run (see runs[].real_insim_numbers).
   chart: charts/dnaa3_box_occupancy.svg
@@ -516,18 +587,24 @@ visualizations:
   address: image:charts/dnaa3_binding_analysis.png
   config:
     title: >-
-      DnaA-box binding ANALYSIS from the REAL IN-SIM emitted listeners.dnaA_binding
-      (read-only run dnaa3-insim-readonly): (1) emitted free DnaA-ATP/ADP (nM) vs
-      the 100 nM oriC-low K_d; (2) oriC LOW-affinity occupancy on its own zoomed
-      axis (the dynamic switch); (3) oriC bound vs total boxes over time; (4)
-      per-pool occupancy (oriC-high, oriC-low, chromosomal, dnaA-promoter). The
-      free-DnaA-ATP magnitude and the oriC low/high occupancy are read directly
-      off the read-only run; with the DnaA-ATP fraction in [0.2,0.5] the
-      low-affinity sites do not all saturate. Only the provided binding mechanism
-      is modeled (no cap, no DnaA-pool mutation).
+      DnaA-box binding over a FULL CELL CYCLE from the REAL IN-SIM emitted
+      listeners.dnaA_binding (read-only observer artifact dnaa3-readonly-artifact, a
+      single non-dividing 55-min generation so the whole per-tick history is
+      retained): (1) free DnaA-ATP and free DnaA-ADP (nM) vs the 100 nM oriC-low
+      K_d; (2) bound DnaA by pool (count); (3) oriC LOW-affinity occupancy on its
+      own zoomed axis; (4) per-pool occupancy fraction (oriC-high, oriC-low,
+      chromosomal, dnaA-promoter). DECONTAMINATED — only the provided
+      fast-equilibrium binding mechanism + dnaa-2 nucleotide balance; NO ChIP-seq
+      cap line, NO sink (both removed per Rashmi).
+      HONEST NUMBERS (read straight off the parquet, 3301 ticks): free DnaA-ATP =
+      342-491 nM (mean 414), i.e. ~3.4-4.9x the 100 nM K_d, ABOVE the K_d for 100%
+      of the cycle; oriC low-affinity occupancy stays HIGH (0.77-0.83) the WHOLE
+      cycle (no early->late switch); high-affinity/chromosomal/promoter pools
+      saturate (~1.0). This over-binding is an OPEN observation within the provided
+      mechanism, NOT resolved by a cap or sink.
   chart: charts/dnaa3_binding_analysis.svg
-  source_run: dnaa3-insim-readonly
-  render: cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-insim-readonly --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
+  source_run: dnaa3-readonly-artifact
+  render: cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-readonly-artifact --gen-id 6 --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
 - name: dnaa3_readouts
   address: image:charts/dnaa3_readouts.png
   config:
@@ -725,63 +802,69 @@ findings:
     DnaA pool or the box flags, so the cell cycle matches the dnaa-2 succinate
     baseline (oriC 1<->2; divisions every generation). The real per-tick in-sim
     values — free DnaA-ATP/ADP, DnaA-ATP fraction, and oriC low/high occupancy —
-    are recorded under runs[dnaa3-insim-readonly].real_insim_numbers, taken
-    directly from the emitted parquet. With the DnaA-ATP fraction in [0.2,0.5]
-    (from the provided dnaa-2 nucleotide-balance mechanism) the low-affinity sites
-    do not all saturate, so the observed occupancy needs no cap, added pool, or
-    outside source.
+    are recorded under runs[dnaa3-insim-readonly].real_insim_numbers and (for the
+    full cell cycle) runs[dnaa3-readonly-artifact].real_insim_numbers, taken directly
+    from the emitted parquet. Over the full cycle the low-affinity sites stay HIGH
+    (~0.8, free DnaA-ATP above the K_d throughout) — reported honestly as an open
+    observation within the provided mechanism; no cap, sink, added pool, or outside
+    source is introduced.
   evidence:
     from_run: dnaa3-insim-readonly (in-sim listener, parquet listeners.dnaA_binding)
   provenance:
     run_ids:
     - dnaa3-insim-readonly
     verified_by: scripts/run_condition_multigen_parquet.py + cache_dnaa3 (ParCa --mode full)
-- id: readonly-real-numbers-low-aff-not-saturated
+- id: readonly-full-cycle-over-binding-open-observation
   kind: computational
   status: novel
   statement: |
-    REAL numbers from the completed read-only run (no cap, no sink — only the
-    provided fast-equilibrium binding mechanism plus the dnaa-2 nucleotide balance),
-    read straight from the emitted listeners.dnaA_binding parquet at the steady
-    reference generation 5:
-      - free DnaA-ATP = 342 nM mean / 344 nM median (free DnaA-ADP ~1053 nM);
-        whole-run (6 gens) free DnaA-ATP mean 238 / median 248 nM.
-      - DnaA-ATP fraction = ATP/(ATP+ADP+apo) = 0.23 (gen 5), 0.31 (gen 6) — INSIDE
-        Rashmi's [0.2,0.5] band (at its low edge), from the provided ATP-fraction
-        mechanism, not assumed.
-      - oriC LOW-affinity occupancy = 0.77 (gen 5), 0.82 (gen 6) — ~12 of 14 oriC
-        boxes bound, clearly BELOW 1. oriC HIGH-affinity, chromosomal and
-        dnaA-promoter occupancy = ~1.00.
-    Rashmi's key point is RESOLVED with the provided ATP-fraction mechanism alone:
-    with the DnaA-ATP fraction correctly in [0.2,0.5], the low-affinity sites do NOT
-    all saturate (free DnaA-ATP ~342 nM sits a few-fold above the 100 nM oriC-low
-    K_d, giving ~0.77 occupancy, not 1.0). No box-capacity cap, DnaA sink, or added
-    pool is needed to keep the low-affinity sites sub-saturated.
-    CAVEAT: the parquet emitted only the first tens of seconds of each generation
-    (oriC = 1 throughout the emitted window); the 1<->2 oriC pattern and 6/6
-    divisions (tau 63/65/64/69/76/56 min) come from the run summary + dills and match
-    the dnaa-2 succinate baseline.
+    REAL numbers from the FULL-cell-cycle read-only observer artifact
+    (dnaa3-readonly-artifact: a single non-dividing 55-min generation so the entire
+    per-tick history survives; no cap, no sink — only the provided fast-equilibrium
+    binding mechanism plus the dnaa-2 nucleotide balance), read straight from the
+    emitted listeners.dnaA_binding parquet over 3301 ticks:
+      - free DnaA-ATP = 342-491 nM (min/mean/max 341.7 / 413.8 / 491.3); free
+        DnaA-ADP ~1014-1069 nM.
+      - free DnaA-ATP is ~3.4-4.9x the 100 nM oriC-low K_d and is ABOVE the K_d for
+        100% of the cycle.
+      - oriC LOW-affinity occupancy = 0.77-0.83 (min/mean/max 0.774 / 0.804 / 0.831)
+        — HIGH and roughly FLAT across the whole cycle; there is no early->late
+        low-affinity switch in this run.
+      - oriC HIGH-affinity, chromosomal and dnaA-promoter occupancy = ~1.00 (saturated).
+    HONEST OPEN OBSERVATION: within the provided mechanism alone (correct DnaA-ATP
+    fraction included), the low-affinity sites do NOT drop low — free DnaA-ATP stays
+    several-fold above the K_d the whole cycle, so oriC-low sits at ~0.8 throughout.
+    This over-binding is NOT resolved here by a box-capacity cap or a DnaA sink (both
+    removed per Rashmi); it is reported as an open feature of the provided mechanism,
+    not hidden or "fixed."
+    NOTE: the earlier multigen run (dnaa3-insim-readonly) emitted only the first tens
+    of seconds of each generation (its early-cycle slice gave free DnaA-ATP ~342 nM,
+    oriC-low ~0.77 at gen 5); the full cycle reaches higher (up to 491 nM, occ 0.83).
   evidence:
-    from_run: dnaa3-insim-readonly (in-sim emitted listeners.dnaA_binding, generation 5)
+    from_run: dnaa3-readonly-artifact (in-sim emitted listeners.dnaA_binding, full single cycle)
   provenance:
     run_ids:
+    - dnaa3-readonly-artifact
     - dnaa3-insim-readonly
-    verified_by: scripts/render_dnaa3_binding_analysis.py + scripts/render_dnaa3_occupancy.py
-- id: oric-low-affinity-is-the-dynamic-switch
+    verified_by: scripts/render_dnaa3_binding_analysis.py
+- id: oric-high-affinity-saturated-low-affinity-high-all-cycle
   kind: computational
   status: novel
   statement: |
-    Across the cell cycle the oriC high-affinity boxes stay near-saturated while
-    the 8 oriC low-affinity boxes (K_d ~100 nM) are the dynamic switch — their
-    occupancy tracks the free DnaA-ATP concentration. The exact free DnaA-ATP and
-    oriC low/high occupancy values are read off the read-only run (see
-    runs[].real_insim_numbers); they are not assumed. Only the provided binding
-    mechanism is modeled.
+    Across the full cell cycle the oriC high-affinity boxes (K_d ~1 nM) stay
+    saturated (~1.0) and the 8 oriC low-affinity boxes (K_d ~100 nM) are also high
+    and roughly flat (0.77-0.83), because free DnaA-ATP (342-491 nM) sits well above
+    the 100 nM low-affinity K_d for the entire cycle. The low-affinity pool is NOT a
+    sharp early->late switch under the provided mechanism in this run — it tracks
+    free DnaA-ATP, which never falls below the K_d. The exact free DnaA-ATP and
+    oriC low/high occupancy values are read off the read-only artifact (see
+    runs[dnaa3-readonly-artifact].real_insim_numbers); they are not assumed. Only the
+    provided binding mechanism is modeled.
   evidence:
-    from_run: dnaa3-insim-readonly (in-sim emitted listeners.dnaA_binding)
+    from_run: dnaa3-readonly-artifact (in-sim emitted listeners.dnaA_binding)
   provenance:
     run_ids:
-    - dnaa3-insim-readonly
+    - dnaa3-readonly-artifact
     verified_by: scripts/render_dnaa3_binding_analysis.py
 - id: oric-doubles-at-replication
   kind: computational

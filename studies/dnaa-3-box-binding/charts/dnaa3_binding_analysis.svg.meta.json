@@ -1,7 +1,7 @@
 {
-  "source_run_id": "dnaa3-insim-readonly",
-  "generation_id": null,
-  "rendered_at": 1780886872.9383838,
-  "command": "cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-insim-readonly --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis",
-  "content_hash": "sha256:2955d9b9f76c04c2ac363db4dd84e57e21f0b7c427fdc9084fa47ac43f2370d4"
+  "source_run_id": "dnaa3-readonly-artifact",
+  "generation_id": "6",
+  "rendered_at": 1780888081.0579991,
+  "command": "cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-readonly-artifact --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis",
+  "content_hash": "sha256:4fc03e16bad488279ced0b9b86797383d5509fc213ccccb49052b667b05a3282"
 }

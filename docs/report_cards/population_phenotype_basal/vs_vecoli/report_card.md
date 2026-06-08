@@ -1,38 +1,65 @@
-# Basal-condition population phenotype — v1↔v2 equivalence (Physiology + Composition) — report card
+# Basal-condition population phenotype — v1↔v2 equivalence — report card
 
-- **Model**: b01250e
-- **Stimulus**: 2 seeds x 2 gens (smoke); vEcoli master; ParCa fast
+- **Model**: 52bbf43
+- **Stimulus**: 8 seeds x 16 gens; vEcoli master; fresh ParCa; gen-lb 3
 - **Reference status**: populated
-- **Generated**: 2026-06-05 21:52
+- **Generated**: 2026-06-07 22:14
 
-## Overall: MISMATCH (3 ✓ · 4 ≈ · 2 ✗ · 0 –)
+## Overall: MISMATCH (14 ✓ · 2 ≈ · 5 ✗ · 0 –)
 
-> **⚠ Stationarity:** `Doubling time` (gen 51%, ρ=-0.63) show generation-structured drift — the ensemble may not be at steady balanced growth across generations (burn-in insufficient or a generational instability). Diagnostic only; does not affect grades.
+> **⚠ Simulations (v2ecoli (v2)):** 11 of 128 generations hit the duration cap without dividing (117/128 divided).
 
 ### Physiology
 
 | Axis | Value | Criterion | Summary | Verdict |
 |---|---|---|---|---|
-| Doubling time | 0.8393 h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +11.3% · p = 0.062 · d = +0.99 | ≈ drift |
-| Cell mass | 1538 fg | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -9.9% · p = 0.001 · d = -1.12 | ≈ drift |
-| Cell volume | 1.398 fL | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -9.9% · p = 0.001 · d = -1.12 | ≈ drift |
-| Replication origins (oriC) | 2.251 origins | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -11.1% · p = 0.002 · d = -1.19 | ✗ mismatch |
-| Replication initiation | 34.27 min | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +3.0% · p = 0.814 · d = +0.07 | ✓ within_tol |
-| Replication completion | 32.93 min | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +30.3% · p = 0.015 · d = +0.98 | ✗ mismatch |
+| Doubling time | 0.8438 h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -4.0% · p = 0.005 · d = -0.39 | ✓ within_tol |
+| Cell mass | 1562 fg | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.1% · p = 0.938 · d = +0.01 | ✓ within_tol |
+| Cell volume | 1.42 fL | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.1% · p = 0.938 · d = +0.01 | ✓ within_tol |
+| Replication origins (oriC) | 2.284 origins | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.0% · p = 0.981 · d = +0.00 | ✓ within_tol |
+| Replication initiation | 36.76 min | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -5.4% · p = 0.287 · d = -0.15 | ≈ drift |
+| Replication completion | 32.19 min | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -1.7% · p = 0.515 · d = -0.09 | ✓ within_tol |
 
 ### Composition
 
 | Axis | Value | Criterion | Summary | Verdict |
 |---|---|---|---|---|
-| Protein / dry weight | 0.4366 g/gDW | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -5.8% · p = 0.050 · d = -1.09 | ≈ drift |
-| Total RNA / dry weight | 0.1281 g/gDW | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -4.4% · p = 0.008 · d = -1.19 | ✓ within_tol |
-| DNA / dry weight | 0.01833 g/gDW | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +3.3% · p = 0.003 · d = +0.84 | ✓ within_tol |
+| Protein / dry weight | 0.4394 g/gDW | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +1.2% · p = 0.144 · d = +0.20 | ✓ within_tol |
+| Total RNA / dry weight | 0.1293 g/gDW | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -0.4% · p = 0.623 · d = -0.07 | ✓ within_tol |
+| DNA / dry weight | 0.0182 g/gDW | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.1% · p = 0.781 · d = +0.04 | ✓ within_tol |
+
+### Ribosomes
+
+| Axis | Value | Criterion | Summary | Verdict |
+|---|---|---|---|---|
+| Total ribosomes | 2.088e+04 ribosomes | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -1.2% · p = 0.443 · d = -0.11 | ✓ within_tol |
+| Active fraction | 0.8344 fraction | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.1% · p = 0.082 · d = +0.24 | ✓ within_tol |
+| Elongation rate | 15.71 aa/s | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.7% · p = 0.599 · d = +0.07 | ✓ within_tol |
+| Ribosome production (rRNA init) | 4.573 rRNA/s | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +2.5% · p = 0.455 · d = +0.10 | ✓ within_tol |
+
+### Gene expression
+
+| Axis | Value | Criterion | Summary | Verdict |
+|---|---|---|---|---|
+| Transcriptome (mRNA cistron counts) | R² 0.9337 | log-log R² ≥ 0.99 (4131 genes) | R² = 0.9337 | ✗ mismatch |
+| Proteome (monomer counts) | R² 0.9393 | log-log R² ≥ 0.99 (4165 genes) | R² = 0.9393 | ✗ mismatch |
+
+### Exchange fluxes
+
+| Axis | Value | Criterion | Summary | Verdict |
+|---|---|---|---|---|
+| Exchange-flux fingerprint | R² 1 | R² ≥ 0.99 on matched fluxes; 0 appeared/disappeared exchanges | R² = 1.0000 · 37 matched · 2 appeared · 2 lost | ✗ mismatch |
+| Glucose exchange | -5.257 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -1.3% · p = 0.396 · d = +0.12 | ✓ within_tol |
+| O₂ exchange | -0.4954 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -32.1% · p = 0.000 · d = +0.69 | ✗ mismatch |
+| Ammonium (N source) exchange | -7.179 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = +0.3% · p = 0.850 · d = -0.03 | ✓ within_tol |
+| CO₂ exchange | 1.747 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -15.4% · p = 0.000 · d = -0.63 | ✗ mismatch |
+| Acetate exchange (overflow sentinel) | 2.713e-06 mmol/gDCW/h | |Δ| < 5% (drift 5%–10%; mismatch >10% & p<0.05) | Δ = -76.6% · p = 0.289 · d = -0.14 | ≈ drift |
 
 ## Findings
 
-- EQUIVALENCE reference: v2ecoli graded against a vEcoli v1 ensemble (not a self-pin). Welch t-test of v2 cell-level values vs v1 ref_values.
-- Phase-1 scope: Physiology + Composition. Ribosomes/fluxes/omics omitted (vEcoli emits bulk positionally, not as bulk__id/bulk__count; needs the bulk-index adapter).
+- EQUIVALENCE reference: v2ecoli graded against a vEcoli v1 ensemble (not a self-pin). Welch t-test of v2 cell-level values vs v1 ref_values; r2 for omics; flux_scatter for the exchange fingerprint.
+- v1<->v2 share cistron/monomer/flux ordering exactly — vectors align positionally (no ID remapping). Ribosome 30S/50S sliced from v1's positional bulk by index (s30/s50 from v1 sim_data).
 - v1 values read by scripts/pin_vecoli_equivalence_reference.py (self-contained cross-impl reader; shared analysis_runner is untouched).
-- tolerance bands (within_pct/mismatch_pct) inherited from the self-pin template; revisit per-axis equivalence margins (delta) for the real run.
+- tolerance bands inherited from the self-pin template; revisit per-axis equivalence margins (delta) — and consider TOST for the formal claim.
 
 _Behavioral report card — see docs/report_cards/README.md for the index and how the cards compose._

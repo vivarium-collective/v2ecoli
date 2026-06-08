@@ -156,6 +156,57 @@ def _stationarity(measured: dict) -> tuple[bool, str]:
     return flagged, txt
 
 
+def _decompose(by_cell) -> dict | None:
+    """eta_seed / eta_gen / rho_gen from ``[[seed, gen, value], ...]`` — computed
+    at render time for the REFERENCE side (from ``criterion.ref_by_cell``) so the
+    card can show both ensembles' variance structure side by side. Mirrors
+    ``analysis._variance_decomposition`` (kept local to avoid a workflow import)."""
+    if not by_cell or len(by_cell) < 6:
+        return None
+    s = [x[0] for x in by_cell]; g = [x[1] for x in by_cell]
+    v = [float(x[2]) for x in by_cell]
+    n = len(v); mu = sum(v) / n; sst = sum((x - mu) ** 2 for x in v)
+    if sst == 0:
+        return None
+
+    def _gss(keys):
+        ss = 0.0
+        for k in set(keys):
+            idx = [i for i, kk in enumerate(keys) if kk == k]
+            gm = sum(v[i] for i in idx) / len(idx)
+            ss += len(idx) * (gm - mu) ** 2
+        return ss
+
+    out = {"eta_seed": _gss(s) / sst, "eta_gen": _gss(g) / sst}
+    try:
+        from scipy.stats import spearmanr
+        out["rho_gen"] = float(spearmanr(g, v).correlation)
+    except Exception:
+        pass
+    return out
+
+
+def _fmt_var(var: dict, name: str) -> str:
+    t = f"{name}: seed {var.get('eta_seed', 0):.0%} · gen {var.get('eta_gen', 0):.0%}"
+    if var.get("rho_gen") is not None:
+        t += f" · ρ={var['rho_gen']:+.2f}"
+    return t
+
+
+def _variance_line(measured: dict, crit: dict, meas_label: str, ref_label: str) -> str:
+    """Seed/gen variance breakdown for BOTH ensembles (measured from the card's
+    variance node; reference computed from ``criterion.ref_by_cell``) so the
+    reader can compare the structure — e.g. v1 seed-dominated vs v2 gen-dominated."""
+    parts = []
+    mvar = measured.get("variance") if isinstance(measured, dict) else None
+    if mvar:
+        parts.append(_fmt_var(mvar, meas_label))
+    rvar = _decompose((crit or {}).get("ref_by_cell"))
+    if rvar:
+        parts.append(_fmt_var(rvar, ref_label))
+    return " │ ".join(parts)
+
+
 def _counts(report: dict) -> dict[str, int]:
     c = {v: 0 for v in _COLOR}
     for a in report["axes"].values():
@@ -193,6 +244,13 @@ def render_markdown(card: dict, reference: dict, *, model_ref=None, generated=No
         lines.append(f"- **Generated**: {generated}")
     lines += ["", f"## Overall: {_overall_label(report)} "
               f"({c['within_tol']} ✓ · {c['drift']} ≈ · {c['mismatch']} ✗ · {c['ungraded']} –)", ""]
+    sh = card.get("sim_health") if isinstance(card, dict) else None
+    if sh and sh.get("n_total"):
+        nt, nd, nf = sh["n_total"], sh.get("n_divided", 0), sh.get("n_failed", 0)
+        ml = stim.get("measured_model") or "measured"
+        lines += [(f"> **✓ Simulations ({ml}):** all {nd}/{nt} generations divided." if nf == 0
+                   else f"> **⚠ Simulations ({ml}):** {nf} of {nt} generations hit the "
+                        f"duration cap without dividing ({nd}/{nt} divided)."), ""]
     flagged = [(a.get("label", a["path"]), a["measured"].get("variance", {}))
                for a in report["axes"].values()
                if _stationarity(a.get("measured") or {})[0]]
@@ -265,24 +323,38 @@ def _flux_table(measured: dict, crit: dict) -> str:
             f"{len(rows)} active of {len(ids)}</div></div>")
 
 
-def _gen_trend_svg(axis: dict) -> str:
+def _gen_trend_svg(axis: dict, ref_label="reference", meas_label="measured") -> str:
     """Companion metric-vs-generation plot for a flagged generation-drift axis
-    (or '' if no labeled points). Built from the variance node's `by_cell`."""
+    (or '' if no labeled points). Measured lineages (green) from the variance
+    node's `by_cell`; reference lineages (grey) from `criterion.ref_by_cell`
+    when the reference carries per-lineage labels."""
     measured = axis.get("measured") or {}
     var = measured.get("variance") or {}
     by_cell = var.get("by_cell")
     if not by_cell:
         return ""
+    ref_by_cell = (axis.get("criterion") or {}).get("ref_by_cell")
+    ref_rho = None
+    if ref_by_cell:
+        try:
+            from scipy.stats import spearmanr
+            ref_rho = float(spearmanr([c[1] for c in ref_by_cell],
+                                      [c[2] for c in ref_by_cell]).correlation)
+        except Exception:
+            ref_rho = None
     try:
         from v2ecoli.library import card_plots
         return card_plots.generation_trend(
-            by_cell, scale=axis.get("scale", 1.0), units=axis.get("units", ""),
-            label=axis.get("label", ""), rho=var.get("rho_gen"))
+            by_cell, ref_by_cell, scale=axis.get("scale", 1.0),
+            units=axis.get("units", ""), label=axis.get("label", ""),
+            rho=var.get("rho_gen"), ref_rho=ref_rho,
+            y_from_zero=axis.get("y_from_zero", False),
+            ref_label=ref_label, meas_label=meas_label)
     except Exception as e:
         return f"<div class='ploterr'>trend plot unavailable: {type(e).__name__}</div>"
 
 
-def _axis_plot_svg(axis: dict) -> str:
+def _axis_plot_svg(axis: dict, ref_label="reference", meas_label="measured") -> str:
     """Render the axis's plot as inline SVG (or '' if none / no data)."""
     kind = axis.get("plot")
     measured = axis.get("measured") or {}
@@ -293,7 +365,8 @@ def _axis_plot_svg(axis: dict) -> str:
             return card_plots.violin_strip(
                 measured["values"], crit.get("ref_values"),
                 label=axis.get("label", ""), units=axis.get("units", ""),
-                scale=axis.get("scale", 1.0), y_from_zero=axis.get("y_from_zero", False))
+                scale=axis.get("scale", 1.0), y_from_zero=axis.get("y_from_zero", False),
+                ref_label=ref_label, meas_label=meas_label)
         if kind == "loglog" and isinstance(measured, dict) and measured.get("vector"):
             return card_plots.loglog_scatter(
                 measured["vector"], crit.get("ref_vector"),
@@ -311,11 +384,31 @@ def _axis_plot_svg(axis: dict) -> str:
     return ""
 
 
+def _sim_health_html(card: dict, label: str) -> str:
+    """Run-quality banner: how the sims themselves went (divided vs hit the
+    per-generation duration cap), separate from the graded phenotype axes."""
+    sh = card.get("sim_health") if isinstance(card, dict) else None
+    if not sh or not sh.get("n_total"):
+        return ""
+    nt, nd, nf = sh.get("n_total", 0), sh.get("n_divided", 0), sh.get("n_failed", 0)
+    if nf == 0:
+        return ("<section class='card simhealth ok'><div class='shbody'>✓ "
+                f"<b>Simulations ({label}):</b> all {nd}/{nt} generations divided"
+                "</div></section>")
+    return ("<section class='card simhealth warn'><div class='shbody'>⚠ "
+            f"<b>Simulations ({label}):</b> {nf} of {nt} generations hit the "
+            f"duration cap without dividing ({nd}/{nt} divided)</div></section>")
+
+
 def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) -> str:
     report = grade_card(card, reference)
     c = _counts(report)
     title = reference.get("title", "Basal-condition phenotype")
     footer = reference.get("footer", _DEFAULT_FOOTER)
+    stim = reference.get("stimulus", {})
+    ref_label = stim.get("reference_model") or "reference"
+    meas_label = stim.get("measured_model") or "measured"
+    sim_html = _sim_health_html(card, meas_label)
     groups: dict[str, list] = {}
     for a in report["axes"].values():
         groups.setdefault(a.get("group", "Other"), []).append(a)
@@ -333,18 +426,19 @@ def render_html(card: dict, reference: dict, *, model_ref=None, generated=None) 
             sp = a.get("measured") if isinstance(a.get("measured"), dict) else {}
             spread = (f"±{sp['std'] * a.get('scale', 1.0):.3g} (CV {sp['cv']:.1%}, n={sp['n']})"
                       if "std" in sp and "cv" in sp else "")
-            flagged, vtext = _stationarity(sp)
+            flagged, _ = _stationarity(sp)
             if flagged:
                 flagged_axes.append(a.get("label", a["path"]))
-            plot = _axis_plot_svg(a)
-            trend = _gen_trend_svg(a) if flagged else ""
+            plot = _axis_plot_svg(a, ref_label, meas_label)
+            trend = _gen_trend_svg(a, ref_label, meas_label) if flagged else ""
             summary = "plot + generation trend" if trend else "plot + detail"
             detail = (f"<details{' open' if flagged else ''}><summary>{summary}</summary>"
                       f"<div class='plotwrap'>{plot}{trend}</div></details>"
                       if (plot or trend) else "")
-            var_html = (f"<div class='var{' varflag' if flagged else ''}'>variance: "
-                        f"{vtext}{' ⚠ generation-drift' if flagged else ''}</div>"
-                        if vtext else "")
+            vline = _variance_line(sp, a.get("criterion", {}), meas_label, ref_label)
+            var_html = (f"<div class='var{' varflag' if flagged else ''}'>variance — "
+                        f"{vline}{' ⚠ generation-drift' if flagged else ''}</div>"
+                        if vline else "")
             rows.append(
                 f"<tr class='verdict-{a['verdict']}'>"
                 f"<td><div class='axhd'><span class='metric'>{a.get('label', a['path'])}</span>"
@@ -427,6 +521,9 @@ details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}}
 .ftnote{{color:var(--muted);font-size:10.5px;margin-top:6px;max-width:340px;line-height:1.35}}
 .ploterr{{color:var(--muted);font-size:11px}} dl{{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem;margin:0}} dt{{color:#cbd5e1}}
 .var{{font-size:11px;color:var(--muted);margin-top:4px}} .var.varflag{{color:{_COLOR['drift']};font-weight:600}}
+.simhealth .shbody{{padding:12px 18px;font-size:13.5px}}
+.simhealth.ok{{border-left:4px solid {_COLOR['within_tol']}}} .simhealth.ok .shbody{{color:#14532d}}
+.simhealth.warn{{border-left:4px solid {_COLOR['drift']};background:#fff8f0}} .simhealth.warn .shbody{{color:#7c4a03}}
 .stat-callout{{border-left:4px solid {_COLOR['drift']}}} .stat-callout .statbody{{padding:12px 18px;font-size:13px;color:#374151;line-height:1.5}}
 .statbody code{{background:#fff3e0;padding:1px 5px;border-radius:4px;font-size:12px}}
 .findings{{margin:0;padding:14px 34px;color:#374151;font-size:13px}} footer{{color:var(--muted);font-size:12px;padding:0 28px 40px;max-width:1100px;margin:0 auto}}
@@ -435,7 +532,7 @@ details{{margin-top:8px}} summary{{cursor:pointer;font-size:12px;color:#1f6feb}}
 <div class="sub">{subtitle}</div>
 <div class="obadge">{overall} &nbsp;·&nbsp; {c['within_tol']} ✓ &nbsp; {c['drift']} ≈ &nbsp; {c['mismatch']} ✗ &nbsp; {c['ungraded']} –</div></header>
 <nav class="sticky">{nav}</nav>
-<main>{stationarity_html}{''.join(sections)}{findings_html}</main>
+<main>{sim_html}{stationarity_html}{''.join(sections)}{findings_html}</main>
 <footer>{footer}</footer>
 </body></html>"""
 

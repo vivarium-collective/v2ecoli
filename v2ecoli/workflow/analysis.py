@@ -334,9 +334,17 @@ class PopulationPhenotypeBasalCard(AnalysisStep):
         _pos = lambda r, v: v > 0          # fractions / levels: skip zero/absent
         _any = lambda r, v: True           # event times: already non-None
 
+        # Simulation health: how the sims themselves went (divided vs hit the
+        # per-generation duration cap), over ALL cells (pre-burn-in) — a
+        # run-quality readout distinct from the graded phenotype axes. A
+        # cell whose `divided` is False ran to the cap without dividing.
+        n_div = sum(1 for r in rows if r.get("divided") is True)
+        n_fail = sum(1 for r in rows if r.get("divided") is False)
         return {
             "n_cells": len(kept),
             "generation_lower_bound": burn_in,
+            "sim_health": {"n_total": len(rows), "n_divided": n_div,
+                           "n_failed": n_fail},
             "physiology": {
                 "doubling_time": _stat(_lab("division_time", _divided)),
                 "cell_mass": _stat(_lab("cell_mass_mean", _pos)),

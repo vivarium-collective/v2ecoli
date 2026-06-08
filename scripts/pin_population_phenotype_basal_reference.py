@@ -154,13 +154,17 @@ def main() -> None:
             for part in path.split("."):
                 node = (node or {}).get(part)
             vals = (node or {}).get("values") or []
+            # per-lineage [[seed, gen, value], ...] for the gen-trend companion
+            # plot's reference (grey) lineages; self-pin => equals measured.
+            bycell = (node or {}).get("variance", {}).get("by_cell") or []
             out[path] = {
                 "group": group, "label": label, "units": units,
                 "how": how + source, "plot": "violin", "y_from_zero": True,
                 "scale": scale,
                 "criterion": {"type": "ttest", "p_min": 0.05, "within_pct": 0.05,
                               "mismatch_pct": 0.10,
-                              "ref_values": [round(v, 8) for v in vals]},
+                              "ref_values": [round(v, 8) for v in vals],
+                              "ref_by_cell": bycell},
             }
             print(f"[{group.lower()}] {path}: n={len(vals)} ref values")
         return out

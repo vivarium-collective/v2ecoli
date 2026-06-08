@@ -43,6 +43,93 @@
           3065.0,
           3319.0,
           2528.0
+        ],
+        "ref_by_cell": [
+          [
+            0,
+            3,
+            3473.0
+          ],
+          [
+            0,
+            5,
+            2528.0
+          ],
+          [
+            0,
+            6,
+            2900.0
+          ],
+          [
+            0,
+            7,
+            3104.0
+          ],
+          [
+            1,
+            3,
+            3458.0
+          ],
+          [
+            1,
+            4,
+            3452.0
+          ],
+          [
+            1,
+            6,
+            2528.0
+          ],
+          [
+            1,
+            7,
+            2845.0
+          ],
+          [
+            2,
+            3,
+            3230.0
+          ],
+          [
+            2,
+            4,
+            2919.0
+          ],
+          [
+            2,
+            5,
+            2868.0
+          ],
+          [
+            2,
+            6,
+            2773.0
+          ],
+          [
+            2,
+            7,
+            3102.0
+          ],
+          [
+            3,
+            3,
+            3271.0
+          ],
+          [
+            3,
+            4,
+            3065.0
+          ],
+          [
+            3,
+            5,
+            3319.0
+          ],
+          [
+            3,
+            7,
+            2528.0
+          ]
         ]
       }
     },
@@ -80,6 +167,108 @@
           1420.76226319,
           1417.03874213,
           1718.59557487
+        ],
+        "ref_by_cell": [
+          [
+            0,
+            3,
+            1291.8972492981416
+          ],
+          [
+            0,
+            4,
+            1182.1418503537354
+          ],
+          [
+            0,
+            5,
+            1729.7196901404295
+          ],
+          [
+            0,
+            6,
+            1630.0838058292818
+          ],
+          [
+            0,
+            7,
+            1498.0369755577833
+          ],
+          [
+            1,
+            3,
+            1439.3180249861387
+          ],
+          [
+            1,
+            4,
+            1408.5716289923419
+          ],
+          [
+            1,
+            5,
+            1305.4001026331027
+          ],
+          [
+            1,
+            6,
+            1746.063269645246
+          ],
+          [
+            1,
+            7,
+            1606.2547679363431
+          ],
+          [
+            2,
+            3,
+            1605.0659219498762
+          ],
+          [
+            2,
+            4,
+            1674.8277231534043
+          ],
+          [
+            2,
+            5,
+            1723.3030028628723
+          ],
+          [
+            2,
+            6,
+            1631.1233254656584
+          ],
+          [
+            2,
+            7,
+            1627.178346356621
+          ],
+          [
+            3,
+            3,
+            1563.490527857063
+          ],
+          [
+            3,
+            4,
+            1547.3602067703125
+          ],
+          [
+            3,
+            5,
+            1420.7622631867835
+          ],
+          [
+            3,
+            6,
+            1417.0387421265407
+          ],
+          [
+            3,
+            7,
+            1718.5955748661636
+          ]
         ]
       }
     },
@@ -117,6 +306,108 @@
           1.29160206,
           1.28821704,
           1.56235961
+        ],
+        "ref_by_cell": [
+          [
+            0,
+            3,
+            1.1744520448164923
+          ],
+          [
+            0,
+            4,
+            1.0746744094124867
+          ],
+          [
+            0,
+            5,
+            1.5724724455822086
+          ],
+          [
+            0,
+            6,
+            1.4818943689357107
+          ],
+          [
+            0,
+            7,
+            1.3618517959616212
+          ],
+          [
+            1,
+            3,
+            1.3084709318055807
+          ],
+          [
+            1,
+            4,
+            1.2805196627203108
+          ],
+          [
+            1,
+            5,
+            1.1867273660300934
+          ],
+          [
+            1,
+            6,
+            1.5873302451320417
+          ],
+          [
+            1,
+            7,
+            1.4602316072148576
+          ],
+          [
+            2,
+            3,
+            1.459150838136251
+          ],
+          [
+            2,
+            4,
+            1.5225706574121858
+          ],
+          [
+            2,
+            5,
+            1.566639093511702
+          ],
+          [
+            2,
+            6,
+            1.4828393867869623
+          ],
+          [
+            2,
+            7,
+            1.4792530421423828
+          ],
+          [
+            3,
+            3,
+            1.4213550253246026
+          ],
+          [
+            3,
+            4,
+            1.4066910970639204
+          ],
+          [
+            3,
+            5,
+            1.2916020574425306
+          ],
+          [
+            3,
+            6,
+            1.2882170382968552
+          ],
+          [
+            3,
+            7,
+            1.5623596135146942
+          ]
         ]
       }
     },
@@ -124,7 +415,7 @@
       "group": "Physiology",
       "label": "Replication origins (oriC)",
       "units": "origins",
-      "how": "Time-mean number_of_oric — >1 indicates overlapping replication rounds. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
+      "how": "Time-mean number_of_oric \u2014 >1 indicates overlapping replication rounds. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
       "plot": "violin",
       "y_from_zero": true,
       "scale": 1.0,
@@ -154,6 +445,108 @@
           2.0,
           2.06831436,
           2.51957295
+        ],
+        "ref_by_cell": [
+          [
+            0,
+            3,
+            2.0
+          ],
+          [
+            0,
+            4,
+            1.743682310469314
+          ],
+          [
+            0,
+            5,
+            2.5575326215895613
+          ],
+          [
+            0,
+            6,
+            2.345398138572906
+          ],
+          [
+            0,
+            7,
+            2.0438003220611916
+          ],
+          [
+            1,
+            3,
+            2.0884648742411103
+          ],
+          [
+            1,
+            4,
+            2.0
+          ],
+          [
+            1,
+            5,
+            1.936684254373785
+          ],
+          [
+            1,
+            6,
+            2.601028074337683
+          ],
+          [
+            1,
+            7,
+            2.270555165144062
+          ],
+          [
+            2,
+            3,
+            2.4246363354998453
+          ],
+          [
+            2,
+            4,
+            2.504794520547945
+          ],
+          [
+            2,
+            5,
+            2.5799930289299406
+          ],
+          [
+            2,
+            6,
+            2.362653208363374
+          ],
+          [
+            2,
+            7,
+            2.455688043828553
+          ],
+          [
+            3,
+            3,
+            2.3300733496332517
+          ],
+          [
+            3,
+            4,
+            2.186562296151337
+          ],
+          [
+            3,
+            5,
+            2.0
+          ],
+          [
+            3,
+            6,
+            2.0683143571230214
+          ],
+          [
+            3,
+            7,
+            2.5195729537366547
+          ]
         ]
       }
     },
@@ -188,6 +581,93 @@
           2780.0,
           192.0,
           1872.0
+        ],
+        "ref_by_cell": [
+          [
+            0,
+            4,
+            923.0
+          ],
+          [
+            0,
+            5,
+            1824.0
+          ],
+          [
+            0,
+            6,
+            2400.0
+          ],
+          [
+            0,
+            7,
+            3037.0
+          ],
+          [
+            1,
+            3,
+            3306.0
+          ],
+          [
+            1,
+            5,
+            228.0
+          ],
+          [
+            1,
+            6,
+            1769.0
+          ],
+          [
+            1,
+            7,
+            2461.0
+          ],
+          [
+            2,
+            3,
+            2545.0
+          ],
+          [
+            2,
+            4,
+            2183.0
+          ],
+          [
+            2,
+            5,
+            2037.0
+          ],
+          [
+            2,
+            6,
+            2271.0
+          ],
+          [
+            2,
+            7,
+            2396.0
+          ],
+          [
+            3,
+            3,
+            2732.0
+          ],
+          [
+            3,
+            4,
+            2780.0
+          ],
+          [
+            3,
+            6,
+            192.0
+          ],
+          [
+            3,
+            7,
+            1872.0
+          ]
         ]
       }
     },
@@ -195,7 +675,7 @@
       "group": "Physiology",
       "label": "Replication completion",
       "units": "min",
-      "how": "Per-cell time since birth when replication forks first clear (a round terminates). NOTE: under overlapping rounds this tracks a DIFFERENT round than initiation above — they are not one round's start/end. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
+      "how": "Per-cell time since birth when replication forks first clear (a round terminates). NOTE: under overlapping rounds this tracks a DIFFERENT round than initiation above \u2014 they are not one round's start/end. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
       "plot": "violin",
       "y_from_zero": true,
       "scale": 0.016666666666666666,
@@ -225,6 +705,108 @@
           2119.0,
           2597.0,
           1328.0
+        ],
+        "ref_by_cell": [
+          [
+            0,
+            3,
+            2273.0
+          ],
+          [
+            0,
+            4,
+            3328.0
+          ],
+          [
+            0,
+            5,
+            1328.0
+          ],
+          [
+            0,
+            6,
+            1700.0
+          ],
+          [
+            0,
+            7,
+            1904.0
+          ],
+          [
+            1,
+            3,
+            2258.0
+          ],
+          [
+            1,
+            4,
+            2252.0
+          ],
+          [
+            1,
+            5,
+            2633.0
+          ],
+          [
+            1,
+            6,
+            1328.0
+          ],
+          [
+            1,
+            7,
+            1645.0
+          ],
+          [
+            2,
+            3,
+            2030.0
+          ],
+          [
+            2,
+            4,
+            1719.0
+          ],
+          [
+            2,
+            5,
+            1668.0
+          ],
+          [
+            2,
+            6,
+            1573.0
+          ],
+          [
+            2,
+            7,
+            1902.0
+          ],
+          [
+            3,
+            3,
+            2071.0
+          ],
+          [
+            3,
+            4,
+            1865.0
+          ],
+          [
+            3,
+            5,
+            2119.0
+          ],
+          [
+            3,
+            6,
+            2597.0
+          ],
+          [
+            3,
+            7,
+            1328.0
+          ]
         ]
       }
     },
@@ -232,7 +814,7 @@
       "group": "Composition",
       "label": "Protein / dry weight",
       "units": "g/gDW",
-      "how": "Time-mean protein mass fraction of dry weight. One value per cell (gens≥3); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard.",
+      "how": "Time-mean protein mass fraction of dry weight. One value per cell (gens\u22653); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard.",
       "plot": "violin",
       "criterion": {
         "type": "ttest",
@@ -260,7 +842,109 @@
           0.4763217284296406
         ],
         "within_pct": 0.05,
-        "mismatch_pct": 0.1
+        "mismatch_pct": 0.1,
+        "ref_by_cell": [
+          [
+            0,
+            3,
+            0.4514204199455726
+          ],
+          [
+            0,
+            4,
+            0.46599514509777185
+          ],
+          [
+            0,
+            5,
+            0.4782323433982772
+          ],
+          [
+            0,
+            6,
+            0.45299515869322066
+          ],
+          [
+            0,
+            7,
+            0.4438525407818931
+          ],
+          [
+            1,
+            3,
+            0.42690381327276467
+          ],
+          [
+            1,
+            4,
+            0.42951464617485485
+          ],
+          [
+            1,
+            5,
+            0.4193485778913283
+          ],
+          [
+            1,
+            6,
+            0.4796431353413454
+          ],
+          [
+            1,
+            7,
+            0.463153049075721
+          ],
+          [
+            2,
+            3,
+            0.43626841840103503
+          ],
+          [
+            2,
+            4,
+            0.418259580054952
+          ],
+          [
+            2,
+            5,
+            0.41330519602167726
+          ],
+          [
+            2,
+            6,
+            0.4113362280424944
+          ],
+          [
+            2,
+            7,
+            0.4139187035608954
+          ],
+          [
+            3,
+            3,
+            0.4176770927941805
+          ],
+          [
+            3,
+            4,
+            0.40368739887271304
+          ],
+          [
+            3,
+            5,
+            0.40689572497259996
+          ],
+          [
+            3,
+            6,
+            0.42281075754738573
+          ],
+          [
+            3,
+            7,
+            0.4763217284296406
+          ]
+        ]
       },
       "y_from_zero": true
     },
@@ -268,7 +952,7 @@
       "group": "Composition",
       "label": "Total RNA / dry weight",
       "units": "g/gDW",
-      "how": "Time-mean total-RNA (rRna+tRna+mRna) mass fraction of dry weight. One value per cell (gens≥3); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard.",
+      "how": "Time-mean total-RNA (rRna+tRna+mRna) mass fraction of dry weight. One value per cell (gens\u22653); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard.",
       "plot": "violin",
       "criterion": {
         "type": "ttest",
@@ -296,7 +980,109 @@
           0.1306740112395576
         ],
         "within_pct": 0.05,
-        "mismatch_pct": 0.1
+        "mismatch_pct": 0.1,
+        "ref_by_cell": [
+          [
+            0,
+            3,
+            0.11489444923360849
+          ],
+          [
+            0,
+            4,
+            0.11785681550127979
+          ],
+          [
+            0,
+            5,
+            0.13210700408054463
+          ],
+          [
+            0,
+            6,
+            0.12743468778733472
+          ],
+          [
+            0,
+            7,
+            0.12562439968281477
+          ],
+          [
+            1,
+            3,
+            0.12339847667277962
+          ],
+          [
+            1,
+            4,
+            0.12385925558422406
+          ],
+          [
+            1,
+            5,
+            0.12716952552516936
+          ],
+          [
+            1,
+            6,
+            0.13179001128242054
+          ],
+          [
+            1,
+            7,
+            0.128829832717764
+          ],
+          [
+            2,
+            3,
+            0.12876304670281272
+          ],
+          [
+            2,
+            4,
+            0.13305631645425023
+          ],
+          [
+            2,
+            5,
+            0.13588372734771276
+          ],
+          [
+            2,
+            6,
+            0.13258755145354834
+          ],
+          [
+            2,
+            7,
+            0.13229827566175753
+          ],
+          [
+            3,
+            3,
+            0.1315887921453247
+          ],
+          [
+            3,
+            4,
+            0.1322228502535346
+          ],
+          [
+            3,
+            5,
+            0.12567769638839077
+          ],
+          [
+            3,
+            6,
+            0.12573688359828944
+          ],
+          [
+            3,
+            7,
+            0.1306740112395576
+          ]
+        ]
       },
       "y_from_zero": true
     },
@@ -304,7 +1090,7 @@
       "group": "Composition",
       "label": "DNA / dry weight",
       "units": "g/gDW",
-      "how": "Time-mean DNA mass fraction of dry weight. One value per cell (gens≥3); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard.",
+      "how": "Time-mean DNA mass fraction of dry weight. One value per cell (gens\u22653); population stats across the 20 cells. Source: v2ecoli/workflow/analysis.py::PopulationPhenotypeBasalCard.",
       "plot": "violin",
       "criterion": {
         "type": "ttest",
@@ -332,7 +1118,109 @@
           0.01781680647106471
         ],
         "within_pct": 0.05,
-        "mismatch_pct": 0.1
+        "mismatch_pct": 0.1,
+        "ref_by_cell": [
+          [
+            0,
+            3,
+            0.02061699945796105
+          ],
+          [
+            0,
+            4,
+            0.018671349093169688
+          ],
+          [
+            0,
+            5,
+            0.01780090430878661
+          ],
+          [
+            0,
+            6,
+            0.017821795974042487
+          ],
+          [
+            0,
+            7,
+            0.0186470439056463
+          ],
+          [
+            1,
+            3,
+            0.01871712233228542
+          ],
+          [
+            1,
+            4,
+            0.01902662244813163
+          ],
+          [
+            1,
+            5,
+            0.019277928547707244
+          ],
+          [
+            1,
+            6,
+            0.017768120017667456
+          ],
+          [
+            1,
+            7,
+            0.018054864018831697
+          ],
+          [
+            2,
+            3,
+            0.017775718930892997
+          ],
+          [
+            2,
+            4,
+            0.01773748417422366
+          ],
+          [
+            2,
+            5,
+            0.01746558869732219
+          ],
+          [
+            2,
+            6,
+            0.01808771070524085
+          ],
+          [
+            2,
+            7,
+            0.017845435681448335
+          ],
+          [
+            3,
+            3,
+            0.01793432949995979
+          ],
+          [
+            3,
+            4,
+            0.018238738874041552
+          ],
+          [
+            3,
+            5,
+            0.01915018353946168
+          ],
+          [
+            3,
+            6,
+            0.01806123720380234
+          ],
+          [
+            3,
+            7,
+            0.01781680647106471
+          ]
+        ]
       },
       "y_from_zero": true
     },
@@ -370,6 +1258,108 @@
           17927.54006024,
           18454.45126354,
           23706.65124555
+        ],
+        "ref_by_cell": [
+          [
+            0,
+            3,
+            15671.570236039148
+          ],
+          [
+            0,
+            4,
+            14632.807831158012
+          ],
+          [
+            0,
+            5,
+            24100.370106761566
+          ],
+          [
+            0,
+            6,
+            21777.41089279559
+          ],
+          [
+            0,
+            7,
+            19584.642834138485
+          ],
+          [
+            1,
+            3,
+            18553.22520959815
+          ],
+          [
+            1,
+            4,
+            17960.841297422532
+          ],
+          [
+            1,
+            5,
+            17115.40072202166
+          ],
+          [
+            1,
+            6,
+            24431.74021352313
+          ],
+          [
+            1,
+            7,
+            21635.718200983836
+          ],
+          [
+            2,
+            3,
+            21533.103064066854
+          ],
+          [
+            2,
+            4,
+            22969.65273972603
+          ],
+          [
+            2,
+            5,
+            23643.7647263855
+          ],
+          [
+            2,
+            6,
+            21985.127974044703
+          ],
+          [
+            2,
+            7,
+            22168.973896229454
+          ],
+          [
+            3,
+            3,
+            20834.783924205378
+          ],
+          [
+            3,
+            4,
+            19951.95042400522
+          ],
+          [
+            3,
+            5,
+            17927.540060240965
+          ],
+          [
+            3,
+            6,
+            18454.451263537907
+          ],
+          [
+            3,
+            7,
+            23706.651245551602
+          ]
         ]
       }
     },
@@ -377,7 +1367,7 @@
       "group": "Ribosomes",
       "label": "Active fraction",
       "units": "fraction",
-      "how": "Fraction of ribosomes actively translating (active / total) — the translating-vs-idle reading of ribosome usage. ~0.8 at balanced growth. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
+      "how": "Fraction of ribosomes actively translating (active / total) \u2014 the translating-vs-idle reading of ribosome usage. ~0.8 at balanced growth. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
       "plot": "violin",
       "y_from_zero": true,
       "scale": 1.0,
@@ -407,6 +1397,108 @@
           0.82764789,
           0.83469782,
           0.83515781
+        ],
+        "ref_by_cell": [
+          [
+            0,
+            3,
+            0.831345775732817
+          ],
+          [
+            0,
+            4,
+            0.8340122464027487
+          ],
+          [
+            0,
+            5,
+            0.8374469043585742
+          ],
+          [
+            0,
+            6,
+            0.8340048610988503
+          ],
+          [
+            0,
+            7,
+            0.831475197188245
+          ],
+          [
+            1,
+            3,
+            0.8320976863046796
+          ],
+          [
+            1,
+            4,
+            0.826754015633331
+          ],
+          [
+            1,
+            5,
+            0.8214487165838424
+          ],
+          [
+            1,
+            6,
+            0.8418387934325197
+          ],
+          [
+            1,
+            7,
+            0.8327982861866975
+          ],
+          [
+            2,
+            3,
+            0.8355064773386555
+          ],
+          [
+            2,
+            4,
+            0.835622740246886
+          ],
+          [
+            2,
+            5,
+            0.8338310688977021
+          ],
+          [
+            2,
+            6,
+            0.8323446004085319
+          ],
+          [
+            2,
+            7,
+            0.8377216739462332
+          ],
+          [
+            3,
+            3,
+            0.8314361340994292
+          ],
+          [
+            3,
+            4,
+            0.8295981543741305
+          ],
+          [
+            3,
+            5,
+            0.8276478934435216
+          ],
+          [
+            3,
+            6,
+            0.8346978242922961
+          ],
+          [
+            3,
+            7,
+            0.8351578068495592
+          ]
         ]
       }
     },
@@ -414,7 +1506,7 @@
       "group": "Ribosomes",
       "label": "Elongation rate",
       "units": "aa/s",
-      "how": "Time-mean effective peptide elongation rate per ribosome — the efficiency reading of ribosome usage. ~15-20 aa/s in E. coli. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
+      "how": "Time-mean effective peptide elongation rate per ribosome \u2014 the efficiency reading of ribosome usage. ~15-20 aa/s in E. coli. Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
       "plot": "violin",
       "y_from_zero": true,
       "scale": 1.0,
@@ -444,6 +1536,108 @@
           13.97303413,
           15.74582446,
           16.5513196
+        ],
+        "ref_by_cell": [
+          [
+            0,
+            3,
+            14.943692517265701
+          ],
+          [
+            0,
+            4,
+            15.473188707178206
+          ],
+          [
+            0,
+            5,
+            16.975960677779092
+          ],
+          [
+            0,
+            6,
+            15.641038321494278
+          ],
+          [
+            0,
+            7,
+            14.747326772075313
+          ],
+          [
+            1,
+            3,
+            15.432247434676977
+          ],
+          [
+            1,
+            4,
+            13.872357513831027
+          ],
+          [
+            1,
+            5,
+            12.486192992606513
+          ],
+          [
+            1,
+            6,
+            17.745678902425823
+          ],
+          [
+            1,
+            7,
+            15.557616946266803
+          ],
+          [
+            2,
+            3,
+            16.202934103006257
+          ],
+          [
+            2,
+            4,
+            16.111731539183694
+          ],
+          [
+            2,
+            5,
+            15.705938498262345
+          ],
+          [
+            2,
+            6,
+            15.292817231017143
+          ],
+          [
+            2,
+            7,
+            16.65233741952707
+          ],
+          [
+            3,
+            3,
+            14.774506167184931
+          ],
+          [
+            3,
+            4,
+            14.13029941021773
+          ],
+          [
+            3,
+            5,
+            13.973034130096455
+          ],
+          [
+            3,
+            6,
+            15.745824460163591
+          ],
+          [
+            3,
+            7,
+            16.55131959625436
+          ]
         ]
       }
     },
@@ -451,7 +1645,7 @@
       "group": "Ribosomes",
       "label": "Ribosome production (rRNA init)",
       "units": "rRNA/s",
-      "how": "Time-mean total rRNA operons initiated per timestep — a ribosome-biogenesis-rate proxy (ribosome_data__did_initialize isn't emitted). Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
+      "how": "Time-mean total rRNA operons initiated per timestep \u2014 a ribosome-biogenesis-rate proxy (ribosome_data__did_initialize isn't emitted). Source: v2ecoli/workflow/analysis_runner.py::build_cell_records.",
       "plot": "violin",
       "y_from_zero": true,
       "scale": 1.0,
@@ -481,6 +1675,108 @@
           2.94096386,
           4.26714801,
           5.29497825
+        ],
+        "ref_by_cell": [
+          [
+            0,
+            3,
+            2.187104202648244
+          ],
+          [
+            0,
+            4,
+            3.0111080255484586
+          ],
+          [
+            0,
+            5,
+            5.644918940292606
+          ],
+          [
+            0,
+            6,
+            4.1475353326439155
+          ],
+          [
+            0,
+            7,
+            3.5436392914653783
+          ],
+          [
+            1,
+            3,
+            3.718126626192541
+          ],
+          [
+            1,
+            4,
+            3.2525340283811177
+          ],
+          [
+            1,
+            5,
+            2.9144682032768676
+          ],
+          [
+            1,
+            6,
+            6.06089363384737
+          ],
+          [
+            1,
+            7,
+            4.037947997189037
+          ],
+          [
+            2,
+            3,
+            5.2714329928814605
+          ],
+          [
+            2,
+            4,
+            5.9229452054794525
+          ],
+          [
+            2,
+            5,
+            5.853956082258627
+          ],
+          [
+            2,
+            6,
+            4.86085075702956
+          ],
+          [
+            2,
+            7,
+            5.361585562359007
+          ],
+          [
+            3,
+            3,
+            4.86460880195599
+          ],
+          [
+            3,
+            4,
+            3.9657534246575343
+          ],
+          [
+            3,
+            5,
+            2.940963855421687
+          ],
+          [
+            3,
+            6,
+            4.2671480144404335
+          ],
+          [
+            3,
+            7,
+            5.2949782522736255
+          ]
         ]
       }
     },
@@ -488,7 +1784,7 @@
       "group": "Exchange fluxes",
       "label": "Exchange-flux fingerprint",
       "units": "mmol/gDCW/h",
-      "how": "All 87 external exchange fluxes (ensemble-mean) vs the pinned reference. A flux that appears (0→active) or disappears (active→0) is a qualitative regression = mismatch, flagged on the plot. Cell-level mean exchange flux (negative = uptake, positive = secretion). Time-mean within cell over gens≥3, then per-cell values across the ensemble. Order = sorted(sim_data.external_state.all_external_exchange_molecules) = the FBA emit order. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
+      "how": "All 87 external exchange fluxes (ensemble-mean) vs the pinned reference. A flux that appears (0\u2192active) or disappears (active\u21920) is a qualitative regression = mismatch, flagged on the plot. Cell-level mean exchange flux (negative = uptake, positive = secretion). Time-mean within cell over gens\u22653, then per-cell values across the ensemble. Order = sorted(sim_data.external_state.all_external_exchange_molecules) = the FBA emit order. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
       "plot": "flux_scatter",
       "criterion": {
         "type": "flux_scatter",
@@ -768,7 +2064,7 @@
       "group": "Exchange fluxes",
       "label": "Glucose exchange",
       "units": "mmol/gDCW/h",
-      "how": "Cell-level mean exchange flux (negative = uptake, positive = secretion). Time-mean within cell over gens≥3, then per-cell values across the ensemble. Order = sorted(sim_data.external_state.all_external_exchange_molecules) = the FBA emit order. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
+      "how": "Cell-level mean exchange flux (negative = uptake, positive = secretion). Time-mean within cell over gens\u22653, then per-cell values across the ensemble. Order = sorted(sim_data.external_state.all_external_exchange_molecules) = the FBA emit order. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
       "plot": "violin",
       "y_from_zero": true,
       "criterion": {
@@ -804,9 +2100,9 @@
     },
     "fluxes.o2": {
       "group": "Exchange fluxes",
-      "label": "O₂ exchange",
+      "label": "O\u2082 exchange",
       "units": "mmol/gDCW/h",
-      "how": "Cell-level mean exchange flux (negative = uptake, positive = secretion). Time-mean within cell over gens≥3, then per-cell values across the ensemble. Order = sorted(sim_data.external_state.all_external_exchange_molecules) = the FBA emit order. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
+      "how": "Cell-level mean exchange flux (negative = uptake, positive = secretion). Time-mean within cell over gens\u22653, then per-cell values across the ensemble. Order = sorted(sim_data.external_state.all_external_exchange_molecules) = the FBA emit order. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
       "plot": "violin",
       "y_from_zero": true,
       "criterion": {
@@ -844,7 +2140,7 @@
       "group": "Exchange fluxes",
       "label": "Ammonium (N source) exchange",
       "units": "mmol/gDCW/h",
-      "how": "Cell-level mean exchange flux (negative = uptake, positive = secretion). Time-mean within cell over gens≥3, then per-cell values across the ensemble. Order = sorted(sim_data.external_state.all_external_exchange_molecules) = the FBA emit order. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
+      "how": "Cell-level mean exchange flux (negative = uptake, positive = secretion). Time-mean within cell over gens\u22653, then per-cell values across the ensemble. Order = sorted(sim_data.external_state.all_external_exchange_molecules) = the FBA emit order. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
       "plot": "violin",
       "y_from_zero": true,
       "criterion": {
@@ -880,9 +2176,9 @@
     },
     "fluxes.co2": {
       "group": "Exchange fluxes",
-      "label": "CO₂ exchange",
+      "label": "CO\u2082 exchange",
       "units": "mmol/gDCW/h",
-      "how": "Cell-level mean exchange flux (negative = uptake, positive = secretion). Time-mean within cell over gens≥3, then per-cell values across the ensemble. Order = sorted(sim_data.external_state.all_external_exchange_molecules) = the FBA emit order. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
+      "how": "Cell-level mean exchange flux (negative = uptake, positive = secretion). Time-mean within cell over gens\u22653, then per-cell values across the ensemble. Order = sorted(sim_data.external_state.all_external_exchange_molecules) = the FBA emit order. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
       "plot": "violin",
       "y_from_zero": true,
       "criterion": {
@@ -920,7 +2216,7 @@
       "group": "Exchange fluxes",
       "label": "Acetate exchange (overflow sentinel)",
       "units": "mmol/gDCW/h",
-      "how": "Cell-level mean exchange flux (negative = uptake, positive = secretion). Time-mean within cell over gens≥3, then per-cell values across the ensemble. Order = sorted(sim_data.external_state.all_external_exchange_molecules) = the FBA emit order. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
+      "how": "Cell-level mean exchange flux (negative = uptake, positive = secretion). Time-mean within cell over gens\u22653, then per-cell values across the ensemble. Order = sorted(sim_data.external_state.all_external_exchange_molecules) = the FBA emit order. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
       "plot": "violin",
       "y_from_zero": true,
       "criterion": {
@@ -958,7 +2254,7 @@
       "group": "Gene expression",
       "label": "Transcriptome (mRNA cistron counts)",
       "units": "counts",
-      "how": "Cell-level ensemble-mean count vector (time-mean within cell over gens≥3, then mean across cells). Graded by log-log R² vs the pinned blessed vector — self-pin => R²=1; a reformulation (e.g. PDMP) is the first run that moves it. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
+      "how": "Cell-level ensemble-mean count vector (time-mean within cell over gens\u22653, then mean across cells). Graded by log-log R\u00b2 vs the pinned blessed vector \u2014 self-pin => R\u00b2=1; a reformulation (e.g. PDMP) is the first run that moves it. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
       "plot": "loglog",
       "criterion": {
         "type": "r2",
@@ -5317,7 +6613,7 @@
       "group": "Gene expression",
       "label": "Proteome (monomer counts)",
       "units": "counts",
-      "how": "Cell-level ensemble-mean count vector (time-mean within cell over gens≥3, then mean across cells). Graded by log-log R² vs the pinned blessed vector — self-pin => R²=1; a reformulation (e.g. PDMP) is the first run that moves it. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
+      "how": "Cell-level ensemble-mean count vector (time-mean within cell over gens\u22653, then mean across cells). Graded by log-log R\u00b2 vs the pinned blessed vector \u2014 self-pin => R\u00b2=1; a reformulation (e.g. PDMP) is the first run that moves it. Source: v2ecoli/library/card_vectors.py::extract_vectors.",
       "plot": "loglog",
       "criterion": {
         "type": "r2",
@@ -9642,8 +10938,8 @@
     "3 of 32 generations did not divide (ran to the 3600 s cap); their over-grown cells are still in the composition average (n=20). A refinement would restrict composition to divided cells; effect is small (fractions are per-dry-weight)."
   ],
   "open_questions": [
-    "Promotion mechanism (phase->meta) — UNRESOLVED.",
-    "CI surface — UNRESOLVED.",
-    "Omics + behavioral axes land in Layer 3-4 (transcriptome/proteome R²; Bucket A boolean assertions)."
+    "Promotion mechanism (phase->meta) \u2014 UNRESOLVED.",
+    "CI surface \u2014 UNRESOLVED.",
+    "Omics + behavioral axes land in Layer 3-4 (transcriptome/proteome R\u00b2; Bucket A boolean assertions)."
   ]
 }

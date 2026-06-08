@@ -32,11 +32,12 @@ def _setup():
 
 
 def violin_strip(values, ref_values=None, *, label="", units="", scale=1.0,
+                 ref_label="reference", meas_label="measured",
                  y_from_zero=False, width=4.2, height=2.6) -> str:
     """Reference vs measured as two **side-by-side** violins (each with a
     jittered per-cell strip). ``scale`` multiplies all values for display
     (e.g. 1/3600 to show seconds as hours); ``y_from_zero`` pins the y-axis
-    base at 0."""
+    base at 0. ``ref_label``/``meas_label`` name the two series (e.g. v1/v2)."""
     plt = _setup()
     import numpy as np
     rng = np.random.default_rng(0)
@@ -44,17 +45,17 @@ def violin_strip(values, ref_values=None, *, label="", units="", scale=1.0,
 
     series = []
     if ref_values and len(ref_values) > 0:
-        series.append(("reference", np.asarray(ref_values, float) * scale, "#9aa3af"))
+        series.append((ref_label, np.asarray(ref_values, float) * scale, "#9aa3af", True))
     if values and len(values) > 0:
-        series.append(("measured", np.asarray(values, float) * scale, "#1a7f37"))
+        series.append((meas_label, np.asarray(values, float) * scale, "#1a7f37", False))
 
     positions = list(range(len(series)))
-    for pos, (name, data, color) in zip(positions, series):
+    for pos, (name, data, color, is_ref) in zip(positions, series):
         if len(data) > 1:
             vp = ax.violinplot([data], positions=[pos], widths=0.7, showextrema=False)
             for b in vp["bodies"]:
                 b.set_facecolor(color)
-                b.set_alpha(0.45 if name == "reference" else 0.22)
+                b.set_alpha(0.45 if is_ref else 0.22)
                 b.set_edgecolor(color)
         x = rng.normal(pos, 0.045, size=len(data))
         ax.scatter(x, data, s=20, color=color, alpha=0.85, zorder=3,
@@ -137,41 +138,57 @@ def flux_scatter(cand_vec, ref_vec, *, ids=None, r2=None, active_eps=1e-6,
     return _svg(fig)
 
 
-def generation_trend(by_cell, *, scale=1.0, units="", label="", rho=None,
+def generation_trend(by_cell, ref_by_cell=None, *, scale=1.0, units="", label="",
+                     rho=None, ref_rho=None, y_from_zero=False,
+                     ref_label="reference", meas_label="measured",
                      width=4.2, height=2.8) -> str:
-    """Per-cell metric vs generation — the companion plot for a flagged
-    generation-drift. ``by_cell`` is ``[[seed, gen, value], ...]``. Points are
-    colored by seed (so seed vs generation structure is visible); the black
-    line connects per-generation means (the trend the Spearman ρ summarizes)."""
+    """Per-lineage metric vs generation — the companion plot for a flagged
+    generation-drift. Mirrors the violin's reference‖measured convention:
+    **measured lineages in green, reference lineages in grey**, one connected
+    line per lineage (seed; lineages aren't individually labelled). ``by_cell``
+    and ``ref_by_cell`` are ``[[seed, gen, value], ...]``. The Spearman ρ
+    annotation names the dataset it summarizes (the flag is driven by the
+    measured series)."""
     plt = _setup()
-    import numpy as np
-    g = np.array([c[1] for c in by_cell], float)
-    y = np.array([c[2] for c in by_cell], float) * scale
-    s = np.array([c[0] for c in by_cell])
     fig, ax = plt.subplots(figsize=(width, height))
-    seeds = sorted(set(s.tolist()))
-    cmap = plt.get_cmap("tab10")
-    for i, sd in enumerate(seeds):
-        m = s == sd
-        # small deterministic x-offset per seed so points don't overplot
-        off = (i - (len(seeds) - 1) / 2) * 0.08
-        ax.scatter(g[m] + off, y[m], s=22, color=cmap(i % 10), alpha=0.8,
-                   edgecolor="white", linewidth=0.5, label=f"seed {sd}", zorder=3)
-    gens = sorted(set(g.tolist()))
-    means = [y[g == gg].mean() for gg in gens]
-    ax.plot(gens, means, color="#1a1d21", lw=1.6, marker="o", ms=4, zorder=4,
-            label="gen mean")
+
+    def _draw(points, color, zorder, lbl):
+        if not points:
+            return
+        bylin: dict = {}
+        for sd, gg, v in points:
+            bylin.setdefault(sd, []).append((gg, v * scale))
+        first = True
+        for sd in sorted(bylin):
+            pts = sorted(bylin[sd])
+            ax.plot([p[0] for p in pts], [p[1] for p in pts], color=color,
+                    lw=1.3, marker="o", ms=3, alpha=0.85, zorder=zorder,
+                    label=(lbl if first else None))
+            first = False
+
+    _draw(ref_by_cell, "#9aa3af", 2, ref_label)     # grey, matches the violin
+    _draw(by_cell, "#1a7f37", 3, meas_label)        # green, matches the violin
     ax.set_xlabel("generation", fontsize=9)
     ax.set_ylabel(units or label, fontsize=9)
-    ax.set_xticks(gens)
+    allg = sorted({c[1] for c in (by_cell or [])} | {c[1] for c in (ref_by_cell or [])})
+    if allg:
+        ax.set_xticks(allg)
     ax.tick_params(labelsize=8)
     for sp in ("top", "right"):
         ax.spines[sp].set_visible(False)
+    lines = []
     if rho is not None:
-        ax.text(0.04, 0.96, f"ρ(gen) = {rho:+.2f}", transform=ax.transAxes,
-                fontsize=10, va="top", fontweight="bold", color="#ef6c00")
-    ax.legend(fontsize=6.5, loc="best", frameon=False, ncol=2)
-    ax.margins(y=0.15)
+        lines.append(f"{meas_label} ρ(gen) = {rho:+.2f}")
+    if ref_rho is not None:
+        lines.append(f"{ref_label} ρ(gen) = {ref_rho:+.2f}")
+    if lines:
+        ax.text(0.04, 0.96, "\n".join(lines), transform=ax.transAxes, fontsize=9,
+                va="top", fontweight="bold", color="#ef6c00")
+    if by_cell or ref_by_cell:
+        ax.legend(fontsize=7, loc="best", frameon=False, ncol=2)
+    ax.margins(y=0.12)
+    if y_from_zero:
+        ax.set_ylim(bottom=0)        # match the violin's y-axis (from 0)
     return _svg(fig)
 
 

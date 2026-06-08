@@ -315,11 +315,39 @@ conditions:
   # Required by v4 schema even when empty.
   model_settings: []
 
-# The dnaa-1 validation figure (Mechanism A V=1.7e-3, 7-gen succinate: DnaA monomer
-# all-forms, DnaA concentration, dnaA mRNA count, dnaA mRNA init events — Rashmi's
-# 4 requested panels) was produced on the source reproduction branch; its raw run
-# (dnaa1-mechA-7gen-pristine) is NOT on this branch, so it can't be re-rendered here.
-# Recorded as planned to avoid an error-stub; regenerate when the run is restored.
+visualizations:
+- name: dnaa1_decision
+  address: image:charts/dnaa1_decision.png
+  config:
+    title: >-
+      dnaa-1 expression DECISION figure (V=1.7e-3, seed 0, 7 generations).
+      Generation-aligned 4-panel: (a) dnaA mRNA initiation events/min,
+      (b) total DnaA monomer count + accepted band [300,800], (c) DnaA
+      concentration (nM), (d) oriC count — connecting the intervention
+      (raised dnaA transcription) → molecular consequence → preserved
+      cell-cycle phenotype (oriC 2 at every end-of-gen). DATA NOTE: the only
+      dnaa-1 run on this branch emits per-generation history truncated to ~the
+      first minute of each cycle, so panels b/c/d use the genuine
+      end-of-generation dill snapshots (one pre-division-peak point per gen)
+      and panel a uses the sparse early-cycle init-event sample (≤1 min/gen,
+      an estimate — not a per-cycle rate). End-of-gen DnaA peaks sit above the
+      band because they are pre-division peaks (cycle-mean is in band per the
+      run results). The full within-cycle figure awaits restore of
+      dnaa1-mechA-7gen-pristine.
+    inputs_map:
+      dnaa_init_rate: listeners.rnap_data.rna_init_event_per_cistron[dnaA cistron EG10235]
+      dnaa_monomer_total: bulk (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])
+      dnaa_conc_nM: dnaa_monomer_total / (listeners.mass.volume * N_A)
+      oric_count: listeners.replication_data.number_of_oric
+  chart: charts/dnaa1_decision.svg
+  source_run: dnaa1-mechA-1.7e-3-7gen
+  render: cd ../.. && python scripts/render_dnaa1_decision.py --run studies/dnaa-1-expression/parquet-runs/dnaa1-mechA-1.7e-3-7gen --out studies/dnaa-1-expression/charts
+
+# The full within-cycle dnaa-1 figure (4 panels over LINEAGE TIME, not just per
+# generation) needs the raw run dnaa1-mechA-7gen-pristine, which is NOT on this
+# branch — the retained run emits only ~the first minute of each cycle. The
+# dnaa1_decision figure above is the best generation-aligned figure from the
+# real on-branch data; regenerate the full-cycle version when the run is restored.
 planned_visualizations:
 - name: dnaa_expression
   title: dnaa-1 — Mechanism A V=1.7e-3 (succinate); DnaA pool in [300,800], init rate ≈1/min

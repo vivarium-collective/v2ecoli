@@ -1,0 +1,7 @@
+{
+  "source_run_id": "dnaa2_seed1_8gen",
+  "generation_id": null,
+  "rendered_at": 1780887857.467262,
+  "command": "python scripts/render_dnaa2_atp_band.py --run out/dnaa2_seed1_8gen --seed 1 --out studies/dnaa-2-nucleotide-balance/charts",
+  "note": "5/8 per-generation mean DnaA-ATP fractions inside accepted band [0.2, 0.5]. Fraction derived from the three bulk DnaA forms (ATP/ADP/apo)."
+}

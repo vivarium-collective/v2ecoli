@@ -1,0 +1,7 @@
+{
+  "source_run_id": "dnaa0_seed0",
+  "generation_id": null,
+  "rendered_at": 1780887802.466343,
+  "command": "python scripts/render_dnaa0_transient_split.py --run out/dnaa0_seed0_parquet/dnaa0_seed0 --out studies/dnaa-0-succinate-baseline/charts",
+  "note": "oriC max in this run = 2 (seed 0, 1<->2 periodic). Background shading separates transient gens 1-2 (overshoot allowed) from the accepted steady-state window gen 3+."
+}

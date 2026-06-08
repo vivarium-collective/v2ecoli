@@ -422,6 +422,23 @@ figure_refresh:
 # "keep only the latest one"). The diagnosis scatter remains referenced in the
 # DnaA-ATP-fraction test notes; it is not a separate chart here.
 visualizations:
+- name: dnaa2_atp_fraction_band
+  address: image:charts/dnaa2_atp_fraction_band.png
+  config:
+    title: >-
+      DnaA-ATP fraction vs accepted band [0.2, 0.5] (seed 1, 8 generations).
+      Generation-aligned per-tick trace with the target band SHADED and
+      per-generation average dots overlaid (green = gen-mean in band,
+      red = out of band). The pass criterion is staying in the band, so the
+      band is drawn explicitly. 5/8 gen-means in band; gen 1 is the
+      pre-steady-state transient (overshoot to ~1.0), and gens 5/8 dip just
+      below 0.2. Fraction = DnaA-ATP / total DnaA from the three bulk forms.
+    inputs_map:
+      atp_fraction: bulk MONOMER0-160[c] / (MONOMER0-160[c] + MONOMER0-4565[c] + PD03831[c])
+      time: global_time
+  chart: charts/dnaa2_atp_fraction_band.svg
+  source_run: dnaa2_seed1_8gen
+  render: cd ../.. && python scripts/render_dnaa2_atp_band.py --run out/dnaa2_seed1_8gen --seed 1 --out studies/dnaa-2-nucleotide-balance/charts
 - name: dnaa2_seed1_8gen_canonical
   address: image:charts/dnaa2_seed1_8gen_canonical.png
   config:

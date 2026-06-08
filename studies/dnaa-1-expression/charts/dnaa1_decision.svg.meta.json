@@ -1,0 +1,65 @@
+{
+  "source_run_id": "dnaa1-mechA-1.7e-3-7gen",
+  "generation_id": null,
+  "rendered_at": 1780887961.05743,
+  "command": "python scripts/render_dnaa1_decision.py --run studies/dnaa-1-expression/parquet-runs/dnaa1-mechA-1.7e-3-7gen --out studies/dnaa-1-expression/charts",
+  "note": "Panels b/c/d from genuine end-of-generation dill snapshots (one point/gen, pre-division peak). Panel a from the dnaA cistron init events in the available early-cycle parquet (\u22641 min/gen sampled) \u2014 a sparse estimate, NOT a per-cycle rate. The branch retains no full within-cycle dnaa-1 trajectory; not re-simulated (read-only).",
+  "per_generation": [
+    {
+      "gen": 1,
+      "dnaa_total": 450,
+      "conc_nM": 705.7214532867384,
+      "oric": 2,
+      "init_rate": 0.0,
+      "sampled_min": 0.36666666666666664
+    },
+    {
+      "gen": 2,
+      "dnaa_total": 913,
+      "conc_nM": 1449.556630935098,
+      "oric": 2,
+      "init_rate": 2.926829268292683,
+      "sampled_min": 0.6833333333333333
+    },
+    {
+      "gen": 3,
+      "dnaa_total": 1262,
+      "conc_nM": 2026.503241858141,
+      "oric": 2,
+      "init_rate": 0.0,
+      "sampled_min": 0.06666666666666667
+    },
+    {
+      "gen": 4,
+      "dnaa_total": 1636,
+      "conc_nM": 2616.052597458163,
+      "oric": 2,
+      "init_rate": 1.5,
+      "sampled_min": 0.6666666666666666
+    },
+    {
+      "gen": 5,
+      "dnaa_total": 1701,
+      "conc_nM": 2625.286272808223,
+      "oric": 2,
+      "init_rate": 2.142857142857143,
+      "sampled_min": 0.9333333333333333
+    },
+    {
+      "gen": 6,
+      "dnaa_total": 1904,
+      "conc_nM": 2613.4389548693484,
+      "oric": 2,
+      "init_rate": 1.1111111111111112,
+      "sampled_min": 0.9
+    },
+    {
+      "gen": 7,
+      "dnaa_total": 1636,
+      "conc_nM": 2458.382311097558,
+      "oric": 2,
+      "init_rate": 0.0,
+      "sampled_min": 0.016666666666666666
+    }
+  ]
+}

@@ -26,6 +26,16 @@ import warnings
 
 import numpy as np
 
+# Framework-generic per-agent emitter-lifecycle registry (register / get /
+# unregister + finalize) now lives in pbg-emitters. v2ecoli re-exports the
+# parquet-named wrappers below so existing call sites keep working.
+from pbg_emitters.lifecycle import (
+    register_emitter as register_parquet_emitter,
+    get_emitter as get_parquet_emitter,
+    unregister_emitter as _unregister_emitter,
+    finalize_emitter_for_agent,
+)
+
 # ---------------------------------------------------------------------------
 # Process imports (needed for PARTITIONED_PROCESSES and _instantiate_step)
 # ---------------------------------------------------------------------------
@@ -211,27 +221,18 @@ _NULL_EMITTER_OVERRIDE: bool = False
 # from its own ``@composite_generator(emitters=[...])`` entry around the build.
 _DEFAULT_EMITTER_DECL: dict | None = None
 
-# Per-agent registry of live ParquetEmitter step instances. Populated when
-# ``_get_special_step('emitter')`` constructs an emitter under a parquet
+# Per-agent registry of live ParquetEmitter step instances (framework-generic
+# registry imported at module top from ``pbg_emitters.lifecycle``). Populated
+# when ``_get_special_step('emitter')`` constructs an emitter under a parquet
 # override; consulted by ``Division.next_update`` so the parent's trailing
 # partial batch can be ``close(success=True)``-d before the agent is
 # ``_remove``-d (mirrors vEcoli's pre-divide ``self.emitter.finalize()`` hook
 # in ``ecoli/experiments/ecoli_master_sim.py`` / ``engine_process.py``).
-_PARQUET_EMITTERS_BY_AGENT: dict[str, object] = {}
-
-
-def register_parquet_emitter(agent_id: str, emitter) -> None:
-    """Track a live ParquetEmitter so Division can flush it before _remove."""
-    _PARQUET_EMITTERS_BY_AGENT[agent_id] = emitter
-
-
-def get_parquet_emitter(agent_id: str):
-    """Look up the ParquetEmitter for ``agent_id`` (or None)."""
-    return _PARQUET_EMITTERS_BY_AGENT.get(agent_id)
 
 
 def unregister_parquet_emitter(agent_id: str) -> None:
-    _PARQUET_EMITTERS_BY_AGENT.pop(agent_id, None)
+    """Drop the registered emitter for ``agent_id`` (thin pbg-emitters wrapper)."""
+    _unregister_emitter(agent_id)
 
 
 def set_emitter_override(config: dict | None) -> None:

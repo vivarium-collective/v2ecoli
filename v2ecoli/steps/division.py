@@ -268,19 +268,18 @@ class Division(V2Step):
             # finalize()). The parent ParquetEmitter has rows buffered since its
             # last batch flush; without an explicit close() they vanish — and
             # no success sentinel is written — when this _remove update tears
-            # the agent subtree down. The emitter is registered under the
-            # parquet override's metadata.agent_id (the runner's per-generation
-            # identity: "0", "00", ...); self.agent_id inside the composite is
-            # always "0" (the agents/0 key), so for gens >= 2 a self.agent_id
-            # lookup misses. Use the override metadata as the canonical key.
-            from v2ecoli.composites._helpers import (
-                get_parquet_emitter, unregister_parquet_emitter)
+            # the agent subtree down. The close-flush-and-unregister itself is
+            # the FRAMEWORK-generic ``finalize_emitter_for_agent`` from
+            # pbg-emitters; the v2ecoli-specific glue is only *which key* to
+            # finalize: the parent is registered under the parquet override's
+            # metadata.agent_id (the runner's per-generation identity: "0",
+            # "00", ...). self.agent_id inside the composite is always "0" (the
+            # agents/0 key), so for gens >= 2 a self.agent_id lookup misses;
+            # use the override metadata as the canonical key.
+            from v2ecoli.composites._helpers import finalize_emitter_for_agent
             _ovr_meta = (_PARQUET_EMITTER_OVERRIDE or {}).get('metadata') or {}
             _emitter_key = str(_ovr_meta.get('agent_id', self.agent_id))
-            parent_emitter = get_parquet_emitter(_emitter_key)
-            if parent_emitter is not None:
-                parent_emitter.close(success=True)
-                unregister_parquet_emitter(_emitter_key)
+            finalize_emitter_for_agent(_emitter_key, success=True)
 
             return {
                 'agents': {

@@ -33,6 +33,8 @@ PORTED = [
     ("ribosome_components", "multigeneration"),
     ("ribosome_usage", "multigeneration"),
     ("new_gene_counts", "multigeneration"),
+    ("average_monomer_counts", "multivariant"),
+    ("subgenerational_expression_table", "multiseed"),
 ]
 
 

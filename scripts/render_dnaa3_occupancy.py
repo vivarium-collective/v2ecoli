@@ -84,11 +84,20 @@ def load(run: str, generation: int):
     return df
 
 
-def load_insim(run: str):
+def load_insim(run: str, generation: int | None = None):
     """Load REAL emitted listeners.dnaA_binding occupancy from an in-sim binding
     parquet run (single lineage). Returns the emitted per-pool occupied fractions,
-    n_bound/n_total per region, free DnaA-ATP/ADP nM, and total-DnaA-conc inputs."""
-    fs = sorted(glob.glob(f"{run}/**/history/**/*.pq", recursive=True))
+    n_bound/n_total per region, free DnaA-ATP/ADP nM, and total-DnaA-conc inputs.
+
+    If ``generation`` is given, restrict to that generation partition (so a
+    multi-gen run can render the occupancy at a single LATER/steady-state gen)."""
+    if generation is not None:
+        fs = sorted(glob.glob(
+            f"{run}/**/history/**/generation={generation}/**/*.pq", recursive=True))
+        if not fs:  # fall back to whole run if no per-gen partition
+            fs = sorted(glob.glob(f"{run}/**/history/**/*.pq", recursive=True))
+    else:
+        fs = sorted(glob.glob(f"{run}/**/history/**/*.pq", recursive=True))
     if not fs:
         raise SystemExit(f"no in-sim parquet under {run}")
     L = "listeners__dnaA_binding__"
@@ -199,8 +208,9 @@ def draw_circle(ax, P, t_min, oric=1, rc=None):
 
 def main_insim(args):
     """Render the 5-timepoint chromosome box-occupancy snapshots from the REAL
-    emitted in-sim listeners.dnaA_binding occupancy (no analytical recompute)."""
-    df = load_insim(args.insim_run)
+    emitted in-sim listeners.dnaA_binding occupancy (no analytical recompute).
+    Restricted to a LATER/steady-state generation (args.generation)."""
+    df = load_insim(args.insim_run, args.generation)
     t0 = df["global_time"][0]
     tmin = ((df["global_time"] - t0) / 60).to_numpy()
     oric = df["oric"].to_numpy()

@@ -485,7 +485,7 @@ visualizations:
       read straight from the run (see runs[].real_insim_numbers).
   chart: charts/dnaa3_box_occupancy.svg
   source_run: dnaa3-insim-readonly
-  render: cd ../.. && python scripts/render_dnaa3_occupancy.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-insim-readonly --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
+  render: cd ../.. && python scripts/render_dnaa3_occupancy.py --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-insim-readonly --generation 6 --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
 - name: dnaa3_binding_analysis
   address: image:charts/dnaa3_binding_analysis.png
   config:

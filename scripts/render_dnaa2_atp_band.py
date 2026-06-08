@@ -26,11 +26,15 @@ import os
 import sys
 import time
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, _ROOT)
+sys.path.insert(0, _HERE)
 
 import numpy as np
 import polars as pl
+
+from _run_provenance import run_id_from_run_dir
 
 # DnaA-ATP / DnaA-ADP / apo-DnaA bulk ids.
 DATP, DADP, DAPO = "MONOMER0-160[c]", "MONOMER0-4565[c]", "PD03831[c]"
@@ -149,6 +153,7 @@ def render(run_dir: str, seed: int, out_dir: str) -> str:
     plt.close(fig)
 
     meta = {
+        "run_id": run_id_from_run_dir(run_dir),
         "source_run_id": f"dnaa2_seed{seed}_8gen",
         "generation_id": None,
         "rendered_at": time.time(),

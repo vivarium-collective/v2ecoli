@@ -38,11 +38,15 @@ import os
 import sys
 import time
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_ROOT = os.path.dirname(_HERE)
 sys.path.insert(0, _ROOT)
+sys.path.insert(0, _HERE)
 
 import numpy as np
 import polars as pl
+
+from _run_provenance import run_id_from_run_dir
 
 # bulk-store ids for the three DnaA nucleotide forms (apo / ATP / ADP).
 DNAA_FORMS = ["PD03831[c]", "MONOMER0-160[c]", "MONOMER0-4565[c]"]
@@ -221,6 +225,7 @@ def render(run_dir: str, out_dir: str) -> str:
     plt.close(fig)
 
     meta = {
+        "run_id": run_id_from_run_dir(run_dir),
         "source_run_id": os.path.basename(run_dir.rstrip("/")),
         "generation_id": None,
         "rendered_at": time.time(),

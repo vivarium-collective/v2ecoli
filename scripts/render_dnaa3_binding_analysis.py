@@ -27,12 +27,15 @@ Usage (in-sim, current verdict):
       --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
 """
 from __future__ import annotations
-import argparse, glob, json, hashlib, time
+import argparse, glob, json, hashlib, os, sys, time
 from pathlib import Path
 import numpy as np, polars as pl
 from scipy.optimize import brentq
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _run_provenance import run_id_from_run_dir
 
 NA = 6.02214076e23
 N_HIGH = 302 + 3 + 2   # chromosomal + oriC-high + promoter (K_d 1 nM, ATP+ADP)
@@ -128,7 +131,8 @@ def _write_meta(out, run, gen_id, cmd):
     for ext in ("png", "svg"):
         p = Path(f"{out}.{ext}")
         h = hashlib.sha256(p.read_bytes()).hexdigest()
-        meta = {"source_run_id": Path(run).name, "generation_id": gen_id,
+        meta = {"run_id": run_id_from_run_dir(str(run)),
+                "source_run_id": Path(run).name, "generation_id": gen_id,
                 "rendered_at": time.time(), "command": cmd,
                 "content_hash": f"sha256:{h}"}
         Path(f"{out}.{ext}.meta.json").write_text(json.dumps(meta, indent=2))

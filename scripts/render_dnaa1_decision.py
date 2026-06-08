@@ -221,7 +221,7 @@ def render(run_dir: str, out_dir: str) -> str:
     plt.close(fig)
 
     meta = {
-        "source_run_id": "dnaa1_fullhist",
+        "source_run_id": os.path.basename(run_dir.rstrip("/")),
         "generation_id": None,
         "rendered_at": time.time(),
         "command": (f"python scripts/render_dnaa1_decision.py --run {run_dir} "

@@ -3,15 +3,15 @@ name: dnaa-1-expression
 investigation: dnaa-replication   # owning investigation (back-reference)
 title: DnaA expression — Mechanism A tuning to in-band, generation-stable pool
 created: '2026-05-29'
-status: completed   # legacy back-compat; canonical axes below. PASS; V re-tuned 2e-3→1.7e-3 (2026-05-31)
+status: completed   # legacy back-compat; canonical axes below. RE-VALIDATED 2026-06-08 → FAIL (DnaA pool out of band at V=1.7e-3 on full per-gen history; prior PASS was a truncated-emit artifact)
 # Canonical 6-axis status (PASS — rate + in-band DnaA confirmed; V lowered to
 # 1.7e-3 per Rashmi 2026-05-31 to reduce the pre-division peak overshoot).
 design_status: complete
 implementation_status: complete
 simulation_status: ran            # backed by runs: below (1.7e-3 canonical + 1.5e-3 bracket + 2e-3 prior)
 evaluation_status: evaluated      # backed by findings: + recorded test outcomes
-gate_status: passed               # rate ≈ target, cycle-mean + trough in band, oriC clean
-expert_review_status: approved    # Rashmi 2026-05-31 selected V=1.7e-3
+gate_status: failed               # 2026-06-08: DnaA pool out of band (cycle-mean ramps 196→1131) at V=1.7e-3 on full per-gen history; rate elevated + oriC clean, but band test fails
+expert_review_status: approved    # Rashmi 2026-05-31 selected V=1.7e-3 (on the truncated-emit data; re-validation pending re-review)
 
 # v4 schema (vivarium_dashboard.lib.investigations._validate_study_v4_redesign):
 #   REQUIRED top-level: schema_version, name, question, conditions, tests, status
@@ -39,9 +39,22 @@ report:
   # on the full-series runner. Verdict re-asserted PASS on REAL full-cycle
   # data: dnaA init rate median 0.99/min (≈ target 1/min), DnaA cycle-mean
   # 706 in band [300,800] with CV 7.2%, oriC periodic 1↔2 never 4.
-  verdict: pass
+  verdict: fail
   confidence: high
   evidence_quality: empirical
+  # 2026-06-08 RE-VALIDATION (perturbation CONFIRMED applied): the prior PASS
+  # was read off the truncated dnaa1-mechA-1.7e-3-7gen parquet-run (only ~43 s
+  # emitted per generation — the pre-fix emit-truncation bug), whose "in-band
+  # cycle-mean 665–710" was an artifact of seeing only the first minute of
+  # each cycle. The corrected FULL per-gen-history re-run
+  # (out/dnaa1_v17e3_fullhist, seed 1, 7 gens) — built on a cache whose
+  # ecoli-transcript-initiation config VERIFIABLY encodes
+  # genetic_perturbations["TU00259[c]"]=0.0017 — shows the DnaA monomer
+  # cycle-mean RAMPING 196→464→747→870→936→1190→1131 and crossing ABOVE the
+  # [300,800] band from gen 4 onward. The init rate is genuinely elevated
+  # (1.2–1.8/min, vs ~1/min baseline), so the perturbation IS active; the
+  # pool simply is not band-stable at 1.7e-3 over a full multi-gen lineage.
+  # Demoted PASS→FAIL on honest full-cycle data. oriC stays clean 1↔2.
 
   objective: |
     Tune dnaA RNA-synthesis probability so that the dnaA mRNA
@@ -95,13 +108,34 @@ report:
       all TF / ppGpp regulation (basal_prob + delta_prob) preserved
 
   result: |
-    CANONICAL (V=1.7e-3, run dnaa1-mechA-1.7e-3-7gen-2026-05-31): the DnaA
-    monomer pool holds in [300,800] across the 7-gen succinate lineage —
-    cycle-mean 665–710 (cross-gen CV 2.3%), trough ≥417, oriC periodic 1↔2.
-    This is the CURRENT result (figure:
-    reports/figures/dnaa-1-expression/dnaa_expression.html). V was
-    lowered 2e-3 → 1.7e-3 (Rashmi 2026-05-31) to pull the pre-division peak
-    toward the band — see finding v-retune-1.7e-3-reduces-overshoot.
+    CORRECTED (2026-06-08, perturbation CONFIRMED): re-run
+    out/dnaa1_v17e3_fullhist (seed 1, 7 gens, FULL per-gen history) on a cache
+    whose ecoli-transcript-initiation config VERIFIABLY carries
+    genetic_perturbations["TU00259[c]"]=0.0017. The DnaA monomer cycle-mean
+    RAMPS MONOTONICALLY and leaves the band:
+        gen1 196 | gen2 464 | gen3 747 | gen4 870 | gen5 936 | gen6 1190 |
+        gen7 1131   (per-cycle min..max also climbing; full table in the
+                     chart .meta.json)
+    Only gens 2–3 sit in/near [300,800]; gens 4–7 are above 800. The dnaA
+    mRNA init rate is genuinely elevated (1.2–1.8/min vs ~1/min baseline), so
+    1.7e-3 IS active — the pool simply does not reach a stable in-band steady
+    state over a multi-gen lineage. oriC stays periodic 1↔2 every gen (clean
+    cycle, no reinitiation) and every gen divides at chromosomes=2, so the cell
+    cycle is intact; the DnaA-pool band test FAILS. The seed-1 re-run
+    reproduces the earlier dnaa1_fullhist numbers byte-identically, confirming
+    this is the deterministic real behavior of Mechanism-A V=1.7e-3, NOT a
+    missing-perturbation artifact (the suspected runner bug — that
+    run_condition_multigen_parquet.py drops genetic_perturbations — is moot
+    here because the perturbation is baked into the cache at build time via
+    save_sim_input, not applied at runtime).
+
+    The earlier "CANONICAL in-band cycle-mean 665–710 (CV 2.3%)" claim was read
+    off the TRUNCATED dnaa1-mechA-1.7e-3-7gen parquet-run (only ~43 s emitted
+    per generation, the pre-fix emit-truncation bug) — i.e. only the first
+    minute of each cycle (the post-division trough), which is why it looked
+    in-band. On full within-cycle data that claim does not hold. V was lowered
+    2e-3 → 1.7e-3 (Rashmi 2026-05-31) to pull the pre-division peak down, but
+    at 1.7e-3 the pool still ramps out of band over the lineage.
 
     ── Below: the earlier V=2e-3 tuning + the debugging history that led here
        (kept for provenance; the 2e-3 numbers are the PRIOR tuning, NOT the
@@ -320,27 +354,32 @@ visualizations:
   address: image:charts/dnaa1_decision.png
   config:
     title: >-
-      dnaa-1 expression DECISION figure (V=1.7e-3, seed 1, 7 generations,
-      FULL within-cycle history). Generation-aligned 4-panel on a shared
-      cumulative lineage-time axis: (a) dnaA mRNA initiation events/min
+      dnaa-1 expression figure (V=1.7e-3, seed 1, 7 generations, FULL
+      within-cycle history) — rendered from out/dnaa1_v17e3_fullhist, the
+      perturbation-CONFIRMED re-run (cache out/cache_dnaa1_mechA_1.7e-3 encodes
+      genetic_perturbations["TU00259[c]"]=0.0017 in its ecoli-transcript-
+      initiation config; verified 2026-06-08). Generation-aligned 4-panel on a
+      shared cumulative lineage-time axis: (a) dnaA mRNA initiation events/min
       (≈1.2–1.8/min), (b) total DnaA monomer count + accepted band [300,800],
-      (c) DnaA concentration (nM), (d) oriC count — connecting the intervention
-      (raised dnaA transcription) → molecular consequence → preserved
-      cell-cycle phenotype (oriC clean 1↔2, 2 at every end-of-gen). DATA NOTE:
-      rendered from the dnaa1_fullhist run after the per-gen-history emit fix,
-      so every generation now carries its WHOLE cycle (~3300–4300 ticks/gen);
-      panels show the true within-cycle sawtooth, not snapshots. Per-gen DnaA
-      cycle-mean rises across the lineage (gen1 196 → gen7 1131) as the cold
-      start relaxes; pre-division peaks exceed the band but the trough/early
-      cycle sits in-band.
+      (c) DnaA concentration (nM), (d) oriC count. HONEST RESULT: with 1.7e-3
+      definitely applied, the DnaA monomer cycle-mean RAMPS MONOTONICALLY
+      across the lineage (gen1 196 → gen2 464 → gen3 747 → gen4 870 → gen5 936
+      → gen6 1190 → gen7 1131) and crosses ABOVE the [300,800] band from gen4
+      on; only gens 2–3 sit in/near band. The lineage does NOT reach a stable
+      in-band steady state at 1.7e-3. oriC stays periodic 1↔2 (clean cycle, no
+      reinitiation) and every gen divides at chromosomes=2 — the cell cycle is
+      intact, but the pool is not band-stable. This re-run (seed 1) reproduces
+      the earlier dnaa1_fullhist numbers byte-identically (deterministic), so
+      the out-of-band climb is the real behavior of Mechanism-A V=1.7e-3 over a
+      full multi-gen lineage, NOT a missing-perturbation artifact.
     inputs_map:
       dnaa_init_rate: listeners.rnap_data.rna_init_event_per_cistron[dnaA cistron EG10235]
       dnaa_monomer_total: bulk (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])
       dnaa_conc_nM: dnaa_monomer_total / (listeners.mass.volume * N_A)
       oric_count: listeners.replication_data.number_of_oric
   chart: charts/dnaa1_decision.svg
-  source_run: dnaa1_fullhist
-  render: cd ../.. && python scripts/render_dnaa1_decision.py --run out/dnaa1_fullhist/dnaa1_fullhist --out studies/dnaa-1-expression/charts
+  source_run: dnaa1_v17e3_fullhist
+  render: cd ../.. && python scripts/render_dnaa1_decision.py --run out/dnaa1_v17e3_fullhist/dnaa1_v17e3_fullhist --out studies/dnaa-1-expression/charts
 
 # The full within-cycle dnaa-1 figure (4 panels over LINEAGE TIME, not just per
 # generation) needs the raw run dnaa1-mechA-7gen-pristine, which is NOT on this
@@ -385,32 +424,64 @@ runs:
 - name: dnaa1-mechA-1.7e-3-7gen-2026-05-31
   status: completed
   kind: single-daughters-multigen-lineage
-  canonical: true     # selected by Rashmi 2026-05-31 as the canonical V (LAST = report reads its outcomes)
+  canonical: false    # SUPERSEDED 2026-06-08: this parquet is the truncated-emit run (~43 s/gen); its in-band numbers were a first-minute-only artifact. Replaced as canonical by the full-history re-run below.
   description: |
-    Canonical Mechanism-A lineage at the re-tuned V=1.7e-3 (dill-patched cache
+    Mechanism-A lineage at the re-tuned V=1.7e-3 (dill-patched cache
     out/cache-succinate-mechA-1.7e-3), 7 gens, seed 0, resumed from dnaa-0's
-    gen-3 succinate steady-state init. Lowered from 2e-3 to reduce the
-    pre-division DnaA peak overshoot.
+    gen-3 succinate steady-state init. SUPERSEDED: this parquet emitted only
+    ~the first minute of each cycle (the pre-fix emit-truncation bug), so its
+    "in-band cycle-mean 665–710" reflects only the post-division trough, not
+    the full within-cycle sawtooth. Kept for provenance.
   parquet: studies/dnaa-1-expression/parquet-runs/dnaa1-mechA-1.7e-3-7gen-2026-05-31
   seeds: [0]
   result: |
-    Steady state (gens 3–7): DnaA trough 417–470, cycle-mean 665–710
-    (cross-gen CV 2.3%), peak 854–934; oriC periodic 1↔2 (clean, no
-    reinitiation) every generation. Cycle-mean + trough in band; peak ~10–15%
-    over 800 (the intrinsic per-cycle doubling — see findings).
+    (TRUNCATED EMIT — ~43 s/gen) Reported trough 417–470, cycle-mean 665–710,
+    peak 854–934, oriC 1↔2. On full within-cycle data (see canonical re-run
+    below) the cycle-mean is NOT in band — it ramps 196→1131 across the
+    lineage. These numbers are a truncation artifact and are NOT the result.
+- name: dnaa1-v17e3-fullhist-2026-06-08
+  status: completed
+  kind: single-daughters-multigen-lineage
+  canonical: true     # CANONICAL (LAST = report reads its outcomes). Perturbation CONFIRMED + full per-gen history.
+  description: |
+    Perturbation-CONFIRMED Mechanism-A lineage at V=1.7e-3, 7 gens, seed 1,
+    resumed from dnaa-0's gen-3 succinate steady-state init, FULL per-gen
+    history (~3300–4300 ticks/gen, per-gen-history emit fix commit 2cc0ebf).
+    Cache out/cache_dnaa1_mechA_1.7e-3 — its ecoli-transcript-initiation config
+    VERIFIABLY carries genetic_perturbations["TU00259[c]"]=0.0017 (inspected
+    2026-06-08). The perturbation is baked into the cache at build time
+    (scripts/rebuild_and_run_dnaa1.sh: sim.genetic_perturbations set before
+    save_sim_input), so run_condition_multigen_parquet.py NOT applying
+    genetic_perturbations at runtime is moot. Reproduces dnaa1_fullhist
+    byte-identically.
+  run_dir: out/dnaa1_v17e3_fullhist
+  seeds: [1]
+  result: |
+    DnaA monomer cycle-mean RAMPS 196 (gen1) → 464 → 747 → 870 → 936 → 1190 →
+    1131 (gen7); ABOVE [300,800] from gen 4 on (only gens 2–3 in/near band).
+    dnaA init rate 1.2–1.8/min (median ~1.5) — elevated vs ~1/min baseline, so
+    the perturbation IS active. oriC periodic 1↔2 every gen (clean, no
+    reinit); every gen divides at chromosomes=2. Cell cycle intact; DnaA-pool
+    band test FAILS at V=1.7e-3.
   outcomes:
     dnaa-monomer-count-in-band-300-800-across-generations:
-      result: PASS
-      detail: cycle-mean 665–710 in [300,800] every steady-state gen (CV 2.3%).
+      result: FAIL
+      detail: >-
+        cycle-mean RAMPS 196→464→747→870→936→1190→1131 across gens 1–7;
+        crosses ABOVE 800 from gen 4 on. Only gens 2–3 in/near band. Not
+        band-stable at V=1.7e-3 on full within-cycle data.
     dnaa-concentration-stable-across-generations:
-      result: PASS
-      detail: cross-gen CV of cycle-mean DnaA = 2.3% (< 10%).
+      result: FAIL
+      detail: cycle-mean climbs monotonically (gen1 196 → gen7 1131), not stable across generations.
     dnaa-mrna-init-rate-near-biological-rate:
-      result: PASS
-      detail: ≈1 event/min at 2e-3; ~0.85/min at 1.7e-3, within ±50% of the 1/min target.
+      result: PARTIAL
+      detail: >-
+        measured directly on the confirmed run: 1.2–1.8 events/min (median
+        ~1.5) — elevated above the ~1/min baseline, confirming the 1.7e-3
+        perturbation is ACTIVE, but ~20–80% over the 1/min biological target.
     dnaa-mrna-count-tracks-V:
       result: SKIP
-      detail: low-abundance proxy (median 1.0 vs analytic 2.6); inconclusive, not verdict-bearing.
+      detail: low-abundance proxy; inconclusive, not verdict-bearing.
 
 simulation_set:
 - name: dnaa1-mechA-vtuning
@@ -432,8 +503,11 @@ conclusion_logic:
     DnaA monomer pool cycle-mean in band [300,800] with a clean oriC cycle, so
     the succinate DnaA-expression foundation is established and downstream
     mechanism / box-binding / extrinsic studies can be designed on top.
-    REALIZED: PASS at the canonical V=1.7e-3 (cycle-mean 665–710, CV 2.3%,
-    oriC clean; peak excursion above 800 is the intrinsic per-cycle doubling).
+    REALIZED 2026-06-08 (perturbation confirmed, full per-gen history): FAIL on
+    the DnaA-pool band test. The init rate is elevated (1.2–1.8/min) and oriC
+    stays clean 1↔2, but the cycle-mean ramps 196→1131 and leaves [300,800]
+    from gen 4 on, so the pool is not band-stable at V=1.7e-3 over a multi-gen
+    lineage. (The earlier PASS was a truncated-emit artifact — see report.result.)
   if_primary_tests_fail: |
     Sweep the per-promoter init_prob in [1e-3, 5e-3] to land the rate near
     target; if the pool cannot be held in band with a clean cell cycle,

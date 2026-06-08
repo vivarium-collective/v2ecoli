@@ -1,8 +1,8 @@
 {
-  "source_run_id": "dnaa1_fullhist",
+  "source_run_id": "dnaa1_v17e3_fullhist",
   "generation_id": null,
-  "rendered_at": 1780919909.567837,
-  "command": "python scripts/render_dnaa1_decision.py --run /Users/eranagmon/code/v2e-invest/out/dnaa1_fullhist/dnaa1_fullhist --out /Users/eranagmon/code/v2e-invest/studies/dnaa-1-expression/charts",
+  "rendered_at": 1780922716.926785,
+  "command": "python scripts/render_dnaa1_decision.py --run out/dnaa1_v17e3_fullhist/dnaa1_v17e3_fullhist --out studies/dnaa-1-expression/charts",
   "note": "FULL per-generation history (per-gen-history emit fix, commit 2cc0ebf). 4 panels on a shared cumulative lineage-time axis: (a) dnaA mRNA init events/min (per-min bins, dnaA cistron 227); (b) total DnaA = sum of bulk forms PD03831[c]+MONOMER0-160[c]+MONOMER0-4565[c], band [300,800]; (c) DnaA conc nM; (d) oriC count. Canonical all-zeros daughter lineage; daughter-stub gens (<5 min) filtered.",
   "per_generation": [
     {

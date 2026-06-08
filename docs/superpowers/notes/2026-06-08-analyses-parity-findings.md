@@ -113,3 +113,18 @@ index 133 (not a tail drop), though their `bulk_data["id"]` arrays are byte-iden
   For a real dashboard sweep the paired parca output is co-located; the compare_harness
   layout is a test artifact where the paired sim_data is `out/workflow/simData.cPickle`
   (handle in Task 10).
+
+---
+
+## SYSTEMIC FINDING (2026-06-08, during Task 8) — wholecell ↔ matplotlib 3.10
+
+The vendored `wholecell` plotting utilities (e.g. `wholecell.utils.voronoi_plot_main`)
+have several incompatibilities with the installed matplotlib 3.10:
+- `Polygon(xy, True)` — `closed` is now keyword-only;
+- `_add_labels` / `_compute_error` recurse on `[label, site]` leaf pairs (list-vs-pair bug).
+
+`mass_fraction_voronoi` works around these with import-time monkeypatches scoped to the
+voronoi module. This will recur across MANY of the ~43 plot ports in the bulk-port spec.
+**Recommendation for Spec 2:** centralize a single `wholecell` compat shim (one module,
+applied once) or fix `wholecell` upstream, rather than per-analysis monkeypatches. Treat
+this as a known plot-port prerequisite.

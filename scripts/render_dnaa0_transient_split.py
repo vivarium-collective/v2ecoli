@@ -1,24 +1,32 @@
 """dnaa-0 succinate baseline trajectory with a TRANSIENT vs STEADY-STATE split.
 
 Expert-review improvement: the interpretation of this study hinges on the
-distinction between the pre-steady-state TRANSIENT generations (gens 1-2, where
-an oriC overshoot is allowed and expected) and the accepted periodic STEADY
-STATE (gen 3 onward, where oriC must be periodic 1<->2 and cell mass periodic).
-This figure shades those two regimes with different background colours and
-draws a labelled divider at the gen-3 boundary, so the eye reads the accepted
-acceptance window directly.
+distinction between the pre-steady-state TRANSIENT generations (gens 1-2, which
+carry the cold-start initial transient) and the accepted periodic STEADY STATE
+(gen 3 onward, where oriC must be periodic and cell mass periodic). This figure
+shades those two regimes with different background colours and draws a labelled
+divider at the gen-3 boundary, so the eye reads the acceptance window directly.
+
+REAL RESULT (honest): in this seed-1 COLD-START run the oriC count is periodic
+1<->2 in EVERY generation — it NEVER reaches 4. There is no 4-oriC overshoot in
+the transient generations. The transient shading marks where the cold-start
+initial condition is still relaxing, not a region of oriC overshoot; the panel
+title and annotations state this explicitly rather than implying an overshoot
+that does not occur.
 
 Three panels on a shared lineage-time (min) axis:
-  1. oriC count        (the acceptance read; transient overshoot allowed)
+  1. oriC count        (the acceptance read; real pattern 1<->2 throughout)
   2. cell mass (fg)    (periodic sawtooth from gen 3)
   3. total DnaA monomer (all 3 bulk forms; below-band un-tuned baseline)
 
-Reads the workflow's hive-partitioned history parquet for the followed
-(all-zeros) daughter lineage; each generation's global_time resets, so we
-offset each generation by the cumulative duration of prior generations.
+Reads the workflow's FULL-history hive-partitioned parquet for the followed
+(canonical all-zeros) daughter lineage; each generation's global_time resets,
+so we offset each generation by the cumulative duration of prior generations.
+The per-gen full-history emit bug is fixed, so each generation retains its
+WHOLE cycle (~3000-5800 ticks/gen).
 
     python scripts/render_dnaa0_transient_split.py \
-        --run out/dnaa0_seed0_parquet/dnaa0_seed0 \
+        --run out/dnaa0_fullhist/dnaa0_fullhist \
         --out studies/dnaa-0-succinate-baseline/charts
 """
 from __future__ import annotations
@@ -81,19 +89,28 @@ def _load(run_dir: str):
     real = sorted(dur.filter(pl.col("_dur") >= 5.0)["generation"].to_list())
     df = df.filter(pl.col("generation").is_in(real))
 
-    offset, cum, bounds, spans = 0.0, [], [], []
+    offset, cum, bounds, spans, gen_stats = 0.0, [], [], [], []
     for gen in real:
-        t = df.filter(pl.col("generation") == gen)["global_time"].to_numpy()
+        sub = df.filter(pl.col("generation") == gen)
+        t = sub["global_time"].to_numpy()
         cum.extend((t + offset) / 60.0)
         start = offset / 60.0
         offset += float(t.max())
         spans.append((gen, start, offset / 60.0))
         bounds.append(offset / 60.0)
+        gen_stats.append(dict(
+            gen=int(gen),
+            ticks=int(t.size),
+            dur_min=round(float(t.max() - t.min()) / 60.0, 1),
+            oric_set=sorted({int(v) for v in
+                             sub["listeners__replication_data__number_of_oric"]
+                             .to_list()}),
+        ))
     df = df.with_columns(pl.Series("t_min", cum))
     n = df.height
     if n > 4000:
         df = df.gather_every(max(1, n // 4000))
-    return df, bounds[:-1], spans
+    return df, bounds[:-1], spans, gen_stats
 
 
 def render(run_dir: str, out_dir: str) -> str:
@@ -102,7 +119,7 @@ def render(run_dir: str, out_dir: str) -> str:
     import matplotlib.pyplot as plt
     from matplotlib.patches import Patch
 
-    df, bounds, spans = _load(run_dir)
+    df, bounds, spans, gen_stats = _load(run_dir)
     x = df["t_min"].to_numpy()
     oric = df["listeners__replication_data__number_of_oric"].to_numpy()
     oric_max = int(oric.max())
@@ -135,13 +152,14 @@ def render(run_dir: str, out_dir: str) -> str:
     ax[0].set_ylabel("oriC\ncount")
     ax[0].set_ylim(0, max(4, oric_max) + 0.4)
     ax[0].set_yticks(range(0, max(4, oric_max) + 1))
-    # acceptance annotation in each regime
+    # acceptance annotation in each regime (honest: oriC is 1<->2 throughout)
     if steady_start is not None:
         ax[0].text(steady_start / 2, 0.06,
-                   "TRANSIENT\novershoot allowed", transform=ax[0].get_xaxis_transform(),
+                   "TRANSIENT (cold-start)\noriC already 1↔2 (no overshoot)",
+                   transform=ax[0].get_xaxis_transform(),
                    ha="center", va="bottom", fontsize=8, color="#9a3b32")
         ax[0].text((steady_start + x_end) / 2, 0.06,
-                   "STEADY STATE\nperiodic 1↔2 (no overshoot)",
+                   "STEADY STATE\nperiodic 1↔2 (oriC never 4)",
                    transform=ax[0].get_xaxis_transform(),
                    ha="center", va="bottom", fontsize=8, color="#2f6b46")
 
@@ -158,14 +176,14 @@ def render(run_dir: str, out_dir: str) -> str:
                    transform=ax[0].get_xaxis_transform(), ha="center", va="top",
                    fontsize=8, fontweight="bold", color="0.30")
 
-    legend = [Patch(facecolor=TRANSIENT_BG, label="transient (gens 1–2): overshoot allowed"),
+    legend = [Patch(facecolor=TRANSIENT_BG, label="transient cold-start (gens 1–2)"),
               Patch(facecolor=STEADY_BG, label="accepted steady state (gen 3+)")]
     ax[0].legend(handles=legend, loc="upper right", fontsize=7.5, framealpha=0.9)
 
     fig.suptitle(
         "dnaa-0 succinate baseline — transient vs accepted steady-state cell cycle\n"
-        f"(seed 0, single daughters; oriC max = {oric_max} in this run; "
-        "gen-3 daughter state = canonical succinate initial condition)",
+        f"(seed 1 COLD-START, single daughters; full per-gen history; "
+        f"oriC max = {oric_max} — REAL pattern is periodic 1↔2 every gen, NEVER 4)",
         fontsize=11, y=0.99)
     fig.tight_layout(rect=(0, 0, 1, 0.95))
 
@@ -176,26 +194,35 @@ def render(run_dir: str, out_dir: str) -> str:
     plt.close(fig)
 
     meta = {
-        "source_run_id": "dnaa0_seed0",
+        "source_run_id": "dnaa0_fullhist",
         "generation_id": None,
         "rendered_at": time.time(),
         "command": (f"python scripts/render_dnaa0_transient_split.py "
                     f"--run {run_dir} --out {out_dir}"),
-        "note": (f"oriC max in this run = {oric_max} (seed 0, 1<->2 periodic). "
-                 "Background shading separates transient gens 1-2 (overshoot "
-                 "allowed) from the accepted steady-state window gen 3+."),
+        "note": (f"FULL per-generation history (per-gen-history emit fix). "
+                 f"oriC max in this seed-1 COLD-START run = {oric_max}: the REAL "
+                 "pattern is periodic 1<->2 in EVERY generation and NEVER 4 — "
+                 "there is no 4-oriC overshoot. Background shading separates the "
+                 "transient cold-start gens 1-2 from the accepted steady-state "
+                 "window gen 3+; canonical all-zeros daughter lineage, sub-5-min "
+                 "daughter-stub gens (e.g. gen 8) filtered."),
+        "per_generation": gen_stats,
+        "oric_max": oric_max,
     }
     for ext in (".png", ".svg"):
         with open(base + ext + ".meta.json", "w") as f:
             json.dump(meta, f, indent=2)
     print(f"wrote {base}.svg / .png  ({df.height} pts; oriC max {oric_max}; "
           f"gens {[g for g, _, _ in spans]})")
+    for s in gen_stats:
+        print(f"  gen{s['gen']}: ticks={s['ticks']} dur={s['dur_min']}min "
+              f"oriC={s['oric_set']}")
     return base + ".svg"
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--run", default="out/dnaa0_seed0_parquet/dnaa0_seed0")
+    ap.add_argument("--run", default="out/dnaa0_fullhist/dnaa0_fullhist")
     ap.add_argument("--out", default="studies/dnaa-0-succinate-baseline/charts")
     a = ap.parse_args()
     render(a.run, a.out)

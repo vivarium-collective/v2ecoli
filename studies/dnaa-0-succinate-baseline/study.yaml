@@ -265,22 +265,24 @@ visualizations:
   config:
     title: >-
       dnaa-0 succinate baseline — TRANSIENT vs accepted STEADY-STATE cell cycle
-      (seed 0, single daughters). Background shading separates the
-      pre-steady-state transient generations (gens 1–2, where an oriC overshoot
-      is allowed) from the accepted periodic steady-state window (gen 3 onward,
-      where oriC must be periodic 1↔2). A bold divider marks the gen-3 boundary,
-      which is also the daughter state saved as the canonical succinate initial
-      condition for dnaa-1. NB: in this seed-0 run oriC stays 1↔2 throughout
-      (max 2); the documented {1,2,4} transient is from the 5gen-clean run not
-      retained on this branch.
+      (seed 1 COLD-START, single daughters, FULL per-gen history). Background
+      shading separates the transient cold-start generations (gens 1–2, where
+      the initial condition is still relaxing) from the accepted periodic
+      steady-state window (gen 3 onward). A bold divider marks the gen-3
+      boundary, which is also the daughter state saved as the canonical
+      succinate initial condition for dnaa-1. REAL RESULT (honest): in this
+      seed-1 cold-start run oriC is periodic 1↔2 in EVERY generation and NEVER
+      reaches 4 — there is no 4-oriC overshoot in the transient gens. Rendered
+      from the dnaa0_fullhist run after the per-gen-history emit fix, so each
+      generation carries its WHOLE cycle (~3000–5800 ticks/gen).
     inputs_map:
       oric_count: listeners.replication_data.number_of_oric
       cell_mass: listeners.mass.cell_mass
       dnaa_monomer_total: bulk (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])
       time: global_time
   chart: charts/dnaa0_transient_split.svg
-  source_run: dnaa0_seed0
-  render: 'cd ../.. && python scripts/render_dnaa0_transient_split.py --run out/dnaa0_seed0_parquet/dnaa0_seed0 --out studies/dnaa-0-succinate-baseline/charts'
+  source_run: dnaa0_fullhist
+  render: 'cd ../.. && python scripts/render_dnaa0_transient_split.py --run out/dnaa0_fullhist/dnaa0_fullhist --out studies/dnaa-0-succinate-baseline/charts'
 - name: dnaa0_steady_state
   address: image:charts/dnaa0_steady_state.png
   config:

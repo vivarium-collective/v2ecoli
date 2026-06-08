@@ -1,65 +1,101 @@
 {
-  "source_run_id": "dnaa1-mechA-1.7e-3-7gen",
+  "source_run_id": "dnaa1_fullhist",
   "generation_id": null,
-  "rendered_at": 1780887961.05743,
-  "command": "python scripts/render_dnaa1_decision.py --run studies/dnaa-1-expression/parquet-runs/dnaa1-mechA-1.7e-3-7gen --out studies/dnaa-1-expression/charts",
-  "note": "Panels b/c/d from genuine end-of-generation dill snapshots (one point/gen, pre-division peak). Panel a from the dnaA cistron init events in the available early-cycle parquet (\u22641 min/gen sampled) \u2014 a sparse estimate, NOT a per-cycle rate. The branch retains no full within-cycle dnaa-1 trajectory; not re-simulated (read-only).",
+  "rendered_at": 1780919909.567837,
+  "command": "python scripts/render_dnaa1_decision.py --run /Users/eranagmon/code/v2e-invest/out/dnaa1_fullhist/dnaa1_fullhist --out /Users/eranagmon/code/v2e-invest/studies/dnaa-1-expression/charts",
+  "note": "FULL per-generation history (per-gen-history emit fix, commit 2cc0ebf). 4 panels on a shared cumulative lineage-time axis: (a) dnaA mRNA init events/min (per-min bins, dnaA cistron 227); (b) total DnaA = sum of bulk forms PD03831[c]+MONOMER0-160[c]+MONOMER0-4565[c], band [300,800]; (c) DnaA conc nM; (d) oriC count. Canonical all-zeros daughter lineage; daughter-stub gens (<5 min) filtered.",
   "per_generation": [
     {
       "gen": 1,
-      "dnaa_total": 450,
-      "conc_nM": 705.7214532867384,
-      "oric": 2,
-      "init_rate": 0.0,
-      "sampled_min": 0.36666666666666664
+      "ticks": 3321,
+      "dur_min": 55.3,
+      "dnaa_mean": 195.5,
+      "dnaa_min": 14,
+      "dnaa_max": 396,
+      "oric_set": [
+        1,
+        2
+      ],
+      "init_per_min": 1.54
     },
     {
       "gen": 2,
-      "dnaa_total": 913,
-      "conc_nM": 1449.556630935098,
-      "oric": 2,
-      "init_rate": 2.926829268292683,
-      "sampled_min": 0.6833333333333333
+      "ticks": 3921,
+      "dur_min": 65.3,
+      "dnaa_mean": 464.1,
+      "dnaa_min": 208,
+      "dnaa_max": 770,
+      "oric_set": [
+        1,
+        2
+      ],
+      "init_per_min": 1.32
     },
     {
       "gen": 3,
-      "dnaa_total": 1262,
-      "conc_nM": 2026.503241858141,
-      "oric": 2,
-      "init_rate": 0.0,
-      "sampled_min": 0.06666666666666667
+      "ticks": 4324,
+      "dur_min": 72.0,
+      "dnaa_mean": 747.0,
+      "dnaa_min": 397,
+      "dnaa_max": 1045,
+      "oric_set": [
+        1,
+        2
+      ],
+      "init_per_min": 1.21
     },
     {
       "gen": 4,
-      "dnaa_total": 1636,
-      "conc_nM": 2616.052597458163,
-      "oric": 2,
-      "init_rate": 1.5,
-      "sampled_min": 0.6666666666666666
+      "ticks": 4256,
+      "dur_min": 70.9,
+      "dnaa_mean": 870.3,
+      "dnaa_min": 530,
+      "dnaa_max": 1272,
+      "oric_set": [
+        1,
+        2
+      ],
+      "init_per_min": 1.48
     },
     {
       "gen": 5,
-      "dnaa_total": 1701,
-      "conc_nM": 2625.286272808223,
-      "oric": 2,
-      "init_rate": 2.142857142857143,
-      "sampled_min": 0.9333333333333333
+      "ticks": 3596,
+      "dur_min": 59.9,
+      "dnaa_mean": 935.8,
+      "dnaa_min": 616,
+      "dnaa_max": 1426,
+      "oric_set": [
+        1,
+        2
+      ],
+      "init_per_min": 1.44
     },
     {
       "gen": 6,
-      "dnaa_total": 1904,
-      "conc_nM": 2613.4389548693484,
-      "oric": 2,
-      "init_rate": 1.1111111111111112,
-      "sampled_min": 0.9
+      "ticks": 3489,
+      "dur_min": 58.1,
+      "dnaa_mean": 1189.6,
+      "dnaa_min": 698,
+      "dnaa_max": 1642,
+      "oric_set": [
+        1,
+        2
+      ],
+      "init_per_min": 1.79
     },
     {
       "gen": 7,
-      "dnaa_total": 1636,
-      "conc_nM": 2458.382311097558,
-      "oric": 2,
-      "init_rate": 0.0,
-      "sampled_min": 0.016666666666666666
+      "ticks": 3632,
+      "dur_min": 60.5,
+      "dnaa_mean": 1131.3,
+      "dnaa_min": 832,
+      "dnaa_max": 1453,
+      "oric_set": [
+        1,
+        2
+      ],
+      "init_per_min": 1.67
     }
-  ]
+  ],
+  "oric_max": 2
 }

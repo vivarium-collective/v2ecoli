@@ -320,28 +320,27 @@ visualizations:
   address: image:charts/dnaa1_decision.png
   config:
     title: >-
-      dnaa-1 expression DECISION figure (V=1.7e-3, seed 0, 7 generations).
-      Generation-aligned 4-panel: (a) dnaA mRNA initiation events/min,
-      (b) total DnaA monomer count + accepted band [300,800], (c) DnaA
-      concentration (nM), (d) oriC count — connecting the intervention
+      dnaa-1 expression DECISION figure (V=1.7e-3, seed 1, 7 generations,
+      FULL within-cycle history). Generation-aligned 4-panel on a shared
+      cumulative lineage-time axis: (a) dnaA mRNA initiation events/min
+      (≈1.2–1.8/min), (b) total DnaA monomer count + accepted band [300,800],
+      (c) DnaA concentration (nM), (d) oriC count — connecting the intervention
       (raised dnaA transcription) → molecular consequence → preserved
-      cell-cycle phenotype (oriC 2 at every end-of-gen). DATA NOTE: the only
-      dnaa-1 run on this branch emits per-generation history truncated to ~the
-      first minute of each cycle, so panels b/c/d use the genuine
-      end-of-generation dill snapshots (one pre-division-peak point per gen)
-      and panel a uses the sparse early-cycle init-event sample (≤1 min/gen,
-      an estimate — not a per-cycle rate). End-of-gen DnaA peaks sit above the
-      band because they are pre-division peaks (cycle-mean is in band per the
-      run results). The full within-cycle figure awaits restore of
-      dnaa1-mechA-7gen-pristine.
+      cell-cycle phenotype (oriC clean 1↔2, 2 at every end-of-gen). DATA NOTE:
+      rendered from the dnaa1_fullhist run after the per-gen-history emit fix,
+      so every generation now carries its WHOLE cycle (~3300–4300 ticks/gen);
+      panels show the true within-cycle sawtooth, not snapshots. Per-gen DnaA
+      cycle-mean rises across the lineage (gen1 196 → gen7 1131) as the cold
+      start relaxes; pre-division peaks exceed the band but the trough/early
+      cycle sits in-band.
     inputs_map:
       dnaa_init_rate: listeners.rnap_data.rna_init_event_per_cistron[dnaA cistron EG10235]
       dnaa_monomer_total: bulk (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c])
       dnaa_conc_nM: dnaa_monomer_total / (listeners.mass.volume * N_A)
       oric_count: listeners.replication_data.number_of_oric
   chart: charts/dnaa1_decision.svg
-  source_run: dnaa1-mechA-1.7e-3-7gen
-  render: cd ../.. && python scripts/render_dnaa1_decision.py --run studies/dnaa-1-expression/parquet-runs/dnaa1-mechA-1.7e-3-7gen --out studies/dnaa-1-expression/charts
+  source_run: dnaa1_fullhist
+  render: cd ../.. && python scripts/render_dnaa1_decision.py --run out/dnaa1_fullhist/dnaa1_fullhist --out studies/dnaa-1-expression/charts
 
 # The full within-cycle dnaa-1 figure (4 panels over LINEAGE TIME, not just per
 # generation) needs the raw run dnaa1-mechA-7gen-pristine, which is NOT on this

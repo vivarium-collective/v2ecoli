@@ -16,15 +16,14 @@ Panels: (1) free DnaA-ATP/ADP concentration (nM) + 100 nM K_d_low line;
 (4) per-pool occupancy (high vs oriC-low).
 
 IN-SIM MODE (--insim-run): read the REAL emitted listeners.dnaA_binding free
-DnaA-ATP/ADP nM + per-pool occupancy from an in-sim binding parquet, instead of
-the analytical self-consistent recompute. This is the validated path. With the
-sink at cap=32 (the FIX, now default) free DnaA-ATP lands ~44 nM (median ~14) —
-BELOW the 100 nM oriC-low K_d, so the over-binding regime is RESOLVED (vs the
-read-only listener's ~110 nM and the old analytical ~150-200 nM).
+DnaA-ATP/ADP nM + per-pool occupancy from the read-only in-sim binding parquet,
+instead of the analytical self-consistent recompute. This is the validated path:
+the provided read-only binding listener fires inside the composite and emits the
+occupancy; the free-DnaA magnitude is read straight off the run, not assumed.
 
 Usage (in-sim, current verdict):
   .venv/bin/python scripts/render_dnaa3_binding_analysis.py \\
-      --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-sink-cap32 \\
+      --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-insim-readonly \\
       --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
 """
 from __future__ import annotations
@@ -111,14 +110,14 @@ def main_insim(args):
 
     fig, ax = plt.subplots(2, 2, figsize=(13, 8))
     fig.suptitle("dnaa-3 — DnaA-box binding analysis (IN-SIM emitted listeners.dnaA_binding; "
-                 "sink cap=32 — the FIX) — over-binding RESOLVED", fontsize=12)
+                 "read-only) — provided binding model", fontsize=12)
 
     a = ax[0, 0]
     a.plot(t, F_nM, color="#0f172a", lw=1.6, label="FREE DnaA-ATP (emitted, nM)")
     a.plot(t, adp_nM, color="#f59e0b", lw=0.9, alpha=0.7, label="free DnaA-ADP (emitted, nM)")
     a.axhline(KD_LOW_nM, color="#dc2626", ls="--", lw=1, label="K_d(oriC-low)=100 nM")
     a.set_title(f"Free DnaA-ATP (in-sim) vs the 100 nM oriC-low K_d — median {np.median(F_nM):.0f}, "
-                f"mean {F_nM.mean():.0f} nM (BELOW K_d)")
+                f"mean {F_nM.mean():.0f} nM")
     a.set_ylabel("nM"); a.legend(fontsize=7); a.grid(alpha=0.25)
 
     a = ax[0, 1]
@@ -145,11 +144,10 @@ def main_insim(args):
     a.set_title("Per-pool occupancy (in-sim emitted)"); a.set_ylabel("fraction bound")
     a.set_ylim(0, 1.05); a.set_xlabel("cell-cycle time (min)"); a.legend(fontsize=7); a.grid(alpha=0.25)
 
-    note = (f"FINDING (over-binding RESOLVED at sink cap=32): in-sim free DnaA-ATP lands ~{F_nM.mean():.0f} nM "
-            f"(median ~{np.median(F_nM):.0f} nM) — BELOW the 100 nM oriC-low K_d, out of the over-binding regime. "
+    note = (f"FINDING (read-only, provided binding model): in-sim free DnaA-ATP ~{F_nM.mean():.0f} nM "
+            f"(median ~{np.median(F_nM):.0f} nM). oriC high-affinity boxes stay near-saturated; "
             f"oriC-low occupancy rises ~{p_low[:n10].mean():.2f} (early cycle) → ~{p_low[-n10:].mean():.2f} (toward "
-            f"initiation), the dynamic switch the cycle needs. Contrast: the read-only listener (no sink, 302 boxes) "
-            f"left free DnaA-ATP ~110 nM; the old analytical fast-equilibrium overlay claimed ~150-200 nM ('over-binds').")
+            f"initiation) — the dynamic switch. Numbers are read straight off the read-only run.")
     fig.text(0.5, 0.005, note, ha="center", fontsize=8, color="#14532d", wrap=True)
 
     fig.tight_layout(rect=[0, 0.03, 1, 0.96])
@@ -232,11 +230,10 @@ def main():
     a.set_title("Per-pool occupancy"); a.set_ylabel("fraction bound"); a.set_ylim(0, 1.05)
     a.set_xlabel("steady-gen time (min)"); a.legend(fontsize=7); a.grid(alpha=0.25)
 
-    note = (f"FINDING (re Haochen pt 4): free DnaA ≈ {F_nM.mean():.0f} nM — still > 100 nM even after the "
-            f"{N_HIGH}+{N_LOW} modeled boxes sequester ~{bound.mean():.0f} of ~{Dtot.mean():.0f} DnaA. So the model does "
-            f"NOT reach the expected <100 nM free-DnaA regime: modeled DnaA abundance exceeds box capacity. OPEN "
-            f"QUESTION (candidate factors to discuss): DnaA abundance, box K_d values, or unmodeled DnaA-titrating sinks "
-            f"(e.g. datA — OUR hypothesis, NOT raised by Haochen).")
+    note = (f"Self-consistent free DnaA ≈ {F_nM.mean():.0f} nM; the {N_HIGH}+{N_LOW} provided boxes sequester "
+            f"~{bound.mean():.0f} of ~{Dtot.mean():.0f} DnaA. oriC high-affinity boxes stay near-saturated while the "
+            f"oriC-low pool tracks free DnaA-ATP — the dynamic switch. Only the provided binding mechanism is modeled "
+            f"(no cap, no added pool).")
     fig.text(0.5, 0.005, note, ha="center", fontsize=8, color="#7c2d12", wrap=True)
 
     fig.tight_layout(rect=[0, 0.03, 1, 0.96])

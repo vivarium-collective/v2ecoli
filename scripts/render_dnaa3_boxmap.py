@@ -1,8 +1,8 @@
 """dnaa-3 — chromosome map of the 307 consensus DnaA boxes (positions only).
 
-Marks oriC + the dnaA promoter ONLY (Rashmi 2026-06-05: datA / DARS1 / DARS2 are
-out of scope at this stage and removed). Box coordinates are read from v2ecoli
-sim_data exactly as Replication._build_motifs() computes them.
+Marks oriC + the dnaA promoter ONLY (non-provided regulatory sites are out of
+scope at this stage). Box coordinates are read from v2ecoli sim_data exactly as
+Replication._build_motifs() computes them.
 """
 from __future__ import annotations
 import sys
@@ -53,8 +53,8 @@ def main():
              "Each tick = one consensus DnaA box (Schaper-Messer 1995, exactly as "
              "Replication._build_motifs() computes).\ndnaa-3 partitions these into "
              "chromosomal-high (~302), oriC-high (R1/R2/R4), + adds 8 oriC-low & 2 "
-             "promoter-high sites.\ndatA / DARS1 / DARS2 are out of scope at this stage "
-             "(Rashmi 2026-06-05).", ha="center", fontsize=9, color="#475569")
+             "promoter-high sites.\nNon-provided regulatory sites are out of scope at "
+             "this stage.", ha="center", fontsize=9, color="#475569")
 
     out = Path("studies/dnaa-3-box-binding/charts/chromosome_dnaa_boxes")
     for ext in ("png", "svg"):

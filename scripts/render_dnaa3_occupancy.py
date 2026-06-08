@@ -14,24 +14,23 @@ DnaA_box.DnaA_bound flag unset, so we compute the design's predicted occupancy
 directly from concentration + the per-pool K_d.
 
 Regions: oriC (3 high-aff R1/R2/R4 + 8 low-aff) + dnaA-promoter (2) + chromosomal
-(302). datA / DARS1 / DARS2 are out of scope at this stage (Rashmi 2026-06-05).
+(302). Only the provided pools are shown; non-provided regulatory sites are out
+of scope at this stage.
 
 IN-SIM MODE (--insim-run): instead of the analytical fast-equilibrium overlay,
 read the REAL emitted `listeners.dnaA_binding` occupancy (per-pool occupied
-fractions + n_bound/n_total + free DnaA-ATP/ADP nM) straight from an in-sim
-binding parquet run. This is the validated path — the in-sim binding step now
-fires and emits occupancy. Use the SINK cap=32 run so the figure reflects the
-fixed state (free DnaA-ATP ~44 nM, oriC-low occupancy rises ~0.05 → ~0.51 over
-the cycle).
+fractions + n_bound/n_total + free DnaA-ATP/ADP nM) straight from the read-only
+in-sim binding parquet run. This is the validated path — the provided read-only
+binding listener fires inside the composite and emits occupancy.
 
 Usage (analytical, legacy):
   .venv/bin/python scripts/render_dnaa3_occupancy.py \\
-      --run out/dnaa2_seed1_8gen --generation 2 \\
+      --run out/dnaa2_seed1_8gen --generation 5 \\
       --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
 
 Usage (in-sim, current verdict):
   .venv/bin/python scripts/render_dnaa3_occupancy.py \\
-      --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-sink-cap32 \\
+      --insim-run studies/dnaa-3-box-binding/parquet-runs/dnaa3-insim-readonly \\
       --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
 """
 from __future__ import annotations
@@ -219,8 +218,8 @@ def main_insim(args):
     fig = plt.figure(figsize=(3.2 * args.n_frames, 5.4))
     gs = fig.add_gridspec(2, args.n_frames, height_ratios=[3.0, 1.15], hspace=0.34, wspace=0.04)
     fig.suptitle("dnaa-3 — DnaA-box occupancy by region across the succinate cell cycle\n"
-                 "IN-SIM emitted occupancy (listeners.dnaA_binding; sink cap=32 — the FIX) · "
-                 "filled = DnaA-bound, open = free · red ■ = ter · oriC doubles at replication · datA/DARS out of scope",
+                 "IN-SIM emitted occupancy (read-only listeners.dnaA_binding) · "
+                 "filled = DnaA-bound, open = free · red ■ = ter · oriC doubles at replication · provided pools only",
                  fontsize=12, y=1.0)
     for k, i in enumerate(idx):
         ax = fig.add_subplot(gs[0, k])
@@ -232,7 +231,7 @@ def main_insim(args):
     axc.scatter(tmin[idx], free_atp[idx], color="#dc2626", zorder=5, s=28)
     axc.axhline(100.0, color="#dc2626", ls="--", lw=1, label="K_d(oriC-low)=100 nM")
     axc.set_xlabel("cell-cycle time (min)"); axc.set_ylabel("free DnaA-ATP\n(nM, emitted)")
-    axc.set_title("In-sim free DnaA-ATP (emitted) — sink cap=32 keeps it BELOW the 100 nM oriC-low K_d "
+    axc.set_title("In-sim free DnaA-ATP (emitted, read-only) vs the 100 nM oriC-low K_d "
                   f"(median {np.median(free_atp):.0f} nM, mean {free_atp.mean():.0f} nM)", fontsize=9)
     axc.legend(fontsize=8); axc.grid(alpha=0.25)
 
@@ -278,7 +277,7 @@ def main():
     gs = fig.add_gridspec(2, args.n_frames, height_ratios=[3.0, 1.15], hspace=0.34, wspace=0.04)
     fig.suptitle("dnaa-3 — DnaA-box occupancy by region across the succinate cell cycle\n"
                  "SELF-CONSISTENT fast-equilibrium binding (boxes sequester free DnaA; later/steady gens) · "
-                 "filled = DnaA-bound, open = free · red ■ = ter · oriC doubles at replication · datA/DARS out of scope",
+                 "filled = DnaA-bound, open = free · red ■ = ter · oriC doubles at replication · provided pools only",
                  fontsize=12, y=1.0)
     for k, i in enumerate(idx):
         ax = fig.add_subplot(gs[0, k])

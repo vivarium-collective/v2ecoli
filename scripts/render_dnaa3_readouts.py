@@ -1,17 +1,18 @@
-"""dnaa-3 — ALL readout plots ("what we will measure" section), Rashmi 2026-06-05.
+"""dnaa-3 — ALL readout plots ("what we will measure" section).
 
-One multi-panel figure over the succinate lineage covering every dnaa-3 readout:
-  1. total DnaA concentration (count / cell MASS — Rashmi 2026-06-05)
-  2. DnaA-ATP fraction (+ Boesen [0.2,0.5] band)
-  3. oriC count (cell-cycle integrity, 1↔2)
-  4. DnaA bound by pool: high-aff ATP / high-aff ADP / oriC-low ATP (free vs bound)
+One multi-panel figure over all generations of the read-only run covering every
+dnaa-3 readout:
+  1. total DnaA concentration (count / cell MASS)
+  2. DnaA-ATP & DnaA-ADP fraction (+ [0.2,0.5] band)
+  3. number of oriC (cell-cycle integrity, 1↔2)
+  4. DnaA counts in ALL forms (apo / DnaA-ATP / DnaA-ADP), bound + free
   5. total DnaA boxes (free vs bound), doubling across replication
   6. cell mass (periodic doubling)
 
-Occupancy is the dnaa-3 fast-equilibrium binding model P=C/(C+K_d) evaluated on the
-run's free DnaA-ATP/ADP concentration (the in-sim listener is pending its firing fix;
-same model, same numbers). Pools: chromosomal_high 302 + oriC_high 3 + promoter_high
-2 (K_d≈1 nM, ATP+ADP) ; oriC_low 8 (K_d≈100 nM, ATP only).
+Occupancy partitioning is the PROVIDED dnaa-3 fast-equilibrium binding model
+P=C/(C+K_d) evaluated on the run's free DnaA-ATP/ADP concentration (read-only).
+Pools: chromosomal_high 302 + oriC_high 3 + promoter_high 2 (K_d≈1 nM, ATP+ADP);
+oriC_low 8 (K_d≈100 nM, ATP only).
 """
 from __future__ import annotations
 import argparse, glob
@@ -31,12 +32,13 @@ KD_HIGH, KD_LOW = 1.0, 100.0
 
 def load(run, gens):
     fs = []
-    for g in gens:
-        fs += sorted(glob.glob(f"{run}/**/history/**/generation={g}/**/*.pq", recursive=True))
-    from collections import defaultdict
-    by = defaultdict(list)
-    for f in fs:
-        by[f.split("generation=")[1].split("/")[0]].append(f)  # group nothing; keep all
+    if gens == "all" or gens is None:
+        fs = sorted(glob.glob(f"{run}/**/history/**/*.pq", recursive=True))
+    else:
+        for g in gens:
+            fs += sorted(glob.glob(f"{run}/**/history/**/generation={g}/**/*.pq", recursive=True))
+    if not fs:
+        raise SystemExit(f"no parquet found under {run}")
     ids = pl.scan_parquet(fs[0]).select("bulk__id").head(1).collect()["bulk__id"][0].to_list()
     def bi(m): return ids.index(m)
     bc = pl.col("bulk__count")
@@ -56,10 +58,10 @@ def load(run, gens):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", default="out/dnaa2_seed1_8gen")
-    ap.add_argument("--gens", default="2,3,4,5,6,7,8")
+    ap.add_argument("--gens", default="all")
     ap.add_argument("--out", default="studies/dnaa-3-box-binding/charts/dnaa3_readouts")
     args = ap.parse_args()
-    gens = [int(g) for g in args.gens.split(",")]
+    gens = "all" if args.gens == "all" else [int(g) for g in args.gens.split(",")]
     df = load(args.run, gens)
 
     gt = df["global_time"].to_numpy(); gen = df["generation"].to_numpy()
@@ -97,19 +99,28 @@ def main():
     a = ax[0, 0]; a.plot(t, total / mass, color="#0f172a"); a.set_title("Total DnaA concentration (count / cell mass)")
     a.set_ylabel("count / fg"); a.grid(alpha=0.25)
 
-    a = ax[0, 1]; fr = atp / total
-    a.plot(t, fr, color="#7c3aed"); a.axhspan(0.2, 0.5, color="#22c55e", alpha=0.12)
+    a = ax[0, 1]
+    fr_atp = atp / total; fr_adp = adp / total
+    a.plot(t, fr_atp, color="#7c3aed", label="DnaA-ATP fraction")
+    a.plot(t, fr_adp, color="#f59e0b", label="DnaA-ADP fraction")
+    a.axhspan(0.2, 0.5, color="#22c55e", alpha=0.12)
     a.axhline(0.2, color="#16a34a", lw=0.7, ls="--"); a.axhline(0.5, color="#16a34a", lw=0.7, ls="--")
-    a.set_title("DnaA-ATP fraction (Boesen [0.2,0.5] band)"); a.set_ylabel("fraction"); a.grid(alpha=0.25)
+    a.set_title("DnaA-ATP & DnaA-ADP fraction ([0.2,0.5] band)"); a.set_ylabel("fraction")
+    a.legend(fontsize=7); a.grid(alpha=0.25)
 
     a = ax[1, 0]; a.step(t, oric, where="post", color="#16a34a")
-    a.set_title("oriC count (1↔2, one initiation/gen)"); a.set_ylabel("oriC"); a.set_yticks([1, 2, 3, 4]); a.grid(alpha=0.25)
+    a.set_title("number of oriC (1↔2, one initiation/gen)"); a.set_ylabel("oriC"); a.set_yticks([1, 2, 3, 4]); a.grid(alpha=0.25)
 
+    # DnaA counts in ALL forms (apo / DnaA-ATP / DnaA-ADP), free + bound.
+    # The bulk apo/ATP/ADP counts are the TOTAL of each nucleotide form (binding is
+    # read-only: bound DnaA is still in the bulk pool), so free = bulk - bound_form.
     a = ax[1, 1]
-    a.plot(t, high_bound_atp, color="#2563eb", label="high-aff · bound-ATP")
-    a.plot(t, high_bound_adp, color="#f59e0b", label="high-aff · bound-ADP")
-    a.plot(t, low_bound, color="#dc2626", label="oriC-low · bound-ATP")
-    a.set_title("DnaA bound, by pool & nucleotide"); a.set_ylabel("boxes bound"); a.legend(fontsize=7); a.grid(alpha=0.25)
+    a.plot(t, atp, color="#2563eb", label="DnaA-ATP (total)")
+    a.plot(t, adp, color="#f59e0b", label="DnaA-ADP (total)")
+    a.plot(t, apo, color="#64748b", label="apoDnaA (total)")
+    a.plot(t, atp - high_bound_atp - low_bound, color="#2563eb", ls=":", lw=0.9, label="DnaA-ATP free")
+    a.plot(t, adp - high_bound_adp, color="#f59e0b", ls=":", lw=0.9, label="DnaA-ADP free")
+    a.set_title("DnaA counts, all forms (bound + free)"); a.set_ylabel("count"); a.legend(fontsize=6); a.grid(alpha=0.25)
 
     a = ax[2, 0]
     a.plot(t, total_boxes, color="#0f172a", lw=1.4, label="total (doubles w/ replication)")

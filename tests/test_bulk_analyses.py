@@ -23,6 +23,9 @@ PORTED = [
     ("ptools_rna_multigeneration", "multigeneration"),
     ("ptools_rxns_multigeneration", "multigeneration"),
     ("ptools_proteins_multigeneration", "multigeneration"),
+    ("dummy", "multivariant"),
+    ("mass_fraction_summary_view", "single"),
+    ("replication", "multigeneration"),
 ]
 
 

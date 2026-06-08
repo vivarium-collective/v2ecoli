@@ -195,7 +195,15 @@ def bulk_count_idx_expr(
 
 
 def chart_to_html(chart, title: str = "") -> str:
-    """Serialize an Altair chart to a self-contained HTML view fragment."""
+    """Serialize an Altair chart to a self-contained HTML view fragment.
+
+    Altair caps inline datasets at 5000 rows by default; simulation timeseries
+    routinely exceed that, so the limit is disabled (data is embedded inline in
+    the view HTML, matching vEcoli's ``chart.save(path)`` behaviour).
+    """
+    import altair as alt
+
+    alt.data_transformers.disable_max_rows()
     html = chart.to_html()
     if title:
         return f'<div class="analysis-view"><h3>{title}</h3>{html}</div>'

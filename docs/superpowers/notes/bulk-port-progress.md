@@ -6,10 +6,10 @@ in `~/code/vivarium-ecoli`) onto v2ecoli's native `Analysis` base.
 ## Summary counts
 
 - Step 0 (compat shim centralization): **DONE**
-- PORTED: 3
+- PORTED: 6
 - SKIPPED: 0
 - BLOCKED: 3
-- Remaining: 19
+- Remaining: 16
 
 ## Infrastructure added
 - `v2ecoli/workflow/analyses/_helpers.py` — native `read_stacked_columns`
@@ -38,14 +38,14 @@ Legend: PORTED (sha) / SKIPPED (reason) / BLOCKED (reason) / TODO
 
 ### single
 - single/blame — TODO
-- single/mass_fraction_summary — TODO
+- single/mass_fraction_summary — PORTED (name `mass_fraction_summary_view`; bare name taken by record-based AnalysisStep)
 
 ### multigeneration
 - multigeneration/new_gene_counts — TODO
 - multigeneration/ptools_proteins — PORTED (multiscale module; abs-time wrapper) — name `ptools_proteins_multigeneration`
 - multigeneration/ptools_rna — PORTED (multiscale module; abs-time wrapper) — name `ptools_rna_multigeneration`
 - multigeneration/ptools_rxns — PORTED (multiscale module; abs-time wrapper) — name `ptools_rxns_multigeneration`
-- multigeneration/replication — TODO
+- multigeneration/replication — PORTED (abs-time axis; critical-mass panels absent — columns not emitted by v2ecoli)
 - multigeneration/ribosome_components — TODO
 - multigeneration/ribosome_crowding — TODO
 - multigeneration/ribosome_production — TODO
@@ -76,7 +76,7 @@ Legend: PORTED (sha) / SKIPPED (reason) / BLOCKED (reason) / TODO
 - multivariant/cell_mass — TODO
 - multivariant/doubling_time_hist — TODO
 - multivariant/doubling_time_line — TODO
-- multivariant/dummy — TODO
+- multivariant/dummy — PORTED (column-drift canary re-baselined to v2ecoli's 176-col schema)
 - multivariant/new_gene_translation_efficiency_heatmaps — TODO
 
 ### skipped scales/dirs (different signature or unsupported scale)

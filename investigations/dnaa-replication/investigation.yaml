@@ -411,3 +411,33 @@ inputs:
   - dnaa-abundance-jb-1991
   - dnaa-stability-jb-1999
   - dnaa-review-frontiers-2018-fmicb-00319
+proposed_inputs:
+  _note: Agent-suggested references/mechanisms that the expert did NOT provide. They are NOT integrated — pending expert accept/decline. (Framework guardrail 2026-06-08.)
+  items:
+  - id: dnaa-binding-landscape-chipseq
+    kind: reference
+    citation: Smith et al. 2024 — genome-wide DnaA-binding landscape (ChIP-seq)
+    proposed_by: agent
+    proposed_at: '2026-06-08'
+    related_study: dnaa-3-box-binding
+    rationale: Cited to argue only ~13-32 chromosomal sites are strongly DnaA-bound (basis for a box-capacity cap).
+    provenance: Introduced by commit 4d65fdc while resolving Haochen 4a; not provided by the expert (flagged by Rashmi 2026-06-08).
+    status: pending
+  - id: dnaa-abundance-per-oric
+    kind: reference
+    citation: Si/Sekar; Hansen — ~200 DnaA per oriC
+    proposed_by: agent
+    proposed_at: '2026-06-08'
+    related_study: dnaa-3-box-binding
+    rationale: Cited to argue the model's DnaA abundance is ~1.5-2x high.
+    provenance: Introduced by commit 4d65fdc (Haochen 4a); not provided.
+    status: pending
+  - id: data-cooperative-titration
+    kind: mechanism
+    summary: datA locus as a dominant cooperative, high-capacity DnaA titration sink.
+    proposed_by: agent
+    proposed_at: '2026-06-08'
+    related_study: dnaa-3-box-binding
+    rationale: Proposed as the in-vivo titration that would lower free DnaA-ATP.
+    provenance: Introduced via the cooperativity hypothesis / 4d65fdc; not provided / out of scope.
+    status: pending

@@ -91,9 +91,11 @@ def scale_history_sql(scale: str, from_clause: str, key: tuple) -> str:
 def resolve_sim_data(sweep_dir: str):
     """Locate + load the sweep's ParCa sim_data via v2ecoli's loader."""
     from v2ecoli.library.sim_data import LoadSimData
+    # NB: do NOT match `**/kb/simData*.cPickle` — out/kb/simData.cPickle is the
+    # ParCa knowledge-base build, which can be a DIFFERENT sim_data version than
+    # the one the sweep ran with (see the pairing correction in the parity note).
     for pat in ("sim_data*.cPickle", "sim_data*.pkl", "simData*.cPickle",
-                "**/sim_data*.cPickle", "**/kb/simData*.cPickle",
-                "**/simData*.cPickle"):
+                "**/sim_data*.cPickle", "**/simData*.cPickle"):
         hits = glob.glob(os.path.join(sweep_dir, pat), recursive=True)
         if hits:
             return LoadSimData(sim_data_path=hits[0]).sim_data
@@ -188,6 +190,19 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
     records = list(build_cell_records(sweep_dir).values())
     core = allocate_core()
     results: dict[str, dict] = {}
+    # Provisioned once on first use and shared across every Analysis step, so the
+    # large sim_data pickle is loaded only once per run (not once per analysis),
+    # and a single DuckDB connection is reused.
+    _ctx: dict[str, Any] = {}
+
+    def _analysis_ctx() -> tuple:
+        if not _ctx:
+            import duckdb
+            _ctx["conn"] = duckdb.connect()
+            _ctx["from_clause"] = _history_from_clause(sweep_dir)
+            _ctx["sim_data"] = resolve_sim_data(sweep_dir)
+        return _ctx["conn"], _ctx["from_clause"], _ctx["sim_data"]
+
     for scale, analyses in (analysis_options or {}).items():
         if scale not in ANALYSIS_SCALES:
             warnings.warn(f"unknown analysis scale {scale!r}; skipping")
@@ -207,11 +222,9 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
             per_group: dict[str, Any] = {}
 
             if issubclass(step_cls, Analysis):
-                # DuckDB-provisioning path: one connection + sim_data for all groups.
-                import duckdb
-                conn = duckdb.connect()
-                from_clause = _history_from_clause(sweep_dir)
-                sim_data = resolve_sim_data(sweep_dir)
+                # DuckDB-provisioning path: connection + sim_data are shared across
+                # all groups and analyses (lazily provisioned once per run).
+                conn, from_clause, sim_data = _analysis_ctx()
                 params = (analyses or {}).get(name) or {}
                 viz_dir = os.path.join(sweep_dir, "viz")
                 os.makedirs(viz_dir, exist_ok=True)
@@ -248,6 +261,9 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
 
             scale_out[name] = per_group
         results[scale] = scale_out
+
+    if _ctx.get("conn") is not None:
+        _ctx["conn"].close()
 
     os.makedirs(sweep_dir, exist_ok=True)
     with open(os.path.join(sweep_dir, "analysis.json"), "w") as f:

@@ -80,9 +80,12 @@ def test_unimplemented_analyze_propagates():
 def test_analysis_registry_maps_names_to_steps():
     from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY, MassFractionSummary
     assert ANALYSIS_REGISTRY["mass_fraction_summary"] is MassFractionSummary
-    from v2ecoli.workflow.analysis import AnalysisStep
+    # The registry holds both analysis bases: the record-based AnalysisStep and
+    # the duckdb/view-based Analysis (added for native vEcoli ports). Both are
+    # V2Step analysis bases keyed by their ``name``.
+    from v2ecoli.workflow.analysis import Analysis, AnalysisStep
     for name, cls in ANALYSIS_REGISTRY.items():
-        assert issubclass(cls, AnalysisStep)
+        assert issubclass(cls, (AnalysisStep, Analysis))
         assert cls.name == name
 
 

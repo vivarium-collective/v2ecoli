@@ -3,21 +3,22 @@
 Exercise the three ``workflow.py`` steps that consume the merged
 ``v2ecoli.processes.parca`` subpackage:
 
-  * ``step_raw_data`` — walks the vendored
-    ``v2ecoli/processes/parca/reconstruction/ecoli/flat/`` directory and
-    loads ``KnowledgeBaseEcoli`` from the merged subpackage.  Asserts
+  * ``step_raw_data`` — loads ``KnowledgeBaseEcoli`` from the merged
+    subpackage and enumerates the active ``SourceBundle`` keys.  Asserts
     that the knowledge-base statistics (counts of genes / RNAs /
-    proteins / metabolites) are non-zero and stable, proving the
-    workflow sees the merged flat files and not an external vEcoli tree.
+    proteins / metabolites) are non-zero and stable, and that the bundle
+    exposes >= 130 keys.  The local ``flat/`` directory was deleted in the
+    ecoli-sources migration (PR #1 ecoli-sources-bundle); data now comes
+    from the installed ``ecoli-sources`` package + ``flat_overrides/``.
   * ``step_parca`` (fixture fast-path) — hydrates the shipped
     ``models/parca/parca_state.pkl.gz`` via
     ``load_parca_state()``, dills its ``sim_data_root`` to
     ``out/workflow/simData.cPickle``, and asserts the produced file is
     a valid ``SimulationDataEcoli`` under the merged namespace.  This
     runs in under 10 s and doesn't touch vEcoli.
-  * ``FLAT_DIR`` / ``BIOCYC_FILE_IDS`` structural sanity — the 10
-    BioCyc TSVs exist in the merged flat directory, and nothing in
-    ``workflow.py`` still references ``..vEcoli/reconstruction`` paths.
+  * ``SourceBundle`` / ``BIOCYC_FILE_IDS`` structural sanity — the 10
+    BioCyc canonical keys are present in the merged bundle, and nothing
+    in ``workflow.py`` still references ``../vEcoli/reconstruction`` paths.
 
 Full ``step_parca_composite`` path (running the 9-Step pipeline from
 scratch, ~70 min) is intentionally *not* exercised here — that's slow
@@ -55,21 +56,28 @@ FIXTURE_PATH = REPO_ROOT / 'models' / 'parca' / 'parca_state.pkl.gz'
 # Path / constant sanity
 # ---------------------------------------------------------------------------
 
-def test_flat_dir_points_at_merged_parca():
-    """workflow.FLAT_DIR should be inside the merged parca subpackage,
-    never in an external vEcoli checkout."""
-    assert 'v2ecoli/processes/parca/reconstruction/ecoli/flat' \
-        in workflow.FLAT_DIR.replace(os.sep, '/')
-    assert 'vEcoli' not in workflow.FLAT_DIR
-    assert os.path.isdir(workflow.FLAT_DIR), \
-        f'FLAT_DIR missing: {workflow.FLAT_DIR}'
+def test_bundle_is_reachable_from_workflow():
+    """The SourceBundle (ecoli-sources package) must be importable and must
+    expose >= 130 keys.  The local flat/ directory was deleted in the
+    ecoli-sources migration (PR #1 ecoli-sources-bundle); data now comes from
+    the installed ecoli-sources package + local flat_overrides/."""
+    from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
+    bundle = SourceBundle()
+    assert len(bundle._index) >= 130, \
+        f'bundle has only {len(bundle._index)} keys — expected >= 130'
+    assert 'vEcoli' not in str(next(iter(bundle._index.values()))), \
+        'bundle resolved a path inside an external vEcoli checkout'
 
 
-def test_all_biocyc_tsvs_present_in_flat_dir():
+def test_all_biocyc_keys_present_in_bundle():
+    """All 10 BioCyc canonical keys must resolve in the merged bundle."""
+    from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
+    bundle = SourceBundle()
     for fid in workflow.BIOCYC_FILE_IDS:
-        path = os.path.join(workflow.FLAT_DIR, f'{fid}.tsv')
-        assert os.path.isfile(path), f'missing BioCyc TSV: {path}'
-        assert os.path.getsize(path) > 0
+        assert bundle.has_key(fid), f'missing BioCyc key in bundle: {fid}'
+        path = bundle.path(fid)
+        assert path.exists() and path.stat().st_size > 0, \
+            f'bundle key {fid!r} resolves to missing/empty file: {path}'
 
 
 def test_workflow_has_no_external_vecoli_paths():
@@ -110,8 +118,9 @@ def test_step_raw_data_uses_merged_knowledge_base(tmp_path, monkeypatch):
     assert meta['n_genes'] > 4_000
     assert meta['n_proteins'] > 4_000
     assert meta['genome_length'] > 4_000_000  # E. coli is ~4.6 Mbp
-    # The walked directory must be the vendored one.
-    assert meta['n_files'] >= 130  # we ship 133 TSVs at time of writing
+    # n_files now counts bundle keys (ecoli-sources + overrides) — 135 at time
+    # of writing.  The local flat/ directory was deleted in the migration.
+    assert meta['n_files'] >= 130  # ecoli-sources ships 135 keys
 
 
 # ---------------------------------------------------------------------------

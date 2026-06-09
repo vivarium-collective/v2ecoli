@@ -23,8 +23,8 @@ design_status: complete
 implementation_status: complete   # Haochen's bf8b82e integrate_dt mechanism (his commit; adopted, not re-implemented)
 simulation_status: ran            # directed seed-1 8-gen succinate lineage (out/dnaa2_seed1_8gen)
 evaluation_status: evaluated      # all 4 behaviours pass on Rashmi's generation-average criterion
-gate_status: passed               # PASS — generation-average DnaA-ATP fraction 0.26 + total-DnaA 535 in band; mass + oriC clean
-expert_review_status: approved    # Haochen's mechanism approved; Rashmi directed + accepted the generation-average criterion
+gate_status: passed               # PASS (re-verified multi-seed, corrected emitter) — gen-average DnaA-ATP fraction robust 0.268/0.267/0.302 + total-DnaA gen-avg 392/575/578 in band; mass + oriC clean every seed (per-gen pool overshoot >800 is seed-variable, gen-average-true)
+expert_review_status: needs_review  # 2026-06-09 Rashmi flagged the prior PASS as STALE (pre-fix data) + asked to redo; REDONE multi-seed and results stand — awaiting her re-approval of the corrected result. (Mechanism was Haochen-approved; gen-average criterion Rashmi-directed.)
 
 readouts:
 - name: DnaA-ATP fraction
@@ -76,7 +76,7 @@ runtime:
 
 report:
   title: dnaa-2 — DnaA nucleotide-state partitioning (succinate)
-  verdict: pass   # all 4 behaviours pass on Rashmi's generation-average criterion (seed-1 8-gen)
+  verdict: pass   # re-verified multi-seed (0+1+2) on the corrected emitter; all 4 behaviours pass on Rashmi's generation-average criterion (awaiting her re-approval)
   confidence: high
   evidence_quality: empirical
 
@@ -100,27 +100,35 @@ report:
     lever; no K_d / [ATP]:[ADP] / expected-fraction revision is needed.
 
   result: |
-    PASS — Haochen's bf8b82e integrate_dt mechanism drives the DnaA-ATP fraction off
-    the ~0.997 fast-equilibrium pin and into the Boesen 2024 [0.2, 0.5] band, using
-    his literal k_r = 1×10⁻⁷/s with no rate override. Evaluated on Rashmi's directed
-    seed-1 8-gen run with her GENERATION-AVERAGE criterion (2026-06-04: initial gens
-    may not strictly fall in band while the simulation is stabilizing — use the
-    generation average), all four must-preserve behaviours pass.
+    PASS (re-verified 2026-06-09) — Haochen's bf8b82e integrate_dt mechanism drives
+    the DnaA-ATP fraction off the ~0.997 fast-equilibrium pin and into the Boesen
+    2024 [0.2, 0.5] band, using his literal k_r = 1×10⁻⁷/s with no rate override.
+    The original Jun-4 seed-1 result was computed on PRE-FIX (per-gen-truncated)
+    data; Rashmi flagged it as stale (2026-06-09), so it was RE-RUN on the corrected
+    full-per-gen-history emitter and confirmed MULTI-SEED. Evaluated on her
+    GENERATION-AVERAGE criterion, all four must-preserve behaviours pass — and the
+    result STANDS across seeds.
 
-    DIRECTED RUN (Rashmi 2026-06-04) — SEED 1 × 8 GENERATIONS (dnaa2-seed1-8gen,
-    out/dnaa2_seed1_8gen; chart charts/dnaa2_seed1_8gen_canonical.png):
-      (1) periodic mass doubling — PASS (8/8 divisions);
-      (2) oriC 1↔2, one initiation per gen — PASS (in {1,2} every gen, never 4);
-      (3) total DnaA in [300,800] — PASS on the generation average (per-gen avg
-          185/432/639/660/556/535/651/624 → all-gen avg 535; within-cycle peaks
-          >800 pre-division are the expected accumulate-then-divide behaviour);
-      (4) DnaA-ATP fraction in [0.2,0.5] — PASS on the generation average (per-gen
-          avg 0.527/0.285/0.268/0.212/0.163/0.207/0.227/0.192 → all-gen avg 0.26;
-          steady-gen avg excl. the gen-1 transient = 0.222).
-    Secondary (not a failure): the per-gen average trends to the low end of the band
-    in later gens; the diagnosis is that this is a total-DnaA dependence (fraction
-    anti-correlated with total DnaA, r=−0.88; [ATP]:[ADP] constant at 20.3) with k_r
-    as the lever — a future tuning question for Haochen, not a blocker.
+    RE-VERIFIED MULTI-SEED (seeds 0+1+2 × 8 generations, V=1e-3, corrected emitter,
+    out/dnaa2_reverify_v1e3_seed{0,1,2}):
+      (1) periodic mass doubling — PASS (8/8 divisions every seed);
+      (2) oriC 1↔2, one initiation per gen — PASS (in {1,2} every gen, never 4, every seed);
+      (3) DnaA-ATP fraction in [0.2,0.5] — PASS, ROBUST: all-gen avg
+          0.268 / 0.267 / 0.302 across seeds 0 / 1 / 2 (the hydrolysis mechanism's
+          readout holds on clean data);
+      (4) total DnaA in [300,800] — PASS on the generation average: all-gen avg
+          392 / 575 / 578 across seeds 0 / 1 / 2.
+    HONEST CAVEAT (this is what the corrected data changed vs the stale Jun-4 run):
+    on the full per-gen history the total-DnaA per-gen MEAN ramps upward (seed 1:
+    73→254→479→520→654→846→857→880) and sits ABOVE the 800 ceiling in gens 6-8 — so
+    total DnaA is in-band only on the ALL-GEN AVERAGE, not strictly per-gen. The drift
+    is SEED-VARIABLE (seeds 1 & 2 overshoot mid-run; seed 0 stays in band the whole
+    way), i.e. a transient of the V=1e-3 pool drift, not a universal failure. The old
+    "per-gen 185/432/…/660 → 535, all in band" was a TRUNCATION ARTIFACT. This upward
+    drift is consistent with dnaa-1's finding that V=1e-3 overshoots the pool band
+    (only V=0.8e-3 held the pool fully in-band) → the open dnaa-1/dnaa-2 V TENSION.
+    The mechanism conclusion is unaffected; the pool-band claim is now correctly
+    qualified as gen-average-true and seed-variable at V=1e-3.
 
 
   interpretation: |
@@ -134,10 +142,12 @@ report:
     doubling, and one oriC initiation per generation.
 
   next_action: |
-    dnaa-2 is CLOSED as PASS. Proceed to the next study (dnaa-3, DnaA box binding)
-    on top of the validated DnaA-ATP pool mechanism. The only residual is a
-    future-tuning question for Haochen (k_r sets where in the band the per-gen
-    average sits) — tracked in the DnaA-ATP-fraction test notes, not a blocker.
+    dnaa-2 PASSES (re-verified multi-seed on corrected data) — pending Rashmi's
+    re-approval of the corrected result. dnaa-3 (DnaA box binding) is GATED on that
+    re-approval AND on review/adoption of Rashmi's uncommitted box-binding work; do
+    not advance dnaa-3 until both clear. Open question for Rashmi/Haochen: the
+    dnaa-1/dnaa-2 V tension (dnaa-1 wants 0.8e-3 for the in-band pool; dnaa-2's
+    DnaA-ATP fraction needs ~1e-3, and the pool then drifts above band per-gen).
 
   decisions_needed:
   - question: Physical DnaA-ADP release rate — RESOLVED.
@@ -150,12 +160,13 @@ report:
 
 conclusion_logic:
   if_primary_tests_pass: |
-    REALIZED on the directed seed-1 8-gen run (Rashmi 2026-06-04). Haochen's
-    bf8b82e integrate_dt mechanism drives the DnaA-ATP fraction into [0.2,0.5];
-    on the generation-average criterion all four must-preserve behaviours pass
-    (DnaA-ATP fraction avg 0.26, total DnaA avg 535, periodic mass doubling,
-    one oriC initiation per generation). dnaa-2 closes as PASS and unblocks the
-    DnaA-box-binding + extrinsic-regulation studies (dnaa-3).
+    REALIZED, then RE-VERIFIED multi-seed on the corrected emitter (2026-06-09).
+    Haochen's bf8b82e integrate_dt mechanism drives the DnaA-ATP fraction into
+    [0.2,0.5]; on the generation-average criterion all four must-preserve behaviours
+    pass robustly across seeds 0/1/2 (DnaA-ATP fraction avg 0.268/0.267/0.302,
+    total DnaA gen-avg 392/575/578, periodic mass doubling, one oriC initiation per
+    generation). dnaa-2 PASSES (awaiting Rashmi's re-approval of the corrected
+    result); dnaa-3 is gated on that + review of her box-binding work.
   if_primary_tests_fail: |
     Counterfactual / the pre-fix state: under the all-fast-equilibrium
     assumption the fraction pinned at ~0.997 and intrinsic hydrolysis could not

@@ -1,5 +1,6 @@
 schema_version: 4
 name: pdmp-03-inference
+investigation: v2ecoli-pdmp
 title: 'Phase 3 — Inference Infrastructure: Likelihoods and Bayesian Interface'
 claim: |
   A full likelihood → emission → XArrayEmitter(zarr) → ABC-SMC pipeline works end-to-end, and the

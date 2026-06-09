@@ -1,5 +1,6 @@
 schema_version: 4
 name: pdmp-01-metabolism-ode
+investigation: v2ecoli-pdmp
 title: 'Phase 1 — Metabolism: multi-objective FBA → Kinetic ODE'
 claim: |
   The Millard 2017 kinetic ODE (via pbg-copasi) recovers its published reference state to solver

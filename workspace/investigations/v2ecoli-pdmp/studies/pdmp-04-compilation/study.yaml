@@ -1,5 +1,6 @@
 schema_version: 4
 name: pdmp-04-compilation
+investigation: v2ecoli-pdmp
 title: Phase 4 — Compilation and Performance
 claim: |
   The real per-tick profile is 76% framework marshalling overhead (13,817 isinstance + 4,213

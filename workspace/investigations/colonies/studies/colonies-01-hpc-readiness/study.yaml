@@ -1,5 +1,6 @@
 schema_version: 3
 name: colonies-01-hpc-readiness
+investigation: colonies
 title: HPC scaling readiness for the colony composite
 description: |
   Build phase fixed daughter-process hydration so structural _add

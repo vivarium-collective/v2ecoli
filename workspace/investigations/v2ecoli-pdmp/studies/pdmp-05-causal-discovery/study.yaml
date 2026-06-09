@@ -1,5 +1,6 @@
 schema_version: 4
 name: pdmp-05-causal-discovery
+investigation: v2ecoli-pdmp
 title: Phase 5 — Causal Discovery and Functional Annotation
 claim: |
   At ±15% hypothesis spacing the unbiased pseudo-marginal posterior is essentially uniform (log BF

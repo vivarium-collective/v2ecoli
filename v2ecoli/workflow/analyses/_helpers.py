@@ -307,3 +307,82 @@ def chart_to_html(chart, title: str = "") -> str:
     if title:
         return f'<div class="analysis-view"><h3>{title}</h3>{html}</div>'
     return f'<div class="analysis-view">{html}</div>'
+
+
+def ptools_heatmap_view(df: "pd.DataFrame", title: str) -> str:  # noqa: F821
+    """Render a frame-ID × timepoint matrix as a heatmap HTML fragment.
+
+    Tries Plotly ``go.Heatmap`` first (efficient for ~4500 rows × ~8 cols);
+    falls back to an Altair ``mark_rect`` heatmap when Plotly is absent.
+    Y-axis tick labels are suppressed (too dense at 4500 rows); frame IDs
+    appear on hover.
+
+    Args:
+        df: DataFrame with frame IDs as index and timepoint strings as columns.
+        title: Human-readable chart title.
+
+    Returns:
+        HTML fragment (``full_html=False`` for Plotly; ``chart.to_html()``
+        div for Altair).
+    """
+    try:
+        import plotly.graph_objects as go
+
+        fig = go.Figure(
+            go.Heatmap(
+                z=df.values.tolist(),
+                x=list(df.columns),
+                y=list(df.index),
+                colorbar=dict(title="Value"),
+                hovertemplate=(
+                    "Frame: %{y}<br>Time: %{x}<br>Value: %{z:.4f}<extra></extra>"
+                ),
+            )
+        )
+        fig.update_layout(
+            title=title,
+            yaxis=dict(showticklabels=False),
+            margin=dict(l=60, r=60, t=60, b=60),
+        )
+        return fig.to_html(full_html=False, include_plotlyjs="cdn")
+    except ImportError:
+        pass
+
+    # --- Altair fallback ---
+    import altair as alt
+    import pandas as pd  # noqa: F811
+
+    # Use a safe column name — df.index.name is "$" which is fine in Altair
+    # long-form encoding but we rename to avoid any shorthand ambiguity.
+    id_col = "frame_id"
+    df_reset = df.copy().reset_index()
+    df_reset = df_reset.rename(columns={df_reset.columns[0]: id_col})
+    long = df_reset.melt(id_vars=[id_col], var_name="timepoint", value_name="value")
+
+    alt.data_transformers.disable_max_rows()
+
+    chart = (
+        alt.Chart(long)
+        .mark_rect()
+        .encode(
+            x=alt.X(
+                "timepoint:N",
+                sort=list(df.columns),
+                title="Timepoint",
+            ),
+            y=alt.Y(
+                f"{id_col}:N",
+                sort=None,
+                axis=alt.Axis(labels=False, ticks=False, title=None),
+            ),
+            color=alt.Color("value:Q", title="Value"),
+            tooltip=[
+                alt.Tooltip(f"{id_col}:N", title="Frame ID"),
+                alt.Tooltip("timepoint:N", title="Timepoint"),
+                alt.Tooltip("value:Q", title="Value", format=".4f"),
+            ],
+        )
+        .properties(title=title, width=400, height=600)
+    )
+
+    return chart_to_html(chart, "")

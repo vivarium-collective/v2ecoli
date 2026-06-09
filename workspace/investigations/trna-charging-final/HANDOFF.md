@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task 3d — about to commit). **Task #2 complete; Task #3 split into 3a–3f, 3a–3d done. 3e collapsed into 3d (listener paths folded into the `evolve_state` override).**
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `4033505 feat(trna-charging): port evolve_state + 7 evolve-side methods (Task 3d)`. **Task #2 complete; Task #3 split into 3a–3f, 3a–3d done. 3e collapsed into 3d.**
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

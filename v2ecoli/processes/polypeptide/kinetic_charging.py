@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from v2ecoli.types.quantity import ureg as units
 from v2ecoli.processes.polypeptide_elongation import (
     BasePolypeptideElongation,
     NAME,
@@ -130,17 +131,119 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
     # ---------- initialize ----------
 
     def initialize(self, config):
-        """Unpack kinetic-charging params (constants, slice indexes, mapping
-        arrays, kinetic constants, previous-rate seed).
+        """Unpack kinetic-charging params.
 
-        Implemented in Task 3b. Until then this raises immediately so any
-        accidental composite-build catches the gap loud and early.
+        Calls :meth:`BasePolypeptideElongation.initialize` to set up
+        ``ribosomeElongationRate``, ``amino_acids``, ``uncharged_trna_names``,
+        ``aa_from_trna``, ``random_state``, the bulk-index ``None`` markers,
+        etc. Then unpacks the kinetic-charging-specific config keys (see
+        :attr:`config_schema`) and derives the slice indexes for the molecules
+        buffer used by :meth:`run_model`.
+
+        Port of upstream ``KineticTrnaChargingModel.__init__`` (lines 2208–2282).
+        Differences from upstream:
+
+        * Upstream caches a reference to the parent ``PolypeptideElongation``
+          process as ``self.process``; v2ecoli's class IS the process, so
+          ``self.process.X`` references become ``self.X`` directly.
+        * ``cellDensity`` matches the base config_schema key (upstream calls
+          it ``cell_density``).
+        * ``n_avogadro`` is set by base; we read it from the base attribute
+          rather than re-fetching ``self.parameters``.
         """
         super().initialize(config)
-        raise NotImplementedError(
-            "KineticTrnaChargingPolypeptideElongation.initialize — Task 3b: "
-            "unpack codon_sequences / k_cat / K_M_* / reconciliation_buffer "
-            "etc. from self.parameters into the instance."
+
+        # ---- Constants ----
+        self.cell_density = self.parameters["cellDensity"]
+        # self.n_avogadro already set by BasePolypeptideElongation.initialize
+
+        # ---- Codon sequences ----
+        # These shadow base's amino-acid-sequence attrs (proteinSequences,
+        # aaWeightsIncorporated) — the kinetic model walks codons, not AAs.
+        self.protein_sequences = self.parameters["codon_sequences"]
+        self.monomer_weights_incorporated = self.parameters[
+            "residue_weights_by_codon"
+        ]
+        self.n_monomers = self.parameters["n_codons"]
+        self.i_start_codon = self.parameters["i_start_codon"]
+        self.is_map_substrate = self.parameters["is_map_substrate"]
+
+        # ---- Tools for interacting with the kinetic model ----
+        self.n_trnas = len(self.parameters["uncharged_trna_names"])
+        self.n_codons = self.parameters["n_codons"]
+        n_trna_codon_pairs = self.parameters["n_trna_codon_pairs"]
+
+        # Layout of the flat molecules buffer that run_model returns/consumes.
+        # The six segments are placed contiguously and accessed via Python
+        # slice objects stored on self for cheap per-tick indexing.
+        slice_lengths = [
+            self.n_trnas,  # free_trnas
+            self.n_trnas,  # charged_trnas
+            len(self.parameters["amino_acids"]),  # amino_acids
+            self.n_trnas,  # chargings (charging counter)
+            self.n_trnas,  # reading counter
+            n_trna_codon_pairs,  # codons_to_trnas_counter (flattened)
+        ]
+        self.molecules_input_size = sum(slice_lengths)
+
+        slices = []
+        previous = 0
+        for length in slice_lengths:
+            slices.append(slice(previous, previous + length))
+            previous += length
+
+        self.slice_free_trnas = slices[0]
+        self.slice_charged_trnas = slices[1]
+        self.slice_amino_acids = slices[2]
+        self.slice_charging_counter = slices[3]
+        self.slice_reading_counter = slices[4]
+        self.slice_codons_to_trnas_counter = slices[5]
+
+        # ---- Mapping arrays ----
+        # aa_from_trna is set by base; cast and transpose for our local use.
+        self.trnas_to_amino_acids = self.parameters["aa_from_trna"].astype(
+            np.int64
+        )
+        self.amino_acids_to_trnas = self.parameters["aa_from_trna"].T
+        self.trnas_to_codons = self.parameters["trnas_to_codons"]
+        self.codons_to_trnas = self.parameters["trnas_to_codons"].T.astype(
+            np.bool_
+        )
+        self.codons_to_amino_acids = self.parameters["codons_to_amino_acids"]
+
+        # For each tRNA, record the amino acid it carries (single index).
+        # The Cython kernel uses int8 for cheap memory footprint.
+        self.trnas_to_amino_acid_indexes = np.zeros(self.n_trnas, dtype=np.int8)
+        for i in range(self.trnas_to_amino_acids.shape[1]):
+            j = np.where(self.trnas_to_amino_acids[:, i])[0][0]
+            self.trnas_to_amino_acid_indexes[i] = j
+
+        # Maximum reconciliation attempts handed to
+        # kinetic_charging_kernel.reconcile_via_ribosome_positions.
+        self.max_attempts = np.byte(4)
+
+        # ---- Kinetic parameters ----
+        # L-selenocysteine is modeled with a high k_cat to represent
+        # unlimited incorporation, matching upstream's TranslationSupply
+        # approach.
+        self.k_cat__per_s = self.parameters["k_cat__per_s"]
+        self.K_M_amino_acid__per_L = self.parameters["K_M_amino_acid__per_L"]
+        self.K_M_trna__per_L = self.parameters["K_M_trna__per_L"]
+
+        # ---- Reconciliation width buffer ----
+        # The reconciliation step in :meth:`reconcile` uses the surrounding
+        # codon sequence (towards both the N and C terminals) to fix up
+        # disagreements between the kinetic-model predictions and the
+        # ribosome-position model. ``buffer`` is the extra C-ward sequence
+        # positions to view per tick.
+        self.buffer = self.parameters["reconciliation_buffer"]
+
+        # ---- Warm-start the next tick's binary search ----
+        # First tick uses the basal elongation rate (~17.3 aa/s, set by
+        # base from sim_data); subsequent ticks update from the realized
+        # rate inside :meth:`elongation_rate`.
+        self.previous_rate = int(
+            self.ribosomeElongationRate * self.parameters["time_step"]
         )
 
     # ---------- request side ----------
@@ -279,8 +382,20 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
     def get_kinetic_constants(self, cell_mass):
         """Resolve mass-density-dependent kinetic constants.
 
-        Implemented in Task 3b.
+        The kinetic Michaelis constants are stored per-litre
+        (``K_M_amino_acid__per_L``, ``K_M_trna__per_L``) so they survive
+        cell-volume changes; converts back to per-cell using the current
+        cell mass and density. Returns ``(K_M_amino_acids, K_M_trnas)`` as
+        ``pint.Quantity`` arrays.
+
+        Port of upstream ``KineticTrnaChargingModel.get_kinetic_constants``
+        (lines 2720–2725). Differences:
+
+        * Upstream multiplies by ``cell_volume`` as a Unum scalar; we use
+          pint Quantities throughout (via the unit_bridge).
         """
-        raise NotImplementedError(
-            "KineticTrnaChargingPolypeptideElongation.get_kinetic_constants — Task 3b"
-        )
+        cell_volume = cell_mass * units.fg / self.cell_density
+        cell_volume = np.float64(cell_volume.to(units.L).magnitude)
+        K_M_amino_acids = self.K_M_amino_acid__per_L * cell_volume
+        K_M_trnas = self.K_M_trna__per_L * cell_volume
+        return K_M_amino_acids, K_M_trnas

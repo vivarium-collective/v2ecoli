@@ -483,3 +483,47 @@ So `KineticTrnaChargingPolypeptideElongation` extends `BasePolypeptideElongation
 - 3b can't drop any of the 14 stubs without re-running the scaffold test — the marker check fails immediately.
 - The smoke test would have caught a typo in any config_schema key name (since each is listed explicitly).
 - Inheritance pattern verified, so 3b doesn't have to re-derive how to extend the base.
+
+---
+
+## Task #3b progress log
+
+**2026-06-09 — `__init__` parameter unpacking + `get_kinetic_constants` ported.**
+
+### Implementation
+Replaced 2 stubs in `v2ecoli/processes/polypeptide/kinetic_charging.py`:
+
+**`initialize(config)`** (~90 LOC) — calls `super().initialize(config)` then unpacks all the kinetic-charging-specific params into instance attrs:
+- Constants: `cell_density` (from base's `cellDensity` schema key).
+- Codon sequences: `protein_sequences`, `monomer_weights_incorporated`, `n_monomers`, `i_start_codon`, `is_map_substrate`.
+- Tools: `n_trnas`, `n_codons`, plus the 6-segment slice index layout for the molecules buffer (`slice_free_trnas`, `slice_charged_trnas`, `slice_amino_acids`, `slice_charging_counter`, `slice_reading_counter`, `slice_codons_to_trnas_counter`).
+- Mapping arrays: `trnas_to_amino_acids`, `amino_acids_to_trnas`, `trnas_to_codons`, `codons_to_trnas`, `codons_to_amino_acids`, and the derived `trnas_to_amino_acid_indexes`.
+- `max_attempts = np.byte(4)` for the kernel reconcile loop.
+- Kinetic params: `k_cat__per_s`, `K_M_amino_acid__per_L`, `K_M_trna__per_L`.
+- `buffer = reconciliation_buffer`.
+- `previous_rate` warm-start for the next tick's binary search.
+
+**`get_kinetic_constants(cell_mass)`** (~5 LOC) — converts the per-litre Michaelis constants back to per-cell quantities using current cell volume (`cell_mass × fg / cell_density`).
+
+### Differences from upstream documented in the docstrings
+- `self.process.X` → `self.X` (v2ecoli's class IS the process; no parent reference).
+- `cellDensity` matches the base schema key (upstream calls it `cell_density`).
+- `n_avogadro` already set by base; not re-fetched.
+- pint Quantities throughout (`.to(units.L).magnitude`) instead of Unum's `.asNumber()`.
+
+### Tests
+`tests/test_kinetic_charging_polypeptide_elongation_scaffold.py` extended with 5 new tests (23 total):
+1. **`test_initialize_is_no_longer_a_stub`** — fails loud if `initialize` or `get_kinetic_constants` regress to NotImplementedError or carry a `Task 3b` marker.
+2. **`test_initialize_sets_documented_attrs_via_source_scan`** — pure source scan, no cache needed. 27 expected `self.X = ...` assignments must appear in `initialize`'s body. Catches accidental drops in a future refactor.
+3. **`test_get_kinetic_constants_uses_cell_volume_conversion`** — source scan that `cell_volume`, `cell_density`, and both K_M outputs are referenced (guards against regression to the pre-port "return the inputs verbatim" form).
+4. **`test_initialize_runs_end_to_end_against_cache`** (`@pytest.mark.sim @_needs_cache`) — loads the real cache, augments with synthetic kinetic extensions via a `_make_kinetic_extensions` helper, instantiates the class, verifies all the kinetic attrs landed with the right shapes/values.
+5. **`test_get_kinetic_constants_returns_volume_scaled_arrays`** — instantiates + asserts doubling `cell_mass` doubles the returned K_M arrays.
+
+Also removed `initialize` and `get_kinetic_constants` from the parametric `test_method_stub_carries_task_marker` list (they're no longer stubs).
+
+### Results
+- `pytest tests/test_kinetic_charging_polypeptide_elongation_scaffold.py` → **23 passed, 1 warning** in 3.74 s.
+- `pytest tests/test_kinetic_charging_*.py` → **47 passed, 1 warning** in 3.30 s. No regressions in the kernel tests.
+
+### Synthetic extensions helper for 3c–3e
+`_make_kinetic_extensions(n_aas, n_trnas, n_codons, n_proteins, n_synthetases)` in the test file builds a dict that mirrors the shape contract Task #5 will populate from `sim_data.relation`. 3c–3e can reuse it via test fixtures without re-writing the boilerplate.

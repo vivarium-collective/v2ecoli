@@ -14,7 +14,7 @@ annotations:
       stand before moving on to the box binding study.
 responses:
   study-dnaa-2-nucleotide-balance:
-    status: in-progress
+    status: done
     by: claude
     at: '2026-06-09'
     response: |-
@@ -37,9 +37,16 @@ responses:
           73→254→479→520→654→846→857→880 — gens 6-8 sit ABOVE the 800 ceiling, so
           total DnaA is in-band only on the all-gen average, not per-gen. The old
           "all gens <=660, cleanly in band" was the truncation artifact.
-        • MULTI-SEED (seeds 0 + 2, 8-gen) re-verification is running now to confirm
-          the DnaA-ATP fraction + the drift hold across seeds — results folded in
-          when it lands.
+        • MULTI-SEED (seeds 0 + 1 + 2, 8-gen) re-verification — DONE. The result
+          STANDS: DnaA-ATP fraction is robust across all three seeds (avg
+          0.268 / 0.267 / 0.302, all in [0.2,0.5]); oriC 1<->2 + mass-doubling
+          hold in every seed; total-DnaA passes on the all-gen average in every
+          seed (392 / 575 / 578). The per-gen total-DnaA overshoot (>800) is
+          SEED-VARIABLE — seeds 1 & 2 ramp above the ceiling mid-run, seed 0 stays
+          in band the whole way — i.e. a transient of the V=1e-3 pool drift, not a
+          universal failure. (Seed 0 hit a late PROTON allocator edge at gen 8 but
+          gave 7 clean gens.) Net: the hydrolysis mechanism conclusion holds
+          robustly; the pool-band caveat is gen-average-true and seed-variable.
         • One thing the redo surfaces for your call — a genuine V TENSION: dnaa-1
           settled on 0.8e-3 (in-band pool) but dnaa-2's fraction needs ~1e-3
           (0.8e-3 destabilizes dnaa-2 — fraction below floor + a gen-5 allocator

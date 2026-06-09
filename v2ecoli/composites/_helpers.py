@@ -299,7 +299,11 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
             out_dir = (str(ws_root / ".pbg" / "parquet-runs")
                        if ws_root is not None else "out/parquet")
         preset = parquet_vecoli(out_dir=out_dir,
-                                experiment_id=cfg_in.pop("experiment_id", "default"))
+                                experiment_id=cfg_in.pop(
+                                    "experiment_id",
+                                    os.environ.get(
+                                        "V2ECOLI_EMITTER_EXPERIMENT_ID",
+                                        "default")))
         emit_schema = {
             "global_time": "float",
             "bulk": "array[integer]",
@@ -622,7 +626,8 @@ def parquet_emitter(*, out_dir: str | None = None,
         out_dir = str(ws_root / ".pbg" / "parquet-runs")
 
     if experiment_id is None:
-        experiment_id = "default-" + uuid.uuid4().hex[:8]
+        experiment_id = (os.environ.get("V2ECOLI_EMITTER_EXPERIMENT_ID")
+                         or ("default-" + uuid.uuid4().hex[:8]))
 
     # Build the emitter config dict via the vEcoli-shaped preset so the
     # hive layout + dtype overrides match upstream conventions exactly.

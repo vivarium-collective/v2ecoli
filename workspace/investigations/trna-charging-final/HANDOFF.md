@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task 2e — about to commit). **Task #2 (Cython kernel port) is now complete.**
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `60474af feat(trna-charging): port get_elongation_rate; complete Task #2 kernel port`. **Task #2 (Cython kernel port) is complete.**
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

@@ -136,6 +136,11 @@ biological name.
 - **ParCa** (Parameter Calculator) builds `sim_data` from raw EcoCyc-derived
   knowledge bases. It's expensive (minutes to hours). Never run ParCa in CI —
   CI uses a frozen gzipped cache at `tests/fixtures/cache/`.
+  - **Always build ParCa with `--mode full` for any simulation.** `--mode fast`
+    (debug) reduces the set of TF conditions and mis-calibrates regulation — it
+    over-expresses dnaA ~2× and breaks replication initiation. Fast mode is for
+    pipeline debugging only, never for sim data. `scripts/build_cache.py` guards
+    against using a fast-built cache.
 - **Architectures**:
   - `baseline` — partitioned, 55 processes, upstream-parity (the reference).
   - `colony` — many baseline cells in a shared environment (multi-agent).

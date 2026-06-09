@@ -3,7 +3,7 @@ name: dnaa-1-expression
 investigation: dnaa-replication   # owning investigation (back-reference)
 title: DnaA expression — Mechanism A tuning to in-band, generation-stable pool
 created: '2026-05-29'
-status: completed   # legacy back-compat; canonical axes below. RE-TUNED 2026-06-08 → PASS on Rashmi's GENERATION-AVERAGE criterion at CANONICAL V=1.1e-3 (DnaA pool cycle-mean 676 in [300,800] AND dnaA init rate 1.00/min ~on target; full per-gen history + multiseed). Supersedes the prior 0.8e-3 pick (in-band-but-sub-physiological-rate).
+status: completed   # legacy back-compat; canonical axes below. RE-TUNED 2026-06-08 → PASS on Rashmi's GENERATION-AVERAGE criterion at CANONICAL V=1.1e-3 (DnaA pool cycle-mean 676 in [300,800] AND dnaA init rate 1.00/min ~on target; full per-gen history + multiseed). Supersedes the prior 0.8e-3 pick (in-band-but-sub-physiological-rate). REVISED 2026-06-09 → the 7-gen cycle-mean-676 in-band reading was a PRE-EQUILIBRATION ARTIFACT: a completed 15-gen run (out/dnaa1_v1p1e-3_long) shows the cycle-mean keeps climbing past 800 (peak 976 @gen9, gens 6-12 ≥800) then relaxes to 485 by gen15 — V=1.1e-3 does NOT equilibrate IN band (VERDICT B; see finding v11-15gen-equilibration-overshoots-band + chart dnaa1_v11_equilibration). Cell cycle stays healthy (all gens divide, oriC 1↔2, no reinit; FBA GLP_NOFEAS peaks @gen9, gone by gen11+). No single constitutive V closes both band+rate — needs a different lever.
 # Canonical 6-axis status (PASS on the generation-average criterion — V=1.1e-3
 # satisfies BOTH the in-band DnaA pool and the ~1/min init rate; the strict
 # whole-oscillation-≤800 is NOT met, the within-cycle peak excursion is the
@@ -504,6 +504,42 @@ visualizations:
     --run 2=out/dnaa1_v1p2e-3_s2/dnaa1_v1p2e-3_s2
     --run 3=out/dnaa1_v1p2e-3_s3/dnaa1_v1p2e-3_s3
     --steady-gens 4,5,6,7 --out studies/dnaa-1-expression/charts
+- name: dnaa1_v11_equilibration
+  address: image:charts/dnaa1_v11_equilibration.png
+  config:
+    title: >-
+      dnaa-1 EQUILIBRATION TEST at V=1.1e-3 (the canonical V; Mechanism A,
+      seed 1, COMPLETED 15-generation run out/dnaa1_v1p1e-3_long, resumed from
+      the dnaa-0 gen-3 dill). DnaA monomer cycle-mean (+ per-gen trough→peak
+      envelope) vs generation 1-15 against the accepted band [300,800].
+      THE QUESTION it settles: the original 7-gen V=1.1e-3 run showed the
+      cycle-mean still RAMPING (gens 4-7: 484/573/804/842) with gens 6-7
+      creeping over 800, so it was unclear whether V=1.1e-3 equilibrates IN
+      band or keeps drifting over. RESULT (VERDICT B): V=1.1e-3 does NOT
+      equilibrate in band. The cycle-mean keeps climbing past 800 — gen6 804,
+      gen7-8 842, peaking at gen9 976 / gen11 970 (within-cycle peaks ~1300) —
+      then RELAXES back down to 485 by gen 15 (gens 10-15 slope -95/gen). It is
+      neither a clean in-band plateau nor a monotonic runaway: it OVERSHOOTS
+      then undershoots. So the 7-gen apparent in-band-ness (steady-gen mean 676)
+      was a PRE-EQUILIBRATION ARTIFACT — read before the pool had finished
+      ramping. Cell cycle stays healthy throughout: all 15 gens divide (mass
+      ratio ~1.8-2.2) and oriC oscillates 1↔2 with NO reinitiation to 4. FBA
+      GLP_NOFEAS warnings PEAK at gen 9 (7 occurrences, tracking the DnaA
+      overshoot) and VANISH by gens 11-15 — they do not worsen at later gens.
+      Implication: no single constitutive V closes both band + ~1/min rate; a
+      different lever (e.g. feedback/autoregulation) is needed.
+    inputs_map:
+      dnaa_cycle_mean: bulk (PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c]) per-gen mean on canonical all-zeros lineage
+      dnaa_trough_peak: same bulk pool, per-gen min/max envelope
+      divides_per_gen: listeners.mass.cell_mass end/start ratio per generation (≥1.4 = doubling)
+      oric_pattern: listeners.replication_data.number_of_oric (steady = {1,2}; reinit = 4)
+  chart: charts/dnaa1_v11_equilibration.svg
+  source_run: dnaa1_v1p1e-3_long
+  source_runs: [dnaa1_v1p1e-3_long]
+  render: >-
+    cd ../.. && python scripts/render_dnaa1_v11_equilibration.py
+    --stats studies/dnaa-1-expression/charts/dnaa1_v11_equilibration.stats.json
+    --out studies/dnaa-1-expression/charts
 
 # The full within-cycle dnaa-1 figure (4 panels over LINEAGE TIME, not just per
 # generation) needs the raw run dnaa1-mechA-7gen-pristine, which is NOT on this
@@ -958,6 +994,42 @@ findings:
     verified_by: scripts/render_dnaa1_v_sweep.py
   status: novel
   statement: Across a 5-point sweep V ∈ {0.8,0.9,1.0,1.1,1.7}×1e-3, the band-stable DnaA pool (whole oscillation in [300,800], only at V=0.8e-3) and the ~1/min dnaA initiation rate (only at V=0.9–1.1e-3) occupy non-overlapping V regions, so no single value of the dnaA synthesis probability satisfies both acceptance layers at the dnaa-0 succinate initial condition — the in-band pool requires sacrificing the rate, and vice versa.
+- id: v11-15gen-equilibration-overshoots-band
+  kind: computational
+  summary: |
+    EQUILIBRATION TEST at the canonical V=1.1e-3 (completed 15-generation run
+    out/dnaa1_v1p1e-3_long, Mechanism A, seed 1, resumed from the dnaa-0 gen-3
+    dill; --perturbation 'TU00259[c]=1.1e-3'). The original 7-gen V=1.1e-3 run
+    showed the DnaA monomer cycle-mean still RAMPING (gens 4-7: 484/573/804/842)
+    with gens 6-7 just over 800, leaving it ambiguous whether the pool
+    EQUILIBRATES in [300,800] or keeps drifting over. The 15-gen run settles it.
+    Per-gen DnaA monomer cycle-mean (canonical all-zeros lineage, bulk
+    PD03831[c]+MONOMER0-160[c]+MONOMER0-4565[c]):
+      g1 122 / g2 227 / g3 320 / g4 485 / g5 573 / g6 804 / g7 842 / g8 842 /
+      g9 976 / g10 903 / g11 970 / g12 873 / g13 764 / g14 598 / g15 485.
+    VERDICT B — it does NOT equilibrate in band. The cycle-mean keeps CLIMBING
+    past 800 to a peak of 976 at gen 9 (and 970 at gen 11; within-cycle peaks
+    reach ~1300), i.e. gens 6-12 sit at or above the 800 ceiling — then it
+    RELAXES BACK DOWN to 485 by gen 15 (gens 10-15 slope -95/gen). So the
+    trajectory is an OVERSHOOT-then-undershoot, not a clean in-band plateau and
+    not a monotonic runaway. The 7-gen "in-band" reading (steady-gen mean 676)
+    was a PRE-EQUILIBRATION ARTIFACT: gen 7 was caught mid-ramp, before the pool
+    finished climbing over the ceiling. Cell cycle is healthy throughout — all
+    15 generations divide (mass ratio ~1.8-2.2) and oriC oscillates 1↔2 with NO
+    reinitiation to 4 (oriC never reaches 4). FBA GLP_NOFEAS warnings track the
+    overshoot: per-gen counts 1/2/4/0/0/2/4/1/7/2/0/0/0/0/0 for gens 1-15 — they
+    PEAK at gen 9 (7) alongside the DnaA peak and VANISH by gens 11-15, so they
+    do not worsen at later generations. Implication: no single constitutive V
+    closes both the band and the ~1/min rate; a different lever (cell-cycle-
+    coupled synthesis / autoregulation / faster turnover) is required.
+  evidence:
+    from_run: dnaa1_v1p1e-3_long
+  provenance:
+    run_ids:
+    - dnaa1_v1p1e-3_long
+    verified_by: scripts/render_dnaa1_v11_equilibration.py
+  status: novel
+  statement: At the canonical V=1.1e-3, a completed 15-generation run shows the DnaA monomer cycle-mean does NOT equilibrate inside [300,800] — it ramps over the ceiling (peak cycle-mean 976 at gen 9, within-cycle peaks ~1300, gens 6-12 at or above 800) and then relaxes back to 485 by gen 15, an overshoot-then-undershoot rather than an in-band plateau; the original 7-gen in-band reading was a pre-equilibration artifact, confirming that no single constitutive V satisfies both the band and the ~1/min rate. The cell cycle stays healthy throughout (every generation divides, oriC 1↔2, no reinitiation), and the FBA GLP_NOFEAS infeasibilities peak at gen 9 with the DnaA overshoot and vanish by gens 11-15.
 
 discovery_implications:
   resolved_uncertainties:

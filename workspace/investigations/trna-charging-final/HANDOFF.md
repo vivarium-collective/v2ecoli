@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task 2d — about to commit).
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `dfed1f4 feat(trna-charging): port reconcile_via_trna_pools (Task 2d)`.
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

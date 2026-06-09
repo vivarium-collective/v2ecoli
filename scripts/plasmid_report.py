@@ -46,7 +46,7 @@ def build_network_html():
     """
     from v2ecoli import build_composite
     from v2ecoli.composites.baseline import build_execution_layers, DEFAULT_FEATURES
-    from v2ecoli.visualizations._helpers import build_graph, render_html
+    from v2ecoli.visualizations._helpers import build_graph, render_cytoscape_html
 
     composite = build_composite("baseline", cache_dir=CACHE_DIR)
     layers = build_execution_layers(DEFAULT_FEATURES)
@@ -58,13 +58,13 @@ def build_network_html():
     subtitle = (f"{n_proc} processes · {n_store} stores · "
                 f"{n_edges} edges · plasmid-enabled baseline composite")
 
-    html = render_html(
+    html = render_cytoscape_html(
         data,
         title="v2ecoli · Plasmid-enabled baseline",
         subtitle=subtitle,
     )
     os.makedirs(os.path.dirname(NETWORK_OUT), exist_ok=True)
-    with open(NETWORK_OUT, "w") as f:
+    with open(NETWORK_OUT, "w", encoding="utf-8") as f:
         f.write(html)
     print(f"wrote {NETWORK_OUT} ({os.path.getsize(NETWORK_OUT)/1024:.1f} KB, "
           f"{n_proc} procs / {n_store} stores / {n_edges} edges)")
@@ -1387,7 +1387,7 @@ subsystem (same color as chromosome replication).</p>
 </html>
 """
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w") as f:
+    with open(OUT, "w", encoding="utf-8") as f:
         f.write(html)
     size = os.path.getsize(OUT)
     print(f"wrote {OUT} ({size / 1024:.1f} KB)")

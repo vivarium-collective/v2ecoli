@@ -36,7 +36,9 @@ sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
 from v2ecoli import build_core, build_document
+from v2ecoli.library.quantity_helpers import fg_magnitude
 from v2ecoli.library.division import divide_cell
+from v2ecoli.composites.baseline import baseline as baseline_doc
 from process_bigraph import Composite
 
 
@@ -107,13 +109,13 @@ def capture(t: float, cell: dict) -> dict:
 
     snap = {
         "time": float(t),
-        "dry_mass": float(mass.get("dry_mass", 0.0) or 0.0),
-        "cell_mass": float(mass.get("cell_mass", 0.0) or 0.0),
-        "protein_mass": float(mass.get("protein_mass", 0.0) or 0.0),
-        "dna_mass": float(mass.get("dna_mass", 0.0) or 0.0),
-        "rRna_mass": float(mass.get("rRna_mass", 0.0) or 0.0),
-        "tRna_mass": float(mass.get("tRna_mass", 0.0) or 0.0),
-        "mRna_mass": float(mass.get("mRna_mass", 0.0) or 0.0),
+        "dry_mass": fg_magnitude(mass.get("dry_mass", 0.0) or 0.0),
+        "cell_mass": fg_magnitude(mass.get("cell_mass", 0.0) or 0.0),
+        "protein_mass": fg_magnitude(mass.get("protein_mass", 0.0) or 0.0),
+        "dna_mass": fg_magnitude(mass.get("dna_mass", 0.0) or 0.0),
+        "rRna_mass": fg_magnitude(mass.get("rRna_mass", 0.0) or 0.0),
+        "tRna_mass": fg_magnitude(mass.get("tRna_mass", 0.0) or 0.0),
+        "mRna_mass": fg_magnitude(mass.get("mRna_mass", 0.0) or 0.0),
         "n_full_chromosomes": _count_unique(unique, "full_chromosome"),
         "n_active_replisomes": _count_unique(unique, "active_replisome"),
         "n_full_plasmids": _count_unique(unique, "full_plasmid"),
@@ -303,8 +305,8 @@ def main():
                 "unique_names": unique_names,
                 "dry_mass_inc_dict": dry_mass_inc,
             }
-            doc = build_document("baseline", core=core, seed=gen_idx,
-                                 bundle=daughter_bundle)
+            doc = baseline_doc(core=core, seed=gen_idx, cache_dir=cache_dir,
+                               bundle=daughter_bundle)
             _strip_emitter(doc)
             composite = Composite(doc, core=core)
             print(f"    built daughter composite in {time.time() - t_build:.1f}s")

@@ -362,9 +362,71 @@ def test_reconcile_via_trna_pools_invariants_vs_libc(golden: list[dict]) -> None
         )
 
 
-@pytest.mark.skip(reason="get_elongation_rate is implemented in Task 2e")
 def test_get_elongation_rate_parity(golden: list[dict]) -> None:
-    ...
+    """
+    ``get_elongation_rate`` is purely deterministic — no RNG. Asserts
+    bit-identical output vs the upstream Cython kernel for the captured
+    cases in the libc-rand golden.
+    """
+    cases = _cases_for(golden, "get_elongation_rate")
+    assert cases
+    for case in cases:
+        sequences = _arr(case["inputs"]["sequences"])
+        got = kernel.get_elongation_rate(
+            sequences,
+            int(case["inputs"]["col"]),
+            float(case["inputs"]["time"]),
+            float(case["inputs"]["target"]),
+        )
+        assert int(got) == case["outputs"]["return"], case["name"]
+
+
+def test_reconcile_seed_propagates_to_kernel_output() -> None:
+    """
+    Mirror of upstream's ``test_reconcile_different_seeds_different_results``,
+    adapted because the upstream test's specific inputs happen to converge to
+    the same fixed point under both ``libc rand`` and ``numpy.random.RandomState``
+    for the seeds tested (verified in
+    ``workspace/investigations/trna-charging-final/audit.md``).
+
+    Uses the ``attempts_threshold`` input instead: 10 ribosomes with 5 viable
+    forward picks each attempt, so different seeds reliably pick different
+    ribosomes and the final ``elongations`` distribution diverges.
+
+    Three runs (seed1, seed2, seed1) prove:
+        * Same seed → identical output (determinism).
+        * Different seeds → diverging output (RNG seam is wired through).
+    """
+    # attempts_threshold inputs lifted from the upstream test
+    kinetics_codons = np.array([10, 20], dtype=np.int64)
+    elongations_template = 3 * np.ones(10, dtype=np.int64)
+    sequences = np.tile(
+        np.array([[0, 1, 0, 1, 0], [1, 0, 1, 0, 1]], dtype=np.int8), (5, 1)
+    )
+
+    def run(seed: int) -> tuple[np.ndarray, np.ndarray]:
+        sc = _build_sequence_codons(sequences, elongations_template)
+        el = elongations_template.copy()
+        kc = kinetics_codons.copy()
+        kernel.seed(seed)
+        kernel.reconcile_via_ribosome_positions(sc, el, kc, sequences, 4)
+        return sc, el
+
+    sc1a, el1a = run(12345)
+    sc2, el2 = run(54321)
+    sc1b, el1b = run(12345)
+
+    # Same seed → identical
+    np.testing.assert_array_equal(sc1a, sc1b, err_msg="seed1 not reproducible")
+    np.testing.assert_array_equal(el1a, el1b, err_msg="seed1 not reproducible")
+
+    # Different seeds → must differ somewhere (sc or el)
+    differs = (not np.array_equal(sc1a, sc2)) or (not np.array_equal(el1a, el2))
+    assert differs, (
+        f"different seeds produced identical output — RNG seam is dead. "
+        f"seed1: sc={sc1a.tolist()}, el={el1a.tolist()}; "
+        f"seed2: sc={sc2.tolist()}, el={el2.tolist()}"
+    )
 
 
 # ---------- coverage check ----------

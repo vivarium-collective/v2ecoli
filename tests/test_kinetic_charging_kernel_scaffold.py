@@ -151,12 +151,30 @@ def test_stub_functions_exist_with_expected_signatures() -> None:
         )
 
 
-def test_stubs_raise_not_implemented_until_filled_in() -> None:
+def test_no_stub_functions_remain() -> None:
     """
-    Functions still stubbed by 2c–2e raise NotImplementedError. 2b-ported
-    functions are gated by ``tests/test_kinetic_charging_kernel.py`` instead.
+    Every kernel function should now be ported (2b through 2e). If a new stub
+    is ever added that raises NotImplementedError, this test catches it on
+    next CI run.
     """
-    with pytest.raises(NotImplementedError, match="Task 2e"):
-        kernel.get_elongation_rate(
-            np.zeros((1, 1), dtype=np.int8), 0, 1.0, 1.0
+    # Exercise each kernel function with shape-minimal inputs; we don't care
+    # what they return, only that none raises NotImplementedError. Functions
+    # that need a seeded RNG get one.
+    kernel.seed(0)
+    # Just check that every documented kernel function can at least be called
+    # without NotImplementedError. Bodies are gated by
+    # tests/test_kinetic_charging_kernel.py.
+    sequences = np.zeros((1, 1), dtype=np.int8)
+    elongations = np.zeros(1, dtype=np.int64)
+    try:
+        kernel.get_initiations(elongations, elongations, elongations)
+        kernel.get_codon_at(sequences, elongations, 0, 0, 0)
+        kernel.get_candidates_to_C(sequences, elongations, 0)
+        kernel.get_candidates_to_N(sequences, elongations, 0)
+        kernel.is_initial_state(
+            np.zeros(1, dtype=np.int32), np.zeros(1, dtype=np.int32)
         )
+        kernel.get_codons_read(sequences, elongations, 1)
+        kernel.get_elongation_rate(sequences, 1, 1.0, 1.0)
+    except NotImplementedError as e:
+        pytest.fail(f"Stub remains in the kernel module: {e}")

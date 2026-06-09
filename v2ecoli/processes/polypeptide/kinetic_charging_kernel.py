@@ -30,7 +30,8 @@ Layout
         plus algorithmic-invariant checks vs the upstream libc-rand golden.
 
     get_elongation_rate
-        Stub — implemented in Task 2e.
+        Deterministic kernel, ported in Task 2e. ``@njit`` binary search.
+        Verified bit-identical against upstream.
 
 Parity tests live in ``tests/test_kinetic_charging_kernel.py`` and load
 ``tests/fixtures/trna_charging_kernel_golden.json.gz``. Deterministic
@@ -522,11 +523,126 @@ def reconcile_via_trna_pools(
         kinetics_codons[codon] -= 1
 
 
+@njit(error_model="numpy")
 def get_elongation_rate(
     sequences: npt.NDArray[np.int8],
     col: int,
     time: float,
     target: float,
 ) -> int:
-    """Port of upstream ``get_elongation_rate``. Implemented in Task 2e."""
-    raise NotImplementedError("Task 2e")
+    """
+    Binary-search over column count to find the number of timesteps whose
+    measured elongation rate is closest to ``target``.
+
+    The rate at a given ``col`` is ``(# of non-(-1) entries in sequences[:, :col])
+    / n_ribosomes / time``. Each search step counts that subarray, compares to
+    target, and bisects ``[lower, upper]`` accordingly. Termination: the search
+    proposes a ``col`` already visited.
+
+    The post-search "snap to time-step boundary" logic mirrors upstream
+    behaviorally. Upstream is the source of truth — see
+    ``wholecell/utils/_trna_charging.pyx::get_elongation_rate``. Notes on
+    behaviors preserved verbatim:
+
+    * The "is best_col even?" check (``best_col % 2 == 0``) is an upstream
+      heuristic that's only strictly correct for ``time_int <= 2``. For
+      higher integer time values it can return the wrong rounded result, but
+      we match it for byte-identity.
+    * When the binary search hits ``rate == target`` and breaks without
+      incrementing ``index``, the post-loop "find best" sweep ``for i in
+      range(index)`` skips the just-written entry. Upstream's Cython relies
+      on ``cdef int i = 0`` initialization to make this case work via the
+      degenerate ``range(0)``; we initialize ``best_i = 0`` to match.
+    """
+    n_ribosomes = sequences.shape[0]
+    n_cols = sequences.shape[1]
+
+    # Distinct cols visited during binary search ≤ n_cols + 1. Pre-allocate.
+    max_size = n_cols + 1
+    attempted_steps = np.empty(max_size, dtype=np.int64)
+    resulting_rates = np.empty(max_size, dtype=np.float64)
+
+    index = 0
+    lower = 0
+    upper = n_cols
+    ribosomes_f = float(n_ribosomes)
+    min_difference = 1000.0  # upstream's "a large number"
+    time_int = int(time)
+    search_complete = False
+
+    while not search_complete:
+        # Count non-(-1) entries in sequences[:, :col]
+        elongations = 0
+        for i in range(n_ribosomes):
+            for j in range(col):
+                if sequences[i, j] != -1:
+                    elongations += 1
+        rate = elongations / ribosomes_f / time
+
+        attempted_steps[index] = col
+        resulting_rates[index] = rate
+
+        if abs(rate - target) < min_difference:
+            min_difference = abs(rate - target)
+
+        if rate > target:
+            upper = col
+            col = lower + (col - lower) // 2
+        elif rate < target:
+            lower = col
+            col = col + (upper - col) // 2
+        else:
+            search_complete = True
+            break
+
+        index += 1
+        # Check if `col` was already attempted (termination signal)
+        for k in range(index):
+            if attempted_steps[k] == col:
+                search_complete = True
+                break
+
+    # Find best entry's index. Tracks the loop variable to mirror upstream's
+    # implicit "i retains its last value after the for loop" semantics.
+    best_i = 0
+    for i in range(index):
+        best_i = i
+        if abs(resulting_rates[i] - target) == min_difference:
+            break
+
+    best_col = attempted_steps[best_i]
+
+    if best_col % 2 == 0:
+        result = best_col // time_int
+    else:
+        step_floor = int(np.floor(best_col / time))
+        step_ceil = int(np.ceil(best_col / time))
+        rate_floor = -1.0
+        rate_ceil = -1.0
+        for k in range(index):
+            if attempted_steps[k] == step_floor * time_int:
+                rate_floor = resulting_rates[k]
+            if attempted_steps[k] == step_ceil * time_int:
+                rate_ceil = resulting_rates[k]
+        if rate_floor == -1.0:
+            elongations = 0
+            count_col = step_floor * time_int
+            for i in range(n_ribosomes):
+                for j in range(count_col):
+                    if sequences[i, j] != -1:
+                        elongations += 1
+            rate_floor = elongations / ribosomes_f / time
+        if rate_ceil == -1.0:
+            elongations = 0
+            count_col = step_ceil * time_int
+            for i in range(n_ribosomes):
+                for j in range(count_col):
+                    if sequences[i, j] != -1:
+                        elongations += 1
+            rate_ceil = elongations / ribosomes_f / time
+        if abs(rate_floor - target) < abs(rate_ceil - target):
+            result = step_floor
+        else:
+            result = step_ceil
+
+    return result

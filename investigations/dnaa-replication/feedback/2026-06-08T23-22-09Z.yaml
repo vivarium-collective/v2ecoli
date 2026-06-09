@@ -14,14 +14,16 @@ annotations:
     text: "try 1.2e and 1.3e as well and lets do a multiseed simulation to see if we can find a simulation where DnaA levels oscillate within band maintaining steady state dynamics."
 responses:
   study-dnaa-1-expression-charts:
-    status: done
+    status: done-with-open-caveat
     by: claude
     at: '2026-06-08'
     response: |-
-      Done — sweep extended to 7 V points {0.8..1.7e-3} (figure dnaa1_v_sweep) and a multiseed run at V=1.2e-3 across seeds {0,1,2,3} (figure dnaa1_v12_multiseed). Two findings:
+      Done — sweep extended to 7 V points (dnaa1_v_sweep) and multiseed at V=1.2e-3 across seeds {0,1,2,3} (dnaa1_v12_multiseed). Findings:
 
-      1) STEADY-STATE DYNAMICS ARE SEED-ROBUST. At V=1.2e-3 all four seeds divide every generation with periodic mass-doubling and oriC oscillates 1↔2 (no reinitiation to 4). So the cell cycle is robust to the seed.
+      1) STEADY-STATE DYNAMICS ARE SEED-ROBUST: at V=1.2e-3 all 4 seeds divide every generation with periodic mass-doubling and oriC 1↔2 (no reinitiation). Good news — the cell cycle is robust to the seed.
 
-      2) STRICT whole-oscillation-in-[300,800] is NOT achievable at any V or seed — the per-cycle PEAK overshoots 800 deterministically (DnaA ~doubles per cycle; multiseed peaks 914/1191/1105/1002 — not seed noise).
+      2) No V is BOTH band-stable AND rate-on-target. On your dnaa-2 generation-average criterion (within-cycle peaks >800 are expected accumulate-then-divide; evaluate on the cycle-mean), V=1.0-1.1e-3 are the best joint candidates: V=1.1e-3 gives init rate 1.00/min (on target) and a steady-gen POOLED cycle-mean of 676 (in band).
 
-      BUT this is the SAME accumulate-then-divide behavior you accepted for dnaa-2 (2026-06-04: within-cycle peaks >800 pre-division are expected; evaluate on the generation-average). On that criterion there IS a V meeting both targets: V=1.0e-3 (cycle-mean 624, rate 1.01/min) and V=1.1e-3 (cycle-mean 676, rate 1.00/min) sit IN [300,800] on the generation-average AND hit ~1/min — and the multiseed confirms steady dynamics. RECOMMENDED: V=1.1e-3 as canonical (best joint fit: mean 676 in band, rate 1.00 on target). The only way to also bound the within-cycle PEAK under 800 would need a different lever than V (amplitude-bounding mechanism), but per your dnaa-2 generation-average rule that peak excursion is expected and not a fail. Your call to confirm the criterion / the V; I can set V=1.1e-3 canonical on your word.
+      IMPORTANT CAVEAT (so you're not misled): at V=1.1e-3 the cycle-mean is NOT plateaued — it RAMPS 484→573→804→842 over gens 4-7, so gens 6-7 individually creep over 800 and the 676 is a pooled transient average. V=1.1 is the best compromise (rate on target + steady dynamics + early gens in band) but it is NOT band-stable the way 0.8e-3 is (0.8 plateaus in band but its rate ~0.6/min is too low). So the band-vs-rate tension is real even on the generation-average: 1.1e-3 trades a slowly-drifting-over-band mean for the right rate.
+
+      NEXT: a longer (15-gen) run at V=1.1e-3 is underway to settle whether the pool EQUILIBRATES in band or keeps drifting over — that determines whether 1.1e-3 is genuinely acceptable or whether closing both targets needs a different lever (amplitude-bounding mechanism / higher-DnaA start). I've set V=1.1e-3 as the working canonical pending that run + your confirmation of the criterion.

@@ -70,7 +70,9 @@ from bigraph_schema.schema import (
 )
 
 # bigraph-schema 6fa6c63 added its own Quantity at key 'quantity'; v2ecoli's
-# Quantity has a custom _serialize_state, so prefer v2ecoli's on collision.
+# Quantity (custom _serialize_state + parameterized units) stays registered at
+# the key, and these dispatches prefer it when a bigraph-schema Quantity meets
+# it during resolve.
 @_resolve.dispatch
 def _resolve_bs_quantity_v2(current: _BSQuantity, update: Quantity, path=None):
     return update
@@ -343,7 +345,7 @@ def _resolve_listener_map(current: ListenerStore, update: _Map, path=None):
     return update
 
 ECOLI_TYPES = {
-    'quantity': _BSQuantity,
+    'quantity': Quantity,
     'csr_matrix': CSRMatrix,
     'units_array': UnitsArray,
     'method': Method,

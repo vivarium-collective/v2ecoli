@@ -427,3 +427,59 @@ The full upstream `_trna_charging.pyx` kernel (638 LOC Cython, 11 functions) is 
 8 deterministic functions assert byte-identity vs upstream. 3 stochastic functions assert byte-identity vs the per-RNG numpy golden, plus algorithmic invariants (conservation, non-negativity, convergence) vs the upstream libc golden.
 
 The kernel is ready to be wired into `KineticTrnaChargingModel` (Task #3).
+
+---
+
+## Task #3a progress log
+
+**2026-06-09 — `KineticTrnaChargingPolypeptideElongation` scaffold landed.**
+
+### Architecture decision
+v2ecoli's polypeptide architecture is different from upstream:
+
+- **Upstream:** `PolypeptideElongation` is one Process; each elongation MODEL (`BaseElongationModel`, `TranslationSupplyElongationModel`, `SteadyStateElongationModel`, `KineticTrnaChargingModel`) is a strategy class on it. The model is selected via the `trna_charging_model` config flag.
+- **v2ecoli:** each model is its own Process subclass of `BasePolypeptideElongation` (which subclasses `PartitionedProcess`). Model is selected per-composite by importing the right class.
+
+So `KineticTrnaChargingPolypeptideElongation` extends `BasePolypeptideElongation` as a peer of `SteadyStatePolypeptideElongation`. Composite arch `kinetic_charging_baseline` (3f) picks it instead of `SteadyStatePolypeptideElongation`.
+
+### File location & circular-import management
+- Class lives at `v2ecoli/processes/polypeptide/kinetic_charging.py` (per HANDOFF spec).
+- The new file imports `BasePolypeptideElongation` from `v2ecoli/processes/polypeptide_elongation.py`. **No circular import** because `polypeptide_elongation.py` doesn't import the new file — the composite arch (3f) is the only thing that imports `kinetic_charging.py`.
+
+### Class scaffold
+- `KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation)`
+- Inherits `name`, `topology` from base (so partitioner treats it as the same process slot — only one elongation model active at a time).
+- `description` field summarizes the model in one block (per v2ecoli convention).
+- `config_schema = {**Base.config_schema, ...12 new kinetic keys...}` — dict-merge inheritance preserves every base entry. New keys cover codon-sequence tables, tRNA↔codon mapping, kinetic constants, and reconciliation buffer. Defaults are empty / zero-shaped; Task #5 will populate from `sim_data.relation`.
+
+### Method stubs
+14 methods stubbed, each raising `NotImplementedError` with an explicit task marker (`"Task 3b"`, `"Task 3c"`, etc.) in the message. Catches accidental composite builds against the partial port — the runtime error tells you which session to pick up next.
+
+| Method | Owner | Notes |
+|---|---|---|
+| `initialize` | 3b | Calls `super().initialize(config)` then raises. |
+| `get_kinetic_constants` | 3b | Mass-density-dependent kinetic constants. |
+| `elongation_rate` | 3c | Wraps `kernel.get_elongation_rate`. |
+| `request` | 3c | Runs `run_model` for resource sizing. |
+| `run_model` | 3c | Predict deltas before allocation. |
+| `codon_sequences_width` | 3c | Read-ahead width for next tick. |
+| `sequences` | 3c | Ribosome-position → codon array. |
+| `max_charging_rate` | 3c | Kinetic ceiling for the allocation. |
+| `final_amino_acids` | 3d | AA pool + charged-tRNA contribution. |
+| `evolve` | 3d | Apply elongation + reconciliation. |
+| `reconcile` | 3d | Calls kernel reconcile_via_* pair. |
+| `protein_maturation` | 3d | N-terminal Met cleavage by MAP. |
+| `monomer_to_aa` | 3e | Codon ID → amino acid ID. |
+| `monomer_limit` | 3e | Per-codon usage cap. |
+
+### Smoke test
+`tests/test_kinetic_charging_polypeptide_elongation_scaffold.py` — 20 tests, all green:
+- 6 structural checks (module imports, subclass relationship, name/topology inheritance, all kinetic keys present, base keys preserved, schema entries well-formed).
+- 14 parametric checks (one per stubbed method) verifying the task-marker string appears in each stub's source. If 3b lands `initialize` but forgets to drop the test marker, this catches it.
+
+`pytest tests/test_kinetic_charging_polypeptide_elongation_scaffold.py` → 20 passed, 1 warning, 3.80 s.
+
+### What's gated for 3b
+- 3b can't drop any of the 14 stubs without re-running the scaffold test — the marker check fails immediately.
+- The smoke test would have caught a typo in any config_schema key name (since each is listed explicitly).
+- Inheritance pattern verified, so 3b doesn't have to re-derive how to extend the base.

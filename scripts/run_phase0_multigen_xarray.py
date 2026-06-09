@@ -48,6 +48,7 @@ os.chdir(REPO_ROOT)
 sys.path.insert(0, str(REPO_ROOT))
 
 from v2ecoli import build_composite
+from v2ecoli.composites._helpers import set_null_emitter_override
 from v2ecoli.library.parallel_seeds import run_seeds_parallel
 from v2ecoli.library.xarray_run import run_multigen_xarray, view_from_emit_paths
 
@@ -73,6 +74,13 @@ def run_one(seed: int, max_steps: int, max_generations: int, chunk: int) -> dict
     Module-level + self-contained so Ray can pickle it into a fresh worker:
     builds its own composite, does its own emit wiring, returns a plain dict.
     """
+    # Per-worker setup (runs in each fresh Ray process): suppress the baseline
+    # composite's generator-declared ParquetEmitter so it does NOT write to the
+    # shared .pbg/parquet-runs/default/ path — N parallel workers would collide
+    # there (FileExistsError). The composite then attaches a minimal RAMEmitter
+    # (global_time only) and WE drive the per-seed XArray store out of band.
+    set_null_emitter_override(True)
+
     out_dir = OUT_ROOT / f"seed_{seed:02d}"
     out_dir.mkdir(parents=True, exist_ok=True)
     store_path = out_dir / "store.zarr"

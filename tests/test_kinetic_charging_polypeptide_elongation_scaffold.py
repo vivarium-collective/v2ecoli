@@ -128,19 +128,14 @@ def test_kinetic_keys_have_well_formed_schema_entries() -> None:
 @pytest.mark.parametrize(
     ("method_name", "task_marker"),
     [
-        # 3b methods removed — landed in v2ecoli/processes/polypeptide/kinetic_charging.py
-        ("elongation_rate", "Task 3c"),
-        ("request", "Task 3c"),
+        # 3b + 3c methods removed — landed in
+        # v2ecoli/processes/polypeptide/kinetic_charging.py.
         ("final_amino_acids", "Task 3d"),
         ("evolve", "Task 3d"),
-        ("run_model", "Task 3c"),
         ("reconcile", "Task 3d"),
         ("protein_maturation", "Task 3d"),
         ("monomer_to_aa", "Task 3e"),
         ("monomer_limit", "Task 3e"),
-        ("codon_sequences_width", "Task 3c"),
-        ("sequences", "Task 3c"),
-        ("max_charging_rate", "Task 3c"),
     ],
 )
 def test_method_stub_carries_task_marker(method_name: str, task_marker: str) -> None:
@@ -311,6 +306,96 @@ def test_initialize_runs_end_to_end_against_cache() -> None:
     assert proc.previous_rate == int(
         proc.ribosomeElongationRate * cfg.get("time_step", 1)
     )
+
+
+# ------------------------ Task 3c: request-side methods ------------------------
+
+@pytest.mark.parametrize(
+    "method_name",
+    ["elongation_rate", "request", "run_model", "codon_sequences_width",
+     "sequences", "max_charging_rate", "_init_bulk_indices"],
+)
+def test_3c_method_no_longer_stub(method_name: str) -> None:
+    """3c is the marker that the request-side methods have left the
+    scaffold. If any reverts to a NotImplementedError raise, this fails."""
+    from v2ecoli.processes.polypeptide.kinetic_charging import (
+        KineticTrnaChargingPolypeptideElongation as KT,
+    )
+    method = getattr(KT, method_name, None)
+    assert method is not None, f"missing method: {method_name}"
+    src = inspect.getsource(method)
+    assert "Task 3c" not in src, f"{method_name} still carries Task 3c marker"
+    assert "NotImplementedError" not in src, (
+        f"{method_name} still raises NotImplementedError"
+    )
+
+
+def test_elongation_rate_calls_kernel_and_sets_longer_sequences() -> None:
+    """Source-scan to verify ``elongation_rate`` calls the kernel and caches
+    ``self.longer_sequences`` for later use by ``request``/``evolve``."""
+    from v2ecoli.processes.polypeptide.kinetic_charging import (
+        KineticTrnaChargingPolypeptideElongation as KT,
+    )
+    src = inspect.getsource(KT.elongation_rate)
+    assert "kernel.get_elongation_rate" in src
+    assert "self.longer_sequences" in src
+    assert "self.sequences_width" in src
+    assert "self.previous_rate" in src
+    assert "buildSequences" in src
+
+
+def test_request_requests_all_kinetic_bulk_keys() -> None:
+    """Source-scan to verify ``request`` builds bulk requests for amino acids,
+    ATP, both tRNA pools, synthetases, MAP, and water."""
+    from v2ecoli.processes.polypeptide.kinetic_charging import (
+        KineticTrnaChargingPolypeptideElongation as KT,
+    )
+    src = inspect.getsource(KT.request)
+    for idx in [
+        "self.amino_acid_idx",
+        "self.atp_idx",
+        "self.uncharged_trna_idx",
+        "self.charged_trna_idx",
+        "self.synthetase_idx",
+        "self.map_idx",
+        "self.water_idx",
+    ]:
+        assert idx in src, f"request missing bulk index: {idx}"
+    # Returns the v2ecoli tuple
+    assert "fraction_charged" in src
+    assert "amino_acids_used.astype(float)" in src
+
+
+def test_run_model_uses_ode_and_kernel_constants() -> None:
+    """Source-scan: ``run_model`` runs ``solve_ivp`` and uses our K_M /
+    saturation pre-compute on bulk_total."""
+    from v2ecoli.processes.polypeptide.kinetic_charging import (
+        KineticTrnaChargingPolypeptideElongation as KT,
+    )
+    src = inspect.getsource(KT.run_model)
+    assert "solve_ivp" in src
+    assert "method=\"RK45\"" in src
+    assert "rtol=1e-4" in src
+    assert "atol=1e-7" in src
+    assert "self.K_M_amino_acids" in src
+    assert "self.K_M_trnas" in src
+    assert "stochasticRound" in src
+    # Returns the full 7-tuple
+    assert "amino_acids_used" in src
+    assert "codons_read" in src
+    assert "codons_to_trnas_matrix" in src
+
+
+def test_init_bulk_indices_adds_kinetic_keys() -> None:
+    """The override adds ATP/AMP/PPi/MET/MAP indices to the base layout."""
+    from v2ecoli.processes.polypeptide.kinetic_charging import (
+        KineticTrnaChargingPolypeptideElongation as KT,
+    )
+    src = inspect.getsource(KT._init_bulk_indices)
+    assert "super()._init_bulk_indices" in src
+    for idx in ["self.atp_idx", "self.amp_idx", "self.ppi_idx",
+                "self.met_idx", "self.map_idx"]:
+        assert idx in src, f"_init_bulk_indices missing: {idx}"
 
 
 @pytest.mark.sim

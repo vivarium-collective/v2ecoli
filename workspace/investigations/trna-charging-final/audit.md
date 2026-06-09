@@ -527,3 +527,46 @@ Also removed `initialize` and `get_kinetic_constants` from the parametric `test_
 
 ### Synthetic extensions helper for 3c–3e
 `_make_kinetic_extensions(n_aas, n_trnas, n_codons, n_proteins, n_synthetases)` in the test file builds a dict that mirrors the shape contract Task #5 will populate from `sim_data.relation`. 3c–3e can reuse it via test fixtures without re-writing the boilerplate.
+
+---
+
+## Task #3c progress log
+
+**2026-06-09 — Request-side methods ported.**
+
+### Implementation
+Six stubs replaced in `v2ecoli/processes/polypeptide/kinetic_charging.py` plus one base method override:
+
+- **`_init_bulk_indices(bulk_ids)`** (override, ~10 LOC) — extends base layout with `atp_idx`, `amp_idx`, `ppi_idx`, `met_idx`, `map_idx`. Mirrors the upstream `PolypeptideElongation.calculate_request` block at lines 534–538.
+- **`elongation_rate(states)`** (~45 LOC) — re-derives `protein_indexes/peptide_lengths` from `states["active_ribosome"]` (v2ecoli's contract doesn't pass them); builds `self.longer_sequences` (codon-based) via `buildSequences`; calls `kernel.get_elongation_rate`; updates `self.previous_rate` warm-start.
+- **`request(states, aasInSequences)`** (~95 LOC) — IGNORES `aasInSequences` (it's amino-acid-domain; we work in codons); recomputes `monomers_in_sequences` from `self.longer_sequences`; runs `run_model` against `"bulk_total"`; builds bulk requests for AAs (+1% buffer), ATP, both tRNA pools, synthetases, MAP, and water (incl. termination); returns `(fraction_charged, amino_acids_used, requests)`.
+- **`run_model(codons, attr, states)`** (~270 LOC) — drives a `scipy.integrate.solve_ivp` RK45 ODE over the 6-segment molecules buffer. Inner `ode_model` closure computes charging + reading rates with sin/sin² roll-offs for low charged-fraction and low AA-pool corner cases. On `attr="bulk_total"` precomputes `K_M_amino_acids`, `K_M_trnas`, `cell_amino_acid_saturation` for the subsequent `"bulk"` call to reuse. Discretizes outputs (ceil for sizing, `stochasticRound` for evolve), caps at AA availability, reconciles tRNA-pool under/overflow. Emits `trna_charging.{saturation_trna, turnover}` listener fields on `"bulk"`.
+- **`max_charging_rate(states, attr)`** (~5 LOC) — `v_max = k_cat__per_s * n_synthetases`. Uses `self.synthetase_idx` (v2ecoli) for upstream's `self.process.trna_synthetases_for_aas_idx`.
+- **`codon_sequences_width(elongation_rates)`** (~1 LOC) — returns the per-tick width cached in `elongation_rate`. The `elongation_rates` arg is unused (kinetic model fixes width at basal + buffer).
+- **`sequences(sequences)`** (~1 LOC) — returns `self.longer_sequences`. The `sequences` arg is intentionally ignored (kept for API parity with upstream).
+
+### Upstream-vs-v2ecoli diffs documented in docstrings
+- `self.process.X_idx` → `self.X_idx` (v2ecoli's class IS the process).
+- Unum's `.asNumber(...)` → pint's `.to(...).magnitude`.
+- v2ecoli's `request(states, aasInSequences)` contract vs upstream's `request(states, monomers_in_sequences, protein_indexes, peptide_lengths)` — `aasInSequences` is ignored and the kinetic model recomputes its own codon-domain `monomers_in_sequences`.
+
+### Tests
+`tests/test_kinetic_charging_polypeptide_elongation_scaffold.py` grows from 23 to 28 tests:
+- Removes 6 entries from the `test_method_stub_carries_task_marker` parametric list (they're ported now).
+- Adds `test_3c_method_no_longer_stub` (parametric, 7 methods incl. `_init_bulk_indices`) — fails loud if any reverts.
+- Adds `test_elongation_rate_calls_kernel_and_sets_longer_sequences` — source-scan verifying `kernel.get_elongation_rate`, `buildSequences`, `self.longer_sequences`, `self.sequences_width`, `self.previous_rate` are referenced.
+- Adds `test_request_requests_all_kinetic_bulk_keys` — source-scan verifying every required bulk index is referenced (amino_acid, atp, uncharged_trna, charged_trna, synthetase, map, water) plus the v2ecoli return tuple.
+- Adds `test_run_model_uses_ode_and_kernel_constants` — source-scan verifying `solve_ivp` with RK45 + rtol=1e-4 + atol=1e-7, `K_M_amino_acids`, `K_M_trnas`, `stochasticRound`, and the 7-tuple return.
+- Adds `test_init_bulk_indices_adds_kinetic_keys` — source-scan verifying `super()._init_bulk_indices(bulk_ids)` is called and the 5 new indices are referenced.
+
+### Why source-scan instead of runtime
+A full `run_model` end-to-end requires the cache to populate the kinetic config keys (currently only synthetic-shape-only via `_make_kinetic_extensions`) AND the active_ribosome / bulk / listeners state to be plausibly initialized. End-to-end runtime tests come together in Task 3f's behavior test after Task #5 wires up sim_data.
+
+### Results
+- `pytest tests/test_kinetic_charging_polypeptide_elongation_scaffold.py` → **28 passed, 1 warning** in 4.74 s.
+- `pytest tests/test_kinetic_charging_*.py -m 'not sim'` → **50 passed, 2 deselected, 1 warning** in 3.52 s. No regressions in kernel tests or the cache-gated 3b instantiation.
+
+### Remaining work
+- 3d: `evolve`, `reconcile`, `protein_maturation`, `final_amino_acids`.
+- 3e: `monomer_to_aa`, `monomer_limit`, listener emission.
+- 3f: composite arch + behavior test (depends on Task #5).

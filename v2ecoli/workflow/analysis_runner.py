@@ -81,6 +81,61 @@ def _replication_events(times, oric, nforks):
     return init, completion
 
 
+def _history_from_clause(sweep_dir: str) -> str:
+    """A DuckDB FROM-clause selecting all of the sweep's history parquet."""
+    files = glob.glob(os.path.join(sweep_dir, "**", "history", "**", "*.pq"),
+                      recursive=True)
+    if not files:
+        raise FileNotFoundError(f"no history parquet under {sweep_dir!r}")
+    flist = "[" + ",".join("'" + f.replace("'", "''") + "'" for f in files) + "]"
+    return f"read_parquet({flist}, hive_partitioning=true)"
+
+
+# scale -> the partition columns that scale's history_sql filters on.
+_SCALE_FILTER_COLS = {
+    "single": ("variant", "lineage_seed", "generation", "agent_id"),
+    "multidaughter": ("variant", "lineage_seed", "generation"),  # parent handled below
+    "multigeneration": ("variant", "lineage_seed"),
+    "multiseed": ("variant",),
+    "multivariant": (),
+}
+
+
+def scale_history_sql(scale: str, from_clause: str, key: tuple) -> str:
+    """SELECT * scoped to the partition a scale aggregates over.
+
+    ``key`` is the group key from ``group_for_scale`` for that scale.
+    """
+    cols = _SCALE_FILTER_COLS[scale]
+    conds = []
+    for col, val in zip(cols, key):
+        if isinstance(val, str):
+            conds.append(f"agent_id = '{val}'" if col == "agent_id"
+                         else f"{col} = '{val}'")
+        else:
+            conds.append(f"{col} = {int(val)}")
+    if scale == "multidaughter" and len(key) >= 4:
+        # sisters share parent = agent_id without its last phylogeny char
+        conds.append(f"agent_id LIKE '{key[3]}_' ESCAPE '\\'")
+    where = (" WHERE " + " AND ".join(conds)) if conds else ""
+    return f"SELECT * FROM {from_clause}{where} ORDER BY global_time"
+
+
+def resolve_sim_data(sweep_dir: str):
+    """Locate + load the sweep's ParCa sim_data via v2ecoli's loader."""
+    from v2ecoli.library.sim_data import LoadSimData
+    # NB: do NOT match `**/kb/simData*.cPickle` — out/kb/simData.cPickle is the
+    # ParCa knowledge-base build, which can be a DIFFERENT sim_data version than
+    # the one the sweep ran with (see the pairing correction in the parity note).
+    for pat in ("sim_data*.cPickle", "sim_data*.pkl", "simData*.cPickle",
+                "**/sim_data*.cPickle", "**/simData*.cPickle"):
+        hits = glob.glob(os.path.join(sweep_dir, pat), recursive=True)
+        if hits:
+            return LoadSimData(sim_data_path=hits[0]).sim_data
+    raise FileNotFoundError(
+        f"no sim_data pickle under {sweep_dir!r} (needed by Analysis steps)")
+
+
 def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
     """Build per-cell summary records from the sweep's parquet + summary.json."""
     import duckdb
@@ -205,11 +260,24 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
     """Run the analyses named in ``analysis_options`` over the sweep's cells,
     write ``analysis.json``, and return the nested results."""
     from bigraph_schema import allocate_core
-    from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY, ANALYSIS_SCALES
+    from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY, ANALYSIS_SCALES
 
     records = list(build_cell_records(sweep_dir).values())
     core = allocate_core()
     results: dict[str, dict] = {}
+    # Provisioned once on first use and shared across every Analysis step, so the
+    # large sim_data pickle is loaded only once per run (not once per analysis),
+    # and a single DuckDB connection is reused.
+    _ctx: dict[str, Any] = {}
+
+    def _analysis_ctx() -> tuple:
+        if not _ctx:
+            import duckdb
+            _ctx["conn"] = duckdb.connect()
+            _ctx["from_clause"] = _history_from_clause(sweep_dir)
+            _ctx["sim_data"] = resolve_sim_data(sweep_dir)
+        return _ctx["conn"], _ctx["from_clause"], _ctx["sim_data"]
+
     for scale, analyses in (analysis_options or {}).items():
         if scale not in ANALYSIS_SCALES:
             warnings.warn(f"unknown analysis scale {scale!r}; skipping")
@@ -231,19 +299,50 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
             # Analyses with config_schema={} simply ignore a populated config.
             step = step_cls(analyses.get(name) or {}, core=core)
             per_group: dict[str, Any] = {}
-            for gkey, grp in groups.items():
-                try:
-                    # single-scale Steps consume a cell's timeseries; cross-scale
-                    # Steps consume the list of per-cell summary records. (A single
-                    # group is exactly one cell by construction — group_for_scale
-                    # keys single by the full cell id — so grp[0] is that cell.)
-                    rows = grp[0].get("timeseries") if scale == "single" else grp
-                    per_group[_group_key_str(scale, gkey)] = step.analyze(rows or [])
-                except Exception as e:
-                    per_group[_group_key_str(scale, gkey)] = {
-                        "error": f"{type(e).__name__}: {e}"}
+
+            if issubclass(step_cls, Analysis):
+                # DuckDB-provisioning path: connection + sim_data are shared across
+                # all groups and analyses (lazily provisioned once per run).
+                conn, from_clause, sim_data = _analysis_ctx()
+                params = (analyses or {}).get(name) or {}
+                viz_dir = os.path.join(sweep_dir, "viz")
+                os.makedirs(viz_dir, exist_ok=True)
+                for gkey in groups:
+                    gstr = _group_key_str(scale, gkey)
+                    try:
+                        history_sql = scale_history_sql(scale, from_clause, gkey)
+                        out = step.update({
+                            "conn": conn, "history_sql": history_sql,
+                            "config_sql": "", "success_sql": "",
+                            "sim_data": sim_data, "validation_data": None,
+                            "variant_metadata": params,
+                        })
+                        if out.get("view"):
+                            vp = os.path.join(viz_dir, f"{name}__{gstr.replace('/', '_')}.html")
+                            with open(vp, "w") as vf:
+                                vf.write(out["view"])
+                        per_group[gstr] = out.get("data", {})
+                    except Exception as e:
+                        per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}
+            else:
+                # Record-based AnalysisStep path (unchanged).
+                for gkey, grp in groups.items():
+                    try:
+                        # single-scale Steps consume a cell's timeseries; cross-scale
+                        # Steps consume the list of per-cell summary records. (A single
+                        # group is exactly one cell by construction — group_for_scale
+                        # keys single by the full cell id — so grp[0] is that cell.)
+                        rows = grp[0].get("timeseries") if scale == "single" else grp
+                        per_group[_group_key_str(scale, gkey)] = step.analyze(rows or [])
+                    except Exception as e:
+                        per_group[_group_key_str(scale, gkey)] = {
+                            "error": f"{type(e).__name__}: {e}"}
+
             scale_out[name] = per_group
         results[scale] = scale_out
+
+    if _ctx.get("conn") is not None:
+        _ctx["conn"].close()
 
     os.makedirs(sweep_dir, exist_ok=True)
     with open(os.path.join(sweep_dir, "analysis.json"), "w") as f:

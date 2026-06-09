@@ -2594,7 +2594,7 @@ dependencies = [
 [[package]]
 name = "pbg-emitters"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#ad269f4b6cb6e26a7e5016b38f50708a92452d5f" }
+source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#772403751e74ec6e3309b662c4d4bb682f68794e" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "numpy" },
@@ -2608,6 +2608,13 @@ parquet = [
     { name = "polars" },
     { name = "pyarrow" },
     { name = "tqdm" },
+]
+xarray = [
+    { name = "pint" },
+    { name = "unum" },
+    { name = "xarray" },
+    { name = "zarr" },
+    { name = "zarrs" },
 ]
 
 [[package]]
@@ -4030,6 +4037,7 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "pbg-copasi" },
+    { name = "pbg-emitters", extra = ["parquet", "xarray"] },
     { name = "pbg-superpowers" },
     { name = "plum-dispatch" },
     { name = "process-bigraph" },
@@ -4049,20 +4057,6 @@ dev = [
     { name = "pytest-timeout" },
     { name = "pytest-xdist" },
 ]
-emitters = [
-    { name = "pbg-emitters", extra = ["parquet"] },
-    { name = "xarray" },
-    { name = "zarr" },
-    { name = "zarrs" },
-]
-parquet = [
-    { name = "pbg-emitters", extra = ["parquet"] },
-]
-xarray = [
-    { name = "xarray" },
-    { name = "zarr" },
-    { name = "zarrs" },
-]
 
 [package.metadata]
 requires-dist = [
@@ -4075,7 +4069,8 @@ requires-dist = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "pbg-copasi", git = "https://github.com/vivarium-collective/pbg-copasi.git?branch=main" },
-    { name = "pbg-emitters", extras = ["parquet"], marker = "extra == 'parquet'", git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
+    { name = "pbg-emitters", extras = ["parquet"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
+    { name = "pbg-emitters", extras = ["xarray"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-superpowers", git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main" },
     { name = "plum-dispatch", specifier = ">=2.5" },
     { name = "process-bigraph", git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main" },
@@ -4091,9 +4086,6 @@ requires-dist = [
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
     { name = "vivarium-dashboard", git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main" },
-    { name = "xarray", marker = "extra == 'xarray'", specifier = ">=2026.4" },
-    { name = "zarr", marker = "extra == 'xarray'", specifier = "~=3.1.6" },
-    { name = "zarrs", marker = "extra == 'xarray'", specifier = ">=0.2" },
 ]
 provides-extras = ["dev", "parquet", "xarray", "emitters"]
 

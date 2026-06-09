@@ -232,3 +232,54 @@ CI workflows (`.github/workflows/*`), Jenkins, Docker, Nextflow, runscripts/, do
 ### Verified
 - All 5 modified files pass `py_compile`.
 - `KnowledgeBaseEcoli` instantiates in 1.5 s (44 trnas, 5680 optimization solutions accessible) with the new `anticodon` field present on every `rnas` row.
+
+---
+
+## Task #2a progress log
+
+**2026-06-09 — Cython parity-test scaffold landed.**
+
+### Built
+- Compiled upstream `_trna_charging.pyx` in `vEcoli_trna/` via its own `.venv` (Cython 3.1.2):
+  - `cd /Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli && .venv/bin/python setup.py build_ext --inplace`
+  - Produced `wholecell/utils/_trna_charging.cpython-312-darwin.so`.
+- Verified upstream test suite passes: `pytest wholecell/tests/utils/test_trna_charging.py` → 15 passed in 0.44s on macOS arm64 Python 3.12.9.
+
+### New files in v2ecoli
+- `workspace/investigations/trna-charging-final/capture_kernel_golden.py` — captures golden inputs+outputs for every kernel function by running the upstream Cython kernel with the test-case inputs from upstream `test_trna_charging.py` plus larger seeded random inputs for `reconcile_via_*`. Output: gz-compressed JSON, no Cython needed for read-back.
+- `tests/fixtures/trna_charging_kernel_golden.json.gz` (1.7 KB gz, 12 KB raw) — 25 cases across 9 functions:
+  - `get_initiations`: 1 case
+  - `get_codon_at`: 5 cases (current, +1, −1, beyond C-term, beyond N-term)
+  - `get_candidates_to_C`: 3 cases
+  - `get_candidates_to_N`: 2 cases
+  - `select_candidate`: 2 cases (r=0, r=1)
+  - `get_elongation_rate`: 1 case
+  - `get_codons_read`: 1 case
+  - `reconcile_via_ribosome_positions`: 7 cases (equal, forward, backward, backward_beyond, attempts_threshold, use_free_trna_prelim, 2 big-seeded with seed=12345 and 54321)
+  - `reconcile_via_trna_pools`: 2 cases (use_free_trna, forward_undo_charging)
+- `v2ecoli/processes/polypeptide/kinetic_charging_kernel.py` — module skeleton with:
+  - `seed(int)`/`randint_below(n)` RNG wrapper backed by `numpy.random.RandomState` (independent of `numpy.random` global state).
+  - Stubs for all 10 kernel functions (8 from 2b + reconcile_via_ribosome_positions, reconcile_via_trna_pools, get_elongation_rate) raising `NotImplementedError("Task 2b/2c/2d/2e")` until filled in.
+  - Module docstring spells out the RNG-equivalence policy: deterministic functions parity exactly; stochastic functions parity statistically.
+- `tests/test_kinetic_charging_kernel_scaffold.py` — 10 tests, all green:
+  - Golden round-trips: fixture exists, metadata present (`captured_at`, `upstream_sha`, `platform`, `rng`, the libc-rand note), all 9 functions covered, array serialization spot-check passes.
+  - RNG: deterministic given seed, divergent across seeds, independent of `numpy.random.seed`, raises when unseeded.
+  - Stubs: every function exists with the documented signature (parameter-name parity) and raises `NotImplementedError`.
+
+### Why the goldens are libc-rand stamped, not numpy-RandomState
+The upstream kernel calls `rand() % n`. On macOS, libc `rand()` is *not* the same RNG as glibc — so even the upstream's *own* golden outputs are platform-dependent. Our numpy `RandomState.randint(0, n)` is yet a third RNG. There are three reasonable choices:
+
+1. Bit-identical port via `ctypes` to libc's `rand`/`srand` — brittle, doesn't help if upstream ever rebuilds on a different libc.
+2. Statistical equivalence — port uses `numpy.random.RandomState` and we test that means/variances/distributions match across many seeds.
+3. Per-RNG goldens — capture one set of expected outputs per RNG implementation, asserted exactly within that RNG.
+
+The scaffold supports option 3 cleanly: the existing fixture is the `libc-rand-macos-arm64` golden, and 2c/2d will write a sibling `numpy-randomstate.json.gz` golden by running the ported kernel once at port time. Deterministic functions (8 of 11) use the libc-rand golden directly because they don't touch the RNG; stochastic functions (3) use both — libc-rand for "shape" sanity (sums of mutated arrays match) and numpy-randomstate for byte-identity.
+
+### Verified
+- All 10 scaffold tests pass: `pytest tests/test_kinetic_charging_kernel_scaffold.py` → 10 passed in 5.0s.
+- Golden file's metadata includes `upstream_sha=330ee3f4...` so re-captures can be diffed against the source SHA.
+
+### What 2b–2e inherit
+- `kernel.seed` / `kernel.randint_below` for stochastic functions.
+- `_load_golden()` pattern from the scaffold test for parity assertions.
+- For stochastic cases, the convention is to compute the ported function's output once at port time, pickle into the test (or a sibling `numpy-randomstate.json.gz` if we want a separate file), and assert bit-identity for that RNG. The libc-rand golden then exists only as documentation + sanity-shape check.

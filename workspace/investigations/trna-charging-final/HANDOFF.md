@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: `518768d infra(trna-charging): ParCa dataclass deltas for kinetic charging (Task #6)`.
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task 2a — about to commit).
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 
@@ -26,7 +26,7 @@ The order matters — each task is gated by the ones above it.
 
 | # | Task | Sizing | Notes |
 |---|---|---|---|
-| 2a | Build parity-test scaffold for the Cython kernel | 1 session, 2–3 hr | Compile upstream `_trna_charging.pyx` once in `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli`, dump representative inputs+outputs for every kernel function at fixed seeds into `tests/fixtures/trna_charging_kernel_golden.json.gz`. Create empty `v2ecoli/processes/polypeptide/kinetic_charging_kernel.py` with a numba-compatible RNG wrapper. Verify determinism + JSON round-trip. **Gates 2b–2e.** |
+| ~~2a~~ | ~~Parity-test scaffold~~ | **Done** | 25 cases × 9 functions captured to `tests/fixtures/trna_charging_kernel_golden.json.gz` from upstream Cython kernel built in `vEcoli_trna/.venv`. `v2ecoli/processes/polypeptide/kinetic_charging_kernel.py` has the RNG wrapper + 10 NotImplementedError stubs. `tests/test_kinetic_charging_kernel_scaffold.py` (10 tests, all green) gates the golden round-trip + RNG determinism + signature parity. RNG policy documented: stochastic functions parity per-RNG, not byte-identical vs libc rand. See audit.md "Task #2a progress log". |
 | 2b | Port 8 easy kernel functions | 1 session, 2–3 hr | `seed_rng`, `get_initiations`, `get_codon_at`, `get_candidates_to_C`, `get_candidates_to_N`, `select_candidate`, `is_initial_state`, `get_codons_read` (~120 LOC combined). `select_candidate` is the first function using `libc rand()` → route through the 2a RNG wrapper. Parity-test against the 2a golden. |
 | 2c | Port `reconcile_via_ribosome_positions` | 1 session, 3–4 hr | Lines 164–349 of `_trna_charging.pyx` (~186 LOC). The per-ribosome codon-step inner kernel. `@njit` the hot loop. Parity-test against golden across seeds and ribosome-count scales. |
 | 2d | Port `reconcile_via_trna_pools` | 1 session, 3–4 hr | Lines 350–463 (~114 LOC). Pool-balance accounting with stochastic rounding. Route stochastic rounding through the seeded RandomState from 2a, not numpy.random.binomial directly inside `@njit`. Parity-test. |
@@ -47,8 +47,8 @@ The order matters — each task is gated by the ones above it.
 Each session should land one logical commit. Recommended split:
 
 - ~~**Session 2:** Tasks #6~~ — Done in 518768d.
-- **Session 3 (next):** Task #2a (parity-test scaffold + golden capture). Gates all of 2b–2e — do this first or you're flying blind on later parity checks.
-- **Session 4:** Task #2b (8 easy kernel functions). Builds confidence in the RNG seam before the hard kernels.
+- ~~**Session 3:** Task #2a~~ — Done.
+- **Session 4 (next):** Task #2b (8 easy kernel functions). Builds confidence in the RNG seam before the hard kernels. The scaffold's `kernel.seed`/`kernel.randint_below` is ready; 2b's `select_candidate` is the first place the RNG seam gets exercised.
 - **Sessions 5 & 6:** Tasks #2c (`reconcile_via_ribosome_positions`) and #2d (`reconcile_via_trna_pools`). Independent — could run in parallel across two sessions if you have the bandwidth.
 - **Session 7:** Task #2e (`get_elongation_rate` + companion 580-line test).
 - **Session 8:** Task #3 (`KineticTrnaChargingModel` + composite arch + behavior test).

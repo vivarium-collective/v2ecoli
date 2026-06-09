@@ -1,0 +1,36 @@
+meta:
+  investigation: dnaa-replication
+  report_id: rpt-20260609121548
+  generated_at: '2026-06-09T13:38:45.739Z'
+  page_title: 'Investigation: DnaA / Replication Initiation (succinate, fresh start
+    2026-05-29)'
+  source_url: file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-09-2.html
+annotations:
+  study-dnaa-1-expression-discovery:
+  - ts: '2026-06-09T13:38:44.105Z'
+    author: Rashmi
+    text: Okay, at this stage 0.8e would be okay to move forward. Lets move to the
+      hydrolysis study.
+responses:
+  study-dnaa-1-expression-discovery:
+    status: done
+    by: claude
+    at: '2026-06-09'
+    response: |-
+      Accepted — V=0.8e-3 is the canonical dnaa-1 baseline and dnaa-1 is signed
+      off (expert_review_status -> approved). The ~0.6/min init rate stays on
+      record as the known sub-physiological tradeoff; the regulated /
+      cell-cycle-coupled synthesis lever is deferred (non-blocking).
+
+      On the hydrolysis study (dnaa-2): I checked whether the new canonical
+      V=0.8e-3 should propagate here. It should NOT — re-basing dnaa-2 to
+      V=0.8e-3 destabilizes it (the DnaA-ATP fraction drifts below the [0.2,0.5]
+      floor — gen-4 = 0.18 vs ~0.20-0.26 holding at V=1e-3 — and the seed-1
+      lineage hits an allocator crash at gen 5). dnaa-2's existing V=1e-3 result
+      is fine and stands as PASS (mass-doubling, oriC 1<->2, total DnaA in
+      [300,800], DnaA-ATP fraction avg 0.26). Conclusion: each study tunes its
+      own V; the canonical dnaa-1 V does not need to propagate downstream.
+
+      Moving to the next study — dnaa-3 (DnaA-box binding) — where the
+      free-DnaA-ATP level (hence V) is the natural lever for the persistent oriC
+      low-affinity over-binding, so V may again need adjusting there.

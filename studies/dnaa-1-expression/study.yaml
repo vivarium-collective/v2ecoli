@@ -13,7 +13,7 @@ implementation_status: complete
 simulation_status: ran            # backed by runs: below (0.8e-3 canonical + 7-point sweep + 15-gen equilibration + multiseed)
 evaluation_status: evaluated      # backed by findings: + recorded test outcomes
 gate_status: passed               # 2026-06-09: CANONICAL V=0.8e-3 — the only V whose DnaA pool oscillates WITHIN [300,800] (steady-gen cycle-mean ~362, peaks <800, troughs ~207) while keeping steady dynamics (oriC clean 1↔2 every gen, every gen divides). PASS on the expert's in-band + steady criterion; the dnaA init rate ~0.6/min (0.46-0.71) is the known sub-physiological tradeoff (PARTIAL). No constitutive V closes both band + ~1/min rate (7-point sweep + 15-gen equilibration) — needs a regulated lever.
-expert_review_status: needs_review  # pending Rashmi's confirmation of the V=0.8e-3 pick on the in-band + steady criterion (rate tradeoff flagged)
+expert_review_status: approved  # 2026-06-09 Rashmi: "0.8e would be okay to move forward" — V=0.8e-3 accepted as the canonical dnaa-1 baseline; the ~0.6/min init rate stands as the known sub-physiological tradeoff, the regulated-synthesis lever is deferred (non-blocking). See feedback/2026-06-09T13-38-45Z.yaml.
 
 # v4 schema (vivarium_dashboard.lib.investigations._validate_study_v4_redesign):
 #   REQUIRED top-level: schema_version, name, question, conditions, tests, status

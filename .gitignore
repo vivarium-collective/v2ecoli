@@ -53,3 +53,4 @@ investigations/*/viz/
 # These are local-only working notes — not part of the investigation's
 # published artefacts.
 docs/superpowers/notes/
+/out

@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task 2a — about to commit).
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `7bbea48 feat(trna-charging): parity-test scaffold for Cython kernel port (Task 2a)`.
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

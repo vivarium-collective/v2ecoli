@@ -59,6 +59,27 @@ _THREAD_ENV_KEYS = (
 _RADIUS_UM = 0.5  # E. coli capsule radius, matches EcoliWCM._read_outputs
 
 
+def _to_float(value: Any, default: float = 0.0) -> float:
+    """Coerce a listener value to a plain float, stripping pint units.
+
+    Mass/volume listeners can be pint ``Quantity`` (e.g. femtogram) at some
+    points in the composite lifecycle — ``float(Quantity)`` raises
+    ``DimensionalityError``. ``.magnitude`` gives the bare number; otherwise
+    a plain ``float()`` works."""
+    if value is None:
+        return float(default)
+    mag = getattr(value, "magnitude", None)
+    if mag is not None:
+        try:
+            return float(mag)
+        except (TypeError, ValueError):
+            return float(default)
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(default)
+
+
 def _length_from_volume(volume_fl: float) -> float:
     """Capsule length (µm) from volume (fL≈µm³): V=(4/3)πr³+πr²a, l=a+2r."""
     if volume_fl <= 0:
@@ -112,8 +133,8 @@ class _CellActorImpl:
 
         cell = self._composite.state.get("agents", {}).get("0", self._composite.state)
         mass = cell.get("listeners", {}).get("mass", {})
-        self._prev_mass = float(mass.get("dry_mass", 0.0))
-        self._prev_volume = float(mass.get("volume", 0.0))
+        self._prev_mass = _to_float(mass.get("dry_mass", 0.0))
+        self._prev_volume = _to_float(mass.get("volume", 0.0))
 
     def _inner_cell(self) -> dict:
         return self._composite.state.get("agents", {}).get("0", self._composite.state)
@@ -184,8 +205,8 @@ class _CellActorImpl:
             }
         cell = self._inner_cell()
         mass = cell.get("listeners", {}).get("mass", {})
-        dry_mass = float(mass.get("dry_mass", 0.0))
-        volume = float(mass.get("volume", 0.0))
+        dry_mass = _to_float(mass.get("dry_mass", 0.0))
+        volume = _to_float(mass.get("volume", 0.0))
         d_mass = dry_mass - self._prev_mass
         self._prev_mass = dry_mass
         self._prev_volume = volume

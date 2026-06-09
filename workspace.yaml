@@ -20,7 +20,7 @@ runtime:
 # optional; missing keys fall back to the default "Vivarium dashboard"
 # branding and an unfiltered registry.
 dashboard:
-  name: "sms-ecoli dashboard"          # header brand + <title> text
+  name: "sms-ecoli"                    # rail brand line 1; template renders "dashboard" beneath it
   logo: assets/sms-ecoli-logo.png      # workspace-relative rail logo
   registry:
     # Display-only allow-list: the Registry tab shows ONLY classes whose

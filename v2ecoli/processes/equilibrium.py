@@ -120,6 +120,13 @@ class Equilibrium(Step):
             self.mets_to_rxn_fluxes = np.asarray(self.parameters["mets_to_rxn_fluxes"])
             self.Rp = np.asarray(self.parameters["Rp"])
             self.Pp = np.asarray(self.parameters["Pp"])
+            # Per-reaction kinetic flag. True = integrate over the simulation
+            # timestep; False = solve to steady state. Falls back to all-False
+            # if the cache was built before this column existed.
+            mask = self.parameters.get("integrate_dt_mask")
+            if mask is None:
+                mask = [False] * len(self.rates_fwd)
+            self.integrate_dt_mask = np.asarray(mask, dtype=bool)
         else:
             self.fluxesAndMoleculesToSS = self.parameters["fluxesAndMoleculesToSS"]
             self.jit = self.parameters.get("jit", False)
@@ -145,33 +152,79 @@ class Equilibrium(Step):
             },
         }
 
-    def _solve_ode_to_steady_state(self, molecule_counts, cell_volume):
-        """Solve the reaction ODE system to steady state.
+    def _solve_ode_to_steady_state(self, molecule_counts, cell_volume, dt):
+        """Solve the reaction ODE system.
 
-        Converts molecule counts to concentrations, integrates dy/dt = S @ r(y)
-        to t=1e20 (effectively steady state), then converts back to integer
-        reaction flux counts via stochastic rounding.
+        Two-phase integration handles slow reactions that violate the
+        fast-equilibrium assumption:
+          1. Kinetic phase: integrate the full system over the simulation
+             timestep ``dt``. Reactions flagged ``integrate_dt_mask=True``
+             only contribute through this phase.
+          2. Equilibrium phase: continue integrating to ``t = 1e20``
+             with the kinetic-only reactions' rates set to zero, so the
+             remaining fast equilibria settle to steady state given the
+             phase-1 molecule pool.
+
+        If no reactions are flagged, the equilibrium phase alone produces
+        the original behaviour.
 
         Returns:
             reaction_fluxes: integer reaction flux vector (n_reactions,)
-            molecules_needed: molecules required for these fluxes (n_molecules,)
+            molecules_needed: molecules required for these fluxes
         """
         y_init = molecule_counts / (cell_volume * self.n_avogadro)
+        has_kinetic = bool(self.integrate_dt_mask.any())
 
-        # dy/dt = S @ rates(t, y, k_fwd, k_rev)
-        def deriv(t, y):
+        # Phase-1 (kinetic) derivative uses the full rates.
+        def deriv_kinetic(t, y):
             return self.stoichMatrix @ self.rates_fn(
                 t, y, self.rates_fwd, self.rates_rev)
 
-        def jac(t, y):
+        def jac_kinetic(t, y):
             return self.stoichMatrix @ self.rates_jac_fn(
                 t, y, self.rates_fwd, self.rates_rev)
 
-        # Solve to steady state (t -> infinity)
+        # Phase-2 (SS) zeroes out the kinetic-only reactions so the
+        # remaining equilibria can settle.
+        rates_fwd_ss = np.where(
+            self.integrate_dt_mask, 0.0, self.rates_fwd)
+        rates_rev_ss = np.where(
+            self.integrate_dt_mask, 0.0, self.rates_rev)
+
+        def deriv_ss(t, y):
+            return self.stoichMatrix @ self.rates_fn(
+                t, y, rates_fwd_ss, rates_rev_ss)
+
+        def jac_ss(t, y):
+            return self.stoichMatrix @ self.rates_jac_fn(
+                t, y, rates_fwd_ss, rates_rev_ss)
+
+        # Phase 1: kinetic integration over dt (only if any reaction is
+        # flagged; otherwise skip straight to the SS solve).
+        if has_kinetic:
+            for method in ["LSODA", "BDF"]:
+                try:
+                    sol1 = solve_ivp(deriv_kinetic, [0, dt], y_init,
+                                     method=method, t_eval=[0, dt],
+                                     jac=jac_kinetic)
+                    break
+                except ValueError:
+                    continue
+            else:
+                raise RuntimeError(
+                    "Could not solve equilibrium kinetic-phase ODE.")
+            y_after_dt = sol1.y[:, -1]
+            y_after_dt[y_after_dt < 0] = 0
+        else:
+            y_after_dt = y_init
+
+        # Phase 2: steady-state solve from the phase-1 endpoint, with
+        # kinetic-only reactions disabled.
         for method in ["LSODA", "BDF"]:
             try:
-                sol = solve_ivp(deriv, [0, 1e20], y_init, method=method,
-                                t_eval=[0, 1e20], jac=jac)
+                sol = solve_ivp(deriv_ss, [0, 1e20], y_after_dt,
+                                method=method, t_eval=[0, 1e20],
+                                jac=jac_ss)
                 break
             except ValueError:
                 continue
@@ -182,7 +235,9 @@ class Equilibrium(Step):
         y = sol.y.T
         y[y < 0] = 0
         y_molecules = y * (cell_volume * self.n_avogadro)
-        delta_molecules = y_molecules[-1] - y_molecules[0]
+        # Total delta = (phase-1 endpoint - initial) + (phase-2 endpoint -
+        # phase-1 endpoint) = phase-2 endpoint - initial.
+        delta_molecules = y_molecules[-1] - y_init * (cell_volume * self.n_avogadro)
 
         # Round continuous molecule changes to integer reaction fluxes
         for _ in range(100):
@@ -215,14 +270,16 @@ class Equilibrium(Step):
         ).to(units.g).magnitude
         cell_volume = cell_mass_g / self.cell_density
 
+        dt = float(states.get("timestep", 1))
+
         # Solve ODE to steady state -> reaction fluxes nu
         if self.rates_fn is not None:
             reaction_fluxes, _ = self._solve_ode_to_steady_state(
-                molecule_counts, cell_volume)
+                molecule_counts, cell_volume, dt)
         else:
             reaction_fluxes, _ = self.fluxesAndMoleculesToSS(
                 molecule_counts, cell_volume, self.n_avogadro,
-                self.random_state, jit=self.jit)
+                self.random_state, jit=self.jit, timestep=dt)
 
         # Greedy flux correction: the steady-state solution may exceed
         # available counts (stochastic rounding overshoot). Reduce fluxes

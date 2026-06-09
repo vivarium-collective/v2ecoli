@@ -41,6 +41,27 @@ def build_core():
     """Create and configure a bigraph-schema core with ecoli types."""
     core = allocate_core()
     core.register_types(ECOLI_TYPES)
+    # Register emitters as links so they're discoverable (dashboard scans
+    # core.link_registry for Emitter subclasses). Parquet stays the default
+    # (workspace.yaml runtime.default_emitter = parquet). Be defensive: these
+    # carry heavy optional deps — register what imports successfully and never
+    # let an emitter import break build_core.
+    try:
+        from process_bigraph.emitter import SQLiteEmitter, RAMEmitter
+        core.register_link("SQLiteEmitter", SQLiteEmitter)
+        core.register_link("RAMEmitter", RAMEmitter)
+    except Exception:
+        pass
+    try:
+        from pbg_emitters import ParquetEmitter
+        core.register_link("ParquetEmitter", ParquetEmitter)
+    except Exception:
+        pass
+    try:
+        from pbg_emitters import XArrayEmitter
+        core.register_link("XArrayEmitter", XArrayEmitter)
+    except Exception:
+        pass
     return core
 
 

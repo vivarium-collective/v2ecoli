@@ -703,9 +703,18 @@ class GetterFunctions(object):
         # Build mapping from complex ID to its subunit stoichiometry
         complex_id_to_stoich = {}
 
+        # Reactions that aren't assembling a fresh protein complex from
+        # subunits (e.g. DnaA-ATP -> DnaA-ADP intrinsic hydrolysis: both
+        # products and reactants are existing complexes plus metabolites).
+        # Their mass is established by other reactions; skip them here.
+        INTER_CONVERSION_REACTIONS = {"DNAA-INTRINSIC-HYDROLYSIS-RXN"}
+
         for rxn in itertools.chain(
             raw_data.complexation_reactions, raw_data.equilibrium_reactions
         ):
+            if rxn["id"] in INTER_CONVERSION_REACTIONS:
+                continue
+
             # Get the ID of the complex and the stoichiometry of subunits
             complex_ids = []
             subunit_stoich = {}

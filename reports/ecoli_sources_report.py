@@ -1,0 +1,989 @@
+"""
+ecoli-sources bundle integration report
+========================================
+
+Documents the ecoli-sources data bundle as it is used in v2ecoli:
+  1. Bundle inputs — full inventory, download links, override annotations
+  2. How ParCa uses them — HTML flow diagram + prose
+  3. ParCa output summary — sim_data introspection (requires a real run)
+  4. Multi-ParCa variant comparison — ParCa config variant, operons on/off
+     (requires real runs; one ParCa run per column)
+
+Usage::
+
+    # Full report (runs ParCa — intended for a remote machine):
+    python reports/ecoli_sources_report.py
+
+    # No-compute path (sections 1 & 2 only, 3 & 4 as placeholders):
+    python reports/ecoli_sources_report.py --skip-runs
+
+    # Custom options:
+    python reports/ecoli_sources_report.py --skip-runs --out /tmp/report.html
+    python reports/ecoli_sources_report.py --cpus 4 --date "2026-06-08"
+
+    # Section 4 variants are config-variant tokens (default: operons_off).
+    # A bundle-override variant can still be requested as name=dataset.tsv,
+    # but note v2ecoli's ParCa ignores the experimental-tpms swap (see the
+    # NOTE box in section 4).
+    python reports/ecoli_sources_report.py --variants operons_off
+"""
+from __future__ import annotations
+
+import argparse
+import base64
+import html
+import os
+import pickle
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_DOCS_DIR = _REPO_ROOT / "docs"
+_PYPROJECT = _REPO_ROOT / "pyproject.toml"
+
+_ECOLI_SOURCES_RAW_BASE = (
+    "https://raw.githubusercontent.com/vivarium-collective/ecoli-sources"
+)
+
+
+# ---------------------------------------------------------------------------
+# Helper: read the pinned ecoli-sources rev SHA from pyproject.toml
+# ---------------------------------------------------------------------------
+def _ecoli_sources_rev() -> str | None:
+    """Parse the pinned `rev` SHA for ecoli-sources from [tool.uv.sources].
+
+    Returns the SHA string, or None if the dependency is pinned to a branch
+    (or otherwise has no `rev`), in which case the caller should fall back to
+    base64-embedding the file.
+    """
+    try:
+        try:
+            import tomllib  # py3.11+
+        except ModuleNotFoundError:  # pragma: no cover
+            import tomli as tomllib  # type: ignore
+        with open(_PYPROJECT, "rb") as f:
+            data = tomllib.load(f)
+        src = data.get("tool", {}).get("uv", {}).get("sources", {}).get("ecoli-sources")
+        if isinstance(src, dict):
+            rev = src.get("rev")
+            if isinstance(rev, str) and rev.strip():
+                return rev.strip()
+    except Exception:
+        pass
+    return None
+
+# ---------------------------------------------------------------------------
+# CSS
+# ---------------------------------------------------------------------------
+CSS = """
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, system-ui, sans-serif;
+       color: #1e293b; background: #f8fafc; }
+header { background: #0f172a; color: #f1f5f9; padding: 24px 36px; }
+header h1 { margin: 0 0 6px; font-size: 22px; }
+header p { margin: 0; color: #94a3b8; font-size: 13px; }
+main { max-width: 1100px; margin: 0 auto; padding: 28px 36px 70px; }
+h2 { font-size: 17px; margin: 36px 0 8px; color: #0f172a;
+     border-left: 4px solid #6366f1; padding-left: 10px; }
+h3 { font-size: 14px; margin: 20px 0 6px; color: #334155; }
+.note { font-size: 12px; color: #64748b; margin: 0 0 12px; }
+.strategy { font-size: 12px; color: #0f766e; background: #f0fdfa;
+            border: 1px solid #99f6e4; border-radius: 6px;
+            padding: 8px 12px; margin: 0 0 14px; }
+table { border-collapse: collapse; width: 100%; background: #fff;
+        font-size: 13px; margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,.08);
+        border-radius: 8px; overflow: hidden; }
+th, td { padding: 7px 13px; text-align: left; border-bottom: 1px solid #eef2f7; }
+thead th { background: #1e293b; color: #f1f5f9; font-weight: 600; }
+tr:last-child td { border-bottom: none; }
+td.key { font-family: monospace; font-size: 12px; color: #334155; word-break: break-all; }
+td.file { font-family: monospace; font-size: 11px; color: #64748b; word-break: break-all; }
+td.size { text-align: right; color: #64748b; }
+.badge { display: inline-block; font-size: 10px; font-weight: 700;
+         padding: 2px 7px; border-radius: 10px; white-space: nowrap; }
+.badge-override { background: #fef9c3; color: #92400e; border: 1px solid #fde68a; }
+.badge-bundle   { background: #e0f2fe; color: #0c4a6e; border: 1px solid #bae6fd; }
+a.dl { font-size: 11px; text-decoration: none; color: #6366f1; }
+a.dl:hover { text-decoration: underline; }
+a.flink { font-size: 11px; text-decoration: none; color: #64748b; font-family: monospace; }
+.placeholder { background: #f1f5f9; border: 2px dashed #cbd5e1;
+               border-radius: 8px; padding: 24px 32px; color: #64748b;
+               font-size: 13px; margin: 12px 0; }
+.placeholder code { font-size: 12px; color: #475569; }
+/* Flow diagram */
+.flow-wrap { overflow-x: auto; padding: 16px 0; }
+.flow { display: flex; align-items: center; gap: 0; flex-wrap: nowrap; }
+.box { background: #fff; border: 2px solid #6366f1; border-radius: 8px;
+       padding: 10px 14px; min-width: 130px; text-align: center; flex-shrink: 0; }
+.box.src   { border-color: #0ea5e9; background: #f0f9ff; }
+.box.proc  { border-color: #6366f1; background: #eef2ff; }
+.box.out   { border-color: #10b981; background: #ecfdf5; }
+.box.ovr   { border-color: #f59e0b; background: #fffbeb; }
+.box-title { font-size: 12px; font-weight: 700; color: #0f172a; }
+.box-sub   { font-size: 10px; color: #64748b; margin-top: 3px; }
+.arrow     { font-size: 22px; color: #94a3b8; padding: 0 4px; flex-shrink: 0; }
+.override-merge { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.override-merge .box { min-width: 120px; }
+.plus { font-size: 14px; font-weight: 700; color: #f59e0b; }
+/* collapsible */
+details { margin: 10px 0; }
+summary { cursor: pointer; font-size: 13px; color: #4f46e5; user-select: none; }
+summary::-webkit-details-marker { color: #4f46e5; }
+.detail-inner { padding: 10px 0 4px; }
+/* parca summary table */
+.metric-label { color: #475569; font-size: 12px; }
+.metric-val   { font-weight: 600; font-family: monospace; }
+.metric-na    { color: #94a3b8; font-style: italic; }
+.err-col      { background: #fff7f7; }
+.err-msg      { font-size: 11px; color: #b91c1c; font-family: monospace; word-break: break-all; }
+footer { max-width: 1100px; margin: 0 auto; padding: 0 36px 40px;
+         color: #64748b; font-size: 12px; }
+"""
+
+# ---------------------------------------------------------------------------
+# Helper: base64 encode a file for a data: URI
+# ---------------------------------------------------------------------------
+def _file_b64(path: Path) -> str:
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode("ascii")
+
+
+def _download_link(path: Path, label: str, mime: str = "text/tab-separated-values") -> str:
+    """Return an <a href="data:..."> download link for a file, or a file:// link on failure."""
+    try:
+        b64 = _file_b64(path)
+        return (f'<a class="dl" href="data:{mime};base64,{b64}" '
+                f'download="{html.escape(path.name)}">{html.escape(label)}</a>')
+    except Exception:
+        return f'<a class="flink" href="file://{path}">{html.escape(label)}</a>'
+
+
+def _filelink(path: Path, label: str) -> str:
+    return f'<a class="flink" href="file://{path}">{html.escape(label)}</a>'
+
+
+# ---------------------------------------------------------------------------
+# Section 1: Bundle inputs
+# ---------------------------------------------------------------------------
+def section_inputs() -> str:
+    from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
+    from ecoli_sources import DATA_DIR
+
+    b = SourceBundle()
+    index = b._index  # {canonical_key: Path}
+    data_dir = Path(DATA_DIR).resolve()
+
+    # Classify each key: overrides live under flat_overrides/ (diverged locally)
+    overrides = {k for k, p in index.items() if "flat_overrides" in str(p)}
+
+    total_bytes = sum(p.stat().st_size for p in index.values() if p.exists())
+    total_mb = total_bytes / 1024 / 1024
+
+    # Pinned ecoli-sources commit drives the raw.githubusercontent.com links.
+    rev = _ecoli_sources_rev()
+    if rev:
+        print(f"[inputs] ecoli-sources pinned at rev {rev}; "
+              f"inherited files -> raw.githubusercontent.com links")
+    else:
+        print("[inputs] WARNING: no `rev` SHA parsed from pyproject.toml "
+              "[tool.uv.sources].ecoli-sources (branch pin?); "
+              "falling back to base64-embedding inherited files")
+
+    n_linked = 0
+    n_embedded_fallback = 0
+
+    def _raw_url(p: Path) -> str | None:
+        """Pinned GitHub raw URL for an inherited file, or None if unmappable."""
+        if not rev:
+            return None
+        try:
+            rel = p.resolve().relative_to(data_dir).as_posix()
+        except Exception as e:
+            print(f"[inputs] WARNING: {p} not under DATA_DIR ({e}); embedding instead")
+            return None
+        return f"{_ECOLI_SOURCES_RAW_BASE}/{rev}/ecoli_sources/data/{rel}"
+
+    strategy = (
+        f"Embedding strategy: <strong>split</strong> — "
+        f"the {len(index) - len(overrides)} inherited files link to the "
+        f"pinned <code>ecoli-sources</code> commit "
+        + (f"(<code>{html.escape(rev[:12])}…</code>) " if rev else "")
+        + f"on GitHub (<code>raw.githubusercontent.com</code>); the "
+        f"{len(overrides)} v2ecoli overrides are embedded inline as "
+        f"<code>data:</code> URIs so the report stays self-contained. "
+        f"This keeps the HTML small (total raw bundle: {total_mb:.2f} MB)."
+    )
+    if not rev:
+        strategy += (
+            " <strong>Note:</strong> no <code>rev</code> SHA could be parsed "
+            "from <code>pyproject.toml</code> (branch pin?), so inherited files "
+            "fall back to inline <code>data:</code> embeds."
+        )
+
+    # Sort: overrides first, then by category (key prefix)
+    def sort_key(k):
+        is_ov = k in overrides
+        parts = k.split("__")
+        cat = parts[0] if len(parts) > 1 else "root"
+        return (0 if is_ov else 1, cat, k)
+
+    sorted_keys = sorted(index.keys(), key=sort_key)
+
+    rows = []
+    for k in sorted_keys:
+        p = index[k]
+        is_ov = k in overrides
+        badge_html = (
+            '<span class="badge badge-override">v2ecoli override</span>'
+            if is_ov else
+            '<span class="badge badge-bundle">ecoli-sources</span>'
+        )
+        size_kb = p.stat().st_size / 1024 if p.exists() else 0
+
+        if not p.exists():
+            link = "<span class='metric-na'>missing</span>"
+        elif is_ov:
+            # Diverged local override: embed inline (tiny, self-contained).
+            link = _download_link(p, "download (embedded)")
+        else:
+            # Inherited from ecoli-sources: link to the pinned raw URL.
+            url = _raw_url(p)
+            if url is not None:
+                link = (f'<a class="dl" href="{html.escape(url)}" '
+                        f'target="_blank" rel="noopener">download &#8599;</a>')
+                n_linked += 1
+            else:
+                # No usable rev / unmappable path -> fall back to embed.
+                link = _download_link(p, "download (embedded)")
+                n_embedded_fallback += 1
+
+        rows.append(
+            f"<tr>"
+            f"<td class='key'>{html.escape(k)}</td>"
+            f"<td>{badge_html}</td>"
+            f"<td class='file'>{html.escape(p.name)}</td>"
+            f"<td class='size'>{size_kb:.1f}</td>"
+            f"<td>{link}</td>"
+            f"</tr>"
+        )
+
+    n_ov = len(overrides)
+    n_bundle = len(index) - n_ov
+
+    print(f"[inputs] {n_linked} inherited files linked to raw URLs; "
+          f"{n_ov} overrides embedded; {n_embedded_fallback} inherited embedded as fallback")
+
+    header_row = (
+        "<tr><th>Canonical key</th><th>Source</th>"
+        "<th>Filename</th><th style='text-align:right'>Size (KB)</th>"
+        "<th>Download</th></tr>"
+    )
+
+    summary = (
+        f"<p class='note'>{len(index)} keys total &mdash; "
+        f"<strong>{n_ov} v2ecoli overrides</strong> (diverged flat files, embedded), "
+        f"<strong>{n_bundle} from ecoli-sources</strong> "
+        f"(linked to the pinned commit). "
+        f"Total raw size: {total_mb:.2f} MB.</p>"
+    )
+
+    return f"""
+<h2>1 &nbsp; Bundle inputs</h2>
+{summary}
+<div class="strategy">{strategy}</div>
+<table>
+<thead>{header_row}</thead>
+<tbody>{''.join(rows)}</tbody>
+</table>
+"""
+
+
+# ---------------------------------------------------------------------------
+# Section 2: How ParCa uses them
+# ---------------------------------------------------------------------------
+def section_flow() -> str:
+    flow_html = """
+<div class="flow-wrap">
+<div class="flow">
+
+  <div class="override-merge">
+    <div class="box src">
+      <div class="box-title">ecoli-sources bundle</div>
+      <div class="box-sub">reference_bundle.tsv<br>135 canonical keys</div>
+    </div>
+    <div class="plus">+</div>
+    <div class="box ovr">
+      <div class="box-title">v2ecoli overrides</div>
+      <div class="box-sub">parca_overrides.tsv<br>3 diverged flat files</div>
+    </div>
+  </div>
+
+  <div class="arrow">&#8594;</div>
+
+  <div class="box proc">
+    <div class="box-title">SourceBundle resolver</div>
+    <div class="box-sub">canonical_key &rarr; Path<br>overrides win on merge</div>
+  </div>
+
+  <div class="arrow">&#8594;</div>
+
+  <div class="box proc">
+    <div class="box-title">KnowledgeBaseEcoli</div>
+    <div class="box-sub">reads TSV flat files<br>into raw_data structs</div>
+  </div>
+
+  <div class="arrow">&#8594;</div>
+
+  <div class="box proc">
+    <div class="box-title">build_parca_composite</div>
+    <div class="box-sub">9 bigraph Steps wired<br>in a DAG composite</div>
+  </div>
+
+  <div class="arrow">&#8594;</div>
+
+  <div class="box out">
+    <div class="box-title">sim_data</div>
+    <div class="box-sub">SimulationDataEcoli<br>parca_state.pkl</div>
+  </div>
+
+</div>
+</div>
+"""
+
+    step_rows = "".join(
+        f"<tr><td class='key'>Step {n} &mdash; {name}</td><td>{desc}</td></tr>"
+        for n, name, desc in [
+            (1, "InitializeStep",
+             "Loads <code>KnowledgeBaseEcoli</code> raw flat-file tables; "
+             "instantiates an empty <code>SimulationDataEcoli</code>; "
+             "populates compartments, MW keys, base codes, and helper objects."),
+            (2, "InputAdjustmentsStep",
+             "Applies optional gene-knockouts and expression adjustments from "
+             "<code>adjustments/</code> keys."),
+            (3, "BasalSpecsStep",
+             "Fits basal transcription and translation parameters (RNA/protein "
+             "fractions, elongation rates). Caches Km optimisation results to disk."),
+            (4, "TfConditionSpecsStep",
+             "Fits per-TF-condition expression specs in parallel "
+             "(<code>--cpus</code> controls fan-out)."),
+            (5, "FitConditionStep",
+             "Iterates promoter-binding/ribosome-capacity fitting per nutrient "
+             "condition; the most CPU-intensive step (~60 min total)."),
+            (6, "PromoterBindingStep",
+             "Sets promoter-bound RNAP fractions using the fitted TF activities."),
+            (7, "AdjustPromotersStep",
+             "Applies ppGpp-based promoter-expression adjustments."),
+            (8, "SetConditionsStep",
+             "Writes per-condition biomass/mass targets into <code>cell_specs</code>; "
+             "emits <code>expected_dry_mass_increase_dict</code>."),
+            (9, "FinalAdjustmentsStep",
+             "Normalises remaining fitted parameters; finalises "
+             "<code>sim_data_root</code>."),
+        ]
+    )
+
+    return f"""
+<h2>2 &nbsp; How ParCa runs them</h2>
+
+<h3>Pipeline overview</h3>
+<p class="note">
+  <code>v2ecoli-parca</code> builds a <strong>9-step process-bigraph composite</strong>
+  from the bundle&#8217;s flat TSV files. Each step is a <code>_type: step</code> node
+  in the bigraph store; steps fire sequentially via <code>run_steps_on_init</code>.
+  The diagram below shows the data-flow from bundle manifest to pickled
+  <code>sim_data</code>.
+</p>
+
+{flow_html}
+
+<h3>Override mechanism</h3>
+<p class="note">
+  v2ecoli keeps three biology-diverged files locally in
+  <code>v2ecoli/processes/parca/reconstruction/ecoli/flat_overrides/</code>
+  and lists them in <code>parca_overrides.tsv</code>. <code>SourceBundle.__init__</code>
+  reads the ecoli-sources <code>reference_bundle.tsv</code> first, then applies the
+  override manifest on top — later entries overwrite earlier ones for the same
+  <code>canonical_key</code>. The three overridden keys are:
+  <code>equilibrium_reactions</code>, <code>equilibrium_reaction_rates</code>,
+  and <code>metabolic_reactions_added</code> (DnaA-ATP hydrolysis + metabolic
+  additions from PRs #123 and v2parca merge #16).
+</p>
+
+<h3>Bundle swap point for variants</h3>
+<p class="note">
+  Passing <code>--bundle-manifest-path</code> to <code>v2ecoli-parca</code> replaces
+  the default ecoli-sources <code>BUNDLE_PATH</code> as the base manifest. Rows in
+  the replacement manifest that match a <code>canonical_key</code> from the default
+  bundle override its <code>source_path</code>. v2ecoli&#8217;s override manifest is
+  then layered on top as usual. This bundle-override path is kept available for
+  future input-dataset variants, but section 4&#8217;s default variant is a ParCa
+  <em>configuration</em> swap (operons on/off) because v2ecoli&#8217;s ParCa
+  ignores an <code>rnaseq_experimental_tpms</code> swap today (see section 4&#8217;s NOTE).
+</p>
+
+<h3>9 pipeline steps</h3>
+<table>
+<thead><tr><th>Step</th><th>What it does</th></tr></thead>
+<tbody>{step_rows}</tbody>
+</table>
+"""
+
+
+# ---------------------------------------------------------------------------
+# Section 3: ParCa output (default bundle)
+# ---------------------------------------------------------------------------
+def _safe(obj, *attrs, fmt=None):
+    """Walk nested attributes defensively; return formatted value or '—'."""
+    try:
+        v = obj
+        for a in attrs:
+            v = getattr(v, a)
+        if fmt:
+            return fmt.format(v)
+        # Try len() for array-like things
+        try:
+            return str(len(v))
+        except TypeError:
+            return str(v)
+    except Exception:
+        return "<span class='metric-na'>&mdash;</span>"
+
+
+def _extract_metrics(state: dict) -> dict:
+    """Defensively extract key metrics from a parca composite state dict."""
+    sd = state.get("sim_data_root")
+    if sd is None:
+        return {"error": "sim_data_root key missing from state dict"}
+
+    metrics = {}
+
+    # Genes / cistrons (transcription)
+    metrics["n_cistrons"] = _safe(sd, "process", "transcription", "cistron_data")
+    metrics["n_rnas"]     = _safe(sd, "process", "transcription", "rna_data")
+
+    # Proteins (translation monomers)
+    metrics["n_monomers"] = _safe(sd, "process", "translation", "n_monomers")
+
+    # Metabolic reactions
+    metrics["n_rxns"]     = _safe(sd, "process", "metabolism", "base_reaction_ids")
+
+    # Bulk molecules
+    metrics["n_bulk"]     = _safe(sd, "internal_state", "bulk_molecules", "bulk_data")
+
+    # Mass parameters
+    try:
+        m = sd.mass.avg_cell_dry_mass
+        metrics["avg_dry_mass_fg"] = f"{float(m.asNumber()):.2f}" if hasattr(m, "asNumber") else str(m)
+    except Exception:
+        metrics["avg_dry_mass_fg"] = "<span class='metric-na'>&mdash;</span>"
+
+    try:
+        dt = sd.doubling_time
+        metrics["doubling_time_min"] = f"{float(dt.asNumber()):.1f}" if hasattr(dt, "asNumber") else str(dt)
+    except Exception:
+        metrics["doubling_time_min"] = "<span class='metric-na'>&mdash;</span>"
+
+    # Conditions
+    try:
+        metrics["n_conditions"] = str(len(sd.condition_to_doubling_time))
+    except Exception:
+        metrics["n_conditions"] = "<span class='metric-na'>&mdash;</span>"
+
+    # Translation efficiencies
+    try:
+        import numpy as np
+        te = sd.process.translation.translation_efficiencies_by_monomer
+        metrics["mean_trl_efficiency"] = f"{float(np.mean(te)):.4f}"
+    except Exception:
+        metrics["mean_trl_efficiency"] = "<span class='metric-na'>&mdash;</span>"
+
+    # Genome length
+    try:
+        metrics["genome_length_bp"] = _safe(sd, "process", "transcription", "_genome_length",
+                                             fmt="{:,}")
+    except Exception:
+        metrics["genome_length_bp"] = "<span class='metric-na'>&mdash;</span>"
+
+    return metrics
+
+
+_METRIC_LABELS = [
+    ("n_cistrons",           "Cistrons (gene models)"),
+    ("n_rnas",               "RNA species"),
+    ("n_monomers",           "Protein monomers"),
+    ("n_rxns",               "Metabolic reactions (base)"),
+    ("n_bulk",               "Bulk molecule species"),
+    ("avg_dry_mass_fg",      "Avg cell dry mass (fg)"),
+    ("doubling_time_min",    "Doubling time (min)"),
+    ("n_conditions",         "Nutrient conditions"),
+    ("mean_trl_efficiency",  "Mean translation efficiency"),
+    ("genome_length_bp",     "Genome length (bp)"),
+]
+
+
+def section_parca_output(outdir: Path, cpus: int, skip: bool) -> str:
+    if skip:
+        return """
+<h2>3 &nbsp; ParCa output (default bundle)</h2>
+<div class="placeholder">
+  <strong>Not run</strong> &mdash; pass without <code>--skip-runs</code> to execute ParCa
+  and populate this section.<br><br>
+  <code>v2ecoli-parca --mode fast -o out/sim_data --cpus N</code>
+</div>
+"""
+
+    pkl_path = outdir / "parca_state.pkl"
+    # Run ParCa if pkl doesn't exist
+    if not pkl_path.exists():
+        print(f"[parca/default] Running ParCa → {outdir} ...")
+        argv = [
+            str(_REPO_ROOT / ".venv" / "bin" / "v2ecoli-parca"),
+            "--mode", "fast",
+            "-o", str(outdir),
+            "--cpus", str(cpus),
+        ]
+        result = subprocess.run(argv, cwd=str(_REPO_ROOT))
+        if result.returncode != 0:
+            return f"""
+<h2>3 &nbsp; ParCa output (default bundle)</h2>
+<div class="placeholder" style="border-color:#fca5a5;background:#fff7f7">
+  <strong>ParCa run FAILED</strong> (exit code {result.returncode}).
+  Check stderr for details.
+</div>
+"""
+    if not pkl_path.exists():
+        return f"""
+<h2>3 &nbsp; ParCa output (default bundle)</h2>
+<div class="placeholder" style="border-color:#fca5a5;background:#fff7f7">
+  <strong>parca_state.pkl not found</strong> in {html.escape(str(outdir))}.
+</div>
+"""
+
+    print(f"[parca/default] Loading {pkl_path} ...")
+    try:
+        with open(pkl_path, "rb") as f:
+            state = pickle.load(f)
+    except Exception as e:
+        return f"""
+<h2>3 &nbsp; ParCa output (default bundle)</h2>
+<div class="placeholder" style="border-color:#fca5a5;background:#fff7f7">
+  <strong>Failed to load pkl:</strong> {html.escape(str(e))}
+</div>
+"""
+
+    metrics = _extract_metrics(state)
+
+    if "error" in metrics:
+        err_html = f'<tr><td colspan="2" class="err-msg">{html.escape(metrics["error"])}</td></tr>'
+        metric_rows = err_html
+    else:
+        metric_rows = "".join(
+            f"<tr>"
+            f"<td class='metric-label'>{html.escape(label)}</td>"
+            f"<td class='metric-val'>{metrics.get(key, '<span class=\"metric-na\">&mdash;</span>')}</td>"
+            f"</tr>"
+            for key, label in _METRIC_LABELS
+        )
+
+    pkl_size_mb = pkl_path.stat().st_size / 1024 / 1024
+    if pkl_size_mb < 25:
+        pkl_download = _download_link(pkl_path, f"download pkl ({pkl_size_mb:.1f} MB)",
+                                       mime="application/octet-stream")
+    else:
+        pkl_download = (f"pkl too large to embed ({pkl_size_mb:.1f} MB); "
+                        f"path: <code>{html.escape(str(pkl_path))}</code>")
+
+    return f"""
+<h2>3 &nbsp; ParCa output (default bundle)</h2>
+<p class="note">
+  SimulationDataEcoli loaded from <code>{html.escape(str(pkl_path))}</code>
+  ({pkl_size_mb:.1f} MB). Attributes accessed defensively; &mdash; = not reachable.
+  {pkl_download}
+</p>
+<p class="note">
+  These are the same metrics used for the multi-ParCa comparison in section 4
+  (one column per independent ParCa run).
+</p>
+<p class="note"><strong>Attribute paths attempted:</strong>
+  <code>sd.process.transcription.cistron_data</code>,
+  <code>sd.process.transcription.rna_data</code>,
+  <code>sd.process.translation.n_monomers</code>,
+  <code>sd.process.translation.translation_efficiencies_by_monomer</code>,
+  <code>sd.process.metabolism.base_reaction_ids</code>,
+  <code>sd.internal_state.bulk_molecules.bulk_data</code>,
+  <code>sd.mass.avg_cell_dry_mass</code>,
+  <code>sd.doubling_time</code>,
+  <code>sd.condition_to_doubling_time</code>,
+  <code>sd.process.transcription._genome_length</code>.
+</p>
+<table>
+<thead><tr><th>Metric</th><th>Value</th></tr></thead>
+<tbody>{metric_rows}</tbody>
+</table>
+"""
+
+
+# ---------------------------------------------------------------------------
+# Section 4: Multi-ParCa variants
+# ---------------------------------------------------------------------------
+def _build_variant_manifest(base_key: str, dataset_path: Path, data_dir: Path) -> Path:
+    """Write a variant bundle manifest that overrides rnaseq_experimental_tpms.
+
+    Writes the temp file INSIDE data_dir so other rows' relative paths
+    still resolve correctly.
+    """
+    from ecoli_sources import BUNDLE_PATH
+    import pandas as pd
+
+    df = pd.read_csv(str(BUNDLE_PATH), sep="\t", comment="#")
+    mask = df["canonical_key"] == "rnaseq_experimental_tpms"
+    if not mask.any():
+        raise ValueError("rnaseq_experimental_tpms not found in base manifest")
+    df.loc[mask, "source_path"] = str(dataset_path.resolve())
+
+    # Write temp manifest inside DATA_DIR so relative paths in other rows resolve
+    fd, tmp_path = tempfile.mkstemp(
+        suffix=f"_variant_{base_key}.tsv", dir=str(data_dir), prefix="_manifest_"
+    )
+    os.close(fd)
+    df.to_csv(tmp_path, sep="\t", index=False)
+    return Path(tmp_path)
+
+
+# Known ParCa *configuration* variants, keyed by the token accepted on
+# --variants. A config variant passes extra CLI args to v2ecoli-parca and
+# produces genuinely different sim_data (v2ecoli responds to these), unlike a
+# bundle experimental-tpms swap (a no-op — see the section-4 NOTE box).
+_CONFIG_VARIANTS: dict[str, dict] = {
+    "operons_off": {"label": "operons off", "parca_args": ["--no-operons"]},
+}
+
+
+def _variant_summary(spec: dict) -> str:
+    """One-line human summary of a variant spec (config or bundle)."""
+    if spec.get("parca_args"):
+        return f"{spec['label']} (parca_args: {' '.join(spec['parca_args'])})"
+    if spec.get("bundle_key"):
+        return f"{spec['label']} (bundle {spec['bundle_key']} = {spec.get('dataset')})"
+    return spec.get("label", "variant")
+
+
+def _run_variant(spec: dict, data_dir: Path, outdir: Path, cpus: int) -> dict:
+    """Run ParCa for one variant spec. Returns dict with 'metrics' or 'error'.
+
+    A spec is EITHER a config variant (``parca_args`` — extra CLI args) OR a
+    bundle-override variant (``bundle_key`` + resolved ``dataset_path`` — swaps
+    a manifest row). Both paths are isolated by try/except so a failed run
+    renders as an error column without aborting the report.
+    """
+    label = spec.get("label", "variant")
+    manifest_path = None
+    try:
+        parca_args = list(spec.get("parca_args", []))
+        argv = [
+            str(_REPO_ROOT / ".venv" / "bin" / "v2ecoli-parca"),
+            "--mode", "fast",
+            "-o", str(outdir),
+            "--cpus", str(cpus),
+            *parca_args,
+        ]
+        if spec.get("bundle_key"):
+            dataset_path = spec["dataset_path"]
+            if not dataset_path.exists():
+                return {"error": f"Dataset not found: {dataset_path}"}
+            manifest_path = _build_variant_manifest(
+                spec["bundle_key"], dataset_path, data_dir
+            )
+            argv += ["--bundle-manifest-path", str(manifest_path)]
+        pkl_path = outdir / "parca_state.pkl"
+        print(f"[parca/variant={label}] Running ParCa → {outdir} "
+              f"(args: {' '.join(parca_args) or 'none'}) ...")
+        result = subprocess.run(argv, cwd=str(_REPO_ROOT))
+        if result.returncode != 0:
+            return {"error": f"ParCa exited {result.returncode}"}
+        if not pkl_path.exists():
+            return {"error": "parca_state.pkl not produced"}
+        with open(pkl_path, "rb") as f:
+            state = pickle.load(f)
+        return {"metrics": _extract_metrics(state)}
+    except Exception as e:
+        return {"error": str(e)}
+    finally:
+        if manifest_path and manifest_path.exists():
+            try:
+                manifest_path.unlink()
+            except Exception:
+                pass
+
+
+# NOTE box shared by the skip-placeholder and the rendered section.
+_SECTION4_NOTE = """
+<div class="strategy" style="color:#92400e;background:#fffbeb;border-color:#fde68a">
+  <strong>NOTE.</strong> Input-dataset swaps — running ParCa over different
+  RNA-seq conditions (the issue #130 multi-ParCa vision) — require v2ecoli to
+  adopt the bundle&#8217;s <code>rnaseq_experimental_tpms</code> abstraction.
+  v2ecoli&#8217;s ParCa currently fits the legacy wide-format
+  <code>rna_seq_data__rnaseq_rsem_tpm_mean</code> input, so swapping that
+  experimental-tpms key is a no-op here (verified: identical fitted expression).
+  The variant shown below is a ParCa <em>configuration</em> variant
+  (operons on/off), which v2ecoli does respond to. Per-condition input swaps
+  land with #130.
+</div>
+"""
+
+
+def section_multi_parca(
+    default_outdir: Path, cpus: int, skip: bool,
+    variant_specs: list[dict],
+) -> str:
+    if skip:
+        items = "".join(
+            f"<li><code>{html.escape(_variant_summary(s))}</code></li>"
+            for s in variant_specs
+        ) or "<li><em>(none)</em></li>"
+        return f"""
+<h2>4 &nbsp; Multi-ParCa variant comparison</h2>
+{_SECTION4_NOTE}
+<div class="placeholder">
+  <strong>Not run</strong> &mdash; pass without <code>--skip-runs</code> to execute.<br><br>
+  Column 1 is the default run (<strong>operons on</strong>); each further column
+  is an independent ParCa run for one variant:
+  <ul style="margin:8px 0">{items}</ul>
+  Config variants pass extra CLI args to <code>v2ecoli-parca --mode fast</code>
+  (e.g. <code>--no-operons</code> for <strong>operons off</strong>), producing
+  genuinely different sim_data. A failed variant run is shown as an isolated
+  error column rather than aborting the report.
+</div>
+"""
+
+    from ecoli_sources import DATA_DIR
+
+    # --- resolve any bundle-variant dataset paths ---
+    rnaseq_dir = DATA_DIR / "rnaseq_experimental"
+    for spec in variant_specs:
+        if spec.get("bundle_key") and spec.get("dataset"):
+            p = Path(spec["dataset"])
+            if not p.is_absolute():
+                p = rnaseq_dir / spec["dataset"]
+            spec["dataset_path"] = p
+
+    # --- run default if needed (operons on) ---
+    default_pkl = default_outdir / "parca_state.pkl"
+    cols: list[dict] = []
+
+    if default_pkl.exists():
+        print("[parca/multi] Loading cached default (operons on) ...")
+        try:
+            with open(default_pkl, "rb") as f:
+                state = pickle.load(f)
+            cols.append({"name": "default (operons on)", "result": {"metrics": _extract_metrics(state)}})
+        except Exception as e:
+            cols.append({"name": "default (operons on)", "result": {"error": str(e)}})
+    else:
+        print("[parca/multi] Running default ParCa for comparison baseline ...")
+        argv = [
+            str(_REPO_ROOT / ".venv" / "bin" / "v2ecoli-parca"),
+            "--mode", "fast", "-o", str(default_outdir), "--cpus", str(cpus),
+        ]
+        r = subprocess.run(argv, cwd=str(_REPO_ROOT))
+        if r.returncode != 0 or not default_pkl.exists():
+            cols.append({"name": "default (operons on)", "result": {"error": f"ParCa exited {r.returncode}"}})
+        else:
+            with open(default_pkl, "rb") as f:
+                state = pickle.load(f)
+            cols.append({"name": "default (operons on)", "result": {"metrics": _extract_metrics(state)}})
+
+    # --- run each variant (isolated) ---
+    for spec in variant_specs:
+        label = spec.get("label", "variant")
+        slug = label.replace(" ", "_").replace("/", "_")
+        variant_outdir = default_outdir.parent / f"parca_variant_{slug}"
+        variant_outdir.mkdir(parents=True, exist_ok=True)
+        result = _run_variant(spec, DATA_DIR, variant_outdir, cpus)
+        cols.append({"name": label, "result": result})
+
+    # --- build HTML ---
+    header_cols = "".join(
+        f"<th>{html.escape(c['name'])}"
+        f"{'<br><span class=\"err-msg\">FAILED</span>' if 'error' in c['result'] else ''}"
+        f"</th>"
+        for c in cols
+    )
+    header = f"<tr><th>Metric</th>{header_cols}</tr>"
+
+    # Default column (col 0) values, for diff-bolding.
+    default_metrics = cols[0]["result"].get("metrics", {}) if cols else {}
+
+    body_rows = []
+    for key, label in _METRIC_LABELS:
+        cells = [f"<td class='metric-label'>{html.escape(label)}</td>"]
+        for i, c in enumerate(cols):
+            r = c["result"]
+            if "error" in r:
+                cells.append(
+                    f"<td class='err-col'>"
+                    f"<span class='err-msg'>{html.escape(r['error'][:120])}</span></td>"
+                )
+            else:
+                v = r.get("metrics", {}).get(key, "<span class='metric-na'>&mdash;</span>")
+                # Bold cells that differ from the default column (nice-to-have).
+                differs = (
+                    i > 0
+                    and key in default_metrics
+                    and r.get("metrics", {}).get(key) != default_metrics.get(key)
+                )
+                cell = f"<strong>{v}</strong>" if differs else f"{v}"
+                cells.append(f"<td class='metric-val'>{cell}</td>")
+        body_rows.append("<tr>" + "".join(cells) + "</tr>")
+
+    return f"""
+<h2>4 &nbsp; Multi-ParCa variant comparison</h2>
+{_SECTION4_NOTE}
+<p class="note">
+  Each column is an independent ParCa run. Column 1 is the default
+  (<strong>operons on</strong>); further columns are ParCa <em>configuration</em>
+  variants (e.g. <strong>operons off</strong> via <code>--no-operons</code>),
+  which change the fitted RNA / transcription-unit structure, so the count
+  metrics differ. Cells that differ from the default column are <strong>bold</strong>.
+  Failed runs show as isolated error columns; they do not abort the report.
+</p>
+<table>
+<thead>{header}</thead>
+<tbody>{''.join(body_rows)}</tbody>
+</table>
+"""
+
+
+# ---------------------------------------------------------------------------
+# HTML skeleton
+# ---------------------------------------------------------------------------
+def build_html(
+    sections: list[str],
+    date: str,
+    skip: bool,
+) -> str:
+    skip_note = " (sections 3 &amp; 4 skipped — <code>--skip-runs</code>)" if skip else ""
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>v2ecoli — ecoli-sources bundle report</title>
+  <style>{CSS}</style>
+</head>
+<body>
+<header>
+  <h1>ecoli-sources bundle integration report</h1>
+  <p>v2ecoli &nbsp;&bull;&nbsp; branch: <code>feat/ecoli-sources-bundle</code>
+     &nbsp;&bull;&nbsp; generated: {html.escape(date or 'unknown')}{skip_note}</p>
+</header>
+<main>
+{''.join(sections)}
+</main>
+<footer>
+  Generated by <code>reports/ecoli_sources_report.py</code>. &nbsp;
+  Bundle resolver: <code>v2ecoli.processes.parca.reconstruction.ecoli.sources.SourceBundle</code>. &nbsp;
+  ecoli-sources: installed package; v2ecoli overrides: <code>parca_overrides.tsv</code>.
+</footer>
+</body>
+</html>"""
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+def main():
+    ap = argparse.ArgumentParser(
+        description="Generate the ecoli-sources bundle integration HTML report."
+    )
+    ap.add_argument(
+        "--skip-runs", action="store_true",
+        help="Render sections 1 & 2 only; 3 & 4 become 'not run' placeholders.",
+    )
+    ap.add_argument(
+        "--out", default=str(_DOCS_DIR / "ecoli_sources_report.html"),
+        help="Output HTML path (default: docs/ecoli_sources_report.html).",
+    )
+    ap.add_argument(
+        "--cpus", type=int, default=2,
+        help="CPU count passed to v2ecoli-parca (default: 2).",
+    )
+    ap.add_argument(
+        "--date", default="",
+        help="Date string embedded in report header (default: empty/unknown).",
+    )
+    ap.add_argument(
+        "--variants",
+        default="operons_off",
+        help=(
+            "Comma-separated section-4 variant tokens (default: operons_off). "
+            "A bare token is a ParCa *config* variant looked up in "
+            f"_CONFIG_VARIANTS (known: {', '.join(sorted(_CONFIG_VARIANTS))}); "
+            "v2ecoli responds to these. A name=dataset.tsv pair is a bundle "
+            "experimental-tpms override (relative to DATA_DIR/rnaseq_experimental/ "
+            "unless absolute) — kept for future use, but a no-op today "
+            "(see the section-4 NOTE)."
+        ),
+    )
+    args = ap.parse_args()
+
+    # Parse variants into specs: config-variant tokens OR name=dataset bundle swaps.
+    variant_specs: list[dict] = []
+    if args.variants.strip():
+        for item in args.variants.split(","):
+            item = item.strip()
+            if not item:
+                continue
+            if "=" in item:
+                k, v = item.split("=", 1)
+                variant_specs.append({
+                    "label": k.strip(),
+                    "bundle_key": "rnaseq_experimental_tpms",
+                    "dataset": v.strip(),
+                })
+            elif item in _CONFIG_VARIANTS:
+                variant_specs.append(dict(_CONFIG_VARIANTS[item]))
+            else:
+                print(
+                    f"WARNING: ignoring unknown --variants token: {item!r} "
+                    f"(known config variants: {', '.join(sorted(_CONFIG_VARIANTS))})",
+                    file=sys.stderr,
+                )
+
+    out_path = Path(args.out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    default_outdir = _REPO_ROOT / "out" / "parca_report_default"
+    default_outdir.mkdir(parents=True, exist_ok=True)
+
+    # --- build sections ---
+    print("Building section 1 (inputs) ...")
+    s1 = section_inputs()
+
+    print("Building section 2 (flow diagram) ...")
+    s2 = section_flow()
+
+    print("Building section 3 (parca output) ...")
+    s3 = section_parca_output(default_outdir, args.cpus, args.skip_runs)
+
+    print("Building section 4 (multi-parca variants) ...")
+    s4 = section_multi_parca(default_outdir, args.cpus, args.skip_runs, variant_specs)
+
+    print("Assembling HTML ...")
+    doc = build_html([s1, s2, s3, s4], args.date, args.skip_runs)
+
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(doc)
+
+    size_kb = out_path.stat().st_size / 1024
+    print(f"\nReport written to: {out_path}  ({size_kb:.1f} KB)")
+
+
+if __name__ == "__main__":
+    main()

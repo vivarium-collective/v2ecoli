@@ -160,6 +160,41 @@ Once registered, callers reach it via
 `v2ecoli.build_composite("<arch>", ...)`. The function returns a
 process-bigraph state document; `build_composite` wraps it in a `Composite`.
 
+## Running multiseed/multigen jobs in parallel
+
+Independent seeds are embarrassingly parallel, and v2ecoli can run them
+concurrently — **one Ray worker process per seed** — reaching parity with
+vEcoli's Nextflow fan-out (see [`docs/perf/v2ecoli-vs-vecoli-performance.md`](docs/perf/v2ecoli-vs-vecoli-performance.md)).
+Use this instead of a hand-rolled `for seed in seeds:` loop whenever the seeds
+don't share state.
+
+**The helper.** `v2ecoli.library.parallel_seeds.run_seeds_parallel(seeds, run_one, *, mode, run_kwargs=...)`:
+
+```python
+from v2ecoli.library.parallel_seeds import run_seeds_parallel
+
+def run_one(seed, **kw):             # MUST be a top-level function (Ray pickles it
+    set_null_emitter_override(True)  # to a fresh worker) — do per-worker setup here,
+    composite = build_composite("baseline", cache_dir=CACHE_DIR, seed=seed)  # use ABSOLUTE paths,
+    ...                              # and pass everything via run_kwargs (NOT module globals).
+    return {"seed": seed, ...}
+
+run = run_seeds_parallel(range(n_seeds), run_one, mode=_parallel_mode(),
+                         run_kwargs={"n_steps": n_steps})
+per_seed = run.results               # in seed order; run.wall_s = critical-path wall
+```
+
+**The flag.** `mode` comes from `workspace.yaml` `runtime.parallel` (`'ray'` |
+unset). The helper is always safe: `mode != 'ray'` (or `ray` not installed) →
+runs sequentially with **identical results**. It thread-balances each worker to
+`cores // n_seeds` so N workers don't oversubscribe BLAS. Requires the `ray`
+extra (`pip install 'v2ecoli[ray]'`).
+
+**Rules of thumb:** only for *independent* seeds (no shared environment — for
+*coupled* cells like colonies, use one parallel composite instead). Parallelism
+changes wall time, never the science. Reference adoption:
+`scripts/run_phase0_xarray_ensemble.py` (`--parallel ray|off`).
+
 ## Reports
 
 Regenerate the relevant report and inspect it before opening a PR that

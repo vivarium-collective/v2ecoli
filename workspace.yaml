@@ -8,12 +8,17 @@ layout:
   references: workspace/references
   experiments: workspace/experiments
 runtime:
-  default_emitter: parquet  # 'parquet' | 'sqlite' | 'xarray'
+  # PDMP investigation runs on the XArrayEmitter (zarr-partitioned,
+  # multi-generation native): its validation pipeline aligns every phase on a
+  # single time-series format (see investigation.yaml guidelines.emitter).
+  # parquet stays available as a fallback — pass an explicit ParquetEmitter or
+  # use the parquet runners in v2ecoli.library.parquet_run.
+  default_emitter: xarray   # 'parquet' | 'sqlite' | 'xarray'
   max_generations: 8        # multi-gen cap (xarray + parquet runs) — bumped for PDMP validation ensembles
   # Multiseed parallelism: 'ray' runs one worker process per seed (parity with
   # vEcoli — see docs/perf/). Unset/None = sequential. Needs `v2ecoli[ray]`.
   # Runners use v2ecoli.library.parallel_seeds.run_seeds_parallel(mode=<this>).
-  parallel:                 # 'ray' | null
+  parallel: ray             # 'ray' | null
 observables: []
 visualizations: []
 simulations: []

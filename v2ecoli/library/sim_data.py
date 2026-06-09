@@ -1082,6 +1082,13 @@ class LoadSimData:
         translation = self.sim_data.process.translation
         transcription = self.sim_data.process.transcription
         metabolism = self.sim_data.process.metabolism
+        # ``relation`` carries the codon-aware tRNA-charging tables built by
+        # the Relation dataclass (committed in Task #6, commit 885df04). It
+        # exists in sim_data only when Relation was re-built — full ParCa
+        # rerun (Task #8) is required for a cache predating that.
+        relation = getattr(self.sim_data, "relation", None)
+
+        kinetic_charging_config = self._kinetic_charging_extensions(relation)
 
         polypeptide_elongation_config = {
             "time_step": time_step,
@@ -1205,9 +1212,124 @@ class LoadSimData:
             "import_constraint_threshold": self.sim_data.external_state.import_constraint_threshold,
             "seed": self._seedFromName("PolypeptideElongation"),
             "emit_unique": self.emit_unique,
+            # Kinetic tRNA charging extensions (Task #5). Always populated;
+            # only consumed by KineticTrnaChargingPolypeptideElongation.
+            # SteadyState/Supply Processes ignore these keys.
+            **kinetic_charging_config,
         }
 
         return polypeptide_elongation_config
+
+    def _kinetic_charging_extensions(self, relation) -> dict:
+        """Build the kinetic tRNA-charging keys consumed by
+        :class:`v2ecoli.processes.polypeptide.kinetic_charging.\
+KineticTrnaChargingPolypeptideElongation`.
+
+        Returns the empty dict when ``relation`` (the new Relation dataclass)
+        isn't present — the cache predates Task #6's Relation port + Task #8's
+        ParCa rerun, so the kinetic config can't be built from this cache.
+        Callers using ``kinetic_charging_baseline`` will fail loud at composite
+        build time when their config_schema reads come up empty/zero-shaped.
+
+        Port of the upstream ``trna_charging_final`` extensions to
+        ``LoadSimData.get_polypeptide_elongation_config`` (see
+        ``ecoli/library/sim_data.py`` on that branch, +63-LOC block at
+        line 992). Differences from upstream:
+
+        * Unum → pint: ``.asNumber(...)`` → ``.to(...).magnitude`` via
+          :func:`v2ecoli.library.unit_bridge.unum_to_pint`.
+        * Returns a partial dict (merged into the polypeptide-elongation
+          config) instead of mutating a local.
+        * Returns ``{}`` (not ``raise``) when the Relation dataclass is
+          missing from sim_data, since the cache may predate the port.
+        """
+        if relation is None or not hasattr(relation, "codon_sequences"):
+            # Either no relation at all, or the relation is the pre-port
+            # 145-line stub without the kinetic-charging methods. In both
+            # cases the cache predates Task #6 + Task #8 (ParCa rerun).
+            return {}
+
+        molecule_ids = self.sim_data.molecule_ids
+        translation = self.sim_data.process.translation
+        transcription = self.sim_data.process.transcription
+        constants = self.sim_data.constants
+        amino_acids = self.sim_data.molecule_groups.amino_acids
+
+        # The per-amino-acid synthetase list — index lines up with
+        # `amino_acids` so the kinetic process can map AA → synthetase.
+        trna_synthetases_for_aas = [
+            relation.amino_acid_to_synthetase[aa] for aa in amino_acids
+        ]
+
+        # Default k_cat for missing synthetases (selenocysteine is the
+        # canonical example — modeled as unlimited charging).
+        default_k_cat = 1e4 / units.s  # Unum
+        default_K_A = 1.0 * units.umol / units.L  # Unum
+        default_K_T = 1.0 * units.umol / units.L  # Unum
+
+        k_cat__per_s = np.array(
+            [
+                unum_to_pint(
+                    relation.synthetase_to_k_cat.get(synthetase, default_k_cat)
+                )
+                .to(1 / units.s)
+                .magnitude
+                for synthetase in trna_synthetases_for_aas
+            ],
+            dtype=np.float64,
+        )
+
+        # K_M values are stored per-litre in molecule counts (concentration
+        # × Avogadro). Upstream stores them in the per-litre form so the
+        # kinetic process can convert back via cell volume at sim time.
+        n_avogadro_per_mol = unum_to_pint(constants.n_avogadro)
+        K_M_amino_acid__per_L = np.array(
+            [
+                (
+                    unum_to_pint(
+                        relation.synthetase_to_K_A.get(synthetase, default_K_A)
+                    )
+                    * n_avogadro_per_mol
+                )
+                .to(1 / units.L)
+                .magnitude
+                for synthetase in trna_synthetases_for_aas
+            ],
+            dtype=np.float64,
+        )
+        K_M_trna__per_L = np.array(
+            [
+                (
+                    unum_to_pint(relation.trna_to_K_T.get(trna, default_K_T))
+                    * n_avogadro_per_mol
+                )
+                .to(1 / units.L)
+                .magnitude
+                for trna in transcription.uncharged_trna_names
+            ],
+            dtype=np.float64,
+        )
+
+        return {
+            # Codon-sequence tables.
+            "codon_sequences": relation.codon_sequences,
+            "residue_weights_by_codon": relation.residue_weights_by_codon,
+            "n_codons": len(relation.codons),
+            "i_start_codon": relation.codons.index(molecule_ids.start_codon),
+            "is_map_substrate": translation.monomer_data[
+                "cleavage_of_initial_methionine"
+            ],
+            # tRNA ↔ codon mapping.
+            "n_trna_codon_pairs": len(relation.trna_codon_pairs),
+            "trnas_to_codons": relation.trnas_to_codons,
+            "codons_to_amino_acids": relation.codons_to_amino_acids,
+            # Kinetic parameters.
+            "k_cat__per_s": k_cat__per_s,
+            "K_M_amino_acid__per_L": K_M_amino_acid__per_L,
+            "K_M_trna__per_L": K_M_trna__per_L,
+            # Reconciliation width buffer.
+            "reconciliation_buffer": relation.reconciliation_buffer,
+        }
 
     def get_complexation_config(self, time_step=1):
         complexation_config = {

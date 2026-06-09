@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: `4033505 feat(trna-charging): port evolve_state + 7 evolve-side methods (Task 3d)`. **Task #2 complete; Task #3 split into 3a–3f, 3a–3d done. 3e collapsed into 3d.**
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task #5 — about to commit). **Tasks #2, #5 complete; Task #3 split into 3a–3f, 3a–3d done, 3e collapsed into 3d. 3f unblocked (waits on Task #8 for end-to-end behavior test).**
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 
@@ -63,8 +63,8 @@ Each session should land one logical commit. Recommended split:
 - ~~**Session 10:** Task #3c~~ — Done. 6 request-side methods + `_init_bulk_indices` override; 5 new scaffold tests (28 total pass, 50 in the wider kinetic-charging fast-test bucket).
 - ~~**Session 11:** Task #3d~~ — Done. `evolve_state` override + 7 evolve-side methods; 8 new scaffold tests (31 total pass, 53 in the wider kinetic-charging fast-test bucket).
 - ~~**Session 12:** Task #3e~~ — Collapsed into 3d.
-- **Session 13 (next):** Task #5 (library/sim_data deltas) — populates the new `config_schema` keys from `sim_data.relation`. Unblocks 3f's behavior test. Most of the data already exists on `sim_data.relation` after Task #6 ported the Relation dataclass and its `_build_trna_charging_kinetics` method; the work is mapping those attrs into v2ecoli's config-build path.
-- **Session 14:** Task #3f — composite arch + behavior test. Build `v2ecoli/composites/kinetic_charging_baseline.py` via `@composite_generator`, append to `composites/__init__.py`, update `library/cache_version.py:INPUT_FILES`, then a `tests/test_behavior_kinetic_charging.py` that builds the composite and asserts one-tick growth.
+- ~~**Session 13:** Task #5~~ — Done. `_kinetic_charging_extensions` method splatters the 12 new keys into `get_polypeptide_elongation_config`. Soft-fails to `{}` when `relation` is missing or pre-port (existing steady-state path unaffected). 8 new tests + cache-gated tests still pass. Other library deltas (`initial_conditions.py`, `schema.py`, `parquet_emitter.py`, `logging_tools.py`, `json_state.py`) evaluated and deferred — they're upstream refactor noise or already covered by other v2ecoli PRs.
+- **Session 14 (next):** Task #3f — composite arch + behavior test. Build `v2ecoli/composites/kinetic_charging_baseline.py` via `@composite_generator`, append to `composites/__init__.py`, update `library/cache_version.py:INPUT_FILES`, then a `tests/test_behavior_kinetic_charging.py` that builds the composite and asserts one-tick growth. The composite arch can land + smoke-test now; the end-to-end behavior test will exercise the kinetic Process only after Task #8 reruns ParCa (so `sim_data.relation` carries the post-port attrs).
 - **Session 15:** Task #4 — `metabolism_redux_classic` + other process deltas (independent of #3/#5).
 - **Session 16:** Task #8 — full ParCa rerun. Mostly compute; can run in background.
 - **Session 17:** Tasks #9–#13 — cache rebuild + tests + parity + reports.

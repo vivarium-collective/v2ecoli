@@ -627,3 +627,69 @@ Replaced 5 stubs + added 2 helpers + 1 override in `v2ecoli/processes/polypeptid
 ### Remaining work
 - 3e collapsed: only listener emission paths remained, and they were folded into the `evolve_state` override. 3e is effectively a no-op now — fold into 3f's behavior test or mark complete.
 - 3f: composite arch + behavior test (depends on Task #5).
+
+---
+
+## Task #5 progress log
+
+**2026-06-09 — `LoadSimData` kinetic-charging extension landed.**
+
+### Scope (kept narrow)
+The audit listed five upstream library files: `sim_data.py` (+212), `initial_conditions.py` (+61), `schema.py` (+65), `parquet_emitter.py` (+139), `logging_tools.py` (+9). Most are upstream-only refactor noise (fsspec → open, schema rewrites tied to PolypeptideElongation's strategy-pattern model selector, parquet emitter rewrite that v2ecoli's recent feat/default-baseline-parquet PR already covers differently).
+
+The blocker for 3f is **just the polypeptide-elongation config keys**. Done in this session. Other library deltas evaluated and deferred.
+
+### Implementation
+`v2ecoli/library/sim_data.py::LoadSimData.get_polypeptide_elongation_config` extended to splat a new `_kinetic_charging_extensions` partial dict at the end of the existing config dict. The extension method is added in the same file (~95 LOC).
+
+**`_kinetic_charging_extensions(relation) → dict`** — returns:
+- `codon_sequences = relation.codon_sequences`
+- `residue_weights_by_codon = relation.residue_weights_by_codon`
+- `n_codons = len(relation.codons)`
+- `i_start_codon = relation.codons.index(molecule_ids.start_codon)`
+- `is_map_substrate = translation.monomer_data["cleavage_of_initial_methionine"]`
+- `n_trna_codon_pairs = len(relation.trna_codon_pairs)`
+- `trnas_to_codons = relation.trnas_to_codons`
+- `codons_to_amino_acids = relation.codons_to_amino_acids`
+- Per-AA `k_cat__per_s` array (Unum → pint, `.to(1/s).magnitude`)
+- Per-AA `K_M_amino_acid__per_L` array (Unum → pint, × Avogadro, `.to(1/L).magnitude`)
+- Per-tRNA `K_M_trna__per_L` array (same conversion as K_M_amino_acid)
+- `reconciliation_buffer = relation.reconciliation_buffer`
+
+### Soft-fail behavior
+The extension returns `{}` when:
+- `sim_data` has no `relation` attribute, OR
+- `relation` exists but lacks `codon_sequences` (the 145-line pre-port stub).
+
+Both cases mean the cache predates Task #6 + Task #8. Soft-failing keeps the existing steady-state path working; composites using `kinetic_charging_baseline` will fail loud at composite build when the kinetic process's `config_schema` reads come up empty/zero-shaped.
+
+### Unum → pint boundary
+All conversions documented in the docstring: `relation.synthetase_to_k_cat` etc. are stored as Unum quantities in the Relation dataclass; the extension converts each via `unum_to_pint(...).to(...).magnitude` so the kinetic process receives plain `np.float64` arrays.
+
+Default fallbacks for missing entries match upstream: `k_cat = 1e4 / s` (selenocysteine canonical), `K_A = K_T = 1 µmol/L`.
+
+### Tests
+`tests/test_kinetic_charging_sim_data_config.py` — 8 tests, all green:
+- 2 soft-fail tests (None / pre-port stub).
+- 4 mock-based behavior tests (all 12 keys present, dtypes correct, k_cat in 1/s, K_M scaled by Avogadro).
+- 2 source-scan tests (extension is splatted into the final config; docstring documents the Unum boundary).
+
+### Cache invalidation
+`v2ecoli/library/sim_data.py` is in `cache_version.INPUT_FILES`, so this change auto-bumps the cache fingerprint. The existing cache loader (`load_cache_bundle`) reads pickles directly without `verify_cache_version`, so the cache-gated 3b tests continue to work against the stale cache. Composite builds via `build_composite` will surface `StaleCacheError` until Task #9 rebuilds via `scripts/build_cache.py`.
+
+### Results
+- `pytest tests/test_kinetic_charging_sim_data_config.py` → **8 passed, 1 warning** in 3.91 s.
+- `pytest tests/test_kinetic_charging_*.py tests/test_polypeptide_elongation*.py -m 'not sim'` → **62 passed, 8 deselected** in 3.69 s.
+- `pytest tests/test_kinetic_charging_polypeptide_elongation_scaffold.py` → 31 passed (including the cache-gated 3b instantiation against the pre-port cache, which exercises the soft-fail path).
+
+### Other library deltas evaluated and deferred
+- **`library/initial_conditions.py`** (+61 LOC upstream): adds `initialize_kinetic_trna_charging`. Required only if v2ecoli composites need a kinetic-specific initial state. The existing steady-state initial state should work for the kinetic model too (same bulk pools); revisit if 3f's behavior test surfaces a divergence.
+- **`library/schema.py`** (+65 LOC): upstream refactor tied to the strategy-pattern model selector and listener schema. v2ecoli's listener schema lives in `v2ecoli/types/`; no direct equivalent change.
+- **`library/parquet_emitter.py`** (+139 LOC): upstream refactor superseded by v2ecoli's `feat/default-baseline-parquet` PR.
+- **`library/logging_tools.py`** (+9 LOC), **`library/json_state.py`** (+5 LOC): trivial; not relevant.
+
+### What unblocks
+With Task #5 done:
+- 3f's composite arch can read the new config keys.
+- Once Task #8 reruns ParCa (rebuilds sim_data with Task #6's Relation port baked in), the `relation` object will carry the post-port attrs and the extension method returns the full kinetic dict.
+- 3f's behavior test then has end-to-end coverage.

@@ -151,11 +151,17 @@ class Complexation(object):
         Builds a stoichiometric matrix based on each given complexation
         reaction. One reaction corresponds to one column in the stoichiometric
         matrix.
+
+        The result is cached on the instance because ``get_monomers`` calls
+        this method once per molecule, making repeated reconstruction very
+        expensive for large bulk_molecules lists (~16 k entries in E. coli).
         """
-        shape = (self._stoich_matrix_I.max() + 1, self._stoich_matrix_J.max() + 1)
-        out = np.zeros(shape, np.float64)
-        out[self._stoich_matrix_I, self._stoich_matrix_J] = self._stoich_matrix_V
-        return out
+        if not hasattr(self, "_stoich_matrix_built"):
+            shape = (self._stoich_matrix_I.max() + 1, self._stoich_matrix_J.max() + 1)
+            out = np.zeros(shape, np.float64)
+            out[self._stoich_matrix_I, self._stoich_matrix_J] = self._stoich_matrix_V
+            self._stoich_matrix_built = out
+        return self._stoich_matrix_built
 
     def mass_matrix(self):
         """

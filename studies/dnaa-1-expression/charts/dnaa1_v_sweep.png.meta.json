@@ -5,11 +5,13 @@
     "dnaa1_v0p9e-3",
     "dnaa1_v1p0e-3",
     "dnaa1_v1p1e-3",
+    "dnaa1_v1p2e-3_s1",
+    "dnaa1_v1p3e-3_s1",
     "dnaa1_v17e3_fullhist"
   ],
   "generation_id": null,
-  "rendered_at": 1780952536.236717,
-  "command": "python scripts/render_dnaa1_v_sweep.py --run 0.0008=out/dnaa1_v0p8e-3/dnaa1_v0p8e-3 --run 0.0009=out/dnaa1_v0p9e-3/dnaa1_v0p9e-3 --run 0.001=out/dnaa1_v1p0e-3/dnaa1_v1p0e-3 --run 0.0011=out/dnaa1_v1p1e-3/dnaa1_v1p1e-3 --run 0.0017=out/dnaa1_v17e3_fullhist/dnaa1_v17e3_fullhist --steady-gens 4,5,6,7 --out studies/dnaa-1-expression/charts",
+  "rendered_at": 1780974344.542046,
+  "command": "python scripts/render_dnaa1_v_sweep.py --run 0.0008=out/dnaa1_v0p8e-3/dnaa1_v0p8e-3 --run 0.0009=out/dnaa1_v0p9e-3/dnaa1_v0p9e-3 --run 0.001=out/dnaa1_v1p0e-3/dnaa1_v1p0e-3 --run 0.0011=out/dnaa1_v1p1e-3/dnaa1_v1p1e-3 --run 0.0012=out/dnaa1_v1p2e-3_s1/dnaa1_v1p2e-3_s1 --run 0.0013=out/dnaa1_v1p3e-3_s1/dnaa1_v1p3e-3_s1 --run 0.0017=out/dnaa1_v17e3_fullhist/dnaa1_v17e3_fullhist --steady-gens 4,5,6,7 --out studies/dnaa-1-expression/charts",
   "steady_gens": [
     4,
     5,
@@ -327,6 +329,158 @@
           "dnaa_min": 576,
           "dnaa_max": 1139,
           "init_per_min": 0.967
+        }
+      ]
+    },
+    {
+      "V": 0.0012,
+      "run_id": "dnaa1_v1p2e-3_s1",
+      "steady_gens": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "pool_trough": 353,
+      "pool_mean": 573.3249999999999,
+      "pool_peak": 914,
+      "in_band": false,
+      "rate_mean": 0.7384999999999999,
+      "rate_min": 0.367,
+      "rate_max": 0.968,
+      "on_target": false,
+      "per_gen": [
+        {
+          "gen": 1,
+          "dur_min": 58.9,
+          "dnaa_mean": 123.9,
+          "dnaa_min": 14,
+          "dnaa_max": 258,
+          "init_per_min": 1.018
+        },
+        {
+          "gen": 2,
+          "dur_min": 68.5,
+          "dnaa_mean": 399.4,
+          "dnaa_min": 133,
+          "dnaa_max": 591,
+          "init_per_min": 1.124
+        },
+        {
+          "gen": 3,
+          "dur_min": 70.0,
+          "dnaa_mean": 484.4,
+          "dnaa_min": 291,
+          "dnaa_max": 704,
+          "init_per_min": 0.972
+        },
+        {
+          "gen": 4,
+          "dur_min": 62.8,
+          "dnaa_mean": 601.3,
+          "dnaa_min": 366,
+          "dnaa_max": 758,
+          "init_per_min": 0.844
+        },
+        {
+          "gen": 5,
+          "dur_min": 74.3,
+          "dnaa_mean": 643.9,
+          "dnaa_min": 363,
+          "dnaa_max": 914,
+          "init_per_min": 0.968
+        },
+        {
+          "gen": 6,
+          "dur_min": 76.1,
+          "dnaa_mean": 566.9,
+          "dnaa_min": 415,
+          "dnaa_max": 702,
+          "init_per_min": 0.775
+        },
+        {
+          "gen": 7,
+          "dur_min": 120.0,
+          "dnaa_mean": 481.2,
+          "dnaa_min": 353,
+          "dnaa_max": 640,
+          "init_per_min": 0.367
+        }
+      ]
+    },
+    {
+      "V": 0.0013,
+      "run_id": "dnaa1_v1p3e-3_s1",
+      "steady_gens": [
+        4,
+        5,
+        6,
+        7
+      ],
+      "pool_trough": 489,
+      "pool_mean": 855.925,
+      "pool_peak": 1241,
+      "in_band": false,
+      "rate_mean": 1.3530000000000002,
+      "rate_min": 1.063,
+      "rate_max": 1.613,
+      "on_target": false,
+      "per_gen": [
+        {
+          "gen": 1,
+          "dur_min": 53.8,
+          "dnaa_mean": 165.9,
+          "dnaa_min": 14,
+          "dnaa_max": 370,
+          "init_per_min": 1.134
+        },
+        {
+          "gen": 2,
+          "dur_min": 57.2,
+          "dnaa_mean": 463.3,
+          "dnaa_min": 172,
+          "dnaa_max": 768,
+          "init_per_min": 1.45
+        },
+        {
+          "gen": 3,
+          "dur_min": 61.1,
+          "dnaa_mean": 714.5,
+          "dnaa_min": 414,
+          "dnaa_max": 995,
+          "init_per_min": 1.194
+        },
+        {
+          "gen": 4,
+          "dur_min": 65.9,
+          "dnaa_mean": 783.8,
+          "dnaa_min": 489,
+          "dnaa_max": 1204,
+          "init_per_min": 1.063
+        },
+        {
+          "gen": 5,
+          "dur_min": 54.0,
+          "dnaa_mean": 876.9,
+          "dnaa_min": 582,
+          "dnaa_max": 1199,
+          "init_per_min": 1.613
+        },
+        {
+          "gen": 6,
+          "dur_min": 51.3,
+          "dnaa_mean": 895.4,
+          "dnaa_min": 618,
+          "dnaa_max": 1144,
+          "init_per_min": 1.384
+        },
+        {
+          "gen": 7,
+          "dur_min": 58.5,
+          "dnaa_mean": 867.6,
+          "dnaa_min": 558,
+          "dnaa_max": 1241,
+          "init_per_min": 1.352
         }
       ]
     },

@@ -14,6 +14,33 @@ runtime:
   # vEcoli — see docs/perf/). Unset/None = sequential. Needs `v2ecoli[ray]`.
   # Runners use v2ecoli.library.parallel_seeds.run_seeds_parallel(mode=<this>).
   parallel:                 # 'ray' | null
+
+# ─── DASHBOARD ────────────────────────────────────────────────────────
+# Per-workspace dashboard customization (vivarium-dashboard). All keys
+# optional; missing keys fall back to the default "Vivarium dashboard"
+# branding and an unfiltered registry.
+dashboard:
+  name: "sms-ecoli dashboard"          # header brand + <title> text
+  logo: assets/sms-ecoli-logo.png      # workspace-relative rail logo
+  registry:
+    # Display-only allow-list: the Registry tab shows ONLY classes whose
+    # originating package is listed here (discovery is unchanged).
+    include:
+      - pbg-bioreactordesign
+      - viva-munk
+
+# ─── IMPORTS ──────────────────────────────────────────────────────────
+# Declared external pbg packages — classifies their registry classes as
+# in_workspace (vs environment_only). import names: viva_munk,
+# pbg_bioreactordesign.
+imports:
+  - name: viva-munk
+    package: viva_munk
+    source: https://github.com/vivarium-collective/viva-munk
+  - name: pbg-bioreactordesign
+    package: pbg_bioreactordesign
+    source: https://github.com/vivarium-collective/pbg-bioreactordesign
+
 observables: []
 visualizations: []
 simulations: []

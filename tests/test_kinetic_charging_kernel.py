@@ -267,9 +267,99 @@ def test_reconcile_via_ribosome_positions_invariants_vs_libc(
             )
 
 
-@pytest.mark.skip(reason="reconcile_via_trna_pools is implemented in Task 2d")
-def test_reconcile_via_trna_pools_parity(golden: list[dict]) -> None:
-    ...
+def test_reconcile_via_trna_pools_byte_identity_numpy_rs(
+    golden_numpy_rs: list[dict],
+) -> None:
+    """
+    Byte-identity vs the committed numpy-RandomState golden for
+    ``reconcile_via_trna_pools``.
+    """
+    cases = _cases_for(golden_numpy_rs, "reconcile_via_trna_pools")
+    assert cases, "numpy-RandomState golden missing reconcile_via_trna_pools"
+    for case in cases:
+        inputs = case["inputs"]
+        sc = _arr(inputs["sequence_codons_in"]).copy()
+        kc = _arr(inputs["kinetics_codons_in"]).copy()
+        ft = _arr(inputs["free_trnas_in"]).copy()
+        ct = _arr(inputs["charged_trnas_in"]).copy()
+        ch = _arr(inputs["chargings_in"]).copy()
+        aau = _arr(inputs["amino_acids_used_in"]).copy()
+        ctc = _arr(inputs["codons_to_trnas_counter_in"]).copy()
+        ttc = _arr(inputs["trnas_to_codons"])
+        ttai = _arr(inputs["trnas_to_amino_acid_indexes"])
+
+        kernel.seed(case["seed"])
+        kernel.reconcile_via_trna_pools(sc, kc, ft, ct, ch, aau, ctc, ttc, ttai)
+
+        expected = case["outputs"]
+        np.testing.assert_array_equal(sc, _arr(expected["sequence_codons_out"]), err_msg=f"{case['name']} sequence_codons")
+        np.testing.assert_array_equal(kc, _arr(expected["kinetics_codons_out"]), err_msg=f"{case['name']} kinetics_codons")
+        np.testing.assert_array_equal(ft, _arr(expected["free_trnas_out"]), err_msg=f"{case['name']} free_trnas")
+        np.testing.assert_array_equal(ct, _arr(expected["charged_trnas_out"]), err_msg=f"{case['name']} charged_trnas")
+        np.testing.assert_array_equal(ch, _arr(expected["chargings_out"]), err_msg=f"{case['name']} chargings")
+        np.testing.assert_array_equal(aau, _arr(expected["amino_acids_used_out"]), err_msg=f"{case['name']} amino_acids_used")
+        np.testing.assert_array_equal(ctc, _arr(expected["codons_to_trnas_counter_out"]), err_msg=f"{case['name']} codons_to_trnas_counter")
+
+
+def test_reconcile_via_trna_pools_invariants_vs_libc(golden: list[dict]) -> None:
+    """
+    Algorithmic invariants for ``reconcile_via_trna_pools`` checked against the
+    libc-rand golden. RNG-independent properties — must hold for any port:
+
+    * ``sequence_codons`` is read-only — never mutated.
+    * Per-tRNA total conservation: ``free_trnas[i] + charged_trnas[i]`` unchanged.
+    * Post-loop, ``kinetics_codons[c] <= sequence_codons[c]`` for all ``c``.
+    * Non-negativity: ``chargings``, ``amino_acids_used``, ``codons_to_trnas_counter``
+      never go below zero (caller's job to provide valid input; we still gate).
+    * Convergence parity vs upstream: identical input → identical
+      ``kinetics_codons`` final value (both runs decrement it by the same total).
+    """
+    cases = _cases_for(golden, "reconcile_via_trna_pools")
+    assert cases
+    for case in cases:
+        inputs = case["inputs"]
+        sc_in = _arr(inputs["sequence_codons_in"])
+        kc_in = _arr(inputs["kinetics_codons_in"])
+        ft_in = _arr(inputs["free_trnas_in"])
+        ct_in = _arr(inputs["charged_trnas_in"])
+        ch_in = _arr(inputs["chargings_in"])
+        aau_in = _arr(inputs["amino_acids_used_in"])
+        ctc_in = _arr(inputs["codons_to_trnas_counter_in"])
+        ttc = _arr(inputs["trnas_to_codons"])
+        ttai = _arr(inputs["trnas_to_amino_acid_indexes"])
+
+        sc = sc_in.copy()
+        kc = kc_in.copy()
+        ft = ft_in.copy()
+        ct = ct_in.copy()
+        ch = ch_in.copy()
+        aau = aau_in.copy()
+        ctc = ctc_in.copy()
+
+        kernel.seed(case["seed"])
+        kernel.reconcile_via_trna_pools(sc, kc, ft, ct, ch, aau, ctc, ttc, ttai)
+
+        np.testing.assert_array_equal(
+            sc, sc_in, err_msg=f"{case['name']}: sequence_codons mutated (should be read-only)"
+        )
+        np.testing.assert_array_equal(
+            ft + ct, ft_in + ct_in,
+            err_msg=f"{case['name']}: per-tRNA total conservation broken",
+        )
+        assert (kc <= sc_in).all(), (
+            f"{case['name']}: post-loop kinetics_codons={kc.tolist()} not <= "
+            f"sequence_codons={sc_in.tolist()}"
+        )
+        assert (ch >= 0).all(), f"{case['name']}: chargings went negative"
+        assert (aau >= 0).all(), f"{case['name']}: amino_acids_used went negative"
+        assert (ctc >= 0).all(), f"{case['name']}: codons_to_trnas_counter went negative"
+
+        # kinetics_codons converges to the same final state across RNGs because
+        # the loop runs until disagreements=0, decrementing kc once per pick.
+        np.testing.assert_array_equal(
+            kc, _arr(case["outputs"]["kinetics_codons_out"]),
+            err_msg=f"{case['name']}: kinetics_codons drift from upstream",
+        )
 
 
 @pytest.mark.skip(reason="get_elongation_rate is implemented in Task 2e")

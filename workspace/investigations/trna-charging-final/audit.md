@@ -350,3 +350,40 @@ For `reconcile_via_ribosome_positions/equal` (no RNG calls): byte-identical libc
 
 ### Results
 `pytest tests/test_kinetic_charging_kernel{,_scaffold}.py` → **20 passed, 2 skipped (for 2d, 2e)** in 3.78 s.
+
+---
+
+## Task #2d progress log
+
+**2026-06-09 — `reconcile_via_trna_pools` ported.**
+
+### Implementation
+- ~95 LOC pure-Python orchestration. Same shape as 2c: one `while True` loop, RNG draws via `randint_below`. Three RNG calls per inner iteration (codon pick + tRNA pick; branch determines whether the tRNA pick weights against free or charged pools).
+
+### Two-branch structure
+- **Free-tRNA branch** (free tRNAs reading this codon ≥ 1): pick one free tRNA weighted by free count → free → charged. Net: `free_trnas[i] -= 1`, `charged_trnas[i] += 1`, `codons_to_trnas_counter[i, codon] -= 1`, `kinetics_codons[codon] -= 1`.
+- **Charged-tRNA branch** (no free): pick one charged tRNA weighted by charged count → undo both the most recent charging *and* the codon read. Net: `chargings[i] -= 1`, `amino_acids_used[aa] -= 1`, `codons_to_trnas_counter[i, codon] -= 1`, `kinetics_codons[codon] -= 1`. Free/charged abundances unchanged (the tRNA went free → charged → free, ending where it started).
+
+### Key difference from 2c
+This function **mutates `kinetics_codons`** (decrementing one entry per pick). 2c left it as a read-only input. Loop exits when `kinetics_codons[c] <= sequence_codons[c]` for all `c`, i.e., when no codon is in surplus.
+
+### Parity strategy (same pattern as 2c)
+1. **Byte-identity vs `numpy-RandomState` golden** — `tests/fixtures/trna_charging_kernel_numpy_randomstate_golden.json.gz` re-captured to include 2 new `reconcile_via_trna_pools` cases (was 8 → now 10 cases, 1.1 KB → 1.3 KB gz).
+2. **Invariants vs libc-rand golden**:
+   - `sequence_codons` is never mutated (read-only input).
+   - Per-tRNA total conservation: `free_trnas[i] + charged_trnas[i]` unchanged.
+   - Post-loop: `kinetics_codons[c] <= sequence_codons[c]` for all `c`.
+   - Non-negativity: `chargings`, `amino_acids_used`, `codons_to_trnas_counter` ≥ 0.
+   - **`kinetics_codons` final state is RNG-invariant** — loop runs until disagreements=0 and each iteration decrements exactly one entry, so the total decrement is fully determined by initial disagreements. Asserts byte-identity for `kinetics_codons_out` vs upstream.
+
+### Sanity check
+Both libc-rand test cases (`use_free_trna`, `forward_undo_charging`) yield byte-identical libc ↔ numpy outputs. This is because the test inputs only allow one viable tRNA pick per iteration (only one tRNA reads each codon, etc.) — the RNG sequence has nothing to distinguish.
+
+### Files added/changed
+- `v2ecoli/processes/polypeptide/kinetic_charging_kernel.py` — body for `reconcile_via_trna_pools`, docstring polish.
+- `tests/fixtures/trna_charging_kernel_numpy_randomstate_golden.json.gz` — refreshed (10 cases now, was 8).
+- `tests/test_kinetic_charging_kernel.py` — 2 new tests for trna_pools (byte-identity, invariants).
+- `tests/test_kinetic_charging_kernel_scaffold.py` — dropped now-stale `reconcile_via_trna_pools` stub assertion.
+
+### Results
+`pytest tests/test_kinetic_charging_kernel{,_scaffold}.py` → **22 passed, 1 skipped (only 2e left)** in 3.83 s.

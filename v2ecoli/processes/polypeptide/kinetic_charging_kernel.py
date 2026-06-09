@@ -21,16 +21,16 @@ Layout
         Deterministic kernels, ported in Task 2b. All ``@njit``ed and verified
         bit-identical against the upstream Cython kernel.
 
-    reconcile_via_ribosome_positions
-        Stochastic kernel, ported in Task 2c. Plain Python orchestration so it
-        can call :func:`randint_below`; the hot inner loops dispatch through
-        the 2b ``@njit`` helpers. Parity tested two ways:
-        byte-identity vs a committed per-RNG golden
+    reconcile_via_ribosome_positions / reconcile_via_trna_pools
+        Stochastic kernels, ported in Tasks 2c and 2d. Plain Python orchestration
+        so they can call :func:`randint_below`; the hot inner loops dispatch
+        through the 2b ``@njit`` helpers. Parity tested two ways: byte-identity
+        vs a committed per-RNG golden
         (``tests/fixtures/trna_charging_kernel_numpy_randomstate_golden.json.gz``),
         plus algorithmic-invariant checks vs the upstream libc-rand golden.
 
-    get_elongation_rate / reconcile_via_trna_pools
-        Stubs — implemented in tasks 2d, 2e.
+    get_elongation_rate
+        Stub — implemented in Task 2e.
 
 Parity tests live in ``tests/test_kinetic_charging_kernel.py`` and load
 ``tests/fixtures/trna_charging_kernel_golden.json.gz``. Deterministic
@@ -412,8 +412,114 @@ def reconcile_via_trna_pools(
     trnas_to_codons: npt.NDArray[np.int8],
     trnas_to_amino_acid_indexes: npt.NDArray[np.int8],
 ) -> None:
-    """Port of upstream ``reconcile_via_trna_pools``. Implemented in Task 2d."""
-    raise NotImplementedError("Task 2d")
+    """
+    Reconcile remaining kinetic-vs-sequence disagreements by walking tRNA pools.
+
+    Called after :func:`reconcile_via_ribosome_positions` has done its best
+    via ribosome movement. Any remaining ``kinetics_codons[c] > sequence_codons[c]``
+    deficit means the Kinetic Model committed to codon reads the Sequence Model
+    can't account for. We "pull back" the Kinetic Model by undoing one codon
+    read at a time, until ``kinetics_codons[c] <= sequence_codons[c]`` for all
+    ``c``.
+
+    Per iteration, one codon disagreement is picked (weighted by deficit) and
+    one of two branches runs:
+
+    **Free-tRNA branch** — at least one free tRNA reads this codon. Pick one
+    weighted by free count, return it to charged form. Net: one (codon read)
+    event is undone, free → charged, ``codons_to_trnas_counter[i, codon] -= 1``,
+    ``kinetics_codons[codon] -= 1``.
+
+    **Charged-tRNA branch** (no free tRNAs available) — pick a tRNA weighted
+    by charged count and undo both the most recent charging *and* the codon
+    read. Net: ``chargings[i] -= 1``, ``amino_acids_used[aa] -= 1``,
+    ``codons_to_trnas_counter[i, codon] -= 1``, ``kinetics_codons[codon] -= 1``.
+    Free/charged abundances are unchanged because the tRNA that read the codon
+    is the same one whose charging is being undone — it goes free → charged →
+    free, ending where it started.
+
+    Mutates every numpy buffer in place. ``kinetics_codons`` is mutated here
+    (unlike in ``reconcile_via_ribosome_positions``). ``sequence_codons`` is
+    read-only.
+
+    Stochastic. Caller must :func:`seed` the module RNG first.
+    """
+    if _RNG is None:
+        raise RuntimeError(
+            "kinetic_charging_kernel.seed(...) must be called before "
+            "reconcile_via_trna_pools."
+        )
+
+    codons = sequence_codons.shape[0]
+    n_trnas = trnas_to_codons.shape[1]
+
+    while True:
+        # Sum of deficits across all codons
+        disagreements = 0
+        for c in range(codons):
+            if kinetics_codons[c] > sequence_codons[c]:
+                disagreements += int(kinetics_codons[c] - sequence_codons[c])
+        if disagreements == 0:
+            break
+
+        # Pick a codon weighted by its deficit
+        r = randint_below(disagreements)
+        running = -1
+        codon = -1
+        for c in range(codons):
+            if kinetics_codons[c] > sequence_codons[c]:
+                running += int(kinetics_codons[c] - sequence_codons[c])
+                if running >= r:
+                    codon = c
+                    break
+
+        # Count free tRNAs that read this codon
+        candidates = 0
+        for i in range(n_trnas):
+            if trnas_to_codons[codon, i] == 1:
+                candidates += int(free_trnas[i])
+
+        if candidates == 0:
+            # Charged-tRNA branch: undo a charging event instead of a read.
+            # Invariant: at least one charged tRNA exists for this codon
+            # because tRNAs live in free OR charged form; if zero are free
+            # and the kinetic model committed to reading this codon, then
+            # at least one charged tRNA must have been the one consumed.
+            for i in range(n_trnas):
+                if trnas_to_codons[codon, i] == 1:
+                    candidates += int(charged_trnas[i])
+
+            r = randint_below(candidates)
+            running = -1
+            selected = -1
+            for i in range(n_trnas):
+                if trnas_to_codons[codon, i] == 1:
+                    running += int(charged_trnas[i])
+                    if running >= r:
+                        selected = i
+                        break
+
+            chargings[selected] -= 1
+            amino_acids_used[trnas_to_amino_acid_indexes[selected]] -= 1
+            codons_to_trnas_counter[selected, codon] -= 1
+        else:
+            # Free-tRNA branch: return one free tRNA to its charged form.
+            r = randint_below(candidates)
+            running = -1
+            selected = -1
+            for i in range(n_trnas):
+                if trnas_to_codons[codon, i] == 1:
+                    running += int(free_trnas[i])
+                    if running >= r:
+                        selected = i
+                        break
+
+            free_trnas[selected] -= 1
+            charged_trnas[selected] += 1
+            codons_to_trnas_counter[selected, codon] -= 1
+
+        # Pull the Kinetic Model back by one codon read
+        kinetics_codons[codon] -= 1
 
 
 def get_elongation_rate(

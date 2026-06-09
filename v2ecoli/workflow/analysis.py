@@ -38,6 +38,54 @@ ANALYSIS_SCALES: dict[str, str] = {
 ANALYSIS_REGISTRY: dict[str, type] = {}
 
 
+class Analysis(V2Step):
+    """Visualization-like analysis: reads sim output via a DuckDB connection +
+    the ParCa ``sim_data``, and emits a rendered ``view`` (HTML) plus optional
+    ``data`` (map). Faithful native ports of vEcoli's ``plot()`` analyses build
+    on this base (cf. the record-based ``AnalysisStep`` for emitted-observable
+    analyses). Subclasses set ``scale`` + ``name`` and implement ``analyze``.
+
+    Live, non-serializable handles (``conn``, ``sim_data``) are injected by the
+    runner into the state dict passed to ``update``; ``inputs()`` declares them
+    for discoverability with a permissive ("any") type.
+    """
+
+    scale: str = "single"
+    config_schema = {}
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        if cls.scale not in ANALYSIS_SCALES:
+            raise ValueError(
+                f"{cls.__name__}.scale={cls.scale!r} not in {sorted(ANALYSIS_SCALES)}")
+        if "name" in cls.__dict__:
+            ANALYSIS_REGISTRY[cls.name] = cls
+
+    def inputs(self):
+        return {
+            "conn": "any", "history_sql": "string",
+            "config_sql": "string", "success_sql": "string",
+            "sim_data": "any", "validation_data": "any",
+            "variant_metadata": "any",
+        }
+
+    def outputs(self):
+        return {"view": "string", "data": "map"}
+
+    def analyze(self, *, conn, history_sql, sim_data, **ctx) -> dict:
+        """Return {"view": <html str>, "data": <map>} (either key optional)."""
+        raise NotImplementedError
+
+    def invoke(self, state, interval=None):
+        # Fail loudly (like AnalysisStep): a broken analyze() must surface.
+        return SyncUpdate(self.update(state))
+
+    def update(self, state, interval=None):
+        kwargs = {k: state.get(k) for k in self.inputs()}
+        out = self.analyze(**kwargs) or {}
+        return {"view": out.get("view", ""), "data": out.get("data", {})}
+
+
 class AnalysisStep(V2Step):
     """Base for result-consuming analysis Steps.
 

@@ -2687,6 +2687,19 @@ wheels = [
 ]
 
 [[package]]
+name = "plotly"
+version = "6.8.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "narwhals" },
+    { name = "packaging" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/94/fd/d72c292d78aadb93d1a9bcd76bf3c678271040c7cf10abe5788b33040a39/plotly-6.8.0.tar.gz", hash = "sha256:e088e7ddc68d4f70e3d66659224727a45296d71d2b8284181862d3d8f1f0d88f", size = 6915161, upload-time = "2026-06-03T18:33:40.226Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f9/14/abe5ce876ab5b66ee3c691bf537fcd43d037aea55d447aacf74630a8f31e/plotly-6.8.0-py3-none-any.whl", hash = "sha256:13c5c4a0f70b74cab1913eda0de49b826df5931708eb6f9c3010040614700ec8", size = 9902055, upload-time = "2026-06-03T18:33:34.26Z" },
+]
+
+[[package]]
 name = "pluggy"
 version = "1.6.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4039,6 +4052,7 @@ dependencies = [
     { name = "pbg-copasi" },
     { name = "pbg-emitters", extra = ["parquet", "xarray"] },
     { name = "pbg-superpowers" },
+    { name = "plotly" },
     { name = "plum-dispatch" },
     { name = "process-bigraph" },
     { name = "pymunk" },
@@ -4057,6 +4071,9 @@ dev = [
     { name = "pytest-timeout" },
     { name = "pytest-xdist" },
 ]
+ray = [
+    { name = "ray" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -4072,11 +4089,13 @@ requires-dist = [
     { name = "pbg-emitters", extras = ["parquet"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-emitters", extras = ["xarray"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-superpowers", git = "https://github.com/vivarium-collective/pbg-superpowers.git?branch=main" },
+    { name = "plotly", specifier = ">=5.0" },
     { name = "plum-dispatch", specifier = ">=2.5" },
     { name = "process-bigraph", git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main" },
     { name = "pymunk" },
     { name = "pytest-timeout", marker = "extra == 'dev'", specifier = ">=2.3" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6" },
+    { name = "ray", marker = "extra == 'ray'", specifier = ">=2.10" },
     { name = "requests" },
     { name = "scipy" },
     { name = "spatio-flux", git = "https://github.com/vivarium-collective/spatio-flux.git?branch=main" },
@@ -4087,7 +4106,7 @@ requires-dist = [
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
     { name = "vivarium-dashboard", git = "https://github.com/vivarium-collective/vivarium-dashboard.git?branch=main" },
 ]
-provides-extras = ["dev", "parquet", "xarray", "emitters"]
+provides-extras = ["dev", "parquet", "xarray", "emitters", "ray"]
 
 [[package]]
 name = "vecoli"

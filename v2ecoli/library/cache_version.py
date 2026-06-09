@@ -55,6 +55,7 @@ INPUT_FILES: tuple[str, ...] = (
     # old architecture.
     "v2ecoli/composites/baseline.py",
     "v2ecoli/composites/colony.py",
+    "v2ecoli/composites/kinetic_charging_baseline.py",
     "v2ecoli/composites/millard_pdmp_baseline.py",
 )
 

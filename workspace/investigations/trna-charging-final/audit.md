@@ -693,3 +693,59 @@ With Task #5 done:
 - 3f's composite arch can read the new config keys.
 - Once Task #8 reruns ParCa (rebuilds sim_data with Task #6's Relation port baked in), the `relation` object will carry the post-port attrs and the extension method returns the full kinetic dict.
 - 3f's behavior test then has end-to-end coverage.
+
+---
+
+## Task #3f progress log
+
+**2026-06-09 — `kinetic_charging_baseline` composite arch + behavior-test scaffold landed.**
+
+### Implementation
+`v2ecoli/composites/kinetic_charging_baseline.py` (~115 LOC) — sibling of `baseline.py` that swaps `SteadyStatePolypeptideElongation` for `KineticTrnaChargingPolypeptideElongation`. The orchestration body (execution layers, allocator wiring, listener emission, emitter declarations) is identical to baseline's, so we delegate via a scoped `PARTITIONED_PROCESSES` mutation through a context manager (`_use_kinetic_partitioned_processes`).
+
+### Pragmatic monkey-patch tradeoff
+The existing sibling architecture `millard_pdmp_baseline.py` is 832 LOC of mostly-duplicated orchestration. For 3f I chose the smaller path: 115 LOC of delegation + context-manager swap, rather than 600+ LOC of copied orchestration. The swap is bounded by `try/finally` so the original `SteadyStatePolypeptideElongation` mapping is restored even on exception, blocking the dirty-mutation leak into subsequent `baseline()` builds in the same Python process.
+
+Documented as future-work-able in the module docstring: factor `baseline._build_baseline_doc(..., partitioned_processes=PARTITIONED_PROCESSES)` and make `kinetic_charging_baseline` a single-line delegation. Deferred — out-of-scope for this session.
+
+### Registration
+1. `v2ecoli/composites/kinetic_charging_baseline.py` — `@composite_generator(name="kinetic_charging_baseline", ...)`.
+2. `v2ecoli/composites/__init__.py` — appended to the side-effect imports + `__all__`. Importing `v2ecoli.composites` fires the decorator and registers the architecture.
+3. `v2ecoli/library/cache_version.py` — added to `INPUT_FILES` so changes to this composite auto-invalidate the cache.
+
+### Tests
+`tests/test_behavior_kinetic_charging.py` — 9 tests:
+
+**Smoke tests (7, all pass):**
+- Module imports cleanly.
+- Composite function has the expected `(core, *, seed, cache_dir, config_overrides, bundle)` signature.
+- Architecture is registered (`@composite_generator` side-effect detected via `_REGISTRY`, looking up by `entry.name` since registry keys are fully-qualified IDs).
+- Context manager swaps `PARTITIONED_PROCESSES["ecoli-polypeptide-elongation"]` and restores it on normal exit.
+- Context manager also restores on exception.
+- New composite file is in `cache_version.INPUT_FILES`.
+- `composites.__init__.__all__` exports the new arch.
+
+**Cache-gated end-to-end tests:**
+- `test_composite_builds_against_stale_cache_via_soft_fail` (`@pytest.mark.sim @_needs_cache`, passes) — even with the current cache (built before Task #6's Relation port), the composite *builds*: the kinetic config splat is empty (soft-fail from Task #5), so the kinetic Process's `initialize` sees the empty/zero-shaped defaults. Walks down to `doc["state"]["agents"]["<id>"]["ecoli-polypeptide-elongation_requester"]` to confirm the elongation Steps are wired.
+- `test_composite_runs_one_tick_with_kinetic_elongation` (`@_post_port_cache`, **skipped**) — gated on whether the cache's `sim_data.relation` carries the new attrs (`codon_sequences`). Will activate once Task #8 reruns ParCa.
+
+### Results
+- `pytest tests/test_behavior_kinetic_charging.py` → **8 passed, 1 skipped** in 5.02 s.
+- `pytest tests/test_kinetic_charging_*.py tests/test_behavior_kinetic_charging.py -m 'not sim'` → **68 passed, 4 deselected** in 3.16 s. No regressions.
+
+### What unblocks
+- Task #8 (full ParCa rerun) is now the bottleneck for end-to-end verification. Once the cache carries the post-port Relation attrs, the gated test will activate.
+- Task #9 (cache rebuild) is automatic via the touched files in `INPUT_FILES`.
+- Tasks #10–#13 (test gates + reports) follow naturally.
+
+### Task #3 grand summary
+The full `KineticTrnaChargingModel` port from upstream (~710 LOC monolithic class on upstream `polypeptide_elongation.py:2198`) is now in v2ecoli as:
+
+| File | LOC | Sub-tasks |
+|---|---:|---|
+| `v2ecoli/processes/polypeptide/kinetic_charging.py` | ~975 | 3a (scaffold), 3b (`__init__`), 3c (request side), 3d (evolve_state override + evolve side) |
+| `v2ecoli/composites/kinetic_charging_baseline.py` | ~115 | 3f (composite arch) |
+| `v2ecoli/library/sim_data.py` (extension) | ~95 | Task #5 (config plumbing) |
+| `tests/test_kinetic_charging_*.py` + `test_behavior_kinetic_charging.py` | ~1200 | All sub-tasks |
+
+Source-scan + cache-gated tests cover the structural correctness end-to-end. The behavior-tick test gates on Task #8.

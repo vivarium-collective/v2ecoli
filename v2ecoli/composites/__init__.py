@@ -6,6 +6,13 @@ in ``pbg_superpowers.composite_generator._REGISTRY``.
 """
 
 from v2ecoli.composites import baseline, colony, parca  # noqa: F401
+from v2ecoli.composites import kinetic_charging_baseline  # noqa: F401
 from v2ecoli.composites import millard_pdmp_baseline  # noqa: F401
 
-__all__ = ["baseline", "colony", "parca", "millard_pdmp_baseline"]
+__all__ = [
+    "baseline",
+    "colony",
+    "kinetic_charging_baseline",
+    "millard_pdmp_baseline",
+    "parca",
+]

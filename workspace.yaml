@@ -23,12 +23,25 @@ dashboard:
   name: "sms-ecoli"                    # rail brand line 1; template renders "dashboard" beneath it
   logo: assets/sms-ecoli-logo.png      # workspace-relative rail logo
   registry:
-    # Display-only allow-list: the Registry tab shows ONLY classes whose
-    # originating package is listed here (discovery is unchanged).
-    include:
-      - v2ecoli
-      - pbg-bioreactordesign
-      - viva-munk
+    # Per-workspace catalog OVERRIDE: `modules` REPLACES pbg's default 19-pkg
+    # catalog (vs `include`, which can only HIDE default entries — it can't
+    # surface a package pbg doesn't ship, like viva-munk). The Registry-tab
+    # PROCESS grid derives its allow-list from these names too (plus the
+    # workspace-self package), so the class grid and the catalog show the same
+    # set: v2ecoli + pbg-bioreactordesign + viva-munk.
+    #   - bare string → inherit full metadata from pbg's default catalog
+    #   - dict        → a custom entry pbg doesn't ship (used verbatim)
+    # (v2ecoli, the workspace's own package, is added automatically — not listed.)
+    modules:
+      - pbg-bioreactordesign            # inherits metadata from default catalog
+      - name: viva-munk                 # custom; pbg doesn't ship it
+        package: viva_munk
+        source: https://github.com/vivarium-collective/Viva-munk
+        homepage: https://github.com/vivarium-collective/Viva-munk
+        ref: main
+        description: "multi-cell simulations with pymunk 2d physics"
+        category: visualization
+        tags: [visualization, multicell, physics]
   data_sources:
     # Repo-wide data-source bundle shown in the Inputs tab. The provider is an
     # importable `module:func` returning [{key, path, category, kind, size_bytes}].

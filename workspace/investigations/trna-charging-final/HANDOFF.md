@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task 3a — about to commit). **Task #2 (Cython kernel port) complete; Task #3 (Process class port) started, split into 3a–3f.**
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `07f7225 feat(trna-charging): KineticTrnaChargingPolypeptideElongation class scaffold (Task 3a)`. **Task #2 complete; Task #3 split into 3a–3f, 3a done.**
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

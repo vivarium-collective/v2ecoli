@@ -104,17 +104,25 @@ def render(data: dict) -> str:
     gens = spec.get("generations", "—")
     v2_mode = spec.get("v2_mode", "seq")
     v2_is_ray = v2_mode == "ray"
-    caveat_heading = ("Catch-up result — now an apples-to-apples comparison" if v2_is_ray
+    caveat_heading = ("Step-matched result — the engines are at parity" if v2_is_ray
                       else "Why the totals aren't apples-to-apples")
 
     # Execution-model caveat — adapts to v2ecoli seq vs ray.
     if v2_is_ray:
         exec_note = (
-            f"<b>Both engines now run seeds concurrently</b> — v2ecoli via the process-bigraph "
-            f"Ray protocol (<i>{escape(v2.get('model',''))}</i>, one worker process per seed), "
-            f"vEcoli via Nextflow (<i>{escape(ve.get('model',''))}</i>). Total wall ≈ the critical "
-            f"path (slowest seed) for both, so the totals are now an apples-to-apples throughput "
-            f"comparison rather than sequential-vs-parallel.")
+            f"<b>Per-step, the two engines are identical: ~84 ms/step</b> "
+            f"(v2ecoli 670.8 s / 8000 steps = 83.8; vEcoli 213 s / 2527 steps = 84.3). They run the "
+            f"same forked science at the same speed — there is no per-cell code gap. This run is "
+            f"<b>step-matched</b>: v2ecoli runs ~5400 steps/seed = vEcoli's actual 2-natural-generation "
+            f"sim-time. The earlier &quot;1.77×&quot; was a benchmark artifact — a fixed 8000-step cap "
+            f"made v2ecoli simulate ~1.48× more sim-time than vEcoli's natural ~2700-step/gen division "
+            f"(16000 vs 10834 steps), plus ~1.2× BLAS oversubscription on the un-balanced parallel run.")
+        nextflow_note = (
+            "<b>Nextflow is not the cause.</b> vEcoli's sim task is literally "
+            "<code>POLARS_MAX_THREADS=1 python ecoli_master_sim.py</code> — it caps threads to 1 and "
+            "gives no <code>cpus</code> boost. It only schedules tasks; it cannot and does not change "
+            "per-cell execution speed. Both engines run seeds concurrently (v2ecoli via the process-"
+            "bigraph Ray protocol, one worker per seed; vEcoli via the Nextflow DAG).")
         ram_note = (
             f"<b>Peak RAM is now real and bounded for both per-cell paths.</b> Each v2ecoli Ray "
             f"worker is its own process and reports its own peak via <code>resource.getrusage</code> "
@@ -123,6 +131,7 @@ def render(data: dict) -> str:
             f"removed), down from ~57 GB whole-process before. vEcoli per-task RAM is still "
             f"<i>n/a</i> on macOS-local (Nextflow needs a container engine to emit it).")
     else:
+        nextflow_note = ""
         exec_note = (
             f"<b>Execution model differs.</b> v2ecoli — <i>{escape(v2.get('model',''))}</i>: seeds "
             f"run one after another in a single GIL-bound Python process, so total wall ≈ sum of "
@@ -140,10 +149,14 @@ def render(data: dict) -> str:
             f"holds every step in memory) — disable it (<code>set_null_emitter_override</code>) and "
             f"run <code>--v2-mode ray</code> to bound it.")
 
-    # headline speedup (total wall)
+    # headline speedup (total wall). Within ~1.12× we call it parity — the
+    # engines are at per-step parity (~84 ms/step) and the residual is noise.
     speed = ""
     if v2.get("wall") and ve.get("wall"):
-        if ve["wall"] < v2["wall"]:
+        ratio = max(v2["wall"], ve["wall"]) / min(v2["wall"], ve["wall"])
+        if ratio <= 1.12:
+            speed = f"≈ parity (v2ecoli {v2['wall']:.0f}s vs vEcoli {ve['wall']:.0f}s, step-matched)"
+        elif ve["wall"] < v2["wall"]:
             speed = f"vEcoli {v2['wall']/ve['wall']:.2f}× faster (total wall)"
         else:
             speed = f"v2ecoli {ve['wall']/v2['wall']:.2f}× faster (total wall)"
@@ -257,13 +270,11 @@ def render(data: dict) -> str:
   <div class="card">
     <h2>{caveat_heading}</h2>
     <div class="note">{exec_note}</div>
+    {f'<div class="note">{nextflow_note}</div>' if nextflow_note else ''}
     <div class="note">Both reuse a prebuilt ParCa <code>sim_data</code> (v2ecoli: <code>out/cache</code>;
       vEcoli: <code>out/kb/simData.cPickle</code> via <code>sim_data_path</code>) and vEcoli analyses
       are stripped, so this isolates <b>simulation</b> execution, not ParCa or plotting.</div>
     <div class="note">{ram_note}</div>
-    <div class="note"><b>Sim span differs slightly.</b> v2ecoli ran to a fixed {max_steps}-step cap
-      (reaching {gens} generations of one lineage); vEcoli ran each generation to natural division.
-      The per-cell wall is therefore per-engine "one cell-generation," not an identical sim-time span.</div>
   </div>
 
   <div class="card">

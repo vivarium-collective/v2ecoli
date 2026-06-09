@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task 3c — about to commit). **Task #2 complete; Task #3 split into 3a–3f, 3a + 3b + 3c done.**
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `b2b1477 feat(trna-charging): port request-side methods (Task 3c)`. **Task #2 complete; Task #3 split into 3a–3f, 3a + 3b + 3c done.**
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

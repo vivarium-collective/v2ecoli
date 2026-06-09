@@ -103,6 +103,26 @@ def resolve_sim_data(sweep_dir: str):
         f"no sim_data pickle under {sweep_dir!r} (needed by Analysis steps)")
 
 
+def resolve_validation_data(sim_data):
+    """Build minimal validation data from the copied flat files + sim_data.
+
+    Returns a ``_ValidationData`` object exposing
+    ``.protein.schmidt2015Data`` and ``.protein.wisniewski2014Data``, or
+    ``None`` if the loader or flat files are unavailable (so unrelated
+    analyses are never broken by a missing validation dataset).
+    """
+    try:
+        from v2ecoli.library.validation_data import build_validation_data
+        return build_validation_data(sim_data)
+    except Exception as exc:  # noqa: BLE001
+        warnings.warn(
+            f"validation_data unavailable ({type(exc).__name__}: {exc}); "
+            "analyses that require it will receive None.",
+            stacklevel=2,
+        )
+        return None
+
+
 def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
     """Build per-cell summary records from the sweep's parquet + summary.json."""
     import duckdb
@@ -201,7 +221,9 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
             _ctx["conn"] = duckdb.connect()
             _ctx["from_clause"] = _history_from_clause(sweep_dir)
             _ctx["sim_data"] = resolve_sim_data(sweep_dir)
-        return _ctx["conn"], _ctx["from_clause"], _ctx["sim_data"]
+            _ctx["validation_data"] = resolve_validation_data(_ctx["sim_data"])
+        return (_ctx["conn"], _ctx["from_clause"],
+                _ctx["sim_data"], _ctx["validation_data"])
 
     for scale, analyses in (analysis_options or {}).items():
         if scale not in ANALYSIS_SCALES:
@@ -224,7 +246,7 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
             if issubclass(step_cls, Analysis):
                 # DuckDB-provisioning path: connection + sim_data are shared across
                 # all groups and analyses (lazily provisioned once per run).
-                conn, from_clause, sim_data = _analysis_ctx()
+                conn, from_clause, sim_data, validation_data = _analysis_ctx()
                 params = (analyses or {}).get(name) or {}
                 viz_dir = os.path.join(sweep_dir, "viz")
                 os.makedirs(viz_dir, exist_ok=True)
@@ -235,7 +257,8 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
                         out = step.update({
                             "conn": conn, "history_sql": history_sql,
                             "config_sql": "", "success_sql": "",
-                            "sim_data": sim_data, "validation_data": None,
+                            "sim_data": sim_data,
+                            "validation_data": validation_data,
                             "variant_metadata": params,
                         })
                         if out.get("view"):

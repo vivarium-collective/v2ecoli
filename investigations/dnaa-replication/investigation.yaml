@@ -2,7 +2,7 @@ schema_version: 2
 name: dnaa-replication
 title: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)
 created: '2026-05-29'
-status: active   # 2026-06-08: dnaa-0 PASS; dnaa-1 PASS at CANONICAL V=1.1e-3 on Rashmi's generation-average criterion — DnaA pool cycle-mean 676 in [300,800] AND dnaA init rate 1.00/min on target (BOTH met); steady dynamics seed-robust (multiseed); the prior 0.8e-3 (in-band but sub-physiological-rate) is superseded. Strict whole-oscillation-≤800 not met (expected accumulate-then-divide). Pending Rashmi's confirmation of the criterion. dnaa-3 over-binding persists. dnaa-2 PASS (generation-average criterion, seed-1 8-gen): all four behaviours pass (DnaA-ATP fraction avg 0.26, total-DnaA avg 535, mass-doubling, oriC-one-init).
+status: active   # 2026-06-09: dnaa-0 PASS; dnaa-1 PASS at CANONICAL V=0.8e-3 on the expert's IN-BAND + STEADY criterion — the DnaA pool oscillates WITHIN [300,800] (steady-gen cycle-mean ~362, peaks <800, troughs ~207) with steady dynamics (oriC 1↔2, every gen divides), exactly her ask; the ~0.6/min dnaA init rate is the known sub-physiological TRADEOFF (init-rate test PARTIAL). No CONSTITUTIVE V closes both band + ~1/min rate (7-point sweep + the 15-gen V=1.1e-3 equilibration run that overshoots) — closing both needs a regulated synthesis lever (Rashmi/Haochen). The earlier V=1.1e-3 pick is WITHDRAWN (its 7-gen "676 in-band" was a pre-equilibration artifact). Pending Rashmi's confirmation. dnaa-3 over-binding persists. dnaa-2 PASS (generation-average criterion, seed-1 8-gen): all four behaviours pass (DnaA-ATP fraction avg 0.26, total-DnaA avg 535, mass-doubling, oriC-one-init).
 
 question: |
   Can v2ecoli reproduce DnaA-driven replication initiation in succinate at
@@ -38,28 +38,35 @@ executive:
     growth condition, built study-by-study. dnaa-0 (succinate periodic steady
     state) PASSES. A per-generation parquet-emit bug that had been truncating each
     generation's history to the post-division trough was fixed (2026-06-08); re-running
-    on the full per-gen history then drove a V-sweep + multiseed: dnaa-1 (DnaA expression)
-    is now PASS at the CANONICAL V=1.1e-3 — on Rashmi's generation-average criterion the
-    DnaA pool (cycle-mean 676) is in [300,800] AND the dnaA init rate (1.00/min) is on the
-    ~1/min target, so BOTH targets are met; the prior 0.8e-3 (in-band but
-    sub-physiological-rate) is superseded. dnaa-3 (DnaA-box binding) shows the over-binding
+    on the full per-gen history then drove a V-sweep + a 15-gen equilibration + multiseed:
+    dnaa-1 (DnaA expression) is now PASS at the CANONICAL V=0.8e-3 — on the expert's
+    in-band + steady criterion the DnaA pool oscillates WITHIN [300,800] (steady-gen
+    cycle-mean ~362, peaks <800) with steady dynamics (oriC 1↔2, every gen divides),
+    exactly her ask; the ~0.6/min dnaA init rate is the known sub-physiological tradeoff
+    (init-rate test PARTIAL). No constitutive V closes both band + ~1/min rate — needs a
+    regulated lever; the earlier V=1.1e-3 pick is withdrawn (pre-equilibration artifact).
+    dnaa-3 (DnaA-box binding) shows the over-binding
     PERSISTS. dnaa-2 (DnaA-ATP/ADP nucleotide balance) PASSED on the pre-fix data and
     shares the same truncation-artifact risk (re-verification pending). Each study has an
     explicit acceptance criterion in biological observables (oriC periodicity, DnaA pool
     steady state, DnaA-ATP fraction band).
   verdict: |-
-    dnaa-0 PASS. dnaa-1 PASS at the CANONICAL V=1.1e-3 on Rashmi's
-    generation-average criterion: a 7-point V-sweep + a multiseed (via the recorded
-    --perturbation override on one shared cache, full per-gen history) establish that at
-    V=1.1e-3 the steady-gen DnaA pool cycle-mean (676) is in [300,800] AND the dnaA init
-    rate (gens 4-7 0.94/1.05/1.04/0.97, mean 1.00/min) is on the ~1/min biological target —
-    so BOTH targets are met, oriC clean 1↔2 every gen, every gen divides, and the
-    steady-state dynamics are seed-robust (multiseed seeds 0-3). The prior 0.8e-3 pick was
-    in-band but its init rate (0.46-0.71/min) was sub-physiological, and is SUPERSEDED by
-    1.1e-3 which meets both layers. HONEST: the STRICT whole-oscillation-≤800 is not met —
-    the pool doubles per cycle so the within-cycle peak overshoots 800 (gen6/7 max
-    1161/1139), the expected accumulate-then-divide excursion per Rashmi's dnaa-2 rule.
-    Pending Rashmi's confirmation of the generation-average criterion + the V. dnaa-3 box
+    dnaa-0 PASS. dnaa-1 PASS at the CANONICAL V=0.8e-3 on the expert's
+    IN-BAND + STEADY criterion: a 7-point V-sweep + a 15-gen equilibration run + a
+    multiseed (via the recorded --perturbation override on one shared cache, full per-gen
+    history) establish that V=0.8e-3 is the ONLY V whose DnaA pool oscillates WITHIN
+    [300,800] — the whole oscillation, steady-gen cycle-mean 336.5/337.5/359.5/414.8
+    (pooled ~362), peaks <800 (max 553), troughs ~207 — AND keeps steady-state dynamics
+    (oriC clean 1↔2 every gen, every gen divides), which is exactly what she asked for.
+    The dnaA init rate at V=0.8e-3 is ~0.6/min (gens 4-7 0.65/0.46/0.57/0.71) —
+    sub-physiological vs the ~1/min target: the KNOWN TRADEOFF, recorded as PARTIAL on the
+    init-rate test. ESTABLISHED: no single CONSTITUTIVE V closes both the in-band pool AND
+    the ~1/min rate (7-point sweep + the 15-gen V=1.1e-3 equilibration run, which overshoots
+    the band then relaxes) — both rise together with V; closing both needs a REGULATED /
+    cell-cycle-coupled DnaA synthesis (a different lever, for Rashmi/Haochen). The earlier
+    V=1.1e-3 pick is WITHDRAWN: its 7-gen "676 in-band" reading was a pre-equilibration
+    artifact. The steady-state dynamics are seed-robust (multiseed seeds 0-3). Pending
+    Rashmi's confirmation of the V=0.8e-3 pick. dnaa-3 box
     binding runs IN-SIM as the
     provided read-only occupancy listener; per Rashmi 2026-06-08 the cap=32/Smith-2024 and
     sink/abundance/datA additions were NON-provided and are WITHDRAWN. The multi-gen
@@ -73,24 +80,28 @@ executive:
     periodic steady state (oriC 1↔2 from gen 3, transient 4 in gens 1–2;
     reviewer-confirmed). Both acceptance tests re-verified from the parquet
     (2026-05-31, scripts/verify_dnaa0_acceptance.py): oriC max ≤2 from gen 3,
-    cell_mass CV birth 0.021 / peak 0.045. dnaa-1 — PASS 2026-06-08 at the CANONICAL
-    V=1.1e-3 on Rashmi's GENERATION-AVERAGE criterion. A 7-point V-sweep (Rashmi's request
+    cell_mass CV birth 0.021 / peak 0.045. dnaa-1 — PASS 2026-06-09 at the CANONICAL
+    V=0.8e-3 on the expert's IN-BAND + STEADY criterion. A 7-point V-sweep (Rashmi's request
     — "tune the v value to get the DnaA levels to oscillate between 300-800... my guess
-    would be 1e-3") plus a multiseed, set per-run via the recorded --perturbation
-    'TU00259[c]=V' override on one shared cache (out/cache_dnaa1_mechA_1.7e-3, each run
-    OVERRODE the baked 0.0017), full per-gen history, seed 1, 7 gens. At V=1.1e-3 the
-    steady-gen (4-7) DnaA pool cycle-mean is 676 — in [300,800] — AND the dnaA init rate
-    (gens 4-7 0.94/1.05/1.04/0.97, mean 1.00/min) is squarely on the ~1/min biological
-    target, so BOTH acceptance layers are satisfied on the generation-average criterion
-    (the same rule Rashmi set for dnaa-2 on 2026-06-04: within-cycle peaks >800 pre-division
-    are the expected accumulate-then-divide behaviour, evaluated on the cycle-mean). oriC
-    clean 1↔2 every gen, every gen divides, and the steady-state dynamics are seed-robust
-    (multiseed seeds 0-3). The prior interim V=0.8e-3 held the whole oscillation under 800
-    but at a sub-physiological init rate (0.46-0.71/min) and is SUPERSEDED by 1.1e-3. HONEST:
-    the STRICT whole-oscillation-≤800 is NOT met at V=1.1e-3 — the pool doubles per cycle so
-    the within-cycle peak overshoots 800 (gen6/7 max 1161/1139, later-gen cycle-means creep
-    to 804/842); per the dnaa-2 rule this peak excursion is expected, not a fail. Pending
-    Rashmi's confirmation of the generation-average criterion + the V pick. The earlier
+    would be 1e-3") plus a 15-gen equilibration run and a multiseed, set per-run via the
+    recorded --perturbation 'TU00259[c]=V' override on one shared cache
+    (out/cache_dnaa1_mechA_1.7e-3, each run OVERRODE the baked 0.0017), full per-gen
+    history, seed 1. V=0.8e-3 is the ONLY V whose DnaA pool oscillates WITHIN [300,800] —
+    the whole oscillation, steady-gen (4-7) cycle-mean 336.5/337.5/359.5/414.8 (pooled
+    ~362), peaks <800 (max 553), troughs ~207 — AND keeps steady-state dynamics (oriC clean
+    1↔2 every gen, every gen divides), which is exactly the expert's ask. The dnaA init rate
+    at V=0.8e-3 is ~0.6/min (gens 4-7 0.65/0.46/0.57/0.71) — sub-physiological vs the ~1/min
+    target: the KNOWN TRADEOFF, recorded as PARTIAL on the init-rate test. ESTABLISHED: no
+    single CONSTITUTIVE V closes both the in-band pool AND the ~1/min rate — the rate hits
+    ~1/min only at V≈1.0-1.1e-3, where the pool does NOT equilibrate in band (the completed
+    15-gen V=1.1e-3 run out/dnaa1_v1p1e-3_long shows the cycle-mean climbs over 800 — peak
+    976 @gen9, gens 6-12 ≥800 — then relaxes to 485 by gen15). Both the pool and the rate
+    rise together with V, so closing both needs a REGULATED / cell-cycle-coupled DnaA
+    synthesis lever (for Rashmi/Haochen). The earlier V=1.1e-3 pick is WITHDRAWN: its 7-gen
+    "676 in-band" reading was a pre-equilibration artifact, caught mid-ramp before the pool
+    finished climbing over the ceiling. oriC clean 1↔2 every gen, every gen divides, and the
+    steady-state dynamics are seed-robust (multiseed seeds 0-3). Pending Rashmi's
+    confirmation of the V=0.8e-3 pick. The earlier
     "in-band 665-710" PASS at V=1.7e-3 was a truncated-emit artifact (only ~43 s/gen, the
     post-division trough, was emitted before the now-fixed division history-wipe bug).
 
@@ -169,8 +180,17 @@ executive:
       the canonical succinate steady-state initial condition
       (out/steady_state_inputs/succinate_default_gen3_start.dill) and
       dnaa-1 is unblocked.
-  - question: dnaa-1 RNA-synthesis-probability tuning lands the dnaA mRNA INITIATION RATE near the biologically-expected ≈1 event/min (with the DnaA monomer pool in 300–800 as the consequence) — does V=2e-3 work?
-    status: RESOLVED 2026-05-30 — PASS (after fixing an emitter bug; real full-cycle data)
+  - question: dnaa-1 RNA-synthesis-probability tuning holds the DnaA monomer pool oscillating in [300,800] with steady cell-cycle dynamics across the succinate lineage — what V, and does the ≈1/min init rate come along for free?
+    status: |
+      RESOLVED 2026-06-09 — PASS at CANONICAL V=0.8e-3 on the expert's IN-BAND +
+      STEADY criterion. V=0.8e-3 is the only V whose DnaA pool oscillates WITHIN
+      [300,800] (steady-gen cycle-mean ~362, peaks <800, troughs ~207) while
+      keeping steady dynamics (oriC 1↔2, every gen divides) — her ask. The ~0.6/min
+      init rate is the KNOWN TRADEOFF (init-rate test PARTIAL): no single
+      CONSTITUTIVE V closes both the band and the ~1/min rate (7-point sweep + the
+      15-gen V=1.1e-3 equilibration run that overshoots) — closing both needs a
+      regulated synthesis lever (Rashmi/Haochen). The earlier V=1.1e-3 pick is
+      withdrawn (7-gen "676 in-band" was a pre-equilibration artifact).
     context: |
       PDF hint (chart caption): set
       sim_data.genetic_perturbations["TU00259[c]"] = 2e-3 at runtime
@@ -205,7 +225,7 @@ scientific_argument:
     across generations.
   evidence_for:
   - 'dnaa-0 (CONFIRMED 2026-05-30, Rashmi "this looks correct"): succinate single-daughters lineage is periodic from gen 3 onwards — oriC 1↔2, cell mass sawtooth, every division fires with d_period_elapsed=True and chromosomes=2 at the split (Round 3.7 D-period fix in place). The early-generation oriC overshoot to 4 is the expected pre-steady-state transient. Gen-3 state saved as the canonical succinate initial condition.'
-  - 'dnaa-1 (PASS 2026-06-08 at the CANONICAL V=1.1e-3 on Rashmi''s generation-average criterion): a 7-point full-per-gen-history sweep of the dnaA RNA-synth probability plus a multiseed (set per-run via the recorded --perturbation override on one shared cache) establish that at V=1.1e-3 the steady-gen (4-7) DnaA pool cycle-mean is 676 — in [300,800] — AND the dnaA init rate (gens 4-7 0.94/1.05/1.04/0.97, mean 1.00/min) is on the ~1/min biological target, so BOTH targets are met on the generation-average criterion. oriC stays periodic 1↔2 (never 4) every gen and every gen divides, so the dnaa-0 cell cycle is preserved under the tuned expression; the steady-state dynamics are seed-robust (multiseed seeds 0-3). The prior 0.8e-3 pick (in-band but its init rate 0.46-0.71/min sub-physiological) is SUPERSEDED by 1.1e-3 which meets both layers. HONEST: the strict whole-oscillation-≤800 is not met — the pool doubles per cycle so the within-cycle peak overshoots 800 (gen6/7 max 1161/1139), the expected accumulate-then-divide excursion per the dnaa-2 rule. Pending Rashmi''s confirmation of the criterion. Canonical run out/dnaa1_v1p1e-3, seed 1.'
+  - 'dnaa-1 (PASS 2026-06-09 at the CANONICAL V=0.8e-3 on the expert''s IN-BAND + STEADY criterion): a 7-point full-per-gen-history sweep of the dnaA RNA-synth probability plus a 15-gen equilibration run and a multiseed (set per-run via the recorded --perturbation override on one shared cache) establish that V=0.8e-3 is the ONLY V whose DnaA pool oscillates WITHIN [300,800] — the whole oscillation, steady-gen (4-7) cycle-mean 336.5/337.5/359.5/414.8 (pooled ~362), peaks <800 (max 553), troughs ~207 — AND keeps steady-state dynamics (oriC periodic 1↔2 never 4 every gen, every gen divides), so the dnaa-0 cell cycle is preserved under the tuned expression and the expert''s ask is met. The dnaA init rate at V=0.8e-3 is ~0.6/min (gens 4-7 0.65/0.46/0.57/0.71) — sub-physiological vs the ~1/min target: the KNOWN TRADEOFF (init-rate test PARTIAL). No single CONSTITUTIVE V closes both the in-band pool AND the ~1/min rate (7-point sweep + the 15-gen V=1.1e-3 equilibration run that overshoots the band then relaxes) — closing both needs a regulated / cell-cycle-coupled DnaA synthesis lever (for Rashmi/Haochen). The earlier V=1.1e-3 pick is WITHDRAWN (its 7-gen "676 in-band" reading was a pre-equilibration artifact). Steady-state dynamics are seed-robust (multiseed seeds 0-3). Pending Rashmi''s confirmation. Canonical run out/dnaa1_v0p8e-3, seed 1.'
   evidence_against:
   - 'Within each cycle the DnaA pool OSCILLATES above the [300,800] band at its pre-division peak (≈1000) before halving at division — so the band holds for the cycle-MEAN, not every instantaneous tick. This is the expected accumulate-then-divide behaviour, not a contradiction, but worth stating: "in band" here means cycle-typical, not a hard cap.'
   caveats:

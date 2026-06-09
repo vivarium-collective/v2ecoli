@@ -62,6 +62,10 @@ def main():
                              "(default: <outdir>/cache).")
     parser.add_argument("--no-operons", action="store_true",
                         help="Disable operons in the KB.")
+    parser.add_argument(
+        "--bundle-manifest-path", type=str, default=None,
+        help="Path to an ecoli-sources bundle manifest (default: the installed "
+             "ecoli-sources reference bundle + v2ecoli overrides).")
     parser.add_argument("--resume-from-step", type=int, default=1,
                         help="Skip steps 1..N-1; load --resume-pickle as the "
                              "initial composite state.  Use to debug late steps "
@@ -88,9 +92,12 @@ def main():
 
     t0 = time.time()
     print(f"[{time.strftime('%H:%M:%S')}] Loading raw_data (operons={not args.no_operons})")
+    from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
+    bundle = SourceBundle(base_manifest=args.bundle_manifest_path)
     raw = KnowledgeBaseEcoli(
         operons_on=not args.no_operons,
         remove_rrna_operons=False, remove_rrff=False, stable_rrna=False,
+        bundle=bundle,
     )
     print(f"    raw_data loaded in {time.time() - t0:.1f}s")
 

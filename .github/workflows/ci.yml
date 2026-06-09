@@ -37,7 +37,11 @@ jobs:
         run: uv python install 3.12.9
 
       - name: Install dependencies (PyPI only)
-        run: uv sync --extra dev || uv sync
+        # vivarium-dashboard's wheel build fails under strict hatchling; the
+        # upstream fix requires bigraph-schema>=1.4.1 (a core bump we're
+        # deferring). It isn't imported by the test suite (testpaths=tests),
+        # so skip building it here.
+        run: uv sync --extra dev --no-install-package vivarium-dashboard || uv sync --no-install-package vivarium-dashboard
 
       - name: Run fast tests (no .run() calls)
         # -n auto: pytest-xdist parallelism (~4 workers on ubuntu-latest).
@@ -67,7 +71,11 @@ jobs:
         run: uv python install 3.12.9
 
       - name: Install dependencies (PyPI only)
-        run: uv sync --extra dev || uv sync
+        # vivarium-dashboard's wheel build fails under strict hatchling; the
+        # upstream fix requires bigraph-schema>=1.4.1 (a core bump we're
+        # deferring). It isn't imported by the test suite (testpaths=tests),
+        # so skip building it here.
+        run: uv sync --extra dev --no-install-package vivarium-dashboard || uv sync --no-install-package vivarium-dashboard
 
       # Cache out/cache (initial_state.json + sim_data_cache.dill +
       # cache_version.json) across PRs. The cache key pins to the same

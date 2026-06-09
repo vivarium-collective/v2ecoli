@@ -14,6 +14,7 @@ from bigraph_schema.schema import Overwrite, Float
 from v2ecoli.steps.base import V2Step
 from v2ecoli.types.stores import InPlaceDict
 from v2ecoli.library.schema import attrs
+from v2ecoli.library.quantity_helpers import fg_magnitude
 from v2ecoli.types.quantity import ureg as units
 
 
@@ -133,6 +134,11 @@ class Division(V2Step):
                     mass = listeners.get('mass', {})
                     if isinstance(mass, dict):
                         dry_mass = mass.get('dry_mass', 0.0)
+                # Under units-on-ports, dry_mass is a pint Quantity[fg]; coerce
+                # to a plain fg float so the arithmetic below doesn't raise a
+                # DimensionalityError (which process-bigraph silently swallows,
+                # leaving division_threshold stuck on "mass_distribution").
+                dry_mass = fg_magnitude(dry_mass)
                 return {
                     "division_threshold": (
                         dry_mass
@@ -149,8 +155,11 @@ class Division(V2Step):
             mass = listeners.get('mass', {})
             if isinstance(mass, dict):
                 dry_mass = mass.get('dry_mass', 0.0)
-
-        threshold = states.get("division_threshold", float('inf'))
+        # Coerce both sides to plain fg floats — dry_mass may be a Quantity[fg]
+        # (units-on-ports); a Quantity vs float comparison raises (and is
+        # swallowed), which would silently prevent division.
+        dry_mass = fg_magnitude(dry_mass)
+        threshold = fg_magnitude(states.get("division_threshold", float('inf')))
 
         full_chrom = states.get('unique', {}).get('full_chromosome')
         n_chromosomes = 0

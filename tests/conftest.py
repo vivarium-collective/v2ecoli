@@ -24,8 +24,22 @@ Path overrides:
 """
 import json
 import os
+import uuid
 
 import pytest
+
+
+@pytest.fixture(autouse=True)
+def _isolate_emitter_experiment_id(monkeypatch):
+    """Give every test a unique emitter experiment_id so parallel baseline
+    runs (pytest -n auto) don't collide on the shared
+    out/.../experiment_id=default/history partition (the division-time
+    recursive partition delete otherwise races across xdist workers)."""
+    worker = os.environ.get("PYTEST_XDIST_WORKER", "main")
+    monkeypatch.setenv(
+        "V2ECOLI_EMITTER_EXPERIMENT_ID",
+        f"test-{worker}-{uuid.uuid4().hex[:8]}",
+    )
 
 
 # ---------------------------------------------------------------------------

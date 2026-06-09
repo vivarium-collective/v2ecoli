@@ -194,6 +194,90 @@ def bulk_count_idx_expr(
     return named_idx("bulk__count", names, [idxs], zero_to_null=zero_to_null)
 
 
+def collapse_cross_seed(
+    df,
+    id_cols: frozenset = frozenset({"bulk__id"}),
+):
+    """Collapse a multi-seed DataFrame to one row per ``time``.
+
+    At multiseed scale, multiple seeds share the same absolute ``time``
+    value.  v2ecoli's pandas ``groupby.sum()`` *concatenates* Python-list
+    columns instead of adding them element-wise — this function replaces
+    that groupby with a correct aggregation:
+
+    - **id columns** (``id_cols``, e.g. ``bulk__id``): take the first
+      row's value; assert every row in the group has the same length
+      (raises ``ValueError`` if not — never silently truncates/pads).
+    - **list/array columns** (all other non-scalar columns): element-wise
+      numpy sum across seeds.  Assert all arrays in a group share the same
+      shape (raises ``ValueError`` if not).
+    - **scalar columns**: plain sum.
+
+    Returns a DataFrame with one row per ``time``, columns in the original
+    order.
+    """
+    import numpy as np
+    import pandas as pd
+
+    if df.empty:
+        return df.copy()
+
+    first_row = df.iloc[0]
+
+    list_cols: list[str] = []
+    id_col_list: list[str] = []
+    scalar_cols: list[str] = []
+
+    for col in df.columns:
+        if col == "time":
+            continue
+        val = first_row[col]
+        if col in id_cols:
+            id_col_list.append(col)
+        elif isinstance(val, (list, np.ndarray)):
+            list_cols.append(col)
+        else:
+            scalar_cols.append(col)
+
+    result_rows: list[dict] = []
+    for time_val, group in df.groupby("time", sort=True):
+        row: dict = {"time": time_val}
+
+        # id columns: take first, assert all same length
+        for col in id_col_list:
+            first_val = list(group[col].iloc[0])
+            for other_val in group[col].iloc[1:]:
+                other_list = list(other_val)
+                if len(other_list) != len(first_val):
+                    raise ValueError(
+                        f"Mismatched length in id column '{col}' at "
+                        f"time={time_val}: expected {len(first_val)}, "
+                        f"got {len(other_list)}"
+                    )
+            row[col] = first_val
+
+        # list/array columns: element-wise numpy sum across seeds
+        for col in list_cols:
+            arrays = [np.asarray(v) for v in group[col]]
+            shapes = [a.shape for a in arrays]
+            if len(set(shapes)) > 1:
+                raise ValueError(
+                    f"Mismatched array shapes in column '{col}' at "
+                    f"time={time_val}: {shapes}"
+                )
+            row[col] = np.sum(np.stack(arrays), axis=0)
+
+        # scalar columns: plain sum
+        for col in scalar_cols:
+            row[col] = group[col].sum()
+
+        result_rows.append(row)
+
+    result = pd.DataFrame(result_rows)
+    # Preserve original column order
+    return result[list(df.columns)]
+
+
 def cast_decimals(df):
     """Cast any polars ``Decimal`` columns to ``Float64``.
 

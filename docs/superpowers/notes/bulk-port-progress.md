@@ -6,20 +6,26 @@ in `~/code/vivarium-ecoli`) onto v2ecoli's native `Analysis` base.
 ## Summary counts
 
 - Step 0 (compat shim centralization): **DONE**
-- PORTED: 15
+- PORTED: 18
 - SKIPPED: 0
-- BLOCKED: 10
+- BLOCKED: 7
 - Remaining: 0
 
-**All 25 in-scope targets processed.**
+**All 25 in-scope targets processed; 3 previously-BLOCKED multiseed ptools now PORTED.**
 
 ## Infrastructure added
 - `v2ecoli/workflow/analyses/_helpers.py` — native `read_stacked_columns`
   (aliases `global_time` → `time`), `num_cells`, `skip_n_gens`,
   `available_columns`, `bulk_field_ids`, `bulk_count_idx_expr` (parquet-order
   bulk indexing, fail-loud), `cumulative_time_history` (absolute time axis for
-  multigeneration), `chart_to_html` (Altair view), and re-exports `named_idx` /
-  `ndidx_to_duckdb_expr`. `tests/test_bulk_analyses.py` registration tests.
+  multigeneration), `collapse_cross_seed` (element-wise list-column aggregation
+  for multiseed, fail-loud on shape mismatch), `chart_to_html` (Altair view),
+  and re-exports `named_idx` / `ndidx_to_duckdb_expr`.
+  `tests/test_bulk_analyses.py` registration tests + unit tests for
+  `collapse_cross_seed`.
+- Each ptools base class (`PtoolsRna`, `PtoolsRxns`, `PtoolsProteins`) now
+  exposes `_do_read_outputs()` so the `_MultiseedMixin` can override it without
+  duplicating `analyze()` logic.
 
 ## Step 0 — centralize wholecell↔matplotlib-3.10 compat
 
@@ -57,19 +63,21 @@ Legend: PORTED (sha) / SKIPPED (reason) / BLOCKED (reason) / TODO
 ### multiseed
 - multiseed/ecocyc_table — BLOCKED (needs validation_data.protein.schmidt2015Data for the minimal-media branch (validation_data is None) and active_ribosome shim; very large multi-TSV; deferred)
 - multiseed/protein_counts_validation — BLOCKED (entire analysis compares to validation_data.protein.wisniewski2014Data/schmidt2015Data; validation_data is None in the Analysis framework)
-- multiseed/ptools_proteins — BLOCKED (cross-seed list aggregation; see below)
-- multiseed/ptools_rna — BLOCKED (cross-seed list aggregation; see below)
-- multiseed/ptools_rxns — BLOCKED (cross-seed list aggregation; see below)
+- multiseed/ptools_proteins — PORTED (`ptools_proteins_multiseed`; `_MultiseedMixin` + `collapse_cross_seed`)
+- multiseed/ptools_rna — PORTED (`ptools_rna_multiseed`; `_MultiseedMixin` + `collapse_cross_seed`)
+- multiseed/ptools_rxns — PORTED (`ptools_rxns_multiseed`; `_MultiseedMixin` + `collapse_cross_seed`)
 
-  **BLOCKED reason (multiseed ptools ×3):** at multiseed scale multiple seeds
-  share each `(generation, time)`, so vEcoli's `read_outputs` sums the list
-  columns element-wise across seeds (its `time` is absolute and list columns are
-  ndarrays). v2ecoli's pandas `groupby("time").sum()` over the per-row
-  `bulk__id` (string lists) and `bulk__count` / flux (python lists) columns
-  *concatenates* instead of element-wise adding, so the single-scale read path
-  cannot be reused. A faithful port needs a dedicated cross-seed read
-  (`first(bulk__id)` + element-wise ndarray sum of count/flux columns). Deferred;
-  revisit after the distinct analyses.
+  **Implementation:** each base class (`PtoolsRna/Rxns/Proteins`) gained a
+  `_do_read_outputs()` method that delegates to the module-level `read_outputs`.
+  `_MultiseedMixin` overrides `_do_read_outputs()` to fetch raw per-seed rows
+  (bypassing `groupby.sum()`) and apply `collapse_cross_seed()`:
+  `bulk__id` first-preserved (length-assert), list/array columns element-wise
+  numpy-summed (shape-assert, fail-loud on mismatch), scalar columns plain-summed.
+  Smoke-tested on the 2-seed parquet (`out/compare_harness/v2_sim/parquet/
+  two_generations/`): element-wise match `s0 + s1 == collapsed` verified
+  exactly; `active_ribosome` scalar sum verified (12801 + 12802 = 25603);
+  array length preserved at 16321 (NOT 32642 concatenation artifact).
+  vEcoli uses SUM (not mean) across seeds — v2ecoli matches this exactly.
 - multiseed/ribosome_spacing — BLOCKED (requires listeners__ribosome_data__ribosome_init_event_per_monomer; absent in v2ecoli parquet)
 - multiseed/subgenerational_expression_table — PORTED (field_metadata orderings substituted from sim_data; ignore_first_n_gens defaults to 0)
 

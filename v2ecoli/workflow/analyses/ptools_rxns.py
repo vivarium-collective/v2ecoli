@@ -58,6 +58,15 @@ class PtoolsRxns(Analysis):
     scale = "single"
     config_schema = {"n_tp": "integer", "time_unit": "string"}
 
+    def _do_read_outputs(
+        self,
+        history_sql: str,
+        conn: DuckDBPyConnection,
+        columns=None,
+    ):
+        """Delegate to module-level read_outputs (overridable by mixins)."""
+        return read_outputs(history_sql, conn, columns)
+
     def analyze(
         self,
         *,
@@ -75,7 +84,7 @@ class PtoolsRxns(Analysis):
             params["time_unit"] = "minutes"
 
         output_columns = ["listeners__fba_results__base_reaction_fluxes"]
-        output_df = read_outputs(history_sql, conn, output_columns)
+        output_df = self._do_read_outputs(history_sql, conn, output_columns)
 
         # Drop timestep-0 row where FBA hasn't run yet (flux array is empty at
         # t=0 because metabolism hasn't been called).  v2ecoli deviation: vEcoli

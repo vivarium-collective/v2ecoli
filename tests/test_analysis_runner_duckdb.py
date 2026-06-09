@@ -65,6 +65,20 @@ def test_proving_set_end_to_end(tmp_path):
     first_rx = next(iter(rxns.values()))
     assert "error" not in first_rx, f"ptools_rxns errored (pairing?): {first_rx}"
 
+    # ptools TSV files written to sweep/ptools/
+    rna_tsvs = _glob.glob(str(sweep / "ptools" / "ptools_rna__*.tsv"))
+    assert rna_tsvs, "no ptools_rna TSV written under sweep/ptools/"
+    rxns_tsvs = _glob.glob(str(sweep / "ptools" / "ptools_rxns__*.tsv"))
+    assert rxns_tsvs, "no ptools_rxns TSV written under sweep/ptools/"
+    # TSV content sanity: first non-comment row should start with "$"
+    with open(rna_tsvs[0]) as f:
+        header = f.readline().rstrip("\n")
+    assert header.startswith("$"), f"ptools_rna TSV header does not start with '$': {header!r}"
+
+    # ptools view htmls written to sweep/viz/
+    rna_htmls = _glob.glob(str(sweep / "viz" / "ptools_rna__*.html"))
+    assert rna_htmls, "no ptools_rna view HTML written under sweep/viz/"
+
     # multiseed VIEW analysis wrote a viz html
     assert res["multiseed"]["central_carbon_metabolism_scatter"]
     viz = _glob.glob(str(sweep / "viz" / "central_carbon_metabolism_scatter*.html"))

@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task #5 — about to commit). **Tasks #2, #5 complete; Task #3 split into 3a–3f, 3a–3d done, 3e collapsed into 3d. 3f unblocked (waits on Task #8 for end-to-end behavior test).**
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `c735c78 feat(trna-charging): plumb sim_data.relation -> kinetic config keys (Task #5)`. **Tasks #2, #5 complete; Task #3 split into 3a–3f, 3a–3d done, 3e collapsed into 3d. 3f unblocked (waits on Task #8 for end-to-end behavior test).**
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

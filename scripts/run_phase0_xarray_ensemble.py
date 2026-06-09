@@ -45,10 +45,12 @@ from v2ecoli.library.xarray_run import (
     _filter_agent_state,
 )
 from v2ecoli.library.xarray_emitter import XArrayEmitter
+from v2ecoli.library.parallel_seeds import run_seeds_parallel
 
-
-CACHE_DIR = "out/cache"
-OUT_ROOT = Path(".pbg/runs/phase0-xarray")
+# Absolute so Ray workers (which deserialize run_one by value and don't re-run
+# this module's os.chdir) resolve them regardless of worker cwd.
+CACHE_DIR = str(REPO_ROOT / "out" / "cache")
+OUT_ROOT = REPO_ROOT / ".pbg" / "runs" / "phase0-xarray"
 
 # Observables to capture. Listeners-only per v2ecoli convention; covers
 # what every Phase 1+ phase needs to validate against.
@@ -194,27 +196,57 @@ def run_one(seed: int, n_steps: int, chunk: int) -> dict:
     return summary
 
 
+def _safe_run_one(seed: int, n_steps: int, chunk: int) -> dict:
+    """run_one with per-seed error capture, so one bad seed doesn't kill the
+    batch (preserves the old loop's behaviour under Ray fan-out too)."""
+    try:
+        return run_one(seed, n_steps, chunk)
+    except Exception as e:  # noqa: BLE001
+        print(f"  seed={seed:02d}: FAILED -- {type(e).__name__}: {e}", flush=True)
+        return {"seed": seed, "error": str(e), "type": type(e).__name__}
+
+
+def _parallel_mode(cli_override: str | None) -> str | None:
+    """Resolve the parallel mode: CLI override wins, else workspace.yaml
+    runtime.parallel ('ray' | None)."""
+    if cli_override is not None:
+        return None if cli_override == "off" else cli_override
+    try:
+        import yaml
+        ws = REPO_ROOT / "workspace.yaml"
+        if ws.is_file():
+            rt = (yaml.safe_load(ws.read_text(encoding="utf-8")) or {}).get("runtime") or {}
+            return rt.get("parallel")
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--n-seeds", type=int, default=64)
     p.add_argument("--n-steps", type=int, default=600)
     p.add_argument("--chunk", type=int, default=60)
+    p.add_argument("--parallel", choices=["ray", "off"], default=None,
+                   help="override workspace.yaml runtime.parallel for this run")
     args = p.parse_args()
 
     if not Path(CACHE_DIR).is_dir():
         sys.exit(f"cache dir {CACHE_DIR!r} not found")
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
 
-    print(f"Phase 0 XArray ensemble: N={args.n_seeds} seeds x {args.n_steps} steps (chunk={args.chunk})")
-    t0 = time.time()
-    results = []
-    for seed in range(args.n_seeds):
-        try:
-            results.append(run_one(seed, args.n_steps, args.chunk))
-        except Exception as e:
-            print(f"  seed={seed:02d}: FAILED -- {type(e).__name__}: {e}")
-            results.append({"seed": seed, "error": str(e), "type": type(e).__name__})
-    total_wall = time.time() - t0
+    mode = _parallel_mode(args.parallel)
+    print(f"Phase 0 XArray ensemble: N={args.n_seeds} seeds x {args.n_steps} steps "
+          f"(chunk={args.chunk}, parallel={mode or 'sequential'})")
+    # Fan seeds across Ray workers when runtime.parallel=ray (one worker/seed,
+    # thread-balanced); sequential otherwise. Results are identical either way.
+    run = run_seeds_parallel(
+        range(args.n_seeds), _safe_run_one, mode=mode,
+        run_kwargs={"n_steps": args.n_steps, "chunk": args.chunk})
+    results = run.results
+    total_wall = run.wall_s
+    if run.parallel:
+        print(f"  [ray] {run.n_seeds} seeds, {run.n_threads_per_worker} thread(s)/worker")
 
     successful = [r for r in results if "error" not in r]
     atp_counts = [r.get("ATP[c]_count") for r in successful if "ATP[c]_count" in r]

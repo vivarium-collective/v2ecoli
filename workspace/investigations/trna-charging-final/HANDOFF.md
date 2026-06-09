@@ -26,7 +26,11 @@ The order matters — each task is gated by the ones above it.
 
 | # | Task | Sizing | Notes |
 |---|---|---|---|
-| 2 | Port `wholecell/utils/_trna_charging.pyx` (638 lines Cython) to NumPy+numba | 1–2 days | Lands in `v2ecoli/processes/polypeptide/kinetic_charging_kernel.py`. Companion test `wholecell/tests/utils/test_trna_charging.py` (580 lines) → `tests/test_trna_charging_kernel.py`. Capture golden outputs from the upstream Cython kernel on a fixed seed for parity. |
+| 2a | Build parity-test scaffold for the Cython kernel | 1 session, 2–3 hr | Compile upstream `_trna_charging.pyx` once in `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli`, dump representative inputs+outputs for every kernel function at fixed seeds into `tests/fixtures/trna_charging_kernel_golden.json.gz`. Create empty `v2ecoli/processes/polypeptide/kinetic_charging_kernel.py` with a numba-compatible RNG wrapper. Verify determinism + JSON round-trip. **Gates 2b–2e.** |
+| 2b | Port 8 easy kernel functions | 1 session, 2–3 hr | `seed_rng`, `get_initiations`, `get_codon_at`, `get_candidates_to_C`, `get_candidates_to_N`, `select_candidate`, `is_initial_state`, `get_codons_read` (~120 LOC combined). `select_candidate` is the first function using `libc rand()` → route through the 2a RNG wrapper. Parity-test against the 2a golden. |
+| 2c | Port `reconcile_via_ribosome_positions` | 1 session, 3–4 hr | Lines 164–349 of `_trna_charging.pyx` (~186 LOC). The per-ribosome codon-step inner kernel. `@njit` the hot loop. Parity-test against golden across seeds and ribosome-count scales. |
+| 2d | Port `reconcile_via_trna_pools` | 1 session, 3–4 hr | Lines 350–463 (~114 LOC). Pool-balance accounting with stochastic rounding. Route stochastic rounding through the seeded RandomState from 2a, not numpy.random.binomial directly inside `@njit`. Parity-test. |
+| 2e | Port `get_elongation_rate` + companion 580-line test | 1 session, 3–4 hr | Lines 464–622 (~159 LOC) — the per-tick rate solver. Then port `wholecell/tests/utils/test_trna_charging.py` (580 lines) → `tests/test_trna_charging_kernel.py`. Must pass under `pytest -m 'not sim'`. |
 | 3 | Refresh `polypeptide_elongation.py` + add `KineticTrnaChargingModel` class | 2–3 days | Class is at `polypeptide_elongation.py:2198` upstream. Implement alongside (not replacing) the existing `SteadyStateElongationModel` inside v2ecoli's `polypeptide/` subpackage. Composite wiring goes in a new `v2ecoli/composites/kinetic_charging_baseline.py`. Behavior test `tests/test_behavior_kinetic_charging.py`. |
 | 4 | Other process deltas | 1 day | `polypeptide_initiation.py` (+60), `protein_degradation.py` (+19), `transcript_elongation.py` (+30), `tf_binding.py` (+5), `chromosome_structure.py` (+58), `cell_division.py` (+22), `metabolism.py` (+8), `listeners/monomer_counts.py` (+69), `listeners/ribosome_data.py` (+2). |
 | 5 | Library deltas | 1 day | `library/sim_data.py` (+212) — **touching this forces `python scripts/build_cache.py` re-run** because it's part of the cache-version fingerprint. `library/initial_conditions.py` (+61), `library/schema.py` (+65). `parquet_emitter.py` deltas may already be covered by recent `feat/default-baseline-parquet`. |
@@ -43,11 +47,14 @@ The order matters — each task is gated by the ones above it.
 Each session should land one logical commit. Recommended split:
 
 - ~~**Session 2:** Tasks #6~~ — Done in 518768d.
-- **Session 3 (next):** Task #2 (Cython → numba kernel + companion test). This is the highest-risk piece; isolate it.
-- **Session 4:** Task #3 (KineticTrnaChargingModel + composite arch + behavior test).
-- **Session 5:** Tasks #4 and #5 (process + library deltas — likely intertwined).
-- **Session 6:** Task #8 (ParCa run) — mostly compute, can run in background.
-- **Session 7:** Tasks #9–#13 (cache rebuild, tests, parity, reports).
+- **Session 3 (next):** Task #2a (parity-test scaffold + golden capture). Gates all of 2b–2e — do this first or you're flying blind on later parity checks.
+- **Session 4:** Task #2b (8 easy kernel functions). Builds confidence in the RNG seam before the hard kernels.
+- **Sessions 5 & 6:** Tasks #2c (`reconcile_via_ribosome_positions`) and #2d (`reconcile_via_trna_pools`). Independent — could run in parallel across two sessions if you have the bandwidth.
+- **Session 7:** Task #2e (`get_elongation_rate` + companion 580-line test).
+- **Session 8:** Task #3 (`KineticTrnaChargingModel` + composite arch + behavior test).
+- **Session 9:** Tasks #4 and #5 (process + library deltas — likely intertwined).
+- **Session 10:** Task #8 (ParCa run) — mostly compute, can run in background.
+- **Session 11:** Tasks #9–#13 (cache rebuild, tests, parity, reports).
 
 ## Prompt template for a new session
 
@@ -61,7 +68,10 @@ checked out at `trna_charging_final` (last commit 518768d). Read
 have the full state, architectural decisions, and remaining task list.
 
 This session: tackle Task <N> from the HANDOFF.md table.
-<paste task description>
+<paste the task's row from the table — subject + sizing + notes>
+
+Remember the structural rule: 2a's golden fixture is what makes 2b–2e
+mechanically verifiable. Don't skip it.
 
 Reference clone of upstream is at /Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli
 (already on trna_charging_final branch). Run

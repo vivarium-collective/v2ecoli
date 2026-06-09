@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: `b2b1477 feat(trna-charging): port request-side methods (Task 3c)`. **Task #2 complete; Task #3 split into 3a–3f, 3a + 3b + 3c done.**
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task 3d — about to commit). **Task #2 complete; Task #3 split into 3a–3f, 3a–3d done. 3e collapsed into 3d (listener paths folded into the `evolve_state` override).**
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 
@@ -34,8 +34,8 @@ The order matters — each task is gated by the ones above it.
 | ~~3a~~ | ~~Class scaffold~~ | **Done** | `v2ecoli/processes/polypeptide/kinetic_charging.py` defines `KineticTrnaChargingPolypeptideElongation` as a peer subclass of `BasePolypeptideElongation`. `config_schema` dict-merges 12 new kinetic-charging-specific keys onto the base. 14 method stubs raise `NotImplementedError` with an explicit task marker per owning sub-task. `tests/test_kinetic_charging_polypeptide_elongation_scaffold.py` has 20 tests (structural + parametric marker checks). 20 passed in 3.80 s. See audit.md "Task #3a progress log". |
 | ~~3b~~ | ~~`__init__` + `get_kinetic_constants`~~ | **Done** | ~95 LOC across two methods. `initialize` calls `super().initialize(config)` then unpacks all 12 kinetic-charging keys + derives slice layout + `trnas_to_amino_acid_indexes`. `get_kinetic_constants(cell_mass)` returns volume-scaled K_M arrays. 23 scaffold tests pass (5 new for 3b incl. cache-gated end-to-end instantiation + K_M-doubling-with-mass check). Test helper `_make_kinetic_extensions` shipped for 3c–3e to reuse. See audit.md "Task #3b progress log". |
 | ~~3c~~ | ~~`elongation_rate` + `request` + helpers~~ | **Done** | ~430 LOC across 6 methods + `_init_bulk_indices` override that adds ATP/AMP/PPi/Met/MAP indices. `elongation_rate` re-derives `(protein_indexes, peptide_lengths)` from `states["active_ribosome"]` (v2ecoli's contract). `request` ignores the amino-acid-domain `aasInSequences` arg, recomputes the codon-domain version from `self.longer_sequences`, and emits bulk requests for AAs (+1% buffer), ATP, tRNAs, synthetases, MAP, water. `run_model` is the ~270-LOC RK45 ODE driver with sin/sin² roll-offs and per-tRNA reconciliation. 28 scaffold tests pass (5 new for 3c, all source-scan). See audit.md "Task #3c progress log". |
-| 3d | Port `evolve` (the heart) | 1 session, 3–4 hr | Allocation reconciliation via the 2c/2d kernel pair, ribosome position updates, peptide maturation, mass + water deltas. |
-| 3e | Port `monomer_limit`, `isTimeStepShortEnough`, listeners | 1 session, 1.5 hr | Per-codon cap, timestep-adapter hook, listener emission paths. |
+| ~~3d~~ | ~~`evolve` + reconcile + protein_maturation + evolve_state override~~ | **Done** | ~450 LOC across 7 method bodies + the ~225-LOC `evolve_state` override (v2ecoli's base is amino-acid-centric; kinetic needs codon-based polymerize → reconcile → protein_maturation → evolve). `final_amino_acids` is kept as a NotImplementedError raise with an explanatory bypass message. `monomer_to_aa`, `monomer_limit`, `next_amino_acids` pulled forward from 3e because the override consumes them. 31 scaffold tests pass (8 new for 3d, all source-scan). See audit.md "Task #3d progress log". |
+| ~~3e~~ | ~~Per-codon cap + listeners~~ | **Collapsed into 3d** | `monomer_to_aa`, `monomer_limit`, `next_amino_acids` pulled into 3d; listener emission folded into the `evolve_state` override. Nothing left for a separate 3e session. |
 | 3f | Composite arch + behavior test | 1 session, 2 hr (port) + blocked on #5 | `v2ecoli/composites/kinetic_charging_baseline.py` with `@composite_generator`. Update `__init__.py` + `cache_version.py`. Behavior test in `tests/test_behavior_kinetic_charging.py`. Blocked on Task #5 for end-to-end run. |
 | 3 | Refresh `polypeptide_elongation.py` + add `KineticTrnaChargingModel` class | 2–3 days | Class is at `polypeptide_elongation.py:2198` upstream. Implement alongside (not replacing) the existing `SteadyStateElongationModel` inside v2ecoli's `polypeptide/` subpackage. Composite wiring goes in a new `v2ecoli/composites/kinetic_charging_baseline.py`. Behavior test `tests/test_behavior_kinetic_charging.py`. |
 | 4 | Other process deltas | 1 day | `polypeptide_initiation.py` (+60), `protein_degradation.py` (+19), `transcript_elongation.py` (+30), `tf_binding.py` (+5), `chromosome_structure.py` (+58), `cell_division.py` (+22), `metabolism.py` (+8), `listeners/monomer_counts.py` (+69), `listeners/ribosome_data.py` (+2). |
@@ -61,17 +61,13 @@ Each session should land one logical commit. Recommended split:
 - ~~**Session 8:** Task #3a~~ — Done. `KineticTrnaChargingPolypeptideElongation` scaffold + 20 smoke tests in `v2ecoli/processes/polypeptide/kinetic_charging.py`.
 - ~~**Session 9:** Task #3b~~ — Done. `initialize` + `get_kinetic_constants` ported; 23 scaffold tests pass (5 new for 3b, incl. cache-gated end-to-end instantiation). Synthetic config helper `_make_kinetic_extensions` available to 3c–3e.
 - ~~**Session 10:** Task #3c~~ — Done. 6 request-side methods + `_init_bulk_indices` override; 5 new scaffold tests (28 total pass, 50 in the wider kinetic-charging fast-test bucket).
-- **Session 11 (next):** Task #3d — `evolve`, `reconcile`, `protein_maturation`, `final_amino_acids`. The heart of the model. `evolve` calls `reconcile` (which calls the kernel's `reconcile_via_*` pair); `protein_maturation` handles N-terminal Met cleavage by MAP. Watch for the signature mismatch — v2ecoli's `evolve(states, total_aa_counts, aas_used, next_amino_acid_count, nElongations, nInitialized)` differs from upstream's; the kinetic model probably needs to override `evolve_state` directly rather than the `evolve` helper.
-- **Session 11:** Task #3d — `evolve`, `reconcile`, `protein_maturation`, `final_amino_acids`.
-- **Session 12:** Task #3e — `monomer_to_aa`, `monomer_limit`, listener emission paths.
-- **Session 13:** Task #5 (library/sim_data deltas) — populates the new config_schema keys from sim_data.relation. Unblocks 3f's behavior test.
-- **Session 14:** Task #3f — composite arch + behavior test.
-- **Sessions 5 & 6:** Tasks #2c (`reconcile_via_ribosome_positions`) and #2d (`reconcile_via_trna_pools`). Independent — could run in parallel across two sessions if you have the bandwidth.
-- **Session 7:** Task #2e (`get_elongation_rate` + companion 580-line test).
-- **Session 8:** Task #3 (`KineticTrnaChargingModel` + composite arch + behavior test).
-- **Session 9:** Tasks #4 and #5 (process + library deltas — likely intertwined).
-- **Session 10:** Task #8 (ParCa run) — mostly compute, can run in background.
-- **Session 11:** Tasks #9–#13 (cache rebuild, tests, parity, reports).
+- ~~**Session 11:** Task #3d~~ — Done. `evolve_state` override + 7 evolve-side methods; 8 new scaffold tests (31 total pass, 53 in the wider kinetic-charging fast-test bucket).
+- ~~**Session 12:** Task #3e~~ — Collapsed into 3d.
+- **Session 13 (next):** Task #5 (library/sim_data deltas) — populates the new `config_schema` keys from `sim_data.relation`. Unblocks 3f's behavior test. Most of the data already exists on `sim_data.relation` after Task #6 ported the Relation dataclass and its `_build_trna_charging_kinetics` method; the work is mapping those attrs into v2ecoli's config-build path.
+- **Session 14:** Task #3f — composite arch + behavior test. Build `v2ecoli/composites/kinetic_charging_baseline.py` via `@composite_generator`, append to `composites/__init__.py`, update `library/cache_version.py:INPUT_FILES`, then a `tests/test_behavior_kinetic_charging.py` that builds the composite and asserts one-tick growth.
+- **Session 15:** Task #4 — `metabolism_redux_classic` + other process deltas (independent of #3/#5).
+- **Session 16:** Task #8 — full ParCa rerun. Mostly compute; can run in background.
+- **Session 17:** Tasks #9–#13 — cache rebuild + tests + parity + reports.
 
 ## Prompt template for a new session
 

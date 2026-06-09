@@ -61,7 +61,9 @@ from __future__ import annotations
 import numpy as np
 from scipy.integrate import solve_ivp
 
-from v2ecoli.library.polymerize import buildSequences, polymerize
+from bigraph_schema import deep_merge
+
+from v2ecoli.library.polymerize import buildSequences, computeMassIncrease, polymerize
 from v2ecoli.library.schema import attrs, bulk_name_to_idx, counts
 from v2ecoli.processes.polypeptide import kinetic_charging_kernel as kernel
 from v2ecoli.processes.polypeptide_elongation import (
@@ -448,32 +450,325 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
 
     # ---------- evolve side ----------
 
-    def final_amino_acids(self, total_aa_counts, charged_trna_counts):
-        """Realized amino acids available after partition allocation.
+    def evolve_state(self, timestep, states):
+        """Codon-aware kinetic evolve path; replaces the base's AA-only one.
 
-        Sums total AA counts with charged-tRNA-bound amino acids.
-        Implemented in Task 3d.
+        Base ``evolve_state`` polymerizes against the amino-acid pool via
+        :meth:`final_amino_acids`. The kinetic model needs the codon-domain
+        pipeline: build codon sequences from ``self.protein_sequences``,
+        cap by the kinetic prediction (:meth:`monomer_limit`), run
+        ``polymerize``, then run :meth:`reconcile` (which calls the kernel's
+        reconcile_via_* pair), :meth:`protein_maturation` (MAP cleavage),
+        and finally :meth:`evolve` to emit the bulk deltas.
+
+        Port of upstream ``PolypeptideElongation.evolve_state`` (lines
+        619–820), conditioned on the kinetic model. The non-kinetic branches
+        in upstream are dropped — they're served by other v2ecoli classes.
+
+        Differences from upstream:
+
+        * ``self.elongation_model.X`` → ``self.X`` (v2ecoli's class IS the
+          model and the process).
+        * Bulk-index references are ``self.X_idx`` throughout.
+        * Trip through pint Quantities for ``effective_elongation_rate``
+          listener emission (the v2ecoli convention; upstream emits a bare
+          float).
+        """
+        update = {
+            "listeners": {
+                "ribosome_data": {},
+                "growth_limits": {},
+                "trna_charging": {},
+            },
+            "polypeptide_elongation": {},
+            "active_ribosome": {},
+            "bulk": [],
+        }
+
+        # Pre-populate metabolism inputs in case of early return.
+        update["polypeptide_elongation"]["gtp_to_hydrolyze"] = 0
+        update["polypeptide_elongation"]["aa_count_diff"] = np.zeros(
+            len(self.amino_acids), dtype=np.float64
+        )
+
+        n_active_ribosomes = states["active_ribosome"]["_entryState"].sum()
+        update["listeners"]["growth_limits"]["active_ribosome_allocated"] = (
+            n_active_ribosomes
+        )
+        update["listeners"]["growth_limits"]["aa_allocated"] = counts(
+            states["bulk"], self.amino_acid_idx
+        )
+        if n_active_ribosomes == 0:
+            return update
+
+        # The kinetic pipeline mutates ``states["bulk"]`` in real time
+        # (terminated polypeptides + freed ribosomal subunits), so make a
+        # writeable copy.
+        states["bulk"] = counts(states["bulk"], range(len(states["bulk"])))
+
+        # ---- Build per-ribosome AA sequences (used by polymerize) ----
+        protein_indexes, peptide_lengths, positions_on_mRNA = attrs(
+            states["active_ribosome"],
+            ["protein_index", "peptide_length", "pos_on_mRNA"],
+        )
+
+        all_sequences = buildSequences(
+            self.protein_sequences,
+            protein_indexes,
+            peptide_lengths,
+            self.elongation_rates + self.next_aa_pad,
+        )
+        sequences = all_sequences[:, : -self.next_aa_pad].copy()
+        if sequences.size == 0:
+            return update
+
+        # ---- Build per-ribosome CODON sequences (used by reconcile) ----
+        codon_sequences_width = self.codon_sequences_width(self.elongation_rates)
+        # Note: we keep our cached longer_sequences (set by elongation_rate)
+        # rather than rebuilding here; the kernel's reconcile_via_* helpers
+        # need the matching layout.
+
+        # Codon usage capacity from the kinetic prediction.
+        monomer_count_in_sequence = np.bincount(
+            sequences[sequences != polymerize.PAD_VALUE],
+            minlength=self.n_monomers,
+        )
+        monomer_count_in_sequence_in_aas = self.monomer_to_aa(
+            monomer_count_in_sequence
+        )
+        allocated_aas = counts(states["bulk"], self.amino_acid_idx)
+
+        # MODEL-SPECIFIC: codon-domain monomer limit.
+        monomer_limit, monomer_limit_in_aas = self.monomer_limit(
+            states, monomer_count_in_sequence_in_aas
+        )
+
+        # ---- Polymerize against the codon-limited pool ----
+        result = polymerize(
+            sequences,
+            monomer_limit,
+            10000000,  # ATP-limit is enforced elsewhere by Metabolism
+            self.random_state,
+            self.elongation_rates[protein_indexes],
+            variable_elongation=self.variable_polymerize,
+        )
+
+        # MODEL-SPECIFIC: reconcile polymerize result with kinetic prediction.
+        result, aas_used, net_charged, additional_listeners = self.reconcile(
+            states, result
+        )
+        update = deep_merge(update, additional_listeners)
+
+        sequence_elongations = result.sequenceElongation
+        n_elongations = result.nReactions
+
+        # Look-ahead AA count (base returns 0).
+        next_amino_acid_count = self.next_amino_acids(
+            all_sequences, sequence_elongations
+        )
+
+        # ---- Ribosome mass + position updates ----
+        # Swap to the codon-based sequence table for mass accounting.
+        sequences = self.sequences(sequences)
+        added_protein_mass = computeMassIncrease(
+            sequences,
+            sequence_elongations,
+            self.monomer_weights_incorporated,
+        )
+
+        updated_lengths = peptide_lengths + sequence_elongations
+        updated_positions_on_mRNA = positions_on_mRNA + 3 * sequence_elongations
+
+        did_initialize = (sequence_elongations > 0) & (peptide_lengths == 0)
+        added_protein_mass[did_initialize] += self.endWeight
+
+        # ---- Termination ----
+        terminal_lengths = self.protein_lengths[protein_indexes]
+        did_terminate = updated_lengths == terminal_lengths
+        terminated_proteins = np.bincount(
+            protein_indexes[did_terminate],
+            minlength=self.protein_sequences.shape[0],
+        )
+
+        # MODEL-SPECIFIC: cleave N-terminal Met from MAP substrates that
+        # actually have capacity this tick.
+        (
+            did_terminate,
+            terminated_proteins,
+            initial_methionines_cleaved,
+            additional_listeners,
+        ) = self.protein_maturation(
+            states, did_terminate, terminated_proteins, protein_indexes
+        )
+        update = deep_merge(update, additional_listeners)
+
+        # ---- Apply ribosome updates ----
+        (protein_mass,) = attrs(states["active_ribosome"], ["massDiff_protein"])
+        update["active_ribosome"].update(
+            {
+                "delete": np.where(did_terminate)[0],
+                "set": {
+                    "massDiff_protein": protein_mass + added_protein_mass,
+                    "peptide_length": updated_lengths,
+                    "pos_on_mRNA": updated_positions_on_mRNA,
+                },
+            }
+        )
+
+        update["bulk"].append((self.monomer_idx, terminated_proteins))
+        states["bulk"][self.monomer_idx] += terminated_proteins
+
+        n_terminated = int(did_terminate.sum())
+        n_initialized = int(did_initialize.sum())
+
+        update["bulk"].append((self.ribosome30S_idx, n_terminated))
+        update["bulk"].append((self.ribosome50S_idx, n_terminated))
+        states["bulk"][self.ribosome30S_idx] += n_terminated
+        states["bulk"][self.ribosome50S_idx] += n_terminated
+
+        # MODEL-SPECIFIC: emit charging + maturation bulk deltas.
+        net_charged, aa_count_diff, evolve_update = self.evolve(
+            states,
+            allocated_aas,
+            aas_used,
+            next_amino_acid_count,
+            n_elongations,
+            n_initialized,
+            net_charged,
+            result.monomerUsages,
+            initial_methionines_cleaved,
+        )
+
+        evolve_bulk_update = evolve_update.pop("bulk")
+        update = deep_merge(update, evolve_update)
+        update["bulk"].extend(evolve_bulk_update)
+
+        update["polypeptide_elongation"]["aa_count_diff"] = aa_count_diff
+        update["polypeptide_elongation"]["gtp_to_hydrolyze"] = (
+            self.gtpPerElongation * n_elongations
+        )
+
+        # ---- Listener emission ----
+        curr_elong_rate = (
+            sequence_elongations.sum() / n_active_ribosomes
+        ) / states["timestep"]
+
+        update["listeners"]["growth_limits"]["net_charged"] = net_charged
+        update["listeners"]["growth_limits"]["aas_used"] = aas_used
+        update["listeners"]["growth_limits"]["aa_count_diff"] = aa_count_diff
+
+        ribo = update["listeners"].setdefault("ribosome_data", {})
+        ribo["effective_elongation_rate"] = (
+            curr_elong_rate * units.amino_acid / units.s
+        )
+        ribo["aa_count_in_sequence"] = monomer_count_in_sequence_in_aas
+        ribo["aa_counts"] = monomer_limit_in_aas
+        ribo["actual_elongations"] = sequence_elongations.sum()
+        ribo["actual_elongation_hist"] = np.histogram(
+            sequence_elongations, bins=np.arange(0, 23)
+        )[0]
+        ribo["elongations_non_terminating_hist"] = np.histogram(
+            sequence_elongations[~did_terminate], bins=np.arange(0, 23)
+        )[0]
+        ribo["did_terminate"] = int(did_terminate.sum())
+        ribo["termination_loss"] = int(
+            (terminal_lengths - peptide_lengths)[did_terminate].sum()
+        )
+        ribo["num_trpA_terminated"] = terminated_proteins[self.trpAIndex]
+        ribo["process_elongation_rate"] = (
+            self.ribosomeElongationRate / states["timestep"]
+        )
+
+        return update
+
+    def final_amino_acids(self, total_aa_counts, charged_trna_counts):
+        """Not used by the kinetic model — see :meth:`evolve_state` override.
+
+        Base's ``evolve_state`` calls this to decide what AAs are available
+        for amino-acid-based polymerize. The kinetic model overrides
+        ``evolve_state`` to use codon-based ``monomer_limit`` instead, so this
+        method is never reached. Raising guarantees that any future refactor
+        that accidentally re-routes through base's path surfaces the
+        architectural mismatch loudly.
         """
         raise NotImplementedError(
-            "KineticTrnaChargingPolypeptideElongation.final_amino_acids — Task 3d"
+            "KineticTrnaChargingPolypeptideElongation.final_amino_acids is not "
+            "used — the kinetic model overrides evolve_state to use codon-based "
+            "monomer_limit instead."
         )
 
     def evolve(
         self,
         states,
         total_aa_counts,
-        aas_used,
+        amino_acids_used,
         next_amino_acid_count,
-        nElongations,
-        nInitialized,
+        n_elongations,
+        n_initialized,
+        net_charged,
+        monomer_usages,
+        initial_methionines_cleaved,
     ):
-        """Apply elongation + tRNA-pool reconciliation; emit bulk deltas.
+        """Apply bulk deltas from elongation + charging + maturation.
 
-        Uses the kernel reconcile_via_* functions. Implemented in Task 3d.
+        Builds the ``update["bulk"]`` deltas:
+
+        * Initialization water (n_initialized molecules of water consumed at
+          translation start).
+        * Net tRNA charging deltas (uncharged ↔ charged).
+        * Amino acids used (total consumption from the pool).
+        * ATP/AMP/PPi for each net charging event (one cycle each).
+        * Proton release for each residue incorporated by a charged tRNA.
+        * Water release for residues incorporated directly from the AA pool
+          (the remaining elongations after subtracting charged-tRNA-mediated
+          ones).
+        * Water consumption + Met release for each cleaved initial Met.
+
+        Port of upstream ``KineticTrnaChargingModel.evolve`` (lines 2860–2905).
+        Signature differs from v2ecoli's base ``evolve`` — three extra args
+        (``net_charged``, ``monomer_usages``, ``initial_methionines_cleaved``)
+        come from :meth:`reconcile` and :meth:`protein_maturation` in the
+        kinetic model's :meth:`evolve_state` override.
         """
-        raise NotImplementedError(
-            "KineticTrnaChargingPolypeptideElongation.evolve — Task 3d"
+        update = {"bulk": []}
+
+        # Initialization water (one per newly-initialized polypeptide).
+        update["bulk"].append((self.water_idx, -int(n_initialized)))
+
+        # Net tRNA charging deltas.
+        update["bulk"].append((self.uncharged_trna_idx, -net_charged))
+        update["bulk"].append((self.charged_trna_idx, net_charged))
+
+        # Amino acids used.
+        update["bulk"].append((self.amino_acid_idx, -amino_acids_used))
+
+        # Each NET (not absolute) charging event uses one ATP.
+        atp_used = int(np.maximum(net_charged, 0).sum())
+        update["bulk"].append((self.atp_idx, -atp_used))
+        update["bulk"].append((self.amp_idx, atp_used))
+        update["bulk"].append((self.ppi_idx, atp_used))
+
+        # Each NET (not absolute) charged-tRNA-mediated incorporation
+        # releases one proton.
+        residues_incorporated = int(abs(np.minimum(net_charged, 0)).sum())
+        update["bulk"].append((self.proton_idx, residues_incorporated))
+
+        # Remaining elongation events (directly from AA pool) release one
+        # water per peptide bond formed.
+        update["bulk"].append(
+            (self.water_idx, int(n_elongations - residues_incorporated))
         )
+
+        # Initial-methionine cleavage by MAP: consumes one water, releases
+        # one MET per cleavage.
+        update["bulk"].append(
+            (self.water_idx, -int(initial_methionines_cleaved))
+        )
+        update["bulk"].append(
+            (self.met_idx, int(initial_methionines_cleaved))
+        )
+
+        return net_charged, {}, update
 
     # ---------- internal helpers ----------
 
@@ -787,45 +1082,213 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         )
 
     def reconcile(self, states, result):
-        """Reconcile partition allocation with kinetic predictions.
+        """Reconcile the polymerize result with the kinetic-model prediction.
 
-        Calls the kernel
-        :func:`kinetic_charging_kernel.reconcile_via_ribosome_positions` and
-        :func:`kinetic_charging_kernel.reconcile_via_trna_pools` helpers.
-        Implemented in Task 3d.
+        After ``polymerize`` runs on the allocated AA pool, the per-codon
+        usage may not match what the kinetic model expected. This method:
+
+        1. Runs :meth:`run_model` against the ``"bulk"`` pool (actual
+           allocation) to get the kinetics' prediction of codons read.
+        2. If predictions differ from ``polymerize``'s realized usage,
+           seeds the kernel's RNG and calls
+           :func:`kinetic_charging_kernel.reconcile_via_ribosome_positions`
+           to adjust ribosome positions.
+        3. If disagreements remain, also calls
+           :func:`kinetic_charging_kernel.reconcile_via_trna_pools` to
+           rebalance tRNA pools and charging counts.
+
+        Returns ``(result, amino_acids_used, net_charged, listeners)``.
+
+        Port of upstream ``KineticTrnaChargingModel.reconcile`` (lines
+        2739–2796). Differences:
+
+        * ``self.process.charged_trna_idx`` → ``self.charged_trna_idx``.
+        * Calls go through the v2ecoli kernel module, not the upstream
+          Cython names.
+        * Seeds the kernel's RNG once per reconcile (from ``self.seed`` +
+          tick salt) so the kernel calls inside ``reconcile_via_*`` are
+          deterministic given the same seed.
         """
-        raise NotImplementedError(
-            "KineticTrnaChargingPolypeptideElongation.reconcile — Task 3d"
+        # Simulate kinetic trna charging + codon reading against the
+        # actual allocation.
+        (
+            amino_acids_used,
+            codons_read,
+            free_trnas,
+            charged_trnas,
+            chargings,
+            codons_to_trnas_matrix,
+            listeners,
+        ) = self.run_model(result.monomerUsages, "bulk", states)
+
+        # Initial disagreement listener — useful for diagnosing why the
+        # kinetic model and polymerize diverged this tick.
+        disagreements = codons_read - result.monomerUsages
+        trna_charging_listener = listeners.setdefault("trna_charging", {})
+        trna_charging_listener["initial_disagreements"] = disagreements
+
+        if not np.all(result.monomerUsages == codons_read):
+            # Seed the kernel's RNG; reuses the process's RandomState seed
+            # so behavior is deterministic per (seed, tick).
+            kernel.seed(int(self.random_state.randint(0, 2**31 - 1)))
+
+            # First pass: adjust ribosome positions to match the kinetic
+            # model's per-codon usage.
+            kernel.reconcile_via_ribosome_positions(
+                result.monomerUsages,
+                result.sequenceElongation,
+                codons_read,
+                self.longer_sequences,
+                int(self.max_attempts),
+            )
+
+            # If positions can't fully reconcile, rebalance the tRNA pools.
+            if not np.all(result.monomerUsages == codons_read):
+                kernel.reconcile_via_trna_pools(
+                    result.monomerUsages,
+                    codons_read,
+                    free_trnas,
+                    charged_trnas,
+                    chargings,
+                    amino_acids_used,
+                    codons_to_trnas_matrix,
+                    self.trnas_to_codons,
+                    self.trnas_to_amino_acid_indexes,
+                )
+
+            result.nReactions = result.monomerUsages.sum()
+
+        # Record final charging + reading events for the listener.
+        trna_charging_listener["charging_events"] = chargings
+        trna_charging_listener["reading_events"] = codons_to_trnas_matrix.sum(axis=1)
+        trna_charging_listener["codons_to_trnas_counter"] = codons_to_trnas_matrix[
+            self.codons_to_trnas
+        ]
+
+        # Net change in charged tRNAs vs allocation.
+        net_charged = charged_trnas - counts(
+            states["bulk"], self.charged_trna_idx
         )
+
+        return result, amino_acids_used, net_charged, listeners
 
     def protein_maturation(
-        self, sequences, peptide_lengths, protein_indexes, water, gtp
+        self, states, did_terminate, terminated_proteins, protein_indexes
     ):
-        """N-terminal methionine cleavage by MAP.
+        """Cleave N-terminal Met from MAP-substrate proteins that just terminated.
 
-        Implemented in Task 3d.
+        Methionine aminopeptidase has a kinetic capacity (``k_cat = 6 / s``,
+        per-cell concentration) that may not cover every terminating MAP
+        substrate this tick. If supply < demand, randomly defer termination
+        for the excess by flipping ``did_terminate[i] = False`` for a
+        multinomial sample of the candidates.
+
+        Returns updated ``(did_terminate, terminated_proteins, cleaved,
+        listeners)``.
+
+        Port of upstream ``KineticTrnaChargingModel.protein_maturation``
+        (lines 2801–2858). Differences:
+
+        * ``self.process.X`` → ``self.X``.
+        * Unum ``* units.s`` → pint ``* units.s``;
+          ``.asNumber()`` → ``.to(units.dimensionless).magnitude``.
         """
-        raise NotImplementedError(
-            "KineticTrnaChargingPolypeptideElongation.protein_maturation — Task 3d"
+        # How many MAP substrates terminated this tick.
+        n_needs_cleaving = int(terminated_proteins[self.is_map_substrate].sum())
+
+        # MAP kinetic capacity in this tick.
+        cell_volume = states["listeners"]["mass"]["cell_mass"] / self.cell_density
+        v_can_cleave = (
+            (1 / units.s)
+            * 6  # MAP k_cat
+            / self.n_avogadro
+            / cell_volume
+            * counts(states["bulk"], self.map_idx)
         )
+        n_can_cleave_q = (
+            v_can_cleave
+            * (units.s * states["timestep"])
+            * cell_volume
+            * self.n_avogadro
+        )
+        # Strip units to a plain scalar (dimensionless after the cancellations).
+        n_can_cleave_f = float(
+            n_can_cleave_q.to(units.dimensionless).magnitude
+        )
+        n_can_cleave = stochasticRound(self.random_state, n_can_cleave_f)[0]
+
+        # Decide how many actually terminate.
+        if n_can_cleave >= n_needs_cleaving:
+            cleaved = n_needs_cleaving
+            not_cleaved = 0
+        else:
+            cleaved = int(n_can_cleave)
+            not_cleaved = n_needs_cleaving - cleaved
+
+            # Defer some terminations until MAP catches up next tick.
+            candidates = np.logical_and(
+                did_terminate,
+                np.array([self.is_map_substrate[x] for x in protein_indexes]),
+            )
+            n_candidates = int(candidates.sum())
+            if n_candidates > 0:
+                i_cannot_cleave = self.random_state.multinomial(
+                    not_cleaved, candidates / n_candidates
+                ).astype(bool)
+                did_terminate[i_cannot_cleave] = False
+                terminated_proteins = np.bincount(
+                    protein_indexes[did_terminate],
+                    minlength=self.protein_sequences.shape[0],
+                )
+
+        listeners = {
+            "trna_charging": {
+                "cleaved": int(cleaved),
+                "not_cleaved": int(not_cleaved),
+            }
+        }
+        return did_terminate, terminated_proteins, cleaved, listeners
 
     def monomer_to_aa(self, monomer):
-        """Map codon ID → amino acid ID.
+        """Aggregate a per-codon count vector into a per-AA count vector.
 
-        Implemented in Task 3e.
+        ``codons_to_amino_acids`` is an ``(n_aas, n_codons)`` 0/1 matrix, so
+        the matmul produces the per-AA usage sum.
+
+        Port of upstream ``KineticTrnaChargingModel.monomer_to_aa``
+        (lines 2727–2728). (Pulled forward from 3e into 3d because the
+        :meth:`evolve_state` override consumes it.)
         """
-        raise NotImplementedError(
-            "KineticTrnaChargingPolypeptideElongation.monomer_to_aa — Task 3e"
-        )
+        return self.codons_to_amino_acids @ monomer
 
     def monomer_limit(self, states, monomer_count_in_sequence):
-        """Per-codon usage cap from the partitioned allocation.
+        """Per-codon cap (and the AA-domain projection) for polymerize.
 
-        Implemented in Task 3e.
+        Returns the codon-domain cap stored from the kinetic prediction
+        in :meth:`request` (``self.codons_kinetics_model``), plus its
+        AA-domain projection so the surrounding ``evolve_state`` can log
+        the AA-equivalent.
+
+        Port of upstream ``KineticTrnaChargingModel.monomer_limit``
+        (lines 2730–2734). (Pulled forward from 3e into 3d because the
+        :meth:`evolve_state` override consumes it.)
         """
-        raise NotImplementedError(
-            "KineticTrnaChargingPolypeptideElongation.monomer_limit — Task 3e"
+        return (
+            self.codons_kinetics_model,
+            self.codons_to_amino_acids @ self.codons_kinetics_model,
         )
+
+    def next_amino_acids(self, all_sequences, sequence_elongations):
+        """Per-AA count of the next codon each ribosome would read.
+
+        The base elongation models return 0 (no look-ahead); kinetic
+        inherits that. Listener emission in :meth:`evolve_state`
+        consumes the result.
+
+        Mirrors upstream ``BaseElongationModel.next_amino_acids``
+        (lines 943–944).
+        """
+        return 0
 
     def codon_sequences_width(self, elongation_rates):
         """Sequence-table read-ahead width for the next tick.

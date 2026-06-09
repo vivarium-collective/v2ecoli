@@ -570,3 +570,60 @@ A full `run_model` end-to-end requires the cache to populate the kinetic config 
 - 3d: `evolve`, `reconcile`, `protein_maturation`, `final_amino_acids`.
 - 3e: `monomer_to_aa`, `monomer_limit`, listener emission.
 - 3f: composite arch + behavior test (depends on Task #5).
+
+---
+
+## Task #3d progress log
+
+**2026-06-09 — `evolve_state` override + 7 evolve-side methods ported.**
+
+### Scope expansion flagged at planning time
+The user's 3d task description listed 4 methods (`evolve`, `reconcile`, `protein_maturation`, `final_amino_acids`). v2ecoli's architecture forced a wider scope:
+
+- v2ecoli's `BasePolypeptideElongation.evolve_state` is amino-acid-centric (polymerizes against `aa_counts_for_translation`). The kinetic model needs codon-based polymerize → reconcile → protein_maturation → evolve, so we must override `evolve_state` *entirely* (~225 LOC).
+- `evolve_state` consumes `monomer_to_aa`, `monomer_limit`, `next_amino_acids` — originally slated for 3e. Pulled forward into 3d so the override is functional.
+- `final_amino_acids` is the AA-based hook the kinetic model *bypasses*; left as a NotImplementedError raise with an explanatory message ("kinetic model uses monomer_limit via evolve_state override") so accidental re-routing surfaces loud.
+
+### Implementation
+Replaced 5 stubs + added 2 helpers + 1 override in `v2ecoli/processes/polypeptide/kinetic_charging.py`:
+
+**`evolve_state(timestep, states)`** (~225 LOC, override) — codon-based replacement for the base. Builds both AA sequences (for polymerize) and codon sequences (for reconcile), runs polymerize against the codon limit, calls `reconcile` → `protein_maturation` → `evolve`, emits the listener block. Drops upstream's non-kinetic branches (served by other v2ecoli classes).
+
+**`reconcile(states, result)`** (~80 LOC) — runs `run_model` against `"bulk"`, compares predicted vs realized per-codon usage, seeds the kernel RNG, dispatches through `kernel.reconcile_via_ribosome_positions` (first pass) and `kernel.reconcile_via_trna_pools` (fallback). Emits `initial_disagreements`, `charging_events`, `reading_events`, `codons_to_trnas_counter` listener fields.
+
+**`protein_maturation(states, did_terminate, terminated_proteins, protein_indexes)`** (~65 LOC) — MAP kinetic capacity (`k_cat = 6 / s`, per-cell concentration) caps cleavages; deferred terminations get rolled back via `multinomial(not_cleaved, candidates/candidates.sum())`. Unum → pint conversion `.asNumber()` → `.to(units.dimensionless).magnitude`.
+
+**`evolve(...)`** (~55 LOC, 9-arg signature) — builds bulk deltas: initialization water, net tRNA charging, AA used, ATP/AMP/PPi per charging event, proton per charged-tRNA-mediated incorporation, water per direct elongation, water consumed + Met released per cleaved initial Met.
+
+**`monomer_to_aa(monomer)`** (1 LOC) — `codons_to_amino_acids @ monomer`.
+
+**`monomer_limit(states, _)`** (4 LOC) — returns `(codons_kinetics_model, codons_to_amino_acids @ codons_kinetics_model)`.
+
+**`next_amino_acids(all_sequences, sequence_elongations)`** (1 LOC) — returns 0 (matches upstream Base default).
+
+**`final_amino_acids(...)`** — kept as NotImplementedError with bypass-explanation message.
+
+### Tests
+`tests/test_kinetic_charging_polypeptide_elongation_scaffold.py` grows from 28 to 31 tests:
+- Drops the parametric `test_method_stub_carries_task_marker` (all entries ported).
+- Adds `test_no_task_3_stub_markers_remain_in_any_method` (sentinel: scans every method's source for `raise NotImplementedError` paired with `Task 3X`; docstring cross-refs ignored).
+- Adds 8 source-scan tests covering:
+  - `evolve_state` override + all kinetic hook calls in order
+  - `reconcile` calls both kernel helpers + seeds RNG + emits listener fields
+  - `protein_maturation` uses MAP kinetics with stochasticRound
+  - `evolve` emits all 9 bulk indices
+  - `final_amino_acids` raises with the bypass-explanation message
+  - `monomer_to_aa` uses the matmul
+  - `monomer_limit` returns the prediction tuple
+  - `next_amino_acids` returns 0
+
+### Results
+- `pytest tests/test_kinetic_charging_polypeptide_elongation_scaffold.py` → **31 passed, 1 warning** in 2.85 s.
+- `pytest tests/test_kinetic_charging_*.py -m 'not sim'` → **53 passed, 2 deselected, 1 warning** in 2.99 s. No regressions.
+
+### Why source-scan still
+`evolve_state` end-to-end needs both Task #5 (sim_data populates the kinetic config keys) AND the partitioned-step machinery (allocation, active_ribosome state). The cache-gated `test_initialize_runs_end_to_end_against_cache` already verifies instantiation; full evolve-tick verification is Task 3f's behavior test.
+
+### Remaining work
+- 3e collapsed: only listener emission paths remained, and they were folded into the `evolve_state` override. 3e is effectively a no-op now — fold into 3f's behavior test or mark complete.
+- 3f: composite arch + behavior test (depends on Task #5).

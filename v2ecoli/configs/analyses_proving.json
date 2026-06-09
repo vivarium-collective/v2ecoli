@@ -1,0 +1,14 @@
+{
+  "inherit_from": "two_generations.json",
+  "analysis_options": {
+    "single": {
+      "ptools_rna": {"n_tp": 8},
+      "ptools_rxns": {"n_tp": 8},
+      "ptools_proteins": {"n_tp": 8},
+      "mass_fraction_voronoi": {}
+    },
+    "multiseed": {
+      "central_carbon_metabolism_scatter": {}
+    }
+  }
+}

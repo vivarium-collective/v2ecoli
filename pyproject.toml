@@ -31,28 +31,33 @@ dependencies = [
     "biopython",
     "sympy",
     "pandas",
+    "ecoli-sources",
     "numba",
     "unum",
     "requests",
+    # Emitters are now BASE/default deps (no longer optional extras): v2ecoli
+    # always imports & registers BOTH the Parquet and XArray emitters so they
+    # appear in the vivarium-dashboard emitters list. Parquet remains the
+    # default (workspace.yaml runtime.default_emitter = parquet); XArray is
+    # merely available. [parquet] pulls in duckdb/polars/pyarrow/fsspec/tqdm;
+    # [xarray] pulls in xarray/zarr/zarrs. The implementations live in
+    # pbg-emitters; v2ecoli.library.{parquet,xarray}_emitter are shims. PEP 508
+    # direct-URL since pbg-emitters is not yet on PyPI — works with both pip
+    # (CI) and uv; pip/uv union the two extras of the same package. Mirrored in
+    # [tool.uv.sources] for uv-native resolution.
+    "pbg-emitters[parquet] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
+    "pbg-emitters[xarray] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
 ]
 
 [project.optional-dependencies]
 # Test-only deps. `uv sync --extra dev` pulls these in.
 dev = ["pytest-timeout>=2.3", "pytest-xdist>=3.6"]
-parquet = [
-    # Pulls in duckdb / polars / pyarrow / fsspec / tqdm transitively
-    # via pbg-emitters[parquet]. The ParquetEmitter implementation now
-    # lives in pbg-emitters; v2ecoli.library.parquet_emitter is a shim.
-    # PEP 508 direct-URL since pbg-emitters is not yet on PyPI — works
-    # with both pip (CI) and uv. Mirrored in [tool.uv.sources] for
-    # uv-native resolution.
-    "pbg-emitters[parquet] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
-]
-xarray = [
-    "xarray>=2026.04",
-    "zarr~=3.1.6",
-    "zarrs>=0.2",
-]
+# The Parquet and XArray emitter deps moved into base [project.dependencies]
+# above (they are now default/always-installed). These groups are kept as
+# empty back-compat aliases so `pip install v2ecoli[parquet]` /
+# `v2ecoli[xarray]` still resolve.
+parquet = []
+xarray = []
 emitters = ["v2ecoli[parquet,xarray]"]
 
 [project.scripts]
@@ -62,8 +67,8 @@ v2ecoli-workflow = "v2ecoli.workflow.run:main"
 v2ecoli-analyze = "v2ecoli.workflow.analysis_runner:main"
 
 [tool.setuptools.package-data]
-# Ship the flat-file knowledge base with the package (~12.9 MB, 133 files).
-"v2ecoli.processes.parca.reconstruction.ecoli" = ["flat/**/*"]
+# Ship the v2ecoli override files; bulk KB data is provided by the ecoli-sources bundle.
+"v2ecoli.processes.parca.reconstruction.ecoli" = ["flat_overrides/*", "parca_overrides.tsv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -98,3 +103,4 @@ pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git"
 vivarium-dashboard = { git = "https://github.com/vivarium-collective/vivarium-dashboard.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }
+ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "8d468b17a56a6b062c06d9f74ffc6bbe7e0ec2e4" }

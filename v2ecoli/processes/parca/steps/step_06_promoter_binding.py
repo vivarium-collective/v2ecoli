@@ -85,6 +85,18 @@ OUTPUT_PORTS = {
 class PromoterBindingStep(Step):
     """Step 6 — promoter_binding.  See module docstring."""
 
+    description = (
+        "Step 6 — promoter_binding.  Fit TF binding + recruitment strengths.\n\n"
+        "Convex least-squares (CVXPY/ECOS) per condition. Model each RNA j:\n"
+        "    synth_prob[j,c] = basal[j] + Σ_tf  r[j,tf] · P[tf,c]\n"
+        "  P[tf,c] = probability TF is promoter-bound under condition c\n"
+        "            (from the equilibrium solver with its ligand)\n"
+        "  r[j,tf] = recruitment strength (fit ≥ 0, L1-regularized → sparse)\n"
+        "Fit r and adjust P so the predicted synth_prob matches the Step-4\n"
+        "synth_prob. This is what turns 'TF active' into 'transcription ×X' in\n"
+        "the online model. Writes pPromoterBound[tf,condition] + r_vector."
+    )
+
     def inputs(self):
         return dict(INPUT_PORTS)
 

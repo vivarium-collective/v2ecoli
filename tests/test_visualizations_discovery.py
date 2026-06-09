@@ -1,11 +1,10 @@
-"""Smoke test: all 7 Visualization Steps register into core.link_registry."""
+"""Smoke test: all 6 Visualization Steps register into core.link_registry."""
 
 import pytest
 
 
 EXPECTED_VISUALIZATION_CLASSES = {
     "NetworkVisualization",
-    "CompareVisualization",
     "WorkflowVisualization",
     "MultigenerationVisualization",
     "ColonyVisualization",

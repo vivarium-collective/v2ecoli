@@ -104,7 +104,7 @@ def main() -> None:
     b64 = _plot_chromosome_timeline(snapshots, title=title)
     html = render_html(b64, title)
 
-    out = Path("studies") / args.study / "viz" / "chromosome_timeline.html"
+    out = Path("workspace/studies") / args.study / "viz" / "chromosome_timeline.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html)
     print(f"[chromosome_timeline] wrote {out} ({out.stat().st_size:,} bytes)")

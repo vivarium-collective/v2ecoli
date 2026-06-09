@@ -28,6 +28,7 @@ from __future__ import annotations
 import os
 
 import pytest
+from v2ecoli.library.quantity_helpers import fg_magnitude
 
 # Side-effect import: registers `nucleotide` / `amino_acid` / `count` on the
 # shared pint registry before dill.load of the cache.
@@ -79,15 +80,15 @@ def _extract_submasses(mass: dict) -> dict[str, float]:
     """Collapse the mass listener into the five submasses the golden
     references pin."""
     return {
-        'dry_mass':     float(mass.get('dry_mass', 0.0) or 0.0),
-        'protein_mass': float(mass.get('protein_mass', 0.0) or 0.0),
+        'dry_mass':     fg_magnitude(mass.get('dry_mass', 0.0) or 0.0),
+        'protein_mass': fg_magnitude(mass.get('protein_mass', 0.0) or 0.0),
         'rna_mass': (
-            float(mass.get('rRna_mass', 0.0) or 0.0)
-            + float(mass.get('tRna_mass', 0.0) or 0.0)
-            + float(mass.get('mRna_mass', 0.0) or 0.0)
+            fg_magnitude(mass.get('rRna_mass', 0.0) or 0.0)
+            + fg_magnitude(mass.get('tRna_mass', 0.0) or 0.0)
+            + fg_magnitude(mass.get('mRna_mass', 0.0) or 0.0)
         ),
-        'dna_mass':     float(mass.get('dna_mass', 0.0) or 0.0),
-        'small_mol':    float(mass.get('smallMolecule_mass', 0.0) or 0.0),
+        'dna_mass':     fg_magnitude(mass.get('dna_mass', 0.0) or 0.0),
+        'small_mol':    fg_magnitude(mass.get('smallMolecule_mass', 0.0) or 0.0),
     }
 
 

@@ -7,7 +7,7 @@ the dashboard's data-resolution layer has nothing to read.
 
 This module is the parquet equivalent. Given a study slug, it:
 
-  1. Locates the latest run under ``studies/<slug>/parquet-runs/``
+  1. Locates the latest run under ``workspace/studies/<slug>/parquet-runs/``
   2. Loads all ``history/<run_id>/.../history/*.pq`` files into a single
      time-sorted Polars DataFrame
   3. For each ``visualizations[]`` entry in ``study.yaml``, resolves
@@ -16,7 +16,7 @@ This module is the parquet equivalent. Given a study slug, it:
   4. Instantiates the Visualization subclass (resolved from ``address:
      local:<ClassName>`` against the workspace's discovered Visualization
      subclasses) and calls ``update(state)`` to get rendered HTML
-  5. Writes ``studies/<slug>/viz/<viz_name>.html``
+  5. Writes ``workspace/studies/<slug>/viz/<viz_name>.html``
 
 Multi-source vizzes (``config.sources: [sim_name_a, sim_name_b]``) are not
 yet supported — the current implementation renders the latest run only.
@@ -49,12 +49,12 @@ def _find_workspace_root(start: Path | None = None) -> Path:
 
 def find_latest_parquet_run(study_slug: str,
                             workspace_root: Path | None = None) -> Path:
-    """Return the most-recent ``studies/<slug>/parquet-runs/<run_id>/``.
+    """Return the most-recent ``workspace/studies/<slug>/parquet-runs/<run_id>/``.
 
     Picks by directory mtime. Raises FileNotFoundError if no runs exist.
     """
     ws = workspace_root or _find_workspace_root()
-    parquet_root = ws / "studies" / study_slug / "parquet-runs"
+    parquet_root = ws / "workspace" / "studies" / study_slug / "parquet-runs"
     if not parquet_root.exists():
         raise FileNotFoundError(
             f"no parquet-runs directory for study {study_slug!r} at {parquet_root}"
@@ -195,16 +195,16 @@ def render_study_visualizations(study_slug: str,
                                 workspace_root: Path | None = None,
                                 out_dir: Path | None = None
                                 ) -> list[Path]:
-    """Render every viz in ``studies/<slug>/study.yaml`` to HTML files.
+    """Render every viz in ``workspace/studies/<slug>/study.yaml`` to HTML files.
 
     Reads the latest parquet run for the study, resolves each viz's
     inputs_map, calls the Visualization's ``update(state)``, and writes
-    ``<out_dir>/<viz_name>.html`` (default ``studies/<slug>/viz/``).
+    ``<out_dir>/<viz_name>.html`` (default ``workspace/studies/<slug>/viz/``).
 
     Returns the list of written file paths.
     """
     ws = workspace_root or _find_workspace_root()
-    study_yaml = ws / "studies" / study_slug / "study.yaml"
+    study_yaml = ws / "workspace" / "studies" / study_slug / "study.yaml"
     if not study_yaml.exists():
         raise FileNotFoundError(study_yaml)
 
@@ -216,7 +216,7 @@ def render_study_visualizations(study_slug: str,
     run_dir = find_latest_parquet_run(study_slug, workspace_root=ws)
     df = load_run_history(run_dir)
 
-    out_dir = out_dir or (ws / "studies" / study_slug / "viz")
+    out_dir = out_dir or (ws / "workspace" / "studies" / study_slug / "viz")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     written: list[Path] = []

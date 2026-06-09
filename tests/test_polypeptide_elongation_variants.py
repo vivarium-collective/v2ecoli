@@ -1,0 +1,94 @@
+import os
+import pytest
+
+CACHE = "out/cache"
+# Cache+run() tests are `sim` (CI routes them to the behavior-tests job that
+# has the cache; the unit job runs `-m "not slow and not sim"`). The pure
+# import/subclass test below needs no cache and stays in the fast unit job, so
+# there is no module-level pytestmark — gating is per-test via `_needs_cache`.
+_needs_cache = pytest.mark.skipif(
+    not os.path.isdir(CACHE) and not os.environ.get("CI"),
+    reason=f"cache dir {CACHE!r} not present",
+)
+
+
+def test_three_variants_importable_and_subclassed():
+    from v2ecoli.steps.partition import PartitionedProcess
+    from v2ecoli.processes.polypeptide_elongation import (
+        BasePolypeptideElongation,
+        TranslationSupplyPolypeptideElongation,
+        SteadyStatePolypeptideElongation,
+    )
+    assert issubclass(BasePolypeptideElongation, PartitionedProcess)
+    assert issubclass(TranslationSupplyPolypeptideElongation, BasePolypeptideElongation)
+    assert issubclass(SteadyStatePolypeptideElongation,
+                      TranslationSupplyPolypeptideElongation)
+
+
+@pytest.mark.sim
+@_needs_cache
+def test_steadystate_declares_charging_ports_base_does_not():
+    """The payoff: only SteadyState exposes the charging/ppGpp port surface."""
+    from v2ecoli.core import load_cache_bundle
+    from v2ecoli.processes.polypeptide_elongation import (
+        BasePolypeptideElongation, SteadyStatePolypeptideElongation)
+    cfg = load_cache_bundle(CACHE)["configs"]["ecoli-polypeptide-elongation"]
+    base_in = set(BasePolypeptideElongation(dict(cfg)).inputs().keys())
+    ss_in = set(SteadyStatePolypeptideElongation(dict(cfg)).inputs().keys())
+    # SteadyState reads at least as much as Base.
+    assert base_in <= ss_in
+
+
+import numpy as np
+
+# Only the two NON-default variants are exercised here — each is a full
+# baseline build, so we keep the PR-gating behavior job lean. SteadyState (the
+# baseline default) is covered bit-for-bit by test_polypeptide_elongation_parity
+# and by every other baseline behavior test in the suite.
+VARIANTS = [
+    "BasePolypeptideElongation",
+    "TranslationSupplyPolypeptideElongation",
+]
+
+
+# `slow` (not just `sim`) so CI's behavior job (`-m "sim and not slow"`) skips
+# these — each case is a full baseline build, and piling extra builds onto the
+# memory-marginal behavior job is what tips it into a runner reclaim / hang.
+# These still run locally and in any slow/nightly job. The default (SteadyState)
+# path is gated bit-for-bit by test_polypeptide_elongation_parity; the variants'
+# wiring/ports are gated by the (build-free) tests above.
+@pytest.mark.slow
+@pytest.mark.sim
+@_needs_cache
+@pytest.mark.parametrize("variant", VARIANTS)
+def test_variant_elongates_protein(variant, monkeypatch):
+    import v2ecoli.composites._helpers as H
+    import v2ecoli.processes.polypeptide_elongation as PE
+    cls = getattr(PE, variant)
+    monkeypatch.setitem(H.PARTITIONED_PROCESSES, "ecoli-polypeptide-elongation", cls)
+    from v2ecoli import build_composite
+    from v2ecoli.library.quantity_helpers import fg_magnitude
+    c = build_composite("baseline", cache_dir="out/cache", seed=0)
+    a = c.state["agents"]["0"]
+    m0 = float(fg_magnitude(a["listeners"]["mass"]["protein_mass"]))
+    c.run(8)  # protein mass rises within a few ticks; keep the behavior job lean
+    m1 = float(fg_magnitude(a["listeners"]["mass"]["protein_mass"]))
+    assert m1 > m0, f"{variant}: protein mass did not increase ({m0:.1f}->{m1:.1f})"
+
+
+@pytest.mark.slow
+@pytest.mark.sim
+@_needs_cache
+def test_baseline_divides_unchanged():
+    """Full-cycle parity: the cell still divides, in the expected time band."""
+    from v2ecoli import build_composite
+    c = build_composite("baseline", cache_dir="out/cache", seed=0)
+    for _ in range(3000):
+        c.run(1)
+        agents = c.state["agents"]
+        if set(agents.keys()) != {"0"} or (
+                isinstance(agents.get("0"), dict) and agents["0"].get("divide")):
+            t = float(c.state["global_time"])
+            assert 2400 <= t <= 2700, f"division time {t}s outside expected band"
+            return
+    pytest.fail("no division within 3000s")

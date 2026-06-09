@@ -27,6 +27,7 @@ Incidents covered:
 import os
 
 import pytest
+from v2ecoli.library.quantity_helpers import fg_magnitude
 
 
 CACHE_DIR = 'out/cache'
@@ -108,7 +109,7 @@ def test_rna_synth_prob_listener_survives_empty_inputs():
     """Default values for actual/target/n_bound are [] until the
     transcript initiation process populates them. The listener must
     return {} instead of attempting a matmul on mismatched shapes."""
-    from v2ecoli.steps.listeners.rna_synth_prob import RnaSynthProb
+    from v2ecoli.steps.derivers.rna_synth_prob import RnaSynthProb
 
     listener = RnaSynthProb.__new__(RnaSynthProb)
     listener.parameters = {}
@@ -172,7 +173,7 @@ def test_cell_cycle_completes_to_division():
 
     # Before the 23-min replication event
     composite.run(1200)
-    m_20min = composite.state['agents']['0']['listeners']['mass']['dry_mass']
+    m_20min = fg_magnitude(composite.state['agents']['0']['listeners']['mass']['dry_mass'])
     assert m_20min > 450.0, (
         f'At 20 min dry_mass={m_20min:.1f} fg; expected >450 fg. A stalled '
         'run usually means a listener crashed and snapshot loop bailed.')
@@ -193,7 +194,7 @@ def test_cell_cycle_completes_to_division():
     agents = composite.state.get('agents', {})
     # Either we still have cell 0 right at threshold, or division fired.
     if '0' in agents:
-        dry = agents['0']['listeners']['mass']['dry_mass']
+        dry = fg_magnitude(agents['0']['listeners']['mass']['dry_mass'])
         assert dry >= 650.0, (
             f'At ~48 min dry_mass={dry:.1f} fg — cell did not grow '
             'through second round of replication.')

@@ -7,7 +7,7 @@ files) and adds one entry per file: {name, url, description}. The URL is
 workspace-relative (/reports/figures/<study>/<file>.html); the dashboard
 server's static-file fallback serves it.
 
-The dashboard ALREADY auto-discovers studies/<name>/viz/*.html into
+The dashboard ALREADY auto-discovers workspace/studies/<name>/viz/*.html into
 embed_visualizations[], but those entries aren't persisted to study.yaml,
 and the downloaded-report builder fetches each URL at download time. By
 writing the entries into study.yaml directly, the downloaded report has
@@ -57,7 +57,7 @@ def _title_from_html(path: Path) -> str | None:
 def main():
     for fig_dir_name, study_slug in PDMP_STUDIES.items():
         fig_dir = Path("reports/figures") / fig_dir_name
-        yaml_path = Path("studies") / study_slug / "study.yaml"
+        yaml_path = Path("workspace/studies") / study_slug / "study.yaml"
         if not yaml_path.exists():
             print(f"  SKIP {study_slug}: yaml missing"); continue
         if not fig_dir.is_dir():

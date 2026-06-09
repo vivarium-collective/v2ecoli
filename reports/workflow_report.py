@@ -373,22 +373,34 @@ def step_raw_data():
         operons_on=True, remove_rrna_operons=False,
         remove_rrff=False, stable_rrna=False)
 
-    flat_dir = FLAT_DIR
+    # Enumerate source files via the SourceBundle (flat/ was deleted in the
+    # ecoli-sources migration; all data now comes from the installed package +
+    # local flat_overrides/).
+    from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
+    bundle = SourceBundle()
     n_files = 0
     total_size = 0
-    by_subdir = {}
-    for root, dirs, files in os.walk(flat_dir):
-        rel = os.path.relpath(root, flat_dir)
-        if rel == '.':
-            rel = 'root'
-        for fn in files:
-            fp = os.path.join(root, fn)
-            sz = os.path.getsize(fp)
-            n_files += 1
-            total_size += sz
-            by_subdir.setdefault(rel, {'count': 0, 'size': 0})
-            by_subdir[rel]['count'] += 1
-            by_subdir[rel]['size'] += sz
+    by_subdir: dict = {}
+    file_list = []
+    for key in sorted(bundle._index):
+        path = bundle._index[key]
+        sz = path.stat().st_size if path.exists() else 0
+        n_files += 1
+        total_size += sz
+        # Group by top-level key component (e.g. "adjustments" vs "root")
+        parts = key.split('__')
+        rel = parts[0] if len(parts) > 1 else 'root'
+        by_subdir.setdefault(rel, {'count': 0, 'size': 0})
+        by_subdir[rel]['count'] += 1
+        by_subdir[rel]['size'] += sz
+        base = parts[-1]
+        is_biocyc = base in BIOCYC_FILE_IDS
+        is_modifier = any(base.endswith(s) for s in ('_added', '_removed', '_modified'))
+        file_list.append({
+            'name': key,
+            'size': sz,
+            'source': 'biocyc' if is_biocyc else ('modifier' if is_modifier else 'curated'),
+        })
 
     n_genes = len(raw_data.genes) if hasattr(raw_data, 'genes') else 0
     n_rnas = len(raw_data.rnas) if hasattr(raw_data, 'rnas') else 0
@@ -397,19 +409,6 @@ def step_raw_data():
     genome_length = len(raw_data.genome_sequence) if hasattr(raw_data, 'genome_sequence') else 0
 
     elapsed = time.time() - t0
-
-    file_list = []
-    for root, dirs, files in os.walk(flat_dir):
-        for fn in sorted(files):
-            rel = os.path.relpath(os.path.join(root, fn), flat_dir)
-            base = fn.replace('.tsv', '').replace('.fasta', '')
-            is_biocyc = base in BIOCYC_FILE_IDS
-            is_modifier = any(base.endswith(s) for s in ('_added', '_removed', '_modified'))
-            file_list.append({
-                'name': rel,
-                'size': os.path.getsize(os.path.join(root, fn)),
-                'source': 'biocyc' if is_biocyc else ('modifier' if is_modifier else 'curated'),
-            })
 
     meta = {
         'n_files': n_files,

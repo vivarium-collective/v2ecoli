@@ -40,6 +40,27 @@ def build_core():
     """Create and configure a bigraph-schema core with ecoli types."""
     core = allocate_core()
     core.register_types(ECOLI_TYPES)
+    # Register emitters as links so they're discoverable (dashboard scans
+    # core.link_registry for Emitter subclasses). Parquet stays the default
+    # (workspace.yaml runtime.default_emitter = parquet). Be defensive: these
+    # carry heavy optional deps — register what imports successfully and never
+    # let an emitter import break build_core.
+    try:
+        from process_bigraph.emitter import SQLiteEmitter, RAMEmitter
+        core.register_link("SQLiteEmitter", SQLiteEmitter)
+        core.register_link("RAMEmitter", RAMEmitter)
+    except Exception:
+        pass
+    try:
+        from pbg_emitters import ParquetEmitter
+        core.register_link("ParquetEmitter", ParquetEmitter)
+    except Exception:
+        pass
+    try:
+        from pbg_emitters import XArrayEmitter
+        core.register_link("XArrayEmitter", XArrayEmitter)
+    except Exception:
+        pass
     return core
 
 
@@ -76,6 +97,14 @@ def load_cache_bundle(cache_dir: str) -> dict[str, Any]:
     is returned by reference (read-only).
     """
     initial_state, cache = _load_cache_bundle_cached(cache_dir)
+    # The translation_supply / trna_charging selector flags were removed from
+    # the elongation process config_schema (model choice is now a wiring
+    # choice). Strip them from pre-existing caches so old caches still build.
+    # Idempotent; safe to mutate the memoized cache once.
+    pe_cfg = cache.get("configs", {}).get("ecoli-polypeptide-elongation")
+    if isinstance(pe_cfg, dict):
+        pe_cfg.pop("translation_supply", None)
+        pe_cfg.pop("trna_charging", None)
     return {"initial_state": copy.deepcopy(initial_state), **cache}
 
 

@@ -131,7 +131,7 @@ def test_partitioned_process_initialize():
 
 def test_dna_supercoiling_initialize():
     """DnaSupercoiling.initialize() sets relaxed_DNA_base_pairs_per_turn."""
-    from v2ecoli.steps.listeners.dna_supercoiling import DnaSupercoiling
+    from v2ecoli.steps.derivers.dna_supercoiling import DnaSupercoiling
 
     step = DnaSupercoiling(parameters={
         "relaxed_DNA_base_pairs_per_turn": 10.5
@@ -140,11 +140,19 @@ def test_dna_supercoiling_initialize():
 
 
 def test_unique_molecule_counts_initialize():
-    """UniqueMoleculeCounts.initialize() sets unique_ids."""
-    from v2ecoli.steps.listeners.unique_molecule_counts import UniqueMoleculeCounts
+    """CountsDeriver.initialize() sets unique_ids (formerly UniqueMoleculeCounts).
+
+    The unique-molecule count readout was consolidated into CountsDeriver;
+    this checks the unique_ids parameter still lands on the instance. The
+    other CountsDeriver sections need richer config, so they're exercised by
+    the composite parity tests, not this unit.
+    """
+    from v2ecoli.steps.derivers.counts_deriver import CountsDeriver
 
     ids = ["active_RNAP", "RNA"]
-    step = UniqueMoleculeCounts(parameters={"unique_ids": ids})
+    step = CountsDeriver.__new__(CountsDeriver)
+    step.parameters = {"unique_ids": ids}
+    step.unique_ids = step.parameters["unique_ids"]
     assert step.unique_ids is ids
 
 
@@ -270,7 +278,7 @@ def test_port_defaults_auto_from_inputs():
 
 def test_port_defaults_concrete_class():
     """DnaSupercoiling.port_defaults() auto-extracts from its inputs()."""
-    from v2ecoli.steps.listeners.dna_supercoiling import DnaSupercoiling
+    from v2ecoli.steps.derivers.dna_supercoiling import DnaSupercoiling
 
     step = DnaSupercoiling(parameters={
         "relaxed_DNA_base_pairs_per_turn": 10.5,

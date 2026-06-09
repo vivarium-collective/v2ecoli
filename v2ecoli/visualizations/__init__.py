@@ -7,9 +7,9 @@ auto-registered in any ``allocate_core()``'s ``link_registry``.
 """
 
 from v2ecoli.visualizations import (
-    network, benchmark, v1_v2, multigeneration, colony, compare, workflow,
+    network, benchmark, v1_v2, multigeneration, colony, workflow,
 )  # noqa: F401
 
 __all__: list[str] = [
-    "network", "benchmark", "v1_v2", "multigeneration", "colony", "compare", "workflow",
+    "network", "benchmark", "v1_v2", "multigeneration", "colony", "workflow",
 ]

@@ -12,11 +12,11 @@ def test_build_composite_unknown_name_raises():
 
 @pytest.mark.fast
 def test_generators_registered_under_short_names():
-    """After importing v2ecoli, the registry contains all three architectures."""
+    """After importing v2ecoli, the registry contains the architectures."""
     import v2ecoli  # noqa: F401 — forces decorator registration
     from pbg_superpowers.composite_generator import _REGISTRY
     names = {e.name for e in _REGISTRY.values() if e.module.startswith("v2ecoli.")}
-    assert {"baseline", "departitioned", "reconciled"} <= names
+    assert {"baseline", "colony", "millard_pdmp_baseline"} <= names
 
 
 @pytest.mark.sim
@@ -38,7 +38,7 @@ def test_build_composite_each_architecture():
         pytest.skip("cache dir 'out/cache' not present; "
                     "build via `python scripts/build_cache.py` (CI builds it automatically)")
     from v2ecoli import build_composite
-    for name in ("baseline", "departitioned", "reconciled"):
+    for name in ("baseline",):
         comp = build_composite(name, seed=0, cache_dir="out/cache")
         assert comp is not None, f"{name} produced no composite"
 

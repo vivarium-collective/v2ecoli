@@ -78,6 +78,16 @@ TOPOLOGY = {
 class TfBinding(Step):
     """Transcription Factor Binding Step"""
 
+    description = (
+        "TfBinding — stochastic occupancy of promoter sites by transcription factors.\n\n"
+        "    p_bound_j = p_promoter_bound_tf(n_active_j, n_inactive_j)   (1.0 for 0CS TFs)\n"
+        "    n_to_bind_j = min(∑ StochasticRound(p_bound_j, N_j), n_available_TF_j)\n"
+        "  then n_to_bind_j promoter sites are chosen uniformly at random and bound.\n"
+        "    Δmass_i = ∑_j ΔTF[i,j] · m_j     (mass moved bulk → promoter submass)\n"
+        "  N_j: available promoter sites for TF j;  m_j: mass (fg) of active TF j.\n"
+        "  MarA (PD00365): n_active = 34 · [marR-tet]/([marR]+[marR-tet])."
+    )
+
     name = NAME
     topology = TOPOLOGY
 

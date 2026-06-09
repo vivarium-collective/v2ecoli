@@ -28,6 +28,7 @@ _V2ECOLI_SCRIPT_TEMPLATE = """\
 import time, json, os
 os.chdir({workdir!r})
 from v2ecoli import build_composite
+from v2ecoli.library.quantity_helpers import fg_magnitude
 
 t0 = time.time()
 composite = build_composite("baseline", cache_dir={cache_dir!r}, seed={seed})
@@ -38,8 +39,8 @@ composite.run({duration})
 run_time = time.time() - t0
 
 cell = composite.state['agents']['0']
-dm = float(cell.get('listeners', {{}}).get('mass', {{}}).get('dry_mass', 0))
-cm = float(cell.get('listeners', {{}}).get('mass', {{}}).get('cell_mass', 0))
+dm = fg_magnitude(cell.get('listeners', {{}}).get('mass', {{}}).get('dry_mass', 0))
+cm = fg_magnitude(cell.get('listeners', {{}}).get('mass', {{}}).get('cell_mass', 0))
 
 print(json.dumps({{'load': load_time, 'run': run_time,
                    'dry_mass': dm, 'cell_mass': cm}}))
@@ -263,7 +264,7 @@ def main() -> None:
 
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(result["html"])
+    out_path.write_text(result["html"], encoding="utf-8")
     print(f"\nwrote {out_path}")
 
 

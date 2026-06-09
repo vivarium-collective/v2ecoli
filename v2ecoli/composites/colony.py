@@ -1,8 +1,8 @@
 """Colony composite generator — multi-cell E. coli in pymunk 2D physics.
 
 Exposes ``v2ecoli.colony.make_colony_document`` as a process-bigraph
-``@composite_generator`` so the colony shows up alongside ``baseline``,
-``departitioned``, and ``reconciled`` in workspace catalogs / dashboards.
+``@composite_generator`` so the colony shows up alongside ``baseline``
+in workspace catalogs / dashboards.
 
 Each cell embeds the full whole-cell model via the ``EcoliWCM`` bridge; a
 ``PymunkProcess`` drives 2D physics. See ``v2ecoli/colony.py`` for the

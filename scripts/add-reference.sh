@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Stage 5: add a BibTeX reference + claim mapping.
-# Prompts for a BibTeX entry, validates the key is unique, writes to references/papers.bib.
-# Optionally maps the key to one or more claim IDs in references/claims.yaml.
+# Prompts for a BibTeX entry, validates the key is unique, writes to workspace/references/papers.bib.
+# Optionally maps the key to one or more claim IDs in workspace/references/claims.yaml.
 set -euo pipefail
 
 WS_ROOT="$(pwd)"
@@ -28,7 +28,7 @@ python3 -c "
 import re, sys
 from pathlib import Path
 ws_root = Path('$WS_ROOT')
-bib_path = ws_root / 'references' / 'papers.bib'
+bib_path = ws_root / 'workspace' / 'references' / 'papers.bib'
 existing = bib_path.read_text() if bib_path.exists() else ''
 existing_keys = set(re.findall(r'@\w+\{([A-Za-z0-9_:-]+),', existing))
 if '$BIB_KEY' in existing_keys:
@@ -48,7 +48,7 @@ if [ -n "$CLAIMS" ]; then
 import yaml
 from pathlib import Path
 ws_root = Path('$WS_ROOT')
-yp = ws_root / 'references' / 'claims.yaml'
+yp = ws_root / 'workspace' / 'references' / 'claims.yaml'
 data = yaml.safe_load(yp.read_text()) or {'claims': {}}
 for c in [s.strip() for s in '$CLAIMS'.split(',') if s.strip()]:
     existing = data['claims'].get(c)

@@ -1,0 +1,22 @@
+{
+    "inherit_from": ["two_generations.json"],
+    "experiment_id": "two_generations_xarray",
+    "emitter": "xarray",
+    "emitter_arg": {
+        "out_dir": "out/two_generations_xarray/zarr",
+        "transducer": {
+            "predicate": [[{"subsample": {"interval": 1}}]],
+            "buffer": {"size": 4}
+        },
+        "view": [
+            {
+                "root": ["listeners", "mass"],
+                "variables": {
+                    "dry_mass": [{"path": "dry_mass", "dtype": "<f4"}],
+                    "cell_mass": [{"path": "cell_mass", "dtype": "<f4"}],
+                    "protein_mass": [{"path": "protein_mass", "dtype": "<f4"}]
+                }
+            }
+        ]
+    }
+}

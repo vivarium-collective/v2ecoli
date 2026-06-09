@@ -1,0 +1,100 @@
+# Staged viz specs for pdmp-02-jump-processes.
+# All await jump-process implementation runs — currently render as skeletons
+# with explicit "awaiting <run>" overlays. NEVER synthesised data.
+
+viz:
+  - name: jump_inter_event_waiting_times
+    study: pdmp-02
+    title: Jump-process inter-event waiting times — exponentiality test
+    caption: >-
+      Histogram of inter-event waiting times sampled from the jump-process
+      pilot, plus the fitted exponential reference. Tests anderson-darling
+      exponentiality (primary test: anderson-darling-jump-distribution).
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/jump-ad-validation/seed_*/summary.json"]
+      keys: ["inter_event_waiting_times"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Waiting time (s)"
+      y_label: "Density"
+    awaits:
+      run_name: anderson-darling-validation
+      fallback: skeleton
+    pinned_h: 720
+
+  - name: jump_gillespie_trajectory_real
+    study: pdmp-02
+    title: Jump-process — single-cell mRNA/protein trajectory
+    caption: >-
+      A single Gillespie SSA trajectory showing mRNA and protein counts
+      over time. Real-data plot once the jump-process pilot run completes.
+    data:
+      loader: json-trajectory
+      source_glob: [".pbg/runs/jump-trajectory-pilot/seed_00/trajectory.json"]
+      keys: ["mRNA_count", "protein_count"]
+    plot:
+      kind: ensemble-band
+      x_label: "Time (s)"
+      y_label: "Molecule count"
+    awaits:
+      run_name: trajectory-distribution-N200
+      fallback: skeleton
+    pinned_h: 720
+
+  - name: jump_division_time_distribution_real
+    study: pdmp-02
+    title: Jump-process division time distribution — multi-gen
+    caption: >-
+      Distribution of division times across replicates. Real-data plot once
+      multi-generation jump-process runs land.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/jump-multigen/seed_*/summary.json"]
+      keys: ["division_times"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Division time (s)"
+      y_label: "Count"
+    awaits:
+      run_name: jump-process-multigen-100-divisions
+      fallback: skeleton
+    pinned_h: 720
+
+  - name: jump_inheritance_distribution_real
+    study: pdmp-02
+    title: Jump-process inheritance — daughter1 − daughter2 distribution
+    caption: >-
+      Distribution of daughter1 − daughter2 copy-number differences across
+      ≥100 division events. Variance test under binomial partition.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/jump-multigen/seed_*/summary.json"]
+      keys: ["daughter_difference"]
+    plot:
+      kind: endpoint-bars
+      x_label: "daughter1 − daughter2"
+      y_label: "Count"
+    awaits:
+      run_name: jump-process-multigen-100-divisions
+      fallback: skeleton
+    pinned_h: 720
+
+  - name: jump_event_rates_real
+    study: pdmp-02
+    title: Per-cell event rates — spans 6+ OOM
+    caption: >-
+      Per-reaction event rates measured during a jump-process profile run.
+      Real-data once the event-rate-profile run lands.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/jump-event-rate-profile/seed_00/summary.json"]
+      keys: ["event_rates_per_reaction"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Reaction"
+      y_label: "Events / cell / s"
+    awaits:
+      run_name: jump-process-event-rate-profile
+      fallback: skeleton
+    pinned_h: 720

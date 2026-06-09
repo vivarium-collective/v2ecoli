@@ -5,7 +5,9 @@ from v2ecoli.types.method import Method
 from v2ecoli.types.bulk_numpy import BulkNumpyUpdate
 from v2ecoli.types.unique_numpy import UniqueNumpyUpdate
 from v2ecoli.types.process import StepInstance, ProcessInstance
-from v2ecoli.types.stores import InPlaceDict, SetStore, ListenerStore, AccumulateFloat
+from v2ecoli.types.stores import (
+    InPlaceDict, SetStore, DerivedProperties, ListenerStore, AccumulateFloat,
+)
 
 from process_bigraph import StepLink, ProcessLink
 
@@ -335,7 +337,8 @@ ECOLI_TYPES = {
     'process': ProcessLink,
     'inplace_dict': InPlaceDict,
     'set_store': SetStore,
-    'listener_store': ListenerStore,
+    'derived_properties': DerivedProperties,
+    'listener_store': DerivedProperties,  # back-compat alias
     'accumulate_float': AccumulateFloat,
 }
 

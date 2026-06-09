@@ -82,6 +82,19 @@ OUTPUT_PORTS = {
 class AdjustPromotersStep(Step):
     """Step 7 — adjust_promoters.  See module docstring."""
 
+    description = (
+        "Step 7 — adjust_promoters.  Back-solve ligand levels + RNAP\n"
+        "recruitment columns from the fitted binding probabilities.\n\n"
+        "Invert the equilibrium Hill equation for each ligand-bound TF given\n"
+        "its target binding probability P from Step 6:\n"
+        "    [L] = K_d · (P / (1 − P))^(1/n)\n"
+        "and balance the equilibrium reverse-rate where forward ≠ target.\n"
+        "Pre-compute the recruitment columns the online model adds each tick:\n"
+        "    basal_prob[j]    = pPromoterBound · r_vector   (at basal)\n"
+        "    delta_prob[j,c]  = (pPromoterBound[c] − pPromoterBound[basal]) · r\n"
+        "Writes basal_prob / delta_prob, ligand set-amounts, balanced rates."
+    )
+
     def inputs(self):
         return dict(INPUT_PORTS)
 

@@ -48,15 +48,29 @@ try:
         cell = next(iter(agents.values()), {}) if agents else {}
         mass = cell.get('listeners', {}).get('mass', {})
         unique = cell.get('unique', {})
-        fc = unique.get('full_chromosome')
-        n_chrom = 0
-        if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
-            n_chrom = int(fc['_entryState'].sum())
-        rep = unique.get('active_replisome')
-        n_forks = 0
-        if rep is not None and hasattr(rep, 'dtype') and '_entryState' in rep.dtype.names:
-            n_forks = int(rep['_entryState'].sum())
+        # Per-type active unique-molecule counts (rich species detail).
+        uc = {}
+        for nm, arr in (unique or {}).items():
+            if hasattr(arr, 'dtype') and getattr(arr.dtype, 'names', None) \
+                    and '_entryState' in arr.dtype.names:
+                uc[nm] = int(arr['_entryState'].sum())
+        n_chrom = uc.get('full_chromosome', 0)
+        n_forks = uc.get('active_replisome', 0)
+        # Bulk molecular-species summary.
+        bulk = cell.get('bulk')
+        if bulk is not None and hasattr(bulk, 'dtype'):
+            bc = bulk['count'] if (bulk.dtype.names and 'count' in bulk.dtype.names) else bulk
+            bc = np.asarray(bc)
+            bulk_total = int(bc.sum())
+            bulk_nonzero = int((bc > 0).sum())
+            bulk_n = int(bc.size)
+        else:
+            bulk_total = bulk_nonzero = bulk_n = 0
         return {
+            'unique_counts': uc,
+            'bulk_total': bulk_total,
+            'bulk_species_nonzero': bulk_nonzero,
+            'bulk_n_species': bulk_n,
             'time': t,
             'dry_mass': float(mass.get('dry_mass', 0)),
             'cell_mass': float(mass.get('cell_mass', 0)),

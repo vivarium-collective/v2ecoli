@@ -6,7 +6,7 @@ a self-contained HTML/SVG artifact at sim end. It complements:
   * **probes** — scripts run OUTSIDE the sim that rebuild a composite,
     re-execute, and write side-by-side artifacts.
   * **per-study charts** — pre-rendered SVGs checked in under
-    ``studies/<name>/charts/`` that the dashboard surfaces.
+    ``workspace/studies/<name>/charts/`` that the dashboard surfaces.
 
 | pattern  | per-tick cost              | sees emitted-only data | persists with sim |
 |----------|----------------------------|------------------------|-------------------|

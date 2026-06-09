@@ -1,0 +1,57 @@
+viz:
+  - name: sbc_rank_histogram_real
+    study: pdmp-03
+    title: SBC rank histogram — calibration check
+    caption: >-
+      Talts+ 2018 Simulation-Based Calibration rank histogram. Uniform =
+      calibrated inference. Real-data once SBC L=200 × N=100 runs land.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/sbc-validation/replicate_*/summary.json"]
+      keys: ["rank_of_theta_true"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Rank within posterior draws"
+      y_label: "Count"
+    awaits:
+      run_name: sbc-K1000-validation
+      fallback: skeleton
+    pinned_h: 720
+
+  - name: abc_posterior_shrinkage_real
+    study: pdmp-03
+    title: ABC-SMC posterior shrinkage over rounds
+    caption: >-
+      Posterior 95% interval width per ABC-SMC round. Monotone decrease
+      indicates the inference is extracting information from the data.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/abc-smc/round_*/summary.json"]
+      keys: ["posterior_95_width_relative"]
+    plot:
+      kind: endpoint-bars
+      x_label: "ABC-SMC round"
+      y_label: "Posterior 95% interval width (relative)"
+    awaits:
+      run_name: abc-smc-synthetic-recovery
+      fallback: skeleton
+    pinned_h: 720
+
+  - name: ppc_coverage_real
+    study: pdmp-03
+    title: Posterior predictive — held-out coverage
+    caption: >-
+      Held-out observations vs posterior predictive 95% interval. Coverage
+      should be ≈ 0.95 if inference is calibrated.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/ppc-heldout/seed_*/summary.json"]
+      keys: ["coverage_fraction"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Observation index"
+      y_label: "Observed ATP[c] (mM)"
+    awaits:
+      run_name: ppc-heldout-100
+      fallback: skeleton
+    pinned_h: 720

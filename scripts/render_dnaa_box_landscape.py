@@ -246,7 +246,7 @@ def main() -> None:
     )
 
     html = render_html(svg, title, n_total, n_bound)
-    out = Path("studies") / args.study / "viz" / "dnaa_box_landscape.html"
+    out = Path("workspace/studies") / args.study / "viz" / "dnaa_box_landscape.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(html)
     print(f"[box_landscape] wrote {out} ({out.stat().st_size:,} bytes)")

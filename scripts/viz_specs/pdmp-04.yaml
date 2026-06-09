@@ -1,0 +1,58 @@
+viz:
+  - name: jax_julia_speedup_real
+    study: pdmp-04
+    title: Backend throughput speedup vs v2ecoli baseline
+    caption: >-
+      Per-trajectory wall-time speedup for JAX/Diffrax (CPU + GPU) and
+      Julia/DifferentialEquations.jl backends. Real-data once Phase 4
+      benchmark runs land.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/phase4-benchmark/backend_*/summary.json"]
+      keys: ["speedup_vs_baseline"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Backend"
+      y_label: "Speedup (× v2ecoli baseline)"
+    awaits:
+      run_name: phase4-jax-benchmark
+      fallback: skeleton
+    pinned_h: 720
+
+  - name: jit_compile_cost_real
+    study: pdmp-04
+    title: JIT compile cost amortization
+    caption: >-
+      Per-run wall time across 20 sequential single-trajectory invocations.
+      First-call pays JIT compilation; runs 2-20 are warm-cache.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/phase4-jit-bench/run_*/summary.json"]
+      keys: ["wall_seconds"]
+    plot:
+      kind: endpoint-bars
+      x_label: "Run index"
+      y_label: "Wall time (s)"
+    awaits:
+      run_name: jax-jit-cold-warm-bench
+      fallback: skeleton
+    pinned_h: 720
+
+  - name: memory_footprint_real
+    study: pdmp-04
+    title: Per-cell memory footprint by bucket
+    caption: >-
+      RAM decomposition: bulk[] / unique[] / process_state / listeners /
+      emitter buffer. Real measurement once N=1024-cell profile run lands.
+    data:
+      loader: json-endpoint-summary
+      source_glob: [".pbg/runs/phase4-ram/seed_*/summary.json"]
+      keys: ["RAM_by_bucket_MB"]
+    plot:
+      kind: endpoint-bars
+      x_label: "State bucket"
+      y_label: "Memory (MB per agent)"
+    awaits:
+      run_name: ram-profile-per-cell-N1024
+      fallback: skeleton
+    pinned_h: 720

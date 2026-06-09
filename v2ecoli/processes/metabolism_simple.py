@@ -52,6 +52,7 @@ from scipy.sparse import csr_matrix, vstack
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema import bulk_name_to_idx, counts
 from v2ecoli.types.quantity import ureg as units
+from v2ecoli.library.quantity_helpers import as_quantity
 from wholecell.utils.random import stochasticRound
 
 
@@ -81,6 +82,18 @@ class SimplifiedMetabolism(Step):
     metabolite concentrations toward homeostatic targets while respecting
     stoichiometric mass balance, nutrient availability, and enzyme capacity.
     """
+
+    description = (
+        "Simplified metabolism — homeostatic FBA via scipy linprog (HiGHS).\n\n"
+        "Each timestep solve for flux v and slacks s⁺,s⁻:\n"
+        "    min Σ(sᵢ⁺ + sᵢ⁻)\n"
+        "    s.t.  S·v = 0,   M·v + s⁺ − s⁻ = target/κ,\n"
+        "          v_lb ≤ v ≤ v_ub,   s⁺,s⁻ ≥ 0\n"
+        "  S: stoichiometry; M: tracked-output rows; target: homeostatic\n"
+        "  concentration targets (mM); κ: conversion factor (g·s/L).\n"
+        "  bounds from nutrient exchange, enzyme presence, NGAM maintenance.\n"
+        "Flux→counts: Δn = stochasticRound(Δconc / counts_to_molar)."
+    )
 
     name = NAME
     topology = TOPOLOGY
@@ -124,8 +137,8 @@ class SimplifiedMetabolism(Step):
             'bulk_total': {'_type': 'bulk_array', '_default': []},
             'listeners': {
                 'mass': {
-                    'cell_mass': {'_type': 'float[fg]', '_default': 0.0},
-                    'dry_mass': {'_type': 'float[fg]', '_default': 0.0},
+                    'cell_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
+                    'dry_mass': {'_type': 'quantity[float,fg]', '_default': 0.0},
                 },
             },
             'environment': {
@@ -245,8 +258,8 @@ class SimplifiedMetabolism(Step):
 
         # ---- State ----
         met_counts = counts(states["bulk"], self._bulk_idx)
-        cell_mass = states["listeners"]["mass"]["cell_mass"] * units.fg
-        dry_mass = states["listeners"]["mass"]["dry_mass"] * units.fg
+        cell_mass = as_quantity(states["listeners"]["mass"]["cell_mass"], units.fg)
+        dry_mass = as_quantity(states["listeners"]["mass"]["dry_mass"], units.fg)
         cell_volume = cell_mass / self.cell_density
         counts_to_molar = 1.0 / (self.n_avogadro * cell_volume.to(VOLUME_UNITS).magnitude)
 

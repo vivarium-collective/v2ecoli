@@ -1,0 +1,1 @@
+{"bulk_sum": 30561251023.0, "cell_mass": 1294.7666297748199, "dry_mass": 388.6348012151284, "listeners_n": 91884, "listeners_sum": 8.007657644533904e+20, "unique": {"DnaA_box": 471, "RNA": 3225, "active_RNAP": 869, "active_replisome": 2, "active_ribosome": 13542, "chromosomal_segment": 0, "chromosome_domain": 3, "full_chromosome": 1, "gene": 6784, "oriC": 2, "promoter": 4909}}

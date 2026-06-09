@@ -322,7 +322,11 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
             out_dir = (str(ws_root / ".pbg" / "parquet-runs")
                        if ws_root is not None else "out/parquet")
         preset = parquet_vecoli(out_dir=out_dir,
-                                experiment_id=cfg_in.pop("experiment_id", "default"))
+                                experiment_id=cfg_in.pop(
+                                    "experiment_id",
+                                    os.environ.get(
+                                        "V2ECOLI_EMITTER_EXPERIMENT_ID",
+                                        "default")))
         emit_schema = {
             "global_time": "float",
             "bulk": "array[integer]",
@@ -335,6 +339,26 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
         }
         cfg = {"emit": emit_schema, **preset, **cfg_in}
         return ParquetEmitter(cfg, core), topo
+
+    if address == "XArrayEmitter":
+        from pbg_emitters import XArrayEmitter
+        # Mirror the ParquetEmitter wiring (global_time + bulk + listeners).
+        # The xarray_vecoli preset's ``transducer`` / ``view`` are
+        # per-composite (not preset-able), so a generator declaring an
+        # XArrayEmitter default supplies them via ``decl['config']``; those
+        # flow through ``cfg_in`` here.
+        emit_schema = {
+            "global_time": "float",
+            "bulk": "array[integer]",
+            "listeners": listeners_schema,
+        }
+        topo = {
+            "global_time": ("global_time",),
+            "bulk": ("bulk",),
+            "listeners": ("listeners",),
+        }
+        cfg = {"emit": emit_schema, **cfg_in}
+        return XArrayEmitter(cfg, core), topo
 
     if address == "SQLiteEmitter":
         emit_schema = {"global_time": "float", "listeners": listeners_schema}
@@ -350,7 +374,8 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
 
     raise ValueError(
         f"declared default emitter address {decl.get('address')!r} is not "
-        "recognised (expected one of ParquetEmitter, SQLiteEmitter, RAMEmitter)"
+        "recognised (expected one of ParquetEmitter, XArrayEmitter, "
+        "SQLiteEmitter, RAMEmitter)"
     )
 
 
@@ -624,7 +649,8 @@ def parquet_emitter(*, out_dir: str | None = None,
         out_dir = str(ws_root / ".pbg" / "parquet-runs")
 
     if experiment_id is None:
-        experiment_id = "default-" + uuid.uuid4().hex[:8]
+        experiment_id = (os.environ.get("V2ECOLI_EMITTER_EXPERIMENT_ID")
+                         or ("default-" + uuid.uuid4().hex[:8]))
 
     # Build the emitter config dict via the vEcoli-shaped preset so the
     # hive layout + dtype overrides match upstream conventions exactly.

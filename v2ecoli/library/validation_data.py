@@ -64,7 +64,7 @@ def _read_tsv(name: str) -> list[dict[str, str]]:
             "Run the copy step described in the porting spec."
         )
     rows = []
-    with open(path, newline="") as fh:
+    with open(path, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh, delimiter="\t")
         for row in reader:
             rows.append({k.strip('"'): v.strip('"') for k, v in row.items()})

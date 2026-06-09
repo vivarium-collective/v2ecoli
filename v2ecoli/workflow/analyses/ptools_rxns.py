@@ -16,6 +16,7 @@ import pandas as pd
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY
+from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view
 from v2ecoli.workflow.analyses.ptools_rna import consolidate_timepoints
 
 
@@ -137,4 +138,5 @@ class PtoolsRxns(Analysis):
         tsv = ptools_rxns_df.to_csv(
             sep="\t", index=True, header=True, float_format="%.4f"
         )
-        return {"data": {"filename": "ptools_rxns.tsv", "tsv": tsv}}
+        view = ptools_heatmap_view(ptools_rxns_df, "Reaction fluxes (reaction × timepoint)")
+        return {"data": {"filename": "ptools_rxns.tsv", "tsv": tsv}, "view": view}

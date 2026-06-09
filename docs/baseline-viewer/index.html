@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>v2ecoli — baseline whole-cell composite</title>
+    <style>
+      body { margin: 0; height: 100vh; font-family: system-ui, sans-serif; }
+      #root { height: 100%; }
+    </style>
+    <script>
+      // Shareable short URL: opening this page bare (no query) defaults to the
+      // featured baseline composite + the committed saved view, so
+      // /baseline-viewer/ works as a link/QR target and EVERY visitor gets the
+      // default arrangement. Runs before the app bundle loads. (A Vite rebuild
+      // regenerates this file — re-apply this block; see REGENERATE.md.)
+      if (!location.search) {
+        location.replace(location.pathname +
+          '?static=1&id=v2ecoli.composites.baseline.baseline' +
+          '&stateUrl=data/baseline.state.json&viewUrl=data/baseline_default.view.json');
+      }
+    </script>
+    <script type="module" crossorigin src="./assets/index-JQ09jY7l.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-LqExNHlH.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

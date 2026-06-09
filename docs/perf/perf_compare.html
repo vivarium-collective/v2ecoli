@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>v2ecoli vs vEcoli — multiseed/multigen performance</title>
+<style>
+  :root { font-family: -apple-system, system-ui, sans-serif; }
+  body { margin: 0; background: #f8fafc; color: #0f172a; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 32px 24px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  .lede { color: #475569; margin: 0 0 24px; font-size: 14px; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+           padding: 20px 22px; margin: 16px 0; }
+  h2 { font-size: 15px; text-transform: uppercase; letter-spacing: .04em;
+        color: #64748b; margin: 0 0 14px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .kpi { background: #f1f5f9; border-radius: 8px; padding: 14px; text-align: center; }
+  .kpi-val { font-size: 22px; font-weight: 700; }
+  .kpi-label { font-size: 11px; color: #64748b; text-transform: uppercase;
+                letter-spacing: .03em; margin-top: 2px; }
+  .kpi-sub { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+  .verdict { font-size: 18px; font-weight: 700; padding: 14px 18px;
+              background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px;
+              color: #065f46; }
+  .verdict.pending { background:#fffbeb; border-color:#fde68a; color:#92400e; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+  .badge.ok { background:#dcfce7; color:#166534; }
+  .badge.pend { background:#fef9c3; color:#854d0e; }
+  .badge.fail { background:#fee2e2; color:#991b1b; }
+  table.data { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  table.data th { text-align: left; color: #64748b; border-bottom: 2px solid #e2e8f0;
+                   padding: 6px 8px; }
+  table.data td { border-bottom: 1px solid #f1f5f9; padding: 6px 8px; }
+  .legend span { display:inline-block; width:11px; height:11px; border-radius:2px;
+                  margin-right:5px; vertical-align:middle; }
+  .note { font-size: 12.5px; color:#475569; background:#f8fafc;
+           border-left: 3px solid #cbd5e1; padding: 10px 14px; margin: 8px 0; }
+  code { background:#f1f5f9; padding:1px 5px; border-radius:4px; font-size:12px; }
+  .prov { font-size: 12px; color:#64748b; }
+</style></head>
+<body><div class="wrap">
+  <h1>v2ecoli vs vEcoli — multiseed/multigen performance</h1>
+  <p class="lede">Same workload — <b>2 seeds × 2 generations</b>
+     (4 cell-sims), condition: baseline (minimal glucose) — run on both engines.
+     v2ecoli's process-bigraph runner vs vEcoli's Nextflow DAG.</p>
+
+  <div class="card">
+    <div class="verdict ">≈ parity (v2ecoli 455s vs vEcoli 459s, step-matched)</div>
+    <div class="kpis" style="margin-top:16px">
+      <div class="kpi"><div class="kpi-val">454.84s</div><div class="kpi-label">v2ecoli total</div></div>
+      <div class="kpi"><div class="kpi-val">458.58s</div><div class="kpi-label">vEcoli total</div></div>
+      <div class="kpi"><div class="kpi-val">3752 MB</div><div class="kpi-label">v2ecoli peak RAM</div><div class="kpi-sub">whole-process, real</div></div>
+      <div class="kpi"><div class="kpi-val">n/a</div><div class="kpi-label">vEcoli peak RAM</div><div class="kpi-sub">per-task n/a (no container)</div></div>
+    </div>
+    <p style="margin:12px 0 0">v2ecoli <span class="badge ok">completed</span> &nbsp; vEcoli <span class="badge ok">completed</span></p>
+  </div>
+
+  <div class="card">
+    <h2>Performance metrics</h2>
+    <div class="legend" style="margin-bottom:10px;font-size:12px;color:#475569">
+      <span style="background:#2563eb"></span>v2ecoli &nbsp;&nbsp;
+      <span style="background:#dc2626"></span>vEcoli</div>
+    <div class="grid2">
+      <div><b style="font-size:13px">Total wall-clock</b><svg viewBox="0 0 460 80" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:460px;height:auto">
+<text x="112" y="21" font-size="12" fill="#334155" text-anchor="end">v2ecoli</text><rect x="120" y="4" width="267.8" height="26" rx="3" fill="#2563eb"/><text x="393.8" y="21" font-size="12" font-weight="600" fill="#0f172a">455 s</text>
+<text x="112" y="57" font-size="12" fill="#334155" text-anchor="end">vEcoli</text><rect x="120" y="40" width="270.0" height="26" rx="3" fill="#dc2626"/><text x="396.0" y="57" font-size="12" font-weight="600" fill="#0f172a">459 s</text>
+</svg></div>
+      <div><b style="font-size:13px">Peak resident RAM</b><svg viewBox="0 0 460 44" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:460px;height:auto">
+<text x="112" y="21" font-size="12" fill="#334155" text-anchor="end">v2ecoli</text><rect x="120" y="4" width="270.0" height="26" rx="3" fill="#2563eb"/><text x="396.0" y="21" font-size="12" font-weight="600" fill="#0f172a">3752 MB</text>
+</svg></div>
+    </div>
+    <div style="margin-top:14px"><b style="font-size:13px">Mean per-cell wall (one seed×gen E. coli)</b><svg viewBox="0 0 460 80" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:460px;height:auto">
+<text x="112" y="21" font-size="12" fill="#334155" text-anchor="end">v2ecoli</text><rect x="120" y="4" width="252.8" height="26" rx="3" fill="#2563eb"/><text x="378.8" y="21" font-size="12" font-weight="600" fill="#0f172a">210 s</text>
+<text x="112" y="57" font-size="12" fill="#334155" text-anchor="end">vEcoli</text><rect x="120" y="40" width="270.0" height="26" rx="3" fill="#dc2626"/><text x="396.0" y="57" font-size="12" font-weight="600" fill="#0f172a">224 s</text>
+</svg></div>
+  </div>
+
+  <div class="card">
+    <h2>Step-matched result — the engines are at parity</h2>
+    <div class="note"><b>Per-step, the two engines are identical: ~84 ms/step</b> (v2ecoli 670.8 s / 8000 steps = 83.8; vEcoli 213 s / 2527 steps = 84.3). They run the same forked science at the same speed — there is no per-cell code gap. This run is <b>step-matched</b>: v2ecoli runs ~5400 steps/seed = vEcoli's actual 2-natural-generation sim-time. The earlier &quot;1.77×&quot; was a benchmark artifact — a fixed 8000-step cap made v2ecoli simulate ~1.48× more sim-time than vEcoli's natural ~2700-step/gen division (16000 vs 10834 steps), plus ~1.2× BLAS oversubscription on the un-balanced parallel run.</div>
+    <div class="note"><b>Nextflow is not the cause.</b> vEcoli's sim task is literally <code>POLARS_MAX_THREADS=1 python ecoli_master_sim.py</code> — it caps threads to 1 and gives no <code>cpus</code> boost. It only schedules tasks; it cannot and does not change per-cell execution speed. Both engines run seeds concurrently (v2ecoli via the process-bigraph Ray protocol, one worker per seed; vEcoli via the Nextflow DAG).</div>
+    <div class="note">Both reuse a prebuilt ParCa <code>sim_data</code> (v2ecoli: <code>out/cache</code>;
+      vEcoli: <code>out/kb/simData.cPickle</code> via <code>sim_data_path</code>) and vEcoli analyses
+      are stripped, so this isolates <b>simulation</b> execution, not ParCa or plotting.</div>
+    <div class="note"><b>Peak RAM is now real and bounded for both per-cell paths.</b> Each v2ecoli Ray worker is its own process and reports its own peak via <code>resource.getrusage</code> — <b>3752 MB peak RSS</b> per seed after the fix (internal full-state emitter disabled via <code>set_null_emitter_override</code> + the <code>chromosome_history</code> leak removed), down from ~57 GB whole-process before. vEcoli per-task RAM is still <i>n/a</i> on macOS-local (Nextflow needs a container engine to emit it).</div>
+  </div>
+
+  <div class="card">
+    <h2>Per-cell breakdown</h2>
+    <div class="grid2">
+      <div><b style="font-size:13px">v2ecoli</b> (per seed×gen)<br><table class="data"><thead><tr><th>seed</th><th>generation</th><th>wall_s</th><th>peak_rss_mb</th><th>source</th></tr></thead><tbody><tr><td>0</td><td>1</td><td>197.38</td><td>3091.8</td><td>summary.json (per-seed wall ÷ gens)</td></tr><tr><td>0</td><td>2</td><td>197.38</td><td>3091.8</td><td>summary.json (per-seed wall ÷ gens)</td></tr><tr><td>1</td><td>1</td><td>223.09</td><td>3752.5</td><td>summary.json (per-seed wall ÷ gens)</td></tr><tr><td>1</td><td>2</td><td>223.09</td><td>3752.5</td><td>summary.json (per-seed wall ÷ gens)</td></tr></tbody></table></div>
+      <div><b style="font-size:13px">vEcoli</b> (per sim task)<br><table class="data"><thead><tr><th>task</th><th>wall_s</th><th>peak_rss_mb</th><th>cpu_pct</th><th>source</th></tr></thead><tbody><tr><td>sim_gen_1 (variant=0/seed=0/generation=1/agent_id=0)</td><td>213.0</td><td>None</td><td>None</td><td>nextflow trace</td></tr><tr><td>sim_gen_1 (variant=0/seed=1/generation=1/agent_id=0)</td><td>215.0</td><td>None</td><td>None</td><td>nextflow trace</td></tr><tr><td>sim_gen_2 (variant=0/seed=1/generation=2/agent_id=00)</td><td>232.0</td><td>None</td><td>None</td><td>nextflow trace</td></tr><tr><td>sim_gen_2 (variant=0/seed=0/generation=2/agent_id=00)</td><td>238.0</td><td>None</td><td>None</td><td>nextflow trace</td></tr></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>vEcoli Nextflow task trace (all stages)</h2>
+    <table class="data"><thead><tr><th>task</th><th>status</th><th>realtime (s)</th><th>%cpu</th><th>peak RSS (MB)</th></tr></thead><tbody><tr><td>createVariants</td><td>COMPLETED</td><td>4.0</td><td>None</td><td>None</td></tr><tr><td>sim_gen_1 (variant=0/seed=0/generation=1/agent_id=0)</td><td>COMPLETED</td><td>213.0</td><td>None</td><td>None</td></tr><tr><td>sim_gen_1 (variant=0/seed=1/generation=1/agent_id=0)</td><td>COMPLETED</td><td>215.0</td><td>None</td><td>None</td></tr><tr><td>sim_gen_2 (variant=0/seed=1/generation=2/agent_id=00)</td><td>COMPLETED</td><td>232.0</td><td>None</td><td>None</td></tr><tr><td>sim_gen_2 (variant=0/seed=0/generation=2/agent_id=00)</td><td>COMPLETED</td><td>238.0</td><td>None</td><td>None</td></tr></tbody></table>
+  </div>
+
+  <div class="card">
+    <h2>Provenance &amp; method</h2>
+    <p class="prov">v2ecoli @ <code>813f32e</code> &nbsp;·&nbsp;
+       vEcoli @ <code>b237873e</code> &nbsp;·&nbsp;
+       host <code>LT-0919936</code></p>
+    <p class="prov">v2ecoli driver: <code>scripts/run_phase0_multigen.py</code> under <code>/usr/bin/time -l</code>.
+       vEcoli driver: <code>python -m runscripts.workflow</code>; per-task metrics from the Nextflow trace CSV.
+       Regenerate: <code>python scripts/perf_compare.py --engine both</code> then
+       <code>python scripts/perf_report.py</code>.</p>
+  </div>
+</div></body></html>

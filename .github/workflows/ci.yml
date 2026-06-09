@@ -35,7 +35,11 @@ jobs:
         run: uv python install 3.12.9
 
       - name: Install dependencies (PyPI only)
-        run: uv sync --extra dev || uv sync
+        # vivarium-dashboard's wheel build fails under strict hatchling; the
+        # upstream fix requires bigraph-schema>=1.4.1 (a core bump we're
+        # deferring). It isn't imported by the test suite (testpaths=tests),
+        # so skip building it here.
+        run: uv sync --extra dev --no-install-package vivarium-dashboard || uv sync --no-install-package vivarium-dashboard
 
       - name: Install process-bigraph and bigraph-schema from GitHub
         run: |
@@ -69,7 +73,11 @@ jobs:
         run: uv python install 3.12.9
 
       - name: Install dependencies (PyPI only)
-        run: uv sync --extra dev || uv sync
+        # vivarium-dashboard's wheel build fails under strict hatchling; the
+        # upstream fix requires bigraph-schema>=1.4.1 (a core bump we're
+        # deferring). It isn't imported by the test suite (testpaths=tests),
+        # so skip building it here.
+        run: uv sync --extra dev --no-install-package vivarium-dashboard || uv sync --no-install-package vivarium-dashboard
 
       - name: Install process-bigraph and bigraph-schema from GitHub
         run: |

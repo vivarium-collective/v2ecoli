@@ -85,6 +85,28 @@ report:
       the cycle is identical to dnaa-2. Real in-sim numbers from the read-only run
       are recorded under runs[].real_insim_numbers below (free DnaA-ATP, DnaA-ATP
       fraction, oriC low/high occupancy), taken directly from the emitted parquet.
+    • V-DOWN SWEEP (2026-06-09, seed 1; chart dnaa3_v_sweep_overbinding) — tested
+      whether lowering DnaA synthesis V relieves the oriC low-affinity over-binding
+      (free DnaA-ATP ≫ the ~100 nM low-aff K_d → ~0.8 occupancy at V=1e-3). Three V:
+        V=1.0e-3: free DnaA-ATP ramps 213→452 nM, oriC-low occ 0.68→0.82; total DnaA
+                  ~535 (in [300,800]); cycle stable 6 gens.
+        V=0.8e-3: free DnaA-ATP ~190 nM, oriC-low occ ~0.65; total DnaA ramps to the
+                  LOW band edge (~200-377); lineage crashes gen 5 (allocator
+                  NegativeCountsError PROTON[c] — a stochastic timing edge).
+        V=0.6e-3: free DnaA-ATP ~145 nM (osc. 79-194), oriC-low occ ~0.57; total DnaA
+                  220-281 (BELOW the [300,800] band); ATP-frac erratic (0.10-0.51);
+                  cycle stable 6 gens.
+      FINDING: V-tuning is a real but INSUFFICIENT lever. Lowering V monotonically
+      cuts free DnaA-ATP and oriC-low occupancy (0.82 → 0.65 → 0.57), exactly per the
+      K_d≈100 nM relation. BUT it cannot reach a "modestly occupied" (~0.2-0.3) regime:
+      with K_d≈100 nM and the DnaA pool constrained to [300,800] (free DnaA-ATP then
+      sits ~100-500 nM), low-aff occupancy is STRUCTURALLY pinned at ~0.5-0.8. Pushing
+      V low enough to matter (0.6e-3) drops total DnaA below the literature band and
+      destabilizes the DnaA-ATP fraction. So V cannot resolve the over-binding without
+      breaking dnaa-1's in-band pool / dnaa-2's fraction band — a different lever
+      (low-aff cooperativity, a DnaA sink, or datA titration) is required. This
+      corroborates the existing honest over-binding observation; recorded for
+      Rashmi/Haochen.
 
   review_asks: |
     For Rashmi / Haochen, before we build:

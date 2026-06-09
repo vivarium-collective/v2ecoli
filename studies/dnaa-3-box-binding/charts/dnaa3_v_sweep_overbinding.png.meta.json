@@ -1,0 +1,6 @@
+{
+  "source_run_id": "dnaa3-v-sweep (V=1.0e-3 dnaa3-insim-readonly + V=0.8e-3 + V=0.6e-3, seed 1)",
+  "generation_id": null,
+  "command": "render dnaa-3 V-down sweep: oriC low-affinity occupancy + free DnaA-ATP + total DnaA vs generation across V=1.0/0.8/0.6e-3",
+  "caption": "Lowering DnaA synthesis V monotonically cuts free DnaA-ATP and oriC low-affinity occupancy (0.82->0.65->0.57) but cannot reach 'modestly occupied' (~0.2-0.3); at V=0.6e-3 total DnaA falls below the [300,800] band. V-tuning is insufficient to resolve the over-binding."
+}

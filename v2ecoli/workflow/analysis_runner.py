@@ -265,6 +265,16 @@ def run_analyses(sweep_dir: str, analysis_options: dict) -> dict:
                             vp = os.path.join(viz_dir, f"{name}__{gstr.replace('/', '_')}.html")
                             with open(vp, "w") as vf:
                                 vf.write(out["view"])
+                        data = out.get("data")
+                        if isinstance(data, dict) and data.get("tsv"):
+                            ptools_dir = os.path.join(sweep_dir, "ptools")
+                            os.makedirs(ptools_dir, exist_ok=True)
+                            tsv_path = os.path.join(
+                                ptools_dir,
+                                f"{name}__{gstr.replace('/', '_')}.tsv",
+                            )
+                            with open(tsv_path, "w") as tf:
+                                tf.write(data["tsv"])
                         per_group[gstr] = out.get("data", {})
                     except Exception as e:
                         per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}

@@ -1,0 +1,177 @@
+{
+  "spec": {
+    "seeds": 2,
+    "generations": 2,
+    "cells": 4,
+    "max_steps": 5400,
+    "condition": "baseline (minimal glucose)",
+    "v2_mode": "ray"
+  },
+  "provenance": {
+    "v2ecoli_commit": "813f32e",
+    "vecoli_commit": "b237873e",
+    "host": "LT-0919936"
+  },
+  "v2ecoli": {
+    "engine": "v2ecoli",
+    "mode": "ray",
+    "execution_model": "parallel Ray tasks (process per seed)",
+    "wall_s": 454.84,
+    "maxrss_mb": 3752.5,
+    "returncode": 0,
+    "cmd": "/Users/eranagmon/code/v2e-compare/.venv/bin/python scripts/_perf_v2_driver_ray.py --n-seeds 2 --max-generations 2 --max-steps 5400",
+    "log": "reports/perf/logs/v2ecoli.log",
+    "per_cell": [
+      {
+        "seed": 0,
+        "generation": 1,
+        "wall_s": 197.38,
+        "peak_rss_mb": 3091.8,
+        "source": "summary.json (per-seed wall \u00f7 gens)"
+      },
+      {
+        "seed": 0,
+        "generation": 2,
+        "wall_s": 197.38,
+        "peak_rss_mb": 3091.8,
+        "source": "summary.json (per-seed wall \u00f7 gens)"
+      },
+      {
+        "seed": 1,
+        "generation": 1,
+        "wall_s": 223.09,
+        "peak_rss_mb": 3752.5,
+        "source": "summary.json (per-seed wall \u00f7 gens)"
+      },
+      {
+        "seed": 1,
+        "generation": 2,
+        "wall_s": 223.09,
+        "peak_rss_mb": 3752.5,
+        "source": "summary.json (per-seed wall \u00f7 gens)"
+      }
+    ],
+    "ensemble": {
+      "n_seeds_requested": 2,
+      "n_seeds_successful": 2,
+      "max_generations": 2,
+      "max_steps": 5400,
+      "single_daughters": true,
+      "parallel": true,
+      "n_cpu": 16,
+      "total_wall_seconds": 449.26,
+      "per_seed": [
+        {
+          "seed": 0,
+          "wall_seconds": 394.77,
+          "peak_rss_mb": 3091.8,
+          "max_steps": 5400,
+          "max_generations": 2,
+          "actual_steps": 5400,
+          "actual_generations_seen": [
+            1,
+            2
+          ]
+        },
+        {
+          "seed": 1,
+          "wall_seconds": 446.17,
+          "peak_rss_mb": 3752.5,
+          "max_steps": 5400,
+          "max_generations": 2,
+          "actual_steps": 5400,
+          "actual_generations_seen": [
+            1,
+            2
+          ]
+        }
+      ]
+    },
+    "maxrss_source": "max per-seed worker RSS (resource.getrusage)"
+  },
+  "vEcoli": {
+    "engine": "vEcoli",
+    "execution_model": "parallel Nextflow DAG (process per task)",
+    "wall_s": 458.58,
+    "maxrss_mb": 2428.1,
+    "returncode": 0,
+    "cmd": "/Users/eranagmon/code/vEcoli/.venv/bin/python -m runscripts.workflow --config /Users/eranagmon/code/v2e-compare/reports/perf/vecoli_config_perfcmp_s2g2.json",
+    "log": "reports/perf/logs/vecoli.log",
+    "experiment_id": "perfcmp_s2g2",
+    "config": "reports/perf/vecoli_config_perfcmp_s2g2.json",
+    "tasks": [
+      {
+        "task": "createVariants",
+        "status": "COMPLETED",
+        "realtime_s": 4.0,
+        "cpu_pct": null,
+        "rss_mb": null,
+        "peak_rss_mb": null
+      },
+      {
+        "task": "sim_gen_1 (variant=0/seed=0/generation=1/agent_id=0)",
+        "status": "COMPLETED",
+        "realtime_s": 213.0,
+        "cpu_pct": null,
+        "rss_mb": null,
+        "peak_rss_mb": null
+      },
+      {
+        "task": "sim_gen_1 (variant=0/seed=1/generation=1/agent_id=0)",
+        "status": "COMPLETED",
+        "realtime_s": 215.0,
+        "cpu_pct": null,
+        "rss_mb": null,
+        "peak_rss_mb": null
+      },
+      {
+        "task": "sim_gen_2 (variant=0/seed=1/generation=2/agent_id=00)",
+        "status": "COMPLETED",
+        "realtime_s": 232.0,
+        "cpu_pct": null,
+        "rss_mb": null,
+        "peak_rss_mb": null
+      },
+      {
+        "task": "sim_gen_2 (variant=0/seed=0/generation=2/agent_id=00)",
+        "status": "COMPLETED",
+        "realtime_s": 238.0,
+        "cpu_pct": null,
+        "rss_mb": null,
+        "peak_rss_mb": null
+      }
+    ],
+    "n_tasks": 5,
+    "n_sim_tasks": 4,
+    "per_cell": [
+      {
+        "task": "sim_gen_1 (variant=0/seed=0/generation=1/agent_id=0)",
+        "wall_s": 213.0,
+        "peak_rss_mb": null,
+        "cpu_pct": null,
+        "source": "nextflow trace"
+      },
+      {
+        "task": "sim_gen_1 (variant=0/seed=1/generation=1/agent_id=0)",
+        "wall_s": 215.0,
+        "peak_rss_mb": null,
+        "cpu_pct": null,
+        "source": "nextflow trace"
+      },
+      {
+        "task": "sim_gen_2 (variant=0/seed=1/generation=2/agent_id=00)",
+        "wall_s": 232.0,
+        "peak_rss_mb": null,
+        "cpu_pct": null,
+        "source": "nextflow trace"
+      },
+      {
+        "task": "sim_gen_2 (variant=0/seed=0/generation=2/agent_id=00)",
+        "wall_s": 238.0,
+        "peak_rss_mb": null,
+        "cpu_pct": null,
+        "source": "nextflow trace"
+      }
+    ]
+  }
+}

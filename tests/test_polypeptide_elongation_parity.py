@@ -39,13 +39,20 @@ def _trajectory():
     c = build_composite("baseline", cache_dir=CACHE, seed=0)
     a = c.state["agents"]["0"]
     rec = []
+    elong_rate = []          # smooth, intensive: behaves like dry_mass cross-env
     for _ in range(STEPS):
         c.run(1)
         mass = a["listeners"]["mass"]
         rec.append(round(float(fg_magnitude(mass["dry_mass"])), 6))
+        rd = a["listeners"]["ribosome_data"]
+        elong_rate.append(round(float(np.asarray(rd["effective_elongation_rate"])), 6))
     bulk = a.get("bulk")
     bulk_sum = int(np.nansum(bulk["count"])) if getattr(bulk, "dtype", None) and bulk.dtype.names else int(np.nansum(bulk))
-    return {"dry_mass": rec, "bulk_total_at_end": bulk_sum}
+    return {
+        "dry_mass": rec,
+        "effective_elongation_rate": elong_rate,
+        "bulk_total_at_end": bulk_sum,
+    }
 
 
 # Hard signal-based timeout: under CI memory pressure build_composite can
@@ -73,3 +80,58 @@ def test_baseline_elongation_trajectory_matches_golden():
     assert np.allclose(dm, gm, rtol=0.0, atol=1e-3), (
         f"dry_mass trajectory drifted from golden beyond float-noise tolerance "
         f"(max |Δ|={max_dev:.2e} fg, atol=1e-3) — elongation refactor changed behaviour")
+
+    # The elongation process's own primary output, not just the mass it feeds.
+    # effective_elongation_rate is intensive (~15-18 aa/s) and smooth, so it is
+    # as cross-environment-stable as dry_mass — a refactor that perturbs the
+    # charging/elongation math but leaves 20-tick mass ~unchanged still shows
+    # here. Golden is forward-compatible: skip the check if absent (old golden).
+    if "effective_elongation_rate" in golden:
+        er = np.asarray(traj["effective_elongation_rate"], dtype=float)
+        eg = np.asarray(golden["effective_elongation_rate"], dtype=float)
+        er_dev = float(np.max(np.abs(er - eg)))
+        assert np.allclose(er, eg, rtol=0.0, atol=1e-3), (
+            f"effective_elongation_rate drifted from golden "
+            f"(max |Δ|={er_dev:.2e} aa/s, atol=1e-3) — elongation behaviour changed")
+
+
+# ---------------------------------------------------------------------------
+# Model-identity guard. The refactor moved variant selection from a config
+# flag (trna_charging=True) to wiring (composites/_helpers.py maps the process
+# name -> SteadyStatePolypeptideElongation). A regression that re-routes the
+# baseline to the non-charging Base model — e.g. a dropped config key silently
+# defaulting to False, or a bad wiring edit — leaves dry_mass *roughly* right
+# for many ticks but disables tRNA charging entirely. This asserts the charging
+# model is actually live, qualitatively (cross-environment robust: no golden,
+# no tight tolerance), so it catches that whole class of "wrong model wired"
+# regressions cheaply. Reuses one composite build (~12 s on the behavior job).
+@pytest.mark.sim
+@pytest.mark.timeout(360, method="signal")
+def test_baseline_actually_runs_the_charging_model():
+    from v2ecoli import build_composite
+    c = build_composite("baseline", cache_dir=CACHE, seed=0)
+    a = c.state["agents"]["0"]
+    for _ in range(5):
+        c.run(1)
+    gl = a["listeners"]["growth_limits"]
+    pe = a["process_state"]["polypeptide_elongation"]
+
+    # .get() defaults so a missing key (the Base model never writes these)
+    # yields the informative assertion below, not a bare KeyError.
+    charged_conc = np.asarray(gl.get("charged_trna_conc", []), dtype=float)
+    assert charged_conc.size > 0, (
+        "charged_trna_conc is absent/empty — baseline is NOT running the "
+        "SteadyState charging model (likely fell back to Base/TranslationSupply). "
+        "This is the model-selection regression the wiring refactor must prevent.")
+
+    frac = np.asarray(gl.get("fraction_trna_charged", []), dtype=float)
+    assert frac.size > 0, "fraction_trna_charged absent — charging model not engaged"
+    mean_frac = float(np.nanmean(frac))
+    assert 0.3 < mean_frac <= 1.0, (
+        f"mean fraction_trna_charged={mean_frac:.3f} is outside the charging "
+        f"band (0.3, 1.0]; baseline is not charging tRNAs as SteadyState should")
+
+    gtp = float(np.asarray(pe["gtp_to_hydrolyze"]))
+    assert gtp > 0.0, (
+        f"gtp_to_hydrolyze={gtp} — no GTP hydrolysis budget; the charging/"
+        f"elongation path is not engaged")

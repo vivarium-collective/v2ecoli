@@ -26,6 +26,7 @@ dashboard:
     # Display-only allow-list: the Registry tab shows ONLY classes whose
     # originating package is listed here (discovery is unchanged).
     include:
+      - v2ecoli
       - pbg-bioreactordesign
       - viva-munk
   data_sources:

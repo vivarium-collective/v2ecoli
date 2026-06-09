@@ -125,7 +125,17 @@ class _CellActorImpl:
         from process_bigraph import Composite
         from v2ecoli.core import build_core
         from v2ecoli.composites.baseline import baseline
+        from v2ecoli.composites._helpers import set_null_emitter_override
         import v2ecoli.types  # noqa: F401  -- registers resolve dispatch
+
+        # Per-worker setup (parallel_seeds convention): minimise the inner
+        # composite's emitter to global_time only. Each actor is its own
+        # process, and the default ParquetEmitter writes to a shared
+        # experiment_id/seed dir keyed configuration path — concurrent actors
+        # race on makedirs (FileExistsError). The Ray driver aggregates
+        # per-tick mass/volume directly from composite state, so no per-cell
+        # parquet sink is needed here.
+        set_null_emitter_override(True)
 
         core = build_core()
         document = baseline(core=core, seed=self.seed, cache_dir=self.cache_dir)

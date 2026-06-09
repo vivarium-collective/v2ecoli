@@ -26,10 +26,22 @@ responses:
       V=0.8e-3 should propagate here. It should NOT — re-basing dnaa-2 to
       V=0.8e-3 destabilizes it (the DnaA-ATP fraction drifts below the [0.2,0.5]
       floor — gen-4 = 0.18 vs ~0.20-0.26 holding at V=1e-3 — and the seed-1
-      lineage hits an allocator crash at gen 5). dnaa-2's existing V=1e-3 result
-      is fine and stands as PASS (mass-doubling, oriC 1<->2, total DnaA in
-      [300,800], DnaA-ATP fraction avg 0.26). Conclusion: each study tunes its
-      own V; the canonical dnaa-1 V does not need to propagate downstream.
+      lineage hits an allocator crash at gen 5). dnaa-2 keeps its V=1e-3 baseline.
+      Conclusion: each study tunes its own V; the canonical dnaa-1 V does not need
+      to propagate downstream.
+
+      RE-VERIFIED dnaa-2 at V=1e-3 on the FIXED full-per-gen-history emitter
+      (seed-1 8-gen) so its PASS no longer rests on the pre-fix (truncated) Jun-4
+      data: it still PASSES on your generation-average criterion — DnaA-ATP
+      fraction avg 0.267 in [0.2,0.5] (the hydrolysis mechanism's output holds on
+      clean data), mass-doubling 8/8, oriC 1<->2 every gen, total-DnaA all-gen avg
+      575. One honest correction the clean data exposes: the total-DnaA per-gen
+      mean RAMPS upward (73→254→479→520→654→846→857→880) and sits ABOVE the 800
+      ceiling in gens 6-8, so total DnaA is in-band only on the all-gen average,
+      not per-gen — the earlier "all gens ≤660, cleanly in band" was a truncation
+      artifact. This upward drift matches the dnaa-1 finding that V=1e-3 overshoots
+      the band. The dnaa-2 mechanism conclusion is unchanged; the pool-band claim
+      is now correctly qualified as gen-average-only at V=1e-3.
 
       Moving to the next study — dnaa-3 (DnaA-box binding) — where the
       free-DnaA-ATP level (hence V) is the natural lever for the persistent oriC

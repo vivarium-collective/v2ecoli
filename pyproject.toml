@@ -35,28 +35,29 @@ dependencies = [
     "numba",
     "unum",
     "requests",
+    # Emitters are now BASE/default deps (no longer optional extras): v2ecoli
+    # always imports & registers BOTH the Parquet and XArray emitters so they
+    # appear in the vivarium-dashboard emitters list. Parquet remains the
+    # default (workspace.yaml runtime.default_emitter = parquet); XArray is
+    # merely available. [parquet] pulls in duckdb/polars/pyarrow/fsspec/tqdm;
+    # [xarray] pulls in xarray/zarr/zarrs. The implementations live in
+    # pbg-emitters; v2ecoli.library.{parquet,xarray}_emitter are shims. PEP 508
+    # direct-URL since pbg-emitters is not yet on PyPI — works with both pip
+    # (CI) and uv; pip/uv union the two extras of the same package. Mirrored in
+    # [tool.uv.sources] for uv-native resolution.
+    "pbg-emitters[parquet] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
+    "pbg-emitters[xarray] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
 ]
 
 [project.optional-dependencies]
 # Test-only deps. `uv sync --extra dev` pulls these in.
 dev = ["pytest-timeout>=2.3", "pytest-xdist>=3.6"]
-parquet = [
-    # Pulls in duckdb / polars / pyarrow / fsspec / tqdm transitively
-    # via pbg-emitters[parquet]. The ParquetEmitter implementation now
-    # lives in pbg-emitters; v2ecoli.library.parquet_emitter is a shim.
-    # PEP 508 direct-URL since pbg-emitters is not yet on PyPI — works
-    # with both pip (CI) and uv. Mirrored in [tool.uv.sources] for
-    # uv-native resolution.
-    "pbg-emitters[parquet] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
-]
-xarray = [
-    # Pulls in xarray / zarr / zarrs transitively via pbg-emitters[xarray].
-    # The XArrayEmitter implementation now lives in pbg-emitters;
-    # v2ecoli.library.xarray_emitter is a shim. PEP 508 direct-URL since
-    # pbg-emitters is not yet on PyPI — works with both pip (CI) and uv.
-    # Mirrored in [tool.uv.sources] for uv-native resolution.
-    "pbg-emitters[xarray] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
-]
+# The Parquet and XArray emitter deps moved into base [project.dependencies]
+# above (they are now default/always-installed). These groups are kept as
+# empty back-compat aliases so `pip install v2ecoli[parquet]` /
+# `v2ecoli[xarray]` still resolve.
+parquet = []
+xarray = []
 emitters = ["v2ecoli[parquet,xarray]"]
 
 [project.scripts]

@@ -28,6 +28,11 @@ dashboard:
     include:
       - pbg-bioreactordesign
       - viva-munk
+  data_sources:
+    # Repo-wide data-source bundle shown in the Inputs tab. The provider is an
+    # importable `module:func` returning [{key, path, category, kind, size_bytes}].
+    provider: "v2ecoli.processes.parca.reconstruction.ecoli.sources:enumerate_for_dashboard"
+    label: "ecoli-sources"
 
 # ─── IMPORTS ──────────────────────────────────────────────────────────
 # Declared external pbg packages — classifies their registry classes as

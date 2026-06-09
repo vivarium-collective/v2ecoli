@@ -3,7 +3,7 @@ name: dnaa-3-box-binding
 investigation: dnaa-replication   # owning investigation (back-reference)
 title: DnaA binding to DnaA boxes (chromosomal + oriC + dnaA-promoter)
 created: '2026-06-03'
-status: in_progress   # 2026-06-05 Rashmi APPROVED the plan ('go ahead') — building the box-binding mechanism + occupancy viz
+status: in_progress   # 2026-06-05 Rashmi APPROVED the plan ('go ahead') — building the box-binding mechanism + occupancy viz. ## 2026-06-09 PAUSED (Rashmi): gated until the hydrolysis study (dnaa-2) is re-confirmed on the corrected full-per-gen-history emitter (the first-two-studies trends shifted after the truncation fix). The 2026-06-09 V-down sweep (chart dnaa3_v_sweep_overbinding: lowering V cuts oriC-low occupancy 0.82→0.65→0.57 but is INSUFFICIENT to resolve over-binding without breaking the pool band) stays a recorded probe, NOT advanced. ALSO PENDING: Rashmi has uncommitted box-binding progress she will point Claude at — to review for correctness + possible ADOPTION in place of the current read-only binding observer before building further. Do not advance dnaa-3 until (a) dnaa-2 re-confirms and (b) her box-binding work is reviewed/adopted-or-declined.
 # Build a dynamic DnaA-box occupancy mechanism on top of the dnaa-2 V=1e-3
 # succinate baseline. We are NOT replacing the initiation mechanism yet — this
 # study adds the binding substrate (boxes + occupancy) that later studies

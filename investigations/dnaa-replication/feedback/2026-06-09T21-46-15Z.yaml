@@ -1,0 +1,52 @@
+meta:
+  investigation: dnaa-replication
+  report_id: rpt-20260609165105
+  generated_at: '2026-06-09T21:46:15.150Z'
+  page_title: 'Investigation: DnaA / Replication Initiation (succinate, fresh start
+    2026-05-29)'
+  source_url: file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-09-7.html
+annotations:
+  study-dnaa-2-nucleotide-balance:
+  - ts: '2026-06-09T21:45:50.696Z'
+    author: Rashmi
+    text: i think this study is stale with previous results. Since we started over
+      the first two studies, we should redo this study as well to see if the results
+      stand before moving on to the box binding study.
+responses:
+  study-dnaa-2-nucleotide-balance:
+    status: in-progress
+    by: claude
+    at: '2026-06-09'
+    response: |-
+      Agreed — and you're right that the trends shifted. The per-gen emit
+      TRUNCATION bug (fixed 2026-06-08) had been keeping only each generation's
+      post-division trough, so the first two studies' curves changed once we
+      re-ran on the full per-gen history. dnaa-2's old PASS was on that pre-fix
+      (truncated) data, so it was indeed stale.
+
+      REDOING dnaa-2 on the corrected emitter, at its own V=1e-3:
+      - Seed-1 8-gen (done): still PASSES on your generation-average criterion —
+        DnaA-ATP fraction avg 0.267 in [0.2,0.5] (the hydrolysis mechanism's
+        readout HOLDS on clean data), mass-doubling 8/8, oriC 1<->2 every gen,
+        total-DnaA all-gen avg 575.
+      - HONEST CHANGE the clean data exposes: total-DnaA per-gen MEAN now ramps
+        upward (73→254→479→520→654→846→857→880) and sits ABOVE the 800 ceiling in
+        gens 6-8 — in-band only on the all-gen average, not per-gen. The old "all
+        gens <=660, cleanly in band" was the truncation artifact. This upward
+        drift matches the dnaa-1 finding that V=1e-3 overshoots the band (only
+        V=0.8e-3 held the pool fully in-band). So there is a genuine V tension
+        between the two studies: dnaa-1 wants 0.8e-3 (in-band pool) but dnaa-2's
+        DnaA-ATP fraction needs ~1e-3 (0.8e-3 destabilized it — fraction below
+        floor + a gen-5 allocator crash). Flagging that as the open question.
+      - To say "the results stand" with confidence I'm running a MULTI-SEED
+        re-verification (seeds 0 + 2, 8-gen, corrected emitter) now; I'll fold the
+        per-seed DnaA-ATP fraction + drift in when it lands.
+
+      GATING: per your direction, the box-binding study (dnaa-3) is PAUSED until
+      this hydrolysis re-confirmation completes. My earlier dnaa-3 V-sweep stays
+      as a recorded probe but is not advanced further yet.
+
+      On your box-binding progress: yes — please point me at it (push the branch,
+      or share the commit / file paths). I'll review it for correctness and
+      whether it can be adopted in place of the current read-only dnaa-3 binding
+      observer, and report back before we build on it.

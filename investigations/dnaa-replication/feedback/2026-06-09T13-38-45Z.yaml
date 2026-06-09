@@ -34,3 +34,16 @@ responses:
       Moving to the next study — dnaa-3 (DnaA-box binding) — where the
       free-DnaA-ATP level (hence V) is the natural lever for the persistent oriC
       low-affinity over-binding, so V may again need adjusting there.
+
+      UPDATE — dnaa-3 V-down sweep done (seed 1; chart dnaa3_v_sweep_overbinding):
+      lowering V monotonically cuts free DnaA-ATP and oriC low-affinity occupancy
+      (0.82 @ V=1e-3 -> 0.65 @ 0.8e-3 -> 0.57 @ 0.6e-3), exactly per the K_d≈100 nM
+      relation — so V IS a real lever. But it is INSUFFICIENT on its own: with
+      K_d≈100 nM and the DnaA pool held in [300,800] (free DnaA-ATP then sits
+      ~100-500 nM), low-affinity occupancy is structurally pinned at ~0.5-0.8.
+      Pushing V low enough to matter (0.6e-3) drops total DnaA below the [300,800]
+      band and destabilizes the DnaA-ATP fraction. So V-tuning cannot reach a
+      "modestly occupied" (~0.2-0.3) regime without breaking dnaa-1's in-band pool
+      or dnaa-2's fraction band — resolving the over-binding needs a DIFFERENT
+      lever (low-affinity cooperativity, a DnaA sink, or datA titration), not V.
+      This corroborates the existing honest over-binding finding.

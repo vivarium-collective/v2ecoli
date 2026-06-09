@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task 2c — about to commit).
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `c602c64 feat(trna-charging): port reconcile_via_ribosome_positions (Task 2c)`.
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

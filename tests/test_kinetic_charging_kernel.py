@@ -29,6 +29,11 @@ from v2ecoli.processes.polypeptide import kinetic_charging_kernel as kernel
 FIXTURE = (
     Path(__file__).parent / "fixtures" / "trna_charging_kernel_golden.json.gz"
 )
+FIXTURE_NUMPY_RS = (
+    Path(__file__).parent
+    / "fixtures"
+    / "trna_charging_kernel_numpy_randomstate_golden.json.gz"
+)
 
 
 def _arr(field: dict) -> np.ndarray:
@@ -44,8 +49,23 @@ def golden() -> list[dict]:
         return json.loads(fh.read())["cases"]
 
 
+@pytest.fixture(scope="module")
+def golden_numpy_rs() -> list[dict]:
+    with gzip.open(FIXTURE_NUMPY_RS, "rb") as fh:
+        return json.loads(fh.read())["cases"]
+
+
 def _cases_for(golden: list[dict], function: str) -> list[dict]:
     return [c for c in golden if c["function"] == function]
+
+
+def _build_sequence_codons(sequences: np.ndarray, elongations: np.ndarray) -> np.ndarray:
+    """Reconstruct sequence_codons the same way the capture script did."""
+    sc = np.zeros(int(sequences.max()) + 1, dtype=np.int64)
+    for row, cols in enumerate(elongations):
+        for col in range(int(cols)):
+            sc[sequences[row, col]] += 1
+    return sc
 
 
 # ---------- 2b: deterministic kernels ----------
@@ -133,9 +153,118 @@ def test_is_initial_state_local_cases() -> None:
 # ---------- 2c–2e: still stubbed; cases exist but tests skipped ----------
 
 
-@pytest.mark.skip(reason="reconcile_via_ribosome_positions is implemented in Task 2c")
-def test_reconcile_via_ribosome_positions_parity(golden: list[dict]) -> None:
-    ...
+def test_reconcile_via_ribosome_positions_byte_identity_numpy_rs(
+    golden_numpy_rs: list[dict],
+) -> None:
+    """
+    Byte-identity vs the committed numpy-RandomState golden.
+
+    Detects regressions in the v2ecoli port: any change to the algorithm or
+    RNG plumbing that alters output for these seeds must be intentional and
+    accompanied by a regenerated golden (run
+    ``capture_numpy_randomstate_golden.py``).
+    """
+    cases = _cases_for(golden_numpy_rs, "reconcile_via_ribosome_positions")
+    assert cases, "numpy-RandomState golden missing reconcile_via_ribosome_positions"
+    for case in cases:
+        inputs = case["inputs"]
+        kinetics_codons = _arr(inputs["kinetics_codons_in"])
+        elongations = _arr(inputs["elongations_in"]).copy()
+        sequences = _arr(inputs["sequences"])
+        sequence_codons = _build_sequence_codons(sequences, elongations)
+        kinetics_codons_buf = kinetics_codons.copy()
+
+        kernel.seed(case["seed"])
+        kernel.reconcile_via_ribosome_positions(
+            sequence_codons,
+            elongations,
+            kinetics_codons_buf,
+            sequences,
+            int(inputs["max_attempts"]),
+        )
+        np.testing.assert_array_equal(
+            sequence_codons,
+            _arr(case["outputs"]["sequence_codons_out"]),
+            err_msg=f"{case['name']} sequence_codons",
+        )
+        np.testing.assert_array_equal(
+            elongations,
+            _arr(case["outputs"]["elongations_out"]),
+            err_msg=f"{case['name']} elongations",
+        )
+        np.testing.assert_array_equal(
+            kinetics_codons_buf,
+            _arr(case["outputs"]["kinetics_codons_out"]),
+            err_msg=f"{case['name']} kinetics_codons (should be unchanged)",
+        )
+
+
+def test_reconcile_via_ribosome_positions_invariants_vs_libc(
+    golden: list[dict],
+) -> None:
+    """
+    Algorithmic invariants checked against the libc-rand golden. Bytes will
+    differ (different RNG sequences pick different ribosomes) but the
+    invariants below must hold for any correct port:
+
+    * kinetics_codons is never mutated.
+    * sequence_codons and elongations stay non-negative.
+    * Per-step conservation:
+      ``delta(elongations.sum()) == delta(sequence_codons.sum())``
+      because each ribosome step changes both by 1.
+    * When the libc run achieved compromise=0, the v2ecoli run must too
+      (the algorithm's convergence properties are RNG-independent).
+    """
+    cases = _cases_for(golden, "reconcile_via_ribosome_positions")
+    assert cases
+    for case in cases:
+        inputs = case["inputs"]
+        kinetics_codons_in = _arr(inputs["kinetics_codons_in"])
+        elongations_in = _arr(inputs["elongations_in"])
+        sequences = _arr(inputs["sequences"])
+        sequence_codons_in = _build_sequence_codons(sequences, elongations_in)
+
+        # Run v2ecoli port
+        sequence_codons = sequence_codons_in.copy()
+        elongations = elongations_in.copy()
+        kinetics_codons = kinetics_codons_in.copy()
+
+        kernel.seed(case["seed"])
+        kernel.reconcile_via_ribosome_positions(
+            sequence_codons,
+            elongations,
+            kinetics_codons,
+            sequences,
+            int(inputs["max_attempts"]),
+        )
+
+        # 1. kinetics_codons immutable
+        np.testing.assert_array_equal(
+            kinetics_codons, kinetics_codons_in,
+            err_msg=f"{case['name']}: kinetics_codons mutated",
+        )
+
+        # 2. Non-negative
+        assert (sequence_codons >= 0).all(), f"{case['name']}: sequence_codons went negative"
+        assert (elongations >= 0).all(), f"{case['name']}: elongations went negative"
+
+        # 3. Conservation
+        delta_elong = int(elongations.sum() - elongations_in.sum())
+        delta_seq = int(sequence_codons.sum() - sequence_codons_in.sum())
+        assert delta_elong == delta_seq, (
+            f"{case['name']}: conservation broken — "
+            f"delta(elongations.sum())={delta_elong} != delta(sequence_codons.sum())={delta_seq}"
+        )
+
+        # 4. Convergence parity with libc run
+        libc_seq = _arr(case["outputs"]["sequence_codons_out"])
+        libc_compromise = int(np.abs(libc_seq - kinetics_codons_in).sum())
+        v2e_compromise = int(np.abs(sequence_codons - kinetics_codons_in).sum())
+        if libc_compromise == 0:
+            assert v2e_compromise == 0, (
+                f"{case['name']}: upstream converged but v2ecoli didn't "
+                f"(seq={sequence_codons.tolist()}, target={kinetics_codons_in.tolist()})"
+            )
 
 
 @pytest.mark.skip(reason="reconcile_via_trna_pools is implemented in Task 2d")

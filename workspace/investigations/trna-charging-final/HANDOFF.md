@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: `4ab2763 feat(trna-charging): port 7 deterministic kernel functions (Task 2b)`.
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task 2c — about to commit).
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 
@@ -28,7 +28,7 @@ The order matters — each task is gated by the ones above it.
 |---|---|---|---|
 | ~~2a~~ | ~~Parity-test scaffold~~ | **Done** | 25 cases × 9 functions captured to `tests/fixtures/trna_charging_kernel_golden.json.gz` from upstream Cython kernel built in `vEcoli_trna/.venv`. `v2ecoli/processes/polypeptide/kinetic_charging_kernel.py` has the RNG wrapper + 10 NotImplementedError stubs. `tests/test_kinetic_charging_kernel_scaffold.py` (10 tests, all green) gates the golden round-trip + RNG determinism + signature parity. RNG policy documented: stochastic functions parity per-RNG, not byte-identical vs libc rand. See audit.md "Task #2a progress log". |
 | ~~2b~~ | ~~7 deterministic kernel functions~~ | **Done** | All 7 (`get_initiations`, `get_codon_at`, `get_candidates_to_C/N`, `select_candidate`, `is_initial_state`, `get_codons_read`) ported as `@njit(error_model="numpy")` and verified bit-identical against the golden via `tests/test_kinetic_charging_kernel.py` (18 passed, 3 skipped for 2c/2d/2e). Notable: `select_candidate` is purely deterministic — `rand()` is called by upstream's *caller*, not by `select_candidate` itself — so the RNG seam is first exercised in 2c. See audit.md "Task #2b progress log". |
-| 2c | Port `reconcile_via_ribosome_positions` | 1 session, 3–4 hr | Lines 164–349 of `_trna_charging.pyx` (~186 LOC). The per-ribosome codon-step inner kernel. `@njit` the hot loop. Parity-test against golden across seeds and ribosome-count scales. |
+| ~~2c~~ | ~~Port `reconcile_via_ribosome_positions`~~ | **Done** | ~140 LOC pure-Python orchestration calling the 2b `@njit`'d helpers. Two non-obvious upstream behaviors preserved: `disagreements_remaining` state leak across attempts (skips phase 1 on attempt 2+), and phase 2's lack of an `exhausted` array. Parity strategy: byte-identity vs committed numpy-RandomState golden, plus invariants (kinetics_codons immutable, non-negativity, conservation, convergence) checked against the libc-rand golden. 20 passed, 2 skipped. See audit.md "Task #2c progress log". |
 | 2d | Port `reconcile_via_trna_pools` | 1 session, 3–4 hr | Lines 350–463 (~114 LOC). Pool-balance accounting with stochastic rounding. Route stochastic rounding through the seeded RandomState from 2a, not numpy.random.binomial directly inside `@njit`. Parity-test. |
 | 2e | Port `get_elongation_rate` + companion 580-line test | 1 session, 3–4 hr | Lines 464–622 (~159 LOC) — the per-tick rate solver. Then port `wholecell/tests/utils/test_trna_charging.py` (580 lines) → `tests/test_trna_charging_kernel.py`. Must pass under `pytest -m 'not sim'`. |
 | 3 | Refresh `polypeptide_elongation.py` + add `KineticTrnaChargingModel` class | 2–3 days | Class is at `polypeptide_elongation.py:2198` upstream. Implement alongside (not replacing) the existing `SteadyStateElongationModel` inside v2ecoli's `polypeptide/` subpackage. Composite wiring goes in a new `v2ecoli/composites/kinetic_charging_baseline.py`. Behavior test `tests/test_behavior_kinetic_charging.py`. |
@@ -49,7 +49,8 @@ Each session should land one logical commit. Recommended split:
 - ~~**Session 2:** Tasks #6~~ — Done in 518768d.
 - ~~**Session 3:** Task #2a~~ — Done.
 - ~~**Session 4:** Task #2b~~ — Done.
-- **Session 5 (next):** Task #2c (`reconcile_via_ribosome_positions`, ~186 LOC). **First place the RNG seam is exercised in the kernel itself** — port `r = rand() % candidates` to `r = kernel.randint_below(candidates)`. Will need to capture a sibling `numpy-randomstate.json.gz` golden at port time (run the ported function once with the seeds from `capture_kernel_golden.py` cases and dump output) and assert byte-identity against THAT, with the existing libc-rand golden kept for shape sanity (sums of mutated arrays match).
+- ~~**Session 5:** Task #2c~~ — Done.
+- **Session 6 (next):** Task #2d (`reconcile_via_trna_pools`, ~114 LOC). Same pattern as 2c — Python orchestration, `randint_below` for the 3 RNG draws (codon pick + free-vs-charged tRNA pick + ribosome pick). After landing the function, re-run `workspace/investigations/trna-charging-final/capture_numpy_randomstate_golden.py` to refresh the golden with the new cases (the existing one has 2 skipped placeholders waiting), then enable the `test_reconcile_via_trna_pools_parity` test that's already stubbed in `tests/test_kinetic_charging_kernel.py`. Invariants to assert vs libc golden: free+charged tRNA conservation, chargings count never goes negative, amino_acids_used parallel to chargings.
 - **Sessions 5 & 6:** Tasks #2c (`reconcile_via_ribosome_positions`) and #2d (`reconcile_via_trna_pools`). Independent — could run in parallel across two sessions if you have the bandwidth.
 - **Session 7:** Task #2e (`get_elongation_rate` + companion 580-line test).
 - **Session 8:** Task #3 (`KineticTrnaChargingModel` + composite arch + behavior test).

@@ -19,12 +19,18 @@ Layout
     get_initiations / get_codon_at / get_candidates_to_C / get_candidates_to_N /
     select_candidate / is_initial_state / get_codons_read
         Deterministic kernels, ported in Task 2b. All ``@njit``ed and verified
-        bit-identical against the upstream Cython kernel (see
-        ``tests/test_kinetic_charging_kernel.py``).
+        bit-identical against the upstream Cython kernel.
 
-    get_elongation_rate / reconcile_via_ribosome_positions /
-    reconcile_via_trna_pools
-        Stubs — implemented in tasks 2c–2e.
+    reconcile_via_ribosome_positions
+        Stochastic kernel, ported in Task 2c. Plain Python orchestration so it
+        can call :func:`randint_below`; the hot inner loops dispatch through
+        the 2b ``@njit`` helpers. Parity tested two ways:
+        byte-identity vs a committed per-RNG golden
+        (``tests/fixtures/trna_charging_kernel_numpy_randomstate_golden.json.gz``),
+        plus algorithmic-invariant checks vs the upstream libc-rand golden.
+
+    get_elongation_rate / reconcile_via_trna_pools
+        Stubs — implemented in tasks 2d, 2e.
 
 Parity tests live in ``tests/test_kinetic_charging_kernel.py`` and load
 ``tests/fixtures/trna_charging_kernel_golden.json.gz``. Deterministic
@@ -254,8 +260,145 @@ def reconcile_via_ribosome_positions(
     sequences: npt.NDArray[np.int8],
     max_attempts: int,
 ) -> None:
-    """Port of upstream ``reconcile_via_ribosome_positions``. Implemented in Task 2c."""
-    raise NotImplementedError("Task 2c")
+    """
+    Reconcile per-codon counts between the Sequence Model (``sequence_codons``,
+    derived from where ribosomes are sitting) and the Kinetic Model
+    (``kinetics_codons``, the per-codon target from the tRNA charging step).
+
+    Two-phase per attempt, repeated up to ``max_attempts`` times:
+
+    * **Forward phase** — where ``kinetics_codons[c] > sequence_codons[c]``,
+      pick a codon weighted by its deficit, then a ribosome that could read
+      that codon at some C-ward relative offset (``get_candidates_to_C``), and
+      advance that ribosome to the offset (filling in the missing codons along
+      the way). Codons with no C-ward candidates are marked ``exhausted`` for
+      the remainder of this attempt.
+
+    * **Backward phase** — where ``kinetics_codons[c] < sequence_codons[c]``,
+      pick a codon weighted by its surplus, find a ribosome with that codon at
+      some N-ward offset (``get_candidates_to_N``), and retract it. There's no
+      ``exhausted`` array here: a surplus means the codon must exist among the
+      ribosome positions, so candidates are guaranteed.
+
+    Mutates ``sequence_codons`` and ``elongations`` in place. ``kinetics_codons``
+    is read-only. The function early-exits when ``compromise == 0`` (i.e.,
+    ``sequence_codons == kinetics_codons``).
+
+    Notes
+    -----
+    * The ``disagreements_remaining`` flag is initialized to ``True`` once at
+      function entry. Phase 1 sets it to ``False`` on completion and never
+      resets it; phase 2 resets it to ``True`` before its own loop and sets it
+      to ``False`` on completion. So on attempt 2+, the forward phase is
+      skipped — only the backward phase runs. This is intentional in upstream
+      and ``test_reconcile_attempts_threshold`` depends on it.
+    * Stochastic. Caller must :func:`seed` the module RNG first.
+    """
+    if _RNG is None:
+        raise RuntimeError(
+            "kinetic_charging_kernel.seed(...) must be called before "
+            "reconcile_via_ribosome_positions."
+        )
+
+    codons = sequence_codons.shape[0]
+    exhausted = np.zeros(codons, dtype=np.int8)
+    disagreements_remaining = True
+
+    for _ in range(int(max_attempts)):
+        exhausted.fill(0)
+
+        # ---- Phase 1: forward steps ----
+        # Note: on attempt 2+, disagreements_remaining is False from phase 2,
+        # so this loop is skipped entirely (intentional, see docstring).
+        while disagreements_remaining:
+            # Disagreements = sum of unmet deficits across non-exhausted codons
+            disagreements = 0
+            for c in range(codons):
+                if kinetics_codons[c] > sequence_codons[c] and exhausted[c] == 0:
+                    disagreements += int(kinetics_codons[c] - sequence_codons[c])
+            if disagreements == 0:
+                disagreements_remaining = False
+                continue
+
+            # Pick a codon weighted by deficit. The cumulative-sum-with-break
+            # mirrors upstream's loop exactly.
+            r = randint_below(disagreements)
+            running = -1
+            codon = -1
+            for c in range(codons):
+                if kinetics_codons[c] > sequence_codons[c] and exhausted[c] == 0:
+                    running += int(kinetics_codons[c] - sequence_codons[c])
+                    if running >= r:
+                        codon = c
+                        break
+
+            # Find candidate ribosomes that could read this codon C-ward
+            candidates, relative_position = get_candidates_to_C(
+                sequences, elongations, codon
+            )
+            if candidates == 0:
+                exhausted[codon] = 1
+                continue
+
+            # Pick one of them
+            r = randint_below(candidates)
+            selected = select_candidate(
+                sequences, elongations, relative_position, codon, r
+            )
+
+            # Advance the ribosome by relative_position codons, filling in
+            # sequence_codons one codon at a time as we go.
+            for _step in range(int(relative_position)):
+                step_codon = get_codon_at(sequences, elongations, selected, 1, 0)
+                elongations[selected] += 1
+                sequence_codons[step_codon] += 1
+
+        # ---- Phase 2: backward steps ----
+        disagreements_remaining = True
+        while disagreements_remaining:
+            disagreements = 0
+            for c in range(codons):
+                if kinetics_codons[c] < sequence_codons[c]:
+                    disagreements += int(sequence_codons[c] - kinetics_codons[c])
+            if disagreements == 0:
+                disagreements_remaining = False
+                continue
+
+            r = randint_below(disagreements)
+            running = -1
+            codon = -1
+            for c in range(codons):
+                if kinetics_codons[c] < sequence_codons[c]:
+                    running += int(sequence_codons[c] - kinetics_codons[c])
+                    if running >= r:
+                        codon = c
+                        break
+
+            # candidates is guaranteed > 0 because surplus implies the codon
+            # exists somewhere in the consumed-so-far range.
+            candidates, relative_position = get_candidates_to_N(
+                sequences, elongations, codon
+            )
+
+            r = randint_below(candidates)
+            selected = select_candidate(
+                sequences, elongations, relative_position, codon, r
+            )
+
+            # Retract the ribosome. range(1, relative_position, -1) yields
+            # 1 - relative_position values for relative_position <= 0. At each
+            # step, read the codon being undone (offset 0 = current C-terminal)
+            # BEFORE decrementing, then update both arrays.
+            for _step in range(1, int(relative_position), -1):
+                step_codon = get_codon_at(sequences, elongations, selected, 0, 0)
+                elongations[selected] -= 1
+                sequence_codons[step_codon] -= 1
+
+        # Accept the compromise if we've reached parity; otherwise retry
+        # (but phase 1 won't run again — see disagreements_remaining note).
+        compromise = int(np.abs(kinetics_codons - sequence_codons).sum())
+        if compromise == 0:
+            break
 
 
 def reconcile_via_trna_pools(

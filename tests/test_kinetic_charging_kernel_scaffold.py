@@ -156,14 +156,6 @@ def test_stubs_raise_not_implemented_until_filled_in() -> None:
     Functions still stubbed by 2c–2e raise NotImplementedError. 2b-ported
     functions are gated by ``tests/test_kinetic_charging_kernel.py`` instead.
     """
-    with pytest.raises(NotImplementedError, match="Task 2c"):
-        kernel.reconcile_via_ribosome_positions(
-            np.zeros(1, dtype=np.int64),
-            np.zeros(1, dtype=np.int64),
-            np.zeros(1, dtype=np.int64),
-            np.zeros((1, 1), dtype=np.int8),
-            1,
-        )
     with pytest.raises(NotImplementedError, match="Task 2d"):
         kernel.reconcile_via_trna_pools(
             np.zeros(1, dtype=np.int64),

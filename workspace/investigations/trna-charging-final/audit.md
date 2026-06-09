@@ -283,3 +283,34 @@ The scaffold supports option 3 cleanly: the existing fixture is the `libc-rand-m
 - `kernel.seed` / `kernel.randint_below` for stochastic functions.
 - `_load_golden()` pattern from the scaffold test for parity assertions.
 - For stochastic cases, the convention is to compute the ported function's output once at port time, pickle into the test (or a sibling `numpy-randomstate.json.gz` if we want a separate file), and assert bit-identity for that RNG. The libc-rand golden then exists only as documentation + sanity-shape check.
+
+---
+
+## Task #2b progress log
+
+**2026-06-09 — 7 deterministic kernel functions ported.**
+
+### Ported (all `@njit(error_model="numpy")`)
+- `get_initiations(elongations, lengths, indexes) -> int` — counts ribosomes with `elongations > 0 and lengths == 0`. `indexes` is unused; kept for API parity with upstream.
+- `get_codon_at(sequences, elongations, ith_ribosome, relative_position, absolute_position=0) -> int` — bounded lookup; returns -1 outside range.
+- `get_candidates_to_C(sequences, elongations, codon_id) -> (candidates, relative_position)` — C-ward scan. Cleaner signature than upstream (dropped 4 scratch parameters that Cython used to recycle locals).
+- `get_candidates_to_N(sequences, elongations, codon_id) -> (candidates, relative_position)` — N-ward mirror.
+- `select_candidate(sequences, elongations, relative_position, codon_id, r) -> int` — returns index of `r`-th match. **Discovered during port:** doesn't actually call `rand()` despite upstream test setting `seed_rng(0)` in `setUp` — the RNG draw happens at the caller's `r = rand() % candidates` before `select_candidate` is invoked. So this function is purely deterministic and the RNG seam is exercised first in 2c/2d, not here.
+- `is_initial_state(initial_state, state) -> bool` — element-wise int32 equality. Upstream Cython emits "unused function" warning at build (confirmed in the .o object's compiler warnings). Ported for API symmetry.
+- `get_codons_read(sequences, elongations, size) -> int64[size]` — codon-usage histogram.
+
+### Parity verification
+- `tests/test_kinetic_charging_kernel.py` — 7 parity tests, each iterates every relevant case from `tests/fixtures/trna_charging_kernel_golden.json.gz` and asserts bit-identical output vs the upstream Cython captures.
+- Plus `test_is_initial_state_local_cases` (no golden coverage since upstream doesn't call it).
+- Plus `test_2b_covers_every_relevant_golden_case` belt-and-suspenders gate.
+- Stub-still-raises tests for 2c/2d/2e updated to assert `Task 2c`/`2d`/`2e` markers in the NotImplementedError messages.
+
+### Results
+- `pytest tests/test_kinetic_charging_kernel.py tests/test_kinetic_charging_kernel_scaffold.py` → 18 passed, 3 skipped, 3.93s including numba JIT warm-up.
+
+### Notes for 2c/2d
+- `select_candidate` being deterministic means the RNG-seam introduction in `reconcile_via_*` is the first place the seeded-RandomState policy gets exercised. The pattern will be:
+  1. `kernel.seed(seed)` once at the top of the function.
+  2. `r = kernel.randint_below(candidates)` where upstream did `r = rand() % candidates`.
+  3. Parity tests assert against a per-RNG golden captured at port time (the existing `libc-rand-macos-arm64` golden is for sanity-shape only on stochastic cases).
+- `get_codon_at` is called from `get_candidates_to_C/N`, `select_candidate`, and (in upstream) from `reconcile_via_ribosome_positions`. Numba can nest @njit calls — confirmed working in this commit. 2c can call our ported `get_codon_at`, `get_candidates_to_C/N`, `select_candidate` directly.

@@ -152,10 +152,31 @@ def test_stub_functions_exist_with_expected_signatures() -> None:
 
 
 def test_stubs_raise_not_implemented_until_filled_in() -> None:
-    """All bodies should be NotImplementedError until 2b–2e land them."""
-    with pytest.raises(NotImplementedError):
-        kernel.get_initiations(
-            np.array([1], dtype=np.int64),
-            np.array([0], dtype=np.int64),
-            np.array([0], dtype=np.int64),
+    """
+    Functions still stubbed by 2c–2e raise NotImplementedError. 2b-ported
+    functions are gated by ``tests/test_kinetic_charging_kernel.py`` instead.
+    """
+    with pytest.raises(NotImplementedError, match="Task 2c"):
+        kernel.reconcile_via_ribosome_positions(
+            np.zeros(1, dtype=np.int64),
+            np.zeros(1, dtype=np.int64),
+            np.zeros(1, dtype=np.int64),
+            np.zeros((1, 1), dtype=np.int8),
+            1,
+        )
+    with pytest.raises(NotImplementedError, match="Task 2d"):
+        kernel.reconcile_via_trna_pools(
+            np.zeros(1, dtype=np.int64),
+            np.zeros(1, dtype=np.int64),
+            np.zeros(1, dtype=np.int64),
+            np.zeros(1, dtype=np.int64),
+            np.zeros(1, dtype=np.int64),
+            np.zeros(1, dtype=np.int64),
+            np.zeros((1, 1), dtype=np.int64),
+            np.zeros((1, 1), dtype=np.int8),
+            np.zeros(1, dtype=np.int8),
+        )
+    with pytest.raises(NotImplementedError, match="Task 2e"):
+        kernel.get_elongation_rate(
+            np.zeros((1, 1), dtype=np.int8), 0, 1.0, 1.0
         )

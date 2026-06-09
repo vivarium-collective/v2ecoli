@@ -17,9 +17,14 @@ Layout
         deterministic given ``seed(...)``.
 
     get_initiations / get_codon_at / get_candidates_to_C / get_candidates_to_N /
-    select_candidate / is_initial_state / get_codons_read / get_elongation_rate /
-    reconcile_via_ribosome_positions / reconcile_via_trna_pools
-        Stubs — implemented in tasks 2b–2e.
+    select_candidate / is_initial_state / get_codons_read
+        Deterministic kernels, ported in Task 2b. All ``@njit``ed and verified
+        bit-identical against the upstream Cython kernel (see
+        ``tests/test_kinetic_charging_kernel.py``).
+
+    get_elongation_rate / reconcile_via_ribosome_positions /
+    reconcile_via_trna_pools
+        Stubs — implemented in tasks 2c–2e.
 
 Parity tests live in ``tests/test_kinetic_charging_kernel.py`` and load
 ``tests/fixtures/trna_charging_kernel_golden.json.gz``. Deterministic
@@ -35,6 +40,7 @@ from typing import Optional
 
 import numpy as np
 import numpy.typing as npt
+from numba import njit
 
 
 # ---------- module-private RNG ----------
@@ -73,15 +79,29 @@ def randint_below(n: int) -> int:
 # ---------- kernel function stubs (filled in 2b-2e) ----------
 
 
+@njit(error_model="numpy")
 def get_initiations(
     elongations: npt.NDArray[np.int64],
     lengths: npt.NDArray[np.int64],
     indexes: npt.NDArray[np.int64],
 ) -> int:
-    """Port of upstream ``get_initiations``. Implemented in Task 2b."""
-    raise NotImplementedError("Task 2b")
+    """
+    Count ribosomes that have just initiated this tick.
+
+    A ribosome has initiated when it has been elongated by >= 1 codon
+    (``elongations[i] > 0``) but the corresponding peptide has zero
+    length on entry to the tick (``lengths[i] == 0``).
+
+    ``indexes`` is unused; kept for upstream signature parity.
+    """
+    n_initiations = 0
+    for i in range(elongations.shape[0]):
+        if elongations[i] > 0 and lengths[i] == 0:
+            n_initiations += 1
+    return n_initiations
 
 
+@njit(error_model="numpy")
 def get_codon_at(
     sequences: npt.NDArray[np.int8],
     elongations: npt.NDArray[np.int64],
@@ -89,28 +109,77 @@ def get_codon_at(
     relative_position: int,
     absolute_position: int = 0,
 ) -> int:
-    """Port of upstream ``get_codon_at``. Implemented in Task 2b."""
-    raise NotImplementedError("Task 2b")
+    """
+    Return the codon at ``relative_position`` offsets from ribosome
+    ``ith_ribosome``'s current C-terminal codon, or ``-1`` if the position
+    falls outside the sequence's defined range.
+
+    ``absolute_position`` is a scratch slot upstream uses to skip re-declaring
+    a C local; we accept it for API parity but always recompute.
+    """
+    absolute_position = elongations[ith_ribosome] - 1 + relative_position
+    if absolute_position < 0:
+        return -1
+    elif absolute_position >= sequences.shape[1]:
+        return -1
+    else:
+        return sequences[ith_ribosome, absolute_position]
 
 
+@njit(error_model="numpy")
 def get_candidates_to_C(
     sequences: npt.NDArray[np.int8],
     elongations: npt.NDArray[np.int64],
     codon_id: int,
 ) -> tuple[int, int]:
-    """Port of upstream ``get_candidates_to_C``. Implemented in Task 2b."""
-    raise NotImplementedError("Task 2b")
+    """
+    Scan C-ward from each ribosome's current position until at least one
+    candidate ribosome has ``codon_id`` at the same relative offset.
+
+    Returns ``(candidates, relative_position)``. If no ribosome has the codon
+    anywhere C-ward, ``candidates == 0`` and ``relative_position`` is the
+    last offset tested (``sequences.shape[1]``).
+    """
+    candidates = 0
+    relative_position = 0
+    for relative_position in range(1, sequences.shape[1] + 1):
+        for i in range(sequences.shape[0]):
+            if (
+                get_codon_at(sequences, elongations, i, relative_position, 0)
+                == codon_id
+            ):
+                candidates += 1
+        if candidates > 0:
+            break
+    return candidates, relative_position
 
 
+@njit(error_model="numpy")
 def get_candidates_to_N(
     sequences: npt.NDArray[np.int8],
     elongations: npt.NDArray[np.int64],
     codon_id: int,
 ) -> tuple[int, int]:
-    """Port of upstream ``get_candidates_to_N``. Implemented in Task 2b."""
-    raise NotImplementedError("Task 2b")
+    """
+    Mirror of ``get_candidates_to_C`` scanning N-ward. ``relative_position``
+    walks 0, -1, -2, ... and the function returns at the first offset where
+    one or more ribosomes carry ``codon_id``.
+    """
+    candidates = 0
+    relative_position = 0
+    for relative_position in range(0, -sequences.shape[1], -1):
+        for i in range(sequences.shape[0]):
+            if (
+                get_codon_at(sequences, elongations, i, relative_position, 0)
+                == codon_id
+            ):
+                candidates += 1
+        if candidates > 0:
+            break
+    return candidates, relative_position
 
 
+@njit(error_model="numpy")
 def select_candidate(
     sequences: npt.NDArray[np.int8],
     elongations: npt.NDArray[np.int64],
@@ -118,25 +187,64 @@ def select_candidate(
     codon_id: int,
     r: int,
 ) -> int:
-    """Port of upstream ``select_candidate``. Implemented in Task 2b."""
-    raise NotImplementedError("Task 2b")
+    """
+    Return the index of the ``r``-th ribosome (0-indexed) whose codon at
+    ``relative_position`` equals ``codon_id``.
+
+    Deterministic given ``r``: the upstream Cython draws ``r`` via
+    ``rand() % candidates`` and passes it in; this function does not touch the
+    RNG itself. If no match exists or ``r`` exceeds the number of matches,
+    returns ``sequences.shape[0] - 1`` (matches upstream's loop-falls-through
+    semantics; callers are responsible for ensuring ``0 <= r < candidates``).
+    """
+    j = -1
+    i = 0
+    for i in range(sequences.shape[0]):
+        if (
+            get_codon_at(sequences, elongations, i, relative_position, 0)
+            == codon_id
+        ):
+            j += 1
+            if j == r:
+                break
+    return i
 
 
+@njit(error_model="numpy")
 def is_initial_state(
     initial_state: npt.NDArray[np.int32],
     state: npt.NDArray[np.int32],
 ) -> bool:
-    """Port of upstream ``is_initial_state``. Implemented in Task 2b."""
-    raise NotImplementedError("Task 2b")
+    """
+    Element-wise equality predicate over two int32 arrays.
+
+    Upstream is flagged as dead code (the C compiler emits an unused-function
+    warning at build) but we keep it for API symmetry with the upstream module
+    so callers porting from vEcoli don't have to special-case its absence.
+    """
+    for i in range(initial_state.shape[0]):
+        if initial_state[i] != state[i]:
+            return False
+    return True
 
 
+@njit(error_model="numpy")
 def get_codons_read(
     sequences: npt.NDArray[np.int8],
     elongations: npt.NDArray[np.int64],
     size: int,
 ) -> npt.NDArray[np.int64]:
-    """Port of upstream ``get_codons_read``. Implemented in Task 2b."""
-    raise NotImplementedError("Task 2b")
+    """
+    Aggregate codon usage across all ribosomes through their current
+    ``elongations[i]`` C-terminal extent.
+
+    Returns a length-``size`` int64 histogram indexed by codon ID.
+    """
+    out = np.zeros(size, dtype=np.int64)
+    for i in range(elongations.shape[0]):
+        for j in range(elongations[i]):
+            out[sequences[i, j]] += 1
+    return out
 
 
 def reconcile_via_ribosome_positions(

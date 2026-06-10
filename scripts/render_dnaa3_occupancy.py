@@ -122,6 +122,46 @@ def load_insim(run: str, generation: int | None = None):
     return df
 
 
+def load_active(run: str, generation: int | None = None):
+    """Load occupancy from the ACTIVE box-binding listener (listeners.replication_data
+    per-pool free/bound counts) — the CURRENT adopted mechanism. Maps to the SAME
+    (oric/dnaap/chrom n_bound/n_total + free DnaA-ATP/ADP nM) structure as load_insim
+    so the chromosome-map draw works unchanged. Totals use the ACTUAL free+bound box
+    counts (which grow as the fork copies the chromosome), not a fixed n*oric."""
+    if generation is not None:
+        fs = sorted(glob.glob(f"{run}/**/history/**/generation={generation}/**/*.pq", recursive=True))
+        if not fs:
+            fs = sorted(glob.glob(f"{run}/**/history/**/*.pq", recursive=True))
+    else:
+        fs = sorted(glob.glob(f"{run}/**/history/**/*.pq", recursive=True))
+    if not fs:
+        raise SystemExit(f"no active-run parquet under {run}")
+    ids = pl.scan_parquet(fs[0]).select("bulk__id").head(1).collect()["bulk__id"][0].to_list()
+    iatp, iadp = ids.index("MONOMER0-160[c]"), ids.index("MONOMER0-4565[c]")
+    L = "listeners__replication_data__"
+    NMF = 1e9 / 6.022e23 / 1e-15   # count / volume_fL -> nM
+    c = pl.col
+    df = (pl.scan_parquet(fs, hive_partitioning=True)
+          .select(["global_time",
+                   c(L+"number_of_oric").alias("oric"),
+                   (c(L+"oriC_high_bound_atp")+c(L+"oriC_high_bound_adp")+c(L+"oriC_low_bound_atp")).alias("oric_n_bound"),
+                   (c(L+"oriC_high_free")+c(L+"oriC_high_bound_atp")+c(L+"oriC_high_bound_adp")
+                    +c(L+"oriC_low_free")+c(L+"oriC_low_bound_atp")).alias("oric_n_total"),
+                   (c(L+"promoter_high_bound_atp")+c(L+"promoter_high_bound_adp")).alias("dnaap_n_bound"),
+                   (c(L+"promoter_high_free")+c(L+"promoter_high_bound_atp")+c(L+"promoter_high_bound_adp")).alias("dnaap_n_total"),
+                   (c(L+"chromosomal_high_bound_atp")+c(L+"chromosomal_high_bound_adp")).alias("chrom_n_bound"),
+                   (c(L+"chromosomal_high_free")+c(L+"chromosomal_high_bound_atp")+c(L+"chromosomal_high_bound_adp")).alias("chrom_n_total"),
+                   (NMF*c("bulk__count").list.get(iatp)/pl.max_horizontal(c("listeners__mass__volume"), pl.lit(1e-9))).alias("free_atp_nM"),
+                   (NMF*c("bulk__count").list.get(iadp)/pl.max_horizontal(c("listeners__mass__volume"), pl.lit(1e-9))).alias("free_adp_nM"),
+                   c("listeners__mass__cell_mass").alias("mass")])
+          .sort("global_time").collect())
+    df = df.with_columns([
+        (c("oric_n_bound")/pl.max_horizontal(c("oric_n_total"), pl.lit(1))).alias("oric_low_occ"),
+        (pl.lit(1.0)).alias("oric_high_occ"),
+    ])
+    return df
+
+
 def conc_nM(count, mass_fg):
     """bulk count + cell mass(fg) → concentration in nM."""
     volume_L = mass_fg * 1e-15 / DENSITY_G_PER_L
@@ -210,7 +250,10 @@ def main_insim(args):
     """Render the 5-timepoint chromosome box-occupancy snapshots from the REAL
     emitted in-sim listeners.dnaA_binding occupancy (no analytical recompute).
     Restricted to a LATER/steady-state generation (args.generation)."""
-    df = load_insim(args.insim_run, args.generation)
+    active = getattr(args, "active_run", None)
+    df = load_active(active, args.generation) if active else load_insim(args.insim_run, args.generation)
+    src_label = ("ACTIVE box-binding mechanism (listeners.replication_data, adopted PR #162)"
+                 if active else "read-only listeners.dnaA_binding")
     t0 = df["global_time"][0]
     tmin = ((df["global_time"] - t0) / 60).to_numpy()
     oric = df["oric"].to_numpy()
@@ -228,7 +271,7 @@ def main_insim(args):
     fig = plt.figure(figsize=(3.2 * args.n_frames, 5.4))
     gs = fig.add_gridspec(2, args.n_frames, height_ratios=[3.0, 1.15], hspace=0.34, wspace=0.04)
     fig.suptitle("dnaa-3 — DnaA-box occupancy by region across the succinate cell cycle\n"
-                 "IN-SIM emitted occupancy (read-only listeners.dnaA_binding) · "
+                 f"IN-SIM emitted occupancy ({src_label}) · "
                  "filled = DnaA-bound, open = free · red ■ = ter · oriC doubles at replication · provided pools only",
                  fontsize=12, y=1.0)
     for k, i in enumerate(idx):
@@ -269,11 +312,13 @@ def main():
     ap.add_argument("--generation", type=int, default=5)   # later steady gen (Haochen pt 2)
     ap.add_argument("--insim-run", default=None,
                     help="read REAL emitted listeners.dnaA_binding occupancy from this in-sim run")
+    ap.add_argument("--active-run", default=None,
+                    help="read the ACTIVE box-binding occupancy (listeners.replication_data) from this run")
     ap.add_argument("--out", default="studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy")
     ap.add_argument("--n-frames", type=int, default=5)
     args = ap.parse_args()
 
-    if args.insim_run:
+    if args.active_run or args.insim_run:
         return main_insim(args)
 
     df = load(args.run, args.generation)

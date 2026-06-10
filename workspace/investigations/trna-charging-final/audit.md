@@ -824,3 +824,38 @@ Activating the one-tick behavior test against the rebuilt cache surfaced three r
 - `v2ecoli/processes/parca/fitting.py` (tRNA ID suffix strip)
 - `v2ecoli/processes/polypeptide/kinetic_charging.py` (4 runtime-bug fixes)
 - `tests/test_behavior_kinetic_charging.py` (path fix for nested `agents.X.unique.active_ribosome`)
+
+---
+
+## Task #10 progress log
+
+**2026-06-09 — Fast-test suite vs the new cache.**
+
+### Result
+`pytest -m 'not sim and not slow'` → **338 passed, 2 failed, 20 skipped, 41 deselected** in 33.9 s.
+
+### The 2 failures are pre-existing, unrelated to Task #8
+Both surface the same error: `ImportError: ParquetEmitter override set but [parquet] extra not installed.` This is an environmental issue (the `pbg-emitters[parquet]` extra wasn't installed in this venv per AGENTS.md's `uv sync --extra dev --no-install-package vivarium-dashboard` recipe).
+
+Verified by running the same two tests on `main` — both fail there too with the same error. My branch didn't touch either test file:
+
+```
+$ git log --oneline main..HEAD -- tests/test_analysis_runner.py tests/test_workflow_smoke.py
+(no commits)
+```
+
+Affected tests:
+- `tests/test_analysis_runner.py::test_run_workflow_runs_analyses_end_to_end`
+- `tests/test_workflow_smoke.py::test_tiny_sweep_runs_to_completion`
+
+Both end up at `v2ecoli/composites/_helpers.py:1101` → `raise ImportError("ParquetEmitter override set but [parquet] extra not installed...")`. The fix per the message is `pip install 'v2ecoli[parquet]'`.
+
+### What this run tells us
+The new ParCa fixture + cache (from Task #8) + the kinetic-charging port don't regress any of the 338 unit/structural tests that ran. Tests that build composites against the cache — `test_baseline_overrides`, `test_visualizations_multigeneration`, `test_polypeptide_elongation_parity`, etc. — all pass against the rebuilt cache.
+
+### Skipped & deselected
+- 20 skipped: `@pytest.mark.sim` tests that need full simulation cache (some now pass too — see Task #11).
+- 41 deselected: `@pytest.mark.slow` tests (full lifecycle runs, ~10+ min each). Not in the fast-test bucket; covered by Task #11 as needed.
+
+### Excluded
+`tests/test_cell_cycle_regressions.py` (`@pytest.mark.slow`) was timing out at the 700-tick run; properly excluded by the `not slow` filter. That bucket is Task #11's responsibility.

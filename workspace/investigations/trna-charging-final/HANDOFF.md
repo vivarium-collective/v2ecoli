@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: `c6500f5 feat(trna-charging): full ParCa rerun + 7 runtime-bug fixes; end-to-end tick passes (Task #8)`. **Tasks #2, #3, #5, #6, #7, #8 complete. Task #9 (cache rebuild) effectively complete — fresh cache lives at `out/cache/`. End-to-end one-tick kinetic test passes. Remaining: Task #4 (independent), Tasks #10–#13 (broader test gates + reports).**
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `a2b00e0 docs(trna-charging): bump HANDOFF last-commit pointer to c6500f5`. **Tasks #2, #3, #5, #6, #7, #8, #9, #10 complete.** Task #10 result: 338 passed, 2 pre-existing env failures (parquet extra not installed; same failures on `main`). Remaining: Task #4 (independent), Tasks #11 (behavior tests), #12 (parity gate), #13 (reports).
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

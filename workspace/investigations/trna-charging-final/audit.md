@@ -749,3 +749,78 @@ The full `KineticTrnaChargingModel` port from upstream (~710 LOC monolithic clas
 | `tests/test_kinetic_charging_*.py` + `test_behavior_kinetic_charging.py` | ~1200 | All sub-tasks |
 
 Source-scan + cache-gated tests cover the structural correctness end-to-end. The behavior-tick test gates on Task #8.
+
+---
+
+## Task #8 progress log
+
+**2026-06-09 — Full ParCa rerun + cache rebuild + end-to-end behavior verification.**
+
+### Runtime
+**194.3 s total** (the docs estimate 4–8 h, written against a much slower box). Per-step breakdown from `models/parca/runtimes.json`:
+
+| Step | Description | Seconds |
+|---|---|---:|
+| 1 | initialize + scatter | 5.1 |
+| 2 | input_adjustments | 0.1 |
+| 3 | basal_specs | 12.5 |
+| 4 | tf_condition_specs (10 procs) | 79.0 |
+| 5 | fit_condition (10 procs) | 70.3 |
+| 6 | promoter_binding | 12.1 |
+| 7 | adjust_promoters | 0.0 |
+| 8 | set_conditions | 0.2 |
+| 9 | final_adjustments | 7.5 |
+
+Output: `out/sim_data/parca_state.pkl` (653.8 MB) → gzipped to `models/parca/parca_state.pkl.gz` (42 MB), replacing the prior 39 MB fixture.
+
+### Pre-flight bugs caught in the run
+Three real bugs in the ParCa code surfaced because the Relation port from Task #6 wasn't fully wired to v2ecoli's KB. Each got a minimal fix:
+
+1. **`MoleculeIds.start_codon` missing.** Task #6's Relation `_build_codon_sequences` references `sim_data.molecule_ids.start_codon`. Added `"start_codon": "start"` to `MoleculeIds.__init__`'s dict (1-line patch, mirrors upstream `trna_charging_final::molecule_ids.py`).
+2. **3 proteins skipped in `_codon_sequences`.** v2ecoli's KB has 3 proteins (`EG11357-MONOMER`, `EG11413-MONOMER`, `MONOMER0-4391`) whose translated mRNA doesn't match their protein sequence; the upstream `_build_codon_based_translation` indexes the dict unconditionally → KeyError. Fixed with `.get(mid, [start_codon])` sentinel so the 3 proteins occupy a 1-codon row instead of crashing. They're not biologically translatable in this model run but ParCa fitting proceeds.
+3. **tRNA ID convention mismatch in `setInitialRnaExpression`.** v2ecoli's `ids_tRNA_cistrons` uses cistron form (`alaT-tRNA`), but my Relation port's `_build_trna_data` produces `[c]`-suffixed tRNA IDs (`alaT-tRNA[c]`). Stripped the suffix when building the lookup dict in `fitting.py`.
+
+### Cache rebuild
+Per `docs/generate_full_parca.md`:
+- `out/workflow/simData.cPickle` rebuilt via `hydrate_sim_data_from_state` (sim_data with Relation kinetic attrs).
+- `out/cache/{initial_state.json, sim_data_cache.dill, cache_version.json, metadata.json}` rebuilt via `save_cache`. Total cache rebuild: ~15 s.
+
+### End-to-end verification
+`load_cache_bundle('out/cache')["configs"]["ecoli-polypeptide-elongation"]` now contains all 12 kinetic-charging keys with realistic shapes:
+
+| Key | Shape | dtype |
+|---|---|---|
+| `codon_sequences` | (4309, 2409) | int8 |
+| `residue_weights_by_codon` | (63,) | float64 |
+| `n_codons` | 63 | int |
+| `i_start_codon` | 0 | int |
+| `is_map_substrate` | (4309,) | bool |
+| `n_trna_codon_pairs` | 153 | int |
+| `trnas_to_codons` | (63, 86) | int8 |
+| `codons_to_amino_acids` | (21, 63) | int8 |
+| `k_cat__per_s` | (21,) | float64 |
+| `K_M_amino_acid__per_L` | (21,) | float64 |
+| `K_M_trna__per_L` | (86,) | float64 |
+| `reconciliation_buffer` | 10 | int |
+
+### 3 runtime bugs caught in the kinetic Process port
+Activating the one-tick behavior test against the rebuilt cache surfaced three real bugs in the kinetic Process port that the source-scan tests in 3a–3d couldn't see. Each got a minimal fix:
+
+1. **`get_kinetic_constants` Unum→pint regression.** v2ecoli passes `cell_mass` as a pint Quantity (vs upstream's plain float); `cell_mass * units.fg` then produces `fg²·L/g`, which fails the `.to(units.L)` step. Fixed by normalizing both shapes (Quantity vs plain) with a `hasattr(cell_mass, "to")` check.
+2. **`max_charging_rate` shape mismatch.** v2ecoli's `synthetase_idx` covers the full enzyme list (~22 entries incl. selenocysteine specials), but `k_cat__per_s` is per-AA (21). Projected the all-enzyme count onto AAs via `aa_from_synthetase @ counts`.
+3. **`request` returned per-tRNA `fraction_charged` (86) but v2ecoli's base listener expects per-AA (21).** Aggregated via `aa_from_trna @ charged` / `aa_from_trna @ (free + charged)` before normalizing.
+4. **`protein_maturation` strip-units called `float()` on a non-scalar.** `n_can_cleave_q.to(...).magnitude` can be a shape-(1,) ndarray when `counts(...)` returns an array. Coerced via `float(np.asarray(...).sum())`.
+
+### Test results
+- `pytest tests/test_kinetic_charging_*.py tests/test_behavior_kinetic_charging.py` → **72 passed in 10.94 s**.
+- The previously-skipped `test_composite_runs_one_tick_with_kinetic_elongation` now passes — the kinetic composite builds against the fresh cache, runs one tick without crashing, and ribosome counts stay positive.
+
+### What ships
+- `models/parca/parca_state.pkl.gz` (42 MB, replaces 39 MB fast-mode fixture)
+- `models/parca/runtimes.json` (refreshed per-step timings)
+- `out/cache/*` (rebuilt locally; not committed)
+- `v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/molecule_ids.py` (1-line `start_codon` add)
+- `v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/relation.py` (defensive `.get` on 3-protein mismatch)
+- `v2ecoli/processes/parca/fitting.py` (tRNA ID suffix strip)
+- `v2ecoli/processes/polypeptide/kinetic_charging.py` (4 runtime-bug fixes)
+- `tests/test_behavior_kinetic_charging.py` (path fix for nested `agents.X.unique.active_ribosome`)

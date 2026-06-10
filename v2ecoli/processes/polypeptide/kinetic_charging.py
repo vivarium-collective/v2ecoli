@@ -440,11 +440,15 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         requests["bulk"].append((self.water_idx, water_request))
 
         # Fraction-charged is returned for the listener output in
-        # ``calculate_request`` (per-amino-acid downstream). Trap divide-by-
-        # zero (rare but possible at first tick).
-        denom = free_trnas + charged_trnas
+        # ``calculate_request`` (per-amino-acid downstream — v2ecoli base
+        # expects a length-n_aas vector). Aggregate the per-tRNA pools onto
+        # amino acids via aa_from_trna before normalizing.
+        charged_per_aa = self.aa_from_trna @ charged_trnas
+        total_per_aa = self.aa_from_trna @ (free_trnas + charged_trnas)
         with np.errstate(divide="ignore", invalid="ignore"):
-            fraction_charged = np.where(denom > 0, charged_trnas / denom, 0.0)
+            fraction_charged = np.where(
+                total_per_aa > 0, charged_per_aa / total_per_aa, 0.0
+            )
 
         return fraction_charged, amino_acids_used.astype(float), requests
 
@@ -1212,8 +1216,11 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
             * self.n_avogadro
         )
         # Strip units to a plain scalar (dimensionless after the cancellations).
+        # The pint .magnitude can be an ndarray shape (1,) if any input is a
+        # bulk count array; coerce via float(np.asarray(...).sum()) to handle
+        # both shapes.
         n_can_cleave_f = float(
-            n_can_cleave_q.to(units.dimensionless).magnitude
+            np.asarray(n_can_cleave_q.to(units.dimensionless).magnitude).sum()
         )
         n_can_cleave = stochasticRound(self.random_state, n_can_cleave_f)[0]
 
@@ -1327,8 +1334,12 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         * ``self.process.trna_synthetases_for_aas_idx`` →
           ``self.synthetase_idx``.
         """
-        n_synthetases = counts(states[attr], self.synthetase_idx)
-        v_max = self.k_cat__per_s * n_synthetases
+        # v2ecoli's synthetase_idx covers the full enzyme list (~22 entries
+        # incl. selenocysteine specials); k_cat__per_s is per-AA (21 entries).
+        # Project all-enzyme counts onto AAs via aa_from_synthetase.
+        n_synthetases_all = counts(states[attr], self.synthetase_idx)
+        n_synthetases_per_aa = self.parameters["aa_from_synthetase"] @ n_synthetases_all
+        v_max = self.k_cat__per_s * n_synthetases_per_aa
         return v_max
 
     def get_kinetic_constants(self, cell_mass):
@@ -1346,7 +1357,13 @@ class KineticTrnaChargingPolypeptideElongation(BasePolypeptideElongation):
         * Upstream multiplies by ``cell_volume`` as a Unum scalar; we use
           pint Quantities throughout (via the unit_bridge).
         """
-        cell_volume = cell_mass * units.fg / self.cell_density
+        # cell_mass may arrive as a plain fg float (upstream contract) or as
+        # a pint Quantity (v2ecoli's listener convention). Normalize.
+        if hasattr(cell_mass, "to"):
+            cell_mass_q = cell_mass.to(units.fg)
+        else:
+            cell_mass_q = cell_mass * units.fg
+        cell_volume = cell_mass_q / self.cell_density
         cell_volume = np.float64(cell_volume.to(units.L).magnitude)
         K_M_amino_acids = self.K_M_amino_acid__per_L * cell_volume
         K_M_trnas = self.K_M_trna__per_L * cell_volume

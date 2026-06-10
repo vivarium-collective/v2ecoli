@@ -214,10 +214,22 @@ def test_composite_runs_one_tick_with_kinetic_elongation() -> None:
     doc = kinetic_charging_baseline(core=core, seed=0, cache_dir=CACHE)
     composite = Composite(doc, core=core)
 
-    initial_elongations = composite.state["active_ribosome"]["_entryState"].sum()
-    composite.run(interval=1.0)
-    final_elongations = composite.state["active_ribosome"]["_entryState"].sum()
+    # baseline's doc wraps state under state.agents.<id>. Unique molecules
+    # (active_ribosome, etc.) live under agent.unique.<molecule_name>.
+    agents = composite.state.get("agents", {})
+    assert agents, "composite state has no agents wrapper"
+    first_agent = next(iter(agents.values()))
+    unique = first_agent.get("unique", {})
+    assert "active_ribosome" in unique, "no active_ribosome in unique"
 
-    # We don't assert a specific elongation count — just that the tick
-    # didn't crash and the ribosome pool is still alive.
-    assert final_elongations >= 0
+    initial_ribosomes = unique["active_ribosome"]["_entryState"].sum()
+    assert initial_ribosomes > 0, "no active ribosomes at start"
+
+    composite.run(interval=1.0)
+
+    first_agent = next(iter(composite.state["agents"].values()))
+    final_ribosomes = first_agent["unique"]["active_ribosome"]["_entryState"].sum()
+
+    # The kinetic Process should not have crashed the tick. Ribosome count
+    # may grow (initiation) or stay similar (one-tick window).
+    assert final_ribosomes >= 0

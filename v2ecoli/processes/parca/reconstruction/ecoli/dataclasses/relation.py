@@ -346,7 +346,19 @@ class Relation(object):
         translation = sim_data.process.translation
         protein_ids = translation.monomer_data["id"]
         molecule_ids = [protein_id[:-3] for protein_id in protein_ids]
-        sequences = [self._codon_sequences[molecule_id] for molecule_id in molecule_ids]
+        # Defensive: a small number of proteins in v2ecoli's KB have an
+        # mRNA-vs-protein mismatch (~3 of ~4309) and are skipped in
+        # ``_build_codon_sequences``. Use ``.get`` with a 1-codon sentinel
+        # (start codon only) so those proteins still occupy a row in the
+        # codon sequence matrix; they're not biologically translatable but
+        # the kinetic-charging ParCa fit can proceed. Upstream's
+        # ``trna_charging_final`` doesn't trip this because its KB inputs
+        # match exactly; v2ecoli's ParCa-fitted KB has cumulative data drift.
+        start_codon = sim_data.molecule_ids.start_codon
+        sequences = [
+            self._codon_sequences.get(molecule_id, [start_codon])
+            for molecule_id in molecule_ids
+        ]
 
         # See ecoli.processes.polypeptide_elongation.KineticTrnaChargingModel.
         self.reconciliation_buffer = 10

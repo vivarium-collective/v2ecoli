@@ -414,8 +414,12 @@ def setInitialRnaExpression(sim_data, expression, doubling_time):
 
     # tRNA distribution from Dong 1996
     tRNA_distribution = sim_data.mass.get_trna_distribution(doubling_time)
+    # Strip the "[c]" compartment suffix from tRNA IDs in the lookup dict —
+    # Task #6's Relation port produces tRNA IDs in "alaT-tRNA[c]" form
+    # (matching upstream), but ``ids_tRNA_cistrons`` below is the cistron
+    # form (no compartment suffix) so the keys have to align.
     tRNA_id_to_dist = {
-        trna_id: dist
+        (str(trna_id).removesuffix("[c]") if str(trna_id).endswith("[c]") else str(trna_id)): dist
         for (trna_id, dist) in zip(
             tRNA_distribution["id"], tRNA_distribution["molar_ratio_to_16SrRNA"]
         )

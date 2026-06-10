@@ -40,7 +40,8 @@ The equilibrium binding/unbinding is computed in two phases:
 import numpy as np
 from scipy.integrate import solve_ivp
 
-from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema
+from v2ecoli.library.schema import numpy_schema, bulk_name_to_idx, counts, listener_schema, attrs
+from v2ecoli.library.schema_types import DNAA_BOX_ARRAY
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from wholecell.utils.random import stochasticRound
 from v2ecoli.types.quantity import ureg as units
@@ -49,7 +50,34 @@ from v2ecoli.library.quantity_helpers import as_quantity
 
 # Register default topology for this process, associating it with process name
 NAME = "ecoli-equilibrium"
-TOPOLOGY = {"listeners": ("listeners",), "bulk": ("bulk",), "timestep": ("timestep",)}
+TOPOLOGY = {
+    "listeners": ("listeners",),
+    "bulk": ("bulk",),
+    "timestep": ("timestep",),
+    # dnaa-3 Phase 2b: optional read-only port for the DnaA-box unique store.
+    # Read to count rows currently bound by DnaA-ATP (DnaA_bound_form == 1) so
+    # the DNAA-INTRINSIC-HYDROLYSIS-RXN flux covers BOTH the free pool
+    # (bulk[MONOMER0-160]) AND the bound pool. Without this, the dnaa_box_binding
+    # step writes Pi/PROTON/WATER directly to bulk, bypassing this step's
+    # stoichMatrix machinery → metabolism over-allocates biomass synthesis.
+    "DnaA_boxes": ("unique", "DnaA_box"),
+    # dnaa-3 Phase 2c: shared bound-hydrolysis count from dnaa_box_binding.
+    # Read instead of re-sampling so the byproduct count matches the form
+    # swaps exactly. (Falls back to local resampling if the port is unwired.)
+    "dnaa_hydrolysis": ("process_state", "dnaa_hydrolysis"),
+}
+
+# DnaA molecule and reaction IDs needed for the bound-pool hydrolysis trick.
+# Resolved at first update against self.moleculeNames and self.reaction_ids.
+_DNAA_ATP_ID = "MONOMER0-160[c]"
+_DNAA_ADP_ID = "MONOMER0-4565[c]"
+_DNAA_HYDROLYSIS_RXN_ID = "DNAA-INTRINSIC-HYDROLYSIS-RXN"
+# Bound-form enum (mirrors dnaa_box_binding.py: 0 = free, 1 = bound-ATP, 2 = bound-ADP).
+_FORM_BOUND_ATP = 1
+# Per-spec pseudo-first-order rate constant (Sekimizu 1987 / Stage 1 PDF):
+# k = 0.046 / min ≈ 7.667e-4 / s. The dnaa_box_binding step uses the same rate
+# (independently) for the in-place bound ATP→ADP form swap.
+_HYDROLYSIS_RATE_PER_SEC = 0.046 / 60.0
 
 
 class Equilibrium(Step):
@@ -110,6 +138,18 @@ class Equilibrium(Step):
         self.complex_ids = self.parameters["complex_ids"]
         self.reaction_ids = self.parameters["reaction_ids"]
 
+        # dnaa-3 Phase 2b: indices for the DnaA bound-pool hydrolysis injection.
+        # Resolved lazily on first update so this remains backwards compatible
+        # with caches that don't include MONOMER0-160 / MONOMER0-4565 in
+        # moleculeNames or DNAA-INTRINSIC-HYDROLYSIS-RXN in reaction_ids.
+        # (All current caches do include them, but the lazy resolve keeps the
+        # change defensive — the bound-pool extension is a no-op if any index
+        # is missing.)
+        self._hydrolysis_rxn_idx = None
+        self._dnaa_atp_local_idx = None  # position within self.molecule_idx / moleculeNames
+        self._dnaa_adp_local_idx = None
+        self._dnaa_resolve_attempted = False
+
         # ODE solver components: if rates_fn is provided, use inline solver;
         # otherwise fall back to the legacy opaque callable
         self.rates_fn = self.parameters.get("rates_fn")
@@ -140,6 +180,15 @@ class Equilibrium(Step):
                 },
             },
             'timestep': {'_type': 'integer[s]', '_default': 1},
+            # Optional read-only port — defaults to an empty array so older
+            # composites without the DnaA_box unique store still resolve.
+            'DnaA_boxes': {'_type': DNAA_BOX_ARRAY, '_default': []},
+            # dnaa-3 Phase 2c: shared bound-hydrolysis count from
+            # dnaa_box_binding. -1 sentinel = port unwired → fall back to
+            # local resampling for older composites.
+            'dnaa_hydrolysis': {
+                'bound_count': {'_type': 'integer', '_default': -1},
+            },
         }
 
     def outputs(self):
@@ -262,7 +311,39 @@ class Equilibrium(Step):
                 self.moleculeNames, states["bulk"]["id"]
             )
 
+        # First-tick resolve of the DnaA hydrolysis indices.
+        if not self._dnaa_resolve_attempted:
+            self._dnaa_resolve_attempted = True
+            try:
+                self._hydrolysis_rxn_idx = list(self.reaction_ids).index(
+                    _DNAA_HYDROLYSIS_RXN_ID)
+                self._dnaa_atp_local_idx = list(self.moleculeNames).index(_DNAA_ATP_ID)
+                self._dnaa_adp_local_idx = list(self.moleculeNames).index(_DNAA_ADP_ID)
+            except ValueError:
+                # Missing from this cache — fall back to free-pool-only behaviour.
+                self._hydrolysis_rxn_idx = None
+                self._dnaa_atp_local_idx = None
+                self._dnaa_adp_local_idx = None
+
         molecule_counts = counts(states["bulk"], self.molecule_idx)
+
+        # dnaa-3 Phase 2b: count bound-ATP rows on the DnaA-box unique store.
+        # If the port is empty (older composite) or no DnaA_box rows have been
+        # seeded yet (pre-chromosome), n_bound_atp = 0 and the behaviour
+        # collapses to the original free-pool-only flux.
+        n_bound_atp = 0
+        dnaa_boxes = states.get("DnaA_boxes")
+        if (dnaa_boxes is not None
+                and self._hydrolysis_rxn_idx is not None
+                and getattr(dnaa_boxes, "dtype", None) is not None
+                and dnaa_boxes.dtype.names is not None
+                and "_entryState" in dnaa_boxes.dtype.names
+                and "DnaA_bound_form" in dnaa_boxes.dtype.names
+                and len(dnaa_boxes) > 0):
+            # attrs() handles the _entryState mask internally and returns only
+            # the active rows.
+            (bound_form,) = attrs(dnaa_boxes, ["DnaA_bound_form"])
+            n_bound_atp = int(np.count_nonzero(bound_form == _FORM_BOUND_ATP))
 
         # cell_volume = cell_mass / cell_density  [g / (g/L) = L]
         cell_mass_g = (
@@ -281,15 +362,60 @@ class Equilibrium(Step):
                 molecule_counts, cell_volume, self.n_avogadro,
                 self.random_state, jit=self.jit, timestep=dt)
 
+        # dnaa-3 Phase 2b: inject extra DNAA-INTRINSIC-HYDROLYSIS-RXN flux to
+        # cover the bound-pool hydrolysis events. Without this, the bound
+        # ATP→ADP form swap (owned by dnaa_box_binding) would still happen but
+        # the Pi/PROTON/WATER byproducts would either (a) be missing entirely
+        # or (b) be written directly to bulk by dnaa_box_binding, bypassing
+        # FBA's accounting → metabolism over-allocates biomass synthesis.
+        # Routing the byproducts through this step's stoichMatrix is the fix.
+        #
+        # dnaa-3 Phase 2c: read the bound-hydrolysis count from
+        # dnaa_box_binding's process_state port so the byproducts are sampled
+        # from the SAME stochastic event as the form swaps. Falls back to
+        # local resampling if the port is unwired (sentinel = -1) for older
+        # composites.
+        extra_h_molecules = 0
+        shared_count = int(states.get("dnaa_hydrolysis", {}).get(
+            "bound_count", -1))
+        if shared_count >= 0 and self._hydrolysis_rxn_idx is not None:
+            extra_h_molecules = min(shared_count, n_bound_atp)
+        elif self._hydrolysis_rxn_idx is not None and n_bound_atp > 0:
+            # Fallback: local resampling (legacy Phase 2b behaviour).
+            raw_extra = stochasticRound(
+                self.random_state,
+                np.asarray([_HYDROLYSIS_RATE_PER_SEC * n_bound_atp * dt]))
+            extra_h_molecules = int(raw_extra[0])
+            if extra_h_molecules > n_bound_atp:
+                extra_h_molecules = n_bound_atp
+
         # Greedy flux correction: the steady-state solution may exceed
         # available counts (stochastic rounding overshoot). Reduce fluxes
         # one at a time for reactions that drive any metabolite negative.
         # Converges in at most sum(|nu|) iterations.
         reaction_fluxes = reaction_fluxes.copy()
+        # Snapshot the pre-injection flux at the hydrolysis reaction. Used
+        # below to figure out what fraction of the post-greedy flux is the
+        # bound-pool extra vs. the free-pool baseline (greedy may have
+        # reduced either one if a shared byproduct like WATER was limiting).
+        pre_inject_h_flux = (
+            int(reaction_fluxes[self._hydrolysis_rxn_idx])
+            if self._hydrolysis_rxn_idx is not None else 0)
+
+        # Temporarily inflate molecule_counts at the DnaA-ATP slot so the
+        # greedy loop "sees" the bound DnaA-ATP as available headroom for
+        # the extra flux. n_bound_atp is the right headroom (bound pool size,
+        # not just extra_h_molecules) so the loop never rejects the injected
+        # flux for ATP-availability reasons. Restored after the loop.
+        molecule_counts_for_greedy = molecule_counts.copy()
+        if extra_h_molecules > 0:
+            reaction_fluxes[self._hydrolysis_rxn_idx] += extra_h_molecules
+            molecule_counts_for_greedy[self._dnaa_atp_local_idx] += n_bound_atp
+
         max_iterations = int(np.abs(reaction_fluxes).sum()) + 1
         for _ in range(max_iterations):
             negative_idxs = np.where(
-                np.dot(self.stoichMatrix, reaction_fluxes) + molecule_counts < 0
+                np.dot(self.stoichMatrix, reaction_fluxes) + molecule_counts_for_greedy < 0
             )[0]
             if len(negative_idxs) == 0:
                 break
@@ -311,6 +437,26 @@ class Equilibrium(Step):
 
         # delta_x = S @ nu_corrected
         delta_molecules = np.dot(self.stoichMatrix, reaction_fluxes).astype(int)
+
+        # Revert the bound portion from the DnaA-ATP / DnaA-ADP bulk delta.
+        # bf8b82e's stoichMatrix says DnaA-ATP + WATER → DnaA-ADP + Pi + PROTON.
+        # The free-pool baseline (pre_inject_h_flux) operates on bulk DnaA-ATP
+        # → bulk DnaA-ADP. The extra injected fires from the bound pool: the
+        # consumed ATP was bound (not in bulk), and the produced ADP becomes
+        # box-bound ADP (the in-place form swap is owned by dnaa_box_binding),
+        # not bulk ADP. So for the bound portion only:
+        #     delta_bulk[DnaA-ATP] += bound_fired   (revert false consumption)
+        #     delta_bulk[DnaA-ADP] -= bound_fired   (revert false production)
+        # WATER / Pi / PROTON come from bulk in both cases — correct as-is.
+        if extra_h_molecules > 0:
+            post_h_flux = int(reaction_fluxes[self._hydrolysis_rxn_idx])
+            # Attribute greedy reductions to the bound pool first (free pool
+            # gets the leftover). If greedy didn't reduce, bound_fired = extra.
+            bound_fired = min(extra_h_molecules,
+                              max(0, post_h_flux - pre_inject_h_flux))
+            if bound_fired > 0:
+                delta_molecules[self._dnaa_atp_local_idx] += bound_fired
+                delta_molecules[self._dnaa_adp_local_idx] -= bound_fired
 
         return {
             "bulk": [(self.molecule_idx, delta_molecules)],

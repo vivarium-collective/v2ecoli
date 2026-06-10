@@ -688,6 +688,22 @@ class ChromosomeStructure(Step):
         n_new_DnaA_boxes = 2 * np.count_nonzero(removed_DnaA_boxes_mask)
 
         if n_new_DnaA_boxes > 0:
+            # dnaa-3 Phase 2b: release DnaA bound to fork-crossed boxes back to
+            # bulk. Without this, the bound DnaA-ATP / DnaA-ADP would be silently
+            # destroyed when the parent box is deleted (the new child boxes are
+            # added with DnaA_bound_form=0). Releasing to bulk both conserves
+            # mass and produces the biologically-expected dissociation pulse:
+            # the replication fork unwinds dsDNA → canonical DnaA-box recognition
+            # is disrupted → DnaA returns to the cytoplasm (see Katayama 2017,
+            # "DnaA dissociation from DnaA boxes after replication" section).
+            removed_bound_form = DnaA_box_bound_form[removed_DnaA_boxes_mask]
+            n_freed_atp = int(np.count_nonzero(removed_bound_form == 1))
+            n_freed_adp = int(np.count_nonzero(removed_bound_form == 2))
+            if n_freed_atp > 0:
+                update["bulk"].append((self.dnaa_atp_idx, n_freed_atp))
+            if n_freed_adp > 0:
+                update["bulk"].append((self.dnaa_adp_idx, n_freed_adp))
+
             # Delete original DnaA boxes
             if removed_DnaA_boxes_mask.sum() > 0:
                 update["DnaA_boxes"].update(

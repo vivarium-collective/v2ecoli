@@ -99,6 +99,11 @@ BASE_EXECUTION_LAYERS = [
     # Layer 2: standalone
     ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation'], FLUSH,
 
+    # Layer 2b: DnaA-box equilibrium binding (dnaa-3 Phase 2 — mirrors
+    # baseline). Runs AFTER equilibrium so the DnaA-ATP/ADP form swap
+    # has already happened on the bulk pool.
+    ['dnaa-box-binding'], FLUSH,
+
     # Layer 3: TF binding
     ['ecoli-tf-binding'], FLUSH,
 
@@ -387,6 +392,7 @@ def _get_step_config(
     from v2ecoli.processes.two_component_system import TwoComponentSystem
     from v2ecoli.processes.rna_maturation import RnaMaturation
     from v2ecoli.processes.complexation import Complexation
+    from v2ecoli.steps.dnaa_box_binding import DnaABoxBinding
     from v2ecoli.processes.protein_degradation import ProteinDegradation
     from v2ecoli.processes.rna_degradation import RnaDegradation
     from v2ecoli.processes.transcript_initiation import TranscriptInitiation
@@ -485,6 +491,31 @@ def _get_step_config(
             except (KeyError, AttributeError):
                 pass
         instance = _make_instance(CountsDeriver, merged_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # dnaa-3 Phase 2: DnaA-box binding step (mirrors baseline dispatch).
+    if step_name == 'dnaa-box-binding':
+        try:
+            eq_cfg = loader.get_config_by_name('ecoli-equilibrium') or {}
+        except (KeyError, AttributeError):
+            eq_cfg = {}
+        try:
+            tf_cfg = loader.get_config_by_name('ecoli-tf-binding') or {}
+        except (KeyError, AttributeError):
+            tf_cfg = {}
+        dnaa_cfg = {
+            'cell_density': eq_cfg.get('cell_density', 1100.0),
+            'n_avogadro': eq_cfg.get('n_avogadro', 6.02214076e23),
+            'seed': _derive_process_seed(master_seed, 'dnaa-box-binding'),
+            'time_step': 1,
+            'bulk_mass_data': tf_cfg.get('bulk_mass_data'),
+            'bulk_molecule_ids': tf_cfg.get('bulk_molecule_ids'),
+            'submass_indices': tf_cfg.get('submass_indices'),
+        }
+        instance = _make_instance(DnaABoxBinding, dnaa_cfg, core)
         topology = getattr(instance, 'topology', {})
         if callable(topology):
             topology = topology()

@@ -1,0 +1,103 @@
+schema_version: 4
+name: dnaa-4-autoregulation
+investigation: dnaa-replication   # owning investigation (back-reference)
+title: DnaA negative autoregulation — self-stabilizing the DnaA pool without the V override
+created: '2026-06-10'
+status: in_progress   # 2026-06-10 SCOPED + first diagnostic done. The next mechanism study, off the back of dnaa-3 (box-binding adopted) + the verified autoregulation gap. Wiring the DnaA-ATP→dnaA-promoter negative recruitment edge (coupled to the adopted dnaA-promoter box occupancy) so DnaA self-stabilizes in [300,800] WITHOUT the manual V override — to dissolve the dnaa-1/dnaa-2 V tension + per-gen drift at the root.
+
+# Canonical 6-axis status
+design_status: in_progress      # scoping done (SCOPING.md); mechanism design = wire the autorepression edge
+implementation_status: planned  # next: wire the DnaA-ATP→TU00259 negative recruitment edge
+simulation_status: not_run
+evaluation_status: not_run
+gate_status: pending
+expert_review_status: needs_review   # the autoregulation gap was Rashmi's own flag (her box-binding handoff); this study takes it up
+
+seeded_from:
+  study: dnaa-3-box-binding
+  reason: |
+    Builds directly on the ADOPTED active box-binding (PR #162). DnaA's binding to
+    its own promoter (the 2 dnaA-promoter boxes) is now modeled + emitted — that
+    occupancy is the feedback signal autorepression needs.
+
+question: |
+  Can DnaA negative autoregulation hold the DnaA pool self-stabilized in the
+  literature [300,800] band across generations WITHOUT the manual V override
+  (Mechanism A) — by wiring DnaA-ATP repression of its own promoter into the
+  transcription recruitment (synth_prob = basal + delta_prob × dnaA-promoter
+  occupancy) — and does this dissolve the dnaa-1/dnaa-2 V tension (0.8e-3 vs 1e-3)
+  and the per-gen drift at their root?
+
+background: |
+  VERIFIED gap (2026-06-10): the runtime recruitment IS dynamic
+  (transcript_initiation: p_i = max(0, basal_i + Σ delta_prob[i,j]·bound_TF_j)),
+  but the dnaA promoter has NO DnaA-ATP recruitment edge — target_tf[TU00259[c]]
+  = None and delta_prob[TU00259[c], MONOMER0-160] = 0 — so no feedback path
+  exists, and the V override additionally replaces the dnaA synth prob outright.
+  A naive post-hoc patch FAILED (DnaA collapsed to ~17; basal didn't propagate +
+  no edge to carry the signal). FIRST DIAGNOSTIC (2026-06-10): in the adopted
+  box-binding run the dnaA-promoter boxes ARE occupied and vary (mean 1.41/2,
+  range 0.5-2.0) — so the feedback signal exists and option (b) is viable.
+
+mechanism: |
+  Wire a NEGATIVE DnaA-ATP → dnaA-promoter (TU00259[c]) recruitment edge so the
+  dnaA synth prob is modulated DOWN as DnaA occupies its own promoter. Two sources
+  for the bound-fraction:
+    (a) the standard recruitment TF machinery (p_promoter_bound for DnaA-ATP) —
+        cheapest test; must force the edge to survive the ParCa L1 fit;
+    (b) PRINCIPLED — drive it from Rashmi's adopted dnaA-promoter box occupancy
+        (promoter_high_bound), unifying box-binding with regulation. Preferred,
+        and the first diagnostic shows the signal is present.
+  Calibrate basal (max unrepressed rate) + repression strength (anchor on the
+  −2.31 log2 FC ≈ 5×) so the feedback equilibrium lands DnaA in-band. Drop the V
+  override for this study.
+
+conditions:
+  baseline:
+    composite: ecoli-baseline (with the adopted active box-binding, dnaa-3)
+    params:
+      condition: succinate
+      V_override: none   # the point — feedback sets the level, not a fixed V
+      autorepression: wired (DnaA-ATP→TU00259 negative recruitment edge)
+  variants:
+    - name: basal-x-strength-sweep
+      description: 2-D calibration — basal (max rate) × repression strength — to find the combo whose feedback equilibrium holds DnaA in [300,800].
+    - name: signal-source
+      description: (a) standard TF p_promoter_bound vs (b) coupled to the adopted dnaA-promoter box occupancy.
+  model_settings:
+    - dnaa-promoter occupancy from the adopted box-binding listener as the repression signal
+    - no genetic_perturbations on TU00259[c]
+
+tests:
+- name: dnaa-pool-self-stabilizes-in-band-no-V
+  criterion: DnaA pool stays WITHIN [300,800] across ≥6 generations with NO V override (the thing a constitutive V could not do steadily).
+  status: planned
+- name: per-gen-drift-reduced-vs-fixed-V
+  criterion: per-generation DnaA mean drift is reduced vs the fixed-V runs (which ramped 73→880 at V=1e-3).
+  status: planned
+- name: cell-cycle-preserved
+  criterion: oriC 1↔2, one initiation per generation, periodic mass-doubling — preserved under feedback.
+  status: planned
+- name: closes-the-v-tension-stretch
+  criterion: STRETCH — holds the in-band pool AND the ~1/min dnaA init rate simultaneously (no constitutive V achieved both — the dnaa-1 tension).
+  status: planned
+
+report:
+  title: dnaa-4 — DnaA negative autoregulation (self-stabilizing the pool)
+  verdict: pending
+  confidence: design-stage
+  evidence_quality: design-only
+  objective: |
+    Make dnaA transcription feedback-controlled (autorepression via dnaA-promoter
+    occupancy) so the DnaA pool self-stabilizes in-band without the manual V
+    override, and test whether this dissolves the dnaa-1/dnaa-2 V tension + drift.
+
+next_action: |
+  1. Confirm the cheapest wiring: add the DnaA-ATP→TU00259 negative recruitment
+     edge in ParCa (forced to survive the fit), calibrate basal, drop V, run →
+     does DnaA self-stabilize? 2. If the standard TF bound-fraction stays ~0,
+     couple the repression directly to the adopted dnaA-promoter box occupancy
+     (option b — signal confirmed present). 3. Calibrate the 2-D basal×strength
+     sweep to land in-band; check the ~1/min rate stretch goal.
+
+# Full scoping: SCOPING.md

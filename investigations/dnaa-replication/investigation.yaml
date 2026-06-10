@@ -425,7 +425,8 @@ studies:
 - dnaa-0-succinate-baseline
 - dnaa-1-expression
 - dnaa-2-nucleotide-balance     # added 2026-05-30 (dnaa-0/dnaa-1 passed); Step 1 baseline done
-- dnaa-3-box-binding        # added 2026-06-03 (DnaA-box occupancy on the dnaa-2 V=1e-3 succinate baseline)
+- dnaa-3-box-binding        # added 2026-06-03 (DnaA-box occupancy); 2026-06-10 Rashmi's ACTIVE binding mechanism adopted (PR #162) — over-binding RESOLVED + box-doubling fixed
+- dnaa-4-autoregulation     # added 2026-06-10 — DnaA negative autoregulation: wire DnaA-ATP→dnaA-promoter repression (coupled to the adopted box occupancy) so DnaA self-stabilizes WITHOUT the V override; dissolves the dnaa-1/dnaa-2 V tension + drift at the root. SCOPED + first diagnostic done (promoter-occupancy feedback signal confirmed present).
 
 # Reference materials supporting the DnaA arc. Files staged under
 # workspace/references/dnaa/ and registered in workspace.yaml expert_docs.

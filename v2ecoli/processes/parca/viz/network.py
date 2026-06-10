@@ -1201,9 +1201,9 @@ def write_outputs(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     json_path = out_dir / f'{name}.json'
-    json_path.write_text(json.dumps(data, indent=2))
+    json_path.write_text(json.dumps(data, indent=2), encoding='utf-8')
 
     html_path = out_dir / f'{name}.html'
-    html_path.write_text(render_html(data, title, subtitle))
+    html_path.write_text(render_html(data, title, subtitle), encoding='utf-8')
 
     return json_path, html_path

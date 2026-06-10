@@ -594,9 +594,7 @@ def step_load_model():
     unique = cell.get('unique', {})
     n_unique_types = len(unique)
     mass = cell.get('listeners', {}).get('mass', {})
-    # dry_mass may be a pint Quantity (Task #8 cache refresh) or a bare float.
-    from v2ecoli.library.quantity_helpers import fg_magnitude
-    initial_dry_mass = float(fg_magnitude(mass.get('dry_mass', 0)))
+    initial_dry_mass = _fg(mass.get('dry_mass', 0))
 
     if meta is not None:
         print(f" (cached metadata, rebuilt composite in {build_time:.2f}s)")
@@ -1177,7 +1175,7 @@ def step_daughters():
 
         d_cell = comp.state['agents']['0']
         d_mass = d_cell.get('listeners', {}).get('mass', {})
-        initial_dry = float(d_mass.get('dry_mass', 0))
+        initial_dry = _fg(d_mass.get('dry_mass', 0))
 
         t0 = time.time()
         try:
@@ -1194,7 +1192,7 @@ def step_daughters():
         if final_dry == 0:
             d_cell_post = comp.state.get('agents', {}).get('0', {})
             d_mass_post = d_cell_post.get('listeners', {}).get('mass', {})
-            final_dry = float(d_mass_post.get('dry_mass', 0))
+            final_dry = _fg(d_mass_post.get('dry_mass', 0))
 
         return {
             'build_time': build_time,
@@ -1430,7 +1428,7 @@ def run_workflow(out_path=None, viz_config=None):
 
     report_path = out_path or os.path.join(WORKFLOW_DIR, 'workflow_report.html')
     os.makedirs(os.path.dirname(os.path.abspath(report_path)), exist_ok=True)
-    with open(report_path, 'w') as f:
+    with open(report_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
 
     pipeline_time = time.time() - pipeline_t0

@@ -368,6 +368,64 @@ def test_output_metadata_walker_with_counts_deriver():
 
 
 # ---------------------------------------------------------------------------
+# Step 7: RnapData — rna_init_event_per_cistron uses cistron_ids labels
+# ---------------------------------------------------------------------------
+
+@pytest.mark.fast
+def test_rnap_data_outputs_rna_init_event_per_cistron_is_string_type():
+    """RnapData.outputs() declares rna_init_event_per_cistron as 'rna_init_event_per_cistron_vec'."""
+    from v2ecoli.steps.derivers.rnap_data import RnapData
+
+    cistron_ids = ["cistron_A", "cistron_B", "cistron_C"]
+
+    instance = RnapData.__new__(RnapData)
+    instance.n_TUs = 5
+    instance.n_cistrons = len(cistron_ids)
+    instance.cistron_ids = cistron_ids
+
+    schema = instance.outputs()
+    rnap_schema = schema["listeners"]["rnap_data"]
+    port_type = rnap_schema["rna_init_event_per_cistron"]
+    assert port_type == 'rna_init_event_per_cistron_vec', (
+        "rna_init_event_per_cistron should be 'rna_init_event_per_cistron_vec'; got: %r" % port_type
+    )
+
+
+@pytest.mark.fast
+def test_output_metadata_walker_with_rnap_data():
+    """Walker returns cistron_ids at listeners.rnap_data.rna_init_event_per_cistron."""
+    import numpy as np
+    from v2ecoli.core import build_core
+    from v2ecoli.types.labeled_array import LabeledArray
+    from v2ecoli.steps.derivers.rnap_data import RnapData
+    from v2ecoli.library.output_metadata import output_metadata
+
+    cistron_ids = ("cis_A", "cis_B", "cis_C")
+
+    core = build_core()
+    core.register_type('rna_init_event_per_cistron_vec', LabeledArray(
+        _shape=(len(cistron_ids),), _data=np.dtype('int64'), _labels=tuple(cistron_ids)
+    ))
+
+    instance = RnapData.__new__(RnapData)
+    instance.core = core
+    instance.n_TUs = 5
+    instance.n_cistrons = len(cistron_ids)
+    instance.cistron_ids = list(cistron_ids)
+
+    state = {
+        "rnap_data_listener": {
+            "instance": instance,
+            "outputs": {"listeners": ["listeners"]},
+        }
+    }
+    result = output_metadata(state)
+    assert result.get("listeners", {}).get("rnap_data", {}).get("rna_init_event_per_cistron") == list(cistron_ids), (
+        "Walker should recover cistron_ids; got: %r" % result
+    )
+
+
+# ---------------------------------------------------------------------------
 # Task 3: extract_output_metadata_from_state uses names when available
 # ---------------------------------------------------------------------------
 

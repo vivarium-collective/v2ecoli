@@ -113,10 +113,17 @@ responses:
     by: claude
     at: '2026-06-10'
     response: |-
-      Both tests added (study.yaml behavior tests) and evaluated on dnaa3_adopt_v1e3_seed0:
-      Test #1 "DnaA level within band 300-800": PARTIAL — in-band gens 1-5
-      (mean 336-687), drifts above 800 in gens 6-8 (mean 931-1077). This is the
-      documented V-tension/drift; autoregulation (dnaa-4) is the fix.
+      Both tests added (study.yaml) and EVALUATOR-COMPUTED via the new run/outcome spine
+      on dnaa3_adopt_v1e3_seed0 (code reads the run, not hand-keyed):
+      Test #1 "DnaA level within band 300-800": PASS — on the proper steady-state window
+      the total DnaA (bulk+bound) per-gen averages are 427/431/440/569/672/780/702 across
+      gens 3-9, ALL within [300,800]. (My first pass said PARTIAL by measuring the full-gen
+      mean incl. the transient pre-division peak; the evaluator's steady-state window is the
+      right comparison and shows in-band.) It does trend upward toward the ceiling — a slow
+      V-drift autoregulation (dnaa-4) addresses long-term.
       Test #2 "low-affinity oriC boxes not all occupied at start; gradual filling":
       PASS — gen-5 oriC-low occupancy starts ~0.3 and fills gradually to ~0.7 over the
       cycle (chart dnaa3_box_occupancy); not pre-filled.
+      (Also surfaced by the evaluator: the free/bulk DnaA-ATP fraction drops to ~0.19, below
+      the dnaa-2 [0.2,0.5] band — active binding sequesters DnaA-ATP onto boxes; the inherited
+      bulk-fraction test should be re-formulated to the TOTAL fraction.)

@@ -241,7 +241,7 @@ discovery_implications:
   resolved_uncertainties:
   - Haochen's bf8b82e mechanism — DnaA + ADP ⇌ DnaA-ADP kept bidirectional but flagged integrate_dt (kinetic, literal k_r = 1×10⁻⁷/s) plus one-way DnaA-ATP intrinsic hydrolysis (k = 0.046/min) — drives the DnaA-ATP fraction off the ~0.997 fast-equilibrium pin into the Boesen [0.2,0.5] band with no rate override.
   - The ~0.997 pin was a fast-equilibrium modelling artefact (the tick-wise solve reverting kinetically-trapped DnaA-ADP), not a K_d / [ATP]:[ADP] / expected-fraction parameter inconsistency.
-  - On the directed seed-1 8-gen run, all four must-preserve behaviours pass on Rashmi's generation-average criterion (DnaA-ATP fraction avg 0.26, total DnaA avg 535, periodic mass doubling, one oriC initiation per generation).
+  - Re-verified multi-seed (seeds 0/1/2) on the corrected emitter — all four must-preserve behaviours pass on Rashmi's generation-average criterion (DnaA-ATP fraction avg 0.268/0.267/0.302, total DnaA gen-avg 392/575/578, periodic mass doubling, one oriC initiation per generation). [The original seed-1 0.26/535 reading was on pre-fix truncated data — superseded.]
   remaining_uncertainties:
   - The per-generation average DnaA-ATP fraction trends to the low edge of the band in later gens (~0.16–0.23, dipping below 0.2 in gens 5 & 8); where in the band it sits is a k_r-tuning question left for Haochen.
   - The strict per-generation in-band reproduction is not perfectly clean even on the directed seed (gen-1 burned-in transient above band; later-gen dips below) — a clean strict per-gen 7-gen run with raw data on this branch is still absent (gate_status pending).
@@ -324,9 +324,10 @@ reviewer_feedback:
     (2) TESTS: "initial generations might not strictly fall within band/fraction
         because the simulation is stabilizing — we can consider the generation
         average." → the band tests are reframed from strict in_range_every_generation
-        to a GENERATION-AVERAGE criterion. Re-evaluated on seed-1 8-gen: DnaA-ATP
-        fraction all-gen avg 0.26 (steady-gen 0.222) and total-DnaA avg 535 are both
-        in band → with mass-doubling + oriC-one-init, all four behaviours PASS.
+        to a GENERATION-AVERAGE criterion. Re-evaluated (multi-seed, corrected
+        emitter): DnaA-ATP fraction all-gen avg 0.268/0.267/0.302 and total-DnaA
+        gen-avg 392/575/578 are both in band → with mass-doubling + oriC-one-init,
+        all four behaviours PASS. (The original 0.26/535 on seed-1 was pre-fix data.)
         dnaa-2 verdict QUALIFIED → PASS. The earlier strict per-gen FAIL was MY
         over-strict reading; Rashmi's average criterion is the intended one.
 - round: '2026-06-04'
@@ -490,9 +491,10 @@ runs:
     total-dnaa-in-band-300-800:
       result: PASS
       detail: |
-        Generation-average in band (per-gen avg → all-gen avg 535 in [300,800]).
-        Within-cycle peaks >800 pre-division are the expected accumulate-then-divide
-        behaviour; "in band" = the generation average (Rashmi 2026-06-04).
+        Generation-average in band across re-verified seeds (all-gen avg 392/575/578
+        in [300,800]). On the corrected full-per-gen-history the per-gen MEAN ramps
+        >800 in mid-late gens for seeds 1&2 (seed 0 stays in band) — SEED-VARIABLE
+        drift of the V=1e-3 pool; "in band" = the generation average (Rashmi 2026-06-04).
     dnaa-atp-fraction-in-band-0.2-0.5:
       result: PASS
       detail: |

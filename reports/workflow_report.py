@@ -35,6 +35,24 @@ import numpy as np
 
 from contextlib import chdir
 
+
+def _fg(value):
+    """Coerce a mass value (pint Quantity or bare number) to a fg float.
+
+    Task #8's ParCa rerun produces cache states where listeners.mass.* values
+    are pint Quantities (femtogram-typed). Old call sites just did ``float(x)``
+    which fails on those Quantities with a DimensionalityError. This shim
+    handles both — Quantities convert to fg.magnitude, bare numbers pass
+    through unchanged.
+    """
+    if hasattr(value, 'to'):
+        from v2ecoli.types.quantity import ureg as _u
+        try:
+            return float(value.to(_u.fg).magnitude)
+        except Exception:
+            return float(value.magnitude)
+    return float(value)
+
 try:
     from wholecell.utils.filepath import ROOT_PATH as V1_ROOT_PATH
     from ecoli.experiments.ecoli_master_sim import EcoliSim
@@ -250,8 +268,8 @@ def _collect_v1_lifecycle(duration):
 
             listeners = snap.get('listeners', {})
             mass = listeners.get('mass', {})
-            dry_mass = float(mass.get('dry_mass', 0)) if isinstance(mass, dict) else 0
-            dna_mass = float(mass.get('dna_mass', 0)) if isinstance(mass, dict) else 0
+            dry_mass = _fg(mass.get('dry_mass', 0)) if isinstance(mass, dict) else 0
+            dna_mass = _fg(mass.get('dna_mass', 0)) if isinstance(mass, dict) else 0
 
             umc = listeners.get('unique_molecule_counts', {})
             n_chrom = 0
@@ -576,7 +594,9 @@ def step_load_model():
     unique = cell.get('unique', {})
     n_unique_types = len(unique)
     mass = cell.get('listeners', {}).get('mass', {})
-    initial_dry_mass = float(mass.get('dry_mass', 0))
+    # dry_mass may be a pint Quantity (Task #8 cache refresh) or a bare float.
+    from v2ecoli.library.quantity_helpers import fg_magnitude
+    initial_dry_mass = float(fg_magnitude(mass.get('dry_mass', 0)))
 
     if meta is not None:
         print(f" (cached metadata, rebuilt composite in {build_time:.2f}s)")
@@ -620,7 +640,7 @@ def step_single_cell():
 
     cell = composite.state['agents']['0']
     bulk_before = np.array(cell['bulk']['count'], copy=True)
-    initial_dry_mass = float(cell.get('listeners', {}).get('mass', {}).get('dry_mass', 380))
+    initial_dry_mass = _fg(cell.get('listeners', {}).get('mass', {}).get('dry_mass', 380))
 
     em_edge = cell.get('emitter', {})
     emitter_instance = em_edge.get('instance') if isinstance(em_edge, dict) else None
@@ -668,7 +688,7 @@ def step_single_cell():
             n_chrom = int(fc['_entryState'].view(np.bool_).sum())
 
         mass = cell.get('listeners', {}).get('mass', {})
-        dry_mass = float(mass.get('dry_mass', 0))
+        dry_mass = _fg(mass.get('dry_mass', 0))
 
         threshold = cell.get('division_threshold', float('inf'))
         if isinstance(threshold, str):
@@ -771,16 +791,16 @@ def step_single_cell():
             'fork_coords': fork_coords,
             'rnap_coords': rnap_coords,
             'n_rnap': n_rnap,
-            'dna_mass': float(mass.get('dna_mass', 0)),
-            'dry_mass': float(mass.get('dry_mass', 0)),
-            'protein_mass': float(mass.get('protein_mass', 0)),
-            'rna_mass': float(mass.get('rRna_mass', 0)) + float(mass.get('tRna_mass', 0)) + float(mass.get('mRna_mass', 0)),
-            'rRna_mass': float(mass.get('rRna_mass', 0)),
-            'tRna_mass': float(mass.get('tRna_mass', 0)),
-            'mRna_mass': float(mass.get('mRna_mass', 0)),
-            'smallMolecule_mass': float(mass.get('smallMolecule_mass', 0)),
-            'instantaneous_growth_rate': float(mass.get('instantaneous_growth_rate', 0)),
-            'volume': float(mass.get('volume', 0)),
+            'dna_mass': _fg(mass.get('dna_mass', 0)),
+            'dry_mass': _fg(mass.get('dry_mass', 0)),
+            'protein_mass': _fg(mass.get('protein_mass', 0)),
+            'rna_mass': _fg(mass.get('rRna_mass', 0)) + _fg(mass.get('tRna_mass', 0)) + _fg(mass.get('mRna_mass', 0)),
+            'rRna_mass': _fg(mass.get('rRna_mass', 0)),
+            'tRna_mass': _fg(mass.get('tRna_mass', 0)),
+            'mRna_mass': _fg(mass.get('mRna_mass', 0)),
+            'smallMolecule_mass': _fg(mass.get('smallMolecule_mass', 0)),
+            'instantaneous_growth_rate': _fg(mass.get('instantaneous_growth_rate', 0)),
+            'volume': _fg(mass.get('volume', 0)),
             'ppgpp_count': ppgpp_count,
             'aa_counts': aa_counts_dict,
             'ntp_counts': ntp_counts,
@@ -1020,7 +1040,7 @@ def step_division():
     if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
         n_chromosomes = int(fc['_entryState'].view(np.bool_).sum())
     mass = cell.get('listeners', {}).get('mass', {})
-    dry_mass = float(mass.get('dry_mass', 0))
+    dry_mass = _fg(mass.get('dry_mass', 0))
 
     meta = {
         'prediv_time': prediv_time,
@@ -1093,14 +1113,14 @@ def _extract_snapshots_from_emitter(composite, label=''):
             'fork_coords': fork_coords,
             'rnap_coords': rnap_coords,
             'n_rnap': n_rnap,
-            'dna_mass': float(mass.get('dna_mass', 0)),
-            'dry_mass': float(mass.get('dry_mass', 0)),
-            'protein_mass': float(mass.get('protein_mass', 0)),
-            'rna_mass': float(mass.get('rRna_mass', 0)) + float(mass.get('tRna_mass', 0)) + float(mass.get('mRna_mass', 0)),
-            'rRna_mass': float(mass.get('rRna_mass', 0)),
-            'tRna_mass': float(mass.get('tRna_mass', 0)),
-            'mRna_mass': float(mass.get('mRna_mass', 0)),
-            'smallMolecule_mass': float(mass.get('smallMolecule_mass', 0)),
+            'dna_mass': _fg(mass.get('dna_mass', 0)),
+            'dry_mass': _fg(mass.get('dry_mass', 0)),
+            'protein_mass': _fg(mass.get('protein_mass', 0)),
+            'rna_mass': _fg(mass.get('rRna_mass', 0)) + _fg(mass.get('tRna_mass', 0)) + _fg(mass.get('mRna_mass', 0)),
+            'rRna_mass': _fg(mass.get('rRna_mass', 0)),
+            'tRna_mass': _fg(mass.get('tRna_mass', 0)),
+            'mRna_mass': _fg(mass.get('mRna_mass', 0)),
+            'smallMolecule_mass': _fg(mass.get('smallMolecule_mass', 0)),
         })
 
     return snapshots

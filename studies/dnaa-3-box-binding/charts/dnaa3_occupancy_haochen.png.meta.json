@@ -1,5 +1,5 @@
 {
-  "source_run_id": "dnaa3-insim-readonly (seed 1, steady-state gens 3-6)",
-  "command": "dnaa-3 occupancy/concentration figure addressing Haochen 2026-06-06 asks: oriC-low occupancy zoomed (later gens), free DnaA in nM via cell volume, oriC box count, total vs bound DnaA",
-  "caption": "Addresses Haochen's Jun-6 requests: (A) oriC LOW-affinity occupancy ~0.7-0.8 vs high-aff ~1.0, steady gens; (B) free DnaA-ATP 222-452 nM (>> the 100 nM low-aff K_d) and free DnaA-ADP ~680-1050 nM, divided by cell volume; (C) oriC box COUNT flat at 14 — oriC-doubling at replication is NOT yet modeled (his point); (D) bound DnaA nears/exceeds the total pool — the read-only observer does not subtract bound, so the over-binding shows up as non-conservation. Root cause of the over-binding: free DnaA-ATP sits well above the low-aff K_d."
+  "source_run_id": "dnaa2_reverify_v1e3_seed1 (CORRECTED full-per-gen-history emitter, oriC 1<->2, box-binding listener active)",
+  "command": "dnaa-3 occupancy/concentration on the corrected re-verify run (which actually replicates) — Haochen 2026-06-06 asks",
+  "caption": "Addresses Haochen's Jun-6 requests on a run that ACTUALLY replicates (oriC 1<->2): (A) oriC LOW-aff occupancy ~0.6-0.9 vs high-aff ~1.0; (B) free DnaA-ATP ~250-500 nM >> the 100 nM low-aff K_d (the over-binding driver) + free DnaA-ADP ~600-1000 nM, via cell volume; (C) oriC box COUNT n_total steps 14<->20 with oriC 1<->2 — the high-affinity boxes DOUBLE (6->12) but the 8 LOW-affinity boxes are a HARDCODED pool (deriver n_oric_low=8) that does NOT double (so 14->20, not the full 28); (D) total DnaA pool over the cycle. The under-doubled low-aff sites are exactly the ones Haochen flagged."
 }

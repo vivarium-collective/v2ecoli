@@ -49,13 +49,18 @@ responses:
 
       (4) "8-9/11 boxes always occupied is weird; and oriC doubles at replication so
       the boxes should double." — Both confirmed as real issues. The over-occupancy
-      is REAL (panel A) and its cause is panel B: free DnaA-ATP stays 222-452 nM,
+      is REAL (panel A) and its cause is panel B: free DnaA-ATP stays ~250-500 nM,
       well ABOVE the ~100 nM low-aff K_d, so the low-aff sites over-bind (your
       intuition that free DnaA is usually <100 nM does not hold in this model — it's
-      ~2-4x K_d). And you're right about doubling: panel C shows n_total is FLAT
-      (=14) across replication — the oriC-box count does NOT double when oriC
-      replicates. Flagged as an open model gap (oriC-doubling of the box catalog
-      is not yet modeled).
+      ~2.5-5x K_d). On doubling, you are RIGHT, and the precise picture (panel C, on
+      a run that actually replicates — note: the earlier readonly run never
+      replicated, oriC=1 throughout, so it couldn't show this): n_total steps
+      14<->20 with oriC 1<->2. The oriC HIGH-affinity boxes DO double (6->12, from
+      the genome DnaA_box store), but the 8 LOW-affinity boxes are a HARDCODED pool
+      (deriver dnaa_box_binding.py:163, oric_low_n = self.n_oric_low = 8) that does
+      NOT scale with oriC — so at oriC=2 there are 8 low-aff boxes instead of 16.
+      That's a real code-level gap exactly where you pointed: the low-affinity oriC
+      sites are under-doubled after replication. Flagged to fix.
 
       (5) "Use cell volume for nM concentrations." — Yes, the model has
       listeners.mass.volume; panel B plots free DnaA-ATP / DnaA-ADP in nM computed

@@ -36,6 +36,7 @@ from v2ecoli.library.sqlite_run import (
     _merge_into,
     prune_to_followed_lineage,
 )
+from v2ecoli.library.output_metadata import output_metadata as _get_output_metadata
 
 
 def run_multigen_parquet(
@@ -99,6 +100,17 @@ def run_multigen_parquet(
         _merge_into(emit_schema, _build_emit_schema(root_leaves))
     out_dir = str(Path(out_dir).resolve())
 
+    # Harvest element-name labels from listener outputs() schemas. Labels are
+    # registered in the type core during initialize(), so they are present in
+    # composite.state immediately — no warmup tick required (unlike the xarray
+    # path which also needs vector shapes from live state values).
+    # Un-annotated composites return {} → backward-compat: no output_metadata
+    # key is added and existing runs are unaffected.
+    _named_metadata: dict = _get_output_metadata(composite.state or {})
+    if _named_metadata:
+        print(f"[multigen_parquet] discovered output_metadata labels for: "
+              f"{list(_named_metadata.keys())}")
+
     def _make_emitter(agent_id: str, generation: int) -> ParquetEmitter:
         metadata: dict[str, Any] = {
             "experiment_id": experiment_id,
@@ -111,6 +123,11 @@ def run_multigen_parquet(
             metadata["study_slug"] = study_slug
         if investigation_slug:
             metadata["investigation_slug"] = investigation_slug
+        # Merge element-name labels into config metadata so ParquetEmitter
+        # persists them via flatten_dict as output_metadata__<path> columns
+        # in the configuration parquet. Recoverable via field_metadata().
+        if _named_metadata:
+            metadata["output_metadata"] = _named_metadata
 
         return ParquetEmitter(
             config={

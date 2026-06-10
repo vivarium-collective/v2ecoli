@@ -126,7 +126,11 @@ class CountsDeriver(Step):
                     'partial_rRNA_counts': {'_type': f'overwrite[array[{self.n_rRNA_TU},integer]]', '_default': []},
                     'partial_rRNA_cistron_counts': {'_type': f'overwrite[array[{self.n_rRNA_cistron},integer]]', '_default': []},
                 },
-                'monomer_counts': {'_type': f'overwrite[array[{self.n_monomers},integer]]', '_default': []},
+                'monomer_counts': {
+                    '_type': f'overwrite[array[{self.n_monomers},integer]]',
+                    '_default': [],
+                    '_properties': {'metadata': list(self.monomer_ids)},
+                },
                 'unique_molecule_counts': 'map[integer]',
             },
         }

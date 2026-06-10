@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task #11 — about to commit). **Tasks #2, #3, #5, #6, #7, #8, #9, #10, #11 complete.** Task #11 result: all 7 PR-gating behavior tests pass against the new cache with no threshold adjustment. Remaining: Task #4 (independent), Task #12 (parity gate, expected to drift since fixture changed), Task #13 (reports — `_run_daughter` cleanup remaining).
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `e8c5224 feat(trna-charging): all 7 behavior tests pass against the new cache (Task #11)`. **Tasks #2, #3, #5, #6, #7, #8, #9, #10, #11 complete.** All 7 PR-gating behavior tests pass against the new cache with no threshold adjustment. Remaining: Task #4 (independent), Task #12 (parity gate, expected to drift since fixture changed), Task #13 (reports — `_run_daughter` cleanup remaining).
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

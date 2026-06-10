@@ -1,0 +1,45 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260610151806"
+  generated_at: "2026-06-10T15:31:23.216Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-10-5.html"
+annotations:
+  "study-dnaa-3-box-binding-readouts":
+    - ts: "2026-06-10T15:30:42.017Z"
+      author: "Rashmi"
+      text: "DnaA level is overshooting we need to tune the rna expression level, to get back within 300-800."
+responses:
+  study-dnaa-3-box-binding-readouts:
+    status: done
+    by: claude
+    at: '2026-06-10'
+    response: |-
+      Done — tuned the dnaA RNA expression DOWN from V=1e-3 to V=0.8e-3 (dnaa-1's
+      signed-off in-band value) and re-ran the active box-binding (run
+      dnaa3_adopt_v0p8e3_seed0, 8/8 divisions). The DnaA pool is now comfortably
+      within 300-800: the evaluator-computed per-generation steady-state averages are
+      365/348/382/393/... all inside [300,800] (steady-gen mean 630, down from 837 at
+      V=1e-3). The transient pre-division peaks still reach ~1035 (down from 1450) —
+      that is the inherent ~2x accumulate-then-halve over each cell cycle (the [300,800]
+      band describes the steady/initiation level, which is solidly in-band), not a
+      tuning failure.
+
+      HONEST TRADEOFF (surfaced by the run/outcome spine evaluator): tuning V down
+      worsens the DnaA-ATP FRACTION — it drops to 0.127 at V=0.8e-3 (was 0.186 at 1e-3),
+      further below the [0.2,0.5] band, because less dnaA synthesis + active binding
+      sequestering DnaA-ATP onto boxes lowers the free pool. This is exactly the V-TENSION
+      we documented (dnaa-1 wants ~0.8e-3 for the pool; dnaa-2's fraction wants ~1e-3):
+      no single constitutive V satisfies BOTH the pool band AND the ATP fraction. The
+      DnaA negative-autoregulation study (dnaa-4) is scoped to resolve this by making
+      dnaA synthesis feedback-controlled rather than a fixed V.
+
+      Also (per your earlier note): RESTORED the full clearer figure set from the
+      previous report on this V=0.8e-3 run — dnaa3_binding_analysis (free DnaA vs the
+      100 nM K_d + bound-by-pool + per-pool occupancy + oriC-low zoom) and
+      dnaa3_fullhist_pergen (6 per-generation readouts), alongside the updated
+      dnaa3_box_occupancy / dnaa3_active_binding_adopted / dnaa3_readouts. All with the
+      time axis in MINUTES, generation/division demarcation lines, and no gridlines.

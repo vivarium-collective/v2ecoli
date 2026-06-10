@@ -1,0 +1,7 @@
+{
+  "title": "Biomass component areas (initial vs final cell)",
+  "caption": "Voronoi treemap of biomass components, area proportional to mass, initial vs final cell.",
+  "interpretation": "Each tile's area is proportional to that component's mass; protein dominates, followed by metabolites, rRNA and lipid. The initial and final panels are nearly identical, showing biomass composition is conserved as the cell grows and divides.",
+  "source_run": "showcase2-baseline-ensemble",
+  "simulations": "2-seed x 2-gen wild-type baseline ensemble (showcase2-baseline-full), Ray-parallel, XArray/zarr + parquet emit."
+}

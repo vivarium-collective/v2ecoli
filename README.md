@@ -1,5 +1,9 @@
 # v2ecoli
 
+📊 **[View Investigation Reports → https://vivarium-collective.github.io/v2ecoli/](https://vivarium-collective.github.io/v2ecoli/)**
+— self-contained reports for each investigation (baseline showcase, PDMP, colonies)
+plus the interactive model viewers and technical docs.
+
 **vEcoli, reimagined as a composable [process-bigraph](https://github.com/vivarium-collective/process-bigraph)
 model and a research workspace.** v2ecoli takes the Covert lab's whole-cell
 *E. coli* simulation ([vEcoli](https://github.com/CovertLab/vEcoli)) and rebuilds

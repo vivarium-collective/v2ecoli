@@ -2,6 +2,6 @@
   "source_run_id": "showcase2-baseline-ensemble",
   "rendered_at": 1781068693.8051698,
   "title": "Chromosome replication across a lineage (seed 0)",
-  "interpretation": "DNA-polymerase fork positions (oriC->terC), replication-fork pairs, dry mass, and oriC count over a 2-generation lineage. oriC cycles 2->4->2 with each division and forks fire near birth, reproducing the expected replication program at this growth rate.",
+  "interpretation": "DNA-polymerase fork positions (oriC->terC), replication-fork pairs, dry mass, and oriC count over a 2-generation lineage (0-1.8 hr). At this growth rate the cell is born already replicating (2 oriC, 1 fork pair); each generation completes one round (forks reach terC -> 0 forks briefly -> the V-track gap), re-initiates to 4 oriC / 2 fork pairs (overlapping multifork rounds), then divides, resetting dry mass (sawtooth ~350-700 fg) and oriC (2->4->2) together. The 0-fork windows and the fork-track gaps are real inter-round intervals, not dropped data. (Earlier render double-offset generation time, stretching the axis to ~3.4 hr and duplicating sawteeth; fixed.)",
   "command": "v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline/sweep/showcase2_baseline parquet; rendered to PNG via vl_convert/matplotlib on the mac mini"
 }

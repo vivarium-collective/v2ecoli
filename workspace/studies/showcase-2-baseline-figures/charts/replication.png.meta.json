@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-ensemble",
+  "rendered_at": 1781068693.8051698,
+  "title": "Chromosome replication across a lineage (seed 0)",
+  "interpretation": "DNA-polymerase fork positions (oriC->terC), replication-fork pairs, dry mass, and oriC count over a 2-generation lineage. oriC cycles 2->4->2 with each division and forks fire near birth, reproducing the expected replication program at this growth rate.",
+  "command": "v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline/sweep/showcase2_baseline parquet; rendered to PNG via vl_convert/matplotlib on the mac mini"
+}

@@ -1,0 +1,165 @@
+schema_version: 2
+name: v2ecoli-baseline-showcase
+title: "v2ecoli Baseline Showcase: from ecoli-sources to a calibrated whole cell"
+created: '2026-06-09'
+status: active
+
+# This is a DEMONSTRATION investigation, not a hypothesis test. It walks a
+# reviewer through the v2ecoli pipeline end-to-end in three studies:
+#   1. rebuild the ParCa in full from the ~133 ecoli-sources files,
+#   2. run the wild-type baseline single-cell→division ensemble and show it
+#      reproduces wild-type E. coli properties,
+#   3. stop at a reviewer DECISION: which perturbation best demonstrates
+#      v2ecoli's response (the variant is intentionally left un-chosen).
+# Sims are deferred to later phases; studies 1-2 carry empty runs/visualizations
+# (filled when the sims run) and study 3 stays un-run.
+
+question: |
+  Can v2ecoli, starting from the raw ecoli-sources flat files, rebuild the
+  ParCa in full, run a wild-type baseline single-cell→division ensemble that
+  reproduces measured E. coli properties (doubling time, mass fractions, FBA
+  fluxes, proteome), and then characterize a perturbation response? This is a
+  DEMONSTRATIVE walkthrough of the v2ecoli pipeline rather than a test of a
+  scientific hypothesis — the goal is to exhibit the full path
+  (ecoli-sources → ParCa → calibrated whole cell → perturbation) working
+  end-to-end and to hand reviewers an explicit perturbation-choice decision.
+
+executive:
+  what_is_this: |
+    A three-study walkthrough of the v2ecoli pipeline, built as a demonstration
+    rather than a hypothesis test:
+      • showcase-1-parca — rebuild the ParCa in full from the ~133
+        ecoli-sources flat files (--mode full, 51 TF conditions) and confirm
+        the cache bundle is complete and reproduces parca_compare.
+      • showcase-2-baseline-figures — run the wild-type baseline
+        single-cell→division ensemble (multiseed + multigen, Ray-parallel
+        dispatch, XArray/zarr emit) and confirm it reproduces wild-type
+        E. coli properties: doubling time in band, physiological mass
+        fractions, FBA flux correlation to Toya 2010, proteome correlation to
+        Schmidt/Wisniewski.
+      • showcase-3-variant-decide — stop at a reviewer DECISION: which
+        perturbation best demonstrates v2ecoli's response. The variant is left
+        un-chosen on purpose; four candidates are proposed for reviewers to
+        Accept/Decline.
+    Studies 1-2 are scaffolded with empty runs/visualizations (filled when the
+    sims run in a later phase); study 3 stays un-run pending the reviewer's
+    variant choice.
+  verdict_status: in-progress
+  verdict_detail: |
+    Scaffold only. No simulations have been run yet — this investigation is the
+    YAML structure for the three-study showcase. showcase-1 and showcase-2 are
+    designed and gated (design complete, simulation pending); showcase-3 is a
+    decision study that stays un-run until reviewers choose a variant. The
+    end-to-end claim (ParCa builds full; baseline runs and matches
+    Schmidt/Wisniewski/Toya) is the TARGET of studies 1-2, to be evidenced once
+    the deferred sims run.
+  decisions_needed:
+  - question: "Which variant should we run to demonstrate v2ecoli's perturbation response?"
+    status: "OPEN — reviewers to choose"
+    context: |
+      showcase-3-variant-decide deliberately commits NO variant. Four candidate
+      perturbations are proposed (as proposed_inputs below + as
+      followup_study_proposals on the study); reviewers pick which one (or more)
+      best demonstrates v2ecoli's response:
+        1. ppgpp_regulation toggle OFF — disable the ppGpp regulatory layer and
+           show the growth/expression response.
+        2. parameter sweep via linspace — sweep a transcription/translation knob
+           (e.g. a global RNAP or ribosome elongation-rate factor) across a
+           linspace and show the dose-response.
+        3. media / condition change — switch the growth condition (e.g.
+           glucose→succinate or +amino-acids). FLAG: each condition needs its
+           own full ParCa cache (~2.5 min/condition), so this option multiplies
+           the build cost.
+        4. dnaA expression knob — the TU00259[c] transcription-init override
+           (sim_data.genetic_perturbations["TU00259[c]"] = V) carried over from
+           the dnaa-replication investigation, to show a targeted single-gene
+           expression perturbation.
+      No option is preferred; the choice is the reviewer's.
+
+scientific_argument:
+  main_claim: |
+    v2ecoli reproduces, runs, and characterizes the wild-type baseline
+    end-to-end from ecoli-sources: the ParCa rebuilds in full (51 TF
+    conditions) from the raw flat files, the wild-type baseline single-cell→
+    division ensemble runs to completion, and the resulting cell matches
+    measured E. coli properties (doubling time, mass fractions, FBA fluxes vs
+    Toya 2010, proteome vs Schmidt/Wisniewski).
+  evidence_for:
+  - "The ParCa builds in FULL (--mode full ⇒ 51 TF conditions) from the ~133 ecoli-sources flat files in ~2.5 min on the mini, producing a complete cache bundle (initial_state.json + sim_data_cache.dill + metadata + cache_version) that reproduces parca_compare. [TARGET of showcase-1; sim deferred.]"
+  - "The wild-type baseline single-cell→division ensemble (multiseed + multigen, Ray-parallel dispatch, XArray/zarr emit) runs to completion and reproduces wild-type E. coli properties: doubling time in band, physiological mass fractions, FBA flux correlation to Toya 2010, proteome correlation to Schmidt 2016 / Wisniewski. [TARGET of showcase-2; sim deferred.]"
+  caveats:
+  - "This is a DEMONSTRATIVE investigation, not a hypothesis test. Its purpose is to exhibit the v2ecoli pipeline working end-to-end, not to discover or test a scientific claim."
+  - "Single wild-type baseline only. No perturbation is run in this scaffold; showcase-3 stops at a reviewer decision (which variant to run), so the perturbation-response half of the demo is intentionally left open."
+  - "Scaffold phase: studies 1-2 carry empty runs/visualizations (filled when the deferred sims run) and study 3 is un-run. The evidence_for items above are TARGETS, not yet-realized results."
+
+at_a_glance:
+  studies:
+  - showcase-1-parca: rebuild the ParCa in full from the ~133 ecoli-sources files (--mode full, 51 TF conditions); confirm the cache bundle is complete + reproduces parca_compare
+  - showcase-2-baseline-figures: run the wild-type baseline single-cell→division ensemble (multiseed + multigen, Ray-parallel, XArray/zarr emit) and show it reproduces doubling time / mass fractions / Toya FBA fluxes / Schmidt-Wisniewski proteome
+  - showcase-3-variant-decide: stop at a reviewer DECISION — which perturbation best demonstrates v2ecoli's response (variant left un-chosen; 4 candidates proposed)
+
+studies:
+- showcase-1-parca
+- showcase-2-baseline-figures
+- showcase-3-variant-decide
+
+acceptance_criteria:
+- {study: showcase-1-parca, behavior: parca-rebuilds-full-51-conditions-from-ecoli-sources}
+- {study: showcase-2-baseline-figures, behavior: baseline-ensemble-reproduces-wild-type-properties}
+- {study: showcase-3-variant-decide, behavior: reviewer-selects-perturbation-variant-to-run}
+
+proposed_inputs:
+  _note: |
+    Four candidate VARIANTS for showcase-3-variant-decide, proposed by the agent
+    for reviewers to Accept or Decline. None is committed — the reviewer chooses
+    which perturbation best demonstrates v2ecoli's response. (See the
+    investigation-level decisions_needed and showcase-3's
+    discovery_implications.followup_study_proposals for the same four.)
+  items:
+  - id: variant-ppgpp-regulation-off
+    kind: variant
+    summary: ppGpp regulation toggle OFF — disable the ppGpp regulatory layer and show the growth/expression response.
+    proposed_by: claude
+    proposed_at: '2026-06-09'
+    related_study: showcase-3-variant-decide
+    rationale: |
+      A clean global regulatory knock-out: toggling ppGpp regulation off
+      removes the stringent-response coupling and gives a whole-cell,
+      single-switch perturbation that is easy to read against the baseline.
+    status: pending
+  - id: variant-parameter-sweep-linspace
+    kind: variant
+    summary: Parameter sweep via linspace over a transcription/translation knob (e.g. a global RNAP or ribosome elongation-rate factor).
+    proposed_by: claude
+    proposed_at: '2026-06-09'
+    related_study: showcase-3-variant-decide
+    rationale: |
+      A dose-response demonstration: sweeping one transcription/translation
+      knob across a linspace shows v2ecoli's graded response and exercises the
+      multi-variant sweep machinery (one baseline cache, many parameterized runs).
+    status: pending
+  - id: variant-media-condition-change
+    kind: variant
+    summary: "Media / condition change (e.g. glucose→succinate or +amino-acids). FLAG: needs a separate full ParCa cache per condition (~2.5 min each)."
+    proposed_by: claude
+    proposed_at: '2026-06-09'
+    related_study: showcase-3-variant-decide
+    rationale: |
+      Shows v2ecoli adapting to a different growth environment end-to-end.
+      FLAG / COST: each media condition requires its OWN full ParCa cache
+      (~2.5 min per condition), so this option multiplies the build cost vs the
+      single-cache options above.
+    status: pending
+  - id: variant-dnaa-expression-knob
+    kind: variant
+    summary: dnaA expression knob — the TU00259[c] transcription-init override from the dnaa-replication investigation.
+    proposed_by: claude
+    proposed_at: '2026-06-09'
+    related_study: showcase-3-variant-decide
+    rationale: |
+      A targeted single-gene expression perturbation reusing the proven
+      Mechanism-A lever from dnaa-replication
+      (sim_data.genetic_perturbations["TU00259[c]"] = V, a runtime
+      transcription-init override). Demonstrates a precise, gene-level knob with
+      a known biological readout (the DnaA pool).
+    status: pending

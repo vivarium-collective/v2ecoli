@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-ensemble",
+  "rendered_at": 1781068693.8051698,
+  "title": "Distribution of doubling times across the ensemble",
+  "interpretation": "Bimodal: a ~40 min mode (gen-1, true division) and a ~104 min mode (gen-2 cells that ran to the emit window cap rather than stopping at division). The corrected mass-halving doubling time is 44.2 +/- 3.9 min; the 73 min mean line reflects the gen-2 window-cap artifact, not biology.",
+  "command": "v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline/sweep/showcase2_baseline parquet; rendered to PNG via vl_convert/matplotlib on the mac mini"
+}

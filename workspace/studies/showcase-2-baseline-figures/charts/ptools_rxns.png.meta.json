@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-ensemble",
+  "rendered_at": 1781068693.8051698,
+  "title": "Metabolic reaction-flux heatmap (reaction x timepoint, seed 0 gen 1)",
+  "interpretation": "FBA reaction fluxes across the cell cycle as a reaction-by-timepoint heatmap. Most reactions carry near-zero flux with a few high-flux central-carbon reactions; fluxes are stable across the cycle (no flux collapse). x-axis in minutes.",
+  "command": "v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline/sweep/showcase2_baseline parquet; rendered to PNG via vl_convert/matplotlib on the mac mini"
+}

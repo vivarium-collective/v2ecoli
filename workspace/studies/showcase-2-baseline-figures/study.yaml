@@ -1,0 +1,278 @@
+schema_version: 4
+name: showcase-2-baseline-figures
+investigation: v2ecoli-baseline-showcase   # owning investigation (back-reference)
+title: Wild-type baseline single-cell→division ensemble reproduces E. coli properties
+created: '2026-06-09'
+status: complete   # legacy back-compat; canonical axes below
+
+# v4 schema (vivarium_dashboard.lib.investigations._validate_study_v4_redesign):
+#   REQUIRED top-level: schema_version, name, question, conditions, tests, status
+#   REQUIRED in conditions: baseline {composite, params}, variants [...], model_settings [...]
+
+# Canonical 6-axis status. Baseline ensemble run + native-analysis gallery done.
+design_status: complete
+implementation_status: complete
+simulation_status: complete
+evaluation_status: evaluated
+gate_status: passed
+expert_review_status: pending
+
+question: |
+  Does the baseline single-cell→division sim reproduce wild-type E. coli
+  properties across a multiseed/multigen ensemble? The wild-type baseline
+  resumed from the showcase-1 full ParCa cache should produce a doubling time
+  in band, physiological mass fractions, FBA fluxes that correlate with Toya
+  2010, and a proteome that correlates with Schmidt 2016 / Wisniewski.
+
+report:
+  title: showcase-2 — wild-type baseline ensemble vs measured E. coli properties
+  verdict: pass
+  confidence: high
+  evidence_quality: multiseed-ensemble + native-analysis gallery
+
+  objective: |
+    Establish that the v2ecoli wild-type baseline single-cell→division ensemble,
+    resumed from the showcase-1 full ParCa cache, reproduces measured wild-type
+    E. coli properties across a multiseed/multigen ensemble: doubling time in
+    band, physiological mass fractions, FBA flux correlation to Toya 2010, and
+    proteome correlation to Schmidt 2015 / Wisniewski 2014.
+
+  setup: |
+    Composite: baseline (v2ecoli.composites.baseline.baseline), resumed from the
+    showcase-1 cache (out/cache-showcase, 51-condition full ParCa). The run is a
+    MULTISEED + MULTIGEN ensemble: 4 seeds (0–3) × 2 generations, dispatched
+    Ray-parallel (run_seeds_parallel, 3 threads/worker) with XArray/zarr emit as
+    the primary store PLUS a parquet sidecar. Total wall ~2414 s (~2370–2410 s
+    per seed). The native analyses (v2ecoli/workflow/analyses/) consumed the
+    parquet sidecar directly; sim_data was hydrated from the ParCa fixture
+    (models/parca/parca_state.pkl.gz) and the Schmidt/Wisniewski + Toya-2010
+    validation data attached for the correlation analyses. Figures rendered to
+    PNG via vl_convert (Altair) / matplotlib on the mac mini.
+
+  result: |
+    All four primary tests PASS. Doubling time = 44.2 ± 3.9 min (median 44),
+    measured from per-generation mass-halving division events across the 4-seed
+    × 2-gen ensemble (in-band for the baseline glucose condition). Mass fractions
+    are physiological: protein 0.475, rRNA 0.107, tRNA 0.019, DNA 0.018, small
+    molecules 0.375. Central-carbon FBA fluxes correlate with Toya 2010 at
+    Pearson R = 0.728 (p = 8.3e-5, 23 reactions). The proteome correlates with
+    Schmidt 2015 at r = 0.735 (n=2228 monomers) and Wisniewski 2014 at r = 0.616
+    (n=2226). The native-analysis gallery (10 figures) also reproduces the
+    expected replication program (oriC 2→4→2 per division), the ppGpp pool
+    (~30→65 µM steady band), and high tRNA charging (~0.92–0.98).
+
+  interpretation: |
+    The v2ecoli baseline reproduces wild-type single-cell physiology end-to-end:
+    growth/division, biomass composition, central-carbon flux, and proteome all
+    match measured E. coli within the expected bands. The two headline
+    correlations (Toya R≈0.73, Schmidt r≈0.74) are consistent with the upstream
+    vEcoli baseline. NOTE: the doubling_time_line / doubling_time_hist native
+    analyses report an inflated gen-2 doubling time (~104 min) because gen-2
+    cells continue emitting to the 9000-step (~150 min) window cap after they
+    divide; the corrected division-event doubling time is 44 min (see the
+    cell_mass sawtooth and the per-generation mass-halving detection).
+
+  decision: |
+    PASS — the baseline ensemble reproduces wild-type properties (all four tests
+    pass) ⇒ gate passed, unblocking showcase-3 (the reviewer variant decision).
+
+conditions:
+  baseline:
+    composite: baseline
+    params:
+      seed: 0
+      cache_dir: out/cache-showcase
+    # NOTE: the RUN is NOT a single seed-0 cell. seed 0 anchors the baseline
+    # condition; the actual run is a MULTISEED + MULTIGEN ensemble dispatched
+    # Ray-parallel via run_seeds_parallel with XArray/zarr emit. The ~19 native
+    # analyses (doubling time, mass fractions, Toya FBA fluxes,
+    # Schmidt/Wisniewski proteome) render from that ensemble.
+  variants: []
+  model_settings:
+  - name: multiseed-multigen-ensemble
+    detail: "Run is a multiseed + multigen ensemble (not a single cell); the four tests are evaluated over the ensemble."
+  - name: ray-parallel-dispatch
+    detail: "Seeds fanned out Ray-parallel via run_seeds_parallel."
+  - name: xarray-zarr-emit
+    detail: "XArray/zarr emit (NOT the in-engine ParquetEmitter, which is a RAM trap)."
+
+assumptions:
+- text: |
+    The wild-type baseline resumed from the showcase-1 full ParCa cache reaches
+    a physiological steady state across a multiseed/multigen ensemble, so the
+    four wild-type-property tests are evaluated on the ensemble (not a single
+    cell).
+  verified_in_v2ecoli: false
+- text: |
+    Ray-parallel dispatch (run_seeds_parallel) + XArray/zarr emit is the correct
+    runner for a multiseed ensemble; the in-engine ParquetEmitter is a RAM trap
+    and is avoided.
+  verified_in_v2ecoli: false
+
+tests:
+- name: doubling-time-in-band
+  classification: primary
+  status: passed
+  question: Is the ensemble doubling time within the physiological band for the baseline growth condition?
+  measure:
+    kind: doubling_time
+    detail: Mean/median doubling time across the multiseed ensemble vs the physiological band for the condition.
+  pass_if:
+    op: in_band
+- name: mass-fraction-physiological
+  classification: primary
+  status: passed
+  question: Are the cell mass fractions (protein / RNA / DNA / etc.) physiological?
+  measure:
+    kind: mass_fractions
+    detail: Compare ensemble mass fractions against measured E. coli mass-fraction composition.
+  pass_if:
+    op: physiological
+- name: fba-flux-correlates-toya2010
+  classification: primary
+  status: passed
+  question: Do the baseline FBA fluxes correlate with the Toya 2010 measured central-carbon fluxes?
+  measure:
+    kind: flux_correlation
+    reference: Toya 2010
+    detail: Correlate baseline FBA fluxes against Toya 2010 measured fluxes.
+  pass_if:
+    op: correlates
+- name: proteome-correlates-schmidt-wisniewski
+  classification: primary
+  status: passed
+  question: Does the baseline proteome correlate with the Schmidt 2016 / Wisniewski measured proteome?
+  measure:
+    kind: proteome_correlation
+    reference: Schmidt 2016 / Wisniewski
+    detail: Correlate baseline protein abundances against the Schmidt/Wisniewski measured proteome.
+  pass_if:
+    op: correlates
+
+discovery_implications:
+  resolved_uncertainties:
+  - The wild-type baseline reproduces all four measured-property classes simultaneously (doubling time 44 min, physiological mass fractions, Toya R≈0.73, Schmidt r≈0.74 / Wisniewski r≈0.62) — no calibration trade-off appeared across them.
+  remaining_uncertainties:
+  - The native doubling_time_line / doubling_time_hist analyses over-report gen-2 doubling time because gen-2 cells emit to the step-window cap after dividing; a clean per-generation division-time listener would remove the artifact.
+
+pipeline_gate:
+  prerequisites:
+  - showcase-1-parca
+  enables:
+  - showcase-3-variant-decide
+  gate_status: passed
+
+runs:
+- name: showcase2-baseline-ensemble
+  status: completed
+  kind: simulation
+  canonical: true
+  description: |
+    Multiseed/multigen wild-type baseline ensemble on the Mac mini: 4 seeds
+    (0–3) × 2 generations of v2ecoli.composites.baseline.baseline, resumed from
+    the showcase-1 full ParCa cache (out/cache-showcase, 51 TF conditions).
+    Dispatched Ray-parallel (run_seeds_parallel, 3 threads/worker). Emitted the
+    XArray/zarr store as the primary results store (one store.zarr per seed under
+    .pbg/runs/showcase2-baseline/xarray/seed_0N/) PLUS a partitioned-parquet
+    sidecar (.pbg/runs/showcase2-baseline/sweep/showcase2_baseline/). 9000 steps
+    / cell. Per-seed wall ~2378 / 2411 / 2379 / 2365 s; total wall 2414.27 s.
+    The native analyses (v2ecoli/workflow/analyses/) consumed the parquet sidecar
+    directly; sim_data hydrated from models/parca/parca_state.pkl.gz and
+    Schmidt/Wisniewski + Toya-2010 validation data attached for the correlation
+    analyses. 10 figures rendered to PNG (vl_convert for Altair, matplotlib for
+    SVG/heatmap views) in studies/showcase-2-baseline-figures/charts/.
+  dispatch: ray
+  emitter: xarray+parquet
+  cache_dir: out/cache-showcase
+  wall_seconds: 2414
+  result: PASS
+  outcomes:
+    DOUBLING-TIME-IN-BAND:
+      result: PASS
+      detail: 44.2 ± 3.9 min (median 44; per-seed gen-1 38–44 min, gen-2 division offset 44–52 min), measured from per-generation mass-halving division events across the 4-seed × 2-gen ensemble. In-band for the baseline glucose condition.
+    MASS-FRACTION-PHYSIOLOGICAL:
+      result: PASS
+      detail: "Average dry-mass fractions: protein 0.475, rRNA 0.107, tRNA 0.019, DNA 0.018, small molecules 0.375 — physiological E. coli composition (mean dry mass ≈489 fg, cell mass ≈1630 fg)."
+    FBA-FLUX-CORRELATES-TOYA2010:
+      result: PASS
+      detail: Central-carbon FBA fluxes vs Toya 2010 C13-MFA fluxes — Pearson R = 0.7277 (p = 8.3e-5) over 23 reactions (central_carbon_metabolism_scatter, multiseed over 4 seeds).
+    PROTEOME-CORRELATES-SCHMIDT-WISNIEWSKI:
+      result: PASS
+      detail: log10 average monomer counts vs measured proteomics — Schmidt 2015 Pearson r = 0.735 (n=2228 overlapping monomers), Wisniewski 2014 r = 0.616 (n=2226) (protein_counts_validation, multiseed over 4 seeds).
+
+visualizations:
+# --- Growth & Mass ---
+- name: cell mass over the cell cycle
+  address: image:charts/cell_mass.png
+  config:
+    title: Cell dry mass over the cell cycle (sawtooth growth + division)
+  chart: line
+  source_run: showcase2-baseline-ensemble
+  render: v2ecoli-analyze (cell_mass, multivariant) over .pbg/runs/showcase2-baseline/sweep/showcase2_baseline
+- name: mass fraction summary
+  address: image:charts/mass_fraction_summary_view.png
+  config:
+    title: Biomass composition over the cell cycle (mass fractions)
+  chart: line
+  source_run: showcase2-baseline-ensemble
+  render: v2ecoli-analyze (mass_fraction_summary_view, single) over the sweep
+- name: doubling time vs generation
+  address: image:charts/doubling_time_line.png
+  config:
+    title: Doubling time vs generation (per seed)
+  chart: line
+  source_run: showcase2-baseline-ensemble
+  render: v2ecoli-analyze (doubling_time_line, multivariant) over the sweep
+- name: doubling time distribution
+  address: image:charts/doubling_time_hist.png
+  config:
+    title: Distribution of doubling times across the ensemble
+  chart: histogram
+  source_run: showcase2-baseline-ensemble
+  render: v2ecoli-analyze (doubling_time_hist, multivariant) over the sweep
+# --- Replication & cell cycle ---
+- name: chromosome replication
+  address: image:charts/replication.png
+  config:
+    title: Chromosome replication across a lineage (oriC 2→4→2)
+  chart: line
+  source_run: showcase2-baseline-ensemble
+  render: v2ecoli-analyze (replication, multigeneration over seed 0) over the sweep
+# --- Metabolism / FBA ---
+- name: central carbon metabolism vs Toya 2010
+  address: image:charts/central_carbon_metabolism_scatter.png
+  config:
+    title: Central-carbon FBA fluxes vs Toya 2010 (Pearson R = 0.728)
+  chart: scatter
+  source_run: showcase2-baseline-ensemble
+  render: v2ecoli-analyze (central_carbon_metabolism_scatter, multiseed) over the sweep
+- name: reaction-flux heatmap
+  address: image:charts/ptools_rxns.png
+  config:
+    title: Metabolic reaction-flux heatmap (reaction × timepoint)
+  chart: heatmap
+  source_run: showcase2-baseline-ensemble
+  render: v2ecoli-analyze (ptools_rxns, single) over the sweep
+# --- Gene expression / proteome ---
+- name: proteome vs Schmidt 2015 / Wisniewski 2014
+  address: image:charts/protein_counts_validation.png
+  config:
+    title: Proteome vs Schmidt 2015 (r=0.74) and Wisniewski 2014 (r=0.62)
+  chart: scatter
+  source_run: showcase2-baseline-ensemble
+  render: v2ecoli-analyze (protein_counts_validation, multiseed) over the sweep
+# --- Regulation traces (ppGpp / tRNA charging) ---
+- name: ppGpp pool trace
+  address: image:charts/ppgpp_trace.png
+  config:
+    title: ppGpp pool over the cell cycle (all seeds)
+  chart: line
+  source_run: showcase2-baseline-ensemble
+  render: trace from listeners__growth_limits__ppgpp_conc over the sweep parquet
+- name: tRNA charged fraction trace
+  address: image:charts/trna_charged_trace.png
+  config:
+    title: tRNA charged fraction over the cell cycle (all seeds)
+  chart: line
+  source_run: showcase2-baseline-ensemble
+  render: trace from listeners__growth_limits__fraction_trna_charged over the sweep parquet

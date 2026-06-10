@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>ParCa Composition Diagram</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #222; }
+    header { padding: 10px 16px; border-bottom: 1px solid #ddd; background: #fff; display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+    header h1 { font-size: 16px; margin: 0; }
+    header .subtitle { font-size: 12px; color: #666; }
+    .app { display: flex; height: calc(100vh - 44px); }
+    aside {
+      width: 300px; flex: 0 0 300px;
+      overflow-y: auto; border-right: 1px solid #ddd; background: #fafafa;
+      padding: 12px 14px; font-size: 12px;
+    }
+    aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #555; margin: 16px 0 6px; }
+    aside h2:first-child { margin-top: 0; }
+    aside input[type=search] {
+      width: 100%; padding: 6px 8px; font-size: 13px;
+      border: 1px solid #bbb; border-radius: 4px;
+    }
+    .filter-row { display: flex; align-items: center; gap: 8px; margin: 3px 0; cursor: pointer; user-select: none; }
+    .legend-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #888; flex: 0 0 14px; }
+    .filter-row.disabled .legend-label { color: #aaa; text-decoration: line-through; }
+    .filter-row.disabled .legend-swatch { opacity: 0.3; }
+    .layer-row { padding: 3px 0; border-top: 1px solid #eee; }
+    .layer-row:first-child { border-top: none; }
+    .layer-num { font-family: 'SF Mono', Menlo, monospace; font-size: 10px; color: #888; }
+    .chip {
+      display: inline-block; padding: 1px 6px; margin: 2px 2px 0 0;
+      border-radius: 9px; font-size: 11px; cursor: pointer;
+      border: 1px solid rgba(0,0,0,0.15); user-select: none;
+    }
+    .chip:hover { outline: 1px solid #333; }
+    main { flex: 1; position: relative; overflow: hidden; }
+    #cy { position: absolute; inset: 0; background: #fff; }
+    .toolbar {
+      position: absolute; top: 10px; right: 10px; z-index: 10;
+      background: rgba(255,255,255,0.96); border: 1px solid #ccc;
+      border-radius: 6px; padding: 6px; display: flex; gap: 6px; align-items: center;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 12px;
+    }
+    .toolbar label { color: #666; }
+    .toolbar select, .toolbar button {
+      border: 1px solid #ccc; background: #fff; padding: 4px 8px;
+      font-size: 12px; border-radius: 4px; cursor: pointer;
+    }
+    .toolbar button:hover, .toolbar select:hover { background: #f0f0f0; }
+    #details {
+      position: absolute; bottom: 10px; left: 10px; z-index: 10;
+      width: 420px; max-height: 45vh; overflow-y: auto;
+      background: rgba(255,255,255,0.98); border: 1px solid #ccc;
+      border-radius: 6px; padding: 10px 12px; font-size: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: none;
+    }
+    #details.expanded {
+      width: calc(100% - 20px); max-height: calc(100vh - 120px);
+      max-width: none;
+    }
+    #details .toolbar-mini {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 6px;
+    }
+    #details .toolbar-mini button {
+      background: #fff; border: 1px solid #ccc; border-radius: 4px;
+      padding: 2px 8px; font-size: 11px; cursor: pointer;
+    }
+    #details .toolbar-mini button:hover { background: #f0f0f0; }
+    #details h3 { margin: 0; font-size: 13px; }
+    #details .meta { color: #666; font-size: 11px; margin-bottom: 8px; }
+    #details table { width: 100%; border-collapse: collapse; }
+    #details td { padding: 2px 6px; border-top: 1px solid #eee; font-size: 11px; vertical-align: top; }
+    #details td:first-child { color: #666; white-space: nowrap; }
+    #details code { font-size: 11px; background: #f0f0f0; padding: 1px 4px; border-radius: 3px; }
+    #details details { margin-top: 8px; border-top: 1px solid #ddd; padding-top: 6px; }
+    #details details > summary {
+      cursor: pointer; font-weight: 600; font-size: 11px;
+      text-transform: uppercase; letter-spacing: 0.04em; color: #444;
+      list-style: none; padding: 2px 0;
+    }
+    #details details > summary::-webkit-details-marker { display: none; }
+    #details details > summary::before { content: '▸ '; color: #888; }
+    #details details[open] > summary::before { content: '▾ '; }
+    #details pre {
+      font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11px;
+      background: #f7f7f7; border: 1px solid #eee; border-radius: 4px;
+      padding: 6px 8px; white-space: pre-wrap; word-break: break-word;
+      max-height: 280px; overflow: auto; margin: 4px 0;
+    }
+    #details.expanded pre { max-height: 50vh; }
+    #details .doc {
+      white-space: pre-wrap; font-size: 12px; line-height: 1.4;
+      color: #333; background: #fffce8; border-left: 3px solid #e9c46a;
+      padding: 6px 10px; margin: 4px 0; border-radius: 0 4px 4px 0;
+    }
+    #details .math {
+      font-family: 'STIX Two Math', 'Latin Modern Math', 'Cambria Math', 'SF Mono', Menlo, monospace;
+      font-size: 13px; line-height: 1.5;
+      white-space: pre-wrap; word-break: break-word;
+      color: #222; background: #f1f5ff; border-left: 3px solid #4a6cf7;
+      padding: 8px 12px; margin: 4px 0; border-radius: 0 4px 4px 0;
+    }
+    #details.expanded .math { font-size: 14px; }
+    #details .math-block { margin: 0 0 8px 0; }
+    #details .math-block:last-child { margin-bottom: 0; }
+    #details .math-label {
+      display: inline-block; font-weight: 700; letter-spacing: 0.02em;
+      color: #2a3b8f; font-size: 12px; margin-bottom: 2px;
+    }
+    #details .math-label.inputs  { color: #1f6f9c; }
+    #details .math-label.outputs { color: #a6552f; }
+    #details .math-label.params  { color: #5b4796; }
+    #details .math-label.calc    { color: #2a3b8f; }
+    #details .port-row td:first-child { width: 40%; }
+    #details .schema-type {
+      font-family: 'SF Mono', Menlo, monospace; color: #0a5;
+      font-size: 11px;
+    }
+    .hotkey { font-family: 'SF Mono', Menlo, monospace; background: #eee; padding: 1px 4px; border-radius: 3px; color: #444; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/layout-base@2.0.1/layout-base.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cose-base@2.2.0/cose-base.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-fcose@2.2.0/cytoscape-fcose.js"></script>
+</head>
+<body>
+  
+  <header>
+    <h1>ParCa Composition Diagram</h1>
+    <span class="subtitle">Interactive Cytoscape.js view of the 9-Step ParCa pipeline</span>
+    <span class="subtitle">· <span class="hotkey">click</span> to focus  <span class="hotkey">esc</span> to clear  <span class="hotkey">drag</span> to move nodes</span>
+  </header>
+  <div class="app">
+    <aside>
+      <h2>Search</h2>
+      <input type="search" id="q" placeholder="Filter nodes by name…">
+
+      <h2>Subsystems</h2>
+      <div id="legend"></div>
+
+      <h2>Execution layers</h2>
+      <div id="layers"></div>
+    </aside>
+    <main>
+      <div class="toolbar">
+        <label>Layout:</label>
+        <select id="layout-select">
+          <option value="bipartite" selected>Bipartite (stores ← | → processes)</option>
+          <option value="dagre">Dagre (hierarchy)</option>
+          <option value="fcose">fCoSE (force)</option>
+          <option value="grid">Grid</option>
+          <option value="circle">Circle</option>
+          <option value="concentric">Concentric</option>
+          <option value="breadthfirst">Breadth-first</option>
+        </select>
+        <button id="btn-fit">Fit</button>
+        <button id="btn-reset">Reset</button>
+      </div>
+      <div id="cy"></div>
+      <div id="details"></div>
+    </main>
+  </div>
+  <script>
+    const DATA = {"nodes": [{"data": {"id": "initialize", "label": "Step 1\ninitialize", "kind": "process", "subsystem": "init", "color": "#9CC8E3", "layer": 0, "klass": "InitializeStep", "meta": {"_inputs": {}, "_outputs": {"transcription": "sim_data.transcription", "translation": "sim_data.translation", "metabolism": "sim_data.metabolism", "rna_decay": "sim_data.rna_decay", "complexation": "sim_data.complexation", "equilibrium": "sim_data.equilibrium", "two_component_system": "sim_data.two_component_system", "transcription_regulation": "sim_data.transcription_regulation", "replication": "sim_data.replication", "mass": "sim_data.mass", "constants": "sim_data.constants", "growth_rate_parameters": "sim_data.growth_rate_parameters", "adjustments": "overwrite", "molecule_groups": "overwrite", "molecule_ids": "overwrite", "relation": "overwrite", "getter": "overwrite", "bulk_molecules": "overwrite", "external_state": "overwrite", "sim_data_root": "overwrite", "tf_to_active_inactive_conditions": "overwrite", "conditions": "overwrite", "condition_to_doubling_time": "overwrite", "tf_to_fold_change": "overwrite", "tf_to_direction": "overwrite", "condition_active_tfs": "overwrite", "condition_inactive_tfs": "overwrite", "cell_specs": "overwrite", "translation_supply_rate": "overwrite", "expected_dry_mass_increase_dict": "overwrite", "pPromoterBound": "overwrite", "condition": "overwrite"}, "address": "local:InitializeStep", "config": {}, "doc": "Run ``sim_data.initialize(raw_data=...)`` and scatter its subsystems.\n\nStep 1 \u2014 initialize (scatter).  Bootstrap the pipeline from raw KB data.\n\nTakes the ``KnowledgeBaseEcoli`` loaded from the flat-file TSVs and builds\nthe nested ``SimulationDataEcoli`` object, then scatters its nine subsystem\ndataclasses and twenty-odd top-level dicts onto their natural store paths\nin the bigraph. No ``sim_data`` blob is passed downstream; every subsequent\nstep wires only the ports it needs.", "math": "Inputs:\n- raw_data: a ``KnowledgeBaseEcoli`` instance holding every flat-file table\n  (genes, RNAs, proteins, reactions, media, mass fractions, ...) parsed\n  from ``v2ecoli.processes.parca/reconstruction/ecoli/flat/``. Delivered as a ``config``\n  parameter (not a port wire) so bigraph-schema does not introspect the\n  KB's deep internals at composite-construction time.\n\nParameters:\n- debug (bool): forwarded to downstream steps; no effect on this one.\n\nCalculation:\n- sim_data = SimulationDataEcoli()\n- sim_data.initialize(raw_data=raw_data, basal_expression_condition=...)\n- split sim_data into its constituent subsystem objects and data dicts.\n\nOutputs:\n- Subsystem objects on ``process/*`` stores: transcription, translation,\n  metabolism, rna_decay, complexation, equilibrium, two_component_system,\n  transcription_regulation, replication.\n- Top-level dataclass stores: mass, constants, growth_rate_parameters,\n  adjustments, molecule_groups, molecule_ids, relation, getter, external_state.\n- Pure-data dicts: conditions, condition_to_doubling_time, tf_to_fold_change,\n  tf_to_active_inactive_conditions, condition_active_tfs, condition_inactive_tfs.\n- bulk_molecules at ``internal_state/bulk_molecules``.", "class": "v2ecoli.processes.parca.steps.step_01_initialize.InitializeStep", "role": "", "method": ""}}}, {"data": {"id": "process/transcription", "label": "process/transcription", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": "process"}}, {"data": {"id": "process", "label": "process", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "is_container": true}}, {"data": {"id": "process/translation", "label": "process/translation", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": "process"}}, {"data": {"id": "process/metabolism", "label": "process/metabolism", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": "process"}}, {"data": {"id": "process/rna_decay", "label": "process/rna_decay", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": "process"}}, {"data": {"id": "process/complexation", "label": "process/complexation", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": "process"}}, {"data": {"id": "process/equilibrium", "label": "process/equilibrium", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": "process"}}, {"data": {"id": "process/two_component_system", "label": "process/two_component_system", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": "process"}}, {"data": {"id": "process/transcription_regulation", "label": "process/transcription_regulation", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": "process"}}, {"data": {"id": "process/replication", "label": "process/replication", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": "process"}}, {"data": {"id": "mass", "label": "mass", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "constants", "label": "constants", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "growth_rate_parameters", "label": "growth_rate_parameters", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "adjustments", "label": "adjustments", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "molecule_groups", "label": "molecule_groups", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "molecule_ids", "label": "molecule_ids", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "relation", "label": "relation", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "getter", "label": "getter", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "internal_state/bulk_molecules", "label": "internal_state/bulk_molecules", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": "internal_state"}}, {"data": {"id": "internal_state", "label": "internal_state", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "is_container": true}}, {"data": {"id": "external_state", "label": "external_state", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "sim_data_root", "label": "sim_data_root", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "tf_to_active_inactive_conditions", "label": "tf_to_active_inactive_conditions", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "conditions", "label": "conditions", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "condition_to_doubling_time", "label": "condition_to_doubling_time", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "tf_to_fold_change", "label": "tf_to_fold_change", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "tf_to_direction", "label": "tf_to_direction", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "condition_active_tfs", "label": "condition_active_tfs", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "condition_inactive_tfs", "label": "condition_inactive_tfs", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "cell_specs", "label": "cell_specs", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "translation_supply_rate", "label": "translation_supply_rate", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "expected_dry_mass_increase_dict", "label": "expected_dry_mass_increase_dict", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "pPromoterBound", "label": "pPromoterBound", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "condition", "label": "condition", "kind": "store", "subsystem": "store", "color": "#FFFFFF", "parent_store": ""}}, {"data": {"id": "input_adjustments", "label": "Step 2\ninput_adjustments", "kind": "process", "subsystem": "basal", "color": "#A4D4A4", "layer": 1, "klass": "InputAdjustmentsStep", "meta": {"_inputs": {"transcription": "sim_data.transcription", "translation": "sim_data.translation", "adjustments": "overwrite", "tf_to_active_inactive_conditions": "overwrite"}, "_outputs": {"transcription": "sim_data.transcription", "translation": "sim_data.translation", "tf_to_active_inactive_conditions": "overwrite"}, "address": "local:InputAdjustmentsStep", "config": {}, "doc": "Step 2 \u2014 input_adjustments.  See module docstring for port wiring.\n\nStep 2 \u2014 input_adjustments.  Apply literature-curated overrides before fitting.\n\nA handful of genes are known from experiment to need their RNA\nexpression, translation efficiency, or degradation rate multiplied by a\nfixed factor before any fitting begins. This step reads those factors\nfrom the ``adjustments`` dataclass and applies them in place.", "math": "Inputs:\n- transcription.rna_expression (basal) and transcription.rna_deg_rates.\n- translation.translation_efficiencies_by_monomer.\n- adjustments: a lookup table of {gene_id: multiplier} for each kind of\n  adjustment, shipped in ``flat/adjustments/``.\n- tf_to_active_inactive_conditions (reduced to one entry in debug mode).\n\nParameters:\n- debug (bool): when True, prunes tf_to_active_inactive_conditions to a\n  single TF so step 4 only runs one condition-fit.\n\nCalculation:\n- adjust_translation_efficiencies: scalar multiplier per monomer id.\n- balance_translation_efficiencies: renormalize so mean(eff) == 1.\n- adjust_rna_expression: scalar multiplier per rna id, then renormalize\n  so sum(expression) == 1.\n- adjust_rna_deg_rates, adjust_protein_deg_rates: scalar multipliers.\n\nOutputs:\n- transcription (mutated): rna_expression + rna_deg_rates updated.\n- translation (mutated): translation_efficiencies_by_monomer updated.\n- tf_to_active_inactive_conditions (pruned when debug=True).", "class": "v2ecoli.processes.parca.steps.step_02_input_adjustments.InputAdjustmentsStep", "role": "", "method": ""}}}, {"data": {"id": "basal_specs", "label": "Step 3\nbasal_specs", "kind": "process", "subsystem": "basal", "color": "#A4D4A4", "layer": 2, "klass": "BasalSpecsStep", "meta": {"_inputs": {"transcription": "sim_data.transcription", "translation": "sim_data.translation", "metabolism": "sim_data.metabolism", "rna_decay": "sim_data.rna_decay", "complexation": "sim_data.complexation", "replication": "sim_data.replication", "mass": "sim_data.mass", "constants": "sim_data.constants", "growth_rate_parameters": "sim_data.growth_rate_parameters", "molecule_groups": "overwrite", "molecule_ids": "overwrite", "relation": "overwrite", "getter": "overwrite", "bulk_molecules": "overwrite", "sim_data_root": "overwrite", "condition_to_doubling_time": "overwrite", "cell_specs": "overwrite"}, "_outputs": {"transcription": "sim_data.transcription", "mass": "sim_data.mass", "constants": "sim_data.constants", "rna_decay": "sim_data.rna_decay", "cell_specs": "overwrite"}, "address": "local:BasalSpecsStep", "config": {}, "doc": "Step 3 \u2014 build basal cell specifications.  See module docstring.\n\nStep 3 \u2014 basal_specs.  Fit the minimal-medium (basal) condition.\n\nIteratively fits RNA synthesis probabilities so that the steady-state RNA\ndistribution matches measured RNA-seq expression, then calibrates a few\nderived kinetic parameters (endoRNase Michaelis constants, ppGpp-regulated\nexpression tables, the growth-associated ATP maintenance cost). Everything\nin the pipeline downstream of this step assumes these basal fits hold.", "math": "Inputs:\n- transcription.rna_expression (post\u2013input_adjustments).\n- rna_decay.endoRNase counts + KM bounds.\n- mass + constants + growth_rate_parameters for the basal doubling time.\n- condition_to_doubling_time[basal].\n- cell_specs: mutated in place with a new 'basal' entry.\n\nParameters:\n- cpus: parallel seed count for expressionConverge's Monte-Carlo legs.\n- debug: short-circuits the outer ppGpp / Km / GAM fits for a quick path.\n\nCalculation:\n- expressionConverge (iterative): adjust rna_synth_prob until the implied\n  mRNA, tRNA, and rRNA levels reproduce rna_expression within tolerance.\n- setPpGppExpression: build ppGpp_aa / ppGpp_basal_expression tables for\n  the downstream ppGpp-regulated translation supply.\n- fitRnaDecayKm: solve for endoRNase KM values that reproduce the\n  measured mRNA half-lives under the fitted synthesis probabilities.\n- fitMaintenanceCosts: regress ATP consumption against dry mass to\n  recover the growth-associated maintenance coefficient.\n\nOutputs:\n- transcription (mutated): rna_synth_prob, ppGpp expression tables.\n- rna_decay (mutated): endoRNase KM values.\n- mass, constants (mutated): GAM coefficient + derived totals.\n- cell_specs['basal']: bulk_average, bulk_distribution, n_avg_copies,\n  r_vector placeholder for step 6.", "class": "v2ecoli.processes.parca.steps.step_03_basal_specs.BasalSpecsStep", "role": "", "method": ""}}}, {"data": {"id": "tf_condition_specs", "label": "Step 4\ntf_condition_specs", "kind": "process", "subsystem": "fit", "color": "#F7D488", "layer": 3, "klass": "TfConditionSpecsStep", "meta": {"_inputs": {"transcription": "sim_data.transcription", "translation": "sim_data.translation", "metabolism": "sim_data.metabolism", "rna_decay": "sim_data.rna_decay", "complexation": "sim_data.complexation", "equilibrium": "sim_data.equilibrium", "two_component_system": "sim_data.two_component_system", "transcription_regulation": "sim_data.transcription_regulation", "replication": "sim_data.replication", "mass": "sim_data.mass", "constants": "sim_data.constants", "growth_rate_parameters": "sim_data.growth_rate_parameters", "molecule_groups": "overwrite", "molecule_ids": "overwrite", "relation": "overwrite", "getter": "overwrite", "bulk_molecules": "overwrite", "sim_data_root": "overwrite", "tf_to_active_inactive_conditions": "overwrite", "conditions": "overwrite", "condition_to_doubling_time": "overwrite", "tf_to_fold_change": "overwrite", "condition_active_tfs": "overwrite", "condition_inactive_tfs": "overwrite", "cell_specs": "overwrite"}, "_outputs": {"transcription": "sim_data.transcription", "cell_specs": "overwrite"}, "address": "local:TfConditionSpecsStep", "config": {}, "doc": "Step 4 \u2014 tf_condition_specs.  See module docstring for port wiring.\n\nStep 4 \u2014 tf_condition_specs.  Repeat the basal fit under each TF condition.\n\nFor every transcription-factor active/inactive state, and for the\ncombined growth conditions (with_aa, acetate, succinate, no_oxygen),\napply the fold-change overrides to RNA expression and rerun the basal\nfit to produce condition-specific synthesis probabilities.", "math": "Inputs:\n- transcription post-basal (rna_expression, rna_synth_prob).\n- tf_to_fold_change: {tf_id: {rna_id: log2_fc}} from the literature.\n- tf_to_active_inactive_conditions: which TFs to perturb (pruned to 1\n  in debug mode).\n- conditions / condition_active_tfs / condition_inactive_tfs: which TFs\n  are on/off in each combined condition.\n- condition_to_doubling_time for each condition's growth rate.\n- cell_specs['basal'] as the starting point.\n\nParameters:\n- cpus: conditions run in a multiprocessing pool of this size.\n- debug: restricts to one TF + the combined conditions.\n\nCalculation:\n- For each (tf, state) condition, apply 2^fold_change to rna_expression\n  on the TF's target RNAs, then rerun expressionConverge to recover\n  self-consistent rna_synth_prob.\n- For each combined condition, overlay the active-TF fold changes then\n  run the same convergence.\n- Condition-specific bulk distributions are sampled from the fitted\n  synthesis probabilities.\n\nOutputs:\n- transcription (mutated): rna_expression / rna_synth_prob /\n  cistron_expression / fit_cistron_expression now carry one entry per\n  fitted condition, not just 'basal'.\n- cell_specs (mutated): one entry per condition with bulk_average,\n  bulk_distribution, n_avg_copies, r_vector placeholder.", "class": "v2ecoli.processes.parca.steps.step_04_tf_condition_specs.TfConditionSpecsStep", "role": "", "method": ""}}}, {"data": {"id": "fit_condition", "label": "Step 5\nfit_condition", "kind": "process", "subsystem": "fit", "color": "#F7D488", "layer": 4, "klass": "FitConditionStep", "meta": {"_inputs": {"transcription": "sim_data.transcription", "translation": "sim_data.translation", "complexation": "sim_data.complexation", "equilibrium": "sim_data.equilibrium", "two_component_system": "sim_data.two_component_system", "mass": "sim_data.mass", "constants": "sim_data.constants", "growth_rate_parameters": "sim_data.growth_rate_parameters", "molecule_ids": "overwrite", "relation": "overwrite", "molecule_groups": "overwrite", "getter": "overwrite", "bulk_molecules": "overwrite", "sim_data_root": "overwrite", "conditions": "overwrite", "cell_specs": "overwrite"}, "_outputs": {"cell_specs": "overwrite", "translation_supply_rate": "overwrite"}, "address": "local:FitConditionStep", "config": {}, "doc": "Step 5 \u2014 fit_condition.  Bulk distributions + translation supply rates.\n\nStep 5 \u2014 fit_condition.  Bulk-molecule distributions + translation supply.\n\nThe pipeline's heavy step (~60\u201370 min at cpus=2). For every condition,\nsample N_SEEDS synthetic cells, propagate them through the\ncomplexation / equilibrium / two-component-system solvers to steady\nstate, and record the mean and standard deviation of every bulk\nmolecule count. Also computes the per-amino-acid translation supply\nrate each condition requires to hit its observed doubling time.", "math": "Inputs:\n- transcription, translation, complexation, equilibrium,\n  two_component_system subsystems (post\u2013step 4).\n- mass, constants, molecule_groups, molecule_ids, relation,\n  bulk_molecules, growth_rate_parameters.\n- cell_specs[<condition>] entries produced by step 4.\n\nParameters:\n- N_SEEDS (module constant): stochastic sample count per condition.\n- cpus: conditions distribute across a multiprocessing pool.\n\nCalculation (per condition):\n- Sample initial RNA and protein counts from the fitted expression\n  distributions conditioned on mass.\n- StochasticSystem (arrow) integrates complexation reactions to\n  equilibrium.\n- Equilibrium + two_component_system solvers produce macromolecule /\n  ligand-complex concentrations.\n- Aggregate mean_counts, std_counts, n_avg_copies across seeds.\n- calculateTranslationSupply: from mean counts + kcats compute the\n  amino-acid supply rate that matches the target dry-mass growth.\n\nOutputs:\n- cell_specs[<condition>] (mutated): bulk_average, bulk_distribution,\n  n_avg_copies filled in.\n- translation_supply_rate: {condition: array over 21 amino acids}.\n\nNote: the complexation, equilibrium, and two-component-system solvers\nare still sim_data-shaped objects (live references), not pure data \u2014 a\npending refactor.", "class": "v2ecoli.processes.parca.steps.step_05_fit_condition.FitConditionStep", "role": "", "method": ""}}}, {"data": {"id": "promoter_binding", "label": "Step 6\npromoter_binding", "kind": "process", "subsystem": "promoter", "color": "#D9B8E0", "layer": 5, "klass": "PromoterBindingStep", "meta": {"_inputs": {"transcription": "sim_data.transcription", "transcription_regulation": "sim_data.transcription_regulation", "equilibrium": "sim_data.equilibrium", "two_component_system": "sim_data.two_component_system", "replication": "sim_data.replication", "mass": "sim_data.mass", "constants": "sim_data.constants", "molecule_ids": "overwrite", "molecule_groups": "overwrite", "relation": "overwrite", "getter": "overwrite", "bulk_molecules": "overwrite", "sim_data_root": "overwrite", "conditions": "overwrite", "condition_to_doubling_time": "overwrite", "tf_to_active_inactive_conditions": "overwrite", "tf_to_fold_change": "overwrite", "tf_to_direction": "overwrite", "condition_active_tfs": "overwrite", "condition_inactive_tfs": "overwrite", "cell_specs": "overwrite"}, "_outputs": {"transcription": "sim_data.transcription", "transcription_regulation": "sim_data.transcription_regulation", "cell_specs": "overwrite", "pPromoterBound": "overwrite"}, "address": "local:PromoterBindingStep", "config": {}, "doc": "Step 6 \u2014 promoter_binding.  See module docstring.\n\nStep 6 \u2014 promoter_binding.  Fit TF binding probabilities and recruitment.\n\nFor each TF-promoter pair, solve a small convex optimization so that\nthe RNA synthesis implied by (recruitment \u00d7 binding) reproduces the\ncondition-specific rna_synth_prob computed in step 4. This is what\ntranslates \"TF is active\" into \"transcription goes up by X\" in the\nonline model.", "math": "Inputs:\n- transcription.rna_synth_prob (per condition, from step 4).\n- transcription_regulation: TF-to-target matrix + equilibrium Kd's.\n- equilibrium, replication, mass, constants, molecule_ids,\n  molecule_groups, bulk_molecules (for sanity-checked counts).\n- cell_specs (per condition), conditions, condition_to_doubling_time.\n\nParameters:\n- CVXPY solver: ECOS; warm-started per condition.\n\nCalculation:\n- For each RNA j and condition c, model:\n    synth_prob[j, c] = basal[j] + \u03a3_tf  r[j, tf] \u00b7 P[tf, c]\n  where P[tf, c] is the probability TF is promoter-bound under c\n  (derived from equilibrium with its ligand) and r[j, tf] is the\n  recruitment strength.\n- Fit r (non-negative) and adjust P so the predicted synth_prob\n  matches the step-4 synth_prob in least-squares sense, with\n  regularization keeping r sparse.\n- fitPromoterBoundProbability does the heavy lifting; returns\n  r_vector, r_columns, pPromoterBound[tf, c].\n\nOutputs:\n- transcription (mutated): basal_prob placeholder for step 7.\n- transcription_regulation (mutated): pPromoterBound filled.\n- cell_specs['basal'] gets r_vector / r_columns entries.\n- pPromoterBound top-level dict: {(tf, condition): probability}.", "class": "v2ecoli.processes.parca.steps.step_06_promoter_binding.PromoterBindingStep", "role": "", "method": ""}}}, {"data": {"id": "adjust_promoters", "label": "Step 7\nadjust_promoters", "kind": "process", "subsystem": "promoter", "color": "#D9B8E0", "layer": 6, "klass": "AdjustPromotersStep", "meta": {"_inputs": {"transcription": "sim_data.transcription", "transcription_regulation": "sim_data.transcription_regulation", "equilibrium": "sim_data.equilibrium", "two_component_system": "sim_data.two_component_system", "metabolism": "sim_data.metabolism", "replication": "sim_data.replication", "mass": "sim_data.mass", "constants": "sim_data.constants", "molecule_ids": "overwrite", "molecule_groups": "overwrite", "relation": "overwrite", "getter": "overwrite", "bulk_molecules": "overwrite", "sim_data_root": "overwrite", "conditions": "overwrite", "condition_to_doubling_time": "overwrite", "tf_to_active_inactive_conditions": "overwrite", "tf_to_fold_change": "overwrite", "tf_to_direction": "overwrite", "condition_active_tfs": "overwrite", "condition_inactive_tfs": "overwrite", "cell_specs": "overwrite", "pPromoterBound": "overwrite"}, "_outputs": {"transcription_regulation": "sim_data.transcription_regulation", "metabolism": "sim_data.metabolism", "equilibrium": "sim_data.equilibrium"}, "address": "local:AdjustPromotersStep", "config": {}, "doc": "Step 7 \u2014 adjust_promoters.  See module docstring.\n\nStep 7 \u2014 adjust_promoters.  Back-solve ligand levels + RNAP recruitment.\n\nGiven the fitted ``pPromoterBound`` from step 6, work backwards: find\nligand concentrations and equilibrium reverse-rates that make the\nequilibrium solver produce those binding probabilities, and pre-compute\nthe ``basal_prob`` / ``delta_prob`` columns the online RNAP recruitment\nmodel consumes each timestep.", "math": "Inputs:\n- pPromoterBound[tf, condition] from step 6.\n- transcription, transcription_regulation, equilibrium, metabolism,\n  replication, mass, constants, molecule_ids, molecule_groups,\n  bulk_molecules.\n- cell_specs, conditions, condition_to_doubling_time.\n\nCalculation:\n- For each TF with a ligand, solve the equilibrium Hill equation\n  backwards: [L] = K_d \u00b7 (P / (1 - P))^{1/n} given the target P.\n- Where the forward equilibrium doesn't match, adjust the equilibrium\n  reverse-rate constant to balance.\n- basal_prob[j]  = pPromoterBound \u00b7 r_vector  evaluated at basal.\n- delta_prob[j, c] = (pPromoterBound[c] - pPromoterBound[basal]) \u00b7\n  r_vector, giving the per-condition deviation that the online model\n  adds to basal_prob.\n\nOutputs:\n- transcription_regulation (mutated): basal_prob, delta_prob arrays.\n- metabolism (mutated): molecule_set_amounts overrides for ligands.\n- equilibrium (mutated): reverse_rates balanced against target P.", "class": "v2ecoli.processes.parca.steps.step_07_adjust_promoters.AdjustPromotersStep", "role": "", "method": ""}}}, {"data": {"id": "set_conditions", "label": "Step 8\nset_conditions", "kind": "process", "subsystem": "condition", "color": "#FFD58C", "layer": 7, "klass": "SetConditionsStep", "meta": {"_inputs": {"transcription": "sim_data.transcription", "translation": "sim_data.translation", "metabolism": "sim_data.metabolism", "mass": "sim_data.mass", "constants": "sim_data.constants", "growth_rate_parameters": "sim_data.growth_rate_parameters", "getter": "overwrite", "sim_data_root": "overwrite", "conditions": "overwrite", "condition_to_doubling_time": "overwrite", "cell_specs": "overwrite"}, "_outputs": {"transcription": "sim_data.transcription", "translation": "sim_data.translation", "cell_specs": "overwrite", "expected_dry_mass_increase_dict": "overwrite"}, "address": "local:SetConditionsStep", "config": {}, "doc": "Step 8 \u2014 set_conditions.  See module docstring.\n\nStep 8 \u2014 set_conditions.  Build per-condition mass + expression tables.\n\nTurns the per-condition cell_specs into the flat lookup tables the\nsimulation consumes each timestep: average cell dry mass, soluble-pool\nmass budget, expected dry-mass increase, and per-nutrient transcription\n/ translation overrides.", "math": "Inputs:\n- cell_specs[<condition>] for every fitted condition.\n- transcription, translation, metabolism (for getter functions).\n- mass, constants, growth_rate_parameters.\n- conditions, condition_to_doubling_time.\n\nCalculation:\n- Rescale avgCellDryMassInit per condition so that expected growth over\n  the doubling time matches observed dry_mass.\n- Compute fitAvgSolublePoolMass by subtracting macromolecule mass from\n  avgCellDryMassInit.\n- bulkContainer: canonical bulk-molecule counts at t=0 for each\n  condition, sampled from the fitted distributions.\n- expected_dry_mass_increase_dict[nutrient]:\n    = avgCellDryMass \u00b7 (2^(t/\u03c4) - 1) / t    integrated over one cycle.\n- Per-nutrient dicts on transcription and translation: which RNAs and\n  which tRNAs the online model should emphasize under that medium.\n\nOutputs:\n- transcription (mutated): per-nutrient expression overrides.\n- translation (mutated): per-nutrient tRNA supply.\n- cell_specs (mutated): avgCellDryMassInit, fitAvgSolublePoolMass,\n  bulkContainer for every condition.\n- expected_dry_mass_increase_dict.", "class": "v2ecoli.processes.parca.steps.step_08_set_conditions.SetConditionsStep", "role": "", "method": ""}}}, {"data": {"id": "final_adjustments", "label": "Step 9\nfinal_adjustments", "kind": "process", "subsystem": "final", "color": "#F4A7A1", "layer": 8, "klass": "FinalAdjustmentsStep", "meta": {"_inputs": {"transcription": "sim_data.transcription", "translation": "sim_data.translation", "metabolism": "sim_data.metabolism", "complexation": "sim_data.complexation", "equilibrium": "sim_data.equilibrium", "two_component_system": "sim_data.two_component_system", "transcription_regulation": "sim_data.transcription_regulation", "replication": "sim_data.replication", "mass": "sim_data.mass", "constants": "sim_data.constants", "growth_rate_parameters": "sim_data.growth_rate_parameters", "molecule_ids": "overwrite", "molecule_groups": "overwrite", "relation": "overwrite", "getter": "overwrite", "bulk_molecules": "overwrite", "sim_data_root": "overwrite", "conditions": "overwrite", "condition_to_doubling_time": "overwrite", "tf_to_active_inactive_conditions": "overwrite", "tf_to_fold_change": "overwrite", "tf_to_direction": "overwrite", "condition_active_tfs": "overwrite", "condition_inactive_tfs": "overwrite", "cell_specs": "overwrite", "translation_supply_rate": "overwrite", "pPromoterBound": "overwrite", "external_state": "overwrite", "condition": "overwrite"}, "_outputs": {"transcription": "sim_data.transcription", "metabolism": "sim_data.metabolism", "constants": "sim_data.constants"}, "address": "local:FinalAdjustmentsStep", "config": {}, "doc": "Step 9 \u2014 final_adjustments.  See module docstring.\n\nStep 9 \u2014 final_adjustments.  Kinetic constants the online model needs.\n\nFits the last handful of kinetic parameters that don't fit earlier\nsteps' patterns: amino-acid export/uptake kcats per nutrient,\nmechanistic translation supply constants, and ppGpp\nsynthesis/degradation rates. Also applies any final cross-condition\nexpression consistency passes.", "math": "Inputs:\n- All nine subsystems (transcription, translation, metabolism,\n  complexation, equilibrium, two_component_system,\n  transcription_regulation, replication, plus mass, constants,\n  growth_rate_parameters, molecule_ids, molecule_groups, relation,\n  bulk_molecules).\n- conditions, condition_to_doubling_time, tf_to_fold_change, cell_specs.\n\nCalculation:\n- set_mechanistic_supply_constants: solve for amino-acid kcat +\n  synthase concentrations so each amino acid's net flux matches the\n  translation demand under each condition.\n- set_mechanistic_uptake_constants: same for transporter kcats.\n- set_mechanistic_export_constants: same for exporter kcats.\n- set_ppgpp_kinetics_parameters: fit ppGpp synthase (RelA/SpoT) +\n  hydrolase rate constants so steady-state [ppGpp] reproduces the\n  measured growth-rate-dependent pool.\n- adjust_final_expression: last-pass cross-condition expression\n  consistency check.\n\nOutputs:\n- transcription (mutated): final expression tables.\n- metabolism (mutated): aa_kcats_fwd, aa_kcats_rev,\n  aa_enzyme_ids, ppgpp_kinetics.\n- constants (mutated): ppGpp synthesis/hydrolysis rates.\n\nNote: ``set_mechanistic_supply_constants`` can hit\n``ValueError: Could not find positive forward and reverse kcat for\nCYS[c]`` in debug mode \u2014 the same numerical corner-case present in the\nupstream vEcoli ParCa. The step wraps each mechanistic fit in try /\nexcept so the pickle still lands even if one fails.", "class": "v2ecoli.processes.parca.steps.step_09_final_adjustments.FinalAdjustmentsStep", "role": "", "method": ""}}}], "edges": [{"data": {"id": "process__process/transcription__contains", "source": "process", "target": "process/transcription", "direction": "contains", "ports": [], "label": ""}}, {"data": {"id": "initialize__process/transcription__output", "source": "initialize", "target": "process/transcription", "direction": "output", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "process__process/translation__contains", "source": "process", "target": "process/translation", "direction": "contains", "ports": [], "label": ""}}, {"data": {"id": "initialize__process/translation__output", "source": "initialize", "target": "process/translation", "direction": "output", "ports": ["translation"], "label": "translation"}}, {"data": {"id": "process__process/metabolism__contains", "source": "process", "target": "process/metabolism", "direction": "contains", "ports": [], "label": ""}}, {"data": {"id": "initialize__process/metabolism__output", "source": "initialize", "target": "process/metabolism", "direction": "output", "ports": ["metabolism"], "label": "metabolism"}}, {"data": {"id": "process__process/rna_decay__contains", "source": "process", "target": "process/rna_decay", "direction": "contains", "ports": [], "label": ""}}, {"data": {"id": "initialize__process/rna_decay__output", "source": "initialize", "target": "process/rna_decay", "direction": "output", "ports": ["rna_decay"], "label": "rna_decay"}}, {"data": {"id": "process__process/complexation__contains", "source": "process", "target": "process/complexation", "direction": "contains", "ports": [], "label": ""}}, {"data": {"id": "initialize__process/complexation__output", "source": "initialize", "target": "process/complexation", "direction": "output", "ports": ["complexation"], "label": "complexation"}}, {"data": {"id": "process__process/equilibrium__contains", "source": "process", "target": "process/equilibrium", "direction": "contains", "ports": [], "label": ""}}, {"data": {"id": "initialize__process/equilibrium__output", "source": "initialize", "target": "process/equilibrium", "direction": "output", "ports": ["equilibrium"], "label": "equilibrium"}}, {"data": {"id": "process__process/two_component_system__contains", "source": "process", "target": "process/two_component_system", "direction": "contains", "ports": [], "label": ""}}, {"data": {"id": "initialize__process/two_component_system__output", "source": "initialize", "target": "process/two_component_system", "direction": "output", "ports": ["two_component_system"], "label": "two_component_system"}}, {"data": {"id": "process__process/transcription_regulation__contains", "source": "process", "target": "process/transcription_regulation", "direction": "contains", "ports": [], "label": ""}}, {"data": {"id": "initialize__process/transcription_regulation__output", "source": "initialize", "target": "process/transcription_regulation", "direction": "output", "ports": ["transcription_regulation"], "label": "transcription_regulation"}}, {"data": {"id": "process__process/replication__contains", "source": "process", "target": "process/replication", "direction": "contains", "ports": [], "label": ""}}, {"data": {"id": "initialize__process/replication__output", "source": "initialize", "target": "process/replication", "direction": "output", "ports": ["replication"], "label": "replication"}}, {"data": {"id": "initialize__mass__output", "source": "initialize", "target": "mass", "direction": "output", "ports": ["mass"], "label": "mass"}}, {"data": {"id": "initialize__constants__output", "source": "initialize", "target": "constants", "direction": "output", "ports": ["constants"], "label": "constants"}}, {"data": {"id": "initialize__growth_rate_parameters__output", "source": "initialize", "target": "growth_rate_parameters", "direction": "output", "ports": ["growth_rate_parameters"], "label": "growth_rate_parameters"}}, {"data": {"id": "initialize__adjustments__output", "source": "initialize", "target": "adjustments", "direction": "output", "ports": ["adjustments"], "label": "adjustments"}}, {"data": {"id": "initialize__molecule_groups__output", "source": "initialize", "target": "molecule_groups", "direction": "output", "ports": ["molecule_groups"], "label": "molecule_groups"}}, {"data": {"id": "initialize__molecule_ids__output", "source": "initialize", "target": "molecule_ids", "direction": "output", "ports": ["molecule_ids"], "label": "molecule_ids"}}, {"data": {"id": "initialize__relation__output", "source": "initialize", "target": "relation", "direction": "output", "ports": ["relation"], "label": "relation"}}, {"data": {"id": "initialize__getter__output", "source": "initialize", "target": "getter", "direction": "output", "ports": ["getter"], "label": "getter"}}, {"data": {"id": "internal_state__internal_state/bulk_molecules__contains", "source": "internal_state", "target": "internal_state/bulk_molecules", "direction": "contains", "ports": [], "label": ""}}, {"data": {"id": "initialize__internal_state/bulk_molecules__output", "source": "initialize", "target": "internal_state/bulk_molecules", "direction": "output", "ports": ["bulk_molecules"], "label": "bulk_molecules"}}, {"data": {"id": "initialize__external_state__output", "source": "initialize", "target": "external_state", "direction": "output", "ports": ["external_state"], "label": "external_state"}}, {"data": {"id": "initialize__sim_data_root__output", "source": "initialize", "target": "sim_data_root", "direction": "output", "ports": ["sim_data_root"], "label": "sim_data_root"}}, {"data": {"id": "initialize__tf_to_active_inactive_conditions__output", "source": "initialize", "target": "tf_to_active_inactive_conditions", "direction": "output", "ports": ["tf_to_active_inactive_conditions"], "label": "tf_to_active_inactive_conditions"}}, {"data": {"id": "initialize__conditions__output", "source": "initialize", "target": "conditions", "direction": "output", "ports": ["conditions"], "label": "conditions"}}, {"data": {"id": "initialize__condition_to_doubling_time__output", "source": "initialize", "target": "condition_to_doubling_time", "direction": "output", "ports": ["condition_to_doubling_time"], "label": "condition_to_doubling_time"}}, {"data": {"id": "initialize__tf_to_fold_change__output", "source": "initialize", "target": "tf_to_fold_change", "direction": "output", "ports": ["tf_to_fold_change"], "label": "tf_to_fold_change"}}, {"data": {"id": "initialize__tf_to_direction__output", "source": "initialize", "target": "tf_to_direction", "direction": "output", "ports": ["tf_to_direction"], "label": "tf_to_direction"}}, {"data": {"id": "initialize__condition_active_tfs__output", "source": "initialize", "target": "condition_active_tfs", "direction": "output", "ports": ["condition_active_tfs"], "label": "condition_active_tfs"}}, {"data": {"id": "initialize__condition_inactive_tfs__output", "source": "initialize", "target": "condition_inactive_tfs", "direction": "output", "ports": ["condition_inactive_tfs"], "label": "condition_inactive_tfs"}}, {"data": {"id": "initialize__cell_specs__output", "source": "initialize", "target": "cell_specs", "direction": "output", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "initialize__translation_supply_rate__output", "source": "initialize", "target": "translation_supply_rate", "direction": "output", "ports": ["translation_supply_rate"], "label": "translation_supply_rate"}}, {"data": {"id": "initialize__expected_dry_mass_increase_dict__output", "source": "initialize", "target": "expected_dry_mass_increase_dict", "direction": "output", "ports": ["expected_dry_mass_increase_dict"], "label": "expected_dry_mass_increase_dict"}}, {"data": {"id": "initialize__pPromoterBound__output", "source": "initialize", "target": "pPromoterBound", "direction": "output", "ports": ["pPromoterBound"], "label": "pPromoterBound"}}, {"data": {"id": "initialize__condition__output", "source": "initialize", "target": "condition", "direction": "output", "ports": ["condition"], "label": "condition"}}, {"data": {"id": "process/transcription__input_adjustments__input", "source": "process/transcription", "target": "input_adjustments", "direction": "input", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "process/translation__input_adjustments__input", "source": "process/translation", "target": "input_adjustments", "direction": "input", "ports": ["translation"], "label": "translation"}}, {"data": {"id": "adjustments__input_adjustments__input", "source": "adjustments", "target": "input_adjustments", "direction": "input", "ports": ["adjustments"], "label": "adjustments"}}, {"data": {"id": "tf_to_active_inactive_conditions__input_adjustments__input", "source": "tf_to_active_inactive_conditions", "target": "input_adjustments", "direction": "input", "ports": ["tf_to_active_inactive_conditions"], "label": "tf_to_active_inactive_conditions"}}, {"data": {"id": "input_adjustments__process/transcription__output", "source": "input_adjustments", "target": "process/transcription", "direction": "output", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "input_adjustments__process/translation__output", "source": "input_adjustments", "target": "process/translation", "direction": "output", "ports": ["translation"], "label": "translation"}}, {"data": {"id": "input_adjustments__tf_to_active_inactive_conditions__output", "source": "input_adjustments", "target": "tf_to_active_inactive_conditions", "direction": "output", "ports": ["tf_to_active_inactive_conditions"], "label": "tf_to_active_inactive_conditions"}}, {"data": {"id": "process/transcription__basal_specs__input", "source": "process/transcription", "target": "basal_specs", "direction": "input", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "process/translation__basal_specs__input", "source": "process/translation", "target": "basal_specs", "direction": "input", "ports": ["translation"], "label": "translation"}}, {"data": {"id": "process/metabolism__basal_specs__input", "source": "process/metabolism", "target": "basal_specs", "direction": "input", "ports": ["metabolism"], "label": "metabolism"}}, {"data": {"id": "process/rna_decay__basal_specs__input", "source": "process/rna_decay", "target": "basal_specs", "direction": "input", "ports": ["rna_decay"], "label": "rna_decay"}}, {"data": {"id": "process/complexation__basal_specs__input", "source": "process/complexation", "target": "basal_specs", "direction": "input", "ports": ["complexation"], "label": "complexation"}}, {"data": {"id": "process/replication__basal_specs__input", "source": "process/replication", "target": "basal_specs", "direction": "input", "ports": ["replication"], "label": "replication"}}, {"data": {"id": "mass__basal_specs__input", "source": "mass", "target": "basal_specs", "direction": "input", "ports": ["mass"], "label": "mass"}}, {"data": {"id": "constants__basal_specs__input", "source": "constants", "target": "basal_specs", "direction": "input", "ports": ["constants"], "label": "constants"}}, {"data": {"id": "growth_rate_parameters__basal_specs__input", "source": "growth_rate_parameters", "target": "basal_specs", "direction": "input", "ports": ["growth_rate_parameters"], "label": "growth_rate_parameters"}}, {"data": {"id": "molecule_groups__basal_specs__input", "source": "molecule_groups", "target": "basal_specs", "direction": "input", "ports": ["molecule_groups"], "label": "molecule_groups"}}, {"data": {"id": "molecule_ids__basal_specs__input", "source": "molecule_ids", "target": "basal_specs", "direction": "input", "ports": ["molecule_ids"], "label": "molecule_ids"}}, {"data": {"id": "relation__basal_specs__input", "source": "relation", "target": "basal_specs", "direction": "input", "ports": ["relation"], "label": "relation"}}, {"data": {"id": "getter__basal_specs__input", "source": "getter", "target": "basal_specs", "direction": "input", "ports": ["getter"], "label": "getter"}}, {"data": {"id": "internal_state/bulk_molecules__basal_specs__input", "source": "internal_state/bulk_molecules", "target": "basal_specs", "direction": "input", "ports": ["bulk_molecules"], "label": "bulk_molecules"}}, {"data": {"id": "sim_data_root__basal_specs__input", "source": "sim_data_root", "target": "basal_specs", "direction": "input", "ports": ["sim_data_root"], "label": "sim_data_root"}}, {"data": {"id": "condition_to_doubling_time__basal_specs__input", "source": "condition_to_doubling_time", "target": "basal_specs", "direction": "input", "ports": ["condition_to_doubling_time"], "label": "condition_to_doubling_time"}}, {"data": {"id": "cell_specs__basal_specs__input", "source": "cell_specs", "target": "basal_specs", "direction": "input", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "basal_specs__process/transcription__output", "source": "basal_specs", "target": "process/transcription", "direction": "output", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "basal_specs__mass__output", "source": "basal_specs", "target": "mass", "direction": "output", "ports": ["mass"], "label": "mass"}}, {"data": {"id": "basal_specs__constants__output", "source": "basal_specs", "target": "constants", "direction": "output", "ports": ["constants"], "label": "constants"}}, {"data": {"id": "basal_specs__process/rna_decay__output", "source": "basal_specs", "target": "process/rna_decay", "direction": "output", "ports": ["rna_decay"], "label": "rna_decay"}}, {"data": {"id": "basal_specs__cell_specs__output", "source": "basal_specs", "target": "cell_specs", "direction": "output", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "process/transcription__tf_condition_specs__input", "source": "process/transcription", "target": "tf_condition_specs", "direction": "input", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "process/translation__tf_condition_specs__input", "source": "process/translation", "target": "tf_condition_specs", "direction": "input", "ports": ["translation"], "label": "translation"}}, {"data": {"id": "process/metabolism__tf_condition_specs__input", "source": "process/metabolism", "target": "tf_condition_specs", "direction": "input", "ports": ["metabolism"], "label": "metabolism"}}, {"data": {"id": "process/rna_decay__tf_condition_specs__input", "source": "process/rna_decay", "target": "tf_condition_specs", "direction": "input", "ports": ["rna_decay"], "label": "rna_decay"}}, {"data": {"id": "process/complexation__tf_condition_specs__input", "source": "process/complexation", "target": "tf_condition_specs", "direction": "input", "ports": ["complexation"], "label": "complexation"}}, {"data": {"id": "process/equilibrium__tf_condition_specs__input", "source": "process/equilibrium", "target": "tf_condition_specs", "direction": "input", "ports": ["equilibrium"], "label": "equilibrium"}}, {"data": {"id": "process/two_component_system__tf_condition_specs__input", "source": "process/two_component_system", "target": "tf_condition_specs", "direction": "input", "ports": ["two_component_system"], "label": "two_component_system"}}, {"data": {"id": "process/transcription_regulation__tf_condition_specs__input", "source": "process/transcription_regulation", "target": "tf_condition_specs", "direction": "input", "ports": ["transcription_regulation"], "label": "transcription_regulation"}}, {"data": {"id": "process/replication__tf_condition_specs__input", "source": "process/replication", "target": "tf_condition_specs", "direction": "input", "ports": ["replication"], "label": "replication"}}, {"data": {"id": "mass__tf_condition_specs__input", "source": "mass", "target": "tf_condition_specs", "direction": "input", "ports": ["mass"], "label": "mass"}}, {"data": {"id": "constants__tf_condition_specs__input", "source": "constants", "target": "tf_condition_specs", "direction": "input", "ports": ["constants"], "label": "constants"}}, {"data": {"id": "growth_rate_parameters__tf_condition_specs__input", "source": "growth_rate_parameters", "target": "tf_condition_specs", "direction": "input", "ports": ["growth_rate_parameters"], "label": "growth_rate_parameters"}}, {"data": {"id": "molecule_groups__tf_condition_specs__input", "source": "molecule_groups", "target": "tf_condition_specs", "direction": "input", "ports": ["molecule_groups"], "label": "molecule_groups"}}, {"data": {"id": "molecule_ids__tf_condition_specs__input", "source": "molecule_ids", "target": "tf_condition_specs", "direction": "input", "ports": ["molecule_ids"], "label": "molecule_ids"}}, {"data": {"id": "relation__tf_condition_specs__input", "source": "relation", "target": "tf_condition_specs", "direction": "input", "ports": ["relation"], "label": "relation"}}, {"data": {"id": "getter__tf_condition_specs__input", "source": "getter", "target": "tf_condition_specs", "direction": "input", "ports": ["getter"], "label": "getter"}}, {"data": {"id": "internal_state/bulk_molecules__tf_condition_specs__input", "source": "internal_state/bulk_molecules", "target": "tf_condition_specs", "direction": "input", "ports": ["bulk_molecules"], "label": "bulk_molecules"}}, {"data": {"id": "sim_data_root__tf_condition_specs__input", "source": "sim_data_root", "target": "tf_condition_specs", "direction": "input", "ports": ["sim_data_root"], "label": "sim_data_root"}}, {"data": {"id": "tf_to_active_inactive_conditions__tf_condition_specs__input", "source": "tf_to_active_inactive_conditions", "target": "tf_condition_specs", "direction": "input", "ports": ["tf_to_active_inactive_conditions"], "label": "tf_to_active_inactive_conditions"}}, {"data": {"id": "conditions__tf_condition_specs__input", "source": "conditions", "target": "tf_condition_specs", "direction": "input", "ports": ["conditions"], "label": "conditions"}}, {"data": {"id": "condition_to_doubling_time__tf_condition_specs__input", "source": "condition_to_doubling_time", "target": "tf_condition_specs", "direction": "input", "ports": ["condition_to_doubling_time"], "label": "condition_to_doubling_time"}}, {"data": {"id": "tf_to_fold_change__tf_condition_specs__input", "source": "tf_to_fold_change", "target": "tf_condition_specs", "direction": "input", "ports": ["tf_to_fold_change"], "label": "tf_to_fold_change"}}, {"data": {"id": "condition_active_tfs__tf_condition_specs__input", "source": "condition_active_tfs", "target": "tf_condition_specs", "direction": "input", "ports": ["condition_active_tfs"], "label": "condition_active_tfs"}}, {"data": {"id": "condition_inactive_tfs__tf_condition_specs__input", "source": "condition_inactive_tfs", "target": "tf_condition_specs", "direction": "input", "ports": ["condition_inactive_tfs"], "label": "condition_inactive_tfs"}}, {"data": {"id": "cell_specs__tf_condition_specs__input", "source": "cell_specs", "target": "tf_condition_specs", "direction": "input", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "tf_condition_specs__process/transcription__output", "source": "tf_condition_specs", "target": "process/transcription", "direction": "output", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "tf_condition_specs__cell_specs__output", "source": "tf_condition_specs", "target": "cell_specs", "direction": "output", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "process/transcription__fit_condition__input", "source": "process/transcription", "target": "fit_condition", "direction": "input", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "process/translation__fit_condition__input", "source": "process/translation", "target": "fit_condition", "direction": "input", "ports": ["translation"], "label": "translation"}}, {"data": {"id": "process/complexation__fit_condition__input", "source": "process/complexation", "target": "fit_condition", "direction": "input", "ports": ["complexation"], "label": "complexation"}}, {"data": {"id": "process/equilibrium__fit_condition__input", "source": "process/equilibrium", "target": "fit_condition", "direction": "input", "ports": ["equilibrium"], "label": "equilibrium"}}, {"data": {"id": "process/two_component_system__fit_condition__input", "source": "process/two_component_system", "target": "fit_condition", "direction": "input", "ports": ["two_component_system"], "label": "two_component_system"}}, {"data": {"id": "mass__fit_condition__input", "source": "mass", "target": "fit_condition", "direction": "input", "ports": ["mass"], "label": "mass"}}, {"data": {"id": "constants__fit_condition__input", "source": "constants", "target": "fit_condition", "direction": "input", "ports": ["constants"], "label": "constants"}}, {"data": {"id": "growth_rate_parameters__fit_condition__input", "source": "growth_rate_parameters", "target": "fit_condition", "direction": "input", "ports": ["growth_rate_parameters"], "label": "growth_rate_parameters"}}, {"data": {"id": "molecule_ids__fit_condition__input", "source": "molecule_ids", "target": "fit_condition", "direction": "input", "ports": ["molecule_ids"], "label": "molecule_ids"}}, {"data": {"id": "relation__fit_condition__input", "source": "relation", "target": "fit_condition", "direction": "input", "ports": ["relation"], "label": "relation"}}, {"data": {"id": "molecule_groups__fit_condition__input", "source": "molecule_groups", "target": "fit_condition", "direction": "input", "ports": ["molecule_groups"], "label": "molecule_groups"}}, {"data": {"id": "getter__fit_condition__input", "source": "getter", "target": "fit_condition", "direction": "input", "ports": ["getter"], "label": "getter"}}, {"data": {"id": "internal_state/bulk_molecules__fit_condition__input", "source": "internal_state/bulk_molecules", "target": "fit_condition", "direction": "input", "ports": ["bulk_molecules"], "label": "bulk_molecules"}}, {"data": {"id": "sim_data_root__fit_condition__input", "source": "sim_data_root", "target": "fit_condition", "direction": "input", "ports": ["sim_data_root"], "label": "sim_data_root"}}, {"data": {"id": "conditions__fit_condition__input", "source": "conditions", "target": "fit_condition", "direction": "input", "ports": ["conditions"], "label": "conditions"}}, {"data": {"id": "cell_specs__fit_condition__input", "source": "cell_specs", "target": "fit_condition", "direction": "input", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "fit_condition__cell_specs__output", "source": "fit_condition", "target": "cell_specs", "direction": "output", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "fit_condition__translation_supply_rate__output", "source": "fit_condition", "target": "translation_supply_rate", "direction": "output", "ports": ["translation_supply_rate"], "label": "translation_supply_rate"}}, {"data": {"id": "process/transcription__promoter_binding__input", "source": "process/transcription", "target": "promoter_binding", "direction": "input", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "process/transcription_regulation__promoter_binding__input", "source": "process/transcription_regulation", "target": "promoter_binding", "direction": "input", "ports": ["transcription_regulation"], "label": "transcription_regulation"}}, {"data": {"id": "process/equilibrium__promoter_binding__input", "source": "process/equilibrium", "target": "promoter_binding", "direction": "input", "ports": ["equilibrium"], "label": "equilibrium"}}, {"data": {"id": "process/two_component_system__promoter_binding__input", "source": "process/two_component_system", "target": "promoter_binding", "direction": "input", "ports": ["two_component_system"], "label": "two_component_system"}}, {"data": {"id": "process/replication__promoter_binding__input", "source": "process/replication", "target": "promoter_binding", "direction": "input", "ports": ["replication"], "label": "replication"}}, {"data": {"id": "mass__promoter_binding__input", "source": "mass", "target": "promoter_binding", "direction": "input", "ports": ["mass"], "label": "mass"}}, {"data": {"id": "constants__promoter_binding__input", "source": "constants", "target": "promoter_binding", "direction": "input", "ports": ["constants"], "label": "constants"}}, {"data": {"id": "molecule_ids__promoter_binding__input", "source": "molecule_ids", "target": "promoter_binding", "direction": "input", "ports": ["molecule_ids"], "label": "molecule_ids"}}, {"data": {"id": "molecule_groups__promoter_binding__input", "source": "molecule_groups", "target": "promoter_binding", "direction": "input", "ports": ["molecule_groups"], "label": "molecule_groups"}}, {"data": {"id": "relation__promoter_binding__input", "source": "relation", "target": "promoter_binding", "direction": "input", "ports": ["relation"], "label": "relation"}}, {"data": {"id": "getter__promoter_binding__input", "source": "getter", "target": "promoter_binding", "direction": "input", "ports": ["getter"], "label": "getter"}}, {"data": {"id": "internal_state/bulk_molecules__promoter_binding__input", "source": "internal_state/bulk_molecules", "target": "promoter_binding", "direction": "input", "ports": ["bulk_molecules"], "label": "bulk_molecules"}}, {"data": {"id": "sim_data_root__promoter_binding__input", "source": "sim_data_root", "target": "promoter_binding", "direction": "input", "ports": ["sim_data_root"], "label": "sim_data_root"}}, {"data": {"id": "conditions__promoter_binding__input", "source": "conditions", "target": "promoter_binding", "direction": "input", "ports": ["conditions"], "label": "conditions"}}, {"data": {"id": "condition_to_doubling_time__promoter_binding__input", "source": "condition_to_doubling_time", "target": "promoter_binding", "direction": "input", "ports": ["condition_to_doubling_time"], "label": "condition_to_doubling_time"}}, {"data": {"id": "tf_to_active_inactive_conditions__promoter_binding__input", "source": "tf_to_active_inactive_conditions", "target": "promoter_binding", "direction": "input", "ports": ["tf_to_active_inactive_conditions"], "label": "tf_to_active_inactive_conditions"}}, {"data": {"id": "tf_to_fold_change__promoter_binding__input", "source": "tf_to_fold_change", "target": "promoter_binding", "direction": "input", "ports": ["tf_to_fold_change"], "label": "tf_to_fold_change"}}, {"data": {"id": "tf_to_direction__promoter_binding__input", "source": "tf_to_direction", "target": "promoter_binding", "direction": "input", "ports": ["tf_to_direction"], "label": "tf_to_direction"}}, {"data": {"id": "condition_active_tfs__promoter_binding__input", "source": "condition_active_tfs", "target": "promoter_binding", "direction": "input", "ports": ["condition_active_tfs"], "label": "condition_active_tfs"}}, {"data": {"id": "condition_inactive_tfs__promoter_binding__input", "source": "condition_inactive_tfs", "target": "promoter_binding", "direction": "input", "ports": ["condition_inactive_tfs"], "label": "condition_inactive_tfs"}}, {"data": {"id": "cell_specs__promoter_binding__input", "source": "cell_specs", "target": "promoter_binding", "direction": "input", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "promoter_binding__process/transcription__output", "source": "promoter_binding", "target": "process/transcription", "direction": "output", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "promoter_binding__process/transcription_regulation__output", "source": "promoter_binding", "target": "process/transcription_regulation", "direction": "output", "ports": ["transcription_regulation"], "label": "transcription_regulation"}}, {"data": {"id": "promoter_binding__cell_specs__output", "source": "promoter_binding", "target": "cell_specs", "direction": "output", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "promoter_binding__pPromoterBound__output", "source": "promoter_binding", "target": "pPromoterBound", "direction": "output", "ports": ["pPromoterBound"], "label": "pPromoterBound"}}, {"data": {"id": "process/transcription__adjust_promoters__input", "source": "process/transcription", "target": "adjust_promoters", "direction": "input", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "process/transcription_regulation__adjust_promoters__input", "source": "process/transcription_regulation", "target": "adjust_promoters", "direction": "input", "ports": ["transcription_regulation"], "label": "transcription_regulation"}}, {"data": {"id": "process/equilibrium__adjust_promoters__input", "source": "process/equilibrium", "target": "adjust_promoters", "direction": "input", "ports": ["equilibrium"], "label": "equilibrium"}}, {"data": {"id": "process/two_component_system__adjust_promoters__input", "source": "process/two_component_system", "target": "adjust_promoters", "direction": "input", "ports": ["two_component_system"], "label": "two_component_system"}}, {"data": {"id": "process/metabolism__adjust_promoters__input", "source": "process/metabolism", "target": "adjust_promoters", "direction": "input", "ports": ["metabolism"], "label": "metabolism"}}, {"data": {"id": "process/replication__adjust_promoters__input", "source": "process/replication", "target": "adjust_promoters", "direction": "input", "ports": ["replication"], "label": "replication"}}, {"data": {"id": "mass__adjust_promoters__input", "source": "mass", "target": "adjust_promoters", "direction": "input", "ports": ["mass"], "label": "mass"}}, {"data": {"id": "constants__adjust_promoters__input", "source": "constants", "target": "adjust_promoters", "direction": "input", "ports": ["constants"], "label": "constants"}}, {"data": {"id": "molecule_ids__adjust_promoters__input", "source": "molecule_ids", "target": "adjust_promoters", "direction": "input", "ports": ["molecule_ids"], "label": "molecule_ids"}}, {"data": {"id": "molecule_groups__adjust_promoters__input", "source": "molecule_groups", "target": "adjust_promoters", "direction": "input", "ports": ["molecule_groups"], "label": "molecule_groups"}}, {"data": {"id": "relation__adjust_promoters__input", "source": "relation", "target": "adjust_promoters", "direction": "input", "ports": ["relation"], "label": "relation"}}, {"data": {"id": "getter__adjust_promoters__input", "source": "getter", "target": "adjust_promoters", "direction": "input", "ports": ["getter"], "label": "getter"}}, {"data": {"id": "internal_state/bulk_molecules__adjust_promoters__input", "source": "internal_state/bulk_molecules", "target": "adjust_promoters", "direction": "input", "ports": ["bulk_molecules"], "label": "bulk_molecules"}}, {"data": {"id": "sim_data_root__adjust_promoters__input", "source": "sim_data_root", "target": "adjust_promoters", "direction": "input", "ports": ["sim_data_root"], "label": "sim_data_root"}}, {"data": {"id": "conditions__adjust_promoters__input", "source": "conditions", "target": "adjust_promoters", "direction": "input", "ports": ["conditions"], "label": "conditions"}}, {"data": {"id": "condition_to_doubling_time__adjust_promoters__input", "source": "condition_to_doubling_time", "target": "adjust_promoters", "direction": "input", "ports": ["condition_to_doubling_time"], "label": "condition_to_doubling_time"}}, {"data": {"id": "tf_to_active_inactive_conditions__adjust_promoters__input", "source": "tf_to_active_inactive_conditions", "target": "adjust_promoters", "direction": "input", "ports": ["tf_to_active_inactive_conditions"], "label": "tf_to_active_inactive_conditions"}}, {"data": {"id": "tf_to_fold_change__adjust_promoters__input", "source": "tf_to_fold_change", "target": "adjust_promoters", "direction": "input", "ports": ["tf_to_fold_change"], "label": "tf_to_fold_change"}}, {"data": {"id": "tf_to_direction__adjust_promoters__input", "source": "tf_to_direction", "target": "adjust_promoters", "direction": "input", "ports": ["tf_to_direction"], "label": "tf_to_direction"}}, {"data": {"id": "condition_active_tfs__adjust_promoters__input", "source": "condition_active_tfs", "target": "adjust_promoters", "direction": "input", "ports": ["condition_active_tfs"], "label": "condition_active_tfs"}}, {"data": {"id": "condition_inactive_tfs__adjust_promoters__input", "source": "condition_inactive_tfs", "target": "adjust_promoters", "direction": "input", "ports": ["condition_inactive_tfs"], "label": "condition_inactive_tfs"}}, {"data": {"id": "cell_specs__adjust_promoters__input", "source": "cell_specs", "target": "adjust_promoters", "direction": "input", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "pPromoterBound__adjust_promoters__input", "source": "pPromoterBound", "target": "adjust_promoters", "direction": "input", "ports": ["pPromoterBound"], "label": "pPromoterBound"}}, {"data": {"id": "adjust_promoters__process/transcription_regulation__output", "source": "adjust_promoters", "target": "process/transcription_regulation", "direction": "output", "ports": ["transcription_regulation"], "label": "transcription_regulation"}}, {"data": {"id": "adjust_promoters__process/metabolism__output", "source": "adjust_promoters", "target": "process/metabolism", "direction": "output", "ports": ["metabolism"], "label": "metabolism"}}, {"data": {"id": "adjust_promoters__process/equilibrium__output", "source": "adjust_promoters", "target": "process/equilibrium", "direction": "output", "ports": ["equilibrium"], "label": "equilibrium"}}, {"data": {"id": "process/transcription__set_conditions__input", "source": "process/transcription", "target": "set_conditions", "direction": "input", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "process/translation__set_conditions__input", "source": "process/translation", "target": "set_conditions", "direction": "input", "ports": ["translation"], "label": "translation"}}, {"data": {"id": "process/metabolism__set_conditions__input", "source": "process/metabolism", "target": "set_conditions", "direction": "input", "ports": ["metabolism"], "label": "metabolism"}}, {"data": {"id": "mass__set_conditions__input", "source": "mass", "target": "set_conditions", "direction": "input", "ports": ["mass"], "label": "mass"}}, {"data": {"id": "constants__set_conditions__input", "source": "constants", "target": "set_conditions", "direction": "input", "ports": ["constants"], "label": "constants"}}, {"data": {"id": "growth_rate_parameters__set_conditions__input", "source": "growth_rate_parameters", "target": "set_conditions", "direction": "input", "ports": ["growth_rate_parameters"], "label": "growth_rate_parameters"}}, {"data": {"id": "getter__set_conditions__input", "source": "getter", "target": "set_conditions", "direction": "input", "ports": ["getter"], "label": "getter"}}, {"data": {"id": "sim_data_root__set_conditions__input", "source": "sim_data_root", "target": "set_conditions", "direction": "input", "ports": ["sim_data_root"], "label": "sim_data_root"}}, {"data": {"id": "conditions__set_conditions__input", "source": "conditions", "target": "set_conditions", "direction": "input", "ports": ["conditions"], "label": "conditions"}}, {"data": {"id": "condition_to_doubling_time__set_conditions__input", "source": "condition_to_doubling_time", "target": "set_conditions", "direction": "input", "ports": ["condition_to_doubling_time"], "label": "condition_to_doubling_time"}}, {"data": {"id": "cell_specs__set_conditions__input", "source": "cell_specs", "target": "set_conditions", "direction": "input", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "set_conditions__process/transcription__output", "source": "set_conditions", "target": "process/transcription", "direction": "output", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "set_conditions__process/translation__output", "source": "set_conditions", "target": "process/translation", "direction": "output", "ports": ["translation"], "label": "translation"}}, {"data": {"id": "set_conditions__cell_specs__output", "source": "set_conditions", "target": "cell_specs", "direction": "output", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "set_conditions__expected_dry_mass_increase_dict__output", "source": "set_conditions", "target": "expected_dry_mass_increase_dict", "direction": "output", "ports": ["expected_dry_mass_increase_dict"], "label": "expected_dry_mass_increase_dict"}}, {"data": {"id": "process/transcription__final_adjustments__input", "source": "process/transcription", "target": "final_adjustments", "direction": "input", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "process/translation__final_adjustments__input", "source": "process/translation", "target": "final_adjustments", "direction": "input", "ports": ["translation"], "label": "translation"}}, {"data": {"id": "process/metabolism__final_adjustments__input", "source": "process/metabolism", "target": "final_adjustments", "direction": "input", "ports": ["metabolism"], "label": "metabolism"}}, {"data": {"id": "process/complexation__final_adjustments__input", "source": "process/complexation", "target": "final_adjustments", "direction": "input", "ports": ["complexation"], "label": "complexation"}}, {"data": {"id": "process/equilibrium__final_adjustments__input", "source": "process/equilibrium", "target": "final_adjustments", "direction": "input", "ports": ["equilibrium"], "label": "equilibrium"}}, {"data": {"id": "process/two_component_system__final_adjustments__input", "source": "process/two_component_system", "target": "final_adjustments", "direction": "input", "ports": ["two_component_system"], "label": "two_component_system"}}, {"data": {"id": "process/transcription_regulation__final_adjustments__input", "source": "process/transcription_regulation", "target": "final_adjustments", "direction": "input", "ports": ["transcription_regulation"], "label": "transcription_regulation"}}, {"data": {"id": "process/replication__final_adjustments__input", "source": "process/replication", "target": "final_adjustments", "direction": "input", "ports": ["replication"], "label": "replication"}}, {"data": {"id": "mass__final_adjustments__input", "source": "mass", "target": "final_adjustments", "direction": "input", "ports": ["mass"], "label": "mass"}}, {"data": {"id": "constants__final_adjustments__input", "source": "constants", "target": "final_adjustments", "direction": "input", "ports": ["constants"], "label": "constants"}}, {"data": {"id": "growth_rate_parameters__final_adjustments__input", "source": "growth_rate_parameters", "target": "final_adjustments", "direction": "input", "ports": ["growth_rate_parameters"], "label": "growth_rate_parameters"}}, {"data": {"id": "molecule_ids__final_adjustments__input", "source": "molecule_ids", "target": "final_adjustments", "direction": "input", "ports": ["molecule_ids"], "label": "molecule_ids"}}, {"data": {"id": "molecule_groups__final_adjustments__input", "source": "molecule_groups", "target": "final_adjustments", "direction": "input", "ports": ["molecule_groups"], "label": "molecule_groups"}}, {"data": {"id": "relation__final_adjustments__input", "source": "relation", "target": "final_adjustments", "direction": "input", "ports": ["relation"], "label": "relation"}}, {"data": {"id": "getter__final_adjustments__input", "source": "getter", "target": "final_adjustments", "direction": "input", "ports": ["getter"], "label": "getter"}}, {"data": {"id": "internal_state/bulk_molecules__final_adjustments__input", "source": "internal_state/bulk_molecules", "target": "final_adjustments", "direction": "input", "ports": ["bulk_molecules"], "label": "bulk_molecules"}}, {"data": {"id": "sim_data_root__final_adjustments__input", "source": "sim_data_root", "target": "final_adjustments", "direction": "input", "ports": ["sim_data_root"], "label": "sim_data_root"}}, {"data": {"id": "conditions__final_adjustments__input", "source": "conditions", "target": "final_adjustments", "direction": "input", "ports": ["conditions"], "label": "conditions"}}, {"data": {"id": "condition_to_doubling_time__final_adjustments__input", "source": "condition_to_doubling_time", "target": "final_adjustments", "direction": "input", "ports": ["condition_to_doubling_time"], "label": "condition_to_doubling_time"}}, {"data": {"id": "tf_to_active_inactive_conditions__final_adjustments__input", "source": "tf_to_active_inactive_conditions", "target": "final_adjustments", "direction": "input", "ports": ["tf_to_active_inactive_conditions"], "label": "tf_to_active_inactive_conditions"}}, {"data": {"id": "tf_to_fold_change__final_adjustments__input", "source": "tf_to_fold_change", "target": "final_adjustments", "direction": "input", "ports": ["tf_to_fold_change"], "label": "tf_to_fold_change"}}, {"data": {"id": "tf_to_direction__final_adjustments__input", "source": "tf_to_direction", "target": "final_adjustments", "direction": "input", "ports": ["tf_to_direction"], "label": "tf_to_direction"}}, {"data": {"id": "condition_active_tfs__final_adjustments__input", "source": "condition_active_tfs", "target": "final_adjustments", "direction": "input", "ports": ["condition_active_tfs"], "label": "condition_active_tfs"}}, {"data": {"id": "condition_inactive_tfs__final_adjustments__input", "source": "condition_inactive_tfs", "target": "final_adjustments", "direction": "input", "ports": ["condition_inactive_tfs"], "label": "condition_inactive_tfs"}}, {"data": {"id": "cell_specs__final_adjustments__input", "source": "cell_specs", "target": "final_adjustments", "direction": "input", "ports": ["cell_specs"], "label": "cell_specs"}}, {"data": {"id": "translation_supply_rate__final_adjustments__input", "source": "translation_supply_rate", "target": "final_adjustments", "direction": "input", "ports": ["translation_supply_rate"], "label": "translation_supply_rate"}}, {"data": {"id": "pPromoterBound__final_adjustments__input", "source": "pPromoterBound", "target": "final_adjustments", "direction": "input", "ports": ["pPromoterBound"], "label": "pPromoterBound"}}, {"data": {"id": "external_state__final_adjustments__input", "source": "external_state", "target": "final_adjustments", "direction": "input", "ports": ["external_state"], "label": "external_state"}}, {"data": {"id": "condition__final_adjustments__input", "source": "condition", "target": "final_adjustments", "direction": "input", "ports": ["condition"], "label": "condition"}}, {"data": {"id": "final_adjustments__process/transcription__output", "source": "final_adjustments", "target": "process/transcription", "direction": "output", "ports": ["transcription"], "label": "transcription"}}, {"data": {"id": "final_adjustments__process/metabolism__output", "source": "final_adjustments", "target": "process/metabolism", "direction": "output", "ports": ["metabolism"], "label": "metabolism"}}, {"data": {"id": "final_adjustments__constants__output", "source": "final_adjustments", "target": "constants", "direction": "output", "ports": ["constants"], "label": "constants"}}], "layers": [["initialize"], ["input_adjustments"], ["basal_specs"], ["tf_condition_specs"], ["fit_condition"], ["promoter_binding"], ["adjust_promoters"], ["set_conditions"], ["final_adjustments"]], "legend": [{"key": "init", "label": "Initialize (scatter)", "color": "#9CC8E3"}, {"key": "basal", "label": "Basal fitting", "color": "#A4D4A4"}, {"key": "fit", "label": "Per-condition fitting", "color": "#F7D488"}, {"key": "promoter", "label": "Promoter binding", "color": "#D9B8E0"}, {"key": "condition", "label": "Set conditions", "color": "#FFD58C"}, {"key": "final", "label": "Final adjustments", "color": "#F4A7A1"}]};
+
+    const cy = cytoscape({
+      container: document.getElementById('cy'),
+      elements: { nodes: DATA.nodes, edges: DATA.edges },
+      minZoom: 0.1, maxZoom: 5, wheelSensitivity: 0.2,
+      style: [
+        { selector: 'node', style: {
+            'label': 'data(label)',
+            'background-color': 'data(color)',
+            'border-color': '#333', 'border-width': 1,
+            'font-size': '16px',
+            'text-valign': 'center', 'text-halign': 'center',
+            'text-wrap': 'wrap', 'text-max-width': 120,
+            'width': 'label', 'height': 'label',
+            'padding': '8px', 'shape': 'rectangle',
+        } },
+        { selector: 'node[kind="store"]', style: {
+            'shape': 'ellipse', 'background-color': '#ffffff',
+            'border-color': '#666', 'border-width': 2, 'border-style': 'solid',
+            'font-weight': 600, 'color': '#333',
+            'width': 'label', 'height': 'label',
+            'padding': '14px',
+        } },
+        { selector: 'edge', style: {
+            'curve-style': 'bezier', 'width': 1.5,
+            'line-color': '#bbb', 'target-arrow-shape': 'triangle',
+            'target-arrow-color': '#bbb', 'arrow-scale': 0.9, 'opacity': 0.75,
+            'line-style': 'dashed',
+        } },
+        { selector: 'edge[direction="input"]', style: {
+            'line-color': '#7BA7D9', 'target-arrow-color': '#7BA7D9',
+            'line-style': 'dashed',
+        } },
+        { selector: 'edge[direction="output"]', style: {
+            'line-color': '#D88A7B', 'target-arrow-color': '#D88A7B',
+            'line-style': 'dashed',
+        } },
+        { selector: 'edge[direction="contains"]', style: {
+            'line-color': '#666', 'line-style': 'solid',
+            'target-arrow-shape': 'none', 'width': 1.5, 'opacity': 0.8,
+            'curve-style': 'bezier',
+        } },
+        { selector: 'node[?is_container]', style: {
+            'background-color': '#fafafa', 'border-style': 'solid',
+            'border-color': '#333', 'border-width': 2.5,
+            'font-weight': 700, 'font-size': '18px',
+        } },
+        { selector: '.faded', style: { 'opacity': 0.1, 'text-opacity': 0.1 } },
+        { selector: '.highlighted', style: { 'border-color': '#000', 'border-width': 3 } },
+        { selector: 'edge.highlighted', style: { 'width': 3, 'opacity': 1 } },
+      ],
+    });
+
+    const layoutOpts = {
+      dagre:        { name: 'dagre', rankDir: 'LR', nodeSep: 40, rankSep: 120, edgeSep: 20, animate: true },
+      fcose:        { name: 'fcose', quality: 'proof', randomize: false, animate: true, idealEdgeLength: 90, nodeRepulsion: 4500 },
+      grid:         { name: 'grid', avoidOverlap: true, padding: 24, animate: true },
+      circle:       { name: 'circle', padding: 24, animate: true },
+      concentric:   { name: 'concentric', padding: 24, animate: true, concentric: n => (n.data('kind') === 'store' ? 1 : 10) },
+      breadthfirst: { name: 'breadthfirst', directed: true, padding: 24, animate: true },
+    };
+    function bipartitePositions() {
+      // Stores on left, processes on right. Stores are grouped by parent:
+      // a container store (e.g. ``unique``) is followed by its children
+      // (e.g. ``unique.promoter``, ``unique.active_replisome``), indented
+      // slightly so the place-graph nesting reads as a tree. Processes
+      // sort by execution layer then name for a stable tie-break.
+      const allStores = cy.nodes().filter(n => n.data('kind') === 'store');
+      const parents = allStores.filter(n =>
+        !n.data('parent_store') &&
+        allStores.some(c => c.data('parent_store') === n.id())
+      );
+      const orphans = allStores.filter(n => !n.data('parent_store')
+        && !parents.some(p => p.id() === n.id()));
+      const byParent = new Map();
+      allStores.forEach(n => {
+        const p = n.data('parent_store');
+        if (p) {
+          if (!byParent.has(p)) byParent.set(p, []);
+          byParent.get(p).push(n);
+        }
+      });
+      const alpha = (a, b) => a.data('label').localeCompare(b.data('label'));
+
+      // Ordered list: orphans (alpha), then parent + its children (alpha),
+      // keeping the place-graph cluster contiguous in the column.
+      const ordered = [];
+      orphans.sort(alpha).forEach(n => ordered.push({node: n, depth: 0}));
+      parents.sort(alpha).forEach(p => {
+        ordered.push({node: p, depth: 0});
+        const kids = (byParent.get(p.id()) || []).slice().sort(alpha);
+        kids.forEach(k => ordered.push({node: k, depth: 1}));
+      });
+
+      const procs = cy.nodes().filter(n => n.data('kind') !== 'store')
+        .sort((a, b) => {
+          const la = a.data('layer'); const lb = b.data('layer');
+          if (la !== lb) return (la ?? 99) - (lb ?? 99);
+          return a.data('label').localeCompare(b.data('label'));
+        });
+      const storeStep = 70, procStep = 60;
+      const storeX = 0, procX = 760;
+      const positions = new Map();
+      // Sub-stores sit directly below their parent (same x). The
+      // place-graph edge provides the visible link; no indent needed.
+      ordered.forEach(({node}, i) => {
+        positions.set(node.id(), { x: storeX, y: i * storeStep });
+      });
+      procs.forEach((n, i) => positions.set(n.id(), { x: procX, y: i * procStep }));
+      return positions;
+    }
+    function applyLayout(name) {
+      if (name === 'bipartite') {
+        const pos = bipartitePositions();
+        cy.layout({
+          name: 'preset',
+          positions: node => pos.get(node.id()) || { x: 0, y: 0 },
+          animate: true, fit: true, padding: 30,
+        }).run();
+        return;
+      }
+      cy.layout(layoutOpts[name] || layoutOpts.dagre).run();
+    }
+    applyLayout('bipartite');
+
+    document.getElementById('layout-select').addEventListener('change', e => applyLayout(e.target.value));
+    document.getElementById('btn-fit').onclick = () => cy.fit(null, 24);
+    document.getElementById('btn-reset').onclick = () => {
+      cy.elements().removeClass('faded highlighted'); hideDetails();
+      applyLayout(document.getElementById('layout-select').value);
+    };
+
+    function focusNode(node) {
+      cy.elements().addClass('faded').removeClass('highlighted');
+      const nh = node.closedNeighborhood();
+      nh.removeClass('faded').addClass('highlighted');
+      showDetails(node);
+    }
+    cy.on('tap', 'node', evt => focusNode(evt.target));
+    cy.on('tap', evt => {
+      if (evt.target === cy) { cy.elements().removeClass('faded highlighted'); hideDetails(); }
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { cy.elements().removeClass('faded highlighted'); hideDetails(); }
+    });
+
+    const detailsEl = document.getElementById('details');
+    let detailsExpanded = false;
+    function toggleExpanded() {
+      detailsExpanded = !detailsExpanded;
+      detailsEl.classList.toggle('expanded', detailsExpanded);
+      const btn = document.getElementById('btn-expand');
+      if (btn) btn.textContent = detailsExpanded ? 'Collapse' : 'Expand';
+    }
+    // Split a math section into labeled sub-blocks. Recognises headings
+    // of the form "Inputs:", "Inputs (...)", "Parameters:", "Calculation:",
+    // "Outputs:", "Notes:" at column 0 (left-trimmed). Falls back to a
+    // single unlabeled block if no such heading is found.
+    function splitMathBlocks(text) {
+      const lines = String(text || '').split('\n');
+      const headingRe = /^(Inputs|Parameters|Calculation|Outputs|Notes)\b/i;
+      const blocks = [];
+      let current = { label: null, cls: 'calc', body: [] };
+      for (const line of lines) {
+        const m = headingRe.exec(line);
+        if (m) {
+          if (current.body.length || current.label) blocks.push(current);
+          const key = m[1].toLowerCase();
+          const cls = key === 'inputs' ? 'inputs'
+                    : key === 'outputs' ? 'outputs'
+                    : key === 'parameters' ? 'params'
+                    : key === 'notes' ? 'calc'
+                    : 'calc';
+          current = { label: line.trim(), cls, body: [] };
+        } else {
+          current.body.push(line);
+        }
+      }
+      if (current.body.length || current.label) blocks.push(current);
+      return blocks;
+    }
+    function renderMath(text) {
+      const blocks = splitMathBlocks(text);
+      if (!blocks.length) return '';
+      // If there's no labeled heading at all, just render one plain block.
+      if (blocks.length === 1 && !blocks[0].label) {
+        return `<div class="math">${escapeHtml(blocks[0].body.join('\n').trim())}</div>`;
+      }
+      return blocks.map(b => {
+        const body = b.body.join('\n').replace(/^\n+|\n+$/g, '');
+        if (!body && !b.label) return '';
+        const label = b.label
+          ? `<div class="math-label ${b.cls}">${escapeHtml(b.label)}</div>`
+          : '';
+        return `<div class="math-block">${label}<div class="math">${escapeHtml(body)}</div></div>`;
+      }).join('');
+    }
+    function fmtSchemaValue(v) {
+      // Compact one-line representation for a schema node.
+      if (v === null || v === undefined) return '<code>any</code>';
+      if (typeof v === 'string') return `<code class="schema-type">${escapeHtml(v)}</code>`;
+      if (typeof v !== 'object') return `<code>${escapeHtml(String(v))}</code>`;
+      if (Array.isArray(v)) {
+        return `<code>[${v.map(fmtSchemaValue).join(', ')}]</code>`;
+      }
+      if ('_type' in v) {
+        const dflt = ('_default' in v) ? ` = ${escapeHtml(JSON.stringify(v._default))}` : '';
+        return `<code class="schema-type">${escapeHtml(String(v._type))}</code>${escapeHtml(dflt)}`;
+      }
+      return '<code>{…}</code>';
+    }
+    function renderSchemaTable(schema, dirColor, label) {
+      if (!schema || typeof schema !== 'object' || !Object.keys(schema).length) return '';
+      let rows = `<tr><td colspan=2 style="color:${dirColor};font-weight:600">${label}</td></tr>`;
+      const walk = (obj, prefix) => {
+        for (const [k, v] of Object.entries(obj)) {
+          const key = prefix ? `${prefix}.${k}` : k;
+          if (v && typeof v === 'object' && !('_type' in v) && !Array.isArray(v)) {
+            walk(v, key);
+          } else {
+            rows += `<tr class="port-row"><td><code>${escapeHtml(key)}</code></td><td>${fmtSchemaValue(v)}</td></tr>`;
+          }
+        }
+      };
+      walk(schema, '');
+      return rows;
+    }
+    function showDetails(node) {
+      const d = node.data();
+      const m = d.meta || {};
+      const incoming = node.incomers('edge').map(e => ({ peer: e.source().id(), ports: e.data('ports') }));
+      const outgoing = node.outgoers('edge').map(e => ({ peer: e.target().id(), ports: e.data('ports') }));
+
+      const meta = [];
+      if (d.kind) meta.push(d.kind);
+      if (d.subsystem) meta.push(d.subsystem);
+      if (d.layer !== undefined && d.layer !== -1) meta.push(`layer L${String(d.layer).padStart(2,'0')}`);
+      if (d.klass) meta.push(`<code>${escapeHtml(d.klass)}</code>`);
+
+      let html = '';
+      html += `<div class="toolbar-mini"><h3>${escapeHtml(d.label)}</h3>`;
+      html += `<div><button id="btn-expand">${detailsExpanded ? 'Collapse' : 'Expand'}</button> `;
+      html += `<button id="btn-close">×</button></div></div>`;
+      html += `<div class="meta">${meta.join(' · ')}</div>`;
+
+      if (m.math) {
+        html += `<details open><summary>Mathematics</summary>${renderMath(m.math)}</details>`;
+      }
+      if (m.doc) {
+        html += `<details ${m.math ? '' : 'open'}><summary>Docstring</summary><div class="doc">${escapeHtml(m.doc)}</div></details>`;
+      }
+      if (m.class) {
+        html += `<details><summary>Class</summary><pre>${escapeHtml(m.class)}</pre></details>`;
+      }
+
+      // Neighbor wires — same compact view as before
+      html += `<details open><summary>Wires (${incoming.length + outgoing.length})</summary><table>`;
+      if (incoming.length) {
+        html += `<tr><td colspan=2 style="color:#7BA7D9;font-weight:600">Inputs (${incoming.length})</td></tr>`;
+        for (const e of incoming) html += `<tr><td>${escapeHtml(e.peer)}</td><td>${escapeHtml(e.ports.join(', '))}</td></tr>`;
+      }
+      if (outgoing.length) {
+        html += `<tr><td colspan=2 style="color:#D88A7B;font-weight:600">Outputs (${outgoing.length})</td></tr>`;
+        for (const e of outgoing) html += `<tr><td>${escapeHtml(e.peer)}</td><td>${escapeHtml(e.ports.join(', '))}</td></tr>`;
+      }
+      html += `</table></details>`;
+
+      // Port schemas from `_inputs` / `_outputs` collected by build_graph
+      const portRows =
+        renderSchemaTable(m._inputs, '#7BA7D9', 'Input ports (schema)') +
+        renderSchemaTable(m._outputs, '#D88A7B', 'Output ports (schema)');
+      if (portRows) {
+        html += `<details><summary>Port schemas</summary><table>${portRows}</table></details>`;
+      }
+
+      if (m.config && Object.keys(m.config).length) {
+        html += `<details><summary>Config</summary><pre>${escapeHtml(JSON.stringify(m.config, null, 2))}</pre></details>`;
+      }
+
+      detailsEl.innerHTML = html;
+      detailsEl.style.display = 'block';
+      const btnExp = document.getElementById('btn-expand');
+      if (btnExp) btnExp.onclick = toggleExpanded;
+      const btnCls = document.getElementById('btn-close');
+      if (btnCls) btnCls.onclick = hideDetails;
+    }
+    function hideDetails() { detailsEl.style.display = 'none'; }
+    function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+
+    const legendEl = document.getElementById('legend');
+    const hiddenSubs = new Set();
+    DATA.legend.forEach(({key, label, color}) => {
+      const row = document.createElement('div');
+      row.className = 'filter-row';
+      row.dataset.sub = key;
+      row.innerHTML = `<span class="legend-swatch" style="background:${color}"></span><span class="legend-label">${escapeHtml(label)}</span>`;
+      row.onclick = () => {
+        if (hiddenSubs.has(key)) { hiddenSubs.delete(key); row.classList.remove('disabled'); }
+        else { hiddenSubs.add(key); row.classList.add('disabled'); }
+        applyFilter();
+      };
+      legendEl.appendChild(row);
+    });
+    function applyFilter() {
+      const q = (document.getElementById('q').value || '').trim().toLowerCase();
+      cy.batch(() => {
+        cy.nodes().forEach(n => {
+          const d = n.data();
+          const hideSub = d.kind === 'process' && hiddenSubs.has(d.subsystem);
+          const hideSearch = q && !(d.label || '').toLowerCase().includes(q);
+          n.style('display', hideSub || hideSearch ? 'none' : 'element');
+        });
+      });
+    }
+    document.getElementById('q').addEventListener('input', applyFilter);
+
+    const layersEl = document.getElementById('layers');
+    DATA.layers.forEach((layer, idx) => {
+      const row = document.createElement('div');
+      row.className = 'layer-row';
+      const num = `L${String(idx).padStart(2,'0')}`;
+      const chips = layer.map(step => {
+        const node = cy.getElementById(step);
+        const color = node.nonempty() ? node.data('color') : '#eee';
+        return `<span class="chip" data-step="${escapeHtml(step)}" style="background:${color}">${escapeHtml(step)}</span>`;
+      }).join('');
+      row.innerHTML = `<div class="layer-num">${num}</div><div>${chips}</div>`;
+      layersEl.appendChild(row);
+    });
+    layersEl.addEventListener('click', e => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      const node = cy.getElementById(chip.dataset.step);
+      if (node.nonempty()) { focusNode(node); cy.animate({ center: { eles: node }, zoom: 1.5 }, { duration: 400 }); }
+    });
+  </script>
+</body>
+</html>

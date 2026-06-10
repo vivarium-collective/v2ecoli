@@ -138,5 +138,19 @@ class PtoolsRxns(Analysis):
         tsv = ptools_rxns_df.to_csv(
             sep="\t", index=True, header=True, float_format="%.4f"
         )
-        view = ptools_heatmap_view(ptools_rxns_df, "Reaction fluxes (reaction × timepoint)")
+        # Flux magnitudes are extremely heavy-tailed: a handful of central-
+        # carbon reactions carry O(10) flux while most of the ~hundreds of
+        # active reactions carry <0.1 (and ~3/4 of all base reactions carry
+        # exactly 0).  On a linear color scale the few large reactions saturate
+        # the range and the entire matrix renders as a flat ~0 field with no
+        # visible band structure.  Render on a log10 color scale and sort
+        # reactions by descending magnitude so the decade-spanning structure is
+        # legible across all reactions.
+        view = ptools_heatmap_view(
+            ptools_rxns_df,
+            "Reaction fluxes (reaction × timepoint)",
+            log_color=True,
+            sort_rows=True,
+            color_label="|flux| (mmol/gDCW/h)",
+        )
         return {"data": {"filename": "ptools_rxns.tsv", "tsv": tsv}, "view": view}

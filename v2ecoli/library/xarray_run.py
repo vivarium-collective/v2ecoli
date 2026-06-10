@@ -455,7 +455,14 @@ def run_multigen_xarray(
     if dropped:
         print(f"[xarray_run] dropped {dropped} view leaf(s) absent from composite state")
     view = filtered_view
-    output_metadata = extract_output_metadata_from_state(state_after_warmup, view)
+    # Harvest element-name labels from listener outputs() schemas via the
+    # registry walker, then feed them to extract_output_metadata_from_state
+    # so XArrayEmitter uses real IDs (e.g. monomer names) as coord arrays
+    # instead of the integer-index fallback.
+    from v2ecoli.library.output_metadata import output_metadata as _get_named_metadata
+    named_metadata = _get_named_metadata(state_after_warmup)
+    output_metadata = extract_output_metadata_from_state(
+        state_after_warmup, view, named_metadata=named_metadata)
     if output_metadata:
         print(f"[xarray_run] discovered vector coord arrays for: "
               f"{list(_flatten_keys(output_metadata))}")

@@ -1,18 +1,30 @@
 """
 Output metadata walker for v2ecoli composites.
 
-Mirrors vEcoli's ``ecoli.experiments.ecoli_master_sim.output_metadata()`` /
-``extract_metadata()`` convention: processes annotate their ``outputs()`` port
-schema with ``_properties: {'metadata': <names_list>}``, this module harvests
-those annotations from a live composite state and returns a store-relative dict.
+Makes runs self-describing: each listener process registers a named
+LabeledArray type in its ``initialize()`` carrying the element IDs for its
+fixed-length vector outputs.  This walker reads those labels from the
+type registry and returns a store-relative dict of names that feeds
+XArrayEmitter's coord arrays.
+
+Primary (registry) path
+-----------------------
+When a port type is a **string name** registered in the bigraph-schema core,
+the walker calls ``core.access(type_name)`` and reads ``getattr(node,
+'_labels', None)`` (a plain dataclass field that is **not** in
+``_schema_keys``, so the engine ignores it per-tick).  This is the approach
+used by CountsDeriver / RnapData (and any future listener).
+
+Legacy (backward-compat) path
+-------------------------------
+When a port schema is a dict carrying ``_properties: {'metadata': [...]}``,
+the walker uses the original ``extract_metadata()`` helper so that any code
+that annotates ports the old way still works.
 
 The returned dict feeds into:
   - XArrayEmitter ``output_metadata`` (coord arrays for vector leaves);
   - ParquetEmitter ``config["metadata"]["output_metadata"]`` (written as
     ``output_metadata__<path>`` columns in the configuration parquet).
-
-This mirrors the path described in vEcoli PR #414 / ``ecoli_master_sim.py``
-``:852`` / ``:1011``, grounded to v2ecoli's process-bigraph composite layout.
 """
 from __future__ import annotations
 
@@ -22,7 +34,7 @@ import numpy as np
 
 
 # ---------------------------------------------------------------------------
-# extract_metadata — mirrors vEcoli's extract_metadata() exactly
+# extract_metadata — legacy _properties.metadata path (kept for backward compat)
 # ---------------------------------------------------------------------------
 
 
@@ -62,6 +74,75 @@ def extract_metadata(schema: dict, _properties: bool = False) -> Any:
 
 
 # ---------------------------------------------------------------------------
+# _extract_labels_recursive — primary + legacy walker
+# ---------------------------------------------------------------------------
+
+
+def _extract_labels_recursive(schema: Any, core: Any) -> Any:
+    """Recursively extract element-name labels from a port schema.
+
+    Handles two annotation styles:
+
+    * **Registry (primary)**: port value is a ``str`` type name that resolves
+      to a ``LabeledArray`` (or any node with ``_labels``).  Labels are read
+      via ``core.access(name)._labels``.
+
+    * **Properties (legacy)**: port dict carries ``_properties.metadata``.
+      Delegates to ``extract_metadata()``.
+
+    Args:
+        schema: A port schema value — either a string type name, a typed leaf
+            dict, or a nested port dict.
+        core:   The bigraph-schema Core instance, or ``None`` (registry path
+                skipped when core is unavailable).
+
+    Returns:
+        ``list`` of labels when a port carries them; nested ``dict`` mapping
+        sub-port names to their label lists; or ``None`` when no labels found.
+    """
+    if isinstance(schema, str):
+        # Registry path: look up the type name and check for _labels.
+        if core is not None:
+            try:
+                node = core.access(schema)
+                labels = getattr(node, '_labels', None)
+                if labels:
+                    return list(labels)
+            except Exception:
+                pass
+        return None
+
+    if not isinstance(schema, dict):
+        return None
+
+    # Legacy path: dict carries _properties.metadata.
+    if '_properties' in schema:
+        return extract_metadata(schema)
+
+    # Typed leaf dict (e.g. {'_type': 'overwrite[array[N,integer]]', '_default': []}):
+    # check the _type string for labels (unlikely but handles edge cases).
+    if '_type' in schema:
+        type_str = schema.get('_type')
+        if isinstance(type_str, str) and core is not None:
+            try:
+                node = core.access(type_str)
+                labels = getattr(node, '_labels', None)
+                if labels:
+                    return list(labels)
+            except Exception:
+                pass
+        return None
+
+    # Plain nested port dict: recurse into each sub-key.
+    result: dict = {}
+    for key, val in schema.items():
+        sub = _extract_labels_recursive(val, core)
+        if sub is not None:
+            result[key] = sub
+    return result or None
+
+
+# ---------------------------------------------------------------------------
 # _remap_to_store — simplified inverse_topology for v2ecoli wiring
 # ---------------------------------------------------------------------------
 
@@ -78,7 +159,7 @@ def _remap_to_store(extracted: dict, wiring: dict) -> dict:
     returned store-relative dict.
 
     Args:
-        extracted: Port-relative metadata dict from ``extract_metadata()``.
+        extracted: Port-relative metadata dict from ``_extract_labels_recursive()``.
         wiring: Output wiring dict for a step edge.
 
     Returns:
@@ -143,37 +224,46 @@ def _walk_state(state: dict):
 
 
 def output_metadata(state: dict) -> dict:
-    """Harvest ``_properties.metadata`` from step ``outputs()`` across a composite state.
+    """Harvest element-name labels from step ``outputs()`` schemas across a composite state.
 
-    Mirrors vEcoli's ``EcoliSim.output_metadata()``. Walks all step/process
-    instances in ``state`` (the raw composite state dict — e.g.
-    ``composite.state``, ``doc['state']``, or ``doc['state']['agents']['0']``),
-    calls each instance's ``outputs()`` schema, pulls ``_properties.metadata``
-    leaves, remaps to store-relative paths via the edge's output wiring, and
-    deep-merges all into one dict.
+    For each step/process instance in ``state``, calls ``outputs()`` and
+    extracts element-name labels via two paths (in priority order):
+
+    1. **Registry path** (primary): port type is a ``str`` registered in
+       ``instance.core``; labels come from
+       ``core.access(type_name)._labels``.  Used by CountsDeriver /
+       RnapData after the listener's ``initialize()`` has registered the
+       named ``LabeledArray`` type.
+
+    2. **Properties path** (legacy): port schema dict carries
+       ``_properties: {'metadata': [...]}``; harvested by
+       ``extract_metadata()``.
+
+    Both paths produce the same store-relative output dict so downstream
+    consumers (XArrayEmitter, ParquetEmitter) are unchanged.
 
     Args:
-        state: Composite state dict.  Nested state trees are handled (the walker
-               recurses into non-edge sub-dicts).
+        state: Composite state dict.  Nested state trees are handled (the
+               walker recurses into non-edge sub-dicts).
 
     Returns:
         Store-relative dict mapping paths to name lists; e.g.::
 
-            {'listeners': {'monomer_counts': ['MONA_[c]', 'MONB_[c]', ...]}}
+            {'listeners': {'monomer_counts': ['MONA[c]', 'MONB[c]', ...]}}
 
-        Returns ``{}`` if no process carries ``_properties.metadata`` in its
-        ``outputs()``.
+        Returns ``{}`` if no process carries labels in its ``outputs()``.
     """
     result: dict = {}
     for edge, _name in _walk_state(state):
         instance = edge["instance"]
+        core = getattr(instance, 'core', None)
         try:
             outputs_schema = instance.outputs()
         except Exception:
             continue
         if not isinstance(outputs_schema, dict):
             continue
-        extracted = extract_metadata(outputs_schema)
+        extracted = _extract_labels_recursive(outputs_schema, core)
         if not extracted:
             continue
         wiring = edge.get("outputs", {})

@@ -27,6 +27,7 @@ unique-molecule section.
 import numpy as np
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
+from v2ecoli.types.labeled_array import LabeledArray
 from v2ecoli.library.schema import attrs, bulk_name_to_idx, counts
 from v2ecoli.library.schema_types import (
     RNA_ARRAY,
@@ -126,11 +127,7 @@ class CountsDeriver(Step):
                     'partial_rRNA_counts': {'_type': f'overwrite[array[{self.n_rRNA_TU},integer]]', '_default': []},
                     'partial_rRNA_cistron_counts': {'_type': f'overwrite[array[{self.n_rRNA_cistron},integer]]', '_default': []},
                 },
-                'monomer_counts': {
-                    '_type': f'overwrite[array[{self.n_monomers},integer]]',
-                    '_default': [],
-                    '_properties': {'metadata': list(self.monomer_ids)},
-                },
+                'monomer_counts': 'monomer_counts_vec',
                 'unique_molecule_counts': 'map[integer]',
             },
         }
@@ -196,6 +193,20 @@ class CountsDeriver(Step):
             )
         )
         self.monomer_idx = None
+
+        # Register the named labeled-array type so the output_metadata walker
+        # can recover monomer IDs without needing sim_data.  Registering in
+        # initialize() (not outputs()) ensures the type is in the core before
+        # Composite() resolves port schemas.
+        if self.core is not None:
+            self.core.register_type(
+                'monomer_counts_vec',
+                LabeledArray(
+                    _shape=(self.n_monomers,),
+                    _data=np.dtype('int64'),
+                    _labels=tuple(self.monomer_ids),
+                ),
+            )
 
         # ---------------- unique-molecule counts ----------------
         self.unique_ids = p["unique_ids"]

@@ -2,13 +2,114 @@
 
 TDD for sub-project #1 (readout-coordination): make v2ecoli runs self-describing
 by annotating listener outputs() with element names and harvesting them via a
-walker that mirrors vEcoli's EcoliSim.output_metadata() pattern.
+registry-based walker.
+
+Approach: labels are carried as type-level metadata on LabeledArray (a thin
+Array subtype). Each listener registers a named vec-type (e.g.
+'monomer_counts_vec') in initialize() so output_metadata() can recover element
+labels via core.access(type_name)._labels, without touching per-tick logic.
 """
 import pytest
 
 
 # ---------------------------------------------------------------------------
-# Task 1: output_metadata() walker baseline (before any annotations)
+# Step 2a: LabeledArray type — structural checks
+# ---------------------------------------------------------------------------
+
+@pytest.mark.fast
+def test_labeled_array_is_array_subtype():
+    """LabeledArray is a subclass of bigraph_schema Array."""
+    from bigraph_schema.schema import Array
+    from v2ecoli.types.labeled_array import LabeledArray
+
+    assert issubclass(LabeledArray, Array)
+
+
+@pytest.mark.fast
+def test_labeled_array_labels_not_in_schema_keys():
+    """_labels is absent from _schema_keys so the engine treats it as static metadata."""
+    from v2ecoli.types.labeled_array import LabeledArray
+
+    assert '_labels' not in LabeledArray._schema_keys, (
+        "_labels must NOT be in _schema_keys; it should be invisible to per-tick ops"
+    )
+
+
+@pytest.mark.fast
+def test_labeled_array_default_labels_empty():
+    """LabeledArray() with no args has empty _labels tuple."""
+    from v2ecoli.types.labeled_array import LabeledArray
+
+    la = LabeledArray()
+    assert la._labels == ()
+
+
+@pytest.mark.fast
+def test_labeled_array_stores_labels():
+    """LabeledArray(_labels=(...)) stores the provided tuple."""
+    import numpy as np
+    from v2ecoli.types.labeled_array import LabeledArray
+
+    labels = ('A', 'B', 'C')
+    la = LabeledArray(_shape=(3,), _data=np.dtype('int64'), _labels=labels)
+    assert la._labels == labels
+
+
+# ---------------------------------------------------------------------------
+# Step 2b: core registration — core.access('labeled_array') and named vec-types
+# ---------------------------------------------------------------------------
+
+@pytest.mark.fast
+def test_core_access_labeled_array():
+    """build_core() registers 'labeled_array'; core.access returns a LabeledArray."""
+    from v2ecoli.core import build_core
+    from v2ecoli.types.labeled_array import LabeledArray
+
+    core = build_core()
+    node = core.access('labeled_array')
+    assert isinstance(node, LabeledArray), (
+        "core.access('labeled_array') should return a LabeledArray, got: %r" % type(node)
+    )
+
+
+@pytest.mark.fast
+def test_named_vec_type_roundtrips_labels():
+    """Register a named LabeledArray instance; core.access preserves _labels."""
+    import numpy as np
+    from v2ecoli.core import build_core
+    from v2ecoli.types.labeled_array import LabeledArray
+
+    core = build_core()
+    labels = ('MON-0', 'MON-1', 'MON-2')
+    instance = LabeledArray(_shape=(3,), _data=np.dtype('int64'), _labels=labels)
+    core.register_type('test_labeled_vec', instance)
+
+    recovered = core.access('test_labeled_vec')
+    assert isinstance(recovered, LabeledArray)
+    assert recovered._labels == labels, (
+        "Labels should survive round-trip through registry, got: %r" % (recovered._labels,)
+    )
+
+
+@pytest.mark.fast
+def test_labeled_array_port_resolves_in_core():
+    """core.access on a registered LabeledArray type name works without error."""
+    import numpy as np
+    from v2ecoli.core import build_core
+    from v2ecoli.types.labeled_array import LabeledArray
+
+    labels = tuple(f'MOL-{i}' for i in range(5))
+    core = build_core()
+    core.register_type('test_vec5', LabeledArray(
+        _shape=(5,), _data=np.dtype('int64'), _labels=labels
+    ))
+    node = core.access('test_vec5')
+    assert isinstance(node, LabeledArray)
+    assert node._labels == labels
+
+
+# ---------------------------------------------------------------------------
+# Task 1: output_metadata() walker baseline (unchanged — legacy _properties path)
 # ---------------------------------------------------------------------------
 
 @pytest.mark.fast
@@ -84,7 +185,7 @@ def test_output_metadata_no_instances_returns_empty():
 
 @pytest.mark.fast
 def test_output_metadata_walker_unannotated_step():
-    """Walker with a step that has no _properties.metadata → returns {}."""
+    """Walker with a step that has no labels → returns {}."""
     from v2ecoli.library.output_metadata import output_metadata
 
     class UnannotatedStep:
@@ -105,8 +206,8 @@ def test_output_metadata_walker_unannotated_step():
 
 
 @pytest.mark.fast
-def test_output_metadata_walker_annotated_step():
-    """Walker finds _properties.metadata in a step outputs() and remaps to store path."""
+def test_output_metadata_walker_legacy_properties_path():
+    """Walker still finds _properties.metadata (legacy backward-compat path)."""
     from v2ecoli.library.output_metadata import output_metadata
 
     monomer_ids = ["MONOMER_A", "MONOMER_B", "MONOMER_C"]
@@ -123,7 +224,6 @@ def test_output_metadata_walker_annotated_step():
                 }
             }
 
-    # Wiring: port 'listeners' → store path ['listeners']
     state = {
         "some_step": {
             "instance": AnnotatedStep(),
@@ -132,7 +232,40 @@ def test_output_metadata_walker_annotated_step():
     }
     result = output_metadata(state)
     assert result == {"listeners": {"monomer_counts": monomer_ids}}, (
-        "Expected monomer names at listeners.monomer_counts, got: %r" % result
+        "Legacy _properties.metadata path broken; got: %r" % result
+    )
+
+
+@pytest.mark.fast
+def test_output_metadata_walker_registry_string_port():
+    """Walker extracts labels when port type is a registered LabeledArray name."""
+    import numpy as np
+    from v2ecoli.core import build_core
+    from v2ecoli.types.labeled_array import LabeledArray
+    from v2ecoli.library.output_metadata import output_metadata
+
+    monomer_ids = ("MONA_[c]", "MONB_[c]", "MONC_[c]")
+    core = build_core()
+    core.register_type('test_mon_vec', LabeledArray(
+        _shape=(3,), _data=np.dtype('int64'), _labels=monomer_ids
+    ))
+
+    class RegistryStep:
+        def __init__(self, core):
+            self.core = core
+
+        def outputs(self):
+            return {"listeners": {"monomer_counts": "test_mon_vec"}}
+
+    state = {
+        "some_step": {
+            "instance": RegistryStep(core),
+            "outputs": {"listeners": ["listeners"]},
+        }
+    }
+    result = output_metadata(state)
+    assert result.get("listeners", {}).get("monomer_counts") == list(monomer_ids), (
+        "Walker should recover labels from registry; got: %r" % result
     )
 
 
@@ -170,17 +303,16 @@ def test_output_metadata_nested_state():
 
 
 # ---------------------------------------------------------------------------
-# Task 2: CountsDeriver.outputs() carries _properties.metadata for monomer_counts
+# Step 3: CountsDeriver annotates monomer_counts via registry approach
 # ---------------------------------------------------------------------------
 
 @pytest.mark.fast
-def test_counts_deriver_outputs_carries_monomer_ids_metadata():
-    """After annotation, CountsDeriver.outputs() has _properties.metadata for monomer_counts."""
+def test_counts_deriver_outputs_monomer_counts_is_string_type():
+    """CountsDeriver.outputs() declares monomer_counts as 'monomer_counts_vec' (a string type name)."""
     from v2ecoli.steps.derivers.counts_deriver import CountsDeriver
 
     monomer_ids = ["MONA_[c]", "MONB_[c]", "MONC_[c]"]
 
-    # Build a minimal instance with just the attrs outputs() needs.
     instance = CountsDeriver.__new__(CountsDeriver)
     instance.n_monomers = len(monomer_ids)
     instance.monomer_ids = monomer_ids
@@ -191,24 +323,33 @@ def test_counts_deriver_outputs_carries_monomer_ids_metadata():
 
     schema = instance.outputs()
     monomer_schema = schema["listeners"]["monomer_counts"]
-    props = monomer_schema.get("_properties", {})
-    assert "metadata" in props, (
-        "monomer_counts schema missing _properties.metadata; schema=%r" % monomer_schema
+    assert monomer_schema == 'monomer_counts_vec', (
+        "monomer_counts should be the string 'monomer_counts_vec'; got: %r" % monomer_schema
     )
-    assert props["metadata"] == monomer_ids
 
 
 @pytest.mark.fast
 def test_output_metadata_walker_with_counts_deriver():
     """Walker returns monomer_ids at listeners.monomer_counts for a CountsDeriver instance."""
+    import numpy as np
+    from v2ecoli.core import build_core
+    from v2ecoli.types.labeled_array import LabeledArray
     from v2ecoli.steps.derivers.counts_deriver import CountsDeriver
     from v2ecoli.library.output_metadata import output_metadata
 
-    monomer_ids = ["MONA_[c]", "MONB_[c]"]
+    monomer_ids = ("MONA_[c]", "MONB_[c]")
 
+    # Build a real core and register monomer_counts_vec (simulating initialize()).
+    core = build_core()
+    core.register_type('monomer_counts_vec', LabeledArray(
+        _shape=(len(monomer_ids),), _data=np.dtype('int64'), _labels=tuple(monomer_ids)
+    ))
+
+    # Create a minimal CountsDeriver instance (bypassing full __init__).
     instance = CountsDeriver.__new__(CountsDeriver)
+    instance.core = core  # walker uses instance.core
     instance.n_monomers = len(monomer_ids)
-    instance.monomer_ids = monomer_ids
+    instance.monomer_ids = list(monomer_ids)
     instance.n_mRNA_TU = 1
     instance.n_mRNA_cistron = 1
     instance.n_rRNA_TU = 1
@@ -221,7 +362,9 @@ def test_output_metadata_walker_with_counts_deriver():
         }
     }
     result = output_metadata(state)
-    assert result.get("listeners", {}).get("monomer_counts") == monomer_ids
+    assert result.get("listeners", {}).get("monomer_counts") == list(monomer_ids), (
+        "Walker should recover monomer_ids at listeners.monomer_counts; got: %r" % result
+    )
 
 
 # ---------------------------------------------------------------------------

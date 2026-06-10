@@ -2,3 +2,4 @@ canonical_key	source_path	description	schema_name
 equilibrium_reactions	flat_overrides/equilibrium_reactions.tsv	v2ecoli DnaA-ATP hydrolysis equilibrium (PR #123)	
 equilibrium_reaction_rates	flat_overrides/equilibrium_reaction_rates.tsv	v2ecoli DnaA-ATP hydrolysis rates (PR #123)	
 metabolic_reactions_added	flat_overrides/metabolic_reactions_added.tsv	v2ecoli metabolic additions (v2parca merge #16)	
+dna_sites	flat_overrides/dna_sites.tsv	DnaA-box catalog (8 oriC-low + 3 oriC-high + 2 promoter sites) for dnaa-3 box binding (Rashmi feat/aim2-dnaa-oric-box-binding)	

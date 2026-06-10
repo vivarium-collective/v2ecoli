@@ -55,7 +55,7 @@ CHROMOSOMAL_SEGMENT_ARRAY = f'unique_array[boundary_molecule_indexes:array[2,int
 
 GENE_ARRAY = f'unique_array[cistron_index:integer|coordinates:integer|domain_index:integer|{_UNIQUE_TAIL}]'
 
-DNAA_BOX_ARRAY = f'unique_array[coordinates:integer|domain_index:integer|DnaA_bound:boolean|{_UNIQUE_TAIL}]'
+DNAA_BOX_ARRAY = f'unique_array[coordinates:integer|domain_index:integer|DnaA_bound:boolean|pool_label:integer|DnaA_bound_form:integer|{_UNIQUE_TAIL}]'
 
 # ---------------------------------------------------------------------------
 # Convenience mapping: port name → type expression

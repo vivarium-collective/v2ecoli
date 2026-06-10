@@ -72,3 +72,27 @@ which is exactly the missing physics.
 2. **Adopt**: merge her box-binding mechanism into the investigation branch as the dnaa-3
    mechanism, retiring the read-only observer (keep the observer's charts as historical).
 3. **Then**: take up the autoregulation gap (#3) as the next dnaa-3 / regulation question.
+
+## VERIFICATION (2026-06-10) — reproduced on our side: PASS
+
+Ported her 4 commits onto v3 (cherry-pick; the only friction, `flat/dna_sites.tsv`,
+resolved via a `flat_overrides/dna_sites.tsv` true-override registered in
+`parca_overrides.tsv` — no change to the external `ecoli_sources` package).
+ParCa built clean (2.7 min); box catalog confirmed in sim_data
+(DnaA_box 307 · oric_low 8 · oric_high 3 · promoter 2). Ran V=1.2e-3 cold seed=0,
+8 gens (38 min), active binding step engaged:
+
+- **8/8 clean divisions**, oriC 1↔2 — and NO gen-7 PROTON crash (ran all 8 gens
+  clean, better than her seed-0 reference which crashed at gen 7).
+- **Box-doubling confirmed**: total DnaA boxes step 315 (oriC=1) ↔ 630 (oriC=2);
+  the low-affinity boxes double 8→16 (the exact gap the read-only observer had).
+- **Over-binding RESOLVED**: steady-gen oriC-low occupancy mean 0.46 (range
+  0.00-0.75) — the partial dynamic fill (~3-4/8) Haochen expected, vs the read-only
+  observer's pinned ~0.8.
+
+CONCLUSION: adopted + verified. Her active Langmuir mechanism replaces the read-only
+observer's role. FOLLOW-UPS (not blocking the merge): (1) remove v3's now-redundant
+read-only `dnaa_box_binding_listener` from baseline.py + re-point the old dnaa-3
+charts/scripts (render_dnaa3_occupancy.py etc.) to her per-pool replication_data
+listener; (2) update the dnaa-3 study verdict/charts to the active-binding results;
+(3) dnaa-3 runs now require the new ParCa cache (schema changed).

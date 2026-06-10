@@ -273,6 +273,12 @@ class ChromosomeStructure(Step):
         self.ppi_idx = bulk_name_to_idx(self.ppi, bulk_ids)
         self.inactive_RNAPs_idx = bulk_name_to_idx(self.inactive_RNAPs, bulk_ids)
         self.mature_rna_idx = bulk_name_to_idx(self.mature_rna_ids, bulk_ids)
+        # dnaa-3: on fork passage, any DnaA bound on the parent DnaA box is
+        # released back to bulk so mass + counts conserve. Phase 1 keeps
+        # DnaA_bound_form at 0 (no binding step wired yet) so these reads are
+        # no-ops; Phase 2 will exercise them.
+        self.dnaa_atp_idx = bulk_name_to_idx(["MONOMER0-160[c]"], bulk_ids)[0]
+        self.dnaa_adp_idx = bulk_name_to_idx(["MONOMER0-4565[c]"], bulk_ids)[0]
 
     def _removed_molecules_mask(self, domain_indexes, coordinates,
                                 replisome_coords_by_domain, child_domains,
@@ -383,8 +389,11 @@ class ChromosomeStructure(Step):
         (gene_cistron_indexes, gene_domain_indexes, gene_coordinates) = attrs(
             states["genes"], ["cistron_index", "domain_index", "coordinates"]
         )
-        (DnaA_box_domain_indexes, DnaA_box_coordinates, DnaA_box_bound) = attrs(
-            states["DnaA_boxes"], ["domain_index", "coordinates", "DnaA_bound"]
+        (DnaA_box_domain_indexes, DnaA_box_coordinates, DnaA_box_bound,
+         DnaA_box_pool_label, DnaA_box_bound_form) = attrs(
+            states["DnaA_boxes"],
+            ["domain_index", "coordinates", "DnaA_bound", "pool_label",
+             "DnaA_bound_form"],
         )
 
         # Build dictionary of replisome coordinates with domain indexes as keys
@@ -679,6 +688,22 @@ class ChromosomeStructure(Step):
         n_new_DnaA_boxes = 2 * np.count_nonzero(removed_DnaA_boxes_mask)
 
         if n_new_DnaA_boxes > 0:
+            # dnaa-3 Phase 2b: release DnaA bound to fork-crossed boxes back to
+            # bulk. Without this, the bound DnaA-ATP / DnaA-ADP would be silently
+            # destroyed when the parent box is deleted (the new child boxes are
+            # added with DnaA_bound_form=0). Releasing to bulk both conserves
+            # mass and produces the biologically-expected dissociation pulse:
+            # the replication fork unwinds dsDNA → canonical DnaA-box recognition
+            # is disrupted → DnaA returns to the cytoplasm (see Katayama 2017,
+            # "DnaA dissociation from DnaA boxes after replication" section).
+            removed_bound_form = DnaA_box_bound_form[removed_DnaA_boxes_mask]
+            n_freed_atp = int(np.count_nonzero(removed_bound_form == 1))
+            n_freed_adp = int(np.count_nonzero(removed_bound_form == 2))
+            if n_freed_atp > 0:
+                update["bulk"].append((self.dnaa_atp_idx, n_freed_atp))
+            if n_freed_adp > 0:
+                update["bulk"].append((self.dnaa_adp_idx, n_freed_adp))
+
             # Delete original DnaA boxes
             if removed_DnaA_boxes_mask.sum() > 0:
                 update["DnaA_boxes"].update(
@@ -694,12 +719,22 @@ class ChromosomeStructure(Step):
                 )
             )
 
+            # dnaa-3: propagate pool_label from the parent box to both child
+            # copies (np.repeat aligns with the x2 expansion done by
+            # _replicated_motif_attributes). DnaA_bound_form resets to 0 on
+            # new copies; Phase 2's binding step will write it once wired.
+            DnaA_box_pool_label_new = np.repeat(
+                DnaA_box_pool_label[removed_DnaA_boxes_mask], 2
+            )
+
             # Add new DnaA boxes with new domain indexes
             dict_dna = {
                 "add": {
                     "coordinates": DnaA_box_coordinates_new,
                     "domain_index": DnaA_box_domain_indexes_new,
                     "DnaA_bound": np.zeros(n_new_DnaA_boxes, dtype=np.bool_),
+                    "pool_label": DnaA_box_pool_label_new,
+                    "DnaA_bound_form": np.zeros(n_new_DnaA_boxes, dtype=np.int8),
                 }
             }
             update["DnaA_boxes"].update(dict_dna)

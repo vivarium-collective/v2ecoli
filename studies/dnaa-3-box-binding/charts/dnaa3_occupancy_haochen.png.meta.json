@@ -1,0 +1,5 @@
+{
+  "source_run_id": "dnaa3-insim-readonly (seed 1, steady-state gens 3-6)",
+  "command": "dnaa-3 occupancy/concentration figure addressing Haochen 2026-06-06 asks: oriC-low occupancy zoomed (later gens), free DnaA in nM via cell volume, oriC box count, total vs bound DnaA",
+  "caption": "Addresses Haochen's Jun-6 requests: (A) oriC LOW-affinity occupancy ~0.7-0.8 vs high-aff ~1.0, steady gens; (B) free DnaA-ATP 222-452 nM (>> the 100 nM low-aff K_d) and free DnaA-ADP ~680-1050 nM, divided by cell volume; (C) oriC box COUNT flat at 14 — oriC-doubling at replication is NOT yet modeled (his point); (D) bound DnaA nears/exceeds the total pool — the read-only observer does not subtract bound, so the over-binding shows up as non-conservation. Root cause of the over-binding: free DnaA-ATP sits well above the low-aff K_d."
+}

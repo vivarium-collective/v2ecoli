@@ -24,3 +24,46 @@ annotations:
     - ts: "2026-06-06T15:42:25.040Z"
       author: "Haochen"
       text: "A separate question: does the model have cell volume information? If so, then for concentration plots it can devide the volume rather than cell mass and then use nM as the unit. This is just for me to check if the concentration values are reasonable. Also those dissociation constants are provided in nM."
+responses:
+  study-dnaa-3-box-binding-charts:
+    status: done
+    by: claude
+    at: '2026-06-10'
+    response: |-
+      Built a dedicated figure (chart dnaa3_occupancy_haochen) on the read-only
+      dnaa-3 run that addresses each point:
+
+      (1) "Zoom in / separately plot oriC low-affinity occupancy over time." — Done:
+      a dedicated panel for oriC LOW-affinity (8 boxes) vs high-affinity (3 boxes).
+      Low-aff sits ~0.69-0.82, high-aff saturates ~1.0.
+
+      (2) "Focus on later (steady-state) generations." — Done: the figure restricts
+      to the later generations (the initial ~2 gens are excluded).
+
+      (3) "Plot bound DnaA AND free DnaA over time." — Done (panel D): total DnaA
+      (the bulk pool) vs analytically-bound DnaA. IMPORTANT caveat — the binding
+      step is a READ-ONLY observer, so bound DnaA is NOT subtracted from the pool;
+      the bound count actually NEARS/EXCEEDS the total pool, i.e. the over-binding
+      shows up as non-conservation. (That's a structural limitation of the
+      read-only model, not a separate free pool.)
+
+      (4) "8-9/11 boxes always occupied is weird; and oriC doubles at replication so
+      the boxes should double." — Both confirmed as real issues. The over-occupancy
+      is REAL (panel A) and its cause is panel B: free DnaA-ATP stays 222-452 nM,
+      well ABOVE the ~100 nM low-aff K_d, so the low-aff sites over-bind (your
+      intuition that free DnaA is usually <100 nM does not hold in this model — it's
+      ~2-4x K_d). And you're right about doubling: panel C shows n_total is FLAT
+      (=14) across replication — the oriC-box count does NOT double when oriC
+      replicates. Flagged as an open model gap (oriC-doubling of the box catalog
+      is not yet modeled).
+
+      (5) "Use cell volume for nM concentrations." — Yes, the model has
+      listeners.mass.volume; panel B plots free DnaA-ATP / DnaA-ADP in nM computed
+      by dividing molecule counts by cell volume (not mass), so it's directly
+      comparable to the nM K_d values. Free DnaA-ATP ~222-452 nM, free DnaA-ADP
+      ~680-1050 nM.
+
+      Net: the over-binding is real and its driver is quantified (free DnaA-ATP >>
+      K_d); two model gaps surfaced (no oriC-box doubling; read-only non-conservation).
+      Resolving it needs a different lever than V — to be taken up with Rashmi's
+      box-binding work.

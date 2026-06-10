@@ -95,12 +95,23 @@ The Tier 3 viz needs a live Pathway Tools server. It ships as the licensed
 `sms-ptools` image on GitHub Container Registry (private to the
 `vivarium-collective` org). Verified working on Apple-Silicon macOS via colima.
 
+**TL;DR — once authenticated (step 2 below), just use the helper:**
+
+```sh
+scripts/ptools_server.sh up        # idempotent: starts a fresh container, waits until ready
+scripts/ptools_server.sh status    # is it up?
+scripts/ptools_server.sh restart   # force a clean container (use this, not `docker start` — see gotchas)
+```
+
+The manual steps below explain what that script does and why.
+
 **1. A container runtime.** On macOS without Docker Desktop, colima gives a
-headless daemon + the `docker` CLI:
+headless daemon + the `docker` CLI. **Give the VM ≥ 8 GiB** — the overview's
+tile generation OOM-kills Pathway Tools (exit 137) under colima's 2 GiB default:
 
 ```sh
 brew install colima docker
-colima start                      # boots the Linux VM + Docker daemon
+colima start --cpu 4 --memory 8   # boots the Linux VM + Docker daemon
 # (after a reboot: `colima start` again; `brew services start colima` to autostart)
 ```
 
@@ -119,7 +130,7 @@ docker login ghcr.io -u <your-github-username>   # paste the classic PAT as the 
 
 ```sh
 docker pull  --platform linux/amd64 ghcr.io/vivarium-collective/sms-ptools:0.8.2
-docker run -d --platform linux/amd64 --name sms-ptools \
+docker run -d --platform linux/amd64 --name sms-ptools --restart unless-stopped \
   -e SERVER_HOST_NAME=localhost \
   -p 1555:1555 -p 5008:5008 \
   ghcr.io/vivarium-collective/sms-ptools:0.8.2
@@ -129,6 +140,18 @@ docker logs -f sms-ptools          # wait for "Starting Pathway Tools WWW server
 The `SERVER_HOST_NAME` override matters: the image defaults to a
 Kubernetes-internal hostname (`ptools.sms-api-eks.svc.cluster.local`) that won't
 resolve locally; set it to `localhost`.
+
+**Gotchas (learned the hard way):**
+- **OOM.** Browsing the overview triggers on-demand tile generation, which is
+  memory-hungry; under a 2 GiB VM the container dies with exit `137` mid-session
+  ("Safari can't connect"). Give the VM ≥ 8 GiB (above).
+- **Never `docker start` a stopped container.** It reuses the dirty filesystem,
+  whose stale Xvfb `/tmp/.X1-lock` makes Pathway Tools fail with `cannot open
+  the display: :1` and drop into a Lisp REPL — the web server never starts. To
+  restart, **recreate fresh** (`docker rm -f sms-ptools` then `docker run …`, or
+  `scripts/ptools_server.sh restart`).
+- `--restart unless-stopped` lets the container come back after a daemon/VM
+  restart.
 
 **Ports:**
 - **1555** — WWW server. Serves the **Cellular Overview Omics Viewer**

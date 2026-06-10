@@ -990,3 +990,39 @@ Both committed with `git add -f` since `reports/` is gitignored:
 | 3 | 245 s | 2850 s | 336 → 653 fg | ✅ |
 
 All 3 generations divided cleanly. The rendering crash on the first run was a single-line UTF-8 patch; re-run in background to produce the HTML.
+
+---
+
+## Task #4 progress log
+
+**2026-06-10 — Survey + per-file decision on the 10 other-process deltas.**
+
+### Scope decision
+The kinetic-charging port is end-to-end working (Tasks #2–#13 complete; all 7 PR-gating behavior tests pass; the one-tick behavior test against the new cache passes). The Task #4 deltas were always flagged as "independent" / "lower-priority for shipping kinetic" in the HANDOFF.
+
+After surveying each delta against upstream `trna_charging_final`, **none are required for the kinetic-charging end-to-end path**. Per-file rationale:
+
+### Per-file decisions
+
+| File | Δ | Decision | Rationale |
+|---|---:|---|---|
+| `metabolism.py` | +8 | ⏸ SKIP | Pure rename `use_trna_charging` → `steady_state_trna_charging` from upstream's strategy-pattern refactor. v2ecoli uses Process subclasses, not a flag enum, so the existing `use_trna_charging` flag continues to mean "the steady-state model is selected" — no semantic change needed. |
+| `polypeptide_initiation.py` | +60 | ⏸ SKIP | Adds `ribosome_profiling_molecules` listener emission. Needs composite-arch wiring + sim_data plumbing for `ribosome_profiling_molecules` config keys. Not kinetic-charging-required; defer to a dedicated feature PR if v2ecoli ever wants the ribosome-profiling analysis. |
+| `protein_degradation.py` | +19 | ⏸ SKIP | Adds `listeners.monomer_degradation.monomers_degraded` emission. New listener feature, no consumer in v2ecoli today. Skip; bundle with a listener PR if needed. |
+| `transcript_elongation.py` | +30 | ⏸ SKIP | Rewrite of test helper `format_data` — replaces a vivarium-emitter-style timeseries decoder with a simpler per-timestep one. Test infrastructure; v2ecoli's emitter doesn't go through vivarium's timeseries path. |
+| `tf_binding.py` | +5 | ⏸ SKIP | Lambda → multi-line formatting; cosmetic noise. |
+| `chromosome_structure.py` | +58 | ⏸ SKIP | Same `ribosome_profiling_molecules` listener as polypeptide_initiation; defer with that. |
+| `cell_division.py` | +22 | ⏸ SKIP | Upstream `Process` → `Step` cleanup on `StopAfterDivision` + minor formatting. v2ecoli has its own division process; not relevant. |
+| `listeners/monomer_counts.py` | +69 | ⏸ SKIP | Upstream **removes** `promoters` topology, `tf_ids` parameter, and the `attrs` import. Looks like an upstream regression cleanup; applying it to v2ecoli would lose existing features. Skip; cherry-pick only if a v2ecoli consumer breaks. |
+| `listeners/ribosome_data.py` | +2 | ⏸ SKIP | Drops `strict=False` arg to `bulk_name_to_idx`. Upstream cleanup; depends on whether v2ecoli's `bulk_name_to_idx` still has the arg. Trivial; safe to skip. |
+| `metabolism_redux_classic.py` | +130 (new file) | ⏸ DEFERRED | Brand-new Process class (`MetabolismReduxClassic`) implementing a redux variant of FBA-driven metabolism. v2ecoli has no `metabolism_redux` process at all — adding it would require a new composite architecture (à la `kinetic_charging_baseline`), new sim_data plumbing, and a behavior test. Real feature work, not a port-completeness exercise. Defer to a dedicated PR. |
+
+### Summary
+
+Task #4 closed **without applying any of the 10 deltas**. The kinetic-charging end-to-end path doesn't need any of them; the audit table above documents each skip so a future maintainer can pick up specific items without re-doing the survey.
+
+If a future change to v2ecoli wants the ribosome-profiling analysis or the redux-classic metabolism variant, the relevant rows of this table are the starting point. The rest is upstream-master refactor noise that v2ecoli's architecture already addresses differently.
+
+### Status
+- **All Tasks #1–#13 complete.**
+- Branch `trna_charging_final` (local, not pushed) ends at the next commit after this audit append.

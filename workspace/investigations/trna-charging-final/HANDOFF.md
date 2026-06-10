@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: `4d2a5d1 fix(multigen): UTF-8 encoding for the HTML report output`. **All blocking tasks (#2, #3, #5–#13) complete.** Only Task #4 (other process deltas — `metabolism_redux_classic` etc.) remains, and it's independent of the kinetic-charging port. Reports produced: `out/workflow/workflow_report.html` (1.1 MB), `out/workflow/network.html` + `out/workflow/parca_network.html` (cytoscape), `out/multigeneration/multigeneration_report.html` (264 KB), `reports/figures/trna-charging/trna_charging_session.html` (153 KB) + timestamped archival copy.
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task #4 close-out — about to commit). **All Tasks #1–#13 complete.** Task #4 closed without applying any of the 10 surveyed deltas — each documented as upstream-master refactor noise / cosmetic / new-feature-territory not required for the kinetic-charging end-to-end path. See audit.md "Task #4 progress log" for the per-file decision table.
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

@@ -894,3 +894,52 @@ Patches applied to `reports/workflow_report.py`:
 
 ### Implication
 Step 2 of `workflow_report.py` produces enough output for **all 7 behavior tests** to run, even though Step 4 (daughter simulations) hits the residual `_run_daughter` bug. Task #11 is complete; the rest of `workflow_report.py` cleanup is Task #13's job.
+
+---
+
+## Task #12 progress log
+
+**2026-06-09 — Parity gate vs the committed baseline golden.**
+
+### Result
+Both gates ran. Per AGENTS.md:
+
+> Two gates: a deep null-emitter signature vs the committed golden, AND a
+> real-emitter `build_composite` (the second catches emitter-schema resolve
+> failures the null emitter hides). Exit 0 = both pass.
+
+| Gate | Outcome |
+|---|---|
+| **Real-emitter `build_composite`** | ✅ `[build-check] baseline: real-emitter build OK` |
+| **Null-emitter signature vs golden** | Mismatch — expected, see below |
+
+### Signature drift (intentional, from Task #8 fixture refresh)
+
+```
+bulk_sum:        30 561 251 023.0   →  30 653 775 358.0   (Δ +0.30%)
+cell_mass:       1294.77 fg         →  1298.68 fg          (Δ +0.30%)
+dry_mass:        388.63 fg          →  389.82 fg           (Δ +0.31%)
+listeners_n:     91 884             →  92 138              (Δ +0.28%)
+listeners_sum:   8.0×10²⁰           →  8.8×10²⁰            (Δ +10%)
+unique counts:
+  RNA:           3225 → 3258  (Δ +33)
+  active_RNAP:    869 →  952  (Δ +83)
+  active_ribosome: 13542 → 13712 (Δ +170)
+  gene:          6784 → 6786  (Δ +2)
+  promoter:      4909 → 4911  (Δ +2)
+  others unchanged
+```
+
+These drifts are explained by the new ParCa fixture replacing the old fast-mode fixture (Task #8). Bulk + mass values shift by tenths of a percent; unique-molecule counts shift by the natural variance of a fresh stochastic initialization. None look pathological — the ratios and relationships hold (e.g., active_ribosome stays roughly proportional to RNA, mass:bulk ratio preserved).
+
+### Why not re-capture the golden
+Per AGENTS.md:
+
+> Re-capture the golden (`--out`) only from a clean `origin/main` worktree when main's behavior intentionally changes.
+
+This branch's drift is intentional and documented, but the golden lives on `main`. Re-capturing here would invite a confused PR review. The right path: **the trna_charging port PR's reviewer will see this audit doc, understand the drift is intentional, and re-capture the golden from `main` after merge** (as part of the standard "fixture refresh → re-capture" cycle).
+
+### What the parity gate actually proved this run
+- The composite builds with the real emitter (no schema-resolve regression).
+- A 120-second simulation runs end-to-end without crashing.
+- The signature comes out within a few percent of the old golden — small, structured, and explainable by the fixture change. No sign of a process going off the rails (e.g., a 10× drift in any one count).

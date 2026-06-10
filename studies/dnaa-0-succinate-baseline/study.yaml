@@ -315,10 +315,14 @@ runs:
   parquet: studies/dnaa-0-succinate-baseline/parquet-runs/dnaa0-6gen-multigen-2026-05-29
   seeds: [0]
   result: superseded by dnaa0-5gen-clean-2026-05-30
+  computed_outcomes:
+    _status: store_unresolved
 - name: dnaa0-5gen-clean-2026-05-30
   status: completed
   kind: single-daughters-multigen-lineage
   canonical: true
+  run_dir: out/dnaa0_backfill
+  emitter: {kind: parquet, store: out/dnaa0_backfill/dnaa0_backfill}   # faithful baseline backfill (mini, pre-box-binding, 6+ gens); the spine evaluator reads this
   description: |
     Canonical 5-generation single-daughters succinate lineage, seed 0,
     ParCa-default τ/C/D (no overrides), cache out/cache-succinate, rendered
@@ -346,6 +350,15 @@ runs:
       result: PASS
       detail: cell_mass CV birth 0.021 / peak 0.045 across gens 3–5 (< 0.05).
 
+  computed_outcomes:
+    succinate-oric-periodic-1-or-2-at-steady-state:
+      evaluated_by: agent
+      reason: "unsupported op: 'periodic_after_generation'"
+      reconcile: no_authored
+    succinate-10gen-cell-mass-periodic-after-gen-3:
+      evaluated_by: agent
+      reason: "unsupported op: 'cv_at_phase_below'"
+      reconcile: no_authored
 simulation_set:
 - name: dnaa0-succinate-steady-state
   kind: single-daughters-multigen-lineage

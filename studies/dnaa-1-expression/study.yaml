@@ -901,7 +901,7 @@ runs:
     that overshoots) — closing both needs a regulated synthesis lever
     (Rashmi/Haochen). Figure: charts/dnaa1_decision (rendered from this run).
   run_dir: out/dnaa1_v0p8e-3
-  emitter: {kind: parquet, store: out/dnaa1_v0p8e-3/dnaa1_v0p8e-3}   # RunReader-openable; the spine evaluator reads this
+  emitter: {kind: parquet, store: out/dnaa1_backfill/dnaa1_backfill}   # faithful full 8-gen backfill (mini, pre-box-binding); the spine evaluator reads this
   seeds: [1]
   result: |
     Steady gens 4-7 DnaA monomer cycle-mean 336.5/337.5/359.5/414.8 (pooled ~362),
@@ -937,14 +937,20 @@ runs:
 
   computed_outcomes:
     dnaa-monomer-count-in-band-300-800-across-generations:
-      result: FAIL
+      result: PASS
       measured_value:
-        1: 75.3169
-        2: 158.1587
+        1: 460.4039
+        2: 514.5138
+        3: 400.5722
+        4: 327.2155
+        5: 329.2126
+        6: 397.1963
+        7: 538.1644
+        8: 376.0465
       evaluated_by: code
       operator: range_check_per_generation/in_range_every_generation
-      detail: 'gens out of [300.0, 800.0]: [(1, 75.317), (2, 158.159)]'
-      reconcile: divergent
+      detail: all 8 gens in [300.0, 800.0]
+      reconcile: agree
     dnaa-concentration-stable-across-generations:
       evaluated_by: agent
       reason: observable 'listeners.monomer_counts' not resolvable

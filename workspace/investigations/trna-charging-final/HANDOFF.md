@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: `34cade6 docs(trna-charging): record Task #12 parity-gate drift (Task #8 fixture refresh)`. **Tasks #2, #3, #5, #6, #7, #8, #9, #10, #11, #12 complete.** Parity-gate result: real-emitter build-check passes; signature drift vs committed golden is small (~0.3% on bulk/mass, ~170 ribosomes / 83 RNAP / 33 RNA on unique counts) and structured — explained by the Task #8 fixture refresh. Golden re-capture deferred per AGENTS.md (must happen from clean `origin/main`). Remaining: Task #4 (independent), Task #13 (reports).
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `4d2a5d1 fix(multigen): UTF-8 encoding for the HTML report output`. **All blocking tasks (#2, #3, #5–#13) complete.** Only Task #4 (other process deltas — `metabolism_redux_classic` etc.) remains, and it's independent of the kinetic-charging port. Reports produced: `out/workflow/workflow_report.html` (1.1 MB), `out/workflow/network.html` + `out/workflow/parca_network.html` (cytoscape), `out/multigeneration/multigeneration_report.html` (264 KB), `reports/figures/trna-charging/trna_charging_session.html` (153 KB) + timestamped archival copy.
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

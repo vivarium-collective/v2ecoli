@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-ensemble",
+  "rendered_at": 1781068693.8051698,
+  "title": "Proteome vs Schmidt 2015 (r=0.74) and Wisniewski 2014 (r=0.62)",
+  "interpretation": "log10 simulated average monomer counts vs measured proteomics, with parity line. Schmidt 2015 Pearson r = 0.735 (n=2228 overlapping monomers), Wisniewski 2014 r = 0.616 (n=2226). The baseline proteome correlates with both measured datasets.",
+  "command": "v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline/sweep/showcase2_baseline parquet; rendered to PNG via vl_convert/matplotlib on the mac mini"
+}

@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task #8 — about to commit). **Tasks #2, #3, #5, #6, #7, #8 complete. Task #9 (cache rebuild) effectively complete — fresh cache lives at `out/cache/`. End-to-end one-tick kinetic test passes. Remaining: Task #4 (independent), Tasks #10–#13 (broader test gates + reports).**
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `c6500f5 feat(trna-charging): full ParCa rerun + 7 runtime-bug fixes; end-to-end tick passes (Task #8)`. **Tasks #2, #3, #5, #6, #7, #8 complete. Task #9 (cache rebuild) effectively complete — fresh cache lives at `out/cache/`. End-to-end one-tick kinetic test passes. Remaining: Task #4 (independent), Tasks #10–#13 (broader test gates + reports).**
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

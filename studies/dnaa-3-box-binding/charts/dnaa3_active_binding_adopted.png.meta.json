@@ -1,0 +1,5 @@
+{
+  "source_run_id": "dnaa3_adopt_v1.2e3_seed0 (Rashmi's active binding mechanism, adopted PR #162; V=1.2e-3 cold seed0, 8 gens)",
+  "command": "active-binding verification: oriC-low occupancy + total-box-doubling + bound-by-pool over steady gens 4-7",
+  "caption": "dnaa-3 with Rashmi's ADOPTED active Langmuir box-binding mechanism (PR #162). (1) oriC LOW-affinity occupancy RESOLVED — mean 0.46 (range 0-0.75), partial dynamic fill, vs the read-only observer's pinned ~0.8 (dashed): the active solve depletes the free pool. (2) total DnaA boxes DOUBLE 315↔630 with oriC 1↔2 (low-aff doubles 8→16 via fork-passage release) — fixing the under-doubling the read-only deriver had. (3) DnaA bound by pool. 8/8 clean divisions, no gen-7 crash."
+}

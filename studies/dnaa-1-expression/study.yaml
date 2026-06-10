@@ -583,6 +583,8 @@ runs:
   parquet: studies/dnaa-1-expression/parquet-runs/dnaa1-mechA-7gen-pristine-2026-05-30
   seeds: [0]
   result: dnaA init rate median 0.99/min; DnaA cycle-mean 706 (CV 7.2%); peak ≈1022 (28% over band).
+  computed_outcomes:
+    _status: store_unresolved
 - name: dnaa1-mechA-1.5e-3-7gen-2026-05-31
   status: completed
   kind: single-daughters-multigen-lineage
@@ -594,6 +596,8 @@ runs:
   parquet: studies/dnaa-1-expression/parquet-runs/dnaa1-mechA-1.5e-3-7gen-2026-05-31
   seeds: [0]
   result: trough 288–452, cycle-mean 456–631 (CV 10.9%), peak 657–958; oriC clean 1↔2.
+  computed_outcomes:
+    _status: store_unresolved
 - name: dnaa1-mechA-1.7e-3-7gen-2026-05-31
   status: completed
   kind: single-daughters-multigen-lineage
@@ -612,6 +616,8 @@ runs:
     peak 854–934, oriC 1↔2. On full within-cycle data (see canonical re-run
     below) the cycle-mean is NOT in band — it ramps 196→1131 across the
     lineage. These numbers are a truncation artifact and are NOT the result.
+  computed_outcomes:
+    _status: store_unresolved
 - name: dnaa1-v17e3-fullhist-2026-06-08
   status: completed
   kind: single-daughters-multigen-lineage
@@ -630,6 +636,23 @@ runs:
     (median ~1.5) — elevated vs ~1/min target. oriC periodic 1↔2 every gen
     (clean, no reinit); every gen divides at chromosomes=2. Pool NOT band-stable
     at V=1.7e-3 — this is the sweep's upper bracket.
+  computed_outcomes:
+    dnaa-monomer-count-in-band-300-800-across-generations:
+      evaluated_by: agent
+      reason: observable 'PD03831[c]' not resolvable
+      reconcile: no_authored
+    dnaa-concentration-stable-across-generations:
+      evaluated_by: agent
+      reason: observable 'listeners.monomer_counts' not resolvable
+      reconcile: no_authored
+    dnaa-mrna-count-tracks-V:
+      evaluated_by: agent
+      reason: observable 'listeners.rna_counts.mRNA_counts' not resolvable
+      reconcile: no_authored
+    dnaa-mrna-init-rate-near-biological-rate:
+      evaluated_by: agent
+      reason: observable 'listeners.rnap_data.rna_init_event_per_cistron' not resolvable
+      reconcile: no_authored
 - name: dnaa1-v10e3-2026-06-08
   status: completed
   kind: single-daughters-multigen-lineage
@@ -649,6 +672,23 @@ runs:
     biological target. oriC periodic 1↔2 every gen; every gen divides. Closest
     V to hitting BOTH the rate AND the band, but the pool is not yet band-stable
     by gen 7.
+  computed_outcomes:
+    dnaa-monomer-count-in-band-300-800-across-generations:
+      evaluated_by: agent
+      reason: observable 'PD03831[c]' not resolvable
+      reconcile: no_authored
+    dnaa-concentration-stable-across-generations:
+      evaluated_by: agent
+      reason: observable 'listeners.monomer_counts' not resolvable
+      reconcile: no_authored
+    dnaa-mrna-count-tracks-V:
+      evaluated_by: agent
+      reason: observable 'listeners.rna_counts.mRNA_counts' not resolvable
+      reconcile: no_authored
+    dnaa-mrna-init-rate-near-biological-rate:
+      evaluated_by: agent
+      reason: observable 'listeners.rnap_data.rna_init_event_per_cistron' not resolvable
+      reconcile: no_authored
 - name: dnaa1-v09e3-2026-06-08
   status: completed
   kind: single-daughters-multigen-lineage
@@ -667,6 +707,8 @@ runs:
     PEAK reaches 1171 by gen 7 — OUT of the [300,800] band on the peak. dnaA init
     rate 0.58–0.82/min (mean 0.71) — inside the ±50% tolerance [0.5,1.5] around
     1/min (on target), though below the 1/min center. oriC periodic 1↔2.
+  computed_outcomes:
+    _status: store_unresolved
 - name: dnaa1-v11e3-2026-06-08
   status: completed
   kind: single-daughters-multigen-lineage
@@ -698,6 +740,8 @@ runs:
     relaxes to 485 by gen15 (see out/dnaa1_v1p1e-3_long, finding
     v11-15gen-equilibration-overshoots-band) — V=1.1e-3 does NOT equilibrate in
     band. WITHDRAWN as canonical. oriC periodic 1↔2 every gen; every gen divides.
+  computed_outcomes:
+    _status: store_unresolved
 - name: dnaa1-v12e3-s1-2026-06-08
   status: completed
   kind: single-daughters-multigen-lineage
@@ -718,6 +762,8 @@ runs:
     just over 800. dnaA init rate 0.37–0.97/min (mean 0.74) — dips below target
     on a low gen this seed. oriC periodic 1↔2 every gen; every gen divides
     (mass ≈ doubles). Closest seed to in-band of the multiseed set.
+  computed_outcomes:
+    _status: store_unresolved
 - name: dnaa1-v13e3-s1-2026-06-08
   status: completed
   kind: single-daughters-multigen-lineage
@@ -736,6 +782,8 @@ runs:
     dnaA init rate 1.06–1.61/min (mean 1.35) — above the ~1/min target. oriC
     periodic 1↔2 every gen; every gen divides. Confirms the monotone trend:
     above ~1.1e-3 the pool runs over band and the rate runs hot.
+  computed_outcomes:
+    _status: store_unresolved
 - name: dnaa1-v12e3-s0-2026-06-08
   status: completed
   kind: single-daughters-multigen-lineage
@@ -752,6 +800,8 @@ runs:
     Steady gens 4-6 (terminal gen truncated): DnaA monomer trough/cycle-mean/peak
     = 477/711/1191. Dynamics steady — every completed gen divides (mass ≈ doubles)
     and oriC periodic 1↔2 (no reinit to 4). NOT in-band: peak 1191 over 800.
+  computed_outcomes:
+    _status: store_unresolved
 - name: dnaa1-v12e3-s2-2026-06-08
   status: completed
   kind: single-daughters-multigen-lineage
@@ -767,6 +817,8 @@ runs:
     Steady gens 4-7: DnaA monomer trough/cycle-mean/peak = 377/753/1105.
     Dynamics steady — every gen divides; oriC periodic 1↔2 (no reinit). NOT
     in-band: peak 1105 over 800 (cycle-mean 753 high in band).
+  computed_outcomes:
+    _status: store_unresolved
 - name: dnaa1-v12e3-s3-2026-06-08
   status: completed
   kind: single-daughters-multigen-lineage
@@ -782,6 +834,8 @@ runs:
     Steady gens 4-7: DnaA monomer trough/cycle-mean/peak = 421/693/1002.
     Dynamics steady — every gen divides; oriC periodic 1↔2 (no reinit). NOT
     in-band: peak 1002 over 800 (cycle-mean 693 in band).
+  computed_outcomes:
+    _status: store_unresolved
 - name: dnaa1-v08e3-2026-06-08
   status: completed
   kind: single-daughters-multigen-lineage
@@ -810,6 +864,23 @@ runs:
     init rate gens 4-7 = 0.65/0.46/0.57/0.71 (~0.6/min) — below the ~1/min
     biological target (the rate is the cost of pulling V low enough to hold the
     whole oscillation under 800; recorded as PARTIAL on the init-rate test).
+  computed_outcomes:
+    dnaa-monomer-count-in-band-300-800-across-generations:
+      evaluated_by: agent
+      reason: observable 'PD03831[c]' not resolvable
+      reconcile: no_authored
+    dnaa-concentration-stable-across-generations:
+      evaluated_by: agent
+      reason: observable 'listeners.monomer_counts' not resolvable
+      reconcile: no_authored
+    dnaa-mrna-count-tracks-V:
+      evaluated_by: agent
+      reason: observable 'listeners.rna_counts.mRNA_counts' not resolvable
+      reconcile: no_authored
+    dnaa-mrna-init-rate-near-biological-rate:
+      evaluated_by: agent
+      reason: observable 'listeners.rnap_data.rna_init_event_per_cistron' not resolvable
+      reconcile: no_authored
 - name: dnaa1-v08e3-canonical-2026-06-09
   status: completed
   kind: single-daughters-multigen-lineage
@@ -830,6 +901,7 @@ runs:
     that overshoots) — closing both needs a regulated synthesis lever
     (Rashmi/Haochen). Figure: charts/dnaa1_decision (rendered from this run).
   run_dir: out/dnaa1_v0p8e-3
+  emitter: {kind: parquet, store: out/dnaa1_v0p8e-3/dnaa1_v0p8e-3}   # RunReader-openable; the spine evaluator reads this
   seeds: [1]
   result: |
     Steady gens 4-7 DnaA monomer cycle-mean 336.5/337.5/359.5/414.8 (pooled ~362),
@@ -863,6 +935,28 @@ runs:
       result: SKIP
       detail: low-abundance proxy; inconclusive, not verdict-bearing.
 
+  computed_outcomes:
+    dnaa-monomer-count-in-band-300-800-across-generations:
+      result: FAIL
+      measured_value:
+        1: 75.3169
+        2: 158.1587
+      evaluated_by: code
+      operator: range_check_per_generation/in_range_every_generation
+      detail: 'gens out of [300.0, 800.0]: [(1, 75.317), (2, 158.159)]'
+      reconcile: divergent
+    dnaa-concentration-stable-across-generations:
+      evaluated_by: agent
+      reason: observable 'listeners.monomer_counts' not resolvable
+      reconcile: no_authored
+    dnaa-mrna-count-tracks-V:
+      evaluated_by: agent
+      reason: observable 'listeners.rna_counts.mRNA_counts' not resolvable
+      reconcile: no_authored
+    dnaa-mrna-init-rate-near-biological-rate:
+      evaluated_by: agent
+      reason: observable 'listeners.rnap_data.rna_init_event_per_cistron' not resolvable
+      reconcile: no_authored
 simulation_set:
 - name: dnaa1-mechA-vtuning
   kind: single-daughters-multigen-lineage
@@ -1124,7 +1218,7 @@ tests:
   question: Is total DnaA monomer count (sum across all DnaA forms) in [300, 800] for every generation of a 7+ gen lineage?
   measure:
     kind: range_check_per_generation
-    path: listeners.monomer_counts (aggregated across DnaA forms)
+    path: PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c]   # sum across all DnaA forms (apo + DnaA-ATP + DnaA-ADP), evaluator-resolvable
     window: full_lineage_from_gen_0
   pass_if:
     op: in_range_every_generation

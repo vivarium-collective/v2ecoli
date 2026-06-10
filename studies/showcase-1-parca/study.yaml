@@ -1,0 +1,128 @@
+schema_version: 4
+name: showcase-1-parca
+investigation: v2ecoli-baseline-showcase   # owning investigation (back-reference)
+title: Rebuild the ParCa in full from the ecoli-sources flat files
+created: '2026-06-09'
+status: design   # legacy back-compat; canonical axes below
+
+# v4 schema (vivarium_dashboard.lib.investigations._validate_study_v4_redesign):
+#   REQUIRED top-level: schema_version, name, question, conditions, tests, status
+#   REQUIRED in conditions: baseline {composite, params}, variants [...], model_settings [...]
+# Missing any of these → dashboard marks study as "invalid".
+
+# Canonical 6-axis status (DESIGN complete; simulation deferred to a later phase).
+design_status: complete
+implementation_status: pending
+simulation_status: not_run
+evaluation_status: not_run
+gate_status: pending
+expert_review_status: pending
+
+question: |
+  Can v2ecoli rebuild the ParCa in full from the ~133 ecoli-sources flat
+  files? Running the ParCa pipeline with --mode full should fit all 51 TF
+  conditions (the full-mode proof, vs ~7 in fast/debug mode) and emit a
+  complete cache bundle (initial_state.json + sim_data_cache.dill + metadata +
+  cache_version) that reproduces the parca_compare reference.
+
+report:
+  title: showcase-1 — full ParCa rebuild from ecoli-sources
+  verdict: pending
+  confidence: design-stage
+  evidence_quality: design-only
+
+  objective: |
+    [PLACEHOLDER — runs fill this once the ParCa build is executed.]
+    Establish that the v2ecoli ParCa pipeline rebuilds in FULL from the raw
+    ~133 ecoli-sources flat files: --mode full fits all 51 TF conditions and
+    produces a complete, reproducible cache bundle that downstream studies
+    (showcase-2 baseline) resume from.
+
+  setup: |
+    [PLACEHOLDER — runs fill this once the ParCa build is executed.]
+    Run the v2ecoli ParCa pipeline (composite: parca) with --mode full on the
+    ~133 ecoli-sources flat files. Full mode fits 51 TF conditions (~2.5 min on
+    the mini per the current runtime; the docs' "4-8 hours / ~300 conditions"
+    figure is stale). Output: a cache bundle under out/cache-showcase containing
+    initial_state.json, sim_data_cache.dill, metadata, and cache_version.
+    Verify mode by condition count (51 = full, ~7 = fast). Do NOT use --mode
+    fast — fast/debug reduces the TF conditions and mis-calibrates regulation;
+    it is not suitable for the baseline sim that showcase-2 runs.
+
+  result: |
+    [PLACEHOLDER — no run yet. Sims are deferred to a later phase; this study is
+    scaffolded with empty runs/visualizations, filled when the ParCa build runs.]
+
+  interpretation: |
+    [PLACEHOLDER — runs fill this once the ParCa build is executed.]
+
+  decision: |
+    [PLACEHOLDER] Pass ⇒ the cache bundle is complete (51 conditions, all four
+    artifacts present) and reproduces parca_compare ⇒ unblock showcase-2.
+    Fail ⇒ investigate (wrong mode / missing flat files / stale fixture).
+
+conditions:
+  baseline:
+    composite: parca
+    params:
+      mode: full
+      cache_dir: out/cache-showcase
+  variants: []
+  # Required by v4 schema even when empty.
+  model_settings: []
+
+assumptions:
+- text: |
+    --mode full fits all 51 TF conditions from the ~133 ecoli-sources flat
+    files and is fast (~2.5 min on the mini). The docs' "4-8 hours / ~300
+    conditions" figure is stale; verify by condition count (51 = full).
+  verified_in_v2ecoli: false
+- text: |
+    A complete cache bundle is initial_state.json + sim_data_cache.dill +
+    metadata + cache_version. All four must be present for showcase-2 to resume.
+  verified_in_v2ecoli: false
+
+tests:
+- name: parca-builds-full-51-conditions
+  classification: primary
+  status: pending
+  question: Does --mode full fit all 51 TF conditions (the full-mode proof, vs ~7 in fast/debug)?
+  measure:
+    kind: condition_count
+    detail: Count the TF conditions fit by the ParCa run; 51 = full, ~7 = fast/debug.
+  pass_if:
+    op: '=='
+    value: 51
+- name: cache-bundle-complete
+  classification: primary
+  status: pending
+  question: Does the cache bundle contain all four artifacts (initial_state.json, sim_data_cache.dill, metadata, cache_version)?
+  measure:
+    kind: artifacts_present
+    detail: initial_state.json + sim_data_cache.dill + metadata + cache_version present under out/cache-showcase.
+  pass_if:
+    op: all_present
+    artifacts: [initial_state.json, sim_data_cache.dill, metadata, cache_version]
+- name: sim_data-reproduces-parca-comparison
+  classification: primary
+  status: pending
+  question: Does the rebuilt sim_data reproduce the parca_compare reference?
+  measure:
+    kind: parca_compare
+    detail: Compare the rebuilt sim_data against the parca_compare reference (parca_compare._reach).
+  pass_if:
+    op: matches_reference
+
+discovery_implications:
+  resolved_uncertainties: []
+  remaining_uncertainties:
+  - Whether the full ParCa rebuild from ecoli-sources is bit-for-bit reproducible across machines, or only reproducible up to the parca_compare tolerance.
+
+pipeline_gate:
+  prerequisites: []
+  enables:
+  - showcase-2-baseline-figures
+  gate_status: pending
+
+runs: []
+visualizations: []

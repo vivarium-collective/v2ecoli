@@ -1,0 +1,151 @@
+schema_version: 4
+name: showcase-2-baseline-figures
+investigation: v2ecoli-baseline-showcase   # owning investigation (back-reference)
+title: Wild-type baseline single-cell→division ensemble reproduces E. coli properties
+created: '2026-06-09'
+status: design   # legacy back-compat; canonical axes below
+
+# v4 schema (vivarium_dashboard.lib.investigations._validate_study_v4_redesign):
+#   REQUIRED top-level: schema_version, name, question, conditions, tests, status
+#   REQUIRED in conditions: baseline {composite, params}, variants [...], model_settings [...]
+
+# Canonical 6-axis status (DESIGN complete; simulation deferred to a later phase).
+design_status: complete
+implementation_status: pending
+simulation_status: not_run
+evaluation_status: not_run
+gate_status: pending
+expert_review_status: pending
+
+question: |
+  Does the baseline single-cell→division sim reproduce wild-type E. coli
+  properties across a multiseed/multigen ensemble? The wild-type baseline
+  resumed from the showcase-1 full ParCa cache should produce a doubling time
+  in band, physiological mass fractions, FBA fluxes that correlate with Toya
+  2010, and a proteome that correlates with Schmidt 2016 / Wisniewski.
+
+report:
+  title: showcase-2 — wild-type baseline ensemble vs measured E. coli properties
+  verdict: pending
+  confidence: design-stage
+  evidence_quality: design-only
+
+  objective: |
+    [PLACEHOLDER — runs fill this once the baseline ensemble is executed.]
+    Establish that the v2ecoli wild-type baseline single-cell→division ensemble,
+    resumed from the showcase-1 full ParCa cache, reproduces measured wild-type
+    E. coli properties across a multiseed/multigen ensemble: doubling time in
+    band, physiological mass fractions, FBA flux correlation to Toya 2010, and
+    proteome correlation to Schmidt 2016 / Wisniewski.
+
+  setup: |
+    [PLACEHOLDER — runs fill this once the baseline ensemble is executed.]
+    Composite: baseline (v2ecoli.composites.baseline.baseline), resumed from the
+    showcase-1 cache (out/cache-showcase). The RUN is a MULTISEED + MULTIGEN
+    ensemble dispatched Ray-parallel (run_seeds_parallel) with XArray/zarr emit
+    (not the in-engine ParquetEmitter, which is a RAM trap). seed 0 anchors the
+    baseline condition below; the ensemble fans out over multiple seeds and
+    generations. The ~19 native analyses (doubling time, mass fractions, FBA
+    fluxes vs Toya, proteome vs Schmidt/Wisniewski) render from the ensemble
+    once it completes.
+
+  result: |
+    [PLACEHOLDER — no run yet. Sims are deferred to a later phase; this study is
+    scaffolded with empty runs/visualizations, filled when the baseline ensemble
+    runs and the ~19 native analyses render.]
+
+  interpretation: |
+    [PLACEHOLDER — runs fill this once the baseline ensemble is executed.]
+
+  decision: |
+    [PLACEHOLDER] Pass ⇒ the baseline ensemble reproduces wild-type properties
+    (all four tests pass) ⇒ unblock showcase-3 (the reviewer variant decision).
+    Fail ⇒ investigate calibration (ParCa cache, condition, emitter).
+
+conditions:
+  baseline:
+    composite: baseline
+    params:
+      seed: 0
+      cache_dir: out/cache-showcase
+    # NOTE: the RUN is NOT a single seed-0 cell. seed 0 anchors the baseline
+    # condition; the actual run is a MULTISEED + MULTIGEN ensemble dispatched
+    # Ray-parallel via run_seeds_parallel with XArray/zarr emit. The ~19 native
+    # analyses (doubling time, mass fractions, Toya FBA fluxes,
+    # Schmidt/Wisniewski proteome) render from that ensemble.
+  variants: []
+  model_settings:
+  - name: multiseed-multigen-ensemble
+    detail: "Run is a multiseed + multigen ensemble (not a single cell); the four tests are evaluated over the ensemble."
+  - name: ray-parallel-dispatch
+    detail: "Seeds fanned out Ray-parallel via run_seeds_parallel."
+  - name: xarray-zarr-emit
+    detail: "XArray/zarr emit (NOT the in-engine ParquetEmitter, which is a RAM trap)."
+
+assumptions:
+- text: |
+    The wild-type baseline resumed from the showcase-1 full ParCa cache reaches
+    a physiological steady state across a multiseed/multigen ensemble, so the
+    four wild-type-property tests are evaluated on the ensemble (not a single
+    cell).
+  verified_in_v2ecoli: false
+- text: |
+    Ray-parallel dispatch (run_seeds_parallel) + XArray/zarr emit is the correct
+    runner for a multiseed ensemble; the in-engine ParquetEmitter is a RAM trap
+    and is avoided.
+  verified_in_v2ecoli: false
+
+tests:
+- name: doubling-time-in-band
+  classification: primary
+  status: pending
+  question: Is the ensemble doubling time within the physiological band for the baseline growth condition?
+  measure:
+    kind: doubling_time
+    detail: Mean/median doubling time across the multiseed ensemble vs the physiological band for the condition.
+  pass_if:
+    op: in_band
+- name: mass-fraction-physiological
+  classification: primary
+  status: pending
+  question: Are the cell mass fractions (protein / RNA / DNA / etc.) physiological?
+  measure:
+    kind: mass_fractions
+    detail: Compare ensemble mass fractions against measured E. coli mass-fraction composition.
+  pass_if:
+    op: physiological
+- name: fba-flux-correlates-toya2010
+  classification: primary
+  status: pending
+  question: Do the baseline FBA fluxes correlate with the Toya 2010 measured central-carbon fluxes?
+  measure:
+    kind: flux_correlation
+    reference: Toya 2010
+    detail: Correlate baseline FBA fluxes against Toya 2010 measured fluxes.
+  pass_if:
+    op: correlates
+- name: proteome-correlates-schmidt-wisniewski
+  classification: primary
+  status: pending
+  question: Does the baseline proteome correlate with the Schmidt 2016 / Wisniewski measured proteome?
+  measure:
+    kind: proteome_correlation
+    reference: Schmidt 2016 / Wisniewski
+    detail: Correlate baseline protein abundances against the Schmidt/Wisniewski measured proteome.
+  pass_if:
+    op: correlates
+
+discovery_implications:
+  resolved_uncertainties: []
+  remaining_uncertainties:
+  - Whether the wild-type baseline reproduces all four measured-property classes simultaneously, or whether a calibration trade-off appears across them.
+
+pipeline_gate:
+  prerequisites:
+  - showcase-1-parca
+  enables:
+  - showcase-3-variant-decide
+  gate_status: pending
+
+runs: []
+visualizations: []

@@ -1,7 +1,0 @@
-{
-  "source_run_id": "dnaa3_fullhist",
-  "generation_id": "dnaa3-fullhist",
-  "rendered_at": 1780919438.983239,
-  "command": "cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run out/dnaa3_fullhist --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis",
-  "content_hash": "sha256:9ce895de75b8359baef735999c56e6b49ededf574ec2200e6f136785f6220895"
-}

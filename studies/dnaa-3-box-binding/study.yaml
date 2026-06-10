@@ -59,23 +59,31 @@ report:
     is modelled here.
 
   result: |
+    >> CURRENT RESULT (2026-06-10): the OVER-BINDING IS RESOLVED. Rashmi's ACTIVE
+    box-binding mechanism was reviewed, verified, and ADOPTED (PR #162) — it depletes
+    the free DnaA pool, so oriC-low occupancy drops to a dynamic ~0.46 (vs the
+    read-only observer's pinned ~0.8) and the box catalog doubles 315<->630. See
+    chart dnaa3_active_binding_adopted + RASHMI_BRANCH_REVIEW.md. The account below is
+    the READ-ONLY-ERA history that motivated the adoption (the problem the active
+    mechanism solved) — kept for narrative; its raw read-only result charts were
+    retired (superseded). <<
+
     DECONTAMINATED 2026-06-08 (per Rashmi): the only mechanisms and references in
     this study are the provided ones. The DnaA-box model here is the PROVIDED
     read-only occupancy observer — 4 affinity pools, fast equilibrium, full box
     set, no box-capacity limit and no mutation of the DnaA pool (both of which an
     earlier pass had added with outside justification; both removed).
-    STATUS:
-    • DELIVERED — the DnaA-box OCCUPANCY chromosome view (chart dnaa3_box_occupancy):
-      bound/free per box, by region, at a later (steady-state) generation, + a
-      total-DnaA-concentration panel. It reads the real in-sim emitted
-      listeners.dnaA_binding occupancy from the read-only multi-gen run
+    STATUS (read-only era — superseded by the adopted active mechanism above):
+    • DELIVERED — the DnaA-box OCCUPANCY view (chart dnaa3_occupancy_haochen):
+      oriC-low/high occupancy + free DnaA-ATP (nM) over steady gens. It reads the
+      real in-sim emitted occupancy from the read-only multi-gen run
       (dnaa3-insim-readonly).
     • RAN — dnaa-3 read-only binding observer on the dnaa-2 V=1e-3 succinate seed-1
       lineage. Because the binding is READ-ONLY (it writes only
       listeners.dnaA_binding and never mutates the DnaA pool or the box flags), the
       cell cycle matches the dnaa-2 baseline. All four acceptance tests PASS: 8/8
       divisions, oriC 1↔2 every gen, zero re-initiation, DnaA-ATP fraction in
-      [0.2,0.5]. All readouts plotted from the run (chart dnaa3_readouts): total
+      [0.2,0.5]. All readouts were plotted from the read-only run (charts retired; superseded): total
       DnaA conc (count/cell MASS), DnaA-ATP fraction, oriC, DnaA bound by pool &
       nucleotide, DnaA boxes free-vs-bound (box count doubles 307→614 with
       replication), cell mass.
@@ -312,8 +320,7 @@ reviewer_feedback:
   reviewer: Haochen
   source: feedback-2026-06-06-1544/feedback.yaml
   notes: |
-    Haochen's five points, addressed in the dnaa3_binding_analysis +
-    occupancy figures (all rendered from the provided read-only binding model):
+    Haochen's five points, addressed in the dnaa3_occupancy_haochen figure (all rendered from the provided read-only binding model):
     (1) oriC low-affinity occupancy on a separate zoomed axis; (2)
     occupancy/analysis restricted to LATER (steady) generations; (3) free DnaA
     plotted alongside bound; (4) free-DnaA concentration reported in nM
@@ -350,7 +357,7 @@ reviewer_feedback:
     (1) dnaA-promoter/oriC labels overlapped on the box-map → separated with leader
     lines. (2) "run this study, make all the plots in the what-we-will-measure
     section" → dnaa-3 seed-1 8-gen run launched (mini, cache_dnaa3); new
-    dnaa3_readouts figure plots every readout. (3) "total concentration is count/cell
+    the read-only readouts figure (retired) plotted every readout. (3) "total concentration is count/cell
     mass not volume" → occupancy + readouts panels now use count / cell MASS.
     Also (Eran): free/unbound boxes were invisible (high-aff pools saturate) → free
     boxes now drawn as bold red rings + explicit "bound/free" per-region labels.
@@ -672,64 +679,15 @@ visualizations:
       Ter red, RNAPs blue. Rendered from per-timestep unique-molecule coordinates
       (V2ECOLI_EMIT_UNIQUE) via the _draw_replication_bubbles renderer.
   render: cd ../.. && python scripts/render_chromosome_gif.py --run out/dnaa_gifdata --seed 1 --every 30 --out studies/dnaa-3-box-binding/charts/chromosome_replication.gif
-- name: dnaa3_box_occupancy
-  address: image:charts/dnaa3_box_occupancy.png
-  config:
-    title: >-
-      DnaA-box OCCUPANCY by region at a STEADY-STATE generation (gen 5), from the
-      REAL IN-SIM emitted listeners.dnaA_binding occupancy (full-history run
-      dnaa3-fullhist, canonical all-zeros lineage). Five timepoints around the
-      circular chromosome: each box filled = DnaA-bound / open = free, per-region
-      bound/total from the emitted n_bound / n_total; red ■ = ter; oriC boxes double
-      at replication (13/14 → 18/20) and the chromosomal box ring grows as the fork
-      copies it (299 → 598). The bottom panel plots the emitted free DnaA-ATP (nM)
-      vs the 100 nM oriC-low K_d — median 389 nM, mean 393 nM at gen 5, well above
-      the K_d for the whole cycle. oriC high-affinity boxes saturate; oriC
-      LOW-affinity occupancy is high (~0.8). Only the provided pools (oriC +
-      dnaA-promoter + chromosomal) are shown. Numbers are read straight from the run
-      (see runs[dnaa3-fullhist].real_insim_numbers).
-  chart: charts/dnaa3_box_occupancy.svg
-  source_run: dnaa3-fullhist
-  render: cd ../.. && python scripts/render_dnaa3_occupancy.py --insim-run out/dnaa3_fullhist --generation 5 --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy
-- name: dnaa3_binding_analysis
-  address: image:charts/dnaa3_binding_analysis.png
-  config:
-    title: >-
-      DnaA-box binding over the FULL 7-GENERATION lineage (full per-tick history
-      retained each generation) from the REAL IN-SIM emitted listeners.dnaA_binding
-      (full-history run dnaa3-fullhist, canonical all-zeros lineage, >100-tick
-      partitions only): (1) free DnaA-ATP and free DnaA-ADP (nM) vs the 100 nM
-      oriC-low K_d across all 7 generations; (2) bound DnaA by pool (count); (3)
-      oriC LOW-affinity occupancy on its own zoomed axis; (4) per-pool occupancy
-      fraction (oriC-high, oriC-low, chromosomal, dnaA-promoter). DECONTAMINATED —
-      only the provided fast-equilibrium binding mechanism + dnaa-2 nucleotide
-      balance; NO ChIP-seq cap line, NO sink (both removed per Rashmi).
-      HONEST NUMBERS (read straight off the parquet, ~21.9k ticks over 7 full
-      cycles): free DnaA-ATP per-generation means 382-554 nM (overall min 106 / mean
-      440 / max 655 nM), ABOVE the 100 nM K_d for 100% of EVERY cycle; oriC
-      low-affinity occupancy stays HIGH (~0.8; per-gen means 0.79-0.85) every
-      generation (no early->late switch); high-affinity/chromosomal/promoter pools
-      saturate (~1.0). This over-binding is a stable per-cycle OPEN observation
-      within the provided mechanism, NOT resolved by a cap or sink.
-  chart: charts/dnaa3_binding_analysis.svg
-  source_run: dnaa3-fullhist
-  render: cd ../.. && python scripts/render_dnaa3_binding_analysis.py --insim-run out/dnaa3_fullhist --insim-gens 1,2,3,4,5,6,7 --gen-id dnaa3-fullhist --out studies/dnaa-3-box-binding/charts/dnaa3_binding_analysis
-- name: dnaa3_readouts
-  address: image:charts/dnaa3_readouts.png
-  config:
-    title: >-
-      ALL dnaa-3 readouts (Rashmi's "what we will measure") across all 7 full
-      generations of the full-history read-only run (dnaa3-fullhist, canonical
-      all-zeros lineage): number of oriC (1↔2 every gen); cell mass (periodic
-      doubling, 593-1356 fg); total DnaA concentration (count / cell MASS, all forms
-      bound + free); DnaA-ATP & DnaA-ADP fraction (DnaA-ATP in the [0.2,0.5] band for
-      gens 2-7); DnaA counts in ALL forms (DnaA-ATP, DnaA-ADP, apoDnaA, bound + free);
-      and DnaA boxes total/bound/free (boxes double 307→614 during replication).
-      Provided read-only binding model on the dnaa-2 succinate baseline; cell cycle
-      preserved 7/7 generations.
-  chart: charts/dnaa3_readouts.svg
-  source_run: dnaa3-fullhist
-  render: cd ../.. && python scripts/render_dnaa3_readouts.py --run out/dnaa3_fullhist --gens 1,2,3,4,5,6,7 --out studies/dnaa-3-box-binding/charts/dnaa3_readouts
+  # RETIRED 2026-06-10 (superseded by the adopted active mechanism): the read-only
+  # result charts dnaa3_box_occupancy / dnaa3_binding_analysis / dnaa3_readouts
+  # showed the OVER-BINDING (oriC-low ~0.8, free DnaA-ATP >> K_d) "not resolved"
+  # within the read-only observer. That observation drove the adoption of Rashmi's
+  # ACTIVE binding mechanism (PR #162), which RESOLVES it — see
+  # dnaa3_active_binding_adopted. The historical problem is documented by the
+  # dnaa3_occupancy_haochen + dnaa3_v_sweep_overbinding charts (kept) and the
+  # result narrative above; the raw read-only readouts are removed to avoid showing
+  # a superseded "over-binding persists" picture next to the resolved verdict.
 planned_visualizations:
 - name: dnaa-atp-partition-across-cell
   units: concentration (count / cell_mass)

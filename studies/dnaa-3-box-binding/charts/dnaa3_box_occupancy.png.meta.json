@@ -1,7 +1,0 @@
-{
-  "source_run_id": "dnaa3-fullhist",
-  "generation_id": "5 (steady-state generation)",
-  "rendered_at": 1780919458.618978,
-  "command": "python scripts/render_dnaa3_occupancy.py --insim-run out/dnaa3_fullhist --generation 5 --out studies/dnaa-3-box-binding/charts/dnaa3_box_occupancy",
-  "content_hash": "sha256:12536d6f00b45fe071c712d4c34ce826b176560c003463b252779c4012453f71"
-}

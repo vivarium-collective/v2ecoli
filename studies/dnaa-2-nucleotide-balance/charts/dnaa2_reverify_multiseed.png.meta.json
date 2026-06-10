@@ -1,0 +1,6 @@
+{
+  "source_run_id": "dnaa2_reverify_v1e3_seed{0,1,2} (multi-seed re-verification, corrected full-per-gen-history emitter, V=1e-3, on the mini)",
+  "generation_id": null,
+  "command": "render_dnaa2_reverify.py — ATP fraction + total DnaA + oriC per generation across seeds 0/1/2",
+  "caption": "dnaa-2 RE-VERIFIED on corrected data (Rashmi 2026-06-09 'redo this study'): DnaA-ATP fraction holds in [0.2,0.5] across all 3 seeds (avg 0.268/0.267/0.302); total DnaA in-band on the gen-average (392/575/578) with a SEED-VARIABLE per-gen overshoot >800 (seeds 1&2 mid-run; seed 0 stays in band); oriC 1<->2 clean every seed. Supersedes the stale Jun-4 truncated-run charts."
+}

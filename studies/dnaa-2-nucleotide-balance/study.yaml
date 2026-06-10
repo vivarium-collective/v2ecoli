@@ -433,37 +433,26 @@ figure_refresh:
 # "keep only the latest one"). The diagnosis scatter remains referenced in the
 # DnaA-ATP-fraction test notes; it is not a separate chart here.
 visualizations:
-- name: dnaa2_atp_fraction_band
-  address: image:charts/dnaa2_atp_fraction_band.png
+- name: dnaa2_reverify_multiseed
+  address: image:charts/dnaa2_reverify_multiseed.png
   config:
     title: >-
-      DnaA-ATP fraction vs accepted band [0.2, 0.5] (seed 1, 8 generations).
-      Generation-aligned per-tick trace with the target band SHADED and
-      per-generation average dots overlaid (green = gen-mean in band,
-      red = out of band). The pass criterion is staying in the band, so the
-      band is drawn explicitly. 5/8 gen-means in band; gen 1 is the
-      pre-steady-state transient (overshoot to ~1.0), and gens 5/8 dip just
-      below 0.2. Fraction = DnaA-ATP / total DnaA from the three bulk forms.
+      CANONICAL (re-verified 2026-06-09, supersedes the stale Jun-4 truncated-run
+      charts). Multi-seed re-verification at V=1e-3 on the CORRECTED
+      full-per-gen-history emitter (seeds 0/1/2 × 8 gens), after Rashmi flagged the
+      original as stale. 3 panels: DnaA-ATP fraction vs [0.2,0.5] band (PRIMARY —
+      holds across all seeds, all-gen avg 0.268/0.267/0.302), total DnaA vs
+      [300,800] band (in-band on the gen-average — 392/575/578 — with a
+      SEED-VARIABLE per-gen overshoot >800: seeds 1&2 ramp above mid-run, seed 0
+      stays in band), and oriC count (clean 1↔2 every seed). The per-gen overshoot
+      is the V=1e-3 pool drift (cf. dnaa-1: V=1e-3 overshoots the band).
     inputs_map:
       atp_fraction: bulk MONOMER0-160[c] / (MONOMER0-160[c] + MONOMER0-4565[c] + PD03831[c])
-      time: global_time
-  chart: charts/dnaa2_atp_fraction_band.svg
-  source_run: dnaa2_seed1_8gen
-  render: cd ../.. && python scripts/render_dnaa2_atp_band.py --run out/dnaa2_seed1_8gen --seed 1 --out studies/dnaa-2-nucleotide-balance/charts
-- name: dnaa2_seed1_8gen_canonical
-  address: image:charts/dnaa2_seed1_8gen_canonical.png
-  config:
-    title: >-
-      CANONICAL — directed seed-1 × 8-generation succinate reproduction
-      (Rashmi 2026-06-04). 6-panel trajectory: cell mass (periodic, 8/8 divisions),
-      oriC (1↔2, one init/gen), DnaA forms + [300,800] band, DnaA concentration,
-      DnaA-form fractions + [0.2,0.5] band, bulk ATP/ADP. All four behaviours PASS
-      on the generation-average criterion (DnaA-ATP fraction avg 0.26, total-DnaA
-      avg 535). Initial generations stabilize, per Rashmi's note.
-
-  chart: charts/dnaa2_seed1_8gen_canonical.svg
-  source_run: dnaa2_seed1_8gen
-  render: cd ../.. && python scripts/render_dnaa2_sixpanel.py --run out/dnaa2_seed1_8gen
+      total_dnaa: bulk PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c]
+      oric: listeners.replication_data.number_of_oric
+  chart: charts/dnaa2_reverify_multiseed.svg
+  source_run: dnaa2_reverify_v1e3_seed{0,1,2}
+  render: render_dnaa2_reverify.py (on the mini; reads out/dnaa2_reverify_v1e3_seed{0,1,2})
 runs:
   # DIRECTED CANONICAL (Rashmi 2026-06-04): the run that decides dnaa-2 PASS.
 - name: dnaa2-seed1-8gen
@@ -476,7 +465,9 @@ runs:
   description: |
     SEED 1 × 8 GENERATIONS, V=1e-3 succinate, burned-in resume from the succinate
     steady-state dill — the directed reproduction. RAN 2026-06-04 (8/8 divided,
-    τ 53-79 min, ~40 min wall). Chart: charts/dnaa2_seed1_8gen_canonical.png.
+    τ 53-79 min, ~40 min wall) on the PRE-FIX (truncated) emitter; SUPERSEDED by the
+    2026-06-09 multi-seed re-verification on the corrected emitter (chart
+    charts/dnaa2_reverify_multiseed.png).
   seeds: [1]
   result: |
     Per-gen DnaA-ATP fraction (cycle-mean): g1 0.527 / g2 0.285 / g3 0.268 /

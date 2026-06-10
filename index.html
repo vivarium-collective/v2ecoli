@@ -3,54 +3,50 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>v2ecoli — Investigation Reports</title>
+<title>v2ecoli reports</title>
 <style>
-:root { --ink:#0f172a; --blue:#2563eb; --blue-d:#1e40af; --muted:#64748b;
-        --line:#e2e8f0; --bg:#f8fafc; --card:#fff; }
-* { box-sizing: border-box; }
-body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-       max-width: 920px; margin: 0 auto; padding: 28px 22px 60px;
-       background: var(--bg); color: var(--ink); line-height: 1.55; }
-h1 { font-size: 1.9em; margin: 0 0 4px; }
-.sub { color: var(--muted); font-size: 0.98em; margin: 0 0 8px; }
-.lede { font-size: 0.95em; color:#334155; margin: 0 0 26px;
-        border-left: 3px solid var(--blue); padding: 6px 0 6px 14px; background:#fff; }
-h2 { font-size: 1.15em; color: var(--blue-d); margin: 34px 0 12px;
-     border-bottom: 2px solid var(--line); padding-bottom: 6px; }
-a { color: var(--blue); text-decoration: none; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+       sans-serif; max-width: 820px; margin: 40px auto; padding: 20px;
+       background: #f8fafc; color: #1e293b; line-height: 1.6; }
+h1 { color: #0f172a; border-bottom: 3px solid #3b82f6; padding-bottom: 8px; }
+h2 { color: #1e40af; margin-top: 1.8em; font-size: 1.05em; }
+ul { padding-left: 1.2em; }
+li { margin: 0.4em 0; }
+a { color: #2563eb; text-decoration: none; }
 a:hover { text-decoration: underline; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
-        padding: 16px 18px; margin: 0 0 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
-.card h3 { margin: 0 0 6px; font-size: 1.05em; }
-.card h3 a { color: var(--ink); }
-.card p { margin: 0 0 8px; color:#475569; font-size: 0.92em; }
+.note { font-size: 0.85em; color: #64748b; }
+code { background: #e2e8f0; padding: 1px 6px; border-radius: 3px;
+       font-size: 0.9em; }
+.invest { background:#fff; border:1px solid #e2e8f0; border-radius:10px;
+          padding:14px 18px; margin:0 0 12px; box-shadow:0 1px 2px rgba(0,0,0,0.03); }
+.invest h3 { margin:0 0 6px; font-size:1.02em; }
+.invest p { margin:0 0 6px; color:#475569; font-size:0.9em; }
+.invest .meta { font-size:0.8em; color:#64748b; }
 .pill { display:inline-block; font-size:0.72em; font-weight:600; padding:2px 9px;
         border-radius:9999px; margin-left:8px; vertical-align:middle; }
 .pill.complete { background:#dcfce7; color:#166534; }
 .pill.in_progress { background:#dbeafe; color:#1e40af; }
-.meta { font-size:0.8em; color: var(--muted); }
-.grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
-.doc { background:#fff; border:1px solid var(--line); border-radius:8px; padding:10px 13px; font-size:0.9em; }
-.doc strong { display:block; }
-.doc span { color: var(--muted); font-size:0.82em; }
-footer { margin-top:40px; padding-top:16px; border-top:1px solid var(--line);
-         font-size:0.82em; color: var(--muted); }
+.section-head { font-size:1.2em; color:#0f172a; border-bottom:2px solid #e2e8f0;
+                padding-bottom:4px; }
 </style>
 </head>
 <body>
 
-<h1>v2ecoli</h1>
-<p class="sub">vEcoli, reimagined as a composable
+<h1>v2ecoli reports</h1>
+<p class="sub" style="color:#475569;">vEcoli, reimagined as a composable
 <a href="https://github.com/vivarium-collective/process-bigraph">process-bigraph</a>
 whole-cell model and research workspace.</p>
-<p class="lede">This site publishes the <strong>investigation reports</strong> — self-contained,
-reviewable write-ups of each research question (build &rarr; simulate &rarr; evaluate &rarr; decide),
-with embedded charts and an inline GitHub-issue feedback widget — alongside the
-existing <strong>interactive model viewers and technical reports</strong>.</p>
+<p class="note">Each report opens with a <strong>Run provenance</strong>
+banner showing the date (Eastern time), git commit, host, and Python
+version at the time of generation. Checked-in copies reflect the run
+whose output is live on this page.</p>
 
-<h2>Investigations</h2>
+<h2 class="section-head">📑 Investigation reports</h2>
+<p class="note" style="margin-top:-4px;">Self-contained, reviewable write-ups of each research
+question (build &rarr; simulate &rarr; evaluate &rarr; decide), with embedded charts and an inline
+GitHub-issue feedback widget.</p>
 
-<div class="card">
+<div class="invest">
   <h3><a href="investigations/v2ecoli-baseline-showcase.html">v2ecoli Baseline Showcase: from ecoli-sources to a calibrated whole cell</a>
       <span class="pill in_progress">in progress</span></h3>
   <p>Starting from the raw ecoli-sources flat files, rebuild the ParCa in full, run a
@@ -60,7 +56,7 @@ existing <strong>interactive model viewers and technical reports</strong>.</p>
   <p class="meta">3 studies · showcase-1-parca · showcase-2-baseline-figures · showcase-3-variant-decide</p>
 </div>
 
-<div class="card">
+<div class="invest">
   <h3><a href="investigations/v2ecoli-pdmp.html">v2ecoli &rarr; PDMP Whole-Cell Model Reformulation</a>
       <span class="pill in_progress">in progress</span></h3>
   <p>Can v2ecoli's hybrid algorithmic whole-cell model be incrementally transformed into a
@@ -69,7 +65,7 @@ existing <strong>interactive model viewers and technical reports</strong>.</p>
   <p class="meta">6 studies</p>
 </div>
 
-<div class="card">
+<div class="invest">
   <h3><a href="investigations/colonies.html">Colony Composite — HPC Scaling Readiness</a>
       <span class="pill complete">complete</span></h3>
   <p>Certify the colony composite for HPC deployment: fix daughter-process hydration so
@@ -78,34 +74,80 @@ existing <strong>interactive model viewers and technical reports</strong>.</p>
   <p class="meta">1 study · colonies-01-hpc-readiness</p>
 </div>
 
-<h2>Interactive model viewers &amp; technical reports</h2>
-<p class="sub" style="margin-top:-4px;">The full <code>docs/</code> set — interactive bigraph viewers, the baseline
-state viewer, performance and ParCa reports — preserved at their original paths.</p>
+<h2 class="section-head" style="margin-top:1.8em;">🔬 Interactive model viewer</h2>
+<ul>
+  <li><a href="bigraph_baseline.html"><strong>Baseline composite</strong></a>
+      &mdash; the whole-cell model as an interactive bigraph: pan/zoom, expand
+      store chips, toggle nodes, and click a process to inspect its input/output
+      port schemas (with units) and formal mathematical description.</li>
+  <li><a href="bigraph_parca.html"><strong>ParCa pipeline</strong></a>
+      &mdash; the nine-Step parameter-calculator composite, same interactive view.</li>
+  <li><a href="baseline-viewer/"><strong>Baseline state viewer</strong></a>
+      &mdash; single-page app browsing the full baseline simulation state.</li>
+  <li><a href="math_structure.html">Mathematical structure</a>
+      &mdash; the formal mathematical structure of each process (state variables
+      and update rules), e.g. chromosome replication initiate/elongate/terminate.</li>
+</ul>
 
-<div class="grid">
-  <a class="doc" href="docs/index.html"><strong>docs/ index</strong><span>full report index</span></a>
-  <a class="doc" href="docs/bigraph_baseline.html"><strong>Baseline composite</strong><span>interactive bigraph viewer</span></a>
-  <a class="doc" href="docs/bigraph_parca.html"><strong>ParCa pipeline</strong><span>interactive bigraph viewer</span></a>
-  <a class="doc" href="docs/math_structure.html"><strong>Mathematical structure</strong><span>process state &amp; update rules</span></a>
-  <a class="doc" href="docs/baseline-viewer/index.html"><strong>Baseline state viewer</strong><span>SPA</span></a>
-  <a class="doc" href="docs/multigeneration_report.html"><strong>Multigeneration report</strong><span></span></a>
-  <a class="doc" href="docs/workflow_report.html"><strong>Workflow report</strong><span></span></a>
-  <a class="doc" href="docs/colony_report.html"><strong>Colony report</strong><span></span></a>
-  <a class="doc" href="docs/composite_comparison.html"><strong>Composite comparison</strong><span></span></a>
-  <a class="doc" href="docs/v1_v2_comparison.html"><strong>v1 vs v2 comparison</strong><span></span></a>
-  <a class="doc" href="docs/ecoli_sources_report.html"><strong>ecoli-sources report</strong><span></span></a>
-  <a class="doc" href="docs/parca_workflow_report.html"><strong>ParCa workflow report</strong><span></span></a>
-  <a class="doc" href="docs/perf/perf_compare.html"><strong>Performance: v2 vs vEcoli</strong><span></span></a>
-  <a class="doc" href="docs/network.html"><strong>Network</strong><span></span></a>
-  <a class="doc" href="docs/parca_network.html"><strong>ParCa network</strong><span></span></a>
-</div>
+<h2>Engine comparison</h2>
+<ul>
+  <li><a href="v1_v2_comparison.html">vEcoli vs v2ecoli</a>
+      &mdash; runtime and growth-behavior comparison of vEcoli (the established
+      vivarium-based whole-cell model) and the current v2ecoli baseline
+      (process-bigraph). Wall-time benchmarks and mass/growth trajectories over
+      a matched simulation duration.</li>
+  <li><a href="composite_comparison.html">Composite comparison</a>
+      &mdash; side-by-side comparison of two composites: summary metrics and
+      observable trajectories over time.</li>
+</ul>
 
-<footer>
-  Generated from the merged <code>main</code> workspace. Investigation reports are static,
-  self-contained snapshots produced by the vivarium-dashboard report generator; the
-  interactive dashboard runs locally via <code>scripts/serve.sh</code>.
-  Source: <a href="https://github.com/vivarium-collective/v2ecoli">vivarium-collective/v2ecoli</a>.
-</footer>
+<h2>ParCa</h2>
+<ul>
+  <li><a href="parca_workflow_report.html">ParCa workflow report</a>
+      &mdash; merged nine-Step ParCa pipeline run.  Per-step
+      runtimes, port manifests, raw-data (flat TSV) stats, and
+      distribution overlays vs vEcoli reference where intermediates
+      are available.</li>
+  <li><a href="ecoli_sources_report.html">ecoli-sources bundle</a>
+      &mdash; ParCa input data sources pulled from the
+      <code>ecoli-sources</code> package (reconstruction flat files);
+      real ParCa output plus a multi-ParCa demo (operons on/off).</li>
+</ul>
+
+<h2>Cell lifecycle</h2>
+<ul>
+  <li><a href="workflow_report.html">Workflow report</a>
+      &mdash; full single-cell lifecycle: mother grown to division, then
+      both daughters run for half a generation. Mass, growth, ppGpp,
+      chromosome state, and process-bigraph network view.</li>
+  <li><a href="multigeneration_report.html">Multigeneration report</a>
+      &mdash; single-lineage simulation across a configurable number of
+      generations. Each cell runs to division, one daughter is kept, and
+      the process repeats. Mass trajectories plotted end-to-end with
+      generation boundaries.</li>
+</ul>
+
+<h2>Colony simulation</h2>
+<ul>
+  <li><a href="colony_report.html">Colony report</a>
+      &mdash; one whole-cell <em>E. coli</em> embedded in a 2D colony of
+      adder-kinetics surrogates, with synced colony and chromosome animations.</li>
+</ul>
+
+<h2>Composition graphs</h2>
+<ul>
+  <li><a href="network_baseline.html">Baseline (partitioned)</a>
+      &mdash; the current single-cell baseline model.</li>
+  <li><a href="parca_network.html">ParCa pipeline</a>
+      &mdash; upstream 9-Step ParCa composite that produces
+      <code>sim_data</code>.</li>
+</ul>
+
+<p class="note">Reports are generated by scripts in the <code>reports/</code>
+directory: <code>v1_v2_report.py</code>, <code>colony_report.py</code>,
+<code>workflow_report.py</code>, <code>multigeneration_report.py</code>,
+and <code>network_report.py</code>. Source:
+<a href="https://github.com/vivarium-collective/v2ecoli">vivarium-collective/v2ecoli</a>.</p>
 
 </body>
 </html>

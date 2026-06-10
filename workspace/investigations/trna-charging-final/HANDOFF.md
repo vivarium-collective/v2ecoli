@@ -1,6 +1,6 @@
 # trna_charging_final port — session handoff
 
-**Branch:** `trna_charging_final` (local, not pushed). Last commit: (Task #12 — about to commit). **Tasks #2, #3, #5, #6, #7, #8, #9, #10, #11, #12 complete.** Parity-gate result: real-emitter build-check passes; signature drift vs committed golden is small (~0.3% on bulk/mass, ~170 ribosomes / 83 RNAP / 33 RNA on unique counts) and structured — explained by the Task #8 fixture refresh. Golden re-capture deferred per AGENTS.md (must happen from clean `origin/main`). Remaining: Task #4 (independent), Task #13 (reports).
+**Branch:** `trna_charging_final` (local, not pushed). Last commit: `34cade6 docs(trna-charging): record Task #12 parity-gate drift (Task #8 fixture refresh)`. **Tasks #2, #3, #5, #6, #7, #8, #9, #10, #11, #12 complete.** Parity-gate result: real-emitter build-check passes; signature drift vs committed golden is small (~0.3% on bulk/mass, ~170 ribosomes / 83 RNAP / 33 RNA on unique counts) and structured — explained by the Task #8 fixture refresh. Golden re-capture deferred per AGENTS.md (must happen from clean `origin/main`). Remaining: Task #4 (independent), Task #13 (reports).
 
 **Upstream reference:** `CovertLab/vEcoli@trna_charging_final` at `/Users/arnabmutsuddy/projects/vEcoli_trna/vEcoli` (HEAD `330ee3f4`).
 

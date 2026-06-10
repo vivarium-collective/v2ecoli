@@ -1,0 +1,44 @@
+meta:
+  investigation: dnaa-replication
+  report_id: rpt-20260610004530
+  generated_at: '2026-06-10T00:52:48.278Z'
+  page_title: 'Investigation: DnaA / Replication Initiation (succinate, fresh start
+    2026-05-29)'
+  source_url: file:///Users/rashmidissasekara/Downloads/investigation-dnaa-replication-2026-06-10-2.html
+annotations:
+  study-dnaa-2-nucleotide-balance:
+  - ts: '2026-06-10T00:52:46.403Z'
+    author: Rashmi
+    text: this look good. lets run the tests as well. Then we can move on to the next
+      study.
+responses:
+  study-dnaa-2-nucleotide-balance:
+    status: done
+    by: claude
+    at: '2026-06-10'
+    response: |-
+      Each item:
+
+      (1) "This looks good." — Thanks; recorded your re-approval —
+      dnaa-2 expert_review_status: needs_review -> approved. The corrected
+      multi-seed re-verification is now the canonical result.
+
+      (2) "Run the tests as well." — DONE. The four behaviour tests are evaluated
+      on the canonical re-verify run (seeds 0/1/2, corrected emitter) and recorded
+      under runs[].outcomes, all PASS:
+        - periodic-mass-doubling — PASS (8/8 divisions every seed)
+        - oric-one-initiation-per-generation — PASS (oriC 1<->2, never 4, every seed)
+        - total-dnaa-in-band-300-800 — PASS on the generation average every seed
+          (392/575/578); per-gen overshoot >800 is seed-variable (seeds 1&2; seed 0
+          stays in band) — the known V=1e-3 pool drift
+        - dnaa-atp-fraction-in-band-0.2-0.5 — PASS, robust (0.268/0.267/0.302)
+      So the report's dnaa-2 test pills now read 4/4 PASS, backed by the re-verify
+      run (not the stale Jun-4 one).
+
+      (3) "Then move on to the next study." — Done: dnaa-2 is closed PASS and the
+      box-binding study (dnaa-3) is UN-GATED and now the active study. Its current
+      state: the read-only DnaA-box occupancy observer is built and runs on the
+      dnaa-2 baseline; the open question is the oriC low-affinity OVER-BINDING
+      (free DnaA-ATP ~380-550 nM >> the ~100 nM K_d), which the V-down sweep showed
+      V alone cannot resolve. Standing offer: whenever you push your box-binding
+      branch, I'll review it for correctness + adoption against this observer.

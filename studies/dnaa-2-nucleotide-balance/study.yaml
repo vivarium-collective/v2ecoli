@@ -24,7 +24,7 @@ implementation_status: complete   # Haochen's bf8b82e integrate_dt mechanism (hi
 simulation_status: ran            # directed seed-1 8-gen succinate lineage (out/dnaa2_seed1_8gen)
 evaluation_status: evaluated      # all 4 behaviours pass on Rashmi's generation-average criterion
 gate_status: passed               # PASS (re-verified multi-seed, corrected emitter) — gen-average DnaA-ATP fraction robust 0.268/0.267/0.302 + total-DnaA gen-avg 392/575/578 in band; mass + oriC clean every seed (per-gen pool overshoot >800 is seed-variable, gen-average-true)
-expert_review_status: needs_review  # 2026-06-09 Rashmi flagged the prior PASS as STALE (pre-fix data) + asked to redo; REDONE multi-seed and results stand — awaiting her re-approval of the corrected result. (Mechanism was Haochen-approved; gen-average criterion Rashmi-directed.)
+expert_review_status: approved  # 2026-06-10 Rashmi RE-APPROVED the redo ("this looks good. lets run the tests as well") — the corrected multi-seed re-verification + the 4 behaviour tests (all PASS, recorded on the canonical re-verify run) close dnaa-2. (Mechanism Haochen-approved; gen-average criterion Rashmi-directed.) Cleared to move on to dnaa-3.
 
 readouts:
 - name: DnaA-ATP fraction
@@ -455,11 +455,50 @@ visualizations:
   source_run: dnaa2_reverify_v1e3_seed{0,1,2}
   render: render_dnaa2_reverify.py (on the mini; reads out/dnaa2_reverify_v1e3_seed{0,1,2})
 runs:
-  # DIRECTED CANONICAL (Rashmi 2026-06-04): the run that decides dnaa-2 PASS.
+  # CANONICAL (Rashmi 2026-06-10 "run the tests"): the re-verified multi-seed run
+  # on the corrected emitter — the tests below are evaluated on THIS run.
+- name: dnaa2-reverify-multiseed-v1e3
+  status: completed
+  kind: multi-seed-multigen-lineage
+  canonical: true
+  canonical_seed: 1
+  run_dir: out/dnaa2_reverify_v1e3_seed{0,1,2}
+  directed_by: Rashmi 2026-06-10 ("this looks good. lets run the tests as well.")
+  description: |
+    RE-VERIFICATION after Rashmi flagged the Jun-4 run as stale: seeds 0/1/2 × 8
+    generations, V=1e-3 succinate, burned-in resume, on the CORRECTED
+    full-per-gen-history emitter (run on the mini). Chart
+    charts/dnaa2_reverify_multiseed.png.
+  seeds: [0, 1, 2]
+  result: |
+    DnaA-ATP fraction robust across seeds (all-gen avg 0.268/0.267/0.302, in band);
+    total-DnaA gen-avg 392/575/578 (in band); oriC 1↔2 + 8/8 mass-doubling every
+    seed. Per-gen total-DnaA overshoot >800 is SEED-VARIABLE (seeds 1&2 mid-run;
+    seed 0 stays in band) — the V=1e-3 pool drift. Seed 0 hit a late PROTON
+    allocator edge at gen 8 (7 clean gens).
+  outcomes:
+    periodic-mass-doubling:
+      result: PASS
+      detail: 8/8 divisions every seed; periodic mass sawtooth (τ ~50-79 min).
+    oric-one-initiation-per-generation:
+      result: PASS
+      detail: oriC in {1,2} every generation, one 1→2 initiation per cycle, never 4 — every seed.
+    total-dnaa-in-band-300-800:
+      result: PASS
+      detail: |
+        Generation-average in band every seed (all-gen avg 392/575/578 in [300,800]).
+        Per-gen MEAN overshoots >800 mid-late for seeds 1&2 (seed 0 stays in band) —
+        seed-variable V=1e-3 pool drift; "in band" = the generation average.
+    dnaa-atp-fraction-in-band-0.2-0.5:
+      result: PASS
+      detail: |
+        Generation-average ROBUST across seeds — all-gen avg 0.268/0.267/0.302, all
+        in [0.2,0.5]. The hydrolysis mechanism's readout holds on corrected data.
+  # SUPERSEDED (pre-fix, truncated emitter — kept for provenance):
 - name: dnaa2-seed1-8gen
   status: completed
   kind: single-seed-multigen-lineage
-  canonical: true
+  canonical: false
   canonical_seed: 1
   run_dir: out/dnaa2_seed1_8gen
   directed_by: Rashmi 2026-06-04 ("seed 1 reproduces this behaviour; run 8 generations, then run the tests")

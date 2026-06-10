@@ -54,19 +54,75 @@ mechanism: |
 
 conditions:
   baseline:
-    composite: ecoli-baseline (with the adopted active box-binding, dnaa-3)
+    composite: v2ecoli.composites.baseline.baseline
+    inherited_from: dnaa-3-box-binding   # the adopted active box-binding mechanism (PR #162)
     params:
       condition: succinate
-      V_override: none   # the point — feedback sets the level, not a fixed V
-      autorepression: wired (DnaA-ATP→TU00259 negative recruitment edge)
+      seed: 0
+      single_daughters: true
+      max_generations: 8
+      V_override: none   # the point — feedback sets the dnaA level, not a fixed V
   variants:
-    - name: basal-x-strength-sweep
-      description: 2-D calibration — basal (max rate) × repression strength — to find the combo whose feedback equilibrium holds DnaA in [300,800].
-    - name: signal-source
-      description: (a) standard TF p_promoter_bound vs (b) coupled to the adopted dnaA-promoter box occupancy.
+  - name: basal-x-strength-sweep
+    description: |
+      2-D calibration — basal (max unrepressed dnaA synth) × repression strength —
+      to find the combo whose feedback equilibrium holds DnaA in [300,800].
+    params:
+      basal_synth_prob: sweep
+      repression_strength: sweep
+  - name: signal-source
+    description: |
+      (a) standard TF p_promoter_bound for DnaA-ATP vs (b) coupled to the adopted
+      dnaA-promoter box occupancy. Diagnostic confirmed (b) has a usable signal
+      (occupancy mean 1.41/2, range 0.5-2.0).
+    params:
+      source: a-vs-b
   model_settings:
-    - dnaa-promoter occupancy from the adopted box-binding listener as the repression signal
-    - no genetic_perturbations on TU00259[c]
+  - name: autorepression-edge
+    detail: "DnaA-ATP→TU00259 negative recruitment edge: synth_prob = basal + delta_prob × dnaA-promoter occupancy; restored from the −2.31 log2 FC, forced to survive the L1 promoter fit."
+  - name: repression-signal-source
+    detail: "dnaA-promoter occupancy from the adopted box-binding listener (promoter_high_bound) drives the bound-TF fraction (option b)."
+  - name: no-V-override
+    detail: "No genetic_perturbations on TU00259[c] — the feedback sets the dnaA level (vs the fixed V override in dnaa-1/dnaa-2)."
+
+readouts: |
+  - total DnaA pool (count) vs the [300,800] band — does it SELF-STABILIZE without V?
+  - per-generation DnaA drift — does feedback flatten the V=1e-3 ramp (73→880)?
+  - dnaA-promoter occupancy (repression signal) vs the resulting dnaA synth prob (the feedback loop)
+  - oriC count + cell mass (cycle integrity: 1↔2, periodic doubling)
+  - dnaA initiation rate (~1/min) — the stretch goal a constitutive V could not hit in-band
+
+planned_runs:
+- name: autoreg-feedback-no-V
+  status: planned
+  n_steps: ~8 generations (succinate, seed 0, on the adopted box-binding cache)
+  details: Wire the autorepression edge + drop the V override → does DnaA self-stabilize in [300,800] via feedback?
+- name: basal-strength-calibration
+  status: planned
+  n_steps: 2-D sweep (basal × repression strength), short lineages
+  details: Find the (basal, strength) combo whose feedback equilibrium lands DnaA in-band; confirm on a full 8-gen run.
+
+simulation_set:
+- name: autoreg-feedback-no-V
+  kind: multi-gen-lineage
+  status: planned
+  base_model: v2ecoli baseline + adopted box-binding + autorepression edge
+  duration_steps: ~8 generations
+  seeds: [0]
+  metrics: [total-DnaA-in-band, per-gen-drift, dnaA-promoter-occupancy, oriC, init-rate]
+  pass_fail_tests: [dnaa-pool-self-stabilizes-in-band-no-V, cell-cycle-preserved]
+
+visualizations:
+- name: dnaa4_autoreg_feedback_planned
+  address: planned
+  status: planned
+  config:
+    title: >-
+      PLANNED (mockup until the run lands) — DnaA pool over generations under
+      feedback-controlled synthesis (no V override) vs the fixed-V drift, with the
+      [300,800] band; plus dnaA-promoter occupancy (repression signal) and the
+      resulting dnaA synth prob (the feedback loop). The test of whether
+      autoregulation self-stabilizes DnaA and dissolves the V tension.
 
 tests:
 - name: dnaa-pool-self-stabilizes-in-band-no-V

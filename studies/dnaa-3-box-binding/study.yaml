@@ -59,14 +59,19 @@ report:
     is modelled here.
 
   result: |
-    >> CURRENT RESULT (2026-06-10): the OVER-BINDING IS RESOLVED. Rashmi's ACTIVE
-    box-binding mechanism was reviewed, verified, and ADOPTED (PR #162) — it depletes
-    the free DnaA pool, so oriC-low occupancy drops to a dynamic ~0.46 (vs the
-    read-only observer's pinned ~0.8) and the box catalog doubles 315<->630. See
-    chart dnaa3_active_binding_adopted + RASHMI_BRANCH_REVIEW.md. The account below is
-    the READ-ONLY-ERA history that motivated the adoption (the problem the active
-    mechanism solved) — kept for narrative; its raw read-only result charts were
-    retired (superseded). <<
+    >> CURRENT RESULT (2026-06-10, updated per Rashmi's feedback): Rashmi's ACTIVE
+    box-binding mechanism is ADOPTED (PR #162) and re-run at the IN-BAND V=1e-3 (the
+    value used before — NOT the overshooting 1.2e-3), adopting only the binding
+    mechanism. Run dnaa3_adopt_v1e3_seed0 (8 gens, 8/8 divided). Findings:
+    (a) OVER-BINDING RESOLVED + GRADUAL FILLING — the active depleted-pool solve makes
+    oriC-low occupancy fill gradually over the cycle (gen-5 ~0.3 at birth -> ~0.7 toward
+    initiation; chart dnaa3_box_occupancy), NOT pre-filled and NOT pinned ~0.8.
+    (b) ALL boxes double 315<->630 (low-aff 8->16 included) — chart
+    dnaa3_active_binding_adopted panel 2. (c) DnaA pool: IN-BAND gens 1-5 (mean
+    336-687), DRIFTS above 800 in gens 6-8 (931-1077) — the documented V-tension;
+    autoregulation (dnaa-4) is the fix. Charts re-rendered with time in MINUTES,
+    division demarcation lines, no gridlines. The account below is READ-ONLY-ERA
+    history (the problem the active mechanism solved), kept for narrative. <<
 
     DECONTAMINATED 2026-06-08 (per Rashmi): the only mechanisms and references in
     this study are the provided ones. The DnaA-box model here is the PROVIDED
@@ -408,10 +413,37 @@ readouts:
 
 # ── Validation (spec table): dnaa-3 must preserve dnaa-2 behaviour ─────────────
 runs:
-- name: dnaa3-insim-readonly
+- name: dnaa3_adopt_v1e3_seed0
   status: completed
   kind: single-seed-multigen-lineage
   canonical: true
+  run_dir: out/dnaa3_adopt_v1e3_seed0
+  cache_dir: out/cache_dnaa3_adopt_v1e3
+  seed: 0
+  description: |
+    CURRENT canonical run (2026-06-10, per Rashmi's feedback): the ADOPTED active
+    box-binding mechanism (PR #162) at the IN-BAND V=1e-3 (the value used before, not
+    the overshooting 1.2e-3), succinate, seed 0, 8 generations (8/8 divided). Charts
+    dnaa3_box_occupancy (gradual oriC-low filling over a steady cycle),
+    dnaa3_active_binding_adopted (occupancy resolved + box-doubling + bound-by-pool),
+    dnaa3_readouts (DnaA pool vs band) — all time-in-minutes, division lines, no grid.
+  outcomes:
+    dnaa-pool-within-band-with-active-binding:
+      result: PARTIAL
+      detail: "total DnaA (bulk+bound) IN-BAND gens 1-5 (mean 336-687), drifts above 800 in gens 6-8 (mean 931-1077) — the documented dnaa-1/dnaa-2 V-tension; autoregulation (dnaa-4) is the fix"
+    oric-low-affinity-gradual-filling-not-prefilled:
+      result: PASS
+      detail: "gen-5 oriC-low occupancy starts ~0.3 at cell birth and fills GRADUALLY to ~0.7 toward initiation (chart dnaa3_box_occupancy) — not pre-filled, exactly the expected biology"
+    all-boxes-double-at-replication:
+      result: PASS
+      detail: "total DnaA boxes double 315<->630 every cycle, low-affinity 8->16 per oriC included (fork-passage release)"
+    cell-cycle-preserved:
+      result: PASS
+      detail: "8/8 clean divisions, oriC 1<->2 every generation"
+- name: dnaa3-insim-readonly
+  status: completed
+  kind: single-seed-multigen-lineage
+  canonical: false   # superseded 2026-06-10 by dnaa3_adopt_v1e3_seed0 (active mechanism); read-only historical
   run_dir: parquet-runs/dnaa3-insim-readonly
   cache_dir: out/cache_dnaa3
   resume_dill: out/steady_state_inputs/succinate_default_gen3_start.dill
@@ -985,8 +1017,40 @@ findings:
     run_ids:
     - dnaa3-insim-readonly
     verified_by: scripts/render_dnaa3_occupancy.py
+- id: dnaa-pool-within-band-with-active-binding
+  kind: computational
+  status: novel
+  statement: |
+    (Rashmi 2026-06-10, test #1) With the active box-binding mechanism adopted on
+    the in-band V (V=1e-3, the value used before — NOT the overshooting 1.2e-3),
+    the total DnaA pool stays WITHIN the literature [300,800] band across the
+    steady-state generations. Evaluated on the V=1e-3 active-binding lineage.
+  evidence:
+    from_run: dnaa3_adopt_v1e3_seed0 (active binding, V=1e-3)
+  provenance:
+    run_ids:
+    - dnaa3_adopt_v1e3_seed0
+    verified_by: scripts/render_dnaa3_active_binding.py
+- id: oric-low-affinity-gradual-filling-not-prefilled
+  kind: computational
+  status: novel
+  statement: |
+    (Rashmi 2026-06-10, test #2) The 8 oriC low-affinity boxes are NOT all occupied
+    at the start of the cell cycle — they fill GRADUALLY over the cycle as free
+    DnaA-ATP accumulates toward initiation (the active solve depletes the free pool,
+    so early-cycle occupancy is low and rises pre-initiation). Evaluated as the
+    per-cycle oriC-low occupancy trajectory on the V=1e-3 active-binding run.
+  evidence:
+    from_run: dnaa3_adopt_v1e3_seed0 (per-tick oriC-low occupancy over a steady gen)
+  provenance:
+    run_ids:
+    - dnaa3_adopt_v1e3_seed0
+    verified_by: scripts/render_dnaa3_occupancy.py
 discovery_implications:
   resolved_uncertainties:
-  - The provided DnaA-box binding equilibrium (315 boxes, 4 affinity pools, fast equilibrium) is observable in-sim as a read-only listener without perturbing the dnaa-2 cell cycle.
+  - The oriC low-affinity OVER-BINDING (read-only observer pinned ~0.8) is RESOLVED by Rashmi's adopted active depleted-pool Langmuir mechanism (PR #162) — the active solve depletes the free DnaA-ATP pool, so oriC-low occupancy fills GRADUALLY over the cycle (gen-5 ~0.3 at birth -> ~0.7 toward initiation; chart dnaa3_box_occupancy), not pinned. It is NOT all-filled at the start, matching the expected biology.
+  - ALL DnaA boxes double at replication (315<->630, low-affinity 8->16 per oriC included), via fork-passage release — fixing the read-only deriver's hard-coded low-aff pool (chart dnaa3_active_binding_adopted panel 2).
+  - On the in-band V=1e-3 (the value used before, not the overshooting 1.2e-3) the mechanism keeps a clean cell cycle (8/8 divisions, oriC 1<->2).
   remaining_uncertainties:
-  - The oriC initiation threshold — what DnaA-ATP occupancy robustly triggers initiation — remains unresolved, to be addressed by a later study with provided mechanisms only.
+  - The total DnaA pool DRIFTS above the [300,800] band in later generations (V=1e-3: in-band gens 1-5, 931-1077 in gens 6-8) — the documented dnaa-1/dnaa-2 V-tension. No constitutive V holds it in-band across all gens; the next study (dnaa-4, DnaA negative autoregulation) is scoped to resolve it by making dnaA synthesis feedback-controlled.
+  - The oriC initiation threshold — what DnaA-ATP occupancy robustly triggers initiation — remains for a later study.

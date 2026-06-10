@@ -100,13 +100,7 @@ packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 
 [tool.uv.sources]
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
-# PINNED (not branch=main): bigraph-schema main @ d9a92adb regresses — it makes
-# the pbg-emitters ParquetEmitter.close() hang on last_batch_future.result()
-# (a sim behavior test that passes in ~17s on 25e78d04 hangs indefinitely).
-# Bisected 2026-06-10: reverting ONLY bigraph-schema to 25e78d04 fixes it while
-# process-bigraph 1.4.17 / pbg-superpowers 0.14 / pbg-emitters stay bumped.
-# Re-point to branch=main once the upstream bigraph-schema regression is fixed.
-bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", rev = "25e78d041f092a273d9c538ceb8b2474f3609fb8" }
+bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
 pbg-superpowers = { git = "https://github.com/vivarium-collective/pbg-superpowers.git", branch = "main" }
 pbg-copasi = { git = "https://github.com/vivarium-collective/pbg-copasi.git", branch = "main" }
 pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }

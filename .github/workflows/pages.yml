@@ -1,9 +1,11 @@
 name: Deploy docs to GitHub Pages
 
+# NOTE: GitHub Pages is now served from the `gh-pages` branch (legacy build),
+# which carries forward this docs/ tree under /docs/ alongside the static
+# investigation reports. This Actions-based docs-only deploy would override
+# that source, so its automatic push trigger is disabled — kept as a manual
+# (workflow_dispatch) escape hatch only.
 on:
-  push:
-    branches: [main]
-    paths: [docs/**]
   workflow_dispatch:
 
 permissions:

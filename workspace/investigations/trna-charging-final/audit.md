@@ -943,3 +943,50 @@ This branch's drift is intentional and documented, but the golden lives on `main
 - The composite builds with the real emitter (no schema-resolve regression).
 - A 120-second simulation runs end-to-end without crashing.
 - The signature comes out within a few percent of the old golden — small, structured, and explainable by the fixture change. No sign of a process going off the rails (e.g., a 10× drift in any one count).
+
+---
+
+## Task #13 progress log
+
+**2026-06-10 — Workflow, multigeneration, and tRNA session reports.**
+
+### Three reports
+
+| Output | Size | Status |
+|---|---:|---|
+| `out/workflow/workflow_report.html` | 1.1 MB | ✅ rendered |
+| `out/workflow/network.html` (cytoscape) | 396 KB | ✅ rendered |
+| `out/workflow/parca_network.html` (cytoscape) | 96 KB | ✅ rendered |
+| `reports/figures/trna-charging/trna_charging_session.html` | 153 KB | ✅ rendered + archival copy |
+| `out/multigeneration/multigeneration_report.html` | — | ⏳ background re-run (sims took ~12 min wall for 3 gens; rendering crashed on UTF-8 the first time, now patched) |
+
+### Bugs fixed
+Six call sites needed UTF-8 / pint-Quantity handling. All flowed from the same root cause — Task #8's cache rebuild made `listeners.mass.*` pint Quantities + the rendered HTML includes Unicode chars (×, ▸, ·) the default ASCII encoder rejects.
+
+- `reports/workflow_report.py`: 3 residual `float(d_mass.get('dry_mass', ...))` sites → `_fg(...)`; main HTML output `open(..., 'w', encoding='utf-8')`.
+- `v2ecoli/visualizations/_helpers.py` + `v2ecoli/processes/parca/viz/network.py`: both `write_outputs` use `encoding='utf-8'` on the `.write_text` calls. The ParCa composition diagram was silently skipped before; now renders.
+- `reports/multigeneration_report.py:418`: `open(args.out, "w", encoding="utf-8")`.
+
+### tRNA session report (pr_session_report.py)
+Followed the AGENTS.md pattern verbatim:
+
+1. `capture` against current branch's cache → `/tmp/after.json`.
+2. Extract `main`'s `parca_state.pkl.gz` via `git show main:... > /tmp/main_fixture/parca_state.pkl.gz`.
+3. `build_cache.py --fixture /tmp/main_fixture/... --cache /tmp/cache_main` (3.4 s).
+4. `capture --cache-dir /tmp/cache_main` → `/tmp/before.json`.
+5. `render --before ... --after ... --base-ref main` → `reports/figures/trna-charging/trna_charging_session.html` + timestamped archival copy.
+
+This sidesteps the cache-fingerprint mismatch that would happen if we `git checkout main` directly (the running multigen would also choke). The parallel cache approach is documented in `scripts/build_cache.py`'s `--cache` flag.
+
+Both committed with `git add -f` since `reports/` is gitignored:
+- `reports/figures/trna-charging/trna_charging_session.html`
+- `reports/figures/trna-charging/trna_charging_session_20260610T110216_21a54d7.html`
+
+### Multigeneration generations summary
+| Gen | Wall | Sim | dry_mass start → end | divided |
+|---:|---:|---:|---|:-:|
+| 1 | 224 s | 2500 s | 381 → 696 fg | ✅ |
+| 2 | 247 s | 2900 s | 351 → 667 fg | ✅ |
+| 3 | 245 s | 2850 s | 336 → 653 fg | ✅ |
+
+All 3 generations divided cleanly. The rendering crash on the first run was a single-line UTF-8 patch; re-run in background to produce the HTML.

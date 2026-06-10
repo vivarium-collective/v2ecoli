@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-ensemble",
+  "rendered_at": 1781068693.8051698,
+  "title": "Doubling time vs generation (per seed)",
+  "interpretation": "Per-generation doubling time derived from the emitted global_time span. Gen-1 ~0.7 hr (42 min, physiological); gen-2 is inflated because gen-2 cells continued emitting to the 9000-step (150 min) window cap after dividing. The corrected division-event doubling time is ~44 min (see study headline).",
+  "command": "v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline/sweep/showcase2_baseline parquet; rendered to PNG via vl_convert/matplotlib on the mac mini"
+}

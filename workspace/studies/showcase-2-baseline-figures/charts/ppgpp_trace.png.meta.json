@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-ensemble",
+  "rendered_at": 1781068693.8051698,
+  "title": "ppGpp pool over the cell cycle (all seeds)",
+  "interpretation": "ppGpp concentration trajectories for all 4 seeds. Starts ~30 uM, rises to a steady ~60-70 uM band -- the alarmone pool the ppgpp_regulation subsystem (default-on) maintains at this growth rate. x-axis in minutes.",
+  "command": "v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline/sweep/showcase2_baseline parquet; rendered to PNG via vl_convert/matplotlib on the mac mini"
+}

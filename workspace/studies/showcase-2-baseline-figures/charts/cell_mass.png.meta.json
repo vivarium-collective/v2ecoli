@@ -1,0 +1,7 @@
+{
+  "source_run_id": "showcase2-baseline-ensemble",
+  "rendered_at": 1781068693.8051698,
+  "title": "Cell dry mass over the cell cycle (per generation)",
+  "interpretation": "Sawtooth growth-and-division across the multiseed/multigen ensemble (variant 0). Gen-1 cells (blue) grow ~390->680 fg and divide at ~42 min; gen-2 cells (orange) show repeated mass-halving division events. Confirms exponential single-cell growth with division near a doubling of mass.",
+  "command": "v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline/sweep/showcase2_baseline parquet; rendered to PNG via vl_convert/matplotlib on the mac mini"
+}

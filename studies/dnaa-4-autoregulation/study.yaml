@@ -85,12 +85,32 @@ conditions:
   - name: no-V-override
     detail: "No genetic_perturbations on TU00259[c] — the feedback sets the dnaA level (vs the fixed V override in dnaa-1/dnaa-2)."
 
-readouts: |
-  - total DnaA pool (count) vs the [300,800] band — does it SELF-STABILIZE without V?
-  - per-generation DnaA drift — does feedback flatten the V=1e-3 ramp (73→880)?
-  - dnaA-promoter occupancy (repression signal) vs the resulting dnaA synth prob (the feedback loop)
-  - oriC count + cell mass (cycle integrity: 1↔2, periodic doubling)
-  - dnaA initiation rate (~1/min) — the stretch goal a constitutive V could not hit in-band
+readouts:
+- name: total DnaA pool
+  status: primary
+  identifier: bulk PD03831[c] + MONOMER0-160[c] + MONOMER0-4565[c]
+  units: molecules/cell
+  notes: Does it SELF-STABILIZE within [300,800] WITHOUT the V override? (the core test)
+- name: per-generation DnaA drift
+  status: primary
+  identifier: per-gen mean of total DnaA across the lineage
+  units: molecules/cell
+  notes: Does feedback flatten the fixed-V ramp (which went 73→880 at V=1e-3)?
+- name: dnaA-promoter occupancy → synth prob (the feedback loop)
+  status: measured
+  identifier: listeners.replication_data.promoter_high_bound  vs  actual dnaA synth prob
+  units: fraction / probability
+  notes: The repression signal and the synthesis it modulates — the autoregulation loop itself.
+- name: oriC count + cell mass
+  status: measured
+  identifier: listeners.replication_data.number_of_oric · listeners.mass.cell_mass
+  units: count / fg
+  notes: Cell-cycle integrity — oriC 1↔2, periodic mass-doubling, preserved under feedback.
+- name: dnaA initiation rate
+  status: measured
+  identifier: dnaA initiations per minute
+  units: per min
+  notes: STRETCH — does feedback hit ~1/min AND keep the pool in-band (no constitutive V did both)?
 
 planned_runs:
 - name: autoreg-feedback-no-V

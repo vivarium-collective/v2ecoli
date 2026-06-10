@@ -44,6 +44,18 @@ COLS = [
     "listeners__replication_data__number_of_oric",
 ]
 
+# Optional listener fields — present only on dnaa-3 Phase 2 runs that wire
+# the box-binding listener. If missing the script falls back to bulk-only.
+BOUND_FIELDS = [
+    "listeners__replication_data__chromosomal_high_bound_atp",
+    "listeners__replication_data__chromosomal_high_bound_adp",
+    "listeners__replication_data__oriC_high_bound_atp",
+    "listeners__replication_data__oriC_high_bound_adp",
+    "listeners__replication_data__oriC_low_bound_atp",
+    "listeners__replication_data__promoter_high_bound_atp",
+    "listeners__replication_data__promoter_high_bound_adp",
+]
+
 
 def _lineage_agent(gen: int) -> str:
     return "0" * gen
@@ -53,6 +65,7 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> 
     times: list[np.ndarray] = []
     cell_mass: list[np.ndarray] = []
     n_oric: list[np.ndarray] = []
+    oric_low_bound: list[np.ndarray] = []
     atp: list[np.ndarray] = []
     adp: list[np.ndarray] = []
     apo: list[np.ndarray] = []
@@ -74,13 +87,18 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> 
         t_g = []
         cm = []
         oc = []
+        ol = []  # oriC_low_bound_atp count
         a_atp = []
         a_adp = []
         a_apo = []
         b_atp = []
         b_adp = []
+        # Detect Phase 2 listener columns once per gen.
+        schema = pq.read_schema(files[0])
+        has_bound = all(c in schema.names for c in BOUND_FIELDS)
+        cols_to_read = COLS + (BOUND_FIELDS if has_bound else [])
         for f in files:
-            tbl = pq.read_table(f, columns=COLS).to_pandas()
+            tbl = pq.read_table(f, columns=cols_to_read).to_pandas()
             for _, r in tbl.iterrows():
                 ids = list(r["bulk__id"])
                 cnts = r["bulk__count"]
@@ -88,8 +106,29 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> 
                 t_g.append(float(r["global_time"]))
                 cm.append(float(r["listeners__mass__cell_mass"]))
                 oc.append(int(r["listeners__replication_data__number_of_oric"]))
-                a_atp.append(lookup.get(DNAA_ATP_ID, 0))
-                a_adp.append(lookup.get(DNAA_ADP_ID, 0))
+                ol.append(int(r["listeners__replication_data__oriC_low_bound_atp"])
+                          if has_bound else 0)
+                # Bulk free pool
+                free_atp = lookup.get(DNAA_ATP_ID, 0)
+                free_adp = lookup.get(DNAA_ADP_ID, 0)
+                # Bound pool (Phase 2 only; otherwise 0)
+                bnd_atp = 0
+                bnd_adp = 0
+                if has_bound:
+                    bnd_atp = (
+                        int(r["listeners__replication_data__chromosomal_high_bound_atp"]) +
+                        int(r["listeners__replication_data__oriC_high_bound_atp"]) +
+                        int(r["listeners__replication_data__oriC_low_bound_atp"]) +
+                        int(r["listeners__replication_data__promoter_high_bound_atp"])
+                    )
+                    bnd_adp = (
+                        int(r["listeners__replication_data__chromosomal_high_bound_adp"]) +
+                        int(r["listeners__replication_data__oriC_high_bound_adp"]) +
+                        int(r["listeners__replication_data__promoter_high_bound_adp"])
+                    )
+                # Total ATP/ADP across cell (free + bound)
+                a_atp.append(free_atp + bnd_atp)
+                a_adp.append(free_adp + bnd_adp)
                 a_apo.append(lookup.get(DNAA_APO_ID, 0))
                 b_atp.append(lookup.get(ATP_ID, 0))
                 b_adp.append(lookup.get(ADP_ID, 0))
@@ -98,6 +137,7 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> 
         t_g = t_g[order]
         cm = np.asarray(cm)[order]
         oc = np.asarray(oc)[order]
+        ol = np.asarray(ol)[order]
         a_atp = np.asarray(a_atp)[order]
         a_adp = np.asarray(a_adp)[order]
         a_apo = np.asarray(a_apo)[order]
@@ -108,6 +148,7 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> 
         times.append(t_g + t_offset)
         cell_mass.append(cm)
         n_oric.append(oc)
+        oric_low_bound.append(ol)
         atp.append(a_atp)
         adp.append(a_adp)
         apo.append(a_apo)
@@ -123,6 +164,7 @@ def load_lineage(exp_root: str, exp_id: str, lineage_seed: int, n_gens: int) -> 
         "t": np.concatenate(times) if times else np.array([]),
         "cell_mass": np.concatenate(cell_mass) if cell_mass else np.array([]),
         "n_oric": np.concatenate(n_oric) if n_oric else np.array([]),
+        "oric_low_bound": np.concatenate(oric_low_bound) if oric_low_bound else np.array([]),
         "atp": np.concatenate(atp) if atp else np.array([]),
         "adp": np.concatenate(adp) if adp else np.array([]),
         "apo": np.concatenate(apo) if apo else np.array([]),
@@ -161,7 +203,7 @@ def plot(d: dict, out_path: Path, title_extra: str) -> None:
     vlines(ax)
     ax.set_ylabel("Cell mass (fg)")
 
-    # 2. oriC
+    # 2. oriC count
     ax = axes[1]
     ax.step(t_min, d["n_oric"], color="#7c3aed", lw=1.6, where="post")
     vlines(ax)
@@ -182,9 +224,28 @@ def plot(d: dict, out_path: Path, title_extra: str) -> None:
 
     # 4. DnaA total / cell mass
     ax = axes[3]
-    ax.plot(t_min, per_mass, color="#ec4899", lw=1.4)
+    # Per-gen CV ±10% bands centred on each gen's own mean. Gen 1 is
+    # transient (resume-dill warm-in) so we still draw a band but flag
+    # it visually with a dashed mean line.
+    gen_edges = [t_min[0]] + list(boundaries_min) + [t_min[-1]]
+    for gi in range(len(gen_edges) - 1):
+        t0, t1 = gen_edges[gi], gen_edges[gi + 1]
+        mask = (t_min >= t0) & (t_min < t1)
+        vals = per_mass[mask]
+        vals = vals[np.isfinite(vals)]
+        if vals.size == 0:
+            continue
+        m = float(np.mean(vals))
+        ax.fill_between([t0, t1], m * 0.9, m * 1.1,
+                        color="#fbcfe8", alpha=0.45, zorder=0)
+        ax.hlines(m, t0, t1, color="#9d174d", lw=0.8, ls="--",
+                  alpha=0.75, zorder=1)
+    ax.plot(t_min, per_mass, color="#ec4899", lw=1.4, zorder=2)
     vlines(ax)
     ax.set_ylabel("DnaA total /\ncell mass")
+    ax.text(0.99, 0.02, "Per-gen CV ±10% band, dashed = gen mean",
+            transform=ax.transAxes, ha="right", va="bottom",
+            fontsize=8, color="#9d174d")
 
     # 5. DnaA-form fractions
     ax = axes[4]

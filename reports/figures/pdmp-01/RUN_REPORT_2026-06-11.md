@@ -98,3 +98,51 @@ Raw artifacts (gitignored): `.pbg/runs/pdmp-ensemble-vs-phase0/` and
 `.pbg/runs/phase0-traj{,-acetate,-with_aa}/`. Committed: 16 pdmp-00 figures,
 the regenerated `reports/figures/pdmp-01/pdmp_vs_phase0.html`, the
 3-condition provenance JSON, and this report.
+
+---
+
+## ADDENDUM — closed-loop WATER[c] fix re-run (2026-06-11, commit 6a764fc)
+
+The §B run above was under the **open-loop** water injection, where the gate
+was NOT met (cell_mass W₂/σ = 3.0). The open-loop water driver was then
+root-caused (commit f63f82f) and fixed: in `consumption_matched` mode the
+`ref_growth_driver` now regulates `WATER[c]` **closed-loop** to hold the birth
+water fraction (commit 6a764fc). This addendum records the re-run; the LQR
+degeneracy caveat in §B no longer applies (the LQR was repaired in cc6a72d and
+is active here — 0/12 degeneracy-flagged).
+
+**Sanity (single 600 s replicate, seed 1000, consumption_matched):** water
+fraction `(cell−dry)/cell` flat at **0.70000** (first 0.70001 → last 0.69999,
+drift −0.00002; was +0.0043 open-loop). Final cell_mass 1460.1 fg, dry 438.0 fg.
+
+**Ensemble re-run** — same command as §B (`--n-replicates 12 --duration 600
+--sample-every 5 --flux-source consumption_matched`), same N=32 Phase-0
+M9-glucose reference, seeds 1000–1011, **12/12 usable, 0 errors, 0 degeneracy-flagged**:
+
+| observable | W₂ (fg) | W₂ 95% CI | σ Phase-0 | **W₂/σ** | PDMP mean | Phase-0 mean | PDMP per-rep σ |
+|---|---|---|---|---|---|---|---|
+| cell_mass | **6.93** | [5.16, 9.00] | 6.91 | **1.00** | 1456.76 | 1461.12 | 1.21 |
+| dry_mass  | **2.27** | [1.70, 2.90] | 2.08 | **1.09** | 437.04  | 438.61  | 0.37 |
+
+### Gate verdict — **MET** (M9-glucose)
+
+Endpoint W₂ ≤ 2·σ_Phase-0 for **both** observables:
+- cell_mass: W₂/σ = 1.00 ≤ 2 ✓
+- dry_mass: W₂/σ = 1.09 ≤ 2 ✓
+
+### Honest read
+
+- **cell_mass gap closed, 3.02 → 1.00.** PDMP mean moved 1481.0 → 1456.8 fg.
+  The Phase-0 mean is 1461.1, so the closed loop slightly **overshot**: the
+  offset went from ~+20 fg (above) to ~−4.4 fg (below), now inside σ_Phase-0.
+- **Second-order effect on dry_mass.** dry_mass W₂/σ rose 0.86 → 1.09 (PDMP
+  dry mean 437.7 → 437.0 fg vs Phase-0 438.6). Regulating water nudged dry_mass
+  marginally lower; it remains comfortably within ±σ but is honestly *worse*
+  than before, not unchanged.
+- **Still a near-deterministic ensemble.** Per-replicate σ grew only to
+  ~1.2 fg (cell) / 0.37 fg (dry), still ~6× / ~6× tighter than Phase-0
+  (6.9 / 2.08 fg). The pass rests on a mean offset that now sits within σ, not
+  on matched distribution spread.
+- **M9-glucose only.** Acetate / +aa PDMP-vs-Phase-0 W₂ remain un-run; that
+  multi-condition check is the remaining step before any acceptance. No study
+  status was advanced; confidence stays `Investigating`.

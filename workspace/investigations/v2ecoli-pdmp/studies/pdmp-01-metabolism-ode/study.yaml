@@ -19,13 +19,23 @@ claim: |
   mean offset rather than distribution spread; (2) this is the real multi-replicate W₂ that the prior
   single-replicate z-score figure ("-18 to -600 σ") only gestured at — the actual gap is far smaller
   than that figure implied, but still does not meet the gate.
-  UPDATE 2026-06-11: caveat (1)'s ROOT CAUSE is now fixed (commit cc6a72d). The LQR linearization stored
-  A = I + J (a finite-difference +I artifact), which made the stable Millard Jacobian look anti-stable
-  and the Riccati solve infeasible → silent zero gain. With the true Jacobian J + a conserved-moiety
-  CARE shift, the controller now yields a real stabilizing gain (||K|| ≈ 4.4, regression-tested). Since
-  the LQR actively modulates glycolytic params back into the Millard ODE, a re-run with the working
-  controller is the pending follow-up to measure whether closed-loop control tightens the cell_mass gap
-  toward the ±σ gate (not yet run; outcome unknown — do NOT assume it closes the gate).
+  UPDATE 2026-06-11 (root-cause fixed AND re-run): caveat (1)'s ROOT CAUSE is now fixed (commit cc6a72d).
+  The LQR linearization stored A = I + J (a finite-difference +I artifact), which made the stable Millard
+  Jacobian look anti-stable and the Riccati solve infeasible → silent zero gain. With the true Jacobian J
+  + a conserved-moiety CARE shift, the controller now yields a real stabilizing gain (||K|| ≈ 4.39, 3
+  controls × 15 states, regression-tested in tests/test_lqr_riccati_stabilizable.py). The W₂ comparison was
+  then RE-RUN with the working closed loop (this branch, commit d0f5871+; N=12 PDMP reps, consumption_matched,
+  600 s, seeds 1000–1011, vs the same N=32 Phase-0 M9-glucose reference). The controller is now active on
+  every replicate — 12/12 usable, 0 errors, 0 degeneracy-flagged, gain_degenerate=False throughout (per-tick
+  u_norm ≈ 0.05, rms deviation ≈ 0.24). HONEST RESULT — closing the loop did NOT tighten the cell_mass gap:
+  cell_mass endpoint W₂ = 20.83 fg (W₂/σ = 3.02, 95% CI [18.5, 23.2]); dry_mass W₂ = 1.80 fg (W₂/σ = 0.86,
+  95% CI [1.32, 2.41]). Versus the prior uncontrolled run (cell_mass W₂/σ = 3.0, dry_mass 0.86) the numbers
+  are statistically UNCHANGED (within the bootstrap CI). The ensemble also gained NO real variance: per-rep
+  σ ≈ 0.463 fg (was ≈ 0.47 fg), still ~15× tighter than Phase-0's 6.9 fg — the working controller stabilizes
+  the metabolism around the SAME equilibrium rather than spreading it. The gap is therefore a systematic ~20 fg
+  cell_mass mean offset (PDMP mean 1481.0 fg vs Phase-0 1461.1 fg), NOT a missing-control or missing-variance
+  problem; active glycolytic modulation does not steer the endpoint toward the Phase-0 distribution. The ±σ
+  gate remains NOT met. Next step is a multi-condition / offset-source investigation, not a control re-tune.
 confidence: Investigating
 status: running
 phase: Decide

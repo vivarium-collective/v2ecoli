@@ -1,7 +1,7 @@
 {
-  "source_run_id": "showcase2-baseline-ensemble",
-  "rendered_at": 1781068693.8051698,
+  "source_run_id": "showcase2-baseline-clean",
+  "rendered_at": 1781180774.6423879,
   "title": "Biomass composition over the cell cycle (mass fractions)",
-  "interpretation": "Submass trajectories normalized to t=0. Average dry-mass fractions: protein 0.475, rRNA 0.107, tRNA 0.019, DNA 0.018, small molecules 0.375 -- physiological E. coli composition. x-axis in minutes.",
-  "command": "v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline/sweep/showcase2_baseline parquet; rendered to PNG via vl_convert/matplotlib on the mac mini"
+  "interpretation": "Submass fractions (protein / rRNA / tRNA / mRNA / DNA / small molecules) over one cell cycle (seed 0, gen 1). Physiological E. coli composition.",
+  "command": "scripts/render_showcase2.py: v2ecoli native analyses (v2ecoli/workflow/analyses/) over .pbg/runs/showcase2-baseline-clean/sweep/showcase2_baseline parquet (CLEAN 3-generation re-run); Altair->PNG/SVG via vl_convert, matplotlib figs saved directly."
 }
